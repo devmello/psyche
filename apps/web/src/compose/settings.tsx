@@ -1,12 +1,14 @@
 import {
   AboutSection,
   AppearanceSection,
+  ConnectedAccessList,
   DataControlsSection,
   DevicesSection,
   describeError,
   FileAccessPanel,
   type FolderGrant,
   parseSettingsRoute,
+  policyWithFolderMode,
   SettingsScreen,
   type SettingsSectionId,
   t,
@@ -130,28 +132,22 @@ export function FileAccessSettings({ platform }: { platform: ShellPlatform }): R
   };
   return (
     <div className="flex flex-col gap-3" data-testid="settings-files">
-      {pickFolder ? (
-        <div className="flex flex-wrap items-center gap-3 text-sm">
-          <button
-            type="button"
-            className="inline-flex h-8 items-center rounded-md border border-input bg-background px-3 font-medium shadow-xs hover:bg-gray-3"
-            onClick={() => void choose()}
-          >
-            {t("web.files.choose")}
-          </button>
-          <span className="text-muted-foreground">{t("web.files.chooseHint")}</span>
-        </div>
-      ) : null}
-      {pickError ? (
-        <p role="alert" className="text-sm text-danger-text">
-          {pickError}
-        </p>
-      ) : null}
       <FileAccessPanel
         values={values}
         onChange={onChange}
         needsApproval={needsApproval}
         persona={persona.name}
+        access={
+          <ConnectedAccessList
+            persona={persona.name}
+            reloadKey={form.values[POLICY_KEY]}
+            onFolderMode={(path, mode) =>
+              form.onChange(POLICY_KEY, policyWithFolderMode(form.values, path, mode))
+            }
+          />
+        }
+        {...(pickFolder ? { onChooseFolder: () => void choose() } : {})}
+        chooseError={pickError}
         loading={form.loading && Object.keys(form.values).length === 0}
         error={form.error}
         onRetry={form.reload}

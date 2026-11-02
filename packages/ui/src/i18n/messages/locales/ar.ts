@@ -1855,7 +1855,6 @@ export const ar: Partial<Catalogue> = {
   "settings.permissions.noOrigins": "لا تصاريح دائمة لمواقع ويب. تسأل المواقع الجديدة أولًا.",
   "settings.permissions.scopeExpires": "{scope}، تنتهي {date}",
   "settings.permissions.revokeNamed": "إبطال {name}",
-  "settings.permissions.editInFiles": "التحرير في الوصول إلى الملفات",
   "settings.permissions.noFolders": "لا مجلدات مشتركة.",
   "settings.permissions.folderRw": "قراءة وكتابة",
   "settings.permissions.folderRo": "قراءة فقط",
@@ -2836,7 +2835,6 @@ export const ar: Partial<Catalogue> = {
   "web.files.shareTitle": "مشاركة مجلد مع {persona}",
   "web.files.pickError": "تعذّر على Psyche فتح منتقي المجلدات ({error}). لم يتغيّر شيء.",
   "web.files.choose": "اختر مجلدًا…",
-  "web.files.chooseHint": "مشترك للقراءة فقط؛ بدّله إلى القراءة والكتابة في القائمة أدناه.",
   "web.onboarding.title": "إعداد Psyche",
   "web.onboarding.saveError": "تعذّر حفظ وكيلك: {error}",
 

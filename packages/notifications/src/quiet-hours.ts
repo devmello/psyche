@@ -135,7 +135,14 @@ export function quietHoursFromSettings(
   read: (key: NotificationSettingKey) => unknown,
   timezone: string,
 ): QuietHoursConfig | null {
-  if (read("notifications.quietHours.enabled") !== true) return null;
+  const enabled = read("notifications.quietHours.enabled");
+  // Unset means the default (on); only an explicit false turns quiet hours off.
+  if (
+    (typeof enabled === "boolean"
+      ? enabled
+      : NOTIFICATION_SETTING_DEFAULTS["notifications.quietHours.enabled"]) !== true
+  )
+    return null;
   const time = (key: "notifications.quietHours.start" | "notifications.quietHours.end") => {
     const v = read(key);
     return typeof v === "string" && HM.test(v.trim())

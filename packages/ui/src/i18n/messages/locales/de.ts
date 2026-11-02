@@ -1910,7 +1910,6 @@ export const de: Partial<Catalogue> = {
     "Keine dauerhaften Website-Freigaben. Neue Websites fragen zuerst.",
   "settings.permissions.scopeExpires": "{scope}, läuft ab {date}",
   "settings.permissions.revokeNamed": "{name} widerrufen",
-  "settings.permissions.editInFiles": "Unter „Dateizugriff“ bearbeiten",
   "settings.permissions.noFolders": "Keine Ordner geteilt.",
   "settings.permissions.folderRw": "lesen und schreiben",
   "settings.permissions.folderRo": "nur lesen",
@@ -2936,8 +2935,6 @@ export const de: Partial<Catalogue> = {
   "web.files.pickError":
     "Psyche konnte die Ordnerauswahl nicht öffnen ({error}). Nichts wurde geändert.",
   "web.files.choose": "Ordner wählen …",
-  "web.files.chooseHint":
-    "Nur lesend geteilt; stelle in der Liste unten auf „Lesen und schreiben“ um.",
   "web.onboarding.title": "Psyche einrichten",
   "web.onboarding.saveError": "Dein Agent konnte nicht gesichert werden: {error}",
 

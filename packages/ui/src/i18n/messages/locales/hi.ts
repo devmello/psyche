@@ -1845,7 +1845,6 @@ export const hi: Partial<Catalogue> = {
   "settings.permissions.noOrigins": "कोई स्थायी वेबसाइट अनुमति नहीं। नई साइटें पहले पूछती हैं।",
   "settings.permissions.scopeExpires": "{scope}, {date} को समाप्त",
   "settings.permissions.revokeNamed": "{name} निरस्त करें",
-  "settings.permissions.editInFiles": "फ़ाइल ऐक्सेस में संपादित करें",
   "settings.permissions.noFolders": "कोई फ़ोल्डर साझा नहीं।",
   "settings.permissions.folderRw": "पढ़ना और लिखना",
   "settings.permissions.folderRo": "केवल पढ़ना",
@@ -2825,7 +2824,6 @@ export const hi: Partial<Catalogue> = {
   "web.files.shareTitle": "{persona} के साथ फ़ोल्डर साझा करें",
   "web.files.pickError": "Psyche फ़ोल्डर चयनकर्ता नहीं खोल सका ({error})। कुछ नहीं बदला।",
   "web.files.choose": "फ़ोल्डर चुनें…",
-  "web.files.chooseHint": "केवल पढ़ने के लिए साझा; नीचे दी गई सूची में इसे पढ़ना और लिखना पर बदलें।",
   "web.onboarding.title": "Psyche सेट अप करें",
   "web.onboarding.saveError": "आपका एजेंट सेव नहीं हो सका: {error}",
 

@@ -1829,7 +1829,6 @@ export const ja: Partial<Catalogue> = {
     "Webサイトへの継続的な許可はありません。新しいサイトは先に確認されます。",
   "settings.permissions.scopeExpires": "{scope}、{date}に期限切れ",
   "settings.permissions.revokeNamed": "{name}を取り消す",
-  "settings.permissions.editInFiles": "ファイルアクセスで編集",
   "settings.permissions.noFolders": "共有フォルダはありません。",
   "settings.permissions.folderRw": "読み/書き",
   "settings.permissions.folderRo": "読み出しのみ",
@@ -2831,7 +2830,6 @@ export const ja: Partial<Catalogue> = {
   "web.files.pickError":
     "Psycheはフォルダ選択ダイアログを開けませんでした（{error}）。何も変更されていません。",
   "web.files.choose": "フォルダを選択…",
-  "web.files.chooseHint": "読み出しのみで共有されます。下のリストで読み/書きに切り替えられます。",
   "web.onboarding.title": "Psycheを設定",
   "web.onboarding.saveError": "エージェントを保存できませんでした：{error}",
   "web.bytes.b": "{n} B",

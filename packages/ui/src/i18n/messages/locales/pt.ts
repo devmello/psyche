@@ -1839,7 +1839,6 @@ export const pt: Partial<Catalogue> = {
     "Nenhuma concessão permanente de site. Sites novos perguntam antes.",
   "settings.permissions.scopeExpires": "{scope}, expira {date}",
   "settings.permissions.revokeNamed": "Revogar {name}",
-  "settings.permissions.editInFiles": "Editar em Acesso a arquivos",
   "settings.permissions.noFolders": "Nenhuma pasta compartilhada.",
   "settings.permissions.folderRw": "leitura e gravação",
   "settings.permissions.folderRo": "somente leitura",
@@ -2836,8 +2835,6 @@ export const pt: Partial<Catalogue> = {
   "web.files.shareTitle": "Compartilhar uma pasta com {persona}",
   "web.files.pickError": "O Psyche não conseguiu abrir o seletor de pastas ({error}). Nada mudou.",
   "web.files.choose": "Escolher uma pasta…",
-  "web.files.chooseHint":
-    "Compartilhada em somente leitura; mude para leitura e gravação na lista abaixo.",
   "web.onboarding.title": "Configurar o Psyche",
   "web.onboarding.saveError": "Não foi possível salvar seu agente: {error}",
   "web.bytes.b": "{n} B",

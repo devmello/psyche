@@ -1,10 +1,11 @@
 import { FolderPlus } from "lucide-react";
-import { type ReactElement, useId, useState } from "react";
+import { type ReactElement, type ReactNode, useId, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { Input } from "../../components/ui/input.tsx";
 import { NativeSelect } from "../../components/ui/native-select.tsx";
 import { t } from "../../i18n/core.ts";
 import { usePersona } from "../../slots.tsx";
+import { AccessListView, ConnectedAccessList } from "./AccessList.tsx";
 import {
   EmptyNotice,
   ErrorNotice,
@@ -20,7 +21,9 @@ import {
 import type { FolderGrant } from "./types.ts";
 
 /**
- * File access (UI design §3.18): folder grants ro / rw; VirtioFS shares in VM mode. Folder grants
+ * Access (UI design §3.18, settings-2026 §7): what Psyche can reach, with Revoke; folder grants
+ * ro / rw; VirtioFS shares in VM mode. Psyche asks in the chat for a folder it needs and the
+ * answer is remembered (`request_folder_access`); adding one here is the manual way. Folder grants
  * live in the broker policy the Gateway applies (`permissions.policy.folders`, `{path, mode}`),
  * the same setting the CLI and other devices write; `permissions.folders` is the kit's older
  * UI-local key, read only as a fallback when the policy has no folder list.
@@ -97,6 +100,7 @@ export function FolderList({
   emptyText,
   addLabel,
   defaultAccess,
+  addOnly = false,
 }: {
   label: string;
   folders: readonly FolderGrant[];
@@ -104,6 +108,8 @@ export function FolderList({
   emptyText: string;
   addLabel: string;
   defaultAccess: FolderGrant["access"];
+  /** Only the add row: the folders are listed elsewhere (the Access list). */
+  addOnly?: boolean;
 }): ReactElement {
   const id = useId();
   const [draft, setDraft] = useState("");
@@ -120,7 +126,7 @@ export function FolderList({
   };
   return (
     <div className="flex flex-col gap-2">
-      {folders.length === 0 ? (
+      {addOnly ? null : folders.length === 0 ? (
         <EmptyNotice text={emptyText} />
       ) : (
         <ul className="flex flex-col divide-y divide-gray-6" aria-label={label}>
@@ -207,6 +213,26 @@ export function policyWithExecHost(
 export interface FileAccessPanelProps extends SettingsFormProps, LoadProps {
   persona: string;
   vmMode?: boolean;
+  /**
+   * The list of what Psyche can reach (`ConnectedAccessList`). Without it the panel lists the
+   * folders kept in the policy (stories, a Gateway without `access.list`).
+   */
+  access?: ReactNode;
+  /** Desktop: the native folder chooser, inside "Add a folder yourself". */
+  onChooseFolder?: () => void;
+  chooseError?: string | null;
+}
+
+/** The policy with one folder's access changed, everything else kept. */
+export function policyWithFolderMode(
+  values: Readonly<Record<string, unknown>>,
+  path: string,
+  access: FolderGrant["access"],
+): Record<string, unknown> {
+  return policyWithFolders(
+    values,
+    folderGrants(values).map((f) => (f.path === path ? { ...f, access } : f)),
+  );
 }
 
 export function FileAccessPanel({
@@ -215,10 +241,16 @@ export function FileAccessPanel({
   needsApproval,
   persona,
   vmMode = false,
+  access,
+  onChooseFolder,
+  chooseError = null,
   loading,
   error,
   onRetry,
 }: FileAccessPanelProps): ReactElement {
+  const folders = folderGrants(values);
+  const setFolders = (next: readonly FolderGrant[]) =>
+    onChange(POLICY_KEY, policyWithFolders(values, next));
   return (
     <SectionFrame
       needsApproval={needsApproval}
@@ -231,15 +263,30 @@ export function FileAccessPanel({
         error={error ?? null}
         {...(onRetry ? { onRetry } : {})}
       >
-        <Group title={t("settings.files.folders")} description={t("settings.files.foldersHint")}>
-          <FolderList
-            label={t("settings.files.sharedFolders")}
-            folders={folderGrants(values)}
-            onChange={(next) => onChange(POLICY_KEY, policyWithFolders(values, next))}
-            emptyText={t("settings.files.noFolders", { persona })}
-            addLabel={t("settings.files.shareFolder")}
-            defaultAccess="ro"
-          />
+        {/* What is granted, with its kind and Revoke (settings-2026 §7); asking is the way in. */}
+        <Group
+          title={t("settings.access.title", { persona })}
+          description={t("settings.files.foldersHint", { persona })}
+        >
+          <div>
+            {access ?? (
+              <AccessListView
+                persona={persona}
+                entries={folders.map((f) => ({
+                  id: `folder:always:${f.path}`,
+                  type: "folder",
+                  scope: "always",
+                  label: f.path,
+                  path: f.path,
+                  mode: f.access,
+                }))}
+                onRevoke={(e) => setFolders(folders.filter((f) => f.path !== e.path))}
+                onFolderMode={(path, mode) =>
+                  onChange(POLICY_KEY, policyWithFolderMode(values, path, mode))
+                }
+              />
+            )}
+          </div>
           <SettingHint settingKey={POLICY_KEY} />
         </Group>
         {/* Security §5.4: off by default; each command still asks on the Mac. */}
@@ -253,6 +300,37 @@ export function FileAccessPanel({
             onChange={(on) => onChange(POLICY_KEY, policyWithExecHost(values, on))}
           />
         </Group>
+        <details className="group flex flex-col gap-2 px-1">
+          <summary className="w-fit cursor-default text-body text-label-primary outline-none marker:text-label-tertiary focus-visible:ring-2 focus-visible:ring-ring">
+            {t("settings.files.addYourself")}
+          </summary>
+          <div className="flex flex-col gap-2 pt-2">
+            <p className="text-callout text-label-secondary">
+              {t("settings.files.addYourselfHint", { persona })}
+            </p>
+            {onChooseFolder ? (
+              <div>
+                <Button type="button" variant="outline" size="sm" onClick={onChooseFolder}>
+                  <FolderPlus aria-hidden="true" /> {t("web.files.choose")}
+                </Button>
+              </div>
+            ) : null}
+            {chooseError ? (
+              <p role="alert" className="text-callout text-danger-text">
+                {chooseError}
+              </p>
+            ) : null}
+            <FolderList
+              label={t("settings.files.sharedFolders")}
+              folders={folders}
+              onChange={setFolders}
+              emptyText={t("settings.files.noFolders", { persona })}
+              addLabel={t("settings.files.shareFolder")}
+              defaultAccess="ro"
+              addOnly
+            />
+          </div>
+        </details>
         <Group
           title={t("settings.files.vmShares")}
           description={vmMode ? t("settings.files.vmSharesOn") : t("settings.files.vmSharesOff")}
@@ -283,6 +361,15 @@ export function FileAccessSection({ vmMode }: { vmMode?: boolean }): ReactElemen
         needsApproval={form.needsApproval}
         persona={persona.name}
         vmMode={vmMode ?? false}
+        access={
+          <ConnectedAccessList
+            persona={persona.name}
+            reloadKey={form.values[POLICY_KEY]}
+            onFolderMode={(path, mode) =>
+              form.onChange(POLICY_KEY, policyWithFolderMode(form.values, path, mode))
+            }
+          />
+        }
         loading={form.loading && Object.keys(form.values).length === 0}
         error={form.error}
         onRetry={form.reload}

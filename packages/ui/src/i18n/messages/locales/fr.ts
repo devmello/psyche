@@ -1855,7 +1855,6 @@ export const fr: Partial<Catalogue> = {
     "Aucun accord permanent pour des sites web. Les nouveaux sites demandent d’abord.",
   "settings.permissions.scopeExpires": "{scope}, expire {date}",
   "settings.permissions.revokeNamed": "Révoquer {name}",
-  "settings.permissions.editInFiles": "Modifier dans Accès aux fichiers",
   "settings.permissions.noFolders": "Aucun dossier partagé.",
   "settings.permissions.folderRw": "lecture et écriture",
   "settings.permissions.folderRo": "lecture seule",
@@ -2870,8 +2869,6 @@ export const fr: Partial<Catalogue> = {
   "web.files.pickError":
     "Psyche n’a pas pu ouvrir le sélecteur de dossier ({error}). Rien n’a changé.",
   "web.files.choose": "Choisir un dossier…",
-  "web.files.chooseHint":
-    "Partagé en lecture seule ; passez-le en lecture et écriture dans la liste ci-dessous.",
   "web.onboarding.title": "Configurer Psyche",
   "web.onboarding.saveError": "Impossible d’enregistrer votre agent : {error}",
   "web.bytes.b": "{n} o",

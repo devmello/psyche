@@ -15,6 +15,7 @@ import {
 import { I18nProvider } from "../../i18n/I18nProvider.tsx";
 import { STORY_NOW, withWorld } from "../../stories/harness.tsx";
 import { AboutPanel } from "./AboutSection.tsx";
+import { AccessListView } from "./AccessList.tsx";
 import { AppearancePanel } from "./AppearanceSection.tsx";
 import { BrowserPanel } from "./BrowserSection.tsx";
 import { ChannelsPanel } from "./ChannelsSection.tsx";
@@ -25,6 +26,7 @@ import { ImportCredentialsForm } from "./CredentialImport.tsx";
 import { CredentialsPanel } from "./CredentialsSection.tsx";
 import { DataControlsPanel, MemoryControlsPanel } from "./DataControlsSection.tsx";
 import { DevicesPanel } from "./DevicesSection.tsx";
+import { EssentialsPanel } from "./EssentialsSection.tsx";
 import { FileAccessPanel } from "./FileAccessSection.tsx";
 import { LanguageGroup } from "./LanguageSettings.tsx";
 import { MailMeetingsPanel } from "./MailMeetingsSection.tsx";
@@ -820,6 +822,72 @@ export const DataControlsExportFailed: Story = {
       {...dataProps}
       archivedThreads={0}
       notice={{ kind: "error", text: "Psyche couldn't export (timeout). Nothing was changed." }}
+    />
+  ),
+};
+
+const essentialsProps = {
+  ...form,
+  persona: PERSONA.name,
+  model: { ref: "anthropic/claude-sonnet-5-5", label: "Claude Sonnet 5.5", ready: true },
+  sources: [
+    { id: "mail" as const, label: "Mail", enabled: true },
+    { id: "messages" as const, label: "Messages", enabled: false },
+    { id: "notes" as const, label: "Notes", enabled: true },
+    { id: "calendar" as const, label: "Calendar", enabled: true },
+    { id: "reminders" as const, label: "Reminders", enabled: false },
+    { id: "files" as const, label: "Files", enabled: false },
+  ],
+  onSource: noop,
+  remembering: true,
+  onRemember: noop,
+  onOpen: noop,
+};
+export const EssentialsReady: Story = { render: () => <EssentialsPanel {...essentialsProps} /> };
+/** No model yet: the one amber item and the page's one filled button. */
+export const EssentialsNoModel: Story = {
+  render: () => (
+    <EssentialsPanel {...essentialsProps} model={{ ref: null, label: null, ready: false }} />
+  ),
+};
+export const AccessList: Story = {
+  render: () => (
+    <AccessListView
+      persona={PERSONA.name}
+      now={STORY_NOW}
+      onRevoke={noop}
+      onFolderMode={noop}
+      entries={[
+        {
+          id: "folder:always:~/Projects/psyche",
+          type: "folder",
+          scope: "always",
+          label: "~/Projects/psyche",
+          path: "~/Projects/psyche",
+          mode: "rw",
+        },
+        {
+          id: "folder:conversation:~/Downloads/receipts",
+          type: "folder",
+          scope: "conversation",
+          label: "~/Downloads/receipts",
+          path: "~/Downloads/receipts",
+          mode: "ro",
+        },
+        {
+          id: "grant:g1",
+          type: "grant",
+          scope: "always",
+          label: "Read Gmail threads",
+          lastUsedAt: new Date(STORY_NOW - 9 * 60_000).toISOString(),
+        },
+        {
+          id: "grant:g2",
+          type: "grant",
+          scope: "limited",
+          label: "Send email to jane@example.com",
+        },
+      ]}
     />
   ),
 };

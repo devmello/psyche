@@ -12,10 +12,16 @@ const NIGHT = Date.UTC(2026, 9, 19, 6);
 const DAY = Date.UTC(2026, 9, 19, 20);
 
 describe("owner quiet hours", () => {
-  it("is off by default", () => {
+  it("is on by default, 22:00 to 08:00, until the owner turns it off (settings-2026 §7)", () => {
     const db = openDb(":memory:");
+    expect(ownerQuietHours(db, LA)).toEqual({
+      start: "22:00",
+      end: "08:00",
+      timezone: "America/Los_Angeles",
+    });
+    expect(isOwnerQuietAt(db, NIGHT, LA)).toBe(true);
+    setSetting(db, "notifications.quietHours.enabled", false);
     expect(ownerQuietHours(db, LA)).toBeNull();
-    expect(isOwnerQuietAt(db, NIGHT, LA)).toBe(false);
     expect(notifierRouting(db, LA)()).toEqual({ quietHours: null });
   });
 
@@ -43,6 +49,7 @@ describe("owner quiet hours", () => {
 
   it("the notifier follows the setting without a restart", async () => {
     const db = openDb(":memory:");
+    setSetting(db, "notifications.quietHours.enabled", false);
     const clock = new FakeClock();
     clock.set(NIGHT);
     const delivered: string[] = [];

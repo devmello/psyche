@@ -1,4 +1,10 @@
 export { AboutPanel, type AboutPanelProps, AboutSection } from "./AboutSection.tsx";
+export {
+  type AccessEntry,
+  AccessListView,
+  type AccessListViewProps,
+  ConnectedAccessList,
+} from "./AccessList.tsx";
 export { ActionMatrix, type ActionMatrixProps, type ActionRule } from "./ActionMatrix.tsx";
 export {
   ACCENT_PRESETS,
@@ -93,10 +99,17 @@ export {
 } from "./DataControlsSection.tsx";
 export { DevicesPanel, type DevicesPanelProps, DevicesSection } from "./DevicesSection.tsx";
 export {
+  type EssentialsModel,
+  EssentialsPanel,
+  type EssentialsPanelProps,
+  EssentialsSection,
+} from "./EssentialsSection.tsx";
+export {
   FileAccessPanel,
   type FileAccessPanelProps,
   FileAccessSection,
   folderGrants,
+  policyWithFolderMode,
   policyWithFolders,
 } from "./FileAccessSection.tsx";
 export { type MacHelperStatus, MacHelperStatusRow } from "./MacHelperStatus.tsx";

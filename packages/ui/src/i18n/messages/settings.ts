@@ -17,6 +17,7 @@ export const settings = {
   "settings.nav.find": "Search settings",
   "settings.nav.noMatch": "No settings match.",
   "settings.nav.inPage": "In {page}",
+  "settings.nav.essentials": "Essentials",
   "settings.nav.general": "General",
   "settings.nav.search": "Search",
   "settings.nav.learning": "Remembering & learning",
@@ -24,6 +25,9 @@ export const settings = {
   "settings.search.result.page": "Page",
 
   // The nine pages of the Settings window (settings-pages.ts, docs/design/settings-2026.md).
+  "settings.page.essentials": "Essentials",
+  "settings.page.essentials.description":
+    "The few choices most people make. Each has a safe default, and the pages below hold the rest.",
   "settings.page.general": "General",
   "settings.page.general.description":
     "How {persona} looks, who it is, when it may interrupt you and how you talk to it.",
@@ -51,6 +55,35 @@ export const settings = {
   "settings.page.about": "About",
   "settings.page.about.description": "Versions, health checks and logs.",
 
+  // Settings → Essentials (EssentialsSection.tsx, settings-2026 §7).
+  "settings.essentials.title": "Essentials",
+  "settings.essentials.description":
+    "The few choices most people make, each with a safe default. {persona} asks when it needs more, and remembers your answer.",
+  "settings.essentials.more": "More",
+  "settings.essentials.moreIn": "More in {place}",
+  "settings.essentials.model.title": "Model",
+  "settings.essentials.model.thinksWith": "{persona} thinks with",
+  "settings.essentials.model.ready": "Ready",
+  "settings.essentials.model.noKey": "Needs a key",
+  "settings.essentials.model.none": "No model yet",
+  "settings.essentials.model.noneHint":
+    "{persona} needs a model before it can answer. Add a key, or use a model on this Mac.",
+  "settings.essentials.model.setUp": "Set up a model",
+  "settings.essentials.read.title": "What {persona} may read",
+  "settings.essentials.read.hint":
+    "Off until you turn one on. What it reads is indexed on this Mac so it can find things for you.",
+  "settings.essentials.asks.title": "How often {persona} asks first",
+  "settings.essentials.interrupt.title": "When {persona} may interrupt you",
+  "settings.essentials.interrupt.quietHint":
+    "From {from} to {until}, notifications wait in the inbox.",
+  "settings.essentials.interrupt.briefHint": "A short brief in the Feed at {time}.",
+  "settings.essentials.memory.title": "Memory",
+  "settings.essentials.memory.remember": "Let {persona} remember our chats",
+  "settings.essentials.memory.rememberHint":
+    "Off pauses memory: nothing new is remembered or indexed from chats until you turn it back on.",
+  "settings.essentials.rest":
+    "Everything else, and finer control over each of these, is in the pages below. Search settings finds any of it.",
+
   // Settings → Connectors & sources → Search (SearchSection.tsx).
   "settings.search.title": "Search",
   "settings.search.description":
@@ -63,7 +96,7 @@ export const settings = {
   "settings.nav.permissions": "Approval rules",
   "settings.nav.computerUse": "Computer use",
   "settings.nav.browser": "Browser",
-  "settings.nav.files": "File access",
+  "settings.nav.files": "Access",
   "settings.nav.vm": "VM mode",
   "settings.nav.devices": "Devices & nodes",
   "settings.nav.channels": "Channels",
@@ -803,7 +836,7 @@ export const settings = {
   "settings.obsidian.newVault": "New vault folder",
   "settings.obsidian.noVault": "No vault chosen",
   "settings.obsidian.vaultHint":
-    "Psyche reads the vault through File access: share the folder, then use it.",
+    "Psyche reads the vault through a shared folder (Settings → Permissions → Access): share it, then use it.",
   "settings.obsidian.share": "Share this folder",
   "settings.obsidian.shared": "Shared",
   "settings.obsidian.useVault": "Use this vault",
@@ -1331,7 +1364,7 @@ export const settings = {
   "settings.devices.err.failed":
     "Psyche couldn't {action, select, approve {approve pairing} deny {deny pairing} other {revoke the device}} ({reason}).",
 
-  // Settings → File access (FileAccessSection.tsx).
+  // Settings → Permissions → Access (FileAccessSection.tsx, AccessList.tsx).
   "settings.files.execHost": "Run commands on this Mac",
   "settings.files.execHostHint":
     "Lets {persona} run commands in your shared folders, in the sandbox. Every command asks you on this Mac first; chats can also ask you to turn this on.",
@@ -1342,13 +1375,28 @@ export const settings = {
   "settings.files.stopSharing": "Stop sharing {path}",
   "settings.files.revoke": "Revoke",
   "settings.files.pathPlaceholder": "~/Documents/Taxes",
-  "settings.files.title": "File access",
+  "settings.files.title": "Access",
   "settings.files.description":
-    "{persona} sees only the folders you share. Everything else on this Mac is off limits.",
-  "settings.files.loadLabel": "file access",
+    "{persona} reaches only what you allow. When it needs a folder or an app it asks you in the chat, and your answer is remembered here.",
+  "settings.files.loadLabel": "access",
   "settings.files.folders": "Folders",
   "settings.files.foldersHint":
-    "Read only lets it open and search; read and write also lets it save changes, each one shown in the Diff pane. Folders you pick with Always allow in chat are listed here; Revoke ends the access.",
+    "Always lasts until you revoke it; This chat ends with the conversation. Read only lets {persona} open and search a folder; read and write also lets it save changes, each one shown in the Diff pane. Revoke takes effect at once.",
+  "settings.files.addYourself": "Add a folder yourself",
+  "settings.files.addYourselfHint":
+    "Usually not needed: {persona} asks for a folder when a task needs one. A folder added here is kept until you revoke it, read only to start.",
+  "settings.access.title": "What {persona} can reach",
+  "settings.access.listLabel": "What {persona} can reach",
+  "settings.access.empty":
+    "Nothing yet. When {persona} needs a folder or an app, it asks you in the chat, and what you allow shows here.",
+  "settings.access.scope.always": "Always",
+  "settings.access.scope.conversation": "This chat",
+  "settings.access.scope.limited": "For now",
+  "settings.access.used": "used {when}",
+  "settings.access.revokeNamed": "Revoke {name}",
+  "settings.access.loadLabel": "what Psyche can reach",
+  "settings.access.loadFailed": "Psyche couldn't load what it can reach ({reason}).",
+  "settings.access.unchanged": "Access is unchanged.",
   "settings.files.sharedFolders": "Shared folders",
   "settings.files.noFolders": "No folders shared. {persona} works only in its own workspace.",
   "settings.files.shareFolder": "Share a folder",
@@ -1520,7 +1568,7 @@ export const settings = {
   "settings.permissions.noOrigins": "No standing website grants. New sites ask first.",
   "settings.permissions.scopeExpires": "{scope}, expires {date}",
   "settings.permissions.revokeNamed": "Revoke {name}",
-  "settings.permissions.editInFiles": "Edit in File access",
+
   "settings.permissions.noFolders": "No folders shared.",
   "settings.permissions.folderRw": "read and write",
   "settings.permissions.folderRo": "read only",

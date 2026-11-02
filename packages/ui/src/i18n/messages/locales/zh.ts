@@ -1790,7 +1790,6 @@ export const zh: Partial<Catalogue> = {
   "settings.permissions.noOrigins": "没有长期的网站授权。新网站会先询问。",
   "settings.permissions.scopeExpires": "{scope}，{date}过期",
   "settings.permissions.revokeNamed": "撤销 {name}",
-  "settings.permissions.editInFiles": "在“文件访问”中编辑",
   "settings.permissions.noFolders": "没有共享的文件夹。",
   "settings.permissions.folderRw": "读写",
   "settings.permissions.folderRo": "只读",
@@ -2741,7 +2740,6 @@ export const zh: Partial<Catalogue> = {
   "web.files.shareTitle": "与 {persona} 共享文件夹",
   "web.files.pickError": "Psyche 无法打开文件夹选择器（{error}）。未做任何更改。",
   "web.files.choose": "选取文件夹…",
-  "web.files.chooseHint": "以只读方式共享；可在下方列表中切换为读写。",
   "web.onboarding.title": "设置 Psyche",
   "web.onboarding.saveError": "无法存储你的代理：{error}",
 
