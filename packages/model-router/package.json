@@ -18,15 +18,15 @@
     "test:live": "PSYCHE_LIVE_TESTS=1 vitest run test/live.test.ts"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "4.0.87",
-    "@ai-sdk/google": "4.0.104",
-    "@ai-sdk/openai": "4.0.101",
-    "@ai-sdk/openai-compatible": "3.0.77",
-    "@ai-sdk/provider": "4.0.33",
+    "@ai-sdk/anthropic": "4.0.92",
+    "@ai-sdk/google": "4.0.108",
+    "@ai-sdk/openai": "4.0.105",
+    "@ai-sdk/openai-compatible": "3.0.81",
+    "@ai-sdk/provider": "4.0.34",
     "@openrouter/ai-sdk-provider": "3.1.0",
     "@psyche/assets": "workspace:*",
     "@psyche/protocol": "workspace:*",
-    "ai": "7.0.152",
+    "ai": "7.0.157",
     "ollama-ai-provider-v2": "4.1.0",
     "zod": "4.6.7"
   },

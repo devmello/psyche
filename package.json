@@ -42,7 +42,7 @@
     "sparse": "sh scripts/dev/sparse.sh"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.15",
+    "@biomejs/biome": "2.6.4",
     "@changesets/cli": "3.0.3",
     "@types/node": "24.19.2",
     "esbuild": "0.28.2",
