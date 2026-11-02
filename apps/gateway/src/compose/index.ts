@@ -151,6 +151,7 @@ import {
   settingsKeyValue,
 } from "./model-settings.ts";
 import { createOtherChats, type OtherChats } from "./other-chats.ts";
+import { PageReadHub } from "./page-reads.ts";
 import { composePasskeys } from "./passkeys.ts";
 import { composePayments, paymentsSetupFromEnv } from "./payments.ts";
 import { composePeople, type People } from "./people.ts";
@@ -834,8 +835,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const ownPorts = createOwnPorts();
   const browserAvailability: BrowserAvailability = {};
   ownPorts.add(config.port, "gateway (configured)");
+  const pageReads = new PageReadHub();
   const services: ComposeServices = {
     documents,
+    pageReads,
     db,
     srt,
     clock,
@@ -1380,6 +1383,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       files: filesSourceDeps({ folders: () => rawBroker.policy.folders ?? [] }),
       power: powerReader(),
       watch: background,
+      pageReads,
     },
     db,
     home: config.home,

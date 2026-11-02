@@ -24865,12 +24865,14 @@ public struct Exclude: Codable, Sendable {
 }
 
 public enum SearchSourceID: String, Codable, Sendable {
+    case browser = "browser"
     case calendar = "calendar"
     case files = "files"
     case mail = "mail"
     case messages = "messages"
     case notes = "notes"
     case reminders = "reminders"
+    case transcripts = "transcripts"
 }
 
 // MARK: - SearchSourcesRebuildParams

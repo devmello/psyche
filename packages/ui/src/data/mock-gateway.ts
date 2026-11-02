@@ -348,7 +348,16 @@ export class MockGateway implements GatewayClient {
   private now: () => string;
   private counter = 0;
   private sourcesStatus(): MethodResult<"search.sources"> {
-    const ids = ["mail", "messages", "notes", "calendar", "reminders", "files"] as const;
+    const ids = [
+      "mail",
+      "messages",
+      "notes",
+      "calendar",
+      "reminders",
+      "files",
+      "browser",
+      "transcripts",
+    ] as const;
     const labels = {
       mail: "Mail",
       messages: "Messages",
@@ -356,6 +365,8 @@ export class MockGateway implements GatewayClient {
       calendar: "Calendar",
       reminders: "Reminders",
       files: "Files",
+      browser: "Browser pages",
+      transcripts: "Transcripts",
     };
     const cfg = this.world.searchSources;
     return {

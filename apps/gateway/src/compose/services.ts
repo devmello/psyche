@@ -26,6 +26,7 @@ import type { ApprovalTokens } from "./approval-tokens.ts";
 import type { OwnerAttention } from "./attention.ts";
 import type { CallContexts } from "./call-context.ts";
 import type { ChannelConversations } from "./channel-conversations.ts";
+import type { PageReadHub } from "./page-reads.ts";
 import type { ComposeRateLimits } from "./rate-limits.ts";
 import type { SrtResolver } from "./srt.ts";
 
@@ -63,6 +64,8 @@ export interface ComposeServices {
   /** The redactor the vault registers handed-out values with; mask any output path with it. */
   readonly redactor: SecretRedactor;
   readonly logger?: Logger;
+  /** Pages the browser read, for the opt-in "Browser pages" search source (search.ts subscribes). */
+  readonly pageReads?: PageReadHub;
   /**
    * Psyche's own listening ports (security §3.10: never "the owner's project"): the Gateway's
    * configured port, then the bound one once it listens; parts add theirs (a real-Chrome CDP
