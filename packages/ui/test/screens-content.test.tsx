@@ -204,7 +204,9 @@ describe("LibraryScreen", () => {
     const form = (await screen.findByText("acme-intake-form.pdf")).closest(
       "article",
     ) as HTMLElement;
-    expect(within(form).getByText(/Document · PDF · 180 KB/)).toBeTruthy();
+    // The tile shows size and date; the full kind/type line is the meta's tooltip.
+    expect(within(form).getByText(/^180 KB · /)).toBeTruthy();
+    expect(within(form).getByTitle(/Document · PDF · 180 KB/)).toBeTruthy();
     expect(within(form).getByText("#dentist")).toBeTruthy();
     await user.click(
       await within(form).findByRole("button", { name: "More actions for acme-intake-form.pdf" }),
