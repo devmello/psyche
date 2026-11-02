@@ -281,11 +281,7 @@ export * from "./screens/search/index.ts";
 export { CONTEXT_KEYS, ContextSettingsGroup } from "./screens/settings/ContextSettings.tsx";
 export * from "./screens/settings/index.ts";
 export * from "./screens/workflows/index.ts";
-export {
-  AppearanceProvider,
-  type AppearanceProviderProps,
-  REDUCE_TRANSPARENCY_SETTING,
-} from "./shell/AppearanceProvider.tsx";
+export { AppearanceProvider, type AppearanceProviderProps } from "./shell/AppearanceProvider.tsx";
 // Shell pieces.
 export { AppShell, type AppShellProps } from "./shell/AppShell.tsx";
 export {

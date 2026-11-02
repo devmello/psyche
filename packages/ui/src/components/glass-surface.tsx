@@ -74,8 +74,7 @@ function readEnvironment(): GlassEnvironment {
       // The Opaque preset (Settings → Appearance → Translucency) behaves like Reduce Transparency.
       root.dataset.glassPreset === "opaque" ||
       root.dataset.reduceTransparency === "true" ||
-      (root.dataset.reduceTransparency !== "false" &&
-        media("(prefers-reduced-transparency: reduce)")),
+      media("(prefers-reduced-transparency: reduce)"),
     increaseContrast:
       root.dataset.contrast === "high" ||
       (root.dataset.contrast !== "standard" && media("(prefers-contrast: more)")),

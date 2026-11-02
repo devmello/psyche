@@ -9,6 +9,7 @@ import { t } from "../../i18n/core.ts";
 import { SearchSourcesSettingsGroup } from "./SearchSourcesSettings.tsx";
 import { SemanticSearchSettingsGroup } from "./SemanticSearchSettings.tsx";
 import {
+  Advanced,
   Group,
   LoadGate,
   RadioField,
@@ -139,12 +140,14 @@ export function SearchPanel({
       >
         <SearchSourcesSettingsGroup />
         <SemanticSearchSettingsGroup values={values} onChange={onChange} />
-        {appleStatus === undefined ? (
-          <ConnectedSearchModelGroup values={values} onChange={onChange} />
-        ) : (
-          <SearchModelGroup status={appleStatus} values={values} onChange={onChange} />
-        )}
         <WebSearchSettingsGroup values={values} onChange={onChange} />
+        <Advanced description={t("settings.search.advancedHint")}>
+          {appleStatus === undefined ? (
+            <ConnectedSearchModelGroup values={values} onChange={onChange} />
+          ) : (
+            <SearchModelGroup status={appleStatus} values={values} onChange={onChange} />
+          )}
+        </Advanced>
       </LoadGate>
     </SectionFrame>
   );

@@ -2,10 +2,7 @@ import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { GLASS_PRESET_SETTING, GLASS_TINT_SETTING } from "../src/lib/glass-settings.ts";
 import { medianFps } from "../src/motion/fps-probe.ts";
-import {
-  AppearanceProvider,
-  REDUCE_TRANSPARENCY_SETTING,
-} from "../src/shell/AppearanceProvider.tsx";
+import { AppearanceProvider } from "../src/shell/AppearanceProvider.tsx";
 import { StoryWorld } from "../src/stories/harness.tsx";
 
 afterEach(cleanup);
@@ -43,15 +40,22 @@ describe("window attributes (docs/design/redesign-2026.md §3.4, §4)", () => {
     expect(style.getPropertyValue("--glass-tint")).toBe("");
   });
 
-  it("follows the OS for transparency unless the owner chose", async () => {
+  it("follows the OS for transparency and ignores a value an earlier build stored", async () => {
     mount({});
     await waitFor(() => expect(root().reduceTransparency).toBeUndefined());
     cleanup();
-    mount({ [REDUCE_TRANSPARENCY_SETTING]: true });
+    mount({ "appearance.reduceTransparency": true, [GLASS_PRESET_SETTING]: "clear" });
+    await waitFor(() => expect(root().glassPreset).toBe("clear"));
+    expect(root().reduceTransparency).toBeUndefined();
+    cleanup();
+    mount(
+      { "appearance.reduceTransparency": false },
+      { reduceTransparency: true, highContrast: false },
+    );
     await waitFor(() => expect(root().reduceTransparency).toBe("true"));
   });
 
-  it("applies macOS Reduce Transparency and Increase Contrast unless the owner chose", async () => {
+  it("applies macOS Reduce Transparency, and Increase Contrast unless the owner chose", async () => {
     mount(
       { "appearance.contrast": undefined },
       {
@@ -63,13 +67,12 @@ describe("window attributes (docs/design/redesign-2026.md §3.4, §4)", () => {
     await waitFor(() => expect(root().contrast).toBe("high"));
     cleanup();
     mount(
-      { [REDUCE_TRANSPARENCY_SETTING]: false, "appearance.contrast": "standard" },
+      { "appearance.contrast": "standard" },
       {
         reduceTransparency: true,
         highContrast: true,
       },
     );
-    await waitFor(() => expect(root().reduceTransparency).toBe("false"));
     await waitFor(() => expect(root().contrast).toBe("standard"));
   });
 

@@ -20,7 +20,6 @@ const LABELLED_KEYS = [
   "appearance.zoom",
   "appearance.showInDock",
   "appearance.openAtLogin",
-  "appearance.reduceTransparency",
   "appearance.glass",
   "appearance.glassTint",
   "appearance.glassBlur",

@@ -461,6 +461,13 @@ export function SettingsScreen({
           `[data-setting-key="${key.replace(/["\\]/g, "\\$&")}"]`,
         );
         if (row !== null) {
+          // A setting inside a folded "Advanced" opens it, so there is something to scroll to.
+          for (
+            let up = row.closest("details");
+            up !== null;
+            up = up.parentElement?.closest("details") ?? null
+          )
+            up.open = true;
           el = row;
           block = "center";
           if (!flashed) {
@@ -649,11 +656,11 @@ export function SettingsScreen({
           onScroll={onContentScroll}
           className="flex min-w-0 flex-col bg-canvas px-6 py-5 @min-[720px]:min-h-0 @min-[720px]:overflow-y-auto @min-[720px]:px-8"
         >
-          <div className="flex w-full max-w-[680px] flex-col gap-10 pb-8">
+          <div className="flex w-full max-w-[680px] flex-col gap-12 pb-12">
             <SettingsApprovalProvider>
               <InPageContext.Provider value={multi}>
                 {multi ? (
-                  <header className="-mb-4 flex flex-col gap-1">
+                  <header className="-mb-6 flex flex-col gap-1">
                     <h2 className="font-display text-page-title text-label-primary">
                       {page.label}
                     </h2>
@@ -662,15 +669,12 @@ export function SettingsScreen({
                     </p>
                   </header>
                 ) : null}
-                {page.panes.map((id, i) => (
+                {page.panes.map((id) => (
                   <div
                     key={id}
                     id={paneAnchor(id)}
                     data-settings-pane={id}
-                    className={cn(
-                      "flex scroll-mt-5 flex-col gap-5",
-                      multi && i > 0 && "border-t border-separator pt-8",
-                    )}
+                    className="flex scroll-mt-5 flex-col gap-5"
                   >
                     <SettingsSectionView
                       section={id}

@@ -180,7 +180,7 @@
   }
 }
 
-/* Reduce Transparency (§3.4): every material becomes opaque. */
+/* Reduce Transparency (§3.4, the OS setting; no in-app switch): every material becomes opaque. */
 :root[data-reduce-transparency="true"],
 :root[data-glass-preset="opaque"] {
   --material-glass: var(--surface-overlay);
@@ -191,7 +191,7 @@
   --material-blur-clear: none;
 }
 @media (prefers-reduced-transparency: reduce) {
-  :root:not([data-reduce-transparency="false"]) {
+  :root {
     --material-glass: var(--surface-overlay);
     --material-glass-refraction: var(--surface-overlay);
     --material-glass-clear: var(--surface-overlay);
