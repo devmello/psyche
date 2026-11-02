@@ -524,13 +524,26 @@ export function SwitchField({
 
 export type Tone = "success" | "danger" | "approval" | "info" | "neutral" | "accent";
 
-const TONE: Record<Tone, string> = {
-  success: "border-success/40 text-success-text",
-  danger: "border-danger/40 text-danger-text",
-  approval: "border-approval-border text-approval-text",
-  info: "border-separator-strong text-info-text",
-  neutral: "border-separator-strong text-label-secondary",
-  accent: "border-accent-7 text-accent-11",
+/*
+  A status reads as a small dot and words (unslop 2026-11), not an outlined pill: the dot carries
+  the tone, the words carry the meaning. Only "needs you" and "failed" keep coloured words.
+*/
+const DOT: Record<Tone, string> = {
+  success: "bg-success",
+  danger: "bg-danger",
+  approval: "bg-approval",
+  info: "bg-info-text",
+  neutral: "bg-label-quaternary",
+  accent: "bg-accent-9",
+};
+
+const WORDS: Record<Tone, string> = {
+  success: "text-label-secondary",
+  danger: "text-danger-text",
+  approval: "text-approval-text",
+  info: "text-label-secondary",
+  neutral: "text-label-secondary",
+  accent: "text-label-secondary",
 };
 
 /** A status chip whose meaning is in its text, not only its color (§4.11). */
@@ -545,12 +558,14 @@ export function StatusChip({
 }): ReactElement {
   return (
     <span
+      data-tone={tone}
       className={cn(
-        "inline-flex h-5 shrink-0 items-center gap-1 rounded-full border px-2 text-caption whitespace-nowrap",
-        TONE[tone],
+        "inline-flex h-5 shrink-0 items-center gap-1.5 text-callout whitespace-nowrap",
+        WORDS[tone],
         className,
       )}
     >
+      <span className={cn("size-1.5 shrink-0 rounded-full", DOT[tone])} aria-hidden="true" />
       {children}
     </span>
   );

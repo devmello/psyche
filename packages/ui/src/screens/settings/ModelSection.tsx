@@ -467,7 +467,9 @@ export function ModelProvidersPanel({
                     >
                       {p.models.map((m) => (
                         <li key={m.ref} className="flex flex-wrap items-center gap-2">
-                          <span className="text-sm">{modelLabel(m)}</span>
+                          <span className={cn("text-sm", !m.label && "font-mono text-mono")}>
+                            {modelLabel(m)}
+                          </span>
                           {m.label ? (
                             <code className="font-mono text-callout text-muted-foreground">
                               {m.ref}
