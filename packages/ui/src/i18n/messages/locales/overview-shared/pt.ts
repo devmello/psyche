@@ -89,8 +89,6 @@ export const overviewShared: Partial<Catalogue> = {
   "screens.growth.empty":
     "Nada aprendido ainda. Avise {agent} quando algo não estiver certo e ele vai lembrar.",
   "screens.growth.loading": "Carregando o que {agent} aprendeu",
-  "screens.growth.loadFailed": "Não foi possível carregar a evolução. {reason}",
-  "screens.growth.retry": "Tentar novamente",
   "screens.growth.card.kind": "O que eu aprendi",
   "screens.growth.card.items": "Itens para revisar",
   "screens.growth.card.keep": "Manter",

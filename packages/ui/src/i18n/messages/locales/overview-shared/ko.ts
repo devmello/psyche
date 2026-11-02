@@ -87,8 +87,6 @@ export const overviewShared: Partial<Catalogue> = {
   "screens.growth.empty":
     "아직 배운 것이 없습니다. 맞지 않는 점이 있으면 {agent}에게 알려주세요. 기억해 둘 것입니다.",
   "screens.growth.loading": "{agent}이(가) 배운 것 불러오는 중",
-  "screens.growth.loadFailed": "성장을 불러오지 못했습니다. {reason}",
-  "screens.growth.retry": "다시 시도",
   "screens.growth.card.kind": "배운 내용",
   "screens.growth.card.items": "검토할 항목",
   "screens.growth.card.keep": "유지",

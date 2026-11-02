@@ -29,7 +29,13 @@ const bare = (world: object) => {
   const w = world as World & { specialistJobs?: unknown[] };
   w.artifacts.length = 0;
   w.specialistJobs = [];
-  w.insights = insightsFixtures("typical");
+  // Empty data means no counts: the section metas read "N artifacts" / "N results" from totals.
+  const insights = insightsFixtures("typical");
+  for (const period of Object.values(insights)) {
+    period.totals.artifacts.created = 0;
+    period.totals.specialists = { done: 0, partial: 0, failed: 0 };
+  }
+  w.insights = insights;
 };
 const noRoles = (world: object) => {
   typical(world);

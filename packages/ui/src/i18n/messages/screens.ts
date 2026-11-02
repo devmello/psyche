@@ -162,8 +162,6 @@ export const screens = {
   "screens.growth.empty":
     "Nothing learned yet. Tell {agent} when something isn't right and it will remember.",
   "screens.growth.loading": "Loading what {agent} learned",
-  "screens.growth.loadFailed": "Couldn't load Growth. {reason}",
-  "screens.growth.retry": "Try again",
   "screens.growth.card.kind": "What I learned",
   "screens.growth.card.items": "Items to review",
   "screens.growth.card.keep": "Keep",

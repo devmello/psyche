@@ -86,8 +86,6 @@ export const overviewShared: Partial<Catalogue> = {
   "screens.growth.evidence": "{n, plural, one {# घटना पर आधारित} other {# घटनाओं पर आधारित}}",
   "screens.growth.empty": "अभी तक कुछ नहीं सीखा गया। कुछ सही न हो तो {agent} को बताएँ, वह याद रखेगा।",
   "screens.growth.loading": "{agent} ने जो सीखा वह लोड हो रहा है",
-  "screens.growth.loadFailed": "विकास लोड नहीं हो सका। {reason}",
-  "screens.growth.retry": "पुनः प्रयास करें",
   "screens.growth.card.kind": "मैंने क्या सीखा",
   "screens.growth.card.items": "समीक्षा के लिए आइटम",
   "screens.growth.card.keep": "रखें",
