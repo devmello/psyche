@@ -164,6 +164,11 @@ export const MemoryStoreStatus = Type.Object(
     reason: Nullable(Type.String({ maxLength: 300 })),
     /** The switch was turned on; the encrypted store opens at the next start. */
     restartNeeded: Type.Boolean(),
+    /**
+     * The unencrypted copy from before the move: `kept` until the encrypted file has opened on a
+     * later start and an encrypted backup holds it; then `removed`. Null when there was no move.
+     */
+    safetyCopy: Nullable(StringEnum(["kept", "removed"], { $id: "MemorySafetyCopy" })),
   },
   { $id: "MemoryStoreStatus" },
 );

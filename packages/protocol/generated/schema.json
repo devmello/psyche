@@ -26822,6 +26822,13 @@
       ],
       "type": "object"
     },
+    "MemorySafetyCopy": {
+      "enum": [
+        "kept",
+        "removed"
+      ],
+      "type": "string"
+    },
     "MemorySearchParams": {
       "properties": {
         "query": {
@@ -27007,6 +27014,16 @@
         },
         "restartNeeded": {
           "type": "boolean"
+        },
+        "safetyCopy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MemorySafetyCopy"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [

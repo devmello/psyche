@@ -39,6 +39,11 @@ export interface BrowserAvailability {
 }
 
 export interface ComposeServices {
+  /** The memory store's file when it is encrypted: backups copy it and its sealed key (EM9b). */
+  memoryStore?: {
+    snapshot(): ((dest: string) => Promise<void>) | undefined;
+    afterBackup(encrypted: boolean): void;
+  };
   readonly db: PsycheDb;
   readonly clock: Clock;
   /** `$PSYCHE_HOME`. */

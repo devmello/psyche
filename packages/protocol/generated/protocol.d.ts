@@ -6637,8 +6637,11 @@ export interface MemoryStoreStatus {
     encrypted:     boolean;
     reason?:       null | string;
     restartNeeded: boolean;
+    safetyCopy?:   MemorySafetyCopy | null;
     state:         MemoryStoreState;
 }
+
+export type MemorySafetyCopy = "kept" | "removed";
 
 export type MemoryStoreState = "off" | "pending" | "ready" | "unavailable";
 

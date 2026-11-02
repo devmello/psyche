@@ -809,3 +809,4 @@ Needed by `packages/ui` to render and answer every block type in data model §9.
 
 - `EverythingRunReason` gains `store_unavailable`: the encrypted memory store is not open yet.
 - New method `memory.store.setEncrypted` (admin) and type `MemoryStoreStatus`; `memory.status` gains optional `store` (where memory lives: off, pending, ready, unavailable; restart needed).
+- `MemoryStoreStatus.safetyCopy` (`kept` | `removed` | null): the unencrypted copy from before the move.

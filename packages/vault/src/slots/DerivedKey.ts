@@ -45,6 +45,26 @@ export class DerivedKeyStore {
     return { key, created: true };
   }
 
+  /** The key called `name` if the helper holds one; never makes one. */
+  async get(name: string): Promise<Buffer | undefined> {
+    const reason = await this.unavailableReason();
+    if (reason !== null) throw Object.assign(new Error(reason), { code: "unavailable" });
+    try {
+      const key = await this.#items.get(name, "Open the memory store");
+      return key.length === 32 ? key : undefined;
+    } catch (err) {
+      if ((err as { code?: string }).code === "not_found") return undefined;
+      throw err;
+    }
+  }
+
+  /** Stores `key` as `name` (a key restored from the vault on a new Mac). */
+  async put(name: string, key: Buffer): Promise<void> {
+    const reason = await this.unavailableReason();
+    if (reason !== null) throw Object.assign(new Error(reason), { code: "unavailable" });
+    await this.#items.put(name, key, { replace: true });
+  }
+
   async remove(name: string): Promise<void> {
     await this.#items.remove(name);
   }

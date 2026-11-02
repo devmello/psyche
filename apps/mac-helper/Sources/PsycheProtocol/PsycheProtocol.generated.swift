@@ -815,6 +815,7 @@
 //   let memoryRun = try? JSONDecoder().decode(MemoryRun.self, from: jsonData)
 //   let memoryRunsListParams = try? JSONDecoder().decode(MemoryRunsListParams.self, from: jsonData)
 //   let memoryRunsListResult = try? JSONDecoder().decode(MemoryRunsListResult.self, from: jsonData)
+//   let memorySafetyCopy = try? JSONDecoder().decode(MemorySafetyCopy.self, from: jsonData)
 //   let memorySearchParams = try? JSONDecoder().decode(MemorySearchParams.self, from: jsonData)
 //   let memorySearchResult = try? JSONDecoder().decode(MemorySearchResult.self, from: jsonData)
 //   let memorySendersDecideParams = try? JSONDecoder().decode(MemorySendersDecideParams.self, from: jsonData)
@@ -20001,21 +20002,29 @@ public struct MemoryStoreStatus: Codable, Sendable {
     public let encrypted: Bool
     public let reason: String?
     public let restartNeeded: Bool
+    public let safetyCopy: MemorySafetyCopy?
     public let state: MemoryStoreState
 
     public enum CodingKeys: String, CodingKey {
         case encrypted = "encrypted"
         case reason = "reason"
         case restartNeeded = "restartNeeded"
+        case safetyCopy = "safetyCopy"
         case state = "state"
     }
 
-    public init(encrypted: Bool, reason: String?, restartNeeded: Bool, state: MemoryStoreState) {
+    public init(encrypted: Bool, reason: String?, restartNeeded: Bool, safetyCopy: MemorySafetyCopy?, state: MemoryStoreState) {
         self.encrypted = encrypted
         self.reason = reason
         self.restartNeeded = restartNeeded
+        self.safetyCopy = safetyCopy
         self.state = state
     }
+}
+
+public enum MemorySafetyCopy: String, Codable, Sendable {
+    case kept = "kept"
+    case removed = "removed"
 }
 
 public enum MemoryStoreState: String, Codable, Sendable {

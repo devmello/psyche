@@ -112,6 +112,7 @@ export function composeBackup(
           const enc = encryptionOf(params);
           const at = now();
           const file = backupFileName(at, enc.kind !== "none");
+          const memorySnapshot = services.memoryStore?.snapshot();
           const manifest = await createBackup(
             home,
             join(ensureBackupsDir(home), file),
@@ -124,10 +125,13 @@ export function composeBackup(
                 "state/psyche.sqlite": async (dest) => {
                   await services.db.sqlite.backup(dest);
                 },
+                // The encrypted memory store, still encrypted; its sealed key travels in state/.
+                ...(memorySnapshot === undefined ? {} : { "state/memory.sqlite": memorySnapshot }),
               },
             },
           );
           services.logger?.log("info", "backup created", { file, files: manifest.files.length });
+          services.memoryStore?.afterBackup(enc.kind !== "none");
           return { backup: backupEntry(home, file), files: manifest.files.length };
         }),
     },

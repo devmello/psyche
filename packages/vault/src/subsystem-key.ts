@@ -44,27 +44,36 @@ export async function loadOrCreateSubsystemKey(
     if (key.length !== 32) return fail("invalid_params", "key file holds a key of the wrong size");
     return { key, created: false };
   }
-  const why = await wrapper.unavailableReason();
-  if (why !== null) return fail("unavailable", why);
   const key = randomKey();
   try {
-    const wrapped = await wrapper.wrap(key, { reason });
-    await mkdir(dirname(file), { recursive: true, mode: 0o700 });
-    const tmp = `${file}.${process.pid}.tmp`;
-    await writeFile(
-      tmp,
-      `${JSON.stringify({ v: FILE_VERSION, slot: wrapper.slot, wrapped } satisfies KeyFile)}\n`,
-      {
-        mode: 0o600,
-      },
-    );
-    await chmod(tmp, 0o600);
-    await rename(tmp, file);
+    await writeSubsystemKey(file, wrapper, key, reason);
   } catch (err) {
     zeroize(key);
     throw err;
   }
   return { key, created: true };
+}
+
+/** Wraps `key` with the slot and writes it to `file` (0600, atomic): a key restored elsewhere. */
+export async function writeSubsystemKey(
+  file: string,
+  wrapper: KeyWrapper,
+  key: Buffer,
+  reason: string,
+): Promise<void> {
+  if (key.length !== 32) return fail("invalid_params", "a subsystem key is 32 bytes");
+  const why = await wrapper.unavailableReason();
+  if (why !== null) return fail("unavailable", why);
+  const wrapped = await wrapper.wrap(key, { reason });
+  await mkdir(dirname(file), { recursive: true, mode: 0o700 });
+  const tmp = `${file}.${process.pid}.tmp`;
+  await writeFile(
+    tmp,
+    `${JSON.stringify({ v: FILE_VERSION, slot: wrapper.slot, wrapped } satisfies KeyFile)}\n`,
+    { mode: 0o600 },
+  );
+  await chmod(tmp, 0o600);
+  await rename(tmp, file);
 }
 
 const PLAIN_HEADER = "SQLite format 3\0";

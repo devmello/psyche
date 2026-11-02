@@ -380,18 +380,8 @@ export function DataControlsSection({ onExportReady }: DataControlsSectionProps)
       needsApproval={form.needsApproval}
       memoryPaused={status.data?.paused ?? false}
       {...(status.data?.recall === undefined ? {} : { recall: status.data.recall })}
-      {...(status.data?.store === undefined ? {} : { store: status.data.store })}
-      onEncryptMemory={(on) =>
-        void act(async () => {
-          const s = await call("memory.store.setEncrypted", { on });
-          status.reload();
-          return s.restartNeeded
-            ? t("settings.data.encryptMemory.restart")
-            : on
-              ? storeText(s)
-              : t("settings.data.encryptMemory.offDone");
-        }, "encrypt")
-      }
+      // "Encrypt memory on disk" is not shown yet (EM9b): it waits for backups that carry the
+      // encrypted file and its sealed key to be tried end to end. The panel can render it.
       archivedThreads={archived.length}
       busy={busy}
       notice={notice ?? (form.writeError ? { kind: "error", text: form.writeError } : null)}

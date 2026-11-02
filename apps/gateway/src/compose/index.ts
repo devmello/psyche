@@ -699,6 +699,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     wrapper: vault.wrapper,
     slot: vault.slot,
     derived: new DerivedKeyStore(vault.helper),
+    escrow: vault.vault,
     ...(gwOptions.logger === undefined
       ? {}
       : { log: (msg: string) => gwOptions.logger?.log("warn", msg) }),
@@ -897,6 +898,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   ownPorts.add(config.port, "gateway (configured)");
   const pageReads = new PageReadHub();
   const services: ComposeServices = {
+    memoryStore: memoryDb,
     documents,
     pageReads,
     db,
