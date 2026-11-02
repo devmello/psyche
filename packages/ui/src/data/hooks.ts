@@ -724,6 +724,8 @@ export function useApprovals() {
 /** What an answer carries besides the decision: the folder the owner picked (`folder_access`). */
 export interface ApprovalExtras {
   folderPath?: string;
+  /** `folder_access`: read-only although the agent asked to change files. */
+  folderMode?: "ro";
   /** `exec_host`: the owner typed UNSANDBOXED to run this one command without srt. */
   unsandboxed?: "UNSANDBOXED";
   /** `messages_send` card: the text left in the editor and the recipient picked. */
@@ -760,6 +762,9 @@ export async function answerApproval(
         ...(decision === "approve" && scope !== undefined ? { scope } : {}),
         ...(decision === "approve" && extras?.folderPath !== undefined
           ? { folderPath: extras.folderPath }
+          : {}),
+        ...(decision === "approve" && extras?.folderMode !== undefined
+          ? { folderMode: extras.folderMode }
           : {}),
         ...(decision === "approve" && extras?.unsandboxed !== undefined
           ? { unsandboxed: extras.unsandboxed }

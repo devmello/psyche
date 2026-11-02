@@ -76,6 +76,10 @@ const tool = () =>
     }),
     surfaces: ["desktop"],
     folderEnv: () => ({ home, psycheHome: join(home, ".psyche") }),
+    grantedFolders: (threadId) => [
+      ...(broker.policy.folders ?? []),
+      ...broker.sessionFolders(threadId),
+    ],
   });
 const input = { path: "~/Projects/app", reason: "read the notes", access: "read" as const };
 
@@ -139,13 +143,66 @@ describe("request_folder_access", () => {
     expect(broker.sessionFolders("thr_1")).toEqual([]);
   });
 
-  it("refuses unattended runs and non-owner requesters without raising a card", async () => {
-    await expect(run(tool(), input, ctx({ mode: "unattended" }))).rejects.toMatchObject({
-      code: "approval_required",
-    });
+  it("refuses non-owner requesters without raising a card", async () => {
     await expect(
       run(tool(), input, ctx({ requester: { role: "guest" } as never })),
     ).rejects.toMatchObject({ code: "forbidden" });
+    expect(await broker.list({ status: "pending" })).toEqual([]);
+  });
+
+  it("never asks again for a folder the owner already shared (Settings, or this chat)", async () => {
+    broker.setPolicy({ ...broker.policy, folders: [{ path: join(home, "Projects"), mode: "rw" }] });
+    // Covered by Settings' folder, including a file inside it and a write.
+    const out = await run(tool(), { ...input, access: "read_write" as const }, ctx());
+    expect(out.output).toMatchObject({ granted: true, status: "already" });
+    const file = await run(tool(), { ...input, path: join(project, "notes.txt") }, ctx());
+    expect(file.output).toMatchObject({ granted: true, status: "already" });
+    expect(await broker.list({ status: "pending" })).toEqual([]);
+
+    // A folder given for this chat only covers this chat.
+    broker.setPolicy({ ...broker.policy, folders: [] });
+    const pend = run(tool(), input, ctx());
+    await answerPending((await pending()).id, "once", project);
+    await pend;
+    expect((await run(tool(), input, ctx())).output).toMatchObject({ status: "already" });
+    const other = run(tool(), input, ctx({ threadId: "thr_2" }));
+    const a = await pending();
+    expect(a.requestedBy.threadId).toBe("thr_2");
+    await answerPending(a.id, "deny", "");
+    await other;
+  });
+
+  it("asks again when the new request needs more than was shared (read-only, now to write)", async () => {
+    broker.setPolicy({ ...broker.policy, folders: [{ path: project, mode: "ro" }] });
+    expect((await run(tool(), input, ctx())).output).toMatchObject({ status: "already" });
+    const pend = run(tool(), { ...input, access: "read_write" as const }, ctx());
+    const a = await pending();
+    expect(a.details).toMatchObject({ access: "rw" });
+    await answerPending(a.id, "deny", "");
+    await pend;
+  });
+
+  it("an unattended run queues the card in the inbox and goes on without the folder", async () => {
+    const out = await run(tool(), input, ctx({ mode: "unattended", runId: "run_sched" }));
+    expect(out.output).toMatchObject({ granted: false, status: "queued" });
+    const [a] = await broker.list({ status: "pending" });
+    expect(a?.kind).toBe("folder_access");
+    // "This chat" ends with the run, so only a lasting answer is offered.
+    expect(a?.scopesOffered).toEqual(["always"]);
+    expect(a?.details).toMatchObject({ resolvedPath: project, access: "ro" });
+
+    // The next scheduled run does not pile up a second card for the same folder.
+    const again = await run(tool(), input, ctx({ mode: "unattended", runId: "run_sched_2" }));
+    expect(again.output).toMatchObject({ status: "queued" });
+    expect(await broker.list({ status: "pending" })).toHaveLength(1);
+
+    // The owner says Always later (the Gateway then puts it in the policy); from then on every run,
+    // attended or not, just has the folder.
+    await answerPending(a?.id ?? "", "always", project);
+    expect(stored).toEqual([{ path: project, mode: "ro" }]);
+    broker.setPolicy({ ...broker.policy, folders: stored });
+    const next = await run(tool(), input, ctx({ mode: "unattended", runId: "run_sched_3" }));
+    expect(next.output).toMatchObject({ granted: true, status: "already" });
     expect(await broker.list({ status: "pending" })).toEqual([]);
   });
 });
@@ -190,8 +247,15 @@ describe("requested folder resolution", () => {
     expect(await ask("/")).toMatchObject({ folderStatus: "blocked" });
   });
 
-  it("falls back to the picker when the path is missing, a file, or relative", async () => {
-    for (const path of [join(home, "nope"), join(project, "notes.txt"), "Downloads"]) {
+  it("pre-fills the folder of a file (a denied read names the file)", async () => {
+    expect(await ask(join(project, "notes.txt"))).toMatchObject({
+      folderStatus: "ok",
+      resolvedPath: project,
+    });
+  });
+
+  it("falls back to the picker when the path is missing or relative", async () => {
+    for (const path of [join(home, "nope/deeper/x.txt"), "Downloads"]) {
       const d = await ask(path);
       expect(d.folderStatus).toBe("missing");
       expect(d.resolvedPath).toBeUndefined();

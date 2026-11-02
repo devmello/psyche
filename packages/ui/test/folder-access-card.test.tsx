@@ -83,7 +83,7 @@ describe("folder-access card", () => {
     const onAnswer = show(folderApproval(), async () => null);
     expect(screen.getAllByText("to read the build notes")).toHaveLength(1);
     expect(screen.getByText("Read and write")).toBeTruthy();
-    for (const name of ["Allow once", "Always allow"]) {
+    for (const name of ["Just this chat", "Always, this folder and below"]) {
       expect(screen.getByRole("option", { name })).toBeTruthy();
     }
     expect(screen.getAllByRole("button", { name: "Deny" })).toHaveLength(1);
@@ -95,6 +95,27 @@ describe("folder-access card", () => {
         folderPath: "/Users/me/Projects/app",
       }),
     );
+  });
+
+  it("explains the ask in plain words and lets the owner narrow a write request to read-only", async () => {
+    const onAnswer = show(folderApproval(), async () => null, vi.fn(), "Wren");
+    expect(screen.getByTestId("folder-explain").textContent).toBe(
+      "Wren wants to read and change the files in a folder.",
+    );
+    await userEvent.click(screen.getByTestId("folder-read-only"));
+    await userEvent.click(allow());
+    await waitFor(() =>
+      expect(onAnswer).toHaveBeenCalledWith("approve", "once", {
+        folderPath: "/Users/me/Projects/app",
+        folderMode: "ro",
+      }),
+    );
+  });
+
+  it("a read request has no read-only switch to flip (it is already read-only)", () => {
+    show(unresolved({ folderStatus: "ok", resolvedPath: "/Users/me/Downloads" }), async () => null);
+    expect(screen.getByTestId("folder-explain").textContent).toMatch(/to read the files/);
+    expect(screen.queryByTestId("folder-read-only")).toBeNull();
   });
 
   it("Choose a different folder… replaces the pre-filled one, and that pick is what is sent", async () => {

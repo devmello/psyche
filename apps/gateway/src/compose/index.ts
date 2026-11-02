@@ -549,10 +549,23 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     rawBroker.setPolicy(hostPolicy(next));
     publish("settings.changed", { entries: [saved] });
   };
+  // Revoking an `always` folder (Settings' access list) drops it from the same policy list.
+  const forgetFolder = async (path: string): Promise<boolean> => {
+    const current =
+      validPolicy(getSetting(db, "permissions.policy")?.value, gwOptions.logger) ?? {};
+    const folders = current.folders ?? [];
+    const kept = folders.filter((f) => f.path !== path);
+    if (kept.length === folders.length) return false;
+    const saved = setSetting(db, "permissions.policy", { ...current, folders: kept });
+    rawBroker.setPolicy(hostPolicy({ ...current, folders: kept }));
+    publish("settings.changed", { entries: [saved] });
+    return true;
+  };
   const rawBroker = new PsychePermissionBroker({
     folderAccess: {
       env: () => ({ psycheHome: config.home, protectedRoots: protectedRoots(config.home) }),
       persist: persistFolder,
+      remove: forgetFolder,
     },
     channelConversations: (ref) => channelConversations.get(ref),
     approvers: {
@@ -786,6 +799,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       broker: executorBroker,
       surfaces: ["desktop", "web"],
       folderEnv: () => ({ psycheHome: config.home, protectedRoots: protectedRoots(config.home) }),
+      grantedFolders: (threadId) => [
+        ...(rawBroker.policy.folders ?? []),
+        ...rawBroker.sessionFolders(threadId),
+      ],
       execHostEnabled: () => rawBroker.policy.exec?.execHostEnabled === true,
       enableExecHost: async () => {
         const current =

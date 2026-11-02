@@ -1,6 +1,6 @@
 import { type AgentToolRegistration, defineTool, type ToolRunContext } from "@psyche/agent-core";
 import { hashCanonical } from "@psyche/audit";
-import type { FolderAccessEnv } from "@psyche/permissions";
+import type { FolderAccessEnv, FolderGrantEntry } from "@psyche/permissions";
 import {
   MissingPermission,
   type PermissionBroker,
@@ -30,6 +30,8 @@ export interface RequestPermissionDeps {
   surfaces: readonly string[];
   /** The sensitive-root environment a requested folder is judged by (see `askForFolder`). */
   folderEnv?: () => FolderAccessEnv;
+  /** Folders already shared (Settings' list plus this conversation's): a request they cover is not asked. */
+  grantedFolders?: (threadId: string) => readonly FolderGrantEntry[];
   /** Whether `exec_host` is on now. */
   execHostEnabled(): boolean;
   /** Turns `exec_host` on in `permissions.policy` (after the owner's Enable). */
@@ -170,15 +172,16 @@ export function requestPermissionTool(deps: RequestPermissionDeps): AgentToolReg
       if (ctx.requester !== undefined && ctx.requester.role !== "owner") {
         throw new PsycheError("forbidden", "only the owner can grant permissions");
       }
+      const need = p.need as MissingPermission;
+      // A folder is the one permission an unattended run can ask for: its card is queued.
+      if (need.need === "folder") {
+        return askForFolder(deps, ctx, { path: need.path, reason: p.reason, access: need.access });
+      }
       if (ctx.mode === "unattended") {
         throw new PsycheError(
           "approval_required",
           "a permission needs the owner; ask again in a chat turn",
         );
-      }
-      const need = p.need as MissingPermission;
-      if (need.need === "folder") {
-        return askForFolder(deps, ctx, { path: need.path, reason: p.reason, access: need.access });
       }
       if (await alreadyThere(deps, need)) {
         return {

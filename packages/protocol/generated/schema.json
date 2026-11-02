@@ -463,6 +463,22 @@
     "maxFrameBytes": 1048576,
     "methods": [
       {
+        "description": "Lists what the owner has given the agent access to: shared folders (always or for one chat) and standing grants, in one list for Settings.",
+        "name": "access.list",
+        "params": "#/$defs/AccessListParams",
+        "result": "#/$defs/AccessListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Revokes one entry of `access.list` at once (a folder stops working on the next call; a grant is revoked). Changing standing permissions is an admin action.",
+        "name": "access.revoke",
+        "params": "#/$defs/AccessRevokeParams",
+        "result": "#/$defs/AccessRevokeResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
         "description": "Approves or denies with the single-use answer token delivered to this surface; deviceOnly and requiresAuthentication kinds are enforced by the Gateway. Not idempotency-keyed: the token is single-use.",
         "name": "approvals.answer",
         "params": "#/$defs/ApprovalAnswer",
@@ -3338,6 +3354,119 @@
     "protocolVersion": 1
   },
   "$defs": {
+    "AccessEntry": {
+      "properties": {
+        "id": {
+          "maxLength": 4200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "folder",
+            "grant"
+          ],
+          "type": "string"
+        },
+        "scope": {
+          "enum": [
+            "always",
+            "conversation",
+            "limited"
+          ],
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 600,
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "ro",
+            "rw"
+          ],
+          "type": "string"
+        },
+        "path": {
+          "maxLength": 4096,
+          "type": "string"
+        },
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "grantId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/ApprovalKind"
+        },
+        "since": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "lastUsedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "scope",
+        "label"
+      ],
+      "type": "object"
+    },
+    "AccessListParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "AccessListResult": {
+      "properties": {
+        "entries": {
+          "items": {
+            "$ref": "#/$defs/AccessEntry"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "entries"
+      ],
+      "type": "object"
+    },
+    "AccessRevokeParams": {
+      "properties": {
+        "entryId": {
+          "maxLength": 4200,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "entryId"
+      ],
+      "type": "object"
+    },
+    "AccessRevokeResult": {
+      "properties": {
+        "revoked": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "revoked"
+      ],
+      "type": "object"
+    },
     "ActionCall": {
       "properties": {
         "tool": {
@@ -6220,6 +6349,13 @@
         "folderPath": {
           "maxLength": 4096,
           "minLength": 1,
+          "type": "string"
+        },
+        "folderMode": {
+          "enum": [
+            "ro",
+            "rw"
+          ],
           "type": "string"
         },
         "unsandboxed": {
