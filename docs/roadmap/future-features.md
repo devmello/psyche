@@ -1,0 +1,126 @@
+# Future features
+
+Status: plan, 2026-11-02. Nothing in this file is promised for a date. It collects five features the owner has asked for, in plain language, with what is already built, what is left, and what each one depends on.
+
+This sits next to [08-roadmap.md](../08-roadmap.md), which holds the milestone plan up to v1.0 and the short "After 1.0" list. Items here are the ones that need more than a line. When one gets a design doc, link it here and keep this entry short.
+
+Each entry has the same parts: what it is, why it beats existing assistants, rough phases, open questions and dependencies.
+
+## 1. Answers that cite your life
+
+**What it is.** Ask a question in Search or ⌘K ("when did Sam say the contract would be ready?", "what did I promise Priya?") and get a short answer built from your own mail, messages, files and memory. Every claim in the answer carries a citation chip. Click a chip and you see the source: the message, the file, the fact and when Psyche learned it.
+
+**Why it beats existing assistants.** Cloud assistants either can't see your mail and messages, or they see them and answer without showing where a claim came from. Psyche already keeps the sources on your machine, so it can show every source and refuse to answer when it has none. An answer with no citation is not shown as an answer.
+
+**What is built (as of 2026-11-02).**
+- The Life search group (by name and by words) is merged: [#1078](https://github.com/devmello/psyche/pull/1078).
+- Search by meaning and a grounded answer are merged: [#1087](https://github.com/devmello/psyche/pull/1087). The method is `memory.life.answer`. It answers from reviewed, non-sensitive facts about people, cites each claim to a fact, and returns no answer, with a reason, when the model is off, no fact matches or the reply cites nothing it was given. Sensitive facts never go to a model.
+- The index and the nightly memory pass behind it: [design/search-2026.md](../design/search-2026.md), [design/search-roadmap-2026.md](../design/search-roadmap-2026.md), [design/everything-memory-2026.md](../design/everything-memory-2026.md).
+
+**What is left.**
+- The UI in Search and ⌘K is in progress with the memory session. It needs the answer card with citation chips, the "no answer, and why" states, and a link from each chip to the source.
+- Today the answer cites facts. Citing the underlying mail, message or file passage (not only the fact derived from it) needs the passage to be reachable from the fact.
+- Answers that cover raw mail, messages and files, not only reviewed facts about people.
+- Follow-up questions in the same panel, and "open as a chat".
+
+**Rough phases.**
+1. The answer card in Search/⌘K for `memory.life.answer`, with chips that open the fact.
+2. Chips that open the source passage in Mail, Messages or the file viewer.
+3. Questions that need raw passages as well as facts, with the same rule: no citation, no claim.
+
+**Open questions.**
+- How to show a claim that rests on several facts, without a wall of chips.
+- What to show when the facts disagree, or when the newest one is still waiting for review.
+- Whether the answer panel is also available to the agent in chat, and how citations carry into the chat transcript.
+
+**Depends on.** Everything-memory (graph, reviewed facts), the Life search index, an embedder or a model for meaning-based ranking, and the per-source permissions from [05-security-and-permissions.md](../05-security-and-permissions.md).
+
+## 2. Teach by showing
+
+**What it is.** You press Record, do a task once in the built-in browser or in a Mac app, and press Stop. Psyche turns the recording into a skill or an automation, shows you the steps in plain words for review, lets you fix them, and can schedule it ("every Friday at 4").
+
+**Why it beats existing assistants.** Most assistants make you describe a task in words, or give you a script editor. Showing is how people already teach each other. The review step matters: the recording is turned into steps you can read and edit, not into a black box that replays clicks.
+
+**What is built.** The pieces it stands on:
+- Computer use on the Mac (accessibility snapshot, actions, screenshots, tiers and caps): feature spec J1–J6 in [03-feature-spec.md](../03-feature-spec.md), and the M2 computer-use work ([#212](https://github.com/devmello/psyche/pull/212)).
+- The built-in browser, including the signed-in profile and background use ([#996](https://github.com/devmello/psyche/pull/996), [#1036](https://github.com/devmello/psyche/pull/1036)).
+- Self-made skills and connectors, owner-approved and sandboxed ([#977](https://github.com/devmello/psyche/pull/977)), and agent-proposed skill drafts from repeated routines ([`packages/skills/src/drafts.ts`](../../packages/skills/src/drafts.ts)).
+- Scheduled, and turning a task into an automation ([#1030](https://github.com/devmello/psyche/pull/1030), [#1002](https://github.com/devmello/psyche/pull/1002)).
+- Teach mode is already named in the feature spec as **J8** (priority P2): "record a user demonstration (screens + AX events) into a reusable skill draft". This entry is that item, spelled out.
+
+**What is left.** The recorder (events in the browser, accessibility events in Mac apps), turning a recording into steps, a review screen, replay with approvals, and scheduling.
+
+**Rough phases.**
+1. **Browser only.** Record clicks, typing and navigation in the built-in browser. Turn them into a draft skill that uses the browser tools. Show the steps; the owner edits and approves. Run it once with the owner watching.
+2. **Mac apps.** Record accessibility events (J1/J2) in apps the owner has already granted. Same review screen.
+3. **Generalize.** Ask which values were examples ("this recipient", "this date") and make them inputs. Offer "run it every week" through Scheduled.
+
+**Open questions.**
+- What gets recorded. Screens and typed text can hold passwords and private data. The recorder needs to skip password fields, mask what it stores, and keep the recording on the Mac, deleted once the skill is made unless the owner keeps it.
+- What happens when the page or app changes later. Replay should stop and ask, not guess.
+- Whether a recording becomes a skill (instructions the agent follows) or an automation (fixed steps), and who decides. Likely the skill by default, since an agent can recover from small changes.
+- How this relates to the [teaching loop](../agent/teaching-loop-2026.md), which is about learning from feedback ("not like this"), not from demonstrations. They should share the lessons and marks, not the recorder.
+
+**Depends on.** Computer use and the Accessibility permission, the built-in browser, the skills system and its approval cards, Scheduled, and the permission broker (each replayed action is checked like any other tool call).
+
+## 3. Shared skills and connectors
+
+**What it is.** Export a skill or an MCP connector as a bundle, send it to someone, and they import it. Before anything is installed, they see what it asks for: the tools it can use, the approval kinds it can trigger, the files it ships and the permissions it wants. Bundles are signed, so an update can be checked against the key the owner already trusted.
+
+**Why it beats existing assistants.** Most assistants either have a central store you have to trust, or no sharing at all. Here sharing needs no store: a file, a URL or a git repo is enough. Permissions are shown up front, and nothing runs until the owner approves.
+
+**What is built.**
+- Skill install from a folder, a zip or a git URL at a pinned ref, with a scanner, a full-file approval card, a whole-tree hash re-verified on every load, and update checks. The code is in [`packages/skills`](../../packages/skills/src/lock.ts), and the protocol is in `packages/protocol/src/methods/skills.ts`. Trust levels today are `bundled`, `verified`, `local` and `unknown`.
+- Third-party skill and MCP descriptions are marked as "not instructions" in the prompt.
+- Psyche can build its own skills and connectors with approval ([#977](https://github.com/devmello/psyche/pull/977)), which gives something worth sharing.
+- The capability catalogue with an online-registry toggle ([#987](https://github.com/devmello/psyche/pull/987)), and connector install cards.
+
+**What is left.**
+- A **bundle format**: a skill or connector, its manifest, its requested permissions and a signature, in one file.
+- **Signing and keys.** An author key, a "trust this author" step, and showing "signed by X, new key" or "changed key since last time".
+- **Export** from Settings → Skills and Connectors.
+- **Import from a file, URL or git** with the same trust card, for connectors as well as skills (skills already import from folder, zip and git).
+- **Updates:** show what changed between versions, and require approval again when permissions widen.
+- A way to find things without a central store: a share link, a pasted URL, or a git repo with a small index file.
+
+**Rough phases.**
+1. Export and import of skills as one file, with permissions shown before install. Unsigned bundles are `unknown`.
+2. Signing and author trust. Updates with a diff and re-approval on wider permissions.
+3. Connectors (MCP servers) in the same bundle format, including the command they run and the network and secrets they ask for.
+4. Optional lists: a git repo or URL that lists bundles, with no server run by Psyche.
+
+**Open questions.**
+- What "verified" means when there is no central authority: a key the owner has trusted before, a key vouched for by someone they trust, or neither.
+- Connectors run code. How much can we show about a connector's behavior before it runs, and should the first run always be in the sandbox?
+- Whether bundles may carry secrets or settings (no, by default; only the names of what they need).
+- Revocation: how an author tells people a bundle is bad, without a server.
+
+**Depends on.** The skills trust work (`packages/skills`, the `skill_install` approval kind), the sandbox, the connectors layer ([connectors guide](../guides/connectors.md)), and the permission broker.
+
+## 4. Relationship nudges
+
+**What it is.** Psyche notices people you have gone quiet with and suggests, gently, that you reach out, with the context you'd want: when you last talked, what was open between you, and a draft if you want one. It is for friends, family and colleagues, not a sales pipeline. You decide who counts, and you can turn it off per person or entirely.
+
+**Why it beats existing assistants.** Contact-reminder apps know a date. Psyche knows what you actually talked about, what you promised and what is still open, so the nudge can be specific ("you said you'd send Sam the photos") and quiet when there is nothing to say.
+
+**Status.** Being built now by another session. The design doc will be at `docs/design/relationship-nudges-2026.md`; this entry will link to it once it exists. Until then the details are not settled, so this entry only describes the idea.
+
+**Depends on.** The people and projects graph ([memory/people-and-projects-2026.md](../memory/people-and-projects-2026.md)), the Feed and notifications, and the daily-habit work.
+
+## 5. Phone companion, with Live Activities and lock-screen approvals
+
+**What it is.** A phone app that connects to your own Gateway over the same network or Tailscale. Push comes from your own Gateway straight to Apple with your own key. There is no relay and no hosted service. A running task shows step progress on the Lock Screen and in the Dynamic Island. Approvals show Approve and Deny on the lock screen for ordinary writes, and only **Review…** for money and destructive actions.
+
+**Why it beats existing assistants.** Your data and your push both stay on your hardware. Nobody in the middle can read or even route your notifications, and Apple sees only ciphertext (except for Live Activity progress, which is generic by design).
+
+**The honest cost.** Push on iOS needs a paid Apple Developer account, and the owner builds the app under their own team. App Store distribution to other people is out of scope for now. Without an account, the PWA still gives Web Push with fewer features.
+
+**Design and phases.** All of it is in [design/mobile-companion-2026.md](../design/mobile-companion-2026.md):
+- M0: PWA with Web Push.
+- M1: iOS app over LAN and Tailscale.
+- M2: direct-APNs push, lock-screen approvals and Live Activities.
+- M3: phone as a node (location, photos, contacts, calendar).
+
+**Open questions.** See §7 of that doc: whether Tailscale's on-demand VPN is fast enough for the background tap, whether the Secure Enclave key can prompt from a notification action, and the minimum iOS version.
+
+**Depends on.** The WebSocket protocol and device scopes (built), the Gateway identity-key pin (not built), `packages/notifications` (built), and the approvals system (built).
