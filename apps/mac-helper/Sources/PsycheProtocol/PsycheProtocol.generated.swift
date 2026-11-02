@@ -1403,6 +1403,8 @@
 //   let widgetUpdatedPayload = try? JSONDecoder().decode(WidgetUpdatedPayload.self, from: jsonData)
 //   let widgetsGetParams = try? JSONDecoder().decode(WidgetsGetParams.self, from: jsonData)
 //   let widgetsGetResult = try? JSONDecoder().decode(WidgetsGetResult.self, from: jsonData)
+//   let widgetsImageParams = try? JSONDecoder().decode(WidgetsImageParams.self, from: jsonData)
+//   let widgetsImageResult = try? JSONDecoder().decode(WidgetsImageResult.self, from: jsonData)
 //   let workflowCard = try? JSONDecoder().decode(WorkflowCard.self, from: jsonData)
 //   let workflowEvent = try? JSONDecoder().decode(WorkflowEvent.self, from: jsonData)
 //   let workflowEventFilter = try? JSONDecoder().decode(WorkflowEventFilter.self, from: jsonData)
@@ -31706,6 +31708,46 @@ public struct WidgetSpec: Codable, Sendable {
         self.title = title
         self.v = v
     }
+}
+
+// MARK: - WidgetsImageParams
+public struct WidgetsImageParams: Codable, Sendable {
+    public let url: String
+    public let widgetID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case url = "url"
+        case widgetID = "widgetId"
+    }
+
+    public init(url: String, widgetID: String) {
+        self.url = url
+        self.widgetID = widgetID
+    }
+}
+
+// MARK: - WidgetsImageResult
+public struct WidgetsImageResult: Codable, Sendable {
+    /// base64, at most 512 KiB decoded
+    public let bytes: String
+    public let mime: WidgetsImageResultMIME
+
+    public enum CodingKeys: String, CodingKey {
+        case bytes = "bytes"
+        case mime = "mime"
+    }
+
+    public init(bytes: String, mime: WidgetsImageResultMIME) {
+        self.bytes = bytes
+        self.mime = mime
+    }
+}
+
+public enum WidgetsImageResultMIME: String, Codable, Sendable {
+    case imageGIF = "image/gif"
+    case imageJPEG = "image/jpeg"
+    case imagePNG = "image/png"
+    case imageWebp = "image/webp"
 }
 
 // MARK: - WrapUpBlock
