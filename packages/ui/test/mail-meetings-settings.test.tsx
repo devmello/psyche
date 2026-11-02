@@ -137,14 +137,17 @@ describe("Settings → Mail & meetings", () => {
 describe("the onboarding mail step", () => {
   const connected = [{ type: "apple:mail", label: "Apple Mail", mode: "read" as const }];
 
-  it("is left out until a mail account is connected", () => {
+  it("is left out until a mail account is connected", async () => {
     render(
       <StoryWorld>
         <OnboardingFlow onComplete={vi.fn()} defaultStep="connectors" onConnect={() => true} />
       </StoryWorld>,
     );
-    const dots = screen.getByRole("navigation", { name: "Onboarding progress" });
-    expect(within(dots).queryByText("Mail and meetings")).toBeNull();
+    // The "N of M" label opens the step menu (#1040); the mail step is not in it.
+    await userEvent.setup().click(screen.getByRole("button", { name: /Onboarding progress/ }));
+    const menu = await screen.findByRole("menu");
+    expect(within(menu).getAllByRole("menuitem").length).toBeGreaterThan(1);
+    expect(within(menu).queryByText("Mail and meetings")).toBeNull();
   });
 
   it("offers each workflow with its own switch, style learning off, and reports the choices", async () => {

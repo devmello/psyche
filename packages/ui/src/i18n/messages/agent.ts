@@ -105,6 +105,8 @@ export const agent = {
   "agent.timeline.state.running": "Running",
   "agent.timeline.state.done": "Done",
   "agent.timeline.state.failed": "Failed",
+  "agent.timeline.notVerified":
+    "Not verified: the run ended, but the evidence that every step happened is missing. {reason} What was recorded:",
   "agent.timeline.state.partial": "Done with problems",
   "agent.timeline.failure.runError": "Final error: {message}",
   "agent.timeline.state.cancelled": "Stopped",

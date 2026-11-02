@@ -24,6 +24,25 @@ export interface NotifyInput {
    * Without it only the kinds in `quietHours.breakthrough` do.
    */
   breakQuietHours?: boolean;
+  /**
+   * With a `dedupeKey` that matches an open notification: return it unchanged instead of
+   * updating its text, so the first notice about a thing is not overwritten by a generic one.
+   */
+  keepExisting?: boolean;
+}
+
+/**
+ * The dedupe key of the one owner-facing notice a task sends for a purpose (default "result"):
+ * the agent's `notify` tool and the scheduler's completion notice share it, so a run that told
+ * the owner itself is not announced a second time, and a retried run does not send another.
+ */
+export function ownerNoticeKey(taskOrRunId: string, purpose?: string): string {
+  const p = (purpose ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .slice(0, 40);
+  return `notice:${taskOrRunId}:${p === "" ? "result" : p}`;
 }
 
 export interface NotificationFilter {

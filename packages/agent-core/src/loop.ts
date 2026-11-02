@@ -102,6 +102,17 @@ import {
 } from "./deferred.ts";
 import { type Evaluation, evaluateTask } from "./evaluator.ts";
 import { EventQueue } from "./events.ts";
+import {
+  classifyTool,
+  evidenceLines,
+  expectedSteps,
+  extractRefs,
+  missingSteps,
+  notVerifiedText,
+  recordWorkflowRun,
+  type ToolEvidence,
+  workflowGroupOf,
+} from "./evidence.ts";
 import { type HookMap, HookRegistry } from "./hooks.ts";
 import { missingHint, missingOf } from "./missing-permission.ts";
 import {
@@ -431,6 +442,8 @@ interface RunState {
   };
   /** The main agent's Specialists prompt section, fetched once per run. */
   specialistsPrompt?: string;
+  /** Every tool call this run made, from the call records (evidence.ts). */
+  evidence: ToolEvidence[];
   /** Times the evaluator reopened this run (C7). */
   reopens: number;
   /** Harness actions gated in this run, and those allowed but not yet reported (C10). */
@@ -773,6 +786,7 @@ export class PsycheAgentLoop implements AgentLoop {
       emit,
       children: 0,
       reopens: 0,
+      evidence: [],
       harnessActions: 0,
       turnStart: 0,
       contextCalls: [],
@@ -1044,6 +1058,20 @@ export class PsycheAgentLoop implements AgentLoop {
         if (final === NO_REPLY) return "no_reply";
         if (final === "") throw new RunEnd("failed", "empty_final");
       }
+      // Workflow runs: persist outputs from the call records, then check the declared steps.
+      const missing = await this.#verifyWorkflow(run);
+      if (missing !== undefined) {
+        if (missing.canRetry && run.reopens < (this.#o.evaluator?.maxReopens ?? 1)) {
+          run.reopens += 1;
+          pendingText = "";
+          run.thread.messages.push({
+            role: "user",
+            parts: [{ type: "text", text: missing.reopen }],
+          });
+          continue;
+        }
+        throw new RunEnd("failed", `not_verified: ${missing.text}`);
+      }
       // C7: a task's run is checked against its receipts before it may end as done.
       const evaluation = await this.#evaluate(run, pendingText);
       if (evaluation !== undefined && evaluation.verdict !== "done") {
@@ -1071,6 +1099,51 @@ export class PsycheAgentLoop implements AgentLoop {
     }
   }
 
+  /**
+   * A linked workflow run (`[workflow:<group>]`) has its outputs written to the shared state from
+   * the evidence ledger, and every step its prompt declares (`[expects: …]`) must have a
+   * successful tool call behind it. Returns what is missing, in plain words, or undefined.
+   */
+  async #verifyWorkflow(
+    run: RunState,
+  ): Promise<{ text: string; reopen: string; canRetry: boolean } | undefined> {
+    if (run.mode !== "unattended" || run.subagent !== undefined) return undefined;
+    const goal = run.ownerText;
+    const group = workflowGroupOf(goal);
+    const missing = missingSteps(expectedSteps(goal), run.evidence);
+    if (group !== undefined && this.#o.memory !== undefined) {
+      try {
+        await recordWorkflowRun(this.#o.memory, group, {
+          runId: run.runId,
+          at: new Date(this.#clock.now()).toISOString(),
+          status: missing.length === 0 ? "ok" : "unverified",
+          evidence: run.evidence,
+          tainted: run.taint,
+        });
+        run.evidence.push({
+          callId: `state:${group}`,
+          tool: "workflow_state",
+          kind: "state",
+          ok: true,
+          sideEffect: "write",
+          summary: `Saved this run's outputs to the shared state of ${group} (by the run framework)`,
+        });
+      } catch (err) {
+        missing.push({
+          step: "fetch",
+          why: `Shared state: the run could not save what it did (${errorMessage(err)}).`,
+        });
+      }
+    }
+    if (missing.length === 0) return undefined;
+    const why = missing.map((m) => m.why).join(" ");
+    return {
+      text: notVerifiedText(`Missing evidence. ${why}`, run.evidence),
+      reopen: `[verifier] This run cannot be confirmed yet. ${why} Do the missing step now, then report again.`,
+      canRetry: missing.some((m) => m.step === "fetch" || m.step === "notify"),
+    };
+  }
+
   async #evaluate(run: RunState, finalText: string): Promise<Evaluation | undefined> {
     const tasks = this.#o.tasks;
     if (run.taskId === undefined || tasks === undefined || run.subagent !== undefined)
@@ -1085,6 +1158,7 @@ export class PsycheAgentLoop implements AgentLoop {
       {
         goal: task?.goal ?? run.ownerText,
         receipts,
+        toolCalls: evidenceLines(run.evidence),
         // A tainted run's report may carry injected text; the receipts are the evidence.
         ...(run.taint ? {} : { finalReport: finalText }),
       },
@@ -1269,7 +1343,11 @@ export class PsycheAgentLoop implements AgentLoop {
       await this.#ask(run, [question]);
       return "awaiting_input";
     }
-    throw new RunEnd("failed", `not_verified: ${evaluation.reason}`);
+    const gaps = evaluation.gaps.length === 0 ? "" : ` Missing: ${evaluation.gaps.join("; ")}`;
+    throw new RunEnd(
+      "failed",
+      `not_verified: ${notVerifiedText(`${evaluation.reason}${gaps}`.trim(), run.evidence)}`,
+    );
   }
 
   async #finishDecision(run: RunState, text: string): Promise<FinishTurnDecision> {
@@ -2034,6 +2112,28 @@ export class PsycheAgentLoop implements AgentLoop {
     };
   }
 
+  /** A call that never ran is evidence too: the verifier says it was blocked or waiting, and why. */
+  #noteBlocked(
+    run: RunState,
+    call: { id: string; name: string },
+    message: string,
+    gated?: Gated,
+  ): void {
+    const sideEffect = gated?.sideEffect ?? "none";
+    run.evidence.push({
+      callId: call.id,
+      tool: call.name,
+      kind: classifyTool(call.name, sideEffect, undefined),
+      ok: false,
+      sideEffect,
+      ...(gated?.target === undefined ? {} : { target: gated.target.value }),
+      summary: gated?.desc.summary ?? call.name,
+      error: message.startsWith("deferred")
+        ? "it needs the owner's approval and nobody was present to give it"
+        : message.slice(0, 200),
+    });
+  }
+
   #blocked(
     run: RunState,
     call: { id: string; name: string },
@@ -2042,6 +2142,7 @@ export class PsycheAgentLoop implements AgentLoop {
     gated?: Gated,
     errorCode?: string,
   ): GateOutcome {
+    this.#noteBlocked(run, call, message, gated);
     this.#toolEvent(
       run,
       call.id,
@@ -2403,6 +2504,7 @@ export class PsycheAgentLoop implements AgentLoop {
             .catch(() => undefined);
         }
         const note = "deferred: queued for the owner's approval; continue without this action";
+        this.#noteBlocked(run, call, note, gated);
         this.#toolEvent(
           run,
           call.id,
@@ -2727,6 +2829,25 @@ export class PsycheAgentLoop implements AgentLoop {
         approvalId: g.approvalId ?? null,
       });
       result = { ...result, receiptId: receipt.id };
+    }
+    {
+      const refs = failed ? undefined : extractRefs(result.output);
+      const errText =
+        failed && typeof result.output === "object" && result.output !== null
+          ? (result.output as { error?: unknown }).error
+          : undefined;
+      run.evidence.push({
+        callId: call.id,
+        tool: call.name,
+        kind: classifyTool(call.name, g.sideEffect, result.provenance),
+        ok: !failed,
+        sideEffect: g.sideEffect,
+        ...(g.target === undefined ? {} : { target: g.target.value }),
+        summary: level1,
+        ...(result.receiptId === undefined ? {} : { receiptId: result.receiptId }),
+        ...(refs === undefined ? {} : { refs }),
+        ...(typeof errText === "string" ? { error: errText.slice(0, 300) } : {}),
+      });
     }
     if (result.receiptId !== undefined)
       this.#block(run, { type: "receipt", receiptId: result.receiptId });

@@ -96,6 +96,14 @@ export const mailMeetings: Partial<Catalogue> = {
   "settings.mail.notes.folder.hint":
     "Un dossier que Wren peut lire. Autorisez-le dans Accès aux fichiers.",
   "settings.mail.notes.folder.placeholder": "~/Documents/Recordings",
+  "settings.mail.transcribe.endpoint": "Point de terminaison de transcription",
+  "settings.mail.transcribe.endpoint.hint":
+    "Facultatif. Un serveur compatible OpenAI pour /v1/audio/transcriptions (par exemple whisper.cpp sur ce Mac). Utilisé lorsque l’assistant Mac n’est pas lancé. L’audio n’est envoyé qu’à cette adresse : https, ou http sur 127.0.0.1.",
+  "settings.mail.transcribe.endpoint.placeholder": "http://127.0.0.1:8080",
+  "settings.mail.transcribe.model": "Modèle de transcription",
+  "settings.mail.transcribe.model.placeholder": "whisper-1",
+  "settings.key.meetings.transcribe.endpoint": "Point de terminaison de transcription",
+  "settings.key.meetings.transcribe.model": "Modèle de transcription",
   "settings.mail.notes.tasksApp": "Ajouter les actions à",
   "settings.mail.notes.tasksApp.reminders": "Rappels",
   "settings.mail.notes.tasksApp.things": "Things",
