@@ -245,8 +245,6 @@ export function settingsRoute(
         {...(view === undefined ? {} : { connectorsView: view })}
         onSectionChange={(id) => navigate(`/settings/${id}`)}
         onOpenTask={(taskId) => navigate(`/agent/activity/${taskId}`)}
-        // The web client's passkeys live under Devices (PasskeysPanel); the Mac uses Touch ID.
-        {...(platform.kind === "web" ? { onAddPasskey: () => navigate("/settings/devices") } : {})}
         {...(platform.dialogs?.pickFolder
           ? {
               onPickSkillFolder: () =>
