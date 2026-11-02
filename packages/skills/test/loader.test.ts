@@ -21,6 +21,7 @@ const BUNDLED = [
   "meeting-prep",
   "memory-hygiene",
   "morning-brief",
+  "psyche-app-guide",
   "reply-drafting",
   "research-brief",
   "scheduling-over-email",

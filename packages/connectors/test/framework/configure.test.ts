@@ -30,6 +30,7 @@ function fakeHelper(results: Record<string, unknown> = {}) {
       "shortcuts.list",
       "shortcuts.run",
       "mail.search",
+      "mail.selected",
       "mail.save_attachments",
     ],
     invoke: async (capability, params) => {
