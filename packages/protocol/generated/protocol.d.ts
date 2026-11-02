@@ -6169,18 +6169,17 @@ export interface MemoryLessonsListResult {
     nextCursor?: null | string;
 }
 
-export interface MemoryLifeSearchParams {
-    /**
-     * Default 20
-     */
-    limit?: number;
-    q:      string;
+export interface MemoryLifeAnswerParams {
+    q: string;
 }
 
-export interface MemoryLifeSearchResult {
-    entities: EntitySummary[];
-    facts:    LifeFactHit[];
-    intent?:  null | string;
+export interface MemoryLifeAnswerResult {
+    answer?: null | string;
+    /**
+     * The facts the answer cites, in order
+     */
+    facts:   LifeFactHit[];
+    reason?: LifeAnswerReason | null;
 }
 
 export interface LifeFactHit {
@@ -6196,6 +6195,22 @@ export interface LifeFactHit {
      * Untrusted text when it came from someone else
      */
     value: string;
+}
+
+export type LifeAnswerReason = "no_model" | "no_facts" | "no_answer" | "ungrounded" | "model_failed";
+
+export interface MemoryLifeSearchParams {
+    /**
+     * Default 20
+     */
+    limit?: number;
+    q:      string;
+}
+
+export interface MemoryLifeSearchResult {
+    entities: EntitySummary[];
+    facts:    LifeFactHit[];
+    intent?:  null | string;
 }
 
 export interface MemoryLoopUpdatedPayload {
@@ -8373,17 +8388,19 @@ export interface SearchIndexEncryption {
      */
     reason?: string;
     /**
-     * on: the index file is encrypted; off: it is not and the switch is off; unavailable: the
-     * switch is on but the key cannot be used here
+     * on: the index file is encrypted; off: it is not and the switch is off; pending: the
+     * switch is on and Psyche is waiting for the Mac helper to hand over the key; unavailable:
+     * the key cannot be used here
      */
     state: SearchIndexEncryptionState;
 }
 
 /**
- * on: the index file is encrypted; off: it is not and the switch is off; unavailable: the
- * switch is on but the key cannot be used here
+ * on: the index file is encrypted; off: it is not and the switch is off; pending: the
+ * switch is on and Psyche is waiting for the Mac helper to hand over the key; unavailable:
+ * the key cannot be used here
  */
-export type SearchIndexEncryptionState = "off" | "on" | "unavailable";
+export type SearchIndexEncryptionState = "off" | "on" | "pending" | "unavailable";
 
 export interface SearchSemanticStatus {
     blocked?: SearchSemanticBlock;

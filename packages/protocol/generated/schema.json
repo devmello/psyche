@@ -1983,6 +1983,14 @@
         "sideEffecting": false
       },
       {
+        "description": "A short answer to a question about the owner's people, from reviewed, non-sensitive facts only, each claim cited to a fact. Owner-only. No answer (with a reason) when the model is off, no fact matches, or the reply cites nothing it was given.",
+        "name": "memory.life.answer",
+        "params": "#/$defs/MemoryLifeAnswerParams",
+        "result": "#/$defs/MemoryLifeAnswerResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "Life search for the owner: people, organisations, events and topics by name, and cited facts (including ones still waiting for review, marked) by their words. Owner-only: the agent reads memory through its own tools and access rules.",
         "name": "memory.life.search",
         "params": "#/$defs/MemoryLifeSearchParams",
@@ -22389,6 +22397,16 @@
       ],
       "type": "object"
     },
+    "LifeAnswerReason": {
+      "enum": [
+        "no_model",
+        "no_facts",
+        "no_answer",
+        "ungrounded",
+        "model_failed"
+      ],
+      "type": "string"
+    },
     "LifeFactHit": {
       "properties": {
         "factId": {
@@ -25817,6 +25835,55 @@
       },
       "required": [
         "lessons"
+      ],
+      "type": "object"
+    },
+    "MemoryLifeAnswerParams": {
+      "properties": {
+        "q": {
+          "maxLength": 500,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "q"
+      ],
+      "type": "object"
+    },
+    "MemoryLifeAnswerResult": {
+      "properties": {
+        "answer": {
+          "anyOf": [
+            {
+              "maxLength": 600,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "facts": {
+          "description": "The facts the answer cites, in order",
+          "items": {
+            "$ref": "#/$defs/LifeFactHit"
+          },
+          "type": "array"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LifeAnswerReason"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "facts"
       ],
       "type": "object"
     },
@@ -33846,10 +33913,11 @@
     "SearchIndexEncryption": {
       "properties": {
         "state": {
-          "description": "on: the index file is encrypted; off: it is not and the switch is off; unavailable: the switch is on but the key cannot be used here",
+          "description": "on: the index file is encrypted; off: it is not and the switch is off; pending: the switch is on and Psyche is waiting for the Mac helper to hand over the key; unavailable: the key cannot be used here",
           "enum": [
             "off",
             "on",
+            "pending",
             "unavailable"
           ],
           "type": "string"

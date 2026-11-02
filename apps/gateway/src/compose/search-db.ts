@@ -2,6 +2,7 @@ import { chmodSync, closeSync, existsSync, openSync, readSync, rmSync } from "no
 import { getSetting, openDb, type PsycheDb } from "@psyche/db";
 import type { SearchIndexEncryption } from "@psyche/protocol";
 import {
+  type DerivedKeyStore,
   isPlainSqlite,
   type KeyWrapper,
   loadOrCreateSubsystemKey,
@@ -12,11 +13,22 @@ import type { VaultSlotChoice } from "./vault.ts";
 /** `search.encrypt`: encrypt `state/search.sqlite` with its own key (off by default). */
 export const SEARCH_ENCRYPT_SETTING = "search.encrypt";
 
-/** Slots that ask the owner (Touch ID) on every unwrap cannot open an index at start-up. */
+/**
+ * Slots that ask the owner (Touch ID) on every unwrap cannot hold the index key. On the macOS
+ * keychain slot the key lives in a separate non-biometric helper item instead (`DerivedKeyStore`).
+ */
 const INTERACTIVE_SLOTS: readonly VaultSlotChoice[] = ["keychain"];
+
+/** The helper item that holds the search index key. */
+export const SEARCH_KEY_NAME = "search-index";
 
 export interface SearchKeyResult {
   key?: Buffer;
+  /**
+   * Set when the key comes from the Mac helper, which connects after the Gateway starts: the
+   * index opens once this returns a key (undefined = not ready yet).
+   */
+  pending?: () => Promise<Buffer | undefined>;
   status: SearchIndexEncryption;
 }
 
@@ -31,16 +43,27 @@ export async function resolveSearchKey(o: {
   keyFile: string;
   wrapper: KeyWrapper;
   slot: VaultSlotChoice;
+  /** Non-biometric helper keys, for the keychain slot. */
+  derived?: Pick<DerivedKeyStore, "getOrCreate" | "unavailableReason">;
 }): Promise<SearchKeyResult> {
   if (getSetting(o.db, SEARCH_ENCRYPT_SETTING)?.value !== true) return { status: { state: "off" } };
-  if (INTERACTIVE_SLOTS.includes(o.slot))
+  if (INTERACTIVE_SLOTS.includes(o.slot)) {
+    const derived = o.derived;
+    if (derived === undefined)
+      return {
+        status: {
+          state: "unavailable",
+          reason: "The Mac helper holds the key and is not available on this host.",
+        },
+      };
     return {
-      status: {
-        state: "unavailable",
-        reason:
-          "The key would be kept in the macOS keychain, which asks for Touch ID every time and is not ready when Psyche starts. Use a key file or the desktop's secure storage.",
+      pending: async () => {
+        if ((await derived.unavailableReason()) !== null) return undefined;
+        return (await derived.getOrCreate(SEARCH_KEY_NAME)).key;
       },
+      status: { state: "pending", reason: "Waiting for the Mac helper" },
     };
+  }
   try {
     const { key } = await loadOrCreateSubsystemKey(o.keyFile, o.wrapper, "Open the search index");
     return { key, status: { state: "on" } };

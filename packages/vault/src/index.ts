@@ -151,6 +151,7 @@ export {
   refusedFieldName,
   scanText,
 } from "./refusals.ts";
+export { DerivedKeyStore } from "./slots/DerivedKey.ts";
 export {
   fromB64url,
   invokeHelper,
