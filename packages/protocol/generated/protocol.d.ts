@@ -415,6 +415,56 @@ export interface AppleFinderEntry {
     size?:     number | null;
 }
 
+export interface AppleLlmAvailability {
+    available: boolean;
+    /**
+     * Input and output together
+     */
+    contextTokens: number;
+    reason?:       AppleLlmUnavailableReason;
+}
+
+export type AppleLlmUnavailableReason = "unsupported_os" | "device_not_eligible" | "apple_intelligence_not_enabled" | "model_not_ready" | "unknown";
+
+export interface AppleLlmGenerateParams {
+    instructions?: string;
+    maxTokens?:    number;
+    prompt:        string;
+    /**
+     * Guided generation: a JSON Schema subset (object, array, string, number, integer, boolean,
+     * string enum; properties, required, items). The reply is JSON text of that shape.
+     */
+    schema?:      { [key: string]: unknown };
+    temperature?: number;
+    timeoutMs?:   number;
+}
+
+export interface AppleLlmGenerateResult {
+    reason?:  AppleLlmUnavailableReason;
+    refusal?: AppleLlmRefusal;
+    /**
+     * True when `text` is JSON from a schema
+     */
+    structured: boolean;
+    text:       string;
+}
+
+export type AppleLlmRefusal = "unavailable" | "too_long" | "context_exceeded" | "guardrail" | "unsupported_language" | "unsupported_schema" | "rate_limited" | "timed_out" | "failed";
+
+export interface AppleLlmStatus {
+    available:     boolean;
+    contextTokens: number;
+    /**
+     * A Mac helper that offers llm.apple.* is live
+     */
+    helperConnected: boolean;
+    reason?:         AppleLlmUnavailableReason;
+    /**
+     * The model ref to select, apple/on-device
+     */
+    ref: string;
+}
+
 export interface AppleMailDraftInput {
     body:    string;
     cc?:     string[];

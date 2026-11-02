@@ -1,6 +1,7 @@
 import { getSetting, type PsycheDb, setSetting } from "@psyche/db";
 import {
   AiSdkAdapter,
+  AppleOnDeviceAdapter,
   defaultBaseURL,
   type EndpointProbeResult,
   type EndpointProbeStore,
@@ -17,6 +18,8 @@ import {
   probeEndpoint,
 } from "@psyche/model-router";
 import {
+  APPLE_LLM_CONTEXT_TOKENS,
+  APPLE_ON_DEVICE_REF,
   type Clock,
   type MethodParams,
   type MethodResult,
@@ -54,6 +57,7 @@ const KIND_LABEL: Record<ProviderKind, string> = {
   lmstudio: "LM Studio",
   "claude-code": "Claude Code (subscription)",
   codex: "ChatGPT via Codex (subscription)",
+  apple: "Apple on-device model",
 };
 
 export interface ModelSettingsSetup {
@@ -210,6 +214,23 @@ export function modelSettingsHandlers(setup: ModelSettingsSetup): Record<string,
   };
 
   return {
+    "models.appleStatus": {
+      async run(): Promise<MethodResult<"models.appleStatus">> {
+        // Reads availability from the Mac helper; the model itself is never run for this.
+        const adapter = router?.provider("apple");
+        const status =
+          adapter instanceof AppleOnDeviceAdapter
+            ? await adapter.availability().catch(() => undefined)
+            : undefined;
+        return {
+          ref: APPLE_ON_DEVICE_REF,
+          helperConnected: status !== undefined,
+          available: status?.available ?? false,
+          ...(status?.reason === undefined ? {} : { reason: status.reason }),
+          contextTokens: status?.contextTokens ?? APPLE_LLM_CONTEXT_TOKENS,
+        };
+      },
+    },
     "models.list": {
       async run(): Promise<MethodResult<"models.list">> {
         const providers: ModelProviderSummary[] = [];

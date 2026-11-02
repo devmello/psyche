@@ -39,6 +39,13 @@
 //   let appleFilesRenameParams = try? JSONDecoder().decode(AppleFilesRenameParams.self, from: jsonData)
 //   let appleFilesTrashParams = try? JSONDecoder().decode(AppleFilesTrashParams.self, from: jsonData)
 //   let appleFinderEntry = try? JSONDecoder().decode(AppleFinderEntry.self, from: jsonData)
+//   let appleLlmAvailability = try? JSONDecoder().decode(AppleLlmAvailability.self, from: jsonData)
+//   let appleLlmAvailabilityParams = try? JSONDecoder().decode(AppleLlmAvailabilityParams.self, from: jsonData)
+//   let appleLlmGenerateParams = try? JSONDecoder().decode(AppleLlmGenerateParams.self, from: jsonData)
+//   let appleLlmGenerateResult = try? JSONDecoder().decode(AppleLlmGenerateResult.self, from: jsonData)
+//   let appleLlmRefusal = try? JSONDecoder().decode(AppleLlmRefusal.self, from: jsonData)
+//   let appleLlmStatus = try? JSONDecoder().decode(AppleLlmStatus.self, from: jsonData)
+//   let appleLlmUnavailableReason = try? JSONDecoder().decode(AppleLlmUnavailableReason.self, from: jsonData)
 //   let appleMailDraftInput = try? JSONDecoder().decode(AppleMailDraftInput.self, from: jsonData)
 //   let appleMailDraftRef = try? JSONDecoder().decode(AppleMailDraftRef.self, from: jsonData)
 //   let appleMailForwardDraftParams = try? JSONDecoder().decode(AppleMailForwardDraftParams.self, from: jsonData)
@@ -873,6 +880,7 @@
 //   let modelFactSource = try? JSONDecoder().decode(ModelFactSource.self, from: jsonData)
 //   let modelProviderSummary = try? JSONDecoder().decode(ModelProviderSummary.self, from: jsonData)
 //   let modelRoles = try? JSONDecoder().decode(ModelRoles.self, from: jsonData)
+//   let modelsAppleStatusParams = try? JSONDecoder().decode(ModelsAppleStatusParams.self, from: jsonData)
 //   let modelsCheckParams = try? JSONDecoder().decode(ModelsCheckParams.self, from: jsonData)
 //   let modelsCheckResult = try? JSONDecoder().decode(ModelsCheckResult.self, from: jsonData)
 //   let modelsClearKeyParams = try? JSONDecoder().decode(ModelsClearKeyParams.self, from: jsonData)
@@ -2463,6 +2471,126 @@ public struct AppleFinderEntry: Codable, Sendable {
         self.name = name
         self.path = path
         self.size = size
+    }
+}
+
+// MARK: - AppleLlmAvailability
+public struct AppleLlmAvailability: Codable, Sendable {
+    public let available: Bool
+    /// Input and output together
+    public let contextTokens: Int
+    public let reason: AppleLlmUnavailableReason?
+
+    public enum CodingKeys: String, CodingKey {
+        case available = "available"
+        case contextTokens = "contextTokens"
+        case reason = "reason"
+    }
+
+    public init(available: Bool, contextTokens: Int, reason: AppleLlmUnavailableReason?) {
+        self.available = available
+        self.contextTokens = contextTokens
+        self.reason = reason
+    }
+}
+
+public enum AppleLlmUnavailableReason: String, Codable, Sendable {
+    case appleIntelligenceNotEnabled = "apple_intelligence_not_enabled"
+    case deviceNotEligible = "device_not_eligible"
+    case modelNotReady = "model_not_ready"
+    case unknown = "unknown"
+    case unsupportedOS = "unsupported_os"
+}
+
+// MARK: - AppleLlmGenerateParams
+public struct AppleLlmGenerateParams: Codable, Sendable {
+    public let instructions: String?
+    public let maxTokens: Int?
+    public let prompt: String
+    /// Guided generation: a JSON Schema subset (object, array, string, number, integer, boolean,
+    /// string enum; properties, required, items). The reply is JSON text of that shape.
+    public let schema: [String: JSONAny]?
+    public let temperature: Double?
+    public let timeoutMS: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case instructions = "instructions"
+        case maxTokens = "maxTokens"
+        case prompt = "prompt"
+        case schema = "schema"
+        case temperature = "temperature"
+        case timeoutMS = "timeoutMs"
+    }
+
+    public init(instructions: String?, maxTokens: Int?, prompt: String, schema: [String: JSONAny]?, temperature: Double?, timeoutMS: Int?) {
+        self.instructions = instructions
+        self.maxTokens = maxTokens
+        self.prompt = prompt
+        self.schema = schema
+        self.temperature = temperature
+        self.timeoutMS = timeoutMS
+    }
+}
+
+// MARK: - AppleLlmGenerateResult
+public struct AppleLlmGenerateResult: Codable, Sendable {
+    public let reason: AppleLlmUnavailableReason?
+    public let refusal: AppleLlmRefusal?
+    /// True when `text` is JSON from a schema
+    public let structured: Bool
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case reason = "reason"
+        case refusal = "refusal"
+        case structured = "structured"
+        case text = "text"
+    }
+
+    public init(reason: AppleLlmUnavailableReason?, refusal: AppleLlmRefusal?, structured: Bool, text: String) {
+        self.reason = reason
+        self.refusal = refusal
+        self.structured = structured
+        self.text = text
+    }
+}
+
+public enum AppleLlmRefusal: String, Codable, Sendable {
+    case contextExceeded = "context_exceeded"
+    case failed = "failed"
+    case guardrail = "guardrail"
+    case rateLimited = "rate_limited"
+    case timedOut = "timed_out"
+    case tooLong = "too_long"
+    case unavailable = "unavailable"
+    case unsupportedLanguage = "unsupported_language"
+    case unsupportedSchema = "unsupported_schema"
+}
+
+// MARK: - AppleLlmStatus
+public struct AppleLlmStatus: Codable, Sendable {
+    public let available: Bool
+    public let contextTokens: Int
+    /// A Mac helper that offers llm.apple.* is live
+    public let helperConnected: Bool
+    public let reason: AppleLlmUnavailableReason?
+    /// The model ref to select, apple/on-device
+    public let ref: String
+
+    public enum CodingKeys: String, CodingKey {
+        case available = "available"
+        case contextTokens = "contextTokens"
+        case helperConnected = "helperConnected"
+        case reason = "reason"
+        case ref = "ref"
+    }
+
+    public init(available: Bool, contextTokens: Int, helperConnected: Bool, reason: AppleLlmUnavailableReason?, ref: String) {
+        self.available = available
+        self.contextTokens = contextTokens
+        self.helperConnected = helperConnected
+        self.reason = reason
+        self.ref = ref
     }
 }
 
@@ -32414,6 +32542,7 @@ public enum WrapUpBlockType: String, Codable, Sendable {
 }
 
 public typealias AccessListParams = [String: JSONAny]
+public typealias AppleLlmAvailabilityParams = [String: JSONAny]
 public typealias AuditVerifyParams = [String: JSONAny]
 public typealias BackupListParams = [String: JSONAny]
 public typealias BridgeTabsListParams = [String: JSONAny]
@@ -32442,6 +32571,7 @@ public typealias MemoryNotesListParams = [String: JSONAny]
 public typealias MemoryPersonaGetParams = [String: JSONAny]
 public typealias MemorySendersListParams = [String: JSONAny]
 public typealias MemoryStatusParams = [String: JSONAny]
+public typealias ModelsAppleStatusParams = [String: JSONAny]
 public typealias ModelsListParams = [String: JSONAny]
 public typealias NodesListParams = [String: JSONAny]
 public typealias PasskeysListParams = [String: JSONAny]
