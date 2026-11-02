@@ -493,7 +493,7 @@ export function OnboardingFlow({
           id={headingId}
           ref={headingRef}
           tabIndex={-1}
-          className="text-large-title text-label-primary outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="font-display text-large-title font-medium text-label-primary outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <span className="sr-only">
             {t("onboarding.stepOf", { n: index + 1, total: steps.length })}{" "}

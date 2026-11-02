@@ -11,6 +11,7 @@ const twMerge = extendTailwindMerge({
       "font-size": [
         {
           text: [
+            "page-title",
             "large-title",
             "title-1",
             "title-2",

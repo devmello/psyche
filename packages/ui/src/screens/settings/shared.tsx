@@ -169,8 +169,8 @@ export function SectionFrame({
       {/* PageHeader's layout one level down: Settings owns the page's h1, each section an h2. */}
       <header className="flex flex-wrap items-end gap-x-3 gap-y-2">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          {/* The section title (text-title-1, redesign §5.8); Settings owns the page's h1. */}
-          <h2 id={id} className="text-title-1 text-label-primary">
+          {/* The section title (display serif, unslop 2026-11); Settings owns the page's h1. */}
+          <h2 id={id} className="font-display text-page-title text-label-primary">
             {title}
           </h2>
           {description ? <p className="text-callout text-label-secondary">{description}</p> : null}

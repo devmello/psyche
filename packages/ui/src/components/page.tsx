@@ -76,7 +76,7 @@ export function PageHeader({
     <header className={cn("flex flex-wrap items-end gap-x-3 gap-y-2", className)}>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <h1 className="text-title-1 text-label-primary">{title}</h1>
+          <h1 className="font-display text-page-title text-label-primary">{title}</h1>
           {meta ? <p className="text-body text-label-secondary">{meta}</p> : null}
         </div>
         {description ? <p className="text-body text-label-secondary">{description}</p> : null}

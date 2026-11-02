@@ -44,7 +44,9 @@ export function CapabilitiesScreen({
       data-testid="capabilities"
     >
       <header className="flex flex-col gap-1">
-        <h1 className="text-large-title text-label-primary">{t("capabilities.title")}</h1>
+        <h1 className="font-display text-large-title font-medium text-label-primary">
+          {t("capabilities.title")}
+        </h1>
         <p className="text-reading text-label-secondary">{t("capabilities.lead")}</p>
       </header>
       <Group
