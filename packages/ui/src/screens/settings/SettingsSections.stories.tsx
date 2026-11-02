@@ -925,8 +925,6 @@ const serverProps = {
   ...form,
   status: sampleServerStatus(),
   onAddPasskey: noop,
-  onStartVm: noop,
-  onStopVm: noop,
   onSetUpRemote: noop,
 };
 export const ServerPopulated: Story = { render: () => <ServerPanel {...serverProps} /> };

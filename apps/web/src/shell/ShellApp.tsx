@@ -447,7 +447,8 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
       if (to.startsWith("/settings")) {
         if (settingsWindow) to = `/window${to}`;
         else if (openSettings) {
-          openSettings(to.split("/")[2]);
+          // Keep the view too (`connectors/add-mcp`), not only the section.
+          openSettings(to.slice("/settings/".length).split(/[?#]/)[0] || undefined);
           return;
         }
       } else if (settingsWindow) {
@@ -877,7 +878,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
   ];
 
   if (settingsWindow) {
-    const section = route.slice("/window".length) || "/settings/model";
+    const section = route.slice("/window".length) || "/settings/essentials";
     return (
       <UiSlotsProvider value={kitSlots}>
         <div className="app-frame" data-testid="settings-window">

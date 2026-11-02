@@ -10,7 +10,6 @@ import { usePersona, useSlots } from "../../slots.tsx";
 import { LearningGroup } from "./LearningGroup.tsx";
 import { MapGroup } from "./MapSettings.tsx";
 import {
-  bool,
   ErrorNotice,
   Group,
   LoadGate,
@@ -142,13 +141,6 @@ export function MemoryControlsPanel({
             checked={memoryPaused}
             onChange={(v) => onPauseMemory?.(v)}
             disabled={onPauseMemory === undefined || busy}
-          />
-          <SwitchField
-            label={t("settings.key.data.transcriptRecall")}
-            description={t("settings.data.transcriptRecallHint")}
-            checked={bool(values, "data.transcriptRecall", true)}
-            settingKey="data.transcriptRecall"
-            onChange={(v) => onChange("data.transcriptRecall", v)}
           />
           <RadioField<"markdown" | "embeddings">
             label={t("settings.key.memory.recall.mode")}
@@ -396,8 +388,22 @@ export function DataControlsPanel({
   );
 }
 
+/** Saves the export zip as a download, when the shell has no save of its own. */
+export function downloadExport(file: ExportFile): void {
+  if (typeof URL.createObjectURL !== "function" || typeof document === "undefined") return;
+  const bytes = Uint8Array.from(atob(file.data), (c) => c.charCodeAt(0));
+  const url = URL.createObjectURL(new Blob([bytes], { type: file.mime }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = file.filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
 export interface DataControlsSectionProps {
-  /** Receives the export zip; the shell saves it to disk. */
+  /** Receives the export zip; without it the zip is saved as a download (`downloadExport`). */
   onExportReady?: (file: ExportFile) => void;
 }
 
@@ -502,7 +508,7 @@ export function DataControlsSection({ onExportReady }: DataControlsSectionProps)
       onExport={() =>
         void act(async () => {
           const file = await call("memory.export", {});
-          onExportReady?.(file);
+          (onExportReady ?? downloadExport)(file);
           return t("settings.data.exportReady", { filename: file.filename });
         }, "export")
       }

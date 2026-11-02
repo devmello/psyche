@@ -1,8 +1,10 @@
 import { PROTOCOL_VERSION } from "@psyche/protocol";
 import { CircleAlert, CircleCheck, CircleX, Loader } from "lucide-react";
-import type { ReactElement } from "react";
+import { type ReactElement, useCallback, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
+import { useCall } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
+import { describeError } from "../../i18n/errors.ts";
 import { useSlots } from "../../slots.tsx";
 import { Facts, Group, SectionFrame } from "./shared.tsx";
 import type { AboutInfo, DoctorCheck } from "./types.ts";
@@ -142,5 +144,67 @@ export function AboutPanel({
   );
 }
 
-/** The shell supplies versions and runs `psyche doctor`; the Gateway has no method for either. */
-export const AboutSection = AboutPanel;
+/**
+ * The checks "Run checks" runs when the shell has its own `psyche doctor` to offer: each one a
+ * Gateway call that already exists, so it says what is wrong in the owner's words.
+ */
+export function useDoctor(): {
+  checks: DoctorCheck[] | null;
+  running: boolean;
+  run: () => void;
+} {
+  const call = useCall();
+  const [checks, setChecks] = useState<DoctorCheck[] | null>(null);
+  const [running, setRunning] = useState(false);
+  const run = useCallback(() => {
+    setRunning(true);
+    const check = async (
+      id: string,
+      label: string,
+      fn: () => Promise<Omit<DoctorCheck, "id" | "label">>,
+    ): Promise<DoctorCheck> => {
+      try {
+        return { id, label, ...(await fn()) };
+      } catch (err) {
+        return { id, label, status: "fail", detail: describeError(err) };
+      }
+    };
+    void Promise.all([
+      check("gateway", t("settings.doctor.gateway"), async () => {
+        await call("settings.get", {});
+        return { status: "ok", detail: t("settings.doctor.gatewayOk") };
+      }),
+      check("model", t("settings.doctor.model"), async () => {
+        const r = await call("models.list", {});
+        const ref = r.roles.primary;
+        return ref
+          ? { status: "ok", detail: ref }
+          : { status: "warn", detail: t("settings.doctor.noModel") };
+      }),
+      check("sandbox", t("settings.doctor.sandbox"), async () => {
+        const r = await call("sandbox.status", {});
+        return r.available
+          ? { status: "ok", detail: r.backend }
+          : { status: "warn", detail: t("settings.doctor.noSandbox") };
+      }),
+      check("memory", t("settings.doctor.memory"), async () => {
+        const r = await call("memory.status", {});
+        return r.paused
+          ? { status: "warn", detail: t("settings.doctor.memoryPaused") }
+          : { status: "ok", detail: t("settings.doctor.memoryOk", { files: r.files }) };
+      }),
+    ])
+      .then(setChecks)
+      .finally(() => setRunning(false));
+  }, [call]);
+  return { checks, running, run };
+}
+
+/** About with "Run checks" wired to `useDoctor` unless the shell runs its own doctor. */
+export function AboutSection(props: AboutPanelProps): ReactElement {
+  const own = useDoctor();
+  if (props.onRunDoctor) return <AboutPanel {...props} />;
+  return (
+    <AboutPanel {...props} doctor={own.checks} doctorRunning={own.running} onRunDoctor={own.run} />
+  );
+}

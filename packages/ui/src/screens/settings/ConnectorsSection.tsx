@@ -98,6 +98,8 @@ export interface ConnectorsPanelProps extends LoadProps {
   onReconnect?: (connector: Connector) => void;
   onDisconnect?: (connector: Connector) => void;
   onRemove?: (connector: Connector) => void;
+  /** Which rows offer Remove (default: all, when `onRemove` is given). */
+  removable?: (connector: Connector) => boolean;
   /** Shared folders (File access); Obsidian's vault is one of them. */
   sharedFolders?: readonly string[];
   /** Shares a folder through File access (read-only, or read-and-write for read and act). */
@@ -155,6 +157,7 @@ export function ConnectorsPanel({
   onReconnect,
   onDisconnect,
   onRemove,
+  removable,
   defaultAdding = false,
   connectProgress,
   implemented,
@@ -415,7 +418,7 @@ export function ConnectorsPanel({
                             },
                           ]}
                           destructive={
-                            onRemove
+                            onRemove && (removable?.(c) ?? true)
                               ? [
                                   {
                                     label: t("common.remove"),
@@ -571,12 +574,37 @@ export function ConnectorsSection({
   // Connect drives the real sign-in unless the host supplies its own (#505).
   const flow = useConnectorConnect();
   const builtIn = props.onConnect === undefined;
+  // Disconnect, Sign in again and Remove call the Gateway unless the host supplies its own; only
+  // a custom connector can be removed (`connectors.removeCustom`), so only its row offers it.
+  const act = (method: "connectors.disconnect" | "connectors.removeCustom", c: Connector) => {
+    setConfigureError(null);
+    void call(method, { connectorId: c.id }).then(
+      () => q.reload(),
+      (err: unknown) => {
+        setConfigureError(
+          t("settings.connectors.actionFailed", { name: c.label, reason: describeError(err) }),
+        );
+        q.reload();
+      },
+    );
+  };
+  const builtInActions = {
+    onDisconnect: props.onDisconnect ?? ((c: Connector) => act("connectors.disconnect", c)),
+    onReconnect: props.onReconnect ?? ((c: Connector) => void flow.resume(c, c.label)),
+    ...(props.onRemove
+      ? {}
+      : {
+          onRemove: (c: Connector) => act("connectors.removeCustom", c),
+          removable: (c: Connector) => c.type === "custom",
+        }),
+  };
   return (
     <div className="flex flex-col gap-3">
       <ConnectorsPanel
         // A new landing (⌘K "Add MCP server") starts the panel over on that view.
         key={view ?? "default"}
         {...props}
+        {...builtInActions}
         {...(now === undefined ? {} : { now })}
         mcp={mcp}
         {...(view === undefined ? {} : { defaultFilter: "mcp" as const })}

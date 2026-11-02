@@ -168,8 +168,6 @@ export interface SettingsShellProps {
   onExportReady?: (file: ExportFile) => void;
   server?: ServerStatus;
   onAddPasskey?: () => void;
-  onStartVm?: () => void;
-  onStopVm?: () => void;
   onSetUpRemote?: () => void;
   usage?: UsageSummary | null;
   about?: AboutInfo | null;
@@ -304,13 +302,11 @@ export function SettingsSectionView({
         <ServerSection
           {...opt("status", s.server)}
           {...opt("onAddPasskey", s.onAddPasskey)}
-          {...opt("onStartVm", s.onStartVm)}
-          {...opt("onStopVm", s.onStopVm)}
           {...opt("onSetUpRemote", s.onSetUpRemote)}
         />
       );
     case "usage":
-      return <UsageSection usage={s.usage ?? null} />;
+      return <UsageSection {...opt("usage", s.usage)} />;
     case "essentials":
       return <EssentialsSection {...opt("onOpen", onOpenSection)} />;
     case "search":

@@ -115,6 +115,9 @@ describe("Settings in their own window on the desktop (docs/design/redesign-2026
     await screen.findByTestId("shell");
     await act(async () => command({ type: "navigate", route: "/settings/permissions" }));
     expect(opened).toEqual(["permissions"]);
+    // ⌘K "Add MCP server" keeps its view, so the window opens on the form.
+    await act(async () => command({ type: "navigate", route: "/settings/connectors/add-mcp" }));
+    expect(opened).toEqual(["permissions", "connectors/add-mcp"]);
     expect(screen.queryByTestId("settings-window")).toBeNull();
     expect(window.location.pathname).toBe("/chat");
   });

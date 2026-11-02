@@ -7,10 +7,12 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/ui/table.tsx";
+import { useGatewayQuery } from "../../data/hooks.ts";
 import type { UsageSummary } from "../../fixtures/index.ts";
 import { activeI18n, t } from "../../i18n/core.ts";
 import { formatTime } from "../../lib/format.ts";
 import { cn } from "../../lib/utils.ts";
+import type { UsageSummaryData } from "../../shell/UsageFooter.tsx";
 import { useSlots } from "../../slots.tsx";
 import { EmptyNotice, Group, LoadGate, type LoadProps, SectionFrame } from "./shared.tsx";
 
@@ -212,11 +214,112 @@ export function UsagePanel({ usage, loading, error, onRetry }: UsagePanelProps):
   );
 }
 
+/**
+ * Usage from the Gateway's `usage.summary` (#599): this month, today and the last 7 days by
+ * model. Subscription CLIs have no per-token cost, so their rows show turns, and their plan's
+ * window when the adapter reads it.
+ */
+export function UsageLivePanel({
+  summary,
+  loading = false,
+}: {
+  summary: UsageSummaryData | undefined;
+  loading?: boolean;
+}): ReactElement {
+  const month = summary?.month;
+  const budget = summary?.budgetUsd ?? null;
+  return (
+    <SectionFrame title={t("settings.usage.title")} description={t("settings.usage.description")}>
+      <LoadGate
+        label={t("settings.usage.loadLabel")}
+        loading={loading && summary === undefined}
+        error={null}
+      >
+        {summary === undefined || month === undefined ? (
+          <EmptyNotice text={t("settings.usage.unavailable")} />
+        ) : (
+          <>
+            <Group
+              title={t("settings.usage.thisMonth")}
+              description={t("settings.usage.monthLine", {
+                cost: usd(month.costUsd),
+                tokens: tokens(month.tokens),
+                turns: month.turns,
+                today: usd(summary.today.costUsd),
+              })}
+            >
+              {budget !== null && budget > 0 ? (
+                <UsageMeter percentRemaining={100 - (month.costUsd / budget) * 100} />
+              ) : (
+                <p className="text-callout text-label-secondary">{t("settings.usage.noBudget")}</p>
+              )}
+            </Group>
+            <Group title={t("settings.usage.byModel")}>
+              {summary.byModel.length === 0 ? (
+                <p className="text-callout text-label-secondary">{t("settings.usage.empty")}</p>
+              ) : (
+                <Table aria-label={t("settings.usage.byModel")}>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead scope="col">{t("settings.usage.model")}</TableHead>
+                      <TableHead scope="col" className="text-end">
+                        {t("settings.usage.tokens")}
+                      </TableHead>
+                      <TableHead scope="col" className="text-end">
+                        {t("settings.usage.cost")}
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {summary.byModel.map((m) => (
+                      <TableRow key={m.modelRef}>
+                        <TableCell className="font-mono text-callout">{m.modelRef}</TableCell>
+                        <TableCell className="text-end tabular-nums">{tokens(m.tokens)}</TableCell>
+                        <TableCell className="text-end tabular-nums">
+                          {m.subscription
+                            ? t("settings.usage.turns", { n: m.turns })
+                            : usd(m.costUsd)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </Group>
+            {summary.planWindow ? (
+              <p className="px-1 text-callout text-label-secondary">
+                {t("settings.usage.planWindow", {
+                  model: summary.planWindow.modelRef,
+                  pct: Math.round(summary.planWindow.usedFraction * 100),
+                  when: formatTime(summary.planWindow.resetsAt),
+                })}
+              </p>
+            ) : null}
+          </>
+        )}
+      </LoadGate>
+    </SectionFrame>
+  );
+}
+
+function ConnectedUsage(): ReactElement {
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  const q = useGatewayQuery("usage.summary", { days: 7, timeZone });
+  // An older Gateway refuses the method: say so instead of loading forever.
+  const data = q.data as Partial<UsageSummaryData> | undefined;
+  const summary =
+    data && Array.isArray(data.byModel) && data.today && data.month
+      ? (data as UsageSummaryData)
+      : undefined;
+  return <UsageLivePanel summary={summary} loading={q.loading && q.error === null} />;
+}
+
 export interface UsageSectionProps extends LoadProps {
-  /** The protocol has no usage summary method yet; the shell passes it in. */
+  /** A summary to show instead of the Gateway's (stories, tests). */
   usage?: UsageSummary | null;
 }
 
-export function UsageSection({ usage = null, ...load }: UsageSectionProps): ReactElement {
+export function UsageSection({ usage, ...load }: UsageSectionProps): ReactElement {
+  if (usage === undefined) return <ConnectedUsage />;
   return <UsagePanel usage={usage} {...load} />;
 }

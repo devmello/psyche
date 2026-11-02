@@ -37,7 +37,6 @@ const meta = {
     onConnectManager: noop,
     onRunDoctor: noop,
     onOpenLogs: noop,
-    onStartVm: noop,
     onAddPasskey: noop,
   },
   parameters: { layout: "padded" },

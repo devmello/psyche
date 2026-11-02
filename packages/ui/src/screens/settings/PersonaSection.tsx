@@ -230,14 +230,12 @@ export interface PersonaSectionProps {
 
 export function PersonaSection({ onDescribeChange }: PersonaSectionProps): ReactElement {
   const form = useSettingsForm();
-  const image = str(form.values, "models.image", "none");
   return (
     <div className="flex flex-col gap-3">
       <PersonaPanel
         values={form.values}
         onChange={form.onChange}
         needsApproval={form.needsApproval}
-        hasImageModel={image !== "none" && image !== ""}
         loading={form.loading && Object.keys(form.values).length === 0}
         error={form.error}
         onRetry={form.reload}

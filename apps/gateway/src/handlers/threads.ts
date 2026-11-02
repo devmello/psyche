@@ -5,6 +5,7 @@ import {
   deleteThread,
   findThreadBySessionKey,
   getMessage,
+  getSetting,
   getThread,
   listEmptyUserChats,
   listMessagesPage,
@@ -178,6 +179,21 @@ export async function removeThread(call: Call, threadId: string): Promise<void> 
   ctx.bus.publish("thread.deleted", { threadId }, threadId);
 }
 
+/**
+ * The owner's default mode for a new thread: Settings → Permissions → "Default mode for new
+ * threads" (`permissions.mode`). `auto` holds only when the thread's model (its own, else the
+ * default chat model) is on the auto-mode allowlist; otherwise the thread starts balanced.
+ */
+export function defaultThreadMode(call: Call, modelRef?: ModelRef): PermissionMode | undefined {
+  const v = getSetting(call.ctx.db, "permissions.mode")?.value;
+  if (v !== "manual" && v !== "balanced" && v !== "auto") return undefined;
+  if (v !== "auto") return v;
+  const ref = modelRef ?? call.ctx.threadModels?.defaultModel?.();
+  return ref !== undefined && call.ctx.threadModels?.allowsAutoMode(ref) === true
+    ? "auto"
+    : "balanced";
+}
+
 export const threadsHandlers: Record<string, HandlerDef> = {
   "threads.create": {
     transactional: true,
@@ -215,12 +231,13 @@ export const threadsHandlers: Record<string, HandlerDef> = {
         if (existing) return { thread: existing };
       }
       const id = db.newId();
+      const mode = params.permissionMode ?? defaultThreadMode(call, params.modelRef);
       const thread = createThread(db, {
         id,
         kind,
         sessionKey: kind === "main" ? MAIN_SESSION_KEY : `owner:${kind}:${id}`,
         ...(params.title === undefined ? {} : { title: params.title }),
-        ...(params.permissionMode === undefined ? {} : { permissionMode: params.permissionMode }),
+        ...(mode === undefined ? {} : { permissionMode: mode }),
         modelRef: params.modelRef ?? null,
         parentThreadId: params.parentThreadId ?? null,
         expiresAt:

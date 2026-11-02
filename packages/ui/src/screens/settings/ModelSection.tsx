@@ -234,9 +234,9 @@ export function RamGuidance({ ramGb }: { ramGb?: number }): ReactElement {
   );
 }
 
-type RoleKey = "models.primary" | "models.utility" | "models.image";
+type RoleKey = "models.primary" | "models.utility";
 
-const modelRole = <K extends RoleKey>(key: K, id: "primary" | "utility" | "image") => ({
+const modelRole = <K extends RoleKey>(key: K, id: "primary" | "utility") => ({
   key,
   get label(): string {
     return t(`settings.model.role.${id}`);
@@ -249,7 +249,6 @@ const modelRole = <K extends RoleKey>(key: K, id: "primary" | "utility" | "image
 export const MODEL_ROLES = [
   modelRole("models.primary", "primary"),
   modelRole("models.utility", "utility"),
-  modelRole("models.image", "image"),
 ] as const;
 
 export interface ModelProvidersPanelProps extends SettingsFormProps, LoadProps {
@@ -509,7 +508,7 @@ export function ModelProvidersPanel({
 
         <Group title={t("settings.model.roles")} description={t("settings.model.rolesHint")}>
           {MODEL_ROLES.map((role) => {
-            const current = str(values, role.key, role.key === "models.image" ? "none" : "");
+            const current = str(values, role.key, "");
             const options = models.some((m) => m.ref === current)
               ? models
               : current === "" || current === "none"
@@ -530,9 +529,6 @@ export function ModelProvidersPanel({
                     value={current}
                     onChange={(e) => onChange(role.key, e.target.value)}
                   >
-                    {role.key === "models.image" ? (
-                      <option value="none">{t("settings.model.none")}</option>
-                    ) : null}
                     {current === "" ? <option value="">{t("settings.model.choose")}</option> : null}
                     {options.map((m) => (
                       <option key={m.ref} value={m.ref}>

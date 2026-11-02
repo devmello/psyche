@@ -533,6 +533,17 @@ export const settings = {
   "settings.actions.hideKey": "Hide technical name",
   "settings.matrix.cell": "{row}: {column}",
 
+  // Settings → About → Run checks (useDoctor in AboutSection.tsx).
+  "settings.doctor.gateway": "Gateway",
+  "settings.doctor.gatewayOk": "Answering.",
+  "settings.doctor.model": "Model",
+  "settings.doctor.noModel": "No model is picked yet. Add one in Settings → Models.",
+  "settings.doctor.sandbox": "Sandbox",
+  "settings.doctor.noSandbox": "No sandbox is available, so commands stay blocked.",
+  "settings.doctor.memory": "Memory",
+  "settings.doctor.memoryPaused": "Memory is paused: nothing new is remembered.",
+  "settings.doctor.memoryOk": "{files, plural, one {# file} other {# files}} in memory.",
+
   // Settings → About (AboutSection.tsx).
   "settings.about.title": "About",
   "settings.about.description": "Psyche is open source under the Apache 2.0 license.",
@@ -917,6 +928,7 @@ export const settings = {
   "settings.connectors.try.calendar.focus": "Block two hours for focus tomorrow morning",
   "settings.connectors.disconnectNamed": "Disconnect {name}",
   "settings.connectors.disconnect": "Disconnect",
+  "settings.connectors.actionFailed": "Psyche couldn't change {name} ({reason}). Nothing changed.",
   "settings.connectors.removeTitle": "Remove {name}?",
   "settings.connectors.removeDescription":
     "{name} is disconnected and its settings and access rules are deleted. Connecting it again starts over.",
@@ -1819,6 +1831,15 @@ export const settings = {
     "{n, plural, =0 {Every installed skill is up to date.} one {# update available.} other {# updates available.}}",
 
   // Settings → Usage (UsageSection.tsx).
+  "settings.usage.unavailable": "Usage isn't available from this Gateway yet.",
+  "settings.usage.thisMonth": "This month",
+  "settings.usage.monthLine":
+    "{cost} and {tokens} tokens over {turns, plural, one {# turn} other {# turns}}. Today so far: {today}.",
+  "settings.usage.noBudget": "No monthly budget is set.",
+  "settings.usage.byModel": "Last 7 days by model",
+  "settings.usage.model": "Model",
+  "settings.usage.turns": "{n, plural, one {# turn} other {# turns}}",
+  "settings.usage.planWindow": "{model}: {pct}% of the plan's window used, resets {when}.",
   "settings.usage.millions": "{n}M",
   "settings.usage.thousands": "{n}k",
   "settings.usage.budgetRemaining": "Budget remaining",

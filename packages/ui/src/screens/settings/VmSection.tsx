@@ -239,32 +239,6 @@ export function VmPanel({
             ]}
           />
         </Group>
-        <Group title={t("settings.vm.between")} description={t("settings.vm.betweenHint")}>
-          <RadioField<VmClipboard>
-            label={t("settings.key.vm.clipboard")}
-            inline
-            value={vm.clipboard}
-            settingKey={K.clipboard}
-            onChange={(v) => onChange(K.clipboard, v)}
-            options={[
-              { value: "paste-only", label: clipboardLabel("paste-only") },
-              { value: "bidirectional", label: clipboardLabel("bidirectional") },
-              { value: "off", label: clipboardLabel("off") },
-            ]}
-          />
-          <RadioField<VmCredentials>
-            label={t("settings.vm.credentials")}
-            description={t("settings.vm.credentialsHint")}
-            inline
-            value={vm.credentials}
-            settingKey={K.credentials}
-            onChange={(v) => onChange(K.credentials, v)}
-            options={[
-              { value: "host", label: vaultLabel("host") },
-              { value: "guest", label: vaultLabel("guest") },
-            ]}
-          />
-        </Group>
         <Group
           title={t("settings.vm.guestStatusTitle")}
           description={t("settings.vm.guestStatusHint")}

@@ -55,10 +55,8 @@ import {
   LoadGate,
   type LoadProps,
   messageOf,
-  RadioField,
   SectionFrame,
   type SettingsFormProps,
-  str,
   useSettingsForm,
 } from "./shared.tsx";
 
@@ -150,8 +148,6 @@ export interface CredentialsPanelProps extends SettingsFormProps, LoadProps {
 
 export function CredentialsPanel({
   credentials,
-  values,
-  onChange,
   needsApproval,
   now,
   onAdd,
@@ -186,8 +182,6 @@ export function CredentialsPanel({
   const shown = credentials.filter((c) => matchesCredential(c, query));
   const actions = onUpdate !== undefined || onDelete !== undefined;
   const columns = actions ? 6 : 5;
-  const backend = str(values, "vault.backend", "psyche");
-  const fill = str(values, "vault.fillDefault", "once");
   return (
     <SectionFrame
       needsApproval={needsApproval}
@@ -200,32 +194,6 @@ export function CredentialsPanel({
         error={error ?? null}
         {...(onRetry ? { onRetry } : {})}
       >
-        <Group title={t("settings.credentials.storage")}>
-          <RadioField
-            label={t("settings.key.vault.backend")}
-            inline
-            value={backend}
-            settingKey="vault.backend"
-            onChange={(v) => onChange("vault.backend", v)}
-            options={[
-              { value: "psyche", label: t("settings.credentials.backend.psyche") },
-              { value: "keychain", label: t("settings.credentials.backend.keychain") },
-              { value: "external", label: t("settings.credentials.backend.external") },
-            ]}
-          />
-          <RadioField
-            label={t("settings.key.vault.fillDefault")}
-            inline
-            value={fill}
-            settingKey="vault.fillDefault"
-            onChange={(v) => onChange("vault.fillDefault", v)}
-            options={[
-              { value: "once", label: t("settings.credentials.fill.once") },
-              { value: "site", label: t("settings.credentials.fill.site") },
-            ]}
-          />
-        </Group>
-
         <Group
           title={t("settings.credentials.items")}
           actions={

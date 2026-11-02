@@ -32,7 +32,10 @@ function keysInSource(): Set<string> {
     const text = readFileSync(f, "utf8");
     for (const p of patterns) for (const m of text.matchAll(p)) found.add(m[1] as string);
   }
-  for (const k of Object.values(VM_SETTING_KEYS)) found.add(k);
+  // Clipboard and credentials have no reader in the Gateway, so Settings shows no control for
+  // them (settings-2026 §6); the guest still reports its own, labelled in VM mode.
+  const unread = new Set<string>([VM_SETTING_KEYS.clipboard, VM_SETTING_KEYS.credentials]);
+  for (const k of Object.values(VM_SETTING_KEYS)) if (!unread.has(k)) found.add(k);
   return found;
 }
 
