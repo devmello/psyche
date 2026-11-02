@@ -58,7 +58,7 @@ export function OverviewSummary({ period, onNavigate }: OverviewSummaryProps): R
     >
       {data === undefined ? (
         status.phase === "error" ? (
-          <LoadFailed onRetry={status.reload} />
+          <LoadFailed message={i18n.t("overview.error.summary")} onRetry={status.reload} />
         ) : (
           <SummarySkeleton />
         )
@@ -272,7 +272,7 @@ function LessonsPlaceholder({
         <span className="text-caption text-label-secondary">
           {i18n.t("overview.summary.tile.lessons")}
         </span>
-        <LoadFailed onRetry={onRetry} />
+        <LoadFailed message={i18n.t("overview.error.lessons")} onRetry={onRetry} />
       </div>
     );
   }
