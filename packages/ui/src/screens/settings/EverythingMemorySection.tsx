@@ -12,6 +12,8 @@ import {
   type EverythingValues,
   ModelFields,
   PeopleFields,
+  PerSourceModels,
+  readConfirmed,
   readEverything,
   SensitiveFields,
   SourceFields,
@@ -44,7 +46,7 @@ export function EverythingPanel({
   value: EverythingValues;
   onChange: (next: EverythingValues) => void;
   onTurnOn: () => void;
-  localConfirmed: string | undefined;
+  localConfirmed: readonly string[];
   onConfirmLocal: (ref: string) => void;
   exclusions: ReactElement;
 }): ReactElement {
@@ -63,6 +65,12 @@ export function EverythingPanel({
       {off ? null : (
         <>
           <ModelFields
+            value={value}
+            onChange={onChange}
+            localConfirmed={localConfirmed}
+            onConfirmLocal={onConfirmLocal}
+          />
+          <PerSourceModels
             value={value}
             onChange={onChange}
             localConfirmed={localConfirmed}
@@ -171,8 +179,9 @@ export function EverythingMemorySection(): ReactElement {
   const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState(false);
   const value = readEverything(form.values);
-  const confirmedRaw = form.values[EVERYTHING_LOCAL_CONFIRMED];
-  const localConfirmed = typeof confirmedRaw === "string" ? confirmedRaw : undefined;
+  const localConfirmed = readConfirmed(form.values[EVERYTHING_LOCAL_CONFIRMED]);
+  const confirmLocal = (ref: string) =>
+    form.onChange(EVERYTHING_LOCAL_CONFIRMED, [...new Set([...localConfirmed, ref])]);
   const fail = (err: unknown) =>
     toast.error(t("memoryReview.failed", { reason: describeError(err) }));
 
@@ -214,7 +223,7 @@ export function EverythingMemorySection(): ReactElement {
           onChange={(next) => form.onChange(EVERYTHING_KEY, next)}
           onTurnOn={() => setConsent(true)}
           localConfirmed={localConfirmed}
-          onConfirmLocal={(ref) => form.onChange(EVERYTHING_LOCAL_CONFIRMED, ref)}
+          onConfirmLocal={confirmLocal}
           exclusions={
             <ExclusionsPanel
               entries={list.data?.entries ?? []}
@@ -231,9 +240,8 @@ export function EverythingMemorySection(): ReactElement {
             persona={persona.name}
             localConfirmed={localConfirmed}
             onCancel={() => setConsent(false)}
-            onFinish={(settings, confirmLocal) => {
-              if (confirmLocal !== undefined)
-                form.onChange(EVERYTHING_LOCAL_CONFIRMED, confirmLocal);
+            onFinish={(settings, confirmed) => {
+              if (confirmed.length > 0) form.onChange(EVERYTHING_LOCAL_CONFIRMED, confirmed);
               form.onChange(EVERYTHING_KEY, settings);
               setConsent(false);
             }}

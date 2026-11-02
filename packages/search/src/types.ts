@@ -134,6 +134,11 @@ export interface SearchRequest {
    * never ⌘K keystrokes). Ignored unless the owner enabled it and the viewer is the owner.
    */
   rerank?: boolean;
+  /**
+   * Let the cheap query model read a question the rules could not filter (Search screen Enter,
+   * the agent tool; never ⌘K keystrokes). Ignored when no model is configured.
+   */
+  smart?: boolean;
 }
 
 /** How a query was read: the chips shown on the Search screen and how far it was relaxed. */

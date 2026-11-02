@@ -1235,7 +1235,7 @@ export type ArtifactVersionKind = "snapshot" | "ops";
 export interface ArtifactOp {
     new?:     string;
     old?:     string;
-    op:       Op;
+    op:       ArtifactOpOp;
     after?:   string;
     text?:    string;
     content?: string;
@@ -1272,7 +1272,7 @@ export interface ArtifactSlidePatch {
     title?:    null | string;
 }
 
-export type Op = "replace" | "insert" | "rewrite" | "set" | "setRange" | "addRows" | "deleteRows" | "addColumn" | "view" | "addMarker" | "removeMarker" | "updateMarker" | "replaceSection" | "addSection" | "removeSection" | "addSlide" | "updateSlide" | "removeSlide" | "moveSlide" | "setTheme" | "setCells" | "addSheet" | "renameSheet" | "removeSheet" | "patch";
+export type ArtifactOpOp = "replace" | "insert" | "rewrite" | "set" | "setRange" | "addRows" | "deleteRows" | "addColumn" | "view" | "addMarker" | "removeMarker" | "updateMarker" | "replaceSection" | "addSection" | "removeSection" | "addSlide" | "updateSlide" | "removeSlide" | "moveSlide" | "setTheme" | "setCells" | "addSheet" | "renameSheet" | "removeSheet" | "patch";
 
 export interface ArtifactMarkerPatch {
     label?: string;
@@ -2700,6 +2700,7 @@ export interface Block {
     statement?:      null | string;
     proposal?:       DailyWorkflowProposal;
     route?:          string;
+    widgetId?:       string;
 }
 
 export interface WrapUpAction {
@@ -2747,7 +2748,7 @@ export interface CompactionSummary {
 
 export type BlockTrigger = "auto" | "manual";
 
-export type BlockType = "text" | "tool_call" | "plan" | "checklist" | "approval" | "question" | "artifact" | "file" | "context" | "receipt" | "task" | "wrap_up" | "related_threads" | "sources" | "compaction" | "learned" | "taught" | "specialist_result" | "automation_workflow" | "app_link";
+export type BlockType = "text" | "tool_call" | "plan" | "checklist" | "approval" | "question" | "artifact" | "file" | "context" | "receipt" | "task" | "wrap_up" | "related_threads" | "sources" | "compaction" | "learned" | "taught" | "specialist_result" | "automation_workflow" | "app_link" | "ui";
 
 export interface ChatCancelParams {
     runId?:   string;
@@ -3942,7 +3943,7 @@ export interface DailySection {
     unavailable?: boolean;
 }
 
-export type DailySectionID = "calendar" | "mail" | "due" | "followups" | "weather" | "done" | "open" | "tomorrow" | "learned";
+export type DailySectionID = "calendar" | "mail" | "due" | "followups" | "weather" | "done" | "open" | "tomorrow" | "learned" | "coming_up";
 
 export interface InboxDigest {
     accounts: string[];
@@ -4947,7 +4948,7 @@ export interface InputRequestResult {
 }
 
 export interface InputRequest {
-    answer?:             { [key: string]: Answer } | null;
+    answer?:             { [key: string]: Value } | null;
     answeredAt?:         null | string;
     answeredByDeviceId?: null | string;
     createdAt:           string;
@@ -4958,7 +4959,7 @@ export interface InputRequest {
     threadId:            string;
 }
 
-export type Answer = string[] | string;
+export type Value = string[] | string;
 
 export interface Question {
     header:      string;
@@ -5561,6 +5562,50 @@ export interface MemoryEntitiesEdgesSetResult {
     superseded?: null | string;
 }
 
+export interface MemoryEntitiesExcludeParams {
+    dryRun?: boolean;
+    id:      string;
+    mode:    EverythingExclusionMode;
+}
+
+/**
+ * exclude: read no text, learn nothing; forget: also delete what was learned
+ */
+export type EverythingExclusionMode = "exclude" | "forget";
+
+export interface MemoryEntitiesExcludeResult {
+    dryRun: boolean;
+    /**
+     * Addresses and numbers excluded
+     */
+    excluded: number;
+    removed:  PersonRemoved;
+}
+
+export interface PersonRemoved {
+    citations:  number;
+    edges:      number;
+    facts:      number;
+    quarantine: number;
+}
+
+export interface MemoryEntitiesExportParams {
+    id: string;
+}
+
+export interface MemoryEntitiesExportResult {
+    bytes: number;
+    /**
+     * Base64 zip: person.json (facts with citations and history, relations, loops, claims) and
+     * the card
+     */
+    data:     string;
+    filename: string;
+    mime:     MemoryEntitiesExportResultMIME;
+}
+
+export type MemoryEntitiesExportResultMIME = "application/zip";
+
 export interface MemoryEntitiesFactsRetractParams {
     factId:  string;
     source?: GraphWriteSource;
@@ -5605,6 +5650,16 @@ export interface Removed {
     identifiers:  number;
     interactions: number;
     loops:        number;
+}
+
+export interface MemoryEntitiesForgetSaidParams {
+    dryRun?: boolean;
+    id:      string;
+}
+
+export interface MemoryEntitiesForgetSaidResult {
+    dryRun:  boolean;
+    removed: PersonRemoved;
 }
 
 export interface MemoryEntitiesGetParams {
@@ -5789,11 +5844,6 @@ export interface MemoryExclusionsAddParams {
 
 export type GraphBlockKind = "email" | "phone" | "domain";
 
-/**
- * exclude: read no text, learn nothing; forget: also delete what was learned
- */
-export type EverythingExclusionMode = "exclude" | "forget";
-
 export interface MemoryExclusionsAddResult {
     entry:     EverythingExclusion;
     forgotten: Forgotten;
@@ -5859,10 +5909,8 @@ export interface MemoryExportResult {
     bytes:    number;
     data:     string;
     filename: string;
-    mime:     MemoryExportResultMIME;
+    mime:     MemoryEntitiesExportResultMIME;
 }
-
-export type MemoryExportResultMIME = "application/zip";
 
 export interface MemoryFileChangedPayload {
     etag?: null | string;
@@ -6455,6 +6503,36 @@ export interface MemoryHit {
     score:   number;
 }
 
+export interface MemorySendersDecideParams {
+    decision: SenderTrustDecision;
+    entityId: string;
+}
+
+export type SenderTrustDecision = "trust" | "decline" | "revoke";
+
+export interface MemorySendersDecideResult {
+    senders: SenderTrust[];
+}
+
+export interface SenderTrust {
+    /**
+     * Facts the owner confirmed from them, none discarded
+     */
+    confirmed: number;
+    entityId:  string;
+    /**
+     * A display name from a mail header: untrusted text
+     */
+    name:  string;
+    state: SenderTrustState;
+}
+
+export type SenderTrustState = "offered" | "trusted";
+
+export interface MemorySendersListResult {
+    senders: SenderTrust[];
+}
+
 export interface MemoryStatusResult {
     chunks:       number;
     claims:       number;
@@ -6494,6 +6572,37 @@ export type MemoryVectorMode = "sqlite-vec" | "brute-force" | "off";
 export interface MemorySuggestionCreatedPayload {
     suggestion: GraphSuggestion;
 }
+
+export interface MemoryUpcomingParams {
+    /**
+     * Default 14
+     */
+    days?:     number;
+    entityId?: string;
+}
+
+export interface MemoryUpcomingResult {
+    items: ComingUpItem[];
+}
+
+export interface ComingUpItem {
+    /**
+     * Next occurrence, local date
+     */
+    date:           string;
+    daysAway:       number;
+    entityId:       string;
+    kind:           ComingUpKind;
+    lastContactAt?: null | string;
+    name:           string;
+    /**
+     * One plain line, built from names and dates
+     */
+    text:   string;
+    turns?: number | null;
+}
+
+export type ComingUpKind = "birthday" | "anniversary" | "event";
 
 export interface MemoryWriteParams {
     content: string;
@@ -8199,6 +8308,11 @@ export interface SearchQueryParams {
     limit?:     number;
     query:      string;
     scopes?:    SearchScope[];
+    /**
+     * Let the cheap query model read a question the rules could not filter (Enter, not
+     * keystrokes). Ignored when no model is configured
+     */
+    smart?: boolean;
 }
 
 export type SearchScope = "threads" | "messages" | "tasks" | "memory" | "library" | "feed" | "ideas" | "goals" | "connectors" | "people" | "projects";
@@ -9738,6 +9852,13 @@ export interface ToolSpec {
     targetKind?:            TargetKind;
 }
 
+export interface UIBlock {
+    type:     UIBlockType;
+    widgetId: string;
+}
+
+export type UIBlockType = "ui";
+
 export interface UsageRecord {
     cacheRead:  number;
     cacheWrite: number;
@@ -10536,6 +10657,106 @@ export interface VoiceStopParams {
 
 export interface VoiceStopResult {
     transcript: Transcript;
+}
+
+export interface WidgetAction {
+    kind:            WidgetActionKind;
+    text?:           string;
+    inputRequestId?: string;
+    value?:          Value;
+    artifactId?:     string;
+    fileId?:         string;
+    route?:          string;
+    url?:            string;
+    args?:           { [key: string]: unknown };
+    tool?:           string;
+}
+
+export type WidgetActionKind = "reply" | "answer" | "open" | "tool";
+
+export interface WidgetBind {
+    field:  string;
+    id:     string;
+    source: WidgetBindingSource;
+}
+
+export type WidgetBindingSource = "task" | "automation" | "research" | "tool_call" | "job";
+
+export interface WidgetPatch {
+    baseRev?: number;
+    ops:      WidgetOp[];
+    widgetId: string;
+}
+
+export interface WidgetOp {
+    id?:           string;
+    op:            WidgetOpOp;
+    props?:        { [key: string]: unknown };
+    field?:        string;
+    items?:        unknown[];
+    node?:         { [key: string]: unknown };
+    fallbackText?: string;
+    title?:        string;
+}
+
+export type WidgetOpOp = "set" | "append" | "prepend" | "remove" | "replace" | "meta";
+
+export type WidgetTone = "neutral" | "info" | "success" | "warning" | "danger";
+
+export interface WidgetUpdatedPayload {
+    /**
+     * Empty when only `state` changed
+     */
+    ops:      WidgetOp[];
+    rev:      number;
+    state?:   WidgetState;
+    threadId: string;
+    widgetId: string;
+}
+
+export type WidgetState = "live" | "frozen";
+
+export interface WidgetsGetParams {
+    widgetIds: string[];
+}
+
+export interface WidgetsGetResult {
+    /**
+     * Ids that do not exist or are not visible
+     */
+    missing: string[];
+    widgets: Widget[];
+}
+
+export interface Widget {
+    createdAt: string;
+    id:        string;
+    messageId: string;
+    owner:     WidgetOwner;
+    pinned:    boolean;
+    rev:       number;
+    spec:      WidgetSpec;
+    state:     WidgetState;
+    taint:     TaintSource[];
+    threadId:  string;
+    updatedAt: string;
+}
+
+export interface WidgetOwner {
+    kind:          WidgetOwnerKind;
+    runId?:        string;
+    taskId?:       string;
+    automationId?: string;
+    jobId?:        string;
+}
+
+export type WidgetOwnerKind = "run" | "task" | "automation" | "job";
+
+export interface WidgetSpec {
+    fallbackText: string;
+    root:         { [key: string]: unknown };
+    title:        string;
+    v:            number;
 }
 
 export interface WrapUpBlock {

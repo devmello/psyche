@@ -22,6 +22,7 @@ export * from "./sources/index.ts";
 export * from "./sqlite-index.ts";
 export * from "./types.ts";
 export * from "./understand.ts";
+export * from "./understand-model.ts";
 export * from "./web/index.ts";
 
 export interface CreateSearchIndexOptions extends SqliteSearchIndexOptions {

@@ -357,6 +357,7 @@ export async function searchEverything(
       limit,
       collapse: false,
       rerank: true,
+      smart: true,
       ...(input.sources === undefined || input.sources.length === 0
         ? {}
         : { sources: input.sources }),

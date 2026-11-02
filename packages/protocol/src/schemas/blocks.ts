@@ -242,6 +242,13 @@ export const AppLinkBlock = Type.Object(
   { $id: "AppLinkBlock" },
 );
 
+/**
+ * A generative-UI widget (docs/design/generative-ui-2026.md). Like `approval` and `question`, the
+ * block only points at its entity: the spec lives in `widgets` so it can change without
+ * rewriting the message.
+ */
+export const UiBlock = Type.Object({ type: Type.Literal("ui"), widgetId: Id }, { $id: "UiBlock" });
+
 export const Block = Type.Union(
   [
     TextBlock,
@@ -264,6 +271,7 @@ export const Block = Type.Union(
     SpecialistResultBlock,
     AutomationWorkflowBlock,
     AppLinkBlock,
+    UiBlock,
   ],
   { $id: "Block" },
 );

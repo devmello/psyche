@@ -17,6 +17,8 @@ const ALLOWED: Record<string, string> = {
   "chat/FollowUpQueue.tsx": "composer-attached queue",
   "chat/Thread.tsx": "composer and thread chrome",
   "chat/ThreadChrome.tsx": "thread header chrome",
+  "overview/SummarySection.tsx":
+    "the stat ledger is one sheet ruled by hairlines; its placeholder cells share that surface",
   "people/EntityCard.tsx": "people sheet cards; Output-class migration (phase 6)",
   "people/SuggestionCard.tsx": "people sheet cards; Output-class migration (phase 6)",
   "specialists/FeedResults.tsx": "Feed surface; specialist results become blocks in phase 6",
@@ -33,6 +35,7 @@ const ROOTS = [
   "people",
   "screen-ask",
   "voice",
+  "widgets",
 ];
 const src = join(import.meta.dirname, "../src");
 
@@ -71,5 +74,17 @@ describe("card chrome lint", () => {
       all.filter((f) => f.text.includes("bg-surface-raised")).map((f) => f.path),
     );
     expect(Object.keys(ALLOWED).filter((p) => !using.has(p))).toEqual([]);
+  });
+});
+
+describe("widget chrome lint (generative-ui-2026 §7.4)", () => {
+  it("keeps the approval surface and accent out of the widget renderer", () => {
+    const widgetFiles = all.filter((f) => f.path.startsWith("widgets/"));
+    expect(widgetFiles.length).toBeGreaterThan(0);
+    for (const f of widgetFiles) {
+      expect(f.text, f.path).not.toMatch(
+        /bg-surface-raised|shadow-elevation|approval-(text|surface|border)|bg-approval/,
+      );
+    }
   });
 });

@@ -23,6 +23,7 @@ import {
   ModelReranker,
   OWNER,
   type PowerState,
+  QueryModel,
   readSourcesConfig,
   type SearchEmbedder,
   SearchIndexer,
@@ -128,6 +129,7 @@ export interface SearchDeps extends Omit<SearchSourceDeps, "pageSize"> {
    */
   /** Cloud rerank (`search.rerank.enabled`, off by default): the cheap model that reads the top hits. */
   rerank?: { provider: ModelProvider; model: ModelRef };
+  queryModel?: { provider: ModelProvider; model: ModelRef };
   cards?: {
     provider: ModelProvider;
     model: ModelRef;
@@ -142,6 +144,8 @@ export const RERANK_SETTINGS = {
   enabled: "search.rerank.enabled",
   topN: "search.rerank.topN",
 } as const;
+/** Search settings for reading questions with a cheap model (roadmap R13). */
+export const QUERY_MODEL_SETTINGS = { enabled: "search.queryModel.enabled" } as const;
 
 export const CARD_SETTINGS = {
   enabled: "search.cards.enabled",
@@ -204,6 +208,14 @@ export function composeSearch(deps: SearchDeps): ComposedSearch {
               const v = getSetting(deps.db, RERANK_SETTINGS.topN)?.value;
               return typeof v === "number" ? v : DEFAULT_TOP_N;
             },
+          },
+        }),
+    ...(deps.queryModel === undefined
+      ? {}
+      : {
+          queryModel: {
+            model: new QueryModel(deps.queryModel),
+            enabled: () => getSetting(deps.db, QUERY_MODEL_SETTINGS.enabled)?.value !== false,
           },
         }),
   });

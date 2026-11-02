@@ -418,3 +418,215 @@ describe("exclusion handlers", () => {
     expect((await e.handlers["memory.exclusions.list"]({})).entries).toEqual([]);
   });
 });
+
+describe("sender trust handlers", () => {
+  it("offer after the configured number of confirmed facts, then trust and revoke", async () => {
+    const { e, graph, db } = setup();
+    const sam = graph.createEntity({ kind: "person", name: "Sam Lee" }).id;
+    graph.upsertInteraction({
+      kind: "mail",
+      source: "mail",
+      externalRef: "o",
+      occurredAt: "2026-10-20T00:00:00Z",
+      direction: "out",
+      participants: [{ entityId: sam, role: "to" }],
+    });
+    graph.upsertInteraction({
+      kind: "mail",
+      source: "mail",
+      externalRef: "i",
+      occurredAt: "2026-10-20T00:00:00Z",
+      direction: "in",
+      participants: [{ entityId: sam, role: "from" }],
+    });
+    setSetting(db, EVERYTHING_MEMORY_SETTING_KEY, {
+      enabled: true,
+      review: { perSenderAutoAcceptAfter: 2 },
+    });
+    for (const v of ["tea", "chess"]) {
+      const o = e.store.proposeFact({
+        entityId: sam,
+        attribute: "likes",
+        value: v,
+        provenance: "untrusted",
+        subjectKind: "self_disclosure",
+        citations: [
+          {
+            source: "mail",
+            sourceRef: `<${v}>`,
+            quote: `I like ${v}`,
+            start: 0,
+            end: 8,
+            sourceHash: v,
+            authorEntityId: sam,
+          },
+        ],
+      });
+      if (o.status === "refused") throw new Error(o.reason);
+      e.store.decide(o.fact.id, "confirm");
+    }
+    expect((await e.handlers["memory.senders.list"]({})).senders).toEqual([
+      { entityId: sam, name: "Sam Lee", confirmed: 2, state: "offered" },
+    ]);
+    expect(
+      (await e.handlers["memory.senders.decide"]({ entityId: sam, decision: "trust" })).senders[0]
+        ?.state,
+    ).toBe("trusted");
+    expect(
+      (await e.handlers["memory.senders.decide"]({ entityId: sam, decision: "revoke" })).senders[0]
+        ?.state,
+    ).toBe("offered");
+  });
+});
+
+describe("person page methods", () => {
+  async function world() {
+    const s = setup();
+    const owner = s.graph.createEntity({ kind: "person", name: "The Owner", isOwner: true }).id;
+    const ava = s.graph.createEntity({
+      kind: "person",
+      name: "Ava Reyes",
+      identifiers: [{ kind: "email", value: "ava@x.io" }],
+    }).id;
+    s.graph.setFact({
+      entityId: ava,
+      attribute: "birthday",
+      value: "Nov 2, 2019",
+      provenance: "owner",
+    });
+    return { ...s, owner, ava };
+  }
+
+  it("coming up: a plain line per person, and for the brief only while the feature is on", async () => {
+    const { e, ava, db } = await world();
+    const r = await e.handlers["memory.upcoming"]({ days: 14 });
+    expect(r.items).toEqual([
+      expect.objectContaining({
+        entityId: ava,
+        kind: "birthday",
+        daysAway: 4,
+        turns: 7,
+        text: "Ava Reyes turns 7 on Monday",
+      }),
+    ]);
+    expect((await e.handlers["memory.upcoming"]({ entityId: "nope" })).items).toEqual([]);
+    expect(e.comingUp()).toEqual([]);
+    setSetting(db, EVERYTHING_MEMORY_SETTING_KEY, { enabled: true });
+    expect(e.comingUp()).toEqual([
+      { text: "Ava Reyes turns 7 on Monday", link: `/agent/soul?entity=${ava}` },
+    ]);
+  });
+
+  it("export is a zip with person.json; forget-said and exclude count first and never touch the owner", async () => {
+    const { e, ava, owner } = await world();
+    const file = await e.handlers["memory.entities.export"]({ id: ava });
+    expect(file).toMatchObject({ mime: "application/zip" });
+    expect(file.filename).toMatch(/^psyche-ava-reyes-\d{4}-\d{2}-\d{2}\.zip$/);
+    const { unzipSync, strFromU8 } = await import("fflate");
+    const entries = unzipSync(Buffer.from(file.data, "base64"));
+    expect(JSON.parse(strFromU8(entries["person.json"] as Uint8Array)).entity.name).toBe(
+      "Ava Reyes",
+    );
+    expect(await e.handlers["memory.entities.forgetSaid"]({ id: ava, dryRun: true })).toMatchObject(
+      { dryRun: true },
+    );
+    const ex = await e.handlers["memory.entities.exclude"]({
+      id: ava,
+      mode: "exclude",
+      dryRun: true,
+    });
+    expect(ex).toMatchObject({ excluded: 1, dryRun: true });
+    expect(e.store.isEntityExcluded(ava)).toBe(false);
+    await e.handlers["memory.entities.exclude"]({ id: ava, mode: "exclude" });
+    expect(e.store.isEntityExcluded(ava)).toBe(true);
+    await expect(
+      e.handlers["memory.entities.exclude"]({ id: owner, mode: "exclude" }),
+    ).rejects.toThrow(/that is you/);
+    await expect(e.handlers["memory.entities.forgetSaid"]({ id: owner })).rejects.toThrow(
+      /that is you/,
+    );
+  });
+});
+
+describe("a model per source", () => {
+  const night = async () => ({
+    onAc: true,
+    lowPowerMode: false,
+    thermal: "nominal" as const,
+    idleMinutes: 60,
+  });
+
+  function worldWithTwoSources() {
+    const s = setup({ readState: night });
+    s.graph.createEntity({ kind: "person", name: "The Owner", isOwner: true });
+    const idx = openDb(join(s.tmp.dir, "state", "search.sqlite"), { migrate: false });
+    idx.sqlite.exec(
+      `CREATE TABLE search_docs (rowid INTEGER PRIMARY KEY, id TEXT NOT NULL UNIQUE, kind TEXT, grp TEXT, title TEXT NOT NULL, body TEXT NOT NULL, extra TEXT, provenance TEXT NOT NULL, thread_id TEXT, parent_id TEXT, collapse_key TEXT, scope_key TEXT NOT NULL, sender TEXT, sender_key TEXT, mime TEXT, tags TEXT, source TEXT, created_ms INTEGER NOT NULL, updated_ms INTEGER NOT NULL)`,
+    );
+    const ins = idx.sqlite.prepare(
+      `INSERT INTO search_docs (id, title, body, provenance, scope_key, source, created_ms, updated_ms) VALUES (?, '', ?, 'owner', 'owner', ?, ?, ?)`,
+    );
+    ins.run(
+      "mail:1",
+      "Note to self: book the dentist for Friday morning.",
+      "connector:mail",
+      NOW - 3600_000,
+      NOW - 3600_000,
+    );
+    ins.run(
+      "msg:1",
+      "Note to self: call the plumber on Monday afternoon.",
+      "connector:imessage",
+      NOW - 3600_000,
+      NOW - 3600_000,
+    );
+    idx.sqlite.close();
+    const empty = [
+      { type: "text_delta" as const, text: '{"facts":[],"edges":[],"flags":[]}' },
+      { type: "finish" as const, reason: "stop" as const },
+    ];
+    s.provider.enqueue(empty, empty);
+    setSetting(s.db, EVERYTHING_MEMORY_SETTING_KEY, {
+      enabled: true,
+      sources: { mail: true, messages: true },
+      model: {
+        default: { kind: "cloud" },
+        perSource: { messages: { kind: "local", ref: "ollama/qwen3:4b" } },
+      },
+    });
+    return s;
+  }
+
+  it("a local model for one source waits for its own confirmation, even though the default is cloud", async () => {
+    const { e, provider, tmp, db } = worldWithTwoSources();
+    expect(await e.nightly()).toBeUndefined();
+    expect(provider.requests).toHaveLength(0);
+    // Confirming some other model does not count.
+    setSetting(db, "memory.everything.localConfirmed", ["ollama/other"]);
+    expect(await e.nightly()).toBeUndefined();
+    expect(provider.requests).toHaveLength(0);
+    tmp.cleanup();
+  });
+
+  it("once confirmed (as a list or a single name), each source uses its own model", async () => {
+    const { e, provider, tmp, db } = worldWithTwoSources();
+    setSetting(db, "memory.everything.localConfirmed", ["ollama/other", "ollama/qwen3:4b"]);
+    expect(await e.nightly()).toMatch(/^everything memory:/);
+    const models = provider.requests.map((r) => r.model).sort();
+    expect(models).toEqual(["fake/utility", "ollama/qwen3:4b"]);
+    for (const r of provider.requests) expect(r.tools).toEqual([]);
+    tmp.cleanup();
+  });
+
+  it("a source set to None is skipped while the others run", async () => {
+    const { e, provider, tmp, db } = worldWithTwoSources();
+    setSetting(db, EVERYTHING_MEMORY_SETTING_KEY, {
+      enabled: true,
+      sources: { mail: true, messages: true },
+      model: { default: { kind: "cloud" }, perSource: { messages: { kind: "none" } } },
+    });
+    await e.nightly();
+    expect(provider.requests.map((r) => r.model)).toEqual(["fake/utility"]);
+    tmp.cleanup();
+  });
+});

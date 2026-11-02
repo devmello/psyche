@@ -89,6 +89,9 @@ export const settings = {
   "settings.key.search.rerank.enabled": "Re-rank the best results with a small cloud model",
   "settings.semanticSearch.rerankHint":
     "Off by default. When the agent searches your data, a small cloud model reads the question and the top 20 results (title, date and the first 500 characters of each) and puts the best first. Those snippets leave this Mac. Cost: about 2,000 tokens per search, under a cent with a small model. No RAM: nothing runs on this machine. Never used for your delegates' searches or for keystrokes in ⌘K.",
+  "settings.key.search.queryModel.enabled": "Read questions with a small model",
+  "settings.semanticSearch.queryModelHint":
+    "When the agent searches your data with a question and the built-in rules find no time, person or source in it, a small cloud model reads the question once (about 300 tokens) to work out those filters. Only the question is sent, never your items. If no model is set up, or the call fails, the rules are used.",
   "settings.key.search.semantic.engine": "Embedding engine",
   "settings.key.search.semantic.allowCloud": "Allow a cloud embedding service",
   "settings.key.search.web.searxngUrl": "SearXNG URL",

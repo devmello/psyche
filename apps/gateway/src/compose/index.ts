@@ -209,6 +209,7 @@ import { createUserProfile } from "./user-profile.ts";
 import { composeVault, maskingLogger, type VaultSetup, vaultSetupFromEnv } from "./vault.ts";
 import { composeWebTools, type WebToolsSetup } from "./web-tools.ts";
 import { ensureWeeklyCardAutomation, withWeeklyCard } from "./weekly-card.ts";
+import { composeWidgets } from "./widgets.ts";
 import { WORKFLOW_SETTING_KEYS } from "./workflow-settings.ts";
 
 /**
@@ -826,6 +827,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     provider,
     utility: utility ?? modelRef,
     timeZone: () => timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+    card: async (path) => (await memory.readFile(path))?.content,
     announce: (card) => void proactive.feed.postNotice({ ...card, reason: "memory learned" }),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
@@ -885,6 +887,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     composeScreenAsk(gwOptions.screenAsk),
     // Canvas artifacts (chat-experience-2026 §4.3): the version store and `artifact.*` tools.
     composeArtifacts,
+    // Generative-UI widgets (generative-ui-2026): snapshots by id; tools arrive in P3.
+    composeWidgets,
     composePayments(paymentsSetupFromEnv(gwOptions.env)),
     // Web passkeys (issue #79): unavailable until gateway.publicOrigin is an https origin. A
     // caller-supplied `presence` verifier takes the passkey role instead.
@@ -1203,6 +1207,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     channelSurfaces: () =>
       relays.flatMap((r) => r.surfaces()).filter((x) => x.startsWith("imessage:")),
     learned: () => everything.learnedYesterday(),
+    comingUp: () => everything.comingUp(),
     // Ideas proposes folding a skill's lessons into it once it has three (teaching loop §6).
     skillUpdates: () => skills.updates(),
     // Post-meeting notes transcribe on the Mac through the speech part (§4.6). Record meeting
@@ -1398,6 +1403,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     cards: { provider, model: utility ?? modelRef },
     // Cloud rerank of the top hits: the utility model, only when one is set and the owner opts in.
     ...(utility === undefined ? {} : { rerank: { provider, model: utility } }),
+    // Plain-English questions the rules cannot filter: the utility model, only when one is set.
+    ...(utility === undefined ? {} : { queryModel: { provider, model: utility } }),
     ...(gwOptions.semanticEngines === undefined
       ? {}
       : { semanticEngines: gwOptions.semanticEngines }),

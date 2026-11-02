@@ -26,6 +26,7 @@ export * from "./repos/settings.ts";
 export * from "./repos/thread-state.ts";
 export * from "./repos/threads.ts";
 export * from "./repos/tool-calls.ts";
+export * from "./repos/widgets.ts";
 export * from "./schema.ts";
 export type { DbLogger } from "./types.ts";
 export {

@@ -323,7 +323,8 @@ describe("the Gateway's specialist host (#683)", () => {
       title: "Researcher finished Apartments",
       body: "Done · 1 finding · under 1 min",
       taskId: job.taskId,
-      route: `/tasks/${job.taskId}`,
+      // Opens the specialist's chat thread (notification click-through, #1049).
+      route: `/chat/${job.threadId}`,
     });
     const results = published.filter((e) => e.event === "specialist.result");
     expect(results).toHaveLength(1);
