@@ -340,6 +340,34 @@ export const EverythingExclusion = Type.Object(
 );
 export type EverythingExclusion = Static<typeof EverythingExclusion>;
 
+// --- Per-sender auto-accept (§7.3) ------------------------------------------------------------
+
+export const SenderTrustState = StringEnum(["offered", "trusted"], { $id: "SenderTrustState" });
+export type SenderTrustState = Static<typeof SenderTrustState>;
+
+/** A contact Psyche offers to auto-accept self-disclosures from, or already does. */
+export const SenderTrust = Type.Object(
+  {
+    entityId: Id,
+    name: Type.String({
+      maxLength: 200,
+      description: "A display name from a mail header: untrusted text",
+    }),
+    confirmed: Type.Integer({
+      minimum: 0,
+      description: "Facts the owner confirmed from them, none discarded",
+    }),
+    state: SenderTrustState,
+  },
+  { $id: "SenderTrust" },
+);
+export type SenderTrust = Static<typeof SenderTrust>;
+
+export const SenderTrustDecision = StringEnum(["trust", "decline", "revoke"], {
+  $id: "SenderTrustDecision",
+});
+export type SenderTrustDecision = Static<typeof SenderTrustDecision>;
+
 // --- Runs (§6.7) ------------------------------------------------------------------------------
 
 export const MemoryRun = Type.Object(

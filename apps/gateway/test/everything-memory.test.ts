@@ -418,3 +418,63 @@ describe("exclusion handlers", () => {
     expect((await e.handlers["memory.exclusions.list"]({})).entries).toEqual([]);
   });
 });
+
+describe("sender trust handlers", () => {
+  it("offer after the configured number of confirmed facts, then trust and revoke", async () => {
+    const { e, graph, db } = setup();
+    const sam = graph.createEntity({ kind: "person", name: "Sam Lee" }).id;
+    graph.upsertInteraction({
+      kind: "mail",
+      source: "mail",
+      externalRef: "o",
+      occurredAt: "2026-10-20T00:00:00Z",
+      direction: "out",
+      participants: [{ entityId: sam, role: "to" }],
+    });
+    graph.upsertInteraction({
+      kind: "mail",
+      source: "mail",
+      externalRef: "i",
+      occurredAt: "2026-10-20T00:00:00Z",
+      direction: "in",
+      participants: [{ entityId: sam, role: "from" }],
+    });
+    setSetting(db, EVERYTHING_MEMORY_SETTING_KEY, {
+      enabled: true,
+      review: { perSenderAutoAcceptAfter: 2 },
+    });
+    for (const v of ["tea", "chess"]) {
+      const o = e.store.proposeFact({
+        entityId: sam,
+        attribute: "likes",
+        value: v,
+        provenance: "untrusted",
+        subjectKind: "self_disclosure",
+        citations: [
+          {
+            source: "mail",
+            sourceRef: `<${v}>`,
+            quote: `I like ${v}`,
+            start: 0,
+            end: 8,
+            sourceHash: v,
+            authorEntityId: sam,
+          },
+        ],
+      });
+      if (o.status === "refused") throw new Error(o.reason);
+      e.store.decide(o.fact.id, "confirm");
+    }
+    expect((await e.handlers["memory.senders.list"]({})).senders).toEqual([
+      { entityId: sam, name: "Sam Lee", confirmed: 2, state: "offered" },
+    ]);
+    expect(
+      (await e.handlers["memory.senders.decide"]({ entityId: sam, decision: "trust" })).senders[0]
+        ?.state,
+    ).toBe("trusted");
+    expect(
+      (await e.handlers["memory.senders.decide"]({ entityId: sam, decision: "revoke" })).senders[0]
+        ?.state,
+    ).toBe("offered");
+  });
+});

@@ -9,6 +9,8 @@ import {
   ReviewDecision,
   ReviewItem,
   ReviewNever,
+  SenderTrust,
+  SenderTrustDecision,
 } from "../schemas/everything-memory.ts";
 import {
   EntitySummary,
@@ -650,6 +652,21 @@ export const MemoryMethods = {
     sideEffecting: true,
     description:
       "Lets everything memory read and learn from this address, number or domain again. Side-effecting.",
+  }),
+  "memory.senders.list": defineMethod({
+    params: Type.Object({}),
+    result: Type.Object({ senders: Type.Array(SenderTrust) }),
+    scope: "operator.read",
+    description:
+      "Contacts whose self-disclosures Psyche now auto-accepts, and contacts it offers to (enough facts confirmed, none discarded).",
+  }),
+  "memory.senders.decide": defineMethod({
+    params: Type.Object({ entityId: Id, decision: SenderTrustDecision }),
+    result: Type.Object({ senders: Type.Array(SenderTrust) }),
+    scope: "operator.write",
+    sideEffecting: true,
+    description:
+      "Trust a contact (their allowed self-disclosures are accepted on arrival, undoable for a week), decline the offer for good, or revoke trust. Side-effecting.",
   }),
   "memory.runs.list": defineMethod({
     params: Type.Object({

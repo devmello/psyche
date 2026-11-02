@@ -566,3 +566,117 @@ describe("owner exclusions (Settings)", () => {
     expect(propose()).toEqual({ status: "refused", reason: "excluded" });
   });
 });
+
+describe("per-sender auto-accept (decision 6)", () => {
+  const sc = (n: number, over: Partial<CitationInput> = {}) =>
+    cite({ sourceRef: `<s${n}>`, sourceHash: `s${n}`, ...over });
+
+  function twoWay() {
+    for (const [dir, ref, role] of [
+      ["out", "o1", "to"],
+      ["in", "i1", "from"],
+    ] as const) {
+      graph.upsertInteraction({
+        kind: "mail",
+        source: "mail",
+        externalRef: ref,
+        occurredAt: "2026-10-20T00:00:00Z",
+        direction: dir,
+        participants: [{ entityId: sam, role }],
+      });
+    }
+  }
+  let made = 0;
+  function confirm(n: number) {
+    for (let k = 0; k < n; k++) {
+      const i = made++;
+      const o = propose({ attribute: "likes", value: `thing ${i}`, citations: [sc(i)] });
+      if (o.status === "refused") throw new Error(o.reason);
+      em.decide(o.fact.id, "confirm");
+    }
+  }
+  const next = (
+    attr: "birthday" | "employer" | "note",
+    value: string,
+    over: Partial<ProposeFactInput> = {},
+  ) => propose({ attribute: attr, value, citations: [sc(99)], confidence: 0.95, ...over });
+
+  it("offers a contact only after enough confirmed facts, two-way, none discarded", () => {
+    twoWay();
+    confirm(4);
+    expect(em.senderTrust(5)).toEqual([]);
+    confirm(1);
+    expect(em.senderTrust(5)).toEqual([
+      { entityId: sam, name: "Sam Lee", confirmed: 5, state: "offered" },
+    ]);
+    const bad = propose({ attribute: "city", value: "Rome", citations: [sc(50)] });
+    if (bad.status === "refused") throw new Error("refused");
+    em.decide(bad.fact.id, "discard");
+    expect(em.senderTrust(5)).toEqual([]);
+  });
+
+  it("not two-way: no offer, and trust is refused", () => {
+    confirm(5);
+    expect(em.senderTrust(5)).toEqual([]);
+    expect(() => em.decideSender(sam, "trust")).toThrow(/write to and hear from/);
+  });
+
+  it("a trusted sender's allowed self-disclosures are accepted on arrival, still untrusted and undoable", () => {
+    twoWay();
+    confirm(5);
+    em.decideSender(sam, "trust");
+    expect(em.senderTrust(5)[0]).toMatchObject({ state: "trusted" });
+    const o = next("birthday", "May 3");
+    if (o.status === "refused") throw new Error("refused");
+    expect(o.status).toBe("auto_accepted");
+    expect(o.fact).toMatchObject({ review: "auto_accepted", provenance: "untrusted" });
+    expect(em.undo(o.fact.id).review).toBe("discarded");
+  });
+
+  it("only for what is allowed: notes, sensitive, unsure, about-others, other attributes and mixed senders still wait", () => {
+    twoWay();
+    confirm(5);
+    em.decideSender(sam, "trust");
+    expect(next("note", "a note").status).toBe("pending");
+    expect(next("birthday", "May 4", { confidence: 0.8 }).status).toBe("pending");
+    expect(next("employer", "Initech", { sensitivity: "finance" }).status).toBe("pending");
+    expect(next("employer", "Globex", { subjectKind: "about_other" }).status).toBe("pending");
+    expect(
+      next("employer", "Acme", { citations: [sc(98), sc(97, { authorEntityId: priya })] }).status,
+    ).toBe("pending");
+    expect(
+      propose({ attribute: "timezone", value: "UTC", citations: [sc(96)], confidence: 0.95 })
+        .status,
+    ).toBe("pending");
+  });
+
+  it("a different value for something the owner confirmed still goes through review", () => {
+    twoWay();
+    confirm(5);
+    const first = next("employer", "Acme");
+    if (first.status === "refused") throw new Error("refused");
+    em.decide(first.fact.id, "confirm");
+    em.decideSender(sam, "trust");
+    const change = next("employer", "Initech", { citations: [sc(95)] });
+    expect(change.status).toBe("pending");
+  });
+
+  it("decline stops the offer for good and revoke takes trust back", () => {
+    twoWay();
+    confirm(5);
+    em.decideSender(sam, "decline");
+    expect(em.senderTrust(5)).toEqual([]);
+    expect(next("birthday", "May 3").status).toBe("pending");
+    em.decideSender(sam, "trust");
+    em.decideSender(sam, "revoke");
+    expect(em.isTrustedSender(sam)).toBe(false);
+    expect(next("birthday", "June 9", { citations: [sc(94)] }).status).toBe("pending");
+  });
+
+  it("the global setting auto-accepts the same allowed list for any contact", () => {
+    const o = next("birthday", "May 3", { autoAccept: true });
+    if (o.status === "refused") throw new Error("refused");
+    expect(o.status).toBe("auto_accepted");
+    expect(next("note", "x", { autoAccept: true, citations: [sc(93)] }).status).toBe("pending");
+  });
+});

@@ -262,3 +262,36 @@ describe("Memory review", () => {
     );
   });
 });
+
+describe("Trusted contacts", () => {
+  it("offers auto-accept after enough confirmed facts; trust, decline and revoke", async () => {
+    show((w) => {
+      seed(w);
+      w.review = {
+        ...(w.review as NonNullable<typeof w.review>),
+        senders: [
+          { entityId: "ent_sam", name: "Sam <b>Lee</b>", confirmed: 5, state: "offered" },
+          { entityId: "ent_dana", name: "Dana Reyes", confirmed: 7, state: "trusted" },
+        ],
+      };
+    });
+    const offer = await screen.findByTestId("sender-offer");
+    expect(offer.textContent).toMatch(
+      /confirmed 5 things Sam <b>Lee<\/b> told you about themselves/,
+    );
+    expect(offer.querySelector("b")).toBeNull();
+    fireEvent.click(within(offer).getByRole("button", { name: "Accept automatically" }));
+    await waitFor(() =>
+      expect(gateway.world.review?.senders?.find((s) => s.entityId === "ent_sam")?.state).toBe(
+        "trusted",
+      ),
+    );
+    fireEvent.click(
+      within((await screen.findAllByTestId("sender-trusted"))[0] as HTMLElement).getByRole(
+        "button",
+        { name: "Stop" },
+      ),
+    );
+    await waitFor(() => expect(gateway.world.review?.senders?.length).toBe(1));
+  });
+});

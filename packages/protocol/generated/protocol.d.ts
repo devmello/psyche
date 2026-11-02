@@ -6455,6 +6455,36 @@ export interface MemoryHit {
     score:   number;
 }
 
+export interface MemorySendersDecideParams {
+    decision: SenderTrustDecision;
+    entityId: string;
+}
+
+export type SenderTrustDecision = "trust" | "decline" | "revoke";
+
+export interface MemorySendersDecideResult {
+    senders: SenderTrust[];
+}
+
+export interface SenderTrust {
+    /**
+     * Facts the owner confirmed from them, none discarded
+     */
+    confirmed: number;
+    entityId:  string;
+    /**
+     * A display name from a mail header: untrusted text
+     */
+    name:  string;
+    state: SenderTrustState;
+}
+
+export type SenderTrustState = "offered" | "trusted";
+
+export interface MemorySendersListResult {
+    senders: SenderTrust[];
+}
+
 export interface MemoryStatusResult {
     chunks:       number;
     claims:       number;
