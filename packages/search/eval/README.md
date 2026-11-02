@@ -21,6 +21,8 @@ It runs each question three ways (`--mode`):
 | `raw` | The question as typed. Bare words are ANDed today, so this is what the Search screen does with English. |
 | `keywords` | Stop words dropped, the rest ORed. |
 | `rules` | `keywords` plus rule-based pre-filters: time phrases become `after:`/`before:`, "from Maya" becomes `from:maya`, and "email" becomes `in:connectors`. If that finds nothing, it falls back to `keywords`. |
+| `prod` | The question as typed, through the production path (`src/understand.ts`). |
+| `model` | `prod` plus the cheap query model (`smart: true`). Offline it uses an **oracle stand-in** (`model-mock.ts`: the gold documents' date window), so it is an upper bound, not a Haiku measurement. |
 
 It indexes two coverages (`--coverage`):
 

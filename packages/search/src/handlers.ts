@@ -112,6 +112,7 @@ export function createSearchHandlers(index: SqliteSearchIndex): SearchHandlers {
         // `threads` shows one result per conversation; `messages` alone lists every message.
         collapse: scopes.includes("threads") || !scopes.includes("messages"),
         ...(params.dropChips === undefined ? {} : { dropChips: params.dropChips }),
+        ...(params.smart === true ? { smart: true } : {}),
       });
       const wire = (h: RichHit): SearchHit | undefined => {
         const scope = scopeOf(h);

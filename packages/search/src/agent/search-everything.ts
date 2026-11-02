@@ -356,6 +356,7 @@ export async function searchEverything(
       audience: "agent",
       limit,
       collapse: false,
+      smart: true,
       ...(input.sources === undefined || input.sources.length === 0
         ? {}
         : { sources: input.sources }),

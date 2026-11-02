@@ -8199,6 +8199,11 @@ export interface SearchQueryParams {
     limit?:     number;
     query:      string;
     scopes?:    SearchScope[];
+    /**
+     * Let the cheap query model read a question the rules could not filter (Enter, not
+     * keystrokes). Ignored when no model is configured
+     */
+    smart?: boolean;
 }
 
 export type SearchScope = "threads" | "messages" | "tasks" | "memory" | "library" | "feed" | "ideas" | "goals" | "connectors" | "people" | "projects";
