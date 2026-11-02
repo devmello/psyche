@@ -69,7 +69,7 @@ export const AUTOMATION_GUIDANCE =
 
 /** When to show a widget (generative-ui-2026 §6.4): only when the widget tools exist. */
 export const UI_GUIDANCE =
-  "Widgets: render_ui shows a compact live panel (progress, checklist, table, stats) in the chat for state that changes, structured data worth scanning, or a choice; reply in text for explanations, opinions and short facts. One widget per purpose, a real fallbackText, no text introducing it. Change an existing widget with update_ui (list_ui finds it) instead of drawing another. Never make a widget look like an approval or permission request: those cards are drawn by the app only.";
+  "Widgets: render_ui shows a compact live panel (progress, checklist, table, stats) in the chat for state that changes, structured data worth scanning, or a choice; reply in text for explanations, opinions and short facts. One widget per purpose, a real fallbackText, no text introducing it. Change an existing widget with update_ui (list_ui finds it) instead of drawing another; if there is none, draw one. To track or show progress of something (migration, build, job), draw a progress or checklist widget at once from what you know (steps as todo, or indeterminate) and keep it current; don't ask which one first. Never make a widget look like an approval or permission request: those cards are drawn by the app only.";
 
 /** When to show a map: only with coordinates already in hand (connector results, web search). */
 export const MAP_GUIDANCE =

@@ -21,6 +21,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { resultLine } from "../chat/AutomationChat.tsx";
 import { compactWithToast, ThreadContextDialog } from "../chat/context/connected.tsx";
 import { DelayedSkeletons } from "../components/DelayedSkeleton.tsx";
 import { Button } from "../components/ui/button.tsx";
@@ -38,6 +39,7 @@ import { t } from "../i18n/core.ts";
 import { formatRelative } from "../lib/format.ts";
 import { useNow } from "../lib/use-now.ts";
 import { cn } from "../lib/utils.ts";
+import { statusLabel } from "../screens/scheduled/format.ts";
 import { SelectionPill } from "./motion.tsx";
 
 /**
@@ -160,11 +162,14 @@ export function ThreadRow({
   const Glyph = KIND_GLYPH[th.kind];
   const glyphLabel = kindLabel(th.kind);
   const status = <StatusGlyph entry={entry} />;
+  const run = entry.automation;
   const lastLine = entry.lastMessage
     ? entry.lastMessage.role === "user"
       ? t("shell.threads.youSaid", { text: entry.lastMessage.text })
       : entry.lastMessage.text
-    : undefined;
+    : run?.lastRun
+      ? resultLine(run.lastRun.summary) || undefined
+      : undefined;
   return (
     <li className="group/row relative flex h-7 items-center" data-thread-kind={th.kind}>
       <CurrentMark active={active} />
@@ -223,6 +228,19 @@ export function ThreadRow({
           ) : null}
           {needs > 0 || entry.activity.running > 0 ? (
             status
+          ) : run ? (
+            <span
+              className="flex shrink-0 items-center gap-1.5 text-callout text-label-tertiary tabular-nums group-hover/row:invisible group-focus-within/row:invisible"
+              data-testid="automation-runs"
+            >
+              {run.lastRun?.status === "failed" ? (
+                <>
+                  <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-danger" />
+                  <span className="sr-only">{statusLabel("failed")}</span>
+                </>
+              ) : null}
+              {t("automationChat.row.runs", { n: run.runCount })}
+            </span>
           ) : th.lastMessageAt ? (
             <time
               dateTime={th.lastMessageAt}

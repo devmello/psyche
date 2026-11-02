@@ -166,7 +166,7 @@ export function AgentHeader({
         />
       </button>
       <div className="flex min-w-0 flex-1 items-baseline gap-2">
-        <p className="shrink-0 text-headline text-label-primary">{persona.name}</p>
+        <p className="min-w-0 truncate text-headline text-label-primary">{persona.name}</p>
         {incognito ? (
           <span className="shrink-0 rounded-full border border-dashed border-separator-strong px-2 text-subheadline text-label-secondary">
             {t("chat.toolbar.incognito")}

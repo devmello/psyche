@@ -672,13 +672,11 @@ export interface InboxScreenProps {
   onOpen?: (n: Notification) => void;
 }
 
-/** Connected inbox: `notifications.*`, `approvals.answer` (scope once), `tasks.retry`. */
-export function InboxScreen({ now: fixedNow, onOpen }: InboxScreenProps): ReactElement {
+/** Opens a notification's source: its chat, run, or the card (`notificationRoute`). */
+function useOpenNotification(onOpen?: (n: Notification) => void): (n: Notification) => void {
   const { navigate } = useSlots();
-  const now = useNow(1000, fixedNow);
-  const inbox = useNotifications();
   const call = useCall();
-  const open =
+  return (
     onOpen ??
     ((n: Notification) => {
       void notificationRoute(n, {
@@ -686,7 +684,64 @@ export function InboxScreen({ now: fixedNow, onOpen }: InboxScreenProps): ReactE
         approvalThread: async (approvalId) =>
           (await call("approvals.get", { approvalId })).approval.requestedBy.threadId ?? null,
       }).then((route) => navigate?.(route));
-    });
+    })
+  );
+}
+
+/** Unresolved approvals and questions, newest first: what Home's "Needs you" lists. */
+export function needsYou(notifications: readonly Notification[], now: number): Notification[] {
+  return notifications.filter((n) => groupOf(n, now) === "needs");
+}
+
+export interface NeedsYouListProps {
+  /** At most this many rows; the rest are in the inbox. */
+  limit?: number;
+  now?: number;
+  onOpen?: (n: Notification) => void;
+}
+
+/**
+ * The inbox's "Needs you" rows on their own (Home, docs/design/consolidation-2026.md §3.1), with
+ * the same inline Approve / Deny / Answer. Renders nothing when nothing waits on the owner.
+ */
+export function NeedsYouList({
+  limit = 5,
+  now: fixedNow,
+  onOpen,
+}: NeedsYouListProps): ReactElement | null {
+  const now = useNow(1000, fixedNow);
+  const inbox = useNotifications();
+  const open = useOpenNotification(onOpen);
+  const rows = needsYou(inbox.unresolved, now).slice(0, limit);
+  if (rows.length === 0) return null;
+  const primaryId = rows.find((n) => n.kind === "approval")?.id ?? null;
+  return (
+    <ul
+      aria-label={t("screens.inbox.group.needs")}
+      className="flex flex-col rounded-lg bg-surface-raised shadow-elevation-1 [&>li:first-child>article]:before:hidden"
+    >
+      {rows.map((n, i) => (
+        <ListItem key={n.id} index={i}>
+          <ConnectedInboxRow
+            primary={n.id === primaryId}
+            notification={n}
+            now={now}
+            markRead={inbox.markRead}
+            resolve={inbox.resolve}
+            open={open}
+          />
+        </ListItem>
+      ))}
+    </ul>
+  );
+}
+
+/** Connected inbox: `notifications.*`, `approvals.answer` (scope once), `tasks.retry`. */
+export function InboxScreen({ now: fixedNow, onOpen }: InboxScreenProps): ReactElement {
+  const { navigate } = useSlots();
+  const now = useNow(1000, fixedNow);
+  const inbox = useNotifications();
+  const open = useOpenNotification(onOpen);
 
   return (
     <InboxView

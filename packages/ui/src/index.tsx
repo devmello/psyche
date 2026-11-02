@@ -143,6 +143,7 @@ export {
 export { ChartView, niceTicks } from "./canvas/ChartView.tsx";
 // Chat column.
 export { ApprovalDock } from "./chat/ApprovalDock.tsx";
+export { AutomationChat, automationOfThread } from "./chat/AutomationChat.tsx";
 export { Composer, type ComposerProps, SLASH_COMMANDS } from "./chat/Composer.tsx";
 export { clearComposerBusy, isComposerBusy, setComposerBusy } from "./chat/composer-busy.ts";
 export * from "./chat/context/index.ts";
@@ -223,6 +224,7 @@ export {
   useToolbarContent,
 } from "./components/ui/toolbar.tsx";
 export * from "./data/index.ts";
+export * from "./home/index.ts";
 export * from "./i18n/index.ts";
 export {
   applyOpsLocal,
@@ -253,6 +255,7 @@ export {
 } from "./map/map-model.ts";
 export { FPS_PROBE_KEY, medianFps, startFpsProbe } from "./motion/fps-probe.ts";
 export * from "./overview/index.ts";
+export { PeopleScreen, type PeopleScreenProps } from "./people/PeopleScreen.tsx";
 // Deep research: progress view and cited report.
 export * from "./research/index.ts";
 export {

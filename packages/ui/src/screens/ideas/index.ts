@@ -20,4 +20,5 @@ export {
   type IdeasScreenProps,
   IdeasView,
   type IdeasViewProps,
+  useIdeaActions,
 } from "./IdeasScreen.tsx";

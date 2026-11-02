@@ -210,6 +210,16 @@ describe("the toolbar clear of the traffic lights (#624)", () => {
       lead: 128,
       toolbar: 132,
     });
+    // The browser button beside the toggle (a chat on the desktop) needs its room too, so the
+    // avatar and name start after it instead of under it.
+    expect(chromeLead({ ...base, sidebarOpen: false, mode: "full", browser: true })).toEqual({
+      lead: 164,
+      toolbar: 168,
+    });
+    // A full sidebar covers the strip whatever sits in it.
+    expect(
+      chromeLead({ ...base, sidebarOpen: true, mode: "full", browser: true }).toolbar,
+    ).toBeNull();
     // Lights placed further in push the toolbars further too.
     expect(
       chromeLead({
@@ -271,10 +281,12 @@ describe("the toolbar clear of the traffic lights (#624)", () => {
     // The attribute alone does nothing without the inset chrome (the CSS needs both).
     const css = readFileSync(join(process.cwd(), "src/shell/layout/shell-layout.css"), "utf8");
     expect(css).toMatch(
-      /\.app-frame\[data-chrome="inset"\]\[data-toolbar-lead\]\s+\.shell-content\s+:is\(\[data-slot="toolbar"\], \[data-testid="chat-toolbar"\]\)\s*\{\s*padding-left: var\(--toolbar-lead/,
+      /\.app-frame\[data-chrome="inset"\]\[data-toolbar-lead\]\s+\.shell-content\s+:is\(\[data-slot="toolbar"\], \[data-slot="screen-toolbar"\], \[data-testid="chat-toolbar"\]\)\s*\{\s*padding-left: var\(--toolbar-lead/,
     );
     // The stale `<header>` selector is gone: the agent header is a div[role=toolbar].
     expect(css).not.toContain('[data-testid="kit-chat"] > header');
+    // Every toolbar kind sits in the drag-region rules too, not only in the inset.
+    expect(css.match(/\[data-slot="screen-toolbar"\]/g)?.length).toBeGreaterThanOrEqual(3);
   });
 });
 

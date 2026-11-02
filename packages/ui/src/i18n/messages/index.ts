@@ -1,6 +1,7 @@
 import { agent } from "./agent.ts";
 import { agentNotes } from "./agent-notes.ts";
 import { audit } from "./audit.ts";
+import { automationChat } from "./automation-chat.ts";
 import { blocks } from "./blocks.ts";
 import { canvas } from "./canvas.ts";
 import { capabilities } from "./capabilities.ts";
@@ -14,6 +15,7 @@ import { design } from "./design.ts";
 import { deviceAccess } from "./device-access.ts";
 import { errors } from "./errors.ts";
 import { glass } from "./glass.ts";
+import { home } from "./home.ts";
 import { links } from "./links.ts";
 import { mailMeetings } from "./mail-meetings.ts";
 import { meetingRecord } from "./meeting-record.ts";
@@ -83,10 +85,12 @@ export const en = {
   ...meetingRecord,
   ...workflows,
   ...overview,
+  ...home,
   ...overviewGrowth,
   ...capabilities,
   ...research,
   ...scheduled,
+  ...automationChat,
   ...widgets,
 } as const;
 

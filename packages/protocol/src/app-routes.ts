@@ -55,6 +55,8 @@ export const APP_AGENT_TABS = ["approvals", "activity", "upcoming", "soul"] as c
 /** First path segment of every top-level screen. */
 export const APP_TOP_LEVEL_ROUTES = [
   "chat",
+  "home",
+  "people",
   "search",
   "feed",
   "ideas",
@@ -71,6 +73,8 @@ export const APP_TOP_LEVEL_ROUTES = [
 
 const SIMPLE = new Set<string>([
   "chat",
+  "home",
+  "people",
   "search",
   "feed",
   "ideas",

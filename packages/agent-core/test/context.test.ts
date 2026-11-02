@@ -229,7 +229,7 @@ describe("context budgets (C2)", () => {
     // Widgets (generative-ui-2026 §6.4): only when the widget tools exist.
     expect(await tools(["render_ui", "update_ui"])).toContain(UI_GUIDANCE);
     expect(await tools(["read_file"])).not.toContain(UI_GUIDANCE);
-    expect(UI_GUIDANCE.length).toBeLessThan(620);
+    expect(UI_GUIDANCE.length).toBeLessThan(740);
     // Both sides of the decision, and the approval ban, are in the prompt.
     expect(UI_GUIDANCE).toMatch(/explanations/);
     expect(UI_GUIDANCE).toMatch(/update_ui/);
