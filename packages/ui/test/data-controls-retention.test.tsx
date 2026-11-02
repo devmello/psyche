@@ -11,13 +11,7 @@ const checked = (el: HTMLElement) =>
 function renderPanel(values: Record<string, unknown> = {}) {
   const onChange = vi.fn();
   render(
-    <DataControlsPanel
-      values={values}
-      onChange={onChange}
-      persona="Wren"
-      memoryPaused={false}
-      archivedThreads={0}
-    />,
+    <DataControlsPanel values={values} onChange={onChange} persona="Wren" archivedThreads={0} />,
   );
   return { onChange };
 }

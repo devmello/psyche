@@ -14,19 +14,53 @@ export const settings = {
   // The Settings screen and its section nav (SettingsScreen.tsx).
   "settings.nav.title": "Settings",
   "settings.nav.label": "Settings sections",
-  "settings.nav.search": "Search settings",
+  "settings.nav.find": "Search settings",
   "settings.nav.noMatch": "No settings match.",
-  "settings.nav.group.general": "General",
-  "settings.nav.group.access": "Access",
-  "settings.nav.group.devices": "Devices",
-  "settings.nav.group.privacy": "Privacy",
-  "settings.nav.group.about": "About",
+  "settings.nav.inPage": "In {page}",
+  "settings.nav.general": "General",
+  "settings.nav.search": "Search",
+  "settings.nav.learning": "Remembering & learning",
+  "settings.search.count": "{count, plural, one {# result} other {# results}}",
+  "settings.search.result.page": "Page",
+
+  // The nine pages of the Settings window (settings-pages.ts, docs/design/settings-2026.md).
+  "settings.page.general": "General",
+  "settings.page.general.description":
+    "How Psyche looks, who it is, when it may interrupt you and how you talk to it.",
+  "settings.page.model": "Models",
+  "settings.page.model.description":
+    "The models Psyche thinks with, the keys they use and what they cost.",
+  "settings.page.connectors": "Connectors & sources",
+  "settings.page.connectors.description":
+    "The apps and accounts Psyche can reach, and which of them it searches.",
+  "settings.page.memory": "Memory",
+  "settings.page.memory.description":
+    "What Psyche remembers about you, what it reads to learn, and the people it knows.",
+  "settings.page.daily": "Routines & skills",
+  "settings.page.daily.description":
+    "Your morning brief and wrap-up, automations, skills and the specialists Psyche can call.",
+  "settings.page.permissions": "Permissions",
+  "settings.page.permissions.description":
+    "What Psyche may do on this Mac without asking, and where it always stops to ask you.",
+  "settings.page.data": "Privacy & data",
+  "settings.page.data.description":
+    "What stays on this Mac, how long it is kept, exports, backups and starting over.",
+  "settings.page.devices": "Devices",
+  "settings.page.devices.description":
+    "Your other devices, the Gateway server and reaching Psyche when you are away.",
+  "settings.page.about": "About",
+  "settings.page.about.description": "Versions, health checks and logs.",
+
+  // Settings → Connectors & sources → Search (SearchSection.tsx).
+  "settings.search.title": "Search",
+  "settings.search.description":
+    "What Psyche indexes so it can find things for you, and which engine it uses on the web.",
   "settings.nav.model": "Model & providers",
   "settings.nav.persona": "Persona",
   "settings.nav.connectors": "Connectors",
   "settings.nav.skills": "Skills",
   "settings.nav.specialists": "Specialists",
-  "settings.nav.permissions": "Permissions",
+  "settings.nav.permissions": "Approval rules",
   "settings.nav.computerUse": "Computer use",
   "settings.nav.browser": "Browser",
   "settings.nav.files": "File access",
@@ -1138,11 +1172,17 @@ export const settings = {
   "settings.webSearch.searxngPlaceholder": "http://127.0.0.1:8888",
 
   // Settings → Data controls (DataControlsSection.tsx).
-  "settings.data.title": "Data controls",
+  "settings.data.title": "Privacy & data",
   "settings.data.description":
     "Everything {persona} keeps lives on this machine. There is no training toggle because nothing is sent for training.",
   "settings.data.loadLabel": "data controls",
   "settings.data.memory": "Memory",
+  "settings.data.keep": "How long things are kept",
+  "settings.data.keepHint": "Older thinking and task replays are deleted on their own.",
+  "settings.data.danger": "Delete and start over",
+  "settings.memoryControls.title": "Remembering & learning",
+  "settings.memoryControls.description":
+    "Whether {persona} remembers from your chats, how it finds what it remembered, and what it learns from your feedback.",
   // The teaching loop's settings (docs/agent/teaching-loop-2026.md §8).
   "settings.learning.title": "Learning",
   "settings.learning.enabled": "Learn from your feedback",
@@ -1457,7 +1497,7 @@ export const settings = {
   "settings.permissions.subject.calendarNamed": "calendar {id}",
   "settings.permissions.subject.calendar": "calendar",
   "settings.permissions.subject.prepNotes": 'Notes titled "Prep:" (meeting prep)',
-  "settings.permissions.title": "Permissions",
+  "settings.permissions.title": "Approval rules",
   "settings.permissions.description":
     "What runs on its own, what asks first and what never happens.",
   "settings.permissions.loadLabel": "permissions",

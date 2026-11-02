@@ -18,7 +18,6 @@ import { useSlots } from "../../slots.tsx";
 import { ActionMatrix, type ActionRule, withMatrixOverrides } from "./ActionMatrix.tsx";
 import { appleApp } from "./ConnectorCapabilities.tsx";
 import { SCOPE_MODE_LABEL } from "./ConnectorsSection.tsx";
-import { folderGrants } from "./FileAccessSection.tsx";
 import {
   EmptyNotice,
   ErrorNotice,
@@ -34,7 +33,6 @@ import {
   str,
   useSettingsForm,
 } from "./shared.tsx";
-import type { FolderGrant } from "./types.ts";
 
 /** Permissions (UI design §3.18; architecture §4.6, §4.9; security §3.9). */
 
@@ -133,12 +131,10 @@ export function toolsListChanged(c: Connector): boolean {
 export interface PermissionsPanelProps extends SettingsFormProps, LoadProps {
   connectors: readonly Connector[];
   grants: readonly Grant[];
-  folders: readonly FolderGrant[];
   now?: number;
   onRevoke?: (grant: Grant) => void;
   /** Per-connector matrix change; the connected screen writes `permissions.connectors.<id>`. */
   onRuleChange?: (connector: Connector, action: string, rule: ActionRule) => void;
-  onOpenFiles?: () => void;
   /** Opens Settings → Connectors, where a specific connector's permissions are set. */
   onOpenConnectors?: () => void;
   /** Grant ids being revoked, for disabled buttons. */
@@ -152,11 +148,9 @@ export function PermissionsPanel({
   needsApproval,
   connectors,
   grants,
-  folders,
   now,
   onRevoke,
   onRuleChange,
-  onOpenFiles,
   onOpenConnectors,
   revoking,
   revokeError = null,
@@ -306,34 +300,6 @@ export function PermissionsPanel({
                       {t("settings.devices.revoke")}
                     </Button>
                   ) : null}
-                </li>
-              ))}
-            </ul>
-          )}
-        </Group>
-
-        <Group
-          title={t("settings.files.folders")}
-          actions={
-            onOpenFiles ? (
-              <Button type="button" variant="outline" size="sm" onClick={onOpenFiles}>
-                {t("settings.permissions.editInFiles")}
-              </Button>
-            ) : null
-          }
-        >
-          {folders.length === 0 ? (
-            <p className="text-muted-foreground">{t("settings.permissions.noFolders")}</p>
-          ) : (
-            <ul className="flex flex-wrap gap-x-4 gap-y-1">
-              {folders.map((f) => (
-                <li key={f.path}>
-                  <code className="font-mono text-callout">{f.path}</code>{" "}
-                  <span className="text-callout text-muted-foreground">
-                    {f.access === "rw"
-                      ? t("settings.permissions.folderRw")
-                      : t("settings.permissions.folderRo")}
-                  </span>
                 </li>
               ))}
             </ul>
@@ -499,12 +465,10 @@ export function PermissionsSection({ now }: { now?: number }): ReactElement {
         needsApproval={form.needsApproval}
         connectors={connectors}
         grants={grantsQ.data?.grants ?? []}
-        folders={folderGrants(form.values)}
         onRevoke={onRevoke}
         onRuleChange={(c, action, rule) =>
           form.onChange(`permissions.connectors.${c.id}`, { ...c.actionMatrix, [action]: rule })
         }
-        onOpenFiles={() => navigate?.("/settings/files")}
         onOpenConnectors={() => navigate?.("/settings/connectors")}
         revoking={revoking}
         revokeError={revokeError}

@@ -1,37 +1,10 @@
 import type { Connector } from "@psyche/protocol";
-import {
-  Activity,
-  Bell,
-  Bot,
-  Brain,
-  BrainCircuit,
-  CalendarClock,
-  FolderLock,
-  Globe,
-  Info,
-  KeyRound,
-  type LucideIcon,
-  Mail,
-  MessagesSquare,
-  Mic,
-  MonitorCog,
-  MonitorSmartphone,
-  MousePointerClick,
-  Palette,
-  Plug,
-  Puzzle,
-  Search,
-  Server,
-  ShieldCheck,
-  Trash2,
-  UserRound,
-  Users,
-  Workflow,
-} from "lucide-react";
+import { Search } from "lucide-react";
 import {
   type KeyboardEvent,
   type ReactElement,
   type ReactNode,
+  useCallback,
   useEffect,
   useId,
   useMemo,
@@ -40,6 +13,7 @@ import {
 } from "react";
 import type { UsageSummary } from "../../fixtures/index.ts";
 import { t } from "../../i18n/core.ts";
+import { documentPrefersReducedMotion, smoothScrollBehavior } from "../../lib/reduced-motion.ts";
 import { cn } from "../../lib/utils.ts";
 import { useSlots } from "../../slots.tsx";
 import { AboutSection } from "./AboutSection.tsx";
@@ -50,7 +24,11 @@ import { ComputerUseSection } from "./ComputerUseSection.tsx";
 import { ConnectorsSection, type ConnectorsView, type ScopeMode } from "./ConnectorsSection.tsx";
 import { CredentialsSection } from "./CredentialsSection.tsx";
 import { DailySection } from "./DailySection.tsx";
-import { DataControlsSection, type ExportFile } from "./DataControlsSection.tsx";
+import {
+  DataControlsSection,
+  type ExportFile,
+  MemoryControlsSection,
+} from "./DataControlsSection.tsx";
 import { DevicesSection } from "./DevicesSection.tsx";
 import { EverythingMemorySection } from "./EverythingMemorySection.tsx";
 import { FileAccessSection } from "./FileAccessSection.tsx";
@@ -61,11 +39,25 @@ import { NotificationsSection } from "./NotificationsSection.tsx";
 import { PeopleSection } from "./PeopleSection.tsx";
 import { PermissionsSection } from "./PermissionsSection.tsx";
 import { PersonaSection } from "./PersonaSection.tsx";
+import { SearchSection } from "./SearchSection.tsx";
 import { ServerSection } from "./ServerSection.tsx";
 import { SettingsApprovalProvider } from "./SettingsApproval.tsx";
 import { SkillsSection } from "./SkillsSection.tsx";
 import { SpecialistsSection } from "./SpecialistsSection.tsx";
 import { SETTING_LABELS } from "./setting-labels.ts";
+import {
+  pageById,
+  pageOfPane,
+  paneById,
+  paneForKey,
+  resolveSection,
+  SETTINGS_PAGES,
+  SETTINGS_PANES,
+  type SettingsPage,
+  type SettingsPaneId,
+  type SettingsSectionId,
+} from "./settings-pages.ts";
+import { InPageContext } from "./shared.tsx";
 import type {
   AboutInfo,
   DoctorCheck,
@@ -78,165 +70,77 @@ import { UsageSection } from "./UsageSection.tsx";
 import { VmSection } from "./VmSection.tsx";
 import { VoiceSection } from "./VoiceSection.tsx";
 
-/** Settings (UI design §2.6, §3.18): a section nav and one component per section. */
+/**
+ * Settings (UI design §2.6, §3.18; docs/design/settings-2026.md): nine pages in the sidebar, each
+ * a column of panes, and a search that jumps to the setting itself.
+ */
 
-export type SettingsSectionId =
-  | "model"
-  | "persona"
-  | "connectors"
-  | "skills"
-  | "specialists"
-  | "permissions"
-  | "computer-use"
-  | "browser"
-  | "files"
-  | "vm"
-  | "devices"
-  | "channels"
-  | "credentials"
-  | "appearance"
-  | "notifications"
-  | "voice"
-  | "mail"
-  | "daily"
-  | "data"
-  | "people"
-  | "everything"
-  | "memory"
-  | "server"
-  | "usage"
-  | "about";
+export {
+  paneForKey,
+  SETTINGS_PAGES,
+  SETTINGS_PANES,
+  SETTINGS_SECTIONS,
+  type SettingsPage,
+  type SettingsPageId,
+  type SettingsPaneId,
+  type SettingsSectionId,
+} from "./settings-pages.ts";
 
-interface SettingsSectionEntry {
-  id: SettingsSectionId;
-  /** The nav label, in the active language (`settings.nav.<id>`). */
-  readonly label: string;
-  icon: LucideIcon;
+/** One search result: a page, a pane, or a single setting inside a pane. */
+export interface SettingsHit {
+  kind: "page" | "pane" | "setting";
+  label: string;
+  page: SettingsPage;
+  pane?: SettingsPaneId;
+  /** The setting key to scroll to (its row carries `data-setting-key`). */
+  settingKey?: string;
 }
 
-const entry = (id: SettingsSectionId, icon: LucideIcon): SettingsSectionEntry => ({
-  id,
-  icon,
-  get label() {
-    // Message ids are camelCase; the route id keeps its hyphen.
-    return t(`settings.nav.${id === "computer-use" ? "computerUse" : id}`);
-  },
-});
-
-export const SETTINGS_SECTIONS: readonly SettingsSectionEntry[] = [
-  entry("model", Bot),
-  entry("persona", UserRound),
-  entry("connectors", Plug),
-  entry("skills", Puzzle),
-  entry("specialists", Workflow),
-  entry("permissions", ShieldCheck),
-  entry("computer-use", MousePointerClick),
-  entry("browser", Globe),
-  entry("files", FolderLock),
-  entry("vm", MonitorCog),
-  entry("devices", MonitorSmartphone),
-  entry("channels", MessagesSquare),
-  entry("credentials", KeyRound),
-  entry("appearance", Palette),
-  entry("notifications", Bell),
-  entry("voice", Mic),
-  entry("mail", Mail),
-  entry("daily", CalendarClock),
-  entry("data", Trash2),
-  entry("people", Users),
-  entry("everything", Brain),
-  entry("memory", BrainCircuit),
-  entry("server", Server),
-  entry("usage", Activity),
-  entry("about", Info),
-];
-
-/** Sidebar groups, as System Settings groups its panes (docs/design/redesign-2026.md §5.8). */
-export type SettingsGroupId = "general" | "access" | "devices" | "privacy" | "about";
-
-export const SETTINGS_GROUPS: readonly {
-  id: SettingsGroupId;
-  sections: readonly SettingsSectionId[];
-}[] = [
-  {
-    id: "general",
-    sections: [
-      "model",
-      "persona",
-      "appearance",
-      "notifications",
-      "voice",
-      "mail",
-      "daily",
-      "usage",
-    ],
-  },
-  {
-    id: "access",
-    sections: [
-      "permissions",
-      "connectors",
-      "skills",
-      "specialists",
-      "credentials",
-      "computer-use",
-      "browser",
-      "files",
-    ],
-  },
-  { id: "devices", sections: ["devices", "channels", "vm", "server"] },
-  { id: "privacy", sections: ["data", "people", "everything", "memory"] },
-  { id: "about", sections: ["about"] },
-];
-
-/** The section a setting key lives in, so the sidebar search finds sections by their settings. */
-export function sectionForKey(key: string): SettingsSectionId | null {
-  const root = key.split(".", 1)[0] ?? "";
-  if (key.startsWith("permissions.folders")) return "files";
-  if (key.startsWith("memory.everything")) return "everything";
-  const byRoot: Record<string, SettingsSectionId> = {
-    appearance: "appearance",
-    backup: "data",
-    browser: "browser",
-    computerUse: "computer-use",
-    context: "model",
-    data: "data",
-    gateway: "server",
-    memory: "people",
-    models: "model",
-    notifications: "notifications",
-    permissions: "permissions",
-    persona: "persona",
-    vm: "vm",
-    voice: "voice",
-    mail: "mail",
-    meetings: "mail",
-    workflows: "mail",
-    daily: "daily",
-    vault: "credentials",
-    channels: "channels",
-    mcp: "connectors",
-    skills: "skills",
-    specialists: "specialists",
+/**
+ * What the sidebar search finds, best first: pages and panes by name, then settings by their
+ * label, each with the page and pane it opens. Every word of the query has to appear.
+ */
+export function searchSettings(query: string): SettingsHit[] {
+  const words = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return [];
+  const hits: SettingsHit[] = [];
+  const seen = new Set<string>();
+  const add = (hit: SettingsHit, text: string) => {
+    const hay = text.toLocaleLowerCase();
+    if (!words.every((w) => hay.includes(w))) return;
+    const id = `${hit.label}|${hit.pane ?? hit.page.id}`;
+    if (seen.has(id)) return;
+    seen.add(id);
+    hits.push(hit);
   };
-  return byRoot[root] ?? null;
+  for (const p of SETTINGS_PAGES) add({ kind: "page", label: p.label, page: p }, p.label);
+  for (const pane of SETTINGS_PANES) {
+    const p = pageOfPane(pane.id);
+    add({ kind: "pane", label: pane.label, page: p, pane: pane.id }, pane.label);
+  }
+  for (const [key, label] of Object.entries(SETTING_LABELS)) {
+    const pane = paneForKey(key);
+    if (pane === null) continue;
+    add({ kind: "setting", label, page: pageOfPane(pane), pane, settingKey: key }, label);
+  }
+  const first = words[0] ?? "";
+  // Labels that start with the query rank first; the order above breaks ties.
+  return hits
+    .map((h, i) => ({ h, i, starts: h.label.toLocaleLowerCase().startsWith(first) ? 0 : 1 }))
+    .sort((a, b) => a.starts - b.starts || a.i - b.i)
+    .map((x) => x.h);
 }
 
-/** Sections whose name, or one of whose settings, matches the search (case-insensitive). */
-export function matchSections(query: string): Set<SettingsSectionId> {
-  const q = query.trim().toLocaleLowerCase();
-  const out = new Set<SettingsSectionId>();
-  for (const s of SETTINGS_SECTIONS) {
-    if (q === "" || s.label.toLocaleLowerCase().includes(q)) out.add(s.id);
-  }
-  if (q !== "") {
-    for (const [key, label] of Object.entries(SETTING_LABELS)) {
-      const section = sectionForKey(key);
-      if (section !== null && label.toLocaleLowerCase().includes(q)) out.add(section);
-    }
-  }
-  return out;
+/** The sub-line under a search result: where it opens. */
+function hitPath(hit: SettingsHit): string {
+  if (hit.kind === "page") return t("settings.search.result.page");
+  const pane = hit.pane === undefined ? undefined : paneById(hit.pane);
+  if (hit.kind === "pane" || pane === undefined || hit.page.panes.length === 1)
+    return hit.page.label;
+  return `${hit.page.label} › ${pane.label}`;
 }
+
+const paneAnchor = (id: SettingsPaneId) => `settings-pane-${id}`;
 
 /** Things only the shell knows or can do (OS permissions, OAuth windows, files, versions). */
 export interface SettingsShellProps {
@@ -277,15 +181,15 @@ export interface SettingsShellProps {
   /** Desktop only: sites "Stay signed in" kept in the profile (Settings → Browser). */
   signedInSites?: SignedInSitesApi;
   /**
-   * Section bodies the shell renders itself (for example a File access section backed by the
+   * Pane bodies the shell renders itself (for example a File access section backed by the
    * Gateway's `permissions.policy` with a native folder picker). Sections not listed here use
    * the kit's connected components.
    */
-  sections?: Partial<Record<SettingsSectionId, ReactNode>>;
+  sections?: Partial<Record<SettingsPaneId, ReactNode>>;
 }
 
 export interface SettingsScreenProps extends SettingsShellProps {
-  /** Controlled section (from the `/settings/:section` route). */
+  /** Controlled page or pane (from the `/settings/:section` route; a pane scrolls into view). */
   section?: SettingsSectionId;
   defaultSection?: SettingsSectionId;
   onSectionChange?: (section: SettingsSectionId) => void;
@@ -303,7 +207,7 @@ export function SettingsSectionView({
   onOpenSection,
   connectorsView,
 }: {
-  section: SettingsSectionId;
+  section: SettingsPaneId;
   shell: SettingsShellProps;
   /** Moves to another section (the connector catalog's Slack row). */
   onOpenSection?: (section: SettingsSectionId) => void;
@@ -404,6 +308,10 @@ export function SettingsSectionView({
       );
     case "usage":
       return <UsageSection usage={s.usage ?? null} />;
+    case "search":
+      return <SearchSection />;
+    case "learning":
+      return <MemoryControlsSection />;
     case "about":
       return (
         <AboutSection
@@ -417,28 +325,93 @@ export function SettingsSectionView({
   }
 }
 
+/** Briefly tints a row Search jumped to, so the eye lands on it (no tint under reduced motion). */
+function flash(el: HTMLElement): void {
+  if (typeof el.animate !== "function" || documentPrefersReducedMotion()) return;
+  const tint = getComputedStyle(document.documentElement).getPropertyValue("--selection").trim();
+  if (tint === "") return;
+  el.animate([{ backgroundColor: tint }, { backgroundColor: tint, offset: 0.6 }, {}], {
+    duration: 1600,
+    easing: "cubic-bezier(0.16, 1, 0.3, 1)",
+  });
+}
+
+/** One sidebar row: a page (icon, label) or, under the open page, one of its panes. */
+function NavRow({
+  label,
+  icon: Icon,
+  current,
+  sub = false,
+  onSelect,
+}: {
+  label: string;
+  icon?: SettingsPage["icon"];
+  current: boolean;
+  sub?: boolean;
+  onSelect: () => void;
+}): ReactElement {
+  return (
+    <button
+      type="button"
+      aria-current={current ? (sub ? "location" : "page") : undefined}
+      onClick={onSelect}
+      className={cn(
+        "flex w-full cursor-default scroll-mt-16 items-center gap-2 rounded-sm px-2 text-start outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
+        sub ? "h-6 ps-8 text-callout" : "h-7 text-body",
+        current && !sub
+          ? "bg-selection text-label-primary"
+          : current
+            ? "font-medium text-label-primary"
+            : sub
+              ? "text-label-secondary hover:bg-fill-quaternary hover:text-label-primary"
+              : "text-label-primary hover:bg-fill-quaternary",
+      )}
+    >
+      {Icon ? (
+        <Icon
+          className={cn("size-4 shrink-0", current ? "text-accent-11" : "text-label-secondary")}
+          strokeWidth={1.75}
+          aria-hidden="true"
+        />
+      ) : null}
+      <span className="truncate">{label}</span>
+    </button>
+  );
+}
+
 export function SettingsScreen({
   section,
-  defaultSection = "model",
+  defaultSection = "general",
   onSectionChange,
   connectorsView,
   ...shell
 }: SettingsScreenProps): ReactElement {
   const { navigate } = useSlots();
   const [own, setOwn] = useState<SettingsSectionId>(defaultSection);
-  const current = section ?? own;
+  const target = resolveSection(section ?? own);
+  const page = pageById(target.page);
+  const multi = page.panes.length > 1;
   const navRef = useRef<HTMLElement>(null);
+  const asideRef = useRef<HTMLElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  // Bumped on every jump, so choosing the same pane or setting again scrolls to it again.
+  const [jump, setJump] = useState(0);
+  const pendingKey = useRef<string | null>(null);
+  // The pane at the top of the content (two-pane layout), for the sidebar's current sub-row.
+  const [inView, setInView] = useState<SettingsPaneId | null>(null);
 
-  const select = (id: SettingsSectionId) => {
+  const select = (id: SettingsSectionId, settingKey?: string) => {
+    pendingKey.current = settingKey ?? null;
     setOwn(id);
+    setJump((n) => n + 1);
     onSectionChange?.(id);
     navigate?.(`/settings/${id}`);
   };
 
   const searchId = useId();
   const [query, setQuery] = useState("");
-  const matches = useMemo(() => matchSections(query), [query]);
-  const byId = useMemo(() => new Map(SETTINGS_SECTIONS.map((s) => [s.id, s])), []);
+  const hits = useMemo(() => searchSettings(query).slice(0, 40), [query]);
+  const searching = query.trim() !== "";
 
   const onNavKey = (e: KeyboardEvent<HTMLElement>) => {
     if (e.key !== "ArrowDown" && e.key !== "ArrowUp" && e.key !== "Home" && e.key !== "End") return;
@@ -455,21 +428,73 @@ export function SettingsScreen({
     buttons[next]?.focus();
   };
 
-  // Two-pane (≥ 720 px): the selected row stays in view in the list, and a new section starts at
-  // the top of the content pane. Stacked, neither pane scrolls on its own, so neither moves.
-  const asideRef = useRef<HTMLElement>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: runs when the section changes
+  const open = (hit: SettingsHit) => {
+    setQuery("");
+    select(hit.pane ?? hit.page.id, hit.settingKey);
+  };
+
+  // A new page starts at the top; a pane, or a setting Search found, scrolls into view. Panes load
+  // their settings after they mount, so a setting row is looked for again for a moment.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs when the target changes
+  useEffect(() => {
+    const content = contentRef.current;
+    if (content === null) return;
+    const key = pendingKey.current;
+    pendingKey.current = null;
+    // The first pane is the top of its page: the page title stays in view.
+    const paneEl =
+      target.pane === undefined || target.pane === page.panes[0]
+        ? null
+        : content.querySelector<HTMLElement>(`#${paneAnchor(target.pane)}`);
+    const show = (el: HTMLElement, block: ScrollLogicalPosition) => {
+      if (typeof el.scrollIntoView === "function")
+        el.scrollIntoView({ block, behavior: smoothScrollBehavior() });
+    };
+    if (paneEl !== null) show(paneEl, "start");
+    else if (getComputedStyle(content).overflowY === "auto") content.scrollTop = 0;
+    if (key === null) return;
+    let tries = 0;
+    const timer = setInterval(() => {
+      const row = content.querySelector<HTMLElement>(
+        `[data-setting-key="${key.replace(/["\\]/g, "\\$&")}"]`,
+      );
+      if (row !== null) {
+        clearInterval(timer);
+        show(row, "center");
+        flash(row);
+      } else if (++tries > 20) clearInterval(timer);
+    }, 75);
+    return () => clearInterval(timer);
+  }, [target.page, target.pane, jump]);
+
+  // Two-pane (≥ 720 px): the open page stays in view in the list.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs when the page changes
   useEffect(() => {
     const aside = asideRef.current;
     if (aside === null || getComputedStyle(aside).overflowY !== "auto") return;
     const row = navRef.current?.querySelector<HTMLElement>('[aria-current="page"]');
     if (typeof row?.scrollIntoView === "function") row.scrollIntoView({ block: "nearest" });
-    if (contentRef.current !== null) contentRef.current.scrollTop = 0;
-  }, [current]);
+  }, [target.page]);
+
+  // Which pane is at the top of the content as it scrolls (two-pane only; stacked, the window
+  // scrolls and the sub-row follows the last pane chosen).
+  const onContentScroll = useCallback(() => {
+    const content = contentRef.current;
+    if (content === null || !multi) return;
+    const top = content.getBoundingClientRect().top + 96;
+    let current: SettingsPaneId | null = null;
+    for (const el of content.querySelectorAll<HTMLElement>("[data-settings-pane]")) {
+      if (el.getBoundingClientRect().top <= top)
+        current = el.dataset.settingsPane as SettingsPaneId;
+    }
+    setInView(current);
+  }, [multi]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: resets when the page changes
+  useEffect(() => setInView(null), [target.page]);
+  const currentPane = inView ?? target.pane ?? page.panes[0];
 
   return (
-    // The Settings window (§5.8), like System Settings: at ≥ 720 px a 248 px section list and the
+    // The Settings window (§5.8), like System Settings: at ≥ 720 px a 248 px page list and the
     // content, each full height with its own scroll; narrower (the web on a phone) they stack. A
     // container query, so the screen's own width decides, not the window's.
     <div className="@container flex min-h-0 w-full flex-1 flex-col">
@@ -479,7 +504,7 @@ export function SettingsScreen({
           className="flex flex-col bg-surface-sidebar px-2 pb-2 @min-[720px]:min-h-0 @min-[720px]:overflow-y-auto @min-[720px]:pb-3"
         >
           <h1 className="sr-only">{t("settings.nav.title")}</h1>
-          {/* Pinned at the top of the list's scroll (h-11: the group headers stick under it). */}
+          {/* Pinned at the top of the list's scroll. */}
           <div className="relative z-20 flex h-11 shrink-0 items-center bg-surface-sidebar px-1 @min-[720px]:sticky @min-[720px]:top-0">
             <Search
               aria-hidden="true"
@@ -494,77 +519,129 @@ export function SettingsScreen({
                 if (e.key === "ArrowDown") {
                   e.preventDefault();
                   navRef.current?.querySelector("button")?.focus();
+                } else if (e.key === "Enter" && hits[0] !== undefined) {
+                  e.preventDefault();
+                  open(hits[0]);
+                } else if (e.key === "Escape" && query !== "") {
+                  e.preventDefault();
+                  setQuery("");
                 }
               }}
-              placeholder={t("settings.nav.search")}
-              aria-label={t("settings.nav.search")}
+              placeholder={t("settings.nav.find")}
+              aria-label={t("settings.nav.find")}
+              aria-controls={`${searchId}-nav`}
               className="h-7 w-full rounded-md bg-fill-tertiary ps-7 pe-2 text-body text-label-primary outline-none placeholder:text-label-tertiary focus-visible:ring-2 focus-visible:ring-ring"
             />
           </div>
-          <nav aria-label={t("settings.nav.label")} ref={navRef} onKeyDown={onNavKey}>
-            {matches.size === 0 ? (
-              <p className="px-3 py-2 text-callout text-label-secondary" role="status">
-                {t("settings.nav.noMatch")}
-              </p>
-            ) : null}
-            {SETTINGS_GROUPS.map((g) => {
-              const shown = g.sections.filter((id) => matches.has(id));
-              if (shown.length === 0) return null;
-              return (
-                <div key={g.id} className="mb-3 flex flex-col gap-0.5">
-                  <h2 className="z-10 bg-surface-sidebar px-3 pb-0.5 text-caption text-label-tertiary @min-[720px]:sticky @min-[720px]:top-11">
-                    {t(`settings.nav.group.${g.id}`)}
-                  </h2>
+          <nav
+            id={`${searchId}-nav`}
+            aria-label={t("settings.nav.label")}
+            ref={navRef}
+            onKeyDown={onNavKey}
+          >
+            {searching ? (
+              hits.length === 0 ? (
+                <p className="px-3 py-2 text-callout text-label-secondary" role="status">
+                  {t("settings.nav.noMatch")}
+                </p>
+              ) : (
+                <>
+                  <p className="sr-only" role="status">
+                    {t("settings.search.count", { count: hits.length })}
+                  </p>
                   <ul className="flex flex-col gap-px">
-                    {shown.map((id) => {
-                      const s = byId.get(id);
-                      if (s === undefined) return null;
-                      const active = id === current;
-                      const Icon = s.icon;
-                      return (
-                        <li key={id}>
-                          <button
-                            type="button"
-                            aria-current={active ? "page" : undefined}
-                            onClick={() => select(id)}
-                            className={cn(
-                              "flex h-7 w-full cursor-default scroll-mt-16 items-center gap-2 rounded-sm px-2 text-start text-body outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                              active
-                                ? "bg-selection text-label-primary"
-                                : "text-label-primary hover:bg-fill-quaternary",
-                            )}
-                          >
-                            <Icon
-                              className={cn(
-                                "size-4 shrink-0",
-                                active ? "text-accent-11" : "text-label-secondary",
-                              )}
-                              strokeWidth={1.75}
-                              aria-hidden="true"
-                            />
-                            <span className="truncate">{s.label}</span>
-                          </button>
-                        </li>
-                      );
-                    })}
+                    {hits.map((hit) => (
+                      <li key={`${hit.kind}:${hit.settingKey ?? hit.pane ?? hit.page.id}`}>
+                        <button
+                          type="button"
+                          onClick={() => open(hit)}
+                          className="flex w-full cursor-default flex-col items-start gap-0.5 rounded-sm px-2 py-1.5 text-start outline-none transition-colors hover:bg-fill-quaternary focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <span className="w-full truncate text-body text-label-primary">
+                            {hit.label}
+                          </span>
+                          <span className="w-full truncate text-callout text-label-secondary">
+                            {hitPath(hit)}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
                   </ul>
-                </div>
-              );
-            })}
+                </>
+              )
+            ) : (
+              <ul className="flex flex-col gap-px">
+                {SETTINGS_PAGES.map((p) => {
+                  const active = p.id === page.id;
+                  return (
+                    <li key={p.id}>
+                      <NavRow
+                        label={p.label}
+                        icon={p.icon}
+                        current={active}
+                        onSelect={() => select(p.id)}
+                      />
+                      {active && multi ? (
+                        <ul
+                          className="flex flex-col gap-px pt-px pb-1"
+                          aria-label={t("settings.nav.inPage", { page: p.label })}
+                        >
+                          {p.panes.map((id) => (
+                            <li key={id}>
+                              <NavRow
+                                label={paneById(id)?.label ?? id}
+                                current={id === currentPane}
+                                sub
+                                onSelect={() => select(id)}
+                              />
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </nav>
         </aside>
         <div
           ref={contentRef}
-          className="flex min-w-0 flex-col gap-5 bg-canvas px-6 py-5 @min-[720px]:min-h-0 @min-[720px]:overflow-y-auto @min-[720px]:px-8"
+          onScroll={onContentScroll}
+          className="flex min-w-0 flex-col bg-canvas px-6 py-5 @min-[720px]:min-h-0 @min-[720px]:overflow-y-auto @min-[720px]:px-8"
         >
-          <div className="flex w-full max-w-[680px] flex-col gap-5">
+          <div className="flex w-full max-w-[680px] flex-col gap-10 pb-8">
             <SettingsApprovalProvider>
-              <SettingsSectionView
-                section={current}
-                shell={shell}
-                onOpenSection={select}
-                {...(connectorsView === undefined ? {} : { connectorsView })}
-              />
+              <InPageContext.Provider value={multi}>
+                {multi ? (
+                  <header className="-mb-4 flex flex-col gap-1">
+                    <h2 className="font-display text-page-title text-label-primary">
+                      {page.label}
+                    </h2>
+                    <p className="text-callout text-label-secondary">{page.description}</p>
+                  </header>
+                ) : null}
+                {page.panes.map((id, i) => (
+                  <div
+                    key={id}
+                    id={paneAnchor(id)}
+                    data-settings-pane={id}
+                    className={cn(
+                      "flex scroll-mt-5 flex-col gap-5",
+                      multi && i > 0 && "border-t border-separator pt-8",
+                    )}
+                  >
+                    <SettingsSectionView
+                      section={id}
+                      shell={shell}
+                      onOpenSection={select}
+                      {...(connectorsView === undefined || id !== "connectors"
+                        ? {}
+                        : { connectorsView })}
+                    />
+                  </div>
+                ))}
+              </InPageContext.Provider>
             </SettingsApprovalProvider>
           </div>
         </div>

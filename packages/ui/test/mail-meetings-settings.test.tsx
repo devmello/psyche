@@ -9,7 +9,7 @@ import {
   MailMeetingsPanel,
   MailMeetingsSection,
 } from "../src/screens/settings/MailMeetingsSection.tsx";
-import { matchSections, sectionForKey } from "../src/screens/settings/SettingsScreen.tsx";
+import { paneForKey, searchSettings } from "../src/screens/settings/SettingsScreen.tsx";
 import { settingLabel } from "../src/screens/settings/setting-labels.ts";
 import { StoryWorld } from "../src/stories/harness.tsx";
 
@@ -19,10 +19,10 @@ const accounts = [{ id: "conn_gmail", label: "Gmail" }];
 const base = { values: {}, accounts, localModels: [], onChange: () => {} };
 
 describe("Settings → Mail & meetings", () => {
-  it("is a section under General that settings search and keys find", () => {
-    expect(matchSections("mail").has("mail")).toBe(true);
-    expect(sectionForKey("meetings.prep.enabled")).toBe("mail");
-    expect(sectionForKey("workflows.paused")).toBe("mail");
+  it("is a pane under Connectors & sources that settings search and keys find", () => {
+    expect(searchSettings("mail").some((h) => h.pane === "mail")).toBe(true);
+    expect(paneForKey("meetings.prep.enabled")).toBe("mail");
+    expect(paneForKey("workflows.paused")).toBe("mail");
     expect(settingLabel("mail.accounts.conn_gmail")).toBe(
       "Use conn_gmail in digest and follow-ups",
     );
