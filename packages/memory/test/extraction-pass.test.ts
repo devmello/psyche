@@ -8,6 +8,7 @@ import {
   localMinutesAt,
   type ModelChoice,
   type PassDeps,
+  READABLE_SOURCES,
   runEverythingPass,
   SearchDocReader,
   type SystemState,
@@ -539,6 +540,45 @@ describe("the reader", () => {
     );
     expect(page.items.map((i) => i.body)).toEqual(["mine"]);
     expect(page.skippedUntrusted).toBe(2);
+  });
+});
+
+describe("more sources (EM10)", () => {
+  it("reads the owner's own calendar, reminders, files and transcripts, and nothing from a browser page", () => {
+    const reader = new SearchDocReader(search);
+    const tags = {
+      calendar: "connector:calendar",
+      reminders: "connector:reminders",
+      files: "connector:files",
+      transcripts: "connector:transcripts",
+    } as const;
+    for (const [s, tag] of Object.entries(tags)) doc({ body: `mine ${s}`, source: tag });
+    doc({ body: "web page", source: "connector:browser", provenance: "untrusted" });
+    doc({ body: "meeting, their words", source: "connector:transcripts", provenance: "untrusted" });
+    for (const s of Object.keys(tags) as (keyof typeof tags)[]) {
+      const page = reader.read(s, { updatedMs: 0, rowid: 0 }, { limit: 10, windowDays: 3 });
+      expect(page.items.map((i) => i.body)).toEqual([
+        `mine ${s}`,
+        ...(s === "transcripts" ? [] : []),
+      ]);
+    }
+    const t = reader.read("transcripts", { updatedMs: 0, rowid: 0 }, { limit: 10, windowDays: 3 });
+    expect(t.skippedUntrusted).toBe(1);
+    expect(READABLE_SOURCES).not.toContain("browser");
+    expect(READABLE_SOURCES).not.toContain("chats");
+  });
+
+  it("a switched-on browser or chats source does not make the pass read anything", async () => {
+    doc({
+      body: "I moved to Lisbon, my address is 5 Rua X",
+      source: "connector:browser",
+      provenance: "untrusted",
+    });
+    const r = await runEverythingPass(
+      deps({ settings: settingsWith({ sources: { browser: true, chats: true } }) }),
+    );
+    expect(r.itemsRead).toBe(0);
+    expect(provider.requests).toHaveLength(0);
   });
 });
 
