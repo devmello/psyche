@@ -7,6 +7,7 @@ export * from "./botauth/verify.ts";
 export * from "./bridge/allowlist.ts";
 export * from "./bridge/bridge.ts";
 export { BRIDGE_MAX_FRAME_BYTES, FrameConnection } from "./bridge/framing.ts";
+export * from "./bridge/socket-path.ts";
 export { type CdpTarget, looksLikeCardNumber, PageController } from "./cdp/page.ts";
 export * from "./devpreview/gate.ts";
 export * from "./devpreview/probes.ts";

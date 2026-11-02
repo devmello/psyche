@@ -10,7 +10,11 @@ import {
 } from "@psyche/protocol";
 import { MockGateway } from "@psyche/web/testing";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { BridgeClient, checkBridgeSocket } from "../../src/main/bridge/bridge-client.ts";
+import {
+  BridgeClient,
+  bridgeSocketPath,
+  checkBridgeSocket,
+} from "../../src/main/bridge/bridge-client.ts";
 import {
   type BridgeHighlight,
   type BridgeHostEvents,
@@ -390,5 +394,21 @@ describe("BridgeClient", () => {
     expect(c.status().lastError).toBe("socket missing");
     await startGateway();
     await until(() => c.connected);
+  });
+});
+
+describe("bridgeSocketPath", () => {
+  it("is the default under the home, or the absolute path the Gateway recorded", () => {
+    const home = mkdtempSync(join(tmpdir(), "psy-bsp-"));
+    try {
+      expect(bridgeSocketPath(home)).toBe(join(home, "run", "browser-bridge.sock"));
+      mkdirSync(join(home, "run"));
+      writeFileSync(join(home, "run", "browser-bridge-socket"), "/tmp/psyche-501/b-abc.sock\n");
+      expect(bridgeSocketPath(home)).toBe("/tmp/psyche-501/b-abc.sock");
+      writeFileSync(join(home, "run", "browser-bridge-socket"), "relative.sock\n");
+      expect(bridgeSocketPath(home)).toBe(join(home, "run", "browser-bridge.sock"));
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
   });
 });

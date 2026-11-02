@@ -4,7 +4,7 @@ import { mkdir, realpath, rm, writeFile } from "node:fs/promises";
 import { homedir, userInfo } from "node:os";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { type AgentToolRegistration, defineTool, type ToolRunContext } from "@psyche/agent-core";
-import { defaultDenyRead } from "@psyche/mcp-host";
+import { createScratchDir, defaultDenyRead, scratchReadRules } from "@psyche/mcp-host";
 import type { FolderGrantEntry } from "@psyche/permissions";
 import {
   EXEC_DEFAULT_TIMEOUT_MS,
@@ -158,6 +158,7 @@ export function execHostSrtSettings(input: {
   allowedDomains: readonly string[];
 }): Record<string, unknown> {
   const h = (...p: string[]) => join(input.userHome, ...p);
+  const scratch = scratchReadRules(input.psycheHome, input.scratch);
   return {
     filesystem: {
       denyRead: [
@@ -173,9 +174,10 @@ export function execHostSrtSettings(input: {
           h(".ssh"),
           h("Library", "Keychains"),
           ...browserProfiles(input.userHome),
+          ...scratch.denyRead,
         ]),
       ],
-      allowRead: [],
+      allowRead: [...scratch.allowRead],
       allowWrite: [input.scratch, ...input.writable],
       denyWrite: [input.psycheHome, h(".ssh"), h("Library", "Keychains")],
     },
@@ -372,8 +374,9 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
       }
       const dir = join(deps.home, "exec-host");
       const id = randomUUID();
-      const scratch = join(dir, `scratch-${id}`);
-      await mkdir(scratch, { recursive: true, mode: 0o700 });
+      await mkdir(dir, { recursive: true, mode: 0o700 });
+      // Short on purpose: srt's mux sockets live in it and `sun_path` is 104 bytes.
+      const scratch = await createScratchDir(dir);
       const settings = join(dir, `srt-${id}.json`);
       let user = "";
       try {

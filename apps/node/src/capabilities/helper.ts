@@ -519,6 +519,13 @@ export function createHelperProvider(options: HelperProviderOptions): HelperProv
     async start(): Promise<void> {
       if (listening) return;
       if (disposed) throw new PsycheError("conflict", "helper provider was disposed");
+      // sun_path is 104 bytes on macOS: say so, instead of a bare `listen EINVAL`.
+      if (Buffer.byteLength(socketPath) > (process.platform === "darwin" ? 103 : 107)) {
+        throw new PsycheError(
+          "invalid_params",
+          `the helper socket path is too long for a Unix socket (${socketPath}); set PSYCHE_NODE_SOCKET to a shorter path`,
+        );
+      }
       await mkdir(runDir, { recursive: true, mode: 0o700 });
       await chmod(runDir, 0o700);
       await mkdir(dirname(socketPath), { recursive: true, mode: 0o700 });
