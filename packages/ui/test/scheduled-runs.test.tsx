@@ -127,6 +127,31 @@ function withGateway() {
   };
 }
 
+describe("not verified runs", () => {
+  const nv = run({
+    id: "nv",
+    state: "not_verified",
+    title: "Canvas: Morning",
+    reason:
+      "Fetch the data (browser or web): no browser or web tool call was recorded in this run.",
+    evidence: ["ok · notify · Notify the owner", "failed · write · Add reminder · needs approval"],
+  });
+
+  it("says in plain words what is missing, lists the evidence and offers Re-run", async () => {
+    const onRerun = vi.fn();
+    renderRuns([nv, run({ id: "ok", state: "succeeded" })], { onRerun });
+    expect(screen.getAllByText("Not verified").length).toBeGreaterThan(1); // filter option + row
+    expect(screen.getByText(/not an error, and it is not a confirmed success/)).toBeTruthy();
+    expect(screen.getByText(/no browser or web tool call was recorded/)).toBeTruthy();
+    expect(screen.getByText("ok · notify · Notify the owner")).toBeTruthy();
+    // Only the unverified run offers a Re-run; the succeeded one does not.
+    const buttons = screen.getAllByRole("button", { name: /Re-run/ });
+    expect(buttons).toHaveLength(1);
+    await userEvent.click(buttons[0] as HTMLElement);
+    expect(onRerun).toHaveBeenCalledWith("auto_x");
+  });
+});
+
 describe("Runs, wired", () => {
   it("updates live when a run starts", async () => {
     const { ref, onGateway } = withGateway();

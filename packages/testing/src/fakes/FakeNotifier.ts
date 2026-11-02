@@ -44,6 +44,7 @@ export class FakeNotifier implements Notifier {
       dedupeKey === undefined
         ? undefined
         : this.#items.find((i) => i.dedupeKey === dedupeKey && i.n.resolvedAt == null);
+    if (existing !== undefined && input.keepExisting === true) return structuredClone(existing.n);
     if (existing !== undefined) {
       Object.assign(existing.n, {
         title: input.title,

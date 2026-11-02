@@ -105,7 +105,28 @@ export interface ScheduledDeps {
  * The one status a run is shown with, from the scheduler's run status (the source of truth) and,
  * while it runs, its task's: `done` is the only success; a skipped or no-reply run says why.
  */
-export function runState(status: AutomationRun["status"], taskStatus?: string): ScheduledRunState {
+const VERDICT = /not_verified:\s*/;
+
+/** A `not_verified:` failure: its reason in plain words and the evidence lines under it. */
+export function parseVerdict(
+  summary: string | null,
+): { reason: string; evidence: string[] } | undefined {
+  if (summary === null) return undefined;
+  const m = VERDICT.exec(summary);
+  if (m === null) return undefined;
+  const [reason = "", list = ""] = summary.slice(m.index + m[0].length).split(/\nEvidence:\n/);
+  const evidence = list
+    .split("\n")
+    .map((l) => l.replace(/^-\s*/, "").trim())
+    .filter((l) => l !== "");
+  return { reason: reason.trim(), evidence };
+}
+
+export function runState(
+  status: AutomationRun["status"],
+  taskStatus?: string,
+  summary?: string | null,
+): ScheduledRunState {
   switch (status) {
     case "running":
       return taskStatus === "awaiting_approval" || taskStatus === "awaiting_input"
@@ -114,7 +135,8 @@ export function runState(status: AutomationRun["status"], taskStatus?: string): 
     case "done":
       return "succeeded";
     case "failed":
-      return "failed";
+      // The run ended but its steps are not evidenced: not an error, and not a success.
+      return parseVerdict(summary ?? null) === undefined ? "failed" : "not_verified";
     case "cancelled":
       return "cancelled";
     default:
@@ -235,16 +257,19 @@ export function createScheduledHandlers(deps: ScheduledDeps): ScheduledHandlers 
           run.status === "running" && run.taskId != null
             ? await deps.taskStatus?.(run.taskId)
             : undefined;
-        const s = runState(run.status, taskStatus);
+        const s = runState(run.status, taskStatus, run.summary);
+        const verdict = s === "not_verified" ? parseVerdict(run.summary ?? null) : undefined;
         if (state !== undefined && s !== state) continue;
         const a = system ? await scheduler.get(run.automationId) : undefined;
         const open = run.taskId == null ? 0 : (pending.get(run.taskId) ?? 0);
         const reason =
           s === "skipped"
             ? (run.summary ?? NOTHING_TO_REPORT)
-            : s === "failed" || s === "cancelled"
-              ? (run.summary ?? null)
-              : null;
+            : s === "not_verified"
+              ? (verdict?.reason ?? run.summary ?? null)
+              : s === "failed" || s === "cancelled"
+                ? (run.summary ?? null)
+                : null;
         const entry: ScheduledRunEntry = {
           id: run.id,
           automationId: run.automationId,
@@ -264,6 +289,7 @@ export function createScheduledHandlers(deps: ScheduledDeps): ScheduledHandlers 
           taskId: run.taskId,
           agentRunId: run.runId,
           pendingApprovals: s === "waiting" ? open : 0,
+          ...(verdict === undefined ? {} : { evidence: verdict.evidence }),
         };
         if (a !== undefined) entry.routine = routineOf(a).key;
         out.push(entry);

@@ -10,7 +10,12 @@ import {
 } from "@psyche/scheduler";
 import { FakeClock, FakeNotifier } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
-import { createScheduledHandlers, runState, withPausedRoutines } from "../src/compose/scheduled.ts";
+import {
+  createScheduledHandlers,
+  parseVerdict,
+  runState,
+  withPausedRoutines,
+} from "../src/compose/scheduled.ts";
 
 const NOW = Date.parse("2026-10-28T15:00:00Z");
 const TZ = "America/Los_Angeles";
@@ -185,5 +190,22 @@ describe("scheduled.runs", () => {
     expect(runState("no_reply")).toBe("skipped");
     expect(runState("running")).toBe("running");
     expect(runState("running", "awaiting_approval")).toBe("waiting");
+  });
+
+  it("tells not_verified from failed: the run ended but its steps lack evidence", () => {
+    const text =
+      "not_verified: Missing evidence. Fetch the data (browser or web): no browser or web tool call was recorded in this run.\nEvidence:\n- ok · notify · Notify the owner: Due tonight\n- failed · write · Add reminder · it needs the owner's approval";
+    expect(runState("failed", undefined, `run_failed · ${text}`)).toBe("not_verified");
+    expect(runState("failed", undefined, "The model request timed out")).toBe("failed");
+    expect(runState("done", undefined, text)).toBe("succeeded");
+    expect(parseVerdict(text)).toEqual({
+      reason:
+        "Missing evidence. Fetch the data (browser or web): no browser or web tool call was recorded in this run.",
+      evidence: [
+        "ok · notify · Notify the owner: Due tonight",
+        "failed · write · Add reminder · it needs the owner's approval",
+      ],
+    });
+    expect(parseVerdict("plain failure")).toBeUndefined();
   });
 });
