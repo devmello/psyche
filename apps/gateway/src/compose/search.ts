@@ -10,6 +10,7 @@ import {
   PsycheError,
   type SearchIndexEncryption,
   type SearchIndexStatus,
+  type SearchModelEngine,
 } from "@psyche/protocol";
 import {
   type AppleSourceDeps,
@@ -46,6 +47,7 @@ import type { Gateway } from "../server.ts";
 import { DeferredOpen } from "./deferred-open.ts";
 import type { PageReadHub } from "./page-reads.ts";
 import { openSearchDatabase } from "./search-db.ts";
+import { APPLE_RERANK_TOP_N } from "./search-engine.ts";
 import { watchFolders } from "./search-files.ts";
 import type { Recognize } from "./search-ocr.ts";
 import {
@@ -160,6 +162,8 @@ export interface SearchDeps extends Omit<SearchSourceDeps, "pageSize"> {
   /** Cloud rerank (`search.rerank.enabled`, off by default): the cheap model that reads the top hits. */
   rerank?: { provider: ModelProvider; model: ModelRef };
   queryModel?: { provider: ModelProvider; model: ModelRef };
+  /** The engine behind the search model jobs; `apple` narrows rerank to fit the on-device window. */
+  engine?: () => SearchModelEngine;
   cards?: {
     provider: ModelProvider;
     model: ModelRef;
@@ -255,7 +259,8 @@ function buildSearch(deps: SearchDeps, sqlite: PsycheDb["sqlite"]): ComposedSear
             enabled: () => getSetting(deps.db, RERANK_SETTINGS.enabled)?.value === true,
             topN: () => {
               const v = getSetting(deps.db, RERANK_SETTINGS.topN)?.value;
-              return typeof v === "number" ? v : DEFAULT_TOP_N;
+              const n = typeof v === "number" ? v : DEFAULT_TOP_N;
+              return deps.engine?.() === "apple" ? Math.min(n, APPLE_RERANK_TOP_N) : n;
             },
           },
         }),

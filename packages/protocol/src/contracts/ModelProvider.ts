@@ -64,6 +64,8 @@ export type ModelEvent =
       summary?: string;
     }
   | { type: "tool_call"; id: string; name: string; input: unknown }
+  /** A piece of a tool call's input as the model writes it (only for tools that draw progressively). */
+  | { type: "tool_input"; id: string; name: string; delta: string }
   /** Result of a provider-executed (server-side) tool. */
   | { type: "tool_result"; callId: string; output: unknown; isError?: boolean }
   | { type: "usage"; usage: Usage }

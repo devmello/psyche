@@ -155,6 +155,15 @@ export type AgentEvent =
       progress?: string;
       usage?: { tokens: number; costUsd: number | null; wallMs: number };
     }
+  /** Transient: a piece of a progressive tool's input (render_ui) as it streams. Never stored. */
+  | {
+      type: "tool_input";
+      runId: string;
+      messageId: string;
+      toolCallId: string;
+      tool: string;
+      delta: string;
+    }
   | {
       type: "tool_call";
       runId: string;

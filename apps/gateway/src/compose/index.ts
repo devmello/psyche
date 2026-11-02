@@ -29,6 +29,7 @@ import {
   type SqliteMemoryStore,
 } from "@psyche/memory";
 import {
+  type AppleHelper,
   CliAdapter,
   type CliAdapterDeps,
   createModelRouter,
@@ -172,6 +173,7 @@ import { notifierRouting } from "./quiet-hours.ts";
 import { createRateLimits } from "./rate-limits.ts";
 import { requestPermissionTool } from "./request-permission.ts";
 import { researchTools } from "./research.ts";
+import { withRunSnapshot } from "./run-snapshot.ts";
 import type { ComposedSandbox } from "./sandbox.ts";
 import { createScheduledHandlers, pausedRoutines, withPausedRoutines } from "./scheduled.ts";
 import { composeScreenAsk, type ScreenAskOptions } from "./screen-ask.ts";
@@ -179,6 +181,7 @@ import { scriptTools } from "./scripts.ts";
 import { type ComposedSearch, composeSearch, graphNames } from "./search.ts";
 import { appleSearchSeams } from "./search-apple.ts";
 import { resolveSearchKey } from "./search-db.ts";
+import { searchEngine, searchModelProvider } from "./search-engine.ts";
 import { filesSourceDeps, powerReader } from "./search-files.ts";
 import { helperRecognizer } from "./search-ocr.ts";
 import { routerEmbedder, type SemanticEngines } from "./search-semantic.ts";
@@ -356,6 +359,7 @@ function providerFor(
   clock: Clock,
   db: PsycheDb,
   home: string,
+  appleNode: AppleHelper,
 ): { provider: ModelProvider; model: ModelRef; utility?: ModelRef; router?: ModelRouter } {
   if ("provider" in setup) {
     return {
@@ -370,10 +374,14 @@ function providerFor(
       ? { ...p, workdir: join(home, "cli", p.id) }
       : p,
   );
+  // Apple's on-device model (macOS 26, Apple Intelligence) is always routable as `apple/on-device`:
+  // it costs nothing, holds no key, and answers "unavailable" until a Mac helper offers it.
+  if (!providers.some((p) => p.kind === "apple")) providers.push({ id: "apple", kind: "apple" });
   const router = createModelRouter(
     { ...setup.router, providers },
     {
       clock,
+      apple: { node: appleNode },
       ...(setup.cli === undefined ? {} : { cli: setup.cli }),
       // Tool-check verdicts (B4) survive restarts as `models.probe.<ref>` settings rows.
       probes: new KeyValueProbeStore(settingsKeyValue(db)),
@@ -679,7 +687,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const modelSetup: ModelSetup = vaultKeys
     ? { ...model, keys: vaultModelKeys(() => vault.vault) }
     : model;
-  const routed = providerFor(modelSetup, clock, db, config.home);
+  // Bound below, once the Gateway's node registry exists.
+  const appleHelper: { current: AppleHelper } = { current: () => undefined };
+  const routed = providerFor(modelSetup, clock, db, config.home, () => appleHelper.current());
   const { model: modelRef, utility, router } = routed;
   const provider = vaultKeys && router !== undefined ? untilPrimaryPicked(router) : routed.provider;
   const modelSettings: ModelSettingsSetup = {
@@ -1028,6 +1038,16 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       .find((n) => nodes.isLive(n.id) && n.capabilities.some((c) => c.name === "ocr.recognize"));
     return node === undefined ? undefined : nodes?.client(node.id);
   };
+  // The Mac helper that runs Apple's on-device model (`llm.apple.generate`), when one is live.
+  appleHelper.current = () => {
+    const nodes = gatewayRef?.context.nodes;
+    const node = nodes
+      ?.list()
+      .find(
+        (n) => nodes.isLive(n.id) && n.capabilities.some((c) => c.name === "llm.apple.generate"),
+      );
+    return node === undefined ? undefined : nodes?.client(node.id);
+  };
   people.useSources(() =>
     graphSourceAdapters({
       connectors: async () => (connectorsPart === undefined ? [] : connectorsPart.registry.list()),
@@ -1054,7 +1074,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     notifier,
     launcher: lateLauncher,
     sessions: createDbSessionResolver(db),
-    deliverer: createDeliverer({ notifier, broker }),
+    deliverer: withRunSnapshot(createDeliverer({ notifier, broker }), {
+      // `proactive` is composed after the scheduler; a run finishes long after both exist.
+      postNotice: (input) => proactive.feed.postNotice(input),
+    }),
     // Watches (O3) read public pages through the guarded fetch until S09 exports its own.
     watchFetch: publicFetch(),
     ...(timeZone === undefined ? {} : { defaultTimezone: timeZone }),
@@ -1486,6 +1509,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     derived: new DerivedKeyStore(vault.helper),
   });
   const power = powerReader();
+  const searchModelEngine = searchEngine(db);
+  const searchModels = searchModelProvider(provider, searchModelEngine);
   const search = composeSearch({
     encryption: searchEncryption,
     // Local sources: each off until the owner turns it on in Settings → Search sources.
@@ -1518,11 +1543,13 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     // `search.semantic.engine: router`: the `embedding` role; a cloud one only with allowCloud (S4).
     routerEmbedder: (allowCloud) => routerEmbedder(router, allowCloud),
     // Context cards at ingest: the utility model (cheap), a few items per minute, a daily budget.
-    cards: { provider, model: utility ?? modelRef },
+    // `search.model.engine: apple` moves all three jobs to Apple's on-device model (fail closed).
+    engine: searchModelEngine,
+    cards: { provider: searchModels, model: utility ?? modelRef },
     // Cloud rerank of the top hits: the utility model, only when one is set and the owner opts in.
-    ...(utility === undefined ? {} : { rerank: { provider, model: utility } }),
+    ...(utility === undefined ? {} : { rerank: { provider: searchModels, model: utility } }),
     // Plain-English questions the rules cannot filter: the utility model, only when one is set.
-    ...(utility === undefined ? {} : { queryModel: { provider, model: utility } }),
+    ...(utility === undefined ? {} : { queryModel: { provider: searchModels, model: utility } }),
     ...(gwOptions.semanticEngines === undefined
       ? {}
       : { semanticEngines: gwOptions.semanticEngines }),

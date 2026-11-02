@@ -1,6 +1,6 @@
 # Future features
 
-Status: plan, 2026-11-02. Nothing in this file is promised for a date. It collects five features the owner has asked for, in plain language, with what is already built, what is left, and what each one depends on.
+Status: plan, 2026-11-02. Nothing in this file is promised for a date. It collects six features the owner has asked for, in plain language, with what is already built, what is left, and what each one depends on.
 
 This sits next to [08-roadmap.md](../08-roadmap.md), which holds the milestone plan up to v1.0 and the short "After 1.0" list. Items here are the ones that need more than a line. When one gets a design doc, link it here and keep this entry short.
 
@@ -124,3 +124,21 @@ Each entry has the same parts: what it is, why it beats existing assistants, rou
 **Open questions.** See §7 of that doc: whether Tailscale's on-demand VPN is fast enough for the background tap, whether the Secure Enclave key can prompt from a notification action, and the minimum iOS version.
 
 **Depends on.** The WebSocket protocol and device scopes (built), the Gateway identity-key pin (not built), `packages/notifications` (built), and the approvals system (built).
+
+## 6. Apple's on-device model for private jobs
+
+**What it is.** A choice, on a Mac with Apple Intelligence (macOS 26 or later), to let Apple's own on-device language model do the small jobs that read your text: understanding a search question, writing search cards and summaries, reordering the top results, and later reading one source for the memory pass. The text goes from the Gateway to the Mac helper on the same Mac and never leaves it. There is no key, no download and no per-token cost, and the model's memory belongs to the system, not to Psyche.
+
+**Why it beats existing assistants.** The cloud default for these jobs sends snippets of your mail and messages to a provider. This is the version of the same jobs where nothing leaves the Mac, with nothing to install and no RAM budget to approve, because Apple already ships and manages the model.
+
+**What it is not.** It is not an agent model. It has a window of about 4,096 tokens (input and output together), no tools and no vision here, so it is never the primary model. It does one small prompt at a time. When it cannot answer (Apple Intelligence off, an unsupported Mac or region, a guardrail, a prompt that is too long) the job does nothing and the plain path stands (the rules for a question, no card, the normal ranking). It never quietly falls back to a cloud model.
+
+**Status.** Built behind fakes; **not yet run against the real model**, because running a local model is something the owner is told about first. Details and the list of what needs a real run are in [design/search-roadmap-2026.md](../design/search-roadmap-2026.md) ("Apple on-device model"). Private Cloud Compute (Apple's server-side model) is deliberately not used: it sends the text off the Mac.
+
+**Phases.**
+- A1 (built): the Mac helper's `llm.apple.availability` and `llm.apple.generate`, the router provider `apple` (ref `apple/on-device`), the `models.appleStatus` method and the `search.model.engine` setting (`utility` or `apple`).
+- A2: the Settings control for it (owned by the Settings redesign), with the plain statement above and the availability reason when it is off.
+- A3: a real run on a Mac the owner approves, to measure it with the search eval (`--live` for Apple) and tune the prompts and the rerank size.
+- A4: memory extraction per source (`model.perSource`, EM11) with `{kind: "local", ref: "apple/on-device"}`, after A3 shows the window is enough for the batch size.
+
+**Depends on.** The Mac helper, the model router, the search roadmap's R12/R13 (rerank and query model) and the everything-memory plan's model-per-source setting (EM11).

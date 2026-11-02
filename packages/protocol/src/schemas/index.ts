@@ -1,4 +1,5 @@
 export * from "./apple-apps.ts";
+export * from "./apple-llm.ts";
 export * from "./artifacts.ts";
 export * from "./blocks.ts";
 export * from "./context.ts";

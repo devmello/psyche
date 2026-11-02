@@ -52,6 +52,7 @@ export async function loadProviderPackage(kind: ProviderKind): Promise<void> {
       return;
     case "claude-code":
     case "codex":
+    case "apple":
       return;
   }
 }
@@ -198,6 +199,12 @@ export function buildProvider(config: ProviderConfig, fetch: typeof globalThis.f
       const p = loaded(packages.openaiCompatible, config.kind)(settings);
       return { language: (id) => p.chatModel(id), embedding: (id) => p.embeddingModel(id) };
     }
+    case "apple":
+      // Apple's on-device model is served by the Mac helper; `createModelRouter` builds the adapter.
+      throw new PsycheError(
+        "invalid_params",
+        `provider "${config.id}" (apple) runs through the Mac helper, not an API package`,
+      );
     case "claude-code":
     case "codex":
       // Subscription CLIs are not AI SDK providers; `createModelRouter` builds a CliAdapter.
