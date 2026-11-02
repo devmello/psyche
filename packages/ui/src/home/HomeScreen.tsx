@@ -62,7 +62,6 @@ export function HomeScreen({
           <NeedsYouSection onNavigate={navigate} {...clock} />
           <PinnedWidgets />
           <FeedScreen
-            layout="section"
             onCloseInstructions={() => navigate("/home")}
             {...(instructionsOpen === undefined ? {} : { instructionsOpen })}
             {...clock}

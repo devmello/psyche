@@ -15,10 +15,4 @@ export {
   RECURRING_CADENCES,
   type RecurringCadence,
 } from "./IdeaCard.tsx";
-export {
-  IdeasScreen,
-  type IdeasScreenProps,
-  IdeasView,
-  type IdeasViewProps,
-  useIdeaActions,
-} from "./IdeasScreen.tsx";
+export { useIdeaActions } from "./use-idea-actions.ts";

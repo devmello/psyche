@@ -1,4 +1,4 @@
-import type { NudgeAction } from "@psyche/protocol";
+import type { Idea, NudgeAction } from "@psyche/protocol";
 import { ChevronRight, Plus } from "lucide-react";
 import { type ReactElement, type ReactNode, useState } from "react";
 import { toast } from "sonner";
@@ -18,9 +18,9 @@ import { ScreenSection } from "../screens/feed/ScreenToolbar.tsx";
 import { AddGoalDialog } from "../screens/goals/AddGoalDialog.tsx";
 import { CandidateGoalCard, GoalRow, useGoalDecisions } from "../screens/goals/GoalsScreen.tsx";
 import { IdeaCard } from "../screens/ideas/IdeaCard.tsx";
-import { useIdeaActions } from "../screens/ideas/IdeasScreen.tsx";
+import { useIdeaActions } from "../screens/ideas/use-idea-actions.ts";
 import { NeedsYouList, needsYou } from "../screens/inbox/InboxScreen.tsx";
-import { usePersona } from "../slots.tsx";
+import { usePersona, useSlots } from "../slots.tsx";
 
 /** A raised list of rows (the grouped-list surface), for the side column's sections. */
 function RowList({ label, children }: { label: string; children: ReactNode }): ReactElement {
@@ -94,12 +94,18 @@ export function NeedsYouSection({
  */
 export function SuggestionsSection({
   accent,
-  onNavigate,
+  onNavigate: navigateProp,
+  onEdit,
 }: {
   /** No other control on the page holds the accent. */
   accent: boolean;
-  onNavigate: (to: string) => void;
+  /** Defaults to the slot's `navigate`. */
+  onNavigate?: (to: string) => void;
+  /** An idea's Edit (opens its brief to change); absent, the card has no Edit. */
+  onEdit?: (idea: Idea) => void;
 }): ReactElement | null {
+  const { navigate: slotNavigate } = useSlots();
+  const onNavigate = navigateProp ?? slotNavigate ?? (() => {});
   const persona = usePersona();
   const { ideas, busy, accept, dismiss, viewSkill } = useIdeaActions();
   const { goals, later, decide } = useGoalDecisions();
@@ -123,6 +129,7 @@ export function SuggestionsSection({
               onDismiss={dismiss}
               onViewSkill={viewSkill}
               onOpenRoute={onNavigate}
+              {...(onEdit ? { onEdit } : {})}
             />
           </ListItem>
         ))}

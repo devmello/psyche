@@ -24,7 +24,6 @@ export const overview = {
   "overview.section.people": "People & projects",
   "overview.section.built": "Built for you",
   "overview.section.specialists": "Specialists",
-  "overview.section.upcoming": "Upcoming",
   "overview.section.recent": "Recent runs",
   "overview.section.empty": "Nothing here yet.",
   "overview.loading": "Loading",
@@ -103,11 +102,6 @@ export const overview = {
   "overview.now.running": "Running now",
 
   // Upcoming groups and the paused disclosure.
-  "overview.upcoming.today": "Today",
-  "overview.upcoming.tomorrow": "Tomorrow",
-  "overview.upcoming.week": "This week",
-  "overview.upcoming.later": "Later",
-  "overview.upcoming.paused": "Paused ({n, number})",
 
   // Recent runs paging.
   "overview.recent.filterTasks": "Tasks",
