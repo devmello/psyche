@@ -150,7 +150,7 @@ Settings opens from the gear or ⌘, at the left a searchable list in groups. Ro
 **Privacy**
 - **Data controls** (`data`): this is Memory. **Pause memory**, **Transcript recall**, **How memory is recalled** (Markdown only, or Markdown plus embeddings), how long to keep thinking and task replays, Export everything, Delete threads, reset memory. Everything stays on this machine.
 - **People & projects** (`people`): the people and projects Psyche tracks, with privacy controls.
-- **Everything memory** (`everything`): off until you turn it on. Psyche reads your own mail, messages and notes at night and writes down what you state (who people are, birthdays, plans); every fact cites the words it came from and waits for you.
+- **Everything memory** (`everything`): off until you turn it on. Psyche reads your own mail, messages and notes at night and writes down what you state (who people are, birthdays, plans); every fact cites the words it came from and waits for you. Sources you can switch on: Mail, Messages, Notes, Calendar, Reminders, Files, Transcripts. Browser pages and your chats with Psyche are never read by it.
 - **Memory review** (`memory`): what Psyche learned from your mail, messages and notes. Tabs **To review**, **Learned lately** (undo within the window) and **Quarantine**; nothing is a fact until you accept it.
 
 **About** (`about`): versions, data folder (Reveal in Finder), **Run checks** (Gateway, sandbox, permissions, vault), Open logs, and **Run setup again** (walks the first-run setup again; finished steps are skipped).
