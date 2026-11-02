@@ -22,6 +22,7 @@ import { activeI18n, t } from "../../i18n/core.ts";
 import { cn } from "../../lib/utils.ts";
 import { ContextSettingsGroup } from "./ContextSettings.tsx";
 import {
+  Advanced,
   EmptyNotice,
   ErrorNotice,
   Group,
@@ -545,14 +546,16 @@ export function ModelProvidersPanel({
           })}
         </Group>
 
-        <ContextSettingsGroup
-          values={values}
-          onChange={onChange}
-          {...(primaryContext === undefined ? {} : { modelContextLength: primaryContext })}
-        />
-        <Group title={t("settings.model.local")} description={t("settings.model.localHint")}>
-          <RamGuidance {...(ramGb === undefined ? {} : { ramGb })} />
-        </Group>
+        <Advanced description={t("settings.model.advancedHint")}>
+          <ContextSettingsGroup
+            values={values}
+            onChange={onChange}
+            {...(primaryContext === undefined ? {} : { modelContextLength: primaryContext })}
+          />
+          <Group title={t("settings.model.local")} description={t("settings.model.localHint")}>
+            <RamGuidance {...(ramGb === undefined ? {} : { ramGb })} />
+          </Group>
+        </Advanced>
       </LoadGate>
     </SectionFrame>
   );

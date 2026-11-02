@@ -84,7 +84,6 @@ export function LanguageGroup({
   const current = chosen === "system" ? "system" : (canonicalLocale(chosen) ?? "system");
   const offered: string[] = [...OFFERED_LOCALES];
   if (current !== "system" && !offered.includes(current)) offered.unshift(current);
-  const direction = str(values, DIRECTION_SETTING, "auto");
   return (
     <Group title={t("settings.language.title")} description={t("settings.language.description")}>
       <div className="flex flex-col gap-0.5">
@@ -143,19 +142,32 @@ export function LanguageGroup({
         </p>
         <SettingHint settingKey={LOCALE_SETTING} />
       </div>
-      <RadioField
-        label={t("settings.language.direction")}
-        description={t("settings.language.directionHint")}
-        inline
-        value={direction === "ltr" || direction === "rtl" ? direction : "auto"}
-        settingKey={DIRECTION_SETTING}
-        onChange={(v) => onChange(DIRECTION_SETTING, v)}
-        options={[
-          { value: "auto", label: t("settings.language.direction.auto") },
-          { value: "ltr", label: t("settings.language.direction.ltr") },
-          { value: "rtl", label: t("settings.language.direction.rtl") },
-        ]}
-      />
     </Group>
+  );
+}
+
+/** Text direction (Advanced): automatic follows the language; the rest are for checking layouts. */
+export function DirectionField({
+  values,
+  onChange,
+}: {
+  values: SettingsValues;
+  onChange: (key: string, value: unknown) => void;
+}): ReactElement {
+  const direction = str(values, DIRECTION_SETTING, "auto");
+  return (
+    <RadioField
+      label={t("settings.language.direction")}
+      description={t("settings.language.directionHint")}
+      inline
+      value={direction === "ltr" || direction === "rtl" ? direction : "auto"}
+      settingKey={DIRECTION_SETTING}
+      onChange={(v) => onChange(DIRECTION_SETTING, v)}
+      options={[
+        { value: "auto", label: t("settings.language.direction.auto") },
+        { value: "ltr", label: t("settings.language.direction.ltr") },
+        { value: "rtl", label: t("settings.language.direction.rtl") },
+      ]}
+    />
   );
 }

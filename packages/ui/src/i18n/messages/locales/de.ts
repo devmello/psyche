@@ -929,7 +929,6 @@ export const de: Partial<Catalogue> = {
   "settings.key.appearance.reduceMotion": "Bewegung reduzieren",
   "settings.key.appearance.contrast": "Hoher Kontrast",
   "settings.key.appearance.zoom": "Zoom",
-  "settings.key.appearance.reduceTransparency": "Transparenz reduzieren",
   "settings.key.appearance.glass": "Durchscheinende Bedienelemente",
   "settings.key.appearance.glassTint": "Tönung",
   "settings.key.appearance.glassBlur": "Unschärfe",
@@ -1200,8 +1199,6 @@ export const de: Partial<Catalogue> = {
   "settings.credentials.payments.status.canceled": "abgebrochen",
   "settings.credentials.payments.amountRefunded": "{total} · {refunded} erstattet",
   "settings.credentials.payments.title": "Zahlungen",
-  "settings.credentials.payments.description":
-    "Stripe Link zahlt mit einer Einmalkarte, nachdem du jeden Kauf auf einem Gerät genehmigt hast. Deine Kartennummern erreichen Psyche nie.",
   "settings.credentials.payments.loadLabel": "Zahlungen",
   "settings.credentials.payments.notConfigured":
     "Stripe Link ist nicht eingerichtet. Installiere die Link-CLI auf dem Rechner des Gateways, melde dich bei Link an und setze PSYCHE_LINK_CLI; Psyche zeigt deine Zahlungsmethoden dann hier an.",
@@ -1316,26 +1313,15 @@ export const de: Partial<Catalogue> = {
   "settings.appearance.seedHelp":
     "Jede CSS-Farbe. Sie landet auf Stufe 9; Psyche passt sie an, falls der Text schwer lesbar wäre.",
   "settings.appearance.title": "Darstellung",
-  "settings.appearance.description":
-    "Gilt für jedes gekoppelte Gerät. Genehmigungs-, Gefahren- und Erfolgsfarben folgen nie dem Akzent.",
   "settings.appearance.loadLabel": "Darstellung",
   "settings.appearance.theme.auto": "Automatisch",
   "settings.appearance.theme.autoHint": "Folgt dem System",
-  "settings.appearance.accent": "Akzent",
-  "settings.appearance.motionContrast": "Bewegung und Kontrast",
   "settings.appearance.followSystem": "Dem System folgen",
   "settings.appearance.contrastHint": "Stärkere Ränder, dunklerer Text und 2 px breite Fokusringe.",
-  "settings.appearance.transparency": "Transparenz",
-  "settings.appearance.glass.hint":
-    "Der Eingabebereich, die Symbolleistenelemente, Menüs und Popover lassen den Inhalt dahinter durchscheinen. Aus bedeutet: Sie sind deckend.",
-  "settings.appearance.reduceTransparencyHint":
-    "Menüs, Popover und der Eingabebereich werden deckend. Folgt der Systemeinstellung, bis du es hier änderst.",
 
   "settings.browser.profile": "Psyche-Profil",
   "settings.browser.profileNamed": "Psyche-Profil ({persona})",
   "settings.browser.title": "Browser",
-  "settings.browser.description":
-    "{persona} surft standardmäßig in einem eigenen Fenster. Der Echter-Chrome-Modus lässt eine Aufgabe ein separates Chrome-Profil verwenden, in dem du dich einmal anmeldest.",
   "settings.browser.loadLabel": "Browsereinstellungen",
   "settings.browser.realChromeDescription":
     "Für Websites, die deine Anmeldungen oder Erweiterungen wie 1Password brauchen.",
@@ -1598,8 +1584,6 @@ export const de: Partial<Catalogue> = {
   "settings.context.turns": "Züge",
 
   "settings.webSearch.title": "Websuche",
-  "settings.webSearch.description":
-    "Wie der Agent Dinge im Web nachschlägt. Ergebnisse und Seiten gelten als Webinhalte, nie als deine Anweisungen.",
   "settings.webSearch.inUse": "In Verwendung",
   "settings.webSearch.unknown": "Noch nicht gemeldet",
   "settings.webSearch.braveKey": "Brave-Search-Schlüssel",
@@ -1620,8 +1604,6 @@ export const de: Partial<Catalogue> = {
   "settings.webSearch.searxngPlaceholder": "http://127.0.0.1:8888",
 
   "settings.data.title": "Datenschutz & Daten",
-  "settings.data.description":
-    "Alles, was {persona} behält, liegt auf diesem Rechner. Es gibt keinen Trainingsschalter, weil nichts zum Training gesendet wird.",
   "settings.data.loadLabel": "Datenkontrolle",
   "settings.data.memory": "Gedächtnis",
   "settings.data.pauseMemory": "Gedächtnis pausieren",
@@ -1724,12 +1706,8 @@ export const de: Partial<Catalogue> = {
   "settings.files.stopSharing": "{path} nicht mehr teilen",
   "settings.files.pathPlaceholder": "~/Dokumente/Steuern",
   "settings.files.title": "Dateizugriff",
-  "settings.files.description":
-    "{persona} sieht nur die Ordner, die du teilst. Alles andere auf diesem Mac ist tabu.",
   "settings.files.loadLabel": "Dateizugriff",
   "settings.files.folders": "Ordner",
-  "settings.files.foldersHint":
-    "„Nur lesen“ erlaubt Öffnen und Suchen; „Lesen und schreiben“ erlaubt auch das Sichern von Änderungen, jede davon im Diff-Bereich sichtbar.",
   "settings.files.sharedFolders": "Geteilte Ordner",
   "settings.files.noFolders":
     "Keine Ordner geteilt. {persona} arbeitet nur im eigenen Arbeitsbereich.",
@@ -1934,8 +1912,6 @@ export const de: Partial<Catalogue> = {
   "settings.persona.savedForLater":
     "Deine Beschreibung wurde gesichert. Ohne Bildmodell behält {name} das unten gewählte Wesen.",
   "settings.persona.title": "Persona",
-  "settings.persona.description":
-    "Wie {name} aussieht und sich vorstellt. Der Ton der Seele steht in SOUL.md.",
   "settings.persona.loadLabel": "die Persona",
   "settings.persona.describedAs": "Beschrieben als: {description}",
   "settings.persona.identity": "Identität",
@@ -2201,8 +2177,6 @@ export const de: Partial<Catalogue> = {
     "Aufgaben in einem separaten Sandbox-Mac ausführen, sodass {persona} in einer eigenen Kopie von macOS arbeitet statt in deiner.",
   "settings.vm.loadLabel": "VM-Einstellungen",
   "settings.vm.sandboxMac": "Sandbox-Mac",
-  "settings.vm.enabledHint":
-    "Aufgaben, die danach fragen, laufen im Gast. Er sieht nur die Ordner, die du teilst, nur lesend, sofern du nicht mehr erlaubst.",
   "settings.vm.noGuest": "Noch kein Gast gekoppelt",
   "settings.vm.chooseGuest": "Gast wählen",
   "settings.vm.guestStatus": "{name} ({status})",
@@ -2211,8 +2185,6 @@ export const de: Partial<Catalogue> = {
   "settings.vm.between": "Zwischen deinem Mac und dem Gast",
   "settings.vm.betweenHint":
     "Dateien aus dem Gast zu kopieren ist immer eine ausdrückliche Kopie mit Beleg.",
-  "settings.vm.credentialsHint":
-    "Mit dem Host-Tresor bleiben Werte auf deinem Mac und werden über den Helfer ausgefüllt; ein Gast-Tresor hält eine eigene Kopie im Gast.",
   "settings.vm.guestStatusTitle": "Gaststatus",
   "settings.vm.guestStatusHint": "Was der Psyche-Helfer zuletzt gemeldet hat.",
   "settings.vm.noReports":
@@ -2236,13 +2208,9 @@ export const de: Partial<Catalogue> = {
   "settings.voice.mode.hold": "Zum Sprechen halten",
   "settings.voice.mode.toggle": "Drücken zum Starten, drücken zum Stoppen",
   "settings.voice.anyApp": "In jeder App",
-  "settings.voice.anyAppHint":
-    "wo immer du tippst. Der Text landet dort, wo dein Cursor ist, nie beim Agenten und nie in Passwortfeldern.",
   "settings.voice.hotkeyHint":
     "Einmal drücken zum Starten und erneut zum Stoppen, aus jeder App. Die Rückschritttaste schaltet es aus.",
   "settings.voice.talk": "Mit Psyche sprechen",
-  "settings.voice.talkHint":
-    "Eine Taste „Stimme“ im Eingabebereich startet eine gesprochene Unterhaltung: Psyche hört zu, antwortet laut und hört wieder zu. Genehmigungen erscheinen weiterhin als Karten auf dem Bildschirm; per Stimme wird nie etwas genehmigt.",
   "settings.voice.yourTurn": "Du bist dran",
   "settings.voice.turn.toggle": "Freihändig",
   "settings.voice.turn.toggleHint": "Psyche antwortet, wenn du eine Pause machst.",
@@ -2294,11 +2262,7 @@ export const de: Partial<Catalogue> = {
 
   // settings-language
   "settings.language.title": "Sprache und Region",
-  "settings.language.description":
-    "Die Region legt fest, wie Daten, Uhrzeiten, Zahlen und Beträge überall in Psyche geschrieben werden.",
   "settings.language.language": "Sprache",
-  "settings.language.languageHint":
-    "Die Sprache der Texte von Psyche. „Wie System“ folgt deiner Region; noch nicht Übersetztes erscheint auf Englisch.",
   "settings.language.languageSystem": "Wie System ({name})",
   "settings.language.region": "Regionales Format",
   "settings.language.system": "Wie System ({name})",

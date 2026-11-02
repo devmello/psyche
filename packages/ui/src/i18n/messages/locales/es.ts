@@ -924,7 +924,6 @@ export const es: Partial<Catalogue> = {
   "settings.key.appearance.reduceMotion": "Reducir el movimiento",
   "settings.key.appearance.contrast": "Alto contraste",
   "settings.key.appearance.zoom": "Zoom",
-  "settings.key.appearance.reduceTransparency": "Reducir la transparencia",
   "settings.key.appearance.glass": "Controles translúcidos",
   "settings.key.appearance.glassTint": "Tinte",
   "settings.key.appearance.glassBlur": "Desenfoque",
@@ -1195,8 +1194,6 @@ export const es: Partial<Catalogue> = {
   "settings.credentials.payments.status.canceled": "cancelado",
   "settings.credentials.payments.amountRefunded": "{total} · {refunded} reembolsado",
   "settings.credentials.payments.title": "Pagos",
-  "settings.credentials.payments.description":
-    "Stripe Link paga con una tarjeta de un solo uso después de que apruebes cada compra en un dispositivo. Tus números de tarjeta nunca llegan a Psyche.",
   "settings.credentials.payments.loadLabel": "los pagos",
   "settings.credentials.payments.notConfigured":
     "Stripe Link no está configurado. Instala la CLI de Link en el equipo del Gateway, inicia sesión en Link y define PSYCHE_LINK_CLI; Psyche mostrará aquí tus métodos de pago.",
@@ -1310,27 +1307,16 @@ export const es: Partial<Catalogue> = {
   "settings.appearance.seedHelp":
     "Cualquier color CSS. Se coloca en el paso 9; Psyche lo ajusta si el texto fuera difícil de leer.",
   "settings.appearance.title": "Aspecto",
-  "settings.appearance.description":
-    "Se aplica a todos los dispositivos enlazados. Los colores de aprobación, peligro y éxito nunca siguen al color de énfasis.",
   "settings.appearance.loadLabel": "el aspecto",
   "settings.appearance.theme.auto": "Automático",
   "settings.appearance.theme.autoHint": "Sigue al sistema",
-  "settings.appearance.accent": "Énfasis",
-  "settings.appearance.motionContrast": "Movimiento y contraste",
   "settings.appearance.followSystem": "Seguir al sistema",
   "settings.appearance.contrastHint":
     "Bordes más marcados, texto más oscuro y anillos de foco de 2 px.",
-  "settings.appearance.transparency": "Translucidez",
-  "settings.appearance.glass.hint":
-    "El compositor, los controles de la barra de herramientas, los menús y los paneles emergentes dejan ver el contenido que hay detrás. Desactivado, son opacos.",
-  "settings.appearance.reduceTransparencyHint":
-    "Los menús, los paneles emergentes y el compositor se vuelven opacos. Sigue el ajuste del sistema hasta que lo cambies aquí.",
 
   "settings.browser.profile": "Perfil de Psyche",
   "settings.browser.profileNamed": "Perfil de Psyche ({persona})",
   "settings.browser.title": "Navegador",
-  "settings.browser.description":
-    "{persona} navega en su propia ventana por omisión. El modo Chrome real permite que una tarea use un perfil de Chrome aparte en el que inicias sesión una sola vez.",
   "settings.browser.loadLabel": "los ajustes del navegador",
   "settings.browser.realChromeDescription":
     "Para sitios que necesitan tus inicios de sesión o extensiones como 1Password.",
@@ -1597,8 +1583,6 @@ export const es: Partial<Catalogue> = {
   "settings.context.turns": "turnos",
 
   "settings.webSearch.title": "Búsqueda web",
-  "settings.webSearch.description":
-    "Cómo busca el agente en la web. Los resultados y las páginas se tratan como contenido web, nunca como instrucciones tuyas.",
   "settings.webSearch.inUse": "En uso",
   "settings.webSearch.unknown": "Aún sin informar",
   "settings.webSearch.braveKey": "Clave de Brave Search",
@@ -1620,8 +1604,6 @@ export const es: Partial<Catalogue> = {
   "settings.webSearch.searxngPlaceholder": "http://127.0.0.1:8888",
 
   "settings.data.title": "Privacidad y datos",
-  "settings.data.description":
-    "Todo lo que {persona} guarda está en este equipo. No hay ningún interruptor de entrenamiento porque no se envía nada para entrenar.",
   "settings.data.loadLabel": "el control de datos",
   "settings.data.memory": "Memoria",
   "settings.data.pauseMemory": "Pausar la memoria",
@@ -1722,12 +1704,8 @@ export const es: Partial<Catalogue> = {
   "settings.files.stopSharing": "Dejar de compartir {path}",
   "settings.files.pathPlaceholder": "~/Documents/Impuestos",
   "settings.files.title": "Acceso a archivos",
-  "settings.files.description":
-    "{persona} solo ve las carpetas que compartes. Todo lo demás en este Mac está fuera de su alcance.",
   "settings.files.loadLabel": "el acceso a archivos",
   "settings.files.folders": "Carpetas",
-  "settings.files.foldersHint":
-    "Solo lectura le permite abrir y buscar; lectura y escritura también le permite guardar cambios, cada uno mostrado en el panel de diferencias.",
   "settings.files.sharedFolders": "Carpetas compartidas",
   "settings.files.noFolders":
     "No hay carpetas compartidas. {persona} trabaja solo en su propio espacio de trabajo.",
@@ -1930,8 +1908,6 @@ export const es: Partial<Catalogue> = {
   "settings.persona.savedForLater":
     "Tu descripción se ha guardado. Sin un modelo de imagen, {name} conserva la criatura elegida abajo.",
   "settings.persona.title": "Personalidad",
-  "settings.persona.description":
-    "Cómo se ve {name} y cómo se presenta. El tono del alma vive en SOUL.md.",
   "settings.persona.loadLabel": "la personalidad",
   "settings.persona.describedAs": "Descripción: {description}",
   "settings.persona.identity": "Identidad",
@@ -2195,8 +2171,6 @@ export const es: Partial<Catalogue> = {
     "Ejecuta las tareas en un Mac aislado aparte, de modo que {persona} trabaje en su propia copia de macOS y no en la tuya.",
   "settings.vm.loadLabel": "los ajustes de VM",
   "settings.vm.sandboxMac": "Mac aislado",
-  "settings.vm.enabledHint":
-    "Las tareas que lo piden se ejecutan en el invitado. Solo ve las carpetas que compartes, en solo lectura salvo que apruebes más.",
   "settings.vm.noGuest": "Aún no hay ningún invitado enlazado",
   "settings.vm.chooseGuest": "Elige un invitado",
   "settings.vm.guestStatus": "{name} ({status})",
@@ -2205,8 +2179,6 @@ export const es: Partial<Catalogue> = {
   "settings.vm.between": "Entre tu Mac y el invitado",
   "settings.vm.betweenHint":
     "Copiar archivos fuera del invitado es siempre una copia explícita con recibo.",
-  "settings.vm.credentialsHint":
-    "Con la bóveda del host, los valores se quedan en tu Mac y se rellenan a través del asistente; una bóveda del invitado guarda su propia copia dentro del invitado.",
   "settings.vm.guestStatusTitle": "Estado del invitado",
   "settings.vm.guestStatusHint": "Lo último que informó el asistente de Psyche.",
   "settings.vm.noReports":
@@ -2230,13 +2202,9 @@ export const es: Partial<Catalogue> = {
   "settings.voice.mode.hold": "Mantener pulsado para hablar",
   "settings.voice.mode.toggle": "Pulsar para empezar, pulsar para parar",
   "settings.voice.anyApp": "En cualquier app",
-  "settings.voice.anyAppHint":
-    "allí donde estés escribiendo. El texto va donde está el cursor, nunca al agente y nunca a campos de contraseña.",
   "settings.voice.hotkeyHint":
     "Pulsa una vez para empezar y otra para parar, desde cualquier app. La tecla de retroceso lo desactiva.",
   "settings.voice.talk": "Hablar con Psyche",
-  "settings.voice.talkHint":
-    "Un botón de voz en el compositor inicia una conversación hablada: Psyche escucha, responde en voz alta y vuelve a escuchar. Las aprobaciones siguen apareciendo como tarjetas en pantalla; la voz nunca aprueba nada.",
   "settings.voice.yourTurn": "Tu turno",
   "settings.voice.turn.toggle": "Manos libres",
   "settings.voice.turn.toggleHint": "Psyche responde cuando haces una pausa.",
@@ -2288,11 +2256,7 @@ export const es: Partial<Catalogue> = {
     "Iniciar sesión en {name} aún no está disponible en este Gateway. Configúralo más tarde en Ajustes → Conectores.",
 
   "settings.language.title": "Idioma y región",
-  "settings.language.description":
-    "La región determina cómo se escriben las fechas, las horas, los números y los importes en todo Psyche.",
   "settings.language.language": "Idioma",
-  "settings.language.languageHint":
-    "El idioma del texto de Psyche. Igual que el sistema sigue tu región; lo que aún no está traducido se muestra en inglés.",
   "settings.language.languageSystem": "Igual que el sistema ({name})",
   "settings.language.region": "Formato regional",
   "settings.language.system": "Igual que el sistema ({name})",

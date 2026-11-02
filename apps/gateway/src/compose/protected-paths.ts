@@ -1,5 +1,7 @@
-import { realpathSync } from "node:fs";
+import { type Dirent, readdirSync, realpathSync } from "node:fs";
+import { join } from "node:path";
 import { defaultDenyRead } from "@psyche/mcp-host";
+import type { FolderAccessEnv } from "@psyche/permissions";
 
 /**
  * Paths no file tool or Files-pane method reads or writes, whatever folder the owner granted
@@ -20,4 +22,42 @@ export function protectedRoots(psycheHome: string): string[] {
     }
   }
   return [...out];
+}
+
+/**
+ * The working directories Psyche gives the subscription CLI providers (`<home>/cli/<id>`, see
+ * `resolveRouter`), as written and as real paths. They are the one place inside `$PSYCHE_HOME`
+ * a granted folder may reach: the models in those CLIs run with it as their cwd, so asking the
+ * owner to share it is asking for what Psyche made for them. Only real, direct sub-folders of
+ * `<home>/cli` count (a link is never followed out of it), and nothing else under the home does.
+ */
+export function ownWorkdirs(psycheHome: string): string[] {
+  const root = join(psycheHome, "cli");
+  const out = new Set<string>();
+  let names: Dirent[];
+  try {
+    names = readdirSync(root, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  for (const e of names) {
+    if (!e.isDirectory() || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(e.name)) continue;
+    const dir = join(root, e.name);
+    out.add(dir);
+    try {
+      out.add(realpathSync(dir));
+    } catch {
+      // Gone since the listing.
+    }
+  }
+  return [...out];
+}
+
+/** What the folder-share checks (the card, the broker, Settings) judge a folder by. */
+export function folderAccessEnv(psycheHome: string): FolderAccessEnv {
+  return {
+    psycheHome,
+    protectedRoots: protectedRoots(psycheHome),
+    ownDirs: ownWorkdirs(psycheHome),
+  };
 }

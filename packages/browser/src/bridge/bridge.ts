@@ -1,5 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
-import { chmod, mkdir, rm } from "node:fs/promises";
+import { chmod, lstat, mkdir, rm } from "node:fs/promises";
 import { createServer, type Server, type Socket } from "node:net";
 import { dirname } from "node:path";
 import type { Duplex } from "node:stream";
@@ -218,7 +218,15 @@ export class BridgeServer {
   }
 
   async listen(): Promise<void> {
-    await mkdir(dirname(this.#o.socketPath), { recursive: true, mode: 0o700 });
+    const dir = dirname(this.#o.socketPath);
+    await mkdir(dir, { recursive: true, mode: 0o700 });
+    // The directory may be the per-user one under the temp dir: it must be ours and private.
+    const info = await lstat(dir);
+    const uid = process.getuid?.();
+    if (info.isSymbolicLink() || !info.isDirectory() || (uid !== undefined && info.uid !== uid)) {
+      throw new PsycheError("forbidden", `refusing bridge socket directory ${dir}: not private`);
+    }
+    if ((info.mode & 0o077) !== 0) await chmod(dir, 0o700);
     await rm(this.#o.socketPath, { force: true });
     const server = createServer((socket: Socket) => {
       acceptBridgeStream(socket, this.#o).then(

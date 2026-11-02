@@ -9,7 +9,6 @@ import {
   bool,
   EmptyNotice,
   ErrorNotice,
-  GROUP_ROWS,
   Group,
   LoadGate,
   type LoadProps,
@@ -173,11 +172,11 @@ export function ComputerUsePanel({
         {...(onRetry ? { onRetry } : {})}
       >
         <Group title={t("settings.computerUse.macPermissions")}>
-          <ul className="flex flex-col gap-2">
+          <>
             {(["accessibility", "screenRecording"] as const).map((p) => {
               const state = tcc[p] ?? "not_determined";
               return (
-                <li key={p} className="flex flex-wrap items-center gap-2">
+                <div key={p} className="flex flex-wrap items-center gap-2">
                   <span className="font-medium">{TCC_LABEL[p].name}</span>
                   <StatusChip tone={TCC_TONE[state]}>
                     {t(`settings.computerUse.tccState.${state}`)}
@@ -199,13 +198,16 @@ export function ComputerUsePanel({
                       {t("settings.computerUse.openSystemSettings")}
                     </Button>
                   ) : null}
-                </li>
+                </div>
               );
             })}
-          </ul>
+          </>
         </Group>
 
-        <Group title={t("settings.computerUse.apps")}>
+        <Group
+          title={t("settings.computerUse.apps")}
+          description={t("settings.computerUse.appsHint")}
+        >
           <SwitchField
             label={t("settings.key.computerUse.enabled")}
             description={t("settings.computerUse.enabledHint")}
@@ -214,39 +216,41 @@ export function ComputerUsePanel({
             onChange={(v) => onChange("computerUse.enabled", v)}
           />
           <SettingHint settingKey="computerUse.apps" />
-        </Group>
-        {/* One row per app with a segmented tier control; fixed caps are locked rows (§5.8). */}
-        {apps.length === 0 ? (
-          <EmptyNotice text={t("settings.computerUse.noApps")} />
-        ) : (
-          <ul aria-label={t("settings.key.computerUse.apps")} className={GROUP_ROWS}>
-            {apps.map((a) => (
-              <li key={a.id} className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <span className="min-w-0 flex-1 text-body text-label-primary">{a.name}</span>
-                <SegmentedRadio
-                  label={a.name}
-                  options={TIERS}
-                  value={a.tier}
-                  disabled={!enabled}
-                  onChange={(tier) => setTier(a, tier)}
-                  segmentLabel={(o) => t("settings.matrix.cell", { row: a.name, column: o.label })}
-                />
-              </li>
-            ))}
-            {LOCKED_APPS.map((a) => (
-              <li key={a.id} data-locked="true" className="flex items-center gap-3">
-                <Lock className="size-3.5 shrink-0 text-label-tertiary" aria-hidden="true" />
-                <div className="flex min-w-0 flex-1 flex-col">
-                  <span className="text-body text-label-primary">{a.name}</span>
-                  <span className="text-callout text-label-secondary">{a.locked?.reason}</span>
+          {/* One row per app with a segmented tier control; fixed caps are locked rows (§5.8). */}
+          {apps.length === 0 ? (
+            <EmptyNotice text={t("settings.computerUse.noApps")} />
+          ) : (
+            <>
+              {apps.map((a) => (
+                <div key={a.id} className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <span className="min-w-0 flex-1 text-body text-label-primary">{a.name}</span>
+                  <SegmentedRadio
+                    label={a.name}
+                    options={TIERS}
+                    value={a.tier}
+                    disabled={!enabled}
+                    onChange={(tier) => setTier(a, tier)}
+                    segmentLabel={(o) =>
+                      t("settings.matrix.cell", { row: a.name, column: o.label })
+                    }
+                  />
                 </div>
-                <span className="shrink-0 text-body text-label-secondary">
-                  {a.locked ? t(`settings.computerUse.cap.${a.locked.cap}`) : ""}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
+              ))}
+              {LOCKED_APPS.map((a) => (
+                <div key={a.id} data-locked="true" className="flex items-center gap-3">
+                  <Lock className="size-3.5 shrink-0 text-label-tertiary" aria-hidden="true" />
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    <span className="text-body text-label-primary">{a.name}</span>
+                    <span className="text-callout text-label-secondary">{a.locked?.reason}</span>
+                  </div>
+                  <span className="shrink-0 text-body text-label-secondary">
+                    {a.locked ? t(`settings.computerUse.cap.${a.locked.cap}`) : ""}
+                  </span>
+                </div>
+              ))}
+            </>
+          )}
+        </Group>
       </LoadGate>
     </SectionFrame>
   );

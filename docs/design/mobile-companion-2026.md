@@ -1,6 +1,6 @@
 # Mobile companion: the Gateway as a phone backend
 
-Status: proposal v2 (2026-11-02), revised to the owner's direction. v1 was 2026-10-26. Docs only; nothing here is built. Applies to the Gateway, `packages/protocol`, `packages/notifications`, `apps/web`, and a future native app (iOS first, Android later). The Windows desktop target doesn't change anything here: the phone talks to the Gateway, not to a desktop OS. Linux desktop stays out of scope, although the Gateway still runs on Linux in server mode.
+Status: proposal v2 (2026-11-02), revised to the owner's direction. v1 was 2026-10-26. Docs only; nothing here is built. Applies to the Gateway, `packages/protocol`, `packages/notifications`, `apps/web`, and a future native app (iOS first, Android later). The Windows desktop target doesn't change anything here: the phone talks to the Gateway, not to a desktop OS. Linux desktop stays out of scope, although the Gateway still runs on Linux in server mode. The desktop app as a client of a remote Gateway (Mac or Windows over Tailscale) is planned in [remote-gateway-2026.md](remote-gateway-2026.md). It shares this doc's pairing link, Gateway identity key and device surface.
 
 **The owner's question:** can Psyche eventually be the backend for a mobile app that connects to it, with the server sending push notifications and more?
 
@@ -54,10 +54,10 @@ The phone talks to the Gateway over exactly two paths. Anything else is not supp
 
 Psyche's own UI already lets the owner approve a code on a paired device; mobile keeps that and adds a QR code for convenience.
 
-1. On an admin device, **Settings → Devices → Add phone** shows a QR code: `psyche-pair:v1` with `{gatewayUrl, gatewayIdentityKey, spkiPins[], setupToken}`. The setup token is the single-use, 10-minute bootstrap token that security §10 already specifies.
+1. On an admin device, **Settings → Devices → Add phone** shows a QR code: `psyche-pair:v1` with `{gatewayUrl, gatewayIdentityKey, spkiPins[], setupToken}`. The same payload, pasted as a link, pairs a remote desktop ([remote-gateway-2026.md §3.4](remote-gateway-2026.md#34-pairing-a-new-computer)). The setup token is the single-use, 10-minute bootstrap token that security §10 already specifies.
 2. The app scans the QR code **with its own scanner**. It is not a universal link or deep link: the CVE-2026-25253 rule ("no `gatewayUrl` query or deep-link parameter") still holds. The app shows the host and asks "Connect to `psyche.tailnet.ts.net`?".
 3. The app generates its Ed25519 device key, runs `connect` and gets `pending`. The setup token lets the Gateway mark the request as expected. The owner still approves the request and its scopes on the admin device. The default scopes for a phone are `operator.read`, `operator.write` and `operator.approvals`, without `admin`.
-4. **Pin the Gateway, not the certificate.** Tailscale rotates leaf certificates, so pinning the SPKI alone breaks on every renewal. Add a long-lived **Gateway identity key** (Ed25519, kept in `$PSYCHE_HOME`). The Gateway signs `{nonce, serverOrigin, devicePublicKey}` in its `connect` challenge, and the app refuses a signature from any key other than the pinned one. SPKI pins become an optional extra layer for LAN setups, where the certificate is self-signed. This closes the N12 "TLS pinning for mobile clients" item in a way that survives certificate rotation.
+4. **Pin the Gateway, not the certificate.** Tailscale rotates leaf certificates, so pinning the SPKI alone breaks on every renewal. Add a long-lived **Gateway identity key** (Ed25519, kept in `$PSYCHE_HOME`). The Gateway signs `{nonce, serverOrigin, devicePublicKey}` in its `connect` challenge, and the app refuses a signature from any key other than the pinned one. SPKI pins become an optional extra layer for LAN setups, where the certificate is self-signed. This closes the N12 "TLS pinning for mobile clients" item in a way that survives certificate rotation. The remote desktop client uses the same key and challenge signature ([remote-gateway-2026.md §3.3](remote-gateway-2026.md#33-the-gateway-identity-key-shared-with-the-phone)), so it is built once for both.
 
 **Passkeys:** a native app can only use passkeys for a relying party it holds an associated-domains entitlement for. The owner's Gateway hostname is different for every install, so **the native app can't use the Gateway's passkeys.** It proves presence with a Secure Enclave key instead (§5). Passkeys stay the PWA's presence proof.
 
@@ -124,7 +124,7 @@ APNs authenticates with a `.p8` key that belongs to one Apple developer team and
 
 Run `pnpm protocol:gen`, and the Swift types follow automatically.
 
-**Surface.** Add `push:<deviceId>` to the `Surface` string family.
+**Surface.** Add `push:<deviceId>` to the `Surface` string family. The remote desktop client adds `device:<deviceId>` to the same family for its OS notifications ([remote-gateway-2026.md §4.2](remote-gateway-2026.md#42-feature-by-feature)).
 
 - **Routing.** `surfaceClass` gains `"push"`, and `isInterruptive` becomes true for it.
 - **Fan-out.** `resolveSurfaces` expands `notification` into the OS surface *and* every push-registered phone, so `DEFAULT_SURFACES` doesn't change.
@@ -171,7 +171,7 @@ A running Task or automation shows step progress on the Lock Screen and in the D
 ## 5. Security
 
 - **Per-device scopes.** A phone pairs as its own device with owner-chosen scopes (§2.2). `operator.admin` stays off by default. If the owner grants it, every widening call still needs fresh presence, exactly as security §10 lists.
-- **Revocation.** `devices.revoke` from any admin device closes the phone's connections, drops its node authority and presence key, and deletes its push registration and content key. Nothing reaches the phone after that: the Gateway no longer has its APNs token or content key, and there's no third party holding a copy. Lost-phone flow: revoke from the desktop, done. `psyche security audit` gains three checks: "phone with admin scope", "push registration older than 180 days with no delivery" and "Gateway identity key missing". The owner's `.p8` is a new secret on the Gateway: it can only send pushes to that one app, and it can't read anything, but it lives in the vault and its owner can revoke it in the Apple Developer account at any time.
+- **Revocation.** `devices.revoke` from any admin device closes the phone's connections, drops its node authority and presence key, and deletes its push registration and content key. Nothing reaches the phone after that: the Gateway no longer has its APNs token or content key, and there's no third party holding a copy. Lost-phone flow: revoke from the desktop, done. A lost remote desktop is revoked the same way ([remote-gateway-2026.md §6.4](remote-gateway-2026.md#64-a-lost-or-stolen-client)). `psyche security audit` gains three checks: "phone with admin scope", "push registration older than 180 days with no delivery" and "Gateway identity key missing". The owner's `.p8` is a new secret on the Gateway: it can only send pushes to that one app, and it can't read anything, but it lives in the vault and its owner can revoke it in the Apple Developer account at any time.
 - **Device-only approvals.**
   - **Where they go.** `deviceOnly` kinds may go to a paired phone, because a phone app is a device and not a chat. This follows the same rule as the desktop card and the helper's authenticated notification (architecture §4.6, security §3.7).
   - **What the answer needs.** The answer must include a presence assertion from the phone's **Secure Enclave P-256 key**, created with `.biometryCurrentSet` and registered through `devices.presenceKey.register`, just as for the mac helper.

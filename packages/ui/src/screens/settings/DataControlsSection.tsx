@@ -10,6 +10,7 @@ import { usePersona, useSlots } from "../../slots.tsx";
 import { LearningGroup } from "./LearningGroup.tsx";
 import { MapGroup } from "./MapSettings.tsx";
 import {
+  Advanced,
   ErrorNotice,
   Group,
   LoadGate,
@@ -256,8 +257,6 @@ export function DataControlsPanel({
             options={[0, 1, 7, 30, 90].map(days)}
           />
         </Group>
-        <MapGroup values={values} onChange={onChange} />
-        <WidgetGroup values={values} onChange={onChange} />
 
         <Group title={t("settings.data.export")} description={t("settings.data.exportHint")}>
           <div>
@@ -272,6 +271,11 @@ export function DataControlsPanel({
             </Button>
           </div>
         </Group>
+
+        <Advanced description={t("settings.data.advancedHint")}>
+          <MapGroup values={values} onChange={onChange} />
+          <WidgetGroup values={values} onChange={onChange} />
+        </Advanced>
 
         {/* Destructive actions sit apart, last, under their own heading (settings-2026 §4). */}
         <section

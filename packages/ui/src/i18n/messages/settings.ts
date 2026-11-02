@@ -7,6 +7,7 @@ export const settings = {
   "settings.shared.loading": "Loading {label}",
   "settings.shared.nothingChanged": "Nothing was changed.",
   "settings.shared.tryAgain": "Try again",
+  "settings.shared.advanced": "Advanced",
   "settings.shared.needsAdmin":
     "Needs approval on this device. Change it from a device paired as admin.",
   "settings.shared.loadFailed": "Psyche couldn't load {label} ({reason}).",
@@ -58,7 +59,7 @@ export const settings = {
   // Settings → Essentials (EssentialsSection.tsx, settings-2026 §7).
   "settings.essentials.title": "Essentials",
   "settings.essentials.description":
-    "The few choices most people make, each with a safe default. {persona} asks when it needs more, and remembers your answer.",
+    "The few choices most people make, each with a safe default. {persona} asks when it needs more.",
   "settings.essentials.more": "More",
   "settings.essentials.moreIn": "More in {place}",
   "settings.essentials.model.title": "Model",
@@ -87,18 +88,19 @@ export const settings = {
   // Settings → Connectors & sources → Search (SearchSection.tsx).
   "settings.searchModel.title": "Model for search",
   "settings.searchModel.description":
-    "Which model reads a question, writes context cards and reorders results. Each of those can be switched off under Semantic search.",
+    "Which model reads questions, writes context cards and reorders results.",
   "settings.searchModel.utility": "Your utility model",
   "settings.searchModel.utilityHint":
     "The small model set in Models. If it is a cloud model, the text it reads goes to that provider.",
   "settings.searchModel.apple": "Apple on-device model",
   "settings.searchModel.appleHint":
-    "Runs on this Mac with Apple Intelligence: nothing is sent to the cloud, and no key or download is needed. It is small ({tokens, number} tokens), and when it can't run these jobs are skipped, never sent to the cloud instead.",
+    "Runs on this Mac with Apple Intelligence, so nothing is sent to the cloud. If it can't run, those jobs are skipped.",
   "settings.searchModel.apple.ready": "Ready on this Mac",
   "settings.searchModel.apple.needsAi": "Needs Apple Intelligence",
   "settings.searchModel.apple.notReady": "Getting ready",
   "settings.searchModel.apple.notOnThisMac": "Not available on this Mac",
   "settings.searchModel.apple.unavailable": "Not available right now",
+  "settings.search.advancedHint": "Which model reads your questions",
   "settings.search.title": "Search",
   "settings.search.description":
     "What Psyche indexes so it can find things for you, and which engine it uses on the web.",
@@ -149,7 +151,6 @@ export const settings = {
   "settings.key.appearance.zoom": "Zoom",
   "settings.key.appearance.showInDock": "Show in Dock when no windows are open",
   "settings.key.appearance.openAtLogin": "Open Psyche at login",
-  "settings.key.appearance.reduceTransparency": "Reduce transparency",
   "settings.key.appearance.glass": "Translucent controls",
   "settings.key.appearance.glassTint": "Tint",
   "settings.key.appearance.glassBlur": "Blur",
@@ -167,20 +168,20 @@ export const settings = {
   "settings.key.search.semantic.enabled": "Semantic search (on-device)",
   "settings.key.search.cards.enabled": "Context cards for search",
   "settings.semanticSearch.cardsHint":
-    "When something is saved or indexed, a small cloud model writes a short summary, who and when, and the questions it answers, using only what the text says. Capped at about 200,000 tokens a day (well under a dollar); turn off to stop.",
+    "A small cloud model writes a short summary of each saved item. Capped at about 200,000 tokens a day.",
   "settings.key.search.encrypt": "Encrypt the search index",
   "settings.semanticSearch.encryptHint":
-    "Keeps the search index file unreadable without a key that is stored separately: in a macOS keychain item that opens without Touch ID while your Mac is unlocked, or beside your vault key on a server. Protects copies, backups and synced folders of the index, not software running as you on your unlocked Mac. Applies the next time Psyche starts and rebuilds the index once (a few minutes, plus the cost of context cards if they are on). Search is empty for a few seconds after start while the Mac helper connects.",
+    "Keeps the search index unreadable without a separately stored key. Applies at the next start and rebuilds the index once.",
   "settings.semanticSearch.encrypt.on": "Index encrypted",
   "settings.semanticSearch.encrypt.pending":
     "Waiting for the Mac helper to open the encrypted index",
   "settings.semanticSearch.encrypt.unavailable": "Not encrypted: {why}",
   "settings.key.search.rerank.enabled": "Re-rank the best results with a small cloud model",
   "settings.semanticSearch.rerankHint":
-    "Off by default. When the agent searches your data, a small cloud model reads the question and the top 20 results (title, date and the first 500 characters of each) and puts the best first. Those snippets leave this Mac. Cost: about 2,000 tokens per search, under a cent with a small model. No RAM: nothing runs on this machine. Never used for your delegates' searches or for keystrokes in ⌘K.",
+    "A small cloud model puts the best results first. The top 20 snippets leave this Mac. Off by default.",
   "settings.key.search.queryModel.enabled": "Read questions with a small model",
   "settings.semanticSearch.queryModelHint":
-    "When the agent searches your data with a question and the built-in rules find no time, person or source in it, a small cloud model reads the question once (about 300 tokens) to work out those filters. Only the question is sent, never your items. If no model is set up, or the call fails, the rules are used.",
+    "A small cloud model works out time, person and source filters. Only the question is sent, never your items.",
   "settings.key.search.semantic.engine": "Embedding engine",
   "settings.key.search.semantic.allowCloud": "Allow a cloud embedding service",
   "settings.key.search.web.searxngUrl": "SearXNG URL",
@@ -233,7 +234,7 @@ export const settings = {
   "settings.notifications.description": "When Psyche may interrupt you.",
   "settings.notifications.group.quietHours": "Quiet hours",
   "settings.notifications.quietHours.hint":
-    "During quiet hours Psyche holds notifications until the window ends. They still land in your inbox. Approvals marked time-sensitive come through.",
+    "Holds notifications until the window ends. Time-sensitive approvals still come through.",
   "settings.key.voice.engine": "Speech engine",
   "settings.key.voice.conversation.enabled": "Talk with Psyche",
   "settings.key.voice.conversation.key": "Voice key",
@@ -478,7 +479,7 @@ export const settings = {
   "settings.credentials.payments.amountRefunded": "{total} · {refunded} refunded",
   "settings.credentials.payments.title": "Payments",
   "settings.credentials.payments.description":
-    "Stripe Link pays with a one-time card after you approve each purchase on a device. Your card numbers never reach Psyche.",
+    "A one-time card, after you approve each purchase. Card numbers never reach Psyche.",
   "settings.credentials.payments.loadLabel": "payments",
   "settings.credentials.payments.notConfigured":
     "Stripe Link is not set up. Install the Link CLI on the Gateway's machine, sign in to Link, and set PSYCHE_LINK_CLI; Psyche then shows your payment methods here.",
@@ -605,32 +606,35 @@ export const settings = {
   "settings.appearance.seedHelp":
     "Any CSS color. It lands on step 9; Psyche adjusts it if the text would be hard to read.",
   "settings.appearance.title": "Appearance",
-  "settings.appearance.description":
-    "Applies to every paired device. Approval, danger and success colors never follow the accent.",
+  "settings.appearance.description": "Applies to every device you've paired.",
   "settings.appearance.loadLabel": "appearance",
   "settings.appearance.theme.auto": "Auto",
   "settings.appearance.theme.autoHint": "Follows the system",
-  "settings.appearance.accent": "Accent",
-  "settings.appearance.motionContrast": "Motion and contrast",
   "settings.appearance.followSystem": "Follow the system",
+  "settings.appearance.colors": "Colors",
+  "settings.appearance.colorsHint": "Light or dark, and your accent color.",
+  "settings.appearance.comfort": "Comfort",
+  "settings.appearance.comfortHint": "Easier on the eyes and on motion.",
+  "settings.appearance.backgroundHint": "Whether Psyche keeps running when you close the window.",
+  "settings.appearance.advancedHint": "Gray tone, custom color, text direction, contrast check",
+  "settings.appearance.fineTune": "Fine-tune colors",
+  "settings.appearance.fineTuneHint": "For people who want an exact look.",
+  "settings.appearance.contrastCheck": "Contrast check",
+  "settings.appearance.contrastCheckHint": "How readable each theme is, step by step.",
   "settings.appearance.contrastHint": "Stronger borders, darker text and 2 px focus rings.",
-  "settings.appearance.transparency": "Translucency",
   "settings.appearance.background": "Background",
   "settings.appearance.showInDockHint":
-    "Off, Psyche leaves the Dock and ⌘-Tab when its last window closes and keeps running from the menu bar. Click the menu bar icon to open it again.",
+    "Off, Psyche keeps running from the menu bar when its last window closes.",
   "settings.appearance.openAtLoginHint":
-    "Starts Psyche in the menu bar when you sign in, with no window, so scheduled automations that use the browser can always run. Psyche also starts itself in the background when a run needs the browser.",
-  "settings.appearance.glass.hint":
-    "The composer, toolbar controls, menus and popovers let the content behind them show through. Off, they are opaque.",
-  "settings.appearance.reduceTransparencyHint":
-    "Menus, popovers and the composer become opaque. Follows the system setting until you change it here.",
+    "Starts Psyche in the menu bar when you sign in, so scheduled automations can always run.",
+  "settings.appearance.glass.hint": "Lets content show through menus, popovers and the composer.",
 
   // Settings → Browser: real-Chrome mode and Web Bot Auth (BrowserSection.tsx).
   "settings.browser.profile": "Psyche profile",
   "settings.browser.profileNamed": "Psyche profile ({persona})",
   "settings.browser.title": "Browser",
   "settings.browser.description":
-    "{persona} browses in its own window by default. Real-Chrome mode lets a task use a separate Chrome profile you sign in to once.",
+    "{persona} browses in its own window. Real-Chrome mode uses a separate profile you sign in to once.",
   "settings.browser.loadLabel": "browser settings",
   "settings.browser.realChromeDescription":
     "For sites that need your sign-ins or extensions such as 1Password.",
@@ -641,11 +645,11 @@ export const settings = {
     "A Chrome profile only {persona} uses, never your own. Open it once to sign in and install 1Password, then close it.",
   "settings.browser.signedIn.title": "Signed-in sites",
   "settings.browser.signedIn.description":
-    "Sites you are signed in to in Psyche's browser, including ones Psyche found from your sign-ins. Tasks use your sign-in on these; with the switch above off, only the ones you chose to stay signed in to.",
+    "Sites you are signed in to in Psyche's browser. Tasks reuse these sign-ins.",
   "settings.browser.signedIn.auto": "found automatically",
   "settings.browser.useSignedIn.title": "Signed-in sessions",
   "settings.browser.useSignedIn.description":
-    "When you sign in to a site in Psyche's browser, {persona} can keep using that sign-in for the same site, including its sign-in pages. Writes, purchases and sends still ask you first.",
+    "{persona} keeps using your sign-in on the same site. Writes, purchases and sends still ask you first.",
   "settings.browser.useSignedIn.label": "Let Psyche use my signed-in sessions",
   "settings.browser.useSignedIn.hint":
     "On by default. Off opens every site logged out, except the ones you chose to stay signed in to.",
@@ -778,6 +782,7 @@ export const settings = {
   "settings.computerUse.macPermissions": "macOS permissions",
   "settings.computerUse.openSystemSettingsFor": "Open System Settings for {name}",
   "settings.computerUse.openSystemSettings": "Open System Settings",
+  "settings.computerUse.appsHint": "How far Psyche may go in each app.",
   "settings.computerUse.apps": "Apps",
   "settings.computerUse.enabledHint":
     "Off stops every app below. Each app is asked about on first use.",
@@ -953,9 +958,9 @@ export const settings = {
   "settings.mcp.sandboxHelp": "Command servers need a sandbox on this Mac.",
   "settings.sandbox.title": "Set up the sandbox",
   "settings.sandbox.why":
-    "Commands run on your Mac with access to your files, but can't read your vault, keys or Psyche's private data.",
+    "Commands run on your Mac with your files, but can't read your vault, keys or Psyche's private data.",
   "settings.sandbox.whyHow":
-    "Psyche uses srt, Anthropic's sandbox runtime, which runs each local MCP command server under macOS's own sandbox. No virtual machine is needed.",
+    "Uses srt, Anthropic's sandbox runtime, under macOS's own sandbox. No virtual machine needed.",
   "settings.sandbox.privacy":
     "Psyche installs nothing on its own. You run each step below, or open the download yourself.",
   "settings.sandbox.checking": "Looking at this Mac…",
@@ -1140,21 +1145,21 @@ export const settings = {
   // Local search sources (docs/design/search-roadmap-2026.md §2), under Model (SearchSourcesSettings.tsx).
   "settings.searchSources.title": "Search sources",
   "settings.searchSources.description":
-    "Choose what Psyche reads into your search index. Everything is off until you switch it on, and the index stays on this Mac.",
+    "What Psyche reads into your search index. All off until you switch them on; the index stays on this Mac.",
   "settings.searchSources.hint.mail":
     "Subject, sender, recipients, date and the text of your mail in Apple Mail. Quoted replies are skipped.",
   "settings.searchSources.hint.messages":
-    "The text of your iMessage conversations, grouped by chat and day. Off by default. Other people's messages are treated as untrusted text, never as instructions.",
+    "Your iMessage conversations, by chat and day. Other people's messages are never treated as instructions.",
   "settings.searchSources.hint.notes": "The title and text of your Apple Notes.",
   "settings.searchSources.hint.calendar":
     "Events from the past three years and the next twelve months: title, time, place, attendees and notes.",
   "settings.searchSources.hint.reminders": "Reminders and their lists, due dates and notes.",
   "settings.searchSources.hint.files":
-    "Text, Markdown, code, PDF, Word and Excel files in the folders you have shared with Psyche. Images and scans are indexed by name unless you turn on reading text in images.",
+    "Text, code, PDF, Word and Excel files in folders you've shared. Images are indexed by name.",
   "settings.searchSources.hint.browser":
-    "Pages Psyche's browser reads for you: the address (without anything after a ?), title and text, kept 90 days. Logged-out browsing, private chats, sign-in, payment and local pages are never kept. Page text is untrusted: it can never give Psyche instructions.",
+    "Pages Psyche's browser reads for you, kept 90 days. Private, sign-in and payment pages are never kept.",
   "settings.searchSources.hint.transcripts":
-    "What was said in your voice memos and recorded meetings, split by speaker so a search can find who said what. Other people's words are treated as untrusted text.",
+    "Voice memos and meetings, split by speaker. Other people's words are never treated as instructions.",
   "settings.searchSources.state.off": "Off: not read",
   "settings.searchSources.state.unavailable": "On, but not available: {why}",
   "settings.searchSources.state.error": "Problem: {why}",
@@ -1169,7 +1174,7 @@ export const settings = {
   "settings.searchSources.agentLabel": "Agent search for {source}",
   "settings.searchSources.ocr": "Read text in images (OCR)",
   "settings.searchSources.ocrHint":
-    "Reads screenshots, photos and scanned PDFs in shared folders and your Library on this Mac with Apple Vision. Nothing leaves your Mac and no model is downloaded. Runs one page at a time, only on power.",
+    "Reads screenshots and scanned PDFs with Apple Vision, one page at a time, only on power. Nothing leaves your Mac.",
   "settings.searchSources.ocrLabel": "Read text in images for {source}",
   "settings.searchSources.processing": "Processing",
   "settings.searchSources.processingLabel": "Processing for {source}",
@@ -1185,9 +1190,9 @@ export const settings = {
 
   "settings.semanticSearch.title": "Search by meaning",
   "settings.semanticSearch.description":
-    "Find chats, tasks and files by meaning as well as by their words. Everything is indexed and searched on this Mac.",
+    "Find things by meaning as well as by their words, all on this Mac.",
   "settings.semanticSearch.enabledHint":
-    "The first time, Psyche downloads a 118 MB model, then indexes your history in the background. Turning it off deletes the index of meanings.",
+    "Downloads a 118 MB model the first time. Turning it off deletes the index of meanings.",
   "settings.semanticSearch.engine.builtin": "Built-in model",
   "settings.semanticSearch.engine.builtinHint":
     "Multilingual E5 small, about 100 languages, runs on this Mac's processor.",
@@ -1203,7 +1208,7 @@ export const settings = {
   "settings.semanticSearch.state.readyCloud":
     "On, with a cloud service: {n, plural, one {# passage} other {# passages}} indexed",
   "settings.semanticSearch.allowCloudHint":
-    "Only if the embedding model in Roles is a cloud service. Your chats, tasks and Library text are then sent to it to be indexed, and every search query too. Off keeps everything on this Mac.",
+    "Only if the embedding model is a cloud service. Your chats, tasks and Library text are sent to it. Off keeps everything on this Mac.",
   "settings.semanticSearch.state.noModel":
     "No embedding model is set in Roles. Pick one, or use the built-in model.",
   "settings.semanticSearch.state.cloudBlocked":
@@ -1211,7 +1216,7 @@ export const settings = {
   "settings.semanticSearch.state.error": "Stopped: {reason}",
   "settings.webSearch.title": "Web search",
   "settings.webSearch.description":
-    "How the agent looks things up on the web. Results and pages are treated as web content, never as your instructions.",
+    "How the agent looks things up on the web. Web pages are never treated as your instructions.",
   "settings.webSearch.inUse": "In use",
   "settings.webSearch.unknown": "Not reported yet",
   "settings.webSearch.braveKey": "Brave Search key",
@@ -1234,9 +1239,10 @@ export const settings = {
   // Settings → Privacy & data (DataControlsSection.tsx).
   "settings.data.title": "Privacy & data",
   "settings.data.description":
-    "Everything {persona} keeps lives on this machine. There is no training toggle because nothing is sent for training.",
+    "Everything {persona} keeps lives on this machine. Nothing is sent for training.",
   "settings.data.loadLabel": "data controls",
   "settings.data.memory": "Memory",
+  "settings.data.advancedHint": "Maps and pictures in widgets",
   "settings.data.keep": "How long things are kept",
   "settings.data.keepHint": "Older thinking and task replays are deleted on their own.",
   "settings.data.danger": "Delete and start over",
@@ -1279,9 +1285,9 @@ export const settings = {
     "Lets the agent search old chat transcripts, not only memory files.",
   "settings.data.days": "{n, plural, one {# day} other {# days}}",
   "settings.data.reasoningRetentionHint":
-    "How long each step's full thinking is kept. Off keeps only a one-line summary. Thinking is never kept while “Show thinking while it works” is off.",
+    "How long each step's full thinking is kept. Off keeps a one-line summary.",
   "settings.data.recallModeHint":
-    "Your Markdown memory files stay the source of truth either way. Embeddings add an index so each turn can pull in the memories closest in meaning.",
+    "Your Markdown memory files stay the source of truth. Embeddings let each turn find memories by meaning.",
   "settings.data.recallMode.markdown": "Markdown only",
   "settings.data.recallMode.markdownHint": "Read the files and match words. Nothing extra to run.",
   "settings.data.recallMode.embeddings": "Markdown plus embeddings",
@@ -1290,7 +1296,7 @@ export const settings = {
   "settings.data.recallState.off": "Markdown only.",
   "settings.data.encryptMemory": "Encrypt memory on disk",
   "settings.data.encryptMemoryHint":
-    "Keeps what {persona} knows about people, and its memory index, in an encrypted file whose key is held by your vault (on a Mac, the Keychain). Turning it off copies everything back first.",
+    "Keeps what {persona} knows about people in an encrypted file, with the key in your vault. Turning it off copies everything back first.",
   "settings.data.encryptMemory.restart": "Turns on the next time Psyche starts.",
   "settings.data.encryptMemory.on": "Encrypted.",
   "settings.data.encryptMemory.pending": "Waiting for the key from the Mac helper.",
@@ -1394,7 +1400,7 @@ export const settings = {
   // Settings → Permissions → Access (FileAccessSection.tsx, AccessList.tsx).
   "settings.files.execHost": "Run commands on this Mac",
   "settings.files.execHostHint":
-    "Lets {persona} run commands in your shared folders, in the sandbox. Every command asks you on this Mac first; chats can also ask you to turn this on.",
+    "Lets {persona} run commands in your shared folders, in the sandbox. Each command asks you first.",
   "settings.files.execHostSwitch": "Allow asking to run commands on this Mac",
   "settings.files.accessTo": "Access to {path}",
   "settings.files.ro": "Read only",
@@ -1404,14 +1410,14 @@ export const settings = {
   "settings.files.pathPlaceholder": "~/Documents/Taxes",
   "settings.files.title": "Access",
   "settings.files.description":
-    "{persona} reaches only what you allow. When it needs a folder or an app it asks you in the chat, and your answer is remembered here.",
+    "{persona} reaches only what you allow, and asks in the chat when it needs more.",
   "settings.files.loadLabel": "access",
   "settings.files.folders": "Folders",
   "settings.files.foldersHint":
-    "Always lasts until you revoke it; This chat ends with the conversation. Read only lets {persona} open and search a folder; read and write also lets it save changes, each one shown in the Diff pane. Revoke takes effect at once.",
+    "Read only lets {persona} open and search a folder; read and write lets it save changes. Revoking takes effect at once.",
   "settings.files.addYourself": "Add a folder yourself",
   "settings.files.addYourselfHint":
-    "Usually not needed: {persona} asks for a folder when a task needs one. A folder added here is kept until you revoke it, read only to start.",
+    "Usually not needed: {persona} asks when a task needs a folder. Added folders start read only.",
   "settings.access.title": "What {persona} can reach",
   "settings.access.listLabel": "What {persona} can reach",
   "settings.access.empty":
@@ -1520,6 +1526,7 @@ export const settings = {
   "settings.model.none": "None",
   "settings.model.choose": "Choose a model",
   "settings.model.chatOnlyOption": "{name} (chat only)",
+  "settings.model.advancedHint": "Context limits, local models",
   "settings.model.local": "Local models",
   "settings.model.localHint": "Run models on this Mac with Ollama or LM Studio.",
   "settings.model.err.use": "Psyche couldn't use {name} ({reason}).",
@@ -1622,8 +1629,7 @@ export const settings = {
   "settings.persona.savedForLater":
     "Saved your description. Without an image model, {name} keeps the creature picked below.",
   "settings.persona.title": "Persona",
-  "settings.persona.description":
-    "How {name} looks and introduces itself. The Soul's tone lives in SOUL.md.",
+  "settings.persona.description": "How {name} looks and introduces itself.",
   "settings.persona.loadLabel": "the persona",
   "settings.persona.describedAs": "Described as: {description}",
   "settings.persona.identity": "Identity",
@@ -1631,8 +1637,7 @@ export const settings = {
   "settings.persona.emojiHint": "Shown on channels that can't show the avatar.",
   "settings.persona.avatar": "Avatar",
   "settings.persona.whileWorking": "While working",
-  "settings.persona.showReasoningHint":
-    "The steps of a run show {persona}'s reasoning as it streams. Never saved; off hides it.",
+  "settings.persona.showReasoningHint": "Shows {persona}'s reasoning as it works. Never saved.",
   "settings.persona.describeChange": "Describe a change",
   "settings.persona.describeHint": "In your own words, e.g. “give the moth a tiny scarf”.",
   "settings.persona.describeHintNoModel":
@@ -1901,7 +1906,7 @@ export const settings = {
   "settings.vm.loadLabel": "VM settings",
   "settings.vm.sandboxMac": "Sandbox Mac",
   "settings.vm.enabledHint":
-    "Tasks that ask for it run in the guest. It sees only the folders you share, read-only unless you approve more.",
+    "Tasks that ask for it run in the guest, with only the folders you share.",
   "settings.vm.noGuest": "No guest is paired yet",
   "settings.vm.chooseGuest": "Choose a guest",
   "settings.vm.guestStatus": "{name} ({status})",
@@ -1911,7 +1916,7 @@ export const settings = {
   "settings.vm.betweenHint":
     "Copying files out of the guest is always an explicit copy with a receipt.",
   "settings.vm.credentialsHint":
-    "With the host vault, values stay on your Mac and are filled through the helper; a guest vault keeps its own copy inside the guest.",
+    "With the host vault, values stay on your Mac. A guest vault keeps its own copy.",
   "settings.vm.guestStatusTitle": "Guest status",
   "settings.vm.guestStatusHint": "What the Psyche helper last reported.",
   "settings.vm.noReports":
@@ -1937,12 +1942,12 @@ export const settings = {
   "settings.voice.mode.toggle": "Press to start, press to stop",
   "settings.voice.anyApp": "In any app",
   "settings.voice.anyAppHint":
-    "wherever you are typing. The text goes where your cursor is, never to the agent, and never into password fields.",
+    "wherever you are typing. Text goes to your cursor, never to the agent or a password field.",
   "settings.voice.hotkeyHint":
     "Press once to start and again to stop, from any app. Backspace turns it off.",
   "settings.voice.talk": "Talk with Psyche",
   "settings.voice.talkHint":
-    "A Voice button in the composer starts a spoken conversation: Psyche listens, answers out loud and listens again. Approvals still appear as cards on screen; voice never approves anything.",
+    "A Voice button in the composer starts a spoken conversation. Voice never approves anything.",
   "settings.voice.yourTurn": "Your turn",
   "settings.voice.turn.toggle": "Hands-free",
   "settings.voice.turn.toggleHint": "Psyche answers when you pause.",
@@ -2090,13 +2095,13 @@ export const settings = {
   // Settings → Specialists (docs/agent/specialists-2026.md §6.4).
   "settings.specialists.title": "Specialists",
   "settings.specialists.description":
-    "Background jobs with a named role. Each runs in its own thread, within its budget, and delivers one result to your Inbox.",
+    "Background jobs with a named role, each within its budget, delivering one result to your Inbox.",
   "settings.specialists.all": "All specialists",
   "settings.specialists.concurrent": "Specialists at once",
   "settings.specialists.concurrentHint": "More run side by side; the rest wait in line.",
   "settings.specialists.monthlyCap": "Monthly spend",
   "settings.specialists.monthlyCapHint":
-    "When it's reached, new jobs wait for budget. Empty uses half your monthly budget{budget, select, none {} other { ({budget})}}.",
+    "New jobs wait for budget once it's reached. Empty uses half your monthly budget{budget, select, none {} other { ({budget})}}.",
   "settings.specialists.monthlyCapNone": "No cap",
   "settings.specialists.showInFeed": "Show results in Feed",
   "settings.specialists.showInFeedHint": "Your Inbox gets every result either way.",
