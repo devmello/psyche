@@ -15,6 +15,7 @@ import { Group, RadioField, SwitchField } from "../screens/settings/shared.tsx";
 export const NUDGES_ENABLED = "nudges.enabled";
 export const NUDGES_CONSENTED_AT = "nudges.consentedAt";
 export const NUDGES_SENSITIVITY = "nudges.sensitivity";
+export const NUDGES_PHRASING = "nudges.phrasing";
 
 const SENSITIVITIES: readonly NudgeSensitivity[] = ["low", "normal", "high"];
 
@@ -22,17 +23,21 @@ const SENSITIVITIES: readonly NudgeSensitivity[] = ["low", "normal", "high"];
 export function readNudgeSettings(values: Readonly<Record<string, unknown>>): {
   enabled: boolean;
   sensitivity: NudgeSensitivity;
+  phrasing: boolean;
 } {
   const sens = values[NUDGES_SENSITIVITY];
   return {
     enabled: values[NUDGES_ENABLED] === true && typeof values[NUDGES_CONSENTED_AT] === "string",
     sensitivity: sens === "low" || sens === "high" || sens === "normal" ? sens : "normal",
+    phrasing: values[NUDGES_PHRASING] === true,
   };
 }
 
 export interface RelationshipNudgesSettingsProps {
   enabled: boolean;
   sensitivity: NudgeSensitivity;
+  /** Reword the starters with the everything-memory model (optional; default off). */
+  phrasing?: boolean;
   /** Writes one `nudges.*` setting. */
   onChange: (key: string, value: unknown) => void;
   /** The consent date to store when the owner confirms; tests pass a fixed one. */
@@ -47,6 +52,7 @@ export interface RelationshipNudgesSettingsProps {
 export function RelationshipNudgesSettings({
   enabled,
   sensitivity,
+  phrasing = false,
   onChange,
   now = () => new Date().toISOString(),
 }: RelationshipNudgesSettingsProps): ReactElement {
@@ -71,6 +77,14 @@ export function RelationshipNudgesSettings({
           value={sensitivity}
           onChange={(v) => onChange(NUDGES_SENSITIVITY, v)}
           options={SENSITIVITIES.map((s) => ({ value: s, label: t(`nudges.settings.${s}`) }))}
+        />
+        <SwitchField
+          label={t("nudges.settings.phrasing")}
+          description={t("nudges.settings.phrasingHint")}
+          checked={phrasing}
+          disabled={!enabled}
+          settingKey={NUDGES_PHRASING}
+          onChange={(on) => onChange(NUDGES_PHRASING, on)}
         />
         <p className="px-1 text-callout text-label-secondary">{t("nudges.settings.quietHours")}</p>
       </Group>

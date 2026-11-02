@@ -27,6 +27,7 @@ export * from "./graph/normalize.ts";
 export * from "./graph/nudges.ts";
 export * from "./graph/poll.ts";
 export * from "./graph/projects.ts";
+export * from "./graph/starters.ts";
 export * from "./graph/store.ts";
 export * from "./graph/tools.ts";
 export * from "./graph/upcoming.ts";

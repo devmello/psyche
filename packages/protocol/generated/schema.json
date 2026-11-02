@@ -29092,6 +29092,13 @@
         },
         "overdue": {
           "type": "boolean"
+        },
+        "starters": {
+          "items": {
+            "$ref": "#/$defs/NudgeStarter"
+          },
+          "maxItems": 3,
+          "type": "array"
         }
       },
       "required": [
@@ -29120,6 +29127,25 @@
         "high"
       ],
       "type": "string"
+    },
+    "NudgeStarter": {
+      "properties": {
+        "text": {
+          "description": "One short suggestion",
+          "maxLength": 160,
+          "type": "string"
+        },
+        "evidence": {
+          "description": "The fact or promise it comes from: attribute, value, how it became known, date",
+          "maxLength": 240,
+          "type": "string"
+        }
+      },
+      "required": [
+        "text",
+        "evidence"
+      ],
+      "type": "object"
     },
     "NudgesActParams": {
       "properties": {

@@ -917,6 +917,7 @@
 //   let nudgeItem = try? JSONDecoder().decode(NudgeItem.self, from: jsonData)
 //   let nudgeKind = try? JSONDecoder().decode(NudgeKind.self, from: jsonData)
 //   let nudgeSensitivity = try? JSONDecoder().decode(NudgeSensitivity.self, from: jsonData)
+//   let nudgeStarter = try? JSONDecoder().decode(NudgeStarter.self, from: jsonData)
 //   let nudgesActParams = try? JSONDecoder().decode(NudgesActParams.self, from: jsonData)
 //   let nudgesActResult = try? JSONDecoder().decode(NudgesActResult.self, from: jsonData)
 //   let nudgesListParams = try? JSONDecoder().decode(NudgesListParams.self, from: jsonData)
@@ -21866,6 +21867,7 @@ public struct NudgeItem: Codable, Sendable {
     /// A display name: third-party text, one line
     public let name: String
     public let overdue: Bool
+    public let starters: [NudgeStarter]?
     /// One plain sentence built from the name, numbers and a template
     public let text: String
 
@@ -21878,10 +21880,11 @@ public struct NudgeItem: Codable, Sendable {
         case kind = "kind"
         case name = "name"
         case overdue = "overdue"
+        case starters = "starters"
         case text = "text"
     }
 
-    public init(channel: ChannelEnum?, date: String?, daysAgo: Int?, entityID: String, id: String, kind: NudgeKind, name: String, overdue: Bool, text: String) {
+    public init(channel: ChannelEnum?, date: String?, daysAgo: Int?, entityID: String, id: String, kind: NudgeKind, name: String, overdue: Bool, starters: [NudgeStarter]?, text: String) {
         self.channel = channel
         self.date = date
         self.daysAgo = daysAgo
@@ -21890,6 +21893,7 @@ public struct NudgeItem: Codable, Sendable {
         self.kind = kind
         self.name = name
         self.overdue = overdue
+        self.starters = starters
         self.text = text
     }
 }
@@ -21904,6 +21908,24 @@ public enum NudgeKind: String, Codable, Sendable {
     case drift = "drift"
     case promise = "promise"
     case unanswered = "unanswered"
+}
+
+// MARK: - NudgeStarter
+public struct NudgeStarter: Codable, Sendable {
+    /// The fact or promise it comes from: attribute, value, how it became known, date
+    public let evidence: String
+    /// One short suggestion
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case evidence = "evidence"
+        case text = "text"
+    }
+
+    public init(evidence: String, text: String) {
+        self.evidence = evidence
+        self.text = text
+    }
 }
 
 // MARK: - NudgesMuteParams
