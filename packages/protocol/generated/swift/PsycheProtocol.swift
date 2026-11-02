@@ -468,6 +468,8 @@
 //   let everythingProcessingModel = try? JSONDecoder().decode(EverythingProcessingModel.self, from: jsonData)
 //   let everythingRetentionSetting = try? JSONDecoder().decode(EverythingRetentionSetting.self, from: jsonData)
 //   let everythingReviewSetting = try? JSONDecoder().decode(EverythingReviewSetting.self, from: jsonData)
+//   let everythingRunReason = try? JSONDecoder().decode(EverythingRunReason.self, from: jsonData)
+//   let everythingRunResult = try? JSONDecoder().decode(EverythingRunResult.self, from: jsonData)
 //   let everythingScheduleSetting = try? JSONDecoder().decode(EverythingScheduleSetting.self, from: jsonData)
 //   let everythingSensitiveClass = try? JSONDecoder().decode(EverythingSensitiveClass.self, from: jsonData)
 //   let everythingSensitiveSwitches = try? JSONDecoder().decode(EverythingSensitiveSwitches.self, from: jsonData)
@@ -718,6 +720,7 @@
 //   let memoryEntitiesUpdateParams = try? JSONDecoder().decode(MemoryEntitiesUpdateParams.self, from: jsonData)
 //   let memoryEntitiesUpdateResult = try? JSONDecoder().decode(MemoryEntitiesUpdateResult.self, from: jsonData)
 //   let memoryEntityUpdatedPayload = try? JSONDecoder().decode(MemoryEntityUpdatedPayload.self, from: jsonData)
+//   let memoryEverythingRunParams = try? JSONDecoder().decode(MemoryEverythingRunParams.self, from: jsonData)
 //   let memoryExclusionsAddParams = try? JSONDecoder().decode(MemoryExclusionsAddParams.self, from: jsonData)
 //   let memoryExclusionsAddResult = try? JSONDecoder().decode(MemoryExclusionsAddResult.self, from: jsonData)
 //   let memoryExclusionsListParams = try? JSONDecoder().decode(MemoryExclusionsListParams.self, from: jsonData)
@@ -893,6 +896,10 @@
 //   let notificationsMarkReadResult = try? JSONDecoder().decode(NotificationsMarkReadResult.self, from: jsonData)
 //   let notificationsResolveParams = try? JSONDecoder().decode(NotificationsResolveParams.self, from: jsonData)
 //   let notificationsResolveResult = try? JSONDecoder().decode(NotificationsResolveResult.self, from: jsonData)
+//   let ocrPage = try? JSONDecoder().decode(OcrPage.self, from: jsonData)
+//   let ocrRecognizeParams = try? JSONDecoder().decode(OcrRecognizeParams.self, from: jsonData)
+//   let ocrRecognizeResult = try? JSONDecoder().decode(OcrRecognizeResult.self, from: jsonData)
+//   let ocrRefusal = try? JSONDecoder().decode(OcrRefusal.self, from: jsonData)
 //   let okResult = try? JSONDecoder().decode(OkResult.self, from: jsonData)
 //   let onePasswordRef = try? JSONDecoder().decode(OnePasswordRef.self, from: jsonData)
 //   let pairingRequest = try? JSONDecoder().decode(PairingRequest.self, from: jsonData)
@@ -12037,6 +12044,53 @@ public struct EverythingSourceSwitches: Codable, Sendable {
     }
 }
 
+// MARK: - EverythingRunResult
+public struct EverythingRunResult: Codable, Sendable {
+    public let deferred: Int
+    public let factsProposed: Int
+    public let itemsRead: Int
+    public let quarantined: Int
+    public let ran: Bool
+    public let reason: EverythingRunReason?
+    public let tokens: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case deferred = "deferred"
+        case factsProposed = "factsProposed"
+        case itemsRead = "itemsRead"
+        case quarantined = "quarantined"
+        case ran = "ran"
+        case reason = "reason"
+        case tokens = "tokens"
+    }
+
+    public init(deferred: Int, factsProposed: Int, itemsRead: Int, quarantined: Int, ran: Bool, reason: EverythingRunReason?, tokens: Int) {
+        self.deferred = deferred
+        self.factsProposed = factsProposed
+        self.itemsRead = itemsRead
+        self.quarantined = quarantined
+        self.ran = ran
+        self.reason = reason
+        self.tokens = tokens
+    }
+}
+
+/// Why a pass did not run
+public enum EverythingRunReason: String, Codable, Sendable {
+    case battery = "battery"
+    case busy = "busy"
+    case disabled = "disabled"
+    case localNotConfirmed = "local_not_confirmed"
+    case lowMemory = "low_memory"
+    case lowPower = "low_power"
+    case modelNone = "model_none"
+    case noOwnerEntity = "no_owner_entity"
+    case noSources = "no_sources"
+    case notIdle = "not_idle"
+    case outsideQuietHours = "outside_quiet_hours"
+    case thermal = "thermal"
+}
+
 public enum EverythingSensitiveClass: String, Codable, Sendable {
     case ethnicity = "ethnicity"
     case finance = "finance"
@@ -21354,6 +21408,94 @@ public struct NotificationsResolveResult: Codable, Sendable {
     }
 }
 
+// MARK: - OcrRecognizeParams
+public struct OcrRecognizeParams: Codable, Sendable {
+    /// PDF only: first page to consider (default 1)
+    public let fromPage: Int?
+    /// Size cap
+    public let maxFileBytes: Int?
+    /// At most this many pages are recognised in this call
+    public let maxPages: Int?
+    /// PDF only: pages whose text layer is shorter than this are recognised
+    public let minTextChars: Int?
+    /// PDF only: 1-based pages to consider (default: from the start)
+    public let pages: [Int]?
+    /// An absolute path to a PNG, JPEG, HEIC, TIFF, GIF, WebP or PDF file
+    public let path: String
+
+    public enum CodingKeys: String, CodingKey {
+        case fromPage = "fromPage"
+        case maxFileBytes = "maxFileBytes"
+        case maxPages = "maxPages"
+        case minTextChars = "minTextChars"
+        case pages = "pages"
+        case path = "path"
+    }
+
+    public init(fromPage: Int?, maxFileBytes: Int?, maxPages: Int?, minTextChars: Int?, pages: [Int]?, path: String) {
+        self.fromPage = fromPage
+        self.maxFileBytes = maxFileBytes
+        self.maxPages = maxPages
+        self.minTextChars = minTextChars
+        self.pages = pages
+        self.path = path
+    }
+}
+
+// MARK: - OcrRecognizeResult
+public struct OcrRecognizeResult: Codable, Sendable {
+    /// PDF only: where a next call continues, when pages remain
+    public let nextPage: Int?
+    /// Pages in the document (1 for an image)
+    public let pageCount: Int
+    /// Only pages that were recognised, in order
+    public let pages: [OcrPage]
+    public let refusal: OcrRefusal?
+
+    public enum CodingKeys: String, CodingKey {
+        case nextPage = "nextPage"
+        case pageCount = "pageCount"
+        case pages = "pages"
+        case refusal = "refusal"
+    }
+
+    public init(nextPage: Int?, pageCount: Int, pages: [OcrPage], refusal: OcrRefusal?) {
+        self.nextPage = nextPage
+        self.pageCount = pageCount
+        self.pages = pages
+        self.refusal = refusal
+    }
+}
+
+// MARK: - OcrPage
+public struct OcrPage: Codable, Sendable {
+    /// Mean line confidence
+    public let confidence: Double
+    /// 1 for an image
+    public let page: Int
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case confidence = "confidence"
+        case page = "page"
+        case text = "text"
+    }
+
+    public init(confidence: Double, page: Int, text: String) {
+        self.confidence = confidence
+        self.page = page
+        self.text = text
+    }
+}
+
+public enum OcrRefusal: String, Codable, Sendable {
+    case notAFile = "not_a_file"
+    case tooLarge = "too_large"
+    case unavailable = "unavailable"
+    case unreadable = "unreadable"
+    case unsupportedType = "unsupported_type"
+}
+
 // MARK: - OkResult
 public struct OkResult: Codable, Sendable {
     public let ok: Bool
@@ -24757,19 +24899,24 @@ public struct SearchQueryParams: Codable, Sendable {
     public let limit: Int?
     public let query: String
     public let scopes: [SearchScope]?
+    /// Let the cheap query model read a question the rules could not filter (Enter, not
+    /// keystrokes). Ignored when no model is configured
+    public let smart: Bool?
 
     public enum CodingKeys: String, CodingKey {
         case dropChips = "dropChips"
         case limit = "limit"
         case query = "query"
         case scopes = "scopes"
+        case smart = "smart"
     }
 
-    public init(dropChips: [String]?, limit: Int?, query: String, scopes: [SearchScope]?) {
+    public init(dropChips: [String]?, limit: Int?, query: String, scopes: [SearchScope]?, smart: Bool?) {
         self.dropChips = dropChips
         self.limit = limit
         self.query = query
         self.scopes = scopes
+        self.smart = smart
     }
 }
 
@@ -25036,6 +25183,7 @@ public struct SearchSourcesConfigureParams: Codable, Sendable {
     public let agent: Bool?
     public let enabled: Bool?
     public let exclude: Exclude?
+    public let ocr: Bool?
     public let processing: SearchProcessing?
     public let source: SearchSourceID?
 
@@ -25043,14 +25191,16 @@ public struct SearchSourcesConfigureParams: Codable, Sendable {
         case agent = "agent"
         case enabled = "enabled"
         case exclude = "exclude"
+        case ocr = "ocr"
         case processing = "processing"
         case source = "source"
     }
 
-    public init(agent: Bool?, enabled: Bool?, exclude: Exclude?, processing: SearchProcessing?, source: SearchSourceID?) {
+    public init(agent: Bool?, enabled: Bool?, exclude: Exclude?, ocr: Bool?, processing: SearchProcessing?, source: SearchSourceID?) {
         self.agent = agent
         self.enabled = enabled
         self.exclude = exclude
+        self.ocr = ocr
         self.processing = processing
         self.source = source
     }
@@ -25079,12 +25229,14 @@ public struct Exclude: Codable, Sendable {
 }
 
 public enum SearchSourceID: String, Codable, Sendable {
+    case browser = "browser"
     case calendar = "calendar"
     case files = "files"
     case mail = "mail"
     case messages = "messages"
     case notes = "notes"
     case reminders = "reminders"
+    case transcripts = "transcripts"
 }
 
 // MARK: - SearchSourcesRebuildParams
@@ -25157,6 +25309,9 @@ public struct SearchSourceStatus: Codable, Sendable {
     public let label: String
     /// Epoch ms
     public let lastIndexedAt: Int?
+    /// Read text in images and scanned PDFs on this Mac (Apple Vision); off until the owner
+    /// allows it. Only Files uses it
+    public let ocr: Bool
     public let processing: SearchProcessing
     public let state: SearchSourceState
     /// Text indexed for this source
@@ -25171,12 +25326,13 @@ public struct SearchSourceStatus: Codable, Sendable {
         case items = "items"
         case label = "label"
         case lastIndexedAt = "lastIndexedAt"
+        case ocr = "ocr"
         case processing = "processing"
         case state = "state"
         case textBytes = "textBytes"
     }
 
-    public init(agent: Bool, backfilled: Bool, detail: String?, enabled: Bool, id: SearchSourceID, items: Int, label: String, lastIndexedAt: Int?, processing: SearchProcessing, state: SearchSourceState, textBytes: Int) {
+    public init(agent: Bool, backfilled: Bool, detail: String?, enabled: Bool, id: SearchSourceID, items: Int, label: String, lastIndexedAt: Int?, ocr: Bool, processing: SearchProcessing, state: SearchSourceState, textBytes: Int) {
         self.agent = agent
         self.backfilled = backfilled
         self.detail = detail
@@ -25185,6 +25341,7 @@ public struct SearchSourceStatus: Codable, Sendable {
         self.items = items
         self.label = label
         self.lastIndexedAt = lastIndexedAt
+        self.ocr = ocr
         self.processing = processing
         self.state = state
         self.textBytes = textBytes
@@ -31488,6 +31645,7 @@ public typealias GrowthUpdatedPayload = [String: JSONAny]
 public typealias MCPStatusParams = [String: JSONAny]
 public typealias MeetingsRecordPushResult = [String: JSONAny]
 public typealias MeetingsRecordStatusParams = [String: JSONAny]
+public typealias MemoryEverythingRunParams = [String: JSONAny]
 public typealias MemoryExclusionsListParams = [String: JSONAny]
 public typealias MemoryExportParams = [String: JSONAny]
 public typealias MemoryGraphBlocklistListParams = [String: JSONAny]

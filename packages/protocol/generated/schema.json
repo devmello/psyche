@@ -1807,6 +1807,14 @@
         "sideEffecting": true
       },
       {
+        "description": "Runs the everything-memory pass now, under the same limits (power, thermal, model, budget) except quiet hours and idle time. Returns counts, or why it did not run. Side-effecting.",
+        "name": "memory.everything.run",
+        "params": "#/$defs/MemoryEverythingRunParams",
+        "result": "#/$defs/EverythingRunResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
         "description": "Excludes an address, number or whole domain. With mode forget, also deletes what was learned from people who use it. Side-effecting.",
         "name": "memory.exclusions.add",
         "params": "#/$defs/MemoryExclusionsAddParams",
@@ -2607,7 +2615,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Turns a search source on or off (what Psyche may read), sets its processing model, or replaces exclusion lists. Turning a source off removes its documents at once; an added exclusion removes what it matches. Side-effecting.",
+        "description": "Turns a search source on or off (what Psyche may read), sets its processing model, turns on reading text in images (OCR, Files only), or replaces exclusion lists. Turning a source off removes its documents at once; an added exclusion removes what it matches. Side-effecting.",
         "name": "search.sources.configure",
         "params": "#/$defs/SearchSourcesConfigureParams",
         "result": "#/$defs/SearchSourcesStatus",
@@ -16913,6 +16921,70 @@
       ],
       "type": "object"
     },
+    "EverythingRunReason": {
+      "description": "Why a pass did not run",
+      "enum": [
+        "disabled",
+        "no_sources",
+        "model_none",
+        "battery",
+        "low_power",
+        "thermal",
+        "not_idle",
+        "outside_quiet_hours",
+        "local_not_confirmed",
+        "low_memory",
+        "no_owner_entity",
+        "busy"
+      ],
+      "type": "string"
+    },
+    "EverythingRunResult": {
+      "properties": {
+        "ran": {
+          "type": "boolean"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EverythingRunReason"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "itemsRead": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "factsProposed": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "quarantined": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "deferred": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "tokens": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "ran",
+        "itemsRead",
+        "factsProposed",
+        "quarantined",
+        "deferred",
+        "tokens"
+      ],
+      "type": "object"
+    },
     "EverythingScheduleSetting": {
       "properties": {
         "quietHoursStart": {
@@ -24707,6 +24779,10 @@
       ],
       "type": "object"
     },
+    "MemoryEverythingRunParams": {
+      "properties": {},
+      "type": "object"
+    },
     "MemoryExclusionsAddParams": {
       "properties": {
         "kind": {
@@ -28420,6 +28496,116 @@
         "notification"
       ],
       "type": "object"
+    },
+    "OcrPage": {
+      "properties": {
+        "page": {
+          "description": "1 for an image",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "text": {
+          "maxLength": 20000,
+          "type": "string"
+        },
+        "confidence": {
+          "description": "Mean line confidence",
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "page",
+        "text",
+        "confidence"
+      ],
+      "type": "object"
+    },
+    "OcrRecognizeParams": {
+      "properties": {
+        "path": {
+          "description": "An absolute path to a PNG, JPEG, HEIC, TIFF, GIF, WebP or PDF file",
+          "maxLength": 4096,
+          "minLength": 1,
+          "type": "string"
+        },
+        "pages": {
+          "description": "PDF only: 1-based pages to consider (default: from the start)",
+          "items": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "maxItems": 200,
+          "type": "array"
+        },
+        "fromPage": {
+          "description": "PDF only: first page to consider (default 1)",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "maxPages": {
+          "description": "At most this many pages are recognised in this call",
+          "maximum": 20,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "minTextChars": {
+          "description": "PDF only: pages whose text layer is shorter than this are recognised",
+          "maximum": 1000,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "maxFileBytes": {
+          "description": "Size cap",
+          "maximum": 26214400,
+          "minimum": 1024,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "type": "object"
+    },
+    "OcrRecognizeResult": {
+      "properties": {
+        "pages": {
+          "description": "Only pages that were recognised, in order",
+          "items": {
+            "$ref": "#/$defs/OcrPage"
+          },
+          "type": "array"
+        },
+        "pageCount": {
+          "description": "Pages in the document (1 for an image)",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "nextPage": {
+          "description": "PDF only: where a next call continues, when pages remain",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "refusal": {
+          "$ref": "#/$defs/OcrRefusal"
+        }
+      },
+      "required": [
+        "pages",
+        "pageCount"
+      ],
+      "type": "object"
+    },
+    "OcrRefusal": {
+      "enum": [
+        "unsupported_type",
+        "too_large",
+        "not_a_file",
+        "unreadable",
+        "unavailable"
+      ],
+      "type": "string"
     },
     "OkResult": {
       "properties": {
@@ -33599,6 +33785,10 @@
           },
           "maxItems": 16,
           "type": "array"
+        },
+        "smart": {
+          "description": "Let the cheap query model read a question the rules could not filter (Enter, not keystrokes). Ignored when no model is configured",
+          "type": "boolean"
         }
       },
       "required": [
@@ -33774,7 +33964,9 @@
         "notes",
         "calendar",
         "reminders",
-        "files"
+        "files",
+        "browser",
+        "transcripts"
       ],
       "type": "string"
     },
@@ -33805,6 +33997,10 @@
         },
         "agent": {
           "description": "The agent's search_everything may search it; Messages is off until the owner allows it",
+          "type": "boolean"
+        },
+        "ocr": {
+          "description": "Read text in images and scanned PDFs on this Mac (Apple Vision); off until the owner allows it. Only Files uses it",
           "type": "boolean"
         },
         "state": {
@@ -33839,6 +34035,7 @@
         "enabled",
         "processing",
         "agent",
+        "ocr",
         "state",
         "items",
         "textBytes",
@@ -33858,6 +34055,9 @@
           "$ref": "#/$defs/SearchProcessing"
         },
         "agent": {
+          "type": "boolean"
+        },
+        "ocr": {
           "type": "boolean"
         },
         "exclude": {

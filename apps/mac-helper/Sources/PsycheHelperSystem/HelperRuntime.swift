@@ -27,6 +27,8 @@ public final class HelperRuntime: @unchecked Sendable {
         handlers += PresenceCapabilities.make(key: presence)
         handlers += ContactsCapabilities.make()
         handlers += MessagesCapabilities.make()
+        // R6/R7 Vision OCR for search ingest (images and scanned PDFs), on-device.
+        handlers += OCRCapabilities.make()
         handlers += DictationCapabilities.make()
         handlers += VMCapabilities.make(VMManager(backend: VZBackend(), environment: environment, log: log))
         // J6 Apple app adapters (Calendar, Reminders, Mail, Notes, Finder, Safari).

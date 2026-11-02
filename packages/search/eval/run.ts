@@ -14,7 +14,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import type { Provenance, SearchIndexDocKind } from "@psyche/protocol";
-import { createSearchIndex } from "../src/index.ts";
+import { createSearchIndex, QueryModel } from "../src/index.ts";
 import type { SearchDoc } from "../src/types.ts";
 import { llmAnswer } from "./answer.ts";
 import { type IndexedCorpus, indexThroughSources } from "./indexed.ts";
@@ -28,6 +28,8 @@ import {
   reciprocalRank,
 } from "./metrics.ts";
 import { mockAnswer } from "./mock-answer.ts";
+import { oracleQueryProvider } from "./model-mock.ts";
+import { coverageReranker } from "./rerank-mock.ts";
 import { type RewriteMode, rewrite } from "./rewrite.ts";
 
 export interface CorpusDoc {
@@ -64,7 +66,7 @@ export const EVAL_TZ = -420;
  */
 export const PRODUCTION_SOURCES = new Set(["chat", "tasks", "library"]);
 
-const MODES: RewriteMode[] = ["raw", "keywords", "rules", "prod"];
+const MODES: RewriteMode[] = ["raw", "keywords", "rules", "prod", "model", "rerank"];
 /**
  * `indexed` = production sources plus Mail, Messages, Notes, Calendar, Reminders and files, written
  * by the real source indexers (roadmap §2). `full` writes the same documents straight in.
@@ -132,7 +134,24 @@ export async function evaluate(
   mode: RewriteMode,
   coverage: Coverage,
 ): Promise<QuestionResult[]> {
-  const index = createSearchIndex({ now: () => EVAL_NOW, tzOffsetMinutes: EVAL_TZ });
+  const index = createSearchIndex({
+    now: () => EVAL_NOW,
+    tzOffsetMinutes: EVAL_TZ,
+    ...(mode === "model"
+      ? {
+          queryModel: {
+            model: new QueryModel({
+              provider: oracleQueryProvider(questions, corpus),
+              model: "eval" as never,
+            }),
+          },
+        }
+      : {}),
+    // `rerank`: production understanding plus a reranker stand-in over the top 20 (rerank-mock.ts).
+    ...(mode === "rerank"
+      ? { rerank: { reranker: coverageReranker, enabled: () => true, topN: () => 20 } }
+      : {}),
+  });
   const docs = corpus.filter((d) => coverage === "full" || PRODUCTION_SOURCES.has(d.source));
   await index.indexMany(docs.map(toSearchDoc));
   let indexed: IndexedCorpus | undefined;
@@ -149,7 +168,14 @@ export async function evaluate(
     const rw = rewrite(q.q, mode, EVAL_NOW, EVAL_TZ);
     const run = async (text: string) => {
       const ids = (
-        await index.search({ q: text, collapse: false, limit: 20, understand: mode === "prod" })
+        await index.search({
+          q: text,
+          collapse: false,
+          limit: 20,
+          understand: mode === "prod" || mode === "model" || mode === "rerank",
+          smart: mode === "model",
+          rerank: mode === "rerank",
+        })
       ).hits.flatMap((h) => (indexed === undefined ? [h.id] : indexed.expand(h.id)));
       return [...new Set(ids)];
     };
