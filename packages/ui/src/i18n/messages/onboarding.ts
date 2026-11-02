@@ -160,7 +160,8 @@ export const onboarding = {
   "onboarding.where.local.appsValue":
     "Each app asks on first use: Off, Read only or Read and interact",
   "onboarding.where.local.files": "Files",
-  "onboarding.where.local.filesValue": "Only folders you share in Settings → Permissions → File access",
+  "onboarding.where.local.filesValue":
+    "Only folders you share in Settings → Permissions → File access",
   "onboarding.where.local.commands": "Commands",
   "onboarding.where.local.commandsValue": "In a container; never on your Mac's shell",
   "onboarding.where.local.stop": "Stop",
