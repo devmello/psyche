@@ -5,13 +5,8 @@ import { toast } from "sonner";
 import { TASK_GLYPH } from "../../agent/ActivityPanel.tsx";
 import { Markdown } from "../../blocks/Markdown.tsx";
 import { TASK_STATUS_LABEL } from "../../blocks/TaskCard.tsx";
-import {
-  ErrorState,
-  GroupedList,
-  GroupedRow,
-  LoadingCards,
-  useDelayedFlag,
-} from "../../components/page.tsx";
+import { DelayedSkeletons } from "../../components/DelayedSkeleton.tsx";
+import { ErrorState, GroupedList, GroupedRow, useDelayedFlag } from "../../components/page.tsx";
 import { StatusGlyph } from "../../components/status.tsx";
 import {
   AlertDialog,
@@ -32,6 +27,7 @@ import {
 } from "../../components/ui/dropdown-menu.tsx";
 import { Input } from "../../components/ui/input.tsx";
 import { Label } from "../../components/ui/label.tsx";
+import { Skeleton } from "../../components/ui/skeleton.tsx";
 import { useArtifact, useCall, useGoal, useTask } from "../../data/hooks.ts";
 import { activeI18n, t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
@@ -270,7 +266,16 @@ export function GoalPageView({
         />
       );
     return showSkeleton ? (
-      <LoadingCards label={t("screens.goals.loading")} count={1} lines={6} />
+      // The loaded page: a title, then a heading over a raised block, three times.
+      <DelayedSkeletons label={t("screens.goals.loading")} className="flex flex-col gap-6">
+        <Skeleton className="h-8 w-2/3" />
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="flex flex-col gap-2">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-16 w-full rounded-lg" />
+          </div>
+        ))}
+      </DelayedSkeletons>
     ) : (
       <div aria-busy="true" className="min-h-24" />
     );
@@ -284,6 +289,9 @@ export function GoalPageView({
     <article aria-labelledby={titleId} className="flex flex-col gap-6">
       <header className="flex items-start gap-2">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <h2 id={titleId} className="font-display text-page-title text-label-primary">
+            {goal.title}
+          </h2>
           <p className="text-callout text-label-secondary">
             {t("screens.goals.categoryStatus", {
               category: GOAL_CATEGORY_LABEL[goal.category],
@@ -291,9 +299,6 @@ export function GoalPageView({
               inactive: goal.status !== "active",
             })}
           </p>
-          <h2 id={titleId} className="font-display text-page-title text-label-primary">
-            {goal.title}
-          </h2>
         </div>
         {onDelete ? (
           <DropdownMenu>

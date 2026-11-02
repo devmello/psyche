@@ -26,8 +26,10 @@ import {
   type KeyboardEvent,
   type MouseEvent,
   type ReactElement,
+  useEffect,
   useId,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { toast } from "sonner";
@@ -563,6 +565,15 @@ export function LibraryView({
   const spec = LIBRARY_SECTIONS.find((s) => s.id === section) ?? LIBRARY_SECTIONS[0];
   const setFilter = (patch: Partial<LibraryFilters>) => onFiltersChange?.({ ...filters, ...patch });
   const select = (item: LibraryItem) => setSelected(item.id);
+  // In a narrow toolbar the section strip scrolls; keep the selected section in view (instant,
+  // so it also respects reduced motion).
+  const tabsRef = useRef<HTMLDivElement>(null);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `section` is the trigger, the effect reads the DOM
+  useEffect(() => {
+    tabsRef.current
+      ?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')
+      ?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+  }, [section]);
 
   let body: ReactElement;
   if (loading) {
@@ -822,7 +833,12 @@ export function LibraryView({
       }}
       className="min-w-0 gap-0"
     >
-      <TabsList aria-label={t("screens.library.sections")} className="max-w-full overflow-x-auto">
+      <TabsList
+        ref={tabsRef}
+        aria-label={t("screens.library.sections")}
+        // justify-start: a centred flex row that overflows loses its start edge to a scroll it can't reach.
+        className="max-w-full justify-start overflow-x-auto"
+      >
         {LIBRARY_SECTIONS.map((s) => (
           <TabsTrigger key={s.id} value={s.id}>
             {s.label}
