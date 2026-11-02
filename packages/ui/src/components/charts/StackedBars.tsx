@@ -120,7 +120,7 @@ export function StackedBars({
               );
             })}
           </div>
-          <div className="relative mt-5" style={{ height }}>
+          <div className="relative mt-9" style={{ height }}>
             <div
               aria-hidden="true"
               className="pointer-events-none absolute inset-x-0 top-0 border-t border-separator"

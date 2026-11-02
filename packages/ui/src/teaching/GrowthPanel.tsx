@@ -2,7 +2,7 @@ import type { GrowthItem, GrowthMetric, GrowthWindow, Lesson, Milestone } from "
 import { Diamond, Ellipsis, Sprout } from "lucide-react";
 import { type ReactElement, useState } from "react";
 import { DelayedSkeletons } from "../components/DelayedSkeleton.tsx";
-import { EmptyState } from "../components/page.tsx";
+import { EmptyState, ErrorState } from "../components/page.tsx";
 import { Button } from "../components/ui/button.tsx";
 import {
   DropdownMenu,
@@ -305,12 +305,11 @@ export function GrowthPanel({ defaultWindow = "30d" }: { defaultWindow?: GrowthW
       <div className="flex flex-col gap-4 px-2">
         {header}
         {q.error ? (
-          <p className="text-body" role="alert">
-            {t("screens.growth.loadFailed", { reason: q.error })}{" "}
-            <button type="button" className="text-accent-11 underline" onClick={q.reload}>
-              {t("screens.growth.retry")}
-            </button>
-          </p>
+          <ErrorState
+            what={t("overview.growth.loadFailed")}
+            reason={q.error}
+            retry={{ onClick: q.reload }}
+          />
         ) : (
           <DelayedSkeletons
             className="flex flex-col gap-2"
