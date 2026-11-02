@@ -1,7 +1,7 @@
 import type { ScheduledRunEntry, ScheduledRunState } from "@psyche/protocol";
 import { type ReactElement, useEffect, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
-import { useGatewayQuery } from "../../data/index.ts";
+import { useCall, useGatewayQuery } from "../../data/index.ts";
 import { t } from "../../i18n/core.ts";
 import { tk } from "../../i18n/dynamic.ts";
 import { formatDuration, formatRelative } from "../../lib/format.ts";
@@ -11,6 +11,7 @@ export const RUN_STATES: readonly ScheduledRunState[] = [
   "running",
   "waiting",
   "succeeded",
+  "not_verified",
   "failed",
   "skipped",
   "cancelled",
@@ -35,12 +36,16 @@ export interface ScheduledRunsViewProps {
   onOpenTranscript?: (agentRunId: string) => void;
   /** Opens the approvals queue, where a waiting run's card is. */
   onOpenApprovals?: () => void;
+  /** Starts the job again (`automations.run`); offered on runs that did not succeed. */
+  onRerun?: (automationId: string) => void;
+  /** Automation ids a re-run was just started for. */
+  rerunning?: ReadonlySet<string>;
 }
 
 const stateClass = (s: ScheduledRunState): string =>
   s === "failed"
     ? "font-medium text-destructive"
-    : s === "waiting"
+    : s === "waiting" || s === "not_verified"
       ? "font-medium text-accent-11"
       : "font-medium";
 
@@ -64,6 +69,8 @@ export function ScheduledRunsView({
   onOpenChat,
   onOpenTranscript,
   onOpenApprovals,
+  onRerun,
+  rerunning,
 }: ScheduledRunsViewProps): ReactElement {
   // The jobs that have runs, for the filter.
   const jobs = [...new Map(runs.map((r) => [r.automationId, jobName(r)])).entries()].sort((a, b) =>
@@ -156,7 +163,27 @@ export function ScheduledRunsView({
                     ) : null}
                   </div>
                 ) : null}
-                {r.reason && r.state !== "succeeded" ? (
+                {r.state === "not_verified" ? (
+                  <div className="flex flex-col gap-1 text-callout">
+                    <p className="text-label-secondary">
+                      {t("scheduled.runs.notVerified", { reason: r.reason ?? "" })}
+                    </p>
+                    {r.evidence && r.evidence.length > 0 ? (
+                      <details>
+                        <summary className="cursor-pointer text-label-secondary">
+                          {t("scheduled.runs.evidence", { n: r.evidence.length })}
+                        </summary>
+                        <ul className="ps-4">
+                          {r.evidence.map((line) => (
+                            <li key={line} className="text-label-secondary">
+                              {line}
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
+                    ) : null}
+                  </div>
+                ) : r.reason && r.state !== "succeeded" ? (
                   <p
                     className={
                       r.state === "failed"
@@ -186,6 +213,23 @@ export function ScheduledRunsView({
                       onClick={() => onOpenChat(r.threadId as string)}
                     >
                       {t("scheduled.history.openChat")}
+                    </Button>
+                  ) : null}
+                  {onRerun &&
+                  (r.state === "failed" ||
+                    r.state === "not_verified" ||
+                    r.state === "cancelled") ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      disabled={rerunning?.has(r.automationId) === true}
+                      aria-label={t("scheduled.runs.rerun.aria", { title: jobName(r) })}
+                      onClick={() => onRerun(r.automationId)}
+                    >
+                      {rerunning?.has(r.automationId) === true
+                        ? t("scheduled.runs.rerunning")
+                        : t("scheduled.runs.rerun")}
                     </Button>
                   ) : null}
                   {r.agentRunId != null && onOpenTranscript ? (
@@ -222,6 +266,8 @@ export function ScheduledRuns({
   const q = useGatewayQuery("scheduled.runs", { limit: 200 });
   const [job, setJob] = useState("");
   const [state, setState] = useState<ScheduledRunState | "">("");
+  const call = useCall();
+  const [rerunning, setRerunning] = useState<ReadonlySet<string>>(new Set());
   const runs = q.data?.runs ?? [];
   const active = runs.some((r) => r.state === "running" || r.state === "waiting");
   const { reload } = q;
@@ -243,6 +289,20 @@ export function ScheduledRuns({
       state={state}
       onJobChange={setJob}
       onStateChange={setState}
+      rerunning={rerunning}
+      onRerun={(automationId) => {
+        setRerunning((x) => new Set(x).add(automationId));
+        call("automations.run", { automationId })
+          .catch(() => undefined)
+          .finally(() => {
+            setRerunning((x) => {
+              const n = new Set(x);
+              n.delete(automationId);
+              return n;
+            });
+            q.reload();
+          });
+      }}
       {...(onNavigate
         ? {
             onOpenChat: (threadId: string) => onNavigate(`/chat/${threadId}`),

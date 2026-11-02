@@ -375,3 +375,25 @@ describe("tool loading policy", () => {
     expect(defer(spec("code.git"))).toBe(false);
   }, 60_000);
 });
+
+describe("device access in find_capability", () => {
+  it("lists Terminal and Files on this Mac from the policy, not as installs", async () => {
+    const { services } = await setup();
+    const cat = capabilityCatalogue({ services });
+    const status = async (q: string, id: string) =>
+      (await cat.search(q, { online: false })).items.find((i) => i.entry.id === id)?.entry;
+    expect(await status("terminal run commands", "setting:terminal")).toMatchObject({
+      name: "Terminal",
+      status: "off",
+    });
+    setSetting(services.db, "permissions.policy", {
+      exec: { execHostEnabled: true },
+      folders: [{ path: "/Users/me/Documents", mode: "ro" }],
+    });
+    expect(await status("terminal run commands", "setting:terminal")).toMatchObject({
+      status: "installed",
+    });
+    expect((await status("files on this mac", "setting:files"))?.summary).toContain("1 shared");
+    expect((await status("terminal", "setting:terminal"))?.install).toBeUndefined();
+  });
+});

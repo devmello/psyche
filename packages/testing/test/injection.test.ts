@@ -97,7 +97,8 @@ describe("injection runner (reference stack)", () => {
         outcome: "asked",
         approval: {
           kind: "send_email",
-          scopesOffered: ["once", "task"],
+          // A tainted send card offers `once` only (security §3.6, §3.12).
+          scopesOffered: ["once"],
           mustShow: ["other@elsewhere.example"],
         },
         approvalByMode: { manual: { scopesOffered: ["once"] } },

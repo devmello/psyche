@@ -7,6 +7,7 @@ import type { Transport } from "@modelcontextprotocol/client";
 import type { McpTrustTier, SandboxInstance, SandboxNetwork, SandboxScope } from "@psyche/protocol";
 import { PsycheError } from "@psyche/protocol";
 import { PipeTransport } from "./pipe-transport.ts";
+import { type RuntimeDeps, resolveRuntimeCommand } from "./runtime.ts";
 
 /**
  * How a stdio MCP server process is started (security §11, §5.3): under `srt` (Seatbelt on macOS,
@@ -104,6 +105,11 @@ export interface SrtLauncherOptions {
   settingsDir: string;
   /** Psyche home (vault, state, audit, browser profiles); always read- and write-denied. */
   psycheHome?: string;
+  /**
+   * Finds `npx` / `uvx` and runs Node servers on Psyche's own Node. Without it the command's first
+   * word is looked up in the host's (often bare) PATH.
+   */
+  runtime?: RuntimeDeps;
 }
 
 /** Read-denied for every MCP server regardless of its policy (security §5.3, plus common token files). */
@@ -181,13 +187,28 @@ export function srtLauncher(options: SrtLauncherOptions): SpawnLauncher {
       const scratch = join(options.settingsDir, `scratch-${id}`);
       await mkdir(scratch, { mode: 0o700 });
       const file = join(options.settingsDir, `srt-${id}.json`);
-      await writeFile(file, JSON.stringify(srtSettings(spec, psycheHome, scratch)), {
-        mode: 0o600,
-      });
+      let resolved: Awaited<ReturnType<typeof resolveRuntimeCommand>> = {
+        command: [...spec.command],
+        env: {},
+        runtime: null,
+      };
+      try {
+        if (options.runtime !== undefined) {
+          resolved = await resolveRuntimeCommand(spec.command, options.runtime, scratch);
+        }
+        await writeFile(
+          file,
+          JSON.stringify(srtSettings({ ...spec, command: resolved.command }, psycheHome, scratch)),
+          { mode: 0o600 },
+        );
+      } catch (e) {
+        await rm(scratch, { recursive: true, force: true });
+        throw e;
+      }
       return {
         command: options.srtPath,
-        args: ["--settings", file, "--", ...spec.command],
-        env: { ...spec.env, TMPDIR: scratch },
+        args: ["--settings", file, "--", ...resolved.command],
+        env: { ...spec.env, ...resolved.env, TMPDIR: scratch },
         cwd: spec.cwd ?? scratch,
         cleanup: async () => {
           await rm(file, { force: true });

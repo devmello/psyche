@@ -279,6 +279,11 @@
         "payload": "#/$defs/NotificationCreatedPayload"
       },
       {
+        "description": "The owner tapped an OS notification (the Mac helper's): clients open its route, a chat with the message or approval card, a run, or Scheduled → Runs.",
+        "name": "notification.opened",
+        "payload": "#/$defs/NotificationOpenedPayload"
+      },
+      {
         "description": "A notification was resolved (by the user, an action, a superseding state or restart reconciliation).",
         "name": "notification.resolved",
         "payload": "#/$defs/NotificationResolvedPayload"
@@ -27793,7 +27798,7 @@
         "route": {
           "anyOf": [
             {
-              "description": "Deep link inside the app, e.g. /tasks/<id>",
+              "description": "Deep link inside the app: /chat/<threadId>?message=<id> or ?approval=<id>, /overview/run/<runId>, /scheduled?tab=runs, /settings/memory",
               "type": "string"
             },
             {
@@ -27936,6 +27941,24 @@
         "specialist_result"
       ],
       "type": "string"
+    },
+    "NotificationOpenedPayload": {
+      "properties": {
+        "notificationId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "route": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "notificationId",
+        "route"
+      ],
+      "type": "object"
     },
     "NotificationResolvedPayload": {
       "properties": {
@@ -32511,6 +32534,14 @@
         "pendingApprovals": {
           "minimum": 0,
           "type": "integer"
+        },
+        "evidence": {
+          "items": {
+            "maxLength": 300,
+            "type": "string"
+          },
+          "maxItems": 40,
+          "type": "array"
         }
       },
       "required": [
@@ -32526,11 +32557,12 @@
       "type": "object"
     },
     "ScheduledRunState": {
-      "description": "The one status a run is shown with. `waiting`: the run's task is parked on an approval or an answer. `skipped`: nothing was done, and `reason` says why (paused, previous run still going, nothing to report). `succeeded` only when the run finished `done`",
+      "description": "The one status a run is shown with. `waiting`: the run's task is parked on an approval or an answer. `skipped`: nothing was done, and `reason` says why (paused, previous run still going, nothing to report). `succeeded` only when the run finished `done` and its checks passed. `not_verified`: the run ended, but the evidence that its steps happened is missing (`reason` names the step, `evidence` lists what was recorded); `failed`: it errored or was refused",
       "enum": [
         "running",
         "waiting",
         "succeeded",
+        "not_verified",
         "failed",
         "skipped",
         "cancelled"

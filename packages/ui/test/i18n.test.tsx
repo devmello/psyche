@@ -57,7 +57,7 @@ describe("the English catalogue", () => {
   });
 
   it("uses stable dotted ids grouped by area", () => {
-    for (const id of Object.keys(en)) expect(id).toMatch(/^[a-z][a-zA-Z]*(\.[a-zA-Z0-9_]+)+$/);
+    for (const id of Object.keys(en)) expect(id).toMatch(/^[a-z][a-zA-Z]*(\.[a-zA-Z0-9_-]+)+$/);
   });
 
   it("keeps apostrophes literal and plurals in English", () => {

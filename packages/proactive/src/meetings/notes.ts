@@ -258,7 +258,7 @@ export class MeetingNotesService {
           kind: "input_needed",
           title: "Meeting notes need your OK",
           body: question,
-          route: "/settings/models",
+          route: "/settings/model",
           dedupeKey: "meeting:notes:cloud",
         });
       }

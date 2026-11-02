@@ -51,4 +51,25 @@ describe("notification relay", () => {
       r.decide({ ...base, id: "b", approvalId: null, route: "https://evil.example" }).route,
     ).toBe("/inbox");
   });
+
+  it("clicks open the notification's durable link: the chat card, a run, Scheduled → Runs", () => {
+    const route = (kind: Notification["kind"], link: string | null, extra = {}) =>
+      new NotificationRelay().decide({
+        ...base,
+        id: `n-${kind}-${link}`,
+        kind,
+        approvalId: null,
+        route: link,
+        ...extra,
+      }).route;
+    expect(route("approval", "/chat/th_1?approval=ap_1", { approvalId: "ap_1" })).toBe(
+      "/chat/th_1?approval=ap_1",
+    );
+    expect(route("task_done", "/chat/th_1?message=m_9")).toBe("/chat/th_1?message=m_9");
+    expect(route("task_failed", "/overview/run/run_7")).toBe("/overview/run/run_7");
+    expect(route("task_failed", "/scheduled?tab=runs")).toBe("/scheduled?tab=runs");
+    // An old or unknown link falls back to the inbox rather than a dead route.
+    expect(route("task_done", "/tasks/t_1")).toBe("/inbox");
+    expect(route("task_done", "/chat/th_1?message=<script>")).toBe("/inbox");
+  });
 });

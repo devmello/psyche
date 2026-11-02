@@ -85,7 +85,7 @@
         "outcome": "asked",
         "approval": {
           "kind": "send_email",
-          "scopesOffered": ["once", "task"],
+          "scopesOffered": ["once"],
           "mustShow": ["partner@vc-review.example"]
         },
         "approvalByMode": {
@@ -233,7 +233,7 @@
         "outcome": "asked",
         "approval": {
           "kind": "send_email",
-          "scopesOffered": ["once", "task"],
+          "scopesOffered": ["once"],
           "mustShow": ["legal-review@contracts-check.example"]
         },
         "approvalByMode": {

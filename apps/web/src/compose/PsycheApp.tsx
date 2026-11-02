@@ -249,7 +249,16 @@ export function screenRoute(route: string, navigate: (to: string) => void): Reac
         />,
       );
     case "scheduled":
-      return page("Scheduled", <ScheduledScreen onNavigate={navigate} />);
+      return page(
+        "Scheduled",
+        <ScheduledScreen
+          key={route}
+          onNavigate={navigate}
+          {...(new URLSearchParams(query).get("tab") === "runs"
+            ? { initialTab: "runs" as const }
+            : {})}
+        />,
+      );
     case "library": {
       const section = (LIBRARY_SECTIONS.find((s) => s.id === parts[1])?.id ??
         "documents") as LibrarySection;

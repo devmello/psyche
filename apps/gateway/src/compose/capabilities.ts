@@ -249,6 +249,51 @@ function presetItem(p: McpPreset, cachedTools: string[] | undefined): CatalogIte
   };
 }
 
+/**
+ * "Terminal" (run commands on this Mac) and "Files on this Mac" are Settings views, not servers:
+ * the first is `permissions.policy.exec.execHostEnabled`, the second the File access grants.
+ * Listed so `find_capability` can tell the owner where to turn them on; nothing installs.
+ */
+function deviceAccessItems(db: PsycheDb): CatalogItem[] {
+  const raw = getSetting(db, "permissions.policy")?.value;
+  const policy =
+    typeof raw === "object" && raw !== null && !Array.isArray(raw)
+      ? (raw as { exec?: { execHostEnabled?: unknown }; folders?: unknown })
+      : {};
+  const terminalOn = policy.exec?.execHostEnabled === true;
+  const folders = Array.isArray(policy.folders) ? policy.folders.length : 0;
+  const base = {
+    kind: "connector" as const,
+    comesFrom: "bundled" as const,
+    trust: "bundled" as const,
+    needs: { signIn: "none" as const, inputs: [], runsIn: "srt" as const, network: [] },
+    installCost: "enable" as const,
+  };
+  return [
+    {
+      entry: {
+        ...base,
+        id: "setting:terminal",
+        name: "Terminal",
+        summary:
+          "Run terminal commands on this Mac, in folders the owner shared. Each command asks first; it runs under the sandbox unless the owner types UNSANDBOXED. Owner turns it on in Settings → Connectors → Terminal.",
+        status: terminalOn ? "installed" : "off",
+      },
+      keywords: "terminal shell command run exec bash script cli",
+    },
+    {
+      entry: {
+        ...base,
+        id: "setting:files",
+        name: "Files on this Mac",
+        summary: `Read (and where allowed, change) files in folders the owner shared: ${folders} shared now. Same list as Settings → File access; the owner adds or revokes folders in Settings → Connectors → Files on this Mac.`,
+        status: folders > 0 ? "installed" : "off",
+      },
+      keywords: "files folder documents disk local mac access grant",
+    },
+  ];
+}
+
 const slug = (name: string) =>
   (
     name
@@ -491,6 +536,7 @@ export function capabilityCatalogue(opts: CatalogueOptions): Catalogue {
         ...(third ? { untrusted: true } : {}),
       });
     }
+    out.push(...deviceAccessItems(opts.services.db));
     out.push(...(opts.extra?.() ?? []));
     if (o.online === true && onlineAllowed()) {
       const have = new Set(

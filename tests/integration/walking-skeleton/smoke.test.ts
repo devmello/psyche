@@ -56,7 +56,8 @@ it("applies a folder grant from Settings without a restart", async () => {
   updateDevice(sk.composed.db, sk.deviceId, {
     scopes: ["operator.read", "operator.write", "operator.approvals", "operator.admin"],
   });
-  const folders = [{ path: join(sk.home, "more"), mode: "ro" as const }];
+  // Not under $PSYCHE_HOME: Psyche's own files are never shared with the agent (security §3.5).
+  const folders = [{ path: join(sk.granted, "more"), mode: "ro" as const }];
   await sk.client.call("settings.set", { key: "permissions.policy", value: { folders } }, true);
   await sk.client.until(() => sk?.composed.broker.policy.folders?.length === 1, "policy applied");
   expect(sk.composed.broker.policy.folders).toEqual(folders);

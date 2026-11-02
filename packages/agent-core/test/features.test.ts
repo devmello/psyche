@@ -336,8 +336,8 @@ describe("compaction (B7)", () => {
   it("flushes memory first, then summarizes older turns with the utility model", async () => {
     const pad = "x".repeat(1_600);
     const h = harness({
-      // Compact past 1,500 tokens (as before) under a 4,000-token window, the hard limit.
-      contextWindow: 4_000,
+      // Compact just past the ~3,700-token base prompt and tools plus two pads (4,800 tokens) under a 8,000-token window, the hard limit.
+      contextWindow: 8_000,
       script: [
         say("a"),
         say("b"),
@@ -346,7 +346,7 @@ describe("compaction (B7)", () => {
         ),
         say("c"),
       ],
-      loop: { contextLimits: () => ({ compactAt: 0.375, keepRecentTurns: 2 }) },
+      loop: { contextLimits: () => ({ compactAt: 0.6, keepRecentTurns: 2 }) },
     });
     const order: string[] = [];
     h.loop.hooks.on("before_compaction", ({ messages }) => {
@@ -373,8 +373,8 @@ describe("compaction (B7)", () => {
   it("never flushes incognito threads and marks summaries of untrusted content", async () => {
     const pad = "y".repeat(1_600);
     const h = harness({
-      // Compact past 1,500 tokens (as before) under a 4,000-token window, the hard limit.
-      contextWindow: 4_000,
+      // Compact just past the ~3,700-token base prompt and tools plus two pads (4,800 tokens) under a 8,000-token window, the hard limit.
+      contextWindow: 8_000,
       script: [
         call("f1", "web.fetch", {}),
         say("a"),
@@ -384,7 +384,7 @@ describe("compaction (B7)", () => {
       ],
       loop: {
         isIncognito: () => true,
-        contextLimits: () => ({ compactAt: 0.375, keepRecentTurns: 2 }),
+        contextLimits: () => ({ compactAt: 0.6, keepRecentTurns: 2 }),
       },
     });
     h.loop.registry.register({

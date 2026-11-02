@@ -7,7 +7,7 @@ import { OnboardingFlow } from "../src/screens/onboarding/index.ts";
 describe("data hooks without a GatewayProvider", () => {
   it("renders the onboarding flow bare, with its built-in connector list", () => {
     render(<OnboardingFlow onComplete={() => {}} />);
-    expect(screen.getByRole("navigation", { name: "Onboarding progress" })).toBeTruthy();
+    expect(screen.getByRole("progressbar", { name: "Onboarding progress" })).toBeTruthy();
   });
 
   it("keeps queries idle (no data, no error, not loading), enabled or not", () => {

@@ -49,7 +49,18 @@ describe("web build served by the Gateway", () => {
     expect(script).toBeTruthy();
     const js = await fetch(`${gw.origin}${script}`);
     expect(js.status).toBe(200);
-    const code = await js.text();
+    // The bundle is split into shared chunks (rolldown): the app's strings live in whichever
+    // chunk the entry statically imports, so read the entry and everything it imports.
+    const seen = new Set<string>([script as string]);
+    let code = await js.text();
+    for (const next of [...code.matchAll(/(?:from|import)\s*"\.\/([^"]+\.js)"/g)]) {
+      const path = `/assets/${next[1]}`;
+      if (seen.has(path)) continue;
+      seen.add(path);
+      const chunk = await fetch(`${gw.origin}${path}`);
+      expect(chunk.status).toBe(200);
+      code += await chunk.text();
+    }
     expect(code).toContain("Psyche isn't reachable right now");
     // The composed app (A8): the kit's onboarding and chat column ship in the web bundle.
     expect(code).toContain("Open the main chat");

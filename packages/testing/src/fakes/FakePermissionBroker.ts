@@ -123,6 +123,17 @@ const ONCE_ONLY_KINDS: ApprovalKind[] = [
   "git_push",
 ];
 
+/**
+ * Sends, destructive and financial calls are the liftable floors (security §3.12; mirrors
+ * `floorClass` in @psyche/permissions). A tainted card for one offers `once` only.
+ */
+function isFloored(kind: ApprovalKind, se: SideEffect | undefined): boolean {
+  if (DEVICE_ONLY_KINDS.includes(kind) || AUTH_KINDS.includes(kind)) return false;
+  return (
+    kind === "send_email" || kind === "message_send" || se === "financial" || se === "destructive"
+  );
+}
+
 /** Scopes a side-effect class / kind may ever be granted (security §3.4). */
 export function allowedScopes(
   sideEffect: SideEffect | undefined,
@@ -256,7 +267,8 @@ export class FakePermissionBroker implements PermissionBroker {
       approvalKind: kind,
       // security §3.2: manual mode asks destructive actions with `once` only.
       scopesOffered:
-        ctx.permissionMode === "manual" && se === "destructive"
+        (ctx.permissionMode === "manual" && se === "destructive") ||
+        (ctx.taint && isFloored(kind, se))
           ? ["once" as const]
           : allowedScopes(se, kind),
       bindingHash,
@@ -444,6 +456,10 @@ export class FakePermissionBroker implements PermissionBroker {
     let scopesOffered = (input.scopesOffered ?? allowed).filter(
       (s) => allowed.includes(s) && (s !== "task" || hasTask),
     );
+    // Security §3.6, §3.12: a tainted send, destructive or financial card offers `once` only.
+    if ((input.taint || input.context?.taint === true) && isFloored(input.kind, se)) {
+      scopesOffered = scopesOffered.filter((s) => s === "once");
+    }
     if (scopesOffered.length === 0) scopesOffered = ["once"];
     const id = this.#ids.next("apr");
     const approval: ApprovalRequest = {

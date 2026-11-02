@@ -639,7 +639,7 @@ export function composeBrowser(
           title: "Psyche needs you in the browser",
           body: `On ${host}, the agent asks: ${reason}. Take control in the browser pane, then hand it back.`,
           ...(req.taskId === undefined ? {} : { taskId: req.taskId }),
-          route: "/browser",
+          route: "/settings/browser",
           dedupeKey: `browser-control:${req.tabId}`,
         })
         .catch(() => undefined);
