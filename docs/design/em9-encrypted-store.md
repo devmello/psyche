@@ -7,7 +7,7 @@ What exists: `openEncrypted` (raw 32-byte key, wrong key throws `unauthorized`, 
 ## What EM9b still needs
 1. Point `GraphStore`, `EverythingStore`, memory files/claims and the scheduler's memory jobs at the encrypted handle; keep psyche.sqlite for everything else.
 2. One-time migration: `copyTables`, then delete the plaintext rows and VACUUM; keep it resumable.
-3. Key custody: the key file is the fallback. Preferred is a DEK wrapped by the vault, but the vault wrappers need Touch ID and the 3 a.m. run cannot prompt. That needs a new mac-helper capability (unwrap without prompt); it does not exist.
+3. Key custody: the key file is the fallback. Preferred is a DEK wrapped by the vault, but the vault wrappers need Touch ID and the 3 a.m. run cannot prompt. The owner chose a non-biometric Keychain item (WhenUnlockedThisDeviceOnly, no Touch ID) for derived-data keys; the search session is adding that slot as a helper capability in #1072. EM9b should reuse it, not build a second one (coordinate with local_7677c6d9-f120-4990-a7bf-96694a501e78).
 4. Backups: include the key wrapped, never in the clear next to the db.
 5. Verify on Windows and Linux (prebuilt binaries, file modes).
 6. Wire "delete everything" in the UI to `deleteEverything` and replace the stored key.
