@@ -76,6 +76,8 @@ export interface ApprovalCardProps {
     scope?: GrantScope,
     extras?: {
       folderPath?: string;
+      /** `folder_access`: grant read-only although the agent asked to change files. */
+      folderMode?: "ro";
       unsandboxed?: "UNSANDBOXED";
       editedText?: string;
       recipientChoice?: string;
@@ -389,6 +391,9 @@ export function ApprovalCard({
     requestedFolder?.status === "ok" ? requestedFolder.path : "",
   );
   const folderBlocked = requestedFolder?.status === "blocked" && folder === "";
+  // The agent asked to change files: the owner may narrow that to read-only (never the reverse).
+  const asksWrite = raw.kind === "folder_access" && raw.details.access === "rw";
+  const [readOnly, setReadOnly] = useState(false);
   // message_send compose card (`messages_send`): the recipient picked and the text left in the
   // editor are what the Gateway binds and sends, not the agent's draft.
   const compose = useMemo(() => readComposeCard(raw.details), [raw.details]);
@@ -477,7 +482,10 @@ export function ApprovalCard({
         compose !== null && decision === "approve"
           ? { editedText: messageText, recipientChoice: recipientId }
           : isFolder && decision === "approve" && folder !== ""
-            ? { folderPath: folder }
+            ? {
+                folderPath: folder,
+                ...(asksWrite && readOnly ? { folderMode: "ro" as const } : {}),
+              }
             : unsandboxed && decision === "approve"
               ? { unsandboxed: "UNSANDBOXED" }
               : undefined,
@@ -539,9 +547,13 @@ export function ApprovalCard({
   const permissionLabel = enables
     ? t("blocks.permission.enable")
     : t("blocks.permission.checkAgain");
+  const scopeText = (scope: GrantScope) =>
+    isFolder && (scope === "once" || scope === "always")
+      ? t(`blocks.folder.scope.${scope}`)
+      : scopeLabel(scope);
   const offeredScopes: { value: AllowScope; label: string }[] = [
     ...(offered.includes("once")
-      ? [{ value: "once" as const, label: isPermission ? permissionLabel : scopeLabel("once") }]
+      ? [{ value: "once" as const, label: isPermission ? permissionLabel : scopeText("once") }]
       : []),
     ...(offered.includes("task") ? [{ value: "task" as const, label: scopeLabel("task") }] : []),
     ...(offered.includes("site") && site !== null
@@ -559,7 +571,7 @@ export function ApprovalCard({
             label:
               approval.kind === "batch"
                 ? t("blocks.approval.scope.prepNotes")
-                : scopeLabel("always"),
+                : scopeText("always"),
           },
         ]
       : []),
@@ -715,6 +727,9 @@ export function ApprovalCard({
 
       {interactive && isFolder ? (
         <div className="mt-2 flex flex-col gap-1.5" data-testid="folder-pick">
+          <p className="text-body text-label-primary" data-testid="folder-explain">
+            {t(asksWrite ? "blocks.folder.explain.rw" : "blocks.folder.explain.ro", { persona })}
+          </p>
           <div className="grid grid-cols-[7rem_1fr] gap-3 py-0.5 text-body">
             <span
               className="text-callout leading-5 text-label-secondary"
@@ -790,6 +805,17 @@ export function ApprovalCard({
               )}
             </div>
           </div>
+          {asksWrite ? (
+            <label className="flex items-center gap-2 text-callout text-label-primary">
+              <input
+                type="checkbox"
+                checked={readOnly}
+                onChange={(e) => setReadOnly(e.target.checked)}
+                data-testid="folder-read-only"
+              />
+              {t("blocks.folder.readOnly")}
+            </label>
+          ) : null}
           <p className="text-callout text-label-secondary">
             {t("blocks.folder.exact")} {t("blocks.folder.scope")}
           </p>

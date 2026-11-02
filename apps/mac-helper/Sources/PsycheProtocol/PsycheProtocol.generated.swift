@@ -4,6 +4,11 @@
 // This file was generated from JSON Schema using quicktype, do not modify it directly.
 // To parse the JSON, add this file to your project and do:
 //
+//   let accessEntry = try? JSONDecoder().decode(AccessEntry.self, from: jsonData)
+//   let accessListParams = try? JSONDecoder().decode(AccessListParams.self, from: jsonData)
+//   let accessListResult = try? JSONDecoder().decode(AccessListResult.self, from: jsonData)
+//   let accessRevokeParams = try? JSONDecoder().decode(AccessRevokeParams.self, from: jsonData)
+//   let accessRevokeResult = try? JSONDecoder().decode(AccessRevokeResult.self, from: jsonData)
 //   let actionCall = try? JSONDecoder().decode(ActionCall.self, from: jsonData)
 //   let actionCallResult = try? JSONDecoder().decode(ActionCallResult.self, from: jsonData)
 //   let actionProposal = try? JSONDecoder().decode(ActionProposal.self, from: jsonData)
@@ -1441,6 +1446,134 @@
 //   let wrapUpBlock = try? JSONDecoder().decode(WrapUpBlock.self, from: jsonData)
 
 import Foundation
+
+// MARK: - AccessListResult
+public struct AccessListResult: Codable, Sendable {
+    public let entries: [AccessEntry]
+
+    public enum CodingKeys: String, CodingKey {
+        case entries = "entries"
+    }
+
+    public init(entries: [AccessEntry]) {
+        self.entries = entries
+    }
+}
+
+// MARK: - AccessEntry
+public struct AccessEntry: Codable, Sendable {
+    public let grantID: String?
+    public let id: String
+    public let kind: ApprovalKind?
+    public let label: String
+    public let lastUsedAt: String?
+    public let mode: Mode?
+    public let path: String?
+    public let scope: AccessEntryScope
+    public let since: String?
+    public let threadID: String?
+    public let type: AccessEntryType
+
+    public enum CodingKeys: String, CodingKey {
+        case grantID = "grantId"
+        case id = "id"
+        case kind = "kind"
+        case label = "label"
+        case lastUsedAt = "lastUsedAt"
+        case mode = "mode"
+        case path = "path"
+        case scope = "scope"
+        case since = "since"
+        case threadID = "threadId"
+        case type = "type"
+    }
+
+    public init(grantID: String?, id: String, kind: ApprovalKind?, label: String, lastUsedAt: String?, mode: Mode?, path: String?, scope: AccessEntryScope, since: String?, threadID: String?, type: AccessEntryType) {
+        self.grantID = grantID
+        self.id = id
+        self.kind = kind
+        self.label = label
+        self.lastUsedAt = lastUsedAt
+        self.mode = mode
+        self.path = path
+        self.scope = scope
+        self.since = since
+        self.threadID = threadID
+        self.type = type
+    }
+}
+
+public enum ApprovalKind: String, Codable, Sendable {
+    case appleScript = "apple_script"
+    case archiveThread = "archive_thread"
+    case batch = "batch"
+    case browserSubmit = "browser_submit"
+    case calendarWrite = "calendar_write"
+    case computerAction = "computer_action"
+    case connectorAction = "connector_action"
+    case credentialFill = "credential_fill"
+    case exec = "exec"
+    case execHost = "exec_host"
+    case fileWrite = "file_write"
+    case folderAccess = "folder_access"
+    case gitPush = "git_push"
+    case gitWrite = "git_write"
+    case mcpTool = "mcp_tool"
+    case memoryProtectedWrite = "memory_protected_write"
+    case messageSend = "message_send"
+    case newOrigin = "new_origin"
+    case pairing = "pairing"
+    case permissionRequest = "permission_request"
+    case planExit = "plan_exit"
+    case policyChange = "policy_change"
+    case purchase = "purchase"
+    case sendEmail = "send_email"
+    case shortcutRun = "shortcut_run"
+    case skillInstall = "skill_install"
+    case taskStart = "task_start"
+}
+
+public enum Mode: String, Codable, Sendable {
+    case ro = "ro"
+    case rw = "rw"
+}
+
+public enum AccessEntryScope: String, Codable, Sendable {
+    case always = "always"
+    case conversation = "conversation"
+    case limited = "limited"
+}
+
+public enum AccessEntryType: String, Codable, Sendable {
+    case folder = "folder"
+    case grant = "grant"
+}
+
+// MARK: - AccessRevokeParams
+public struct AccessRevokeParams: Codable, Sendable {
+    public let entryID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case entryID = "entryId"
+    }
+
+    public init(entryID: String) {
+        self.entryID = entryID
+    }
+}
+
+// MARK: - AccessRevokeResult
+public struct AccessRevokeResult: Codable, Sendable {
+    public let revoked: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case revoked = "revoked"
+    }
+
+    public init(revoked: Bool) {
+        self.revoked = revoked
+    }
+}
 
 // MARK: - AppLinkBlock
 public struct AppLinkBlock: Codable, Sendable {
@@ -3522,6 +3655,7 @@ public struct ApprovalAnswer: Codable, Sendable {
     public let approvalID: String
     public let decision: ApprovalAnswerDecision
     public let editedText: String?
+    public let folderMode: Mode?
     public let folderPath: String?
     public let presence: PresenceAssertion?
     public let recipientChoice: String?
@@ -3534,6 +3668,7 @@ public struct ApprovalAnswer: Codable, Sendable {
         case approvalID = "approvalId"
         case decision = "decision"
         case editedText = "editedText"
+        case folderMode = "folderMode"
         case folderPath = "folderPath"
         case presence = "presence"
         case recipientChoice = "recipientChoice"
@@ -3542,11 +3677,12 @@ public struct ApprovalAnswer: Codable, Sendable {
         case via = "via"
     }
 
-    public init(answerToken: String, approvalID: String, decision: ApprovalAnswerDecision, editedText: String?, folderPath: String?, presence: PresenceAssertion?, recipientChoice: String?, scope: GrantScope?, unsandboxed: Unsandboxed?, via: InputVia?) {
+    public init(answerToken: String, approvalID: String, decision: ApprovalAnswerDecision, editedText: String?, folderMode: Mode?, folderPath: String?, presence: PresenceAssertion?, recipientChoice: String?, scope: GrantScope?, unsandboxed: Unsandboxed?, via: InputVia?) {
         self.answerToken = answerToken
         self.approvalID = approvalID
         self.decision = decision
         self.editedText = editedText
+        self.folderMode = folderMode
         self.folderPath = folderPath
         self.presence = presence
         self.recipientChoice = recipientChoice
@@ -3771,36 +3907,6 @@ public struct FromLesson: Codable, Sendable {
         self.feedbackID = feedbackID
         self.lessonID = lessonID
     }
-}
-
-public enum ApprovalKind: String, Codable, Sendable {
-    case appleScript = "apple_script"
-    case archiveThread = "archive_thread"
-    case batch = "batch"
-    case browserSubmit = "browser_submit"
-    case calendarWrite = "calendar_write"
-    case computerAction = "computer_action"
-    case connectorAction = "connector_action"
-    case credentialFill = "credential_fill"
-    case exec = "exec"
-    case execHost = "exec_host"
-    case fileWrite = "file_write"
-    case folderAccess = "folder_access"
-    case gitPush = "git_push"
-    case gitWrite = "git_write"
-    case mcpTool = "mcp_tool"
-    case memoryProtectedWrite = "memory_protected_write"
-    case messageSend = "message_send"
-    case newOrigin = "new_origin"
-    case pairing = "pairing"
-    case permissionRequest = "permission_request"
-    case planExit = "plan_exit"
-    case policyChange = "policy_change"
-    case purchase = "purchase"
-    case sendEmail = "send_email"
-    case shortcutRun = "shortcut_run"
-    case skillInstall = "skill_install"
-    case taskStart = "task_start"
 }
 
 // MARK: - RequestedBy
@@ -26054,7 +26160,7 @@ public struct SkillProposal: Codable, Sendable {
     public let id: String
     public let manifest: SkillManifest?
     public let name: String
-    public let scope: Scope
+    public let scope: SkillProposalScope
     public let source: SkillInstallSource
     /// Full `SKILL.md` text, shown before enabling
     public let text: String
@@ -26082,7 +26188,7 @@ public struct SkillProposal: Codable, Sendable {
         case update = "update"
     }
 
-    public init(approvalKind: ApprovalKindEnum, author: AuthorEnum?, bindingHash: String, commit: String?, expiresAt: Int, files: [SkillProposalFile], findings: [ScanFinding], grantKey: String, hash: String, id: String, manifest: SkillManifest?, name: String, scope: Scope, source: SkillInstallSource, text: String, trust: SkillTrust, update: SkillProposalUpdate?) {
+    public init(approvalKind: ApprovalKindEnum, author: AuthorEnum?, bindingHash: String, commit: String?, expiresAt: Int, files: [SkillProposalFile], findings: [ScanFinding], grantKey: String, hash: String, id: String, manifest: SkillManifest?, name: String, scope: SkillProposalScope, source: SkillInstallSource, text: String, trust: SkillTrust, update: SkillProposalUpdate?) {
         self.approvalKind = approvalKind
         self.author = author
         self.bindingHash = bindingHash
@@ -26155,7 +26261,7 @@ public struct SkillManifest: Codable, Sendable {
     }
 }
 
-public enum Scope: String, Codable, Sendable {
+public enum SkillProposalScope: String, Codable, Sendable {
     case home = "home"
     case workspace = "workspace"
 }
@@ -32285,6 +32391,7 @@ public enum WrapUpBlockType: String, Codable, Sendable {
     case wrapUp = "wrap_up"
 }
 
+public typealias AccessListParams = [String: JSONAny]
 public typealias AuditVerifyParams = [String: JSONAny]
 public typealias BackupListParams = [String: JSONAny]
 public typealias BridgeTabsListParams = [String: JSONAny]

@@ -180,10 +180,15 @@ export class SandboxClaudeTransport implements ClaudeTransport {
       .folders()
       .filter((f) => isUnder(root, f.path))
       .sort((a, b) => b.path.length - a.path.length)[0];
+    // Security §3.13: both name the folder, so the agent asks the owner instead of giving up.
     if (grant === undefined)
-      throw new PsycheError("forbidden", `${root} is outside every granted folder`);
+      throw new PsycheError("forbidden", `${root} is outside every granted folder`, {
+        details: { missing: { need: "folder", path: root, access: "read_write" } },
+      });
     if (grant.mode !== "rw")
-      throw new PsycheError("forbidden", `${grant.path} is granted read-only`);
+      throw new PsycheError("forbidden", `${grant.path} is granted read-only`, {
+        details: { missing: { need: "folder", path: grant.path, access: "read_write" } },
+      });
     const owner =
       o.run?.taskId === undefined ? `thread:${o.run?.threadId ?? "none"}` : `task:${o.run.taskId}`;
     const scope: SandboxScope = {
