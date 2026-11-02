@@ -69,6 +69,8 @@ export const Credentials: Story = { args: { defaultSection: "credentials" } };
 export const Appearance: Story = { args: { defaultSection: "appearance" } };
 export const VoiceAndDictation: Story = { args: { defaultSection: "voice" } };
 export const DataControls: Story = { args: { defaultSection: "data" } };
+/** Memory: review first, then remembering & learning, Everything memory, People & projects. */
+export const Memory: Story = { args: { defaultSection: "memory" } };
 /** `sandbox.status` is not in the mock, so the Sandbox group shows its error state. */
 export const ServerAndRemoteAccess: Story = { args: { defaultSection: "server" } };
 export const Usage: Story = { args: { defaultSection: "usage" } };

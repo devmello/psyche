@@ -15,7 +15,7 @@ import type { UsageSummary } from "../../fixtures/index.ts";
 import { t } from "../../i18n/core.ts";
 import { documentPrefersReducedMotion, smoothScrollBehavior } from "../../lib/reduced-motion.ts";
 import { cn } from "../../lib/utils.ts";
-import { useSlots } from "../../slots.tsx";
+import { usePersona, useSlots } from "../../slots.tsx";
 import { AboutSection } from "./AboutSection.tsx";
 import { AppearanceSection } from "./AppearanceSection.tsx";
 import { BrowserSection, type SignedInSitesApi } from "./BrowserSection.tsx";
@@ -390,6 +390,7 @@ export function SettingsScreen({
   ...shell
 }: SettingsScreenProps): ReactElement {
   const { navigate } = useSlots();
+  const persona = usePersona();
   const [own, setOwn] = useState<SettingsSectionId>(defaultSection);
   const target = resolveSection(section ?? own);
   const page = pageById(target.page);
@@ -437,7 +438,8 @@ export function SettingsScreen({
   };
 
   // A new page starts at the top; a pane, or a setting Search found, scrolls into view. Panes load
-  // their settings after they mount, so a setting row is looked for again for a moment.
+  // their settings after they mount and grow, so for a moment the target is looked for again and
+  // kept in place as the page settles, until the person scrolls themselves.
   // biome-ignore lint/correctness/useExhaustiveDependencies: runs when the target changes
   useEffect(() => {
     const content = contentRef.current;
@@ -445,29 +447,61 @@ export function SettingsScreen({
     const key = pendingKey.current;
     pendingKey.current = null;
     // The first pane is the top of its page: the page title stays in view.
-    const paneEl =
+    let el =
       target.pane === undefined || target.pane === page.panes[0]
         ? null
         : content.querySelector<HTMLElement>(`#${paneAnchor(target.pane)}`);
-    const show = (el: HTMLElement, block: ScrollLogicalPosition) => {
-      if (typeof el.scrollIntoView === "function")
-        el.scrollIntoView({ block, behavior: smoothScrollBehavior() });
+    let block: ScrollLogicalPosition = "start";
+    let flashed = false;
+    const show = (behavior: ScrollBehavior) => {
+      if (key !== null) {
+        const row = content.querySelector<HTMLElement>(
+          `[data-setting-key="${key.replace(/["\\]/g, "\\$&")}"]`,
+        );
+        if (row !== null) {
+          el = row;
+          block = "center";
+          if (!flashed) {
+            flashed = true;
+            flash(row);
+          }
+        }
+      }
+      if (typeof el?.scrollIntoView === "function") el.scrollIntoView({ block, behavior });
     };
-    if (paneEl !== null) show(paneEl, "start");
-    else if (getComputedStyle(content).overflowY === "auto") content.scrollTop = 0;
-    if (key === null) return;
-    let tries = 0;
+    if (el === null && key === null) {
+      if (getComputedStyle(content).overflowY === "auto") content.scrollTop = 0;
+      return;
+    }
+    show(smoothScrollBehavior());
+    let settled = false;
+    const stop = () => {
+      settled = true;
+    };
+    const again = () => {
+      if (!settled) show("auto");
+    };
+    const column = content.firstElementChild;
+    const resize =
+      typeof ResizeObserver === "function" && column !== null ? new ResizeObserver(again) : null;
+    if (column !== null) resize?.observe(column);
+    // Only while a setting row has not shown up yet; a smooth scroll to a pane is left alone.
     const timer = setInterval(() => {
-      const row = content.querySelector<HTMLElement>(
-        `[data-setting-key="${key.replace(/["\\]/g, "\\$&")}"]`,
-      );
-      if (row !== null) {
-        clearInterval(timer);
-        show(row, "center");
-        flash(row);
-      } else if (++tries > 20) clearInterval(timer);
-    }, 75);
-    return () => clearInterval(timer);
+      if (key !== null && !flashed) again();
+    }, 100);
+    const done = setTimeout(stop, 1500);
+    content.addEventListener("wheel", stop, { passive: true });
+    content.addEventListener("touchstart", stop, { passive: true });
+    content.addEventListener("pointerdown", stop);
+    return () => {
+      stop();
+      resize?.disconnect();
+      clearInterval(timer);
+      clearTimeout(done);
+      content.removeEventListener("wheel", stop);
+      content.removeEventListener("touchstart", stop);
+      content.removeEventListener("pointerdown", stop);
+    };
   }, [target.page, target.pane, jump]);
 
   // Two-pane (≥ 720 px): the open page stays in view in the list.
@@ -621,7 +655,9 @@ export function SettingsScreen({
                     <h2 className="font-display text-page-title text-label-primary">
                       {page.label}
                     </h2>
-                    <p className="text-callout text-label-secondary">{page.description}</p>
+                    <p className="text-callout text-label-secondary">
+                      {page.description(persona.name)}
+                    </p>
                   </header>
                 ) : null}
                 {page.panes.map((id, i) => (

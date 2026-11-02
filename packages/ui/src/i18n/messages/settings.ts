@@ -26,28 +26,28 @@ export const settings = {
   // The nine pages of the Settings window (settings-pages.ts, docs/design/settings-2026.md).
   "settings.page.general": "General",
   "settings.page.general.description":
-    "How Psyche looks, who it is, when it may interrupt you and how you talk to it.",
+    "How {persona} looks, who it is, when it may interrupt you and how you talk to it.",
   "settings.page.model": "Models",
   "settings.page.model.description":
-    "The models Psyche thinks with, the keys they use and what they cost.",
+    "The models {persona} thinks with, the keys they use and what they cost.",
   "settings.page.connectors": "Connectors & sources",
   "settings.page.connectors.description":
-    "The apps and accounts Psyche can reach, and which of them it searches.",
+    "The apps and accounts {persona} can reach, and which of them it searches.",
   "settings.page.memory": "Memory",
   "settings.page.memory.description":
-    "What Psyche remembers about you, what it reads to learn, and the people it knows.",
+    "What {persona} remembers about you, what it reads to learn, and the people it knows.",
   "settings.page.daily": "Routines & skills",
   "settings.page.daily.description":
-    "Your morning brief and wrap-up, automations, skills and the specialists Psyche can call.",
+    "Your morning brief and wrap-up, automations, skills and the specialists {persona} can call.",
   "settings.page.permissions": "Permissions",
   "settings.page.permissions.description":
-    "What Psyche may do on this Mac without asking, and where it always stops to ask you.",
+    "What {persona} may do on this Mac without asking, and where it always stops to ask you.",
   "settings.page.data": "Privacy & data",
   "settings.page.data.description":
     "What stays on this Mac, how long it is kept, exports, backups and starting over.",
   "settings.page.devices": "Devices",
   "settings.page.devices.description":
-    "Your other devices, the Gateway server and reaching Psyche when you are away.",
+    "Your other devices, the Gateway server and reaching {persona} when you are away.",
   "settings.page.about": "About",
   "settings.page.about.description": "Versions, health checks and logs.",
 

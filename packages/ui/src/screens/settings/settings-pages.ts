@@ -101,8 +101,8 @@ const entry = (id: SettingsPaneId, icon: LucideIcon): SettingsEntry<SettingsPane
 });
 
 export interface SettingsPage extends SettingsEntry<SettingsPageId> {
-  /** One line under the page title. */
-  readonly description: string;
+  /** One line under the page title, with the persona's name. */
+  description: (persona: string) => string;
   panes: readonly SettingsPaneId[];
 }
 
@@ -117,9 +117,7 @@ const page = (
   get label() {
     return t(`settings.page.${id}`);
   },
-  get description() {
-    return t(`settings.page.${id}.description`);
-  },
+  description: (persona) => t(`settings.page.${id}.description`, { persona }),
 });
 
 export const SETTINGS_PANES: readonly SettingsEntry<SettingsPaneId>[] = [
