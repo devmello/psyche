@@ -271,6 +271,8 @@ export function InboxRow({
   const kind = NOTIFICATION_KIND[n.kind];
   const Icon = kind.icon;
   const unread = n.readAt == null;
+  // Amber marks what needs you (an approval or a question); every other unread dot is ink.
+  const dot = n.kind === "approval" || n.kind === "input_needed" ? "bg-approval" : "bg-accent-9";
   const resolved = n.resolvedAt != null;
   const isStale = stale || n.staleAt != null || (n.kind === "approval" && approval?.stale === true);
 
@@ -374,10 +376,10 @@ export function InboxRow({
             onClick={() => onMarkRead(n)}
             className="group/dot flex size-5 items-center justify-center rounded-full hover:bg-fill-quaternary focus-visible:outline-2 focus-visible:outline-ring"
           >
-            <span className="size-2 rounded-full bg-accent-9" />
+            <span className={cn("size-2 rounded-full", dot)} />
           </button>
         ) : unread ? (
-          <span className="size-2 rounded-full bg-accent-9" aria-hidden="true" />
+          <span className={cn("size-2 rounded-full", dot)} aria-hidden="true" />
         ) : null}
       </span>
       {/* One glyph per state (§3.6): status kinds use the shared glyph, the rest their icon. */}
@@ -388,7 +390,7 @@ export function InboxRow({
           <Icon className="size-4 text-label-secondary" />
         )}
       </span>
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
         <h3
           id={titleId}
           className={cn(
@@ -409,11 +411,17 @@ export function InboxRow({
             n.title
           )}
         </h3>
-        {n.body ? <p className="text-callout text-label-secondary">{n.body}</p> : null}
-        <p className="flex flex-wrap items-center gap-x-1.5 text-callout text-label-secondary tabular-nums">
+        {/* Body, kind and time as one evidence line (unslop 2026-11): two lines per row, not three. */}
+        <p className="flex flex-wrap items-baseline gap-x-1.5 text-callout text-label-secondary tabular-nums">
+          {n.body ? (
+            <>
+              <span className="min-w-0">{n.body}</span>
+              <span aria-hidden="true">·</span>
+            </>
+          ) : null}
           <span className="text-label-tertiary">{kind.label}</span>
           <span aria-hidden="true">·</span>
-          <span>{formatRelative(n.createdAt, now)}</span>
+          <span className="text-label-tertiary">{formatRelative(n.createdAt, now)}</span>
           {unread ? <span className="sr-only">{t("screens.inbox.unread")}</span> : null}
           {isStale ? (
             <>
