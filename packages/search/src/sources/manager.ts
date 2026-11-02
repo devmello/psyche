@@ -274,7 +274,14 @@ export class SourceIndexer {
   /** Removes what the source no longer has (deletes the cursor sources cannot see). */
   async sweep(id: SourceId): Promise<number> {
     const adapter = this.#adapters.get(id);
-    if (adapter?.listIds === undefined || adapter.unavailable() !== undefined) return 0;
+    if (adapter === undefined) return 0;
+    let expired = 0;
+    if (adapter.retentionMs !== undefined) expired = await this.#expire(id, adapter.retentionMs);
+    if (adapter.listIds === undefined || adapter.unavailable() !== undefined) {
+      if (adapter.retentionMs !== undefined)
+        this.#setMeta(`src.${id}.sweptAt`, String(this.#o.now()));
+      return expired;
+    }
     try {
       const { ids, complete } = await adapter.listIds(this.#abort.signal);
       if (!complete) return 0;
@@ -290,12 +297,25 @@ export class SourceIndexer {
       }
       this.#setMeta(`src.${id}.sweptAt`, String(this.#o.now()));
       if (removed > 0) this.#o.onChange?.();
-      return removed;
+      return removed + expired;
     } catch (err) {
       this.#errors.set(id, err instanceof Error ? err.message : String(err));
       this.#o.onError?.(id, err);
       return 0;
     }
+  }
+
+  /** Removes a source's items older than `retentionMs` (by the document's date). */
+  async #expire(id: SourceId, retentionMs: number): Promise<number> {
+    const rows = this.#index.db
+      .prepare(
+        `SELECT s.native_id FROM search_source_items s JOIN search_docs d ON d.id = s.doc_id
+         WHERE s.source = ? AND d.created_ms < ?`,
+      )
+      .all(id, this.#o.now() - retentionMs) as { native_id: string }[];
+    for (const { native_id } of rows) await this.#forget(id, native_id);
+    if (rows.length > 0) this.#o.onChange?.();
+    return rows.length;
   }
 
   // --- config changes --------------------------------------------------------------------------
@@ -450,6 +470,7 @@ function toDoc(id: SourceId, item: SourceItem): SearchDoc {
     provenance: item.provenance,
     ...(item.from === undefined ? {} : { from: item.from }),
     ...(item.mime === undefined ? {} : { mime: item.mime }),
+    ...(item.parentId === undefined ? {} : { parentId: item.parentId }),
     tags: [id, ...(item.tags ?? [])],
     source: sourceTag(id),
     scopeKey: OWNER_SCOPE,

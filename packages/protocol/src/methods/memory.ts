@@ -1,9 +1,12 @@
 import { Type } from "@sinclair/typebox";
 import { Id, IsoDateTime, Nullable, Provenance, StringEnum } from "../common.ts";
 import {
+  ComingUpItem,
   EverythingExclusion,
   EverythingExclusionMode,
+  EverythingRunResult,
   MemoryRun,
+  PersonRemoved,
   QuarantineAction,
   QuarantineItem,
   ReviewDecision,
@@ -653,6 +656,14 @@ export const MemoryMethods = {
     description:
       "Lets everything memory read and learn from this address, number or domain again. Side-effecting.",
   }),
+  "memory.everything.run": defineMethod({
+    params: Type.Object({}),
+    result: EverythingRunResult,
+    scope: "operator.write",
+    sideEffecting: true,
+    description:
+      "Runs the everything-memory pass now, under the same limits (power, thermal, model, budget) except quiet hours and idle time. Returns counts, or why it did not run. Side-effecting.",
+  }),
   "memory.senders.list": defineMethod({
     params: Type.Object({}),
     result: Type.Object({ senders: Type.Array(SenderTrust) }),
@@ -667,6 +678,54 @@ export const MemoryMethods = {
     sideEffecting: true,
     description:
       "Trust a contact (their allowed self-disclosures are accepted on arrival, undoable for a week), decline the offer for good, or revoke trust. Side-effecting.",
+  }),
+  "memory.upcoming": defineMethod({
+    params: Type.Object({
+      days: Type.Optional(Type.Integer({ minimum: 1, maximum: 366, description: "Default 14" })),
+      entityId: Type.Optional(Id),
+    }),
+    result: Type.Object({ items: Type.Array(ComingUpItem) }),
+    scope: "operator.read",
+    description:
+      "Birthdays, anniversaries and dated events coming up, from accepted facts and event entities, soonest first.",
+  }),
+  "memory.entities.export": defineMethod({
+    params: Type.Object({ id: Id }),
+    result: Type.Object({
+      filename: Type.String(),
+      mime: Type.Literal("application/zip"),
+      data: Type.String({
+        description:
+          "Base64 zip: person.json (facts with citations and history, relations, loops, claims) and the card",
+      }),
+      bytes: Type.Integer({ minimum: 0 }),
+    }),
+    scope: "operator.read",
+    description: "Exports everything about one person as a zip.",
+  }),
+  "memory.entities.forgetSaid": defineMethod({
+    params: Type.Object({ id: Id, dryRun: Type.Optional(Type.Boolean()) }),
+    result: Type.Object({ removed: PersonRemoved, dryRun: Type.Boolean() }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Keeps the person but deletes every fact and relation learned only from what they wrote, and their quarantined items. Side-effecting.",
+  }),
+  "memory.entities.exclude": defineMethod({
+    params: Type.Object({
+      id: Id,
+      mode: EverythingExclusionMode,
+      dryRun: Type.Optional(Type.Boolean()),
+    }),
+    result: Type.Object({
+      excluded: Type.Integer({ minimum: 0, description: "Addresses and numbers excluded" }),
+      removed: PersonRemoved,
+      dryRun: Type.Boolean(),
+    }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Excludes every address and number of this person from everything memory; with forget, also deletes what was learned from them. Side-effecting.",
   }),
   "memory.runs.list": defineMethod({
     params: Type.Object({

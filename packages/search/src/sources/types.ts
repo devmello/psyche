@@ -4,7 +4,16 @@ import type { Provenance } from "@psyche/protocol";
  * Local sources the Gateway can index into the main search index (docs/design/search-roadmap-2026.md
  * §2). Every one is opt-in and off by default; the owner switches each in Settings → Search sources.
  */
-export const SOURCE_IDS = ["mail", "messages", "notes", "calendar", "reminders", "files"] as const;
+export const SOURCE_IDS = [
+  "mail",
+  "messages",
+  "notes",
+  "calendar",
+  "reminders",
+  "files",
+  "browser",
+  "transcripts",
+] as const;
 export type SourceId = (typeof SOURCE_IDS)[number];
 
 /** Where text of a source may be processed (cards, future routing): the default is today's behaviour. */
@@ -54,6 +63,8 @@ export const SOURCE_LABELS: Record<SourceId, string> = {
   calendar: "Calendar",
   reminders: "Reminders",
   files: "Files",
+  browser: "Browser pages",
+  transcripts: "Transcripts",
 };
 
 export function defaultSourcesConfig(): SourcesConfig {
@@ -112,6 +123,8 @@ export interface SourceItem {
   account?: string;
   /** Folder path, for the folder exclusion. */
   path?: string;
+  /** The document this one is a part of (transcript turns of a recording): results collapse onto it. */
+  parentId?: string;
 }
 
 export interface SourcePull {
@@ -123,6 +136,8 @@ export interface SourcePull {
 
 export interface SourceAdapter {
   readonly id: SourceId;
+  /** Items older than this are removed by the sweep (browser pages: 90 days). */
+  readonly retentionMs?: number;
   /** Why the source cannot be read now (no helper, no access), or undefined. */
   unavailable(): string | undefined;
   /** The next page after `cursor` (null = from the start). */

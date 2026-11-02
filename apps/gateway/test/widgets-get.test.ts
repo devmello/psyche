@@ -19,7 +19,11 @@ describe("widgets.get", () => {
       taint: [],
       owner: { kind: "run", runId: "r1" },
     });
-    const part = composeWidgets({ db } as unknown as ComposeServices);
+    const part = composeWidgets({
+      db,
+      tools: { register: () => () => {} },
+      publish: () => {},
+    } as unknown as ComposeServices);
     const run = part.handlers?.["widgets.get"]?.run as (c: Call, p: unknown) => unknown;
     expect(run({} as Call, { widgetIds: ["nope", w.id] })).toEqual({
       widgets: [w],

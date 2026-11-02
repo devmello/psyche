@@ -12,6 +12,7 @@ import {
   isIncognito,
   libraryDoc,
   messageDoc,
+  type RecordingRef,
   type SearchDoc,
   taskActionDoc,
   taskDoc,
@@ -244,4 +245,44 @@ export async function libraryText(
     // A missing or unreadable file is indexed by name.
   }
   return "";
+}
+
+/**
+ * Recordings that have a transcript (voice memos, meetings), oldest first from `sinceMs`. The
+ * owner's own composer memos are `owner`; anything else (a meeting, a channel voice note) holds
+ * other people's words and is `untrusted`.
+ */
+export async function recordingTranscripts(
+  db: PsycheDb,
+  home: string,
+  sinceMs: number,
+  afterId: string | null,
+  limit: number,
+): Promise<RecordingRef[]> {
+  const since = new Date(sinceMs).toISOString();
+  const rows = db.sqlite
+    .prepare(
+      `SELECT id FROM library_items
+       WHERE kind = 'recording' AND text_extract_ref IS NOT NULL AND quarantined = 0
+         AND (created_at > ? OR (created_at = ? AND id > ?))
+       ORDER BY created_at, id LIMIT ?`,
+    )
+    .all(since, since, afterId ?? "", limit) as { id: string }[];
+  const out: RecordingRef[] = [];
+  for (const { id } of rows) {
+    const item = getLibraryItem(db, id);
+    if (item === undefined) continue;
+    const text = await libraryText(home, item);
+    if (text.trim() === "") continue;
+    out.push({
+      id,
+      name: item.name,
+      createdAt: Date.parse(item.createdAt),
+      tags: item.tags,
+      provenance:
+        item.tags.includes("voice-memo") && item.tags.includes("composer") ? "owner" : "untrusted",
+      text,
+    });
+  }
+  return out;
 }

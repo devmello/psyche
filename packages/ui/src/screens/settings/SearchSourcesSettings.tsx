@@ -20,6 +20,8 @@ const HINT = {
   calendar: "settings.searchSources.hint.calendar",
   reminders: "settings.searchSources.hint.reminders",
   files: "settings.searchSources.hint.files",
+  browser: "settings.searchSources.hint.browser",
+  transcripts: "settings.searchSources.hint.transcripts",
 } as const satisfies Record<SearchSourceId, string>;
 
 const kb = (bytes: number) =>
