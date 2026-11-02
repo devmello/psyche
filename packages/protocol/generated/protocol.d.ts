@@ -923,7 +923,7 @@ export interface AppleTabTextParams {
 export interface ApprovalAnswer {
     answerToken:      string;
     approvalId:       string;
-    decision:         DecisionEnum;
+    decision:         ApprovalAnswerDecision;
     editedText?:      string;
     folderPath?:      string;
     presence?:        PresenceAssertion;
@@ -933,7 +933,7 @@ export interface ApprovalAnswer {
     via?:             InputVia;
 }
 
-export type DecisionEnum = "approve" | "deny";
+export type ApprovalAnswerDecision = "approve" | "deny";
 
 export interface PresenceAssertion {
     deviceId: string;
@@ -10929,6 +10929,18 @@ export interface WidgetUpdatedPayload {
 
 export type WidgetState = "live" | "frozen";
 
+export interface WidgetsActParams {
+    itemId?:  string;
+    nodeId:   string;
+    values?:  { [key: string]: unknown };
+    widgetId: string;
+}
+
+export interface WidgetsActResult {
+    messageId: string;
+    runId:     null | string;
+}
+
 export interface WidgetsGetParams {
     widgetIds: string[];
 }
@@ -10986,6 +10998,19 @@ export interface WidgetsImageResult {
 }
 
 export type WidgetsImageResultMIME = "image/png" | "image/jpeg" | "image/gif" | "image/webp";
+
+export interface WidgetsPreviewParams {
+    itemId?:  string;
+    nodeId:   string;
+    widgetId: string;
+}
+
+export interface WidgetsPreviewResult {
+    decision: WidgetsPreviewResultDecision;
+    tool:     string;
+}
+
+export type WidgetsPreviewResultDecision = "allow" | "ask" | "deny" | "device-only" | "unavailable";
 
 export interface WrapUpBlock {
     actions?: WrapUpAction[];

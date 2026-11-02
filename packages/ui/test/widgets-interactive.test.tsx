@@ -8,15 +8,21 @@ import { StoryWorld } from "../src/stories/harness.tsx";
 import { interactiveWidget } from "../src/widgets/fixtures-interactive.ts";
 import { WidgetBlockView } from "../src/widgets/WidgetBlock.tsx";
 
-function mount(widget: Widget, onNavigate?: (r: string) => void) {
+function mount(
+  widget: Widget,
+  onNavigate?: (r: string) => void,
+  decisions: Record<string, "allow" | "ask" | "deny"> = {},
+) {
   const ref: { gateway?: MockGateway } = {};
   const sent: Array<Record<string, unknown>> = [];
   const methods: string[] = [];
+  const acts: Array<Record<string, unknown>> = [];
   render(
     <StoryWorld
       slots={onNavigate ? { navigate: onNavigate } : undefined}
       edit={(w) => {
         w.widgets = [widget];
+        w.widgetDecisions = decisions;
       }}
       onGateway={(g) => {
         ref.gateway = g;
@@ -24,6 +30,7 @@ function mount(widget: Widget, onNavigate?: (r: string) => void) {
         g.request = ((method: string, params: unknown, options: unknown) => {
           methods.push(method);
           if (method === "chat.send") sent.push(params as Record<string, unknown>);
+          if (method === "widgets.act") acts.push(params as Record<string, unknown>);
           return (original as (...a: unknown[]) => unknown)(method, params, options);
         }) as typeof g.request;
       }}
@@ -31,7 +38,7 @@ function mount(widget: Widget, onNavigate?: (r: string) => void) {
       <WidgetBlockView block={{ type: "ui", widgetId: widget.id }} />
     </StoryWorld>,
   );
-  return { ref, sent, methods };
+  return { ref, sent, methods, acts };
 }
 
 describe("widget interaction (P6)", () => {
@@ -95,10 +102,56 @@ describe("widget interaction (P6)", () => {
     await waitFor(() => expect(navigate).toHaveBeenCalledWith("/scheduled"));
   });
 
-  it("does not draw a tool action yet (P7)", async () => {
-    mount(interactiveWidget);
-    await screen.findByRole("button", { name: "Draft the replies now" });
-    expect(screen.queryByRole("button", { name: "Run it" })).toBeNull();
+  it("a tool button proposes the stored call through widgets.act, never chat.send, and says it asks first", async () => {
+    const { methods, acts } = mount(interactiveWidget);
+    const button = await screen.findByRole("button", { name: "Send the draft" });
+    expect(await screen.findAllByTestId("widget-asks-first")).not.toHaveLength(0);
+    await userEvent.setup().click(button);
+    await waitFor(() => expect(acts).toHaveLength(1));
+    // Only the control is named: no tool, no arguments, no text from the page.
+    expect(acts[0]).toEqual({ widgetId: "wdg_interactive", nodeId: "tool" });
+    expect(methods).not.toContain("chat.send");
+    expect(methods).not.toContain("approvals.answer");
+  });
+
+  it("a tool form sends only what the owner typed (select as the option id)", async () => {
+    const { acts } = mount(interactiveWidget);
+    const user = userEvent.setup();
+    const form = await screen.findByRole("form", { name: "Compose email" });
+    const submit = within(form).getByRole("button", { name: "Send email" }) as HTMLButtonElement;
+    await waitFor(() => expect(submit.disabled).toBe(true)); // required field empty
+    await user.type(within(form).getByLabelText("To (required)"), "sam@example.com");
+    await user.selectOptions(within(form).getByLabelText("Priority"), "lo");
+    await waitFor(() => expect(submit.disabled).toBe(false));
+    await user.click(submit);
+    await waitFor(() => expect(acts).toHaveLength(1));
+    expect(acts[0]).toEqual({
+      widgetId: "wdg_interactive",
+      nodeId: "toolform",
+      values: { to: "sam@example.com", pri: "lo" },
+    });
+  });
+
+  it("a list row action proposes its stored call by item id", async () => {
+    const { acts } = mount(interactiveWidget);
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Archive thread" }));
+    await waitFor(() =>
+      expect(acts).toEqual([{ widgetId: "wdg_interactive", nodeId: "rows", itemId: "r3" }]),
+    );
+  });
+
+  it("disables a control the broker would refuse and says so", async () => {
+    mount(interactiveWidget, undefined, { send_email: "deny", mail_archive: "allow" });
+    const button = (await screen.findByRole("button", {
+      name: "Send the draft",
+    })) as HTMLButtonElement;
+    await waitFor(() => expect(button.disabled).toBe(true));
+    expect((await screen.findAllByTestId("widget-tool-blocked")).length).toBeGreaterThan(0);
+    // An allowed call carries no marker at all.
+    const row = (await screen.findByRole("button", {
+      name: "Archive thread",
+    })) as HTMLButtonElement;
+    await waitFor(() => expect(row.disabled).toBe(false));
   });
 
   it("shows a busy chat as a plain message, not a crash", async () => {
