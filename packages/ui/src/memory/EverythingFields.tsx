@@ -7,6 +7,7 @@ import { TriangleAlert } from "lucide-react";
 import type { ReactElement } from "react";
 import { Button } from "../components/ui/button.tsx";
 import { Input } from "../components/ui/input.tsx";
+import { NativeSelect } from "../components/ui/native-select.tsx";
 import { t } from "../i18n/core.ts";
 import { Group, RadioField, SwitchField } from "../screens/settings/shared.tsx";
 import { estimateBackfill, estimateMonthly, formatUsd } from "./estimate.ts";
@@ -46,6 +47,36 @@ export function readEverything(values: Readonly<Record<string, unknown>>): Every
   ) as EverythingValues;
 }
 
+/** The local models whose memory warning the owner confirmed (one name, or a list). */
+export function readConfirmed(raw: unknown): string[] {
+  if (typeof raw === "string") return raw === "" ? [] : [raw];
+  return Array.isArray(raw)
+    ? raw.filter((x): x is string => typeof x === "string" && x !== "")
+    : [];
+}
+
+/** The local model names the current choices would load (default and per-source overrides). */
+export function localRefsInUse(value: EverythingValues): (string | null)[] {
+  const refs: (string | null)[] = [];
+  for (const s of SOURCE_IDS) {
+    if (!value.sources[s]) continue;
+    const per = (
+      value.model.perSource as Record<string, { kind: string; ref?: string }> | undefined
+    )?.[s];
+    const choice = per ?? value.model.default;
+    if (choice.kind === "local") refs.push(choice.ref ?? null);
+  }
+  // With no source on yet, the default alone decides.
+  if (refs.length === 0 && value.model.default.kind === "local")
+    refs.push(value.model.default.ref ?? null);
+  return refs;
+}
+
+/** True when every local model in use is named and confirmed. */
+export function localReady(value: EverythingValues, confirmed: readonly string[]): boolean {
+  return localRefsInUse(value).every((r) => r !== null && confirmed.includes(r));
+}
+
 export function ModelFields({
   value,
   onChange,
@@ -54,15 +85,15 @@ export function ModelFields({
 }: {
   value: EverythingValues;
   onChange: (next: EverythingValues) => void;
-  /** The local model the owner already confirmed, if any. */
-  localConfirmed: string | undefined;
+  /** The local models the owner already confirmed. */
+  localConfirmed: readonly string[];
   onConfirmLocal: (ref: string) => void;
 }): ReactElement {
   const kind = value.model.default.kind;
   const ref = value.model.default.ref ?? "";
   const set = (next: { kind: "none" | "cloud" | "local"; ref?: string }) =>
     onChange({ ...value, model: { ...value.model, default: next } });
-  const confirmed = kind === "local" && ref !== "" && localConfirmed === ref;
+  const confirmed = kind === "local" && ref !== "" && localConfirmed.includes(ref);
   const estimate = estimateMonthly(kind, value.sources);
   const days = Number(value.schedule.backfillDays);
   return (
@@ -240,6 +271,123 @@ export function SensitiveFields({
           onChange={(on) => onChange({ ...value, sensitive: { ...value.sensitive, [c]: on } })}
         />
       ))}
+    </Group>
+  );
+}
+
+type SourceChoice = "default" | "none" | "cloud" | "local";
+
+/**
+ * A different model for one source (§8, EM11): Messages on Local while Mail stays on Cloud, say.
+ * Only sources that are switched on are listed. A local model here has its own memory warning
+ * and its own confirmation, like the default one.
+ */
+export function PerSourceModels({
+  value,
+  onChange,
+  localConfirmed,
+  onConfirmLocal,
+}: {
+  value: EverythingValues;
+  onChange: (next: EverythingValues) => void;
+  localConfirmed: readonly string[];
+  onConfirmLocal: (ref: string) => void;
+}): ReactElement | null {
+  const on = SOURCE_IDS.filter((s) => value.sources[s]);
+  if (on.length === 0) return null;
+  const per = (value.model.perSource ?? {}) as Record<
+    string,
+    { kind: "none" | "cloud" | "local"; ref?: string }
+  >;
+  const write = (
+    source: EverythingSource,
+    next: { kind: "none" | "cloud" | "local"; ref?: string } | undefined,
+  ) => {
+    const copy = { ...per };
+    if (next === undefined) delete copy[source];
+    else copy[source] = next;
+    const { perSource: _drop, ...rest } = value.model;
+    onChange({
+      ...value,
+      model: { ...rest, ...(Object.keys(copy).length === 0 ? {} : { perSource: copy }) },
+    });
+  };
+  return (
+    <Group
+      title={t("everything.perSource.title")}
+      description={t("everything.perSource.description")}
+    >
+      {on.map((s) => {
+        const cur = per[s];
+        const choice: SourceChoice = cur === undefined ? "default" : cur.kind;
+        const ref = cur?.ref ?? "";
+        const labelId = `persource-${s}`;
+        return (
+          <div key={s} data-testid="persource-row" className="flex flex-col gap-1 px-3">
+            <div className="flex items-center justify-between gap-3">
+              <label id={labelId} htmlFor={`${labelId}-select`} className="text-body">
+                {t(`everything.source.${s}`)}
+              </label>
+              <NativeSelect
+                id={`${labelId}-select`}
+                value={choice}
+                onChange={(e) => {
+                  const v = e.target.value as SourceChoice;
+                  write(
+                    s,
+                    v === "default"
+                      ? undefined
+                      : { kind: v, ...(v === "none" || ref === "" ? {} : { ref }) },
+                  );
+                }}
+                className="h-7 w-44"
+              >
+                <option value="default">{t("everything.perSource.default")}</option>
+                <option value="none">{t("everything.model.none")}</option>
+                <option value="cloud">{t("everything.model.cloud")}</option>
+                <option value="local">{t("everything.model.local")}</option>
+              </NativeSelect>
+            </div>
+            {choice === "cloud" || choice === "local" ? (
+              <Input
+                aria-label={t("everything.perSource.ref", { source: t(`everything.source.${s}`) })}
+                placeholder={
+                  choice === "local"
+                    ? t("everything.model.localRefHint")
+                    : t("everything.model.cloudRefHint")
+                }
+                value={ref}
+                maxLength={200}
+                onChange={(e) =>
+                  write(s, {
+                    kind: choice,
+                    ...(e.target.value.trim() === "" ? {} : { ref: e.target.value.trim() }),
+                  })
+                }
+                className="h-7"
+              />
+            ) : null}
+            {choice === "local" ? (
+              ref === "" ? (
+                <p className="text-callout text-label-secondary">
+                  {t("everything.local.needsRef")}
+                </p>
+              ) : localConfirmed.includes(ref) ? (
+                <p role="status" className="text-callout text-label-secondary">
+                  {t("everything.local.confirmed", { model: ref })}
+                </p>
+              ) : (
+                <div className="flex flex-col gap-1 text-callout" data-testid="persource-warning">
+                  <p>{t("everything.local.body")}</p>
+                  <Button size="sm" className="self-start" onClick={() => onConfirmLocal(ref)}>
+                    {t("everything.local.confirm", { model: ref })}
+                  </Button>
+                </div>
+              )
+            ) : null}
+          </div>
+        );
+      })}
     </Group>
   );
 }
