@@ -41,6 +41,7 @@ import type {
   ThreadListEntry,
   ToolCall,
   VaultPayment,
+  Widget,
 } from "@psyche/protocol";
 import type { ReviewWorld } from "../data/mock-review.ts";
 import { answerTokens, approvals, grants } from "./approvals.ts";
@@ -116,6 +117,8 @@ export interface FixtureWorld {
   /** Whether the audit hash chain verifies. */
   auditVerified: boolean;
   artifacts: Artifact[];
+  /** Generative-UI widget snapshots (empty unless a story or test adds some). */
+  widgets: Widget[];
   library: LibraryItem[];
   /** Granted-folder files by absolute path (FILE_ROOTS), for the Files pane. */
   files: Record<string, MockFileNode>;
@@ -208,6 +211,7 @@ export function createFixtureWorld(): FixtureWorld {
     auditChanges: [],
     auditVerified: true,
     artifacts: artifacts(),
+    widgets: [],
     library: library(),
     files: fileTree(),
     notifications: notifications(),

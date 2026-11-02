@@ -1,6 +1,7 @@
 import { Value } from "@sinclair/typebox/value";
 import { describe, expect, it } from "vitest";
 import {
+  applyWidgetOps,
   Block,
   Events,
   foldLabel,
@@ -265,5 +266,46 @@ describe("widget protocol", () => {
       validateWidgetPatch({ widgetId: "w", ops: [{ op: "set", path: "/root/0", props: {} }] }).ok,
     ).toBe(false);
     expect(validateWidgetPatch({ widgetId: "w", ops: [] }).ok).toBe(false);
+  });
+});
+
+describe("applyWidgetOps", () => {
+  const spec = () => good() as unknown as import("../src/index.ts").WidgetSpec;
+  it("sets props by node id, appends to items, removes and replaces", () => {
+    const r = applyWidgetOps(spec(), [
+      { op: "set", id: "p", props: { value: 4 } },
+      {
+        op: "append",
+        id: "steps",
+        field: "items",
+        items: [{ id: "s3", label: "Unsubscribe", state: "todo" }],
+      },
+      { op: "set", id: "s2", props: { state: "done" } },
+      { op: "meta", title: "Cleanup 2" },
+    ]);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const kids = (r.spec.root as { children: Array<Record<string, unknown>> }).children;
+    expect(kids[0]?.value).toBe(4);
+    expect((kids[1]?.items as unknown[] | undefined)?.length).toBe(3);
+    expect(r.spec.title).toBe("Cleanup 2");
+    const r2 = applyWidgetOps(r.spec, [
+      { op: "remove", id: "go" },
+      { op: "replace", id: "p", node: { id: "p", type: "status", label: "Done", tone: "success" } },
+    ]);
+    expect(r2.ok).toBe(true);
+  });
+  it("rejects unknown ids, type changes, root removal and results that break validation", () => {
+    expect(applyWidgetOps(spec(), [{ op: "set", id: "zzz", props: {} }]).ok).toBe(false);
+    expect(applyWidgetOps(spec(), [{ op: "set", id: "p", props: { type: "text" } }]).ok).toBe(
+      false,
+    );
+    expect(applyWidgetOps(spec(), [{ op: "remove", id: "root" }]).ok).toBe(false);
+    expect(applyWidgetOps(spec(), [{ op: "set", id: "go", props: { label: "Allow" } }]).ok).toBe(
+      false,
+    );
+    expect(applyWidgetOps(spec(), [{ op: "set", id: "p", props: { onclick: "x" } }]).ok).toBe(
+      false,
+    );
   });
 });
