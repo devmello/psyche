@@ -198,6 +198,8 @@ describe("S01 review regressions", () => {
     for (const name of ["messages.graph_chats", "messages.graph_read"]) {
       expect(isUnreachableCapability(name), name).toBe(true);
     }
+    // Vision OCR is the search ingest's (R6/R7): no tool or client reaches it.
+    expect(isUnreachableCapability("ocr.recognize")).toBe(true);
     for (const name of [
       "calendar.list_events",
       "vaulted.door",

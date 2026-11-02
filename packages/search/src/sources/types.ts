@@ -4,7 +4,16 @@ import type { Provenance } from "@psyche/protocol";
  * Local sources the Gateway can index into the main search index (docs/design/search-roadmap-2026.md
  * §2). Every one is opt-in and off by default; the owner switches each in Settings → Search sources.
  */
-export const SOURCE_IDS = ["mail", "messages", "notes", "calendar", "reminders", "files"] as const;
+export const SOURCE_IDS = [
+  "mail",
+  "messages",
+  "notes",
+  "calendar",
+  "reminders",
+  "files",
+  "browser",
+  "transcripts",
+] as const;
 export type SourceId = (typeof SOURCE_IDS)[number];
 
 /** Where text of a source may be processed (cards, future routing): the default is today's behaviour. */
@@ -23,6 +32,11 @@ export interface SourceConfig {
    * Messages, which stays owner-only until the owner allows it. The owner's own Search ignores it.
    */
   agent: boolean;
+  /**
+   * Read text in images and scanned PDFs on this Mac (Apple Vision, on-device; roadmap §3.4). Only
+   * the files source uses it. Off until the owner allows it.
+   */
+  ocr: boolean;
 }
 
 /** Things the owner keeps out of the index, matched case-insensitively. */
@@ -49,12 +63,14 @@ export const SOURCE_LABELS: Record<SourceId, string> = {
   calendar: "Calendar",
   reminders: "Reminders",
   files: "Files",
+  browser: "Browser pages",
+  transcripts: "Transcripts",
 };
 
 export function defaultSourcesConfig(): SourcesConfig {
   const sources = {} as Record<SourceId, SourceConfig>;
   for (const id of SOURCE_IDS)
-    sources[id] = { enabled: false, processing: "cloud", agent: id !== "messages" };
+    sources[id] = { enabled: false, processing: "cloud", agent: id !== "messages", ocr: false };
   return { sources, exclude: { contacts: [], chats: [], accounts: [], folders: [] } };
 }
 
@@ -68,6 +84,7 @@ export function readSourcesConfig(raw: unknown): SourcesConfig {
     if (s === undefined || typeof s !== "object" || s === null) continue;
     if (s.enabled === true) out.sources[id].enabled = true;
     if (typeof s.agent === "boolean") out.sources[id].agent = s.agent;
+    if (s.ocr === true && id === "files") out.sources[id].ocr = true;
     if (PROCESSING_MODELS.includes(s.processing as ProcessingModel))
       out.sources[id].processing = s.processing as ProcessingModel;
   }
@@ -106,6 +123,8 @@ export interface SourceItem {
   account?: string;
   /** Folder path, for the folder exclusion. */
   path?: string;
+  /** The document this one is a part of (transcript turns of a recording): results collapse onto it. */
+  parentId?: string;
 }
 
 export interface SourcePull {
@@ -117,6 +136,8 @@ export interface SourcePull {
 
 export interface SourceAdapter {
   readonly id: SourceId;
+  /** Items older than this are removed by the sweep (browser pages: 90 days). */
+  readonly retentionMs?: number;
   /** Why the source cannot be read now (no helper, no access), or undefined. */
   unavailable(): string | undefined;
   /** The next page after `cursor` (null = from the start). */
@@ -136,6 +157,7 @@ export interface SourceStatus {
   enabled: boolean;
   processing: ProcessingModel;
   agent: boolean;
+  ocr: boolean;
   state: SourceState;
   /** Why it cannot run now (`unavailable`) or the last error. */
   detail?: string;

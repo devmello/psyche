@@ -124,6 +124,13 @@ export function SemanticSearchSettingsGroup({
         settingKey="search.cards.enabled"
       />
       <SwitchField
+        label={t("settings.key.search.rerank.enabled")}
+        description={t("settings.semanticSearch.rerankHint")}
+        checked={bool(values, "search.rerank.enabled", false)}
+        onChange={(v) => onChange("search.rerank.enabled", v)}
+        settingKey="search.rerank.enabled"
+      />
+      <SwitchField
         label={t("settings.key.search.queryModel.enabled")}
         description={t("settings.semanticSearch.queryModelHint")}
         checked={bool(values, "search.queryModel.enabled", true)}

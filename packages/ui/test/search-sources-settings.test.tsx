@@ -15,6 +15,7 @@ const base = (
   enabled: false,
   processing: "cloud" as const,
   agent: over.id !== "messages",
+  ocr: false,
   state: "off" as const,
   items: 0,
   textBytes: 0,
@@ -90,6 +91,12 @@ describe("search sources settings", () => {
     expect(onConfigure).toHaveBeenCalledWith({ source: "mail", processing: "none" });
     await userEvent.click(screen.getByLabelText("Agent search for Mail"));
     expect(onConfigure).toHaveBeenCalledWith({ source: "mail", agent: false });
+    // Reading text in images is Files only, and off until the owner ticks it.
+    expect(screen.queryByLabelText("Read text in images for Mail")).toBeNull();
+    const ocr = screen.getByLabelText("Read text in images for Files") as HTMLInputElement;
+    expect(ocr.checked).toBe(false);
+    await userEvent.click(ocr);
+    expect(onConfigure).toHaveBeenCalledWith({ source: "files", ocr: true });
     await userEvent.click(screen.getByRole("button", { name: "Rebuild Mail" }));
     expect(onRebuild).toHaveBeenCalledWith("mail");
     const input = screen.getByLabelText("Never index these contacts");

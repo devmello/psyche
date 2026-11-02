@@ -132,11 +132,18 @@ export const Events = {
       widgetId: Id,
       threadId: Id,
       rev: Type.Integer({ minimum: 1 }),
+      fromRev: Type.Optional(
+        Type.Integer({
+          minimum: 1,
+          description:
+            "The revision `ops` apply to (default rev - 1). A coalesced event spans several revisions.",
+        }),
+      ),
       ops: Type.Array(WidgetOp, { description: "Empty when only `state` changed" }),
       state: Type.Optional(WidgetState),
     }),
     description:
-      "A generative-UI widget was patched (rev is the order; apply only when rev == local + 1, else refetch with widgets.get), or froze.",
+      "A generative-UI widget was patched (rev is the order; apply only when fromRev (default rev - 1) == local rev, else refetch with widgets.get), or froze.",
   }),
   "task.updated": defineEvent({
     payload: Type.Object({ task: Task }),

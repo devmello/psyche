@@ -551,15 +551,16 @@ export class GatewayStore {
         return next;
       }
       case "widget.updated": {
-        // `rev` is the order (generative-ui-2026 §5.5): apply only the next one, otherwise drop the
+        // `rev` is the order (generative-ui-2026 §5.5): apply only the one that continues from the local rev, otherwise drop the
         // snapshot so the block refetches it with `widgets.get`.
         const { widgetId, rev, ops, state } = e.payload;
+        const fromRev = e.payload.fromRev ?? rev - 1;
         const local = s.widgets[widgetId];
         if (local === undefined) return s;
         if (ops.length === 0 && rev === local.rev) {
           return put(s, "widgets", { ...local, ...(state === undefined ? {} : { state }) });
         }
-        const applied = rev === local.rev + 1 ? applyWidgetOps(local.spec, ops) : null;
+        const applied = fromRev === local.rev ? applyWidgetOps(local.spec, ops) : null;
         if (applied?.ok) {
           return put(s, "widgets", {
             ...local,

@@ -630,3 +630,89 @@ describe("a model per source", () => {
     tmp.cleanup();
   });
 });
+
+describe("Run now and the scheduled job", () => {
+  const afternoon = async () => ({
+    onAc: true,
+    lowPowerMode: false,
+    thermal: "nominal" as const,
+    idleMinutes: 0,
+  });
+
+  async function withIndex() {
+    const s = setup({ readState: afternoon });
+    s.graph.createEntity({ kind: "person", name: "The Owner", isOwner: true });
+    const idx = openDb(join(s.tmp.dir, "state", "search.sqlite"), { migrate: false });
+    idx.sqlite.exec(
+      `CREATE TABLE search_docs (rowid INTEGER PRIMARY KEY, id TEXT NOT NULL UNIQUE, kind TEXT, grp TEXT, title TEXT NOT NULL, body TEXT NOT NULL, extra TEXT, provenance TEXT NOT NULL, thread_id TEXT, parent_id TEXT, collapse_key TEXT, scope_key TEXT NOT NULL, sender TEXT, sender_key TEXT, mime TEXT, tags TEXT, source TEXT, created_ms INTEGER NOT NULL, updated_ms INTEGER NOT NULL)`,
+    );
+    idx.sqlite
+      .prepare(
+        `INSERT INTO search_docs (id, title, body, provenance, scope_key, source, created_ms, updated_ms) VALUES ('mail:1','','Note to self: book the dentist for Friday morning.','owner','owner','connector:mail',?,?)`,
+      )
+      .run(NOW - 3600_000, NOW - 3600_000);
+    idx.sqlite.close();
+    return s;
+  }
+  const on = { enabled: true, sources: { mail: true }, model: { default: { kind: "cloud" } } };
+  const empty = [
+    { type: "text_delta" as const, text: '{"facts":[],"edges":[],"flags":[]}' },
+    { type: "finish" as const, reason: "stop" as const },
+  ];
+  const req = (trigger: string) =>
+    ({
+      automation: { prompt: "[psyche:everything-memory nightly]", kind: "cron" },
+      run: { id: "r", scheduledFor: "x", coalesced: 1, trigger },
+    }) as never;
+
+  it("Run now skips quiet hours and idle time but not power or the model", async () => {
+    const { e, db, provider, tmp } = await withIndex();
+    // 3 a.m. UTC is inside quiet hours; make it the afternoon.
+    setSetting(db, EVERYTHING_MEMORY_SETTING_KEY, on);
+    provider.enqueue(empty);
+    const r = await e.runNow();
+    expect(r).toMatchObject({ ran: true, reason: null, itemsRead: 1, factsProposed: 0 });
+    tmp.cleanup();
+  });
+
+  it("answers why it did not run, and never reads while the feature is off", async () => {
+    const { e, db, provider, tmp } = setup({
+      readState: async () => ({
+        onAc: false,
+        lowPowerMode: false,
+        thermal: "nominal" as const,
+        idleMinutes: 0,
+      }),
+    });
+    expect((await e.runNow()).reason).toBe("disabled");
+    setSetting(db, EVERYTHING_MEMORY_SETTING_KEY, {
+      enabled: true,
+      sources: { mail: true },
+      model: { default: { kind: "none" } },
+    });
+    expect((await e.runNow()).reason).toBe("model_none");
+    setSetting(db, EVERYTHING_MEMORY_SETTING_KEY, on);
+    // On battery the power gate answers before anything else is looked at.
+    expect((await e.runNow()).reason).toBe("battery");
+    e.store; // eslint-disable-line
+    expect(provider.requests).toHaveLength(0);
+    tmp.cleanup();
+  });
+
+  it("the scheduled job runs by its marker; manual runs ignore quiet hours, scheduled ones wait", async () => {
+    const { e, db, provider, tmp } = await withIndex();
+    setSetting(db, EVERYTHING_MEMORY_SETTING_KEY, on);
+    expect(e.job.matches({ prompt: "[psyche:everything-memory nightly]", kind: "cron" })).toBe(
+      true,
+    );
+    expect(e.job.matches({ prompt: "[psyche:daily-brief daily]", kind: "cron" })).toBe(false);
+    // The test clock reads 03:00 UTC, so a scheduled run is inside quiet hours but the Mac is in use.
+    const waiting = await e.job.run(req("schedule"));
+    expect(waiting).toEqual({ status: "no_reply", summary: "Waiting: you are using the Mac." });
+    expect(provider.requests).toHaveLength(0);
+    provider.enqueue(empty);
+    const manual = await e.job.run(req("manual"));
+    expect(manual.summary).toMatch(/^everything memory: 0 facts proposed from 1 items/);
+    tmp.cleanup();
+  });
+});

@@ -22,6 +22,7 @@ import {
   toFtsMatch,
 } from "./query-parser.ts";
 import { fuse, RRF_K } from "./ranking.ts";
+import { applyOrder, clampTopN, type RerankSettings, toCandidate } from "./rerank.ts";
 import { ensureSearchSchema, SOURCE_FLAGS_SCHEMA } from "./schema.ts";
 import { SemanticBusyError, type SemanticCandidate, type SemanticSearch } from "./semantic.ts";
 import {
@@ -63,6 +64,8 @@ export interface SqliteSearchIndexOptions {
   tzOffsetMinutes?: number | (() => number);
   /** Names and addresses a person is known by (people graph, contacts) for "from Alex". */
   resolvePerson?: (name: string) => readonly string[] | undefined;
+  /** Re-rank the top hits of `rerank: true` searches (`rerank.ts`); absent means never. */
+  rerank?: RerankSettings;
 }
 
 /** Semantic candidates (documents) fused into one search. */
@@ -122,6 +125,7 @@ export class SqliteSearchIndex implements SearchIndex {
   #memory: MemoryStore | undefined;
   #tz: () => number;
   #resolvePerson: ((name: string) => readonly string[] | undefined) | undefined;
+  #rerankSettings: RerankSettings | undefined;
   #queryModel: SqliteSearchIndexOptions["queryModel"];
   #upsert: Database.Statement;
   #delete: Database.Statement;
@@ -139,6 +143,7 @@ export class SqliteSearchIndex implements SearchIndex {
     const tz = options.tzOffsetMinutes ?? 0;
     this.#tz = typeof tz === "function" ? tz : () => tz;
     this.#resolvePerson = options.resolvePerson;
+    this.#rerankSettings = options.rerank;
     this.#queryModel = options.queryModel;
     ensureSearchSchema(db);
     this.cards = new CardStore(db);
@@ -404,6 +409,43 @@ export class SqliteSearchIndex implements SearchIndex {
    * so a query with matching words never comes back empty.
    */
   async search(request: SearchRequest): Promise<SearchResponse> {
+    const res = await this.#understoodSearch(request);
+    return request.rerank === true ? this.#rerank(request, res) : res;
+  }
+
+  /**
+   * Reorders the top hits with the configured reranker (`rerank.ts`). Owner viewers only, only
+   * when the owner switched it on; every failure keeps the order the search produced.
+   */
+  async #rerank(request: SearchRequest, res: SearchResponse): Promise<SearchResponse> {
+    const cfg = this.#rerankSettings;
+    if (cfg === undefined || !cfg.enabled()) return res;
+    if ((request.viewer ?? OWNER).kind !== "owner") return res;
+    const n = Math.min(clampTopN(cfg.topN?.()), res.hits.length);
+    if (n < 2) return res;
+    const head = res.hits.slice(0, n);
+    let order: string[];
+    try {
+      order = await cfg.reranker.rerank(request.q, head.map(toCandidate));
+    } catch {
+      return res;
+    }
+    if (order.length === 0) return res;
+    const ranked = applyOrder(head, order);
+    const pos = new Map(ranked.map((h, i) => [h.id, i] as const));
+    res.hits = [...ranked, ...res.hits.slice(n)];
+    for (const g of res.groups) {
+      // Only hits that were re-ranked move; the rest keep their place behind them.
+      const moved = g.hits
+        .filter((h) => pos.has(h.id))
+        .sort((a, b) => (pos.get(a.id) ?? 0) - (pos.get(b.id) ?? 0));
+      g.hits = [...moved, ...g.hits.filter((h) => !pos.has(h.id))];
+    }
+    res.reranked = { by: cfg.reranker.id, n };
+    return res;
+  }
+
+  async #understoodSearch(request: SearchRequest): Promise<SearchResponse> {
     if (request.understand === false) return this.#searchOnce(request);
     const opts = {
       now: this.#now(),
