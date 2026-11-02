@@ -69,6 +69,8 @@ export const Credentials: Story = { args: { defaultSection: "credentials" } };
 export const Appearance: Story = { args: { defaultSection: "appearance" } };
 export const VoiceAndDictation: Story = { args: { defaultSection: "voice" } };
 export const DataControls: Story = { args: { defaultSection: "data" } };
+/** Memory: review first, then remembering & learning, Everything memory, People & projects. */
+export const Memory: Story = { args: { defaultSection: "memory" } };
 /** `sandbox.status` is not in the mock, so the Sandbox group shows its error state. */
 export const ServerAndRemoteAccess: Story = { args: { defaultSection: "server" } };
 export const Usage: Story = { args: { defaultSection: "usage" } };
@@ -133,6 +135,16 @@ export const Window920: Story = {
 export const Window1200: Story = {
   args: { defaultSection: "about" },
   decorators: [frame(1200, 640)],
+};
+/** Search finds pages, panes and single settings; choosing one scrolls to it and tints it. */
+export const SearchResults: Story = {
+  args: { defaultSection: "general", defaultQuery: "search" },
+  decorators: [frame(920, 600)],
+};
+/** An old section id opens its page scrolled to that pane (`/settings/files`). */
+export const OldLinkToPane: Story = {
+  args: { defaultSection: "files" },
+  decorators: [frame(920, 600)],
 };
 /** Below 720 px the list stacks above the content (the web on a phone). */
 export const Window600Stacked: Story = {

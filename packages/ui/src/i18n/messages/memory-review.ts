@@ -86,9 +86,9 @@ export const memoryReview = {
   "personData.excludeOnly":
     "Their messages will not be read and nothing will be learned about them. What is already known stays until you forget it.",
   "personData.after.said": "The person, their messages and anything you added yourself stay.",
-  "personData.after.exclude": "You can allow them again in Settings → Everything memory.",
+  "personData.after.exclude": "You can allow them again in Settings → Memory → Everything memory.",
   "personData.after.exclude_forget":
-    "You can allow them again in Settings → Everything memory, but what was deleted does not come back.",
+    "You can allow them again in Settings → Memory → Everything memory, but what was deleted does not come back.",
   "personData.confirm.said": "Forget what they said",
   "personData.confirm.exclude": "Stop learning",
   "personData.confirm.exclude_forget": "Stop and forget",
@@ -150,7 +150,10 @@ export const memoryReview = {
   "everything.perSource.ref": "Model for {source}",
   "everything.sources.title": "Sources",
   "everything.sources.description":
-    "Each is off until you turn it on. Mail and Messages: what you wrote, and what the people chosen below wrote to you.",
+    "Each is off until you turn it on. Mail and Messages: what you wrote, and what the people chosen below wrote to you. Psyche learns only from what Search indexes.",
+  "everything.sources.notIndexed":
+    "Search doesn't index this yet, so there is nothing to learn from.",
+  "everything.sources.openSearch": "Turn on in Search",
   "everything.source.mail": "Mail",
   "everything.source.messages": "Messages",
   "everything.source.notes": "Notes",
@@ -241,7 +244,7 @@ export const memoryReview = {
     "Unconfirmed facts from others expire {months, number} months after last seen",
   "everything.retention.quarantine": "Quarantine is emptied after {days, number} days",
   "everything.storage.note":
-    "Stored on this Mac only. Facts that came from your own text are yours; delete everything from Settings → Data.",
+    "Stored on this Mac only. Facts that came from your own text are yours; delete everything from Settings → Privacy & data.",
   "everything.consent.title": "Set up everything memory",
   "everything.consent.step": "Step {n, number} of {total, number}",
   "everything.consent.next": "Next",

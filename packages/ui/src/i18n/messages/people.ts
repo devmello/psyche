@@ -166,7 +166,7 @@ export const people = {
   "people.sheet.filter.projects": "Projects",
   "people.sheet.filter.suggestions": "Suggestions",
   "people.sheet.filter.waiting": "Waiting on",
-  "people.sheet.empty": "No one yet. Turn on a source in Settings → People & projects.",
+  "people.sheet.empty": "No one yet. Turn on a source in Settings → Memory → People & projects.",
   "people.sheet.nothing": "No one matches “{query}”.",
   "people.sheet.noSuggestions": "Nothing to confirm.",
   "people.dialog.cancel": "Cancel",

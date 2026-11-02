@@ -23,7 +23,7 @@ function implicitOf(values: Record<string, unknown>): TeachingImplicitSignals {
 }
 
 /**
- * Settings → Data controls → Learning (teaching loop §8): learn from feedback, notice implicit
+ * Settings → Memory → Remembering & learning (teaching loop §8): learn from feedback, notice implicit
  * signals (each its own switch), pause learning, the weekly card, a link to Growth, and Forget
  * everything I learned behind a typed confirmation.
  */

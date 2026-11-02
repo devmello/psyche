@@ -1,20 +1,19 @@
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { DataControlsPanel } from "../src/screens/settings/DataControlsSection.tsx";
+import { MemoryControlsPanel } from "../src/screens/settings/DataControlsSection.tsx";
 
-/** Settings → Data controls → Memory: "Encrypt memory on disk" (EM9b). */
+/** Settings → Memory → Remembering & learning: "Encrypt memory on disk" (EM9b). */
 
-type Store = NonNullable<React.ComponentProps<typeof DataControlsPanel>["store"]>;
+type Store = NonNullable<React.ComponentProps<typeof MemoryControlsPanel>["store"]>;
 
 function renderPanel(store: Store | undefined, onEncryptMemory = vi.fn()) {
   render(
-    <DataControlsPanel
+    <MemoryControlsPanel
       values={{}}
       onChange={vi.fn()}
       persona="Wren"
       memoryPaused={false}
-      archivedThreads={0}
       onEncryptMemory={onEncryptMemory}
       {...(store === undefined ? {} : { store })}
     />,

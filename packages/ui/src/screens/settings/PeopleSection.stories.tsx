@@ -20,7 +20,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const On: Story = { args: { onOpenOwnCard: () => {}, onExport: () => {} } };
+export const On: Story = { args: { onOpenOwnCard: () => {}, onOpenExport: () => {} } };
 
 /** First run: off, every source off except your chats. */
 export const Off: Story = { args: { settings: GRAPH_DEFAULTS, status: null } };

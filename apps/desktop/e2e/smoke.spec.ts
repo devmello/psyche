@@ -304,10 +304,10 @@ test("Settings shares a folder through the native picker as a permissions.policy
     app.waitForEvent("window"),
     page.getByRole("menuitem", { name: /^Settings/ }).click(),
   ]);
-  await settings
-    .getByRole("navigation", { name: "Settings sections" })
-    .getByRole("button", { name: "File access" })
-    .click();
+  // File access is a pane on the Permissions page (settings-2026); its row shows under the page.
+  const nav = settings.getByRole("navigation", { name: "Settings sections" });
+  await nav.getByRole("button", { name: "Permissions" }).click();
+  await nav.getByRole("button", { name: "File access" }).click();
   await settings.getByRole("button", { name: "Choose a folder…" }).click();
   const call = await gw.waitForCall("settings.set", (p) =>
     JSON.stringify(p).includes('"permissions.policy"'),
