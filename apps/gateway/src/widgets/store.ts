@@ -38,6 +38,8 @@ export interface WidgetStoreOptions {
   now?: () => number;
   setTimer?: (fn: () => void, ms: number) => unknown;
   clearTimer?: (t: unknown) => void;
+  /** Checks bindings in a spec's root for a thread; returns the taint they add or throws. */
+  bindings?: (root: unknown, threadId: string) => TaintSource[];
 }
 
 interface Pending {
@@ -79,12 +81,14 @@ export class WidgetStore {
   readonly #now: () => number;
   readonly #setTimer: (fn: () => void, ms: number) => unknown;
   readonly #clearTimer: (t: unknown) => void;
+  readonly #bindings: (root: unknown, threadId: string) => TaintSource[];
   readonly #pending = new Map<string, Pending>();
   readonly #lastPublish = new Map<string, number>();
 
   constructor(opts: WidgetStoreOptions) {
     this.#db = opts.db;
     this.#publish = opts.publish;
+    this.#bindings = opts.bindings ?? (() => []);
     this.#now = opts.now ?? Date.now;
     this.#setTimer = opts.setTimer ?? ((fn, ms) => setTimeout(fn, ms));
     this.#clearTimer = opts.clearTimer ?? ((t) => clearTimeout(t as ReturnType<typeof setTimeout>));
@@ -100,11 +104,12 @@ export class WidgetStore {
   }): Widget {
     const v = validateWidgetSpec(input.spec);
     if (!v.ok) throw invalid("The widget spec", v.issues);
+    const bound = this.#bindings((input.spec as WidgetSpec).root, input.threadId);
     const widget = insertWidget(this.#db, {
       threadId: input.threadId,
       messageId: input.messageId,
       spec: input.spec as WidgetSpec,
-      taint: mergeTaint([], input.taint),
+      taint: mergeTaint([], [...input.taint, ...bound]),
       owner: input.owner,
       createdAt: new Date(this.#now()).toISOString(),
     });
@@ -143,7 +148,8 @@ export class WidgetStore {
     const ops = input.ops as WidgetOp[];
     const applied = applyWidgetOps(current.spec, ops);
     if (!applied.ok) throw invalid("The patch", applied.issues);
-    const taint = mergeTaint(current.taint, input.taint);
+    const bound = this.#bindings(applied.spec.root, input.threadId);
+    const taint = mergeTaint(current.taint, [...input.taint, ...bound]);
     const next = updateWidget(this.#db, current.id, current.rev, {
       spec: applied.spec,
       taint,

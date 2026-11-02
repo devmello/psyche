@@ -9,6 +9,7 @@ import {
   WidgetPatch,
   WidgetSpec,
 } from "./schemas/widgets.ts";
+import { bindingProblem } from "./widgets-bindings.ts";
 
 /**
  * Gateway-side widget spec validation (generative-ui-2026 §4.3, §7.1, §7.4, §10.1). Pure, no I/O.
@@ -268,6 +269,11 @@ function walk(ctx: Ctx, raw: unknown, path: string, depth: number): void {
   checkStrings(ctx, n, path, t);
   reservedCheck(ctx, t, n, path);
   extraChecks(ctx, t, n, path);
+
+  if (n.bind && typeof n.bind === "object") {
+    const problem = bindingProblem(n.bind as never, t);
+    if (problem !== null) add(ctx, `${path}.bind`, problem);
+  }
 
   const tableRows = t === "table" ? ((n.rows as unknown[] | undefined)?.length ?? 0) : 0;
   if (tableRows > WIDGET_LIMITS.tableRowsStored) {
