@@ -163,7 +163,7 @@ export const SETTINGS_PAGES: readonly SettingsPage[] = [
   page("general", SlidersHorizontal, ["appearance", "persona", "notifications", "voice"]),
   page("model", Cpu, ["model", "usage"]),
   page("connectors", Plug, ["connectors", "search", "mail", "channels"]),
-  page("memory", Brain, ["memory", "learning", "everything", "people"]),
+  page("memory", Brain, ["learning", "memory", "everything", "people"]),
   page("daily", CalendarClock, ["daily", "skills", "specialists"]),
   page("permissions", ShieldCheck, [
     "permissions",
