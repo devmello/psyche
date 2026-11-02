@@ -116,8 +116,11 @@ describe("widgets.act / widgets.preview", () => {
     let part: ReturnType<typeof composeWidgets> | undefined;
     const late = (name: string, transactional: boolean) => ({
       ...(transactional ? { transactional: true as const } : {}),
-      run: (call: Call, params: unknown) =>
-        (part?.handlers?.[name]?.run as (c: Call, p: unknown) => unknown)(call, params),
+      run: (call: Call, params: unknown) => {
+        const run = part?.handlers?.[name]?.run as ((c: Call, p: unknown) => unknown) | undefined;
+        if (run === undefined) throw new Error(`widgets handler ${name} is not mounted`);
+        return run(call, params);
+      },
     });
     t = await startTestGateway({
       agent,
