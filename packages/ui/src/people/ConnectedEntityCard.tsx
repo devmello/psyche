@@ -53,8 +53,7 @@ export function ConnectedEntityCard({
   );
   const target = card.entity ? { id: card.entity.id, name: card.entity.name } : null;
   const open =
-    onOpenEntity ??
-    ((other: string) => navigate?.(`/agent/soul?entity=${encodeURIComponent(other)}`));
+    onOpenEntity ?? ((other: string) => navigate?.(`/people?entity=${encodeURIComponent(other)}`));
   return (
     <>
       <EntityCard

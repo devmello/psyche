@@ -27,7 +27,7 @@ const COMPACT_BELOW = 720;
 const RANKED_SHOWN = 5;
 
 export const soulEntityHref = (entityId: string): string =>
-  `/agent/soul?entity=${encodeURIComponent(entityId)}`;
+  `/people?entity=${encodeURIComponent(entityId)}`;
 
 /** True while the nearest `@container/overview` ancestor is narrower than `COMPACT_BELOW`. */
 function useCompact(ref: RefObject<HTMLElement | null>): boolean {

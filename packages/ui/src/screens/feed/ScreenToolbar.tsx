@@ -84,6 +84,60 @@ export function ToolbarLabel({ children }: { children: ReactNode }): ReactElemen
   return <span className="@max-md/toolbar:sr-only">{children}</span>;
 }
 
+export interface ScreenSectionProps {
+  /** The anchor (`/home#today`); also names the heading's id. */
+  id: string;
+  title: string;
+  /** Short facts after the title ("3 posts"). */
+  meta?: ReactNode;
+  /** Trailing links and quiet buttons ("All notifications"). */
+  actions?: ReactNode;
+  /** Marks the section as waiting on the owner: an amber dot before the title. */
+  needsYou?: boolean;
+  children: ReactNode;
+  className?: string;
+}
+
+/**
+ * One section of a dashboard screen (Home, People; docs/design/consolidation-2026.md §3.1): a
+ * level-2 heading with its meta and actions, then the content as it is. The section is not a
+ * card itself, so the cards and lists inside never nest.
+ */
+export function ScreenSection({
+  id,
+  title,
+  meta,
+  actions,
+  needsYou = false,
+  children,
+  className,
+}: ScreenSectionProps): ReactElement {
+  const headingId = `${id}-heading`;
+  return (
+    <section
+      id={id}
+      aria-labelledby={headingId}
+      className={cn("flex scroll-mt-16 flex-col gap-3", className)}
+      data-testid={`section-${id}`}
+    >
+      {/* A toolbar container, so `ToolbarLabel`s in the actions drop to icons when it is narrow. */}
+      <header className="@container/toolbar flex min-h-7 items-center gap-2 px-1">
+        {needsYou ? (
+          <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-approval" />
+        ) : null}
+        <h2 id={headingId} className="shrink-0 text-title-3 text-label-primary">
+          {title}
+        </h2>
+        {meta ? (
+          <p className="min-w-0 truncate text-callout text-label-secondary tabular-nums">{meta}</p>
+        ) : null}
+        {actions ? <div className="ms-auto flex shrink-0 items-center gap-1">{actions}</div> : null}
+      </header>
+      {children}
+    </section>
+  );
+}
+
 /** The content column under the toolbar: 680 px for reading screens, 880 px for lists, the full width for split views. */
 export function ScreenColumn({
   width,

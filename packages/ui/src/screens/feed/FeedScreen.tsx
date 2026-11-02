@@ -10,13 +10,14 @@ import { t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
 import { formatTime } from "../../lib/format.ts";
 import { useNow } from "../../lib/use-now.ts";
+import { cn } from "../../lib/utils.ts";
 import { ListItem } from "../../motion/index.ts";
 import { useSlots } from "../../slots.tsx";
 import { FeedSpecialistResults } from "../../specialists/FeedResults.tsx";
 import { FeedInstructionsSheet } from "./FeedInstructionsSheet.tsx";
 import { type FeedFeedbackValue, FeedPostCard } from "./FeedPostCard.tsx";
 import { feedKind, feedTopic, primarySource } from "./feed-post.ts";
-import { ScreenColumn, ScreenToolbar, ToolbarLabel } from "./ScreenToolbar.tsx";
+import { ScreenColumn, ScreenSection, ScreenToolbar, ToolbarLabel } from "./ScreenToolbar.tsx";
 
 /** A source the brief could not read (the protocol has no field for it yet; see the report). */
 export interface FeedSourceFailure {
@@ -46,6 +47,11 @@ export interface FeedViewProps {
   onOpenRoute?: (route: string) => void;
   /** Specialists' results, above the brief, when the owner turned them on (specialists §6.2). */
   specialistResults?: ReactNode;
+  /**
+   * `page` is the Feed screen; `section` is Home's "Today" (docs/design/consolidation-2026.md
+   * §3.1): a section heading instead of the toolbar, and a quiet line when there are no posts.
+   */
+  layout?: "page" | "section";
 }
 
 /** The Feed (UI design §3.9): a bounded daily brief with an end marker. Presentational. */
@@ -65,7 +71,9 @@ export function FeedView({
   onGenerate,
   onOpenRoute,
   specialistResults,
+  layout = "page",
 }: FeedViewProps): ReactElement {
+  const section = layout === "section";
   const nextAt = nextBriefAt === null ? null : formatTime(nextBriefAt);
   const settled = !loading && error === null;
   const showSkeleton = useDelayedFlag(loading, loadingDelayMs);
@@ -104,6 +112,17 @@ export function FeedView({
         <LoadingCards label={t("screens.feed.generating")} count={2} lines={3} />
       </div>
     );
+  } else if (posts.length === 0 && section) {
+    body = (
+      <p className="flex flex-wrap items-center gap-x-2 px-1 text-callout text-label-secondary">
+        {t("screens.feed.empty", { at: nextAt ?? "07:00" })}
+        {onGenerate ? (
+          <Button type="button" size="xs" variant="plain" onClick={onGenerate}>
+            {t("screens.feed.generateFirst")}
+          </Button>
+        ) : null}
+      </p>
+    );
   } else if (posts.length === 0) {
     body = (
       <EmptyState
@@ -130,13 +149,96 @@ export function FeedView({
           ))}
         </ul>
         {/* The end marker (§5.6): one centred line with 48 px of space above. */}
-        <p className="pt-12 text-center text-callout text-label-secondary">
+        <p
+          className={cn(
+            "text-center text-callout text-label-secondary",
+            section ? "pt-2" : "pt-12",
+          )}
+        >
           {t("screens.feed.end", { next: nextAt ?? "", hasNext: Boolean(nextAt) })}
         </p>
       </>
     );
   }
 
+  const actions = (
+    <>
+      {onEditInstructions ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          title={t("screens.feed.instructions")}
+          onClick={onEditInstructions}
+        >
+          <PenLine aria-hidden="true" />
+          <ToolbarLabel>{t("screens.feed.instructions")}</ToolbarLabel>
+        </Button>
+      ) : null}
+      {onSchedule ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          title={t("screens.feed.schedule")}
+          onClick={onSchedule}
+        >
+          <CalendarClock aria-hidden="true" />
+          <ToolbarLabel>{t("screens.feed.schedule")}</ToolbarLabel>
+        </Button>
+      ) : null}
+    </>
+  );
+  const content = (
+    <>
+      {settled && sourceFailures.length > 0 ? (
+        <ul
+          aria-label={t("screens.feed.skipped")}
+          className="flex flex-col rounded-lg bg-surface-raised shadow-elevation-1"
+        >
+          {sourceFailures.map((f) => (
+            <li
+              key={f.source}
+              className="relative flex min-h-9 flex-wrap items-center gap-3 px-3 py-1.5 text-body before:absolute before:inset-x-3 before:top-0 before:h-px before:bg-separator first:before:hidden"
+            >
+              <CircleAlert className="size-4 shrink-0 text-approval-text" aria-hidden="true" />
+              <span className="min-w-0 flex-1 text-label-primary">
+                {t("screens.feed.sourceFailed", { source: f.source, reason: f.reason })}
+              </span>
+              {f.route !== undefined && onOpenRoute ? (
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="plain"
+                  onClick={() => onOpenRoute(f.route ?? "")}
+                  aria-label={t("screens.feed.fixSource", { source: f.source })}
+                >
+                  {t("screens.feed.fix")}
+                </Button>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {settled ? specialistResults : null}
+      {body}
+    </>
+  );
+
+  if (section) {
+    return (
+      <ScreenSection
+        id="today"
+        title={t("home.today")}
+        {...(settled && posts.length > 0
+          ? { meta: t("home.today.posts", { n: posts.length }) }
+          : {})}
+        actions={actions}
+      >
+        {content}
+      </ScreenSection>
+    );
+  }
   return (
     <section aria-label={t("screens.feed.title")}>
       <ScreenToolbar
@@ -146,68 +248,9 @@ export function FeedView({
             ? t("screens.feed.todayPosts", { n: posts.length })
             : t("screens.feed.today")
         }
-        actions={
-          <>
-            {onEditInstructions ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                title={t("screens.feed.instructions")}
-                onClick={onEditInstructions}
-              >
-                <PenLine aria-hidden="true" />
-                <ToolbarLabel>{t("screens.feed.instructions")}</ToolbarLabel>
-              </Button>
-            ) : null}
-            {onSchedule ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                title={t("screens.feed.schedule")}
-                onClick={onSchedule}
-              >
-                <CalendarClock aria-hidden="true" />
-                <ToolbarLabel>{t("screens.feed.schedule")}</ToolbarLabel>
-              </Button>
-            ) : null}
-          </>
-        }
+        actions={actions}
       />
-      <ScreenColumn width="reading">
-        {settled && sourceFailures.length > 0 ? (
-          <ul
-            aria-label={t("screens.feed.skipped")}
-            className="flex flex-col rounded-lg bg-surface-raised shadow-elevation-1"
-          >
-            {sourceFailures.map((f) => (
-              <li
-                key={f.source}
-                className="relative flex min-h-9 flex-wrap items-center gap-3 px-3 py-1.5 text-body before:absolute before:inset-x-3 before:top-0 before:h-px before:bg-separator first:before:hidden"
-              >
-                <CircleAlert className="size-4 shrink-0 text-approval-text" aria-hidden="true" />
-                <span className="min-w-0 flex-1 text-label-primary">
-                  {t("screens.feed.sourceFailed", { source: f.source, reason: f.reason })}
-                </span>
-                {f.route !== undefined && onOpenRoute ? (
-                  <Button
-                    type="button"
-                    size="xs"
-                    variant="plain"
-                    onClick={() => onOpenRoute(f.route ?? "")}
-                    aria-label={t("screens.feed.fixSource", { source: f.source })}
-                  >
-                    {t("screens.feed.fix")}
-                  </Button>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        ) : null}
-        {settled ? specialistResults : null}
-        {body}
-      </ScreenColumn>
+      <ScreenColumn width="reading">{content}</ScreenColumn>
     </section>
   );
 }
@@ -227,16 +270,15 @@ export interface FeedScreenProps {
   instructionsOpen?: boolean;
   /** Closing the instructions sheet; defaults to navigating back to `/feed`. */
   onCloseInstructions?: () => void;
-  /**
-   * Defaults to the Overview's Upcoming section (`/overview#upcoming`), where briefings are
-   * scheduled.
-   */
+  /** Defaults to Scheduled (`/scheduled`), where the brief's routine is paused, run or set up. */
   onSchedule?: () => void;
   /** Defaults to `feed.generate` through `useFeed().generate`. */
   onGenerate?: () => Promise<unknown> | undefined;
   sourceFailures?: readonly FeedSourceFailure[];
   /** Fixed clock (stories, tests). */
   now?: number;
+  /** The Feed screen, or Home's "Today" section (instructions then live at `/home/instructions`). */
+  layout?: "page" | "section";
 }
 
 const FEEDBACK_TOAST: Record<FeedFeedbackValue, (post: FeedPost) => string> = {
@@ -261,7 +303,9 @@ export function FeedScreen({
   onGenerate,
   sourceFailures,
   now: fixedNow,
+  layout = "page",
 }: FeedScreenProps): ReactElement {
+  const base = layout === "section" ? "/home" : "/feed";
   const { navigate } = useSlots();
   const askAbout = useAskAboutFeedItem();
   const onAsk = onAskProp ?? askAbout;
@@ -302,14 +346,14 @@ export function FeedScreen({
     onEditInstructions ??
     (() => {
       setOwnOpen(true);
-      navigate?.("/feed/instructions");
+      navigate?.(`${base}/instructions`);
     });
   const closeInstructions = () => {
     setOwnOpen(false);
     if (onCloseInstructions) onCloseInstructions();
-    else if (instructionsOpen !== undefined) navigate?.("/feed");
+    else if (instructionsOpen !== undefined) navigate?.(base);
   };
-  const schedule = onSchedule ?? (() => navigate?.("/overview#upcoming"));
+  const schedule = onSchedule ?? (() => navigate?.("/scheduled"));
 
   return (
     <>
@@ -326,6 +370,7 @@ export function FeedScreen({
         onSchedule={schedule}
         onGenerate={generate}
         onOpenRoute={(route) => navigate?.(route)}
+        layout={layout}
         {...(settings["specialists.showInFeed"] === true
           ? { specialistResults: <FeedSpecialistResults now={now} /> }
           : {})}
