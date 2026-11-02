@@ -654,6 +654,9 @@
 //   let mailThreadRef = try? JSONDecoder().decode(MailThreadRef.self, from: jsonData)
 //   let mCPAddParams = try? JSONDecoder().decode(MCPAddParams.self, from: jsonData)
 //   let mCPAddResult = try? JSONDecoder().decode(MCPAddResult.self, from: jsonData)
+//   let mCPApp = try? JSONDecoder().decode(MCPApp.self, from: jsonData)
+//   let mCPAppParams = try? JSONDecoder().decode(MCPAppParams.self, from: jsonData)
+//   let mCPAppResult = try? JSONDecoder().decode(MCPAppResult.self, from: jsonData)
 //   let mCPFilesReadParams = try? JSONDecoder().decode(MCPFilesReadParams.self, from: jsonData)
 //   let mCPFilesWriteParams = try? JSONDecoder().decode(MCPFilesWriteParams.self, from: jsonData)
 //   let mCPProbeParams = try? JSONDecoder().decode(MCPProbeParams.self, from: jsonData)
@@ -16522,6 +16525,69 @@ public enum MadeBy: String, Codable, Sendable {
 public enum KindEnum: String, Codable, Sendable {
     case http = "http"
     case stdio = "stdio"
+}
+
+// MARK: - MCPAppParams
+public struct MCPAppParams: Codable, Sendable {
+    /// The tool's name as the transcript shows it (mcp__<server>__<tool>)
+    public let tool: String
+
+    public enum CodingKeys: String, CodingKey {
+        case tool = "tool"
+    }
+
+    public init(tool: String) {
+        self.tool = tool
+    }
+}
+
+// MARK: - MCPAppResult
+public struct MCPAppResult: Codable, Sendable {
+    public let app: MCPApp?
+    /// False when the tool declares no app, is off, or its server is not running
+    public let available: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case app = "app"
+        case available = "available"
+    }
+
+    public init(app: MCPApp?, available: Bool) {
+        self.app = app
+        self.available = available
+    }
+}
+
+// MARK: - MCPApp
+public struct MCPApp: Codable, Sendable {
+    public let csp: [String: JSONAny]
+    public let html: String
+    public let permissions: [String: JSONAny]
+    public let provenance: ProvenanceEnum
+    public let serverID: String
+    public let uri: String
+
+    public enum CodingKeys: String, CodingKey {
+        case csp = "csp"
+        case html = "html"
+        case permissions = "permissions"
+        case provenance = "provenance"
+        case serverID = "serverId"
+        case uri = "uri"
+    }
+
+    public init(csp: [String: JSONAny], html: String, permissions: [String: JSONAny], provenance: ProvenanceEnum, serverID: String, uri: String) {
+        self.csp = csp
+        self.html = html
+        self.permissions = permissions
+        self.provenance = provenance
+        self.serverID = serverID
+        self.uri = uri
+    }
+}
+
+public enum ProvenanceEnum: String, Codable, Sendable {
+    case untrusted = "untrusted"
 }
 
 // MARK: - MCPFilesReadParams

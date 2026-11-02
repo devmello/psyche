@@ -42,6 +42,7 @@ import {
   type Lesson,
   type LibraryItem,
   type LinkPaymentMethod,
+  type McpApp,
   type McpProposal,
   type McpServerSecret,
   type McpServerStatus,
@@ -413,6 +414,8 @@ export class MockGateway implements GatewayClient {
   capabilityCatalog: CatalogEntry[] = [];
   /** How stdio MCP servers run; tests set `"none"` for a Gateway with no sandbox. */
   mcpLauncher: "srt" | "container" | "none" = "srt";
+  /** MCP Apps by tool name (`mcp__<server>__<tool>`), for `mcp.app`. */
+  mcpApps: Record<string, McpApp> = {};
   /** `sandbox.installSrt` calls so far, and an error to throw from it (tests). */
   installSrtCalls = 0;
   installSrtError: Error | null = null;
@@ -2739,6 +2742,10 @@ export class MockGateway implements GatewayClient {
         entries: [{ key: "tools.loading", value: map, updatedAt: this.now() }],
       });
       return { ok: true as const };
+    },
+    "mcp.app": (p: { tool: string }) => {
+      const app = this.mcpApps[p.tool];
+      return app === undefined ? { available: false } : { available: true, app };
     },
     "mcp.status": () => ({ launcher: this.mcpLauncher, servers: this.mcpServers }),
     "mcp.probe": (p) => {

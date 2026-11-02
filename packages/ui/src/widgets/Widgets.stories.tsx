@@ -21,6 +21,7 @@ import {
   remoteImageWidget,
 } from "./fixtures-media.ts";
 import { withFeedWidget } from "./fixtures-surfaces.ts";
+import { McpAppPanel } from "./McpAppPanel.tsx";
 import { PinnedWidgets } from "./PinnedWidgets.tsx";
 import { WidgetBlockView } from "./WidgetBlock.tsx";
 
@@ -133,4 +134,28 @@ export const FeedSnapshot: Story = {
       </StoryWorld>
     );
   },
+};
+
+/** An MCP App a connector's tool declares: untrusted, closed until Run app, no way back to the Gateway. */
+export const McpApp: Story = {
+  render: () => (
+    <StoryWorld
+      onGateway={(g) => {
+        g.mcpApps = {
+          mcp__echo__show_chart: {
+            serverId: "echo",
+            uri: "ui://echo/chart.html",
+            html: "<p>Chart</p>",
+            csp: {},
+            permissions: {},
+            provenance: "untrusted",
+          },
+        };
+      }}
+    >
+      <div className="max-w-[640px] p-4">
+        <McpAppPanel tool="mcp__echo__show_chart" />
+      </div>
+    </StoryWorld>
+  ),
 };

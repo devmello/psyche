@@ -5354,6 +5354,32 @@ export type MadeBy = "psyche";
 
 export type KindEnum = "stdio" | "http";
 
+export interface MCPAppParams {
+    /**
+     * The tool's name as the transcript shows it (mcp__<server>__<tool>)
+     */
+    tool: string;
+}
+
+export interface MCPAppResult {
+    app?: MCPApp;
+    /**
+     * False when the tool declares no app, is off, or its server is not running
+     */
+    available: boolean;
+}
+
+export interface MCPApp {
+    csp:         { [key: string]: unknown };
+    html:        string;
+    permissions: { [key: string]: unknown };
+    provenance:  ProvenanceEnum;
+    serverId:    string;
+    uri:         string;
+}
+
+export type ProvenanceEnum = "untrusted";
+
 export interface MCPFilesReadParams {
     serverId: string;
 }

@@ -406,3 +406,4 @@ export {
   VOICE_KEYS,
   type VoiceSettings,
 } from "./voice/settings.ts";
+export { McpAppPanel } from "./widgets/McpAppPanel.tsx";
