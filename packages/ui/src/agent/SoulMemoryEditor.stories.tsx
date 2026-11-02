@@ -17,7 +17,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 /** Roughly 9.5k characters, as in the report: far taller than the dialog. */
-export const LONG_DOCUMENT = [
+const LONG_DOCUMENT = [
   "# Operating instructions",
   ...Array.from(
     { length: 24 },

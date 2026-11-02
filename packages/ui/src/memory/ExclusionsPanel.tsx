@@ -80,9 +80,9 @@ export function ExclusionsPanel({
           onChange={(ev) => setKind(ev.target.value as Kind)}
           className="h-7 w-28"
         >
-          <option value="email">email</option>
-          <option value="phone">phone</option>
-          <option value="domain">domain</option>
+          <option value="email">{t("everything.exclusions.kind.email")}</option>
+          <option value="phone">{t("everything.exclusions.kind.phone")}</option>
+          <option value="domain">{t("everything.exclusions.kind.domain")}</option>
         </NativeSelect>
         <Input
           aria-label={t("everything.exclusions.value")}
