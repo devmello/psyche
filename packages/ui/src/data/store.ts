@@ -1,11 +1,13 @@
 import {
   AGENT_NOTES_DIR,
+  type AutomationRun,
   applyWidgetOps,
   type MethodName,
   type MethodParams,
   type MethodResult,
   PsycheError,
   requiresIdempotencyKey,
+  type ThreadListEntry,
 } from "@psyche/protocol";
 import {
   type ConnectionState,
@@ -598,6 +600,7 @@ export class GatewayStore {
         const prev = s.threads[t.id];
         const activity = prev?.activity ?? { running: 0, awaitingInput: 0, awaitingApproval: 0 };
         const lastMessage = prev?.lastMessage;
+        const automation = prev?.automation;
         return touch(
           {
             ...s,
@@ -607,6 +610,7 @@ export class GatewayStore {
                 thread: t,
                 activity,
                 ...(lastMessage === undefined ? {} : { lastMessage }),
+                ...(automation === undefined ? {} : { automation }),
               },
             },
           },
@@ -658,10 +662,15 @@ export class GatewayStore {
           e.payload.path.startsWith(AGENT_NOTES_DIR) ? ["memory.notes."] : [],
         );
       case "automation.updated":
+        return invalidate(s, ["scheduled.list", "scheduled.runs", "automations.runs"]);
       case "automation.run.started":
       case "automation.run.finished":
-        // The Scheduled screen: the list, and each automation's run history.
-        return invalidate(s, ["scheduled.list", "scheduled.runs", "automations.runs"]);
+        // The Scheduled screen: the list, and each automation's run history; the automation's
+        // chat in the sidebar moves up and reads its new count and last run.
+        return invalidate(
+          withAutomationRun(s, e.payload.run, e.event === "automation.run.started"),
+          ["scheduled.list", "scheduled.runs", "automations.runs"],
+        );
       case "audit.change.recorded":
         // The chat's change chip and the audit view read audit.changes.
         return invalidate(s, ["audit.changes", "audit.verify"]);
@@ -739,6 +748,42 @@ const INSIGHTS_EVENTS: ReadonlySet<string> = new Set([
 /** Marks the teaching loop's queries (lessons, feedback, Growth) as needing a reload. */
 export function invalidateTeaching(s: UiState): UiState {
   return invalidate(s, ["memory.lessons.", "feedback.", "growth."]);
+}
+
+/**
+ * An automation's chat in the thread list follows its runs: a run that starts counts once and
+ * becomes the last run; its end updates the status.
+ */
+export function withAutomationRun(s: UiState, run: AutomationRun, started: boolean): UiState {
+  const home = Object.values(s.threads).find(
+    (e) => e.automation?.automationId === run.automationId,
+  );
+  if (home?.automation === undefined) return s;
+  const prev = home.automation.lastRun;
+  const known = prev?.id === run.id;
+  const newest = prev === undefined || Date.parse(run.startedAt) >= Date.parse(prev.startedAt);
+  const entry: ThreadListEntry = {
+    ...home,
+    thread: started ? { ...home.thread, lastMessageAt: run.startedAt } : home.thread,
+    automation: {
+      ...home.automation,
+      runCount: home.automation.runCount + (!known && newest ? 1 : 0),
+      ...(known || newest
+        ? {
+            lastRun: {
+              id: run.id,
+              status: run.status,
+              startedAt: run.startedAt,
+              endedAt: run.endedAt ?? null,
+              summary: run.summary ?? null,
+            },
+          }
+        : prev === undefined
+          ? {}
+          : { lastRun: prev }),
+    },
+  };
+  return { ...s, threads: { ...s.threads, [home.thread.id]: entry } };
 }
 
 /** Marks generic queries whose method starts with one of `prefixes` as needing a reload. */
