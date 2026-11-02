@@ -2,7 +2,7 @@ import type { FeedWidget, Widget } from "@psyche/protocol";
 import { lazy, type ReactElement, Suspense } from "react";
 import type { BlockOf } from "../blocks/types.ts";
 import { DelayedSkeleton } from "../components/DelayedSkeleton.tsx";
-import { useWidget } from "../data/index.ts";
+import { useWidget, useWidgetDrafts } from "../data/index.ts";
 import { t } from "../i18n/core.ts";
 
 /**
@@ -10,6 +10,7 @@ import { t } from "../i18n/core.ts";
  * chunk loaded on the first widget of a session; nothing of it is in the main bundle.
  */
 const WidgetView = lazy(() => import("./WidgetView.tsx"));
+const WidgetDraft = lazy(() => import("./WidgetDraft.tsx"));
 
 /**
  * A widget snapshot on a Feed post (generative-ui-2026 §8, D8): static (no bindings, no patches, no
@@ -67,6 +68,19 @@ export function WidgetBlockView({
   return (
     <Suspense fallback={<DelayedSkeleton label={t("widgets.frame.loading")} />}>
       <WidgetView widget={widget} surface={surface} />
+    </Suspense>
+  );
+}
+
+/** Previews of the widgets the model is writing in this thread, at the end of the transcript. */
+export function WidgetDrafts({ threadId }: { threadId: string }): ReactElement | null {
+  const drafts = useWidgetDrafts(threadId);
+  if (drafts.length === 0) return null;
+  return (
+    <Suspense fallback={null}>
+      {drafts.map((d) => (
+        <WidgetDraft key={d.callId} draft={d} />
+      ))}
     </Suspense>
   );
 }

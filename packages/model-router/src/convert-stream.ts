@@ -3,7 +3,7 @@ import type {
   LanguageModelV4StreamPart,
   LanguageModelV4Usage,
 } from "@ai-sdk/provider";
-import type { FinishReason, ModelEvent } from "@psyche/protocol";
+import { type FinishReason, type ModelEvent, WIDGET_DRAFT_TOOLS } from "@psyche/protocol";
 import type { OpaqueEnvelope, ProviderMetadata } from "./envelope.ts";
 import { classifyError } from "./errors.ts";
 import type { ToolNameMap } from "./tool-names.ts";
@@ -75,6 +75,8 @@ export class StreamConverter {
   readonly #providerId: string;
   readonly #model: string;
   readonly #reasoning = new Map<string, { text: string; metadata: ProviderMetadata | undefined }>();
+  /** Tool calls whose input streams out as it is written (render_ui). */
+  readonly #drafting = new Map<string, string>();
   readonly #textMeta = new Map<string, ProviderMetadata | undefined>();
   readonly #providerCalls = new Map<
     string,
@@ -160,7 +162,19 @@ export class StreamConverter {
         if (this.#prefix !== undefined) env.prefix = this.#prefix;
         return [this.#envelope(env)];
       }
+      case "tool-input-start": {
+        if (part.providerExecuted === true) return [];
+        const name = this.#toolNames?.toOurs(part.toolName) ?? part.toolName;
+        if (WIDGET_DRAFT_TOOLS.includes(name)) this.#drafting.set(part.id, name);
+        return [];
+      }
+      case "tool-input-delta": {
+        const name = this.#drafting.get(part.id);
+        if (name === undefined || part.delta.length === 0) return [];
+        return [{ type: "tool_input", id: part.id, name, delta: part.delta }];
+      }
       case "tool-call": {
+        this.#drafting.delete(part.toolCallId);
         const input = parseInput(part.input);
         const metadata = merge(undefined, part.providerMetadata);
         if (part.providerExecuted === true) {

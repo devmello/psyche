@@ -51,6 +51,15 @@ export interface ReasoningStep {
   updatedAt: string;
 }
 
+/** A throwaway preview of a render_ui spec being written (`widget.draft`): never stored. */
+export interface WidgetDraftState {
+  threadId: string;
+  callId: string;
+  title: string | null;
+  root: Record<string, unknown> | null;
+  nodes: number;
+}
+
 export interface StreamingMessage {
   threadId: string;
   messageId: string;
@@ -122,6 +131,8 @@ export interface UiState {
   streaming: Dict<StreamingMessage>;
   /** Reasoning steps of runs in progress, by step id (#633). */
   reasoning: Dict<ReasoningStep>;
+  /** Widget previews while the model writes them, by tool-call id; dropped when the call ends. */
+  widgetDrafts: Dict<WidgetDraftState>;
   queue: readonly QueuedFollowUp[];
   runs: Dict<Run>;
   /** Run-trace steps by run id, ordered by seq (`runs.get`, `runs.steps`, `run.step`). */
@@ -189,6 +200,7 @@ export const INITIAL_STATE: UiState = {
   historyCursor: {},
   streaming: {},
   reasoning: {},
+  widgetDrafts: {},
   queue: [],
   runs: {},
   runSteps: {},

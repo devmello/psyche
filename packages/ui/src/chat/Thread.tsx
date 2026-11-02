@@ -28,6 +28,7 @@ import { LayoutMotion, Presence } from "../motion/index.ts";
 import { usePersona, useSlots } from "../slots.tsx";
 import { SpecialistSpawns } from "../specialists/SpawnLine.tsx";
 import { VoiceComposer } from "../voice/composer-voice.tsx";
+import { WidgetDrafts } from "../widgets/WidgetBlock.tsx";
 import { ApprovalDock } from "./ApprovalDock.tsx";
 import { attachSupport, modelCapabilities, uploadFile } from "./attachments.ts";
 import type { ArgContext } from "./command-args.ts";
@@ -797,6 +798,7 @@ export function ChatThread({
                   />
                 ) : null}
                 <SpecialistSpawns jobs={spawnsByRun.rest} roles={specialistRoles} />
+                <WidgetDrafts threadId={threadId} />
                 {showSteps ? (
                   <RunStepLog
                     persona={persona.name}
