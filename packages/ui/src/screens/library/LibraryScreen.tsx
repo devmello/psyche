@@ -370,19 +370,23 @@ export function LibraryItemView({
     ) : null;
 
   if (layout === "grid") {
+    // A sheet of paper (unslop 2026-11): the type sits at the foot like a page footer.
     const iconTile = (
-      <span className="flex size-full flex-col items-center justify-center gap-2 text-label-secondary">
-        <ItemIcon item={item} className="size-10 stroke-[1.25]" />
-        <span className="text-subheadline font-medium text-label-tertiary">{fileType(item)}</span>
+      <span className="flex size-full flex-col items-center justify-center gap-2 text-label-tertiary">
+        <ItemIcon item={item} className="size-8 stroke-[1.25]" />
+        <span className="absolute inset-x-0 bottom-2 font-mono text-[10px]/[12px] text-label-tertiary uppercase">
+          {fileType(item)}
+        </span>
       </span>
     );
+    const gridMeta = [formatBytes(item.size), formatDate(item.createdAt)].join(" · ");
     return (
       <article
         aria-labelledby={nameId}
         data-selected={selected || undefined}
-        className="group/tile flex flex-col items-center gap-1.5 text-center"
+        className="group/tile flex w-full flex-col items-center gap-1.5 text-center"
       >
-        <div className="relative w-full max-w-40">
+        <div className="relative w-full max-w-36">
           <ItemContextMenu item={item} actions={actions} taskTitle={taskTitle}>
             <button
               type="button"
@@ -392,9 +396,9 @@ export function LibraryItemView({
               onDoubleClick={() => onOpen?.(item)}
               onKeyDown={itemKeys(item, actions)}
               className={cn(
-                "relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-md bg-fill-quaternary transition-colors outline-none",
-                "hover:bg-fill-tertiary focus-visible:ring-3 focus-visible:ring-ring/50",
-                selected ? "bg-selection ring-2 ring-accent-8" : "",
+                "relative flex aspect-[4/5] w-full items-center justify-center overflow-hidden rounded-sm bg-surface-raised shadow-elevation-1 transition-shadow outline-none",
+                "hover:shadow-elevation-2 focus-visible:ring-3 focus-visible:ring-ring/50",
+                selected ? "ring-2 ring-accent-8" : "",
               )}
             >
               {renderThumbnail ? renderThumbnail(item, iconTile) : iconTile}
@@ -417,8 +421,11 @@ export function LibraryItemView({
           >
             {item.name}
           </span>
-          <span className="w-full truncate text-subheadline text-label-secondary tabular-nums">
-            {meta}
+          <span
+            className="w-full truncate text-subheadline text-label-secondary tabular-nums"
+            title={meta}
+          >
+            {gridMeta}
           </span>
           {item.tags.length > 0 ? (
             <span className="w-full truncate text-subheadline text-label-tertiary">

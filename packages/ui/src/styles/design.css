@@ -85,7 +85,8 @@
 
   /* Run-trace bars (run-trace-2026.md §3.3): each ≥ 3:1 on the canvas (contrast-gate test). */
   --trace-thinking: var(--gray-9);
-  --trace-tool: var(--accent-9);
+  /* Graphite, not ink: the playhead and the selected step carry the one accent (unslop 2026-11). */
+  --trace-tool: var(--gray-11);
   --trace-waiting: var(--amber-11);
   --trace-failed: var(--tomato-9);
 
