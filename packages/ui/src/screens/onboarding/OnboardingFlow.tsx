@@ -3,6 +3,12 @@ import { lazy, type ReactElement, Suspense, useEffect, useId, useRef, useState }
 import { DEFAULT_CREATURE } from "../../avatar/creatures/index.tsx";
 import { PsycheMark } from "../../brand.tsx";
 import { Button } from "../../components/ui/button.tsx";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../../components/ui/dropdown-menu.tsx";
 import { useGatewayQuery } from "../../data/index.ts";
 import { t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
@@ -416,54 +422,59 @@ export function OnboardingFlow({
 
   return (
     <div
-      // One centred 560 px column (docs/design/redesign-2026.md §5.9). In a flex parent it is
+      // One 560 px column (docs/design/redesign-2026.md §5.9). In a flex parent it is
       // also centred vertically (`my-auto`) with a steady minimum height, so Back / Next keep
       // their place between steps; taller steps scroll. `shrink-0`: with an explicit min-height
       // a flex item may otherwise shrink to the window and let Back / Next overflow.
-      className="mx-auto my-auto flex w-full max-w-[608px] shrink-0 flex-col gap-8 bg-canvas px-6 py-10 md:min-h-[600px]"
+      className="mx-auto my-auto flex w-full max-w-152 shrink-0 flex-col gap-8 bg-canvas px-6 py-10 md:min-h-150"
       data-testid="onboarding-flow"
     >
-      <header className="flex flex-col items-center gap-5">
+      <header className="flex items-center justify-between gap-4">
         <span className="text-label-tertiary" data-testid="onboarding-mark">
           <PsycheMark size={24} />
         </span>
-        <nav aria-label={t("onboarding.progress")}>
-          {/* Step dots; each dot is named for VoiceOver and the visited ones are buttons. */}
-          <ol className="flex items-center gap-2">
+        {/* Quiet progress: "2 of 11" is the trigger of the step menu (reached steps jump). */}
+        <span
+          role="progressbar"
+          aria-label={t("onboarding.progress")}
+          aria-valuemin={1}
+          aria-valuemax={steps.length}
+          aria-valuenow={index + 1}
+          aria-valuetext={t("onboarding.stepCount", { n: index + 1, total: steps.length })}
+          className="sr-only"
+        >
+          {t("onboarding.stepCount", { n: index + 1, total: steps.length })}
+        </span>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            aria-label={`${t("onboarding.progress")}: ${t("onboarding.stepCount", { n: index + 1, total: steps.length })}`}
+            className="-me-1.5 cursor-default rounded-sm px-1.5 py-0.5 text-callout text-label-tertiary tabular-nums outline-none hover:text-label-secondary focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <span aria-hidden="true">
+              {t("onboarding.stepCount", { n: index + 1, total: steps.length })}
+            </span>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
             {steps.map((s, i) => {
               const active = s === current;
               const done = i < index;
-              const reachable = i <= reached && !active;
-              const label = stepLabel(s, name);
-              const dot = cn(
-                "block h-2 rounded-full transition-colors duration-(--duration-short)",
-                active ? "w-5 bg-accent-9" : done ? "w-2 bg-accent-7" : "w-2 bg-fill-primary",
-              );
               return (
-                <li key={s} aria-current={active ? "step" : undefined}>
-                  {reachable ? (
-                    <button
-                      type="button"
-                      className="flex h-6 cursor-default items-center rounded-full px-0.5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      onClick={() => go(s)}
-                    >
-                      <span aria-hidden="true" className={dot} />
-                      <span className="sr-only">
-                        {label}
-                        {done ? ` ${t("onboarding.doneMark")}` : ""}
-                      </span>
-                    </button>
-                  ) : (
-                    <span className="flex h-6 items-center px-0.5">
-                      <span aria-hidden="true" className={dot} />
-                      <span className="sr-only">{label}</span>
-                    </span>
-                  )}
-                </li>
+                <DropdownMenuItem
+                  key={s}
+                  aria-current={active ? "step" : undefined}
+                  disabled={i > reached}
+                  onClick={() => {
+                    if (!active) go(s);
+                  }}
+                  className={active ? "font-medium" : ""}
+                >
+                  {stepLabel(s, name)}
+                  {done ? <span className="sr-only"> {t("onboarding.doneMark")}</span> : null}
+                </DropdownMenuItem>
               );
             })}
-          </ol>
-        </nav>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </header>
 
       <section
@@ -576,7 +587,8 @@ export function OnboardingFlow({
       <div className="mt-auto flex items-center gap-2" data-testid="onboarding-nav">
         <Button
           type="button"
-          variant="plain"
+          variant="ghost"
+          className="text-label-secondary"
           disabled={index === 0}
           onClick={() => {
             const prev = steps[index - 1];
@@ -591,7 +603,8 @@ export function OnboardingFlow({
         SKIPPABLE.has(current) ? (
           <Button
             type="button"
-            variant="plain"
+            variant="ghost"
+            className="text-label-secondary"
             onClick={() => {
               const next = steps[index + 1];
               if (next) go(next);
@@ -601,13 +614,14 @@ export function OnboardingFlow({
           </Button>
         ) : null}
         {isLast ? (
-          <Button type="button" size="lg" onClick={() => onComplete(result)}>
+          <Button type="button" size="lg" className="rounded-md" onClick={() => onComplete(result)}>
             {t("onboarding.openChat")}
           </Button>
         ) : (
           <Button
             type="button"
             size="lg"
+            className="rounded-md"
             disabled={recoveryPending}
             onClick={() => {
               const next = steps[index + 1];

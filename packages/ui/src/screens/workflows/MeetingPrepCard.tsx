@@ -35,7 +35,7 @@ function AttendeeChip({
       <span
         aria-hidden="true"
         className={cn(
-          "inline-flex size-5 items-center justify-center rounded-full text-[10px] leading-none font-semibold",
+          "inline-flex size-5 items-center justify-center rounded-full text-caption leading-none font-semibold",
           attendee.relationship === "external"
             ? "bg-accent-3 text-accent-11"
             : "bg-fill-secondary text-label-primary",

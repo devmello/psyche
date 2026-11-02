@@ -1,5 +1,5 @@
 import type { Automation } from "@psyche/protocol";
-import { CalendarClock, Plus, Sparkles, X } from "lucide-react";
+import { CalendarClock, Plus, RefreshCw, X } from "lucide-react";
 import { type ReactElement, useCallback, useEffect, useId, useState } from "react";
 import { toast } from "sonner";
 import { scheduleSentence } from "../../agent/UpcomingPanel.tsx";
@@ -465,7 +465,7 @@ export function FeedInstructionsSheet({
             onClick={generate}
             className="me-auto"
           >
-            <Sparkles aria-hidden="true" />
+            <RefreshCw aria-hidden="true" />
             {generating
               ? t("screens.feed.editor.generatingShort")
               : t("screens.feed.editor.generate")}

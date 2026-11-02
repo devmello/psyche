@@ -47,7 +47,7 @@ export function McpPresetForm({
             onChange={(e) => setValues({ ...values, [f.id]: e.target.value })}
             aria-describedby={`${id}-${f.id}-help`}
           />
-          <p id={`${id}-${f.id}-help`} className="text-xs text-muted-foreground">
+          <p id={`${id}-${f.id}-help`} className="text-callout text-muted-foreground">
             {presetText(preset, `field.${f.id}.help`)}
             {f.helpUrl ? (
               <>

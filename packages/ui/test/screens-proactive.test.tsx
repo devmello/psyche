@@ -181,14 +181,14 @@ describe("IdeasScreen", () => {
     const card = await screen.findByRole("article", {
       name: "Cancel the unused streaming subscription",
     });
-    expect(within(card).getByText(/Because:/)).toBeTruthy();
+    expect(within(card).getByText("Because")).toBeTruthy();
     expect(within(card).getByText(/~10 min · needs 1 approval/)).toBeTruthy();
     await user.click(within(card).getByRole("checkbox", { name: "Make recurring" }));
     // The toggle names its cadence; a recurring task needs a schedule.
     const cadence = within(card).getByRole("combobox", { name: "Cadence" });
     expect((cadence as HTMLSelectElement).value).toBe("monthly");
     await user.selectOptions(cadence, "weekly");
-    await user.click(within(card).getByRole("button", { name: "Let's do it" }));
+    await user.click(within(card).getByRole("button", { name: "Do it" }));
     await waitFor(() => expect(callsTo("ideas.accept")).toHaveLength(1));
     expect(callsTo("ideas.accept")[0]?.params).toEqual({
       ideaId: IDS.ideas.subscription,
@@ -264,7 +264,7 @@ describe("GoalsScreen", () => {
     const card = await screen.findByRole("article", {
       name: "Learn basic Portuguese before Lisbon",
     });
-    expect(within(card).getByText(/Because:/)).toBeTruthy();
+    expect(within(card).getByText("Because")).toBeTruthy();
     expect(callsTo("goals.decide")).toHaveLength(0);
     await user.click(within(card).getByRole("button", { name: "Confirm" }));
     await waitFor(() =>

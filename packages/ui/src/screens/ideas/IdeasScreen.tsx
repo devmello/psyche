@@ -45,10 +45,6 @@ export function IdeasView({
   onOpenChat,
 }: IdeasViewProps): ReactElement {
   const showSkeleton = useDelayedFlag(loading, loadingDelayMs);
-  // One accent primary at a time: the hovered card, else the one holding focus.
-  const [hovered, setHovered] = useState<string | null>(null);
-  const [focused, setFocused] = useState<string | null>(null);
-  const active = hovered ?? focused;
   let body: ReactElement;
   if (loading) {
     body = showSkeleton ? (
@@ -80,21 +76,10 @@ export function IdeasView({
     body = (
       <ul aria-label={t("screens.ideas.title")} className="flex flex-col gap-3">
         {ideas.map((idea, i) => (
-          <ListItem
-            key={idea.id}
-            index={i}
-            onPointerEnter={() => setHovered(idea.id)}
-            onPointerLeave={() => setHovered((h) => (h === idea.id ? null : h))}
-            onFocus={() => setFocused(idea.id)}
-            onBlur={(e) => {
-              if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
-                setFocused((f) => (f === idea.id ? null : f));
-              }
-            }}
-          >
+          <ListItem key={idea.id} index={i}>
             <IdeaCard
               idea={idea}
-              prominent={active === idea.id}
+              prominent={i === 0}
               busy={busyIds?.has(idea.id) ?? false}
               {...(onAccept ? { onAccept } : {})}
               {...(onEdit ? { onEdit } : {})}

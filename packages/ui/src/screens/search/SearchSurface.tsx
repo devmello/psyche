@@ -828,8 +828,8 @@ function SurfacePreview({
             </span>
             {hit.card.summary}
           </p>
-          <p className="text-label-secondary italic">
-            <span className="text-caption text-label-tertiary not-italic">
+          <p className="text-label-secondary">
+            <span className="text-caption text-label-tertiary">
               {t("screens.search.card.source")}
               {": "}
             </span>

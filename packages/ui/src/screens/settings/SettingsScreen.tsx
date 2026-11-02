@@ -23,8 +23,8 @@ import {
   Search,
   Server,
   ShieldCheck,
-  Sparkles,
   Trash2,
+  UserRound,
   Users,
   Workflow,
 } from "lucide-react";
@@ -125,7 +125,7 @@ const entry = (id: SettingsSectionId, icon: LucideIcon): SettingsSectionEntry =>
 
 export const SETTINGS_SECTIONS: readonly SettingsSectionEntry[] = [
   entry("model", Bot),
-  entry("persona", Sparkles),
+  entry("persona", UserRound),
   entry("connectors", Plug),
   entry("skills", Puzzle),
   entry("specialists", Workflow),

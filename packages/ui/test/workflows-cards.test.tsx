@@ -86,7 +86,8 @@ describe("DigestCard", () => {
     render(<DigestCard digest={inboxDigest()} now={STORY_NOW} />);
     const card = screen.getByRole("article", { name: "Inbox digest" });
     expect(within(card).getByText(/^Inbox · .* · 3 need you$/)).toBeTruthy();
-    expect(within(card).getByText("Because: asks you a direct question")).toBeTruthy();
+    expect(within(card).getByText("asks you a direct question", { exact: false })).toBeTruthy();
+    expect(within(card).getAllByText("Because").length).toBeGreaterThan(0);
     expect(within(card).getByText("12 newsletters · Mark read · Move to Reading")).toBeTruthy();
     expect(within(card).getByText("Dana Ruiz · contract draft · 4 days")).toBeTruthy();
     expect(within(card).getByRole("button", { name: "Allow" })).toBeTruthy();

@@ -169,7 +169,7 @@ export function PaymentsGroup({
                     <CreditCard className="size-4 text-muted-foreground" aria-hidden="true" />
                     <span>{maskedCard(m)}</span>
                     {m.nickname ? (
-                      <span className="text-xs text-muted-foreground">{m.nickname}</span>
+                      <span className="text-callout text-muted-foreground">{m.nickname}</span>
                     ) : null}
                     {m.isDefault ? (
                       <Badge variant="muted">{t("settings.credentials.payments.default")}</Badge>
@@ -179,7 +179,7 @@ export function PaymentsGroup({
               </ul>
             )}
             {view.methods.length > 0 ? (
-              <p className="text-xs text-muted-foreground">
+              <p className="text-callout text-muted-foreground">
                 {t("settings.credentials.payments.removeInLink")}
               </p>
             ) : null}
@@ -209,7 +209,7 @@ export function PaymentsGroup({
                       <TableRow key={p.spendRequestId}>
                         <TableCell>
                           <span className="font-medium">{p.merchantName}</span>
-                          <span className="block text-xs text-muted-foreground">
+                          <span className="block text-callout text-muted-foreground">
                             {p.merchantHost}
                             {ref ? ` · ${ref}` : ""}
                           </span>

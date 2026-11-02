@@ -91,6 +91,11 @@ export interface LibraryItemViewProps extends LibraryItemActions {
   /** The item is selected (Finder: one click selects, a double click opens). */
   selected?: boolean;
   onSelect?: (item: LibraryItem) => void;
+  /**
+   * The app's thumbnail for a grid tile (an image's pixels, a PDF's first page). Called with the
+   * icon tile it replaces so any failure, or a type with no preview, keeps today's tile.
+   */
+  renderThumbnail?: (item: LibraryItem, fallback: ReactElement) => ReactElement;
 }
 
 function ItemIcon({ item, className }: { item: LibraryItem; className?: string }): ReactElement {
@@ -113,7 +118,7 @@ function ItemIcon({ item, className }: { item: LibraryItem; className?: string }
 }
 
 /** The actions one item offers, shared by its ⋯ menu and its context menu (§5.7). */
-function itemActions(item: LibraryItem, a: LibraryItemActions) {
+function itemActions(item: LibraryItem, a: LibraryItemActions, taskTitle?: string | null) {
   const system = item.kind === "system";
   const list: { id: string; label: string; icon: ReactElement; run: () => void }[] = [];
   if (item.kind === "artifact" && a.onOpenInChat) {
@@ -167,6 +172,16 @@ function itemActions(item: LibraryItem, a: LibraryItemActions) {
       run: () => send(item),
     });
   }
+  if (item.taskId != null && a.onOpenTask) {
+    const openTask = a.onOpenTask;
+    const taskId = item.taskId;
+    list.push({
+      id: "open-task",
+      label: t("screens.library.task", { title: taskTitle ?? t("screens.library.openActivity") }),
+      icon: <ListChecks aria-hidden="true" />,
+      run: () => openTask(taskId),
+    });
+  }
   if (item.quarantined === true && a.onTrust) {
     const trust = a.onTrust;
     list.push({
@@ -188,13 +203,15 @@ const MENU_ITEM =
 function ItemContextMenu({
   item,
   actions,
+  taskTitle,
   children,
 }: {
   item: LibraryItem;
   actions: LibraryItemActions;
+  taskTitle?: string | null;
   children: ReactElement;
 }): ReactElement {
-  const entries = itemActions(item, actions);
+  const entries = itemActions(item, actions, taskTitle);
   if (entries.length === 0) return children;
   return (
     <ContextMenu.Root>
@@ -219,13 +236,17 @@ function ItemContextMenu({
 function MoreMenu({
   item,
   actions,
+  taskTitle,
   className,
 }: {
   item: LibraryItem;
   actions: LibraryItemActions;
+  taskTitle?: string | null;
   className?: string;
 }): ReactElement | null {
-  const entries = itemActions(item, actions).filter((e) => e.id !== "open" && e.id !== "trust");
+  const entries = itemActions(item, actions, taskTitle).filter(
+    (e) => e.id !== "open" && e.id !== "trust",
+  );
   if (entries.length === 0) return null;
   return (
     <DropdownMenu>
@@ -300,6 +321,7 @@ export function LibraryItemView({
   taskTitle,
   selected = false,
   onSelect,
+  renderThumbnail,
   ...actions
 }: LibraryItemViewProps): ReactElement {
   const nameId = useId();
@@ -348,32 +370,43 @@ export function LibraryItemView({
     ) : null;
 
   if (layout === "grid") {
+    const iconTile = (
+      <span className="flex size-full flex-col items-center justify-center gap-2 text-label-secondary">
+        <ItemIcon item={item} className="size-10 stroke-[1.25]" />
+        <span className="text-subheadline font-medium text-label-tertiary">{fileType(item)}</span>
+      </span>
+    );
     return (
       <article
         aria-labelledby={nameId}
         data-selected={selected || undefined}
         className="group/tile flex flex-col items-center gap-1.5 text-center"
       >
-        <ItemContextMenu item={item} actions={actions}>
-          <button
-            type="button"
-            aria-label={openLabel}
-            disabled={onOpen === undefined}
-            onClick={activate(item, onSelect, onOpen)}
-            onDoubleClick={() => onOpen?.(item)}
-            onKeyDown={itemKeys(item, actions)}
-            className={cn(
-              "relative flex aspect-square w-full max-w-40 flex-col items-center justify-center gap-2 rounded-md bg-fill-quaternary text-label-secondary transition-colors outline-none",
-              "hover:bg-fill-tertiary focus-visible:ring-3 focus-visible:ring-ring/50",
-              selected ? "bg-selection ring-2 ring-accent-8" : "",
-            )}
-          >
-            <ItemIcon item={item} className="size-10 stroke-[1.25]" />
-            <span className="text-subheadline font-medium tracking-wide text-label-tertiary">
-              {fileType(item)}
-            </span>
-          </button>
-        </ItemContextMenu>
+        <div className="relative w-full max-w-40">
+          <ItemContextMenu item={item} actions={actions} taskTitle={taskTitle}>
+            <button
+              type="button"
+              aria-label={openLabel}
+              disabled={onOpen === undefined}
+              onClick={activate(item, onSelect, onOpen)}
+              onDoubleClick={() => onOpen?.(item)}
+              onKeyDown={itemKeys(item, actions)}
+              className={cn(
+                "relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-md bg-fill-quaternary transition-colors outline-none",
+                "hover:bg-fill-tertiary focus-visible:ring-3 focus-visible:ring-ring/50",
+                selected ? "bg-selection ring-2 ring-accent-8" : "",
+              )}
+            >
+              {renderThumbnail ? renderThumbnail(item, iconTile) : iconTile}
+            </button>
+          </ItemContextMenu>
+          <MoreMenu
+            item={item}
+            actions={actions}
+            taskTitle={taskTitle}
+            className="absolute end-1 top-1 bg-surface-raised/90 opacity-0 group-hover/tile:opacity-100 group-focus-within/tile:opacity-100 pointer-coarse:opacity-100"
+          />
+        </div>
         <div className="flex w-full max-w-40 min-w-0 flex-col items-center gap-0.5">
           <span
             id={nameId}
@@ -384,7 +417,9 @@ export function LibraryItemView({
           >
             {item.name}
           </span>
-          <span className="w-full truncate text-subheadline text-label-secondary">{meta}</span>
+          <span className="w-full truncate text-subheadline text-label-secondary tabular-nums">
+            {meta}
+          </span>
           {item.tags.length > 0 ? (
             <span className="w-full truncate text-subheadline text-label-tertiary">
               {item.tags.map((tag) => (
@@ -394,15 +429,9 @@ export function LibraryItemView({
               ))}
             </span>
           ) : null}
-          <div className="flex min-h-5 flex-wrap items-center justify-center gap-1">
-            {taskButton}
-            {badges}
-            <MoreMenu
-              item={item}
-              actions={actions}
-              className="opacity-0 group-hover/tile:opacity-100 group-focus-within/tile:opacity-100 pointer-coarse:opacity-100"
-            />
-          </div>
+          {quarantined || isReadOnly(item) ? (
+            <div className="flex flex-wrap items-center justify-center gap-1">{badges}</div>
+          ) : null}
           {trust}
         </div>
       </article>
@@ -410,7 +439,7 @@ export function LibraryItemView({
   }
 
   return (
-    <ItemContextMenu item={item} actions={actions}>
+    <ItemContextMenu item={item} actions={actions} taskTitle={taskTitle}>
       <tr
         aria-labelledby={nameId}
         aria-selected={onSelect ? selected : undefined}
@@ -459,7 +488,7 @@ export function LibraryItemView({
           </span>
         </td>
         <td className="w-8 rounded-e-sm pe-1 text-end">
-          <MoreMenu item={item} actions={actions} />
+          <MoreMenu item={item} actions={actions} taskTitle={taskTitle} />
         </td>
       </tr>
     </ItemContextMenu>
@@ -483,6 +512,8 @@ export interface LibraryViewProps extends LibraryItemActions {
   persona?: string;
   /** The empty state's one action. */
   onOpenChat?: () => void;
+  /** Grid thumbnails, supplied by the app (see `LibraryItemViewProps.renderThumbnail`). */
+  renderThumbnail?: LibraryItemViewProps["renderThumbnail"];
   now: number;
 }
 
@@ -502,6 +533,7 @@ export function LibraryView({
   onRetry,
   persona = "Wren",
   onOpenChat,
+  renderThumbnail,
   now,
   ...actions
 }: LibraryViewProps): ReactElement {
@@ -581,6 +613,7 @@ export function LibraryView({
             <LibraryItemView
               item={item}
               layout="grid"
+              {...(renderThumbnail ? { renderThumbnail } : {})}
               selected={selected === item.id}
               onSelect={select}
               taskTitle={item.taskId == null ? null : (taskTitles[item.taskId] ?? null)}
@@ -828,6 +861,8 @@ export interface LibraryScreenProps {
   onTrust?: (item: LibraryItem) => Promise<unknown> | undefined;
   /** Fixed clock (stories, tests) for the date filter. */
   now?: number;
+  /** Grid thumbnails (images, PDF first pages); the app owns the renderer. */
+  renderThumbnail?: LibraryItemViewProps["renderThumbnail"];
 }
 
 /** Connected Library: `library.list`, task titles from `tasks.list`. */
@@ -839,6 +874,7 @@ export function LibraryScreen({
   onSendToChat,
   onTrust,
   now: fixedNow,
+  renderThumbnail,
 }: LibraryScreenProps): ReactElement {
   const { navigate, openLibraryItem } = useSlots();
   const persona = usePersona();
@@ -959,6 +995,7 @@ export function LibraryScreen({
       onOpenInChat={openInChat}
       onOpenViewer={openStandalone}
       onOpenTask={(id) => navigate?.(`/agent/activity/${id}`)}
+      {...(renderThumbnail ? { renderThumbnail } : {})}
       {...(onTrust ? { onTrust: trust } : {})}
       {...(onReveal ? { onReveal } : {})}
       {...(onQuickLook ? { onQuickLook } : {})}

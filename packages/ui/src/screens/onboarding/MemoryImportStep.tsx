@@ -149,7 +149,12 @@ export function MemoryImportStep({
               {t("onboarding.memory.edit")}
             </Button>
             <span className="ms-auto" />
-            <Button type="button" disabled={busy || checked.size === 0} onClick={() => void save()}>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy || checked.size === 0}
+              onClick={() => void save()}
+            >
               {t("onboarding.memory.save", { n: checked.size })}
             </Button>
           </div>

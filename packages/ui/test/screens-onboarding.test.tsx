@@ -28,35 +28,45 @@ function setup(props: Partial<OnboardingFlowProps> = {}, slots: UiSlots = {}) {
   return { onComplete, onStepChange };
 }
 
-const steps = () => within(screen.getByRole("navigation", { name: "Onboarding progress" }));
+const progress = () => screen.getByRole("progressbar", { name: "Onboarding progress" });
 const next = () => userEvent.click(screen.getByRole("button", { name: "Next" }));
 const heading = () => screen.getByRole("heading", { level: 1 });
 
 describe("OnboardingFlow", () => {
-  it("shows the steps as an ordered list with aria-current on the current one", async () => {
+  it("shows quiet progress text with progressbar semantics for the current step", async () => {
     const { onStepChange } = setup();
-    const list = steps().getByRole("list");
-    expect(list.tagName).toBe("OL");
-    const items = steps().getAllByRole("listitem");
-    expect(items).toHaveLength(11);
-    expect(items[0]?.getAttribute("aria-current")).toBe("step");
-    expect(items[0]?.textContent).toContain("Meet your agent");
+    expect(progress().getAttribute("aria-valuemax")).toBe("11");
+    expect(progress().getAttribute("aria-valuenow")).toBe("1");
+    expect(progress().textContent).toBe("1 of 11");
     expect((screen.getByRole("button", { name: /Back/ }) as HTMLButtonElement).disabled).toBe(true);
 
     await next();
     expect(heading().textContent).toContain("About you");
     await next();
     expect(heading().textContent).toContain("Permissions");
-    expect(steps().getAllByRole("listitem")[2]?.getAttribute("aria-current")).toBe("step");
-    expect(steps().getAllByRole("listitem")[0]?.getAttribute("aria-current")).toBeNull();
+    expect(progress().getAttribute("aria-valuenow")).toBe("3");
+    expect(progress().textContent).toBe("3 of 11");
     expect(onStepChange).toHaveBeenLastCalledWith("permissions");
     // Focus lands on the new step's heading.
     expect(document.activeElement).toBe(heading());
 
     await userEvent.click(screen.getByRole("button", { name: /Back/ }));
     expect(heading().textContent).toContain("About you");
-    // A visited step is reachable from the list.
-    await userEvent.click(steps().getByRole("button", { name: "Permissions" }));
+    expect(progress().textContent).toBe("2 of 11");
+
+    // The "N of 11" label opens the step menu: reached steps jump, unreached ones are disabled.
+    await next();
+    await userEvent.click(screen.getByRole("button", { name: /3 of 11/ }));
+    const items = await screen.findAllByRole("menuitem");
+    expect(items).toHaveLength(11);
+    expect(items[2]?.getAttribute("aria-current")).toBe("step");
+    expect(items[3]?.getAttribute("aria-disabled")).toBe("true");
+    await userEvent.click(items[0] as HTMLElement);
+    expect(heading().textContent).toContain("Meet your agent");
+    expect(progress().textContent).toBe("1 of 11");
+    // A reached step ahead of the current one is reachable too.
+    await userEvent.click(screen.getByRole("button", { name: /1 of 11/ }));
+    await userEvent.click((await screen.findAllByRole("menuitem"))[2] as HTMLElement);
     expect(heading().textContent).toContain("Permissions");
   });
 
@@ -77,8 +87,6 @@ describe("OnboardingFlow", () => {
     await userEvent.click(screen.getByRole("radio", { name: "Describe it in your words" }));
     await userEvent.type(screen.getByLabelText("Describe Wren"), "a moth with a scarf");
     expect(within(preview).getByText("“a moth with a scarf”")).toBeTruthy();
-    // The persona name flows into later step labels.
-    expect(steps().getByText("Where Wren works")).toBeTruthy();
   });
 
   it("asks the shell for each permission, or skips it", async () => {
@@ -394,9 +402,7 @@ describe("Mac helper in onboarding", () => {
 describe("Onboarding where this window can't ask macOS (web, #554)", () => {
   it("leaves out Permissions and says on Done they are set up in the Mac app", async () => {
     const { onStepChange } = setup({ macPermissions: false });
-    const items = steps().getAllByRole("listitem");
-    expect(items).toHaveLength(10);
-    expect(steps().queryByText("Permissions")).toBeNull();
+    expect(progress().getAttribute("aria-valuemax")).toBe("10");
     expect(screen.queryByRole("button", { name: /Allow/ })).toBeNull();
     await next();
     await next();

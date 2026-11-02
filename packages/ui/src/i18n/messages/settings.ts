@@ -1478,7 +1478,7 @@ export const settings = {
   "settings.persona.loadLabel": "the persona",
   "settings.persona.describedAs": "Described as: {description}",
   "settings.persona.identity": "Identity",
-  "settings.persona.taglinePlaceholder": "Quiet wings, careful hands.",
+  "settings.persona.taglinePlaceholder": "Quiet wings, careful hands",
   "settings.persona.emojiHint": "Shown on channels that can't show the avatar.",
   "settings.persona.avatar": "Avatar",
   "settings.persona.whileWorking": "While working",

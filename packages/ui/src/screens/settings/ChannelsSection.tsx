@@ -164,7 +164,7 @@ export function ChannelsPanel({
               {identities.map((i) => (
                 <li key={i.id}>
                   <span className="font-medium">{i.display}</span>{" "}
-                  <span className="text-xs text-muted-foreground">{i.links.join(" = ")}</span>
+                  <span className="text-callout text-muted-foreground">{i.links.join(" = ")}</span>
                 </li>
               ))}
             </ul>
@@ -186,7 +186,7 @@ export function ChannelsPanel({
                     {t("settings.channels.delegated", { persona: i.delegatedPersona ?? null })}
                   </StatusChip>
                   {i.toolAllow ? (
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-callout text-muted-foreground">
                       {t("settings.channels.tools", { tools: i.toolAllow.join(", ") })}
                     </span>
                   ) : null}
@@ -299,7 +299,7 @@ function ChannelCard({
                 <span>
                   {t("settings.channels.code")} <code className="font-mono">{p.code}</code>
                 </span>
-                <span className="text-xs text-muted-foreground">
+                <span className="text-callout text-muted-foreground">
                   {t("settings.channels.expires", { when: formatRelative(p.expiresAt, now) })}
                 </span>
                 <span className="ms-auto flex gap-1.5">
@@ -343,7 +343,7 @@ function ChannelCard({
                 <li key={s}>
                   {allow[s] ?? s}
                   {c.ownerIds.includes(s) ? (
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-callout text-muted-foreground">
                       {t("settings.channels.owner")}
                     </span>
                   ) : null}

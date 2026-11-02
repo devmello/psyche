@@ -126,7 +126,7 @@ function AccessibilityRow({
     <div className="flex flex-wrap items-center gap-2">
       <span className="font-medium">{t("settings.computerUse.tcc.accessibility.name")}</span>
       <StatusChip tone={chip.tone}>{chip.text}</StatusChip>
-      <span className="text-xs text-muted-foreground">{t("settings.voice.access.why")}</span>
+      <span className="text-callout text-muted-foreground">{t("settings.voice.access.why")}</span>
       {status.helper === "online" && status.accessibility !== "granted" ? (
         <span className="ms-auto flex gap-2">
           {onOpenAccessibility ? (

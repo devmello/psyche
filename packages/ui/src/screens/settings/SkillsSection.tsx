@@ -169,7 +169,7 @@ export function SkillTrustCard({
         ]}
       />
 
-      <details className="text-xs text-muted-foreground">
+      <details className="text-callout text-muted-foreground">
         <summary className="cursor-pointer">{t("settings.browser.details")}</summary>
         <Facts
           className="mt-2"
@@ -279,7 +279,7 @@ export function SkillTrustCard({
           <summary className="cursor-pointer font-medium">
             {t("settings.skills.trust.changes")}
           </summary>
-          <pre className="mt-2 max-h-64 overflow-auto rounded-md bg-gray-3 p-3 text-xs whitespace-pre-wrap">
+          <pre className="mt-2 max-h-64 overflow-auto rounded-md bg-gray-3 p-3 text-callout whitespace-pre-wrap">
             {proposal.update.diff === ""
               ? t("settings.skills.trust.noChanges")
               : sanitizeBlock(proposal.update.diff)}
@@ -292,7 +292,7 @@ export function SkillTrustCard({
           {t("settings.skills.trust.fullText")}
         </summary>
         <pre
-          className="mt-2 max-h-72 overflow-auto rounded-md bg-gray-3 p-3 text-xs whitespace-pre-wrap"
+          className="mt-2 max-h-72 overflow-auto rounded-md bg-gray-3 p-3 text-callout whitespace-pre-wrap"
           data-testid="skill-text"
         >
           {sanitizeBlock(proposal.text)}
@@ -307,7 +307,7 @@ export function SkillTrustCard({
             <li key={f.path}>
               <p>
                 <code>{show(f.path, 300)}</code>{" "}
-                <span className="text-xs text-muted-foreground">
+                <span className="text-callout text-muted-foreground">
                   {t("settings.skills.trust.fileMeta", {
                     bytes: f.bytes,
                     executable: f.executable === true,
@@ -316,7 +316,7 @@ export function SkillTrustCard({
                 </span>
               </p>
               {f.text !== undefined && f.path !== "SKILL.md" ? (
-                <pre className="mt-1 max-h-40 overflow-auto rounded-md bg-gray-3 p-2 text-xs whitespace-pre-wrap">
+                <pre className="mt-1 max-h-40 overflow-auto rounded-md bg-gray-3 p-2 text-callout whitespace-pre-wrap">
                   {sanitizeBlock(f.text)}
                 </pre>
               ) : null}
@@ -393,7 +393,7 @@ function SkillRow({
             })}
           </StatusChip>
         ) : null}
-        <span className="text-xs text-muted-foreground">
+        <span className="text-callout text-muted-foreground">
           {trustLabel(skill.trust)}
           {skill.version === undefined
             ? ""
@@ -429,12 +429,12 @@ function SkillRow({
         </div>
       </div>
       <p className="text-muted-foreground">{show(skill.description, 400)}</p>
-      <p className="text-xs">
+      <p className="text-callout">
         <span className="text-muted-foreground">{t("settings.skills.asksFor")} </span>
         {asksFor(skill.manifest)}
       </p>
       {skill.manifest && skill.manifest.tools.length > 0 ? (
-        <details className="text-xs text-muted-foreground">
+        <details className="text-callout text-muted-foreground">
           <summary className="cursor-pointer">{t("settings.browser.details")}</summary>
           <p className="mt-1">
             {t("settings.skills.toolsLabel")}{" "}
@@ -443,7 +443,7 @@ function SkillRow({
         </details>
       ) : null}
       {skill.history !== undefined && skill.history.length > 0 ? (
-        <details className="text-xs text-muted-foreground" data-testid="skill-history">
+        <details className="text-callout text-muted-foreground" data-testid="skill-history">
           <summary className="cursor-pointer">
             {t("settings.skills.history", { n: skill.history.length })}
           </summary>
@@ -463,7 +463,7 @@ function SkillRow({
         </details>
       ) : null}
       {lessons.length > 0 ? (
-        <details className="text-xs text-muted-foreground" data-testid="skill-lessons">
+        <details className="text-callout text-muted-foreground" data-testid="skill-lessons">
           <summary className="cursor-pointer">
             {t("screens.lessons.inFile", { n: lessons.length })}
           </summary>
@@ -478,12 +478,12 @@ function SkillRow({
         </details>
       ) : null}
       {skill.status !== "active" && skill.reasons.length > 0 ? (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-callout text-muted-foreground">
           {skill.reasons.map((r) => show(r)).join("; ")}
         </p>
       ) : null}
       {skill.findings.some((f) => f.severity === "high") ? (
-        <p className="text-xs text-danger-text">
+        <p className="text-callout text-danger-text">
           {skill.findings
             .filter((f) => f.severity === "high")
             .map((f) => show(f.message))

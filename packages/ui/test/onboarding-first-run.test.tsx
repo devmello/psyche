@@ -29,7 +29,7 @@ function flow(props: Partial<OnboardingFlowProps> = {}) {
   return { onComplete, onProgress, ...view };
 }
 const heading = () => screen.getByRole("heading", { level: 1 });
-const progressNav = () => within(screen.getByRole("navigation", { name: "Onboarding progress" }));
+const progressBar = () => screen.getByRole("progressbar", { name: "Onboarding progress" });
 const click = (name: string | RegExp) => userEvent.click(screen.getByRole("button", { name }));
 
 describe("each new step can be skipped or continued", () => {
@@ -91,20 +91,10 @@ describe("resume after quitting midway", () => {
 describe("re-run skips what is set up", () => {
   it("leaves completed steps out of the list", () => {
     flow({ completed: ["agent", "about", "connectors", "memory", "habits"] });
-    const labels = progressNav()
-      .getAllByRole("listitem")
-      .map((li) => li.textContent);
-    for (const gone of [
-      "Meet your agent",
-      "About you",
-      "Connectors",
-      "Bring your memory",
-      "Turn on habits",
-    ]) {
-      expect(labels.some((l) => l?.includes(gone))).toBe(false);
-    }
-    expect(labels.some((l) => l?.includes("First wins"))).toBe(true);
-    expect(labels.some((l) => l?.includes("Done"))).toBe(true);
+    // Six steps remain; the first one shown is the first not yet completed.
+    expect(progressBar().getAttribute("aria-valuemax")).toBe("6");
+    expect(progressBar().textContent).toBe("1 of 6");
+    expect(heading().textContent).not.toContain("Meet your agent");
   });
 });
 

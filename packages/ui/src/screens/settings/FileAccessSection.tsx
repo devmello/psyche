@@ -121,7 +121,7 @@ function FolderList({
         <ul className="flex flex-col divide-y divide-gray-6" aria-label={label}>
           {folders.map((f) => (
             <li key={f.path} className="flex flex-wrap items-center gap-3 py-1.5">
-              <code className="min-w-0 flex-1 font-mono text-xs">{f.path}</code>
+              <code className="min-w-0 flex-1 font-mono text-callout">{f.path}</code>
               <label className="sr-only" htmlFor={`${id}-${f.path}`}>
                 {t("settings.files.accessTo", { path: f.path })}
               </label>

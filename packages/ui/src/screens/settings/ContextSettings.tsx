@@ -70,7 +70,7 @@ function BoundedNumber({
       <label htmlFor={id} className="font-medium text-foreground">
         {label}
       </label>
-      <p id={`${id}-desc`} className="text-xs text-muted-foreground">
+      <p id={`${id}-desc`} className="text-callout text-muted-foreground">
         {description}
       </p>
       <div className="flex items-center gap-2">
@@ -94,7 +94,7 @@ function BoundedNumber({
         {suffix ? <span className="text-sm text-muted-foreground">{suffix}</span> : null}
       </div>
       {error ? (
-        <p id={`${id}-error`} role="alert" className="text-xs text-danger-text">
+        <p id={`${id}-error`} role="alert" className="text-callout text-danger-text">
           {error}
         </p>
       ) : null}

@@ -107,7 +107,7 @@ export function WebSearchSettingsGroup({
           },
         ]}
       />
-      {status?.note ? <p className="text-xs text-muted-foreground">{status.note}</p> : null}
+      {status?.note ? <p className="text-callout text-muted-foreground">{status.note}</p> : null}
       <div className="flex flex-col gap-1.5">
         <label htmlFor={selectId} className="font-medium text-foreground">
           {t("settings.key.search.web.provider")}
@@ -129,7 +129,7 @@ export function WebSearchSettingsGroup({
         <label htmlFor={urlId} className="font-medium text-foreground">
           {t("settings.key.search.web.searxngUrl")}
         </label>
-        <p id={`${urlId}-desc`} className="text-xs text-muted-foreground">
+        <p id={`${urlId}-desc`} className="text-callout text-muted-foreground">
           {t("settings.webSearch.searxngHint")}
         </p>
         <Input
@@ -147,7 +147,7 @@ export function WebSearchSettingsGroup({
           }}
         />
         {error ? (
-          <p id={`${urlId}-error`} role="alert" className="text-xs text-destructive">
+          <p id={`${urlId}-error`} role="alert" className="text-callout text-destructive">
             {t("settings.webSearch.searxngInvalid")}
           </p>
         ) : null}

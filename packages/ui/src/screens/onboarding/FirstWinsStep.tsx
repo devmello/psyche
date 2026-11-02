@@ -87,7 +87,7 @@ export function FirstWinsStep({
         })}
       </ul>
       {anyRunnable && onRun ? (
-        <Button type="button" size="lg" onClick={() => void runAll()}>
+        <Button type="button" variant="outline" onClick={() => void runAll()}>
           {t("onboarding.wins.runAll")}
         </Button>
       ) : (

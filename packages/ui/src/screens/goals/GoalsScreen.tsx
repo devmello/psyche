@@ -1,5 +1,5 @@
 import type { Goal } from "@psyche/protocol";
-import { CircleCheck, Goal as GoalIcon, Plus, Sparkles } from "lucide-react";
+import { CircleCheck, Goal as GoalIcon, Lightbulb, Plus } from "lucide-react";
 import { type ReactElement, type ReactNode, useId, useState } from "react";
 import { toast } from "sonner";
 import { EmptyState, ErrorState, LoadingCards, useDelayedFlag } from "../../components/page.tsx";
@@ -76,7 +76,11 @@ export function GoalRow({ goal, selected = false, onOpen }: GoalRowProps): React
           aria-label={t("screens.goals.progressLabel", { title: goal.title, done, total })}
           className={cn(
             "[&_[data-slot=progress-track]]:h-1",
-            complete ? "[&_[data-slot=progress-indicator]]:bg-grass-9" : "",
+            complete
+              ? "[&_[data-slot=progress-indicator]]:bg-grass-9"
+              : selected
+                ? "[&_[data-slot=progress-indicator]]:bg-accent-9"
+                : "[&_[data-slot=progress-indicator]]:bg-label-tertiary",
           )}
         />
       ) : null}
@@ -93,7 +97,7 @@ export interface CandidateGoalCardProps {
 }
 
 /**
- * Inferred goal (redesign §5.6): a level-1 card with a sparkle glyph, the "Because:" evidence and
+ * Inferred goal (redesign §5.6): a level-1 card with a lightbulb glyph, the "Because" evidence and
  * Confirm (primary) / Not a goal / Later. Nothing exists before Confirm.
  */
 export function CandidateGoalCard({
@@ -110,8 +114,8 @@ export function CandidateGoalCard({
       aria-labelledby={titleId}
       className="flex flex-col gap-2 rounded-lg bg-surface-raised p-3 shadow-elevation-1"
     >
-      <p className="flex items-center gap-1 text-caption text-label-secondary">
-        <Sparkles className="size-3.5 text-accent-11" aria-hidden="true" />
+      <p className="flex items-center gap-1.5 text-callout text-label-secondary">
+        <Lightbulb className="size-3.5 text-label-secondary" aria-hidden="true" />
         {t("screens.goals.inferred", { category: GOAL_CATEGORY_LABEL[goal.category] })}
       </p>
       <div className="flex flex-col gap-0.5">

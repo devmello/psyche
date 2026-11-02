@@ -125,6 +125,8 @@ export interface InboxRowProps {
   stale?: boolean;
   approval?: InboxApprovalState;
   busy?: boolean;
+  /** Approve takes the accent fill; the view gives it to one row only (one primary per view). */
+  primary?: boolean;
   onApprove?: (n: Notification) => void;
   onDeny?: (n: Notification) => void;
   /** Opens `notification.route` (Answer, Open, Open card). */
@@ -155,6 +157,7 @@ function ApprovalControls({
   state,
   now,
   busy,
+  primary,
   onApprove,
   onDeny,
   onOpen,
@@ -163,6 +166,7 @@ function ApprovalControls({
   state: InboxApprovalState | undefined;
   now: number;
   busy: boolean;
+  primary: boolean;
   onApprove?: (n: Notification) => void;
   onDeny?: (n: Notification) => void;
   onOpen?: (n: Notification) => void;
@@ -232,6 +236,7 @@ function ApprovalControls({
           <Button
             type="button"
             size="sm"
+            variant={primary ? "default" : "outline"}
             disabled={busy || !armed}
             onClick={() => onApprove?.(n)}
             aria-label={t("screens.inbox.approveLabel", { summary: a.summary })}
@@ -253,6 +258,7 @@ export function InboxRow({
   stale = false,
   approval,
   busy = false,
+  primary = true,
   onApprove,
   onDeny,
   onOpen,
@@ -275,6 +281,7 @@ export function InboxRow({
         state={approval}
         now={now}
         busy={busy}
+        primary={primary}
         {...(onApprove ? { onApprove } : {})}
         {...(onDeny ? { onDeny } : {})}
         {...(onOpen ? { onOpen } : {})}
@@ -380,15 +387,15 @@ export function InboxRow({
           {n.title}
         </h3>
         {n.body ? <p className="text-callout text-label-secondary">{n.body}</p> : null}
-        <p className="flex flex-wrap items-center gap-x-1.5 text-subheadline text-label-tertiary">
-          <span className="font-medium">{kind.label}</span>
+        <p className="flex flex-wrap items-center gap-x-1.5 text-callout text-label-secondary tabular-nums">
+          <span className="text-label-tertiary">{kind.label}</span>
           <span aria-hidden="true">·</span>
           <span>{formatRelative(n.createdAt, now)}</span>
           {unread ? <span className="sr-only">{t("screens.inbox.unread")}</span> : null}
           {isStale ? (
             <>
               <span aria-hidden="true">·</span>
-              <span className="font-medium text-approval-text">
+              <span className="text-approval-text">
                 {t("screens.inbox.stale", {
                   reason: n.staleReason ?? t("screens.inbox.staleRestart"),
                 })}
@@ -419,7 +426,7 @@ export interface InboxViewProps {
   /** The empty state's one action. */
   onOpenActivity?: () => void;
   /** Renders a row; defaults to a plain `InboxRow` (no Gateway). */
-  renderRow?: (n: Notification) => ReactNode;
+  renderRow?: (n: Notification, ctx: { primary: boolean }) => ReactNode;
   rowProps?: Omit<InboxRowProps, "notification" | "now">;
 }
 
@@ -470,6 +477,9 @@ export function InboxView({
     const groups = (["needs", "today", "earlier"] as const)
       .map((g) => ({ id: g, items: notifications.filter((n) => groupOf(n, now) === g) }))
       .filter((g) => g.items.length > 0);
+    // The accent fill goes to the first row that needs you; every other Approve is secondary.
+    const primaryId =
+      groups.find((g) => g.id === "needs")?.items.find((x) => x.kind === "approval")?.id ?? null;
     body = (
       <fieldset
         aria-label={t("screens.inbox.notifications")}
@@ -483,7 +493,16 @@ export function InboxView({
             <ul className="flex flex-col rounded-lg bg-surface-raised shadow-elevation-1 [&>li:first-child>article]:before:hidden">
               {g.items.map((n, i) => (
                 <ListItem key={n.id} index={i}>
-                  {renderRow ? renderRow(n) : <InboxRow notification={n} now={now} {...rowProps} />}
+                  {renderRow ? (
+                    renderRow(n, { primary: n.id === primaryId })
+                  ) : (
+                    <InboxRow
+                      notification={n}
+                      now={now}
+                      primary={n.id === primaryId}
+                      {...rowProps}
+                    />
+                  )}
                 </ListItem>
               ))}
             </ul>
@@ -523,6 +542,7 @@ interface ConnectedRowProps {
   markRead: (ids: string[]) => Promise<unknown>;
   resolve: (id: string, actionId?: string) => Promise<unknown>;
   open: (n: Notification) => void;
+  primary: boolean;
 }
 
 /** A row with its approval (`useApproval`) and task retry (`useTask`) wired in. */
@@ -532,6 +552,7 @@ function ConnectedInboxRow({
   markRead,
   resolve,
   open,
+  primary,
 }: ConnectedRowProps): ReactElement {
   const ap = useApproval(n.kind === "approval" ? (n.approvalId ?? null) : null);
   const { retry } = useTask(null);
@@ -552,6 +573,7 @@ function ConnectedInboxRow({
       notification={n}
       now={now}
       busy={busy}
+      primary={primary}
       approval={{ approval: ap.approval, canAnswer: ap.canAnswer, stale: ap.stale }}
       onApprove={() => {
         read();
@@ -615,9 +637,10 @@ export function InboxScreen({ now: fixedNow, onOpen }: InboxScreenProps): ReactE
           });
       }}
       onOpenActivity={() => navigate?.("/overview#now")}
-      renderRow={(n) => {
+      renderRow={(n, { primary }) => {
         const row = (
           <ConnectedInboxRow
+            primary={primary}
             notification={n}
             now={now}
             markRead={inbox.markRead}

@@ -206,7 +206,10 @@ describe("LibraryScreen", () => {
     ) as HTMLElement;
     expect(within(form).getByText(/Document · PDF · 180 KB/)).toBeTruthy();
     expect(within(form).getByText("#dentist")).toBeTruthy();
-    await user.click(await within(form).findByRole("button", { name: "Task: Dentist booking" }));
+    await user.click(
+      await within(form).findByRole("button", { name: "More actions for acme-intake-form.pdf" }),
+    );
+    await user.click(await screen.findByRole("menuitem", { name: "Task: Dentist booking" }));
     expect(navigate).toHaveBeenCalledWith(`/agent/activity/${IDS.tasks.dentist}`);
     // Finder: one click selects, a double click opens (§5.7).
     const open = within(form).getByRole("button", { name: "Open acme-intake-form.pdf" });

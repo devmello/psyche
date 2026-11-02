@@ -125,7 +125,7 @@ export function CredentialDetail({
         <SectionLabel as="h3" id={headingId}>
           {t("settings.credentials.detail.recentUses")}
         </SectionLabel>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-callout text-muted-foreground">
           {t("settings.credentials.detail.recentUsesHint", { n: USES_SHOWN })}
         </p>
         <LoadGate
@@ -137,7 +137,10 @@ export function CredentialDetail({
           {uses.length === 0 ? (
             <EmptyNotice text={t("settings.credentials.detail.notUsed")} />
           ) : (
-            <Table aria-label={t("settings.credentials.detail.recentUses")} className="text-xs">
+            <Table
+              aria-label={t("settings.credentials.detail.recentUses")}
+              className="text-callout"
+            >
               <TableHeader>
                 <TableRow>
                   <TableHead scope="col">{t("settings.credentials.detail.when")}</TableHead>

@@ -44,7 +44,7 @@ export interface FeedPostCardProps {
  * (text-caption), title (text-title-2), body (text-reading) with citation markers, then one footer
  * row: the sources (count, favicon-shaped tiles and names) leading and the feedback trailing.
  * Like, Save and Ask about this are ghost icon buttons shown on hover or focus; Follow topic, Not interested
- * and Hide source sit under ⋯. The briefing is the hero: wider, with 24 px padding. A post with a
+ * and Hide source sit under ⋯. A post with a
  * structured `card` (digest, meeting prep, meeting notes) renders as that workflow card.
  */
 export function FeedPostCard(props: FeedPostCardProps): ReactElement {
@@ -86,16 +86,14 @@ function StandardPostCard({
       aria-labelledby={titleId}
       data-kind={post.growth ? "growth" : kind}
       className={cn(
-        // Level 1 without an outline (§3.5); the briefing is the wider hero at the top (§5.6).
+        // Level 1 without an outline (§3.5); every card shares one column width (§5.6).
         "group/post flex flex-col gap-2 rounded-lg bg-surface-raised p-4 shadow-elevation-1",
-        kind === "briefing" ? "gap-3 p-6 @2xl/column:-mx-3" : "",
+        kind === "briefing" ? "gap-3" : "",
         className,
       )}
     >
       <p className="text-caption text-label-secondary">
-        <span className={cn(kind === "exploration" ? "text-accent-11" : "")}>
-          {post.growth ? t("screens.growth.card.kind") : feedKindLabel(post)}
-        </span>
+        <span>{post.growth ? t("screens.growth.card.kind") : feedKindLabel(post)}</span>
         {kind === "briefing" ? <span> · {formatTime(post.createdAt)}</span> : null}
       </p>
       <h2 id={titleId} className="text-title-2 text-label-primary">
@@ -127,27 +125,23 @@ function StandardPostCard({
 
       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-2">
         {sources.length > 0 ? (
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-callout text-label-secondary">
-            <span className="font-medium">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-1 text-callout text-label-secondary tabular-nums">
+            <span className="text-label-tertiary">
               {t("screens.feed.sourcesCount", { n: post.citations.length })}
             </span>
             <ul
               aria-label={t("screens.feed.sources")}
-              className="flex flex-wrap items-center gap-x-2 gap-y-1"
+              className="flex flex-wrap items-center gap-x-1.5 gap-y-1"
             >
               {sources.map((s) => (
-                <li key={s.name}>
+                <li key={s.name} className="flex items-center gap-1.5">
+                  <span aria-hidden="true" className="text-label-tertiary">
+                    ·
+                  </span>
                   <SafeLink
                     href={s.url}
-                    className="inline-flex items-center gap-1.5 rounded-xs hover:text-label-primary hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+                    className="rounded-xs hover:text-label-primary hover:underline focus-visible:outline-2 focus-visible:outline-ring"
                   >
-                    {/* A favicon-shaped tile: 16 px, radius-xs. Psyche fetches no remote favicons. */}
-                    <span
-                      aria-hidden="true"
-                      className="inline-flex size-4 items-center justify-center rounded-xs bg-fill-secondary text-[10px] leading-none font-semibold text-label-primary"
-                    >
-                      {s.letter}
-                    </span>
                     {s.name}
                   </SafeLink>
                 </li>
