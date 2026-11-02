@@ -1,4 +1,10 @@
-import { documentPrefersReducedMotion, SPLASH_LEAVE_MS, StartupSplashView, t } from "@psyche/ui";
+import {
+  documentPrefersReducedMotion,
+  SPLASH_LEAVE_MS,
+  SPLASH_LEAVE_REDUCED_MS,
+  StartupSplashView,
+  t,
+} from "@psyche/ui";
 import { type ReactElement, useEffect, useState } from "react";
 import { type GatewayStatus, INITIAL_STATUS } from "../../client/status.ts";
 import type { GatewayRunView, MacHelperState, ShellPlatform } from "../platform.ts";
@@ -6,13 +12,13 @@ import type { GatewayRunView, MacHelperState, ShellPlatform } from "../platform.
 /**
  * The startup splash (#539, #595): the main window's first content while Psyche starts, then it
  * gives way in place to the app once this window is paired (the kit's `StartupSplashView` draws
- * it: the mark, the lantern, the hand-off into the toolbar avatar). No second window. Main decides at launch
+ * it: the moth, the wake-up steps, the hand-off into the toolbar avatar). No second window. Main decides at launch
  * whether there is anything to wait for (`chrome.splash`): not in dev with PSYCHE_NO_SPLASH=1,
  * not when Psyche already answered (attach mode).
  */
 
 export type SplashLine =
-  | { tone: "progress"; text: string }
+  | { tone: "progress"; text: string; step: 0 | 1 | 2 }
   | { tone: "ready"; text: string }
   | { tone: "error"; text: string; reason: string };
 
@@ -27,15 +33,16 @@ export function splashLine(i: {
   if (run?.kind === "stopped" && run.reason && run.reason !== "quit")
     return { tone: "error", text: t("web.splash.failed"), reason: run.reason };
   if (run?.kind === "starting" && run.step === "installing")
-    return { tone: "progress", text: t("web.splash.installing") };
+    return { tone: "progress", text: t("web.splash.installing"), step: 0 };
   if (i.status.health === "ok")
     return {
       tone: "progress",
       text: i.helper === "starting" ? t("web.splash.helper") : t("web.splash.connecting"),
+      step: 2,
     };
   if (run?.kind === "running" || (run?.kind === "starting" && run.step === "waiting"))
-    return { tone: "progress", text: t("web.splash.waiting") };
-  return { tone: "progress", text: t("web.splash.starting") };
+    return { tone: "progress", text: t("web.splash.waiting"), step: 1 };
+  return { tone: "progress", text: t("web.splash.starting"), step: 0 };
 }
 
 /** After this long without pairing, offer to open the app behind the splash. */
@@ -64,7 +71,11 @@ export function StartupSplash({
     if (!up || line.tone !== "ready") return;
     const reduce = documentPrefersReducedMotion();
     setLeaving(true);
-    const timer = setTimeout(() => setUp(false), reduce ? 0 : SPLASH_LEAVE_MS);
+    // Reduced motion still crosses over: one opacity fade, not a hard cut.
+    const timer = setTimeout(
+      () => setUp(false),
+      reduce ? SPLASH_LEAVE_REDUCED_MS : SPLASH_LEAVE_MS,
+    );
     return () => clearTimeout(timer);
   }, [up, line.tone]);
 
@@ -85,6 +96,7 @@ export function StartupSplash({
     <StartupSplashView
       line={line}
       leaving={leaving}
+      slow={canSkip && line.tone === "progress"}
       {...(line.tone === "error" && gateway.showLogs
         ? { onShowLogs: () => void gateway.showLogs?.() }
         : {})}

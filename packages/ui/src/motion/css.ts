@@ -60,8 +60,6 @@ export function motionCss(): string {
     ["route", "route"],
     ["routeReduced", "route-reduced"],
     ["splashDelay", "splash-delay"],
-    ["lantern", "lantern"],
-    ["lanternDelay", "lantern-delay"],
   ] as const)
     lines.push(`  --duration-${css}: ${duration[name]}ms;`);
   lines.push(`  --route-rise: ${routeRisePx}px;`);

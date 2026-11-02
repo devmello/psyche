@@ -23,9 +23,9 @@ export const duration = {
   routeReduced: 120,
   /** The startup splash's body waits this long for pairing, then fades in (redesign §5.9). */
   splashDelay: 300,
-  /** The splash lantern's breathing period and its start delay. */
-  lantern: 2800,
-  lanternDelay: 800,
+  /** One ink stroke of the splash moth drawing itself, and the gap between strokes. */
+  splashDraw: 560,
+  splashStroke: 90,
   /** The working pulse's period (motion.md §4.6): 40% → 100%, linear. */
   pulse: 1200,
   /** Per-item list stagger, capped at `staggerMax` items. */

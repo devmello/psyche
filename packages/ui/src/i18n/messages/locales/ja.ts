@@ -3164,6 +3164,7 @@ export const ja: Partial<Catalogue> = {
   "web.splash.waiting": "まもなく完了…",
   "web.splash.connecting": "接続中…",
   "web.splash.helper": "MacでPsycheを準備中…",
+  "web.splash.slow": "いつもより時間がかかっています。Psycheはまだ作業中です。",
   "web.splash.ready": "準備完了",
   "web.splash.failed": "Psycheを起動できませんでした",
   "web.splash.showLogs": "ログを表示",

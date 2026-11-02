@@ -1,4 +1,6 @@
 // @vitest-environment happy-dom
+
+import { SPLASH_LEAVE_MS } from "@psyche/ui";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { type GatewayStatus, INITIAL_STATUS } from "../../src/client/status.ts";
@@ -86,7 +88,7 @@ describe("StartupSplash (#539)", () => {
         />,
       );
       expect(screen.getByRole("status").textContent).toBe("Ready");
-      act(() => vi.advanceTimersByTime(300));
+      act(() => vi.advanceTimersByTime(SPLASH_LEAVE_MS));
       expect(screen.queryByTestId("startup-splash")).toBeNull();
     } finally {
       vi.useRealTimers();
@@ -127,6 +129,7 @@ describe("StartupSplash (#539)", () => {
       expect(screen.queryByRole("button", { name: "Open Psyche anyway" })).toBeNull();
       act(() => vi.advanceTimersByTime(SPLASH_ESCAPE_MS));
       expect(screen.getByRole("button", { name: "Open Psyche anyway" })).toBeTruthy();
+      expect(screen.getByText(/longer than usual/)).toBeTruthy();
     } finally {
       vi.useRealTimers();
     }

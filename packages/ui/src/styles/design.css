@@ -534,9 +534,12 @@
 }
 
 /*
-  The startup splash (#595; StartupSplashView): the app's canvas and the mark drawing in. The body
-  appears only if pairing takes longer than 300 ms (redesign §5.9). The whole splash is a window
-  drag region except its buttons.
+  The startup splash (#595; StartupSplashView): paper, a moth drawn in ink and a few ruled marks.
+  The body appears only if pairing takes longer than 300 ms (redesign §5.9), so a quick start
+  never flashes it. The whole splash is a window drag region except its buttons. Leaving: the
+  copy goes first, the paper fades under the moth as it flies to the toolbar avatar, then the
+  caller unmounts. Reduced motion: the global rule below the base layer stops the animations and
+  turns every transition into an opacity fade, which is the whole static version.
 */
 .startup-splash {
   position: fixed;
@@ -545,42 +548,62 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--canvas);
   color: var(--label-primary);
   -webkit-app-region: drag;
   app-region: drag;
-  transition: opacity var(--duration-medium, 220ms) var(--ease-exit, ease-in);
 }
 .startup-splash[data-leaving] {
-  opacity: 0;
   pointer-events: none;
 }
+.startup-splash-veil {
+  position: absolute;
+  inset: 0;
+  background: var(--canvas);
+  transition: opacity var(--duration-long) var(--ease-standard);
+}
+.startup-splash[data-leaving] .startup-splash-veil {
+  opacity: 0;
+}
 .startup-splash-body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 360px;
+  padding: 24px;
+  text-align: center;
+  animation: psy-splash-in var(--duration-medium) var(--ease-enter) var(--duration-splash-delay)
+    both;
+}
+.startup-splash-mark {
+  display: grid;
+  place-items: center;
+  margin-bottom: 16px;
+  color: var(--accent-9);
+  transition: color var(--duration-long) var(--ease-standard);
+}
+.startup-splash[data-tone="error"] .startup-splash-mark {
+  color: var(--label-tertiary);
+}
+.startup-splash-mark svg {
+  overflow: visible;
+}
+.startup-splash-copy {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  max-width: 360px;
-  padding: 24px;
-  text-align: center;
-  animation: psy-splash-in var(--duration-medium, 220ms) var(--ease-enter, ease-out)
-    var(--duration-splash-delay, 300ms) both;
+  transition: opacity var(--duration-short-exit) var(--ease-exit);
 }
-.startup-splash-mark {
-  position: relative;
-  display: grid;
-  place-items: center;
-  margin-bottom: 12px;
-}
-.startup-splash-mark svg {
-  position: relative;
-  overflow: visible;
+.startup-splash[data-leaving] .startup-splash-copy {
+  opacity: 0;
 }
 .startup-splash-wordmark {
   margin: 0;
-  font-size: 20px;
-  line-height: 26px;
-  font-weight: 600;
+  font-family: var(--font-display);
+  font-size: 30px;
+  line-height: 36px;
+  font-weight: 500;
   letter-spacing: -0.01em;
 }
 .startup-splash-status {
@@ -589,6 +612,90 @@
   font-size: 13px;
   line-height: 18px;
   color: var(--label-secondary);
+  animation: psy-splash-in var(--duration-medium) var(--ease-enter)
+    calc(var(--duration-splash-delay) + var(--duration-long)) both;
+}
+.startup-splash[data-tone="error"] .startup-splash-status {
+  color: var(--label-primary);
+}
+/* A new line of status writes itself in as the last one is replaced. */
+.startup-splash-line {
+  display: inline-block;
+  animation: psy-splash-line var(--duration-medium) var(--ease-enter) both;
+}
+/* Three ruled marks: done is filled, the one in progress is half filled, the rest are empty. */
+.startup-splash-steps {
+  display: flex;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  animation: psy-splash-in var(--duration-medium) var(--ease-enter)
+    calc(var(--duration-splash-delay) + var(--duration-long)) both;
+}
+.startup-splash-steps li {
+  position: relative;
+  width: 28px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--fill-primary);
+  overflow: hidden;
+}
+.startup-splash-steps li::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--label-secondary);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--duration-long) var(--ease-enter);
+}
+.startup-splash-steps li[data-state="active"]::after {
+  transform: scaleX(0.4);
+}
+.startup-splash-steps li[data-state="done"]::after {
+  transform: scaleX(1);
+}
+.startup-splash-steps:dir(rtl) li::after {
+  transform-origin: right;
+}
+.startup-splash-hint {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--label-tertiary);
+  text-wrap: balance;
+  animation: psy-splash-in var(--duration-long) var(--ease-enter) both;
+}
+.startup-splash-anyway {
+  margin-top: 4px;
+  animation: psy-splash-in var(--duration-long) var(--ease-enter) both;
+}
+/* A failed start: the reason on a paper chit you can select, then the two ways forward. */
+.startup-splash-fail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+  animation: psy-splash-line var(--duration-medium) var(--ease-enter) both;
+}
+.startup-splash-reason {
+  margin: 0;
+  max-width: 320px;
+  padding: 8px 12px;
+  border: 1px solid var(--separator);
+  border-radius: 8px;
+  background: var(--fill-quaternary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--label-secondary);
+  text-align: start;
+  overflow-wrap: anywhere;
+  user-select: text;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
 }
 .startup-splash-actions,
 .startup-splash-actions button {
@@ -598,6 +705,12 @@
 @keyframes psy-splash-in {
   from {
     opacity: 0;
+  }
+}
+@keyframes psy-splash-line {
+  from {
+    opacity: 0;
+    transform: translateY(var(--route-rise));
   }
 }
 /*

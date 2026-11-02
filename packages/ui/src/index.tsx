@@ -335,6 +335,7 @@ export {
 } from "./shell/Sidebar.tsx";
 export {
   SPLASH_LEAVE_MS,
+  SPLASH_LEAVE_REDUCED_MS,
   type SplashLineView,
   StartupSplashView,
   type StartupSplashViewProps,

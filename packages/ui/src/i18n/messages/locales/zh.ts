@@ -3075,6 +3075,7 @@ export const zh: Partial<Catalogue> = {
   "web.splash.waiting": "即将就绪…",
   "web.splash.connecting": "正在连接…",
   "web.splash.helper": "正在你的 Mac 上准备 Psyche…",
+  "web.splash.slow": "这比平时花的时间更长。Psyche 仍在运行。",
   "web.splash.ready": "已就绪",
   "web.splash.failed": "Psyche 无法启动",
   "web.splash.showLogs": "显示日志",

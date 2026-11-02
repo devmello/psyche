@@ -405,6 +405,7 @@ export const web = {
   "web.splash.waiting": "Almost ready…",
   "web.splash.connecting": "Connecting…",
   "web.splash.helper": "Getting Psyche ready on your Mac…",
+  "web.splash.slow": "This is taking longer than usual. Psyche is still working.",
   "web.splash.ready": "Ready",
   "web.splash.failed": "Psyche couldn't start",
   "web.splash.showLogs": "Show logs",
