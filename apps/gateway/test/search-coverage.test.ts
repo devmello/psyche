@@ -161,6 +161,8 @@ describe("search.sources methods", () => {
       "calendar",
       "reminders",
       "files",
+      "browser",
+      "transcripts",
     ]);
     expect(st.sources.every((s) => !s.enabled && s.state === "off" && s.items === 0)).toBe(true);
     expect(st.sources.every((s) => s.processing === "cloud")).toBe(true);

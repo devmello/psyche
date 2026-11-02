@@ -235,7 +235,7 @@ export type SearchIndexStatus = Static<typeof SearchIndexStatus>;
 
 /** Local sources the owner can have indexed (Settings → Search sources). */
 export const SearchSourceId = StringEnum(
-  ["mail", "messages", "notes", "calendar", "reminders", "files"],
+  ["mail", "messages", "notes", "calendar", "reminders", "files", "browser", "transcripts"],
   { $id: "SearchSourceId" },
 );
 export type SearchSourceId = Static<typeof SearchSourceId>;
@@ -302,6 +302,12 @@ export const SearchMethods = {
         Type.Array(Type.String({ maxLength: 200 }), {
           maxItems: 16,
           description: "Ids of understood chips the user removed",
+        }),
+      ),
+      smart: Type.Optional(
+        Type.Boolean({
+          description:
+            "Let the cheap query model read a question the rules could not filter (Enter, not keystrokes). Ignored when no model is configured",
         }),
       ),
     }),

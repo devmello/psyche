@@ -10,6 +10,7 @@ import {
   DEFAULT_CONTEXT_BUDGETS,
   MAP_GUIDANCE,
   renderSystemPrompt,
+  UI_GUIDANCE,
 } from "../src/index.ts";
 import { harness, runTurn, say } from "./harness.ts";
 
@@ -225,5 +226,13 @@ describe("context budgets (C2)", () => {
     expect(CANVAS_GUIDANCE.length).toBeLessThan(420);
     expect(MAP_GUIDANCE.length).toBeLessThan(260);
     expect(await tools(["artifact.create"])).toContain(MAP_GUIDANCE);
+    // Widgets (generative-ui-2026 §6.4): only when the widget tools exist.
+    expect(await tools(["render_ui", "update_ui"])).toContain(UI_GUIDANCE);
+    expect(await tools(["read_file"])).not.toContain(UI_GUIDANCE);
+    expect(UI_GUIDANCE.length).toBeLessThan(620);
+    // Both sides of the decision, and the approval ban, are in the prompt.
+    expect(UI_GUIDANCE).toMatch(/explanations/);
+    expect(UI_GUIDANCE).toMatch(/update_ui/);
+    expect(UI_GUIDANCE).toMatch(/approval/);
   });
 });

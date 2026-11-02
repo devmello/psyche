@@ -78,6 +78,7 @@ import {
   validateEventPayload,
   validateParams,
   validateResult,
+  type Widget,
 } from "@psyche/protocol";
 import type { MockFileNode } from "../fixtures/files.ts";
 import { emptyInsights } from "../fixtures/insights.ts";
@@ -117,6 +118,7 @@ export interface MockWorld {
   auditChanges: { change: AuditChange; diff?: string }[];
   auditVerified: boolean;
   artifacts: Artifact[];
+  widgets: Widget[];
   /** Canvas history per artifact: content, table view and version record, index = version - 1. */
   artifactHistory: Record<
     string,
@@ -241,6 +243,7 @@ export const EMPTY_WORLD: MockWorld = {
   auditChanges: [],
   auditVerified: true,
   artifacts: [],
+  widgets: [],
   artifactHistory: {},
   library: [],
   files: {},
@@ -348,7 +351,16 @@ export class MockGateway implements GatewayClient {
   private now: () => string;
   private counter = 0;
   private sourcesStatus(): MethodResult<"search.sources"> {
-    const ids = ["mail", "messages", "notes", "calendar", "reminders", "files"] as const;
+    const ids = [
+      "mail",
+      "messages",
+      "notes",
+      "calendar",
+      "reminders",
+      "files",
+      "browser",
+      "transcripts",
+    ] as const;
     const labels = {
       mail: "Mail",
       messages: "Messages",
@@ -356,6 +368,8 @@ export class MockGateway implements GatewayClient {
       calendar: "Calendar",
       reminders: "Reminders",
       files: "Files",
+      browser: "Browser pages",
+      transcripts: "Transcripts",
     };
     const cfg = this.world.searchSources;
     return {
@@ -1654,6 +1668,13 @@ export class MockGateway implements GatewayClient {
       receipts: this.world.receipts.filter((r) => p.taskId === undefined || r.taskId === p.taskId),
       nextCursor: null,
     }),
+    "widgets.get": (p) => {
+      const widgets = p.widgetIds.flatMap((id) => this.world.widgets.filter((w) => w.id === id));
+      return {
+        widgets,
+        missing: p.widgetIds.filter((id) => !widgets.some((w) => w.id === id)),
+      };
+    },
     "artifacts.get": (p) => ({
       artifact: this.find(this.world.artifacts, p.artifactId, "artifact"),
     }),
