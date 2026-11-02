@@ -1053,7 +1053,7 @@ export function ModelStep({
                   {clip.state === "copied" ? t("onboarding.model.copiedStatus") : ""}
                 </span>
                 {clip.state === "failed" ? (
-                  <span className="text-xs text-danger-text" role="alert">
+                  <span className="text-callout text-danger-text" role="alert">
                     {t("onboarding.model.copyFailed")}
                   </span>
                 ) : null}
@@ -1269,7 +1269,7 @@ export function DoneStep({
             term: t("onboarding.done.model"),
             value: (
               <span className="flex flex-wrap items-center gap-2">
-                <code className="font-mono text-xs">{result.model.modelRef}</code>
+                <code className="font-mono text-callout">{result.model.modelRef}</code>
                 <ToolCheckBadge status={result.model.toolCheck} />
               </span>
             ),

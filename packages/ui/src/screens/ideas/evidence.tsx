@@ -112,61 +112,63 @@ export interface EvidenceLineProps {
 }
 
 const linkClass =
-  "cursor-pointer text-start text-label-primary underline decoration-separator-strong underline-offset-2 hover:decoration-accent-9 focus-visible:outline-2 focus-visible:outline-ring";
+  "cursor-pointer text-start text-label-secondary underline decoration-separator-strong underline-offset-2 hover:decoration-accent-9 focus-visible:outline-2 focus-visible:outline-ring";
 
 /**
- * "Because:" then one line per item, each linked to its source with the source named after it
- * ("3 charges · Gmail"). One item per line keeps long evidence from wrapping into a ragged run.
+ * The evidence line: "Because" in tertiary, then each item linked to its source with the source
+ * named after it ("3 charges · Gmail"). One item reads as one line; several stay a list, each item
+ * with the same treatment.
  */
 export function EvidenceLine({ items, onOpenRoute, className }: EvidenceLineProps): ReactElement {
-  return (
-    <div className={cn("flex flex-col gap-1 text-callout text-label-secondary", className)}>
-      <p className="font-medium text-label-primary">
-        {t("screens.evidence.because")}
-        {items.length === 0 ? (
-          <span className="font-normal"> {t("screens.evidence.none")}</span>
-        ) : null}
+  const label = <span className="text-label-tertiary">{t("screens.evidence.because")}</span>;
+  const renderItem = (e: EvidenceItem): ReactElement => {
+    let node: ReactElement;
+    if (e.route !== null && onOpenRoute) {
+      const route = e.route;
+      node = (
+        <button type="button" onClick={() => onOpenRoute(route)} className={linkClass}>
+          {e.text}
+        </button>
+      );
+    } else if (e.href !== null) {
+      node = (
+        <SafeLink href={e.href} className={linkClass}>
+          {e.text}
+        </SafeLink>
+      );
+    } else {
+      node = <span>{e.text}</span>;
+    }
+    return (
+      <span key={`${e.ref ?? ""}-${e.text}`} className="min-w-0">
+        {node}
+        {e.source ? <span> · {sourceLabel(e.source)}</span> : null}
+      </span>
+    );
+  };
+  const base = "text-callout text-label-secondary tabular-nums";
+  if (items.length === 0)
+    return (
+      <p className={cn(base, className)}>
+        {label} {t("screens.evidence.none")}
       </p>
-      {items.length > 0 ? (
-        <ul className="flex flex-col gap-0.5">
-          {items.map((e) => {
-            let node: ReactElement;
-            if (e.route !== null && onOpenRoute) {
-              const route = e.route;
-              node = (
-                <button type="button" onClick={() => onOpenRoute(route)} className={linkClass}>
-                  {e.text}
-                </button>
-              );
-            } else if (e.href !== null) {
-              node = (
-                <SafeLink href={e.href} className={linkClass}>
-                  {e.text}
-                </SafeLink>
-              );
-            } else {
-              node = <span className="text-label-primary">{e.text}</span>;
-            }
-            return (
-              <li key={`${e.ref ?? ""}-${e.text}`} className="flex min-w-0 items-baseline gap-2">
-                <span
-                  aria-hidden="true"
-                  className="size-1 shrink-0 translate-y-[-2px] rounded-full bg-label-quaternary"
-                />
-                <span className="min-w-0">
-                  {node}
-                  {e.source ? (
-                    <span className="text-callout text-label-secondary">
-                      {" "}
-                      · {sourceLabel(e.source)}
-                    </span>
-                  ) : null}
-                </span>
-              </li>
-            );
-          })}
-        </ul>
-      ) : null}
+    );
+  if (items.length === 1)
+    return (
+      <p className={cn(base, className)}>
+        {label} {renderItem(items[0] as EvidenceItem)}
+      </p>
+    );
+  return (
+    <div className={cn("flex flex-col gap-1", base, className)}>
+      <p>{label}</p>
+      <ul className="flex flex-col gap-0.5">
+        {items.map((e) => (
+          <li key={`${e.ref ?? ""}-${e.text}`} className="flex min-w-0">
+            {renderItem(e)}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

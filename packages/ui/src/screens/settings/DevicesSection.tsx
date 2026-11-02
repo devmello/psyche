@@ -120,7 +120,7 @@ export function DevicesPanel({
                     {d.id === thisDeviceId ? (
                       <StatusChip tone="accent">{t("settings.devices.thisDevice")}</StatusChip>
                     ) : null}
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-callout text-muted-foreground">
                       {t("settings.devices.platformRole", {
                         platform: platformLabel(d.platform),
                         role: d.role,
@@ -164,7 +164,7 @@ export function DevicesPanel({
                       {t("settings.devices.thisMacAdmin")}
                     </p>
                   ) : null}
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-callout text-muted-foreground">
                     {t("settings.devices.key")}{" "}
                     <code className="font-mono">{keyFingerprint(d.publicKey)}</code>{" "}
                     {d.lastSeenAt
@@ -178,7 +178,7 @@ export function DevicesPanel({
             </ul>
           )}
           {revoked.length > 0 ? (
-            <details className="text-xs text-muted-foreground">
+            <details className="text-callout text-muted-foreground">
               <summary className="cursor-pointer">
                 {t("settings.devices.revoked", { n: revoked.length })}
               </summary>
@@ -205,7 +205,7 @@ export function DevicesPanel({
                 <li key={n.id} className="flex flex-col gap-1 py-2 first:pt-0 last:pb-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium">{nodeKindLabel(n.kind)}</span>
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-callout text-muted-foreground">
                       {t("settings.devices.onDevice", { device: deviceName(n.deviceId) })}
                     </span>
                     <StatusChip
@@ -219,7 +219,7 @@ export function DevicesPanel({
                     >
                       {t("settings.devices.nodeStatus", { status: n.status })}
                     </StatusChip>
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-callout text-muted-foreground">
                       {n.lastHeartbeatAt
                         ? t("settings.devices.lastSeen", {
                             when: formatRelative(n.lastHeartbeatAt, clock),
@@ -235,7 +235,9 @@ export function DevicesPanel({
                   >
                     {n.capabilities.map((c) => (
                       <li key={c.name}>
-                        <code className="rounded bg-gray-4 px-1 font-mono text-xs">{c.name}</code>
+                        <code className="rounded bg-gray-4 px-1 font-mono text-callout">
+                          {c.name}
+                        </code>
                       </li>
                     ))}
                   </ul>
@@ -279,13 +281,13 @@ function PendingDevice({
         <code className="rounded bg-gray-4 px-1 font-mono text-base tracking-wider">
           {request.code}
         </code>
-        <span className="text-xs text-muted-foreground">
+        <span className="text-callout text-muted-foreground">
           {" "}
           {t("settings.devices.expires", { when: formatRelative(request.expiresAt, now) })}
         </span>
       </p>
       <fieldset className="flex flex-wrap gap-x-4 gap-y-1">
-        <legend className="mb-1 text-xs text-muted-foreground">
+        <legend className="mb-1 text-callout text-muted-foreground">
           {t("settings.devices.scopesFor", { name: request.display })}
         </legend>
         {PAIR_SCOPES.map((s) => (

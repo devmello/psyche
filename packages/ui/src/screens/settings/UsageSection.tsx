@@ -184,7 +184,7 @@ export function UsagePanel({ usage, loading, error, onRetry }: UsagePanelProps):
             <Group title={t("settings.usage.recent")}>
               <ul className="flex flex-col gap-1">
                 {usage.records.map((r) => (
-                  <li key={r.id} className="flex flex-wrap items-baseline gap-x-3 text-xs">
+                  <li key={r.id} className="flex flex-wrap items-baseline gap-x-3 text-callout">
                     <span className="min-w-12 whitespace-nowrap tabular-nums text-muted-foreground">
                       {formatTime(r.createdAt)}
                     </span>

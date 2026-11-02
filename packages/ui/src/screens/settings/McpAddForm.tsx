@@ -92,7 +92,7 @@ export function McpAddForm({
               onChange={(e) => setJson(e.target.value)}
               aria-describedby={`${id}-json-hint`}
             />
-            <p id={`${id}-json-hint`} className="text-xs text-muted-foreground">
+            <p id={`${id}-json-hint`} className="text-callout text-muted-foreground">
               {t("settings.mcp.json.hint")}
             </p>
             {jsonError !== null ? (
@@ -137,7 +137,7 @@ export function McpAddForm({
           </div>
         )}
         {importedNote.map((line) => (
-          <p key={line} className="text-xs text-muted-foreground">
+          <p key={line} className="text-callout text-muted-foreground">
             {line}
           </p>
         ))}
@@ -194,7 +194,7 @@ export function McpAddForm({
               onChange={(e) => setD({ ...d, domains: e.target.value })}
               aria-describedby={`${id}-domains-hint`}
             />
-            <p id={`${id}-domains-hint`} className="text-xs text-muted-foreground">
+            <p id={`${id}-domains-hint`} className="text-callout text-muted-foreground">
               {t("settings.mcp.domainsHint")}
             </p>
           </div>

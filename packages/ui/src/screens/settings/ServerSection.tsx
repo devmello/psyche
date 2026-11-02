@@ -72,7 +72,7 @@ export function ServerPanel({
             onCommit={(v) => onChange("gateway.bind", v === "" ? DEFAULT_BIND : v)}
           >
             {exposed ? (
-              <p className="text-xs text-approval-text" role="status">
+              <p className="text-callout text-approval-text" role="status">
                 {t("settings.server.exposed")}
               </p>
             ) : null}
@@ -119,7 +119,7 @@ export function ServerPanel({
                   ? [
                       {
                         term: t("settings.server.address"),
-                        value: <code className="font-mono text-xs">{status.remote.url}</code>,
+                        value: <code className="font-mono text-callout">{status.remote.url}</code>,
                       },
                     ]
                   : []),
@@ -149,14 +149,16 @@ export function ServerPanel({
             />
           ) : status?.sandbox ? (
             <p className="flex flex-wrap items-center gap-2">
-              <code className="font-mono text-xs">{status.sandbox.backend}</code>
+              <code className="font-mono text-callout">{status.sandbox.backend}</code>
               <StatusChip tone={status.sandbox.available ? "success" : "danger"}>
                 {status.sandbox.available
                   ? t("settings.server.available")
                   : t("settings.server.unavailable")}
               </StatusChip>
               {status.sandbox.available ? null : (
-                <span className="text-xs text-danger-text">{t("settings.server.noBackend")}</span>
+                <span className="text-callout text-danger-text">
+                  {t("settings.server.noBackend")}
+                </span>
               )}
             </p>
           ) : (

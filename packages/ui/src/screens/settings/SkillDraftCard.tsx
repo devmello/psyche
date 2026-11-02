@@ -64,7 +64,7 @@ export function SkillDraftCard({
         ) : null}
       </div>
       <p className="text-muted-foreground">{show(draft.description, 400)}</p>
-      <ol className="ms-5 list-decimal text-xs">
+      <ol className="ms-5 list-decimal text-callout">
         {draft.steps.map((s, i) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: steps repeat tools; order is the identity
           <li key={`${s.tool}:${i}`}>
@@ -76,7 +76,7 @@ export function SkillDraftCard({
           </li>
         ))}
       </ol>
-      <p className="text-xs text-muted-foreground">
+      <p className="text-callout text-muted-foreground">
         {t("settings.skills.draft.redacted", { persona, n: draft.redactions })}
       </p>
       {draft.replay !== undefined && !draft.replay.ok ? (
@@ -107,7 +107,7 @@ export function SkillDraftCard({
             value={text}
             onChange={(e) => setText(e.target.value)}
             rows={14}
-            className="font-mono text-xs"
+            className="font-mono text-callout"
           />
           {saveError ? <ErrorNotice what={saveError} /> : null}
           <div className="flex gap-2">
@@ -130,8 +130,8 @@ export function SkillDraftCard({
       ) : (
         <details>
           {/* i18n-ignore: the skill's file name */}
-          <summary className="cursor-pointer text-xs font-medium">SKILL.md</summary>
-          <pre className="mt-2 max-h-56 overflow-auto rounded-md bg-gray-3 p-3 text-xs whitespace-pre-wrap">
+          <summary className="cursor-pointer text-callout font-medium">SKILL.md</summary>
+          <pre className="mt-2 max-h-56 overflow-auto rounded-md bg-gray-3 p-3 text-callout whitespace-pre-wrap">
             {sanitizeBlock(draft.text)}
           </pre>
         </details>

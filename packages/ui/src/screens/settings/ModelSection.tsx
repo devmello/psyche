@@ -112,7 +112,9 @@ export function CapabilityChips({
         </StatusChip>
       ))}
       {guessed ? (
-        <span className="text-xs text-muted-foreground">{t("settings.model.cap.guessed")}</span>
+        <span className="text-callout text-muted-foreground">
+          {t("settings.model.cap.guessed")}
+        </span>
       ) : null}
     </span>
   );
@@ -149,7 +151,7 @@ export function EndpointProbeStatus({
   ].filter((x): x is string => x !== null);
   return (
     <div className="flex flex-col gap-1">
-      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-2 text-callout text-muted-foreground">
         <Server className="size-3.5" aria-hidden="true" />
         {probing === true ? (
           <StatusChip tone="info">
@@ -177,7 +179,7 @@ export function EndpointProbeStatus({
         ) : null}
       </div>
       {probe.error !== undefined && probe.state !== "reachable" ? (
-        <p className="text-xs text-danger-text">{probe.error}</p>
+        <p className="text-callout text-danger-text">{probe.error}</p>
       ) : null}
     </div>
   );
@@ -296,7 +298,7 @@ function KeyEditor({
   };
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={`${id}-key`} className="text-xs font-medium">
+      <label htmlFor={`${id}-key`} className="text-callout font-medium">
         {t("settings.model.key.newLabel", { name: provider.label })}
       </label>
       <div className="flex flex-wrap items-center gap-2">
@@ -324,7 +326,7 @@ function KeyEditor({
         </Button>
       </div>
       {error !== null ? (
-        <p role="alert" className="text-xs text-danger-text">
+        <p role="alert" className="text-callout text-danger-text">
           {error}
         </p>
       ) : null}
@@ -410,12 +412,12 @@ export function ModelProvidersPanel({
                 <li key={p.id} className="flex flex-col gap-2 py-2 first:pt-0 last:pb-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium text-foreground">{p.label}</span>
-                    <span className="text-xs text-muted-foreground">{kindLabel(p.kind)}</span>
+                    <span className="text-callout text-muted-foreground">{kindLabel(p.kind)}</span>
                     <StatusChip tone={STATUS_TONE[p.status]}>
                       {t(`settings.model.status.${p.status}`)}
                     </StatusChip>
                   </div>
-                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <p className="flex items-center gap-1.5 text-callout text-muted-foreground">
                     <KeyRound className="size-3.5" aria-hidden="true" />
                     {p.kind === "subscription"
                       ? t("settings.model.key.subscription")
@@ -467,7 +469,9 @@ export function ModelProvidersPanel({
                         <li key={m.ref} className="flex flex-wrap items-center gap-2">
                           <span className="text-sm">{modelLabel(m)}</span>
                           {m.label ? (
-                            <code className="font-mono text-xs text-muted-foreground">{m.ref}</code>
+                            <code className="font-mono text-callout text-muted-foreground">
+                              {m.ref}
+                            </code>
                           ) : null}
                           {m.capabilities?.embeddings === true ? null : (
                             <ToolCheckBadge status={m.toolCheck} />
@@ -510,7 +514,7 @@ export function ModelProvidersPanel({
               <div key={role.key} className="grid gap-1 sm:grid-cols-[10rem_1fr] sm:items-center">
                 <label htmlFor={`${id}-${role.key}`} className="font-medium">
                   {role.label}
-                  <span className="block text-xs font-normal text-muted-foreground">
+                  <span className="block text-callout font-normal text-muted-foreground">
                     {role.hint}
                   </span>
                 </label>

@@ -286,7 +286,7 @@ export function PermissionsPanel({
               {origins.map((g) => (
                 <li key={g.id} className="flex flex-wrap items-center gap-2">
                   <span className="font-medium">{grantSubject(g)}</span>
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-callout text-muted-foreground">
                     {g.expiresAt
                       ? t("settings.permissions.scopeExpires", {
                           scope: scopeLabel(g.scope),
@@ -328,8 +328,8 @@ export function PermissionsPanel({
             <ul className="flex flex-wrap gap-x-4 gap-y-1">
               {folders.map((f) => (
                 <li key={f.path}>
-                  <code className="font-mono text-xs">{f.path}</code>{" "}
-                  <span className="text-xs text-muted-foreground">
+                  <code className="font-mono text-callout">{f.path}</code>{" "}
+                  <span className="text-callout text-muted-foreground">
                     {f.access === "rw"
                       ? t("settings.permissions.folderRw")
                       : t("settings.permissions.folderRo")}
@@ -366,7 +366,7 @@ export function PermissionsPanel({
                 {grants.map((g) => (
                   <TableRow key={g.id} data-revoked={g.revokedAt !== null}>
                     <TableCell className="whitespace-normal">
-                      <span className="block text-xs text-muted-foreground">
+                      <span className="block text-callout text-muted-foreground">
                         {grantKindLabel(g.kind)}
                       </span>
                       <span className={g.revokedAt ? "text-muted-foreground line-through" : ""}>
@@ -376,7 +376,7 @@ export function PermissionsPanel({
                     <TableCell>
                       {scopeLabel(g.scope)}
                       {g.expiresAt ? (
-                        <span className="block text-xs text-muted-foreground">
+                        <span className="block text-callout text-muted-foreground">
                           {Date.parse(g.expiresAt) < clock
                             ? t("settings.permissions.expired")
                             : t("settings.permissions.until", { date: formatDate(g.expiresAt) })}

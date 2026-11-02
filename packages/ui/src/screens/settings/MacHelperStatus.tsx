@@ -37,7 +37,7 @@ export function MacHelperStatusRow({ state }: { state: MacHelperStatus }): React
       </p>
       <p className="text-sm text-muted-foreground">{v.text}</p>
       {state.kind === "offline" && state.reason ? (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-callout text-muted-foreground">
           {t("settings.macHelper.lastTry", { reason: state.reason })}
         </p>
       ) : null}

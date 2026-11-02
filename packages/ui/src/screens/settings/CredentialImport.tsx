@@ -45,7 +45,7 @@ export function ImportSummary({ outcome }: { outcome: ImportOutcome }): ReactEle
         })}
       </p>
       {skipped.length > 0 ? (
-        <ul className="text-xs text-muted-foreground">
+        <ul className="text-callout text-muted-foreground">
           {skipped.slice(0, SKIPPED_SHOWN).map((s) => (
             <li key={s.row}>
               {t("settings.credentials.import.row", { row: s.row, reason: s.reason })}
@@ -108,7 +108,7 @@ export function ImportCredentialsForm({
       aria-label={t("settings.credentials.import.form")}
       className="flex flex-col gap-3 rounded-md border border-gray-6 bg-background p-3"
     >
-      <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+      <p className="flex items-start gap-1.5 text-callout text-muted-foreground">
         <FileUp className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
         {t("settings.credentials.import.explainer")}
       </p>

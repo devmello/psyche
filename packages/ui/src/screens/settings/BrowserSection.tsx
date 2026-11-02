@@ -138,12 +138,15 @@ export function SignedInSitesGroup({ api }: { api: SignedInSitesApi }): ReactEle
             <span>
               <span className="font-mono">{s.origin.replace(/^https:\/\//, "")}</span>
               {s.detected ? (
-                <span className="ml-2 text-xs text-muted-foreground" data-testid="signed-in-auto">
+                <span
+                  className="ml-2 text-callout text-muted-foreground"
+                  data-testid="signed-in-auto"
+                >
                   {t("settings.browser.signedIn.auto")}
                 </span>
               ) : null}
               {s.hosts.length > 1 ? (
-                <span className="block text-xs text-muted-foreground">
+                <span className="block text-callout text-muted-foreground">
                   {t("settings.browser.signedIn.viaHosts", { hosts: s.hosts.join(", ") })}
                 </span>
               ) : null}
@@ -250,7 +253,7 @@ export function BrowserPanel({
           title={profileLabel[0]?.toUpperCase() + profileLabel.slice(1)}
           description={t("settings.browser.profileDescription", { persona })}
         >
-          <details className="text-xs text-muted-foreground">
+          <details className="text-callout text-muted-foreground">
             <summary className="cursor-pointer">{t("settings.browser.details")}</summary>
             <p className="mt-1">{t("settings.browser.detailsText", { persona })}</p>
             <p className="mt-1">
@@ -346,7 +349,7 @@ export function BrowserPanel({
               {
                 term: t("settings.browser.fingerprint"),
                 value: hasKey ? (
-                  <code className="font-mono text-xs" data-testid="bot-auth-fingerprint">
+                  <code className="font-mono text-callout" data-testid="bot-auth-fingerprint">
                     {botAuth?.keyId}
                   </code>
                 ) : (

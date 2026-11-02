@@ -182,7 +182,9 @@ export function ComputerUsePanel({
                   <StatusChip tone={TCC_TONE[state]}>
                     {t(`settings.computerUse.tccState.${state}`)}
                   </StatusChip>
-                  <span className="text-xs text-muted-foreground">{TCC_LABEL[p].why(persona)}</span>
+                  <span className="text-callout text-muted-foreground">
+                    {TCC_LABEL[p].why(persona)}
+                  </span>
                   {state !== "granted" && onOpenSystemSettings ? (
                     <Button
                       type="button"

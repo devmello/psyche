@@ -97,7 +97,7 @@ function GuestCard({ report, now }: { report: VmUpdatedPayload; now: number }): 
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-medium">{g.name}</span>
         <StatusChip tone={PHASE_TONE[g.phase]}>{t(`settings.vm.phase.${g.phase}`)}</StatusChip>
-        <span className="ms-auto text-xs text-muted-foreground">
+        <span className="ms-auto text-callout text-muted-foreground">
           {t("settings.vm.reported", { when: formatRelative(report.at, now) })}
         </span>
       </div>

@@ -139,7 +139,7 @@ function FileRow({ file, depth, selected, onSelect }: TreeProps & { file: FileRe
 
 function Note({ depth, children }: { depth: number; children: ReactNode }): ReactElement {
   return (
-    <li className="py-1 pe-2 text-xs text-label-secondary" style={indent(depth + 1)}>
+    <li className="py-1 pe-2 text-callout text-label-secondary" style={indent(depth + 1)}>
       {children}
     </li>
   );
@@ -287,7 +287,7 @@ function LibraryNode({ selected, onSelect }: Omit<TreeProps, "depth">): ReactEle
         <Library className="size-4 shrink-0 text-label-secondary" aria-hidden="true" />
         <span className="min-w-0 flex-1 truncate">{t("screens.files.library")}</span>
         {lib.items.length > 0 ? (
-          <span className="text-xs text-label-secondary tabular-nums">{lib.items.length}</span>
+          <span className="text-callout text-label-secondary tabular-nums">{lib.items.length}</span>
         ) : null}
       </button>
       {open ? (
@@ -370,7 +370,7 @@ export function FilesPaneView({
                 path={g.path}
                 label={displayPath(g.path)}
                 badge={
-                  <Badge variant="outline" className="h-4 px-1 text-[0.625rem] uppercase">
+                  <Badge variant="outline" className="text-subheadline">
                     {g.access}
                   </Badge>
                 }
@@ -383,7 +383,7 @@ export function FilesPaneView({
             <LibraryNode selected={selected} onSelect={setSelected} />
           </ul>
           {!loading && grants.length === 0 ? (
-            <div className="flex flex-col items-start gap-2 p-2 text-xs text-label-secondary">
+            <div className="flex flex-col items-start gap-2 p-2 text-callout text-label-secondary">
               <p>{t("screens.files.noneShared", { name: persona.name })}</p>
               {onShareFolder ? (
                 <Button type="button" size="xs" onClick={onShareFolder}>
@@ -418,7 +418,7 @@ export function FilesPaneView({
                 >
                   {selected.name}
                 </h3>
-                <span className="shrink-0 text-xs text-label-secondary">
+                <span className="shrink-0 text-callout text-label-secondary">
                   {[
                     selected.size === null ? null : formatBytes(selected.size),
                     selected.modifiedAt ? formatRelative(selected.modifiedAt, clock) : null,

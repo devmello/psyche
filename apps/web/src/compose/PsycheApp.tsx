@@ -63,6 +63,7 @@ import { chatFileSlots } from "./attachments.tsx";
 import { ComposedCanvas } from "./canvas.tsx";
 import { FirstRun, onboardingRoute } from "./first-run.tsx";
 import { kitClient } from "./kit-client.ts";
+import { renderLibraryThumbnail } from "./library-thumbnails.tsx";
 import { writeOnboarding } from "./onboarding.ts";
 import { saveHabits } from "./onboarding-host.ts";
 import { settingsRoute } from "./settings.tsx";
@@ -257,6 +258,7 @@ export function screenRoute(route: string, navigate: (to: string) => void): Reac
         <LibraryScreen
           section={section}
           onSectionChange={(next) => navigate(`/library/${next}`)}
+          renderThumbnail={renderLibraryThumbnail}
         />,
       );
     }

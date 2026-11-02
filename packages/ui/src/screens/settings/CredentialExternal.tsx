@@ -118,7 +118,7 @@ export function LinkExternalForm({
       aria-label={t("settings.credentials.link.form", { manager })}
       className="flex flex-col gap-3 rounded-md border border-gray-6 bg-background p-3"
     >
-      <p className="text-xs text-muted-foreground">
+      <p className="text-callout text-muted-foreground">
         {t("settings.credentials.link.explainer", { op, manager })}
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
@@ -188,7 +188,7 @@ export function LinkExternalForm({
         </div>
       </div>
       {error ? (
-        <p role="alert" className="text-xs text-danger-text">
+        <p role="alert" className="text-callout text-danger-text">
           {error}
         </p>
       ) : null}

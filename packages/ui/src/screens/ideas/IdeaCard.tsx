@@ -106,9 +106,8 @@ export interface IdeaCardProps {
   /** The idea is being accepted or dismissed. */
   busy?: boolean;
   /**
-   * The one card whose "Let's do it" is the accent primary: the card the user is hovering or
-   * focused on (redesign §5.6, the one-primary rule applied to a list). Every other card shows a
-   * plain button.
+   * The one card whose "Do it" is the accent primary: the first in the list (one primary per
+   * view). Every other card shows the secondary button.
    */
   prominent?: boolean;
   className?: string;
@@ -117,7 +116,7 @@ export interface IdeaCardProps {
 /**
  * Idea card (docs/design/redesign-2026.md §5.6): a level-1 card without an outline. Title
  * (text-title-2), "Because:" evidence linked to its source, effort and approvals as callout
- * metadata, the recurring toggle with its cadence, then Let's do it / Edit / Dismiss trailing.
+ * metadata, the recurring toggle with its cadence, then Do it / Edit / Dismiss trailing.
  */
 export function IdeaCard({
   idea,

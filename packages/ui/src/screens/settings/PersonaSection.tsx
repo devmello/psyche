@@ -59,7 +59,7 @@ export function CreaturePicker({
             value={c.id}
             className="group/tile flex cursor-default flex-col items-center gap-1 rounded-lg p-1 text-callout text-label-secondary outline-none transition-transform duration-(--spring-micro-duration) ease-(--spring-micro) active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-ring data-checked:text-label-primary"
           >
-            <span className="flex size-[72px] items-center justify-center rounded-full bg-fill-quaternary ring-offset-2 ring-offset-canvas group-data-checked/tile:ring-2 group-data-checked/tile:ring-accent-9">
+            <span className="flex size-18 items-center justify-center rounded-full bg-fill-quaternary ring-offset-2 ring-offset-canvas group-data-checked/tile:ring-2 group-data-checked/tile:ring-accent-9">
               <Avatar name={personaName} creature={c.id} size={64} decorative />
             </span>
             <span>{c.name}</span>
@@ -134,7 +134,7 @@ export function PersonaPanel({
             </p>
             {tagline ? <p className="text-sm text-muted-foreground">{tagline}</p> : null}
             {description ? (
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p className="mt-1 text-callout text-muted-foreground">
                 {t("settings.persona.describedAs", { description })}
               </p>
             ) : null}
@@ -179,7 +179,7 @@ export function PersonaPanel({
               <Pencil className="size-3.5" aria-hidden="true" />
               {t("settings.persona.describeChange")}
             </Label>
-            <p id={`${changeId}-desc`} className="text-xs text-muted-foreground">
+            <p id={`${changeId}-desc`} className="text-callout text-muted-foreground">
               {hasImageModel
                 ? t("settings.persona.describeHint")
                 : t("settings.persona.describeHintNoModel")}
@@ -203,7 +203,7 @@ export function PersonaPanel({
             </div>
             <SettingHint settingKey="persona.creature" />
             {sent ? (
-              <p className="text-xs text-success-text" role="status">
+              <p className="text-callout text-success-text" role="status">
                 {sent}
               </p>
             ) : null}

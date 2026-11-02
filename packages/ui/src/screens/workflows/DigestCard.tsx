@@ -84,8 +84,9 @@ function ItemRow({
           {item.summary}
         </p>
         {item.because ? (
-          <p className="text-callout text-label-secondary">
-            {t("workflows.digest.because", { reason: item.because })}
+          <p className="text-callout text-label-secondary tabular-nums">
+            <span className="text-label-tertiary">{t("screens.evidence.because")}</span>{" "}
+            {item.because}
           </p>
         ) : null}
         {buttons.length > 0 ? (

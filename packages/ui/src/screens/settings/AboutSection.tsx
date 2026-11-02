@@ -61,7 +61,7 @@ export function AboutPanel({
                     term: t("settings.about.dataFolder"),
                     value: (
                       <span className="flex flex-wrap items-center gap-2">
-                        <code className="font-mono text-xs break-all">{info.home}</code>
+                        <code className="font-mono text-callout break-all">{info.home}</code>
                         {onRevealHome ? (
                           <Button type="button" size="sm" variant="outline" onClick={onRevealHome}>
                             {t("settings.about.revealHome")}

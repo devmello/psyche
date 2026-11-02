@@ -211,7 +211,7 @@ export function ShortcutRecorder({
         {label}
       </span>
       {description ? (
-        <p id={`${id}-desc`} className="text-xs text-muted-foreground">
+        <p id={`${id}-desc`} className="text-callout text-muted-foreground">
           {description}
         </p>
       ) : null}
@@ -271,7 +271,7 @@ export function ShortcutRecorder({
         <p
           id={`${id}-hint`}
           role="status"
-          className="flex items-center gap-1.5 text-xs text-approval-text"
+          className="flex items-center gap-1.5 text-callout text-approval-text"
         >
           <CircleAlert className="size-3.5 shrink-0" aria-hidden="true" />
           {hint}

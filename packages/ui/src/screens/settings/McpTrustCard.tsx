@@ -106,7 +106,7 @@ export function McpTrustCard({
           ))}
         </ul>
       </details>
-      <details className="text-xs text-muted-foreground">
+      <details className="text-callout text-muted-foreground">
         <summary className="cursor-pointer">{t("settings.mcp.trust.details")}</summary>
         <Facts
           className="mt-2"

@@ -232,7 +232,13 @@ export function CredentialsPanel({
             credentials.length === 0 && !adding && linking === null ? undefined : (
               <div className="flex items-center gap-1">
                 {onAdd ? (
-                  <Button type="button" size="sm" onClick={() => setAdding(true)} disabled={adding}>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={adding ? "outline" : "default"}
+                    onClick={() => setAdding(true)}
+                    disabled={adding}
+                  >
                     {t("settings.credentials.addItem")}
                   </Button>
                 ) : null}
@@ -358,7 +364,7 @@ export function CredentialsPanel({
                       <TableCell>
                         {credentialKindLabel(c.kind)}
                         {c.backend !== undefined && c.backend !== "vault" ? (
-                          <span className="block text-xs text-muted-foreground">
+                          <span className="block text-callout text-muted-foreground">
                             {t(`settings.credentials.backendIn.${c.backend}`)}
                           </span>
                         ) : null}
@@ -379,7 +385,7 @@ export function CredentialsPanel({
                         <TableCell className="text-end">
                           {managedOf(c) ? (
                             <span className="inline-flex items-center gap-1">
-                              <span className="text-xs text-muted-foreground">
+                              <span className="text-callout text-muted-foreground">
                                 {managedLabel(managedOf(c)?.kind ?? "connector")}
                               </span>
                               {onOpenSetting ? (
@@ -591,7 +597,7 @@ function EditCredentialForm({
       aria-label={t("settings.credentials.editItem", { name: credential.name })}
       className="flex flex-col gap-4 rounded-lg border border-gray-6 bg-background p-4"
     >
-      <p className="text-xs text-muted-foreground">
+      <p className="text-callout text-muted-foreground">
         {external
           ? t("settings.credentials.editExternal", { manager: external })
           : t("settings.credentials.editBlankKeeps")}
@@ -624,13 +630,13 @@ function EditCredentialForm({
             : t("settings.credentials.sites")}
         </legend>
         {bindings.length === 0 ? (
-          <p className="text-xs text-muted-foreground">{t("settings.credentials.notBound")}</p>
+          <p className="text-callout text-muted-foreground">{t("settings.credentials.notBound")}</p>
         ) : (
           <ul className="flex flex-wrap gap-1.5" aria-label={t("settings.credentials.col.boundTo")}>
             {bindings.map((b) => (
               <li
                 key={JSON.stringify(b)}
-                className="inline-flex items-center gap-1 rounded-md border border-gray-6 bg-gray-2 py-0.5 pe-0.5 ps-2 text-xs"
+                className="inline-flex items-center gap-1 rounded-md border border-gray-6 bg-gray-2 py-0.5 pe-0.5 ps-2 text-callout"
               >
                 {bindingLabel(b)}
                 {"connector" in b ? null : (
@@ -675,7 +681,7 @@ function EditCredentialForm({
           </Button>
         </div>
         {siteError ? (
-          <p role="alert" className="text-xs text-danger-text">
+          <p role="alert" className="text-callout text-danger-text">
             {siteError}
           </p>
         ) : null}
@@ -776,8 +782,8 @@ function AddCredentialForm({
       <p
         className={
           payment
-            ? "flex items-start gap-1.5 rounded-md bg-approval-surface p-2 text-xs text-approval-text"
-            : "flex items-start gap-1.5 text-xs text-muted-foreground"
+            ? "flex items-start gap-1.5 rounded-md bg-approval-surface p-2 text-callout text-approval-text"
+            : "flex items-start gap-1.5 text-callout text-muted-foreground"
         }
       >
         <CreditCard className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
@@ -946,7 +952,7 @@ export function VaultProtectionPanel({ slots }: { slots: readonly string[] }): R
           >
             {t("settings.credentials.moveToKeychain")}
           </Button>
-          <p className="w-full text-xs text-muted-foreground">
+          <p className="w-full text-callout text-muted-foreground">
             {t("settings.credentials.keyFileExplainer")}
           </p>
         </>
