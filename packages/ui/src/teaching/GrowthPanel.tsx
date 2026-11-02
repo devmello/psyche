@@ -2,7 +2,7 @@ import type { GrowthItem, GrowthMetric, GrowthWindow, Lesson, Milestone } from "
 import { Diamond, Ellipsis, Sprout } from "lucide-react";
 import { type ReactElement, useState } from "react";
 import { DelayedSkeletons } from "../components/DelayedSkeleton.tsx";
-import { EmptyState } from "../components/page.tsx";
+import { EmptyState, ErrorState } from "../components/page.tsx";
 import { Button } from "../components/ui/button.tsx";
 import {
   DropdownMenu,
@@ -83,13 +83,15 @@ export function LessonRow({ lesson }: { lesson: Lesson }): ReactElement {
       </time>
       <span className="flex min-w-0 flex-1 flex-col gap-1">
         <span className="text-body text-label-primary">{lesson.statement}</span>
-        <span className="flex flex-wrap items-center gap-x-1.5 text-caption text-label-secondary">
-          <span>{provenanceOf(lesson)}</span>
-          <span aria-hidden="true">·</span>
-          <span className={lesson.destination.type === "file" ? "font-mono" : undefined}>
-            {destinationOf(lesson)}
+        {/* "You told me · USER.md" wraps as one unit and "Show change" stands apart, so a wrap can never strand a separator. */}
+        <span className="flex flex-wrap items-center gap-x-3 text-caption text-label-secondary">
+          <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+            <span>{provenanceOf(lesson)}</span>
+            <span aria-hidden="true">·</span>
+            <span className={lesson.destination.type === "file" ? "font-mono" : undefined}>
+              {destinationOf(lesson)}
+            </span>
           </span>
-          <span aria-hidden="true">·</span>
           <button
             type="button"
             aria-expanded={open}
@@ -305,12 +307,11 @@ export function GrowthPanel({ defaultWindow = "30d" }: { defaultWindow?: GrowthW
       <div className="flex flex-col gap-4 px-2">
         {header}
         {q.error ? (
-          <p className="text-body" role="alert">
-            {t("screens.growth.loadFailed", { reason: q.error })}{" "}
-            <button type="button" className="text-accent-11 underline" onClick={q.reload}>
-              {t("screens.growth.retry")}
-            </button>
-          </p>
+          <ErrorState
+            what={t("overview.growth.loadFailed")}
+            reason={q.error}
+            retry={{ onClick: q.reload }}
+          />
         ) : (
           <DelayedSkeletons
             className="flex flex-col gap-2"

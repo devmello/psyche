@@ -89,8 +89,6 @@ export const overviewShared: Partial<Catalogue> = {
   "screens.growth.empty":
     "まだ学んだことはありません。何か違うときは{agent}に伝えてください。覚えておきます。",
   "screens.growth.loading": "{agent}が学んだことを読み込み中",
-  "screens.growth.loadFailed": "成長を読み込めませんでした。{reason}",
-  "screens.growth.retry": "もう一度試す",
   "screens.growth.card.kind": "学んだこと",
   "screens.growth.card.items": "確認する項目",
   "screens.growth.card.keep": "残す",

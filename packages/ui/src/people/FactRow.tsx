@@ -113,7 +113,12 @@ export function FactRow({ fact, onSet, onRetract, busy = false }: FactRowProps):
           {source}
         </span>
       </div>
-      <span className={cn("flex shrink-0 items-center gap-0.5", revealOnHover)}>
+      <span
+        className={cn(
+          "absolute end-1.5 top-1 flex items-center gap-0.5 rounded-md bg-surface-raised",
+          revealOnHover,
+        )}
+      >
         {onSet ? (
           <Button
             type="button"
@@ -172,7 +177,7 @@ export function AddFactRow({
           type="button"
           size="sm"
           variant="ghost"
-          className="-ms-2 text-accent-11"
+          className="-ms-2.5 text-accent-11"
           onClick={() => setOpen(true)}
         >
           {t("people.fact.add")}

@@ -85,8 +85,6 @@ export const overviewShared: Partial<Catalogue> = {
   "screens.growth.evidence": "{n, plural, other {基于 # 个事件}}",
   "screens.growth.empty": "还没有学到任何内容。当有哪里不对时告诉 {agent}，它会记住。",
   "screens.growth.loading": "正在加载 {agent} 学到的内容",
-  "screens.growth.loadFailed": "无法加载成长记录。{reason}",
-  "screens.growth.retry": "重试",
   "screens.growth.card.kind": "我学到的内容",
   "screens.growth.card.items": "待审核的项目",
   "screens.growth.card.keep": "保留",

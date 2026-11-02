@@ -22,6 +22,8 @@ export const overview: Partial<Catalogue> = {
   "overview.section.empty": "لا يوجد شيء هنا بعد.",
   "overview.loading": "جارٍ التحميل",
   "overview.error.load": "تعذّر التحميل",
+  "overview.error.summary": "تعذّر تحميل الملخص",
+  "overview.error.lessons": "تعذّر تحميل الدروس",
   "overview.error.section": "تعذّر تحميل {section}",
   "overview.section.loading": "جارٍ تحميل {section}",
   "overview.lastUpdated": "آخر تحديث {time}",
@@ -88,6 +90,7 @@ export const overview: Partial<Catalogue> = {
   "overview.now.needsYou":
     "{n, plural, zero {لا شيء يحتاج إليك} one {شيء واحد يحتاج إليك} two {شيئان يحتاجان إليك} few {# أشياء تحتاج إليك} many {# شيئًا يحتاج إليك} other {# شيء يحتاج إليك}}",
   "overview.now.review": "مراجعة",
+  "overview.now.now": "الآن",
   "overview.now.running": "قيد التشغيل الآن",
   "overview.upcoming.today": "اليوم",
   "overview.upcoming.tomorrow": "غدًا",
