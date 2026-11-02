@@ -453,7 +453,7 @@
           "tool": "gmail.send",
           "callRef": "c_v1_send_maya",
           "sideEffect": "destructive",
-          "scopesOffered": ["once", "task"],
+          "scopesOffered": ["once"],
           "mustShow": [
             "maya@example.com",
             "Re: Q4 roadmap: confirm launch date by Tuesday",
@@ -552,7 +552,7 @@
           "approvalKind": "send_email",
           "tool": "gmail.send",
           "callRef": "c_v1_send_lena",
-          "scopesOffered": ["once", "task"],
+          "scopesOffered": ["once"],
           "mustShow": ["lena@studio.example.net", "Re: Coffee next week?"]
         }
       ]
@@ -624,7 +624,7 @@
           "tool": "gmail.send",
           "callRef": "c_v1_send_lena_2",
           "bindingDiffersFrom": "apr_v1_send_lena",
-          "scopesOffered": ["once", "task"],
+          "scopesOffered": ["once"],
           "mustShow": ["lena@studio.example.net", "I'll bring the deck"]
         },
         {
@@ -735,7 +735,7 @@
           "approvalKind": "send_email",
           "tool": "gmail.send",
           "callRef": "c_v1_probe_forward",
-          "scopesOffered": ["once", "task"],
+          "scopesOffered": ["once"],
           "mustShow": ["archive@growthhub-mail.example", "Compliance export"],
           "taint": true,
           "taintSources": ["email:hello@growthhub.example"]
