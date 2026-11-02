@@ -459,6 +459,10 @@ export function everythingHandlers(
 
 export interface EverythingDeps {
   db: PsycheDb;
+  /** Where everything memory lives when it is not `db.sqlite` (the encrypted store). */
+  memorySqlite?: PsycheDb["sqlite"];
+  /** False while that store is closed: the pass does not run and says why. */
+  memoryReady?: () => boolean;
   clock: Clock;
   graph: GraphStore;
   /** `$PSYCHE_HOME`; the search index is `<home>/state/search.sqlite`. */
@@ -497,7 +501,8 @@ export interface Everything {
 
 export function composeEverything(deps: EverythingDeps): Everything {
   const { db, clock, graph } = deps;
-  const store = new EverythingStore({ sqlite: db.sqlite, graph, clock });
+  const memorySql = deps.memorySqlite ?? db.sqlite;
+  const store = new EverythingStore({ sqlite: memorySql, graph, clock });
   const settings = () => everythingSettings(getSetting(db, EVERYTHING_MEMORY_SETTING_KEY)?.value);
   let runNowFn: () => Promise<EverythingRunResult> = async () => {
     throw new PsycheError("unavailable", "everything memory is not ready");
@@ -505,7 +510,7 @@ export function composeEverything(deps: EverythingDeps): Everything {
   const handlers = everythingHandlers(store, settings, () => runNowFn(), {
     graph,
     clock,
-    db: db.sqlite,
+    db: memorySql,
     timeZone: deps.timeZone,
     ...(deps.card === undefined ? {} : { card: deps.card }),
     ...(deps.embedder === undefined ? {} : { embedder: deps.embedder }),
@@ -567,7 +572,7 @@ export function composeEverything(deps: EverythingDeps): Everything {
     return {
       graph,
       em: store,
-      sqlite: db.sqlite,
+      sqlite: memorySql,
       reader: reader(),
       settings: s,
       state: await (deps.readState ?? readSystemState)(),
@@ -599,6 +604,7 @@ export function composeEverything(deps: EverythingDeps): Everything {
   /** Runs the pass under its gates; `manual` skips quiet hours and idle time, nothing else. */
   const runPass = async (manual: boolean): Promise<PassReport | "busy"> => {
     if (running) return "busy";
+    if (deps.memoryReady?.() === false) return { ...emptyReport(), gate: "store_unavailable" };
     running = true;
     try {
       const d = await passDeps();
@@ -665,6 +671,7 @@ export function composeEverything(deps: EverythingDeps): Everything {
     local_not_confirmed: "The local model has not been confirmed.",
     low_memory: "Waiting: not enough free memory for the local model.",
     no_owner_entity: "Waiting for your own card in People.",
+    store_unavailable: "Waiting: the memory store is still opening.",
     busy: "Already running.",
   };
   /** The scheduled job (Scheduled → Everything memory): same pass, and "Run now" works there. */

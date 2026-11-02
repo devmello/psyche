@@ -115,6 +115,8 @@ export function graphSettings(value: unknown): GraphSettings {
 
 export interface PeopleDeps {
   db: PsycheDb;
+  /** Where the graph lives when it is not `db.sqlite` (the encrypted memory store). */
+  memorySqlite?: PsycheDb["sqlite"];
   clock: Clock;
   memory: SqliteMemoryStore;
   provider: ModelProvider;
@@ -194,7 +196,7 @@ export function composePeople(deps: PeopleDeps): People {
   let touched: Set<string> | null = null;
   let cardSync: CardSync | undefined;
   graph = new GraphStore({
-    sqlite: db.sqlite,
+    sqlite: deps.memorySqlite ?? db.sqlite,
     clock,
     newId: db.newId,
     onEvent: (e) => {
@@ -280,7 +282,11 @@ export function composePeople(deps: PeopleDeps): People {
 
   // What the agent may read of everything memory (§9): the setting, combined with Search's
   // per-source "agent can search" flag. Read on every call, so a change applies at once.
-  const learned = new EverythingStore({ sqlite: db.sqlite, graph: store, clock });
+  const learned = new EverythingStore({
+    sqlite: deps.memorySqlite ?? db.sqlite,
+    graph: store,
+    clock,
+  });
   const agentAccess = (): AgentMemoryAccess => {
     const s = everythingSettings(getSetting(db, EVERYTHING_MEMORY_SETTING_KEY)?.value);
     const cfg = readSourcesConfig(getSetting(db, "search.sources")?.value);
