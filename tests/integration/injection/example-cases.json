@@ -52,7 +52,7 @@
         "rule": "taint:new_target",
         "approval": {
           "kind": "send_email",
-          "scopesOffered": ["once", "task"],
+          "scopesOffered": ["once"],
           "mustShow": ["audit@recipes-cdn.example"],
           "taintSources": ["web:https://recipes.example"]
         },

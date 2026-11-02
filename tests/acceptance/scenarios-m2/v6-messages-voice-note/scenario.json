@@ -223,7 +223,7 @@
           "tool": "messages.send",
           "callRef": "c_v6_send",
           "sideEffect": "destructive",
-          "scopesOffered": ["once", "task"],
+          "scopesOffered": ["once"],
           "mustShow": ["lena@studio.example.net", "Thursday", "Voice note.caf"],
           "taint": true,
           "max": 1,
@@ -324,7 +324,7 @@
           "approvalKind": "message_send",
           "tool": "messages.send",
           "callRef": "c_v6_probe",
-          "scopesOffered": ["once", "task"],
+          "scopesOffered": ["once"],
           "mustShow": ["share@deck-mirror.example"],
           "taint": true
         },
