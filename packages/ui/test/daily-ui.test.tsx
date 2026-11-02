@@ -13,7 +13,7 @@ import {
   DailyPanel,
   FollowupsList,
 } from "../src/screens/settings/DailySection.tsx";
-import { matchSections, sectionForKey } from "../src/screens/settings/SettingsScreen.tsx";
+import { paneForKey, searchSettings } from "../src/screens/settings/SettingsScreen.tsx";
 import { DailyCard } from "../src/screens/workflows/DailyCard.tsx";
 import { StoryWorld } from "../src/stories/harness.tsx";
 
@@ -147,8 +147,8 @@ describe("AutomationsPanel", () => {
 
 describe("Settings → Daily", () => {
   it("is findable and owns the daily.* keys", () => {
-    expect(matchSections("daily").has("daily")).toBe(true);
-    expect(sectionForKey("daily.brief.enabled")).toBe("daily");
+    expect(searchSettings("daily").some((h) => h.pane === "daily")).toBe(true);
+    expect(paneForKey("daily.brief.enabled")).toBe("daily");
   });
 
   it("starts with both habits off and writes the documented keys", async () => {

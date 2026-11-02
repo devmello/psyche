@@ -449,6 +449,11 @@
         "payload": "#/$defs/VoiceSegmentPayload"
       },
       {
+        "description": "A render_ui spec is being written: the nodes complete so far (never half a node, and only a spec that validates), as a throwaway preview. Not stored; the committed widget replaces it.",
+        "name": "widget.draft",
+        "payload": "#/$defs/WidgetDraftPayload"
+      },
+      {
         "description": "A generative-UI widget was patched (rev is the order; apply only when fromRev (default rev - 1) == local rev, else refetch with widgets.get), or froze.",
         "name": "widget.updated",
         "payload": "#/$defs/WidgetUpdatedPayload"
@@ -43128,6 +43133,50 @@
         "job"
       ],
       "type": "string"
+    },
+    "WidgetDraftPayload": {
+      "properties": {
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "messageId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "callId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "root": {
+          "$ref": "#/$defs/WidgetNode"
+        },
+        "nodes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "done": {
+          "description": "The input finished or the run ended: drop the draft",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "threadId",
+        "messageId",
+        "callId",
+        "nodes"
+      ],
+      "type": "object"
     },
     "WidgetNode": {
       "description": "A catalogue node: { id, type, ...props }. Validated per type by the Gateway.",

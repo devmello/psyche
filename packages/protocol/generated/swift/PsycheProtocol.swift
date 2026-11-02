@@ -1430,6 +1430,7 @@
 //   let widgetAction = try? JSONDecoder().decode(WidgetAction.self, from: jsonData)
 //   let widgetBind = try? JSONDecoder().decode(WidgetBind.self, from: jsonData)
 //   let widgetBindingSource = try? JSONDecoder().decode(WidgetBindingSource.self, from: jsonData)
+//   let widgetDraftPayload = try? JSONDecoder().decode(WidgetDraftPayload.self, from: jsonData)
 //   let widgetNode = try? JSONDecoder().decode(WidgetNode.self, from: jsonData)
 //   let widgetOp = try? JSONDecoder().decode(WidgetOp.self, from: jsonData)
 //   let widgetOwner = try? JSONDecoder().decode(WidgetOwner.self, from: jsonData)
@@ -32189,6 +32190,38 @@ public enum WidgetBindingSource: String, Codable, Sendable {
     case research = "research"
     case task = "task"
     case toolCall = "tool_call"
+}
+
+// MARK: - WidgetDraftPayload
+public struct WidgetDraftPayload: Codable, Sendable {
+    public let callID: String
+    /// The input finished or the run ended: drop the draft
+    public let done: Bool?
+    public let messageID: String
+    public let nodes: Int
+    public let root: [String: JSONAny]?
+    public let threadID: String
+    public let title: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case callID = "callId"
+        case done = "done"
+        case messageID = "messageId"
+        case nodes = "nodes"
+        case root = "root"
+        case threadID = "threadId"
+        case title = "title"
+    }
+
+    public init(callID: String, done: Bool?, messageID: String, nodes: Int, root: [String: JSONAny]?, threadID: String, title: String?) {
+        self.callID = callID
+        self.done = done
+        self.messageID = messageID
+        self.nodes = nodes
+        self.root = root
+        self.threadID = threadID
+        self.title = title
+    }
 }
 
 // MARK: - WidgetPatch

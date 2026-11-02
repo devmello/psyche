@@ -1,5 +1,7 @@
 import type { Widget } from "@psyche/protocol";
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { useLayoutEffect } from "react";
+import { useStore } from "../data/index.ts";
 import { createFixtureWorld, IDS } from "../fixtures/index.ts";
 import { FeedPostCard } from "../screens/feed/FeedPostCard.tsx";
 import { StoryWorld } from "../stories/harness.tsx";
@@ -23,7 +25,7 @@ import {
 import { withFeedWidget } from "./fixtures-surfaces.ts";
 import { McpAppPanel } from "./McpAppPanel.tsx";
 import { PinnedWidgets } from "./PinnedWidgets.tsx";
-import { WidgetBlockView } from "./WidgetBlock.tsx";
+import { WidgetBlockView, WidgetDrafts } from "./WidgetBlock.tsx";
 
 const meta = {
   title: "Chat/Widgets",
@@ -34,6 +36,7 @@ const meta = {
         import("./WidgetView.tsx"),
         import("./WidgetChart.tsx"),
         import("./WidgetImage.tsx"),
+        import("./WidgetDraft.tsx"),
       ]);
       return {};
     },
@@ -155,6 +158,42 @@ export const McpApp: Story = {
     >
       <div className="max-w-[640px] p-4">
         <McpAppPanel tool="mcp__echo__show_chart" />
+
+/** Puts a draft in the store before the first paint, as `widget.draft` would. */
+function SeedDraft(): null {
+  const store = useStore();
+  useLayoutEffect(() => {
+    store.update((s) => ({
+      ...s,
+      widgetDrafts: {
+        call_1: {
+          threadId: "thr_story",
+          callId: "call_1",
+          title: "Trip plan",
+          nodes: 3,
+          root: {
+            id: "root",
+            type: "stack",
+            gap: "sm",
+            children: [
+              { id: "days", type: "stat", label: "Days", value: 4 },
+              { id: "note", type: "text", text: "Flights and hotel are booked." },
+            ],
+          },
+        },
+      },
+    }));
+  }, [store]);
+  return null;
+}
+
+/** While the model writes a widget: the complete nodes so far, read-only, and a skeleton for the rest. */
+export const Drafting: Story = {
+  render: () => (
+    <StoryWorld>
+      <SeedDraft />
+      <div className="max-w-[640px] p-4">
+        <WidgetDrafts threadId="thr_story" />
       </div>
     </StoryWorld>
   ),

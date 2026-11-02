@@ -30,10 +30,15 @@ import { folderGrants, policyWithFolders } from "../src/screens/settings/FileAcc
 import { ModelProvidersPanel } from "../src/screens/settings/ModelSection.tsx";
 import { presenceUnavailable } from "../src/screens/settings/SettingsApproval.tsx";
 import {
+  paneForKey,
   SettingsScreen,
   type SettingsScreenProps,
+  searchSettings,
 } from "../src/screens/settings/SettingsScreen.tsx";
 import { sampleProviders, sampleSettings } from "../src/screens/settings/sample-data.ts";
+import { SETTING_LABELS } from "../src/screens/settings/setting-labels.ts";
+import { resolveSection } from "../src/screens/settings/settings-pages.ts";
+import { parseSettingsRoute } from "../src/screens/settings/settings-route.ts";
 import { UiSlotsProvider } from "../src/slots.tsx";
 import { StoryWorld, type StoryWorldProps } from "../src/stories/harness.tsx";
 
@@ -83,42 +88,119 @@ function settingValue(g: MockGateway, key: string): unknown {
 }
 
 describe("SettingsScreen", () => {
-  it("lists every section and marks the current one", async () => {
+  it("lists the nine pages, opens a page's panes under it, and marks the current one", async () => {
     const { navigate } = setup({ defaultSection: "appearance" });
     const nav = screen.getByRole("navigation", { name: "Settings sections" });
-    const items = within(nav).getAllByRole("button");
-    // 15 sections of UI design §2.6 plus Browser (I13), Skills (T2), VM mode (L1–L5),
-    // People & projects (#652), Specialists (#685), Mail & meetings (#672), Notifications (#953) and Daily.
-    expect(items).toHaveLength(25);
-    expect(items.map((b) => b.textContent?.trim())).toContain("Notifications");
-    expect(items.map((b) => b.textContent?.trim())).toContain("People & projects");
-    expect(items.map((b) => b.textContent?.trim())).toContain("Skills");
-    expect(items.map((b) => b.textContent?.trim())).toContain("Specialists");
-    expect(items.map((b) => b.textContent?.trim())).toContain("Mail & meetings");
-    expect(items.map((b) => b.textContent?.trim())).toContain("Daily");
-    expect(items.map((b) => b.textContent?.trim())).toContain("VM mode");
-    expect(items.map((b) => b.textContent?.trim())).toContain("Browser");
+    const pages = within(nav)
+      .getAllByRole("button")
+      .filter((b) => b.getAttribute("aria-current") !== "location" && !b.closest("ul ul"));
+    expect(pages.map((b) => b.textContent?.trim())).toEqual([
+      "General",
+      "Models",
+      "Connectors & sources",
+      "Memory",
+      "Routines & skills",
+      "Permissions",
+      "Privacy & data",
+      "Devices",
+      "About",
+    ]);
+    // An old section id opens its page; the page's panes list under it.
+    expect(within(nav).getByRole("button", { name: "General" }).getAttribute("aria-current")).toBe(
+      "page",
+    );
+    const panes = within(nav).getByRole("list", { name: "In General" });
     expect(
-      within(nav).getByRole("button", { name: "Appearance" }).getAttribute("aria-current"),
-    ).toBe("page");
+      within(panes)
+        .getAllByRole("button")
+        .map((b) => b.textContent),
+    ).toEqual(["Appearance", "Persona", "Notifications", "Voice & dictation"]);
+    expect(screen.getByRole("heading", { level: 2, name: "General" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { level: 3, name: "Appearance" })).toBeTruthy();
     await userEvent.click(within(nav).getByRole("button", { name: "Permissions" }));
     expect(await screen.findByRole("heading", { level: 2, name: "Permissions" })).toBeTruthy();
     expect(
       within(nav).getByRole("button", { name: "Permissions" }).getAttribute("aria-current"),
     ).toBe("page");
     expect(navigate).toHaveBeenCalledWith("/settings/permissions");
+    await userEvent.click(within(nav).getByRole("button", { name: "File access" }));
+    expect(navigate).toHaveBeenCalledWith("/settings/files");
   });
 
   it("moves focus through the section nav with the arrow keys", async () => {
     setup({ defaultSection: "model" });
     const nav = screen.getByRole("navigation", { name: "Settings sections" });
-    within(nav).getByRole("button", { name: "Model & providers" }).focus();
+    within(nav).getByRole("button", { name: "Models" }).focus();
     await userEvent.keyboard("{ArrowDown}");
-    expect(document.activeElement?.textContent).toBe("Persona");
+    expect(document.activeElement?.textContent).toBe("Model & providers");
     await userEvent.keyboard("{End}");
     expect(document.activeElement?.textContent).toBe("About");
     await userEvent.keyboard("{ArrowDown}");
-    expect(document.activeElement?.textContent).toBe("Model & providers");
+    expect(document.activeElement?.textContent).toBe("General");
+  });
+
+  it("searches pages, panes and single settings, and jumps to the setting", async () => {
+    const { navigate } = setup({ defaultSection: "general" });
+    const search = screen.getByRole("searchbox", { name: "Search settings" });
+    await userEvent.type(search, "quiet");
+    const nav = screen.getByRole("navigation", { name: "Settings sections" });
+    const hit = within(nav).getByRole("button", { name: /Quiet hours.*General › Notifications/ });
+    await userEvent.click(hit);
+    expect(navigate).toHaveBeenCalledWith("/settings/notifications");
+    expect((search as HTMLInputElement).value).toBe("");
+    await userEvent.type(search, "zzzz");
+    expect(within(nav).getByRole("status").textContent).toBe("No settings match.");
+    await userEvent.keyboard("{Escape}");
+    expect((search as HTMLInputElement).value).toBe("");
+  });
+
+  it("finds search sources in one place only", () => {
+    const hits = searchSettings("search");
+    expect(hits[0]).toMatchObject({ kind: "pane", pane: "search" });
+    expect(hits.filter((h) => h.kind === "pane").map((h) => h.pane)).toEqual(["search"]);
+    expect(
+      searchSettings("semantic search")
+        .filter((h) => h.kind === "setting")
+        .every((h) => h.pane === "search"),
+    ).toBe(true);
+  });
+});
+
+describe("paneForKey", () => {
+  it("gives every labelled setting a pane, so Search can jump to it", () => {
+    // Shown outside Settings (chat, onboarding) or only cleared, never set here.
+    const elsewhere = new Set([
+      "ui.onboarding.completedAt",
+      "ui.onboarding.progress",
+      "ui.transcriptMode",
+    ]);
+    const missing = Object.keys(SETTING_LABELS).filter(
+      (k) => !elsewhere.has(k) && paneForKey(k) === null,
+    );
+    expect(missing).toEqual([]);
+    expect(paneForKey("memory.recall.mode")).toBe("learning");
+    expect(paneForKey("permissions.policy")).toBe("permissions");
+    expect(paneForKey("permissions.folders")).toBe("files");
+    expect(paneForKey("search.web.provider")).toBe("search");
+    expect(paneForKey("widgets.remoteImages")).toBe("data");
+    expect(paneForKey("screenAsk.shortcut")).toBe("voice");
+    expect(paneForKey("memory.everything.review")).toBe("memory");
+  });
+});
+
+describe("parseSettingsRoute", () => {
+  it("opens pages, and old section ids on their page at that pane", () => {
+    expect(parseSettingsRoute("/settings")).toEqual({ section: "general" });
+    expect(parseSettingsRoute("/settings/files")).toEqual({ section: "files" });
+    expect(resolveSection("files")).toEqual({ page: "permissions", pane: "files" });
+    expect(resolveSection("people")).toEqual({ page: "memory", pane: "people" });
+    expect(resolveSection("model")).toEqual({ page: "model" });
+    expect(resolveSection("nope")).toEqual({ page: "general" });
+    expect(parseSettingsRoute("/settings/mcp")).toEqual({ section: "connectors", view: "mcp" });
+    expect(parseSettingsRoute("/settings/connectors/add-mcp")).toEqual({
+      section: "connectors",
+      view: "add-mcp",
+    });
   });
 });
 
@@ -770,7 +852,7 @@ describe("VM mode", () => {
 
   it("shows the defaults and writes each VM setting", async () => {
     const { gateway } = setup({ defaultSection: "vm" }, { edit: guestWorld });
-    expect(await screen.findByRole("heading", { level: 2, name: "VM mode" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { level: 3, name: "VM mode" })).toBeTruthy();
     const toggle = screen.getByRole("switch", { name: "Use a sandbox Mac for tasks" });
     expect(toggle.getAttribute("aria-checked")).toBe("false");
     expect(
@@ -872,7 +954,7 @@ describe("Data controls", () => {
   });
 
   it("pauses memory through memory.pause", async () => {
-    const { gateway } = setup({ defaultSection: "data" });
+    const { gateway } = setup({ defaultSection: "learning" });
     await userEvent.click(await screen.findByRole("switch", { name: "Pause memory" }));
     await waitFor(() =>
       expect(callsOf(gateway(), "memory.pause")[0]?.params).toEqual({ paused: true }),
@@ -1034,13 +1116,14 @@ describe("File access (folder grants live in permissions.policy)", () => {
     );
   });
 
-  it("the Permissions summary lists the policy's folders", async () => {
+  it("lists the policy's folders once, in File access on the Permissions page", async () => {
     setup(
       { defaultSection: "permissions" },
       { edit: (w) => Object.assign(w.settings, { "permissions.policy": policy }) },
     );
-    expect(await screen.findByText("/Users/me/Notes")).toBeTruthy();
-    expect(screen.getByText("read and write")).toBeTruthy();
+    const list = await screen.findByRole("list", { name: "Shared folders" });
+    expect(within(list).getByText("/Users/me/Notes")).toBeTruthy();
+    expect(screen.getAllByText("/Users/me/Notes")).toHaveLength(1);
   });
 });
 

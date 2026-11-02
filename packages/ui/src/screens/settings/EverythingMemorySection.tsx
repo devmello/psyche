@@ -1,9 +1,9 @@
-import type { EverythingExclusion, EverythingRunResult } from "@psyche/protocol";
+import type { EverythingExclusion, EverythingRunResult, EverythingSource } from "@psyche/protocol";
 import { type ReactElement, useId, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "../../components/ui/button.tsx";
 import { Input } from "../../components/ui/input.tsx";
-import { useCall, useGatewayQuery } from "../../data/hooks.ts";
+import { useCall, useGatewayQuery, useSearchSources } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
 import { EverythingConsent } from "../../memory/EverythingConsent.tsx";
@@ -21,7 +21,7 @@ import {
 } from "../../memory/EverythingFields.tsx";
 import { ExclusionsPanel, type ExclusionsPanelProps } from "../../memory/ExclusionsPanel.tsx";
 import { estimateMonthly, formatUsd } from "../../memory/estimate.ts";
-import { usePersona } from "../../slots.tsx";
+import { usePersona, useSlots } from "../../slots.tsx";
 import {
   Group,
   LoadGate,
@@ -47,7 +47,12 @@ export function EverythingPanel({
   onRunNow,
   running = false,
   runResult = null,
+  indexed,
+  onOpenSearch,
 }: {
+  /** Sources Search indexes now; the rest say so (see `SourceFields`). */
+  indexed?: ReadonlySet<EverythingSource>;
+  onOpenSearch?: () => void;
   value: EverythingValues;
   onChange: (next: EverythingValues) => void;
   onTurnOn: () => void;
@@ -84,7 +89,12 @@ export function EverythingPanel({
             localConfirmed={localConfirmed}
             onConfirmLocal={onConfirmLocal}
           />
-          <SourceFields value={value} onChange={onChange} />
+          <SourceFields
+            value={value}
+            onChange={onChange}
+            {...(indexed === undefined ? {} : { indexed })}
+            {...(onOpenSearch === undefined ? {} : { onOpenSearch })}
+          />
           <PeopleFields value={value} onChange={onChange} />
           {exclusions}
           <SensitiveFields value={value} onChange={onChange} />
@@ -213,6 +223,13 @@ function TimeField({
 export function EverythingMemorySection(): ReactElement {
   const form = useSettingsForm();
   const persona = usePersona();
+  const { navigate } = useSlots();
+  const search = useSearchSources();
+  // Unknown until Search answers, so nothing says "not indexed" while it loads.
+  const indexed =
+    search.status === undefined
+      ? undefined
+      : new Set<EverythingSource>(search.status.sources.filter((s) => s.enabled).map((s) => s.id));
   const call = useCall();
   const list = useGatewayQuery("memory.exclusions.list", {});
   const [consent, setConsent] = useState(false);
@@ -267,6 +284,8 @@ export function EverythingMemorySection(): ReactElement {
           onConfirmLocal={confirmLocal}
           running={running}
           runResult={runResult}
+          {...(indexed === undefined ? {} : { indexed })}
+          {...(navigate ? { onOpenSearch: () => navigate("/settings/search") } : {})}
           onRunNow={() => {
             setRunning(true);
             setRunResult(null);

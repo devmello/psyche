@@ -26,15 +26,25 @@ import {
 } from "./shared.tsx";
 import { WidgetGroup } from "./WidgetSettings.tsx";
 
-/** Data controls (UI design §3.18). There is no training toggle: nothing is sent anywhere. */
+/**
+ * Privacy & data (UI design §3.18, settings-2026): how long things are kept, what loads from the
+ * web, export, and the destructive actions last. There is no training toggle: nothing is sent
+ * anywhere. The memory switches live on the Memory page (`MemoryControlsSection`).
+ */
 
 /** The word typed to confirm a memory reset (compared as typed, so it stays one fixed word). */
 export const RESET_WORD = "reset";
 
 export type ExportFile = MethodResult<"memory.export">;
 
-export interface DataControlsPanelProps extends SettingsFormProps, LoadProps {
+interface PanelBase extends SettingsFormProps, LoadProps {
   persona: string;
+  /** Result line after an action ("Export ready: …"), or an error. */
+  notice?: { kind: "ok" | "error"; text: string } | null;
+  busy?: boolean;
+}
+
+export interface MemoryControlsPanelProps extends PanelBase {
   memoryPaused: boolean;
   onPauseMemory?: (paused: boolean) => void;
   /** How memory recall works now (`memory.status.recall`), under "How memory is recalled". */
@@ -42,17 +52,17 @@ export interface DataControlsPanelProps extends SettingsFormProps, LoadProps {
   /** Where memory lives (`memory.status.store`): the "Encrypt memory" switch and its state. */
   store?: MemoryStoreStatus;
   onEncryptMemory?: (on: boolean) => void;
+  /** The teaching loop's Learning group (§8), after Memory. */
+  learning?: ReactNode;
+}
+
+export interface DataControlsPanelProps extends PanelBase {
   archivedThreads: number;
   onExport?: () => void;
   onDeleteArchived?: () => void;
   onReset?: () => void;
-  /** Result line after an action ("Export ready: …"), or an error. */
-  notice?: { kind: "ok" | "error"; text: string } | null;
-  busy?: boolean;
   /** Opens with the reset confirmation showing (stories). */
   defaultResetting?: boolean;
-  /** The teaching loop's Learning group (§8), after Memory. */
-  learning?: ReactNode;
 }
 
 function storeTone(s: MemoryStoreStatus): "success" | "info" | "danger" {
@@ -86,7 +96,8 @@ export function recallStatusText(r: MemoryRecallStatus): string {
   return t("settings.data.recallState.off");
 }
 
-export function DataControlsPanel({
+/** Settings → Memory → Remembering & learning: pause, recall and the teaching loop. */
+export function MemoryControlsPanel({
   values,
   onChange,
   needsApproval,
@@ -96,34 +107,18 @@ export function DataControlsPanel({
   recall,
   store,
   onEncryptMemory,
-  archivedThreads,
-  onExport,
-  onDeleteArchived,
-  onReset,
   notice = null,
   busy = false,
-  defaultResetting = false,
   learning,
   loading,
   error,
   onRetry,
-}: DataControlsPanelProps): ReactElement {
-  const id = useId();
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [resetting, setResetting] = useState(defaultResetting);
-  const [typed, setTyped] = useState("");
-  // Run trace §4.3: both default to 7 days; 0 is Off.
-  const retention = String(num(values, "data.replayRetentionDays", 7));
-  const reasoning = String(num(values, "data.reasoningRetentionDays", 7));
-  const days = (n: number) => ({
-    value: String(n),
-    label: n === 0 ? t("common.off") : t("settings.data.days", { n }),
-  });
+}: MemoryControlsPanelProps): ReactElement {
   return (
     <SectionFrame
       needsApproval={needsApproval}
-      title={t("settings.data.title")}
-      description={t("settings.data.description", { persona })}
+      title={t("settings.memoryControls.title")}
+      description={t("settings.memoryControls.description", { persona })}
     >
       <LoadGate
         label={t("settings.data.loadLabel")}
@@ -194,6 +189,62 @@ export function DataControlsPanel({
               ) : null}
             </SwitchField>
           )}
+        </Group>
+        {learning}
+      </LoadGate>
+    </SectionFrame>
+  );
+}
+
+export function DataControlsPanel({
+  values,
+  onChange,
+  needsApproval,
+  persona,
+  archivedThreads,
+  onExport,
+  onDeleteArchived,
+  onReset,
+  notice = null,
+  busy = false,
+  defaultResetting = false,
+  loading,
+  error,
+  onRetry,
+}: DataControlsPanelProps): ReactElement {
+  const id = useId();
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [resetting, setResetting] = useState(defaultResetting);
+  const [typed, setTyped] = useState("");
+  // Run trace §4.3: both default to 7 days; 0 is Off.
+  const retention = String(num(values, "data.replayRetentionDays", 7));
+  const reasoning = String(num(values, "data.reasoningRetentionDays", 7));
+  const days = (n: number) => ({
+    value: String(n),
+    label: n === 0 ? t("common.off") : t("settings.data.days", { n }),
+  });
+  return (
+    <SectionFrame
+      needsApproval={needsApproval}
+      title={t("settings.data.title")}
+      description={t("settings.data.description", { persona })}
+    >
+      <LoadGate
+        label={t("settings.data.loadLabel")}
+        loading={loading ?? false}
+        error={error ?? null}
+        {...(onRetry ? { onRetry } : {})}
+      >
+        {notice ? (
+          notice.kind === "error" ? (
+            <ErrorNotice what={notice.text} did="" />
+          ) : (
+            <p role="status" className="rounded-md bg-gray-3 px-3 py-2 text-sm">
+              {notice.text}
+            </p>
+          )
+        ) : null}
+        <Group title={t("settings.data.keep")} description={t("settings.data.keepHint")}>
           <RadioField
             label={t("settings.key.data.reasoningRetentionDays")}
             description={t("settings.data.reasoningRetentionHint")}
@@ -213,7 +264,6 @@ export function DataControlsPanel({
             options={[0, 1, 7, 30, 90].map(days)}
           />
         </Group>
-        {learning}
         <MapGroup values={values} onChange={onChange} />
         <WidgetGroup values={values} onChange={onChange} />
 
@@ -231,108 +281,116 @@ export function DataControlsPanel({
           </div>
         </Group>
 
-        <Group
-          title={t("settings.data.deleteThreads")}
-          description={t("settings.data.deleteThreadsHint", { persona })}
+        {/* Destructive actions sit apart, last, under their own heading (settings-2026 §4). */}
+        <section
+          aria-labelledby={`${id}-danger`}
+          className="flex flex-col gap-5 border-t border-separator pt-5"
         >
-          {confirmDelete ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <p>{t("settings.data.confirmDelete", { n: archivedThreads })}</p>
-              <Button
-                type="button"
-                variant="destructive"
-                size="sm"
-                disabled={busy}
-                onClick={() => {
-                  setConfirmDelete(false);
-                  onDeleteArchived?.();
-                }}
-              >
-                {t("common.delete")}
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setConfirmDelete(false)}
-              >
-                {t("common.cancel")}
-              </Button>
-            </div>
-          ) : (
-            <div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={archivedThreads === 0 || !onDeleteArchived || busy}
-                onClick={() => setConfirmDelete(true)}
-              >
-                <Trash2 aria-hidden="true" />
-                {t("settings.data.deleteArchived", { n: archivedThreads })}
-              </Button>
-            </div>
-          )}
-        </Group>
-
-        <Group
-          title={t("settings.data.reset")}
-          description={t("settings.data.resetHint", { persona })}
-          className="border-danger/40"
-        >
-          {resetting ? (
-            <div className="flex flex-col gap-2">
-              <Label htmlFor={`${id}-confirm`}>
-                {t("settings.data.typeToConfirm", { word: RESET_WORD })}
-              </Label>
-              <Input
-                id={`${id}-confirm`}
-                className="max-w-xs"
-                autoComplete="off"
-                value={typed}
-                onChange={(e) => setTyped(e.target.value)}
-              />
-              <div className="flex gap-2">
+          <p id={`${id}-danger`} className="px-1 text-headline text-danger">
+            {t("settings.data.danger")}
+          </p>
+          <Group
+            title={t("settings.data.deleteThreads")}
+            description={t("settings.data.deleteThreadsHint", { persona })}
+          >
+            {confirmDelete ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <p>{t("settings.data.confirmDelete", { n: archivedThreads })}</p>
                 <Button
                   type="button"
                   variant="destructive"
                   size="sm"
-                  disabled={typed.trim().toLowerCase() !== RESET_WORD || busy}
+                  disabled={busy}
                   onClick={() => {
-                    setResetting(false);
-                    setTyped("");
-                    onReset?.();
+                    setConfirmDelete(false);
+                    onDeleteArchived?.();
                   }}
                 >
-                  {t("settings.data.resetMemory")}
+                  {t("common.delete")}
                 </Button>
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
-                  onClick={() => {
-                    setResetting(false);
-                    setTyped("");
-                  }}
+                  onClick={() => setConfirmDelete(false)}
                 >
                   {t("common.cancel")}
                 </Button>
               </div>
-            </div>
-          ) : (
-            <div>
-              <Button
-                type="button"
-                variant="destructive"
-                size="sm"
-                disabled={!onReset}
-                onClick={() => setResetting(true)}
-              >
-                {t("settings.data.resetMemoryEllipsis")}
-              </Button>
-            </div>
-          )}
-        </Group>
+            ) : (
+              <div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={archivedThreads === 0 || !onDeleteArchived || busy}
+                  onClick={() => setConfirmDelete(true)}
+                >
+                  <Trash2 aria-hidden="true" />
+                  {t("settings.data.deleteArchived", { n: archivedThreads })}
+                </Button>
+              </div>
+            )}
+          </Group>
+
+          <Group
+            title={t("settings.data.reset")}
+            description={t("settings.data.resetHint", { persona })}
+          >
+            {resetting ? (
+              <div className="flex flex-col gap-2">
+                <Label htmlFor={`${id}-confirm`}>
+                  {t("settings.data.typeToConfirm", { word: RESET_WORD })}
+                </Label>
+                <Input
+                  id={`${id}-confirm`}
+                  className="max-w-xs"
+                  autoComplete="off"
+                  value={typed}
+                  onChange={(e) => setTyped(e.target.value)}
+                />
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    disabled={typed.trim().toLowerCase() !== RESET_WORD || busy}
+                    onClick={() => {
+                      setResetting(false);
+                      setTyped("");
+                      onReset?.();
+                    }}
+                  >
+                    {t("settings.data.resetMemory")}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setResetting(false);
+                      setTyped("");
+                    }}
+                  >
+                    {t("common.cancel")}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  disabled={!onReset}
+                  onClick={() => setResetting(true)}
+                >
+                  {t("settings.data.resetMemoryEllipsis")}
+                </Button>
+              </div>
+            )}
+          </Group>
+        </section>
       </LoadGate>
     </SectionFrame>
   );
@@ -343,37 +401,18 @@ export interface DataControlsSectionProps {
   onExportReady?: (file: ExportFile) => void;
 }
 
-export function DataControlsSection({ onExportReady }: DataControlsSectionProps): ReactElement {
+/** Settings → Memory → Remembering & learning, fed from the Gateway. */
+export function MemoryControlsSection(): ReactElement {
   const form = useSettingsForm();
   const call = useCall();
   const persona = usePersona();
   const { navigate } = useSlots();
   const status = useGatewayQuery("memory.status", {});
-  const threads = useGatewayQuery("threads.list", { includeArchived: true });
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState<DataControlsPanelProps["notice"]>(null);
-  const archived = (threads.data?.threads ?? []).filter(
-    (t) => t.thread.archivedAt !== null && t.thread.archivedAt !== undefined,
-  );
-
-  type Action = "pause" | "export" | "delete" | "reset" | "forget" | "encrypt";
-  const act = async (fn: () => Promise<string>, action: Action) => {
-    setBusy(true);
-    setNotice(null);
-    try {
-      setNotice({ kind: "ok", text: await fn() });
-    } catch (err) {
-      setNotice({
-        kind: "error",
-        text: t("settings.data.failed", { action, reason: messageOf(err) }),
-      });
-    } finally {
-      setBusy(false);
-    }
-  };
-
+  const [notice, setNotice] = useState<MemoryControlsPanelProps["notice"]>(null);
+  const act = useAction(setBusy, setNotice);
   return (
-    <DataControlsPanel
+    <MemoryControlsPanel
       persona={persona.name}
       values={form.values}
       onChange={form.onChange}
@@ -382,7 +421,6 @@ export function DataControlsSection({ onExportReady }: DataControlsSectionProps)
       {...(status.data?.recall === undefined ? {} : { recall: status.data.recall })}
       // "Encrypt memory on disk" is not shown yet (EM9b): it waits for backups that carry the
       // encrypted file and its sealed key to be tried end to end. The panel can render it.
-      archivedThreads={archived.length}
       busy={busy}
       notice={notice ?? (form.writeError ? { kind: "error", text: form.writeError } : null)}
       loading={form.loading && Object.keys(form.values).length === 0}
@@ -410,6 +448,57 @@ export function DataControlsSection({ onExportReady }: DataControlsSectionProps)
           return paused ? t("settings.data.paused") : t("settings.data.resumed");
         }, "pause")
       }
+    />
+  );
+}
+
+type Action = "pause" | "export" | "delete" | "reset" | "forget" | "encrypt";
+type Notice = PanelBase["notice"];
+
+/** Runs one action with a busy flag, then shows its result line or its error. */
+function useAction(setBusy: (b: boolean) => void, setNotice: (n: Notice) => void) {
+  return async (fn: () => Promise<string>, action: Action) => {
+    setBusy(true);
+    setNotice(null);
+    try {
+      setNotice({ kind: "ok", text: await fn() });
+    } catch (err) {
+      setNotice({
+        kind: "error",
+        text: t("settings.data.failed", { action, reason: messageOf(err) }),
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+}
+
+export function DataControlsSection({ onExportReady }: DataControlsSectionProps): ReactElement {
+  const form = useSettingsForm();
+  const call = useCall();
+  const persona = usePersona();
+  const status = useGatewayQuery("memory.status", {});
+  const threads = useGatewayQuery("threads.list", { includeArchived: true });
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<DataControlsPanelProps["notice"]>(null);
+  const archived = (threads.data?.threads ?? []).filter(
+    (t) => t.thread.archivedAt !== null && t.thread.archivedAt !== undefined,
+  );
+
+  const act = useAction(setBusy, setNotice);
+
+  return (
+    <DataControlsPanel
+      persona={persona.name}
+      values={form.values}
+      onChange={form.onChange}
+      needsApproval={form.needsApproval}
+      archivedThreads={archived.length}
+      busy={busy}
+      notice={notice ?? (form.writeError ? { kind: "error", text: form.writeError } : null)}
+      loading={form.loading && Object.keys(form.values).length === 0}
+      error={form.error}
+      onRetry={form.reload}
       onExport={() =>
         void act(async () => {
           const file = await call("memory.export", {});

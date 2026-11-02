@@ -189,21 +189,41 @@ export function ModelFields({
 export function SourceFields({
   value,
   onChange,
+  indexed,
+  onOpenSearch,
 }: {
   value: EverythingValues;
   onChange: (next: EverythingValues) => void;
+  /**
+   * The sources Search indexes now. The nightly pass reads only the index, so a source Search
+   * does not index says so here, with a way to Search sources: their one home (settings-2026).
+   */
+  indexed?: ReadonlySet<EverythingSource>;
+  onOpenSearch?: () => void;
 }): ReactElement {
   return (
     <Group title={t("everything.sources.title")} description={t("everything.sources.description")}>
-      {SOURCE_IDS.map((s) => (
-        <SwitchField
-          key={s}
-          label={t(`everything.source.${s}`)}
-          checked={value.sources[s]}
-          settingKey={EVERYTHING_KEY}
-          onChange={(on) => onChange({ ...value, sources: { ...value.sources, [s]: on } })}
-        />
-      ))}
+      {SOURCE_IDS.map((s) => {
+        const missing = indexed !== undefined && !indexed.has(s);
+        return (
+          <SwitchField
+            key={s}
+            label={t(`everything.source.${s}`)}
+            {...(missing ? { description: t("everything.sources.notIndexed") } : {})}
+            checked={value.sources[s]}
+            settingKey={EVERYTHING_KEY}
+            onChange={(on) => onChange({ ...value, sources: { ...value.sources, [s]: on } })}
+          >
+            {missing && onOpenSearch ? (
+              <div>
+                <Button type="button" variant="plain" size="sm" onClick={onOpenSearch}>
+                  {t("everything.sources.openSearch")}
+                </Button>
+              </div>
+            ) : null}
+          </SwitchField>
+        );
+      })}
     </Group>
   );
 }

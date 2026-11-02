@@ -11057,6 +11057,19 @@ export interface WidgetBind {
 
 export type WidgetBindingSource = "task" | "automation" | "research" | "tool_call" | "job";
 
+export interface WidgetDraftPayload {
+    callId: string;
+    /**
+     * The input finished or the run ended: drop the draft
+     */
+    done?:     boolean;
+    messageId: string;
+    nodes:     number;
+    root?:     { [key: string]: unknown };
+    threadId:  string;
+    title?:    string;
+}
+
 export interface WidgetPatch {
     baseRev?: number;
     ops:      WidgetOp[];
