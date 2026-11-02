@@ -104,6 +104,7 @@ export const settings = {
   "settings.key.context.keepRecentTurns": "Recent turns kept verbatim",
   "settings.key.data.transcriptRecall": "Transcript recall",
   "settings.key.memory.recall.mode": "How memory is recalled",
+  "settings.key.widgets.remoteImages": "Remote images in widgets",
   "settings.key.ui.map.tiles": "Map tiles",
   "settings.key.ui.map.styleUrl": "Map style URL",
   "settings.key.ui.map.styleUrlDark": "Map style URL (dark)",

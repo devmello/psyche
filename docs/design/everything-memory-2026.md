@@ -521,3 +521,7 @@ The owner accepted every recommendation below on 2026-10-28; they are now bindin
 - **Local model load.** RAM and heat are bounded and announced; the owner is asked before anything loads.
 - **Review fatigue.** If the queue grows past ~30 items a day, auto-accept rules and per-attribute switch-off take over; the brief shows counts, not the list.
 - **Dependence on search coverage.** No source is read until it is in the index; EM3 starts with what R3 delivers.
+
+### EM10 outcome (2026-11-02)
+
+Calendar, reminders and files were already readable through the search index; EM10 adds **transcripts** (the owner's own recordings; other people's speaker turns need an address or number to be attributed, so meeting turns stay skipped). **Browser pages are deliberately not read**: a page has no author to attribute a fact to and is the widest injection surface. **Chats with Psyche** stay with the USER.md learner. The two switches exist in settings but read nothing.
