@@ -16,7 +16,6 @@ import {
   overviewRunHref,
   RecentSection,
   recentRunsQuery,
-  UpcomingSection,
 } from "../src/overview/index.ts";
 import { STORY_NOW, StoryWorld, type StoryWorldProps } from "../src/stories/harness.tsx";
 
@@ -87,7 +86,7 @@ describe("old agent routes", () => {
       return parsed === null ? "none" : overviewRedirect(parsed);
     };
     expect(to("/agent/activity")).toBe("/overview#now");
-    expect(to("/agent/upcoming")).toBe("/overview#upcoming");
+    expect(to("/agent/upcoming")).toBe("/home#coming-up");
     expect(to("/agent/growth")).toBe("/overview#growth");
     expect(to("/agent/activity/run/run_1")).toBe("/overview/run/run_1");
     expect(to("/agent/activity/run/run_1?step=stp_2")).toBe("/overview/run/run_1?step=stp_2");
@@ -176,36 +175,6 @@ describe("Now & next", () => {
     const next = await screen.findByRole("region", { name: "Next up" });
     expect(within(next).getAllByRole("listitem").length).toBeGreaterThan(0);
     expect(within(next).getAllByRole("listitem").length).toBeLessThanOrEqual(3);
-  });
-});
-
-describe("Upcoming", () => {
-  it("groups by day, with a frequent automation as one row with its cadence", async () => {
-    world({}, <UpcomingSection now={STORY_NOW} />);
-    const today = await screen.findByTestId("overview-upcoming-today");
-    expect(within(today).getByText("Heartbeat")).toBeTruthy();
-    expect(within(today).getByText(/every 45 min/i)).toBeTruthy();
-    expect(screen.getByTestId("overview-upcoming-later")).toBeTruthy();
-    // Each automation appears once.
-    expect(screen.getAllByText("Heartbeat")).toHaveLength(1);
-  });
-
-  it("keeps paused automations under a disclosure", async () => {
-    world(
-      {
-        edit: (w) => {
-          const a = w.automations.find((x) => x.title === "Subscription audit");
-          if (a) a.enabled = false;
-        },
-      },
-      <UpcomingSection now={STORY_NOW} />,
-    );
-    const toggle = await screen.findByRole("button", { name: "Paused (1)" });
-    expect(toggle.getAttribute("aria-expanded")).toBe("false");
-    expect(screen.queryByText("Subscription audit")).toBeNull();
-    fireEvent.click(toggle);
-    expect(toggle.getAttribute("aria-expanded")).toBe("true");
-    expect(screen.getByText("Subscription audit")).toBeTruthy();
   });
 });
 

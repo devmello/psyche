@@ -6,7 +6,7 @@ export const daily = {
   "settings.nav.daily": "Daily",
   "settings.daily.title": "Daily",
   "settings.daily.description":
-    "A short brief in the morning and a wrap-up in the evening, in the Feed. Psyche only reads; nothing is sent without your approval.",
+    "A short brief in the morning and a wrap-up in the evening, on Home. Psyche only reads; nothing is sent without your approval.",
   "settings.daily.loadFailed": "Couldn't load the daily settings.",
   "settings.daily.group.brief": "Morning brief",
   "settings.daily.group.wrapup": "Evening wrap-up",

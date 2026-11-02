@@ -1,6 +1,7 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import type { SearchHit } from "@psyche/protocol";
 import { type ReactElement, useEffect } from "react";
+import { usePrefillComposer } from "../chat/prefill.ts";
 import { useThreads } from "../data/index.ts";
 import { t } from "../i18n/core.ts";
 import { ConnectedEntityCard } from "../people/ConnectedEntityCard.tsx";
@@ -40,22 +41,55 @@ export const DEFAULT_ACTIONS: readonly PaletteAction[] = [
     route: i.route,
     ...(i.shortcut === undefined ? {} : { shortcut: i.shortcut }),
   })),
+  // Pages off the sidebar (docs/design/consolidation-2026.md §3.3): reached from Home or here.
   {
-    id: "home",
+    id: "scheduled",
     get label() {
-      return t("shell.palette.goTo", { label: t("home.title") });
+      return t("shell.palette.goTo", { label: t("shell.rail.scheduled") });
     },
-    keywords:
-      "dashboard today brief feed ideas suggestions goals coming up upcoming needs you nudges keep in touch pinned widgets",
-    route: "/home",
+    keywords: "automations runs schedule routines history upcoming coming up",
+    route: "/scheduled",
   },
   {
-    id: "people",
+    id: "inbox",
     get label() {
-      return t("shell.palette.goTo", { label: t("people.page.title") });
+      return t("shell.palette.inbox");
     },
-    keywords: "contacts projects relationships keep in touch waiting on",
-    route: "/people",
+    keywords: "inbox notifications alerts unread needs you",
+    route: "/inbox",
+  },
+  {
+    id: "goals",
+    get label() {
+      return t("shell.palette.goTo", { label: t("shell.rail.goals") });
+    },
+    keywords: "aims objectives targets milestones",
+    route: "/goals",
+  },
+  {
+    id: "add-goal",
+    get label() {
+      return t("screens.goals.add");
+    },
+    keywords: "new goal aim objective",
+    route: "/goals?add=1",
+  },
+  {
+    id: "overview",
+    get label() {
+      return t("shell.palette.you");
+    },
+    keywords:
+      "overview persona activity audit log what happened growth recent runs timeline built specialists",
+    route: "/overview",
+  },
+  {
+    id: "search",
+    get label() {
+      return t("shell.palette.fullSearch");
+    },
+    keywords: "find lookup everything search page",
+    route: "/search",
   },
   {
     id: "approvals",
@@ -95,9 +129,12 @@ export const DEFAULT_ACTIONS: readonly PaletteAction[] = [
   {
     id: "feed-instructions",
     get label() {
-      return t("shell.palette.feedInstructions");
+      return t("shell.palette.briefInstructions");
     },
-    route: "/feed/instructions",
+    get keywords() {
+      return t("shell.palette.keywords.feedInstructions");
+    },
+    route: "/home/instructions",
   },
   ...LIBRARY_SECTIONS.map((section) => ({
     id: `library-${section.id}`,
@@ -193,9 +230,22 @@ export function CommandPalette({
     if (!open) setQuery(initialQuery);
   }, [open, setQuery, initialQuery]);
   const close = () => onOpenChange(false);
+  // New automation starts the same chat flow as Scheduled's button: the request waits in the
+  // composer for the owner to send.
+  const prefill = usePrefillComposer();
+  const kitActions: PaletteAction[] = prefill
+    ? [
+        {
+          id: "new-automation",
+          label: t("scheduled.new"),
+          keywords: "schedule routine recurring every remind watch",
+          run: () => prefill(t("scheduled.new.prefill")),
+        },
+      ]
+    : [];
   // The host's actions first; a built-in one with the same id gives way to the host's.
   const builtIn = builtInActions
-    ? DEFAULT_ACTIONS.filter((d) => !actions.some((a) => a.id === d.id))
+    ? [...kitActions, ...DEFAULT_ACTIONS].filter((d) => !actions.some((a) => a.id === d.id))
     : [];
   const all = [...actions, ...builtIn].map(withShortcut);
   const sideChat =

@@ -252,6 +252,8 @@ export interface SidebarSlotProps {
   onModeChange: (mode: SidebarMode) => void;
   /** A row above the destinations: the sidebar toggle where there is no title bar (web). */
   header?: ReactNode;
+  /** The sidebar's Search row opens ⌘K (docs/design/consolidation-2026.md §3). */
+  onOpenSearch: () => void;
 }
 
 export interface PaletteSlotProps {
@@ -977,6 +979,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
       onWidthChange: resizeSidebar,
       mode: sidebarMode,
       onModeChange: setSidebarMode,
+      onOpenSearch: () => setOverlay("palette"),
       ...(inset ? {} : { header: chromeToggles }),
     })
   ) : (

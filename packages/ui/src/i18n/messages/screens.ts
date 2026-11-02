@@ -189,7 +189,7 @@ export const screens = {
   "screens.ideas.makeRecurring": "Make recurring",
   "screens.ideas.count": "{n, plural, one {# idea} other {# ideas}}",
   "screens.ideas.cadence": "Cadence",
-  "screens.ideas.repeats": "Repeats on the schedule it proposes; change it later in Upcoming.",
+  "screens.ideas.repeats": "Repeats on the schedule it proposes; change it later on Scheduled.",
   "screens.ideas.viewSkill": "View SKILL.md",
   "screens.ideas.accept": "Do it",
   "screens.ideas.loading": "Loading ideas",
@@ -200,7 +200,7 @@ export const screens = {
   "screens.ideas.title": "Ideas",
   "screens.ideas.description":
     "Accepted ideas become tasks or automations; nothing runs until you say so.",
-  "screens.ideas.added": 'Added "{title}" to Upcoming.',
+  "screens.ideas.added": 'Added "{title}" to Scheduled.',
   "screens.ideas.started": '{name} started "{title}".',
   "screens.ideas.open": "Open",
   "screens.ideas.startFailed": 'Psyche couldn\'t start "{title}" ({reason}). Nothing ran.',

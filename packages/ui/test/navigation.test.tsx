@@ -11,6 +11,7 @@ import { render, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { chatFocusFromRoute } from "../src/chat/focus-request.ts";
+import { LEGACY_ROUTES, legacyRedirect } from "../src/home/redirects.ts";
 import { InboxRow } from "../src/screens/inbox/InboxScreen.tsx";
 import { surfaceGroups } from "../src/screens/search/SearchSurface.tsx";
 import { DEFAULT_ACTIONS, paletteMatches } from "../src/shell/CommandPalette.tsx";
@@ -36,11 +37,20 @@ describe("every screen is reachable (sidebar or palette)", () => {
 
   it("finds the screens the shell renders", () => {
     expect(rendered).toEqual(
-      expect.arrayContaining(["search", "feed", "scheduled", "library", "overview", "inbox"]),
+      expect.arrayContaining([
+        "home",
+        "people",
+        "search",
+        "scheduled",
+        "library",
+        "overview",
+        "inbox",
+      ]),
     );
   });
 
   it("opens every rendered screen from a sidebar row or a palette action", () => {
+    expect(rendered).not.toEqual(expect.arrayContaining(["feed"]));
     for (const screenId of new Set(rendered)) {
       if (!(APP_TOP_LEVEL_ROUTES as readonly string[]).includes(screenId)) continue;
       const hit = [...reachable].some((r) => base(r).split("/")[1] === screenId);
@@ -48,8 +58,13 @@ describe("every screen is reachable (sidebar or palette)", () => {
     }
   });
 
-  it("opens every top-level route", () => {
+  it("opens every top-level route (an old one shows the place it moved to)", () => {
+    for (const old of LEGACY_ROUTES) {
+      const to = legacyRedirect(`/${old}`) ?? "";
+      expect(to, `/${old} moved`).toMatch(/^\/home/);
+    }
     for (const top of APP_TOP_LEVEL_ROUTES) {
+      if (LEGACY_ROUTES.includes(top)) continue;
       expect(
         [...reachable].some((r) => base(r).split("/")[1] === top),
         `/${top} is in the sidebar or the palette`,
@@ -64,10 +79,10 @@ describe("every screen is reachable (sidebar or palette)", () => {
       expect(reachable, `Library → ${id}`).toContain(`/library/${id}`);
   });
 
-  it("opens the agent sheet's tabs (the moved ones live in the Overview)", () => {
-    const moved = new Set(["activity", "upcoming"]);
+  it("opens the agent sheet's tabs (Activity lives in the Overview, Upcoming on Home)", () => {
+    const moved: Record<string, string> = { activity: "/overview", upcoming: "/home" };
     for (const tab of APP_AGENT_TABS) {
-      if (moved.has(tab)) expect(reachable).toContain("/overview");
+      if (moved[tab]) expect(reachable).toContain(moved[tab]);
       else expect(reachable, `/agent/${tab}`).toContain(`/agent/${tab}`);
     }
   });
@@ -85,26 +100,23 @@ describe("every screen is reachable (sidebar or palette)", () => {
     for (const a of DEFAULT_ACTIONS) expect(a.route ?? "").toMatch(/^\//);
   });
 
-  it("keeps the main screens one click away and the rare ones under More", () => {
-    const main = RAIL_ITEMS.filter((i) => i.group === "main").map((i) => i.id);
-    expect(main).toEqual(["chat", "inbox", "search", "feed", "scheduled", "library"]);
-    expect(RAIL_ITEMS.filter((i) => i.group === "more").map((i) => i.id)).toEqual([
-      "ideas",
-      "goals",
-      "memory",
-      "overview",
-    ]);
+  it("has four places, all on the sidebar (docs/design/consolidation-2026.md §3)", () => {
+    expect(RAIL_ITEMS.map((i) => i.id)).toEqual(["chat", "home", "library", "people"]);
   });
 
-  it("marks Memory current on /agent/soul and keeps the other sheet tabs with Chat", () => {
-    expect(destinationFor("/agent/soul?entity=e1")).toBe("memory");
+  it("marks the place a page is reached from", () => {
+    expect(destinationFor("/agent/soul?entity=e1")).toBe("chat");
     expect(destinationFor("/agent/approvals")).toBe("chat");
-    expect(destinationFor("/inbox")).toBe("inbox");
+    for (const r of ["/inbox", "/feed", "/ideas", "/goals/g1", "/scheduled?tab=runs", "/overview"])
+      expect(destinationFor(r), r).toBe("home");
+    expect(destinationFor("/people?entity=e1")).toBe("people");
+    expect(destinationFor("/search")).toBeNull();
+    expect(destinationFor("/settings/model")).toBeNull();
   });
 
   it("gives the numbered shortcuts to distinct main screens", () => {
     const keys = RAIL_ITEMS.flatMap((i) => (i.shortcut?.match(/^⌘\d$/) ? [i.shortcut] : []));
-    expect(keys).toEqual(["⌘1", "⌘2", "⌘3", "⌘4", "⌘5", "⌘6"]);
+    expect(keys).toEqual(["⌘1", "⌘2", "⌘3", "⌘4"]);
   });
 });
 
@@ -119,9 +131,13 @@ describe("the palette search", () => {
   });
 
   it("finds screens by what they hold, not only their name", () => {
-    expect(find("notifications")).toContain("go-inbox");
-    expect(find("audit")).toContain("go-overview");
-    expect(find("follow-ups")).toEqual(expect.arrayContaining(["go-memory", "memory-review"]));
+    expect(find("notifications")).toContain("inbox");
+    expect(find("audit")).toContain("overview");
+    expect(find("follow-ups")).toContain("memory-review");
+    // The pages Home took in are found by their old names.
+    for (const old of ["feed", "ideas", "upcoming", "needs you"])
+      expect(find(old), old).toContain("go-home");
+    expect(find("automation")).toContain("scheduled");
     expect(find("what can")).toContain("can-do");
     expect(find("runs")).toContain("scheduled-runs");
     expect(find("reports")).toContain("go-library");

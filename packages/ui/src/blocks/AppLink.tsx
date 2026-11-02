@@ -12,9 +12,12 @@ import type { BlockOf } from "./types.ts";
 
 const RAIL: Record<string, MessageId> = {
   chat: "shell.rail.chat",
+  home: "home.title",
+  people: "people.page.title",
   search: "shell.rail.search",
-  feed: "shell.rail.feed",
-  ideas: "shell.rail.ideas",
+  // The Feed and Ideas are Home sections now (docs/design/consolidation-2026.md §3.4).
+  feed: "home.title",
+  ideas: "home.title",
   goals: "shell.rail.goals",
   scheduled: "shell.rail.scheduled",
   library: "shell.rail.library",
@@ -28,7 +31,7 @@ const AGENT: Record<string, MessageId> = {
   approvals: "agent.sheet.approvals",
   soul: "agent.sheet.soul",
   activity: "overview.section.activity",
-  upcoming: "overview.section.upcoming",
+  upcoming: "home.title",
 };
 
 /** The button's destination in the active language, or null for a route the app does not know. */

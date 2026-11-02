@@ -18,7 +18,7 @@ export const meetingRecord = {
   "meetingRecord.stop": "Stop",
   "meetingRecord.stopping": "Saving…",
   "meetingRecord.notes.processing": "Writing notes…",
-  "meetingRecord.notes.done": "Notes are ready in your Feed.",
+  "meetingRecord.notes.done": "Notes are ready on Home.",
   "meetingRecord.notes.needs_permission": "Notes are waiting for your OK to use a cloud model.",
   "meetingRecord.notes.failed": "Psyche couldn't write notes from this recording.",
 } as const;

@@ -1,4 +1,4 @@
-import { APP_SETTINGS_SECTIONS } from "@psyche/protocol";
+import { APP_SETTINGS_SECTIONS, APP_TOP_LEVEL_ROUTES } from "@psyche/protocol";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AppLinkBlockView, appRouteLabel } from "../src/blocks/AppLink.tsx";
@@ -35,6 +35,15 @@ describe("app_link block", () => {
       expect(appRouteLabel(`/settings/${id}`)).toContain(": ");
     expect(appRouteLabel("/library/artifacts")).toBe("Artifacts");
     expect(appRouteLabel("/can-do")).toBe("What can you do?");
-    expect(appRouteLabel("/feed")).toBe("Feed");
+    expect(appRouteLabel("/feed")).toBe("Home");
+    expect(appRouteLabel("/home")).toBe("Home");
+    expect(appRouteLabel("/people")).toBe("People");
+  });
+
+  it("has a label for every top-level route app_navigate allows", () => {
+    for (const r of APP_TOP_LEVEL_ROUTES) {
+      if (r === "agent" || r === "settings") continue;
+      expect(appRouteLabel(`/${r}`), `/${r}`).not.toBeNull();
+    }
   });
 });
