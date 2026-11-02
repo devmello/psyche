@@ -5,6 +5,7 @@ import { t } from "../i18n/core.ts";
 import { copyText } from "../lib/clipboard.ts";
 import { cn } from "../lib/utils.ts";
 import { useSlots } from "../slots.tsx";
+import { WidgetChatContext } from "./bound.tsx";
 import { RenderNode } from "./nodes.tsx";
 import { widgetText } from "./text.ts";
 
@@ -104,7 +105,9 @@ export default function WidgetView({ widget }: { widget: Widget }): ReactElement
         </button>
       </header>
       <div className="px-3 py-2.5">
-        <RenderNode node={widget.spec.root} depth={0} />
+        <WidgetChatContext.Provider value={widget.threadId}>
+          <RenderNode node={widget.spec.root} depth={0} />
+        </WidgetChatContext.Provider>
       </div>
       <div className="sr-only" aria-live="polite" role="status" data-testid="widget-live">
         {announcement}
