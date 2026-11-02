@@ -24757,19 +24757,24 @@ public struct SearchQueryParams: Codable, Sendable {
     public let limit: Int?
     public let query: String
     public let scopes: [SearchScope]?
+    /// Let the cheap query model read a question the rules could not filter (Enter, not
+    /// keystrokes). Ignored when no model is configured
+    public let smart: Bool?
 
     public enum CodingKeys: String, CodingKey {
         case dropChips = "dropChips"
         case limit = "limit"
         case query = "query"
         case scopes = "scopes"
+        case smart = "smart"
     }
 
-    public init(dropChips: [String]?, limit: Int?, query: String, scopes: [SearchScope]?) {
+    public init(dropChips: [String]?, limit: Int?, query: String, scopes: [SearchScope]?, smart: Bool?) {
         self.dropChips = dropChips
         self.limit = limit
         self.query = query
         self.scopes = scopes
+        self.smart = smart
     }
 }
 

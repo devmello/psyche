@@ -304,6 +304,12 @@ export const SearchMethods = {
           description: "Ids of understood chips the user removed",
         }),
       ),
+      smart: Type.Optional(
+        Type.Boolean({
+          description:
+            "Let the cheap query model read a question the rules could not filter (Enter, not keystrokes). Ignored when no model is configured",
+        }),
+      ),
     }),
     result: Type.Object({
       hits: Type.Array(SearchHit),
