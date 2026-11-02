@@ -12,6 +12,8 @@ import type { BlockOf } from "./types.ts";
 
 const RAIL: Record<string, MessageId> = {
   chat: "shell.rail.chat",
+  home: "home.title",
+  people: "people.page.title",
   search: "shell.rail.search",
   feed: "shell.rail.feed",
   ideas: "shell.rail.ideas",
