@@ -118,7 +118,11 @@ export function reviewHandlers(ctx: { world: () => ReviewWorld; now: () => strin
     }),
     "memory.entities.forgetSaid": (p) => {
       const removed = { facts: 2, edges: 0, citations: 3, quarantine: 1 };
-      if (p.dryRun !== true) (ctx.world().personLog ??= []).push(`said:${p.id}`);
+      if (p.dryRun !== true) {
+        const w = ctx.world();
+        w.personLog ??= [];
+        w.personLog.push(`said:${p.id}`);
+      }
       return { removed, dryRun: p.dryRun === true };
     },
     "memory.entities.exclude": (p) => {
@@ -126,7 +130,11 @@ export function reviewHandlers(ctx: { world: () => ReviewWorld; now: () => strin
         p.mode === "forget"
           ? { facts: 2, edges: 0, citations: 3, quarantine: 1 }
           : { facts: 0, edges: 0, citations: 0, quarantine: 0 };
-      if (p.dryRun !== true) (ctx.world().personLog ??= []).push(`${p.mode}:${p.id}`);
+      if (p.dryRun !== true) {
+        const w = ctx.world();
+        w.personLog ??= [];
+        w.personLog.push(`${p.mode}:${p.id}`);
+      }
       return { excluded: 2, removed, dryRun: p.dryRun === true };
     },
     "memory.exclusions.list": () => ({
