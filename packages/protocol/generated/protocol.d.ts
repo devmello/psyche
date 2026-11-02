@@ -1235,7 +1235,7 @@ export type ArtifactVersionKind = "snapshot" | "ops";
 export interface ArtifactOp {
     new?:     string;
     old?:     string;
-    op:       Op;
+    op:       ArtifactOpOp;
     after?:   string;
     text?:    string;
     content?: string;
@@ -1272,7 +1272,7 @@ export interface ArtifactSlidePatch {
     title?:    null | string;
 }
 
-export type Op = "replace" | "insert" | "rewrite" | "set" | "setRange" | "addRows" | "deleteRows" | "addColumn" | "view" | "addMarker" | "removeMarker" | "updateMarker" | "replaceSection" | "addSection" | "removeSection" | "addSlide" | "updateSlide" | "removeSlide" | "moveSlide" | "setTheme" | "setCells" | "addSheet" | "renameSheet" | "removeSheet" | "patch";
+export type ArtifactOpOp = "replace" | "insert" | "rewrite" | "set" | "setRange" | "addRows" | "deleteRows" | "addColumn" | "view" | "addMarker" | "removeMarker" | "updateMarker" | "replaceSection" | "addSection" | "removeSection" | "addSlide" | "updateSlide" | "removeSlide" | "moveSlide" | "setTheme" | "setCells" | "addSheet" | "renameSheet" | "removeSheet" | "patch";
 
 export interface ArtifactMarkerPatch {
     label?: string;
@@ -2700,6 +2700,7 @@ export interface Block {
     statement?:      null | string;
     proposal?:       DailyWorkflowProposal;
     route?:          string;
+    widgetId?:       string;
 }
 
 export interface WrapUpAction {
@@ -2747,7 +2748,7 @@ export interface CompactionSummary {
 
 export type BlockTrigger = "auto" | "manual";
 
-export type BlockType = "text" | "tool_call" | "plan" | "checklist" | "approval" | "question" | "artifact" | "file" | "context" | "receipt" | "task" | "wrap_up" | "related_threads" | "sources" | "compaction" | "learned" | "taught" | "specialist_result" | "automation_workflow" | "app_link";
+export type BlockType = "text" | "tool_call" | "plan" | "checklist" | "approval" | "question" | "artifact" | "file" | "context" | "receipt" | "task" | "wrap_up" | "related_threads" | "sources" | "compaction" | "learned" | "taught" | "specialist_result" | "automation_workflow" | "app_link" | "ui";
 
 export interface ChatCancelParams {
     runId?:   string;
@@ -4947,7 +4948,7 @@ export interface InputRequestResult {
 }
 
 export interface InputRequest {
-    answer?:             { [key: string]: Answer } | null;
+    answer?:             { [key: string]: Value } | null;
     answeredAt?:         null | string;
     answeredByDeviceId?: null | string;
     createdAt:           string;
@@ -4958,7 +4959,7 @@ export interface InputRequest {
     threadId:            string;
 }
 
-export type Answer = string[] | string;
+export type Value = string[] | string;
 
 export interface Question {
     header:      string;
@@ -9738,6 +9739,13 @@ export interface ToolSpec {
     targetKind?:            TargetKind;
 }
 
+export interface UIBlock {
+    type:     UIBlockType;
+    widgetId: string;
+}
+
+export type UIBlockType = "ui";
+
 export interface UsageRecord {
     cacheRead:  number;
     cacheWrite: number;
@@ -10536,6 +10544,106 @@ export interface VoiceStopParams {
 
 export interface VoiceStopResult {
     transcript: Transcript;
+}
+
+export interface WidgetAction {
+    kind:            WidgetActionKind;
+    text?:           string;
+    inputRequestId?: string;
+    value?:          Value;
+    artifactId?:     string;
+    fileId?:         string;
+    route?:          string;
+    url?:            string;
+    args?:           { [key: string]: unknown };
+    tool?:           string;
+}
+
+export type WidgetActionKind = "reply" | "answer" | "open" | "tool";
+
+export interface WidgetBind {
+    field:  string;
+    id:     string;
+    source: WidgetBindingSource;
+}
+
+export type WidgetBindingSource = "task" | "automation" | "research" | "tool_call" | "job";
+
+export interface WidgetPatch {
+    baseRev?: number;
+    ops:      WidgetOp[];
+    widgetId: string;
+}
+
+export interface WidgetOp {
+    id?:           string;
+    op:            WidgetOpOp;
+    props?:        { [key: string]: unknown };
+    field?:        string;
+    items?:        unknown[];
+    node?:         { [key: string]: unknown };
+    fallbackText?: string;
+    title?:        string;
+}
+
+export type WidgetOpOp = "set" | "append" | "prepend" | "remove" | "replace" | "meta";
+
+export type WidgetTone = "neutral" | "info" | "success" | "warning" | "danger";
+
+export interface WidgetUpdatedPayload {
+    /**
+     * Empty when only `state` changed
+     */
+    ops:      WidgetOp[];
+    rev:      number;
+    state?:   WidgetState;
+    threadId: string;
+    widgetId: string;
+}
+
+export type WidgetState = "live" | "frozen";
+
+export interface WidgetsGetParams {
+    widgetIds: string[];
+}
+
+export interface WidgetsGetResult {
+    /**
+     * Ids that do not exist or are not visible
+     */
+    missing: string[];
+    widgets: Widget[];
+}
+
+export interface Widget {
+    createdAt: string;
+    id:        string;
+    messageId: string;
+    owner:     WidgetOwner;
+    pinned:    boolean;
+    rev:       number;
+    spec:      WidgetSpec;
+    state:     WidgetState;
+    taint:     TaintSource[];
+    threadId:  string;
+    updatedAt: string;
+}
+
+export interface WidgetOwner {
+    kind:          WidgetOwnerKind;
+    runId?:        string;
+    taskId?:       string;
+    automationId?: string;
+    jobId?:        string;
+}
+
+export type WidgetOwnerKind = "run" | "task" | "automation" | "job";
+
+export interface WidgetSpec {
+    fallbackText: string;
+    root:         { [key: string]: unknown };
+    title:        string;
+    v:            number;
 }
 
 export interface WrapUpBlock {

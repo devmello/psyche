@@ -153,6 +153,8 @@ function blockToMarkdown(block: Block): string {
       return `[specialist result: ${block.taskId}]`;
     case "app_link":
       return `[open in the app: ${block.route}]`;
+    case "ui":
+      return `[widget ${block.widgetId}]`;
     case "automation_workflow":
       return [
         `> Proposed automation: ${block.proposal.title}`,

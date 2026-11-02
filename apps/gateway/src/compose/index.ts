@@ -209,6 +209,7 @@ import { createUserProfile } from "./user-profile.ts";
 import { composeVault, maskingLogger, type VaultSetup, vaultSetupFromEnv } from "./vault.ts";
 import { composeWebTools, type WebToolsSetup } from "./web-tools.ts";
 import { ensureWeeklyCardAutomation, withWeeklyCard } from "./weekly-card.ts";
+import { composeWidgets } from "./widgets.ts";
 import { WORKFLOW_SETTING_KEYS } from "./workflow-settings.ts";
 
 /**
@@ -885,6 +886,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     composeScreenAsk(gwOptions.screenAsk),
     // Canvas artifacts (chat-experience-2026 §4.3): the version store and `artifact.*` tools.
     composeArtifacts,
+    // Generative-UI widgets (generative-ui-2026): snapshots by id; tools arrive in P3.
+    composeWidgets,
     composePayments(paymentsSetupFromEnv(gwOptions.env)),
     // Web passkeys (issue #79): unavailable until gateway.publicOrigin is an https origin. A
     // caller-supplied `presence` verifier takes the passkey role instead.

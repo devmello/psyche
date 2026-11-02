@@ -1248,6 +1248,7 @@
 //   let traceStep = try? JSONDecoder().decode(TraceStep.self, from: jsonData)
 //   let transcript = try? JSONDecoder().decode(Transcript.self, from: jsonData)
 //   let transcriptSegment = try? JSONDecoder().decode(TranscriptSegment.self, from: jsonData)
+//   let uIBlock = try? JSONDecoder().decode(UIBlock.self, from: jsonData)
 //   let upcomingItem = try? JSONDecoder().decode(UpcomingItem.self, from: jsonData)
 //   let usage = try? JSONDecoder().decode(Usage.self, from: jsonData)
 //   let usageByModel = try? JSONDecoder().decode(UsageByModel.self, from: jsonData)
@@ -1359,6 +1360,20 @@
 //   let voiceStopResult = try? JSONDecoder().decode(VoiceStopResult.self, from: jsonData)
 //   let watchCheck = try? JSONDecoder().decode(WatchCheck.self, from: jsonData)
 //   let watchConfig = try? JSONDecoder().decode(WatchConfig.self, from: jsonData)
+//   let widget = try? JSONDecoder().decode(Widget.self, from: jsonData)
+//   let widgetAction = try? JSONDecoder().decode(WidgetAction.self, from: jsonData)
+//   let widgetBind = try? JSONDecoder().decode(WidgetBind.self, from: jsonData)
+//   let widgetBindingSource = try? JSONDecoder().decode(WidgetBindingSource.self, from: jsonData)
+//   let widgetNode = try? JSONDecoder().decode(WidgetNode.self, from: jsonData)
+//   let widgetOp = try? JSONDecoder().decode(WidgetOp.self, from: jsonData)
+//   let widgetOwner = try? JSONDecoder().decode(WidgetOwner.self, from: jsonData)
+//   let widgetPatch = try? JSONDecoder().decode(WidgetPatch.self, from: jsonData)
+//   let widgetSpec = try? JSONDecoder().decode(WidgetSpec.self, from: jsonData)
+//   let widgetState = try? JSONDecoder().decode(WidgetState.self, from: jsonData)
+//   let widgetTone = try? JSONDecoder().decode(WidgetTone.self, from: jsonData)
+//   let widgetUpdatedPayload = try? JSONDecoder().decode(WidgetUpdatedPayload.self, from: jsonData)
+//   let widgetsGetParams = try? JSONDecoder().decode(WidgetsGetParams.self, from: jsonData)
+//   let widgetsGetResult = try? JSONDecoder().decode(WidgetsGetResult.self, from: jsonData)
 //   let workflowCard = try? JSONDecoder().decode(WorkflowCard.self, from: jsonData)
 //   let workflowEvent = try? JSONDecoder().decode(WorkflowEvent.self, from: jsonData)
 //   let workflowEventFilter = try? JSONDecoder().decode(WorkflowEventFilter.self, from: jsonData)
@@ -4405,7 +4420,7 @@ public enum ArtifactVersionKind: String, Codable, Sendable {
 public struct ArtifactOp: Codable, Sendable {
     public let new: String?
     public let old: String?
-    public let op: Op
+    public let op: ArtifactOpOp
     public let after: String?
     public let text: String?
     public let content: String?
@@ -4463,7 +4478,7 @@ public struct ArtifactOp: Codable, Sendable {
         case patch = "patch"
     }
 
-    public init(new: String?, old: String?, op: Op, after: String?, text: String?, content: String?, cell: String?, value: ArtifactCell?, range: String?, values: [ValueElement]?, at: Int?, rows: [[ArtifactCell]]?, count: Int?, name: String?, view: ArtifactTableView?, marker: ArtifactMapMarker?, id: String?, artifactOpSet: ArtifactMarkerPatch?, body: String?, heading: String?, level: Int?, slide: ArtifactSlide?, changes: ArtifactSlidePatch?, to: Int?, theme: ArtifactDeckTheme?, cells: [String: JSONAny]?, sheet: String?, patch: [String: JSONAny]?) {
+    public init(new: String?, old: String?, op: ArtifactOpOp, after: String?, text: String?, content: String?, cell: String?, value: ArtifactCell?, range: String?, values: [ValueElement]?, at: Int?, rows: [[ArtifactCell]]?, count: Int?, name: String?, view: ArtifactTableView?, marker: ArtifactMapMarker?, id: String?, artifactOpSet: ArtifactMarkerPatch?, body: String?, heading: String?, level: Int?, slide: ArtifactSlide?, changes: ArtifactSlidePatch?, to: Int?, theme: ArtifactDeckTheme?, cells: [String: JSONAny]?, sheet: String?, patch: [String: JSONAny]?) {
         self.new = new
         self.old = old
         self.op = op
@@ -4548,7 +4563,7 @@ public struct ArtifactSlidePatch: Codable, Sendable {
     }
 }
 
-public enum Op: String, Codable, Sendable {
+public enum ArtifactOpOp: String, Codable, Sendable {
     case addColumn = "addColumn"
     case addMarker = "addMarker"
     case addRows = "addRows"
@@ -8628,6 +8643,7 @@ public struct Block: Codable, Sendable {
     public let statement: String?
     public let proposal: DailyWorkflowProposal?
     public let route: String?
+    public let widgetID: String?
 
     public enum CodingKeys: String, CodingKey {
         case md = "md"
@@ -8666,9 +8682,10 @@ public struct Block: Codable, Sendable {
         case statement = "statement"
         case proposal = "proposal"
         case route = "route"
+        case widgetID = "widgetId"
     }
 
-    public init(md: String?, type: BlockType, level1: String?, status: ToolCallStatus?, tool: String?, toolCallID: String?, planID: String?, items: [ItemElement]?, approvalID: String?, inputRequestID: String?, artifactID: String?, preview: String?, libraryItemID: String?, id: String?, kind: BlockKind?, source: String?, title: String?, url: String?, receiptID: String?, taskID: String?, actions: [WrapUpAction]?, ask: String?, recap: String?, cited: [String]?, compactionID: String?, replaced: Replaced?, summary: CompactionSummary?, tokensAfter: Int?, tokensBefore: Int?, trigger: BlockTrigger?, feedbackID: String?, lessonID: String?, messageID: String?, statement: String?, proposal: DailyWorkflowProposal?, route: String?) {
+    public init(md: String?, type: BlockType, level1: String?, status: ToolCallStatus?, tool: String?, toolCallID: String?, planID: String?, items: [ItemElement]?, approvalID: String?, inputRequestID: String?, artifactID: String?, preview: String?, libraryItemID: String?, id: String?, kind: BlockKind?, source: String?, title: String?, url: String?, receiptID: String?, taskID: String?, actions: [WrapUpAction]?, ask: String?, recap: String?, cited: [String]?, compactionID: String?, replaced: Replaced?, summary: CompactionSummary?, tokensAfter: Int?, tokensBefore: Int?, trigger: BlockTrigger?, feedbackID: String?, lessonID: String?, messageID: String?, statement: String?, proposal: DailyWorkflowProposal?, route: String?, widgetID: String?) {
         self.md = md
         self.type = type
         self.level1 = level1
@@ -8705,6 +8722,7 @@ public struct Block: Codable, Sendable {
         self.statement = statement
         self.proposal = proposal
         self.route = route
+        self.widgetID = widgetID
     }
 }
 
@@ -8868,6 +8886,7 @@ public enum BlockType: String, Codable, Sendable {
     case taught = "taught"
     case text = "text"
     case toolCall = "tool_call"
+    case ui = "ui"
     case wrapUp = "wrap_up"
 }
 
@@ -15190,7 +15209,7 @@ public struct InputRequestResult: Codable, Sendable {
 
 // MARK: - InputRequest
 public struct InputRequest: Codable, Sendable {
-    public let answer: [String: Answer]?
+    public let answer: [String: Value]?
     public let answeredAt: String?
     public let answeredByDeviceID: String?
     public let createdAt: String
@@ -15212,7 +15231,7 @@ public struct InputRequest: Codable, Sendable {
         case threadID = "threadId"
     }
 
-    public init(answer: [String: Answer]?, answeredAt: String?, answeredByDeviceID: String?, createdAt: String, id: String, questions: [Question], status: InputRequestStatus, taskID: String?, threadID: String) {
+    public init(answer: [String: Value]?, answeredAt: String?, answeredByDeviceID: String?, createdAt: String, id: String, questions: [Question], status: InputRequestStatus, taskID: String?, threadID: String) {
         self.answer = answer
         self.answeredAt = answeredAt
         self.answeredByDeviceID = answeredByDeviceID
@@ -15225,7 +15244,7 @@ public struct InputRequest: Codable, Sendable {
     }
 }
 
-public enum Answer: Codable, Sendable {
+public enum Value: Codable, Sendable {
     case string(String)
     case stringArray([String])
 
@@ -15239,7 +15258,7 @@ public enum Answer: Codable, Sendable {
             self = .string(x)
             return
         }
-        throw DecodingError.typeMismatch(Answer.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Wrong type for Answer"))
+        throw DecodingError.typeMismatch(Value.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Wrong type for Value"))
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -28522,6 +28541,26 @@ public struct ToolSpec: Codable, Sendable {
     }
 }
 
+// MARK: - UIBlock
+public struct UIBlock: Codable, Sendable {
+    public let type: UIBlockType
+    public let widgetID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case type = "type"
+        case widgetID = "widgetId"
+    }
+
+    public init(type: UIBlockType, widgetID: String) {
+        self.type = type
+        self.widgetID = widgetID
+    }
+}
+
+public enum UIBlockType: String, Codable, Sendable {
+    case ui = "ui"
+}
+
 // MARK: - UsageRecord
 public struct UsageRecord: Codable, Sendable {
     public let cacheRead: Int
@@ -30800,6 +30839,308 @@ public struct VoiceStopResult: Codable, Sendable {
     }
 }
 
+// MARK: - WidgetAction
+public struct WidgetAction: Codable, Sendable {
+    public let kind: WidgetActionKind
+    public let text: String?
+    public let inputRequestID: String?
+    public let value: Value?
+    public let artifactID: String?
+    public let fileID: String?
+    public let route: String?
+    public let url: String?
+    public let args: [String: JSONAny]?
+    public let tool: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case kind = "kind"
+        case text = "text"
+        case inputRequestID = "inputRequestId"
+        case value = "value"
+        case artifactID = "artifactId"
+        case fileID = "fileId"
+        case route = "route"
+        case url = "url"
+        case args = "args"
+        case tool = "tool"
+    }
+
+    public init(kind: WidgetActionKind, text: String?, inputRequestID: String?, value: Value?, artifactID: String?, fileID: String?, route: String?, url: String?, args: [String: JSONAny]?, tool: String?) {
+        self.kind = kind
+        self.text = text
+        self.inputRequestID = inputRequestID
+        self.value = value
+        self.artifactID = artifactID
+        self.fileID = fileID
+        self.route = route
+        self.url = url
+        self.args = args
+        self.tool = tool
+    }
+}
+
+public enum WidgetActionKind: String, Codable, Sendable {
+    case answer = "answer"
+    case kindOpen = "open"
+    case reply = "reply"
+    case tool = "tool"
+}
+
+// MARK: - WidgetBind
+public struct WidgetBind: Codable, Sendable {
+    public let field: String
+    public let id: String
+    public let source: WidgetBindingSource
+
+    public enum CodingKeys: String, CodingKey {
+        case field = "field"
+        case id = "id"
+        case source = "source"
+    }
+
+    public init(field: String, id: String, source: WidgetBindingSource) {
+        self.field = field
+        self.id = id
+        self.source = source
+    }
+}
+
+public enum WidgetBindingSource: String, Codable, Sendable {
+    case automation = "automation"
+    case job = "job"
+    case research = "research"
+    case task = "task"
+    case toolCall = "tool_call"
+}
+
+// MARK: - WidgetPatch
+public struct WidgetPatch: Codable, Sendable {
+    public let baseRev: Int?
+    public let ops: [WidgetOp]
+    public let widgetID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case baseRev = "baseRev"
+        case ops = "ops"
+        case widgetID = "widgetId"
+    }
+
+    public init(baseRev: Int?, ops: [WidgetOp], widgetID: String) {
+        self.baseRev = baseRev
+        self.ops = ops
+        self.widgetID = widgetID
+    }
+}
+
+// MARK: - WidgetOp
+public struct WidgetOp: Codable, Sendable {
+    public let id: String?
+    public let op: WidgetOpOp
+    public let props: [String: JSONAny]?
+    public let field: String?
+    public let items: [JSONAny]?
+    public let node: [String: JSONAny]?
+    public let fallbackText: String?
+    public let title: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case op = "op"
+        case props = "props"
+        case field = "field"
+        case items = "items"
+        case node = "node"
+        case fallbackText = "fallbackText"
+        case title = "title"
+    }
+
+    public init(id: String?, op: WidgetOpOp, props: [String: JSONAny]?, field: String?, items: [JSONAny]?, node: [String: JSONAny]?, fallbackText: String?, title: String?) {
+        self.id = id
+        self.op = op
+        self.props = props
+        self.field = field
+        self.items = items
+        self.node = node
+        self.fallbackText = fallbackText
+        self.title = title
+    }
+}
+
+public enum WidgetOpOp: String, Codable, Sendable {
+    case append = "append"
+    case meta = "meta"
+    case opSet = "set"
+    case prepend = "prepend"
+    case remove = "remove"
+    case replace = "replace"
+}
+
+public enum WidgetTone: String, Codable, Sendable {
+    case danger = "danger"
+    case info = "info"
+    case neutral = "neutral"
+    case success = "success"
+    case warning = "warning"
+}
+
+// MARK: - WidgetUpdatedPayload
+public struct WidgetUpdatedPayload: Codable, Sendable {
+    /// Empty when only `state` changed
+    public let ops: [WidgetOp]
+    public let rev: Int
+    public let state: WidgetState?
+    public let threadID: String
+    public let widgetID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case ops = "ops"
+        case rev = "rev"
+        case state = "state"
+        case threadID = "threadId"
+        case widgetID = "widgetId"
+    }
+
+    public init(ops: [WidgetOp], rev: Int, state: WidgetState?, threadID: String, widgetID: String) {
+        self.ops = ops
+        self.rev = rev
+        self.state = state
+        self.threadID = threadID
+        self.widgetID = widgetID
+    }
+}
+
+public enum WidgetState: String, Codable, Sendable {
+    case frozen = "frozen"
+    case live = "live"
+}
+
+// MARK: - WidgetsGetParams
+public struct WidgetsGetParams: Codable, Sendable {
+    public let widgetIDS: [String]
+
+    public enum CodingKeys: String, CodingKey {
+        case widgetIDS = "widgetIds"
+    }
+
+    public init(widgetIDS: [String]) {
+        self.widgetIDS = widgetIDS
+    }
+}
+
+// MARK: - WidgetsGetResult
+public struct WidgetsGetResult: Codable, Sendable {
+    /// Ids that do not exist or are not visible
+    public let missing: [String]
+    public let widgets: [Widget]
+
+    public enum CodingKeys: String, CodingKey {
+        case missing = "missing"
+        case widgets = "widgets"
+    }
+
+    public init(missing: [String], widgets: [Widget]) {
+        self.missing = missing
+        self.widgets = widgets
+    }
+}
+
+// MARK: - Widget
+public struct Widget: Codable, Sendable {
+    public let createdAt: String
+    public let id: String
+    public let messageID: String
+    public let owner: WidgetOwner
+    public let pinned: Bool
+    public let rev: Int
+    public let spec: WidgetSpec
+    public let state: WidgetState
+    public let taint: [TaintSource]
+    public let threadID: String
+    public let updatedAt: String
+
+    public enum CodingKeys: String, CodingKey {
+        case createdAt = "createdAt"
+        case id = "id"
+        case messageID = "messageId"
+        case owner = "owner"
+        case pinned = "pinned"
+        case rev = "rev"
+        case spec = "spec"
+        case state = "state"
+        case taint = "taint"
+        case threadID = "threadId"
+        case updatedAt = "updatedAt"
+    }
+
+    public init(createdAt: String, id: String, messageID: String, owner: WidgetOwner, pinned: Bool, rev: Int, spec: WidgetSpec, state: WidgetState, taint: [TaintSource], threadID: String, updatedAt: String) {
+        self.createdAt = createdAt
+        self.id = id
+        self.messageID = messageID
+        self.owner = owner
+        self.pinned = pinned
+        self.rev = rev
+        self.spec = spec
+        self.state = state
+        self.taint = taint
+        self.threadID = threadID
+        self.updatedAt = updatedAt
+    }
+}
+
+// MARK: - WidgetOwner
+public struct WidgetOwner: Codable, Sendable {
+    public let kind: WidgetOwnerKind
+    public let runID: String?
+    public let taskID: String?
+    public let automationID: String?
+    public let jobID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case kind = "kind"
+        case runID = "runId"
+        case taskID = "taskId"
+        case automationID = "automationId"
+        case jobID = "jobId"
+    }
+
+    public init(kind: WidgetOwnerKind, runID: String?, taskID: String?, automationID: String?, jobID: String?) {
+        self.kind = kind
+        self.runID = runID
+        self.taskID = taskID
+        self.automationID = automationID
+        self.jobID = jobID
+    }
+}
+
+public enum WidgetOwnerKind: String, Codable, Sendable {
+    case automation = "automation"
+    case job = "job"
+    case run = "run"
+    case task = "task"
+}
+
+// MARK: - WidgetSpec
+public struct WidgetSpec: Codable, Sendable {
+    public let fallbackText: String
+    public let root: [String: JSONAny]
+    public let title: String
+    public let v: Double
+
+    public enum CodingKeys: String, CodingKey {
+        case fallbackText = "fallbackText"
+        case root = "root"
+        case title = "title"
+        case v = "v"
+    }
+
+    public init(fallbackText: String, root: [String: JSONAny], title: String, v: Double) {
+        self.fallbackText = fallbackText
+        self.root = root
+        self.title = title
+        self.v = v
+    }
+}
+
 // MARK: - WrapUpBlock
 public struct WrapUpBlock: Codable, Sendable {
     public let actions: [WrapUpAction]?
@@ -30872,6 +31213,7 @@ public typealias ViewLayoutParams = [String: JSONAny]
 public typealias VMSnapshotsListParams = [String: JSONAny]
 public typealias VMSnapshotsResetParams = [String: JSONAny]
 public typealias VoicePushResult = [String: JSONAny]
+public typealias WidgetNode = [String: JSONAny]
 
 // MARK: - Encode/decode helpers
 

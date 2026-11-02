@@ -34,6 +34,7 @@ import { InputRequest, Task, TaskAction } from "./schemas/tasks.ts";
 import { Message, Run, RunBudget, Thread } from "./schemas/threads.ts";
 import { ToolCall } from "./schemas/tools.ts";
 import { VmUpdatedPayload } from "./schemas/vm.ts";
+import { WidgetOp, WidgetState } from "./schemas/widgets.ts";
 import { ActionProposal, MeetingRecordingStatus } from "./schemas/workflows.ts";
 
 /**
@@ -125,6 +126,17 @@ export const Events = {
     payload: Type.Object({ toolCallId: Id, event: ResearchProgressEvent }),
     description:
       "A deep-research tool call (research_run, research_followup) advanced: the plan, the step, a source read, claim and token counts, done or stopped. Typed labels and counts only, never page text.",
+  }),
+  "widget.updated": defineEvent({
+    payload: Type.Object({
+      widgetId: Id,
+      threadId: Id,
+      rev: Type.Integer({ minimum: 1 }),
+      ops: Type.Array(WidgetOp, { description: "Empty when only `state` changed" }),
+      state: Type.Optional(WidgetState),
+    }),
+    description:
+      "A generative-UI widget was patched (rev is the order; apply only when rev == local + 1, else refetch with widgets.get), or froze.",
   }),
   "task.updated": defineEvent({
     payload: Type.Object({ task: Task }),
