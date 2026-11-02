@@ -628,6 +628,7 @@
 //   let libraryListResult = try? JSONDecoder().decode(LibraryListResult.self, from: jsonData)
 //   let libraryUploadParams = try? JSONDecoder().decode(LibraryUploadParams.self, from: jsonData)
 //   let libraryUploadResult = try? JSONDecoder().decode(LibraryUploadResult.self, from: jsonData)
+//   let lifeFactHit = try? JSONDecoder().decode(LifeFactHit.self, from: jsonData)
 //   let linkPaymentMethod = try? JSONDecoder().decode(LinkPaymentMethod.self, from: jsonData)
 //   let logLevel = try? JSONDecoder().decode(LogLevel.self, from: jsonData)
 //   let logLine = try? JSONDecoder().decode(LogLine.self, from: jsonData)
@@ -767,6 +768,8 @@
 //   let memoryLessonsGetResult = try? JSONDecoder().decode(MemoryLessonsGetResult.self, from: jsonData)
 //   let memoryLessonsListParams = try? JSONDecoder().decode(MemoryLessonsListParams.self, from: jsonData)
 //   let memoryLessonsListResult = try? JSONDecoder().decode(MemoryLessonsListResult.self, from: jsonData)
+//   let memoryLifeSearchParams = try? JSONDecoder().decode(MemoryLifeSearchParams.self, from: jsonData)
+//   let memoryLifeSearchResult = try? JSONDecoder().decode(MemoryLifeSearchResult.self, from: jsonData)
 //   let memoryLoopUpdatedPayload = try? JSONDecoder().decode(MemoryLoopUpdatedPayload.self, from: jsonData)
 //   let memoryLoopsListParams = try? JSONDecoder().decode(MemoryLoopsListParams.self, from: jsonData)
 //   let memoryLoopsListResult = try? JSONDecoder().decode(MemoryLoopsListResult.self, from: jsonData)
@@ -18658,6 +18661,80 @@ public struct MemoryLessonsListResult: Codable, Sendable {
     public init(lessons: [Lesson], nextCursor: String?) {
         self.lessons = lessons
         self.nextCursor = nextCursor
+    }
+}
+
+// MARK: - MemoryLifeSearchParams
+public struct MemoryLifeSearchParams: Codable, Sendable {
+    /// Default 20
+    public let limit: Int?
+    public let q: String
+
+    public enum CodingKeys: String, CodingKey {
+        case limit = "limit"
+        case q = "q"
+    }
+
+    public init(limit: Int?, q: String) {
+        self.limit = limit
+        self.q = q
+    }
+}
+
+// MARK: - MemoryLifeSearchResult
+public struct MemoryLifeSearchResult: Codable, Sendable {
+    public let entities: [EntitySummary]
+    public let facts: [LifeFactHit]
+    public let intent: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case entities = "entities"
+        case facts = "facts"
+        case intent = "intent"
+    }
+
+    public init(entities: [EntitySummary], facts: [LifeFactHit], intent: String?) {
+        self.entities = entities
+        self.facts = facts
+        self.intent = intent
+    }
+}
+
+// MARK: - LifeFactHit
+public struct LifeFactHit: Codable, Sendable {
+    public let attribute: GraphFactAttribute
+    public let entity: EntitySummary
+    public let factID: String
+    public let observedAt: String?
+    public let provenance: Provenance
+    public let quote: String?
+    public let review: GraphReviewState
+    public let source: String?
+    /// Untrusted text when it came from someone else
+    public let value: String
+
+    public enum CodingKeys: String, CodingKey {
+        case attribute = "attribute"
+        case entity = "entity"
+        case factID = "factId"
+        case observedAt = "observedAt"
+        case provenance = "provenance"
+        case quote = "quote"
+        case review = "review"
+        case source = "source"
+        case value = "value"
+    }
+
+    public init(attribute: GraphFactAttribute, entity: EntitySummary, factID: String, observedAt: String?, provenance: Provenance, quote: String?, review: GraphReviewState, source: String?, value: String) {
+        self.attribute = attribute
+        self.entity = entity
+        self.factID = factID
+        self.observedAt = observedAt
+        self.provenance = provenance
+        self.quote = quote
+        self.review = review
+        self.source = source
+        self.value = value
     }
 }
 

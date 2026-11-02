@@ -38,6 +38,10 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 - New methods `memory.upcoming`, `memory.entities.export`, `memory.entities.forgetSaid` (admin), `memory.entities.exclude` (admin); types `ComingUpItem`, `ComingUpKind`, `PersonRemoved`. `DailySectionId` gains `coming_up`.
 
+### v1 additive — 2026-11-02 (everything memory, Life search)
+
+- New method `memory.life.search` (read) and type `LifeFactHit`: people, orgs, events and topics by name, and cited facts (including ones waiting for review, marked) by their words, with plain intents such as "birthdays in March".
+
 ### v1 additive — 2026-10-29 (everything memory, EM6)
 
 - New methods `memory.exclusions.list`, `memory.exclusions.add` (admin; `dryRun` counts a forget), `memory.exclusions.remove` (admin) and types `EverythingExclusion`, `EverythingExclusionMode`. Only a masked hint of an excluded address is ever returned.

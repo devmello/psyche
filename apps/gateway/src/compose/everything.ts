@@ -6,6 +6,7 @@ import {
   everythingNightlyStep,
   type GraphStore,
   type ItemReader,
+  lifeSearch,
   localMinutesAt,
   type NightlyStep,
   type PassDeps,
@@ -89,6 +90,7 @@ type EverythingMethod =
   | "memory.senders.list"
   | "memory.senders.decide"
   | "memory.upcoming"
+  | "memory.life.search"
   | "memory.entities.export"
   | "memory.entities.forgetSaid"
   | "memory.entities.exclude";
@@ -130,6 +132,9 @@ export interface EverythingHandlers {
     p: ReviewParams<"memory.senders.decide">,
   ): Promise<ReviewResult<"memory.senders.decide">>;
   "memory.upcoming"(p: ReviewParams<"memory.upcoming">): Promise<ReviewResult<"memory.upcoming">>;
+  "memory.life.search"(
+    p: ReviewParams<"memory.life.search">,
+  ): Promise<ReviewResult<"memory.life.search">>;
   "memory.entities.export"(
     p: ReviewParams<"memory.entities.export">,
   ): Promise<ReviewResult<"memory.entities.export">>;
@@ -145,6 +150,8 @@ export interface EverythingHandlers {
 export interface PersonContext {
   graph: GraphStore;
   clock: Clock;
+  /** The graph database, for the Life search scan. */
+  db: { prepare(sql: string): { all(...a: unknown[]): unknown[] } };
   timeZone: () => string;
   /** The person's card file, when one exists, for the export. */
   card?: (path: string) => Promise<string | undefined>;
@@ -264,6 +271,13 @@ export function everythingHandlers(
         },
         forgotten,
       };
+    },
+    async "memory.life.search"(p) {
+      const ctx = needPerson();
+      return lifeSearch(ctx.graph, em, ctx.db, p.q, {
+        ...(p.limit === undefined ? {} : { limit: p.limit }),
+        now: ctx.clock.now(),
+      });
     },
     async "memory.upcoming"(p) {
       const ctx = needPerson();
@@ -398,6 +412,7 @@ export function composeEverything(deps: EverythingDeps): Everything {
   const handlers = everythingHandlers(store, settings, {
     graph,
     clock,
+    db: db.sqlite,
     timeZone: deps.timeZone,
     ...(deps.card === undefined ? {} : { card: deps.card }),
   });

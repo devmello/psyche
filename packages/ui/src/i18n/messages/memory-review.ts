@@ -96,6 +96,8 @@ export const memoryReview = {
   "personData.done.exclude": "No longer learning about {name}.",
   "personData.done.exclude_forget": "No longer learning about {name}, and forgot what they said.",
   "people.section.upcoming": "Coming up",
+  "screens.search.life": "Life",
+  "screens.search.life.unconfirmed": "Waiting for your review",
   "memoryReview.recent.undoUntil": "You can undo this until {date}",
   // --- Everything memory settings and first-run consent (§12) ---
   "settings.nav.everything": "Everything memory",
