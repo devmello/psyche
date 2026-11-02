@@ -52,6 +52,7 @@ function turnExtra(input: SendInput): TurnExtra | undefined {
   if (
     input.preamble === undefined &&
     input.via === undefined &&
+    input.proposedCall === undefined &&
     (input.images ?? []).length === 0 &&
     (input.contextBlocks ?? []).length === 0
   )
@@ -106,6 +107,13 @@ export interface SendInput {
   contextBlocks?: Block[];
   /** `widget`: a click on a generative-UI widget sent it (D10); same busy rule as `preamble`. */
   via?: "widget";
+  /**
+   * A widget button proposed this tool call (generative-ui-2026 §6.2): the turn's first step is
+   * the call, gated like a model's. Busy chats refuse it (it is never queued).
+   */
+  proposedCall?: { tool: string; input: Record<string, unknown> };
+  /** `false`: the text is not the owner's own words (widget-composed), so it names no targets. */
+  ownerWords?: boolean;
 }
 
 type Emit = <E extends EventName>(event: E, payload: EventPayload<E>, threadId?: string) => void;
@@ -218,6 +226,11 @@ export class SessionController {
   readonly #active = new Map<string, ActiveTurn>();
   /** Runs whose input carries untrusted content (#275), until their turn starts. */
   readonly #inputTaint = new Map<string, TaintSource[]>();
+  /** Widget turns (generative-ui-2026 §6.2, §7.3): the proposed call and "not the owner's words". */
+  readonly #turnOptions = new Map<
+    string,
+    { proposedCall?: SendInput["proposedCall"]; ownerWords?: boolean }
+  >();
   #stopping = false;
   /** Threads being deleted: no new turns, no queue drain. */
   readonly #closing = new Set<string>();
@@ -260,6 +273,7 @@ export class SessionController {
         extra,
       );
       this.#noteTaint(run.id, input.taintSources);
+      this.#noteTurnOptions(run.id, input);
       return { messageId, runId: run.id, queued: false };
     }
     const mode = input.mode ?? "followUp";
@@ -327,6 +341,7 @@ export class SessionController {
       extra,
     );
     this.#noteTaint(run.id, input.taintSources);
+    this.#noteTurnOptions(run.id, input);
     return { messageId, runId: run.id, queued: false };
   }
 
@@ -384,6 +399,14 @@ export class SessionController {
   /** Taint the input itself carries, picked up when the run's turn starts. */
   #noteTaint(runId: string, sources: TaintSource[] | undefined): void {
     if (sources !== undefined && sources.length > 0) this.#inputTaint.set(runId, sources);
+  }
+
+  #noteTurnOptions(runId: string, input: SendInput): void {
+    if (input.proposedCall === undefined && input.ownerWords === undefined) return;
+    this.#turnOptions.set(runId, {
+      ...(input.proposedCall === undefined ? {} : { proposedCall: input.proposedCall }),
+      ...(input.ownerWords === undefined ? {} : { ownerWords: input.ownerWords }),
+    });
   }
 
   /** The quoted message of a reply, which must belong to the same thread. */
@@ -754,6 +777,8 @@ export class SessionController {
     try {
       const inputTaint = this.#inputTaint.get(runId);
       this.#inputTaint.delete(runId);
+      const turnOptions = this.#turnOptions.get(runId);
+      this.#turnOptions.delete(runId);
       // Library attachments: images as image parts, documents as capped extracted text.
       const attached =
         attachments.length > 0
@@ -778,6 +803,10 @@ export class SessionController {
         signal: turn.abort.signal,
         ...(requester === undefined ? {} : { requester }),
         ...(inputTaint === undefined ? {} : { taintSources: inputTaint }),
+        ...(turnOptions?.proposedCall === undefined
+          ? {}
+          : { proposedCall: turnOptions.proposedCall }),
+        ...(turnOptions?.ownerWords === undefined ? {} : { ownerWords: turnOptions.ownerWords }),
       });
       for await (const event of stream) {
         if (turn.detached || this.activeRunId(threadId) !== runId) {

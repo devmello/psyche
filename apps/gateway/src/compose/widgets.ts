@@ -1,8 +1,11 @@
 import { getSetting, getWidgets } from "@psyche/db";
 import { type MethodParams, type MethodResult, PsycheError } from "@psyche/protocol";
 import type { Call } from "../context.ts";
+import { requireThread } from "../handlers/threads.ts";
+import { resolveToolAction } from "../widgets/act.ts";
 import { checkWidgetBindings } from "../widgets/bindings.ts";
 import { fetchWidgetImage } from "../widgets/image.ts";
+import { claimWidgetClick } from "../widgets/rate.ts";
 import { WidgetStore } from "../widgets/store.ts";
 import { widgetTools } from "../widgets/tools.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
@@ -65,6 +68,52 @@ export function composeWidgets(services: ComposeServices): ComposedPart {
       for (const u of unregister) u();
     },
     handlers: {
+      "widgets.act": {
+        transactional: true,
+        run: (call: Call, p: MethodParams<"widgets.act">): MethodResult<"widgets.act"> => {
+          const [widget] = getWidgets(services.db, [p.widgetId]);
+          if (widget === undefined) throw new PsycheError("not_found", "No such widget.");
+          const thread = requireThread(call, widget.threadId);
+          const action = resolveToolAction(widget.spec, p.nodeId, p.itemId, p.values);
+          claimWidgetClick(widget.id);
+          // The owner reads exactly what is proposed; the widget's taint rides along as requester
+          // taint, and the text is the widget's, so it names no targets (§7.3).
+          const result = call.ctx.sessions.send(
+            {
+              threadId: thread.id,
+              content: action.text,
+              deviceId: call.identity.deviceId,
+              via: "widget",
+              ownerWords: false,
+              proposedCall: { tool: action.tool, input: action.args },
+              ...(widget.taint.length === 0 ? {} : { taintSources: widget.taint }),
+            },
+            { emit: call.emit, afterCommit: call.afterCommit },
+          );
+          return { messageId: result.messageId, runId: result.runId ?? null };
+        },
+      },
+      "widgets.preview": {
+        run: async (
+          call: Call,
+          p: MethodParams<"widgets.preview">,
+        ): Promise<MethodResult<"widgets.preview">> => {
+          const [widget] = getWidgets(services.db, [p.widgetId]);
+          if (widget === undefined) throw new PsycheError("not_found", "No such widget.");
+          const thread = requireThread(call, widget.threadId);
+          const action = resolveToolAction(widget.spec, p.nodeId, p.itemId, undefined, {
+            preview: true,
+          });
+          const verdict = await call.ctx.agent.previewCall?.({
+            threadId: thread.id,
+            tool: action.tool,
+            input: action.args,
+            permissionMode: thread.permissionMode,
+            taintSources: widget.taint,
+          });
+          return { tool: action.tool, decision: verdict?.decision ?? "unavailable" };
+        },
+      },
       "widgets.image": {
         run: async (
           _c: Call,

@@ -139,7 +139,7 @@ export function SignedInSitesGroup({ api }: { api: SignedInSitesApi }): ReactEle
               <span className="font-mono">{s.origin.replace(/^https:\/\//, "")}</span>
               {s.detected ? (
                 <span
-                  className="ml-2 text-callout text-muted-foreground"
+                  className="ms-2 text-callout text-muted-foreground"
                   data-testid="signed-in-auto"
                 >
                   {t("settings.browser.signedIn.auto")}

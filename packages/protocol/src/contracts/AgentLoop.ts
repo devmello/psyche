@@ -89,6 +89,18 @@ export interface StartTurnInput {
    */
   taintSources?: TaintSource[];
   /**
+   * `false`: `input.text` is not the owner's own words (a widget composed it, generative-ui-2026
+   * §7.3), so it never names targets for the broker's new-target rule. Default true.
+   */
+  ownerWords?: boolean;
+  /**
+   * A widget button proposed this call (generative-ui-2026 §6.2): the turn's first step is this
+   * call instead of a model call, and it goes through exactly the gate a model's call would: the
+   * broker, the binding hash, grants, taint and the approval card. The model then answers from
+   * its result like any other turn.
+   */
+  proposedCall?: { tool: string; input: Record<string, unknown> };
+  /**
    * Write-ahead hook (architecture §4.5 "Leases"; security §3.11, #63): awaited immediately
    * before each tool call is dispatched, after the broker and any approval let it through. The
    * task worker commits the step's `running` checkpoint here, so a crash after a provider applied
@@ -204,6 +216,20 @@ export interface AgentLoop {
    * prompt"); `undefined` for an unknown or evicted run.
    */
   explainContext?(runId: string): Promise<ContextExplanation | undefined>;
+  /**
+   * What the broker would say to `call` in this thread right now, without running or asking
+   * anything (a widget's "asks first" marker). `unavailable` for an unknown tool or bad arguments.
+   */
+  previewCall?(input: {
+    threadId: string;
+    tool: string;
+    input: Record<string, unknown>;
+    permissionMode: PermissionMode;
+    taintSources: TaintSource[];
+  }): Promise<{
+    decision: "allow" | "ask" | "deny" | "device-only" | "unavailable";
+    rule?: string;
+  }>;
 }
 
 // --- Prompt viewer (C11) -----------------------------------------------------------------------

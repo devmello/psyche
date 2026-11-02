@@ -119,6 +119,8 @@ export interface FixtureWorld {
   artifacts: Artifact[];
   /** Generative-UI widget snapshots (empty unless a story or test adds some). */
   widgets: Widget[];
+  /** What `widgets.preview` answers per tool (default `ask`). */
+  widgetDecisions: Record<string, "allow" | "ask" | "deny" | "device-only" | "unavailable">;
   library: LibraryItem[];
   /** Granted-folder files by absolute path (FILE_ROOTS), for the Files pane. */
   files: Record<string, MockFileNode>;
@@ -212,6 +214,7 @@ export function createFixtureWorld(): FixtureWorld {
     auditVerified: true,
     artifacts: artifacts(),
     widgets: [],
+    widgetDecisions: {},
     library: library(),
     files: fileTree(),
     notifications: notifications(),

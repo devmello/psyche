@@ -2,7 +2,9 @@ import type { Idea, IdeaDismissReason } from "@psyche/protocol";
 import { Lightbulb } from "lucide-react";
 import { type ReactElement, useState } from "react";
 import { toast } from "sonner";
-import { EmptyState, ErrorState, LoadingCards, useDelayedFlag } from "../../components/page.tsx";
+import { DelayedSkeletons } from "../../components/DelayedSkeleton.tsx";
+import { EmptyState, ErrorState, useDelayedFlag } from "../../components/page.tsx";
+import { Skeleton } from "../../components/ui/skeleton.tsx";
 import { useIdeas } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
@@ -48,7 +50,27 @@ export function IdeasView({
   let body: ReactElement;
   if (loading) {
     body = showSkeleton ? (
-      <LoadingCards label={t("screens.ideas.loading")} count={3} lines={4} />
+      // An idea card: title and kind chip, two body lines, the evidence line, then the actions.
+      <DelayedSkeletons label={t("screens.ideas.loading")} className="flex flex-col gap-3">
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            className="flex flex-col gap-2.5 rounded-lg bg-surface-raised p-4 shadow-elevation-1"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <Skeleton className="h-4 w-1/2" />
+              <Skeleton className="h-5 w-14 rounded-full" />
+            </div>
+            <Skeleton className="h-3.5 w-full" />
+            <Skeleton className="h-3.5 w-2/3" />
+            <Skeleton className="h-3 w-1/3" />
+            <div className="flex justify-end gap-2 pt-1">
+              <Skeleton className="h-7 w-16" />
+              <Skeleton className="h-7 w-12" />
+            </div>
+          </div>
+        ))}
+      </DelayedSkeletons>
     ) : (
       <div aria-busy="true" className="min-h-24" />
     );

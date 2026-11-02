@@ -73,7 +73,7 @@ function working(w: FixtureWorld): void {
   w.inputRequests = [];
 }
 
-/** Approvals are waiting: "Waiting for you · N approvals", cards under Needs you. */
+/** Approvals are waiting: "Waiting for you · N approvals · N questions", cards under Needs you. */
 export const Approvals: Story = { render: () => <OpenSheet initial="approvals" /> };
 export const SoulAndMemory: Story = { render: () => <OpenSheet initial="soul" /> };
 export const Waiting: Story = { render: () => <OpenSheet initial="approvals" /> };

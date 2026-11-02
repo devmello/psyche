@@ -91,8 +91,6 @@ export const overviewShared: Partial<Catalogue> = {
   "screens.growth.empty":
     "لم يُتعلَّم أي شيء بعد. أخبر {agent} عندما لا يكون شيء على ما يرام وسيتذكّر ذلك.",
   "screens.growth.loading": "جارٍ تحميل ما تعلّمه {agent}",
-  "screens.growth.loadFailed": "تعذّر تحميل التطور. {reason}",
-  "screens.growth.retry": "حاول مرة أخرى",
   "screens.growth.card.kind": "ما تعلّمته",
   "screens.growth.card.items": "عناصر للمراجعة",
   "screens.growth.card.keep": "احتفظ",
@@ -113,7 +111,7 @@ export const overviewShared: Partial<Catalogue> = {
   "screens.lessons.change": "التغيير",
   "screens.lessons.before": "قبل",
   "screens.lessons.after": "بعد",
-  "screens.lessons.loadFailed": "تعذّر تحميل هذا الدرس. {reason}",
+  "screens.lessons.loadFailed": "تعذّر تحميل هذا الدرس ({reason}).",
   "screens.lessons.sources": "من ملاحظاتك",
   "screens.lessons.sourceDate": "{date}",
   "screens.lessons.openThread": "فتح المحادثة",

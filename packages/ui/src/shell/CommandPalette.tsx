@@ -237,6 +237,17 @@ export function CommandPalette({
             }}
             entities={search.entities}
             lifeFacts={search.life}
+            {...(search.answer
+              ? {
+                  lifeAnswer: {
+                    ...search.answer,
+                    onOpenSettings: () => {
+                      close();
+                      onNavigate("/settings/everything");
+                    },
+                  },
+                }
+              : {})}
             onOpenEntity={(e) => {
               close();
               onNavigate(`/agent/soul?entity=${encodeURIComponent(e.id)}`);

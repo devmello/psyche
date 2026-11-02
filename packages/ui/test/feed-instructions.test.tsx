@@ -127,6 +127,16 @@ describe("the Feed instructions sheet (issue #614)", () => {
     await waitFor(() => expect(callsTo("feed.generate")).toHaveLength(1));
   });
 
+  it("puts focus in the instructions box once it loads, not on Generate now", async () => {
+    const { user } = setup(<FeedScreen />);
+    await user.click(await screen.findByRole("button", { name: "What should I write about" }));
+    const sheet = await screen.findByRole("dialog", { name: "What should I write about" });
+    const text = await within(sheet).findByRole("textbox", {
+      name: "What should the feed write about?",
+    });
+    await waitFor(() => expect(document.activeElement).toBe(text));
+  });
+
   it("saves after feedback changed interests.md meanwhile", async () => {
     const { user, callsTo, gw } = setup(
       <FeedScreen instructionsOpen onCloseInstructions={() => {}} />,

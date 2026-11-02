@@ -923,7 +923,7 @@ export interface AppleTabTextParams {
 export interface ApprovalAnswer {
     answerToken:      string;
     approvalId:       string;
-    decision:         DecisionEnum;
+    decision:         ApprovalAnswerDecision;
     editedText?:      string;
     folderPath?:      string;
     presence?:        PresenceAssertion;
@@ -933,7 +933,7 @@ export interface ApprovalAnswer {
     via?:             InputVia;
 }
 
-export type DecisionEnum = "approve" | "deny";
+export type ApprovalAnswerDecision = "approve" | "deny";
 
 export interface PresenceAssertion {
     deviceId: string;
@@ -3963,7 +3963,7 @@ export interface DailySection {
     unavailable?: boolean;
 }
 
-export type DailySectionID = "calendar" | "mail" | "due" | "followups" | "weather" | "done" | "open" | "tomorrow" | "learned" | "coming_up";
+export type DailySectionID = "calendar" | "mail" | "due" | "followups" | "weather" | "done" | "open" | "tomorrow" | "learned" | "coming_up" | "keep_in_touch";
 
 export interface InboxDigest {
     accounts: string[];
@@ -4170,6 +4170,7 @@ export type FeedPostKind = "brief" | "briefing" | "digest" | "meeting_prep" | "m
 export interface FeedPostRefs {
     goalId?:      string;
     meetingId?:   string;
+    nudgeId?:     string;
     proposalIds?: string[];
     threads?:     MailThreadRef[];
 }
@@ -7185,6 +7186,66 @@ export interface NotificationsResolveParams {
 
 export interface NotificationsResolveResult {
     notification: Notification;
+}
+
+export type NudgeSensitivity = "low" | "normal" | "high";
+
+export interface NudgesActParams {
+    action: NudgeAction;
+    id:     string;
+}
+
+export type NudgeAction = "done" | "snooze_week" | "snooze_month" | "mute_person";
+
+export interface NudgesActResult {
+    ok: boolean;
+}
+
+export interface NudgesListParams {
+    entityId?: string;
+}
+
+export interface NudgesListResult {
+    /**
+     * The switch is on and the owner has consented
+     */
+    enabled: boolean;
+    items:   NudgeItem[];
+    /**
+     * With entityId: nudges for that person are muted
+     */
+    muted: boolean;
+}
+
+export interface NudgeItem {
+    channel?: ChannelEnum | null;
+    date?:    null | string;
+    daysAgo?: number | null;
+    entityId: string;
+    id:       string;
+    kind:     NudgeKind;
+    /**
+     * A display name: third-party text, one line
+     */
+    name:    string;
+    overdue: boolean;
+    /**
+     * One plain sentence built from the name, numbers and a template
+     */
+    text: string;
+}
+
+export type ChannelEnum = "mail" | "messages";
+
+export type NudgeKind = "unanswered" | "drift" | "birthday" | "promise";
+
+export interface NudgesMuteParams {
+    entityId: string;
+    muted:    boolean;
+}
+
+export interface NudgesMuteResult {
+    ok: boolean;
 }
 
 export interface OcrRecognizeParams {
@@ -10882,6 +10943,18 @@ export interface WidgetUpdatedPayload {
 
 export type WidgetState = "live" | "frozen";
 
+export interface WidgetsActParams {
+    itemId?:  string;
+    nodeId:   string;
+    values?:  { [key: string]: unknown };
+    widgetId: string;
+}
+
+export interface WidgetsActResult {
+    messageId: string;
+    runId:     null | string;
+}
+
 export interface WidgetsGetParams {
     widgetIds: string[];
 }
@@ -10939,6 +11012,19 @@ export interface WidgetsImageResult {
 }
 
 export type WidgetsImageResultMIME = "image/png" | "image/jpeg" | "image/gif" | "image/webp";
+
+export interface WidgetsPreviewParams {
+    itemId?:  string;
+    nodeId:   string;
+    widgetId: string;
+}
+
+export interface WidgetsPreviewResult {
+    decision: WidgetsPreviewResultDecision;
+    tool:     string;
+}
+
+export type WidgetsPreviewResultDecision = "allow" | "ask" | "deny" | "device-only" | "unavailable";
 
 export interface WrapUpBlock {
     actions?: WrapUpAction[];

@@ -41,7 +41,7 @@ export function FailureBanner({
   return (
     <section
       aria-label={t("agent.timeline.failure.label")}
-      className="flex gap-2.5 rounded-lg bg-danger-surface px-3 py-2.5 text-callout"
+      className="flex gap-2.5 rounded-lg border border-separator px-3 py-2.5 text-callout"
       data-testid="failure-banner"
     >
       <CircleAlert className="mt-0.5 size-4 shrink-0 text-danger-text" aria-hidden="true" />

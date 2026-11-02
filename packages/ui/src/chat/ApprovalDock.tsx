@@ -134,7 +134,7 @@ export function ApprovalDock({
                     }}
                     autoFocus
                     now={now}
-                    detailsClassName="max-h-[min(9rem,18vh)] overflow-y-auto"
+                    detailsClassName="max-h-36 overflow-y-auto"
                   />
                 );
               })()}

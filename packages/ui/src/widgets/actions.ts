@@ -17,17 +17,28 @@ import { WidgetContext } from "./context.ts";
  *   asked about; it never touches an approval (there is no route from here to `approvals.answer`).
  * - `open`: an app route the app knows, or a Library item or artifact of this owner. Links go
  *   through `SafeLink` (the owner's link policy, which asks for a new origin), never from here.
- * - `tool`: arrives with P7 (through the Permission Broker); until then it is not offered.
+ * - `tool` (D2): `widgets.act` proposes the call stored in the spec to the agent loop, through the
+ *   Permission Broker with the widget's taint; the click is a proposal, never an execution.
  *
  * One action per click, with a 1 s cool-down (§7.5), so a widget cannot become a message cannon.
  */
 
 export type ActionState = "idle" | "working" | "sent";
 
+/** What a click adds to its action: the text it composed, or the control that proposes a call. */
+export interface ActionOptions {
+  /** `reply`: the composed message instead of the spec's own text. */
+  text?: string;
+  /** `tool`: the control (and list row) whose stored call is proposed, plus typed form values. */
+  nodeId?: string;
+  itemId?: string;
+  values?: Record<string, string | number | boolean>;
+}
+
 export interface ActionRunner {
   state: ActionState;
   error: string | null;
-  run: (action: WidgetAction, overrideText?: string) => Promise<void>;
+  run: (action: WidgetAction, options?: ActionOptions) => Promise<void>;
 }
 
 const COOLDOWN_MS = 1000;
@@ -57,7 +68,7 @@ export function useWidgetAction(): ActionRunner {
   useEffect(() => () => clearTimeout(timer.current), []);
 
   const run = useCallback(
-    async (action: WidgetAction, overrideText?: string) => {
+    async (action: WidgetAction, options: ActionOptions = {}) => {
       if (ctx === null || busy.current) return;
       busy.current = true;
       setError(null);
@@ -66,7 +77,7 @@ export function useWidgetAction(): ActionRunner {
         if (action.kind === "reply") {
           await store.call("chat.send", {
             threadId: ctx.threadId,
-            content: overrideText ?? action.text,
+            content: options.text ?? action.text,
             fromWidget: { widgetId: ctx.widgetId },
           });
         } else if (action.kind === "answer") {
@@ -99,9 +110,17 @@ export function useWidgetAction(): ActionRunner {
           } else {
             throw new Error(t("widgets.action.unavailable"));
           }
-        } else {
-          // `tool` actions are P7: never run from here.
-          throw new Error(t("widgets.action.unavailable"));
+        } else if (action.kind === "tool") {
+          // The call and its arguments come from the stored spec on the Gateway; this request
+          // names only the control and what the owner typed. The broker then decides it like a
+          // model's call, and an approval card appears in the dock when it asks.
+          if (options.nodeId === undefined) throw new Error(t("widgets.action.unavailable"));
+          await store.call("widgets.act", {
+            widgetId: ctx.widgetId,
+            nodeId: options.nodeId,
+            ...(options.itemId === undefined ? {} : { itemId: options.itemId }),
+            ...(options.values === undefined ? {} : { values: options.values }),
+          });
         }
         setState("sent");
       } catch (e) {

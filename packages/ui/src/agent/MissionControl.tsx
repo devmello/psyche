@@ -73,7 +73,15 @@ export function Row({
 }): ReactElement {
   const body = (
     <>
-      <StatusGlyph status={glyph} label={glyphLabel} className="mt-0.5 size-4 shrink-0" />
+      {glyph === "waiting" ? (
+        // The amber dot Inbox uses for rows that need you, centred on the glyph's 16 px box.
+        <span className="mt-0.5 grid size-4 shrink-0 place-items-center" data-status="waiting">
+          <span aria-hidden="true" className="size-2 rounded-full bg-approval" />
+          <span className="sr-only">{glyphLabel}</span>
+        </span>
+      ) : (
+        <StatusGlyph status={glyph} label={glyphLabel} className="mt-0.5 size-4 shrink-0" />
+      )}
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="flex min-w-0 items-baseline gap-1.5">
           <span className="min-w-0 truncate text-headline">{title}</span>

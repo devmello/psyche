@@ -337,9 +337,8 @@ describe("empty and loading states", () => {
   it("offers examples and New automation when there are none of your own", async () => {
     const p = renderView({ items: scheduledItems().filter((i) => i.group === "routine") });
     expect(screen.getByText(/You haven't set up any automations yet/)).toBeTruthy();
-    await userEvent.click(
-      screen.getAllByRole("button", { name: "New automation" })[1] as HTMLElement,
-    );
+    // One New automation button (the toolbar's); the examples are suggestions.
+    await userEvent.click(screen.getByRole("button", { name: "New automation" }));
     expect(p.onNewAutomation).toHaveBeenCalledWith();
     await userEvent.click(
       screen.getByRole("button", {

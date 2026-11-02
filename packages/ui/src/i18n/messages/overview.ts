@@ -29,6 +29,8 @@ export const overview = {
   "overview.section.empty": "Nothing here yet.",
   "overview.loading": "Loading",
   "overview.error.load": "Couldn’t load",
+  "overview.error.summary": "Couldn’t load the summary",
+  "overview.error.lessons": "Couldn’t load lessons",
   "overview.error.section": "Couldn’t load {section}",
   "overview.section.loading": "Loading {section}",
   "overview.lastUpdated": "Last updated {time}",
@@ -97,6 +99,7 @@ export const overview = {
   // Now & next (§5.4); "Next up", the empty lines and the run rows reuse `agent.activity.*`.
   "overview.now.needsYou": "{n, plural, one {# thing needs you} other {# things need you}}",
   "overview.now.review": "Review",
+  "overview.now.now": "Now",
   "overview.now.running": "Running now",
 
   // Upcoming groups and the paused disclosure.

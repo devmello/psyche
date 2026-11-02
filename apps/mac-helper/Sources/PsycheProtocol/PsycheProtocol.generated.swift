@@ -906,6 +906,16 @@
 //   let notificationsMarkReadResult = try? JSONDecoder().decode(NotificationsMarkReadResult.self, from: jsonData)
 //   let notificationsResolveParams = try? JSONDecoder().decode(NotificationsResolveParams.self, from: jsonData)
 //   let notificationsResolveResult = try? JSONDecoder().decode(NotificationsResolveResult.self, from: jsonData)
+//   let nudgeAction = try? JSONDecoder().decode(NudgeAction.self, from: jsonData)
+//   let nudgeItem = try? JSONDecoder().decode(NudgeItem.self, from: jsonData)
+//   let nudgeKind = try? JSONDecoder().decode(NudgeKind.self, from: jsonData)
+//   let nudgeSensitivity = try? JSONDecoder().decode(NudgeSensitivity.self, from: jsonData)
+//   let nudgesActParams = try? JSONDecoder().decode(NudgesActParams.self, from: jsonData)
+//   let nudgesActResult = try? JSONDecoder().decode(NudgesActResult.self, from: jsonData)
+//   let nudgesListParams = try? JSONDecoder().decode(NudgesListParams.self, from: jsonData)
+//   let nudgesListResult = try? JSONDecoder().decode(NudgesListResult.self, from: jsonData)
+//   let nudgesMuteParams = try? JSONDecoder().decode(NudgesMuteParams.self, from: jsonData)
+//   let nudgesMuteResult = try? JSONDecoder().decode(NudgesMuteResult.self, from: jsonData)
 //   let ocrPage = try? JSONDecoder().decode(OcrPage.self, from: jsonData)
 //   let ocrRecognizeParams = try? JSONDecoder().decode(OcrRecognizeParams.self, from: jsonData)
 //   let ocrRecognizeResult = try? JSONDecoder().decode(OcrRecognizeResult.self, from: jsonData)
@@ -1408,10 +1418,14 @@
 //   let widgetState = try? JSONDecoder().decode(WidgetState.self, from: jsonData)
 //   let widgetTone = try? JSONDecoder().decode(WidgetTone.self, from: jsonData)
 //   let widgetUpdatedPayload = try? JSONDecoder().decode(WidgetUpdatedPayload.self, from: jsonData)
+//   let widgetsActParams = try? JSONDecoder().decode(WidgetsActParams.self, from: jsonData)
+//   let widgetsActResult = try? JSONDecoder().decode(WidgetsActResult.self, from: jsonData)
 //   let widgetsGetParams = try? JSONDecoder().decode(WidgetsGetParams.self, from: jsonData)
 //   let widgetsGetResult = try? JSONDecoder().decode(WidgetsGetResult.self, from: jsonData)
 //   let widgetsImageParams = try? JSONDecoder().decode(WidgetsImageParams.self, from: jsonData)
 //   let widgetsImageResult = try? JSONDecoder().decode(WidgetsImageResult.self, from: jsonData)
+//   let widgetsPreviewParams = try? JSONDecoder().decode(WidgetsPreviewParams.self, from: jsonData)
+//   let widgetsPreviewResult = try? JSONDecoder().decode(WidgetsPreviewResult.self, from: jsonData)
 //   let workflowCard = try? JSONDecoder().decode(WorkflowCard.self, from: jsonData)
 //   let workflowEvent = try? JSONDecoder().decode(WorkflowEvent.self, from: jsonData)
 //   let workflowEventFilter = try? JSONDecoder().decode(WorkflowEventFilter.self, from: jsonData)
@@ -3499,7 +3513,7 @@ public struct AppleTabTextParams: Codable, Sendable {
 public struct ApprovalAnswer: Codable, Sendable {
     public let answerToken: String
     public let approvalID: String
-    public let decision: DecisionEnum
+    public let decision: ApprovalAnswerDecision
     public let editedText: String?
     public let folderPath: String?
     public let presence: PresenceAssertion?
@@ -3521,7 +3535,7 @@ public struct ApprovalAnswer: Codable, Sendable {
         case via = "via"
     }
 
-    public init(answerToken: String, approvalID: String, decision: DecisionEnum, editedText: String?, folderPath: String?, presence: PresenceAssertion?, recipientChoice: String?, scope: GrantScope?, unsandboxed: Unsandboxed?, via: InputVia?) {
+    public init(answerToken: String, approvalID: String, decision: ApprovalAnswerDecision, editedText: String?, folderPath: String?, presence: PresenceAssertion?, recipientChoice: String?, scope: GrantScope?, unsandboxed: Unsandboxed?, via: InputVia?) {
         self.answerToken = answerToken
         self.approvalID = approvalID
         self.decision = decision
@@ -3535,7 +3549,7 @@ public struct ApprovalAnswer: Codable, Sendable {
     }
 }
 
-public enum DecisionEnum: String, Codable, Sendable {
+public enum ApprovalAnswerDecision: String, Codable, Sendable {
     case approve = "approve"
     case deny = "deny"
 }
@@ -12331,6 +12345,7 @@ public enum DailySectionID: String, Codable, Sendable {
     case done = "done"
     case due = "due"
     case followups = "followups"
+    case keepInTouch = "keep_in_touch"
     case learned = "learned"
     case mail = "mail"
     case tomorrow = "tomorrow"
@@ -12938,19 +12953,22 @@ public enum FeedPostKind: String, Codable, Sendable {
 public struct FeedPostRefs: Codable, Sendable {
     public let goalID: String?
     public let meetingID: String?
+    public let nudgeID: String?
     public let proposalIDS: [String]?
     public let threads: [MailThreadRef]?
 
     public enum CodingKeys: String, CodingKey {
         case goalID = "goalId"
         case meetingID = "meetingId"
+        case nudgeID = "nudgeId"
         case proposalIDS = "proposalIds"
         case threads = "threads"
     }
 
-    public init(goalID: String?, meetingID: String?, proposalIDS: [String]?, threads: [MailThreadRef]?) {
+    public init(goalID: String?, meetingID: String?, nudgeID: String?, proposalIDS: [String]?, threads: [MailThreadRef]?) {
         self.goalID = goalID
         self.meetingID = meetingID
+        self.nudgeID = nudgeID
         self.proposalIDS = proposalIDS
         self.threads = threads
     }
@@ -21596,6 +21614,162 @@ public struct NotificationsResolveResult: Codable, Sendable {
 
     public init(notification: Notification) {
         self.notification = notification
+    }
+}
+
+public enum NudgeSensitivity: String, Codable, Sendable {
+    case high = "high"
+    case low = "low"
+    case normal = "normal"
+}
+
+// MARK: - NudgesActParams
+public struct NudgesActParams: Codable, Sendable {
+    public let action: NudgeAction
+    public let id: String
+
+    public enum CodingKeys: String, CodingKey {
+        case action = "action"
+        case id = "id"
+    }
+
+    public init(action: NudgeAction, id: String) {
+        self.action = action
+        self.id = id
+    }
+}
+
+public enum NudgeAction: String, Codable, Sendable {
+    case done = "done"
+    case mutePerson = "mute_person"
+    case snoozeMonth = "snooze_month"
+    case snoozeWeek = "snooze_week"
+}
+
+// MARK: - NudgesActResult
+public struct NudgesActResult: Codable, Sendable {
+    public let ok: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case ok = "ok"
+    }
+
+    public init(ok: Bool) {
+        self.ok = ok
+    }
+}
+
+// MARK: - NudgesListParams
+public struct NudgesListParams: Codable, Sendable {
+    public let entityID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case entityID = "entityId"
+    }
+
+    public init(entityID: String?) {
+        self.entityID = entityID
+    }
+}
+
+// MARK: - NudgesListResult
+public struct NudgesListResult: Codable, Sendable {
+    /// The switch is on and the owner has consented
+    public let enabled: Bool
+    public let items: [NudgeItem]
+    /// With entityId: nudges for that person are muted
+    public let muted: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case enabled = "enabled"
+        case items = "items"
+        case muted = "muted"
+    }
+
+    public init(enabled: Bool, items: [NudgeItem], muted: Bool) {
+        self.enabled = enabled
+        self.items = items
+        self.muted = muted
+    }
+}
+
+// MARK: - NudgeItem
+public struct NudgeItem: Codable, Sendable {
+    public let channel: ChannelEnum?
+    public let date: String?
+    public let daysAgo: Int?
+    public let entityID: String
+    public let id: String
+    public let kind: NudgeKind
+    /// A display name: third-party text, one line
+    public let name: String
+    public let overdue: Bool
+    /// One plain sentence built from the name, numbers and a template
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case channel = "channel"
+        case date = "date"
+        case daysAgo = "daysAgo"
+        case entityID = "entityId"
+        case id = "id"
+        case kind = "kind"
+        case name = "name"
+        case overdue = "overdue"
+        case text = "text"
+    }
+
+    public init(channel: ChannelEnum?, date: String?, daysAgo: Int?, entityID: String, id: String, kind: NudgeKind, name: String, overdue: Bool, text: String) {
+        self.channel = channel
+        self.date = date
+        self.daysAgo = daysAgo
+        self.entityID = entityID
+        self.id = id
+        self.kind = kind
+        self.name = name
+        self.overdue = overdue
+        self.text = text
+    }
+}
+
+public enum ChannelEnum: String, Codable, Sendable {
+    case mail = "mail"
+    case messages = "messages"
+}
+
+public enum NudgeKind: String, Codable, Sendable {
+    case birthday = "birthday"
+    case drift = "drift"
+    case promise = "promise"
+    case unanswered = "unanswered"
+}
+
+// MARK: - NudgesMuteParams
+public struct NudgesMuteParams: Codable, Sendable {
+    public let entityID: String
+    public let muted: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case entityID = "entityId"
+        case muted = "muted"
+    }
+
+    public init(entityID: String, muted: Bool) {
+        self.entityID = entityID
+        self.muted = muted
+    }
+}
+
+// MARK: - NudgesMuteResult
+public struct NudgesMuteResult: Codable, Sendable {
+    public let ok: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case ok = "ok"
+    }
+
+    public init(ok: Bool) {
+        self.ok = ok
     }
 }
 
@@ -31697,6 +31871,44 @@ public enum WidgetState: String, Codable, Sendable {
     case live = "live"
 }
 
+// MARK: - WidgetsActParams
+public struct WidgetsActParams: Codable, Sendable {
+    public let itemID: String?
+    public let nodeID: String
+    public let values: [String: JSONAny]?
+    public let widgetID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case itemID = "itemId"
+        case nodeID = "nodeId"
+        case values = "values"
+        case widgetID = "widgetId"
+    }
+
+    public init(itemID: String?, nodeID: String, values: [String: JSONAny]?, widgetID: String) {
+        self.itemID = itemID
+        self.nodeID = nodeID
+        self.values = values
+        self.widgetID = widgetID
+    }
+}
+
+// MARK: - WidgetsActResult
+public struct WidgetsActResult: Codable, Sendable {
+    public let messageID: String
+    public let runID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case messageID = "messageId"
+        case runID = "runId"
+    }
+
+    public init(messageID: String, runID: String?) {
+        self.messageID = messageID
+        self.runID = runID
+    }
+}
+
 // MARK: - WidgetsGetParams
 public struct WidgetsGetParams: Codable, Sendable {
     public let widgetIDS: [String]
@@ -31862,6 +32074,49 @@ public enum WidgetsImageResultMIME: String, Codable, Sendable {
     case imageJPEG = "image/jpeg"
     case imagePNG = "image/png"
     case imageWebp = "image/webp"
+}
+
+// MARK: - WidgetsPreviewParams
+public struct WidgetsPreviewParams: Codable, Sendable {
+    public let itemID: String?
+    public let nodeID: String
+    public let widgetID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case itemID = "itemId"
+        case nodeID = "nodeId"
+        case widgetID = "widgetId"
+    }
+
+    public init(itemID: String?, nodeID: String, widgetID: String) {
+        self.itemID = itemID
+        self.nodeID = nodeID
+        self.widgetID = widgetID
+    }
+}
+
+// MARK: - WidgetsPreviewResult
+public struct WidgetsPreviewResult: Codable, Sendable {
+    public let decision: WidgetsPreviewResultDecision
+    public let tool: String
+
+    public enum CodingKeys: String, CodingKey {
+        case decision = "decision"
+        case tool = "tool"
+    }
+
+    public init(decision: WidgetsPreviewResultDecision, tool: String) {
+        self.decision = decision
+        self.tool = tool
+    }
+}
+
+public enum WidgetsPreviewResultDecision: String, Codable, Sendable {
+    case allow = "allow"
+    case ask = "ask"
+    case deny = "deny"
+    case deviceOnly = "device-only"
+    case unavailable = "unavailable"
 }
 
 // MARK: - WrapUpBlock

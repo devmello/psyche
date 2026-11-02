@@ -538,7 +538,8 @@ export const ja: Partial<Catalogue> = {
   "agent.sheet.approvals": "承認",
   "agent.sheet.soul": "ソウルとメモリ",
   "agent.sheet.now.working": "{title}に取り組み中 · {elapsed}",
-  "agent.sheet.now.waiting": "あなたを待っています · 承認{n, number}件",
+  "agent.sheet.now.waiting":
+    "あなたを待っています · {approvals, plural, =0 {} other {承認#件}}{both, select, true { · } other {}}{questions, plural, =0 {} other {質問#件}}",
   "agent.sheet.now.idleNext": "待機中 · 次: {title} {when}",
   "agent.sheet.now.idle": "待機中",
   "agent.sheet.now.memoryPaused": "メモリは一時停止中",

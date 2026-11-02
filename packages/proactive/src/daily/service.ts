@@ -51,6 +51,12 @@ export interface DailyServiceOptions {
   learned?: () => { text: string; link?: string } | undefined;
   /** Birthdays, anniversaries and events in the next 14 days (everything memory §12.5), counts-free lines. */
   comingUp?: () => { text: string; link?: string }[];
+  /**
+   * Relationship nudges (docs/design/relationship-nudges-2026.md): people to reply to, catch up
+   * with or keep a promise to. The service shows at most three; the lines are built from names,
+   * numbers and a template, never from message text.
+   */
+  keepInTouch?: () => { text: string; link?: string }[];
   /** Link to the prep note for a calendar event, when meeting prep made one. */
   prepLink?: (event: { id: string; title: string; start: string }) => string | undefined;
   /** Channel surfaces (`imessage:<peer>`) the card is also delivered to when `daily.messages` is on. */
@@ -298,6 +304,17 @@ export class DailyService {
           id: "coming_up",
           title: "Coming up",
           items: coming.slice(0, 8).map((c) => ({
+            text: cleanHeader(c.text, 300),
+            ...(c.link === undefined ? {} : { link: c.link }),
+          })),
+        });
+      }
+      const keep = this.#o.keepInTouch?.() ?? [];
+      if (keep.length > 0) {
+        sections.push({
+          id: "keep_in_touch",
+          title: "Keep in touch",
+          items: keep.slice(0, 3).map((c) => ({
             text: cleanHeader(c.text, 300),
             ...(c.link === undefined ? {} : { link: c.link }),
           })),

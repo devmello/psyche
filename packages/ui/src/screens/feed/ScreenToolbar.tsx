@@ -82,13 +82,13 @@ export function ToolbarLabel({ children }: { children: ReactNode }): ReactElemen
   return <span className="@max-md/toolbar:sr-only">{children}</span>;
 }
 
-/** The content column under the toolbar: 680 px for reading screens, 880 px for lists. */
+/** The content column under the toolbar: 680 px for reading screens, 880 px for lists, the full width for split views. */
 export function ScreenColumn({
   width,
   children,
   className,
 }: {
-  width: "reading" | "wide";
+  width: "reading" | "wide" | "full";
   children: ReactNode;
   className?: string;
 }): ReactElement {
@@ -96,7 +96,8 @@ export function ScreenColumn({
     <div
       className={cn(
         "@container/column mx-auto flex w-full flex-col gap-3 px-4 pt-4 pb-12 md:px-6",
-        width === "reading" ? "max-w-[calc(680px+3rem)]" : "max-w-[calc(880px+3rem)]",
+        width === "reading" && "max-w-[calc(680px+3rem)]",
+        width === "wide" && "max-w-[calc(880px+3rem)]",
         className,
       )}
     >

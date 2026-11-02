@@ -1,4 +1,4 @@
-import type { GraphEntityKind } from "@psyche/protocol";
+import type { GraphEntityKind, GraphFact } from "@psyche/protocol";
 import type { GraphStore } from "./store.ts";
 
 /**
@@ -103,7 +103,14 @@ const iso = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
 export function upcoming(
   graph: GraphStore,
-  opts: { now: number; days: number; timeZone?: string; entityId?: string },
+  opts: {
+    now: number;
+    days: number;
+    timeZone?: string;
+    entityId?: string;
+    /** Only facts this accepts are read (relationship nudges drop anything sensitive). */
+    fact?: (fact: GraphFact) => boolean;
+  },
 ): UpcomingItem[] {
   const tz = opts.timeZone ?? "UTC";
   const today = localDate(opts.now, tz);
@@ -137,6 +144,7 @@ export function upcoming(
     }
     for (const f of graph.facts(e.id)) {
       if (f.attribute !== "birthday" && f.attribute !== "anniversary") continue;
+      if (opts.fact !== undefined && !opts.fact(f)) continue;
       const md = parseMonthDay(f.value);
       if (md === undefined) continue;
       for (const year of [today.y, today.y + 1]) {

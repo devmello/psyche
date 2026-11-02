@@ -125,19 +125,17 @@ function StandardPostCard({
 
       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-2">
         {sources.length > 0 ? (
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-1 text-callout text-label-secondary tabular-nums">
+          // One inline run, so a wrap ends a line with "·" instead of starting one with it.
+          <div className="min-w-0 flex-1 text-callout text-label-secondary tabular-nums">
             <span className="text-label-tertiary">
               {t("screens.feed.sourcesCount", { n: post.citations.length })}
             </span>
-            <ul
-              aria-label={t("screens.feed.sources")}
-              className="flex flex-wrap items-center gap-x-1.5 gap-y-1"
-            >
+            <ul aria-label={t("screens.feed.sources")} className="inline">
               {sources.map((s) => (
-                <li key={s.name} className="flex items-center gap-1.5">
+                <li key={s.name} className="inline">
                   <span aria-hidden="true" className="text-label-tertiary">
-                    ·
-                  </span>
+                    {" ·"}
+                  </span>{" "}
                   <SafeLink
                     href={s.url}
                     className="rounded-xs hover:text-label-primary hover:underline focus-visible:outline-2 focus-visible:outline-ring"
