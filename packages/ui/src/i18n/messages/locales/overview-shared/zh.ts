@@ -104,7 +104,7 @@ export const overviewShared: Partial<Catalogue> = {
   "screens.lessons.change": "变更内容",
   "screens.lessons.before": "之前",
   "screens.lessons.after": "之后",
-  "screens.lessons.loadFailed": "无法加载此经验。{reason}",
+  "screens.lessons.loadFailed": "无法加载此经验 ({reason})。",
   "screens.lessons.sources": "来自你的反馈",
   "screens.lessons.sourceDate": "{date}",
   "screens.lessons.openThread": "打开对话",

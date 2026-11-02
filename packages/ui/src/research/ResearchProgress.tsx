@@ -42,7 +42,7 @@ export function ResearchProgress({
     <section
       aria-label={t("research.progress.label")}
       data-testid="research-progress"
-      className="rounded-2xl bg-fill-quaternary p-4"
+      className="rounded-lg bg-surface-raised p-4 shadow-elevation-1"
     >
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-headline text-label-primary">{t("research.progress.title")}</h3>

@@ -106,7 +106,7 @@ export const overviewShared: Partial<Catalogue> = {
   "screens.lessons.change": "변경 내용",
   "screens.lessons.before": "변경 전",
   "screens.lessons.after": "변경 후",
-  "screens.lessons.loadFailed": "이 레슨을 불러오지 못했습니다. {reason}",
+  "screens.lessons.loadFailed": "이 레슨을 불러오지 못했습니다 ({reason}).",
   "screens.lessons.sources": "피드백에서",
   "screens.lessons.sourceDate": "{date}",
   "screens.lessons.openThread": "대화 열기",

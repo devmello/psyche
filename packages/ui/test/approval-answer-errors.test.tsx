@@ -6,6 +6,7 @@ import { ApprovalCard } from "../src/blocks/ApprovalCard.tsx";
 import { classifyAnswerError } from "../src/blocks/answer-error.ts";
 import { GatewayRequestError } from "../src/data/client.ts";
 import { createFixtureWorld, FIXTURE_NOW } from "../src/fixtures/index.ts";
+import { activeI18n, createI18n, setActiveI18n } from "../src/i18n/core.ts";
 import { UiSlotsProvider } from "../src/slots.tsx";
 
 /**
@@ -148,5 +149,63 @@ describe("generic tool card formatting", () => {
     expect(screen.queryByText(/\{"kind"/)).toBeNull();
     expect(screen.queryByText(/balanced mode; destructive/)).toBeNull();
     expect(screen.getByText(/Balanced mode asks before it changes settings or data/)).toBeTruthy();
+  });
+});
+
+describe("purchase card amounts", () => {
+  const purchase = (details: Record<string, unknown>) =>
+    approval({
+      kind: "purchase",
+      sideEffect: "financial",
+      summary: "Pay for the order",
+      details,
+    } as Partial<ApprovalRequest>);
+
+  it("formats the browser producer's shape: digit string, currency, merchantOrigin", () => {
+    const before = activeI18n();
+    setActiveI18n(createI18n({ locale: "en-US" }));
+    try {
+      show(
+        vi.fn(),
+        purchase({
+          merchantOrigin: "https://shop.example",
+          amount: "412.80",
+          currency: "EUR",
+          lineItemHash: "x",
+          submit: "Place order",
+        }),
+      );
+      expect(screen.getByText("€412.80")).toBeTruthy();
+      expect(screen.getByText("https://shop.example")).toBeTruthy();
+      // The amount carries its currency, so the row would only repeat it.
+      expect(screen.queryByText("Currency")).toBeNull();
+    } finally {
+      setActiveI18n(before);
+    }
+  });
+
+  it("keeps the Currency row when the amount cannot be formatted", () => {
+    show(
+      vi.fn(),
+      purchase({ merchantOrigin: "https://shop.example", amount: "about 40", currency: "EUR" }),
+    );
+    expect(screen.getByText("about 40")).toBeTruthy();
+    expect(screen.getByText("Currency")).toBeTruthy();
+  });
+
+  it("uses the display string and quantity of the number shape", () => {
+    show(
+      vi.fn(),
+      purchase({
+        merchant: "Atlântico Air",
+        amount: 412.8,
+        currency: "EUR",
+        amountDisplay: "€412.80",
+        lineItems: [{ name: "Seat selection", quantity: 2, amount: 15 }],
+      }),
+    );
+    expect(screen.getAllByText("€412.80").length).toBeGreaterThan(0);
+    expect(screen.getByText("Atlântico Air")).toBeTruthy();
+    expect(screen.getByText(/2 × Seat selection/)).toBeTruthy();
   });
 });

@@ -127,9 +127,14 @@ export function LessonDetails({
   const [busy, setBusy] = useState(false);
   if (q.data === undefined) {
     return q.error ? (
-      <p className="text-callout text-danger-text" role="alert">
-        {t("screens.lessons.loadFailed", { reason: q.error })}
-      </p>
+      <div className="flex items-center gap-2" role="alert">
+        <p className="min-w-0 flex-1 text-callout text-danger-text">
+          {t("screens.lessons.loadFailed", { reason: q.error })}
+        </p>
+        <Button size="xs" variant="outline" onClick={q.reload}>
+          {t("common.tryAgain")}
+        </Button>
+      </div>
     ) : (
       <DelayedSkeleton label={t("common.loading")} className="my-0 h-24 max-w-none" />
     );

@@ -120,10 +120,10 @@
 
 /* Blockquote: left rule, softer text. */
 .psy-prose blockquote {
-  margin-left: 0;
-  margin-right: 0;
-  padding: 0.1em 0 0.1em 1em;
-  border-left: 3px solid var(--separator-strong);
+  margin-inline: 0;
+  padding-block: 0.1em;
+  padding-inline: 1em 0;
+  border-inline-start: 3px solid var(--separator-strong);
   color: var(--label-secondary);
   font-style: normal;
 }

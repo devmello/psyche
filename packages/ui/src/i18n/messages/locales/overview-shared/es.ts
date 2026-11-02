@@ -109,7 +109,7 @@ export const overviewShared: Partial<Catalogue> = {
   "screens.lessons.change": "El cambio",
   "screens.lessons.before": "Antes",
   "screens.lessons.after": "Después",
-  "screens.lessons.loadFailed": "No se pudo cargar esta lección. {reason}",
+  "screens.lessons.loadFailed": "No se pudo cargar esta lección ({reason}).",
   "screens.lessons.sources": "De tus comentarios",
   "screens.lessons.sourceDate": "{date}",
   "screens.lessons.openThread": "Abrir conversación",

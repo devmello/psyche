@@ -172,7 +172,7 @@ export function ErrorState({
       <CircleAlert className="mt-0.5 size-4 shrink-0 text-danger-text" aria-hidden="true" />
       <p className="min-w-0 flex-1 text-label-secondary">
         <span className="font-semibold text-label-primary">
-          {what}
+          {what.replace(/[.。।]$/, "")}
           {reason ? ` (${reason})` : ""}.
         </span>{" "}
         {did}

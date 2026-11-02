@@ -1,7 +1,7 @@
 import type { ApprovalRequest } from "@psyche/protocol";
 import { TriangleAlert } from "lucide-react";
 import { type ReactElement, type ReactNode, useState } from "react";
-import { t } from "../i18n/core.ts";
+import { activeI18n, t } from "../i18n/core.ts";
 import { DiffBlock } from "./DiffBlock.tsx";
 import { SelfConnectorCode, SelfConnectorDetails } from "./SelfConnectorDetails.tsx";
 
@@ -45,6 +45,33 @@ function Row({ label, children }: { label: string; children: ReactNode }): React
 
 function Code({ children }: { children: ReactNode }): ReactElement {
   return <code className="rounded-xs bg-fill-tertiary px-1 text-mono">{children}</code>;
+}
+
+/**
+ * A money amount as the owner reads it. `currency` says whether the text carries the currency, so
+ * the Currency row is only hidden when it does. The producer's own display string wins; a number
+ * or a plain digit string ("412.80") is formatted in the request's currency; anything else stays
+ * as sent.
+ */
+function money(
+  v: unknown,
+  currency: unknown,
+  display?: unknown,
+): { text: string; withCurrency: boolean } {
+  if (typeof display === "string" && display !== "") return { text: display, withCurrency: true };
+  const n =
+    typeof v === "number" ? v : typeof v === "string" && /^\d+(\.\d+)?$/.test(v) ? Number(v) : null;
+  if (n !== null && typeof currency === "string" && /^[A-Z]{3}$/.test(currency)) {
+    try {
+      return {
+        text: new Intl.NumberFormat(activeI18n().locale, { style: "currency", currency }).format(n),
+        withCurrency: true,
+      };
+    } catch {
+      // An unknown currency code: show the amount as sent, with the Currency row beside it.
+    }
+  }
+  return { text: str(v), withCurrency: false };
 }
 
 const strings = (v: unknown): string[] =>
@@ -493,14 +520,20 @@ export function ApprovalDetails({
       );
     }
     case "purchase": {
+      const total = money(d.amount, d.currency, d.amountDisplay);
       const items = Array.isArray(d.lineItems)
-        ? (d.lineItems as { name?: string; qty?: number; amount?: string }[])
+        ? (d.lineItems as {
+            name?: string;
+            qty?: number;
+            quantity?: number;
+            amount?: string | number;
+          }[])
         : [];
       return (
         <dl>
-          <Row label={t("blocks.details.merchant")}>{str(d.merchant)}</Row>
+          <Row label={t("blocks.details.merchant")}>{str(d.merchant ?? d.merchantOrigin)}</Row>
           <Row label={t("blocks.details.amount")}>
-            <span className="font-semibold">{str(d.amount)}</span>
+            <span className="font-semibold">{total.text}</span>
           </Row>
           {items.length > 0 ? (
             <Row label={t("blocks.details.items")}>
@@ -509,16 +542,26 @@ export function ApprovalDetails({
                   // biome-ignore lint/suspicious/noArrayIndexKey: line items are fixed for the card
                   <li key={i}>
                     {t("blocks.details.lineItem", {
-                      qty: li.qty ?? 1,
+                      qty: li.qty ?? li.quantity ?? 1,
                       name: li.name ?? t("blocks.details.lineItemDefault"),
-                      amount: li.amount ?? "",
+                      amount: money(li.amount ?? "", d.currency).text,
                     })}
                   </li>
                 ))}
               </ul>
             </Row>
           ) : null}
-          <Rest details={d} shown={["merchant", "amount", "lineItems"]} />
+          <Rest
+            details={d}
+            shown={[
+              "merchant",
+              ...(d.merchant === undefined ? ["merchantOrigin"] : []),
+              "amount",
+              "amountDisplay",
+              ...(total.withCurrency ? ["currency"] : []),
+              "lineItems",
+            ]}
+          />
         </dl>
       );
     }
