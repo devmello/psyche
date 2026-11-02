@@ -222,6 +222,7 @@ const mcpState = (servers: McpState["servers"]): McpState => ({
   reload: noop,
   checking: false,
   actionError: null,
+  actionFailure: null,
   notice: null,
   review: null,
   check: noop,

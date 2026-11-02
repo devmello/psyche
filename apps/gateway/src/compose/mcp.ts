@@ -1,3 +1,4 @@
+import { homedir } from "node:os";
 import { join } from "node:path";
 import { getSetting } from "@psyche/db";
 import {
@@ -11,11 +12,13 @@ import {
   mcpToolName,
   type PsycheMcpHost,
   type PsycheMcpServerConfig,
+  type RuntimeDeps,
   registerMcpServerTools,
   resolvingSrtLauncher,
   type SandboxStdioHost,
   type StdioLauncher,
   srtLauncher,
+  systemRuntimeDeps,
   type ToolWarning,
 } from "@psyche/mcp-host";
 import {
@@ -25,6 +28,7 @@ import {
   PsycheError,
   type ToolRegistry,
 } from "@psyche/protocol";
+import { srtSearchDirs } from "@psyche/sandbox";
 import type { Gateway } from "../server.ts";
 import { type McpAdder, mcpAdder } from "./mcp-add.ts";
 import { mcpGrantRevocation } from "./mcp-grants.ts";
@@ -63,6 +67,11 @@ export interface McpSetup {
   egressAllowlist?: ContainerLauncherOptions["egressAllowlist"];
   /** Clears a removed server's egress allowlist (#284 TM-18); its volume goes with it. */
   egressRevoke?: ContainerLauncherOptions["egressRevoke"];
+  /**
+   * Where `npx` / `uvx` are and which Node runs Node servers (default: Psyche's own Node and the
+   * usual install folders). Tests pass a fake.
+   */
+  runtime?: RuntimeDeps;
   /** Host overrides (tests: bundled ids and launcher). */
   hostOptions?: Partial<McpHostOptions>;
 }
@@ -73,6 +82,15 @@ export interface ComposedMcp extends ComposedPart {
   readonly adder: McpAdder;
   /** Settles once every pending reconcile has run (tests, shutdown). */
   idle(): Promise<void>;
+}
+
+/** Psyche's own Node plus the folders `npx` / `uvx` usually live in (a LaunchAgent PATH is bare). */
+function defaultRuntime(): RuntimeDeps {
+  return systemRuntimeDeps(process.execPath, () => [
+    ...srtSearchDirs(),
+    join(homedir(), ".cargo", "bin"),
+    join(homedir(), ".nvm", "current", "bin"),
+  ]);
 }
 
 function launcherFor(services: ComposeServices, setup: McpSetup): StdioLauncher | undefined {
@@ -88,6 +106,7 @@ function launcherFor(services: ComposeServices, setup: McpSetup): StdioLauncher 
       resolve: () => setup.srt?.resolve() ?? Promise.resolve({ missing: true, reason: "none" }),
       settingsDir: join(services.home, "mcp", "srt"),
       psycheHome: services.home,
+      runtime: setup.runtime ?? defaultRuntime(),
     });
   }
   if (setup.srtPath !== undefined) {
@@ -95,6 +114,7 @@ function launcherFor(services: ComposeServices, setup: McpSetup): StdioLauncher 
       srtPath: setup.srtPath,
       settingsDir: join(services.home, "mcp", "srt"),
       psycheHome: services.home,
+      runtime: setup.runtime ?? defaultRuntime(),
     });
   }
   return undefined;
