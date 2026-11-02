@@ -54,7 +54,6 @@ export {
 } from "./recentFilter.ts";
 export { overviewRedirect } from "./redirects.ts";
 export { OverviewSummary, type OverviewSummaryProps } from "./SummarySection.tsx";
-export { UpcomingSection } from "./UpcomingSection.tsx";
 export {
   cadenceMs,
   dayOffset,

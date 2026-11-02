@@ -95,15 +95,12 @@ describe("OverviewScreen", () => {
     expect(screen.queryByTestId("overview-new-user")).toBeNull();
   });
 
-  it("shows the getting-to-know-you state for a new user, keeping Now and Upcoming", () => {
+  it("shows the getting-to-know-you state for a new user, keeping Now (Upcoming is on Home)", () => {
     const onTry = vi.fn();
     renderOverview({ data: { firstActivityAt: null }, onTry });
     const hero = screen.getByTestId("overview-new-user");
     expect(within(hero).getByText("Wren is getting to know you")).toBeTruthy();
-    expect(OVERVIEW_SECTIONS.filter((id) => document.getElementById(id))).toEqual([
-      "now",
-      "upcoming",
-    ]);
+    expect(OVERVIEW_SECTIONS.filter((id) => document.getElementById(id))).toEqual(["now"]);
     fireEvent.click(within(hero).getByRole("button", { name: "Connect your mail" }));
     expect(onTry).toHaveBeenCalledWith("connectMail");
   });

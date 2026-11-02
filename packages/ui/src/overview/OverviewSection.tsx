@@ -13,7 +13,6 @@ export const OVERVIEW_SECTIONS = [
   "people",
   "built",
   "specialists",
-  "upcoming",
   "recent",
 ] as const;
 export type OverviewSectionId = (typeof OVERVIEW_SECTIONS)[number];

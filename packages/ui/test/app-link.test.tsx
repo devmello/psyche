@@ -35,7 +35,7 @@ describe("app_link block", () => {
       expect(appRouteLabel(`/settings/${id}`)).toContain(": ");
     expect(appRouteLabel("/library/artifacts")).toBe("Artifacts");
     expect(appRouteLabel("/can-do")).toBe("What can you do?");
-    expect(appRouteLabel("/feed")).toBe("Feed");
+    expect(appRouteLabel("/feed")).toBe("Home");
     expect(appRouteLabel("/home")).toBe("Home");
     expect(appRouteLabel("/people")).toBe("People");
   });

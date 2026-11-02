@@ -60,7 +60,7 @@ export function HomeScreen({
       <div className="mx-auto grid w-full max-w-[calc(1120px+3rem)] gap-8 px-4 pt-4 pb-12 md:px-6 @4xl/home:grid-cols-[minmax(0,1fr)_20rem] @4xl/home:gap-10">
         <div className="flex min-w-0 flex-col gap-8">
           <NeedsYouSection onNavigate={navigate} {...clock} />
-          <PinnedWidgets layout="section" />
+          <PinnedWidgets />
           <FeedScreen
             layout="section"
             onCloseInstructions={() => navigate("/home")}

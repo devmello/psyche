@@ -36,7 +36,7 @@ function world(children: React.ReactNode, widgets: Widget[], slots?: Record<stri
   return { methods, ref };
 }
 
-describe("pin to Overview (D5)", () => {
+describe("pin to Home (D5)", () => {
   it("pins from the widget frame, shows it pressed, and the Overview block lists it live", async () => {
     const w = boundWidget(IDS.tasks.dentist, IDS.threads.dentist);
     const { methods } = world(
@@ -48,13 +48,13 @@ describe("pin to Overview (D5)", () => {
     );
     const pin = await screen.findByTestId("widget-pin");
     expect(pin.getAttribute("aria-pressed")).toBe("false");
-    expect(screen.queryByTestId("overview-pinned")).toBeNull(); // nothing pinned: nothing shown
+    expect(screen.queryByTestId("section-pinned")).toBeNull(); // nothing pinned: nothing shown
     await userEvent.setup().click(pin);
     await waitFor(() => expect(methods).toContain("widgets.pin"));
     await waitFor(() =>
       expect(screen.getAllByTestId("widget-pin")[0]?.getAttribute("aria-pressed")).toBe("true"),
     );
-    const block = await screen.findByTestId("overview-pinned");
+    const block = await screen.findByTestId("section-pinned");
     expect(within(block).getByRole("heading", { name: "Pinned" })).toBeTruthy();
     expect(within(block).getByTestId("widget")).toBeTruthy();
   });
@@ -62,7 +62,7 @@ describe("pin to Overview (D5)", () => {
   it("a pinned bound widget keeps following its task on the Overview", async () => {
     const w = { ...boundWidget(IDS.tasks.dentist, IDS.threads.dentist), pinned: true };
     const { ref } = world(<PinnedWidgets />, [w]);
-    const block = await screen.findByTestId("overview-pinned");
+    const block = await screen.findByTestId("section-pinned");
     await waitFor(() =>
       expect(within(block).getByRole("progressbar").getAttribute("aria-valuenow")).toBe("1"),
     );
@@ -99,12 +99,12 @@ describe("pin to Overview (D5)", () => {
     await user.click(seventh);
     expect(await screen.findByText(/up to 6 widgets/)).toBeTruthy();
     expect(methods.filter((m) => m === "widgets.pin")).toHaveLength(1);
-    const block = await screen.findByTestId("overview-pinned");
+    const block = await screen.findByTestId("section-pinned");
     expect(within(block).getAllByTestId("widget")).toHaveLength(6);
     const first = within(block).getAllByTestId("widget-pin")[0] as HTMLElement;
     await user.click(first);
     await waitFor(() =>
-      expect(within(screen.getByTestId("overview-pinned")).getAllByTestId("widget")).toHaveLength(
+      expect(within(screen.getByTestId("section-pinned")).getAllByTestId("widget")).toHaveLength(
         5,
       ),
     );
@@ -116,7 +116,7 @@ describe("Overview and Feed draw open and reply only (§8)", () => {
     const prefill = vi.fn();
     const w = { ...interactiveWidget, pinned: true, taint: [] };
     const { methods } = world(<PinnedWidgets />, [w], { prefillComposer: prefill });
-    const block = await screen.findByTestId("overview-pinned");
+    const block = await screen.findByTestId("section-pinned");
     await within(block).findByRole("button", { name: "Draft the replies now" });
     expect(within(block).queryByRole("form")).toBeNull();
     expect(within(block).queryByRole("radio")).toBeNull();

@@ -7,3 +7,4 @@ export {
   NeedsYouSection,
   SuggestionsSection,
 } from "./sections.tsx";
+export { LEGACY_ROUTES, legacyRedirect } from "./redirects.ts";
