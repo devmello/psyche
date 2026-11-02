@@ -48,6 +48,7 @@ import {
   type StreamingMessage,
   type ThreadContextEntry,
   type UiState,
+  type WidgetDraftState,
 } from "./state.ts";
 import type { GatewayStore } from "./store.ts";
 
@@ -1015,6 +1016,12 @@ export function useWidget(widgetId: string | null): LoadState & { widget: Widget
     st.update((s) => putMany(s, "widgets", res.widgets, version));
   });
   return { ...load, widget: widget ?? null };
+}
+
+/** Previews of the widgets the model is writing in this thread right now (P9). */
+export function useWidgetDrafts(threadId: string | null): readonly WidgetDraftState[] {
+  const all = useStoreState((s) => s.widgetDrafts);
+  return Object.values(all).filter((d) => d.threadId === threadId);
 }
 
 export function useArtifact(artifactId: string | null): LoadState & { artifact: Artifact | null } {

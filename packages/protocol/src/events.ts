@@ -34,7 +34,7 @@ import { InputRequest, Task, TaskAction } from "./schemas/tasks.ts";
 import { Message, Run, RunBudget, Thread } from "./schemas/threads.ts";
 import { ToolCall } from "./schemas/tools.ts";
 import { VmUpdatedPayload } from "./schemas/vm.ts";
-import { WidgetOp, WidgetState } from "./schemas/widgets.ts";
+import { WidgetNode, WidgetOp, WidgetState } from "./schemas/widgets.ts";
 import { ActionProposal, MeetingRecordingStatus } from "./schemas/workflows.ts";
 
 /**
@@ -145,6 +145,21 @@ export const Events = {
     }),
     description:
       "A generative-UI widget was patched (rev is the order; apply only when fromRev (default rev - 1) == local rev, else refetch with widgets.get), or froze.",
+  }),
+  "widget.draft": defineEvent({
+    payload: Type.Object({
+      threadId: Id,
+      messageId: Id,
+      callId: Id,
+      title: Type.Optional(Type.String({ maxLength: 80 })),
+      root: Type.Optional(WidgetNode),
+      nodes: Type.Integer({ minimum: 0 }),
+      done: Type.Optional(
+        Type.Boolean({ description: "The input finished or the run ended: drop the draft" }),
+      ),
+    }),
+    description:
+      "A render_ui spec is being written: the nodes complete so far (never half a node, and only a spec that validates), as a throwaway preview. Not stored; the committed widget replaces it.",
   }),
   "task.updated": defineEvent({
     payload: Type.Object({ task: Task }),

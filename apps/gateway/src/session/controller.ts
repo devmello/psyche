@@ -33,6 +33,7 @@ import {
   type Thread,
 } from "@psyche/protocol";
 import type { GatewayContext } from "../context.ts";
+import { createDraftStreamer } from "../widgets/draft.ts";
 import { resolveAttachments } from "./attachments.ts";
 import { RESEARCH_TOOLS, toResearchProgress } from "./research-progress.ts";
 
@@ -235,8 +236,14 @@ export class SessionController {
   /** Threads being deleted: no new turns, no queue drain. */
   readonly #closing = new Set<string>();
 
+  /** Throwaway previews of render_ui specs while the model writes them (P9). */
+  readonly #drafts: ReturnType<typeof createDraftStreamer>;
+
   constructor(ctx: GatewayContext) {
     this.#ctx = ctx;
+    this.#drafts = createDraftStreamer({
+      publish: (frame) => ctx.bus.publish("widget.draft", frame as never, frame.threadId),
+    });
   }
 
   activeRunId(threadId: string): string | null {
@@ -825,6 +832,7 @@ export class SessionController {
       outcome = { status: "failed", error: PsycheError.from(err).message };
       this.#ctx.runTrace.end(runId, "failed", outcome.error ?? undefined);
     }
+    this.#drafts.finishThread(threadId);
     if (turn.detached) {
       this.#ctx.runTrace.end(runId, "cancelled");
       return;
@@ -896,6 +904,17 @@ export class SessionController {
         );
         return;
       }
+      case "tool_input": {
+        // The agent's message id, not the stored one: a draft hangs off the live run, not a message.
+        this.#drafts.input({
+          threadId,
+          messageId: event.messageId,
+          callId: event.toolCallId,
+          tool: event.tool,
+          delta: event.delta,
+        });
+        return;
+      }
       case "reasoning": {
         // Transient step-log text (model output): published, never added to the message.
         bus.publish(
@@ -924,6 +943,7 @@ export class SessionController {
         return;
       }
       case "tool_call": {
+        this.#drafts.finish(event.toolCallId);
         const d = event.details ?? {};
         const toolCall = upsertToolCall(db, {
           id: event.toolCallId,

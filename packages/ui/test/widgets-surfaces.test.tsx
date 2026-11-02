@@ -11,7 +11,7 @@ import { boundWidget } from "../src/widgets/fixtures-bound.ts";
 import { interactiveWidget } from "../src/widgets/fixtures-interactive.ts";
 import { withFeedWidget } from "../src/widgets/fixtures-surfaces.ts";
 import { PinnedWidgets } from "../src/widgets/PinnedWidgets.tsx";
-import { WidgetBlockView } from "../src/widgets/WidgetBlock.tsx";
+import { WidgetBlockView, WidgetDrafts } from "../src/widgets/WidgetBlock.tsx";
 
 function world(children: React.ReactNode, widgets: Widget[], slots?: Record<string, unknown>) {
   const methods: string[] = [];
@@ -172,5 +172,50 @@ describe("Overview and Feed draw open and reply only (§8)", () => {
     world(<FeedPostCard post={post} onFeedback={() => {}} onAsk={() => {}} />, []);
     const frame = await screen.findByTestId("widget");
     expect(within(frame).getByTestId("widget-state").textContent).toBe("Snapshot");
+  });
+
+  it("a widget draft shows the nodes so far, read-only, and goes when the call ends", async () => {
+    const { ref } = world(<WidgetDrafts threadId="thr_1" />, []);
+    expect(screen.queryByTestId("widget-draft")).toBeNull();
+    act(() => {
+      ref.gateway?.emit("widget.draft", {
+        threadId: "thr_1",
+        messageId: "m1",
+        callId: "call_1",
+        title: "Trip plan",
+        nodes: 2,
+        root: {
+          id: "root",
+          type: "stack",
+          children: [{ id: "a", type: "text", text: "Pack the bags" }],
+        },
+      } as never);
+    });
+    const draft = await screen.findByTestId("widget-draft");
+    expect(draft.getAttribute("aria-busy")).toBe("true");
+    expect(within(draft).getByText("Pack the bags")).toBeTruthy();
+    expect(within(draft).getByText("Trip plan")).toBeTruthy();
+    expect(within(draft).getByTestId("widget-state").textContent).toBe("Building widget…");
+    expect(within(draft).queryByRole("button")).toBeNull(); // no pin, no copy, no controls
+    // Another thread's draft is not shown here.
+    act(() => {
+      ref.gateway?.emit("widget.draft", {
+        threadId: "thr_2",
+        messageId: "m2",
+        callId: "call_2",
+        nodes: 0,
+      } as never);
+    });
+    expect(screen.getAllByTestId("widget-draft")).toHaveLength(1);
+    act(() => {
+      ref.gateway?.emit("widget.draft", {
+        threadId: "thr_1",
+        messageId: "m1",
+        callId: "call_1",
+        nodes: 0,
+        done: true,
+      } as never);
+    });
+    await waitFor(() => expect(screen.queryByTestId("widget-draft")).toBeNull());
   });
 });
