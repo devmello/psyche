@@ -6164,6 +6164,35 @@ export interface MemoryLessonsListResult {
     nextCursor?: null | string;
 }
 
+export interface MemoryLifeSearchParams {
+    /**
+     * Default 20
+     */
+    limit?: number;
+    q:      string;
+}
+
+export interface MemoryLifeSearchResult {
+    entities: EntitySummary[];
+    facts:    LifeFactHit[];
+    intent?:  null | string;
+}
+
+export interface LifeFactHit {
+    attribute:   GraphFactAttribute;
+    entity:      EntitySummary;
+    factId:      string;
+    observedAt?: null | string;
+    provenance:  Provenance;
+    quote?:      null | string;
+    review:      GraphReviewState;
+    source?:     null | string;
+    /**
+     * Untrusted text when it came from someone else
+     */
+    value: string;
+}
+
 export interface MemoryLoopUpdatedPayload {
     loop: GraphLoop;
 }
@@ -10861,6 +10890,21 @@ export interface WidgetSpec {
     title:        string;
     v:            number;
 }
+
+export interface WidgetsImageParams {
+    url:      string;
+    widgetId: string;
+}
+
+export interface WidgetsImageResult {
+    /**
+     * base64, at most 512 KiB decoded
+     */
+    bytes: string;
+    mime:  WidgetsImageResultMIME;
+}
+
+export type WidgetsImageResultMIME = "image/png" | "image/jpeg" | "image/gif" | "image/webp";
 
 export interface WrapUpBlock {
     actions?: WrapUpAction[];

@@ -630,6 +630,7 @@
 //   let libraryListResult = try? JSONDecoder().decode(LibraryListResult.self, from: jsonData)
 //   let libraryUploadParams = try? JSONDecoder().decode(LibraryUploadParams.self, from: jsonData)
 //   let libraryUploadResult = try? JSONDecoder().decode(LibraryUploadResult.self, from: jsonData)
+//   let lifeFactHit = try? JSONDecoder().decode(LifeFactHit.self, from: jsonData)
 //   let linkPaymentMethod = try? JSONDecoder().decode(LinkPaymentMethod.self, from: jsonData)
 //   let logLevel = try? JSONDecoder().decode(LogLevel.self, from: jsonData)
 //   let logLine = try? JSONDecoder().decode(LogLine.self, from: jsonData)
@@ -770,6 +771,8 @@
 //   let memoryLessonsGetResult = try? JSONDecoder().decode(MemoryLessonsGetResult.self, from: jsonData)
 //   let memoryLessonsListParams = try? JSONDecoder().decode(MemoryLessonsListParams.self, from: jsonData)
 //   let memoryLessonsListResult = try? JSONDecoder().decode(MemoryLessonsListResult.self, from: jsonData)
+//   let memoryLifeSearchParams = try? JSONDecoder().decode(MemoryLifeSearchParams.self, from: jsonData)
+//   let memoryLifeSearchResult = try? JSONDecoder().decode(MemoryLifeSearchResult.self, from: jsonData)
 //   let memoryLoopUpdatedPayload = try? JSONDecoder().decode(MemoryLoopUpdatedPayload.self, from: jsonData)
 //   let memoryLoopsListParams = try? JSONDecoder().decode(MemoryLoopsListParams.self, from: jsonData)
 //   let memoryLoopsListResult = try? JSONDecoder().decode(MemoryLoopsListResult.self, from: jsonData)
@@ -1400,6 +1403,8 @@
 //   let widgetUpdatedPayload = try? JSONDecoder().decode(WidgetUpdatedPayload.self, from: jsonData)
 //   let widgetsGetParams = try? JSONDecoder().decode(WidgetsGetParams.self, from: jsonData)
 //   let widgetsGetResult = try? JSONDecoder().decode(WidgetsGetResult.self, from: jsonData)
+//   let widgetsImageParams = try? JSONDecoder().decode(WidgetsImageParams.self, from: jsonData)
+//   let widgetsImageResult = try? JSONDecoder().decode(WidgetsImageResult.self, from: jsonData)
 //   let workflowCard = try? JSONDecoder().decode(WorkflowCard.self, from: jsonData)
 //   let workflowEvent = try? JSONDecoder().decode(WorkflowEvent.self, from: jsonData)
 //   let workflowEventFilter = try? JSONDecoder().decode(WorkflowEventFilter.self, from: jsonData)
@@ -18716,6 +18721,80 @@ public struct MemoryLessonsListResult: Codable, Sendable {
     }
 }
 
+// MARK: - MemoryLifeSearchParams
+public struct MemoryLifeSearchParams: Codable, Sendable {
+    /// Default 20
+    public let limit: Int?
+    public let q: String
+
+    public enum CodingKeys: String, CodingKey {
+        case limit = "limit"
+        case q = "q"
+    }
+
+    public init(limit: Int?, q: String) {
+        self.limit = limit
+        self.q = q
+    }
+}
+
+// MARK: - MemoryLifeSearchResult
+public struct MemoryLifeSearchResult: Codable, Sendable {
+    public let entities: [EntitySummary]
+    public let facts: [LifeFactHit]
+    public let intent: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case entities = "entities"
+        case facts = "facts"
+        case intent = "intent"
+    }
+
+    public init(entities: [EntitySummary], facts: [LifeFactHit], intent: String?) {
+        self.entities = entities
+        self.facts = facts
+        self.intent = intent
+    }
+}
+
+// MARK: - LifeFactHit
+public struct LifeFactHit: Codable, Sendable {
+    public let attribute: GraphFactAttribute
+    public let entity: EntitySummary
+    public let factID: String
+    public let observedAt: String?
+    public let provenance: Provenance
+    public let quote: String?
+    public let review: GraphReviewState
+    public let source: String?
+    /// Untrusted text when it came from someone else
+    public let value: String
+
+    public enum CodingKeys: String, CodingKey {
+        case attribute = "attribute"
+        case entity = "entity"
+        case factID = "factId"
+        case observedAt = "observedAt"
+        case provenance = "provenance"
+        case quote = "quote"
+        case review = "review"
+        case source = "source"
+        case value = "value"
+    }
+
+    public init(attribute: GraphFactAttribute, entity: EntitySummary, factID: String, observedAt: String?, provenance: Provenance, quote: String?, review: GraphReviewState, source: String?, value: String) {
+        self.attribute = attribute
+        self.entity = entity
+        self.factID = factID
+        self.observedAt = observedAt
+        self.provenance = provenance
+        self.quote = quote
+        self.review = review
+        self.source = source
+        self.value = value
+    }
+}
+
 // MARK: - MemoryLoopUpdatedPayload
 public struct MemoryLoopUpdatedPayload: Codable, Sendable {
     public let loop: GraphLoop
@@ -31632,6 +31711,46 @@ public struct WidgetSpec: Codable, Sendable {
         self.title = title
         self.v = v
     }
+}
+
+// MARK: - WidgetsImageParams
+public struct WidgetsImageParams: Codable, Sendable {
+    public let url: String
+    public let widgetID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case url = "url"
+        case widgetID = "widgetId"
+    }
+
+    public init(url: String, widgetID: String) {
+        self.url = url
+        self.widgetID = widgetID
+    }
+}
+
+// MARK: - WidgetsImageResult
+public struct WidgetsImageResult: Codable, Sendable {
+    /// base64, at most 512 KiB decoded
+    public let bytes: String
+    public let mime: WidgetsImageResultMIME
+
+    public enum CodingKeys: String, CodingKey {
+        case bytes = "bytes"
+        case mime = "mime"
+    }
+
+    public init(bytes: String, mime: WidgetsImageResultMIME) {
+        self.bytes = bytes
+        self.mime = mime
+    }
+}
+
+public enum WidgetsImageResultMIME: String, Codable, Sendable {
+    case imageGIF = "image/gif"
+    case imageJPEG = "image/jpeg"
+    case imagePNG = "image/png"
+    case imageWebp = "image/webp"
 }
 
 // MARK: - WrapUpBlock

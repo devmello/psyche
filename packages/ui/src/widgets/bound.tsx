@@ -1,10 +1,11 @@
 import type { WidgetBind } from "@psyche/protocol";
-import { createContext, type ReactElement, useContext } from "react";
+import { type ReactElement, useContext } from "react";
 import { useAutomations, useStoreState, useTask, useToolCall } from "../data/index.ts";
 import { useSpecialistJob } from "../data/specialists.ts";
 import { t } from "../i18n/core.ts";
 import { formatDate, formatTime } from "../lib/format.ts";
 import { foldResearch, type ResearchStepId } from "../research/model.ts";
+import { WidgetContext } from "./context.ts";
 import { RenderNode } from "./nodes.tsx";
 
 /**
@@ -19,9 +20,6 @@ import { RenderNode } from "./nodes.tsx";
  */
 
 type N = Record<string, unknown>;
-
-/** The chat the widget lives in; bound entities of any other chat are unavailable. */
-export const WidgetChatContext = createContext<string | null>(null);
 
 /** What a source yields for a field: props merged over the node, or null when unavailable. */
 type Props = N | null | "loading";
@@ -50,7 +48,7 @@ function done(items: ReadonlyArray<{ status: string }>): { value: number; max: n
 }
 
 function TaskBound({ node, bind, depth }: P): ReactElement {
-  const chat = useContext(WidgetChatContext);
+  const chat = useContext(WidgetContext)?.threadId ?? null;
   const { task, loading } = useTask(bind.id);
   let props: Props = "loading";
   if (task === null || task === undefined) {
@@ -151,7 +149,7 @@ function AutomationBound({ node, bind, depth }: P): ReactElement {
 }
 
 function JobBound({ node, bind, depth }: P): ReactElement {
-  const chat = useContext(WidgetChatContext);
+  const chat = useContext(WidgetContext)?.threadId ?? null;
   const { job, loading } = useSpecialistJob(bind.id);
   let props: Props = "loading";
   if (job === null) {
