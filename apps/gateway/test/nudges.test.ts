@@ -1,6 +1,6 @@
 import { getSetting, openDb, setSetting } from "@psyche/db";
 import { EverythingStore, GraphStore, NUDGE_STATE_KEY } from "@psyche/memory";
-import { FakeClock } from "@psyche/testing";
+import { FakeClock, FakeModelProvider } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
 import { composeNudges, nudgeSettings } from "../src/compose/nudges.ts";
 
@@ -8,7 +8,7 @@ const DAY = 86_400_000;
 // 2026-11-02 is a Monday; noon UTC, outside any quiet hours unless a test sets them.
 const NOW = Date.parse("2026-11-02T12:00:00Z");
 
-function setup(opts: { on?: boolean } = {}) {
+function setup(opts: { on?: boolean; model?: FakeModelProvider | undefined } = {}) {
   const clock = new FakeClock(NOW);
   const db = openDb(":memory:");
   const graph = new GraphStore({ sqlite: db.sqlite, clock });
@@ -22,6 +22,9 @@ function setup(opts: { on?: boolean } = {}) {
     timeZone: () => "UTC",
     post: (c) => void posts.push(c),
     refreshMs: 0,
+    ...(opts.model === undefined
+      ? {}
+      : { model: () => ({ provider: opts.model as FakeModelProvider, model: "fake/m" }) }),
   });
   if (opts.on !== false) consent(db);
   let n = 0;
@@ -53,7 +56,31 @@ function setup(opts: { on?: boolean } = {}) {
     talk(id, days, "in");
     return id;
   };
-  return { clock, db, graph, em, posts, nudges, person, waiting };
+  /** A fact the person stated about themselves, confirmed by the owner. */
+  const learn = (entityId: string, attribute: "employer" | "city", value: string) => {
+    const quote = `I mentioned ${value}`;
+    const o = em.proposeFact({
+      entityId,
+      attribute,
+      value,
+      provenance: "untrusted",
+      subjectKind: "self_disclosure",
+      citations: [
+        {
+          source: "mail",
+          sourceRef: `<${attribute}>`,
+          quote,
+          start: 0,
+          end: quote.length,
+          sourceHash: "h",
+          authorEntityId: entityId,
+        },
+      ],
+    });
+    if (o.status === "refused") throw new Error(o.reason);
+    em.decide(o.fact.id, "confirm");
+  };
+  return { clock, db, graph, em, posts, nudges, person, waiting, learn };
 }
 
 function consent(db: ReturnType<typeof openDb>) {
@@ -63,11 +90,19 @@ function consent(db: ReturnType<typeof openDb>) {
 
 describe("settings", () => {
   it("are off by default and off until the owner has consented", () => {
-    expect(nudgeSettings(() => undefined)).toEqual({ enabled: false, sensitivity: "normal" });
+    expect(nudgeSettings(() => undefined)).toEqual({
+      enabled: false,
+      sensitivity: "normal",
+      phrasing: false,
+    });
     expect(nudgeSettings((k) => (k === "nudges.enabled" ? true : undefined)).enabled).toBe(false);
     const on = (k: string) =>
       k === "nudges.enabled" ? true : k === "nudges.consentedAt" ? "2026-11-02T00:00:00Z" : "high";
-    expect(nudgeSettings(on)).toEqual({ enabled: true, sensitivity: "high" });
+    expect(nudgeSettings(on)).toMatchObject({
+      enabled: true,
+      sensitivity: "high",
+      phrasing: false,
+    });
     expect(
       nudgeSettings((k) => (k === "nudges.sensitivity" ? "wild" : undefined)).sensitivity,
     ).toBe("normal");
@@ -312,5 +347,89 @@ describe("Feed cards", () => {
     expect(s.nudges.refresh()).toBe(1);
     expect(s.posts[0]?.bodyMd).toBe("You haven't replied to Priya Rao's email from 7 days ago.");
     expect(JSON.stringify(s.posts)).not.toMatch(/ignore|vault/i);
+  });
+});
+
+describe("conversation starters", () => {
+  const say = (text: string) => [
+    { type: "text_delta" as const, text },
+    { type: "finish" as const, reason: "stop" as const },
+  ];
+
+  it("lists starters with their evidence, and none when little is known", async () => {
+    const s = setup();
+    const known = s.waiting("Sam Lee", 9);
+    s.learn(known, "employer", "Initech");
+    s.waiting("Priya Rao", 8);
+    const { items } = await s.nudges.handlers["nudges.list"]({});
+    const sam = items.find((i) => i.name === "Sam Lee");
+    expect(sam?.starters).toEqual([
+      {
+        text: "Ask how the new job at Initech is going",
+        evidence: expect.stringMatching(/^Employer: Initech · their own words, accepted by you · /),
+      },
+    ]);
+    expect(items.find((i) => i.name === "Priya Rao")?.starters).toEqual([]);
+  });
+
+  it("an excluded contact has no nudge and so no starters", async () => {
+    const s = setup();
+    const sam = s.waiting("Sam Lee", 9);
+    s.learn(sam, "employer", "Initech");
+    s.em.excludeEntity(sam, "exclude");
+    expect((await s.nudges.handlers["nudges.list"]({})).items).toEqual([]);
+  });
+
+  it("a pending fact about someone is not offered", async () => {
+    const s = setup();
+    const sam = s.waiting("Sam Lee", 9);
+    s.learn(sam, "employer", "Initech");
+    s.db.sqlite.prepare("UPDATE graph_facts SET review = 'pending'").run();
+    expect((await s.nudges.handlers["nudges.list"]({})).items[0]?.starters).toEqual([]);
+  });
+
+  it("does not call a model unless phrasing is on and a model is chosen", async () => {
+    const provider = new FakeModelProvider({ id: "fake" });
+    const s = setup({ model: provider });
+    s.learn(s.waiting("Sam Lee", 9), "employer", "Initech");
+    expect(await s.nudges.phrase()).toBe(0);
+    expect(provider.requests).toHaveLength(0);
+    const none = setup({ model: undefined });
+    setSetting(none.db, "nudges.phrasing", true);
+    none.learn(none.waiting("Sam Lee", 9), "employer", "Initech");
+    expect(await none.nudges.phrase()).toBe(0);
+  });
+
+  it("rewords with the chosen model when phrasing is on, once, and never persists it", async () => {
+    const provider = new FakeModelProvider({ id: "fake" });
+    provider.enqueue(say(JSON.stringify(["How's the new job at Initech treating you?"])));
+    const s = setup({ model: provider });
+    setSetting(s.db, "nudges.phrasing", true);
+    s.learn(s.waiting("Sam Lee", 9), "employer", "Initech");
+    expect(await s.nudges.phrase()).toBe(1);
+    expect(await s.nudges.phrase()).toBe(0);
+    expect(provider.requests).toHaveLength(1);
+    const [item] = (await s.nudges.handlers["nudges.list"]({})).items;
+    expect(item?.starters?.[0]).toMatchObject({
+      text: "How's the new job at Initech treating you?",
+      evidence: expect.stringContaining("Employer: Initech"),
+    });
+    expect(JSON.stringify(getSetting(s.db, NUDGE_STATE_KEY)?.value ?? "")).not.toMatch(/Initech/);
+    // Turning phrasing off puts the template back at once.
+    setSetting(s.db, "nudges.phrasing", false);
+    expect((await s.nudges.handlers["nudges.list"]({})).items[0]?.starters?.[0]?.text).toBe(
+      "Ask how the new job at Initech is going",
+    );
+  });
+
+  it("a rewording that adds a fact is dropped", async () => {
+    const provider = new FakeModelProvider({ id: "fake" });
+    provider.enqueue(say(JSON.stringify(["How is Initech, and your move to Berlin?"])));
+    const s = setup({ model: provider });
+    setSetting(s.db, "nudges.phrasing", true);
+    s.learn(s.waiting("Sam Lee", 9), "employer", "Initech");
+    await s.nudges.phrase();
+    const [item] = (await s.nudges.handlers["nudges.list"]({})).items;
+    expect(item?.starters?.[0]?.text).toBe("Ask how the new job at Initech is going");
   });
 });

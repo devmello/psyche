@@ -884,6 +884,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     clock,
     graph: people.graph,
     em: everything.store,
+    model: () => everything.answerModel(),
     timeZone: () => timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
     post: (card) =>
       void proactive.feed.postNotice({

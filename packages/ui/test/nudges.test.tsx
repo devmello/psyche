@@ -4,6 +4,7 @@ import { userEvent } from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { MockGateway } from "../src/data/mock-gateway.ts";
 import type { FixtureWorld } from "../src/fixtures/index.ts";
+import { KeepInTouchSection } from "../src/home/sections.tsx";
 import { draftPrompt, NudgeActions } from "../src/nudges/NudgeActions.tsx";
 import { RelationshipNudgesSettings } from "../src/nudges/NudgeSettings.tsx";
 import { ConnectedEntityCard } from "../src/people/ConnectedEntityCard.tsx";
@@ -246,3 +247,121 @@ describe("Settings → People → Relationship nudges", () => {
     expect(screen.getByText(/quiet hours set in Settings → Notifications/)).toBeTruthy();
   });
 });
+
+describe("conversation starters", () => {
+  const starters = [
+    {
+      text: "Ask how the new job at Initech is going",
+      evidence: "Employer: Initech · their own words, accepted by you · Oct 12",
+    },
+    { text: "You promised: “send the deck”", evidence: "Your promise · Oct 28" },
+  ];
+
+  it("shows each starter with the fact it comes from, on the Feed card", async () => {
+    render(
+      <StoryWorld
+        edit={world([nudge({ starters })])}
+        onGateway={(g) => (gateway = g)}
+        slots={{ prefillComposer: () => {} }}
+      >
+        <FeedPostCard post={post()} />
+      </StoryWorld>,
+    );
+    const box = await screen.findByTestId("nudge-starters");
+    expect(within(box).getByText("Things to bring up")).toBeTruthy();
+    expect(within(box).getByText("Ask how the new job at Initech is going")).toBeTruthy();
+    const evidence = within(box)
+      .getAllByTestId("nudge-evidence")
+      .map((e) => e.textContent);
+    expect(evidence).toEqual([
+      "Employer: Initech · their own words, accepted by you · Oct 12",
+      "Your promise · Oct 28",
+    ]);
+  });
+
+  it("shows nothing, not a generic line, when Psyche knows too little", async () => {
+    render(
+      <StoryWorld
+        edit={world([nudge({ starters: [] }), nudge({ id: "nd_b", entityId: "ent_b" })])}
+        slots={{ prefillComposer: () => {} }}
+      >
+        <FeedPostCard post={post()} />
+      </StoryWorld>,
+    );
+    await screen.findByRole("button", { name: "Draft a reply" });
+    expect(screen.queryByTestId("nudge-starters")).toBeNull();
+  });
+
+  it("Draft a reply carries the starters and their sources as context, and sends nothing", async () => {
+    const prefill = vi.fn();
+    render(
+      <StoryWorld edit={world([nudge({ starters })])} slots={{ prefillComposer: prefill }}>
+        <FeedPostCard post={post()} />
+      </StoryWorld>,
+    );
+    await userEvent.click(await screen.findByRole("button", { name: "Draft a reply" }));
+    const text = prefill.mock.calls[0]?.[0] as string;
+    expect(text).toMatch(/Do not send anything/);
+    expect(text).toContain("use only these and do not invent anything else");
+    expect(text).toContain(
+      "- Ask how the new job at Initech is going (Employer: Initech · their own words, accepted by you · Oct 12)",
+    );
+    expect(text).toContain("- You promised: “send the deck” (Your promise · Oct 28)");
+  });
+
+  it("Home's Keep in touch shows them as well", async () => {
+    render(
+      <StoryWorld edit={world([nudge({ starters })])} slots={{ prefillComposer: () => {} }}>
+        <KeepInTouchSection onNavigate={() => {}} />
+      </StoryWorld>,
+    );
+    const box = await screen.findByTestId("nudge-starters");
+    expect(within(box).getByText("You promised: “send the deck”")).toBeTruthy();
+  });
+
+  it("draftPrompt has no context block without starters", () => {
+    expect(draftPrompt(nudge())).not.toContain("Things I could bring up");
+    expect(draftPrompt(nudge({ starters: [] }))).not.toContain("Things I could bring up");
+  });
+
+  it("the person page row shows them too", async () => {
+    let personId = "";
+    render(
+      <StoryWorld
+        edit={(w) => {
+          const p = w.graph.entities.find((e) => e.kind === "person" && !e.isOwner);
+          if (p === undefined) throw new Error("fixture person missing");
+          personId = p.id;
+          w.review = {
+            items: [],
+            quarantine: [],
+            runs: [],
+            nudges: { items: [nudge({ entityId: p.id, starters })], muted: [] },
+          };
+        }}
+        slots={{ prefillComposer: () => {} }}
+      >
+        <PersonCardLater id={() => personId} />
+      </StoryWorld>,
+    );
+    const row = await screen.findByTestId("nudge-person-row");
+    expect(within(row).getByText("Ask how the new job at Initech is going")).toBeTruthy();
+  });
+
+  it("Settings has a phrasing switch that is off by default and needs nudges on", async () => {
+    const onChange = vi.fn();
+    render(
+      <StoryWorld>
+        <RelationshipNudgesSettings enabled sensitivity="normal" onChange={onChange} />
+      </StoryWorld>,
+    );
+    const sw = screen.getByRole("switch", { name: /Reword suggestions with my model/ });
+    expect(sw.getAttribute("aria-checked")).toBe("false");
+    await userEvent.click(sw);
+    expect(onChange).toHaveBeenCalledWith("nudges.phrasing", true);
+  });
+});
+
+function PersonCardLater({ id }: { id: () => string }) {
+  return <ConnectedEntityCard id={id()} />;
+}

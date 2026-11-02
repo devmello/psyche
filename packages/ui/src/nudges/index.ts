@@ -1,5 +1,10 @@
 export { FeedNudgeActions, PersonNudgeRow } from "./ConnectedNudges.tsx";
-export { draftPrompt, NudgeActions, type NudgeActionsProps } from "./NudgeActions.tsx";
+export {
+  draftPrompt,
+  NudgeActions,
+  type NudgeActionsProps,
+  NudgeStarters,
+} from "./NudgeActions.tsx";
 export {
   RelationshipNudgesSettings,
   type RelationshipNudgesSettingsProps,

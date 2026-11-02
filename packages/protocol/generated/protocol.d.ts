@@ -7243,8 +7243,9 @@ export interface NudgeItem {
     /**
      * A display name: third-party text, one line
      */
-    name:    string;
-    overdue: boolean;
+    name:      string;
+    overdue:   boolean;
+    starters?: NudgeStarter[];
     /**
      * One plain sentence built from the name, numbers and a template
      */
@@ -7254,6 +7255,17 @@ export interface NudgeItem {
 export type ChannelEnum = "mail" | "messages";
 
 export type NudgeKind = "unanswered" | "drift" | "birthday" | "promise";
+
+export interface NudgeStarter {
+    /**
+     * The fact or promise it comes from: attribute, value, how it became known, date
+     */
+    evidence: string;
+    /**
+     * One short suggestion
+     */
+    text: string;
+}
 
 export interface NudgesMuteParams {
     entityId: string;
