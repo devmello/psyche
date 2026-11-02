@@ -36,6 +36,8 @@ export interface NudgeActionsProps {
   onDraft?: (prompt: string) => void;
   /** Runs an action; rejects with the Gateway's error. */
   onAct: (action: NudgeAction) => Promise<unknown>;
+  /** Another control on the page holds the accent (Home): Draft is an outline button. */
+  quiet?: boolean;
   className?: string;
 }
 
@@ -43,7 +45,13 @@ export interface NudgeActionsProps {
  * The actions under a nudge: Draft a reply (the one accent), Snooze (a week or a month), Done,
  * and Not this person. A promise past its due date is the one amber "needs you" mark.
  */
-export function NudgeActions({ item, onDraft, onAct, className }: NudgeActionsProps): ReactElement {
+export function NudgeActions({
+  item,
+  onDraft,
+  onAct,
+  quiet = false,
+  className,
+}: NudgeActionsProps): ReactElement {
   const [result, setResult] = useState<NudgeAction | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -83,6 +91,7 @@ export function NudgeActions({ item, onDraft, onAct, className }: NudgeActionsPr
           <Button
             type="button"
             size="sm"
+            {...(quiet ? { variant: "outline" as const } : {})}
             disabled={busy}
             onClick={() => onDraft(draftPrompt(item))}
           >

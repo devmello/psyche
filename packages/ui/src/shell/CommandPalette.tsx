@@ -41,6 +41,23 @@ export const DEFAULT_ACTIONS: readonly PaletteAction[] = [
     ...(i.shortcut === undefined ? {} : { shortcut: i.shortcut }),
   })),
   {
+    id: "home",
+    get label() {
+      return t("shell.palette.goTo", { label: t("home.title") });
+    },
+    keywords:
+      "dashboard today brief feed ideas suggestions goals coming up upcoming needs you nudges keep in touch pinned widgets",
+    route: "/home",
+  },
+  {
+    id: "people",
+    get label() {
+      return t("shell.palette.goTo", { label: t("people.page.title") });
+    },
+    keywords: "contacts projects relationships keep in touch waiting on",
+    route: "/people",
+  },
+  {
     id: "approvals",
     get label() {
       return t("shell.palette.approvals");
@@ -250,7 +267,7 @@ export function CommandPalette({
               : {})}
             onOpenEntity={(e) => {
               close();
-              onNavigate(`/agent/soul?entity=${encodeURIComponent(e.id)}`);
+              onNavigate(`/people?entity=${encodeURIComponent(e.id)}`);
             }}
             renderEntityPreview={(e) => (
               <ConnectedEntityCard
@@ -259,7 +276,7 @@ export function CommandPalette({
                 className="bg-transparent p-0 shadow-none"
                 onOpenEntity={(id) => {
                   close();
-                  onNavigate(`/agent/soul?entity=${encodeURIComponent(id)}`);
+                  onNavigate(`/people?entity=${encodeURIComponent(id)}`);
                 }}
               />
             )}

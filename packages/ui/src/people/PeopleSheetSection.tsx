@@ -20,7 +20,8 @@ import type { EntityRef, LoopView } from "./types.ts";
 /**
  * Soul & Memory → People & projects (docs/memory/people-and-projects-2026.md §6.5): a searchable
  * list with filter chips (People, Projects, Suggestions, Waiting on). A row opens the card in a
- * level-3 sheet, as the memory files do; `/agent/soul?entity=<id>` opens it directly.
+ * level-3 sheet, as the memory files do. It is the People page's body (`/people?entity=<id>` opens
+ * a card directly) and a section of Soul & Memory.
  */
 
 type Filter = "people" | "projects" | "suggestions" | "waiting";
@@ -47,11 +48,14 @@ export interface PeopleSheetSectionProps {
   /** Opens this entity's card on mount (`?entity=`). */
   initialEntity?: string;
   now?: number;
+  /** On the People page the toolbar names it: the heading is a level 2 for screen readers only. */
+  page?: boolean;
 }
 
 export function PeopleSheetSection({
   initialEntity,
   now = Date.now(),
+  page = false,
 }: PeopleSheetSectionProps): ReactElement {
   const call = useCall();
   const openLink = useOpenLink();
@@ -162,9 +166,15 @@ export function PeopleSheetSection({
 
   return (
     <section aria-labelledby={`${searchId}-title`} className="flex flex-col gap-2">
-      <h3 id={`${searchId}-title`} className="px-1 text-title-3 text-label-primary">
-        {t("people.sheet.title")}
-      </h3>
+      {page ? (
+        <h2 id={`${searchId}-title`} className="sr-only">
+          {t("people.sheet.title")}
+        </h2>
+      ) : (
+        <h3 id={`${searchId}-title`} className="px-1 text-title-3 text-label-primary">
+          {t("people.sheet.title")}
+        </h3>
+      )}
       <div className="relative">
         <Search
           aria-hidden="true"

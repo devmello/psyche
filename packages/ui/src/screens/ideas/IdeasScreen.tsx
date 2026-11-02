@@ -139,8 +139,17 @@ export interface IdeasScreenProps {
   onViewSkill?: (idea: Idea) => void;
 }
 
-/** Connected Ideas: `ideas.list`, `ideas.accept` (with `recurring`), `ideas.dismiss`. */
-export function IdeasScreen({ onEdit, onViewSkill }: IdeasScreenProps): ReactElement {
+/**
+ * Accept, dismiss and "View skill" for idea cards, with their toasts and busy ids: shared by the
+ * Ideas screen and Home's Suggestions (docs/design/consolidation-2026.md §3.1).
+ */
+export function useIdeaActions(onViewSkill?: (idea: Idea) => void): {
+  ideas: ReturnType<typeof useIdeas>;
+  busy: ReadonlySet<string>;
+  accept: (idea: Idea, options: IdeaAcceptOptions) => void;
+  dismiss: (idea: Idea, reason: IdeaDismissReason) => void;
+  viewSkill: (idea: Idea) => void;
+} {
   const { navigate } = useSlots();
   const persona = usePersona();
   const ideas = useIdeas();
@@ -212,6 +221,14 @@ export function IdeasScreen({ onEdit, onViewSkill }: IdeasScreenProps): ReactEle
         navigate?.(`/agent/soul?file=${encodeURIComponent(idea.resultRef)}`);
     });
 
+  return { ideas, busy, accept, dismiss, viewSkill };
+}
+
+/** Connected Ideas: `ideas.list`, `ideas.accept` (with `recurring`), `ideas.dismiss`. */
+export function IdeasScreen({ onEdit, onViewSkill }: IdeasScreenProps): ReactElement {
+  const { navigate } = useSlots();
+  const persona = usePersona();
+  const { ideas, busy, accept, dismiss, viewSkill } = useIdeaActions(onViewSkill);
   return (
     <IdeasView
       ideas={ideas.proposed}
