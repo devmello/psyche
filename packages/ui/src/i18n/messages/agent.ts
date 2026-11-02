@@ -40,7 +40,7 @@ export const agent = {
   "agent.sheet.approvals": "Approvals",
   "agent.sheet.soul": "Soul & Memory",
   "agent.sheet.now.working": "Working on {title} · {elapsed}",
-  "agent.sheet.now.waiting": "Waiting for you · {n, plural, one {# approval} other {# approvals}}",
+  "agent.sheet.now.waiting": "Waiting for you · {n, plural, one {# item} other {# items}}",
   "agent.sheet.now.idleNext": "Idle · next: {title} {when}",
   "agent.sheet.now.idle": "Idle",
   "agent.sheet.now.memoryPaused": "Memory paused",

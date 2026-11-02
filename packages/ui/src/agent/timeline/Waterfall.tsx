@@ -75,6 +75,15 @@ function tooltip(row: VisibleRow, now: number): string {
   return t("agent.timeline.tooltip", { start, duration });
 }
 
+const ATTEMPT_LABEL_PX = 76;
+
+/** Beside the bar's end, or before its first segment; null when neither has room (never over a bar). */
+function attemptLabelStart(endX: number, firstX: number, trackPx: number): number | null {
+  if (endX + 6 + ATTEMPT_LABEL_PX <= trackPx) return endX + 6;
+  if (firstX - 6 - ATTEMPT_LABEL_PX >= 0) return firstX - 6 - ATTEMPT_LABEL_PX;
+  return null;
+}
+
 export function Waterfall({
   rows,
   scale,
@@ -240,6 +249,15 @@ export function Waterfall({
               const selected = row.id === selectedId;
               const dim = dimAfter && playhead !== null && row.start > playhead;
               const name = rowLabel(row);
+              const attemptN = row.step?.attempt ?? 1;
+              const attemptX =
+                row.type === "step" && attemptN > 1
+                  ? attemptLabelStart(
+                      scale.x(row.end ?? playhead ?? now),
+                      scale.x(Math.min(row.start, ...row.attempts.map((a) => a.start))),
+                      trackPx,
+                    )
+                  : null;
               return (
                 <div
                   key={row.id}
@@ -315,6 +333,11 @@ export function Waterfall({
                       />
                     ) : null}
                     <span
+                      title={
+                        attemptN > 1
+                          ? `${name} · ${t("agent.timeline.attempt", { n: attemptN })}`
+                          : undefined
+                      }
                       className={cn(
                         "min-w-0 truncate text-body",
                         row.type === "group" && "text-label-secondary",
@@ -383,18 +406,12 @@ export function Waterfall({
                           {...(row.segments ? { segments: row.segments } : {})}
                           {...(playhead !== null ? { now: playhead } : {})}
                         />
-                        {(row.step?.attempt ?? 1) > 1 ? (
+                        {attemptN > 1 && attemptX !== null ? (
                           <span
                             className="absolute top-1/2 -translate-y-1/2 whitespace-nowrap rounded-full bg-fill-secondary px-1.5 text-subheadline text-label-secondary"
-                            style={{
-                              // Beside the bar's end, or inside the track's end when there's no room.
-                              insetInlineStart: Math.min(
-                                scale.x(row.end ?? playhead ?? now) + 6,
-                                trackPx - 76,
-                              ),
-                            }}
+                            style={{ insetInlineStart: attemptX }}
                           >
-                            {t("agent.timeline.attempt", { n: row.step?.attempt ?? 1 })}
+                            {t("agent.timeline.attempt", { n: attemptN })}
                           </span>
                         ) : null}
                       </>

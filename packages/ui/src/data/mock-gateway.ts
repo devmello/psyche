@@ -324,9 +324,9 @@ const fakeHash = (text: string): `sha256:${string}` => {
   return `sha256:${h.toString(16).padStart(8, "0").repeat(8)}`;
 };
 
-/** A 1×1 grey PNG: what every mock frame shows. */
+/** A 1×1 mid grey PNG: what every mock frame shows. */
 const MOCK_FRAME_PNG =
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGPYsGEDAAQkAhG7+/aHAAAAAElFTkSuQmCC";
 
 const fail = (code: ErrorCode, message: string): never => {
   throw new PsycheError(code, message);

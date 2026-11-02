@@ -109,7 +109,7 @@ describe("the Now / next line", () => {
     const navigate = vi.fn();
     sheet(undefined, { navigate });
     const line = await screen.findByTestId("agent-now-next");
-    await waitFor(() => expect(line.textContent).toMatch(/^Waiting for you · \d+ approvals?$/));
+    await waitFor(() => expect(line.textContent).toMatch(/^Waiting for you · \d+ items?$/));
     fireEvent.click(line);
     expect(navigate).toHaveBeenCalledWith("/overview#now");
   });

@@ -17,28 +17,28 @@ export function ShortcutTable(): ReactElement {
     ...CARD_SHORTCUTS.map((s) => ({ keys: s.keys, label: s.label, psyche: "psyche" in s })),
   ];
   return (
-    <table className="w-full text-sm">
+    <table className="w-full text-body">
       <caption className="sr-only">{t("shell.shortcuts.title")}</caption>
       <thead>
-        <tr className="text-start text-muted-foreground">
-          <th scope="col" className="w-28 py-1 font-normal">
+        <tr className="text-callout text-label-secondary">
+          <th scope="col" className="w-28 py-1 text-start font-normal">
             {t("shell.shortcuts.shortcut")}
           </th>
-          <th scope="col" className="py-1 font-normal">
+          <th scope="col" className="py-1 text-start font-normal">
             {t("shell.shortcuts.action")}
           </th>
         </tr>
       </thead>
       <tbody>
         {rows.map((r) => (
-          <tr key={r.keys + r.label} className="border-t border-gray-4">
+          <tr key={r.keys + r.label} className="border-t border-separator">
             <td className="py-1">
               <Kbd>{r.keys}</Kbd>
             </td>
             <td className="py-1">
               {r.label}
               {r.psyche ? (
-                <span className="text-muted-foreground" title={t("shell.shortcuts.addition")}>
+                <span className="text-label-secondary" title={t("shell.shortcuts.addition")}>
                   {" "}
                   †
                 </span>
