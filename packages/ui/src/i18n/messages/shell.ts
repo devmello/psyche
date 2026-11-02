@@ -127,6 +127,8 @@ export const shell = {
   "shell.search.run": "Run",
   "shell.search.open": "Open",
   "shell.search.openInSideChat": "Open in a side chat",
+  "shell.search.keyCmdL": "⌘L",
+  "shell.search.keyCtrlL": "Ctrl L",
   "shell.compact.threads": "Threads",
   "shell.compact.more": "More",
   "shell.compact.mode": "Permission mode",

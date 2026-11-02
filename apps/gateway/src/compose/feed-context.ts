@@ -69,6 +69,7 @@ export function resolveFeedItemContext(
   store: Pick<FeedStore, "get">,
   ref: ChatContextRef,
 ): ResolvedChatContext {
+  if (ref.kind !== "feed_item") throw new PsycheError("invalid_params", "not a feed item context");
   const post = store.get(ref.id);
   if (post === undefined) throw new PsycheError("not_found", `feed item ${ref.id} not found`);
   const first = post.citations[0];

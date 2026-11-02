@@ -9,6 +9,7 @@ import {
   Mic,
   Newspaper,
   Plus,
+  Search,
   Square,
   X,
 } from "lucide-react";
@@ -82,6 +83,8 @@ function useCommandMenu() {
 
 /** The item the next message is about (Feed "Ask about this"): a removable chip. */
 export interface ComposerContextChip {
+  /** A search result gets its own icon and prompt; the default is a Feed item. */
+  kind?: "feed_item" | "search_hit";
   title: string;
   /** Source name or host. */
   source: string | null;
@@ -258,7 +261,14 @@ export function Composer({
               data-testid="context-chip"
             >
               <li className="flex max-w-72 items-center gap-1.5 rounded-md bg-fill-tertiary py-1 ps-2 pe-1 text-callout">
-                <Newspaper className="size-3.5 shrink-0 text-label-secondary" aria-hidden="true" />
+                {context.kind === "search_hit" ? (
+                  <Search className="size-3.5 shrink-0 text-label-secondary" aria-hidden="true" />
+                ) : (
+                  <Newspaper
+                    className="size-3.5 shrink-0 text-label-secondary"
+                    aria-hidden="true"
+                  />
+                )}
                 <span className="min-w-0 truncate text-label-primary">{context.title}</span>
                 {context.source ? (
                   <span className="shrink-0 text-label-secondary">{context.source}</span>
@@ -379,7 +389,11 @@ export function Composer({
                 disabled
                   ? t("chat.composer.offline")
                   : context
-                    ? t("chat.composer.placeholderArticle")
+                    ? t(
+                        context.kind === "search_hit"
+                          ? "chat.composer.placeholderResult"
+                          : "chat.composer.placeholderArticle",
+                      )
                     : t("chat.composer.placeholder", { persona })
               }
               aria-label={t("chat.composer.label", { persona })}

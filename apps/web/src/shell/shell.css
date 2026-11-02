@@ -402,6 +402,10 @@ button {
   display: flex;
   min-width: 0;
   border-inline-start: 1px solid var(--separator);
+  /* Above the chat column: a toolbar that is too wide for its column never paints over a pane. */
+  position: relative;
+  z-index: 1;
+  background: var(--canvas);
 }
 .pane {
   display: flex;

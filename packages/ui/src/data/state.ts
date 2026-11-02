@@ -108,6 +108,7 @@ export interface ThreadContextEntry {
 /** The chip in the composer: the item, and the card the sent message shows. */
 export interface ComposerContext {
   threadId: string;
+  /** `feed_item` or `search_hit`: picks the chip's icon and the composer's prompt. */
   ref: ChatContextRef;
   title: string;
   /** Source name or host. */

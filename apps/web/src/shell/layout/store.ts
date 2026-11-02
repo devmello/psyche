@@ -165,6 +165,7 @@ function parsePane(v: unknown): PaneInstance | null {
     "subagents",
     "artifact",
     "vm",
+    "sidechat",
   ] as const;
   const kind = kinds.find((k) => k === pane);
   if (kind === undefined) return null;

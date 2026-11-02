@@ -23,6 +23,7 @@ export const screens = {
   "screens.search.addWord": "Add a word to search for.",
   "screens.search.searching": "Searching",
   "screens.search.failed": "Search failed",
+  "screens.search.sideChatFailed": "Couldn’t open a side chat: {reason}",
   "screens.search.indexUnchanged": "The index is unchanged.",
   "screens.search.indexing":
     "Indexing your history: {n, plural, one {# item} other {# items}} so far. Results fill in as it goes.",

@@ -7,6 +7,7 @@ import type {
 } from "@psyche/protocol";
 import { RefreshCw } from "lucide-react";
 import type { ReactElement, ReactNode } from "react";
+import { useOpenInSideChat } from "../../chat/ask-about.ts";
 import { Button } from "../../components/ui/button.tsx";
 import { useSearchIndexStatus } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
@@ -182,7 +183,7 @@ export interface SearchScreenProps {
   onQueryChange?: (query: string) => void;
   /** Defaults to `navigate(hit.route)`. */
   onOpen?: (hit: SearchHit) => void;
-  /** ⌘↵ on a result: a new side chat about it. */
+  /** ⌘L or ⌘↵ on a result: a side chat about it; defaults to the shell's (`UiSlots.openSideChat`). */
   onOpenInSideChat?: (hit: SearchHit) => void;
   /** Debounce before querying the Gateway. */
   debounceMs?: number;
@@ -205,6 +206,8 @@ export function SearchScreen({
   now,
 }: SearchScreenProps): ReactElement {
   const { navigate } = useSlots();
+  const openInSideChat = useOpenInSideChat();
+  const sideChat = onOpenInSideChat ?? openInSideChat;
   const search = useSearchSurface(initialQuery, debounceMs);
   const index = useSearchIndexStatus();
   const wide = useMinWidth(1080);
@@ -229,7 +232,7 @@ export function SearchScreen({
       onOpen={open}
       preview={wide}
       autoFocus={autoFocus}
-      {...(onOpenInSideChat ? { onOpenInSideChat } : {})}
+      {...(sideChat ? { onOpenInSideChat: sideChat } : {})}
       entities={search.entities}
       lifeFacts={search.life}
       {...(search.answer

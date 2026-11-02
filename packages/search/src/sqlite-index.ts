@@ -358,6 +358,49 @@ export class SqliteSearchIndex implements SearchIndex {
     return out;
   }
 
+  /**
+   * One document as the Gateway holds it, by id: what a side chat about a search result reads
+   * instead of anything the window says about it. Documents of agent-excluded sources, other
+   * scopes and unknown ids are not returned.
+   */
+  docOf(id: string):
+    | {
+        id: string;
+        kind: string;
+        title: string;
+        body: string;
+        provenance: "owner" | "agent" | "untrusted" | "system";
+        threadId: string | null;
+      }
+    | undefined {
+    const row = this.db
+      .prepare(
+        `SELECT id, kind, title, body, provenance, thread_id, source FROM search_docs
+           WHERE id = ? AND scope_key = ?`,
+      )
+      .get(id, OWNER_SCOPE) as
+      | {
+          id: string;
+          kind: string;
+          title: string;
+          body: string;
+          provenance: "owner" | "agent" | "untrusted" | "system";
+          thread_id: string | null;
+          source: string | null;
+        }
+      | undefined;
+    if (row === undefined) return undefined;
+    if (row.source !== null && this.agentExcludedSources().includes(row.source)) return undefined;
+    return {
+      id: row.id,
+      kind: row.kind,
+      title: row.title,
+      body: row.body,
+      provenance: row.provenance,
+      threadId: row.thread_id,
+    };
+  }
+
   /** Records a `has:` fact about a document, thread or task (it may not be indexed yet). */
   async setFlag(targetId: string, flag: SearchFlag): Promise<void> {
     this.db

@@ -80,6 +80,36 @@ describe("search surface (redesign §5.5)", () => {
     expect(screen.getByTestId("search-hints").textContent).toMatch(/open in a side chat/);
   });
 
+  it("opens in a side chat with ⌘L (Ctrl+L off the Mac), and leaves the key alone without one", async () => {
+    const onOpen = vi.fn();
+    const onOpenInSideChat = vi.fn();
+    const { unmount } = render(
+      <StoryWorld>
+        <Surface onOpen={onOpen} onOpenInSideChat={onOpenInSideChat} />
+      </StoryWorld>,
+    );
+    screen.getByRole("combobox").focus();
+    await userEvent.keyboard(isMac() ? "{Meta>}l{/Meta}" : "{Control>}l{/Control}");
+    expect(onOpenInSideChat).toHaveBeenCalledTimes(1);
+    expect(onOpenInSideChat.mock.calls[0]?.[0]).toBe(hits[0]);
+    expect(onOpen).not.toHaveBeenCalled();
+    expect(screen.getByTestId("search-hints").textContent).toContain(isMac() ? "⌘L" : "Ctrl L");
+    unmount();
+
+    // Without a side chat to open, ⌘L is not ours: the browser keeps its address bar.
+    const press = vi.fn();
+    render(
+      <StoryWorld>
+        <Surface onOpen={onOpen} />
+      </StoryWorld>,
+    );
+    const field = screen.getByRole("combobox");
+    field.addEventListener("keydown", (e) => press(e.defaultPrevented));
+    field.focus();
+    await userEvent.keyboard(isMac() ? "{Meta>}l{/Meta}" : "{Control>}l{/Control}");
+    expect(press).toHaveBeenCalledWith(false);
+  });
+
   it("shows typed filters as removable chips inside the field", async () => {
     render(
       <StoryWorld>
@@ -144,6 +174,108 @@ describe("⌘K palette", () => {
     const threads = await within(dialog).findByRole("group", { name: /^Threads/ });
     await userEvent.click(within(threads).getAllByRole("option")[0] as HTMLElement);
     await waitFor(() => expect(onNavigate).toHaveBeenCalled());
+  });
+});
+
+describe("⌘K → open in a side chat", () => {
+  const chord = isMac() ? "{Meta>}l{/Meta}" : "{Control>}l{/Control}";
+
+  it("hands the result to the shell's side chat and creates no thread of its own", async () => {
+    const openSideChat = vi.fn();
+    const onNavigate = vi.fn();
+    const onOpenChange = vi.fn();
+    const requests: string[] = [];
+    render(
+      <StoryWorld
+        slots={{ openSideChat }}
+        onGateway={(gw) => {
+          const request = gw.request.bind(gw) as (
+            m: string,
+            p: unknown,
+            o: unknown,
+          ) => Promise<unknown>;
+          // biome-ignore lint/suspicious/noExplicitAny: wraps the mock to record its calls
+          (gw as any).request = (m: string, p: unknown, o: unknown) => {
+            requests.push(m);
+            return request(m, p, o);
+          };
+        }}
+      >
+        <CommandPalette
+          open
+          onOpenChange={onOpenChange}
+          onNavigate={onNavigate}
+          initialQuery="dentist"
+        />
+      </StoryWorld>,
+    );
+    const dialog = await screen.findByRole("dialog", { name: "Command palette" });
+    await within(dialog).findByRole("group", { name: /^Threads/ });
+    screen.getByRole("combobox").focus();
+    await userEvent.keyboard(chord);
+    await waitFor(() => expect(openSideChat).toHaveBeenCalledTimes(1));
+    // The original is not cloned into the thread list, and nothing navigates away.
+    expect(requests).toContain("search.query");
+    expect(requests).not.toContain("threads.create");
+    expect(onNavigate).not.toHaveBeenCalled();
+    expect(openSideChat.mock.calls[0]?.[0]).toMatchObject({
+      title: expect.stringMatching(/dentist/i),
+    });
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it("without a pane, opens one new chat linked to the result, with it as context", async () => {
+    const navigate = vi.fn();
+    const created: unknown[] = [];
+    render(
+      <StoryWorld
+        slots={{ navigate }}
+        onGateway={(gw) => {
+          const request = gw.request.bind(gw) as (
+            m: string,
+            p: unknown,
+            o: unknown,
+          ) => Promise<unknown>;
+          // biome-ignore lint/suspicious/noExplicitAny: wraps the mock to record its calls
+          (gw as any).request = (m: string, p: unknown, o: unknown) => {
+            if (m === "threads.create") created.push(p);
+            return request(m, p, o);
+          };
+        }}
+      >
+        <CommandPalette open onOpenChange={() => {}} onNavigate={vi.fn()} initialQuery="dentist" />
+      </StoryWorld>,
+    );
+    const dialog = await screen.findByRole("dialog", { name: "Command palette" });
+    await within(dialog).findByRole("group", { name: /^Threads/ });
+    screen.getByRole("combobox").focus();
+    await userEvent.keyboard(chord);
+    await waitFor(() => expect(navigate).toHaveBeenCalledTimes(1));
+    expect(created).toHaveLength(1);
+    expect(created[0]).toMatchObject({ kind: "side", parentThreadId: expect.any(String) });
+    expect(String(navigate.mock.calls[0]?.[0])).toMatch(/^\/chat\//);
+  });
+
+  it("opens a chat result itself on Enter", async () => {
+    const openSideChat = vi.fn();
+    const onNavigate = vi.fn();
+    render(
+      <StoryWorld slots={{ openSideChat }}>
+        <CommandPalette
+          open
+          onOpenChange={() => {}}
+          onNavigate={onNavigate}
+          initialQuery="dentist"
+        />
+      </StoryWorld>,
+    );
+    const dialog = await screen.findByRole("dialog", { name: "Command palette" });
+    await within(dialog).findByRole("group", { name: /^Threads/ });
+    screen.getByRole("combobox").focus();
+    await userEvent.keyboard("{Enter}");
+    await waitFor(() => expect(onNavigate).toHaveBeenCalledTimes(1));
+    expect(String(onNavigate.mock.calls[0]?.[0])).toMatch(/^\/chat\//);
+    expect(openSideChat).not.toHaveBeenCalled();
   });
 });
 

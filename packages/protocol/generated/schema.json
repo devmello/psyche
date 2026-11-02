@@ -12779,13 +12779,24 @@
     "ChatContextRef": {
       "properties": {
         "kind": {
-          "const": "feed_item",
+          "enum": [
+            "feed_item",
+            "search_hit"
+          ],
           "type": "string"
         },
         "id": {
           "description": "ULID in production",
           "maxLength": 64,
           "minLength": 1,
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 300,
+          "type": "string"
+        },
+        "scope": {
+          "maxLength": 40,
           "type": "string"
         }
       },
@@ -14435,7 +14446,10 @@
           "type": "string"
         },
         "kind": {
-          "const": "feed_item",
+          "enum": [
+            "feed_item",
+            "search_hit"
+          ],
           "type": "string"
         },
         "id": {
@@ -41590,7 +41604,8 @@
         "tasks",
         "subagents",
         "artifact",
-        "vm"
+        "vm",
+        "sidechat"
       ],
       "type": "string"
     },

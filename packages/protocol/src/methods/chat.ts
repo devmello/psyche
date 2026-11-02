@@ -20,12 +20,22 @@ export const ChatSendResult = Type.Object(
 );
 
 /**
- * What a message is asking about (Feed "Ask about this"): the Gateway resolves it, gives the agent
+ * What a message is asking about (Feed "Ask about this", or a search result opened in a side
+ * chat): the Gateway resolves it, gives the agent
  * the item's text as untrusted context ahead of the message, and records a `context` block on the
  * user message so the transcript keeps showing what the question was about.
  */
 export const ChatContextRef = Type.Object(
-  { kind: Type.Literal("feed_item"), id: Id },
+  {
+    kind: StringEnum(["feed_item", "search_hit"]),
+    id: Id,
+    /**
+     * `search_hit` only: what the window labelled the result, for the card it shows. The Gateway
+     * reads the result itself by `id` (text, kind, trust) and never takes text or trust from here.
+     */
+    title: Type.Optional(Type.String({ maxLength: 300 })),
+    scope: Type.Optional(Type.String({ maxLength: 40 })),
+  },
   { $id: "ChatContextRef" },
 );
 export type ChatContextRef = Static<typeof ChatContextRef>;

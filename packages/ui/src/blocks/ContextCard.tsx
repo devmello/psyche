@@ -1,4 +1,4 @@
-import { Newspaper } from "lucide-react";
+import { Newspaper, Search } from "lucide-react";
 import type { ReactElement } from "react";
 import { SafeLink } from "../links/SafeLink.tsx";
 import type { BlockOf } from "./types.ts";
@@ -11,7 +11,11 @@ import type { BlockOf } from "./types.ts";
 export function ContextCard({ block }: { block: BlockOf<"context"> }): ReactElement {
   const body = (
     <>
-      <Newspaper className="mt-0.5 size-3.5 shrink-0 text-label-secondary" aria-hidden="true" />
+      {block.kind === "search_hit" ? (
+        <Search className="mt-0.5 size-3.5 shrink-0 text-label-secondary" aria-hidden="true" />
+      ) : (
+        <Newspaper className="mt-0.5 size-3.5 shrink-0 text-label-secondary" aria-hidden="true" />
+      )}
       <span className="min-w-0">
         <span className="line-clamp-2 text-callout font-medium text-label-primary">
           {block.title}

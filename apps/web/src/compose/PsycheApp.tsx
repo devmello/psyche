@@ -70,6 +70,7 @@ import { renderLibraryThumbnail } from "./library-thumbnails.tsx";
 import { writeOnboarding } from "./onboarding.ts";
 import { saveHabits } from "./onboarding-host.ts";
 import { settingsRoute } from "./settings.tsx";
+import { SideChatPane } from "./side-chat.tsx";
 import { useTranscriptMode } from "./transcript-mode.tsx";
 import { ComposedFilesPane, renderMarkdownEditor } from "./viewers.tsx";
 
@@ -594,7 +595,7 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
         <ThreadList activeThreadId={threadId} onOpen={onOpen} onNewSideChat={onNew} />
       ),
       // One search surface for ⌘K and the Search destination (§5.5).
-      palette: ({ open, onClose, navigate, actions }) => (
+      palette: ({ open, onClose, navigate, actions, onOpenInSideChat }) => (
         <CommandPalette
           open={open}
           onOpenChange={(o) => {
@@ -602,11 +603,21 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
           }}
           onNavigate={navigate}
           actions={actions}
+          onOpenInSideChat={onOpenInSideChat}
         />
       ),
       // The Files pane renders the viewers (§3.7, P4); other panes keep the shell's views.
       pane: (pane, ctx) =>
-        pane.pane === "files" ? (
+        pane.pane === "sidechat" && pane.target ? (
+          // A side chat beside the view; expanding opens it full screen and closes the pane.
+          <SideChatPane
+            threadId={pane.target}
+            onExpand={() => {
+              ctx.dispatch({ type: "close", paneId: pane.paneId });
+              ctx.navigate(`/chat/${pane.target}`);
+            }}
+          />
+        ) : pane.pane === "files" ? (
           <ComposedFilesPane target={pane.target} navigate={ctx.navigate} />
         ) : pane.pane === "artifact" && (pane.artifactId ?? pane.target) ? (
           // The output canvas (chat-experience-2026 §4.2): one pane, its artifact swapped in.

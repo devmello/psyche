@@ -1,8 +1,8 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import type { SearchHit } from "@psyche/protocol";
 import { type ReactElement, useEffect } from "react";
+import { useOpenInSideChat } from "../chat/ask-about.ts";
 import { usePrefillComposer } from "../chat/prefill.ts";
-import { useThreads } from "../data/index.ts";
 import { t } from "../i18n/core.ts";
 import { ConnectedEntityCard } from "../people/ConnectedEntityCard.tsx";
 import { LIBRARY_SECTIONS } from "../screens/library/library-items.ts";
@@ -193,7 +193,7 @@ export interface CommandPaletteProps {
   onNavigate: (route: string) => void;
   /** Slash commands and pane actions the shell adds (`/model`, open Browser pane …). */
   actions?: readonly PaletteAction[];
-  /** ⌘↵ on a result; defaults to a new side chat named after it. */
+  /** ⌘L or ⌘↵ on a result; defaults to the shell's side chat pane (`UiSlots.openSideChat`). */
   onOpenInSideChat?: (hit: SearchHit) => void;
   /** Leave out the built-in Go to / Settings actions (the host lists its own). */
   builtInActions?: boolean;
@@ -223,7 +223,7 @@ export function CommandPalette({
 }: CommandPaletteProps): ReactElement {
   const search = useSearchSurface(initialQuery, 150, open);
   const wide = useMinWidth(1080);
-  const threads = useThreads();
+  const openInSideChat = useOpenInSideChat();
   const { setQuery } = search;
   // A fresh palette every time it opens.
   useEffect(() => {
@@ -248,13 +248,7 @@ export function CommandPalette({
     ? [...kitActions, ...DEFAULT_ACTIONS].filter((d) => !actions.some((a) => a.id === d.id))
     : [];
   const all = [...actions, ...builtIn].map(withShortcut);
-  const sideChat =
-    onOpenInSideChat ??
-    ((hit: SearchHit) => {
-      void threads
-        .create({ kind: "side", title: hit.title.slice(0, 200) })
-        .then((thread) => onNavigate(`/chat/${thread.id}`));
-    });
+  const sideChat = onOpenInSideChat ?? openInSideChat;
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
@@ -293,10 +287,14 @@ export function CommandPalette({
               close();
               if (hit.route != null) onNavigate(hit.route);
             }}
-            onOpenInSideChat={(hit) => {
-              close();
-              sideChat(hit);
-            }}
+            {...(sideChat
+              ? {
+                  onOpenInSideChat: (hit: SearchHit) => {
+                    close();
+                    sideChat(hit);
+                  },
+                }
+              : {})}
             onRunAction={(a) => {
               close();
               if (a.run) a.run();

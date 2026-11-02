@@ -33,6 +33,7 @@ const PANE_KINDS: readonly PaneInstance["pane"][] = [
   "subagents",
   "artifact",
   "vm",
+  "sidechat",
 ];
 
 /** Pane names by kind, localized when read. */
@@ -243,6 +244,8 @@ function useFocusReturn(paneIds: readonly string[]): void {
 export function PaneArea(props: {
   layout: LayoutStore;
   threadId: string;
+  /** Whose layout this is when not the chat's own (`view:home`: panes beside a section). */
+  layoutKey?: string;
   width: number;
   /** Width of the chat + pane area (window minus sidebar); defaults to `width`. */
   contentWidth?: number;
@@ -251,9 +254,10 @@ export function PaneArea(props: {
   renderPane?: PaneRenderer;
   navigate?: (to: string) => void;
 }): ReactElement | null {
+  const key = props.layoutKey ?? props.threadId;
   const state = useSyncExternalStore(
-    (cb) => props.layout.subscribeThread(props.threadId, cb),
-    () => props.layout.forThread(props.threadId),
+    (cb) => props.layout.subscribeThread(key, cb),
+    () => props.layout.forThread(key),
   );
   const pres = presentation(state, props.width);
   const ids = state.panes.map((p) => p.paneId).join(" ");
@@ -366,7 +370,9 @@ function PaneColumns(
                   ⧉
                 </button>
               ) : null}
-              {active && platform.windows ? (
+              {active &&
+              platform.windows &&
+              (props.layoutKey ?? props.threadId) === props.threadId ? (
                 <button
                   type="button"
                   title={t("web.panes.openInWindow")}
