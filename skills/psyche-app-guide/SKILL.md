@@ -19,7 +19,7 @@ You know your own app. When the owner asks how to do something in Psyche, where 
 1. Say what it is and the exact path, with the labels as they appear: "Settings → Daily → Morning brief → Time".
 2. Give the shortest working steps (3 at most). Offer the chat route when it is quicker ("or just say it here").
 3. Offer **Open it for you** by calling `app_navigate` with the route from the table below. The call shows a button; nothing opens until the owner clicks it. Never claim the app opened.
-4. If the owner asks to *do* the thing (change the setting, create the automation), do it with your normal tools and approvals when you can; settings that decide what runs commands, or what is allowed without asking, are the owner's to change in the UI.
+4. If the owner asks to *do* the thing (change the setting, create the automation), do it with your normal tools and approvals when you can; settings that decide what runs commands, or what is allowed to run unprompted, are the owner's to change in the UI.
 5. If this guide does not cover it, say so. Do not invent screens, labels or settings. The app changes; if a label here is not on screen, trust the screen.
 
 The sidebar's gear opens Settings (⌘,).
@@ -124,7 +124,7 @@ Settings opens from the gear or ⌘, at the left a searchable list in groups. Ro
 - **Usage** (`usage`): tokens and cost, counted locally. Also in the gear menu.
 
 **Access**
-- **Permissions** (`permissions`): **Default mode for new threads**, **Connector actions** (Allow / Ask / Deny each), **Browser origins** (sites allowed without asking), shared **Folders**, and the **Grants ledger** where you can revoke any "Always allow".
+- **Permissions** (`permissions`): **Default mode for new threads**, **Connector actions** (Allow / Ask / Deny each), **Browser origins** (sites that need no approval card), shared **Folders**, and the **Grants ledger** where you can revoke any "Always allow".
 - **Connectors** (`connectors`): **Add connector** (Mail, Calendar, Notes, Slack and others), **Add MCP server**. Disconnect pauses one, Remove deletes it. Sign in again when it shows "Sign in again". Command-type MCP servers and running commands need the sandbox: **Set up the sandbox** installs or locates **srt** (Install with Psyche, or point to a path); the same **Set up sandbox** button appears on a command approval card. Installing asks you to confirm.
 - **Skills** (`skills`): the installed skills; each shows what it asks for. Installing or updating goes through a trust card. "Made by {persona}" marks skills it wrote.
 - **Specialists** (`specialists`): the background helpers (researcher, coder and others).
@@ -158,7 +158,7 @@ First run walks through: about you, the model (key saved to the vault with **Sav
 
 **Approval cards** appear in the chat and in `/agent/approvals`. Scopes: **Allow once**, **Allow for this task**, **Allow for this site**, **Allow for this session**, **Always allow** (shown under Settings → Permissions → Grants ledger, revocable). A folder request asks which folder to share. Running a command without the sandbox offers only Allow once and asks you to type a word; **Set up sandbox** is the better path.
 
-**Lifted floors**: some actions (sending, deleting, spending) always ask. On such a card you can choose to lift the floor: **Allow without asking?** names the consequence (messages can't be unsent, deleted items may not be recoverable, payments may not be refundable); confirm with **Allow without asking**. It still asks after reading untrusted content, and every time in Manual mode.
+**Lifted floors**: some actions (sending, deleting, spending) always ask. On such a card you can choose to lift the floor: the lift-floor dialog names the consequence (messages can't be unsent, deleted items may not be recoverable, payments may not be refundable); confirm with its **Allow** button. It still asks after reading untrusted content, and every time in Manual mode.
 
 **Why it asks again (taint)**: if a turn read untrusted content (a web page, an email, a file from outside), the card says "this turn read untrusted content" and offers only Allow once, because that content could be steering the action. **Stop it asking after Reminders, Notes or Calendar reads**: in Settings → Connectors, open Reminders, Notes or Apple Calendar and turn on **Mine — treat as trusted** for each list, folder or calendar only you can edit. Reading from it then won't make the chat ask again, and your Allow rules apply. Shared or read-only ones show "Shared" and can't be turned on; invites from other organizers, Mail, Messages and the web stay untrusted. Only you can change this in Settings: Psyche can't switch it on for you, so tell the owner where it is rather than doing it. A tool that changed its tool list since you approved it has its grants revoked and asks again until you re-approve it in Connectors.
 
