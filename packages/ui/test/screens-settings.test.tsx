@@ -30,13 +30,13 @@ import { folderGrants, policyWithFolders } from "../src/screens/settings/FileAcc
 import { ModelProvidersPanel } from "../src/screens/settings/ModelSection.tsx";
 import { presenceUnavailable } from "../src/screens/settings/SettingsApproval.tsx";
 import {
+  paneForKey,
   SettingsScreen,
   type SettingsScreenProps,
-  paneForKey,
   searchSettings,
 } from "../src/screens/settings/SettingsScreen.tsx";
-import { SETTING_LABELS } from "../src/screens/settings/setting-labels.ts";
 import { sampleProviders, sampleSettings } from "../src/screens/settings/sample-data.ts";
+import { SETTING_LABELS } from "../src/screens/settings/setting-labels.ts";
 import { resolveSection } from "../src/screens/settings/settings-pages.ts";
 import { parseSettingsRoute } from "../src/screens/settings/settings-route.ts";
 import { UiSlotsProvider } from "../src/slots.tsx";
