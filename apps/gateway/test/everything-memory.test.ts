@@ -631,6 +631,42 @@ describe("a model per source", () => {
   });
 });
 
+describe("Life search handler", () => {
+  it("is the owner's: it lists a fact waiting for review, marked", async () => {
+    const { e, graph } = setup();
+    const sam = graph.createEntity({ kind: "person", name: "Sam Lee" }).id;
+    const o = e.store.proposeFact({
+      entityId: sam,
+      attribute: "employer",
+      value: "Initech",
+      provenance: "untrusted",
+      subjectKind: "self_disclosure",
+      citations: [
+        {
+          source: "mail",
+          sourceRef: "<m>",
+          quote: "I just joined Initech",
+          start: 0,
+          end: 21,
+          sourceHash: "h",
+          authorEntityId: sam,
+        },
+      ],
+    });
+    if (o.status === "refused") throw new Error(o.reason);
+    const r = await e.handlers["memory.life.search"]({ q: "initech" });
+    expect(r.facts).toEqual([
+      expect.objectContaining({
+        factId: o.fact.id,
+        review: "pending",
+        quote: "I just joined Initech",
+        source: "mail",
+      }),
+    ]);
+    expect((await e.handlers["memory.life.search"]({ q: "" })).facts).toEqual([]);
+  });
+});
+
 describe("Run now and the scheduled job", () => {
   const afternoon = async () => ({
     onAc: true,

@@ -20,6 +20,7 @@ export * from "./graph/cards.ts";
 export * from "./graph/everything.ts";
 export * from "./graph/handlers.ts";
 export * from "./graph/ingest.ts";
+export * from "./graph/life.ts";
 export * from "./graph/model-pass.ts";
 export * from "./graph/normalize.ts";
 export * from "./graph/poll.ts";
@@ -65,3 +66,4 @@ export async function createMemoryStore(
   return store;
 }
 export * from "./learned.ts";
+export * from "./secure/encrypted.ts";

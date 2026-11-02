@@ -179,6 +179,11 @@ export {
   VAULT_SCHEMA_VERSION,
   VaultStore,
 } from "./store.ts";
+export {
+  isPlainSqlite,
+  loadOrCreateSubsystemKey,
+  openEncryptedSqlite,
+} from "./subsystem-key.ts";
 export { parseTotpSeed, type TotpSeed, totpCode } from "./totp.ts";
 export {
   type AddItemInput,

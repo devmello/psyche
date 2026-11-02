@@ -1983,6 +1983,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Life search for the owner: people, organisations, events and topics by name, and cited facts (including ones still waiting for review, marked) by their words. Owner-only: the agent reads memory through its own tools and access rules.",
+        "name": "memory.life.search",
+        "params": "#/$defs/MemoryLifeSearchParams",
+        "result": "#/$defs/MemoryLifeSearchResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "Open loops, oldest first, filtered by status, direction, person, project or due date.",
         "name": "memory.loops.list",
         "params": "#/$defs/MemoryLoopsListParams",
@@ -22363,6 +22371,76 @@
       ],
       "type": "object"
     },
+    "LifeFactHit": {
+      "properties": {
+        "factId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "entity": {
+          "$ref": "#/$defs/EntitySummary"
+        },
+        "attribute": {
+          "$ref": "#/$defs/GraphFactAttribute"
+        },
+        "value": {
+          "description": "Untrusted text when it came from someone else",
+          "maxLength": 2000,
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "review": {
+          "$ref": "#/$defs/GraphReviewState"
+        },
+        "quote": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "source": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "observedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "factId",
+        "entity",
+        "attribute",
+        "value",
+        "provenance",
+        "review"
+      ],
+      "type": "object"
+    },
     "LinkPaymentMethod": {
       "properties": {
         "id": {
@@ -25721,6 +25799,56 @@
       },
       "required": [
         "lessons"
+      ],
+      "type": "object"
+    },
+    "MemoryLifeSearchParams": {
+      "properties": {
+        "q": {
+          "maxLength": 500,
+          "type": "string"
+        },
+        "limit": {
+          "description": "Default 20",
+          "maximum": 50,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "q"
+      ],
+      "type": "object"
+    },
+    "MemoryLifeSearchResult": {
+      "properties": {
+        "entities": {
+          "items": {
+            "$ref": "#/$defs/EntitySummary"
+          },
+          "type": "array"
+        },
+        "facts": {
+          "items": {
+            "$ref": "#/$defs/LifeFactHit"
+          },
+          "type": "array"
+        },
+        "intent": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "entities",
+        "facts"
       ],
       "type": "object"
     },
@@ -33697,6 +33825,27 @@
       ],
       "type": "string"
     },
+    "SearchIndexEncryption": {
+      "properties": {
+        "state": {
+          "description": "on: the index file is encrypted; off: it is not and the switch is off; unavailable: the switch is on but the key cannot be used here",
+          "enum": [
+            "off",
+            "on",
+            "unavailable"
+          ],
+          "type": "string"
+        },
+        "reason": {
+          "description": "Why it is unavailable",
+          "type": "string"
+        }
+      },
+      "required": [
+        "state"
+      ],
+      "type": "object"
+    },
     "SearchIndexStatus": {
       "properties": {
         "docs": {
@@ -33709,6 +33858,9 @@
         },
         "semantic": {
           "$ref": "#/$defs/SearchSemanticStatus"
+        },
+        "encryption": {
+          "$ref": "#/$defs/SearchIndexEncryption"
         }
       },
       "required": [
