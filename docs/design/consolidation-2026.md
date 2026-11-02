@@ -162,3 +162,34 @@ push history, and Back would land on the old route and bounce forward again.
 11. **One accent on Home**: the first Approve when something waits on you, otherwise the first
     idea's Do it. Inferred goals and nudges use outline buttons on Home (their own pages keep
     the accent), and Home's sidebar count is amber, the only count the sidebar shows now.
+
+## 7. Simple first, powerful one step away
+
+The owner, 2026-11-02: "The entire app needs to be cleaned up, simple, intuitive, but still
+powerful. It cannot be so confusing that people don't even know what to do for beginners, yet it
+should offer so much capability that people who are advanced can adjust settings on their own."
+
+This is the rule every surface follows from now on:
+
+1. **One obvious starting point.** Home opens with a single field, "Ask {persona} anything",
+   that sends to the main chat and opens it. Nothing else on the page competes with it for a
+   first-time owner.
+2. **A first visit says what to try.** Until anything has been said, the field has a few
+   starters under it: Plan my week, Set up a morning brief, Tell {persona} about you, and What
+   can you do?. They disappear once the owner has a conversation.
+3. **Empty states say the next step.** Every empty section either names what to do ("Tell
+   {persona} one in chat, or add it here") or is not drawn at all. No blank cards.
+4. **Advanced surfaces are reachable, never in the way.** Run Timelines and the activity
+   ledger (the Overview), Scheduled with its run history, all notifications, Soul & Memory and
+   Memory review live in Home's quiet **More** list and in ⌘K, not in the sidebar. Settings
+   keeps every knob for owners who want them (`settings-redesign` owns its structure).
+5. **Access is granted when Psyche asks.** Files, folders and connectors are not a setup task.
+   When the agent needs one it asks, the owner approves in the approval card, and the grant is
+   remembered by type (this folder, this connector, this kind of action). So no beginner
+   surface asks the owner to "connect" anything up front: the Overview's "Connect your mail"
+   starter is gone, and Home's starters never mention access. Settings still lists every grant
+   to review or revoke.
+6. **New features follow the same path.** A small feature becomes a Home section, a ⌘K action
+   or a row under More. It does not get a sidebar row or its own page unless it is a place
+   people go every day.
+

@@ -5,13 +5,13 @@ import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 import type { MockGateway } from "../src/data/mock-gateway.ts";
 import { createFixtureWorld, type FixtureWorld, IDS } from "../src/fixtures/index.ts";
+import { SuggestionsSection } from "../src/home/sections.tsx";
 import { FeedScreen } from "../src/screens/feed/FeedScreen.tsx";
 import { feedKind, feedKindLabel, withCitationLinks } from "../src/screens/feed/feed-post.ts";
 import { GoalPage } from "../src/screens/goals/GoalPage.tsx";
 import { GoalsScreen } from "../src/screens/goals/GoalsScreen.tsx";
 import { readGoalPlan } from "../src/screens/goals/goal-plan.ts";
 import { evidenceTarget } from "../src/screens/ideas/evidence.tsx";
-import { IdeasScreen } from "../src/screens/ideas/IdeasScreen.tsx";
 import { InboxScreen } from "../src/screens/inbox/InboxScreen.tsx";
 import type { UiSlots } from "../src/slots.tsx";
 import { STORY_NOW, StoryWorld } from "../src/stories/harness.tsx";
@@ -71,7 +71,7 @@ describe("feed kind derivation (s12 gap 5)", () => {
 describe("FeedScreen", () => {
   it("renders the bounded brief with kind labels, sources and the end marker", async () => {
     const { user } = setup(<FeedScreen onAsk={() => {}} />);
-    expect(await screen.findByText("Today · 7 posts")).toBeTruthy();
+    expect(await screen.findByText("7 posts")).toBeTruthy();
     const briefing = screen.getByRole("article", { name: "Two things before your 10:00" });
     expect(within(briefing).getByText("Briefing")).toBeTruthy();
     expect(within(briefing).getByText("Sources (3)")).toBeTruthy();
@@ -139,8 +139,8 @@ describe("FeedScreen", () => {
     const onAsk = vi.fn();
     const { navigate, user } = setup(<FeedScreen onAsk={onAsk} />);
     await user.click(await screen.findByRole("button", { name: "What should I write about" }));
-    expect(navigate).toHaveBeenCalledWith("/feed/instructions");
-    // The instructions sheet opens over the feed (#614); close it to get back to the posts.
+    expect(navigate).toHaveBeenCalledWith("/home/instructions");
+    // The instructions sheet opens over Home (#614); close it to get back to the posts.
     await screen.findByRole("dialog", { name: "What should I write about" });
     await user.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
@@ -175,9 +175,9 @@ describe("evidence routes", () => {
   });
 });
 
-describe("IdeasScreen", () => {
+describe("Ideas, as Home's Suggestions", () => {
   it("accepts an idea as recurring and removes it from the list", async () => {
-    const { callsTo, user } = setup(<IdeasScreen />);
+    const { callsTo, user } = setup(<SuggestionsSection accent />);
     const card = await screen.findByRole("article", {
       name: "Cancel the unused streaming subscription",
     });
@@ -201,7 +201,7 @@ describe("IdeasScreen", () => {
   });
 
   it("dismisses with a reason from the menu", async () => {
-    const { callsTo, user } = setup(<IdeasScreen />);
+    const { callsTo, user } = setup(<SuggestionsSection accent />);
     const card = await screen.findByRole("article", { name: "Friday afternoon week review" });
     await user.click(within(card).getByRole("button", { name: "Dismiss" }));
     await user.click(await screen.findByRole("menuitem", { name: "Never from this source" }));
@@ -215,7 +215,7 @@ describe("IdeasScreen", () => {
 
   it("links evidence and opens skill drafts and edits", async () => {
     const onEdit = vi.fn();
-    const { navigate, user } = setup(<IdeasScreen onEdit={onEdit} />);
+    const { navigate, user } = setup(<SuggestionsSection accent onEdit={onEdit} />);
     await user.click(await screen.findByRole("button", { name: /3 Fridays/ }));
     expect(navigate).toHaveBeenCalledWith(`/chat/${IDS.threads.main}`);
     await user.click(screen.getByRole("button", { name: "View SKILL.md" }));
@@ -232,15 +232,14 @@ describe("IdeasScreen", () => {
     expect(within(skill).queryByRole("checkbox")).toBeNull();
   });
 
-  it("shows the empty state", async () => {
-    setup(<IdeasScreen />, {
+  it("is left out of Home when there is nothing to suggest", async () => {
+    setup(<SuggestionsSection accent />, {
       edit: (w) => {
         w.ideas = [];
+        w.goals = w.goals.filter((g) => g.status !== "candidate");
       },
     });
-    expect(
-      await screen.findByText("Ideas come from your goals, conversations and connected accounts."),
-    ).toBeTruthy();
+    await waitFor(() => expect(screen.queryByTestId("section-suggestions")).toBeNull());
   });
 });
 
@@ -475,29 +474,13 @@ describe("page columns (#512, redesign §5.6)", () => {
     };
   };
 
-  it("puts each title in the toolbar row and centres the 680 / 880 px columns", async () => {
+  it("puts the Goals title in the toolbar row beside its split list", async () => {
     render(
       <StoryWorld>
-        <FeedScreen />
         <GoalsScreen />
-        <IdeasScreen />
       </StoryWorld>,
     );
     await screen.findByRole("heading", { name: "Goals" });
-    for (const [name, width] of [
-      ["Feed", "680px"],
-      ["Ideas", "880px"],
-    ] as const) {
-      const { toolbar, column } = parts(name);
-      expect(toolbar, name).toBeTruthy();
-      // The title lives in the toolbar only, never repeated in the content.
-      expect(within(toolbar as HTMLElement).getByRole("heading", { level: 1, name })).toBeTruthy();
-      expect(within(column).queryByRole("heading", { level: 1 })).toBeNull();
-      expect(column.className).toContain("mx-auto");
-      expect(column.className).toContain(width);
-      // Nothing inside narrows the content to a left-aligned measure again.
-      expect(column.querySelector('[class*="max-w-[68ch]"]'), name).toBeNull();
-    }
     // Goals is a split layout (§5.6): the title in the toolbar, a 280 px list beside the page.
     const goals = parts("Goals");
     expect(

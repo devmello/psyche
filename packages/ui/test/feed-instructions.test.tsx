@@ -99,7 +99,7 @@ describe("the Feed instructions sheet (issue #614)", () => {
   it("opens from the toolbar, saves the text and the interests, and generates now", async () => {
     const { user, callsTo, gw, navigate } = setup(<FeedScreen />);
     await user.click(await screen.findByRole("button", { name: "What should I write about" }));
-    expect(navigate).toHaveBeenCalledWith("/feed/instructions");
+    expect(navigate).toHaveBeenCalledWith("/home/instructions");
     const sheet = await screen.findByRole("dialog", { name: "What should I write about" });
     const text = await within(sheet).findByRole("textbox", {
       name: "What should the feed write about?",

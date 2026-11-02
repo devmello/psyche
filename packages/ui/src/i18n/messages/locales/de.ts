@@ -760,8 +760,6 @@ export const de: Partial<Catalogue> = {
   "shell.shortcut.pushToTalkKeys": "fn halten",
   "shell.rail.chat": "Chat",
   "shell.rail.search": "Suche",
-  "shell.rail.feed": "Feed",
-  "shell.rail.ideas": "Ideen",
   "shell.rail.goals": "Ziele",
   "shell.rail.library": "Mediathek",
   "shell.rail.badge": "{label}, {n, number} neu",
@@ -2571,21 +2569,11 @@ export const de: Partial<Catalogue> = {
   "screens.inbox.group.today": "Heute",
   "screens.inbox.group.earlier": "Früher",
   "screens.ideas.makeRecurring": "Wiederkehrend machen",
-  "screens.ideas.count": "{n, plural, one {# Idee} other {# Ideen}}",
   "screens.ideas.cadence": "Rhythmus",
   "screens.ideas.repeats":
     "Wiederholt sich nach dem vorgeschlagenen Zeitplan; ändere ihn später unter „Anstehend“.",
   "screens.ideas.viewSkill": "SKILL.md ansehen",
   "screens.ideas.accept": "Los geht’s",
-  "screens.ideas.loading": "Ideen werden geladen",
-  "screens.ideas.loadFailed": "Psyche konnte deine Ideen nicht laden",
-  "screens.ideas.nothingChanged": "Keine Idee wurde angenommen oder verworfen.",
-  "screens.ideas.talkTo": "Mit {name} sprechen",
-  "screens.ideas.empty":
-    "Ideen entstehen aus deinen Zielen, Unterhaltungen und verbundenen Accounts.",
-  "screens.ideas.title": "Ideen",
-  "screens.ideas.description":
-    "Angenommene Ideen werden zu Aufgaben oder Automationen; nichts läuft, bis du es sagst.",
   "screens.ideas.added": "„{title}“ zu „Anstehend“ hinzugefügt.",
   "screens.ideas.started": "{name} hat „{title}“ gestartet.",
   "screens.ideas.open": "Öffnen",
@@ -2622,9 +2610,6 @@ export const de: Partial<Catalogue> = {
   "screens.feed.posts": "Beiträge",
   "screens.feed.end":
     "Das war’s für heute.{hasNext, select, true { Nächstes Briefing {next}.} other {}}",
-  "screens.feed.title": "Feed",
-  "screens.feed.todayPosts": "Heute · {n, plural, one {# Beitrag} other {# Beiträge}}",
-  "screens.feed.today": "Heute",
   "screens.feed.instructions": "Worüber ich schreiben soll",
   "screens.feed.schedule": "Zeitplan",
   "screens.feed.editor.description":
@@ -3103,10 +3088,6 @@ export const de: Partial<Catalogue> = {
 
   "web.rail.label": "Bereiche",
   "web.rail.chat": "Chat",
-  "web.rail.search": "Suche",
-  "web.rail.feed": "Feed",
-  "web.rail.ideas": "Ideen",
-  "web.rail.goals": "Ziele",
   "web.rail.library": "Mediathek",
   "web.rail.settings": "Einstellungen",
   "web.threads.mainChat": "Hauptchat",

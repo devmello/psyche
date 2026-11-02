@@ -7,10 +7,11 @@ import { needsYou } from "../screens/inbox/InboxScreen.tsx";
 import { useSlots } from "../slots.tsx";
 import { PinnedWidgets } from "../widgets/PinnedWidgets.tsx";
 import {
-  AboutYouLink,
+  AskSection,
   ComingUpSection,
   GoalsSection,
   KeepInTouchSection,
+  MoreSection,
   NeedsYouSection,
   SuggestionsSection,
 } from "./sections.tsx";
@@ -28,8 +29,10 @@ export interface HomeScreenProps {
 
 /**
  * Home (docs/design/consolidation-2026.md §3.1): what needs you and what is coming, on one page.
- * The main column is the day (Needs you, Pinned, Today's brief, Suggestions); the side column is
- * at a glance (Coming up, Goals, Keep in touch, and the way into "{persona} & you"). Each section
+ * It opens with one way in, "Ask {persona} anything" (with things to try on a first visit); then
+ * the day (Needs you, Pinned, Today's brief, Suggestions) and, at a glance, Coming up, Goals, Keep
+ * in touch and a quiet "More" list of the deeper pages (§7: simple first, powerful one step
+ * away). Each section
  * is the component its old page used, and a section with nothing to say is not drawn. Under
  * 896 px of content the columns stack, main first.
  */
@@ -59,10 +62,10 @@ export function HomeScreen({
       />
       <div className="mx-auto grid w-full max-w-[calc(1120px+3rem)] gap-8 px-4 pt-4 pb-12 md:px-6 @4xl/home:grid-cols-[minmax(0,1fr)_20rem] @4xl/home:gap-10">
         <div className="flex min-w-0 flex-col gap-8">
+          <AskSection onNavigate={navigate} accent={!waiting} />
           <NeedsYouSection onNavigate={navigate} {...clock} />
           <PinnedWidgets />
           <FeedScreen
-            layout="section"
             onCloseInstructions={() => navigate("/home")}
             {...(instructionsOpen === undefined ? {} : { instructionsOpen })}
             {...clock}
@@ -73,7 +76,7 @@ export function HomeScreen({
           <ComingUpSection onNavigate={navigate} {...clock} />
           <GoalsSection onNavigate={navigate} />
           <KeepInTouchSection onNavigate={navigate} />
-          <AboutYouLink onNavigate={navigate} />
+          <MoreSection onNavigate={navigate} />
         </aside>
       </div>
     </div>

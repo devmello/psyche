@@ -724,8 +724,6 @@ export const fr: Partial<Catalogue> = {
   "shell.shortcut.pushToTalkKeys": "Maintenir fn",
   "shell.rail.chat": "Discussion",
   "shell.rail.search": "Recherche",
-  "shell.rail.feed": "Fil",
-  "shell.rail.ideas": "Idées",
   "shell.rail.goals": "Objectifs",
   "shell.rail.library": "Bibliothèque",
   "shell.rail.badge": "{label}, {n, number} nouveaux",
@@ -2507,21 +2505,11 @@ export const fr: Partial<Catalogue> = {
   "screens.inbox.group.today": "Aujourd’hui",
   "screens.inbox.group.earlier": "Plus tôt",
   "screens.ideas.makeRecurring": "Rendre récurrente",
-  "screens.ideas.count": "{n, plural, one {# idée} other {# idées}}",
   "screens.ideas.cadence": "Fréquence",
   "screens.ideas.repeats":
     "Se répète selon le calendrier proposé ; modifiez-le plus tard dans À venir.",
   "screens.ideas.viewSkill": "Voir SKILL.md",
   "screens.ideas.accept": "Allons-y",
-  "screens.ideas.loading": "Chargement des idées",
-  "screens.ideas.loadFailed": "Psyche n’a pas pu charger vos idées",
-  "screens.ideas.nothingChanged": "Aucune idée n’a été acceptée ni ignorée.",
-  "screens.ideas.talkTo": "Parler à {name}",
-  "screens.ideas.empty":
-    "Les idées viennent de vos objectifs, de vos conversations et de vos comptes connectés.",
-  "screens.ideas.title": "Idées",
-  "screens.ideas.description":
-    "Les idées acceptées deviennent des tâches ou des automatisations ; rien ne s’exécute sans votre accord.",
   "screens.ideas.added": "« {title} » ajouté à À venir.",
   "screens.ideas.started": "{name} a démarré « {title} ».",
   "screens.ideas.open": "Ouvrir",
@@ -2558,10 +2546,6 @@ export const fr: Partial<Catalogue> = {
   "screens.feed.posts": "Publications",
   "screens.feed.end":
     "C’est tout pour aujourd’hui.{hasNext, select, true { Prochain bulletin {next}.} other {}}",
-  "screens.feed.title": "Fil",
-  "screens.feed.todayPosts":
-    "Aujourd’hui · {n, plural, one {# publication} other {# publications}}",
-  "screens.feed.today": "Aujourd’hui",
   "screens.feed.instructions": "Sujets à traiter",
   "screens.feed.schedule": "Planification",
   "screens.feed.editor.description":
@@ -3032,10 +3016,6 @@ export const fr: Partial<Catalogue> = {
   "web.voice.engineStopped": "Le moteur de reconnaissance vocale a arrêté la dictée.",
   "web.rail.label": "Sections",
   "web.rail.chat": "Discussion",
-  "web.rail.search": "Recherche",
-  "web.rail.feed": "Fil",
-  "web.rail.ideas": "Idées",
-  "web.rail.goals": "Objectifs",
   "web.rail.library": "Bibliothèque",
   "web.rail.settings": "Réglages",
   "web.threads.mainChat": "Discussion principale",

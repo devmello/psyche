@@ -1,5 +1,5 @@
-import type { NudgeAction } from "@psyche/protocol";
-import { ChevronRight, Plus } from "lucide-react";
+import type { Idea, NudgeAction } from "@psyche/protocol";
+import { ArrowUp, ChevronRight, Plus } from "lucide-react";
 import { type ReactElement, type ReactNode, useState } from "react";
 import { toast } from "sonner";
 import { scheduleSentence } from "../agent/UpcomingPanel.tsx";
@@ -7,8 +7,15 @@ import { usePrefillComposer } from "../chat/prefill.ts";
 import { DelayedSkeletons } from "../components/DelayedSkeleton.tsx";
 import { Button } from "../components/ui/button.tsx";
 import { Skeleton } from "../components/ui/skeleton.tsx";
-import { useCall, useGatewayQuery, useNotifications } from "../data/index.ts";
+import {
+  useCall,
+  useGatewayQuery,
+  useNotifications,
+  useThread,
+  useThreads,
+} from "../data/index.ts";
 import { t } from "../i18n/core.ts";
+import { describeError } from "../i18n/errors.ts";
 import { formatRelative } from "../lib/format.ts";
 import { useNow } from "../lib/use-now.ts";
 import { ListItem } from "../motion/index.ts";
@@ -18,9 +25,9 @@ import { ScreenSection } from "../screens/feed/ScreenToolbar.tsx";
 import { AddGoalDialog } from "../screens/goals/AddGoalDialog.tsx";
 import { CandidateGoalCard, GoalRow, useGoalDecisions } from "../screens/goals/GoalsScreen.tsx";
 import { IdeaCard } from "../screens/ideas/IdeaCard.tsx";
-import { useIdeaActions } from "../screens/ideas/IdeasScreen.tsx";
+import { useIdeaActions } from "../screens/ideas/use-idea-actions.ts";
 import { NeedsYouList, needsYou } from "../screens/inbox/InboxScreen.tsx";
-import { usePersona } from "../slots.tsx";
+import { usePersona, useSlots } from "../slots.tsx";
 
 /** A raised list of rows (the grouped-list surface), for the side column's sections. */
 function RowList({ label, children }: { label: string; children: ReactNode }): ReactElement {
@@ -94,12 +101,18 @@ export function NeedsYouSection({
  */
 export function SuggestionsSection({
   accent,
-  onNavigate,
+  onNavigate: navigateProp,
+  onEdit,
 }: {
   /** No other control on the page holds the accent. */
   accent: boolean;
-  onNavigate: (to: string) => void;
+  /** Defaults to the slot's `navigate`. */
+  onNavigate?: (to: string) => void;
+  /** An idea's Edit (opens its brief to change); absent, the card has no Edit. */
+  onEdit?: (idea: Idea) => void;
 }): ReactElement | null {
+  const { navigate: slotNavigate } = useSlots();
+  const onNavigate = navigateProp ?? slotNavigate ?? (() => {});
   const persona = usePersona();
   const { ideas, busy, accept, dismiss, viewSkill } = useIdeaActions();
   const { goals, later, decide } = useGoalDecisions();
@@ -123,6 +136,7 @@ export function SuggestionsSection({
               onDismiss={dismiss}
               onViewSkill={viewSkill}
               onOpenRoute={onNavigate}
+              {...(onEdit ? { onEdit } : {})}
             />
           </ListItem>
         ))}
@@ -326,22 +340,142 @@ export function KeepInTouchSection({
   );
 }
 
-/** One quiet row into "{persona} & you" (the Overview): activity, growth, what was built. */
-export function AboutYouLink({ onNavigate }: { onNavigate: (to: string) => void }): ReactElement {
+/** The one starting point on Home: ask the persona anything, in the main chat. */
+export function AskSection({
+  onNavigate,
+  accent,
+}: {
+  onNavigate: (to: string) => void;
+  /** No other control on the page holds the accent: the send button may. */
+  accent: boolean;
+}): ReactElement {
   const persona = usePersona();
+  const threads = useThreads();
+  const mainId = threads.main?.thread.id ?? null;
+  const main = useThread(mainId);
+  const prefill = usePrefillComposer();
+  const [text, setText] = useState("");
+  const [sending, setSending] = useState(false);
+  // Nothing said yet anywhere: a first-time owner gets a few things to try.
+  const fresh =
+    threads.main !== null &&
+    threads.main.thread.lastMessageAt == null &&
+    threads.active.length === 0;
+  const ask = (question: string) => {
+    const q = question.trim();
+    if (q === "" || sending) return;
+    if (mainId === null) {
+      if (prefill) prefill(q);
+      else onNavigate("/chat");
+      return;
+    }
+    setSending(true);
+    main
+      .send(q)
+      .then(() => {
+        setText("");
+        onNavigate("/chat");
+      })
+      .catch((err: unknown) => toast.error(t("home.ask.failed", { reason: describeError(err) })))
+      .finally(() => setSending(false));
+  };
+  const label = t("home.ask.label", { name: persona.name });
   return (
-    <ScreenSection id="you" title={t("overview.title", { name: persona.name })}>
-      <button
-        type="button"
-        onClick={() => onNavigate("/overview")}
-        className="flex min-h-11 items-center gap-2 rounded-lg bg-surface-raised px-3.5 py-2 text-start text-body text-label-primary shadow-elevation-1 outline-none transition-colors hover:bg-fill-quaternary focus-visible:ring-2 focus-visible:ring-ring"
+    <section aria-label={label} className="flex flex-col gap-3" data-testid="section-ask">
+      <form
+        className="flex h-12 items-center gap-2 rounded-xl bg-surface-raised ps-4 pe-1.5 shadow-elevation-1 focus-within:ring-2 focus-within:ring-ring"
+        onSubmit={(e) => {
+          e.preventDefault();
+          ask(text);
+        }}
       >
-        <span className="min-w-0 flex-1">{t("home.you.link", { name: persona.name })}</span>
-        <ChevronRight
-          aria-hidden="true"
-          className="size-4 shrink-0 text-label-tertiary rtl:-scale-x-100"
+        <input
+          aria-label={label}
+          placeholder={label}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          disabled={sending}
+          className="min-w-0 flex-1 bg-transparent text-body text-label-primary outline-none placeholder:text-label-tertiary"
+          data-testid="home-ask"
         />
-      </button>
+        <Button
+          type="submit"
+          size="icon-sm"
+          variant={accent && text.trim() !== "" ? "default" : "ghost"}
+          disabled={sending || text.trim() === ""}
+          aria-label={t("home.ask.send")}
+          title={t("home.ask.send")}
+        >
+          <ArrowUp aria-hidden="true" />
+        </Button>
+      </form>
+      {fresh ? (
+        <div className="flex flex-wrap items-center gap-2 px-1" data-testid="home-starters">
+          <span className="text-callout text-label-tertiary">{t("home.start.try")}</span>
+          {(["planWeek", "brief", "remember"] as const).map((kind) => (
+            <Button
+              key={kind}
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={sending}
+              onClick={() => ask(t(`home.start.${kind}.prompt`, { name: persona.name }))}
+            >
+              {t(`home.start.${kind}`, { name: persona.name })}
+            </Button>
+          ))}
+          <Button type="button" size="sm" variant="ghost" onClick={() => onNavigate("/can-do")}>
+            {t("capabilities.open")}
+          </Button>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+/**
+ * Everything else, one quiet list at the foot of Home: the deeper pages (run Timelines, Scheduled,
+ * notifications, memory) stay reachable without a sidebar row each (consolidation-2026 §7).
+ */
+export function MoreSection({ onNavigate }: { onNavigate: (to: string) => void }): ReactElement {
+  const persona = usePersona();
+  const rows: readonly { label: string; hint: string; route: string }[] = [
+    {
+      label: t("overview.title", { name: persona.name }),
+      hint: t("home.more.overview"),
+      route: "/overview",
+    },
+    { label: t("shell.rail.scheduled"), hint: t("home.more.scheduled"), route: "/scheduled" },
+    { label: t("screens.inbox.title"), hint: t("home.more.inbox"), route: "/inbox" },
+    {
+      label: t("agent.sheet.soul"),
+      hint: t("home.more.soul", { name: persona.name }),
+      route: "/agent/soul",
+    },
+    { label: t("settings.nav.memory"), hint: t("home.more.review"), route: "/settings/memory" },
+  ];
+  return (
+    <ScreenSection id="more" title={t("home.more")}>
+      <RowList label={t("home.more")}>
+        {rows.map((r) => (
+          <li key={r.route}>
+            <button
+              type="button"
+              onClick={() => onNavigate(r.route)}
+              className="flex min-h-11 w-full items-center gap-2 rounded-sm px-2.5 py-1.5 text-start outline-none transition-colors hover:bg-fill-quaternary focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="truncate text-body text-label-primary">{r.label}</span>
+                <span className="truncate text-callout text-label-secondary">{r.hint}</span>
+              </span>
+              <ChevronRight
+                aria-hidden="true"
+                className="size-4 shrink-0 text-label-tertiary rtl:-scale-x-100"
+              />
+            </button>
+          </li>
+        ))}
+      </RowList>
     </ScreenSection>
   );
 }

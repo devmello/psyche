@@ -189,10 +189,6 @@ export const web = {
 
   "web.rail.label": "Sections",
   "web.rail.chat": "Chat",
-  "web.rail.search": "Search",
-  "web.rail.feed": "Feed",
-  "web.rail.ideas": "Ideas",
-  "web.rail.goals": "Goals",
   "web.rail.library": "Library",
   "web.rail.settings": "Settings",
   "web.threads.mainChat": "Main chat",

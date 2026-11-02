@@ -25,8 +25,9 @@ import { OverviewStatusProvider, useOverviewStatusProvider } from "./SectionStat
 import { OverviewSummary } from "./SummarySection.tsx";
 
 /** The "Try" chips of the new-user card (§5.5); the host turns each into a real action. */
-export type OverviewTry = "planWeek" | "morningBrief" | "connectMail";
-const TRIES: readonly OverviewTry[] = ["planWeek", "morningBrief", "connectMail"];
+export type OverviewTry = "planWeek" | "morningBrief";
+/** No "connect your mail": access is granted when Psyche asks for it (consolidation-2026 §7). */
+const TRIES: readonly OverviewTry[] = ["planWeek", "morningBrief"];
 
 export interface OverviewScreenProps {
   period: OverviewPeriod;

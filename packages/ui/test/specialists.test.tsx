@@ -341,7 +341,7 @@ describe("specialist results in the Feed (specialists §6.2)", () => {
 
   it("stays out of the Feed unless the owner turned it on", async () => {
     feed(false);
-    await screen.findByRole("heading", { name: "Feed" });
+    await screen.findByRole("heading", { name: "Today" });
     await act(async () => {
       await new Promise((r) => setTimeout(r, 30));
     });

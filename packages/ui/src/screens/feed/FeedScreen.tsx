@@ -1,23 +1,22 @@
 import type { FeedPost } from "@psyche/protocol";
-import { CalendarClock, CircleAlert, Loader, Newspaper, PenLine } from "lucide-react";
+import { CalendarClock, CircleAlert, Loader, PenLine } from "lucide-react";
 import { type ReactElement, type ReactNode, useState } from "react";
 import { toast } from "sonner";
 import { useAskAboutFeedItem } from "../../chat/ask-about.ts";
-import { EmptyState, ErrorState, LoadingCards, useDelayedFlag } from "../../components/page.tsx";
+import { ErrorState, LoadingCards, useDelayedFlag } from "../../components/page.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { useFeed, useSettings } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
 import { formatTime } from "../../lib/format.ts";
 import { useNow } from "../../lib/use-now.ts";
-import { cn } from "../../lib/utils.ts";
 import { ListItem } from "../../motion/index.ts";
 import { useSlots } from "../../slots.tsx";
 import { FeedSpecialistResults } from "../../specialists/FeedResults.tsx";
 import { FeedInstructionsSheet } from "./FeedInstructionsSheet.tsx";
 import { type FeedFeedbackValue, FeedPostCard } from "./FeedPostCard.tsx";
 import { feedKind, feedTopic, primarySource } from "./feed-post.ts";
-import { ScreenColumn, ScreenSection, ScreenToolbar, ToolbarLabel } from "./ScreenToolbar.tsx";
+import { ScreenSection, ToolbarLabel } from "./ScreenToolbar.tsx";
 
 /** A source the brief could not read (the protocol has no field for it yet; see the report). */
 export interface FeedSourceFailure {
@@ -47,14 +46,13 @@ export interface FeedViewProps {
   onOpenRoute?: (route: string) => void;
   /** Specialists' results, above the brief, when the owner turned them on (specialists §6.2). */
   specialistResults?: ReactNode;
-  /**
-   * `page` is the Feed screen; `section` is Home's "Today" (docs/design/consolidation-2026.md
-   * §3.1): a section heading instead of the toolbar, and a quiet line when there are no posts.
-   */
-  layout?: "page" | "section";
 }
 
-/** The Feed (UI design §3.9): a bounded daily brief with an end marker. Presentational. */
+/**
+ * The daily brief (UI design §3.9): a bounded list of posts with an end marker. It is Home's
+ * "Today" section (docs/design/consolidation-2026.md §3.1); the Feed is no longer a page of its
+ * own. Presentational.
+ */
 export function FeedView({
   posts,
   nextBriefAt,
@@ -71,9 +69,7 @@ export function FeedView({
   onGenerate,
   onOpenRoute,
   specialistResults,
-  layout = "page",
 }: FeedViewProps): ReactElement {
-  const section = layout === "section";
   const nextAt = nextBriefAt === null ? null : formatTime(nextBriefAt);
   const settled = !loading && error === null;
   const showSkeleton = useDelayedFlag(loading, loadingDelayMs);
@@ -112,7 +108,7 @@ export function FeedView({
         <LoadingCards label={t("screens.feed.generating")} count={2} lines={3} />
       </div>
     );
-  } else if (posts.length === 0 && section) {
+  } else if (posts.length === 0) {
     body = (
       <p className="flex flex-wrap items-center gap-x-2 px-1 text-callout text-label-secondary">
         {t("screens.feed.empty", { at: nextAt ?? "07:00" })}
@@ -122,17 +118,6 @@ export function FeedView({
           </Button>
         ) : null}
       </p>
-    );
-  } else if (posts.length === 0) {
-    body = (
-      <EmptyState
-        icon={Newspaper}
-        {...(onGenerate
-          ? { action: { label: t("screens.feed.generateFirst"), onClick: onGenerate } }
-          : {})}
-      >
-        {t("screens.feed.empty", { at: nextAt ?? "07:00" })}
-      </EmptyState>
     );
   } else {
     body = (
@@ -149,12 +134,7 @@ export function FeedView({
           ))}
         </ul>
         {/* The end marker (§5.6): one centred line with 48 px of space above. */}
-        <p
-          className={cn(
-            "text-center text-callout text-label-secondary",
-            section ? "pt-2" : "pt-12",
-          )}
-        >
+        <p className="pt-2 text-center text-callout text-label-secondary">
           {t("screens.feed.end", { next: nextAt ?? "", hasNext: Boolean(nextAt) })}
         </p>
       </>
@@ -225,33 +205,15 @@ export function FeedView({
     </>
   );
 
-  if (section) {
-    return (
-      <ScreenSection
-        id="today"
-        title={t("home.today")}
-        {...(settled && posts.length > 0
-          ? { meta: t("home.today.posts", { n: posts.length }) }
-          : {})}
-        actions={actions}
-      >
-        {content}
-      </ScreenSection>
-    );
-  }
   return (
-    <section aria-label={t("screens.feed.title")}>
-      <ScreenToolbar
-        title={t("screens.feed.title")}
-        meta={
-          settled && posts.length > 0
-            ? t("screens.feed.todayPosts", { n: posts.length })
-            : t("screens.feed.today")
-        }
-        actions={actions}
-      />
-      <ScreenColumn width="reading">{content}</ScreenColumn>
-    </section>
+    <ScreenSection
+      id="today"
+      title={t("home.today")}
+      {...(settled && posts.length > 0 ? { meta: t("home.today.posts", { n: posts.length }) } : {})}
+      actions={actions}
+    >
+      {content}
+    </ScreenSection>
   );
 }
 
@@ -263,12 +225,12 @@ export interface FeedScreenProps {
   onAsk?: (post: FeedPost) => void;
   /**
    * Replaces the built-in instructions sheet. By default the button opens the Feed instructions
-   * sheet over the feed and navigates to `/feed/instructions` (issue #614).
+   * sheet over Home and navigates to `/home/instructions` (issue #614).
    */
   onEditInstructions?: () => void;
-  /** The route has the instructions sheet open (`/feed/instructions`). */
+  /** The route has the instructions sheet open (`/home/instructions`). */
   instructionsOpen?: boolean;
-  /** Closing the instructions sheet; defaults to navigating back to `/feed`. */
+  /** Closing the instructions sheet; defaults to navigating back to `/home`. */
   onCloseInstructions?: () => void;
   /** Defaults to Scheduled (`/scheduled`), where the brief's routine is paused, run or set up. */
   onSchedule?: () => void;
@@ -277,8 +239,6 @@ export interface FeedScreenProps {
   sourceFailures?: readonly FeedSourceFailure[];
   /** Fixed clock (stories, tests). */
   now?: number;
-  /** The Feed screen, or Home's "Today" section (instructions then live at `/home/instructions`). */
-  layout?: "page" | "section";
 }
 
 const FEEDBACK_TOAST: Record<FeedFeedbackValue, (post: FeedPost) => string> = {
@@ -303,9 +263,7 @@ export function FeedScreen({
   onGenerate,
   sourceFailures,
   now: fixedNow,
-  layout = "page",
 }: FeedScreenProps): ReactElement {
-  const base = layout === "section" ? "/home" : "/feed";
   const { navigate } = useSlots();
   const askAbout = useAskAboutFeedItem();
   const onAsk = onAskProp ?? askAbout;
@@ -346,12 +304,12 @@ export function FeedScreen({
     onEditInstructions ??
     (() => {
       setOwnOpen(true);
-      navigate?.(`${base}/instructions`);
+      navigate?.("/home/instructions");
     });
   const closeInstructions = () => {
     setOwnOpen(false);
     if (onCloseInstructions) onCloseInstructions();
-    else if (instructionsOpen !== undefined) navigate?.(base);
+    else if (instructionsOpen !== undefined) navigate?.("/home");
   };
   const schedule = onSchedule ?? (() => navigate?.("/scheduled"));
 
@@ -370,7 +328,6 @@ export function FeedScreen({
         onSchedule={schedule}
         onGenerate={generate}
         onOpenRoute={(route) => navigate?.(route)}
-        layout={layout}
         {...(settings["specialists.showInFeed"] === true
           ? { specialistResults: <FeedSpecialistResults now={now} /> }
           : {})}
