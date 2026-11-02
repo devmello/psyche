@@ -15,8 +15,8 @@ import { useNow } from "../lib/use-now.ts";
 import { routeLink } from "../overview/overviewLinks.ts";
 import { overviewRunHref } from "../overview/recent.ts";
 import { useSlots } from "../slots.tsx";
-import { runTitle } from "./timeline/RunHeader.tsx";
 import { useApprovalQueue } from "./ApprovalsPanel.tsx";
+import { runTitle } from "./timeline/RunHeader.tsx";
 import { useAgentStatus } from "./useAgentState.ts";
 
 export interface NowNext {
