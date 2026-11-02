@@ -18,6 +18,7 @@ export {
   type GoalsScreenProps,
   GoalsView,
   type GoalsViewProps,
+  useGoalDecisions,
 } from "./GoalsScreen.tsx";
 export {
   GOAL_CATEGORY_LABEL,

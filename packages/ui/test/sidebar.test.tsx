@@ -1,7 +1,7 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { useState } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { IDS } from "../src/fixtures/index.ts";
 import { AppShell } from "../src/shell/AppShell.tsx";
 import { ShellMotion } from "../src/shell/motion.tsx";
@@ -16,6 +16,7 @@ import {
   sidebarResize,
 } from "../src/shell/Sidebar.tsx";
 import { isMac } from "../src/shell/shortcuts.ts";
+import { PEEK_CLOSE_DELAY, PEEK_OPEN_DELAY } from "../src/shell/useSidebarPeek.ts";
 import { STORY_NOW, StoryWorld } from "../src/stories/harness.tsx";
 
 function renderSidebar(props: Partial<SidebarProps> = {}) {
@@ -337,5 +338,130 @@ describe("AppShell sidebar and compact layout", () => {
     await userEvent.click(screen.getByRole("button", { name: "Threads" }));
     const drawer = await screen.findByRole("dialog", { name: "Threads" });
     expect((await within(drawer).findAllByTestId("thread-row")).length).toBeGreaterThan(0);
+  });
+});
+
+describe("the compact rail expands on hover (peek)", () => {
+  afterEach(() => vi.useRealTimers());
+  const host = () => screen.getByTestId("sidebar-host");
+  const nav = () => screen.getByTestId("sidebar");
+  const advance = (ms: number) => act(() => vi.advanceTimersByTime(ms));
+
+  it("expands over the content after a rest, keeps its slot at 64 px, and folds after the pointer leaves", () => {
+    vi.useFakeTimers();
+    renderSidebar({ mode: "rail" });
+    expect(nav().hasAttribute("data-peek")).toBe(false);
+    fireEvent.pointerEnter(host());
+    advance(PEEK_OPEN_DELAY - 1);
+    expect(nav().hasAttribute("data-peek")).toBe(false);
+    advance(1);
+    expect(nav().hasAttribute("data-peek")).toBe(true);
+    // The host mode is still the rail and its slot didn't grow: the content never shifts.
+    expect(nav().getAttribute("data-mode")).toBe("rail");
+    expect(host().style.width).toBe("64px");
+    expect(nav().style.width).toBe("248px");
+    // The full rows are drawn: labels and the thread group, not tooltip-only icons.
+    expect(within(nav()).getByText("Feed")).toBeTruthy();
+    fireEvent.pointerLeave(host());
+    advance(PEEK_CLOSE_DELAY - 1);
+    expect(nav().hasAttribute("data-peek")).toBe(true);
+    advance(1);
+    expect(nav().hasAttribute("data-peek")).toBe(false);
+    expect(nav().style.width).toBe("64px");
+  });
+
+  it("a pass over the rail that leaves before the rest never opens it", () => {
+    vi.useFakeTimers();
+    renderSidebar({ mode: "rail" });
+    fireEvent.pointerEnter(host());
+    advance(PEEK_OPEN_DELAY - 50);
+    fireEvent.pointerLeave(host());
+    advance(1000);
+    expect(nav().hasAttribute("data-peek")).toBe(false);
+  });
+
+  it("coming back within the grace keeps it open", () => {
+    vi.useFakeTimers();
+    renderSidebar({ mode: "rail" });
+    fireEvent.pointerEnter(host());
+    advance(PEEK_OPEN_DELAY);
+    fireEvent.pointerLeave(host());
+    advance(PEEK_CLOSE_DELAY - 100);
+    fireEvent.pointerEnter(host());
+    advance(1000);
+    expect(nav().hasAttribute("data-peek")).toBe(true);
+  });
+
+  it("does not open for a drag (a button held) or for touch", () => {
+    vi.useFakeTimers();
+    renderSidebar({ mode: "rail" });
+    fireEvent.pointerEnter(host(), { buttons: 1 });
+    advance(1000);
+    expect(nav().hasAttribute("data-peek")).toBe(false);
+    fireEvent.pointerLeave(host());
+    fireEvent.pointerEnter(host(), { pointerType: "touch" });
+    advance(1000);
+    expect(nav().hasAttribute("data-peek")).toBe(false);
+  });
+
+  it("a press cancels the pending open: click-to-pin and clicks don't fight the hover", () => {
+    vi.useFakeTimers();
+    renderSidebar({ mode: "rail" });
+    fireEvent.pointerEnter(host());
+    advance(100);
+    fireEvent.pointerDown(host());
+    advance(1000);
+    expect(nav().hasAttribute("data-peek")).toBe(false);
+    // Leaving and coming back is a new rest.
+    fireEvent.pointerLeave(host());
+    fireEvent.pointerEnter(host());
+    advance(PEEK_OPEN_DELAY);
+    expect(nav().hasAttribute("data-peek")).toBe(true);
+  });
+
+  it("Escape folds it, and pinning it open (the full sidebar) ends the peek", () => {
+    vi.useFakeTimers();
+    renderSidebar({ mode: "rail" });
+    fireEvent.pointerEnter(host());
+    advance(PEEK_OPEN_DELAY);
+    fireEvent.keyDown(within(nav()).getByText("Feed"), { key: "Escape" });
+    expect(nav().hasAttribute("data-peek")).toBe(false);
+  });
+
+  it("a full sidebar never peeks, and neither does a rail with hoverExpand off", () => {
+    vi.useFakeTimers();
+    renderSidebar({ mode: "full" });
+    fireEvent.pointerEnter(host());
+    advance(1000);
+    expect(nav().hasAttribute("data-peek")).toBe(false);
+  });
+
+  it("does not expand with hoverExpand off", () => {
+    vi.useFakeTimers();
+    renderSidebar({ mode: "rail", hoverExpand: false });
+    fireEvent.pointerEnter(host());
+    advance(1000);
+    expect(nav().hasAttribute("data-peek")).toBe(false);
+  });
+
+  it("expands for keyboard focus at once and keeps the focused row", async () => {
+    const user = userEvent.setup();
+    renderSidebar({ mode: "rail" });
+    await user.tab();
+    await waitFor(() => expect(nav().hasAttribute("data-peek")).toBe(true));
+    // The focused destination is still focused after the rail's button became the full row.
+    expect(document.activeElement?.getAttribute("data-destination")).toBeTruthy();
+    expect(nav().contains(document.activeElement)).toBe(true);
+  });
+
+  it("holds while a menu opened from the sidebar is open", async () => {
+    const user = userEvent.setup();
+    renderSidebar({ mode: "rail" });
+    fireEvent.pointerEnter(host());
+    await waitFor(() => expect(nav().hasAttribute("data-peek")).toBe(true), { timeout: 1000 });
+    await user.click(screen.getByRole("button", { name: "Settings and help" }));
+    fireEvent.pointerLeave(host());
+    await new Promise((r) => setTimeout(r, PEEK_CLOSE_DELAY * 2 + 50));
+    expect(nav().hasAttribute("data-peek")).toBe(true);
   });
 });

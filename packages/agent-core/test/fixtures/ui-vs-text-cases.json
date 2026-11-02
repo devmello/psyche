@@ -1,13 +1,13 @@
 {
-  "$comment": "Eval set for render_ui guidance (generative-ui-2026 §6.4, P3). `expect` is what a good turn does. Run against a real model by the eval harness; the unit test only checks the set is well formed and balanced.",
+  "$comment": "Eval set for render_ui guidance (generative-ui-2026 §6.4, P3). `expect` is what a good turn does. Run against a real model by the eval harness; the unit test only checks the set is well formed and balanced. The ui cases carry their data inline: a bare prompt gives the model nothing to show, so a text reply to it is correct.",
   "cases": [
     {
-      "prompt": "Clean up my inbox: archive newsletters, draft replies, unsubscribe from promos. Keep me posted.",
+      "prompt": "Clean up my inbox: archive newsletters, draft replies, unsubscribe from promos. Keep me posted. Here are today's six unread emails: 1) Morning Brew newsletter; 2) Maya: can you review the Q3 deck by Friday?; 3) Zappos promo: 40% off; 4) Raj: lunch Thursday?; 5) Substack digest; 6) Landlord: lease renewal form attached.",
       "expect": "ui",
       "why": "multi-step state that changes"
     },
     {
-      "prompt": "Compare these five laptops on price, weight and battery.",
+      "prompt": "Compare these five laptops on price, weight and battery: Aero 14 ($1,299, 1.2 kg, 14 h); Brisa Pro ($1,799, 1.6 kg, 18 h); Cirrus 13 ($999, 1.1 kg, 11 h); Dune X ($1,549, 1.8 kg, 20 h); Ember Air ($1,099, 1.3 kg, 13 h).",
       "expect": "ui",
       "why": "structure: comparable items worth scanning"
     },
@@ -17,12 +17,20 @@
       "why": "progress that will change"
     },
     {
-      "prompt": "Show last month's spend by category.",
+      "prompt": "Show last month's spend by category: rent $2,100, groceries $412, dining $286, transport $138, subscriptions $64, other $190.",
       "expect": "ui",
       "why": "numbers worth scanning"
     },
-    { "prompt": "Why is the sky blue?", "expect": "text", "why": "explanation" },
-    { "prompt": "What time is my 2pm meeting?", "expect": "text", "why": "short fact" },
+    {
+      "prompt": "Why is the sky blue?",
+      "expect": "text",
+      "why": "explanation"
+    },
+    {
+      "prompt": "What time is my 2pm meeting?",
+      "expect": "text",
+      "why": "short fact"
+    },
     {
       "prompt": "Should I take the job in Austin or stay?",
       "expect": "text",
@@ -33,7 +41,11 @@
       "expect": "text",
       "why": "prose to copy; or artifact, never a widget"
     },
-    { "prompt": "Rename that file to notes.md.", "expect": "text", "why": "one-line confirmation" },
+    {
+      "prompt": "Rename that file to notes.md.",
+      "expect": "text",
+      "why": "one-line confirmation"
+    },
     {
       "prompt": "Can you update the progress widget with step 3 done?",
       "expect": "update_ui",

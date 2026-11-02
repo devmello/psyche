@@ -127,12 +127,12 @@ describe("ConnectedEntityCard", () => {
     );
   });
 
-  it("opens a related card in Soul & Memory", async () => {
+  it("opens a related card on People", async () => {
     const { navigate, user } = setup(
       <ConnectedEntityCard id={PEOPLE_IDS.kitchen} now={STORY_NOW} />,
     );
     await user.click(await screen.findByRole("button", { name: /Dana Kim/ }));
-    expect(navigate).toHaveBeenCalledWith(`/agent/soul?entity=${PEOPLE_IDS.dana}`);
+    expect(navigate).toHaveBeenCalledWith(`/people?entity=${PEOPLE_IDS.dana}`);
   });
 
   it("says what failed when the entity doesn't exist", async () => {
@@ -144,7 +144,7 @@ describe("ConnectedEntityCard", () => {
 });
 
 describe("Search with the graph", () => {
-  it("shows matching people and projects first and opens one in Soul & Memory", async () => {
+  it("shows matching people and projects first and opens one on People", async () => {
     const { callsTo, navigate, user } = setup(<SearchScreen debounceMs={0} now={STORY_NOW} />);
     await user.type(screen.getByRole("combobox"), "sam");
     const people = await screen.findByRole("group", { name: /^People/ });
@@ -153,7 +153,7 @@ describe("Search with the graph", () => {
     expect(screen.getAllByRole("group")[0]).toBe(people);
     expect(callsTo("memory.entities.search").at(-1)?.params).toMatchObject({ q: "sam" });
     await user.keyboard("{Enter}");
-    expect(navigate).toHaveBeenCalledWith(`/agent/soul?entity=${PEOPLE_IDS.samLee}`);
+    expect(navigate).toHaveBeenCalledWith(`/people?entity=${PEOPLE_IDS.samLee}`);
   });
 
   it("lists projects in their own group", async () => {

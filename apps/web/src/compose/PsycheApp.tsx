@@ -19,6 +19,7 @@ import {
   FeedScreen,
   GatewayProvider,
   GoalsScreen,
+  HomeScreen,
   IdeasScreen,
   InboxScreen,
   LIBRARY_SECTIONS,
@@ -31,6 +32,7 @@ import {
   overviewAnchor,
   overviewRedirect,
   overviewRunHref,
+  PeopleScreen,
   parseOverviewPeriod,
   parseRecentFilter,
   type RailItem,
@@ -219,8 +221,8 @@ export function railItemFor(route: string): RailItem | null {
 }
 
 /**
- * The rail screens (docs/06 §2.7 routes): Search, Feed, Ideas, Goals, Library and the
- * notification inbox, each the UI kit's connected screen in a scrolling page.
+ * The rail screens (docs/06 §2.7 routes): Home, People, Search, Feed, Ideas, Goals, Library and
+ * the notification inbox, each the UI kit's connected screen in a scrolling page.
  */
 export function screenRoute(route: string, navigate: (to: string) => void): ReactNode | null {
   const [path = "", query = ""] = route.split("#")[0]?.split("?") ?? [];
@@ -235,6 +237,30 @@ export function screenRoute(route: string, navigate: (to: string) => void): Reac
     </section>
   );
   switch (parts[0]) {
+    case "home": {
+      // `/home[#section]`; `/home/instructions` has the brief's instructions sheet open
+      // (docs/design/consolidation-2026.md §3.1).
+      const hash = route.split("#")[1];
+      return page(
+        "Home",
+        <HomeScreen
+          onNavigate={navigate}
+          instructionsOpen={parts[1] === "instructions"}
+          {...(hash ? { anchor: hash } : {})}
+        />,
+      );
+    }
+    case "people": {
+      const entity = new URLSearchParams(query).get("entity");
+      return page(
+        "People",
+        <PeopleScreen
+          key={entity ?? ""}
+          onNavigate={navigate}
+          {...(entity ? { initialEntity: entity } : {})}
+        />,
+      );
+    }
     case "search": {
       const q = new URLSearchParams(query).get("q") ?? "";
       return page(

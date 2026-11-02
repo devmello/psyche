@@ -29,6 +29,8 @@ The sidebar's gear opens Settings (⌘,).
 | Screen | Route |
 | --- | --- |
 | Chat | `/chat` |
+| Home | `/home` |
+| People | `/people` |
 | Search | `/search` |
 | Feed | `/feed` |
 | Ideas | `/ideas` |
@@ -77,6 +79,12 @@ Other composer things: **Attach files** (paperclip; up to 8 files per message, i
 **Voice conversation**: Settings → Voice & dictation → Talk with Psyche; hold the voice key (it must differ from the dictation key). The answer appears as text in a pop-up.
 
 **What can you do?** Sidebar gear → What can you do? (`/can-do`): cards of things to try ("Ready to try") and ones to unlock by connecting accounts. Clicking one sends the prompt; some add an automation.
+
+## Home and People
+
+**Home** (`/home`) is one page for what needs you and what is coming. Its main column has **Needs you** (approvals and questions, amber, with **All notifications** opening the Inbox), **Pinned** widgets, **Today** (the daily brief's posts, with **What should I write about** and **Schedule**) and **Suggestions** (ideas and inferred goals, with the same Do it / Dismiss / Confirm buttons as before). The side column has **Coming up** (the next runs; **Scheduled** opens `/scheduled`), **Goals** (tracked goals; **+** adds one, **All goals** opens `/goals`), **Keep in touch** (relationship nudges, when they are on) and a link to **{persona} & you** (`/overview`). A section with nothing to show is left out. `/home/instructions` opens the brief's instructions sheet over Home.
+
+**People** (`/people`) lists the people and projects Psyche knows, with search and the **People**, **Projects**, **Suggestions** and **Waiting on** filters, and **Keep in touch** above them when nudges are on. A row opens the person's card; `/people?entity=<id>` opens one directly. **Soul & memory** in its toolbar opens the agent sheet's Soul & Memory.
 
 ## Feed, the daily brief, wrap-up, follow-ups
 

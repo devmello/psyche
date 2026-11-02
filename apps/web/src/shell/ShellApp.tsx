@@ -139,6 +139,8 @@ export function agentSheetDocked(opts: {
 const COLLAPSED_CHROME_LEAD = 128;
 /** The sidebar toggle in the title bar (a 32 px icon button) and the gap after it. */
 const TITLEBAR_TOGGLE_ROOM = 42;
+/** The browser button beside the sidebar toggle (a 4 px gap and a 32 px icon button). */
+const TITLEBAR_BROWSER_ROOM = 36;
 /** The gap between the traffic-light zone and a toolbar's first control. */
 const TOOLBAR_LEAD_GAP = 4;
 
@@ -154,8 +156,13 @@ export function chromeLead(opts: {
   sidebarOpen: boolean;
   mode: SidebarMode;
   sidebarWidth: number;
+  /** The browser button sits beside the sidebar toggle (a chat on the desktop). */
+  browser?: boolean;
 }): { lead: number; toolbar: number | null } {
-  const lights = Math.max(COLLAPSED_CHROME_LEAD, titleBarInset(opts.chrome) + TITLEBAR_TOGGLE_ROOM);
+  const lights = Math.max(
+    COLLAPSED_CHROME_LEAD,
+    titleBarInset(opts.chrome) + TITLEBAR_TOGGLE_ROOM + (opts.browser ? TITLEBAR_BROWSER_ROOM : 0),
+  );
   const visible = !opts.sidebarOpen
     ? 0
     : opts.mode === "rail"
@@ -989,6 +996,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
     sidebarOpen,
     mode: sidebarMode,
     sidebarWidth,
+    browser: browserToggle !== null,
   });
   const content =
     onChat && slots.chat && threadId ? (

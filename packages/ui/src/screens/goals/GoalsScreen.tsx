@@ -96,6 +96,8 @@ export interface CandidateGoalCardProps {
   onDecide?: (goal: Goal, decision: "confirm" | "reject" | "later") => void;
   onOpenRoute?: (route: string) => void;
   busy?: boolean;
+  /** Another control on the page holds the accent (Home): Confirm is an outline button. */
+  quiet?: boolean;
 }
 
 /**
@@ -108,6 +110,7 @@ export function CandidateGoalCard({
   onDecide,
   onOpenRoute,
   busy = false,
+  quiet = false,
 }: CandidateGoalCardProps): ReactElement {
   const titleId = useId();
   const evidence = readGoalPlan(goal).evidence;
@@ -130,7 +133,13 @@ export function CandidateGoalCard({
       </div>
       <EvidenceLine items={evidence} {...(onOpenRoute ? { onOpenRoute } : {})} />
       <div className="mt-1 flex flex-wrap gap-1.5">
-        <Button type="button" size="sm" disabled={busy} onClick={() => onDecide?.(goal, "confirm")}>
+        <Button
+          type="button"
+          size="sm"
+          {...(quiet ? { variant: "outline" as const } : {})}
+          disabled={busy}
+          onClick={() => onDecide?.(goal, "confirm")}
+        >
           {t("screens.goals.confirm")}
         </Button>
         <Button
@@ -353,20 +362,17 @@ export interface GoalsScreenProps {
   onDeleteGoal?: (goal: Goal) => Promise<unknown> | undefined;
 }
 
-/** Connected Goals: `goals.list`, `goals.decide`, and the goal page for the selected goal. */
-export function GoalsScreen({
-  selectedGoalId = null,
-  onOpenGoal,
-  onAddGoal,
-  onDeleteGoal,
-}: GoalsScreenProps): ReactElement {
-  const { navigate } = useSlots();
-  const persona = usePersona();
+/**
+ * Confirm / Not a goal / Later on inferred goals, with their toasts; "Later" hides the candidate
+ * for this visit. Shared by Goals and Home's Suggestions.
+ */
+export function useGoalDecisions(): {
+  goals: ReturnType<typeof useGoals>;
+  later: ReadonlySet<string>;
+  decide: (goal: Goal, decision: "confirm" | "reject" | "later") => void;
+} {
   const goals = useGoals();
-  /** "Later" leaves a candidate as it is; hide it for this visit. */
   const [later, setLater] = useState<ReadonlySet<string>>(new Set());
-  const [adding, setAdding] = useState(false);
-
   const decide = (goal: Goal, decision: "confirm" | "reject" | "later") => {
     if (decision === "later") setLater((s) => new Set(s).add(goal.id));
     goals.decide(goal.id, decision).then(
@@ -379,6 +385,20 @@ export function GoalsScreen({
       },
     );
   };
+  return { goals, later, decide };
+}
+
+/** Connected Goals: `goals.list`, `goals.decide`, and the goal page for the selected goal. */
+export function GoalsScreen({
+  selectedGoalId = null,
+  onOpenGoal,
+  onAddGoal,
+  onDeleteGoal,
+}: GoalsScreenProps): ReactElement {
+  const { navigate } = useSlots();
+  const persona = usePersona();
+  const { goals, later, decide } = useGoalDecisions();
+  const [adding, setAdding] = useState(false);
 
   const empty = goals.goals.length === 0 && goals.candidates.length === 0;
   return (

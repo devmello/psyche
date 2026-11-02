@@ -15,6 +15,7 @@ import { design } from "./design.ts";
 import { deviceAccess } from "./device-access.ts";
 import { errors } from "./errors.ts";
 import { glass } from "./glass.ts";
+import { home } from "./home.ts";
 import { links } from "./links.ts";
 import { mailMeetings } from "./mail-meetings.ts";
 import { meetingRecord } from "./meeting-record.ts";
@@ -84,6 +85,7 @@ export const en = {
   ...meetingRecord,
   ...workflows,
   ...overview,
+  ...home,
   ...overviewGrowth,
   ...capabilities,
   ...research,
