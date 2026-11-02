@@ -15,14 +15,18 @@ import {
   appleAdapters,
   Backfill,
   type BackfillStatus,
+  browserAdapter,
   CardQueue,
   createSearchHandlers,
+  DEFAULT_TOP_N,
   type FilesSourceDeps,
   filesAdapter,
   generateCard,
   libraryDoc,
+  ModelReranker,
   OWNER,
   type PowerState,
+  QueryModel,
   readSourcesConfig,
   type SearchEmbedder,
   SearchIndexer,
@@ -32,13 +36,16 @@ import {
   type SourcesConfig,
   SqliteSearchIndex,
   syncMemoryNotes,
+  transcriptsAdapter,
   tzOffsetMinutesAt,
 } from "@psyche/search";
 import type { HandlerDef } from "../context.ts";
 import type { Logger } from "../log.ts";
 import type { Gateway } from "../server.ts";
+import type { PageReadHub } from "./page-reads.ts";
 import { openSearchDatabase } from "./search-db.ts";
 import { watchFolders } from "./search-files.ts";
+import type { Recognize } from "./search-ocr.ts";
 import {
   defaultSemanticEngines,
   SEMANTIC_SETTINGS,
@@ -46,8 +53,17 @@ import {
   type SemanticEngines,
   semanticConfig,
 } from "./search-semantic.ts";
-import { libraryText, type SearchSourceDeps, searchSources } from "./search-sources.ts";
+import {
+  isOcrCandidate,
+  libraryText,
+  recordingTranscripts,
+  type SearchSourceDeps,
+  searchSources,
+} from "./search-sources.ts";
 import type { ComposedPart } from "./services.ts";
+
+/** New Library images and scans read per sync (every minute). */
+const LIBRARY_OCR_PER_SYNC = 5;
 
 /**
  * Unified search (feature S1, architecture §4.12, docs/design/search-2026.md): the main index in
@@ -98,6 +114,8 @@ export interface SearchDeps extends Omit<SearchSourceDeps, "pageSize"> {
     /** Re-reads the connector list before each pass. */
     refresh?: () => Promise<void>;
     files?: FilesSourceDeps;
+    /** Pages the browser read; the opt-in "Browser pages" source keeps them (roadmap §2). */
+    pageReads?: PageReadHub;
     power?: () => PowerState;
     /** Watch granted folders for changes (FSEvents); off in tests. */
     watch?: boolean;
@@ -132,6 +150,9 @@ export interface SearchDeps extends Omit<SearchSourceDeps, "pageSize"> {
    * Context cards at ingest (`search.cards.enabled`, default on): the cheap model that writes
    * them. Without it no cards are generated.
    */
+  /** Cloud rerank (`search.rerank.enabled`, off by default): the cheap model that reads the top hits. */
+  rerank?: { provider: ModelProvider; model: ModelRef };
+  queryModel?: { provider: ModelProvider; model: ModelRef };
   cards?: {
     provider: ModelProvider;
     model: ModelRef;
@@ -140,6 +161,14 @@ export interface SearchDeps extends Omit<SearchSourceDeps, "pageSize"> {
     batchSize?: number;
   };
 }
+
+/** Cloud re-ranking of the top hits (roadmap R12): off until the owner turns it on. */
+export const RERANK_SETTINGS = {
+  enabled: "search.rerank.enabled",
+  topN: "search.rerank.topN",
+} as const;
+/** Search settings for reading questions with a cheap model (roadmap R13). */
+export const QUERY_MODEL_SETTINGS = { enabled: "search.queryModel.enabled" } as const;
 
 export const CARD_SETTINGS = {
   enabled: "search.cards.enabled",
@@ -196,6 +225,26 @@ export function composeSearch(deps: SearchDeps): ComposedSearch {
     now: deps.now,
     tzOffsetMinutes: () => tzOffsetMinutesAt(deps.timeZone, deps.now()),
     ...(deps.resolvePerson === undefined ? {} : { resolvePerson: deps.resolvePerson }),
+    ...(deps.rerank === undefined
+      ? {}
+      : {
+          rerank: {
+            reranker: new ModelReranker(deps.rerank),
+            enabled: () => getSetting(deps.db, RERANK_SETTINGS.enabled)?.value === true,
+            topN: () => {
+              const v = getSetting(deps.db, RERANK_SETTINGS.topN)?.value;
+              return typeof v === "number" ? v : DEFAULT_TOP_N;
+            },
+          },
+        }),
+    ...(deps.queryModel === undefined
+      ? {}
+      : {
+          queryModel: {
+            model: new QueryModel(deps.queryModel),
+            enabled: () => getSetting(deps.db, QUERY_MODEL_SETTINGS.enabled)?.value !== false,
+          },
+        }),
   });
   const indexer = new SearchIndexer(index, {
     lookupThread: async (id) => getThread(deps.db, id),
@@ -273,7 +322,20 @@ export function composeSearch(deps: SearchDeps): ComposedSearch {
   );
   const applySemantic = () =>
     controller.apply(semanticConfig((key) => getSetting(deps.db, key)?.value));
-  const backfill: Backfill = new Backfill(index, searchSources(deps), {
+  /**
+   * Vision OCR for Library images and scans: the Files source's switch, the Mac helper, and the
+   * power state (a new item is read unless low-power mode is on; a backfill only on power).
+   */
+  const libraryOcr = (mode: "add" | "backfill"): Recognize | undefined => {
+    const files = deps.sources?.files?.ocr;
+    const cfg = sourcesConfig().sources.files;
+    if (files === undefined || !cfg.enabled || !cfg.ocr) return undefined;
+    const power = files.power?.();
+    if (power !== undefined && (power.lowPower || (mode === "backfill" && power.onBattery)))
+      return undefined;
+    return files.recognize;
+  };
+  const backfill: Backfill = new Backfill(index, searchSources({ ...deps, libraryOcr }), {
     now: deps.now,
     ...(deps.backfillPauseMs === undefined ? {} : { pauseMs: deps.backfillPauseMs }),
     onStatus: (b) => {
@@ -286,11 +348,38 @@ export function composeSearch(deps: SearchDeps): ComposedSearch {
   const sourcesConfig = (): SourcesConfig =>
     readSourcesConfig(getSetting(deps.db, SOURCES_SETTING)?.value);
   const filesSource =
-    deps.sources?.files === undefined ? undefined : filesAdapter(deps.sources.files);
+    deps.sources?.files === undefined
+      ? undefined
+      : filesAdapter({
+          ...deps.sources.files,
+          // The owner's switch (Settings → Search sources → Files), read on every pull.
+          ...(deps.sources.files.ocr === undefined
+            ? {}
+            : {
+                ocr: {
+                  ...deps.sources.files.ocr,
+                  enabled: () => sourcesConfig().sources.files.ocr,
+                },
+              }),
+        });
+  const browserSource = browserAdapter({
+    enabled: () => sourcesConfig().sources.browser.enabled,
+  });
+  const stopPageReads = deps.sources?.pageReads?.subscribe((page) => browserSource.offer(page));
+  // Recordings' transcripts (voice memos, meetings) from the Library, as speaker-turn children.
+  const transcriptsSource = transcriptsAdapter({
+    recordings: (since, afterId, limit) =>
+      recordingTranscripts(deps.db, deps.home, since, afterId, limit),
+  });
   if (deps.sources !== undefined) {
     sourceIndexer = new SourceIndexer(
       index,
-      [...appleAdapters(deps.sources.apple), ...(filesSource === undefined ? [] : [filesSource])],
+      [
+        ...appleAdapters(deps.sources.apple),
+        ...(filesSource === undefined ? [] : [filesSource]),
+        browserSource,
+        transcriptsSource,
+      ],
       {
         config: sourcesConfig,
         now: deps.now,
@@ -349,11 +438,15 @@ export function composeSearch(deps: SearchDeps): ComposedSearch {
       ).map((r) => r.id),
     );
     for (const id of indexed) if (!have.has(id)) await index.remove(id);
+    // Images are read a few at a time; the rest stay unindexed until the next sync.
+    let ocrLeft = LIBRARY_OCR_PER_SYNC;
     for (const id of have) {
       if (indexed.has(id)) continue;
       const item = getLibraryItem(deps.db, id);
-      if (item !== undefined)
-        await index.index(libraryDoc(item, await libraryText(deps.home, item)));
+      if (item === undefined) continue;
+      const recognize = isOcrCandidate(item) ? libraryOcr("add") : undefined;
+      if (recognize !== undefined && ocrLeft-- <= 0) continue;
+      await index.index(libraryDoc(item, await libraryText(deps.home, item, recognize)));
     }
   };
   const runBackfill = (full: boolean) => {
@@ -386,6 +479,7 @@ export function composeSearch(deps: SearchDeps): ComposedSearch {
           enabled?: boolean;
           processing?: "cloud" | "local" | "none";
           agent?: boolean;
+          ocr?: boolean;
           exclude?: Partial<SourcesConfig["exclude"]>;
         };
         const next = sourcesConfig();
@@ -393,6 +487,8 @@ export function composeSearch(deps: SearchDeps): ComposedSearch {
           if (p.enabled !== undefined) next.sources[p.source].enabled = p.enabled;
           if (p.processing !== undefined) next.sources[p.source].processing = p.processing;
           if (p.agent !== undefined) next.sources[p.source].agent = p.agent;
+          // Reading text in images is Files only (readSourcesConfig drops it elsewhere).
+          if (p.ocr !== undefined) next.sources[p.source].ocr = p.ocr;
         }
         if (p.exclude !== undefined) Object.assign(next.exclude, p.exclude);
         setSetting(deps.db, SOURCES_SETTING, readSourcesConfig(next));
@@ -460,6 +556,7 @@ export function composeSearch(deps: SearchDeps): ComposedSearch {
     },
     async stop() {
       unsubscribe?.();
+      stopPageReads?.();
       unsubscribe = undefined;
       if (libraryTimer !== undefined) clearInterval(libraryTimer);
       stopWatch?.();

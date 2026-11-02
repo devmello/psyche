@@ -478,3 +478,241 @@ describe("sender trust handlers", () => {
     ).toBe("offered");
   });
 });
+
+describe("person page methods", () => {
+  async function world() {
+    const s = setup();
+    const owner = s.graph.createEntity({ kind: "person", name: "The Owner", isOwner: true }).id;
+    const ava = s.graph.createEntity({
+      kind: "person",
+      name: "Ava Reyes",
+      identifiers: [{ kind: "email", value: "ava@x.io" }],
+    }).id;
+    s.graph.setFact({
+      entityId: ava,
+      attribute: "birthday",
+      value: "Nov 2, 2019",
+      provenance: "owner",
+    });
+    return { ...s, owner, ava };
+  }
+
+  it("coming up: a plain line per person, and for the brief only while the feature is on", async () => {
+    const { e, ava, db } = await world();
+    const r = await e.handlers["memory.upcoming"]({ days: 14 });
+    expect(r.items).toEqual([
+      expect.objectContaining({
+        entityId: ava,
+        kind: "birthday",
+        daysAway: 4,
+        turns: 7,
+        text: "Ava Reyes turns 7 on Monday",
+      }),
+    ]);
+    expect((await e.handlers["memory.upcoming"]({ entityId: "nope" })).items).toEqual([]);
+    expect(e.comingUp()).toEqual([]);
+    setSetting(db, EVERYTHING_MEMORY_SETTING_KEY, { enabled: true });
+    expect(e.comingUp()).toEqual([
+      { text: "Ava Reyes turns 7 on Monday", link: `/agent/soul?entity=${ava}` },
+    ]);
+  });
+
+  it("export is a zip with person.json; forget-said and exclude count first and never touch the owner", async () => {
+    const { e, ava, owner } = await world();
+    const file = await e.handlers["memory.entities.export"]({ id: ava });
+    expect(file).toMatchObject({ mime: "application/zip" });
+    expect(file.filename).toMatch(/^psyche-ava-reyes-\d{4}-\d{2}-\d{2}\.zip$/);
+    const { unzipSync, strFromU8 } = await import("fflate");
+    const entries = unzipSync(Buffer.from(file.data, "base64"));
+    expect(JSON.parse(strFromU8(entries["person.json"] as Uint8Array)).entity.name).toBe(
+      "Ava Reyes",
+    );
+    expect(await e.handlers["memory.entities.forgetSaid"]({ id: ava, dryRun: true })).toMatchObject(
+      { dryRun: true },
+    );
+    const ex = await e.handlers["memory.entities.exclude"]({
+      id: ava,
+      mode: "exclude",
+      dryRun: true,
+    });
+    expect(ex).toMatchObject({ excluded: 1, dryRun: true });
+    expect(e.store.isEntityExcluded(ava)).toBe(false);
+    await e.handlers["memory.entities.exclude"]({ id: ava, mode: "exclude" });
+    expect(e.store.isEntityExcluded(ava)).toBe(true);
+    await expect(
+      e.handlers["memory.entities.exclude"]({ id: owner, mode: "exclude" }),
+    ).rejects.toThrow(/that is you/);
+    await expect(e.handlers["memory.entities.forgetSaid"]({ id: owner })).rejects.toThrow(
+      /that is you/,
+    );
+  });
+});
+
+describe("a model per source", () => {
+  const night = async () => ({
+    onAc: true,
+    lowPowerMode: false,
+    thermal: "nominal" as const,
+    idleMinutes: 60,
+  });
+
+  function worldWithTwoSources() {
+    const s = setup({ readState: night });
+    s.graph.createEntity({ kind: "person", name: "The Owner", isOwner: true });
+    const idx = openDb(join(s.tmp.dir, "state", "search.sqlite"), { migrate: false });
+    idx.sqlite.exec(
+      `CREATE TABLE search_docs (rowid INTEGER PRIMARY KEY, id TEXT NOT NULL UNIQUE, kind TEXT, grp TEXT, title TEXT NOT NULL, body TEXT NOT NULL, extra TEXT, provenance TEXT NOT NULL, thread_id TEXT, parent_id TEXT, collapse_key TEXT, scope_key TEXT NOT NULL, sender TEXT, sender_key TEXT, mime TEXT, tags TEXT, source TEXT, created_ms INTEGER NOT NULL, updated_ms INTEGER NOT NULL)`,
+    );
+    const ins = idx.sqlite.prepare(
+      `INSERT INTO search_docs (id, title, body, provenance, scope_key, source, created_ms, updated_ms) VALUES (?, '', ?, 'owner', 'owner', ?, ?, ?)`,
+    );
+    ins.run(
+      "mail:1",
+      "Note to self: book the dentist for Friday morning.",
+      "connector:mail",
+      NOW - 3600_000,
+      NOW - 3600_000,
+    );
+    ins.run(
+      "msg:1",
+      "Note to self: call the plumber on Monday afternoon.",
+      "connector:imessage",
+      NOW - 3600_000,
+      NOW - 3600_000,
+    );
+    idx.sqlite.close();
+    const empty = [
+      { type: "text_delta" as const, text: '{"facts":[],"edges":[],"flags":[]}' },
+      { type: "finish" as const, reason: "stop" as const },
+    ];
+    s.provider.enqueue(empty, empty);
+    setSetting(s.db, EVERYTHING_MEMORY_SETTING_KEY, {
+      enabled: true,
+      sources: { mail: true, messages: true },
+      model: {
+        default: { kind: "cloud" },
+        perSource: { messages: { kind: "local", ref: "ollama/qwen3:4b" } },
+      },
+    });
+    return s;
+  }
+
+  it("a local model for one source waits for its own confirmation, even though the default is cloud", async () => {
+    const { e, provider, tmp, db } = worldWithTwoSources();
+    expect(await e.nightly()).toBeUndefined();
+    expect(provider.requests).toHaveLength(0);
+    // Confirming some other model does not count.
+    setSetting(db, "memory.everything.localConfirmed", ["ollama/other"]);
+    expect(await e.nightly()).toBeUndefined();
+    expect(provider.requests).toHaveLength(0);
+    tmp.cleanup();
+  });
+
+  it("once confirmed (as a list or a single name), each source uses its own model", async () => {
+    const { e, provider, tmp, db } = worldWithTwoSources();
+    setSetting(db, "memory.everything.localConfirmed", ["ollama/other", "ollama/qwen3:4b"]);
+    expect(await e.nightly()).toMatch(/^everything memory:/);
+    const models = provider.requests.map((r) => r.model).sort();
+    expect(models).toEqual(["fake/utility", "ollama/qwen3:4b"]);
+    for (const r of provider.requests) expect(r.tools).toEqual([]);
+    tmp.cleanup();
+  });
+
+  it("a source set to None is skipped while the others run", async () => {
+    const { e, provider, tmp, db } = worldWithTwoSources();
+    setSetting(db, EVERYTHING_MEMORY_SETTING_KEY, {
+      enabled: true,
+      sources: { mail: true, messages: true },
+      model: { default: { kind: "cloud" }, perSource: { messages: { kind: "none" } } },
+    });
+    await e.nightly();
+    expect(provider.requests.map((r) => r.model)).toEqual(["fake/utility"]);
+    tmp.cleanup();
+  });
+});
+
+describe("Run now and the scheduled job", () => {
+  const afternoon = async () => ({
+    onAc: true,
+    lowPowerMode: false,
+    thermal: "nominal" as const,
+    idleMinutes: 0,
+  });
+
+  async function withIndex() {
+    const s = setup({ readState: afternoon });
+    s.graph.createEntity({ kind: "person", name: "The Owner", isOwner: true });
+    const idx = openDb(join(s.tmp.dir, "state", "search.sqlite"), { migrate: false });
+    idx.sqlite.exec(
+      `CREATE TABLE search_docs (rowid INTEGER PRIMARY KEY, id TEXT NOT NULL UNIQUE, kind TEXT, grp TEXT, title TEXT NOT NULL, body TEXT NOT NULL, extra TEXT, provenance TEXT NOT NULL, thread_id TEXT, parent_id TEXT, collapse_key TEXT, scope_key TEXT NOT NULL, sender TEXT, sender_key TEXT, mime TEXT, tags TEXT, source TEXT, created_ms INTEGER NOT NULL, updated_ms INTEGER NOT NULL)`,
+    );
+    idx.sqlite
+      .prepare(
+        `INSERT INTO search_docs (id, title, body, provenance, scope_key, source, created_ms, updated_ms) VALUES ('mail:1','','Note to self: book the dentist for Friday morning.','owner','owner','connector:mail',?,?)`,
+      )
+      .run(NOW - 3600_000, NOW - 3600_000);
+    idx.sqlite.close();
+    return s;
+  }
+  const on = { enabled: true, sources: { mail: true }, model: { default: { kind: "cloud" } } };
+  const empty = [
+    { type: "text_delta" as const, text: '{"facts":[],"edges":[],"flags":[]}' },
+    { type: "finish" as const, reason: "stop" as const },
+  ];
+  const req = (trigger: string) =>
+    ({
+      automation: { prompt: "[psyche:everything-memory nightly]", kind: "cron" },
+      run: { id: "r", scheduledFor: "x", coalesced: 1, trigger },
+    }) as never;
+
+  it("Run now skips quiet hours and idle time but not power or the model", async () => {
+    const { e, db, provider, tmp } = await withIndex();
+    // 3 a.m. UTC is inside quiet hours; make it the afternoon.
+    setSetting(db, EVERYTHING_MEMORY_SETTING_KEY, on);
+    provider.enqueue(empty);
+    const r = await e.runNow();
+    expect(r).toMatchObject({ ran: true, reason: null, itemsRead: 1, factsProposed: 0 });
+    tmp.cleanup();
+  });
+
+  it("answers why it did not run, and never reads while the feature is off", async () => {
+    const { e, db, provider, tmp } = setup({
+      readState: async () => ({
+        onAc: false,
+        lowPowerMode: false,
+        thermal: "nominal" as const,
+        idleMinutes: 0,
+      }),
+    });
+    expect((await e.runNow()).reason).toBe("disabled");
+    setSetting(db, EVERYTHING_MEMORY_SETTING_KEY, {
+      enabled: true,
+      sources: { mail: true },
+      model: { default: { kind: "none" } },
+    });
+    expect((await e.runNow()).reason).toBe("model_none");
+    setSetting(db, EVERYTHING_MEMORY_SETTING_KEY, on);
+    // On battery the power gate answers before anything else is looked at.
+    expect((await e.runNow()).reason).toBe("battery");
+    e.store; // eslint-disable-line
+    expect(provider.requests).toHaveLength(0);
+    tmp.cleanup();
+  });
+
+  it("the scheduled job runs by its marker; manual runs ignore quiet hours, scheduled ones wait", async () => {
+    const { e, db, provider, tmp } = await withIndex();
+    setSetting(db, EVERYTHING_MEMORY_SETTING_KEY, on);
+    expect(e.job.matches({ prompt: "[psyche:everything-memory nightly]", kind: "cron" })).toBe(
+      true,
+    );
+    expect(e.job.matches({ prompt: "[psyche:daily-brief daily]", kind: "cron" })).toBe(false);
+    // The test clock reads 03:00 UTC, so a scheduled run is inside quiet hours but the Mac is in use.
+    const waiting = await e.job.run(req("schedule"));
+    expect(waiting).toEqual({ status: "no_reply", summary: "Waiting: you are using the Mac." });
+    expect(provider.requests).toHaveLength(0);
+    provider.enqueue(empty);
+    const manual = await e.job.run(req("manual"));
+    expect(manual.summary).toMatch(/^everything memory: 0 facts proposed from 1 items/);
+    tmp.cleanup();
+  });
+});

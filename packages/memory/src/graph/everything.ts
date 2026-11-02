@@ -20,6 +20,7 @@ import {
   type ReviewItem,
 } from "@psyche/protocol";
 import type Database from "better-sqlite3";
+import { strToU8, zipSync } from "fflate";
 import { monotonicFactory } from "ulid";
 import { oneLine } from "../daily.ts";
 import { blockingKinds, detectSensitive, looksLikeInstruction } from "../filters.ts";
@@ -1486,6 +1487,30 @@ export class EverythingStore {
           .all(entityId) as QuarantineRow[]
       ).map(toQuarantine),
     };
+  }
+
+  /**
+   * The person export (§10.3) as a zip: `person.json` and, when given, the card file. The
+   * export is the owner's own data about someone, so it includes sensitive facts; it is a file
+   * for the owner, never an agent surface.
+   */
+  exportPersonZip(
+    entityId: string,
+    files: Record<string, string> = {},
+  ): { filename: string; data: Uint8Array } {
+    const person = this.exportPerson(entityId) as { entity: { name: string } };
+    const slug =
+      person.entity.name
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}]+/gu, "-")
+        .replace(/^-|-$/g, "") || "person";
+    const entries: Record<string, Uint8Array> = {
+      "person.json": strToU8(JSON.stringify(person, null, 2)),
+    };
+    for (const [name, text] of Object.entries(files))
+      entries[name.replace(/^\/+/, "")] = strToU8(text);
+    const stamp = this.#now().slice(0, 10);
+    return { filename: `psyche-${slug}-${stamp}.zip`, data: zipSync(entries, { level: 6 }) };
   }
 
   /**

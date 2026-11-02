@@ -27,6 +27,7 @@ import { usePersona, useSlots } from "../slots.tsx";
 import { SpecialistResultBlockView } from "../specialists/SpecialistResultBlock.tsx";
 import { ReceiptFeedback } from "../teaching/ReceiptFeedback.tsx";
 import { LearnedLine, TaughtLine } from "../teaching/TaughtLine.tsx";
+import { WidgetBlockView } from "../widgets/WidgetBlock.tsx";
 import { AppLinkBlockView } from "./AppLink.tsx";
 import { ApprovalCard, focusApproval } from "./ApprovalCard.tsx";
 import { ArtifactCard, FileCard } from "./ArtifactCard.tsx";
@@ -489,5 +490,6 @@ registerBlock("automation_workflow", {
   View: ({ block }) => <AutomationWorkflowBlockView proposal={block.proposal} />,
 });
 // Folded into runs above, and drawn by MessageView as a system notice.
+registerBlock("ui", { View: ({ block }) => <WidgetBlockView block={block} /> });
 registerBlock("tool_call", { View: () => null });
 registerBlock("compaction", { View: () => null });

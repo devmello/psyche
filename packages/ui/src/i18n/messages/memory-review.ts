@@ -74,6 +74,28 @@ export const memoryReview = {
   "memoryReview.senders.decline": "Not now, don't ask again",
   "memoryReview.senders.trusted": "{name}: accepted automatically",
   "memoryReview.senders.revoke": "Stop",
+  "personData.export": "Export everything…",
+  "personData.said": "Forget what they said…",
+  "personData.exclude": "Don't learn about them…",
+  "personData.excludeForget": "Don't learn about them, and forget…",
+  "personData.title.said": "Forget what {name} said?",
+  "personData.title.exclude": "Stop learning about {name}?",
+  "personData.title.exclude_forget": "Stop learning about {name} and forget?",
+  "personData.counts":
+    "This deletes {facts, number} facts and {quotes, number} quotes learned from their messages, and {held, number} held items.",
+  "personData.excludeOnly":
+    "Their messages will not be read and nothing will be learned about them. What is already known stays until you forget it.",
+  "personData.after.said": "The person, their messages and anything you added yourself stay.",
+  "personData.after.exclude": "You can allow them again in Settings → Everything memory.",
+  "personData.after.exclude_forget":
+    "You can allow them again in Settings → Everything memory, but what was deleted does not come back.",
+  "personData.confirm.said": "Forget what they said",
+  "personData.confirm.exclude": "Stop learning",
+  "personData.confirm.exclude_forget": "Stop and forget",
+  "personData.done.said": "Forgot what {name} said.",
+  "personData.done.exclude": "No longer learning about {name}.",
+  "personData.done.exclude_forget": "No longer learning about {name}, and forgot what they said.",
+  "people.section.upcoming": "Coming up",
   "memoryReview.recent.undoUntil": "You can undo this until {date}",
   // --- Everything memory settings and first-run consent (§12) ---
   "settings.nav.everything": "Everything memory",
@@ -111,6 +133,11 @@ export const memoryReview = {
     "About {typical} a month ({low} on a light month, {high} on a heavy one) for the sources you chose. An estimate, from a typical day.",
   "everything.cost.free": "Free: no text goes to a provider.",
   "everything.cost.backfill": "Reading the first {days, number} days: about {cost} at full price.",
+  "everything.perSource.title": "A different model for one source",
+  "everything.perSource.description":
+    "For example Messages on Local while Mail stays on Cloud. Sources set to “Same as above” use the choice above.",
+  "everything.perSource.default": "Same as above",
+  "everything.perSource.ref": "Model for {source}",
   "everything.sources.title": "Sources",
   "everything.sources.description":
     "Each is off until you turn it on. Mail and Messages: what you wrote, and what the people chosen below wrote to you.",
@@ -176,6 +203,27 @@ export const memoryReview = {
   "everything.schedule.backfill": "First-run history",
   "everything.schedule.backfillDays": "{days, number} days",
   "everything.schedule.backfillNone": "None",
+  "everything.run.button": "Run now",
+  "everything.run.running": "Reading…",
+  "everything.run.hint":
+    "Reads what is new since the last run, under the same limits. Skips only quiet hours and idle time.",
+  "everything.run.estimateCloud": "About {cost} for a typical day with the sources you chose.",
+  "everything.run.estimateFree": "Free: no text goes to a provider.",
+  "everything.run.done":
+    "Read {items, number} items: {facts, number} facts proposed, {held, number} held back{more, select, yes {, the rest waits for tomorrow} other {}}.",
+  "everything.run.reason.disabled": "Everything memory is off.",
+  "everything.run.reason.no_sources": "Turn on at least one source first.",
+  "everything.run.reason.model_none": "Choose a model first: None reads nothing.",
+  "everything.run.reason.battery":
+    "Not now: the Mac is on battery. Plug it in, or allow battery runs.",
+  "everything.run.reason.low_power": "Not now: Low Power Mode is on.",
+  "everything.run.reason.thermal": "Not now: the Mac is too warm.",
+  "everything.run.reason.not_idle": "Not now: you are using the Mac.",
+  "everything.run.reason.outside_quiet_hours": "Not now: outside quiet hours.",
+  "everything.run.reason.local_not_confirmed": "Confirm the local model's memory warning first.",
+  "everything.run.reason.low_memory": "Not now: not enough free memory for the local model.",
+  "everything.run.reason.no_owner_entity": "Your own card in People is not set up yet.",
+  "everything.run.reason.busy": "A pass is already running.",
   "everything.retention.title": "Retention",
   "everything.retention.pending": "Unreviewed facts expire after {days, number} days",
   "everything.retention.untrusted":

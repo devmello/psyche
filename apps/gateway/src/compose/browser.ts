@@ -29,7 +29,7 @@ import {
   systemLoopbackProbes,
   validSignatureAgent,
 } from "@psyche/browser";
-import { getSetting } from "@psyche/db";
+import { getSetting, getThread } from "@psyche/db";
 import {
   type CompiledPolicy,
   compilePolicy,
@@ -48,6 +48,7 @@ import {
   type ToolRegistration,
   type ToolRegistry,
 } from "@psyche/protocol";
+import { isIncognito } from "@psyche/search";
 import type { Call, HandlerDef } from "../context.ts";
 import type { PublicRoute } from "../http.ts";
 import type { Gateway } from "../server.ts";
@@ -595,6 +596,20 @@ export function composeBrowser(
       ? { credentialMeta: (slug: string) => services.vault.metaBySlug(slug) }
       : {}),
     context: (callId) => services.calls.context(callId),
+    // Pages read are offered to the opt-in "Browser pages" search source (incognito chats never).
+    onPageRead: (page) => {
+      const hub = services.pageReads;
+      if (hub === undefined) return;
+      const thread = getThread(services.db, services.calls.context(page.callId).threadId);
+      hub.emit({
+        url: page.url,
+        title: page.title,
+        text: page.text,
+        readAt: services.clock.now(),
+        partition: page.partition,
+        incognito: thread === undefined || isIncognito(thread),
+      });
+    },
     session: sessionFor,
     openSessions: async (callId) => {
       const ids: string[] = [];

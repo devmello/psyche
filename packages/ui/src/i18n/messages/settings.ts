@@ -91,6 +91,12 @@ export const settings = {
     "Keeps the search index file unreadable without a key kept beside your vault key. Applies the next time Psyche starts, and rebuilds the index once (a few minutes, plus the cost of context cards if they are on). Needs a vault key that opens without asking you: a key file (server) or the desktop's secure storage. The macOS keychain slot asks for Touch ID, so it cannot be used for this yet.",
   "settings.semanticSearch.encrypt.on": "Index encrypted",
   "settings.semanticSearch.encrypt.unavailable": "Not encrypted: {why}",
+  "settings.key.search.rerank.enabled": "Re-rank the best results with a small cloud model",
+  "settings.semanticSearch.rerankHint":
+    "Off by default. When the agent searches your data, a small cloud model reads the question and the top 20 results (title, date and the first 500 characters of each) and puts the best first. Those snippets leave this Mac. Cost: about 2,000 tokens per search, under a cent with a small model. No RAM: nothing runs on this machine. Never used for your delegates' searches or for keystrokes in ⌘K.",
+  "settings.key.search.queryModel.enabled": "Read questions with a small model",
+  "settings.semanticSearch.queryModelHint":
+    "When the agent searches your data with a question and the built-in rules find no time, person or source in it, a small cloud model reads the question once (about 300 tokens) to work out those filters. Only the question is sent, never your items. If no model is set up, or the call fails, the rules are used.",
   "settings.key.search.semantic.engine": "Embedding engine",
   "settings.key.search.semantic.allowCloud": "Allow a cloud embedding service",
   "settings.key.search.web.searxngUrl": "SearXNG URL",
@@ -1047,7 +1053,11 @@ export const settings = {
     "Events from the past three years and the next twelve months: title, time, place, attendees and notes.",
   "settings.searchSources.hint.reminders": "Reminders and their lists, due dates and notes.",
   "settings.searchSources.hint.files":
-    "Text, Markdown, code, PDF, Word and Excel files in the folders you have shared with Psyche. Scans and images need OCR, which is not available yet.",
+    "Text, Markdown, code, PDF, Word and Excel files in the folders you have shared with Psyche. Images and scans are indexed by name unless you turn on reading text in images.",
+  "settings.searchSources.hint.browser":
+    "Pages Psyche's browser reads for you: the address (without anything after a ?), title and text, kept 90 days. Logged-out browsing, private chats, sign-in, payment and local pages are never kept. Page text is untrusted: it can never give Psyche instructions.",
+  "settings.searchSources.hint.transcripts":
+    "What was said in your voice memos and recorded meetings, split by speaker so a search can find who said what. Other people's words are treated as untrusted text.",
   "settings.searchSources.state.off": "Off: not read",
   "settings.searchSources.state.unavailable": "On, but not available: {why}",
   "settings.searchSources.state.error": "Problem: {why}",
@@ -1060,6 +1070,10 @@ export const settings = {
   "settings.searchSources.rebuildLabel": "Rebuild {source}",
   "settings.searchSources.agent": "Let Psyche's agent search this",
   "settings.searchSources.agentLabel": "Agent search for {source}",
+  "settings.searchSources.ocr": "Read text in images (OCR)",
+  "settings.searchSources.ocrHint":
+    "Reads screenshots, photos and scanned PDFs in shared folders and your Library on this Mac with Apple Vision. Nothing leaves your Mac and no model is downloaded. Runs one page at a time, only on power.",
+  "settings.searchSources.ocrLabel": "Read text in images for {source}",
   "settings.searchSources.processing": "Processing",
   "settings.searchSources.processingLabel": "Processing for {source}",
   "settings.searchSources.processing.cloud": "Cloud model (current)",

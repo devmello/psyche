@@ -449,7 +449,7 @@
         "payload": "#/$defs/VoiceSegmentPayload"
       },
       {
-        "description": "A generative-UI widget was patched (rev is the order; apply only when rev == local + 1, else refetch with widgets.get), or froze.",
+        "description": "A generative-UI widget was patched (rev is the order; apply only when fromRev (default rev - 1) == local rev, else refetch with widgets.get), or froze.",
         "name": "widget.updated",
         "payload": "#/$defs/WidgetUpdatedPayload"
       }
@@ -1687,6 +1687,22 @@
         "sideEffecting": true
       },
       {
+        "description": "Excludes every address and number of this person from everything memory; with forget, also deletes what was learned from them. Side-effecting.",
+        "name": "memory.entities.exclude",
+        "params": "#/$defs/MemoryEntitiesExcludeParams",
+        "result": "#/$defs/MemoryEntitiesExcludeResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Exports everything about one person as a zip.",
+        "name": "memory.entities.export",
+        "params": "#/$defs/MemoryEntitiesExportParams",
+        "result": "#/$defs/MemoryEntitiesExportResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "Marks a fact wrong: it is retracted and the same value is never proposed again for that entity. Side-effecting.",
         "name": "memory.entities.facts.retract",
         "params": "#/$defs/MemoryEntitiesFactsRetractParams",
@@ -1707,6 +1723,14 @@
         "name": "memory.entities.forget",
         "params": "#/$defs/MemoryEntitiesForgetParams",
         "result": "#/$defs/MemoryEntitiesForgetResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Keeps the person but deletes every fact and relation learned only from what they wrote, and their quarantined items. Side-effecting.",
+        "name": "memory.entities.forgetSaid",
+        "params": "#/$defs/MemoryEntitiesForgetSaidParams",
+        "result": "#/$defs/MemoryEntitiesForgetSaidResult",
         "scope": "operator.admin",
         "sideEffecting": true
       },
@@ -1779,6 +1803,14 @@
         "name": "memory.entities.update",
         "params": "#/$defs/MemoryEntitiesUpdateParams",
         "result": "#/$defs/MemoryEntitiesUpdateResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Runs the everything-memory pass now, under the same limits (power, thermal, model, budget) except quiet hours and idle time. Returns counts, or why it did not run. Side-effecting.",
+        "name": "memory.everything.run",
+        "params": "#/$defs/MemoryEverythingRunParams",
+        "result": "#/$defs/EverythingRunResult",
         "scope": "operator.write",
         "sideEffecting": true
       },
@@ -2107,6 +2139,14 @@
         "name": "memory.status",
         "params": "#/$defs/MemoryStatusParams",
         "result": "#/$defs/MemoryStatusResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Birthdays, anniversaries and dated events coming up, from accepted facts and event entities, soonest first.",
+        "name": "memory.upcoming",
+        "params": "#/$defs/MemoryUpcomingParams",
+        "result": "#/$defs/MemoryUpcomingResult",
         "scope": "operator.read",
         "sideEffecting": false
       },
@@ -2575,7 +2615,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Turns a search source on or off (what Psyche may read), sets its processing model, or replaces exclusion lists. Turning a source off removes its documents at once; an added exclusion removes what it matches. Side-effecting.",
+        "description": "Turns a search source on or off (what Psyche may read), sets its processing model, turns on reading text in images (OCR, Files only), or replaces exclusion lists. Turning a source off removes its documents at once; an added exclusion removes what it matches. Side-effecting.",
         "name": "search.sources.configure",
         "params": "#/$defs/SearchSourcesConfigureParams",
         "result": "#/$defs/SearchSourcesStatus",
@@ -12893,6 +12933,77 @@
       ],
       "type": "object"
     },
+    "ComingUpItem": {
+      "properties": {
+        "entityId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/ComingUpKind"
+        },
+        "date": {
+          "description": "Next occurrence, local date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "type": "string"
+        },
+        "daysAway": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "turns": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lastContactAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "text": {
+          "description": "One plain line, built from names and dates",
+          "maxLength": 400,
+          "type": "string"
+        }
+      },
+      "required": [
+        "entityId",
+        "name",
+        "kind",
+        "date",
+        "daysAway",
+        "text"
+      ],
+      "type": "object"
+    },
+    "ComingUpKind": {
+      "enum": [
+        "birthday",
+        "anniversary",
+        "event"
+      ],
+      "type": "string"
+    },
     "CompactionBlock": {
       "properties": {
         "type": {
@@ -15253,7 +15364,8 @@
         "done",
         "open",
         "tomorrow",
-        "learned"
+        "learned",
+        "coming_up"
       ],
       "type": "string"
     },
@@ -16806,6 +16918,70 @@
         "autoAcceptOwnerAuthored",
         "autoAcceptSelfDisclosure",
         "perSenderAutoAcceptAfter"
+      ],
+      "type": "object"
+    },
+    "EverythingRunReason": {
+      "description": "Why a pass did not run",
+      "enum": [
+        "disabled",
+        "no_sources",
+        "model_none",
+        "battery",
+        "low_power",
+        "thermal",
+        "not_idle",
+        "outside_quiet_hours",
+        "local_not_confirmed",
+        "low_memory",
+        "no_owner_entity",
+        "busy"
+      ],
+      "type": "string"
+    },
+    "EverythingRunResult": {
+      "properties": {
+        "ran": {
+          "type": "boolean"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EverythingRunReason"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "itemsRead": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "factsProposed": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "quarantined": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "deferred": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "tokens": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "ran",
+        "itemsRead",
+        "factsProposed",
+        "quarantined",
+        "deferred",
+        "tokens"
       ],
       "type": "object"
     },
@@ -23929,6 +24105,88 @@
       ],
       "type": "object"
     },
+    "MemoryEntitiesExcludeParams": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "mode": {
+          "$ref": "#/$defs/EverythingExclusionMode"
+        },
+        "dryRun": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "mode"
+      ],
+      "type": "object"
+    },
+    "MemoryEntitiesExcludeResult": {
+      "properties": {
+        "excluded": {
+          "description": "Addresses and numbers excluded",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "removed": {
+          "$ref": "#/$defs/PersonRemoved"
+        },
+        "dryRun": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "excluded",
+        "removed",
+        "dryRun"
+      ],
+      "type": "object"
+    },
+    "MemoryEntitiesExportParams": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "MemoryEntitiesExportResult": {
+      "properties": {
+        "filename": {
+          "type": "string"
+        },
+        "mime": {
+          "const": "application/zip",
+          "type": "string"
+        },
+        "data": {
+          "description": "Base64 zip: person.json (facts with citations and history, relations, loops, claims) and the card",
+          "type": "string"
+        },
+        "bytes": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "filename",
+        "mime",
+        "data",
+        "bytes"
+      ],
+      "type": "object"
+    },
     "MemoryEntitiesFactsRetractParams": {
       "properties": {
         "factId": {
@@ -24070,6 +24328,38 @@
               "type": "null"
             }
           ]
+        },
+        "dryRun": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "removed",
+        "dryRun"
+      ],
+      "type": "object"
+    },
+    "MemoryEntitiesForgetSaidParams": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "dryRun": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "MemoryEntitiesForgetSaidResult": {
+      "properties": {
+        "removed": {
+          "$ref": "#/$defs/PersonRemoved"
         },
         "dryRun": {
           "type": "boolean"
@@ -24487,6 +24777,10 @@
         "kind",
         "changed"
       ],
+      "type": "object"
+    },
+    "MemoryEverythingRunParams": {
+      "properties": {},
       "type": "object"
     },
     "MemoryExclusionsAddParams": {
@@ -26403,6 +26697,37 @@
       ],
       "type": "object"
     },
+    "MemoryUpcomingParams": {
+      "properties": {
+        "days": {
+          "description": "Default 14",
+          "maximum": 366,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "entityId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "MemoryUpcomingResult": {
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/ComingUpItem"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "type": "object"
+    },
     "MemoryVectorMode": {
       "enum": [
         "sqlite-vec",
@@ -28172,6 +28497,116 @@
       ],
       "type": "object"
     },
+    "OcrPage": {
+      "properties": {
+        "page": {
+          "description": "1 for an image",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "text": {
+          "maxLength": 20000,
+          "type": "string"
+        },
+        "confidence": {
+          "description": "Mean line confidence",
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "page",
+        "text",
+        "confidence"
+      ],
+      "type": "object"
+    },
+    "OcrRecognizeParams": {
+      "properties": {
+        "path": {
+          "description": "An absolute path to a PNG, JPEG, HEIC, TIFF, GIF, WebP or PDF file",
+          "maxLength": 4096,
+          "minLength": 1,
+          "type": "string"
+        },
+        "pages": {
+          "description": "PDF only: 1-based pages to consider (default: from the start)",
+          "items": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "maxItems": 200,
+          "type": "array"
+        },
+        "fromPage": {
+          "description": "PDF only: first page to consider (default 1)",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "maxPages": {
+          "description": "At most this many pages are recognised in this call",
+          "maximum": 20,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "minTextChars": {
+          "description": "PDF only: pages whose text layer is shorter than this are recognised",
+          "maximum": 1000,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "maxFileBytes": {
+          "description": "Size cap",
+          "maximum": 26214400,
+          "minimum": 1024,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "type": "object"
+    },
+    "OcrRecognizeResult": {
+      "properties": {
+        "pages": {
+          "description": "Only pages that were recognised, in order",
+          "items": {
+            "$ref": "#/$defs/OcrPage"
+          },
+          "type": "array"
+        },
+        "pageCount": {
+          "description": "Pages in the document (1 for an image)",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "nextPage": {
+          "description": "PDF only: where a next call continues, when pages remain",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "refusal": {
+          "$ref": "#/$defs/OcrRefusal"
+        }
+      },
+      "required": [
+        "pages",
+        "pageCount"
+      ],
+      "type": "object"
+    },
+    "OcrRefusal": {
+      "enum": [
+        "unsupported_type",
+        "too_large",
+        "not_a_file",
+        "unreadable",
+        "unavailable"
+      ],
+      "type": "string"
+    },
     "OkResult": {
       "properties": {
         "ok": {
@@ -28555,6 +28990,33 @@
         "auto"
       ],
       "type": "string"
+    },
+    "PersonRemoved": {
+      "properties": {
+        "facts": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "edges": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "citations": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "quarantine": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "facts",
+        "edges",
+        "citations",
+        "quarantine"
+      ],
+      "type": "object"
     },
     "PersonaIdentity": {
       "properties": {
@@ -33347,6 +33809,10 @@
           },
           "maxItems": 16,
           "type": "array"
+        },
+        "smart": {
+          "description": "Let the cheap query model read a question the rules could not filter (Enter, not keystrokes). Ignored when no model is configured",
+          "type": "boolean"
         }
       },
       "required": [
@@ -33522,7 +33988,9 @@
         "notes",
         "calendar",
         "reminders",
-        "files"
+        "files",
+        "browser",
+        "transcripts"
       ],
       "type": "string"
     },
@@ -33553,6 +34021,10 @@
         },
         "agent": {
           "description": "The agent's search_everything may search it; Messages is off until the owner allows it",
+          "type": "boolean"
+        },
+        "ocr": {
+          "description": "Read text in images and scanned PDFs on this Mac (Apple Vision); off until the owner allows it. Only Files uses it",
           "type": "boolean"
         },
         "state": {
@@ -33587,6 +34059,7 @@
         "enabled",
         "processing",
         "agent",
+        "ocr",
         "state",
         "items",
         "textBytes",
@@ -33606,6 +34079,9 @@
           "$ref": "#/$defs/SearchProcessing"
         },
         "agent": {
+          "type": "boolean"
+        },
+        "ocr": {
           "type": "boolean"
         },
         "exclude": {
@@ -41925,6 +42401,11 @@
           "type": "string"
         },
         "rev": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "fromRev": {
+          "description": "The revision `ops` apply to (default rev - 1). A coalesced event spans several revisions.",
           "minimum": 1,
           "type": "integer"
         },
