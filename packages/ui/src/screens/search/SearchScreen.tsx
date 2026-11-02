@@ -7,12 +7,12 @@ import type {
 } from "@psyche/protocol";
 import { RefreshCw } from "lucide-react";
 import type { ReactElement, ReactNode } from "react";
-import { Page, PageHeader } from "../../components/page.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { useSearchIndexStatus } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { ConnectedEntityCard } from "../../people/ConnectedEntityCard.tsx";
 import { useSlots } from "../../slots.tsx";
+import { ScreenColumn, ScreenToolbar } from "../feed/ScreenToolbar.tsx";
 import {
   type LifeAnswerState,
   SearchSurface,
@@ -132,15 +132,15 @@ export function SearchView({
   const blank = query.trim() === "";
   return (
     <section aria-label={t("screens.search.title")}>
-      <Page width={preview ? "full" : "wide"}>
-        <PageHeader
-          title={t("screens.search.title")}
-          meta={
-            !blank && !loading && error === null && results > 0
-              ? t("screens.search.results", { n: results })
-              : undefined
-          }
-        />
+      <ScreenToolbar
+        title={t("screens.search.title")}
+        meta={
+          !blank && !loading && error === null && results > 0
+            ? t("screens.search.results", { n: results })
+            : undefined
+        }
+      />
+      <ScreenColumn width={preview ? "full" : "wide"}>
         <SearchSurface
           variant="page"
           query={query}
@@ -170,7 +170,7 @@ export function SearchView({
           onReindex={onReindex}
           {...(reindexing === undefined ? {} : { reindexing })}
         />
-      </Page>
+      </ScreenColumn>
     </section>
   );
 }

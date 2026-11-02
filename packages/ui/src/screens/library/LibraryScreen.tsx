@@ -26,13 +26,16 @@ import {
   type KeyboardEvent,
   type MouseEvent,
   type ReactElement,
+  useEffect,
   useId,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { toast } from "sonner";
 import { requestChatFocus } from "../../chat/focus-request.ts";
-import { EmptyState, ErrorState, LoadingCards, useDelayedFlag } from "../../components/page.tsx";
+import { DelayedSkeletons } from "../../components/DelayedSkeleton.tsx";
+import { EmptyState, ErrorState, useDelayedFlag } from "../../components/page.tsx";
 import { Badge } from "../../components/ui/badge.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import {
@@ -43,6 +46,7 @@ import {
 } from "../../components/ui/dropdown-menu.tsx";
 import { NativeSelect } from "../../components/ui/native-select.tsx";
 import { Popover, PopoverContent, PopoverTrigger } from "../../components/ui/popover.tsx";
+import { Skeleton } from "../../components/ui/skeleton.tsx";
 import { Tabs, TabsList, TabsTrigger } from "../../components/ui/tabs.tsx";
 import { ToggleGroup, ToggleGroupItem } from "../../components/ui/toggle-group.tsx";
 import { useCall, useLibrary, useTasks } from "../../data/hooks.ts";
@@ -482,7 +486,7 @@ export function LibraryItemView({
         </td>
         <td className="px-2">
           <span className="flex items-center gap-1">
-            {taskButton}
+            {taskButton ?? <span className="size-5 shrink-0" aria-hidden="true" />}
             {item.tags.length > 0 ? (
               <span className="truncate text-callout text-label-tertiary">
                 {item.tags.map((tag) => (
@@ -561,16 +565,44 @@ export function LibraryView({
   const spec = LIBRARY_SECTIONS.find((s) => s.id === section) ?? LIBRARY_SECTIONS[0];
   const setFilter = (patch: Partial<LibraryFilters>) => onFiltersChange?.({ ...filters, ...patch });
   const select = (item: LibraryItem) => setSelected(item.id);
+  // In a narrow toolbar the section strip scrolls; keep the selected section in view (instant,
+  // so it also respects reduced motion).
+  const tabsRef = useRef<HTMLDivElement>(null);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `section` is the trigger, the effect reads the DOM
+  useEffect(() => {
+    tabsRef.current
+      ?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')
+      ?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+  }, [section]);
 
   let body: ReactElement;
   if (loading) {
     body = showSkeleton ? (
-      <LoadingCards
+      <DelayedSkeletons
         label={t("screens.library.loading")}
-        count={6}
-        lines={2}
-        layout={layout === "grid" ? "grid" : "rows"}
-      />
+        className={
+          layout === "grid"
+            ? "grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-x-4 gap-y-6"
+            : "flex flex-col"
+        }
+      >
+        {Array.from({ length: 5 }, (_, i) =>
+          layout === "grid" ? (
+            // biome-ignore lint/suspicious/noArrayIndexKey: static placeholders never reorder
+            <div key={i} className="flex flex-col items-center gap-1.5">
+              <Skeleton className="aspect-[4/5] w-full max-w-36 rounded-sm" />
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-3 w-16" />
+            </div>
+          ) : (
+            // biome-ignore lint/suspicious/noArrayIndexKey: static placeholders never reorder
+            <div key={i} className="flex h-8 items-center gap-2 px-2">
+              <Skeleton className="size-4 shrink-0" />
+              <Skeleton className="h-3.5 w-1/3" />
+            </div>
+          ),
+        )}
+      </DelayedSkeletons>
     ) : (
       <div aria-busy="true" className="min-h-24" />
     );
@@ -801,7 +833,12 @@ export function LibraryView({
       }}
       className="min-w-0 gap-0"
     >
-      <TabsList aria-label={t("screens.library.sections")} className="max-w-full overflow-x-auto">
+      <TabsList
+        ref={tabsRef}
+        aria-label={t("screens.library.sections")}
+        // justify-start: a centred flex row that overflows loses its start edge to a scroll it can't reach.
+        className="max-w-full justify-start overflow-x-auto"
+      >
         {LIBRARY_SECTIONS.map((s) => (
           <TabsTrigger key={s.id} value={s.id}>
             {s.label}
