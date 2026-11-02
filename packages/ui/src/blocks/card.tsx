@@ -244,7 +244,9 @@ export function CardActions({
         <Button
           key={a.id}
           size={size}
-          variant={a.primary ? "default" : "secondary"}
+          // Ink is the composer's and the approval's (one accent per view): a transcript card's
+          // primary is a bordered push button and the rest are borderless.
+          variant={a.primary ? "outline" : "ghost"}
           disabled={a.disabled}
           data-action-kind={a.kind}
           onClick={a.onSelect}

@@ -637,8 +637,11 @@ export function ApprovalCard({
         </div>
       )}
 
-      {/* Who and why, as one secondary line (§5.3); the labels stay for screen readers. */}
-      <p className="mt-2 text-callout text-label-secondary">
+      {/*
+        Who and why, as one secondary line (§5.3); the labels stay for screen readers. It opens
+        the card's evidence footer: one hairline, then the provenance lines close together.
+      */}
+      <p className="mt-3 border-t-[0.5px] border-separator-strong pt-3 text-callout text-label-secondary">
         <span className="sr-only">{t("blocks.approval.requestedBy")} </span>
         {requester}
         {why ? (
@@ -849,13 +852,13 @@ export function ApprovalCard({
       ) : null}
 
       {taintNote ? (
-        <p className="mt-3 text-callout text-label-secondary" data-testid="taint-note">
+        <p className="mt-1 text-callout text-label-secondary" data-testid="taint-note">
           {taintNote}
         </p>
       ) : null}
 
       {interactive && (approval.requiresAuthentication || otherSurfaces.length > 0) ? (
-        <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-callout text-label-secondary">
+        <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-callout text-label-secondary">
           {approval.requiresAuthentication ? (
             <span className="inline-flex items-center gap-1.5">
               <Fingerprint className="size-3.5" aria-hidden="true" />{" "}
