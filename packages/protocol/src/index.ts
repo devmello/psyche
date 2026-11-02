@@ -16,4 +16,5 @@ export * from "./schemas/index.ts";
 export * from "./trace.ts";
 export * from "./version.ts";
 export * from "./widgets-apply.ts";
+export * from "./widgets-bindings.ts";
 export * from "./widgets-validate.ts";

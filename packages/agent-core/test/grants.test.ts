@@ -245,13 +245,15 @@ describe("requester identity (security §9; S05 per-sender matrices)", () => {
     expect(card?.approval.surfaces).toEqual(["desktop"]);
     expect(card?.approval.details.requestedFor).toBe("designated: Lena");
     expect(card?.approval.taint).toBe(true);
-    await answerLatest(h, "approve", "always");
+    // A tainted send offers `once` only (security §3.6, §3.12), so Lena gets no standing grant.
+    expect(card?.approval.scopesOffered).toEqual(["once"]);
+    await answerLatest(h, "approve", "once");
     await t2.done;
     expect(mail.seen).toHaveLength(2);
     expect(mail.seen[1]?.ctx.requester).toEqual(lena);
 
-    // Lena's grant matches Lena's next request, but her turn is tainted by her own message and
-    // her words never make a target known, so the owner is still asked (security §3.6).
+    // Lena's next request is asked again: she holds no grant, her turn is tainted by her own
+    // message and her words never make a target known (security §3.6).
     h.provider.script([call("m3", "mail.send", { to: "alice@example.org" }), say("Again.")]);
     const t3 = start(h, "email alice@example.org", { threadId: "thr_lena", requester: lena });
     await until(() => h.broker.issued.length === 3, "Lena's second card");

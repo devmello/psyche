@@ -156,6 +156,7 @@ import {
   settingsKeyValue,
 } from "./model-settings.ts";
 import { createOtherChats, type OtherChats } from "./other-chats.ts";
+import { PageReadHub } from "./page-reads.ts";
 import { composePasskeys } from "./passkeys.ts";
 import { composePayments, paymentsSetupFromEnv } from "./payments.ts";
 import { composePeople, type People } from "./people.ts";
@@ -174,6 +175,7 @@ import { scriptTools } from "./scripts.ts";
 import { type ComposedSearch, composeSearch, graphNames } from "./search.ts";
 import { appleSearchSeams } from "./search-apple.ts";
 import { filesSourceDeps, powerReader } from "./search-files.ts";
+import { helperRecognizer } from "./search-ocr.ts";
 import { routerEmbedder, type SemanticEngines } from "./search-semantic.ts";
 import { searchEverythingTool } from "./search-tool.ts";
 import {
@@ -840,8 +842,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const ownPorts = createOwnPorts();
   const browserAvailability: BrowserAvailability = {};
   ownPorts.add(config.port, "gateway (configured)");
+  const pageReads = new PageReadHub();
   const services: ComposeServices = {
     documents,
+    pageReads,
     db,
     srt,
     clock,
@@ -938,6 +942,14 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       .find(
         (n) => nodes.isLive(n.id) && n.capabilities.some((c) => c.name === "messages.graph_read"),
       );
+    return node === undefined ? undefined : nodes?.client(node.id);
+  };
+  // The Mac helper that offers Vision OCR for search ingest (`ocr.recognize`), when one is live.
+  const ocrHelper = () => {
+    const nodes = gatewayRef?.context.nodes;
+    const node = nodes
+      ?.list()
+      .find((n) => nodes.isLive(n.id) && n.capabilities.some((c) => c.name === "ocr.recognize"));
     return node === undefined ? undefined : nodes?.client(node.id);
   };
   people.useSources(() =>
@@ -1384,14 +1396,20 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     messages: graphMessagesHelper,
     now: () => clock.now(),
   });
+  const power = powerReader();
   const search = composeSearch({
     // Local sources: each off until the owner turns it on in Settings → Search sources.
     sources: {
       apple: appleSearch.deps,
       refresh: appleSearch.refresh,
-      files: filesSourceDeps({ folders: () => rawBroker.policy.folders ?? [] }),
-      power: powerReader(),
+      files: filesSourceDeps({
+        folders: () => rawBroker.policy.folders ?? [],
+        // Vision OCR in the Mac helper (opt-in per source), one file at a time, on power only.
+        ocr: { recognize: helperRecognizer(ocrHelper), power },
+      }),
+      power,
       watch: background,
+      pageReads,
     },
     db,
     home: config.home,
