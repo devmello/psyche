@@ -118,6 +118,7 @@ import { composeEverything, type Everything } from "./everything.ts";
 import { type ExecHostDeps, execHostTool } from "./exec-host.ts";
 import { feedContextResolver } from "./feed-context.ts";
 import { filesHandlers } from "./files.ts";
+import { migrateFilesConnector } from "./files-migration.ts";
 import { withFolder } from "./folder-access.ts";
 import {
   mountParamsOnly,
@@ -512,6 +513,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     // Quiet hours (#953): a getter, so a change in Settings applies to the next notification.
     routing: notifierRouting(db),
   });
+  // The old "Files on this Mac" connector is File access now: move its folder into the grants.
+  migrateFilesConnector(db, config.home);
   const storedPolicy = validPolicy(getSetting(db, "permissions.policy")?.value, gwOptions.logger);
   const tokens = new ApprovalTokens();
   const relays: ApprovalRelay[] = [];

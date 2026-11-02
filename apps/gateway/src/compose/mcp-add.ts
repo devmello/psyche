@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { getSetting, setSetting } from "@psyche/db";
 import {
   createMcpHost,
+  diagnoseLaunch,
   type McpHostOptions,
   type PsycheMcpServerConfig,
   type StdioLauncher,
@@ -220,11 +221,17 @@ export function mcpAdder(deps: McpAddDeps): McpAdder {
       const info = await host.addServer({ ...runAs, id: probeId });
       const d = host.describe(probeId);
       if (info.status !== "connected" || d.toolsListHash === undefined) {
-        throw new PsycheError("unavailable", "The server did not start", {
+        // Server-authored and redacted by the host: shown as data.
+        const stderr = d.stderrTail.slice(-2_000);
+        const why = diagnoseLaunch(d.error ?? "", d.stderrTail);
+        throw new PsycheError("unavailable", `The server did not start: ${why.summary}`, {
           details: {
             reason: "probe_failed",
-            // Server-authored and redacted by the host: shown as data.
-            diagnostics: (d.error ?? d.stderrTail ?? "").slice(-2_000),
+            failure: why.failure,
+            ...(why.exitCode === undefined ? {} : { exitCode: why.exitCode }),
+            error: (d.error ?? "").slice(-500),
+            diagnostics: (d.error ?? stderr).slice(-2_000),
+            stderr,
           },
         });
       }
