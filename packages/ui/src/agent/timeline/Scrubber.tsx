@@ -25,6 +25,10 @@ import { REPLAY_SPEEDS, type ReplaySpeed } from "./replay.ts";
  * pointer 1:1 (no spring). The track is a `slider`.
  */
 
+/** The playhead owns the accent here; the options check in neutral ink. */
+const QUIET_CHECK =
+  "data-checked:border-label-secondary data-checked:bg-label-secondary data-checked:text-canvas dark:data-checked:bg-label-secondary";
+
 export interface ScrubberMarker {
   at: number;
   kind: "failed" | "approval";
@@ -275,6 +279,7 @@ export function Scrubber({
           <Checkbox
             id={`${id}-skip`}
             checked={skipWaits}
+            className={QUIET_CHECK}
             onCheckedChange={(v) => onSkipWaits(v === true)}
           />
           <label htmlFor={`${id}-skip`}>{t("agent.timeline.skipWaits")}</label>
@@ -283,6 +288,7 @@ export function Scrubber({
           <Checkbox
             id={`${id}-stop`}
             checked={stopAtFailures}
+            className={QUIET_CHECK}
             onCheckedChange={(v) => onStopAtFailures(v === true)}
           />
           <label htmlFor={`${id}-stop`}>{t("agent.timeline.stopAtFailures")}</label>

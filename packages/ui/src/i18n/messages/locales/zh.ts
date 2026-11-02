@@ -552,7 +552,8 @@ export const zh: Partial<Catalogue> = {
   "agent.sheet.approvals": "审批",
   "agent.sheet.soul": "灵魂与记忆",
   "agent.sheet.now.working": "正在处理{title} · {elapsed}",
-  "agent.sheet.now.waiting": "等你处理 · {n, number} 项审批",
+  "agent.sheet.now.waiting":
+    "等你处理 · {approvals, plural, =0 {} other {# 项审批}}{both, select, true { · } other {}}{questions, plural, =0 {} other {# 项提问}}",
   "agent.sheet.now.idleNext": "空闲 · 下一项:{title} {when}",
   "agent.sheet.now.idle": "空闲",
   "agent.sheet.now.memoryPaused": "记忆已暂停",

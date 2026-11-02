@@ -567,7 +567,7 @@ export const ar: Partial<Catalogue> = {
   "agent.sheet.soul": "الروح والذاكرة",
   "agent.sheet.now.working": "يعمل على {title} · {elapsed}",
   "agent.sheet.now.waiting":
-    "بانتظارك · {n, plural, one {# موافقة} two {موافقتان} few {# موافقات} other {# موافقة}}",
+    "بانتظارك · {approvals, plural, =0 {} one {# موافقة} two {موافقتان} few {# موافقات} other {# موافقة}}{both, select, true { · } other {}}{questions, plural, =0 {} one {سؤال واحد} two {سؤالان} few {# أسئلة} many {# سؤالًا} other {# سؤال}}",
   "agent.sheet.now.idleNext": "خامل · التالي: {title} {when}",
   "agent.sheet.now.idle": "خامل",
   "agent.sheet.now.memoryPaused": "الذاكرة متوقفة مؤقتًا",
