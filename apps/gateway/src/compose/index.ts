@@ -1776,9 +1776,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   ownPorts.add(gateway.port, "gateway (bound)");
   for (const part of parts) await part.start?.(gateway);
   // Ask about this (Feed) and a search result in a side chat: `chat.send.context` names what the
-  // agent reads as data.
+  // agent reads as data (a search result by what the index holds, not what the window says).
   gateway.context.chatContext.resolve = chatContextResolver(
     feedContextResolver(proactive.feed.store),
+    (id) => search.index.docOf(id),
   );
   await proactive.start();
   await ensureWeeklyCardAutomation(scheduler, {

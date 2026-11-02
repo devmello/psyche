@@ -2988,13 +2988,10 @@ export interface ChatSendParams {
 }
 
 export interface ChatContextRef {
-    id:         string;
-    kind:       BlockKind;
-    route?:     string;
-    scope?:     string;
-    snippet?:   string;
-    title?:     string;
-    untrusted?: boolean;
+    id:     string;
+    kind:   BlockKind;
+    scope?: string;
+    title?: string;
 }
 
 export interface ChatFromWidget {

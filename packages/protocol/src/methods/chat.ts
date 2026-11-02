@@ -29,15 +29,12 @@ export const ChatContextRef = Type.Object(
   {
     kind: StringEnum(["feed_item", "search_hit"]),
     id: Id,
-    /** `search_hit` only: what the search result showed. The Gateway reads these as data. */
+    /**
+     * `search_hit` only: what the window labelled the result, for the card it shows. The Gateway
+     * reads the result itself by `id` (text, kind, trust) and never takes text or trust from here.
+     */
     title: Type.Optional(Type.String({ maxLength: 300 })),
-    snippet: Type.Optional(Type.String({ maxLength: 2000 })),
-    /** The search scope the result came from (mail, notes, chats …), as a label. */
     scope: Type.Optional(Type.String({ maxLength: 40 })),
-    /** The in-app deep link; for a chat it names the thread the agent can read. */
-    route: Type.Optional(Type.String({ maxLength: 2000 })),
-    /** True when the result came from content the owner did not write (mail, web). */
-    untrusted: Type.Optional(Type.Boolean()),
   },
   { $id: "ChatContextRef" },
 );

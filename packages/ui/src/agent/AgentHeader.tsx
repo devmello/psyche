@@ -143,7 +143,7 @@ export function AgentHeader({
       role="toolbar"
       aria-label={t("chat.toolbar.label")}
       aria-orientation="horizontal"
-      className="flex h-13 shrink-0 items-center gap-3 bg-canvas ps-4 pe-3"
+      className="@container flex h-13 shrink-0 items-center gap-3 bg-canvas ps-4 pe-3"
       data-testid="chat-toolbar"
     >
       <button
@@ -204,7 +204,9 @@ export function AgentHeader({
         </div>
       </div>
       {status.running > 0 || status.needsYou > 0 ? (
-        <p className="hidden shrink-0 items-center gap-2 text-callout text-label-secondary md:flex">
+        // Wide enough for it beside the pills: by the toolbar's own width, not the window's, since a
+        // pane can leave the chat column narrow in a wide window.
+        <p className="hidden shrink-0 items-center gap-2 text-callout text-label-secondary @[40rem]:flex">
           {status.running > 0 ? (
             <span>{t("agent.header.running", { n: status.running })}</span>
           ) : null}

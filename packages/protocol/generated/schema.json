@@ -12795,20 +12795,9 @@
           "maxLength": 300,
           "type": "string"
         },
-        "snippet": {
-          "maxLength": 2000,
-          "type": "string"
-        },
         "scope": {
           "maxLength": 40,
           "type": "string"
-        },
-        "route": {
-          "maxLength": 2000,
-          "type": "string"
-        },
-        "untrusted": {
-          "type": "boolean"
         }
       },
       "required": [
