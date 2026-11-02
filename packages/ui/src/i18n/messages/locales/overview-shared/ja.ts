@@ -110,7 +110,7 @@ export const overviewShared: Partial<Catalogue> = {
   "screens.lessons.change": "変更内容",
   "screens.lessons.before": "変更前",
   "screens.lessons.after": "変更後",
-  "screens.lessons.loadFailed": "このレッスンを読み込めませんでした。{reason}",
+  "screens.lessons.loadFailed": "このレッスンを読み込めませんでした ({reason})。",
   "screens.lessons.sources": "あなたのフィードバックから",
   "screens.lessons.sourceDate": "{date}",
   "screens.lessons.openThread": "会話を開く",

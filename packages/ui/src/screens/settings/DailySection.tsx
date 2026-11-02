@@ -55,7 +55,7 @@ export interface FollowupsListProps {
 /** The Follow-ups view: what Psyche tracks, with done, snooze and dismiss on each row. */
 export function FollowupsList({ followups, onUpdate, onOpen }: FollowupsListProps): ReactElement {
   if (followups.length === 0) {
-    return <p className="text-callout text-label-secondary">{t("daily.followups.empty")}</p>;
+    return <p className="py-2 text-body text-label-secondary">{t("daily.followups.empty")}</p>;
   }
   return (
     <ul className="flex flex-col divide-y divide-separator" aria-label={t("daily.followups.title")}>

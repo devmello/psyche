@@ -107,7 +107,7 @@ export const overviewShared: Partial<Catalogue> = {
   "screens.lessons.change": "बदलाव",
   "screens.lessons.before": "पहले",
   "screens.lessons.after": "बाद में",
-  "screens.lessons.loadFailed": "यह सबक लोड नहीं हो सका। {reason}",
+  "screens.lessons.loadFailed": "यह सबक लोड नहीं हो सका ({reason})।",
   "screens.lessons.sources": "आपके फ़ीडबैक से",
   "screens.lessons.sourceDate": "{date}",
   "screens.lessons.openThread": "बातचीत खोलें",

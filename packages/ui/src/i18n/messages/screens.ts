@@ -112,7 +112,7 @@ export const screens = {
   "screens.lessons.saved": "Saved.",
   "screens.lessons.kept": "Kept. Psyche is sure of this now.",
   "screens.lessons.forgotten": "Forgotten. The line went back to what it was.",
-  "screens.lessons.loadFailed": "Couldn't load this lesson. {reason}",
+  "screens.lessons.loadFailed": "Couldn't load this lesson ({reason}).",
   // Growth (docs/agent/teaching-loop-2026.md §5.3) and the weekly card (§5.4).
   "screens.growth.window": "Period",
   "screens.growth.window.7d": "7 days",

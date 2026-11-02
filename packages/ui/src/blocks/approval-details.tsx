@@ -1,7 +1,7 @@
 import type { ApprovalRequest } from "@psyche/protocol";
 import { TriangleAlert } from "lucide-react";
 import { type ReactElement, type ReactNode, useState } from "react";
-import { t } from "../i18n/core.ts";
+import { activeI18n, t } from "../i18n/core.ts";
 import { DiffBlock } from "./DiffBlock.tsx";
 import { SelfConnectorCode, SelfConnectorDetails } from "./SelfConnectorDetails.tsx";
 
@@ -48,19 +48,30 @@ function Code({ children }: { children: ReactNode }): ReactElement {
 }
 
 /**
- * A money amount as the owner reads it: the producer's own display string when it sends one, else
- * the number in the request's currency ("€412.80", never "412.8"). A bare number stays as is.
+ * A money amount as the owner reads it. `currency` says whether the text carries the currency, so
+ * the Currency row is only hidden when it does. The producer's own display string wins; a number
+ * or a plain digit string ("412.80") is formatted in the request's currency; anything else stays
+ * as sent.
  */
-function money(v: unknown, currency: unknown, display?: unknown): string {
-  if (typeof display === "string" && display !== "") return display;
-  if (typeof v === "number" && typeof currency === "string" && /^[A-Z]{3}$/.test(currency)) {
+function money(
+  v: unknown,
+  currency: unknown,
+  display?: unknown,
+): { text: string; withCurrency: boolean } {
+  if (typeof display === "string" && display !== "") return { text: display, withCurrency: true };
+  const n =
+    typeof v === "number" ? v : typeof v === "string" && /^\d+(\.\d+)?$/.test(v) ? Number(v) : null;
+  if (n !== null && typeof currency === "string" && /^[A-Z]{3}$/.test(currency)) {
     try {
-      return new Intl.NumberFormat(undefined, { style: "currency", currency }).format(v);
+      return {
+        text: new Intl.NumberFormat(activeI18n().locale, { style: "currency", currency }).format(n),
+        withCurrency: true,
+      };
     } catch {
-      return str(v);
+      // An unknown currency code: show the amount as sent, with the Currency row beside it.
     }
   }
-  return str(v);
+  return { text: str(v), withCurrency: false };
 }
 
 const strings = (v: unknown): string[] =>
@@ -509,6 +520,7 @@ export function ApprovalDetails({
       );
     }
     case "purchase": {
+      const total = money(d.amount, d.currency, d.amountDisplay);
       const items = Array.isArray(d.lineItems)
         ? (d.lineItems as {
             name?: string;
@@ -519,9 +531,9 @@ export function ApprovalDetails({
         : [];
       return (
         <dl>
-          <Row label={t("blocks.details.merchant")}>{str(d.merchant)}</Row>
+          <Row label={t("blocks.details.merchant")}>{str(d.merchant ?? d.merchantOrigin)}</Row>
           <Row label={t("blocks.details.amount")}>
-            <span className="font-semibold">{money(d.amount, d.currency, d.amountDisplay)}</span>
+            <span className="font-semibold">{total.text}</span>
           </Row>
           {items.length > 0 ? (
             <Row label={t("blocks.details.items")}>
@@ -532,7 +544,7 @@ export function ApprovalDetails({
                     {t("blocks.details.lineItem", {
                       qty: li.qty ?? li.quantity ?? 1,
                       name: li.name ?? t("blocks.details.lineItemDefault"),
-                      amount: money(li.amount ?? "", d.currency),
+                      amount: money(li.amount ?? "", d.currency).text,
                     })}
                   </li>
                 ))}
@@ -541,7 +553,14 @@ export function ApprovalDetails({
           ) : null}
           <Rest
             details={d}
-            shown={["merchant", "amount", "amountDisplay", "currency", "lineItems"]}
+            shown={[
+              "merchant",
+              ...(d.merchant === undefined ? ["merchantOrigin"] : []),
+              "amount",
+              "amountDisplay",
+              ...(total.withCurrency ? ["currency"] : []),
+              "lineItems",
+            ]}
           />
         </dl>
       );
