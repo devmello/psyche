@@ -86,6 +86,13 @@ export const settings = {
   "settings.key.search.cards.enabled": "Context cards for search",
   "settings.semanticSearch.cardsHint":
     "When something is saved or indexed, a small cloud model writes a short summary, who and when, and the questions it answers, using only what the text says. Capped at about 200,000 tokens a day (well under a dollar); turn off to stop.",
+  "settings.key.search.encrypt": "Encrypt the search index",
+  "settings.semanticSearch.encryptHint":
+    "Keeps the search index file unreadable without a key that is stored separately: in a macOS keychain item that opens without Touch ID while your Mac is unlocked, or beside your vault key on a server. Protects copies, backups and synced folders of the index, not software running as you on your unlocked Mac. Applies the next time Psyche starts and rebuilds the index once (a few minutes, plus the cost of context cards if they are on). Search is empty for a few seconds after start while the Mac helper connects.",
+  "settings.semanticSearch.encrypt.on": "Index encrypted",
+  "settings.semanticSearch.encrypt.pending":
+    "Waiting for the Mac helper to open the encrypted index",
+  "settings.semanticSearch.encrypt.unavailable": "Not encrypted: {why}",
   "settings.key.search.rerank.enabled": "Re-rank the best results with a small cloud model",
   "settings.semanticSearch.rerankHint":
     "Off by default. When the agent searches your data, a small cloud model reads the question and the top 20 results (title, date and the first 500 characters of each) and puts the best first. Those snippets leave this Mac. Cost: about 2,000 tokens per search, under a cent with a small model. No RAM: nothing runs on this machine. Never used for your delegates' searches or for keystrokes in ⌘K.",
@@ -99,6 +106,7 @@ export const settings = {
   "settings.key.context.keepRecentTurns": "Recent turns kept verbatim",
   "settings.key.data.transcriptRecall": "Transcript recall",
   "settings.key.memory.recall.mode": "How memory is recalled",
+  "settings.key.widgets.remoteImages": "Remote images in widgets",
   "settings.key.ui.map.tiles": "Map tiles",
   "settings.key.ui.map.styleUrl": "Map style URL",
   "settings.key.ui.map.styleUrlDark": "Map style URL (dark)",

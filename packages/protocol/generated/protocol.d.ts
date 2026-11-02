@@ -6164,6 +6164,50 @@ export interface MemoryLessonsListResult {
     nextCursor?: null | string;
 }
 
+export interface MemoryLifeAnswerParams {
+    q: string;
+}
+
+export interface MemoryLifeAnswerResult {
+    answer?: null | string;
+    /**
+     * The facts the answer cites, in order
+     */
+    facts:   LifeFactHit[];
+    reason?: LifeAnswerReason | null;
+}
+
+export interface LifeFactHit {
+    attribute:   GraphFactAttribute;
+    entity:      EntitySummary;
+    factId:      string;
+    observedAt?: null | string;
+    provenance:  Provenance;
+    quote?:      null | string;
+    review:      GraphReviewState;
+    source?:     null | string;
+    /**
+     * Untrusted text when it came from someone else
+     */
+    value: string;
+}
+
+export type LifeAnswerReason = "no_model" | "no_facts" | "no_answer" | "ungrounded" | "model_failed";
+
+export interface MemoryLifeSearchParams {
+    /**
+     * Default 20
+     */
+    limit?: number;
+    q:      string;
+}
+
+export interface MemoryLifeSearchResult {
+    entities: EntitySummary[];
+    facts:    LifeFactHit[];
+    intent?:  null | string;
+}
+
 export interface MemoryLoopUpdatedPayload {
     loop: GraphLoop;
 }
@@ -8305,8 +8349,9 @@ export interface SearchIndexStatus {
     /**
      * Documents in the index
      */
-    docs:      number;
-    semantic?: SearchSemanticStatus;
+    docs:        number;
+    encryption?: SearchIndexEncryption;
+    semantic?:   SearchSemanticStatus;
 }
 
 export interface SearchBackfillStatus {
@@ -8331,6 +8376,26 @@ export interface SearchBackfillStatus {
 }
 
 export type SearchBackfillState = "idle" | "running" | "done" | "error";
+
+export interface SearchIndexEncryption {
+    /**
+     * Why it is unavailable
+     */
+    reason?: string;
+    /**
+     * on: the index file is encrypted; off: it is not and the switch is off; pending: the
+     * switch is on and Psyche is waiting for the Mac helper to hand over the key; unavailable:
+     * the key cannot be used here
+     */
+    state: SearchIndexEncryptionState;
+}
+
+/**
+ * on: the index file is encrypted; off: it is not and the switch is off; pending: the
+ * switch is on and Psyche is waiting for the Mac helper to hand over the key; unavailable:
+ * the key cannot be used here
+ */
+export type SearchIndexEncryptionState = "off" | "on" | "pending" | "unavailable";
 
 export interface SearchSemanticStatus {
     blocked?: SearchSemanticBlock;
@@ -10840,6 +10905,21 @@ export interface WidgetSpec {
     title:        string;
     v:            number;
 }
+
+export interface WidgetsImageParams {
+    url:      string;
+    widgetId: string;
+}
+
+export interface WidgetsImageResult {
+    /**
+     * base64, at most 512 KiB decoded
+     */
+    bytes: string;
+    mime:  WidgetsImageResultMIME;
+}
+
+export type WidgetsImageResultMIME = "image/png" | "image/jpeg" | "image/gif" | "image/webp";
 
 export interface WrapUpBlock {
     actions?: WrapUpAction[];

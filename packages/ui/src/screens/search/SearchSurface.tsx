@@ -1,4 +1,10 @@
-import type { SearchHit, SearchQueryChip, SearchScope, SearchUnderstood } from "@psyche/protocol";
+import type {
+  LifeFactHit,
+  SearchHit,
+  SearchQueryChip,
+  SearchScope,
+  SearchUnderstood,
+} from "@psyche/protocol";
 import { ChevronDown, CornerDownLeft, Search, ShieldQuestion, X, Zap } from "lucide-react";
 import {
   type KeyboardEvent,
@@ -20,7 +26,7 @@ import {
   DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu.tsx";
 import { Kbd } from "../../components/ui/kbd.tsx";
-import { useSearch } from "../../data/hooks.ts";
+import { useGatewayQuery, useSearch } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { cn } from "../../lib/utils.ts";
 import { entityDetail } from "../../people/EntityRow.tsx";
@@ -53,10 +59,11 @@ import {
 export type SurfaceItem =
   | { kind: "action"; key: string; action: PaletteAction }
   | { kind: "hit"; key: string; hit: SearchHit }
-  | { kind: "entity"; key: string; entity: EntitySummary };
+  | { kind: "entity"; key: string; entity: EntitySummary }
+  | { kind: "fact"; key: string; fact: LifeFactHit };
 
 export interface SurfaceGroup {
-  id: SearchScope | "actions" | "people" | "projects";
+  id: SearchScope | "actions" | "people" | "projects" | "life";
   label: string;
   items: SurfaceItem[];
 }
@@ -70,6 +77,7 @@ export function surfaceGroups(
   actions: readonly PaletteAction[],
   text: string,
   entities: readonly EntitySummary[] = [],
+  lifeFacts: readonly LifeFactHit[] = [],
 ): SurfaceGroup[] {
   const entityGroup = (id: "people" | "projects", label: string, rows: EntitySummary[]) => ({
     id,
@@ -89,6 +97,16 @@ export function surfaceGroups(
     entities.filter((e) => e.kind === "project"),
   );
   const groups: SurfaceGroup[] = [people, projects].filter((g) => g.items.length > 0);
+  // Cited facts from Everything memory (§12.4): what was said, with its words, under the people.
+  if (lifeFacts.length > 0) {
+    groups.push({
+      id: "life",
+      label: t("screens.search.life"),
+      items: lifeFacts.map(
+        (fact): SurfaceItem => ({ kind: "fact", key: `fact:${fact.factId}`, fact }),
+      ),
+    });
+  }
   const scoped: SurfaceGroup[] = SCOPE_ORDER.map((scope) => ({
     id: scope,
     label: SCOPE_LABEL[scope],
@@ -187,6 +205,8 @@ export interface SearchSurfaceProps {
   autoFocus?: boolean;
   /** People and projects matching the query (`memory.entities.search`), shown first. */
   entities?: readonly EntitySummary[];
+  /** Cited facts matching the query (`memory.life.search`), after people and projects. */
+  lifeFacts?: readonly LifeFactHit[];
   onOpenEntity?: (entity: EntitySummary) => void;
   /** The card for the selected person or project in the preview column. */
   renderEntityPreview?: (entity: EntitySummary) => ReactNode;
@@ -215,6 +235,7 @@ export function SearchSurface({
   preview = false,
   autoFocus = false,
   entities = [],
+  lifeFacts = [],
   onOpenEntity,
   renderEntityPreview,
   now = Date.now(),
@@ -236,8 +257,9 @@ export function SearchSurface({
         palette ? actions : [],
         parsed.text,
         searching ? entities : [],
+        searching ? lifeFacts : [],
       ),
-    [searching, hits, palette, actions, parsed.text, entities],
+    [searching, hits, palette, actions, parsed.text, entities, lifeFacts],
   );
   const flat = useMemo(() => groups.flatMap((g) => g.items), [groups]);
   // Each keystroke (or a new result set) puts the selection back on the best result: the index
@@ -279,6 +301,7 @@ export function SearchSurface({
     if (!item) return;
     if (item.kind === "action") onRunAction?.(item.action);
     else if (item.kind === "entity") onOpenEntity?.(item.entity);
+    else if (item.kind === "fact") onOpenEntity?.(item.fact.entity);
     else if (sideChat && onOpenInSideChat) onOpenInSideChat(item.hit);
     else onOpen?.(item.hit);
   };
@@ -679,6 +702,30 @@ function SurfaceRow({
   terms: readonly string[];
   now: number;
 }): ReactElement {
+  if (item.kind === "fact") {
+    const f = item.fact;
+    return (
+      <>
+        <EntityMonogram kind={f.entity.kind} name={f.entity.name} className="mx-0.5" />
+        <span className="flex min-w-0 flex-1 flex-col" data-testid="life-fact">
+          <span className="truncate text-body text-label-primary">
+            <Highlight
+              text={t("memoryReview.attr.sentence", {
+                name: f.entity.name,
+                attribute: t(`people.attr.${f.attribute}`),
+                value: f.value,
+              })}
+              terms={terms}
+            />
+          </span>
+          <span className="truncate text-callout text-label-secondary">
+            {f.review === "pending" ? `${t("screens.search.life.unconfirmed")} · ` : ""}
+            {f.quote == null ? "" : t("memoryReview.quote", { quote: f.quote })}
+          </span>
+        </span>
+      </>
+    );
+  }
   if (item.kind === "entity") {
     const detail = entityDetail(item.entity, now);
     return (
@@ -770,6 +817,32 @@ function SurfacePreview({
   onSideChat?: () => void;
   renderEntityPreview?: (entity: EntitySummary) => ReactNode;
 }): ReactElement {
+  if (item.kind === "fact") {
+    return (
+      <>
+        <span className="inline-flex items-center gap-1.5 text-caption text-label-tertiary">
+          {item.fact.review === "pending"
+            ? t("screens.search.life.unconfirmed")
+            : t("screens.search.life")}
+        </span>
+        <p className="text-title-3 text-label-primary">{item.fact.entity.name}</p>
+        <p className="text-callout text-label-secondary">
+          {t(`people.attr.${item.fact.attribute}`)}: {item.fact.value}
+        </p>
+        {item.fact.quote == null ? null : (
+          <blockquote className="border-l-2 border-separator pl-2 text-callout text-label-secondary">
+            {t("memoryReview.quote", { quote: item.fact.quote })}
+          </blockquote>
+        )}
+        <div className="mt-auto flex flex-wrap gap-2">
+          <Button size="sm" onClick={onOpen}>
+            <CornerDownLeft aria-hidden="true" />
+            {t("shell.search.open")}
+          </Button>
+        </div>
+      </>
+    );
+  }
   if (item.kind === "entity") {
     if (renderEntityPreview) return <>{renderEntityPreview(item.entity)}</>;
     const detail = entityDetail(item.entity, now);
@@ -897,8 +970,17 @@ export function useSearchSurface(initialQuery = "", debounceMs = 200, enabled = 
     enabled: enabled && settledParsed.filters.length === 0,
   });
   const parsed = useMemo(() => parseSearchQuery(query), [query]);
+  const life = useGatewayQuery(
+    "memory.life.search",
+    { q: settledParsed.text, limit: 8 },
+    {
+      enabled:
+        enabled && settledParsed.filters.length === 0 && settledParsed.text.trim().length >= 2,
+    },
+  );
   return {
     entities: people.entities,
+    life: settledParsed.text.trim().length >= 2 ? (life.data?.facts ?? []) : [],
     query,
     setQuery,
     parsed,

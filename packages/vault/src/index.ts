@@ -151,6 +151,7 @@ export {
   refusedFieldName,
   scanText,
 } from "./refusals.ts";
+export { DerivedKeyStore } from "./slots/DerivedKey.ts";
 export {
   fromB64url,
   invokeHelper,
@@ -179,6 +180,11 @@ export {
   VAULT_SCHEMA_VERSION,
   VaultStore,
 } from "./store.ts";
+export {
+  isPlainSqlite,
+  loadOrCreateSubsystemKey,
+  openEncryptedSqlite,
+} from "./subsystem-key.ts";
 export { parseTotpSeed, type TotpSeed, totpCode } from "./totp.ts";
 export {
   type AddItemInput,

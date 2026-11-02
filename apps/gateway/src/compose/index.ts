@@ -89,7 +89,7 @@ import {
 } from "@psyche/scheduler";
 import { WEB_SEARCH_PROVIDER_SETTING, WEB_SEARCH_SEARXNG_SETTING } from "@psyche/search";
 import { createTaskHandlers, SqliteTaskEngine, TaskWorkerPool } from "@psyche/tasks";
-import { SecretRedactor, type Vault } from "@psyche/vault";
+import { DerivedKeyStore, SecretRedactor, type Vault } from "@psyche/vault";
 import { type DocumentsHandle, documentBridge } from "../artifacts/bridge.ts";
 import { resolveConfig } from "../config.ts";
 import type { HandlerDef } from "../context.ts";
@@ -137,6 +137,7 @@ import { insightsHandlers } from "./insights.ts";
 import { libraryHandlers } from "./library.ts";
 import type { ComposedMcp } from "./mcp.ts";
 import {
+  asMemoryEmbedder,
   createMemoryRecall,
   defaultLocalLoader,
   type LocalEmbedderLoader,
@@ -174,6 +175,7 @@ import { composeScreenAsk, type ScreenAskOptions } from "./screen-ask.ts";
 import { scriptTools } from "./scripts.ts";
 import { type ComposedSearch, composeSearch, graphNames } from "./search.ts";
 import { appleSearchSeams } from "./search-apple.ts";
+import { resolveSearchKey } from "./search-db.ts";
 import { filesSourceDeps, powerReader } from "./search-files.ts";
 import { helperRecognizer } from "./search-ocr.ts";
 import { routerEmbedder, type SemanticEngines } from "./search-semantic.ts";
@@ -835,6 +837,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     utility: utility ?? modelRef,
     timeZone: () => timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
     card: async (path) => (await memory.readFile(path))?.content,
+    embedder: () => {
+      const e = searchRef?.embedder();
+      return e === undefined ? undefined : asMemoryEmbedder(e);
+    },
     announce: (card) => void proactive.feed.postNotice({ ...card, reason: "memory learned" }),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
@@ -1396,8 +1402,17 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     messages: graphMessagesHelper,
     now: () => clock.now(),
   });
+  // Encryption at rest for the search index, with its own key beside the vault's (R8).
+  const searchEncryption = await resolveSearchKey({
+    db,
+    keyFile: join(config.home, "state", "search.key.json"),
+    wrapper: vault.wrapper,
+    slot: vault.slot,
+    derived: new DerivedKeyStore(vault.helper),
+  });
   const power = powerReader();
   const search = composeSearch({
+    encryption: searchEncryption,
     // Local sources: each off until the owner turns it on in Settings → Search sources.
     sources: {
       apple: appleSearch.deps,

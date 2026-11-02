@@ -5,6 +5,7 @@ import {
   EverythingExclusion,
   EverythingExclusionMode,
   EverythingRunResult,
+  LifeFactHit,
   MemoryRun,
   PersonRemoved,
   QuarantineAction,
@@ -726,6 +727,35 @@ export const MemoryMethods = {
     sideEffecting: true,
     description:
       "Excludes every address and number of this person from everything memory; with forget, also deletes what was learned from them. Side-effecting.",
+  }),
+  "memory.life.search": defineMethod({
+    params: Type.Object({
+      q: Type.String({ maxLength: 500 }),
+      limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 50, description: "Default 20" })),
+    }),
+    result: Type.Object({
+      entities: Type.Array(EntitySummary),
+      facts: Type.Array(LifeFactHit),
+      intent: Nullable(Type.String({ maxLength: 40 })),
+    }),
+    scope: "operator.read",
+    description:
+      "Life search for the owner: people, organisations, events and topics by name, and cited facts (including ones still waiting for review, marked) by their words. Owner-only: the agent reads memory through its own tools and access rules.",
+  }),
+  "memory.life.answer": defineMethod({
+    params: Type.Object({ q: Type.String({ minLength: 1, maxLength: 500 }) }),
+    result: Type.Object({
+      answer: Nullable(Type.String({ maxLength: 600 })),
+      facts: Type.Array(LifeFactHit, { description: "The facts the answer cites, in order" }),
+      reason: Nullable(
+        StringEnum(["no_model", "no_facts", "no_answer", "ungrounded", "model_failed"], {
+          $id: "LifeAnswerReason",
+        }),
+      ),
+    }),
+    scope: "operator.read",
+    description:
+      "A short answer to a question about the owner's people, from reviewed, non-sensitive facts only, each claim cited to a fact. Owner-only. No answer (with a reason) when the model is off, no fact matches, or the reply cites nothing it was given.",
   }),
   "memory.runs.list": defineMethod({
     params: Type.Object({

@@ -1,10 +1,16 @@
 import { join } from "node:path";
 import { getSetting, openDb, type PsycheDb } from "@psyche/db";
 import {
+  answerFromFacts,
   describeUpcoming,
   EverythingStore,
+  fuseLifeHits,
   type GraphStore,
   type ItemReader,
+  type LifeEmbedder,
+  lifeCandidates,
+  lifeFactsForQuestion,
+  lifeSearch,
   localMinutesAt,
   type NightlyStep,
   type PassDeps,
@@ -120,6 +126,8 @@ type EverythingMethod =
   | "memory.senders.list"
   | "memory.senders.decide"
   | "memory.upcoming"
+  | "memory.life.search"
+  | "memory.life.answer"
   | "memory.entities.export"
   | "memory.entities.forgetSaid"
   | "memory.entities.exclude";
@@ -164,6 +172,12 @@ export interface EverythingHandlers {
     p: ReviewParams<"memory.senders.decide">,
   ): Promise<ReviewResult<"memory.senders.decide">>;
   "memory.upcoming"(p: ReviewParams<"memory.upcoming">): Promise<ReviewResult<"memory.upcoming">>;
+  "memory.life.search"(
+    p: ReviewParams<"memory.life.search">,
+  ): Promise<ReviewResult<"memory.life.search">>;
+  "memory.life.answer"(
+    p: ReviewParams<"memory.life.answer">,
+  ): Promise<ReviewResult<"memory.life.answer">>;
   "memory.entities.export"(
     p: ReviewParams<"memory.entities.export">,
   ): Promise<ReviewResult<"memory.entities.export">>;
@@ -179,9 +193,15 @@ export interface EverythingHandlers {
 export interface PersonContext {
   graph: GraphStore;
   clock: Clock;
+  /** The graph database, for the Life search scan. */
+  db: { prepare(sql: string): { all(...a: unknown[]): unknown[] } };
   timeZone: () => string;
   /** The person's card file, when one exists, for the export. */
   card?: (path: string) => Promise<string | undefined>;
+  /** The embedder search uses now, if any: ranks Life search by meaning too. */
+  embedder?: () => LifeEmbedder | undefined;
+  /** The model that may answer a question about people (off, or an unconfirmed local one: none). */
+  answerModel?: () => { provider: ModelProvider; model: ModelRef } | undefined;
 }
 
 const PAGE = 50;
@@ -308,6 +328,38 @@ export function everythingHandlers(
         forgotten,
       };
     },
+    async "memory.life.search"(p) {
+      const ctx = needPerson();
+      const now = ctx.clock.now();
+      const limit = p.limit ?? 20;
+      const found = lifeSearch(ctx.graph, em, ctx.db, p.q, { limit, now });
+      const embedder = ctx.embedder?.();
+      if (embedder === undefined || found.intent !== null) return found;
+      const facts = await fuseLifeHits(
+        p.q,
+        found.facts,
+        lifeCandidates(ctx.graph, em, ctx.db, now),
+        embedder,
+        limit,
+      );
+      return { ...found, facts };
+    },
+    async "memory.life.answer"(p) {
+      const ctx = needPerson();
+      const now = ctx.clock.now();
+      const model = ctx.answerModel?.();
+      if (model === undefined) return { answer: null, facts: [], reason: "no_model" };
+      const lexical = lifeFactsForQuestion(ctx.graph, em, ctx.db, p.q, { limit: 20, now });
+      const candidates = lifeCandidates(ctx.graph, em, ctx.db, now);
+      const hits = await fuseLifeHits(p.q, lexical, candidates, ctx.embedder?.(), 12);
+      const r = await answerFromFacts({
+        ...model,
+        question: p.q,
+        hits,
+        exclude: new Set(candidates.filter((c) => c.sensitive).map((c) => c.hit.factId)),
+      });
+      return r;
+    },
     async "memory.everything.run"() {
       return run();
     },
@@ -417,6 +469,8 @@ export interface EverythingDeps {
   timeZone: () => string;
   /** Reads a person's card file for their export. */
   card?: (path: string) => Promise<string | undefined>;
+  /** The embedder Search uses now (late-bound), for Life search by meaning. */
+  embedder?: () => LifeEmbedder | undefined;
   /** The machine, read once when the pass starts (tests pass fixed numbers). */
   readState?: () => Promise<PassDeps["state"]>;
   /** Posts the "Psyche learned N things" card to the Feed (no notification). */
@@ -451,8 +505,25 @@ export function composeEverything(deps: EverythingDeps): Everything {
   const handlers = everythingHandlers(store, settings, () => runNowFn(), {
     graph,
     clock,
+    db: db.sqlite,
     timeZone: deps.timeZone,
     ...(deps.card === undefined ? {} : { card: deps.card }),
+    ...(deps.embedder === undefined ? {} : { embedder: deps.embedder }),
+    answerModel: () => {
+      const s = settings();
+      const choice = s.model.default;
+      if (!s.enabled || choice.kind === "none") return undefined;
+      if (choice.kind === "cloud")
+        return {
+          provider: deps.provider,
+          model: (choice.ref as ModelRef | undefined) ?? deps.utility,
+        };
+      const raw = getSetting(db, EVERYTHING_LOCAL_CONFIRMED)?.value;
+      const confirmed = typeof raw === "string" ? [raw] : Array.isArray(raw) ? raw : [];
+      return choice.ref !== undefined && confirmed.includes(choice.ref)
+        ? { provider: deps.provider, model: choice.ref as ModelRef }
+        : undefined;
+    },
   });
   let search: PsycheDb | undefined;
   // A second, read-only connection to the derived index, opened on the first read (so a pass the

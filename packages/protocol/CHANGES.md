@@ -41,6 +41,10 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 - New methods `memory.upcoming`, `memory.entities.export`, `memory.entities.forgetSaid` (admin), `memory.entities.exclude` (admin); types `ComingUpItem`, `ComingUpKind`, `PersonRemoved`. `DailySectionId` gains `coming_up`.
 
+### v1 additive — 2026-11-02 (everything memory, Life search)
+
+- New method `memory.life.search` (read) and type `LifeFactHit`: people, orgs, events and topics by name, and cited facts (including ones waiting for review, marked) by their words, with plain intents such as "birthdays in March".
+
 ### v1 additive — 2026-10-29 (everything memory, EM6)
 
 - New methods `memory.exclusions.list`, `memory.exclusions.add` (admin; `dryRun` counts a forget), `memory.exclusions.remove` (admin) and types `EverythingExclusion`, `EverythingExclusionMode`. Only a masked hint of an excluded address is ever returned.
@@ -796,3 +800,7 @@ Needed by `packages/ui` to render and answer every block type in data model §9.
 ### v1 — 2026-10-18 (S00 bootstrap)
 
 - Domain schemas from `docs/04-data-model.md`; WS frames (`req` / `res` / `event` with `seq` and `stateVersion`); the M1 method and event registry; pairing handshake (`connect`, `connect.verify`); node protocol; desktop ↔ Gateway browser bridge; contract interfaces in `src/contracts/`; codegen to JSON Schema, TypeScript declarations and Swift `Codable` models.
+
+### v1 additive — 2026-11-02 (everything memory, Life answers)
+
+- New method `memory.life.answer` (read) and type `LifeAnswerReason`: a short answer about people from reviewed, non-sensitive facts, each claim cited; `answer` is null with a reason when the model is off, nothing matches or the reply is not grounded. `memory.life.search` also ranks by meaning when semantic search is on (same shape).

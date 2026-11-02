@@ -229,6 +229,10 @@ const TRUST_SOURCE_RESULTS: Record<string, unknown> = {
 /** The model window the mock reports when a thread has no usage yet. */
 export const MOCK_CONTEXT_WINDOW = 200_000;
 
+/** A 1×1 PNG for `widgets.image`. */
+const MOCK_PNG =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGD4DwABBAEAHnOcQAAAAABJRU5ErkJggg==";
+
 export const EMPTY_WORLD: MockWorld = {
   feedbackEvents: [],
   lessons: [],
@@ -1672,6 +1676,11 @@ export class MockGateway implements GatewayClient {
       receipts: this.world.receipts.filter((r) => p.taskId === undefined || r.taskId === p.taskId),
       nextCursor: null,
     }),
+    "widgets.image": () => {
+      if (this.world.settings["widgets.remoteImages"] !== true)
+        fail("policy_denied", "Remote images in widgets are off");
+      return { mime: "image/png", bytes: MOCK_PNG };
+    },
     "widgets.get": (p) => {
       const widgets = p.widgetIds.flatMap((id) => this.world.widgets.filter((w) => w.id === id));
       return {

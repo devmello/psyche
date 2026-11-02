@@ -1983,6 +1983,22 @@
         "sideEffecting": false
       },
       {
+        "description": "A short answer to a question about the owner's people, from reviewed, non-sensitive facts only, each claim cited to a fact. Owner-only. No answer (with a reason) when the model is off, no fact matches, or the reply cites nothing it was given.",
+        "name": "memory.life.answer",
+        "params": "#/$defs/MemoryLifeAnswerParams",
+        "result": "#/$defs/MemoryLifeAnswerResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Life search for the owner: people, organisations, events and topics by name, and cited facts (including ones still waiting for review, marked) by their words. Owner-only: the agent reads memory through its own tools and access rules.",
+        "name": "memory.life.search",
+        "params": "#/$defs/MemoryLifeSearchParams",
+        "result": "#/$defs/MemoryLifeSearchResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "Open loops, oldest first, filtered by status, direction, person, project or due date.",
         "name": "memory.loops.list",
         "params": "#/$defs/MemoryLoopsListParams",
@@ -3243,6 +3259,14 @@
         "name": "widgets.get",
         "params": "#/$defs/WidgetsGetParams",
         "result": "#/$defs/WidgetsGetResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Fetches one remote image a widget shows (generative-ui-2026 §7.2, D3), through the Gateway: only when the owner turned `widgets.remoteImages` on, only a URL that is in that widget's stored spec, https only, no cookies or referrer, private addresses refused, image types only (never SVG), 512 KiB cap.",
+        "name": "widgets.image",
+        "params": "#/$defs/WidgetsImageParams",
+        "result": "#/$defs/WidgetsImageResult",
         "scope": "operator.read",
         "sideEffecting": false
       }
@@ -22355,6 +22379,86 @@
       ],
       "type": "object"
     },
+    "LifeAnswerReason": {
+      "enum": [
+        "no_model",
+        "no_facts",
+        "no_answer",
+        "ungrounded",
+        "model_failed"
+      ],
+      "type": "string"
+    },
+    "LifeFactHit": {
+      "properties": {
+        "factId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "entity": {
+          "$ref": "#/$defs/EntitySummary"
+        },
+        "attribute": {
+          "$ref": "#/$defs/GraphFactAttribute"
+        },
+        "value": {
+          "description": "Untrusted text when it came from someone else",
+          "maxLength": 2000,
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "review": {
+          "$ref": "#/$defs/GraphReviewState"
+        },
+        "quote": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "source": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "observedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "factId",
+        "entity",
+        "attribute",
+        "value",
+        "provenance",
+        "review"
+      ],
+      "type": "object"
+    },
     "LinkPaymentMethod": {
       "properties": {
         "id": {
@@ -25713,6 +25817,105 @@
       },
       "required": [
         "lessons"
+      ],
+      "type": "object"
+    },
+    "MemoryLifeAnswerParams": {
+      "properties": {
+        "q": {
+          "maxLength": 500,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "q"
+      ],
+      "type": "object"
+    },
+    "MemoryLifeAnswerResult": {
+      "properties": {
+        "answer": {
+          "anyOf": [
+            {
+              "maxLength": 600,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "facts": {
+          "description": "The facts the answer cites, in order",
+          "items": {
+            "$ref": "#/$defs/LifeFactHit"
+          },
+          "type": "array"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LifeAnswerReason"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "facts"
+      ],
+      "type": "object"
+    },
+    "MemoryLifeSearchParams": {
+      "properties": {
+        "q": {
+          "maxLength": 500,
+          "type": "string"
+        },
+        "limit": {
+          "description": "Default 20",
+          "maximum": 50,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "q"
+      ],
+      "type": "object"
+    },
+    "MemoryLifeSearchResult": {
+      "properties": {
+        "entities": {
+          "items": {
+            "$ref": "#/$defs/EntitySummary"
+          },
+          "type": "array"
+        },
+        "facts": {
+          "items": {
+            "$ref": "#/$defs/LifeFactHit"
+          },
+          "type": "array"
+        },
+        "intent": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "entities",
+        "facts"
       ],
       "type": "object"
     },
@@ -33689,6 +33892,28 @@
       ],
       "type": "string"
     },
+    "SearchIndexEncryption": {
+      "properties": {
+        "state": {
+          "description": "on: the index file is encrypted; off: it is not and the switch is off; pending: the switch is on and Psyche is waiting for the Mac helper to hand over the key; unavailable: the key cannot be used here",
+          "enum": [
+            "off",
+            "on",
+            "pending",
+            "unavailable"
+          ],
+          "type": "string"
+        },
+        "reason": {
+          "description": "Why it is unavailable",
+          "type": "string"
+        }
+      },
+      "required": [
+        "state"
+      ],
+      "type": "object"
+    },
     "SearchIndexStatus": {
       "properties": {
         "docs": {
@@ -33701,6 +33926,9 @@
         },
         "semantic": {
           "$ref": "#/$defs/SearchSemanticStatus"
+        },
+        "encryption": {
+          "$ref": "#/$defs/SearchIndexEncryption"
         }
       },
       "required": [
@@ -42445,6 +42673,48 @@
       "required": [
         "widgets",
         "missing"
+      ],
+      "type": "object"
+    },
+    "WidgetsImageParams": {
+      "properties": {
+        "widgetId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "url": {
+          "maxLength": 2000,
+          "pattern": "^https://",
+          "type": "string"
+        }
+      },
+      "required": [
+        "widgetId",
+        "url"
+      ],
+      "type": "object"
+    },
+    "WidgetsImageResult": {
+      "properties": {
+        "mime": {
+          "enum": [
+            "image/png",
+            "image/jpeg",
+            "image/gif",
+            "image/webp"
+          ],
+          "type": "string"
+        },
+        "bytes": {
+          "description": "base64, at most 512 KiB decoded",
+          "type": "string"
+        }
+      },
+      "required": [
+        "mime",
+        "bytes"
       ],
       "type": "object"
     },

@@ -1,12 +1,15 @@
-import { join } from "node:path";
-import { getLibraryItem, getSetting, getThread, openDb, setSetting } from "@psyche/db";
+import { mkdirSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { getLibraryItem, getSetting, getThread, type PsycheDb, setSetting } from "@psyche/db";
 import type { GraphStore } from "@psyche/memory";
-import type {
-  DeviceScope,
-  MemoryStore,
-  ModelProvider,
-  ModelRef,
-  SearchIndexStatus,
+import {
+  type DeviceScope,
+  type MemoryStore,
+  type ModelProvider,
+  type ModelRef,
+  PsycheError,
+  type SearchIndexEncryption,
+  type SearchIndexStatus,
 } from "@psyche/protocol";
 import {
   type AppleSourceDeps,
@@ -40,7 +43,9 @@ import {
 import type { HandlerDef } from "../context.ts";
 import type { Logger } from "../log.ts";
 import type { Gateway } from "../server.ts";
+import { DeferredOpen } from "./deferred-open.ts";
 import type { PageReadHub } from "./page-reads.ts";
+import { openSearchDatabase } from "./search-db.ts";
 import { watchFolders } from "./search-files.ts";
 import type { Recognize } from "./search-ocr.ts";
 import {
@@ -124,6 +129,16 @@ export interface SearchDeps extends Omit<SearchSourceDeps, "pageSize"> {
    * from alex@… and messages from "Alex Rivera".
    */
   resolvePerson?: (name: string) => readonly string[] | undefined;
+  /**
+   * Encryption at rest (`search.encrypt`): the key for this start and the state to report. Absent
+   * means plain, as before.
+   */
+  encryption?: {
+    key?: Buffer;
+    /** The key is fetched later (Mac helper): see `composeSearch`. */
+    pending?: () => Promise<Buffer | undefined>;
+    status: SearchIndexEncryption;
+  };
   /** Index file; defaults to `<home>/state/search.sqlite`. */
   path?: string;
   /** Library reconcile interval (default 60 s; 0 = only after a backfill and on demand). */
@@ -204,11 +219,30 @@ export function graphNames(
   return [...out];
 }
 
+/**
+ * Search is composed in one step when the index can open now (plain, or a key already in hand).
+ * With `encryption.pending` (the key lives in the Mac helper, which connects after the Gateway
+ * starts) the index opens when the key arrives: until then `search.*` answers empty with the
+ * reason, `search.status` says `pending`, and nothing is written. Derived data, so events seen
+ * meanwhile are recovered by the backfill that follows the open.
+ */
 export function composeSearch(deps: SearchDeps): ComposedSearch {
-  // Its own file, not psyche.sqlite: it can be rebuilt any time and its writes never contend
-  // with the transcript writer.
-  const file = openDb(deps.path ?? join(deps.home, "state", "search.sqlite"), { migrate: false });
-  const index = new SqliteSearchIndex(file.sqlite, {
+  const searchPath = deps.path ?? join(deps.home, "state", "search.sqlite");
+  mkdirSync(dirname(searchPath), { recursive: true, mode: 0o700 });
+  const pending = deps.encryption?.pending;
+  if (pending === undefined) {
+    // Its own file, not psyche.sqlite: it can be rebuilt any time and its writes never contend
+    // with the transcript writer.
+    const file = openSearchDatabase(searchPath, deps.encryption?.key, (msg) =>
+      deps.logger?.log("info", msg),
+    );
+    return buildSearch(deps, file.sqlite);
+  }
+  return deferredSearch(deps, searchPath, pending);
+}
+
+function buildSearch(deps: SearchDeps, sqlite: PsycheDb["sqlite"]): ComposedSearch {
+  const index = new SqliteSearchIndex(sqlite, {
     memory: deps.memory,
     now: deps.now,
     tzOffsetMinutes: () => tzOffsetMinutesAt(deps.timeZone, deps.now()),
@@ -280,6 +314,7 @@ export function composeSearch(deps: SearchDeps): ComposedSearch {
     docs: await index.count(),
     backfill,
     semantic: controller.status(),
+    ...(deps.encryption === undefined ? {} : { encryption: deps.encryption.status }),
   });
   const publishStatus = () => {
     deps.onSemanticChange?.();
@@ -554,7 +589,111 @@ export function composeSearch(deps: SearchDeps): ComposedSearch {
       await backfill.stop();
       await semantic.idle();
       await queue;
-      file.sqlite.close();
+      sqlite.close();
+    },
+  };
+}
+
+const EMPTY_RESULT = { hits: [], groups: [], total: 0, warnings: [], tookMs: 0 };
+const NO_BACKFILL = { state: "idle", processed: 0, total: 0 } as never;
+
+/** A proxy that forwards to `get()` and, while that is undefined, answers with `fallback`. */
+function lazy<T extends object>(get: () => T | undefined, fallback: Record<string, unknown>): T {
+  return new Proxy({} as T, {
+    get(_t, prop) {
+      const inner = get();
+      if (inner !== undefined) {
+        const v = Reflect.get(inner, prop, inner);
+        return typeof v === "function" ? v.bind(inner) : v;
+      }
+      const f = fallback[String(prop)];
+      if (f !== undefined) return typeof f === "function" ? f : () => f;
+      return () => Promise.resolve(undefined);
+    },
+  });
+}
+
+function deferredSearch(
+  deps: SearchDeps,
+  searchPath: string,
+  provider: () => Promise<Buffer | undefined>,
+): ComposedSearch {
+  let inner: ComposedSearch | undefined;
+  let gateway: Gateway | undefined;
+  let sqlite: PsycheDb["sqlite"] | undefined;
+  const waiting = (): SearchIndexEncryption => ({
+    state: "pending",
+    reason: opener.reason,
+  });
+  const opener = new DeferredOpen<ComposedSearch>({
+    provider,
+    open: (key) => {
+      const file = openSearchDatabase(searchPath, key, (msg) => deps.logger?.log("info", msg));
+      sqlite = file.sqlite;
+      return buildSearch({ ...deps, encryption: { status: { state: "on" } } }, file.sqlite);
+    },
+    onReady: (built) => {
+      inner = built;
+      deps.logger?.log("info", "search: the encrypted index is open");
+      if (gateway !== undefined) {
+        built.start?.(gateway);
+        void built.status().then((st) => gateway?.bus.publish("search.status.updated", st));
+      }
+    },
+    onWaiting: (reason) =>
+      deps.logger?.log("debug", "search: waiting for the index key", { reason }),
+  });
+  const pendingStatus = (): SearchIndexStatus => ({
+    docs: 0,
+    backfill: NO_BACKFILL,
+    encryption: waiting(),
+  });
+  const unavailable = (): never => {
+    throw new PsycheError("unavailable", `search is waiting for the Mac helper (${opener.reason})`);
+  };
+  const delegate = (name: string, fallback: (p: never) => unknown) => ({
+    run: (call: never, params: never) => {
+      const h = inner?.handlers?.[name];
+      return h === undefined ? fallback(params) : h.run(call, params);
+    },
+  });
+  const handlers: Record<string, HandlerDef> = {
+    "search.query": delegate("search.query", () => EMPTY_RESULT) as HandlerDef,
+    "search.status": delegate("search.status", pendingStatus) as HandlerDef,
+    "search.reindex": delegate("search.reindex", () => ({ started: false })) as HandlerDef,
+    "search.sources": delegate("search.sources", unavailable) as HandlerDef,
+    "search.sources.configure": delegate("search.sources.configure", unavailable) as HandlerDef,
+    "search.sources.rebuild": delegate("search.sources.rebuild", unavailable) as HandlerDef,
+  };
+  return {
+    index: lazy(() => inner?.index, {
+      search: EMPTY_RESULT,
+      query: { hits: [], total: 0 },
+      count: 0,
+      textOf: {},
+    }),
+    indexer: lazy(() => inner?.indexer, {}),
+    backfill: lazy(() => inner?.backfill, { status: NO_BACKFILL, needed: false, running: false }),
+    semantic: lazy(() => inner?.semantic, {}),
+    semanticReady: () => inner?.semanticReady() ?? Promise.resolve(),
+    embedder: () => inner?.embedder(),
+    handlers,
+    idle: () => inner?.idle() ?? Promise.resolve(),
+    status: () => inner?.status() ?? Promise.resolve(pendingStatus()),
+    syncLibrary: () => inner?.syncLibrary() ?? Promise.resolve(),
+    sourceTick: () => inner?.sourceTick() ?? Promise.resolve(),
+    get sources() {
+      return inner?.sources;
+    },
+    start(gw: Gateway) {
+      gateway = gw;
+      inner?.start?.(gw);
+      opener.start();
+    },
+    async stop() {
+      opener.stop();
+      await inner?.stop?.();
+      if (inner === undefined) sqlite?.close();
     },
   };
 }
