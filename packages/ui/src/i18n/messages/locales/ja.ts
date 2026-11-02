@@ -859,7 +859,7 @@ export const ja: Partial<Catalogue> = {
   "settings.nav.credentials": "認証情報",
   "settings.nav.appearance": "外観",
   "settings.nav.voice": "音声と音声入力",
-  "settings.nav.data": "データ管理",
+  "settings.nav.data": "プライバシーとデータ",
   "settings.nav.server": "サーバとリモートアクセス",
   "settings.nav.usage": "使用状況",
   "settings.nav.about": "情報",

@@ -134,6 +134,16 @@ export const Window1200: Story = {
   args: { defaultSection: "about" },
   decorators: [frame(1200, 640)],
 };
+/** Search finds pages, panes and single settings; choosing one scrolls to it and tints it. */
+export const SearchResults: Story = {
+  args: { defaultSection: "general", defaultQuery: "search" },
+  decorators: [frame(920, 600)],
+};
+/** An old section id opens its page scrolled to that pane (`/settings/files`). */
+export const OldLinkToPane: Story = {
+  args: { defaultSection: "files" },
+  decorators: [frame(920, 600)],
+};
 /** Below 720 px the list stacks above the content (the web on a phone). */
 export const Window600Stacked: Story = {
   args: { defaultSection: "model" },

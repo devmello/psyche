@@ -879,7 +879,7 @@ export const hi: Partial<Catalogue> = {
   "settings.nav.credentials": "क्रेडेंशियल",
   "settings.nav.appearance": "रूप-रंग",
   "settings.nav.voice": "आवाज़ और श्रुतलेख",
-  "settings.nav.data": "डेटा नियंत्रण",
+  "settings.nav.data": "गोपनीयता और डेटा",
   "settings.nav.server": "सर्वर और रिमोट ऐक्सेस",
   "settings.nav.usage": "उपयोग",
   "settings.nav.about": "बारे में",

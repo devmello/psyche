@@ -1,10 +1,9 @@
 import { MCP_PRESETS, presetNeeds } from "@psyche/protocol";
 import { render, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
-import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { FilesOnMacCard, TerminalCard } from "../src/screens/settings/DeviceAccessCards.tsx";
-import { execHostEnabled, folderGrants } from "../src/screens/settings/FileAccessSection.tsx";
+import { execHostEnabled } from "../src/screens/settings/FileAccessSection.tsx";
 import { McpFailureNotice } from "../src/screens/settings/McpFailureNotice.tsx";
 import { McpPrerequisites } from "../src/screens/settings/McpPrerequisites.tsx";
 import { launchFailureOf, type McpState } from "../src/screens/settings/use-mcp.tsx";
@@ -85,58 +84,34 @@ describe("failure card", () => {
   });
 });
 
-function Harness({ initial }: { initial: Record<string, unknown> }) {
-  const [values, setValues] = useState(initial);
-  const onChange = (k: string, v: unknown) => setValues((s) => ({ ...s, [k]: v }));
-  return (
-    <StoryWorld>
-      <output data-testid="policy">{JSON.stringify(values["permissions.policy"] ?? {})}</output>
-      <FilesOnMacCard values={values} onChange={onChange} persona="Psyche" />
-      <TerminalCard values={values} onChange={onChange} persona="Psyche" />
-    </StoryWorld>
-  );
-}
-const policy = () => JSON.parse(screen.getByTestId("policy").textContent ?? "{}");
-
 describe("Files on this Mac and Terminal", () => {
-  it("lists every granted folder, adds more than one, changes access and revokes", async () => {
+  it("show what File access decides and open it there, with no second editor", async () => {
     const user = userEvent.setup();
+    const onOpen = vi.fn();
+    const values = {
+      "permissions.policy": {
+        folders: [
+          { path: "/Users/me/Documents", mode: "ro" },
+          { path: "/Users/me/Projects", mode: "rw" },
+        ],
+        exec: { execHostEnabled: true },
+      },
+    };
     render(
-      <Harness
-        initial={{
-          "permissions.policy": { folders: [{ path: "/Users/me/Documents", mode: "ro" }] },
-        }}
-      />,
+      <StoryWorld>
+        <FilesOnMacCard values={values} persona="Psyche" onOpenFileAccess={onOpen} />
+        <TerminalCard values={values} persona="Psyche" onOpenFileAccess={onOpen} />
+      </StoryWorld>,
     );
     const list = screen.getByRole("list", { name: "Shared folders" });
-    expect(within(list).getByText("/Users/me/Documents")).toBeTruthy();
-    const input = screen.getAllByPlaceholderText(/\//)[0] as HTMLInputElement;
-    await user.type(input, "/Users/me/Projects");
-    await user.click(screen.getAllByRole("button", { name: "Share a folder" })[0] as HTMLElement);
-    await user.type(input, "/Users/me/Desktop");
-    await user.click(screen.getAllByRole("button", { name: "Share a folder" })[0] as HTMLElement);
-    expect(folderGrants({ "permissions.policy": policy() }).map((g) => g.path)).toEqual([
-      "/Users/me/Documents",
-      "/Users/me/Projects",
-      "/Users/me/Desktop",
-    ]);
-    await user.selectOptions(screen.getByLabelText("Access to /Users/me/Projects"), "rw");
-    expect(policy().folders[1]).toEqual({ path: "/Users/me/Projects", mode: "rw" });
-    await user.click(screen.getByRole("button", { name: "Stop sharing /Users/me/Desktop" }));
-    expect(policy().folders).toHaveLength(2);
-  });
-
-  it("turns exec_host on and off through the same policy setting", async () => {
-    const user = userEvent.setup();
-    render(
-      <Harness initial={{ "permissions.policy": { folders: [], exec: { allowEnv: ["FOO"] } } }} />,
-    );
-    const sw = screen.getByRole("switch", { name: /to ask to run commands/ });
-    expect(execHostEnabled({ "permissions.policy": policy() })).toBe(false);
-    await user.click(sw);
-    expect(policy().exec).toEqual({ allowEnv: ["FOO"], execHostEnabled: true });
-    await user.click(sw);
-    expect(policy().exec.execHostEnabled).toBe(false);
-    expect(screen.getByText(/type UNSANDBOXED/)).toBeTruthy();
+    expect(within(list).getByText("/Users/me/Projects")).toBeTruthy();
+    expect(within(list).getByText("read and write")).toBeTruthy();
+    expect(screen.queryByRole("switch")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Share a folder" })).toBeNull();
+    expect(screen.getByText("Running commands is on")).toBeTruthy();
+    expect(screen.getByText("2 folders shared.")).toBeTruthy();
+    await user.click(screen.getAllByRole("button", { name: "Open File access" })[1] as HTMLElement);
+    expect(onOpen).toHaveBeenCalledTimes(1);
+    expect(execHostEnabled({})).toBe(false);
   });
 });

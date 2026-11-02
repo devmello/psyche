@@ -44,7 +44,7 @@ export const nudges = {
   "nudges.settings.low": "Gentle",
   "nudges.settings.normal": "Normal",
   "nudges.settings.high": "Eager",
-  "nudges.settings.quietHours": "Cards wait out the quiet hours set in Settings → Notifications.",
+  "nudges.settings.quietHours": "Cards wait out the quiet hours set in Settings → General → Notifications.",
   "nudges.consent.title": "Turn on relationship nudges?",
   "nudges.consent.body":
     "Psyche will look at when you last wrote to or heard from people you correspond with (dates only, not what was said), birthdays you confirmed, and promises you made in your own words.",

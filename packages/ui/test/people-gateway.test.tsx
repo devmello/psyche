@@ -290,18 +290,15 @@ describe("Settings → People & projects", () => {
     );
   });
 
-  it("opens your own card and exports", async () => {
-    const onExportReady = vi.fn();
-    const { callsTo, user } = setup(<PeopleSection onExportReady={onExportReady} />, {
-      edit: graphOn,
-    });
+  it("opens your own card, and points Export at Privacy & data", async () => {
+    const navigate = vi.fn();
+    const { user } = setup(<PeopleSection />, { edit: graphOn, slots: { navigate } });
     await user.click(await screen.findByRole("button", { name: "Open your card" }));
     const dialog = await screen.findByRole("dialog", { name: "What Psyche knows about you" });
     expect(await within(dialog).findByRole("article", { name: "Alex Rivera" })).toBeTruthy();
     await user.keyboard("{Escape}");
-    await user.click(screen.getByRole("button", { name: "Export people and projects" }));
-    await waitFor(() => expect(callsTo("memory.export")).toHaveLength(1));
-    await waitFor(() => expect(onExportReady).toHaveBeenCalled());
+    await user.click(screen.getByRole("button", { name: "Open Privacy & data" }));
+    expect(navigate).toHaveBeenCalledWith("/settings/data");
   });
 });
 

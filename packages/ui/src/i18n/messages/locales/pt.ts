@@ -864,7 +864,7 @@ export const pt: Partial<Catalogue> = {
   "settings.nav.credentials": "Credenciais",
   "settings.nav.appearance": "Aparência",
   "settings.nav.voice": "Voz e ditado",
-  "settings.nav.data": "Controles de dados",
+  "settings.nav.data": "Privacidade e dados",
   "settings.nav.server": "Servidor e acesso remoto",
   "settings.nav.usage": "Uso",
   "settings.nav.about": "Sobre",

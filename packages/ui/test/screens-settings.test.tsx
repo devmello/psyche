@@ -32,8 +32,10 @@ import { presenceUnavailable } from "../src/screens/settings/SettingsApproval.ts
 import {
   SettingsScreen,
   type SettingsScreenProps,
+  paneForKey,
   searchSettings,
 } from "../src/screens/settings/SettingsScreen.tsx";
+import { SETTING_LABELS } from "../src/screens/settings/setting-labels.ts";
 import { sampleProviders, sampleSettings } from "../src/screens/settings/sample-data.ts";
 import { resolveSection } from "../src/screens/settings/settings-pages.ts";
 import { parseSettingsRoute } from "../src/screens/settings/settings-route.ts";
@@ -161,6 +163,28 @@ describe("SettingsScreen", () => {
         .filter((h) => h.kind === "setting")
         .every((h) => h.pane === "search"),
     ).toBe(true);
+  });
+});
+
+describe("paneForKey", () => {
+  it("gives every labelled setting a pane, so Search can jump to it", () => {
+    // Shown outside Settings (chat, onboarding) or only cleared, never set here.
+    const elsewhere = new Set([
+      "ui.onboarding.completedAt",
+      "ui.onboarding.progress",
+      "ui.transcriptMode",
+    ]);
+    const missing = Object.keys(SETTING_LABELS).filter(
+      (k) => !elsewhere.has(k) && paneForKey(k) === null,
+    );
+    expect(missing).toEqual([]);
+    expect(paneForKey("memory.recall.mode")).toBe("learning");
+    expect(paneForKey("permissions.policy")).toBe("permissions");
+    expect(paneForKey("permissions.folders")).toBe("files");
+    expect(paneForKey("search.web.provider")).toBe("search");
+    expect(paneForKey("widgets.remoteImages")).toBe("data");
+    expect(paneForKey("screenAsk.shortcut")).toBe("voice");
+    expect(paneForKey("memory.everything.review")).toBe("memory");
   });
 });
 

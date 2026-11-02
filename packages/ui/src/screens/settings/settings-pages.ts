@@ -218,6 +218,7 @@ export function resolveSection(id: string | undefined): {
 export function paneForKey(key: string): SettingsPaneId | null {
   const root = key.split(".", 1)[0] ?? "";
   if (key.startsWith("permissions.folders")) return "files";
+  if (key.startsWith("memory.everything.review")) return "memory";
   if (key.startsWith("memory.everything")) return "everything";
   if (key.startsWith("search.")) return "search";
   if (key === "data.transcriptRecall") return "learning";

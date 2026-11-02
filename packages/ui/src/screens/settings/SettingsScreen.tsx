@@ -195,6 +195,8 @@ export interface SettingsScreenProps extends SettingsShellProps {
   onSectionChange?: (section: SettingsSectionId) => void;
   /** Where Connectors opens: the MCP servers only, or with the Add MCP server form showing. */
   connectorsView?: ConnectorsView;
+  /** Opens with this typed in Search settings (stories). */
+  defaultQuery?: string;
 }
 
 function opt<K extends string, V>(key: K, value: V | undefined): { [P in K]?: V } {
@@ -291,7 +293,7 @@ export function SettingsSectionView({
     case "data":
       return <DataControlsSection {...opt("onExportReady", s.onExportReady)} />;
     case "people":
-      return <PeopleSection {...opt("onExportReady", s.onExportReady)} />;
+      return <PeopleSection />;
     case "everything":
       return <EverythingMemorySection />;
     case "memory":
@@ -384,6 +386,7 @@ export function SettingsScreen({
   defaultSection = "general",
   onSectionChange,
   connectorsView,
+  defaultQuery = "",
   ...shell
 }: SettingsScreenProps): ReactElement {
   const { navigate } = useSlots();
@@ -409,7 +412,7 @@ export function SettingsScreen({
   };
 
   const searchId = useId();
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(defaultQuery);
   const hits = useMemo(() => searchSettings(query).slice(0, 40), [query]);
   const searching = query.trim() !== "";
 

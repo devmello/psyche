@@ -60,8 +60,9 @@ describe("policy ↔ folder grants", () => {
 
   it("maps /settings routes to kit sections with a fallback", () => {
     expect(settingsSectionOf("/settings/files")).toBe("files");
-    expect(settingsSectionOf("/settings")).toBe("model");
-    expect(settingsSectionOf("/settings/general")).toBe("model");
+    expect(settingsSectionOf("/settings")).toBe("general");
+    expect(settingsSectionOf("/settings/general")).toBe("general");
+    expect(settingsSectionOf("/settings/nope")).toBe("general");
     expect(settingsSectionOf("/chat")).toBeNull();
   });
 

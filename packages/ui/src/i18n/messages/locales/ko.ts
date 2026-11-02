@@ -864,7 +864,7 @@ export const ko: Partial<Catalogue> = {
   "settings.nav.credentials": "자격 증명",
   "settings.nav.appearance": "화면 모드",
   "settings.nav.voice": "음성 및 받아쓰기",
-  "settings.nav.data": "데이터 제어",
+  "settings.nav.data": "개인정보 및 데이터",
   "settings.nav.server": "서버 및 원격 접근",
   "settings.nav.usage": "사용량",
   "settings.nav.about": "정보",

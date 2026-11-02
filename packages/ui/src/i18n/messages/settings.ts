@@ -71,7 +71,7 @@ export const settings = {
   "settings.nav.appearance": "Appearance",
   "settings.nav.notifications": "Notifications",
   "settings.nav.voice": "Voice & dictation",
-  "settings.nav.data": "Data controls",
+  "settings.nav.data": "Privacy & data",
   "settings.nav.people": "People & projects",
   "settings.nav.server": "Server & remote access",
   "settings.nav.usage": "Usage",
@@ -744,7 +744,7 @@ export const settings = {
   "settings.connectors.catalog.mcp": "Custom MCP server",
   "settings.connectors.catalog.slack": "Slack",
   "settings.connectors.slackExplain":
-    "Slack is a channel: you chat with Psyche there. Set it up in Settings → Channels.",
+    "Slack is a channel: you chat with Psyche there. Set it up in Settings → Connectors & sources → Channels.",
   "settings.connectors.openChannels": "Open Channels",
   "settings.connectors.status.connected": "Connected",
   "settings.connectors.status.disconnected": "Disconnected",
@@ -1171,7 +1171,7 @@ export const settings = {
   "settings.webSearch.searxngInvalid": "Enter an http(s) URL without a user name or password.",
   "settings.webSearch.searxngPlaceholder": "http://127.0.0.1:8888",
 
-  // Settings → Data controls (DataControlsSection.tsx).
+  // Settings → Privacy & data (DataControlsSection.tsx).
   "settings.data.title": "Privacy & data",
   "settings.data.description":
     "Everything {persona} keeps lives on this machine. There is no training toggle because nothing is sent for training.",
@@ -1240,7 +1240,7 @@ export const settings = {
   "settings.data.recallState.semantic":
     "Recalling by meaning and words: {vectors} of {chunks} memory passages indexed.",
   "settings.data.recallState.modelMissing":
-    "The embedding model is not downloaded yet, so recall matches words only. Turn on Semantic search under Model & providers to download it.",
+    "The embedding model is not downloaded yet, so recall matches words only. Turn on Semantic search in Settings → Connectors & sources → Search to download it.",
   "settings.data.recallState.cloudBlocked":
     "The embedding service is not allowed to receive your memory, so recall matches words only.",
   "settings.data.recallState.textOnly":
@@ -1891,7 +1891,7 @@ export const settings = {
   "settings.connect.expired": "the sign-in page expired. Try again.",
   "settings.connect.noSignIn": "the Gateway didn't return a sign-in page",
   "settings.connect.notConfigured":
-    "{name} isn't set up on this Gateway yet: it needs your own OAuth client (the Connecting Google guide in Psyche's docs). Set it up later in Settings → Connectors.",
+    "{name} isn't set up on this Gateway yet: it needs your own OAuth client (the Connecting Google guide in Psyche's docs). Set it up later in Settings → Connectors & sources.",
   "settings.connect.alreadyConnected": "{name} is already connected.",
   "settings.connect.needsPermission":
     "{name} is set up, but macOS has not allowed it yet. Allow it in",
@@ -1903,7 +1903,7 @@ export const settings = {
   "settings.connectors.status.needsPermission": "Needs permission",
   "settings.connectors.catalog.connected": "{name} (connected)",
   "settings.connect.unavailable":
-    "Signing in to {name} isn't available on this Gateway yet. Set it up later in Settings → Connectors.",
+    "Signing in to {name} isn't available on this Gateway yet. Set it up later in Settings → Connectors & sources.",
 
   "settings.people.title": "People & projects",
   "settings.people.description":
@@ -1953,8 +1953,8 @@ export const settings = {
   "settings.people.editUserMd": "Edit USER.md",
   "settings.people.export": "Export",
   "settings.people.exportHint":
-    "A zip of your memory with graph.json (people, projects, facts and loops) and every card file.",
-  "settings.people.exportButton": "Export people and projects",
+    "Export everything in Privacy & data includes graph.json (people, projects, facts and loops) and every card file.",
+  "settings.people.exportOpen": "Open Privacy & data",
   "settings.people.blocked": "Blocked",
   "settings.people.blockedHint":
     "Psyche never learns about these again. A blocked domain covers every address at it; existing cards stay until you forget them.",

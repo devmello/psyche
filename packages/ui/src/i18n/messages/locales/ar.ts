@@ -883,7 +883,7 @@ export const ar: Partial<Catalogue> = {
   "settings.nav.credentials": "بيانات الاعتماد",
   "settings.nav.appearance": "المظهر",
   "settings.nav.voice": "الصوت والإملاء",
-  "settings.nav.data": "التحكم في البيانات",
+  "settings.nav.data": "الخصوصية والبيانات",
   "settings.nav.server": "الخادم والوصول عن بُعد",
   "settings.nav.usage": "الاستخدام",
   "settings.nav.about": "حول",

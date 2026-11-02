@@ -236,9 +236,13 @@ export function ConnectorsPanel({
         ) : null}
         {policy ? (
           <>
-            <FilesOnMacCard {...policy} persona={persona} />
+            <FilesOnMacCard
+              values={policy.values}
+              persona={persona}
+              {...(onOpenSection ? { onOpenFileAccess: () => onOpenSection("files") } : {})}
+            />
             <TerminalCard
-              {...policy}
+              values={policy.values}
               persona={persona}
               {...(onOpenSection ? { onOpenFileAccess: () => onOpenSection("files") } : {})}
             />

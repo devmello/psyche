@@ -80,7 +80,7 @@ export const blocks = {
   "blocks.folder.pathLabel": "Folder path",
   "blocks.folder.mustPick": "Choose the folder to share before allowing.",
   "blocks.folder.scope":
-    "Allow once lasts for this conversation. Always allow keeps the folder in Settings → File access until you revoke it.",
+    "Allow once lasts for this conversation. Always allow keeps the folder in Settings → Permissions → File access until you revoke it.",
   "blocks.message.to": "Sending to",
   "blocks.message.pick": "Choose who to send to",
   "blocks.message.group": "Group chat · {count, plural, one {# person} other {# people}}",

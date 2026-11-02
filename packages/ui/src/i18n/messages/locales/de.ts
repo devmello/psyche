@@ -905,7 +905,7 @@ export const de: Partial<Catalogue> = {
   "settings.nav.credentials": "Zugangsdaten",
   "settings.nav.appearance": "Darstellung",
   "settings.nav.voice": "Stimme & Diktat",
-  "settings.nav.data": "Datenkontrolle",
+  "settings.nav.data": "Datenschutz & Daten",
   "settings.nav.server": "Server & Fernzugriff",
   "settings.nav.usage": "Nutzung",
   "settings.nav.about": "Über",
