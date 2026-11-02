@@ -154,7 +154,7 @@ Settings opens from the gear or ⌘,. At the left are nine pages; the open page 
 - **Memory review** (`memory`): what Psyche learned from your mail, messages and notes. Tabs **To review**, **Learned lately** (undo within the window) and **Quarantine**; nothing is a fact until you accept it.
 - **Remembering & learning** (`learning`): **Pause memory**, **Transcript recall**, **How memory is recalled** (Markdown only, or Markdown plus embeddings) and **Learning** (learn from feedback, notice edits, pause learning, weekly card, forget everything learned).
 - **Everything memory** (`everything`): off until you turn it on. Psyche reads your own mail, messages and notes at night and writes down what you state (who people are, birthdays, plans); every fact cites the words it came from and waits for you. Sources you can switch on: Mail, Messages, Notes, Calendar, Reminders, Files, Transcripts. It learns only from what Search indexes, so a source Search does not index says so, with **Turn on in Search**. Browser pages and your chats with Psyche are never read by it.
-- **People & projects** (`people`): the people and projects Psyche tracks, with privacy controls. **Export** there opens Privacy & data (one export for everything). It also holds **Relationship nudges** (off until you turn it on and read the short consent note): **Remind me to keep in touch** and **How often** (Gentle, Normal, Eager). See "Relationship nudges" below.
+- **People & projects** (`people`): the people and projects Psyche tracks, with privacy controls. **Export** there opens Privacy & data (one export for everything). It also holds **Relationship nudges** (off until you turn it on and read the short consent note): **Remind me to keep in touch** and **How often** (Gentle, Normal, Eager) and **Reword suggestions with my model** (off; uses the model picked in Everything memory). See "Relationship nudges" below.
 
 **Routines & skills** (`daily`)
 - **Daily** (`daily`): morning brief, evening wrap-up, follow-ups, automations (above).
@@ -171,11 +171,7 @@ Settings opens from the gear or ⌘,. At the left are nine pages; the open page 
 
 **Privacy & data** (`data`): everything stays on this machine. **How long things are kept** (thinking, task replays), **Maps**, **Widgets in chat** (pictures from the web), **Export everything**, Backups, and last, under **Delete and start over**: Delete threads and **Reset memory…** (type "reset").
 
-**Privacy**
-- **Data controls** (`data`): this is Memory. **Pause memory**, **Transcript recall**, **How memory is recalled** (Markdown only, or Markdown plus embeddings), how long to keep thinking and task replays, Export everything, Delete threads, reset memory. Everything stays on this machine.
-- **People & projects** (`people`): the people and projects Psyche tracks, with privacy controls. It also holds **Relationship nudges** (off until you turn it on and read the short consent note): **Remind me to keep in touch** and **How often** (Gentle, Normal, Eager) and **Reword suggestions with my model** (off; uses the model picked in Everything memory). See "Relationship nudges" below.
-- **Everything memory** (`everything`): off until you turn it on. Psyche reads your own mail, messages and notes at night and writes down what you state (who people are, birthdays, plans); every fact cites the words it came from and waits for you. Sources you can switch on: Mail, Messages, Notes, Calendar, Reminders, Files, Transcripts. Browser pages and your chats with Psyche are never read by it.
-- **Memory review** (`memory`): what Psyche learned from your mail, messages and notes. Tabs **To review**, **Learned lately** (undo within the window) and **Quarantine**; nothing is a fact until you accept it.
+**Devices** (`devices`): **Devices & nodes** (`devices`) and **Server & remote access** (`server`).
 
 **About** (`about`): versions, data folder (Reveal in Finder), **Run checks** (Gateway, sandbox, permissions, vault), Open logs, and **Run setup again** (walks the first-run setup again; finished steps are skipped).
 
