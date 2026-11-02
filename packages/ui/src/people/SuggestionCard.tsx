@@ -1,4 +1,4 @@
-import { Sparkles } from "lucide-react";
+import { Lightbulb } from "lucide-react";
 import { type ReactElement, useId } from "react";
 import { Button } from "../components/ui/button.tsx";
 import { t } from "../i18n/core.ts";
@@ -20,7 +20,7 @@ function described(e: SuggestionView["entities"][number] | undefined): string {
 }
 
 /**
- * A merge or project suggestion (spec §6.5), in the inferred-goal pattern: a sparkle, the
+ * A merge or project suggestion (spec §6.5), in the inferred-goal pattern: a lightbulb, the
  * question, "Because:" evidence and Confirm / Not the same / Later. Nothing changes before
  * Confirm.
  */
@@ -43,7 +43,7 @@ export function SuggestionCard({
       className="flex flex-col gap-2 rounded-lg bg-surface-raised p-3 shadow-elevation-1"
     >
       <p className="flex items-center gap-1 text-caption text-label-secondary">
-        <Sparkles className="size-3.5 text-accent-11" aria-hidden="true" />
+        <Lightbulb className="size-3.5 text-label-secondary" aria-hidden="true" />
         {t("people.suggestion.eyebrow")}
       </p>
       <h3 id={titleId} className="text-headline text-label-primary">

@@ -37,7 +37,6 @@ const arabicSeries = ACTIVITY_SERIES({
 }).map(({ describe: _describe, ...s }) => s);
 
 function Tiles({ rtl = false }: { rtl?: boolean }) {
-  const week = [3, 5, 4, 8, 6, 9, 12];
   return (
     <div className="grid max-w-3xl grid-cols-2 gap-3 sm:grid-cols-4" dir={rtl ? "rtl" : undefined}>
       <StatTile
@@ -45,7 +44,6 @@ function Tiles({ rtl = false }: { rtl?: boolean }) {
         value={47}
         previous={35}
         periodLabel={rtl ? "الشهر الماضي" : "last month"}
-        spark={week}
         href="#tasks"
       />
       <StatTile
@@ -53,7 +51,6 @@ function Tiles({ rtl = false }: { rtl?: boolean }) {
         value={128}
         previous={140}
         periodLabel={rtl ? "الشهر الماضي" : "last month"}
-        spark={[0, 0, 0, 0, 0, 0, 4]}
         subline={rtl ? "98٪ ناجحة" : "98% ok · 4 failed"}
         onClick={noop}
       />
@@ -86,14 +83,7 @@ export const TileNoComparison: Story = {
 export const TileFlat: Story = {
   render: () => (
     <div className="max-w-60">
-      <StatTile
-        label="Tasks done"
-        value={12}
-        previous={12}
-        periodLabel="last week"
-        spark={[1, 2, 3, 2, 1]}
-        href="#t"
-      />
+      <StatTile label="Tasks done" value={12} previous={12} periodLabel="last week" href="#t" />
     </div>
   ),
 };

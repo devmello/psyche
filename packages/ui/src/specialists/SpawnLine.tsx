@@ -65,7 +65,7 @@ export function SpecialistSpawnLine({
         <SpecialistControls job={job} />
       </div>
       {hints.length > 0 ? (
-        <p className="ps-[2.875rem] text-subheadline text-label-tertiary">
+        <p className="ps-11 text-subheadline text-label-tertiary">
           <span className="sr-only">{t("specialists.preflight.label")}: </span>
           {hints.map(preflightLabel).join(" · ")}
         </p>

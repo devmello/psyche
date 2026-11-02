@@ -167,7 +167,9 @@ export function ApprovalsPanel({
     <div className="flex flex-col gap-5">
       <section aria-labelledby="approvals-needs-you" className="flex scroll-mt-2 flex-col gap-2">
         <h3 id="approvals-needs-you" className="text-title-3 text-label-primary">
-          {t("agent.approvals.needsYouCount", { n: live.length })}
+          {live.length > 0
+            ? t("agent.approvals.needsYouCount", { n: live.length })
+            : t("agent.approvals.needsYou")}
         </h3>
         {live.length === 0 ? (
           loading ? (

@@ -1,6 +1,6 @@
 import type { SpecialistJob, SpecialistResultKind } from "@psyche/protocol";
-import { ExternalLink, FileText, ShieldAlert } from "lucide-react";
-import { type ReactElement, type ReactNode, useState } from "react";
+import { FileText, ShieldAlert } from "lucide-react";
+import { Fragment, type ReactElement, type ReactNode, useState } from "react";
 import { agentTimelineHref } from "../agent/AgentSheet.tsx";
 import { ReceiptLine } from "../blocks/Receipt.tsx";
 import { StatusGlyph } from "../components/status.tsx";
@@ -39,11 +39,10 @@ function SourceLink({ url }: { url: string }): ReactElement {
     <button
       type="button"
       onClick={(e) => openLink(url, e.metaKey || e.ctrlKey)}
-      className="inline-flex cursor-default items-center gap-1 rounded-xs text-callout text-accent-11 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+      className="cursor-default rounded-xs font-mono text-callout text-label-secondary outline-none hover:text-label-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring"
       aria-label={`${t("specialists.card.source")}: ${host}`}
     >
       {host}
-      <ExternalLink className="size-3" aria-hidden="true" />
     </button>
   );
 }
@@ -195,9 +194,13 @@ export function SpecialistResultCard({
                   <span className="text-callout text-label-secondary">{f.detail}</span>
                 ) : null}
                 {f.sources && f.sources.length > 0 ? (
-                  <span className="flex flex-wrap gap-x-3">
-                    {f.sources.map((s) => (
-                      <SourceLink key={s} url={s} />
+                  <span className="text-callout text-label-secondary tabular-nums">
+                    <span className="text-label-tertiary">{t("specialists.card.sources")}</span>{" "}
+                    {f.sources.map((s, k) => (
+                      <Fragment key={s}>
+                        {k > 0 ? <span aria-hidden="true"> · </span> : null}
+                        <SourceLink url={s} />
+                      </Fragment>
                     ))}
                   </span>
                 ) : null}

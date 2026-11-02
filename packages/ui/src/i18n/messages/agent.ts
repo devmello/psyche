@@ -263,6 +263,7 @@ export const agent = {
   "agent.approvals.denied": "Denied{on, select, true { on {where}} other {}}",
   "agent.approvals.expired": "Expired",
   "agent.approvals.voided": "Voided",
+  "agent.approvals.needsYou": "Needs you",
   "agent.approvals.needsYouCount": "Needs you ({n, number})",
   "agent.approvals.nothingNeedsYou": "Nothing needs you.",
   "agent.approvals.deferredCount": "Deferred ({n, number})",

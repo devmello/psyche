@@ -9,11 +9,14 @@ import { dataTable, dayLabel, describeDay, runsTotal, seriesValue } from "./desc
 import { type ChartSeries, type DayDatum, dayTotal, layoutBars } from "./model.ts";
 import { useRovingNav } from "./useRovingNav.ts";
 
-/** The overview's three series, in a fixed order: the colour follows the series, never its rank. */
+/**
+ * The overview's three series, in a fixed order: the colour follows the series, never its rank.
+ * One accent on the series that matters (Tasks); the others sit on neutral gray steps.
+ */
 export const ACTIVITY_SERIES_COLORS = {
-  tasks: "var(--chart-1)",
-  automations: "var(--chart-2)",
-  chat: "var(--chart-3)",
+  tasks: "var(--accent-9)",
+  automations: "var(--gray-8)",
+  chat: "var(--gray-5)",
 } as const;
 
 export interface StackedBarsProps {
@@ -51,7 +54,7 @@ export function StackedBars({
   label,
   caption,
   formatTotal,
-  height = 160,
+  height = 240,
   testId = "stacked-bars",
 }: StackedBarsProps): ReactElement {
   const i18n = useI18n();
@@ -108,7 +111,7 @@ export function StackedBars({
                 >
                   <span
                     aria-hidden="true"
-                    className={cn("size-2.5 rounded-[3px]", !on && "opacity-30")}
+                    className={cn("size-3 rounded-xs", !on && "opacity-30")}
                     style={{ background: s.color }}
                   />
                   <span className={cn(!on && "line-through")}>{s.label}</span>
@@ -124,10 +127,24 @@ export function StackedBars({
             />
             <span
               aria-hidden="true"
-              className="pointer-events-none absolute -top-4 start-0 text-caption text-label-tertiary tabular-nums"
+              className="pointer-events-none absolute -top-5 start-0 font-mono text-caption text-label-tertiary tabular-nums"
             >
               {i18n.number(max)}
             </span>
+            {max >= 2 ? (
+              <>
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-x-0 top-1/2 border-t border-separator opacity-60"
+                />
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute top-1/2 start-0 -translate-y-full font-mono text-caption text-label-tertiary tabular-nums"
+                >
+                  {i18n.number(max / 2)}
+                </span>
+              </>
+            ) : null}
             {/* biome-ignore lint/a11y/useSemanticElements: a toolbar-like group of controls, not a form fieldset */}
             <div
               role="group"
@@ -167,6 +184,13 @@ export function StackedBars({
                         selected && "bg-fill-secondary",
                       )}
                     >
+                      {bar && bar.segments.length === 0 ? (
+                        <span
+                          aria-hidden="true"
+                          data-empty-day=""
+                          className="block h-0.5 w-full rounded-full bg-gray-4"
+                        />
+                      ) : null}
                       {bar?.segments.map((seg, k) => (
                         <span
                           key={seg.id}
@@ -208,7 +232,10 @@ export function StackedBars({
               })}
             </div>
           </div>
-          <div aria-hidden="true" className="mt-1 flex gap-1 text-caption text-label-tertiary">
+          <div
+            aria-hidden="true"
+            className="mt-1 flex gap-1 font-mono text-caption text-label-tertiary"
+          >
             {days.map((day, i) => (
               <span key={day.date} className="relative h-3.5 min-w-0 flex-1">
                 {i % step === 0 ? (

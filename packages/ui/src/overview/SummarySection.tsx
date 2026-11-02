@@ -20,12 +20,10 @@ import {
 } from "./SectionState.tsx";
 import {
   approvalsDecided,
-  automationSpark,
   comparisonKey,
   okPercent,
   PERIOD_WORD,
   summaryKinds,
-  taskSpark,
   tasksDone,
 } from "./summaryModel.ts";
 
@@ -96,7 +94,7 @@ export function SummaryBody({
   onNavigate,
 }: SummaryBodyProps): ReactElement {
   const i18n = useI18n();
-  const { totals, previous, days } = insights;
+  const { totals, previous } = insights;
   const compare = comparisonKey(period);
   const vs = compare === null ? "" : i18n.t(compare as MessageId);
   // All time has no previous window, so no deltas at all (§5.4).
@@ -113,7 +111,6 @@ export function SummaryBody({
           label={i18n.t("overview.summary.tile.tasks")}
           value={tasksDone(totals)}
           {...(prev === null ? {} : { previous: tasksDone(prev), periodLabel: vs })}
-          spark={taskSpark(days)}
           {...linkProps(recentLink(period, { filter: "tasks", status: "done" }, onNavigate))}
         />
         <StatTile
@@ -121,7 +118,6 @@ export function SummaryBody({
           label={i18n.t("overview.summary.tile.automations")}
           value={totals.runs.automation}
           {...(prev === null ? {} : { previous: prev.runs.automation, periodLabel: vs })}
-          spark={automationSpark(days)}
           subline={
             okPct === null ? undefined : (
               <RunHealth

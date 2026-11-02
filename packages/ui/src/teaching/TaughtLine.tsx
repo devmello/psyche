@@ -146,7 +146,8 @@ export function LearnedLine({ items }: { items: readonly LearnedFact[] }): React
         ) : (
           <li key={f.factId} className="flex flex-wrap items-baseline gap-x-2">
             <span>
-              {t("chat.learned.label")} <em className="text-label-primary">{f.text}</em>
+              <span className="text-label-tertiary">{t("chat.learned.label")}</span>{" "}
+              <em className="text-label-primary">{f.text}</em>
             </span>
             <Button
               size="xs"

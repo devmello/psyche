@@ -39,14 +39,10 @@ describe("StatTile", () => {
     expect(screen.queryByTestId("stat-tile-delta")).toBeNull();
   });
 
-  it("draws the sparkline only with two non-zero points and calls onClick as a button", async () => {
+  it("is a number with no sparkline, and calls onClick as a button", async () => {
     const onClick = vi.fn();
-    const { rerender } = render(
-      <StatTile label="T" value={1} spark={[0, 0, 3, 0]} onClick={onClick} />,
-    );
+    render(<StatTile label="T" value={1} onClick={onClick} />);
     expect(screen.queryByTestId("stat-tile-spark")).toBeNull();
-    rerender(<StatTile label="T" value={1} spark={[0, 2, 3, 0]} onClick={onClick} />);
-    expect(screen.getByTestId("stat-tile-spark")).toBeTruthy();
     await userEvent.click(screen.getByRole("button"));
     expect(onClick).toHaveBeenCalled();
   });
