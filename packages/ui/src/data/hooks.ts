@@ -220,6 +220,10 @@ export function usePayments(limit = 20): LoadState & { data: PaymentsData | unde
   return { ...load, data: entry?.data as PaymentsData | undefined };
 }
 
+/** The hidden thread one automation run works in: its automation's chat lists the run instead. */
+const isRunThread = (e: ThreadListEntry): boolean =>
+  e.thread.kind === "automation" && e.thread.sessionKey.startsWith("cron:");
+
 // --- Threads ----------------------------------------------------------------------------------
 
 export function useThreads(options: { includeArchived?: boolean } = {}) {
@@ -242,7 +246,7 @@ export function useThreads(options: { includeArchived?: boolean } = {}) {
   const all = useMemo(
     () =>
       Object.values(threadsDict)
-        .filter((e) => !isEmptyUserChat(e))
+        .filter((e) => !isEmptyUserChat(e) && !isRunThread(e))
         .sort((a, b) =>
           (b.thread.lastMessageAt ?? b.thread.updatedAt).localeCompare(
             a.thread.lastMessageAt ?? a.thread.updatedAt,
@@ -724,6 +728,8 @@ export function useApprovals() {
 /** What an answer carries besides the decision: the folder the owner picked (`folder_access`). */
 export interface ApprovalExtras {
   folderPath?: string;
+  /** `folder_access`: read-only although the agent asked to change files. */
+  folderMode?: "ro";
   /** `exec_host`: the owner typed UNSANDBOXED to run this one command without srt. */
   unsandboxed?: "UNSANDBOXED";
   /** `messages_send` card: the text left in the editor and the recipient picked. */
@@ -760,6 +766,9 @@ export async function answerApproval(
         ...(decision === "approve" && scope !== undefined ? { scope } : {}),
         ...(decision === "approve" && extras?.folderPath !== undefined
           ? { folderPath: extras.folderPath }
+          : {}),
+        ...(decision === "approve" && extras?.folderMode !== undefined
+          ? { folderMode: extras.folderMode }
           : {}),
         ...(decision === "approve" && extras?.unsandboxed !== undefined
           ? { unsandboxed: extras.unsandboxed }

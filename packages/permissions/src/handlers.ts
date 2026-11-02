@@ -1,5 +1,6 @@
 import type { AuditQuery, DetailedVerification, HashChainAuditLog } from "@psyche/audit";
 import {
+  type AccessEntry,
   type ApprovalRequest,
   type AuditEntry,
   type DeviceScope,
@@ -65,6 +66,8 @@ export interface PermissionHandlers {
     p: unknown,
     c: Caller,
   ): Promise<{ approval: ApprovalRequest; grant: Grant | null }>;
+  "access.list"(p: unknown, c: Caller): Promise<{ entries: AccessEntry[] }>;
+  "access.revoke"(p: unknown, c: Caller): Promise<{ revoked: boolean }>;
   "grants.list"(p: unknown, c: Caller): Promise<{ grants: Grant[] }>;
   "grants.revoke"(p: unknown, c: Caller): Promise<{ grant: Grant }>;
   "audit.list"(p: unknown, c: Caller): Promise<{ entries: AuditEntry[] }>;
@@ -124,6 +127,16 @@ export function createPermissionHandlers(
             ) ?? null);
       return { approval, grant };
     },
+    async "access.list"(p, c) {
+      requireScope(c, Methods["access.list"].scope);
+      check(Methods["access.list"].params, p);
+      return { entries: await accessEntries(broker) };
+    },
+    async "access.revoke"(p, c) {
+      requireScope(c, Methods["access.revoke"].scope);
+      const { entryId } = check(Methods["access.revoke"].params, p);
+      return { revoked: await revokeAccess(broker, entryId) };
+    },
     async "grants.list"(p, c) {
       requireScope(c, Methods["grants.list"].scope);
       const params = check(Methods["grants.list"].params, p);
@@ -175,4 +188,81 @@ export function createPermissionHandlers(
       return frictionMetrics(entries);
     },
   };
+}
+
+const FOLDER_ALWAYS = "folder:always:";
+const FOLDER_CHAT = "folder:chat:";
+const GRANT = "grant:";
+
+/** The words a standing grant gets in the access list. */
+function grantLabel(g: Grant): string {
+  const subject = Object.values(g.subject).find((v): v is string => typeof v === "string");
+  return subject === undefined
+    ? g.kind.replaceAll("_", " ")
+    : `${g.kind.replaceAll("_", " ")}: ${subject}`;
+}
+
+/**
+ * Everything the owner has given the agent access to, in one list: shared folders (Settings and
+ * this conversation's) and live standing grants. Folders come first, longest-lived first.
+ */
+export async function accessEntries(broker: PsychePermissionBroker): Promise<AccessEntry[]> {
+  const out: AccessEntry[] = [];
+  for (const f of broker.policy.folders ?? []) {
+    out.push({
+      id: `${FOLDER_ALWAYS}${f.path}`,
+      type: "folder",
+      scope: "always",
+      label: f.path,
+      path: f.path,
+      mode: f.mode,
+    });
+  }
+  for (const { threadId, entry } of broker.allSessionFolders()) {
+    out.push({
+      id: `${FOLDER_CHAT}${threadId}:${entry.path}`,
+      type: "folder",
+      scope: "conversation",
+      label: entry.path,
+      path: entry.path,
+      mode: entry.mode,
+      threadId,
+    });
+  }
+  for (const g of await broker.listGrants()) {
+    out.push({
+      id: `${GRANT}${g.id}`,
+      type: "grant",
+      scope: g.scope === "always" ? "always" : "limited",
+      label: grantLabel(g),
+      grantId: g.id,
+      kind: g.kind,
+      since: g.createdAt,
+      ...(g.lastUsedAt == null ? {} : { lastUsedAt: g.lastUsedAt }),
+    });
+  }
+  return out;
+}
+
+/** Revokes one `accessEntries` row; false when it was already gone. */
+export async function revokeAccess(
+  broker: PsychePermissionBroker,
+  entryId: string,
+): Promise<boolean> {
+  if (entryId.startsWith(FOLDER_ALWAYS))
+    return broker.revokeFolder(entryId.slice(FOLDER_ALWAYS.length));
+  if (entryId.startsWith(FOLDER_CHAT)) {
+    const rest = entryId.slice(FOLDER_CHAT.length);
+    const at = rest.indexOf(":");
+    if (at <= 0) throw new PsycheError("invalid_params", "bad access entry");
+    return broker.revokeSessionFolder(rest.slice(0, at), rest.slice(at + 1));
+  }
+  if (entryId.startsWith(GRANT)) {
+    const grantId = entryId.slice(GRANT.length);
+    const live = (await broker.listGrants()).some((g) => g.id === grantId);
+    if (!live) return false;
+    await broker.revokeGrant(grantId);
+    return true;
+  }
+  throw new PsycheError("invalid_params", "bad access entry");
 }

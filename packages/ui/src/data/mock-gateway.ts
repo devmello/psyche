@@ -1618,6 +1618,54 @@ export class MockGateway implements GatewayClient {
       settleBatch(this.proposalContext(), decided);
       return { approval: decided, grant: null };
     },
+    // The access list: folders from `permissions.policy` plus the live grants (as the Gateway).
+    "access.list": () => {
+      const policy = this.world.settings["permissions.policy"] as
+        | { folders?: { path: string; mode: "ro" | "rw" }[] }
+        | undefined;
+      return {
+        entries: [
+          ...(policy?.folders ?? []).map((f) => ({
+            id: `folder:always:${f.path}`,
+            type: "folder" as const,
+            scope: "always" as const,
+            label: f.path,
+            path: f.path,
+            mode: f.mode,
+          })),
+          ...this.world.grants
+            .filter((g) => g.revokedAt == null)
+            .map((g) => ({
+              id: `grant:${g.id}`,
+              type: "grant" as const,
+              scope: g.scope === "always" ? ("always" as const) : ("limited" as const),
+              label: g.kind.replaceAll("_", " "),
+              grantId: g.id,
+              kind: g.kind,
+              since: g.createdAt,
+            })),
+        ],
+      };
+    },
+    "access.revoke": (p) => {
+      if (p.entryId.startsWith("grant:")) {
+        const grant = {
+          ...this.find(this.world.grants, p.entryId.slice(6), "grant"),
+          revokedAt: this.now(),
+        };
+        this.replace("grants", grant);
+        return { revoked: true };
+      }
+      const path = p.entryId.replace(/^folder:always:/, "");
+      const policy = (this.world.settings["permissions.policy"] ?? {}) as {
+        folders?: { path: string; mode: "ro" | "rw" }[];
+      };
+      const folders = policy.folders ?? [];
+      const kept = folders.filter((f) => f.path !== path);
+      if (kept.length === folders.length) return { revoked: false };
+      this.world.settings["permissions.policy"] = { ...policy, folders: kept };
+      return { revoked: true };
+    },
     "grants.list": (p) => ({
       grants: this.world.grants.filter((g) => p.includeRevoked === true || g.revokedAt == null),
     }),
@@ -2318,6 +2366,13 @@ export class MockGateway implements GatewayClient {
         .slice(0, p.limit ?? 200),
     }),
     "automations.run": () => ({ runId: this.id("run"), taskId: this.id("task") }),
+    "automations.runs": (p) => {
+      const all = (this.world.automationRuns ?? [])
+        .filter((r) => r.automationId === p.automationId)
+        .sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+      const limit = p.limit ?? 50;
+      return { runs: all.slice(0, limit), nextCursor: all.length > limit ? `o${limit}` : null };
+    },
     "scheduled.runs": () => ({ runs: [] }),
     "scheduled.list": () => ({
       timezone: "UTC",

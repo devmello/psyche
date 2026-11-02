@@ -463,6 +463,22 @@
     "maxFrameBytes": 1048576,
     "methods": [
       {
+        "description": "Lists what the owner has given the agent access to: shared folders (always or for one chat) and standing grants, in one list for Settings.",
+        "name": "access.list",
+        "params": "#/$defs/AccessListParams",
+        "result": "#/$defs/AccessListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Revokes one entry of `access.list` at once (a folder stops working on the next call; a grant is revoked). Changing standing permissions is an admin action.",
+        "name": "access.revoke",
+        "params": "#/$defs/AccessRevokeParams",
+        "result": "#/$defs/AccessRevokeResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
         "description": "Approves or denies with the single-use answer token delivered to this surface; deviceOnly and requiresAuthentication kinds are enforced by the Gateway. Not idempotency-keyed: the token is single-use.",
         "name": "approvals.answer",
         "params": "#/$defs/ApprovalAnswer",
@@ -3295,7 +3311,7 @@
         "sideEffecting": false
       },
       {
-        "description": "A click on a widget button or form that proposes a tool call (generative-ui-2026 §6.2, D2). The call and its arguments come from the widget's stored spec, never from this request (only the owner's form values do). The Gateway records a visible owner message with a from-widget marker and starts a turn whose first step is that call, through the Permission Broker with the widget's taint as requester taint: never weaker than the model calling the tool. If the policy says ask, the real approval card appears in the dock.",
+        "description": "A click on a widget button or form that proposes a tool call (generative-ui-2026 §6.2, D2). The call and its arguments come from the widget's stored spec, never from this request (only the owner's form values do). The Gateway records a visible owner message with a from-widget marker and starts a turn whose first step is that call, through the Permission Broker with the widget's taint as requester taint: never weaker than the model calling the tool. If the policy says ask, the real approval card appears in the dock. Side-effecting.",
         "name": "widgets.act",
         "params": "#/$defs/WidgetsActParams",
         "result": "#/$defs/WidgetsActResult",
@@ -3327,7 +3343,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Pins a widget to the Overview or unpins it (generative-ui-2026 §8, D5). At most 6 pinned widgets across the app; a pinned widget keeps its live bindings and its taint.",
+        "description": "Pins a widget to the Overview or unpins it (generative-ui-2026 §8, D5). At most 6 pinned widgets across the app; a pinned widget keeps its live bindings and its taint. Side-effecting.",
         "name": "widgets.pin",
         "params": "#/$defs/WidgetsPinParams",
         "result": "#/$defs/WidgetsPinResult",
@@ -3346,6 +3362,119 @@
     "protocolVersion": 1
   },
   "$defs": {
+    "AccessEntry": {
+      "properties": {
+        "id": {
+          "maxLength": 4200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "folder",
+            "grant"
+          ],
+          "type": "string"
+        },
+        "scope": {
+          "enum": [
+            "always",
+            "conversation",
+            "limited"
+          ],
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 600,
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "ro",
+            "rw"
+          ],
+          "type": "string"
+        },
+        "path": {
+          "maxLength": 4096,
+          "type": "string"
+        },
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "grantId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/ApprovalKind"
+        },
+        "since": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "lastUsedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "scope",
+        "label"
+      ],
+      "type": "object"
+    },
+    "AccessListParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "AccessListResult": {
+      "properties": {
+        "entries": {
+          "items": {
+            "$ref": "#/$defs/AccessEntry"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "entries"
+      ],
+      "type": "object"
+    },
+    "AccessRevokeParams": {
+      "properties": {
+        "entryId": {
+          "maxLength": 4200,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "entryId"
+      ],
+      "type": "object"
+    },
+    "AccessRevokeResult": {
+      "properties": {
+        "revoked": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "revoked"
+      ],
+      "type": "object"
+    },
     "ActionCall": {
       "properties": {
         "tool": {
@@ -6366,6 +6495,13 @@
         "folderPath": {
           "maxLength": 4096,
           "minLength": 1,
+          "type": "string"
+        },
+        "folderMode": {
+          "enum": [
+            "ro",
+            "rw"
+          ],
           "type": "string"
         },
         "unsandboxed": {
@@ -29106,6 +29242,13 @@
         },
         "overdue": {
           "type": "boolean"
+        },
+        "starters": {
+          "items": {
+            "$ref": "#/$defs/NudgeStarter"
+          },
+          "maxItems": 3,
+          "type": "array"
         }
       },
       "required": [
@@ -29134,6 +29277,25 @@
         "high"
       ],
       "type": "string"
+    },
+    "NudgeStarter": {
+      "properties": {
+        "text": {
+          "description": "One short suggestion",
+          "maxLength": 160,
+          "type": "string"
+        },
+        "evidence": {
+          "description": "The fact or promise it comes from: attribute, value, how it became known, date",
+          "maxLength": 240,
+          "type": "string"
+        }
+      },
+      "required": [
+        "text",
+        "evidence"
+      ],
+      "type": "object"
     },
     "NudgesActParams": {
       "properties": {
@@ -38963,6 +39125,73 @@
       ],
       "type": "object"
     },
+    "ThreadAutomation": {
+      "properties": {
+        "automationId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "runCount": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "lastRun": {
+          "properties": {
+            "id": {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            "status": {
+              "$ref": "#/$defs/AutomationRunStatus"
+            },
+            "startedAt": {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            "endedAt": {
+              "anyOf": [
+                {
+                  "description": "ISO-8601 timestamp (UTC)",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "summary": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "status",
+            "startedAt",
+            "endedAt",
+            "summary"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "automationId",
+        "runCount"
+      ],
+      "type": "object"
+    },
     "ThreadContextUpdatedPayload": {
       "properties": {
         "usage": {
@@ -39020,6 +39249,9 @@
         },
         "activity": {
           "$ref": "#/$defs/ThreadActivity"
+        },
+        "automation": {
+          "$ref": "#/$defs/ThreadAutomation"
         },
         "lastMessage": {
           "$ref": "#/$defs/ThreadPreview"

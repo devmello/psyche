@@ -85,6 +85,7 @@ import {
   createDbSessionResolver,
   createDeliverer,
   createTaskLauncher,
+  groupAutomationRunThreads,
   type RunLauncher,
   SqliteScheduler,
 } from "@psyche/scheduler";
@@ -172,6 +173,7 @@ import { notifierRouting } from "./quiet-hours.ts";
 import { createRateLimits } from "./rate-limits.ts";
 import { requestPermissionTool } from "./request-permission.ts";
 import { researchTools } from "./research.ts";
+import { withRunSnapshot } from "./run-snapshot.ts";
 import type { ComposedSandbox } from "./sandbox.ts";
 import { createScheduledHandlers, pausedRoutines, withPausedRoutines } from "./scheduled.ts";
 import { composeScreenAsk, type ScreenAskOptions } from "./screen-ask.ts";
@@ -534,6 +536,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   });
   // The old "Files on this Mac" connector is File access now: move its folder into the grants.
   migrateFilesConnector(db, config.home);
+  // One chat per automation: runs that each opened a chat of their own are filed under it.
+  groupAutomationRunThreads(db);
   const storedPolicy = validPolicy(getSetting(db, "permissions.policy")?.value, gwOptions.logger);
   const tokens = new ApprovalTokens();
   const relays: ApprovalRelay[] = [];
@@ -556,10 +560,23 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     rawBroker.setPolicy(hostPolicy(next));
     publish("settings.changed", { entries: [saved] });
   };
+  // Revoking an `always` folder (Settings' access list) drops it from the same policy list.
+  const forgetFolder = async (path: string): Promise<boolean> => {
+    const current =
+      validPolicy(getSetting(db, "permissions.policy")?.value, gwOptions.logger) ?? {};
+    const folders = current.folders ?? [];
+    const kept = folders.filter((f) => f.path !== path);
+    if (kept.length === folders.length) return false;
+    const saved = setSetting(db, "permissions.policy", { ...current, folders: kept });
+    rawBroker.setPolicy(hostPolicy({ ...current, folders: kept }));
+    publish("settings.changed", { entries: [saved] });
+    return true;
+  };
   const rawBroker = new PsychePermissionBroker({
     folderAccess: {
       env: () => ({ psycheHome: config.home, protectedRoots: protectedRoots(config.home) }),
       persist: persistFolder,
+      remove: forgetFolder,
     },
     channelConversations: (ref) => channelConversations.get(ref),
     approvers: {
@@ -795,6 +812,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       broker: executorBroker,
       surfaces: ["desktop", "web"],
       folderEnv: () => ({ psycheHome: config.home, protectedRoots: protectedRoots(config.home) }),
+      grantedFolders: (threadId) => [
+        ...(rawBroker.policy.folders ?? []),
+        ...rawBroker.sessionFolders(threadId),
+      ],
       execHostEnabled: () => rawBroker.policy.exec?.execHostEnabled === true,
       enableExecHost: async () => {
         const current =
@@ -890,6 +911,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     clock,
     graph: people.graph,
     em: everything.store,
+    model: () => everything.answerModel(),
     timeZone: () => timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
     post: (card) =>
       void proactive.feed.postNotice({
@@ -1052,7 +1074,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     notifier,
     launcher: lateLauncher,
     sessions: createDbSessionResolver(db),
-    deliverer: createDeliverer({ notifier, broker }),
+    deliverer: withRunSnapshot(createDeliverer({ notifier, broker }), {
+      // `proactive` is composed after the scheduler; a run finishes long after both exist.
+      postNotice: (input) => proactive.feed.postNotice(input),
+    }),
     // Watches (O3) read public pages through the guarded fetch until S09 exports its own.
     watchFetch: publicFetch(),
     ...(timeZone === undefined ? {} : { defaultTimezone: timeZone }),

@@ -5,13 +5,17 @@ import {
   type GraphStore,
   type Nudge,
   type NudgeSensitivity,
+  type NudgeStarter,
   NudgeState,
+  phraseStarters,
 } from "@psyche/memory";
 import { isQuietAt } from "@psyche/notifications";
 import {
   type Clock,
   type MethodParams,
   type MethodResult,
+  type ModelProvider,
+  type ModelRef,
   type NudgeItem,
   PsycheError,
 } from "@psyche/protocol";
@@ -30,6 +34,7 @@ import type { ComposedPart } from "./services.ts";
 export const NUDGES_ENABLED_KEY = "nudges.enabled";
 export const NUDGES_CONSENT_KEY = "nudges.consentedAt";
 export const NUDGES_SENSITIVITY_KEY = "nudges.sensitivity";
+export const NUDGES_PHRASING_KEY = "nudges.phrasing";
 
 /** At most this many lines in the brief and new Feed cards a day. */
 export const NUDGE_CAP = 3;
@@ -41,6 +46,8 @@ export interface NudgeSettings {
   /** The switch is on and the owner has consented (the date is stored). */
   enabled: boolean;
   sensitivity: NudgeSensitivity;
+  /** Reword the starters with the everything-memory model (off unless the owner turns it on). */
+  phrasing: boolean;
 }
 
 /** Off by default, and off until the owner has seen the consent text and said yes. */
@@ -49,6 +56,7 @@ export function nudgeSettings(get: (key: string) => unknown): NudgeSettings {
   return {
     enabled: get(NUDGES_ENABLED_KEY) === true && typeof get(NUDGES_CONSENT_KEY) === "string",
     sensitivity: sens === "low" || sens === "high" || sens === "normal" ? sens : "normal",
+    phrasing: get(NUDGES_PHRASING_KEY) === true,
   };
 }
 
@@ -59,6 +67,11 @@ export interface NudgesDeps {
   /** Exclusions (§10.1) are read from here. */
   em: EverythingStore;
   timeZone: () => string;
+  /**
+   * The model the owner chose for everything memory (none, or an unconfirmed local one: undefined).
+   * Used only to reword starters, and only while `nudges.phrasing` is on.
+   */
+  model?: () => { provider: ModelProvider; model: ModelRef } | undefined;
   /** Puts a silent card in the Feed. */
   post: (card: { title: string; bodyMd: string; nudgeId: string }) => void;
   /** Milliseconds between refreshes (default 6 hours); 0 turns the timer off (tests). */
@@ -78,6 +91,8 @@ export interface Nudges {
   keepInTouch(): { text: string; link: string }[];
   /** Posts Feed cards for nudges not posted yet; returns how many. */
   refresh(): number;
+  /** Rewords the starters of the nudges on show with the owner's model, when allowed. */
+  phrase(): Promise<number>;
   part(): ComposedPart;
 }
 
@@ -92,7 +107,7 @@ const titleOf = (n: Nudge): string =>
         ? `Coming up with ${n.name}`
         : `A promise to ${n.name}`;
 
-const toItem = (n: Nudge): NudgeItem => ({
+const toItem = (n: Nudge, starters: readonly { text: string; evidence: string }[]): NudgeItem => ({
   id: n.id,
   kind: n.kind,
   entityId: n.entityId,
@@ -102,6 +117,7 @@ const toItem = (n: Nudge): NudgeItem => ({
   channel: n.channel,
   date: n.date,
   overdue: n.overdue,
+  starters: starters.map((s) => ({ text: s.text, evidence: s.evidence })),
 });
 
 export function composeNudges(deps: NudgesDeps): Nudges {
@@ -122,6 +138,14 @@ export function composeNudges(deps: NudgesDeps): Nudges {
       sensitivity: settings().sensitivity,
       isExcluded: (id) => deps.em.isEntityExcluded(id),
     });
+  /** Reworded starters by nudge and template text; in memory only (they restate third-party facts). */
+  const phrased = new Map<string, string[]>();
+  const phrasedKey = (n: Nudge) => `${n.id}|${n.starters.map((s) => s.text).join("|")}`;
+  /** The starters to show: the model's wording when it has one for exactly these facts. */
+  const startersOf = (n: Nudge): NudgeStarter[] => {
+    const words = settings().phrasing ? phrased.get(phrasedKey(n)) : undefined;
+    return n.starters.map((s, i) => ({ ...s, text: words?.[i] ?? s.text }));
+  };
   /** What to show now. Empty while the feature is off or unconsented. */
   const current = (): Nudge[] => (settings().enabled ? state.visible(all()) : []);
 
@@ -131,7 +155,7 @@ export function composeNudges(deps: NudgesDeps): Nudges {
       const items = current().filter((n) => p.entityId === undefined || n.entityId === p.entityId);
       return {
         enabled,
-        items: items.map(toItem),
+        items: items.map((n) => toItem(n, startersOf(n))),
         muted: p.entityId !== undefined && state.isMuted(p.entityId),
       };
     },
@@ -182,8 +206,31 @@ export function composeNudges(deps: NudgesDeps): Nudges {
     return posted;
   };
 
+  const phrase = async (): Promise<number> => {
+    if (!settings().phrasing) return 0;
+    const chosen = deps.model?.();
+    if (chosen === undefined) return 0;
+    let done = 0;
+    for (const n of current().slice(0, NUDGE_CAP * 2)) {
+      if (n.starters.length === 0 || phrased.has(phrasedKey(n))) continue;
+      phrased.set(
+        phrasedKey(n),
+        await phraseStarters({
+          provider: chosen.provider,
+          model: chosen.model,
+          starters: n.starters,
+        }),
+      );
+      done++;
+    }
+    // Keep the cache small: only what is on show can come back.
+    if (phrased.size > 50) phrased.clear();
+    return done;
+  };
+
   return {
     handlers,
+    phrase,
     keepInTouch: () =>
       current()
         .slice(0, NUDGE_CAP)
@@ -195,6 +242,7 @@ export function composeNudges(deps: NudgesDeps): Nudges {
       const safe = () => {
         try {
           refresh();
+          void phrase().catch(() => {});
         } catch (err) {
           deps.logger?.log("warn", "relationship nudges refresh failed", {
             error: err instanceof Error ? err.message : String(err),
