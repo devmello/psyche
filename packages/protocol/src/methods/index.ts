@@ -49,6 +49,7 @@ import { VaultMethods } from "./vault.ts";
 import { ViewMethods } from "./view.ts";
 import { VmMethods } from "./vm.ts";
 import { VoiceMethods } from "./voice.ts";
+import { WidgetsMethods } from "./widgets.ts";
 import { MeetingsMethods, ProposalsMethods } from "./workflows.ts";
 
 export * from "./agent-notes.ts";
@@ -100,6 +101,7 @@ export * from "./view.ts";
 export * from "./vm.ts";
 export * from "./voice.ts";
 export * from "./voice-settings.ts";
+export * from "./widgets.ts";
 export * from "./workflows.ts";
 
 /**
@@ -137,6 +139,7 @@ export const Methods = {
   ...EventsMethods,
   ...NodeMethods,
   ...QuestionsMethods,
+  ...WidgetsMethods,
   ...ReceiptsMethods,
   ...ArtifactsMethods,
   ...FeedMethods,

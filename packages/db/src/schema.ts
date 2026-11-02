@@ -345,6 +345,22 @@ export const libraryItems = sqliteTable("library_items", {
   createdAt: text("created_at").notNull(),
 });
 
+// Generative UI widgets (generative-ui-2026 §5.1; migration 202611021200_gateway_widgets) --------
+
+export const widgets = sqliteTable("widgets", {
+  id: text("id").primaryKey(),
+  threadId: text("thread_id").notNull(),
+  messageId: text("message_id").notNull(),
+  rev: integer("rev").notNull(),
+  spec: text("spec").notNull(),
+  taint: text("taint").notNull(),
+  owner: text("owner").notNull(),
+  state: text("state").notNull(),
+  pinned: integer("pinned").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
 // Canvas artifacts (chat-experience-2026 §4.4; migration 202610262200_gateway_artifacts) ---------
 
 export const artifacts = sqliteTable("artifacts", {
@@ -443,6 +459,7 @@ export const schema = {
   libraryItems,
   artifacts,
   artifactVersions,
+  widgets,
   ...s04Schema,
   ...permissionsSchema,
   credentialMeta,
@@ -484,5 +501,6 @@ export type UsageRow = typeof usage.$inferSelect;
 export type NewUsageRow = typeof usage.$inferInsert;
 export type LibraryItemRow = typeof libraryItems.$inferSelect;
 export type NewLibraryItemRow = typeof libraryItems.$inferInsert;
+export type WidgetRow = typeof widgets.$inferSelect;
 export type ArtifactRow = typeof artifacts.$inferSelect;
 export type ArtifactVersionRow = typeof artifactVersions.$inferSelect;

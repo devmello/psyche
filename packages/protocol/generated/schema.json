@@ -447,6 +447,11 @@
         "description": "A dictation partial or final, in order, sent only to the device that started the session.",
         "name": "voice.segment",
         "payload": "#/$defs/VoiceSegmentPayload"
+      },
+      {
+        "description": "A generative-UI widget was patched (rev is the order; apply only when rev == local + 1, else refetch with widgets.get), or froze.",
+        "name": "widget.updated",
+        "payload": "#/$defs/WidgetUpdatedPayload"
       }
     ],
     "frames": [
@@ -3175,6 +3180,14 @@
         "params": "#/$defs/VoiceStopParams",
         "result": "#/$defs/VoiceStopResult",
         "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
+        "description": "Returns the latest snapshot of widgets by id (one batched call per history page or reconnect).",
+        "name": "widgets.get",
+        "params": "#/$defs/WidgetsGetParams",
+        "result": "#/$defs/WidgetsGetResult",
+        "scope": "operator.read",
         "sideEffecting": false
       }
     ],
@@ -10141,6 +10154,9 @@
         },
         {
           "$ref": "#/$defs/AppLinkBlock"
+        },
+        {
+          "$ref": "#/$defs/UiBlock"
         }
       ]
     },
@@ -38606,6 +38622,25 @@
       ],
       "type": "object"
     },
+    "UiBlock": {
+      "properties": {
+        "type": {
+          "const": "ui",
+          "type": "string"
+        },
+        "widgetId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "widgetId"
+      ],
+      "type": "object"
+    },
     "UpcomingItem": {
       "properties": {
         "kind": {
@@ -41219,6 +41254,605 @@
       "required": [
         "url",
         "check"
+      ],
+      "type": "object"
+    },
+    "Widget": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "messageId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "rev": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "spec": {
+          "$ref": "#/$defs/WidgetSpec"
+        },
+        "taint": {
+          "items": {
+            "$ref": "#/$defs/TaintSource"
+          },
+          "type": "array"
+        },
+        "owner": {
+          "$ref": "#/$defs/WidgetOwner"
+        },
+        "state": {
+          "$ref": "#/$defs/WidgetState"
+        },
+        "pinned": {
+          "type": "boolean"
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "updatedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "threadId",
+        "messageId",
+        "rev",
+        "spec",
+        "taint",
+        "owner",
+        "state",
+        "pinned",
+        "createdAt",
+        "updatedAt"
+      ],
+      "type": "object"
+    },
+    "WidgetAction": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "reply",
+              "type": "string"
+            },
+            "text": {
+              "maxLength": 2000,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "text"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "answer",
+              "type": "string"
+            },
+            "inputRequestId": {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "maxLength": 500,
+                  "type": "string"
+                },
+                {
+                  "items": {
+                    "maxLength": 500,
+                    "type": "string"
+                  },
+                  "maxItems": 4,
+                  "type": "array"
+                }
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "inputRequestId",
+            "value"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "open",
+              "type": "string"
+            },
+            "route": {
+              "maxLength": 500,
+              "type": "string"
+            },
+            "artifactId": {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            "fileId": {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            "url": {
+              "maxLength": 2000,
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "tool",
+              "type": "string"
+            },
+            "tool": {
+              "maxLength": 120,
+              "minLength": 1,
+              "type": "string"
+            },
+            "args": {
+              "patternProperties": {
+                "^(.*)$": {}
+              },
+              "type": "object"
+            }
+          },
+          "required": [
+            "kind",
+            "tool"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "WidgetBind": {
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/WidgetBindingSource"
+        },
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "field": {
+          "maxLength": 60,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "source",
+        "id",
+        "field"
+      ],
+      "type": "object"
+    },
+    "WidgetBindingSource": {
+      "enum": [
+        "task",
+        "automation",
+        "research",
+        "tool_call",
+        "job"
+      ],
+      "type": "string"
+    },
+    "WidgetNode": {
+      "description": "A catalogue node: { id, type, ...props }. Validated per type by the Gateway.",
+      "patternProperties": {
+        "^(.*)$": {}
+      },
+      "type": "object"
+    },
+    "WidgetOp": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "op": {
+              "const": "set",
+              "type": "string"
+            },
+            "id": {
+              "pattern": "^[a-z0-9_-]{1,40}$",
+              "type": "string"
+            },
+            "props": {
+              "patternProperties": {
+                "^(.*)$": {}
+              },
+              "type": "object"
+            }
+          },
+          "required": [
+            "op",
+            "id",
+            "props"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "op": {
+              "anyOf": [
+                {
+                  "const": "append",
+                  "type": "string"
+                },
+                {
+                  "const": "prepend",
+                  "type": "string"
+                }
+              ]
+            },
+            "id": {
+              "pattern": "^[a-z0-9_-]{1,40}$",
+              "type": "string"
+            },
+            "field": {
+              "maxLength": 40,
+              "minLength": 1,
+              "type": "string"
+            },
+            "items": {
+              "items": {},
+              "maxItems": 100,
+              "minItems": 1,
+              "type": "array"
+            }
+          },
+          "required": [
+            "op",
+            "id",
+            "field",
+            "items"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "op": {
+              "const": "remove",
+              "type": "string"
+            },
+            "id": {
+              "pattern": "^[a-z0-9_-]{1,40}$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "op",
+            "id"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "op": {
+              "const": "replace",
+              "type": "string"
+            },
+            "id": {
+              "pattern": "^[a-z0-9_-]{1,40}$",
+              "type": "string"
+            },
+            "node": {
+              "$ref": "#/$defs/WidgetNode"
+            }
+          },
+          "required": [
+            "op",
+            "id",
+            "node"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "op": {
+              "const": "meta",
+              "type": "string"
+            },
+            "title": {
+              "maxLength": 80,
+              "minLength": 1,
+              "type": "string"
+            },
+            "fallbackText": {
+              "maxLength": 2000,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "op"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "WidgetOwner": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "run",
+              "type": "string"
+            },
+            "runId": {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "runId"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "task",
+              "type": "string"
+            },
+            "taskId": {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "taskId"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "automation",
+              "type": "string"
+            },
+            "automationId": {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "automationId"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "job",
+              "type": "string"
+            },
+            "jobId": {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "jobId"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "WidgetPatch": {
+      "additionalProperties": false,
+      "properties": {
+        "widgetId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "baseRev": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "ops": {
+          "items": {
+            "$ref": "#/$defs/WidgetOp"
+          },
+          "maxItems": 50,
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "widgetId",
+        "ops"
+      ],
+      "type": "object"
+    },
+    "WidgetSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "v": {
+          "const": 1,
+          "type": "number"
+        },
+        "title": {
+          "maxLength": 80,
+          "minLength": 1,
+          "type": "string"
+        },
+        "fallbackText": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "root": {
+          "$ref": "#/$defs/WidgetNode"
+        }
+      },
+      "required": [
+        "v",
+        "title",
+        "fallbackText",
+        "root"
+      ],
+      "type": "object"
+    },
+    "WidgetState": {
+      "enum": [
+        "live",
+        "frozen"
+      ],
+      "type": "string"
+    },
+    "WidgetTone": {
+      "enum": [
+        "neutral",
+        "info",
+        "success",
+        "warning",
+        "danger"
+      ],
+      "type": "string"
+    },
+    "WidgetUpdatedPayload": {
+      "properties": {
+        "widgetId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "rev": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "ops": {
+          "description": "Empty when only `state` changed",
+          "items": {
+            "$ref": "#/$defs/WidgetOp"
+          },
+          "type": "array"
+        },
+        "state": {
+          "$ref": "#/$defs/WidgetState"
+        }
+      },
+      "required": [
+        "widgetId",
+        "threadId",
+        "rev",
+        "ops"
+      ],
+      "type": "object"
+    },
+    "WidgetsGetParams": {
+      "properties": {
+        "widgetIds": {
+          "items": {
+            "description": "ULID in production",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "widgetIds"
+      ],
+      "type": "object"
+    },
+    "WidgetsGetResult": {
+      "properties": {
+        "widgets": {
+          "items": {
+            "$ref": "#/$defs/Widget"
+          },
+          "type": "array"
+        },
+        "missing": {
+          "description": "Ids that do not exist or are not visible",
+          "items": {
+            "description": "ULID in production",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "widgets",
+        "missing"
       ],
       "type": "object"
     },
