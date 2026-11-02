@@ -19,7 +19,7 @@ import type {
   ToolRegistry,
   TurnInput,
 } from "@psyche/protocol";
-import { PsycheError } from "@psyche/protocol";
+import { chatLinkRoute, PsycheError } from "@psyche/protocol";
 import type { SqliteTaskEngine } from "./engine.ts";
 import type { ResumeItem, TaskBudget, TaskRecord } from "./types.ts";
 
@@ -704,7 +704,7 @@ export class TaskWorkerPool {
         title: task.title,
         body: task.summary ?? "",
         taskId: task.id,
-        route: `/tasks/${task.id}`,
+        route: chatLinkRoute({ threadId: task.threadId }),
       });
     } catch (e) {
       this.#error(e);
@@ -720,7 +720,7 @@ export class TaskWorkerPool {
         title: task.title,
         body: question ?? "The task needs your input",
         taskId: task.id,
-        route: `/tasks/${task.id}`,
+        route: chatLinkRoute({ threadId: task.threadId }),
       });
     } catch (e) {
       this.#error(e);

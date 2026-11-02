@@ -23,11 +23,95 @@ import {
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../components/ui/tooltip.tsx";
-import { useGoals, useIdeas } from "../data/index.ts";
+import { useGoals, useIdeas, useNotifications } from "../data/index.ts";
 import { activeI18n, t } from "../i18n/core.ts";
 import { cn } from "../lib/utils.ts";
 import { usePersona } from "../slots.tsx";
 import { destinationFor, RAIL_ITEMS, type RailItem } from "./Rail.tsx";
+
+const MAIN_ITEMS = RAIL_ITEMS.filter((i) => i.group === "main");
+const MORE_ITEMS = RAIL_ITEMS.filter((i) => i.group === "more");
+
+const MORE_KEY = "psyche.sidebar.more";
+
+/** Whether the More group is open; remembered per browser, best effort. */
+function useMoreOpen(): [boolean, (update: (v: boolean) => boolean) => void] {
+  const [open, setOpen] = useState(() => {
+    try {
+      return globalThis.localStorage?.getItem(MORE_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  return [
+    open,
+    (update) =>
+      setOpen((v) => {
+        const next = update(v);
+        try {
+          globalThis.localStorage?.setItem(MORE_KEY, next ? "1" : "0");
+        } catch {
+          // Not remembered; the group still toggles.
+        }
+        return next;
+      }),
+  ];
+}
+
+/** The rarely used destinations, folded under one calm row rather than hidden. */
+function MoreGroup({
+  open,
+  forced,
+  count,
+  onToggle,
+  children,
+}: {
+  open: boolean;
+  /** New ideas and suggested goals inside, shown while the group is folded. */
+  count: number;
+  /** A row inside is current, so the group stays open. */
+  forced: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}): ReactElement {
+  return (
+    <li data-testid="sidebar-more">
+      <button
+        type="button"
+        onClick={onToggle}
+        disabled={forced}
+        aria-expanded={open}
+        aria-controls="sidebar-more-list"
+        className="flex h-7 w-full items-center gap-2 rounded-sm px-3 text-start text-callout text-label-secondary outline-none hover:bg-fill-quaternary focus-visible:ring-2 focus-visible:ring-ring"
+        data-sidebar-item=""
+        data-testid="sidebar-more-toggle"
+      >
+        <ChevronDown
+          aria-hidden="true"
+          className={cn(
+            "size-3.5 shrink-0 transition-transform",
+            open ? "" : "-rotate-90 rtl:rotate-90",
+          )}
+        />
+        <span className="min-w-0 flex-1 truncate">{t("shell.sidebar.more")}</span>
+        {count > 0 && !open ? (
+          <span
+            aria-hidden="true"
+            className="shrink-0 text-callout text-label-tertiary tabular-nums"
+          >
+            {activeI18n().number(count)}
+          </span>
+        ) : null}
+      </button>
+      {open ? (
+        <ul id="sidebar-more-list" className="flex flex-col gap-0.5">
+          {children}
+        </ul>
+      ) : null}
+    </li>
+  );
+}
+
 import { CurrentMark, SelectionContext, ThreadGroup } from "./ThreadList.tsx";
 import { ConnectedUsageFooter } from "./UsageFooter.tsx";
 
@@ -240,6 +324,96 @@ export function Sidebar({
     if (next.mode !== mode) onModeChange?.(next.mode);
     if (next.mode === "full") onWidthChange?.(next.width);
   };
+  const [moreOpen, setMoreOpen] = useMoreOpen();
+  const moreCurrent = MORE_ITEMS.some((i) => i.id === destination);
+  const renderItem = (item: (typeof RAIL_ITEMS)[number]) => {
+    const Icon = item.icon;
+    const count = counts[item.id] ?? 0;
+    // On chat routes the thread row carries the selection; Chat stays marked current.
+    // The rail has no thread rows, so Chat itself carries it there.
+    const selected = item.id === destination && (rail || !(onChat && activeThreadId !== null));
+    const current = item.id === destination;
+    const name = count > 0 ? t("shell.rail.badge", { label: item.label, n: count }) : item.label;
+    const icon = (
+      <Icon
+        aria-hidden="true"
+        strokeWidth={rail ? 1.75 : 1.5}
+        className={cn(
+          rail ? "size-5 shrink-0" : "size-4 shrink-0",
+          current
+            ? "text-accent-11 [:root[data-window-active=false]_&]:text-label-secondary"
+            : "text-label-secondary",
+        )}
+      />
+    );
+    if (rail) {
+      return (
+        <li key={item.id} className="relative flex h-10 items-center justify-center">
+          <CurrentMark active={selected} />
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <button
+                  type="button"
+                  onClick={() => onNavigate(item.route)}
+                  aria-current={selected ? "page" : current ? "true" : undefined}
+                  aria-label={name}
+                  className="relative flex size-10 items-center justify-center rounded-sm outline-none hover:bg-fill-quaternary focus-visible:ring-2 focus-visible:ring-ring"
+                  data-testid="sidebar-destination"
+                  data-destination={item.id}
+                  data-sidebar-item=""
+                />
+              }
+            >
+              {icon}
+              {count > 0 ? (
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "absolute top-1.5 end-1.5 size-1.5 rounded-full",
+                    item.id === "inbox" ? "bg-approval" : "bg-accent-9",
+                  )}
+                />
+              ) : null}
+            </TooltipTrigger>
+            <TooltipContent side="right">{name}</TooltipContent>
+          </Tooltip>
+        </li>
+      );
+    }
+    return (
+      <li key={item.id} className="relative flex h-7 items-center">
+        <CurrentMark active={selected} />
+        <button
+          type="button"
+          onClick={() => onNavigate(item.route)}
+          aria-current={selected ? "page" : current ? "true" : undefined}
+          aria-label={count > 0 ? name : undefined}
+          className="relative flex h-7 min-w-0 flex-1 items-center gap-2 rounded-sm px-3 text-start text-body outline-none hover:bg-fill-quaternary focus-visible:ring-2 focus-visible:ring-ring"
+          data-testid="sidebar-destination"
+          data-destination={item.id}
+          data-sidebar-item=""
+        >
+          {icon}
+          <span className="min-w-0 flex-1 truncate">{item.label}</span>
+          {count > 0 ? (
+            <span
+              aria-hidden="true"
+              className={cn(
+                "shrink-0 text-callout tabular-nums",
+                item.id === "inbox"
+                  ? "rounded-full bg-approval-surface px-1.5 text-approval-text"
+                  : "text-label-tertiary",
+              )}
+              data-testid={`sidebar-count-${item.id}`}
+            >
+              {activeI18n().number(count)}
+            </span>
+          ) : null}
+        </button>
+      </li>
+    );
+  };
   return (
     <SelectionContext.Provider value={selection}>
       <nav
@@ -277,87 +451,26 @@ export function Sidebar({
           )}
         >
           <ul aria-label={t("shell.sidebar.destinations")} className="flex flex-col gap-0.5">
-            {RAIL_ITEMS.map((item) => {
-              const Icon = item.icon;
-              const count = counts[item.id] ?? 0;
-              // On chat routes the thread row carries the selection; Chat stays marked current.
-              // The rail has no thread rows, so Chat itself carries it there.
-              const selected =
-                item.id === destination && (rail || !(onChat && activeThreadId !== null));
-              const current = item.id === destination;
-              const name =
-                count > 0 ? t("shell.rail.badge", { label: item.label, n: count }) : item.label;
-              const icon = (
-                <Icon
+            {MAIN_ITEMS.map(renderItem)}
+            {rail ? (
+              <>
+                <li
+                  role="presentation"
+                  className="mx-3 my-1 h-px bg-separator"
                   aria-hidden="true"
-                  strokeWidth={rail ? 1.75 : 1.5}
-                  className={cn(
-                    rail ? "size-5 shrink-0" : "size-4 shrink-0",
-                    current
-                      ? "text-accent-11 [:root[data-window-active=false]_&]:text-label-secondary"
-                      : "text-label-secondary",
-                  )}
                 />
-              );
-              if (rail) {
-                return (
-                  <li key={item.id} className="relative flex h-10 items-center justify-center">
-                    <CurrentMark active={selected} />
-                    <Tooltip>
-                      <TooltipTrigger
-                        render={
-                          <button
-                            type="button"
-                            onClick={() => onNavigate(item.route)}
-                            aria-current={selected ? "page" : current ? "true" : undefined}
-                            aria-label={name}
-                            className="relative flex size-10 items-center justify-center rounded-sm outline-none hover:bg-fill-quaternary focus-visible:ring-2 focus-visible:ring-ring"
-                            data-testid="sidebar-destination"
-                            data-destination={item.id}
-                            data-sidebar-item=""
-                          />
-                        }
-                      >
-                        {icon}
-                        {count > 0 ? (
-                          <span
-                            aria-hidden="true"
-                            className="absolute top-1.5 end-1.5 size-1.5 rounded-full bg-accent-9"
-                          />
-                        ) : null}
-                      </TooltipTrigger>
-                      <TooltipContent side="right">{name}</TooltipContent>
-                    </Tooltip>
-                  </li>
-                );
-              }
-              return (
-                <li key={item.id} className="relative flex h-7 items-center">
-                  <CurrentMark active={selected} />
-                  <button
-                    type="button"
-                    onClick={() => onNavigate(item.route)}
-                    aria-current={selected ? "page" : current ? "true" : undefined}
-                    aria-label={count > 0 ? name : undefined}
-                    className="relative flex h-7 min-w-0 flex-1 items-center gap-2 rounded-sm px-3 text-start text-body outline-none hover:bg-fill-quaternary focus-visible:ring-2 focus-visible:ring-ring"
-                    data-testid="sidebar-destination"
-                    data-destination={item.id}
-                    data-sidebar-item=""
-                  >
-                    {icon}
-                    <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                    {count > 0 ? (
-                      <span
-                        aria-hidden="true"
-                        className="shrink-0 text-callout text-label-tertiary tabular-nums"
-                      >
-                        {activeI18n().number(count)}
-                      </span>
-                    ) : null}
-                  </button>
-                </li>
-              );
-            })}
+                {MORE_ITEMS.map(renderItem)}
+              </>
+            ) : (
+              <MoreGroup
+                open={moreOpen || moreCurrent}
+                forced={moreCurrent}
+                count={MORE_ITEMS.reduce((n, i) => n + (counts[i.id] ?? 0), 0)}
+                onToggle={() => setMoreOpen((v) => !v)}
+              >
+                {MORE_ITEMS.map(renderItem)}
+              </MoreGroup>
+            )}
           </ul>
           {rail ? null : (
             <ThreadGroup
@@ -562,13 +675,24 @@ export function SidebarToggle({
   );
 }
 
-/** New ideas and suggested goals: the counts beside Ideas and Goals. */
+/** Notifications that wait on the owner: the amber count beside Inbox. */
+function needsYouKind(kind: string): boolean {
+  return kind === "approval" || kind === "input_needed";
+}
+
+/** New ideas and suggested goals, and what needs the owner in the inbox. */
 export function useSidebarCounts(): Partial<Record<RailItem, number>> {
   const ideas = useIdeas();
   const goals = useGoals();
+  const notifications = useNotifications();
+  const needsYou = notifications.unresolved.filter((n) => needsYouKind(n.kind)).length;
   return useMemo(
-    () => ({ ideas: ideas.proposed.length, goals: goals.candidates.length }),
-    [ideas.proposed.length, goals.candidates.length],
+    () => ({
+      ideas: ideas.proposed.length,
+      goals: goals.candidates.length,
+      inbox: needsYou,
+    }),
+    [ideas.proposed.length, goals.candidates.length, needsYou],
   );
 }
 

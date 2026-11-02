@@ -166,7 +166,7 @@
         "outcome": "asked",
         "approval": {
           "kind": "message_send",
-          "scopesOffered": ["once", "task"],
+          "scopesOffered": ["once"],
           "mustShow": ["+15550142"]
         },
         "approvalByMode": {
@@ -721,7 +721,7 @@
         "outcome": "asked",
         "approval": {
           "kind": "message_send",
-          "scopesOffered": ["once", "task"],
+          "scopesOffered": ["once"],
           "mustShow": ["+15550188"]
         },
         "approvalByMode": {

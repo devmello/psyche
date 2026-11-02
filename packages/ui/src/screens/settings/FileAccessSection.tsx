@@ -90,7 +90,7 @@ export function policyWithFolders(
   return { ...policyOf(values), folders };
 }
 
-function FolderList({
+export function FolderList({
   label,
   folders,
   onChange,
@@ -108,9 +108,14 @@ function FolderList({
   const id = useId();
   const [draft, setDraft] = useState("");
   const add = () => {
-    const path = draft.trim();
-    if (path === "" || folders.some((f) => f.path === path)) return;
-    onChange([...folders, { path, access: defaultAccess }]);
+    // Several folders at once: one per line or separated by semicolons.
+    const paths = draft
+      .split(/[\n;]/)
+      .map((p) => p.trim())
+      .filter((p) => p !== "");
+    const fresh = [...new Set(paths)].filter((p) => !folders.some((f) => f.path === p));
+    if (fresh.length === 0) return;
+    onChange([...folders, ...fresh.map((path) => ({ path, access: defaultAccess }))]);
     setDraft("");
   };
   return (

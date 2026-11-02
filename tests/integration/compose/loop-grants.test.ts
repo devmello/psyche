@@ -200,6 +200,7 @@ async function setup() {
     script: ModelEvent[][],
     taskId: string,
     onCard?: () => Promise<void>,
+    threadId = "thr_1",
   ) => {
     runs += 1;
     provider.script(script);
@@ -207,7 +208,7 @@ async function setup() {
     const cards = issued.length;
     const done = (async () => {
       for await (const e of loop.startTurn({
-        threadId: "thr_1",
+        threadId,
         runId: `run_${runs}`,
         taskId,
         input: { text },
@@ -258,7 +259,9 @@ describe("connector writes allowed by a standing task grant", () => {
     );
     expect(e1.find((e) => e.type === "end")).toMatchObject({ outcome: "final" });
     const card = h.issued[0]?.approval;
-    expect(card?.scopesOffered).toEqual(["once", "task"]);
+    // An untainted send offers `always` as the owner's confirmed opt-in (security §3.4, §3.12;
+    // 6a3f4ecd); only a tainted one narrows to `once`.
+    expect(card?.scopesOffered).toEqual(["once", "task", "always"]);
     const grantId = (await h.broker.get(card?.id ?? ""))?.grantId;
     expect(grantId).toMatch(/^grt/);
     expect(h.sent).toHaveLength(1);
@@ -268,15 +271,42 @@ describe("connector writes allowed by a standing task grant", () => {
       scope: "task",
     });
 
-    // A different email to the same recipient in the same task: the grant key matches, the
-    // binding differs, no card, and the registry dispatches on the grant with a receipt.
+    // The first send's result was third-party content, so the thread is tainted from here on.
+    // Taint overrides a standing grant on a send and offers `once` only (security §3.6, §3.12;
+    // rule `taint:floor`): the task grant does not cover this send, so the owner is asked. Before
+    // 6a3f4ecd it ran on the grant without a card.
+    await h.turn(
+      "email alice@example.org about dinner too",
+      [call("c2", "mcp__mail-1__send", toAlice("Dinner")), say("Asked.")],
+      h.task1,
+      async () => {
+        const tainted = h.issued.at(-1);
+        expect(tainted?.approval.taint).toBe(true);
+        expect(tainted?.approval.scopesOffered).toEqual(["once"]);
+        h.clock.advance(500);
+        await h.broker.answer({
+          approvalId: tainted?.approval.id ?? "",
+          answerToken: tainted?.answerTokens.desktop ?? "",
+          decision: "deny",
+          decidedBy: { deviceId: "dev_owner", surface: "desktop" },
+        });
+      },
+    );
+    expect(h.issued).toHaveLength(2);
+    expect(h.sent).toHaveLength(1);
+
+    // A different email to the same recipient in the same task from an untainted thread: the
+    // grant key matches, the binding differs, no card, and the registry dispatches on the grant
+    // with a receipt.
     const e2 = await h.turn(
       "email alice@example.org about dinner too",
-      [call("c2", "mcp__mail-1__send", toAlice("Dinner")), say("Sent again.")],
+      [call("c2b", "mcp__mail-1__send", toAlice("Dinner")), say("Sent again.")],
       h.task1,
+      undefined,
+      "thr_2",
     );
     expect(e2.find((e) => e.type === "end")).toMatchObject({ outcome: "final" });
-    expect(h.issued).toHaveLength(1);
+    expect(h.issued).toHaveLength(2);
     expect(h.sent).toHaveLength(2);
     expect(h.sent[1]?.authority).toEqual({
       rule: `grant:${grantId}`,
@@ -285,7 +315,7 @@ describe("connector writes allowed by a standing task grant", () => {
       grantId,
       scope: "task",
     });
-    const receipts = await h.broker.listReceipts({ toolCallId: "c2" });
+    const receipts = await h.broker.listReceipts({ toolCallId: "c2b" });
     expect(receipts.map((r) => [r.kind, r.outcome, r.approvalId])).toContainEqual([
       "mail.send",
       "ok",
@@ -293,14 +323,13 @@ describe("connector writes allowed by a standing task grant", () => {
     ]);
     const final = e2.findLast(
       (e): e is Extract<AgentEvent, { type: "tool_call" }> =>
-        e.type === "tool_call" && e.toolCallId === "c2",
+        e.type === "tool_call" && e.toolCallId === "c2b",
     );
-    // The first send's result was third-party content, so this turn started tainted; alice is
-    // in the owner's words, so the grant still applies.
     expect(final?.details).toMatchObject({
       decision: "allow",
       decisionRule: `grant:${grantId}`,
-      taintIn: true,
+      taintIn: false,
+      // The send's result is third-party content, so the turn leaves tainted.
       taintOut: true,
     });
     expect(final?.details?.receiptId).toMatch(/^rcp/);
@@ -321,7 +350,7 @@ describe("connector writes allowed by a standing task grant", () => {
         });
       },
     );
-    expect(h.issued).toHaveLength(2);
+    expect(h.issued).toHaveLength(3);
     expect(h.sent).toHaveLength(2);
 
     // Revoked: the first task asks again too.
@@ -341,7 +370,7 @@ describe("connector writes allowed by a standing task grant", () => {
         });
       },
     );
-    expect(h.issued).toHaveLength(3);
+    expect(h.issued).toHaveLength(4);
     expect(h.sent).toHaveLength(2);
   });
 

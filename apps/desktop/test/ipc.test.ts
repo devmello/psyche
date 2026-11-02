@@ -7,6 +7,7 @@ import {
   checkExternalUrl,
   checkHttpUrl,
   checkMainRoute,
+  checkNotifyRoute,
   checkRoute,
   checkViewport,
 } from "../src/lib/ipc.ts";
@@ -16,6 +17,13 @@ describe("IPC validators", () => {
     expect(checkRoute("c", "/chat/t1/pane/p_browser_1")).toBe("/chat/t1/pane/p_browser_1");
     for (const bad of ["//evil.com/x", "/a//b", "/../x", "chat", "https://evil.com", "/a b"])
       expect(() => checkRoute("c", bad), bad).toThrow();
+  });
+
+  it("a notification's route may carry only the plain link query", () => {
+    for (const ok of ["/chat/t1?message=m1", "/chat/t1?approval=ap_1", "/scheduled?tab=runs"])
+      expect(checkNotifyRoute("c", ok), ok).toBe(ok);
+    for (const bad of ["/chat/t1?x=<script>", "//evil.com?a=b", "/chat/t1?a=b c", "https://x.test"])
+      expect(() => checkNotifyRoute("c", bad), bad).toThrow();
   });
 
   it("URLs for agent tabs are http(s) without userinfo", () => {

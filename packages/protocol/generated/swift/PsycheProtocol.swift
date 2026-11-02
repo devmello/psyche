@@ -870,6 +870,7 @@
 //   let notificationAction = try? JSONDecoder().decode(NotificationAction.self, from: jsonData)
 //   let notificationCreatedPayload = try? JSONDecoder().decode(NotificationCreatedPayload.self, from: jsonData)
 //   let notificationKind = try? JSONDecoder().decode(NotificationKind.self, from: jsonData)
+//   let notificationOpenedPayload = try? JSONDecoder().decode(NotificationOpenedPayload.self, from: jsonData)
 //   let notificationResolvedPayload = try? JSONDecoder().decode(NotificationResolvedPayload.self, from: jsonData)
 //   let notificationUpdatedPayload = try? JSONDecoder().decode(NotificationUpdatedPayload.self, from: jsonData)
 //   let notificationsListParams = try? JSONDecoder().decode(NotificationsListParams.self, from: jsonData)
@@ -20900,6 +20901,22 @@ public enum NotificationKind: String, Codable, Sendable {
     case taskFailed = "task_failed"
 }
 
+// MARK: - NotificationOpenedPayload
+public struct NotificationOpenedPayload: Codable, Sendable {
+    public let notificationID: String
+    public let route: String
+
+    public enum CodingKeys: String, CodingKey {
+        case notificationID = "notificationId"
+        case route = "route"
+    }
+
+    public init(notificationID: String, route: String) {
+        self.notificationID = notificationID
+        self.route = route
+    }
+}
+
 // MARK: - NotificationResolvedPayload
 public struct NotificationResolvedPayload: Codable, Sendable {
     public let notification: Notification
@@ -24025,10 +24042,14 @@ public struct ScheduledRunsParams: Codable, Sendable {
 
 /// The one status a run is shown with. `waiting`: the run's task is parked on an approval or
 /// an answer. `skipped`: nothing was done, and `reason` says why (paused, previous run still
-/// going, nothing to report). `succeeded` only when the run finished `done`
+/// going, nothing to report). `succeeded` only when the run finished `done` and its checks
+/// passed. `not_verified`: the run ended, but the evidence that its steps happened is
+/// missing (`reason` names the step, `evidence` lists what was recorded); `failed`: it
+/// errored or was refused
 public enum ScheduledRunState: String, Codable, Sendable {
     case cancelled = "cancelled"
     case failed = "failed"
+    case notVerified = "not_verified"
     case running = "running"
     case skipped = "skipped"
     case succeeded = "succeeded"
@@ -24054,6 +24075,7 @@ public struct ScheduledRunEntry: Codable, Sendable {
     public let automationID: String
     public let durationMS: Int?
     public let endedAt: String?
+    public let evidence: [String]?
     public let group: ScheduledGroup
     public let id: String
     public let pendingApprovals: Int
@@ -24072,6 +24094,7 @@ public struct ScheduledRunEntry: Codable, Sendable {
         case automationID = "automationId"
         case durationMS = "durationMs"
         case endedAt = "endedAt"
+        case evidence = "evidence"
         case group = "group"
         case id = "id"
         case pendingApprovals = "pendingApprovals"
@@ -24086,11 +24109,12 @@ public struct ScheduledRunEntry: Codable, Sendable {
         case trigger = "trigger"
     }
 
-    public init(agentRunID: String?, automationID: String, durationMS: Int?, endedAt: String?, group: ScheduledGroup, id: String, pendingApprovals: Int, reason: String?, routine: String?, startedAt: String, state: ScheduledRunState, summary: String?, taskID: String?, threadID: String?, title: String, trigger: AutomationRunTrigger) {
+    public init(agentRunID: String?, automationID: String, durationMS: Int?, endedAt: String?, evidence: [String]?, group: ScheduledGroup, id: String, pendingApprovals: Int, reason: String?, routine: String?, startedAt: String, state: ScheduledRunState, summary: String?, taskID: String?, threadID: String?, title: String, trigger: AutomationRunTrigger) {
         self.agentRunID = agentRunID
         self.automationID = automationID
         self.durationMS = durationMS
         self.endedAt = endedAt
+        self.evidence = evidence
         self.group = group
         self.id = id
         self.pendingApprovals = pendingApprovals

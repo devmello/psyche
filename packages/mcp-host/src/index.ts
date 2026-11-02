@@ -1,4 +1,5 @@
 export { sha256, strictCanonicalJSON } from "./canonical.ts";
+export { diagnoseLaunch, type LaunchDiagnosis, type LaunchFailure } from "./diagnose.ts";
 export { diffTools, type ToolChange, toolsListHash } from "./hash.ts";
 export {
   APP_MIME,
@@ -61,6 +62,14 @@ export {
   type RegisterMcpToolsOptions,
   registerMcpServerTools,
 } from "./registry.ts";
+export {
+  type ResolvedRuntimeCommand,
+  RUNTIME_MISSING_TEXT,
+  type RuntimeDeps,
+  type RuntimeKind,
+  resolveRuntimeCommand,
+  systemRuntimeDeps,
+} from "./runtime.ts";
 export {
   assertNoPlaceholders,
   mcpCredentialTarget,

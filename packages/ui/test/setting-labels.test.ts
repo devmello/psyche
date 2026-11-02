@@ -40,7 +40,9 @@ describe("setting labels (docs/ui-audit.md decision 1)", () => {
   it("has a label for every key the kit and the app read or write", () => {
     const keys = keysInSource();
     expect(keys.size).toBeGreaterThan(20);
-    const missing = [...keys].filter((k) => settingLabel(k) === "this setting");
+    // `psyche.agentSheet.tab` is a browser localStorage key (AgentSheet), not a Gateway setting.
+    const local = new Set(["psyche.agentSheet.tab"]);
+    const missing = [...keys].filter((k) => !local.has(k) && settingLabel(k) === "this setting");
     expect(missing).toEqual([]);
   });
 

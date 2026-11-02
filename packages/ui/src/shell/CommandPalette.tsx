@@ -4,7 +4,12 @@ import { type ReactElement, useEffect } from "react";
 import { useThreads } from "../data/index.ts";
 import { t } from "../i18n/core.ts";
 import { ConnectedEntityCard } from "../people/ConnectedEntityCard.tsx";
+import { LIBRARY_SECTIONS } from "../screens/library/library-items.ts";
 import { SearchSurface, useMinWidth, useSearchSurface } from "../screens/search/SearchSurface.tsx";
+import { SETTINGS_SECTIONS } from "../screens/settings/SettingsScreen.tsx";
+
+export { paletteMatches } from "./palette-match.ts";
+
 import { RAIL_ITEMS } from "./Rail.tsx";
 import { SHORTCUTS } from "./shortcuts.ts";
 
@@ -12,23 +17,36 @@ export interface PaletteAction {
   id: string;
   label: string;
   route?: string;
+  /** Extra words the search matches; never shown. */
+  keywords?: string;
   shortcut?: string;
   run?: () => void;
 }
 
-/** Built-in actions (UI design §2.5): open a screen or pane, `/model`, `/schedule`, settings. */
+/**
+ * Built-in actions (UI design §2.5): every screen, every Library and Settings section, the
+ * agent sheet's tabs and the setup entries, so nothing is reachable only by knowing its URL.
+ * `paletteMatches` searches the label and the hidden keywords.
+ */
 export const DEFAULT_ACTIONS: readonly PaletteAction[] = [
   ...RAIL_ITEMS.map((i) => ({
     id: `go-${i.id}`,
     get label() {
       return t("shell.palette.goTo", { label: i.label });
     },
+    get keywords() {
+      return i.keywords;
+    },
     route: i.route,
+    ...(i.shortcut === undefined ? {} : { shortcut: i.shortcut }),
   })),
   {
     id: "approvals",
     get label() {
       return t("shell.palette.approvals");
+    },
+    get keywords() {
+      return t("shell.palette.keywords.approvals");
     },
     route: "/agent/approvals",
     shortcut: "⌘⇧P",
@@ -41,11 +59,55 @@ export const DEFAULT_ACTIONS: readonly PaletteAction[] = [
     route: "/agent/soul",
   },
   {
-    id: "inbox",
+    id: "scheduled-runs",
     get label() {
-      return t("shell.palette.inbox");
+      return t("shell.palette.scheduledRuns");
     },
-    route: "/inbox",
+    route: "/scheduled?tab=runs",
+  },
+  {
+    id: "memory-review",
+    get label() {
+      return t("shell.palette.memoryReview");
+    },
+    get keywords() {
+      return t("shell.palette.keywords.memoryReview");
+    },
+    route: "/settings/memory",
+  },
+  {
+    id: "feed-instructions",
+    get label() {
+      return t("shell.palette.feedInstructions");
+    },
+    route: "/feed/instructions",
+  },
+  ...LIBRARY_SECTIONS.map((section) => ({
+    id: `library-${section.id}`,
+    get label() {
+      return t("shell.palette.librarySection", { section: section.label });
+    },
+    route: `/library/${section.id}`,
+  })),
+  {
+    id: "can-do",
+    get label() {
+      return t("shell.palette.canDo");
+    },
+    get keywords() {
+      return t("shell.palette.keywords.canDo");
+    },
+    route: "/can-do",
+  },
+  {
+    id: "rerun-setup",
+    get label() {
+      return t("shell.palette.rerunSetup");
+    },
+    get keywords() {
+      return t("shell.palette.keywords.rerunSetup");
+    },
+    route: "/onboarding",
   },
   {
     id: "settings",
@@ -53,21 +115,15 @@ export const DEFAULT_ACTIONS: readonly PaletteAction[] = [
       return t("shell.palette.settings");
     },
     route: "/settings/model",
+    shortcut: "⌘,",
   },
-  {
-    id: "appearance",
+  ...SETTINGS_SECTIONS.map((section) => ({
+    id: `settings-${section.id}`,
     get label() {
-      return t("shell.palette.appearance");
+      return t("shell.palette.settingsSection", { section: section.label });
     },
-    route: "/settings/appearance",
-  },
-  {
-    id: "permissions",
-    get label() {
-      return t("shell.palette.permissions");
-    },
-    route: "/settings/permissions",
-  },
+    route: `/settings/${section.id}`,
+  })),
   {
     id: "add-mcp",
     get label() {

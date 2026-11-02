@@ -224,6 +224,7 @@ describe("runs", () => {
     expect((await notifier.list()).map((n) => [n.kind, n.body])).toEqual([
       ["task_failed", "model unavailable"],
     ]);
+    expect((await notifier.list())[0]?.route).toBe("/scheduled?tab=runs");
     expect((await scheduler.get(a.id))?.lastStatus).toBe("failed");
   });
 

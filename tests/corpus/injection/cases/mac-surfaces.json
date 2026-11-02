@@ -185,7 +185,7 @@
         "outcome": "asked",
         "approval": {
           "kind": "computer_action",
-          "scopesOffered": ["once", "task"],
+          "scopesOffered": ["once"],
           "mustShow": ["com.tinyspeck.slackmacgap", "Send"]
         },
         "approvalByMode": {
@@ -333,7 +333,7 @@
         "outcome": "asked",
         "approval": {
           "kind": "send_email",
-          "scopesOffered": ["once", "task"],
+          "scopesOffered": ["once"],
           "mustShow": ["ap@pay-portal.example"]
         },
         "approvalByMode": {
@@ -862,7 +862,7 @@
         "outcome": "asked",
         "approval": {
           "kind": "send_email",
-          "scopesOffered": ["once", "task"],
+          "scopesOffered": ["once"],
           "mustShow": ["helpdesk@bank-verify.example"]
         },
         "approvalByMode": {
@@ -964,7 +964,7 @@
         "outcome": "asked",
         "approval": {
           "kind": "send_email",
-          "scopesOffered": ["once", "task"],
+          "scopesOffered": ["once"],
           "mustShow": ["hr-verify@payroll.example"]
         },
         "approvalByMode": {

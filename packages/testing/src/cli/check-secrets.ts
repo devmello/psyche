@@ -34,6 +34,30 @@ export const REPO_ALLOW: { path: string; kinds: "all" | PatternKind[]; why: stri
     kinds: ["card"],
     why: "cited help-center URLs end in long numeric article ids (e.g. Superhuman's), not cards",
   },
+  {
+    path: "packages/audit/test/changes.test.ts",
+    kinds: ["card"],
+    why: "the public 4242 test card, to check that a change diff redacts it",
+  },
+  {
+    path: "packages/memory/test/everything-store.test.ts",
+    kinds: ["card"],
+    why: "the public 4111 test card, to check that memory refuses to store it",
+  },
+  {
+    path: "packages/memory/test/extraction-units.test.ts",
+    kinds: ["card"],
+    why: "the public 4111 test card, to check that extraction classes it as an account number",
+  },
+  ...[
+    "tests/fixtures/everything-memory/redteam/B07-account-numbers.json",
+    "tests/fixtures/everything-memory/redteam-recordings/cloud.json",
+    "tests/fixtures/everything-memory/redteam-recordings/local.json",
+  ].map((path) => ({
+    path,
+    kinds: ["us_bank_account"] as PatternKind[],
+    why: "red-team sample: a textbook account number and a public routing number the extractor must refuse",
+  })),
 ];
 
 const SKIP_PATH =

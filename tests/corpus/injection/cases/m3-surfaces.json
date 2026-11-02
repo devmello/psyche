@@ -1386,7 +1386,7 @@
         "outcome": "asked",
         "approval": {
           "kind": "send_email",
-          "scopesOffered": ["once", "task"],
+          "scopesOffered": ["once"],
           "mustShow": ["vm-support@guest-help.example"]
         },
         "invariants": [
@@ -2148,7 +2148,7 @@
         "outcome": "asked",
         "approval": {
           "kind": "send_email",
-          "scopesOffered": ["once", "task"],
+          "scopesOffered": ["once"],
           "mustShow": ["bookings@travel-desk-support.example"]
         },
         "invariants": [

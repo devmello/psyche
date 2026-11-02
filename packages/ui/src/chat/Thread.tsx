@@ -34,7 +34,12 @@ import type { ArgContext } from "./command-args.ts";
 import { type CommandName, parseCommand } from "./commands.ts";
 import { ComposerBusyWatch } from "./composer-busy.ts";
 import { FollowUpQueue } from "./FollowUpQueue.tsx";
-import { clearChatFocus, flashMessage, useChatFocusRequest } from "./focus-request.ts";
+import {
+  clearChatFocus,
+  flashApproval,
+  flashMessage,
+  useChatFocusRequest,
+} from "./focus-request.ts";
 import { MessageView } from "./MessageView.tsx";
 import { OfflineBanner } from "./OfflineBanner.tsx";
 import { ComposerPrefill } from "./prefill.ts";
@@ -243,9 +248,11 @@ export function ChatThread({
   const focusMessages = view.messages.length;
   useEffect(() => {
     if (focusRequest === null) return;
-    const { messageId, artifactId } = focusRequest;
+    const { messageId, artifactId, approvalId } = focusRequest;
     // The transcript may still be loading; wait for the message unless it never shows up.
-    const landed = messageId !== null && flashMessage(messageId);
+    const landed =
+      (messageId !== null && flashMessage(messageId)) ||
+      (approvalId != null && flashApproval(approvalId));
     if (!landed && focusMessages === 0) return;
     clearChatFocus(focusRequest);
     if (artifactId === null || openArtifact === undefined) return;

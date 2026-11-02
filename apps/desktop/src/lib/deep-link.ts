@@ -25,8 +25,18 @@ const ROUTES: readonly RegExp[] = [
   /^\/quick$/,
 ];
 
+/**
+ * A notification's durable links (nav-inbox 2026): a chat with the message or approval card to
+ * land on, a run's Timeline, Scheduled → Runs. Only these query shapes, with plain ids.
+ */
+const LINKS: readonly RegExp[] = [
+  new RegExp(`^/chat/${ID}\\?(message|approval)=${ID}$`),
+  new RegExp(`^/overview/run/${ID}$`),
+  /^\/scheduled\?tab=runs$/,
+];
+
 export function isAppRoute(path: string): boolean {
-  return ROUTES.some((r) => r.test(path));
+  return ROUTES.some((r) => r.test(path)) || LINKS.some((r) => r.test(path));
 }
 
 /** Returns the app route for a deep link, or null when the link is not acceptable. */

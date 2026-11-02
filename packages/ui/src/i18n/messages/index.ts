@@ -11,6 +11,7 @@ import { connectorGallery } from "./connector-gallery.ts";
 import { context } from "./context.ts";
 import { daily } from "./daily.ts";
 import { design } from "./design.ts";
+import { deviceAccess } from "./device-access.ts";
 import { errors } from "./errors.ts";
 import { glass } from "./glass.ts";
 import { links } from "./links.ts";
@@ -62,6 +63,7 @@ export const en = {
   ...settingsLanguage,
   ...skillAuthor,
   ...selfConnectors,
+  ...deviceAccess,
   ...mailMeetings,
   ...connectorGallery,
   ...onboarding,

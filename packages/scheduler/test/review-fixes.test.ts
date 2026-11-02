@@ -1,3 +1,4 @@
+import { ownerNoticeKey } from "@psyche/protocol";
 import { SqliteTaskEngine } from "@psyche/tasks";
 import { describe, expect, it } from "vitest";
 import { createTaskLauncher, parsePrice, parseSchedule } from "../src/index.ts";
@@ -37,6 +38,27 @@ describe("scheduler review fixes", () => {
     expect((await notifier.list()).map((n) => [n.kind, n.title])).toEqual([
       ["reminder", "Call the dentist"],
     ]);
+  });
+
+  it("the completion notice does not double up with the run's own notify", async () => {
+    const { scheduler, notifier, launcher } = setup({ start: T0, timers: asleep });
+    // The agent's `notify` tool (same task key) fires during the run; the framework then delivers.
+    launcher.respond = async (request) => {
+      await notifier.notify({
+        kind: "proactive",
+        title: "Due tonight",
+        body: "Lab 3 and Essay 2",
+        dedupeKey: ownerNoticeKey("task_1"),
+        keepExisting: true,
+      });
+      return { status: "done", summary: `Added 2 reminders for ${request.automation.title}` };
+    };
+    const a = await scheduler.create({ ...BASE, kind: "cron", schedule: "0 * * * *" });
+    await scheduler.trigger(a.id);
+    await scheduler.idle();
+    const all = await notifier.list();
+    expect(all).toHaveLength(1);
+    expect(all[0]?.title).toBe("Due tonight");
   });
 
   it("deleting an automation cancels its running task", async () => {

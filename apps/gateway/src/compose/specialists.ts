@@ -25,7 +25,7 @@ import type {
   SpecialistSpec,
   Task,
 } from "@psyche/protocol";
-import { PsycheError } from "@psyche/protocol";
+import { chatLinkRoute, PsycheError } from "@psyche/protocol";
 import { type FsSkillLoader, specialistsPromptSection } from "@psyche/skills";
 import type { SqliteTaskEngine, TaskTurnTrace } from "@psyche/tasks";
 import { INCOGNITO_TTL_MS } from "../handlers/threads.ts";
@@ -409,7 +409,7 @@ async function deliver(
       title: resultTitle(spec.role, task.title, result),
       body: resultLine(result, spec.budget.used),
       taskId,
-      route: `/tasks/${taskId}`,
+      route: chatLinkRoute({ threadId: task.threadId }),
       dedupeKey: `specialist_result:${taskId}`,
     });
     notificationId = n?.id ?? null;

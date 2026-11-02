@@ -10,6 +10,7 @@ import {
 } from "@psyche/permissions";
 import {
   type ApprovalRequest,
+  chatLinkRoute,
   type IssuedApproval,
   type NodeInfo,
   PsycheError,
@@ -196,7 +197,20 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
     if (d === undefined || d.nodeId !== h.nodeId || helpers.get(h.nodeId) !== h) return;
     const decision =
       data.actionId === "approve" ? "approve" : data.actionId === "deny" ? "deny" : undefined;
-    if (decision === undefined) return; // a tap opens the app; dismiss decides nothing
+    if (decision === undefined) {
+      // A tap opens the app on the card's chat; dismiss decides nothing.
+      if (data.actionId === "default") {
+        const { threadId } = d.approval.requestedBy;
+        gateway?.context.bus.publish("notification.opened", {
+          notificationId: data.notificationId,
+          route:
+            threadId == null
+              ? "/agent/approvals"
+              : chatLinkRoute({ threadId, approvalId: d.approval.id }),
+        });
+      }
+      return;
+    }
     const signature = data.presence?.signature;
     const presence: PresenceAssertion | undefined =
       decision === "approve" &&
@@ -252,7 +266,10 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
         body,
         interruptionLevel: "timeSensitive",
         threadId: a.requestedBy.taskId ?? null,
-        route: `/approvals/${a.id}`,
+        route:
+          a.requestedBy.threadId == null
+            ? "/agent/approvals"
+            : chatLinkRoute({ threadId: a.requestedBy.threadId, approvalId: a.id }),
         actions: approvable
           ? [
               {
