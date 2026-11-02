@@ -28,6 +28,7 @@ import type {
   ThreadListEntry,
   ToolCall,
   VmUpdatedPayload,
+  Widget,
 } from "@psyche/protocol";
 import type { ConnectionState } from "./client.ts";
 
@@ -148,6 +149,8 @@ export interface UiState {
   inputRequests: Dict<InputRequest>;
   receipts: Dict<Receipt>;
   artifacts: Dict<Artifact>;
+  /** Generative-UI widget snapshots (docs/design/generative-ui-2026.md §5). */
+  widgets: Dict<Widget>;
   /** Canvas content by `artifactId@version` (docs/design/chat-experience-2026.md §4.2). */
   artifactContent: Dict<ArtifactContent>;
   /** Every version of an artifact, oldest first, once the version picker loaded them. */
@@ -204,6 +207,7 @@ export const INITIAL_STATE: UiState = {
   inputRequests: {},
   receipts: {},
   artifacts: {},
+  widgets: {},
   artifactContent: {},
   artifactVersions: {},
   threadArtifacts: {},
@@ -262,6 +266,7 @@ export type EntityCollection =
   | "inputRequests"
   | "receipts"
   | "artifacts"
+  | "widgets"
   | "library"
   | "notifications"
   | "feed"

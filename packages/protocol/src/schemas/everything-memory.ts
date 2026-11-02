@@ -375,6 +375,72 @@ export const EverythingRunResult = Type.Object(
   { $id: "EverythingRunResult" },
 );
 export type EverythingRunResult = Static<typeof EverythingRunResult>;
+// --- Per-sender auto-accept (§7.3) ------------------------------------------------------------
+
+export const SenderTrustState = StringEnum(["offered", "trusted"], { $id: "SenderTrustState" });
+export type SenderTrustState = Static<typeof SenderTrustState>;
+
+/** A contact Psyche offers to auto-accept self-disclosures from, or already does. */
+export const SenderTrust = Type.Object(
+  {
+    entityId: Id,
+    name: Type.String({
+      maxLength: 200,
+      description: "A display name from a mail header: untrusted text",
+    }),
+    confirmed: Type.Integer({
+      minimum: 0,
+      description: "Facts the owner confirmed from them, none discarded",
+    }),
+    state: SenderTrustState,
+  },
+  { $id: "SenderTrust" },
+);
+export type SenderTrust = Static<typeof SenderTrust>;
+
+export const SenderTrustDecision = StringEnum(["trust", "decline", "revoke"], {
+  $id: "SenderTrustDecision",
+});
+export type SenderTrustDecision = Static<typeof SenderTrustDecision>;
+
+// --- Coming up (§12.3, §12.5) -------------------------------------------------------------------
+
+export const ComingUpKind = StringEnum(["birthday", "anniversary", "event"], {
+  $id: "ComingUpKind",
+});
+
+export const ComingUpItem = Type.Object(
+  {
+    entityId: Id,
+    name: Type.String({ maxLength: 200 }),
+    kind: ComingUpKind,
+    date: Type.String({
+      pattern: "^\\d{4}-\\d{2}-\\d{2}$",
+      description: "Next occurrence, local date",
+    }),
+    daysAway: Type.Integer({ minimum: 0 }),
+    turns: Nullable(Type.Integer({ minimum: 0 })),
+    lastContactAt: Nullable(IsoDateTime),
+    text: Type.String({
+      maxLength: 400,
+      description: "One plain line, built from names and dates",
+    }),
+  },
+  { $id: "ComingUpItem" },
+);
+export type ComingUpItem = Static<typeof ComingUpItem>;
+
+/** What forgetting or excluding a person would remove (or did), counts only. */
+export const PersonRemoved = Type.Object(
+  {
+    facts: Type.Integer({ minimum: 0 }),
+    edges: Type.Integer({ minimum: 0 }),
+    citations: Type.Integer({ minimum: 0 }),
+    quarantine: Type.Integer({ minimum: 0 }),
+  },
+  { $id: "PersonRemoved" },
+);
+export type PersonRemoved = Static<typeof PersonRemoved>;
 
 // --- Runs (§6.7) ------------------------------------------------------------------------------
 

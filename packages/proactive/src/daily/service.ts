@@ -49,6 +49,8 @@ export interface DailyServiceOptions {
    * §12.5): one line and the Review link, or nothing. Counts only, never the facts themselves.
    */
   learned?: () => { text: string; link?: string } | undefined;
+  /** Birthdays, anniversaries and events in the next 14 days (everything memory §12.5), counts-free lines. */
+  comingUp?: () => { text: string; link?: string }[];
   /** Link to the prep note for a calendar event, when meeting prep made one. */
   prepLink?: (event: { id: string; title: string; start: string }) => string | undefined;
   /** Channel surfaces (`imessage:<peer>`) the card is also delivered to when `daily.messages` is on. */
@@ -290,6 +292,17 @@ export class DailyService {
       sections.push(calendar, mail, due, this.#followupsSection("Follow-ups", dayEnd));
       const weather = await this.#weather("Weather");
       if (weather !== undefined) sections.push(weather);
+      const coming = this.#o.comingUp?.() ?? [];
+      if (coming.length > 0) {
+        sections.push({
+          id: "coming_up",
+          title: "Coming up",
+          items: coming.slice(0, 8).map((c) => ({
+            text: cleanHeader(c.text, 300),
+            ...(c.link === undefined ? {} : { link: c.link }),
+          })),
+        });
+      }
       const learned = this.#o.learned?.();
       if (learned !== undefined) {
         sections.push({

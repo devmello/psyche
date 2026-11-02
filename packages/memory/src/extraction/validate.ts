@@ -77,6 +77,11 @@ export interface ValidationSettings {
   allowAboutOther: boolean;
   /** Auto-accept non-sensitive facts from owner-authored items (confidence >= 0.8). */
   autoAcceptOwnerAuthored: boolean;
+  /**
+   * Auto-accept an allowed self-disclosure from any contact (off by default). A sender the owner
+   * trusted is auto-accepted by the store whatever this says.
+   */
+  autoAcceptSelfDisclosure?: boolean;
 }
 
 export const DEFAULT_VALIDATION_SETTINGS: ValidationSettings = {
@@ -401,10 +406,9 @@ export function validateExtraction(input: ValidateInput): ValidationReport {
         limits.perAttribute.set(key, seen);
       }
       const auto =
-        settings.autoAcceptOwnerAuthored &&
-        item.trust !== "untrusted" &&
-        cls === "none" &&
-        f.confidence >= 0.8;
+        item.trust === "untrusted"
+          ? settings.autoAcceptSelfDisclosure === true && cls === "none" && f.confidence >= 0.9
+          : settings.autoAcceptOwnerAuthored && cls === "none" && f.confidence >= 0.8;
       pending.push(() => {
         const out = input.sink.proposeFact({
           entityId: subject.entityId,

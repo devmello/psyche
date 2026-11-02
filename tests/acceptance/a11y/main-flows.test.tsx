@@ -94,8 +94,8 @@ function pendingApproval() {
 }
 
 /** The fixture send with the taint cleared, so the card offers a choice of scope (§3.12). */
-function untaintedChoice() {
-  return { ...pendingApproval(), taint: false, scopesOffered: ["once", "task"] as const };
+function untaintedChoice(): ReturnType<typeof pendingApproval> {
+  return { ...pendingApproval(), taint: false, scopesOffered: ["once", "task"] };
 }
 
 describe("approval card (docs/06 §3.3, §4.11)", () => {
@@ -397,7 +397,8 @@ describe("sidebar (redesign-2026 §5.1)", () => {
     const chat = within(nav).getByRole("button", { name: "Chat" });
     chat.focus();
     await user.keyboard("{ArrowDown}");
-    expect(document.activeElement).toBe(within(nav).getByRole("button", { name: "Search" }));
+    // Inbox follows Chat since #1049; its name may carry an unread count.
+    expect(document.activeElement).toBe(within(nav).getByRole("button", { name: /^Inbox/ }));
     await user.keyboard("{End}");
     expect(document.activeElement?.closest("nav")).toBe(nav);
   });

@@ -20,6 +20,7 @@ import {
   type ReviewItem,
 } from "@psyche/protocol";
 import type Database from "better-sqlite3";
+import { strToU8, zipSync } from "fflate";
 import { monotonicFactory } from "ulid";
 import { oneLine } from "../daily.ts";
 import { blockingKinds, detectSensitive, looksLikeInstruction } from "../filters.ts";
@@ -52,6 +53,18 @@ const EXCERPT_CHARS = 300;
 export const UNDO_DAYS = 7;
 /** Discarded rows are kept this long so the owner's feedback has settled, then deleted. */
 const DISCARDED_KEEP_DAYS = 7;
+
+/** The attributes a person's own words may add without asking, once trusted (§7.2). */
+const SELF_DISCLOSURE_AUTO: ReadonlySet<string> = new Set([
+  "birthday",
+  "employer",
+  "title",
+  "city",
+  "school",
+  "likes",
+  "pet_names",
+  "children_names",
+]);
 
 /** Single-valued attributes of the life group (§4.3); the legacy attributes keep their rule. */
 const LIFE_SINGLE_VALUED: ReadonlySet<string> = new Set([
@@ -725,12 +738,21 @@ export class EverythingStore {
 
     const now = this.#now();
     const untrusted = input.provenance === "untrusted";
+    const owners = [...new Set(senders)];
     const mayAuto =
-      input.autoAccept === true &&
-      !untrusted &&
       sensitivity === "none" &&
       input.attribute !== "note" &&
-      input.subjectKind !== "about_other";
+      input.subjectKind !== "about_other" &&
+      (untrusted
+        ? // What a person says about themselves, from one sender the owner trusts (or the owner
+          // switched on for every contact), in a short allowed list, and sure: still untrusted.
+          input.subjectKind === "self_disclosure" &&
+          SELF_DISCLOSURE_AUTO.has(input.attribute) &&
+          (input.confidence ?? 0) >= 0.9 &&
+          owners.length === 1 &&
+          owners[0] === entity.id &&
+          (this.isTrustedSender(entity.id) || input.autoAccept === true)
+        : input.autoAccept === true);
     const addCitations = (factId: string) => {
       for (const c of input.citations) this.#addCitation("fact", factId, c, input.provenance);
     };
@@ -1116,6 +1138,75 @@ export class EverythingStore {
     return discarded.n > 0 ? 0 : r.n;
   }
 
+  // --- per-sender trust (§7.3, decision 6) -----------------------------------------------------
+
+  isTrustedSender(entityId: string): boolean {
+    return (
+      (
+        this.#db
+          .prepare("SELECT state FROM memory_trusted_senders WHERE entity_id = ?")
+          .get(entityId) as { state: string } | undefined
+      )?.state === "trusted"
+    );
+  }
+
+  /**
+   * Contacts to offer auto-accept to (the owner confirmed at least `threshold` of their facts
+   * and discarded none; not declined; two-way) and those already trusted.
+   */
+  senderTrust(
+    threshold: number,
+  ): { entityId: string; name: string; confirmed: number; state: "offered" | "trusted" }[] {
+    const out: {
+      entityId: string;
+      name: string;
+      confirmed: number;
+      state: "offered" | "trusted";
+    }[] = [];
+    const rows = this.#db
+      .prepare(
+        `SELECT DISTINCT c.author_entity_id AS id FROM graph_citations c
+           WHERE c.author_entity_id IS NOT NULL AND c.target_kind = 'fact'
+         UNION SELECT entity_id FROM memory_trusted_senders WHERE state = 'trusted'`,
+      )
+      .all() as { id: string }[];
+    for (const { id } of rows) {
+      const e = this.#graph.getEntity(id);
+      if (e === undefined || e.isOwner) continue;
+      const state = (
+        this.#db.prepare("SELECT state FROM memory_trusted_senders WHERE entity_id = ?").get(id) as
+          | { state: string }
+          | undefined
+      )?.state;
+      const confirmed = this.confirmedFromSender(id);
+      if (state === "trusted")
+        out.push({ entityId: id, name: safeExcerpt(e.name, 80), confirmed, state: "trusted" });
+      else if (state === undefined && confirmed >= threshold && this.#graph.isTwoWay(id)) {
+        out.push({ entityId: id, name: safeExcerpt(e.name, 80), confirmed, state: "offered" });
+      }
+    }
+    return out.sort((a, b) => a.state.localeCompare(b.state) || a.name.localeCompare(b.name));
+  }
+
+  decideSender(entityId: string, decision: "trust" | "decline" | "revoke"): void {
+    const e = this.#graph.getEntity(entityId);
+    if (e === undefined || e.isOwner) fail("not_found", "no such contact");
+    if (decision === "revoke") {
+      // Back to being asked, never silently re-trusted: revoke clears the row.
+      this.#db.prepare("DELETE FROM memory_trusted_senders WHERE entity_id = ?").run(entityId);
+      return;
+    }
+    if (decision === "trust" && this.#graph.isTwoWay(entityId) === false) {
+      fail("policy_denied", "only people you write to and hear from can be trusted");
+    }
+    this.#db
+      .prepare(
+        `INSERT INTO memory_trusted_senders (entity_id, state, decided_at) VALUES (?, ?, ?)
+         ON CONFLICT (entity_id) DO UPDATE SET state = excluded.state, decided_at = excluded.decided_at`,
+      )
+      .run(entityId, decision === "trust" ? "trusted" : "declined", this.#now());
+  }
+
   // --- quarantine (§5.6) -------------------------------------------------------------------------
 
   quarantine(input: {
@@ -1396,6 +1487,30 @@ export class EverythingStore {
           .all(entityId) as QuarantineRow[]
       ).map(toQuarantine),
     };
+  }
+
+  /**
+   * The person export (§10.3) as a zip: `person.json` and, when given, the card file. The
+   * export is the owner's own data about someone, so it includes sensitive facts; it is a file
+   * for the owner, never an agent surface.
+   */
+  exportPersonZip(
+    entityId: string,
+    files: Record<string, string> = {},
+  ): { filename: string; data: Uint8Array } {
+    const person = this.exportPerson(entityId) as { entity: { name: string } };
+    const slug =
+      person.entity.name
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}]+/gu, "-")
+        .replace(/^-|-$/g, "") || "person";
+    const entries: Record<string, Uint8Array> = {
+      "person.json": strToU8(JSON.stringify(person, null, 2)),
+    };
+    for (const [name, text] of Object.entries(files))
+      entries[name.replace(/^\/+/, "")] = strToU8(text);
+    const stamp = this.#now().slice(0, 10);
+    return { filename: `psyche-${slug}-${stamp}.zip`, data: zipSync(entries, { level: 6 }) };
   }
 
   /**

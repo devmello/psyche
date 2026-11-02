@@ -18,9 +18,17 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-02 (generative UI, P1)
+
+- New `ui` block (`UiBlock {type: "ui", widgetId}`) in the `Block` union, new types `Widget`, `WidgetSpec`, `WidgetNode` (open object on the wire), `WidgetPatch`, `WidgetOp`, `WidgetAction`, `WidgetOwner`, `WidgetState`, `WidgetTone`, `WidgetBind`, new method `widgets.get` (operator.read) and event `widget.updated`. The per-node catalogue schemas (`WIDGET_NODE_SCHEMAS`) and `validateWidgetSpec` / `validateWidgetPatch` live in the package but not in the wire registry. Design: docs/design/generative-ui-2026.md.
+
 ### v1 additive — 2026-10-29 (Scheduled screen)
 
 - New methods `scheduled.list` (operator.read) and `scheduled.pause` (operator.write), and types `ScheduledItem`, `ScheduledGroup`, `ScheduledState`, `ScheduledLink`, `ScheduledLinkedRun`: everything the scheduler runs, grouped as the owner's automations and Psyche's routines, with next and last run, approvals, linked runs and whether the item can be deleted. `automations.delete` now refuses Psyche's own routines (`policy_denied`). `/scheduled` joins the app routes.
+
+### v1 additive — 2026-11-02 (everything memory, EM5b)
+
+- New methods `memory.senders.list`, `memory.senders.decide` and types `SenderTrust`, `SenderTrustState`, `SenderTrustDecision`.
 
 ### v1 additive — 2026-10-29 (everything memory, EM5)
 
@@ -29,6 +37,9 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 ### v1 additive — 2026-11-02 (everything memory, Run now)
 
 - New method `memory.everything.run` (write) and types `EverythingRunResult`, `EverythingRunReason`: runs the pass now, minus quiet hours and idle time; returns counts or why it did not run.
+### v1 additive — 2026-11-02 (everything memory, EM8a)
+
+- New methods `memory.upcoming`, `memory.entities.export`, `memory.entities.forgetSaid` (admin), `memory.entities.exclude` (admin); types `ComingUpItem`, `ComingUpKind`, `PersonRemoved`. `DailySectionId` gains `coming_up`.
 
 ### v1 additive — 2026-10-29 (everything memory, EM6)
 

@@ -1,4 +1,4 @@
-import type { EVERYTHING_MEMORY_DEFAULTS } from "@psyche/protocol";
+import type { EverythingMemorySettings } from "@psyche/protocol";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import type { MockGateway } from "../src/data/mock-gateway.ts";
@@ -11,7 +11,7 @@ afterEach(cleanup);
 
 let gateway: MockGateway;
 const stored = () =>
-  gateway.world.settings["memory.everything"] as typeof EVERYTHING_MEMORY_DEFAULTS | undefined;
+  gateway.world.settings["memory.everything"] as EverythingMemorySettings | undefined;
 
 function show(edit?: (w: FixtureWorld) => void) {
   return render(
@@ -124,7 +124,7 @@ describe("Settings → Everything memory", () => {
     await waitFor(() =>
       expect(stored()?.model.default).toEqual({ kind: "local", ref: "ollama/qwen3:4b" }),
     );
-    expect(gateway.world.settings["memory.everything.localConfirmed"]).toBe("ollama/qwen3:4b");
+    expect(gateway.world.settings["memory.everything.localConfirmed"]).toEqual(["ollama/qwen3:4b"]);
   });
 
   it("when on, shows the controls; government ids and account numbers have no switch", async () => {
@@ -230,5 +230,72 @@ describe("Settings → Everything memory", () => {
     expect((await screen.findByTestId("run-result")).textContent).toBe(
       "Not now: the Mac is on battery. Plug it in, or allow battery runs.",
     );
+  });
+});
+
+describe("a model per source (EM11)", () => {
+  async function onWithMailAndMessages() {
+    show();
+    fireEvent.click(await screen.findByRole("switch", { name: "Everything memory" }));
+    const dialog = await screen.findByTestId("everything-consent");
+    next();
+    fireEvent.click(within(dialog).getByRole("switch", { name: "Mail" }));
+    fireEvent.click(within(dialog).getByRole("switch", { name: "Messages" }));
+    next();
+    next();
+    fireEvent.click(within(dialog).getByRole("radio", { name: /Cloud/ }));
+    return dialog;
+  }
+
+  it("lists only the sources that are on, defaulting to the choice above", async () => {
+    const dialog = await onWithMailAndMessages();
+    const rows = within(dialog).getAllByTestId("persource-row");
+    expect(rows.map((r) => r.textContent?.match(/Mail|Messages/)?.[0])).toEqual([
+      "Mail",
+      "Messages",
+    ]);
+    for (const r of rows)
+      expect((within(r).getByRole("combobox") as HTMLSelectElement).value).toBe("default");
+  });
+
+  it("Messages on Local needs its own memory warning confirmed before turning on", async () => {
+    const dialog = await onWithMailAndMessages();
+    const row = within(dialog).getAllByTestId("persource-row")[1] as HTMLElement;
+    fireEvent.change(within(row).getByRole("combobox"), { target: { value: "local" } });
+    fireEvent.change(within(row).getByLabelText("Model for Messages"), {
+      target: { value: "ollama/qwen3:4b" },
+    });
+    expect(within(row).getByTestId("persource-warning").textContent).toMatch(/About 3 GB of RAM/);
+    next();
+    const finish = within(dialog).getByRole("button", { name: "Turn on" }) as HTMLButtonElement;
+    expect(finish.disabled).toBe(true);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Back" }));
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: /I understand, use ollama\/qwen3:4b/ }),
+    );
+    next();
+    expect(
+      (within(dialog).getByRole("button", { name: "Turn on" }) as HTMLButtonElement).disabled,
+    ).toBe(false);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Turn on" }));
+    await waitFor(() =>
+      expect((stored()?.model.perSource as Record<string, unknown> | undefined)?.messages).toEqual({
+        kind: "local",
+        ref: "ollama/qwen3:4b",
+      }),
+    );
+    expect(stored()?.model.default.kind).toBe("cloud");
+    expect(gateway.world.settings["memory.everything.localConfirmed"]).toEqual(["ollama/qwen3:4b"]);
+  });
+
+  it("back to Same as above removes the override", async () => {
+    const dialog = await onWithMailAndMessages();
+    const row = within(dialog).getAllByTestId("persource-row")[0] as HTMLElement;
+    fireEvent.change(within(row).getByRole("combobox"), { target: { value: "none" } });
+    fireEvent.change(within(row).getByRole("combobox"), { target: { value: "default" } });
+    next();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Turn on" }));
+    await waitFor(() => expect(stored()?.enabled).toBe(true));
+    expect(stored()?.model.perSource).toBeUndefined();
   });
 });

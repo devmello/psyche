@@ -12,8 +12,10 @@ import { t } from "../i18n/core.ts";
 import { RadioField } from "../screens/settings/shared.tsx";
 import {
   type EverythingValues,
+  localReady,
   ModelFields,
   PeopleFields,
+  PerSourceModels,
   SENSITIVE_IDS,
   SensitiveFields,
   SOURCE_IDS,
@@ -39,22 +41,20 @@ export function EverythingConsent({
   open: boolean;
   initial: EverythingValues;
   persona: string;
-  localConfirmed: string | undefined;
+  localConfirmed: readonly string[];
   onCancel: () => void;
-  /** `confirmLocal` is the local model whose RAM warning the owner confirmed in this flow. */
-  onFinish: (settings: EverythingValues, confirmLocal: string | undefined) => void;
+  /** `confirmed` lists every local model whose RAM warning the owner confirmed (before and in this flow). */
+  onFinish: (settings: EverythingValues, confirmed: string[]) => void;
 }): ReactElement {
   const [step, setStep] = useState(1);
   const [draft, setDraft] = useState<EverythingValues>({ ...initial, enabled: true });
-  const [confirm, setConfirm] = useState<string | undefined>(localConfirmed);
+  const [confirm, setConfirm] = useState<string[]>([...localConfirmed]);
   const sources = SOURCE_IDS.filter((s) => draft.sources[s]);
   const sensitiveOn = SENSITIVE_IDS.filter((k) => draft.sensitive[k]).map((k) =>
     t(`everything.sensitive.${k}`),
   );
   const kind = draft.model.default.kind;
-  const localReady =
-    kind !== "local" ||
-    (draft.model.default.ref !== undefined && confirm === draft.model.default.ref);
+  const ready = localReady(draft, confirm);
   const days = Number(draft.schedule.backfillDays);
 
   return (
@@ -104,7 +104,13 @@ export function EverythingConsent({
               value={draft}
               onChange={setDraft}
               localConfirmed={confirm}
-              onConfirmLocal={setConfirm}
+              onConfirmLocal={(ref) => setConfirm((c) => [...new Set([...c, ref])])}
+            />
+            <PerSourceModels
+              value={draft}
+              onChange={setDraft}
+              localConfirmed={confirm}
+              onConfirmLocal={(ref) => setConfirm((c) => [...new Set([...c, ref])])}
             />
             <RadioField
               label={t("everything.schedule.backfill")}
@@ -173,10 +179,8 @@ export function EverythingConsent({
             <Button onClick={() => setStep(step + 1)}>{t("everything.consent.next")}</Button>
           ) : (
             <Button
-              disabled={!localReady}
-              onClick={() =>
-                onFinish({ ...draft, enabled: true }, kind === "local" ? confirm : undefined)
-              }
+              disabled={!ready}
+              onClick={() => onFinish({ ...draft, enabled: true }, confirm)}
             >
               {t("everything.consent.finish")}
             </Button>

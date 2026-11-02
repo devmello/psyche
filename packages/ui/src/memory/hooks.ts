@@ -1,4 +1,10 @@
-import type { QuarantineAction, QuarantineItem, ReviewItem } from "@psyche/protocol";
+import type {
+  QuarantineAction,
+  QuarantineItem,
+  ReviewItem,
+  SenderTrust,
+  SenderTrustDecision,
+} from "@psyche/protocol";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useCall, useGatewayQuery } from "../data/hooks.ts";
@@ -21,6 +27,8 @@ export interface MemoryReviewState {
   pending: ReviewItem[];
   recent: ReviewItem[];
   quarantine: QuarantineItem[];
+  senders: SenderTrust[];
+  decideSender: (sender: SenderTrust, decision: SenderTrustDecision) => void;
   counts: { pending: number; autoAccepted: number; quarantined: number };
   loading: boolean;
   error: string | null;
@@ -37,11 +45,13 @@ export function useMemoryReview(): MemoryReviewState {
   const pending = useGatewayQuery("memory.review.list", { state: ["pending"], limit: 200 });
   const recent = useGatewayQuery("memory.review.list", { state: ["auto_accepted"], limit: 100 });
   const held = useGatewayQuery("memory.quarantine.list", { limit: 100 });
+  const senders = useGatewayQuery("memory.senders.list", {});
   const [busy, setBusy] = useState(false);
   const reload = () => {
     pending.reload();
     recent.reload();
     held.reload();
+    senders.reload();
   };
   const write = (work: () => Promise<unknown>) => {
     setBusy(true);
@@ -56,6 +66,9 @@ export function useMemoryReview(): MemoryReviewState {
     pending: pending.data?.items ?? [],
     recent: recent.data?.items ?? [],
     quarantine: held.data?.items ?? [],
+    senders: senders.data?.senders ?? [],
+    decideSender: (sender, decision) =>
+      write(() => call("memory.senders.decide", { entityId: sender.entityId, decision })),
     counts: pending.data?.counts ?? { pending: 0, autoAccepted: 0, quarantined: 0 },
     loading: pending.loading && pending.data === undefined,
     error: pending.error ?? recent.error ?? held.error,

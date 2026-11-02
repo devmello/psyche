@@ -332,6 +332,12 @@ export const memoryExtractedItems = sqliteTable(
   (t) => [primaryKey({ columns: [t.source, t.sourceRef] })],
 );
 
+export const memoryTrustedSenders = sqliteTable("memory_trusted_senders", {
+  entityId: text("entity_id").primaryKey(),
+  state: text("state").notNull(),
+  decidedAt: text("decided_at").notNull(),
+});
+
 export const memoryNeverRules = sqliteTable(
   "memory_never_rules",
   {
@@ -421,6 +427,7 @@ export const s07Schema = {
   graphExclusions,
   memoryClaimSubjects,
   memoryNeverRules,
+  memoryTrustedSenders,
   memoryExtractedItems,
   feedbackEvents,
   lessons,

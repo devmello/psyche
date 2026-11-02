@@ -26,4 +26,5 @@ export * from "./threads.ts";
 export * from "./tools.ts";
 export * from "./usage.ts";
 export * from "./vm.ts";
+export * from "./widgets.ts";
 export * from "./workflows.ts";

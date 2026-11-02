@@ -1,4 +1,5 @@
 import {
+  type ComingUpItem,
   type EverythingExclusion,
   type EverythingRunResult,
   type GraphFact,
@@ -8,6 +9,7 @@ import {
   PsycheError,
   type QuarantineItem,
   type ReviewItem,
+  type SenderTrust,
 } from "@psyche/protocol";
 
 /**
@@ -23,6 +25,11 @@ export interface ReviewWorld {
   exclusions?: EverythingExclusion[];
   /** What "Run now" answers (default: a small successful pass). */
   runResult?: EverythingRunResult;
+  /** Coming up lines, by entity (absent = none). */
+  upcoming?: ComingUpItem[];
+  /** People whose data was forgotten or excluded, for tests. */
+  personLog?: string[];
+  senders?: SenderTrust[];
 }
 
 export function emptyReview(): ReviewWorld {
@@ -105,6 +112,47 @@ export function reviewHandlers(ctx: { world: () => ReviewWorld; now: () => strin
           tokens: 5200,
         }
       );
+    },
+    "memory.senders.list": () => ({ senders: ctx.world().senders ?? [] }),
+    "memory.senders.decide": (p) => {
+      const w = ctx.world();
+      const s = (w.senders ?? []).find((x) => x.entityId === p.entityId);
+      if (s === undefined) throw new PsycheError("not_found", "no such contact");
+      if (p.decision === "trust") s.state = "trusted";
+      else w.senders = (w.senders ?? []).filter((x) => x.entityId !== p.entityId);
+      return { senders: w.senders ?? [] };
+    },
+    "memory.upcoming": (p) => ({
+      items: (ctx.world().upcoming ?? []).filter(
+        (i) => p.entityId === undefined || i.entityId === p.entityId,
+      ),
+    }),
+    "memory.entities.export": (p) => ({
+      filename: `psyche-${p.id}.zip`,
+      mime: "application/zip" as const,
+      data: btoa("zip"),
+      bytes: 3,
+    }),
+    "memory.entities.forgetSaid": (p) => {
+      const removed = { facts: 2, edges: 0, citations: 3, quarantine: 1 };
+      if (p.dryRun !== true) {
+        const w = ctx.world();
+        w.personLog ??= [];
+        w.personLog.push(`said:${p.id}`);
+      }
+      return { removed, dryRun: p.dryRun === true };
+    },
+    "memory.entities.exclude": (p) => {
+      const removed =
+        p.mode === "forget"
+          ? { facts: 2, edges: 0, citations: 3, quarantine: 1 }
+          : { facts: 0, edges: 0, citations: 0, quarantine: 0 };
+      if (p.dryRun !== true) {
+        const w = ctx.world();
+        w.personLog ??= [];
+        w.personLog.push(`${p.mode}:${p.id}`);
+      }
+      return { excluded: 2, removed, dryRun: p.dryRun === true };
     },
     "memory.exclusions.list": () => ({
       entries: ctx.world().exclusions ?? [],
