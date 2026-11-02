@@ -18,6 +18,7 @@ import { links } from "./links.ts";
 import { mailMeetings } from "./mail-meetings.ts";
 import { meetingRecord } from "./meeting-record.ts";
 import { memoryReview } from "./memory-review.ts";
+import { nudges } from "./nudges.ts";
 import { onboarding } from "./onboarding.ts";
 import { overview } from "./overview.ts";
 import { overviewGrowth } from "./overview-growth.ts";
@@ -59,6 +60,7 @@ export const en = {
   ...agentNotes,
   ...audit,
   ...daily,
+  ...nudges,
   ...shell,
   ...settings,
   ...settingsLanguage,

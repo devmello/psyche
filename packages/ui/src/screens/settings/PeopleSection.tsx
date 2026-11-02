@@ -13,6 +13,7 @@ import { useCall, useGatewayQuery } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
 import { formatTime } from "../../lib/format.ts";
+import { RelationshipNudgesSettings, readNudgeSettings } from "../../nudges/NudgeSettings.tsx";
 import { ConnectedEntityCard } from "../../people/ConnectedEntityCard.tsx";
 import { usePersona, useSlots } from "../../slots.tsx";
 import type { ExportFile } from "./DataControlsSection.tsx";
@@ -104,6 +105,8 @@ export interface PeoplePanelProps {
   notice?: { kind: "ok" | "error"; text: string } | null;
   /** Blocklist, delete by source and forget everything (the connected section's). */
   privacy?: ReactNode;
+  /** The "Relationship nudges" group (it brings its own heading). */
+  nudges?: ReactNode;
 }
 
 export function PeoplePanel({
@@ -120,6 +123,7 @@ export function PeoplePanel({
   busy = false,
   notice = null,
   privacy,
+  nudges,
 }: PeoplePanelProps): ReactElement {
   const set = (patch: Partial<GraphSettings>) => onChange({ ...settings, ...patch });
   const sourceStatus = (s: GraphSource) => status?.sources.find((x) => x.source === s);
@@ -321,6 +325,12 @@ export function PeopleSection({ onExportReady }: PeopleSectionProps): ReactEleme
         busy={busy}
         notice={notice ?? (form.writeError ? { kind: "error", text: form.writeError } : null)}
         {...(owner ? { onOpenOwnCard: () => setOwnOpen(true) } : {})}
+        nudges={
+          <RelationshipNudgesSettings
+            {...readNudgeSettings(form.values)}
+            onChange={form.onChange}
+          />
+        }
         privacy={
           <PeoplePrivacy
             status={status.data ?? null}

@@ -2,6 +2,7 @@ import type { MethodResult } from "@psyche/protocol";
 import { type ReactElement, useState } from "react";
 import { useCall, useGatewayQuery } from "../data/hooks.ts";
 import { useOpenLink } from "../links/LinkPrompt.tsx";
+import { PersonNudgeRow } from "../nudges/ConnectedNudges.tsx";
 import { usePersona, useSlots } from "../slots.tsx";
 import { EntityCard, type EntityCardActions } from "./EntityCard.tsx";
 import { ForgetEntityDialog, MergeEntityDialog } from "./EntityDialogs.tsx";
@@ -61,6 +62,9 @@ export function ConnectedEntityCard({
         now={now ?? Date.now()}
         persona={persona.name}
         upcoming={(coming.data?.items ?? []).map((i) => i.text)}
+        {...(isPerson && card.entity
+          ? { keepInTouch: <PersonNudgeRow entityId={id} name={card.entity.name} /> }
+          : {})}
         loading={card.loading}
         loadingDelayMs={150}
         error={card.error}

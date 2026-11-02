@@ -7,6 +7,7 @@ import {
   type MemoryRun,
   type MethodName,
   type MethodParams,
+  type NudgeItem,
   PsycheError,
   type QuarantineItem,
   type ReviewItem,
@@ -33,6 +34,8 @@ export interface ReviewWorld {
   /** People whose data was forgotten or excluded, for tests. */
   personLog?: string[];
   senders?: SenderTrust[];
+  /** Relationship nudges (absent = switched off). */
+  nudges?: { items: NudgeItem[]; muted: string[]; acted?: string[] };
 }
 
 export function emptyReview(): ReviewWorld {
@@ -141,6 +144,35 @@ export function reviewHandlers(ctx: { world: () => ReviewWorld; now: () => strin
             facts,
             reason: null,
           };
+    },
+    "nudges.list": (p) => {
+      const n = ctx.world().nudges;
+      if (n === undefined) return { enabled: false, items: [], muted: false };
+      const muted = new Set(n.muted);
+      return {
+        enabled: true,
+        items: n.items.filter(
+          (i) => !muted.has(i.entityId) && (p.entityId === undefined || i.entityId === p.entityId),
+        ),
+        muted: p.entityId !== undefined && muted.has(p.entityId),
+      };
+    },
+    "nudges.act": (p) => {
+      const n = ctx.world().nudges;
+      const item = n?.items.find((i) => i.id === p.id);
+      if (n === undefined || item === undefined)
+        throw new PsycheError("not_found", "that nudge is gone");
+      n.acted = [...(n.acted ?? []), `${p.id}:${p.action}`];
+      if (p.action === "mute_person") n.muted.push(item.entityId);
+      else n.items = n.items.filter((i) => i.id !== p.id);
+      return { ok: true };
+    },
+    "nudges.mute": (p) => {
+      const n = ctx.world().nudges;
+      if (n === undefined) throw new PsycheError("not_found", "nudges are off");
+      n.muted = n.muted.filter((id) => id !== p.entityId);
+      if (p.muted) n.muted.push(p.entityId);
+      return { ok: true };
     },
     "memory.upcoming": (p) => ({
       items: (ctx.world().upcoming ?? []).filter(
