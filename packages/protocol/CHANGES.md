@@ -804,3 +804,7 @@ Needed by `packages/ui` to render and answer every block type in data model §9.
 ### v1 additive — 2026-11-02 (everything memory, Life answers)
 
 - New method `memory.life.answer` (read) and type `LifeAnswerReason`: a short answer about people from reviewed, non-sensitive facts, each claim cited; `answer` is null with a reason when the model is off, nothing matches or the reply is not grounded. `memory.life.search` also ranks by meaning when semantic search is on (same shape).
+
+### v1 additive — 2026-11-02 (everything memory, EM9b)
+
+- `EverythingRunReason` gains `store_unavailable`: the encrypted memory store is not open yet.

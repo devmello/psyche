@@ -1,4 +1,5 @@
 import { type ReactElement, useState } from "react";
+import { Page, PageHeader, SectionLabel } from "../../components/page.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { useGatewayQuery } from "../../data/index.ts";
 import { t } from "../../i18n/core.ts";
@@ -39,16 +40,8 @@ export function CapabilitiesScreen({
   const ready = CAPABILITIES.filter((c) => isAvailable(c, connected));
   const locked = CAPABILITIES.filter((c) => !isAvailable(c, connected));
   return (
-    <div
-      className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-8"
-      data-testid="capabilities"
-    >
-      <header className="flex flex-col gap-1">
-        <h1 className="font-display text-large-title font-medium text-label-primary">
-          {t("capabilities.title")}
-        </h1>
-        <p className="text-reading text-label-secondary">{t("capabilities.lead")}</p>
-      </header>
+    <Page width="prose">
+      <PageHeader title={t("capabilities.title")} description={t("capabilities.lead")} />
       <Group
         title={t("capabilities.available")}
         items={ready}
@@ -64,7 +57,7 @@ export function CapabilitiesScreen({
           ) : null}
         </Group>
       ) : null}
-    </div>
+    </Page>
   );
 }
 
@@ -87,7 +80,7 @@ function Group({
 }): ReactElement {
   return (
     <section className="flex flex-col gap-3" aria-label={title} data-ready={ready}>
-      <h2 className="text-headline text-label-secondary">{title}</h2>
+      <SectionLabel>{title}</SectionLabel>
       <ul className="grid gap-3 sm:grid-cols-2">
         {items.map((c) => (
           <Card key={c.id} capability={c} ready={ready} {...{ onUsePrompt, onCreateAutomation }} />
@@ -127,7 +120,14 @@ function Card({
           {c.prompts.map((n) => {
             const prompt = tk(`capabilities.${c.id}.prompt${n}`);
             return (
-              <Button key={n} type="button" variant="plain" onClick={() => onUsePrompt(prompt)}>
+              <Button
+                key={n}
+                type="button"
+                size="sm"
+                variant="plain"
+                className="-ms-2.5 h-auto max-w-full whitespace-normal py-1 text-start"
+                onClick={() => onUsePrompt(prompt)}
+              >
                 {t("capabilities.try", { prompt })}
               </Button>
             );

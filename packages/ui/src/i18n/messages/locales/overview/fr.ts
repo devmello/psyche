@@ -22,6 +22,8 @@ export const overview: Partial<Catalogue> = {
   "overview.section.empty": "Rien ici pour l’instant.",
   "overview.loading": "Chargement",
   "overview.error.load": "Chargement impossible",
+  "overview.error.summary": "Impossible de charger le résumé",
+  "overview.error.lessons": "Impossible de charger les leçons",
   "overview.error.section": "Impossible de charger {section}",
   "overview.section.loading": "Chargement de {section}",
   "overview.lastUpdated": "Dernière mise à jour {time}",
@@ -84,6 +86,7 @@ export const overview: Partial<Catalogue> = {
   "overview.now.needsYou":
     "{n, plural, one {# élément a besoin de toi} many {# d’éléments ont besoin de toi} other {# éléments ont besoin de toi}}",
   "overview.now.review": "Examiner",
+  "overview.now.now": "Maintenant",
   "overview.now.running": "En cours",
   "overview.upcoming.today": "Aujourd’hui",
   "overview.upcoming.tomorrow": "Demain",

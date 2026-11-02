@@ -107,9 +107,9 @@ export function BudgetBar({
           // biome-ignore lint/suspicious/noArrayIndexKey: ten fixed segments
           key={i}
           className={cn(
-            "h-1 flex-1 rounded-full",
+            "h-1.5 flex-1 rounded-full",
             i >= filled
-              ? "bg-fill-secondary"
+              ? "bg-fill-primary"
               : tone === "danger"
                 ? "bg-danger"
                 : tone === "warning"

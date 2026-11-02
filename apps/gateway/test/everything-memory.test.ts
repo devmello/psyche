@@ -732,6 +732,27 @@ describe("Life answer handler", () => {
   });
 });
 
+describe("while the encrypted memory store is closed", () => {
+  it("Run now does not run and says why", async () => {
+    const clock = new FakeClock(NOW);
+    const db = openDb(":memory:");
+    const tmp = makeTmpDir();
+    const e = composeEverything({
+      db,
+      clock,
+      graph: new GraphStore({ sqlite: db.sqlite, clock }),
+      home: tmp.dir,
+      provider: new FakeModelProvider({ id: "fake" }),
+      utility: "fake/utility",
+      timeZone: () => "UTC",
+      memoryReady: () => false,
+    });
+    setSetting(db, EVERYTHING_MEMORY_SETTING_KEY, { enabled: true, sources: { mail: true } });
+    expect(await e.runNow()).toMatchObject({ ran: false, reason: "store_unavailable" });
+    tmp.cleanup();
+  });
+});
+
 describe("Run now and the scheduled job", () => {
   const afternoon = async () => ({
     onAc: true,

@@ -236,7 +236,7 @@ describe("error and Retry", () => {
       expect(screen.getAllByTestId("overview-load-failed")).toHaveLength(1);
       if (section) expect(section.contains(alert)).toBe(true);
       expect(gateway).toBeDefined();
-      fireEvent.click(within(alert).getByRole("button", { name: "Retry" }));
+      fireEvent.click(within(alert).getByRole("button", { name: "Try again" }));
       await vi.waitFor(() => expect(screen.queryByTestId("overview-load-failed")).toBeNull(), {
         timeout: 3000,
       });

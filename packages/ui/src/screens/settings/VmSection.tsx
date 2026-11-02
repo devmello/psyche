@@ -200,27 +200,31 @@ export function VmPanel({
             onChange={(enabled) => onChange(K.enabled, enabled)}
           />
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor={`${id}-node`}>{t("settings.key.vm.guestNodeId")}</Label>
-            <NativeSelect
-              id={`${id}-node`}
-              className="max-w-sm"
-              value={vm.guestNodeId ?? ""}
-              disabled={!vm.enabled}
-              onChange={(e) =>
-                onChange(K.guestNodeId, e.target.value === "" ? null : e.target.value)
-              }
-            >
-              <option value="">
-                {guestNodes.length === 0 ? t("settings.vm.noGuest") : t("settings.vm.chooseGuest")}
-              </option>
-              {guestNodes.map((n) => (
-                <option key={n.id} value={n.id}>
-                  {n.status === "online"
-                    ? n.name
-                    : t("settings.vm.guestStatus", { name: n.name, status: n.status })}
+            <div className="flex items-center justify-between gap-3">
+              <Label htmlFor={`${id}-node`}>{t("settings.key.vm.guestNodeId")}</Label>
+              <NativeSelect
+                id={`${id}-node`}
+                className="max-w-xs"
+                value={vm.guestNodeId ?? ""}
+                disabled={!vm.enabled}
+                onChange={(e) =>
+                  onChange(K.guestNodeId, e.target.value === "" ? null : e.target.value)
+                }
+              >
+                <option value="">
+                  {guestNodes.length === 0
+                    ? t("settings.vm.noGuest")
+                    : t("settings.vm.chooseGuest")}
                 </option>
-              ))}
-            </NativeSelect>
+                {guestNodes.map((n) => (
+                  <option key={n.id} value={n.id}>
+                    {n.status === "online"
+                      ? n.name
+                      : t("settings.vm.guestStatus", { name: n.name, status: n.status })}
+                  </option>
+                ))}
+              </NativeSelect>
+            </div>
             <SettingHint settingKey={K.guestNodeId} />
           </div>
           <RadioField<VmWorkspace>

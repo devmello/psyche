@@ -186,75 +186,106 @@ export interface CopyReport {
 
 const quote = (name: string): string => `"${name.replaceAll('"', '""')}"`;
 
+/** A connection rows can be read from or written to (plain `better-sqlite3` or the encrypted one). */
+export interface RowConn {
+  prepare(sql: string): {
+    all(...a: unknown[]): unknown[];
+    get(...a: unknown[]): unknown;
+    run(...a: unknown[]): { changes: number };
+    iterate(...a: unknown[]): IterableIterator<unknown>;
+    raw(on?: boolean): unknown;
+  };
+  exec(sql: string): unknown;
+  pragma(sql: string): unknown;
+  transaction<T>(fn: () => T): () => T;
+}
+
+const columnsOf = (db: RowConn, table: string): string[] =>
+  (db.prepare(`PRAGMA table_info(${quote(table)})`).all() as { name: string }[]).map((c) => c.name);
+
 /**
- * Copies `tables` from the plaintext database at `sourcePath` into `dest` (an open encrypted
- * database): the tables and their indexes and triggers, then the rows, then a row-count check and
- * a foreign-key check. The source is attached read-only and never changed. Tables the source does
- * not have are skipped. FTS5 tables are copied by content, or rebuilt when they index another table.
+ * Streams the rows of `table` from one connection into the same table of another, by the columns
+ * both have. Each side is written only through its own connection: the plain file and the
+ * encrypted one are opened by two different SQLite libraries, which must never share a file
+ * (their locks do not see each other), so nothing is ATTACHed across them.
+ */
+export function streamRows(from: RowConn, to: RowConn, table: string): number {
+  const shared = columnsOf(from, table).filter((c) => columnsOf(to, table).includes(c));
+  if (shared.length === 0) return 0;
+  const list = shared.map(quote).join(", ");
+  const read = from.prepare(`SELECT ${list} FROM ${quote(table)}`);
+  read.raw(true);
+  const write = to.prepare(
+    `INSERT INTO ${quote(table)} (${list}) VALUES (${shared.map(() => "?").join(", ")})`,
+  );
+  let n = 0;
+  for (const row of read.iterate() as IterableIterator<unknown[]>) {
+    write.run(...row);
+    n++;
+  }
+  return n;
+}
+
+const countOf = (db: RowConn, table: string): number =>
+  (db.prepare(`SELECT count(*) AS n FROM ${quote(table)}`).get() as { n: number }).n;
+
+/**
+ * Copies `tables` from the plain database (`source`, its own open connection) into `dest` (an open
+ * encrypted database): the tables and their indexes and triggers, then the rows, then a row-count
+ * check and a foreign-key check. The source is only read. Tables the source does not have are
+ * skipped. FTS5 tables are copied by content, or rebuilt when they index another table.
  */
 export function copyTables(
   dest: EncryptedDb,
-  sourcePath: string,
+  source: RowConn,
   tables: readonly string[],
 ): CopyReport {
+  const master = source
+    .prepare("SELECT type, name, tbl_name, sql FROM sqlite_master WHERE sql IS NOT NULL")
+    .all() as MasterRow[];
+  const wanted = new Set(tables);
+  const isVirtual = (r: MasterRow) => /^CREATE VIRTUAL TABLE/i.test(r.sql ?? "");
+  const virtuals = master.filter((r) => r.type === "table" && isVirtual(r) && wanted.has(r.name));
+  // FTS5 keeps its own shadow tables (`<name>_data`, …); creating the virtual table makes them.
+  const shadow = (r: MasterRow) => virtuals.some((v) => r.name.startsWith(`${v.name}_`));
+  const plain = master.filter(
+    (r) => r.type === "table" && !isVirtual(r) && wanted.has(r.name) && !shadow(r),
+  );
+  const report: CopyReport = { tables: {}, verified: true };
+  const to = dest as unknown as RowConn;
   dest.exec("PRAGMA foreign_keys=OFF");
-  dest.prepare("ATTACH DATABASE ? AS src KEY ''").run(sourcePath);
   try {
-    const master = dest
-      .prepare("SELECT type, name, tbl_name, sql FROM src.sqlite_master WHERE sql IS NOT NULL")
-      .all() as MasterRow[];
-    const wanted = new Set(tables);
-    const isVirtual = (r: MasterRow) => /^CREATE VIRTUAL TABLE/i.test(r.sql ?? "");
-    const virtuals = master.filter((r) => r.type === "table" && isVirtual(r) && wanted.has(r.name));
-    // FTS5 keeps its own shadow tables (`<name>_data`, …); creating the virtual table makes them.
-    const shadow = (r: MasterRow) => virtuals.some((v) => r.name.startsWith(`${v.name}_`));
-    const plain = master.filter(
-      (r) => r.type === "table" && !isVirtual(r) && wanted.has(r.name) && !shadow(r),
-    );
-    const report: CopyReport = { tables: {}, verified: true };
-
-    dest.transaction(() => {
-      for (const t of plain) dest.exec(t.sql as string);
-      for (const v of virtuals) dest.exec(v.sql as string);
-      for (const t of plain) {
-        const n = dest
-          .prepare(`INSERT INTO main.${quote(t.name)} SELECT * FROM src.${quote(t.name)}`)
-          .run().changes;
-        report.tables[t.name] = n;
-      }
-      for (const v of virtuals) {
-        const external = /content\s*=\s*'/i.test(v.sql as string);
-        if (external)
-          dest.exec(`INSERT INTO ${quote(v.name)}(${quote(v.name)}) VALUES ('rebuild')`);
-        else {
-          const n = dest
-            .prepare(`INSERT INTO main.${quote(v.name)} SELECT * FROM src.${quote(v.name)}`)
-            .run().changes;
-          report.tables[v.name] = n;
+    // One read snapshot of the source for the whole copy, so the counts below compare like with like.
+    source.exec("BEGIN");
+    try {
+      dest.transaction(() => {
+        for (const t of plain) dest.exec(t.sql as string);
+        for (const v of virtuals) dest.exec(v.sql as string);
+        for (const t of plain) report.tables[t.name] = streamRows(source, to, t.name);
+        for (const v of virtuals) {
+          if (/content\s*=\s*'/i.test(v.sql as string))
+            dest.exec(`INSERT INTO ${quote(v.name)}(${quote(v.name)}) VALUES ('rebuild')`);
+          else report.tables[v.name] = streamRows(source, to, v.name);
         }
+        // Indexes and triggers last, so the copy does not fire them.
+        for (const r of master) {
+          if ((r.type === "index" || r.type === "trigger") && wanted.has(r.tbl_name))
+            dest.exec(r.sql as string);
+        }
+      })();
+      for (const t of plain) {
+        const a = countOf(to, t.name);
+        const b = countOf(source, t.name);
+        if (a !== b)
+          throw new PsycheError("internal", `copy of ${t.name} is incomplete (${a} of ${b})`);
       }
-      // Indexes and triggers last, so the copy does not fire them.
-      for (const r of master) {
-        if ((r.type === "index" || r.type === "trigger") && wanted.has(r.tbl_name))
-          dest.exec(r.sql as string);
-      }
-    })();
-
-    for (const t of plain) {
-      const a = (
-        dest.prepare(`SELECT count(*) AS n FROM main.${quote(t.name)}`).get() as { n: number }
-      ).n;
-      const b = (
-        dest.prepare(`SELECT count(*) AS n FROM src.${quote(t.name)}`).get() as { n: number }
-      ).n;
-      if (a !== b)
-        throw new PsycheError("internal", `copy of ${t.name} is incomplete (${a} of ${b})`);
+    } finally {
+      source.exec("COMMIT");
     }
     const broken = dest.pragma("foreign_key_check") as unknown[];
     if (broken.length > 0) throw new PsycheError("internal", "the copy broke a foreign key");
     return report;
   } finally {
-    dest.exec("DETACH DATABASE src");
     dest.exec("PRAGMA foreign_keys=ON");
   }
 }

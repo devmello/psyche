@@ -1,5 +1,5 @@
 import type { Widget } from "@psyche/protocol";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import type { MockGateway } from "../src/data/mock-gateway.ts";

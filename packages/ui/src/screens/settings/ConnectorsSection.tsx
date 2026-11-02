@@ -203,7 +203,13 @@ export function ConnectorsPanel({
     setAdding(true);
   };
   const addButton = onConnect ? (
-    <Button type="button" size="sm" onClick={() => startAdding()} disabled={adding}>
+    <Button
+      type="button"
+      size="sm"
+      variant={adding ? "outline" : "default"}
+      onClick={() => startAdding()}
+      disabled={adding}
+    >
       <Plug aria-hidden="true" /> {t("settings.connectors.connect")}
     </Button>
   ) : null;

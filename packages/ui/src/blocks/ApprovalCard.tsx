@@ -5,6 +5,7 @@ import * as m from "motion/react-m";
 import {
   type KeyboardEvent,
   type ReactElement,
+  type ReactNode,
   useEffect,
   useId,
   useMemo,
@@ -289,6 +290,48 @@ function statusText(approval: ApprovalRequest, now: number): string | null {
     default:
       return null;
   }
+}
+
+/**
+ * A height-capped field list. While more rows sit below the fold the bottom edge fades out (the
+ * app's scroll-edge), so a cut line never reads as the end of the list.
+ */
+function CappedDetails({
+  className,
+  label,
+  children,
+}: {
+  className: string;
+  label: string;
+  children: ReactNode;
+}): ReactElement {
+  const ref = useRef<HTMLElement>(null);
+  const [more, setMore] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = (): void => setMore(el.scrollHeight - el.scrollTop - el.clientHeight > 1);
+    measure();
+    el.addEventListener("scroll", measure, { passive: true });
+    const ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
+    ro?.observe(el);
+    return () => {
+      el.removeEventListener("scroll", measure);
+      ro?.disconnect();
+    };
+  }, []);
+  return (
+    <section
+      ref={ref}
+      className={cn("mt-2", className)}
+      style={more ? { maskImage: "linear-gradient(to top, transparent 0, black 24px)" } : undefined}
+      aria-label={label}
+      // biome-ignore lint/a11y/noNoninteractiveTabindex: a capped region must scroll by keyboard
+      tabIndex={0}
+    >
+      {children}
+    </section>
+  );
 }
 
 export function ApprovalCard({
@@ -627,10 +670,9 @@ export function ApprovalCard({
       </h3>
 
       {detailsClassName ? (
-        // biome-ignore lint/a11y/noNoninteractiveTabindex: a capped region must scroll by keyboard
-        <section className={cn("mt-2", detailsClassName)} aria-label={whatLabel} tabIndex={0}>
+        <CappedDetails className={detailsClassName} label={whatLabel}>
           <ApprovalDetails approval={approval} persona={persona} />
-        </section>
+        </CappedDetails>
       ) : (
         <div className="mt-2">
           <ApprovalDetails approval={approval} persona={persona} />

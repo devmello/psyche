@@ -2,6 +2,7 @@ import type { ReactElement } from "react";
 import { useApprovalQueue } from "../agent/ApprovalsPanel.tsx";
 import { NextRow, NowRunRow, Row } from "../agent/MissionControl.tsx";
 import { runTitle } from "../agent/timeline/RunHeader.tsx";
+import { Skeleton } from "../components/ui/skeleton.tsx";
 import { useQuestions, useRunsList, useThreads } from "../data/index.ts";
 import { useStoreState } from "../data/provider.tsx";
 import { t } from "../i18n/core.ts";
@@ -10,14 +11,29 @@ import { useNow } from "../lib/use-now.ts";
 import { usePersona, useSlots } from "../slots.tsx";
 import { OverviewSection } from "./OverviewSection.tsx";
 import { overviewRunHref } from "./recent.ts";
-import { SectionBody, SkeletonRows, useSectionStatus } from "./SectionState.tsx";
+import { SectionBody, useSectionStatus } from "./SectionState.tsx";
 import { useUpcomingEntries } from "./useUpcomingEntries.ts";
 
 /** How many scheduled things "Next up" shows; the Upcoming section has the rest (§5.4). */
 const NEXT_UP = 3;
 
 function Heading({ children }: { children: string }): ReactElement {
-  return <h4 className="px-2 text-caption text-label-secondary">{children}</h4>;
+  return <h4 className="px-2 pb-0.5 text-caption text-label-secondary">{children}</h4>;
+}
+
+/** Two columns of heading and rows, like the loaded body, so nothing moves when data arrives. */
+function NowSkeleton(): ReactElement {
+  return (
+    <div className="grid items-start gap-x-8 gap-y-3 @min-[720px]/overview:grid-cols-2">
+      {[0, 1].map((col) => (
+        <div key={col} className="flex flex-col gap-2">
+          <Skeleton className="h-3 w-16" />
+          <Skeleton className="h-10" />
+          <Skeleton className="h-10" />
+        </div>
+      ))}
+    </div>
+  );
 }
 
 /**
@@ -50,18 +66,14 @@ export function NowSection({ now: fixedNow }: { now?: number }): ReactElement {
 
   return (
     <OverviewSection id="now">
-      <SectionBody
-        id="now"
-        status={status}
-        reserve="min-h-28"
-        skeleton={<SkeletonRows count={2} />}
-      >
+      <SectionBody id="now" status={status} reserve="min-h-28" skeleton={<NowSkeleton />}>
         {/* Two columns on a wide page: now (needs you, running) beside next up. */}
         <div
           className="grid items-start gap-x-8 gap-y-3 @min-[720px]/overview:grid-cols-2"
           data-testid="overview-now-body"
         >
-          <div className="flex min-w-0 flex-col gap-3">
+          <section aria-label={t("overview.now.now")} className="flex min-w-0 flex-col gap-0.5">
+            <Heading>{t("overview.now.now")}</Heading>
             {needs > 0 ? (
               <Row
                 glyph="waiting"
@@ -77,8 +89,7 @@ export function NowSection({ now: fixedNow }: { now?: number }): ReactElement {
               />
             ) : null}
             {running.length > 0 ? (
-              <section aria-label={t("overview.now.running")} className="flex flex-col gap-0.5">
-                <Heading>{t("overview.now.running")}</Heading>
+              <section aria-label={t("overview.now.running")}>
                 <ul className="flex flex-col">
                   {running.map((r) => (
                     <li key={r.id}>
@@ -94,7 +105,7 @@ export function NowSection({ now: fixedNow }: { now?: number }): ReactElement {
               </section>
             ) : null}
             {needs === 0 && running.length === 0 ? (
-              <p className="px-2 text-body text-label-secondary">
+              <p className="px-2 py-1.5 text-body text-label-secondary">
                 {firstNext?.nextRunAt
                   ? t("agent.activity.emptyNext", {
                       name: persona.name,
@@ -104,7 +115,7 @@ export function NowSection({ now: fixedNow }: { now?: number }): ReactElement {
                   : t("agent.activity.empty")}
               </p>
             ) : null}
-          </div>
+          </section>
           {next.length > 0 ? (
             <section aria-label={t("agent.activity.nextUp")} className="flex flex-col gap-0.5">
               <Heading>{t("agent.activity.nextUp")}</Heading>
