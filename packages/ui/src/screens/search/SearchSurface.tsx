@@ -62,6 +62,18 @@ export type SurfaceItem =
   | { kind: "entity"; key: string; entity: EntitySummary }
   | { kind: "fact"; key: string; fact: LifeFactHit };
 
+/** The "answer from your memory" panel: asked on purpose, since it sends facts to a model. */
+export interface LifeAnswerState {
+  phase: "idle" | "loading" | "done" | "error";
+  result?: {
+    answer?: string | null;
+    facts: readonly LifeFactHit[];
+    reason?: "no_model" | "no_facts" | "no_answer" | "ungrounded" | "model_failed" | null;
+  };
+  onAsk: () => void;
+  onOpenSettings?: () => void;
+}
+
 export interface SurfaceGroup {
   id: SearchScope | "actions" | "people" | "projects" | "life";
   label: string;
@@ -207,6 +219,8 @@ export interface SearchSurfaceProps {
   entities?: readonly EntitySummary[];
   /** Cited facts matching the query (`memory.life.search`), after people and projects. */
   lifeFacts?: readonly LifeFactHit[];
+  /** Offers "Answer from memory" for the query (`memory.life.answer`); absent = not offered. */
+  lifeAnswer?: LifeAnswerState;
   onOpenEntity?: (entity: EntitySummary) => void;
   /** The card for the selected person or project in the preview column. */
   renderEntityPreview?: (entity: EntitySummary) => ReactNode;
@@ -236,6 +250,7 @@ export function SearchSurface({
   autoFocus = false,
   entities = [],
   lifeFacts = [],
+  lifeAnswer,
   onOpenEntity,
   renderEntityPreview,
   now = Date.now(),
@@ -390,6 +405,7 @@ export function SearchSurface({
   } else {
     results = (
       <>
+        {lifeAnswer === undefined ? null : <LifeAnswerPanel state={lifeAnswer} />}
         {relaxedNote === null ? null : (
           <p className="px-3 text-callout text-label-secondary" role="status">
             {relaxedNote}
@@ -802,6 +818,70 @@ function SurfaceRow({
   );
 }
 
+const ANSWER_NOTE = {
+  no_model: "screens.search.answer.noModel",
+  no_facts: "screens.search.answer.noFacts",
+  no_answer: "screens.search.answer.noAnswer",
+  ungrounded: "screens.search.answer.noAnswer",
+  model_failed: "screens.search.answer.failed",
+} as const;
+
+function LifeAnswerPanel({ state }: { state: LifeAnswerState }): ReactElement {
+  const r = state.result;
+  return (
+    <section
+      className="mx-3 mb-2 flex flex-col gap-1.5 border-b border-separator pb-2"
+      data-testid="life-answer"
+    >
+      {state.phase === "idle" ? (
+        <Button size="sm" variant="secondary" className="self-start" onClick={state.onAsk}>
+          {t("screens.search.answer.ask")}
+        </Button>
+      ) : null}
+      {state.phase === "loading" ? (
+        <p className="text-callout text-label-secondary" role="status">
+          {t("screens.search.answer.loading")}
+        </p>
+      ) : null}
+      {state.phase === "error" ? (
+        <p className="text-callout text-label-secondary" role="status">
+          {t("screens.search.answer.failed")}
+        </p>
+      ) : null}
+      {state.phase === "done" && r !== undefined ? (
+        r.answer == null ? (
+          <p className="text-callout text-label-secondary" role="status">
+            {t(ANSWER_NOTE[r.reason ?? "no_answer"])}
+            {r.reason === "no_model" && state.onOpenSettings ? (
+              <>
+                {" "}
+                <button type="button" className="underline" onClick={state.onOpenSettings}>
+                  {t("screens.search.answer.settings")}
+                </button>
+              </>
+            ) : null}
+          </p>
+        ) : (
+          <>
+            <p className="text-body text-label-primary" role="status">
+              {r.answer.replace(/\s*\[\d+\]/g, "")}
+            </p>
+            <ul className="flex flex-wrap gap-1.5" aria-label={t("screens.search.answer.from")}>
+              {r.facts.map((f, i) => (
+                <li key={f.factId}>
+                  <Badge variant="outline" data-testid="life-answer-source">
+                    {i + 1} · {f.entity.name}: {t(`people.attr.${f.attribute}`)}
+                  </Badge>
+                </li>
+              ))}
+            </ul>
+          </>
+        )
+      ) : null}
+    </section>
+  );
+}
+
 function SurfacePreview({
   item,
   terms,
@@ -978,7 +1058,30 @@ export function useSearchSurface(initialQuery = "", debounceMs = 200, enabled = 
         enabled && settledParsed.filters.length === 0 && settledParsed.text.trim().length >= 2,
     },
   );
+  const [asked, setAsked] = useState("");
+  const question = settledParsed.text.trim();
+  const answerQuery = useGatewayQuery(
+    "memory.life.answer",
+    { q: question },
+    { enabled: enabled && asked === question && question.length >= 2 },
+  );
+  const canAsk = settledParsed.filters.length === 0 && question.length >= 2;
+  const answer: LifeAnswerState | undefined = canAsk
+    ? {
+        phase:
+          asked !== question
+            ? "idle"
+            : answerQuery.error
+              ? "error"
+              : answerQuery.data
+                ? "done"
+                : "loading",
+        ...(answerQuery.data && asked === question ? { result: answerQuery.data } : {}),
+        onAsk: () => setAsked(question),
+      }
+    : undefined;
   return {
+    answer,
     entities: people.entities,
     life: settledParsed.text.trim().length >= 2 ? (life.data?.facts ?? []) : [],
     query,
