@@ -21,7 +21,7 @@ export const WidgetsMethods = {
     scope: "operator.write",
     sideEffecting: true,
     description:
-      "Pins a widget to the Overview or unpins it (generative-ui-2026 §8, D5). At most 6 pinned widgets across the app; a pinned widget keeps its live bindings and its taint.",
+      "Pins a widget to the Overview or unpins it (generative-ui-2026 §8, D5). At most 6 pinned widgets across the app; a pinned widget keeps its live bindings and its taint. Side-effecting.",
   }),
   "widgets.list": defineMethod({
     params: Type.Object({ pinned: Type.Literal(true) }, { additionalProperties: false }),
@@ -49,7 +49,7 @@ export const WidgetsMethods = {
     scope: "operator.write",
     sideEffecting: true,
     description:
-      "A click on a widget button or form that proposes a tool call (generative-ui-2026 §6.2, D2). The call and its arguments come from the widget's stored spec, never from this request (only the owner's form values do). The Gateway records a visible owner message with a from-widget marker and starts a turn whose first step is that call, through the Permission Broker with the widget's taint as requester taint: never weaker than the model calling the tool. If the policy says ask, the real approval card appears in the dock.",
+      "A click on a widget button or form that proposes a tool call (generative-ui-2026 §6.2, D2). The call and its arguments come from the widget's stored spec, never from this request (only the owner's form values do). The Gateway records a visible owner message with a from-widget marker and starts a turn whose first step is that call, through the Permission Broker with the widget's taint as requester taint: never weaker than the model calling the tool. If the policy says ask, the real approval card appears in the dock. Side-effecting.",
   }),
   "widgets.preview": defineMethod({
     params: Type.Object(
