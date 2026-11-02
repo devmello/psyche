@@ -6164,18 +6164,17 @@ export interface MemoryLessonsListResult {
     nextCursor?: null | string;
 }
 
-export interface MemoryLifeSearchParams {
-    /**
-     * Default 20
-     */
-    limit?: number;
-    q:      string;
+export interface MemoryLifeAnswerParams {
+    q: string;
 }
 
-export interface MemoryLifeSearchResult {
-    entities: EntitySummary[];
-    facts:    LifeFactHit[];
-    intent?:  null | string;
+export interface MemoryLifeAnswerResult {
+    answer?: null | string;
+    /**
+     * The facts the answer cites, in order
+     */
+    facts:   LifeFactHit[];
+    reason?: LifeAnswerReason | null;
 }
 
 export interface LifeFactHit {
@@ -6191,6 +6190,22 @@ export interface LifeFactHit {
      * Untrusted text when it came from someone else
      */
     value: string;
+}
+
+export type LifeAnswerReason = "no_model" | "no_facts" | "no_answer" | "ungrounded" | "model_failed";
+
+export interface MemoryLifeSearchParams {
+    /**
+     * Default 20
+     */
+    limit?: number;
+    q:      string;
+}
+
+export interface MemoryLifeSearchResult {
+    entities: EntitySummary[];
+    facts:    LifeFactHit[];
+    intent?:  null | string;
 }
 
 export interface MemoryLoopUpdatedPayload {

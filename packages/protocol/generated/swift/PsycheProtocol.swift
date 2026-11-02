@@ -630,6 +630,7 @@
 //   let libraryListResult = try? JSONDecoder().decode(LibraryListResult.self, from: jsonData)
 //   let libraryUploadParams = try? JSONDecoder().decode(LibraryUploadParams.self, from: jsonData)
 //   let libraryUploadResult = try? JSONDecoder().decode(LibraryUploadResult.self, from: jsonData)
+//   let lifeAnswerReason = try? JSONDecoder().decode(LifeAnswerReason.self, from: jsonData)
 //   let lifeFactHit = try? JSONDecoder().decode(LifeFactHit.self, from: jsonData)
 //   let linkPaymentMethod = try? JSONDecoder().decode(LinkPaymentMethod.self, from: jsonData)
 //   let logLevel = try? JSONDecoder().decode(LogLevel.self, from: jsonData)
@@ -771,6 +772,8 @@
 //   let memoryLessonsGetResult = try? JSONDecoder().decode(MemoryLessonsGetResult.self, from: jsonData)
 //   let memoryLessonsListParams = try? JSONDecoder().decode(MemoryLessonsListParams.self, from: jsonData)
 //   let memoryLessonsListResult = try? JSONDecoder().decode(MemoryLessonsListResult.self, from: jsonData)
+//   let memoryLifeAnswerParams = try? JSONDecoder().decode(MemoryLifeAnswerParams.self, from: jsonData)
+//   let memoryLifeAnswerResult = try? JSONDecoder().decode(MemoryLifeAnswerResult.self, from: jsonData)
 //   let memoryLifeSearchParams = try? JSONDecoder().decode(MemoryLifeSearchParams.self, from: jsonData)
 //   let memoryLifeSearchResult = try? JSONDecoder().decode(MemoryLifeSearchResult.self, from: jsonData)
 //   let memoryLoopUpdatedPayload = try? JSONDecoder().decode(MemoryLoopUpdatedPayload.self, from: jsonData)
@@ -18719,39 +18722,36 @@ public struct MemoryLessonsListResult: Codable, Sendable {
     }
 }
 
-// MARK: - MemoryLifeSearchParams
-public struct MemoryLifeSearchParams: Codable, Sendable {
-    /// Default 20
-    public let limit: Int?
+// MARK: - MemoryLifeAnswerParams
+public struct MemoryLifeAnswerParams: Codable, Sendable {
     public let q: String
 
     public enum CodingKeys: String, CodingKey {
-        case limit = "limit"
         case q = "q"
     }
 
-    public init(limit: Int?, q: String) {
-        self.limit = limit
+    public init(q: String) {
         self.q = q
     }
 }
 
-// MARK: - MemoryLifeSearchResult
-public struct MemoryLifeSearchResult: Codable, Sendable {
-    public let entities: [EntitySummary]
+// MARK: - MemoryLifeAnswerResult
+public struct MemoryLifeAnswerResult: Codable, Sendable {
+    public let answer: String?
+    /// The facts the answer cites, in order
     public let facts: [LifeFactHit]
-    public let intent: String?
+    public let reason: LifeAnswerReason?
 
     public enum CodingKeys: String, CodingKey {
-        case entities = "entities"
+        case answer = "answer"
         case facts = "facts"
-        case intent = "intent"
+        case reason = "reason"
     }
 
-    public init(entities: [EntitySummary], facts: [LifeFactHit], intent: String?) {
-        self.entities = entities
+    public init(answer: String?, facts: [LifeFactHit], reason: LifeAnswerReason?) {
+        self.answer = answer
         self.facts = facts
-        self.intent = intent
+        self.reason = reason
     }
 }
 
@@ -18790,6 +18790,50 @@ public struct LifeFactHit: Codable, Sendable {
         self.review = review
         self.source = source
         self.value = value
+    }
+}
+
+public enum LifeAnswerReason: String, Codable, Sendable {
+    case modelFailed = "model_failed"
+    case noAnswer = "no_answer"
+    case noFacts = "no_facts"
+    case noModel = "no_model"
+    case ungrounded = "ungrounded"
+}
+
+// MARK: - MemoryLifeSearchParams
+public struct MemoryLifeSearchParams: Codable, Sendable {
+    /// Default 20
+    public let limit: Int?
+    public let q: String
+
+    public enum CodingKeys: String, CodingKey {
+        case limit = "limit"
+        case q = "q"
+    }
+
+    public init(limit: Int?, q: String) {
+        self.limit = limit
+        self.q = q
+    }
+}
+
+// MARK: - MemoryLifeSearchResult
+public struct MemoryLifeSearchResult: Codable, Sendable {
+    public let entities: [EntitySummary]
+    public let facts: [LifeFactHit]
+    public let intent: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case entities = "entities"
+        case facts = "facts"
+        case intent = "intent"
+    }
+
+    public init(entities: [EntitySummary], facts: [LifeFactHit], intent: String?) {
+        self.entities = entities
+        self.facts = facts
+        self.intent = intent
     }
 }
 

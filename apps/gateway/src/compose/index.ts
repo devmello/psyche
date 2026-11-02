@@ -137,6 +137,7 @@ import { insightsHandlers } from "./insights.ts";
 import { libraryHandlers } from "./library.ts";
 import type { ComposedMcp } from "./mcp.ts";
 import {
+  asMemoryEmbedder,
   createMemoryRecall,
   defaultLocalLoader,
   type LocalEmbedderLoader,
@@ -836,6 +837,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     utility: utility ?? modelRef,
     timeZone: () => timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
     card: async (path) => (await memory.readFile(path))?.content,
+    embedder: () => {
+      const e = searchRef?.embedder();
+      return e === undefined ? undefined : asMemoryEmbedder(e);
+    },
     announce: (card) => void proactive.feed.postNotice({ ...card, reason: "memory learned" }),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
