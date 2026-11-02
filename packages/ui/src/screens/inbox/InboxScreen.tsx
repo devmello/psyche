@@ -13,9 +13,11 @@ import {
 } from "lucide-react";
 import { type ReactElement, type ReactNode, useEffect, useId, useState } from "react";
 import { toast } from "sonner";
-import { EmptyState, ErrorState, LoadingCards, useDelayedFlag } from "../../components/page.tsx";
+import { DelayedSkeletons } from "../../components/DelayedSkeleton.tsx";
+import { EmptyState, ErrorState, useDelayedFlag } from "../../components/page.tsx";
 import { StatusGlyph, type StatusKind } from "../../components/status.tsx";
 import { Button } from "../../components/ui/button.tsx";
+import { Skeleton } from "../../components/ui/skeleton.tsx";
 import { useApproval, useCall, useNotifications, useTask } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
@@ -252,6 +254,36 @@ function ApprovalControls({
   );
 }
 
+/** The loading shape: a section heading over a raised card of rows, twice, like the loaded list. */
+function InboxSkeleton({ label }: { label: string }): ReactElement {
+  return (
+    <DelayedSkeletons label={label} className="flex flex-col gap-5">
+      {[3, 2].map((rows, g) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: static placeholders never reorder
+        <div key={g} className="flex flex-col gap-2">
+          <Skeleton className="mx-1 h-4 w-20" />
+          <div className="flex flex-col rounded-lg bg-surface-raised shadow-elevation-1">
+            {Array.from({ length: rows }, (_, i) => (
+              <div
+                // biome-ignore lint/suspicious/noArrayIndexKey: static placeholders never reorder
+                key={i}
+                className="flex items-center gap-3 px-3 py-3"
+              >
+                <Skeleton className="size-5 shrink-0 rounded-full" />
+                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                  <Skeleton className="h-3.5 w-2/5" />
+                  <Skeleton className="h-3 w-3/5" />
+                </div>
+                <Skeleton className="h-7 w-16 shrink-0" />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </DelayedSkeletons>
+  );
+}
+
 /** One inbox row: kind icon and label, title, body, countdown and inline actions (§3.20). */
 export function InboxRow({
   notification: n,
@@ -480,7 +512,7 @@ export function InboxView({
   let body: ReactElement;
   if (loading) {
     body = showSkeleton ? (
-      <LoadingCards label={t("screens.inbox.loading")} count={4} lines={1} layout="rows" />
+      <InboxSkeleton label={t("screens.inbox.loading")} />
     ) : (
       <div aria-busy="true" className="min-h-24" />
     );

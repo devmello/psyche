@@ -7,8 +7,6 @@ import {
   EmptyState,
   ErrorState,
   LoadingCards,
-  Page,
-  PageHeader,
   SectionLabel,
   useDelayedFlag,
 } from "../../components/page.tsx";
@@ -18,6 +16,7 @@ import { useCall, useGatewayQuery } from "../../data/index.ts";
 import { t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
 import { useNow } from "../../lib/use-now.ts";
+import { ScreenColumn, ScreenToolbar, ToolbarLabel } from "../feed/ScreenToolbar.tsx";
 import { itemName } from "./format.ts";
 import { RunHistory } from "./RunHistory.tsx";
 import { ScheduledRow, type ScheduledRowProps } from "./ScheduledRow.tsx";
@@ -85,87 +84,94 @@ export function ScheduledView({
     </section>
   );
   return (
-    <Page width="prose">
-      <PageHeader
+    <>
+      <ScreenToolbar
         title={t("scheduled.title")}
-        description={t("scheduled.description")}
         meta={t("scheduled.timezone", { zone: timezone })}
         actions={
-          <Button type="button" onClick={() => onNewAutomation()}>
+          <Button
+            type="button"
+            size="sm"
+            title={t("scheduled.new")}
+            onClick={() => onNewAutomation()}
+          >
             <Plus aria-hidden="true" />
-            {t("scheduled.new")}
+            <ToolbarLabel>{t("scheduled.new")}</ToolbarLabel>
           </Button>
         }
       />
-      {runsPanel !== undefined ? (
-        <Tabs value={tab} onValueChange={(v) => setTab(v as "schedule" | "runs")}>
-          <TabsList>
-            <TabsTrigger value="schedule">{t("scheduled.tab.schedule")}</TabsTrigger>
-            <TabsTrigger value="runs">{t("scheduled.tab.runs")}</TabsTrigger>
-          </TabsList>
-        </Tabs>
-      ) : null}
-      {tab === "runs" && runsPanel !== undefined ? (
-        runsPanel
-      ) : error && items.length === 0 ? (
-        <ErrorState
-          what={t("scheduled.loadFailed")}
-          reason={error}
-          {...(onRetry ? { retry: { onClick: onRetry } } : {})}
-        />
-      ) : loading && items.length === 0 ? (
-        showSkeleton ? (
-          <LoadingCards label={t("scheduled.loading")} count={3} lines={3} />
-        ) : null
-      ) : (
-        <>
-          {section(
-            "scheduled-owner",
-            `${t("scheduled.group.owner")}${owner.length > 0 ? ` (${owner.length})` : ""}`,
-            null,
-            owner.length === 0 ? (
-              <>
-                <EmptyState
-                  icon={CalendarClock}
-                  className="pt-6 pb-2"
-                  action={{ label: t("scheduled.new"), onClick: () => onNewAutomation() }}
-                >
-                  {t("scheduled.empty.title")}
-                  <span className="mt-2 block text-callout">{t("scheduled.empty.hint")}</span>
-                </EmptyState>
-                <ul aria-label={t("scheduled.empty.hint")} className="flex flex-col items-center">
-                  {EXAMPLES.map((id) => (
-                    <li key={id}>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        aria-label={t("scheduled.empty.example.aria", { text: t(id) })}
-                        onClick={() => onNewAutomation(t(id))}
-                      >
-                        {t(id)}
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            ) : (
-              <ul className="flex flex-col gap-3">{owner.map(row)}</ul>
-            ),
-          )}
-          {section(
-            "scheduled-routines",
-            `${t("scheduled.group.routine")}${routines.length > 0 ? ` (${routines.length})` : ""}`,
-            t("scheduled.group.routine.hint"),
-            routines.length === 0 ? (
-              <p className="text-callout text-label-secondary">{t("scheduled.routines.empty")}</p>
-            ) : (
-              <ul className="flex flex-col gap-3">{routines.map(row)}</ul>
-            ),
-          )}
-        </>
-      )}
-    </Page>
+      <ScreenColumn width="wide" className="gap-6">
+        <p className="text-body text-label-secondary">{t("scheduled.description")}</p>
+        {runsPanel !== undefined ? (
+          <Tabs value={tab} onValueChange={(v) => setTab(v as "schedule" | "runs")}>
+            <TabsList>
+              <TabsTrigger value="schedule">{t("scheduled.tab.schedule")}</TabsTrigger>
+              <TabsTrigger value="runs">{t("scheduled.tab.runs")}</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        ) : null}
+        {tab === "runs" && runsPanel !== undefined ? (
+          runsPanel
+        ) : error && items.length === 0 ? (
+          <ErrorState
+            what={t("scheduled.loadFailed")}
+            reason={error}
+            {...(onRetry ? { retry: { onClick: onRetry } } : {})}
+          />
+        ) : loading && items.length === 0 ? (
+          showSkeleton ? (
+            <LoadingCards label={t("scheduled.loading")} count={3} lines={3} />
+          ) : null
+        ) : (
+          <>
+            {section(
+              "scheduled-owner",
+              `${t("scheduled.group.owner")}${owner.length > 0 ? ` (${owner.length})` : ""}`,
+              null,
+              owner.length === 0 ? (
+                <>
+                  <EmptyState icon={CalendarClock} className="pt-6 pb-2">
+                    {t("scheduled.empty.title")}
+                    <span className="mt-2 block text-callout">{t("scheduled.empty.hint")}</span>
+                  </EmptyState>
+                  <ul
+                    aria-label={t("scheduled.empty.hint")}
+                    className="flex flex-wrap justify-center gap-2 px-6"
+                  >
+                    {EXAMPLES.map((id) => (
+                      <li key={id}>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-auto min-h-7 whitespace-normal py-1 text-start font-normal text-label-secondary"
+                          aria-label={t("scheduled.empty.example.aria", { text: t(id) })}
+                          onClick={() => onNewAutomation(t(id))}
+                        >
+                          {t(id)}
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              ) : (
+                <ul className="flex flex-col gap-3">{owner.map(row)}</ul>
+              ),
+            )}
+            {section(
+              "scheduled-routines",
+              `${t("scheduled.group.routine")}${routines.length > 0 ? ` (${routines.length})` : ""}`,
+              t("scheduled.group.routine.hint"),
+              routines.length === 0 ? (
+                <p className="text-callout text-label-secondary">{t("scheduled.routines.empty")}</p>
+              ) : (
+                <ul className="flex flex-col gap-3">{routines.map(row)}</ul>
+              ),
+            )}
+          </>
+        )}
+      </ScreenColumn>
+    </>
   );
 }
 

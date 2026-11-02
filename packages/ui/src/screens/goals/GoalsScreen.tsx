@@ -2,9 +2,11 @@ import type { Goal } from "@psyche/protocol";
 import { CircleCheck, Goal as GoalIcon, Lightbulb, Plus } from "lucide-react";
 import { type ReactElement, type ReactNode, useId, useState } from "react";
 import { toast } from "sonner";
-import { EmptyState, ErrorState, LoadingCards, useDelayedFlag } from "../../components/page.tsx";
+import { DelayedSkeletons } from "../../components/DelayedSkeleton.tsx";
+import { EmptyState, ErrorState, useDelayedFlag } from "../../components/page.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { Progress } from "../../components/ui/progress.tsx";
+import { Skeleton } from "../../components/ui/skeleton.tsx";
 import { useGoals } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
@@ -197,7 +199,24 @@ export function GoalsView({
   let list: ReactElement;
   if (loading) {
     list = showSkeleton ? (
-      <LoadingCards label={t("screens.goals.loadingList")} count={4} lines={2} layout="rows" />
+      <DelayedSkeletons label={t("screens.goals.loadingList")} className="flex flex-col gap-4">
+        {[3, 2].map((rows, g) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: static placeholders never reorder
+          <div key={g} className="flex flex-col gap-1">
+            <Skeleton className="mx-2.5 mb-1 h-3 w-16" />
+            {Array.from({ length: rows }, (_, i) => (
+              <div
+                // biome-ignore lint/suspicious/noArrayIndexKey: static placeholders never reorder
+                key={i}
+                className="flex min-h-11 flex-col justify-center gap-1.5 px-2.5 py-1.5"
+              >
+                <Skeleton className="h-3.5 w-1/2" />
+                <Skeleton className="h-3 w-2/3" />
+              </div>
+            ))}
+          </div>
+        ))}
+      </DelayedSkeletons>
     ) : (
       <div aria-busy="true" className="min-h-24" />
     );

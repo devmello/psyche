@@ -32,7 +32,8 @@ import {
 } from "react";
 import { toast } from "sonner";
 import { requestChatFocus } from "../../chat/focus-request.ts";
-import { EmptyState, ErrorState, LoadingCards, useDelayedFlag } from "../../components/page.tsx";
+import { DelayedSkeletons } from "../../components/DelayedSkeleton.tsx";
+import { EmptyState, ErrorState, useDelayedFlag } from "../../components/page.tsx";
 import { Badge } from "../../components/ui/badge.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import {
@@ -43,6 +44,7 @@ import {
 } from "../../components/ui/dropdown-menu.tsx";
 import { NativeSelect } from "../../components/ui/native-select.tsx";
 import { Popover, PopoverContent, PopoverTrigger } from "../../components/ui/popover.tsx";
+import { Skeleton } from "../../components/ui/skeleton.tsx";
 import { Tabs, TabsList, TabsTrigger } from "../../components/ui/tabs.tsx";
 import { ToggleGroup, ToggleGroupItem } from "../../components/ui/toggle-group.tsx";
 import { useCall, useLibrary, useTasks } from "../../data/hooks.ts";
@@ -482,7 +484,7 @@ export function LibraryItemView({
         </td>
         <td className="px-2">
           <span className="flex items-center gap-1">
-            {taskButton}
+            {taskButton ?? <span className="size-5 shrink-0" aria-hidden="true" />}
             {item.tags.length > 0 ? (
               <span className="truncate text-callout text-label-tertiary">
                 {item.tags.map((tag) => (
@@ -565,12 +567,31 @@ export function LibraryView({
   let body: ReactElement;
   if (loading) {
     body = showSkeleton ? (
-      <LoadingCards
+      <DelayedSkeletons
         label={t("screens.library.loading")}
-        count={6}
-        lines={2}
-        layout={layout === "grid" ? "grid" : "rows"}
-      />
+        className={
+          layout === "grid"
+            ? "grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-x-4 gap-y-6"
+            : "flex flex-col"
+        }
+      >
+        {Array.from({ length: 5 }, (_, i) =>
+          layout === "grid" ? (
+            // biome-ignore lint/suspicious/noArrayIndexKey: static placeholders never reorder
+            <div key={i} className="flex flex-col items-center gap-1.5">
+              <Skeleton className="aspect-[4/5] w-full max-w-36 rounded-sm" />
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-3 w-16" />
+            </div>
+          ) : (
+            // biome-ignore lint/suspicious/noArrayIndexKey: static placeholders never reorder
+            <div key={i} className="flex h-8 items-center gap-2 px-2">
+              <Skeleton className="size-4 shrink-0" />
+              <Skeleton className="h-3.5 w-1/3" />
+            </div>
+          ),
+        )}
+      </DelayedSkeletons>
     ) : (
       <div aria-busy="true" className="min-h-24" />
     );
