@@ -222,12 +222,26 @@ export const SearchSemanticStatus = Type.Object(
 );
 export type SearchSemanticStatus = Static<typeof SearchSemanticStatus>;
 
+/** Whether the index file is encrypted at rest (docs/design/search-roadmap-2026.md §12). */
+export const SearchIndexEncryption = Type.Object(
+  {
+    state: StringEnum(["off", "on", "unavailable"], {
+      description:
+        "on: the index file is encrypted; off: it is not and the switch is off; unavailable: the switch is on but the key cannot be used here",
+    }),
+    reason: Type.Optional(Type.String({ description: "Why it is unavailable" })),
+  },
+  { $id: "SearchIndexEncryption" },
+);
+export type SearchIndexEncryption = Static<typeof SearchIndexEncryption>;
+
 /** What `search.status` returns and `search.status.updated` carries. */
 export const SearchIndexStatus = Type.Object(
   {
     docs: Type.Integer({ minimum: 0, description: "Documents in the index" }),
     backfill: SearchBackfillStatus,
     semantic: Type.Optional(SearchSemanticStatus),
+    encryption: Type.Optional(SearchIndexEncryption),
   },
   { $id: "SearchIndexStatus" },
 );
