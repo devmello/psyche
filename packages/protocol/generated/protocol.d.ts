@@ -9977,6 +9977,7 @@ export interface ThreadsListResult {
 
 export interface ThreadListEntry {
     activity:     ThreadActivity;
+    automation?:  ThreadAutomation;
     lastMessage?: ThreadPreview;
     thread:       Thread;
 }
@@ -9985,6 +9986,20 @@ export interface ThreadActivity {
     awaitingApproval: number;
     awaitingInput:    number;
     running:          number;
+}
+
+export interface ThreadAutomation {
+    automationId: string;
+    lastRun?:     LastRun;
+    runCount:     number;
+}
+
+export interface LastRun {
+    endedAt:   null | string;
+    id:        string;
+    startedAt: string;
+    status:    AutomationRunStatus;
+    summary:   null | string;
 }
 
 export interface ThreadPreview {

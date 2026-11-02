@@ -84,6 +84,7 @@ import {
   createDbSessionResolver,
   createDeliverer,
   createTaskLauncher,
+  groupAutomationRunThreads,
   type RunLauncher,
   SqliteScheduler,
 } from "@psyche/scheduler";
@@ -527,6 +528,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   });
   // The old "Files on this Mac" connector is File access now: move its folder into the grants.
   migrateFilesConnector(db, config.home);
+  // One chat per automation: runs that each opened a chat of their own are filed under it.
+  groupAutomationRunThreads(db);
   const storedPolicy = validPolicy(getSetting(db, "permissions.policy")?.value, gwOptions.logger);
   const tokens = new ApprovalTokens();
   const relays: ApprovalRelay[] = [];
