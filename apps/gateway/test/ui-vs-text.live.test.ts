@@ -8,7 +8,7 @@
  *
  *   PSYCHE_LIVE_TESTS=1 pnpm --filter @psyche/gateway exec vitest run test/ui-vs-text.live.test.ts --maxWorkers=1
  *
- * Spends about 11 short calls. It reports the pass rate; it only fails on the hard rule (a widget
+ * Spends about 13 short calls per sample (`PSYCHE_UI_EVAL_SAMPLES=3` for a steadier rate). It reports the pass rate; it only fails on the hard rule (a widget
  * must never be drawn for the approval request).
  */
 import { readFileSync } from "node:fs";
@@ -21,6 +21,8 @@ import type { WidgetStore } from "../src/widgets/store.ts";
 import { widgetTools } from "../src/widgets/tools.ts";
 
 const LIVE = process.env.PSYCHE_LIVE_TESTS === "1";
+/** Replies are sampled (the model takes no temperature), so a few samples per case steady the rate. */
+const SAMPLES = Number(process.env.PSYCHE_UI_EVAL_SAMPLES ?? "1");
 
 interface UiCase {
   prompt: string;
@@ -46,7 +48,7 @@ const { cases } = JSON.parse(
 ) as { cases: UiCase[] };
 
 describe.skipIf(!LIVE)("render_ui guidance, live", () => {
-  it("picks UI, text or update_ui as the case set expects", { timeout: 5 * 60_000 }, async () => {
+  it("picks UI, text or update_ui as the case set expects", { timeout: 15 * 60_000 }, async () => {
     const live = createLiveHaikuProvider();
     const tools = widgetTools({} as WidgetStore).map((t) => t.spec);
     const rows: {
@@ -57,7 +59,7 @@ describe.skipIf(!LIVE)("render_ui guidance, live", () => {
       calls: string[];
       reply?: string;
     }[] = [];
-    for (const c of cases) {
+    for (const c of cases.flatMap((x) => Array.from({ length: SAMPLES }, () => x))) {
       const calls: string[] = [];
       let text = "";
       const messages: ModelMessage[] = [
@@ -76,7 +78,7 @@ describe.skipIf(!LIVE)("render_ui guidance, live", () => {
           maxOutputTokens: 1500,
         }) as AsyncIterable<ModelEvent>) {
           if (e.type === "tool_call") requested.push({ id: e.id, name: e.name, input: e.input });
-          if (e.type === "text_delta" && step === 0) text += e.text;
+          if (e.type === "text_delta") text += e.text;
         }
         for (const r of requested) calls.push(r.name);
         if (requested.length === 0 || requested.some((r) => r.name !== "list_ui")) break;
@@ -114,14 +116,14 @@ describe.skipIf(!LIVE)("render_ui guidance, live", () => {
         got,
         ok: got === c.expect,
         calls,
-        ...(got === "text" ? { reply: text.slice(0, 160) } : {}),
+        ...(text.trim() === "" ? {} : { reply: text.trim().slice(0, 160) }),
       });
     }
     const passed = rows.filter((r) => r.ok).length;
     process.stdout.write(
       `${JSON.stringify({ passed, total: rows.length, usage: live.usage, rows }, null, 1)}\n`,
     );
-    const approval = rows.find((r) => /approves sending/i.test(r.prompt));
-    expect(approval?.got).not.toBe("ui");
+    for (const r of rows.filter((x) => /approves sending/i.test(x.prompt)))
+      expect(r.got).not.toBe("ui");
   });
 });

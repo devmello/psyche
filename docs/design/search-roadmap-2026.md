@@ -364,3 +364,20 @@ R@10 by class (the §9 gate is "no class drops more than 0.02"):
 **Rerank passes the gate.** No class drops, multihop rises by 0.100 (the offline word-coverage stand-in had dropped it by 0.033; that only showed the plumbing, not what a model does), and every ranking metric improves: MRR 0.590 → 0.783, nDCG@10 0.524 → 0.676, R@1 0.225 → 0.348, hit@10 0.800 → 0.853, cite ok 0.640 → 0.800. R@20 is unchanged by construction (it reorders the top 20). 137 calls, about 178k input and 29k output tokens (about $0.32, about 1.3k input tokens a call); 14 of the 137 replies were empty or unusable and kept the original order. This is the numbers for the R12 decision only; the toggle stays off until the owner approves the cloud cost and the privacy rule of §5.4.
 
 **The live query model fails the gate** (list −0.054, paraphrase −0.033, person −0.033; overall R@10 0.607 → 0.588, 0.589 on a second run) and, unlike the oracle upper bound, it is not an improvement. It was called 53 times (about 17k input, 7k output tokens) and it lost four questions that the rules alone found (q045, q109, q120, q126) and gained one (q113). The cause, checked by reading the plans for four of them, is over-filtering, not bad dates: it adds a `people` filter for a name that is the subject of the item ("Did **Sam** settle up…", "**Daniel** approved my time off…") although the prompt says to do so only when the item is *from* them; and it turns the word "chats" into `sources: [imessage]` and "documents" into `sources: [files]`, which drops the Psyche chats and Library documents that are also gold. Fix before R13 ships, in `QUERY_MODEL_PROMPT` (people only after "from/by/sent by"; sources only for the words mail, message, note, event, reminder, file as a *source name*, never "chat" or "document"), then re-measure with this harness. Until then the model path should not be turned on by default.
+
+### Query model fixed: gate passes, no measurable gain yet (2026-11-02)
+
+Two changes in `packages/search/src/understand-model.ts`, both aimed at the over-filtering found above:
+
+- **Prompt.** "A wrong filter hides the answer; no filter is safe." A person only when the question says the item is *from* or sent *by* them (a name that is only the topic, as in "did Sam pay me back", is not a filter). A source only when the question names the kind of item (mail/email, text/iMessage, note, calendar/event, reminder, file/folder/PDF); "chat", "document", "thread", "message", "trip" and "meeting" name no source.
+- **Guard (`guardPlan`).** The prompt is advice; the guard is the rule. After parsing, a person is kept only if the question has "from/by/sent by NAME", "NAME sent/wrote/emailed/texted/messaged" or "what NAME said/wrote", and a source only if the question contains one of its cue words. Dates and terms are kept. If nothing is left to filter by, the rules stand (the existing fallback).
+
+Live Haiku 5.5, full coverage, same harness (`--live --mode model`; 53 calls, about 31k input and 6k output tokens):
+
+| Mode | R@1 | R@5 | R@10 | R@20 | hit@10 | MRR | nDCG@10 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| prod (baseline) | 0.225 | 0.502 | 0.607 | 0.694 | 0.800 | 0.590 | 0.524 |
+| model, before the fix | 0.222 | 0.505 | 0.588 | 0.672 | 0.787 | 0.594 | 0.519 |
+| model, after the fix | 0.227 | 0.506 | 0.608 | 0.695 | 0.800 | 0.595 | 0.527 |
+
+R@10 by class against the baseline: every class is equal except **list +0.012**; none drops. **The gate passes.** The model path now does what it cannot get wrong: it never loses a result the rules found. It also does not gain on this set (temporal stays 0.585): the rules already settle the dates here, and the questions the model was unsure about mostly carry no filter worth adding. Defaults are unchanged (the model path is only reached when a model is configured and the rules are unsure); turning it on is still the owner's call, and the case for it is cost and latency against a gain of about zero on this set. Unit tests: `test/understand-model.test.ts` (the guard keeps a person and a source only when the question asks for them).

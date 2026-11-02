@@ -276,3 +276,21 @@ Each phase is one PR unless noted. P1–P3 give a useful read-only feature; late
 | Track the progress of the migration while it runs | ui | `list_ui`, then text | looked for an existing widget, found none, did not draw one |
 
 Reading: the guidance does its main job (text for explanations, opinions, drafts and actions it cannot do; no fake approval), but three of the four UI misses are a limit of the case set rather than of the guidance: a bare prompt gives the model no data and no tools, so a clarifying text reply is the better answer. The migration case is a real, small miss: with nothing to track yet the model should have drawn the progress widget. Follow-ups, not done here (the case set was not edited to fit the result): put the data in the prompts ("Compare these laptops: …", a table of spend), give the harness fake mail/task tools, and add a line to `UI_GUIDANCE` that a request to *track* something starts with `render_ui` when no widget exists.
+
+### UI-vs-text eval: data inline, guidance fixed (2026-11-02)
+
+Two changes after the first live run (above):
+
+1. **The UI cases carry their data.** The inbox, laptop and spend prompts now include the six emails, five laptops and six spend lines, so a text reply to them is no longer the better answer. The migration prompt stays bare on purpose: it is the real miss.
+2. **The real miss, fixed.** With no widget in the chat, the model called `list_ui`, got an empty list and asked "which migration?" (0 of 3). `UI_GUIDANCE`, the `render_ui` description and the `list_ui` description now say that when no widget exists the request is answered by drawing one: to track or show progress of something (migration, build, job), draw a progress or checklist widget at once from what is known (steps as todo, or indeterminate) and keep it current, and an empty `list_ui` means "nothing to patch", not "nothing to do". The guidance cap in `context.test.ts` moves from 620 to 740 characters (the text is 705).
+
+The live test now takes `PSYCHE_UI_EVAL_SAMPLES` (replies are sampled; Haiku 5.5 takes no temperature). Three samples per case, 11 cases:
+
+| Run | Pass | Text cases | Approval case | Migration |
+| --- | --- | --- | --- | --- |
+| first run, bare prompts (1 sample) | 7 / 11 | 6 / 6 | refused | 0 / 1 |
+| data inline, old guidance | 28 / 33 (85%) | 15 / 15 | 2 / 3 text, 1 was a `list_ui` lookup | 0 / 3 |
+| data inline, fix, first wording | 31 / 33 (94%) | 15 / 15 | 2 / 3 text, 1 was a `list_ui` lookup | 3 / 3 |
+| data inline, fix, final wording | **33 / 33 (100%)** | 15 / 15 | 3 / 3 text | 3 / 3 |
+
+In no run of any wording did the approval prompt produce a `render_ui` call. One sample of the "update the progress widget" case drew a new widget instead of looking one up (the first fix wording), which is the guidance working as written when a chat has no widget. About 137k input and 14k output tokens per three-sample run. With 3 samples a case the rate carries a few points of noise; the claim is "no regression, the miss is gone", not 100%.
