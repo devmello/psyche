@@ -9,6 +9,7 @@ import {
   type PolicyContext,
   refuseFolder,
   resolveFolderPick,
+  resolveRequestedFolder,
 } from "../src/index.ts";
 import { call, DEVICE, makeBroker, path } from "./helpers.ts";
 
@@ -142,6 +143,52 @@ const answer = (
 const read = (p: string, c: PolicyContext) =>
   h0.broker.decide(call("read_file", "read", path(p)), c);
 let h0: ReturnType<typeof harness>;
+
+describe("Psyche's own CLI workdirs", () => {
+  let cli: string;
+  let ownEnv: typeof env & { ownDirs: string[] };
+
+  beforeAll(async () => {
+    cli = join(psycheHome, "cli", "claude-code");
+    await mkdir(join(cli, ".claude"), { recursive: true });
+    await mkdir(join(psycheHome, "cli", "codex"), { recursive: true });
+    await mkdir(join(psycheHome, "vault"), { recursive: true });
+    ownEnv = { ...env, protectedRoots: [...env.protectedRoots, psycheHome], ownDirs: [cli] };
+  });
+
+  it("shares the workdir Psyche made for a CLI provider, with no block on the card", async () => {
+    expect(await resolveRequestedFolder(cli, ownEnv)).toEqual({ status: "ok", path: cli });
+    expect(await resolveFolderPick(cli, ownEnv)).toBe(cli);
+    await expect(assertFolderGrantable(cli, ownEnv)).resolves.toBeUndefined();
+    expect(refuseFolder(join(cli, "sub"), ownEnv)).toBeUndefined();
+  });
+
+  it("still refuses ~/.psyche, its other sub-folders and the other workdirs", async () => {
+    const blocked = [
+      psycheHome,
+      join(psycheHome, "cli"),
+      join(psycheHome, "vault"),
+      join(psycheHome, "state"),
+      join(psycheHome, "cli", "codex"),
+      join(cli, ".claude"),
+    ];
+    for (const p of blocked) {
+      await expect(resolveFolderPick(p, ownEnv)).rejects.toMatchObject({ code: "forbidden" });
+      await expect(assertFolderGrantable(p, ownEnv)).rejects.toMatchObject({ code: "forbidden" });
+      expect(await resolveRequestedFolder(p, ownEnv)).toMatchObject({ status: "blocked" });
+    }
+    // Without the allowlist the same workdir is the private folder it always was.
+    expect(await resolveRequestedFolder(cli, env)).toMatchObject({ status: "blocked" });
+  });
+
+  it("does not let a workdir link out to a private folder", async () => {
+    const link = join(psycheHome, "cli", "linked");
+    await symlink(join(psycheHome, "vault"), link);
+    expect(await resolveRequestedFolder(link, { ...ownEnv, ownDirs: [link] })).toMatchObject({
+      status: "blocked",
+    });
+  });
+});
 
 describe("grant flow", () => {
   it("is device-only and offers once and always when clean", async () => {
