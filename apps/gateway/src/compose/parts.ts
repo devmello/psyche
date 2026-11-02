@@ -63,6 +63,16 @@ export function googleClientSetup(
 }
 
 /** Origins the owner chose to stay signed in to (`$PSYCHE_HOME/browser/signed-in.json`). */
+/**
+ * Where the browser bridge listens: `PSYCHE_BROWSER_BRIDGE_SOCKET` when set, else the default
+ * `$PSYCHE_HOME/run/browser-bridge.sock`. The desktop shell reads the same variable (its
+ * `main.ts`), so both ends agree; without this a deep `$PSYCHE_HOME` could not be worked around.
+ */
+export function bridgeSocketSetup(env: NodeJS.ProcessEnv): { socketPath?: string } {
+  const path = env.PSYCHE_BROWSER_BRIDGE_SOCKET?.trim();
+  return path ? { socketPath: path } : {};
+}
+
 export function readSignedInOrigins(home: string): string[] {
   try {
     const doc = JSON.parse(readFileSync(join(home, "browser", "signed-in.json"), "utf8")) as {
@@ -128,6 +138,7 @@ export function partsFromEnv(
     parts.push((s) => {
       browser = composeBrowser(s, {
         record: env.PSYCHE_BROWSER_RECORD === "1",
+        ...bridgeSocketSetup(env),
         // Real-Chrome mode (I13) is off unless the owner turns it on; each task still asks.
         ...(env.PSYCHE_REAL_CHROME === "1"
           ? {
