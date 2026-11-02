@@ -175,10 +175,10 @@ function Progress({ n }: { n: N }): ReactElement {
       >
         <div
           className={cn(
-            "h-full rounded-full bg-label-primary transition-[width] duration-300 motion-reduce:transition-none",
+            "h-full origin-left rounded-full bg-label-primary transition-transform duration-medium motion-reduce:transition-none",
             indeterminate && "w-1/3",
           )}
-          style={indeterminate ? undefined : { width: `${pct}%` }}
+          style={indeterminate ? undefined : { transform: `scaleX(${pct / 100})` }}
         />
       </div>
       {steps.length > 0 ? (
