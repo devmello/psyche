@@ -342,7 +342,7 @@ export const screens = {
   "screens.files.loadingShared": "Loading shared folders",
   "screens.files.noneShared": "No folders are shared with {name}.",
   "screens.files.share": "Share a folder",
-  "screens.files.shareInSettings": "Share one in Settings → File access.",
+  "screens.files.shareInSettings": "Share one in Settings → Permissions → File access.",
   "screens.files.previewOf": "Preview of {name}",
   "screens.files.preview": "Preview",
   "screens.files.needsApp": "Previews need the desktop or web app.",

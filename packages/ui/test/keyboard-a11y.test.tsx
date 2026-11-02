@@ -97,7 +97,7 @@ describe("Settings by keyboard", () => {
         <SettingsScreen now={NOW} defaultSection="appearance" />
       </StoryWorld>,
     );
-    await screen.findByRole("heading", { level: 2, name: "Appearance" });
+    await screen.findByRole("heading", { level: 3, name: "Appearance" });
     const seen = new Set<Element>();
     for (let i = 0; i < 40; i++) {
       await userEvent.tab();

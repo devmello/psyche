@@ -1,25 +1,24 @@
 import { render, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { DataControlsPanel } from "../src/screens/settings/DataControlsSection.tsx";
+import { MemoryControlsPanel } from "../src/screens/settings/DataControlsSection.tsx";
 
-/** Settings → Data controls → Memory: "How memory is recalled" (Markdown only · plus embeddings). */
+/** Settings → Memory → Remembering & learning: "How memory is recalled" (Markdown only · plus embeddings). */
 
 const checked = (el: HTMLElement) =>
   (el as HTMLInputElement).checked === true || el.getAttribute("aria-checked") === "true";
 
 function renderPanel(
   values: Record<string, unknown> = {},
-  recall?: React.ComponentProps<typeof DataControlsPanel>["recall"],
+  recall?: React.ComponentProps<typeof MemoryControlsPanel>["recall"],
 ) {
   const onChange = vi.fn();
   render(
-    <DataControlsPanel
+    <MemoryControlsPanel
       values={values}
       onChange={onChange}
       persona="Wren"
       memoryPaused={false}
-      archivedThreads={0}
       {...(recall === undefined ? {} : { recall })}
     />,
   );

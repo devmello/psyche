@@ -149,6 +149,12 @@ export function SettingHint({ settingKey }: { settingKey: string }): ReactElemen
 
 const NO_KEYS: ReadonlySet<string> = new Set();
 
+/**
+ * `true` inside a Settings page that stacks several panes (settings-pages.ts): the page owns the
+ * h2 and the serif title, so each pane's title steps down to an h3 and its groups to h4.
+ */
+export const InPageContext = createContext(false);
+
 export function SectionFrame({
   title,
   description,
@@ -164,15 +170,25 @@ export function SectionFrame({
   needsApproval?: ReadonlySet<string> | undefined;
 }): ReactElement {
   const id = useId();
+  const inPage = useContext(InPageContext);
+  const Heading = inPage ? "h3" : "h2";
   return (
     <section aria-labelledby={id} className="flex min-w-0 flex-col gap-4">
       {/* PageHeader's layout one level down: Settings owns the page's h1, each section an h2. */}
       <header className="flex flex-wrap items-end gap-x-3 gap-y-2">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          {/* The section title (display serif, unslop 2026-11); Settings owns the page's h1. */}
-          <h2 id={id} className="font-display text-page-title text-label-primary">
+          {/* The display serif (unslop 2026-11): 24 px for a page, 20 px for a pane on a page. */}
+          <Heading
+            id={id}
+            className={cn(
+              "text-label-primary",
+              inPage
+                ? "font-display text-[20px] leading-[26px] font-medium"
+                : "font-display text-page-title",
+            )}
+          >
             {title}
-          </h2>
+          </Heading>
           {description ? <p className="text-callout text-label-secondary">{description}</p> : null}
         </div>
         {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
@@ -202,14 +218,15 @@ export function Group({
   className?: string;
 }): ReactElement {
   const id = useId();
+  const Heading = useContext(InPageContext) ? "h4" : "h3";
   // A grouped inset list (redesign §5.8): the title-3 header above, the raised container with
   // 36 px rows separated by hairlines inset to the text, and the help text under it.
   return (
     <section aria-labelledby={id} className={cn("flex flex-col gap-1.5", className)}>
       <div className="flex flex-wrap items-end gap-2 px-1">
-        <h3 id={id} className="min-w-0 flex-1 text-title-3 text-label-primary">
+        <Heading id={id} className="min-w-0 flex-1 text-title-3 text-label-primary">
           {title}
-        </h3>
+        </Heading>
         {actions}
       </div>
       {children ? <div className={GROUP_ROWS}>{children}</div> : null}
@@ -334,7 +351,7 @@ export function RadioField<T extends string>({
   const id = useId();
   if (grouped) {
     return (
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2" data-setting-key={settingKey}>
         <span
           id={`${id}-label`}
           className={cn("px-1 text-title-3 text-label-primary", hideLabel && "sr-only")}
@@ -383,7 +400,7 @@ export function RadioField<T extends string>({
   if (inline && options.length <= 4 && options.every((o) => !o.disabled)) {
     const selectedHint = options.find((o) => o.value === value)?.hint;
     return (
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1" data-setting-key={settingKey}>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <div className="flex min-w-0 flex-1 flex-col">
             <span
@@ -411,7 +428,7 @@ export function RadioField<T extends string>({
     );
   }
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-1.5" data-setting-key={settingKey}>
       <span
         id={`${id}-label`}
         className={cn("text-body text-label-primary", hideLabel && "sr-only")}
@@ -496,7 +513,7 @@ export function SwitchField({
 }): ReactElement {
   const id = useId();
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-1" data-setting-key={settingKey}>
       <div className="flex min-h-5 items-center gap-3">
         <div className="min-w-0 flex-1">
           <span id={`${id}-label`} className="text-body text-label-primary">
@@ -646,7 +663,7 @@ export function TextSetting({
     if (next !== value) onCommit(next);
   };
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-1" data-setting-key={settingKey}>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <div className="flex min-w-0 flex-1 flex-col">
           <Label htmlFor={id} className="text-body font-normal text-label-primary">

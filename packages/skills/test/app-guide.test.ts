@@ -36,9 +36,12 @@ describe("psyche-app-guide", () => {
     expect(skill?.description).toContain("app_navigate");
   });
 
-  it("mentions every Settings section the app has, by route id", () => {
+  it("mentions every Settings page and pane the app has, by route id", () => {
     const inCode = unique(
-      all(read("packages/ui/src/screens/settings/SettingsScreen.tsx"), /\bentry\("([\w-]+)"/g),
+      all(
+        read("packages/ui/src/screens/settings/settings-pages.ts"),
+        /\b(?:entry|page)\("([\w-]+)"/g,
+      ),
     );
     expect(inCode.length).toBeGreaterThan(10);
     expect([...inCode].sort()).toEqual([...APP_SETTINGS_SECTIONS].sort());

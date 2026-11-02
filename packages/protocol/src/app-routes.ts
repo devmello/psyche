@@ -5,32 +5,39 @@
  * guide mentioning every entry.
  */
 
-/** Settings sections (`/settings/<id>`), in the order of the Settings window. */
+/**
+ * Settings routes (`/settings/<id>`), in the order of the Settings window: each page, then the
+ * other panes on it. A pane id opens its page scrolled to that pane, so links written before the
+ * 2026 regrouping still land (docs/design/settings-2026.md).
+ */
 export const APP_SETTINGS_SECTIONS = [
-  "model",
+  "general",
+  "appearance",
   "persona",
+  "notifications",
+  "voice",
+  "model",
+  "usage",
   "connectors",
+  "search",
+  "mail",
+  "channels",
+  "memory",
+  "learning",
+  "everything",
+  "people",
+  "daily",
   "skills",
   "specialists",
   "permissions",
   "computer-use",
   "browser",
   "files",
-  "vm",
-  "devices",
-  "channels",
   "credentials",
-  "appearance",
-  "notifications",
-  "voice",
-  "mail",
-  "daily",
+  "vm",
   "data",
-  "people",
-  "everything",
-  "memory",
+  "devices",
   "server",
-  "usage",
   "about",
 ] as const;
 

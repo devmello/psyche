@@ -2,20 +2,14 @@ import { Folder, Terminal } from "lucide-react";
 import type { ReactElement } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { t } from "../../i18n/core.ts";
-import {
-  execHostEnabled,
-  FolderList,
-  folderGrants,
-  POLICY_KEY,
-  policyWithExecHost,
-  policyWithFolders,
-} from "./FileAccessSection.tsx";
-import { Group, SwitchField } from "./shared.tsx";
+import { execHostEnabled, folderGrants } from "./FileAccessSection.tsx";
+import { Group, StatusChip } from "./shared.tsx";
 
 /**
- * "Files on this Mac" and "Terminal" in Connectors. Neither is a connector of its own: they are
- * views onto the settings that already decide this (`permissions.policy.folders` from File access,
- * and `permissions.policy.exec.execHostEnabled`), so there is one list of folders and one switch.
+ * "Files on this Mac" and "Terminal" in Connectors. Neither is a connector of its own: they show
+ * what Permissions → File access decides (`permissions.policy.folders` and
+ * `permissions.policy.exec.execHostEnabled`) and open it there, so the folders and the switch have
+ * one home and one editor (settings-2026).
  */
 
 export interface PolicyValues {
@@ -23,11 +17,28 @@ export interface PolicyValues {
   onChange: (key: string, value: unknown) => void;
 }
 
-export function FilesOnMacCard({
-  values,
-  onChange,
-  persona,
-}: PolicyValues & { persona: string }): ReactElement {
+interface CardProps {
+  values: Readonly<Record<string, unknown>>;
+  persona: string;
+  /** Opens Permissions → File access. */
+  onOpenFileAccess?: () => void;
+}
+
+/** At most this many folders are named; the rest are counted. */
+const SHOWN = 4;
+
+function OpenFileAccess({ onOpen }: { onOpen?: (() => void) | undefined }): ReactElement | null {
+  if (!onOpen) return null;
+  return (
+    <div>
+      <Button type="button" variant="outline" size="sm" onClick={onOpen}>
+        {t("settings.deviceAccess.open")}
+      </Button>
+    </div>
+  );
+}
+
+export function FilesOnMacCard({ values, persona, onOpenFileAccess }: CardProps): ReactElement {
   const grants = folderGrants(values);
   return (
     <Group title={t("settings.deviceAccess.files.title")}>
@@ -35,25 +46,37 @@ export function FilesOnMacCard({
         <Folder aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
         <span>{t("settings.deviceAccess.files.hint", { persona })}</span>
       </p>
-      <FolderList
-        label={t("settings.files.sharedFolders")}
-        folders={grants}
-        onChange={(next) => onChange(POLICY_KEY, policyWithFolders(values, next))}
-        emptyText={t("settings.files.noFolders", { persona })}
-        addLabel={t("settings.files.shareFolder")}
-        defaultAccess="ro"
-      />
+      {grants.length === 0 ? (
+        <p className="text-callout text-label-secondary">
+          {t("settings.files.noFolders", { persona })}
+        </p>
+      ) : (
+        <ul aria-label={t("settings.files.sharedFolders")} className="flex flex-col gap-1">
+          {grants.slice(0, SHOWN).map((g) => (
+            <li key={g.path} className="flex min-w-0 items-baseline gap-2">
+              <code className="truncate font-mono text-callout text-label-primary">{g.path}</code>
+              <span className="shrink-0 text-callout text-label-secondary">
+                {g.access === "rw"
+                  ? t("settings.permissions.folderRw")
+                  : t("settings.permissions.folderRo")}
+              </span>
+            </li>
+          ))}
+          {grants.length > SHOWN ? (
+            <li className="text-callout text-label-secondary">
+              {t("settings.deviceAccess.files.more", { count: grants.length - SHOWN })}
+            </li>
+          ) : null}
+        </ul>
+      )}
+      <OpenFileAccess onOpen={onOpenFileAccess} />
     </Group>
   );
 }
 
-export function TerminalCard({
-  values,
-  onChange,
-  persona,
-  onOpenFileAccess,
-}: PolicyValues & { persona: string; onOpenFileAccess?: () => void }): ReactElement {
+export function TerminalCard({ values, persona, onOpenFileAccess }: CardProps): ReactElement {
   const folders = folderGrants(values).length;
+  const on = execHostEnabled(values);
   return (
     <Group title={t("settings.deviceAccess.terminal.title")}>
       <p className="flex items-start gap-2 text-callout text-label-secondary">
@@ -65,19 +88,13 @@ export function TerminalCard({
         <li>{t("settings.deviceAccess.terminal.asks")}</li>
         <li>{t("settings.deviceAccess.terminal.sandbox")}</li>
       </ul>
-      <SwitchField
-        label={t("settings.deviceAccess.terminal.switch", { persona })}
-        checked={execHostEnabled(values)}
-        onChange={(on) => onChange(POLICY_KEY, policyWithExecHost(values, on))}
-      />
-      <p className="flex flex-wrap items-center gap-2 text-callout text-label-secondary">
+      <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-callout text-label-secondary">
+        <StatusChip tone={on ? "success" : "neutral"}>
+          {on ? t("settings.deviceAccess.terminal.on") : t("settings.deviceAccess.terminal.off")}
+        </StatusChip>
         <span>{t("settings.deviceAccess.terminal.folders", { count: folders })}</span>
-        {onOpenFileAccess ? (
-          <Button type="button" variant="ghost" size="sm" onClick={onOpenFileAccess}>
-            {t("settings.deviceAccess.terminal.manage")}
-          </Button>
-        ) : null}
       </p>
+      <OpenFileAccess onOpen={onOpenFileAccess} />
     </Group>
   );
 }

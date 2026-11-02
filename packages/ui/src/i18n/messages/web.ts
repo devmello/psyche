@@ -115,7 +115,7 @@ export const web = {
   "web.passkeys.confirmFirst": "You'll confirm with an existing passkey first.",
   "web.webauthn.noPasskey": "No passkey was used.",
   "web.webauthn.noPasskeyYet":
-    "This browser has no passkey yet. Add one in Settings → Devices & nodes, or approve with Touch ID on the Mac.",
+    "This browser has no passkey yet. Add one in Settings → Devices, or approve with Touch ID on the Mac.",
   "web.webauthn.needsOrigin":
     "Passkeys need the server's https address (gateway.publicOrigin). Approve with Touch ID on the Mac instead.",
   "web.webauthn.cancelled": "The passkey prompt was cancelled or timed out. Nothing changed.",
@@ -135,15 +135,15 @@ export const web = {
   "web.setup.helperOk": "Connected.",
   "web.setup.helperWarn": "Not connected yet. Computer use and notifications wait for it.",
   "web.setup.model": "Model",
-  "web.setup.modelNone": "None picked. Add one in Settings → Model & providers.",
+  "web.setup.modelNone": "None picked. Add one in Settings → Models.",
   "web.setup.modelOk": "{ref}, key in the vault.",
   "web.setup.modelUnbound": "{ref} is not bound yet.",
   "web.setup.modelNoKey": "{ref} is set but its provider has no key yet.",
   "web.setup.modelOkCli": "{ref}, signed in through {cli}.",
   "web.setup.modelCliUnreachable":
-    "{ref} is set, but {cli} did not answer ({error}). Install {cli} and sign in, then check again in Settings → Model & providers.",
+    "{ref} is set, but {cli} did not answer ({error}). Install {cli} and sign in, then check again in Settings → Models.",
   "web.setup.modelCliNotChecked":
-    "{ref} is set, but Psyche could not check {cli} yet. Make sure it is installed and signed in, then check again in Settings → Model & providers.",
+    "{ref} is set, but Psyche could not check {cli} yet. Make sure it is installed and signed in, then check again in Settings → Models.",
   "web.setup.modelError": "Could not set {ref} ({error}).",
 
   "web.viewers.noSandbox":
