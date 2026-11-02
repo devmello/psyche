@@ -3,7 +3,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getSetting, openDb, setSetting } from "@psyche/db";
 import { GraphStore } from "@psyche/memory";
-import { EVERYTHING_MEMORY_SETTING_KEY } from "@psyche/protocol";
+import {
+  collectWidgetBinds,
+  EVERYTHING_MEMORY_SETTING_KEY,
+  type FeedWidget,
+  validateWidgetSpec,
+} from "@psyche/protocol";
 import { FakeClock, FakeModelProvider } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
 import { composeEverything, everythingSettings } from "../src/compose/everything.ts";
@@ -328,6 +333,13 @@ describe("the Feed card and the brief line", () => {
       "1 auto-accepted · 0 to review · 0 quarantined\n\n[Review](/settings/memory)",
     );
     expect(JSON.stringify(cards)).not.toMatch(/climbing|Dana/);
+    // The card carries a static widget snapshot: three counts and a button to the review screen.
+    const widget = (cards[0] as unknown as { widget: FeedWidget }).widget;
+    expect(validateWidgetSpec(widget.spec)).toEqual({ ok: true });
+    expect(collectWidgetBinds(widget.spec.root)).toEqual([]);
+    expect(widget.taint).toEqual([]);
+    expect(widget.spec.fallbackText).toContain("Psyche learned 1 thing");
+    expect(JSON.stringify(widget.spec)).toContain('"route":"/settings/memory"');
     expect(e.learnedYesterday()).toEqual({
       text: "Psyche learned 1 thing yesterday: 1 auto-accepted · 0 to review · 0 quarantined",
       link: "/settings/memory",

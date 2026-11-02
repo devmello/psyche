@@ -394,4 +394,63 @@ describe("Psyche's own notices", () => {
     });
     expect(events.some((e) => e.event === "feed.updated")).toBe(true);
   });
+
+  const snapshot = {
+    taint: [],
+    spec: {
+      v: 1 as const,
+      title: "What Psyche learned",
+      fallbackText: "Psyche learned 3 things.",
+      root: { id: "s", type: "stat", label: "Added", value: 3 },
+    },
+  };
+
+  it("postNotice can carry a static widget snapshot, which round-trips through the store", () => {
+    const { feed } = rig({});
+    const post = feed.postNotice({
+      title: "t",
+      bodyMd: "b",
+      reason: "memory learned",
+      widget: snapshot,
+    });
+    expect(Value.Check(FeedPost, post)).toBe(true);
+    expect(post.widget).toEqual(snapshot);
+    expect(feed.store.get(post.id)?.widget).toEqual(snapshot);
+  });
+
+  it("drops a snapshot that fails the widget validator or carries a live binding, never the notice", () => {
+    const { feed } = rig({});
+    const bad = feed.postNotice({
+      title: "t",
+      bodyMd: "b",
+      reason: "r",
+      widget: {
+        taint: [],
+        spec: {
+          ...snapshot.spec,
+          root: { id: "b", type: "button", label: "Allow", action: { kind: "reply", text: "x" } },
+        },
+      },
+    });
+    expect(bad.widget).toBeUndefined();
+    expect(bad.title).toBe("t");
+    const live = feed.postNotice({
+      title: "t2",
+      bodyMd: "b",
+      reason: "r",
+      widget: {
+        taint: [],
+        spec: {
+          ...snapshot.spec,
+          root: {
+            id: "p",
+            type: "progress",
+            label: "x",
+            bind: { source: "task", id: "t1", field: "progress" },
+          },
+        },
+      },
+    });
+    expect(live.widget).toBeUndefined();
+  });
 });
