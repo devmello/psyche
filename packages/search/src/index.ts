@@ -15,12 +15,14 @@ export * from "./memory.ts";
 export * from "./onnx-embedder.ts";
 export * from "./query-parser.ts";
 export * from "./ranking.ts";
+export * from "./rerank.ts";
 export * from "./schema.ts";
 export * from "./semantic.ts";
 export * from "./sources/index.ts";
 export * from "./sqlite-index.ts";
 export * from "./types.ts";
 export * from "./understand.ts";
+export * from "./understand-model.ts";
 export * from "./web/index.ts";
 
 export interface CreateSearchIndexOptions extends SqliteSearchIndexOptions {
