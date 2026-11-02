@@ -3166,6 +3166,7 @@ export const hi: Partial<Catalogue> = {
   "web.splash.waiting": "लगभग तैयार…",
   "web.splash.connecting": "कनेक्ट हो रहा है…",
   "web.splash.helper": "आपके Mac पर Psyche तैयार हो रहा है…",
+  "web.splash.slow": "इसमें सामान्य से ज़्यादा समय लग रहा है। Psyche अब भी काम कर रहा है।",
   "web.splash.ready": "तैयार",
   "web.splash.failed": "Psyche शुरू नहीं हो सका",
   "web.splash.showLogs": "लॉग दिखाएँ",

@@ -3145,6 +3145,7 @@ export const ko: Partial<Catalogue> = {
   "web.splash.waiting": "거의 다 되었습니다…",
   "web.splash.connecting": "연결 중…",
   "web.splash.helper": "Mac에서 Psyche를 준비하는 중…",
+  "web.splash.slow": "평소보다 오래 걸리고 있어요. Psyche는 아직 작업 중입니다.",
   "web.splash.ready": "준비됨",
   "web.splash.failed": "Psyche를 시작할 수 없습니다",
   "web.splash.showLogs": "로그 보기",

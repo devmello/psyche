@@ -4,30 +4,42 @@ import { withWorld } from "../stories/harness.tsx";
 import { StartupSplashView } from "./StartupSplashView.tsx";
 
 /**
- * The startup splash (#595): the mark draws in, then it hands off. The
- * visual suite renders every story in light and dark.
+ * The startup splash (#595): a moth draws itself in ink, its wings open as Psyche wakes, then it
+ * flies to the toolbar avatar. The visual suite renders every story in light and dark.
  */
 const meta = {
   title: "Shell/Startup splash",
   component: StartupSplashView,
   decorators: [withWorld()],
   parameters: { layout: "fullscreen" },
-  args: { line: { tone: "progress", text: t("web.splash.starting") } },
+  args: { line: { tone: "progress", text: t("web.splash.starting"), step: 0 } },
 } satisfies Meta<typeof StartupSplashView>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Starting: Story = {};
 
-/** Reduced motion: no stroke draw, no breathing, no flight; one crossfade. */
-export const ReducedMotion: Story = { globals: { motion: "reduced" } };
-
-/** A slow start: after a few seconds the app is one click away. */
-export const SlowStart: Story = {
-  args: { line: { tone: "progress", text: t("web.splash.helper") }, onOpenAnyway: () => {} },
+/** Connecting: the last stage before ready, wings nearly open. */
+export const Connecting: Story = {
+  args: { line: { tone: "progress", text: t("web.splash.connecting"), step: 2 } },
 };
 
-/** The start failed: the reason, Show logs and Retry. */
+/** Reduced motion: the same drawing, static, no flight; one crossfade out. */
+export const ReducedMotion: Story = {
+  globals: { motion: "reduced" },
+  args: { line: { tone: "progress", text: t("web.splash.waiting"), step: 1 } },
+};
+
+/** A slow start: after a few seconds it says so, and the app is one click away. */
+export const SlowStart: Story = {
+  args: {
+    line: { tone: "progress", text: t("web.splash.helper"), step: 2 },
+    slow: true,
+    onOpenAnyway: () => {},
+  },
+};
+
+/** The start failed: wings folded, the reason on a chit, Show logs and Try again. */
 export const Failed: Story = {
   args: {
     line: {

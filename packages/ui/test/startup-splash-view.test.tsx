@@ -5,12 +5,41 @@ import { StartupSplashView } from "../src/shell/StartupSplashView.tsx";
 afterEach(cleanup);
 
 describe("StartupSplashView (#595)", () => {
-  it("draws the mark, the wordmark and the status line", () => {
-    render(<StartupSplashView line={{ tone: "progress", text: "Psyche is starting…" }} />);
-    expect(screen.getByTestId("startup-splash-mark").querySelectorAll("path")).toHaveLength(2);
+  it("draws the moth, the wordmark, the status line and the wake-up marks", () => {
+    render(<StartupSplashView line={{ tone: "progress", text: "Psyche is starting…", step: 0 }} />);
+    // Body, plus an antenna, a fore wing, a hind wing and a vein on each side.
+    expect(screen.getByTestId("startup-splash-mark").querySelectorAll("path")).toHaveLength(9);
     expect(screen.getByRole("heading", { name: "Psyche" })).toBeTruthy();
     expect(screen.getByRole("status").textContent).toBe("Psyche is starting…");
     expect(screen.queryByRole("button")).toBeNull();
+    const marks = [...document.querySelectorAll(".startup-splash-steps li")];
+    expect(marks.map((li) => li.getAttribute("data-state"))).toEqual(["active", "todo", "todo"]);
+  });
+
+  it("moves the marks forward with the start and never back", () => {
+    const states = () =>
+      [...document.querySelectorAll(".startup-splash-steps li")].map((li) =>
+        li.getAttribute("data-state"),
+      );
+    const { rerender } = render(
+      <StartupSplashView line={{ tone: "progress", text: "Almost ready…", step: 1 }} />,
+    );
+    expect(states()).toEqual(["done", "active", "todo"]);
+    rerender(<StartupSplashView line={{ tone: "progress", text: "Starting…", step: 0 }} />);
+    expect(states()).toEqual(["done", "active", "todo"]);
+    rerender(<StartupSplashView line={{ tone: "ready", text: "Ready" }} />);
+    expect(states()).toEqual(["done", "done", "done"]);
+  });
+
+  it("says when the start is slow, only while it is still going", () => {
+    const line = { tone: "progress", text: "Almost ready…", step: 1 } as const;
+    const { rerender } = render(<StartupSplashView line={line} />);
+    expect(screen.queryByText(/longer than usual/)).toBeNull();
+    rerender(<StartupSplashView line={line} slow />);
+    expect(screen.getByText(/longer than usual/)).toBeTruthy();
+    rerender(<StartupSplashView line={{ tone: "error", text: "Psyche couldn't start" }} slow />);
+    expect(screen.queryByText(/longer than usual/)).toBeNull();
+    expect(document.querySelector(".startup-splash-steps")).toBeNull();
   });
 
   it("keeps the failure state: reason, Show logs, Try again and the way into the app", () => {

@@ -3176,6 +3176,7 @@ export const ar: Partial<Catalogue> = {
   "web.splash.waiting": "أوشك على الجاهزية…",
   "web.splash.connecting": "جارٍ الاتصال…",
   "web.splash.helper": "جارٍ تجهيز Psyche على الـ Mac الخاص بك…",
+  "web.splash.slow": "يستغرق هذا وقتًا أطول من المعتاد. لا يزال Psyche يعمل.",
   "web.splash.ready": "جاهز",
   "web.splash.failed": "تعذّر على Psyche البدء",
   "web.splash.showLogs": "عرض السجلات",

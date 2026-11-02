@@ -3198,6 +3198,7 @@ export const it: Partial<Catalogue> = {
   "web.splash.waiting": "Quasi pronto…",
   "web.splash.connecting": "Connessione…",
   "web.splash.helper": "Preparazione di Psyche sul tuo Mac…",
+  "web.splash.slow": "Ci sta mettendo più del solito. Psyche sta ancora lavorando.",
   "web.splash.ready": "Pronto",
   "web.splash.failed": "Psyche non è riuscito ad avviarsi",
   "web.splash.showLogs": "Mostra i log",
