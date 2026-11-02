@@ -1062,6 +1062,7 @@ export const settings = {
   "settings.searchSources.excludeContactsHint":
     "Email addresses, phone numbers or names, separated by commas",
   "settings.searchSources.excludeFolders": "Never index these folders",
+  "settings.searchSources.excludeFoldersPlaceholder": "~/Documents/Private",
   "settings.searchSources.indexSize": "Search index size: {size}",
 
   "settings.semanticSearch.title": "Search",

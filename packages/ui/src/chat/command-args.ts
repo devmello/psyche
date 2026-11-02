@@ -162,7 +162,9 @@ export function modeOptions(ctx?: ArgContext): ArgOption[] {
 /** `/export`: the two formats. */
 export function exportOptions(): ArgOption[] {
   return [
+    // i18n-ignore-start: the literal arguments the user types after /export
     { value: "md", label: "md", detail: t("chat.export.markdown") },
     { value: "json", label: "json", detail: t("chat.export.json") },
+    // i18n-ignore-end
   ];
 }

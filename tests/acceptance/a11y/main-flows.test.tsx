@@ -6,7 +6,6 @@ import {
   ApprovalCard,
   ChatThread,
   Checklist,
-  OnboardingFlow,
   QuestionCard,
   RAIL_ITEMS,
   ShellMotion,
@@ -15,6 +14,7 @@ import {
   WrapUpBox,
 } from "@psyche/ui";
 import { GatewayProvider, GatewayStore } from "@psyche/ui/data";
+import { OnboardingFlow } from "@psyche/ui/onboarding";
 import { MockGateway } from "@psyche/ui/testing";
 import { ThemeProvider } from "@psyche/ui/theme";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
@@ -306,15 +306,20 @@ describe("chat screen (thread, approval dock, composer)", () => {
 });
 
 describe("onboarding", () => {
-  it("has no axe violations, a progress nav with the current step, and advances with the keyboard", async () => {
+  it("has no axe violations, progress with the current step, and advances with the keyboard", async () => {
     const onStepChange = vi.fn();
     const { container } = render(
       <OnboardingFlow onComplete={() => {}} onStepChange={onStepChange} />,
     );
     await expectNoAxeViolations(container);
-    const nav = screen.getByRole("navigation", { name: "Onboarding progress" });
-    expect(nav.querySelector("[aria-current='step']")).not.toBeNull();
+    const progress = screen.getByRole("progressbar", { name: "Onboarding progress" });
+    expect(progress.getAttribute("aria-valuenow")).toBe("1");
     const user = userEvent.setup();
+    // The quiet "1 of N" label opens the step menu, which marks the current step.
+    await user.click(screen.getByRole("button", { name: /^Onboarding progress: 1 of/ }));
+    const steps = await screen.findAllByRole("menuitem");
+    expect(steps[0]?.getAttribute("aria-current")).toBe("step");
+    await user.keyboard("{Escape}");
     const name = screen.getAllByRole("textbox")[0] as HTMLElement;
     name.focus();
     await user.keyboard("Wren");
