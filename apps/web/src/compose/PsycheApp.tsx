@@ -339,7 +339,7 @@ export function screenRoute(route: string, navigate: (to: string) => void): Reac
           onNavigate={navigate}
           route={route}
           {...(anchor === undefined ? {} : { anchor })}
-          onTry={(kind) => navigate(kind === "connectMail" ? "/settings/mail" : "/chat")}
+          onTry={() => navigate("/chat")}
         />,
       );
     }

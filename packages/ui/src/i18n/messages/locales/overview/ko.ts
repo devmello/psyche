@@ -75,7 +75,6 @@ export const overview: Partial<Catalogue> = {
   "overview.newUser.try": "시도해 보기",
   "overview.newUser.planWeek": "{name}에게 이번 주 계획 부탁하기",
   "overview.newUser.morningBrief": "아침 브리핑 설정하기",
-  "overview.newUser.connectMail": "메일 연결하기",
   "overview.run.title": "실행",
   "shell.rail.overview": "개요",
   "shell.sidebar.openOverview": "개요 열기",

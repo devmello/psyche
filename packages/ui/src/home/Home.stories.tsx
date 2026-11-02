@@ -95,6 +95,24 @@ export const QuietDay: Story = {
   ],
 };
 
+/** A first visit: nothing said yet, so the Ask field offers things to try (consolidation §7). */
+export const FirstVisit: Story = {
+  decorators: [
+    withWorld({
+      edit: (w) => {
+        w.notifications = [];
+        w.feed = [];
+        w.ideas = [];
+        w.goals = [];
+        w.automations = [];
+        w.threads = w.threads
+          .filter((e) => e.thread.kind === "main")
+          .map((e) => ({ ...e, thread: { ...e.thread, lastMessageAt: null } }));
+      },
+    }),
+  ],
+};
+
 export const Narrow: Story = {
   render: (args) => (
     <div className="max-w-[420px]">

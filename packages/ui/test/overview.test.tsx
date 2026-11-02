@@ -99,8 +99,9 @@ describe("OverviewScreen", () => {
     const hero = screen.getByTestId("overview-new-user");
     expect(within(hero).getByText("Wren is getting to know you")).toBeTruthy();
     expect(OVERVIEW_SECTIONS.filter((id) => document.getElementById(id))).toEqual(["now"]);
-    fireEvent.click(within(hero).getByRole("button", { name: "Connect your mail" }));
-    expect(onTry).toHaveBeenCalledWith("connectMail");
+    fireEvent.click(within(hero).getByRole("button", { name: "Ask Wren to plan your week" }));
+    expect(onTry).toHaveBeenCalledWith("planWeek");
+    expect(within(hero).queryByRole("button", { name: "Connect your mail" })).toBeNull();
   });
 
   it("applies the 7-day threshold", () => {

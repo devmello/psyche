@@ -75,7 +75,6 @@ export const overview: Partial<Catalogue> = {
   "overview.newUser.try": "試してみる",
   "overview.newUser.planWeek": "{name}に今週の計画を頼む",
   "overview.newUser.morningBrief": "朝のブリーフを設定する",
-  "overview.newUser.connectMail": "メールを接続する",
   "overview.run.title": "実行",
   "shell.rail.overview": "概要",
   "shell.sidebar.openOverview": "概要を開く",

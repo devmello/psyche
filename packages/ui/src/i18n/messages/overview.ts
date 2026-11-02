@@ -90,7 +90,6 @@ export const overview = {
   "overview.newUser.try": "Try",
   "overview.newUser.planWeek": "Ask {name} to plan your week",
   "overview.newUser.morningBrief": "Set up a morning brief",
-  "overview.newUser.connectMail": "Connect your mail",
 
   // /overview/run/<id>: the Timeline page. Its back link reads `overview.title`.
   "overview.run.title": "Run",

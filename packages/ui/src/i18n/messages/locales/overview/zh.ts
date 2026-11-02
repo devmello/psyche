@@ -74,7 +74,6 @@ export const overview: Partial<Catalogue> = {
   "overview.newUser.try": "试试",
   "overview.newUser.planWeek": "让{name}规划你的一周",
   "overview.newUser.morningBrief": "设置晨间简报",
-  "overview.newUser.connectMail": "连接你的邮箱",
   "overview.run.title": "运行",
   "shell.rail.overview": "概览",
   "shell.sidebar.openOverview": "打开概览",
