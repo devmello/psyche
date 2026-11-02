@@ -338,6 +338,19 @@ export const memoryTrustedSenders = sqliteTable("memory_trusted_senders", {
   decidedAt: text("decided_at").notNull(),
 });
 
+export const graphFactVectors = sqliteTable(
+  "graph_fact_vectors",
+  {
+    factId: text("fact_id").notNull(),
+    model: text("model").notNull(),
+    textHash: text("text_hash").notNull(),
+    dims: integer("dims").notNull(),
+    vector: blob("vector", { mode: "buffer" }).notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.factId, t.model] })],
+);
+
 export const memoryNeverRules = sqliteTable(
   "memory_never_rules",
   {
@@ -429,6 +442,7 @@ export const s07Schema = {
   memoryNeverRules,
   memoryTrustedSenders,
   memoryExtractedItems,
+  graphFactVectors,
   feedbackEvents,
   lessons,
   feedbackWeekly,

@@ -53,6 +53,7 @@ export const MEMORY_STORE_TABLES = [
   "graph_cursors",
   "graph_citations",
   "graph_exclusions",
+  "graph_fact_vectors",
   "memory_runs",
   "memory_quarantine",
   "memory_never_rules",
