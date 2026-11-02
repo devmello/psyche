@@ -143,6 +143,7 @@ export {
 export { ChartView, niceTicks } from "./canvas/ChartView.tsx";
 // Chat column.
 export { ApprovalDock } from "./chat/ApprovalDock.tsx";
+export { AutomationChat, automationOfThread } from "./chat/AutomationChat.tsx";
 export { Composer, type ComposerProps, SLASH_COMMANDS } from "./chat/Composer.tsx";
 export { clearComposerBusy, isComposerBusy, setComposerBusy } from "./chat/composer-busy.ts";
 export * from "./chat/context/index.ts";

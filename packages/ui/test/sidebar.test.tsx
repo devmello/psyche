@@ -1,7 +1,7 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { useState } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { IDS } from "../src/fixtures/index.ts";
 import { AppShell } from "../src/shell/AppShell.tsx";
 import { ShellMotion } from "../src/shell/motion.tsx";
@@ -16,6 +16,7 @@ import {
   sidebarResize,
 } from "../src/shell/Sidebar.tsx";
 import { isMac } from "../src/shell/shortcuts.ts";
+import { PEEK_CLOSE_DELAY, PEEK_OPEN_DELAY } from "../src/shell/useSidebarPeek.ts";
 import { STORY_NOW, StoryWorld } from "../src/stories/harness.tsx";
 
 function renderSidebar(props: Partial<SidebarProps> = {}) {
@@ -26,7 +27,7 @@ function renderSidebar(props: Partial<SidebarProps> = {}) {
     const [mode, setMode] = useState<SidebarMode>(props.mode ?? "full");
     return (
       <Sidebar
-        route="/feed"
+        route="/home"
         onNavigate={onNavigate}
         activeThreadId={null}
         onOpenThread={onOpenThread}
@@ -56,34 +57,27 @@ const destination = (name: string) =>
   });
 
 describe("Sidebar (redesign §5.1)", () => {
-  it("lists the destinations in order with counts, and marks the current one", async () => {
-    renderSidebar({ route: "/ideas", counts: { ideas: 2 } });
+  it("lists Search and the four places with Home's amber count, and marks the current one", async () => {
+    const onOpenSearch = vi.fn();
+    renderSidebar({ route: "/scheduled", counts: { home: 2 }, onOpenSearch });
     const nav = screen.getByRole("navigation", { name: "Sidebar" });
     const names = within(within(nav).getByRole("list", { name: "Destinations" }))
       .getAllByRole("button")
       .map((b) => b.getAttribute("data-destination"));
-    // The main rows, then the More toggle (open here: Ideas, a More row, is current).
-    expect(names).toEqual([
-      "chat",
-      "inbox",
-      "search",
-      "feed",
-      "scheduled",
-      "library",
-      null,
-      "ideas",
-      "goals",
-      "memory",
-      "overview",
-    ]);
-    const ideas = destination("Ideas");
-    expect(ideas.getAttribute("aria-current")).toBe("page");
-    expect(ideas.getAttribute("aria-label")).toBe("Ideas, 2 new");
-    expect(ideas.textContent).toContain("2");
+    expect(names).toEqual(["search", "chat", "home", "library", "people"]);
+    expect(screen.queryByTestId("sidebar-more")).toBeNull();
+    // Scheduled is reached from Home, so Home is current.
+    const home = destination("Home");
+    expect(home.getAttribute("aria-current")).toBe("page");
+    expect(home.getAttribute("aria-label")).toBe("Home, 2 waiting on you");
+    expect(screen.getByTestId("sidebar-count-home").className).toContain("bg-approval-surface");
     // The one selection pill sits behind the current row.
     expect(screen.getAllByTestId("sidebar-selection")).toHaveLength(1);
-    expect(ideas.parentElement?.querySelector('[data-testid="sidebar-selection"]')).not.toBeNull();
+    expect(home.parentElement?.querySelector('[data-testid="sidebar-selection"]')).not.toBeNull();
     expect(nav.style.width).toBe(`${SIDEBAR_WIDTH.default}px`);
+    // Search is not a page: the row opens ⌘K.
+    await userEvent.click(screen.getByTestId("sidebar-search"));
+    expect(onOpenSearch).toHaveBeenCalledTimes(1);
   });
 
   it("puts the selection on the open thread inside Chat and keeps Chat marked current", async () => {
@@ -109,7 +103,7 @@ describe("Sidebar (redesign §5.1)", () => {
     await screen.findAllByTestId("thread-row");
     destination("Chat").focus();
     await userEvent.keyboard("{ArrowDown}");
-    expect(document.activeElement).toBe(destination("Inbox"));
+    expect(document.activeElement).toBe(destination("Home"));
     await userEvent.keyboard("{ArrowUp}");
     expect(document.activeElement).toBe(destination("Chat"));
     await userEvent.keyboard("{End}");
@@ -149,16 +143,17 @@ describe("Sidebar (redesign §5.1)", () => {
   });
 
   it("as the compact rail: named icon destinations, no threads, the avatar opens the menu", async () => {
-    const { onNavigate } = renderSidebar({ mode: "rail", counts: { ideas: 2 }, route: "/ideas" });
+    const { onNavigate } = renderSidebar({ mode: "rail", counts: { home: 2 }, route: "/ideas" });
     const nav = screen.getByRole("navigation", { name: "Sidebar" });
     expect(nav.style.width).toBe("64px");
     expect(screen.queryByTestId("thread-group")).toBeNull();
-    const ideas = destination("Ideas");
-    expect(ideas.getAttribute("aria-label")).toBe("Ideas, 2 new");
-    expect(ideas.getAttribute("aria-current")).toBe("page");
-    expect(ideas.textContent).toBe("");
-    await userEvent.click(destination("Goals"));
-    expect(onNavigate).toHaveBeenCalledWith("/goals");
+    // An old route (/ideas) shows Home, so Home is current.
+    const home = destination("Home");
+    expect(home.getAttribute("aria-label")).toBe("Home, 2 waiting on you");
+    expect(home.getAttribute("aria-current")).toBe("page");
+    expect(home.textContent).toBe("");
+    await userEvent.click(destination("People"));
+    expect(onNavigate).toHaveBeenCalledWith("/people");
     const footer = screen.getByTestId("sidebar-footer");
     await userEvent.click(within(footer).getByRole("button", { name: "Settings and help" }));
     await userEvent.click(await screen.findByRole("menuitem", { name: /^Settings/ }));
@@ -174,9 +169,9 @@ describe("Sidebar (redesign §5.1)", () => {
     expect(onNavigate).toHaveBeenCalledWith("/settings/model");
   });
 
-  it("marks Overview current on /overview and opens it from the footer avatar", async () => {
+  it("keeps Home current on /overview (reached from Home) and opens it from the footer avatar", async () => {
     const { onNavigate } = renderSidebar({ route: "/overview?period=30d" });
-    expect(destination("Overview").getAttribute("aria-current")).toBe("page");
+    expect(destination("Home").getAttribute("aria-current")).toBe("page");
     await userEvent.click(
       within(screen.getByTestId("sidebar-footer")).getByRole("button", { name: "Open Overview" }),
     );
@@ -196,12 +191,12 @@ describe("Sidebar (redesign §5.1)", () => {
     expect(screen.getAllByTestId("thread-row")).toHaveLength(before);
   });
 
-  it("counts new ideas and suggested goals from the Gateway", async () => {
+  it("counts what waits on the owner from the Gateway, beside Home", async () => {
     render(
       <StoryWorld>
         <ShellMotion>
           <ConnectedSidebar
-            route="/feed"
+            route="/home"
             onNavigate={() => {}}
             activeThreadId={null}
             onOpenThread={() => {}}
@@ -210,11 +205,9 @@ describe("Sidebar (redesign §5.1)", () => {
         </ShellMotion>
       </StoryWorld>,
     );
-    // Folded under More, the counts show on the group; opening it shows them on their rows.
-    const more = await screen.findByTestId("sidebar-more-toggle");
-    await waitFor(() => expect(more.textContent).toMatch(/\d/));
-    await userEvent.click(more);
-    await waitFor(() => expect(destination("Goals").getAttribute("aria-label")).toMatch(/new$/));
+    await waitFor(() =>
+      expect(destination("Home").getAttribute("aria-label")).toMatch(/waiting on you$/),
+    );
   });
 });
 
@@ -331,11 +324,136 @@ describe("AppShell sidebar and compact layout", () => {
       within(tabs)
         .getAllByRole("button")
         .map((b) => b.textContent),
-    ).toEqual(["Chat", "Inbox", "Feed", "Library", "Overview"]);
-    await userEvent.click(within(tabs).getByRole("button", { name: "Feed" }));
-    expect(routes).toContain("/feed");
+    ).toEqual(["Chat", "Home", "Library", "People"]);
+    await userEvent.click(within(tabs).getByRole("button", { name: /^Home/ }));
+    expect(routes).toContain("/home");
     await userEvent.click(screen.getByRole("button", { name: "Threads" }));
     const drawer = await screen.findByRole("dialog", { name: "Threads" });
     expect((await within(drawer).findAllByTestId("thread-row")).length).toBeGreaterThan(0);
+  });
+});
+
+describe("the compact rail expands on hover (peek)", () => {
+  afterEach(() => vi.useRealTimers());
+  const host = () => screen.getByTestId("sidebar-host");
+  const nav = () => screen.getByTestId("sidebar");
+  const advance = (ms: number) => act(() => vi.advanceTimersByTime(ms));
+
+  it("expands over the content after a rest, keeps its slot at 64 px, and folds after the pointer leaves", () => {
+    vi.useFakeTimers();
+    renderSidebar({ mode: "rail" });
+    expect(nav().hasAttribute("data-peek")).toBe(false);
+    fireEvent.pointerEnter(host());
+    advance(PEEK_OPEN_DELAY - 1);
+    expect(nav().hasAttribute("data-peek")).toBe(false);
+    advance(1);
+    expect(nav().hasAttribute("data-peek")).toBe(true);
+    // The host mode is still the rail and its slot didn't grow: the content never shifts.
+    expect(nav().getAttribute("data-mode")).toBe("rail");
+    expect(host().style.width).toBe("64px");
+    expect(nav().style.width).toBe("248px");
+    // The full rows are drawn: labels and the thread group, not tooltip-only icons.
+    expect(within(nav()).getByText("Library")).toBeTruthy();
+    fireEvent.pointerLeave(host());
+    advance(PEEK_CLOSE_DELAY - 1);
+    expect(nav().hasAttribute("data-peek")).toBe(true);
+    advance(1);
+    expect(nav().hasAttribute("data-peek")).toBe(false);
+    expect(nav().style.width).toBe("64px");
+  });
+
+  it("a pass over the rail that leaves before the rest never opens it", () => {
+    vi.useFakeTimers();
+    renderSidebar({ mode: "rail" });
+    fireEvent.pointerEnter(host());
+    advance(PEEK_OPEN_DELAY - 50);
+    fireEvent.pointerLeave(host());
+    advance(1000);
+    expect(nav().hasAttribute("data-peek")).toBe(false);
+  });
+
+  it("coming back within the grace keeps it open", () => {
+    vi.useFakeTimers();
+    renderSidebar({ mode: "rail" });
+    fireEvent.pointerEnter(host());
+    advance(PEEK_OPEN_DELAY);
+    fireEvent.pointerLeave(host());
+    advance(PEEK_CLOSE_DELAY - 100);
+    fireEvent.pointerEnter(host());
+    advance(1000);
+    expect(nav().hasAttribute("data-peek")).toBe(true);
+  });
+
+  it("does not open for a drag (a button held) or for touch", () => {
+    vi.useFakeTimers();
+    renderSidebar({ mode: "rail" });
+    fireEvent.pointerEnter(host(), { buttons: 1 });
+    advance(1000);
+    expect(nav().hasAttribute("data-peek")).toBe(false);
+    fireEvent.pointerLeave(host());
+    fireEvent.pointerEnter(host(), { pointerType: "touch" });
+    advance(1000);
+    expect(nav().hasAttribute("data-peek")).toBe(false);
+  });
+
+  it("a press cancels the pending open: click-to-pin and clicks don't fight the hover", () => {
+    vi.useFakeTimers();
+    renderSidebar({ mode: "rail" });
+    fireEvent.pointerEnter(host());
+    advance(100);
+    fireEvent.pointerDown(host());
+    advance(1000);
+    expect(nav().hasAttribute("data-peek")).toBe(false);
+    // Leaving and coming back is a new rest.
+    fireEvent.pointerLeave(host());
+    fireEvent.pointerEnter(host());
+    advance(PEEK_OPEN_DELAY);
+    expect(nav().hasAttribute("data-peek")).toBe(true);
+  });
+
+  it("Escape folds it, and pinning it open (the full sidebar) ends the peek", () => {
+    vi.useFakeTimers();
+    renderSidebar({ mode: "rail" });
+    fireEvent.pointerEnter(host());
+    advance(PEEK_OPEN_DELAY);
+    fireEvent.keyDown(within(nav()).getByText("Library"), { key: "Escape" });
+    expect(nav().hasAttribute("data-peek")).toBe(false);
+  });
+
+  it("a full sidebar never peeks, and neither does a rail with hoverExpand off", () => {
+    vi.useFakeTimers();
+    renderSidebar({ mode: "full" });
+    fireEvent.pointerEnter(host());
+    advance(1000);
+    expect(nav().hasAttribute("data-peek")).toBe(false);
+  });
+
+  it("does not expand with hoverExpand off", () => {
+    vi.useFakeTimers();
+    renderSidebar({ mode: "rail", hoverExpand: false });
+    fireEvent.pointerEnter(host());
+    advance(1000);
+    expect(nav().hasAttribute("data-peek")).toBe(false);
+  });
+
+  it("expands for keyboard focus at once and keeps the focused row", async () => {
+    const user = userEvent.setup();
+    renderSidebar({ mode: "rail" });
+    await user.tab();
+    await waitFor(() => expect(nav().hasAttribute("data-peek")).toBe(true));
+    // The focused destination is still focused after the rail's button became the full row.
+    expect(document.activeElement?.getAttribute("data-destination")).toBeTruthy();
+    expect(nav().contains(document.activeElement)).toBe(true);
+  });
+
+  it("holds while a menu opened from the sidebar is open", async () => {
+    const user = userEvent.setup();
+    renderSidebar({ mode: "rail" });
+    fireEvent.pointerEnter(host());
+    await waitFor(() => expect(nav().hasAttribute("data-peek")).toBe(true), { timeout: 1000 });
+    await user.click(screen.getByRole("button", { name: "Settings and help" }));
+    fireEvent.pointerLeave(host());
+    await new Promise((r) => setTimeout(r, PEEK_CLOSE_DELAY * 2 + 50));
+    expect(nav().hasAttribute("data-peek")).toBe(true);
   });
 });

@@ -12,7 +12,6 @@ import { OverviewScreen } from "../src/overview/OverviewScreen.tsx";
 import { PeopleSection } from "../src/overview/PeopleSection.tsx";
 import { RecentSection } from "../src/overview/RecentSection.tsx";
 import { OverviewSummary } from "../src/overview/SummarySection.tsx";
-import { UpcomingSection } from "../src/overview/UpcomingSection.tsx";
 import { STORY_NOW, StoryWorld } from "../src/stories/harness.tsx";
 
 /**
@@ -95,13 +94,6 @@ const CASES: Case[] = [
     id: "specialists",
     method: "specialists.list",
     element: () => <Specialists period="30d" now={STORY_NOW} />,
-    empty: /Nothing|No /i,
-  },
-  {
-    name: "Upcoming",
-    id: "upcoming",
-    method: "automations.upcoming",
-    element: () => <UpcomingSection now={STORY_NOW} />,
     empty: /Nothing|No /i,
   },
   {

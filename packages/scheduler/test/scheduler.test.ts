@@ -141,7 +141,7 @@ describe("runs", () => {
     expect(scheduler.runs(a.id).runs[0]?.status).toBe("no_reply");
   });
 
-  it("session targets: isolated gets a new thread per run, named reuses one, main uses main", async () => {
+  it("session targets: isolated gets a work thread per run under one chat, named reuses one, main uses main", async () => {
     const { scheduler, launcher, db } = setup({ start: T0, timers: asleep });
     const main = createThread(db, { kind: "main", sessionKey: "main" });
     const iso = await scheduler.create({ ...BASE, kind: "cron", schedule: "0 * * * *" });

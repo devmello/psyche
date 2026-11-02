@@ -111,9 +111,9 @@ export default function WidgetView({
           <button
             type="button"
             className="inline-flex size-6 shrink-0 items-center justify-center rounded-md hover:bg-fill-quaternary"
-            aria-label={widget.pinned ? t("widgets.frame.unpin") : t("widgets.frame.pin")}
+            aria-label={widget.pinned ? t("widgets.frame.unpinHome") : t("widgets.frame.pinHome")}
             aria-pressed={widget.pinned}
-            title={widget.pinned ? t("widgets.frame.unpin") : t("widgets.frame.pin")}
+            title={widget.pinned ? t("widgets.frame.unpinHome") : t("widgets.frame.pinHome")}
             data-testid="widget-pin"
             onClick={() => {
               store

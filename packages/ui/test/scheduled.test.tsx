@@ -62,15 +62,16 @@ const row = (name: string) =>
   screen.getByRole("heading", { name, level: 3 }).closest("li") as HTMLElement;
 
 describe("navigation", () => {
-  it("is a sidebar destination, and /scheduled belongs to it", () => {
-    expect(RAIL_ITEMS.map((i) => i.id)).toContain("scheduled");
-    expect(destinationFor("/scheduled")).toBe("scheduled");
+  it("is a page reached from Home (Coming up) and ⌘K, so /scheduled keeps Home marked", () => {
+    expect(RAIL_ITEMS.map((i) => i.id)).not.toContain("scheduled");
+    expect(destinationFor("/scheduled")).toBe("home");
+    expect(destinationFor("/scheduled?tab=runs")).toBe("home");
   });
 
   it("stays out of the compact tab bar", () => {
     render(<TabBar active={null} onNavigate={() => {}} />);
     expect(screen.queryByRole("button", { name: "Scheduled" })).toBeNull();
-    // The tab bar still renders (Chat, Inbox, Feed, Library, Overview since #1049).
+    // The tab bar has the four places (Chat, Home, Library, People).
     expect(screen.getByRole("button", { name: "Chat" })).toBeTruthy();
   });
 });

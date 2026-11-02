@@ -125,16 +125,16 @@ describe("the slim agent sheet (agent-overview-2026 O6)", () => {
   });
 });
 
-describe("the Feed's instructions sheet (#614)", () => {
-  it("opens /feed/instructions over the feed and closes back to /feed", async () => {
+describe("the brief's instructions sheet (#614), now over Home", () => {
+  it("opens the old /feed/instructions over Home and closes back to /home", async () => {
     window.innerWidth = 1280;
     window.history.replaceState(null, "", "/feed/instructions");
     const { platform } = webPlatform();
     render(<PsycheApp platform={platform} />);
     const sheet = await screen.findByTestId("feed-instructions");
-    expect(await screen.findByTestId("screen-feed")).toBeTruthy();
+    expect(await screen.findByTestId("screen-home")).toBeTruthy();
     fireEvent.keyDown(sheet, { key: "Escape" });
-    await waitFor(() => expect(window.location.pathname).toBe("/feed"));
+    await waitFor(() => expect(window.location.pathname).toBe("/home"));
     await waitFor(() => expect(screen.queryByTestId("feed-instructions")).toBeNull());
   });
 });
@@ -173,25 +173,24 @@ describe("the agent sheet beside the content (#625)", () => {
 });
 
 describe("the agent sheet over the current section (#614)", () => {
-  it("the Feed's Schedule opens the Overview's Upcoming, and Approvals still opens the sheet over the feed", async () => {
+  it("the old /feed shows Home, and the brief's Schedule opens Scheduled", async () => {
     window.innerWidth = 1280;
     window.history.replaceState(null, "", "/feed");
     const { platform } = webPlatform();
     render(<PsycheApp platform={platform} />);
-    const feed = await screen.findByTestId("screen-feed");
-    fireEvent.click(within(feed).getByRole("button", { name: "Schedule" }));
-    // Upcoming moved to the Overview (agent-overview-2026 O5): the old route redirects there.
-    await screen.findByTestId("screen-overview");
-    await waitFor(() => expect(window.location.pathname).toBe("/overview"));
-    expect(window.location.hash).toBe("#upcoming");
+    const home = await screen.findByTestId("screen-home");
+    const today = await within(home).findByTestId("section-today");
+    fireEvent.click(within(today).getByRole("button", { name: "Schedule" }));
+    await screen.findByTestId("screen-scheduled");
+    await waitFor(() => expect(window.location.pathname).toBe("/scheduled"));
     expect(screen.queryByTestId("agent-sheet")).toBeNull();
   });
 });
 
-describe("old agent routes redirect to the Overview (agent-overview-2026 O5)", () => {
+describe("old agent routes redirect to the Overview and Home (agent-overview-2026 O5, consolidation-2026)", () => {
   it.each([
     ["/agent/activity", "/overview", "#now", ""],
-    ["/agent/upcoming", "/overview", "#upcoming", ""],
+    ["/agent/upcoming", "/home", "#coming-up", ""],
     ["/agent/growth", "/overview", "#growth", ""],
     [
       "/agent/activity/run/01JBXY6Q8Z00000000000000R1?step=stp_1",
@@ -214,7 +213,7 @@ describe("old agent routes redirect to the Overview (agent-overview-2026 O5)", (
 describe("Run setup again in the main window", () => {
   it("renders the re-run flow on /onboarding and for a navigate command from Settings", async () => {
     window.innerWidth = 1280;
-    window.history.replaceState(null, "", "/feed");
+    window.history.replaceState(null, "", "/home");
     const { platform } = webPlatform();
     let emit: ((c: ShellCommand) => void) | undefined;
     platform.windows = {
@@ -226,7 +225,7 @@ describe("Run setup again in the main window", () => {
       },
     };
     render(<PsycheApp platform={platform} />);
-    await screen.findByTestId("screen-feed");
+    await screen.findByTestId("screen-home");
     act(() => emit?.({ type: "navigate", route: "/onboarding" }));
     await screen.findByTestId("screen-onboarding-rerun");
     expect(window.location.pathname).toBe("/onboarding");
@@ -238,7 +237,7 @@ describe("Run setup again in the main window", () => {
 describe("Try it fills the chat composer (#677)", () => {
   it("a prefillComposer command opens the chat with the text in the composer, unsent", async () => {
     window.innerWidth = 1280;
-    window.history.replaceState(null, "", "/feed");
+    window.history.replaceState(null, "", "/home");
     const { platform, calls } = webPlatform();
     let emit: ((c: ShellCommand) => void) | undefined;
     platform.windows = {
@@ -250,7 +249,7 @@ describe("Try it fills the chat composer (#677)", () => {
       },
     };
     render(<PsycheApp platform={platform} />);
-    await screen.findByTestId("screen-feed");
+    await screen.findByTestId("screen-home");
     act(() => emit?.({ type: "prefillComposer", text: "What's on my calendar today?" }));
     await waitFor(() => expect(window.location.pathname).toBe("/chat"));
     const composer = (await screen.findByRole("textbox", {
@@ -282,7 +281,7 @@ describe("the composed app on the web host (A8)", () => {
     // Bottom tab bar: the five phone tabs, no Search and no Settings in the rail.
     const rail = screen.getByTestId("rail");
     const labels = Array.from(rail.querySelectorAll("button")).map((b) => b.textContent?.trim());
-    expect(labels).toEqual(["Chat", "Inbox", "Feed", "Library", "Overview"]);
+    expect(labels).toEqual(["Chat", "Home", "Library", "People"]);
     expect(calls.some((c) => c.method === "settings.get")).toBe(true);
     await act(async () => {
       window.innerWidth = 1280;

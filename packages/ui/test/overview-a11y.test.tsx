@@ -51,7 +51,7 @@ describe("Overview accessibility", () => {
     for (let i = 1; i < levels.length; i++) {
       expect((levels[i] as number) - (levels[i - 1] as number)).toBeLessThanOrEqual(1);
     }
-    for (const id of ["now", "activity", "growth", "upcoming", "recent"]) {
+    for (const id of ["now", "activity", "growth", "recent"]) {
       const section = container.querySelector(`#${id}`) as HTMLElement;
       expect(within(section).getAllByRole("heading", { level: 3 }).length).toBeGreaterThan(0);
     }
@@ -70,16 +70,16 @@ describe("Overview accessibility", () => {
     const period = screen.getAllByRole("radio")[0] as HTMLElement;
     const tile = screen.getByTestId("overview-tile-tasks");
     const activity = container.querySelector("#activity") as HTMLElement;
-    const upcoming = container.querySelector("#upcoming") as HTMLElement;
+    const built = container.querySelector("#built") as HTMLElement;
     const recent = container.querySelector("#recent") as HTMLElement;
     expect(index(period)).toBeGreaterThanOrEqual(0);
     expect(index(period)).toBeLessThan(index(tile));
     const inActivity = tabbable.findIndex((el) => activity.contains(el));
     expect(index(tile)).toBeLessThan(inActivity);
-    expect(inActivity).toBeLessThan(tabbable.findIndex((el) => upcoming.contains(el)));
-    expect(tabbable.findIndex((el) => upcoming.contains(el))).toBeLessThan(
-      tabbable.findIndex((el) => recent.contains(el)),
-    );
+    // Upcoming moved to Home; Built for you now sits between Activity and Recent runs.
+    const inBuilt = tabbable.findIndex((el) => built.contains(el));
+    if (inBuilt >= 0) expect(inActivity).toBeLessThan(inBuilt);
+    expect(inActivity).toBeLessThan(tabbable.findIndex((el) => recent.contains(el)));
   });
 
   it("announces a period change once, politely, through the range line", async () => {

@@ -8,7 +8,6 @@ import { cn } from "../lib/utils.ts";
 import { ScreenToolbar } from "../screens/feed/ScreenToolbar.tsx";
 import { SegmentedRadio } from "../screens/settings/SegmentedRadio.tsx";
 import { usePersona } from "../slots.tsx";
-import { PinnedWidgets } from "../widgets/PinnedWidgets.tsx";
 import { OverviewActivity } from "./ActivitySection.tsx";
 import { BuiltForYou, Specialists } from "./BuiltSpecialists.tsx";
 import { isNewUser, type OverviewData, useOverviewData } from "./data.ts";
@@ -24,7 +23,6 @@ import { formatPeriodRange, OVERVIEW_PERIODS, type OverviewPeriod, periodLabel }
 import { RecentSection } from "./RecentSection.tsx";
 import { OverviewStatusProvider, useOverviewStatusProvider } from "./SectionState.tsx";
 import { OverviewSummary } from "./SummarySection.tsx";
-import { UpcomingSection } from "./UpcomingSection.tsx";
 
 /** The "Try" chips of the new-user card (§5.5); the host turns each into a real action. */
 export type OverviewTry = "planWeek" | "morningBrief" | "connectMail";
@@ -50,8 +48,11 @@ export interface OverviewScreenProps {
   anchor?: string;
 }
 
-/** Sections shown while the owner is new: Now & next and Upcoming are useful from day one (§5.5). */
-const NEW_USER_SECTIONS: readonly OverviewSectionId[] = ["now", "upcoming"];
+/**
+ * Sections shown while the owner is new: Now & next is useful from day one (§5.5). Upcoming and
+ * the pinned widgets moved to Home (docs/design/consolidation-2026.md §3.1).
+ */
+const NEW_USER_SECTIONS: readonly OverviewSectionId[] = ["now"];
 
 /**
  * The Overview screen, "{persona} & you" (docs/design/agent-overview-2026.md §5): toolbar with
@@ -126,7 +127,6 @@ export function OverviewScreen({
           <h2 className="sr-only">{t("overview.screen")}</h2>
           {fresh ? <GettingToKnowYou name={persona.name} onTry={onTry} /> : null}
           {fresh ? null : <OverviewSummary period={period} onNavigate={onNavigate} />}
-          <PinnedWidgets />
           {visible.map((id) =>
             id === "now" ? (
               <NowSection key={id} {...(now === undefined ? {} : { now })} />
@@ -138,12 +138,6 @@ export function OverviewScreen({
               <BuiltForYou key={id} period={period} now={at} />
             ) : id === "specialists" ? (
               <Specialists key={id} period={period} now={at} />
-            ) : id === "upcoming" ? (
-              <UpcomingSection
-                key={id}
-                {...(now === undefined ? {} : { now })}
-                {...(onNavigate ? { onNavigate } : {})}
-              />
             ) : id === "recent" ? (
               <RecentSection
                 key={id}

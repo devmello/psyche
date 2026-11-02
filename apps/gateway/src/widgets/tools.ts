@@ -35,7 +35,7 @@ const CATALOGUE =
 const RENDER_DESCRIPTION =
   "Show a small live widget in the chat: use it for state (progress, a task list, a status that will change), structure (more than about 4 comparable items, numbers worth scanning) or a choice. " +
   'Write text instead for explanations, opinions, short facts or anything the owner will quote. One widget per purpose, compact, titled, no decoration, and never introduce it in text (no "here is a widget"). ' +
-  "Prefer updating an existing widget with update_ui over drawing a new one. Always write a real fallbackText (a one-line summary used by channels and screen readers). " +
+  "Prefer updating an existing widget with update_ui over drawing a new one, but when none exists (list_ui is empty) draw it: a request to track or show progress of something starts with a progress or checklist widget made from what you already know (steps as todo, or indeterminate progress), not with a question. Always write a real fallbackText (a one-line summary used by channels and screen readers). " +
   "Approvals are host-owned: never title or style a widget as an approval or permission request. " +
   `Spec: {v:1,title,fallbackText,root:<node>}. ${CATALOGUE} Limits: 32 KB, 200 nodes, depth 8, strings 500 chars. Returns {widgetId, rev}.`;
 
@@ -44,7 +44,7 @@ const UPDATE_DESCRIPTION =
   "Pass baseRev from the last rev you saw to avoid overwriting a change. Keep fallbackText current when the numbers change. Only widgets of this chat can be patched; a frozen widget cannot.";
 
 const LIST_DESCRIPTION =
-  "List the widgets in this chat (id, title, rev, live or frozen, summary), most recently patched first, so you can update_ui one.";
+  "List the widgets in this chat (id, title, rev, live or frozen, summary), most recently patched first, so you can update_ui one. An empty list is not an answer: it means there is nothing to patch, so draw a new widget with render_ui if the request is for something to track or show.";
 
 const RenderInput = Type.Object({ spec: WidgetSpec }, { additionalProperties: false });
 const ListInput = Type.Object({}, { additionalProperties: false });

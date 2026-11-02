@@ -5,8 +5,10 @@ import {
   AgentSheetPanel,
   type AgentTab,
   AppearanceProvider,
+  AutomationChat,
   agentSheetHref,
   agentSheetRoute,
+  automationOfThread,
   ChatThread,
   CommandPalette,
   ConnectedSidebar,
@@ -14,15 +16,14 @@ import {
   compactWithToast,
   describeError,
   destinationFor,
-  FeedScreen,
   GatewayProvider,
   GoalsScreen,
   HomeScreen,
-  IdeasScreen,
   InboxScreen,
   LIBRARY_SECTIONS,
   LibraryScreen,
   type LibrarySection,
+  legacyRedirect,
   mailSettings,
   type OnboardingResult,
   OverviewRun,
@@ -86,7 +87,11 @@ export const ONBOARDED_KEY = "ui.onboarding.completedAt";
 function KitChat({ threadId, ctx }: { threadId: string; ctx: ChatSlotContext }): ReactElement {
   // The agent sheet (`/agent/*`) is the shell's (`RoutedAgentSheet`): beside this chat on wide
   // windows, over it on narrow ones (#625); the avatar and task rows open it by route.
-  const incognito = useThread(threadId).thread?.thread.kind === "incognito";
+  const current = useThread(threadId).thread?.thread;
+  const incognito = current?.kind === "incognito";
+  // An automation's chat is its runs, not a conversation; a run's own thread (an approval's
+  // link, an old bookmark) opens the same chat with that run unfolded.
+  const automation = automationOfThread(current);
   // The avatar opens Approvals when something needs you, otherwise the segment used last.
   const defaultTab = useDefaultAgentTab();
   const [limitsOpen, setLimitsOpen] = useState(false);
@@ -108,6 +113,19 @@ function KitChat({ threadId, ctx }: { threadId: string; ctx: ChatSlotContext }):
     }),
     [],
   );
+  if (current !== undefined && automation !== null) {
+    return (
+      <UiSlotsProvider value={fileSlots}>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col" data-testid="kit-chat">
+          <AutomationChat
+            automationId={automation.automationId}
+            title={current.title}
+            focusThreadId={automation.runThread ? threadId : undefined}
+          />
+        </div>
+      </UiSlotsProvider>
+    );
+  }
   return (
     <UiSlotsProvider value={fileSlots}>
       <div
@@ -202,8 +220,9 @@ export function railItemFor(route: string): RailItem | null {
 }
 
 /**
- * The rail screens (docs/06 §2.7 routes): Home, People, Search, Feed, Ideas, Goals, Library and
- * the notification inbox, each the UI kit's connected screen in a scrolling page.
+ * The screens (docs/design/consolidation-2026.md §3): Home, People, Library, and the pages reached
+ * from them or ⌘K (Search, Goals, Scheduled, the Overview, the notification inbox), each the UI
+ * kit's connected screen in a scrolling page. Old routes (`/feed`, `/ideas`) are sent on.
  */
 export function screenRoute(route: string, navigate: (to: string) => void): ReactNode | null {
   const [path = "", query = ""] = route.split("#")[0]?.split("?") ?? [];
@@ -217,6 +236,10 @@ export function screenRoute(route: string, navigate: (to: string) => void): Reac
       {child}
     </section>
   );
+  // The Feed and Ideas are Home sections now: an old route shows Home at that section in place
+  // (navigating would push history, and Back would land on the old route and bounce forward).
+  const moved = legacyRedirect(route);
+  if (moved !== null) return screenRoute(moved, navigate);
   switch (parts[0]) {
     case "home": {
       // `/home[#section]`; `/home/instructions` has the brief's instructions sheet open
@@ -255,21 +278,12 @@ export function screenRoute(route: string, navigate: (to: string) => void): Reac
         />,
       );
     }
-    case "feed":
-      // `/feed/instructions` is the feed with its instructions sheet open (#614).
-      return page(
-        "Feed",
-        <FeedScreen
-          instructionsOpen={parts[1] === "instructions"}
-          onCloseInstructions={() => navigate("/feed")}
-        />,
-      );
-    case "ideas":
-      return page("Ideas", <IdeasScreen />);
     case "goals":
       return page(
         "Goals",
         <GoalsScreen
+          key={new URLSearchParams(query).get("add") === "1" ? "add" : "goals"}
+          startAdding={new URLSearchParams(query).get("add") === "1"}
           selectedGoalId={parts[1] ?? null}
           onOpenGoal={(goal) => navigate(`/goals/${goal.id}`)}
         />,
@@ -572,6 +586,7 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
           onWidthChange={p.onWidthChange}
           mode={p.mode}
           onModeChange={p.onModeChange}
+          onOpenSearch={p.onOpenSearch}
           {...(p.header ? { header: p.header } : {})}
         />
       ),
