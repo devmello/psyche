@@ -150,9 +150,24 @@ describe("config", () => {
       },
       exclude: { contacts: ["a@b.c", 3, " "] },
     });
-    expect(r.sources.mail).toEqual({ enabled: true, processing: "local", agent: true });
-    expect(r.sources.notes).toEqual({ enabled: false, processing: "cloud", agent: true });
+    expect(r.sources.mail).toEqual({ enabled: true, processing: "local", agent: true, ocr: false });
+    expect(r.sources.notes).toEqual({
+      enabled: false,
+      processing: "cloud",
+      agent: true,
+      ocr: false,
+    });
     expect(r.exclude.contacts).toEqual(["a@b.c"]);
+  });
+
+  it("reads text in images is opt-in and Files only (R6/R7)", () => {
+    expect(defaultSourcesConfig().sources.files.ocr).toBe(false);
+    const r = readSourcesConfig({
+      sources: { files: { enabled: true, ocr: true }, mail: { enabled: true, ocr: true } },
+    });
+    expect(r.sources.files.ocr).toBe(true);
+    expect(r.sources.mail.ocr).toBe(false);
+    expect(readSourcesConfig({ sources: { files: { ocr: "yes" } } }).sources.files.ocr).toBe(false);
   });
 });
 

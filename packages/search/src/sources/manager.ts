@@ -274,7 +274,14 @@ export class SourceIndexer {
   /** Removes what the source no longer has (deletes the cursor sources cannot see). */
   async sweep(id: SourceId): Promise<number> {
     const adapter = this.#adapters.get(id);
-    if (adapter?.listIds === undefined || adapter.unavailable() !== undefined) return 0;
+    if (adapter === undefined) return 0;
+    let expired = 0;
+    if (adapter.retentionMs !== undefined) expired = await this.#expire(id, adapter.retentionMs);
+    if (adapter.listIds === undefined || adapter.unavailable() !== undefined) {
+      if (adapter.retentionMs !== undefined)
+        this.#setMeta(`src.${id}.sweptAt`, String(this.#o.now()));
+      return expired;
+    }
     try {
       const { ids, complete } = await adapter.listIds(this.#abort.signal);
       if (!complete) return 0;
@@ -290,12 +297,25 @@ export class SourceIndexer {
       }
       this.#setMeta(`src.${id}.sweptAt`, String(this.#o.now()));
       if (removed > 0) this.#o.onChange?.();
-      return removed;
+      return removed + expired;
     } catch (err) {
       this.#errors.set(id, err instanceof Error ? err.message : String(err));
       this.#o.onError?.(id, err);
       return 0;
     }
+  }
+
+  /** Removes a source's items older than `retentionMs` (by the document's date). */
+  async #expire(id: SourceId, retentionMs: number): Promise<number> {
+    const rows = this.#index.db
+      .prepare(
+        `SELECT s.native_id FROM search_source_items s JOIN search_docs d ON d.id = s.doc_id
+         WHERE s.source = ? AND d.created_ms < ?`,
+      )
+      .all(id, this.#o.now() - retentionMs) as { native_id: string }[];
+    for (const { native_id } of rows) await this.#forget(id, native_id);
+    if (rows.length > 0) this.#o.onChange?.();
+    return rows.length;
   }
 
   // --- config changes --------------------------------------------------------------------------
@@ -320,6 +340,22 @@ export class SourceIndexer {
         .prepare("SELECT 1 FROM search_source_items WHERE source = ? LIMIT 1")
         .get(id);
       if (has !== undefined || this.#meta(`src.${id}.cursor`) !== undefined) await this.purge(id);
+    }
+    for (const id of SOURCE_IDS) {
+      if (!config.sources[id].enabled) continue;
+      const was = this.#meta(`src.${id}.ocr`) === "1";
+      const now = config.sources[id].ocr;
+      if (was === now) continue;
+      if (now) {
+        // Turned on: walk the source again so images and scans are read (unchanged items are
+        // skipped by their hash).
+        this.#setMeta(`src.${id}.ocr`, "1");
+        this.#setMeta(`src.${id}.cursor`, undefined);
+        this.#setMeta(`src.${id}.backfilled`, undefined);
+      } else {
+        // Turned off: text read from images leaves the index with the setting.
+        await this.purge(id);
+      }
     }
     const rows = this.#index.db
       .prepare(
@@ -401,6 +437,7 @@ export class SourceIndexer {
         enabled: cfg.enabled,
         processing: cfg.processing,
         agent: cfg.agent,
+        ocr: cfg.ocr,
         state,
         ...(cfg.enabled && (why ?? err) !== undefined ? { detail: (why ?? err) as string } : {}),
         items: c?.n ?? 0,
@@ -433,6 +470,7 @@ function toDoc(id: SourceId, item: SourceItem): SearchDoc {
     provenance: item.provenance,
     ...(item.from === undefined ? {} : { from: item.from }),
     ...(item.mime === undefined ? {} : { mime: item.mime }),
+    ...(item.parentId === undefined ? {} : { parentId: item.parentId }),
     tags: [id, ...(item.tags ?? [])],
     source: sourceTag(id),
     scopeKey: OWNER_SCOPE,

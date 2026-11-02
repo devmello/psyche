@@ -235,7 +235,7 @@ export type SearchIndexStatus = Static<typeof SearchIndexStatus>;
 
 /** Local sources the owner can have indexed (Settings → Search sources). */
 export const SearchSourceId = StringEnum(
-  ["mail", "messages", "notes", "calendar", "reminders", "files"],
+  ["mail", "messages", "notes", "calendar", "reminders", "files", "browser", "transcripts"],
   { $id: "SearchSourceId" },
 );
 export type SearchSourceId = Static<typeof SearchSourceId>;
@@ -255,6 +255,10 @@ export const SearchSourceStatus = Type.Object(
     agent: Type.Boolean({
       description:
         "The agent's search_everything may search it; Messages is off until the owner allows it",
+    }),
+    ocr: Type.Boolean({
+      description:
+        "Read text in images and scanned PDFs on this Mac (Apple Vision); off until the owner allows it. Only Files uses it",
     }),
     state: StringEnum(["off", "unavailable", "idle", "indexing", "error"], {
       $id: "SearchSourceState",
@@ -304,6 +308,12 @@ export const SearchMethods = {
           description: "Ids of understood chips the user removed",
         }),
       ),
+      smart: Type.Optional(
+        Type.Boolean({
+          description:
+            "Let the cheap query model read a question the rules could not filter (Enter, not keystrokes). Ignored when no model is configured",
+        }),
+      ),
     }),
     result: Type.Object({
       hits: Type.Array(SearchHit),
@@ -346,13 +356,14 @@ export const SearchMethods = {
       enabled: Type.Optional(Type.Boolean()),
       processing: Type.Optional(SearchProcessing),
       agent: Type.Optional(Type.Boolean()),
+      ocr: Type.Optional(Type.Boolean()),
       exclude: Type.Optional(Type.Partial(SearchExclusions)),
     }),
     result: SearchSourcesStatus,
     scope: "operator.admin",
     sideEffecting: true,
     description:
-      "Turns a search source on or off (what Psyche may read), sets its processing model, or replaces exclusion lists. Turning a source off removes its documents at once; an added exclusion removes what it matches. Side-effecting.",
+      "Turns a search source on or off (what Psyche may read), sets its processing model, turns on reading text in images (OCR, Files only), or replaces exclusion lists. Turning a source off removes its documents at once; an added exclusion removes what it matches. Side-effecting.",
   }),
   "search.sources.rebuild": defineMethod({
     params: Type.Object({ source: SearchSourceId }),

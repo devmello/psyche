@@ -33,6 +33,7 @@ import type {
   ToolCall,
   VaultPayment,
   VmUpdatedPayload,
+  Widget,
 } from "@psyche/protocol";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { describeError } from "../i18n/errors.ts";
@@ -988,6 +989,23 @@ export function useReceipt(receiptId: string | null): LoadState & { receipt: Rec
     },
   );
   return { ...r, receipt: r.value };
+}
+
+/**
+ * A generative-UI widget snapshot by id (docs/design/generative-ui-2026.md §5.5). Loaded once with
+ * `widgets.get`, kept current by `widget.updated`; a dropped snapshot (rev gap) loads again, and a
+ * reconnect refreshes it through the loader.
+ */
+export function useWidget(widgetId: string | null): LoadState & { widget: Widget | null } {
+  const widget = useStoreState((s) => (widgetId === null ? undefined : s.widgets[widgetId]));
+  const missing = widgetId !== null && widget === undefined;
+  const load = useLoader(missing ? `widget:${widgetId}` : null, async (st) => {
+    if (widgetId === null) return;
+    const version = st.version();
+    const res = await st.call("widgets.get", { widgetIds: [widgetId] });
+    st.update((s) => putMany(s, "widgets", res.widgets, version));
+  });
+  return { ...load, widget: widget ?? null };
 }
 
 export function useArtifact(artifactId: string | null): LoadState & { artifact: Artifact | null } {
