@@ -67,7 +67,7 @@ export interface AppShellProps {
   /** Current route (UI design §2.7); the shell owns routing. */
   route: string;
   onNavigate: (route: string) => void;
-  /** Content for non-chat routes (Feed, Ideas, Goals, Library, Search, Settings, Inbox…). */
+  /** Content for non-chat routes (Home, People, Library, Search, Settings, Inbox…). */
   children?: ReactNode;
   /** Pane area beside the chat (S11's panes). */
   panes?: ReactNode;
@@ -226,6 +226,7 @@ export function AppShell({
                 onWidthChange={setSidebarWidth}
                 mode={sidebarMode}
                 onModeChange={setSidebarMode}
+                onOpenSearch={() => setPaletteOpen(true)}
                 header={toggle}
                 {...(now === undefined ? {} : { now })}
               />

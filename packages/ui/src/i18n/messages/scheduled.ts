@@ -156,7 +156,7 @@ export const scheduled = {
   "scheduled.routine.generic": "Runs in the background for Psyche.",
   "scheduled.routine.dailyBrief.name": "Morning brief",
   "scheduled.routine.dailyBrief.does":
-    "Builds your morning brief from your calendar, mail and follow-ups and posts it to the Feed.",
+    "Builds your morning brief from your calendar, mail and follow-ups and posts it to Home.",
   "scheduled.routine.dailyWrapup.name": "Evening wrap-up",
   "scheduled.routine.dailyWrapup.does":
     "Sums up what got done, what's left and what's next, and offers to carry items over.",
@@ -175,8 +175,8 @@ export const scheduled = {
   "scheduled.routine.notesFolder.does":
     "Looks for new meeting recordings and turns them into notes.",
   "scheduled.routine.feedBrief.name": "Feed brief",
-  "scheduled.routine.feedBrief.does": "Writes the day's brief into your Feed.",
-  "scheduled.routine.feedBriefing.does": "Writes your custom briefing into the Feed.",
+  "scheduled.routine.feedBrief.does": "Writes the day's brief on Home.",
+  "scheduled.routine.feedBriefing.does": "Writes your custom briefing on Home.",
   "scheduled.routine.ideasMine.name": "Ideas: nightly mining",
   "scheduled.routine.ideasMine.does": "Looks through the day for ideas worth keeping.",
   "scheduled.routine.ideasDeliver.name": "Ideas: delivery window",
@@ -188,7 +188,7 @@ export const scheduled = {
     "Tidies what Psyche remembers each night: merges duplicates, keeps what's useful, updates the people and projects it knows.",
   "scheduled.routine.weeklyCard.name": "What I learned this week",
   "scheduled.routine.weeklyCard.does":
-    "Posts a weekly card in the Feed with what Psyche learned about how you like things done.",
+    "Posts a weekly card on Home with what Psyche learned about how you like things done.",
   "scheduled.routine.heartbeat.name": "Heartbeat",
   "scheduled.routine.heartbeat.does":
     "A light check-in during the day to see if anything needs your attention.",

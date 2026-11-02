@@ -55,13 +55,11 @@ describe("the period in the URL", () => {
 });
 
 describe("navigation entry", () => {
-  it("is a rail destination after Library, and /overview routes belong to it", () => {
-    const ids = RAIL_ITEMS.map((i) => i.id);
-    // After Library (Memory sits between them since #1049).
-    expect(ids.indexOf("overview")).toBeGreaterThan(ids.indexOf("library"));
-    expect(destinationFor("/overview")).toBe("overview");
-    expect(destinationFor("/overview?period=all")).toBe("overview");
-    expect(destinationFor("/overview/run/01J")).toBe("overview");
+  it("is a page reached from Home (and ⌘K), so /overview routes keep Home marked", () => {
+    expect(RAIL_ITEMS.map((i) => i.id)).not.toContain("overview");
+    expect(destinationFor("/overview")).toBe("home");
+    expect(destinationFor("/overview?period=all")).toBe("home");
+    expect(destinationFor("/overview/run/01J")).toBe("home");
   });
 });
 

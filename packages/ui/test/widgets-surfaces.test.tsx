@@ -104,9 +104,7 @@ describe("pin to Home (D5)", () => {
     const first = within(block).getAllByTestId("widget-pin")[0] as HTMLElement;
     await user.click(first);
     await waitFor(() =>
-      expect(within(screen.getByTestId("section-pinned")).getAllByTestId("widget")).toHaveLength(
-        5,
-      ),
+      expect(within(screen.getByTestId("section-pinned")).getAllByTestId("widget")).toHaveLength(5),
     );
   });
 });

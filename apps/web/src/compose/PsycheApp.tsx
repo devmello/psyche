@@ -21,9 +21,9 @@ import {
   HomeScreen,
   InboxScreen,
   LIBRARY_SECTIONS,
-  legacyRedirect,
   LibraryScreen,
   type LibrarySection,
+  legacyRedirect,
   mailSettings,
   type OnboardingResult,
   OverviewRun,
@@ -586,6 +586,7 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
           onWidthChange={p.onWidthChange}
           mode={p.mode}
           onModeChange={p.onModeChange}
+          onOpenSearch={p.onOpenSearch}
           {...(p.header ? { header: p.header } : {})}
         />
       ),

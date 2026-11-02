@@ -35,6 +35,7 @@ export const shell = {
   "shell.rail.library": "Library",
   "shell.rail.overview": "Overview",
   "shell.rail.badge": "{label}, {n, number} new",
+  "shell.rail.waiting": "{label}, {n, number} waiting on you",
   "shell.rail.main": "Main",
   "shell.rail.menu": "Menu",
   "shell.rail.settings": "Settings",
