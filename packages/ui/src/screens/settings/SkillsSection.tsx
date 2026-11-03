@@ -23,6 +23,7 @@ import { AvailableSkills } from "./CapabilityAvailable.tsx";
 import { RowMoreMenu } from "./RowMoreMenu.tsx";
 import { SkillSuggestions } from "./SkillDraftCard.tsx";
 import {
+  Advanced,
   EmptyNotice,
   ErrorNotice,
   Facts,
@@ -611,7 +612,10 @@ export function SkillsPanel({
           </Group>
         ) : null}
         {review === undefined ? (suggestions ?? null) : null}
-        <Group title={t("settings.skills.installed")}>
+        <Group
+          title={t("settings.skills.installed")}
+          description={t("settings.skills.installedHint")}
+        >
           {installed.length === 0 ? (
             <EmptyNotice text={t("settings.skills.noInstalled")} />
           ) : (
@@ -630,24 +634,26 @@ export function SkillsPanel({
           )}
         </Group>
         {onToggle ? <AvailableSkills skills={skills} onEnable={(s) => onToggle(s, true)} /> : null}
-        <Group title={t("settings.skills.trust.bundled")}>
-          {bundled.length === 0 ? (
-            <EmptyNotice text={t("settings.skills.noBundled")} />
-          ) : (
-            <ul className="flex flex-col divide-y divide-gray-6">
-              {bundled.map((s) => (
-                <SkillRow
-                  key={`${s.source}:${s.name}`}
-                  skill={s}
-                  lessons={lessons.filter(
-                    (l) => l.destination.type === "skill" && l.destination.skill === s.name,
-                  )}
-                  {...rowProps}
-                />
-              ))}
-            </ul>
-          )}
-        </Group>
+        <Advanced description={t("settings.skills.advancedHint")}>
+          <Group title={t("settings.skills.trust.bundled")}>
+            {bundled.length === 0 ? (
+              <EmptyNotice text={t("settings.skills.noBundled")} />
+            ) : (
+              <ul className="flex flex-col divide-y divide-gray-6">
+                {bundled.map((s) => (
+                  <SkillRow
+                    key={`${s.source}:${s.name}`}
+                    skill={s}
+                    lessons={lessons.filter(
+                      (l) => l.destination.type === "skill" && l.destination.skill === s.name,
+                    )}
+                    {...rowProps}
+                  />
+                ))}
+              </ul>
+            )}
+          </Group>
+        </Advanced>
       </LoadGate>
     </SectionFrame>
   );

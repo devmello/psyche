@@ -309,7 +309,10 @@ export function DailyPanel({
         error={error}
         {...(onRetry ? { onRetry } : {})}
       >
-        <Group title={t("settings.daily.group.brief")}>
+        <Group
+          title={t("settings.daily.group.brief")}
+          description={t("settings.daily.group.briefHint")}
+        >
           <SwitchField
             label={t("settings.key.daily.brief.enabled")}
             settingKey="daily.brief.enabled"
@@ -333,7 +336,10 @@ export function DailyPanel({
             </Button>
           ) : null}
         </Group>
-        <Group title={t("settings.daily.group.wrapup")}>
+        <Group
+          title={t("settings.daily.group.wrapup")}
+          description={t("settings.daily.group.wrapupHint")}
+        >
           <SwitchField
             label={t("settings.key.daily.wrapup.enabled")}
             settingKey="daily.wrapup.enabled"
@@ -357,7 +363,10 @@ export function DailyPanel({
             </Button>
           ) : null}
         </Group>
-        <Group title={t("settings.daily.group.delivery")}>
+        <Group
+          title={t("settings.daily.group.delivery")}
+          description={t("settings.daily.group.deliveryHint")}
+        >
           <SwitchField
             label={t("settings.key.daily.notify")}
             description={t("settings.daily.notify.hint")}
@@ -452,7 +461,10 @@ export function DailySection(): ReactElement {
             }
           />
         </Group>
-        <Group title={t("settings.daily.group.automations")}>
+        <Group
+          title={t("settings.daily.group.automations")}
+          description={t("settings.daily.group.automationsHint")}
+        >
           <AutomationsPanel
             automations={(autos.data?.automations ?? []).filter(isUserAutomation)}
             templates={templates.data?.templates ?? []}

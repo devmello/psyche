@@ -141,7 +141,10 @@ export function PersonaPanel({
           </div>
         </div>
 
-        <Group title={t("settings.persona.identity")}>
+        <Group
+          title={t("settings.persona.identity")}
+          description={t("settings.persona.identityHint")}
+        >
           <TextSetting
             label={t("settings.key.persona.name")}
             value={name}
@@ -167,7 +170,7 @@ export function PersonaPanel({
           />
         </Group>
 
-        <Group title={t("settings.persona.avatar")}>
+        <Group title={t("settings.persona.avatar")} description={t("settings.persona.avatarHint")}>
           <CreaturePicker
             value={creatureId}
             personaName={name}
@@ -210,7 +213,10 @@ export function PersonaPanel({
           </div>
         </Group>
 
-        <Group title={t("settings.persona.whileWorking")}>
+        <Group
+          title={t("settings.persona.whileWorking")}
+          description={t("settings.persona.whileWorkingHint")}
+        >
           <SwitchField
             label={t("settings.key.agent.showReasoning")}
             description={t("settings.persona.showReasoningHint", { persona: name })}

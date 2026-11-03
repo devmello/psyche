@@ -38,7 +38,7 @@ export function AboutPanel({
   const { navigate } = useSlots();
   return (
     <SectionFrame title={t("settings.about.title")} description={t("settings.about.description")}>
-      <Group title={t("settings.about.versions")}>
+      <Group title={t("settings.about.versions")} description={t("settings.about.versionsHint")}>
         <Facts
           items={[
             {

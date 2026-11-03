@@ -7,6 +7,7 @@ import { t } from "../../i18n/core.ts";
 import { LINK_OPEN_SETTING, type LinkOpenMode, linkOpenMode } from "../../links/link-policy.ts";
 import { usePersona, useSlots } from "../../slots.tsx";
 import {
+  Advanced,
   ErrorNotice,
   Facts,
   Group,
@@ -313,107 +314,109 @@ export function BrowserPanel({
           />
         </Group>
         {signedInSites ? <SignedInSitesGroup api={signedInSites} /> : null}
-        <Group
-          title={t("settings.key.browser.botAuth")}
-          description={t("settings.browser.botAuthDescription", { persona })}
-        >
-          <SwitchField
-            label={t("settings.browser.signRequests")}
-            description={t("settings.browser.signRequestsHint")}
-            checked={wba.enabled}
-            settingKey={BOT_AUTH_KEY}
-            onChange={(enabled) => onChange(BOT_AUTH_KEY, { ...wba, enabled })}
-          />
-          <TextSetting
-            label={t("settings.browser.directoryUrl")}
-            description={
-              <>
-                {t("settings.browser.directoryHint.before")}{" "}
-                <code className="font-mono">
-                  {botAuth?.directoryPath ?? "/.well-known/http-message-signatures-directory"}
-                </code>
-                {t("settings.browser.directoryHint.after")}
-              </>
-            }
-            // i18n-ignore: an example URL, not text
-            placeholder="https://example.com/.well-known/http-message-signatures-directory"
-            value={wba.signatureAgent ?? ""}
-            settingKey={BOT_AUTH_KEY}
-            onCommit={(v) => {
-              const { signatureAgent: _old, ...rest } = wba;
-              onChange(BOT_AUTH_KEY, v === "" ? rest : { ...rest, signatureAgent: v });
-            }}
-          />
-          <Facts
-            items={[
-              {
-                term: t("settings.browser.fingerprint"),
-                value: hasKey ? (
-                  <code className="font-mono text-callout" data-testid="bot-auth-fingerprint">
-                    {botAuth?.keyId}
+        <Advanced description={t("settings.browser.advancedHint")}>
+          <Group
+            title={t("settings.key.browser.botAuth")}
+            description={t("settings.browser.botAuthDescription", { persona })}
+          >
+            <SwitchField
+              label={t("settings.browser.signRequests")}
+              description={t("settings.browser.signRequestsHint")}
+              checked={wba.enabled}
+              settingKey={BOT_AUTH_KEY}
+              onChange={(enabled) => onChange(BOT_AUTH_KEY, { ...wba, enabled })}
+            />
+            <TextSetting
+              label={t("settings.browser.directoryUrl")}
+              description={
+                <>
+                  {t("settings.browser.directoryHint.before")}{" "}
+                  <code className="font-mono">
+                    {botAuth?.directoryPath ?? "/.well-known/http-message-signatures-directory"}
                   </code>
-                ) : (
-                  t("settings.browser.noKey")
-                ),
-              },
-              ...(botAuth?.createdAt
-                ? [{ term: t("settings.browser.created"), value: botAuth.createdAt.slice(0, 10) }]
-                : []),
-              {
-                term: t("settings.browser.sitesAsked"),
-                value:
-                  botAuth && botAuth.advertised.length > 0
-                    ? botAuth.advertised.join(", ")
-                    : t("settings.browser.noneYet"),
-              },
-            ]}
-          />
-          {onRotateBotAuth ? (
-            <div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={rotating}
-                onClick={() => {
-                  setRotated(null);
-                  setRotating(true);
-                  onRotateBotAuth()
-                    .then(
-                      () =>
-                        setRotated({
-                          kind: "ok",
-                          text: hasKey
-                            ? t("settings.browser.rotated")
-                            : t("settings.browser.keyCreated"),
-                        }),
-                      (err: unknown) =>
-                        setRotated({
-                          kind: "error",
-                          text: t("settings.browser.rotateFailed", {
-                            hasKey,
-                            reason: messageOf(err),
+                  {t("settings.browser.directoryHint.after")}
+                </>
+              }
+              // i18n-ignore: an example URL, not text
+              placeholder="https://example.com/.well-known/http-message-signatures-directory"
+              value={wba.signatureAgent ?? ""}
+              settingKey={BOT_AUTH_KEY}
+              onCommit={(v) => {
+                const { signatureAgent: _old, ...rest } = wba;
+                onChange(BOT_AUTH_KEY, v === "" ? rest : { ...rest, signatureAgent: v });
+              }}
+            />
+            <Facts
+              items={[
+                {
+                  term: t("settings.browser.fingerprint"),
+                  value: hasKey ? (
+                    <code className="font-mono text-callout" data-testid="bot-auth-fingerprint">
+                      {botAuth?.keyId}
+                    </code>
+                  ) : (
+                    t("settings.browser.noKey")
+                  ),
+                },
+                ...(botAuth?.createdAt
+                  ? [{ term: t("settings.browser.created"), value: botAuth.createdAt.slice(0, 10) }]
+                  : []),
+                {
+                  term: t("settings.browser.sitesAsked"),
+                  value:
+                    botAuth && botAuth.advertised.length > 0
+                      ? botAuth.advertised.join(", ")
+                      : t("settings.browser.noneYet"),
+                },
+              ]}
+            />
+            {onRotateBotAuth ? (
+              <div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={rotating}
+                  onClick={() => {
+                    setRotated(null);
+                    setRotating(true);
+                    onRotateBotAuth()
+                      .then(
+                        () =>
+                          setRotated({
+                            kind: "ok",
+                            text: hasKey
+                              ? t("settings.browser.rotated")
+                              : t("settings.browser.keyCreated"),
                           }),
-                        }),
-                    )
-                    .finally(() => setRotating(false));
-                }}
-              >
-                <KeyRound aria-hidden="true" />{" "}
-                {hasKey ? t("settings.browser.rotateKey") : t("settings.browser.createKey")}
-              </Button>
-            </div>
-          ) : null}
-          {rotated ? (
-            rotated.kind === "error" ? (
-              <ErrorNotice what={rotated.text} did={t("settings.browser.keyStillSigns")} />
-            ) : (
-              <p role="status" className="rounded-md bg-gray-3 px-3 py-2">
-                {rotated.text}
-              </p>
-            )
-          ) : null}
-        </Group>
+                        (err: unknown) =>
+                          setRotated({
+                            kind: "error",
+                            text: t("settings.browser.rotateFailed", {
+                              hasKey,
+                              reason: messageOf(err),
+                            }),
+                          }),
+                      )
+                      .finally(() => setRotating(false));
+                  }}
+                >
+                  <KeyRound aria-hidden="true" />{" "}
+                  {hasKey ? t("settings.browser.rotateKey") : t("settings.browser.createKey")}
+                </Button>
+              </div>
+            ) : null}
+            {rotated ? (
+              rotated.kind === "error" ? (
+                <ErrorNotice what={rotated.text} did={t("settings.browser.keyStillSigns")} />
+              ) : (
+                <p role="status" className="rounded-md bg-gray-3 px-3 py-2">
+                  {rotated.text}
+                </p>
+              )
+            ) : null}
+          </Group>
+        </Advanced>
       </LoadGate>
     </SectionFrame>
   );

@@ -191,7 +191,7 @@ export function VmPanel({
         error={error ?? null}
         {...(onRetry ? { onRetry } : {})}
       >
-        <Group title={t("settings.vm.sandboxMac")}>
+        <Group title={t("settings.vm.sandboxMac")} description={t("settings.vm.sandboxMacHint")}>
           <SwitchField
             label={t("settings.key.vm.enabled")}
             description={t("settings.vm.enabledHint")}

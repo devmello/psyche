@@ -171,7 +171,10 @@ export function ComputerUsePanel({
         error={error ?? null}
         {...(onRetry ? { onRetry } : {})}
       >
-        <Group title={t("settings.computerUse.macPermissions")}>
+        <Group
+          title={t("settings.computerUse.macPermissions")}
+          description={t("settings.computerUse.macPermissionsHint")}
+        >
           <>
             {(["accessibility", "screenRecording"] as const).map((p) => {
               const state = tcc[p] ?? "not_determined";

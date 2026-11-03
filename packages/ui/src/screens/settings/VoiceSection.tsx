@@ -5,6 +5,7 @@ import { t } from "../../i18n/core.ts";
 import { readVoiceSettings, VOICE_KEYS } from "../../voice/settings.ts";
 import { type ShortcutCheck, ShortcutRecorder } from "./ShortcutRecorder.tsx";
 import {
+  Advanced,
   bool,
   ErrorNotice,
   Group,
@@ -226,7 +227,10 @@ export function VoicePanel({
         error={error ?? null}
         {...(onRetry ? { onRetry } : {})}
       >
-        <Group title={t("settings.voice.dictation")}>
+        <Group
+          title={t("settings.voice.dictation")}
+          description={t("settings.voice.dictationHint")}
+        >
           <RadioField
             label={t("settings.key.voice.pushToTalk")}
             inline
@@ -288,32 +292,34 @@ export function VoicePanel({
           />
         ) : null}
         <VoiceConversationGroup values={values} onChange={onChange} />
-        <Group title={t("settings.voice.engine")}>
-          <RadioField
-            label={t("settings.key.voice.engine")}
-            hideLabel
-            value={str(values, "voice.engine", "local")}
-            settingKey="voice.engine"
-            onChange={(v) => onChange("voice.engine", v)}
-            options={[
-              {
-                value: "local",
-                label: t("settings.voice.engine.local"),
-                hint: t("settings.voice.engine.localHint"),
-              },
-              {
-                value: "system",
-                label: t("settings.voice.engine.system"),
-                hint: t("settings.voice.engine.systemHint"),
-              },
-              {
-                value: "cloud",
-                label: t("settings.voice.engine.cloud"),
-                hint: t("settings.voice.engine.cloudHint"),
-              },
-            ]}
-          />
-        </Group>
+        <Advanced description={t("settings.voice.advancedHint")}>
+          <Group title={t("settings.voice.engine")}>
+            <RadioField
+              label={t("settings.key.voice.engine")}
+              hideLabel
+              value={str(values, "voice.engine", "local")}
+              settingKey="voice.engine"
+              onChange={(v) => onChange("voice.engine", v)}
+              options={[
+                {
+                  value: "local",
+                  label: t("settings.voice.engine.local"),
+                  hint: t("settings.voice.engine.localHint"),
+                },
+                {
+                  value: "system",
+                  label: t("settings.voice.engine.system"),
+                  hint: t("settings.voice.engine.systemHint"),
+                },
+                {
+                  value: "cloud",
+                  label: t("settings.voice.engine.cloud"),
+                  hint: t("settings.voice.engine.cloudHint"),
+                },
+              ]}
+            />
+          </Group>
+        </Advanced>
       </LoadGate>
     </SectionFrame>
   );

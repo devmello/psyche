@@ -121,7 +121,10 @@ export function UsagePanel({ usage, loading, error, onRetry }: UsagePanelProps):
             >
               <UsageMeter percentRemaining={usage.percentRemaining} />
             </Group>
-            <Group title={t("settings.usage.byThread")}>
+            <Group
+              title={t("settings.usage.byThread")}
+              description={t("settings.usage.byThreadHint")}
+            >
               <Table aria-label={t("settings.usage.byThreadTable")}>
                 <TableHeader>
                   <TableRow>
