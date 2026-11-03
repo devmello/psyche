@@ -1,6 +1,7 @@
 import type { Clock } from "@psyche/protocol";
 import { normalizeName } from "./normalize.ts";
 import type { GraphStore } from "./store.ts";
+import { isOpenWork, namedIn, workNames } from "./work-signals.ts";
 
 /**
  * Deterministic project work (docs/memory/people-and-projects-2026.md §5.2 "Project clustering"):
@@ -26,26 +27,36 @@ export interface ProjectPassReport {
   assigned: number;
   members: number;
   suggestions: number;
+  /** Assignments an interaction was tied to as a subject (§2.6 of the memory-everything plan). */
+  subjects?: number;
 }
 
 /** Interactions of the last `days` that name a confirmed project join it; their people become members. */
 export function assignProjects(graph: GraphStore, clock: Clock, days = 30): ProjectPassReport {
   const report: ProjectPassReport = { assigned: 0, members: 0, suggestions: 0 };
   const projects = graph.listEntities(["project"]).filter((p) => p.projectStatus !== "done");
-  if (projects.length === 0) return report;
   const now = clock.now();
   const recent = graph.interactionsBetween(
     new Date(now - days * DAY_MS).toISOString(),
     new Date(now + 14 * DAY_MS).toISOString(),
   );
+  assignWork(graph, recent, report);
   for (const project of projects) {
-    const names = [project.name, ...project.aliases]
-      .map((n) => words(n))
-      .filter((w) => w.length > 0);
+    // A course is matched on whole tokens, digits included ("MATH 21" is not "MATH 210"); other
+    // projects keep the looser word match.
+    const course = project.projectType === "course";
+    const courseNames = course ? workNames(graph, project) : [];
+    const names = course
+      ? []
+      : [project.name, ...project.aliases].map((n) => words(n)).filter((w) => w.length > 0);
     for (const i of recent) {
       if (typeof i.projectId === "string" || typeof i.subject !== "string") continue;
-      const subject = new Set(words(i.subject));
-      if (!names.some((n) => n.every((w) => subject.has(w)))) continue;
+      const text = i.subject;
+      const subject = new Set(words(text));
+      const hit = course
+        ? courseNames.some((n) => namedIn(n, text))
+        : names.some((n) => n.every((w) => subject.has(w)));
+      if (!hit) continue;
       graph.setInteractionProject(i.id, project.id);
       report.assigned++;
       for (const p of i.participants) {
@@ -64,6 +75,48 @@ export function assignProjects(graph: GraphStore, clock: Clock, days = 30): Proj
     }
   }
   return report;
+}
+
+/**
+ * Interactions that name an open assignment ("Lecture Work 7") join its timeline: the assignment
+ * and its course are linked as subjects (rule, §2.6 of the memory-everything plan), and the course
+ * becomes the interaction's project when it has none. A link is a pointer, not a signal: it never
+ * changes a status or `last_signal_at`, so mail from anyone can sit on the timeline as data (W1).
+ * A name needs two tokens ("HW7", "Report 2"), so one common word never claims a mail.
+ */
+function assignWork(
+  graph: GraphStore,
+  recent: ReturnType<GraphStore["interactionsBetween"]>,
+  report: ProjectPassReport,
+): void {
+  const assignments = graph
+    .listEntities(["assignment"])
+    .filter(isOpenWork)
+    .map((entity) => ({
+      entity,
+      names: workNames(graph, entity),
+      parent: graph.edges(entity.id).find((e) => e.src === entity.id && e.rel === "part_of")?.dst,
+    }));
+  if (assignments.length === 0) return;
+  for (const i of recent) {
+    if (typeof i.subject !== "string") continue;
+    const subject = i.subject;
+    const hits = assignments.filter((a) => a.names.some((n) => namedIn(n, subject)));
+    // Two assignments named in one subject: not clear which, so leave it to anchors and the owner.
+    if (hits.length !== 1) continue;
+    const { entity, parent } = hits[0] as (typeof assignments)[number];
+    const known = new Set(graph.subjectsOf(i.id).map((s) => s.entityId));
+    if (!known.has(entity.id)) {
+      graph.linkSubject(i.id, entity.id, "rule", 0.8);
+      report.subjects = (report.subjects ?? 0) + 1;
+    }
+    if (parent === undefined) continue;
+    if (!known.has(parent)) graph.linkSubject(i.id, parent, "rule", 0.8);
+    if (typeof i.projectId !== "string") {
+      graph.setInteractionProject(i.id, parent);
+      report.assigned++;
+    }
+  }
 }
 
 /**
