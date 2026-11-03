@@ -74,9 +74,11 @@ describe("AutomationChat", () => {
     expect(failed).toBeDefined();
     expect(within(failed as HTMLElement).getByText("Mail was unreachable")).toBeTruthy();
     expect(failed?.getAttribute("data-open")).toBe("false");
-    // The run still going is open, with its trace.
-    const live = blocks[0] as HTMLElement;
-    expect(live.getAttribute("data-open")).toBe("true");
+    // The run still going is open, with its trace. It opens on a later render than the list
+    // appears, so wait for it (it raced on a loaded CI runner, 2026-11-03).
+    await waitFor(() =>
+      expect(screen.getAllByTestId("automation-run")[0]?.getAttribute("data-open")).toBe("true"),
+    );
     // A finished run opens to its steps and result on a click.
     const done = blocks.find((b) => b.getAttribute("data-open") === "false" && b !== failed);
     fireEvent.click(within(done as HTMLElement).getAllByRole("button")[0] as HTMLElement);
