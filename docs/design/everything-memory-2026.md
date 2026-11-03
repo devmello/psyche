@@ -6,6 +6,8 @@ Status: plan, 2026-10-28. Design only: nothing here is built yet. It extends thr
 - [search-roadmap-2026.md](search-roadmap-2026.md) (#1009): coverage, query understanding, `search_everything`, grounded answers (R1–R13).
 - [05-security-and-permissions.md](../05-security-and-permissions.md): taint (§3.6), the injection defence stack (§7), memory safety (§8), people (§9) and data handling (§14).
 
+Extended on 2026-11-02 by [memory-everything-2026.md](memory-everything-2026.md): work items (projects, courses, assignments), progress and catching up, privacy tiers per surface, and the Memory page that replaces the People sidebar row.
+
 **The short version.** Psyche should know your life the way a good assistant would: who people are, how they relate to you, what they told you (a birthday, a new job, a kid's name), what is happening (trips, projects, events) and what you care about. A **nightly pass** reads the day's new items from the sources you turned on, and a **quarantined extractor** with no tools turns them into **cited, typed facts** about **entities** and **relations**. Those facts land in a **review queue** ("Psyche learned 14 things yesterday"). Everything is searchable by meaning and by keyword, and appears on **person pages**, in a **Life** search and in the daily brief. The feature is **off by default**, every source is a separate switch, you pick the model that does the reading (cloud, local or none), and you can make the memory **yours only**, out of the agent's reach. Mail and messages from other people are **always untrusted data**: the design makes it structurally impossible for a crafted message to act, to change settings, or to rewrite what Psyche knows about you or anyone else.
 
 ## 1. Where we are (main, 2026-10-28)
