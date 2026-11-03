@@ -146,7 +146,8 @@ export interface SearchDeps extends Omit<SearchSourceDeps, "pageSize"> {
     memory?: MemorySourceDeps;
     /** Pages the browser read; the opt-in "Browser pages" source keeps them (roadmap §2). */
     pageReads?: PageReadHub;
-    power?: () => PowerState;
+    /** `fresh` (optional) re-reads it now, for an owner action such as Rebuild. */
+    power?: (() => PowerState) & { fresh?: () => Promise<PowerState> };
     /** Watch granted folders for changes (FSEvents); off in tests. */
     watch?: boolean;
   };
@@ -601,6 +602,8 @@ function buildSearch(deps: SearchDeps, sqlite: PsycheDb["sqlite"]): ComposedSear
     "search.sources.rebuild": {
       run: async (_call, params: never) => {
         const indexer = sourcesOrThrow();
+        // The cached power state can be stale after a long idle; the owner just asked, so re-read.
+        await deps.sources?.power?.fresh?.().catch(() => undefined);
         try {
           await indexer.rebuild((params as { source: SourceId }).source);
         } catch (err) {
