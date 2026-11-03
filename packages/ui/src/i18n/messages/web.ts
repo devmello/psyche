@@ -133,6 +133,8 @@ export const web = {
   "web.setup.helper": "Psyche Helper",
   "web.setup.helperOk": "Connected.",
   "web.setup.helperWarn": "Not connected yet. Computer use and notifications wait for it.",
+  "web.touchId.helperDidNotStart":
+    "Psyche Helper did not connect. Open Settings → Devices to see why, then try again.",
   "web.setup.model": "Model",
   "web.setup.modelNone": "None picked. Add one in Settings → Models.",
   "web.setup.modelOk": "{ref}, key in the vault.",

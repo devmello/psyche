@@ -48,3 +48,11 @@ describe("Run setup again from the Settings window", () => {
     expect(send).toHaveBeenLastCalledWith(IPC.windowOpenInMain, { route: "/onboarding" });
   });
 });
+
+describe("Start Psyche Helper from an approval card", () => {
+  it("asks main to launch the bundled helper on its own channel", async () => {
+    const bridge = exposed.psyche as { helper: { launch: () => Promise<unknown> } };
+    await bridge.helper.launch();
+    expect(invoke).toHaveBeenLastCalledWith(IPC.helperLaunch, undefined);
+  });
+});

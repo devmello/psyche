@@ -1161,8 +1161,6 @@ export const ko: Partial<Catalogue> = {
   "settings.credentials.payments.amount": "금액",
   "settings.credentials.payments.paidWith": "결제 수단",
   "settings.credentials.payments.state": "상태",
-  "settings.approval.presenceUnavailable":
-    "이 윈도우에서는 본인 확인을 할 수 없습니다. 이 Mac의 Psyche 알림에서 Touch ID로, 또는 패스키가 있는 기기에서 변경을 승인하십시오. 그때까지는 아무것도 변경되지 않습니다.",
   "settings.approval.saved": "“{label}”을(를) 저장했습니다.",
   "settings.approval.denied": "변경되지 않음: “{label}”에 대한 승인이 거부되었습니다.",
   "settings.approval.lapsed":

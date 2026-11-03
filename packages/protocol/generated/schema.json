@@ -492,6 +492,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Approves a requiresAuthentication card from the Psyche desktop window with Touch ID on this Mac (security §3.7): the Gateway asks the paired helper to run Touch ID and sign the presence challenge for this window's answer token with its registered key, then answers through the same broker check. Desktop shell only. Fails unavailable with details.reason helper_offline, helper_outdated, no_presence_key or presence_key_unavailable; cancelled when the owner cancels Touch ID.",
+        "name": "approvals.approveWithTouchId",
+        "params": "#/$defs/ApprovalsApproveWithTouchIdParams",
+        "result": "#/$defs/ApprovalsApproveWithTouchIdResult",
+        "scope": "operator.approvals",
+        "sideEffecting": false
+      },
+      {
         "description": "Returns one approval request.",
         "name": "approvals.get",
         "params": "#/$defs/ApprovalsGetParams",
@@ -6965,6 +6973,53 @@
       "type": "object"
     },
     "ApprovalsAnswerResult": {
+      "properties": {
+        "approval": {
+          "$ref": "#/$defs/ApprovalRequest"
+        },
+        "grant": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Grant"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "approval"
+      ],
+      "type": "object"
+    },
+    "ApprovalsApproveWithTouchIdParams": {
+      "properties": {
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "answerToken": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/$defs/GrantScope"
+        },
+        "unsandboxed": {
+          "const": "UNSANDBOXED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "approvalId",
+        "answerToken"
+      ],
+      "type": "object"
+    },
+    "ApprovalsApproveWithTouchIdResult": {
       "properties": {
         "approval": {
           "$ref": "#/$defs/ApprovalRequest"

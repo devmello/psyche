@@ -57,4 +57,46 @@ struct PresenceKeyTests {
             authenticate: { _ in nil })
         #expect(noKey.presence == nil && noKey.presenceError == "missing_entitlement" && noKey.authenticated)
     }
+
+    private static func confirmCap(_ key: any PresenceSigning) throws -> any CapabilityHandler {
+        try #require(PresenceCapabilities.make(key: key).first { $0.spec.name == "presence.confirm" })
+    }
+
+    private static func ctx(_ params: JSONValue) -> InvocationContext {
+        InvocationContext(invocationId: "i", capability: "presence.confirm", params: params, approvalId: nil, emit: { _ in })
+    }
+
+    @Test func confirmSignsTheApprovalChallengeForTheWindow() async throws {
+        let key = PresenceKey(secureEnclave: false)
+        let cap = try Self.confirmCap(key)
+        let out = try await cap.invoke(Self.ctx(.object(["challenge": .string(Self.challenge), "header": .string("Run command on this Mac")])))
+        let (x963, keyId) = try key.publicKey()
+        #expect(out.result["keyId"] == .string(keyId))
+        let der = try #require(out.result["signature"]?.stringValue.flatMap(Base64URL.decode))
+        let pub = try P256.Signing.PublicKey(x963Representation: x963)
+        #expect(pub.isValidSignature(try P256.Signing.ECDSASignature(derRepresentation: der), for: PresenceMessage.bytes(challenge: Self.challenge)))
+    }
+
+    @Test func confirmRefusesBadParamsAndPassesTheCancel() async throws {
+        let cap = try Self.confirmCap(PresenceKey(secureEnclave: false))
+        await #expect(throws: CapabilityError.self) {
+            _ = try await cap.invoke(Self.ctx(.object(["challenge": .string("nothex"), "header": .string("x")])))
+        }
+        await #expect(throws: CapabilityError.self) {
+            _ = try await cap.invoke(Self.ctx(.object(["challenge": .string(Self.challenge), "header": .string("  ")])))
+        }
+        let cancelling = try Self.confirmCap(FakeSigner(result: .failure(CapabilityError(.cancelled, reason: "user_cancelled", "x"))))
+        do {
+            _ = try await cancelling.invoke(Self.ctx(.object(["challenge": .string(Self.challenge), "header": .string("x")])))
+            Issue.record("expected a cancel")
+        } catch let e as CapabilityError {
+            #expect(e.code == .cancelled && e.reason == "user_cancelled")
+        }
+    }
+
+    @Test func confirmReasonIsFixedAroundOneLineOfHeader() {
+        let r = PresenceCapabilities.confirmReason(header: "Run command\non this Mac")
+        #expect(r == "approve \u{201C}Run command on this Mac\u{201D} in Psyche")
+        #expect(PresenceCapabilities.confirmReason(header: String(repeating: "a", count: 500)).count <= 140)
+    }
 }

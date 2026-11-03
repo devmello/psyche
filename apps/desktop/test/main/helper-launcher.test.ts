@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  askHelperNotificationsIfUndetermined,
   HelperLauncher,
   type HelperRunState,
   helperCanHoldKeychain,
@@ -112,5 +113,22 @@ describe("HelperLauncher", () => {
     expect(await helperCanHoldKeychain(app, signed("ABCDE12345"))).toBe(true);
     expect(await helperCanHoldKeychain(app, signed("not set", true))).toBe(false);
     expect(await helperCanHoldKeychain(undefined, signed("ABCDE12345"))).toBe(false);
+  });
+});
+
+describe("askHelperNotificationsIfUndetermined", () => {
+  it("asks only when the helper was never asked (notify.show refuses every card until then)", async () => {
+    const calls: string[] = [];
+    const invoke = (status: string) => async (capability: string) => {
+      calls.push(capability);
+      return capability === "notify.authorization_status" ? { status } : { granted: true };
+    };
+    expect(await askHelperNotificationsIfUndetermined(invoke("notDetermined"))).toBe(true);
+    expect(calls).toEqual(["notify.authorization_status", "notify.request_authorization"]);
+    calls.length = 0;
+    for (const status of ["authorized", "denied", "provisional"]) {
+      expect(await askHelperNotificationsIfUndetermined(invoke(status))).toBe(false);
+    }
+    expect(calls).not.toContain("notify.request_authorization");
   });
 });

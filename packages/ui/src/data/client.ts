@@ -43,6 +43,12 @@ export interface GatewayClient {
    * it, and the Gateway refuses such an approval from them with `presence_required`.
    */
   presence?(approval: ApprovalRequest, answerToken: string): Promise<PresenceAssertion>;
+  /**
+   * The desktop window: it holds no key, so approving a card that requires authentication goes
+   * through `approvals.approveWithTouchId`, where the Mac helper runs Touch ID and signs the
+   * challenge for this window's answer token with its registered key.
+   */
+  helperPresence?: boolean;
 }
 
 /** `ApprovalAnswer.presence` (a WebAuthn or helper assertion). */

@@ -129,3 +129,18 @@ export async function helperCanHoldKeychain(
   const team = /^TeamIdentifier=(.+)$/m.exec(info)?.[1]?.trim();
   return team !== undefined && team !== "not set";
 }
+
+/**
+ * Asks for the helper's notification permission once it pairs, when nobody has yet. Until then
+ * macOS refuses every `notify.show` with `permission_not_determined`, so approval cards (and
+ * their Touch ID answers) never reach the Mac and nothing says why. Answered or denied before:
+ * nothing happens (the owner changes it in System Settings). True when it asked.
+ */
+export async function askHelperNotificationsIfUndetermined(
+  invoke: (capability: string, params: unknown) => Promise<unknown>,
+): Promise<boolean> {
+  const status = (await invoke("notify.authorization_status", {})) as { status?: unknown } | null;
+  if (status?.status !== "notDetermined") return false;
+  await invoke("notify.request_authorization", { provisional: false });
+  return true;
+}

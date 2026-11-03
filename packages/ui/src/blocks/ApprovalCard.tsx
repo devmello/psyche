@@ -28,7 +28,12 @@ import { cn } from "../lib/utils.ts";
 import { easeLinear, fade, motionSpring, spring } from "../motion/index.ts";
 import { useSlots } from "../slots.tsx";
 import { roleLabel } from "../specialists/model.ts";
-import { type AnswerFailure, answerFailureText, classifyAnswerError } from "./answer-error.ts";
+import {
+  type AnswerFailure,
+  answerFailureText,
+  classifyAnswerError,
+  type TouchIdFix,
+} from "./answer-error.ts";
 import { ApprovalDetails, ApprovalIds } from "./approval-details.tsx";
 import { floorClassOf, useLiftFloorConfirm } from "./LiftFloorDialog.tsx";
 import { taintSentence } from "./taint-text.ts";
@@ -372,12 +377,15 @@ export function ApprovalCard({
   // A rate-limited answer disables Allow until the Gateway's retry-after has passed.
   const [limitedUntil, setLimitedUntil] = useState<number | null>(null);
   const [limitFailure, setLimitFailure] = useState<AnswerFailure | null>(null);
+  // Touch ID could not confirm from this window: the fix the card offers (start the helper, set
+  // up the key), then Allow asks Touch ID again.
+  const [touchIdFixFor, setTouchIdFixFor] = useState<TouchIdFix | null>(null);
   // Synchronous guard: two clicks in one tick must send one answer.
   const inFlight = useRef(false);
   const [showIds, setShowIds] = useState(false);
   // folder_access: the folder the owner picks is what is granted, never the agent's string.
   const isFolder = raw.kind === "folder_access";
-  const { pickFolder, permissionAction } = useSlots();
+  const { pickFolder, permissionAction, touchIdFix } = useSlots();
   // The Gateway resolved the path the agent named: a usable folder is pre-filled and is exactly
   // what is granted; a blocked or missing one needs the owner's pick.
   const requestedFolder =
@@ -471,6 +479,7 @@ export function ApprovalCard({
     setError(null);
     setLimitedUntil(null);
     setLimitFailure(null);
+    setTouchIdFixFor(null);
     try {
       // macOS access: re-read the grant first, so the Gateway's check sees what was just allowed.
       if (decision === "approve" && need?.need === "macos_access") {
@@ -496,7 +505,10 @@ export function ApprovalCard({
         setLimitedUntil(Date.now() + failure.retryAfterSec * 1000);
         setLimitFailure(failure);
         setError(null);
-      } else setError(answerFailureText(failure));
+      } else {
+        setError(answerFailureText(failure));
+        if (failure.kind === "touch_id_setup") setTouchIdFixFor(failure.fix);
+      }
     } finally {
       inFlight.current = false;
       setBusy(false);
@@ -951,6 +963,36 @@ export function ApprovalCard({
           <CircleAlert className="mt-0.5 size-4 shrink-0 text-danger-text" aria-hidden="true" />
           {error}
         </p>
+      ) : null}
+
+      {interactive && error && touchIdFixFor !== null && touchIdFix ? (
+        <div className="mt-2" data-testid="touch-id-fix">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={busy}
+            onClick={() => {
+              const fix = touchIdFixFor;
+              setBusy(true);
+              touchIdFix(fix).then(
+                () => {
+                  setBusy(false);
+                  setError(null);
+                  setTouchIdFixFor(null);
+                  void submit("approve");
+                },
+                (err: unknown) => {
+                  setBusy(false);
+                  setError(describeError(err));
+                },
+              );
+            }}
+          >
+            {touchIdFixFor === "start_helper"
+              ? t("blocks.approval.touchId.startHelper")
+              : t("blocks.approval.touchId.setUp")}
+          </Button>
+        </div>
       ) : null}
 
       {interactive ? (

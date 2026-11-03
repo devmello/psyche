@@ -1183,8 +1183,6 @@ export const hi: Partial<Catalogue> = {
   "settings.credentials.payments.paidWith": "इससे भुगतान",
   "settings.credentials.payments.state": "स्थिति",
 
-  "settings.approval.presenceUnavailable":
-    "यह विंडो पुष्टि नहीं कर सकती कि यह आप ही हैं। बदलाव को इस Mac पर Psyche सूचना में Touch ID से, या पासकी वाले किसी डिवाइस से स्वीकृत करें। तब तक कुछ नहीं बदलता।",
   "settings.approval.saved": "“{label}” सेव किया गया।",
   "settings.approval.denied": "नहीं बदला: “{label}” की स्वीकृति अस्वीकार कर दी गई।",
   "settings.approval.lapsed":

@@ -277,6 +277,31 @@ describe("useApprovals", () => {
     });
   });
 
+  it("the desktop approves a Touch ID card through the helper, not with its own presence", async () => {
+    const { gateway, wrapper } = setup({
+      approvals: [
+        approval("ap_auth", { kind: "exec_host", requiresAuthentication: true }),
+        approval("ap_plain"),
+      ],
+      answerTokens: { ap_auth: "at_auth", ap_plain: "at_plain" },
+    });
+    gateway.helperPresence = true;
+    const { result } = renderHook(() => useApprovals(), { wrapper });
+    await waitFor(() => expect(result.current.pending).toHaveLength(2));
+    await act(() => result.current.answer("ap_plain", "approve", "once"));
+    await act(() =>
+      result.current.answer("ap_auth", "approve", "once", { unsandboxed: "UNSANDBOXED" }),
+    );
+    expect(gateway.calls.filter((c) => c.method === "approvals.answer")).toHaveLength(1);
+    expect(gateway.calls.find((c) => c.method === "approvals.approveWithTouchId")?.params).toEqual({
+      approvalId: "ap_auth",
+      answerToken: "at_auth",
+      scope: "once",
+      unsandboxed: "UNSANDBOXED",
+    });
+    expect(result.current.pending).toHaveLength(0);
+  });
+
   it("denies a card that requires authentication without asking for presence", async () => {
     const { gateway, wrapper } = setup({
       approvals: [approval("ap_auth", { requiresAuthentication: true })],

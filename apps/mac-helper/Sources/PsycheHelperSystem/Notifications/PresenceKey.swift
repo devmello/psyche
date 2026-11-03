@@ -146,11 +146,66 @@ public final class PresenceKey: PresenceSigning, @unchecked Sendable {
     }
 }
 
+/// `presence.confirm` parameters: the approval's presence challenge and the card header the
+/// Touch ID sheet names.
+public struct PresenceConfirmParams: Codable, Sendable, Equatable {
+    public var challenge: String
+    public var header: String
+
+    public init(challenge: String, header: String) {
+        self.challenge = challenge
+        self.header = header
+    }
+}
+
 /// `presence.public_key` (issue #84): the key the owner registers so the Gateway can verify
 /// helper-signed Touch ID approvals. Registration itself is an owner action in the Gateway (S01).
+///
+/// `presence.confirm`: Touch ID and a signature over one approval's presence challenge, for an
+/// approval the owner allowed in the Psyche window (the window cannot sign; the Gateway asks the
+/// helper). The Gateway never lets `nodes.invoke` or an agent tool reach `presence.*`, so only
+/// it chooses the challenge, and the sheet's wording is fixed here around the card header.
 public enum PresenceCapabilities {
+    public static let maxHeader = 120
+
+    /// What the Touch ID sheet says after "psyche-helper is trying to".
+    static func confirmReason(header: String) -> String {
+        let oneLine = header.split(whereSeparator: \.isNewline).joined(separator: " ")
+        return "approve \u{201C}\(NotificationLimits.truncate(oneLine, max: maxHeader))\u{201D} in Psyche"
+    }
+
     public static func make(key: any PresenceSigning) -> [any CapabilityHandler] {
-        [Capability(CapabilitySpec(
+        [publicKey(key), confirm(key)]
+    }
+
+    static func confirm(_ key: any PresenceSigning) -> Capability {
+        Capability(CapabilitySpec(
+            name: "presence.confirm",
+            description: "Runs Touch ID for the presence key and signs one approval's presence challenge (an approval allowed in the Psyche window). "
+                + "Returns signature (DER, base64url) and keyId. Fails cancelled/user_cancelled when the owner cancels, unavailable/missing_entitlement without a keychain access group.",
+            sideEffect: .write,
+            inputSchema: Schema.object(
+                [
+                    "challenge": Schema.string("Hex SHA-256 presence challenge of the approval", maxLength: 64),
+                    "header": Schema.string("The approval card's header, named in the Touch ID sheet", maxLength: maxHeader * 4),
+                ],
+                required: ["challenge", "header"]
+            )
+        )) { ctx in
+            let p = try ctx.decode(PresenceConfirmParams.self)
+            guard PresenceMessage.isValidChallenge(p.challenge) else {
+                throw CapabilityError.invalidParams("challenge must be 64 hex characters", field: "challenge")
+            }
+            guard !p.header.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                throw CapabilityError.invalidParams("header must not be empty", field: "header")
+            }
+            let signed = try await key.sign(challenge: p.challenge, reason: confirmReason(header: p.header))
+            return CapabilityOutput(["signature": .string(signed.signature), "keyId": .string(signed.keyId)])
+        }
+    }
+
+    static func publicKey(_ key: any PresenceSigning) -> Capability {
+        Capability(CapabilitySpec(
             name: "presence.public_key",
             description: "The helper's Secure Enclave presence public key (P-256, X9.63 uncompressed, base64url) and keyId (hex SHA-256 of it). "
                 + "Created on first use; never prompts. Fails with unavailable/missing_entitlement in builds without a keychain access group.",
@@ -158,6 +213,6 @@ public enum PresenceCapabilities {
         )) { _ in
             let (x963, keyId) = try key.publicKey()
             return CapabilityOutput(["publicKey": .string(Base64URL.encode(x963)), "keyId": .string(keyId)])
-        }]
+        }
     }
 }

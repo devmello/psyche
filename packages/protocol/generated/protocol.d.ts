@@ -1172,6 +1172,18 @@ export interface Grant {
     useCount:               number;
 }
 
+export interface ApprovalsApproveWithTouchIDParams {
+    answerToken:  string;
+    approvalId:   string;
+    scope?:       GrantScope;
+    unsandboxed?: Unsandboxed;
+}
+
+export interface ApprovalsApproveWithTouchIDResult {
+    approval: ApprovalRequest;
+    grant?:   Grant | null;
+}
+
 export interface ApprovalsGetParams {
     approvalId: string;
 }

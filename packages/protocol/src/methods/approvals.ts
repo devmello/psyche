@@ -1,5 +1,5 @@
 import { Type } from "@sinclair/typebox";
-import { Id, Nullable } from "../common.ts";
+import { GrantScope, Id, Nullable } from "../common.ts";
 import { ApprovalAnswer, ApprovalRequest, ApprovalStatus, Grant } from "../schemas/permissions.ts";
 import { defineMethod, nextCursor, pageParams } from "./define.ts";
 
@@ -43,5 +43,19 @@ export const ApprovalsMethods = {
     scope: "operator.approvals",
     description:
       "Approves or denies with the single-use answer token delivered to this surface; deviceOnly and requiresAuthentication kinds are enforced by the Gateway. Not idempotency-keyed: the token is single-use.",
+  }),
+  "approvals.approveWithTouchId": defineMethod({
+    params: Type.Object({
+      approvalId: Id,
+      /** This window's own answer token for the approval (from `approval.created` or `approvals.get`). */
+      answerToken: Type.String({ minLength: 1 }),
+      scope: Type.Optional(GrantScope),
+      /** `exec_host` only, with `scope: "once"`: as on `approvals.answer` (security §5.4). */
+      unsandboxed: Type.Optional(Type.Literal("UNSANDBOXED")),
+    }),
+    result: Type.Object({ approval: ApprovalRequest, grant: Nullable(Grant) }),
+    scope: "operator.approvals",
+    description:
+      "Approves a requiresAuthentication card from the Psyche desktop window with Touch ID on this Mac (security §3.7): the Gateway asks the paired helper to run Touch ID and sign the presence challenge for this window's answer token with its registered key, then answers through the same broker check. Desktop shell only. Fails unavailable with details.reason helper_offline, helper_outdated, no_presence_key or presence_key_unavailable; cancelled when the owner cancels Touch ID.",
   }),
 } as const;

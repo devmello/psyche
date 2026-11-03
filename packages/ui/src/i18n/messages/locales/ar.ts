@@ -1186,8 +1186,6 @@ export const ar: Partial<Catalogue> = {
   "settings.credentials.payments.paidWith": "طريقة الدفع",
   "settings.credentials.payments.state": "الحالة",
 
-  "settings.approval.presenceUnavailable":
-    "لا تستطيع هذه النافذة تأكيد أنك أنت. وافق على التغيير عبر Touch ID في إشعار Psyche على هذا الـ Mac، أو من جهاز به مفتاح مرور. لن يتغيّر شيء حتى ذلك الحين.",
   "settings.approval.saved": "تم حفظ «{label}».",
   "settings.approval.denied": "لم يتغيّر: رُفضت الموافقة على «{label}».",
   "settings.approval.lapsed":

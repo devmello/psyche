@@ -8,6 +8,7 @@ import type {
 } from "@psyche/protocol";
 import { createContext, type ReactElement, type ReactNode, useContext, useMemo } from "react";
 import type { PreviewSlot } from "./blocks/ArtifactCard.tsx";
+import type { TouchIdFix } from "./blocks/answer-error.ts";
 import type { ArtifactRenderProps } from "./canvas/CanvasPane.tsx";
 import { LinkPromptProvider } from "./links/LinkPrompt.tsx";
 import type { UseComposerVoice } from "./voice/controls.tsx";
@@ -93,6 +94,12 @@ export interface UiSlots {
     need: MissingPermission,
     action: "open" | "check",
   ) => Promise<boolean | undefined> | boolean | undefined;
+  /**
+   * The desktop's fixes when Touch ID cannot confirm a card from the window: start the bundled
+   * Mac helper, or register its Touch ID key (`devices.presenceKey.register`). Resolves once
+   * done; the card then asks Touch ID again.
+   */
+  touchIdFix?: (fix: TouchIdFix) => Promise<void>;
   /** The host's native folder picker; resolves to the real path, or null when cancelled. */
   pickFolder?: (opts?: { title?: string }) => Promise<string | null>;
   /** Persona shown in agent messages and cards. */

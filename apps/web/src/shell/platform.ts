@@ -331,6 +331,8 @@ export type MacHelperState =
 export interface HelperPort {
   getState(): Promise<MacHelperState>;
   onState(cb: (state: MacHelperState) => void): Unsubscribe;
+  /** Starts the bundled helper now and resolves once it paired or timed out. */
+  launch?(): Promise<MacHelperState>;
 }
 
 /**

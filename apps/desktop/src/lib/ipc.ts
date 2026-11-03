@@ -57,6 +57,7 @@ export const IPC = {
   // The bundled Mac helper's launch and pairing state (onboarding, Settings → Devices).
   helperGetState: "psyche:helper:get-state",
   helperState: "psyche:helper:state",
+  helperLaunch: "psyche:helper:launch",
   // The owner's macOS region format (A12: numbers, dates and times; Settings can override it).
   localeGet: "psyche:locale:get",
   systemAppearanceGet: "psyche:system-appearance:get",

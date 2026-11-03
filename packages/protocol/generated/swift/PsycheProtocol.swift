@@ -97,6 +97,8 @@
 //   let approvalStatus = try? JSONDecoder().decode(ApprovalStatus.self, from: jsonData)
 //   let approvalUpdatedPayload = try? JSONDecoder().decode(ApprovalUpdatedPayload.self, from: jsonData)
 //   let approvalsAnswerResult = try? JSONDecoder().decode(ApprovalsAnswerResult.self, from: jsonData)
+//   let approvalsApproveWithTouchIDParams = try? JSONDecoder().decode(ApprovalsApproveWithTouchIDParams.self, from: jsonData)
+//   let approvalsApproveWithTouchIDResult = try? JSONDecoder().decode(ApprovalsApproveWithTouchIDResult.self, from: jsonData)
 //   let approvalsGetParams = try? JSONDecoder().decode(ApprovalsGetParams.self, from: jsonData)
 //   let approvalsListParams = try? JSONDecoder().decode(ApprovalsListParams.self, from: jsonData)
 //   let approvalsListResult = try? JSONDecoder().decode(ApprovalsListResult.self, from: jsonData)
@@ -4273,6 +4275,44 @@ public struct Grant: Codable, Sendable {
         self.subject = subject
         self.taskID = taskID
         self.useCount = useCount
+    }
+}
+
+// MARK: - ApprovalsApproveWithTouchIDParams
+public struct ApprovalsApproveWithTouchIDParams: Codable, Sendable {
+    public let answerToken: String
+    public let approvalID: String
+    public let scope: GrantScope?
+    public let unsandboxed: Unsandboxed?
+
+    public enum CodingKeys: String, CodingKey {
+        case answerToken = "answerToken"
+        case approvalID = "approvalId"
+        case scope = "scope"
+        case unsandboxed = "unsandboxed"
+    }
+
+    public init(answerToken: String, approvalID: String, scope: GrantScope?, unsandboxed: Unsandboxed?) {
+        self.answerToken = answerToken
+        self.approvalID = approvalID
+        self.scope = scope
+        self.unsandboxed = unsandboxed
+    }
+}
+
+// MARK: - ApprovalsApproveWithTouchIDResult
+public struct ApprovalsApproveWithTouchIDResult: Codable, Sendable {
+    public let approval: ApprovalRequest
+    public let grant: Grant?
+
+    public enum CodingKeys: String, CodingKey {
+        case approval = "approval"
+        case grant = "grant"
+    }
+
+    public init(approval: ApprovalRequest, grant: Grant?) {
+        self.approval = approval
+        self.grant = grant
     }
 }
 

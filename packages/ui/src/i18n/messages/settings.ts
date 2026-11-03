@@ -496,7 +496,7 @@ export const settings = {
 
   // Security settings waiting for approval with presence (SettingsApproval.tsx).
   "settings.approval.presenceUnavailable":
-    "This window can't confirm it's you. Approve the change with Touch ID in the Psyche notification on this Mac, or from a device with a passkey. Nothing changes until then.",
+    "This window can't confirm it's you. Approve the change in the Psyche app on your Mac (Touch ID), or from a device with a passkey. Nothing changes until then.",
   "settings.approval.saved": "Saved “{label}”.",
   "settings.approval.denied": "Not changed: the approval for “{label}” was denied.",
   "settings.approval.lapsed":

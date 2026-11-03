@@ -351,6 +351,8 @@ export class MockGateway implements GatewayClient {
   readonly calls: RecordedCall[] = [];
   /** A host's presence (a web passkey); tests set it to exercise approvals that need one. */
   presence?: GatewayClient["presence"];
+  /** The desktop host: Touch ID cards go through `approvals.approveWithTouchId`. */
+  helperPresence?: boolean;
   private seq = 0;
   private stateVersion = 1;
   private state: ConnectionState;
@@ -1634,6 +1636,24 @@ export class MockGateway implements GatewayClient {
       this.replace("approvals", decided);
       this.emit("approval.updated", { approval: decided });
       settleBatch(this.proposalContext(), decided);
+      return { approval: decided, grant: null };
+    },
+    // The desktop's Allow on a Touch ID card: the helper signs (here: always), the broker answers.
+    "approvals.approveWithTouchId": (p) => {
+      const approval = this.find(this.world.approvals, p.approvalId, "approval");
+      if (approval.status !== "pending") fail("answer_late", "this approval was already decided");
+      if (this.world.answerTokens[approval.id] !== p.answerToken)
+        fail("answer_replayed", "the answer token is not valid for this surface");
+      delete this.world.answerTokens[approval.id];
+      const decided: ApprovalRequest = {
+        ...approval,
+        status: "approved",
+        scopeGranted: p.scope ?? "once",
+        decidedBy: { deviceId: "dev_helper", surface: "desktop" },
+        decidedAt: this.now(),
+      };
+      this.replace("approvals", decided);
+      this.emit("approval.updated", { approval: decided });
       return { approval: decided, grant: null };
     },
     // The access list: folders from `permissions.policy` plus the live grants (as the Gateway).
