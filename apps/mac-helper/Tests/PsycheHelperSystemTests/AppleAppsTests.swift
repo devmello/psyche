@@ -141,9 +141,11 @@ private final class Fakes: CalendarBackend, RemindersBackend, MailBackend, Notes
         lock.withLock { savedAttachments.append((index, path)) }
         FileManager.default.createFile(atPath: path, contents: Data(repeating: 1, count: index))
     }
-    func list(folder: String?, limit: Int) async throws -> [NoteSummaryRecord] {
-        [NoteSummaryRecord(id: "x-coredata://A/ICNote/p1", folder: "Notes", title: "Groceries", modified: "2026-10-19T08:00:00Z")]
+    func list(folder: String?, limit: Int, offset: Int) async throws -> [NoteSummaryRecord] {
+        lock.withLock { noteOffsets.append(offset) }
+        return [NoteSummaryRecord(id: "x-coredata://A/ICNote/p1", folder: "Notes", title: "Groceries", modified: "2026-10-19T08:00:00Z")]
     }
+    var noteOffsets: [Int] = []
     func read(id: String) async throws -> (NoteSummaryRecord, html: String, text: String) { (try await list(folder: nil, limit: 1)[0], "<div>milk</div>", "milk") }
     var createdNoteHTML: [String] = []
     var appended: [String] = []
@@ -425,6 +427,19 @@ struct AppleAppsTests {
             await #expect(throws: CapabilityError.self) { _ = try await h.invoke("mail.draft", bad) }
         }
         await #expect(throws: CapabilityError.self) { _ = try await h.invoke("mail.read", ["id": "not-a-number"]) }
+    }
+
+    @Test func notesAndRemindersPagePastTheLimitWithAnOffset() async throws {
+        let h = Harness()
+        _ = try await h.invoke("notes.list", ["limit": 500, "offset": 500])
+        _ = try await h.invoke("notes.list", ["limit": 500])
+        #expect(h.fakes.noteOffsets == [500, 0])
+        // The cap stays 500 per call, and an offset is not a limit.
+        await #expect(throws: CapabilityError.self) { _ = try await h.invoke("notes.list", ["limit": 5000]) }
+        await #expect(throws: CapabilityError.self) { _ = try await h.invoke("notes.list", ["offset": -1]) }
+        await #expect(throws: CapabilityError.self) { _ = try await h.invoke("reminders.list", ["limit": 5000]) }
+        _ = try await h.invoke("reminders.list", ["completed": false, "limit": 500, "offset": 500])
+        #expect(h.fakes.reminderFilters.last?.offset == 500)
     }
 
     @Test func notesCreateEscapesHTML() async throws {
@@ -740,6 +755,10 @@ struct RemindersCalendarRulesTests {
         #expect(ReminderQuery(overdue: true).apply(rs, now: now, calendar: cal, limit: 10).map(\.id) == ["a"])
         #expect(ReminderQuery(dueToday: true).apply(rs, now: now, calendar: cal, limit: 10).map(\.id) == ["b"])
         #expect(ReminderQuery(flaggedIds: ["c"]).apply(rs, now: now, calendar: cal, limit: 10).map(\.flagged) == [true])
+        // A later page: the first `offset` of the sorted matches are skipped, the limit applies after.
+        #expect(ReminderQuery(offset: 1).apply(rs, now: now, calendar: cal, limit: 2).map(\.id) == ["a", "b"])
+        #expect(ReminderQuery(offset: 3).apply(rs, now: now, calendar: cal, limit: 2).map(\.id) == ["c"])
+        #expect(ReminderQuery(offset: 9).apply(rs, now: now, calendar: cal, limit: 2).isEmpty)
         #expect(ReminderQuery.eventKitId(fromScripting: "x-apple-reminder://ABC-1") == "ABC-1")
     }
 

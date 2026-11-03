@@ -28,6 +28,7 @@ const HINT = {
   files: "settings.searchSources.hint.files",
   browser: "settings.searchSources.hint.browser",
   transcripts: "settings.searchSources.hint.transcripts",
+  memory: "settings.searchSources.hint.memory",
 } as const satisfies Record<SearchSourceId, string>;
 
 const kb = (bytes: number) =>

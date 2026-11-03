@@ -162,6 +162,8 @@ interface AppleToolSpec {
 
 const iso = { type: "string", format: "date-time" };
 const limit = { type: "integer", minimum: 1, maximum: 500 };
+/** Skips the first matches, so a list longer than the 500-per-call cap can be read in pages. */
+const offset = { type: "integer", minimum: 0, maximum: 1_000_000 };
 const obj = (properties: Record<string, unknown>, required: string[] = []) => ({
   type: "object",
   properties,
@@ -855,6 +857,7 @@ const TOOLS: Record<AppleApp, AppleToolSpec[]> = {
         folder: { type: "string", maxLength: 200 },
         query: { type: "string", maxLength: 200, description: "Case-insensitive title match" },
         limit,
+        offset,
       }),
       sideEffect: "read",
       shape: filterNotes,
@@ -972,6 +975,7 @@ const TOOLS: Record<AppleApp, AppleToolSpec[]> = {
         flagged: { type: "boolean" },
         query: { type: "string", maxLength: 200 },
         limit,
+        offset,
       }),
       sideEffect: "read",
     },

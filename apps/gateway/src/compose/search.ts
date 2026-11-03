@@ -25,7 +25,9 @@ import {
   filesAdapter,
   generateCard,
   libraryDoc,
+  type MemorySourceDeps,
   ModelReranker,
+  memoryAdapter,
   OWNER,
   type PowerState,
   QueryModel,
@@ -127,6 +129,11 @@ export interface SearchDeps extends Omit<SearchSourceDeps, "pageSize"> {
     /** Re-reads the connector list before each pass. */
     refresh?: () => Promise<void>;
     files?: FilesSourceDeps;
+    /**
+     * What Psyche remembers (people, projects, work due, events, reviewed non-sensitive facts):
+     * the opt-in "Memory" source. Absent = not offered.
+     */
+    memory?: MemorySourceDeps;
     /** Pages the browser read; the opt-in "Browser pages" source keeps them (roadmap §2). */
     pageReads?: PageReadHub;
     power?: () => PowerState;
@@ -415,6 +422,7 @@ function buildSearch(deps: SearchDeps, sqlite: PsycheDb["sqlite"]): ComposedSear
         ...(filesSource === undefined ? [] : [filesSource]),
         browserSource,
         transcriptsSource,
+        ...(deps.sources.memory === undefined ? [] : [memoryAdapter(deps.sources.memory)]),
       ],
       {
         config: sourcesConfig,

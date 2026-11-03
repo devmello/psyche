@@ -36241,7 +36241,8 @@
         "reminders",
         "files",
         "browser",
-        "transcripts"
+        "transcripts",
+        "memory"
       ],
       "type": "string"
     },
@@ -36271,7 +36272,7 @@
           "$ref": "#/$defs/SearchProcessing"
         },
         "agent": {
-          "description": "The agent's search_everything may search it; Messages is off until the owner allows it",
+          "description": "The agent's search_everything may search it; Messages and Memory are off until the owner allows them",
           "type": "boolean"
         },
         "ocr": {

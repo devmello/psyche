@@ -163,10 +163,12 @@ describe("search.sources methods", () => {
       "files",
       "browser",
       "transcripts",
+      "memory",
     ]);
     expect(st.sources.every((s) => !s.enabled && s.state === "off" && s.items === 0)).toBe(true);
     expect(st.sources.every((s) => s.processing === "cloud")).toBe(true);
-    expect(st.sources.filter((s) => !s.agent).map((s) => s.id)).toEqual(["messages"]);
+    // Messages and Memory stay owner-only until the owner allows the agent to search them.
+    expect(st.sources.filter((s) => !s.agent).map((s) => s.id)).toEqual(["messages", "memory"]);
   });
 
   it("toggles a source, keeps the processing model and exclusions, and rebuilds", async () => {
@@ -213,6 +215,36 @@ describe("search.sources methods", () => {
       state: "off",
     });
     expect(st.exclude.contacts).toEqual(["mum@example.com"]);
+  });
+
+  it("Memory: switches on like the others, reads nothing while memory is off, and can be rebuilt", async () => {
+    const owner = await start();
+    let st = await owner.call<SearchSourcesStatus>(
+      "search.sources.configure",
+      { source: "memory", enabled: true },
+      ik(),
+    );
+    expect(st.sources.find((s) => s.id === "memory")).toMatchObject({
+      label: "Memory",
+      enabled: true,
+      agent: false,
+    });
+    // The people and projects memory is off in a new home: nothing to index, and it says it is read.
+    for (let i = 0; i < 40; i++) {
+      st = await owner.call<SearchSourcesStatus>("search.sources", {});
+      if (st.sources.find((s) => s.id === "memory")?.state === "idle") break;
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    expect(st.sources.find((s) => s.id === "memory")).toMatchObject({ state: "idle", items: 0 });
+    const rebuilt = await owner.request("search.sources.rebuild", { source: "memory" }, ik());
+    expect(rebuilt.ok).toBe(true);
+    // Switching it off again leaves the others as they were.
+    st = await owner.call<SearchSourcesStatus>(
+      "search.sources.configure",
+      { source: "memory", enabled: false },
+      ik(),
+    );
+    expect(st.sources.find((s) => s.id === "memory")?.state).toBe("off");
   });
 
   it("Rebuild: refused for a source that is off, answers indexing from zero when it runs", async () => {

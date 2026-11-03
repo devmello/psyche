@@ -13,6 +13,7 @@ export const SOURCE_IDS = [
   "files",
   "browser",
   "transcripts",
+  "memory",
 ] as const;
 export type SourceId = (typeof SOURCE_IDS)[number];
 
@@ -29,7 +30,8 @@ export interface SourceConfig {
   processing: ProcessingModel;
   /**
    * Whether the agent's `search_everything` may search this source. On for every source except
-   * Messages, which stays owner-only until the owner allows it. The owner's own Search ignores it.
+   * Messages and Memory, which stay owner-only until the owner allows them (Memory has its own
+   * agent access rules, which indexing it must not widen). The owner's own Search ignores it.
    */
   agent: boolean;
   /**
@@ -65,12 +67,21 @@ export const SOURCE_LABELS: Record<SourceId, string> = {
   files: "Files",
   browser: "Browser pages",
   transcripts: "Transcripts",
+  memory: "Memory",
 };
+
+/** Sources the agent's `search_everything` may not search until the owner allows it. */
+export const OWNER_ONLY_SOURCES: readonly SourceId[] = ["messages", "memory"];
 
 export function defaultSourcesConfig(): SourcesConfig {
   const sources = {} as Record<SourceId, SourceConfig>;
   for (const id of SOURCE_IDS)
-    sources[id] = { enabled: false, processing: "cloud", agent: id !== "messages", ocr: false };
+    sources[id] = {
+      enabled: false,
+      processing: "cloud",
+      agent: !OWNER_ONLY_SOURCES.includes(id),
+      ocr: false,
+    };
   return { sources, exclude: { contacts: [], chats: [], accounts: [], folders: [] } };
 }
 
@@ -132,6 +143,13 @@ export interface SourcePull {
   /** Opaque; handed back on the next pull. */
   cursor: unknown;
   hasMore: boolean;
+  /**
+   * `items` are every record the source has (a whole read, `hasMore` false): anything indexed from
+   * this source and not in them is removed at once. For a source with no change feed and no
+   * cheap id list, such as Memory, where an item turning sensitive or private must leave the
+   * index on the next pass rather than at the nightly sweep.
+   */
+  snapshot?: boolean;
 }
 
 export interface SourceAdapter {

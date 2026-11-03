@@ -9155,7 +9155,7 @@ export interface Exclude {
     folders?:  string[];
 }
 
-export type SearchSourceID = "mail" | "messages" | "notes" | "calendar" | "reminders" | "files" | "browser" | "transcripts";
+export type SearchSourceID = "mail" | "messages" | "notes" | "calendar" | "reminders" | "files" | "browser" | "transcripts" | "memory";
 
 export interface SearchSourcesRebuildParams {
     source: SearchSourceID;
@@ -9179,7 +9179,8 @@ export interface SearchExclusions {
 
 export interface SearchSourceStatus {
     /**
-     * The agent's search_everything may search it; Messages is off until the owner allows it
+     * The agent's search_everything may search it; Messages and Memory are off until the owner
+     * allows them
      */
     agent: boolean;
     /**

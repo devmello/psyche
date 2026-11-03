@@ -85,6 +85,12 @@ public enum AppleAppsCapabilities {
         return l
     }
 
+    static func offset(_ v: Int?) throws -> Int {
+        let o = v ?? 0
+        guard (0...1_000_000).contains(o) else { throw CapabilityError.invalidParams("offset must be 0–1000000", field: "offset") }
+        return o
+    }
+
     static func text(_ s: String?, max: Int, field: String, required: Bool = false) throws {
         if required, (s ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             throw CapabilityError.invalidParams("\(field) is required", field: field)
@@ -101,6 +107,7 @@ public enum AppleAppsCapabilities {
     }
 
     static let limitSchema = Schema.integer("Default 50", min: 1, max: 500)
+    static let offsetSchema = Schema.integer("Skip this many matches first, to page past the limit; default 0", min: 0, max: 1_000_000)
     static let isoSchema = Schema.string("ISO 8601 date-time")
 
     // MARK: Calendar
@@ -638,6 +645,8 @@ public enum AppleAppsCapabilities {
         var flagged: Bool?
         var query: String?
         var limit: Int?
+        /// Skips the first `offset` matches (soonest due first), to page past the 500-per-call cap.
+        var offset: Int?
     }
 
     static func reminders(_ b: Backends) -> [any CapabilityHandler] {
@@ -657,13 +666,15 @@ public enum AppleAppsCapabilities {
                     "listIds": Schema.array(Schema.string(), maxItems: 50), "completed": Schema.boolean(), "dueBefore": isoSchema,
                     "overdue": Schema.boolean("Only open reminders past their due time"), "dueToday": Schema.boolean("Only reminders due today"),
                     "flagged": Schema.boolean("Only flagged reminders"), "query": Schema.string("Text in the title or notes", maxLength: 200), "limit": limitSchema,
+                    "offset": offsetSchema,
                 ])
             )) { ctx in
                 let p = try ctx.decode(ListReminders.self)
                 let due = try p.dueBefore.map { try AppleDates.param($0, field: "dueBefore") }
                 try text(p.query, max: 200, field: "query")
                 let flagged: Set<String>? = p.flagged == true ? try await b.reminders.flaggedIds() : nil
-                let filter = ReminderQuery(overdue: p.overdue ?? false, dueToday: p.dueToday ?? false, query: p.query ?? "", flaggedIds: flagged)
+                let filter = ReminderQuery(overdue: p.overdue ?? false, dueToday: p.dueToday ?? false, query: p.query ?? "", flaggedIds: flagged,
+                                         offset: try offset(p.offset))
                 // Overdue reminders are open ones.
                 let completed = p.overdue == true ? false : p.completed
                 return untrustedList("reminders", try json(try await b.reminders.reminders(listIds: p.listIds, completed: completed, dueBefore: due, filter: filter,
@@ -1059,6 +1070,8 @@ public enum AppleAppsCapabilities {
     struct NotesList: Decodable {
         var folder: String?
         var limit: Int?
+        /// Skips the first `offset` notes, to page past the 500-per-call cap.
+        var offset: Int?
     }
 
     struct NoteRead: Decodable {
@@ -1095,10 +1108,10 @@ public enum AppleAppsCapabilities {
         [
             Capability(CapabilitySpec(
                 name: "notes.list", description: "Notes (id, folder, title, modified), optionally in one folder.", sideEffect: .read,
-                inputSchema: Schema.object(["folder": Schema.string(maxLength: 200), "limit": limitSchema])
+                inputSchema: Schema.object(["folder": Schema.string(maxLength: 200), "limit": limitSchema, "offset": offsetSchema])
             )) { ctx in
                 let p = try ctx.decode(NotesList.self)
-                return untrustedList("notes", try json(try await b.notes.list(folder: p.folder, limit: try limit(p.limit))))
+                return untrustedList("notes", try json(try await b.notes.list(folder: p.folder, limit: try limit(p.limit), offset: try offset(p.offset))))
             },
 
             Capability(CapabilitySpec(

@@ -65,43 +65,250 @@ const DAY = 86_400_000;
 const provOf = (deps: AppleSourceDeps, app: "notes" | "calendar" | "reminders", row: Obj) =>
   deps.owned?.(app, row) === true ? ("owner" as const) : ("untrusted" as const);
 
+/** The most the Apple connector tools return in one call (`limit` 1–500); longer lists are paged. */
+export const APPLE_PAGE = 500;
+/** The helper clamps a Messages graph read to 200 rows (`messages.graph_chats` / `graph_read`). */
+const MESSAGES_PAGE = 200;
+/** A safety stop for a list that never ends. */
+const MAX_PAGES = 200;
+
+/**
+ * Every row of a list the connector returns in pages of at most 500: `offset` skips what was read.
+ * `complete` is false when the walk stopped early (a helper that ignores `offset` hands back the
+ * same page again, which adds nothing and ends the walk), so the rows are not the whole list and a
+ * sweep must delete nothing on them.
+ */
+async function pagedList(
+  fetchPage: (offset: number) => Promise<Obj[]>,
+  idOf: (row: Obj) => string | undefined,
+): Promise<{ rows: Obj[]; complete: boolean }> {
+  const rows: Obj[] = [];
+  const seen = new Set<string>();
+  let offset = 0;
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const got = await fetchPage(offset);
+    let added = 0;
+    for (const r of got) {
+      const id = idOf(r);
+      if (id !== undefined) {
+        if (seen.has(id)) continue;
+        seen.add(id);
+      }
+      rows.push(r);
+      added += 1;
+    }
+    if (got.length < APPLE_PAGE) return { rows, complete: true };
+    if (added === 0) return { rows, complete: false };
+    offset += got.length;
+  }
+  return { rows, complete: false };
+}
+
+/** A read the Mac gave up on (Mail's own search, a helper timeout): worth retrying over less. */
+const isTimeout = (err: unknown): boolean => {
+  const message = err instanceof Error ? err.message : String(err);
+  const details = isObj(err) && isObj(err.details) ? err.details : undefined;
+  const reason = details === undefined ? undefined : str(details.reason);
+  return (
+    reason === "timeout" || reason === "search_timeout" || /took too long|timed out/i.test(message)
+  );
+};
+
 // --- mail ------------------------------------------------------------------------------------
 
-/** Mail is read newest first: `until` walks back to the oldest, then `newest` follows new mail. */
-interface MailCursor {
-  newest: string | null;
-  until: string | null;
-  done: boolean;
+/**
+ * Mail is read newest first in bounded date windows: one unbounded search over every mailbox is
+ * more than Mail can answer in time ("Mail search took too long"). A sweep walks back from `top`
+ * (now) one window at a time, a page of 25 at a time inside a window; a first sweep goes on until
+ * two years in a row hold no mail, a later one stops at `floor`, where the last sweep began. A
+ * window Mail cannot answer is halved and read again (and later windows stay at the size that
+ * worked), so a timeout slows the walk and does not fail the source.
+ */
+interface MailSweep {
+  /** ISO: when the sweep began; the next sweep reads from here. */
+  top: string;
+  /** ISO: the search's `until`; everything newer in this sweep is read. */
+  until: string;
+  /** ISO: where the last finished sweep began, or null for the first (walk back to the start). */
+  floor: string | null;
+  /** Days in a row, walking back, with no mail at all. */
+  empty: number;
+  /** Ids read at the edge of the last full page, which the next page's search returns again. */
+  edge?: string[];
 }
+interface MailCursor {
+  /** ISO: the `top` of the last finished sweep, or null before the first. */
+  newest: string | null;
+  sweep: MailSweep | null;
+  /** The window, in days, and the largest one that has not timed out. */
+  win: number;
+  cap: number;
+}
+
+const MAIL_START_DAYS = 7;
+const MAIL_MAX_DAYS = 366;
+/** A first sweep ends after this many days in a row without mail. */
+const MAIL_EMPTY_STOP_DAYS = 730;
+/** ... or this far back, whatever is there. */
+const MAIL_OLDEST_DAYS = 30 * 366;
+/** A sweep re-reads this much of the one before it: mail dated a little before it was delivered. */
+const MAIL_OVERLAP_MS = 10 * 60_000;
+
+const isoTime = (v: unknown): string | null => {
+  const s = str(v);
+  return s !== undefined && !Number.isNaN(Date.parse(s)) ? s : null;
+};
+const clampDays = (v: unknown, fallback: number): number =>
+  typeof v === "number" && Number.isFinite(v)
+    ? Math.min(MAIL_MAX_DAYS, Math.max(1, Math.floor(v)))
+    : fallback;
+
+/** A stored cursor, including the one an earlier build wrote (`{ newest, until, done }`). */
+function mailCursor(raw: unknown, now: number): MailCursor {
+  const base = { win: MAIL_START_DAYS, cap: MAIL_MAX_DAYS };
+  if (!isObj(raw)) return { newest: null, sweep: null, ...base };
+  const newest = isoTime(raw.newest);
+  const win = clampDays(raw.win, base.win);
+  const cap = Math.max(win, clampDays(raw.cap, base.cap));
+  const sw = raw.sweep;
+  if (isObj(sw)) {
+    const top = isoTime(sw.top);
+    const until = isoTime(sw.until);
+    if (top !== null && until !== null)
+      return {
+        newest,
+        sweep: {
+          top,
+          until,
+          floor: isoTime(sw.floor),
+          empty: typeof sw.empty === "number" ? Math.max(0, sw.empty) : 0,
+          ...(Array.isArray(sw.edge)
+            ? { edge: sw.edge.filter((x): x is string => typeof x === "string").slice(0, 600) }
+            : {}),
+        },
+        win,
+        cap,
+      };
+  }
+  const until = isoTime(raw.until);
+  if (!("sweep" in raw) && raw.done !== true && until !== null)
+    return {
+      newest,
+      sweep: { top: new Date(now).toISOString(), until, floor: null, empty: 0 },
+      win,
+      cap,
+    };
+  return { newest, sweep: null, win, cap };
+}
+
+type MailStep =
+  | { kind: "retry"; win: number; cap: number }
+  | { kind: "page"; rows: Obj[]; sweep: MailSweep; win: number; cap: number; done: boolean };
 
 export function mailAdapter(deps: AppleSourceDeps): SourceAdapter {
   const summaries = async (call: ToolCall, p: Obj, signal: AbortSignal) =>
     listOf(await call("mail_search", p, signal), "messages", "results");
   const when = (m: Obj) => ms(m.date ?? m.received ?? m.dateReceived ?? m.sentAt);
+
+  /** One search inside the sweep's current window: its rows, and where the sweep stands after it. */
+  const step = async (
+    call: ToolCall,
+    sweep: MailSweep,
+    win: number,
+    cap: number,
+    size: number,
+    signal: AbortSignal,
+  ): Promise<MailStep> => {
+    const until = Date.parse(sweep.until);
+    const floor = sweep.floor === null ? Number.NEGATIVE_INFINITY : Date.parse(sweep.floor);
+    const since = Math.max(until - win * DAY, floor);
+    let rows: Obj[];
+    try {
+      rows = await summaries(
+        call,
+        { limit: size, since: new Date(since).toISOString(), until: sweep.until },
+        signal,
+      );
+    } catch (err) {
+      if (!isTimeout(err) || win <= 1) throw err;
+      const half = Math.max(1, Math.floor(win / 2));
+      return { kind: "retry", win: half, cap: half };
+    }
+    const dates = rows.flatMap((m) => when(m) ?? []);
+    const oldest = dates.length === 0 ? undefined : Math.min(...dates);
+    let nextUntil: number;
+    let edge: string[] = [];
+    let nextEmpty = 0;
+    let nextWin = win;
+    let done = false;
+    if (rows.length >= size && oldest !== undefined && oldest > since) {
+      // A full page: more of this window lies before its oldest row. The helper's `until` is
+      // exclusive, so one second more keeps mail received in that same second.
+      nextUntil = oldest + 1000 < until ? oldest + 1000 : oldest;
+      edge = rows.flatMap((m) => (when(m) === oldest ? (str(m.id) ?? []) : []));
+    } else {
+      // The window is read. Move to the one before it, widening over quiet stretches.
+      nextUntil = since;
+      if (sweep.floor !== null) done = since <= floor;
+      else {
+        nextEmpty = rows.length === 0 ? sweep.empty + (until - since) / DAY : 0;
+        done =
+          nextEmpty >= MAIL_EMPTY_STOP_DAYS ||
+          nextUntil <= Date.parse(sweep.top) - MAIL_OLDEST_DAYS * DAY;
+      }
+      if (rows.length * 2 < size) nextWin = Math.min(cap, win * 2);
+    }
+    return {
+      kind: "page",
+      rows,
+      sweep: {
+        top: sweep.top,
+        floor: sweep.floor,
+        until: new Date(nextUntil).toISOString(),
+        empty: nextEmpty,
+        ...(edge.length === 0 ? {} : { edge }),
+      },
+      win: nextWin,
+      cap,
+      done,
+    };
+  };
+
   return {
     id: "mail",
     unavailable: () => (deps.call("mail") === undefined ? NOT_CONNECTED : undefined),
     async pull(raw, { signal, limit }): Promise<SourcePull> {
       const call = deps.call("mail");
       if (call === undefined) throw new Error(NOT_CONNECTED);
-      const cur: MailCursor = isObj(raw)
-        ? (raw as unknown as MailCursor)
-        : { newest: null, until: null, done: false };
+      const now = deps.now();
+      const cur = mailCursor(raw, now);
       const size = Math.min(limit, 25);
-      const params: Obj = { limit: size };
-      if (cur.done && cur.newest !== null) params.since = cur.newest;
-      else if (cur.until !== null) params.until = cur.until;
-      const rows = await summaries(call, params, signal);
+      const sweep: MailSweep = cur.sweep ?? {
+        top: new Date(now).toISOString(),
+        until: new Date(now).toISOString(),
+        floor:
+          cur.newest === null
+            ? null
+            : new Date(Date.parse(cur.newest) - MAIL_OVERLAP_MS).toISOString(),
+        empty: 0,
+      };
+      const got = await step(call, sweep, Math.min(cur.win, cur.cap), cur.cap, size, signal);
+      if (got.kind === "retry") {
+        // Too much for Mail in one go: read this window again, smaller, on the next page.
+        return {
+          items: [],
+          cursor: { ...cur, sweep, win: got.win, cap: got.cap },
+          hasMore: true,
+        };
+      }
+      const rows = got.rows;
       const own = new Set(deps.ownAddresses().map((a) => a.toLowerCase()));
       const items: SourceItem[] = [];
-      let oldest = cur.until === null ? Number.POSITIVE_INFINITY : Date.parse(cur.until);
-      let newest = cur.newest === null ? 0 : Date.parse(cur.newest);
+      const edge = new Set(sweep.edge ?? []);
       for (const m of rows) {
         const id = str(m.id);
         const at = when(m);
-        if (id === undefined || at === undefined) continue;
-        oldest = Math.min(oldest, at);
-        newest = Math.max(newest, at);
+        if (id === undefined || at === undefined || edge.has(id)) continue;
         const full = await call(
           "mail_read",
           {
@@ -145,36 +352,51 @@ export function mailAdapter(deps: AppleSourceDeps): SourceAdapter {
           ...(str(m.account) ? { account: str(m.account) as string } : {}),
         });
       }
-      const iso = (t: number) => new Date(t).toISOString();
-      const next: MailCursor = { ...cur, newest: newest > 0 ? iso(newest) : cur.newest };
-      if (cur.done) return { items, cursor: next, hasMore: rows.length >= size };
-      // Walking back: stop when the page is short or did not move past the frontier.
-      const moved =
-        Number.isFinite(oldest) && (cur.until === null || oldest < Date.parse(cur.until));
-      next.until = Number.isFinite(oldest) ? iso(oldest) : cur.until;
-      if (rows.length < size || !moved) {
-        next.done = true;
-        return { items, cursor: next, hasMore: false };
+      if (!got.done) {
+        return {
+          items,
+          cursor: { newest: cur.newest, sweep: got.sweep, win: got.win, cap: got.cap },
+          hasMore: true,
+        };
       }
-      return { items, cursor: next, hasMore: true };
+      // The sweep reached its end: the next one starts where this one did.
+      return {
+        items,
+        cursor: { newest: got.sweep.top, sweep: null, win: got.win, cap: got.cap },
+        hasMore: false,
+      };
     },
     async listIds(signal) {
       const call = deps.call("mail");
       if (call === undefined) return { ids: [], complete: false };
       const ids: string[] = [];
-      let until: string | undefined;
-      for (let page = 0; page < 400; page++) {
-        const rows = await summaries(call, { limit: 500, ...(until ? { until } : {}) }, signal);
-        let oldest = Number.POSITIVE_INFINITY;
-        for (const m of rows) {
-          const id = str(m.id);
-          if (id !== undefined) ids.push(id);
-          oldest = Math.min(oldest, when(m) ?? oldest);
+      const top = new Date(deps.now()).toISOString();
+      let sweep: MailSweep = { top, until: top, floor: null, empty: 0 };
+      let win = MAIL_START_DAYS;
+      let cap = MAIL_MAX_DAYS;
+      for (let n = 0; n < 4000; n++) {
+        let got: MailStep;
+        try {
+          got = await step(call, sweep, win, cap, APPLE_PAGE, signal);
+        } catch (err) {
+          // Mail would not answer even one day: a partial list must not delete anything.
+          if (isTimeout(err)) return { ids, complete: false };
+          throw err;
         }
-        if (rows.length < 500) return { ids, complete: true };
-        if (!Number.isFinite(oldest) || (until !== undefined && oldest >= Date.parse(until)))
-          return { ids, complete: false };
-        until = new Date(oldest).toISOString();
+        if (got.kind === "retry") {
+          win = got.win;
+          cap = got.cap;
+          continue;
+        }
+        const edge = new Set(sweep.edge ?? []);
+        for (const m of got.rows) {
+          const id = str(m.id);
+          if (id !== undefined && !edge.has(id)) ids.push(id);
+        }
+        if (got.done) return { ids, complete: true };
+        sweep = got.sweep;
+        win = got.win;
+        cap = got.cap;
       }
       return { ids, complete: false };
     },
@@ -196,7 +418,7 @@ export function messagesAdapter(deps: AppleSourceDeps): SourceAdapter {
       const helper = deps.helper();
       if (helper === undefined) throw new Error(NO_HELPER);
       const row = isObj(raw) && typeof raw.row === "number" ? raw.row : 0;
-      const chatsOut = await helper("messages.graph_chats", { limit: 500 }, signal);
+      const chatsOut = await helper("messages.graph_chats", { limit: MESSAGES_PAGE }, signal);
       const chats = new Map<string, { handles: string[]; isGroup: boolean }>();
       for (const c of listOf(chatsOut, "chats")) {
         const id = str(c.chatId);
@@ -205,7 +427,7 @@ export function messagesAdapter(deps: AppleSourceDeps): SourceAdapter {
       }
       const out = await helper(
         "messages.graph_read",
-        { sinceCursor: row, limit: Math.min(limit * 2, 500), includeText: true },
+        { sinceCursor: row, limit: Math.min(limit * 2, MESSAGES_PAGE), includeText: true },
         signal,
       );
       const days = new Map<
@@ -275,10 +497,27 @@ export function messagesAdapter(deps: AppleSourceDeps): SourceAdapter {
 
 // --- notes -----------------------------------------------------------------------------------
 
+/** How long one pass reuses the list of notes it already read (a pass is a few pages in a row). */
+const NOTES_LIST_TTL_MS = 5 * 60_000;
+
 /** Notes by modified date: the list is cheap, bodies are read only for notes changed since. */
 export function notesAdapter(deps: AppleSourceDeps): SourceAdapter {
-  const list = async (call: ToolCall, signal: AbortSignal) =>
-    listOf(await call("notes_list", { limit: 5000 }, signal), "notes");
+  /** 500 notes a call, `offset` for the rest: a long library is read in as many calls as it takes. */
+  const list = (call: ToolCall, signal: AbortSignal) =>
+    pagedList(
+      async (offset) =>
+        listOf(
+          await call(
+            "notes_list",
+            { limit: APPLE_PAGE, ...(offset > 0 ? { offset } : {}) },
+            signal,
+          ),
+          "notes",
+        ),
+      (n) => str(n.id),
+    );
+  // The list a pass is working through, so each page of changed notes does not read it all again.
+  let listed: { rows: Obj[]; at: number } | undefined;
   return {
     id: "notes",
     unavailable: () => (deps.call("notes") === undefined ? NOT_CONNECTED : undefined),
@@ -287,7 +526,16 @@ export function notesAdapter(deps: AppleSourceDeps): SourceAdapter {
       if (call === undefined) throw new Error(NOT_CONNECTED);
       await deps.refreshTrust?.("notes", signal);
       const since = isObj(raw) && typeof raw.mod === "number" ? raw.mod : 0;
-      const changed = (await list(call, signal))
+      const now = deps.now();
+      // A first page (no cursor) always reads the list again; the pages after it reuse it.
+      let rows: Obj[];
+      if (raw !== null && listed !== undefined && now - listed.at < NOTES_LIST_TTL_MS) {
+        rows = listed.rows;
+      } else {
+        rows = (await list(call, signal)).rows;
+        listed = { rows, at: now };
+      }
+      const changed = rows
         .map((n) => ({ n, at: ms(n.modified ?? n.modifiedAt ?? n.updatedAt) ?? 0 }))
         .filter((x) => x.at > since)
         .sort((a, b) => a.at - b.at);
@@ -318,13 +566,15 @@ export function notesAdapter(deps: AppleSourceDeps): SourceAdapter {
         });
       }
       const last = page.at(-1)?.at ?? since;
-      return { items, cursor: { mod: last }, hasMore: changed.length > page.length };
+      const hasMore = changed.length > page.length;
+      if (!hasMore) listed = undefined;
+      return { items, cursor: { mod: last }, hasMore };
     },
     async listIds(signal) {
       const call = deps.call("notes");
       if (call === undefined) return { ids: [], complete: false };
-      const rows = await list(call, signal);
-      return { ids: rows.flatMap((n) => str(n.id) ?? []), complete: rows.length < 5000 };
+      const { rows, complete } = await list(call, signal);
+      return { ids: rows.flatMap((n) => str(n.id) ?? []), complete };
     },
   };
 }
@@ -338,22 +588,48 @@ const CAL_WINDOWS: [number, number][] = [
   [-365, 0],
   [0, 365],
 ];
+/** The smallest range a full page is split down to. */
+const CAL_MIN_SPAN = 3_600_000;
 /** After the first pass: recent past and the year ahead, every pass (changes are caught by hash). */
 const CAL_LIVE: [number, number] = [-30, 365];
 
 export function calendarAdapter(deps: AppleSourceDeps): SourceAdapter {
-  const window = async (call: ToolCall, [a, b]: [number, number], signal: AbortSignal) => {
-    const now = deps.now();
-    const out = await call(
-      "calendar_list_events",
-      {
-        from: new Date(now + a * DAY).toISOString(),
-        to: new Date(now + b * DAY).toISOString(),
-        limit: 2000,
-      },
-      signal,
+  /**
+   * The events from `from` to `to`, at most 500 a call: a range that fills the page is split in
+   * half and each half read again, down to an hour, so a busy calendar is read whole.
+   */
+  const events = async (
+    call: ToolCall,
+    from: number,
+    to: number,
+    signal: AbortSignal,
+  ): Promise<{ rows: Obj[]; complete: boolean }> => {
+    const rows = listOf(
+      await call(
+        "calendar_list_events",
+        { from: new Date(from).toISOString(), to: new Date(to).toISOString(), limit: APPLE_PAGE },
+        signal,
+      ),
+      "events",
     );
-    return listOf(out, "events");
+    if (rows.length < APPLE_PAGE) return { rows, complete: true };
+    if (to - from <= CAL_MIN_SPAN) return { rows, complete: false };
+    const mid = Math.floor((from + to) / 2);
+    const a = await events(call, from, mid, signal);
+    const b = await events(call, mid, to, signal);
+    // An event that spans the split is in both halves.
+    const seen = new Set<string>();
+    const merged = [...a.rows, ...b.rows].filter((e) => {
+      const key = `${str(e.id) ?? ""}\u0000${str(e.start) ?? ""}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    return { rows: merged, complete: a.complete && b.complete };
+  };
+  const window = (call: ToolCall, [a, b]: [number, number], signal: AbortSignal) => {
+    const now = deps.now();
+    return events(call, now + a * DAY, now + b * DAY, signal);
   };
   const itemOf = (e: Obj): SourceItem | undefined => {
     const id = str(e.id);
@@ -397,7 +673,7 @@ export function calendarAdapter(deps: AppleSourceDeps): SourceAdapter {
       await deps.refreshTrust?.("calendar", signal);
       const w = isObj(raw) && typeof raw.w === "number" ? raw.w : 0;
       const range = w < CAL_WINDOWS.length ? (CAL_WINDOWS[w] as [number, number]) : CAL_LIVE;
-      const items = (await window(call, range, signal)).flatMap((e) => itemOf(e) ?? []);
+      const items = (await window(call, range, signal)).rows.flatMap((e) => itemOf(e) ?? []);
       const next = Math.min(w + 1, CAL_WINDOWS.length);
       return { items, cursor: { w: next }, hasMore: w + 1 < CAL_WINDOWS.length };
     },
@@ -405,9 +681,13 @@ export function calendarAdapter(deps: AppleSourceDeps): SourceAdapter {
       const call = deps.call("calendar");
       if (call === undefined) return { ids: [], complete: false };
       const ids: string[] = [];
-      for (const r of CAL_WINDOWS)
-        for (const e of await window(call, r, signal)) ids.push(str(e.id) ?? "");
-      return { ids: ids.filter((x) => x !== ""), complete: true };
+      let complete = true;
+      for (const r of CAL_WINDOWS) {
+        const got = await window(call, r, signal);
+        complete &&= got.complete;
+        for (const e of got.rows) ids.push(str(e.id) ?? "");
+      }
+      return { ids: ids.filter((x) => x !== ""), complete };
     },
   };
 }
@@ -416,13 +696,27 @@ export function calendarAdapter(deps: AppleSourceDeps): SourceAdapter {
 
 /** Reminders have no change token: every pass reads them all and the content hash skips the rest. */
 export function remindersAdapter(deps: AppleSourceDeps): SourceAdapter {
+  /** Open, then done: each 500 a call, soonest due first, `offset` for the rest. */
   const all = async (call: ToolCall, signal: AbortSignal) => {
     const rows: Obj[] = [];
-    for (const completed of [false, true])
-      rows.push(
-        ...listOf(await call("reminders_list", { completed, limit: 5000 }, signal), "reminders"),
+    let complete = true;
+    for (const completed of [false, true]) {
+      const got = await pagedList(
+        async (offset) =>
+          listOf(
+            await call(
+              "reminders_list",
+              { completed, limit: APPLE_PAGE, ...(offset > 0 ? { offset } : {}) },
+              signal,
+            ),
+            "reminders",
+          ),
+        (r) => str(r.id),
       );
-    return rows;
+      rows.push(...got.rows);
+      complete &&= got.complete;
+    }
+    return { rows, complete };
   };
   return {
     id: "reminders",
@@ -432,7 +726,7 @@ export function remindersAdapter(deps: AppleSourceDeps): SourceAdapter {
       if (call === undefined) throw new Error(NOT_CONNECTED);
       await deps.refreshTrust?.("reminders", signal);
       const items: SourceItem[] = [];
-      for (const r of await all(call, signal)) {
+      for (const r of (await all(call, signal)).rows) {
         const id = str(r.id);
         if (id === undefined) continue;
         const due = str(r.due) ?? str(r.dueDate);
@@ -458,7 +752,8 @@ export function remindersAdapter(deps: AppleSourceDeps): SourceAdapter {
     async listIds(signal) {
       const call = deps.call("reminders");
       if (call === undefined) return { ids: [], complete: false };
-      return { ids: (await all(call, signal)).flatMap((r) => str(r.id) ?? []), complete: true };
+      const { rows, complete } = await all(call, signal);
+      return { ids: rows.flatMap((r) => str(r.id) ?? []), complete };
     },
   };
 }

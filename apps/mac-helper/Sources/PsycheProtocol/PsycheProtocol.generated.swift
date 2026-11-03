@@ -26963,6 +26963,7 @@ public enum SearchSourceID: String, Codable, Sendable {
     case calendar = "calendar"
     case files = "files"
     case mail = "mail"
+    case memory = "memory"
     case messages = "messages"
     case notes = "notes"
     case reminders = "reminders"
@@ -27026,7 +27027,8 @@ public struct SearchExclusions: Codable, Sendable {
 
 // MARK: - SearchSourceStatus
 public struct SearchSourceStatus: Codable, Sendable {
-    /// The agent's search_everything may search it; Messages is off until the owner allows it
+    /// The agent's search_everything may search it; Messages and Memory are off until the owner
+    /// allows them
     public let agent: Bool
     /// The first pass reached the end
     public let backfilled: Bool

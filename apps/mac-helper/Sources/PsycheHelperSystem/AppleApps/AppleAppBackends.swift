@@ -73,7 +73,9 @@ public protocol MailBackend: Sendable {
 }
 
 public protocol NotesBackend: Sendable {
-    func list(folder: String?, limit: Int) async throws -> [NoteSummaryRecord]
+    /// `limit` notes after the first `offset` (Notes' own order, which is stable between calls), so a
+    /// caller can page past the 500-per-call cap.
+    func list(folder: String?, limit: Int, offset: Int) async throws -> [NoteSummaryRecord]
     func read(id: String) async throws -> (NoteSummaryRecord, html: String, text: String)
     func create(title: String, html: String, folder: String?) async throws -> NoteSummaryRecord
     // Wave 1 (docs/connectors/apple-apps-2026.md §4.4).
@@ -85,6 +87,12 @@ public protocol NotesBackend: Sendable {
     func append(id: String, html: String) async throws -> (NoteSummaryRecord, html: String)
     /// Replaces the body and / or the name; returns the note and its body.
     func update(id: String, title: String?, html: String?) async throws -> (NoteSummaryRecord, html: String)
+}
+
+extension NotesBackend {
+    func list(folder: String?, limit: Int) async throws -> [NoteSummaryRecord] {
+        try await list(folder: folder, limit: limit, offset: 0)
+    }
 }
 
 public protocol SafariBackend: Sendable {
@@ -1154,7 +1162,7 @@ public final class NotesScriptingBackend: NotesBackend, @unchecked Sendable {
             return (id of n as text) & fs & my psyche_clean(cname) & fs & my psyche_clean(name of n) & fs & my psyche_iso(modification date of n)
           end tell
         end psyche_line
-        on psyche_list(folderName, lim)
+        on psyche_list(folderName, lim, off)
           set out to {}
           tell application "Notes"
             if folderName is "" then
@@ -1162,10 +1170,23 @@ public final class NotesScriptingBackend: NotesBackend, @unchecked Sendable {
             else
               set ns to notes of folder folderName
             end if
-            repeat with n in ns
-              if (count of out) ≥ (lim as integer) then exit repeat
-              set end of out to my psyche_line(n)
-            end repeat
+            if (off as integer) is 0 then
+              repeat with n in ns
+                if (count of out) ≥ (lim as integer) then exit repeat
+                set end of out to my psyche_line(n)
+              end repeat
+            else
+              -- A later page: skip the first `off` notes without reading them.
+              set total to count of ns
+              set a to (off as integer) + 1
+              set b to (off as integer) + (lim as integer)
+              if b > total then set b to total
+              if a ≤ b then
+                repeat with n in (items a thru b of ns)
+                  set end of out to my psyche_line(n)
+                end repeat
+              end if
+            end if
           end tell
           return my psyche_join(out, character id 30)
         end psyche_list
@@ -1287,8 +1308,8 @@ public final class NotesScriptingBackend: NotesBackend, @unchecked Sendable {
         NoteSummaryRecord(id: f[0], folder: f[1], title: f[2], modified: AppleDates.fromAppleScript(f[3]) ?? AppleDates.string(Date(timeIntervalSince1970: 0)))
     }
 
-    public func list(folder: String?, limit: Int) async throws -> [NoteSummaryRecord] {
-        let out = try await ScriptHandler.call(Self.source, handler: "psyche_list", [folder ?? "", "\(limit)"], app: Self.bundleId)
+    public func list(folder: String?, limit: Int, offset: Int) async throws -> [NoteSummaryRecord] {
+        let out = try await ScriptHandler.call(Self.source, handler: "psyche_list", [folder ?? "", "\(limit)", "\(offset)"], app: Self.bundleId)
         return ScriptRecords.parse(out, fields: 4).map(Self.summary)
     }
 

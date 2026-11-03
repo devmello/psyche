@@ -1146,7 +1146,7 @@ export const settings = {
   // Local search sources (docs/design/search-roadmap-2026.md §2), under Model (SearchSourcesSettings.tsx).
   "settings.searchSources.title": "Search sources",
   "settings.searchSources.description":
-    "What Psyche reads into your search index. All off until you switch them on; the index stays on this Mac. Turning a source on also lets memory learn from it, unless you opt out on Memory → Sources.",
+    "What Psyche reads into your search index. All off until you switch them on; the index stays on this Mac. Turning a source on also lets memory learn from it, unless you opt out on Memory → Sources (Memory itself is the exception: it is never learned from).",
   "settings.searchSources.hint.mail":
     "Subject, sender, recipients, date and the text of your mail in Apple Mail. Quoted replies are skipped.",
   "settings.searchSources.hint.messages":
@@ -1161,6 +1161,8 @@ export const settings = {
     "Pages Psyche's browser reads for you, kept 90 days. Private, sign-in and payment pages are never kept.",
   "settings.searchSources.hint.transcripts":
     "Voice memos and meetings, split by speaker. Other people's words are never treated as instructions.",
+  "settings.searchSources.hint.memory":
+    "What Psyche remembers: your people, projects, work that's due and events, and the facts you've reviewed. Anything sensitive, still waiting for review, or kept private is left out. Memory doesn't learn from this index, and needs Memory turned on.",
   "settings.searchSources.state.off": "Off: not read",
   "settings.searchSources.state.unavailable": "On, but not available: {why}",
   "settings.searchSources.state.error": "Problem: {why}",

@@ -207,7 +207,9 @@ export class SourceIndexer {
         const { signal } = this.#abort;
         if (signal.aborted) return;
         const res = await adapter.pull(this.#cursor(id), { signal, limit: this.#o.pageSize });
-        const changed = await this.ingest(id, res.items);
+        let changed = await this.ingest(id, res.items);
+        if (res.snapshot === true && !res.hasMore)
+          changed += await this.#forgetMissing(id, new Set(res.items.map((i) => i.nativeId)));
         this.#setMeta(`src.${id}.cursor`, JSON.stringify(res.cursor ?? null));
         this.#setMeta(`src.${id}.lastAt`, String(this.#o.now()));
         this.#errors.delete(id);
@@ -290,6 +292,20 @@ export class SourceIndexer {
       })();
     }
     return docs.length + drop.length;
+  }
+
+  /** Forgets what a whole read of the source no longer has; returns how many documents went. */
+  async #forgetMissing(id: SourceId, present: ReadonlySet<string>): Promise<number> {
+    const tracked = this.#index.db
+      .prepare("SELECT native_id FROM search_source_items WHERE source = ?")
+      .all(id) as { native_id: string }[];
+    let removed = 0;
+    for (const { native_id } of tracked) {
+      if (present.has(native_id)) continue;
+      await this.#forget(id, native_id);
+      removed += 1;
+    }
+    return removed;
   }
 
   async #forget(id: SourceId, nativeId: string): Promise<void> {

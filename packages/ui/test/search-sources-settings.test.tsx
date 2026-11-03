@@ -110,6 +110,50 @@ describe("search sources settings", () => {
   });
 });
 
+describe("the Memory source", () => {
+  const withMemory = (over: Partial<SearchSourcesStatus["sources"][number]> = {}) => ({
+    ...status,
+    sources: [...status.sources, base({ id: "memory", label: "Memory", agent: false, ...over })],
+  });
+
+  it("is a row like the others: off, owner-only for the agent, with what it leaves out", async () => {
+    const onConfigure = vi.fn();
+    render(
+      <StoryWorld>
+        <SearchSourcesSettingsGroup status={withMemory()} onConfigure={onConfigure} now={NOW} />
+      </StoryWorld>,
+    );
+    const sw = screen.getByRole("switch", { name: "Memory" });
+    expect(sw.getAttribute("aria-checked")).toBe("false");
+    expect(
+      screen.getByText(/Anything sensitive, still waiting for review, or kept private/),
+    ).toBeTruthy();
+    expect(screen.getByText(/Memory doesn't learn from this index/)).toBeTruthy();
+    await userEvent.click(sw);
+    expect(onConfigure).toHaveBeenCalledWith({ source: "memory", enabled: true });
+  });
+
+  it("shows its count, a Rebuild, and an agent switch that starts off, once on", async () => {
+    const onRebuild = vi.fn();
+    const onConfigure = vi.fn();
+    render(
+      <StoryWorld>
+        <SearchSourcesSettingsGroup
+          status={withMemory({ enabled: true, state: "idle", items: 42, backfilled: true })}
+          onConfigure={onConfigure}
+          onRebuild={onRebuild}
+          now={NOW}
+        />
+      </StoryWorld>,
+    );
+    expect(screen.getByText("Up to date: 42 items")).toBeTruthy();
+    const agent = screen.getByLabelText("Agent search for Memory") as HTMLInputElement;
+    expect(agent.checked).toBe(false);
+    await userEvent.click(screen.getByRole("button", { name: "Rebuild Memory" }));
+    expect(onRebuild).toHaveBeenCalledWith("memory");
+  });
+});
+
 describe("Rebuild", () => {
   const show = (props: Parameters<typeof SearchSourcesSettingsGroup>[0]) =>
     render(
