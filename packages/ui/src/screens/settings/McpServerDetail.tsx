@@ -4,7 +4,7 @@ import type { ReactElement } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { t } from "../../i18n/core.ts";
 import { ConnectorIcon } from "./ConnectorIcon.tsx";
-import { Disclosure } from "./ConnectorRow.tsx";
+import { Disclosure, FactRows } from "./ConnectorRow.tsx";
 import { McpCodePanel } from "./McpCodePanel.tsx";
 import { McpFailureNotice } from "./McpFailureNotice.tsx";
 import { McpLoadingGroup, McpServerPanels } from "./McpServerPanels.tsx";
@@ -110,8 +110,7 @@ export function McpServerDetail({
         </p>
       ) : null}
       <Group title={t("settings.connectors.page.detail.about")}>
-        <Facts
-          className="text-callout"
+        <FactRows
           items={[
             {
               term: t("settings.connectors.page.detail.type"),

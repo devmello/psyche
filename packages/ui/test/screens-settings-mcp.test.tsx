@@ -73,6 +73,17 @@ describe("connector catalog (#529)", () => {
   });
 });
 
+/** The Connectors pane's Advanced fold (other panes on the page have their own). */
+const connectorsAdvanced = async (): Promise<HTMLDetailsElement> => {
+  await screen.findByText("Find servers online", {}, { timeout: 3000 }).catch(() => undefined);
+  const found = screen
+    .getAllByText("Advanced")
+    .map((e) => e.closest("details"))
+    .find((d) => d?.textContent?.includes("Your own tool server"));
+  if (!found) throw new Error("Advanced not found");
+  return found;
+};
+
 describe("old MCP route", () => {
   it("redirects /settings/mcp to Connectors with the MCP servers showing", () => {
     expect(parseSettingsRoute("/settings/mcp")).toEqual({ section: "connectors", view: "mcp" });
@@ -92,8 +103,8 @@ describe("old MCP route", () => {
   it("opens Connectors with Advanced showing, where your own tool servers are added", async () => {
     setup("connectors", "mcp");
     expect(await screen.findByRole("article", { name: "Notion" })).toBeTruthy();
-    const advanced = screen.getByRole("button", { name: "Advanced" });
-    expect(advanced.getAttribute("aria-expanded")).toBe("true");
+    const advanced = await connectorsAdvanced();
+    await waitFor(() => expect(advanced.open).toBe(true));
     expect(screen.getByRole("button", { name: "Add server" })).toBeTruthy();
   });
 });
@@ -132,7 +143,7 @@ describe("Connectors → Custom MCP server", () => {
 
   it("is added from Advanced, not from the gallery", async () => {
     const gateway = setup("connectors");
-    await userEvent.click(await screen.findByRole("button", { name: "Advanced" }));
+    await userEvent.click((await connectorsAdvanced()).querySelector("summary") as HTMLElement);
     await userEvent.click(screen.getByRole("button", { name: "Add server" }));
     expect(screen.getByRole("button", { name: "Check server" })).toBeTruthy();
     expect(methods(gateway())).not.toContain("mcp.probe");

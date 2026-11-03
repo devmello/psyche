@@ -1,9 +1,9 @@
 import { ArrowLeft, ChevronRight } from "lucide-react";
-import { Children, type ReactElement, type ReactNode, useContext, useId, useState } from "react";
+import { type ReactElement, type ReactNode, useContext, useId, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { t } from "../../i18n/core.ts";
 import { cn } from "../../lib/utils.ts";
-import { GROUP_ROWS, InPageContext, StatusChip, type Tone } from "./shared.tsx";
+import { InPageContext, SettingRow, StatusChip, type Tone } from "./shared.tsx";
 
 /** One level under the pane's title: an h3 on its own, an h4 inside a page of panes. */
 export function useSubheading(): "h3" | "h4" {
@@ -76,38 +76,20 @@ export function ConnectorRow({
   );
 }
 
-/** A titled list of rows. `attention` tints it amber: the rows in it need the owner. */
-export function RowGroup({
-  title,
-  hint,
-  attention = false,
-  children,
+/** The facts of a detail as card rows: the label on the left, the value trailing. */
+export function FactRows({
+  items,
 }: {
-  title: string;
-  hint?: string;
-  attention?: boolean;
-  children: ReactNode;
+  items: readonly { term: string; value: ReactNode }[];
 }): ReactElement {
-  const id = useId();
-  const Heading = useSubheading();
   return (
-    <section aria-labelledby={id} className="flex flex-col gap-1.5">
-      <Heading
-        id={id}
-        className={cn("px-1 text-title-3", attention ? "text-approval-text" : "text-label-primary")}
-      >
-        {title}
-      </Heading>
-      <ul
-        className={cn(
-          GROUP_ROWS,
-          attention && "bg-approval-surface shadow-none ring-1 ring-approval-border",
-        )}
-      >
-        {Children.map(children, (child) => (child === null ? null : <li>{child}</li>))}
-      </ul>
-      {hint ? <p className="px-1 text-callout text-label-secondary">{hint}</p> : null}
-    </section>
+    <>
+      {items.map((i) => (
+        <SettingRow key={i.term} label={i.term}>
+          <span className="min-w-0 text-callout text-label-secondary">{i.value}</span>
+        </SettingRow>
+      ))}
+    </>
   );
 }
 

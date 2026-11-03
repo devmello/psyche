@@ -14,7 +14,7 @@ import { t } from "../../i18n/core.ts";
 import { formatRelative } from "../../lib/format.ts";
 import type { ActionRule } from "./ActionMatrix.tsx";
 import { CapabilityCard } from "./ConnectorCapabilities.tsx";
-import { Disclosure } from "./ConnectorRow.tsx";
+import { Disclosure, FactRows } from "./ConnectorRow.tsx";
 import { ConnectedShortcutsCard, ObsidianCard } from "./ConnectorSettingsCards.tsx";
 import { type ConnectorPermission, PermissionNotice, permissionOf } from "./connect-flow.tsx";
 import { SCOPE_MODE_LABEL } from "./connector-catalog.tsx";
@@ -191,8 +191,7 @@ export function ConnectorDetail({
         </Attention>
       ) : null}
       <Group title={t("settings.connectors.page.detail.about")}>
-        <Facts
-          className="text-callout"
+        <FactRows
           items={[
             {
               term: t("settings.connectors.account"),

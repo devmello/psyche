@@ -77,8 +77,20 @@ function setup(section: "connectors" | "skills", seed?: (g: MockGateway) => void
 }
 
 /** The registry search sits under Advanced on the Connectors page. */
-const openAdvanced = async () =>
-  userEvent.click(await screen.findByRole("button", { name: "Advanced" }));
+/** The Connectors pane's Advanced fold (other panes on the page have their own). */
+const advancedOf = async (): Promise<HTMLDetailsElement> => {
+  await screen.findByText("Find servers online", {}, { timeout: 3000 }).catch(() => undefined);
+  const found = screen
+    .getAllByText("Advanced")
+    .map((e) => e.closest("details"))
+    .find((d) => d?.textContent?.includes("Your own tool server"));
+  if (!found) throw new Error("Advanced not found");
+  return found;
+};
+const openAdvanced = async () => {
+  const d = await advancedOf();
+  await userEvent.click(d.querySelector("summary") as HTMLElement);
+};
 
 const searches = (g: MockGateway) =>
   g.calls.filter((c) => c.method === "capabilities.search").map((c) => c.params);

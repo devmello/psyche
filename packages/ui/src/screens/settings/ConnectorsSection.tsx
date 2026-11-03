@@ -16,7 +16,7 @@ import { ConnectForm, galleryEntries } from "./ConnectForm.tsx";
 import { ConnectorDetail, lastUsed, trustTier } from "./ConnectorDetail.tsx";
 import { AddMore } from "./ConnectorGallery.tsx";
 import { ConnectorIcon } from "./ConnectorIcon.tsx";
-import { ConnectorRow, DetailFrame, Disclosure, RowGroup } from "./ConnectorRow.tsx";
+import { ConnectorRow, DetailFrame } from "./ConnectorRow.tsx";
 import { ConnectProgress, permissionOf, useConnectorConnect } from "./connect-flow.tsx";
 import { CONNECTOR_CATALOG, type ScopeMode, useImplementedTypes } from "./connector-catalog.tsx";
 import { FilesOnMacCard, type PolicyValues, TerminalCard } from "./DeviceAccessCards.tsx";
@@ -35,6 +35,7 @@ import {
   mcpSubtitle,
 } from "./McpServerDetail.tsx";
 import {
+  Advanced,
   ErrorNotice,
   Group,
   LoadGate,
@@ -70,6 +71,9 @@ type View =
   | { kind: "list" }
   | { kind: "add"; type?: string | undefined }
   | { kind: "detail"; id: string };
+
+/** The card of rows that need the owner: amber is for "needs you" only. */
+const ATTENTION_CARD = "border-approval-border bg-approval-surface";
 
 /** The ids of the two device rows, which are views onto Permissions rather than connectors. */
 const FILES_ID = "device:files";
@@ -189,6 +193,16 @@ export function ConnectorsPanel({
         : { kind: "list" },
   );
   const list = () => setView({ kind: "list" });
+  // The old MCP route lands with Advanced open (`Advanced` has no `open` prop to pass).
+  const advancedRef = useRef<HTMLDivElement>(null);
+  const advancedOpened = useRef(false);
+  // Runs each render: the fold mounts only once the list has loaded.
+  useEffect(() => {
+    const details = advancedRef.current?.querySelector("details");
+    if (!details || !defaultAdvancedOpen || advancedOpened.current) return;
+    details.open = true;
+    advancedOpened.current = true;
+  });
   const servers = mcp?.servers ?? [];
   const total = connectors.length + servers.length;
   const review = mcp?.review ?? null;
@@ -450,9 +464,9 @@ export function ConnectorsPanel({
       {showing === "list" ? (
         <>
           {has("needs") ? (
-            <RowGroup title={t("settings.connectors.page.needsYou")} attention>
+            <Group title={t("settings.connectors.page.needsYou")} className={ATTENTION_CARD}>
               {renderRows("needs")}
-            </RowGroup>
+            </Group>
           ) : null}
           {total === 0 ? (
             <EmptyState
@@ -470,15 +484,13 @@ export function ConnectorsPanel({
               {t("settings.connectors.empty", { persona })}
             </EmptyState>
           ) : has("working") ? (
-            <RowGroup title={t("settings.connectors.page.connected")}>
-              {renderRows("working")}
-            </RowGroup>
+            <Group title={t("settings.connectors.page.connected")}>{renderRows("working")}</Group>
           ) : null}
           {has("paused") ? (
-            <RowGroup title={t("settings.connectors.page.paused")}>{renderRows("paused")}</RowGroup>
+            <Group title={t("settings.connectors.page.paused")}>{renderRows("paused")}</Group>
           ) : null}
           {policy ? (
-            <RowGroup title={t("settings.connectors.page.onThisMac")}>
+            <Group title={t("settings.connectors.page.onThisMac")}>
               <ConnectorRow
                 name={t("settings.deviceAccess.files.title")}
                 icon={<ConnectorIcon type={FILES_ID} />}
@@ -500,7 +512,7 @@ export function ConnectorsPanel({
                 }
                 onOpen={open(TERMINAL_ID)}
               />
-            </RowGroup>
+            </Group>
           ) : null}
           {onConnect && total > 0 ? (
             <AddMore
@@ -515,30 +527,28 @@ export function ConnectorsPanel({
             />
           ) : null}
           {onConnect && mcp ? (
-            <Disclosure
-              label={t("settings.connectors.page.advanced")}
-              defaultOpen={defaultAdvancedOpen}
-            >
-              <Group title={t("settings.connectors.page.advanced.custom")}>
-                <div className="flex items-center gap-3">
-                  <p className="min-w-0 flex-1 text-callout text-label-secondary">
-                    {t("settings.connectors.page.advanced.customHint")}
-                  </p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setView({ kind: "add", type: "mcp" })}
-                  >
-                    {t("settings.connectors.page.advanced.customAction")}
-                  </Button>
-                </div>
-              </Group>
-              <AvailableConnectors
-                mcp={mcp}
-                onPreset={(id) => setView({ kind: "add", type: `preset:${id}` })}
-              />
-            </Disclosure>
+            <div ref={advancedRef}>
+              <Advanced description={t("settings.connectors.page.advanced.hint")}>
+                <Group
+                  title={t("settings.connectors.page.advanced.custom")}
+                  description={t("settings.connectors.page.advanced.customHint")}
+                  actions={
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setView({ kind: "add", type: "mcp" })}
+                    >
+                      {t("settings.connectors.page.advanced.customAction")}
+                    </Button>
+                  }
+                />
+                <AvailableConnectors
+                  mcp={mcp}
+                  onPreset={(id) => setView({ kind: "add", type: `preset:${id}` })}
+                />
+              </Advanced>
+            </div>
           ) : null}
         </>
       ) : null}

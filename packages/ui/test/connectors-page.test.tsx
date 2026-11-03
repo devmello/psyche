@@ -92,9 +92,8 @@ describe("Connectors page", () => {
   it("keeps protocol words off the list and your own servers under Advanced", () => {
     renderPage();
     expect(screen.queryByText("MCP")).toBeNull();
-    const advanced = screen.getByRole("button", { name: "Advanced" });
-    expect(advanced.getAttribute("aria-expanded")).toBe("false");
-    expect(screen.queryByRole("button", { name: "Add server" })).toBeNull();
+    const advanced = screen.getByText("Advanced").closest("details") as HTMLDetailsElement;
+    expect(advanced.open).toBe(false);
   });
 
   it("opens a row's detail with the reason it failed, and goes back to the list", async () => {
