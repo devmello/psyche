@@ -11,7 +11,7 @@ function setup(edit: (w: FixtureWorld) => void = (w) => (w.connectors = [])) {
   let gw: MockGateway | null = null;
   render(
     <StoryWorld onGateway={(g) => (gw = g)} edit={edit}>
-      <OnboardingFlow onComplete={() => {}} defaultStep="connectors" />
+      <OnboardingFlow onComplete={() => {}} defaultStep="stuff" />
     </StoryWorld>,
   );
   const connects = () =>

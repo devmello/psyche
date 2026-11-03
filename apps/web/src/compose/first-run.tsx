@@ -12,13 +12,15 @@ import type { ShellPlatform } from "../shell/platform.ts";
 import { useMacHelper } from "./helper.tsx";
 import { checkModel, saveProviderKey, verifySetup } from "./model-setup.ts";
 import {
+  type CurrentSetup,
   commitImport,
   createStarterAutomation,
   detectCompleted,
+  loadCurrent,
   loadProgress,
   previewImport,
-  runWin,
   saveProgress,
+  touchIdSetup,
 } from "./onboarding-host.ts";
 import { readPermissions, requestPermission } from "./permissions.tsx";
 
@@ -36,7 +38,8 @@ const call =
 
 /**
  * The first-run flow with the Gateway wired in. `first`: resumes from saved progress. `rerun`
- * (Settings → About → Run setup again): leaves out what is already set up.
+ * (Settings → About → Run setup again, docs/design/onboarding-2026.md §5): every step is shown
+ * pre-filled from what is stored; only a model that is already set and ready is left out.
  */
 export function FirstRun({
   platform,
@@ -52,16 +55,18 @@ export function FirstRun({
   const [start, setStart] = useState<{
     progress: OnboardingProgress | null;
     completed: OnboardingProgress["done"];
+    current: CurrentSetup | null;
   } | null>(null);
+  const touchId = useMemo(() => touchIdSetup(gw, platform.helper?.touchId), [gw, platform]);
 
   useEffect(() => {
     let live = true;
     const load = async () => {
       if (mode === "first")
-        return { progress: await loadProgress(gw).catch(() => null), completed: [] };
-      // The agent's persona is edited in Settings; a re-run never rewrites it.
-      const completed = await detectCompleted(gw);
-      return { progress: null, completed: [...completed, "agent" as const] };
+        return { progress: await loadProgress(gw).catch(() => null), completed: [], current: null };
+      // The agent's persona is edited in Settings; a re-run never rewrites it (`rerun` hides it).
+      const [completed, current] = await Promise.all([detectCompleted(gw), loadCurrent(gw)]);
+      return { progress: null, completed, current };
     };
     void load().then((s) => live && setStart(s));
     return () => {
@@ -76,6 +81,18 @@ export function FirstRun({
       <OnboardingFlow
         {...(resumeStep ? { defaultStep: resumeStep } : {})}
         completed={start.completed}
+        rerun={mode === "rerun"}
+        {...(start.current
+          ? {
+              initial: {
+                owner: start.current.owner,
+                ...(start.current.habits ? { habits: start.current.habits } : {}),
+                ...(start.current.mail ? { mail: start.current.mail } : {}),
+                memory: start.current.memory,
+              },
+            }
+          : {})}
+        {...(touchId ? { touchId } : {})}
         {...(helper ? { helper } : {})}
         macPermissions={platform.permissions !== undefined}
         onRequestPermission={(p) => requestPermission(platform, p)}
@@ -85,7 +102,6 @@ export function FirstRun({
         onVerify={(result) => verifySetup(platform, result, helper)}
         onPreviewImport={(format, content) => previewImport(gw, format, content)}
         onCommitImport={(items) => commitImport(gw, items)}
-        onRunWin={(win) => runWin(gw, win)}
         onProgress={(p) => void saveProgress(gw, p).catch(() => undefined)}
         onComplete={onComplete}
       />

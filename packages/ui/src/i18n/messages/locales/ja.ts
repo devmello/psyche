@@ -2178,11 +2178,7 @@ export const ja: Partial<Catalogue> = {
   "settings.language.direction.ltr": "左から右",
   "settings.language.direction.rtl": "右から左",
 
-  "onboarding.step.agent": "エージェントに会う",
-  "onboarding.step.permissions": "権限",
-  "onboarding.step.connectors": "コネクタ",
   "onboarding.step.model": "モデルとプロバイダ",
-  "onboarding.step.where": "{name}の作業場所",
   "onboarding.step.done": "完了",
   "onboarding.connectFailed": "Psycheはそのアカウントを接続できませんでした（{reason}）。",
   "onboarding.keyFailed": "Psycheはキーを保存できませんでした（{reason}）。",
@@ -2217,11 +2213,8 @@ export const ja: Partial<Catalogue> = {
   "onboarding.model.claudeSubscription": "Claudeのサブスクリプション",
   "onboarding.model.chatgptSubscription": "ChatGPTのサブスクリプション",
   "onboarding.model.auto": "自動",
-  "onboarding.permission.pending": "未確認",
   "onboarding.permission.granted": "許可済み",
   "onboarding.permission.denied": "macOSで拒否",
-  "onboarding.permission.skipped": "スキップ",
-  "onboarding.permission.unavailable": "利用不可",
   "onboarding.agent.name": "名前",
   "onboarding.agent.suggestions": "候補：",
   "onboarding.agent.keep": "「{name}」のままにする",
@@ -2239,23 +2232,14 @@ export const ja: Partial<Catalogue> = {
   "onboarding.agent.preview": "プレビュー",
   "onboarding.language.label": "言語",
   "onboarding.language.hint": "後から設定 → 外観で変更できます。",
-  "onboarding.permission.why.accessibility":
-    "{name}がクリック、入力、アプリの使用をできるようにします。",
-  "onboarding.permission.why.screenRecording":
-    "{name}が作業中にアプリのウインドウを見られるようにします。",
   "onboarding.permission.why.notifications":
     "このウインドウが閉じているときにPsycheが承認を求められるようにします。",
-  "onboarding.permission.intro":
-    "いずれも任意です。macOSが確認を求めます。後からシステム設定で変更できます。",
   "onboarding.permission.deniedHint":
     "システム設定 → プライバシーとセキュリティでオンにしてください。戻ってくるとこのページが更新されます。",
   "onboarding.permission.unavailableHint":
     "Psycheがこれを求められるのは、Mac上のPsycheアプリ内だけです。",
-  "onboarding.permission.allowLabel": "{name}を許可",
   "onboarding.permission.asking": "確認中…",
   "onboarding.permission.allow": "許可",
-  "onboarding.permission.skipLabel": "{name}をスキップ",
-  "onboarding.permission.skip": "スキップ",
   "onboarding.connectors.intro":
     "接続するアカウントを1つずつ決めましょう。{name}に見えるのは接続したものだけで、後から設定で追加できます。",
   "onboarding.connectors.connected": "接続済み（{n, number}）",
@@ -2310,48 +2294,12 @@ export const ja: Partial<Catalogue> = {
   "onboarding.model.checkAgain": "再確認",
   "onboarding.model.toolCheckFailed":
     "このモデルはチャットはできますが、ツールを確実に使えないため、あなたの代わりに行動できません。別のモデルを選ぶか、チャットのみのモードで続行してください。",
-  "onboarding.where.question": "{name}はどこで作業しますか？",
-  "onboarding.where.local": "このMac",
-  "onboarding.where.localHint":
-    "{name}は、あなたが選んだ権限であなたのアプリを使います。コマンドはサンドボックスで実行されます。",
-  "onboarding.where.vm": "Psyche内のMac（VMモード）",
-  "onboarding.where.vmHint":
-    "{name}は専用のmacOSゲストを使います。クリックやブラウズはその中にとどまります。",
-  "onboarding.where.vmUnavailable": "Appleシリコン搭載のmacOS 15以降が必要です。",
-  "onboarding.where.vmDefaults": "VMモードのデフォルト",
-  "onboarding.where.localDefaults": "このMacのデフォルト",
-  "onboarding.where.vm.guest": "ゲスト",
-  "onboarding.where.vm.guestValue": "macOS、4 vCPU、メモリ8 GB、ディスク80 GB（調整可能）",
-  "onboarding.where.vm.sees": "ゲストに見えるもの",
-  "onboarding.where.vm.seesValue":
-    "自身のディスク、あなたが共有したフォルダ（デフォルトでは読み出しのみ）、クリップボード",
-  "onboarding.where.vm.cantSee": "見えないもの",
-  "onboarding.where.vm.cantSeeValue":
-    "あなたのファイル、アプリ、キーチェーン、ブラウザのセッション",
-  "onboarding.where.vm.watch": "あなたが見るもの",
-  "onboarding.where.vm.watchValue": "パネル内のゲストの画面。「操作を引き継ぐ」も可能",
-  "onboarding.where.local.apps": "アプリ",
-  "onboarding.where.local.appsValue":
-    "各アプリは初回使用時に確認：オフ、読み取りのみ、読み取りと操作",
-  "onboarding.where.local.files": "ファイル",
-  "onboarding.where.local.filesValue": "設定 → ファイルアクセスで共有したフォルダのみ",
-  "onboarding.where.local.commands": "コマンド",
-  "onboarding.where.local.commandsValue": "コンテナ内。Macのシェルでは実行されません",
-  "onboarding.where.local.stop": "停止",
-  "onboarding.where.local.stopValue": "Escでいつでもコンピュータ操作を停止",
   "onboarding.done.ready": "{name}の準備ができました。",
   "onboarding.done.opens": "メインチャットが{name}の最初のメッセージとともに開きます。",
-  "onboarding.done.tagline": "キャッチフレーズ",
-  "onboarding.done.none": "なし",
-  "onboarding.done.permissions": "権限",
   "onboarding.done.noneYet": "まだありません",
-  "onboarding.done.permissionsOnMac":
-    "アクセシビリティ、画面収録、通知はMac上のPsycheアプリで設定します",
   "onboarding.done.accounts": "アカウント",
   "onboarding.done.account": "{label}（{mode}）",
   "onboarding.done.model": "モデル",
-  "onboarding.done.worksIn": "作業場所",
-  "onboarding.done.vmMode": "VMモード",
   "onboarding.done.checking": "セットアップを確認中…",
   "onboarding.done.checks": "セットアップの確認",
   "onboarding.done.ok": "OK",

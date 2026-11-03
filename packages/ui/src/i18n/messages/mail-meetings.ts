@@ -148,7 +148,6 @@ export const mailMeetings = {
   "settings.key.meetings.notes.cloudSummary": "Summarize with a cloud model",
 
   // Onboarding decision screen (§7.5)
-  "onboarding.step.mail": "Mail and meetings",
   "onboarding.mail.title": "{name} can catch you up on mail and meetings",
   "onboarding.mail.lead":
     "Pick what you want. Nothing runs until you continue, and you can change any of it in Settings.",

@@ -145,7 +145,6 @@ export const mailMeetings: Partial<Catalogue> = {
   "settings.key.meetings.notes.consentLine": "Frase de consentimento de gravação",
   "settings.key.meetings.notes.cloudSummary": "Resumir com modelo na nuvem",
 
-  "onboarding.step.mail": "E-mail e reuniões",
   "onboarding.mail.title": "{name} pode deixar você em dia com e-mails e reuniões",
   "onboarding.mail.lead":
     "Escolha o que quiser. Nada roda até você continuar, e tudo pode ser mudado em Ajustes.",

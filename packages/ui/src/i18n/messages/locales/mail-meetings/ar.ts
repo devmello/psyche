@@ -139,7 +139,6 @@ export const mailMeetings: Partial<Catalogue> = {
   "settings.key.meetings.notes.consentLine": "عبارة موافقة التسجيل",
   "settings.key.meetings.notes.cloudSummary": "التلخيص بنموذج سحابي",
 
-  "onboarding.step.mail": "البريد والاجتماعات",
   "onboarding.mail.title": "يمكن لـ {name} أن تُطلعك على البريد والاجتماعات",
   "onboarding.mail.lead":
     "اختر ما تريد. لا يعمل شيء قبل أن تتابع، ويمكنك تغيير أي منها في الإعدادات.",

@@ -143,6 +143,26 @@ describe("onboarding model setup", () => {
     expect(utility).toBe("anthropic/claude-sonnet-5-5");
   });
 
+  it("a re-run that kept the model only reads it and never binds another", async () => {
+    const { platform, calls } = platformWith({
+      "models.list": () => ({
+        providers: [{ id: "anthropic", keyConfigured: true, local: false }],
+        roles: { primary: "anthropic/claude-opus-5-5" },
+      }),
+    });
+    const checks = await verifySetup(
+      platform,
+      {
+        model: { modelRef: "anthropic/claude-sonnet-5-5", toolCheck: "untested" },
+        modelKept: true,
+      } as never,
+      { kind: "paired" },
+    );
+    expect(checks.at(-1)).toMatchObject({ id: "model", state: "ok" });
+    expect(checks.at(-1)?.detail).toContain("anthropic/claude-opus-5-5");
+    expect(calls.some((c) => c.method === "models.setRole")).toBe(false);
+  });
+
   it("warns, without throwing, when the helper or the model is missing", async () => {
     const { platform } = platformWith({
       "models.list": () => ({

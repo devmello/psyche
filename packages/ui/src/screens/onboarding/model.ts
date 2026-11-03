@@ -5,19 +5,29 @@ export {
   type Capability,
   type CapabilityId,
   isAvailable,
-  runnableWins,
-  WIN_IDS,
-  type WinId,
 } from "./capabilities.ts";
 export { HABIT_DEFAULTS, HABIT_KEYS, type HabitChoices, habitSettings } from "./habits.ts";
 export { MAIL_DEFAULTS, mailSettings } from "./mail-settings.ts";
-export { ONBOARDING_PROGRESS_KEY, type OnboardingProgress, parseProgress } from "./progress.ts";
 export {
+  MEMORY_CHOICE_DEFAULTS,
+  MEMORY_CHOICE_KEYS,
+  memorySettings,
+  readMemoryChoices,
+} from "./memory-choices.ts";
+export {
+  normalizeStep,
+  ONBOARDING_PROGRESS_KEY,
+  type OnboardingProgress,
+  parseProgress,
+} from "./progress.ts";
+export {
+  type BundledHelperKey,
   type ConnectedAccount,
   type ImportedMemory,
   type ImportedMemoryPreview,
   type ImportSource,
   type MailChoices,
+  type MemoryChoices,
   type ModelChoice,
   ONBOARDING_STEP_IDS,
   type OnboardingResult,
@@ -29,5 +39,6 @@ export {
   type PersonaDraft,
   type SavedKey,
   type SetupCheck,
-  type Workspace,
+  type TouchIdSetupPort,
+  type TouchIdStatus,
 } from "./types.ts";

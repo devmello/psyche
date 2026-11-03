@@ -1,10 +1,12 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { withWorld } from "../../stories/harness.tsx";
-import { FirstWinsStep } from "./FirstWinsStep.tsx";
 import { MailStep } from "./MailStep.tsx";
 import { MemoryImportStep } from "./MemoryImportStep.tsx";
+import { MemoryStep } from "./MemoryStep.tsx";
 import { OnboardingFlow } from "./OnboardingFlow.tsx";
-import { ConnectorsStep, PermissionsStep } from "./OnboardingSteps.tsx";
+import { ConnectorsStep } from "./OnboardingSteps.tsx";
+import { SafetyStep } from "./SafetyStep.tsx";
+import type { TouchIdSetupPort, TouchIdStatus } from "./types.ts";
 
 const noop = () => {};
 
@@ -32,8 +34,23 @@ const wren = {
   tagline: "Quiet wings, careful hands.",
 };
 
-export const MeetYourAgent: Story = {};
-export const MeetDescribedCreature: Story = {
+const googleAccount = {
+  type: "google",
+  label: "Google (Gmail, Calendar, Drive)",
+  mode: "read_act" as const,
+};
+
+/** 1. You and your agent. */
+export const You: Story = {};
+export const YouFilledIn: Story = {
+  args: {
+    initial: {
+      persona: wren,
+      owner: { name: "Sam", timeZone: "America/Los_Angeles", work: "Designer", city: "Oakland" },
+    },
+  },
+};
+export const YouDescribedCreature: Story = {
   args: {
     initial: {
       persona: {
@@ -44,51 +61,42 @@ export const MeetDescribedCreature: Story = {
     },
   },
 };
-export const MeetKeepPsyche: Story = {
-  args: { initial: { persona: { name: "Psyche", creatureId: "owl" } } },
+export const YouRerun: Story = {
+  args: {
+    rerun: true,
+    initial: { persona: wren, owner: { name: "Sam", timeZone: "America/Los_Angeles" } },
+  },
 };
 
-export const Permissions: Story = {
-  args: { defaultStep: "permissions", initial: { persona: wren } },
+/** 2. Your stuff: accounts, and the mail switches once a mail account is connected. */
+export const Stuff: Story = {
+  args: { defaultStep: "stuff", initial: { persona: wren } },
 };
-export const PermissionsAnswered: Story = {
+export const StuffOneConnected: Story = {
   args: {
-    defaultStep: "permissions",
+    defaultStep: "stuff",
+    initial: { persona: wren, connectors: [{ ...googleAccount, mode: "read" }] },
+  },
+};
+export const StuffWithMail: Story = {
+  args: {
+    defaultStep: "stuff",
     initial: {
       persona: wren,
-      permissions: {
-        accessibility: "granted",
-        screenRecording: "denied",
-        notifications: "skipped",
-      },
+      connectors: [{ type: "apple:mail", label: "Apple Mail", mode: "read_act" }, googleAccount],
     },
   },
 };
-export const PermissionsAsking: Story = {
+export const StuffMailNoneOn: Story = {
   render: () => (
-    <PermissionsStep
+    <MailStep
       persona="Wren"
-      value={{ accessibility: "granted", screenRecording: "pending", notifications: "pending" }}
-      busy="screenRecording"
-      onAllow={noop}
-      onSkip={noop}
+      value={{ digest: false, prep: false, followups: false, voice: false, notes: false }}
+      onChange={noop}
     />
   ),
 };
-
-export const Connectors: Story = {
-  args: { defaultStep: "connectors", initial: { persona: wren } },
-};
-export const ConnectorsOneConnected: Story = {
-  args: {
-    defaultStep: "connectors",
-    initial: {
-      persona: wren,
-      connectors: [{ type: "google", label: "Google (Gmail, Calendar, Drive)", mode: "read_act" }],
-    },
-  },
-};
-export const ConnectorsFailed: Story = {
+export const StuffFailed: Story = {
   render: () => (
     <ConnectorsStep
       persona="Wren"
@@ -99,32 +107,7 @@ export const ConnectorsFailed: Story = {
   ),
 };
 
-const mailConnected = [
-  { type: "apple:mail", label: "Apple Mail", mode: "read_act" as const },
-  { type: "google", label: "Google (Gmail, Calendar, Drive)", mode: "read" as const },
-];
-
-/** The mail and meetings decision screen (§7.5): offered once a mail account is connected. */
-export const MailDecision: Story = {
-  args: { defaultStep: "mail", initial: { persona: wren, connectors: mailConnected } },
-};
-export const MailDecisionNoneOn: Story = {
-  args: {
-    defaultStep: "mail",
-    initial: { persona: wren, connectors: mailConnected },
-  },
-  render: (args) => (
-    <MailStep
-      persona={args.initial?.persona?.name ?? "Wren"}
-      value={{ digest: false, prep: false, followups: false, voice: false, notes: false }}
-      onChange={noop}
-    />
-  ),
-};
-export const DoneWithMail: Story = {
-  args: { defaultStep: "done", initial: { persona: wren, connectors: mailConnected } },
-};
-
+/** 3. Choose a model. */
 export const ModelCloudKey: Story = {
   args: { defaultStep: "model", initial: { persona: wren } },
 };
@@ -178,39 +161,6 @@ export const ModelNoKeyStorage: Story = {
   args: { defaultStep: "model", initial: { persona: wren }, onSaveKey: undefined },
 };
 
-export const WhereLocalMac: Story = {
-  args: { defaultStep: "where", initial: { persona: wren } },
-};
-export const WhereVmMode: Story = {
-  args: { defaultStep: "where", initial: { persona: wren, workspace: "vm" } },
-};
-export const WhereVmUnavailable: Story = {
-  args: { defaultStep: "where", initial: { persona: wren }, vmAvailable: false },
-};
-
-export const Done: Story = {
-  args: {
-    defaultStep: "done",
-    initial: {
-      persona: wren,
-      permissions: {
-        accessibility: "granted",
-        screenRecording: "granted",
-        notifications: "skipped",
-      },
-      connectors: [{ type: "google", label: "Google (Gmail, Calendar, Drive)", mode: "read" }],
-      model: {
-        kind: "cloud",
-        provider: "anthropic",
-        modelRef: "anthropic/claude-sonnet-5-5",
-        keyRef: "vault:anthropic-api-key",
-        toolCheck: "passed",
-      },
-      workspace: "local",
-    },
-  },
-};
-
 const importedItems = [
   {
     id: "c1",
@@ -234,14 +184,8 @@ const importedItems = [
 const previewImport = () => Promise.resolve({ items: importedItems, skipped: 2 });
 const commitImport = (kept: unknown[]) => Promise.resolve(kept.length);
 
-/** First-run additions: About you, Bring your memory, First wins and Habits. */
-export const AboutYou: Story = {
-  args: {
-    defaultStep: "about",
-    initial: { persona: wren, owner: { timeZone: "America/Los_Angeles" } },
-  },
-};
-export const BringYourMemory: Story = {
+/** 4. Memory and daily habits. */
+export const Memory: Story = {
   args: {
     defaultStep: "memory",
     initial: { persona: wren },
@@ -249,8 +193,43 @@ export const BringYourMemory: Story = {
     onCommitImport: commitImport,
   },
 };
-export const BringYourMemoryUnavailable: Story = {
+export const MemoryNoImport: Story = {
   args: { defaultStep: "memory", initial: { persona: wren } },
+};
+export const MemoryWorkOnWrapupOff: Story = {
+  args: {
+    defaultStep: "memory",
+    initial: {
+      persona: wren,
+      habits: { brief: true, wrapup: false, followups: true },
+      memory: {
+        work: true,
+        workConsentedAt: "2026-11-03T09:00:00.000Z",
+        remind: true,
+        people: false,
+      },
+    },
+  },
+};
+export const MemoryPeopleOn: Story = {
+  args: {
+    defaultStep: "memory",
+    initial: {
+      persona: wren,
+      memory: { work: false, workConsentedAt: null, remind: false, people: true },
+    },
+  },
+};
+export const MemoryConsentCard: Story = {
+  render: () => (
+    <MemoryStep
+      persona="Wren"
+      habits={{ brief: true, wrapup: true, followups: true }}
+      onHabitsChange={noop}
+      memory={{ work: false, workConsentedAt: null, remind: false, people: false }}
+      onMemoryChange={noop}
+    />
+  ),
 };
 export const MemoryReview: Story = {
   render: () => <MemoryImportStep onPreview={previewImport} onCommit={commitImport} />,
@@ -265,31 +244,103 @@ export const MemoryReview: Story = {
     [...canvasElement.querySelectorAll("button")].find((b) => b.textContent === "Review")?.click();
   },
 };
-export const FirstWins: Story = {
+
+/** 5. Safety. */
+const touchId = (status: TouchIdStatus): TouchIdSetupPort => ({
+  status: () => Promise.resolve(status),
+  register: () => Promise.resolve(),
+  allowDevFileKey: () => Promise.resolve(),
+});
+const keyId = "0123456789abcdef".repeat(4);
+
+export const Safety: Story = {
+  args: { defaultStep: "safety", initial: { persona: wren } },
+};
+export const SafetyTouchIdReady: Story = {
   args: {
-    defaultStep: "wins",
+    defaultStep: "safety",
     initial: { persona: wren },
-    onRunWin: () => Promise.resolve("Two meetings today."),
+    helper: { kind: "paired" },
+    touchId: touchId({
+      identity: { deviceId: "d1", keyId, kind: "keychain" },
+      registered: false,
+      allowDevFileKey: false,
+    }),
   },
 };
-export const FirstWinsCalendarOnly: Story = {
-  render: () => (
-    <FirstWinsStep
-      connected={new Set(["apple:calendar"])}
-      onRun={() => Promise.resolve("Two meetings today.")}
-    />
-  ),
-};
-export const FirstWinsNothingConnected: Story = {
-  render: () => <FirstWinsStep connected={new Set()} onRun={() => Promise.resolve("")} />,
-};
-export const Habits: Story = {
-  args: { defaultStep: "habits", initial: { persona: wren } },
-};
-export const RerunSkipsDone: Story = {
+export const SafetyTouchIdRegistered: Story = {
   args: {
-    defaultStep: "wins",
-    completed: ["agent", "about", "connectors", "memory", "habits"],
+    defaultStep: "safety",
+    initial: { persona: wren },
+    helper: { kind: "paired" },
+    touchId: touchId({
+      identity: { deviceId: "d1", keyId, kind: "keychain" },
+      registered: true,
+      allowDevFileKey: false,
+    }),
+  },
+};
+export const SafetyTouchIdDevKey: Story = {
+  args: {
+    defaultStep: "safety",
+    initial: { persona: wren },
+    helper: { kind: "paired" },
+    touchId: touchId({
+      identity: { deviceId: "d1", keyId, kind: "enclave_file" },
+      registered: false,
+      allowDevFileKey: false,
+    }),
+  },
+};
+export const SafetyHelperStarting: Story = {
+  args: {
+    defaultStep: "safety",
+    initial: { persona: wren },
+    helper: { kind: "starting" },
+    touchId: touchId({
+      identity: { deviceId: "d1" },
+      registered: false,
+      allowDevFileKey: false,
+    }),
+  },
+};
+export const SafetyOnTheWeb: Story = {
+  render: () => <SafetyStep persona="Wren" />,
+};
+
+/** 6. You're set. */
+export const Done: Story = {
+  args: {
+    defaultStep: "done",
+    initial: {
+      persona: wren,
+      connectors: [{ type: "google", label: "Google (Gmail, Calendar, Drive)", mode: "read" }],
+      model: {
+        kind: "cloud",
+        provider: "anthropic",
+        modelRef: "anthropic/claude-sonnet-5-5",
+        keyRef: "vault:anthropic-api-key",
+        toolCheck: "passed",
+      },
+      memory: {
+        work: true,
+        workConsentedAt: "2026-11-03T09:00:00.000Z",
+        remind: true,
+        people: false,
+      },
+    },
+  },
+};
+export const DoneWithMail: Story = {
+  args: { defaultStep: "done", initial: { persona: wren, connectors: [googleAccount] } },
+};
+
+/** A re-run leaves out the model that is already set. */
+export const RerunSkipsModel: Story = {
+  args: {
+    rerun: true,
+    defaultStep: "stuff",
+    completed: ["model"],
     initial: { persona: wren },
   },
 };

@@ -243,27 +243,37 @@ describe("SandboxSetup walkthrough", () => {
   });
 });
 
-describe("Onboarding → Sandbox", () => {
+describe("Onboarding → Safety → Sandbox", () => {
   const flow = (seed: Setup) =>
     world(
       (g) => {
         g.sandboxSetup = seed;
       },
-      <OnboardingFlow onComplete={() => {}} defaultStep="sandbox" />,
+      <OnboardingFlow onComplete={() => {}} defaultStep="safety" />,
     );
+  const open = () =>
+    userEvent.click(screen.getByRole("button", { name: /Set up a sandbox for commands/ }));
 
-  it("is optional: says what is lost and skips to the next step", async () => {
+  it("is one step away: closed until opened, then says what is lost", async () => {
     flow(MISSING);
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toContain("Sandbox (optional)");
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toContain("Safety");
+    // Nothing looks at this Mac until the owner opens it.
+    expect(screen.queryByText(/Without srt/)).toBeNull();
+    expect(
+      screen
+        .getByRole("button", { name: /Set up a sandbox for commands/ })
+        .getAttribute("aria-expanded"),
+    ).toBe("false");
+    await open();
     expect(await screen.findByText(/Without srt/)).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: "Skip for now" }));
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toContain("Model & provider");
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toContain("You’re set");
   });
 
-  it("shows Ready when a sandbox is already there, with no Skip", async () => {
+  it("shows Ready when a sandbox is already there", async () => {
     flow(READY);
+    await open();
     expect(await screen.findByText("Ready")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Skip for now" })).toBeNull();
     expect(screen.queryByText(/Without srt/)).toBeNull();
   });
 });
@@ -369,13 +379,14 @@ describe("Install srt (Psyche's own Node)", () => {
     expect((await screen.findByRole("alert")).textContent).toContain("integrity mismatch");
   });
 
-  it("is on the onboarding Sandbox step", async () => {
+  it("is behind the sandbox disclosure on the onboarding Safety step", async () => {
     world(
       (g) => {
         g.sandboxSetup = { ...MISSING, installer: INSTALLER };
       },
-      <OnboardingFlow onComplete={() => {}} defaultStep="sandbox" />,
+      <OnboardingFlow onComplete={() => {}} defaultStep="safety" />,
     );
+    await userEvent.click(screen.getByRole("button", { name: /Set up a sandbox for commands/ }));
     expect(await screen.findByRole("button", { name: "Install with Psyche" })).toBeTruthy();
   });
 });

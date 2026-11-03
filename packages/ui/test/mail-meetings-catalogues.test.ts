@@ -17,7 +17,6 @@ const PREFIXES = [
   "settings.key.meetings.",
   "settings.key.workflows.",
   "onboarding.mail.",
-  "onboarding.step.mail",
 ];
 const IDS = Object.keys(en).filter((id) => PREFIXES.some((p) => id.startsWith(p)));
 

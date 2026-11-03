@@ -154,7 +154,6 @@ export const mailMeetings: Partial<Catalogue> = {
   "settings.key.meetings.notes.cloudSummary": "클라우드 모델로 요약",
 
   // Onboarding decision screen (§7.5)
-  "onboarding.step.mail": "메일 및 회의",
   "onboarding.mail.title": "{name}이(가) 메일과 회의 소식을 정리해 드립니다",
   "onboarding.mail.lead":
     "원하는 기능을 선택하십시오. 계속하기 전에는 아무것도 실행되지 않으며, 나중에 설정에서 바꿀 수 있습니다.",

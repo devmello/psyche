@@ -35,44 +35,44 @@ const heading = () => screen.getByRole("heading", { level: 1 });
 describe("OnboardingFlow", () => {
   it("shows quiet progress text with progressbar semantics for the current step", async () => {
     const { onStepChange } = setup();
-    expect(progress().getAttribute("aria-valuemax")).toBe("11");
+    expect(progress().getAttribute("aria-valuemax")).toBe("6");
     expect(progress().getAttribute("aria-valuenow")).toBe("1");
-    expect(progress().textContent).toBe("1 of 11");
+    expect(progress().textContent).toBe("1 of 6");
     expect((screen.getByRole("button", { name: /Back/ }) as HTMLButtonElement).disabled).toBe(true);
 
     await next();
-    expect(heading().textContent).toContain("About you");
+    expect(heading().textContent).toContain("Your stuff");
     await next();
-    expect(heading().textContent).toContain("Permissions");
+    expect(heading().textContent).toContain("Choose a model");
     expect(progress().getAttribute("aria-valuenow")).toBe("3");
-    expect(progress().textContent).toBe("3 of 11");
-    expect(onStepChange).toHaveBeenLastCalledWith("permissions");
+    expect(progress().textContent).toBe("3 of 6");
+    expect(onStepChange).toHaveBeenLastCalledWith("model");
     // Focus lands on the new step's heading.
     expect(document.activeElement).toBe(heading());
 
     await userEvent.click(screen.getByRole("button", { name: /Back/ }));
-    expect(heading().textContent).toContain("About you");
-    expect(progress().textContent).toBe("2 of 11");
+    expect(heading().textContent).toContain("Your stuff");
+    expect(progress().textContent).toBe("2 of 6");
 
-    // The "N of 11" label opens the step menu: reached steps jump, unreached ones are disabled.
+    // The "N of 6" label opens the step menu: reached steps jump, unreached ones are disabled.
     await next();
-    await userEvent.click(screen.getByRole("button", { name: /3 of 11/ }));
+    await userEvent.click(screen.getByRole("button", { name: /3 of 6/ }));
     const items = await screen.findAllByRole("menuitem");
-    expect(items).toHaveLength(11);
+    expect(items).toHaveLength(6);
     expect(items[2]?.getAttribute("aria-current")).toBe("step");
     expect(items[3]?.getAttribute("aria-disabled")).toBe("true");
     await userEvent.click(items[0] as HTMLElement);
-    expect(heading().textContent).toContain("Meet your agent");
-    expect(progress().textContent).toBe("1 of 11");
+    expect(heading().textContent).toContain("You and your agent");
+    expect(progress().textContent).toBe("1 of 6");
     // A reached step ahead of the current one is reachable too.
-    await userEvent.click(screen.getByRole("button", { name: /1 of 11/ }));
+    await userEvent.click(screen.getByRole("button", { name: /1 of 6/ }));
     await userEvent.click((await screen.findAllByRole("menuitem"))[2] as HTMLElement);
-    expect(heading().textContent).toContain("Permissions");
+    expect(heading().textContent).toContain("Choose a model");
   });
 
   it("names the agent from suggestions or keeps Psyche, and previews the creature", async () => {
     setup();
-    const name = screen.getByRole("textbox", { name: "Name" }) as HTMLInputElement;
+    const name = screen.getByRole("textbox", { name: "Agent name" }) as HTMLInputElement;
     await userEvent.click(screen.getByRole("button", { name: "Moss" }));
     expect(name.value).toBe("Moss");
     expect(screen.getByRole("button", { name: "Moss" }).getAttribute("aria-pressed")).toBe("true");
@@ -80,6 +80,8 @@ describe("OnboardingFlow", () => {
     expect(name.value).toBe("Psyche");
     await userEvent.clear(name);
     await userEvent.type(name, "Wren");
+    // The look is one step away, behind "Customize look".
+    await userEvent.click(screen.getByText("Customize look"));
     await userEvent.click(screen.getByRole("radio", { name: "Owl" }));
     const preview = screen.getByRole("figure", { name: "Preview" });
     expect(within(preview).getByText("Wren")).toBeTruthy();
@@ -89,53 +91,53 @@ describe("OnboardingFlow", () => {
     expect(within(preview).getByText("“a moth with a scarf”")).toBeTruthy();
   });
 
-  it("asks the shell for each permission, or skips it", async () => {
-    const onRequestPermission = vi.fn(async (p: string) =>
-      p === "accessibility" ? ("granted" as const) : ("denied" as const),
+  it("keeps time zone, work and city behind More about you, with the zone detected", async () => {
+    setup();
+    await userEvent.click(screen.getByText("More about you"));
+    expect((screen.getByRole("textbox", { name: "Time zone" }) as HTMLInputElement).value).not.toBe(
+      "",
     );
-    setup({ defaultStep: "permissions", onRequestPermission });
-    await userEvent.click(screen.getByRole("button", { name: "Allow Accessibility" }));
-    expect(onRequestPermission).toHaveBeenCalledWith("accessibility");
-    expect(await screen.findByText("Allowed", { selector: "span" })).toBeTruthy();
-    await userEvent.click(screen.getByRole("button", { name: "Allow Screen Recording" }));
-    expect(await screen.findByText("Denied in macOS")).toBeTruthy();
-    await userEvent.click(screen.getByRole("button", { name: "Skip Notifications" }));
-    expect(screen.getByText("Skipped")).toBeTruthy();
+    expect(screen.getByRole("textbox", { name: "Work or study" })).toBeTruthy();
+    expect(screen.getByRole("textbox", { name: "Home city" })).toBeTruthy();
+  });
+
+  it("asks macOS for Notifications on Safety, and for nothing else", async () => {
+    const onRequestPermission = vi.fn(async () => "granted" as const);
+    setup({ defaultStep: "safety", onRequestPermission });
+    expect(screen.queryByRole("button", { name: /Accessibility|Screen Recording/ })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Allow" }));
+    expect(onRequestPermission).toHaveBeenCalledOnce();
+    expect(onRequestPermission).toHaveBeenCalledWith("notifications");
+    expect(await screen.findByText("Allowed")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Allow" })).toBeNull();
   });
 
   it("says Unavailable, not Skipped, when this shell can't ask (issue #384)", async () => {
-    setup({ defaultStep: "permissions" });
-    await userEvent.click(screen.getByRole("button", { name: "Allow Accessibility" }));
-    expect(await screen.findByText("Unavailable")).toBeTruthy();
+    setup({ defaultStep: "safety" });
+    await userEvent.click(screen.getByRole("button", { name: "Allow" }));
+    expect(await screen.findByText(/only in the Psyche app on a Mac/)).toBeTruthy();
     expect(screen.queryByText("Skipped")).toBeNull();
-    expect(screen.getByText(/only in the Psyche app on a Mac/)).toBeTruthy();
   });
 
   it("shows Asking… during the prompt and re-reads macOS on window focus", async () => {
     let answer: (s: "denied") => void = () => undefined;
     const onRequestPermission = vi.fn(() => new Promise<"denied">((resolve) => (answer = resolve)));
-    let screenState: "denied" | "granted" = "denied";
-    const onReadPermissions = vi.fn(async () => ({ screenRecording: screenState }));
-    setup({ defaultStep: "permissions", onRequestPermission, onReadPermissions });
-    await userEvent.click(screen.getByRole("button", { name: "Allow Screen Recording" }));
-    expect(screen.getByRole("button", { name: "Allow Screen Recording" }).textContent).toContain(
-      "Asking…",
-    );
+    let state: "denied" | "granted" = "denied";
+    const onReadPermissions = vi.fn(async () => ({ notifications: state }));
+    setup({ defaultStep: "safety", onRequestPermission, onReadPermissions });
+    await userEvent.click(screen.getByRole("button", { name: "Allow" }));
+    expect(screen.getByRole("button", { name: /Asking/ })).toBeTruthy();
     answer("denied");
     expect(await screen.findByText("Denied in macOS")).toBeTruthy();
     // The owner flips the switch in System Settings and comes back.
-    screenState = "granted";
+    state = "granted";
     window.dispatchEvent(new Event("focus"));
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Allow Screen Recording" }).textContent).toBe(
-        "Allowed",
-      ),
-    );
+    expect(await screen.findByText("Allowed")).toBeTruthy();
   });
 
   it("connects accounts one at a time with read-only vs read-and-act", async () => {
     const onConnect = vi.fn(async () => true);
-    setup({ defaultStep: "connectors", onConnect });
+    setup({ defaultStep: "stuff", onConnect });
     await userEvent.click(screen.getByRole("radio", { name: /^Read and act/ }));
     await userEvent.click(screen.getByRole("button", { name: "Connect" }));
     expect(onConnect).toHaveBeenCalledWith("google", "read_act");
@@ -213,13 +215,6 @@ describe("OnboardingFlow", () => {
     expect(screen.getByLabelText("API key")).toBeTruthy();
   });
 
-  it("explains what the VM guest can see", async () => {
-    setup({ defaultStep: "where", initial: { persona: { name: "Wren" } } });
-    expect(heading().textContent).toContain("Where Wren works");
-    await userEvent.click(screen.getByRole("radio", { name: /VM mode/ }));
-    expect(screen.getByText(/Its own disk, folders you share/)).toBeTruthy();
-  });
-
   it("completes with the full result", async () => {
     const { onComplete } = setup({
       onRequestPermission: () => "granted",
@@ -227,43 +222,36 @@ describe("OnboardingFlow", () => {
       onSaveKey: (p) => `vault:${p}`,
       onCheckModel: () => "passed",
     });
+    await userEvent.type(screen.getByRole("textbox", { name: "Your name" }), "Sam");
     await userEvent.click(screen.getByRole("button", { name: "Pip" }));
+    await userEvent.click(screen.getByText("Customize look"));
     await userEvent.type(
       screen.getByRole("textbox", { name: "Vibe or tagline" }),
       "Small and sure.",
     );
     await next();
-    // About you is skippable and optional.
-    await screen.findByRole("textbox", { name: "Your name" });
-    await next();
-    await userEvent.click(screen.getByRole("button", { name: "Allow Accessibility" }));
-    await userEvent.click(screen.getByRole("button", { name: "Skip Screen Recording" }));
-    await next();
     await userEvent.click(screen.getByRole("button", { name: "Connect" }));
     await screen.findByRole("list", { name: "Your accounts" });
-    await next();
-    // Google is a mail account, so the mail and meetings decision screen follows (§7.5).
-    expect(heading().textContent).toContain("Mail and meetings");
+    // Google is a mail account, so the mail and meetings switches show on the same step (§7.5).
+    expect(heading().textContent).toContain("Your stuff");
     await userEvent.click(screen.getByRole("switch", { name: "Track replies you’re waiting on" }));
-    await next();
-    // The optional Sandbox step: the mock Gateway already has one.
-    expect(heading().textContent).toContain("Sandbox");
     await next();
     await userEvent.type(screen.getByLabelText("API key"), "k");
     await userEvent.click(screen.getByRole("button", { name: "Save to vault" }));
     await userEvent.click(await screen.findByRole("button", { name: "Run check" }));
     await screen.findByText("Tool calling: passed");
     await next();
-    await userEvent.click(screen.getByRole("radio", { name: /VM mode/ }));
+    // Memory and daily habits: wrap-up on, and work tracking through the consent card.
+    expect(heading().textContent).toContain("Memory and daily habits");
+    await userEvent.click(screen.getByRole("switch", { name: "Evening wrap-up" }));
+    await userEvent.click(screen.getByRole("switch", { name: "Track my work" }));
+    await userEvent.click(
+      within(await screen.findByTestId("work-consent")).getByRole("button", { name: "Turn on" }),
+    );
     await next();
-    // Memory import, First wins and Habits are each skippable.
-    expect(heading().textContent).toContain("Bring your memory");
+    await userEvent.click(screen.getByRole("button", { name: "Allow" }));
     await next();
-    expect(heading().textContent).toContain("First wins");
-    await next();
-    expect(heading().textContent).toContain("Turn on habits");
-    await next();
-    expect(heading().textContent).toContain("Done");
+    expect(heading().textContent).toContain("You’re set");
     expect(screen.getByText("Pip is ready.")).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: "Open the main chat" }));
     await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
@@ -275,9 +263,9 @@ describe("OnboardingFlow", () => {
         tagline: "Small and sure.",
       },
       permissions: {
-        accessibility: "granted",
-        screenRecording: "skipped",
-        notifications: "pending",
+        accessibility: "pending",
+        screenRecording: "pending",
+        notifications: "granted",
       },
       connectors: [{ type: "google", label: "Google (Gmail, Calendar, Drive)", mode: "read" }],
       model: {
@@ -287,10 +275,15 @@ describe("OnboardingFlow", () => {
         keyRef: "vault:anthropic",
         toolCheck: "passed",
       },
-      workspace: "vm",
       mail: { digest: true, prep: true, followups: false, voice: false, notes: true },
-      owner: { name: "", timeZone: expect.any(String), work: "", city: "" },
-      habits: { brief: true, wrapup: false, followups: true },
+      owner: { name: "Sam", timeZone: expect.any(String), work: "", city: "" },
+      habits: { brief: true, wrapup: true, followups: true },
+      memory: {
+        work: true,
+        workConsentedAt: expect.any(String),
+        remind: false,
+        people: false,
+      },
     });
   });
 
@@ -299,10 +292,11 @@ describe("OnboardingFlow", () => {
     const nextButton = screen.getByRole("button", { name: "Next" });
     nextButton.focus();
     await userEvent.keyboard("{Enter}");
-    expect(heading().textContent).toContain("About you");
+    expect(heading().textContent).toContain("Your stuff");
     expect(document.activeElement).toBe(heading());
     await userEvent.tab();
-    expect((document.activeElement as HTMLElement).id).toBe("onboarding-about-name");
+    expect(document.activeElement).not.toBe(document.body);
+    expect(screen.getByTestId("onboarding-flow").contains(document.activeElement)).toBe(true);
   });
 });
 
@@ -382,47 +376,27 @@ describe("First run from scratch", () => {
   });
 });
 
-describe("Mac helper in onboarding", () => {
-  it("shows the bundled helper's state in Permissions without blocking Next", async () => {
-    setup({ step: "permissions", helper: { kind: "starting" } });
-    const row = screen.getByTestId("mac-helper-status");
-    expect(row.textContent).toContain("Psyche Helper");
-    expect(row.textContent).toContain("Starting…");
-    expect((screen.getByRole("button", { name: "Next" }) as HTMLButtonElement).disabled).toBe(
-      false,
-    );
-  });
-
-  it("shows nothing for it when the host has no helper (web)", () => {
-    setup({ step: "permissions" });
-    expect(screen.queryByTestId("mac-helper-status")).toBeNull();
-  });
-});
-
 describe("Onboarding where this window can't ask macOS (web, #554)", () => {
-  it("leaves out Permissions and says on Done they are set up in the Mac app", async () => {
-    const { onStepChange } = setup({ macPermissions: false });
-    expect(progress().getAttribute("aria-valuemax")).toBe("10");
-    expect(screen.queryByRole("button", { name: /Allow/ })).toBeNull();
-    await next();
-    await next();
-    expect(heading().textContent).toContain("Connect");
-    expect(onStepChange).toHaveBeenLastCalledWith("connectors");
-    expect(heading().querySelector(".sr-only")?.textContent).toContain("Step 3 of 10");
+  it("leaves out the Notifications row and keeps the six steps", async () => {
+    setup({ macPermissions: false, defaultStep: "safety" });
+    expect(progress().getAttribute("aria-valuemax")).toBe("6");
+    expect(screen.queryByRole("button", { name: "Allow" })).toBeNull();
+    expect(screen.queryByText("Notifications")).toBeNull();
+    // Sandbox stays one step away.
+    expect(screen.getByRole("button", { name: /Set up a sandbox for commands/ })).toBeTruthy();
   });
 
-  it("a /onboarding/permissions route lands on the next step", () => {
-    setup({ macPermissions: false, step: "permissions" });
-    expect(heading().textContent).toContain("Connect");
+  it("does not ask for Accessibility or Screen Recording anywhere in setup", async () => {
+    setup();
+    for (let i = 0; i < 5; i++) {
+      expect(screen.queryByText(/Accessibility|Screen Recording/)).toBeNull();
+      await next();
+    }
   });
 
-  it("Done says where the permissions are set up", () => {
-    setup({ macPermissions: false, step: "done" });
-    expect(
-      screen.getByText(
-        "Accessibility, Screen Recording and Notifications are set up in the Psyche app on your Mac",
-      ),
-    ).toBeTruthy();
+  it("a saved step from the old flow lands on the step that holds it now", () => {
+    setup({ step: "permissions" as never });
+    expect(heading().textContent).toContain("Your stuff");
   });
 });
 
@@ -433,7 +407,7 @@ describe("Onboarding polish (UI design §3.19)", () => {
   });
 
   it("offers Skip for now while nothing is connected, and lists what is", async () => {
-    setup({ defaultStep: "connectors", onConnect: async () => true });
+    setup({ defaultStep: "stuff", onConnect: async () => true });
     expect(screen.getByRole("button", { name: "Skip for now" })).toBeTruthy();
     expect(screen.getByText(/Nothing connected yet/)).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: "Connect" }));
@@ -442,11 +416,11 @@ describe("Onboarding polish (UI design §3.19)", () => {
     expect(screen.queryByRole("button", { name: "Skip for now" })).toBeNull();
   });
 
-  it("skips Connectors with nothing connected", async () => {
-    const { onStepChange } = setup({ defaultStep: "connectors" });
+  it("skips Your stuff with nothing connected", async () => {
+    const { onStepChange } = setup({ defaultStep: "stuff" });
     await userEvent.click(screen.getByRole("button", { name: "Skip for now" }));
-    expect(onStepChange).toHaveBeenLastCalledWith("sandbox");
-    expect(heading().textContent).toContain("Sandbox");
+    expect(onStepChange).toHaveBeenLastCalledWith("model");
+    expect(heading().textContent).toContain("Choose a model");
   });
 
   it("picks the model from a list, with another model as an escape hatch", async () => {
@@ -485,7 +459,7 @@ describe("Connect in onboarding is the real sign-in (#505)", () => {
           edit?.(w);
         }}
       >
-        <OnboardingFlow onComplete={() => {}} defaultStep="connectors" />
+        <OnboardingFlow onComplete={() => {}} defaultStep="stuff" />
       </StoryWorld>,
     );
     await userEvent.click(await screen.findByRole("button", { name: "Connect" }));

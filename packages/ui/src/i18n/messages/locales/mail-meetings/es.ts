@@ -160,7 +160,6 @@ export const mailMeetings: Partial<Catalogue> = {
   "settings.key.meetings.notes.cloudSummary": "Resumir con un modelo en la nube",
 
   // Onboarding decision screen
-  "onboarding.step.mail": "Correo y reuniones",
   "onboarding.mail.title": "{name} puede ponerte al día con el correo y las reuniones",
   "onboarding.mail.lead":
     "Elige lo que quieras. Nada se ejecuta hasta que continúes, y puedes cambiarlo todo en Ajustes.",

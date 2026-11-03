@@ -72,7 +72,7 @@ import { fixTouchId } from "./helper.tsx";
 import { kitClient } from "./kit-client.ts";
 import { renderLibraryThumbnail } from "./library-thumbnails.tsx";
 import { writeOnboarding } from "./onboarding.ts";
-import { saveHabits } from "./onboarding-host.ts";
+import { saveHabits, saveMemory } from "./onboarding-host.ts";
 import { settingsRoute } from "./settings.tsx";
 import { SideChatPane } from "./side-chat.tsx";
 import { useTranscriptMode } from "./transcript-mode.tsx";
@@ -391,11 +391,14 @@ export async function completeOnboarding(
     ...(owner?.city.trim() ? { city: owner.city.trim() } : {}),
   });
   if (result.habits) await saveHabits(call, result.habits);
+  if (result.memory) await saveMemory(call, result.memory);
   // The mail and meetings decision screen (§7.5), when it was offered: one setting per switch.
   // Best effort: a failed write leaves that workflow off, the safe default, and the owner can
   // turn it on in Settings → Mail & meetings.
   if (result.mail !== undefined) {
     for (const [settingKey, value] of Object.entries(mailSettings(result.mail))) {
+      // A re-run keeps the digest time the owner chose in Settings.
+      if (options.rerun && settingKey === "mail.digest.time") continue;
       try {
         await call(
           "settings.set",
