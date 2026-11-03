@@ -37,7 +37,8 @@ describe("app_link block", () => {
     expect(appRouteLabel("/can-do")).toBe("What can you do?");
     expect(appRouteLabel("/feed")).toBe("Home");
     expect(appRouteLabel("/home")).toBe("Home");
-    expect(appRouteLabel("/people")).toBe("People");
+    expect(appRouteLabel("/people")).toBe("Memory");
+    expect(appRouteLabel("/memory")).toBe("Memory");
   });
 
   it("has a label for every top-level route app_navigate allows", () => {

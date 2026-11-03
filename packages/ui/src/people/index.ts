@@ -25,7 +25,6 @@ export {
 } from "./glyphs.tsx";
 export { type EntityCardState, useEntityCard, useEntitySearch } from "./hooks.ts";
 export { LoopRow, type LoopRowProps } from "./LoopRow.tsx";
-export { PeopleScreen, type PeopleScreenProps } from "./PeopleScreen.tsx";
 export {
   type SuggestionAnswer,
   SuggestionCard,

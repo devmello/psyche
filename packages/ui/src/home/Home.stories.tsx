@@ -1,7 +1,6 @@
 import type { NudgeItem } from "@psyche/protocol";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import type { FixtureWorld } from "../fixtures/index.ts";
-import { PeopleScreen } from "../people/PeopleScreen.tsx";
 import { STORY_NOW, withWorld } from "../stories/harness.tsx";
 import type { CatchUpItem } from "./CatchUp.tsx";
 import { HomeScreen } from "./HomeScreen.tsx";
@@ -171,8 +170,4 @@ export const Narrow: Story = {
       <HomeScreen {...args} />
     </div>
   ),
-};
-
-export const People: StoryObj<typeof PeopleScreen> = {
-  render: () => <PeopleScreen onNavigate={() => {}} />,
 };

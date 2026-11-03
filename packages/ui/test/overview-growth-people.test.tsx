@@ -140,11 +140,11 @@ describe("People & projects", () => {
     const ranked = [...top].sort((a, b) => b.interactions - a.interactions);
     expect(navigate).toHaveBeenNthCalledWith(
       1,
-      `/people?entity=${encodeURIComponent(ranked[0]?.entityId ?? "")}`,
+      `/memory?entity=${encodeURIComponent(ranked[0]?.entityId ?? "")}`,
     );
     expect(navigate).toHaveBeenNthCalledWith(
       2,
-      `/people?entity=${encodeURIComponent(ranked[1]?.entityId ?? "")}`,
+      `/memory?entity=${encodeURIComponent(ranked[1]?.entityId ?? "")}`,
     );
   });
 

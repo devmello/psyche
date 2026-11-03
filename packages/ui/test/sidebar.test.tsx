@@ -64,7 +64,7 @@ describe("Sidebar (redesign §5.1)", () => {
     const names = within(within(nav).getByRole("list", { name: "Destinations" }))
       .getAllByRole("button")
       .map((b) => b.getAttribute("data-destination"));
-    expect(names).toEqual(["search", "chat", "home", "library", "people"]);
+    expect(names).toEqual(["search", "chat", "home", "library", "memory"]);
     expect(screen.queryByTestId("sidebar-more")).toBeNull();
     // Scheduled is reached from Home, so Home is current.
     const home = destination("Home");
@@ -152,8 +152,8 @@ describe("Sidebar (redesign §5.1)", () => {
     expect(home.getAttribute("aria-label")).toBe("Home, 2 waiting on you");
     expect(home.getAttribute("aria-current")).toBe("page");
     expect(home.textContent).toBe("");
-    await userEvent.click(destination("People"));
-    expect(onNavigate).toHaveBeenCalledWith("/people");
+    await userEvent.click(destination("Memory"));
+    expect(onNavigate).toHaveBeenCalledWith("/memory");
     const footer = screen.getByTestId("sidebar-footer");
     await userEvent.click(within(footer).getByRole("button", { name: "Settings and help" }));
     await userEvent.click(await screen.findByRole("menuitem", { name: /^Settings/ }));
@@ -324,7 +324,7 @@ describe("AppShell sidebar and compact layout", () => {
       within(tabs)
         .getAllByRole("button")
         .map((b) => b.textContent),
-    ).toEqual(["Chat", "Home", "Library", "People"]);
+    ).toEqual(["Chat", "Home", "Library", "Memory"]);
     await userEvent.click(within(tabs).getByRole("button", { name: /^Home/ }));
     expect(routes).toContain("/home");
     await userEvent.click(screen.getByRole("button", { name: "Threads" }));

@@ -71,7 +71,7 @@ describe("navigation", () => {
   it("stays out of the compact tab bar", () => {
     render(<TabBar active={null} onNavigate={() => {}} />);
     expect(screen.queryByRole("button", { name: "Scheduled" })).toBeNull();
-    // The tab bar has the four places (Chat, Home, Library, People).
+    // The tab bar has the four places (Chat, Home, Library, Memory).
     expect(screen.getByRole("button", { name: "Chat" })).toBeTruthy();
   });
 });

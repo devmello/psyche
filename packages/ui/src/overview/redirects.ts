@@ -10,10 +10,8 @@ import { overviewRunHref } from "./recent.ts";
  * - `/agent/activity/run/<id>[?step=]` → `/overview/run/<id>[?step=]`
  *
  * - `/agent/activity/<taskId>` → `/overview#now` (the task rows live there now)
- * - `/agent/soul?entity=<id>` → `/people?entity=<id>` (people have their own page,
- *   docs/design/consolidation-2026.md §3.4)
- *
- * Approvals and Soul & Memory stay in the sheet, so they have no redirect (null).
+ * Approvals and Soul stay in the sheet, so they have no redirect (null). `/agent/soul?entity=<id>`
+ * opens Memory in place (`legacyRedirect`), so it never reaches the sheet.
  */
 export function overviewRedirect(route: AgentSheetRoute): string | null {
   if (route.tab === "activity") {
@@ -24,8 +22,5 @@ export function overviewRedirect(route: AgentSheetRoute): string | null {
   }
   if (route.tab === "upcoming") return "/home#coming-up";
   if (route.tab === "growth") return "/overview#growth";
-  if (route.tab === "soul" && route.entity !== undefined) {
-    return `/people?entity=${encodeURIComponent(route.entity)}`;
-  }
   return null;
 }

@@ -2,7 +2,7 @@ import type { Decorator, Meta, StoryObj } from "@storybook/react-vite";
 import { useEffect, useState } from "react";
 import { IDS } from "../fixtures/index.ts";
 import { HomeScreen } from "../home/HomeScreen.tsx";
-import { PeopleScreen } from "../people/PeopleScreen.tsx";
+import { MemoryScreen } from "../memory-page/MemoryScreen.tsx";
 import { STORY_NOW, withWorld } from "../stories/harness.tsx";
 import { AppShell } from "./AppShell.tsx";
 import { CommandPalette } from "./CommandPalette.tsx";
@@ -45,9 +45,9 @@ function Main(props: {
     <section className="flex min-h-0 flex-1 flex-col overflow-auto">
       <HomeScreen now={STORY_NOW} onNavigate={setRoute} />
     </section>
-  ) : route.startsWith("/people") ? (
+  ) : route.startsWith("/memory") ? (
     <section className="flex min-h-0 flex-1 flex-col overflow-auto">
-      <PeopleScreen onNavigate={setRoute} />
+      <MemoryScreen now={STORY_NOW} onNavigate={setRoute} />
     </section>
   ) : null;
   return (
@@ -79,7 +79,7 @@ export const MainWindowHome: Story = { render: () => <Main start="/home" /> };
  * sidebar is hidden so the 960 px baseline has room for both (the content keeps 480 px).
  */
 export const AgentSheetBeside: Story = { render: () => <Main sheet="approvals" sidebar={false} /> };
-/** #625: Soul & Memory beside Home. */
+/** #625: Soul beside Home. */
 export const AgentSheetBesideHome: Story = {
   render: () => <Main start="/home" sheet="soul" sidebar={false} />,
 };
@@ -169,13 +169,13 @@ export const SidebarNeedsYou: Story = {
   ),
 };
 
-/** On People: the row is current; the needs-you count stays on Home. */
-export const SidebarOnPeople: Story = {
+/** On Memory: the row is current; the needs-you count stays on Home. */
+export const SidebarOnMemory: Story = {
   render: () => (
     <ShellMotion>
       <div className="flex h-[640px]">
         <Sidebar
-          route="/people"
+          route="/memory"
           onNavigate={() => {}}
           activeThreadId={null}
           onOpenThread={() => {}}

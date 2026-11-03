@@ -38,7 +38,7 @@ export const agent = {
   "agent.sheet.tabs": "Agent",
   "agent.sheet.label": "Agent",
   "agent.sheet.approvals": "Approvals",
-  "agent.sheet.soul": "Soul & Memory",
+  "agent.sheet.soul": "Soul",
   "agent.sheet.now.working": "Working on {title} · {elapsed}",
   "agent.sheet.now.waiting":
     "Waiting for you · {approvals, plural, =0 {} one {# approval} other {# approvals}}{both, select, true { · } other {}}{questions, plural, =0 {} one {# question} other {# questions}}",
@@ -326,6 +326,9 @@ export const agent = {
   "agent.memory.mode.diff": "Diff",
   "agent.memory.dreaming": "Dreaming rewrites this file every night.",
   "agent.memory.contents": "{path} contents",
+  "agent.memory.openMemory": "People and projects",
+  "agent.memory.openMemoryHint": "They live on the Memory page now.",
+  "agent.memory.openMemoryGo": "Open Memory",
   "agent.memory.search": "Search memory",
   "agent.memory.searchGo": "Search",
   "agent.memory.noHits": "Nothing in memory matches.",

@@ -39,7 +39,7 @@ describe("every screen is reachable (sidebar or palette)", () => {
     expect(rendered).toEqual(
       expect.arrayContaining([
         "home",
-        "people",
+        "memory",
         "search",
         "scheduled",
         "library",
@@ -61,7 +61,7 @@ describe("every screen is reachable (sidebar or palette)", () => {
   it("opens every top-level route (an old one shows the place it moved to)", () => {
     for (const old of LEGACY_ROUTES) {
       const to = legacyRedirect(`/${old}`) ?? "";
-      expect(to, `/${old} moved`).toMatch(/^\/home/);
+      expect(to, `/${old} moved`).toMatch(old === "people" ? /^\/memory/ : /^\/home/);
     }
     for (const top of APP_TOP_LEVEL_ROUTES) {
       if (LEGACY_ROUTES.includes(top)) continue;
@@ -101,15 +101,17 @@ describe("every screen is reachable (sidebar or palette)", () => {
   });
 
   it("has four places, all on the sidebar (docs/design/consolidation-2026.md §3)", () => {
-    expect(RAIL_ITEMS.map((i) => i.id)).toEqual(["chat", "home", "library", "people"]);
+    expect(RAIL_ITEMS.map((i) => i.id)).toEqual(["chat", "home", "library", "memory"]);
   });
 
   it("marks the place a page is reached from", () => {
-    expect(destinationFor("/agent/soul?entity=e1")).toBe("chat");
+    expect(destinationFor("/agent/soul")).toBe("chat");
     expect(destinationFor("/agent/approvals")).toBe("chat");
     for (const r of ["/inbox", "/feed", "/ideas", "/goals/g1", "/scheduled?tab=runs", "/overview"])
       expect(destinationFor(r), r).toBe("home");
-    expect(destinationFor("/people?entity=e1")).toBe("people");
+    expect(destinationFor("/people?entity=e1")).toBe("memory");
+    expect(destinationFor("/memory?kind=due")).toBe("memory");
+    expect(destinationFor("/agent/soul?entity=e1")).toBe("memory");
     expect(destinationFor("/search")).toBeNull();
     expect(destinationFor("/settings/model")).toBeNull();
   });

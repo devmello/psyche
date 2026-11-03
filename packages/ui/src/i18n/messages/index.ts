@@ -20,6 +20,7 @@ import { home } from "./home.ts";
 import { links } from "./links.ts";
 import { mailMeetings } from "./mail-meetings.ts";
 import { meetingRecord } from "./meeting-record.ts";
+import { memoryPage } from "./memory-page.ts";
 import { memoryReview } from "./memory-review.ts";
 import { nudges } from "./nudges.ts";
 import { onboarding } from "./onboarding.ts";
@@ -78,6 +79,7 @@ export const en = {
   ...onboarding,
   ...whatCanYouDo,
   ...memoryReview,
+  ...memoryPage,
   ...people,
   ...specialists,
   ...screens,

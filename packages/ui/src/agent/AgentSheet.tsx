@@ -110,7 +110,7 @@ export function AgentIdentity({
   );
 }
 
-/** What an `/agent/*` route opens: the tab, a file or a person in Soul & Memory. */
+/** What an `/agent/*` route opens: the tab, a file in Soul. */
 export interface AgentSheetRoute {
   /** The moved tabs still parse so old links resolve (the shell redirects them). */
   tab: AgentRouteTab;
@@ -121,7 +121,7 @@ export interface AgentSheetRoute {
   runId?: string;
   stepId?: string;
   file?: string;
-  /** Soul & Memory opens this person's or project's card (`?entity=`). */
+  /** Parsed so an old person link is recognised; Memory shows it (`legacyRedirect`), not the sheet. */
   entity?: string;
   /** Where closing the sheet returns to (`?from=/feed`); the chat when absent. */
   back?: string;
@@ -203,10 +203,8 @@ export interface AgentSheetBodyProps {
   onStartIncognito?: () => void;
   /** Show the avatar, name and status above the tabs (the modal sheet renders its own). */
   header?: boolean;
-  /** Soul & Memory opens on this workspace file (`/agent/soul?file=SOUL.md`). */
+  /** Soul opens on this workspace file (`/agent/soul?file=SOUL.md`). */
   file?: string;
-  /** Soul & Memory opens this person's or project's card (`/agent/soul?entity=ent_…`). */
-  entity?: string;
   /** The `/agent/*` page's × and Escape: back to where the owner came from (#508). */
   onClose?: () => void;
   /**
@@ -225,7 +223,6 @@ export function AgentSheetBody({
   onStartIncognito,
   header = true,
   file,
-  entity,
   onClose,
   escapeAnywhere = true,
 }: AgentSheetBodyProps): ReactElement {
@@ -312,9 +309,8 @@ export function AgentSheetBody({
           </TabsContent>
           <TabsContent value="soul">
             <SoulMemoryPanel
-              key={`${file ?? ""}|${entity ?? ""}`}
+              key={file ?? ""}
               {...(file ? { initialFile: file } : {})}
-              {...(entity ? { initialEntity: entity } : {})}
               {...(onStartIncognito ? { onStartIncognito } : {})}
             />
           </TabsContent>

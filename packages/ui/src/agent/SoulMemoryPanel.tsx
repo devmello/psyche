@@ -33,7 +33,6 @@ import { useCall, useGatewayQuery, useMemoryFile } from "../data/index.ts";
 import { activeI18n, t } from "../i18n/core.ts";
 import { describeError } from "../i18n/errors.ts";
 import { cn } from "../lib/utils.ts";
-import { PeopleSheetSection } from "../people/PeopleSheetSection.tsx";
 import { usePersona, useSlots } from "../slots.tsx";
 import { lessonsAt, useLessons } from "../teaching/hooks.ts";
 import { LessonMark, lessonMarkLabel } from "../teaching/LessonMark.tsx";
@@ -335,17 +334,14 @@ function ResetDialog({
   );
 }
 
-/** Agent sheet → Soul & Memory (UI design §3.17). */
+/** Agent sheet → Soul (UI design §3.17): the persona files, the agent's notes and the daily notes. */
 export function SoulMemoryPanel({
   initialFile,
-  initialEntity,
   onStartIncognito,
   onImport,
   onExported,
 }: {
   initialFile?: string;
-  /** Opens this person's or project's card (`/agent/soul?entity=`). */
-  initialEntity?: string;
   onStartIncognito?: () => void;
   /** The shell picks the export file to import (format + content) and calls back. */
   onImport?: () => void;
@@ -353,6 +349,7 @@ export function SoulMemoryPanel({
   onExported?: (file: { filename: string; data: string }) => void;
 }): ReactElement {
   const persona = usePersona();
+  const slots = useSlots();
   const call = useCall();
   const [path, setPath] = useState<string>(initialFile ?? "SOUL.md");
   const status = useGatewayQuery("memory.status", {});
@@ -426,7 +423,17 @@ export function SoulMemoryPanel({
 
       <AgentNotes />
 
-      <PeopleSheetSection {...(initialEntity ? { initialEntity } : {})} />
+      <GroupedList footer={t("agent.memory.openMemoryHint")}>
+        <GroupedRow
+          label={t("agent.memory.openMemory")}
+          control={
+            <Button size="sm" variant="ghost" onClick={() => slots.navigate?.("/memory")}>
+              {t("agent.memory.openMemoryGo")}
+              <ChevronRight aria-hidden="true" className="rtl:rotate-180" />
+            </Button>
+          }
+        />
+      </GroupedList>
 
       <GroupedList
         title={t("agent.memory.dailyNotes")}

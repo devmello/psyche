@@ -57,6 +57,7 @@ export const APP_AGENT_TABS = ["approvals", "activity", "upcoming", "soul"] as c
 export const APP_TOP_LEVEL_ROUTES = [
   "chat",
   "home",
+  "memory",
   "people",
   "search",
   "feed",
@@ -75,6 +76,7 @@ export const APP_TOP_LEVEL_ROUTES = [
 const SIMPLE = new Set<string>([
   "chat",
   "home",
+  "memory",
   "people",
   "search",
   "feed",
@@ -96,6 +98,13 @@ export function resolveAppRoute(route: string): string | null {
   const parts = route.trim().split("/");
   if (parts[0] !== "" || parts.length < 2 || parts.length > 4) return null;
   const [, first = "", second, third] = parts;
+  // Memory replaced People in the sidebar (docs/design/memory-everything-2026.md §6): `/people`
+  // still opens, as Memory. `/memory/review` is reserved for the review queue's own tab.
+  if (first === "people") return second === undefined ? "/memory" : null;
+  if (first === "memory") {
+    if (third !== undefined) return null;
+    return second === undefined ? "/memory" : second === "review" ? "/memory/review" : null;
+  }
   if (SIMPLE.has(first)) return second === undefined ? `/${first}` : null;
   if (first === "library") {
     if (third !== undefined) return null;

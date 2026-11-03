@@ -200,7 +200,7 @@ export const onboarding = {
   "onboarding.memory.lead":
     'Already have a profile in ChatGPT or Claude? Paste its memory export, or the answer to "What do you know about me?". You review everything before it is saved.',
   "onboarding.memory.unavailable":
-    "Importing isn't available in this window. You can do it later in Soul & Memory.",
+    "Importing isn't available in this window. You can do it later in Soul.",
   "onboarding.memory.format": "Where it came from",
   "onboarding.memory.format.chatgpt": "ChatGPT",
   "onboarding.memory.format.claude": "Claude",

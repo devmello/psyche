@@ -2,14 +2,11 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { agentSheetRoute } from "../src/agent/AgentSheet.tsx";
 import { type FixtureWorld, IDS } from "../src/fixtures/index.ts";
 import { HomeScreen } from "../src/home/HomeScreen.tsx";
-import { overviewRedirect } from "../src/overview/redirects.ts";
-import { PeopleScreen } from "../src/people/PeopleScreen.tsx";
 import { STORY_NOW, StoryWorld } from "../src/stories/harness.tsx";
 
-/** Home and People (docs/design/consolidation-2026.md §3.1, §3.2) against the MockGateway. */
+/** Home (docs/design/consolidation-2026.md §3.1) against the MockGateway. */
 
 function setup(ui: ReactElement, edit?: (w: FixtureWorld) => void) {
   const navigate = vi.fn();
@@ -260,23 +257,7 @@ describe("Home's one way in (consolidation-2026 §7)", () => {
     const more = await section("more");
     await user.click(within(more).getByRole("button", { name: /^Scheduled/ }));
     expect(navigate).toHaveBeenLastCalledWith("/scheduled");
-    for (const name of [/^Wren & you/, /^Inbox/, /^Soul & Memory/, /^Memory review/])
+    for (const name of [/^Wren & you/, /^Inbox/, /^Soul/, /^Memory review/])
       expect(within(more).getByRole("button", { name })).toBeTruthy();
-  });
-});
-
-describe("People", () => {
-  it("is the people list at page width, with a way to Soul & Memory", async () => {
-    const { navigate, user } = setup(<PeopleScreen />);
-    expect(await screen.findByRole("textbox", { name: "Search people and projects" })).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: "Soul & memory" }));
-    expect(navigate).toHaveBeenCalledWith("/agent/soul");
-  });
-
-  it("is where the old Soul & Memory person links go", () => {
-    const routed = agentSheetRoute("/agent/soul?entity=ent_1");
-    expect(routed && overviewRedirect(routed)).toBe("/people?entity=ent_1");
-    const plain = agentSheetRoute("/agent/soul");
-    expect(plain && overviewRedirect(plain)).toBeNull();
   });
 });

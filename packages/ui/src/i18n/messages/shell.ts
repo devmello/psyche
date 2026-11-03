@@ -38,7 +38,7 @@ export const shell = {
   "shell.rail.usage": "Usage",
   "shell.rail.help": "Help",
   "shell.palette.approvals": "Open Approvals",
-  "shell.palette.soul": "Open Soul & Memory",
+  "shell.palette.soul": "Open Soul",
   "shell.palette.inbox": "Open notifications",
   "shell.palette.settings": "Settings",
   "shell.palette.appearance": "Settings → Appearance",
