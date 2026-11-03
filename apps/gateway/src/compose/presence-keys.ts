@@ -13,17 +13,33 @@ import { INTERNAL_SETTING_PREFIX } from "../state-version.ts";
  * paired and not revoked, so it is revoked with the device.
  *
  * Limit: any same-user process holding the handshake secret can pair as a helper (design-19), so
- * the owner should compare the key id with the one the genuine helper shows (`expectKeyId`)
- * until peer code signatures are checked.
+ * registration requires the key id the genuine helper shows (`expectKeyId`, mandatory): on the
+ * desktop main reads it from the helper bundled in the app (`psyche-helper --print-identity`),
+ * never from whichever node answered on the socket, until peer code signatures are checked.
+ *
+ * Limit (`kind: enclave_file`): a build without a provisioning profile keeps its Secure Enclave key
+ * as a wrapped blob file instead of in the keychain. Every signature still needs Touch ID inside
+ * the Secure Enclave, but any same-user process can read the blob and ask for one behind its own
+ * prompt and wording. Same trust boundary as the pairing limit above; Settings → Devices names
+ * the kind so the owner knows which one is in use.
  */
 
 export const PRESENCE_KEYS_SETTING = `${INTERNAL_SETTING_PREFIX}presence.helperKeys`;
+
+/**
+ * Lets a development build register its Secure Enclave file key (`kind: enclave_file`). A
+ * `devices.*` security setting: changing it needs `operator.admin` and fresh presence (§10).
+ */
+export const DEV_FILE_KEY_SETTING = "devices.presence.allowDevFileKey";
+
+export type PresenceKeyKind = "keychain" | "enclave_file";
 
 /** `PresenceKeyInfo` in the protocol. */
 export interface PresenceKeyInfo {
   deviceId: string;
   keyId: string;
   registeredAt: string;
+  kind?: PresenceKeyKind;
 }
 
 interface StoredKey {
@@ -31,6 +47,11 @@ interface StoredKey {
   publicKey: string;
   keyId: string;
   registeredAt: string;
+  kind?: PresenceKeyKind;
+}
+
+function kindOf(v: unknown): PresenceKeyKind | undefined {
+  return v === "keychain" || v === "enclave_file" ? v : undefined;
 }
 
 export function presenceKeyId(publicKey: string): string {
@@ -65,17 +86,28 @@ export class HelperPresenceKeys {
   list(): PresenceKeyInfo[] {
     return Object.entries(this.#all())
       .filter(([deviceId]) => this.#live(deviceId))
-      .map(([deviceId, k]) => ({ deviceId, keyId: k.keyId, registeredAt: k.registeredAt }));
+      .map(([deviceId, k]) => ({
+        deviceId,
+        keyId: k.keyId,
+        registeredAt: k.registeredAt,
+        ...(k.kind === undefined ? {} : { kind: k.kind }),
+      }));
   }
 
-  set(deviceId: string, publicKey: string, now: Date): PresenceKeyInfo {
+  set(deviceId: string, publicKey: string, now: Date, kind?: PresenceKeyKind): PresenceKeyInfo {
     const stored: StoredKey = {
       publicKey,
       keyId: presenceKeyId(publicKey),
       registeredAt: now.toISOString(),
+      ...(kind === undefined ? {} : { kind }),
     };
     setSetting(this.#db, PRESENCE_KEYS_SETTING, { ...this.#all(), [deviceId]: stored });
-    return { deviceId, keyId: stored.keyId, registeredAt: stored.registeredAt };
+    return {
+      deviceId,
+      keyId: stored.keyId,
+      registeredAt: stored.registeredAt,
+      ...(kind === undefined ? {} : { kind }),
+    };
   }
 
   remove(deviceId: string): boolean {
@@ -104,6 +136,8 @@ export interface PresenceKeyDeps {
     capability: string,
   ): Promise<{ ok: boolean; result?: unknown; error?: { code: string; message: string } }>;
   now(): Date;
+  /** `devices.presence.allowDevFileKey`: a development build's file key may be registered. */
+  allowDevFileKey(): boolean;
 }
 
 export function presenceKeyHandlers(deps: PresenceKeyDeps): Record<string, HandlerDef> {
@@ -119,6 +153,13 @@ export function presenceKeyHandlers(deps: PresenceKeyDeps): Record<string, Handl
         params: { deviceId: string; expectKeyId?: string; approvalId?: string },
       ) {
         const { deviceId } = params;
+        // The key id comes from the genuine helper, not from whatever node answers on the socket.
+        if (typeof params.expectKeyId !== "string") {
+          throw new PsycheError(
+            "invalid_params",
+            "Registering a Touch ID key needs the key id the Psyche Helper shows (expectKeyId)",
+          );
+        }
         const nodeId = deps.helperNode(deviceId);
         if (nodeId === undefined) {
           throw new PsycheError(
@@ -127,7 +168,7 @@ export function presenceKeyHandlers(deps: PresenceKeyDeps): Record<string, Handl
           );
         }
         const res = await deps.invoke(nodeId, "presence.public_key");
-        const out = (res.result ?? {}) as { publicKey?: unknown; keyId?: unknown };
+        const out = (res.result ?? {}) as { publicKey?: unknown; keyId?: unknown; kind?: unknown };
         if (!res.ok || typeof out.publicKey !== "string" || !isP256Point(out.publicKey)) {
           throw new PsycheError(
             "unavailable",
@@ -138,10 +179,19 @@ export function presenceKeyHandlers(deps: PresenceKeyDeps): Record<string, Handl
         if (out.keyId !== keyId) {
           throw new PsycheError("conflict", "The helper's key id does not match its key");
         }
-        if (params.expectKeyId !== undefined && params.expectKeyId !== keyId) {
+        if (params.expectKeyId !== keyId) {
           throw new PsycheError(
             "conflict",
             `The helper's key id is ${keyId}, not the one you expected; nothing was registered`,
+          );
+        }
+        const kind = kindOf(out.kind);
+        // RELEASE BLOCKER (docs/08-roadmap.md v1.0): the development-only file key (security §10).
+        if (kind === "enclave_file" && !deps.allowDevFileKey()) {
+          throw new PsycheError(
+            "forbidden",
+            `This helper's Touch ID key is a development Secure Enclave file key; turn on ${DEV_FILE_KEY_SETTING} to register it`,
+            { details: { reason: "dev_file_key_off" } },
           );
         }
         // A new verifier: once presence is enrolled, adding one needs the owner's presence.
@@ -155,8 +205,12 @@ export function presenceKeyHandlers(deps: PresenceKeyDeps): Record<string, Handl
           },
           params.approvalId,
         );
-        const presenceKey = deps.store.set(deviceId, out.publicKey, deps.now());
-        audit("presence_key.registered", { deviceId, keyId });
+        const presenceKey = deps.store.set(deviceId, out.publicKey, deps.now(), kind);
+        audit("presence_key.registered", {
+          deviceId,
+          keyId,
+          ...(kind === undefined ? {} : { kind }),
+        });
         call.ctx.presenceState(); // records the enrollment (sticky)
         return { presenceKey };
       },

@@ -55,6 +55,12 @@ export interface AppWindows {
   /** Every live app renderer (main, pop-outs, quick entry), for broadcasting. */
   appContents(): WebContents[];
   isAppContents(wc: WebContents): boolean;
+  /**
+   * The renderers that may approve with Touch ID or register the helper's key: the main window
+   * and the Settings window (security settings wait for approval there). Never pop-outs, quick
+   * entry or the screen-ask window.
+   */
+  isApprovalContents(wc: WebContents): boolean;
   closeFor(wc: WebContents): void;
 }
 
@@ -445,6 +451,10 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
     },
     appContents: () => [...views.keys()].filter((wc) => !wc.isDestroyed()),
     isAppContents: (wc) => views.has(wc),
+    isApprovalContents: (wc) =>
+      !wc.isDestroyed() &&
+      ((mainView !== undefined && wc === mainView.webContents) ||
+        (settings !== undefined && wc === settings.view.webContents)),
     closeFor(wc) {
       const entry = views.get(wc);
       if (!entry) return;

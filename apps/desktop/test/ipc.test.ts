@@ -58,6 +58,12 @@ describe("IPC validators", () => {
       expect(() => checkCallable(m, known)).toThrow();
   });
 
+  it("Touch ID approvals and key registration never go through the generic relay", () => {
+    const known = () => true;
+    for (const m of ["approvals.approveWithTouchId", "devices.presenceKey.register"])
+      expect(() => checkCallable(m, known)).toThrow(/not callable/);
+  });
+
   it("only main calls dictation.* (it types into other apps); HUD audio is base64 only", () => {
     const known = (m: unknown) => typeof m === "string" && m.startsWith("dictation.");
     for (const m of ["dictation.insert", "dictation.watch", "dictation.target"])

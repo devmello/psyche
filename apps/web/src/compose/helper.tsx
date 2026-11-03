@@ -1,4 +1,10 @@
-import { DevicesSection, type MacHelperStatus, MacHelperStatusRow } from "@psyche/ui";
+import {
+  DevicesSection,
+  type MacHelperStatus,
+  MacHelperStatusRow,
+  t,
+  type UiSlots,
+} from "@psyche/ui";
 import { type ReactElement, useEffect, useState } from "react";
 import type { ShellPlatform } from "../shell/platform.ts";
 
@@ -44,7 +50,26 @@ export function DesktopDevicesSettings({ platform }: { platform: ShellPlatform }
   return (
     <div className="flex flex-col gap-4">
       {helper ? <MacHelperStatusRow state={helper} /> : null}
-      <DevicesSection {...(deviceId === undefined ? {} : { thisDeviceId: deviceId })} />
+      <DevicesSection
+        {...(deviceId === undefined ? {} : { thisDeviceId: deviceId })}
+        {...(platform.helper?.touchId ? { touchId: platform.helper.touchId } : {})}
+      />
     </div>
   );
+}
+
+type TouchIdFix = Parameters<NonNullable<UiSlots["touchIdFix"]>>[0];
+
+/**
+ * An approval card's fix when Touch ID cannot confirm it from the window: start the bundled
+ * helper (main's launcher, waiting for it to pair), or open Settings → Devices, where the owner
+ * checks the key id and registers the key. Neither approves anything.
+ */
+export async function fixTouchId(platform: ShellPlatform, fix: TouchIdFix): Promise<void> {
+  if (fix === "start_helper") {
+    const state = await platform.helper?.launch?.();
+    if (state?.kind !== "paired") throw new Error(t("web.touchId.helperDidNotStart"));
+    return;
+  }
+  platform.windows?.openSettings?.("devices");
 }

@@ -66,6 +66,7 @@ import {
 import { chatFileSlots } from "./attachments.tsx";
 import { ComposedCanvas } from "./canvas.tsx";
 import { FirstRun, onboardingRoute } from "./first-run.tsx";
+import { fixTouchId } from "./helper.tsx";
 import { kitClient } from "./kit-client.ts";
 import { renderLibraryThumbnail } from "./library-thumbnails.tsx";
 import { writeOnboarding } from "./onboarding.ts";
@@ -540,7 +541,10 @@ function useSystemAppearance(platform: ShellPlatform): SystemAppearance | null {
 }
 
 export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactElement {
-  const client = useMemo(() => kitClient(platform.gateway, platform.passkeys), [platform]);
+  const client = useMemo(
+    () => kitClient(platform.gateway, platform.passkeys, platform.helper?.touchId),
+    [platform],
+  );
   const systemLocale = useSystemLocale(platform);
   const systemAppearance = useSystemAppearance(platform);
   const [gate, setGate] = useState<Gate>("loading");
@@ -685,6 +689,9 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
       ...(platform.clipboard ? { writeClipboard: platform.clipboard.writeText } : {}),
       // Connector sign-ins open in the default browser; app windows refuse window.open (#505).
       ...(platform.external ? { openExternal: platform.external.open } : {}),
+      // A Touch ID card the window cannot confirm yet: start the helper or register its key.
+      ...(platform.helper ? { touchIdFix: (fix) => fixTouchId(platform, fix) } : {}),
+      ...(platform.helper?.touchId ? { touchIdOnceOnly: true } : {}),
     }),
     [persona, platform],
   );

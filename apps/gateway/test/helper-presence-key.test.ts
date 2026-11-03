@@ -185,8 +185,12 @@ describe("helper presence keys (issue #253)", () => {
   });
 
   it("a tap on the helper's card tells the desktop which route to open", async () => {
-    const { c, admin, h, helperDevice } = await setup();
-    await admin.call("devices.presenceKey.register", { deviceId: helperDevice }, ik());
+    const { c, admin, h, helperDevice, key } = await setup();
+    await admin.call(
+      "devices.presenceKey.register",
+      { deviceId: helperDevice, expectKeyId: key.keyId },
+      ik(),
+    );
     const frames: string[] = [];
     c.gateway.context.bus.subscribe(["operator.read", "operator.admin"], (f) => frames.push(f));
     const first = await admin.request(
@@ -211,10 +215,18 @@ describe("helper presence keys (issue #253)", () => {
 
   it("a second key needs fresh presence; revoking the helper revokes its key", async () => {
     const { c, admin, key, helperDevice } = await setup();
-    await admin.call("devices.presenceKey.register", { deviceId: helperDevice }, ik());
+    await admin.call(
+      "devices.presenceKey.register",
+      { deviceId: helperDevice, expectKeyId: key.keyId },
+      ik(),
+    );
     // Presence is now enrolled: replacing the key asks for a card.
     expect(
-      await admin.request("devices.presenceKey.register", { deviceId: helperDevice }, ik()),
+      await admin.request(
+        "devices.presenceKey.register",
+        { deviceId: helperDevice, expectKeyId: key.keyId },
+        ik(),
+      ),
     ).toMatchObject({ ok: false, error: { code: "approval_required" } });
 
     revokeDevice(c.gateway.context.db, helperDevice);
@@ -233,7 +245,28 @@ describe("helper presence keys (issue #253)", () => {
   it("an unknown or disconnected device cannot register", async () => {
     const { admin } = await setup();
     expect(
-      await admin.request("devices.presenceKey.register", { deviceId: "no-such-helper" }, ik()),
+      await admin.request(
+        "devices.presenceKey.register",
+        { deviceId: "no-such-helper", expectKeyId: "0".repeat(64) },
+        ik(),
+      ),
     ).toMatchObject({ ok: false, error: { code: "unavailable" } });
+  });
+});
+
+describe("registering needs the genuine helper's key id (security review, finding 1)", () => {
+  it("refuses a registration without expectKeyId, and one whose key id differs", async () => {
+    const { admin, helperDevice } = await setup();
+    expect(
+      await admin.request("devices.presenceKey.register", { deviceId: helperDevice }, ik()),
+    ).toMatchObject({ ok: false, error: { code: "invalid_params" } });
+    expect(
+      await admin.request(
+        "devices.presenceKey.register",
+        { deviceId: helperDevice, expectKeyId: "f".repeat(64) },
+        ik(),
+      ),
+    ).toMatchObject({ ok: false, error: { code: "conflict" } });
+    expect(await admin.call("devices.presenceKey.list", {})).toEqual({ presenceKeys: [] });
   });
 });

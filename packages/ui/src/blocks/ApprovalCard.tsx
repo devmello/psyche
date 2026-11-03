@@ -1,4 +1,4 @@
-import { renderForSurface, sanitizeApproval } from "@psyche/permissions/cards";
+import { approvalCode, renderForSurface, sanitizeApproval } from "@psyche/permissions/cards";
 import type { ApprovalRequest, GrantScope, MissingPermission } from "@psyche/protocol";
 import { CircleAlert, Ellipsis, Fingerprint, ShieldCheck } from "lucide-react";
 import * as m from "motion/react-m";
@@ -28,7 +28,12 @@ import { cn } from "../lib/utils.ts";
 import { easeLinear, fade, motionSpring, spring } from "../motion/index.ts";
 import { useSlots } from "../slots.tsx";
 import { roleLabel } from "../specialists/model.ts";
-import { type AnswerFailure, answerFailureText, classifyAnswerError } from "./answer-error.ts";
+import {
+  type AnswerFailure,
+  answerFailureText,
+  classifyAnswerError,
+  type TouchIdFix,
+} from "./answer-error.ts";
 import { ApprovalDetails, ApprovalIds } from "./approval-details.tsx";
 import { floorClassOf, useLiftFloorConfirm } from "./LiftFloorDialog.tsx";
 import { taintSentence } from "./taint-text.ts";
@@ -372,12 +377,19 @@ export function ApprovalCard({
   // A rate-limited answer disables Allow until the Gateway's retry-after has passed.
   const [limitedUntil, setLimitedUntil] = useState<number | null>(null);
   const [limitFailure, setLimitFailure] = useState<AnswerFailure | null>(null);
+  // Touch ID could not confirm from this window: the fix the card offers (start the helper, set
+  // up the key), then Allow asks Touch ID again.
+  const [touchIdFixFor, setTouchIdFixFor] = useState<TouchIdFix | null>(null);
   // Synchronous guard: two clicks in one tick must send one answer.
   const inFlight = useRef(false);
   const [showIds, setShowIds] = useState(false);
   // folder_access: the folder the owner picks is what is granted, never the agent's string.
   const isFolder = raw.kind === "folder_access";
-  const { pickFolder, permissionAction } = useSlots();
+  const { pickFolder, permissionAction, touchIdFix, touchIdOnceOnly } = useSlots();
+  // Touch ID from this window approves once only (security §3.7): say so, never drop "Always"
+  // silently.
+  const onceOnlyHere = touchIdOnceOnly === true && approval.requiresAuthentication;
+  const [forcedOnce, setForcedOnce] = useState(false);
   // The Gateway resolved the path the agent named: a usable folder is pre-filled and is exactly
   // what is granted; a blocked or missing one needs the owner's pick.
   const requestedFolder =
@@ -471,6 +483,7 @@ export function ApprovalCard({
     setError(null);
     setLimitedUntil(null);
     setLimitFailure(null);
+    setTouchIdFixFor(null);
     try {
       // macOS access: re-read the grant first, so the Gateway's check sees what was just allowed.
       if (decision === "approve" && need?.need === "macos_access") {
@@ -490,13 +503,19 @@ export function ApprovalCard({
               ? { unsandboxed: "UNSANDBOXED" }
               : undefined,
       );
+      if (decision === "approve" && onceOnlyHere && scope !== undefined && scope !== "once") {
+        setForcedOnce(true);
+      }
     } catch (err) {
       const failure = classifyAnswerError(err);
       if (failure.kind === "rate_limited") {
         setLimitedUntil(Date.now() + failure.retryAfterSec * 1000);
         setLimitFailure(failure);
         setError(null);
-      } else setError(answerFailureText(failure));
+      } else {
+        setError(answerFailureText(failure));
+        if (failure.kind === "touch_id_setup") setTouchIdFixFor(failure.fix);
+      }
     } finally {
       inFlight.current = false;
       setBusy(false);
@@ -520,7 +539,10 @@ export function ApprovalCard({
     }
   };
 
-  const status = statusText(approval, now);
+  const status =
+    forcedOnce && approval.status === "approved"
+      ? t("blocks.approval.status.allowedOnceTouchId")
+      : statusText(approval, now);
   const whatLabel = t("blocks.approval.whatItWillDo");
   const onlyOnce = offered.length === 1 && offered[0] === "once";
   const taintNote = pending ? taintSentence(approval, persona, onlyOnce) : null;
@@ -931,7 +953,14 @@ export function ApprovalCard({
             <span className="inline-flex items-center gap-1.5">
               <Fingerprint className="size-3.5" aria-hidden="true" />{" "}
               {t("blocks.approval.needsAuth")}
+              {/* The Touch ID sheet names the same code (security §3.7). */}
+              <span className="font-mono" data-testid="approval-code">
+                {t("blocks.approval.touchId.code", { code: approvalCode(approval.bindingHash) })}
+              </span>
             </span>
+          ) : null}
+          {onceOnlyHere && choice !== "once" ? (
+            <span data-testid="touch-id-once-only">{t("blocks.approval.touchId.onceOnly")}</span>
           ) : null}
           {otherSurfaces.length > 0 ? (
             <span>{t("blocks.approval.alsoSentTo", { surfaces: otherSurfaces.join(", ") })}</span>
@@ -951,6 +980,36 @@ export function ApprovalCard({
           <CircleAlert className="mt-0.5 size-4 shrink-0 text-danger-text" aria-hidden="true" />
           {error}
         </p>
+      ) : null}
+
+      {interactive && error && touchIdFixFor !== null && touchIdFix ? (
+        <div className="mt-2" data-testid="touch-id-fix">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={busy}
+            onClick={() => {
+              const fix = touchIdFixFor;
+              setBusy(true);
+              touchIdFix(fix).then(
+                () => {
+                  // Never approves on its own: the owner clicks Allow again.
+                  setBusy(false);
+                  setError(null);
+                  setTouchIdFixFor(null);
+                },
+                (err: unknown) => {
+                  setBusy(false);
+                  setError(describeError(err));
+                },
+              );
+            }}
+          >
+            {touchIdFixFor === "start_helper"
+              ? t("blocks.approval.touchId.startHelper")
+              : t("blocks.approval.touchId.openDevices")}
+          </Button>
+        </div>
       ) : null}
 
       {interactive ? (

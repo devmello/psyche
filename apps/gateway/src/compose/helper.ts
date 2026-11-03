@@ -1,6 +1,7 @@
 import { createPublicKey, type KeyObject, verify } from "node:crypto";
-import { listDevices } from "@psyche/db";
+import { getSetting, listDevices } from "@psyche/db";
 import {
+  approvalCode,
   cardHeader,
   type PresenceAssertion,
   type PresenceVerifier,
@@ -11,13 +12,16 @@ import {
 import {
   type ApprovalRequest,
   chatLinkRoute,
+  type ErrorCode,
   type IssuedApproval,
   type NodeInfo,
   PsycheError,
   type Surface,
 } from "@psyche/protocol";
+import type { Call } from "../context.ts";
 import type { Gateway } from "../server.ts";
-import { HelperPresenceKeys, presenceKeyHandlers } from "./presence-keys.ts";
+import { surfaceOf } from "./handlers.ts";
+import { DEV_FILE_KEY_SETTING, HelperPresenceKeys, presenceKeyHandlers } from "./presence-keys.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
 /**
@@ -33,6 +37,11 @@ import type { ComposedPart, ComposeServices } from "./services.ts";
  * registered for that helper. The helper's `authenticated: true` alone proves nothing (any
  * process holding the handshake secret can pair as a helper and send it), so without a signed
  * assertion and a registered key those approvals stay refused. Deny always works.
+ *
+ * The desktop window has no key of its own, so Allow there (`approvals.approveWithTouchId`) asks
+ * the helper to run Touch ID and sign the challenge for the window's own answer token
+ * (`presence.confirm`). The Gateway picks the challenge and the card header the sheet names; the
+ * broker checks the signature against the registered key exactly as for a notification answer.
  */
 
 export const HELPER_SURFACE: Surface = "notification";
@@ -112,7 +121,50 @@ interface Helper {
   nodeId: string;
   deviceId: string;
   abort: AbortController;
+  /** The helper signs a window's approval after Touch ID (`presence.confirm`). */
+  confirms: boolean;
 }
+
+/** Why the window's Touch ID approval cannot run; the card names the fix (`details.reason`). */
+export type TouchIdUnavailable =
+  | "helper_offline"
+  | "helper_outdated"
+  | "no_presence_key"
+  | "presence_key_unavailable"
+  | "presence_key_invalidated";
+
+function touchIdUnavailable(reason: TouchIdUnavailable, message: string): PsycheError {
+  return new PsycheError("unavailable", message, { details: { reason } });
+}
+
+/** A helper-supplied identifier (error code, reason), kept only when it looks like one. */
+function helperWord(v: unknown): string | undefined {
+  return typeof v === "string" && /^[a-z][a-z0-9_]{0,63}$/.test(v) ? v : undefined;
+}
+
+/** The helper's own error code and reason, for logs (a plain object reads as `internal`). */
+export function helperErrorFields(err: unknown): Record<string, string> {
+  const e = (err ?? {}) as { code?: unknown; details?: { reason?: unknown } | null };
+  const reason = helperWord(e.details?.reason);
+  return { code: helperWord(e.code) ?? "unknown", ...(reason === undefined ? {} : { reason }) };
+}
+
+/** A helper-supplied message, as one short line. */
+function helperMessage(v: unknown, fallback: string): string {
+  if (typeof v !== "string") return fallback;
+  const line = [...v]
+    .map((ch) => {
+      const code = ch.charCodeAt(0);
+      return code < 0x20 || code === 0x7f ? " " : ch;
+    })
+    .join("")
+    .replace(/ +/g, " ")
+    .trim();
+  return line === "" ? fallback : line.slice(0, 200);
+}
+
+/** How long the owner has to touch the sensor. */
+const CONFIRM_TIMEOUT_MS = 120_000;
 
 interface Delivery {
   approval: ApprovalRequest;
@@ -146,7 +198,17 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
   const unsubscribe: (() => void)[] = [];
 
   const warn = (msg: string, err?: unknown) =>
-    log?.log("warn", msg, err === undefined ? {} : { code: PsycheError.from(err).code });
+    log?.log(
+      "warn",
+      msg,
+      err === undefined
+        ? {}
+        : err instanceof Error
+          ? { code: PsycheError.from(err).code }
+          : helperErrorFields(err),
+    );
+  /** A window is confirming with Touch ID now: one sheet at a time, whatever the card. */
+  let confirming = false;
 
   function client(nodeId: string) {
     return gateway?.context.nodes.client(nodeId);
@@ -166,7 +228,12 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
     if (!names.has("notify.show") || !names.has("notify.subscribe")) return;
     // A reconnect replaces the connection: drop the old subscription, open a new one.
     detach(node.id);
-    const h: Helper = { nodeId: node.id, deviceId: node.deviceId, abort: new AbortController() };
+    const h: Helper = {
+      nodeId: node.id,
+      deviceId: node.deviceId,
+      abort: new AbortController(),
+      confirms: names.has("presence.confirm"),
+    };
     helpers.set(node.id, h);
     latest = h;
     void subscribe(h);
@@ -323,10 +390,188 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
       return c.invoke(capability, {}, { timeoutMs: 10_000 });
     },
     now: () => new Date(services.clock.now()),
+    allowDevFileKey: () => getSetting(services.db, DEV_FILE_KEY_SETTING)?.value === true,
   });
 
+  /**
+   * The connected helper that signs for the window, or why none can. With `deviceId` (the helper
+   * the desktop launched from its own bundle, read with `psyche-helper --print-identity`), only
+   * that one: another node that paired as a helper never gets the challenge.
+   */
+  function touchIdHelper(deviceId: string | undefined): Helper {
+    const connected = [...helpers.values()]
+      .reverse()
+      .filter((h) => deviceId === undefined || h.deviceId === deviceId);
+    if (connected.length === 0) {
+      throw touchIdUnavailable(
+        "helper_offline",
+        "Psyche Helper is not running, so Touch ID cannot confirm this approval",
+      );
+    }
+    const able = connected.filter((h) => h.confirms);
+    if (able.length === 0) {
+      throw touchIdUnavailable(
+        "helper_outdated",
+        "This Psyche Helper cannot confirm approvals from the window; update Psyche",
+      );
+    }
+    const keyed = able.find((h) => presenceKeys(h.deviceId) !== undefined);
+    if (keyed === undefined) {
+      throw touchIdUnavailable(
+        "no_presence_key",
+        "Touch ID is not set up for approvals: register the helper's Touch ID key first",
+      );
+    }
+    return keyed;
+  }
+
+  async function approveWithTouchId(
+    call: Call,
+    params: {
+      approvalId: string;
+      answerToken: string;
+      scope?: "once";
+      helperDeviceId?: string;
+    },
+  ) {
+    // Only the Psyche app on this Mac, whose Allow the owner just clicked, may raise the prompt.
+    if (call.identity.desktopShell !== true) {
+      throw new PsycheError(
+        "forbidden",
+        "Touch ID approvals come from the Psyche app on this Mac",
+        {
+          details: { reason: "not_desktop" },
+        },
+      );
+    }
+    const a = await services.rawBroker.get(params.approvalId);
+    if (a === undefined)
+      throw new PsycheError("not_found", `approval ${params.approvalId} not found`);
+    if (a.status !== "pending")
+      throw new PsycheError("answer_late", `approval already ${a.status}`);
+    if ((params as { unsandboxed?: unknown }).unsandboxed !== undefined) {
+      // Not in the signed challenge: a window must not be able to add it on its own.
+      throw new PsycheError(
+        "invalid_params",
+        "Running a command without the sandbox can't be approved from the window with Touch ID",
+      );
+    }
+    if (!a.requiresAuthentication) {
+      throw new PsycheError(
+        "invalid_params",
+        "This approval needs no Touch ID; answer it directly",
+      );
+    }
+    if (confirming) {
+      throw new PsycheError("conflict", "Touch ID is already asking about an approval");
+    }
+    // Taken before the first await, so two calls racing through the checks raise one sheet.
+    confirming = true;
+    try {
+      const h = touchIdHelper(params.helperDeviceId);
+      const c = client(h.nodeId);
+      if (c === undefined) throw touchIdUnavailable("helper_offline", "Psyche Helper went away");
+      const by = { deviceId: h.deviceId, surface: surfaceOf(services.db, call.identity.deviceId) };
+      // Before any sheet: the token is this window's unused one, the card is armed, and this
+      // answerer is not over its rate limit (a bad token counts against the rejected-answer cap).
+      await services.rawBroker.precheckAnswer({
+        approvalId: a.id,
+        answerToken: params.answerToken,
+        decidedBy: by,
+      });
+      const res = await c.invoke(
+        "presence.confirm",
+        {
+          challenge: presenceChallenge(a.id, a.bindingHash, params.answerToken),
+          // The sheet names this approval: its summary and the code the card shows.
+          summary: a.summary,
+          code: approvalCode(a.bindingHash),
+        },
+        { timeoutMs: CONFIRM_TIMEOUT_MS },
+      );
+      const out = (res.result ?? {}) as { signature?: unknown; keyId?: unknown };
+      if (!res.ok || typeof out.signature !== "string") {
+        const f = helperErrorFields(res.error);
+        // Every failed confirm counts like a rejected answer, so a window cannot raise sheets
+        // without limit.
+        const reject = (reason: string, code: ErrorCode, message: string, details?: object) =>
+          services.rawBroker.rejectPresence({
+            approvalId: a.id,
+            decidedBy: by,
+            reason,
+            code,
+            message,
+            ...(details === undefined ? {} : { details }),
+          });
+        if (f.reason === "missing_entitlement") {
+          return reject(
+            "presence_key_unavailable",
+            "unavailable",
+            "This build of Psyche Helper cannot keep a Touch ID key (it has no keychain access group)",
+            { reason: "presence_key_unavailable" },
+          );
+        }
+        if (f.reason === "presence_key_invalidated") {
+          return reject(
+            "presence_key_invalidated",
+            "unavailable",
+            "Touch ID changed since this key was set up; set up Touch ID again in Settings → Devices",
+            { reason: "presence_key_invalidated" },
+          );
+        }
+        if (f.code === "cancelled")
+          return reject("presence_cancelled", "cancelled", "Touch ID was cancelled");
+        return reject(
+          "presence_failed",
+          "forbidden",
+          helperMessage(res.error?.message, "Touch ID did not confirm it"),
+          { reason: "touch_id_failed", ...(f.reason ? { helperReason: f.reason } : {}) },
+        );
+      }
+      void services.audit
+        .append({
+          kind: "approval.touch_id_from_window",
+          actor: { type: "device", deviceId: call.identity.deviceId },
+          data: {
+            approvalId: a.id,
+            helperDeviceId: h.deviceId,
+            ...(typeof out.keyId === "string" ? { keyId: out.keyId } : {}),
+          },
+        })
+        .catch(() => undefined);
+      // The answer is the window's (its token, its surface); the presence is the helper's key,
+      // so the helper device decides it, as for a notification answer. `once` only: the scope is
+      // not part of the signed challenge, so the window cannot widen it.
+      const approval = await services.rawBroker.answer({
+        approvalId: a.id,
+        answerToken: params.answerToken,
+        decision: "approve",
+        scope: "once",
+        decidedBy: by,
+        presence: {
+          kind: "helper",
+          deviceId: h.deviceId,
+          signature: out.signature,
+          ...(typeof out.keyId === "string" ? { payload: { keyId: out.keyId } } : {}),
+        },
+      });
+      const grant =
+        approval.grantId == null
+          ? null
+          : ((await services.rawBroker.listGrants({ includeRevoked: true })).find(
+              (g) => g.id === approval.grantId,
+            ) ?? null);
+      return { approval, grant };
+    } finally {
+      confirming = false;
+    }
+  }
+
   return {
-    handlers,
+    handlers: {
+      ...handlers,
+      "approvals.approveWithTouchId": { run: approveWithTouchId },
+    },
     relay: {
       surfaces: () => (latest === undefined ? [] : [HELPER_SURFACE]),
       deliver,

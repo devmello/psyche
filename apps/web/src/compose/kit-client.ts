@@ -7,14 +7,16 @@ import {
 } from "@psyche/ui";
 import type { GatewayStatus } from "../client/status.ts";
 import { approvalPresence, type PasskeyHost, passkeyErrorText } from "../lib/webauthn.ts";
-import type { GatewayPort } from "../shell/platform.ts";
+import type { GatewayPort, TouchIdPort } from "../shell/platform.ts";
 
 /**
  * The UI kit's `GatewayClient` over the shell's `GatewayPort` (INT-1): one connection, owned by
  * the host (desktop main through the preload bridge, or the web client), shared by the shell and
  * the kit's data layer. Errors that cross the bridge as plain `{code, message}` objects become
  * `GatewayRequestError`s so the kit's hooks show the wire code. With `passkeys` (the web client
- * in a secure context), approvals that require authentication carry a passkey assertion.
+ * in a secure context), approvals that require authentication carry a passkey assertion. With
+ * `touchId` (the desktop, which launches the Mac helper), they are approved once with the
+ * helper's Touch ID instead (`approvals.approveWithTouchId`, on main's own channel).
  */
 
 function stateOf(status: GatewayStatus): ConnectionState {
@@ -23,7 +25,11 @@ function stateOf(status: GatewayStatus): ConnectionState {
   return "connecting";
 }
 
-export function kitClient(port: GatewayPort, passkeys?: PasskeyHost): GatewayClient {
+export function kitClient(
+  port: GatewayPort,
+  passkeys?: PasskeyHost,
+  touchId?: TouchIdPort,
+): GatewayClient {
   let state: ConnectionState = "connecting";
   const stateListeners = new Set<(s: ConnectionState) => void>();
   const setState = (status: GatewayStatus) => {
@@ -85,6 +91,22 @@ export function kitClient(port: GatewayPort, passkeys?: PasskeyHost): GatewayCli
       return () => stateListeners.delete(listener);
     },
   };
+  if (touchId) {
+    client.approveWithTouchId = async (params) => {
+      try {
+        return (await touchId.approve(params)) as MethodResult<"approvals.approveWithTouchId">;
+      } catch (err) {
+        if (err instanceof GatewayRequestError) throw err;
+        const e = err as { code?: unknown; message?: unknown; details?: unknown };
+        throw new GatewayRequestError(
+          "approvals.approveWithTouchId",
+          typeof e.code === "string" ? e.code : "internal",
+          typeof e.message === "string" ? e.message : String(err),
+          e.details,
+        );
+      }
+    };
+  }
   if (passkeys) {
     client.presence = (approval, answerToken) =>
       approvalPresence(

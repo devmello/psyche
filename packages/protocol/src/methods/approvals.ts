@@ -44,4 +44,22 @@ export const ApprovalsMethods = {
     description:
       "Approves or denies with the single-use answer token delivered to this surface; deviceOnly and requiresAuthentication kinds are enforced by the Gateway. Not idempotency-keyed: the token is single-use.",
   }),
+  "approvals.approveWithTouchId": defineMethod({
+    params: Type.Object({
+      approvalId: Id,
+      /** This window's own answer token for the approval (from `approval.created` or `approvals.get`). */
+      answerToken: Type.String({ minLength: 1 }),
+      /** Always `once`: the scope is not in the signed challenge, so the window cannot widen it. */
+      scope: Type.Optional(Type.Literal("once")),
+      /**
+       * The helper the desktop launched from its own bundle (`psyche-helper --print-identity`):
+       * only that helper is asked to sign. Absent in development builds without a bundled helper.
+       */
+      helperDeviceId: Type.Optional(Id),
+    }),
+    result: Type.Object({ approval: ApprovalRequest, grant: Nullable(Grant) }),
+    scope: "operator.approvals",
+    description:
+      "Approves a requiresAuthentication card from the Psyche desktop window with Touch ID on this Mac (security §3.7), once: the Gateway checks the window's answer token, asks the paired helper (helperDeviceId when given) to run Touch ID with a sheet naming the approval and its code, and to sign the presence challenge for that token with its registered key, then answers through the same broker check. One sheet at a time; failed or cancelled sheets count against the rejected-answer cap. UNSANDBOXED is not available on this path. Desktop shell only. Fails unavailable with details.reason helper_offline, helper_outdated, no_presence_key, presence_key_unavailable or presence_key_invalidated; cancelled when the owner cancels Touch ID.",
+  }),
 } as const;
