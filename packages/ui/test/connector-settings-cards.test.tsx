@@ -17,7 +17,11 @@ import { UiSlotsProvider } from "../src/slots.tsx";
 
 const NOW = Date.parse(FIXTURE_NOW);
 
-function setup(edit: (w: FixtureWorld) => void = () => {}) {
+/** Renders Connectors and opens a connector's detail, where its own settings live. */
+async function setup(
+  edit: (w: FixtureWorld) => void = () => {},
+  open: string | null = "Shortcuts",
+) {
   const world = createFixtureWorld();
   world.connectors = shortcutsAndObsidian();
   edit(world);
@@ -30,6 +34,8 @@ function setup(edit: (w: FixtureWorld) => void = () => {}) {
       </UiSlotsProvider>
     </GatewayProvider>,
   );
+  if (open !== null)
+    await userEvent.click(await screen.findByRole("button", { name: `Open ${open}` }));
   const params = (method: string) =>
     gateway.calls.filter((c) => c.method === method).map((c) => c.params);
   return { gateway, params };
@@ -37,7 +43,7 @@ function setup(edit: (w: FixtureWorld) => void = () => {}) {
 
 describe("the Shortcuts card (docs/connectors/apple-apps-2026.md §7.1, #640)", () => {
   it("lists the owner's shortcuts from the helper, each off / ask / allow", async () => {
-    const { params } = setup();
+    const { params } = await setup();
     const list = await screen.findByRole("list", { name: "Your shortcuts" });
     const rows = within(list).getAllByRole("listitem");
     expect(rows.map((r) => r.getAttribute("data-rule"))).toEqual(["ask", "allow", "off"]);
@@ -61,7 +67,7 @@ describe("the Shortcuts card (docs/connectors/apple-apps-2026.md §7.1, #640)", 
   });
 
   it("says the helper is needed when no Mac is paired", async () => {
-    setup((w) => {
+    await setup((w) => {
       w.nodes = [];
     });
     expect(await screen.findByText(/Open Psyche on your Mac to list your shortcuts/)).toBeTruthy();
@@ -102,8 +108,8 @@ describe("the Shortcuts card (docs/connectors/apple-apps-2026.md §7.1, #640)", 
 
 describe("the Obsidian card (#640)", () => {
   it("shows the vault and saves the daily-note folder", async () => {
-    const { params } = setup();
-    const card = await screen.findByRole("article", { name: "Obsidian" });
+    const { params } = await setup(undefined, "Obsidian");
+    const card = await screen.findByRole("region", { name: "Obsidian" });
     expect(within(card).getByText("/Users/you/Notes/Vault")).toBeTruthy();
     const daily = within(card).getByLabelText("Daily notes folder") as HTMLInputElement;
     expect(daily.value).toBe("Daily");
@@ -118,8 +124,8 @@ describe("the Obsidian card (#640)", () => {
   });
 
   it("changes the vault through File access: share the folder, then use it", async () => {
-    const { params } = setup();
-    const card = await screen.findByRole("article", { name: "Obsidian" });
+    const { params } = await setup(undefined, "Obsidian");
+    const card = await screen.findByRole("region", { name: "Obsidian" });
     await userEvent.click(within(card).getByRole("button", { name: "Change vault…" }));
     await userEvent.type(within(card).getByLabelText("New vault folder"), "/Users/you/Work Vault");
     const use = within(card).getByRole("button", { name: "Use this vault" }) as HTMLButtonElement;
@@ -144,9 +150,9 @@ describe("the Obsidian card (#640)", () => {
   });
 
   it("connects only once a shared vault folder is given", async () => {
-    const { params } = setup((w) => {
+    const { params } = await setup((w) => {
       w.connectors = [];
-    });
+    }, null);
     await waitFor(async () => {
       await userEvent.click(
         screen.getAllByRole("button", { name: "Add connector" })[0] as HTMLElement,

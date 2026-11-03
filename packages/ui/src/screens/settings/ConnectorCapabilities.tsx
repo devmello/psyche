@@ -5,6 +5,7 @@ import { floorClassOf, unliftable, useLiftFloorConfirm } from "../../blocks/Lift
 import { activeI18n, isMessageId, t } from "../../i18n/core.ts";
 import { cn } from "../../lib/utils.ts";
 import { type ActionRule, RULES } from "./ActionMatrix.tsx";
+import { useSubheading } from "./ConnectorRow.tsx";
 import { SegmentedRadio } from "./SegmentedRadio.tsx";
 import { GROUP_ROWS } from "./shared.tsx";
 
@@ -101,6 +102,8 @@ export interface CapabilityCardProps {
   onTry?: (text: string) => void;
   /** Opens with the groups showing (stories). */
   defaultOpen?: boolean;
+  /** The groups always show, with no toggle: the connector's detail view is where they live. */
+  bare?: boolean;
 }
 
 /** The expandable part of an Apple app's row: groups, grant and "Try it". */
@@ -112,10 +115,13 @@ export function CapabilityCard({
   lifted = [],
   onTry,
   defaultOpen = false,
+  bare = false,
 }: CapabilityCardProps): ReactElement | null {
   const id = useId();
-  const [open, setOpen] = useState(defaultOpen);
+  const [toggled, setOpen] = useState(defaultOpen);
+  const open = bare || toggled;
   const confirm = useLiftFloorConfirm(persona, "matrix");
+  const Heading = useSubheading();
   const app = appleApp(connector.type);
   if (app === null || actions.length === 0) return null;
   const grant = grantName(app);
@@ -124,22 +130,28 @@ export function CapabilityCard({
   const examples = connected && onTry ? tryRequests(app) : [];
   return (
     <div className="flex flex-col gap-2">
-      <button
-        type="button"
-        aria-expanded={open}
-        aria-controls={`${id}-groups`}
-        onClick={() => setOpen((o) => !o)}
-        className="flex w-fit cursor-default items-center gap-1 rounded-sm text-callout text-label-secondary outline-none hover:text-label-primary focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <ChevronRight
-          aria-hidden="true"
-          className={cn(
-            "size-3.5 transition-transform duration-(--duration-micro) rtl:rotate-180",
-            open && "rotate-90 rtl:rotate-90",
-          )}
-        />
-        {t("settings.connectors.can.title", { persona })}
-      </button>
+      {bare ? (
+        <Heading className="px-1 text-title-3 text-label-primary">
+          {t("settings.connectors.can.title", { persona })}
+        </Heading>
+      ) : (
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls={`${id}-groups`}
+          onClick={() => setOpen((o) => !o)}
+          className="flex w-fit cursor-default items-center gap-1 rounded-sm text-callout text-label-secondary outline-none hover:text-label-primary focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <ChevronRight
+            aria-hidden="true"
+            className={cn(
+              "size-3.5 transition-transform duration-(--duration-micro) rtl:rotate-180",
+              open && "rotate-90 rtl:rotate-90",
+            )}
+          />
+          {t("settings.connectors.can.title", { persona })}
+        </button>
+      )}
       {open ? (
         <div id={`${id}-groups`} className="flex flex-col gap-2">
           <ul

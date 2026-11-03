@@ -70,11 +70,10 @@ const seedFiles = (g: MockGateway) =>
     ],
   });
 
+/** A server's row opens its detail view; the view is returned. */
 async function openDetails(name = "Files") {
-  const row = await screen.findByRole("article", { name });
-  await userEvent.click(within(row).getByRole("button", { name: `More for ${name}` }));
-  await userEvent.click(await screen.findByRole("menuitem", { name: "Show details" }));
-  return row;
+  await userEvent.click(await screen.findByRole("button", { name: `Open ${name}` }));
+  return screen.findByRole("region", { name });
 }
 
 describe("MCP server detail → Tools", () => {
@@ -143,11 +142,11 @@ describe("MCP server detail → Secrets", () => {
   });
 });
 
-describe("MCP server detail → Danger zone", () => {
+describe("MCP server detail → Pause or remove", () => {
   it("turns a server off and on without removing it", async () => {
     const gateway = setup("mcp", seedFiles);
     const row = await openDetails();
-    const zone = (await within(row).findByRole("heading", { name: "Danger zone" })).closest(
+    const zone = (await within(row).findByRole("heading", { name: "Pause or remove" })).closest(
       "section",
     ) as HTMLElement;
     await userEvent.click(within(zone).getByRole("button", { name: "Turn off" }));
@@ -157,7 +156,7 @@ describe("MCP server detail → Danger zone", () => {
       enabled: false,
     });
     expect(methods(gateway())).not.toContain("mcp.remove");
-    await waitFor(() => expect(within(row).getByText("Off")).toBeTruthy());
+    await waitFor(() => expect(within(row).getByText("Paused")).toBeTruthy());
     expect(
       await within(row).findByText("This server is off. Turn it on to see its tools."),
     ).toBeTruthy();
@@ -173,7 +172,7 @@ describe("MCP server detail → Danger zone", () => {
   it("removes a server only after a confirmation", async () => {
     const gateway = setup("mcp", seedFiles);
     const row = await openDetails();
-    const zone = (await within(row).findByRole("heading", { name: "Danger zone" })).closest(
+    const zone = (await within(row).findByRole("heading", { name: "Pause or remove" })).closest(
       "section",
     ) as HTMLElement;
     await userEvent.click(within(zone).getByRole("button", { name: "Remove" }));

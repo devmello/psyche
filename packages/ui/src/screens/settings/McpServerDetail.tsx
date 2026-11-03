@@ -1,19 +1,22 @@
 import { sanitizeDisplay } from "@psyche/permissions/cards";
 import type { McpServerStatus } from "@psyche/protocol";
-import { type ReactElement, useState } from "react";
+import type { ReactElement } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { t } from "../../i18n/core.ts";
 import { ConnectorIcon } from "./ConnectorIcon.tsx";
+import { Disclosure, FactRows } from "./ConnectorRow.tsx";
 import { McpCodePanel } from "./McpCodePanel.tsx";
-import { McpServerPanels } from "./McpServerPanels.tsx";
+import { McpFailureNotice } from "./McpFailureNotice.tsx";
+import { McpLoadingGroup, McpServerPanels } from "./McpServerPanels.tsx";
 import { presetText } from "./mcp-preset-build.ts";
 import { MCP_PRESETS } from "./mcp-presets.ts";
-import { RowMoreMenu } from "./RowMoreMenu.tsx";
-import { Facts, StatusChip, type Tone } from "./shared.tsx";
+import { Facts, Group, type Tone } from "./shared.tsx";
+import type { McpState } from "./use-mcp.tsx";
 
 /**
- * One MCP server in the Connectors list: the same row as a built-in connector (icon, name, status,
- * trust, ⋯), plus an "MCP" chip. Details (how it runs, what it reaches, its id) open under it.
+ * One tool server's row and detail in Settings → Connectors. The row says what it is and whether
+ * it works; the detail holds everything else: why it failed, its tools, its secrets, how it runs
+ * and the buttons that turn it off or remove it.
  */
 
 const show = (s: string, max = 100) => sanitizeDisplay(s, max);
@@ -22,89 +25,83 @@ const show = (s: string, max = 100) => sanitizeDisplay(s, max);
 export function mcpTrustLabel(trust: McpServerStatus["trust"]): string {
   return t(
     trust === "bundled"
-      ? "settings.connectors.trust.builtIn"
+      ? "settings.connectors.page.source.builtIn"
       : trust === "verified"
-        ? "settings.connectors.trust.verified"
-        : "settings.connectors.trust.unverified",
+        ? "settings.connectors.page.source.verified"
+        : "settings.connectors.page.source.unverified",
   );
 }
 
-export function McpServerRow({
+/** Where the server runs, in plain words. */
+const runsLabel = (server: McpServerStatus): string =>
+  server.transport === "http"
+    ? t("settings.connectors.page.row.remote")
+    : t("settings.connectors.page.row.local");
+
+/** A server that is on but did not start needs the owner. */
+export const mcpNeedsYou = (server: McpServerStatus): boolean =>
+  server.enabled !== false && !server.connected;
+
+export function mcpStatus(server: McpServerStatus): { tone: Tone; label: string } {
+  if (server.enabled === false)
+    return { tone: "neutral", label: t("settings.connectors.page.status.paused") };
+  return server.connected
+    ? { tone: "success", label: t("settings.connectors.status.connected") }
+    : { tone: "approval", label: t("settings.connectors.page.status.notWorking") };
+}
+
+/** The line under the row's name: where it runs, and a word of caution when nobody vouches for it. */
+export function mcpSubtitle(server: McpServerStatus): string {
+  const parts = [
+    server.madeBy === "psyche" ? t("settings.mcp.madeBy") : runsLabel(server),
+    server.trust === "unknown" ? t("settings.connectors.page.row.unverified") : null,
+  ];
+  return parts.filter((p) => p !== null).join(" · ");
+}
+
+export function McpServerIcon({ server }: { server: McpServerStatus }): ReactElement {
+  const preset = MCP_PRESETS.find((p) => p.id === server.id);
+  return <ConnectorIcon type="mcp" {...(preset ? { icon: preset.icon } : {})} />;
+}
+
+export function McpServerDetail({
   server,
+  mcp,
   onRemove,
   onSetEnabled,
   onTry,
-  defaultOpen = false,
   now,
 }: {
   server: McpServerStatus;
+  /** For the launch failure the last attempt left, shown with its next step. */
+  mcp?: Pick<McpState, "reload" | "actionError" | "actionFailure">;
   onRemove?: (server: McpServerStatus) => void;
   /** Turns the server off (kept, not running) or back on. */
   onSetEnabled?: (server: McpServerStatus, enabled: boolean) => void;
   /** "Try it": fills the chat composer (a ready-made server has an example). */
   onTry?: (text: string) => void;
-  defaultOpen?: boolean;
   /** The clock the approval card counts down against (stories, tests). */
   now?: number;
 }): ReactElement {
-  const [open, setOpen] = useState(defaultOpen);
   const preset = MCP_PRESETS.find((p) => p.id === server.id);
   const example = preset ? presetText(preset, "example") : null;
-  const trustTone: Tone = server.trust === "unknown" ? "approval" : "info";
-  const transport =
-    server.transport === "http" ? t("settings.mcp.kind.url") : t("settings.mcp.kind.command");
+  const name = show(server.name);
   return (
-    <article aria-label={server.name} className="flex flex-col gap-1.5">
-      <div className="flex items-center gap-3">
-        <ConnectorIcon type="mcp" />
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-headline text-label-primary">{show(server.name)}</h3>
-            {server.enabled === false ? (
-              <StatusChip tone="neutral">{t("settings.mcp.off")}</StatusChip>
-            ) : (
-              <StatusChip tone={server.connected ? "success" : "danger"}>
-                {server.connected ? t("settings.mcp.connected") : t("settings.mcp.notConnected")}
-              </StatusChip>
-            )}
-            <StatusChip tone="neutral">{t("settings.mcp.badge")}</StatusChip>
-            {server.madeBy === "psyche" ? (
-              <StatusChip tone="info">{t("settings.mcp.madeBy")}</StatusChip>
-            ) : null}
-            <StatusChip tone={trustTone}>
-              {t("settings.connectors.trust", { tier: mcpTrustLabel(server.trust) })}
-            </StatusChip>
-          </div>
-          <p className="text-callout text-label-secondary">
-            {transport}
-            {server.network ? ` · ${t("settings.mcp.network")}` : ""}
-          </p>
+    <div className="flex flex-col gap-4">
+      {mcpNeedsYou(server) ? (
+        <div
+          role="status"
+          className="flex flex-col gap-1 rounded-lg border border-approval-border bg-approval-surface p-3 text-body text-approval-text"
+        >
+          <p>{t("settings.connectors.page.attention.server", { name })}</p>
+          <p className="text-callout">{t("settings.connectors.page.attention.serverHint")}</p>
+          {mcp?.actionError ? (
+            <McpFailureNotice message={mcp.actionError} failure={mcp.actionFailure} mcp={mcp} />
+          ) : null}
         </div>
-        <RowMoreMenu
-          name={server.name}
-          items={[
-            {
-              label: open ? t("settings.mcp.hideDetails") : t("settings.mcp.showDetails"),
-              onClick: () => setOpen((o) => !o),
-            },
-          ]}
-          destructive={
-            onRemove
-              ? [
-                  {
-                    label: t("common.remove"),
-                    title: t("settings.mcp.removeTitle", { name: show(server.name, 64) }),
-                    description: t("settings.mcp.removeDescription"),
-                    confirm: t("common.remove"),
-                    onConfirm: () => onRemove(server),
-                  },
-                ]
-              : []
-          }
-        />
-      </div>
+      ) : null}
       {example !== null && onTry && server.connected && server.enabled !== false ? (
-        <p className="ms-11 flex flex-wrap items-center gap-2 text-callout text-label-secondary">
+        <p className="flex flex-wrap items-center gap-2 text-callout text-label-secondary">
           <span>{t("gallery.tryAsking")}</span>
           <q className="text-label-primary">{example}</q>
           <Button type="button" variant="ghost" size="sm" onClick={() => onTry(example)}>
@@ -112,31 +109,44 @@ export function McpServerRow({
           </Button>
         </p>
       ) : null}
-      {open ? (
-        <>
-          <Facts
-            className="ms-11 text-callout"
-            items={[
-              { term: t("settings.mcp.how"), value: transport },
-              {
-                term: t("settings.mcp.trust.network"),
-                value: server.network
-                  ? t("settings.mcp.network")
-                  : t("settings.mcp.trust.noNetwork"),
-              },
-              { term: t("settings.mcp.trust.id"), value: <code>{server.id}</code> },
-            ]}
-          />
-          <McpServerPanels
-            server={server}
-            {...(onSetEnabled ? { onSetEnabled: (on: boolean) => onSetEnabled(server, on) } : {})}
-            {...(onRemove ? { onRemove: () => onRemove(server) } : {})}
-          />
-          {server.madeBy === "psyche" ? (
-            <McpCodePanel server={server} {...(now === undefined ? {} : { now })} />
-          ) : null}
-        </>
-      ) : null}
-    </article>
+      <Group title={t("settings.connectors.page.detail.about")}>
+        <FactRows
+          items={[
+            {
+              term: t("settings.connectors.page.detail.type"),
+              value:
+                server.transport === "http"
+                  ? t("settings.connectors.page.server.remote")
+                  : t("settings.connectors.page.server.local"),
+            },
+            {
+              term: t("settings.mcp.trust.network"),
+              value: server.network
+                ? t("settings.connectors.page.server.network")
+                : t("settings.connectors.page.server.noNetwork"),
+            },
+            {
+              term: t("settings.connectors.page.detail.source"),
+              value: mcpTrustLabel(server.trust),
+            },
+          ]}
+        />
+      </Group>
+      <McpServerPanels
+        server={server}
+        {...(onSetEnabled ? { onSetEnabled: (on: boolean) => onSetEnabled(server, on) } : {})}
+        {...(onRemove ? { onRemove: () => onRemove(server) } : {})}
+      />
+      <Disclosure label={t("settings.connectors.page.detail.technical")}>
+        <Facts
+          className="text-callout"
+          items={[{ term: t("settings.mcp.trust.id"), value: <code>{server.id}</code> }]}
+        />
+        <McpLoadingGroup server={server} />
+        {server.madeBy === "psyche" ? (
+          <McpCodePanel server={server} {...(now === undefined ? {} : { now })} />
+        ) : null}
+      </Disclosure>
+    </div>
   );
 }

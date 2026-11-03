@@ -416,19 +416,20 @@ describe("Connectors", () => {
     const onRemove = vi.fn();
     const onConnect = vi.fn();
     setup({ defaultSection: "connectors", onDisconnect, onRemove, onConnect });
+    await userEvent.click(await screen.findByRole("button", { name: "Open Gmail" }));
     await userEvent.click(await screen.findByRole("button", { name: "Disconnect Gmail" }));
     expect(onDisconnect).toHaveBeenCalledWith(
       expect.objectContaining({ id: IDS.connectors.gmail }),
     );
     expect(onRemove).not.toHaveBeenCalled();
-    // Remove lives under ⋯ and asks first (audit decision 7).
-    await userEvent.click(screen.getByRole("button", { name: "More for Gmail" }));
-    await userEvent.click(await screen.findByRole("menuitem", { name: "Remove" }));
+    // Remove sits next to Disconnect in the detail and asks first (audit decision 7).
+    await userEvent.click(screen.getByRole("button", { name: "Remove" }));
     const confirm = await screen.findByRole("alertdialog", { name: "Remove Gmail?" });
     expect(onRemove).not.toHaveBeenCalled();
     await userEvent.click(within(confirm).getByRole("button", { name: "Remove" }));
     expect(onRemove).toHaveBeenCalledWith(expect.objectContaining({ id: IDS.connectors.gmail }));
-    expect(screen.getAllByText("Trust: community")).toHaveLength(1);
+    // Removing returns to the list.
+    expect(await screen.findByRole("button", { name: "Add connector" })).toBeTruthy();
 
     await userEvent.click(screen.getByRole("button", { name: "Add connector" }));
     await userEvent.click(screen.getByRole("button", { name: /^Google/ }));
@@ -1513,6 +1514,8 @@ describe("Settings → Connectors connects for real (#505)", () => {
     act(() => g.finishConnectorSignIn(id, "connected", "owner@gmail.com"));
     expect(await screen.findByText(/is connected as owner@gmail\.com\./)).toBeTruthy();
     // connectors.updated refreshed connectors.list: the account is listed.
-    await waitFor(() => expect(screen.getAllByText("owner@gmail.com").length).toBeGreaterThan(0));
+    await waitFor(() =>
+      expect(screen.getAllByText(/^owner@gmail\.com · /).length).toBeGreaterThan(0),
+    );
   });
 });

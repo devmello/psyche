@@ -73,6 +73,17 @@ describe("connector catalog (#529)", () => {
   });
 });
 
+/** The Connectors pane's Advanced fold (other panes on the page have their own). */
+const connectorsAdvanced = async (): Promise<HTMLDetailsElement> => {
+  await screen.findByText("Find servers online", {}, { timeout: 3000 }).catch(() => undefined);
+  const found = screen
+    .getAllByText("Advanced")
+    .map((e) => e.closest("details"))
+    .find((d) => d?.textContent?.includes("Your own tool server"));
+  if (!found) throw new Error("Advanced not found");
+  return found;
+};
+
 describe("old MCP route", () => {
   it("redirects /settings/mcp to Connectors with the MCP servers showing", () => {
     expect(parseSettingsRoute("/settings/mcp")).toEqual({ section: "connectors", view: "mcp" });
@@ -89,14 +100,12 @@ describe("old MCP route", () => {
     expect(within(nav).queryByRole("button", { name: /MCP/ })).toBeNull();
   });
 
-  it("opens Connectors on the MCP filter, listing only MCP servers", async () => {
+  it("opens Connectors with Advanced showing, where your own tool servers are added", async () => {
     setup("connectors", "mcp");
-    const notion = await screen.findByRole("article", { name: "Notion" });
-    expect(within(notion).getByText("MCP")).toBeTruthy();
-    expect(screen.getByRole("radio", { name: "MCP servers" }).getAttribute("aria-checked")).toBe(
-      "true",
-    );
-    expect(screen.queryByRole("article", { name: /Gmail|Google/ })).toBeNull();
+    expect(await screen.findByRole("article", { name: "Notion" })).toBeTruthy();
+    const advanced = await connectorsAdvanced();
+    await waitFor(() => expect(advanced.open).toBe(true));
+    expect(screen.getByRole("button", { name: "Add server" })).toBeTruthy();
   });
 });
 
@@ -126,22 +135,16 @@ describe("Connectors → Custom MCP server", () => {
 
     expect(await screen.findByText("Added Files.")).toBeTruthy();
     expect(methods(gateway())).toContain("mcp.add");
-    // The new server is a row like any connector: name, status, MCP and trust badges.
+    // The new server is a row like any connector: name, status and a word of caution.
     const row = await screen.findByRole("article", { name: "Files" });
     expect(within(row).getByText("Connected")).toBeTruthy();
-    expect(within(row).getByText("MCP")).toBeTruthy();
-    expect(within(row).getByText("Trust: unverified")).toBeTruthy();
+    expect(within(row).getByText("Runs on this Mac · Unverified")).toBeTruthy();
   });
 
-  it("is a row of the Add connector form", async () => {
+  it("is added from Advanced, not from the gallery", async () => {
     const gateway = setup("connectors");
-    await waitFor(async () => {
-      await userEvent.click(
-        screen.getAllByRole("button", { name: "Add connector" })[0] as HTMLElement,
-      );
-      expect(screen.getByRole("searchbox", { name: "Search connectors" })).toBeTruthy();
-    });
-    await userEvent.click(screen.getByRole("button", { name: /Custom MCP server/ }));
+    await userEvent.click((await connectorsAdvanced()).querySelector("summary") as HTMLElement);
+    await userEvent.click(screen.getByRole("button", { name: "Add server" }));
     expect(screen.getByRole("button", { name: "Check server" })).toBeTruthy();
     expect(methods(gateway())).not.toContain("mcp.probe");
   });

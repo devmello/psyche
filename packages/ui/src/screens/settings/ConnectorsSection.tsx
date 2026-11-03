@@ -1,6 +1,6 @@
 import type { Connector, ConnectorCatalogueEntry } from "@psyche/protocol";
 import { Plug } from "lucide-react";
-import { type ReactElement, type ReactNode, useState } from "react";
+import { type ReactElement, type ReactNode, useEffect, useRef, useState } from "react";
 import { usePrefillComposer } from "../../chat/prefill.ts";
 import { EmptyState } from "../../components/page.tsx";
 import { Button } from "../../components/ui/button.tsx";
@@ -12,31 +12,32 @@ import { useNow } from "../../lib/use-now.ts";
 import { usePersona } from "../../slots.tsx";
 import { type ActionRule, liftedFloorsOf, withMatrixOverrides } from "./ActionMatrix.tsx";
 import { AvailableConnectors } from "./CapabilityAvailable.tsx";
-import { ConnectForm } from "./ConnectForm.tsx";
-import { CapabilityCard } from "./ConnectorCapabilities.tsx";
+import { ConnectForm, galleryEntries } from "./ConnectForm.tsx";
+import { ConnectorDetail, lastUsed, trustTier } from "./ConnectorDetail.tsx";
+import { AddMore } from "./ConnectorGallery.tsx";
 import { ConnectorIcon } from "./ConnectorIcon.tsx";
-import { ConnectedShortcutsCard, ObsidianCard } from "./ConnectorSettingsCards.tsx";
-import {
-  ConnectProgress,
-  PermissionNotice,
-  permissionOf,
-  useConnectorConnect,
-} from "./connect-flow.tsx";
-import {
-  CONNECTOR_CATALOG,
-  SCOPE_MODE_LABEL,
-  type ScopeMode,
-  useImplementedTypes,
-} from "./connector-catalog.tsx";
+import { ConnectorRow, DetailFrame } from "./ConnectorRow.tsx";
+import { ConnectProgress, permissionOf, useConnectorConnect } from "./connect-flow.tsx";
+import { CONNECTOR_CATALOG, type ScopeMode, useImplementedTypes } from "./connector-catalog.tsx";
 import { FilesOnMacCard, type PolicyValues, TerminalCard } from "./DeviceAccessCards.tsx";
-import { folderGrants, POLICY_KEY, policyWithFolders } from "./FileAccessSection.tsx";
-import { McpFailureNotice } from "./McpFailureNotice.tsx";
-import { McpServerRow } from "./McpServerDetail.tsx";
-import { RowMoreMenu } from "./RowMoreMenu.tsx";
-import { SegmentedRadio } from "./SegmentedRadio.tsx";
 import {
+  execHostEnabled,
+  folderGrants,
+  POLICY_KEY,
+  policyWithFolders,
+} from "./FileAccessSection.tsx";
+import { McpFailureNotice } from "./McpFailureNotice.tsx";
+import {
+  McpServerDetail,
+  McpServerIcon,
+  mcpNeedsYou,
+  mcpStatus,
+  mcpSubtitle,
+} from "./McpServerDetail.tsx";
+import {
+  Advanced,
   ErrorNotice,
-  GROUP_ROWS,
+  Group,
   LoadGate,
   type LoadProps,
   SectionFrame,
@@ -44,10 +45,14 @@ import {
   type Tone,
   useSettingsForm,
 } from "./shared.tsx";
-import { ConnectedTrustedSourcesCard, trustedAppOf } from "./TrustedSourcesCard.tsx";
 import { type McpState, useMcp } from "./use-mcp.tsx";
 
-/** Connectors (UI design §3.18; architecture §4.9): connected accounts and MCP servers, one list. */
+/**
+ * Connectors (UI design §3.18; architecture §4.9), one page that answers three questions: what is
+ * connected and working, what needs me, and what can I add. Each connected thing is one compact
+ * row; its details (what it can do, tools, trust, why it failed) open in a view of their own.
+ * Your own tool servers and the registry search sit under Advanced.
+ */
 
 export {
   CONNECTOR_CATALOG,
@@ -59,35 +64,31 @@ export {
   type ScopeMode,
   useImplementedTypes,
 } from "./connector-catalog.tsx";
+export { trustTier };
 
-const STATUS_TONE: Record<Connector["status"], Tone> = {
-  connected: "success",
-  disconnected: "neutral",
-  error: "danger",
-  needs_auth: "approval",
-};
+/** What the page shows: the list, the gallery to add from, or one item's detail. */
+type View =
+  | { kind: "list" }
+  | { kind: "add"; type?: string | undefined }
+  | { kind: "detail"; id: string };
 
-/** The trust tier as the owner reads it: the two built-in words are translated. */
-function trustTierLabel(tier: string): string {
-  if (tier === "built-in") return t("settings.connectors.trust.builtIn");
-  if (tier === "unverified") return t("settings.connectors.trust.unverified");
-  if (tier === "verified") return t("settings.connectors.trust.verified");
-  return tier;
+/** The card of rows that need the owner: amber is for "needs you" only. */
+const ATTENTION_CARD = "border-approval-border bg-approval-surface";
+
+/** The ids of the two device rows, which are views onto Permissions rather than connectors. */
+const FILES_ID = "device:files";
+const TERMINAL_ID = "device:terminal";
+
+interface RowData {
+  key: string;
+  name: string;
+  icon: ReactElement;
+  subtitle: string;
+  status: { tone: Tone; label: string } | null;
+  fix: { label: string; ariaLabel?: string; onClick: () => void } | null;
+  group: "needs" | "working" | "paused";
+  id: string;
 }
-
-/** Trust tier: MCP servers carry one in config; built-in connectors are first-party. */
-export function trustTier(c: Connector): string {
-  const tier = c.config.trustTier;
-  if (typeof tier === "string") return tier;
-  return c.type === "mcp" ? "unverified" : "built-in";
-}
-
-function lastUsed(c: Connector): string | null {
-  const at = c.lastSync?.at;
-  return typeof at === "string" ? at : null;
-}
-
-export type ConnectorFilter = "all" | "apps" | "mcp";
 
 export interface ConnectorsPanelProps extends LoadProps {
   connectors: readonly Connector[];
@@ -121,8 +122,10 @@ export interface ConnectorsPanelProps extends LoadProps {
   policy?: PolicyValues;
   /** MCP servers, listed with the connectors and added from the catalogue's Custom MCP server row. */
   mcp?: McpState;
-  /** Which connectors to list first (the old MCP route lands on `mcp`). */
-  defaultFilter?: ConnectorFilter;
+  /** Opens Advanced (your own tool servers), where the old MCP route lands. */
+  defaultAdvancedOpen?: boolean;
+  /** Opens one connector's (or tool server's) detail straight away (stories). */
+  defaultOpenId?: string;
   /** The catalogue row the add form starts on (stories, the "Add MCP server" shortcut). */
   defaultAddType?: string;
   /** Re-reads a connector's state (`connectors.status`): a macOS grant given meanwhile (#549). */
@@ -164,7 +167,8 @@ export function ConnectorsPanel({
   onOpenSection,
   policy,
   mcp,
-  defaultFilter = "all",
+  defaultAdvancedOpen = false,
+  defaultOpenId,
   defaultAddType,
   onCheck,
   onGrant,
@@ -181,343 +185,387 @@ export function ConnectorsPanel({
   onRetry,
 }: ConnectorsPanelProps): ReactElement {
   const clock = useNow(30_000, now);
-  const [shownScopes, setShownScopes] = useState<ReadonlySet<string>>(new Set());
-  const toggleScopes = (id: string) =>
-    setShownScopes((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  const [adding, setAdding] = useState(defaultAdding || defaultAddType !== undefined);
-  const [addType, setAddType] = useState(defaultAddType);
-  const [filter, setFilter] = useState<ConnectorFilter>(defaultFilter);
-  const isMcp = (c: Connector) => c.type === "mcp";
-  const apps = connectors.filter((c) => !isMcp(c));
+  const [view, setView] = useState<View>(
+    defaultAdding || defaultAddType !== undefined
+      ? { kind: "add", type: defaultAddType }
+      : defaultOpenId !== undefined
+        ? { kind: "detail", id: defaultOpenId }
+        : { kind: "list" },
+  );
+  const list = () => setView({ kind: "list" });
+  // The old MCP route lands with Advanced open (`Advanced` has no `open` prop to pass).
+  const advancedRef = useRef<HTMLDivElement>(null);
+  const advancedOpened = useRef(false);
+  // Runs each render: the fold mounts only once the list has loaded.
+  useEffect(() => {
+    const details = advancedRef.current?.querySelector("details");
+    if (!details || !defaultAdvancedOpen || advancedOpened.current) return;
+    details.open = true;
+    advancedOpened.current = true;
+  });
   const servers = mcp?.servers ?? [];
-  const mcpConnectors = connectors.filter(isMcp);
-  const showApps = filter !== "mcp";
-  const showMcp = filter !== "apps";
-  const rows = [...(showApps ? apps : []), ...(showMcp ? mcpConnectors : [])];
-  const mcpCount = mcpConnectors.length + servers.length;
-  const total = apps.length + mcpCount;
-  const startAdding = (type?: string) => {
-    setAddType(type);
-    setAdding(true);
-  };
+  const total = connectors.length + servers.length;
+  const review = mcp?.review ?? null;
+
+  // A server added from the form shows up in the list: go back to it.
+  const serverCount = useRef(servers.length);
+  useEffect(() => {
+    if (servers.length > serverCount.current && view.kind === "add") setView({ kind: "list" });
+    serverCount.current = servers.length;
+  }, [servers.length, view.kind]);
+
+  const connectedTypes = new Set(
+    connectors.filter((c) => c.status !== "disconnected").map((c) => c.type),
+  );
+  const open = (id: string) => () => setView({ kind: "detail", id });
+  const folders = policy ? folderGrants(policy.values).length : 0;
+
+  const rows: RowData[] = [
+    ...connectors.map((c): RowData => {
+      const permission = permissionOf(c);
+      const waiting = permission !== null && c.status === "needs_auth";
+      const used = lastUsed(c);
+      const status: RowData["status"] = waiting
+        ? { tone: "approval", label: t("settings.connectors.status.needsPermission") }
+        : c.status === "needs_auth"
+          ? { tone: "approval", label: t("settings.connectors.page.status.signInExpired") }
+          : c.status === "error"
+            ? { tone: "approval", label: t("settings.connectors.page.status.notWorking") }
+            : c.status === "connected"
+              ? { tone: "success", label: t("settings.connectors.status.connected") }
+              : { tone: "neutral", label: t("settings.connectors.status.disconnected") };
+      const fix: RowData["fix"] =
+        waiting && onGrant && permission.state === "denied"
+          ? {
+              label: t("settings.connect.openSystemSettings"),
+              ariaLabel: `${t("settings.connect.openSystemSettings")}: ${c.label}`,
+              onClick: () => onGrant(c),
+            }
+          : waiting && onCheck
+            ? {
+                label: t("settings.connect.checkAgain"),
+                ariaLabel: `${t("settings.connect.checkAgain")}: ${c.label}`,
+                onClick: () => onCheck(c),
+              }
+            : !waiting && c.status === "needs_auth" && onReconnect
+              ? {
+                  label: t("settings.connectors.status.needs_auth"),
+                  ariaLabel: `${t("settings.connectors.status.needs_auth")}: ${c.label}`,
+                  onClick: () => onReconnect(c),
+                }
+              : c.status === "error"
+                ? {
+                    label: t("settings.connectors.page.fix.seeWhy"),
+                    ariaLabel: `${t("settings.connectors.page.fix.seeWhy")}: ${c.label}`,
+                    onClick: open(c.id),
+                  }
+                : null;
+      const parts = [
+        c.account,
+        used === null
+          ? t("settings.connectors.page.row.never")
+          : t("settings.connectors.page.row.lastUsed", { when: formatRelative(used, clock) }),
+        c.type === "mcp" && trustTier(c) === "unverified"
+          ? t("settings.connectors.page.row.unverified")
+          : null,
+      ];
+      return {
+        key: `c:${c.id}`,
+        id: c.id,
+        name: c.label,
+        icon: <ConnectorIcon type={c.type} />,
+        subtitle: parts.filter((p) => p !== null).join(" · "),
+        status,
+        fix,
+        group:
+          c.status === "disconnected" ? "paused" : c.status === "connected" ? "working" : "needs",
+      };
+    }),
+    ...servers.map((s): RowData => {
+      const needs = mcpNeedsYou(s);
+      return {
+        key: `m:${s.id}`,
+        id: s.id,
+        name: s.name,
+        icon: <McpServerIcon server={s} />,
+        subtitle: mcpSubtitle(s),
+        status: mcpStatus(s),
+        fix: needs
+          ? {
+              label: t("settings.connectors.page.fix.seeWhy"),
+              ariaLabel: `${t("settings.connectors.page.fix.seeWhy")}: ${s.name}`,
+              onClick: open(s.id),
+            }
+          : null,
+        group: needs ? "needs" : s.enabled === false ? "paused" : "working",
+      };
+    }),
+  ];
+  const renderRows = (group: RowData["group"]) =>
+    rows
+      .filter((r) => r.group === group)
+      .map((r) => (
+        <ConnectorRow
+          key={r.key}
+          name={r.name}
+          icon={r.icon}
+          subtitle={r.subtitle}
+          status={r.status}
+          fix={r.fix}
+          onOpen={open(r.id)}
+        />
+      ));
+  const has = (group: RowData["group"]) => rows.some((r) => r.group === group);
+
   const addButton = onConnect ? (
-    <Button
-      type="button"
-      size="sm"
-      variant={adding ? "outline" : "default"}
-      onClick={() => startAdding()}
-      disabled={adding}
-    >
+    <Button type="button" size="sm" onClick={() => setView({ kind: "add" })}>
       <Plug aria-hidden="true" /> {t("settings.connectors.connect")}
     </Button>
   ) : null;
-  const review = mcp?.review ?? null;
-  return (
-    <SectionFrame
-      title={t("settings.connectors.title")}
-      description={t("settings.connectors.description")}
-      // One primary action: the header's button, or the empty state's when nothing is connected.
-      actions={total > 0 || loading || error ? addButton : null}
+
+  // What the detail view is about: a connector, a tool server or one of the two Mac rows.
+  const detailId = view.kind === "detail" ? view.id : null;
+  const connector = connectors.find((c) => c.id === detailId);
+  const server = connector ? undefined : servers.find((s) => s.id === detailId);
+  const device = detailId === FILES_ID || detailId === TERMINAL_ID ? detailId : null;
+  const showing: "list" | "add" | "detail" =
+    view.kind === "add" ? "add" : connector || server || device ? "detail" : "list";
+
+  const statusLine = (tone: Tone, label: string, rest: ReactNode) => (
+    <span className="flex flex-wrap items-center gap-x-2">
+      <StatusChip tone={tone}>{label}</StatusChip>
+      {rest}
+    </span>
+  );
+  const rowStatus = connector ? rows.find((r) => r.id === connector.id)?.status : null;
+  // A detail or the gallery takes the title's place, with Back above it.
+  const detailFrame =
+    showing === "add"
+      ? { title: t("settings.connectors.page.gallery.title"), status: undefined }
+      : connector
+        ? {
+            title: connector.label,
+            status: statusLine(
+              rowStatus?.tone ?? "neutral",
+              rowStatus?.label ?? "",
+              connector.account ? <span>{connector.account}</span> : null,
+            ),
+          }
+        : server
+          ? {
+              title: server.name,
+              status: statusLine(
+                mcpStatus(server).tone,
+                mcpStatus(server).label,
+                <span>{mcpSubtitle(server)}</span>,
+              ),
+            }
+          : showing === "detail"
+            ? { title: t("settings.connectors.page.onThisMac"), status: undefined }
+            : null;
+
+  const body = (
+    <LoadGate
+      label={t("settings.connectors.loadLabel")}
+      loading={loading ?? false}
+      error={error ?? null}
+      {...(onRetry ? { onRetry } : {})}
     >
-      <LoadGate
-        label={t("settings.connectors.loadLabel")}
-        loading={loading ?? false}
-        error={error ?? null}
-        {...(onRetry ? { onRetry } : {})}
-      >
-        {connectProgress}
-        <div role="status" className="text-sm empty:hidden">
-          {mcp?.notice ? <p>{mcp.notice}</p> : null}
-        </div>
-        {mcp?.actionError ? (
-          <McpFailureNotice message={mcp.actionError} failure={mcp.actionFailure} mcp={mcp} />
-        ) : null}
-        {policy ? (
-          <>
-            <FilesOnMacCard
-              values={policy.values}
-              persona={persona}
-              {...(onOpenSection ? { onOpenFileAccess: () => onOpenSection("files") } : {})}
-            />
-            <TerminalCard
-              values={policy.values}
-              persona={persona}
-              {...(onOpenSection ? { onOpenFileAccess: () => onOpenSection("files") } : {})}
-            />
-          </>
-        ) : null}
-        {review}
-        {adding && onConnect ? (
-          // Hidden, not unmounted, while the trust card is open: cancelling it returns to the form.
-          <div hidden={review !== null}>
-            <ConnectForm
-              key={addType ?? "gallery"}
-              persona={persona}
-              initialType={addType}
-              {...(onTry ? { onTry } : {})}
-              {...(mcp ? { mcp } : {})}
-              implemented={implemented}
-              connectedTypes={
-                new Set(connectors.filter((c) => c.status !== "disconnected").map((c) => c.type))
-              }
-              {...(onOpenSection ? { onOpenSection } : {})}
-              sharedFolders={sharedFolders}
-              {...(onShareFolder ? { onShareFolder } : {})}
-              onCancel={() => setAdding(false)}
-              onConnect={(type, mode, config) => {
-                if (config === undefined) onConnect(type, mode);
-                else onConnect(type, mode, config);
-                setAdding(false);
-              }}
-            />
-          </div>
-        ) : null}
-        {total > 0 || filter !== "all" ? (
-          <SegmentedRadio
-            label={t("settings.connectors.filter.label")}
-            value={filter}
-            onChange={setFilter}
-            className="self-start"
-            options={[
-              { value: "all", label: t("settings.connectors.filter.all") },
-              { value: "apps", label: t("settings.connectors.filter.apps") },
-              { value: "mcp", label: t("settings.connectors.filter.mcp") },
-            ]}
+      {connectProgress}
+      <div role="status" className="text-sm empty:hidden">
+        {mcp?.notice ? <p>{mcp.notice}</p> : null}
+      </div>
+      {mcp?.actionError && !(server && mcpNeedsYou(server)) ? (
+        <McpFailureNotice message={mcp.actionError} failure={mcp.actionFailure} mcp={mcp} />
+      ) : null}
+      {review}
+      {showing === "add" && onConnect ? (
+        // Hidden, not unmounted, while the trust card is open: cancelling it returns to the form.
+        <div hidden={review !== null}>
+          <ConnectForm
+            key={view.kind === "add" ? (view.type ?? "gallery") : "gallery"}
+            persona={persona}
+            initialType={view.kind === "add" ? view.type : undefined}
+            {...(onTry ? { onTry } : {})}
+            {...(mcp ? { mcp } : {})}
+            implemented={implemented}
+            connectedTypes={connectedTypes}
+            {...(onOpenSection ? { onOpenSection } : {})}
+            sharedFolders={sharedFolders}
+            {...(onShareFolder ? { onShareFolder } : {})}
+            onCancel={list}
+            onConnect={(type, mode, config) => {
+              if (config === undefined) onConnect(type, mode);
+              else onConnect(type, mode, config);
+              list();
+            }}
           />
-        ) : null}
-        {rows.length === 0 && (!showMcp || servers.length === 0) ? (
-          adding ? null : (
+        </div>
+      ) : null}
+      {showing === "detail" && connector ? (
+        <ConnectorDetail
+          connector={connector}
+          persona={persona}
+          now={clock}
+          actions={catalogue?.find((e) => e.type === connector.type)?.actions ?? []}
+          lifted={liftedFloors?.[connector.id] ?? []}
+          sharedFolders={sharedFolders}
+          {...(onReconnect ? { onReconnect } : {})}
+          {...(onDisconnect ? { onDisconnect } : {})}
+          {...(onRemove
+            ? {
+                onRemove: (c: Connector) => {
+                  onRemove(c);
+                  list();
+                },
+              }
+            : {})}
+          {...(removable ? { removable } : {})}
+          {...(onGrant ? { onGrant } : {})}
+          {...(onCheck ? { onCheck } : {})}
+          {...(onRuleChange ? { onRuleChange } : {})}
+          {...(onTry ? { onTry } : {})}
+          {...(onShareFolder ? { onShareFolder } : {})}
+          {...(onConfigure ? { onConfigure } : {})}
+          {...(defaultCapabilitiesOpen ? { defaultCapabilitiesOpen } : {})}
+        />
+      ) : null}
+      {showing === "detail" && server ? (
+        <McpServerDetail
+          server={server}
+          {...(mcp ? { mcp } : {})}
+          {...(mcp
+            ? {
+                onRemove: (s: typeof server) => {
+                  mcp.remove(s);
+                  list();
+                },
+                onSetEnabled: mcp.setEnabled,
+              }
+            : {})}
+          {...(onTry ? { onTry } : {})}
+          {...(now === undefined ? {} : { now })}
+        />
+      ) : null}
+      {showing === "detail" && device === FILES_ID && policy ? (
+        <FilesOnMacCard
+          values={policy.values}
+          persona={persona}
+          {...(onOpenSection ? { onOpenFileAccess: () => onOpenSection("files") } : {})}
+        />
+      ) : null}
+      {showing === "detail" && device === TERMINAL_ID && policy ? (
+        <TerminalCard
+          values={policy.values}
+          persona={persona}
+          {...(onOpenSection ? { onOpenFileAccess: () => onOpenSection("files") } : {})}
+        />
+      ) : null}
+      {showing === "list" ? (
+        <>
+          {has("needs") ? (
+            <Group title={t("settings.connectors.page.needsYou")} className={ATTENTION_CARD}>
+              {renderRows("needs")}
+            </Group>
+          ) : null}
+          {total === 0 ? (
             <EmptyState
               icon={Plug}
               className="elevation-1 py-10"
               {...(onConnect
                 ? {
                     action: {
-                      label:
-                        filter === "mcp" ? t("settings.mcp.add") : t("settings.connectors.connect"),
-                      onClick: () => startAdding(filter === "mcp" ? "mcp" : undefined),
+                      label: t("settings.connectors.connect"),
+                      onClick: () => setView({ kind: "add" }),
                     },
                   }
                 : {})}
             >
-              {filter === "mcp"
-                ? t("settings.mcp.empty")
-                : t("settings.connectors.empty", { persona })}
+              {t("settings.connectors.empty", { persona })}
             </EmptyState>
-          )
-        ) : (
-          // A grouped inset list, one row per account (redesign §5.8); scopes are technical names.
-          <ul className={GROUP_ROWS}>
-            {rows.map((c) => {
-              const used = lastUsed(c);
-              const permission = permissionOf(c);
-              const technical = shownScopes.has(c.id);
-              return (
-                <li key={c.id}>
-                  <article aria-label={c.label} className="flex flex-col gap-1.5">
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                      <ConnectorIcon type={c.type} />
-                      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="text-headline text-label-primary">{c.label}</h3>
-                          <StatusChip tone={permission ? "approval" : STATUS_TONE[c.status]}>
-                            {permission
-                              ? t("settings.connectors.status.needsPermission")
-                              : t(`settings.connectors.status.${c.status}`)}
-                          </StatusChip>
-                          {isMcp(c) ? (
-                            <StatusChip tone="neutral">{t("settings.mcp.badge")}</StatusChip>
-                          ) : null}
-                          <StatusChip tone="neutral">{SCOPE_MODE_LABEL[c.scopeMode]}</StatusChip>
-                          <StatusChip tone={trustTier(c) === "built-in" ? "info" : "approval"}>
-                            {t("settings.connectors.trust", { tier: trustTierLabel(trustTier(c)) })}
-                          </StatusChip>
-                        </div>
-                        <p className="text-callout text-label-secondary">
-                          <span>{c.account ?? t("settings.connectors.noAccount")}</span>
-                          <span aria-hidden="true"> · </span>
-                          <span>
-                            {t("settings.credentials.col.lastUsed")}{" "}
-                            {used === null
-                              ? t("settings.credentials.never").toLocaleLowerCase()
-                              : formatRelative(used, clock)}
-                          </span>
-                        </p>
-                        {technical ? (
-                          <p className="flex flex-wrap items-center gap-1 text-callout text-label-secondary">
-                            <span>{t("settings.connectors.scopes")}</span>
-                            {c.scopes.map((sc) => (
-                              <code
-                                key={sc}
-                                className="rounded-xs bg-fill-tertiary px-1 font-mono text-mono"
-                              >
-                                {sc}
-                              </code>
-                            ))}
-                          </p>
-                        ) : null}
-                      </div>
-                      <div className="flex shrink-0 flex-wrap items-center gap-2">
-                        {permission && c.status === "needs_auth" ? (
-                          <>
-                            {onGrant && permission.state === "denied" ? (
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                onClick={() => onGrant(c)}
-                              >
-                                {t("settings.connect.openSystemSettings")}
-                              </Button>
-                            ) : null}
-                            {onCheck ? (
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                onClick={() => onCheck(c)}
-                              >
-                                {t("settings.connect.checkAgain")}
-                              </Button>
-                            ) : null}
-                          </>
-                        ) : c.status === "needs_auth" && onReconnect ? (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => onReconnect(c)}
-                          >
-                            {t("settings.connectors.status.needs_auth")}
-                          </Button>
-                        ) : null}
-                        {onDisconnect && c.status !== "disconnected" ? (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => onDisconnect(c)}
-                            aria-label={t("settings.connectors.disconnectNamed", { name: c.label })}
-                          >
-                            {t("settings.connectors.disconnect")}
-                          </Button>
-                        ) : null}
-                        <RowMoreMenu
-                          name={c.label}
-                          items={[
-                            {
-                              label: technical
-                                ? t("settings.actions.hideKey")
-                                : t("settings.actions.showKey"),
-                              onClick: () => toggleScopes(c.id),
-                            },
-                          ]}
-                          destructive={
-                            onRemove && (removable?.(c) ?? true)
-                              ? [
-                                  {
-                                    label: t("common.remove"),
-                                    title: t("settings.connectors.removeTitle", { name: c.label }),
-                                    description: t("settings.connectors.removeDescription", {
-                                      name: c.label,
-                                    }),
-                                    confirm: t("common.remove"),
-                                    onConfirm: () => onRemove(c),
-                                  },
-                                ]
-                              : []
-                          }
-                        />
-                      </div>
-                    </div>
-                    {permission && c.status === "needs_auth" ? (
-                      <PermissionNotice name={c.label} permission={permission} />
-                    ) : null}
-                    <CapabilityCard
-                      connector={c}
-                      actions={catalogue?.find((e) => e.type === c.type)?.actions ?? []}
-                      persona={persona}
-                      lifted={liftedFloors?.[c.id] ?? []}
-                      {...(onRuleChange
-                        ? {
-                            onRuleChange: (action: string, rule: ActionRule, lift?: boolean) =>
-                              onRuleChange(c, action, rule, lift),
-                          }
-                        : {})}
-                      {...(onTry ? { onTry } : {})}
-                      {...(defaultCapabilitiesOpen ? { defaultOpen: true } : {})}
-                    />
-                    {c.type === "apple:shortcuts" && c.status === "connected" ? (
-                      <ConnectedShortcutsCard
-                        connector={c}
-                        {...(onConfigure
-                          ? {
-                              onConfigure: (config: Record<string, unknown>) =>
-                                onConfigure(c, config),
-                            }
-                          : {})}
-                      />
-                    ) : null}
-                    {trustedAppOf(c.type) !== null && c.status === "connected" ? (
-                      <ConnectedTrustedSourcesCard
-                        connector={c}
-                        app={trustedAppOf(c.type) ?? "reminders"}
-                        {...(onConfigure
-                          ? {
-                              onConfigure: (config: Record<string, unknown>) =>
-                                onConfigure(c, config),
-                            }
-                          : {})}
-                      />
-                    ) : null}
-                    {c.type === "obsidian" ? (
-                      <ObsidianCard
-                        connector={c}
-                        granted={sharedFolders}
-                        {...(onShareFolder
-                          ? { onShare: (path: string) => onShareFolder(path, c.scopeMode) }
-                          : {})}
-                        {...(onConfigure
-                          ? {
-                              onConfigure: (config: Record<string, unknown>) =>
-                                onConfigure(c, config),
-                            }
-                          : {})}
-                      />
-                    ) : null}
-                  </article>
-                </li>
-              );
-            })}
-            {showMcp
-              ? servers.map((s) => (
-                  <li key={s.id}>
-                    <McpServerRow
-                      server={s}
-                      {...(mcp ? { onRemove: mcp.remove, onSetEnabled: mcp.setEnabled } : {})}
-                      {...(onTry ? { onTry } : {})}
-                      {...(now === undefined ? {} : { now })}
-                    />
-                  </li>
-                ))
-              : null}
-          </ul>
-        )}
-        {mcp && showMcp && onConnect ? (
-          <AvailableConnectors
-            mcp={mcp}
-            onPreset={(id) => {
-              setAddType(`preset:${id}`);
-              setAdding(true);
-            }}
-          />
-        ) : null}
-      </LoadGate>
+          ) : has("working") ? (
+            <Group title={t("settings.connectors.page.connected")}>{renderRows("working")}</Group>
+          ) : null}
+          {has("paused") ? (
+            <Group title={t("settings.connectors.page.paused")}>{renderRows("paused")}</Group>
+          ) : null}
+          {policy ? (
+            <Group title={t("settings.connectors.page.onThisMac")}>
+              <ConnectorRow
+                name={t("settings.deviceAccess.files.title")}
+                icon={<ConnectorIcon type={FILES_ID} />}
+                subtitle={t("settings.connectors.page.row.files", { count: folders })}
+                onOpen={open(FILES_ID)}
+              />
+              <ConnectorRow
+                name={t("settings.deviceAccess.terminal.title")}
+                icon={<ConnectorIcon type={TERMINAL_ID} />}
+                subtitle={
+                  execHostEnabled(policy.values)
+                    ? t("settings.connectors.page.row.terminal.on")
+                    : t("settings.connectors.page.row.terminal.off")
+                }
+                status={
+                  execHostEnabled(policy.values)
+                    ? { tone: "success", label: t("settings.connectors.page.status.on") }
+                    : { tone: "neutral", label: t("settings.connectors.page.status.off") }
+                }
+                onOpen={open(TERMINAL_ID)}
+              />
+            </Group>
+          ) : null}
+          {onConnect && total > 0 ? (
+            <AddMore
+              entries={galleryEntries({
+                implemented,
+                connectedTypes,
+                mcp: mcp !== undefined,
+                slack: onOpenSection !== undefined,
+                pick: (type) => setView({ kind: "add", type }),
+              })}
+              onBrowse={() => setView({ kind: "add" })}
+            />
+          ) : null}
+          {onConnect && mcp ? (
+            <div ref={advancedRef}>
+              <Advanced description={t("settings.connectors.page.advanced.hint")}>
+                <Group
+                  title={t("settings.connectors.page.advanced.custom")}
+                  description={t("settings.connectors.page.advanced.customHint")}
+                  actions={
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setView({ kind: "add", type: "mcp" })}
+                    >
+                      {t("settings.connectors.page.advanced.customAction")}
+                    </Button>
+                  }
+                />
+                <AvailableConnectors
+                  mcp={mcp}
+                  onPreset={(id) => setView({ kind: "add", type: `preset:${id}` })}
+                />
+              </Advanced>
+            </div>
+          ) : null}
+        </>
+      ) : null}
+    </LoadGate>
+  );
+  return detailFrame ? (
+    <DetailFrame title={detailFrame.title} status={detailFrame.status} onBack={list}>
+      {body}
+    </DetailFrame>
+  ) : (
+    <SectionFrame
+      title={t("settings.connectors.title")}
+      description={t("settings.connectors.page.description", { persona })}
+      // One primary action: the header's button, or the empty state's when nothing is connected.
+      actions={total > 0 || loading || error ? addButton : null}
+    >
+      {body}
     </SectionFrame>
   );
 }
@@ -607,7 +655,7 @@ export function ConnectorsSection({
         {...builtInActions}
         {...(now === undefined ? {} : { now })}
         mcp={mcp}
-        {...(view === undefined ? {} : { defaultFilter: "mcp" as const })}
+        {...(view === undefined ? {} : { defaultAdvancedOpen: true })}
         {...(view === "add-mcp" ? { defaultAddType: "mcp" } : {})}
         {...(builtIn
           ? {

@@ -55,21 +55,21 @@ function setup(): () => MockGateway {
   };
 }
 
+/** The row opens the server's detail; its code is under Technical details. */
 async function openDetails(name: string) {
-  const row = await screen.findByRole("article", { name });
-  await userEvent.click(within(row).getByRole("button", { name: `More for ${name}` }));
-  await userEvent.click(await screen.findByRole("menuitem", { name: "Show details" }));
-  return row;
+  await userEvent.click(await screen.findByRole("button", { name: `Open ${name}` }));
+  const view = await screen.findByRole("region", { name });
+  await userEvent.click(within(view).getByRole("button", { name: "Technical details" }));
+  return view;
 }
 
 describe("Connectors → made by Psyche", () => {
   it("badges only the connectors Psyche wrote", async () => {
     setup();
     const mine = await screen.findByRole("article", { name: "Notes tools" });
-    expect(within(mine).getByText("Made by Psyche")).toBeTruthy();
-    expect(within(mine).getByText("Trust: unverified")).toBeTruthy();
+    expect(within(mine).getByText("Made by Psyche · Unverified")).toBeTruthy();
     const other = await screen.findByRole("article", { name: "Files" });
-    expect(within(other).queryByText("Made by Psyche")).toBeNull();
+    expect(within(other).queryByText(/Made by Psyche/)).toBeNull();
   });
 
   it("shows the code read-only, and an edit stops it behind a card with the diff", async () => {

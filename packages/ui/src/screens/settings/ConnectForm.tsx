@@ -49,6 +49,57 @@ const BUILT_IN_ID: Readonly<Record<string, string>> = {
 };
 
 /**
+ * Everything the gallery offers, as tiles: built-in connectors first, then ready-made tool
+ * servers. Your own server is not a tile: it lives under Advanced on the page.
+ */
+export function galleryEntries({
+  implemented,
+  connectedTypes,
+  mcp,
+  slack,
+  pick,
+}: {
+  implemented: ReadonlySet<string> | undefined;
+  connectedTypes: ReadonlySet<string>;
+  /** Present: ready-made tool servers are offered too. */
+  mcp: boolean;
+  /** Slack opens Channels, so it is offered only where the host can open that section. */
+  slack: boolean;
+  pick: (key: string) => void;
+}): GalleryEntry[] {
+  const rows = offeredCatalog(implemented).filter(
+    (c) => c.type !== "mcp" && (c.type !== "slack" || slack),
+  );
+  // A one-per-machine connector that is already there is listed as Connected, not offered.
+  const taken = (type: string) => isSingleInstance(type) && connectedTypes.has(type);
+  return [
+    ...rows.map((c) => ({
+      key: c.type,
+      label: c.label,
+      description: t(`gallery.builtin.${BUILT_IN_ID[c.type] ?? c.type}` as MessageId),
+      group: BUILT_IN_GROUP[c.type] ?? "productivity",
+      category: BUILT_IN_GROUP[c.type] ?? "productivity",
+      type: c.type,
+      badge: "builtIn" as const,
+      taken: taken(c.type),
+      onPick: () => pick(c.type),
+    })),
+    ...(mcp
+      ? MCP_PRESETS.map((p) => ({
+          key: `preset:${p.id}`,
+          label: p.label,
+          description: presetText(p, "desc"),
+          group: p.popular ? ("popular" as const) : p.category,
+          category: p.category,
+          icon: p.icon,
+          badge: p.official ? ("official" as const) : ("community" as const),
+          onPick: () => pick(`preset:${p.id}`),
+        }))
+      : []),
+  ];
+}
+
+/**
  * Add connector: a searchable gallery of built-in connectors, ready-made MCP servers and a custom
  * one. The picked tile's connect options (or its server form) replace the gallery.
  */
@@ -83,51 +134,19 @@ export function ConnectForm({
   const rows = offeredCatalog(implemented).filter(
     (c) => c.type !== "mcp" && (c.type !== "slack" || onOpenSection !== undefined),
   );
-  // A one-per-machine connector that is already there is listed as Connected, not offered.
-  const taken = (type: string) => isSingleInstance(type) && connectedTypes.has(type);
   const [picked, setPicked] = useState<string | null>(initialType ?? null);
   const [mode, setMode] = useState<ScopeMode>("read");
   // Obsidian connects to a vault folder shared through File access (#640).
   const [vault, setVault] = useState("");
   const vaultPath = vault.trim();
 
-  const entries: GalleryEntry[] = [
-    ...rows.map((c) => ({
-      key: c.type,
-      label: c.label,
-      description: t(`gallery.builtin.${BUILT_IN_ID[c.type] ?? c.type}` as MessageId),
-      group: BUILT_IN_GROUP[c.type] ?? "productivity",
-      category: BUILT_IN_GROUP[c.type] ?? "productivity",
-      type: c.type,
-      badge: "builtIn" as const,
-      taken: taken(c.type),
-      onPick: () => setPicked(c.type),
-    })),
-    ...(mcp
-      ? [
-          ...MCP_PRESETS.map((p) => ({
-            key: `preset:${p.id}`,
-            label: p.label,
-            description: presetText(p, "desc"),
-            group: p.popular ? ("popular" as const) : p.category,
-            category: p.category,
-            icon: p.icon,
-            badge: p.official ? ("official" as const) : ("community" as const),
-            onPick: () => setPicked(`preset:${p.id}`),
-          })),
-          {
-            key: "mcp",
-            label: t("settings.connectors.catalog.mcp"),
-            description: t("gallery.custom.desc"),
-            group: "custom" as const,
-            category: "custom" as const,
-            type: "mcp",
-            badge: null,
-            onPick: () => setPicked("mcp"),
-          },
-        ]
-      : []),
-  ];
+  const entries = galleryEntries({
+    implemented,
+    connectedTypes,
+    mcp: mcp !== undefined,
+    slack: onOpenSection !== undefined,
+    pick: setPicked,
+  });
 
   const preset = picked?.startsWith("preset:")
     ? MCP_PRESETS.find((p) => `preset:${p.id}` === picked)
@@ -139,16 +158,7 @@ export function ConnectForm({
       : (preset?.label ?? builtIn?.label ?? t("settings.connectors.connect"));
 
   if (picked === null || (preset === undefined && builtIn === undefined && picked !== "mcp")) {
-    return (
-      <Group title={t("settings.connectors.connect")}>
-        <ConnectorGallery entries={entries} />
-        <div className="flex gap-2">
-          <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
-            {t("common.cancel")}
-          </Button>
-        </div>
-      </Group>
-    );
+    return <ConnectorGallery entries={entries} />;
   }
 
   const back = () => setPicked(null);

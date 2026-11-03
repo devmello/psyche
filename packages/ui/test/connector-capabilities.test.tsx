@@ -44,11 +44,14 @@ function setup() {
   return { gateway, routes, settingsWrites };
 }
 
+/** A row opens its detail, where the capability groups always show. */
 async function openCard(name: string) {
-  const card = await screen.findByRole("article", { name });
-  await userEvent.click(within(card).getByRole("button", { name: "What Wren can do" }));
-  return card;
+  await userEvent.click(await screen.findByRole("button", { name: `Open ${name}` }));
+  return screen.findByRole("region", { name });
 }
+
+const backToList = async () =>
+  userEvent.click(await screen.findByRole("button", { name: "All connectors" }));
 
 describe("Apple app capability cards (docs/connectors/apple-apps-2026.md §7.1, #640)", () => {
   it("lists Mail's action groups in plain words", async () => {
@@ -121,10 +124,12 @@ describe("Apple app capability cards (docs/connectors/apple-apps-2026.md §7.1, 
     expect(
       within(mail).getByText("Allowed in System Settings → Privacy & Security → Automation → Mail"),
     ).toBeTruthy();
+    await backToList();
     const calendar = await openCard("Apple Calendar");
     expect(
       within(calendar).getByText("Allowed in System Settings → Privacy & Security → Calendars"),
     ).toBeTruthy();
+    await backToList();
     // Notes waits on its Automation grant: the existing notice names the path, no "Allowed".
     const notes = await openCard("Apple Notes");
     expect(within(notes).getByText(/Automation → Psyche \(Helper\) → Notes/)).toBeTruthy();
