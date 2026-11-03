@@ -249,11 +249,15 @@ describe("past due (§3.6)", () => {
     expect(out[0]?.item.line).toBe("Did you finish Q3 deck? It was due yesterday.");
     expect(out[0]?.item).toMatchObject({ urgency: "overdue", status: "overdue" });
     expect(out[0]?.item.actions).toEqual(["open", "done", "snooze"]);
+    // The wire item says which line is the question, so Home puts it in Needs you.
+    expect(out[0]?.item.ask).toBe(true);
+    expect(out[1]?.item.ask).toBeUndefined();
   });
 
   it("waits until the day after: due earlier today is not asked yet", () => {
     const c = cand({ dueAt: inHours(-1), title: "Today's" });
     expect(rank([c])[0]?.ask).toBe(false);
+    expect(rank([c])[0]?.item.ask).toBeUndefined();
   });
 
   it("goes quiet after 14 days and leaves the brief", () => {

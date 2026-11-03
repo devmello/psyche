@@ -732,6 +732,7 @@ export class GatewayStore {
           "memory.loops.",
           "memory.graph.",
           "memory.anchors.",
+          "memory.catchup.",
         ]);
       case "credential.updated":
         return invalidate(s, ["vault."]);

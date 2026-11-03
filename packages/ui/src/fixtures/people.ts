@@ -1,4 +1,5 @@
 import type {
+  CatchUpItem,
   EntitySummary,
   GraphAnchor,
   GraphBlocklistEntry,
@@ -211,6 +212,10 @@ export interface GraphWorld {
   /** Addresses, phones and domains Psyche never models again (hints masked). */
   blocklist: GraphBlocklistEntry[];
   status: GraphStatus;
+  /** What `memory.catchup.list` answers for Home; absent or empty means nothing to catch up on. */
+  catchUp?: CatchUpItem[];
+  /** Work suggestions waiting to be confirmed, counted in `memory.catchup.list`; default none. */
+  catchUpPending?: number;
 }
 
 export function graphWorld(): GraphWorld {

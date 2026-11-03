@@ -1,4 +1,5 @@
 import type {
+  CatchUpItem,
   GraphAnchor,
   GraphEdge,
   GraphEntity,
@@ -535,6 +536,72 @@ export function addWork(g: GraphWorld): GraphWorld {
 /** Edits a fixture world to hold the work items (for `withWorld({ edit })` and tests). */
 export function withWorkWorld(world: FixtureWorld): void {
   addWork(world.graph);
+}
+
+/**
+ * What `memory.catchup.list` answers for Home on the fixture clock, as the Gateway writes it (the
+ * §5.3 line templates, the past-due ask first): a work deliverable past its day, a home project's
+ * errand with a stale status, and a bill. A general mix on purpose; none of it is school.
+ */
+export function workCatchUp(): CatchUpItem[] {
+  const K = WORK_IDS;
+  const item = (
+    entityId: string,
+    title: string,
+    line: string,
+    extra: Partial<CatchUpItem> = {},
+  ): CatchUpItem => ({
+    entityId,
+    kind: "assignment",
+    title,
+    titleProvenance: "owner",
+    urgency: "soon",
+    status: "not_started",
+    statusAsOf: "2026-10-09T15:00:00Z",
+    stale: false,
+    line,
+    changes: [],
+    actions: ["open", "continue", "done", "snooze"],
+    provenance: "owner",
+    ...extra,
+  });
+  return [
+    item(
+      K.signoff,
+      "Sign off on the launch copy",
+      "Q4 launch · Did you finish Sign off on the launch copy? It was due Oct 16.",
+      {
+        parent: { id: K.launch, name: "Q4 launch" },
+        dueAt: "2026-10-16T23:59:00.000Z",
+        urgency: "overdue",
+        status: "overdue",
+        statusAsOf: "2026-10-14T20:00:00Z",
+        actions: ["open", "done", "snooze"],
+        ask: true,
+      },
+    ),
+    item(
+      K.hardware,
+      "Order cabinet hardware",
+      "Kitchen remodel · Order cabinet hardware: due Tue, not started, as of Fri.",
+      {
+        parent: { id: K.kitchen, name: "Kitchen remodel" },
+        dueAt: "2026-10-20T23:59:00.000Z",
+        stale: true,
+      },
+    ),
+    item(K.rent, "Pay rent", "Pay rent: due Nov 1, not started.", {
+      dueAt: "2026-11-01T23:59:00.000Z",
+      urgency: "later",
+      statusAsOf: "2026-10-01T09:00:00Z",
+    }),
+  ];
+}
+
+/** Gives a fixture world its work items and the Gateway's Home list of what to catch up on. */
+export function withCatchUp(world: FixtureWorld): void {
+  addWork(world.graph);
+  world.graph.catchUp = workCatchUp();
 }
 
 const termGraph = addWork(graphWorld());

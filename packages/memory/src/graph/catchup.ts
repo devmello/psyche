@@ -485,6 +485,7 @@ export function rankCatchUp(
       line: "",
       changes: changeOut,
       actions: actionsFor(c, ask),
+      ...(ask ? { ask: true } : {}),
       provenance: lowestProvenance([
         c.titleProvenance,
         c.statusProvenance,

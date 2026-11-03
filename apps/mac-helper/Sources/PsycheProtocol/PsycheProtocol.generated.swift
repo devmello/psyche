@@ -17615,6 +17615,9 @@ public struct MemoryCatchupListResult: Codable, Sendable {
 // MARK: - CatchUpItem
 public struct CatchUpItem: Codable, Sendable {
     public let actions: [CatchUpAction]
+    /// True on the one question that needs the owner ("Did you finish ...?", past due or a
+    /// "handed in?" claim). Home shows it in Needs you.
+    public let ask: Bool?
     public let changes: [CatchUpChange]
     public let dueAt: String?
     public let entityID: String
@@ -17633,6 +17636,7 @@ public struct CatchUpItem: Codable, Sendable {
 
     public enum CodingKeys: String, CodingKey {
         case actions = "actions"
+        case ask = "ask"
         case changes = "changes"
         case dueAt = "dueAt"
         case entityID = "entityId"
@@ -17649,8 +17653,9 @@ public struct CatchUpItem: Codable, Sendable {
         case urgency = "urgency"
     }
 
-    public init(actions: [CatchUpAction], changes: [CatchUpChange], dueAt: String?, entityID: String, kind: CatchUpItemKind, line: String, parent: Parent?, provenance: Provenance, resume: CatchUpResume?, stale: Bool, status: CatchUpStatus, statusAsOf: String, title: String, titleProvenance: Provenance, urgency: CatchUpUrgency) {
+    public init(actions: [CatchUpAction], ask: Bool?, changes: [CatchUpChange], dueAt: String?, entityID: String, kind: CatchUpItemKind, line: String, parent: Parent?, provenance: Provenance, resume: CatchUpResume?, stale: Bool, status: CatchUpStatus, statusAsOf: String, title: String, titleProvenance: Provenance, urgency: CatchUpUrgency) {
         self.actions = actions
+        self.ask = ask
         self.changes = changes
         self.dueAt = dueAt
         self.entityID = entityID

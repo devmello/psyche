@@ -6,7 +6,7 @@ import { ScreenToolbar } from "../screens/feed/ScreenToolbar.tsx";
 import { needsYou } from "../screens/inbox/InboxScreen.tsx";
 import { useSlots } from "../slots.tsx";
 import { PinnedWidgets } from "../widgets/PinnedWidgets.tsx";
-import { CatchUp, type CatchUpItem } from "./CatchUp.tsx";
+import { CatchUp } from "./CatchUp.tsx";
 import { useRouteRepeat } from "./route-repeat.ts";
 import {
   AskSection,
@@ -17,6 +17,7 @@ import {
   NeedsYouSection,
   SuggestionsSection,
 } from "./sections.tsx";
+import { useCatchUp } from "./use-catch-up.ts";
 
 export interface HomeScreenProps {
   /** The shell's `navigate`; defaults to the slot's. */
@@ -31,12 +32,6 @@ export interface HomeScreenProps {
    * exists leaves the owner at Today.
    */
   post?: string;
-  /**
-   * The brief's "Catching up" rows (projects, to-dos, due work, mail). Nothing supplies them
-   * yet; the memory-for-everything work will (docs/design/home-2026.md §5). Absent or empty, the
-   * block is not drawn.
-   */
-  catchUp?: readonly CatchUpItem[];
   /** Fixed clock (stories, tests). */
   now?: number;
 }
@@ -55,7 +50,6 @@ export function HomeScreen({
   instructionsOpen,
   anchor,
   post,
-  catchUp,
   now,
 }: HomeScreenProps): ReactElement {
   const { navigate: slotNavigate } = useSlots();
@@ -74,9 +68,12 @@ export function HomeScreen({
   }, [anchor, post, repeat]);
 
   const clock = now === undefined ? {} : { now };
+  // Catching up is `memory.catchup.list` (the Gateway ranks, limits and filters it); the
+  // past-due questions in it are in Needs you. Nothing to say, nothing drawn.
+  const catchUp = useCatchUp();
   const lead =
-    catchUp && catchUp.length > 0 ? (
-      <CatchUp items={catchUp} now={now ?? mountedAt} onOpen={navigate} />
+    catchUp.lines.length > 0 || catchUp.pendingCount > 0 ? (
+      <CatchUp items={catchUp.lines} pendingCount={catchUp.pendingCount} onOpen={navigate} />
     ) : undefined;
   return (
     <div className="@container/home flex min-h-0 flex-1 flex-col" data-testid="home">
