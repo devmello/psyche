@@ -260,6 +260,16 @@
 //   let catalogEntry = try? JSONDecoder().decode(CatalogEntry.self, from: jsonData)
 //   let catalogInstall = try? JSONDecoder().decode(CatalogInstall.self, from: jsonData)
 //   let catalogNeeds = try? JSONDecoder().decode(CatalogNeeds.self, from: jsonData)
+//   let catchUpActAction = try? JSONDecoder().decode(CatchUpActAction.self, from: jsonData)
+//   let catchUpAction = try? JSONDecoder().decode(CatchUpAction.self, from: jsonData)
+//   let catchUpChange = try? JSONDecoder().decode(CatchUpChange.self, from: jsonData)
+//   let catchUpItem = try? JSONDecoder().decode(CatchUpItem.self, from: jsonData)
+//   let catchUpItemKind = try? JSONDecoder().decode(CatchUpItemKind.self, from: jsonData)
+//   let catchUpResume = try? JSONDecoder().decode(CatchUpResume.self, from: jsonData)
+//   let catchUpResumeKind = try? JSONDecoder().decode(CatchUpResumeKind.self, from: jsonData)
+//   let catchUpStatus = try? JSONDecoder().decode(CatchUpStatus.self, from: jsonData)
+//   let catchUpSurface = try? JSONDecoder().decode(CatchUpSurface.self, from: jsonData)
+//   let catchUpUrgency = try? JSONDecoder().decode(CatchUpUrgency.self, from: jsonData)
 //   let channel = try? JSONDecoder().decode(Channel.self, from: jsonData)
 //   let channelIdentity = try? JSONDecoder().decode(ChannelIdentity.self, from: jsonData)
 //   let channelRef = try? JSONDecoder().decode(ChannelRef.self, from: jsonData)
@@ -552,6 +562,9 @@
 //   let grantsListResult = try? JSONDecoder().decode(GrantsListResult.self, from: jsonData)
 //   let grantsRevokeParams = try? JSONDecoder().decode(GrantsRevokeParams.self, from: jsonData)
 //   let grantsRevokeResult = try? JSONDecoder().decode(GrantsRevokeResult.self, from: jsonData)
+//   let graphAnchor = try? JSONDecoder().decode(GraphAnchor.self, from: jsonData)
+//   let graphAnchorAddedBy = try? JSONDecoder().decode(GraphAnchorAddedBy.self, from: jsonData)
+//   let graphAnchorKind = try? JSONDecoder().decode(GraphAnchorKind.self, from: jsonData)
 //   let graphBlockKind = try? JSONDecoder().decode(GraphBlockKind.self, from: jsonData)
 //   let graphBlocklistEntry = try? JSONDecoder().decode(GraphBlocklistEntry.self, from: jsonData)
 //   let graphCitation = try? JSONDecoder().decode(GraphCitation.self, from: jsonData)
@@ -580,6 +593,7 @@
 //   let graphLoopStatus = try? JSONDecoder().decode(GraphLoopStatus.self, from: jsonData)
 //   let graphParticipantRole = try? JSONDecoder().decode(GraphParticipantRole.self, from: jsonData)
 //   let graphProjectStatus = try? JSONDecoder().decode(GraphProjectStatus.self, from: jsonData)
+//   let graphProjectType = try? JSONDecoder().decode(GraphProjectType.self, from: jsonData)
 //   let graphRelationshipLabel = try? JSONDecoder().decode(GraphRelationshipLabel.self, from: jsonData)
 //   let graphRemovedCounts = try? JSONDecoder().decode(GraphRemovedCounts.self, from: jsonData)
 //   let graphReviewState = try? JSONDecoder().decode(GraphReviewState.self, from: jsonData)
@@ -592,6 +606,10 @@
 //   let graphSuggestionFilter = try? JSONDecoder().decode(GraphSuggestionFilter.self, from: jsonData)
 //   let graphSuggestionKind = try? JSONDecoder().decode(GraphSuggestionKind.self, from: jsonData)
 //   let graphSuggestionStatus = try? JSONDecoder().decode(GraphSuggestionStatus.self, from: jsonData)
+//   let graphTimelineChip = try? JSONDecoder().decode(GraphTimelineChip.self, from: jsonData)
+//   let graphTimelineKind = try? JSONDecoder().decode(GraphTimelineKind.self, from: jsonData)
+//   let graphTimelineRow = try? JSONDecoder().decode(GraphTimelineRow.self, from: jsonData)
+//   let graphWorkStatus = try? JSONDecoder().decode(GraphWorkStatus.self, from: jsonData)
 //   let graphWriteSource = try? JSONDecoder().decode(GraphWriteSource.self, from: jsonData)
 //   let graphWriteSourceKind = try? JSONDecoder().decode(GraphWriteSourceKind.self, from: jsonData)
 //   let growthCard = try? JSONDecoder().decode(GrowthCard.self, from: jsonData)
@@ -694,6 +712,18 @@
 //   let meetingsRecordStatusParams = try? JSONDecoder().decode(MeetingsRecordStatusParams.self, from: jsonData)
 //   let meetingsRecordStopParams = try? JSONDecoder().decode(MeetingsRecordStopParams.self, from: jsonData)
 //   let memoTaskMode = try? JSONDecoder().decode(MemoTaskMode.self, from: jsonData)
+//   let memoryAnchorsAddParams = try? JSONDecoder().decode(MemoryAnchorsAddParams.self, from: jsonData)
+//   let memoryAnchorsAddResult = try? JSONDecoder().decode(MemoryAnchorsAddResult.self, from: jsonData)
+//   let memoryAnchorsListParams = try? JSONDecoder().decode(MemoryAnchorsListParams.self, from: jsonData)
+//   let memoryAnchorsListResult = try? JSONDecoder().decode(MemoryAnchorsListResult.self, from: jsonData)
+//   let memoryAnchorsRemoveParams = try? JSONDecoder().decode(MemoryAnchorsRemoveParams.self, from: jsonData)
+//   let memoryAnchorsRemoveResult = try? JSONDecoder().decode(MemoryAnchorsRemoveResult.self, from: jsonData)
+//   let memoryCatchupActParams = try? JSONDecoder().decode(MemoryCatchupActParams.self, from: jsonData)
+//   let memoryCatchupActResult = try? JSONDecoder().decode(MemoryCatchupActResult.self, from: jsonData)
+//   let memoryCatchupListParams = try? JSONDecoder().decode(MemoryCatchupListParams.self, from: jsonData)
+//   let memoryCatchupListResult = try? JSONDecoder().decode(MemoryCatchupListResult.self, from: jsonData)
+//   let memoryCatchupSeenParams = try? JSONDecoder().decode(MemoryCatchupSeenParams.self, from: jsonData)
+//   let memoryCatchupSeenResult = try? JSONDecoder().decode(MemoryCatchupSeenResult.self, from: jsonData)
 //   let memoryChangeSource = try? JSONDecoder().decode(MemoryChangeSource.self, from: jsonData)
 //   let memoryChunk = try? JSONDecoder().decode(MemoryChunk.self, from: jsonData)
 //   let memoryClaim = try? JSONDecoder().decode(MemoryClaim.self, from: jsonData)
@@ -736,6 +766,8 @@
 //   let memoryEntitiesSuggestionsAnswerResult = try? JSONDecoder().decode(MemoryEntitiesSuggestionsAnswerResult.self, from: jsonData)
 //   let memoryEntitiesSuggestionsParams = try? JSONDecoder().decode(MemoryEntitiesSuggestionsParams.self, from: jsonData)
 //   let memoryEntitiesSuggestionsResult = try? JSONDecoder().decode(MemoryEntitiesSuggestionsResult.self, from: jsonData)
+//   let memoryEntitiesTimelineParams = try? JSONDecoder().decode(MemoryEntitiesTimelineParams.self, from: jsonData)
+//   let memoryEntitiesTimelineResult = try? JSONDecoder().decode(MemoryEntitiesTimelineResult.self, from: jsonData)
 //   let memoryEntitiesUpdateParams = try? JSONDecoder().decode(MemoryEntitiesUpdateParams.self, from: jsonData)
 //   let memoryEntitiesUpdateResult = try? JSONDecoder().decode(MemoryEntitiesUpdateResult.self, from: jsonData)
 //   let memoryEntityUpdatedPayload = try? JSONDecoder().decode(MemoryEntityUpdatedPayload.self, from: jsonData)
@@ -844,9 +876,17 @@
 //   let memoryStoreState = try? JSONDecoder().decode(MemoryStoreState.self, from: jsonData)
 //   let memoryStoreStatus = try? JSONDecoder().decode(MemoryStoreStatus.self, from: jsonData)
 //   let memorySuggestionCreatedPayload = try? JSONDecoder().decode(MemorySuggestionCreatedPayload.self, from: jsonData)
+//   let memorySurface = try? JSONDecoder().decode(MemorySurface.self, from: jsonData)
+//   let memorySurfaceKinds = try? JSONDecoder().decode(MemorySurfaceKinds.self, from: jsonData)
+//   let memorySurfaceSwitches = try? JSONDecoder().decode(MemorySurfaceSwitches.self, from: jsonData)
+//   let memorySurfaceTiers = try? JSONDecoder().decode(MemorySurfaceTiers.self, from: jsonData)
+//   let memorySurfacesSettings = try? JSONDecoder().decode(MemorySurfacesSettings.self, from: jsonData)
 //   let memoryUpcomingParams = try? JSONDecoder().decode(MemoryUpcomingParams.self, from: jsonData)
 //   let memoryUpcomingResult = try? JSONDecoder().decode(MemoryUpcomingResult.self, from: jsonData)
 //   let memoryVectorMode = try? JSONDecoder().decode(MemoryVectorMode.self, from: jsonData)
+//   let memoryWorkFolders = try? JSONDecoder().decode(MemoryWorkFolders.self, from: jsonData)
+//   let memoryWorkRemind = try? JSONDecoder().decode(MemoryWorkRemind.self, from: jsonData)
+//   let memoryWorkSettings = try? JSONDecoder().decode(MemoryWorkSettings.self, from: jsonData)
 //   let memoryWriteMode = try? JSONDecoder().decode(MemoryWriteMode.self, from: jsonData)
 //   let memoryWriteParams = try? JSONDecoder().decode(MemoryWriteParams.self, from: jsonData)
 //   let memoryWriteResult = try? JSONDecoder().decode(MemoryWriteResult.self, from: jsonData)
@@ -10929,7 +10969,7 @@ public enum ContextBlockType: String, Codable, Sendable {
 
 // MARK: - CredentialUpdatedPayload
 public struct CredentialUpdatedPayload: Codable, Sendable {
-    public let change: Change
+    public let change: ChangeEnum
     public let credential: CredentialMeta?
     public let credentialID: String
     public let ownerConnectorID: String?
@@ -10941,7 +10981,7 @@ public struct CredentialUpdatedPayload: Codable, Sendable {
         case ownerConnectorID = "ownerConnectorId"
     }
 
-    public init(change: Change, credential: CredentialMeta?, credentialID: String, ownerConnectorID: String?) {
+    public init(change: ChangeEnum, credential: CredentialMeta?, credentialID: String, ownerConnectorID: String?) {
         self.change = change
         self.credential = credential
         self.credentialID = credentialID
@@ -10949,7 +10989,7 @@ public struct CredentialUpdatedPayload: Codable, Sendable {
     }
 }
 
-public enum Change: String, Codable, Sendable {
+public enum ChangeEnum: String, Codable, Sendable {
     case created = "created"
     case deleted = "deleted"
     case revoked = "revoked"
@@ -12596,6 +12636,7 @@ public struct DailySection: Codable, Sendable {
 
 public enum DailySectionID: String, Codable, Sendable {
     case calendar = "calendar"
+    case catchingUp = "catching_up"
     case comingUp = "coming_up"
     case dailySectionIDOpen = "open"
     case done = "done"
@@ -12606,6 +12647,7 @@ public enum DailySectionID: String, Codable, Sendable {
     case mail = "mail"
     case tomorrow = "tomorrow"
     case weather = "weather"
+    case workedOn = "worked_on"
 }
 
 // MARK: - InboxDigest
@@ -14629,6 +14671,7 @@ public enum GraphRelationshipLabel: String, Codable, Sendable {
 
 public enum GraphEdgeRel: String, Codable, Sendable {
     case about = "about"
+    case assignedBy = "assigned_by"
     case attended = "attended"
     case classmate = "classmate"
     case client = "client"
@@ -14647,6 +14690,7 @@ public enum GraphEdgeRel: String, Codable, Sendable {
     case roommate = "roommate"
     case stakeholderOf = "stakeholder_of"
     case studiedAt = "studied_at"
+    case teaches = "teaches"
     case vendor = "vendor"
     case worksAt = "works_at"
 }
@@ -14686,14 +14730,19 @@ public struct GraphEntity: Codable, Sendable {
     public let isOwner: Bool
     public let kind: GraphEntityKind
     public let lastInteractionAt: String?
+    public let lastSignalAt: String?
     public let mergedInto: String?
     public let name: String
     public let pinned: Bool
+    /// Keep private: shown on its Memory page only, never on a surface (§4)
+    public let graphEntityPrivate: Bool?
     public let projectStatus: GraphProjectStatus?
+    public let projectType: GraphProjectType?
     public let status: GraphEntityStatus
     public let summary: String?
     public let summaryAt: String?
     public let updatedAt: String
+    public let workStatus: GraphWorkStatus?
 
     public enum CodingKeys: String, CodingKey {
         case aliases = "aliases"
@@ -14705,17 +14754,21 @@ public struct GraphEntity: Codable, Sendable {
         case isOwner = "isOwner"
         case kind = "kind"
         case lastInteractionAt = "lastInteractionAt"
+        case lastSignalAt = "lastSignalAt"
         case mergedInto = "mergedInto"
         case name = "name"
         case pinned = "pinned"
+        case graphEntityPrivate = "private"
         case projectStatus = "projectStatus"
+        case projectType = "projectType"
         case status = "status"
         case summary = "summary"
         case summaryAt = "summaryAt"
         case updatedAt = "updatedAt"
+        case workStatus = "workStatus"
     }
 
-    public init(aliases: [String], cardPath: String?, createdAt: String, dueAt: String?, hidden: Bool, id: String, isOwner: Bool, kind: GraphEntityKind, lastInteractionAt: String?, mergedInto: String?, name: String, pinned: Bool, projectStatus: GraphProjectStatus?, status: GraphEntityStatus, summary: String?, summaryAt: String?, updatedAt: String) {
+    public init(aliases: [String], cardPath: String?, createdAt: String, dueAt: String?, hidden: Bool, id: String, isOwner: Bool, kind: GraphEntityKind, lastInteractionAt: String?, lastSignalAt: String?, mergedInto: String?, name: String, pinned: Bool, graphEntityPrivate: Bool?, projectStatus: GraphProjectStatus?, projectType: GraphProjectType?, status: GraphEntityStatus, summary: String?, summaryAt: String?, updatedAt: String, workStatus: GraphWorkStatus?) {
         self.aliases = aliases
         self.cardPath = cardPath
         self.createdAt = createdAt
@@ -14725,20 +14778,25 @@ public struct GraphEntity: Codable, Sendable {
         self.isOwner = isOwner
         self.kind = kind
         self.lastInteractionAt = lastInteractionAt
+        self.lastSignalAt = lastSignalAt
         self.mergedInto = mergedInto
         self.name = name
         self.pinned = pinned
+        self.graphEntityPrivate = graphEntityPrivate
         self.projectStatus = projectStatus
+        self.projectType = projectType
         self.status = status
         self.summary = summary
         self.summaryAt = summaryAt
         self.updatedAt = updatedAt
+        self.workStatus = workStatus
     }
 }
 
-/// person, organisation, project, place, event (dated, may recur) or topic (a lightweight
-/// label)
+/// person, organisation, project (or course), place, event (dated, may recur), topic (a
+/// lightweight label) or assignment (one deliverable with a due date)
 public enum GraphEntityKind: String, Codable, Sendable {
+    case assignment = "assignment"
     case event = "event"
     case org = "org"
     case person = "person"
@@ -14747,10 +14805,23 @@ public enum GraphEntityKind: String, Codable, Sendable {
     case topic = "topic"
 }
 
+public enum GraphProjectType: String, Codable, Sendable {
+    case course = "course"
+    case project = "project"
+}
+
 public enum GraphEntityStatus: String, Codable, Sendable {
     case active = "active"
     case archived = "archived"
     case merged = "merged"
+}
+
+public enum GraphWorkStatus: String, Codable, Sendable {
+    case done = "done"
+    case dropped = "dropped"
+    case inProgress = "in_progress"
+    case notStarted = "not_started"
+    case submitted = "submitted"
 }
 
 // MARK: - GraphFact
@@ -14828,10 +14899,12 @@ public struct GraphFact: Codable, Sendable {
 public enum GraphFactAttribute: String, Codable, Sendable {
     case anniversary = "anniversary"
     case birthday = "birthday"
+    case blockedOn = "blocked_on"
     case budgetNote = "budget_note"
     case childrenNames = "children_names"
     case city = "city"
     case contactPref = "contact_pref"
+    case courseCode = "course_code"
     case deadline = "deadline"
     case diet = "diet"
     case dislikes = "dislikes"
@@ -14842,17 +14915,21 @@ public enum GraphFactAttribute: String, Codable, Sendable {
     case languages = "languages"
     case lifeEvent = "life_event"
     case likes = "likes"
+    case meets = "meets"
     case nextStep = "next_step"
     case note = "note"
     case partnerName = "partner_name"
     case petNames = "pet_names"
     case preference = "preference"
+    case progress = "progress"
     case pronouns = "pronouns"
     case relationshipToOwner = "relationship_to_owner"
     case role = "role"
     case school = "school"
     case status = "status"
+    case stoppedAt = "stopped_at"
     case team = "team"
+    case term = "term"
     case timezone = "timezone"
     case title = "title"
 }
@@ -14931,6 +15008,7 @@ public enum GraphIdentifierKind: String, Codable, Sendable {
 // MARK: - GraphInteraction
 public struct GraphInteraction: Codable, Sendable {
     public let direction: GraphDirection
+    public let gist: String?
     public let id: String
     public let kind: GraphInteractionKind
     public let link: String?
@@ -14944,6 +15022,7 @@ public struct GraphInteraction: Codable, Sendable {
 
     public enum CodingKeys: String, CodingKey {
         case direction = "direction"
+        case gist = "gist"
         case id = "id"
         case kind = "kind"
         case link = "link"
@@ -14955,8 +15034,9 @@ public struct GraphInteraction: Codable, Sendable {
         case threadKey = "threadKey"
     }
 
-    public init(direction: GraphDirection, id: String, kind: GraphInteractionKind, link: String?, occurredAt: String, participants: [Participant], projectID: String?, source: String, subject: String?, threadKey: String?) {
+    public init(direction: GraphDirection, gist: String?, id: String, kind: GraphInteractionKind, link: String?, occurredAt: String, participants: [Participant], projectID: String?, source: String, subject: String?, threadKey: String?) {
         self.direction = direction
+        self.gist = gist
         self.id = id
         self.kind = kind
         self.link = link
@@ -14979,11 +15059,14 @@ public enum GraphDirection: String, Codable, Sendable {
 public enum GraphInteractionKind: String, Codable, Sendable {
     case call = "call"
     case chat = "chat"
+    case file = "file"
     case mail = "mail"
     case meeting = "meeting"
     case message = "message"
     case note = "note"
+    case reminder = "reminder"
     case task = "task"
+    case work = "work"
 }
 
 // MARK: - Participant
@@ -15013,6 +15096,7 @@ public enum GraphParticipantRole: String, Codable, Sendable {
 
 // MARK: - EntitySummary
 public struct EntitySummary: Codable, Sendable {
+    public let dueAt: String?
     public let id: String
     public let isOwner: Bool
     public let kind: GraphEntityKind
@@ -15020,12 +15104,16 @@ public struct EntitySummary: Codable, Sendable {
     public let name: String
     public let openLoops: Int
     public let pinned: Bool
+    public let entitySummaryPrivate: Bool?
     public let projectStatus: GraphProjectStatus?
+    public let projectType: GraphProjectType?
     public let status: GraphEntityStatus
     public let subtitle: String?
     public let summary: String?
+    public let workStatus: GraphWorkStatus?
 
     public enum CodingKeys: String, CodingKey {
+        case dueAt = "dueAt"
         case id = "id"
         case isOwner = "isOwner"
         case kind = "kind"
@@ -15033,13 +15121,17 @@ public struct EntitySummary: Codable, Sendable {
         case name = "name"
         case openLoops = "openLoops"
         case pinned = "pinned"
+        case entitySummaryPrivate = "private"
         case projectStatus = "projectStatus"
+        case projectType = "projectType"
         case status = "status"
         case subtitle = "subtitle"
         case summary = "summary"
+        case workStatus = "workStatus"
     }
 
-    public init(id: String, isOwner: Bool, kind: GraphEntityKind, lastInteractionAt: String?, name: String, openLoops: Int, pinned: Bool, projectStatus: GraphProjectStatus?, status: GraphEntityStatus, subtitle: String?, summary: String?) {
+    public init(dueAt: String?, id: String, isOwner: Bool, kind: GraphEntityKind, lastInteractionAt: String?, name: String, openLoops: Int, pinned: Bool, entitySummaryPrivate: Bool?, projectStatus: GraphProjectStatus?, projectType: GraphProjectType?, status: GraphEntityStatus, subtitle: String?, summary: String?, workStatus: GraphWorkStatus?) {
+        self.dueAt = dueAt
         self.id = id
         self.isOwner = isOwner
         self.kind = kind
@@ -15047,10 +15139,13 @@ public struct EntitySummary: Codable, Sendable {
         self.name = name
         self.openLoops = openLoops
         self.pinned = pinned
+        self.entitySummaryPrivate = entitySummaryPrivate
         self.projectStatus = projectStatus
+        self.projectType = projectType
         self.status = status
         self.subtitle = subtitle
         self.summary = summary
+        self.workStatus = workStatus
     }
 }
 
@@ -17236,6 +17331,448 @@ public struct MeetingsRecordStopParams: Codable, Sendable {
     }
 }
 
+// MARK: - MemoryAnchorsAddParams
+public struct MemoryAnchorsAddParams: Codable, Sendable {
+    public let entityID: String
+    public let kind: GraphAnchorKind
+    public let label: String?
+    public let ref: String
+
+    public enum CodingKeys: String, CodingKey {
+        case entityID = "entityId"
+        case kind = "kind"
+        case label = "label"
+        case ref = "ref"
+    }
+
+    public init(entityID: String, kind: GraphAnchorKind, label: String?, ref: String) {
+        self.entityID = entityID
+        self.kind = kind
+        self.label = label
+        self.ref = ref
+    }
+}
+
+public enum GraphAnchorKind: String, Codable, Sendable {
+    case calendar = "calendar"
+    case calendarSeries = "calendar_series"
+    case chatThread = "chat_thread"
+    case file = "file"
+    case folder = "folder"
+    case libraryItem = "library_item"
+    case mailThread = "mail_thread"
+    case note = "note"
+    case noteFolder = "note_folder"
+    case reminder = "reminder"
+    case reminderList = "reminder_list"
+    case repo = "repo"
+}
+
+// MARK: - MemoryAnchorsAddResult
+public struct MemoryAnchorsAddResult: Codable, Sendable {
+    public let anchor: GraphAnchor
+
+    public enum CodingKeys: String, CodingKey {
+        case anchor = "anchor"
+    }
+
+    public init(anchor: GraphAnchor) {
+        self.anchor = anchor
+    }
+}
+
+// MARK: - GraphAnchor
+public struct GraphAnchor: Codable, Sendable {
+    public let addedBy: GraphLoopDetectedBy
+    /// Model anchors route nothing until this is true
+    public let confirmed: Bool
+    public let createdAt: String
+    public let entityID: String
+    public let id: String
+    public let kind: GraphAnchorKind
+    /// Display name; third-party text is data
+    public let label: String
+    /// Path, thread key, calendar or reminder list id, note id or repo path
+    public let ref: String
+
+    public enum CodingKeys: String, CodingKey {
+        case addedBy = "addedBy"
+        case confirmed = "confirmed"
+        case createdAt = "createdAt"
+        case entityID = "entityId"
+        case id = "id"
+        case kind = "kind"
+        case label = "label"
+        case ref = "ref"
+    }
+
+    public init(addedBy: GraphLoopDetectedBy, confirmed: Bool, createdAt: String, entityID: String, id: String, kind: GraphAnchorKind, label: String, ref: String) {
+        self.addedBy = addedBy
+        self.confirmed = confirmed
+        self.createdAt = createdAt
+        self.entityID = entityID
+        self.id = id
+        self.kind = kind
+        self.label = label
+        self.ref = ref
+    }
+}
+
+// MARK: - MemoryAnchorsListParams
+public struct MemoryAnchorsListParams: Codable, Sendable {
+    public let entityID: String?
+    public let kind: GraphAnchorKind?
+
+    public enum CodingKeys: String, CodingKey {
+        case entityID = "entityId"
+        case kind = "kind"
+    }
+
+    public init(entityID: String?, kind: GraphAnchorKind?) {
+        self.entityID = entityID
+        self.kind = kind
+    }
+}
+
+// MARK: - MemoryAnchorsListResult
+public struct MemoryAnchorsListResult: Codable, Sendable {
+    public let anchors: [GraphAnchor]
+
+    public enum CodingKeys: String, CodingKey {
+        case anchors = "anchors"
+    }
+
+    public init(anchors: [GraphAnchor]) {
+        self.anchors = anchors
+    }
+}
+
+// MARK: - MemoryAnchorsRemoveParams
+public struct MemoryAnchorsRemoveParams: Codable, Sendable {
+    public let id: String
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+    }
+
+    public init(id: String) {
+        self.id = id
+    }
+}
+
+// MARK: - MemoryAnchorsRemoveResult
+public struct MemoryAnchorsRemoveResult: Codable, Sendable {
+    public let removed: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case removed = "removed"
+    }
+
+    public init(removed: Bool) {
+        self.removed = removed
+    }
+}
+
+// MARK: - MemoryCatchupActParams
+public struct MemoryCatchupActParams: Codable, Sendable {
+    public let action: CatchUpActAction
+    public let entityID: String
+    public let until: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case action = "action"
+        case entityID = "entityId"
+        case until = "until"
+    }
+
+    public init(action: CatchUpActAction, entityID: String, until: String?) {
+        self.action = action
+        self.entityID = entityID
+        self.until = until
+    }
+}
+
+/// done / submitted / drop set the status; snooze hides it until `until`; still_working
+/// answers a past-due ask (optionally with a new due date in `until`)
+public enum CatchUpActAction: String, Codable, Sendable {
+    case done = "done"
+    case drop = "drop"
+    case snooze = "snooze"
+    case stillWorking = "still_working"
+    case submitted = "submitted"
+}
+
+// MARK: - MemoryCatchupActResult
+public struct MemoryCatchupActResult: Codable, Sendable {
+    public let entity: GraphEntity
+
+    public enum CodingKeys: String, CodingKey {
+        case entity = "entity"
+    }
+
+    public init(entity: GraphEntity) {
+        self.entity = entity
+    }
+}
+
+// MARK: - MemoryCatchupListParams
+public struct MemoryCatchupListParams: Codable, Sendable {
+    public let limit: Int?
+    public let surface: CatchUpSurface
+
+    public enum CodingKeys: String, CodingKey {
+        case limit = "limit"
+        case surface = "surface"
+    }
+
+    public init(limit: Int?, surface: CatchUpSurface) {
+        self.limit = limit
+        self.surface = surface
+    }
+}
+
+public enum CatchUpSurface: String, Codable, Sendable {
+    case brief = "brief"
+    case home = "home"
+}
+
+// MARK: - MemoryCatchupListResult
+public struct MemoryCatchupListResult: Codable, Sendable {
+    public let asOf: String
+    /// Lines the agent may not see (agentAccess) when it is the caller
+    public let hiddenCount: Int
+    public let items: [CatchUpItem]
+    /// Work suggestions waiting for the owner; counted, never listed
+    public let pendingCount: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case asOf = "asOf"
+        case hiddenCount = "hiddenCount"
+        case items = "items"
+        case pendingCount = "pendingCount"
+    }
+
+    public init(asOf: String, hiddenCount: Int, items: [CatchUpItem], pendingCount: Int) {
+        self.asOf = asOf
+        self.hiddenCount = hiddenCount
+        self.items = items
+        self.pendingCount = pendingCount
+    }
+}
+
+// MARK: - CatchUpItem
+public struct CatchUpItem: Codable, Sendable {
+    public let actions: [CatchUpAction]
+    public let changes: [CatchUpChange]
+    public let dueAt: String?
+    public let entityID: String
+    public let kind: CatchUpItemKind
+    /// The §5.3 template, already filtered
+    public let line: String
+    public let parent: Parent?
+    public let provenance: Provenance
+    public let resume: CatchUpResume?
+    public let stale: Bool
+    public let status: CatchUpStatus
+    public let statusAsOf: String
+    public let title: String
+    public let titleProvenance: Provenance
+    public let urgency: CatchUpUrgency
+
+    public enum CodingKeys: String, CodingKey {
+        case actions = "actions"
+        case changes = "changes"
+        case dueAt = "dueAt"
+        case entityID = "entityId"
+        case kind = "kind"
+        case line = "line"
+        case parent = "parent"
+        case provenance = "provenance"
+        case resume = "resume"
+        case stale = "stale"
+        case status = "status"
+        case statusAsOf = "statusAsOf"
+        case title = "title"
+        case titleProvenance = "titleProvenance"
+        case urgency = "urgency"
+    }
+
+    public init(actions: [CatchUpAction], changes: [CatchUpChange], dueAt: String?, entityID: String, kind: CatchUpItemKind, line: String, parent: Parent?, provenance: Provenance, resume: CatchUpResume?, stale: Bool, status: CatchUpStatus, statusAsOf: String, title: String, titleProvenance: Provenance, urgency: CatchUpUrgency) {
+        self.actions = actions
+        self.changes = changes
+        self.dueAt = dueAt
+        self.entityID = entityID
+        self.kind = kind
+        self.line = line
+        self.parent = parent
+        self.provenance = provenance
+        self.resume = resume
+        self.stale = stale
+        self.status = status
+        self.statusAsOf = statusAsOf
+        self.title = title
+        self.titleProvenance = titleProvenance
+        self.urgency = urgency
+    }
+}
+
+public enum CatchUpAction: String, Codable, Sendable {
+    case catchUpActionContinue = "continue"
+    case catchUpActionOpen = "open"
+    case confirm = "confirm"
+    case done = "done"
+    case snooze = "snooze"
+}
+
+// MARK: - CatchUpChange
+public struct CatchUpChange: Codable, Sendable {
+    public let at: String
+    public let citationID: String?
+    public let provenance: Provenance
+    public let source: GraphCitationSource
+    /// Quoted, cleaned data
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case at = "at"
+        case citationID = "citationId"
+        case provenance = "provenance"
+        case source = "source"
+        case text = "text"
+    }
+
+    public init(at: String, citationID: String?, provenance: Provenance, source: GraphCitationSource, text: String) {
+        self.at = at
+        self.citationID = citationID
+        self.provenance = provenance
+        self.source = source
+        self.text = text
+    }
+}
+
+public enum GraphCitationSource: String, Codable, Sendable {
+    case browser = "browser"
+    case calendar = "calendar"
+    case chats = "chats"
+    case contacts = "contacts"
+    case files = "files"
+    case mail = "mail"
+    case messages = "messages"
+    case notes = "notes"
+    case reminders = "reminders"
+    case transcripts = "transcripts"
+}
+
+public enum CatchUpItemKind: String, Codable, Sendable {
+    case assignment = "assignment"
+    case event = "event"
+    case project = "project"
+}
+
+// MARK: - Parent
+public struct Parent: Codable, Sendable {
+    public let id: String
+    public let name: String
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case name = "name"
+    }
+
+    public init(id: String, name: String) {
+        self.id = id
+        self.name = name
+    }
+}
+
+// MARK: - CatchUpResume
+public struct CatchUpResume: Codable, Sendable {
+    public let at: String
+    public let catchUpResumeOpen: Open
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case at = "at"
+        case catchUpResumeOpen = "open"
+        case text = "text"
+    }
+
+    public init(at: String, catchUpResumeOpen: Open, text: String) {
+        self.at = at
+        self.catchUpResumeOpen = catchUpResumeOpen
+        self.text = text
+    }
+}
+
+// MARK: - Open
+public struct Open: Codable, Sendable {
+    public let kind: CatchUpResumeKind
+    public let ref: String
+
+    public enum CodingKeys: String, CodingKey {
+        case kind = "kind"
+        case ref = "ref"
+    }
+
+    public init(kind: CatchUpResumeKind, ref: String) {
+        self.kind = kind
+        self.ref = ref
+    }
+}
+
+public enum CatchUpResumeKind: String, Codable, Sendable {
+    case chat = "chat"
+    case file = "file"
+    case library = "library"
+    case thread = "thread"
+}
+
+public enum CatchUpStatus: String, Codable, Sendable {
+    case active = "active"
+    case blocked = "blocked"
+    case done = "done"
+    case dropped = "dropped"
+    case inProgress = "in_progress"
+    case notStarted = "not_started"
+    case overdue = "overdue"
+    case paused = "paused"
+    case submitted = "submitted"
+}
+
+public enum CatchUpUrgency: String, Codable, Sendable {
+    case later = "later"
+    case none = "none"
+    case overdue = "overdue"
+    case soon = "soon"
+    case today = "today"
+}
+
+// MARK: - MemoryCatchupSeenParams
+public struct MemoryCatchupSeenParams: Codable, Sendable {
+    public let entityIDS: [String]
+
+    public enum CodingKeys: String, CodingKey {
+        case entityIDS = "entityIds"
+    }
+
+    public init(entityIDS: [String]) {
+        self.entityIDS = entityIDS
+    }
+}
+
+// MARK: - MemoryCatchupSeenResult
+public struct MemoryCatchupSeenResult: Codable, Sendable {
+    public let seen: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case seen = "seen"
+    }
+
+    public init(seen: Int) {
+        self.seen = seen
+    }
+}
+
 // MARK: - MemoryClaimsConfirmParams
 public struct MemoryClaimsConfirmParams: Codable, Sendable {
     public let claimID: String
@@ -17391,27 +17928,37 @@ public struct Note: Codable, Sendable {
 public struct MemoryEntitiesCreateParams: Codable, Sendable {
     /// Other names
     public let aliases: [String]?
+    public let dueAt: String?
     /// Emails, phones, handles; refused if another entity has one
     public let identifiers: [MemoryEntitiesCreateParamsIdentifier]?
     public let kind: GraphEntityKind
     /// Display name
     public let name: String
+    /// Keep private: shown on its Memory page only
+    public let memoryEntitiesCreateParamsPrivate: Bool?
     public let projectStatus: GraphProjectStatus?
+    public let projectType: GraphProjectType?
 
     public enum CodingKeys: String, CodingKey {
         case aliases = "aliases"
+        case dueAt = "dueAt"
         case identifiers = "identifiers"
         case kind = "kind"
         case name = "name"
+        case memoryEntitiesCreateParamsPrivate = "private"
         case projectStatus = "projectStatus"
+        case projectType = "projectType"
     }
 
-    public init(aliases: [String]?, identifiers: [MemoryEntitiesCreateParamsIdentifier]?, kind: GraphEntityKind, name: String, projectStatus: GraphProjectStatus?) {
+    public init(aliases: [String]?, dueAt: String?, identifiers: [MemoryEntitiesCreateParamsIdentifier]?, kind: GraphEntityKind, name: String, memoryEntitiesCreateParamsPrivate: Bool?, projectStatus: GraphProjectStatus?, projectType: GraphProjectType?) {
         self.aliases = aliases
+        self.dueAt = dueAt
         self.identifiers = identifiers
         self.kind = kind
         self.name = name
+        self.memoryEntitiesCreateParamsPrivate = memoryEntitiesCreateParamsPrivate
         self.projectStatus = projectStatus
+        self.projectType = projectType
     }
 }
 
@@ -18063,37 +18610,45 @@ public struct MemoryEntitiesSuggestionsAnswerResult: Codable, Sendable {
 // MARK: - GraphSuggestion
 public struct GraphSuggestion: Codable, Sendable {
     public let createdAt: String
-    /// merge: the entities; project: the proposed members
+    public let dueAt: String?
+    /// merge: the entities; project: the proposed members; assignment: the parent project or
+    /// course, if any
     public let entityIDS: [String]
     public let id: String
     public let kind: GraphSuggestionKind
     public let name: String?
+    public let projectType: GraphProjectType?
     /// Why it was suggested, in plain words
     public let reason: String
     public let status: GraphSuggestionStatus
 
     public enum CodingKeys: String, CodingKey {
         case createdAt = "createdAt"
+        case dueAt = "dueAt"
         case entityIDS = "entityIds"
         case id = "id"
         case kind = "kind"
         case name = "name"
+        case projectType = "projectType"
         case reason = "reason"
         case status = "status"
     }
 
-    public init(createdAt: String, entityIDS: [String], id: String, kind: GraphSuggestionKind, name: String?, reason: String, status: GraphSuggestionStatus) {
+    public init(createdAt: String, dueAt: String?, entityIDS: [String], id: String, kind: GraphSuggestionKind, name: String?, projectType: GraphProjectType?, reason: String, status: GraphSuggestionStatus) {
         self.createdAt = createdAt
+        self.dueAt = dueAt
         self.entityIDS = entityIDS
         self.id = id
         self.kind = kind
         self.name = name
+        self.projectType = projectType
         self.reason = reason
         self.status = status
     }
 }
 
 public enum GraphSuggestionKind: String, Codable, Sendable {
+    case assignment = "assignment"
     case merge = "merge"
     case project = "project"
 }
@@ -18137,10 +18692,134 @@ public struct MemoryEntitiesSuggestionsResult: Codable, Sendable {
     }
 }
 
+// MARK: - MemoryEntitiesTimelineParams
+public struct MemoryEntitiesTimelineParams: Codable, Sendable {
+    public let before: String?
+    public let entityID: String
+    /// Default 50
+    public let limit: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case before = "before"
+        case entityID = "entityId"
+        case limit = "limit"
+    }
+
+    public init(before: String?, entityID: String, limit: Int?) {
+        self.before = before
+        self.entityID = entityID
+        self.limit = limit
+    }
+}
+
+// MARK: - MemoryEntitiesTimelineResult
+public struct MemoryEntitiesTimelineResult: Codable, Sendable {
+    public let nextBefore: String?
+    public let rows: [GraphTimelineRow]
+
+    public enum CodingKeys: String, CodingKey {
+        case nextBefore = "nextBefore"
+        case rows = "rows"
+    }
+
+    public init(nextBefore: String?, rows: [GraphTimelineRow]) {
+        self.nextBefore = nextBefore
+        self.rows = rows
+    }
+}
+
+// MARK: - GraphTimelineRow
+public struct GraphTimelineRow: Codable, Sendable {
+    public let at: String
+    public let change: ChangeClass?
+    public let chip: GraphTimelineChip?
+    public let entityID: String
+    public let id: String
+    public let interactionKind: GraphInteractionKind?
+    public let kind: GraphTimelineKind
+    public let provenance: Provenance
+    /// Built from templates; titles are data
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case at = "at"
+        case change = "change"
+        case chip = "chip"
+        case entityID = "entityId"
+        case id = "id"
+        case interactionKind = "interactionKind"
+        case kind = "kind"
+        case provenance = "provenance"
+        case text = "text"
+    }
+
+    public init(at: String, change: ChangeClass?, chip: GraphTimelineChip?, entityID: String, id: String, interactionKind: GraphInteractionKind?, kind: GraphTimelineKind, provenance: Provenance, text: String) {
+        self.at = at
+        self.change = change
+        self.chip = chip
+        self.entityID = entityID
+        self.id = id
+        self.interactionKind = interactionKind
+        self.kind = kind
+        self.provenance = provenance
+        self.text = text
+    }
+}
+
+// MARK: - ChangeClass
+public struct ChangeClass: Codable, Sendable {
+    public let attribute: GraphFactAttribute
+    public let from: String?
+    public let to: String
+
+    public enum CodingKeys: String, CodingKey {
+        case attribute = "attribute"
+        case from = "from"
+        case to = "to"
+    }
+
+    public init(attribute: GraphFactAttribute, from: String?, to: String) {
+        self.attribute = attribute
+        self.from = from
+        self.to = to
+    }
+}
+
+// MARK: - GraphTimelineChip
+public struct GraphTimelineChip: Codable, Sendable {
+    public let citationID: String?
+    /// Sender, list or file name: data
+    public let label: String
+    public let link: String?
+    public let source: GraphCitationSource
+
+    public enum CodingKeys: String, CodingKey {
+        case citationID = "citationId"
+        case label = "label"
+        case link = "link"
+        case source = "source"
+    }
+
+    public init(citationID: String?, label: String, link: String?, source: GraphCitationSource) {
+        self.citationID = citationID
+        self.label = label
+        self.link = link
+        self.source = source
+    }
+}
+
+public enum GraphTimelineKind: String, Codable, Sendable {
+    case fact = "fact"
+    case interaction = "interaction"
+    case loop = "loop"
+}
+
 // MARK: - MemoryEntitiesUpdateParams
 public struct MemoryEntitiesUpdateParams: Codable, Sendable {
     /// Replaces aliases
     public let aliases: [String]?
+    /// null clears it
+    public let dueAt: String?
     /// If-match on the card
     public let etag: String?
     /// Don't track: block new data about them
@@ -18150,28 +18829,37 @@ public struct MemoryEntitiesUpdateParams: Codable, Sendable {
     public let name: String?
     /// Keep at the top and in nightly passes
     public let pinned: Bool?
+    /// Keep private: shown on its Memory page only
+    public let memoryEntitiesUpdateParamsPrivate: Bool?
     public let projectStatus: GraphProjectStatus?
+    public let projectType: GraphProjectType?
     public let status: GraphEntityStatus?
 
     public enum CodingKeys: String, CodingKey {
         case aliases = "aliases"
+        case dueAt = "dueAt"
         case etag = "etag"
         case hidden = "hidden"
         case id = "id"
         case name = "name"
         case pinned = "pinned"
+        case memoryEntitiesUpdateParamsPrivate = "private"
         case projectStatus = "projectStatus"
+        case projectType = "projectType"
         case status = "status"
     }
 
-    public init(aliases: [String]?, etag: String?, hidden: Bool?, id: String, name: String?, pinned: Bool?, projectStatus: GraphProjectStatus?, status: GraphEntityStatus?) {
+    public init(aliases: [String]?, dueAt: String?, etag: String?, hidden: Bool?, id: String, name: String?, pinned: Bool?, memoryEntitiesUpdateParamsPrivate: Bool?, projectStatus: GraphProjectStatus?, projectType: GraphProjectType?, status: GraphEntityStatus?) {
         self.aliases = aliases
+        self.dueAt = dueAt
         self.etag = etag
         self.hidden = hidden
         self.id = id
         self.name = name
         self.pinned = pinned
+        self.memoryEntitiesUpdateParamsPrivate = memoryEntitiesUpdateParamsPrivate
         self.projectStatus = projectStatus
+        self.projectType = projectType
         self.status = status
     }
 }
@@ -19648,19 +20336,6 @@ public enum QuarantineReason: String, Codable, Sendable {
     case tooManyClaims = "too_many_claims"
 }
 
-public enum GraphCitationSource: String, Codable, Sendable {
-    case browser = "browser"
-    case calendar = "calendar"
-    case chats = "chats"
-    case contacts = "contacts"
-    case files = "files"
-    case mail = "mail"
-    case messages = "messages"
-    case notes = "notes"
-    case reminders = "reminders"
-    case transcripts = "transcripts"
-}
-
 // MARK: - MemoryQuarantineListParams
 public struct MemoryQuarantineListParams: Codable, Sendable {
     /// Opaque cursor
@@ -20422,6 +21097,107 @@ public struct MemorySuggestionCreatedPayload: Codable, Sendable {
     }
 }
 
+public enum MemorySurface: String, Codable, Sendable {
+    case brief = "brief"
+    case channel = "channel"
+    case home = "home"
+    case notification = "notification"
+}
+
+// MARK: - MemorySurfacesSettings
+public struct MemorySurfacesSettings: Codable, Sendable {
+    /// Dates of birthdays and anniversaries in the brief's Coming up and on Home (W1); never in
+    /// notifications
+    public let birthdays: Bool
+    /// Never show anything learned from these sources outside Memory
+    public let hideSources: [GraphCitationSource]
+    public let kinds: MemorySurfaceKinds
+    public let tiers: MemorySurfaceTiers
+
+    public enum CodingKeys: String, CodingKey {
+        case birthdays = "birthdays"
+        case hideSources = "hideSources"
+        case kinds = "kinds"
+        case tiers = "tiers"
+    }
+
+    public init(birthdays: Bool, hideSources: [GraphCitationSource], kinds: MemorySurfaceKinds, tiers: MemorySurfaceTiers) {
+        self.birthdays = birthdays
+        self.hideSources = hideSources
+        self.kinds = kinds
+        self.tiers = tiers
+    }
+}
+
+/// Turn a whole kind off on every surface
+// MARK: - MemorySurfaceKinds
+public struct MemorySurfaceKinds: Codable, Sendable {
+    public let assignment: Bool
+    public let course: Bool
+    public let event: Bool
+    public let project: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case assignment = "assignment"
+        case course = "course"
+        case event = "event"
+        case project = "project"
+    }
+
+    public init(assignment: Bool, course: Bool, event: Bool, project: Bool) {
+        self.assignment = assignment
+        self.course = course
+        self.event = event
+        self.project = project
+    }
+}
+
+/// work: projects, courses, assignments and the owner's own calendars; workMail: subjects of
+/// mail tied to tracked work (W2); people: facts, gists and relations about other people
+// MARK: - MemorySurfaceTiers
+public struct MemorySurfaceTiers: Codable, Sendable {
+    public let people: MemorySurfaceSwitches
+    public let work: MemorySurfaceSwitches
+    public let workMail: MemorySurfaceSwitches
+
+    public enum CodingKeys: String, CodingKey {
+        case people = "people"
+        case work = "work"
+        case workMail = "workMail"
+    }
+
+    public init(people: MemorySurfaceSwitches, work: MemorySurfaceSwitches, workMail: MemorySurfaceSwitches) {
+        self.people = people
+        self.work = work
+        self.workMail = workMail
+    }
+}
+
+// MARK: - MemorySurfaceSwitches
+public struct MemorySurfaceSwitches: Codable, Sendable {
+    public let brief: Bool
+    /// The brief delivered to Telegram and other channels
+    public let channel: Bool
+    public let home: Bool
+    /// Work tier: titles only for owner-provenance items, otherwise a count ("1 assignment due
+    /// tomorrow")
+    public let notification: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case brief = "brief"
+        case channel = "channel"
+        case home = "home"
+        case notification = "notification"
+    }
+
+    public init(brief: Bool, channel: Bool, home: Bool, notification: Bool) {
+        self.brief = brief
+        self.channel = channel
+        self.home = home
+        self.notification = notification
+    }
+}
+
 // MARK: - MemoryUpcomingParams
 public struct MemoryUpcomingParams: Codable, Sendable {
     /// Default 14
@@ -20492,6 +21268,69 @@ public enum ComingUpKind: String, Codable, Sendable {
     case anniversary = "anniversary"
     case birthday = "birthday"
     case event = "event"
+}
+
+// MARK: - MemoryWorkSettings
+public struct MemoryWorkSettings: Codable, Sendable {
+    public let anchorsFromFolders: MemoryWorkFolders
+    /// Ask once at wrap-up where the owner stopped
+    public let askWhereStopped: Bool
+    public let consentedAt: String?
+    /// Off until the owner consents; turning it on shows a one-screen card
+    public let enabled: Bool
+    public let remind: MemoryWorkRemind
+    /// Reminders list id to the project or course it feeds
+    public let trackedLists: [String: String]
+
+    public enum CodingKeys: String, CodingKey {
+        case anchorsFromFolders = "anchorsFromFolders"
+        case askWhereStopped = "askWhereStopped"
+        case consentedAt = "consentedAt"
+        case enabled = "enabled"
+        case remind = "remind"
+        case trackedLists = "trackedLists"
+    }
+
+    public init(anchorsFromFolders: MemoryWorkFolders, askWhereStopped: Bool, consentedAt: String?, enabled: Bool, remind: MemoryWorkRemind, trackedLists: [String: String]) {
+        self.anchorsFromFolders = anchorsFromFolders
+        self.askWhereStopped = askWhereStopped
+        self.consentedAt = consentedAt
+        self.enabled = enabled
+        self.remind = remind
+        self.trackedLists = trackedLists
+    }
+}
+
+/// anchored_only: only folders linked to a project or course; all_granted: every granted
+/// folder, matched by name
+public enum MemoryWorkFolders: String, Codable, Sendable {
+    case allGranted = "all_granted"
+    case anchoredOnly = "anchored_only"
+}
+
+// MARK: - MemoryWorkRemind
+public struct MemoryWorkRemind: Codable, Sendable {
+    /// "wrapup" (18:00 by default) or a local time HH:MM
+    public let at: String
+    /// A separate morning notification for things due today, off (W4)
+    public let dayOf: Bool
+    public let dueSoonHours: Int
+    /// Due-soon notification, off by default (W4)
+    public let enabled: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case at = "at"
+        case dayOf = "dayOf"
+        case dueSoonHours = "dueSoonHours"
+        case enabled = "enabled"
+    }
+
+    public init(at: String, dayOf: Bool, dueSoonHours: Int, enabled: Bool) {
+        self.at = at
+        self.dayOf = dayOf
+        self.dueSoonHours = dueSoonHours
+        self.enabled = enabled
+    }
 }
 
 // MARK: - MemoryWriteParams

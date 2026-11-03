@@ -23,6 +23,10 @@ export const DailySectionId = StringEnum(
     "learned",
     "coming_up",
     "keep_in_touch",
+    // Memory for everything (docs/design/memory-everything-2026.md §5.5): `catching_up` replaces
+    // `due` in the morning brief when work memory is on; `worked_on` joins the evening wrap-up.
+    "catching_up",
+    "worked_on",
   ],
   { $id: "DailySectionId" },
 );

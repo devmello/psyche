@@ -1668,6 +1668,54 @@
         "sideEffecting": true
       },
       {
+        "description": "The owner links a source to a project, course or assignment; its signals now belong to that item. Admin-only: the extraction principal can never redirect signals. Side-effecting.",
+        "name": "memory.anchors.add",
+        "params": "#/$defs/MemoryAnchorsAddParams",
+        "result": "#/$defs/MemoryAnchorsAddResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "What is linked to work items: folders, Reminders lists, mail threads, calendars, chats and documents. Only owner and rule anchors route signals.",
+        "name": "memory.anchors.list",
+        "params": "#/$defs/MemoryAnchorsListParams",
+        "result": "#/$defs/MemoryAnchorsListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Unlinks a source from a work item; the interactions already recorded stay. Side-effecting.",
+        "name": "memory.anchors.remove",
+        "params": "#/$defs/MemoryAnchorsRemoveParams",
+        "result": "#/$defs/MemoryAnchorsRemoveResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Acts on a catch-up line: done, submitted, drop, snooze until a time, or still working with an optional new due date. Owner only: untrusted text never does this. Side-effecting.",
+        "name": "memory.catchup.act",
+        "params": "#/$defs/MemoryCatchupActParams",
+        "result": "#/$defs/MemoryCatchupActResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "The few work items that matter today, ranked, already filtered for the surface and the owner's privacy tiers. Accepted items only. Any untrusted part taints an agent turn that reads it.",
+        "name": "memory.catchup.list",
+        "params": "#/$defs/MemoryCatchupListParams",
+        "result": "#/$defs/MemoryCatchupListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Marks items as looked at so \"what changed\" counts from now. Returns how many were updated. Side-effecting.",
+        "name": "memory.catchup.seen",
+        "params": "#/$defs/MemoryCatchupSeenParams",
+        "result": "#/$defs/MemoryCatchupSeenResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
         "description": "The owner confirms an agent or imported claim; it becomes an owner claim that supersedes it. Claims derived from untrusted sources are refused. Side-effecting.",
         "name": "memory.claims.confirm",
         "params": "#/$defs/MemoryClaimsConfirmParams",
@@ -1692,7 +1740,7 @@
         "sideEffecting": false
       },
       {
-        "description": "The owner creates a person, organisation, project or place. Side-effecting.",
+        "description": "The owner creates a person, organisation, project, course, assignment, event or place. dueAt, projectType (project or course) and private apply to work items. Side-effecting.",
         "name": "memory.entities.create",
         "params": "#/$defs/MemoryEntitiesCreateParams",
         "result": "#/$defs/MemoryEntitiesCreateResult",
@@ -1828,7 +1876,15 @@
         "sideEffecting": true
       },
       {
-        "description": "The owner edits an entity's name, aliases, status, pin or tracking. Side-effecting.",
+        "description": "An item's timeline, newest first: interactions, fact history (status, deadline, next step, where the owner stopped, progress) and loops. A project or course also lists its assignments' rows. Every row carries a citation chip; third-party text is data.",
+        "name": "memory.entities.timeline",
+        "params": "#/$defs/MemoryEntitiesTimelineParams",
+        "result": "#/$defs/MemoryEntitiesTimelineResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "The owner edits an entity's name, aliases, status, due date, project type, privacy, pin or tracking. Side-effecting.",
         "name": "memory.entities.update",
         "params": "#/$defs/MemoryEntitiesUpdateParams",
         "result": "#/$defs/MemoryEntitiesUpdateResult",
@@ -11973,6 +12029,248 @@
       ],
       "type": "object"
     },
+    "CatchUpActAction": {
+      "description": "done / submitted / drop set the status; snooze hides it until `until`; still_working answers a past-due ask (optionally with a new due date in `until`)",
+      "enum": [
+        "done",
+        "snooze",
+        "submitted",
+        "still_working",
+        "drop"
+      ],
+      "type": "string"
+    },
+    "CatchUpAction": {
+      "enum": [
+        "open",
+        "continue",
+        "done",
+        "snooze",
+        "confirm"
+      ],
+      "type": "string"
+    },
+    "CatchUpChange": {
+      "properties": {
+        "text": {
+          "description": "Quoted, cleaned data",
+          "maxLength": 200,
+          "type": "string"
+        },
+        "at": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/GraphCitationSource"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "citationId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "text",
+        "at",
+        "source",
+        "provenance"
+      ],
+      "type": "object"
+    },
+    "CatchUpItem": {
+      "properties": {
+        "entityId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/CatchUpItemKind"
+        },
+        "title": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "titleProvenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "parent": {
+          "properties": {
+            "id": {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            "name": {
+              "maxLength": 200,
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "name"
+          ],
+          "type": "object"
+        },
+        "dueAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "urgency": {
+          "$ref": "#/$defs/CatchUpUrgency"
+        },
+        "status": {
+          "$ref": "#/$defs/CatchUpStatus"
+        },
+        "statusAsOf": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "stale": {
+          "type": "boolean"
+        },
+        "line": {
+          "description": "The §5.3 template, already filtered",
+          "maxLength": 140,
+          "type": "string"
+        },
+        "changes": {
+          "items": {
+            "$ref": "#/$defs/CatchUpChange"
+          },
+          "maxItems": 2,
+          "type": "array"
+        },
+        "resume": {
+          "$ref": "#/$defs/CatchUpResume"
+        },
+        "actions": {
+          "items": {
+            "$ref": "#/$defs/CatchUpAction"
+          },
+          "maxItems": 5,
+          "type": "array"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        }
+      },
+      "required": [
+        "entityId",
+        "kind",
+        "title",
+        "titleProvenance",
+        "urgency",
+        "status",
+        "statusAsOf",
+        "stale",
+        "line",
+        "changes",
+        "actions",
+        "provenance"
+      ],
+      "type": "object"
+    },
+    "CatchUpItemKind": {
+      "enum": [
+        "assignment",
+        "project",
+        "event"
+      ],
+      "type": "string"
+    },
+    "CatchUpResume": {
+      "properties": {
+        "text": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "at": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "open": {
+          "properties": {
+            "kind": {
+              "$ref": "#/$defs/CatchUpResumeKind"
+            },
+            "ref": {
+              "maxLength": 1024,
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "ref"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "text",
+        "at",
+        "open"
+      ],
+      "type": "object"
+    },
+    "CatchUpResumeKind": {
+      "enum": [
+        "file",
+        "thread",
+        "chat",
+        "library"
+      ],
+      "type": "string"
+    },
+    "CatchUpStatus": {
+      "enum": [
+        "not_started",
+        "in_progress",
+        "submitted",
+        "done",
+        "dropped",
+        "overdue",
+        "blocked",
+        "active",
+        "paused"
+      ],
+      "type": "string"
+    },
+    "CatchUpSurface": {
+      "enum": [
+        "home",
+        "brief"
+      ],
+      "type": "string"
+    },
+    "CatchUpUrgency": {
+      "enum": [
+        "overdue",
+        "today",
+        "soon",
+        "later",
+        "none"
+      ],
+      "type": "string"
+    },
     "Channel": {
       "properties": {
         "id": {
@@ -15780,7 +16078,9 @@
         "tomorrow",
         "learned",
         "coming_up",
-        "keep_in_touch"
+        "keep_in_touch",
+        "catching_up",
+        "worked_on"
       ],
       "type": "string"
     },
@@ -16887,6 +17187,34 @@
         },
         "projectStatus": {
           "$ref": "#/$defs/GraphProjectStatus"
+        },
+        "projectType": {
+          "$ref": "#/$defs/GraphProjectType"
+        },
+        "workStatus": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GraphWorkStatus"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "dueAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "private": {
+          "type": "boolean"
         },
         "lastInteractionAt": {
           "anyOf": [
@@ -19339,6 +19667,84 @@
       ],
       "type": "object"
     },
+    "GraphAnchor": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "entityId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/GraphAnchorKind"
+        },
+        "ref": {
+          "description": "Path, thread key, calendar or reminder list id, note id or repo path",
+          "maxLength": 1024,
+          "minLength": 1,
+          "type": "string"
+        },
+        "label": {
+          "description": "Display name; third-party text is data",
+          "maxLength": 200,
+          "type": "string"
+        },
+        "addedBy": {
+          "$ref": "#/$defs/GraphAnchorAddedBy"
+        },
+        "confirmed": {
+          "description": "Model anchors route nothing until this is true",
+          "type": "boolean"
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "entityId",
+        "kind",
+        "ref",
+        "label",
+        "addedBy",
+        "confirmed",
+        "createdAt"
+      ],
+      "type": "object"
+    },
+    "GraphAnchorAddedBy": {
+      "enum": [
+        "owner",
+        "rule",
+        "model"
+      ],
+      "type": "string"
+    },
+    "GraphAnchorKind": {
+      "enum": [
+        "folder",
+        "file",
+        "mail_thread",
+        "calendar_series",
+        "calendar",
+        "reminder_list",
+        "reminder",
+        "note",
+        "note_folder",
+        "chat_thread",
+        "library_item",
+        "repo"
+      ],
+      "type": "string"
+    },
     "GraphBlockKind": {
       "enum": [
         "email",
@@ -19636,7 +20042,9 @@
         "studied_at",
         "lives_in",
         "attended",
-        "about"
+        "about",
+        "assigned_by",
+        "teaches"
       ],
       "type": "string"
     },
@@ -19703,6 +20111,35 @@
               "type": "null"
             }
           ]
+        },
+        "projectType": {
+          "$ref": "#/$defs/GraphProjectType"
+        },
+        "workStatus": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GraphWorkStatus"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lastSignalAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "private": {
+          "description": "Keep private: shown on its Memory page only, never on a surface (§4)",
+          "type": "boolean"
         },
         "summary": {
           "anyOf": [
@@ -19839,14 +20276,15 @@
       "type": "object"
     },
     "GraphEntityKind": {
-      "description": "person, organisation, project, place, event (dated, may recur) or topic (a lightweight label)",
+      "description": "person, organisation, project (or course), place, event (dated, may recur), topic (a lightweight label) or assignment (one deliverable with a due date)",
       "enum": [
         "person",
         "org",
         "project",
         "place",
         "event",
-        "topic"
+        "topic",
+        "assignment"
       ],
       "type": "string"
     },
@@ -20034,7 +20472,13 @@
         "gift_idea",
         "languages",
         "contact_pref",
-        "life_event"
+        "life_event",
+        "progress",
+        "stopped_at",
+        "blocked_on",
+        "course_code",
+        "term",
+        "meets"
       ],
       "type": "string"
     },
@@ -20207,6 +20651,18 @@
             "type": "object"
           },
           "type": "array"
+        },
+        "gist": {
+          "anyOf": [
+            {
+              "description": "One line on what the conversation was about; source provenance applies",
+              "maxLength": 120,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -20227,7 +20683,10 @@
         "call",
         "note",
         "chat",
-        "task"
+        "task",
+        "file",
+        "reminder",
+        "work"
       ],
       "type": "string"
     },
@@ -20428,6 +20887,13 @@
         "active",
         "paused",
         "done"
+      ],
+      "type": "string"
+    },
+    "GraphProjectType": {
+      "enum": [
+        "project",
+        "course"
       ],
       "type": "string"
     },
@@ -20697,7 +21163,7 @@
           "$ref": "#/$defs/GraphSuggestionKind"
         },
         "entityIds": {
-          "description": "merge: the entities; project: the proposed members",
+          "description": "merge: the entities; project: the proposed members; assignment: the parent project or course, if any",
           "items": {
             "description": "ULID in production",
             "maxLength": 64,
@@ -20709,8 +21175,23 @@
         "name": {
           "anyOf": [
             {
-              "description": "project: the proposed name",
+              "description": "project: the proposed name; assignment: its title (untrusted text)",
               "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "projectType": {
+          "$ref": "#/$defs/GraphProjectType"
+        },
+        "dueAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
               "type": "string"
             },
             {
@@ -20761,7 +21242,8 @@
     "GraphSuggestionKind": {
       "enum": [
         "merge",
-        "project"
+        "project",
+        "assignment"
       ],
       "type": "string"
     },
@@ -20771,6 +21253,147 @@
         "accepted",
         "rejected",
         "later"
+      ],
+      "type": "string"
+    },
+    "GraphTimelineChip": {
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/GraphCitationSource"
+        },
+        "label": {
+          "description": "Sender, list or file name: data",
+          "maxLength": 200,
+          "type": "string"
+        },
+        "citationId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "link": {
+          "anyOf": [
+            {
+              "description": "Opens the source",
+              "maxLength": 1024,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "source",
+        "label"
+      ],
+      "type": "object"
+    },
+    "GraphTimelineKind": {
+      "enum": [
+        "interaction",
+        "fact",
+        "loop"
+      ],
+      "type": "string"
+    },
+    "GraphTimelineRow": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "at": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/GraphTimelineKind"
+        },
+        "interactionKind": {
+          "$ref": "#/$defs/GraphInteractionKind"
+        },
+        "entityId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "text": {
+          "description": "Built from templates; titles are data",
+          "maxLength": 400,
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "change": {
+          "properties": {
+            "attribute": {
+              "$ref": "#/$defs/GraphFactAttribute"
+            },
+            "from": {
+              "anyOf": [
+                {
+                  "maxLength": 2000,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "to": {
+              "maxLength": 2000,
+              "type": "string"
+            }
+          },
+          "required": [
+            "attribute",
+            "to"
+          ],
+          "type": "object"
+        },
+        "chip": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GraphTimelineChip"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "at",
+        "kind",
+        "entityId",
+        "text",
+        "provenance"
+      ],
+      "type": "object"
+    },
+    "GraphWorkStatus": {
+      "enum": [
+        "not_started",
+        "in_progress",
+        "submitted",
+        "done",
+        "dropped"
       ],
       "type": "string"
     },
@@ -24296,6 +24919,211 @@
       ],
       "type": "string"
     },
+    "MemoryAnchorsAddParams": {
+      "properties": {
+        "entityId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/GraphAnchorKind"
+        },
+        "ref": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 200,
+          "type": "string"
+        }
+      },
+      "required": [
+        "entityId",
+        "kind",
+        "ref"
+      ],
+      "type": "object"
+    },
+    "MemoryAnchorsAddResult": {
+      "properties": {
+        "anchor": {
+          "$ref": "#/$defs/GraphAnchor"
+        }
+      },
+      "required": [
+        "anchor"
+      ],
+      "type": "object"
+    },
+    "MemoryAnchorsListParams": {
+      "properties": {
+        "entityId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/GraphAnchorKind"
+        }
+      },
+      "type": "object"
+    },
+    "MemoryAnchorsListResult": {
+      "properties": {
+        "anchors": {
+          "items": {
+            "$ref": "#/$defs/GraphAnchor"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "anchors"
+      ],
+      "type": "object"
+    },
+    "MemoryAnchorsRemoveParams": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "MemoryAnchorsRemoveResult": {
+      "properties": {
+        "removed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "removed"
+      ],
+      "type": "object"
+    },
+    "MemoryCatchupActParams": {
+      "properties": {
+        "entityId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "action": {
+          "$ref": "#/$defs/CatchUpActAction"
+        },
+        "until": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "entityId",
+        "action"
+      ],
+      "type": "object"
+    },
+    "MemoryCatchupActResult": {
+      "properties": {
+        "entity": {
+          "$ref": "#/$defs/GraphEntity"
+        }
+      },
+      "required": [
+        "entity"
+      ],
+      "type": "object"
+    },
+    "MemoryCatchupListParams": {
+      "properties": {
+        "surface": {
+          "$ref": "#/$defs/CatchUpSurface"
+        },
+        "limit": {
+          "maximum": 10,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "surface"
+      ],
+      "type": "object"
+    },
+    "MemoryCatchupListResult": {
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/CatchUpItem"
+          },
+          "type": "array"
+        },
+        "pendingCount": {
+          "description": "Work suggestions waiting for the owner; counted, never listed",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "hiddenCount": {
+          "description": "Lines the agent may not see (agentAccess) when it is the caller",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "asOf": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "items",
+        "pendingCount",
+        "hiddenCount",
+        "asOf"
+      ],
+      "type": "object"
+    },
+    "MemoryCatchupSeenParams": {
+      "properties": {
+        "entityIds": {
+          "items": {
+            "description": "ULID in production",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 50,
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "entityIds"
+      ],
+      "type": "object"
+    },
+    "MemoryCatchupSeenResult": {
+      "properties": {
+        "seen": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "seen"
+      ],
+      "type": "object"
+    },
     "MemoryChangeSource": {
       "enum": [
         "tool",
@@ -24595,6 +25423,18 @@
         },
         "projectStatus": {
           "$ref": "#/$defs/GraphProjectStatus"
+        },
+        "dueAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "projectType": {
+          "$ref": "#/$defs/GraphProjectType"
+        },
+        "private": {
+          "description": "Keep private: shown on its Memory page only",
+          "type": "boolean"
         }
       },
       "required": [
@@ -25135,7 +25975,7 @@
           "items": {
             "$ref": "#/$defs/GraphEntityKind"
           },
-          "maxItems": 4,
+          "maxItems": 7,
           "type": "array"
         },
         "limit": {
@@ -25287,6 +26127,57 @@
       ],
       "type": "object"
     },
+    "MemoryEntitiesTimelineParams": {
+      "properties": {
+        "entityId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "before": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "limit": {
+          "description": "Default 50",
+          "maximum": 200,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "entityId"
+      ],
+      "type": "object"
+    },
+    "MemoryEntitiesTimelineResult": {
+      "properties": {
+        "rows": {
+          "items": {
+            "$ref": "#/$defs/GraphTimelineRow"
+          },
+          "type": "array"
+        },
+        "nextBefore": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "rows"
+      ],
+      "type": "object"
+    },
     "MemoryEntitiesUpdateParams": {
       "properties": {
         "id": {
@@ -25315,6 +26206,26 @@
         },
         "projectStatus": {
           "$ref": "#/$defs/GraphProjectStatus"
+        },
+        "dueAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "null clears it"
+        },
+        "projectType": {
+          "$ref": "#/$defs/GraphProjectType"
+        },
+        "private": {
+          "description": "Keep private: shown on its Memory page only",
+          "type": "boolean"
         },
         "pinned": {
           "description": "Keep at the top and in nightly passes",
@@ -27458,6 +28369,119 @@
       ],
       "type": "object"
     },
+    "MemorySurface": {
+      "enum": [
+        "home",
+        "brief",
+        "notification",
+        "channel"
+      ],
+      "type": "string"
+    },
+    "MemorySurfaceKinds": {
+      "description": "Turn a whole kind off on every surface",
+      "properties": {
+        "project": {
+          "default": true,
+          "type": "boolean"
+        },
+        "course": {
+          "default": true,
+          "type": "boolean"
+        },
+        "assignment": {
+          "default": true,
+          "type": "boolean"
+        },
+        "event": {
+          "default": true,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "project",
+        "course",
+        "assignment",
+        "event"
+      ],
+      "type": "object"
+    },
+    "MemorySurfaceSwitches": {
+      "properties": {
+        "home": {
+          "type": "boolean"
+        },
+        "brief": {
+          "type": "boolean"
+        },
+        "notification": {
+          "description": "Work tier: titles only for owner-provenance items, otherwise a count (\"1 assignment due tomorrow\")",
+          "type": "boolean"
+        },
+        "channel": {
+          "description": "The brief delivered to Telegram and other channels",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "home",
+        "brief",
+        "notification",
+        "channel"
+      ],
+      "type": "object"
+    },
+    "MemorySurfaceTiers": {
+      "description": "work: projects, courses, assignments and the owner's own calendars; workMail: subjects of mail tied to tracked work (W2); people: facts, gists and relations about other people",
+      "properties": {
+        "work": {
+          "$ref": "#/$defs/MemorySurfaceSwitches"
+        },
+        "workMail": {
+          "$ref": "#/$defs/MemorySurfaceSwitches"
+        },
+        "people": {
+          "$ref": "#/$defs/MemorySurfaceSwitches"
+        }
+      },
+      "required": [
+        "work",
+        "workMail",
+        "people"
+      ],
+      "type": "object"
+    },
+    "MemorySurfacesSettings": {
+      "properties": {
+        "tiers": {
+          "$ref": "#/$defs/MemorySurfaceTiers"
+        },
+        "birthdays": {
+          "default": true,
+          "description": "Dates of birthdays and anniversaries in the brief's Coming up and on Home (W1); never in notifications",
+          "type": "boolean"
+        },
+        "hideSources": {
+          "default": [],
+          "description": "Never show anything learned from these sources outside Memory",
+          "items": {
+            "$ref": "#/$defs/GraphCitationSource"
+          },
+          "maxItems": 16,
+          "type": "array"
+        },
+        "kinds": {
+          "$ref": "#/$defs/MemorySurfaceKinds"
+        }
+      },
+      "required": [
+        "tiers",
+        "birthdays",
+        "hideSources",
+        "kinds"
+      ],
+      "type": "object"
+    },
     "MemoryUpcomingParams": {
       "properties": {
         "days": {
@@ -27496,6 +28520,93 @@
         "off"
       ],
       "type": "string"
+    },
+    "MemoryWorkFolders": {
+      "description": "anchored_only: only folders linked to a project or course; all_granted: every granted folder, matched by name",
+      "enum": [
+        "anchored_only",
+        "all_granted"
+      ],
+      "type": "string"
+    },
+    "MemoryWorkRemind": {
+      "properties": {
+        "enabled": {
+          "default": false,
+          "description": "Due-soon notification, off by default (W4)",
+          "type": "boolean"
+        },
+        "dueSoonHours": {
+          "default": 24,
+          "maximum": 72,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "at": {
+          "default": "wrapup",
+          "description": "\"wrapup\" (18:00 by default) or a local time HH:MM",
+          "pattern": "^(wrapup|([01]\\d|2[0-3]):[0-5]\\d)$",
+          "type": "string"
+        },
+        "dayOf": {
+          "default": false,
+          "description": "A separate morning notification for things due today, off (W4)",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "enabled",
+        "dueSoonHours",
+        "at",
+        "dayOf"
+      ],
+      "type": "object"
+    },
+    "MemoryWorkSettings": {
+      "properties": {
+        "enabled": {
+          "default": false,
+          "description": "Off until the owner consents; turning it on shows a one-screen card",
+          "type": "boolean"
+        },
+        "consentedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "trackedLists": {
+          "default": {},
+          "description": "Reminders list id to the project or course it feeds",
+          "patternProperties": {
+            "^(.*)$": {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "anchorsFromFolders": {
+          "$ref": "#/$defs/MemoryWorkFolders"
+        },
+        "remind": {
+          "$ref": "#/$defs/MemoryWorkRemind"
+        },
+        "askWhereStopped": {
+          "default": false,
+          "description": "Ask once at wrap-up where the owner stopped",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "enabled",
+        "trackedLists",
+        "anchorsFromFolders",
+        "remind",
+        "askWhereStopped"
+      ],
+      "type": "object"
     },
     "MemoryWriteMode": {
       "enum": [

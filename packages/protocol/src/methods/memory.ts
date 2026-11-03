@@ -17,7 +17,11 @@ import {
   SenderTrustDecision,
 } from "../schemas/everything-memory.ts";
 import {
+  CatchUpActAction,
+  CatchUpItem,
   EntitySummary,
+  GraphAnchor,
+  GraphAnchorKind,
   GraphBlocklistEntry,
   GraphEdge,
   GraphEdgeRel,
@@ -32,12 +36,14 @@ import {
   GraphLoop,
   GraphLoopStatus,
   GraphProjectStatus,
+  GraphProjectType,
   GraphRelationshipLabel,
   GraphRemovedCounts,
   GraphReviewState,
   GraphSource,
   GraphStatus,
   GraphSuggestion,
+  GraphTimelineRow,
   GraphWriteSource,
 } from "../schemas/graph.ts";
 import {
@@ -319,7 +325,7 @@ export const MemoryMethods = {
     params: Type.Object({
       q: Type.String({ maxLength: 500, description: "Name, alias, email, phone or keyword" }),
       kinds: Type.Optional(
-        Type.Array(GraphEntityKind, { maxItems: 4, description: "Only these entity kinds" }),
+        Type.Array(GraphEntityKind, { maxItems: 7, description: "Only these entity kinds" }),
       ),
       limit: Type.Optional(
         Type.Integer({ minimum: 1, maximum: 100, description: "At most this many (default 20)" }),
@@ -360,11 +366,17 @@ export const MemoryMethods = {
         ),
       ),
       projectStatus: Type.Optional(GraphProjectStatus),
+      dueAt: Type.Optional(IsoDateTime),
+      projectType: Type.Optional(GraphProjectType),
+      private: Type.Optional(
+        Type.Boolean({ description: "Keep private: shown on its Memory page only" }),
+      ),
     }),
     result: Type.Object({ entity: GraphEntity }),
     scope: "operator.write",
     sideEffecting: true,
-    description: "The owner creates a person, organisation, project or place. Side-effecting.",
+    description:
+      "The owner creates a person, organisation, project, course, assignment, event or place. dueAt, projectType (project or course) and private apply to work items. Side-effecting.",
   }),
   "memory.entities.update": defineMethod({
     params: Type.Object({
@@ -378,6 +390,13 @@ export const MemoryMethods = {
       ),
       status: Type.Optional(GraphEntityStatus),
       projectStatus: Type.Optional(GraphProjectStatus),
+      dueAt: Type.Optional(
+        Type.Union([IsoDateTime, Type.Null()], { description: "null clears it" }),
+      ),
+      projectType: Type.Optional(GraphProjectType),
+      private: Type.Optional(
+        Type.Boolean({ description: "Keep private: shown on its Memory page only" }),
+      ),
       pinned: Type.Optional(Type.Boolean({ description: "Keep at the top and in nightly passes" })),
       hidden: Type.Optional(
         Type.Boolean({ description: "Don't track: block new data about them" }),
@@ -388,7 +407,7 @@ export const MemoryMethods = {
     scope: "operator.write",
     sideEffecting: true,
     description:
-      "The owner edits an entity's name, aliases, status, pin or tracking. Side-effecting.",
+      "The owner edits an entity's name, aliases, status, due date, project type, privacy, pin or tracking. Side-effecting.",
   }),
   "memory.entities.facts.set": defineMethod({
     params: Type.Object({
@@ -560,6 +579,93 @@ export const MemoryMethods = {
     sideEffecting: true,
     description:
       "Confirms, completes, snoozes or dismisses a loop, or edits its text or due date. Side-effecting.",
+  }),
+  // --- Memory for everything: work, catch-up and anchors (docs/design/memory-everything-2026.md §3.5, §5.6, §2.5) ---
+  "memory.entities.timeline": defineMethod({
+    params: Type.Object({
+      entityId: Id,
+      before: Type.Optional(IsoDateTime),
+      limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 200, description: "Default 50" })),
+    }),
+    result: Type.Object({
+      rows: Type.Array(GraphTimelineRow),
+      nextBefore: Nullable(IsoDateTime),
+    }),
+    scope: "operator.read",
+    description:
+      "An item's timeline, newest first: interactions, fact history (status, deadline, next step, where the owner stopped, progress) and loops. A project or course also lists its assignments' rows. Every row carries a citation chip; third-party text is data.",
+  }),
+  "memory.catchup.list": defineMethod({
+    params: Type.Object({
+      surface: StringEnum(["home", "brief"], { $id: "CatchUpSurface" }),
+      limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 10 })),
+    }),
+    result: Type.Object({
+      items: Type.Array(CatchUpItem),
+      pendingCount: Type.Integer({
+        minimum: 0,
+        description: "Work suggestions waiting for the owner; counted, never listed",
+      }),
+      hiddenCount: Type.Integer({
+        minimum: 0,
+        description: "Lines the agent may not see (agentAccess) when it is the caller",
+      }),
+      asOf: IsoDateTime,
+    }),
+    scope: "operator.read",
+    description:
+      "The few work items that matter today, ranked, already filtered for the surface and the owner's privacy tiers. Accepted items only. Any untrusted part taints an agent turn that reads it.",
+  }),
+  "memory.catchup.act": defineMethod({
+    params: Type.Object({
+      entityId: Id,
+      action: CatchUpActAction,
+      until: Type.Optional(IsoDateTime),
+    }),
+    result: Type.Object({ entity: GraphEntity }),
+    scope: "operator.write",
+    sideEffecting: true,
+    description:
+      "Acts on a catch-up line: done, submitted, drop, snooze until a time, or still working with an optional new due date. Owner only: untrusted text never does this. Side-effecting.",
+  }),
+  "memory.catchup.seen": defineMethod({
+    params: Type.Object({ entityIds: Type.Array(Id, { minItems: 1, maxItems: 50 }) }),
+    result: Type.Object({ seen: Type.Integer({ minimum: 0 }) }),
+    scope: "operator.write",
+    sideEffecting: true,
+    description:
+      'Marks items as looked at so "what changed" counts from now. Returns how many were updated. Side-effecting.',
+  }),
+  "memory.anchors.list": defineMethod({
+    params: Type.Object({
+      entityId: Type.Optional(Id),
+      kind: Type.Optional(GraphAnchorKind),
+    }),
+    result: Type.Object({ anchors: Type.Array(GraphAnchor) }),
+    scope: "operator.read",
+    description:
+      "What is linked to work items: folders, Reminders lists, mail threads, calendars, chats and documents. Only owner and rule anchors route signals.",
+  }),
+  "memory.anchors.add": defineMethod({
+    params: Type.Object({
+      entityId: Id,
+      kind: GraphAnchorKind,
+      ref: Type.String({ minLength: 1, maxLength: 1024 }),
+      label: Type.Optional(Type.String({ maxLength: 200 })),
+    }),
+    result: Type.Object({ anchor: GraphAnchor }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "The owner links a source to a project, course or assignment; its signals now belong to that item. Admin-only: the extraction principal can never redirect signals. Side-effecting.",
+  }),
+  "memory.anchors.remove": defineMethod({
+    params: Type.Object({ id: Id }),
+    result: Type.Object({ removed: Type.Boolean() }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Unlinks a source from a work item; the interactions already recorded stay. Side-effecting.",
   }),
   // --- Everything memory: review, quarantine, runs (docs/design/everything-memory-2026.md §5.6, §6.7, §7) ---
   "memory.review.list": defineMethod({

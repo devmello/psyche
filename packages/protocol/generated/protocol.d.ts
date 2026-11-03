@@ -3445,13 +3445,13 @@ export interface ContextBlock {
 export type ContextBlockType = "context";
 
 export interface CredentialUpdatedPayload {
-    change:            Change;
+    change:            ChangeEnum;
     credential?:       CredentialMeta | null;
     credentialId:      string;
     ownerConnectorId?: null | string;
 }
 
-export type Change = "created" | "updated" | "deleted" | "rotated" | "revoked" | "used";
+export type ChangeEnum = "created" | "updated" | "deleted" | "rotated" | "revoked" | "used";
 
 export interface CredentialMeta {
     backend?:          Backend;
@@ -4049,7 +4049,7 @@ export interface DailySection {
     unavailable?: boolean;
 }
 
-export type DailySectionID = "calendar" | "mail" | "due" | "followups" | "weather" | "done" | "open" | "tomorrow" | "learned" | "coming_up" | "keep_in_touch";
+export type DailySectionID = "calendar" | "mail" | "due" | "followups" | "weather" | "done" | "open" | "tomorrow" | "learned" | "coming_up" | "keep_in_touch" | "catching_up" | "worked_on";
 
 export interface InboxDigest {
     accounts: string[];
@@ -4738,7 +4738,7 @@ export interface GraphEdge {
 
 export type GraphRelationshipLabel = "partner" | "parent" | "child" | "sibling" | "friend" | "colleague" | "manager" | "report" | "client" | "vendor" | "teacher" | "doctor" | "other";
 
-export type GraphEdgeRel = "works_at" | "member_of" | "stakeholder_of" | "located_at" | "reports_to" | "related_to" | "part_of" | "family" | "friend" | "neighbour" | "classmate" | "roommate" | "colleague" | "manager" | "client" | "vendor" | "mentor" | "studied_at" | "lives_in" | "attended" | "about";
+export type GraphEdgeRel = "works_at" | "member_of" | "stakeholder_of" | "located_at" | "reports_to" | "related_to" | "part_of" | "family" | "friend" | "neighbour" | "classmate" | "roommate" | "colleague" | "manager" | "client" | "vendor" | "mentor" | "studied_at" | "lives_in" | "attended" | "about" | "assigned_by" | "teaches";
 
 export type GraphReviewState = "pending" | "accepted" | "auto_accepted" | "edited" | "discarded" | "quarantined";
 
@@ -4760,23 +4760,34 @@ export interface GraphEntity {
     isOwner:            boolean;
     kind:               GraphEntityKind;
     lastInteractionAt?: null | string;
+    lastSignalAt?:      null | string;
     mergedInto?:        null | string;
     name:               string;
     pinned:             boolean;
-    projectStatus?:     GraphProjectStatus;
-    status:             GraphEntityStatus;
-    summary?:           null | string;
-    summaryAt?:         null | string;
-    updatedAt:          string;
+    /**
+     * Keep private: shown on its Memory page only, never on a surface (§4)
+     */
+    private?:       boolean;
+    projectStatus?: GraphProjectStatus;
+    projectType?:   GraphProjectType;
+    status:         GraphEntityStatus;
+    summary?:       null | string;
+    summaryAt?:     null | string;
+    updatedAt:      string;
+    workStatus?:    GraphWorkStatus | null;
 }
 
 /**
- * person, organisation, project, place, event (dated, may recur) or topic (a lightweight
- * label)
+ * person, organisation, project (or course), place, event (dated, may recur), topic (a
+ * lightweight label) or assignment (one deliverable with a due date)
  */
-export type GraphEntityKind = "person" | "org" | "project" | "place" | "event" | "topic";
+export type GraphEntityKind = "person" | "org" | "project" | "place" | "event" | "topic" | "assignment";
+
+export type GraphProjectType = "project" | "course";
 
 export type GraphEntityStatus = "active" | "archived" | "merged";
+
+export type GraphWorkStatus = "not_started" | "in_progress" | "submitted" | "done" | "dropped";
 
 export interface GraphFact {
     attribute:  GraphFactAttribute;
@@ -4807,7 +4818,7 @@ export interface GraphFact {
     value:         string;
 }
 
-export type GraphFactAttribute = "role" | "title" | "employer" | "team" | "email_pref" | "timezone" | "city" | "birthday" | "relationship_to_owner" | "preference" | "note" | "status" | "next_step" | "budget_note" | "deadline" | "anniversary" | "hometown" | "school" | "pronouns" | "partner_name" | "children_names" | "pet_names" | "likes" | "dislikes" | "diet" | "gift_idea" | "languages" | "contact_pref" | "life_event";
+export type GraphFactAttribute = "role" | "title" | "employer" | "team" | "email_pref" | "timezone" | "city" | "birthday" | "relationship_to_owner" | "preference" | "note" | "status" | "next_step" | "budget_note" | "deadline" | "anniversary" | "hometown" | "school" | "pronouns" | "partner_name" | "children_names" | "pet_names" | "likes" | "dislikes" | "diet" | "gift_idea" | "languages" | "contact_pref" | "life_event" | "progress" | "stopped_at" | "blocked_on" | "course_code" | "term" | "meets";
 
 export type GraphSensitivity = "none" | "health" | "finance" | "sexuality" | "religion" | "politics" | "ethnicity" | "legal" | "precise_location" | "gov_id" | "account_numbers";
 
@@ -4844,6 +4855,7 @@ export type GraphIdentifierKind = "email" | "phone" | "contact" | "channel" | "d
 
 export interface GraphInteraction {
     direction:    GraphDirection;
+    gist?:        null | string;
     id:           string;
     kind:         GraphInteractionKind;
     link?:        null | string;
@@ -4860,7 +4872,7 @@ export interface GraphInteraction {
 
 export type GraphDirection = "in" | "out" | "both" | "none";
 
-export type GraphInteractionKind = "mail" | "message" | "meeting" | "call" | "note" | "chat" | "task";
+export type GraphInteractionKind = "mail" | "message" | "meeting" | "call" | "note" | "chat" | "task" | "file" | "reminder" | "work";
 
 export interface Participant {
     entityId: string;
@@ -4870,6 +4882,7 @@ export interface Participant {
 export type GraphParticipantRole = "from" | "to" | "cc" | "attendee" | "organizer" | "mentioned";
 
 export interface EntitySummary {
+    dueAt?:             null | string;
     id:                 string;
     isOwner:            boolean;
     kind:               GraphEntityKind;
@@ -4877,10 +4890,13 @@ export interface EntitySummary {
     name:               string;
     openLoops:          number;
     pinned:             boolean;
+    private?:           boolean;
     projectStatus?:     GraphProjectStatus;
+    projectType?:       GraphProjectType;
     status:             GraphEntityStatus;
     subtitle?:          null | string;
     summary?:           null | string;
+    workStatus?:        GraphWorkStatus | null;
 }
 
 export interface GraphStatus {
@@ -5599,6 +5615,160 @@ export interface MeetingsRecordStopParams {
     reason?: MeetingRecordingEndedReason;
 }
 
+export interface MemoryAnchorsAddParams {
+    entityId: string;
+    kind:     GraphAnchorKind;
+    label?:   string;
+    ref:      string;
+}
+
+export type GraphAnchorKind = "folder" | "file" | "mail_thread" | "calendar_series" | "calendar" | "reminder_list" | "reminder" | "note" | "note_folder" | "chat_thread" | "library_item" | "repo";
+
+export interface MemoryAnchorsAddResult {
+    anchor: GraphAnchor;
+}
+
+export interface GraphAnchor {
+    addedBy: GraphLoopDetectedBy;
+    /**
+     * Model anchors route nothing until this is true
+     */
+    confirmed: boolean;
+    createdAt: string;
+    entityId:  string;
+    id:        string;
+    kind:      GraphAnchorKind;
+    /**
+     * Display name; third-party text is data
+     */
+    label: string;
+    /**
+     * Path, thread key, calendar or reminder list id, note id or repo path
+     */
+    ref: string;
+}
+
+export interface MemoryAnchorsListParams {
+    entityId?: string;
+    kind?:     GraphAnchorKind;
+}
+
+export interface MemoryAnchorsListResult {
+    anchors: GraphAnchor[];
+}
+
+export interface MemoryAnchorsRemoveParams {
+    id: string;
+}
+
+export interface MemoryAnchorsRemoveResult {
+    removed: boolean;
+}
+
+export interface MemoryCatchupActParams {
+    action:   CatchUpActAction;
+    entityId: string;
+    until?:   string;
+}
+
+/**
+ * done / submitted / drop set the status; snooze hides it until `until`; still_working
+ * answers a past-due ask (optionally with a new due date in `until`)
+ */
+export type CatchUpActAction = "done" | "snooze" | "submitted" | "still_working" | "drop";
+
+export interface MemoryCatchupActResult {
+    entity: GraphEntity;
+}
+
+export interface MemoryCatchupListParams {
+    limit?:  number;
+    surface: CatchUpSurface;
+}
+
+export type CatchUpSurface = "home" | "brief";
+
+export interface MemoryCatchupListResult {
+    asOf: string;
+    /**
+     * Lines the agent may not see (agentAccess) when it is the caller
+     */
+    hiddenCount: number;
+    items:       CatchUpItem[];
+    /**
+     * Work suggestions waiting for the owner; counted, never listed
+     */
+    pendingCount: number;
+}
+
+export interface CatchUpItem {
+    actions:  CatchUpAction[];
+    changes:  CatchUpChange[];
+    dueAt?:   string;
+    entityId: string;
+    kind:     CatchUpItemKind;
+    /**
+     * The §5.3 template, already filtered
+     */
+    line:            string;
+    parent?:         Parent;
+    provenance:      Provenance;
+    resume?:         CatchUpResume;
+    stale:           boolean;
+    status:          CatchUpStatus;
+    statusAsOf:      string;
+    title:           string;
+    titleProvenance: Provenance;
+    urgency:         CatchUpUrgency;
+}
+
+export type CatchUpAction = "open" | "continue" | "done" | "snooze" | "confirm";
+
+export interface CatchUpChange {
+    at:          string;
+    citationId?: null | string;
+    provenance:  Provenance;
+    source:      GraphCitationSource;
+    /**
+     * Quoted, cleaned data
+     */
+    text: string;
+}
+
+export type GraphCitationSource = "mail" | "messages" | "notes" | "calendar" | "reminders" | "chats" | "files" | "browser" | "transcripts" | "contacts";
+
+export type CatchUpItemKind = "assignment" | "project" | "event";
+
+export interface Parent {
+    id:   string;
+    name: string;
+}
+
+export interface CatchUpResume {
+    at:   string;
+    open: Open;
+    text: string;
+}
+
+export interface Open {
+    kind: CatchUpResumeKind;
+    ref:  string;
+}
+
+export type CatchUpResumeKind = "file" | "thread" | "chat" | "library";
+
+export type CatchUpStatus = "not_started" | "in_progress" | "submitted" | "done" | "dropped" | "overdue" | "blocked" | "active" | "paused";
+
+export type CatchUpUrgency = "overdue" | "today" | "soon" | "later" | "none";
+
+export interface MemoryCatchupSeenParams {
+    entityIds: string[];
+}
+
+export interface MemoryCatchupSeenResult {
+    seen: number;
+}
+
 export interface MemoryClaimsConfirmParams {
     claimId: string;
 }
@@ -5651,6 +5821,7 @@ export interface MemoryEntitiesCreateParams {
      * Other names
      */
     aliases?: string[];
+    dueAt?:   string;
     /**
      * Emails, phones, handles; refused if another entity has one
      */
@@ -5659,8 +5830,13 @@ export interface MemoryEntitiesCreateParams {
     /**
      * Display name
      */
-    name:           string;
+    name: string;
+    /**
+     * Keep private: shown on its Memory page only
+     */
+    private?:       boolean;
     projectStatus?: GraphProjectStatus;
+    projectType?:   GraphProjectType;
 }
 
 export interface MemoryEntitiesCreateParamsIdentifier {
@@ -5910,13 +6086,16 @@ export interface MemoryEntitiesSuggestionsAnswerResult {
 
 export interface GraphSuggestion {
     createdAt: string;
+    dueAt?:    null | string;
     /**
-     * merge: the entities; project: the proposed members
+     * merge: the entities; project: the proposed members; assignment: the parent project or
+     * course, if any
      */
-    entityIds: string[];
-    id:        string;
-    kind:      GraphSuggestionKind;
-    name?:     null | string;
+    entityIds:    string[];
+    id:           string;
+    kind:         GraphSuggestionKind;
+    name?:        null | string;
+    projectType?: GraphProjectType;
     /**
      * Why it was suggested, in plain words
      */
@@ -5924,7 +6103,7 @@ export interface GraphSuggestion {
     status: GraphSuggestionStatus;
 }
 
-export type GraphSuggestionKind = "merge" | "project";
+export type GraphSuggestionKind = "merge" | "project" | "assignment";
 
 export type GraphSuggestionStatus = "pending" | "accepted" | "rejected" | "later";
 
@@ -5941,11 +6120,62 @@ export interface MemoryEntitiesSuggestionsResult {
     suggestions: GraphSuggestion[];
 }
 
+export interface MemoryEntitiesTimelineParams {
+    before?:  string;
+    entityId: string;
+    /**
+     * Default 50
+     */
+    limit?: number;
+}
+
+export interface MemoryEntitiesTimelineResult {
+    nextBefore?: null | string;
+    rows:        GraphTimelineRow[];
+}
+
+export interface GraphTimelineRow {
+    at:               string;
+    change?:          ChangeClass;
+    chip?:            GraphTimelineChip | null;
+    entityId:         string;
+    id:               string;
+    interactionKind?: GraphInteractionKind;
+    kind:             GraphTimelineKind;
+    provenance:       Provenance;
+    /**
+     * Built from templates; titles are data
+     */
+    text: string;
+}
+
+export interface ChangeClass {
+    attribute: GraphFactAttribute;
+    from?:     null | string;
+    to:        string;
+}
+
+export interface GraphTimelineChip {
+    citationId?: null | string;
+    /**
+     * Sender, list or file name: data
+     */
+    label:  string;
+    link?:  null | string;
+    source: GraphCitationSource;
+}
+
+export type GraphTimelineKind = "interaction" | "fact" | "loop";
+
 export interface MemoryEntitiesUpdateParams {
     /**
      * Replaces aliases
      */
     aliases?: string[];
+    /**
+     * null clears it
+     */
+    dueAt?: null | string;
     /**
      * If-match on the card
      */
@@ -5962,8 +6192,13 @@ export interface MemoryEntitiesUpdateParams {
     /**
      * Keep at the top and in nightly passes
      */
-    pinned?:        boolean;
+    pinned?: boolean;
+    /**
+     * Keep private: shown on its Memory page only
+     */
+    private?:       boolean;
     projectStatus?: GraphProjectStatus;
+    projectType?:   GraphProjectType;
     status?:        GraphEntityStatus;
 }
 
@@ -6485,8 +6720,6 @@ export type QuarantineDecided = "released" | "discarded" | "blocked";
 
 export type QuarantineReason = "instruction_like" | "hidden_text" | "claims_about_owner" | "identity_claim" | "relation_change" | "too_many_claims" | "sender_limit" | "item_too_large" | "schema_invalid" | "new_sender_sensitive" | "subject_mismatch";
 
-export type GraphCitationSource = "mail" | "messages" | "notes" | "calendar" | "reminders" | "chats" | "files" | "browser" | "transcripts" | "contacts";
-
 export interface MemoryQuarantineListParams {
     /**
      * Opaque cursor
@@ -6779,6 +7012,56 @@ export interface MemorySuggestionCreatedPayload {
     suggestion: GraphSuggestion;
 }
 
+export type MemorySurface = "home" | "brief" | "notification" | "channel";
+
+export interface MemorySurfacesSettings {
+    /**
+     * Dates of birthdays and anniversaries in the brief's Coming up and on Home (W1); never in
+     * notifications
+     */
+    birthdays: boolean;
+    /**
+     * Never show anything learned from these sources outside Memory
+     */
+    hideSources: GraphCitationSource[];
+    kinds:       MemorySurfaceKinds;
+    tiers:       MemorySurfaceTiers;
+}
+
+/**
+ * Turn a whole kind off on every surface
+ */
+export interface MemorySurfaceKinds {
+    assignment: boolean;
+    course:     boolean;
+    event:      boolean;
+    project:    boolean;
+}
+
+/**
+ * work: projects, courses, assignments and the owner's own calendars; workMail: subjects of
+ * mail tied to tracked work (W2); people: facts, gists and relations about other people
+ */
+export interface MemorySurfaceTiers {
+    people:   MemorySurfaceSwitches;
+    work:     MemorySurfaceSwitches;
+    workMail: MemorySurfaceSwitches;
+}
+
+export interface MemorySurfaceSwitches {
+    brief: boolean;
+    /**
+     * The brief delivered to Telegram and other channels
+     */
+    channel: boolean;
+    home:    boolean;
+    /**
+     * Work tier: titles only for owner-provenance items, otherwise a count ("1 assignment due
+     * tomorrow")
+     */
+    notification: boolean;
+}
+
 export interface MemoryUpcomingParams {
     /**
      * Default 14
@@ -6809,6 +7092,46 @@ export interface ComingUpItem {
 }
 
 export type ComingUpKind = "birthday" | "anniversary" | "event";
+
+export interface MemoryWorkSettings {
+    anchorsFromFolders: MemoryWorkFolders;
+    /**
+     * Ask once at wrap-up where the owner stopped
+     */
+    askWhereStopped: boolean;
+    consentedAt?:    string;
+    /**
+     * Off until the owner consents; turning it on shows a one-screen card
+     */
+    enabled: boolean;
+    remind:  MemoryWorkRemind;
+    /**
+     * Reminders list id to the project or course it feeds
+     */
+    trackedLists: { [key: string]: string };
+}
+
+/**
+ * anchored_only: only folders linked to a project or course; all_granted: every granted
+ * folder, matched by name
+ */
+export type MemoryWorkFolders = "anchored_only" | "all_granted";
+
+export interface MemoryWorkRemind {
+    /**
+     * "wrapup" (18:00 by default) or a local time HH:MM
+     */
+    at: string;
+    /**
+     * A separate morning notification for things due today, off (W4)
+     */
+    dayOf:        boolean;
+    dueSoonHours: number;
+    /**
+     * Due-soon notification, off by default (W4)
+     */
+    enabled: boolean;
+}
 
 export interface MemoryWriteParams {
     content: string;
