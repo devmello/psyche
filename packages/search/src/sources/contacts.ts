@@ -69,13 +69,22 @@ const labeled = (v: unknown): string[] =>
 const MAX_LIST_PAGES = 500;
 
 /**
- * Every contact the helper lists, paged with `offset` (2000 a call). A helper that ignores
- * `offset` hands back the first page again: that ends the walk and the list is not complete, so a
- * sweep deletes nothing on it.
+ * Every contact the helper lists, paged with `offset` (2000 a call). The list is not complete, so a
+ * sweep deletes nothing on it, when: a helper that ignores `offset` hands back the first page
+ * again; or the helper's total changed while paging (a contact was added or removed, so the order
+ * shifted under `offset`), which is checked once more after the last page.
  */
 async function listAll(helper: HelperCall, signal: AbortSignal): Promise<ListedContacts> {
   const contacts: ListedContacts["contacts"] = [];
   const seen = new Set<string>();
+  let total: number | undefined;
+  /** The total moved since the first page: pages may have skipped or repeated contacts. */
+  let shifted = false;
+  const note = (o: Obj) => {
+    if (typeof o.total !== "number") return;
+    if (total === undefined) total = o.total;
+    else if (o.total !== total) shifted = true;
+  };
   for (let page = 0; page < MAX_LIST_PAGES && !signal.aborted; page++) {
     const out = await helper(
       "contacts.list",
@@ -83,6 +92,7 @@ async function listAll(helper: HelperCall, signal: AbortSignal): Promise<ListedC
       signal,
     );
     const o = isObj(out) ? out : {};
+    note(o);
     let added = 0;
     for (const c of Array.isArray(o.contacts) ? o.contacts : []) {
       const id = isObj(c) ? str(c.id) : undefined;
@@ -91,7 +101,14 @@ async function listAll(helper: HelperCall, signal: AbortSignal): Promise<ListedC
       contacts.push({ id, name: isObj(c) ? str(c.name) : undefined });
       added += 1;
     }
-    if (o.truncated !== true) return { contacts, complete: true };
+    if (o.truncated !== true) {
+      // Count again now the walk is over: a change during the last page shows here.
+      if (page > 0 && total !== undefined) {
+        const again = await helper("contacts.list", { limit: 1 }, signal);
+        note(isObj(again) ? again : {});
+      }
+      return { contacts, complete: !shifted };
+    }
     if (added === 0) return { contacts, complete: false };
   }
   return { contacts, complete: false };
@@ -183,13 +200,11 @@ const cursorOf = (raw: unknown): Cursor =>
       }
     : { i: 0 };
 
-/** How long one pass reuses the list of contacts it already read (a pass is a few pulls). */
-const LISTING_TTL_MS = 5 * 60_000;
-
 export function contactsAdapter(deps: ContactsSourceDeps): SourceAdapter {
-  // The list a pass is working through: listing is one helper call per 2000 contacts, so it is
-  // done once per pass and not once per page of 50.
-  let listed: { contacts: ListedContacts["contacts"]; at: number } | undefined;
+  // The list a pass is working through, kept until the pass ends: listing is one helper call per
+  // 2000 contacts, and the cursor's index means a place in this order, so a new listing in the
+  // middle of a pass (the order may have changed) would read the wrong contacts.
+  let listed: ListedContacts["contacts"] | undefined;
   return {
     id: "contacts",
     unavailable: () => (deps.helper() === undefined ? NO_HELPER : undefined),
@@ -201,15 +216,16 @@ export function contactsAdapter(deps: ContactsSourceDeps): SourceAdapter {
       // The last pass is recent: nothing to read until it is due again.
       if (cur.doneAt !== undefined && now - cur.doneAt < CONTACTS_REFRESH_MS)
         return { items: [], cursor: cur, hasMore: false };
-      const start = cur.doneAt === undefined ? cur.i : 0;
+      // Without this pass's list (the Gateway restarted mid-pass) the index means nothing: start over.
+      const start = cur.doneAt === undefined && listed !== undefined ? cur.i : 0;
       // A permission error from the helper surfaces here with its own message ("Psyche (Helper)
       // does not have the Contacts permission"); Settings shows it on the row.
       let contacts: ListedContacts["contacts"];
-      if (start > 0 && listed !== undefined && now - listed.at < LISTING_TTL_MS) {
-        contacts = listed.contacts;
+      if (start > 0 && listed !== undefined) {
+        contacts = listed;
       } else {
         contacts = (await listAll(helper, signal)).contacts;
-        listed = { contacts, at: now };
+        listed = contacts;
       }
       const page = contacts.slice(start, start + Math.min(limit, CONTACTS_PAGE));
       const items: SourceItem[] = [];
@@ -232,6 +248,7 @@ export function contactsAdapter(deps: ContactsSourceDeps): SourceAdapter {
       }
       const next = start + read;
       const hasMore = next < contacts.length;
+      if (!hasMore) listed = undefined;
       return { items, cursor: hasMore ? { i: next } : { i: next, doneAt: now }, hasMore };
     },
     async listIds(signal) {

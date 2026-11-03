@@ -611,6 +611,15 @@ export class SourceIndexer {
     return { sources, exclude: config.exclude, indexBytes: size.bytes };
   }
 
+  /**
+   * Producers whose text may not reach a cloud model at all: processing `none` or `local`. The
+   * agent's answers and deep research drop their hits when the model that reads them is cloud.
+   */
+  cloudBlocked(): string[] {
+    const config = this.#o.config();
+    return SOURCE_IDS.filter((id) => config.sources[id].processing !== "cloud").map(sourceTag);
+  }
+
   /** Producers whose items get no context card (processing `none`). */
   cardBlocked(): string[] {
     const config = this.#o.config();

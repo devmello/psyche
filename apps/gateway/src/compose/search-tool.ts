@@ -29,6 +29,12 @@ export interface SearchToolDeps {
   /** The cheap model for synthesis. */
   model: ModelRef;
   tzOffsetMinutes?: number;
+  /** Producers whose processing keeps them off cloud models (`SourceIndexer.cloudBlocked`). */
+  cloudBlocked?: () => readonly string[];
+  /** Whether the synthesis model (`model`) is a cloud model. */
+  synthesisIsCloud?: () => boolean;
+  /** Whether the thread model that reads this tool's output is a cloud model. */
+  outputIsCloud?: () => boolean;
 }
 
 export function searchEverythingTool(deps: SearchToolDeps): AgentToolRegistration {
@@ -56,6 +62,11 @@ export function searchEverythingTool(deps: SearchToolDeps): AgentToolRegistratio
         {
           index: deps.index,
           kept,
+          ...(deps.cloudBlocked === undefined ? {} : { cloudBlocked: deps.cloudBlocked }),
+          ...(deps.synthesisIsCloud === undefined
+            ? {}
+            : { synthesisIsCloud: deps.synthesisIsCloud }),
+          ...(deps.outputIsCloud === undefined ? {} : { outputIsCloud: deps.outputIsCloud }),
           ...(deps.tzOffsetMinutes === undefined ? {} : { tzOffsetMinutes: deps.tzOffsetMinutes }),
           async complete(system, user, signal) {
             let text = "";
@@ -119,7 +130,19 @@ function emitChips(ctx: object, output: SearchEverythingOutput, hits: readonly A
  * exactly as `search_everything` does. What it returns reaches the model as untrusted research
  * input (`research_run` is `provenanceOut: untrusted`).
  */
-export function agentLocalSearch(index: SqliteSearchIndex, limit = 5) {
+export function agentLocalSearch(
+  index: SqliteSearchIndex,
+  limit = 5,
+  /**
+   * Processing: producers whose text may not go to a cloud model (`none` or `local`) are dropped
+   * while any research model is a cloud model (research reads with the thread and cheap tiers, and
+   * saves a report to the Library).
+   */
+  processing: { cloudBlocked: () => readonly string[]; cloud: () => boolean } = {
+    cloudBlocked: () => [],
+    cloud: () => true,
+  },
+) {
   return async (
     q: string,
   ): Promise<{ id: string; kind: string; title: string; snippet: string }[]> => {
@@ -134,8 +157,9 @@ export function agentLocalSearch(index: SqliteSearchIndex, limit = 5) {
       res.hits.map((h) => h.id),
       "agent",
     );
+    const blocked = processing.cloud() ? new Set(processing.cloudBlocked()) : new Set<string>();
     return res.hits
-      .filter((h) => readable.has(h.id))
+      .filter((h) => readable.has(h.id) && !(h.source !== undefined && blocked.has(h.source)))
       .slice(0, limit)
       .map((h) => ({ id: h.id, kind: h.kind, title: h.title, snippet: h.snippet }));
   };

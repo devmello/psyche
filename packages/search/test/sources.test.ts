@@ -477,6 +477,21 @@ describe("controls", () => {
     expect(await index.count()).toBe(1);
   });
 
+  it("cloudBlocked lists every source whose processing is none or local", () => {
+    const h = harness(["notes"]);
+    expect(h.indexer.cloudBlocked().sort()).toEqual(["connector:contacts", "connector:memory"]);
+    h.config().sources.notes.processing = "local";
+    h.config().sources.mail.processing = "none";
+    expect(h.indexer.cloudBlocked().sort()).toEqual([
+      "connector:contacts",
+      "connector:mail",
+      "connector:memory",
+      "connector:notes",
+    ]);
+    h.config().sources.mail.processing = "cloud";
+    expect(h.indexer.cloudBlocked()).not.toContain("connector:mail");
+  });
+
   it("processing none blocks context cards for that source; the field is kept per source", () => {
     const h = harness(["notes"]);
     expect(h.indexer.cardBlocked().sort()).toEqual(["connector:contacts", "connector:memory"]);
