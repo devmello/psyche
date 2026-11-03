@@ -20,9 +20,10 @@ public enum ContactsCapabilities {
                 "limit": Schema.integer("Default 500", min: 1, max: ContactsList.maxLimit),
                 "fields": Schema.array(Schema.string(enum: ["name"]), description: "Only \"name\" for now"),
                 "query": Schema.string("Prefix match on given or family name", maxLength: ContactsList.maxQuery),
+                "offset": Schema.integer("Skip this many contacts first, to page past the limit; default 0", min: 0, max: ContactsList.maxOffset),
             ])
         )) { ctx in
-            let (limit, query) = try ContactsList.validate(try ctx.decode(ContactsList.Params.self))
+            let (limit, offset, query) = try ContactsList.validate(try ctx.decode(ContactsList.Params.self))
             let records: [ContactsList.Record]? = try await withCheckedThrowingContinuation {
                 (cont: CheckedContinuation<[ContactsList.Record]?, Error>) in
                 DispatchQueue.global(qos: .userInitiated).async { cont.resume(with: Result { try reader() }) }
@@ -31,8 +32,16 @@ public enum ContactsCapabilities {
                 throw CapabilityError(.forbidden, reason: "permission_denied",
                                       "Psyche (Helper) does not have the Contacts permission", details: ["permission": "contacts"])
             }
-            return CapabilityOutput(ContactsList.result(records: records, limit: limit, query: query))
+            return CapabilityOutput(ContactsList.result(records: records, limit: limit, offset: offset, query: query))
         }]
+    }
+
+    static func displayName(_ c: CNContact) -> String {
+        for candidate in [CNContactFormatter.string(from: c, style: .fullName) ?? "", c.organizationName, c.nickname] {
+            let t = candidate.trimmingCharacters(in: .whitespaces)
+            if !t.isEmpty { return t }
+        }
+        return ""
     }
 
     /// Live read through `CNContactStore`, fetching name keys only.
@@ -51,7 +60,8 @@ public enum ContactsCapabilities {
         do {
             try CNContactStore().enumerateContacts(with: request) { c, _ in
                 out.append(ContactsList.Record(
-                    id: c.identifier, name: CNContactFormatter.string(from: c, style: .fullName) ?? "",
+                    // A card with no person name (a company, a nickname only) is listed by what it has.
+                    id: c.identifier, name: displayName(c),
                     givenName: c.givenName, familyName: c.familyName, nickname: c.nickname, organization: c.organizationName
                 ))
             }

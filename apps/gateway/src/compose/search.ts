@@ -107,6 +107,12 @@ export interface ComposedSearch extends ComposedPart {
 }
 
 export const SOURCES_SETTING = "search.sources";
+/**
+ * "Index on battery" (Settings → Search sources, default off): backfills, first reads, Rebuild and
+ * the Library's OCR backfill also run while the Mac is on battery. Low Power Mode still pauses
+ * them. Read from the settings table on every use, so a change applies without a restart.
+ */
+export const RUN_ON_BATTERY_SETTING = "search.runOnBattery";
 
 /** Settings the Memory source follows: memory on or off, its agent access, the two encryptions. */
 const MEMORY_SOURCE_SETTINGS = [
@@ -383,12 +389,16 @@ function buildSearch(deps: SearchDeps, sqlite: PsycheDb["sqlite"]): ComposedSear
    * Vision OCR for Library images and scans: the Files source's switch, the Mac helper, and the
    * power state (a new item is read unless low-power mode is on; a backfill only on power).
    */
+  const runOnBattery = (): boolean => getSetting(deps.db, RUN_ON_BATTERY_SETTING)?.value === true;
   const libraryOcr = (mode: "add" | "backfill"): Recognize | undefined => {
     const files = deps.sources?.files?.ocr;
     const cfg = sourcesConfig().sources.files;
     if (files === undefined || !cfg.enabled || !cfg.ocr) return undefined;
     const power = files.power?.();
-    if (power !== undefined && (power.lowPower || (mode === "backfill" && power.onBattery)))
+    if (
+      power !== undefined &&
+      (power.lowPower || (mode === "backfill" && power.onBattery && !runOnBattery()))
+    )
       return undefined;
     return files.recognize;
   };
@@ -421,6 +431,7 @@ function buildSearch(deps: SearchDeps, sqlite: PsycheDb["sqlite"]): ComposedSear
                 ocr: {
                   ...deps.sources.files.ocr,
                   enabled: () => sourcesConfig().sources.files.ocr,
+                  runOnBattery,
                 },
               }),
         });
@@ -447,6 +458,7 @@ function buildSearch(deps: SearchDeps, sqlite: PsycheDb["sqlite"]): ComposedSear
         config: sourcesConfig,
         now: deps.now,
         ...(deps.sources.power === undefined ? {} : { power: deps.sources.power }),
+        runOnBattery,
         ...(deps.backfillPauseMs === undefined ? {} : { pauseMs: deps.backfillPauseMs }),
         onChange: () => publishSources(),
         onError: (source, err) =>
@@ -649,6 +661,9 @@ function buildSearch(deps: SearchDeps, sqlite: PsycheDb["sqlite"]): ComposedSear
           const entries = (f.payload as { entries?: { key: string }[] }).entries ?? [];
           const keys: string[] = Object.values(SEMANTIC_SETTINGS);
           if (entries.some((e) => keys.includes(e.key))) void applySemantic();
+          // "Index on battery" turned on: the waiting backfills start now, not at the next beat.
+          if (entries.some((e) => e.key === RUN_ON_BATTERY_SETTING))
+            void sourceTick().catch(() => undefined);
           // Memory on or off, its agent access, either encryption switch: the Memory source
           // follows them (the agent flag is synced into the index by applyConfig).
           if (entries.some((e) => MEMORY_SOURCE_SETTINGS.includes(e.key))) kickMemory(true);

@@ -179,6 +179,7 @@ export const settings = {
   "settings.key.search.rerank.enabled": "Re-rank the best results with a small cloud model",
   "settings.semanticSearch.rerankHint":
     "A small cloud model puts the best results first. The top 20 snippets leave this Mac. Off by default.",
+  "settings.key.search.runOnBattery": "Index on battery",
   "settings.key.search.queryModel.enabled": "Read questions with a small model",
   "settings.semanticSearch.queryModelHint":
     "A small cloud model works out time, person and source filters. Only the question is sent, never your items.",
@@ -1146,7 +1147,7 @@ export const settings = {
   // Local search sources (docs/design/search-roadmap-2026.md §2), under Model (SearchSourcesSettings.tsx).
   "settings.searchSources.title": "Search sources",
   "settings.searchSources.description":
-    "What Psyche reads into your search index. All off until you switch them on; the index stays on this Mac. Turning a source on also lets memory learn from it, unless you opt out on Memory → Sources (Memory itself is the exception: it is never learned from).",
+    "What Psyche reads into your search index. All off until you switch them on; the index stays on this Mac. Turning a source on also lets memory learn from it, unless you opt out on Memory → Sources (Memory and Contacts are the exceptions: neither is learned from).",
   "settings.searchSources.hint.mail":
     "Subject, sender, recipients, date and the text of your mail in Apple Mail. Quoted replies are skipped.",
   "settings.searchSources.hint.messages":
@@ -1155,6 +1156,8 @@ export const settings = {
   "settings.searchSources.hint.calendar":
     "Events from the past three years and the next twelve months: title, time, place, attendees and notes.",
   "settings.searchSources.hint.reminders": "Reminders and their lists, due dates and notes.",
+  "settings.searchSources.hint.contacts":
+    "Your Apple Contacts: name, nickname, company, job title, emails, phone numbers, the city and country of each address, and birthday. Street addresses, notes and groups are never read. The agent can't search it until you allow it, and that switch covers only this index: what Memory has learned about people, and their pages with emails or numbers, follow Memory's own agent access.",
   "settings.searchSources.hint.files":
     "Text, code, PDF, Word and Excel files in folders you've shared. Images are indexed by name.",
   "settings.searchSources.hint.browser":
@@ -1163,6 +1166,8 @@ export const settings = {
     "Voice memos and meetings, split by speaker. Other people's words are never treated as instructions.",
   "settings.searchSources.hint.memory":
     "What Psyche remembers: your people, projects, work that's due and events, and the facts Psyche has accepted. Anything sensitive, still waiting for review, learned from a source the agent may not search, or kept private is left out. Memory doesn't learn from this index, and needs Memory turned on.",
+  "settings.searchSources.runOnBatteryHint":
+    "Lets indexing, Rebuild and reading text in images carry on while your Mac runs on battery, at a gentler pace. It uses more battery. Low Power Mode still pauses indexing.",
   "settings.searchSources.cannotEnable": "Can't be switched on yet: {why}",
   "settings.searchSources.cannotAgent": "The agent can't search this yet: {why}",
   "settings.searchSources.state.off": "Off: not read",
@@ -1187,7 +1192,7 @@ export const settings = {
   "settings.searchSources.agentLabel": "Agent search for {source}",
   "settings.searchSources.ocr": "Read text in images (OCR)",
   "settings.searchSources.ocrHint":
-    "Reads screenshots and scanned PDFs with Apple Vision, one page at a time, only on power. Nothing leaves your Mac.",
+    "Reads screenshots and scanned PDFs with Apple Vision, one page at a time, on power (or on battery with Index on battery on). Nothing leaves your Mac.",
   "settings.searchSources.ocrLabel": "Read text in images for {source}",
   "settings.searchSources.processing": "Processing",
   "settings.searchSources.processingLabel": "Processing for {source}",

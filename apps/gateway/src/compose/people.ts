@@ -294,8 +294,12 @@ export function composePeople(deps: PeopleDeps): People {
       // Off means off: nothing learned reaches the agent while the feature is switched off.
       mode: s.enabled ? s.agentAccess : "none",
       seesSensitive: s.agentSeesSensitive,
+      // Contacts is a Search source now, but a fact memory learned from the Contacts connector is
+      // not gated by that source's agent switch (it never was): only the sources memory reads.
       sourceAllowed: (src) =>
-        src in cfg.sources ? cfg.sources[src as keyof typeof cfg.sources].agent : true,
+        src !== "contacts" && src in cfg.sources
+          ? cfg.sources[src as keyof typeof cfg.sources].agent
+          : true,
     };
   };
   const graphTools = new GraphTools(store, {

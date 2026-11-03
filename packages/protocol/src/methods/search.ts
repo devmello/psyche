@@ -259,6 +259,7 @@ export const SearchSourceId = StringEnum(
     "browser",
     "transcripts",
     "memory",
+    "contacts",
   ],
   { $id: "SearchSourceId" },
 );

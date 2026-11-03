@@ -24,6 +24,12 @@ export interface SourceIndexerOptions {
   config: () => SourcesConfig;
   now?: () => number;
   power?: () => PowerState;
+  /**
+   * The owner's "Index on battery" setting, read on every call so a change applies at once. On,
+   * first reads, backfills, sweeps and Rebuild also run on battery, at half the pages per tick
+   * (`pagesPerTick`, at least one). Low Power Mode still pauses them: macOS asked to save power.
+   */
+  runOnBattery?: () => boolean;
   /** Items per page (default 100). */
   pageSize?: number;
   /** Pages per source per tick on power (default 5); on battery one page of an already-filled source. */
@@ -40,6 +46,18 @@ export interface SourceIndexerOptions {
 
 const DAY_MS = 86_400_000;
 const MIN_DEDUPE_CHARS = 200;
+
+/**
+ * How the Mac's power state limits work now. `paused`: Low Power Mode, which stops everything but a
+ * source that runs there. `waitsForPower`: on battery with "Index on battery" off, where only a
+ * source that is already filled keeps up, one page at a time. `onBattery` with neither: the owner
+ * allows it, at half the pages per tick.
+ */
+interface PowerMode {
+  paused: boolean;
+  waitsForPower: boolean;
+  onBattery: boolean;
+}
 
 /** Why a rebuild was refused. Nothing is removed when it is: the index stays as it was. */
 export type RebuildRefusal = "off" | "unavailable" | "power" | "busy";
@@ -78,6 +96,19 @@ interface Row {
   chat_id: string | null;
   account: string | null;
   path: string | null;
+}
+
+/**
+ * Why a rebuild waits, in the owner's terms and naming the real reason: Low Power Mode, battery
+ * with "Index on battery" off, or both.
+ */
+function rebuildPowerMessage(label: string, mode: PowerMode): string {
+  const setting = 'turn on "Index on battery" in Settings → Search sources';
+  if (mode.paused && mode.waitsForPower)
+    return `Low Power Mode is on and the Mac is on battery, so ${label} can't be rebuilt now. Turn off Low Power Mode and plug in (or ${setting}).`;
+  if (mode.paused)
+    return `Low Power Mode is on, so ${label} can't be rebuilt now: indexing pauses until it is off.`;
+  return `The Mac is on battery, so ${label} can't be rebuilt now. Plug in, or ${setting}.`;
 }
 
 /** Document source tag in `search_docs.source` (bulk removal, per-source counts). */
@@ -151,6 +182,21 @@ export class SourceIndexer {
     return v === undefined ? null : JSON.parse(v);
   }
 
+  #mode(): PowerMode {
+    const power = this.#o.power?.() ?? { onBattery: false, lowPower: false };
+    return {
+      paused: power.lowPower,
+      waitsForPower: power.onBattery && this.#o.runOnBattery?.() !== true,
+      onBattery: power.onBattery,
+    };
+  }
+
+  /** Pages one source may read in a tick under `mode`. */
+  #pages(mode: PowerMode): number {
+    if (mode.waitsForPower) return 1;
+    return mode.onBattery ? Math.max(1, Math.ceil(this.#o.pagesPerTick / 2)) : this.#o.pagesPerTick;
+  }
+
   // --- passes ----------------------------------------------------------------------------------
 
   /** One bounded step over every enabled source; also runs the nightly sweep when due. */
@@ -189,14 +235,14 @@ export class SourceIndexer {
     if (adapter === undefined || !this.#o.config().sources[id].enabled) return;
     if (this.#rebuilding.has(id) || this.#active.has(id) || adapter.unavailable() !== undefined)
       return;
-    const power = this.#o.power?.() ?? { onBattery: false, lowPower: false };
-    if (power.lowPower && adapter.runsOnLowPower !== true) return;
-    if (power.onBattery && this.#meta(`src.${id}.backfilled`) !== "1") return;
-    await this.#pull(id, adapter, power.onBattery ? 1 : this.#o.pagesPerTick, this.#o.now());
+    const mode = this.#mode();
+    if (mode.paused && adapter.runsOnLowPower !== true) return;
+    if (mode.waitsForPower && this.#meta(`src.${id}.backfilled`) !== "1") return;
+    await this.#pull(id, adapter, this.#pages(mode), this.#o.now());
   }
 
   async #tick(): Promise<void> {
-    const power = this.#o.power?.() ?? { onBattery: false, lowPower: false };
+    const mode = this.#mode();
     const started = this.#o.now();
     const config = this.#o.config();
     for (const id of SOURCE_IDS) {
@@ -205,14 +251,14 @@ export class SourceIndexer {
       if (adapter === undefined || adapter.unavailable() !== undefined) continue;
       // Low Power Mode pauses everything but a source that is a cheap local read, so that what
       // memory dropped (a fact retracted, a person hidden) leaves the index at once.
-      if (power.lowPower && adapter.runsOnLowPower !== true) continue;
+      if (mode.paused && adapter.runsOnLowPower !== true) continue;
       const filled = this.#meta(`src.${id}.backfilled`) === "1";
-      // On battery only a source that is already filled keeps up; backfills wait for power.
-      if (power.onBattery && !filled) continue;
-      const pages = power.onBattery ? 1 : this.#o.pagesPerTick;
-      await this.#pull(id, adapter, pages, started);
+      // On battery (unless the owner allows it) only a source that is already filled keeps up;
+      // backfills wait for power.
+      if (mode.waitsForPower && !filled) continue;
+      await this.#pull(id, adapter, this.#pages(mode), started);
       if (this.#abort.signal.aborted) return;
-      if (!power.onBattery && !power.lowPower) {
+      if (!mode.waitsForPower && !mode.paused) {
         const last = Number(this.#meta(`src.${id}.sweptAt`) ?? 0);
         if (filled && this.#o.now() - last >= (this.#o.sweepEveryMs ?? DAY_MS))
           await this.sweep(id);
@@ -274,7 +320,13 @@ export class SourceIndexer {
         if (existing !== undefined) drop.push(item.nativeId);
         continue;
       }
-      const hash = sha256(`${item.title}\n${item.text}`);
+      // The parent a result collapses onto is part of what is stored, so a changed parent (the
+      // person turned private, hidden or merged) re-indexes the item instead of being skipped.
+      const hash = sha256(
+        item.parentId === undefined
+          ? `${item.title}\n${item.text}`
+          : `${item.title}\n${item.text}\n\u0000parent:${item.parentId}`,
+      );
       // Unchanged text is skipped, but not when who it involves changed: the exclusion list works
       // from the stored parties (a person linked to a project later), so they are kept current.
       if (
@@ -463,7 +515,7 @@ export class SourceIndexer {
   /**
    * Purges a source so the next passes read it again from the start (Settings → Rebuild). It
    * refuses, removing nothing, when the source is off, cannot be read now (the Mac helper is not
-   * connected) or the Mac is on battery (a first read waits for power): purging then would leave
+   * connected) or the Mac cannot index now (Low Power Mode, or battery with "Index on battery" off: a first read waits): purging then would leave
    * the index empty with no way to fill it. It waits for the pass in flight first, because a pull
    * that is mid-page writes its cursor when it finishes and the rebuild would resume from there.
    * Callers follow it with `kick()`.
@@ -479,12 +531,9 @@ export class SourceIndexer {
         "unavailable",
         `${label} can't be read right now (${why}), so it was left as it is.`,
       );
-    const power = this.#o.power?.() ?? { onBattery: false, lowPower: false };
-    if (power.onBattery || power.lowPower)
-      throw new RebuildRefused(
-        "power",
-        `Plug in to rebuild ${label}: reading it again from the start waits for power.`,
-      );
+    const mode = this.#mode();
+    if (mode.paused || mode.waitsForPower)
+      throw new RebuildRefused("power", rebuildPowerMessage(label, mode));
     if (this.#rebuilding.has(id))
       throw new RebuildRefused("busy", `${label} is already being rebuilt.`);
     this.#rebuilding.add(id);

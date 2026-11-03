@@ -5,7 +5,7 @@ import { useSearchSources } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
 import { formatRelative } from "../../lib/format.ts";
-import { Group, StatusChip, SwitchField } from "./shared.tsx";
+import { bool, Group, type SettingsValues, StatusChip, SwitchField } from "./shared.tsx";
 
 /**
  * Settings → Search sources (docs/design/search-roadmap-2026.md §2): the owner chooses which
@@ -25,6 +25,7 @@ const HINT = {
   notes: "settings.searchSources.hint.notes",
   calendar: "settings.searchSources.hint.calendar",
   reminders: "settings.searchSources.hint.reminders",
+  contacts: "settings.searchSources.hint.contacts",
   files: "settings.searchSources.hint.files",
   browser: "settings.searchSources.hint.browser",
   transcripts: "settings.searchSources.hint.transcripts",
@@ -104,8 +105,13 @@ export function SearchSourcesSettingsGroup({
   status,
   onConfigure,
   onRebuild,
+  values,
+  onChange,
   now = Date.now(),
 }: {
+  /** The settings values and writer, for "Index on battery" (a plain setting, not a source). */
+  values?: SettingsValues;
+  onChange?: (key: string, value: unknown) => void;
   /** Overrides the live status (stories, tests). */
   status?: SearchSourcesStatus;
   onConfigure?: (p: {
@@ -140,6 +146,15 @@ export function SearchSourcesSettingsGroup({
       title={t("settings.searchSources.title")}
       description={t("settings.searchSources.description")}
     >
+      {onChange === undefined ? null : (
+        <SwitchField
+          label={t("settings.key.search.runOnBattery")}
+          description={t("settings.searchSources.runOnBatteryHint")}
+          checked={bool(values ?? {}, "search.runOnBattery", false)}
+          onChange={(v) => onChange("search.runOnBattery", v)}
+          settingKey="search.runOnBattery"
+        />
+      )}
       {(data?.sources ?? []).map((s) => {
         const line = sourceStateText(s);
         const rb = rebuilds[s.id];

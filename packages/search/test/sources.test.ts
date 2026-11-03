@@ -162,10 +162,11 @@ const mail = (id: string, from: string, date: string, subject = "Hello") => ({
 describe("config", () => {
   it("is off by default and survives garbage", () => {
     const c = defaultSourcesConfig();
-    // Memory ships with no summaries: its facts come from other sources' text.
+    // Memory (its facts come from other sources' text) and Contacts ship with no summaries.
     expect(
       Object.entries(c.sources).every(
-        ([id, s]) => !s.enabled && s.processing === (id === "memory" ? "none" : "cloud"),
+        ([id, s]) =>
+          !s.enabled && s.processing === (id === "memory" || id === "contacts" ? "none" : "cloud"),
       ),
     ).toBe(true);
     const r = readSourcesConfig({
@@ -416,16 +417,21 @@ describe("notes, calendar, reminders", () => {
 });
 
 describe("agent access", () => {
-  it("is on for every source but Messages and Memory, and follows the config into the index flags", async () => {
+  it("is on for every source but Messages, Contacts and Memory, and follows the config into the index flags", async () => {
     const h = harness(["notes", "messages"]);
     expect(h.index.agentExcludedSources().sort()).toEqual([
+      "connector:contacts",
       "connector:imessage",
       "connector:memory",
     ]);
     h.config().sources.notes.agent = false;
     h.config().sources.messages.agent = true;
     await h.indexer.applyConfig();
-    expect(h.index.agentExcludedSources().sort()).toEqual(["connector:memory", "connector:notes"]);
+    expect(h.index.agentExcludedSources().sort()).toEqual([
+      "connector:contacts",
+      "connector:memory",
+      "connector:notes",
+    ]);
     expect(h.indexer.status().sources.find((s) => s.id === "notes")?.agent).toBe(false);
   });
 });
@@ -473,9 +479,13 @@ describe("controls", () => {
 
   it("processing none blocks context cards for that source; the field is kept per source", () => {
     const h = harness(["notes"]);
-    expect(h.indexer.cardBlocked()).toEqual(["connector:memory"]);
+    expect(h.indexer.cardBlocked().sort()).toEqual(["connector:contacts", "connector:memory"]);
     h.config().sources.notes.processing = "none";
-    expect(h.indexer.cardBlocked().sort()).toEqual(["connector:memory", "connector:notes"]);
+    expect(h.indexer.cardBlocked().sort()).toEqual([
+      "connector:contacts",
+      "connector:memory",
+      "connector:notes",
+    ]);
   });
 
   it("dedupes identical long text across sources, keeping the owner's copy", async () => {
@@ -562,9 +572,15 @@ describe("rebuild", () => {
     await indexer.tick();
     expect(await index.count()).toBe(1);
     power = { onBattery: true, lowPower: false };
-    await expect(indexer.rebuild("notes")).rejects.toMatchObject({ reason: "power" });
+    await expect(indexer.rebuild("notes")).rejects.toMatchObject({
+      reason: "power",
+      message: expect.stringContaining("The Mac is on battery"),
+    });
     power = { onBattery: false, lowPower: true };
-    await expect(indexer.rebuild("notes")).rejects.toMatchObject({ reason: "power" });
+    await expect(indexer.rebuild("notes")).rejects.toMatchObject({
+      reason: "power",
+      message: expect.stringContaining("Low Power Mode is on"),
+    });
     expect(await index.count()).toBe(1);
     power = { onBattery: false, lowPower: false };
     await indexer.rebuild("notes");

@@ -18,6 +18,10 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-03 (Contacts as a Search source)
+
+- `SearchSourceId` gains `contacts` (last in the list): Settings → Search sources can index the owner's Apple Contacts (name, nickname, company, job title, emails, numbers, the city and country of each address, birthday; never street addresses, notes or groups). Off by default, and off for the agent's `search_everything` until the owner allows it. It is not an `EverythingSource`: memory does not learn from it. The Gateway reads Contacts through the Host's own Mac helper (`contacts.list`, `contacts.read`); both stay unreachable through a client's `nodes.invoke`. The owner's "Index on battery" is the plain setting `search.runOnBattery` (boolean, default false), not a protocol field.
+
 ### v1 additive — 2026-11-03 (Memory as a Search source)
 
 - `SearchSourceId` gains `memory` (last in the list): Settings → Search sources can index what Psyche remembers (people, projects, work due, events and accepted, non-sensitive facts). Off by default, and off for the agent's `search_everything` until the owner allows it. It is not an `EverythingSource`: memory never learns from its own index. `SearchSourceStatus` gains optional `cannotEnable` and `cannotAgent` (why the switch, or the agent's access, is not available yet; the Memory source sets them when memory is encrypted and the search index is not, and when memory's agent access is none).

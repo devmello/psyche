@@ -1,3 +1,4 @@
+import { type ContactsSourceDeps, contactsAdapter } from "./contacts.ts";
 import { addressOf } from "./exclusion.ts";
 import { htmlToText, stripQuotedReplies } from "./text.ts";
 import type { SourceAdapter, SourceItem, SourcePull } from "./types.ts";
@@ -50,6 +51,13 @@ export interface AppleSourceDeps {
   call: (app: "mail" | "notes" | "calendar" | "reminders") => ToolCall | undefined;
   /** The Mac helper offering `messages.graph_read`; undefined while none is live. */
   helper: () => HelperCall | undefined;
+  /**
+   * The Host's Mac helper offering `contacts.list` and `contacts.read`, for the Contacts source;
+   * undefined while none is live. Absent = Contacts is unavailable on this host.
+   */
+  contacts?: () => HelperCall | undefined;
+  /** The Memory person document a contact is the same person as, so results collapse (optional). */
+  contactParent?: ContactsSourceDeps["parentOf"];
   /** The owner's own addresses, to tell sent mail from received mail. */
   ownAddresses: () => string[];
   /** The #1006 check: whether this row is the owner's own content (a trusted list, own calendar). */
@@ -942,5 +950,10 @@ export function appleAdapters(deps: AppleSourceDeps): SourceAdapter[] {
     notesAdapter(deps),
     calendarAdapter(deps),
     remindersAdapter(deps),
+    contactsAdapter({
+      helper: deps.contacts ?? (() => undefined),
+      ...(deps.contactParent === undefined ? {} : { parentOf: deps.contactParent }),
+      now: deps.now,
+    }),
   ];
 }

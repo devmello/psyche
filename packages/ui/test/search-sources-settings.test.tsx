@@ -301,11 +301,103 @@ describe("Rebuild", () => {
     await waitFor(() =>
       expect(screen.getByTestId("rebuild-mail").textContent).toBe("Rebuilt Mail: 120 items."),
     );
-    const why = "Plug in to rebuild Mail: reading it again from the start waits for power.";
+    const why =
+      'The Mac is on battery, so Mail can\'t be rebuilt now. Plug in, or turn on "Index on battery" in Settings → Search sources.';
     gateway?.failNext("search.sources.rebuild", "unavailable", why);
     await userEvent.click(screen.getByRole("button", { name: "Rebuild Mail" }));
     await waitFor(() =>
       expect(screen.getByTestId("rebuild-mail").textContent).toBe(`Couldn't rebuild Mail: ${why}`),
     );
+  });
+});
+
+describe("Contacts and Index on battery", () => {
+  const withContacts: SearchSourcesStatus = {
+    ...status,
+    sources: [...status.sources, base({ id: "contacts", label: "Contacts", agent: false })],
+  };
+
+  it("lists Contacts off, with what it reads and what it never reads, owner-only for the agent", async () => {
+    const onConfigure = vi.fn();
+    render(
+      <StoryWorld>
+        <SearchSourcesSettingsGroup status={withContacts} onConfigure={onConfigure} now={NOW} />
+      </StoryWorld>,
+    );
+    const sw = screen.getByRole("switch", { name: "Contacts" });
+    expect(sw.getAttribute("aria-checked")).toBe("false");
+    expect(screen.getByText(/Street addresses, notes and groups are never read/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Rebuild Contacts" }).hasAttribute("disabled")).toBe(
+      true,
+    );
+    // No agent checkbox while it is off; switching on is a plain configure call.
+    expect(screen.queryByRole("checkbox", { name: "Agent search for Contacts" })).toBeNull();
+    await userEvent.click(sw);
+    expect(onConfigure).toHaveBeenCalledWith({ source: "contacts", enabled: true });
+  });
+
+  it("an enabled Contacts row has the agent box unticked, and Rebuild", async () => {
+    const on: SearchSourcesStatus = {
+      ...status,
+      sources: [
+        base({
+          id: "contacts",
+          label: "Contacts",
+          agent: false,
+          enabled: true,
+          state: "idle",
+          items: 312,
+          backfilled: true,
+        }),
+      ],
+    };
+    const onRebuild = vi.fn();
+    render(
+      <StoryWorld>
+        <SearchSourcesSettingsGroup
+          status={on}
+          onConfigure={vi.fn()}
+          onRebuild={onRebuild}
+          now={NOW}
+        />
+      </StoryWorld>,
+    );
+    expect(screen.getByText("Up to date: 312 items")).toBeTruthy();
+    const agent = screen.getByRole("checkbox", { name: "Agent search for Contacts" });
+    expect((agent as HTMLInputElement).checked).toBe(false);
+    await userEvent.click(screen.getByRole("button", { name: "Rebuild Contacts" }));
+    expect(onRebuild).toHaveBeenCalledWith("contacts");
+  });
+
+  it("shows Index on battery off by default, with its hint, and writes the setting", async () => {
+    const onChange = vi.fn();
+    render(
+      <StoryWorld>
+        <SearchSourcesSettingsGroup status={status} values={{}} onChange={onChange} now={NOW} />
+      </StoryWorld>,
+    );
+    const sw = screen.getByRole("switch", { name: "Index on battery" });
+    expect(sw.getAttribute("aria-checked")).toBe("false");
+    expect(
+      screen.getByText(/It uses more battery\. Low Power Mode still pauses indexing\./),
+    ).toBeTruthy();
+    await userEvent.click(sw);
+    expect(onChange).toHaveBeenCalledWith("search.runOnBattery", true);
+  });
+
+  it("reflects the stored setting", () => {
+    render(
+      <StoryWorld>
+        <SearchSourcesSettingsGroup
+          status={status}
+          values={{ "search.runOnBattery": true }}
+          onChange={vi.fn()}
+          now={NOW}
+        />
+      </StoryWorld>,
+    );
+    expect(
+      screen.getByRole("switch", { name: "Index on battery" }).getAttribute("aria-checked"),
+    ).toBe("true");
   });
 });

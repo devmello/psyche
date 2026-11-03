@@ -1,5 +1,6 @@
 export * from "./apple.ts";
 export * from "./browser.ts";
+export * from "./contacts.ts";
 export * from "./exclusion.ts";
 export * from "./files.ts";
 export * from "./manager.ts";

@@ -65,6 +65,11 @@ export interface FilesOcr {
   /** Battery state: nothing is recognised on battery or in low-power mode. Unknown = on power. */
   power?: () => PowerState;
   /**
+   * The owner's "Index on battery" setting: on, recognition also runs on battery (never in
+   * low-power mode). Read on every pull.
+   */
+  runOnBattery?: () => boolean;
+  /**
    * Recognises one file, whole (an image, or a PDF's image-only pages: the helper reads the text
    * layer of each page and recognises those with fewer than 30 characters). Undefined when
    * nothing can be read; throws when the helper fails.
@@ -129,12 +134,14 @@ export function filesAdapter(deps: FilesSourceDeps): SourceAdapter & { invalidat
     return listing;
   };
 
-  /** Whether OCR may run now: the switch is on and the Mac is on power outside low-power mode. */
+  /** Whether OCR may run now: the switch is on and the Mac is on power (or battery, if the owner allows it) outside low-power mode. */
   const ocrReady = (): boolean => {
     const o = deps.ocr;
     if (o === undefined || !o.enabled()) return false;
     const power = o.power?.();
-    return power === undefined || (!power.onBattery && !power.lowPower);
+    return (
+      power === undefined || (!power.lowPower && (!power.onBattery || o.runOnBattery?.() === true))
+    );
   };
 
   /** What one pull has left to spend on OCR. */

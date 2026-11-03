@@ -9,7 +9,11 @@ const isPhone = (s: string): boolean => /^[+()\d\s.-]{7,}$/.test(s);
 function forms(s: string): string[] {
   const n = norm(s);
   if (n === "") return [];
-  return isPhone(n) && digits(n).length >= 7 ? [n, digits(n)] : [n];
+  if (!isPhone(n) || digits(n).length < 7) return [n];
+  const d = digits(n);
+  // The national number too (last ten digits), so "+1 555 123 4567" and "(555) 123-4567" are the
+  // same number, and so are "+44 7911 123456" and "07911 123456".
+  return d.length >= 10 ? [n, d, d.slice(-10)] : [n, d];
 }
 
 /** Address inside `Name <a@b.c>`. */

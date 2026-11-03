@@ -36,6 +36,7 @@ const READ_SOURCES: readonly SearchSourceId[] = [
   "notes",
   "calendar",
   "reminders",
+  "contacts",
   "files",
 ];
 

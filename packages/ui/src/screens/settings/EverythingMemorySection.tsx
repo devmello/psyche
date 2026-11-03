@@ -146,9 +146,12 @@ export function useEverythingSetup() {
   const indexed =
     search.status === undefined
       ? undefined
-      : // The Memory source is Search's index of memory itself: memory never learns from it.
+      : // The Memory source is Search's index of memory itself, and Contacts is structured data
+        // (no prose to read): memory never learns from either.
         new Set<EverythingSource>(
-          search.status.sources.flatMap((s) => (s.enabled && s.id !== "memory" ? [s.id] : [])),
+          search.status.sources.flatMap((s) =>
+            s.enabled && s.id !== "memory" && s.id !== "contacts" ? [s.id] : [],
+          ),
         );
   const value = readEverything(form.values, indexed);
   /** "Let Psyche read {source}": the call Essentials makes, and the same macOS permission flow. */

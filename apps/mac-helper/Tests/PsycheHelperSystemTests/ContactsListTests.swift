@@ -36,8 +36,23 @@ struct ContactsListTests {
         #expect(given["contacts"]?.arrayValue?.map { $0["id"] } == ["3"])
     }
 
+    @Test func offsetPagesPastTheLimitInAStableOrder() async throws {
+        var seen: [JSONValue] = []
+        var offset = 0
+        var truncated = true
+        while truncated {
+            let page = try await invoke(["limit": 1, "offset": .int(offset)])
+            seen += page["contacts"]?.arrayValue?.map { $0["id"] ?? .null } ?? []
+            truncated = page["truncated"] == true
+            offset += 1
+        }
+        #expect(seen == ["1", "2", "3"])
+        let past = try await invoke(["limit": 5, "offset": 3])
+        #expect(past["contacts"]?.arrayValue?.isEmpty == true && past["truncated"] == false)
+    }
+
     @Test func invalidParamsAreRejected() async {
-        for bad: JSONValue in [["limit": 0], ["limit": 2001], ["fields": ["phone"]], ["fields": []], ["query": .string(String(repeating: "a", count: 81))]] {
+        for bad: JSONValue in [["offset": -1], ["offset": 1_000_001], ["limit": 0], ["limit": 2001], ["fields": ["phone"]], ["fields": []], ["query": .string(String(repeating: "a", count: 81))]] {
             await #expect(throws: CapabilityError.self) { _ = try await invoke(bad) }
         }
     }
@@ -54,6 +69,6 @@ struct ContactsListTests {
     @Test func specIsAPlainRead() throws {
         let spec = try #require(ContactsCapabilities.make(reader: { [] }).first).spec
         #expect(spec.sideEffect == .read && spec.targetKind == nil && !spec.streaming && spec.permissions.isEmpty)
-        #expect(Set(spec.inputSchema["properties"]?.objectValue?.keys ?? [:].keys) == ["limit", "fields", "query"])
+        #expect(Set(spec.inputSchema["properties"]?.objectValue?.keys ?? [:].keys) == ["limit", "fields", "query", "offset"])
     }
 }
