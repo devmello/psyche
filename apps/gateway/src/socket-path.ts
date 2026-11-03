@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { chmodSync, lstatSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { PsycheError } from "@psyche/protocol";
 
 /** `sun_path` holds 104 bytes on macOS and 108 on Linux, including the terminating NUL. */
@@ -39,6 +39,33 @@ export function resolveNodeSocketPath(home: string, explicit: string | undefined
     );
   }
   return fallback;
+}
+
+/**
+ * Where the Host helper's VM relay delivers sandbox guests (`PeerInfo.transport: "vm-relay"`): its
+ * own socket, never `node.sock`, so the Gateway can tell a relayed guest from the Host's own
+ * helper whatever the guest declares. An explicit `PSYCHE_GUEST_SOCKET` that is too long is an
+ * error. By default it sits next to the node socket (`node.sock` -> `guest.sock`, `<x>.sock` ->
+ * `<x>-guest.sock`); when that does not fit the Gateway has no guest socket and VM guests cannot
+ * connect (the Host helper still works). The Mac helper derives the same path.
+ */
+export function resolveGuestSocketPath(
+  nodeSocketPath: string,
+  explicit: string | undefined,
+): string | null {
+  if (explicit !== undefined) {
+    if (!socketPathFits(explicit)) {
+      throw new PsycheError(
+        "invalid_params",
+        `PSYCHE_GUEST_SOCKET is ${Buffer.byteLength(explicit)} bytes; Unix socket paths are limited to ${MAX_SOCKET_PATH_BYTES} on this platform`,
+      );
+    }
+    return explicit;
+  }
+  const base = basename(nodeSocketPath);
+  const name = base === "node.sock" ? "guest.sock" : `${base.replace(/\.sock$/, "")}-guest.sock`;
+  const path = join(dirname(nodeSocketPath), name);
+  return socketPathFits(path) ? path : null;
 }
 
 /**

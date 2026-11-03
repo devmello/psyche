@@ -7,6 +7,11 @@
  */
 export interface BootstrapAdminDeps {
   packaged: boolean;
+  /**
+   * The Gateway is the one on this Mac (loopback origin). The Gateway refuses the call from
+   * anywhere else, so against a Gateway on another machine this never asks.
+   */
+  local: boolean;
   scopes: () => readonly string[] | undefined;
   call: (method: string, params: unknown, options: { idempotencyKey: string }) => Promise<unknown>;
   reconnect: () => void;
@@ -15,7 +20,7 @@ export interface BootstrapAdminDeps {
 }
 
 export async function bootstrapAdminIfNeeded(deps: BootstrapAdminDeps): Promise<boolean> {
-  if (!deps.packaged) return false;
+  if (!deps.packaged || !deps.local) return false;
   if (deps.scopes()?.includes("operator.admin")) return false;
   try {
     await deps.call(

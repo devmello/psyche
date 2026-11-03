@@ -7,8 +7,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
 import { type ComposedVm, composeVm } from "../src/compose/vm.ts";
 import { silentLogger } from "../src/log.ts";
-import { FakeNode } from "./fake-node.ts";
-import { adminClient, ik, type TestClient } from "./helpers.ts";
+import { FakeNode, pairNodeDevice } from "./fake-node.ts";
+import { adminClient, ik, newDeviceKey, type TestClient } from "./helpers.ts";
 
 /**
  * L6, Gateway side: the owner's `vm.snapshots.*` and the per-Task reset over a fake mac helper
@@ -127,10 +127,16 @@ async function stack(opts: { failReset?: boolean } = {}) {
       }),
     ],
   });
-  const guestNode = await FakeNode.connect(c.gateway.config.nodeSocketPath, {
+  // The guest's psyche-node declares `vm-guest`, not `mac-helper`, and reaches the Gateway
+  // through the Host helper's relay, on the guest socket.
+  const guestKey = newDeviceKey();
+  pairNodeDevice(c.gateway, "guest-psyche-node", guestKey);
+  const guestNode = await FakeNode.connect(c.gateway.config.guestSocketPath as string, {
     origin: c.gateway.origin,
     secret: c.gateway.handshakeSecret,
     deviceId: "guest-psyche-node",
+    key: guestKey,
+    deviceFamily: "vm-guest",
     handlers: [{ capability: { name: "exec", sideEffect: "write", streaming: true } }],
   });
   nodes.push(helper, guestNode);

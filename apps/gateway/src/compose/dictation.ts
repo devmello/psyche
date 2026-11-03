@@ -2,7 +2,6 @@ import {
   type DictationKey,
   type DictationKeyPayload,
   type NodeClient,
-  type NodeInfo,
   type NodeInvokeResult,
   PsycheError,
 } from "@psyche/protocol";
@@ -12,7 +11,7 @@ import type { ComposedPart, ComposeServices } from "./services.ts";
 
 /**
  * System-wide dictation (features J9, Q2): `dictation.target`, `dictation.insert` and
- * `dictation.watch` forwarded to the newest live mac-helper node's capabilities of the same
+ * `dictation.watch` forwarded to the Host's own mac-helper node's capabilities of the same
  * names. The desktop dictates through `voice.*` like the composer (same engine, same custom
  * vocabulary) and then asks for the final text to be inserted into the app that had focus.
  *
@@ -35,23 +34,16 @@ export const DICTATION_METHODS = [
   "dictation.watch",
 ] as const;
 
-/** The newest live mac-helper node that offers `capability`. */
+/**
+ * The Host's own Mac helper when it offers `capability`. Dictation and the screen ask act on the
+ * Host's keyboard and screen, so only the helper on the Gateway's own node socket qualifies
+ * (`NodeRegistry.hostHelper`); a second Mac that paired as a node never does.
+ */
 export function dictationNode(
   gateway: () => Gateway | null,
   capability: string,
 ): NodeClient | undefined {
-  const nodes = gateway()?.context.nodes;
-  if (!nodes) return undefined;
-  const node = nodes
-    .list()
-    .filter(
-      (n: NodeInfo) =>
-        n.kind === "mac-helper" &&
-        n.capabilities.some((c) => c.name === capability) &&
-        nodes.isLive(n.id),
-    )
-    .at(-1);
-  return node === undefined ? undefined : nodes.client(node.id);
+  return gateway()?.context.nodes.hostHelper(capability)?.client;
 }
 
 function unwrap(r: NodeInvokeResult): unknown {

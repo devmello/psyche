@@ -35,9 +35,7 @@ describe("approval.created carries the approver's own answer token (issue #50)",
       model: { provider: new FakeModelProvider(), model: "fake/model" },
     });
     const gw = composed.gateway;
-    node = await FakeNode.connect(gw.config.nodeSocketPath, {
-      origin: gw.origin,
-      secret: gw.handshakeSecret,
+    node = await FakeNode.connectRemote(gw, {
       handlers: [
         {
           capability: { name: "files.trash", sideEffect: "destructive" },

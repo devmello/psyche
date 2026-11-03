@@ -94,7 +94,7 @@ public enum SharePolicy {
 
 /// vsock ports (spike 06 "vsock"; apps/node `guest-bootstrap.sh`). Host CID is 2.
 public enum VsockPorts {
-    /// Guest psyche-node → host Gateway node socket (relayed by the helper).
+    /// Guest psyche-node → host Gateway guest socket (relayed by the helper).
     public static let gatewayNode: UInt32 = 7980
     /// Host → guest helper control (shutdown, share mounts, status).
     public static let guestControl: UInt32 = 7000
@@ -103,7 +103,7 @@ public enum VsockPorts {
 }
 
 /// Copies bytes both ways between two connected descriptors until either side closes. Used to
-/// relay a guest's vsock stream to the Gateway's node socket: the Gateway still runs the full
+/// relay a guest's vsock stream to the Gateway's guest socket: the Gateway still runs the full
 /// signed handshake, and a guest node is a pending pairing until the owner approves it.
 public final class StreamRelay: @unchecked Sendable {
     public let a: Int32

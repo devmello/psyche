@@ -118,7 +118,7 @@ export interface ScreenCapturer {
   capture(params: ScreenContextParams): Promise<ScreenContextResult>;
 }
 
-/** The newest live Mac helper node's `screen.context`. */
+/** The Host's own Mac helper's `screen.context` (never another Mac's screen). */
 export function helperScreenCapturer(gateway: () => Gateway | null): ScreenCapturer {
   return {
     async capture(params) {

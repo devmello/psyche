@@ -65,9 +65,7 @@ describe("per-device rate limits (security §10)", () => {
     await setup({ deviceRequestsPerMinute: 1 });
     const desk = await desktopClient(t.gateway, newDeviceKey(), "desk");
     clients.push(desk);
-    const node = await FakeNode.connect(t.gateway.config.nodeSocketPath, {
-      origin: t.gateway.origin,
-      secret: t.gateway.handshakeSecret,
+    const node = await FakeNode.connectRemote(t.gateway, {
       handlers: [
         {
           capability: { name: "system.echo", sideEffect: "none", streaming: true },

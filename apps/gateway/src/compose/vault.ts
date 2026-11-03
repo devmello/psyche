@@ -188,7 +188,7 @@ const VAULT_EVENTS: readonly VaultEventName[] = [
 
 const KEYCHAIN_NEEDS = [...Object.values(KEYCHAIN_CAPABILITIES), "keychain.status"];
 
-/** A connected mac-helper node with the vault's keychain capabilities. */
+/** The Host's connected mac-helper node with the vault's keychain capabilities. */
 export function isKeychainHelper(node: NodeInfo): boolean {
   if (node.kind !== "mac-helper" || node.status !== "online") return false;
   const names = new Set(node.capabilities.map((c) => c.name));
@@ -196,9 +196,11 @@ export function isKeychainHelper(node: NodeInfo): boolean {
 }
 
 /**
- * The newest connected keychain helper, resolved on every call: the helper connects after the
- * Gateway starts and may reconnect, while the vault's wrapper is fixed at boot. With no helper,
- * the wrapper reports itself unavailable and invocations fail `unavailable`.
+ * The Host's own keychain helper, resolved on every call: the helper connects after the Gateway
+ * starts and may reconnect, while the vault's wrapper is fixed at boot. With no helper, or an
+ * ambiguous one (`NodeRegistry.hostHelper`), the wrapper reports itself unavailable and
+ * invocations fail `unavailable`. The vault key slot is the Host's Keychain, so a second Mac
+ * that paired as a node is never asked to wrap or unwrap it.
  */
 export class HelperNodeClient implements NodeClient {
   readonly #nodes: () => NodeRegistry | undefined;
@@ -210,11 +212,8 @@ export class HelperNodeClient implements NodeClient {
   #current(): NodeClient | undefined {
     const nodes = this.#nodes();
     if (nodes === undefined) return undefined;
-    const helper = nodes
-      .list()
-      .filter((n) => isKeychainHelper(n) && nodes.isLive(n.id))
-      .at(-1);
-    return helper === undefined ? undefined : nodes.client(helper.id);
+    const helper = nodes.hostHelper();
+    return helper !== undefined && isKeychainHelper(helper.info) ? helper.client : undefined;
   }
 
   get nodeId(): string {

@@ -394,39 +394,64 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     }
     rmSync(config.nodeSocketPath, { force: true });
   }
-  const nodeServer: NetServer = createNetServer((socket: Socket) => {
-    socket.setEncoding("utf8");
-    const decoder = new NdjsonDecoder();
-    const conn = new Connection(
-      `node-${++connSeq}`,
-      { transport: "unix", remoteLoopback: true, remoteAddress: "unix", origin: null },
-      { send: (f) => socket.writable && socket.write(`${f}\n`), close: () => socket.end() },
-      ctx,
-    );
-    connections.add(conn);
-    socket.on("data", (chunk: string) => {
-      try {
-        for (const line of decoder.push(chunk)) void conn.handleRaw(line);
-      } catch {
-        conn.close("frame too large");
-      }
+  // One server per node socket. The transport is fixed by the socket a stream arrived on, never
+  // by anything the peer says: `unix` is the node socket (the Host's own helper and psyche-node),
+  // `vm-relay` the guest socket the Host helper copies sandbox guests into.
+  const serveNodes = (transport: "unix" | "vm-relay"): NetServer =>
+    createNetServer((socket: Socket) => {
+      socket.setEncoding("utf8");
+      const decoder = new NdjsonDecoder();
+      const conn = new Connection(
+        `node-${++connSeq}`,
+        {
+          transport,
+          // A relayed guest is not "this machine's own process": never loopback-trusted.
+          remoteLoopback: transport === "unix",
+          remoteAddress: transport,
+          origin: null,
+        },
+        { send: (f) => socket.writable && socket.write(`${f}\n`), close: () => socket.end() },
+        ctx,
+      );
+      connections.add(conn);
+      socket.on("data", (chunk: string) => {
+        try {
+          for (const line of decoder.push(chunk)) void conn.handleRaw(line);
+        } catch {
+          conn.close("frame too large");
+        }
+      });
+      socket.on("close", () => {
+        conn.close("socket closed");
+        connections.delete(conn);
+      });
+      socket.on("error", () => conn.close("socket error"));
     });
-    socket.on("close", () => {
-      conn.close("socket closed");
-      connections.delete(conn);
+  const listenOn = (server: NetServer, path: string) =>
+    new Promise<void>((resolveListen, reject) => {
+      server.once("error", reject);
+      server.listen(path, () => {
+        server.off("error", reject);
+        resolveListen();
+      });
     });
-    socket.on("error", () => conn.close("socket error"));
-  });
-  await new Promise<void>((resolveListen, reject) => {
-    nodeServer.once("error", reject);
-    nodeServer.listen(config.nodeSocketPath, () => {
-      nodeServer.off("error", reject);
-      resolveListen();
-    });
-  });
+  // The secret first: a helper that reconnects the moment a socket opens (a Gateway restart)
+  // must find this launch's secret, never the previous one or none.
+  const { path: secretPath } = writeHandshakeSecret(config.home, handshakeSecret);
+  const nodeServer = serveNodes("unix");
+  await listenOn(nodeServer, config.nodeSocketPath);
   chmodSync(config.nodeSocketPath, 0o600);
   writeSocketPointer(config.home, config.nodeSocketPath);
-  const { path: secretPath } = writeHandshakeSecret(config.home, handshakeSecret);
+  let guestServer: NetServer | null = null;
+  if (config.guestSocketPath !== null) {
+    // The node socket check above proved no other Gateway owns this home; a stale guest socket
+    // is ours to replace.
+    ensureSocketDir(config.guestSocketPath, config.home);
+    rmSync(config.guestSocketPath, { force: true });
+    guestServer = serveNodes("vm-relay");
+    await listenOn(guestServer, config.guestSocketPath);
+    chmodSync(config.guestSocketPath, 0o600);
+  }
 
   // Follow-ups queued before the restart run now; then the hourly retention sweep.
   ctx.sessions.drainAll();
@@ -435,7 +460,11 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
   const retentionTimer = intervalMs > 0 ? setInterval(() => runRetention(ctx), intervalMs) : null;
   retentionTimer?.unref();
 
-  log.log("info", "gateway listening", { origin, nodeSocket: config.nodeSocketPath });
+  log.log("info", "gateway listening", {
+    origin,
+    nodeSocket: config.nodeSocketPath,
+    guestSocket: config.guestSocketPath ?? "none",
+  });
 
   let stopped = false;
   return {
@@ -457,9 +486,11 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
       for (const client of wss.clients) client.terminate();
       await new Promise<void>((r) => wss.close(() => r()));
       await new Promise<void>((r) => nodeServer.close(() => r()));
+      if (guestServer !== null) await new Promise<void>((r) => guestServer?.close(() => r()));
       http.closeAllConnections();
       await new Promise<void>((r) => http.close(() => r()));
       rmSync(config.nodeSocketPath, { force: true });
+      if (config.guestSocketPath !== null) rmSync(config.guestSocketPath, { force: true });
       rmSync(join(config.home, "run", "node-socket"), { force: true });
       removeHandshakeSecret(secretPath);
       if (!options.db) db.close();

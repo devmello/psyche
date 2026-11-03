@@ -30,7 +30,12 @@ import {
   type WebContents,
   webContents,
 } from "electron";
-import { createDesktopGateway, defaultGatewayOrigin, defaultPsycheHome } from "./gateway-client.ts";
+import {
+  createDesktopGateway,
+  defaultGatewayOrigin,
+  defaultPsycheHome,
+  isLocalGatewayOrigin,
+} from "./gateway-client.ts";
 import { appInfo } from "./lib/app-info.ts";
 import { APP_ORIGIN, APP_SCHEME, contentType, isSameApp, resolveAppPath } from "./lib/app-path.ts";
 import { deepLinkFromArgv, isAppRoute, parseDeepLink } from "./lib/deep-link.ts";
@@ -374,10 +379,22 @@ const permissions = createPermissions({
   },
 });
 
+/**
+ * The bundled helper, only while this app is attached to the Gateway on this Mac. The helper dials
+ * this Mac's own node socket, so it can only ever serve this Mac's Gateway: against a Gateway on
+ * another machine it would be launched for nothing, and its device id and Touch ID key are not
+ * ones that Gateway knows or may ask (remote-gateway design §5.2).
+ */
+function helperForThisGateway(): string | undefined {
+  return perfProbe === undefined && isLocalGatewayOrigin(defaultGatewayOrigin())
+    ? bundledHelperPath()
+    : undefined;
+}
+
 /** The bundled helper's own device id and Touch ID key id (`--print-identity`). */
 function bundledHelperIdentity(): Promise<HelperIdentity | undefined> {
   return readHelperIdentity(
-    perfProbe === undefined ? bundledHelperPath() : undefined,
+    helperForThisGateway(),
     home,
     (file, args, env) =>
       new Promise((resolve) => {
@@ -956,7 +973,7 @@ void app.whenReady().then(async () => {
   // The bundled Mac helper (docs/archive/status/s14.md "Packaging"): started through LaunchServices once
   // this window pairs, i.e. the Gateway answers; dev builds use their own helper install.
   helper = new HelperLauncher({
-    appPath: perfProbe === undefined ? bundledHelperPath() : undefined,
+    appPath: helperForThisGateway(),
     psycheHome: home,
     run: execRunner,
     isPaired: async () => (await onlineMacHelpers()).length > 0,
@@ -983,6 +1000,7 @@ void app.whenReady().then(async () => {
       void screenAskShortcut?.load();
       void bootstrapAdminIfNeeded({
         packaged: app.isPackaged,
+        local: isLocalGatewayOrigin(defaultGatewayOrigin()),
         scopes: () => gateway?.getStatus().scopes,
         call: (m, p, o) => requireGateway().call(m, p, o),
         reconnect: () => {

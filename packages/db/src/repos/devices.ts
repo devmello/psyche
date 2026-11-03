@@ -16,6 +16,8 @@ export interface NewDevice {
   readonly scopes?: readonly DeviceScope[];
   /** `null` while a pairing request is pending. */
   readonly pairedAt?: string | null;
+  /** What the device declared at `connect` (`deviceFamily`); pinned from then on. */
+  readonly deviceFamily?: string | null;
 }
 
 function keyBytes(key: Uint8Array | string): Buffer {
@@ -35,6 +37,7 @@ export function insertDevice(db: PsycheDb, input: NewDevice): Device {
       tokenHash: input.tokenHash == null ? null : Buffer.from(input.tokenHash),
       scopes: JSON.stringify(input.scopes ?? []),
       pairedAt: input.pairedAt ?? null,
+      deviceFamily: input.deviceFamily ?? null,
       createdAt: at,
       updatedAt: at,
     })
@@ -84,6 +87,17 @@ export interface DevicePatch {
   readonly role?: DeviceRole;
   readonly scopes?: readonly DeviceScope[];
   readonly pairedAt?: string | null;
+  readonly deviceFamily?: string | null;
+}
+
+/** The family the device declared when it paired, or `null` (unknown device, or paired before it was recorded). */
+export function getDeviceFamily(db: PsycheDb, id: string): string | null {
+  const row = db.drizzle
+    .select({ family: devices.deviceFamily })
+    .from(devices)
+    .where(eq(devices.id, id))
+    .get();
+  return row?.family ?? null;
 }
 
 /** Updates a device that is not revoked; `undefined` if it is unknown or revoked. */
@@ -94,6 +108,7 @@ export function updateDevice(db: PsycheDb, id: string, patch: DevicePatch): Devi
   if (patch.role !== undefined) set.role = patch.role;
   if (patch.scopes !== undefined) set.scopes = JSON.stringify(patch.scopes);
   if (patch.pairedAt !== undefined) set.pairedAt = patch.pairedAt;
+  if (patch.deviceFamily !== undefined) set.deviceFamily = patch.deviceFamily;
   const row = db.drizzle
     .update(devices)
     .set(set)

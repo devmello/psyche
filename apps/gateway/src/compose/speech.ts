@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { deleteSettings, getLibraryItem, getSetting, type PsycheDb } from "@psyche/db";
 import { defaultDenyRead } from "@psyche/mcp-host";
-import type { LibraryItem, NodeClient, NodeInfo } from "@psyche/protocol";
+import type { LibraryItem, NodeClient } from "@psyche/protocol";
 import { PsycheError } from "@psyche/protocol";
 import {
   createSpeechHandlers,
@@ -139,24 +139,16 @@ export function warnUnsandboxed(inner: ProcessRunner, services: ComposeServices)
 }
 
 /**
- * The newest live mac-helper node that offers speech (it connects after the Gateway boots):
+ * The Host's own Mac helper when it offers speech (it connects after the Gateway boots):
  * `capability` is `speech.transcribe_stream` by default, `speech.transcribe_file` for recordings.
+ * It listens on the Host's microphone, so a second Mac that paired as a node never qualifies
+ * (`NodeRegistry.hostHelper`).
  */
 export function speechNode(
   gateway: () => Gateway | null,
   capability: string = NODE_SPEECH_CAPABILITIES.transcribeStream,
 ): () => NodeClient | undefined {
-  return () => {
-    const nodes = gateway()?.context.nodes;
-    if (!nodes) return undefined;
-    const offers = (n: NodeInfo) =>
-      n.kind === "mac-helper" && n.capabilities.some((c) => c.name === capability);
-    const node = nodes
-      .list()
-      .filter((n) => offers(n) && nodes.isLive(n.id))
-      .at(-1);
-    return node === undefined ? undefined : nodes.client(node.id);
-  };
+  return () => gateway()?.context.nodes.hostHelper(capability)?.client;
 }
 
 const EXT: Record<string, string> = {

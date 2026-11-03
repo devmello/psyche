@@ -99,6 +99,10 @@ struct HandshakeTests {
     @Test func socketPathFollowsTheEnvironment() {
         #expect(HelperPaths.nodeSocketPath(environment: ["PSYCHE_NODE_SOCKET": "/x/n.sock"]) == "/x/n.sock")
         #expect(HelperPaths.nodeSocketPath(environment: ["PSYCHE_HOME": "/h"]) == "/h/run/node.sock")
+        // Relayed sandbox guests never share the node socket with the helper.
+        #expect(HelperPaths.guestSocketPath(environment: ["PSYCHE_HOME": "/h"]) == "/h/run/guest.sock")
+        #expect(HelperPaths.guestSocketPath(environment: ["PSYCHE_NODE_SOCKET": "/x/n.sock"]) == "/x/n-guest.sock")
+        #expect(HelperPaths.guestSocketPath(environment: ["PSYCHE_GUEST_SOCKET": "/g.sock", "PSYCHE_HOME": "/h"]) == "/g.sock")
         #expect(HelperPaths.handshakeSecretPath(environment: ["PSYCHE_HOME": "/h"]) == "/h/run/handshake.secret")
     }
 }

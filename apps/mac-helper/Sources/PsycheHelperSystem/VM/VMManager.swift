@@ -252,7 +252,9 @@ public final class VMManager: @unchecked Sendable {
         state.phase = provisioning == nil ? .starting : .provisioning
         try setState(bundle, state)
         await emit(["type": "vm.state", "phase": .string(state.phase.rawValue)])
-        let socketPath = HelperPaths.nodeSocketPath(environment: environment)
+        // Guests go to their own socket, never node.sock: the Gateway must be able to tell a
+        // relayed guest from this helper (which it trusts with the Mac) whatever the guest says.
+        let socketPath = HelperPaths.guestSocketPath(environment: environment)
         let saved = bundle.savedStateURL
         let restore = provisioning == nil && FileManager.default.fileExists(atPath: saved.path) ? saved : nil
         func boot(_ from: URL?) async throws {
@@ -622,8 +624,9 @@ public final class VMManager: @unchecked Sendable {
 
     // MARK: vsock → Gateway node socket (L3)
 
-    /// Relays one guest psyche-node stream to the Gateway's node socket. The Gateway authenticates
-    /// it like any node (signed handshake; a new guest is a pending pairing the owner approves).
+    /// Relays one guest psyche-node stream to the Gateway's guest socket (not its node socket).
+    /// The Gateway authenticates it like any node (signed handshake; a new guest is a pending
+    /// pairing the owner approves) and never treats it as the Host's helper.
     func forward(guestFD: Int32, name: String, socketPath: String) {
         do {
             guard let gwFD = try UnixSocketConnection(path: socketPath).releaseDescriptor() else { Darwin.close(guestFD); return }
@@ -639,7 +642,7 @@ public final class VMManager: @unchecked Sendable {
             }
             log.info("vm vsock relay opened name=\(name)")
         } catch {
-            log.error("vm vsock relay: Gateway node socket unavailable")
+            log.error("vm vsock relay: Gateway guest socket unavailable")
             Darwin.close(guestFD)
         }
     }
