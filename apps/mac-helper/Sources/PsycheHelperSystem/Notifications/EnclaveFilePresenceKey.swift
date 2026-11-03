@@ -204,6 +204,9 @@ public final class PreferredPresenceKey: PresenceSigning, @unchecked Sendable {
                 _ = try primary.publicKey()
                 pick = primary
             } catch let e as CapabilityError where e.reason == "missing_entitlement" {
+                // RELEASE BLOCKER (docs/08-roadmap.md v1.0): before any public release a
+                // provisioned keychain key replaces this, and the file-key fallback is removed or
+                // disabled (security §10).
                 pick = fallback
             }
             chosen = pick
