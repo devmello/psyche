@@ -148,11 +148,11 @@ describe("the palette search", () => {
     expect(find("zzzz-no-such-screen")).toEqual([]);
   });
 
-  it("shows the matching actions as the last group", () => {
+  it("shows the matching actions as the first group", () => {
     const groups = surfaceGroups([], DEFAULT_ACTIONS, "memory review");
-    const last = groups.at(-1);
-    expect(last?.id).toBe("actions");
-    expect(last?.items.some((i) => i.kind === "action" && i.action.id === "memory-review")).toBe(
+    const first = groups[0];
+    expect(first?.id).toBe("actions");
+    expect(first?.items.some((i) => i.kind === "action" && i.action.id === "memory-review")).toBe(
       true,
     );
   });

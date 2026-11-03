@@ -51,7 +51,7 @@ import {
  * One search surface for ⌘K and the Search destination (redesign §5.5): a field with the typed
  * filters (`in:`, `type:`, `from:`) as chips inline, results grouped by kind as one listbox the
  * keyboard walks (↑ ↓, ↵ open, ⌘↵ open in a side chat, Tab to the filters), and a preview of the
- * selected result when there is room. The palette adds an Actions group; results update without
+ * selected result when there is room. The palette adds an Actions group, always first; results update without
  * animation per keystroke (motion.md §4.2).
  */
 
@@ -81,8 +81,9 @@ export interface SurfaceGroup {
 }
 
 /**
- * People and Projects first (docs/memory/people-and-projects-2026.md §6.4), then hits by kind in
- * the index's order, best first; matching actions last (§5.5).
+ * Matching actions first (§5.5), so a command is always under the cursor before any result; then
+ * People and Projects (docs/memory/people-and-projects-2026.md §6.4), then hits by kind in the
+ * index's order, best first. An empty search lists every action, in the host's order.
  */
 export function surfaceGroups(
   hits: readonly SearchHit[],
@@ -108,7 +109,16 @@ export function surfaceGroups(
     t("people.group.projects"),
     entities.filter((e) => e.kind === "project"),
   );
-  const groups: SurfaceGroup[] = [people, projects].filter((g) => g.items.length > 0);
+  const groups: SurfaceGroup[] = [];
+  const needle = text.trim().toLowerCase();
+  const matching = actions.filter((a) => paletteMatches(a, needle));
+  if (matching.length > 0)
+    groups.push({
+      id: "actions",
+      label: t("shell.palette.actions"),
+      items: matching.map((action) => ({ kind: "action", key: `action:${action.id}`, action })),
+    });
+  groups.push(...[people, projects].filter((g) => g.items.length > 0));
   // Cited facts from Everything memory (§12.4): what was said, with its words, under the people.
   if (lifeFacts.length > 0) {
     groups.push({
@@ -128,14 +138,6 @@ export function surfaceGroups(
       .map((hit): SurfaceItem => ({ kind: "hit", key: `${hit.scope}:${hit.id}`, hit })),
   })).filter((g) => g.items.length > 0);
   groups.push(...scoped);
-  const needle = text.trim().toLowerCase();
-  const matching = actions.filter((a) => paletteMatches(a, needle));
-  if (matching.length > 0)
-    groups.push({
-      id: "actions",
-      label: t("shell.palette.actions"),
-      items: matching.map((action) => ({ kind: "action", key: `action:${action.id}`, action })),
-    });
   return groups;
 }
 
@@ -277,8 +279,9 @@ export function SearchSurface({
     [searching, hits, palette, actions, parsed.text, entities, lifeFacts],
   );
   const flat = useMemo(() => groups.flatMap((g) => g.items), [groups]);
-  // Each keystroke (or a new result set) puts the selection back on the best result: the index
-  // only counts for the query and results it was chosen in.
+  // Each keystroke (or a new result set) puts the selection back on the first row, which is the
+  // first matching action when there is one: the index only counts for the query and results it
+  // was chosen in.
   const resetKey = `${query}\u0000${flat.length}`;
   const [selection, setSelection] = useState({ key: resetKey, index: 0 });
   const active = selection.key === resetKey ? selection.index : 0;
