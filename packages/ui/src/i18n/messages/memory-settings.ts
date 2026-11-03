@@ -114,7 +114,7 @@ export const memorySettings = {
   "memorySurfaces.surface.notification": "Notifications",
   "memorySurfaces.surface.channel": "Brief sent to a channel",
 
-  "memorySurfaces.tier.work.title": "Work",
+  "memorySurfaces.tier.work.title": "Work and to-dos",
   "memorySurfaces.tier.work.description":
     "Projects, courses, to-dos, how they are going, due dates, and events from your own calendars.",
   "memorySurfaces.tier.work.notificationHint":
@@ -122,7 +122,7 @@ export const memorySettings = {
   "memorySurfaces.tier.workMail.title": "Mail about work",
   "memorySurfaces.tier.workMail.description":
     "Subjects and senders of mail on a thread you linked to a project or to-do.",
-  "memorySurfaces.tier.people.title": "People",
+  "memorySurfaces.tier.people.title": "Facts about people",
   "memorySurfaces.tier.people.description":
     "Facts about other people, how you know them, what you talked about, and Keep in touch.",
   "memorySurfaces.people.warning":

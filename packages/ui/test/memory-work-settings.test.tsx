@@ -61,9 +61,9 @@ describe("Where memory shows", () => {
   it("starts at the §4 defaults and renders every memory.surfaces key", async () => {
     show(<MemorySurfacesSection />);
     const tiers = {
-      work: "Work",
+      work: "Work and to-dos",
       workMail: "Mail about work",
-      people: "People",
+      people: "Facts about people",
     } as const;
     const surfaces = {
       home: "Home",
@@ -103,7 +103,7 @@ describe("Where memory shows", () => {
 
   it("writes only the field changed, into the memory.surfaces object", async () => {
     const { user } = show(<MemorySurfacesSection />);
-    await user.click(await rowSwitch("Work", "Home"));
+    await user.click(await rowSwitch("Work and to-dos", "Home"));
     await waitFor(() =>
       expect(stored<MemorySurfacesSettings>("memory.surfaces")).toEqual({
         tiers: { work: { home: false } },
@@ -120,9 +120,9 @@ describe("Where memory shows", () => {
 
   it("shows the screen-and-Telegram sentence once a people switch is on", async () => {
     const { user } = show(<MemorySurfacesSection />);
-    await screen.findByRole("region", { name: "People" });
+    await screen.findByRole("region", { name: "Facts about people" });
     expect(screen.queryByText(/anyone who sees your screen or your Telegram/)).toBeNull();
-    await user.click(await rowSwitch("People", "Daily brief"));
+    await user.click(await rowSwitch("Facts about people", "Daily brief"));
     expect(
       await screen.findByText(
         "Briefs can be seen by anyone who sees your screen or your Telegram.",
