@@ -163,7 +163,6 @@ export function useMessageFeedback(message: Message) {
   const teach = useTeaching();
   const [open, setOpen] = useState(false);
   const [given, setGiven] = useState<Given | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const target: FeedbackTarget = { type: "message", id: message.id, threadId: message.threadId };
   const eventId = given?.event.id ?? null;
   // The Gateway notes the feedback in the thread as a `taught` block; then that note shows.
@@ -197,7 +196,7 @@ export function useMessageFeedback(message: Message) {
     setGiven(r);
     setOpen(false);
   };
-  return { open, setOpen, onTeach, given, noted, error };
+  return { open, setOpen, onTeach, given, noted };
 }
 
 export type MessageFeedback = ReturnType<typeof useMessageFeedback>;
@@ -230,13 +229,6 @@ export function TeachPanel({
 
 /** Under the message after Teach: the quiet line, until the Gateway's own `taught` note shows. */
 export function FeedbackNote({ feedback: f }: { feedback: MessageFeedback }): ReactElement | null {
-  if (f.error) {
-    return (
-      <p className="text-callout text-danger-text" role="alert">
-        {f.error}
-      </p>
-    );
-  }
   if (f.given === null || f.noted) return null;
   return (
     <TaughtLine

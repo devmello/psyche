@@ -9,6 +9,13 @@ export const mailMeetings: Partial<Catalogue> = {
   "settings.mail.quietHours": "ساعات الهدوء في الإشعارات.",
   "settings.mail.loadFailed": "تعذّر تحميل إعدادات البريد والاجتماعات.",
 
+  "settings.mail.group.masterHint": "إيقاف كل شيء مؤقتاً، أو السماح لـ Psyche بالقراءة فقط.",
+  "settings.mail.group.accountsHint": "أي الحسابات تغذي الملخصات والمتابعات.",
+  "settings.mail.group.digestHint": "ملخص لبريدك الوارد في الوقت الذي تختاره.",
+  "settings.mail.group.followupsHint": "تذكيرات بالرسائل التي تنتظر ردها أو التي عليك الرد عليها.",
+  "settings.mail.group.styleHint": "كيف ينبغي أن تبدو المسودات.",
+  "settings.mail.group.schedulingHint": "كيف يقترح Psyche مواعيد الاجتماعات.",
+  "settings.mail.group.notesHint": "ما يفعله Psyche باجتماعاتك بعد انتهائها.",
   "settings.mail.group.master": "الكل دفعة واحدة",
   "settings.mail.group.accounts": "الحسابات",
   "settings.mail.group.digest": "ملخص البريد الوارد",

@@ -10,6 +10,15 @@ export const mailMeetings: Partial<Catalogue> = {
   "settings.mail.loadFailed": "Impossible de charger les réglages du mail et des réunions.",
 
   // Group titles
+  "settings.mail.group.masterHint": "Tout mettre en pause, ou laisser Psyche seulement lire.",
+  "settings.mail.group.accountsHint": "Les comptes qui alimentent les résumés et les relances.",
+  "settings.mail.group.digestHint":
+    "Un résumé de votre boîte de réception à l’heure de votre choix.",
+  "settings.mail.group.followupsHint":
+    "Des rappels pour les e-mails que vous attendez ou auxquels vous devez répondre.",
+  "settings.mail.group.styleHint": "Le ton que doivent avoir les brouillons.",
+  "settings.mail.group.schedulingHint": "La façon dont Psyche propose des horaires de réunion.",
+  "settings.mail.group.notesHint": "Ce que Psyche fait de vos réunions ensuite.",
   "settings.mail.group.master": "Tout d’un coup",
   "settings.mail.group.accounts": "Comptes",
   "settings.mail.group.digest": "Résumé de la boîte de réception",

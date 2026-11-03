@@ -52,6 +52,7 @@ const LABELLED_KEYS = [
   "data.replayRetentionDays",
   "data.reasoningRetentionDays",
   "memory.graph",
+  "memory.everything",
   "memory.recall.mode",
   "gateway.bind",
   "models.primary",

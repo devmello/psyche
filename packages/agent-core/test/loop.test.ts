@@ -119,22 +119,40 @@ describe("tool calls", () => {
         say("done"),
       ],
     });
+    // No timers: each call parks on its own gate, and the test opens the gates in reverse call
+    // order once all three are in flight, so the finish order is fixed by construction.
     const order: number[] = [];
     let inFlight = 0;
     let maxInFlight = 0;
+    const gates = new Map<number, () => void>();
+    const finished = new Map<number, () => void>();
+    let allInFlight: () => void = () => {};
+    const allStarted = new Promise<void>((r) => {
+      allInFlight = r;
+    });
     h.loop.registry.register({
       spec: spec("lookup", "read"),
       execute: async (_id, params) => {
         inFlight += 1;
         maxInFlight = Math.max(maxInFlight, inFlight);
         const q = (params as { q: number }).q;
-        await new Promise((r) => setTimeout(r, (4 - q) * 5));
+        const gate = new Promise<void>((r) => gates.set(q, r));
+        if (gates.size === 3) allInFlight();
+        await gate;
         order.push(q);
         inFlight -= 1;
+        finished.get(q)?.();
         return { output: { q }, provenance: "trusted" };
       },
     });
-    const events = await runTurn(h, "look up three things");
+    const turn = runTurn(h, "look up three things");
+    await allStarted;
+    for (const q of [3, 2, 1]) {
+      const done = new Promise<void>((r) => finished.set(q, r));
+      gates.get(q)?.();
+      await done;
+    }
+    const events = await turn;
     expect(endOf(events).outcome).toBe("final");
     expect(maxInFlight).toBe(3);
     expect(order).toEqual([3, 2, 1]);

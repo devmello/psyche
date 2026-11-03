@@ -198,6 +198,7 @@ export const settings = {
   "settings.key.teaching.paused": "Pause learning",
   "settings.key.teaching.weeklyCard": "Weekly “What I learned” card",
   "settings.key.memory.graph": "People & projects",
+  "settings.key.memory.everything": "Memory in the background",
   "settings.key.agent.showReasoning": "Show thinking while it works",
   "settings.key.data.replayRetentionDays": "Keep task replays for",
   "settings.key.data.reasoningRetentionDays": "Keep thinking for",

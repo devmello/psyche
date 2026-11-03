@@ -140,13 +140,13 @@ describe.skipIf(skipBrowserSuites)(
         },
       );
       // Playwright can report the frame's URL a beat after the bundler's first message; on shared
-      // CI runners that beat has been over 5 s (ci on PRs 105/114, 2026-10-19), so wait up to 30 s there.
-      const frameWaitTicks = process.env.CI ? 300 : 50;
-      let frame = page.frames().find((f) => f.url().startsWith(bundler.origin));
-      for (let i = 0; frame === undefined && i < frameWaitTicks; i++) {
-        await page.waitForTimeout(100);
-        frame = page.frames().find((f) => f.url().startsWith(bundler.origin));
-      }
+      // CI runners that beat has been over 5 s (ci on PRs 105/114, 2026-10-19). Poll against a
+      // deadline rather than counting sleeps, whose real length stretches on a loaded runner.
+      const bundlerFrame = () => page.frames().find((f) => f.url().startsWith(bundler.origin));
+      await expect
+        .poll(bundlerFrame, { timeout: process.env.CI ? 30_000 : 5_000, interval: 100 })
+        .toBeDefined();
+      const frame = bundlerFrame();
       expect(frame).toBeDefined();
       await frame?.getByRole("button").click();
       await frame?.getByText("count: 1").waitFor({ timeout: 5_000 });
