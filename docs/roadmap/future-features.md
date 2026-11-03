@@ -1,6 +1,6 @@
 # Future features
 
-Status: plan, 2026-11-02. Nothing in this file is promised for a date. It collects seven features the owner has asked for, in plain language, with what is already built, what is left, and what each one depends on.
+Status: plan, 2026-11-02. Nothing in this file is promised for a date. It collects eight features the owner has asked for, in plain language, with what is already built, what is left, and what each one depends on.
 
 This sits next to [08-roadmap.md](../08-roadmap.md), which holds the milestone plan up to v1.0 and the short "After 1.0" list. Items here are the ones that need more than a line. When one gets a design doc, link it here and keep this entry short.
 
@@ -171,3 +171,33 @@ Each entry has the same parts: what it is, why it beats existing assistants, rou
 **Open questions.** See §8 of that doc. The main ones: whether a remote computer may get admin, whether every approval from a remote computer needs Touch ID, and whether the agent's browser should ever run on the client.
 
 **Depends on.** The WebSocket protocol and device scopes (built), Tailscale Serve on the host (owner setup), the Gateway identity key (not built, shared with the [phone companion](../design/mobile-companion-2026.md)), the settings redesign's Devices section, and, for Windows, the [cross-platform](../design/cross-platform-2026.md) packaging work.
+
+## 8. Memory for everything: work due, progress and catching up
+
+**What it is.** Memory that works like a second brain, not a contact book. It remembers the people you talk to and what you talked about. It also remembers your work: projects, courses, and the assignments and deliverables that are due. For each piece of work it knows where things stand, what changed, where you stopped and when it is due. If you turn it on, the morning brief catches you up ("Lecture Work 7: due Thu, in progress, you stopped at problem 4b"), and Home shows the same in a **Catching up** block. A **Memory** page replaces the People row in the sidebar, with People, Projects, Work due, Events and Everything as tabs, and the review queue moves there too.
+
+**Why it beats existing assistants.** To-do apps know a due date but not your progress. Chat assistants forget between conversations. Psyche already reads your Reminders, calendar, files, sent mail and your chats with it, on your Mac. So it can tell you where you left off, with a source for every claim. It does this without anything leaving the Mac unless you picked a cloud model, and without letting a crafted email mark your work done or move a deadline.
+
+**What is built.** The graph it extends:
+- the people graph with `project` entities, `due_at`, loops and cited facts ([people-and-projects](../memory/people-and-projects-2026.md));
+- everything memory, with the review queue, quarantine and the red-team suite ([everything-memory-2026.md](../design/everything-memory-2026.md));
+- the daily brief's Coming up and Learned yesterday;
+- the Reminders and Calendar connectors and the files watcher.
+
+**What is left.** All of it is in [design/memory-everything-2026.md](../design/memory-everything-2026.md):
+- the `assignment` kind, courses as a project type, and anchors that link folders, threads and Reminders lists to a work item;
+- status and a per-item timeline from signals, with code deciding status and never third-party text;
+- privacy tiers per surface: work in the brief and on Home by default, facts about people off unless enabled;
+- catch-up ranking, due-soon reminders (opt-in) and "you stopped here";
+- the Memory page.
+
+**Rough phases.**
+1. MW1: the Memory page and sidebar swap. MW0: the protocol. These run in parallel.
+2. MW1b: review on the Memory page. MW2: the store.
+3. MW3: deterministic signals. MW4: catch-up and the brief. MW6: the work pages.
+4. MW5: Home binding. MW7: model signals and course/work-tool senders. MW8: settings.
+5. MW9: the agent tool and Continue in chat.
+
+**Open questions.** See §9 of that doc. Whether birthdays stay in the brief, which mail subjects count as work, opting in course senders such as Canvas, due-soon notifications, and which folders count as work.
+
+**Depends on.** Everything memory (the graph, the extractor, review), the search index as the one ingest path, the daily habit, `home-redesign` (Home's Catching up block) and `cmdk-actions-first` (⌘K entries).
