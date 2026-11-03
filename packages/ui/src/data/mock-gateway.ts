@@ -370,6 +370,7 @@ export class MockGateway implements GatewayClient {
       "notes",
       "calendar",
       "reminders",
+      "contacts",
       "files",
       "browser",
       "transcripts",
@@ -381,6 +382,7 @@ export class MockGateway implements GatewayClient {
       notes: "Notes",
       calendar: "Calendar",
       reminders: "Reminders",
+      contacts: "Contacts",
       files: "Files",
       browser: "Browser pages",
       transcripts: "Transcripts",
@@ -392,7 +394,7 @@ export class MockGateway implements GatewayClient {
         const c = cfg.sources[id] ?? {
           enabled: false,
           processing: "cloud" as const,
-          agent: id !== "messages" && id !== "memory",
+          agent: id !== "messages" && id !== "contacts" && id !== "memory",
         };
         return {
           id,
@@ -2528,7 +2530,7 @@ export class MockGateway implements GatewayClient {
         const cur = cfg.sources[p.source] ?? {
           enabled: false,
           processing: "cloud" as const,
-          agent: p.source !== "messages" && p.source !== "memory",
+          agent: p.source !== "messages" && p.source !== "contacts" && p.source !== "memory",
         };
         cfg.sources[p.source] = {
           enabled: p.enabled ?? cur.enabled,

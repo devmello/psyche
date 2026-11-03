@@ -416,16 +416,21 @@ describe("notes, calendar, reminders", () => {
 });
 
 describe("agent access", () => {
-  it("is on for every source but Messages and Memory, and follows the config into the index flags", async () => {
+  it("is on for every source but Messages, Contacts and Memory, and follows the config into the index flags", async () => {
     const h = harness(["notes", "messages"]);
     expect(h.index.agentExcludedSources().sort()).toEqual([
+      "connector:contacts",
       "connector:imessage",
       "connector:memory",
     ]);
     h.config().sources.notes.agent = false;
     h.config().sources.messages.agent = true;
     await h.indexer.applyConfig();
-    expect(h.index.agentExcludedSources().sort()).toEqual(["connector:memory", "connector:notes"]);
+    expect(h.index.agentExcludedSources().sort()).toEqual([
+      "connector:contacts",
+      "connector:memory",
+      "connector:notes",
+    ]);
     expect(h.indexer.status().sources.find((s) => s.id === "notes")?.agent).toBe(false);
   });
 });
@@ -562,9 +567,15 @@ describe("rebuild", () => {
     await indexer.tick();
     expect(await index.count()).toBe(1);
     power = { onBattery: true, lowPower: false };
-    await expect(indexer.rebuild("notes")).rejects.toMatchObject({ reason: "power" });
+    await expect(indexer.rebuild("notes")).rejects.toMatchObject({
+      reason: "power",
+      message: expect.stringContaining("The Mac is on battery"),
+    });
     power = { onBattery: false, lowPower: true };
-    await expect(indexer.rebuild("notes")).rejects.toMatchObject({ reason: "power" });
+    await expect(indexer.rebuild("notes")).rejects.toMatchObject({
+      reason: "power",
+      message: expect.stringContaining("Low Power Mode is on"),
+    });
     expect(await index.count()).toBe(1);
     power = { onBattery: false, lowPower: false };
     await indexer.rebuild("notes");

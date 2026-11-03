@@ -9155,7 +9155,7 @@ export interface Exclude {
     folders?:  string[];
 }
 
-export type SearchSourceID = "mail" | "messages" | "notes" | "calendar" | "reminders" | "files" | "browser" | "transcripts" | "memory";
+export type SearchSourceID = "mail" | "messages" | "notes" | "calendar" | "reminders" | "files" | "browser" | "transcripts" | "memory" | "contacts";
 
 export interface SearchSourcesRebuildParams {
     source: SearchSourceID;

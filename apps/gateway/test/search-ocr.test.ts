@@ -100,6 +100,7 @@ describe("files source with OCR", () => {
     const config = defaultSourcesConfig();
     config.sources.files.enabled = true;
     let power: PowerState = { onBattery: false, lowPower: false };
+    let runOnBattery = false;
     const index = createSearchIndex();
     // composeSearch binds the owner's switch the same way.
     const bound = filesAdapter({
@@ -107,6 +108,7 @@ describe("files source with OCR", () => {
       ocr: {
         recognize: helperRecognizer(() => node),
         power: () => power,
+        runOnBattery: () => runOnBattery,
         enabled: () => config.sources.files.ocr,
         ...(opts.pagesPerPull === undefined ? {} : { pagesPerPull: opts.pagesPerPull }),
         ...(opts.maxFileBytes === undefined ? {} : { maxFileBytes: opts.maxFileBytes }),
@@ -116,6 +118,7 @@ describe("files source with OCR", () => {
       config: () => config,
       pauseMs: 0,
       power: () => power,
+      runOnBattery: () => runOnBattery,
     });
     const prov = (name: string) =>
       (
@@ -134,6 +137,9 @@ describe("files source with OCR", () => {
       prov,
       setPower: (p: PowerState) => {
         power = p;
+      },
+      setRunOnBattery: (v: boolean) => {
+        runOnBattery = v;
       },
     };
   }
@@ -179,6 +185,23 @@ describe("files source with OCR", () => {
     await t.indexer.tick();
     expect(t.node.recognised).toHaveLength(0);
     t.setPower({ onBattery: false, lowPower: false });
+    await t.indexer.tick();
+    await t.indexer.tick();
+    expect((await t.index.search({ q: "Blue Bottle Coffee" })).hits[0]?.id).toContain(
+      "receipt.png",
+    );
+  });
+
+  it("Index on battery lets OCR run on battery, but never in low-power mode", async () => {
+    const t = setup();
+    t.config.sources.files.ocr = true;
+    t.setRunOnBattery(true);
+    t.setPower({ onBattery: true, lowPower: true });
+    await t.indexer.tick();
+    expect(t.node.recognised).toHaveLength(0);
+    t.setPower({ onBattery: true, lowPower: false });
+    await t.adapter.pull(null, { signal: never, limit: 100 });
+    expect(t.node.recognised.length).toBeGreaterThan(0);
     await t.indexer.tick();
     await t.indexer.tick();
     expect((await t.index.search({ q: "Blue Bottle Coffee" })).hits[0]?.id).toContain(

@@ -36242,7 +36242,8 @@
         "files",
         "browser",
         "transcripts",
-        "memory"
+        "memory",
+        "contacts"
       ],
       "type": "string"
     },

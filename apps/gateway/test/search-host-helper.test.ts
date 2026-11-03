@@ -1,4 +1,4 @@
-import { messagesAdapter } from "@psyche/search";
+import { contactsAdapter, messagesAdapter } from "@psyche/search";
 import { afterEach, describe, expect, it } from "vitest";
 import { graphSourceAdapters } from "../src/compose/people-sources.ts";
 import { appleSearchSeams } from "../src/compose/search-apple.ts";
@@ -39,6 +39,8 @@ const HANDLED = [
   "messages.send",
   "ocr.recognize",
   "llm.apple.generate",
+  "contacts.list",
+  "contacts.read",
   "reminders.list",
   "notes.list",
   "calendar.list_events",
@@ -50,7 +52,7 @@ const read = (name: string, run: FakeNodeHandler["run"]): FakeNodeHandler => ({
   run,
 });
 
-async function setup(chats?: FakeNodeHandler["run"]) {
+async function setup(chats?: FakeNodeHandler["run"], contactsList?: FakeNodeHandler["run"]) {
   t = await startTestGateway();
   const g = t.gateway;
   const handlers = HANDLED.map((name) => {
@@ -73,6 +75,24 @@ async function setup(chats?: FakeNodeHandler["run"]) {
           },
         ],
       }));
+    if (name === "contacts.list")
+      return read(
+        name,
+        contactsList ??
+          (() => ({ contacts: [{ id: "c1", name: "Jordan Rivera" }], total: 1, truncated: false })),
+      );
+    if (name === "contacts.read")
+      return read(name, () => ({
+        contact: {
+          id: "c1",
+          givenName: "Jordan",
+          familyName: "Rivera",
+          emails: [{ label: "work", value: "jordan@acme.example" }],
+          phones: [],
+          addresses: [{ city: "Oakland", country: "USA", street: "12 Secret Lane" }],
+        },
+        provenance: "untrusted",
+      }));
     return read(name, () => ({ who: "host" }));
   });
   node = await FakeNode.connect(g.config.nodeSocketPath, {
@@ -89,6 +109,7 @@ const seams = (g: TestGateway["gateway"]) =>
     connectors: async () => [],
     tools: { get: () => undefined },
     messages: () => g.context.nodes.hostHelper("messages.graph_read")?.client,
+    contacts: () => g.context.nodes.hostHelper("contacts.read")?.client,
     now: () => Date.now(),
   });
 
@@ -133,12 +154,50 @@ describe("Gateway-internal sources reach the Host helper", () => {
     ]);
   });
 
+  it("Search's Contacts source reads through hostHelper() with limits the helper serves", async () => {
+    const { g, host } = await setup();
+    const adapter = contactsAdapter({
+      helper: seams(g).deps.contacts ?? (() => undefined),
+      now: () => Date.now(),
+    });
+    expect(adapter.unavailable()).toBeUndefined();
+    const page = await adapter.pull(null, { signal, limit: 100 });
+    expect(page.items).toHaveLength(1);
+    expect(page.items[0]?.text).toContain("jordan@acme.example");
+    expect(page.items[0]?.text).toContain("Oakland, USA");
+    expect(page.items[0]?.text).not.toContain("Secret Lane");
+    expect(host.invocations.map((i) => i.capability)).toEqual(["contacts.list", "contacts.read"]);
+    const listed = host.invocations[0]?.params as { limit?: number } | undefined;
+    expect(Number(listed?.limit)).toBeLessThanOrEqual(2000);
+  });
+
+  it("Contacts says which permission is missing, in the helper's own words", async () => {
+    const { g } = await setup(undefined, () => {
+      throw Object.assign(new Error("Psyche (Helper) does not have the Contacts permission"), {
+        code: "forbidden",
+        details: { reason: "permission_denied", permission: "contacts" },
+      });
+    });
+    const adapter = contactsAdapter({
+      helper: seams(g).deps.contacts ?? (() => undefined),
+      now: () => Date.now(),
+    });
+    await expect(adapter.pull(null, { signal, limit: 100 })).rejects.toThrow(
+      "Psyche (Helper) does not have the Contacts permission",
+    );
+  });
+
   it("is unavailable, not guessed, while no Host helper is connected", async () => {
     const { g, host } = await setup();
     await host.close();
     await new Promise((r) => setTimeout(r, 50));
     const adapter = messagesAdapter(seams(g).deps);
     expect(adapter.unavailable()).toBe("the Mac helper is not connected");
+    const contacts = contactsAdapter({
+      helper: seams(g).deps.contacts ?? (() => undefined),
+      now: () => Date.now(),
+    });
+    expect(contacts.unavailable()).toBe("the Mac helper is not connected");
   });
 });
 

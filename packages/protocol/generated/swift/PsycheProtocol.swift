@@ -26961,6 +26961,7 @@ public struct Exclude: Codable, Sendable {
 public enum SearchSourceID: String, Codable, Sendable {
     case browser = "browser"
     case calendar = "calendar"
+    case contacts = "contacts"
     case files = "files"
     case mail = "mail"
     case memory = "memory"

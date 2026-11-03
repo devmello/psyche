@@ -10,6 +10,7 @@ export const SOURCE_IDS = [
   "notes",
   "calendar",
   "reminders",
+  "contacts",
   "files",
   "browser",
   "transcripts",
@@ -30,8 +31,9 @@ export interface SourceConfig {
   processing: ProcessingModel;
   /**
    * Whether the agent's `search_everything` may search this source. On for every source except
-   * Messages and Memory, which stay owner-only until the owner allows them (Memory has its own
-   * agent access rules, which indexing it must not widen). The owner's own Search ignores it.
+   * Messages, Contacts and Memory, which stay owner-only until the owner allows them (Memory has
+   * its own agent access rules, which indexing it must not widen; Contacts is a list of other
+   * people's numbers, addresses and birthdays that the owner should hand to the agent on purpose). The owner's own Search ignores it.
    */
   agent: boolean;
   /**
@@ -64,6 +66,7 @@ export const SOURCE_LABELS: Record<SourceId, string> = {
   notes: "Notes",
   calendar: "Calendar",
   reminders: "Reminders",
+  contacts: "Contacts",
   files: "Files",
   browser: "Browser pages",
   transcripts: "Transcripts",
@@ -71,7 +74,7 @@ export const SOURCE_LABELS: Record<SourceId, string> = {
 };
 
 /** Sources the agent's `search_everything` may not search until the owner allows it. */
-export const OWNER_ONLY_SOURCES: readonly SourceId[] = ["messages", "memory"];
+export const OWNER_ONLY_SOURCES: readonly SourceId[] = ["messages", "contacts", "memory"];
 
 export function defaultSourcesConfig(): SourcesConfig {
   const sources = {} as Record<SourceId, SourceConfig>;

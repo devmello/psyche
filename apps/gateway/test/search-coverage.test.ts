@@ -162,6 +162,7 @@ describe("search.sources methods", () => {
       "notes",
       "calendar",
       "reminders",
+      "contacts",
       "files",
       "browser",
       "transcripts",
@@ -170,8 +171,12 @@ describe("search.sources methods", () => {
     expect(st.sources.every((s) => !s.enabled && s.state === "off" && s.items === 0)).toBe(true);
     // Memory ships with no summaries: its facts come from other sources' text.
     expect(st.sources.filter((s) => s.processing !== "cloud").map((s) => s.id)).toEqual(["memory"]);
-    // Messages and Memory stay owner-only until the owner allows the agent to search them.
-    expect(st.sources.filter((s) => !s.agent).map((s) => s.id)).toEqual(["messages", "memory"]);
+    // Messages, Contacts and Memory stay owner-only until the owner allows the agent to search them.
+    expect(st.sources.filter((s) => !s.agent).map((s) => s.id)).toEqual([
+      "messages",
+      "contacts",
+      "memory",
+    ]);
   });
 
   it("toggles a source, keeps the processing model and exclusions, and rebuilds", async () => {
@@ -239,6 +244,8 @@ describe("search.sources methods", () => {
       await new Promise((r) => setTimeout(r, 50));
     }
     expect(st.sources.find((s) => s.id === "memory")).toMatchObject({ state: "idle", items: 0 });
+    // These tests run on the machine's real power state: a laptop on battery would refuse.
+    await owner.call("settings.set", { key: "search.runOnBattery", value: true }, ik());
     const rebuilt = await owner.request("search.sources.rebuild", { source: "memory" }, ik());
     expect(rebuilt.ok).toBe(true);
     // Switching it off again leaves the others as they were.
@@ -362,6 +369,8 @@ describe("search.sources methods", () => {
       error: { code: "invalid_params", message: "Turn Transcripts on first." },
     });
     await owner.call("search.sources.configure", { source: "transcripts", enabled: true }, ik());
+    // These tests run on the machine's real power state: a laptop on battery would refuse.
+    await owner.call("settings.set", { key: "search.runOnBattery", value: true }, ik());
     const st = await owner.call<SearchSourcesStatus>(
       "search.sources.rebuild",
       { source: "transcripts" },

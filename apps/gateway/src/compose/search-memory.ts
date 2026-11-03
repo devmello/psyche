@@ -57,7 +57,11 @@ const REACH: Record<ProcessingModel, number> = { none: 0, local: 1, cloud: 2 };
 export function sourceRules(config: SourcesConfig): (source: string) => boolean {
   const memory = config.sources.memory;
   return (source) => {
-    // Chats with Psyche and Contacts are not Search sources: the owner's own, no rule of theirs.
+    // Chats with Psyche are not a Search source: the owner's own, no rule of theirs. Contacts is
+    // one now, but a fact memory learned from the owner's address book keeps the rule it always
+    // had (none): Contacts is structured data the owner keeps, and memory does not learn from the
+    // Search source, only from the Contacts connector it already reads.
+    if (source === "contacts") return true;
     const rule = (config.sources as Record<string, SourceConfig | undefined>)[source];
     if (rule === undefined) return true;
     // Open to the agent: only what the agent may search at the source.

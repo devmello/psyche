@@ -1489,6 +1489,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     connectors: async () => (connectorsPart === undefined ? [] : connectorsPart.registry.list()),
     tools: services.tools,
     messages: graphMessagesHelper,
+    // The Contacts source reads through the Host's own helper, like Messages.
+    contacts: () => gatewayRef?.context.nodes.hostHelper("contacts.read")?.client,
+    graph: () => (people?.settings().enabled === true ? people.graph : undefined),
     now: () => clock.now(),
   });
   // Encryption at rest for the search index, with its own key beside the vault's (R8).

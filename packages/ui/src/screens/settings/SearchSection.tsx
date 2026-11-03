@@ -138,7 +138,7 @@ export function SearchPanel({
         error={error}
         {...(onRetry ? { onRetry } : {})}
       >
-        <SearchSourcesSettingsGroup />
+        <SearchSourcesSettingsGroup values={values} onChange={onChange} />
         <SemanticSearchSettingsGroup values={values} onChange={onChange} />
         <WebSearchSettingsGroup values={values} onChange={onChange} />
         <Advanced description={t("settings.search.advancedHint")}>

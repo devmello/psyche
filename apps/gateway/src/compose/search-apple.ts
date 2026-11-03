@@ -7,7 +7,9 @@ import {
   type TrustContext,
   toolName,
 } from "@psyche/connectors";
+import type { GraphStore } from "@psyche/memory";
 import type { AppleSourceDeps, HelperCall, ToolCall } from "@psyche/search";
+import { graphDocId } from "@psyche/search";
 import { helperFailure, type MessagesHelper, type SourceDeps } from "./people-sources.ts";
 
 /**
@@ -33,12 +35,27 @@ export function appleSearchSeams(o: {
   connectors: SourceDeps["connectors"];
   tools: SourceDeps["tools"];
   messages: () => MessagesHelper | undefined;
+  /**
+   * The Host's Mac helper offering `contacts.list` and `contacts.read` (`NodeRegistry.hostHelper`,
+   * the trusted in-process path; never the client-facing `nodes.invoke`).
+   */
+  contacts?: () => MessagesHelper | undefined;
+  /** The people graph, when memory is on: a contact that is a known person collapses onto them. */
+  graph?: () => Pick<GraphStore, "resolveIdentifier" | "getEntity"> | undefined;
   now: () => number;
 }): AppleSearchSeams {
   let records: ConnectorRecord[] = [];
   const record = (app: App) =>
     records.find((r) => r.type === `apple:${app}` && r.status === "connected");
   const trust = new Map<string, TrustContext>();
+
+  const helperCall = (client: MessagesHelper): HelperCall => {
+    return async (capability, params, signal) => {
+      const res = await client.invoke(capability, params, { signal, timeoutMs: 30_000 });
+      if (!res.ok) throw new Error(helperFailure(capability, res.error));
+      return res.result;
+    };
+  };
 
   const callFor = (rec: ConnectorRecord): ToolCall => {
     return async (tool, params, signal) => {
@@ -62,14 +79,13 @@ export function appleSearchSeams(o: {
     },
     helper: () => {
       const client = o.messages();
-      if (client === undefined) return undefined;
-      const call: HelperCall = async (capability, params, signal) => {
-        const res = await client.invoke(capability, params, { signal, timeoutMs: 30_000 });
-        if (!res.ok) throw new Error(helperFailure(capability, res.error));
-        return res.result;
-      };
-      return call;
+      return client === undefined ? undefined : helperCall(client);
     },
+    contacts: () => {
+      const client = o.contacts?.();
+      return client === undefined ? undefined : helperCall(client);
+    },
+    contactParent: (contact) => contactParent(o.graph?.(), contact),
     ownAddresses: () =>
       records.flatMap((r) => (r.account !== null && EMAIL.test(r.account) ? [r.account] : [])),
     refreshTrust: async (app, signal) => {
@@ -100,4 +116,29 @@ export function appleSearchSeams(o: {
       records = await o.connectors();
     },
   };
+}
+
+/**
+ * The Memory person document a contact is the same person as: matched by the Apple contact id the
+ * people graph recorded, then by email, then by number. Only an active, visible person: a hidden
+ * ("don't track") or private one has no document to collapse onto.
+ */
+export function contactParent(
+  graph: Pick<GraphStore, "resolveIdentifier" | "getEntity"> | undefined,
+  contact: { id: string; emails: string[]; phones: string[] },
+): string | undefined {
+  if (graph === undefined) return undefined;
+  const id =
+    graph.resolveIdentifier("contact", contact.id) ??
+    contact.emails.map((e) => graph.resolveIdentifier("email", e)).find((x) => x !== undefined) ??
+    contact.phones.map((p) => graph.resolveIdentifier("phone", p)).find((x) => x !== undefined);
+  if (id === undefined) return undefined;
+  const e = graph.getEntity(id);
+  return e !== undefined &&
+    e.kind === "person" &&
+    e.status === "active" &&
+    !e.hidden &&
+    e.private !== true
+    ? graphDocId(e.id)
+    : undefined;
 }
