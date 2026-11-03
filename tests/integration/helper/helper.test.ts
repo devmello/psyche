@@ -1,9 +1,11 @@
 import { createHash } from "node:crypto";
+import { setSetting } from "@psyche/db";
 import { composeHelper, HELPER_SURFACE } from "@psyche/gateway/compose";
 import { presenceChallenge } from "@psyche/permissions";
 import type { ApprovalKind, IssuedApproval, SideEffect } from "@psyche/protocol";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import type { ComposeServices } from "../../../apps/gateway/src/compose/services.ts";
+import { HOST_HELPER_PIN_SETTING } from "../../../apps/gateway/src/nodes/registry.ts";
 import { type PartsSkeleton, startWithParts } from "../google/harness.ts";
 import { MAIN, ScriptedModel, UTILITY } from "../walking-skeleton/scripted-model.ts";
 import { FakeHelper, newPresenceKey, type PresenceKey } from "./fake-helper.ts";
@@ -48,7 +50,7 @@ async function connectHelper(opts: { register?: boolean; presence?: PresenceKey 
   const { gateway } = sk.composed;
   const h = await FakeHelper.connect(gateway.config.nodeSocketPath, {
     origin: gateway.origin,
-    secret: gateway.handshakeSecret,
+    secret: { home: gateway.config.home },
     ...(opts.presence === undefined ? {} : { presence: opts.presence }),
   });
   if (opts.register !== false) registered.set(h.deviceId, h.presence.publicKey);
@@ -203,18 +205,57 @@ describe("Touch ID approvals through the Mac helper", () => {
   });
 
   it("ignores answers from a helper the card was not sent to", async () => {
+    // The card goes only to the Host's helper (the node socket plus this launch's handshake
+    // secret). A `mac-helper` without the current secret is not admitted at all, so it can
+    // neither receive the card nor answer it.
+    helper = await connectHelper();
+    const { gateway } = sk.composed;
+    await expect(
+      FakeHelper.connect(gateway.config.nodeSocketPath, {
+        origin: gateway.origin,
+        secret: "stale-secret-from-a-previous-launch",
+      }),
+    ).rejects.toThrow(/handshake secret/);
+    await expect(
+      FakeHelper.connect(gateway.config.nodeSocketPath, {
+        origin: gateway.origin,
+        secret: undefined,
+      }),
+    ).rejects.toThrow(/handshake secret/);
+    expect(gateway.context.nodes.hostHelpers()).toHaveLength(1);
+    const { approval } = await request();
+    await helper.card(approval.id);
+    expect(gateway.context.nodes.hostHelper()?.info.deviceId).toBe(helper.deviceId);
+    expect(helper.shown.map((c) => c.approvalId)).toEqual([approval.id]);
+  });
+
+  it("with two Host helpers connected no card goes to either until the owner pins one", async () => {
     const first = await connectHelper();
     helper = await connectHelper();
-    const { approval } = await request();
-    // The card goes to the most recent helper; the other one cannot answer it.
-    await helper.card(approval.id);
-    expect(first.shown.some((s) => s.approvalId === approval.id)).toBe(false);
-    first.shown.push(await helper.card(approval.id));
-    await armed();
-    await first.tap(approval.id, { actionId: "deny" });
-    await settled();
-    expect(await status(approval.id)).toBe("pending");
-    await first.close();
+    const { gateway } = sk.composed;
+    expect(gateway.context.nodes.hostHelpers()).toHaveLength(2);
+    expect(gateway.context.nodes.hostHelper()).toBeUndefined();
+    const ambiguous = await request();
+    expect(ambiguous.approval.surfaces).not.toContain(HELPER_SURFACE);
+    await new Promise((r) => setTimeout(r, 100));
+    expect(first.shown).toHaveLength(0);
+    expect(helper.shown).toHaveLength(0);
+
+    setSetting(services.db, HOST_HELPER_PIN_SETTING, helper.deviceId);
+    try {
+      const { approval } = await request();
+      await helper.card(approval.id);
+      expect(first.shown.some((s) => s.approvalId === approval.id)).toBe(false);
+      // The unpinned helper cannot answer the card it was not sent.
+      first.shown.push(await helper.card(approval.id));
+      await armed();
+      await first.tap(approval.id, { actionId: "deny" });
+      await settled();
+      expect(await status(approval.id)).toBe("pending");
+    } finally {
+      setSetting(services.db, HOST_HELPER_PIN_SETTING, "");
+      await first.close();
+    }
   });
 
   it("deny always works from the notification, without Touch ID", async () => {
