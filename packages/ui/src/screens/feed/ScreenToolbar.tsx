@@ -90,10 +90,14 @@ export interface ScreenSectionProps {
   title: string;
   /** Short facts after the title ("3 posts"). */
   meta?: ReactNode;
+  /** One line under the title saying what the section is for. */
+  description?: ReactNode;
   /** Trailing links and quiet buttons ("All notifications"). */
   actions?: ReactNode;
   /** Marks the section as waiting on the owner: an amber dot before the title. */
   needsYou?: boolean;
+  /** A larger heading, for a page whose sections are its structure (Home). */
+  large?: boolean;
   children: ReactNode;
   className?: string;
 }
@@ -107,8 +111,10 @@ export function ScreenSection({
   id,
   title,
   meta,
+  description,
   actions,
   needsYou = false,
+  large = false,
   children,
   className,
 }: ScreenSectionProps): ReactElement {
@@ -125,7 +131,10 @@ export function ScreenSection({
         {needsYou ? (
           <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-approval" />
         ) : null}
-        <h2 id={headingId} className="shrink-0 text-title-3 text-label-primary">
+        <h2
+          id={headingId}
+          className={cn("shrink-0 text-label-primary", large ? "text-title-2" : "text-title-3")}
+        >
           {title}
         </h2>
         {meta ? (
@@ -133,6 +142,9 @@ export function ScreenSection({
         ) : null}
         {actions ? <div className="ms-auto flex shrink-0 items-center gap-1">{actions}</div> : null}
       </header>
+      {description ? (
+        <p className="-mt-1.5 px-1 text-callout text-label-secondary">{description}</p>
+      ) : null}
       {children}
     </section>
   );

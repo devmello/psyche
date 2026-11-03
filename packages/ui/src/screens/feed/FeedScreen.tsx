@@ -4,6 +4,7 @@ import { type ReactElement, type ReactNode, useState } from "react";
 import { toast } from "sonner";
 import { useAskAboutFeedItem } from "../../chat/ask-about.ts";
 import { ErrorState, LoadingCards, useDelayedFlag } from "../../components/page.tsx";
+import { ShowMore } from "../../components/show-more.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { useFeed, useSettings } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
@@ -46,6 +47,12 @@ export interface FeedViewProps {
   onOpenRoute?: (route: string) => void;
   /** Specialists' results, above the brief, when the owner turned them on (specialists §6.2). */
   specialistResults?: ReactNode;
+  /** The brief's first part, above its posts ("Catching up"); drawn once the brief has loaded. */
+  lead?: ReactNode;
+  /** Show this many posts, the rest behind "Show N more" (default: all of them). */
+  collapseAfter?: number;
+  /** Draw nothing while there are no posts to show (Home leaves an empty brief out). */
+  hideWhenEmpty?: boolean;
 }
 
 /**
@@ -69,7 +76,11 @@ export function FeedView({
   onGenerate,
   onOpenRoute,
   specialistResults,
-}: FeedViewProps): ReactElement {
+  lead,
+  collapseAfter,
+  hideWhenEmpty = false,
+}: FeedViewProps): ReactElement | null {
+  const [expanded, setExpanded] = useState(false);
   const nextAt = nextBriefAt === null ? null : formatTime(nextBriefAt);
   const settled = !loading && error === null;
   const showSkeleton = useDelayedFlag(loading, loadingDelayMs);
@@ -78,6 +89,19 @@ export function FeedView({
     ...posts.filter((p) => feedKind(p) === "briefing"),
     ...posts.filter((p) => feedKind(p) !== "briefing"),
   ];
+
+  const cut = collapseAfter !== undefined && !expanded && ordered.length > collapseAfter;
+  const visible = cut ? ordered.slice(0, collapseAfter) : ordered;
+  if (
+    hideWhenEmpty &&
+    !loading &&
+    error === null &&
+    !generating &&
+    posts.length === 0 &&
+    !lead &&
+    !specialistResults
+  )
+    return null;
 
   let body: ReactElement;
   if (loading) {
@@ -122,8 +146,8 @@ export function FeedView({
   } else {
     body = (
       <>
-        <ul aria-label={t("screens.feed.posts")} className="flex flex-col gap-3">
-          {ordered.map((post, i) => (
+        <ul id="feed-posts" aria-label={t("screens.feed.posts")} className="flex flex-col gap-3">
+          {visible.map((post, i) => (
             <ListItem key={post.id} index={i}>
               <FeedPostCard
                 post={post}
@@ -133,10 +157,20 @@ export function FeedView({
             </ListItem>
           ))}
         </ul>
+        {collapseAfter !== undefined ? (
+          <ShowMore
+            hidden={ordered.length - collapseAfter}
+            expanded={expanded}
+            onToggle={() => setExpanded((v) => !v)}
+            controls="feed-posts"
+          />
+        ) : null}
         {/* The end marker (§5.6): one centred line with 48 px of space above. */}
-        <p className="pt-2 text-center text-callout text-label-secondary">
-          {t("screens.feed.end", { next: nextAt ?? "", hasNext: Boolean(nextAt) })}
-        </p>
+        {cut ? null : (
+          <p className="pt-2 text-center text-callout text-label-secondary">
+            {t("screens.feed.end", { next: nextAt ?? "", hasNext: Boolean(nextAt) })}
+          </p>
+        )}
       </>
     );
   }
@@ -171,6 +205,7 @@ export function FeedView({
   );
   const content = (
     <>
+      {settled ? lead : null}
       {settled && sourceFailures.length > 0 ? (
         <ul
           aria-label={t("screens.feed.skipped")}
@@ -209,6 +244,8 @@ export function FeedView({
     <ScreenSection
       id="today"
       title={t("home.today")}
+      large
+      description={t("home.today.hint")}
       {...(settled && posts.length > 0 ? { meta: t("home.today.posts", { n: posts.length }) } : {})}
       actions={actions}
     >
@@ -237,6 +274,12 @@ export interface FeedScreenProps {
   /** Defaults to `feed.generate` through `useFeed().generate`. */
   onGenerate?: () => Promise<unknown> | undefined;
   sourceFailures?: readonly FeedSourceFailure[];
+  /** The brief's first part, above its posts (Home's "Catching up"). */
+  lead?: ReactNode;
+  /** Show this many posts, the rest behind "Show N more". */
+  collapseAfter?: number;
+  /** Draw nothing while the brief is empty; its settings stay reachable from Home's More. */
+  hideWhenEmpty?: boolean;
   /** Fixed clock (stories, tests). */
   now?: number;
 }
@@ -262,6 +305,9 @@ export function FeedScreen({
   onSchedule,
   onGenerate,
   sourceFailures,
+  lead,
+  collapseAfter,
+  hideWhenEmpty,
   now: fixedNow,
 }: FeedScreenProps): ReactElement {
   const { navigate } = useSlots();
@@ -328,6 +374,9 @@ export function FeedScreen({
         onSchedule={schedule}
         onGenerate={generate}
         onOpenRoute={(route) => navigate?.(route)}
+        {...(lead ? { lead } : {})}
+        {...(collapseAfter === undefined ? {} : { collapseAfter })}
+        {...(hideWhenEmpty ? { hideWhenEmpty } : {})}
         {...(settings["specialists.showInFeed"] === true
           ? { specialistResults: <FeedSpecialistResults now={now} /> }
           : {})}

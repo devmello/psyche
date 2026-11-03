@@ -24,7 +24,7 @@ export function PinnedWidgets(): ReactElement | null {
   const ids = (loaded ?? []).map((w) => w.id).filter((id) => states[id]?.pinned !== false);
   if (ids.length === 0) return null;
   return (
-    <ScreenSection id="pinned" title={t("widgets.overview.title")}>
+    <ScreenSection id="pinned" title={t("widgets.overview.title")} large>
       <div className="flex flex-col gap-1">
         {ids.map((id) => (
           <WidgetBlockView key={id} block={{ type: "ui", widgetId: id }} surface="overview" />

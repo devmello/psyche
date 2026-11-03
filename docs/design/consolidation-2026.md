@@ -60,6 +60,9 @@ the top bar.
 
 ### 3.1 Home (`/home`)
 
+> The layout below (two columns of framed cards) is superseded by [home-2026.md](home-2026.md): one
+> column, ruled sections, purpose lines, short lists. What Home answers is unchanged.
+
 One page that answers "what needs me, and what is coming". Title **Home** in the display serif,
 the date as meta. Sections are framed cards (the Overview's `Card` variant), and a card that has
 nothing to say is not drawn, so a quiet day is a short page.

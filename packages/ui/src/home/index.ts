@@ -1,3 +1,4 @@
+export { CatchUp, type CatchUpItem } from "./CatchUp.tsx";
 export { HomeScreen, type HomeScreenProps } from "./HomeScreen.tsx";
 export { LEGACY_ROUTES, legacyRedirect } from "./redirects.ts";
 export {
