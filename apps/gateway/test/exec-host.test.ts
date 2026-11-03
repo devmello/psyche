@@ -72,9 +72,21 @@ const setPolicy = (next: PolicyConfig) => {
   broker.setPolicy(next);
 };
 
+/**
+ * Waits for the run just started to reach the driver (a fixed sleep raced on a loaded CI runner,
+ * 2026-11-03): each call waits for one more `start` than the last call saw.
+ */
+let startsSeen = 0;
+async function nextStart(): Promise<void> {
+  const want = startsSeen + 1;
+  await vi.waitFor(() => expect(started.length).toBeGreaterThanOrEqual(want), { timeout: 5_000 });
+  startsSeen = started.length;
+}
+
 beforeEach(() => {
   tokens.clear();
   started = [];
+  startsSeen = 0;
   killed = [];
   connectorAsks = [];
   connected = false;
@@ -395,7 +407,7 @@ describe("exec_host: running", () => {
     const a = await card(t, echo);
     await answer(a.id);
     const out = run(t, echo, ctx({ approvalId: a.id }));
-    await new Promise((r) => setTimeout(r, 20));
+    await nextStart();
     finish({ stdout: Buffer.from("token s3cret\n") });
     const res = await out;
     const s = started[0];
@@ -448,7 +460,7 @@ describe("exec_host: running", () => {
     const b = await card(t, echo);
     await answer(b.id, { unsandboxed: UNSANDBOXED_WORD });
     const out = run(t, echo, ctx({ approvalId: b.id }));
-    await new Promise((r) => setTimeout(r, 20));
+    await nextStart();
     finish({});
     expect((await out).output).toMatchObject({ sandboxed: false });
     expect(started[0]?.file).toBe(realpathSync("/bin/echo"));
@@ -480,7 +492,7 @@ describe("exec_host: running", () => {
     await answer(a.id);
     const stop = new AbortController();
     const out = run(t, echo, ctx({ approvalId: a.id, signal: stop.signal }));
-    await new Promise((r) => setTimeout(r, 20));
+    await nextStart();
     stop.abort();
     const res = await out;
     expect(killed).toEqual(["SIGKILL"]);
@@ -553,7 +565,7 @@ describe("exec_host: read-only commands run without a card (security §5.4)", ()
         },
       }),
     );
-    await new Promise((r) => setTimeout(r, 20));
+    await nextStart();
     finish({ stdout: Buffer.from("ok\n") });
     return out;
   }
@@ -968,10 +980,10 @@ describe("red team: what never runs quietly (marker-file payloads, security revi
     const c = () => ctx({ authority: { rule: d.rule, bindingHash: d.bindingHash as string } });
     const finishers: ((r: Partial<CliResult>) => void)[] = [];
     const first = run(t, params, c());
-    await new Promise((r) => setTimeout(r, 20));
+    await nextStart();
     finishers.push(finish);
     const second = run(t, params, c());
-    await new Promise((r) => setTimeout(r, 20));
+    await nextStart();
     finishers.push(finish);
     await expect(run(t, params, c())).rejects.toMatchObject({ code: "unavailable" });
     expect(started).toHaveLength(2);

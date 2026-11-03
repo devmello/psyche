@@ -1,6 +1,10 @@
-import { cleanup } from "@testing-library/react";
+import { cleanup, configure } from "@testing-library/react";
 import { afterEach } from "vitest";
 import { createI18n, setActiveI18n, setDefaultTimeZone } from "../src/i18n/core.ts";
+
+// findBy* and waitFor give up after 1 s by default; on a loaded CI runner widget and connector
+// screens took longer and failed at random (2026-11-03). testTimeout is 30 s (vitest.config.ts).
+configure({ asyncUtilTimeout: 5_000 });
 
 // Stable formats for assertions: US English in UTC (the app follows the owner's region and clock).
 setDefaultTimeZone("UTC");
