@@ -48,15 +48,20 @@ Search            ⌘K   (opens the palette; it is not a page)
 Chat              ⌘1
 Home              ⌘2   amber count = things that need you
 Library           ⌘3
-People            ⌘4
+Memory            ⌘4   (was People; see the note below)
 ──────────
 Threads …
 ──────────
 persona · gear (What can you do?, Settings ⌘,, Usage, Help)
 ```
 
-The compact tab bar (under 720 px) has the same four: Chat, Home, Library, People; Search is in
+The compact tab bar (under 720 px) has the same four: Chat, Home, Library, Memory; Search is in
 the top bar.
+
+> **2026-11-02, later:** the fourth place is **Memory** (`/memory`), which took People's row and
+> keeps its page as the People chip. `/people*` and `/agent/soul?entity=` show Memory in place, and
+> the agent sheet's tab is now **Soul**. Still five places, still ⌘4
+> ([memory-everything-2026.md](memory-everything-2026.md) §6, built as MW1).
 
 ### 3.1 Home (`/home`)
 
