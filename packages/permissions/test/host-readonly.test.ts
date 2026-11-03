@@ -28,14 +28,9 @@ describe("classifyHostCommand", () => {
       ["wc", "-l", "a.ts", "b.ts"],
       ["file", "--mime-type", "image.png"],
       ["stat", "-f", "%z", "package.json"],
-      ["which", "git"],
-      ["git", "status", "--short"],
-      ["git", "log", "--oneline", "-n", "5", "main..topic"],
-      ["git", "diff", "HEAD~1", "--", "src"],
-      ["git", "show", "HEAD:package.json"],
-      ["git", "branch", "-a"],
-      ["git", "branch", "--list", "feat/*"],
-      ["git", "branch", "--show-current"],
+      ["which", "ls"],
+      ["date", "+%H:%M"],
+      ["ls", "-R", "src"],
     ]) {
       expect(classifyHostCommand(argv, CWD), argv.join(" ")).toMatchObject({ readOnly: true });
     }
@@ -97,6 +92,38 @@ describe("classifyHostCommand", () => {
     }
   });
 
+  it("never takes git: config can make every reading subcommand run a program (review 1)", () => {
+    for (const argv of [
+      ["git", "status"],
+      ["git", "status", "-vv"],
+      ["git", "diff"],
+      ["git", "log", "--show-signature"],
+      ["git", "log", "--format=%G?"],
+      ["git", "show", "--show-signature"],
+      ["git", "branch", "--format=%(signature)"],
+      ["git", "branch", "-a"],
+    ]) {
+      expect(classifyHostCommand(argv, CWD), argv.join(" ")).toMatchObject({ readOnly: false });
+    }
+  });
+
+  it("refuses ':' arguments, symlink-following ls and decompressing file (review 2-4)", () => {
+    for (const argv of [
+      ["cat", "HEAD:../x"],
+      ["ls", ":/"],
+      ["cat", "a:b"],
+      ["wc", "-l", ":(top)secret"],
+      ["ls", "-RL"],
+      ["ls", "-L", "src"],
+      ["ls", "-H", "src"],
+      ["file", "-z", "a.gz"],
+      ["file", "-Z", "a.gz"],
+      ["file", "-L", "link"],
+    ]) {
+      expect(ro(...argv), argv.join(" ")).toBe(false);
+    }
+  });
+
   it("refuses paths outside the folder, paths with a slash in argv[0], and the network", () => {
     for (const argv of [
       ["cat", "/etc/passwd"],
@@ -139,8 +166,13 @@ function host(argv: string[], meta = true, params: Record<string, unknown> = {})
 describe("the broker and the read-only class", () => {
   it("runs a read-only command without a card, at side effect read", async () => {
     const h = makeBroker({ policy: ON });
-    const d = await h.broker.decide(host(["git", "status"]), CTX);
+    const d = await h.broker.decide(host(["ls", "-la"]), CTX);
     expect(d).toMatchObject({ decision: "allow", rule: READ_ONLY_RULE, sideEffect: "read" });
+    // git never: even with the Gateway's word, the broker's own check says no.
+    expect(await h.broker.decide(host(["git", "status"]), CTX)).toMatchObject({
+      decision: "ask",
+      sideEffect: "destructive",
+    });
     // And again: no `once`-style card in between.
     expect((await h.broker.decide(host(["date"]), CTX)).decision).toBe("allow");
   });
@@ -235,5 +267,26 @@ describe("the broker and the read-only class", () => {
       requester: { role: "designated", identityId: "id_1" },
     });
     expect(d.decision).not.toBe("allow");
+  });
+});
+
+describe("writes under .git/ (security review, finding 1)", () => {
+  const RW = { folders: [{ path: "/work", mode: "rw" as const }] };
+  const write = (path: string) =>
+    call("write_file", "write", { kind: "path", value: path }, { params: { path, content: "x" } });
+
+  it("are destructive and ask, where a plain write in the folder does not", async () => {
+    const h = makeBroker({ policy: RW });
+    expect((await h.broker.decide(write("/work/app/notes.txt"), CTX)).decision).toBe("allow");
+    for (const path of [
+      "/work/app/.git/config",
+      "/work/app/.git/hooks/pre-commit",
+      "/work/.git/info/attributes",
+    ]) {
+      expect(await h.broker.decide(write(path), CTX), path).toMatchObject({
+        decision: "ask",
+        sideEffect: "destructive",
+      });
+    }
   });
 });

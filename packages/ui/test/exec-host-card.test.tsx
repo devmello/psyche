@@ -222,7 +222,7 @@ describe("Settings → File access: Run commands on this Mac", () => {
     const onChange = vi.fn();
     const values = { "permissions.policy": { folders: [{ path: "/p", mode: "rw" }] } };
     render(<FileAccessPanel values={values} onChange={onChange} persona="Psyche" />);
-    const sw = screen.getByRole("switch", { name: "Allow asking to run commands on this Mac" });
+    const sw = screen.getByRole("switch", { name: "Allow commands on this Mac" });
     expect(sw.getAttribute("aria-checked")).toBe("false");
     await userEvent.click(sw);
     expect(onChange).toHaveBeenCalledWith("permissions.policy", {

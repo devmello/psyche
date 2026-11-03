@@ -376,7 +376,14 @@ export class PolicyEngine {
     // Security §5.4: a host command in the read-only class is a `read`, never the `exec_host`
     // floor, when the Gateway's description says so and this classifier agrees on the argv.
     const hostReadOnly = kind === "exec_host" && readOnlyHostCall(call);
-    const se = hostReadOnly ? "read" : effectiveSideEffect(call.tool, call.sideEffect);
+    const declared = hostReadOnly ? "read" : effectiveSideEffect(call.tool, call.sideEffect);
+    // A write inside a repository's `.git/` (config, hooks, info/attributes) is code the next git
+    // command runs: never a plain write, so never without a card (security §5.4).
+    const gitInternals =
+      FILE_TOOLS.has(call.tool) && SEVERITY[declared] >= SEVERITY.write && writesGitInternals(call);
+    const se: typeof declared =
+      gitInternals && SEVERITY[declared] < SEVERITY.destructive ? "destructive" : declared;
+    if (gitInternals) trace.push("floor:git_internals");
     if (se !== call.sideEffect) trace.push(`floor:${call.sideEffect}->${se}`);
     const tainted = ctx.taint || ctx.initiator === "mcp_app";
     const state = dry === undefined ? d.task(ctx) : dryTask(dry, d, ctx);
@@ -949,4 +956,21 @@ function readOnlyHostCall(call: PolicyCall): boolean {
   )
     return false;
   return classifyHostCommand(p.argv, p.cwd).readOnly;
+}
+
+/** A path with a `.git` segment: inside a repository's own metadata. */
+export function isGitInternalPath(path: string): boolean {
+  return path.split("/").includes(".git");
+}
+
+/** The file call writes under some `.git/` (its target, or a move or copy destination). */
+function writesGitInternals(call: PolicyCall): boolean {
+  const p = (call.params ?? {}) as Record<string, unknown>;
+  const paths = [
+    call.target?.kind === "path" ? call.target.value : undefined,
+    p.path,
+    p.to,
+    p.destination,
+  ];
+  return paths.some((v) => typeof v === "string" && isGitInternalPath(v));
 }

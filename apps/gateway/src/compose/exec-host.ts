@@ -35,15 +35,19 @@ import type { SrtResolver } from "./srt.ts";
  * Bounded like `exec`: a timeout, 128 KB per stream, output masked with the vault's redactor,
  * the process group killed on Esc / Stop.
  *
- * Read-only commands (`classifyHostCommand`: `date`, `ls`, `cat`, `git status`…) are a `read`:
+ * Read-only commands (`classifyHostCommand`: `date`, `ls`, `cat`, `wc`…; never git) are a `read`:
  * the broker runs them without a card for an untainted owner turn outside `manual` mode
  * (`exec.readOnlyWithoutAsking`, on by default). They take the system binary only (SIP-protected
- * folders), file operands that stay inside the cwd after symlinks, no env and no network, and run
- * under srt with nothing writable but the scratch directory, checked again right before the run.
- * Each such run is audited (`exec_host.read_only_run`).
+ * folders) and `PATH` limited to them, regular-file operands that stay inside the cwd after
+ * symlinks, no env and no network, and run under srt with nothing writable but the scratch
+ * directory, at most 15 s and two at a time, checked again right before the run. Each such run
+ * is audited before it starts (`exec_host.read_only_run`) and when it ends (`….done`).
  */
 
 export const UNSANDBOXED_WORD = "UNSANDBOXED";
+/** A read-only command run without a card: at most this long, and this many at once. */
+export const READ_ONLY_TIMEOUT_MS = 15_000;
+export const READ_ONLY_CONCURRENCY = 2;
 const MAX_TIMEOUT_MS = 10 * 60_000;
 const ENV_NAME = "^[A-Z][A-Z0-9_]{0,63}$";
 /** Bare argv[0] is looked up here only, never in a PATH the agent supplies (CVE-2026-24763). */
@@ -97,8 +101,10 @@ export interface ExecHostDeps {
   driver?: CliDriver;
   /** The owner's home folder (tests). */
   userHome?: string;
-  /** Records each read-only run the broker let through without a card. */
+  /** Records each read-only run the broker let through without a card, before it starts. */
   audit?: Pick<AuditLog, "append">;
+  /** Tests: a shorter cap than `READ_ONLY_TIMEOUT_MS`. */
+  readOnlyTimeoutMs?: number;
 }
 
 interface Resolved {
@@ -261,11 +267,15 @@ function under(path: string, root: string): boolean {
   return path === root || path.startsWith(`${root}/`);
 }
 
+/** Read-only programs that read their operands' contents: those must be regular files. */
+const READS_CONTENT = new Set(["cat", "head", "tail", "wc", "file"]);
+
 /**
  * The read-only class with what needs the file system (security §5.4): Apple's binary from the
  * SIP-protected folders (never Homebrew's, which a same-user process could swap), and every file
- * operand inside the real cwd after symlinks. A missing operand is checked by name: the command
- * only fails on it, and the run checks again.
+ * operand inside the real cwd after symlinks. No operand is a FIFO, socket or device (a read
+ * would hang or touch hardware); `cat`, `head`, `tail`, `wc` and `file` read regular files only.
+ * A missing operand is checked by name: the command only fails on it, and the run checks again.
  */
 export function readOnlyHost(p: HostParams): Resolved | undefined {
   if (Object.keys(p.env ?? {}).length > 0 || (p.allowedDomains ?? []).length > 0) return undefined;
@@ -289,31 +299,12 @@ export function readOnlyHost(p: HostParams): Resolved | undefined {
       real = abs;
     }
     if (!under(real, cwd)) return undefined;
+    const st = statSync(real, { throwIfNoEntry: false });
+    if (st !== undefined && !st.isFile() && (READS_CONTENT.has(c.program) || !st.isDirectory())) {
+      return undefined;
+    }
   }
   return resolved;
-}
-
-/**
- * git in the read-only class: no pager, hooks, fsmonitor, external diff or textconv (each could
- * run a program the repo config names), and no optional index refresh (a write).
- */
-function hardenedGit(args: readonly string[]): string[] {
-  const [sub, ...rest] = args;
-  const diffs = sub === "diff" || sub === "show" || sub === "log";
-  return [
-    "--no-pager",
-    "-c",
-    "core.fsmonitor=false",
-    "-c",
-    "core.hooksPath=/dev/null",
-    "-c",
-    "diff.external=",
-    "-c",
-    "core.pager=cat",
-    sub as string,
-    ...(diffs ? ["--no-ext-diff", "--no-textconv"] : []),
-    ...rest,
-  ];
 }
 
 /** What the card shows and what an `always` grant binds (security §3.5, §5.4). */
@@ -391,10 +382,12 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
   const driver = deps.driver ?? nodeCliDriver;
   const userHome = deps.userHome ?? homedir();
   const sandbox = cachedSrt(deps.srt);
+  /** Read-only runs without a card in flight now (`READ_ONLY_CONCURRENCY`). */
+  let quietRunning = 0;
   return defineTool({
     name: "exec_host",
     description:
-      "Run one command (an argv array, no shell string) on the owner's own Mac, in a folder they granted, for their own files and projects (build, test, git, scripts). Prefer `exec` (the sandbox container) whenever the work does not need the owner's real files. Calls ask the owner on their Mac, showing the exact argv, cwd, env and executable; read-only commands (date, pwd, whoami, uname, ls, cat, head, tail, wc, file, stat, which on files in the cwd; git status, log, diff, show, branch) with no env and no allowedDomains run without asking unless the turn read untrusted content. It runs under srt (no secrets, no network unless `allowedDomains`). It is off until the owner turns it on: when a call is denied because it is off, or the cwd is outside granted folders, use request_permission with the `missing` object from the error, then retry.",
+      "Run one command (an argv array, no shell string) on the owner's own Mac, in a folder they granted, for their own files and projects (build, test, git, scripts). Prefer `exec` (the sandbox container) whenever the work does not need the owner's real files. Calls ask the owner on their Mac, showing the exact argv, cwd, env and executable; read-only commands (date, pwd, whoami, uname, ls, cat, head, tail, wc, file, stat, which on files in the cwd) with no env and no allowedDomains run without asking unless the turn read untrusted content; git and everything else asks. It runs under srt (no secrets, no network unless `allowedDomains`). It is off until the owner turns it on: when a call is denied because it is off, or the cwd is outside granted folders, use request_permission with the `missing` object from the error, then retry.",
     input: Input,
     // The broker lowers a call to `read` only when it re-checks the read-only class itself
     // (`describeCall` names it in `meta`); the tool as such stays `destructive`.
@@ -479,6 +472,11 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
       // Short on purpose: srt's mux sockets live in it and `sun_path` is 104 bytes.
       const scratch = await createScratchDir(dir);
       const settings = join(dir, `srt-${id}.json`);
+      const cleanup = async () => {
+        await rm(settings, { force: true });
+        await rm(scratch, { recursive: true, force: true });
+        await rm(dirname(settings), { recursive: false, force: true }).catch(() => undefined);
+      };
       let user = "";
       try {
         user = userInfo().username;
@@ -486,7 +484,8 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
         // No passwd entry; leave USER empty.
       }
       const env: NodeJS.ProcessEnv = {
-        PATH: SAFE_PATH.join(":"),
+        // A read-only command finds only Apple's programs (no Homebrew helper it might call).
+        PATH: (readOnly ? SYSTEM_BIN_DIRS : SAFE_PATH).join(":"),
         HOME: userHome,
         USER: user,
         LOGNAME: user,
@@ -494,13 +493,8 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
         TMPDIR: scratch,
         ...(p.env ?? {}),
       };
-      const git = readOnly && p.argv[0] === "git";
-      if (git) {
-        env.GIT_OPTIONAL_LOCKS = "0";
-        env.GIT_TERMINAL_PROMPT = "0";
-      }
       let file = resolved.executable;
-      let args = git ? hardenedGit(p.argv.slice(1)) : p.argv.slice(1);
+      let args = p.argv.slice(1);
       if (!unsandboxed && "path" in srt) {
         const profile = execHostSrtSettings({
           psycheHome: deps.home,
@@ -514,9 +508,44 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
         file = srt.path;
         args = ["--settings", settings, "--", resolved.executable, ...args];
       }
-      const timeoutMs = p.timeoutMs ?? EXEC_DEFAULT_TIMEOUT_MS;
+      const cap = deps.readOnlyTimeoutMs ?? READ_ONLY_TIMEOUT_MS;
+      const timeoutMs = quiet
+        ? Math.min(p.timeoutMs ?? cap, cap)
+        : (p.timeoutMs ?? EXEC_DEFAULT_TIMEOUT_MS);
       let timedOut = false;
       let stopped = false;
+      if (quiet) {
+        if (quietRunning >= READ_ONLY_CONCURRENCY) {
+          await cleanup();
+          throw new PsycheError(
+            "unavailable",
+            `${READ_ONLY_CONCURRENCY} read-only commands are already running; try again when one finishes`,
+            { retryable: true },
+          );
+        }
+        // Recorded before it starts: a run the audit log cannot record does not run.
+        try {
+          await deps.audit?.append({
+            kind: "exec_host.read_only_run",
+            actor: { type: "agent", runId: ctx.runId },
+            subject: { runId: ctx.runId, threadId: ctx.threadId },
+            data: {
+              runKey: id,
+              argv: p.argv,
+              cwd: real,
+              executable: resolved.executable,
+              executableSha256: resolved.sha256,
+            },
+          });
+        } catch {
+          await cleanup();
+          throw new PsycheError(
+            "unavailable",
+            "The audit log could not record this read-only command, so it was not run",
+          );
+        }
+        quietRunning++;
+      }
       const proc = driver.start(file, args, {
         cwd: real,
         env,
@@ -534,36 +563,44 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
       };
       if (ctx.signal.aborted) onAbort();
       else ctx.signal.addEventListener("abort", onAbort, { once: true });
-      let result: CliResult;
+      let result: CliResult | undefined;
+      let auditFailed = false;
       try {
         result = await proc.done;
       } finally {
         clearTimeout(timer);
         ctx.signal.removeEventListener("abort", onAbort);
-        await rm(settings, { force: true });
-        await rm(scratch, { recursive: true, force: true });
-        await rm(dirname(settings), { recursive: false, force: true }).catch(() => undefined);
+        await cleanup();
+        if (quiet) {
+          quietRunning--;
+          // The run's end, whatever happened; a failure to record it is reported, not dropped.
+          try {
+            await deps.audit?.append({
+              kind: "exec_host.read_only_run.done",
+              actor: { type: "agent", runId: ctx.runId },
+              subject: { runId: ctx.runId, threadId: ctx.threadId },
+              data: {
+                runKey: id,
+                exitCode: result?.exitCode ?? null,
+                outcome:
+                  result === undefined
+                    ? "error"
+                    : timedOut || stopped
+                      ? "uncertain"
+                      : result.exitCode === 0
+                        ? "ok"
+                        : "failed",
+                timedOut,
+              },
+            });
+          } catch {
+            auditFailed = true;
+          }
+        }
       }
       const redact = (b: Buffer) => deps.vault.redact(b.toString("utf8"));
       // An interrupted host command may have done part of its work: uncertain, never replayed.
       const outcome = timedOut || stopped ? "uncertain" : result.exitCode === 0 ? "ok" : "failed";
-      if (quiet) {
-        void deps.audit
-          ?.append({
-            kind: "exec_host.read_only_run",
-            actor: { type: "agent", runId: ctx.runId },
-            subject: { runId: ctx.runId, threadId: ctx.threadId },
-            data: {
-              argv: p.argv,
-              cwd: real,
-              executable: resolved.executable,
-              executableSha256: resolved.sha256,
-              exitCode: result.exitCode,
-              outcome,
-            },
-          })
-          .catch(() => undefined);
-      }
       return {
         output: {
           exitCode: result.exitCode,
@@ -577,9 +614,10 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
           executable: resolved.executable,
           cwd: real,
           outcome,
+          ...(auditFailed ? { auditFailed: true } : {}),
         },
         provenance: "untrusted",
-        ...(outcome === "ok" ? {} : { isError: true }),
+        ...(outcome === "ok" && !auditFailed ? {} : { isError: true }),
       };
     },
   });

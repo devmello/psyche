@@ -308,7 +308,7 @@ export function FileAccessPanel({
           </div>
           <SettingHint settingKey={POLICY_KEY} />
         </Group>
-        {/* Security §5.4: off by default; each command still asks on the Mac. */}
+        {/* Security §5.4: off by default; anything outside the read-only class asks on the Mac. */}
         <Advanced description={t("settings.files.advancedHint")}>
           <Group
             title={t("settings.files.execHost")}

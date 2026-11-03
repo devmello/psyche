@@ -31,7 +31,12 @@ import {
 } from "@psyche/protocol";
 import type { CliDriver, CliOptions, CliResult } from "@psyche/sandbox";
 import { beforeEach, describe, expect, it } from "vitest";
-import { execHostTool, type SrtStatus, UNSANDBOXED_WORD } from "../src/compose/exec-host.ts";
+import {
+  execHostTool,
+  READ_ONLY_TIMEOUT_MS,
+  type SrtStatus,
+  UNSANDBOXED_WORD,
+} from "../src/compose/exec-host.ts";
 import { withFolder } from "../src/compose/folder-access.ts";
 import { requestPermissionTool } from "../src/compose/request-permission.ts";
 
@@ -571,39 +576,44 @@ describe("exec_host: read-only commands run without a card (security §5.4)", ()
       allowLocalBinding: false,
     });
     expect(res.output).toMatchObject({ exitCode: 0, sandboxed: true, outcome: "ok" });
-    expect(audited).toEqual([
-      expect.objectContaining({
-        kind: "exec_host.read_only_run",
-        data: expect.objectContaining({ argv: ["date"], cwd: project, executable: exe }),
-      }),
+    // Only Apple's programs on PATH (no Homebrew helper a program might call).
+    expect(s?.options?.env?.PATH).toBe("/usr/bin:/bin:/usr/sbin:/sbin");
+    // Recorded before it started, completed when it ended, with the same run key.
+    expect(audited.map((e) => e.kind)).toEqual([
+      "exec_host.read_only_run",
+      "exec_host.read_only_run.done",
     ]);
+    expect(audited[0]?.data).toMatchObject({ argv: ["date"], cwd: project, executable: exe });
+    expect(audited[1]?.data).toMatchObject({
+      runKey: audited[0]?.data.runKey,
+      exitCode: 0,
+      outcome: "ok",
+    });
   });
 
-  it("git runs without pager, hooks, fsmonitor, external diff, textconv or index writes", async () => {
+  it("a run the audit log cannot record does not start", async () => {
     on();
-    const t = await quietHost();
-    if (!described(t, { argv: ["git", "log"], cwd: project }).meta) {
-      return; // no /usr/bin/git on this machine
-    }
-    await quietRun(t, { argv: ["git", "log", "--oneline"], cwd: project });
-    const s = started[0];
-    const inner = s?.args.slice((s?.args.indexOf("--") ?? 0) + 2);
-    expect(inner).toEqual([
-      "--no-pager",
-      "-c",
-      "core.fsmonitor=false",
-      "-c",
-      "core.hooksPath=/dev/null",
-      "-c",
-      "diff.external=",
-      "-c",
-      "core.pager=cat",
-      "log",
-      "--no-ext-diff",
-      "--no-textconv",
-      "--oneline",
-    ]);
-    expect(s?.options?.env).toMatchObject({ GIT_OPTIONAL_LOCKS: "0", GIT_TERMINAL_PROMPT: "0" });
+    const t = execHostTool({
+      broker: recording(),
+      vault: { redact: (x) => x },
+      folders: (threadId) => [...(broker.policy.folders ?? []), ...broker.sessionFolders(threadId)],
+      srt: { resolve: async () => srt },
+      home: psycheHome,
+      userHome: home,
+      driver,
+      audit: {
+        append: async () => {
+          throw new Error("disk full");
+        },
+      },
+    });
+    await new Promise((r) => setTimeout(r, 5));
+    const params = { argv: ["date"], cwd: project };
+    const d = await decide(t, params);
+    await expect(
+      run(t, params, ctx({ authority: { rule: d.rule, bindingHash: d.bindingHash as string } })),
+    ).rejects.toMatchObject({ code: "unavailable" });
+    expect(started).toEqual([]);
   });
 
   it("taint forces a card, labelled read, and the run still writes nothing", async () => {
@@ -694,7 +704,7 @@ function snapshot(dir: string): string[] {
 describe("red team: no read-only command writes a file (real binaries, srt stripped)", () => {
   const repo = join(home, "Projects", "repo");
   // The real program, run the way the tool would start it inside srt (the srt prefix dropped,
-  // so this checks the argv rules and the git hardening alone, without the sandbox's help).
+  // so this checks the argv rules alone, without the sandbox's help).
   const real: CliDriver = {
     start(file, args, options) {
       const at = args.indexOf("--");
@@ -732,8 +742,7 @@ describe("red team: no read-only command writes a file (real binaries, srt strip
         cwd: repo,
         env: { PATH: "/usr/bin:/bin", HOME: home, GIT_CONFIG_NOSYSTEM: "1" },
       });
-    const hasGit = git("init", "-q").status === 0;
-    if (hasGit) {
+    if (git("init", "-q").status === 0) {
       git("add", ".");
       git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "init");
       // Leave a working-tree change so status and diff have something to read.
@@ -763,15 +772,7 @@ describe("red team: no read-only command writes a file (real binaries, srt strip
       ["file", "README.md"],
       ["stat", "README.md"],
       ["which", "ls"],
-      ...(hasGit
-        ? [
-            ["git", "status"],
-            ["git", "log", "--oneline"],
-            ["git", "diff"],
-            ["git", "show", "HEAD"],
-            ["git", "branch", "-a"],
-          ]
-        : []),
+      ["ls", "-R"],
     ];
     const before = snapshot(repo);
     let ran = 0;
@@ -790,5 +791,178 @@ describe("red team: no read-only command writes a file (real binaries, srt strip
       expect(snapshot(repo), argv.join(" ")).toEqual(before);
     }
     expect(ran).toBeGreaterThanOrEqual(10);
+  });
+});
+
+describe("red team: what never runs quietly (marker-file payloads, security review of #1150)", () => {
+  const repo = join(home, "Projects", "trap");
+  const marker = (name: string) => join(outside, `MARKER-${name}`);
+  const quiet = () =>
+    execHostTool({
+      broker: recording(),
+      vault: { redact: (x) => x },
+      folders: () => broker.policy.folders ?? [],
+      srt: { resolve: async () => srt },
+      home: psycheHome,
+      userHome: home,
+      driver,
+    });
+  const ready = async () => {
+    const t = quiet();
+    await new Promise((r) => setTimeout(r, 5));
+    return t;
+  };
+  const env = { PATH: "/usr/bin:/bin", HOME: home, GIT_CONFIG_NOSYSTEM: "1" };
+
+  beforeEach(() => {
+    setPolicy({ folders: [{ path: repo, mode: "rw" }], exec: { execHostEnabled: true } });
+  });
+
+  it("git asks for every reading subcommand a repo's config can turn into a program", async () => {
+    mkdirSync(repo, { recursive: true });
+    const git = (...a: string[]) => spawnSync("/usr/bin/git", a, { cwd: repo, env });
+    if (git("init", "-q").status !== 0) return; // no git on this machine
+    // What an untainted turn could write without a card before #1150's review: a filter, a
+    // textconv driver and a gpg program, each touching a marker outside the folder.
+    writeFileSync(join(repo, "a.txt"), "x\n");
+    git("add", "a.txt");
+    git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "init");
+    writeFileSync(join(repo, "a.txt"), "changed\n");
+    writeFileSync(join(repo, ".gitattributes"), "* filter=pwn diff=pwn\n");
+    git("config", "filter.pwn.clean", `touch ${marker("filter")}; cat`);
+    git("config", "diff.pwn.textconv", `touch ${marker("textconv")}; cat`);
+    git("config", "gpg.program", `/bin/sh -c 'touch ${marker("gpg")}'`);
+    git("config", "log.showSignature", "true");
+    // The payload is real: plain git runs it.
+    git("diff");
+    expect(existsSync(marker("filter"))).toBe(true);
+    for (const m of ["filter", "textconv", "gpg"]) spawnSync("/bin/rm", ["-f", marker(m)]);
+
+    const t = await ready();
+    for (const argv of [
+      ["git", "status"],
+      ["git", "status", "-vv"],
+      ["git", "diff"],
+      ["git", "log", "--show-signature"],
+      ["git", "log", "--format=%G?"],
+      ["git", "show", "--show-signature"],
+      ["git", "branch", "--format=%(signature)"],
+    ]) {
+      const params = { argv, cwd: repo };
+      expect(described(t, params).meta, argv.join(" ")).toBeUndefined();
+      const d = await decide(t, params);
+      expect(d.decision, argv.join(" ")).toBe("ask");
+      expect(d.sideEffect, argv.join(" ")).toBe("destructive");
+    }
+    expect(started).toEqual([]);
+    for (const m of ["filter", "textconv", "gpg"]) expect(existsSync(marker(m))).toBe(false);
+  });
+
+  it("':' arguments (HEAD:../x, :/) never run quietly", async () => {
+    mkdirSync(repo, { recursive: true });
+    const t = await ready();
+    for (const argv of [
+      ["cat", "HEAD:../x"],
+      ["ls", ":/"],
+      ["wc", "-l", ":(top)a.txt"],
+    ]) {
+      expect(described(t, { argv, cwd: repo }).meta, argv.join(" ")).toBeUndefined();
+      expect((await decide(t, { argv, cwd: repo })).decision).toBe("ask");
+    }
+  });
+
+  it("ls -RL with a symlink out of the folder asks; ls -R does not follow it", async () => {
+    const dir = join(home, "Projects", "lsr");
+    mkdirSync(dir, { recursive: true });
+    mkdirSync(join(outside, "secret-dir"), { recursive: true });
+    writeFileSync(join(outside, "secret-dir", "MARKER-outside.txt"), "s3cret");
+    if (!existsSync(join(dir, "out"))) symlinkSync(join(outside, "secret-dir"), join(dir, "out"));
+    setPolicy({ folders: [{ path: dir, mode: "ro" }], exec: { execHostEnabled: true } });
+    const t = await ready();
+    expect(described(t, { argv: ["ls", "-RL"], cwd: dir }).meta).toBeUndefined();
+    expect((await decide(t, { argv: ["ls", "-RL"], cwd: dir })).decision).toBe("ask");
+    // The quiet ls -R, really run: it lists the link, never what is behind it.
+    const r = spawnSync("/bin/ls", ["-R"], { cwd: dir, env });
+    expect(String(r.stdout)).toContain("out");
+    expect(String(r.stdout)).not.toContain("MARKER-outside");
+    expect(described(t, { argv: ["ls", "-R"], cwd: dir }).meta).toEqual({
+      hostCommand: "read_only",
+    });
+  });
+
+  it("file -z / -Z (decompressors) asks", async () => {
+    mkdirSync(repo, { recursive: true });
+    const t = await ready();
+    for (const argv of [
+      ["file", "-z", "a.gz"],
+      ["file", "-Z", "a.gz"],
+    ]) {
+      expect(described(t, { argv, cwd: repo }).meta).toBeUndefined();
+    }
+  });
+
+  it("a FIFO operand never runs quietly, also when planted after the decision", async () => {
+    const dir = join(home, "Projects", "fifo");
+    mkdirSync(dir, { recursive: true });
+    spawnSync("/usr/bin/mkfifo", [join(dir, "pipe")]);
+    const t = await ready();
+    setPolicy({ folders: [{ path: dir, mode: "ro" }], exec: { execHostEnabled: true } });
+    for (const prog of ["cat", "head", "tail", "wc", "file", "ls", "stat"]) {
+      expect(described(t, { argv: [prog, "pipe"], cwd: dir }).meta, prog).toBeUndefined();
+    }
+    writeFileSync(join(dir, "late"), "x");
+    const params = { argv: ["cat", "late"], cwd: dir };
+    const d = await decide(t, params);
+    expect(d.rule).toBe(READ_ONLY_RULE);
+    spawnSync("/bin/rm", [join(dir, "late")]);
+    spawnSync("/usr/bin/mkfifo", [join(dir, "late")]);
+    await expect(
+      run(t, params, ctx({ authority: { rule: d.rule, bindingHash: d.bindingHash as string } })),
+    ).rejects.toMatchObject({ code: "forbidden" });
+    expect(started).toEqual([]);
+  });
+
+  it("a quiet run lasts at most 15 s (here: the test's cap) whatever timeoutMs it asks for", async () => {
+    expect(READ_ONLY_TIMEOUT_MS).toBe(15_000);
+    mkdirSync(repo, { recursive: true });
+    const t = execHostTool({
+      broker: recording(),
+      vault: { redact: (x) => x },
+      folders: () => broker.policy.folders ?? [],
+      srt: { resolve: async () => srt },
+      home: psycheHome,
+      userHome: home,
+      driver,
+      readOnlyTimeoutMs: 50,
+    });
+    await new Promise((r) => setTimeout(r, 5));
+    const params = { argv: ["date"], cwd: repo, timeoutMs: 600_000 };
+    const d = await decide(t, params);
+    const res = await run(
+      t,
+      params,
+      ctx({ authority: { rule: d.rule, bindingHash: d.bindingHash as string } }),
+    );
+    expect(killed).toContain("SIGKILL");
+    expect(res.output).toMatchObject({ timedOut: true, outcome: "uncertain" });
+  });
+
+  it("at most two quiet runs at once", async () => {
+    mkdirSync(repo, { recursive: true });
+    const t = await ready();
+    const params = { argv: ["date"], cwd: repo };
+    const d = await decide(t, params);
+    const c = () => ctx({ authority: { rule: d.rule, bindingHash: d.bindingHash as string } });
+    const finishers: ((r: Partial<CliResult>) => void)[] = [];
+    const first = run(t, params, c());
+    await new Promise((r) => setTimeout(r, 20));
+    finishers.push(finish);
+    const second = run(t, params, c());
+    await new Promise((r) => setTimeout(r, 20));
+    finishers.push(finish);
+    await expect(run(t, params, c())).rejects.toMatchObject({ code: "unavailable" });
+    expect(started).toHaveLength(2);
+    for (const f of finishers) f({});
+    await Promise.all([first, second]);
   });
 });
