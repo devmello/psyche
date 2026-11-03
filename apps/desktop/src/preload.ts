@@ -190,9 +190,11 @@ const bridge = {
     launch: () => invoke(IPC.helperLaunch),
     // Touch ID through the bundled helper: main and Settings windows only (main checks).
     touchIdIdentity: () => invoke(IPC.touchIdIdentity),
-    touchIdRegister: () => invoke(IPC.touchIdRegister),
+    // Register and approve resolve the raw envelope like `gateway.call`: the approval card reads
+    // the error's `code` and `details.reason` (no key, helper offline) to offer the fix.
+    touchIdRegister: () => ipcRenderer.invoke(IPC.touchIdRegister) as Promise<Envelope>,
     touchIdApprove: (p: { approvalId: string; answerToken: string }) =>
-      invoke(IPC.touchIdApprove, p),
+      ipcRenderer.invoke(IPC.touchIdApprove, p) as Promise<Envelope>,
   },
   /** Copies text to the system clipboard (#507). */
   clipboard: {

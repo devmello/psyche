@@ -72,8 +72,29 @@ describe("Touch ID channels (security review, finding 7)", () => {
       answerToken: "t",
     });
     await bridge.helper.touchIdRegister();
-    expect(invoke).toHaveBeenLastCalledWith(IPC.touchIdRegister, undefined);
+    expect(invoke).toHaveBeenLastCalledWith(IPC.touchIdRegister);
     await bridge.helper.touchIdIdentity();
     expect(invoke).toHaveBeenLastCalledWith(IPC.touchIdIdentity, undefined);
+  });
+});
+
+describe("Touch ID errors reach the window intact", () => {
+  it("approve and register resolve the error envelope instead of throwing across the bridge", async () => {
+    const bridge = exposed.psyche as {
+      helper: {
+        touchIdApprove: (p: unknown) => Promise<unknown>;
+        touchIdRegister: () => Promise<unknown>;
+      };
+    };
+    const failed = {
+      ok: false,
+      error: { code: "unavailable", message: "no key", details: { reason: "no_presence_key" } },
+    };
+    invoke.mockResolvedValueOnce(failed as never);
+    await expect(
+      bridge.helper.touchIdApprove({ approvalId: "a", answerToken: "t" }),
+    ).resolves.toEqual(failed);
+    invoke.mockResolvedValueOnce(failed as never);
+    await expect(bridge.helper.touchIdRegister()).resolves.toEqual(failed);
   });
 });
