@@ -561,12 +561,8 @@ enum ScriptHandler {
                 let result = script.executeHandler(withName: handler, arguments: box.args, error: &error)
                 if let error {
                     let number = (error[OSAScriptErrorNumberKey] as? NSNumber)?.intValue ?? 0
-                    switch number {
-                    case -1743: cont.resume(throwing: CapabilityError(.forbidden, reason: "automation_denied", "Automation was denied for \(bundleId)", details: ["permission": "automation", "target": .string(bundleId)]))
-                    case -1728, -1719: cont.resume(throwing: CapabilityError(.notFound, reason: "not_found", "The item was not found"))
-                    case -1712: cont.resume(throwing: CapabilityError(.unavailable, reason: "script_timeout", "\(bundleId) took too long to answer", details: ["osaError": .int(number)]))
-                    default: cont.resume(throwing: CapabilityError(.unavailable, reason: "script_error", "The app could not complete the request", details: ["osaError": .int(number)]))
-                    }
+                    let message = error[OSAScriptErrorMessageKey] as? String
+                    cont.resume(throwing: AppleScriptFailure.map(number: number, message: message, bundleId: bundleId))
                     return
                 }
                 cont.resume(returning: result?.stringValue)
@@ -1159,36 +1155,112 @@ public final class NotesScriptingBackend: NotesBackend, @unchecked Sendable {
             try
               set cname to name of container of n
             end try
-            return (id of n as text) & fs & my psyche_clean(cname) & fs & my psyche_clean(name of n) & fs & my psyche_iso(modification date of n)
+            set ttl to ""
+            try
+              set ttl to (name of n) as text
+            end try
+            set iso to ""
+            try
+              set iso to my psyche_iso(modification date of n)
+            end try
+            return (id of n as text) & fs & my psyche_clean(cname) & fs & my psyche_clean(ttl) & fs & iso
           end tell
         end psyche_line
+        -- One page of the library: `lim` notes after the first `off`, in Notes' own (stable) order.
+        -- The ids, titles and dates of the page come in three batched reads (a range specifier, so
+        -- Notes resolves only the page and not every note), never one event per note and never the
+        -- body. A note that errors is skipped, not fatal. If the batched read is refused the page is
+        -- read note by note instead. A timeout or a denied permission is raised as it is, so the
+        -- helper can say which it was.
         on psyche_list(folderName, lim, off)
-          set out to {}
-          tell application "Notes"
-            if folderName is "" then
-              set ns to notes
-            else
-              set ns to notes of folder folderName
-            end if
-            if (off as integer) is 0 then
-              repeat with n in ns
-                if (count of out) ≥ (lim as integer) then exit repeat
-                set end of out to my psyche_line(n)
-              end repeat
-            else
-              -- A later page: skip the first `off` notes without reading them.
-              set total to count of ns
-              set a to (off as integer) + 1
-              set b to (off as integer) + (lim as integer)
-              if b > total then set b to total
-              if a ≤ b then
-                repeat with n in (items a thru b of ns)
-                  set end of out to my psyche_line(n)
-                end repeat
+          set fs to character id 31
+          set lo to (off as integer) + 1
+          set hi to (off as integer) + (lim as integer)
+          set rows to {}
+          set batched to true
+          set idl to {}
+          set nl to {}
+          set dl to {}
+          set cl to {}
+          with timeout of 40 seconds
+            tell application "Notes"
+              if folderName is "" then
+                set total to count of notes
+              else
+                set total to count of notes of folder folderName
               end if
-            end if
-          end tell
-          return my psyche_join(out, character id 30)
+              if hi > total then set hi to total
+              if lo ≤ hi then
+                try
+                  if folderName is "" then
+                    set idl to id of (notes lo thru hi)
+                    set nl to name of (notes lo thru hi)
+                    set dl to modification date of (notes lo thru hi)
+                  else
+                    set idl to id of (notes lo thru hi of folder folderName)
+                    set nl to name of (notes lo thru hi of folder folderName)
+                    set dl to modification date of (notes lo thru hi of folder folderName)
+                  end if
+                on error errMsg number errNum
+                  if errNum is in {-1712, -1743, -1744, -600, -609} then error errMsg number errNum
+                  set batched to false
+                end try
+                if batched and folderName is "" then
+                  try
+                    set cl to name of container of (notes lo thru hi)
+                  on error errMsg number errNum
+                    if errNum is in {-1712, -1743, -1744, -600, -609} then error errMsg number errNum
+                    set cl to {}
+                  end try
+                end if
+                if batched and (count of idl) is not (count of nl) then set batched to false
+                if batched and (count of idl) is not (count of dl) then set batched to false
+                if batched then
+                  set t0 to current date
+                  repeat with i from 1 to (count of idl)
+                    try
+                      set cname to folderName
+                      if folderName is "" then
+                        set cname to ""
+                        if (count of cl) = (count of idl) then
+                          try
+                            set cname to (item i of cl) as text
+                          end try
+                        else if ((current date) - t0) < 15 then
+                          try
+                            set cname to name of container of note id ((item i of idl) as text)
+                          end try
+                        end if
+                      end if
+                      set ttl to ""
+                      try
+                        set ttl to (item i of nl) as text
+                      end try
+                      set iso to ""
+                      try
+                        set iso to my psyche_iso(item i of dl)
+                      end try
+                      set end of rows to ((item i of idl) as text) & fs & my psyche_clean(cname) & fs & my psyche_clean(ttl) & fs & iso
+                    end try
+                  end repeat
+                else
+                  repeat with k from lo to hi
+                    try
+                      if folderName is "" then
+                        set n to note k
+                      else
+                        set n to note k of folder folderName
+                      end if
+                      set end of rows to my psyche_line(n)
+                    on error errMsg number errNum
+                      if errNum is in {-1712, -1743, -1744, -600, -609} then error errMsg number errNum
+                    end try
+                  end repeat
+                end if
+              end if
+            end tell
+          end timeout
+          return my psyche_join(rows, character id 30)
         end psyche_list
         on psyche_read(nid)
           set fs to character id 31
@@ -1220,6 +1292,7 @@ public final class NotesScriptingBackend: NotesBackend, @unchecked Sendable {
         on psyche_search(q, folderName, sinceParts)
           set s to my psyche_date(sinceParts)
           set fs to character id 31
+          with timeout of 30 seconds
           tell application "Notes"
             if folderName is "" and q is "" then
               set ids to id of (notes whose modification date ≥ s)
@@ -1247,10 +1320,13 @@ public final class NotesScriptingBackend: NotesBackend, @unchecked Sendable {
           set out to {}
           tell application "Notes"
             repeat with nid in idList
-              set n to note id (nid as text)
-              set t to my psyche_clean(plaintext of n)
-              if (length of t) > (maxChars as integer) then set t to text 1 thru (maxChars as integer) of t
-              set end of out to my psyche_line(n) & fs & t
+              -- A locked or vanished note is skipped, not fatal to the whole search.
+              try
+                set n to note id (nid as text)
+                set t to my psyche_clean(plaintext of n)
+                if (length of t) > (maxChars as integer) then set t to text 1 thru (maxChars as integer) of t
+                set end of out to my psyche_line(n) & fs & t
+              end try
             end repeat
           end tell
           return my psyche_join(out, character id 30)

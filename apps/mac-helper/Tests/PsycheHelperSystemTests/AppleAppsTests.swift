@@ -1091,3 +1091,128 @@ struct ThingsWave1Tests {
         _ = try decode([ThingsTodo].self, try await h.invoke("things.list", ["list": "inbox"]).result["todos"])
     }
 }
+
+// MARK: - Notes listing and script failures (no Notes, no osascript)
+
+@Suite("Notes listing robustness")
+struct NotesListingTests {
+    /// Every AppleScript source Psyche ships, by name.
+    static let sources: [(String, String)] = [
+        ("mail", MailScriptingBackend.source), ("notes", NotesScriptingBackend.source), ("reminders", EventKitBackend.flagScript),
+        ("music", MusicScriptingBackend.source("music")), ("spotify", MusicScriptingBackend.source("spotify")),
+        ("music-library", MusicScriptingBackend.libraryScript), ("safari", SafariScriptingBackend.source),
+        ("chrome", ChromeScriptingBackend.source), ("shortcuts", LiveShortcutsBackend.source), ("things", ThingsScriptingBackend.source),
+    ]
+
+    /// Opening minus closing lines of each block kind: all zero in a script that can compile. A stray
+    /// `end timeout` (no `with timeout`) made every Notes call fail with "could not complete the request".
+    static func imbalance(_ source: String) -> [String: Int] {
+        var n: [String: Int] = [:]
+        for raw in source.components(separatedBy: "\n") {
+            let l = raw.trimmingCharacters(in: .whitespaces)
+            if l.hasPrefix("--") { continue }
+            if l.hasPrefix("with timeout") { n["timeout", default: 0] += 1 }
+            if l == "end timeout" { n["timeout", default: 0] -= 1 }
+            if l.hasPrefix("tell ") && !l.contains(" to ") { n["tell", default: 0] += 1 }
+            if l == "end tell" { n["tell", default: 0] -= 1 }
+            if l.hasPrefix("repeat") { n["repeat", default: 0] += 1 }
+            if l == "end repeat" { n["repeat", default: 0] -= 1 }
+            if l == "try" { n["try", default: 0] += 1 }
+            if l == "end try" { n["try", default: 0] -= 1 }
+            if l.hasPrefix("on psyche_") { n["handler", default: 0] += 1 }
+            if l.hasPrefix("end psyche_") { n["handler", default: 0] -= 1 }
+        }
+        return n.filter { $0.value != 0 }
+    }
+
+    @Test(arguments: sources) func everyScriptHasBalancedBlocks(_ entry: (String, String)) {
+        #expect(Self.imbalance(entry.1).isEmpty, "\(entry.0): unbalanced \(Self.imbalance(entry.1))")
+    }
+
+    @Test func theBalanceCheckSeesAStrayEndTimeout() {
+        #expect(Self.imbalance("on psyche_x()\n  tell application \"Notes\"\n  end tell\n  end timeout\nend psyche_x") == ["timeout": -1])
+        #expect(Self.imbalance("on psyche_x()\n  with timeout of 5 seconds\n  tell application \"Notes\"\n  end tell\n  end timeout\nend psyche_x").isEmpty)
+    }
+
+    static func handler(_ name: String) -> String {
+        let s = NotesScriptingBackend.source
+        guard let a = s.range(of: "on \(name)("), let b = s.range(of: "end \(name)", range: a.upperBound ..< s.endIndex) else { return "" }
+        return String(s[a.lowerBound ..< b.upperBound])
+    }
+
+    @Test func listReadsAPageInBatchesWithATimeoutAndNeverTheBody() {
+        let list = Self.handler("psyche_list")
+        #expect(!list.isEmpty)
+        #expect(list.contains("with timeout of"))
+        // Ids, titles and dates come in batched reads of a range, not one event per note.
+        #expect(list.contains("id of (notes lo thru hi)") && list.contains("name of (notes lo thru hi)") && list.contains("modification date of (notes lo thru hi)"))
+        #expect(!list.contains("body of") && !list.contains("plaintext"))
+        // A page is never built by walking (and slicing) the whole library.
+        #expect(!list.contains("items a thru b") && !list.contains("repeat with n in ns"))
+        // A timeout or a refused permission is raised, not swallowed by the per-note skip.
+        #expect(list.contains("-1712") && list.contains("-1743"))
+    }
+
+    @Test func aLockedNoteDoesNotFailASearchRead() {
+        let lines = Self.handler("psyche_lines")
+        #expect(lines.contains("try") && lines.contains("end try"))
+    }
+
+    @Test func listOutputParsesAndSkipsBrokenRecords() {
+        let fs = ScriptRecords.fieldSeparator
+        let rs = ScriptRecords.recordSeparator
+        let out = ["x-coredata://A/ICNote/p1\(fs)Notes\(fs)Groceries\(fs)2026-10-19T08:00:00", "torn record", "x-coredata://A/ICNote/p2\(fs)\(fs)\(fs)"].joined(separator: rs)
+        let rows = ScriptRecords.parse(out, fields: 4).map(NotesScriptingBackend.summary)
+        #expect(rows.map(\.id) == ["x-coredata://A/ICNote/p1", "x-coredata://A/ICNote/p2"])
+        #expect(rows[0].title == "Groceries" && rows[0].folder == "Notes")
+        // A note whose date could not be read is kept, dated at the epoch (so it is read once).
+        #expect(rows[1].title == "" && rows[1].modified == AppleDates.string(Date(timeIntervalSince1970: 0)))
+        #expect(ScriptRecords.parse("", fields: 4).isEmpty && ScriptRecords.parse(nil, fields: 4).isEmpty)
+    }
+}
+
+@Suite("AppleScript failure mapping")
+struct AppleScriptFailureTests {
+    @Test func automationDeniedIsForbiddenAndNamesTheFix() {
+        for n in [-1743, -1744] {
+            let e = AppleScriptFailure.map(number: n, message: "Not authorized", bundleId: "com.apple.Notes")
+            #expect(e.code == .forbidden && e.reason == "automation_denied")
+            #expect(e.message.contains("Notes") && e.message.contains("Automation"))
+            #expect(e.details["permission"] == .string("automation") && e.details["target"] == .string("com.apple.Notes"))
+        }
+    }
+
+    @Test func aTimeoutIsRetryableAndSaysTookTooLong() {
+        let e = AppleScriptFailure.map(number: -1712, message: nil, bundleId: "com.apple.Notes")
+        #expect(e.code == .unavailable && e.reason == "script_timeout" && e.retryable)
+        // The Gateway's adapters shrink a page on this wording or on the reason.
+        #expect(e.message == "Notes took too long to answer")
+        #expect(e.wire.details?["reason"] == .string("script_timeout"))
+    }
+
+    @Test func aQuitAppAndAMissingItemAreTheirOwnReasons() {
+        #expect(AppleScriptFailure.map(number: -600, message: nil, bundleId: "com.apple.Notes").reason == "app_not_running")
+        #expect(AppleScriptFailure.map(number: -609, message: nil, bundleId: "com.apple.Notes").reason == "app_not_running")
+        let nf = AppleScriptFailure.map(number: -1728, message: "Can’t get note", bundleId: "com.apple.Notes")
+        #expect(nf.code == .notFound && nf.reason == "not_found")
+    }
+
+    @Test func aBrokenScriptSaysItIsABugNotAPermission() {
+        for n in [-2741, -2740, -2753] {
+            #expect(AppleScriptFailure.isCompileError(n))
+            let e = AppleScriptFailure.map(number: n, message: "Expected end of line", bundleId: "com.apple.Notes")
+            #expect(e.reason == "script_compile_error" && e.message.contains("\(n)") && e.message.contains("bug in Psyche"))
+        }
+        #expect(!AppleScriptFailure.isCompileError(-10000) && !AppleScriptFailure.isCompileError(-1712))
+    }
+
+    @Test func anythingElseKeepsTheTextAndCarriesTheCode() {
+        let e = AppleScriptFailure.map(number: -10000, message: "Apple event handler failed.", bundleId: "com.apple.Notes")
+        #expect(e.reason == "script_error" && e.code == .unavailable)
+        #expect(e.message.hasPrefix("The app could not complete the request"))
+        #expect(e.message.contains("-10000") && e.message.contains("Apple event handler failed."))
+        #expect(e.details["osaError"] == .int(-10000) && e.details["osaMessage"] == .string("Apple event handler failed."))
+        let long = AppleScriptFailure.map(number: -1, message: String(repeating: "x", count: 1000), bundleId: "com.example.Unknown")
+        #expect(long.message.count < 260 && long.message.contains("com.example.Unknown"))
+    }
+}

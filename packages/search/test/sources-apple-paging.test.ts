@@ -86,7 +86,7 @@ describe("notes", () => {
     expect(new Set(items.map((i) => i.nativeId)).size).toBe(1234);
     // Never above the connector's cap, and the list is walked once for the whole pass.
     expect(f.lists.every((p) => Number(p.limit) <= 500)).toBe(true);
-    expect(f.lists.map((p) => p.offset ?? 0)).toEqual([0, 500, 1000]);
+    expect(f.lists.map((p) => p.offset ?? 0)).toEqual([0, 250, 500, 750, 1000]);
   });
 
   it("follows what changed afterwards, and lists again for each new pass", async () => {
@@ -109,7 +109,7 @@ describe("notes", () => {
     const stale = await notesAdapter(deps(fake(() => all, { honourOffset: false }).call)).listIds?.(
       signal,
     );
-    expect(stale?.ids).toHaveLength(500);
+    expect(stale?.ids).toHaveLength(250);
     expect(stale?.complete).toBe(false);
   });
 
@@ -118,7 +118,63 @@ describe("notes", () => {
     await drain(notesAdapter(deps(f.call)));
     await notesAdapter(deps(f.call)).listIds?.(signal);
     expect(f.lists.length).toBeGreaterThan(0);
-    expect(f.lists.every((p) => Number(p.limit) === 500)).toBe(true);
+    expect(f.lists.every((p) => Number(p.limit) <= 500)).toBe(true);
+  });
+
+  /** A Notes that answers a page above `max` notes with the helper's timeout error. */
+  function slowNotes(all: Obj[], max: number, error: () => Error) {
+    const lists: Obj[] = [];
+    const call: ToolCall = async (tool, p) => {
+      if (tool === "notes_list") {
+        const limit = check(p);
+        lists.push(p);
+        if (limit > max) throw error();
+        const offset = Number(p.offset ?? 0);
+        return { notes: all.slice(offset, offset + limit) };
+      }
+      if (tool === "notes_read") return { text: `body of ${String(p.id)}` };
+      throw new Error(`no ${tool}`);
+    };
+    return { call, lists };
+  }
+
+  it("halves the page when Notes takes too long, and keeps the size that worked", async () => {
+    const all = notes(400);
+    const f = slowNotes(all, 60, () => new Error("Notes took too long to answer"));
+    const { items } = await drain(notesAdapter(deps(f.call)));
+    expect(items).toHaveLength(400);
+    const limits = f.lists.map((p) => Number(p.limit));
+    // 250 -> 125 -> 62 -> 31 (answers), and every later page stays at 31.
+    expect(limits.slice(0, 4)).toEqual([250, 125, 62, 31]);
+    expect(limits.slice(4).every((l) => l === 31)).toBe(true);
+    expect(f.lists.at(-1)?.offset).toBeDefined();
+  });
+
+  it("recognises the helper's script_timeout reason, not only its words", async () => {
+    const err = Object.assign(new Error("unavailable"), { details: { reason: "script_timeout" } });
+    const f = slowNotes(notes(50), 100, () => err);
+    const ids = await notesAdapter(deps(f.call)).listIds?.(signal);
+    expect(ids?.ids).toHaveLength(50);
+    expect(ids?.complete).toBe(true);
+    expect(f.lists.map((p) => Number(p.limit))).toEqual([250, 125, 62]);
+  });
+
+  it("gives up with the helper's own error when even the smallest page times out", async () => {
+    const f = slowNotes(notes(50), 5, () => new Error("Notes took too long to answer"));
+    await expect(notesAdapter(deps(f.call)).listIds?.(signal)).rejects.toThrow(/took too long/);
+    expect(f.lists.at(-1)?.limit).toBe(10);
+  });
+
+  it("does not retry an error that is not a timeout (permission, script bug)", async () => {
+    const f = slowNotes(
+      notes(50),
+      0,
+      () => new Error("Automation was denied for Notes. Allow Psyche (Helper) to control Notes"),
+    );
+    await expect(notesAdapter(deps(f.call)).listIds?.(signal)).rejects.toThrow(
+      /Automation was denied/,
+    );
+    expect(f.lists).toHaveLength(1);
   });
 });
 

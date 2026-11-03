@@ -275,6 +275,56 @@ public enum AppleDates {
     }
 }
 
+// MARK: - Script errors
+
+/// What an AppleScript failure means, as a capability error the Gateway and Settings can explain.
+/// Pure (no OSA, no app), so every mapping is unit-tested.
+public enum AppleScriptFailure {
+    /// The app's name as the owner knows it (the bundle id for one not listed).
+    public static func appName(_ bundleId: String) -> String {
+        [
+            "com.apple.Notes": "Notes", "com.apple.mail": "Mail", "com.apple.Safari": "Safari", "com.google.Chrome": "Chrome",
+            "com.apple.Music": "Music", "com.apple.reminders": "Reminders", "com.apple.iCal": "Calendar", "com.apple.MobileSMS": "Messages",
+        ][bundleId] ?? bundleId
+    }
+
+    /// Script compile errors (-2740 … -2763: syntax, missing terminology): a bug in Psyche's own script.
+    public static func isCompileError(_ number: Int) -> Bool { (-2763 ... -2740).contains(number) }
+
+    public static func map(number: Int, message: String?, bundleId: String) -> CapabilityError {
+        let app = appName(bundleId)
+        let detail = (message ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let why = detail.isEmpty ? "" : ": " + String(detail.prefix(160))
+        var details: [String: JSONValue] = ["osaError": .int(number)]
+        if !detail.isEmpty { details["osaMessage"] = .string(String(detail.prefix(300))) }
+        switch number {
+        case -1743, -1744:
+            details["permission"] = .string("automation")
+            details["target"] = .string(bundleId)
+            return CapabilityError(
+                .forbidden, reason: "automation_denied",
+                "Automation was denied for \(app). Allow Psyche (Helper) to control \(app) in System Settings › Privacy & Security › Automation.",
+                details: details)
+        case -1728, -1719:
+            return CapabilityError(.notFound, reason: "not_found", "The item was not found", details: details)
+        case -1712:
+            return CapabilityError(.unavailable, reason: "script_timeout", "\(app) took too long to answer", details: details, retryable: true)
+        case -600, -609, -10810:
+            return CapabilityError(.unavailable, reason: "app_not_running", "\(app) is not running or quit while Psyche was reading it", details: details, retryable: true)
+        case _ where isCompileError(number):
+            return CapabilityError(
+                .unavailable, reason: "script_compile_error",
+                "Psyche's \(app) script is invalid (AppleScript error \(number)\(why)). This is a bug in Psyche, not a permission problem.",
+                details: details)
+        default:
+            return CapabilityError(
+                .unavailable, reason: "script_error",
+                "The app could not complete the request (\(app), AppleScript error \(number)\(why))",
+                details: details)
+        }
+    }
+}
+
 // MARK: - Script output
 
 /// Scripts return records as text: fields joined by U+001F, records by U+001E, so no field
