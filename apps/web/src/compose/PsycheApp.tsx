@@ -18,6 +18,7 @@ import {
   destinationFor,
   GatewayProvider,
   GoalsScreen,
+  HOME_POST_PARAM,
   HomeScreen,
   InboxScreen,
   LIBRARY_SECTIONS,
@@ -244,15 +245,17 @@ export function screenRoute(route: string, navigate: (to: string) => void): Reac
   if (moved !== null) return screenRoute(moved, navigate);
   switch (parts[0]) {
     case "home": {
-      // `/home[#section]`; `/home/instructions` has the brief's instructions sheet open
-      // (docs/design/consolidation-2026.md §3.1).
+      // `/home[?post=<id>][#section]`; `/home/instructions` has the brief's instructions sheet
+      // open (docs/design/consolidation-2026.md §3.1).
       const hash = route.split("#")[1];
+      const post = new URLSearchParams(query).get(HOME_POST_PARAM);
       return page(
         "Home",
         <HomeScreen
           onNavigate={navigate}
           instructionsOpen={parts[1] === "instructions"}
           {...(hash ? { anchor: hash } : {})}
+          {...(post ? { post } : {})}
         />,
       );
     }

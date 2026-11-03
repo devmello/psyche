@@ -172,6 +172,45 @@ describe("Overview and Feed draw open and reply only (§8)", () => {
     expect(within(frame).getByTestId("widget-state").textContent).toBe("Snapshot");
   });
 
+  it("a daily snapshot opens its own post's route, and no other post's", async () => {
+    const navigate = vi.fn();
+    const base = createFixtureWorld().feed.find((f) => f.id === IDS.feed.briefing) as never;
+    const open = (id: string, label: string, route: string) => ({
+      id,
+      type: "button",
+      label,
+      action: { kind: "open", route },
+    });
+    const post = {
+      ...(base as object),
+      id: IDS.feed.briefing,
+      card: { type: "daily", daily: morningBrief() },
+      widget: {
+        taint: [],
+        spec: {
+          v: 1,
+          title: "Your day",
+          fallbackText: "Your day",
+          root: {
+            id: "root",
+            type: "stack",
+            children: [
+              open("own", "Open your day", `/feed/${IDS.feed.briefing}`),
+              open("other", "Open another", "/feed/post_other"),
+            ],
+          },
+        },
+      },
+    } as never;
+    world(<FeedPostCard post={post} onFeedback={() => {}} onAsk={() => {}} />, [], { navigate });
+    const frame = await screen.findByTestId("widget");
+    const user = userEvent.setup();
+    await user.click(within(frame).getByRole("button", { name: "Open your day" }));
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith(`/feed/${IDS.feed.briefing}`));
+    await user.click(within(frame).getByRole("button", { name: "Open another" }));
+    expect(navigate).toHaveBeenCalledTimes(1);
+  });
+
   it("a widget draft shows the nodes so far, read-only, and goes when the call ends", async () => {
     const { ref } = world(<WidgetDrafts threadId="thr_1" />, []);
     expect(screen.queryByTestId("widget-draft")).toBeNull();

@@ -5,7 +5,7 @@ import { useStore } from "../data/index.ts";
 import { t } from "../i18n/core.ts";
 import { describeError } from "../i18n/errors.ts";
 import { useSlots } from "../slots.tsx";
-import { WidgetContext } from "./context.ts";
+import { WidgetContext, type WidgetContextValue } from "./context.ts";
 
 /**
  * What a widget control does when the owner clicks it (generative-ui-2026 §6). Nothing here runs
@@ -43,6 +43,17 @@ export interface ActionRunner {
 }
 
 const COOLDOWN_MS = 1000;
+
+/**
+ * The route an `open` action may go to: an allowlisted app route, plus, for a Feed snapshot, the
+ * route of its own post (`/feed/<postId>`). The allowlist takes no ids, but the snapshot is
+ * built by the Gateway for that one post and `open` is how its "Open the wrap-up" button works.
+ */
+function openableRoute(route: string, ctx: WidgetContextValue): string | null {
+  const own = ctx.surface === "feed" && ctx.widgetId.startsWith("feed:");
+  if (own && route === `/feed/${ctx.widgetId.slice("feed:".length)}`) return route;
+  return resolveAppRoute(route);
+}
 
 /** The single-question open request a widget answer may address, with its offered labels. */
 async function openQuestion(
@@ -102,7 +113,7 @@ export function useWidgetAction(): ActionRunner {
           });
         } else if (action.kind === "open") {
           if (action.route !== undefined) {
-            const route = resolveAppRoute(action.route);
+            const route = openableRoute(action.route, ctx);
             if (route === null || navigate === undefined)
               throw new Error(t("widgets.action.unavailable"));
             navigate(route);

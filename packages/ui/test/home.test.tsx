@@ -1,9 +1,12 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import type { ReactElement } from "react";
-import { describe, expect, it, vi } from "vitest";
-import { type FixtureWorld, IDS } from "../src/fixtures/index.ts";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createFixtureWorld, type FixtureWorld, IDS } from "../src/fixtures/index.ts";
 import { HomeScreen } from "../src/home/HomeScreen.tsx";
+import { legacyRedirect } from "../src/home/redirects.ts";
+import { ROUTE_REPEAT_EVENT } from "../src/home/route-repeat.ts";
+import { feedKind } from "../src/screens/feed/feed-post.ts";
 import { STORY_NOW, StoryWorld } from "../src/stories/harness.tsx";
 
 /** Home (docs/design/consolidation-2026.md §3.1) against the MockGateway. */
@@ -259,5 +262,113 @@ describe("Home's one way in (consolidation-2026 §7)", () => {
     expect(navigate).toHaveBeenLastCalledWith("/scheduled");
     for (const name of [/^Wren & you/, /^Inbox/, /^Soul/, /^Memory review/])
       expect(within(more).getByRole("button", { name })).toBeTruthy();
+  });
+});
+
+describe("an old Feed route lands on its post", () => {
+  it("carries the post id to Home, and keeps the plain Feed on Today", () => {
+    expect(legacyRedirect("/feed/post_1")).toBe("/home?post=post_1#today");
+    expect(legacyRedirect("/feed/post_1?x=1#y")).toBe("/home?post=post_1#today");
+    expect(legacyRedirect("/feed/a%2Fb")).toBe("/home?post=a%2Fb#today");
+    expect(legacyRedirect("/feed/a b")).toBe("/home?post=a%20b#today");
+    expect(legacyRedirect("/feed/%E0%A4%A")).toBe("/home?post=%25E0%25A4%25A#today");
+    expect(legacyRedirect("/feed")).toBe("/home#today");
+    expect(legacyRedirect("/feed/instructions")).toBe("/home/instructions");
+  });
+
+  it("leaves the target alone, so Back cannot loop", () => {
+    expect(legacyRedirect(legacyRedirect("/feed/post_1") ?? "")).toBeNull();
+  });
+});
+
+describe("Home lands on a post of Today", () => {
+  const scrolled: Element[] = [];
+  beforeEach(() => {
+    scrolled.length = 0;
+    // jsdom has no layout: record what was scrolled into view instead.
+    Element.prototype.scrollIntoView = function (this: Element) {
+      scrolled.push(this);
+    };
+  });
+  afterEach(() => {
+    (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView = undefined;
+  });
+
+  const ordered = () => {
+    const posts = createFixtureWorld().feed;
+    return [
+      ...posts.filter((p) => feedKind(p) === "briefing"),
+      ...posts.filter((p) => feedKind(p) !== "briefing"),
+    ];
+  };
+  const postEl = (id: string) =>
+    waitFor(() => {
+      const el = document.getElementById(`post-${id}`);
+      expect(el).toBeTruthy();
+      return el as HTMLElement;
+    });
+
+  it("scrolls to a visible post, focuses it and flashes it", async () => {
+    const id = ordered()[0]?.id ?? "";
+    setup(<HomeScreen now={STORY_NOW} anchor="today" post={id} />);
+    const li = await postEl(id);
+    await waitFor(() => expect(scrolled).toContain(li));
+    expect(li.getAttribute("data-landed")).toBe("true");
+    expect(document.activeElement).toBe(li);
+    // The section's own scroll to the top of Today does not take the post's place.
+    expect(scrolled.at(-1)).toBe(li);
+  });
+
+  it("opens Show more when the post is hidden behind it", async () => {
+    const posts = ordered();
+    expect(posts.length).toBeGreaterThan(3);
+    const id = posts.at(-1)?.id ?? "";
+    setup(<HomeScreen now={STORY_NOW} anchor="today" post={id} />);
+    const li = await postEl(id);
+    await waitFor(() => expect(li.getAttribute("data-landed")).toBe("true"));
+    expect(scrolled).toContain(li);
+    const today = await section("today");
+    expect(within(today).getByRole("button", { name: "Show less" })).toBeTruthy();
+  });
+
+  it("lets the owner collapse the list again after landing", async () => {
+    const id = ordered().at(-1)?.id ?? "";
+    const { user } = setup(<HomeScreen now={STORY_NOW} anchor="today" post={id} />);
+    const today = await section("today");
+    await user.click(await within(today).findByRole("button", { name: "Show less" }));
+    expect(within(today).getByRole("button", { name: /^Show \d+ more$/ })).toBeTruthy();
+    expect(document.getElementById(`post-${id}`)).toBeNull();
+  });
+
+  it("falls back to Today when the post no longer exists", async () => {
+    setup(<HomeScreen now={STORY_NOW} anchor="today" post="post_gone" />);
+    const today = await section("today");
+    await waitFor(() => expect(within(today).getAllByRole("listitem").length).toBeGreaterThan(0));
+    await waitFor(() => expect(scrolled).toContain(today));
+    expect(document.querySelector("[data-landed]")).toBeNull();
+  });
+
+  it("scrolls again when the same route is asked for again", async () => {
+    const id = ordered()[0]?.id ?? "";
+    setup(<HomeScreen now={STORY_NOW} anchor="today" post={id} />);
+    const li = await postEl(id);
+    await waitFor(() => expect(scrolled).toContain(li));
+    scrolled.length = 0;
+    act(() => {
+      document.dispatchEvent(new CustomEvent(ROUTE_REPEAT_EVENT));
+    });
+    await waitFor(() => expect(scrolled).toContain(li));
+    expect(li.getAttribute("data-landed")).toBe("true");
+  });
+
+  it("scrolls to a section again when its link is asked for on Home", async () => {
+    setup(<HomeScreen now={STORY_NOW} anchor="today" />);
+    const today = await section("today");
+    await waitFor(() => expect(scrolled).toContain(today));
+    scrolled.length = 0;
+    act(() => {
+      document.dispatchEvent(new CustomEvent(ROUTE_REPEAT_EVENT));
+    });
+    await waitFor(() => expect(scrolled).toContain(today));
   });
 });

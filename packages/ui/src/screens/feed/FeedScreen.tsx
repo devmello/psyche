@@ -1,6 +1,6 @@
 import type { FeedPost } from "@psyche/protocol";
 import { CalendarClock, CircleAlert, Loader, PenLine } from "lucide-react";
-import { type ReactElement, type ReactNode, useState } from "react";
+import { type ReactElement, type ReactNode, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useAskAboutFeedItem } from "../../chat/ask-about.ts";
 import { ErrorState, LoadingCards, useDelayedFlag } from "../../components/page.tsx";
@@ -53,7 +53,17 @@ export interface FeedViewProps {
   collapseAfter?: number;
   /** Draw nothing while there are no posts to show (Home leaves an empty brief out). */
   hideWhenEmpty?: boolean;
+  /**
+   * Land on this post (`/home?post=<id>`): open "Show more" when it is hidden, scroll to it and
+   * flash it. A post that is not there leaves the owner at the section.
+   */
+  focusPostId?: string;
+  /** Changes when the same post is asked for again, so the landing happens again. */
+  focusTick?: number;
 }
+
+/** How long the landed post's outline shows (`[data-landed]` in index.css fades it over this). */
+const LANDED_MS = 1800;
 
 /**
  * The daily brief (UI design §3.9): a bounded list of posts with an end marker. It is Home's
@@ -79,6 +89,8 @@ export function FeedView({
   lead,
   collapseAfter,
   hideWhenEmpty = false,
+  focusPostId,
+  focusTick = 0,
 }: FeedViewProps): ReactElement | null {
   const [expanded, setExpanded] = useState(false);
   const nextAt = nextBriefAt === null ? null : formatTime(nextBriefAt);
@@ -92,6 +104,40 @@ export function FeedView({
 
   const cut = collapseAfter !== undefined && !expanded && ordered.length > collapseAfter;
   const visible = cut ? ordered.slice(0, collapseAfter) : ordered;
+
+  // Landing on a post (a brief's "Open the wrap-up", a notification). The post may load after the
+  // section does and may sit behind "Show more", so this waits for it and opens the list first.
+  const hasPost = focusPostId !== undefined && ordered.some((p) => p.id === focusPostId);
+  const postShown = focusPostId !== undefined && visible.some((p) => p.id === focusPostId);
+  const landed = useRef<string | null>(null);
+  const landTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(landTimer.current), []);
+  useEffect(() => {
+    if (focusPostId === undefined || loading) return;
+    // Once landed, "Show less" must stay possible: the route still names the post.
+    const request = `${focusPostId}:${focusTick}`;
+    if (landed.current === request) return;
+    if (hasPost && !postShown) {
+      setExpanded(true);
+      return;
+    }
+    if (postShown) {
+      landed.current = request;
+      const el = document.getElementById(`post-${focusPostId}`);
+      if (el === null) return;
+      el.scrollIntoView?.({ block: "center" });
+      el.focus({ preventScroll: true });
+      // Restart the outline when the same post is asked for again.
+      el.removeAttribute("data-landed");
+      void el.offsetWidth;
+      el.setAttribute("data-landed", "true");
+      clearTimeout(landTimer.current);
+      landTimer.current = setTimeout(() => el.removeAttribute("data-landed"), LANDED_MS);
+      return;
+    }
+    // The post is gone (or has not arrived): the section is the next best place.
+    document.getElementById("today")?.scrollIntoView?.({ block: "start" });
+  }, [focusPostId, focusTick, loading, hasPost, postShown]);
   if (
     hideWhenEmpty &&
     !loading &&
@@ -148,7 +194,13 @@ export function FeedView({
       <>
         <ul id="feed-posts" aria-label={t("screens.feed.posts")} className="flex flex-col gap-3">
           {visible.map((post, i) => (
-            <ListItem key={post.id} index={i}>
+            <ListItem
+              key={post.id}
+              index={i}
+              id={`post-${post.id}`}
+              tabIndex={-1}
+              className="rounded-lg"
+            >
               <FeedPostCard
                 post={post}
                 {...(onFeedback ? { onFeedback } : {})}
@@ -280,6 +332,10 @@ export interface FeedScreenProps {
   collapseAfter?: number;
   /** Draw nothing while the brief is empty; its settings stay reachable from Home's More. */
   hideWhenEmpty?: boolean;
+  /** Land on this post: scrolled to, opened out of "Show more" and flashed (`/home?post=<id>`). */
+  focusPostId?: string;
+  /** Changes when the same post is asked for again. */
+  focusTick?: number;
   /** Fixed clock (stories, tests). */
   now?: number;
 }
@@ -308,6 +364,8 @@ export function FeedScreen({
   lead,
   collapseAfter,
   hideWhenEmpty,
+  focusPostId,
+  focusTick,
   now: fixedNow,
 }: FeedScreenProps): ReactElement {
   const { navigate } = useSlots();
@@ -377,6 +435,8 @@ export function FeedScreen({
         {...(lead ? { lead } : {})}
         {...(collapseAfter === undefined ? {} : { collapseAfter })}
         {...(hideWhenEmpty ? { hideWhenEmpty } : {})}
+        {...(focusPostId === undefined ? {} : { focusPostId })}
+        {...(focusTick === undefined ? {} : { focusTick })}
         {...(settings["specialists.showInFeed"] === true
           ? { specialistResults: <FeedSpecialistResults now={now} /> }
           : {})}
