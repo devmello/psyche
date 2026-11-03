@@ -79,15 +79,29 @@ const MAX_PAGES = 200;
  * sweep must delete nothing on them.
  */
 async function pagedList(
-  fetchPage: (offset: number) => Promise<Obj[]>,
+  fetchPage: (offset: number, size: number) => Promise<Obj[]>,
   idOf: (row: Obj) => string | undefined,
   pageSize: number = APPLE_PAGE,
+  /** Smallest page a timeout may shrink to; leave unset to fail on the first timeout. */
+  minPageSize?: number,
 ): Promise<{ rows: Obj[]; complete: boolean }> {
   const rows: Obj[] = [];
   const seen = new Set<string>();
   let offset = 0;
+  let size = pageSize;
   for (let page = 0; page < MAX_PAGES; page++) {
-    const got = await fetchPage(offset);
+    let got: Obj[];
+    // A page the Mac cannot answer in time is read again at half the size, and the later pages
+    // stay at the size that worked: a slow library is read slowly, not given up on.
+    for (;;) {
+      try {
+        got = await fetchPage(offset, size);
+        break;
+      } catch (err) {
+        if (minPageSize === undefined || !isTimeout(err) || size <= minPageSize) throw err;
+        size = Math.max(minPageSize, Math.floor(size / 2));
+      }
+    }
     let added = 0;
     for (const r of got) {
       const id = idOf(r);
@@ -98,7 +112,7 @@ async function pagedList(
       rows.push(r);
       added += 1;
     }
-    if (got.length < pageSize) return { rows, complete: true };
+    if (got.length < size) return { rows, complete: true };
     if (added === 0) return { rows, complete: false };
     offset += got.length;
   }
@@ -111,7 +125,10 @@ const isTimeout = (err: unknown): boolean => {
   const details = isObj(err) && isObj(err.details) ? err.details : undefined;
   const reason = details === undefined ? undefined : str(details.reason);
   return (
-    reason === "timeout" || reason === "search_timeout" || /took too long|timed out/i.test(message)
+    reason === "timeout" ||
+    reason === "search_timeout" ||
+    reason === "script_timeout" ||
+    /took too long|timed out/i.test(message)
   );
 };
 
@@ -556,22 +573,27 @@ export function messagesAdapter(deps: AppleSourceDeps): SourceAdapter {
 
 /** How long one pass reuses the list of notes it already read (a pass is a few pages in a row). */
 const NOTES_LIST_TTL_MS = 5 * 60_000;
+/** Notes' first page size (the helper's cap is 500) and the smallest a timeout shrinks it to. */
+const NOTES_PAGE = 250;
+const NOTES_MIN_PAGE = 10;
 
 /** Notes by modified date: the list is cheap, bodies are read only for notes changed since. */
 export function notesAdapter(deps: AppleSourceDeps): SourceAdapter {
-  /** 500 notes a call, `offset` for the rest: a long library is read in as many calls as it takes. */
+  /**
+   * `NOTES_PAGE` notes a call, `offset` for the rest: a long library is read in as many calls as
+   * it takes. Notes is slow to enumerate, so a page it cannot answer in time is halved (down to
+   * `NOTES_MIN_PAGE`) and the rest of the walk stays at the size that worked.
+   */
   const list = (call: ToolCall, signal: AbortSignal) =>
     pagedList(
-      async (offset) =>
+      async (offset, size) =>
         listOf(
-          await call(
-            "notes_list",
-            { limit: APPLE_PAGE, ...(offset > 0 ? { offset } : {}) },
-            signal,
-          ),
+          await call("notes_list", { limit: size, ...(offset > 0 ? { offset } : {}) }, signal),
           "notes",
         ),
       (n) => str(n.id),
+      NOTES_PAGE,
+      NOTES_MIN_PAGE,
     );
   // The list a pass is working through, so each page of changed notes does not read it all again.
   let listed: { rows: Obj[]; at: number } | undefined;
