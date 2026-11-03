@@ -1,6 +1,6 @@
 # Memory for everything: people, projects, work due and catching up (2026)
 
-Status: plan, 2026-11-02. Design only: nothing here is built. It **extends** [everything-memory-2026.md](everything-memory-2026.md) (EM), whose owner decisions D1–D5 and §14 stay binding. It does not replace it. Other inputs:
+Status: plan, 2026-11-02; owner decisions W1–W6 in §9. Building from MW1. It **extends** [everything-memory-2026.md](everything-memory-2026.md) (EM), whose owner decisions D1–D5 and §14 stay binding. It does not replace it. Other inputs:
 
 - [people-and-projects-2026.md](../memory/people-and-projects-2026.md): the `graph_*` store and `packages/memory/src/graph/*`.
 - [consolidation-2026.md](consolidation-2026.md): the five places, and why People got a sidebar row.
@@ -566,11 +566,15 @@ That is at most three sessions at once, within the ≤ 5 cap. Sizes: MW0, MW1b, 
 - `cmdk-actions-first` owns the palette, so MW1 does not touch `CommandPalette.tsx`, and MW1b's one line and MW1c come after it.
 - The People screen's Keep in touch section moves with MW1 as-is.
 
-## 9. Open questions for the owner
+## 9. The owner's decisions (2026-11-02)
 
-1. **Birthdays in the brief.** These are facts about people, so under the new rule they would be off unless enabled, but the brief has shown them in Coming up since EM8. **Recommend:** a separate "Birthdays and anniversaries" switch, **on**, because a date is the least private people fact and the most useful. Everything else about people stays off.
-2. **Mail subjects in the brief.** **Recommend:** only subjects of mail tied to a tracked work item, so the brief does not turn into a second inbox. The existing "Mail that matters" section is unchanged. Or should any notable mail subject count as "work"?
-3. **Course and work-tool senders (Canvas, Gradescope, Jira…).** **Recommend:** opt in per sender, with "track new items automatically" offered after 3 confirmed suggestions. Those items stay labelled "from Canvas", and they can never mark work done or move a date you set.
-4. **Due-soon notifications.** **Recommend:** off by default. When on, one notification at wrap-up time (18:00) for things due in the next 24 hours, and a separate, off-by-default "due today" notification in the morning.
-5. **Which folders count as work.** **Recommend:** only folders you link to a project or course (one click on its page). Psyche will also suggest a link when a folder's name matches a course code or project name. The alternative is all granted folders, matched by name.
-6. **Rename the agent sheet's "Soul & Memory" tab to "Soul"**, so there is one thing called Memory. **Recommend:** yes.
+The owner answered every open question. These are binding, alongside EM's D1–D5.
+
+| # | Question | Decision |
+| --- | --- | --- |
+| W1 | Birthdays in the brief | **Yes.** A separate "Birthdays and anniversaries" switch, **on** by default. Every other people-tier item stays off (§4). |
+| W2 | Mail subjects in the brief | **Only mail tied to a tracked work item.** "Mail that matters" is unchanged. |
+| W3 | Course and work-tool senders | **Opt in per site**, as recommended. Canvas and Gradescope are **not the main focus**: the work-sender lane in MW7 is the last part of that PR and may move to its own later PR. Progress from the owner's own chats, files, calendar, reminders and sent mail comes first. |
+| W4 | Due-soon notifications | **As recommended.** Off by default. When on, one at wrap-up (18:00) for the next 24 hours; a separate morning "due today" notification, also off by default. |
+| W5 | Which folders count as work | **As recommended.** Only folders linked to a project or course, with a suggestion when a folder name matches a course code or project name. |
+| W6 | Rename "Soul & Memory" to "Soul" | **Yes** (done in MW1). |
