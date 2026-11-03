@@ -311,6 +311,63 @@ describe("what the manager does for Memory", () => {
     expect(pulls).toBe(1);
   });
 
+  it("pullSource reads one source and no other, with the same power and switch rules", async () => {
+    const { index } = setup();
+    let records: MemoryRecord[] = [rec({ id: "t1", kind: "topic", name: "Sourdough" })];
+    const pulls = { notes: 0, mail: 0 };
+    const stub = (id: "notes" | "mail"): SourceAdapter => ({
+      id,
+      unavailable: () => undefined,
+      pull: async () => {
+        pulls[id] += 1;
+        return { items: [], cursor: null, hasMore: false };
+      },
+    });
+    const config = defaultSourcesConfig();
+    config.sources.memory.enabled = true;
+    config.sources.notes.enabled = true;
+    config.sources.mail.enabled = true;
+    let power = { onBattery: false, lowPower: false };
+    const indexer = new SourceIndexer(
+      index,
+      [
+        memoryAdapter({ read: () => records, unavailable: () => undefined }),
+        stub("notes"),
+        stub("mail"),
+      ],
+      { config: () => config, now: () => NOW, pauseMs: 0, power: () => power },
+    );
+    const ids = () =>
+      (
+        index.db
+          .prepare("SELECT id FROM search_docs WHERE source = ?")
+          .all(sourceTag("memory")) as {
+          id: string;
+        }[]
+      ).map((r) => r.id);
+    await indexer.pullSource("memory");
+    expect(ids()).toEqual(["memory:t1"]);
+    expect(pulls).toEqual({ notes: 0, mail: 0 });
+    // A change in memory: the next pull drops it, still without touching the others.
+    records = [];
+    await indexer.pullSource("memory");
+    expect(ids()).toEqual([]);
+    expect(pulls).toEqual({ notes: 0, mail: 0 });
+    // Low Power Mode: Memory runs (a removal must not wait), a source that does not is left alone.
+    power = { onBattery: false, lowPower: true };
+    records = [rec({ id: "t2", kind: "topic", name: "Rye" })];
+    await indexer.pullSource("memory");
+    expect(ids()).toEqual(["memory:t2"]);
+    await indexer.pullSource("notes");
+    expect(pulls.notes).toBe(0);
+    // Off: nothing is read.
+    power = { onBattery: false, lowPower: false };
+    config.sources.memory.enabled = false;
+    records = [rec({ id: "t3", kind: "topic", name: "Kefir" })];
+    await indexer.pullSource("memory");
+    expect(ids()).toEqual(["memory:t2"]);
+  });
+
   it("reports why Memory cannot be switched on or opened to the agent", () => {
     const { index } = setup();
     const config = defaultSourcesConfig();

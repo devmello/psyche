@@ -310,8 +310,17 @@ describe("search.sources methods", () => {
     );
     expect(refused).toMatchObject({ ok: false, error: { code: "invalid_params" } });
     expect(JSON.stringify(refused.error)).toMatch(/Turn on search index encryption first/);
-    // Search encrypted too: fine.
+    // The switch for the index being on is not the index being encrypted (its key can be
+    // unavailable, and then it stays plain): still refused, because this index is plain.
     setSetting(db, "search.encrypt", true);
+    const still = await owner.request(
+      "search.sources.configure",
+      { source: "memory", enabled: true },
+      ik(),
+    );
+    expect(still).toMatchObject({ ok: false, error: { code: "invalid_params" } });
+    // Memory not encrypted: fine.
+    setSetting(db, "memory.encrypt", false);
     const ok = await owner.call<SearchSourcesStatus>(
       "search.sources.configure",
       { source: "memory", enabled: true },

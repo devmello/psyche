@@ -177,6 +177,24 @@ export class SourceIndexer {
     );
   }
 
+  /**
+   * One source's next pages now, and no other source's: for a change that must reach one index
+   * promptly (memory dropped a fact) without a pass over Mail and Files. It waits for the pass in
+   * flight, takes the same power rules as `tick`, and does nothing for a source that is off,
+   * unavailable, being rebuilt or already being read.
+   */
+  async pullSource(id: SourceId): Promise<void> {
+    await this.#running?.catch(() => undefined);
+    const adapter = this.#adapters.get(id);
+    if (adapter === undefined || !this.#o.config().sources[id].enabled) return;
+    if (this.#rebuilding.has(id) || this.#active.has(id) || adapter.unavailable() !== undefined)
+      return;
+    const power = this.#o.power?.() ?? { onBattery: false, lowPower: false };
+    if (power.lowPower && adapter.runsOnLowPower !== true) return;
+    if (power.onBattery && this.#meta(`src.${id}.backfilled`) !== "1") return;
+    await this.#pull(id, adapter, power.onBattery ? 1 : this.#o.pagesPerTick, this.#o.now());
+  }
+
   async #tick(): Promise<void> {
     const power = this.#o.power?.() ?? { onBattery: false, lowPower: false };
     const started = this.#o.now();
