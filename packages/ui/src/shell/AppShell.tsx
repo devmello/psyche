@@ -9,6 +9,7 @@ import {
   agentSheetRoute,
   sheetTab,
 } from "../agent/AgentSheet.tsx";
+import { useClearChatHeader } from "../chat/ClearChatDialog.tsx";
 import { ChatThread } from "../chat/Thread.tsx";
 import { useThread, useThreads } from "../data/index.ts";
 import { CommandPalette, type PaletteAction } from "./CommandPalette.tsx";
@@ -165,6 +166,7 @@ export function AppShell({
     ...shortcuts,
   });
 
+  const clearChat = useClearChatHeader(threadId, thread.thread?.thread.kind);
   const header = (
     <AgentHeader
       onOpenSheet={() => setSheet((s) => ({ ...s, open: true }))}
@@ -173,6 +175,7 @@ export function AppShell({
       {...(thread.thread?.thread.modelRef ? { model: thread.thread.thread.modelRef } : {})}
       onOpenInbox={() => onNavigate("/inbox")}
       incognito={thread.thread?.thread.kind === "incognito"}
+      {...clearChat}
     />
   );
 

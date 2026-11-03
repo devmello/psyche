@@ -120,7 +120,7 @@ Hourly (`src/retention.ts`): level-3 tool payloads (`tool_payloads`) older than 
 - Fresh user presence for admin settings (Touch ID / passkey): not enforced (S14, INT-2).
 - Peer code-signature check for the desktop (design-19): needs native code; the secret path is capped instead.
 - `task.updated` / `notification.*` forwarding: `TaskEngine` and `Notifier` have no stream the Gateway consumes yet.
-- `alsoForget` on `threads.delete` stages `MemoryStore.forget(dryRun)` only.
+- `alsoForget` on `threads.delete` and `threads.clear` stages `MemoryStore.forget(dryRun)` only.
 - Backups (`psyche backup`), `config` migration (`psyche doctor --fix`): S22.
 
 ## Layout

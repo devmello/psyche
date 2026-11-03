@@ -25,6 +25,7 @@ import {
   type UiState,
   upsertMessage,
   upsertRunSteps,
+  withThreadCleared,
 } from "./state.ts";
 
 type Overlay = { id: number; apply: (s: UiState) => UiState };
@@ -645,6 +646,9 @@ export class GatewayStore {
         const { [id]: _gone, ...threads } = s.threads;
         return touch({ ...s, threads }, `threads:${id}`, v);
       }
+      case "thread.cleared":
+        // The thread stays; its transcript was emptied here or in another window.
+        return touch(withThreadCleared(s, e.payload.threadId), `threads:${e.payload.threadId}`, v);
       case "thread.context.updated": {
         const u = e.payload.usage;
         const prev = s.threadContext[u.threadId];

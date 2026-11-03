@@ -248,3 +248,31 @@ export function listExpiredThreads(db: PsycheDb, now: string): Thread[] {
     .all()
     .map(threadFromRow);
 }
+
+/** What {@link clearThread} removed. */
+export interface ClearedThread {
+  readonly messages: number;
+  readonly runs: number;
+  readonly queued: number;
+}
+
+/**
+ * Empties a thread in place: its messages, runs (with their tool calls and trace steps) and
+ * queued follow-ups go, exactly what {@link deleteThread} cascades; the row, its id, session key,
+ * title, pin, mode and model stay, and so does everything keyed to the thread without a foreign
+ * key (receipts, audit entries, Library items, artifacts). The caller has checked that no run is
+ * writing. `lastMessageAt` resets so the thread reads as empty.
+ */
+export function clearThread(db: PsycheDb, id: string): ClearedThread {
+  const { sqlite } = db;
+  return sqlite.transaction(() => {
+    sqlite.prepare("UPDATE threads SET active_writer_run_id = NULL WHERE id = ?").run(id);
+    const runs = sqlite.prepare("DELETE FROM runs WHERE thread_id = ?").run(id).changes;
+    const messages = sqlite.prepare("DELETE FROM messages WHERE thread_id = ?").run(id).changes;
+    const queued = sqlite.prepare("DELETE FROM chat_queue WHERE thread_id = ?").run(id).changes;
+    sqlite
+      .prepare("UPDATE threads SET last_message_at = NULL, updated_at = ? WHERE id = ?")
+      .run(db.now(), id);
+    return { messages, runs, queued };
+  })();
+}

@@ -287,6 +287,30 @@ export class SqliteSearchIndex implements SearchIndex {
     })();
   }
 
+  /**
+   * A thread's transcript was cleared: drops the messages indexed under it (and their flags, and
+   * the thread's own attachment flag) but keeps the thread, its tasks and their actions.
+   */
+  async removeThreadMessages(threadId: string): Promise<number> {
+    return this.db.transaction(() => {
+      const ids = (
+        this.db
+          .prepare("SELECT id FROM search_docs WHERE thread_id = ? AND kind = 'message'")
+          .all(threadId) as { id: string }[]
+      ).map((r) => r.id);
+      const delDoc = this.db.prepare("DELETE FROM search_docs WHERE id = ?");
+      const delFlags = this.db.prepare("DELETE FROM search_flags WHERE target_id = ?");
+      for (const id of ids) {
+        delDoc.run(id);
+        delFlags.run(id);
+      }
+      this.db
+        .prepare("DELETE FROM search_flags WHERE target_id = ? AND flag = 'attachment'")
+        .run(threadId);
+      return ids.length;
+    })();
+  }
+
   /** A thread was renamed or re-scoped: carry it to the messages and tasks indexed under it. */
   async retitleThread(threadId: string, title: string, scopeKey: string): Promise<void> {
     this.db.transaction(() => {

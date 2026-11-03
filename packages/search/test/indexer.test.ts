@@ -211,6 +211,20 @@ describe("incremental indexing from Gateway events", () => {
     expect(await index.count()).toBe(3);
   });
 
+  it("thread.cleared drops the thread's messages but keeps the thread and its tasks", async () => {
+    const { index, indexer } = wire();
+    await indexer.handle("thread.updated", { thread: thread() });
+    for (const m of SAMPLE_MESSAGES) await indexer.handle("chat.message", { message: m });
+    await indexer.handle("task.updated", { task });
+    const before = await index.count();
+    await indexer.handle("thread.cleared", { threadId: SAMPLE_THREAD.id });
+    // Thread row and task survive; every message doc is gone.
+    expect(await index.count()).toBe(before - SAMPLE_MESSAGES.length);
+    expect((await index.search({ q: "permission slip" })).groups.map((g) => g.group)).toContain(
+      "tasks",
+    );
+  });
+
   it("reports handler errors instead of throwing into the event bus", async () => {
     const { indexer, errors } = wire();
     await indexer.handle("feed.updated", { posts: null });

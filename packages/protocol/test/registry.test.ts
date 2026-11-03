@@ -52,6 +52,7 @@ const REQUIRED_METHODS: MethodName[] = [
   "threads.archive",
   "threads.restore",
   "threads.delete",
+  "threads.clear",
   "threads.pin",
   "threads.fork",
   "chat.send",
@@ -266,6 +267,22 @@ describe("method registry", () => {
     }
     expect(requiresIdempotencyKey("threads.list")).toBe(false);
     expect(requiresIdempotencyKey("nope")).toBe(false);
+  });
+
+  it("registers threads.clear as an idempotent write with a thread.cleared event", () => {
+    expect(methodSpec("threads.clear")).toMatchObject({
+      scope: "operator.write",
+      sideEffecting: true,
+    });
+    expect(requiresIdempotencyKey("threads.clear")).toBe(true);
+    expect(validateParams("threads.clear", { threadId: "t1", alsoForget: true })).toEqual({
+      threadId: "t1",
+      alsoForget: true,
+    });
+    expect(codeOf(() => validateParams("threads.clear", { alsoForget: true }))).toBe(
+      "invalid_params",
+    );
+    expect(isEventName("thread.cleared")).toBe(true);
   });
 
   it("assigns scopes per security §10", () => {
