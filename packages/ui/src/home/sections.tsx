@@ -29,6 +29,8 @@ import { IdeaCard } from "../screens/ideas/IdeaCard.tsx";
 import { useIdeaActions } from "../screens/ideas/use-idea-actions.ts";
 import { NeedsYouList, needsYou } from "../screens/inbox/InboxScreen.tsx";
 import { usePersona, useSlots } from "../slots.tsx";
+import { PastDueAsks } from "./PastDueAsks.tsx";
+import { useCatchUp } from "./use-catch-up.ts";
 
 /** A raised list of rows (the grouped-list surface), for the side column's sections. */
 function RowList({ label, children }: { label: string; children: ReactNode }): ReactElement {
@@ -68,7 +70,10 @@ function SectionError({ what, onRetry }: { what: string; onRetry: () => void }):
   );
 }
 
-/** Approvals and questions waiting on the owner, amber; nothing when none are. */
+/**
+ * Approvals and questions waiting on the owner, amber; nothing when none are. A past-due
+ * "Did you finish ...?" from the catch-up list is one of them (memory-for-everything §5.6).
+ */
 export function NeedsYouSection({
   onNavigate,
   now: fixedNow,
@@ -77,7 +82,9 @@ export function NeedsYouSection({
   now?: number;
 }): ReactElement | null {
   const now = useNow(30_000, fixedNow);
-  const waiting = needsYou(useNotifications().unresolved, now).length;
+  const notifications = needsYou(useNotifications().unresolved, now).length;
+  const { asks, busy, act } = useCatchUp();
+  const waiting = notifications + asks.length;
   if (waiting === 0) return null;
   return (
     <ScreenSection
@@ -92,6 +99,7 @@ export function NeedsYouSection({
         </Button>
       }
     >
+      <PastDueAsks items={asks} busy={busy} onAct={act} onOpen={onNavigate} />
       <NeedsYouList {...(fixedNow === undefined ? {} : { now: fixedNow })} />
     </ScreenSection>
   );

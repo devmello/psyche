@@ -5719,7 +5719,12 @@ export interface MemoryCatchupListResult {
 }
 
 export interface CatchUpItem {
-    actions:  CatchUpAction[];
+    actions: CatchUpAction[];
+    /**
+     * True on the one question that needs the owner ("Did you finish ...?", past due or a
+     * "handed in?" claim). Home shows it in Needs you.
+     */
+    ask?:     boolean;
     changes:  CatchUpChange[];
     dueAt?:   string;
     entityId: string;

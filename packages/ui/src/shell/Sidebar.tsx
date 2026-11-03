@@ -26,6 +26,7 @@ import {
 } from "../components/ui/dropdown-menu.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../components/ui/tooltip.tsx";
 import { useNotifications } from "../data/index.ts";
+import { useCatchUp } from "../home/use-catch-up.ts";
 import { activeI18n, t } from "../i18n/core.ts";
 import { cn } from "../lib/utils.ts";
 import { usePersona } from "../slots.tsx";
@@ -693,10 +694,15 @@ function needsYouKind(kind: string): boolean {
   return kind === "approval" || kind === "input_needed";
 }
 
-/** What needs the owner (approvals and questions), shown beside Home. */
+/**
+ * What needs the owner (approvals, questions and past-due "Did you finish ...?" asks), shown
+ * beside Home. The asks are the ones Needs you draws, so the count matches what Home lists.
+ */
 export function useSidebarCounts(): Partial<Record<RailItem, number>> {
   const notifications = useNotifications();
-  const needsYou = notifications.unresolved.filter((n) => needsYouKind(n.kind)).length;
+  const { asks } = useCatchUp();
+  const needsYou =
+    notifications.unresolved.filter((n) => needsYouKind(n.kind)).length + asks.length;
   return useMemo(() => ({ home: needsYou }), [needsYou]);
 }
 

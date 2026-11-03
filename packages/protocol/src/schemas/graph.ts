@@ -798,6 +798,12 @@ export const CatchUpItem = Type.Object(
     changes: Type.Array(CatchUpChange, { maxItems: 2 }),
     resume: Type.Optional(CatchUpResume),
     actions: Type.Array(CatchUpAction, { maxItems: 5 }),
+    ask: Type.Optional(
+      Type.Boolean({
+        description:
+          'True on the one question that needs the owner ("Did you finish ...?", past due or a "handed in?" claim). Home shows it in Needs you.',
+      }),
+    ),
     provenance: Provenance,
   },
   { $id: "CatchUpItem" },

@@ -528,6 +528,21 @@ export function graphHandlers(ctx: GraphMockContext): Handlers {
       touched(entityOf(edge.dst), ["edges"]);
       return { edge };
     },
+    // Home's "Catching up": the fixture list as the Gateway ranked it; acting on a line answers it.
+    "memory.catchup.list": (p) => ({
+      items: (ctx.graph().catchUp ?? []).slice(0, p.limit ?? 3),
+      pendingCount: ctx.graph().catchUpPending ?? 0,
+      hiddenCount: 0,
+      asOf: ctx.now(),
+    }),
+    "memory.catchup.act": (p) => {
+      const w = ctx.graph();
+      const e = entityOf(p.entityId);
+      w.catchUp = (w.catchUp ?? []).filter((i) => i.entityId !== p.entityId);
+      touched(e, [p.action]);
+      return { entity: e };
+    },
+    "memory.catchup.seen": (p) => ({ seen: p.entityIds.length }),
     "memory.entities.timeline": (p) => timelineOf(ctx.graph(), p.entityId, p.before, p.limit ?? 50),
     "memory.anchors.list": (p) => ({
       anchors: ctx

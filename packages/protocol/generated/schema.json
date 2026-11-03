@@ -12226,6 +12226,10 @@
           "maxItems": 5,
           "type": "array"
         },
+        "ask": {
+          "description": "True on the one question that needs the owner (\"Did you finish ...?\", past due or a \"handed in?\" claim). Home shows it in Needs you.",
+          "type": "boolean"
+        },
         "provenance": {
           "$ref": "#/$defs/Provenance"
         }

@@ -1,8 +1,8 @@
 import type { NudgeItem } from "@psyche/protocol";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import type { FixtureWorld } from "../fixtures/index.ts";
+import { withCatchUp } from "../fixtures/work.ts";
 import { STORY_NOW, withWorld } from "../stories/harness.tsx";
-import type { CatchUpItem } from "./CatchUp.tsx";
 import { HomeScreen } from "./HomeScreen.tsx";
 
 /**
@@ -11,34 +11,6 @@ import { HomeScreen } from "./HomeScreen.tsx";
  * behind "Show more"), suggestions (two), coming up, goals and keep in touch follow, ruled off
  * from each other, with a line of links to the deeper pages at the foot.
  */
-
-/** What the daily brief's "Catching up" block will carry; fixture data, no source behind it yet. */
-const catchUp: CatchUpItem[] = [
-  {
-    id: "cu_essay",
-    kind: "assignment",
-    title: "Essay on the printing press",
-    line: "You finished the outline yesterday. Drafting is next.",
-    dueAt: "2026-10-22T23:59:00Z",
-    source: "Canvas",
-    route: "/chat",
-  },
-  {
-    id: "cu_lab",
-    kind: "assignment",
-    title: "Lab 4 write-up",
-    line: "Your TA posted feedback on lab 3 an hour ago.",
-    dueAt: "2026-10-26T23:59:00Z",
-    source: "Canvas",
-  },
-  {
-    id: "cu_mail",
-    kind: "mail",
-    title: "Dr. Ellis asked about office hours",
-    line: "Two days without a reply.",
-    source: "Gmail",
-  },
-];
 
 const nudges: NudgeItem[] = [
   {
@@ -143,17 +115,28 @@ export const FirstVisit: Story = {
 };
 
 /**
- * The daily brief with a "Catching up" block ahead of its posts (projects, assignments, due work,
- * mail). It sits at the top of Today, quiet ink with the due day at the row's end, never amber.
+ * "Catching up" from `memory.catchup.list`: a mix of what is due (a work deliverable, a home
+ * errand, a bill), at the top of Today in quiet ink, never amber. The one past-due question,
+ * "Did you finish ...?", is amber and sits in Needs you with Handed in, Done and Still working.
  */
-export const CatchingUp: Story = { args: { catchUp } };
-
-/** Only the catch-up on a day with no posts: Today is drawn for it alone. */
-export const CatchingUpAlone: Story = {
-  args: { catchUp },
+export const CatchingUp: Story = {
   decorators: [
     withWorld({
       edit: (w) => {
+        withNudges(w);
+        withCatchUp(w);
+      },
+    }),
+  ],
+};
+
+/** Only the catch-up on a day with no posts: Today is drawn for it alone. */
+export const CatchingUpAlone: Story = {
+  decorators: [
+    withWorld({
+      edit: (w) => {
+        withCatchUp(w);
+        w.graph.catchUp = w.graph.catchUp?.filter((i) => i.ask !== true);
         w.notifications = [];
         w.feed = [];
         w.ideas = [];

@@ -3,6 +3,7 @@ import { userEvent } from "@testing-library/user-event";
 import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createFixtureWorld, type FixtureWorld, IDS } from "../src/fixtures/index.ts";
+import { withCatchUp } from "../src/fixtures/work.ts";
 import { HomeScreen } from "../src/home/HomeScreen.tsx";
 import { legacyRedirect } from "../src/home/redirects.ts";
 import { ROUTE_REPEAT_EVENT } from "../src/home/route-repeat.ts";
@@ -150,38 +151,137 @@ describe("Home's reading order and length", () => {
     expect(navigate).toHaveBeenLastCalledWith("/home/instructions");
   });
 
-  it("draws Catching up at the top of Today when it has rows, soonest due first", async () => {
-    setup(
-      <HomeScreen
-        now={STORY_NOW}
-        catchUp={[
-          {
-            id: "b",
-            kind: "assignment",
-            title: "Later thing",
-            line: "Later.",
-            dueAt: "2026-10-30T12:00:00Z",
-          },
-          {
-            id: "a",
-            kind: "assignment",
-            title: "Essay",
-            line: "Outline done.",
-            dueAt: "2026-10-22T12:00:00Z",
-          },
-          { id: "c", kind: "mail", title: "Reply to Dr. Ellis", line: "Waiting." },
-        ]}
-      />,
-    );
+  it("draws Catching up at the top of Today from memory.catchup.list, in the Gateway's order", async () => {
+    setup(<HomeScreen now={STORY_NOW} />, withCatchUp);
     const block = await screen.findByTestId("catch-up");
-    const titles = within(block)
+    const rows = within(block)
       .getAllByRole("listitem")
       .map((li) => li.textContent);
-    expect(titles[0]).toMatch(/^Essay/);
-    expect(titles[2]).toMatch(/^Reply to Dr. Ellis/);
+    // The past-due question is in Needs you, so two lines are left, still in the Gateway's order.
+    expect(rows).toEqual([
+      "Kitchen remodel · Order cabinet hardware: due Tue, not started, as of Fri.",
+      "Pay rent: due Nov 1, not started.",
+    ]);
     const today = await section("today");
     expect(today.contains(block)).toBe(true);
     expect(within(today).getByRole("heading", { name: "Catching up" })).toBeTruthy();
+  });
+
+  it("shows at most three lines, and asks the Gateway for no more", async () => {
+    let calls: { method: string; params: unknown }[] = [];
+    render(
+      <StoryWorld
+        edit={(w) => {
+          withCatchUp(w);
+          const base = (w.graph.catchUp ?? []).filter((i) => i.ask !== true);
+          // A Gateway that sent more than it was asked for still gets three drawn.
+          w.graph.catchUp = [0, 1, 2, 3].flatMap((n) =>
+            base.map((i) => ({ ...i, entityId: `${i.entityId}_${n}` })),
+          );
+        }}
+        onGateway={(g) => {
+          calls = g.calls as typeof calls;
+        }}
+      >
+        <HomeScreen now={STORY_NOW} />
+      </StoryWorld>,
+    );
+    const block = await screen.findByTestId("catch-up");
+    expect(within(block).getAllByRole("listitem").length).toBe(3);
+    expect(calls.find((c) => c.method === "memory.catchup.list")?.params).toEqual({
+      surface: "home",
+      limit: 3,
+    });
+  });
+
+  it("draws no Catching up when there is nothing to catch up on", async () => {
+    setup(<HomeScreen now={STORY_NOW} />);
+    await section("today");
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByTestId("catching-up")).toBeNull();
+    expect(screen.queryByTestId("past-due-asks")).toBeNull();
+  });
+
+  it("counts work waiting to be confirmed, never listing it", async () => {
+    const { navigate, user } = setup(<HomeScreen now={STORY_NOW} />, (w) => {
+      w.graph.catchUp = [];
+      w.graph.catchUpPending = 2;
+    });
+    const pending = await screen.findByTestId("catch-up-pending");
+    expect(pending.textContent).toBe("2 new items to confirm");
+    await user.click(within(pending).getByRole("button"));
+    expect(navigate).toHaveBeenCalledWith("/memory/review");
+  });
+
+  it("opens a line on its page in Memory, and all work due from the heading", async () => {
+    const { navigate, user } = setup(<HomeScreen now={STORY_NOW} />, withCatchUp);
+    const block = await screen.findByTestId("catching-up");
+    await user.click(within(block).getByRole("button", { name: "Open Pay rent" }));
+    expect(navigate).toHaveBeenLastCalledWith("/memory?entity=ent_pay_rent");
+    await user.click(within(block).getByRole("button", { name: "All work due" }));
+    expect(navigate).toHaveBeenLastCalledWith("/memory?kind=due");
+  });
+
+  it("puts the past-due question in Needs you, amber, and nowhere else", async () => {
+    setup(<HomeScreen now={STORY_NOW} />, withCatchUp);
+    const needs = await section("needs-you");
+    const ask = await within(needs).findByTestId("past-due-ask");
+    expect(ask.textContent).toContain("Did you finish Sign off on the launch copy?");
+    // Amber (the needs-you tokens) is on the ask and its "Past due" mark only.
+    expect(ask.innerHTML).toMatch(/approval-text/);
+    const block = await screen.findByTestId("catching-up");
+    expect(block.innerHTML).not.toMatch(/approval|amber/);
+    // The question is not repeated as a line of Catching up.
+    expect(block.textContent).not.toContain("Did you finish");
+    // It counts toward what is waiting.
+    expect(within(needs).getByText(/waiting/).textContent).toMatch(/^\d+ waiting$/);
+  });
+
+  it("answers the question with Still working, and it leaves Needs you", async () => {
+    let calls: { method: string; params: unknown }[] = [];
+    const user = userEvent.setup();
+    render(
+      <StoryWorld
+        edit={withCatchUp}
+        onGateway={(g) => {
+          calls = g.calls as typeof calls;
+        }}
+      >
+        <HomeScreen now={STORY_NOW} />
+      </StoryWorld>,
+    );
+    const ask = await screen.findByTestId("past-due-ask");
+    await user.click(
+      within(ask).getByRole("button", { name: "Still working on “Sign off on the launch copy”" }),
+    );
+    await waitFor(() => expect(screen.queryByTestId("past-due-ask")).toBeNull());
+    expect(calls.find((c) => c.method === "memory.catchup.act")?.params).toEqual({
+      entityId: "ent_signoff",
+      action: "still_working",
+    });
+  });
+
+  it("marks a to-do handed in from the question", async () => {
+    let calls: { method: string; params: unknown }[] = [];
+    const user = userEvent.setup();
+    render(
+      <StoryWorld
+        edit={withCatchUp}
+        onGateway={(g) => {
+          calls = g.calls as typeof calls;
+        }}
+      >
+        <HomeScreen now={STORY_NOW} />
+      </StoryWorld>,
+    );
+    const ask = await screen.findByTestId("past-due-ask");
+    await user.click(within(ask).getByRole("button", { name: /handed in/ }));
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === "memory.catchup.act")?.params).toEqual({
+        entityId: "ent_signoff",
+        action: "submitted",
+      }),
+    );
   });
 
   it("is only the Ask field and the links on a first visit", async () => {
