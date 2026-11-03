@@ -1,9 +1,9 @@
 /** Everything memory: the review queue, quarantine, auto-accept rules (docs/design/everything-memory-2026.md §7). */
 export const memoryReview = {
-  "settings.nav.memory": "Memory review",
-  "memoryReview.title": "Memory review",
+  "settings.nav.memory": "Review",
+  "memoryReview.title": "Review",
   "memoryReview.description":
-    "What {persona} learned from your own mail, messages and notes. Nothing here is a fact until it is accepted, and every one cites the words it came from.",
+    "Facts {persona} found in your mail, messages and notes. Nothing is remembered until you accept it, and every fact shows where it came from.",
   "memoryReview.loadLabel": "memory review",
   "memoryReview.tab.review": "To review ({n, number})",
   "memoryReview.tab.recent": "Learned lately ({n, number})",
@@ -34,8 +34,6 @@ export const memoryReview = {
   "memoryReview.group.discardAll": "Discard all ({n, number})",
   "memoryReview.keys": "J / K move · Y confirm · E edit · N discard",
   "memoryReview.failed": "Could not update the memory: {reason}",
-  "memoryReview.counts":
-    "{review, number} to review · {auto, number} added automatically · {held, number} held back",
   "memoryReview.attr.sentence": "{name}: {attribute} {value}",
   "memoryReview.quarantine.reason.instruction_like": "Reads like an instruction",
   "memoryReview.quarantine.reason.hidden_text": "Had hidden text",
@@ -54,17 +52,15 @@ export const memoryReview = {
   "memoryReview.quarantine.discard": "Discard",
   "memoryReview.quarantine.block": "Block sender",
   "memoryReview.quarantine.excerpt": "Text from the item (not shown as formatted):",
-  "memoryReview.rules.title": "Auto-accept rules",
+  "memoryReview.rules.title": "Accept without asking",
   "memoryReview.rules.description":
-    "Everything is reviewed by default. These are the only exceptions, and you can turn each one off.",
-  "memoryReview.rules.owner": "Facts from things you wrote yourself",
+    "Everything else waits for you. Sensitive facts, conflicts, notes and relations always do.",
+  "memoryReview.rules.owner": "Things you wrote yourself",
   "memoryReview.rules.ownerHint":
-    "Added without asking when they are not sensitive, Psyche is sure, and they do not disagree with anything you have said. You can undo any of them for a week.",
-  "memoryReview.rules.self": "What people tell you about themselves",
+    "Added when they are not sensitive and do not disagree with anything you said. Undo for a week.",
+  "memoryReview.rules.self": "What people say about themselves",
   "memoryReview.rules.selfHint":
-    "Always reviewed for now. After you confirm {n, number} facts from a contact with no discards, Psyche will offer to trust that person.",
-  "memoryReview.rules.always":
-    "Sensitive facts, conflicts, notes and relations are always reviewed.",
+    "Reviewed for now. After you confirm {n, number} facts from someone, Psyche offers to trust them.",
   "memoryReview.senders.title": "Trusted contacts",
   "memoryReview.senders.offer":
     "You confirmed {n, number} things {name} told you about themselves and discarded none. Accept what {name} says about themselves (birthday, job, city, school, likes, pets, children) without asking?",
@@ -86,9 +82,9 @@ export const memoryReview = {
   "personData.excludeOnly":
     "Their messages will not be read and nothing will be learned about them. What is already known stays until you forget it.",
   "personData.after.said": "The person, their messages and anything you added yourself stay.",
-  "personData.after.exclude": "You can allow them again in Settings → Memory → Everything memory.",
+  "personData.after.exclude": "You can allow them again in Settings → Memory → Privacy.",
   "personData.after.exclude_forget":
-    "You can allow them again in Settings → Memory → Everything memory, but what was deleted does not come back.",
+    "You can allow them again in Settings → Memory → Privacy, but what was deleted does not come back.",
   "personData.confirm.said": "Forget what they said",
   "personData.confirm.exclude": "Stop learning",
   "personData.confirm.exclude_forget": "Stop and forget",
@@ -108,19 +104,16 @@ export const memoryReview = {
   "screens.search.life.unconfirmed": "Waiting for your review",
   "memoryReview.recent.undoUntil": "You can undo this until {date}",
   // --- Everything memory settings and first-run consent (§12) ---
-  "settings.nav.everything": "Everything memory",
-  "everything.title": "Everything memory",
-  "everything.description":
-    "{persona} reads your own mail, messages and notes at night and writes down what you state: who people are, birthdays, plans. Every fact cites the words it came from and waits for you. Off until you turn it on.",
+  "settings.nav.everything": "Sources",
+  "everything.title": "Sources",
+  "everything.description": "What {persona} reads overnight to find things worth remembering.",
   "everything.loadLabel": "everything memory",
-  "everything.enabled": "Everything memory",
-  "everything.enabledGroup": "Nightly reading",
-  "everything.enabledHint": "Nothing is read while this is off.",
+  "everything.enabledGroup": "Overnight reading",
   "everything.turnOn": "Set up…",
-  "everything.model.title": "Who reads your day",
+  "everything.model.title": "Model",
   "everything.model.none": "None",
   "everything.model.noneHint":
-    "Nothing is read. Only people, calendar events and Contacts birthdays, which need no model.",
+    "Nothing is read except people, calendar events and birthdays, which need no model.",
   "everything.model.cloud": "Cloud",
   "everything.model.cloudHint":
     "Text from the sources you turn on is sent to your model provider at night, for this and nothing else. Best quality.",
@@ -132,10 +125,10 @@ export const memoryReview = {
   "everything.model.cloudRef": "Cloud model",
   "everything.model.cloudRefHint": "Leave empty to use your utility model.",
   "everything.model.cloudNote":
-    "With Cloud, the text of each item was already seen by the provider while it was read, whatever the sensitive-topic settings say. Only Local avoids that.",
-  "everything.local.title": "A local model uses memory",
+    "With Cloud, the provider sees the text of each item it reads, whatever the sensitive-topic settings say. Only Local avoids that.",
+  "everything.local.title": "A local model needs memory",
   "everything.local.body":
-    "About 3 GB of RAM while it runs, at night, for up to 45 minutes, and it stops if you come back. Nothing is downloaded or started until you confirm, and you are asked again if you change the model.",
+    "About 3 GB of RAM while it runs, at night, for up to 45 minutes. It stops if you come back. Nothing is downloaded or started until you confirm, and you are asked again if you change the model.",
   "everything.local.confirm": "I understand, use {model}",
   "everything.local.confirmed": "Confirmed for {model}.",
   "everything.local.needsRef": "Name the local model first.",
@@ -144,16 +137,15 @@ export const memoryReview = {
     "About {typical} a month ({low} on a light month, {high} on a heavy one) for the sources you chose. An estimate, from a typical day.",
   "everything.cost.free": "Free: no text goes to a provider.",
   "everything.cost.backfill": "Reading the first {days, number} days: about {cost} at full price.",
-  "everything.perSource.title": "A different model for one source",
+  "everything.perSource.title": "Model for one source",
   "everything.perSource.description":
     "For example Messages on Local while Mail stays on Cloud. Sources set to “Same as above” use the choice above.",
   "everything.perSource.default": "Same as above",
   "everything.perSource.ref": "Model for {source}",
-  "everything.sources.title": "Sources",
+  "everything.sources.title": "What it reads",
   "everything.sources.description":
-    "Each is off until you turn it on. Mail and Messages: what you wrote, and what the people chosen below wrote to you. Psyche learns only from what Search indexes.",
-  "everything.sources.notIndexed":
-    "Search doesn't index this yet, so there is nothing to learn from.",
+    "Each source is off until you turn it on. Only what Search indexes is read.",
+  "everything.sources.notIndexed": "Search doesn't index this yet.",
   "everything.sources.openSearch": "Turn on in Search",
   "everything.source.mail": "Mail",
   "everything.source.messages": "Messages",
@@ -164,18 +156,18 @@ export const memoryReview = {
   "everything.source.files": "Files",
   "everything.source.browser": "Browser pages",
   "everything.source.transcripts": "Transcripts",
-  "everything.people.title": "People",
+  "everything.people.title": "Who it learns about",
   "everything.people.default": "Learn about",
   "everything.people.two_way": "People you write to or who write back",
   "everything.people.contacts": "Only people in Contacts",
   "everything.people.everyone": "Everyone who is not excluded",
   "everything.people.chosen": "Only people I choose",
   "everything.people.note":
-    "Your own words are always read. Other people's text is read only from the people chosen here, and only what they say about themselves. Anything learned from it waits for your review and is never treated as an instruction.",
+    "Your own words are always read. What other people write is read only for the people chosen here, and only what they say about themselves. It waits for your review and is never treated as an instruction.",
   "everything.people.aboutOthers": "Also what they say about other people",
   "everything.people.aboutOthersHint":
     "Off by default. When on, “Priya works at Initech” in Sam’s message becomes a suggestion about Priya, marked as Sam’s claim.",
-  "everything.exclusions.title": "Excluded",
+  "everything.exclusions.title": "Excluded from reading",
   "everything.exclusions.empty": "No one is excluded.",
   "everything.exclusions.kind": "Kind",
   "everything.exclusions.kind.email": "Email",
@@ -191,7 +183,7 @@ export const memoryReview = {
   "everything.exclusions.mode.forget": "Excluded and forgotten",
   "everything.sensitive.title": "Sensitive topics",
   "everything.sensitive.description":
-    "All off. When on, only things stated outright are kept, always for your review, and hidden from the agent unless you allow it. Government IDs and account numbers are never stored.",
+    "All off. When on, only things stated outright are kept, always for your review and hidden from the agent unless you allow it. Government IDs and account numbers are never stored.",
   "everything.sensitive.health": "Health",
   "everything.sensitive.finance": "Finances",
   "everything.sensitive.sexuality": "Sexuality",
@@ -200,7 +192,7 @@ export const memoryReview = {
   "everything.sensitive.ethnicity": "Ethnicity and immigration",
   "everything.sensitive.legal": "Legal",
   "everything.sensitive.precise_location": "Precise location",
-  "everything.agent.title": "Agent access",
+  "everything.agent.title": "What the agent can see",
   "everything.agent.none": "None",
   "everything.agent.noneHint": "The agent cannot see anything Psyche learned. You can.",
   "everything.agent.accepted": "Confirmed facts",
@@ -208,7 +200,7 @@ export const memoryReview = {
   "everything.agent.all": "Everything",
   "everything.agent.allHint": "Also facts still waiting for review, marked as unconfirmed.",
   "everything.agent.sensitive": "Agent can see sensitive facts",
-  "everything.schedule.title": "Schedule",
+  "everything.schedule.title": "Overnight schedule",
   "everything.schedule.quietStart": "Quiet hours start",
   "everything.schedule.quietEnd": "Quiet hours end",
   "everything.schedule.battery": "Run on battery",
@@ -219,8 +211,7 @@ export const memoryReview = {
   "everything.schedule.backfillNone": "None",
   "everything.run.button": "Run now",
   "everything.run.running": "Reading…",
-  "everything.run.hint":
-    "Reads what is new since the last run, under the same limits. Skips only quiet hours and idle time.",
+  "everything.run.hint": "Reads what is new since the last run.",
   "everything.run.estimateCloud": "About {cost} for a typical day with the sources you chose.",
   "everything.run.estimateFree": "Free: no text goes to a provider.",
   "everything.run.done":
@@ -239,13 +230,7 @@ export const memoryReview = {
   "everything.run.reason.no_owner_entity": "Your own card in People is not set up yet.",
   "everything.run.reason.store_unavailable": "Not now: the memory store is still opening.",
   "everything.run.reason.busy": "A pass is already running.",
-  "everything.retention.title": "Retention",
-  "everything.retention.pending": "Unreviewed facts expire after {days, number} days",
-  "everything.retention.untrusted":
-    "Unconfirmed facts from others expire {months, number} months after last seen",
-  "everything.retention.quarantine": "Quarantine is emptied after {days, number} days",
-  "everything.storage.note":
-    "Stored on this Mac only. Facts that came from your own text are yours; delete everything from Settings → Privacy & data.",
+  "everything.storage.note": "Everything is stored on this Mac only.",
   "everything.consent.title": "Set up everything memory",
   "everything.consent.step": "Step {n, number} of {total, number}",
   "everything.consent.next": "Next",
@@ -258,7 +243,7 @@ export const memoryReview = {
   "everything.consent.what.e1": "“Sam’s birthday is coming up.”",
   "everything.consent.what.e2": "“Who was at the Lisbon dinner?”",
   "everything.consent.what.e3": "“What did Priya say about the new job?”",
-  "everything.consent.sources.title": "Sources",
+  "everything.consent.sources.title": "What it reads",
   "everything.consent.people.title": "People and privacy",
   "everything.consent.model.title": "Who reads your day",
   "everything.consent.summary.title": "Check your choices",
@@ -271,4 +256,47 @@ export const memoryReview = {
   "everything.consent.summary.backfill": "History: {days, number} days",
   "everything.consent.summary.noModel":
     "Pick a model for anything to be read; with None only the deterministic graph runs.",
+  "memoryReview.waiting":
+    "{n, plural, one {# fact is waiting for you} other {# facts are waiting for you}}",
+  "memoryReview.caughtUp": "Nothing is waiting for review.",
+  "memoryReview.open": "Review",
+  "memoryBasics.group": "Where it learns",
+  "memoryBasics.chats": "Your chats",
+  "memoryBasics.chatsHint": "Remembers what matters from your conversations.",
+  "memoryBasics.feedback": "Your feedback",
+  "memoryBasics.feedbackHint": "Learns from corrections, edits and undos.",
+  "memoryBasics.everything": "Mail, messages and notes",
+  "memoryBasics.everythingHint":
+    "Everything memory reads them overnight and proposes facts for you to review.",
+  "memoryBasics.people": "People and projects",
+  "memoryBasics.peopleHint": "Keeps a card for each person and project you deal with.",
+  "memoryBasics.paused": "Memory is paused.",
+  "memoryAdvanced.title": "Advanced",
+  "memoryAdvanced.description":
+    "Models, schedule, how things are recalled, encryption and your data.",
+  "memoryAdvanced.recall": "Recall",
+  "memoryAdvanced.data": "Your data",
+  "memoryAdvanced.dataHint": "Export, back up or reset everything {persona} remembers.",
+  "memoryAdvanced.dataOpen": "Open Privacy & data",
+  "memoryAdvanced.keeping": "How long things stay",
+  "memoryAdvanced.keepingPending": "Unreviewed facts",
+  "memoryAdvanced.keepingUntrusted": "Facts from others",
+  "memoryAdvanced.keepingQuarantine": "Quarantine",
+  "memoryAdvanced.keepingDays": "{days, plural, one {# day} other {# days}}",
+  "memoryAdvanced.keepingMonths": "{months, plural, one {# month} other {# months}}",
+  "memoryAdvanced.encryption": "Encryption",
+  "memoryPrivacy.title": "Privacy",
+  "memoryPrivacy.description":
+    "Who {persona} may learn about, what it must never keep, and how to make it forget.",
+  "memoryPrivacy.forget": "Forget",
+  "memoryPrivacy.forgetHint":
+    "Remove what one source brought in, or everything about people and projects.",
+  "memoryPrivacy.sensitiveSummary": "{n, number} of {total, number} allowed",
+  "memoryPrivacy.sensitiveChoose": "Choose topics",
+  "everything.off": "Off. {persona} reads nothing until you set it up.",
+  "everything.offHint":
+    "You choose the sources and the model, and nothing is kept without your review.",
+  "everything.run.title": "Run now",
+  "settings.learnMore": "Learn more",
+  "settings.learnLess": "Show less",
 } as const;

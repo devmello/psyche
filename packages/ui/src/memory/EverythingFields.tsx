@@ -3,12 +3,13 @@ import {
   type EverythingMemorySettings,
   type EverythingSource,
 } from "@psyche/protocol";
-import { TriangleAlert } from "lucide-react";
+import { ChevronRight, TriangleAlert } from "lucide-react";
 import type { ReactElement } from "react";
 import { Button } from "../components/ui/button.tsx";
 import { Input } from "../components/ui/input.tsx";
 import { NativeSelect } from "../components/ui/native-select.tsx";
 import { t } from "../i18n/core.ts";
+import { LearnMore } from "../screens/settings/LearnMore.tsx";
 import { Group, RadioField, SwitchField } from "../screens/settings/shared.tsx";
 import { estimateBackfill, estimateMonthly, formatUsd } from "./estimate.ts";
 
@@ -81,7 +82,10 @@ export function ModelFields({
   onChange,
   localConfirmed,
   onConfirmLocal,
+  compact = false,
 }: {
+  /** In Settings the long warnings sit behind "Learn more"; the first-run consent shows them. */
+  compact?: boolean;
   value: EverythingValues;
   onChange: (next: EverythingValues) => void;
   /** The local models the owner already confirmed. */
@@ -143,7 +147,15 @@ export function ModelFields({
         </div>
       ) : null}
       {kind === "cloud" ? (
-        <p className="px-3 text-callout text-label-secondary">{t("everything.model.cloudNote")}</p>
+        compact ? (
+          <LearnMore className="px-3">
+            <p>{t("everything.model.cloudNote")}</p>
+          </LearnMore>
+        ) : (
+          <p className="px-3 text-callout text-label-secondary">
+            {t("everything.model.cloudNote")}
+          </p>
+        )
       ) : null}
       {kind === "local" ? (
         <div
@@ -154,7 +166,13 @@ export function ModelFields({
           <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-approval-text" />
           <div className="flex flex-col gap-2">
             <p className="font-medium">{t("everything.local.title")}</p>
-            <p>{t("everything.local.body")}</p>
+            {compact ? (
+              <LearnMore>
+                <p>{t("everything.local.body")}</p>
+              </LearnMore>
+            ) : (
+              <p>{t("everything.local.body")}</p>
+            )}
             {confirmed ? (
               <p role="status">{t("everything.local.confirmed", { model: ref })}</p>
             ) : ref === "" ? (
@@ -272,24 +290,49 @@ export const SENSITIVE_IDS = [
 export function SensitiveFields({
   value,
   onChange,
+  collapsed = false,
 }: {
   value: EverythingValues;
   onChange: (next: EverythingValues) => void;
+  /** Settings: the eight switches sit behind one line saying how many are allowed. */
+  collapsed?: boolean;
 }): ReactElement {
+  const rows = SENSITIVE_IDS.map((c) => (
+    <SwitchField
+      key={c}
+      label={t(`everything.sensitive.${c}`)}
+      checked={value.sensitive[c]}
+      settingKey={EVERYTHING_KEY}
+      onChange={(on) => onChange({ ...value, sensitive: { ...value.sensitive, [c]: on } })}
+    />
+  ));
   return (
     <Group
       title={t("everything.sensitive.title")}
       description={t("everything.sensitive.description")}
     >
-      {SENSITIVE_IDS.map((c) => (
-        <SwitchField
-          key={c}
-          label={t(`everything.sensitive.${c}`)}
-          checked={value.sensitive[c]}
-          settingKey={EVERYTHING_KEY}
-          onChange={(on) => onChange({ ...value, sensitive: { ...value.sensitive, [c]: on } })}
-        />
-      ))}
+      {collapsed ? (
+        <details className="group/topics">
+          <summary className="flex cursor-default list-none items-center justify-between gap-3 text-body outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+            <span>
+              {t("memoryPrivacy.sensitiveSummary", {
+                n: SENSITIVE_IDS.filter((c) => value.sensitive[c]).length,
+                total: SENSITIVE_IDS.length,
+              })}
+            </span>
+            <span className="inline-flex items-center gap-1 text-callout text-label-secondary">
+              {t("memoryPrivacy.sensitiveChoose")}
+              <ChevronRight
+                aria-hidden="true"
+                className="size-3 transition-transform duration-short ease-standard group-open/topics:rotate-90"
+              />
+            </span>
+          </summary>
+          <div className="mt-2 flex flex-col gap-2">{rows}</div>
+        </details>
+      ) : (
+        rows
+      )}
     </Group>
   );
 }

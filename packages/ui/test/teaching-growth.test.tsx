@@ -13,7 +13,7 @@ import {
   LEARNING_IDS,
 } from "../src/fixtures/index.ts";
 import { FeedPostCard } from "../src/screens/feed/FeedPostCard.tsx";
-import { MemoryControlsSection } from "../src/screens/settings/DataControlsSection.tsx";
+import { MemoryAdvancedSection } from "../src/screens/settings/MemoryAdvancedSection.tsx";
 import { type UiSlots, UiSlotsProvider } from "../src/slots.tsx";
 import { GrowthPanel } from "../src/teaching/GrowthPanel.tsx";
 
@@ -147,7 +147,7 @@ describe("The weekly card (teaching loop §5.4)", () => {
 describe("Settings → Learning (teaching loop §8)", () => {
   it("pauses learning and forgets everything after typing the word", async () => {
     const navigate = vi.fn();
-    const { gateway } = setup(<MemoryControlsSection />, { slots: { navigate } });
+    const { gateway } = setup(<MemoryAdvancedSection />, { slots: { navigate } });
     await userEvent.click(await screen.findByRole("switch", { name: "Pause learning" }));
     await waitFor(() => expect(gateway.world.settings["teaching.paused"]).toBe(true));
     await userEvent.click(screen.getByRole("button", { name: "Open Growth" }));

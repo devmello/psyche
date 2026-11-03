@@ -1,3 +1,4 @@
+import { EVERYTHING_MEMORY_DEFAULTS, type ReviewItem } from "@psyche/protocol";
 import type { Decorator, Meta, StoryObj } from "@storybook/react-vite";
 import { createFixtureWorld, IDS } from "../../fixtures/index.ts";
 import { STORY_NOW, withWorld } from "../../stories/harness.tsx";
@@ -72,6 +73,107 @@ export const VoiceAndDictation: Story = { args: { defaultSection: "voice" } };
 export const DataControls: Story = { args: { defaultSection: "data" } };
 /** Memory: review first, then remembering & learning, Everything memory, People & projects. */
 export const Memory: Story = { args: { defaultSection: "memory" } };
+
+/** Memory in use: Everything memory and People on, three facts waiting for review, one held back. */
+export const MemoryInUse: Story = {
+  args: { defaultSection: "memory" },
+  decorators: [
+    withWorld({
+      edit: (w) => {
+        Object.assign(w.settings, sampleSettings());
+        w.settings["memory.everything"] = {
+          ...EVERYTHING_MEMORY_DEFAULTS,
+          enabled: true,
+          model: { default: { kind: "cloud" } },
+          sources: {
+            ...EVERYTHING_MEMORY_DEFAULTS.sources,
+            mail: true,
+            notes: true,
+            calendar: true,
+          },
+        };
+        w.settings["memory.graph"] = {
+          enabled: true,
+          sources: {
+            contacts: true,
+            mail: true,
+            calendar: true,
+            messages: false,
+            notes: false,
+            chats: true,
+          },
+          interactionRetentionDays: 540,
+          entityRecall: true,
+          model: {
+            nightly: true,
+            afterRun: true,
+            maxEntitiesPerNight: 200,
+            maxTokensPerNight: 150000,
+          },
+        };
+        const at = "2026-11-01T09:00:00.000Z";
+        const fact = (
+          id: string,
+          name: string,
+          attribute: ReviewItem["fact"]["attribute"],
+          value: string,
+          quote: string,
+        ): ReviewItem => ({
+          fact: {
+            id,
+            entityId: `ent_${name}`,
+            attribute,
+            value,
+            provenance: "agent" as const,
+            confidence: 0.9,
+            sources: [],
+            evidence: null,
+            validFrom: at,
+            validTo: null,
+            recordedAt: at,
+            supersededBy: null,
+            retractedAt: null,
+            review: "pending" as const,
+            sensitivity: "none" as const,
+            subjectKind: "owner_stated" as const,
+            lastSeenAt: at,
+          },
+          entityName: name,
+          citations: [
+            {
+              id: `c_${id}`,
+              targetKind: "fact" as const,
+              targetId: id,
+              source: "notes" as const,
+              docId: null,
+              sourceRef: "n1",
+              quote,
+              start: 0,
+              end: quote.length,
+              sourceHash: "h",
+              authorEntityId: null,
+              provenance: "agent" as const,
+              observedAt: at,
+              createdAt: at,
+            },
+          ],
+          change: "new" as const,
+          previousValue: null,
+          sentence: `${name}: ${attribute} ${value}`,
+        });
+        w.review = {
+          items: [
+            fact("f1", "Dana Reyes", "likes", "climbing", "Dana loves climbing"),
+            fact("f2", "Dana Reyes", "city", "Lisbon", "Dana moved to Lisbon in June"),
+            fact("f3", "Sam Lee", "employer", "Initech", "Sam just joined Initech"),
+          ],
+          quarantine: [],
+          runs: [],
+        };
+      },
+    }),
+  ],
+};
 /** `sandbox.status` is not in the mock, so the Sandbox group shows its error state. */
 export const ServerAndRemoteAccess: Story = { args: { defaultSection: "server" } };
 export const Usage: Story = { args: { defaultSection: "usage" } };

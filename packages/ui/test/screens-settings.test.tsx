@@ -947,7 +947,7 @@ describe("Data controls", () => {
 
   it("pauses memory through memory.pause", async () => {
     const { gateway } = setup({ defaultSection: "learning" });
-    await userEvent.click(await screen.findByRole("switch", { name: "Pause memory" }));
+    await userEvent.click(await screen.findByRole("switch", { name: "Your chats" }));
     await waitFor(() =>
       expect(callsOf(gateway(), "memory.pause")[0]?.params).toEqual({ paused: true }),
     );

@@ -1,16 +1,19 @@
 import type { MemoryRecallStatus, MemoryStoreStatus, MethodResult } from "@psyche/protocol";
 import { Download, Trash2 } from "lucide-react";
-import { type ReactElement, type ReactNode, useId, useState } from "react";
+import { type ReactElement, useId, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { Input } from "../../components/ui/input.tsx";
 import { Label } from "../../components/ui/label.tsx";
 import { useCall, useGatewayQuery } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
+import { useMemoryReview } from "../../memory/hooks.ts";
 import { usePersona, useSlots } from "../../slots.tsx";
-import { LearningGroup } from "./LearningGroup.tsx";
+import { useEverythingSetup } from "./EverythingMemorySection.tsx";
 import { MapGroup } from "./MapSettings.tsx";
+import { GRAPH_SETTING, readGraphSettings } from "./PeopleGraphSettings.tsx";
 import {
   Advanced,
+  bool,
   ErrorNotice,
   Group,
   LoadGate,
@@ -47,13 +50,13 @@ interface PanelBase extends SettingsFormProps, LoadProps {
 export interface MemoryControlsPanelProps extends PanelBase {
   memoryPaused: boolean;
   onPauseMemory?: (paused: boolean) => void;
-  /** How memory recall works now (`memory.status.recall`), under "How memory is recalled". */
-  recall?: MemoryRecallStatus;
-  /** Where memory lives (`memory.status.store`): the "Encrypt memory" switch and its state. */
-  store?: MemoryStoreStatus;
-  onEncryptMemory?: (on: boolean) => void;
-  /** The teaching loop's Learning group (§8), after Memory. */
-  learning?: ReactNode;
+  /** Everything memory's switch (the shell runs its first-run consent when it turns on). */
+  everything?: { on: boolean; onChange: (on: boolean) => void };
+  /** People and projects' switch. */
+  people?: { on: boolean; onChange: (on: boolean) => void };
+  /** Facts waiting for review, with a way to jump to them. */
+  reviewCount?: number;
+  onOpenReview?: () => void;
 }
 
 export interface DataControlsPanelProps extends PanelBase {
@@ -104,12 +107,12 @@ export function MemoryControlsPanel({
   persona,
   memoryPaused,
   onPauseMemory,
-  recall,
-  store,
-  onEncryptMemory,
+  everything,
+  people,
+  reviewCount = 0,
+  onOpenReview,
   notice = null,
   busy = false,
-  learning,
   loading,
   error,
   onRetry,
@@ -130,62 +133,131 @@ export function MemoryControlsPanel({
           notice.kind === "error" ? (
             <ErrorNotice what={notice.text} did="" />
           ) : (
-            <p role="status" className="rounded-md bg-gray-3 px-3 py-2 text-sm">
+            <p role="status" className="rounded-md bg-fill-tertiary px-3 py-2 text-callout">
               {notice.text}
             </p>
           )
         ) : null}
-        <Group title={t("settings.data.memory")}>
+        <Group title={t("memoryBasics.group")}>
           <SwitchField
-            label={t("settings.data.pauseMemory")}
-            description={t("settings.data.pauseMemoryHint", { persona })}
-            checked={memoryPaused}
-            onChange={(v) => onPauseMemory?.(v)}
+            label={t("memoryBasics.chats")}
+            description={memoryPaused ? t("memoryBasics.paused") : t("memoryBasics.chatsHint")}
+            checked={!memoryPaused}
+            onChange={(on) => onPauseMemory?.(!on)}
             disabled={onPauseMemory === undefined || busy}
           />
-          <RadioField<"markdown" | "embeddings">
-            label={t("settings.key.memory.recall.mode")}
-            description={t("settings.data.recallModeHint")}
-            value={values["memory.recall.mode"] === "embeddings" ? "embeddings" : "markdown"}
-            settingKey="memory.recall.mode"
-            onChange={(v) => onChange("memory.recall.mode", v)}
-            options={[
-              {
-                value: "markdown",
-                label: t("settings.data.recallMode.markdown"),
-                hint: t("settings.data.recallMode.markdownHint"),
-              },
-              {
-                value: "embeddings",
-                label: t("settings.data.recallMode.embeddings"),
-                hint: t("settings.data.recallMode.embeddingsHint"),
-              },
-            ]}
+          <SwitchField
+            label={t("memoryBasics.feedback")}
+            description={t("memoryBasics.feedbackHint")}
+            checked={bool(values, "teaching.enabled", true)}
+            onChange={(on) => onChange("teaching.enabled", on)}
           />
-          {recall !== undefined && recall.mode === "embeddings" ? (
-            <p role="status" className="text-sm text-gray-11">
-              {recallStatusText(recall)}
-            </p>
-          ) : null}
-          {store === undefined ? null : (
+          {everything === undefined ? null : (
             <SwitchField
-              label={t("settings.data.encryptMemory")}
-              description={t("settings.data.encryptMemoryHint", { persona })}
-              checked={store.encrypted}
-              onChange={(v) => onEncryptMemory?.(v)}
-              disabled={onEncryptMemory === undefined || busy}
-            >
-              {store.restartNeeded || store.state !== "off" ? (
-                <div role="status" className="pt-1">
-                  <StatusChip tone={storeTone(store)}>{storeText(store)}</StatusChip>
-                </div>
-              ) : null}
-            </SwitchField>
+              label={t("memoryBasics.everything")}
+              description={t("memoryBasics.everythingHint")}
+              checked={everything.on}
+              settingKey="memory.everything"
+              onChange={everything.onChange}
+            />
+          )}
+          {people === undefined ? null : (
+            <SwitchField
+              label={t("memoryBasics.people")}
+              description={t("memoryBasics.peopleHint")}
+              checked={people.on}
+              settingKey="memory.graph"
+              onChange={people.onChange}
+            />
           )}
         </Group>
-        {learning}
+        {onOpenReview === undefined ? null : reviewCount > 0 ? (
+          <div
+            data-testid="review-waiting"
+            className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-approval-bg px-3 py-2"
+          >
+            <StatusChip tone="approval">{t("memoryReview.waiting", { n: reviewCount })}</StatusChip>
+            <Button type="button" variant="outline" size="sm" onClick={onOpenReview}>
+              {t("memoryReview.open")}
+            </Button>
+          </div>
+        ) : (
+          <p className="px-1 text-callout text-label-secondary">{t("memoryReview.caughtUp")}</p>
+        )}
       </LoadGate>
     </SectionFrame>
+  );
+}
+
+export interface MemoryStoreGroupsProps extends SettingsFormProps {
+  persona: string;
+  /** How memory recall works now (`memory.status.recall`), under "How memory is recalled". */
+  recall?: MemoryRecallStatus;
+  /** Where memory lives (`memory.status.store`): the "Encrypt memory" switch and its state. */
+  store?: MemoryStoreStatus;
+  onEncryptMemory?: (on: boolean) => void;
+  busy?: boolean;
+}
+
+/**
+ * How memory is recalled, and (once the Gateway reports where memory lives) whether it is
+ * encrypted on disk. Shown under Advanced on the Memory page.
+ */
+export function MemoryStoreGroups({
+  values,
+  onChange,
+  persona,
+  recall,
+  store,
+  onEncryptMemory,
+  busy = false,
+}: MemoryStoreGroupsProps): ReactElement {
+  return (
+    <>
+      <Group title={t("memoryAdvanced.recall")}>
+        <RadioField<"markdown" | "embeddings">
+          label={t("settings.key.memory.recall.mode")}
+          description={t("settings.data.recallModeHint")}
+          value={values["memory.recall.mode"] === "embeddings" ? "embeddings" : "markdown"}
+          settingKey="memory.recall.mode"
+          onChange={(v) => onChange("memory.recall.mode", v)}
+          options={[
+            {
+              value: "markdown",
+              label: t("settings.data.recallMode.markdown"),
+              hint: t("settings.data.recallMode.markdownHint"),
+            },
+            {
+              value: "embeddings",
+              label: t("settings.data.recallMode.embeddings"),
+              hint: t("settings.data.recallMode.embeddingsHint"),
+            },
+          ]}
+        />
+        {recall !== undefined && recall.mode === "embeddings" ? (
+          <p role="status" className="text-callout text-label-secondary">
+            {recallStatusText(recall)}
+          </p>
+        ) : null}
+      </Group>
+      {store === undefined ? null : (
+        <Group title={t("memoryAdvanced.encryption")}>
+          <SwitchField
+            label={t("settings.data.encryptMemory")}
+            description={t("settings.data.encryptMemoryHint", { persona })}
+            checked={store.encrypted}
+            onChange={(v) => onEncryptMemory?.(v)}
+            disabled={onEncryptMemory === undefined || busy}
+          >
+            {store.restartNeeded || store.state !== "off" ? (
+              <div role="status" className="pt-1">
+                <StatusChip tone={storeTone(store)}>{storeText(store)}</StatusChip>
+              </div>
+            ) : null}
+          </SwitchField>
+        </Group>
+      )}
+    </>
   );
 }
 
@@ -411,62 +483,60 @@ export interface DataControlsSectionProps {
   onExportReady?: (file: ExportFile) => void;
 }
 
-/** Settings → Memory → Remembering & learning, fed from the Gateway. */
+/** Settings → Memory → Basics, fed from the Gateway. */
 export function MemoryControlsSection(): ReactElement {
-  const form = useSettingsForm();
+  const setup = useEverythingSetup();
+  const { form } = setup;
   const call = useCall();
   const persona = usePersona();
   const { navigate } = useSlots();
   const status = useGatewayQuery("memory.status", {});
+  const review = useMemoryReview();
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<MemoryControlsPanelProps["notice"]>(null);
   const act = useAction(setBusy, setNotice);
+  const graph = readGraphSettings(form.values);
   return (
-    <MemoryControlsPanel
-      persona={persona.name}
-      values={form.values}
-      onChange={form.onChange}
-      needsApproval={form.needsApproval}
-      memoryPaused={status.data?.paused ?? false}
-      {...(status.data?.recall === undefined ? {} : { recall: status.data.recall })}
-      // "Encrypt memory on disk" is not shown yet (EM9b): it waits for backups that carry the
-      // encrypted file and its sealed key to be tried end to end. The panel can render it.
-      busy={busy}
-      notice={notice ?? (form.writeError ? { kind: "error", text: form.writeError } : null)}
-      loading={form.loading && Object.keys(form.values).length === 0}
-      error={form.error}
-      onRetry={form.reload}
-      learning={
-        <LearningGroup
-          values={form.values}
-          onChange={form.onChange}
-          persona={persona.name}
-          busy={busy}
-          {...(navigate ? { onOpenGrowth: () => navigate("/overview#growth") } : {})}
-          onForgetAll={() =>
-            void act(async () => {
-              const r = await call("memory.lessons.forgetAll", {});
-              return t("settings.learning.forgotAll", { lessons: r.lessons, events: r.events });
-            }, "forget")
-          }
-        />
-      }
-      onPauseMemory={(paused) =>
-        void act(async () => {
-          await call("memory.pause", { paused });
-          status.reload();
-          return paused ? t("settings.data.paused") : t("settings.data.resumed");
-        }, "pause")
-      }
-    />
+    <>
+      <MemoryControlsPanel
+        persona={persona.name}
+        values={form.values}
+        onChange={form.onChange}
+        needsApproval={form.needsApproval}
+        memoryPaused={status.data?.paused ?? false}
+        busy={busy}
+        notice={notice ?? (form.writeError ? { kind: "error", text: form.writeError } : null)}
+        loading={form.loading && Object.keys(form.values).length === 0}
+        error={form.error}
+        onRetry={form.reload}
+        everything={{
+          on: setup.value.enabled,
+          onChange: (on) => (on ? setup.turnOn() : setup.turnOff()),
+        }}
+        people={{
+          on: graph.enabled,
+          onChange: (enabled) => form.onChange(GRAPH_SETTING, { ...graph, enabled }),
+        }}
+        reviewCount={review.counts.pending}
+        {...(navigate ? { onOpenReview: () => navigate("/settings/memory") } : {})}
+        onPauseMemory={(paused) =>
+          void act(async () => {
+            await call("memory.pause", { paused });
+            status.reload();
+            return paused ? t("settings.data.paused") : t("settings.data.resumed");
+          }, "pause")
+        }
+      />
+      {setup.dialog}
+    </>
   );
 }
 
 type Action = "pause" | "export" | "delete" | "reset" | "forget" | "encrypt";
-type Notice = PanelBase["notice"];
+export type Notice = PanelBase["notice"];
 
 /** Runs one action with a busy flag, then shows its result line or its error. */
-function useAction(setBusy: (b: boolean) => void, setNotice: (n: Notice) => void) {
+export function useAction(setBusy: (b: boolean) => void, setNotice: (n: Notice) => void) {
   return async (fn: () => Promise<string>, action: Action) => {
     setBusy(true);
     setNotice(null);

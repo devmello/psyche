@@ -6,11 +6,18 @@ import { useMemoryReview } from "../../memory/hooks.ts";
 import { MemoryReviewPanel } from "../../memory/MemoryReviewPanel.tsx";
 import { SenderOffers } from "../../memory/SenderOffers.tsx";
 import { usePersona } from "../../slots.tsx";
-import { Group, LoadGate, SectionFrame, SwitchField, useSettingsForm } from "./shared.tsx";
+import {
+  Group,
+  LoadGate,
+  SectionFrame,
+  StatusChip,
+  SwitchField,
+  useSettingsForm,
+} from "./shared.tsx";
 
 /**
- * Settings → Privacy → Memory review (docs/design/everything-memory-2026.md §7): the queue, what
- * was added automatically (with Undo for a week), the quarantine, and the auto-accept rules. The
+ * Settings → Memory → Review (docs/design/everything-memory-2026.md §7): the queue, what was added
+ * automatically (with Undo for a week), the quarantine, and the rules for accepting without asking. The
  * defaults are decision 6: review everything, with two narrow exceptions the owner can turn off.
  */
 
@@ -46,7 +53,6 @@ export function RulesPanel({
         settingKey={EVERYTHING_MEMORY_SETTING_KEY}
         onChange={(v) => onChange({ ...rules, autoAcceptSelfDisclosure: v })}
       />
-      <p className="px-3 text-callout text-label-secondary">{t("memoryReview.rules.always")}</p>
     </Group>
   );
 }
@@ -61,6 +67,13 @@ export function MemoryReviewSection(): ReactElement {
       needsApproval={form.needsApproval}
       title={t("memoryReview.title")}
       description={t("memoryReview.description", { persona: persona.name })}
+      actions={
+        review.counts.pending > 0 ? (
+          <StatusChip tone="approval">
+            {t("memoryReview.waiting", { n: review.counts.pending })}
+          </StatusChip>
+        ) : null
+      }
     >
       <LoadGate
         label={t("memoryReview.loadLabel")}
@@ -68,13 +81,6 @@ export function MemoryReviewSection(): ReactElement {
         error={review.error}
         onRetry={review.reload}
       >
-        <p className="text-callout text-label-secondary" data-testid="review-counts">
-          {t("memoryReview.counts", {
-            review: review.counts.pending,
-            auto: review.counts.autoAccepted,
-            held: review.counts.quarantined,
-          })}
-        </p>
         <SenderOffers senders={review.senders} busy={review.busy} onDecide={review.decideSender} />
         <MemoryReviewPanel
           pending={review.pending}

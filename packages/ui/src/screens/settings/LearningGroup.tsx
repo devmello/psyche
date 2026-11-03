@@ -23,8 +23,8 @@ function implicitOf(values: Record<string, unknown>): TeachingImplicitSignals {
 }
 
 /**
- * Settings → Memory → Remembering & learning (teaching loop §8): learn from feedback, notice implicit
- * signals (each its own switch), pause learning, the weekly card, a link to Growth, and Forget
+ * Settings → Memory → Advanced → Learning from feedback (teaching loop §8; the on/off switch is in
+ * Basics): notice implicit signals (each its own switch), pause learning, the weekly card, a link to Growth, and Forget
  * everything I learned behind a typed confirmation.
  */
 export function LearningGroup({
@@ -48,12 +48,6 @@ export function LearningGroup({
   const phrase = t("settings.learning.forgetPhrase");
   return (
     <Group title={t("settings.learning.title")}>
-      <SwitchField
-        label={t("settings.learning.enabled")}
-        description={t("settings.learning.enabledHint", { persona })}
-        checked={bool(values, "teaching.enabled", true)}
-        onChange={(v) => onChange("teaching.enabled", v)}
-      />
       <SwitchField
         label={t("settings.learning.implicit")}
         description={t("settings.learning.implicitHint")}

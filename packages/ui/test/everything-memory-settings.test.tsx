@@ -4,7 +4,10 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { MockGateway } from "../src/data/mock-gateway.ts";
 import type { FixtureWorld } from "../src/fixtures/index.ts";
 import { estimateBackfill, estimateMonthly, formatUsd } from "../src/memory/estimate.ts";
+import { MemoryControlsSection } from "../src/screens/settings/DataControlsSection.tsx";
 import { EverythingMemorySection } from "../src/screens/settings/EverythingMemorySection.tsx";
+import { MemoryAdvancedSection } from "../src/screens/settings/MemoryAdvancedSection.tsx";
+import { MemoryPrivacySection } from "../src/screens/settings/MemoryPrivacySection.tsx";
 import { StoryWorld } from "../src/stories/harness.tsx";
 
 afterEach(cleanup);
@@ -16,7 +19,11 @@ const stored = () =>
 function show(edit?: (w: FixtureWorld) => void) {
   return render(
     <StoryWorld {...(edit ? { edit } : {})} onGateway={(g) => (gateway = g)}>
+      {/* The Memory page's sections that hold Everything memory: its switch, Sources, Privacy, Advanced. */}
+      <MemoryControlsSection />
       <EverythingMemorySection />
+      <MemoryPrivacySection />
+      <MemoryAdvancedSection />
     </StoryWorld>,
   );
 }
@@ -41,18 +48,26 @@ describe("cost estimate", () => {
   });
 });
 
-describe("Settings → Everything memory", () => {
-  it("is off by default: only the switch shows, and nothing is stored", async () => {
+describe("Settings → Memory → Sources, Privacy and Advanced", () => {
+  it("is off by default: the Basics switch and a Set up button show, and nothing is stored", async () => {
     show();
-    const sw = await screen.findByRole("switch", { name: "Everything memory" });
+    const sw = await screen.findByRole("switch", { name: "Mail, messages and notes" });
     expect(sw.getAttribute("aria-checked")).toBe("false");
-    expect(screen.queryByText("Who reads your day")).toBeNull();
+    expect(screen.queryByText("What it reads")).toBeNull();
+    expect(screen.queryByText("Model")).toBeNull();
+    expect(screen.getByRole("button", { name: "Set up…" })).toBeTruthy();
     expect(stored()).toBeUndefined();
+  });
+
+  it("Set up… in Sources runs the same consent", async () => {
+    show();
+    fireEvent.click(await screen.findByRole("button", { name: "Set up…" }));
+    expect(await screen.findByTestId("everything-consent")).toBeTruthy();
   });
 
   it("the consent walks four screens and a summary, and Cancel leaves it off", async () => {
     show();
-    fireEvent.click(await screen.findByRole("switch", { name: "Everything memory" }));
+    fireEvent.click(await screen.findByRole("switch", { name: "Mail, messages and notes" }));
     const dialog = await screen.findByTestId("everything-consent");
     expect(within(dialog).getByTestId("consent-what").textContent).toMatch(/Sam’s birthday/);
     next();
@@ -72,7 +87,7 @@ describe("Settings → Everything memory", () => {
 
   it("turning on with Cloud and Mail saves the accepted defaults plus those choices", async () => {
     show();
-    fireEvent.click(await screen.findByRole("switch", { name: "Everything memory" }));
+    fireEvent.click(await screen.findByRole("switch", { name: "Mail, messages and notes" }));
     const dialog = await screen.findByTestId("everything-consent");
     next();
     fireEvent.click(within(dialog).getByRole("switch", { name: "Mail" }));
@@ -97,7 +112,7 @@ describe("Settings → Everything memory", () => {
 
   it("a local model shows the RAM warning and cannot be turned on until it is confirmed", async () => {
     show();
-    fireEvent.click(await screen.findByRole("switch", { name: "Everything memory" }));
+    fireEvent.click(await screen.findByRole("switch", { name: "Mail, messages and notes" }));
     const dialog = await screen.findByTestId("everything-consent");
     next();
     next();
@@ -129,7 +144,7 @@ describe("Settings → Everything memory", () => {
 
   it("when on, shows the controls; government ids and account numbers have no switch", async () => {
     show();
-    fireEvent.click(await screen.findByRole("switch", { name: "Everything memory" }));
+    fireEvent.click(await screen.findByRole("switch", { name: "Mail, messages and notes" }));
     const dialog = await screen.findByTestId("everything-consent");
     next();
     expect(within(dialog).getAllByRole("switch")).toHaveLength(7);
@@ -153,7 +168,7 @@ describe("Settings → Everything memory", () => {
 
   it("per-contact exclusion: add shows a masked hint, forget asks first with the counts, remove works", async () => {
     show();
-    fireEvent.click(await screen.findByRole("switch", { name: "Everything memory" }));
+    fireEvent.click(await screen.findByRole("switch", { name: "Mail, messages and notes" }));
     const dialog = await screen.findByTestId("everything-consent");
     for (let i = 0; i < 4; i++) next();
     fireEvent.click(within(dialog).getByRole("button", { name: "Turn on" }));
@@ -184,7 +199,7 @@ describe("Settings → Everything memory", () => {
 
   it("what people say about others is a separate switch, off by default", async () => {
     show();
-    fireEvent.click(await screen.findByRole("switch", { name: "Everything memory" }));
+    fireEvent.click(await screen.findByRole("switch", { name: "Mail, messages and notes" }));
     const dialog = await screen.findByTestId("everything-consent");
     for (let i = 0; i < 4; i++) next();
     fireEvent.click(within(dialog).getByRole("button", { name: "Turn on" }));
@@ -198,7 +213,7 @@ describe("Settings → Everything memory", () => {
 
   async function turnedOn(edit?: Parameters<typeof show>[0]) {
     show(edit);
-    fireEvent.click(await screen.findByRole("switch", { name: "Everything memory" }));
+    fireEvent.click(await screen.findByRole("switch", { name: "Mail, messages and notes" }));
     const dialog = await screen.findByTestId("everything-consent");
     for (let i = 0; i < 4; i++) next();
     fireEvent.click(within(dialog).getByRole("button", { name: "Turn on" }));
@@ -241,7 +256,7 @@ describe("Settings → Everything memory", () => {
 describe("a model per source (EM11)", () => {
   async function onWithMailAndMessages() {
     show();
-    fireEvent.click(await screen.findByRole("switch", { name: "Everything memory" }));
+    fireEvent.click(await screen.findByRole("switch", { name: "Mail, messages and notes" }));
     const dialog = await screen.findByTestId("everything-consent");
     next();
     fireEvent.click(within(dialog).getByRole("switch", { name: "Mail" }));
