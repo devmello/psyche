@@ -57,7 +57,8 @@ afterAll(async () => {
   rmSync(home, { recursive: true, force: true });
 });
 
-describe("psyche against the real Gateway", () => {
+// A real Gateway and CLI processes: took 5.8 s on a loaded CI runner against the 5 s default (2026-11-03).
+describe("psyche against the real Gateway", { timeout: 30_000 }, () => {
   it("pairs through the owner's approval, then runs commands", async () => {
     const first = await cli("devices", "list");
     expect(first.code).toBe(3);
