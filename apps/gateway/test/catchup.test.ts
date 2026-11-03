@@ -11,6 +11,7 @@ import {
   type StoredPost,
 } from "@psyche/proactive";
 import { type DailyBrief, PsycheError, validateResult } from "@psyche/protocol";
+import { createSearchIndex, feedDoc, searchEverything } from "@psyche/search";
 import { FakeClock, FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import {
@@ -645,6 +646,46 @@ describe("feed.list for the agent re-applies agent access to catch-up lines", ()
     const w = setup();
     const p = { ...(await post(w)), card: undefined } as StoredPost;
     expect(w.catchup.agentView(p)).toBe(p);
+  });
+});
+
+describe("the search index never holds catch-up lines (agent search bypass)", () => {
+  async function indexed(w: World) {
+    w.on();
+    await w.daily.run("morning");
+    const post = w.posts[0] as StoredPost;
+    const index = createSearchIndex({ now: () => NOW });
+    await index.index(feedDoc(post));
+    return { post, index };
+  }
+  const agentSearch = async (index: ReturnType<typeof createSearchIndex>, query: string) =>
+    (await searchEverything({ index }, { query }, { threadId: "t1" })).output.hits;
+
+  it("with agentAccess none, an agent search for a catch-up item's title returns nothing", async () => {
+    const w = setup();
+    const { post, index } = await indexed(w);
+    w.setAccess({ ...LOCAL_ACCESS, mode: "none" });
+    // The lines are in the brief the owner reads...
+    expect(post.bodyMd).toContain("Q3 board deck");
+    // ...and nowhere in the index.
+    for (const title of ["Q3 board deck", "Lecture Work 7", "CHEM lab report", "Updated numbers"])
+      expect(await agentSearch(index, title)).toEqual([]);
+  });
+
+  it("holds for every access mode, because the lines are never indexed", async () => {
+    const w = setup();
+    const { index } = await indexed(w);
+    for (const mode of ["none", "accepted", "all"] as const) {
+      w.setAccess({ ...LOCAL_ACCESS, mode });
+      expect(await agentSearch(index, "Ava turns 7")).toEqual([]);
+      expect(await agentSearch(index, "Q3 board deck")).toEqual([]);
+    }
+  });
+
+  it("still indexes the plain lines of the brief", async () => {
+    const w = setup();
+    const { index } = await indexed(w);
+    expect((await agentSearch(index, "Pay rent")).length).toBe(1);
   });
 });
 

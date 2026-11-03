@@ -181,13 +181,33 @@ export function libraryDoc(
   };
 }
 
+/** A card line that opens a memory entity (`?entity=<id>`): catch-up, Coming up, Keep in touch. */
+const ENTITY_LINK = /[?&]entity=/;
+
+/**
+ * The text of a post for the index. A daily brief carries lines built from memory (Catching up,
+ * Worked on today, Coming up, Keep in touch). Those answer to the owner's privacy tiers and to
+ * agent access (docs/design/memory-everything-2026.md §4 rule 2), and the agent searches this
+ * index, so they never enter it: the Memory page and its own search find them instead. Plain
+ * lines (calendar, mail, reminders) are indexed as before.
+ */
+function postText(post: FeedPost): string {
+  const card = post.card;
+  if (card?.type !== "daily") return post.bodyMd;
+  return card.daily.sections
+    .map((s) => ({ ...s, items: s.items.filter((i) => !ENTITY_LINK.test(i.link ?? "")) }))
+    .filter((s) => s.items.length > 0)
+    .map((s) => `**${s.title}**\n${s.items.map((i) => `- ${i.text}`).join("\n")}`)
+    .join("\n\n");
+}
+
 /** Feed posts are written by the agent from network sources: provenance `untrusted`. */
 export function feedDoc(post: FeedPost): SearchDoc {
   return {
     id: post.id,
     kind: "feed",
     title: post.title,
-    text: [post.bodyMd, ...post.citations.map((c) => `${c.title} ${c.url}`)].join("\n"),
+    text: [postText(post), ...post.citations.map((c) => `${c.title} ${c.url}`)].join("\n"),
     provenance: "untrusted",
     tags: post.reasons,
     source: "feed",
