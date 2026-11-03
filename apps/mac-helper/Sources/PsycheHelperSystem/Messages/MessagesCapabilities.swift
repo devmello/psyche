@@ -95,11 +95,15 @@ public enum MessagesCapabilities {
                 name: "messages.graph_chats",
                 description: "Metadata only, for the people graph: recent chats (newest activity first) as chatId, participant handles and isGroup. No names or text. Needs Full Disk Access.",
                 sideEffect: .read,
-                inputSchema: Schema.object(["limit": Schema.integer("Default 200, at most 200", min: 1, max: ChatDatabase.maxLimit)]),
+                inputSchema: Schema.object([
+                    "limit": Schema.integer("Default 200, at most 200", min: 1, max: ChatDatabase.maxLimit),
+                    "offset": Schema.integer("Skip this many chats first, to list past the limit; default 0", min: 0, max: 1_000_000),
+                ]),
                 receiptKind: "message_read"
             )) { ctx in
                 let p = try ctx.decode(GraphMessages.ChatsParams.self)
-                let result = try await offMain { try open().graphChats(limit: p.limit ?? ChatDatabase.maxLimit) }
+                let offset = max(0, min(p.offset ?? 0, 1_000_000))
+                let result = try await offMain { try open().graphChats(limit: p.limit ?? ChatDatabase.maxLimit, offset: offset) }
                 return CapabilityOutput(try JSONValue(encoding: result))
             },
             Capability(CapabilitySpec(

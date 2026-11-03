@@ -28,6 +28,7 @@ const HINT = {
   files: "settings.searchSources.hint.files",
   browser: "settings.searchSources.hint.browser",
   transcripts: "settings.searchSources.hint.transcripts",
+  memory: "settings.searchSources.hint.memory",
 } as const satisfies Record<SearchSourceId, string>;
 
 const kb = (bytes: number) =>
@@ -151,8 +152,15 @@ export function SearchSourcesSettingsGroup({
             label={s.label}
             description={t(HINT[s.id])}
             checked={s.enabled}
+            // Greyed, with the reason, until it can be switched on (it can always be switched off).
+            disabled={!s.enabled && s.cannotEnable !== undefined}
             onChange={(v) => void configure({ source: s.id, enabled: v })}
           >
+            {!s.enabled && s.cannotEnable !== undefined ? (
+              <p role="status" className="text-caption text-label-secondary">
+                {t("settings.searchSources.cannotEnable", { why: s.cannotEnable })}
+              </p>
+            ) : null}
             <div role="status" className="flex flex-wrap items-center gap-2 pt-1">
               <StatusChip tone={line.tone}>{line.text}</StatusChip>
               {s.enabled ? (
@@ -194,11 +202,17 @@ export function SearchSourcesSettingsGroup({
                 <input
                   type="checkbox"
                   checked={s.agent}
+                  disabled={!s.agent && s.cannotAgent !== undefined}
                   aria-label={t("settings.searchSources.agentLabel", { source: s.label })}
                   onChange={(e) => void configure({ source: s.id, agent: e.target.checked })}
                 />
                 {t("settings.searchSources.agent")}
               </label>
+            ) : null}
+            {s.enabled && !s.agent && s.cannotAgent !== undefined ? (
+              <p className="text-caption text-label-secondary">
+                {t("settings.searchSources.cannotAgent", { why: s.cannotAgent })}
+              </p>
             ) : null}
             {s.enabled && s.id === "files" ? (
               <label className="flex items-start gap-2 pt-1 text-caption text-label-secondary">

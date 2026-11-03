@@ -1,6 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { setSetting } from "@psyche/db";
 import type { SearchSourcesStatus } from "@psyche/protocol";
 import {
   createSearchIndex,
@@ -12,6 +13,7 @@ import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
 import { filesSourceDeps, parsePower } from "../src/compose/search-files.ts";
+import { MEMORY_AGENT_NONE, MEMORY_NEEDS_ENCRYPTED_INDEX } from "../src/compose/search-memory.ts";
 import { silentLogger } from "../src/log.ts";
 import { adminClient, ik, type TestClient } from "./helpers.ts";
 
@@ -163,10 +165,13 @@ describe("search.sources methods", () => {
       "files",
       "browser",
       "transcripts",
+      "memory",
     ]);
     expect(st.sources.every((s) => !s.enabled && s.state === "off" && s.items === 0)).toBe(true);
-    expect(st.sources.every((s) => s.processing === "cloud")).toBe(true);
-    expect(st.sources.filter((s) => !s.agent).map((s) => s.id)).toEqual(["messages"]);
+    // Memory ships with no summaries: its facts come from other sources' text.
+    expect(st.sources.filter((s) => s.processing !== "cloud").map((s) => s.id)).toEqual(["memory"]);
+    // Messages and Memory stay owner-only until the owner allows the agent to search them.
+    expect(st.sources.filter((s) => !s.agent).map((s) => s.id)).toEqual(["messages", "memory"]);
   });
 
   it("toggles a source, keeps the processing model and exclusions, and rebuilds", async () => {
@@ -213,6 +218,131 @@ describe("search.sources methods", () => {
       state: "off",
     });
     expect(st.exclude.contacts).toEqual(["mum@example.com"]);
+  });
+
+  it("Memory: switches on like the others, reads nothing while memory is off, and can be rebuilt", async () => {
+    const owner = await start();
+    let st = await owner.call<SearchSourcesStatus>(
+      "search.sources.configure",
+      { source: "memory", enabled: true },
+      ik(),
+    );
+    expect(st.sources.find((s) => s.id === "memory")).toMatchObject({
+      label: "Memory",
+      enabled: true,
+      agent: false,
+    });
+    // The people and projects memory is off in a new home: nothing to index, and it says it is read.
+    for (let i = 0; i < 40; i++) {
+      st = await owner.call<SearchSourcesStatus>("search.sources", {});
+      if (st.sources.find((s) => s.id === "memory")?.state === "idle") break;
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    expect(st.sources.find((s) => s.id === "memory")).toMatchObject({ state: "idle", items: 0 });
+    const rebuilt = await owner.request("search.sources.rebuild", { source: "memory" }, ik());
+    expect(rebuilt.ok).toBe(true);
+    // Switching it off again leaves the others as they were.
+    st = await owner.call<SearchSourcesStatus>(
+      "search.sources.configure",
+      { source: "memory", enabled: false },
+      ik(),
+    );
+    expect(st.sources.find((s) => s.id === "memory")?.state).toBe("off");
+  });
+
+  const waitFor = async <T>(read: () => Promise<T>, ok: (v: T) => boolean) => {
+    let last = await read();
+    for (let i = 0; i < 60 && !ok(last); i++) {
+      await new Promise((r) => setTimeout(r, 100));
+      last = await read();
+    }
+    return last;
+  };
+
+  it("Memory: the agent cannot be let search it while memory's agent access is none, and the Gateway keeps it off", async () => {
+    const owner = await start();
+    const status = () => owner.call<SearchSourcesStatus>("search.sources", {});
+    const memory = (st: SearchSourcesStatus) => st.sources.find((s) => s.id === "memory");
+    // Everything memory is off in a new home: no agent access.
+    expect(memory(await status())?.cannotAgent).toBe(MEMORY_AGENT_NONE);
+    const refused = await owner.request(
+      "search.sources.configure",
+      { source: "memory", enabled: true, agent: true },
+      ik(),
+    );
+    expect(refused).toMatchObject({ ok: false, error: { code: "invalid_params" } });
+    expect(JSON.stringify(refused.error)).toMatch(/agent access is set to none/);
+    // Allowed once memory's own agent access is on.
+    await owner.call(
+      "settings.set",
+      { key: "memory.everything", value: { enabled: true, agentAccess: "accepted" } },
+      ik(),
+    );
+    expect(memory(await status())?.cannotAgent).toBeUndefined();
+    let st = await owner.call<SearchSourcesStatus>(
+      "search.sources.configure",
+      { source: "memory", enabled: true, agent: true },
+      ik(),
+    );
+    expect(memory(st)?.agent).toBe(true);
+    // Memory's agent access goes back to none: Search follows, whatever was ticked.
+    await owner.call(
+      "settings.set",
+      { key: "memory.everything", value: { enabled: true, agentAccess: "none" } },
+      ik(),
+    );
+    st = await waitFor(status, (v) => memory(v)?.agent === false);
+    expect(memory(st)).toMatchObject({ agent: false, cannotAgent: MEMORY_AGENT_NONE });
+  });
+
+  it("Memory: cannot be switched on while memory is encrypted and the search index is not", async () => {
+    const owner = await start();
+    const db = (composed as ComposedGateway).gateway.context.db;
+    setSetting(db, "memory.encrypt", true);
+    const st = await owner.call<SearchSourcesStatus>("search.sources", {});
+    expect(st.sources.find((s) => s.id === "memory")?.cannotEnable).toBe(
+      MEMORY_NEEDS_ENCRYPTED_INDEX,
+    );
+    const refused = await owner.request(
+      "search.sources.configure",
+      { source: "memory", enabled: true },
+      ik(),
+    );
+    expect(refused).toMatchObject({ ok: false, error: { code: "invalid_params" } });
+    expect(JSON.stringify(refused.error)).toMatch(/Turn on search index encryption first/);
+    // Search encrypted too: fine.
+    setSetting(db, "search.encrypt", true);
+    const ok = await owner.call<SearchSourcesStatus>(
+      "search.sources.configure",
+      { source: "memory", enabled: true },
+      ik(),
+    );
+    expect(ok.sources.find((s) => s.id === "memory")?.enabled).toBe(true);
+  });
+
+  it("Memory: a change in memory (a person hidden, a fact retracted) reaches the index soon, not at the next timer tick", {
+    timeout: 30_000,
+  }, async () => {
+    const owner = await start();
+    const status = () => owner.call<SearchSourcesStatus>("search.sources", {});
+    const items = (st: SearchSourcesStatus) =>
+      st.sources.find((s) => s.id === "memory")?.items ?? 0;
+    await owner.call("settings.set", { key: "memory.graph", value: { enabled: true } }, ik());
+    await owner.call("search.sources.configure", { source: "memory", enabled: true }, ik());
+    const made = await owner.call<{ entity: { id: string } }>(
+      "memory.entities.create",
+      { kind: "topic", name: "Sourdough starter" },
+      ik(),
+    );
+    // The new entity is read without waiting for the timer (the test Gateway has none).
+    expect(items(await waitFor(status, (v) => items(v) === 1))).toBe(1);
+    await owner.call("memory.entities.update", { id: made.entity.id, hidden: true }, ik());
+    expect(items(await waitFor(status, (v) => items(v) === 0))).toBe(0);
+    // Memory switched off: nothing stays.
+    await owner.call("memory.entities.update", { id: made.entity.id, hidden: false }, ik());
+    expect(items(await waitFor(status, (v) => items(v) === 1))).toBe(1);
+    await owner.call("settings.set", { key: "memory.graph", value: { enabled: false } }, ik());
+    expect(items(await waitFor(status, (v) => items(v) === 0))).toBe(0);
   });
 
   it("Rebuild: refused for a source that is off, answers indexing from zero when it runs", async () => {

@@ -302,6 +302,33 @@ describe("Apple app connectors (#528)", () => {
     expect(helper.calls).toEqual([{ capability: "notes.list", params: { limit: 10 } }]);
   });
 
+  it("notes_list and reminders_list page past the 500 cap with an offset, and keep the cap", async () => {
+    const helper = new FakeHelper();
+    helper.capabilities = [...helper.capabilities, "reminders.list"];
+    const notes = make(helper);
+    await notes.registry.connect({ catalogueId: "apple-notes", scopeMode: "read" });
+    helper.calls.length = 0;
+    await notes.run("mcp__apple-1__notes_list")({ limit: 500, offset: 500 });
+    expect(helper.calls).toEqual([
+      { capability: "notes.list", params: { limit: 500, offset: 500 } },
+    ]);
+    // The cap is per call: more than 500 is refused here, not passed on for the helper to refuse.
+    for (const spec of ["notes_list", "reminders_list"]) {
+      const { registry, tools } = make(new FakeHelper());
+      await registry
+        .connect({
+          catalogueId: spec === "notes_list" ? "apple-notes" : "apple-reminders",
+          scopeMode: "read",
+        })
+        .catch(() => undefined);
+      const tool = tools.get(`mcp__apple-1__${spec}`) as unknown as
+        | { spec: { inputSchema: { properties: Record<string, Record<string, unknown>> } } }
+        | undefined;
+      expect(tool?.spec.inputSchema.properties.limit?.maximum, spec).toBe(500);
+      expect(tool?.spec.inputSchema.properties.offset?.minimum, spec).toBe(0);
+    }
+  });
+
   it("mail_search lists unread mail since a date: no query needed, filters go to the helper (#626)", async () => {
     const helper = new FakeHelper();
     const { registry, tools, run } = make(helper);

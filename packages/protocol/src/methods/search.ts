@@ -249,7 +249,17 @@ export type SearchIndexStatus = Static<typeof SearchIndexStatus>;
 
 /** Local sources the owner can have indexed (Settings → Search sources). */
 export const SearchSourceId = StringEnum(
-  ["mail", "messages", "notes", "calendar", "reminders", "files", "browser", "transcripts"],
+  [
+    "mail",
+    "messages",
+    "notes",
+    "calendar",
+    "reminders",
+    "files",
+    "browser",
+    "transcripts",
+    "memory",
+  ],
   { $id: "SearchSourceId" },
 );
 export type SearchSourceId = Static<typeof SearchSourceId>;
@@ -268,7 +278,7 @@ export const SearchSourceStatus = Type.Object(
     processing: SearchProcessing,
     agent: Type.Boolean({
       description:
-        "The agent's search_everything may search it; Messages is off until the owner allows it",
+        "The agent's search_everything may search it; Messages and Memory are off until the owner allows them",
     }),
     ocr: Type.Boolean({
       description:
@@ -282,6 +292,12 @@ export const SearchSourceStatus = Type.Object(
     lastIndexedAt: Type.Optional(Type.Integer({ minimum: 0, description: "Epoch ms" })),
     textBytes: Type.Integer({ minimum: 0, description: "Text indexed for this source" }),
     backfilled: Type.Boolean({ description: "The first pass reached the end" }),
+    cannotEnable: Type.Optional(
+      Type.String({ description: "Why it cannot be switched on yet; Settings greys the switch" }),
+    ),
+    cannotAgent: Type.Optional(
+      Type.String({ description: "Why the agent cannot be allowed to search it yet" }),
+    ),
   },
   { $id: "SearchSourceStatus" },
 );

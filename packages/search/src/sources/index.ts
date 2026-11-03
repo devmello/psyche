@@ -3,6 +3,7 @@ export * from "./browser.ts";
 export * from "./exclusion.ts";
 export * from "./files.ts";
 export * from "./manager.ts";
+export * from "./memory.ts";
 export * from "./text.ts";
 export * from "./transcripts.ts";
 export * from "./types.ts";

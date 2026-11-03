@@ -18,6 +18,10 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-03 (Memory as a Search source)
+
+- `SearchSourceId` gains `memory` (last in the list): Settings → Search sources can index what Psyche remembers (people, projects, work due, events and accepted, non-sensitive facts). Off by default, and off for the agent's `search_everything` until the owner allows it. It is not an `EverythingSource`: memory never learns from its own index. `SearchSourceStatus` gains optional `cannotEnable` and `cannotAgent` (why the switch, or the agent's access, is not available yet; the Memory source sets them when memory is encrypted and the search index is not, and when memory's agent access is none).
+
 ### v1 additive — 2026-11-03 (Clear the main chat)
 
 - New method `threads.clear` (operator.write, side-effecting; params `threadId`, optional `alsoForget`): empties a thread in place. Messages, runs and queued follow-ups go, the agent starts fresh; the thread, its title, pin and settings, receipts and audit entries stay. `conflict` while the thread runs or waits on an approval or a question. New event `thread.cleared` (`threadId`).

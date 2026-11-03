@@ -137,12 +137,15 @@ public struct ReminderQuery: Sendable, Equatable {
     public var query: String
     /// Ids of flagged reminders (from Reminders scripting) when `flagged` was asked for.
     public var flaggedIds: Set<String>?
+    /// Matches to skip (after the sort), so a caller can page past the per-call limit.
+    public var offset: Int
 
-    public init(overdue: Bool = false, dueToday: Bool = false, query: String = "", flaggedIds: Set<String>? = nil) {
+    public init(overdue: Bool = false, dueToday: Bool = false, query: String = "", flaggedIds: Set<String>? = nil, offset: Int = 0) {
         self.overdue = overdue
         self.dueToday = dueToday
         self.query = query
         self.flaggedIds = flaggedIds
+        self.offset = max(0, offset)
     }
 
     public func apply(_ rs: [ReminderRecord], now: Date, calendar: Calendar = .current, limit: Int) -> [ReminderRecord] {
@@ -167,7 +170,7 @@ public struct ReminderQuery: Sendable, Equatable {
             case (nil, _?): return false
             default: return a.title < b.title
             }
-        }.prefix(max(0, limit)).map { $0 }
+        }.dropFirst(offset).prefix(max(0, limit)).map { $0 }
     }
 
     /// Reminders scripting ids look like `x-apple-reminder://<UUID>`; EventKit uses the UUID.

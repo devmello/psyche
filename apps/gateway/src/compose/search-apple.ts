@@ -8,7 +8,7 @@ import {
   toolName,
 } from "@psyche/connectors";
 import type { AppleSourceDeps, HelperCall, ToolCall } from "@psyche/search";
-import type { MessagesHelper, SourceDeps } from "./people-sources.ts";
+import { helperFailure, type MessagesHelper, type SourceDeps } from "./people-sources.ts";
 
 /**
  * The seams the Apple search sources read through: the Apple connector's tools (one record per
@@ -65,7 +65,7 @@ export function appleSearchSeams(o: {
       if (client === undefined) return undefined;
       const call: HelperCall = async (capability, params, signal) => {
         const res = await client.invoke(capability, params, { signal, timeoutMs: 30_000 });
-        if (!res.ok) throw new Error(`${capability} failed: ${res.error?.code ?? "unknown"}`);
+        if (!res.ok) throw new Error(helperFailure(capability, res.error));
         return res.result;
       };
       return call;

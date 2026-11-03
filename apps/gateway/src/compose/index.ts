@@ -184,6 +184,7 @@ import { resolveSearchKey } from "./search-db.ts";
 import { searchEngine, searchModelProvider } from "./search-engine.ts";
 import { filesSourceDeps, powerReader } from "./search-files.ts";
 import { chatContextResolver } from "./search-hit-context.ts";
+import { memorySettings, memorySourceDeps } from "./search-memory.ts";
 import { helperRecognizer } from "./search-ocr.ts";
 import { routerEmbedder, type SemanticEngines } from "./search-semantic.ts";
 import { searchEverythingTool } from "./search-tool.ts";
@@ -1507,6 +1508,14 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     sources: {
       apple: appleSearch.deps,
       refresh: appleSearch.refresh,
+      // Memory as a source: only while the owner has the memory graph on, and only what the graph
+      // may show on a surface (`search-memory.ts`).
+      memory: memorySourceDeps({
+        graph: () => (people?.settings().enabled === true ? people.graph : undefined),
+        em: everything.store,
+        ...memorySettings(db),
+        ...(memoryLate === undefined ? {} : { ready: () => memoryLate.ready }),
+      }),
       files: filesSourceDeps({
         folders: () => rawBroker.policy.folders ?? [],
         // Vision OCR in the Mac helper (opt-in per source), one file at a time, on power only.

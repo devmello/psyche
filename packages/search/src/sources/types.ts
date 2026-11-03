@@ -13,6 +13,7 @@ export const SOURCE_IDS = [
   "files",
   "browser",
   "transcripts",
+  "memory",
 ] as const;
 export type SourceId = (typeof SOURCE_IDS)[number];
 
@@ -29,7 +30,8 @@ export interface SourceConfig {
   processing: ProcessingModel;
   /**
    * Whether the agent's `search_everything` may search this source. On for every source except
-   * Messages, which stays owner-only until the owner allows it. The owner's own Search ignores it.
+   * Messages and Memory, which stay owner-only until the owner allows them (Memory has its own
+   * agent access rules, which indexing it must not widen). The owner's own Search ignores it.
    */
   agent: boolean;
   /**
@@ -65,12 +67,23 @@ export const SOURCE_LABELS: Record<SourceId, string> = {
   files: "Files",
   browser: "Browser pages",
   transcripts: "Transcripts",
+  memory: "Memory",
 };
+
+/** Sources the agent's `search_everything` may not search until the owner allows it. */
+export const OWNER_ONLY_SOURCES: readonly SourceId[] = ["messages", "memory"];
 
 export function defaultSourcesConfig(): SourcesConfig {
   const sources = {} as Record<SourceId, SourceConfig>;
   for (const id of SOURCE_IDS)
-    sources[id] = { enabled: false, processing: "cloud", agent: id !== "messages", ocr: false };
+    sources[id] = {
+      enabled: false,
+      // Memory's facts come from other sources: no context cards for them (they would go to the
+      // cloud model) until the owner chooses otherwise.
+      processing: id === "memory" ? "none" : "cloud",
+      agent: !OWNER_ONLY_SOURCES.includes(id),
+      ocr: false,
+    };
   return { sources, exclude: { contacts: [], chats: [], accounts: [], folders: [] } };
 }
 
@@ -132,6 +145,13 @@ export interface SourcePull {
   /** Opaque; handed back on the next pull. */
   cursor: unknown;
   hasMore: boolean;
+  /**
+   * `items` are every record the source has (a whole read, `hasMore` false): anything indexed from
+   * this source and not in them is removed at once. For a source with no change feed and no
+   * cheap id list, such as Memory, where an item turning sensitive or private must leave the
+   * index on the next pass rather than at the nightly sweep.
+   */
+  snapshot?: boolean;
 }
 
 export interface SourceAdapter {
@@ -140,6 +160,12 @@ export interface SourceAdapter {
   readonly retentionMs?: number;
   /** Why the source cannot be read now (no helper, no access), or undefined. */
   unavailable(): string | undefined;
+  /** Runs even in Low Power Mode: a cheap local read whose removals must not wait (Memory). */
+  readonly runsOnLowPower?: boolean;
+  /** Why the owner cannot switch this source on yet, or undefined. */
+  cannotEnable?(): string | undefined;
+  /** Why the owner cannot let the agent search this source yet, or undefined. */
+  cannotAgent?(): string | undefined;
   /** The next page after `cursor` (null = from the start). */
   pull(cursor: unknown, ctx: { signal: AbortSignal; limit: number }): Promise<SourcePull>;
   /**
@@ -168,6 +194,10 @@ export interface SourceStatus {
   textBytes: number;
   /** The first pass reached the end of the source. */
   backfilled: boolean;
+  /** Why it cannot be switched on yet (Settings greys the switch and says so). */
+  cannotEnable?: string;
+  /** Why the agent cannot be allowed to search it yet. */
+  cannotAgent?: string;
 }
 
 export interface SourcesStatus {

@@ -146,7 +146,10 @@ export function useEverythingSetup() {
   const indexed =
     search.status === undefined
       ? undefined
-      : new Set<EverythingSource>(search.status.sources.filter((s) => s.enabled).map((s) => s.id));
+      : // The Memory source is Search's index of memory itself: memory never learns from it.
+        new Set<EverythingSource>(
+          search.status.sources.flatMap((s) => (s.enabled && s.id !== "memory" ? [s.id] : [])),
+        );
   const value = readEverything(form.values, indexed);
   /** "Let Psyche read {source}": the call Essentials makes, and the same macOS permission flow. */
   const enableSource = async (source: EverythingSource) => {

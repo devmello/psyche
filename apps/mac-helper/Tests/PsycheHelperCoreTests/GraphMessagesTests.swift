@@ -45,6 +45,9 @@ struct GraphMessagesTests {
         #expect(result.chats[1].handles == ["+15551110000"] && !result.chats[1].isGroup)
         #expect(result.chats[2].handles.isEmpty)
         #expect(try w.db.graphChats(limit: 1).chats.count == 1)
+        // A later page: the same order, the first `offset` chats skipped.
+        #expect(try w.db.graphChats(limit: 2, offset: 1).chats.map(\.chatId) == ["iMessage;-;+15551110000", "iMessage;-;+15553330000"])
+        #expect(try w.db.graphChats(limit: 200, offset: 3).chats.isEmpty)
 
         let wire = try Self.json(result)
         #expect(!wire.contains("Alice Secret Name") && !wire.contains("Climbing Crew"))

@@ -1,4 +1,4 @@
-import { type ConnectorRecord, toolName } from "@psyche/connectors";
+import { type ConnectorRecord, macosAccessReason, toolName } from "@psyche/connectors";
 import { listMessagesPage, listThreads, type PsycheDb } from "@psyche/db";
 import type {
   Address,
@@ -11,7 +11,7 @@ import type {
   MessageRecord,
   NoteRecord,
 } from "@psyche/memory";
-import type { Clock, NodeClient, ToolRegistry } from "@psyche/protocol";
+import type { Clock, ErrorPayload, NodeClient, ToolRegistry } from "@psyche/protocol";
 
 /**
  * Ingest adapters for the people graph (docs/memory/people-and-projects-2026.md §5.1): each
@@ -830,8 +830,27 @@ async function helperCall(
   signal: AbortSignal,
 ): Promise<unknown> {
   const res = await client.invoke(capability, params, { signal, timeoutMs: MESSAGES_TIMEOUT_MS });
-  if (!res.ok) throw new Error(`${capability} failed: ${res.error?.code ?? "unknown"}`);
+  if (!res.ok) throw new Error(helperFailure(capability, res.error));
   return res.result;
+}
+
+/**
+ * Why a Mac helper call failed, for Settings and the logs. A `forbidden` from the helper is macOS
+ * refusing it (Full Disk Access for `chat.db`, Automation, a TCC permission), and the helper says
+ * which and where to turn it on: that sentence is what the owner needs, not the bare code.
+ */
+export function helperFailure(capability: string, error: ErrorPayload | undefined): string {
+  const code = error?.code ?? "unknown";
+  const message = typeof error?.message === "string" ? error.message.trim() : "";
+  const reason = (error?.details as { reason?: unknown } | undefined)?.reason;
+  if (message !== "" && macosAccessReason(code, typeof reason === "string" ? reason : undefined))
+    return message;
+  // Anything else is shown as a short line: a helper error can carry a long message (and, in
+  // principle, text from a file or a message it was reading).
+  const short = message.length > 200 ? `${message.slice(0, 200)}…` : message;
+  return short === ""
+    ? `${capability} failed: ${code}`
+    : `${capability} failed: ${code} (${short})`;
 }
 
 /** The adapters for every connected app that can feed the graph. */
