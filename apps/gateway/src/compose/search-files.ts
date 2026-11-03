@@ -86,27 +86,38 @@ export function parsePower(batt: string, settings: string): PowerState {
   };
 }
 
+/** Reads the power state: cached for owner-paced work, `fresh()` when an owner action asks. */
+export type PowerRead = (() => PowerState) & { fresh: () => Promise<PowerState> };
+
 /**
  * Battery state on macOS from two short-lived `pmset` calls, cached for a minute; plugged in
- * everywhere else and when `pmset` fails (unknown means "do the work").
+ * everywhere else and when `pmset` fails (unknown means "do the work"). The cached read answers
+ * from the last reading and refreshes in the background, so after a long idle it can be stale
+ * (still "battery" after plugging in): an owner's Rebuild calls `fresh()` first (2026-11-03).
  */
-export function powerReader(platform: string = process.platform, ttlMs = 60_000) {
+export function powerReader(platform: string = process.platform, ttlMs = 60_000): PowerRead {
   let cached: { at: number; state: PowerState } | undefined;
-  let refreshing = false;
+  let inflight: Promise<PowerState> | undefined;
   const run = (args: string[]) =>
     new Promise<string>((resolve) =>
       execFile("/usr/bin/pmset", args, { timeout: 3000 }, (_e, out) => resolve(out ?? "")),
     );
-  return (): PowerState => {
+  const refresh = (): Promise<PowerState> => {
+    inflight ??= Promise.all([run(["-g", "batt"]), run(["-g"])]).then(([b, s]) => {
+      const state = parsePower(b, s);
+      cached = { at: Date.now(), state };
+      inflight = undefined;
+      return state;
+    });
+    return inflight;
+  };
+  const read = (): PowerState => {
     if (platform !== "darwin") return { onBattery: false, lowPower: false };
-    const t = Date.now();
-    if ((cached === undefined || t - cached.at > ttlMs) && !refreshing) {
-      refreshing = true;
-      void Promise.all([run(["-g", "batt"]), run(["-g"])]).then(([b, s]) => {
-        cached = { at: Date.now(), state: parsePower(b, s) };
-        refreshing = false;
-      });
-    }
+    if (cached === undefined || Date.now() - cached.at > ttlMs) void refresh();
     return cached?.state ?? { onBattery: false, lowPower: false };
   };
+  return Object.assign(read, {
+    fresh: async (): Promise<PowerState> =>
+      platform !== "darwin" ? { onBattery: false, lowPower: false } : refresh(),
+  });
 }
