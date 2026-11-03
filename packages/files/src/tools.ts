@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { constants } from "node:fs";
+import { constants, existsSync } from "node:fs";
 import { type FileHandle, lstat, mkdir, open, readdir, rename, rm } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { type AgentToolRegistration, defineTool, type ToolRunContext } from "@psyche/agent-core";
@@ -26,12 +26,28 @@ import { type FileProvenanceIndex, MemoryFileProvenance, readProvenance } from "
 
 /** Bytes one `read_file` call returns; page with `offset`. */
 export const MAX_READ_BYTES = 256 * 1024;
+/** What makes a folder a git directory (`is_git_directory`), plus its config. */
+const GIT_DIR_ENTRIES = new Set(["head", "objects", "refs", "config"]);
+
 /**
- * A path inside a repository's `.git/` (config, hooks, info/attributes): what the next git command
- * runs, so a write there is destructive and always asks (security §5.4; the broker floors it too).
+ * A path inside a repository's metadata, which the next git command runs from (config, hooks,
+ * attributes): a write there is destructive and always asks (security §5.4; the broker floors the
+ * `.git` segment too). Segments compare case-insensitively (APFS: `.GIT` is `.git`). Also a write
+ * that would complete a git directory elsewhere (a bare repository or `--separate-git-dir`): an
+ * entry `HEAD`, `objects`, `refs` or `config` into a folder that already has one of the first three.
  */
 export function gitInternal(path: string): boolean {
-  return path.split("/").includes(".git");
+  const segments = path.split("/");
+  if (segments.some((s) => s.toLowerCase() === ".git")) return true;
+  // The folder the write lands in and up to three above it (`objects/ab/…`, `refs/heads/x`).
+  for (let i = segments.length - 1; i >= Math.max(1, segments.length - 4); i--) {
+    const entry = segments[i]?.toLowerCase();
+    if (entry === undefined || !GIT_DIR_ENTRIES.has(entry)) continue;
+    const dir = segments.slice(0, i).join("/") || "/";
+    const others = ["HEAD", "objects", "refs"].filter((e) => e.toLowerCase() !== entry);
+    if (others.some((e) => existsSync(join(dir, e)))) return true;
+  }
+  return false;
 }
 
 /** Bytes of `write_file` content, and of each `edit_file` string. */

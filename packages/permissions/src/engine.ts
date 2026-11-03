@@ -958,9 +958,13 @@ function readOnlyHostCall(call: PolicyCall): boolean {
   return classifyHostCommand(p.argv, p.cwd).readOnly;
 }
 
-/** A path with a `.git` segment: inside a repository's own metadata. */
+/**
+ * A path with a `.git` segment, compared case-insensitively (APFS: `.GIT` is `.git`): inside a
+ * repository's own metadata. A write that completes a git directory elsewhere (bare repository,
+ * `--separate-git-dir`) needs the file system, so the files tools describe it as destructive.
+ */
 export function isGitInternalPath(path: string): boolean {
-  return path.split("/").includes(".git");
+  return path.split("/").some((s) => s.toLowerCase() === ".git");
 }
 
 /** The file call writes under some `.git/` (its target, or a move or copy destination). */

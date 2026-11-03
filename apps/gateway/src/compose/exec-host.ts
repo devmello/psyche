@@ -1,9 +1,16 @@
+import { execFile } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { accessSync, constants, readFileSync, realpathSync, type Stats, statSync } from "node:fs";
 import { mkdir, realpath, rm, writeFile } from "node:fs/promises";
 import { homedir, userInfo } from "node:os";
-import { dirname, isAbsolute, join, resolve } from "node:path";
-import { type AgentToolRegistration, defineTool, type ToolRunContext } from "@psyche/agent-core";
+import { basename, dirname, isAbsolute, join, resolve } from "node:path";
+import {
+  type AgentToolRegistration,
+  defineTool,
+  GIT_DRIVER_QUERY,
+  gitDriverOverrides,
+  type ToolRunContext,
+} from "@psyche/agent-core";
 import { createScratchDir, defaultDenyRead, scratchReadRules } from "@psyche/mcp-host";
 import {
   classifyHostCommand,
@@ -17,6 +24,7 @@ import {
   EXEC_OUTPUT_CAP_BYTES,
   type PermissionBroker,
   PsycheError,
+  type ToolResult,
 } from "@psyche/protocol";
 import { type CliDriver, type CliResult, nodeCliDriver } from "@psyche/sandbox";
 import { Type } from "@sinclair/typebox";
@@ -48,6 +56,49 @@ export const UNSANDBOXED_WORD = "UNSANDBOXED";
 /** A read-only command run without a card: at most this long, and this many at once. */
 export const READ_ONLY_TIMEOUT_MS = 15_000;
 export const READ_ONLY_CONCURRENCY = 2;
+
+/**
+ * Prefixed to every git that `exec_host` runs, carded or not (security §5.4): git runs programs
+ * its config names, which an earlier write could have set. fsmonitor, hooks, the pager, an
+ * external diff, signature display and gpg are off; `gitDriverOverrides` adds every filter, diff
+ * and merge driver the repository's config defines. A side effect: an approved `git commit`
+ * runs no hooks and cannot GPG-sign.
+ */
+export const EXEC_HOST_GIT_HARDENING = [
+  "-c",
+  "core.fsmonitor=false",
+  "-c",
+  "core.hooksPath=/dev/null",
+  "-c",
+  "core.pager=cat",
+  "-c",
+  "diff.external=",
+  "-c",
+  "log.showSignature=false",
+  "-c",
+  "gpg.program=/usr/bin/false",
+  "-c",
+  "gpg.ssh.program=/usr/bin/false",
+  "-c",
+  "gpg.x509.program=/usr/bin/false",
+] as const;
+
+function isGit(executable: string, argv0: string | undefined): boolean {
+  return basename(executable) === "git" || (argv0 !== undefined && basename(argv0) === "git");
+}
+
+/** The `-c` pairs that switch off the drivers the repository's config defines (config only). */
+function gitDriversOff(git: string, cwd: string, env: NodeJS.ProcessEnv): Promise<string[]> {
+  return new Promise((done) => {
+    execFile(
+      git,
+      [...EXEC_HOST_GIT_HARDENING, ...GIT_DRIVER_QUERY],
+      { cwd, env, timeout: 5_000, maxBuffer: 256 * 1024 },
+      // Exit 1 means none are defined; stdout carries the names either way.
+      (_err, stdout) => done(gitDriverOverrides(String(stdout ?? ""))),
+    );
+  });
+}
 const MAX_TIMEOUT_MS = 10 * 60_000;
 const ENV_NAME = "^[A-Z][A-Z0-9_]{0,63}$";
 /** Bare argv[0] is looked up here only, never in a PATH the agent supplies (CVE-2026-24763). */
@@ -303,6 +354,8 @@ export function readOnlyHost(p: HostParams): Resolved | undefined {
     if (st !== undefined && !st.isFile() && (READS_CONTENT.has(c.program) || !st.isDirectory())) {
       return undefined;
     }
+    // A hard link is one name for a file that may live outside the folder: realpath cannot tell.
+    if (st?.isFile() === true && st.nlink > 1) return undefined;
   }
   return resolved;
 }
@@ -395,7 +448,10 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
     provenanceOut: "untrusted",
     describeCall: (p) => {
       checkParams(p);
-      const { resolved, env, domains, readOnly } = describe(p);
+      const described = describe(p);
+      const { resolved, env, domains } = described;
+      // No audit log, no quiet path: the run must be recorded before it starts.
+      const readOnly = described.readOnly && deps.audit !== undefined;
       const srt = sandbox.known();
       const command = p.argv.join(" ");
       // Without srt nothing runs without a card (the sandbox is what keeps it read-only); the card
@@ -438,187 +494,212 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
     },
     async run(p, ctx) {
       checkParams(p);
-      const { real, folder } = await grantedFolder(p.cwd, deps.folders(ctx.threadId));
-      // Hashed again right before it runs: a binary swapped after approval does not run.
-      const { resolved, domains, readOnly } = describe(p);
-      // Let through without a card as read-only: it must still be read-only now (a symlink
-      // planted since, a changed folder), or it does not run.
+      // A quiet run takes its slot before the first await, so runs racing through the checks
+      // never make a third; every exit releases it.
       const quiet = ctx.approvalId === undefined && ctx.authority?.rule === READ_ONLY_RULE;
-      if (quiet && !readOnly) {
-        throw new PsycheError(
-          "forbidden",
-          "This command is no longer read-only (a file operand leaves the folder or the binary changed); it was not run",
-        );
-      }
-      const unsandboxed = await approvedUnsandboxed(deps, ctx, resolved.sha256);
-      const srt = await sandbox.fresh();
-      if (!unsandboxed && "missing" in srt) {
-        throw new PsycheError(
-          "unavailable",
-          `${srt.reason}: set up the sandbox (request_permission with {"need": "sandbox"}), or the owner types ${UNSANDBOXED_WORD} on the card`,
-          { details: { missing: { need: "sandbox" } } },
-        );
-      }
-      if (unsandboxed && folder.mode !== "rw") {
-        throw new PsycheError(
-          "forbidden",
-          `${folder.path} is granted read-only; an unsandboxed command needs a read-write folder`,
-          { details: { missing: { need: "folder", path: folder.path, access: "read_write" } } },
-        );
-      }
-      const dir = join(deps.home, "exec-host");
-      const id = randomUUID();
-      await mkdir(dir, { recursive: true, mode: 0o700 });
-      // Short on purpose: srt's mux sockets live in it and `sun_path` is 104 bytes.
-      const scratch = await createScratchDir(dir);
-      const settings = join(dir, `srt-${id}.json`);
-      const cleanup = async () => {
-        await rm(settings, { force: true });
-        await rm(scratch, { recursive: true, force: true });
-        await rm(dirname(settings), { recursive: false, force: true }).catch(() => undefined);
-      };
-      let user = "";
-      try {
-        user = userInfo().username;
-      } catch {
-        // No passwd entry; leave USER empty.
-      }
-      const env: NodeJS.ProcessEnv = {
-        // A read-only command finds only Apple's programs (no Homebrew helper it might call).
-        PATH: (readOnly ? SYSTEM_BIN_DIRS : SAFE_PATH).join(":"),
-        HOME: userHome,
-        USER: user,
-        LOGNAME: user,
-        LANG: "en_US.UTF-8",
-        TMPDIR: scratch,
-        ...(p.env ?? {}),
-      };
-      let file = resolved.executable;
-      let args = p.argv.slice(1);
-      if (!unsandboxed && "path" in srt) {
-        const profile = execHostSrtSettings({
-          psycheHome: deps.home,
-          userHome,
-          scratch,
-          // Read-only: nothing writable but the scratch directory, whatever the folder's grant.
-          writable: folder.mode === "rw" && !readOnly ? [folder.path] : [],
-          allowedDomains: readOnly ? [] : domains,
-        });
-        await writeFile(settings, JSON.stringify(profile), { mode: 0o600 });
-        file = srt.path;
-        args = ["--settings", settings, "--", resolved.executable, ...args];
-      }
-      const cap = deps.readOnlyTimeoutMs ?? READ_ONLY_TIMEOUT_MS;
-      const timeoutMs = quiet
-        ? Math.min(p.timeoutMs ?? cap, cap)
-        : (p.timeoutMs ?? EXEC_DEFAULT_TIMEOUT_MS);
-      let timedOut = false;
-      let stopped = false;
       if (quiet) {
         if (quietRunning >= READ_ONLY_CONCURRENCY) {
-          await cleanup();
           throw new PsycheError(
             "unavailable",
             `${READ_ONLY_CONCURRENCY} read-only commands are already running; try again when one finishes`,
             { retryable: true },
           );
         }
-        // Recorded before it starts: a run the audit log cannot record does not run.
-        try {
-          await deps.audit?.append({
-            kind: "exec_host.read_only_run",
-            actor: { type: "agent", runId: ctx.runId },
-            subject: { runId: ctx.runId, threadId: ctx.threadId },
-            data: {
-              runKey: id,
-              argv: p.argv,
-              cwd: real,
-              executable: resolved.executable,
-              executableSha256: resolved.sha256,
-            },
-          });
-        } catch {
-          await cleanup();
-          throw new PsycheError(
-            "unavailable",
-            "The audit log could not record this read-only command, so it was not run",
-          );
-        }
         quietRunning++;
       }
+      try {
+        return await runHost(p, ctx, quiet);
+      } finally {
+        if (quiet) quietRunning--;
+      }
+    },
+  });
+
+  async function runHost(p: HostParams, ctx: ToolRunContext, quiet: boolean): Promise<ToolResult> {
+    const { real, folder } = await grantedFolder(p.cwd, deps.folders(ctx.threadId));
+    // Hashed again right before it runs: a binary swapped after approval does not run.
+    const described = describe(p);
+    const { resolved, domains } = described;
+    const readOnly = described.readOnly;
+    if (quiet && deps.audit === undefined) {
+      throw new PsycheError("forbidden", "Read-only commands run without a card only when audited");
+    }
+    if (quiet && !readOnly) {
+      throw new PsycheError(
+        "forbidden",
+        "This command is no longer read-only (a file operand leaves the folder or the binary changed); it was not run",
+      );
+    }
+    const unsandboxed = await approvedUnsandboxed(deps, ctx, resolved.sha256);
+    const srt = await sandbox.fresh();
+    if (!unsandboxed && "missing" in srt) {
+      throw new PsycheError(
+        "unavailable",
+        `${srt.reason}: set up the sandbox (request_permission with {"need": "sandbox"}), or the owner types ${UNSANDBOXED_WORD} on the card`,
+        { details: { missing: { need: "sandbox" } } },
+      );
+    }
+    if (unsandboxed && folder.mode !== "rw") {
+      throw new PsycheError(
+        "forbidden",
+        `${folder.path} is granted read-only; an unsandboxed command needs a read-write folder`,
+        { details: { missing: { need: "folder", path: folder.path, access: "read_write" } } },
+      );
+    }
+    const dir = join(deps.home, "exec-host");
+    const id = randomUUID();
+    await mkdir(dir, { recursive: true, mode: 0o700 });
+    // Short on purpose: srt's mux sockets live in it and `sun_path` is 104 bytes.
+    const scratch = await createScratchDir(dir);
+    const settings = join(dir, `srt-${id}.json`);
+    const cleanup = async () => {
+      await rm(settings, { force: true });
+      await rm(scratch, { recursive: true, force: true });
+      await rm(dirname(settings), { recursive: false, force: true }).catch(() => undefined);
+    };
+    let user = "";
+    try {
+      user = userInfo().username;
+    } catch {
+      // No passwd entry; leave USER empty.
+    }
+    const env: NodeJS.ProcessEnv = {
+      // A read-only command finds only Apple's programs (no Homebrew helper it might call).
+      PATH: (readOnly ? SYSTEM_BIN_DIRS : SAFE_PATH).join(":"),
+      HOME: userHome,
+      USER: user,
+      LOGNAME: user,
+      LANG: "en_US.UTF-8",
+      TMPDIR: scratch,
+      ...(p.env ?? {}),
+    };
+    let file = resolved.executable;
+    let args = p.argv.slice(1);
+    // Every git, carded or not: no program its config names (security §5.4).
+    if (isGit(resolved.executable, p.argv[0])) {
+      args = [
+        ...EXEC_HOST_GIT_HARDENING,
+        ...(await gitDriversOff(resolved.executable, real, env)),
+        ...args,
+      ];
+    }
+    if (!unsandboxed && "path" in srt) {
+      const profile = execHostSrtSettings({
+        psycheHome: deps.home,
+        userHome,
+        scratch,
+        // Read-only: nothing writable but the scratch directory, whatever the folder's grant.
+        writable: folder.mode === "rw" && !readOnly ? [folder.path] : [],
+        allowedDomains: readOnly ? [] : domains,
+      });
+      await writeFile(settings, JSON.stringify(profile), { mode: 0o600 });
+      file = srt.path;
+      args = ["--settings", settings, "--", resolved.executable, ...args];
+    }
+    const cap = deps.readOnlyTimeoutMs ?? READ_ONLY_TIMEOUT_MS;
+    const timeoutMs = quiet
+      ? Math.min(p.timeoutMs ?? cap, cap)
+      : (p.timeoutMs ?? EXEC_DEFAULT_TIMEOUT_MS);
+    let timedOut = false;
+    let stopped = false;
+    if (quiet) {
+      // Recorded before it starts: a run the audit log cannot record does not run.
+      try {
+        await deps.audit?.append({
+          kind: "exec_host.read_only_run",
+          actor: { type: "agent", runId: ctx.runId },
+          subject: { runId: ctx.runId, threadId: ctx.threadId },
+          data: {
+            runKey: id,
+            argv: p.argv,
+            cwd: real,
+            executable: resolved.executable,
+            executableSha256: resolved.sha256,
+          },
+        });
+      } catch {
+        await cleanup();
+        throw new PsycheError(
+          "unavailable",
+          "The audit log could not record this read-only command, so it was not run",
+        );
+      }
+    }
+    let result: CliResult | undefined;
+    let auditFailed = false;
+    let timer: NodeJS.Timeout | undefined;
+    let kill: (() => void) | undefined;
+    const onAbort = () => {
+      stopped = true;
+      kill?.();
+    };
+    try {
+      // Inside the try: a start that throws still releases everything and records the end.
       const proc = driver.start(file, args, {
         cwd: real,
         env,
         maxBytes: EXEC_OUTPUT_CAP_BYTES,
         processGroup: true,
       });
-      const timer = setTimeout(() => {
+      kill = () => proc.kill("SIGKILL");
+      timer = setTimeout(() => {
         timedOut = true;
         proc.kill("SIGKILL");
       }, timeoutMs);
       timer.unref();
-      const onAbort = () => {
-        stopped = true;
-        proc.kill("SIGKILL");
-      };
       if (ctx.signal.aborted) onAbort();
       else ctx.signal.addEventListener("abort", onAbort, { once: true });
-      let result: CliResult | undefined;
-      let auditFailed = false;
-      try {
-        result = await proc.done;
-      } finally {
-        clearTimeout(timer);
-        ctx.signal.removeEventListener("abort", onAbort);
-        await cleanup();
-        if (quiet) {
-          quietRunning--;
-          // The run's end, whatever happened; a failure to record it is reported, not dropped.
-          try {
-            await deps.audit?.append({
-              kind: "exec_host.read_only_run.done",
-              actor: { type: "agent", runId: ctx.runId },
-              subject: { runId: ctx.runId, threadId: ctx.threadId },
-              data: {
-                runKey: id,
-                exitCode: result?.exitCode ?? null,
-                outcome:
-                  result === undefined
-                    ? "error"
-                    : timedOut || stopped
-                      ? "uncertain"
-                      : result.exitCode === 0
-                        ? "ok"
-                        : "failed",
-                timedOut,
-              },
-            });
-          } catch {
-            auditFailed = true;
-          }
+      result = await proc.done;
+    } finally {
+      if (timer !== undefined) clearTimeout(timer);
+      ctx.signal.removeEventListener("abort", onAbort);
+      await cleanup();
+      if (quiet) {
+        // The run's end, whatever happened; a failure to record it is reported, not dropped.
+        try {
+          await deps.audit?.append({
+            kind: "exec_host.read_only_run.done",
+            actor: { type: "agent", runId: ctx.runId },
+            subject: { runId: ctx.runId, threadId: ctx.threadId },
+            data: {
+              runKey: id,
+              exitCode: result?.exitCode ?? null,
+              outcome:
+                result === undefined
+                  ? "error"
+                  : timedOut || stopped
+                    ? "uncertain"
+                    : result.exitCode === 0
+                      ? "ok"
+                      : "failed",
+              timedOut,
+            },
+          });
+        } catch {
+          auditFailed = true;
         }
       }
-      const redact = (b: Buffer) => deps.vault.redact(b.toString("utf8"));
-      // An interrupted host command may have done part of its work: uncertain, never replayed.
-      const outcome = timedOut || stopped ? "uncertain" : result.exitCode === 0 ? "ok" : "failed";
-      return {
-        output: {
-          exitCode: result.exitCode,
-          stdout: redact(result.stdout),
-          stderr: redact(result.stderr),
-          durationMs: result.durationMs,
-          truncated: result.stdoutTruncated || result.stderrTruncated,
-          timedOut,
-          ...(stopped ? { stopped: true } : {}),
-          sandboxed: !unsandboxed,
-          executable: resolved.executable,
-          cwd: real,
-          outcome,
-          ...(auditFailed ? { auditFailed: true } : {}),
-        },
-        provenance: "untrusted",
-        ...(outcome === "ok" && !auditFailed ? {} : { isError: true }),
-      };
-    },
-  });
+    }
+    const redact = (b: Buffer) => deps.vault.redact(b.toString("utf8"));
+    // An interrupted host command may have done part of its work: uncertain, never replayed.
+    const outcome = timedOut || stopped ? "uncertain" : result.exitCode === 0 ? "ok" : "failed";
+    return {
+      output: {
+        exitCode: result.exitCode,
+        stdout: redact(result.stdout),
+        stderr: redact(result.stderr),
+        durationMs: result.durationMs,
+        truncated: result.stdoutTruncated || result.stderrTruncated,
+        timedOut,
+        ...(stopped ? { stopped: true } : {}),
+        sandboxed: !unsandboxed,
+        executable: resolved.executable,
+        cwd: real,
+        outcome,
+        ...(auditFailed ? { auditFailed: true } : {}),
+      },
+      provenance: "untrusted",
+      ...(outcome === "ok" && !auditFailed ? {} : { isError: true }),
+    };
+  }
 }

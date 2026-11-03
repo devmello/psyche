@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import {
   existsSync,
+  linkSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -30,7 +31,7 @@ import {
   type ToolCallDescription,
 } from "@psyche/protocol";
 import type { CliDriver, CliOptions, CliResult } from "@psyche/sandbox";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   execHostTool,
   READ_ONLY_TIMEOUT_MS,
@@ -256,6 +257,15 @@ function answer(id: string, extra: Record<string, unknown> = {}) {
     ...extra,
   });
 }
+
+/** An audit log that keeps what it is given (the quiet path needs one). */
+const auditTrail: { kind: string; data: Record<string, unknown> }[] = [];
+const recordingAudit = {
+  append: async (e: unknown) => {
+    auditTrail.push(e as never);
+    return e as never;
+  },
+};
 
 const echo = { argv: ["/bin/echo", "hi"], cwd: project };
 
@@ -757,6 +767,7 @@ describe("red team: no read-only command writes a file (real binaries, srt strip
       home: psycheHome,
       userHome: home,
       driver: real,
+      audit: recordingAudit,
     });
     await new Promise((r) => setTimeout(r, 5));
     const argvs = [
@@ -806,6 +817,7 @@ describe("red team: what never runs quietly (marker-file payloads, security revi
       home: psycheHome,
       userHome: home,
       driver,
+      audit: recordingAudit,
     });
   const ready = async () => {
     const t = quiet();
@@ -933,6 +945,7 @@ describe("red team: what never runs quietly (marker-file payloads, security revi
       home: psycheHome,
       userHome: home,
       driver,
+      audit: recordingAudit,
       readOnlyTimeoutMs: 50,
     });
     await new Promise((r) => setTimeout(r, 5));
@@ -964,5 +977,114 @@ describe("red team: what never runs quietly (marker-file payloads, security revi
     expect(started).toHaveLength(2);
     for (const f of finishers) f({});
     await Promise.all([first, second]);
+  });
+
+  it("simultaneous quiet runs, started with no delay between them: still at most two", async () => {
+    mkdirSync(repo, { recursive: true });
+    const finishers: (() => void)[] = [];
+    const many: CliDriver = {
+      start() {
+        let done: (r: CliResult) => void = () => undefined;
+        const p = new Promise<CliResult>((r) => {
+          done = r;
+        });
+        finishers.push(() =>
+          done({
+            exitCode: 0,
+            signal: null,
+            stdout: Buffer.from(""),
+            stderr: Buffer.from(""),
+            stdoutTruncated: false,
+            stderrTruncated: false,
+            durationMs: 1,
+          }),
+        );
+        return { pid: 1, done: p, kill: () => undefined };
+      },
+      stream: () => {
+        throw new Error("not used");
+      },
+    };
+    const t = execHostTool({
+      broker: recording(),
+      vault: { redact: (x) => x },
+      folders: () => broker.policy.folders ?? [],
+      srt: { resolve: async () => srt },
+      home: psycheHome,
+      userHome: home,
+      driver: many,
+      audit: recordingAudit,
+    });
+    await new Promise((r) => setTimeout(r, 5));
+    const params = { argv: ["date"], cwd: repo };
+    const d = await decide(t, params);
+    const c = () => ctx({ authority: { rule: d.rule, bindingHash: d.bindingHash as string } });
+    // All three before any await: the slot is taken synchronously.
+    const settled = Promise.allSettled([
+      run(t, params, c()),
+      run(t, params, c()),
+      run(t, params, c()),
+    ]);
+    await vi.waitFor(() => expect(finishers).toHaveLength(2));
+    for (const f of finishers) f();
+    const out = await settled;
+    expect(finishers).toHaveLength(2);
+    expect(out.filter((r) => r.status === "rejected")).toHaveLength(1);
+    expect(
+      (out.find((r) => r.status === "rejected") as PromiseRejectedResult).reason,
+    ).toMatchObject({
+      code: "unavailable",
+    });
+  });
+
+  it("a hard-linked operand never runs quietly (realpath cannot see where it lives)", async () => {
+    const dir = join(home, "Projects", "hard");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(outside, "MARKER-hard.txt"), "s3cret");
+    if (!existsSync(join(dir, "copy.txt")))
+      linkSync(join(outside, "MARKER-hard.txt"), join(dir, "copy.txt"));
+    writeFileSync(join(dir, "plain.txt"), "x");
+    setPolicy({ folders: [{ path: dir, mode: "ro" }], exec: { execHostEnabled: true } });
+    const t = await ready();
+    expect(described(t, { argv: ["cat", "copy.txt"], cwd: dir }).meta).toBeUndefined();
+    expect(described(t, { argv: ["cat", "plain.txt"], cwd: dir }).meta).toEqual({
+      hostCommand: "read_only",
+    });
+  });
+
+  it("every git exec_host runs, carded ones too, has its config's programs switched off", async () => {
+    const dir = join(home, "Projects", "hardened");
+    mkdirSync(dir, { recursive: true });
+    const git = (...a: string[]) => spawnSync("/usr/bin/git", a, { cwd: dir, env });
+    if (git("init", "-q").status !== 0) return; // no git on this machine
+    git("config", "filter.pwn.clean", `touch ${marker("hardened")}; cat`);
+    git("config", "diff.pwn.textconv", `touch ${marker("hardened")}; cat`);
+    setPolicy({ folders: [{ path: dir, mode: "rw" }], exec: { execHostEnabled: true } });
+    const t = await ready();
+    const params = { argv: ["git", "status"], cwd: dir };
+    const a = await card(t, params);
+    await answer(a.id);
+    const out = run(t, params, ctx({ approvalId: a.id }));
+    await vi.waitFor(() => expect(started).toHaveLength(1));
+    finish({});
+    await out;
+    const s = started[0];
+    const inner = s?.args.slice((s?.args.indexOf("--") ?? 0) + 2) ?? [];
+    for (const v of [
+      "core.fsmonitor=false",
+      "core.hooksPath=/dev/null",
+      "gpg.program=/usr/bin/false",
+      "log.showSignature=false",
+      "diff.external=",
+      "filter.pwn.clean=",
+      "filter.pwn.process=",
+      "filter.pwn.smudge=",
+      "diff.pwn.textconv=",
+    ]) {
+      expect(inner, v).toContain(v);
+    }
+    // The owner's own argv comes last, unchanged.
+    expect(inner.slice(-1)).toEqual(["status"]);
+    expect(existsSync(marker("hardened"))).toBe(false);
   });
 });

@@ -282,6 +282,9 @@ describe("writes under .git/ (security review, finding 1)", () => {
       "/work/app/.git/config",
       "/work/app/.git/hooks/pre-commit",
       "/work/.git/info/attributes",
+      // APFS is case-insensitive: git uses `.GIT` as `.git`.
+      "/work/app/.GIT/config",
+      "/work/app/.Git/HEAD",
     ]) {
       expect(await h.broker.decide(write(path), CTX), path).toMatchObject({
         decision: "ask",

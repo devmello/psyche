@@ -119,6 +119,23 @@ describe("writes under .git/ (security §5.4)", () => {
     expect(edit?.sideEffect).toBe("destructive");
     const plain = tools.write_file?.describeCall?.({ path: join(granted, "n.md"), content: "a" });
     expect(plain?.sideEffect).toBeUndefined();
+    // Case-insensitive, as APFS is: `.GIT` is where git looks too.
+    for (const dotGit of [".GIT", ".Git"]) {
+      expect(
+        tools.write_file?.describeCall?.({ path: join(granted, dotGit, "config"), content: "x" })
+          ?.sideEffect,
+      ).toBe("destructive");
+    }
+    // A git directory assembled elsewhere (bare repository, --separate-git-dir): once one of
+    // HEAD / objects / refs is there, the next entry asks.
+    const bare = join(granted, "bare");
+    mkdirSync(join(bare, "objects"), { recursive: true });
+    for (const entry of ["HEAD", "config", join("refs", "heads", "main")]) {
+      expect(
+        tools.write_file?.describeCall?.({ path: join(bare, entry), content: "x" })?.sideEffect,
+        entry,
+      ).toBe("destructive");
+    }
     // A file merely named like it is not inside a repository's metadata.
     const named = tools.write_file?.describeCall?.({
       path: join(granted, ".gitignore"),

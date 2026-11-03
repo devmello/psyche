@@ -15,6 +15,7 @@ import {
   codingTools,
   defineTool,
   type GitRunner,
+  gitDriverOverrides,
   globToRegExp,
   parsePatch,
   type ToolRunContext,
@@ -461,5 +462,35 @@ describe("code.git push through the agent loop", () => {
     await expect(
       sh(remote, "rev-parse", "--verify", "--quiet", "refs/heads/main"),
     ).rejects.toThrow();
+  });
+});
+
+describe("gitDriverOverrides (security §5.4)", () => {
+  it("switches off every filter, diff and merge driver git config names", () => {
+    const listed = [
+      "filter.pwn.clean",
+      "filter.pwn.process",
+      "diff.pwn.textconv",
+      "merge.ours.driver",
+      "filter.lfs.smudge",
+      "filter.bad name.clean",
+      "core.editor",
+    ].join("\n");
+    const out = gitDriverOverrides(listed);
+    for (const v of [
+      "filter.pwn.clean=",
+      "filter.pwn.smudge=",
+      "filter.pwn.process=",
+      "filter.pwn.required=false",
+      "diff.pwn.textconv=",
+      "diff.pwn.command=",
+      "merge.ours.driver=",
+      "filter.lfs.clean=",
+    ]) {
+      expect(out).toContain(v);
+    }
+    expect(out.join(" ")).not.toContain("bad name");
+    expect(out.join(" ")).not.toContain("core.editor");
+    expect(out.filter((x) => x === "-c")).toHaveLength(out.length / 2);
   });
 });
