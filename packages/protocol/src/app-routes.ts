@@ -157,4 +157,4 @@ export function runLinkRoute(runId: string): string {
 }
 
 export const SCHEDULED_RUNS_ROUTE = "/scheduled?tab=runs";
-export const MEMORY_REVIEW_ROUTE = "/settings/memory";
+export const MEMORY_REVIEW_ROUTE = "/memory/review";

@@ -46,7 +46,7 @@ describe("the Memory page", () => {
     await user.click(within(kinds).getByRole("button", { name: "Projects" }));
     expect(navigate).toHaveBeenLastCalledWith("/memory?kind=projects");
     await user.click(within(kinds).getByRole("button", { name: /^Review/ }));
-    expect(navigate).toHaveBeenLastCalledWith("/settings/memory");
+    expect(navigate).toHaveBeenLastCalledWith("/memory/review");
   });
 
   it("People is the old People page: the list, its filters and a row that opens its page", async () => {

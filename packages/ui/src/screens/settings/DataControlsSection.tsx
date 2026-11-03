@@ -1,4 +1,5 @@
 import type { MemoryRecallStatus, MemoryStoreStatus, MethodResult } from "@psyche/protocol";
+import { MEMORY_REVIEW_ROUTE } from "@psyche/protocol";
 import { Download, Trash2 } from "lucide-react";
 import { type ReactElement, useId, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
@@ -518,7 +519,7 @@ export function MemoryControlsSection(): ReactElement {
           onChange: (enabled) => form.onChange(GRAPH_SETTING, { ...graph, enabled }),
         }}
         reviewCount={review.counts.pending}
-        {...(navigate ? { onOpenReview: () => navigate("/settings/memory") } : {})}
+        {...(navigate ? { onOpenReview: () => navigate(MEMORY_REVIEW_ROUTE) } : {})}
         onPauseMemory={(paused) =>
           void act(async () => {
             await call("memory.pause", { paused });

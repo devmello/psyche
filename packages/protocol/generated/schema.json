@@ -30081,7 +30081,7 @@
         "route": {
           "anyOf": [
             {
-              "description": "Deep link inside the app: /chat/<threadId>?message=<id> or ?approval=<id>, /overview/run/<runId>, /scheduled?tab=runs, /settings/memory",
+              "description": "Deep link inside the app: /chat/<threadId>?message=<id> or ?approval=<id>, /overview/run/<runId>, /scheduled?tab=runs, /memory/review",
               "type": "string"
             },
             {

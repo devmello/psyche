@@ -4,6 +4,10 @@ export const memoryReview = {
   "memoryReview.title": "Review",
   "memoryReview.description":
     "Facts {persona} found in your mail, messages and notes. Nothing is remembered until you accept it, and every fact shows where it came from.",
+  "memoryReview.settingsDescription":
+    "The rules for what {persona} may remember without asking. The facts waiting for you are on the Memory page.",
+  "memoryReview.link.label": "Review queue",
+  "memoryReview.link.open": "Open in Memory",
   "memoryReview.loadLabel": "memory review",
   "memoryReview.tab.review": "To review ({n, number})",
   "memoryReview.tab.recent": "Learned lately ({n, number})",
