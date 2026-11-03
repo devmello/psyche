@@ -13,25 +13,50 @@ public enum CalendarWatchCore {
         ["type": .string(changed), "at": .string(AppleDates.string(at)), "coalesced": .int(max(1, coalesced))]
     }
 
-    /// Counts changes inside the open window.
-    final class Window: @unchecked Sendable {
-        private let lock = NSLock()
+    /// The fold, as a synchronous state machine: a change opens a window or joins the open one,
+    /// and closing the window hands back how many changes it folded. `run` drives it with wall
+    /// time; `fold(changesAt:window:)` with given times (no scheduling in between).
+    public struct Fold: Sendable {
         private var count = 0
+        public init() {}
 
         /// Records a change; true when it opened a new window.
-        func note() -> Bool {
-            lock.withLock {
-                count += 1
-                return count == 1
-            }
+        public mutating func note() -> Bool {
+            count += 1
+            return count == 1
         }
 
-        func take() -> Int {
-            lock.withLock {
-                defer { count = 0 }
-                return count
-            }
+        /// Closes the window: the changes it folded (0 when none was open).
+        public mutating func take() -> Int {
+            defer { count = 0 }
+            return count
         }
+    }
+
+    /// What `run` emits for changes at `times`, a window of `window` opening at each change that
+    /// finds none open: the folded count of each window, in order.
+    public static func fold(changesAt times: [Date], window: TimeInterval) -> [Int] {
+        var fold = Fold()
+        var closesAt: Date?
+        var out: [Int] = []
+        for t in times.sorted() {
+            if let end = closesAt, t >= end {
+                out.append(fold.take())
+                closesAt = nil
+            }
+            if fold.note() { closesAt = t.addingTimeInterval(window) }
+        }
+        if closesAt != nil { out.append(fold.take()) }
+        return out
+    }
+
+    /// `Fold` shared between the change loop and the task that closes the window.
+    final class Window: @unchecked Sendable {
+        private let lock = NSLock()
+        private var fold = Fold()
+
+        func note() -> Bool { lock.withLock { fold.note() } }
+        func take() -> Int { lock.withLock { fold.take() } }
     }
 
     /// Emits one event per window: a change opens a window of `debounce`, every change inside it is

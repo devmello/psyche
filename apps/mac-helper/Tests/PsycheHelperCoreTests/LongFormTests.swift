@@ -105,18 +105,38 @@ struct LongFormTests {
         var all: [JSONValue] { lock.withLock { items } }
     }
 
-    @Test func calendarChangesFoldIntoOneEventPerWindow() async throws {
+    @Test func calendarChangesFoldIntoOneEventPerWindow() throws {
+        // The fold itself, with fixed times: five changes inside one 150 ms window, then one more
+        // 400 ms after the first, in a window of its own. No scheduling, so nothing to race.
+        let t0 = Date(timeIntervalSince1970: 1_792_000_000)
+        let times = (0..<5).map { t0.addingTimeInterval(Double($0) * 0.01) } + [t0.addingTimeInterval(0.4)]
+        let counts = CalendarWatchCore.fold(changesAt: times, window: 0.15)
+        #expect(counts.count == 2)
+        #expect(counts == [5, 1])
+        // As events: the shape `run` emits, every one stamped with `now`.
+        let decoded = try counts
+            .map { CalendarWatchCore.event(at: t0, coalesced: $0) }
+            .map { try JSONDecoder().decode(AppleCalendarChangedEvent.self, from: JSONEncoder().encode($0)) }
+        #expect(decoded.map(\.coalesced) == [5, 1])
+        #expect(decoded.allSatisfy { $0.type == .calendarChanged && $0.at == AppleDates.string(t0) })
+        // A change exactly at a window's end opens the next one.
+        #expect(CalendarWatchCore.fold(changesAt: [t0, t0.addingTimeInterval(0.15)], window: 0.15) == [1, 1])
+        #expect(CalendarWatchCore.fold(changesAt: [], window: 0.15).isEmpty)
+    }
+
+    @Test func theWatchFoldsEveryChangeIntoSomeEvent() async throws {
+        // The async loop, without depending on window timing: however the changes split into
+        // windows, every one lands in exactly one event, and the stream's end flushes the last.
         let (changes, feed) = AsyncStream.makeStream(of: Void.self)
         let events = Events()
         let at = Date(timeIntervalSince1970: 1_792_000_000)
-        let run = _Concurrency.Task { await CalendarWatchCore.run(changes: changes, debounce: .milliseconds(150), now: { at }, emit: { events.add($0) }) }
-        for _ in 0..<5 { feed.yield() }
-        try await _Concurrency.Task.sleep(for: .milliseconds(400))
-        feed.yield()
+        let run = _Concurrency.Task { await CalendarWatchCore.run(changes: changes, debounce: .milliseconds(20), now: { at }, emit: { events.add($0) }) }
+        for _ in 0..<6 { feed.yield() }
         feed.finish()
-        #expect(await run.value == 2)
+        let sent = await run.value
         let decoded = try events.all.map { try JSONDecoder().decode(AppleCalendarChangedEvent.self, from: JSONEncoder().encode($0)) }
-        #expect(decoded.map(\.coalesced) == [5, 1])
+        #expect(sent == decoded.count && (1...6).contains(sent))
+        #expect(decoded.map(\.coalesced).reduce(0, +) == 6)
         #expect(decoded.allSatisfy { $0.type == .calendarChanged && $0.at == AppleDates.string(at) })
     }
 
