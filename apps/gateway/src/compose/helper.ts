@@ -421,7 +421,7 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
    * rule as every other Host-bound capability, `NodeRegistry.hostHelper`).
    */
   function touchIdHelper(deviceId: string | undefined): Helper {
-    const connected = [...helpers.values()]
+    let connected = [...helpers.values()]
       .reverse()
       .filter((h) => deviceId === undefined || h.deviceId === deviceId);
     if (connected.length === 0) {
@@ -431,10 +431,16 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
       );
     }
     if (deviceId === undefined && connected.length > 1) {
-      throw touchIdUnavailable(
-        "helper_offline",
-        "More than one Psyche Helper is connected, so Touch ID cannot tell which Mac should confirm this approval",
-      );
+      // Several, no pin from the window: the owner's pinned Host helper settles it
+      // (`devices.hostHelperDeviceId`), the registry's one choice for every Host-bound call.
+      const chosen = gateway?.context.nodes.hostHelper()?.info.id;
+      connected = connected.filter((h) => h.nodeId === chosen);
+      if (connected.length === 0) {
+        throw touchIdUnavailable(
+          "helper_offline",
+          "More than one Psyche Helper is connected, so Touch ID cannot tell which Mac should confirm this approval",
+        );
+      }
     }
     const able = connected.filter((h) => h.confirms);
     if (able.length === 0) {

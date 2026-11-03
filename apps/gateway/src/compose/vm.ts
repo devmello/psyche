@@ -150,6 +150,9 @@ export class VmRunner implements SandboxRunner {
     if (!s.enabled || s.guestNodeId === null || nodes === undefined) return undefined;
     const info = nodes.list().find((n) => n.id === s.guestNodeId);
     if (info === undefined || !nodes.isLive(info.id)) return undefined;
+    // The sandbox guest arrives through the Host helper's relay, on the guest socket: a node on
+    // any other transport (a WebSocket node that declares `vm-guest`) is never the guest.
+    if (nodes.transportOf(info.id) !== "vm-relay") return undefined;
     if (!info.capabilities.some((c) => c.name === "exec")) return undefined;
     return nodes.client(info.id);
   }

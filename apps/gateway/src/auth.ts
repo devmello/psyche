@@ -279,6 +279,18 @@ export function verifyChallenge(
   const nowIso = now.toISOString();
   const existing = getDevice(db, params.deviceId);
   if (existing?.revokedAt) return denied("device revoked");
+  // A Mac helper on the node socket either proves this launch's handshake secret or is refused:
+  // accepted as an ordinary node it would stay connected (the helper only retries after a
+  // denial) and Host features would stay off until it restarted. A stale or missing secret
+  // happens around a Gateway restart; the helper re-reads the file and reconnects.
+  if (
+    params.role === "node" &&
+    params.deviceFamily === "mac-helper" &&
+    peer.transport === "unix" &&
+    !isHostHelper(params, peer, deps.handshakeSecret)
+  ) {
+    return denied("stale or missing handshake secret; reconnect with the current one");
+  }
   if (existing?.pairedAt) {
     // A paired device must present its pairing key, and keeps the role it was paired with.
     if (existing.publicKey !== params.publicKey) return denied("device key mismatch");

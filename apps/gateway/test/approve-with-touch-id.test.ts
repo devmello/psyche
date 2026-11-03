@@ -2,6 +2,7 @@ import { createHash, generateKeyPairSync, type KeyObject, sign } from "node:cryp
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { setSetting } from "@psyche/db";
 import { approvalCode, presenceChallenge } from "@psyche/permissions";
 import type { ApprovalRequest } from "@psyche/protocol";
 import { FakeModelProvider } from "@psyche/testing";
@@ -693,6 +694,23 @@ describe("approvals.approveWithTouchId (window Allow on a Touch ID card)", () =>
       { approvalId: approval.id, answerToken: token, helperDeviceId: helperDevice },
       ik(),
     );
+    expect(asked).toEqual(["first"]);
+
+    // The owner pinned a Host helper (devices.hostHelperDeviceId): with no pin from the window
+    // the registry's choice settles it, as for every other Host-bound call.
+    setSetting(c.gateway.context.db, "devices.hostHelperDeviceId", "helper-two");
+    // The pinned helper has no registered Touch ID key here, so the refusal names it: the
+    // first helper (keyed, and the newest-or-oldest pick of the old code) was not chosen.
+    expect(
+      await admin.request(
+        "approvals.approveWithTouchId",
+        { approvalId: approval.id, answerToken: token },
+        ik(),
+      ),
+    ).toMatchObject({
+      ok: false,
+      error: { code: "unavailable", details: { reason: "no_presence_key" } },
+    });
     expect(asked).toEqual(["first"]);
   });
 

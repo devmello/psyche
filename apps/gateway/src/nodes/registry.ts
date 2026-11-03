@@ -18,7 +18,7 @@ import {
   type NodeReceipt,
   PsycheError,
 } from "@psyche/protocol";
-import type { PairedIdentity } from "../auth.ts";
+import type { PairedIdentity, PeerInfo } from "../auth.ts";
 import type { GatewayContext, LiveConnection } from "../context.ts";
 
 /** Default end-to-end timeout of one invocation. */
@@ -81,13 +81,25 @@ interface Invocation {
  */
 export class NodeRegistry {
   readonly #ctx: GatewayContext;
-  readonly #live = new Map<string, { conn: LiveConnection; info: NodeInfo; host: boolean }>();
+  readonly #live = new Map<
+    string,
+    { conn: LiveConnection; info: NodeInfo; host: boolean; transport: PeerInfo["transport"] }
+  >();
   /** Whether Host-bound routing is currently refused for want of one helper. */
   #ambiguous = false;
   readonly #invocations = new Map<string, Invocation>();
 
   constructor(ctx: GatewayContext) {
     this.#ctx = ctx;
+    // No node is connected yet: a status left by the previous run (a crash while two helpers were
+    // connected) must not survive a restart. Quiet write: nobody is subscribed at startup, and
+    // later changes publish through `#syncHostHelperStatus`.
+    const stored = getSetting(ctx.db, HOST_HELPER_STATUS_SETTING)?.value as
+      | { ambiguous?: unknown }
+      | undefined;
+    if (stored !== undefined && stored.ambiguous !== false) {
+      setSetting(ctx.db, HOST_HELPER_STATUS_SETTING, { ambiguous: false, helpers: 0 });
+    }
   }
 
   attach(conn: LiveConnection, identity: PairedIdentity, params: ConnectParams): NodeInfo {
@@ -106,7 +118,12 @@ export class NodeRegistry {
     })();
     const previous = this.#live.get(info.id);
     // Replace before closing, so the old connection's detach does not mark the node offline.
-    this.#live.set(info.id, { conn, info, host: identity.hostHelper === true });
+    this.#live.set(info.id, {
+      conn,
+      info,
+      host: identity.hostHelper === true,
+      transport: conn.peer.transport,
+    });
     if (previous && previous.conn !== conn) {
       this.#failInvocations(previous.conn.id, "replaced by a new connection");
       previous.conn.close("replaced by a new connection");
@@ -228,6 +245,11 @@ export class NodeRegistry {
   /** Every live Host helper (zero, one, or more than one: the caller decides what that means). */
   hostHelpers(): HostHelper[] {
     return this.#liveHostHelpers().map((e) => this.#hostHelperOf(e));
+  }
+
+  /** The transport a live node arrived on (`vm-relay` for a relayed sandbox guest). */
+  transportOf(nodeId: string): PeerInfo["transport"] | undefined {
+    return this.#live.get(nodeId)?.transport;
   }
 
   /** Whether `nodeId` is a live Host helper. */

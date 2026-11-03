@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { chmodSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 /** Create `$PSYCHE_HOME` and the subdirectories the bootstrap Gateway uses, all mode 0700 (architecture §14). */
@@ -19,15 +19,27 @@ export function newHandshakeSecret(): string {
   return randomBytes(32).toString("base64url");
 }
 
-/** Call only once the Gateway is listening, so a failed second start never clobbers a live secret. */
+/**
+ * Call after the live-Gateway check (so a failed second start never clobbers a live secret) and
+ * BEFORE any socket listens: a helper that reconnects the instant the node socket opens must
+ * already find this launch's secret. Written atomically (temp file, then rename over the old one)
+ * so there is never a moment with no file, and a crash leaves the old secret, which the next
+ * start replaces.
+ */
 export function writeHandshakeSecret(
   home: string,
   secret: string,
 ): { secret: string; path: string } {
   const path = join(home, "run", "handshake.secret");
-  rmSync(path, { force: true });
-  writeFileSync(path, `${secret}\n`, { mode: 0o600 });
-  chmodSync(path, 0o600);
+  const tmp = `${path}.${process.pid}.tmp`;
+  try {
+    writeFileSync(tmp, `${secret}\n`, { mode: 0o600 });
+    chmodSync(tmp, 0o600);
+    renameSync(tmp, path);
+  } catch (err) {
+    rmSync(tmp, { force: true });
+    throw err;
+  }
   return { secret, path };
 }
 

@@ -1,11 +1,28 @@
-import { existsSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { getDeviceFamily, getSetting, setSetting } from "@psyche/db";
 import type { NodeInfo } from "@psyche/protocol";
-import { afterEach, describe, expect, it } from "vitest";
+import { FakeModelProvider } from "@psyche/testing";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { computerHelper } from "../src/compose/computer.ts";
 import { dictationNode } from "../src/compose/dictation.ts";
-import { helperPresenceVerifier } from "../src/compose/helper.ts";
-import { HOST_HELPER_PIN_SETTING, HOST_HELPER_STATUS_SETTING } from "../src/nodes/registry.ts";
+import { composeHelper, helperPresenceVerifier } from "../src/compose/helper.ts";
+import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
+import { silentLogger } from "../src/log.ts";
+import {
+  HOST_HELPER_PIN_SETTING,
+  HOST_HELPER_STATUS_SETTING,
+  NodeRegistry,
+} from "../src/nodes/registry.ts";
 import type { Gateway } from "../src/server.ts";
 import { resolveGuestSocketPath } from "../src/socket-path.ts";
 import { FakeNode, type FakeNodeHandler, pairNodeDevice } from "./fake-node.ts";
@@ -171,7 +188,7 @@ describe("a sandbox guest relayed to the Gateway", () => {
 });
 
 describe("the Host helper's proof", () => {
-  it("a paired mac-helper on the node socket without the handshake secret is not the Host helper", async () => {
+  it("a mac-helper on the node socket with a stale or missing secret is refused, so it reconnects with the current one", async () => {
     const g = await start();
     const key = newDeviceKey();
     const first = await track(
@@ -185,23 +202,58 @@ describe("the Host helper's proof", () => {
     );
     expect(g.context.nodes.isHostHelper(first.nodeId)).toBe(true);
     await first.close();
-    const again = await track(
+    // Missing, or the previous launch's secret (the window around a Gateway restart): refused
+    // (not accepted as an ordinary node, which would never retry), paired device or not.
+    for (const secret of [undefined, "previous-launch-secret"]) {
+      await expect(
+        FakeNode.connect(g.config.nodeSocketPath, {
+          origin: g.origin,
+          ...(secret === undefined ? {} : { secret }),
+          handlers: CAPS,
+          key,
+          deviceId: "helper-x",
+        }),
+      ).rejects.toThrow(/stale or missing handshake secret/);
+    }
+    // The helper re-reads the secret file and retries: it is the Host helper again.
+    const retried = await track(
       FakeNode.connect(g.config.nodeSocketPath, {
         origin: g.origin,
+        secret: g.handshakeSecret,
         handlers: CAPS,
         key,
         deviceId: "helper-x",
       }),
     );
-    expect(info(g, again.nodeId)?.kind).toBe("remote");
-    expect(g.context.nodes.hostHelper()).toBeUndefined();
+    expect(g.context.nodes.isHostHelper(retried.nodeId)).toBe(true);
+    expect(g.context.nodes.hostHelper()?.info.id).toBe(retried.nodeId);
+  });
+
+  it("writes this launch's secret before the node socket accepts anyone, replacing a stale file atomically", async () => {
+    const home = mkdtempSync(join(tmpdir(), "psyche-race-"));
+    mkdirSync(join(home, "run"), { recursive: true, mode: 0o700 });
+    const secretFile = join(home, "run", "handshake.secret");
+    // What a crash leaves behind: the previous launch's secret.
+    writeFileSync(secretFile, "stale-secret\n", { mode: 0o600 });
+    const starting = startTestGateway({ home });
+    let seen = "";
+    const socket = join(home, "run", "node.sock");
+    const deadline = Date.now() + 10_000;
+    while (!existsSync(socket) && Date.now() < deadline) await new Promise((r) => setImmediate(r));
+    // The moment a helper could connect, the file already holds a fresh secret (and never
+    // vanished in between).
+    seen = readFileSync(secretFile, "utf8").trim();
+    t = await starting;
+    expect(seen).not.toBe("stale-secret");
+    expect(seen).toBe(t.gateway.handshakeSecret);
+    expect(readdirSync(join(home, "run")).filter((f) => f.endsWith(".tmp"))).toEqual([]);
   });
 
   it("a mac-helper never pairs by owner approval, over the node socket or the WebSocket", async () => {
     const g = await start();
     await expect(
       FakeNode.connect(g.config.nodeSocketPath, { origin: g.origin, handlers: CAPS }),
-    ).rejects.toThrow(/handshake secret on its own Mac/);
+    ).rejects.toThrow(/stale or missing handshake secret/);
     await expect(
       FakeNode.connectWs(wsUrlOf(g), { origin: g.origin, handlers: CAPS }),
     ).rejects.toThrow(/handshake secret on its own Mac/);
@@ -339,5 +391,108 @@ describe("presence keys of devices that are not the Host helper", () => {
     );
     expect(await host.verify(assertion, "challenge", "d")).toBe(false);
     expect(asked).toBe(1);
+  });
+});
+
+describe("the status of an ambiguous Host", () => {
+  it("a status left by the previous run does not survive a restart", async () => {
+    const g = await start();
+    setSetting(g.context.db, HOST_HELPER_STATUS_SETTING, { ambiguous: true, helpers: 2 });
+    // A new registry is what a restarted Gateway builds; nobody is connected yet.
+    new NodeRegistry(g.context);
+    expect(getSetting(g.context.db, HOST_HELPER_STATUS_SETTING)?.value).toEqual({
+      ambiguous: false,
+      helpers: 0,
+    });
+  });
+});
+
+describe("the helper plumbing talks only to Host helpers", () => {
+  let composed: ComposedGateway | null = null;
+  afterEach(async () => {
+    await composed?.stop("test");
+    composed = null;
+  });
+
+  it("a node that stops being the Host helper loses its subscription and gets no approval card", async () => {
+    const home = mkdtempSync(join(tmpdir(), "psyche-helperclient-"));
+    try {
+      composed = await composeGateway({
+        env: {},
+        logger: silentLogger,
+        retentionIntervalMs: 0,
+        background: false,
+        config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+        model: { provider: new FakeModelProvider(), model: "fake/model" },
+        parts: [(s) => composeHelper(s)],
+      });
+      const g = composed.gateway;
+      const notifyCaps: FakeNodeHandler[] = [
+        {
+          capability: { name: "notify.show", sideEffect: "write", streaming: false },
+          run: () => ({ shown: true }),
+        },
+        {
+          capability: { name: "notify.withdraw", sideEffect: "write", streaming: false },
+          run: () => ({ withdrawn: true }),
+        },
+        {
+          capability: { name: "notify.subscribe", sideEffect: "read", streaming: true },
+          run: () => new Promise(() => undefined),
+        },
+      ];
+      const card = () =>
+        g.context.broker.requestApproval({
+          kind: "policy_change",
+          summary: "Change a security setting",
+          details: {},
+          bindingHash: "d".repeat(64),
+          grantKey: "d".repeat(64),
+          requestedBy: { runId: null, taskId: null, threadId: null },
+          sideEffect: "destructive",
+          surfaces: ["desktop", "notification"],
+          scopesOffered: ["once"],
+          taint: false,
+        });
+
+      const key = newDeviceKey();
+      const host = await track(
+        FakeNode.connect(g.config.nodeSocketPath, {
+          origin: g.origin,
+          secret: g.handshakeSecret,
+          handlers: notifyCaps,
+          key,
+          deviceId: "helper-flip",
+        }),
+      );
+      await vi.waitFor(() =>
+        expect(host.invocations.map((i) => i.capability)).toContain("notify.subscribe"),
+      );
+      await card();
+      await vi.waitFor(() =>
+        expect(host.invocations.map((i) => i.capability)).toContain("notify.show"),
+      );
+
+      // The same device reconnects without the proof (over the WebSocket, still declaring
+      // mac-helper): paired, family unchanged, but no longer the Host helper.
+      const flipped = await track(
+        FakeNode.connectWs(wsUrlOf(g), {
+          origin: g.origin,
+          handlers: notifyCaps,
+          key,
+          deviceId: "helper-flip",
+          deviceFamily: "mac-helper",
+        }),
+      );
+      expect(g.context.nodes.isHostHelper(flipped.nodeId)).toBe(false);
+      await card();
+      await new Promise((r) => setTimeout(r, 100));
+      // No subscription, no card, nothing: the plumbing never invokes a non-Host node.
+      expect(flipped.invocations).toEqual([]);
+    } finally {
+      await composed?.stop("test");
+      composed = null;
+      rmSync(home, { recursive: true, force: true });
+    }
   });
 });

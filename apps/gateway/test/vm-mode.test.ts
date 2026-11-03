@@ -16,7 +16,7 @@ import type { ComposeServices } from "../src/compose/services.ts";
 import { type ComposedVm, composeVm } from "../src/compose/vm.ts";
 import { silentLogger } from "../src/log.ts";
 import { FakeNode, pairNodeDevice } from "./fake-node.ts";
-import { adminClient, ik, newDeviceKey, type TestClient } from "./helpers.ts";
+import { adminClient, ik, newDeviceKey, type TestClient, wsUrlOf } from "./helpers.ts";
 
 /**
  * Scripted scenario for VM mode, Gateway side (L1–L5): the owner turns VM mode on, a chat turn
@@ -151,10 +151,11 @@ async function stack(background: boolean) {
     ],
   });
   const ran: unknown[] = [];
-  // The guest's psyche-node declares `vm-guest`, not `mac-helper`: it is not a Host helper.
+  // The guest's psyche-node declares `vm-guest`, not `mac-helper`, and reaches the Gateway
+  // through the Host helper's relay, on the guest socket.
   const guestKey = newDeviceKey();
   pairNodeDevice(c.gateway, "guest-psyche-node", guestKey);
-  const guestNode = await FakeNode.connect(c.gateway.config.nodeSocketPath, {
+  const guestNode = await FakeNode.connect(c.gateway.config.guestSocketPath as string, {
     origin: c.gateway.origin,
     secret: c.gateway.handshakeSecret,
     deviceId: "guest-psyche-node",
@@ -305,6 +306,34 @@ describe("VM mode, Gateway side (L1–L5)", () => {
     expect(vm.workspaceFor({})).toBe("sandbox");
     await owner.call("settings.set", { key: VM_SETTING_KEYS.defaultWorkspace, value: "vm" }, ik());
     expect(vm.workspaceFor({})).toBe("vm");
+  });
+
+  it("never takes a WebSocket node that declares vm-guest as the sandbox guest", async () => {
+    const { c, owner, vm, guestNode } = await stack(false);
+    const key = newDeviceKey();
+    pairNodeDevice(c.gateway, "ws-guest", key);
+    const wsGuest = await FakeNode.connectWs(wsUrlOf(c.gateway), {
+      origin: c.gateway.origin,
+      key,
+      deviceId: "ws-guest",
+      deviceFamily: "vm-guest",
+      handlers: [{ capability: { name: "exec", sideEffect: "write", streaming: true } }],
+    });
+    nodes.push(wsGuest);
+    await owner.call("settings.set", { key: VM_SETTING_KEYS.enabled, value: true }, ik());
+    await owner.call(
+      "settings.set",
+      { key: VM_SETTING_KEYS.guestNodeId, value: wsGuest.nodeId },
+      ik(),
+    );
+    // Named by the setting, connected, offering exec: still not the guest.
+    expect(vm.runner.ready()).toBe(false);
+    await owner.call(
+      "settings.set",
+      { key: VM_SETTING_KEYS.guestNodeId, value: guestNode.nodeId },
+      ik(),
+    );
+    expect(vm.runner.ready()).toBe(true);
   });
 
   it("offers exec without a container backend only while VM mode is on", async () => {

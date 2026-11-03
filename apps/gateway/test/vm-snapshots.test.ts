@@ -127,10 +127,11 @@ async function stack(opts: { failReset?: boolean } = {}) {
       }),
     ],
   });
-  // The guest's psyche-node declares `vm-guest`, not `mac-helper`: it is not a Host helper.
+  // The guest's psyche-node declares `vm-guest`, not `mac-helper`, and reaches the Gateway
+  // through the Host helper's relay, on the guest socket.
   const guestKey = newDeviceKey();
   pairNodeDevice(c.gateway, "guest-psyche-node", guestKey);
-  const guestNode = await FakeNode.connect(c.gateway.config.nodeSocketPath, {
+  const guestNode = await FakeNode.connect(c.gateway.config.guestSocketPath as string, {
     origin: c.gateway.origin,
     secret: c.gateway.handshakeSecret,
     deviceId: "guest-psyche-node",

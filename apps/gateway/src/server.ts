@@ -435,6 +435,9 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
         resolveListen();
       });
     });
+  // The secret first: a helper that reconnects the moment a socket opens (a Gateway restart)
+  // must find this launch's secret, never the previous one or none.
+  const { path: secretPath } = writeHandshakeSecret(config.home, handshakeSecret);
   const nodeServer = serveNodes("unix");
   await listenOn(nodeServer, config.nodeSocketPath);
   chmodSync(config.nodeSocketPath, 0o600);
@@ -449,7 +452,6 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     await listenOn(guestServer, config.guestSocketPath);
     chmodSync(config.guestSocketPath, 0o600);
   }
-  const { path: secretPath } = writeHandshakeSecret(config.home, handshakeSecret);
 
   // Follow-ups queued before the restart run now; then the hourly retention sweep.
   ctx.sessions.drainAll();
