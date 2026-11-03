@@ -217,6 +217,7 @@ import {
   teachingAskRules,
   teachingSettings,
 } from "./teaching.ts";
+import { createThreadClear } from "./thread-clear.ts";
 import { SqliteThreadStateStore } from "./thread-state.ts";
 import { CROSS_THREAD_SETTING, crossThreadToggle, threadTools } from "./thread-tools.ts";
 import { modelPinsFor, restoreModelPins, threadSettingsHandlers } from "./threads.ts";
@@ -1634,6 +1635,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     // The owner's list and delete for the agent's own notes (memory/agent/).
     ...mountParamsOnly(createAgentNoteHandlers(memory) as never),
     ...teaching.handlers,
+    // The owner's Clear chat: empties a thread in place (the main chat cannot be deleted).
+    ...createThreadClear({ db, audit, broker, isRunning: (threadId) => loop.isBusy(threadId) }),
     ...mountParamsOnly(
       context.handlers(
         () => loop,

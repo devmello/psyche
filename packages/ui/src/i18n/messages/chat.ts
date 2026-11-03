@@ -287,4 +287,21 @@ export const chat = {
   "chat.steps.effect.purchases": "made {n, plural, one {# purchase} other {# purchases}}",
   "chat.steps.effect.submittedForms": "submitted {n, plural, one {# form} other {# forms}}",
   "chat.steps.effect.changes": "made {n, plural, one {# change} other {# changes}}",
+  "chat.clear.menu": "Clear chat…",
+  "chat.clear.menuBusy": "Not while {persona} is working",
+  "chat.clear.palette": "Clear the main chat",
+  "chat.clear.paletteKeywords": "empty reset start over fresh wipe delete messages conversation",
+  "chat.clear.title": "Clear the main chat?",
+  "chat.clear.body":
+    "Every message in this chat is removed and {persona} starts fresh. Receipts and the activity log are kept.",
+  "chat.clear.forget": "Also forget what {persona} learned from this chat",
+  "chat.clear.forgetHint":
+    "What was learned from this chat is listed in Memory for you to review first; nothing is removed until you confirm there.",
+  "chat.clear.busy": "{persona} is working in this chat. Clear it when the turn ends.",
+  "chat.clear.confirm": "Clear chat",
+  "chat.clear.clearing": "Clearing…",
+  "chat.clear.done": "Chat cleared",
+  "chat.clear.failed": "Could not clear the chat: {reason}",
+  "chat.clear.mainOnly": "Clear works in the main chat. Use /new for a fresh side chat.",
+  "chat.commands.clear.description": "Clear the main chat",
 } as const;

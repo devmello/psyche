@@ -157,6 +157,19 @@ export const ThreadsMethods = {
     scope: "operator.write",
     description: "Deletes a thread and its messages (receipts and audit entries are kept).",
   }),
+  "threads.clear": defineMethod({
+    params: Type.Object({
+      threadId: Id,
+      alsoForget: Type.Optional(
+        Type.Boolean({ description: "Also stage retraction of memory derived from this thread" }),
+      ),
+    }),
+    result: OkResult,
+    scope: "operator.write",
+    sideEffecting: true,
+    description:
+      "Side-effecting: empties a thread in place (the owner's Clear chat). Its messages, runs and queued follow-ups go and the agent starts fresh; the thread, its title, pin and settings, receipts and audit entries stay. conflict while the thread runs or waits on an approval or a question. alsoForget stages memory retraction like threads.delete.",
+  }),
   "threads.pin": defineMethod({
     params: Type.Object({ threadId: Id, pinned: Type.Boolean() }),
     result: ThreadResult,

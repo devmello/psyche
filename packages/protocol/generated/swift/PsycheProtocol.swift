@@ -1319,6 +1319,7 @@
 //   let thread = try? JSONDecoder().decode(Thread.self, from: jsonData)
 //   let threadActivity = try? JSONDecoder().decode(ThreadActivity.self, from: jsonData)
 //   let threadAutomation = try? JSONDecoder().decode(ThreadAutomation.self, from: jsonData)
+//   let threadClearedPayload = try? JSONDecoder().decode(ThreadClearedPayload.self, from: jsonData)
 //   let threadContextUpdatedPayload = try? JSONDecoder().decode(ThreadContextUpdatedPayload.self, from: jsonData)
 //   let threadDeletedPayload = try? JSONDecoder().decode(ThreadDeletedPayload.self, from: jsonData)
 //   let threadIDParams = try? JSONDecoder().decode(ThreadIDParams.self, from: jsonData)
@@ -1327,6 +1328,7 @@
 //   let threadPreview = try? JSONDecoder().decode(ThreadPreview.self, from: jsonData)
 //   let threadResult = try? JSONDecoder().decode(ThreadResult.self, from: jsonData)
 //   let threadUpdatedPayload = try? JSONDecoder().decode(ThreadUpdatedPayload.self, from: jsonData)
+//   let threadsClearParams = try? JSONDecoder().decode(ThreadsClearParams.self, from: jsonData)
 //   let threadsCompactParams = try? JSONDecoder().decode(ThreadsCompactParams.self, from: jsonData)
 //   let threadsCompactResult = try? JSONDecoder().decode(ThreadsCompactResult.self, from: jsonData)
 //   let threadsContextUsageParams = try? JSONDecoder().decode(ThreadsContextUsageParams.self, from: jsonData)
@@ -29884,6 +29886,19 @@ public struct ThingsUpdateParams: Codable, Sendable {
     }
 }
 
+// MARK: - ThreadClearedPayload
+public struct ThreadClearedPayload: Codable, Sendable {
+    public let threadID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case threadID = "threadId"
+    }
+
+    public init(threadID: String) {
+        self.threadID = threadID
+    }
+}
+
 // MARK: - ThreadContextUpdatedPayload
 public struct ThreadContextUpdatedPayload: Codable, Sendable {
     public let usage: ContextUsage
@@ -30121,6 +30136,23 @@ public struct ThreadUpdatedPayload: Codable, Sendable {
 
     public init(thread: Thread) {
         self.thread = thread
+    }
+}
+
+// MARK: - ThreadsClearParams
+public struct ThreadsClearParams: Codable, Sendable {
+    /// Also stage retraction of memory derived from this thread
+    public let alsoForget: Bool?
+    public let threadID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case alsoForget = "alsoForget"
+        case threadID = "threadId"
+    }
+
+    public init(alsoForget: Bool?, threadID: String) {
+        self.alsoForget = alsoForget
+        self.threadID = threadID
     }
 }
 

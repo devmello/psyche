@@ -29,6 +29,8 @@ export interface IndexWriter {
   index(doc: SearchDoc): Promise<void>;
   remove(id: string): Promise<void>;
   removeThread(threadId: string): Promise<number>;
+  /** The messages indexed under a thread whose transcript was cleared; the thread stays. */
+  removeThreadMessages(threadId: string): Promise<number>;
   setFlag(targetId: string, flag: SearchFlag): Promise<void>;
   retitleThread(threadId: string, title: string, scopeKey: string): Promise<void>;
 }
@@ -48,7 +50,7 @@ export interface SearchIndexerOptions {
 
 /**
  * Incremental indexing from Gateway events (`src/events.ts` in `@psyche/protocol`):
- * `thread.updated`, `thread.deleted`, `chat.message`, `task.updated`, `task.action`,
+ * `thread.updated`, `thread.deleted`, `thread.cleared`, `chat.message`, `task.updated`, `task.action`,
  * `approval.created`, `receipt.created`, `feed.post`, `feed.updated`, `idea.updated`,
  * `goal.updated`. Library items and connector caches have no events yet: their owners call
  * `libraryDoc` / `connectorDoc` and `index()` directly. Feed in every event
@@ -92,6 +94,9 @@ export class SearchIndexer {
       case "thread.deleted":
         this.#threads.delete(p.threadId as string);
         await this.#index.removeThread(p.threadId as string);
+        return;
+      case "thread.cleared":
+        await this.#index.removeThreadMessages(p.threadId as string);
         return;
       case "feed.post":
         return this.#index.index(feedDoc(p.post as FeedPost));

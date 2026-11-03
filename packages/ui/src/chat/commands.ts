@@ -29,6 +29,7 @@ export type CommandName =
   | "research"
   | "status"
   | "export"
+  | "clear"
   | "stop";
 
 export interface CommandInfo {
@@ -46,7 +47,7 @@ export interface CommandInfo {
 }
 
 /** Commands that take an argument, so have a hint (`/remember <fact>`). */
-type HintedCommand = Exclude<CommandName, "new" | "status" | "stop">;
+type HintedCommand = Exclude<CommandName, "new" | "status" | "stop" | "clear">;
 
 /** A command whose hint and description come from the catalogue as they are read. */
 function command(name: CommandName, arity: CommandInfo["arity"], args?: ArgSpec): CommandInfo {
@@ -86,6 +87,7 @@ export const COMMANDS: readonly CommandInfo[] = [
   command("research", "required"),
   command("status", "none"),
   command("export", "optional", { kind: "enum", options: exportOptions }),
+  command("clear", "none"),
   command("stop", "none"),
 ];
 

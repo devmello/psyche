@@ -27,6 +27,33 @@ export const Toolbar: Story = {
   ),
 };
 
+/** The main chat's ⋯ menu offers Clear chat… (open the menu to see it). */
+export const MainChat: Story = {
+  render: () => (
+    <AgentHeader
+      {...handlers}
+      mode="balanced"
+      model="anthropic/claude-sonnet-5-5"
+      disclosure={1}
+      onClearChat={() => {}}
+    />
+  ),
+};
+
+/** The main chat while it works: Clear chat… stays in the menu, off, with the reason. */
+export const MainChatWorking: Story = {
+  render: () => (
+    <AgentHeader
+      {...handlers}
+      mode="balanced"
+      model="anthropic/claude-sonnet-5-5"
+      disclosure={1}
+      onClearChat={() => {}}
+      clearChatDisabled
+    />
+  ),
+};
+
 export const Idle: Story = {
   decorators: [
     withWorld({

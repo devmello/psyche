@@ -18,6 +18,10 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-03 (Clear the main chat)
+
+- New method `threads.clear` (operator.write, side-effecting; params `threadId`, optional `alsoForget`): empties a thread in place. Messages, runs and queued follow-ups go, the agent starts fresh; the thread, its title, pin and settings, receipts and audit entries stay. `conflict` while the thread runs or waits on an approval or a question. New event `thread.cleared` (`threadId`).
+
 ### v1 additive — 2026-11-02 (generative UI, P1)
 
 - New `ui` block (`UiBlock {type: "ui", widgetId}`) in the `Block` union, new types `Widget`, `WidgetSpec`, `WidgetNode` (open object on the wire), `WidgetPatch`, `WidgetOp`, `WidgetAction`, `WidgetOwner`, `WidgetState`, `WidgetTone`, `WidgetBind`, new method `widgets.get` (operator.read) and event `widget.updated`. The per-node catalogue schemas (`WIDGET_NODE_SCHEMAS`) and `validateWidgetSpec` / `validateWidgetPatch` live in the package but not in the wire registry. Design: docs/design/generative-ui-2026.md.

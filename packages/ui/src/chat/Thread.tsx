@@ -31,6 +31,7 @@ import { VoiceComposer } from "../voice/composer-voice.tsx";
 import { WidgetDrafts } from "../widgets/WidgetBlock.tsx";
 import { ApprovalDock } from "./ApprovalDock.tsx";
 import { attachSupport, modelCapabilities, uploadFile } from "./attachments.ts";
+import { ConnectedClearChatDialog, requestClearChat } from "./ClearChatDialog.tsx";
 import type { ArgContext } from "./command-args.ts";
 import { type CommandName, parseCommand } from "./commands.ts";
 import { ComposerBusyWatch } from "./composer-busy.ts";
@@ -564,6 +565,15 @@ export function ChatThread({
         });
         return;
       }
+      case "clear": {
+        // The dialog is the confirmation; only the main chat offers it.
+        if (thread?.kind !== "main") {
+          setNotice({ kind: "info", text: t("chat.clear.mainOnly") });
+          return;
+        }
+        requestClearChat(store, threadId);
+        return;
+      }
       case "stop": {
         if (!view.running) {
           setNotice({ kind: "info", text: t("chat.thread.nothingRunning") });
@@ -817,6 +827,7 @@ export function ChatThread({
               <div className="pointer-events-auto mx-auto flex w-full max-w-(--chat-wide) flex-col gap-2">
                 <Presence>{away ? <JumpToLatest key="jump" onJump={jump} /> : null}</Presence>
                 <ComposerPrefill />
+                <ConnectedClearChatDialog threadId={threadId} />
                 <ComposerBusyWatch
                   threadId={threadId}
                   attachments={attachments.attach?.chips.length ?? 0}

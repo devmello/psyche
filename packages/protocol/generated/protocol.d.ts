@@ -10287,6 +10287,10 @@ export interface ThingsUpdateParams {
     when?: string;
 }
 
+export interface ThreadClearedPayload {
+    threadId: string;
+}
+
 export interface ThreadContextUpdatedPayload {
     usage: ContextUsage;
 }
@@ -10364,6 +10368,14 @@ export type TitleSource = "user" | "auto";
 
 export interface ThreadUpdatedPayload {
     thread: Thread;
+}
+
+export interface ThreadsClearParams {
+    /**
+     * Also stage retraction of memory derived from this thread
+     */
+    alsoForget?: boolean;
+    threadId:    string;
 }
 
 export interface ThreadsCompactParams {

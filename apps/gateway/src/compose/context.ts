@@ -41,7 +41,7 @@ export const CONTEXT_SETTINGS = {
   keepRecentTurns: "context.keepRecentTurns",
 } as const;
 const threadKey = (threadId: string) => `context.thread.${threadId}`;
-const usageKey = (threadId: string) => `context.usage.${threadId}`;
+export const usageKey = (threadId: string) => `context.usage.${threadId}`;
 
 export interface ContextDeps {
   db: PsycheDb;

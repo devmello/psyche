@@ -71,6 +71,7 @@ Settings pages (`/settings/…`): `essentials`, `general`, `model`, `connectors`
 | `/research question` | Research in depth with a cited report: Psyche shows the plan and token estimate and waits for your go-ahead. |
 | `/status` | Show model, mode and running work. |
 | `/export md \| json` | Export this thread. |
+| `/clear` | Clear the main chat. A dialog asks first (the same one as ⋯ → **Clear chat…** in the main chat's toolbar and ⌘K **Clear the main chat**): every message is removed and {persona} starts fresh; receipts and the activity log stay; a box, off by default, also asks {persona} to forget what it learned from the chat (listed in Memory for you to review first). Not while the chat is working or waiting on you. |
 | `/stop` | Stop the current run (Esc does too). |
 
 Other composer things: **Attach files** (paperclip; up to 8 files per message, images 5 MB, documents 25 MB; a model without vision takes documents only), **Dictate** (hold fn; the voice key in Settings → Voice & dictation), **Reply** to quote a message, **Edit and resend** (sent in a side chat forked from there), **Continue in a side chat**. While Psyche works, a message you send follows up when the turn ends, or steers it.

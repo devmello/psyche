@@ -221,6 +221,11 @@ export const Events = {
     payload: Type.Object({ thread: Thread }),
     description: "A thread was created, renamed, pinned, archived or restored.",
   }),
+  "thread.cleared": defineEvent({
+    payload: Type.Object({ threadId: Id }),
+    description:
+      "A thread's transcript was emptied (threads.clear); the thread itself stays. Clients drop the loaded messages and show the empty chat.",
+  }),
   "thread.context.updated": defineEvent({
     payload: Type.Object({ usage: ContextUsage }),
     description: "A turn ended: the thread's context usage and limits (the context meter).",

@@ -1,5 +1,13 @@
 import type { PermissionMode } from "@psyche/protocol";
-import { Bell, ChevronDown, Download, Ellipsis, PanelRight, ShieldCheck } from "lucide-react";
+import {
+  Bell,
+  ChevronDown,
+  Download,
+  Ellipsis,
+  Eraser,
+  PanelRight,
+  ShieldCheck,
+} from "lucide-react";
 import * as m from "motion/react-m";
 import type { ReactElement, ReactNode } from "react";
 import { AVATAR_STATE_LABEL, Avatar, type AvatarState } from "../avatar/Avatar.tsx";
@@ -99,6 +107,10 @@ export interface AgentHeaderProps {
   onContextLimits?: () => void;
   /** ⋯ → Compact now. */
   onCompact?: () => void;
+  /** ⋯ → Clear chat… (the main chat only: it cannot be deleted). */
+  onClearChat?: () => void;
+  /** Why Clear chat is off right now (the chat is working); the item stays, disabled. */
+  clearChatDisabled?: boolean;
 }
 
 const LEVELS: readonly DisclosureLevel[] = [0, 1, 2];
@@ -126,6 +138,8 @@ export function AgentHeader({
   context,
   onContextLimits,
   onCompact,
+  onClearChat,
+  clearChatDisabled = false,
 }: AgentHeaderProps): ReactElement {
   const persona = usePersona();
   const status = useAgentStatus({ incognito, paused });
@@ -380,6 +394,27 @@ export function AgentHeader({
               <>
                 <DropdownMenuSeparator />
                 {menu}
+              </>
+            ) : null}
+            {onClearChat ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  variant="destructive"
+                  disabled={clearChatDisabled}
+                  onClick={onClearChat}
+                  data-testid="clear-chat-item"
+                >
+                  <Eraser aria-hidden="true" />
+                  <span className="flex min-w-0 flex-col">
+                    {t("chat.clear.menu")}
+                    {clearChatDisabled ? (
+                      <span className="text-callout text-label-secondary">
+                        {t("chat.clear.menuBusy", { persona: persona.name })}
+                      </span>
+                    ) : null}
+                  </span>
+                </DropdownMenuItem>
               </>
             ) : null}
           </DropdownMenuContent>

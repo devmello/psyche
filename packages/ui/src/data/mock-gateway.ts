@@ -1250,6 +1250,30 @@ export class MockGateway implements GatewayClient {
       });
     },
     "threads.pin": (p) => this.patchThread(p.threadId, { pinned: p.pinned }),
+    "threads.clear": (p) => {
+      const entry = this.thread(p.threadId);
+      const busy = this.world.runs.some(
+        (r) =>
+          r.threadId === p.threadId &&
+          (r.status === "running" ||
+            r.status === "awaiting_approval" ||
+            r.status === "awaiting_input"),
+      );
+      if (busy) fail("conflict", "the chat is running; clear it when the turn ends");
+      const runIds = new Set(
+        this.world.runs.filter((r) => r.threadId === p.threadId).map((r) => r.id),
+      );
+      this.world.messages = this.world.messages.filter((m) => m.threadId !== p.threadId);
+      this.world.runs = this.world.runs.filter((r) => r.threadId !== p.threadId);
+      this.world.toolCalls = this.world.toolCalls.filter((c) => !runIds.has(c.runId));
+      if (this.world.contextUsage) delete this.world.contextUsage[p.threadId];
+      const cleared = { ...entry.thread, lastMessageAt: null, updatedAt: this.now() };
+      entry.thread = cleared;
+      delete entry.lastMessage;
+      this.emit("thread.cleared", { threadId: p.threadId });
+      this.emit("thread.updated", { thread: cleared });
+      return { ok: true };
+    },
     "threads.delete": (p) => {
       this.thread(p.threadId);
       this.world.threads = this.world.threads.filter((t) => t.thread.id !== p.threadId);

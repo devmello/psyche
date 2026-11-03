@@ -394,6 +394,11 @@
         "payload": "#/$defs/TaskUpdatedPayload"
       },
       {
+        "description": "A thread's transcript was emptied (threads.clear); the thread itself stays. Clients drop the loaded messages and show the empty chat.",
+        "name": "thread.cleared",
+        "payload": "#/$defs/ThreadClearedPayload"
+      },
+      {
         "description": "A turn ended: the thread's context usage and limits (the context meter).",
         "name": "thread.context.updated",
         "payload": "#/$defs/ThreadContextUpdatedPayload"
@@ -3026,6 +3031,14 @@
         "result": "#/$defs/ThreadResult",
         "scope": "operator.write",
         "sideEffecting": false
+      },
+      {
+        "description": "Side-effecting: empties a thread in place (the owner's Clear chat). Its messages, runs and queued follow-ups go and the agent starts fresh; the thread, its title, pin and settings, receipts and audit entries stay. conflict while the thread runs or waits on an approval or a question. alsoForget stages memory retraction like threads.delete.",
+        "name": "threads.clear",
+        "params": "#/$defs/ThreadsClearParams",
+        "result": "#/$defs/OkResult",
+        "scope": "operator.write",
+        "sideEffecting": true
       },
       {
         "description": "Side-effecting: compacts the thread's earlier turns now (null when there is nothing to compact); conflict while the thread runs or waits on an approval.",
@@ -40479,6 +40492,20 @@
       ],
       "type": "object"
     },
+    "ThreadClearedPayload": {
+      "properties": {
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "threadId"
+      ],
+      "type": "object"
+    },
     "ThreadContextUpdatedPayload": {
       "properties": {
         "usage": {
@@ -40595,6 +40622,24 @@
       },
       "required": [
         "thread"
+      ],
+      "type": "object"
+    },
+    "ThreadsClearParams": {
+      "properties": {
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "alsoForget": {
+          "description": "Also stage retraction of memory derived from this thread",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "threadId"
       ],
       "type": "object"
     },

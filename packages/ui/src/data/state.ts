@@ -178,6 +178,8 @@ export interface UiState {
   settings: Dict<unknown>;
   /** Text waiting to fill the chat composer (a "Try it" request from Settings, #640). */
   composerPrefill: string | null;
+  /** The chat whose Clear chat dialog was asked for (⋯ menu, ⌘K, /clear); that chat shows it. */
+  clearChatRequest: string | null;
   /** What the next message in a thread is about ("Ask about this" on a Feed item); one send. */
   composerContext: ComposerContext | null;
   memoryEtags: Dict<string | null>;
@@ -232,6 +234,7 @@ export const INITIAL_STATE: UiState = {
   goals: {},
   settings: {},
   composerPrefill: null,
+  clearChatRequest: null,
   composerContext: null,
   memoryEtags: {},
   queries: {},
@@ -329,6 +332,55 @@ export function upsertMessage(state: UiState, message: Message): UiState {
     messages: { ...state.messages, [message.threadId]: next },
     streaming,
     threads: withLastLine(state.threads, message),
+  };
+}
+
+/**
+ * A thread was emptied in place (`threads.clear`, `thread.cleared`): its transcript, runs and their
+ * traces, queued follow-ups and the context meter go from the client; the thread itself stays,
+ * without a last line. Receipts, artifacts and approvals are not the transcript's and stay.
+ */
+export function withThreadCleared(state: UiState, threadId: string): UiState {
+  const runIds = new Set(
+    Object.values(state.runs)
+      .filter((r) => r.threadId === threadId)
+      .map((r) => r.id),
+  );
+  function dropRuns<T>(dict: Dict<T>, runOf: (key: string, value: T) => string | undefined) {
+    return Object.fromEntries(
+      Object.entries(dict).filter(([key, value]) => {
+        const run = runOf(key, value);
+        return run === undefined || !runIds.has(run);
+      }),
+    ) as Dict<T>;
+  }
+  const { [threadId]: _messages, ...messages } = state.messages;
+  const { [threadId]: _cursor, ...historyCursor } = state.historyCursor;
+  const { [threadId]: _context, ...threadContext } = state.threadContext;
+  const entry = state.threads[threadId];
+  let threads = state.threads;
+  if (entry !== undefined) {
+    const { lastMessage: _line, ...rest } = entry;
+    threads = {
+      ...state.threads,
+      [threadId]: { ...rest, thread: { ...entry.thread, lastMessageAt: null } },
+    };
+  }
+  return {
+    ...state,
+    threads,
+    messages: { ...messages, [threadId]: [] },
+    historyCursor,
+    threadContext,
+    streaming: Object.fromEntries(
+      Object.entries(state.streaming).filter(([, m]) => m.threadId !== threadId),
+    ),
+    queue: state.queue.filter((q) => q.threadId !== threadId),
+    runs: dropRuns(state.runs, (_k, r) => r.id),
+    runSteps: dropRuns(state.runSteps, (k) => k),
+    runFrames: dropRuns(state.runFrames, (k) => k),
+    runStepDetails: dropRuns(state.runStepDetails, (k) => k.split("/")[0]),
+    toolCalls: dropRuns(state.toolCalls, (_k, c) => c.runId),
   };
 }
 

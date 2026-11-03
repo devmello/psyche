@@ -2,13 +2,16 @@ import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import type { SearchHit } from "@psyche/protocol";
 import { type ReactElement, useEffect } from "react";
 import { useOpenInSideChat } from "../chat/ask-about.ts";
+import { requestClearChat, selectChatBusy } from "../chat/ClearChatDialog.tsx";
 import { usePrefillComposer } from "../chat/prefill.ts";
+import { useStore, useStoreState } from "../data/index.ts";
 import { t } from "../i18n/core.ts";
 import { memoryHref } from "../memory-page/kinds.ts";
 import { ConnectedEntityCard } from "../people/ConnectedEntityCard.tsx";
 import { LIBRARY_SECTIONS } from "../screens/library/library-items.ts";
 import { SearchSurface, useMinWidth, useSearchSurface } from "../screens/search/SearchSurface.tsx";
 import { SETTINGS_SECTIONS } from "../screens/settings/SettingsScreen.tsx";
+import { usePersona } from "../slots.tsx";
 
 export { paletteMatches } from "./palette-match.ts";
 
@@ -22,6 +25,8 @@ export interface PaletteAction {
   /** Extra words the search matches; never shown. */
   keywords?: string;
   shortcut?: string;
+  /** Why the action cannot run right now; it stays listed, dimmed, with this beside it. */
+  disabledReason?: string;
   run?: () => void;
 }
 
@@ -265,16 +270,42 @@ export function CommandPalette({
   // New automation starts the same chat flow as Scheduled's button: the request waits in the
   // composer for the owner to send.
   const prefill = usePrefillComposer();
-  const kitActions: PaletteAction[] = prefill
-    ? [
-        {
-          id: "new-automation",
-          label: t("scheduled.new"),
-          keywords: "schedule routine recurring every remind watch",
-          run: () => prefill(t("scheduled.new.prefill")),
-        },
-      ]
-    : [];
+  // Clear the main chat: opens the chat's own confirm dialog (the chat column shows it), so the
+  // owner always sees what goes before anything does. Off while the chat is working.
+  const store = useStore();
+  const persona = usePersona();
+  const mainId = useStoreState(
+    (s) => Object.values(s.threads).find((e) => e.thread.kind === "main")?.thread.id ?? null,
+  );
+  const mainBusy = useStoreState((s) => mainId !== null && selectChatBusy(s, mainId));
+  const kitActions: PaletteAction[] = [
+    ...(prefill
+      ? [
+          {
+            id: "new-automation",
+            label: t("scheduled.new"),
+            keywords: "schedule routine recurring every remind watch",
+            run: () => prefill(t("scheduled.new.prefill")),
+          },
+        ]
+      : []),
+    ...(mainId === null
+      ? []
+      : [
+          {
+            id: "clear-main-chat",
+            label: t("chat.clear.palette"),
+            keywords: t("chat.clear.paletteKeywords"),
+            ...(mainBusy
+              ? { disabledReason: t("chat.clear.busy", { persona: persona.name }) }
+              : {}),
+            run: () => {
+              requestClearChat(store, mainId);
+              onNavigate(`/chat/${mainId}`);
+            },
+          },
+        ]),
+  ];
   // The host's actions first; a built-in one with the same id gives way to the host's.
   const builtIn = builtInActions
     ? [...kitActions, ...DEFAULT_ACTIONS].filter((d) => !actions.some((a) => a.id === d.id))

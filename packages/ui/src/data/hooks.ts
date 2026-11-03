@@ -50,6 +50,7 @@ import {
   type ThreadContextEntry,
   type UiState,
   type WidgetDraftState,
+  withThreadCleared,
 } from "./state.ts";
 import type { GatewayStore } from "./store.ts";
 
@@ -342,7 +343,24 @@ export function useThreads(options: { includeArchived?: boolean } = {}) {
         return { ...s, threads };
       });
     },
+    /** Clear chat: empties the thread in place (the main chat cannot be deleted). */
+    clear: (threadId: string, alsoForget = false) => clearThread(store, threadId, alsoForget),
   };
+}
+
+/**
+ * Empties a thread in place (`threads.clear`): its messages go and the agent starts fresh, while
+ * the thread, receipts and the activity log stay. `alsoForget` also stages a retraction of the
+ * memory derived from it (confirmed in Memory). The window drops the transcript at once; the
+ * Gateway's `thread.cleared` does the same in every other window.
+ */
+export async function clearThread(
+  store: GatewayStore,
+  threadId: string,
+  alsoForget = false,
+): Promise<void> {
+  await store.call("threads.clear", { threadId, ...(alsoForget ? { alsoForget: true } : {}) });
+  store.update((s) => withThreadCleared(s, threadId));
 }
 
 export interface ThreadView {

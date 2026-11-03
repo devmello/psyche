@@ -309,8 +309,9 @@ export function SearchSurface({
 
   const choose = (item: SurfaceItem | undefined, sideChat = false) => {
     if (!item) return;
-    if (item.kind === "action") onRunAction?.(item.action);
-    else if (item.kind === "entity") onOpenEntity?.(item.entity);
+    if (item.kind === "action") {
+      if (item.action.disabledReason === undefined) onRunAction?.(item.action);
+    } else if (item.kind === "entity") onOpenEntity?.(item.entity);
     else if (item.kind === "fact") onOpenEntity?.(item.fact.entity);
     else if (sideChat && onOpenInSideChat) onOpenInSideChat(item.hit);
     else onOpen?.(item.hit);
@@ -775,8 +776,16 @@ function SurfaceRow({
         >
           <Zap className="size-3.5" strokeWidth={1.75} />
         </span>
-        <span className="min-w-0 flex-1 truncate text-body text-label-primary">
+        <span
+          className={cn(
+            "min-w-0 flex-1 truncate text-body",
+            item.action.disabledReason === undefined ? "text-label-primary" : "text-label-tertiary",
+          )}
+        >
           {item.action.label}
+          {item.action.disabledReason === undefined ? null : (
+            <span className="ms-2 text-callout">{item.action.disabledReason}</span>
+          )}
         </span>
         {item.action.shortcut ? (
           <span className="shrink-0 text-subheadline text-label-tertiary">
@@ -889,9 +898,11 @@ function SurfacePreview({
     return (
       <>
         <p className="text-title-3 text-label-primary">{item.action.label}</p>
-        <p className="text-callout text-label-secondary">{t("shell.search.actionHint")}</p>
+        <p className="text-callout text-label-secondary">
+          {item.action.disabledReason ?? t("shell.search.actionHint")}
+        </p>
         <div>
-          <Button size="sm" onClick={onOpen}>
+          <Button size="sm" onClick={onOpen} disabled={item.action.disabledReason !== undefined}>
             {t("shell.search.run")}
           </Button>
         </div>

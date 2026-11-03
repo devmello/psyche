@@ -48,6 +48,7 @@ import {
   t,
   type UiSlots,
   UiSlotsProvider,
+  useClearChatHeader,
   useDefaultAgentTab,
   useStore,
   useThread,
@@ -102,6 +103,7 @@ function KitChat({ threadId, ctx }: { threadId: string; ctx: ChatSlotContext }):
   const store = useStore();
   const [level, setLevel] = useTranscriptMode();
   const exportThread = useThreadExport(threadId);
+  const clearChat = useClearChatHeader(threadId, current?.kind);
   // File blocks open in the Files pane (P4); a ref keeps the slots stable across renders.
   const openPane = useRef(ctx.openPane);
   openPane.current = ctx.openPane;
@@ -156,6 +158,7 @@ function KitChat({ threadId, ctx }: { threadId: string; ctx: ChatSlotContext }):
           disclosure={level}
           onDisclosureChange={setLevel}
           onExport={(format) => void exportThread(format)}
+          {...clearChat}
         />
         <ThreadContextDialog threadId={threadId} open={limitsOpen} onOpenChange={setLimitsOpen} />
         <ChatThread threadId={threadId} disclosure={level} onDisclosureChange={setLevel} />

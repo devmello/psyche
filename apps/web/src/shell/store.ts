@@ -362,6 +362,20 @@ export class ShellStore {
         this.set({ threads: this.state.threads.filter((x) => x.thread.id !== id), messages });
         break;
       }
+      case "thread.cleared": {
+        // The thread stays; its transcript was emptied (here or in another window).
+        const id = String(p.threadId);
+        const { [id]: _messages, ...messages } = this.state.messages;
+        this.set({
+          messages,
+          threads: this.state.threads.map((x) => {
+            if (x.thread.id !== id) return x;
+            const { lastMessage: _line, ...rest } = x;
+            return rest;
+          }),
+        });
+        break;
+      }
       case "approval.created":
       case "approval.updated":
         this.upsertApproval(p.approval as ApprovalRequest);
