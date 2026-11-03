@@ -173,4 +173,18 @@ describe("what the helper itself refuses", () => {
     );
     expect(host.invocations.every((i) => i.capability === "messages.graph_chats")).toBe(true);
   });
+
+  it("shortens any other refusal to a line, so text it was reading cannot flood Settings", async () => {
+    const long = `database is locked ${"x".repeat(1500)}`;
+    const { g } = await setup(() => {
+      throw Object.assign(new Error(long), { code: "unavailable" });
+    });
+    const adapter = messagesAdapter(seams(g).deps);
+    const err = await adapter.pull(null, { signal, limit: 100 }).catch((e: Error) => e);
+    expect(err).toBeInstanceOf(Error);
+    const message = (err as Error).message;
+    expect(message).toMatch(/^messages\.graph_chats failed: unavailable \(database is locked/);
+    expect(message.length).toBeLessThan(260);
+    expect(message.endsWith("…)")).toBe(true);
+  });
 });

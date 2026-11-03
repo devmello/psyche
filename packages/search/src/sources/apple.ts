@@ -81,6 +81,7 @@ const MAX_PAGES = 200;
 async function pagedList(
   fetchPage: (offset: number) => Promise<Obj[]>,
   idOf: (row: Obj) => string | undefined,
+  pageSize: number = APPLE_PAGE,
 ): Promise<{ rows: Obj[]; complete: boolean }> {
   const rows: Obj[] = [];
   const seen = new Set<string>();
@@ -97,7 +98,7 @@ async function pagedList(
       rows.push(r);
       added += 1;
     }
-    if (got.length < APPLE_PAGE) return { rows, complete: true };
+    if (got.length < pageSize) return { rows, complete: true };
     if (added === 0) return { rows, complete: false };
     offset += got.length;
   }
@@ -143,9 +144,13 @@ interface MailCursor {
   /** The window, in days, and the largest one that has not timed out. */
   win: number;
   cap: number;
+  /** Searches that have succeeded since the last timeout: enough of them lift `cap` again. */
+  ok?: number;
 }
 
 const MAIL_START_DAYS = 7;
+/** After this many searches in a row without a timeout, the largest window is allowed to double. */
+const MAIL_REGROW_AFTER = 20;
 const MAIL_MAX_DAYS = 366;
 /** A first sweep ends after this many days in a row without mail. */
 const MAIL_EMPTY_STOP_DAYS = 730;
@@ -297,7 +302,7 @@ export function mailAdapter(deps: AppleSourceDeps): SourceAdapter {
         // Too much for Mail in one go: read this window again, smaller, on the next page.
         return {
           items: [],
-          cursor: { ...cur, sweep, win: got.win, cap: got.cap },
+          cursor: { ...cur, sweep, win: got.win, cap: got.cap, ok: 0 },
           hasMore: true,
         };
       }
@@ -352,17 +357,23 @@ export function mailAdapter(deps: AppleSourceDeps): SourceAdapter {
           ...(str(m.account) ? { account: str(m.account) as string } : {}),
         });
       }
+      // One bad day (Mail busy, a big mailbox syncing) must not cap the window for good: after a
+      // run of searches that all worked, the cap is lifted a step and the window may grow again.
+      const okRun = (isObj(raw) && typeof raw.ok === "number" ? raw.ok : 0) + 1;
+      const regrow = okRun >= MAIL_REGROW_AFTER && got.cap < MAIL_MAX_DAYS;
+      const cap = regrow ? Math.min(MAIL_MAX_DAYS, got.cap * 2) : got.cap;
+      const ok = regrow ? 0 : okRun;
       if (!got.done) {
         return {
           items,
-          cursor: { newest: cur.newest, sweep: got.sweep, win: got.win, cap: got.cap },
+          cursor: { newest: cur.newest, sweep: got.sweep, win: got.win, cap, ok },
           hasMore: true,
         };
       }
       // The sweep reached its end: the next one starts where this one did.
       return {
         items,
-        cursor: { newest: got.sweep.top, sweep: null, win: got.win, cap: got.cap },
+        cursor: { newest: got.sweep.top, sweep: null, win: got.win, cap, ok },
         hasMore: false,
       };
     },
@@ -410,7 +421,48 @@ export function mailAdapter(deps: AppleSourceDeps): SourceAdapter {
  * per conversation per day and page, `from:` the first sender. Deletions are not visible in
  * `chat.db` rows already read; Rebuild drops them.
  */
+type ChatMeta = { handles: string[]; isGroup: boolean };
+
+/** How long one pass reuses the chat directory it already read. */
+const CHATS_TTL_MS = 5 * 60_000;
+
+/**
+ * The other side of a one-to-one chat is in its id (`iMessage;-;+15551110000`), so a chat the
+ * directory does not list still says who it is with. A group's id says nothing.
+ */
+const handleOfChatId = (chatId: string): string | undefined =>
+  /^[^;]+;-;(.+)$/.exec(chatId)?.[1]?.trim() || undefined;
+
 export function messagesAdapter(deps: AppleSourceDeps): SourceAdapter {
+  // Every chat with its participants, so a day's document names who it is with even when the day
+  // holds only the owner's own messages: the owner's "never index" list works on those names.
+  let directory: { chats: Map<string, ChatMeta>; at: number } | undefined;
+  const chatDirectory = async (helper: HelperCall, signal: AbortSignal, fresh: boolean) => {
+    const now = deps.now();
+    if (!fresh && directory !== undefined && now - directory.at < CHATS_TTL_MS)
+      return directory.chats;
+    const { rows } = await pagedList(
+      async (offset) =>
+        listOf(
+          await helper(
+            "messages.graph_chats",
+            { limit: MESSAGES_PAGE, ...(offset > 0 ? { offset } : {}) },
+            signal,
+          ),
+          "chats",
+        ),
+      (c) => str(c.chatId),
+      MESSAGES_PAGE,
+    );
+    const chats = new Map<string, ChatMeta>();
+    for (const c of rows) {
+      const id = str(c.chatId);
+      if (id !== undefined)
+        chats.set(id, { handles: strs(c.handles), isGroup: c.isGroup === true });
+    }
+    directory = { chats, at: now };
+    return chats;
+  };
   return {
     id: "messages",
     unavailable: () => (deps.helper() === undefined ? NO_HELPER : undefined),
@@ -418,13 +470,7 @@ export function messagesAdapter(deps: AppleSourceDeps): SourceAdapter {
       const helper = deps.helper();
       if (helper === undefined) throw new Error(NO_HELPER);
       const row = isObj(raw) && typeof raw.row === "number" ? raw.row : 0;
-      const chatsOut = await helper("messages.graph_chats", { limit: MESSAGES_PAGE }, signal);
-      const chats = new Map<string, { handles: string[]; isGroup: boolean }>();
-      for (const c of listOf(chatsOut, "chats")) {
-        const id = str(c.chatId);
-        if (id !== undefined)
-          chats.set(id, { handles: strs(c.handles), isGroup: c.isGroup === true });
-      }
+      const chats = await chatDirectory(helper, signal, raw === null);
       const out = await helper(
         "messages.graph_read",
         { sinceCursor: row, limit: Math.min(limit * 2, MESSAGES_PAGE), includeText: true },
@@ -469,28 +515,39 @@ export function messagesAdapter(deps: AppleSourceDeps): SourceAdapter {
         d.first = Math.min(d.first, at);
         d.last = Math.max(d.last, at);
       }
-      const items: SourceItem[] = [...days.values()].map((d) => {
+      const items: SourceItem[] = [...days.values()].flatMap((d): SourceItem[] => {
         const meta = chats.get(d.chatId);
-        const people = [...new Set([...(meta?.handles ?? []), ...d.handles])];
-        return {
-          nativeId: `${d.chatId}|${d.day}|${row}`,
-          title: `Messages with ${people.join(", ") || "a conversation"} · ${d.day}`,
-          text: `Participants: ${people.join(", ")}\n${d.lines.join("\n")}`,
-          ...(d.from === undefined ? {} : { from: d.from }),
-          createdAt: d.first,
-          updatedAt: d.last,
-          provenance: d.inbound ? "untrusted" : "owner",
-          tags: ["message", "imessage", ...(meta?.isGroup === true ? ["group"] : [])],
-          parties: people,
-          chatId: d.chatId,
-        };
+        const direct = handleOfChatId(d.chatId);
+        // A chat the directory does not have (an older helper cannot list past 200) and whose id
+        // does not name the other person is a group of unknown members: its participants cannot
+        // be checked against the "never index" list, so it is not indexed.
+        if (meta === undefined && direct === undefined) return [];
+        const people = [
+          ...new Set([
+            ...(meta?.handles ?? []),
+            ...d.handles,
+            ...(direct === undefined ? [] : [direct]),
+          ]),
+        ];
+        return [
+          {
+            nativeId: `${d.chatId}|${d.day}|${row}`,
+            title: `Messages with ${people.join(", ") || "a conversation"} · ${d.day}`,
+            text: `Participants: ${people.join(", ")}\n${d.lines.join("\n")}`,
+            ...(d.from === undefined ? {} : { from: d.from }),
+            createdAt: d.first,
+            updatedAt: d.last,
+            provenance: d.inbound ? "untrusted" : "owner",
+            tags: ["message", "imessage", ...(meta?.isGroup === true ? ["group"] : [])],
+            parties: people,
+            chatId: d.chatId,
+          },
+        ];
       });
       const cursor = isObj(out) && typeof out.cursor === "number" ? out.cursor : row;
-      return {
-        items,
-        cursor: { row: cursor },
-        hasMore: isObj(out) && out.hasMore === true && cursor > row,
-      };
+      const hasMore = isObj(out) && out.hasMore === true && cursor > row;
+      if (!hasMore) directory = undefined;
+      return { items, cursor: { row: cursor }, hasMore };
     },
   };
 }
@@ -590,46 +647,68 @@ const CAL_WINDOWS: [number, number][] = [
 ];
 /** The smallest range a full page is split down to. */
 const CAL_MIN_SPAN = 3_600_000;
+/** The most calls one window of the calendar may take, however full it is. */
+const CAL_MAX_CALLS = 40;
 /** After the first pass: recent past and the year ahead, every pass (changes are caught by hash). */
 const CAL_LIVE: [number, number] = [-30, 365];
 
 export function calendarAdapter(deps: AppleSourceDeps): SourceAdapter {
   /**
    * The events from `from` to `to`, at most 500 a call: a range that fills the page is split in
-   * half and each half read again, down to an hour, so a busy calendar is read whole.
+   * half and each half read again, down to an hour, so a busy calendar is read whole. Two things
+   * keep that from running away: a split whose halves return mostly the same events (events that
+   * span the whole range show up in both) is not split further, and a range gets at most
+   * `CAL_MAX_CALLS` calls. Either way the read says it is partial.
    */
   const events = async (
     call: ToolCall,
     from: number,
     to: number,
     signal: AbortSignal,
+    budget: { left: number },
+    first?: Obj[],
   ): Promise<{ rows: Obj[]; complete: boolean }> => {
-    const rows = listOf(
-      await call(
-        "calendar_list_events",
-        { from: new Date(from).toISOString(), to: new Date(to).toISOString(), limit: APPLE_PAGE },
-        signal,
-      ),
-      "events",
-    );
+    const read = async (a: number, b: number): Promise<Obj[]> => {
+      budget.left -= 1;
+      return listOf(
+        await call(
+          "calendar_list_events",
+          { from: new Date(a).toISOString(), to: new Date(b).toISOString(), limit: APPLE_PAGE },
+          signal,
+        ),
+        "events",
+      );
+    };
+    if (first === undefined && budget.left <= 0) return { rows: [], complete: false };
+    const rows = first ?? (await read(from, to));
     if (rows.length < APPLE_PAGE) return { rows, complete: true };
-    if (to - from <= CAL_MIN_SPAN) return { rows, complete: false };
+    if (to - from <= CAL_MIN_SPAN || budget.left < 2) return { rows, complete: false };
     const mid = Math.floor((from + to) / 2);
-    const a = await events(call, from, mid, signal);
-    const b = await events(call, mid, to, signal);
-    // An event that spans the split is in both halves.
-    const seen = new Set<string>();
-    const merged = [...a.rows, ...b.rows].filter((e) => {
-      const key = `${str(e.id) ?? ""}\u0000${str(e.start) ?? ""}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-    return { rows: merged, complete: a.complete && b.complete };
+    const left = await read(from, mid);
+    const right = await read(mid, to);
+    const key = (e: Obj) => `${str(e.id) ?? ""}\u0000${str(e.start) ?? ""}`;
+    const merge = (...lists: Obj[][]) => {
+      const seen = new Set<string>();
+      return lists.flat().filter((e) => {
+        const k = key(e);
+        if (seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      });
+    };
+    const inRight = new Set(right.map(key));
+    const shared = left.filter((e) => inRight.has(key(e))).length;
+    // Events that span the split are in both halves; when most of what a half returned is shared,
+    // splitting again only repeats them.
+    if (shared * 2 >= Math.min(left.length, right.length))
+      return { rows: merge(rows, left, right), complete: false };
+    const a = await events(call, from, mid, signal, budget, left);
+    const b = await events(call, mid, to, signal, budget, right);
+    return { rows: merge(a.rows, b.rows), complete: a.complete && b.complete };
   };
   const window = (call: ToolCall, [a, b]: [number, number], signal: AbortSignal) => {
     const now = deps.now();
-    return events(call, now + a * DAY, now + b * DAY, signal);
+    return events(call, now + a * DAY, now + b * DAY, signal, { left: CAL_MAX_CALLS });
   };
   const itemOf = (e: Obj): SourceItem | undefined => {
     const id = str(e.id);

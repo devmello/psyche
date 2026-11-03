@@ -292,6 +292,12 @@ export const SearchSourceStatus = Type.Object(
     lastIndexedAt: Type.Optional(Type.Integer({ minimum: 0, description: "Epoch ms" })),
     textBytes: Type.Integer({ minimum: 0, description: "Text indexed for this source" }),
     backfilled: Type.Boolean({ description: "The first pass reached the end" }),
+    cannotEnable: Type.Optional(
+      Type.String({ description: "Why it cannot be switched on yet; Settings greys the switch" }),
+    ),
+    cannotAgent: Type.Optional(
+      Type.String({ description: "Why the agent cannot be allowed to search it yet" }),
+    ),
   },
   { $id: "SearchSourceStatus" },
 );

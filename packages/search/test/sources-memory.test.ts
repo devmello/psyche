@@ -6,7 +6,9 @@ import {
   memoryAdapter,
   memoryItem,
   readSourcesConfig,
+  type SourceAdapter,
   SourceIndexer,
+  type SourceItem,
   sourceTag,
 } from "../src/index.ts";
 import { NOW, setup } from "./helpers.ts";
@@ -223,5 +225,115 @@ describe("the Memory source", () => {
     later.config.exclude.contacts = ["Sammy"];
     await later.indexer.applyConfig();
     expect(later.ids()).toEqual([]);
+  });
+});
+
+describe("what the manager does for Memory", () => {
+  it("a person or project's link changing re-records who it is about, though its text did not change", async () => {
+    const { index } = setup();
+    let parties: string[] = [];
+    const item = (): SourceItem => ({
+      nativeId: "p1",
+      title: "Lisbon trip",
+      text: "Project: Lisbon trip",
+      createdAt: NOW,
+      provenance: "owner",
+      parties,
+    });
+    const adapter: SourceAdapter = {
+      id: "memory",
+      unavailable: () => undefined,
+      pull: async () => ({ items: [item()], cursor: null, hasMore: false, snapshot: true }),
+    };
+    const config = defaultSourcesConfig();
+    config.sources.memory.enabled = true;
+    const indexer = new SourceIndexer(index, [adapter], {
+      config: () => config,
+      now: () => NOW,
+      pauseMs: 0,
+    });
+    const docs = () =>
+      (
+        index.db
+          .prepare("SELECT id FROM search_docs WHERE source = ?")
+          .all(sourceTag("memory")) as unknown[]
+      ).length;
+    await indexer.tick();
+    expect(docs()).toBe(1);
+    // Sam is linked to the project afterwards: same text, new party.
+    parties = ["sam@example.com"];
+    await indexer.tick();
+    config.exclude.contacts = ["sam@example.com"];
+    await indexer.applyConfig();
+    expect(docs()).toBe(0);
+  });
+
+  it("runs in Low Power Mode, so what memory dropped leaves at once, and nothing else does", async () => {
+    const { index } = setup();
+    let records: MemoryRecord[] = [rec({ id: "t1", kind: "topic", name: "Sourdough" })];
+    let pulls = 0;
+    const notes: SourceAdapter = {
+      id: "notes",
+      unavailable: () => undefined,
+      pull: async () => {
+        pulls += 1;
+        return { items: [], cursor: null, hasMore: false };
+      },
+    };
+    const config = defaultSourcesConfig();
+    config.sources.memory.enabled = true;
+    config.sources.notes.enabled = true;
+    let lowPower = false;
+    const indexer = new SourceIndexer(
+      index,
+      [memoryAdapter({ read: () => records, unavailable: () => undefined }), notes],
+      {
+        config: () => config,
+        now: () => NOW,
+        pauseMs: 0,
+        power: () => ({ onBattery: false, lowPower }),
+      },
+    );
+    const ids = () =>
+      (
+        index.db
+          .prepare("SELECT id FROM search_docs WHERE source = ?")
+          .all(sourceTag("memory")) as { id: string }[]
+      ).map((r) => r.id);
+    await indexer.tick();
+    expect(ids()).toEqual(["memory:t1"]);
+    expect(pulls).toBe(1);
+    lowPower = true;
+    records = [];
+    await indexer.tick();
+    expect(ids()).toEqual([]);
+    // Notes waited.
+    expect(pulls).toBe(1);
+  });
+
+  it("reports why Memory cannot be switched on or opened to the agent", () => {
+    const { index } = setup();
+    const config = defaultSourcesConfig();
+    const indexer = new SourceIndexer(
+      index,
+      [
+        memoryAdapter({
+          read: () => [],
+          unavailable: () => undefined,
+          blocked: () => "Turn on search index encryption first",
+          agentBlocked: () => "Memory's agent access is set to none",
+        }),
+      ],
+      { config: () => config, now: () => NOW },
+    );
+    const st = indexer.status().sources.find((x) => x.id === "memory");
+    expect(st).toMatchObject({
+      enabled: false,
+      state: "off",
+      cannotEnable: "Turn on search index encryption first",
+      cannotAgent: "Memory's agent access is set to none",
+    });
+    // The others say nothing.
+    expect(indexer.status().sources.find((x) => x.id === "notes")?.cannotEnable).toBeUndefined();
   });
 });

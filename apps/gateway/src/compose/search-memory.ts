@@ -1,6 +1,17 @@
-import type { GraphStore } from "@psyche/memory";
-import type { GraphEntityKind } from "@psyche/protocol";
-import type { MemoryRecord, MemorySourceDeps } from "@psyche/search";
+import { getSetting, type PsycheDb } from "@psyche/db";
+import type { EverythingStore, GraphStore } from "@psyche/memory";
+import { EVERYTHING_MEMORY_SETTING_KEY, type GraphEntityKind } from "@psyche/protocol";
+import {
+  type MemoryRecord,
+  type MemorySourceDeps,
+  type ProcessingModel,
+  readSourcesConfig,
+  type SourceConfig,
+  type SourcesConfig,
+} from "@psyche/search";
+import { everythingSettings } from "./everything.ts";
+import { MEMORY_ENCRYPT_SETTING } from "./memory-db.ts";
+import { SEARCH_ENCRYPT_SETTING } from "./search-db.ts";
 
 /**
  * What the Memory search source may index (Settings → Search sources → Memory), read from the
@@ -9,9 +20,13 @@ import type { MemoryRecord, MemorySourceDeps } from "@psyche/search";
  *
  * - Entities: active, not hidden ("don't track") and not kept private (those show on their Memory
  *   page only, never on a surface; Search is one).
- * - Facts: current, reviewed (accepted, auto-accepted or edited; nothing waiting for review,
+ * - Facts: current, accepted (accepted, auto-accepted or edited; nothing waiting for review,
  *   discarded or quarantined), not sensitive in any class, and not what a third party wrote
  *   (`untrusted`), the same line the graph's own full-text index draws.
+ * - A fact memory learned from another source (it cites Messages, Mail, ...) carries that
+ *   source's rules with it: it is dropped when the source is one the agent may not search (and
+ *   Memory is open to the agent), or one whose text may not go to a model class Memory allows. A
+ *   learned fact whose citations cannot be checked is dropped (as `visibleToAgent` does).
  * - Not the model's one-line summary of a person (written from other people's mail) and not the
  *   open loops (extracted from mail and messages): neither is the owner's own memory to index.
  *
@@ -30,22 +45,83 @@ const KINDS: GraphEntityKind[] = [
 
 type Graph = Pick<GraphStore, "listEntities" | "getEntity" | "facts" | "edges" | "identifiers">;
 
-export function memoryRecords(graph: Graph): MemoryRecord[] {
+/** How far a source's text may travel: none (nowhere), local (this Mac), cloud (any model). */
+const REACH: Record<ProcessingModel, number> = { none: 0, local: 1, cloud: 2 };
+
+/**
+ * The rules a fact's source puts on where its text may go. `config` is Search's per-source
+ * choices, read on every pass: `memory` is Memory's own row.
+ */
+export function sourceRules(config: SourcesConfig): (source: string) => boolean {
+  const memory = config.sources.memory;
+  return (source) => {
+    // Chats with Psyche and Contacts are not Search sources: the owner's own, no rule of theirs.
+    const rule = (config.sources as Record<string, SourceConfig | undefined>)[source];
+    if (rule === undefined) return true;
+    // Open to the agent: only what the agent may search at the source.
+    if (memory.agent && !rule.agent) return false;
+    // Cards and summaries of Memory go to the model class Memory is set to: no further than the
+    // source allows.
+    return REACH[memory.processing] <= REACH[rule.processing];
+  };
+}
+
+export function memoryRecords(
+  graph: Graph,
+  em: Pick<EverythingStore, "citations">,
+  allowed: (source: string) => boolean = () => true,
+): MemoryRecord[] {
   const visible = (e: { status: string; hidden: boolean; private?: boolean | undefined }) =>
     e.status === "active" && !e.hidden && e.private !== true;
   const out: MemoryRecord[] = [];
+  const names = (id: string): string[] => {
+    const e = graph.getEntity(id);
+    if (e === undefined) return [];
+    return [
+      e.name,
+      ...e.aliases,
+      ...graph
+        .identifiers(id)
+        .filter((i) => i.kind === "email" || i.kind === "phone")
+        .map((i) => i.value),
+    ];
+  };
   for (const e of graph.listEntities(KINDS)) {
     if (!visible(e)) continue;
+    const edges = graph.edges(e.id);
     let partOf: string | null = null;
     if (e.kind === "assignment" || e.kind === "event") {
-      const edge = graph.edges(e.id).find((x) => x.rel === "part_of" && x.src === e.id);
+      const edge = edges.find((x) => x.rel === "part_of" && x.src === e.id);
       const parent = edge === undefined ? undefined : graph.getEntity(edge.dst);
       // A parent the owner hid or kept private is not named here either.
       if (parent !== undefined && visible(parent)) partOf = parent.name;
     }
+    // Who a project, to-do or event is about: everyone it is linked to, hidden or not, so a
+    // contact the owner keeps out of the index also keeps out what is about them.
+    const related =
+      e.kind === "person" || e.kind === "org"
+        ? []
+        : [
+            ...new Set(
+              edges.flatMap((x) => {
+                const other = graph.getEntity(x.src === e.id ? x.dst : x.src);
+                return other !== undefined && (other.kind === "person" || other.kind === "org")
+                  ? names(other.id)
+                  : [];
+              }),
+            ),
+          ];
     const facts = graph
       .facts(e.id)
       .filter((f) => (f.sensitivity ?? "none") === "none" && f.provenance !== "untrusted")
+      .filter((f) => {
+        // Written by the owner or a rule: no source rule. Learned by reading something (it has an
+        // extractor or cites a source): every source it cites must allow it, and one with no
+        // citation to check is not indexed.
+        const cites = em.citations("fact", f.id);
+        if (f.extractor === undefined && cites.length === 0) return true;
+        return cites.length > 0 && cites.every((c) => allowed(c.source));
+      })
       .map((f) => ({
         attribute: f.attribute,
         value: f.value,
@@ -64,6 +140,7 @@ export function memoryRecords(graph: Graph): MemoryRecord[] {
       name: e.name,
       aliases: e.aliases,
       ...(identifiers.length > 0 ? { identifiers } : {}),
+      ...(related.length > 0 ? { related } : {}),
       status: e.workStatus ?? e.projectStatus ?? null,
       dueAt: e.kind === "person" || e.kind === "org" ? null : e.dueAt,
       partOf,
@@ -76,23 +153,69 @@ export function memoryRecords(graph: Graph): MemoryRecord[] {
   return out;
 }
 
+/** What Memory's agent access is: `none` stops the agent reading anything memory learned. */
+export type AgentMode = "none" | "accepted" | "all";
+
 /**
  * The source's seam. While the owner has the memory graph off it reads nothing (an empty read,
- * which removes what was indexed: off means off), and while memory is still opening it says so.
+ * which removes what was indexed: off means off), while memory is still opening it says so, and
+ * it stands down when memory is encrypted and the search index is not (the index would hold a
+ * plain copy of what the owner chose to keep encrypted).
  */
 export function memorySourceDeps(o: {
   /** The graph while the owner has memory on; undefined while it is off. */
   graph: () => Graph | undefined;
+  /** For the sources a learned fact cites; absent, learned facts cannot be checked and are left out. */
+  em?: Pick<EverythingStore, "citations">;
+  /** Search's per-source choices, read on every pass. */
+  config: () => SourcesConfig;
+  /** What the agent may read of memory (`memory.everything` agent access, off = none). */
+  agentMode: () => AgentMode;
+  /** `memory.encrypt` and `search.encrypt`. */
+  encrypted: () => { memory: boolean; search: boolean };
   /** False while the memory store is still opening (it may sit behind the Mac helper's key). */
   ready?: () => boolean;
 }): MemorySourceDeps {
   const ready = () => o.ready?.() ?? true;
   return {
     unavailable: () => (ready() ? undefined : "Memory is still opening"),
+    blocked: () => {
+      const enc = o.encrypted();
+      return enc.memory && !enc.search ? MEMORY_NEEDS_ENCRYPTED_INDEX : undefined;
+    },
+    agentBlocked: () => (o.agentMode() === "none" ? MEMORY_AGENT_NONE : undefined),
     read: () => {
       if (!ready()) return undefined;
       const graph = o.graph();
-      return graph === undefined ? [] : memoryRecords(graph);
+      if (graph === undefined) return [];
+      const none = { citations: () => [] };
+      return memoryRecords(graph, o.em ?? none, sourceRules(o.config()));
     },
   };
 }
+
+/**
+ * The settings Memory's source follows, read on every call so a change applies to the next pass:
+ * Search's per-source choices, memory's agent access (off means none, as `agentAccess()` in
+ * `people.ts` has it) and the two encryption switches.
+ */
+export function memorySettings(
+  db: PsycheDb,
+): Pick<Parameters<typeof memorySourceDeps>[0], "config" | "agentMode" | "encrypted"> {
+  return {
+    config: () => readSourcesConfig(getSetting(db, "search.sources")?.value),
+    agentMode: () => {
+      const s = everythingSettings(getSetting(db, EVERYTHING_MEMORY_SETTING_KEY)?.value);
+      return s.enabled ? s.agentAccess : "none";
+    },
+    encrypted: () => ({
+      memory: getSetting(db, MEMORY_ENCRYPT_SETTING)?.value === true,
+      search: getSetting(db, SEARCH_ENCRYPT_SETTING)?.value === true,
+    }),
+  };
+}
+
+export const MEMORY_NEEDS_ENCRYPTED_INDEX =
+  "Turn on search index encryption first: your memory is encrypted, and this would copy it into a search index that is not.";
+export const MEMORY_AGENT_NONE =
+  "Memory's agent access is set to none, so the agent can't search it. Change that on Memory first.";

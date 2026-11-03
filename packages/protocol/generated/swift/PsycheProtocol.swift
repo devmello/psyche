@@ -27032,6 +27032,10 @@ public struct SearchSourceStatus: Codable, Sendable {
     public let agent: Bool
     /// The first pass reached the end
     public let backfilled: Bool
+    /// Why the agent cannot be allowed to search it yet
+    public let cannotAgent: String?
+    /// Why it cannot be switched on yet; Settings greys the switch
+    public let cannotEnable: String?
     /// Why it cannot run, or the last error
     public let detail: String?
     /// Off by default; the owner chooses what is read
@@ -27052,6 +27056,8 @@ public struct SearchSourceStatus: Codable, Sendable {
     public enum CodingKeys: String, CodingKey {
         case agent = "agent"
         case backfilled = "backfilled"
+        case cannotAgent = "cannotAgent"
+        case cannotEnable = "cannotEnable"
         case detail = "detail"
         case enabled = "enabled"
         case id = "id"
@@ -27064,9 +27070,11 @@ public struct SearchSourceStatus: Codable, Sendable {
         case textBytes = "textBytes"
     }
 
-    public init(agent: Bool, backfilled: Bool, detail: String?, enabled: Bool, id: SearchSourceID, items: Int, label: String, lastIndexedAt: Int?, ocr: Bool, processing: SearchProcessing, state: SearchSourceState, textBytes: Int) {
+    public init(agent: Bool, backfilled: Bool, cannotAgent: String?, cannotEnable: String?, detail: String?, enabled: Bool, id: SearchSourceID, items: Int, label: String, lastIndexedAt: Int?, ocr: Bool, processing: SearchProcessing, state: SearchSourceState, textBytes: Int) {
         self.agent = agent
         self.backfilled = backfilled
+        self.cannotAgent = cannotAgent
+        self.cannotEnable = cannotEnable
         self.detail = detail
         self.enabled = enabled
         self.id = id

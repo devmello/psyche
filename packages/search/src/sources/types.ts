@@ -78,7 +78,9 @@ export function defaultSourcesConfig(): SourcesConfig {
   for (const id of SOURCE_IDS)
     sources[id] = {
       enabled: false,
-      processing: "cloud",
+      // Memory's facts come from other sources: no context cards for them (they would go to the
+      // cloud model) until the owner chooses otherwise.
+      processing: id === "memory" ? "none" : "cloud",
       agent: !OWNER_ONLY_SOURCES.includes(id),
       ocr: false,
     };
@@ -158,6 +160,12 @@ export interface SourceAdapter {
   readonly retentionMs?: number;
   /** Why the source cannot be read now (no helper, no access), or undefined. */
   unavailable(): string | undefined;
+  /** Runs even in Low Power Mode: a cheap local read whose removals must not wait (Memory). */
+  readonly runsOnLowPower?: boolean;
+  /** Why the owner cannot switch this source on yet, or undefined. */
+  cannotEnable?(): string | undefined;
+  /** Why the owner cannot let the agent search this source yet, or undefined. */
+  cannotAgent?(): string | undefined;
   /** The next page after `cursor` (null = from the start). */
   pull(cursor: unknown, ctx: { signal: AbortSignal; limit: number }): Promise<SourcePull>;
   /**
@@ -186,6 +194,10 @@ export interface SourceStatus {
   textBytes: number;
   /** The first pass reached the end of the source. */
   backfilled: boolean;
+  /** Why it cannot be switched on yet (Settings greys the switch and says so). */
+  cannotEnable?: string;
+  /** Why the agent cannot be allowed to search it yet. */
+  cannotAgent?: string;
 }
 
 export interface SourcesStatus {

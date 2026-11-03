@@ -8,7 +8,7 @@ import type { SourceAdapter, SourceItem, SourcePull } from "./types.ts";
  *
  * The Gateway hands in only what may be indexed (`MemorySourceDeps.read`): entities that are
  * active, not hidden and not kept private, and, of their facts, only the current ones the owner
- * has reviewed (accepted, auto-accepted or edited), that are not sensitive and not what a third
+ * has accepted (accepted, auto-accepted or edited), that are not sensitive and not what a third
  * party wrote. Nothing waiting for review and no sensitive fact is ever passed to this adapter,
  * so it cannot index one. A read is a whole snapshot: an item that turns sensitive, private or
  * hidden, or whose fact is retracted, leaves the index on the next pass.
@@ -27,13 +27,18 @@ export interface MemoryRecord {
   aliases: readonly string[];
   /** A person's or organization's emails and phone numbers, so the owner's "never index" list applies. */
   identifiers?: readonly string[];
+  /**
+   * The people and organizations a project, to-do or event is linked to: their names, aliases,
+   * emails and phone numbers, so "never index this contact" also keeps out what is about them.
+   */
+  related?: readonly string[];
   /** Project status or work status, when it has one. */
   status?: string | null;
   /** ISO: when a project, to-do or event is due or starts. */
   dueAt?: string | null;
   /** The project or event this is part of, by name. */
   partOf?: string | null;
-  /** Current, reviewed, non-sensitive facts. */
+  /** Current, accepted, non-sensitive facts. */
   facts: readonly { attribute: string; value: string; provenance: "owner" | "agent" | "system" }[];
   /** ISO. */
   createdAt: string;
@@ -44,8 +49,15 @@ export interface MemoryRecord {
 export interface MemorySourceDeps {
   /** Everything that may be indexed; undefined while memory is off or not ready. */
   read: () => readonly MemoryRecord[] | undefined;
-  /** Why memory cannot be read now (off, still opening), or undefined. */
+  /** Why memory cannot be read now (still opening), or undefined. */
   unavailable: () => string | undefined;
+  /**
+   * Why the owner cannot switch the source on, or why it must stand down (memory is encrypted and
+   * the search index is not), or undefined. Nothing is indexed while it is set.
+   */
+  blocked?: () => string | undefined;
+  /** Why the agent cannot be let search it (memory's own agent access is none), or undefined. */
+  agentBlocked?: () => string | undefined;
 }
 
 const KIND_LABEL: Record<MemoryKind, string> = {
@@ -103,10 +115,12 @@ export function memoryItem(r: MemoryRecord): SourceItem | undefined {
     ...(time(r.updatedAt) === undefined ? {} : { updatedAt: time(r.updatedAt) as number }),
     provenance: owner ? "owner" : "untrusted",
     tags: ["memory", `memory:${r.kind}`],
-    // Who it is about, for the owner's "never index" list (a name, an alias, an address or number).
-    ...(r.kind === "person" || r.kind === "org"
-      ? { parties: [r.name, ...aliases, ...(r.identifiers ?? [])] }
-      : {}),
+    // Who it is about, for the owner's "never index" list (a name, an alias, an address or number;
+    // for a project, to-do or event, the people and organizations it is linked to).
+    parties:
+      r.kind === "person" || r.kind === "org"
+        ? [r.name, ...aliases, ...(r.identifiers ?? [])]
+        : [...(r.related ?? [])],
     // Collapses onto the person's or project's own document in grouped results.
     ...(r.kind === "person" || r.kind === "project" ? { parentId: graphDocId(r.id) } : {}),
   };
@@ -115,7 +129,11 @@ export function memoryItem(r: MemoryRecord): SourceItem | undefined {
 export function memoryAdapter(deps: MemorySourceDeps): SourceAdapter {
   return {
     id: "memory",
-    unavailable: () => deps.unavailable(),
+    // A cheap local read, and what memory dropped must leave the index even in Low Power Mode.
+    runsOnLowPower: true,
+    unavailable: () => deps.blocked?.() ?? deps.unavailable(),
+    cannotEnable: () => deps.blocked?.(),
+    cannotAgent: () => deps.agentBlocked?.(),
     async pull(): Promise<SourcePull> {
       const records = deps.read();
       if (records === undefined) throw new Error("memory is not ready");

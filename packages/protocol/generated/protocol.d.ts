@@ -9188,6 +9188,14 @@ export interface SearchSourceStatus {
      */
     backfilled: boolean;
     /**
+     * Why the agent cannot be allowed to search it yet
+     */
+    cannotAgent?: string;
+    /**
+     * Why it cannot be switched on yet; Settings greys the switch
+     */
+    cannotEnable?: string;
+    /**
      * Why it cannot run, or the last error
      */
     detail?: string;

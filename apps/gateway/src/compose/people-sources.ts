@@ -845,9 +845,12 @@ export function helperFailure(capability: string, error: ErrorPayload | undefine
   const reason = (error?.details as { reason?: unknown } | undefined)?.reason;
   if (message !== "" && macosAccessReason(code, typeof reason === "string" ? reason : undefined))
     return message;
-  return message === ""
+  // Anything else is shown as a short line: a helper error can carry a long message (and, in
+  // principle, text from a file or a message it was reading).
+  const short = message.length > 200 ? `${message.slice(0, 200)}…` : message;
+  return short === ""
     ? `${capability} failed: ${code}`
-    : `${capability} failed: ${code} (${message})`;
+    : `${capability} failed: ${code} (${short})`;
 }
 
 /** The adapters for every connected app that can feed the graph. */

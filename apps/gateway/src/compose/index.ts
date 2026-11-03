@@ -184,7 +184,7 @@ import { resolveSearchKey } from "./search-db.ts";
 import { searchEngine, searchModelProvider } from "./search-engine.ts";
 import { filesSourceDeps, powerReader } from "./search-files.ts";
 import { chatContextResolver } from "./search-hit-context.ts";
-import { memorySourceDeps } from "./search-memory.ts";
+import { memorySettings, memorySourceDeps } from "./search-memory.ts";
 import { helperRecognizer } from "./search-ocr.ts";
 import { routerEmbedder, type SemanticEngines } from "./search-semantic.ts";
 import { searchEverythingTool } from "./search-tool.ts";
@@ -1512,6 +1512,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       // may show on a surface (`search-memory.ts`).
       memory: memorySourceDeps({
         graph: () => (people?.settings().enabled === true ? people.graph : undefined),
+        em: everything.store,
+        ...memorySettings(db),
         ...(memoryLate === undefined ? {} : { ready: () => memoryLate.ready }),
       }),
       files: filesSourceDeps({

@@ -108,6 +108,16 @@ export interface ComposedSearch extends ComposedPart {
 
 export const SOURCES_SETTING = "search.sources";
 
+/** Settings the Memory source follows: memory on or off, its agent access, the two encryptions. */
+const MEMORY_SOURCE_SETTINGS = [
+  "memory.graph",
+  "memory.everything",
+  "memory.encrypt",
+  "search.encrypt",
+];
+/** Wait this long after a memory change before the pass, so a burst of changes is one pass. */
+const MEMORY_KICK_MS = 1500;
+
 /** The error code a refused rebuild carries (the message already says why). */
 const REBUILD_CODE = {
   off: "invalid_params",
@@ -130,7 +140,7 @@ export interface SearchDeps extends Omit<SearchSourceDeps, "pageSize"> {
     refresh?: () => Promise<void>;
     files?: FilesSourceDeps;
     /**
-     * What Psyche remembers (people, projects, work due, events, reviewed non-sensitive facts):
+     * What Psyche remembers (people, projects, work due, events, accepted non-sensitive facts):
      * the opt-in "Memory" source. Absent = not offered.
      */
     memory?: MemorySourceDeps;
@@ -388,8 +398,13 @@ function buildSearch(deps: SearchDeps, sqlite: PsycheDb["sqlite"]): ComposedSear
       void statusOf(b).then((st) => gateway?.bus.publish("search.status.updated", st));
     },
   });
-  const sourcesConfig = (): SourcesConfig =>
-    readSourcesConfig(getSetting(deps.db, SOURCES_SETTING)?.value);
+  const sourcesConfig = (): SourcesConfig => {
+    const cfg = readSourcesConfig(getSetting(deps.db, SOURCES_SETTING)?.value);
+    // Memory is never open to the agent while memory's own agent access is none, whatever was
+    // ticked before that changed.
+    if (deps.sources?.memory?.agentBlocked?.() !== undefined) cfg.sources.memory.agent = false;
+    return cfg;
+  };
   const filesSource =
     deps.sources?.files === undefined
       ? undefined
@@ -462,11 +477,42 @@ function buildSearch(deps: SearchDeps, sqlite: PsycheDb["sqlite"]): ComposedSear
         void sourceIndexer?.tick();
       });
   };
+  /**
+   * Memory stands down (nothing is read) while it is encrypted and the search index is not; what
+   * was indexed before that changed goes with it.
+   */
+  const purgeMemoryIfBlocked = async () => {
+    const memory = deps.sources?.memory;
+    if (sourceIndexer === undefined || memory?.blocked?.() === undefined) return;
+    if ((sourceIndexer.status().sources.find((x) => x.id === "memory")?.items ?? 0) > 0)
+      await sourceIndexer.purge("memory");
+  };
   const sourceTick = async () => {
     if (sourceIndexer === undefined) return;
     syncFolders();
     await deps.sources?.refresh?.();
+    await purgeMemoryIfBlocked();
     await sourceIndexer.tick();
+  };
+  let memoryKick: ReturnType<typeof setTimeout> | undefined;
+  /**
+   * Memory changed (a fact retracted, a person hidden or made private, memory switched off): a
+   * pass over the Memory source soon, so what it dropped leaves the index now and not at the next
+   * timer tick. Several changes in a row are one pass.
+   */
+  const kickMemory = (reapply = false) => {
+    if (sourceIndexer === undefined || deps.sources?.memory === undefined) return;
+    if (!sourcesConfig().sources.memory.enabled) return;
+    if (memoryKick !== undefined) clearTimeout(memoryKick);
+    memoryKick = setTimeout(() => {
+      memoryKick = undefined;
+      void (async () => {
+        if (reapply) await sourceIndexer?.applyConfig();
+        await purgeMemoryIfBlocked();
+        await sourceIndexer?.kick();
+      })().catch(() => undefined);
+    }, MEMORY_KICK_MS);
+    memoryKick.unref?.();
   };
   const syncLibrary = async () => {
     const have = new Set(
@@ -527,6 +573,15 @@ function buildSearch(deps: SearchDeps, sqlite: PsycheDb["sqlite"]): ComposedSear
           exclude?: Partial<SourcesConfig["exclude"]>;
         };
         const next = sourcesConfig();
+        if (p.source === "memory") {
+          // Said in the owner's terms; the switch is greyed in Settings with the same words.
+          const memory = deps.sources?.memory;
+          const refuse = (why: string | undefined) => {
+            if (why !== undefined) throw new PsycheError("invalid_params", why);
+          };
+          if (p.enabled === true) refuse(memory?.blocked?.());
+          if (p.agent === true) refuse(memory?.agentBlocked?.());
+        }
         if (p.source !== undefined) {
           if (p.enabled !== undefined) next.sources[p.source].enabled = p.enabled;
           if (p.processing !== undefined) next.sources[p.source].processing = p.processing;
@@ -587,6 +642,13 @@ function buildSearch(deps: SearchDeps, sqlite: PsycheDb["sqlite"]): ComposedSear
           const entries = (f.payload as { entries?: { key: string }[] }).entries ?? [];
           const keys: string[] = Object.values(SEMANTIC_SETTINGS);
           if (entries.some((e) => keys.includes(e.key))) void applySemantic();
+          // Memory on or off, its agent access, either encryption switch: the Memory source
+          // follows them (the agent flag is synced into the index by applyConfig).
+          if (entries.some((e) => MEMORY_SOURCE_SETTINGS.includes(e.key))) kickMemory(true);
+          return;
+        }
+        if (event.startsWith("memory.entity.") || event.startsWith("memory.graph.")) {
+          kickMemory();
           return;
         }
         queue = queue.then(() => indexer.handle(event, f.payload));
@@ -612,6 +674,7 @@ function buildSearch(deps: SearchDeps, sqlite: PsycheDb["sqlite"]): ComposedSear
     },
     async stop() {
       unsubscribe?.();
+      if (memoryKick !== undefined) clearTimeout(memoryKick);
       stopPageReads?.();
       unsubscribe = undefined;
       if (libraryTimer !== undefined) clearInterval(libraryTimer);

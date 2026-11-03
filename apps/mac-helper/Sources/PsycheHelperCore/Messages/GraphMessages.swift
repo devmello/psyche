@@ -5,7 +5,11 @@ import Foundation
 /// when. No display names, services or guids beyond `chatId`; message text only when the caller
 /// sets `includeText`, and in the default mode the SQL never selects `text` or `attributedBody`.
 public enum GraphMessages {
-    public struct ChatsParams: Decodable, Sendable { public var limit: Int? }
+    public struct ChatsParams: Decodable, Sendable {
+        public var limit: Int?
+        /// Skips the first `offset` chats, so every chat can be listed past the 200-per-call cap.
+        public var offset: Int?
+    }
     public struct ReadParams: Decodable, Sendable {
         public var sinceCursor: Int?
         public var limit: Int?
@@ -70,15 +74,15 @@ public struct GraphReadResult: Codable, Equatable, Sendable {
 extension ChatDatabase {
     /// Chats newest activity first with their participants' normalized handles (the owner is not
     /// in chat.db's participant list). No names, services or text.
-    public func graphChats(limit: Int) throws -> GraphChatsResult {
+    public func graphChats(limit: Int, offset: Int = 0) throws -> GraphChatsResult {
         let rows = try run {
             try db.query("""
                 SELECT c.ROWID, c.guid, c.style,
                        (SELECT MAX(message_id) FROM chat_message_join WHERE chat_id = c.ROWID) AS last_row
                 FROM chat c
                 ORDER BY last_row IS NULL, last_row DESC
-                LIMIT ?1
-                """, [.int(Int64(clamp(limit)))])
+                LIMIT ?1 OFFSET ?2
+                """, [.int(Int64(clamp(limit))), .int(Int64(max(0, offset)))])
         }
         let chats = try rows.map { r -> GraphChat in
             let guid = r[1].text ?? ""

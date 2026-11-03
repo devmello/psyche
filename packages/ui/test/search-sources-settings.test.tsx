@@ -125,9 +125,7 @@ describe("the Memory source", () => {
     );
     const sw = screen.getByRole("switch", { name: "Memory" });
     expect(sw.getAttribute("aria-checked")).toBe("false");
-    expect(
-      screen.getByText(/Anything sensitive, still waiting for review, or kept private/),
-    ).toBeTruthy();
+    expect(screen.getByText(/Anything sensitive, still waiting for review/)).toBeTruthy();
     expect(screen.getByText(/Memory doesn't learn from this index/)).toBeTruthy();
     await userEvent.click(sw);
     expect(onConfigure).toHaveBeenCalledWith({ source: "memory", enabled: true });
@@ -151,6 +149,53 @@ describe("the Memory source", () => {
     expect(agent.checked).toBe(false);
     await userEvent.click(screen.getByRole("button", { name: "Rebuild Memory" }));
     expect(onRebuild).toHaveBeenCalledWith("memory");
+  });
+
+  it("greys the switch, saying why, while memory is encrypted and the search index is not", async () => {
+    const onConfigure = vi.fn();
+    render(
+      <StoryWorld>
+        <SearchSourcesSettingsGroup
+          status={withMemory({ cannotEnable: "Turn on search index encryption first" })}
+          onConfigure={onConfigure}
+          now={NOW}
+        />
+      </StoryWorld>,
+    );
+    const sw = screen.getByRole("switch", { name: "Memory" });
+    expect(sw.hasAttribute("data-disabled") || sw.getAttribute("aria-disabled") === "true").toBe(
+      true,
+    );
+    expect(
+      screen.getByText("Can't be switched on yet: Turn on search index encryption first"),
+    ).toBeTruthy();
+    await userEvent.click(sw);
+    expect(onConfigure).not.toHaveBeenCalled();
+  });
+
+  it("greys the agent switch, saying why, while memory's agent access is none", () => {
+    render(
+      <StoryWorld>
+        <SearchSourcesSettingsGroup
+          status={withMemory({
+            enabled: true,
+            state: "idle",
+            cannotAgent: "Memory's agent access is set to none",
+          })}
+          onConfigure={vi.fn()}
+          now={NOW}
+        />
+      </StoryWorld>,
+    );
+    const agent = screen.getByLabelText("Agent search for Memory") as HTMLInputElement;
+    expect(agent.disabled).toBe(true);
+    expect(
+      screen.getByText("The agent can't search this yet: Memory's agent access is set to none"),
+    ).toBeTruthy();
+    // Other sources are unaffected.
+    expect((screen.getByLabelText("Agent search for Mail") as HTMLInputElement).disabled).toBe(
+      false,
+    );
   });
 });
 

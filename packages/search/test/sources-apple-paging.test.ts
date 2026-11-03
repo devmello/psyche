@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   type AppleSourceDeps,
   calendarAdapter,
+  isExcluded,
   mailAdapter,
   messagesAdapter,
   notesAdapter,
@@ -185,6 +186,54 @@ describe("calendar", () => {
     expect(f.calls.length).toBeGreaterThan(4);
   });
 
+  it("does not split forever when 500 events span the whole range: a few calls, and partial", async () => {
+    // Events that overlap every half of every range (a year-long block, say), as the helper lists
+    // overlapping events: each half returns the same full page.
+    const spanning = Array.from({ length: 500 }, (_, i) => ({
+      id: `s${i}`,
+      title: `All year ${i}`,
+      start: new Date(NOW - 1000 * DAY).toISOString(),
+      end: new Date(NOW + 1000 * DAY).toISOString(),
+    }));
+    let calls = 0;
+    const call: ToolCall = async (tool, p) => {
+      if (tool !== "calendar_list_events") throw new Error(`no ${tool}`);
+      calls += 1;
+      return { events: spanning.slice(0, check(p)) };
+    };
+    const adapter = calendarAdapter(deps(call));
+    const pass = await drain(adapter);
+    expect(new Set(pass.items.map((i) => i.nativeId)).size).toBe(500);
+    // Four windows, a handful of calls each (the unsplit read and its two halves), not 2^14.
+    expect(calls).toBeLessThanOrEqual(4 * 3);
+    calls = 0;
+    const ids = await adapter.listIds?.(signal);
+    expect(calls).toBeLessThanOrEqual(4 * 3);
+    expect(ids?.complete).toBe(false);
+    expect(ids?.ids).toHaveLength(2000);
+  });
+
+  it("caps the calls for one window even when every half is full and different", async () => {
+    // 100,000 events, one every 5 minutes: every split is full. The cap ends it.
+    let calls = 0;
+    const call: ToolCall = async (tool, p) => {
+      if (tool !== "calendar_list_events") throw new Error(`no ${tool}`);
+      calls += 1;
+      const from = Date.parse(String(p.from));
+      const to = Date.parse(String(p.to));
+      const rows: Obj[] = [];
+      for (
+        let t = Math.ceil(from / 300_000) * 300_000;
+        t < to && rows.length < check(p);
+        t += 300_000
+      )
+        rows.push({ id: `e${t}`, title: "x", start: new Date(t).toISOString() });
+      return { events: rows };
+    };
+    await calendarAdapter(deps(call)).pull(null, { signal, limit: 100 });
+    expect(calls).toBeLessThanOrEqual(40);
+  });
+
   it("says a listing is partial when 500 events share one hour", async () => {
     const events = Array.from({ length: 600 }, (_, i) => event(i, NOW - 10 * DAY + i));
     const ids = await calendarAdapter(deps(fake(events).call)).listIds?.(signal);
@@ -197,7 +246,7 @@ describe("calendar", () => {
 
 describe("mail", () => {
   /** A mailbox of `dates` (ms), answering like the helper: `since` inclusive, `until` exclusive. */
-  function mailbox(dates: number[], opts: { slowOver?: number } = {}) {
+  function mailbox(dates: number[], opts: { slowOver?: number; busyFor?: number } = {}) {
     const rows = dates.map((at, i) => ({
       id: `m${i}`,
       subject: `Mail ${i}`,
@@ -219,7 +268,10 @@ describe("mail", () => {
       });
       // Mail's own search gives up on a wide range, and on an open one (no `since`).
       const span = (until ?? NOW) - (since ?? 0);
-      if (opts.slowOver !== undefined && span > opts.slowOver * DAY) {
+      if (
+        (opts.slowOver !== undefined && span > opts.slowOver * DAY) ||
+        (opts.busyFor !== undefined && searches.length <= opts.busyFor)
+      ) {
         timeouts += 1;
         throw new Error(
           "Apple Mail: Mail search took too long. Narrow it: a shorter date range, a sender, or one mailbox.",
@@ -275,12 +327,13 @@ describe("mail", () => {
     const { items } = await drain(adapter, null, 25);
     expect(items).toHaveLength(90);
     expect(box.timeouts()).toBeGreaterThan(0);
-    // After the timeout, no later search asks for more than the size that worked.
+    // After the timeout, the next searches (until a run of them has worked) do not ask for more
+    // than the size that worked.
     const firstOk = box.searches.findIndex(
       (s) => (s.until as number) - (s.since as number) <= 3 * DAY,
     );
     expect(firstOk).toBeGreaterThan(0);
-    for (const s of box.searches.slice(firstOk))
+    for (const s of box.searches.slice(firstOk, firstOk + 15))
       expect((s.until as number) - (s.since as number)).toBeLessThanOrEqual(3 * DAY);
   });
 
@@ -294,6 +347,22 @@ describe("mail", () => {
     const before = box.timeouts();
     await adapter.pull(first.cursor, { signal, limit: 25 });
     expect(box.timeouts()).toBe(before);
+  });
+
+  it("lets the window grow back after a run of searches that worked (one busy moment is not forever)", async () => {
+    // Mail is busy for the first two searches (7 days, then 3), then fine.
+    const box = mailbox(spread, { busyFor: 2 });
+    const adapter = mailAdapter(deps(box.call));
+    let cursor: unknown = null;
+    for (let i = 0; i < 2; i++) cursor = (await adapter.pull(cursor, { signal, limit: 25 })).cursor;
+    expect((cursor as { cap: number }).cap).toBe(1);
+    for (let i = 0; i < 80; i++) {
+      const page = await adapter.pull(cursor, { signal, limit: 25 });
+      cursor = page.cursor;
+      if (!page.hasMore) break;
+    }
+    // Back above a day: the cap was lifted, not stuck where the busy moment left it.
+    expect((cursor as { cap: number }).cap).toBeGreaterThan(1);
   });
 
   it("fails, saying why, only when even one day is too much", async () => {
@@ -371,5 +440,95 @@ describe("messages", () => {
     await messagesAdapter(d).pull(null, { signal, limit: 500 });
     expect(seen.map((s) => s.cap)).toEqual(["messages.graph_chats", "messages.graph_read"]);
     expect(seen.every((s) => Number(s.limit) >= 1 && Number(s.limit) <= 200)).toBe(true);
+  });
+
+  /** 450 chats, newest first; the owner's only-outgoing chat with Dana is the 300th, past the first 200. */
+  const chatList = (): { chatId: string; handles: string[]; isGroup: boolean }[] =>
+    Array.from({ length: 450 }, (_, i) =>
+      i === 299
+        ? {
+            chatId: "iMessage;+;chatOLD",
+            handles: ["+15105550142", "dana@example.com"],
+            isGroup: true,
+          }
+        : {
+            chatId: `iMessage;-;+1555000${String(i).padStart(4, "0")}`,
+            handles: [],
+            isGroup: false,
+          },
+    );
+  const outgoing = (chatId: string) => ({
+    row: 1,
+    chatId,
+    sentAt: "2024-03-03T09:00:00Z",
+    direction: "out",
+    text: "see you at the climbing gym",
+  });
+
+  function helperWith(opts: { honourOffset: boolean; messages: Obj[]; hasMore?: boolean }) {
+    const calls: { cap: string; params: Obj }[] = [];
+    const call = async (cap: string, p: Obj) => {
+      calls.push({ cap, params: p });
+      if (cap === "messages.graph_chats") {
+        const all = chatList();
+        const offset = opts.honourOffset ? Number(p.offset ?? 0) : 0;
+        return { chats: all.slice(offset, offset + Number(p.limit)) };
+      }
+      return { cursor: 1, hasMore: opts.hasMore === true, messages: opts.messages };
+    };
+    const deps: AppleSourceDeps = {
+      call: () => undefined,
+      helper: () => call,
+      ownAddresses: () => [],
+      now: () => NOW,
+    };
+    return { deps, calls };
+  }
+
+  it("names a day's participants from every chat, not the 200 newest: an excluded member is excluded", async () => {
+    const h = helperWith({ honourOffset: true, messages: [outgoing("iMessage;+;chatOLD")] });
+    const page = await messagesAdapter(h.deps).pull(null, { signal, limit: 100 });
+    const chatCalls = h.calls.filter((c) => c.cap === "messages.graph_chats");
+    expect(chatCalls.map((c) => c.params.offset ?? 0)).toEqual([0, 200, 400]);
+    expect(page.items).toHaveLength(1);
+    // Only the owner's own messages that day, yet the group's members are on it.
+    expect(page.items[0]?.parties).toEqual(["+15105550142", "dana@example.com"]);
+    const ex = { contacts: ["Dana@Example.com"], chats: [], accounts: [], folders: [] };
+    expect(isExcluded(page.items[0] as SourceItem, ex)).toBe(true);
+    const phone = { ...ex, contacts: ["+1 (510) 555-0142"] };
+    expect(isExcluded(page.items[0] as SourceItem, phone)).toBe(true);
+  });
+
+  it("without paging (an older helper), a one-to-one chat still names its person and an unknown group is not indexed", async () => {
+    const h = helperWith({
+      honourOffset: false,
+      messages: [
+        { ...outgoing("iMessage;-;dana@example.com"), row: 1 },
+        { ...outgoing("iMessage;+;chatOLD"), row: 2 },
+      ],
+    });
+    const page = await messagesAdapter(h.deps).pull(null, { signal, limit: 100 });
+    // The directory could not be listed past 200 (the same page came back), so the group is unknown.
+    expect(page.items.map((i) => i.chatId)).toEqual(["iMessage;-;dana@example.com"]);
+    expect(page.items[0]?.parties).toEqual(["dana@example.com"]);
+    const ex = { contacts: ["dana@example.com"], chats: [], accounts: [], folders: [] };
+    expect(isExcluded(page.items[0] as SourceItem, ex)).toBe(true);
+  });
+
+  it("reads the chat directory once for a pass, and again for the next", async () => {
+    const h = helperWith({
+      honourOffset: true,
+      messages: [outgoing("iMessage;+;chatOLD")],
+      hasMore: true,
+    });
+    const adapter = messagesAdapter(h.deps);
+    const chatCalls = () => h.calls.filter((c) => c.cap === "messages.graph_chats").length;
+    await adapter.pull(null, { signal, limit: 100 });
+    const first = chatCalls();
+    await adapter.pull({ row: 1 }, { signal, limit: 100 });
+    expect(chatCalls()).toBe(first);
+    // A first page again (no cursor): a new pass, a new directory.
+    await adapter.pull(null, { signal, limit: 100 });
+    expect(chatCalls()).toBe(first * 2);
   });
 });

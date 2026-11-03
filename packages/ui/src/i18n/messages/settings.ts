@@ -1162,7 +1162,9 @@ export const settings = {
   "settings.searchSources.hint.transcripts":
     "Voice memos and meetings, split by speaker. Other people's words are never treated as instructions.",
   "settings.searchSources.hint.memory":
-    "What Psyche remembers: your people, projects, work that's due and events, and the facts you've reviewed. Anything sensitive, still waiting for review, or kept private is left out. Memory doesn't learn from this index, and needs Memory turned on.",
+    "What Psyche remembers: your people, projects, work that's due and events, and the facts Psyche has accepted. Anything sensitive, still waiting for review, learned from a source the agent may not search, or kept private is left out. Memory doesn't learn from this index, and needs Memory turned on.",
+  "settings.searchSources.cannotEnable": "Can't be switched on yet: {why}",
+  "settings.searchSources.cannotAgent": "The agent can't search this yet: {why}",
   "settings.searchSources.state.off": "Off: not read",
   "settings.searchSources.state.unavailable": "On, but not available: {why}",
   "settings.searchSources.state.error": "Problem: {why}",

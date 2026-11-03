@@ -179,20 +179,22 @@ export class SourceIndexer {
 
   async #tick(): Promise<void> {
     const power = this.#o.power?.() ?? { onBattery: false, lowPower: false };
-    if (power.lowPower) return;
     const started = this.#o.now();
     const config = this.#o.config();
     for (const id of SOURCE_IDS) {
       if (!config.sources[id].enabled || this.#rebuilding.has(id)) continue;
       const adapter = this.#adapters.get(id);
       if (adapter === undefined || adapter.unavailable() !== undefined) continue;
+      // Low Power Mode pauses everything but a source that is a cheap local read, so that what
+      // memory dropped (a fact retracted, a person hidden) leaves the index at once.
+      if (power.lowPower && adapter.runsOnLowPower !== true) continue;
       const filled = this.#meta(`src.${id}.backfilled`) === "1";
       // On battery only a source that is already filled keeps up; backfills wait for power.
       if (power.onBattery && !filled) continue;
       const pages = power.onBattery ? 1 : this.#o.pagesPerTick;
       await this.#pull(id, adapter, pages, started);
       if (this.#abort.signal.aborted) return;
-      if (!power.onBattery) {
+      if (!power.onBattery && !power.lowPower) {
         const last = Number(this.#meta(`src.${id}.sweptAt`) ?? 0);
         if (filled && this.#o.now() - last >= (this.#o.sweepEveryMs ?? DAY_MS))
           await this.sweep(id);
@@ -255,7 +257,14 @@ export class SourceIndexer {
         continue;
       }
       const hash = sha256(`${item.title}\n${item.text}`);
-      if (existing?.content_hash === hash && existing.provenance === item.provenance) continue;
+      // Unchanged text is skipped, but not when who it involves changed: the exclusion list works
+      // from the stored parties (a person linked to a project later), so they are kept current.
+      if (
+        existing?.content_hash === hash &&
+        existing.provenance === item.provenance &&
+        existing.parties === JSON.stringify(item.parties ?? [])
+      )
+        continue;
       if (existing === undefined && item.text.length >= MIN_DEDUPE_CHARS) {
         // The same long text already indexed from another source (a PDF that is also a mail
         // attachment): keep one, unless this copy is the owner's and the other is not.
@@ -515,6 +524,12 @@ export class SourceIndexer {
         ocr: cfg.ocr,
         state,
         ...(cfg.enabled && (why ?? err) !== undefined ? { detail: (why ?? err) as string } : {}),
+        ...(adapter?.cannotEnable?.() === undefined
+          ? {}
+          : { cannotEnable: adapter.cannotEnable() as string }),
+        ...(adapter?.cannotAgent?.() === undefined
+          ? {}
+          : { cannotAgent: adapter.cannotAgent() as string }),
         items: c?.n ?? 0,
         ...(lastAt === undefined ? {} : { lastIndexedAt: Number(lastAt) }),
         textBytes: c?.bytes ?? 0,

@@ -36303,6 +36303,14 @@
         "backfilled": {
           "description": "The first pass reached the end",
           "type": "boolean"
+        },
+        "cannotEnable": {
+          "description": "Why it cannot be switched on yet; Settings greys the switch",
+          "type": "string"
+        },
+        "cannotAgent": {
+          "description": "Why the agent cannot be allowed to search it yet",
+          "type": "string"
         }
       },
       "required": [

@@ -162,9 +162,12 @@ const mail = (id: string, from: string, date: string, subject = "Hello") => ({
 describe("config", () => {
   it("is off by default and survives garbage", () => {
     const c = defaultSourcesConfig();
-    expect(Object.values(c.sources).every((s) => !s.enabled && s.processing === "cloud")).toBe(
-      true,
-    );
+    // Memory ships with no summaries: its facts come from other sources' text.
+    expect(
+      Object.entries(c.sources).every(
+        ([id, s]) => !s.enabled && s.processing === (id === "memory" ? "none" : "cloud"),
+      ),
+    ).toBe(true);
     const r = readSourcesConfig({
       sources: {
         mail: { enabled: true, processing: "local" },
@@ -470,9 +473,9 @@ describe("controls", () => {
 
   it("processing none blocks context cards for that source; the field is kept per source", () => {
     const h = harness(["notes"]);
-    expect(h.indexer.cardBlocked()).toEqual([]);
+    expect(h.indexer.cardBlocked()).toEqual(["connector:memory"]);
     h.config().sources.notes.processing = "none";
-    expect(h.indexer.cardBlocked()).toEqual(["connector:notes"]);
+    expect(h.indexer.cardBlocked().sort()).toEqual(["connector:memory", "connector:notes"]);
   });
 
   it("dedupes identical long text across sources, keeping the owner's copy", async () => {
