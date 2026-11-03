@@ -88,7 +88,7 @@ export function ReviewList({
       {groups.map(([name, group]) => (
         <section key={`${name}-${group[0]?.fact.id}`} data-testid="review-group">
           <header className="flex items-center justify-between px-3 pb-1">
-            <h3 className="text-headline">{name}</h3>
+            <h2 className="text-headline">{name}</h2>
             {onActGroup && group.length > 1 && undoUntil === undefined ? (
               <span className="flex gap-1">
                 <Button

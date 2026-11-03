@@ -378,7 +378,10 @@ describe("INT-2 scenario 1: browser from chat", () => {
 describe("the bridge socket", () => {
   it("accepts the desktop's bridge.hello with the Gateway's handshake secret only", async () => {
     const model = new ScriptedModel();
-    const socketPath = join("/tmp", `psyche-int2-${process.pid}.sock`);
+    // The bridge refuses a socket directory that is not ours and private, and /tmp is neither (a
+    // symlink on macOS, root's on Linux), so the socket gets a private directory of its own.
+    const socketDir = await mkdtemp(join(tmpdir(), "psyche-int2-"));
+    const socketPath = join(socketDir, "bridge.sock");
     let b: ComposedBrowser | undefined;
     const sk = await startSkeleton({
       model: { provider: model, model: MAIN },
@@ -417,6 +420,7 @@ describe("the bridge socket", () => {
       expect(mode).toBe(0o600);
     } finally {
       await sk.stop();
+      await rm(socketDir, { recursive: true, force: true });
     }
   });
 });

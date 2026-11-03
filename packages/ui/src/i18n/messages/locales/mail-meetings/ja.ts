@@ -10,6 +10,13 @@ export const mailMeetings: Partial<Catalogue> = {
   "settings.mail.loadFailed": "メールと会議の設定を読み込めませんでした。",
 
   // Group titles
+  "settings.mail.group.masterHint": "すべてを一時停止するか、Psyche に読み取りだけを許可します。",
+  "settings.mail.group.accountsHint": "ダイジェストやフォローアップに使うアカウントを選びます。",
+  "settings.mail.group.digestHint": "選んだ時刻に受信トレイの要約を届けます。",
+  "settings.mail.group.followupsHint": "返信待ちのメールや、返信が必要なメールをお知らせします。",
+  "settings.mail.group.styleHint": "下書きの文体を決めます。",
+  "settings.mail.group.schedulingHint": "Psyche が会議の日時を提案する方法です。",
+  "settings.mail.group.notesHint": "会議が終わったあと Psyche が行うことです。",
   "settings.mail.group.master": "まとめて設定",
   "settings.mail.group.accounts": "アカウント",
   "settings.mail.group.digest": "受信トレイのダイジェスト",

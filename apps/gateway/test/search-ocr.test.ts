@@ -1,6 +1,6 @@
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import {
   createSearchIndex,
   defaultSourcesConfig,
@@ -189,16 +189,29 @@ describe("files source with OCR", () => {
   it("a pull on battery indexes files by name, remembers them, and reads them on power", async () => {
     const t = setup();
     t.config.sources.files.ocr = true;
+    // Pin the tie CI hits on coarse-timestamp filesystems: same mtime, so (mtime, path) order puts
+    // receipt.png last and the cursor's own `path` names it.
+    const when = new Date("2026-01-01T00:00:00Z");
+    for (const f of ["Scans/receipt.png", "Downloads/flyer.jpg"])
+      utimesSync(join(t.root, f), when, when);
     t.setPower({ onBattery: true, lowPower: false });
     const first = await t.adapter.pull(null, { signal: never, limit: 100 });
     expect(t.node.recognised).toHaveLength(0);
     expect(first.items.map((i) => i.text).join("\n")).not.toContain("Blue Bottle");
-    expect(JSON.stringify(first.cursor)).toContain("receipt.png");
+    // The files waiting for power live in the cursor's `ocr` queue. Assert on that queue, not on the
+    // whole cursor: its `path` is the last file in (mtime, path) order, which is receipt.png
+    // whenever the two fixtures get the same mtime (coarse filesystem timestamps on CI).
+    const queued = (c: unknown) => (c as { ocr?: string[] }).ocr ?? [];
+    expect(
+      queued(first.cursor)
+        .map((p) => basename(p))
+        .sort(),
+    ).toEqual(["flyer.jpg", "receipt.png"]);
     t.setPower({ onBattery: false, lowPower: false });
     const second = await t.adapter.pull(first.cursor, { signal: never, limit: 100 });
     expect(second.items.map((i) => i.text).join("\n")).toContain("Blue Bottle Coffee");
     expect(second.hasMore).toBe(false);
-    expect(JSON.stringify(second.cursor)).not.toContain("receipt.png");
+    expect(queued(second.cursor)).toEqual([]);
   });
 
   it("spends a page budget per pull and carries the rest to the next ones", async () => {

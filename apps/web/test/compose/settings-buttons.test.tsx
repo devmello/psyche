@@ -58,9 +58,9 @@ describe("Settings buttons in the composed app", () => {
 
   it("Connectors → Disconnect calls the Gateway", async () => {
     const { called } = open("/settings/connectors");
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Disconnect Gmail" }, { timeout: 3000 }),
-    );
+    // Disconnect lives in a connector's detail now: open the row first.
+    fireEvent.click(await screen.findByRole("button", { name: "Open Gmail" }, { timeout: 3000 }));
+    fireEvent.click(await screen.findByRole("button", { name: "Disconnect Gmail" }));
     await waitFor(() => expect(called("connectors.disconnect")).toBe(true));
   });
 
