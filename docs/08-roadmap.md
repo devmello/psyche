@@ -69,6 +69,10 @@ Goal: credentials, proactivity, computer use, server mode.
 ## v1.0 (weeks 21–24)
 
 - Documentation site, installers (DMG, Homebrew cask, Docker image), migration and backup guides, accessibility pass, performance targets met, public security policy and disclosure process, third-party security review of the Permission and Credential Brokers.
+- **Before any public release (owner, 2026-11-02):**
+  - Join the paid Apple Developer Program and embed a provisioning profile in `PsycheHelper.app`, so its Touch ID presence key lives in the keychain.
+  - Then remove or disable the Secure Enclave file fallback. That fallback was added for profile-less development builds, and any process running as the same user can ask it to sign behind its own Touch ID prompt.
+  - Ship with Developer ID signing and notarization at the same time.
 
 ## After 1.0
 
