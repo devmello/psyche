@@ -1,10 +1,17 @@
 import {
   type EventName,
   type EventPayload,
+  type GraphAnchor,
+  type GraphCitationSource,
+  type GraphEdge,
   type GraphEntity,
   type GraphFact,
+  type GraphInteraction,
+  type GraphTimelineRow,
+  type GraphWorkStatus,
   type MethodName,
   type MethodParams,
+  type Provenance,
   PsycheError,
 } from "@psyche/protocol";
 import { type GraphWorld, graphDetail, graphSummary } from "../fixtures/people.ts";
@@ -20,6 +27,7 @@ import { type GraphWorld, graphDetail, graphSummary } from "../fixtures/people.t
 export function emptyGraph(): GraphWorld {
   return {
     entities: [],
+    anchors: [],
     identifiers: [],
     facts: [],
     edges: [],
@@ -73,7 +81,277 @@ function matches(world: GraphWorld, e: GraphEntity, q: string): boolean {
   );
 }
 
+// --- work items (docs/design/memory-everything-2026.md §3) ---------------------------------------
+
+const WORK_STATUSES: readonly string[] = [
+  "not_started",
+  "in_progress",
+  "submitted",
+  "done",
+  "dropped",
+];
+const WORK_KINDS: readonly string[] = ["project", "assignment", "event"];
+/** The facts the timeline draws as history. */
+const WORK_FACTS: readonly string[] = [
+  "status",
+  "deadline",
+  "next_step",
+  "stopped_at",
+  "progress",
+  "blocked_on",
+];
+/** The facts that say the owner was at work on the item (they refresh `lastSignalAt`). */
+const SIGNAL_FACTS: readonly string[] = ["progress", "stopped_at", "next_step", "blocked_on"];
+const STATUS_WORDS: Record<string, string> = {
+  not_started: "not started",
+  in_progress: "in progress",
+  submitted: "handed in",
+  done: "done",
+  dropped: "dropped",
+};
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** An ISO instant, or null when the text is not a date (the store keeps such a deadline as text). */
+function isoOrNull(value: string): string | null {
+  const t = Date.parse(value);
+  return Number.isNaN(t) ? null : new Date(t).toISOString();
+}
+
+function shortDate(value: string): string {
+  const iso = isoOrNull(value);
+  if (iso === null) return value;
+  const d = new Date(iso);
+  return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`;
+}
+
+const SOURCE_OF: Partial<Record<GraphInteraction["kind"], GraphCitationSource>> = {
+  mail: "mail",
+  message: "messages",
+  call: "messages",
+  meeting: "calendar",
+  note: "notes",
+  chat: "chats",
+  file: "files",
+  reminder: "reminders",
+};
+
+function interactionProvenance(i: GraphInteraction): Provenance {
+  if (i.kind === "task" || i.kind === "work") return "agent";
+  if (i.kind === "note" || i.kind === "chat" || i.kind === "file" || i.kind === "reminder")
+    return "owner";
+  return i.direction === "out" ? "owner" : "untrusted";
+}
+
+/** The row text the store builds from templates, titles as data (§3.5). */
+function interactionText(i: GraphInteraction): string {
+  const title = i.subject ?? "";
+  const quoted = title === "" ? "" : `: “${title}”`;
+  switch (i.kind) {
+    case "mail":
+      return i.direction === "out" ? `You sent mail${quoted}` : `New mail${quoted}`;
+    case "message":
+    case "call":
+      return i.direction === "out" ? `You messaged${quoted}` : `New message${quoted}`;
+    case "meeting":
+      return `Meeting${quoted}`;
+    case "note":
+      return `Note${quoted}`;
+    case "chat":
+      return i.gist ? `Chat: ${i.gist}` : `Chat with Psyche${quoted}`;
+    case "file":
+      return title === "" ? "Edited files" : `Edited ${title}`;
+    case "reminder":
+      return `Reminders${quoted}`;
+    default:
+      return title === "" ? "Psyche worked on this" : `Psyche worked on this${quoted}`;
+  }
+}
+
+function factText(f: GraphFact, prior: GraphFact | undefined): string {
+  const value = f.attribute === "deadline" ? shortDate(f.value) : f.value;
+  switch (f.attribute) {
+    case "deadline":
+      return prior === undefined
+        ? `Due ${value}`
+        : `Due date moved ${shortDate(prior.value)} → ${value}`;
+    case "status":
+      return prior === undefined
+        ? `Marked ${STATUS_WORDS[f.value] ?? f.value}`
+        : `Status ${STATUS_WORDS[prior.value] ?? prior.value} → ${STATUS_WORDS[f.value] ?? f.value}`;
+    case "progress":
+      return `Progress: ${value}`;
+    case "stopped_at":
+      return `Stopped at ${value}`;
+    case "next_step":
+      return `Next step: ${value}`;
+    default:
+      return `Blocked on ${value}`;
+  }
+}
+
+/** `memory.entities.timeline`: interactions, work-fact history and loops, newest first (§3.5). */
+function timelineOf(
+  w: GraphWorld,
+  id: string,
+  before: string | undefined,
+  limit: number,
+): { rows: GraphTimelineRow[]; nextBefore: string | null } {
+  const root = w.entities.find((e) => e.id === id) ?? notFound(`entity ${id}`);
+  const owners = new Set([id]);
+  if (root.kind === "project")
+    for (const x of w.edges)
+      if (x.dst === id && x.rel === "part_of" && x.supersededBy == null && x.retractedAt == null)
+        owners.add(x.src);
+  const keep = (at: string) => before === undefined || at < before;
+  const nameOf = (eid: string) => w.entities.find((e) => e.id === eid)?.name;
+  const rows: GraphTimelineRow[] = [];
+
+  for (const i of w.interactions) {
+    const owner = i.projectId != null && owners.has(i.projectId) ? i.projectId : undefined;
+    if (owner === undefined || !keep(i.occurredAt)) continue;
+    const source = SOURCE_OF[i.kind];
+    const sender = i.participants.find((p) => p.role === "from");
+    rows.push({
+      id: i.id,
+      at: i.occurredAt,
+      kind: "interaction",
+      interactionKind: i.kind,
+      entityId: owner,
+      text: interactionText(i),
+      provenance: interactionProvenance(i),
+      chip:
+        source === undefined
+          ? null
+          : {
+              source,
+              label: (sender && nameOf(sender.entityId)) || i.source,
+              citationId: null,
+              link: i.link ?? null,
+            },
+    });
+  }
+
+  for (const owner of owners) {
+    const facts = w.facts
+      .filter(
+        (f) =>
+          f.entityId === owner &&
+          WORK_FACTS.includes(f.attribute) &&
+          f.retractedAt == null &&
+          keep(f.recordedAt),
+      )
+      .sort((a, b) => a.recordedAt.localeCompare(b.recordedAt));
+    for (const f of facts) {
+      const prior = w.facts.find((x) => x.supersededBy === f.id);
+      const ref = f.sources[0];
+      const from = ref ? w.interactions.find((i) => i.id === ref) : undefined;
+      const source = from ? SOURCE_OF[from.kind] : undefined;
+      const sender = from?.participants.find((p) => p.role === "from");
+      rows.push({
+        id: f.id,
+        at: f.recordedAt,
+        kind: "fact",
+        entityId: owner,
+        text: factText(f, prior),
+        provenance: f.provenance,
+        change: { attribute: f.attribute, from: prior?.value ?? null, to: f.value },
+        chip:
+          source === undefined || from === undefined
+            ? null
+            : {
+                source,
+                label: (sender && nameOf(sender.entityId)) || from.source,
+                citationId: null,
+                link: from.link ?? null,
+              },
+      });
+    }
+  }
+
+  for (const l of w.loops) {
+    if (!l.projectId || !owners.has(l.projectId) || !keep(l.createdAt)) continue;
+    if (l.status !== "open" && l.status !== "snoozed" && l.status !== "done") continue;
+    const who = l.counterpartId ? nameOf(l.counterpartId) : undefined;
+    const lead =
+      l.direction === "waiting_on"
+        ? who
+          ? `Waiting on ${who}`
+          : "Waiting on a reply"
+        : who
+          ? `You owe ${who}`
+          : "You owe";
+    rows.push({
+      id: l.id,
+      at: l.createdAt,
+      kind: "loop",
+      entityId: l.projectId,
+      text: `${lead}: ${l.text}${l.status === "done" ? " (done)" : ""}`,
+      provenance: l.provenance,
+      chip: null,
+    });
+  }
+
+  rows.sort((a, b) => b.at.localeCompare(a.at) || b.id.localeCompare(a.id));
+  const page = rows.slice(0, limit);
+  return { rows: page, nextBefore: rows.length > limit ? (page.at(-1)?.at ?? null) : null };
+}
+
 export function graphHandlers(ctx: GraphMockContext): Handlers {
+  /** An owner (or rule) fact: supersede the last value, update what the row caches, start work. */
+  const setOwnerFact = (
+    e: GraphEntity,
+    attribute: GraphFact["attribute"],
+    value: string,
+    provenance: GraphFact["provenance"] = "owner",
+    sources: string[] = [],
+  ) => {
+    const w = ctx.graph();
+    const now = ctx.now();
+    const single = attribute !== "progress";
+    const previous = single
+      ? w.facts.find(
+          (f) =>
+            f.entityId === e.id &&
+            f.attribute === attribute &&
+            f.supersededBy == null &&
+            f.retractedAt == null,
+        )
+      : undefined;
+    const fact: GraphFact = {
+      id: `fact_owner_${w.facts.length + 1}`,
+      entityId: e.id,
+      attribute,
+      value,
+      provenance,
+      confidence: 1,
+      sources,
+      evidence: null,
+      validFrom: now,
+      validTo: null,
+      recordedAt: now,
+      supersededBy: null,
+      retractedAt: null,
+    };
+    if (previous) previous.supersededBy = fact.id;
+    w.facts.push(fact);
+    if (WORK_KINDS.includes(e.kind) && provenance !== "untrusted") {
+      if (attribute === "status" && e.kind === "assignment")
+        e.workStatus = value as GraphWorkStatus;
+      if (attribute === "deadline") {
+        const iso = isoOrNull(value);
+        if (iso !== null) e.dueAt = iso;
+      }
+      if (SIGNAL_FACTS.includes(attribute)) e.lastSignalAt = now;
+      // Real work on a not-started assignment starts it (§3.4).
+      if (
+        e.kind === "assignment" &&
+        e.workStatus === "not_started" &&
+        (attribute === "progress" || attribute === "stopped_at")
+      )
+        setOwnerFact(e, "status", "in_progress", "system");
+    }
+    return { fact, superseded: previous?.id ?? null };
+  };
   const entityOf = (id: string) =>
     ctx.graph().entities.find((e) => e.id === id) ?? notFound(`entity ${id}`);
   const touched = (e: GraphEntity, changed: string[]) => {
@@ -109,6 +387,44 @@ export function graphHandlers(ctx: GraphMockContext): Handlers {
       };
     },
     "memory.entities.get": (p) => graphDetail(ctx.graph(), p.id) ?? notFound(`entity ${p.id}`),
+    "memory.entities.create": (p) => {
+      const w = ctx.graph();
+      const now = ctx.now();
+      const work = WORK_KINDS.includes(p.kind);
+      const dueAt = p.dueAt === undefined ? null : isoOrNull(p.dueAt);
+      if (p.dueAt !== undefined && dueAt === null)
+        throw new PsycheError("invalid_params", "dueAt must be a date and time");
+      if (dueAt !== null && !work)
+        throw new PsycheError("invalid_params", "only a project, to-do or event has a due date");
+      const entity: GraphEntity = {
+        id: `ent_new_${w.entities.length + 1}`,
+        kind: p.kind,
+        name: p.name,
+        aliases: p.aliases ?? [],
+        status: "active",
+        mergedInto: null,
+        isOwner: false,
+        pinned: false,
+        hidden: false,
+        ...(p.kind === "project" ? { projectStatus: p.projectStatus ?? "active" } : {}),
+        dueAt,
+        ...(p.kind === "project" ? { projectType: p.projectType ?? "project" } : {}),
+        ...(p.kind === "assignment" ? { workStatus: "not_started" as const } : {}),
+        // Making a work item is the owner saying it exists: it starts fresh, not stale.
+        ...(p.kind === "project" || p.kind === "assignment" ? { lastSignalAt: now } : {}),
+        ...(p.private === true && work ? { private: true } : {}),
+        summary: null,
+        summaryAt: null,
+        lastInteractionAt: null,
+        cardPath: null,
+        createdAt: now,
+        updatedAt: now,
+      };
+      w.entities.push(entity);
+      if (dueAt !== null && p.kind !== "event") setOwnerFact(entity, "deadline", dueAt);
+      ctx.emit("memory.entity.updated", { id: entity.id, kind: entity.kind, changed: ["created"] });
+      return { entity };
+    },
     "memory.entities.update": (p) => {
       const e = entityOf(p.id);
       const changed: string[] = [];
@@ -119,6 +435,37 @@ export function graphHandlers(ctx: GraphMockContext): Handlers {
         e.projectStatus = p.projectStatus;
         changed.push("status");
       }
+      if (p.dueAt !== undefined) {
+        if (!WORK_KINDS.includes(e.kind))
+          throw new PsycheError("invalid_params", "only a work item has a due date");
+        if (p.dueAt === null) {
+          e.dueAt = null;
+          // Cleared: the deadline stops being current, with no "wrong fact" recorded.
+          const open = ctx
+            .graph()
+            .facts.find(
+              (f) =>
+                f.entityId === e.id &&
+                f.attribute === "deadline" &&
+                f.supersededBy == null &&
+                f.retractedAt == null &&
+                f.validTo == null,
+            );
+          if (open) open.validTo = ctx.now();
+        } else {
+          const iso = isoOrNull(p.dueAt);
+          if (iso === null)
+            throw new PsycheError("invalid_params", "dueAt must be a date and time");
+          setOwnerFact(e, "deadline", iso);
+        }
+        changed.push("due");
+      }
+      if (p.projectType !== undefined) e.projectType = p.projectType;
+      if (p.private !== undefined) {
+        if (p.private) e.private = true;
+        else delete e.private;
+        changed.push("private");
+      }
       if (p.pinned !== undefined) {
         e.pinned = p.pinned;
         changed.push("pinned");
@@ -128,35 +475,95 @@ export function graphHandlers(ctx: GraphMockContext): Handlers {
       return { entity: e };
     },
     "memory.entities.facts.set": (p) => {
-      const w = ctx.graph();
       const e = entityOf(p.entityId);
-      const now = ctx.now();
-      const previous = w.facts.find(
-        (f) =>
-          f.entityId === e.id &&
-          f.attribute === p.attribute &&
-          f.supersededBy == null &&
-          f.retractedAt == null,
+      if (e.kind === "assignment" && p.attribute === "status" && !WORK_STATUSES.includes(p.value))
+        throw new PsycheError("invalid_params", `${p.value} is not a status`);
+      const result = setOwnerFact(
+        e,
+        p.attribute,
+        p.value,
+        "owner",
+        p.source?.ref ? [p.source.ref] : [],
       );
-      const fact: GraphFact = {
-        id: `fact_owner_${w.facts.length + 1}`,
-        entityId: e.id,
-        attribute: p.attribute,
-        value: p.value,
+      touched(e, ["facts"]);
+      return result;
+    },
+    "memory.entities.edges.set": (p) => {
+      const w = ctx.graph();
+      const src = entityOf(p.src);
+      const dst = entityOf(p.dst);
+      const live = (x: GraphEdge) => x.supersededBy == null && x.retractedAt == null;
+      const existing = w.edges.find(
+        (x) => x.src === src.id && x.dst === dst.id && x.rel === p.rel && live(x),
+      );
+      // An assignment or event is part of one course or project: a new parent replaces the old.
+      if (p.rel === "part_of" && (src.kind === "assignment" || src.kind === "event"))
+        for (const x of w.edges)
+          if (x.src === src.id && x.rel === "part_of" && live(x) && x !== existing)
+            x.retractedAt = ctx.now();
+      const edge: GraphEdge = existing ?? {
+        id: `edge_owner_${w.edges.length + 1}`,
+        src: src.id,
+        dst: dst.id,
+        rel: p.rel,
+        ...(p.label === undefined ? {} : { label: p.label }),
         provenance: "owner",
         confidence: 1,
-        sources: p.source?.ref ? [p.source.ref] : [],
-        evidence: null,
-        validFrom: now,
+        sources: [],
+        validFrom: ctx.now(),
         validTo: null,
-        recordedAt: now,
         supersededBy: null,
         retractedAt: null,
       };
-      if (previous) previous.supersededBy = fact.id;
-      w.facts.push(fact);
-      touched(e, ["facts"]);
-      return { fact, superseded: previous?.id ?? null };
+      if (!existing) w.edges.push(edge);
+      touched(src, ["edges"]);
+      touched(dst, ["edges"]);
+      return { edge, superseded: null };
+    },
+    "memory.entities.edges.retract": (p) => {
+      const w = ctx.graph();
+      const edge = w.edges.find((x) => x.id === p.edgeId) ?? notFound(`edge ${p.edgeId}`);
+      edge.retractedAt = ctx.now();
+      touched(entityOf(edge.src), ["edges"]);
+      touched(entityOf(edge.dst), ["edges"]);
+      return { edge };
+    },
+    "memory.entities.timeline": (p) => timelineOf(ctx.graph(), p.entityId, p.before, p.limit ?? 50),
+    "memory.anchors.list": (p) => ({
+      anchors: ctx
+        .graph()
+        .anchors.filter(
+          (a) => (!p.entityId || a.entityId === p.entityId) && (!p.kind || a.kind === p.kind),
+        ),
+    }),
+    "memory.anchors.add": (p) => {
+      const w = ctx.graph();
+      const e = entityOf(p.entityId);
+      const same = w.anchors.find(
+        (a) => a.entityId === e.id && a.kind === p.kind && a.ref === p.ref,
+      );
+      if (same) return { anchor: same };
+      const anchor: GraphAnchor = {
+        id: `anc_${w.anchors.length + 1}`,
+        entityId: e.id,
+        kind: p.kind,
+        ref: p.ref,
+        label: p.label ?? p.ref,
+        addedBy: "owner",
+        confirmed: true,
+        createdAt: ctx.now(),
+      };
+      w.anchors.push(anchor);
+      touched(e, ["anchors"]);
+      return { anchor };
+    },
+    "memory.anchors.remove": (p) => {
+      const w = ctx.graph();
+      const found = w.anchors.find((a) => a.id === p.id);
+      if (!found) return { removed: false };
+      w.anchors = w.anchors.filter((a) => a.id !== p.id);
+      touched(entityOf(found.entityId), ["anchors"]);
+      return { removed: true };
     },
     "memory.entities.facts.retract": (p) => {
       const w = ctx.graph();

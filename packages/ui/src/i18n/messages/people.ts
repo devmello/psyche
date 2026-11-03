@@ -6,7 +6,7 @@ export const people = {
   "people.kind.place": "Place",
   "people.kind.event": "Event",
   "people.kind.topic": "Topic",
-  "people.kind.assignment": "Assignment",
+  "people.kind.assignment": "To-do",
   "people.kindLine": "{kind} · {detail}",
   "people.group.people": "People",
   "people.group.projects": "Projects",

@@ -25,7 +25,7 @@ export interface HomeScreenProps {
   /** Scrolls this section into view on arrival (`/home#today`). */
   anchor?: string;
   /**
-   * The brief's "Catching up" rows (projects, assignments, due work, mail). Nothing supplies them
+   * The brief's "Catching up" rows (projects, to-dos, due work, mail). Nothing supplies them
    * yet; the memory-for-everything work will (docs/design/home-2026.md §5). Absent or empty, the
    * block is not drawn.
    */

@@ -1,14 +1,15 @@
 import type { ReviewItem } from "@psyche/protocol";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { PEOPLE_IDS } from "../fixtures/people.ts";
+import { WORK_IDS, withWorkWorld } from "../fixtures/work.ts";
 import { STORY_NOW, withWorld } from "../stories/harness.tsx";
 import { MemoryScreen } from "./MemoryScreen.tsx";
 
 /**
  * Memory (docs/design/memory-everything-2026.md §6): the sidebar's fourth place, on the fixture
  * graph. One chip row (Everything, People, Projects, Work due, Events, More) with Review at the
- * end; Everything shows only the sections it can fill, and Work due stays empty until the work
- * store exists.
+ * end; Everything shows only the sections it can fill. Work due and Projects hold whatever the
+ * owner tracks (a board deck, rent, a course); a project or a to-do opens as a page.
  */
 const meta = {
   title: "Screens/Memory",
@@ -34,10 +35,61 @@ export const Narrow: Story = {
 /** Today's People page, Keep in touch included, moved in unchanged. */
 export const People: Story = { args: { kind: "people" } };
 
+/** The default graph: projects only, so the list reads as it did before courses. */
 export const Projects: Story = { args: { kind: "projects" } };
 
-/** No work store yet: a calm empty page. */
-export const WorkDue: Story = { args: { kind: "due" } };
+const withTerm = withWorld({ edit: withWorkWorld });
+
+/** Projects, and a course among them, with kind, due date and stale mark; Paused and Done are a tap away. */
+export const ProjectsWithDue: Story = { args: { kind: "projects" }, decorators: [withTerm] };
+
+/** Nothing tracked: a calm empty page with Add. */
+export const WorkDueEmpty: Story = { args: { kind: "due" } };
+
+/**
+ * Work due, for anything with a date (a board deck, rent, a passport, homework): Past due (amber,
+ * the one group that needs the owner), This week, Later, No date and Done. Each row shows the
+ * project it belongs to, if any, its status, due date and a stale mark, with a one-tap Done. The
+ * lock marks an item kept private.
+ */
+export const WorkDue: Story = { args: { kind: "due" }, decorators: [withTerm] };
+
+/** On a phone-width column the rows keep their due date and the groups stack. */
+export const WorkDueNarrow: Story = {
+  decorators: [withTerm],
+  render: (args) => (
+    <div className="max-w-[420px]">
+      <MemoryScreen {...args} kind="due" />
+    </div>
+  ),
+};
+
+/** Everything with work items: Due soon (the top five of Work due) joins the overview. */
+export const EverythingWithWork: Story = { decorators: [withTerm] };
+
+/**
+ * A work project's page: status, where you stopped and the next step, its to-dos with a one-tap
+ * Done, the people on it, the timeline of the project and its to-dos, and what is linked to it.
+ */
+export const Project: Story = { args: { entity: WORK_IDS.launch }, decorators: [withTerm] };
+
+/** A course is one kind of project: the same page, with its term, code and instructor. */
+export const Course: Story = { args: { entity: WORK_IDS.math }, decorators: [withTerm] };
+
+/** A to-do in progress: due Thursday, stopped at the pricing table, with its moved due date. */
+export const Todo: Story = { args: { entity: WORK_IDS.deck }, decorators: [withTerm] };
+
+/** Past due and idle for four days: the due date says Overdue in amber and the status may be stale. */
+export const TodoOverdue: Story = { args: { entity: WORK_IDS.signoff }, decorators: [withTerm] };
+
+/** A to-do with no project: rent, due on the first. */
+export const TodoWithoutProject: Story = {
+  args: { entity: WORK_IDS.rent },
+  decorators: [withTerm],
+};
+
+/** A private item, kept to its own page: the lock and "Keep private" checked in the menu. */
+export const TodoPrivate: Story = { args: { entity: WORK_IDS.taxes }, decorators: [withTerm] };
 
 export const Events: Story = { args: { kind: "events" } };
 

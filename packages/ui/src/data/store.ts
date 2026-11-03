@@ -727,7 +727,12 @@ export class GatewayStore {
       case "memory.entity.updated":
       case "memory.loop.updated":
       case "memory.suggestion.created":
-        return invalidate(s, ["memory.entities.", "memory.loops.", "memory.graph."]);
+        return invalidate(s, [
+          "memory.entities.",
+          "memory.loops.",
+          "memory.graph.",
+          "memory.anchors.",
+        ]);
       case "credential.updated":
         return invalidate(s, ["vault."]);
       case "vault.payment.updated":

@@ -135,6 +135,19 @@ export function toEntityView({ detail, notes = null, now }: AdaptInput): EntityV
       .filter((n): n is string => typeof n === "string"),
   }));
 
+  const parentEdge = detail.edges.find(
+    (e) => e.rel === "part_of" && e.src === entity.id && isCurrent(e, now),
+  );
+  const assignedByEdge = detail.edges.find(
+    (e) => e.rel === "assigned_by" && e.src === entity.id && isCurrent(e, now),
+  );
+  const assignmentIds = new Set(
+    detail.edges
+      .filter((e) => e.rel === "part_of" && e.dst === entity.id && isCurrent(e, now))
+      .map((e) => e.src),
+  );
+  const work = ["project", "assignment", "event"].includes(entity.kind);
+
   return {
     id: entity.id,
     kind: entity.kind,
@@ -142,6 +155,20 @@ export function toEntityView({ detail, notes = null, now }: AdaptInput): EntityV
     aliases: entity.aliases,
     pinned: entity.pinned,
     projectStatus: entity.projectStatus ?? null,
+    ...(work
+      ? {
+          projectType: entity.projectType ?? null,
+          workStatus: entity.workStatus ?? null,
+          dueAt: entity.dueAt,
+          private: entity.private === true,
+          lastSignalAt: entity.lastSignalAt ?? null,
+          parent: ref(parentEdge?.dst),
+          assignedBy: ref(assignedByEdge?.dst),
+          assignments: detail.related.filter(
+            (r) => r.kind === "assignment" && assignmentIds.has(r.id),
+          ),
+        }
+      : {}),
     summary: entity.summary ?? null,
     summaryAt: entity.summaryAt ?? null,
     lastInteractionAt: entity.lastInteractionAt ?? null,

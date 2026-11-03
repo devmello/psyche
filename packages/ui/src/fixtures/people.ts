@@ -1,5 +1,6 @@
 import type {
   EntitySummary,
+  GraphAnchor,
   GraphBlocklistEntry,
   GraphEdge,
   GraphEntity,
@@ -197,6 +198,8 @@ function identifier(
 
 export interface GraphWorld {
   entities: GraphEntity[];
+  /** What is linked to work items: folders, chats, documents (docs/design/memory-everything-2026.md §2.5). */
+  anchors: GraphAnchor[];
   identifiers: GraphIdentifier[];
   facts: GraphFact[];
   edges: GraphEdge[];
@@ -213,6 +216,7 @@ export interface GraphWorld {
 export function graphWorld(): GraphWorld {
   const owner = { entityId: P.owner, role: "to" as const };
   return {
+    anchors: [],
     entities: [
       entity(P.owner, "person", "Alex Rivera"),
       entity(P.samLee, "person", "Sam Lee", {
@@ -549,8 +553,12 @@ export function graphRef(world: GraphWorld, id: string): EntityRef | null {
 export function graphSummary(world: GraphWorld, e: GraphEntity): EntitySummary {
   const current = (x: GraphEdge) => x.supersededBy == null && x.retractedAt == null;
   const employer = world.edges.find((x) => x.src === e.id && x.rel === "works_at" && current(x));
+  const parent = world.edges.find((x) => x.src === e.id && x.rel === "part_of" && current(x));
   const members = world.edges
-    .filter((x) => x.dst === e.id && x.rel !== "works_at" && current(x))
+    .filter(
+      (x) =>
+        x.dst === e.id && ["member_of", "stakeholder_of", "teaches"].includes(x.rel) && current(x),
+    )
     .map((x) => graphRef(world, x.src)?.name)
     .filter((n): n is string => typeof n === "string");
   const openLoops = world.loops.filter(
@@ -563,12 +571,22 @@ export function graphSummary(world: GraphWorld, e: GraphEntity): EntitySummary {
     subtitle:
       e.kind === "project"
         ? members.join(", ") || null
-        : employer
-          ? (graphRef(world, employer.dst)?.name ?? null)
-          : null,
+        : e.kind === "assignment" || e.kind === "event"
+          ? parent
+            ? (graphRef(world, parent.dst)?.name ?? null)
+            : null
+          : employer
+            ? (graphRef(world, employer.dst)?.name ?? null)
+            : null,
     summary: e.summary ?? null,
     status: e.status,
     ...(e.projectStatus ? { projectStatus: e.projectStatus } : {}),
+    ...(e.projectType ? { projectType: e.projectType } : {}),
+    ...(e.workStatus ? { workStatus: e.workStatus } : {}),
+    ...(e.kind === "assignment" || e.kind === "project" || e.kind === "event"
+      ? { dueAt: e.dueAt }
+      : {}),
+    ...(e.private ? { private: true } : {}),
     lastInteractionAt: e.lastInteractionAt ?? null,
     openLoops,
     pinned: e.pinned,

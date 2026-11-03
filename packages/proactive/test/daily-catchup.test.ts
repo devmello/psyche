@@ -49,7 +49,7 @@ function catchUp(over: Partial<DailyCatchUp> = {}): DailyCatchUp {
           title: "Q3 board deck",
         },
       ],
-      pending: { text: "2 new assignments to confirm", link: "/memory/review" },
+      pending: { text: "2 new to-dos to confirm", link: "/memory/review" },
     }),
     evening: () => ({
       worked: [{ text: "Lecture Work 7: edited files.", link: "/memory?entity=a1" }],
@@ -106,7 +106,7 @@ describe("the brief with work memory on (§5.5)", () => {
       "Q3 board deck: due tomorrow, not started.",
       // "Lecture Work 7" is covered by its line; "Pay rent" is not work, so it stays.
       "Pay rent",
-      "2 new assignments to confirm",
+      "2 new to-dos to confirm",
     ]);
     expect(items[0]?.link).toBe("/memory?entity=a1");
     expect(items.at(-1)?.link).toBe("/memory/review");
@@ -277,7 +277,7 @@ describe("the due-soon notification", () => {
   const morning = (svc: DailyService) => svc.jobs()[0]?.run({ prompt: "" } as never);
   const noticeOf = (mode: string) => ({
     title: mode === "wrapup" ? "Due soon" : "Due today",
-    body: "2 assignments due tomorrow: Lecture Work 7, Q3 deck.",
+    body: "2 things due tomorrow: Lecture Work 7, Q3 deck.",
     route: "/memory?kind=due",
     dedupeKey: `memory-due:${mode}:2026-10-28`,
   });

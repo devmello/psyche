@@ -191,7 +191,7 @@ describe("status", () => {
     expect((await rejection(set("overdue"))).code).toBe("invalid_params");
     expect(graph.getEntity(hw.id)?.workStatus).toBe("done");
     const { rows } = await call("memory.entities.timeline", { entityId: hw.id });
-    expect(rows[0]?.text).toBe("Status submitted → done");
+    expect(rows[0]?.text).toBe("Status handed in → done");
   });
 
   it("the first progress note starts the work; a signal does not reopen a finished item", async () => {

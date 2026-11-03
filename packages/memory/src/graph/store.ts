@@ -537,7 +537,7 @@ const WORK_FACTS_SQL = "'status', 'deadline', 'next_step', 'stopped_at', 'progre
 const STATUS_LABELS: Record<string, string> = {
   not_started: "not started",
   in_progress: "in progress",
-  submitted: "submitted",
+  submitted: "handed in",
   done: "done",
   dropped: "dropped",
 };
@@ -838,7 +838,7 @@ export class GraphStore {
     if (input.dueAt !== undefined && input.dueAt !== null && dueAt === null)
       fail("invalid_params", "dueAt must be a date and time");
     if (dueAt !== null && !isWorkKind(input.kind))
-      fail("invalid_params", "only a project, assignment or event has a due date");
+      fail("invalid_params", "only a project, to-do or event has a due date");
     if (input.projectType === "course" && input.kind !== "project")
       fail("invalid_params", "only a project can be a course");
     const id = this.#id("ent");
@@ -958,7 +958,7 @@ export class GraphStore {
         if ((key === "projectStatus" || key === "projectType") && row.kind !== "project") continue;
         if (key === "private" && !isWorkKind(row.kind)) continue;
         if (key === "dueAt" && !isWorkKind(row.kind)) {
-          fail("invalid_params", "only a project, assignment or event has a due date");
+          fail("invalid_params", "only a project, to-do or event has a due date");
         }
         if (
           key === "notes" &&
@@ -1311,7 +1311,7 @@ export class GraphStore {
     if (entity.kind === "assignment" && input.attribute === "status" && !isWorkStatus(value)) {
       return refuse(
         "invalid_params",
-        "an assignment is not started, in progress, submitted, done or dropped",
+        "a to-do is not started, in progress, handed in, done or dropped",
       );
     }
     // A deadline is a date; an assignment's is stored in one form so changes compare.
@@ -1463,7 +1463,7 @@ export class GraphStore {
     const row = this.#entityRow(entityId);
     if (row === undefined) fail("not_found", "no such entity");
     if (row.kind !== "assignment" || row.work_status === null) {
-      fail("invalid_params", "only an assignment has a status");
+      fail("invalid_params", "only a to-do has a status");
     }
     const transition = nextWorkStatus(row.work_status, cause);
     if (transition.changed) {
@@ -2138,7 +2138,7 @@ export class GraphStore {
     const entity = this.#entityRow(this.resolveMerged(input.entityId));
     if (entity === undefined) fail("not_found", "no such entity");
     if (!isWorkKind(entity.kind)) {
-      fail("invalid_params", "a source can be linked to a project, course, assignment or event");
+      fail("invalid_params", "a source can be linked to a project, course, to-do or event");
     }
     const ref = input.ref.trim();
     if (ref.length === 0 || ref.length > 1024 || [...ref].some(isControlChar)) {

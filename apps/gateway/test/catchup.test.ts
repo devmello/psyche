@@ -397,7 +397,7 @@ describe("the brief", () => {
       "MATH 21 · Lecture Work 7: due Thu, in progress. You stopped at problem 4b.",
       // The reminder "Lecture Work 7" is covered by its line; "Pay rent" is not work.
       "Pay rent",
-      "1 new assignment to confirm",
+      "1 new to-do to confirm",
     ]);
     expect(items[0]?.link).toBe(`/memory?entity=${w.ids.chem.id}`);
     expect(items.at(-1)?.link).toBe("/memory/review");
@@ -522,7 +522,7 @@ describe("pending suggestions never surface", () => {
     });
     expect(all).not.toContain("Lecture Work 8");
     expect((await list(w, "home")).pendingCount).toBe(1);
-    expect(w.catchup.daily.morning("brief").pending?.text).toBe("1 new assignment to confirm");
+    expect(w.catchup.daily.morning("brief").pending?.text).toBe("1 new to-do to confirm");
     // The owner's answer is what makes it an item.
     const [s] = w.graph.suggestions(["pending"]);
     w.graph.answerSuggestion((s as { id: string }).id, "accept");
@@ -545,7 +545,7 @@ describe("the due-soon notification (W4)", () => {
     const n = w.catchup.daily.notice("wrapup");
     expect(n).toMatchObject({
       title: "Due soon",
-      body: "2 assignments due tomorrow: Quiz 3, Q3 board deck.",
+      body: "2 things due tomorrow: Quiz 3, Q3 board deck.",
       route: "/memory?kind=due",
     });
     expect(w.catchup.daily.notice("wrapup")).toBeUndefined();
@@ -558,7 +558,7 @@ describe("the due-soon notification (W4)", () => {
     w.on({ remind: { enabled: true, dayOf: true } });
     expect(w.catchup.daily.notice("dayOf")).toMatchObject({
       title: "Due today",
-      body: "1 assignment due today: Quiz 3.",
+      body: "1 thing due today: Quiz 3.",
     });
     expect(w.catchup.daily.notice("dayOf")).toBeUndefined();
   });

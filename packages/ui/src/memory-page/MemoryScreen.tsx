@@ -10,9 +10,10 @@ import { ScreenColumn, ScreenToolbar, ToolbarLabel } from "../screens/feed/Scree
 import { useSlots } from "../slots.tsx";
 import { EntityPage } from "./EntityPage.tsx";
 import { EverythingTab } from "./EverythingTab.tsx";
-import { DueTab, EventsTab, MoreTab, ProjectsTab } from "./KindTabs.tsx";
+import { EventsTab, MoreTab, ProjectsTab } from "./KindTabs.tsx";
 import { entityHref, MEMORY_KINDS, type MemoryKind, memoryHref } from "./kinds.ts";
 import { ReviewTab } from "./ReviewTab.tsx";
+import { WorkDueTab } from "./WorkDue.tsx";
 
 export interface MemoryScreenProps {
   /** `/memory?kind=<chip>`; Everything when absent. */
@@ -28,7 +29,7 @@ export interface MemoryScreenProps {
 /**
  * Memory (docs/design/memory-everything-2026.md §6): everything Psyche remembers, by kind. It
  * took over the sidebar's People row. The People chip is the old People page as it was, Keep in
- * touch included; Work due is empty until the work store exists. Review (the facts waiting for an
+ * touch included; Work due and Projects hold the assignments, courses and projects the owner tracks. Review (the facts waiting for an
  * OK) is a link at the end of the chip row.
  */
 export function MemoryScreen({
@@ -129,7 +130,7 @@ export function MemoryScreen({
             ) : kind === "projects" ? (
               <ProjectsTab now={now} onNavigate={navigate} />
             ) : kind === "due" ? (
-              <DueTab />
+              <WorkDueTab now={now} onNavigate={navigate} />
             ) : kind === "events" ? (
               <EventsTab now={now} onNavigate={navigate} />
             ) : kind === "more" ? (
