@@ -1331,6 +1331,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       nudges.refresh();
       return nudges.keepInTouch();
     },
+    // Catching up and `memory.catchup.*` (MW4): the graph, and what the agent may read of it.
+    catchup: { graph: people.graph, em: everything.store, access: people.agentAccess },
     // Ideas proposes folding a skill's lessons into it once it has three (teaching loop §6).
     skillUpdates: () => skills.updates(),
     // Post-meeting notes transcribe on the Mac through the speech part (§4.6). Record meeting

@@ -13,11 +13,15 @@ export {
 export { createDailyHandlers, type DailyHandlerDeps } from "./daily/handlers.ts";
 export {
   type ActivityItem,
+  type BriefSurface,
+  type CatchUpLine,
   DAILY_BRIEF_JOB,
   DAILY_WRAPUP_JOB,
   type DailyActivity,
+  type DailyCatchUp,
   DailyService,
   type DailyServiceOptions,
+  dailyMarkdown,
 } from "./daily/service.ts";
 export {
   DAILY_SETTING_KEYS,

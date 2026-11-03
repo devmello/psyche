@@ -374,6 +374,8 @@ export function feedTools(feed: FeedService, clock: Clock): AgentToolRegistratio
         const posts = page.posts
           .filter((x) => p.unreadOnly !== true || x.readAt == null)
           .slice(0, p.limit ?? 10)
+          // Catch-up lines in the brief answer to agent access (§4 rule 2).
+          .map((raw) => feed.forAgent(raw))
           .map((x) => ({
             id: x.id,
             title: x.title,
