@@ -194,6 +194,45 @@ describe("traversal and granted folders", () => {
   });
 });
 
+describe("Psyche's own CLI workdirs", () => {
+  it("opens one working directory inside the protected home, and nothing else in it", async () => {
+    const home = join(granted, ".psyche");
+    const cli = join(home, "cli", "claude-code");
+    mkdirSync(cli, { recursive: true });
+    mkdirSync(join(home, "vault"));
+    writeFileSync(join(cli, "notes.md"), "scratch");
+    writeFileSync(join(cli, ".psyche-mcp-1.json"), '{"token":"t"}');
+    writeFileSync(join(cli, "CLAUDE.md"), "rules");
+    writeFileSync(join(home, "vault", "key.md"), "key");
+    folders = [{ path: cli, mode: "rw" }];
+    ({ run } = toolset({
+      folders: () => folders,
+      protectedRoots: () => [home],
+      ownDirs: () => [cli],
+    }));
+    expect((await run("read_file", { path: join(cli, "notes.md") })).output).toBeDefined();
+    await run("write_file", { path: join(cli, "out.md"), content: "ok" });
+    for (const p of [
+      join(cli, ".psyche-mcp-1.json"),
+      join(cli, "CLAUDE.md"),
+      join(home, "vault", "key.md"),
+    ]) {
+      await expect(run("read_file", { path: p })).rejects.toMatchObject({
+        code: "forbidden",
+        details: { reason: "protected_path" },
+      });
+    }
+    await expect(
+      run("write_file", { path: join(cli, ".claude", "settings.json"), content: "{}" }),
+    ).rejects.toMatchObject({ code: "forbidden" });
+    // Without the exemption the workdir is as protected as the rest of the home.
+    ({ run } = toolset({ folders: () => folders, protectedRoots: () => [home] }));
+    await expect(run("read_file", { path: join(cli, "notes.md") })).rejects.toMatchObject({
+      code: "forbidden",
+    });
+  });
+});
+
 describe("protected locations (#285)", () => {
   it("refuses Psyche's home and credential stores under a granted rw folder", async () => {
     const home = join(granted, ".psyche");

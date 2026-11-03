@@ -1,6 +1,6 @@
 # Future features
 
-Status: plan, 2026-11-02. Nothing in this file is promised for a date. It collects six features the owner has asked for, in plain language, with what is already built, what is left, and what each one depends on.
+Status: plan, 2026-11-02. Nothing in this file is promised for a date. It collects seven features the owner has asked for, in plain language, with what is already built, what is left, and what each one depends on.
 
 This sits next to [08-roadmap.md](../08-roadmap.md), which holds the milestone plan up to v1.0 and the short "After 1.0" list. Items here are the ones that need more than a line. When one gets a design doc, link it here and keep this entry short.
 
@@ -123,7 +123,7 @@ Each entry has the same parts: what it is, why it beats existing assistants, rou
 
 **Open questions.** See §7 of that doc: whether Tailscale's on-demand VPN is fast enough for the background tap, whether the Secure Enclave key can prompt from a notification action, and the minimum iOS version.
 
-**Depends on.** The WebSocket protocol and device scopes (built), the Gateway identity-key pin (not built), `packages/notifications` (built), and the approvals system (built).
+**Depends on.** The WebSocket protocol and device scopes (built), the Gateway identity-key pin (not built; shared with §7), `packages/notifications` (built), and the approvals system (built).
 
 ## 6. Apple's on-device model for private jobs
 
@@ -142,3 +142,32 @@ Each entry has the same parts: what it is, why it beats existing assistants, rou
 - A4: memory extraction per source (`model.perSource`, EM11) with `{kind: "local", ref: "apple/on-device"}`, after A3 shows the window is enough for the batch size.
 
 **Depends on.** The Mac helper, the model router, the search roadmap's R12/R13 (rerank and query model) and the everything-memory plan's model-per-source setting (EM11).
+
+## 7. Use Psyche from another computer
+
+**What it is.** The Psyche app on a second Mac, or on a Windows PC, connects to the Psyche that already runs on your main Mac, over Tailscale. One machine stays the brain: it holds the data, the vault, memory, connectors and automations. The other computer is a window onto it. You can save several Gateways and switch between "This Mac" and a remote one from the avatar menu.
+
+**Why it beats existing assistants.** Cloud assistants put your data on someone else's server so that every device can reach it. Here your devices reach your own machine over your own tailnet. Nobody runs a relay, nothing is synced to a third party, and a lost laptop is one **Remove** away from having no access.
+
+**What is built.**
+- The signed connect, pairing codes, owner-chosen scopes and revocation (`packages/protocol/src/methods/{connect,devices}.ts`, `apps/gateway/src/auth.ts`).
+- The desktop's `external` mode and the Tailscale Serve setup in [guides/server-mode.md](../guides/server-mode.md#the-desktop-app). Today a Mac can already connect to a remote Gateway by hand, with environment variables.
+- Reconnecting and resyncing after a drop (N14), and chunked upload and download over the WebSocket.
+
+**What is left.**
+- Choosing and saving Gateways in the app, with a startup screen that explains an unreachable host.
+- The Gateway identity-key pin, shared with the phone.
+- Fixing how the Gateway picks a Mac helper, so a second Mac can never receive the agent's computer use or Apple apps.
+- A clear "runs on the host", "runs here" or "not available" for each feature tied to one machine.
+- A client-only Windows build.
+
+**Rough phases.** All of it is in [design/remote-gateway-2026.md](../design/remote-gateway-2026.md):
+- R0: node routing and the desktop gates (no visible change).
+- R1: a Mac remote client over Tailscale Serve, with saved Gateways, the identity pin and the startup states.
+- R2: pairing links, Touch ID or Windows Hello for approvals on the client, and notifications on the client.
+- R3: the Windows client-only build.
+- R4: features that run on the client: Ask about my screen, system-wide dictation and, optionally, the browser.
+
+**Open questions.** See §8 of that doc. The main ones: whether a remote computer may get admin, whether every approval from a remote computer needs Touch ID, and whether the agent's browser should ever run on the client.
+
+**Depends on.** The WebSocket protocol and device scopes (built), Tailscale Serve on the host (owner setup), the Gateway identity key (not built, shared with the [phone companion](../design/mobile-companion-2026.md)), the settings redesign's Devices section, and, for Windows, the [cross-platform](../design/cross-platform-2026.md) packaging work.

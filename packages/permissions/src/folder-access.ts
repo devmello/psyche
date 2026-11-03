@@ -27,6 +27,12 @@ export interface FolderAccessEnv {
   psycheHome?: string;
   /** Extra protected locations (credential stores) as written; real paths are added too. */
   protectedRoots?: readonly string[];
+  /**
+   * Folders Psyche creates inside `$PSYCHE_HOME` for its own runs (the subscription CLI working
+   * directories, `<home>/cli/<id>`). Each is shareable although `$PSYCHE_HOME` is not; nothing
+   * else under `$PSYCHE_HOME` is, and a folder holding one of them stays refused.
+   */
+  ownDirs?: readonly string[];
 }
 
 /** System roots refused as themselves and as ancestors, but not for their subfolders. */
@@ -87,7 +93,16 @@ export function refuseFolder(real: string, env: FolderAccessEnv = {}): FolderRef
   if (!real.startsWith("/")) return "not_absolute";
   const { exact, subtree } = sensitiveRoots(env);
   if (exact.includes(real)) return "sensitive_root";
-  for (const root of subtree) if (under(real, root)) return "sensitive_root";
+  // Only the roots that contain the exempt folder are lifted for it: a CLI workdir is never an
+  // opening into `~/.ssh` or `~/Library` (those do not contain it).
+  const own = (env.ownDirs ?? []).map((d) => resolve(d)).find((d) => under(real, d));
+  // Its dot-folders hold the CLI's settings and tool token: never shared, even inside the exempt one.
+  if (own !== undefined && real.slice(own.length + 1).startsWith(".")) return "sensitive_root";
+  for (const root of subtree) {
+    if (!under(real, root)) continue;
+    if (own !== undefined && under(own, root)) continue;
+    return "sensitive_root";
+  }
   for (const root of [...exact, ...subtree]) {
     if (root !== real && under(root, real)) return "contains_sensitive_root";
   }

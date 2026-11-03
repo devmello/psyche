@@ -29,6 +29,7 @@ import {
   Group,
   LoadGate,
   SectionFrame,
+  SettingRow,
   SwitchField,
   useSettingsForm,
 } from "./shared.tsx";
@@ -129,10 +130,7 @@ export function PeoplePanel({
           </Group>
         ) : (
           <Group title={t("settings.people.graph")}>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="min-w-0 flex-1 text-body text-label-secondary">
-                {t("settings.people.off", { persona })}
-              </p>
+            <SettingRow label={t("settings.people.off", { persona })}>
               <Button
                 type="button"
                 size="sm"
@@ -142,7 +140,7 @@ export function PeoplePanel({
               >
                 {t("settings.people.turnOn")}
               </Button>
-            </div>
+            </SettingRow>
           </Group>
         )}
 
@@ -170,8 +168,8 @@ export function PeoplePanel({
 }
 
 /**
- * Privacy and Advanced sit in the same pane as People and projects (the page lists four panes);
- * each is its own section with the pane separator above it.
+ * Privacy sits in the same pane as People and projects (the page lists four panes) as its own
+ * section with the pane separator above it; Advanced is folded away under it.
  */
 function Subsection({ children }: { children: ReactNode }): ReactElement {
   return <div className="mt-5 flex flex-col gap-5 border-t border-separator pt-8">{children}</div>;
@@ -221,9 +219,7 @@ export function PeopleSection(): ReactElement {
       <Subsection>
         <MemoryPrivacySection />
       </Subsection>
-      <Subsection>
-        <MemoryAdvancedSection />
-      </Subsection>
+      <MemoryAdvancedSection />
       <Dialog open={ownOpen} onOpenChange={setOwnOpen}>
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
           <DialogHeader>

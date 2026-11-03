@@ -1,6 +1,6 @@
 import type { Connector, Grant } from "@psyche/protocol";
 import { ShieldOff } from "lucide-react";
-import { type ReactElement, useCallback, useId, useState } from "react";
+import { type ReactElement, useCallback, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import {
   Table,
@@ -19,6 +19,7 @@ import { ActionMatrix, type ActionRule, withMatrixOverrides } from "./ActionMatr
 import { appleApp } from "./ConnectorCapabilities.tsx";
 import { SCOPE_MODE_LABEL } from "./ConnectorsSection.tsx";
 import {
+  Advanced,
   EmptyNotice,
   ErrorNotice,
   Group,
@@ -158,7 +159,6 @@ export function PermissionsPanel({
   error,
   onRetry,
 }: PermissionsPanelProps): ReactElement {
-  const id = useId();
   const clock = useNow(30_000, now);
   const [showProhibitions, setShowProhibitions] = useState(false);
   const mode = str(values, "permissions.mode", "balanced") as PermissionMode;
@@ -191,15 +191,10 @@ export function PermissionsPanel({
         </Group>
 
         {/* One grouped list per connector, rows per action (redesign §5.8). */}
-        <section aria-labelledby={`${id}-actions`} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-0.5 px-1">
-            <h3 id={`${id}-actions`} className="text-title-3 text-label-primary">
-              {t("settings.permissions.connectorActions")}
-            </h3>
-            <p className="text-callout text-label-secondary">
-              {t("settings.permissions.connectorActionsHint")}
-            </p>
-          </div>
+        <Advanced
+          title={t("settings.permissions.connectorActions")}
+          description={t("settings.permissions.connectorActionsHint")}
+        >
           {connectors.length === 0 ? (
             <EmptyNotice text={t("settings.permissions.noConnectors")} />
           ) : (
@@ -267,7 +262,7 @@ export function PermissionsPanel({
               </Button>
             ) : null}
           </div>
-        </section>
+        </Advanced>
 
         <Group
           title={t("settings.permissions.origins")}

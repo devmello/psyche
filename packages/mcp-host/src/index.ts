@@ -71,6 +71,14 @@ export {
   systemRuntimeDeps,
 } from "./runtime.ts";
 export {
+  createScratchDir,
+  MAX_SOCKET_PATH_BYTES,
+  SCRATCH_SOCKET_NAME_BYTES,
+  scratchFits,
+  scratchReadRules,
+  socketPathFits,
+} from "./scratch.ts";
+export {
   assertNoPlaceholders,
   mcpCredentialTarget,
   resolveEnv,

@@ -8,6 +8,7 @@ import type { McpTrustTier, SandboxInstance, SandboxNetwork, SandboxScope } from
 import { PsycheError } from "@psyche/protocol";
 import { PipeTransport } from "./pipe-transport.ts";
 import { type RuntimeDeps, resolveRuntimeCommand } from "./runtime.ts";
+import { createScratchDir, scratchReadRules } from "./scratch.ts";
 
 /**
  * How a stdio MCP server process is started (security §11, §5.3): under `srt` (Seatbelt on macOS,
@@ -167,6 +168,19 @@ export function srtSettings(
   };
 }
 
+/** A scratch directory kept outside `$PSYCHE_HOME` stays unreadable to every other server. */
+function withScratchReads(spec: StdioLaunchSpec, psycheHome: string, scratch: string) {
+  const rules = scratchReadRules(psycheHome, scratch);
+  return {
+    ...spec,
+    sandbox: {
+      ...spec.sandbox,
+      denyRead: [...spec.sandbox.denyRead, ...rules.denyRead],
+      allowRead: [...(spec.sandbox.allowRead ?? []), ...rules.allowRead],
+    },
+  };
+}
+
 export function srtLauncher(options: SrtLauncherOptions): SpawnLauncher {
   if (!isAbsolute(options.srtPath)) {
     throw new PsycheError("invalid_params", "srtPath must be absolute (no PATH lookup)");
@@ -184,8 +198,8 @@ export function srtLauncher(options: SrtLauncherOptions): SpawnLauncher {
       }
       await mkdir(options.settingsDir, { recursive: true, mode: 0o700 });
       const id = `${spec.serverId}-${randomUUID()}`;
-      const scratch = join(options.settingsDir, `scratch-${id}`);
-      await mkdir(scratch, { mode: 0o700 });
+      // Short on purpose: srt's mux sockets live in it and `sun_path` is 104 bytes.
+      const scratch = await createScratchDir(options.settingsDir);
       const file = join(options.settingsDir, `srt-${id}.json`);
       let resolved: Awaited<ReturnType<typeof resolveRuntimeCommand>> = {
         command: [...spec.command],
@@ -198,7 +212,13 @@ export function srtLauncher(options: SrtLauncherOptions): SpawnLauncher {
         }
         await writeFile(
           file,
-          JSON.stringify(srtSettings({ ...spec, command: resolved.command }, psycheHome, scratch)),
+          JSON.stringify(
+            srtSettings(
+              withScratchReads({ ...spec, command: resolved.command }, psycheHome, scratch),
+              psycheHome,
+              scratch,
+            ),
+          ),
           { mode: 0o600 },
         );
       } catch (e) {

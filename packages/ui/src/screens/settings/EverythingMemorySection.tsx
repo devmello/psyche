@@ -17,7 +17,7 @@ import {
 } from "../../memory/EverythingFields.tsx";
 import { estimateMonthly, formatUsd } from "../../memory/estimate.ts";
 import { usePersona, useSlots } from "../../slots.tsx";
-import { Group, LoadGate, SectionFrame, useSettingsForm } from "./shared.tsx";
+import { Group, LoadGate, SectionFrame, SettingRow, useSettingsForm } from "./shared.tsx";
 
 /**
  * Settings → Memory → Sources (docs/design/everything-memory-2026.md §12.2): what Everything
@@ -48,15 +48,15 @@ export function EverythingPanel({
   const persona = usePersona();
   if (!value.enabled) {
     return (
-      <Group title={t("everything.enabledGroup")} description={t("everything.offHint")}>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="min-w-0 flex-1 text-body text-label-secondary">
-            {t("everything.off", { persona: persona.name })}
-          </p>
+      <Group title={t("everything.enabledGroup")}>
+        <SettingRow
+          label={t("everything.off", { persona: persona.name })}
+          description={t("everything.offHint")}
+        >
           <Button type="button" size="sm" variant="outline" onClick={onTurnOn}>
             {t("everything.turnOn")}
           </Button>
-        </div>
+        </SettingRow>
       </Group>
     );
   }
@@ -69,18 +69,18 @@ export function EverythingPanel({
         {...(onOpenSearch === undefined ? {} : { onOpenSearch })}
       />
       <Group title={t("everything.run.title")}>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p
-            className="min-w-0 flex-1 text-callout text-label-secondary"
-            data-testid="run-estimate"
-          >
-            {t("everything.run.hint")}{" "}
-            {value.model.default.kind === "cloud"
-              ? t("everything.run.estimateCloud", {
-                  cost: formatUsd(estimateMonthly("cloud", value.sources).typical / 30),
-                })
-              : t("everything.run.estimateFree")}
-          </p>
+        <SettingRow
+          label={t("everything.run.hint")}
+          description={
+            <span data-testid="run-estimate">
+              {value.model.default.kind === "cloud"
+                ? t("everything.run.estimateCloud", {
+                    cost: formatUsd(estimateMonthly("cloud", value.sources).typical / 30),
+                  })
+                : t("everything.run.estimateFree")}
+            </span>
+          }
+        >
           <Button
             size="sm"
             variant="outline"
@@ -89,7 +89,7 @@ export function EverythingPanel({
           >
             {running ? t("everything.run.running") : t("everything.run.button")}
           </Button>
-        </div>
+        </SettingRow>
         {runResult === null ? null : (
           <p role="status" data-testid="run-result" className="text-callout">
             {runResult.ran

@@ -57,6 +57,16 @@ export interface BridgeClientStatus {
 }
 
 /**
+ * Where the Gateway's bridge socket is: `$PSYCHE_HOME/run/browser-bridge.sock`, or the absolute
+ * path in `run/browser-bridge-socket` when a deep home moved it under the temp dir (the Gateway
+ * writes that pointer; `@psyche/browser`'s `defaultBridgeSocketPath` picks the path).
+ */
+export function bridgeSocketPath(home: string): string {
+  const pointed = readSecret(join(home, "run", "browser-bridge-socket"));
+  return pointed?.startsWith("/") === true ? pointed : join(home, "run", "browser-bridge.sock");
+}
+
+/**
  * The socket must be a socket owned by this uid with no group/other permission bits. Returns
  * null when it is acceptable, else why not (ENOENT included).
  */

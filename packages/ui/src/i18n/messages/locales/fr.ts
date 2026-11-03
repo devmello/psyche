@@ -889,7 +889,6 @@ export const fr: Partial<Catalogue> = {
   "settings.key.appearance.reduceMotion": "Réduire les animations",
   "settings.key.appearance.contrast": "Contraste élevé",
   "settings.key.appearance.zoom": "Zoom",
-  "settings.key.appearance.reduceTransparency": "Réduire la transparence",
   "settings.key.appearance.glass": "Commandes translucides",
   "settings.key.appearance.glassTint": "Teinte",
   "settings.key.appearance.glassBlur": "Flou",
@@ -1154,8 +1153,6 @@ export const fr: Partial<Catalogue> = {
   "settings.credentials.payments.status.canceled": "annulé",
   "settings.credentials.payments.amountRefunded": "{total} · {refunded} remboursés",
   "settings.credentials.payments.title": "Paiements",
-  "settings.credentials.payments.description":
-    "Stripe Link paie avec une carte à usage unique après que vous avez approuvé chaque achat sur un appareil. Vos numéros de carte n’atteignent jamais Psyche.",
   "settings.credentials.payments.loadLabel": "les paiements",
   "settings.credentials.payments.notConfigured":
     "Stripe Link n’est pas configuré. Installez la CLI Link sur la machine de la Gateway, connectez-vous à Link et définissez PSYCHE_LINK_CLI ; Psyche affichera alors vos moyens de paiement ici.",
@@ -1265,26 +1262,15 @@ export const fr: Partial<Catalogue> = {
   "settings.appearance.seedHelp":
     "N’importe quelle couleur CSS. Elle devient le palier 9 ; Psyche l’ajuste si le texte serait difficile à lire.",
   "settings.appearance.title": "Apparence",
-  "settings.appearance.description":
-    "S’applique à tous les appareils jumelés. Les couleurs d’approbation, de danger et de réussite ne suivent jamais l’accentuation.",
   "settings.appearance.loadLabel": "l’apparence",
   "settings.appearance.theme.auto": "Auto",
   "settings.appearance.theme.autoHint": "Suit le système",
-  "settings.appearance.accent": "Accentuation",
-  "settings.appearance.motionContrast": "Animations et contraste",
   "settings.appearance.followSystem": "Suivre le système",
   "settings.appearance.contrastHint":
     "Bordures plus marquées, texte plus foncé et contours de focus de 2 px.",
-  "settings.appearance.transparency": "Translucidité",
-  "settings.appearance.glass.hint":
-    "La zone de saisie, les commandes de la barre d’outils, les menus et les fenêtres contextuelles laissent transparaître le contenu derrière eux. Désactivé, ils sont opaques.",
-  "settings.appearance.reduceTransparencyHint":
-    "Les menus, les fenêtres contextuelles et la zone de saisie deviennent opaques. Suit le réglage du système jusqu’à ce que vous le changiez ici.",
   "settings.browser.profile": "Profil Psyche",
   "settings.browser.profileNamed": "Profil Psyche ({persona})",
   "settings.browser.title": "Navigateur",
-  "settings.browser.description":
-    "{persona} navigue par défaut dans sa propre fenêtre. Le mode Chrome réel permet à une tâche d’utiliser un profil Chrome séparé dans lequel vous vous connectez une seule fois.",
   "settings.browser.loadLabel": "les réglages du navigateur",
   "settings.browser.realChromeDescription":
     "Pour les sites qui ont besoin de vos connexions ou d’extensions comme 1Password.",
@@ -1547,8 +1533,6 @@ export const fr: Partial<Catalogue> = {
   "settings.context.keepHint": "Ceux-ci ne sont jamais résumés, quelle que soit leur longueur.",
   "settings.context.turns": "tours",
   "settings.webSearch.title": "Recherche web",
-  "settings.webSearch.description":
-    "Comment l’agent cherche des informations sur le web. Les résultats et les pages sont traités comme du contenu web, jamais comme vos instructions.",
   "settings.webSearch.inUse": "En service",
   "settings.webSearch.unknown": "Pas encore signalé",
   "settings.webSearch.braveKey": "Clé Brave Search",
@@ -1569,8 +1553,6 @@ export const fr: Partial<Catalogue> = {
     "Saisissez une URL http(s) sans nom d’utilisateur ni mot de passe.",
   "settings.webSearch.searxngPlaceholder": "http://127.0.0.1:8888",
   "settings.data.title": "Confidentialité et données",
-  "settings.data.description":
-    "Tout ce que {persona} conserve se trouve sur cette machine. Il n’y a pas d’option d’entraînement parce que rien n’est envoyé pour l’entraînement.",
   "settings.data.loadLabel": "le contrôle des données",
   "settings.data.memory": "Mémoire",
   "settings.data.pauseMemory": "Suspendre la mémoire",
@@ -1670,12 +1652,8 @@ export const fr: Partial<Catalogue> = {
   "settings.files.stopSharing": "Ne plus partager {path}",
   "settings.files.pathPlaceholder": "~/Documents/Impôts",
   "settings.files.title": "Accès aux fichiers",
-  "settings.files.description":
-    "{persona} ne voit que les dossiers que vous partagez. Tout le reste sur ce Mac lui est interdit.",
   "settings.files.loadLabel": "l’accès aux fichiers",
   "settings.files.folders": "Dossiers",
-  "settings.files.foldersHint":
-    "La lecture seule lui permet d’ouvrir et de rechercher ; la lecture et écriture lui permet aussi d’enregistrer des modifications, chacune affichée dans le panneau Différences.",
   "settings.files.sharedFolders": "Dossiers partagés",
   "settings.files.noFolders":
     "Aucun dossier partagé. {persona} travaille seulement dans son propre espace de travail.",
@@ -1878,8 +1856,6 @@ export const fr: Partial<Catalogue> = {
   "settings.persona.savedForLater":
     "Description enregistrée. Sans modèle d’image, {name} garde la créature choisie ci-dessous.",
   "settings.persona.title": "Persona",
-  "settings.persona.description":
-    "L’apparence de {name} et la façon dont il se présente. Le ton de l’Âme se trouve dans SOUL.md.",
   "settings.persona.loadLabel": "le persona",
   "settings.persona.describedAs": "Décrit comme : {description}",
   "settings.persona.identity": "Identité",
@@ -2141,8 +2117,6 @@ export const fr: Partial<Catalogue> = {
     "Exécutez les tâches dans un Mac bac à sable séparé, pour que {persona} travaille dans sa propre copie de macOS plutôt que dans la vôtre.",
   "settings.vm.loadLabel": "les réglages VM",
   "settings.vm.sandboxMac": "Mac bac à sable",
-  "settings.vm.enabledHint":
-    "Les tâches qui le demandent s’exécutent dans l’invité. Il ne voit que les dossiers que vous partagez, en lecture seule sauf si vous approuvez davantage.",
   "settings.vm.noGuest": "Aucun invité n’est encore jumelé",
   "settings.vm.chooseGuest": "Choisir un invité",
   "settings.vm.guestStatus": "{name} ({status})",
@@ -2151,8 +2125,6 @@ export const fr: Partial<Catalogue> = {
   "settings.vm.between": "Entre votre Mac et l’invité",
   "settings.vm.betweenHint":
     "Copier des fichiers hors de l’invité est toujours une copie explicite, avec un reçu.",
-  "settings.vm.credentialsHint":
-    "Avec le coffre de l’hôte, les valeurs restent sur votre Mac et sont remplies via l’assistant ; un coffre d’invité garde sa propre copie dans l’invité.",
   "settings.vm.guestStatusTitle": "État de l’invité",
   "settings.vm.guestStatusHint": "Ce que l’assistant Psyche a signalé en dernier.",
   "settings.vm.noReports":
@@ -2174,13 +2146,9 @@ export const fr: Partial<Catalogue> = {
   "settings.voice.mode.hold": "Maintenir pour parler",
   "settings.voice.mode.toggle": "Appuyer pour démarrer, appuyer pour arrêter",
   "settings.voice.anyApp": "Dans n’importe quelle app",
-  "settings.voice.anyAppHint":
-    "partout où vous écrivez. Le texte va là où se trouve votre curseur, jamais à l’agent, et jamais dans les champs de mot de passe.",
   "settings.voice.hotkeyHint":
     "Appuyez une fois pour démarrer et de nouveau pour arrêter, depuis n’importe quelle app. La touche Retour arrière l’arrête.",
   "settings.voice.talk": "Parler avec Psyche",
-  "settings.voice.talkHint":
-    "Un bouton Voix dans la zone de saisie lance une conversation orale : Psyche écoute, répond à voix haute et écoute de nouveau. Les approbations s’affichent toujours sous forme de cartes à l’écran ; la voix n’approuve jamais rien.",
   "settings.voice.yourTurn": "Votre tour",
   "settings.voice.turn.toggle": "Mains libres",
   "settings.voice.turn.toggleHint": "Psyche répond quand vous marquez une pause.",
@@ -2232,11 +2200,7 @@ export const fr: Partial<Catalogue> = {
     "La connexion à {name} n’est pas encore disponible sur cette Gateway. Configurez-la plus tard dans Réglages → Connecteurs.",
 
   "settings.language.title": "Langue et région",
-  "settings.language.description":
-    "La région définit la façon dont les dates, les heures, les nombres et les montants sont écrits, partout dans Psyche.",
   "settings.language.language": "Langue",
-  "settings.language.languageHint":
-    "La langue du texte de Psyche. « Comme le système » suit votre région ; ce qui n’est pas encore traduit s’affiche en anglais.",
   "settings.language.languageSystem": "Comme le système ({name})",
   "settings.language.region": "Format régional",
   "settings.language.system": "Comme le système ({name})",

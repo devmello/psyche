@@ -12,7 +12,15 @@ import { MemoryStoreGroups, type Notice, useAction } from "./DataControlsSection
 import { TimeField, useEverythingSetup } from "./EverythingMemorySection.tsx";
 import { LearningGroup } from "./LearningGroup.tsx";
 import { PeopleAdvancedGroups, readGraphSettings } from "./PeopleGraphSettings.tsx";
-import { ErrorNotice, Group, LoadGate, SectionFrame, SwitchField } from "./shared.tsx";
+import {
+  AdminHint,
+  Advanced,
+  ErrorNotice,
+  Group,
+  LoadGate,
+  SettingRow,
+  SwitchField,
+} from "./shared.tsx";
 
 /**
  * Settings → Memory → Advanced: the things most people never open. The model that reads, the
@@ -22,6 +30,7 @@ import { ErrorNotice, Group, LoadGate, SectionFrame, SwitchField } from "./share
  */
 
 const GRAPH_SETTING = "memory.graph";
+const VALUE = "text-callout text-label-secondary";
 
 /** The model, per-source models, schedule and retention, shown once Everything memory is on. */
 export function EverythingAdvancedGroups({
@@ -35,7 +44,6 @@ export function EverythingAdvancedGroups({
   localConfirmed: readonly string[];
   onConfirmLocal: (ref: string) => void;
 }): ReactElement {
-  const row = "flex items-center justify-between gap-3 text-body";
   const schedule = (patch: Partial<EverythingValues["schedule"]>) =>
     onChange({ ...value, schedule: { ...value.schedule, ...patch } });
   return (
@@ -73,24 +81,21 @@ export function EverythingAdvancedGroups({
         />
       </Group>
       <Group title={t("memoryAdvanced.keeping")} description={t("everything.storage.note")}>
-        <div className={row}>
-          <span>{t("memoryAdvanced.keepingPending")}</span>
-          <span className="text-label-secondary">
+        <SettingRow label={t("memoryAdvanced.keepingPending")}>
+          <span className={VALUE}>
             {t("memoryAdvanced.keepingDays", { days: value.retention.pendingDays })}
           </span>
-        </div>
-        <div className={row}>
-          <span>{t("memoryAdvanced.keepingUntrusted")}</span>
-          <span className="text-label-secondary">
+        </SettingRow>
+        <SettingRow label={t("memoryAdvanced.keepingUntrusted")}>
+          <span className={VALUE}>
             {t("memoryAdvanced.keepingMonths", { months: value.retention.untrustedAcceptedMonths })}
           </span>
-        </div>
-        <div className={row}>
-          <span>{t("memoryAdvanced.keepingQuarantine")}</span>
-          <span className="text-label-secondary">
+        </SettingRow>
+        <SettingRow label={t("memoryAdvanced.keepingQuarantine")}>
+          <span className={VALUE}>
             {t("memoryAdvanced.keepingDays", { days: value.retention.quarantineDays })}
           </span>
-        </div>
+        </SettingRow>
       </Group>
     </>
   );
@@ -111,12 +116,10 @@ export function MemoryAdvancedSection(): ReactElement {
   const graph = readGraphSettings(form.values);
   const shown =
     notice ?? (form.writeError ? { kind: "error" as const, text: form.writeError } : null);
+  // Folded under the page's last section; a refused admin write still says so inside.
   return (
-    <SectionFrame
-      needsApproval={form.needsApproval}
-      title={t("memoryAdvanced.title")}
-      description={t("memoryAdvanced.description")}
-    >
+    <Advanced title={t("memoryAdvanced.title")} description={t("memoryAdvanced.description")}>
+      <AdminHint show={form.needsApproval.size > 0} />
       <LoadGate
         label={t("memoryAdvanced.title")}
         loading={form.loading && Object.keys(form.values).length === 0}
@@ -185,6 +188,6 @@ export function MemoryAdvancedSection(): ReactElement {
           </div>
         </Group>
       </LoadGate>
-    </SectionFrame>
+    </Advanced>
   );
 }

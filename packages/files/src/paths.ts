@@ -59,20 +59,47 @@ export function assertGranted(
   }
 }
 
+/** Names under one of Psyche's own working folders that stay protected: agent config and tokens. */
+const OWN_DIR_PRIVATE = new Set(["CLAUDE.md", "AGENTS.md", "GEMINI.md"]);
+
+/**
+ * Whether `path` lies in a protected root. `ownDirs` are folders Psyche creates for its own runs
+ * inside `$PSYCHE_HOME` (the subscription CLI working directories): they are exempt from the roots
+ * that contain them, and only from those, so the rest of `$PSYCHE_HOME` stays protected. Inside
+ * one, dotfiles and dot-folders (`.psyche-mcp-*.json` holds the tool bridge token, `.claude`,
+ * `.codex` hold CLI settings) and the CLIs' instruction files stay protected as well.
+ */
+export function isProtectedPath(
+  path: string,
+  roots: readonly string[] | undefined,
+  ownDirs: readonly string[] = [],
+): boolean {
+  if (roots === undefined) return false;
+  const own = ownDirs.map(canonicalTarget).find((d) => isUnder(path, d));
+  for (const raw of roots) {
+    const root = canonicalTarget(raw);
+    if (!isUnder(path, root)) continue;
+    if (own === undefined || !isUnder(own, root)) return true;
+    const first = path.slice(own.length + 1).split("/")[0] ?? "";
+    if (first.startsWith(".") || OWN_DIR_PRIVATE.has(first)) return true;
+  }
+  return false;
+}
+
 /**
  * Refuses paths in or under a protected root (Psyche's own home, credential stores), checked
  * before any grant: a granted ancestor such as `~` never opens them (#285).
  */
-export function assertNotProtected(path: string, roots: readonly string[] | undefined): void {
-  if (roots === undefined) return;
-  for (const raw of roots) {
-    const root = canonicalTarget(raw);
-    if (isUnder(path, root)) {
-      throw new PsycheError("forbidden", `${path} is a protected location`, {
-        details: { reason: "protected_path", root },
-      });
-    }
-  }
+export function assertNotProtected(
+  path: string,
+  roots: readonly string[] | undefined,
+  ownDirs: readonly string[] = [],
+): void {
+  if (!isProtectedPath(path, roots, ownDirs)) return;
+  const root = (roots ?? []).map(canonicalTarget).find((r) => isUnder(path, r));
+  throw new PsycheError("forbidden", `${path} is a protected location`, {
+    details: { reason: "protected_path", root },
+  });
 }
 
 /**

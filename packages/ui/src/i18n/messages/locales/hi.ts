@@ -901,7 +901,6 @@ export const hi: Partial<Catalogue> = {
   "settings.key.appearance.reduceMotion": "मोशन कम करें",
   "settings.key.appearance.contrast": "उच्च कंट्रास्ट",
   "settings.key.appearance.zoom": "ज़ूम",
-  "settings.key.appearance.reduceTransparency": "पारदर्शिता कम करें",
   "settings.key.appearance.glass": "पारभासी नियंत्रण",
   "settings.key.appearance.glassTint": "टिंट",
   "settings.key.appearance.glassBlur": "ब्लर",
@@ -1170,8 +1169,6 @@ export const hi: Partial<Catalogue> = {
   "settings.credentials.payments.status.canceled": "रद्द",
   "settings.credentials.payments.amountRefunded": "{total} · {refunded} वापस",
   "settings.credentials.payments.title": "भुगतान",
-  "settings.credentials.payments.description":
-    "आपके किसी डिवाइस पर हर खरीद की स्वीकृति के बाद Stripe Link एक बार उपयोग होने वाले कार्ड से भुगतान करता है। आपके कार्ड नंबर Psyche तक कभी नहीं पहुँचते।",
   "settings.credentials.payments.loadLabel": "भुगतान",
   "settings.credentials.payments.notConfigured":
     "Stripe Link सेट अप नहीं है। Gateway की मशीन पर Link CLI इंस्टॉल करें, Link में साइन इन करें, और PSYCHE_LINK_CLI सेट करें; फिर Psyche आपकी भुगतान विधियाँ यहाँ दिखाएगा।",
@@ -1282,26 +1279,15 @@ export const hi: Partial<Catalogue> = {
   "settings.appearance.seedHelp":
     "कोई भी CSS रंग। यह चरण 9 पर जाता है; अगर टेक्स्ट पढ़ना मुश्किल हो तो Psyche इसे समायोजित करता है।",
   "settings.appearance.title": "रूप-रंग",
-  "settings.appearance.description":
-    "हर पेयर किए गए डिवाइस पर लागू होता है। स्वीकृति, ख़तरे और सफलता के रंग कभी ऐक्सेंट का पालन नहीं करते।",
   "settings.appearance.loadLabel": "रूप-रंग",
   "settings.appearance.theme.auto": "ऑटो",
   "settings.appearance.theme.autoHint": "सिस्टम का पालन करता है",
-  "settings.appearance.accent": "ऐक्सेंट",
-  "settings.appearance.motionContrast": "मोशन और कंट्रास्ट",
   "settings.appearance.followSystem": "सिस्टम का पालन करें",
   "settings.appearance.contrastHint": "गहरी बॉर्डर, गहरा टेक्स्ट और 2 px फ़ोकस रिंग।",
-  "settings.appearance.transparency": "पारभासिता",
-  "settings.appearance.glass.hint":
-    "कंपोज़र, टूलबार नियंत्रण, मेनू और पॉपओवर के पीछे की सामग्री झलकती है। बंद होने पर वे अपारदर्शी होते हैं।",
-  "settings.appearance.reduceTransparencyHint":
-    "मेनू, पॉपओवर और कंपोज़र अपारदर्शी हो जाते हैं। जब तक आप इसे यहाँ न बदलें, सिस्टम सेटिंग का पालन करता है।",
 
   "settings.browser.profile": "Psyche प्रोफ़ाइल",
   "settings.browser.profileNamed": "Psyche प्रोफ़ाइल ({persona})",
   "settings.browser.title": "ब्राउज़र",
-  "settings.browser.description":
-    "{persona} डिफ़ॉल्ट रूप से अपनी अलग विंडो में ब्राउज़ करता है। असली Chrome मोड किसी टास्क को एक अलग Chrome प्रोफ़ाइल उपयोग करने देता है जिसमें आप एक बार साइन इन करते हैं।",
   "settings.browser.loadLabel": "ब्राउज़र सेटिंग्ज़",
   "settings.browser.realChromeDescription":
     "उन साइटों के लिए जिन्हें आपके साइन-इन या 1Password जैसे एक्सटेंशन चाहिए।",
@@ -1553,8 +1539,6 @@ export const hi: Partial<Catalogue> = {
   "settings.context.turns": "टर्न",
 
   "settings.webSearch.title": "वेब खोज",
-  "settings.webSearch.description":
-    "एजेंट वेब पर चीज़ें कैसे ढूँढता है। परिणामों और पेजों को वेब सामग्री माना जाता है, आपके निर्देश कभी नहीं।",
   "settings.webSearch.inUse": "उपयोग में",
   "settings.webSearch.unknown": "अभी रिपोर्ट नहीं हुआ",
   "settings.webSearch.braveKey": "Brave Search कुंजी",
@@ -1575,8 +1559,6 @@ export const hi: Partial<Catalogue> = {
   "settings.webSearch.searxngPlaceholder": "http://127.0.0.1:8888",
 
   "settings.data.title": "गोपनीयता और डेटा",
-  "settings.data.description":
-    "{persona} जो कुछ रखता है, वह सब इसी मशीन पर रहता है। प्रशिक्षण का कोई टॉगल नहीं है क्योंकि प्रशिक्षण के लिए कुछ भी नहीं भेजा जाता।",
   "settings.data.loadLabel": "डेटा नियंत्रण",
   "settings.data.memory": "मेमोरी",
   "settings.data.pauseMemory": "मेमोरी रोकें",
@@ -1672,12 +1654,8 @@ export const hi: Partial<Catalogue> = {
   "settings.files.stopSharing": "{path} साझा करना बंद करें",
   "settings.files.pathPlaceholder": "~/Documents/Taxes",
   "settings.files.title": "फ़ाइल ऐक्सेस",
-  "settings.files.description":
-    "{persona} केवल वही फ़ोल्डर देखता है जो आप साझा करते हैं। इस Mac पर बाकी सब कुछ पहुँच से बाहर है।",
   "settings.files.loadLabel": "फ़ाइल ऐक्सेस",
   "settings.files.folders": "फ़ोल्डर",
-  "settings.files.foldersHint":
-    "केवल पढ़ना इसे खोलने और खोजने देता है; पढ़ना और लिखना इसे बदलाव सेव करने भी देता है, जिनमें से हर एक डिफ़ पेन में दिखता है।",
   "settings.files.sharedFolders": "साझा फ़ोल्डर",
   "settings.files.noFolders": "कोई फ़ोल्डर साझा नहीं। {persona} केवल अपने वर्कस्पेस में काम करता है।",
   "settings.files.shareFolder": "फ़ोल्डर साझा करें",
@@ -1868,8 +1846,6 @@ export const hi: Partial<Catalogue> = {
   "settings.persona.savedForLater":
     "आपका विवरण सेव किया गया। छवि मॉडल के बिना, {name} नीचे चुना गया प्राणी रखता है।",
   "settings.persona.title": "पर्सोना",
-  "settings.persona.description":
-    "{name} कैसा दिखता है और अपना परिचय कैसे देता है। सोल का लहजा SOUL.md में रहता है।",
   "settings.persona.loadLabel": "पर्सोना",
   "settings.persona.describedAs": "विवरण: {description}",
   "settings.persona.identity": "पहचान",
@@ -2124,8 +2100,6 @@ export const hi: Partial<Catalogue> = {
     "टास्क को एक अलग सैंडबॉक्स Mac में चलाएँ, ताकि {persona} आपके macOS के बजाय अपनी अलग प्रति में काम करे।",
   "settings.vm.loadLabel": "VM सेटिंग्ज़",
   "settings.vm.sandboxMac": "सैंडबॉक्स Mac",
-  "settings.vm.enabledHint":
-    "इसे माँगने वाले टास्क गेस्ट में चलते हैं। यह केवल आपके साझा किए गए फ़ोल्डर देखता है, और जब तक आप अधिक स्वीकृत न करें, केवल पढ़ने के लिए।",
   "settings.vm.noGuest": "अभी कोई गेस्ट पेयर नहीं है",
   "settings.vm.chooseGuest": "गेस्ट चुनें",
   "settings.vm.guestStatus": "{name} ({status})",
@@ -2133,8 +2107,6 @@ export const hi: Partial<Catalogue> = {
   "settings.vm.workspace.sandbox": "कंटेनर सैंडबॉक्स",
   "settings.vm.between": "आपके Mac और गेस्ट के बीच",
   "settings.vm.betweenHint": "गेस्ट से फ़ाइलें बाहर कॉपी करना हमेशा रसीद के साथ एक स्पष्ट कॉपी होता है।",
-  "settings.vm.credentialsHint":
-    "होस्ट वॉल्ट के साथ, मान आपके Mac पर रहते हैं और हेल्पर के ज़रिए भरे जाते हैं; गेस्ट वॉल्ट गेस्ट के अंदर अपनी अलग प्रति रखता है।",
   "settings.vm.guestStatusTitle": "गेस्ट स्थिति",
   "settings.vm.guestStatusHint": "Psyche हेल्पर ने पिछली बार क्या रिपोर्ट किया।",
   "settings.vm.noReports":
@@ -2158,13 +2130,9 @@ export const hi: Partial<Catalogue> = {
   "settings.voice.mode.hold": "दबाकर बोलें",
   "settings.voice.mode.toggle": "शुरू करने के लिए दबाएँ, रोकने के लिए दबाएँ",
   "settings.voice.anyApp": "किसी भी ऐप में",
-  "settings.voice.anyAppHint":
-    "जहाँ भी आप टाइप कर रहे हों। टेक्स्ट वहीं जाता है जहाँ आपका कर्सर है, एजेंट के पास कभी नहीं, और पासवर्ड फ़ील्ड में कभी नहीं।",
   "settings.voice.hotkeyHint":
     "किसी भी ऐप से, शुरू करने के लिए एक बार दबाएँ और रोकने के लिए फिर से। Backspace इसे बंद कर देता है।",
   "settings.voice.talk": "Psyche से बात करें",
-  "settings.voice.talkHint":
-    "कंपोज़र का वॉइस बटन बोलकर बातचीत शुरू करता है: Psyche सुनता है, बोलकर जवाब देता है और फिर सुनता है। स्वीकृतियाँ फिर भी स्क्रीन पर कार्ड के रूप में दिखती हैं; आवाज़ कभी कुछ स्वीकृत नहीं करती।",
   "settings.voice.yourTurn": "आपकी बारी",
   "settings.voice.turn.toggle": "हैंड्स-फ़्री",
   "settings.voice.turn.toggleHint": "आपके रुकने पर Psyche जवाब देता है।",
@@ -2213,11 +2181,7 @@ export const hi: Partial<Catalogue> = {
     "{name} में साइन इन अभी इस Gateway पर उपलब्ध नहीं है। इसे बाद में सेटिंग्ज़ → कनेक्टर में सेट अप करें।",
 
   "settings.language.title": "भाषा और क्षेत्र",
-  "settings.language.description":
-    "क्षेत्र तय करता है कि Psyche में हर जगह तारीख़ें, समय, संख्याएँ और राशियाँ कैसे लिखी जाती हैं।",
   "settings.language.language": "भाषा",
-  "settings.language.languageHint":
-    "Psyche के टेक्स्ट की भाषा। सिस्टम से मिलाएँ आपके क्षेत्र का पालन करता है; जो अभी अनुवादित नहीं है, वह अंग्रेज़ी में दिखता है।",
   "settings.language.languageSystem": "सिस्टम से मिलाएँ ({name})",
   "settings.language.region": "क्षेत्र फ़ॉर्मैट",
   "settings.language.system": "सिस्टम से मिलाएँ ({name})",

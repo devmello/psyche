@@ -20,7 +20,7 @@ import {
   canonicalTarget,
   fsError,
   type GrantedFolder,
-  isUnder,
+  isProtectedPath,
 } from "./paths.ts";
 import { type FileProvenanceIndex, MemoryFileProvenance, readProvenance } from "./provenance.ts";
 
@@ -73,6 +73,11 @@ export interface FileToolsOptions {
    * owner's credential stores (security §5.3, #285).
    */
   protectedRoots?: () => readonly string[];
+  /**
+   * Folders Psyche creates inside a protected root for its own runs (the subscription CLI
+   * working directories): a granted one is reachable, with its dotfiles still protected.
+   */
+  ownDirs?: () => readonly string[];
   /** Write records for read provenance; defaults to an in-memory index. */
   provenance?: FileProvenanceIndex;
   /**
@@ -203,9 +208,9 @@ export function fileTools(options: FileToolsOptions = {}): AgentToolRegistration
   const readOut: ProvenanceOut = trustedRoots.length > 0 ? "trusted" : "untrusted";
   /** Inside a protected root: never read, searched or listed, even under a granted folder. */
   const isProtected = (path: string) =>
-    (options.protectedRoots?.() ?? []).some((r) => isUnder(path, canonicalTarget(r)));
+    isProtectedPath(path, options.protectedRoots?.(), options.ownDirs?.());
   const granted = (path: string, access: "read" | "write", ctx: ToolRunContext) => {
-    assertNotProtected(path, options.protectedRoots?.());
+    assertNotProtected(path, options.protectedRoots?.(), options.ownDirs?.());
     // The conversation's own roots (`request_permission`, "Allow once") count too.
     assertGranted(path, options.folders?.({ threadId: ctx.threadId }), access);
   };
