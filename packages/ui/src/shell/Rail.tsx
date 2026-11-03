@@ -1,5 +1,6 @@
-import { House, Library, MessageCircle, UsersRound } from "lucide-react";
+import { Brain, House, Library, MessageCircle } from "lucide-react";
 import type { ReactElement } from "react";
+import { legacyRedirect } from "../home/redirects.ts";
 import { t } from "../i18n/core.ts";
 import { cn } from "../lib/utils.ts";
 
@@ -8,7 +9,7 @@ import { cn } from "../lib/utils.ts";
  * tab bar. Everything else (Scheduled, Notifications, Goals, {persona} & you, Search) is a page
  * reached from Home or ⌘K, which lists every page and action.
  */
-export type RailItem = "chat" | "home" | "library" | "people";
+export type RailItem = "chat" | "home" | "library" | "memory";
 
 /** Every destination is always shown; there is no "More" group any more. */
 export type RailGroup = "main";
@@ -60,14 +61,16 @@ export const RAIL_ITEMS: readonly {
     shortcut: "⌘3",
   },
   {
-    id: "people",
+    id: "memory",
     get label() {
-      return t("people.page.title");
+      return t("memory.page.title");
     },
-    route: "/people",
-    icon: UsersRound,
+    route: "/memory",
+    icon: Brain,
     group: "main",
-    keywords: "contacts projects relationships keep in touch waiting on",
+    // People was this row before Memory took it in (docs/design/memory-everything-2026.md §6).
+    keywords:
+      "people contacts projects courses work due events relationships keep in touch waiting on remember review",
     shortcut: "⌘4",
   },
 ];
@@ -80,6 +83,9 @@ const UNDER_HOME = new Set(["inbox", "feed", "ideas", "goals", "scheduled", "ove
  * null (Search, Settings). The agent sheet opens over the chat, so `/agent/*` belongs to Chat.
  */
 export function destinationFor(route: string): RailItem | null {
+  // An old route belongs to the place it moved to (`/people` → Memory, `/agent/soul?entity=`).
+  const moved = legacyRedirect(route);
+  if (moved !== null) return destinationFor(moved);
   const first = route.split(/[/?#]/)[1] ?? "";
   if (first === "agent") return "chat";
   if (UNDER_HOME.has(first)) return "home";
@@ -87,7 +93,7 @@ export function destinationFor(route: string): RailItem | null {
 }
 
 /** The compact tab bar's tabs: every place. */
-const TAB_BAR_ITEMS: readonly RailItem[] = ["chat", "home", "library", "people"];
+const TAB_BAR_ITEMS: readonly RailItem[] = ["chat", "home", "library", "memory"];
 
 export interface TabBarProps {
   active: RailItem | null;
@@ -97,7 +103,7 @@ export interface TabBarProps {
 }
 
 /**
- * The compact bottom tab bar (redesign §5.11, under 720 px): Chat, Home, Library and People on
+ * The compact bottom tab bar (redesign §5.11, under 720 px): Chat, Home, Library and Memory on
  * chrome glass, 49 px plus the safe area. The current tab is the accent icon and label only, with
  * no tile; Search lives in the top bar's palette.
  */

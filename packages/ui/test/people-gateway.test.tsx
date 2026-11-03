@@ -132,7 +132,7 @@ describe("ConnectedEntityCard", () => {
       <ConnectedEntityCard id={PEOPLE_IDS.kitchen} now={STORY_NOW} />,
     );
     await user.click(await screen.findByRole("button", { name: /Dana Kim/ }));
-    expect(navigate).toHaveBeenCalledWith(`/people?entity=${PEOPLE_IDS.dana}`);
+    expect(navigate).toHaveBeenCalledWith(`/memory?entity=${PEOPLE_IDS.dana}`);
   });
 
   it("says what failed when the entity doesn't exist", async () => {
@@ -153,7 +153,7 @@ describe("Search with the graph", () => {
     expect(screen.getAllByRole("group")[0]).toBe(people);
     expect(callsTo("memory.entities.search").at(-1)?.params).toMatchObject({ q: "sam" });
     await user.keyboard("{Enter}");
-    expect(navigate).toHaveBeenCalledWith(`/people?entity=${PEOPLE_IDS.samLee}`);
+    expect(navigate).toHaveBeenCalledWith(`/memory?entity=${PEOPLE_IDS.samLee}`);
   });
 
   it("lists projects in their own group", async () => {

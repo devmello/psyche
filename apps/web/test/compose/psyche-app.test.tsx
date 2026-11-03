@@ -210,6 +210,41 @@ describe("old agent routes redirect to the Overview and Home (agent-overview-202
   });
 });
 
+describe("Memory replaced People (memory-everything-2026 §6)", () => {
+  // The old routes show Memory in place: the address keeps what was typed, so Back does not
+  // land on a route that redirects forward again.
+  it.each([
+    ["/memory", ""],
+    ["/memory?kind=due", ""],
+    ["/people", "/people"],
+    ["/people?entity=ent_sam_lee", "/people"],
+    ["/agent/soul?entity=ent_sam_lee", "/agent/soul"],
+  ])("%s shows Memory", async (from, pathname) => {
+    window.innerWidth = 1280;
+    window.history.replaceState(null, "", from);
+    const { platform } = webPlatform();
+    render(<PsycheApp platform={platform} />);
+    await screen.findByTestId("screen-memory");
+    expect(window.location.pathname + window.location.search).toBe(from);
+    if (pathname !== "") expect(window.location.pathname).toBe(pathname);
+    expect(screen.queryByTestId("agent-sheet")).toBeNull();
+    expect(screen.queryByTestId("screen-chat")).toBeNull();
+  });
+
+  it("marks Memory in the sidebar for an old People link and opens it on ⌘4", async () => {
+    window.innerWidth = 1280;
+    window.history.replaceState(null, "", "/people");
+    const { platform } = webPlatform();
+    render(<PsycheApp platform={platform} />);
+    await screen.findByTestId("screen-memory");
+    const nav = screen.getByRole("navigation", { name: "Sidebar" });
+    expect(within(nav).getByRole("button", { name: "Memory" }).getAttribute("aria-current")).toBe(
+      "page",
+    );
+    window.history.replaceState(null, "", "/home");
+  });
+});
+
 describe("Run setup again in the main window", () => {
   it("renders the re-run flow on /onboarding and for a navigate command from Settings", async () => {
     window.innerWidth = 1280;
@@ -281,7 +316,7 @@ describe("the composed app on the web host (A8)", () => {
     // Bottom tab bar: the five phone tabs, no Search and no Settings in the rail.
     const rail = screen.getByTestId("rail");
     const labels = Array.from(rail.querySelectorAll("button")).map((b) => b.textContent?.trim());
-    expect(labels).toEqual(["Chat", "Home", "Library", "People"]);
+    expect(labels).toEqual(["Chat", "Home", "Library", "Memory"]);
     expect(calls.some((c) => c.method === "settings.get")).toBe(true);
     await act(async () => {
       window.innerWidth = 1280;

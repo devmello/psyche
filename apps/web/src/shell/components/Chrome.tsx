@@ -25,9 +25,9 @@ export const RAIL_ITEMS = [
     },
   },
   {
-    route: "/people",
+    route: "/memory",
     get label() {
-      return t("people.page.title");
+      return t("memory.page.title");
     },
   },
 ] as const;

@@ -2,7 +2,7 @@ import type { Decorator, Meta, StoryObj } from "@storybook/react-vite";
 import { useEffect, useState } from "react";
 import { IDS } from "../fixtures/index.ts";
 import { HomeScreen } from "../home/HomeScreen.tsx";
-import { PeopleScreen } from "../people/PeopleScreen.tsx";
+import { MemoryScreen } from "../memory-page/MemoryScreen.tsx";
 import { STORY_NOW, withWorld } from "../stories/harness.tsx";
 import { AppShell } from "./AppShell.tsx";
 import { CommandPalette } from "./CommandPalette.tsx";
@@ -45,9 +45,9 @@ function Main(props: {
     <section className="flex min-h-0 flex-1 flex-col overflow-auto">
       <HomeScreen now={STORY_NOW} onNavigate={setRoute} />
     </section>
-  ) : route.startsWith("/people") ? (
+  ) : route.startsWith("/memory") ? (
     <section className="flex min-h-0 flex-1 flex-col overflow-auto">
-      <PeopleScreen onNavigate={setRoute} />
+      <MemoryScreen now={STORY_NOW} onNavigate={setRoute} />
     </section>
   ) : null;
   return (
@@ -169,13 +169,13 @@ export const SidebarNeedsYou: Story = {
   ),
 };
 
-/** On People: the row is current; the needs-you count stays on Home. */
-export const SidebarOnPeople: Story = {
+/** On Memory: the row is current; the needs-you count stays on Home. */
+export const SidebarOnMemory: Story = {
   render: () => (
     <ShellMotion>
       <div className="flex h-[640px]">
         <Sidebar
-          route="/people"
+          route="/memory"
           onNavigate={() => {}}
           activeThreadId={null}
           onOpenThread={() => {}}

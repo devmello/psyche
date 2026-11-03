@@ -24,6 +24,7 @@ import {
   LibraryScreen,
   type LibrarySection,
   legacyRedirect,
+  MemoryScreen,
   mailSettings,
   type OnboardingResult,
   OverviewRun,
@@ -31,7 +32,7 @@ import {
   overviewAnchor,
   overviewRedirect,
   overviewRunHref,
-  PeopleScreen,
+  parseMemoryKind,
   parseOverviewPeriod,
   parseRecentFilter,
   type RailItem,
@@ -221,7 +222,7 @@ export function railItemFor(route: string): RailItem | null {
 }
 
 /**
- * The screens (docs/design/consolidation-2026.md §3): Home, People, Library, and the pages reached
+ * The screens (docs/design/consolidation-2026.md §3): Home, Memory, Library, and the pages reached
  * from them or ⌘K (Search, Goals, Scheduled, the Overview, the notification inbox), each the UI
  * kit's connected screen in a scrolling page. Old routes (`/feed`, `/ideas`) are sent on.
  */
@@ -237,7 +238,7 @@ export function screenRoute(route: string, navigate: (to: string) => void): Reac
       {child}
     </section>
   );
-  // The Feed and Ideas are Home sections now: an old route shows Home at that section in place
+  // The Feed and Ideas are Home sections and People is the Memory page: an old route shows its new place in place
   // (navigating would push history, and Back would land on the old route and bounce forward).
   const moved = legacyRedirect(route);
   if (moved !== null) return screenRoute(moved, navigate);
@@ -255,14 +256,18 @@ export function screenRoute(route: string, navigate: (to: string) => void): Reac
         />,
       );
     }
-    case "people": {
-      const entity = new URLSearchParams(query).get("entity");
+    case "memory": {
+      // `/memory[?kind=people|projects|due|events|more][&entity=<id>]`; `/memory/review` is
+      // reserved for the review queue (docs/design/memory-everything-2026.md §6.5).
+      const params = new URLSearchParams(query);
+      const entity = params.get("entity");
       return page(
-        "People",
-        <PeopleScreen
+        "Memory",
+        <MemoryScreen
           key={entity ?? ""}
+          kind={parseMemoryKind(params.get("kind"))}
           onNavigate={navigate}
-          {...(entity ? { initialEntity: entity } : {})}
+          {...(entity ? { entity } : {})}
         />,
       );
     }

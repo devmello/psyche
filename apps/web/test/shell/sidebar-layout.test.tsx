@@ -391,6 +391,10 @@ describe("the agent sheet's routes (redesign §5.7)", () => {
     expect(isAgentRoute("/agentx")).toBe(false);
     expect(underlyingRoute("/agent/upcoming", "/feed")).toBe("/feed");
     expect(underlyingRoute("/goals/g1", "/feed")).toBe("/goals/g1");
+    // An old link to a person is Memory, not the sheet (it renders in place).
+    expect(isAgentRoute("/agent/soul?entity=ent_1")).toBe(false);
+    expect(isChatRoute("/agent/soul?entity=ent_1")).toBe(false);
+    expect(isAgentRoute("/agent/soul?file=SOUL.md")).toBe(true);
   });
 
   it("keeps the chat mounted under /agent/*", async () => {
@@ -429,7 +433,7 @@ describe("compact layout under 720 px (redesign §5.11)", () => {
       within(tabs)
         .getAllByRole("button")
         .map((b) => b.textContent),
-    ).toEqual(["Chat", "Home", "Library", "People"]);
+    ).toEqual(["Chat", "Home", "Library", "Memory"]);
     await press({ key: "b", ctrlKey: true });
     const drawer = await screen.findByRole("dialog", { name: "Threads" });
     expect(within(drawer).getByRole("button", { name: /Main chat/ })).toBeTruthy();

@@ -50,12 +50,15 @@ export interface PeopleSheetSectionProps {
   now?: number;
   /** On the People page the toolbar names it: the heading is a level 2 for screen readers only. */
   page?: boolean;
+  /** Opens a row's page in the host (Memory) instead of the card sheet over the list. */
+  onOpenEntity?: (id: string) => void;
 }
 
 export function PeopleSheetSection({
   initialEntity,
   now = Date.now(),
   page = false,
+  onOpenEntity,
 }: PeopleSheetSectionProps): ReactElement {
   const call = useCall();
   const openLink = useOpenLink();
@@ -158,7 +161,12 @@ export function PeopleSheetSection({
       ) : (
         <div className="flex flex-col p-1">
           {rows.map((e) => (
-            <EntityRow key={e.id} entity={e} now={now} onOpen={(x) => setOpen(x.id)} />
+            <EntityRow
+              key={e.id}
+              entity={e}
+              now={now}
+              onOpen={(x) => (onOpenEntity ? onOpenEntity(x.id) : setOpen(x.id))}
+            />
           ))}
         </div>
       );

@@ -254,9 +254,16 @@ export {
   validStyleUrl,
   viewBounds,
 } from "./map/map-model.ts";
+export {
+  entityHref,
+  MEMORY_KINDS,
+  type MemoryKind,
+  memoryHref,
+  parseMemoryKind,
+} from "./memory-page/kinds.ts";
+export { MemoryScreen, type MemoryScreenProps } from "./memory-page/MemoryScreen.tsx";
 export { FPS_PROBE_KEY, medianFps, startFpsProbe } from "./motion/fps-probe.ts";
 export * from "./overview/index.ts";
-export { PeopleScreen, type PeopleScreenProps } from "./people/PeopleScreen.tsx";
 // Deep research: progress view and cited report.
 export * from "./research/index.ts";
 export {

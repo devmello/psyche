@@ -5,7 +5,7 @@ import { RAIL_ITEMS, type RailItem, t } from "@psyche/ui";
  * palette and the key handler share one source. `mod` is ⌘ on macOS and Ctrl elsewhere.
  */
 
-/** ⌘1–⌘4 open a place (the sidebar's own order: Chat, Home, Library, People). */
+/** ⌘1–⌘4 open a place (the sidebar's own order: Chat, Home, Library, Memory). */
 export type GoAction = `go:${RailItem}`;
 
 export type ShortcutAction =

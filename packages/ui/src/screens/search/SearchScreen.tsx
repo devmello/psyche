@@ -244,7 +244,7 @@ export function SearchScreen({
           }
         : {})}
       onOpenEntity={
-        onOpenEntity ?? ((e) => navigate?.(`/people?entity=${encodeURIComponent(e.id)}`))
+        onOpenEntity ?? ((e) => navigate?.(`/memory?entity=${encodeURIComponent(e.id)}`))
       }
       renderEntityPreview={(e) => (
         <ConnectedEntityCard

@@ -8,6 +8,7 @@ import {
   clampSidebarWidth,
   destinationFor,
   hitThreadId,
+  legacyRedirect,
   PanePresence,
   RAIL_ITEMS,
   ReflowColumn,
@@ -105,12 +106,13 @@ export function sectionTitle(route: string): string {
 
 /** Routes that show the chat column: `/chat…`, and `/agent/*` with the agent sheet over it. */
 export function isChatRoute(route: string): boolean {
-  return /^\/(chat|agent)(\/|$|\?)/.test(route);
+  return /^\/(chat|agent)(\/|$|\?)/.test(route) && legacyRedirect(route) === null;
 }
 
 /** The agent sheet's routes (redesign §5.7): `/agent/<tab>[/<task>][?file=]`. */
 export function isAgentRoute(route: string): boolean {
-  return /^\/agent(\/|$|\?)/.test(route);
+  // `/agent/soul?entity=` is an old link to a person: Memory shows it, in place, not the sheet.
+  return /^\/agent(\/|$|\?)/.test(route) && legacyRedirect(route) === null;
 }
 
 /**

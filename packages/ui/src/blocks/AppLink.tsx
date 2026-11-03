@@ -13,7 +13,8 @@ import type { BlockOf } from "./types.ts";
 const RAIL: Record<string, MessageId> = {
   chat: "shell.rail.chat",
   home: "home.title",
-  people: "people.page.title",
+  // `/people` resolves to `/memory` (docs/design/memory-everything-2026.md §6.5).
+  memory: "memory.page.title",
   search: "shell.rail.search",
   // The Feed and Ideas are Home sections now (docs/design/consolidation-2026.md §3.4).
   feed: "home.title",
