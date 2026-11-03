@@ -261,6 +261,9 @@
         "execHostEnabled": {
           "type": "boolean"
         },
+        "readOnlyWithoutAsking": {
+          "type": "boolean"
+        },
         "allowEnv": {
           "type": "array",
           "items": {
