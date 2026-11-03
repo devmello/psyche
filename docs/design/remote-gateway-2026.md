@@ -436,18 +436,22 @@ Sizes are for one session: **S** is a few days, **M** one to two weeks, **L** th
 - R4 depends on the cross-platform neutral capability names (cross-platform Phase 2) for the Windows part.
 - The settings redesign owns the Settings → Devices layout. This plan only adds rows to it.
 
-## 8. Open questions for the owner
+## 8. Owner decisions (2026-11-03)
 
-1. **Admin on a remote computer.** Should a remote computer get `operator.admin` by default if you're the only user? The recommendation is no: admin stays an opt-in checkbox, with presence on every admin change. The cost is that some Settings changes then need the Host.
-2. **This Mac's own Gateway after switching to a remote one.** Keep it running (its automations continue), or offer to stop it? The recommendation is to keep it running and offer to stop it.
-3. **Presence for every approval from a remote device,** including ordinary `write` approvals, whenever that device has Touch ID or Windows Hello? The recommendation is yes.
-4. **The browser on a Client.** Is it acceptable that the agent's browser always runs on the Host, with your Host's signed-in profile, and the Client only watches? Or do you want R4's option, where a task you start on the Client uses the Client's browser and cookies? The second also means credential fill would send a password from the Host's vault to the Client over the tailnet.
-5. **Computer use on a Client Mac.** Wanted at all? It's the riskiest capability, and it isn't in R1–R3.
-6. **OAuth sign-in from a Client.** "Finish signing in on the Host" is the safe default. Should connectors that support a device code flow (where you enter a code on any browser) let you finish on the Client?
-7. **Idle remote devices.** Should a remote device that hasn't connected for 90 days be revoked automatically, or only flagged by the security audit?
-8. **Windows signing.** A paid Authenticode certificate, or Azure Trusted Signing? Both cost money each year, and SmartScreen warns about an unsigned build.
-9. **More than one Gateway open at once.** Is one active Gateway per app enough, or do you want two windows on two Hosts side by side? The recommendation is one: it keeps storage, notifications and approvals simple.
-10. **Tailscale only, or the LAN too?** LAN support (Bonjour, a self-signed certificate and the pin) comes with the phone's M1. Should the desktop wait for it, or is Tailscale enough for you?
+The ten questions this section asked, with the owner's answers. Two differ from the recommendation (G3, G10).
+
+| # | Question | Decision |
+|---|---|---|
+| G1 | Admin on a remote computer by default? | **No.** Admin stays an opt-in checkbox when pairing, with presence on every admin change. Some Settings changes then need the Host. |
+| G2 | This Mac's own Gateway after switching to a remote one? | **Keep it running** (its automations continue) and offer to stop it. |
+| G3 | Presence for every approval from a remote device? | **Only for risky approvals**, the same rules as on the Host. Ordinary `write` approvals from a remote device don't need Touch ID or Windows Hello. (Differs from the recommendation.) |
+| G4 | The agent's browser on a Client? | **Always on the Host**, with the Host's signed-in profile; the Client only watches. R4's client-browser option is dropped, so the vault never sends a password to a Client. |
+| G5 | Computer use on a Client Mac? | **No.** Computer use stays on the Host. |
+| G6 | OAuth sign-in from a Client? | Connectors with a **device code flow may finish on the Client**; every other sign-in finishes on the Host. |
+| G7 | Idle remote devices (90 days)? | **Flag in the security audit** with a Remove button; never revoked automatically. |
+| G8 | Windows signing? | **Decide later.** Unsigned development builds until R3 ships. |
+| G9 | More than one Gateway open at once? | **One active Gateway per app**, switched from the avatar menu. |
+| G10 | Tailscale only, or the LAN too? | **Wait for the LAN too.** The desktop remote client ships when LAN reachability (Bonjour, self-signed certificate and the identity pin, shared with the phone's M1) works, not on Tailscale alone. R1 therefore depends on that LAN work. (Differs from the recommendation.) |
 
 ## Sources
 

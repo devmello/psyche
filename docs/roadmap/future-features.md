@@ -168,7 +168,7 @@ Each entry has the same parts: what it is, why it beats existing assistants, rou
 - R3: the Windows client-only build.
 - R4: features that run on the client: Ask about my screen, system-wide dictation and, optionally, the browser.
 
-**Open questions.** See §8 of that doc. The main ones: whether a remote computer may get admin, whether every approval from a remote computer needs Touch ID, and whether the agent's browser should ever run on the client.
+**Decisions (2026-11-03).** The owner answered all ten questions; see §8 of that doc. In short: admin is opt-in, presence only for risky approvals, the browser and computer use stay on the Host, one Gateway at a time, and the desktop client waits for LAN support as well as Tailscale.
 
 **Depends on.** The WebSocket protocol and device scopes (built), Tailscale Serve on the host (owner setup), the Gateway identity key (not built, shared with the [phone companion](../design/mobile-companion-2026.md)), the settings redesign's Devices section, and, for Windows, the [cross-platform](../design/cross-platform-2026.md) packaging work.
 
