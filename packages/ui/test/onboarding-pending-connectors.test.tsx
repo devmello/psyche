@@ -60,7 +60,7 @@ describe("onboarding accounts with their status (#620)", () => {
   it("lists every account: connected, needs permission, needs sign-in and failed", async () => {
     render(
       <StoryWorld {...world(ACCOUNTS)}>
-        <OnboardingFlow onComplete={vi.fn()} defaultStep="connectors" />
+        <OnboardingFlow onComplete={vi.fn()} defaultStep="stuff" />
       </StoryWorld>,
     );
     const list = await screen.findByRole("list", { name: "Your accounts" });
@@ -96,7 +96,7 @@ describe("onboarding accounts with their status (#620)", () => {
     let gw: MockGateway | null = null;
     render(
       <StoryWorld {...world(ACCOUNTS, (g) => (gw = g))}>
-        <OnboardingFlow onComplete={vi.fn()} defaultStep="connectors" />
+        <OnboardingFlow onComplete={vi.fn()} defaultStep="stuff" />
       </StoryWorld>,
     );
     await userEvent.click(await screen.findByRole("button", { name: "Allow Apple Notes" }));

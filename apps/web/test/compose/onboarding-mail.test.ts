@@ -14,7 +14,6 @@ const result = (mail?: OnboardingResult["mail"]): OnboardingResult => ({
     keyRef: null,
     toolCheck: "untested",
   },
-  workspace: "local",
   ...(mail ? { mail } : {}),
 });
 
@@ -54,6 +53,14 @@ describe("completeOnboarding and the mail decision screen (§7.5)", () => {
       ["meetings.notes.enabled", true],
     ]);
     expect(writes.at(-1)?.key).toBe("ui.onboarding.completedAt");
+  });
+
+  it("a re-run keeps the digest time the owner chose in Settings", async () => {
+    const { p, calls } = platform();
+    await completeOnboarding(p, result(mail), undefined, { rerun: true });
+    const keys = settingWrites(calls).map((w) => w.key);
+    expect(keys).toContain("mail.digest.enabled");
+    expect(keys).not.toContain("mail.digest.time");
   });
 
   it("writes nothing for mail when the step was not offered", async () => {

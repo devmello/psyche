@@ -1,5 +1,5 @@
 import { ArrowLeft, ArrowRight } from "lucide-react";
-import { lazy, type ReactElement, Suspense, useEffect, useId, useRef, useState } from "react";
+import { type ReactElement, useEffect, useId, useRef, useState } from "react";
 import { DEFAULT_CREATURE } from "../../avatar/creatures/index.tsx";
 import { PsycheMark } from "../../brand.tsx";
 import { Button } from "../../components/ui/button.tsx";
@@ -20,23 +20,19 @@ import {
 } from "../settings/ConnectorsSection.tsx";
 import { ConnectProgress, permissionOf, useConnectorConnect } from "../settings/connect-flow.tsx";
 import type { TccPermission } from "../settings/types.ts";
+import { DoneStep } from "./DoneStep.tsx";
 import { HABIT_DEFAULTS, type HabitChoices } from "./habits.ts";
 import { MAIL_DEFAULTS, MailStep } from "./MailStep.tsx";
-import {
-  ConnectorsStep,
-  DEFAULT_NAME,
-  DoneStep,
-  defaultModelChoice,
-  MeetStep,
-  ModelStep,
-  PermissionsStep,
-  WhereStep,
-} from "./OnboardingSteps.tsx";
-import { SandboxStep } from "./SandboxStep.tsx";
+import { MemoryStep } from "./MemoryStep.tsx";
+import { MEMORY_CHOICE_DEFAULTS } from "./memory-choices.ts";
+import { ConnectorsStep, defaultModelChoice, ModelStep } from "./OnboardingSteps.tsx";
+import { normalizeStep } from "./progress.ts";
+import { SafetyStep } from "./SafetyStep.tsx";
 import { detectTimeZone } from "./time-zone.ts";
 import {
   type ConnectedAccount,
   type MailChoices,
+  type MemoryChoices,
   type ModelChoice,
   ONBOARDING_STEP_IDS,
   type OnboardingResult,
@@ -47,27 +43,17 @@ import {
   type PermissionResult,
   type PersonaDraft,
   type SetupCheck,
-  type Workspace,
 } from "./types.ts";
+import { DEFAULT_NAME, YouStep } from "./YouStep.tsx";
 
-// The first-run additions load on demand: they are not in the main bundle path.
-const AboutStep = lazy(() => import("./AboutStep.tsx").then((m) => ({ default: m.AboutStep })));
-const MemoryImportStep = lazy(() =>
-  import("./MemoryImportStep.tsx").then((m) => ({ default: m.MemoryImportStep })),
-);
-const FirstWinsStep = lazy(() =>
-  import("./FirstWinsStep.tsx").then((m) => ({ default: m.FirstWinsStep })),
-);
-const HabitsStep = lazy(() => import("./HabitsStep.tsx").then((m) => ({ default: m.HabitsStep })));
-
-/** Steps the owner may leave with "Skip for now" whatever they hold. */
-const SKIPPABLE: ReadonlySet<OnboardingStepId> = new Set(["about", "memory", "wins", "habits"]);
+/** Steps the owner may leave with "Skip for now" (the model is needed, Done is the end). */
+const SKIPPABLE: ReadonlySet<OnboardingStepId> = new Set(["you", "memory", "safety"]);
 
 /**
- * Onboarding (UI design §3.19; redesign-2026 §5.9): one centred column, step dots, one decision
- * per step. The OS prompts, connect flows, key storage
- * and the tool-calling check run in the shell through callback props; the flow ends with
- * `onComplete(result)`, which writes IDENTITY.md and starts BOOTSTRAP.md.
+ * Onboarding (UI design §3.19; docs/design/onboarding-2026.md): one centred column, a quiet step
+ * count, one job per step. The OS prompts, connect flows, key storage, Touch ID and the
+ * tool-calling check run in the shell through callback props; the flow ends with
+ * `onComplete(result)`, which writes IDENTITY.md and the settings, and starts BOOTSTRAP.md.
  */
 
 /** Connector types that are mail accounts (they trigger the mail decision screen). */
@@ -78,30 +64,18 @@ const MAIL_CONNECTOR_TYPES: ReadonlySet<string> = new Set([
   "apple:mail",
 ]);
 
-export function stepLabel(step: OnboardingStepId, persona: string): string {
+export function stepLabel(step: OnboardingStepId): string {
   switch (step) {
-    case "agent":
-      return t("onboarding.step.agent");
-    case "about":
-      return t("onboarding.step.about");
-    case "memory":
-      return t("onboarding.step.memory");
-    case "wins":
-      return t("onboarding.step.wins");
-    case "habits":
-      return t("onboarding.step.habits");
-    case "permissions":
-      return t("onboarding.step.permissions");
-    case "connectors":
-      return t("onboarding.step.connectors");
-    case "mail":
-      return t("onboarding.step.mail");
-    case "sandbox":
-      return t("onboarding.step.sandbox");
+    case "you":
+      return t("onboarding.step.you");
+    case "stuff":
+      return t("onboarding.step.stuff");
     case "model":
       return t("onboarding.step.model");
-    case "where":
-      return t("onboarding.step.where", { name: persona });
+    case "memory":
+      return t("onboarding.step.memory");
+    case "safety":
+      return t("onboarding.step.safety");
     case "done":
       return t("onboarding.step.done");
   }
@@ -112,15 +86,16 @@ export interface OnboardingFlowProps extends OnboardingShellProps {
   step?: OnboardingStepId;
   defaultStep?: OnboardingStepId;
   onStepChange?: (step: OnboardingStepId) => void;
-  /** Starting values, e.g. when onboarding resumes. */
+  /** Starting values, e.g. when onboarding resumes or runs again over what is already set. */
   initial?: Partial<{
     persona: Partial<PersonaDraft>;
     permissions: Partial<Record<TccPermission, PermissionAnswer>>;
     connectors: ConnectedAccount[];
     model: ModelChoice;
-    workspace: Workspace;
     owner: Partial<OwnerProfile>;
     habits: HabitChoices;
+    mail: MailChoices;
+    memory: MemoryChoices;
   }>;
   onComplete: (result: OnboardingResult) => void;
 }
@@ -132,7 +107,7 @@ function answerOf(state: PermissionResult): PermissionAnswer {
 
 export function OnboardingFlow({
   step,
-  defaultStep = "agent",
+  defaultStep = "you",
   onStepChange,
   initial = {},
   onComplete,
@@ -142,15 +117,15 @@ export function OnboardingFlow({
   onConnect,
   onSaveKey,
   onCheckModel,
-  vmAvailable = true,
   helper,
   onVerify,
   macPermissions = true,
   onPreviewImport,
   onCommitImport,
-  onRunWin,
   onProgress,
   completed = [],
+  rerun = false,
+  touchId,
 }: OnboardingFlowProps): ReactElement {
   const headingId = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -194,31 +169,23 @@ export function OnboardingFlow({
     : hostConnectors;
   // What the result and "Skip for now" count: the accounts that are connected.
   const connectors = accounts.filter((c) => (c.status ?? "connected") === "connected");
-  // The mail decision screen is offered once a mail account is connected (§7.5).
+  // The mail and meetings switches show under the accounts once a mail account is connected (§7.5).
   const mailConnected = connectors.some((c) => MAIL_CONNECTOR_TYPES.has(c.type));
-  const steps = ONBOARDING_STEP_IDS.filter(
-    (s) =>
-      (s !== "permissions" || macPermissions) &&
-      (s !== "mail" || mailConnected) &&
-      // A re-run leaves out what is already set up.
-      (s === "done" || !completed.includes(s)),
-  );
-  const asked = step ?? own;
-  const current = steps.includes(asked)
-    ? asked
-    : (steps[ONBOARDING_STEP_IDS.indexOf(asked)] ?? "agent");
+  // A re-run leaves out what it can (the model that is set); Done is always last.
+  const steps = ONBOARDING_STEP_IDS.filter((s) => s === "done" || !completed.includes(s));
+  // A saved or routed id from the old twelve-step flow lands on the step that holds it now.
+  const asked = normalizeStep(step ?? own) ?? "you";
+  const current =
+    steps.find((s) => ONBOARDING_STEP_IDS.indexOf(s) >= ONBOARDING_STEP_IDS.indexOf(asked)) ??
+    "done";
   const index = steps.indexOf(current);
-  // The mail decision appears only once an account is connected, so it is not counted: the total
-  // stays fixed through the flow and the mail screen shares its number with Connectors.
-  const counted = steps.filter((s) => s !== "mail");
-  const total = counted.length;
-  const position = Math.max(
-    1,
-    current === "mail" ? counted.indexOf("connectors") + 1 || index : counted.indexOf(current) + 1,
-  );
+  const total = steps.length;
+  const position = index + 1;
   const [reached, setReached] = useState(index);
-  const [mail, setMail] = useState<MailChoices>(MAIL_DEFAULTS);
-  const [sandboxReady, setSandboxReady] = useState(false);
+  const [mail, setMail] = useState<MailChoices>(initial.mail ?? MAIL_DEFAULTS);
+  const [touchIdRegistered, setTouchIdRegistered] = useState<boolean | undefined>(undefined);
+  // "Skip for now" on the Memory step leaves its settings as they are: nothing is written.
+  const [memorySkipped, setMemorySkipped] = useState(false);
   const [owner, setOwner] = useState<OwnerProfile>({
     name: "",
     timeZone: detectTimeZone(),
@@ -227,6 +194,7 @@ export function OnboardingFlow({
     ...initial.owner,
   });
   const [habits, setHabits] = useState<HabitChoices>(initial.habits ?? HABIT_DEFAULTS);
+  const [memory, setMemory] = useState<MemoryChoices>(initial.memory ?? MEMORY_CHOICE_DEFAULTS);
   const resumeConnector = (account: ConnectedAccount) => {
     const c = liveConnectors.find((x) => x.id === account.connectorId);
     if (c !== undefined) void flow.resume(c, account.label);
@@ -242,7 +210,6 @@ export function OnboardingFlow({
   // before leaving the step.
   const recoveryPending = recoveryKey !== null && !recoverySaved;
   const [checks, setChecks] = useState<SetupCheck[] | "checking" | null>(null);
-  const [workspace, setWorkspace] = useState<Workspace>(initial.workspace ?? "local");
 
   const name = persona.name.trim() === "" ? DEFAULT_NAME : persona.name.trim();
 
@@ -277,10 +244,11 @@ export function OnboardingFlow({
     permissions,
     connectors,
     model,
-    workspace,
+    ...(steps.includes("model") ? {} : { modelKept: true }),
     ...(mailConnected ? { mail } : {}),
     owner,
-    ...(steps.includes("habits") ? { habits } : {}),
+    ...(memorySkipped ? {} : { habits, memory }),
+    ...(touchIdRegistered === undefined ? {} : { touchIdRegistered }),
   };
 
   // Progress is saved on every step change, so quitting midway resumes here.
@@ -308,10 +276,10 @@ export function OnboardingFlow({
   };
 
   // The owner flips most switches in System Settings: re-read the real state when this window
-  // gets focus again, and when the Permissions step opens. A row the owner skipped stays skipped
+  // gets focus again, and when the Safety step opens. A row the owner skipped stays skipped
   // unless macOS now says it is allowed.
   useEffect(() => {
-    if (!onReadPermissions || current !== "permissions") return;
+    if (!onReadPermissions || current !== "safety" || !macPermissions) return;
     let live = true;
     const read = () => {
       void onReadPermissions().then(
@@ -338,7 +306,7 @@ export function OnboardingFlow({
       live = false;
       window.removeEventListener("focus", read);
     };
-  }, [onReadPermissions, current]);
+  }, [onReadPermissions, current, macPermissions]);
 
   const connect = async (type: string, mode: ScopeMode) => {
     if (builtInConnect) {
@@ -441,7 +409,7 @@ export function OnboardingFlow({
         <span className="text-label-tertiary" data-testid="onboarding-mark">
           <PsycheMark size={24} />
         </span>
-        {/* Quiet progress: "2 of 11" is the trigger of the step menu (reached steps jump). */}
+        {/* Quiet progress: "2 of 6" is the trigger of the step menu (reached steps jump). */}
         <span
           role="progressbar"
           aria-label={t("onboarding.progress")}
@@ -474,7 +442,7 @@ export function OnboardingFlow({
                   }}
                   className={active ? "font-medium" : ""}
                 >
-                  {stepLabel(s, name)}
+                  {stepLabel(s)}
                   {done ? <span className="sr-only"> {t("onboarding.doneMark")}</span> : null}
                 </DropdownMenuItem>
               );
@@ -489,7 +457,7 @@ export function OnboardingFlow({
         data-direction={direction}
         // Steps change with a 24 px slide plus a crossfade on spring.gentle (§5.9).
         className={cn(
-          "flex flex-1 flex-col gap-6 animate-in fade-in-0 duration-(--spring-gentle-duration) ease-(--spring-gentle)",
+          "flex flex-1 flex-col gap-6 animate-in fade-in-0 duration-(--spring-gentle-duration) ease-(--spring-gentle) motion-reduce:animate-none",
           direction === "forward"
             ? "slide-in-from-right-6 rtl:slide-in-from-left-6"
             : "slide-in-from-left-6 rtl:slide-in-from-right-6",
@@ -502,60 +470,75 @@ export function OnboardingFlow({
           className="font-display text-large-title font-medium text-label-primary outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <span className="sr-only">{t("onboarding.stepOf", { n: position, total })} </span>
-          {stepLabel(current, name)}
+          {stepLabel(current)}
         </h1>
 
-        {current === "agent" ? <MeetStep value={persona} onChange={setPersona} /> : null}
-        <Suspense fallback={null}>
-          {current === "about" ? <AboutStep value={owner} onChange={setOwner} /> : null}
-          {current === "memory" ? (
-            <MemoryImportStep onPreview={onPreviewImport} onCommit={onCommitImport} />
-          ) : null}
-          {current === "wins" ? (
-            <FirstWinsStep connected={new Set(connectors.map((c) => c.type))} onRun={onRunWin} />
-          ) : null}
-          {current === "habits" ? <HabitsStep value={habits} onChange={setHabits} /> : null}
-        </Suspense>
-        {current === "permissions" ? (
-          <PermissionsStep
-            persona={name}
-            value={permissions}
-            busy={askingPermission}
-            {...(helper ? { helper } : {})}
-            onAllow={(p) => void allow(p)}
-            onSkip={(p) => setPermissions((s) => ({ ...s, [p]: "skipped" }))}
+        {current === "you" ? (
+          <YouStep
+            persona={persona}
+            onPersonaChange={setPersona}
+            owner={owner}
+            onOwnerChange={setOwner}
+            rerun={rerun}
           />
         ) : null}
-        {current === "connectors" ? (
-          <ConnectorsStep
+        {current === "stuff" ? (
+          <div className="flex flex-col gap-8">
+            <ConnectorsStep
+              persona={name}
+              connected={accounts}
+              busy={
+                builtInConnect
+                  ? flow.state.phase === "starting" || flow.state.phase === "signing-in"
+                  : connecting
+              }
+              error={connectError}
+              onConnect={(type, mode) => void connect(type, mode)}
+              {...(builtInConnect ? { implemented, onResume: resumeConnector } : {})}
+              {...(builtInConnect
+                ? {
+                    progress: (
+                      <ConnectProgress
+                        state={flow.state}
+                        onOpen={(url) => void flow.open(url)}
+                        onCancel={flow.cancel}
+                        onRetry={flow.retry}
+                        onOpenSettings={() => void flow.openSettings()}
+                        onRecheck={() => void flow.recheck()}
+                      />
+                    ),
+                  }
+                : {})}
+            />
+            {mailConnected ? <MailStep persona={name} value={mail} onChange={setMail} /> : null}
+          </div>
+        ) : null}
+        {current === "memory" ? (
+          <MemoryStep
             persona={name}
-            connected={accounts}
-            busy={
-              builtInConnect
-                ? flow.state.phase === "starting" || flow.state.phase === "signing-in"
-                : connecting
-            }
-            error={connectError}
-            onConnect={(type, mode) => void connect(type, mode)}
-            {...(builtInConnect ? { implemented, onResume: resumeConnector } : {})}
-            {...(builtInConnect
+            habits={habits}
+            onHabitsChange={setHabits}
+            memory={memory}
+            onMemoryChange={setMemory}
+            {...(onPreviewImport ? { onPreviewImport } : {})}
+            {...(onCommitImport ? { onCommitImport } : {})}
+          />
+        ) : null}
+        {current === "safety" ? (
+          <SafetyStep
+            persona={name}
+            touchId={touchId}
+            helper={helper}
+            onTouchIdRegistered={setTouchIdRegistered}
+            {...(macPermissions
               ? {
-                  progress: (
-                    <ConnectProgress
-                      state={flow.state}
-                      onOpen={(url) => void flow.open(url)}
-                      onCancel={flow.cancel}
-                      onRetry={flow.retry}
-                      onOpenSettings={() => void flow.openSettings()}
-                      onRecheck={() => void flow.recheck()}
-                    />
-                  ),
+                  notifications: permissions.notifications,
+                  notificationsBusy: askingPermission === "notifications",
+                  onAllowNotifications: () => void allow("notifications"),
                 }
               : {})}
           />
         ) : null}
-        {current === "mail" ? <MailStep persona={name} value={mail} onChange={setMail} /> : null}
-        {current === "sandbox" ? <SandboxStep onReadyChange={setSandboxReady} /> : null}
         {current === "model" ? (
           <ModelStep
             value={model}
@@ -570,18 +553,9 @@ export function OnboardingFlow({
             {...(check ? { onCheck: () => void check() } : {})}
           />
         ) : null}
-        {current === "where" ? (
-          <WhereStep
-            persona={name}
-            value={workspace}
-            onChange={setWorkspace}
-            vmAvailable={vmAvailable}
-          />
-        ) : null}
         {current === "done" ? (
           <DoneStep
             result={result}
-            permissionsOnMac={!macPermissions}
             helperConnected={helper?.kind === "paired"}
             {...(checks === null ? {} : { checks })}
           />
@@ -602,15 +576,14 @@ export function OnboardingFlow({
           <ArrowLeft aria-hidden="true" className="rtl:rotate-180" /> {t("onboarding.back")}
         </Button>
         <span className="ms-auto" />
-        {(current === "connectors" && connectors.length === 0) ||
-        (current === "sandbox" && !sandboxReady) ||
-        SKIPPABLE.has(current) ? (
+        {(current === "stuff" && connectors.length === 0) || SKIPPABLE.has(current) ? (
           <Button
             type="button"
             variant="ghost"
             className="text-label-secondary"
             onClick={() => {
               const next = steps[index + 1];
+              if (current === "memory") setMemorySkipped(true);
               if (next) go(next);
             }}
           >
@@ -629,6 +602,7 @@ export function OnboardingFlow({
             disabled={recoveryPending}
             onClick={() => {
               const next = steps[index + 1];
+              if (current === "memory") setMemorySkipped(false);
               if (next) go(next);
             }}
           >

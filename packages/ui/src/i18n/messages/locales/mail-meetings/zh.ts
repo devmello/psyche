@@ -150,7 +150,6 @@ export const mailMeetings: Partial<Catalogue> = {
   "settings.key.meetings.notes.cloudSummary": "用云端模型生成总结",
 
   // Onboarding decision screen (§7.5)
-  "onboarding.step.mail": "邮件与会议",
   "onboarding.mail.title": "{name}可以帮你跟上邮件和会议",
   "onboarding.mail.lead":
     "选择你想要的功能。点击继续之前不会运行任何内容，你也可以随时在设置中更改。",

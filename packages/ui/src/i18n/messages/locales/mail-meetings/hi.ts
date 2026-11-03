@@ -138,7 +138,6 @@ export const mailMeetings: Partial<Catalogue> = {
   "settings.key.meetings.notes.consentLine": "रिकॉर्डिंग सहमति वाक्य",
   "settings.key.meetings.notes.cloudSummary": "क्लाउड मॉडल से सार बनाएँ",
 
-  "onboarding.step.mail": "मेल और मीटिंग",
   "onboarding.mail.title": "{name} आपको मेल और मीटिंग में अपडेट रख सकती है",
   "onboarding.mail.lead": "जो चाहें चुनें। आगे बढ़ने तक कुछ नहीं चलेगा, और सब कुछ सेटिंग में बदला जा सकता है।",
   "onboarding.mail.digest": "सुबह 7:30 बजे इनबॉक्स डाइजेस्ट",

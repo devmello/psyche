@@ -2210,11 +2210,7 @@ export const fr: Partial<Catalogue> = {
   "settings.language.direction.ltr": "De gauche à droite",
   "settings.language.direction.rtl": "De droite à gauche",
 
-  "onboarding.step.agent": "Faites connaissance avec votre agent",
-  "onboarding.step.permissions": "Autorisations",
-  "onboarding.step.connectors": "Connecteurs",
   "onboarding.step.model": "Modèle et fournisseur",
-  "onboarding.step.where": "Où travaille {name}",
   "onboarding.step.done": "Terminé",
   "onboarding.connectFailed": "Psyche n’a pas pu connecter ce compte ({reason}).",
   "onboarding.keyFailed": "Psyche n’a pas pu enregistrer la clé ({reason}).",
@@ -2251,11 +2247,8 @@ export const fr: Partial<Catalogue> = {
   "onboarding.model.claudeSubscription": "Abonnement Claude",
   "onboarding.model.chatgptSubscription": "Abonnement ChatGPT",
   "onboarding.model.auto": "Auto",
-  "onboarding.permission.pending": "Pas demandée",
   "onboarding.permission.granted": "Autorisée",
   "onboarding.permission.denied": "Refusée dans macOS",
-  "onboarding.permission.skipped": "Passée",
-  "onboarding.permission.unavailable": "Indisponible",
   "onboarding.agent.name": "Nom",
   "onboarding.agent.suggestions": "Suggestions :",
   "onboarding.agent.keep": "Garder « {name} »",
@@ -2273,23 +2266,14 @@ export const fr: Partial<Catalogue> = {
   "onboarding.agent.preview": "Aperçu",
   "onboarding.language.label": "Langue",
   "onboarding.language.hint": "Vous pourrez la changer plus tard dans Réglages → Apparence.",
-  "onboarding.permission.why.accessibility":
-    "Permet à {name} de cliquer, saisir du texte et utiliser des apps.",
-  "onboarding.permission.why.screenRecording":
-    "Permet à {name} de voir les fenêtres des apps pendant qu’il travaille.",
   "onboarding.permission.why.notifications":
     "Permet à Psyche de demander des approbations quand cette fenêtre est fermée.",
-  "onboarding.permission.intro":
-    "Chacune est facultative. macOS vous demande confirmation ; vous pourrez les changer plus tard dans Réglages Système.",
   "onboarding.permission.deniedHint":
     "Activez-la dans Réglages Système → Confidentialité et sécurité ; cette page se mettra à jour à votre retour.",
   "onboarding.permission.unavailableHint":
     "Psyche ne peut la demander que depuis l’app Psyche sur un Mac.",
-  "onboarding.permission.allowLabel": "Autoriser {name}",
   "onboarding.permission.asking": "Demande en cours…",
   "onboarding.permission.allow": "Autoriser",
-  "onboarding.permission.skipLabel": "Passer {name}",
-  "onboarding.permission.skip": "Passer",
   "onboarding.connectors.intro":
     "Décidez maintenant quels comptes connecter, un par un. {name} ne voit que ce que vous connectez, et vous pourrez en ajouter plus tard dans Réglages.",
   "onboarding.connectors.connected": "Connectés ({n, number})",
@@ -2344,49 +2328,12 @@ export const fr: Partial<Catalogue> = {
   "onboarding.model.checkAgain": "Tester de nouveau",
   "onboarding.model.toolCheckFailed":
     "Ce modèle peut discuter mais ne sait pas utiliser les outils de façon fiable ; il n’agira donc pas pour vous. Choisissez-en un autre ou continuez en mode discussion seule.",
-  "onboarding.where.question": "Où {name} doit-il travailler ?",
-  "onboarding.where.local": "Ce Mac",
-  "onboarding.where.localHint":
-    "{name} utilise vos apps avec les autorisations que vous avez choisies. Les commandes s’exécutent dans un bac à sable.",
-  "onboarding.where.vm": "Un Mac dans Psyche (mode VM)",
-  "onboarding.where.vmHint":
-    "{name} dispose de son propre macOS invité. Ses clics et sa navigation y restent confinés.",
-  "onboarding.where.vmUnavailable": "Nécessite macOS 15 ou ultérieur sur une puce Apple.",
-  "onboarding.where.vmDefaults": "Réglages par défaut du mode VM",
-  "onboarding.where.localDefaults": "Réglages par défaut de « Ce Mac »",
-  "onboarding.where.vm.guest": "Invité",
-  "onboarding.where.vm.guestValue": "macOS, 4 vCPU, 8 Go de mémoire, 80 Go de disque (ajustable)",
-  "onboarding.where.vm.sees": "L’invité voit",
-  "onboarding.where.vm.seesValue":
-    "Son propre disque, les dossiers que vous partagez (en lecture seule par défaut) et le presse-papiers",
-  "onboarding.where.vm.cantSee": "Il ne voit pas",
-  "onboarding.where.vm.cantSeeValue": "Vos fichiers, apps, trousseau ou sessions de navigateur",
-  "onboarding.where.vm.watch": "Vous observez",
-  "onboarding.where.vm.watchValue":
-    "L’écran de l’invité dans un panneau, avec « Prendre le contrôle »",
-  "onboarding.where.local.apps": "Apps",
-  "onboarding.where.local.appsValue":
-    "Chaque app demande à sa première utilisation : Désactivé, Lecture seule ou Lecture et interaction",
-  "onboarding.where.local.files": "Fichiers",
-  "onboarding.where.local.filesValue":
-    "Seulement les dossiers que vous partagez dans Réglages → Accès aux fichiers",
-  "onboarding.where.local.commands": "Commandes",
-  "onboarding.where.local.commandsValue": "Dans un conteneur ; jamais dans le shell de votre Mac",
-  "onboarding.where.local.stop": "Arrêt",
-  "onboarding.where.local.stopValue": "Échap arrête l’utilisation de l’ordinateur à tout moment",
   "onboarding.done.ready": "{name} est prêt.",
   "onboarding.done.opens": "La discussion principale s’ouvre sur le premier message de {name}.",
-  "onboarding.done.tagline": "Devise",
-  "onboarding.done.none": "Aucune",
-  "onboarding.done.permissions": "Autorisations",
   "onboarding.done.noneYet": "Aucune pour l’instant",
-  "onboarding.done.permissionsOnMac":
-    "Accessibilité, Enregistrement de l’écran et Notifications se configurent dans l’app Psyche sur votre Mac",
   "onboarding.done.accounts": "Comptes",
   "onboarding.done.account": "{label} ({mode})",
   "onboarding.done.model": "Modèle",
-  "onboarding.done.worksIn": "Travaille dans",
-  "onboarding.done.vmMode": "Mode VM",
   "onboarding.done.checking": "Vérification de la configuration…",
   "onboarding.done.checks": "Vérifications de la configuration",
   "onboarding.done.ok": "OK",

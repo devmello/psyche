@@ -2,7 +2,6 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { CapabilitiesScreen } from "../src/screens/capabilities/CapabilitiesScreen.tsx";
-import { FirstWinsStep } from "../src/screens/onboarding/FirstWinsStep.tsx";
 import { MemoryImportStep } from "../src/screens/onboarding/MemoryImportStep.tsx";
 import {
   OnboardingFlow,
@@ -12,7 +11,7 @@ import { parseProgress } from "../src/screens/onboarding/progress.ts";
 import type { ImportedMemory, OnboardingStepId } from "../src/screens/onboarding/types.ts";
 import { StoryWorld } from "../src/stories/harness.tsx";
 
-/** First-run redesign: About you, Bring your memory, First wins, Habits, resume and re-run. */
+/** The six-step flow: skipping, resuming from old progress, re-running over what is set. */
 
 function flow(props: Partial<OnboardingFlowProps> = {}) {
   const onComplete = vi.fn();
@@ -32,12 +31,15 @@ const heading = () => screen.getByRole("heading", { level: 1 });
 const progressBar = () => screen.getByRole("progressbar", { name: "Onboarding progress" });
 const click = (name: string | RegExp) => userEvent.click(screen.getByRole("button", { name }));
 
-describe("each new step can be skipped or continued", () => {
+describe("each skippable step can be skipped or continued", () => {
   it.each([
-    ["about", "About you", async () => screen.findByRole("textbox", { name: "Your name" })],
-    ["memory", "Bring your memory", async () => screen.findByTestId("onboarding-memory")],
-    ["wins", "First wins", async () => screen.findByTestId("onboarding-wins")],
-    ["habits", "Turn on habits", async () => screen.findByTestId("onboarding-habits")],
+    ["you", "You and your agent", async () => screen.findByRole("textbox", { name: "Your name" })],
+    [
+      "memory",
+      "Memory and daily habits",
+      async () => screen.findByTestId("onboarding-memory-habits"),
+    ],
+    ["safety", "Safety", async () => screen.findByTestId("onboarding-safety")],
   ] as const)("%s: Skip for now and Next both move on", async (step, title, shown) => {
     flow({ defaultStep: step as OnboardingStepId });
     expect(heading().textContent).toContain(title);
@@ -51,10 +53,15 @@ describe("each new step can be skipped or continued", () => {
     expect(heading().textContent).not.toBe(before);
   });
 
-  it("About you keeps what was typed when going back and forth", async () => {
-    const { onComplete } = flow({ defaultStep: "about" });
+  it("the model is the one step that cannot be skipped", () => {
+    flow({ defaultStep: "model" });
+    expect(screen.queryByRole("button", { name: "Skip for now" })).toBeNull();
+  });
+
+  it("You keeps what was typed when going back and forth", async () => {
+    const { onComplete } = flow({ defaultStep: "you" });
     await userEvent.type(await screen.findByRole("textbox", { name: "Your name" }), "Sam");
-    await click("Next"); // permissions
+    await click("Next");
     await userEvent.click(screen.getByRole("button", { name: "Back" }));
     expect((screen.getByRole("textbox", { name: "Your name" }) as HTMLInputElement).value).toBe(
       "Sam",
@@ -65,36 +72,91 @@ describe("each new step can be skipped or continued", () => {
 
 describe("resume after quitting midway", () => {
   it("reports progress on every step change and resumes from a saved step", async () => {
-    const first = flow({ defaultStep: "about" });
+    const first = flow({ defaultStep: "you" });
     await screen.findByRole("textbox", { name: "Your name" });
     await click("Next");
     await waitFor(() =>
-      expect(first.onProgress).toHaveBeenLastCalledWith({
-        step: "permissions",
-        done: ["agent", "about"],
-      }),
+      expect(first.onProgress).toHaveBeenLastCalledWith({ step: "stuff", done: ["you"] }),
     );
     first.unmount();
     // The shell reads the saved progress and starts there.
-    const saved = parseProgress(JSON.stringify({ step: "memory", done: ["agent", "about"] }));
-    flow({ defaultStep: saved?.step ?? "agent" });
-    expect(heading().textContent).toContain("Bring your memory");
+    const saved = parseProgress(
+      JSON.stringify({ step: "memory", done: ["you", "stuff", "model"] }),
+    );
+    flow({ defaultStep: saved?.step ?? "you" });
+    expect(heading().textContent).toContain("Memory and daily habits");
+  });
+
+  it("maps progress saved by the twelve-step flow to the nearest step", () => {
+    const old = (step: string, done: string[] = []) => parseProgress({ step, done });
+    expect(old("agent")?.step).toBe("you");
+    expect(old("about", ["agent"])).toEqual({ step: "you", done: [] });
+    expect(old("permissions", ["agent", "about"])).toEqual({ step: "stuff", done: ["you"] });
+    expect(old("mail")?.step).toBe("stuff");
+    expect(old("sandbox")?.step).toBe("model");
+    expect(old("model")?.step).toBe("model");
+    expect(old("where")?.step).toBe("memory");
+    expect(old("wins")?.step).toBe("memory");
+    expect(old("habits", ["agent", "about", "connectors", "memory"])).toEqual({
+      step: "memory",
+      done: ["you", "stuff"],
+    });
+    expect(old("done")?.step).toBe("done");
   });
 
   it("ignores progress that is not valid", () => {
     expect(parseProgress("not json")).toBeNull();
     expect(parseProgress("")).toBeNull();
     expect(parseProgress({ step: 3 })).toBeNull();
+    expect(parseProgress({ step: "nowhere" })).toBeNull();
   });
 });
 
-describe("re-run skips what is set up", () => {
-  it("leaves completed steps out of the list", () => {
-    flow({ completed: ["agent", "about", "connectors", "memory", "habits"] });
-    // Six steps remain; the first one shown is the first not yet completed.
-    expect(progressBar().getAttribute("aria-valuemax")).toBe("6");
-    expect(progressBar().textContent).toBe("1 of 6");
-    expect(heading().textContent).not.toContain("Meet your agent");
+describe("re-run is pre-filled and leaves out only what is set", () => {
+  it("leaves the model out when it is set, and keeps every other step", () => {
+    flow({ completed: ["model"], rerun: true });
+    expect(progressBar().getAttribute("aria-valuemax")).toBe("5");
+    expect(progressBar().textContent).toBe("1 of 5");
+    expect(heading().textContent).toContain("You and your agent");
+  });
+
+  it("does not show the agent's name or look, but pre-fills about you", async () => {
+    flow({ rerun: true, initial: { owner: { name: "Sam", work: "Designer" } } });
+    expect(screen.queryByRole("textbox", { name: "Agent name" })).toBeNull();
+    expect((screen.getByRole("textbox", { name: "Your name" }) as HTMLInputElement).value).toBe(
+      "Sam",
+    );
+    await userEvent.click(screen.getByText("More about you"));
+    expect((screen.getByRole("textbox", { name: "Work or study" }) as HTMLInputElement).value).toBe(
+      "Designer",
+    );
+  });
+
+  it("says the model is kept, and the result says so", async () => {
+    const { onComplete } = flow({ completed: ["model"], rerun: true, defaultStep: "done" });
+    expect(screen.getByText("Unchanged")).toBeTruthy();
+    await click("Open the main chat");
+    expect(onComplete.mock.calls[0]?.[0]).toMatchObject({ modelKept: true });
+  });
+
+  it("starts from the stored habits, work and people choices", async () => {
+    flow({
+      defaultStep: "memory",
+      initial: {
+        habits: { brief: false, wrapup: true, followups: false },
+        memory: {
+          work: true,
+          workConsentedAt: "2026-11-01T10:00:00.000Z",
+          remind: false,
+          people: true,
+        },
+      },
+    });
+    const on = (name: string) => screen.getByRole("switch", { name }).getAttribute("aria-checked");
+    expect(on("Daily brief")).toBe("false");
+    expect(on("Evening wrap-up")).toBe("true");
+    expect(on("Track my work")).toBe("true");
+    expect(on("Include people in my brief")).toBe("true");
   });
 });
 
@@ -142,42 +204,6 @@ describe("memory import parse and review", () => {
   it("says importing is unavailable without a host", () => {
     render(<MemoryImportStep />);
     expect(screen.getByText(/isn't available in this window/)).toBeTruthy();
-  });
-});
-
-describe("first wins with and without connectors", () => {
-  it("runs the ones that can run and degrades the rest to a connect hint", async () => {
-    const onRun = vi.fn().mockResolvedValue("Two meetings today.");
-    render(<FirstWinsStep connected={new Set(["apple:calendar"])} onRun={onRun} />);
-    expect(screen.getByText("Connect mail to try this.")).toBeTruthy();
-    const inbox = within(screen.getByTestId("onboarding-wins")).getAllByRole("listitem")[2];
-    expect(
-      (within(inbox as HTMLElement).getByRole("button", { name: "Run" }) as HTMLButtonElement)
-        .disabled,
-    ).toBe(true);
-    await click("Run all");
-    await waitFor(() => expect(onRun).toHaveBeenCalledTimes(2));
-    expect(onRun.mock.calls.map((c) => c[0])).toEqual(["brief", "meetings"]);
-    expect((await screen.findAllByText("Two meetings today.")).length).toBe(2);
-  });
-
-  it("with nothing connected offers no run and says what to connect", () => {
-    const onRun = vi.fn();
-    render(<FirstWinsStep connected={new Set()} onRun={onRun} />);
-    expect(screen.queryByRole("button", { name: "Run all" })).toBeNull();
-    expect(screen.getByText(/Connect mail or a calendar/)).toBeTruthy();
-    expect(onRun).not.toHaveBeenCalled();
-  });
-
-  it("shows one task's failure without stopping the others", async () => {
-    const onRun = vi
-      .fn()
-      .mockRejectedValueOnce(new Error("model offline"))
-      .mockResolvedValueOnce("Triage done.");
-    render(<FirstWinsStep connected={new Set(["google"])} onRun={onRun} />);
-    await click("Run all");
-    expect((await screen.findAllByRole("alert"))[0]?.textContent).toContain("didn't finish");
-    await waitFor(() => expect(onRun).toHaveBeenCalledTimes(3));
   });
 });
 

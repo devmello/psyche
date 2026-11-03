@@ -137,16 +137,17 @@ describe("Settings → Mail & meetings", () => {
 describe("the onboarding mail step", () => {
   const connected = [{ type: "apple:mail", label: "Apple Mail", mode: "read" as const }];
 
-  it("is left out until a mail account is connected", async () => {
+  it("is left out of Your stuff until a mail account is connected", async () => {
     render(
       <StoryWorld>
-        <OnboardingFlow onComplete={vi.fn()} defaultStep="connectors" onConnect={() => true} />
+        <OnboardingFlow onComplete={vi.fn()} defaultStep="stuff" onConnect={() => true} />
       </StoryWorld>,
     );
-    // The "N of M" label opens the step menu (#1040); the mail step is not in it.
+    expect(screen.queryByTestId("onboarding-mail")).toBeNull();
+    // It was a step of its own once; the step menu lists six steps and none is mail.
     await userEvent.setup().click(screen.getByRole("button", { name: /Onboarding progress/ }));
     const menu = await screen.findByRole("menu");
-    expect(within(menu).getAllByRole("menuitem").length).toBeGreaterThan(1);
+    expect(within(menu).getAllByRole("menuitem")).toHaveLength(6);
     expect(within(menu).queryByText("Mail and meetings")).toBeNull();
   });
 
@@ -157,14 +158,18 @@ describe("the onboarding mail step", () => {
       <StoryWorld>
         <OnboardingFlow
           onComplete={onComplete}
-          defaultStep="mail"
+          defaultStep="stuff"
           initial={{ connectors: connected }}
           onConnect={() => true}
           macPermissions={false}
         />
       </StoryWorld>,
     );
-    expect(screen.getByRole("heading", { level: 1, name: /Mail and meetings/ })).toBeTruthy();
+    // The switches sit under the accounts, on the same step.
+    expect(screen.getByRole("heading", { level: 1, name: /Your stuff/ })).toBeTruthy();
+    expect(
+      screen.getByRole("heading", { level: 2, name: /can catch you up on mail and meetings/ }),
+    ).toBeTruthy();
     expect(
       screen
         .getByRole("switch", { name: "Morning inbox digest at 7:30" })
@@ -173,14 +178,9 @@ describe("the onboarding mail step", () => {
     const voice = screen.getByRole("switch", { name: "Learn my writing style from sent mail" });
     expect(voice.getAttribute("aria-checked")).toBe("false");
     await user.click(screen.getByRole("switch", { name: "Track replies you’re waiting on" }));
-    await user.click(screen.getByRole("button", { name: /Next/ }));
-    // Sandbox, Model, Where, Memory, First wins, Habits, Done
-    await user.click(await screen.findByRole("button", { name: /Next/ }));
-    await user.click(await screen.findByRole("button", { name: /Next/ }));
-    await user.click(await screen.findByRole("button", { name: /Next/ }));
-    await user.click(await screen.findByRole("button", { name: /Next/ }));
-    await user.click(await screen.findByRole("button", { name: /Next/ }));
-    await user.click(await screen.findByRole("button", { name: /Next/ }));
+    // Model, Memory and daily habits, Safety, Done
+    for (let i = 0; i < 4; i++)
+      await user.click(await screen.findByRole("button", { name: /Next/ }));
     await user.click(await screen.findByRole("button", { name: /Open chat|Open/ }));
     expect(onComplete).toHaveBeenCalledWith(
       expect.objectContaining({ mail: { ...MAIL_DEFAULTS, followups: false } }),

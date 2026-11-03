@@ -1,4 +1,4 @@
-import type { ReactElement } from "react";
+import { type ReactElement, useId } from "react";
 import { t } from "../../i18n/core.ts";
 import { GROUP_ROWS, SwitchField } from "../settings/shared.tsx";
 import { MAIL_DEFAULTS, mailSettings } from "./mail-settings.ts";
@@ -7,8 +7,8 @@ import type { MailChoices } from "./types.ts";
 export { MAIL_DEFAULTS, mailSettings };
 
 /**
- * The mail and meetings decision screen (docs/workflows/mail-and-meetings-2026.md §7.5): after
- * Connectors, when a mail account is connected. Each workflow has its own switch and a one-line
+ * The mail and meetings decision (docs/workflows/mail-and-meetings-2026.md §7.5): a section of
+ * the Your stuff step, under the accounts, once a mail account is connected. Each workflow has its own switch and a one-line
  * explanation; nothing runs until the owner continues. Learning the writing style is the one
  * switch that starts off, and says what is read and where it stays. The Mail rule bridge and
  * Psyche's own recording are not offered here.
@@ -25,11 +25,19 @@ export function MailStep({
 }): ReactElement {
   const set = (key: keyof MailChoices) => (on: boolean) => onChange({ ...value, [key]: on });
   const on = Object.values(value).filter(Boolean).length;
+  const headingId = useId();
   return (
-    <div className="flex flex-col gap-4">
-      <p className="text-reading text-label-secondary">
-        {t("onboarding.mail.title", { name: persona })}. {t("onboarding.mail.lead")}
-      </p>
+    <section
+      aria-labelledby={headingId}
+      className="flex flex-col gap-4"
+      data-testid="onboarding-mail"
+    >
+      <div className="flex flex-col gap-1">
+        <h2 id={headingId} className="text-headline text-label-primary">
+          {t("onboarding.mail.title", { name: persona })}
+        </h2>
+        <p className="text-callout text-label-secondary">{t("onboarding.mail.lead")}</p>
+      </div>
       <div className={GROUP_ROWS}>
         <SwitchField
           label={t("onboarding.mail.digest")}
@@ -65,6 +73,6 @@ export function MailStep({
       <p className="px-1 text-callout text-label-secondary">
         {t("onboarding.mail.summary", { n: on })}
       </p>
-    </div>
+    </section>
   );
 }

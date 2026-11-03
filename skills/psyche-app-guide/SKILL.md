@@ -178,11 +178,20 @@ Settings opens from the gear or ⌘, on **Essentials**, the first of ten pages: 
 
 **Devices** (`devices`): **Devices & nodes** (`devices`) and **Server & remote access** (`server`: the bind address, passkeys, sandbox health; **Set up** opens the remote-access guide).
 
-**About** (`about`): versions, data folder (Reveal in Finder), **Run checks** (Gateway, model, sandbox, memory: each says what is wrong in plain words), Open logs, and **Run setup again** (walks the first-run setup again; finished steps are skipped).
+**About** (`about`): versions, data folder (Reveal in Finder), **Run checks** (Gateway, model, sandbox, memory: each says what is wrong in plain words), Open logs, and **Run setup again** (walks the setup again with everything pre-filled from what is set now; nothing resets).
 
 ## Onboarding
 
-First run walks through: about you, the model (key saved to the vault with **Save to vault**), memory, daily habits, sandbox and First wins. Re-run any time: Settings → About → **Run setup again** (`/onboarding`). "What can you do?" stays in the gear menu.
+Setup has six steps, each skippable except the model:
+
+1. **You and your agent**: language, your name, the agent's name; the look and time zone, work and city are one click away.
+2. **Your stuff**: connect accounts (Mac apps first). Once a mail account is connected, the mail and meetings switches show under it.
+3. **Choose a model**: key saved to the vault with **Save to vault**, or a subscription or local model, then a tool-calling check.
+4. **Memory and daily habits**: morning brief, evening wrap-up, follow-ups; **Track my work** (a consent card first, and reminders ride on the wrap-up); **Include people in my brief** (off, with a warning about who can see the brief); importing from ChatGPT or Claude is behind a fold.
+5. **Safety**: register the Mac helper's Touch ID key (desktop only; a development build needs "Allow a development Touch ID key" first), allow Notifications, and an optional sandbox.
+6. **You're set**: what was set up, the setup checks, and things to try (a question in Search with ⌘K, Catching up on Home, "What can you do?").
+
+Access to files, apps and the screen is not asked in setup: the agent asks in chat the first time it needs it. Re-run any time: Settings → About → **Run setup again** (`/onboarding`); it keeps your agent's name and look, and leaves the model step out when one is set. "What can you do?" stays in the gear menu.
 
 ## Permissions and approval cards
 

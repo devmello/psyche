@@ -203,7 +203,42 @@ export async function verifySetup(
     state: "warn",
     detail: t("web.setup.modelNone"),
   };
-  if (ref !== "" && status.phase === "paired") {
+  if (result.modelKept === true && status.phase === "paired") {
+    // A re-run that left the Model step out: read the model that is set; never bind another.
+    try {
+      const list = (await call("models.list", {})) as ModelsList;
+      const kept = list.roles.primary;
+      const provider = list.providers.find(
+        (p) => kept !== undefined && kept.startsWith(`${p.id}/`),
+      );
+      if (kept !== undefined && providerReady(provider)) {
+        const cli = cliProviderOf(kept);
+        modelCheck = {
+          id: "model",
+          label: t("web.setup.model"),
+          state: "ok",
+          detail:
+            cli === null
+              ? t("web.setup.modelOk", { ref: kept })
+              : t("web.setup.modelOkCli", { ref: kept, cli: CLI_LABEL[cli] ?? cli }),
+        };
+      } else if (kept !== undefined) {
+        modelCheck = {
+          id: "model",
+          label: t("web.setup.model"),
+          state: "warn",
+          detail: t("web.setup.modelNoKey", { ref: kept }),
+        };
+      }
+    } catch (err) {
+      modelCheck = {
+        id: "model",
+        label: t("web.setup.model"),
+        state: "warn",
+        detail: t("web.setup.modelError", { ref: t("web.setup.model"), error: describeError(err) }),
+      };
+    }
+  } else if (ref !== "" && status.phase === "paired") {
     try {
       const override = result.model.toolCheck === "failed";
       const before = (await call("models.list", {})) as ModelsList;

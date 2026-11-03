@@ -22,7 +22,7 @@ vi.mock("../src/i18n/messages/locales/index.ts", async () => {
 vi.resetModules();
 const { createI18n, setActiveI18n } = await import("../src/i18n/core.ts");
 const { localeName, resolveMessageLocale } = await import("../src/i18n/locale.ts");
-const { MeetStep } = await import("../src/screens/onboarding/OnboardingSteps.tsx");
+const { YouStep } = await import("../src/screens/onboarding/YouStep.tsx");
 const { AppearanceProvider } = await import("../src/shell/AppearanceProvider.tsx");
 const { StoryWorld } = await import("../src/stories/harness.tsx");
 setActiveI18n(createI18n({ locale: "en-US" }));
@@ -63,15 +63,17 @@ describe("the onboarding language select (A12, #621)", () => {
     render(
       <StoryWorld onGateway={(g) => (gw = g)}>
         <AppearanceProvider systemLocale="en-GB">
-          <MeetStep
-            value={{
+          <YouStep
+            persona={{
               name: "",
               creatureId: "moth",
               creatureMode: "bundled",
               creatureDescription: "",
               tagline: "",
             }}
-            onChange={() => {}}
+            onPersonaChange={() => {}}
+            owner={{ name: "", timeZone: "", work: "", city: "" }}
+            onOwnerChange={() => {}}
           />
         </AppearanceProvider>
       </StoryWorld>,

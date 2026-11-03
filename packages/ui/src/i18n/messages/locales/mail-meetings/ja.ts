@@ -158,7 +158,6 @@ export const mailMeetings: Partial<Catalogue> = {
   "settings.key.meetings.notes.cloudSummary": "クラウドモデルで要約",
 
   // Onboarding decision screen (§7.5)
-  "onboarding.step.mail": "メールと会議",
   "onboarding.mail.title": "{name}がメールと会議の状況をまとめます",
   "onboarding.mail.lead":
     "使いたい機能を選んでください。続行するまで何も実行されず、あとから設定で変更できます。",

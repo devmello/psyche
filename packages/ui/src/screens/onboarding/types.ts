@@ -4,32 +4,15 @@ import type { ProviderKind, TccPermission, TccState, ToolCheck } from "../settin
 
 /** Onboarding (UI design §3.19): the steps, the shell callbacks and the result. */
 
-export type OnboardingStepId =
-  | "agent"
-  | "about"
-  | "permissions"
-  | "connectors"
-  | "mail"
-  | "sandbox"
-  | "model"
-  | "where"
-  | "memory"
-  | "wins"
-  | "habits"
-  | "done";
+export type OnboardingStepId = "you" | "stuff" | "model" | "memory" | "safety" | "done";
 
+/** Docs: docs/design/onboarding-2026.md §2. */
 export const ONBOARDING_STEP_IDS: readonly OnboardingStepId[] = [
-  "agent",
-  "about",
-  "permissions",
-  "connectors",
-  "mail",
-  "sandbox",
+  "you",
+  "stuff",
   "model",
-  "where",
   "memory",
-  "wins",
-  "habits",
+  "safety",
   "done",
 ];
 
@@ -72,8 +55,6 @@ export interface ModelChoice {
   toolCheck: ToolCheck;
 }
 
-export type Workspace = "local" | "vm";
-
 /** The About-you step: written to USER.md's structured fields. All optional. */
 export interface OwnerProfile {
   name: string;
@@ -98,18 +79,59 @@ export interface ImportedMemoryPreview {
   skipped: number;
 }
 
+/** What the Memory step asks (docs/design/onboarding-2026.md §4). */
+export interface MemoryChoices {
+  /** `memory.work.enabled`: off until the owner has seen the consent card. */
+  work: boolean;
+  /** When the consent card was confirmed (ISO); null while it has not been. */
+  workConsentedAt: string | null;
+  /** `memory.work.remind.enabled`: due-soon reminders, sent with the evening wrap-up. */
+  remind: boolean;
+  /** `memory.surfaces.tiers.people.brief`: facts about people in the daily brief. */
+  people: boolean;
+}
+
+/** What the helper inside this app reports (`psyche-helper --print-identity`). */
+export interface BundledHelperKey {
+  deviceId: string;
+  keyId?: string;
+  kind?: "keychain" | "enclave_file";
+  error?: string;
+}
+
+/** Where the helper's Touch ID key stands: read once when Safety opens, and after each action. */
+export interface TouchIdStatus {
+  /** `null`: this build bundles no helper. */
+  identity: BundledHelperKey | null;
+  /** The Gateway holds this key for the helper. */
+  registered: boolean;
+  /** `devices.presence.allowDevFileKey`. */
+  allowDevFileKey: boolean;
+}
+
+/** The desktop's Touch ID setup, in the steps Settings → Devices uses. Absent on the web. */
+export interface TouchIdSetupPort {
+  status(): Promise<TouchIdStatus>;
+  /** Registers exactly the key the bundled helper reports. */
+  register(): Promise<void>;
+  /** `devices.presence.allowDevFileKey`, for a build whose key lives in a Secure Enclave file. */
+  allowDevFileKey(on: boolean): Promise<void>;
+}
+
 /** Callbacks for the steps added by the first-run redesign; all optional (the step says so). */
 export interface OnboardingExtrasProps {
   /** Parses an export or "what do you know about me" text without saving it. */
   onPreviewImport?: (format: ImportSource, content: string) => Promise<ImportedMemoryPreview>;
   /** Saves the reviewed items as the owner's memory; resolves with how many were saved. */
   onCommitImport?: (items: ImportedMemory[]) => Promise<number>;
-  /** Runs one starter task live and resolves with its answer. */
-  onRunWin?: (win: "brief" | "meetings" | "inbox") => Promise<string>;
   /** Called whenever the step changes or a step is finished, so a restart resumes. */
   onProgress?: (progress: { step: OnboardingStepId; done: OnboardingStepId[] }) => void;
   /** Steps a re-run leaves out because they are already set up. */
   completed?: readonly OnboardingStepId[];
+  /** A re-run: the agent's name and look are edited in Settings, so the You step omits them. */
+  rerun?: boolean;
+  /** Desktop: Touch ID key setup for Safety. Without it the row is not shown. */
+  touchId?: TouchIdSetupPort;
 }
 
 /**
@@ -139,13 +161,21 @@ export interface OnboardingResult {
   permissions: Record<TccPermission, PermissionAnswer>;
   connectors: ConnectedAccount[];
   model: ModelChoice;
-  workspace: Workspace;
+  /**
+   * A re-run that left the Model step out: the Done check reads the model that is set and does
+   * not bind another.
+   */
+  modelKept?: boolean;
   /** Set when the mail step was offered (a mail account is connected). */
   mail?: MailChoices;
   /** The About-you answers (empty strings when skipped). */
   owner?: OwnerProfile;
   /** Habit switches, when that step was reached. */
   habits?: import("./habits.ts").HabitChoices;
+  /** Work tracking and people in the brief, when the Memory step was reached. */
+  memory?: MemoryChoices;
+  /** The helper's Touch ID key was registered during setup (informational). */
+  touchIdRegistered?: boolean;
 }
 
 export interface OnboardingShellProps extends OnboardingExtrasProps {

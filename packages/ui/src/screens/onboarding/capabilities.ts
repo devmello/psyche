@@ -1,6 +1,5 @@
 /**
- * What Psyche can do, by what is connected: the catalogue behind onboarding's First wins step and
- * the "What can you do?" screen. Pure data; strings live in `i18n/messages/capabilities.ts`.
+ * What Psyche can do, by what is connected: the catalogue behind the "What can you do?" screen. Pure data; strings live in `i18n/messages/capabilities.ts`.
  */
 
 /** A connector type or family a capability needs; any one of `anyOf` is enough. */
@@ -49,20 +48,4 @@ export const CAPABILITIES: readonly Capability[] = [
 /** True when the capability needs nothing, or one of the needed connectors is connected. */
 export function isAvailable(capability: Capability, connected: ReadonlySet<string>): boolean {
   return capability.needs === undefined || capability.needs.anyOf.some((t) => connected.has(t));
-}
-
-/** The three live starter tasks (onboarding "First wins"). */
-export const WIN_IDS = ["brief", "meetings", "inbox"] as const;
-export type WinId = (typeof WIN_IDS)[number];
-
-export const WIN_NEEDS: Record<WinId, CapabilityNeed> = {
-  brief: CALENDAR,
-  meetings: CALENDAR,
-  inbox: MAIL,
-};
-
-/** Which wins can run with what is connected; the rest degrade to a "connect X" hint. */
-export function runnableWins(connected: ReadonlySet<string>): Record<WinId, boolean> {
-  const ok = (id: WinId) => WIN_NEEDS[id].anyOf.some((t) => connected.has(t));
-  return { brief: ok("brief"), meetings: ok("meetings"), inbox: ok("inbox") };
 }
