@@ -244,7 +244,9 @@ describe("Settings → People → Relationship nudges", () => {
 
   it("points to the quiet hours in Notifications", () => {
     settings();
-    expect(screen.getByText(/quiet hours set in Settings → General → Notifications/)).toBeTruthy();
+    expect(
+      screen.getByText(/wait out the quiet hours in Settings → General → Notifications/),
+    ).toBeTruthy();
   });
 });
 

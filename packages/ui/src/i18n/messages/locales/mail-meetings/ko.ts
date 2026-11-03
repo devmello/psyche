@@ -10,6 +10,13 @@ export const mailMeetings: Partial<Catalogue> = {
   "settings.mail.loadFailed": "메일 및 회의 설정을 불러오지 못했습니다.",
 
   // Group titles
+  "settings.mail.group.masterHint": "모든 것을 일시 중지하거나 Psyche가 읽기만 하도록 합니다.",
+  "settings.mail.group.accountsHint": "요약과 후속 알림에 사용할 계정을 고릅니다.",
+  "settings.mail.group.digestHint": "원하는 시간에 받은편지함 요약을 보내 드립니다.",
+  "settings.mail.group.followupsHint": "답장을 기다리거나 답장해야 하는 메일을 알려 드립니다.",
+  "settings.mail.group.styleHint": "초안의 말투를 정합니다.",
+  "settings.mail.group.schedulingHint": "Psyche가 회의 시간을 제안하는 방식입니다.",
+  "settings.mail.group.notesHint": "회의가 끝난 뒤 Psyche가 하는 일입니다.",
   "settings.mail.group.master": "한꺼번에 설정",
   "settings.mail.group.accounts": "계정",
   "settings.mail.group.digest": "받은 편지함 요약",

@@ -21,6 +21,11 @@ const SCRIPT: ResumabilityScript = {
   ],
 };
 
+// The kill-point sweeps replay the whole script on a real SQLite database once per kill point. That
+// is under a second on a laptop and several seconds on a loaded CI runner, so they get a generous
+// explicit budget instead of vitest's 5s default (the harness itself runs on a fake clock).
+const SWEEP_TIMEOUT_MS = 60_000;
+
 const codes = (r: { violations: { code: string }[] }) => [
   ...new Set(r.violations.map((v) => v.code)),
 ];
@@ -49,30 +54,38 @@ describe("resumability harness (real tasks + agent-core + permissions on SQLite)
     ]);
   });
 
-  it("every kill point resumes or reconciles, with no duplicate side effect", async () => {
-    const results = await exploreKillPoints({ script: SCRIPT });
-    expect(results.filter((r) => r.violations.length > 0)).toEqual([]);
-    expect(results.map((r) => [r.killPoint, r.outcome])).toEqual([
-      ["after_model_event:0", "resumes"],
-      ["after_model_event:1", "resumes"],
-      ["after_model_event:2", "resumes"],
-      ["after_model_event:3", "resumes"],
-      ["before_dispatch:read", "replays_safe_read"],
-      ["after_dispatch:read", "replays_safe_read"],
-      ["while_awaiting_approval:send", "reissues_approval"],
-      ["before_dispatch:send", "reconciles_uncertain"],
-      ["before_receipt:send", "reconciles_uncertain"],
-      ["after_receipt:send", "reconciles_uncertain"],
-    ]);
-  });
+  it(
+    "every kill point resumes or reconciles, with no duplicate side effect",
+    async () => {
+      const results = await exploreKillPoints({ script: SCRIPT });
+      expect(results.filter((r) => r.violations.length > 0)).toEqual([]);
+      expect(results.map((r) => [r.killPoint, r.outcome])).toEqual([
+        ["after_model_event:0", "resumes"],
+        ["after_model_event:1", "resumes"],
+        ["after_model_event:2", "resumes"],
+        ["after_model_event:3", "resumes"],
+        ["before_dispatch:read", "replays_safe_read"],
+        ["after_dispatch:read", "replays_safe_read"],
+        ["while_awaiting_approval:send", "reissues_approval"],
+        ["before_dispatch:send", "reconciles_uncertain"],
+        ["before_receipt:send", "reconciles_uncertain"],
+        ["after_receipt:send", "reconciles_uncertain"],
+      ]);
+    },
+    SWEEP_TIMEOUT_MS,
+  );
 
-  it("a seeded random sample is deterministic", async () => {
-    const a = await exploreKillPoints({ script: SCRIPT, sample: 3, seed: 7 });
-    const b = await exploreKillPoints({ script: SCRIPT, sample: 3, seed: 7 });
-    expect(a.map((r) => r.killPoint)).toEqual(b.map((r) => r.killPoint));
-    expect(a).toHaveLength(3);
-    expect(a.flatMap((r) => r.violations)).toEqual([]);
-  });
+  it(
+    "a seeded random sample is deterministic",
+    async () => {
+      const a = await exploreKillPoints({ script: SCRIPT, sample: 3, seed: 7 });
+      const b = await exploreKillPoints({ script: SCRIPT, sample: 3, seed: 7 });
+      expect(a.map((r) => r.killPoint)).toEqual(b.map((r) => r.killPoint));
+      expect(a).toHaveLength(3);
+      expect(a.flatMap((r) => r.violations)).toEqual([]);
+    },
+    SWEEP_TIMEOUT_MS,
+  );
 
   it("before_receipt: the applied send is reconciled from the provider, never re-sent", async () => {
     const r = await runWithKill({ script: SCRIPT, killAt: "before_receipt:send" });
@@ -164,8 +177,12 @@ describe("resumability harness catches broken recovery", () => {
     expect(r.reconciled).toEqual([{ stepId: "send.1", status: "done" }]);
   });
 
-  it("an instant kill at any point resumes or reconciles, with no duplicate side effect", async () => {
-    const results = await exploreKillPoints({ script: SCRIPT, crash: "instant" });
-    expect(results.filter((r) => r.violations.length > 0)).toEqual([]);
-  });
+  it(
+    "an instant kill at any point resumes or reconciles, with no duplicate side effect",
+    async () => {
+      const results = await exploreKillPoints({ script: SCRIPT, crash: "instant" });
+      expect(results.filter((r) => r.violations.length > 0)).toEqual([]);
+    },
+    SWEEP_TIMEOUT_MS,
+  );
 });

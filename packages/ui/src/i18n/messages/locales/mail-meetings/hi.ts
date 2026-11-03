@@ -9,6 +9,13 @@ export const mailMeetings: Partial<Catalogue> = {
   "settings.mail.quietHours": "शांत घंटे सूचनाएँ में हैं।",
   "settings.mail.loadFailed": "मेल और मीटिंग सेटिंग लोड नहीं हो सकीं।",
 
+  "settings.mail.group.masterHint": "सब कुछ रोक दें, या Psyche को सिर्फ़ पढ़ने दें।",
+  "settings.mail.group.accountsHint": "कौन-से खाते सारांश और फ़ॉलो-अप में शामिल होते हैं।",
+  "settings.mail.group.digestHint": "आपके चुने हुए समय पर इनबॉक्स का सारांश।",
+  "settings.mail.group.followupsHint": "उन मेल के लिए रिमाइंडर जिनका जवाब आप चाहते हैं या आपको देना है।",
+  "settings.mail.group.styleHint": "ड्राफ़्ट कैसे लगने चाहिए।",
+  "settings.mail.group.schedulingHint": "Psyche मीटिंग के समय कैसे सुझाता है।",
+  "settings.mail.group.notesHint": "मीटिंग के बाद Psyche उनके साथ क्या करता है।",
   "settings.mail.group.master": "सब एक साथ",
   "settings.mail.group.accounts": "खाते",
   "settings.mail.group.digest": "इनबॉक्स डाइजेस्ट",

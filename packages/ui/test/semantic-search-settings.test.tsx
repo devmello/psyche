@@ -61,7 +61,7 @@ describe("semantic search settings", () => {
         />
       </StoryWorld>,
     );
-    expect(screen.getByText(/sent to it to be indexed/)).toBeTruthy();
+    expect(screen.getByText(/Your chats, tasks and Library text are sent to it/)).toBeTruthy();
     await userEvent.click(screen.getByRole("switch", { name: "Allow a cloud embedding service" }));
     expect(onChange).toHaveBeenCalledWith("search.semantic.allowCloud", true);
     expect(

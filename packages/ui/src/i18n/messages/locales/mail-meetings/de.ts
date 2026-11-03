@@ -10,6 +10,15 @@ export const mailMeetings: Partial<Catalogue> = {
   "settings.mail.loadFailed": "Die Mail- und Meeting-Einstellungen konnten nicht geladen werden.",
 
   // Group titles
+  "settings.mail.group.masterHint": "Alles pausieren oder Psyche nur lesen lassen.",
+  "settings.mail.group.accountsHint": "Welche Konten Übersichten und Nachverfolgungen speisen.",
+  "settings.mail.group.digestHint":
+    "Eine Zusammenfassung deines Posteingangs zu einer Zeit deiner Wahl.",
+  "settings.mail.group.followupsHint":
+    "Erinnerungen an Mails, auf die du wartest oder die du beantworten musst.",
+  "settings.mail.group.styleHint": "Wie Entwürfe klingen sollen.",
+  "settings.mail.group.schedulingHint": "Wie Psyche Meeting-Termine vorschlägt.",
+  "settings.mail.group.notesHint": "Was Psyche nach deinen Meetings damit macht.",
   "settings.mail.group.master": "Alles auf einmal",
   "settings.mail.group.accounts": "Accounts",
   "settings.mail.group.digest": "Posteingangs-Übersicht",

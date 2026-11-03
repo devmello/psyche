@@ -52,12 +52,12 @@ beforeEach(() => {
 });
 
 describe("the two segments", () => {
-  it("are Approvals (with the needs-you badge) and Soul & Memory, and nothing else", async () => {
+  it("are Approvals (with the needs-you badge) and Soul, and nothing else", async () => {
     sheet();
     const tabs = await screen.findAllByRole("tab");
     expect(tabs.map((x) => x.textContent?.replace(/\d+$/, "").trim())).toEqual([
       "Approvals",
-      "Soul & Memory",
+      "Soul",
     ]);
     await waitFor(() => expect(tabs[0]?.textContent).toMatch(/\d+$/));
   });
@@ -99,7 +99,7 @@ describe("the two segments", () => {
         <AgentSheetBody tab="approvals" onTabChange={() => {}} now={STORY_NOW} />
       </StoryWorld>,
     );
-    await userEvent.click(screen.getByRole("tab", { name: /Soul & Memory/ }));
+    await userEvent.click(screen.getByRole("tab", { name: /^Soul/ }));
     expect(lastAgentTab()).toBe("soul");
   });
 });
@@ -221,7 +221,7 @@ describe("old links and ⌘K", () => {
     });
   });
 
-  it("offers Approvals, Soul & Memory and the Overview, not Activity or Upcoming", () => {
+  it("offers Approvals, Soul and the Overview, not Activity or Upcoming", () => {
     const routes = DEFAULT_ACTIONS.map((a) => a.route);
     expect(routes).toContain("/agent/approvals");
     expect(routes).toContain("/agent/soul");

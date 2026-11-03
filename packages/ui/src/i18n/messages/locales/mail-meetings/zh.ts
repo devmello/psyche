@@ -10,6 +10,13 @@ export const mailMeetings: Partial<Catalogue> = {
   "settings.mail.loadFailed": "无法加载邮件与会议设置。",
 
   // Group titles
+  "settings.mail.group.masterHint": "全部暂停，或只让 Psyche 读取。",
+  "settings.mail.group.accountsHint": "哪些账户用于摘要和跟进。",
+  "settings.mail.group.digestHint": "在你选定的时间收到收件箱摘要。",
+  "settings.mail.group.followupsHint": "提醒你正在等待回复或需要回复的邮件。",
+  "settings.mail.group.styleHint": "草稿应有的语气。",
+  "settings.mail.group.schedulingHint": "Psyche 如何提议会议时间。",
+  "settings.mail.group.notesHint": "会议结束后 Psyche 会做什么。",
   "settings.mail.group.master": "一键设置",
   "settings.mail.group.accounts": "账户",
   "settings.mail.group.digest": "收件箱摘要",

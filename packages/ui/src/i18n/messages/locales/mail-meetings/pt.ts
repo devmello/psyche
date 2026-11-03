@@ -9,6 +9,14 @@ export const mailMeetings: Partial<Catalogue> = {
   "settings.mail.quietHours": "O horário de silêncio fica em Notificações.",
   "settings.mail.loadFailed": "Não foi possível carregar os ajustes de e-mail e reuniões.",
 
+  "settings.mail.group.masterHint": "Pause tudo ou deixe o Psyche apenas ler.",
+  "settings.mail.group.accountsHint": "Quais contas alimentam os resumos e os acompanhamentos.",
+  "settings.mail.group.digestHint": "Um resumo da sua caixa de entrada na hora que você escolher.",
+  "settings.mail.group.followupsHint":
+    "Lembretes de e-mails que você aguarda ou a que deve responder.",
+  "settings.mail.group.styleHint": "Como os rascunhos devem soar.",
+  "settings.mail.group.schedulingHint": "Como o Psyche propõe horários de reunião.",
+  "settings.mail.group.notesHint": "O que o Psyche faz com suas reuniões depois.",
   "settings.mail.group.master": "Tudo de uma vez",
   "settings.mail.group.accounts": "Contas",
   "settings.mail.group.digest": "Resumo da caixa de entrada",
