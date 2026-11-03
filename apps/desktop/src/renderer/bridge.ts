@@ -123,8 +123,8 @@ export function desktopPlatform(b: PsycheBridge = window.psyche): ShellPlatform 
       launch: () => b.helper.launch() as Promise<MacHelperState>,
       touchId: {
         identity: () => b.helper.touchIdIdentity() as Promise<BundledHelperIdentity | null>,
-        register: () => b.helper.touchIdRegister(),
-        approve: (p) => b.helper.touchIdApprove(p),
+        register: () => unwrapCall(b.helper.touchIdRegister()),
+        approve: (p) => unwrapCall(b.helper.touchIdApprove(p)),
       },
     },
     clipboard: {

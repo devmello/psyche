@@ -29,6 +29,31 @@ describe("renderer bridge", () => {
     });
   });
 
+  it("keeps a Touch ID failure's reason so the approval card can offer the fix", async () => {
+    const noKey = {
+      ok: false,
+      error: {
+        code: "unavailable",
+        message: "Touch ID is not set up for approvals",
+        details: { reason: "no_presence_key" },
+      },
+    };
+    const fake = {
+      chrome: { titleBar: "native" },
+      helper: { touchIdApprove: async () => noKey, touchIdRegister: async () => noKey },
+    } as unknown as PsycheBridge;
+    const touchId = desktopPlatform(fake).helper?.touchId;
+    for (const call of [
+      () => touchId?.approve({ approvalId: "ap_1", answerToken: "t" }),
+      () => touchId?.register(),
+    ]) {
+      await expect(call()).rejects.toMatchObject({
+        code: "unavailable",
+        details: { reason: "no_presence_key" },
+      });
+    }
+  });
+
   it("hands Settings → About main's app info and Reveal in Finder (#610)", async () => {
     const info = { appVersion: "0.3.0", arch: "arm64", psycheHome: "/Users/owner/.psyche" };
     let revealed = 0;
