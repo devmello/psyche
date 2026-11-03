@@ -1160,8 +1160,6 @@ export const zh: Partial<Catalogue> = {
   "settings.credentials.payments.paidWith": "付款方式",
   "settings.credentials.payments.state": "状态",
 
-  "settings.approval.presenceUnavailable":
-    "此窗口无法确认是你本人。请在这台 Mac 上的 Psyche 通知中用 Touch ID 批准更改，或从带通行密钥的设备批准。在此之前不会有任何更改。",
   "settings.approval.saved": "已存储“{label}”。",
   "settings.approval.denied": "未更改：对“{label}”的批准被拒绝。",
   "settings.approval.lapsed":

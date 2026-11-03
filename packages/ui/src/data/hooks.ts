@@ -36,6 +36,7 @@ import type {
   Widget,
 } from "@psyche/protocol";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { t } from "../i18n/core.ts";
 import { describeError } from "../i18n/errors.ts";
 import type { ConnectionState } from "./client.ts";
 import { isEmptyUserChat } from "./empty-chat.ts";
@@ -754,6 +755,26 @@ export async function answerApproval(
   // Approving a card that requires authentication carries the host's presence assertion
   // (a passkey on the web); without a host verifier the Gateway decides whether one is needed.
   const approval = store.getState().approvals[approvalId];
+  const commit = (s: ReturnType<GatewayStore["getState"]>, r: { approval: ApprovalRequest }) => {
+    const { [approvalId]: _used, ...answerTokens } = s.answerTokens;
+    return { ...put(s, "approvals", r.approval), answerTokens };
+  };
+  const touchId = store.client.approveWithTouchId?.bind(store.client);
+  if (
+    decision === "approve" &&
+    approval?.requiresAuthentication &&
+    touchId &&
+    !store.client.presence
+  ) {
+    // Once, and never UNSANDBOXED: neither is in the challenge the helper signs (security §3.7).
+    if (extras?.unsandboxed !== undefined) {
+      throw new Error(t("blocks.approval.touchId.noUnsandboxed"));
+    }
+    return store.mutate({
+      run: () => touchId({ approvalId, answerToken: token }),
+      commit,
+    });
+  }
   const presence =
     decision === "approve" && approval?.requiresAuthentication && store.client.presence
       ? await store.client.presence(approval, token)
@@ -782,10 +803,7 @@ export async function answerApproval(
           : {}),
         ...(presence === undefined ? {} : { presence }),
       }),
-    commit: (s, r) => {
-      const { [approvalId]: _used, ...answerTokens } = s.answerTokens;
-      return { ...put(s, "approvals", r.approval), answerTokens };
-    },
+    commit,
   });
 }
 

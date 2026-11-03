@@ -153,7 +153,14 @@ export class FakeNode {
         await this.request("node.result", {
           invocationId,
           ok: false,
-          error: { code: "internal", message: err instanceof Error ? err.message : String(err) },
+          // A handler may throw the helper's own error shape (`code`, `details.reason`).
+          error: {
+            code: (err as { code?: string } | null)?.code ?? "internal",
+            message: err instanceof Error ? err.message : String(err),
+            ...((err as { details?: unknown } | null)?.details === undefined
+              ? {}
+              : { details: (err as { details: unknown }).details }),
+          },
         });
       }
     })();

@@ -1172,6 +1172,20 @@ export interface Grant {
     useCount:               number;
 }
 
+export interface ApprovalsApproveWithTouchIDParams {
+    answerToken:     string;
+    approvalId:      string;
+    helperDeviceId?: string;
+    scope?:          ApprovalsApproveWithTouchIDParamsScope;
+}
+
+export type ApprovalsApproveWithTouchIDParamsScope = "once";
+
+export interface ApprovalsApproveWithTouchIDResult {
+    approval: ApprovalRequest;
+    grant?:   Grant | null;
+}
+
 export interface ApprovalsGetParams {
     approvalId: string;
 }
@@ -3686,13 +3700,16 @@ export interface DevicesPresenceKeyListResult {
 export interface PresenceKeyInfo {
     deviceId:     string;
     keyId:        string;
+    kind?:        PresenceKeyInfoKind;
     registeredAt: string;
 }
 
+export type PresenceKeyInfoKind = "keychain" | "enclave_file";
+
 export interface DevicesPresenceKeyRegisterParams {
-    approvalId?:  string;
-    deviceId:     string;
-    expectKeyId?: string;
+    approvalId?: string;
+    deviceId:    string;
+    expectKeyId: string;
 }
 
 export interface DevicesPresenceKeyRegisterResult {

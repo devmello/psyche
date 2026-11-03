@@ -277,6 +277,32 @@ describe("useApprovals", () => {
     });
   });
 
+  it("the desktop approves a Touch ID card through the helper, not with its own presence", async () => {
+    const { gateway, wrapper } = setup({
+      approvals: [
+        approval("ap_auth", { kind: "exec_host", requiresAuthentication: true }),
+        approval("ap_plain"),
+      ],
+      answerTokens: { ap_auth: "at_auth", ap_plain: "at_plain" },
+    });
+    gateway.approveWithTouchId = (p) => gateway.request("approvals.approveWithTouchId", p);
+    const { result } = renderHook(() => useApprovals(), { wrapper });
+    await waitFor(() => expect(result.current.pending).toHaveLength(2));
+    await act(() => result.current.answer("ap_plain", "approve", "once"));
+    // UNSANDBOXED is not in the signed challenge: refused before any sheet.
+    await expect(
+      result.current.answer("ap_auth", "approve", "once", { unsandboxed: "UNSANDBOXED" }),
+    ).rejects.toThrow(/sandbox/);
+    await act(() => result.current.answer("ap_auth", "approve", "always"));
+    expect(gateway.calls.filter((c) => c.method === "approvals.answer")).toHaveLength(1);
+    // Once only, whatever the card's scope picker said.
+    expect(gateway.calls.find((c) => c.method === "approvals.approveWithTouchId")?.params).toEqual({
+      approvalId: "ap_auth",
+      answerToken: "at_auth",
+    });
+    expect(result.current.pending).toHaveLength(0);
+  });
+
   it("denies a card that requires authentication without asking for presence", async () => {
     const { gateway, wrapper } = setup({
       approvals: [approval("ap_auth", { requiresAuthentication: true })],

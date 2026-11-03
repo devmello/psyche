@@ -129,3 +129,79 @@ export async function helperCanHoldKeychain(
   const team = /^TeamIdentifier=(.+)$/m.exec(info)?.[1]?.trim();
   return team !== undefined && team !== "not set";
 }
+
+/**
+ * Asks for the helper's notification permission once it pairs, when nobody has yet. Until then
+ * macOS refuses every `notify.show` with `permission_not_determined`, so approval cards (and
+ * their Touch ID answers) never reach the Mac and nothing says why. Answered or denied before:
+ * nothing happens (the owner changes it in System Settings). True when it asked.
+ */
+export async function askHelperNotificationsIfUndetermined(
+  invoke: (capability: string, params: unknown) => Promise<unknown>,
+): Promise<boolean> {
+  const status = (await invoke("notify.authorization_status", {})) as { status?: unknown } | null;
+  if (status?.status !== "notDetermined") return false;
+  await invoke("notify.request_authorization", { provisional: false });
+  return true;
+}
+
+/** What the bundled helper says about itself (`psyche-helper --print-identity`). */
+export interface HelperIdentity {
+  deviceId: string;
+  /** Hex SHA-256 of its Touch ID public key, when it has one. */
+  keyId?: string;
+  kind?: "keychain" | "enclave_file";
+  /** Why it has no key (`missing_entitlement`, `presence_key_file`, …). */
+  error?: string;
+}
+
+export type IdentityRunner = (
+  file: string,
+  args: string[],
+  env: NodeJS.ProcessEnv,
+) => Promise<{ code: number; stdout: string }>;
+
+/**
+ * The device id and Touch ID key id of the helper inside this app (security §10): main runs the
+ * bundled executable itself, at a fixed path inside its own signed bundle, so the answer does not
+ * come from whatever node paired on the Gateway's socket. Registration then requires this key id
+ * (`expectKeyId`) and window approvals name this device (`helperDeviceId`). Undefined when not
+ * bundled or the output is not what a helper prints.
+ */
+export async function readHelperIdentity(
+  appPath: string | undefined,
+  psycheHome: string,
+  run: IdentityRunner,
+): Promise<HelperIdentity | undefined> {
+  if (appPath === undefined || !existsSync(appPath)) return undefined;
+  const exe = join(appPath, "Contents", "MacOS", "psyche-helper");
+  const res = await run(exe, ["--print-identity"], { ...process.env, PSYCHE_HOME: psycheHome });
+  if (res.code !== 0) return undefined;
+  let out: Record<string, unknown>;
+  try {
+    out = JSON.parse(res.stdout.trim()) as Record<string, unknown>;
+  } catch {
+    return undefined;
+  }
+  if (typeof out.deviceId !== "string" || !/^dev_[A-Za-z0-9_-]{22}$/.test(out.deviceId)) {
+    return undefined;
+  }
+  const keyId =
+    typeof out.presenceKeyId === "string" && /^[0-9a-f]{64}$/.test(out.presenceKeyId)
+      ? out.presenceKeyId
+      : undefined;
+  const kind =
+    out.presenceKeyKind === "keychain" || out.presenceKeyKind === "enclave_file"
+      ? out.presenceKeyKind
+      : undefined;
+  const error =
+    typeof out.presenceError === "string" && /^[a-z][a-z0-9_]{0,63}$/.test(out.presenceError)
+      ? out.presenceError
+      : undefined;
+  return {
+    deviceId: out.deviceId,
+    ...(keyId === undefined ? {} : { keyId }),
+    ...(kind === undefined ? {} : { kind }),
+    ...(error === undefined ? {} : { error }),
+  };
+}

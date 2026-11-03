@@ -11,8 +11,8 @@ import { UiSlotsProvider } from "../src/slots.tsx";
 
 /**
  * A failed answer says why: a rate limit counts down and disables Allow, a Touch ID failure says
- * so, a window with no presence provider points at the notification, and one click sends one
- * answer. The generic tool card reads as fields, not JSON.
+ * so, a window with no presence provider points at the Psyche app, a desktop window whose
+ * Touch ID path is not ready names what is missing with its fix, and one click sends one answer. The generic tool card reads as fields, not JSON.
  */
 
 const NOW = Date.parse(FIXTURE_NOW);
@@ -107,7 +107,7 @@ describe("answer failures on the card", () => {
     expect(allow().disabled).toBe(false);
   });
 
-  it("a window without a presence provider points at the notification", async () => {
+  it("a window without a presence provider points at the Psyche app, not a notification", async () => {
     show(
       vi.fn().mockRejectedValue(
         new GatewayRequestError("approvals.answer", "forbidden", "x", {
@@ -116,9 +116,153 @@ describe("answer failures on the card", () => {
       ),
     );
     await userEvent.click(allow());
-    expect((await screen.findByRole("alert")).textContent).toContain(
-      "Approve the change with Touch ID in the Psyche notification",
+    const text = (await screen.findByRole("alert")).textContent ?? "";
+    expect(text).toContain("Approve the change in the Psyche app on your Mac (Touch ID)");
+    expect(text).not.toContain("notification");
+  });
+
+  it("classifies why the window's Touch ID cannot run, with the fix", () => {
+    const why = (reason: string) =>
+      classifyAnswerError(
+        new GatewayRequestError("approvals.approveWithTouchId", "unavailable", "x", { reason }),
+      );
+    expect(why("helper_offline")).toMatchObject({ kind: "touch_id_setup", fix: "start_helper" });
+    expect(why("no_presence_key")).toMatchObject({ kind: "touch_id_setup", fix: "open_devices" });
+    expect(why("presence_key_invalidated")).toMatchObject({
+      kind: "touch_id_setup",
+      fix: "open_devices",
+    });
+    expect(why("helper_outdated")).toMatchObject({ kind: "touch_id_setup", fix: null });
+    expect(why("presence_key_unavailable")).toMatchObject({ kind: "touch_id_setup", fix: null });
+    expect(why("something_else").kind).toBe("other");
+    expect(
+      classifyAnswerError(
+        new GatewayRequestError("approvals.approveWithTouchId", "cancelled", "x"),
+      ),
+    ).toMatchObject({ kind: "presence_failed" });
+  });
+
+  function showWithFix(
+    onAnswer: (...a: unknown[]) => Promise<void>,
+    touchIdFix: () => Promise<void>,
+  ) {
+    render(
+      <UiSlotsProvider value={{ persona: { name: "Wren", creature: "moth" }, touchIdFix }}>
+        <ApprovalCard
+          approval={approval({ requiresAuthentication: true })}
+          persona="Wren"
+          canAnswer
+          now={NOW}
+          armDelayMs={0}
+          mode="balanced"
+          onAnswer={onAnswer as never}
+        />
+      </UiSlotsProvider>,
     );
+  }
+
+  it("helper down: says so and offers Start Psyche Helper, then waits for Allow again", async () => {
+    const onAnswer = vi
+      .fn()
+      .mockRejectedValueOnce(
+        new GatewayRequestError("approvals.approveWithTouchId", "unavailable", "x", {
+          reason: "helper_offline",
+        }),
+      )
+      .mockResolvedValueOnce(undefined);
+    const fix = vi.fn(async () => undefined);
+    showWithFix(onAnswer, fix);
+    await userEvent.click(allow());
+    expect((await screen.findByRole("alert")).textContent).toContain("Psyche Helper isn't running");
+    expect(screen.queryByText(/notification/)).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Start Psyche Helper" }));
+    expect(fix).toHaveBeenCalledWith("start_helper");
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    // Never approves on its own (security review, finding 1): the owner clicks Allow again.
+    expect(onAnswer).toHaveBeenCalledTimes(1);
+    await userEvent.click(allow());
+    await waitFor(() => expect(onAnswer).toHaveBeenCalledTimes(2));
+  });
+
+  it("no key: sends the owner to Settings → Devices instead of registering from the card", async () => {
+    const fix = vi.fn(async () => undefined);
+    const onAnswer = vi.fn().mockRejectedValue(
+      new GatewayRequestError("approvals.approveWithTouchId", "unavailable", "x", {
+        reason: "no_presence_key",
+      }),
+    );
+    showWithFix(onAnswer, fix);
+    await userEvent.click(allow());
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "Touch ID isn't set up for approvals",
+    );
+    expect(screen.queryByRole("button", { name: "Set up Touch ID" })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Open Settings → Devices" }));
+    expect(fix).toHaveBeenCalledWith("open_devices");
+    expect(onAnswer).toHaveBeenCalledTimes(1);
+  });
+
+  it("from the window, Always becomes once, and the card says so before and after", async () => {
+    const onAnswer = vi.fn(async () => undefined);
+    const a = approval({ requiresAuthentication: true, scopesOffered: ["once", "always"] });
+    const { rerender } = render(
+      <UiSlotsProvider
+        value={{ persona: { name: "Wren", creature: "moth" }, touchIdOnceOnly: true }}
+      >
+        <ApprovalCard
+          approval={a}
+          persona="Wren"
+          canAnswer
+          now={NOW}
+          armDelayMs={0}
+          mode="balanced"
+          onAnswer={onAnswer as never}
+        />
+      </UiSlotsProvider>,
+    );
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Allow for" }), "always");
+    expect(screen.getByTestId("touch-id-once-only").textContent).toContain("once only");
+    await userEvent.click(allow());
+    await waitFor(() => expect(onAnswer).toHaveBeenCalled());
+    rerender(
+      <UiSlotsProvider
+        value={{ persona: { name: "Wren", creature: "moth" }, touchIdOnceOnly: true }}
+      >
+        <ApprovalCard
+          approval={{ ...a, status: "approved", scopeGranted: "once", decidedAt: FIXTURE_NOW }}
+          persona="Wren"
+          canAnswer
+          now={NOW}
+          armDelayMs={0}
+          mode="balanced"
+          onAnswer={onAnswer as never}
+        />
+      </UiSlotsProvider>,
+    );
+    expect(document.body.textContent).toContain(
+      "Allowed once (Touch ID approvals from this window are once only)",
+    );
+  });
+
+  it("shows the approval code the Touch ID sheet names", () => {
+    showWithFix(vi.fn(), vi.fn());
+    expect(screen.getByTestId("approval-code").textContent).toMatch(
+      /^Code [0-9a-f]{4}-[0-9a-f]{4}$/,
+    );
+  });
+
+  it("a helper without a keychain access group says exactly that, with no button", async () => {
+    showWithFix(
+      vi.fn().mockRejectedValue(
+        new GatewayRequestError("approvals.approveWithTouchId", "unavailable", "x", {
+          reason: "presence_key_unavailable",
+        }),
+      ),
+      vi.fn(),
+    );
+    await userEvent.click(allow());
+    expect((await screen.findByRole("alert")).textContent).toContain("can't keep a Touch ID key");
+    expect(screen.queryByTestId("touch-id-fix")).toBeNull();
   });
 
   it("two quick clicks send one answer while it is in flight", async () => {

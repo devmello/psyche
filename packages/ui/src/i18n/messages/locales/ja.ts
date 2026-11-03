@@ -1156,8 +1156,6 @@ export const ja: Partial<Catalogue> = {
   "settings.credentials.payments.amount": "金額",
   "settings.credentials.payments.paidWith": "支払い方法",
   "settings.credentials.payments.state": "状態",
-  "settings.approval.presenceUnavailable":
-    "このウインドウでは本人確認ができません。このMacのPsycheの通知でTouch IDを使うか、パスキーのあるデバイスから変更を承認してください。それまで何も変更されません。",
   "settings.approval.saved": "「{label}」を保存しました。",
   "settings.approval.denied": "変更されていません：「{label}」の承認が拒否されました。",
   "settings.approval.lapsed":

@@ -1,6 +1,6 @@
 # Memory for everything: people, projects, work due and catching up (2026)
 
-Status: plan, 2026-11-02; owner decisions W1–W6 in §9. Building from MW1. It **extends** [everything-memory-2026.md](everything-memory-2026.md) (EM), whose owner decisions D1–D5 and §14 stay binding. It does not replace it. Other inputs:
+Status: plan, 2026-11-02; owner decisions W1–W7 in §9. Building from MW1. It **extends** [everything-memory-2026.md](everything-memory-2026.md) (EM), whose owner decisions D1–D5 and §14 stay binding. It does not replace it. Other inputs:
 
 - [people-and-projects-2026.md](../memory/people-and-projects-2026.md): the `graph_*` store and `packages/memory/src/graph/*`.
 - [consolidation-2026.md](consolidation-2026.md): the five places, and why People got a sidebar row.
@@ -578,4 +578,5 @@ The owner answered every open question. These are binding, alongside EM's D1–D
 | W4 | Due-soon notifications | **As recommended.** Off by default. When on, one at wrap-up (18:00) for the next 24 hours; a separate morning "due today" notification, also off by default. |
 | W5 | Which folders count as work | **As recommended.** Only folders linked to a project or course, with a suggestion when a folder name matches a course code or project name. |
 | W6 | Rename "Soul & Memory" to "Soul" | **Yes** (done in MW1). |
-| W7 | What Work due is for (owner feedback on MW6) | **Any work, for anyone at any age**, not school. The kind stays `assignment` in the protocol and store, but the owner sees **To-do**. Its parent is optional and general: a project, a course (one kind of project) or nothing. Status labels are Not started / In progress / Handed in / Done / Dropped, and quick add takes "Pay rent, Fri" as readily as "Lab report, CHEM 1B, Fri". |
+| W8 | What the MW6 pages call it (owner feedback on #1154) | **Any work, for anyone at any age**, not school. The kind stays `assignment` in the protocol and store, but the owner sees **To-do**. Its parent is optional and general: a project, a course (one kind of project) or nothing. Status labels are Not started / In progress / Handed in / Done / Dropped, and quick add takes "Pay rent, Fri" as readily as "Lab report, CHEM 1B, Fri". |
+| W7 | What "Work due" covers | **Anything with a deadline, at any age** (owner, 2026-11-03): bills, rent, renewals, taxes, work deliverables, chores and homework. The owner sees "To-do"; `assignment` is the internal kind name only. The parent is optional: a project, a course, or none. The status is "Handed in", not "Submitted". Copy, examples and fixtures are a general mix, never school-first. |

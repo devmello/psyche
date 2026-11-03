@@ -1213,8 +1213,6 @@ export const de: Partial<Catalogue> = {
   "settings.credentials.payments.paidWith": "Bezahlt mit",
   "settings.credentials.payments.state": "Status",
 
-  "settings.approval.presenceUnavailable":
-    "Dieses Fenster kann nicht bestätigen, dass du es bist. Genehmige die Änderung mit Touch ID in der Psyche-Mitteilung auf diesem Mac oder von einem Gerät mit Passkey. Bis dahin ändert sich nichts.",
   "settings.approval.saved": "„{label}“ gesichert.",
   "settings.approval.denied": "Nicht geändert: Die Genehmigung für „{label}“ wurde abgelehnt.",
   "settings.approval.lapsed":
