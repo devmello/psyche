@@ -320,7 +320,13 @@ export class SourceIndexer {
         if (existing !== undefined) drop.push(item.nativeId);
         continue;
       }
-      const hash = sha256(`${item.title}\n${item.text}`);
+      // The parent a result collapses onto is part of what is stored, so a changed parent (the
+      // person turned private, hidden or merged) re-indexes the item instead of being skipped.
+      const hash = sha256(
+        item.parentId === undefined
+          ? `${item.title}\n${item.text}`
+          : `${item.title}\n${item.text}\n\u0000parent:${item.parentId}`,
+      );
       // Unchanged text is skipped, but not when who it involves changed: the exclusion list works
       // from the stored parties (a person linked to a project later), so they are kept current.
       if (

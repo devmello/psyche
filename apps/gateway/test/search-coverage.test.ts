@@ -169,8 +169,11 @@ describe("search.sources methods", () => {
       "memory",
     ]);
     expect(st.sources.every((s) => !s.enabled && s.state === "off" && s.items === 0)).toBe(true);
-    // Memory ships with no summaries: its facts come from other sources' text.
-    expect(st.sources.filter((s) => s.processing !== "cloud").map((s) => s.id)).toEqual(["memory"]);
+    // Memory (its facts come from other sources' text) and Contacts ship with no summaries.
+    expect(st.sources.filter((s) => s.processing !== "cloud").map((s) => s.id)).toEqual([
+      "contacts",
+      "memory",
+    ]);
     // Messages, Contacts and Memory stay owner-only until the owner allows the agent to search them.
     expect(st.sources.filter((s) => !s.agent).map((s) => s.id)).toEqual([
       "messages",

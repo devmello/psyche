@@ -7,6 +7,7 @@ import {
   defaultSourcesConfig,
   graphDocId,
   type HelperCall,
+  isExcluded,
   readSourcesConfig,
   SourceIndexer,
   sourceTag,
@@ -66,6 +67,8 @@ function world(contacts: Obj[] = [jordan, sam]) {
     ghosts: [] as string[],
     /** The most `contacts.list` hands back at once. */
     listCap: 2000,
+    /** An older helper: no `offset`, so every page is the first. */
+    ignoreOffset: false,
     up: true,
   };
   const helper: HelperCall = async (capability, params) => {
@@ -86,13 +89,17 @@ function world(contacts: Obj[] = [jordan, sam]) {
             .startsWith(q),
       );
       const cap = Math.min(limit, w.listCap);
+      const offset = w.ignoreOffset ? 0 : Number(params.offset ?? 0);
       return {
         contacts: [
-          ...named.slice(0, cap).map((c) => ({ id: c.id, name: `${c.givenName} ${c.familyName}` })),
-          ...w.ghosts.map((id) => ({ id, name: "Ghost" })),
+          ...named.slice(offset, offset + cap).map((c) => ({
+            id: c.id,
+            name: String(c.listedName ?? `${c.givenName ?? ""} ${c.familyName ?? ""}`.trim()),
+          })),
+          ...(offset === 0 ? w.ghosts.map((id) => ({ id, name: "Ghost" })) : []),
         ],
         total: w.contacts.length,
-        truncated: named.length > cap,
+        truncated: named.length > offset + cap,
       };
     }
     if (capability === "contacts.read") {
@@ -100,7 +107,7 @@ function world(contacts: Obj[] = [jordan, sam]) {
       const c = w.contacts.find((x) => x.id === params.id);
       if (c === undefined)
         throw new Error(`contacts.read failed: not_found (No contact ${String(params.id)})`);
-      const { note: _note, ...rest } = c;
+      const { note: _note, listedName: _listed, ...rest } = c;
       return { contact: rest, provenance: "untrusted" };
     }
     throw new Error(`no ${capability}`);
@@ -151,7 +158,12 @@ const signal = new AbortController().signal;
 
 describe("the Contacts source: defaults", () => {
   it("is off until switched on, and owner-only for the agent like Messages", () => {
-    expect(defaultSourcesConfig().sources.contacts).toMatchObject({ enabled: false, agent: false });
+    // No context cards: other people's numbers and addresses do not go to a cloud model.
+    expect(defaultSourcesConfig().sources.contacts).toMatchObject({
+      enabled: false,
+      agent: false,
+      processing: "none",
+    });
     expect(
       readSourcesConfig({ sources: { contacts: { enabled: true } } }).sources.contacts,
     ).toMatchObject({ enabled: true, agent: false });
@@ -241,16 +253,41 @@ describe("the Contacts source: paging and limits", () => {
     });
   });
 
-  it("past the helper's 2000-name list it walks first letters, and says the list was partial", async () => {
-    const h = harness(many(6));
+  it("pages the list with offset past the helper's cap, so every contact is listed and complete", async () => {
+    const h = harness(many(7));
     h.w.listCap = 3;
     const out = await h.adapter.listIds?.(signal);
+    expect(out?.complete).toBe(true);
+    expect(out?.ids).toHaveLength(7);
+    const offsets = h.w.calls.map((c) => Number(c.params.offset ?? 0));
+    expect(offsets).toEqual([0, 3, 6]);
+    for (const c of h.w.calls) expect(Number(c.params.limit)).toBeLessThanOrEqual(2000);
+  });
+
+  it("lists once per pass, not once per page of contacts", async () => {
+    const h = harness(many(CONTACTS_PAGE * 3));
+    for (let i = 0; i < 3; i++) await h.indexer.tick();
+    expect(h.ids()).toHaveLength(CONTACTS_PAGE * 3);
+    // One listing for the pass, plus the one the first nightly sweep makes: not one per page.
+    expect(h.w.calls.filter((c) => c.capability === "contacts.list")).toHaveLength(2);
+  });
+
+  it("an older helper that ignores offset ends the walk and the list is not called complete", async () => {
+    const h = harness(many(7));
+    h.w.listCap = 3;
+    h.w.ignoreOffset = true;
+    const out = await h.adapter.listIds?.(signal);
     expect(out?.complete).toBe(false);
-    // Some contacts are found by the letter walk; none is invented.
-    expect(out?.ids.length).toBeGreaterThan(0);
-    expect(h.w.calls.some((c) => c.capability === "contacts.list" && c.params.query === "p")).toBe(
-      true,
-    );
+    expect(out?.ids).toHaveLength(3);
+  });
+
+  it("an address book past 2000 is paged in full and a deleted contact is purged by the sweep", async () => {
+    const h = harness(many(2005));
+    for (let i = 0; i < 45; i++) await h.indexer.tick();
+    expect(h.ids()).toHaveLength(2005);
+    h.w.contacts = h.w.contacts.slice(0, 2004);
+    expect(await h.indexer.sweep("contacts")).toBe(1);
+    expect(h.ids()).toHaveLength(2004);
   });
 
   it("does not read again until the refresh time has passed, then picks up edits", async () => {
@@ -312,8 +349,9 @@ describe("the Contacts source: permission and availability", () => {
     h.w.contacts = [jordan];
     expect(await h.indexer.sweep("contacts")).toBe(1);
     expect(h.ids()).toEqual(["contacts:c1"]);
-    h.w.contacts = [sam, jordan];
+    h.w.contacts = [sam, { id: "c9", givenName: "Zed", familyName: "Zhao" }];
     h.w.listCap = 1;
+    h.w.ignoreOffset = true;
     expect(await h.indexer.sweep("contacts")).toBe(0);
     expect(h.ids()).toEqual(["contacts:c1"]);
   });
@@ -353,6 +391,44 @@ describe("the Contacts source: never index these contacts", () => {
   });
 });
 
+describe("the Contacts source: parties for the exclusion list", () => {
+  it("includes the shown name with middle name and prefix, and a company that is the card's name", async () => {
+    const h = harness([
+      {
+        ...jordan,
+        id: "c5",
+        listedName: "Dr. Jordan Quinn Rivera",
+      },
+      { id: "c6", organization: "Blue Bottle", listedName: "Blue Bottle", emails: [], phones: [] },
+    ]);
+    const page = await h.adapter.pull(null, { signal, limit: 100 });
+    const parties = (id: string) => page.items.find((i) => i.nativeId === id)?.parties ?? [];
+    expect(parties("c5")).toContain("Dr. Jordan Quinn Rivera");
+    expect(parties("c5")).toContain("Jordan Rivera");
+    expect(parties("c6")).toContain("Blue Bottle");
+    // A company on a person's card is not a party: excluding "Acme Co" is not excluding Jordan.
+    expect(parties("c5")).not.toContain("Acme Co");
+  });
+
+  it("excludes a company-only card by the name Contacts shows, and by a number written another way", async () => {
+    const h = harness(
+      [
+        {
+          id: "c6",
+          organization: "Blue Bottle",
+          listedName: "Blue Bottle",
+          emails: [],
+          phones: [],
+        },
+        jordan,
+      ],
+      { exclude: ["blue bottle", "(510) 555-0101"] },
+    );
+    await h.indexer.tick();
+    expect(h.ids()).toEqual([]);
+  });
+});
+
 describe("the Contacts source: one result per person", () => {
   it("collapses onto the person's Memory document when it is known, and not otherwise", async () => {
     const h = harness(undefined, {
@@ -367,5 +443,45 @@ describe("the Contacts source: one result per person", () => {
       (x) => x.id === "contacts:c1",
     );
     expect(hit?.parentId).toBe("entity:e-jordan");
+  });
+});
+
+describe("the Contacts source: a changed parent re-indexes the contact", () => {
+  it("drops the collapse when the person turns private, instead of skipping the unchanged text", async () => {
+    let parent: string | undefined = graphDocId("e-jordan");
+    const h = harness(undefined, { parentOf: () => parent });
+    await h.indexer.tick();
+    const row = () =>
+      h.index.db.prepare("SELECT parent_id FROM search_docs WHERE id = 'contacts:c1'").get() as {
+        parent_id: string | null;
+      };
+    expect(row().parent_id).toBe("entity:e-jordan");
+    parent = undefined;
+    h.setNow(NOW + CONTACTS_REFRESH_MS + 1);
+    await h.indexer.tick();
+    expect(row().parent_id).toBeNull();
+  });
+});
+
+describe("the exclusion list matches a number however it is written", () => {
+  const ex = (...contacts: string[]) => ({ contacts, chats: [], accounts: [], folders: [] });
+  const item = (party: string) => ({
+    nativeId: "x",
+    title: "",
+    text: "",
+    createdAt: 0,
+    provenance: "owner" as const,
+    parties: [party],
+  });
+  it.each([
+    ["+1 555 123 4567", "(555) 123-4567"],
+    ["(555) 123-4567", "+1 555 123 4567"],
+    ["+44 7911 123456", "07911 123456"],
+  ])("%s is %s", (party, listed) => {
+    expect(isExcluded(item(party), ex(listed))).toBe(true);
+  });
+  it("does not match a different number or a short one", () => {
+    expect(isExcluded(item("+1 555 123 4567"), ex("555 123 4568"))).toBe(false);
+    expect(isExcluded(item("+1 555 123 4567"), ex("123456"))).toBe(false);
   });
 });

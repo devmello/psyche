@@ -40,21 +40,25 @@ const graph = (
     getEntity: (id: string) => (id === entity?.id ? entity : undefined),
   }) as never;
 
-const jordan = { id: "c1", emails: ["jordan@acme.example"], phones: ["+15105550101"] };
+const jordan = { id: "c1" };
 
 describe("contactParent: one result per person", () => {
-  it("matches by Apple contact id, then email, then number, onto the person's document", () => {
+  it("matches by the Apple contact id the people graph recorded, onto the person's document", () => {
     expect(contactParent(graph(person, { "contact:c1": "e1" }), jordan)).toBe("entity:e1");
-    expect(contactParent(graph(person), jordan)).toBe("entity:e1");
-    expect(contactParent(graph(person, { "phone:+15105550101": "e1" }), jordan)).toBe("entity:e1");
+  });
+
+  it("never by an email or number: another source could have planted those", () => {
+    const known = { "email:jordan@acme.example": "e1", "phone:+15105550101": "e1" };
+    expect(contactParent(graph(person, known), jordan)).toBeUndefined();
   });
 
   it("is undefined without memory, without a match, or for a hidden, private or non-person entity", () => {
+    const known = { "contact:c1": "e1" };
     expect(contactParent(undefined, jordan)).toBeUndefined();
     expect(contactParent(graph(person, {}), jordan)).toBeUndefined();
-    expect(contactParent(graph({ ...person, hidden: true }), jordan)).toBeUndefined();
-    expect(contactParent(graph({ ...person, private: true }), jordan)).toBeUndefined();
-    expect(contactParent(graph({ ...person, kind: "org" }), jordan)).toBeUndefined();
-    expect(contactParent(graph({ ...person, status: "merged" }), jordan)).toBeUndefined();
+    expect(contactParent(graph({ ...person, hidden: true }, known), jordan)).toBeUndefined();
+    expect(contactParent(graph({ ...person, private: true }, known), jordan)).toBeUndefined();
+    expect(contactParent(graph({ ...person, kind: "org" }, known), jordan)).toBeUndefined();
+    expect(contactParent(graph({ ...person, status: "merged" }, known), jordan)).toBeUndefined();
   });
 });

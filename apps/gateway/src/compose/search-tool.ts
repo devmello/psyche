@@ -111,3 +111,32 @@ function emitChips(ctx: object, output: SearchEverythingOutput, hits: readonly A
   if (items.length === 0) return;
   (ctx as Partial<TurnToolContext>).turn?.emitBlock({ type: "sources", items, cited });
 }
+
+/**
+ * The index search deep research runs for the agent (`includeLocal`): the agent audience, so a
+ * source the owner kept from the agent (Messages, Contacts, Memory unless allowed) is never read
+ * into a research model or a report, and a hit whose source was excluded meanwhile is dropped,
+ * exactly as `search_everything` does. What it returns reaches the model as untrusted research
+ * input (`research_run` is `provenanceOut: untrusted`).
+ */
+export function agentLocalSearch(index: SqliteSearchIndex, limit = 5) {
+  return async (
+    q: string,
+  ): Promise<{ id: string; kind: string; title: string; snippet: string }[]> => {
+    const res = await index.search({
+      q,
+      viewer: { kind: "owner" },
+      audience: "agent",
+      limit,
+      collapse: false,
+    });
+    const readable = index.textOf(
+      res.hits.map((h) => h.id),
+      "agent",
+    );
+    return res.hits
+      .filter((h) => readable.has(h.id))
+      .slice(0, limit)
+      .map((h) => ({ id: h.id, kind: h.kind, title: h.title, snippet: h.snippet }));
+  };
+}

@@ -7,12 +7,15 @@ public enum ContactsList {
     public static let defaultLimit = 500
     public static let maxLimit = 2000
     public static let maxQuery = 80
+    public static let maxOffset = 1_000_000
     public static let supportedFields: Set = ["name"]
 
     public struct Params: Decodable, Sendable, Equatable {
         public var limit: Int?
         public var fields: [String]?
         public var query: String?
+        /// Skip this many contacts (in the stable family, given, id order) to page past `limit`.
+        public var offset: Int?
     }
 
     /// One store record, before filtering (`name` is the formatter's full name, possibly empty).
@@ -34,11 +37,15 @@ public enum ContactsList {
         }
     }
 
-    /// Validates params; returns (limit, query).
-    public static func validate(_ p: Params) throws -> (limit: Int, query: String?) {
+    /// Validates params; returns (limit, offset, query).
+    public static func validate(_ p: Params) throws -> (limit: Int, offset: Int, query: String?) {
         let limit = p.limit ?? defaultLimit
         guard (1...maxLimit).contains(limit) else {
             throw CapabilityError.invalidParams("limit must be 1–\(maxLimit)", field: "limit")
+        }
+        let offset = p.offset ?? 0
+        guard (0...maxOffset).contains(offset) else {
+            throw CapabilityError.invalidParams("offset must be 0–\(maxOffset)", field: "offset")
         }
         if let fields = p.fields {
             guard !fields.isEmpty, fields.allSatisfy(supportedFields.contains) else {
@@ -50,7 +57,7 @@ public enum ContactsList {
             guard q.count <= maxQuery else { throw CapabilityError.invalidParams("query is at most \(maxQuery) characters", field: "query") }
             if q.isEmpty { query = nil }
         }
-        return (limit, query)
+        return (limit, offset, query)
     }
 
     static func fold(_ s: String) -> String {
@@ -58,8 +65,8 @@ public enum ContactsList {
     }
 
     /// Skips nameless records, applies the prefix query, orders by family then given name (stable
-    /// across calls), and cuts to `limit`.
-    public static func result(records: [Record], limit: Int, query: String?) -> JSONValue {
+    /// across calls), skips `offset` and cuts to `limit`; `truncated` says more follow.
+    public static func result(records: [Record], limit: Int, offset: Int = 0, query: String?) -> JSONValue {
         let q = query.map(fold)
         var named = records.filter { !$0.name.trimmingCharacters(in: .whitespaces).isEmpty }
         if let q {
@@ -72,7 +79,7 @@ public enum ContactsList {
             if ga != gb { return ga < gb }
             return a.id < b.id
         }
-        let kept = named.prefix(limit)
+        let kept = named.dropFirst(offset).prefix(limit)
         let contacts: [JSONValue] = kept.map { r in
             var o: [String: JSONValue] = ["id": .string(r.id), "name": .string(r.name)]
             let nick = r.nickname.trimmingCharacters(in: .whitespaces)
@@ -81,6 +88,6 @@ public enum ContactsList {
             if !org.isEmpty { o["organization"] = .string(org) }
             return .object(o)
         }
-        return ["contacts": .array(contacts), "total": .int(records.count), "truncated": .bool(named.count > limit)]
+        return ["contacts": .array(contacts), "total": .int(records.count), "truncated": .bool(named.count > offset + limit)]
     }
 }

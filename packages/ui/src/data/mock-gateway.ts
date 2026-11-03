@@ -393,7 +393,7 @@ export class MockGateway implements GatewayClient {
       sources: ids.map((id) => {
         const c = cfg.sources[id] ?? {
           enabled: false,
-          processing: "cloud" as const,
+          processing: id === "memory" || id === "contacts" ? ("none" as const) : ("cloud" as const),
           agent: id !== "messages" && id !== "contacts" && id !== "memory",
         };
         return {
@@ -2529,7 +2529,10 @@ export class MockGateway implements GatewayClient {
       if (p.source !== undefined) {
         const cur = cfg.sources[p.source] ?? {
           enabled: false,
-          processing: "cloud" as const,
+          processing:
+            p.source === "memory" || p.source === "contacts"
+              ? ("none" as const)
+              : ("cloud" as const),
           agent: p.source !== "messages" && p.source !== "contacts" && p.source !== "memory",
         };
         cfg.sources[p.source] = {

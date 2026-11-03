@@ -1157,7 +1157,7 @@ export const settings = {
     "Events from the past three years and the next twelve months: title, time, place, attendees and notes.",
   "settings.searchSources.hint.reminders": "Reminders and their lists, due dates and notes.",
   "settings.searchSources.hint.contacts":
-    "Your Apple Contacts: name, nickname, company, job title, emails, phone numbers, the city and country of each address, and birthday. Street addresses, notes and groups are never read. The agent can't search it until you allow it.",
+    "Your Apple Contacts: name, nickname, company, job title, emails, phone numbers, the city and country of each address, and birthday. Street addresses, notes and groups are never read. The agent can't search it until you allow it, and that switch covers only this index: what Memory has learned about people, and their pages with emails or numbers, follow Memory's own agent access.",
   "settings.searchSources.hint.files":
     "Text, code, PDF, Word and Excel files in folders you've shared. Images are indexed by name.",
   "settings.searchSources.hint.browser":

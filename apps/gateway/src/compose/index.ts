@@ -187,7 +187,7 @@ import { chatContextResolver } from "./search-hit-context.ts";
 import { memorySettings, memorySourceDeps } from "./search-memory.ts";
 import { helperRecognizer } from "./search-ocr.ts";
 import { routerEmbedder, type SemanticEngines } from "./search-semantic.ts";
-import { searchEverythingTool } from "./search-tool.ts";
+import { agentLocalSearch, searchEverythingTool } from "./search-tool.ts";
 import {
   type ApprovalRelay,
   type BrowserAvailability,
@@ -1576,7 +1576,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     model: modelRef,
     cheapModel: utility ?? modelRef,
     web: webTools,
-    localSearch: async (q) => (await search.index.query({ q, limit: 5 })).hits,
+    // The agent audience: owner-only sources (Messages, Contacts, Memory) are never read into research.
+    localSearch: agentLocalSearch(search.index),
     publish: (artifact, version) =>
       publish("artifact.updated", { artifact, version }, artifact.threadId ?? undefined),
   })) {

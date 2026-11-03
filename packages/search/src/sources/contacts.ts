@@ -18,8 +18,8 @@ import type { SourceAdapter, SourceItem, SourcePull } from "./types.ts";
  * numbers, so the owner's "never index these contacts" list skips it and purges what was indexed.
  * Results collapse onto the person's own Memory document when `parentOf` knows the person.
  *
- * The helper has no change feed, no cursor and no paging in `contacts.list` (names, 2000 at most),
- * so a pass lists every contact and reads one page of them with `contacts.read`; when it reaches
+ * The helper has no change feed, so a pass lists every contact once (`contacts.list` pages with
+ * `offset`, 2000 a call, so the list is complete) and reads one page of them with `contacts.read`; when it reaches
  * the end it waits `CONTACTS_REFRESH_MS`, then starts over to pick up edits (an unchanged contact
  * is skipped by its content hash). The nightly sweep forgets contacts that were deleted.
  */
@@ -29,7 +29,7 @@ const isObj = (v: unknown): v is Obj => typeof v === "object" && v !== null && !
 const str = (v: unknown): string | undefined =>
   typeof v === "string" && v.trim() !== "" ? v.trim() : undefined;
 
-/** The most `contacts.list` returns in one call (the helper's `maxLimit`). */
+/** The most `contacts.list` returns in one call (the helper's `maxLimit`); more are paged by `offset`. */
 export const CONTACTS_LIST_LIMIT = 2000;
 /** Contacts read per pull: each is one helper call, so a pull stays short. */
 export const CONTACTS_PAGE = 50;
@@ -42,16 +42,18 @@ export interface ContactsSourceDeps {
   /** The Host's Mac helper offering `contacts.list` and `contacts.read`; undefined while none is live. */
   helper: () => HelperCall | undefined;
   /**
-   * The id of the Memory person document this contact is the same person as (matched by Apple
-   * contact id, email or number), so results collapse onto it; undefined when nobody matches.
+   * The id of the Memory person document this contact is the same person as (matched by the Apple
+   * contact id the people graph recorded, never by an email or number another source could have
+   * planted), so results collapse onto it; undefined when nobody matches.
    */
   parentOf?: (contact: { id: string; emails: string[]; phones: string[] }) => string | undefined;
   now: () => number;
 }
 
 interface ListedContacts {
-  ids: string[];
-  /** False when a prefix walk could not prove it saw every contact (a sweep must delete nothing). */
+  /** In the helper's stable order, with the name Contacts shows for each (middle name, prefix). */
+  contacts: { id: string; name: string | undefined }[];
+  /** False when paging could not prove it saw every contact (an older helper without `offset`). */
   complete: boolean;
 }
 
@@ -63,29 +65,36 @@ const labeled = (v: unknown): string[] =>
       })
     : [];
 
-/** Every contact id the helper lists; past 2000 it walks prefixes (the helper has no offset). */
+/** A safety stop for a list that never ends: 500 pages of 2000. */
+const MAX_LIST_PAGES = 500;
+
+/**
+ * Every contact the helper lists, paged with `offset` (2000 a call). A helper that ignores
+ * `offset` hands back the first page again: that ends the walk and the list is not complete, so a
+ * sweep deletes nothing on it.
+ */
 async function listAll(helper: HelperCall, signal: AbortSignal): Promise<ListedContacts> {
-  const ids: string[] = [];
+  const contacts: ListedContacts["contacts"] = [];
   const seen = new Set<string>();
-  const take = (out: unknown): boolean => {
+  for (let page = 0; page < MAX_LIST_PAGES && !signal.aborted; page++) {
+    const out = await helper(
+      "contacts.list",
+      { limit: CONTACTS_LIST_LIMIT, ...(page > 0 ? { offset: contacts.length } : {}) },
+      signal,
+    );
     const o = isObj(out) ? out : {};
+    let added = 0;
     for (const c of Array.isArray(o.contacts) ? o.contacts : []) {
       const id = isObj(c) ? str(c.id) : undefined;
       if (id === undefined || seen.has(id)) continue;
       seen.add(id);
-      ids.push(id);
+      contacts.push({ id, name: isObj(c) ? str(c.name) : undefined });
+      added += 1;
     }
-    return o.truncated === true;
-  };
-  const truncated = take(await helper("contacts.list", { limit: CONTACTS_LIST_LIMIT }, signal));
-  if (!truncated) return { ids, complete: true };
-  // More than the helper hands back at once: read by first letter of a given or family name. A
-  // name that starts with anything else stays unread, so the list is never called complete.
-  for (const ch of "abcdefghijklmnopqrstuvwxyz0123456789") {
-    if (signal.aborted) break;
-    take(await helper("contacts.list", { limit: CONTACTS_LIST_LIMIT, query: ch }, signal));
+    if (o.truncated !== true) return { contacts, complete: true };
+    if (added === 0) return { contacts, complete: false };
   }
-  return { ids, complete: false };
+  return { contacts, complete: false };
 }
 
 /** One search item from a `contacts.read` result, or undefined for an empty contact. */
@@ -93,6 +102,8 @@ export function contactItem(
   raw: unknown,
   now: number,
   parentOf?: ContactsSourceDeps["parentOf"],
+  /** The name `contacts.list` gave (Contacts' own full name, with middle name and prefix). */
+  listedName?: string,
 ): SourceItem | undefined {
   const c = isObj(raw) && isObj(raw.contact) ? raw.contact : isObj(raw) ? raw : {};
   const id = str(c.id);
@@ -105,7 +116,8 @@ export function contactItem(
   const emails = labeled(c.emails);
   const phones = labeled(c.phones);
   const fullName = [given, family].filter((x) => x !== undefined).join(" ");
-  const name = fullName !== "" ? fullName : (nickname ?? org ?? emails[0] ?? phones[0]);
+  const name =
+    listedName ?? (fullName !== "" ? fullName : (nickname ?? org ?? emails[0] ?? phones[0]));
   if (name === undefined) return undefined;
   // City and country only: a street address is the most identifying part and the least useful to
   // find a person by.
@@ -144,7 +156,10 @@ export function contactItem(
     tags: ["contact"],
     parties: [
       ...new Set(
-        [fullName, nickname, ...emails, ...phones].filter(
+        // The shown name (Contacts' own, with middle name and prefix), the given and family
+        // name, the nickname, a company that is the name of a company-only card, and every
+        // address and number: whatever the owner could type into "Never index these contacts".
+        [name, fullName, nickname, org === name ? org : undefined, ...emails, ...phones].filter(
           (x): x is string => x !== undefined && x !== "",
         ),
       ),
@@ -168,7 +183,13 @@ const cursorOf = (raw: unknown): Cursor =>
       }
     : { i: 0 };
 
+/** How long one pass reuses the list of contacts it already read (a pass is a few pulls). */
+const LISTING_TTL_MS = 5 * 60_000;
+
 export function contactsAdapter(deps: ContactsSourceDeps): SourceAdapter {
+  // The list a pass is working through: listing is one helper call per 2000 contacts, so it is
+  // done once per pass and not once per page of 50.
+  let listed: { contacts: ListedContacts["contacts"]; at: number } | undefined;
   return {
     id: "contacts",
     unavailable: () => (deps.helper() === undefined ? NO_HELPER : undefined),
@@ -183,11 +204,17 @@ export function contactsAdapter(deps: ContactsSourceDeps): SourceAdapter {
       const start = cur.doneAt === undefined ? cur.i : 0;
       // A permission error from the helper surfaces here with its own message ("Psyche (Helper)
       // does not have the Contacts permission"); Settings shows it on the row.
-      const { ids } = await listAll(helper, signal);
-      const page = ids.slice(start, start + Math.min(limit, CONTACTS_PAGE));
+      let contacts: ListedContacts["contacts"];
+      if (start > 0 && listed !== undefined && now - listed.at < LISTING_TTL_MS) {
+        contacts = listed.contacts;
+      } else {
+        contacts = (await listAll(helper, signal)).contacts;
+        listed = { contacts, at: now };
+      }
+      const page = contacts.slice(start, start + Math.min(limit, CONTACTS_PAGE));
       const items: SourceItem[] = [];
       let read = 0;
-      for (const id of page) {
+      for (const { id, name: listedName } of page) {
         if (signal.aborted) break;
         read += 1;
         let out: unknown;
@@ -200,17 +227,18 @@ export function contactsAdapter(deps: ContactsSourceDeps): SourceAdapter {
             continue;
           throw err;
         }
-        const item = contactItem(out, now, deps.parentOf);
+        const item = contactItem(out, now, deps.parentOf, listedName);
         if (item !== undefined) items.push(item);
       }
       const next = start + read;
-      const hasMore = next < ids.length;
+      const hasMore = next < contacts.length;
       return { items, cursor: hasMore ? { i: next } : { i: next, doneAt: now }, hasMore };
     },
     async listIds(signal) {
       const helper = deps.helper();
       if (helper === undefined) return { ids: [], complete: false };
-      return listAll(helper, signal);
+      const { contacts, complete } = await listAll(helper, signal);
+      return { ids: contacts.map((c) => c.id), complete };
     },
   };
 }

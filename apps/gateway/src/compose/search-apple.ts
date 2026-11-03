@@ -119,19 +119,18 @@ export function appleSearchSeams(o: {
 }
 
 /**
- * The Memory person document a contact is the same person as: matched by the Apple contact id the
- * people graph recorded, then by email, then by number. Only an active, visible person: a hidden
- * ("don't track") or private one has no document to collapse onto.
+ * The Memory person document a contact is the same person as, matched only by the Apple contact id
+ * the people graph recorded when it read the owner's address book. Never by email or number: those
+ * are also learned from other people's mail, which could claim an address to pull a contact under
+ * a person it is not. Only an active, visible person: a hidden ("don't track") or private one has
+ * no document to collapse onto.
  */
 export function contactParent(
   graph: Pick<GraphStore, "resolveIdentifier" | "getEntity"> | undefined,
-  contact: { id: string; emails: string[]; phones: string[] },
+  contact: { id: string },
 ): string | undefined {
   if (graph === undefined) return undefined;
-  const id =
-    graph.resolveIdentifier("contact", contact.id) ??
-    contact.emails.map((e) => graph.resolveIdentifier("email", e)).find((x) => x !== undefined) ??
-    contact.phones.map((p) => graph.resolveIdentifier("phone", p)).find((x) => x !== undefined);
+  const id = graph.resolveIdentifier("contact", contact.id);
   if (id === undefined) return undefined;
   const e = graph.getEntity(id);
   return e !== undefined &&

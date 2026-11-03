@@ -81,9 +81,10 @@ export function defaultSourcesConfig(): SourcesConfig {
   for (const id of SOURCE_IDS)
     sources[id] = {
       enabled: false,
-      // Memory's facts come from other sources: no context cards for them (they would go to the
-      // cloud model) until the owner chooses otherwise.
-      processing: id === "memory" ? "none" : "cloud",
+      // Memory's facts come from other sources, and Contacts is other people's numbers, addresses
+      // and birthdays: no context cards for them (they would go to the cloud model) until the
+      // owner chooses otherwise.
+      processing: id === "memory" || id === "contacts" ? "none" : "cloud",
       agent: !OWNER_ONLY_SOURCES.includes(id),
       ocr: false,
     };
