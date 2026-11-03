@@ -478,7 +478,7 @@ export function MoreSection({ onNavigate }: { onNavigate: (to: string) => void }
     {
       label: t("home.more.memoryReview"),
       hint: t("home.more.review"),
-      route: "/settings/memory",
+      route: "/memory/review",
     },
   ];
   return (

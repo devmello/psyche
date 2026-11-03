@@ -330,7 +330,7 @@ describe("the Feed card and the brief line", () => {
     expect(cards).toHaveLength(1);
     expect(cards[0]?.title).toBe("Psyche learned 1 thing");
     expect(cards[0]?.bodyMd).toBe(
-      "1 auto-accepted · 0 to review · 0 quarantined\n\n[Review](/settings/memory)",
+      "1 auto-accepted · 0 to review · 0 quarantined\n\n[Review](/memory/review)",
     );
     expect(JSON.stringify(cards)).not.toMatch(/climbing|Dana/);
     // The card carries a static widget snapshot: three counts and a button to the review screen.
@@ -339,10 +339,10 @@ describe("the Feed card and the brief line", () => {
     expect(collectWidgetBinds(widget.spec.root)).toEqual([]);
     expect(widget.taint).toEqual([]);
     expect(widget.spec.fallbackText).toContain("Psyche learned 1 thing");
-    expect(JSON.stringify(widget.spec)).toContain('"route":"/settings/memory"');
+    expect(JSON.stringify(widget.spec)).toContain('"route":"/memory/review"');
     expect(e.learnedYesterday()).toEqual({
       text: "Psyche learned 1 thing yesterday: 1 auto-accepted · 0 to review · 0 quarantined",
-      link: "/settings/memory",
+      link: "/memory/review",
     });
     clock.advance(40 * 3_600_000);
     expect(e.learnedYesterday()).toBeUndefined();

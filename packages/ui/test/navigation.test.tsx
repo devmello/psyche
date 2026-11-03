@@ -88,7 +88,7 @@ describe("every screen is reachable (sidebar or palette)", () => {
   });
 
   it("opens What can you do?, setup, Scheduled → Runs and Memory → Review", () => {
-    for (const r of ["/can-do", "/onboarding", "/scheduled?tab=runs", "/settings/memory", "/inbox"])
+    for (const r of ["/can-do", "/onboarding", "/scheduled?tab=runs", "/memory/review", "/inbox"])
       expect(reachable, r).toContain(r);
   });
 

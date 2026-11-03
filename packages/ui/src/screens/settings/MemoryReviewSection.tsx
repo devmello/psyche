@@ -1,24 +1,29 @@
 import type { EverythingMemorySettings } from "@psyche/protocol";
-import { EVERYTHING_MEMORY_DEFAULTS, EVERYTHING_MEMORY_SETTING_KEY } from "@psyche/protocol";
+import {
+  EVERYTHING_MEMORY_DEFAULTS,
+  EVERYTHING_MEMORY_SETTING_KEY,
+  MEMORY_REVIEW_ROUTE,
+} from "@psyche/protocol";
 import type { ReactElement } from "react";
+import { Button } from "../../components/ui/button.tsx";
+import { useGatewayQuery } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
-import { useMemoryReview } from "../../memory/hooks.ts";
-import { MemoryReviewPanel } from "../../memory/MemoryReviewPanel.tsx";
-import { SenderOffers } from "../../memory/SenderOffers.tsx";
-import { usePersona } from "../../slots.tsx";
+import { usePersona, useSlots } from "../../slots.tsx";
 import {
   Group,
   LoadGate,
   SectionFrame,
+  SettingRow,
   StatusChip,
   SwitchField,
   useSettingsForm,
 } from "./shared.tsx";
 
 /**
- * Settings → Memory → Review (docs/design/everything-memory-2026.md §7): the queue, what was added
- * automatically (with Undo for a week), the quarantine, and the rules for accepting without asking. The
- * defaults are decision 6: review everything, with two narrow exceptions the owner can turn off.
+ * Settings → Memory → Review: the rules for accepting without asking, and one row that opens the
+ * queue, which lives on the Memory page (docs/design/memory-everything-2026.md §6.4). The defaults
+ * are decision 6 of the everything-memory design: review everything, with two narrow exceptions
+ * the owner can turn off.
  */
 
 export type ReviewRules = EverythingMemorySettings["review"];
@@ -60,37 +65,42 @@ export function RulesPanel({
 export function MemoryReviewSection(): ReactElement {
   const form = useSettingsForm();
   const persona = usePersona();
-  const review = useMemoryReview();
+  const { navigate } = useSlots();
+  const waiting = useGatewayQuery("memory.review.list", { state: ["pending"], limit: 1 });
+  const pending = waiting.data?.counts.pending ?? 0;
   const rules = readReviewRules(form.values);
   return (
     <SectionFrame
       needsApproval={form.needsApproval}
       title={t("memoryReview.title")}
-      description={t("memoryReview.description", { persona: persona.name })}
-      actions={
-        review.counts.pending > 0 ? (
-          <StatusChip tone="approval">
-            {t("memoryReview.waiting", { n: review.counts.pending })}
-          </StatusChip>
-        ) : null
-      }
+      description={t("memoryReview.settingsDescription", { persona: persona.name })}
     >
       <LoadGate
         label={t("memoryReview.loadLabel")}
-        loading={review.loading}
-        error={review.error}
-        onRetry={review.reload}
+        loading={waiting.loading && waiting.data === undefined}
+        error={waiting.error}
+        onRetry={waiting.reload}
       >
-        <SenderOffers senders={review.senders} busy={review.busy} onDecide={review.decideSender} />
-        <MemoryReviewPanel
-          pending={review.pending}
-          recent={review.recent}
-          quarantine={review.quarantine}
-          busy={review.busy}
-          onAct={review.act}
-          onActGroup={review.actGroup}
-          onActQuarantine={review.actQuarantine}
-        />
+        <SettingRow
+          label={t("memoryReview.link.label")}
+          description={
+            pending > 0 ? (
+              <StatusChip tone="approval">{t("memoryReview.waiting", { n: pending })}</StatusChip>
+            ) : (
+              t("memoryReview.caughtUp")
+            )
+          }
+        >
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            data-testid="review-link"
+            onClick={() => navigate?.(MEMORY_REVIEW_ROUTE)}
+          >
+            {t("memoryReview.link.open")}
+          </Button>
+        </SettingRow>
         <RulesPanel
           rules={rules}
           onChange={(next) => {

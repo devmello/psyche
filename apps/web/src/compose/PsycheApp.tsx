@@ -256,8 +256,8 @@ export function screenRoute(route: string, navigate: (to: string) => void): Reac
       );
     }
     case "memory": {
-      // `/memory[?kind=people|projects|due|events|more][&entity=<id>]`; `/memory/review` is
-      // reserved for the review queue (docs/design/memory-everything-2026.md §6.5).
+      // `/memory[?kind=people|projects|due|events|more][&entity=<id>]`; `/memory/review` is the
+      // review queue's tab (docs/design/memory-everything-2026.md §6.4, §6.5).
       const params = new URLSearchParams(query);
       const entity = params.get("entity");
       return page(
@@ -266,6 +266,7 @@ export function screenRoute(route: string, navigate: (to: string) => void): Reac
           key={entity ?? ""}
           kind={parseMemoryKind(params.get("kind"))}
           onNavigate={navigate}
+          {...(parts[1] === "review" ? { view: "review" as const } : {})}
           {...(entity ? { entity } : {})}
         />,
       );
