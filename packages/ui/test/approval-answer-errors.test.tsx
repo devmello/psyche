@@ -127,7 +127,11 @@ describe("answer failures on the card", () => {
         new GatewayRequestError("approvals.approveWithTouchId", "unavailable", "x", { reason }),
       );
     expect(why("helper_offline")).toMatchObject({ kind: "touch_id_setup", fix: "start_helper" });
-    expect(why("no_presence_key")).toMatchObject({ kind: "touch_id_setup", fix: "register_key" });
+    expect(why("no_presence_key")).toMatchObject({ kind: "touch_id_setup", fix: "open_devices" });
+    expect(why("presence_key_invalidated")).toMatchObject({
+      kind: "touch_id_setup",
+      fix: "open_devices",
+    });
     expect(why("helper_outdated")).toMatchObject({ kind: "touch_id_setup", fix: null });
     expect(why("presence_key_unavailable")).toMatchObject({ kind: "touch_id_setup", fix: null });
     expect(why("something_else").kind).toBe("other");
@@ -157,7 +161,7 @@ describe("answer failures on the card", () => {
     );
   }
 
-  it("helper down: says so, offers Start Psyche Helper, then asks Touch ID again", async () => {
+  it("helper down: says so and offers Start Psyche Helper, then waits for Allow again", async () => {
     const onAnswer = vi
       .fn()
       .mockRejectedValueOnce(
@@ -173,26 +177,36 @@ describe("answer failures on the card", () => {
     expect(screen.queryByText(/notification/)).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "Start Psyche Helper" }));
     expect(fix).toHaveBeenCalledWith("start_helper");
-    await waitFor(() => expect(onAnswer).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    // Never approves on its own (security review, finding 1): the owner clicks Allow again.
+    expect(onAnswer).toHaveBeenCalledTimes(1);
+    await userEvent.click(allow());
+    await waitFor(() => expect(onAnswer).toHaveBeenCalledTimes(2));
   });
 
-  it("no key: offers Set up Touch ID; a build that cannot hold a key offers nothing", async () => {
+  it("no key: sends the owner to Settings → Devices instead of registering from the card", async () => {
     const fix = vi.fn(async () => undefined);
-    showWithFix(
-      vi.fn().mockRejectedValue(
-        new GatewayRequestError("approvals.approveWithTouchId", "unavailable", "x", {
-          reason: "no_presence_key",
-        }),
-      ),
-      fix,
+    const onAnswer = vi.fn().mockRejectedValue(
+      new GatewayRequestError("approvals.approveWithTouchId", "unavailable", "x", {
+        reason: "no_presence_key",
+      }),
     );
+    showWithFix(onAnswer, fix);
     await userEvent.click(allow());
     expect((await screen.findByRole("alert")).textContent).toContain(
       "Touch ID isn't set up for approvals",
     );
-    await userEvent.click(screen.getByRole("button", { name: "Set up Touch ID" }));
-    expect(fix).toHaveBeenCalledWith("register_key");
+    expect(screen.queryByRole("button", { name: "Set up Touch ID" })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Open Settings → Devices" }));
+    expect(fix).toHaveBeenCalledWith("open_devices");
+    expect(onAnswer).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows the approval code the Touch ID sheet names", () => {
+    showWithFix(vi.fn(), vi.fn());
+    expect(screen.getByTestId("approval-code").textContent).toMatch(
+      /^Code [0-9a-f]{4}-[0-9a-f]{4}$/,
+    );
   });
 
   it("a helper without a keychain access group says exactly that, with no button", async () => {

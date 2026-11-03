@@ -285,19 +285,20 @@ describe("useApprovals", () => {
       ],
       answerTokens: { ap_auth: "at_auth", ap_plain: "at_plain" },
     });
-    gateway.helperPresence = true;
+    gateway.approveWithTouchId = (p) => gateway.request("approvals.approveWithTouchId", p);
     const { result } = renderHook(() => useApprovals(), { wrapper });
     await waitFor(() => expect(result.current.pending).toHaveLength(2));
     await act(() => result.current.answer("ap_plain", "approve", "once"));
-    await act(() =>
+    // UNSANDBOXED is not in the signed challenge: refused before any sheet.
+    await expect(
       result.current.answer("ap_auth", "approve", "once", { unsandboxed: "UNSANDBOXED" }),
-    );
+    ).rejects.toThrow(/sandbox/);
+    await act(() => result.current.answer("ap_auth", "approve", "always"));
     expect(gateway.calls.filter((c) => c.method === "approvals.answer")).toHaveLength(1);
+    // Once only, whatever the card's scope picker said.
     expect(gateway.calls.find((c) => c.method === "approvals.approveWithTouchId")?.params).toEqual({
       approvalId: "ap_auth",
       answerToken: "at_auth",
-      scope: "once",
-      unsandboxed: "UNSANDBOXED",
     });
     expect(result.current.pending).toHaveLength(0);
   });

@@ -8,6 +8,7 @@ import {
   type HelperRunState,
   helperCanHoldKeychain,
   openHelperArgs,
+  readHelperIdentity,
 } from "../../src/main/helper-launcher.ts";
 import type { Runner } from "../../src/main/supervisor.ts";
 
@@ -130,5 +131,65 @@ describe("askHelperNotificationsIfUndetermined", () => {
       expect(await askHelperNotificationsIfUndetermined(invoke(status))).toBe(false);
     }
     expect(calls).not.toContain("notify.request_authorization");
+  });
+});
+
+describe("readHelperIdentity (security review, finding 1)", () => {
+  const app = () => {
+    const dir = mkdtempSync(join(tmpdir(), "psy-helper-id-"));
+    const appPath = join(dir, "PsycheHelper.app");
+    mkdirSync(join(appPath, "Contents", "MacOS"), { recursive: true });
+    return appPath;
+  };
+  const out =
+    (o: unknown, code = 0) =>
+    async () => ({ code, stdout: JSON.stringify(o) });
+
+  it("runs the bundled executable with --print-identity and this PSYCHE_HOME", async () => {
+    const appPath = app();
+    const calls: { file: string; args: string[]; home?: string }[] = [];
+    const id = await readHelperIdentity(appPath, "/tmp/home", async (file, args, env) => {
+      calls.push({ file, args, home: env.PSYCHE_HOME });
+      return {
+        code: 0,
+        stdout: JSON.stringify({
+          deviceId: "dev_abcdefghijklmnopqrstuv",
+          presenceKeyId: "a".repeat(64),
+          presenceKeyKind: "enclave_file",
+        }),
+      };
+    });
+    expect(calls).toEqual([
+      {
+        file: join(appPath, "Contents", "MacOS", "psyche-helper"),
+        args: ["--print-identity"],
+        home: "/tmp/home",
+      },
+    ]);
+    expect(id).toEqual({
+      deviceId: "dev_abcdefghijklmnopqrstuv",
+      keyId: "a".repeat(64),
+      kind: "enclave_file",
+    });
+  });
+
+  it("trusts nothing malformed: no bundle, a failed run, a bad device id or key id", async () => {
+    expect(await readHelperIdentity(undefined, "/h", out({}))).toBeUndefined();
+    const appPath = app();
+    expect(await readHelperIdentity(appPath, "/h", out({ deviceId: "x" }))).toBeUndefined();
+    expect(
+      await readHelperIdentity(appPath, "/h", out({ deviceId: "dev_abcdefghijklmnopqrstuv" }, 1)),
+    ).toBeUndefined();
+    expect(
+      await readHelperIdentity(
+        appPath,
+        "/h",
+        out({
+          deviceId: "dev_abcdefghijklmnopqrstuv",
+          presenceKeyId: "nothex",
+          presenceError: "missing_entitlement",
+        }),
+      ),
+    ).toEqual({ deviceId: "dev_abcdefghijklmnopqrstuv", error: "missing_entitlement" });
   });
 });

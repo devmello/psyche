@@ -1374,10 +1374,25 @@ export const settings = {
   "settings.devices.keyLastSeenNever": "· last seen never",
   "settings.devices.lastSeen": "last seen {when}",
   "settings.devices.lastSeenNever": "last seen never",
-  "settings.devices.presenceKey.keychain": "Touch ID key (keychain)",
+  "settings.devices.presenceKey.keychain": "Touch ID key (keychain), as reported by the helper",
   "settings.devices.presenceKey.enclaveFile":
-    "Touch ID key (Secure Enclave file, this build has no provisioning profile)",
-  "settings.devices.presenceKey.unknown": "Touch ID key",
+    "Touch ID key (Secure Enclave file, this build has no provisioning profile), as reported by the helper",
+  "settings.devices.presenceKey.unknown": "Touch ID key (kind not reported by the helper)",
+  "settings.devices.touchId.none":
+    "No Touch ID key yet. Cards that need Touch ID can't be approved until one is registered.",
+  "settings.devices.touchId.bundled": "The Psyche Helper in this app shows key",
+  "settings.devices.touchId.notBundled":
+    "This helper isn't the one bundled with this app, so its key can't be registered here.",
+  "settings.devices.touchId.noBundledKey":
+    "The Psyche Helper in this app has no Touch ID key ({reason}).",
+  "settings.devices.touchId.register": "Register this key",
+  "settings.devices.touchId.remove": "Remove key",
+  "settings.devices.touchId.manualLabel": "Key id",
+  "settings.devices.touchId.manualHint":
+    "Run psyche-helper --print-identity on the Mac and paste the presenceKeyId it prints.",
+  "settings.devices.touchId.allowDevFileKey": "Allow a development Touch ID key",
+  "settings.devices.touchId.devFileKey":
+    "This build has no provisioning profile, so its key is a Secure Enclave file. Any app running as you could ask it to sign behind its own Touch ID prompt. For development only.",
   "settings.devices.revoked": "Revoked ({n, number})",
   "settings.devices.revokedItem": "{name}, revoked {when}",
   "settings.devices.nodes": "Nodes",

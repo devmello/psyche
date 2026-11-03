@@ -56,3 +56,24 @@ describe("Start Psyche Helper from an approval card", () => {
     expect(invoke).toHaveBeenLastCalledWith(IPC.helperLaunch, undefined);
   });
 });
+
+describe("Touch ID channels (security review, finding 7)", () => {
+  it("approve, register and identity go on their own channels, not the generic call relay", async () => {
+    const bridge = exposed.psyche as {
+      helper: {
+        touchIdApprove: (p: unknown) => Promise<unknown>;
+        touchIdRegister: () => Promise<unknown>;
+        touchIdIdentity: () => Promise<unknown>;
+      };
+    };
+    await bridge.helper.touchIdApprove({ approvalId: "a", answerToken: "t" });
+    expect(invoke).toHaveBeenLastCalledWith(IPC.touchIdApprove, {
+      approvalId: "a",
+      answerToken: "t",
+    });
+    await bridge.helper.touchIdRegister();
+    expect(invoke).toHaveBeenLastCalledWith(IPC.touchIdRegister, undefined);
+    await bridge.helper.touchIdIdentity();
+    expect(invoke).toHaveBeenLastCalledWith(IPC.touchIdIdentity, undefined);
+  });
+});

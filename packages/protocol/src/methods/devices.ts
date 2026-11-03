@@ -94,8 +94,12 @@ export const DevicesMethods = {
     params: Type.Object({
       /** A paired, connected helper (`role: node`) exposing `presence.public_key`. */
       deviceId: Id,
-      /** When given, the helper's key id must match (the owner compares what the helper shows). */
-      expectKeyId: Type.Optional(KeyId),
+      /**
+       * The key id the genuine helper shows (`psyche-helper --print-identity`, which the desktop
+       * runs from its own bundle): the connected helper's key must match, so a process that
+       * paired as a helper cannot register its own key (security §10).
+       */
+      expectKeyId: KeyId,
       /** Fresh presence: the approved `policy_change` card from a first `approval_required` call. */
       approvalId: Type.Optional(Id),
     }),
@@ -103,7 +107,7 @@ export const DevicesMethods = {
     scope: "operator.admin",
     sideEffecting: true,
     description:
-      "Reads the helper's Secure Enclave presence key (`presence.public_key`) and registers it for that device, so its Touch ID answers verify. Replaces an earlier key; revoked with the device. Needs fresh presence once the Gateway has a presence verifier (approval_required, then retry with approvalId; presence_required when presence was enrolled but nothing can verify now). Side-effecting.",
+      "Reads the helper's Secure Enclave presence key (`presence.public_key`) and registers it for that device when its key id equals expectKeyId, so its Touch ID answers verify. A Secure Enclave file key (kind enclave_file, development builds) is refused unless the setting devices.presence.allowDevFileKey is true. Replaces an earlier key; revoked with the device. Needs fresh presence once the Gateway has a presence verifier (approval_required, then retry with approvalId; presence_required when presence was enrolled but nothing can verify now). Side-effecting.",
   }),
   "devices.presenceKey.remove": defineMethod({
     params: Type.Object({ deviceId: Id }),

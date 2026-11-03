@@ -1,5 +1,5 @@
-import type { Device, DeviceScope, MethodResult, NodeInfo, PairingRequest } from "@psyche/protocol";
-import { type ReactElement, useCallback, useId, useState } from "react";
+import type { Device, DeviceScope, NodeInfo, PairingRequest } from "@psyche/protocol";
+import { type ReactElement, useCallback, useEffect, useId, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { Checkbox } from "../../components/ui/checkbox.tsx";
 import { Label } from "../../components/ui/label.tsx";
@@ -19,6 +19,13 @@ import {
   SectionFrame,
   StatusChip,
 } from "./shared.tsx";
+import {
+  type BundledHelperKey,
+  DEV_FILE_KEY_SETTING,
+  type PresenceKeyRow,
+  presenceKeyText,
+  TouchIdKeySetup,
+} from "./TouchIdKeySetup.tsx";
 
 /** Devices & nodes (UI design §3.18; architecture §7, §11; security §10). */
 
@@ -43,17 +50,8 @@ export function keyFingerprint(publicKey: string): string {
   return (publicKey.slice(0, 16).match(/.{1,4}/g) ?? []).join(" ");
 }
 
-/** A registered helper Touch ID key (`devices.presenceKey.list`). */
-export type PresenceKeyRow = MethodResult<"devices.presenceKey.list">["presenceKeys"][number];
-
-/** Which Touch ID key a helper signs approvals with, in the owner's words. */
-export function presenceKeyText(k: PresenceKeyRow): string {
-  return k.kind === "enclave_file"
-    ? t("settings.devices.presenceKey.enclaveFile")
-    : k.kind === "keychain"
-      ? t("settings.devices.presenceKey.keychain")
-      : t("settings.devices.presenceKey.unknown");
-}
+export type { PresenceKeyRow } from "./TouchIdKeySetup.tsx";
+export { presenceKeyText } from "./TouchIdKeySetup.tsx";
 
 export interface DevicesPanelProps extends LoadProps {
   devices: readonly Device[];
@@ -61,6 +59,14 @@ export interface DevicesPanelProps extends LoadProps {
   nodes: readonly NodeInfo[];
   /** Registered helper Touch ID keys; each shows on its helper's row with its kind. */
   presenceKeys?: readonly PresenceKeyRow[];
+  /** Touch ID key setup on each helper's row (absent: the keys are shown, nothing more). */
+  touchId?: {
+    bundled?: BundledHelperKey | null | undefined;
+    allowDevFileKey: boolean;
+    onRegister: (deviceId: string, expectKeyId?: string) => Promise<unknown>;
+    onRemove: (deviceId: string) => Promise<unknown>;
+    onAllowDevFileKey: (on: boolean) => Promise<unknown>;
+  };
   now?: number;
   thisDeviceId?: string;
   onApprove?: (request: PairingRequest, scopes: DeviceScope[]) => void;
@@ -74,6 +80,7 @@ export function DevicesPanel({
   pairing,
   nodes,
   presenceKeys = [],
+  touchId,
   now,
   thisDeviceId,
   onApprove,
@@ -242,17 +249,29 @@ export function DevicesPanel({
                         : t("settings.devices.lastSeenNever")}
                     </span>
                   </div>
-                  {presenceKeys
-                    .filter((k) => k.deviceId === n.deviceId)
-                    .map((k) => (
-                      <p
-                        key={k.keyId}
-                        className="text-callout text-muted-foreground"
-                        data-testid="presence-key"
-                      >
-                        {presenceKeyText(k)}
-                      </p>
-                    ))}
+                  {n.kind === "mac-helper" && touchId ? (
+                    <TouchIdKeySetup
+                      deviceId={n.deviceId}
+                      registered={presenceKeys.find((k) => k.deviceId === n.deviceId)}
+                      bundled={touchId.bundled}
+                      allowDevFileKey={touchId.allowDevFileKey}
+                      onRegister={(expect) => touchId.onRegister(n.deviceId, expect)}
+                      onRemove={() => touchId.onRemove(n.deviceId)}
+                      onAllowDevFileKey={touchId.onAllowDevFileKey}
+                    />
+                  ) : (
+                    presenceKeys
+                      .filter((k) => k.deviceId === n.deviceId)
+                      .map((k) => (
+                        <p
+                          key={k.keyId}
+                          className="text-callout text-muted-foreground"
+                          data-testid="presence-key"
+                        >
+                          {presenceKeyText(k)}
+                        </p>
+                      ))
+                  )}
                   <ul
                     className="flex flex-wrap gap-1"
                     aria-label={t("settings.devices.capabilitiesOf", {
@@ -368,15 +387,40 @@ function deviceActionError(action: DeviceAction, err: unknown): string {
 export function DevicesSection({
   now,
   thisDeviceId,
+  touchId,
 }: {
   now?: number;
   thisDeviceId?: string;
+  /**
+   * The desktop's Touch ID channels: what the helper bundled with this app reports, and
+   * registering exactly that key. Absent on the web, where the owner types the key id.
+   */
+  touchId?: { identity(): Promise<BundledHelperKey | null>; register(): Promise<unknown> };
 }): ReactElement {
   const call = useCall();
+  const devSettingQ = useGatewayQuery("settings.get", { keys: [DEV_FILE_KEY_SETTING] });
+  const [bundled, setBundled] = useState<BundledHelperKey | null | undefined>(undefined);
+  useEffect(() => {
+    if (!touchId) return;
+    let live = true;
+    void touchId.identity().then(
+      (id) => live && setBundled(id),
+      () => live && setBundled(null),
+    );
+    return () => {
+      live = false;
+    };
+  }, [touchId]);
   const devicesQ = useGatewayQuery("devices.list", { includeRevoked: true });
   const pairingQ = useGatewayQuery("devices.pairing.list", { status: "pending" });
   const nodesQ = useGatewayQuery("nodes.list", {});
   const keysQ = useGatewayQuery("devices.presenceKey.list", {});
+  const settled = (p: Promise<unknown>) =>
+    p.then((v) => {
+      keysQ.reload();
+      devSettingQ.reload();
+      return v;
+    });
   const [actionError, setActionError] = useState<string | null>(null);
   const reloadAll = useCallback(() => {
     devicesQ.reload();
@@ -396,6 +440,19 @@ export function DevicesSection({
       pairing={pairingQ.data?.pairingRequests ?? []}
       nodes={nodesQ.data?.nodes ?? []}
       presenceKeys={keysQ.data?.presenceKeys ?? []}
+      touchId={{
+        bundled: touchId ? bundled : undefined,
+        allowDevFileKey: devSettingQ.data?.settings?.[DEV_FILE_KEY_SETTING] === true,
+        onRegister: (deviceId, expectKeyId) =>
+          settled(
+            touchId && expectKeyId === undefined
+              ? touchId.register()
+              : call("devices.presenceKey.register", { deviceId, expectKeyId: expectKeyId ?? "" }),
+          ),
+        onRemove: (deviceId) => settled(call("devices.presenceKey.remove", { deviceId })),
+        onAllowDevFileKey: (on) =>
+          settled(call("settings.set", { key: DEV_FILE_KEY_SETTING, value: on })),
+      }}
       loading={devicesQ.loading && devicesQ.data === undefined}
       error={devicesQ.error ?? nodesQ.error}
       onRetry={reloadAll}

@@ -537,7 +537,7 @@ function useSystemAppearance(platform: ShellPlatform): SystemAppearance | null {
 
 export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactElement {
   const client = useMemo(
-    () => kitClient(platform.gateway, platform.passkeys, platform.helper !== undefined),
+    () => kitClient(platform.gateway, platform.passkeys, platform.helper?.touchId),
     [platform],
   );
   const systemLocale = useSystemLocale(platform);

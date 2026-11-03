@@ -2,11 +2,11 @@ import { createHash, generateKeyPairSync, type KeyObject, sign } from "node:cryp
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { presenceChallenge } from "@psyche/permissions";
+import { approvalCode, presenceChallenge } from "@psyche/permissions";
 import type { ApprovalRequest } from "@psyche/protocol";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { composeHelper, helperPresenceMessage } from "../src/compose/helper.ts";
+import { composeHelper, helperErrorFields, helperPresenceMessage } from "../src/compose/helper.ts";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
 import { silentLogger } from "../src/log.ts";
 import { FakeNode, type FakeNodeHandler } from "./fake-node.ts";
@@ -48,7 +48,7 @@ function signChallenge(privateKey: KeyObject, challenge: string): string {
   }).toString("base64url");
 }
 
-type Confirm = (p: { challenge: string; header: string }) => unknown;
+type Confirm = (p: { challenge: string; summary: string; code: string }) => unknown;
 
 function helperHandlers(
   key: ReturnType<typeof enclaveKey>,
@@ -69,7 +69,8 @@ function helperHandlers(
               sideEffect: "write" as const,
               streaming: false,
             },
-            run: (params: unknown) => confirm(params as { challenge: string; header: string }),
+            run: (params: unknown) =>
+              confirm(params as { challenge: string; summary: string; code: string }),
           },
         ]),
     {
@@ -88,7 +89,13 @@ function helperHandlers(
 }
 
 async function setup(
-  opts: { helper?: boolean; confirm?: Confirm; register?: boolean; kind?: string } = {},
+  opts: {
+    helper?: boolean;
+    confirm?: Confirm;
+    register?: boolean;
+    kind?: string;
+    allowDevFileKey?: boolean;
+  } = {},
 ) {
   home = mkdtempSync(join(tmpdir(), "psyche-touchid-"));
   composed = await composeGateway({
@@ -115,8 +122,19 @@ async function setup(
     await vi.waitFor(() =>
       expect(node.invocations.map((i) => i.capability)).toContain("notify.subscribe"),
     );
+    if (opts.allowDevFileKey === true) {
+      await admin.call(
+        "settings.set",
+        { key: "devices.presence.allowDevFileKey", value: true },
+        ik(),
+      );
+    }
     if (opts.register !== false) {
-      await admin.call("devices.presenceKey.register", { deviceId: helperDevice }, ik());
+      await admin.call(
+        "devices.presenceKey.register",
+        { deviceId: helperDevice, expectKeyId: key.keyId },
+        ik(),
+      );
     }
   }
   return { c: composed, admin, key, helperDevice };
@@ -171,7 +189,7 @@ async function reset(): Promise<void> {
 
 describe("approvals.approveWithTouchId (window Allow on a Touch ID card)", () => {
   it("the helper signs the window's own challenge after Touch ID and the broker approves", async () => {
-    const asked: { challenge: string; header: string }[] = [];
+    const asked: { challenge: string; summary: string; code: string }[] = [];
     const holder: { key?: ReturnType<typeof enclaveKey> } = {};
     const { c, admin, helperDevice, key } = await setup({
       confirm: (p) => {
@@ -193,7 +211,8 @@ describe("approvals.approveWithTouchId (window Allow on a Touch ID card)", () =>
     expect(asked).toEqual([
       {
         challenge: presenceChallenge(approval.id, approval.bindingHash, token),
-        header: expect.any(String),
+        summary: approval.summary,
+        code: approvalCode(approval.bindingHash),
       },
     ]);
     expect(res.approval.decidedBy).toMatchObject({ deviceId: helperDevice, surface: "desktop" });
@@ -303,7 +322,11 @@ describe("approvals.approveWithTouchId (window Allow on a Touch ID card)", () =>
       expect(
         await admin.request(
           "nodes.invoke",
-          { nodeId: node?.id, capability, params: { challenge: "0".repeat(64), header: "x" } },
+          {
+            nodeId: node?.id,
+            capability,
+            params: { challenge: "0".repeat(64), summary: "x", code: "0000-0000" },
+          },
           ik(),
         ),
       ).toMatchObject({ ok: false, error: { code: "forbidden" } });
@@ -311,7 +334,7 @@ describe("approvals.approveWithTouchId (window Allow on a Touch ID card)", () =>
   });
 
   it("records which key the helper uses: keychain, or the Secure Enclave file on unprofiled builds", async () => {
-    const { admin, helperDevice } = await setup({ kind: "enclave_file" });
+    const { admin, helperDevice } = await setup({ kind: "enclave_file", allowDevFileKey: true });
     expect(await admin.call("devices.presenceKey.list", {})).toMatchObject({
       presenceKeys: [{ deviceId: helperDevice, kind: "enclave_file" }],
     });
@@ -322,5 +345,193 @@ describe("approvals.approveWithTouchId (window Allow on a Touch ID card)", () =>
       {},
     );
     expect(listed.presenceKeys[0]).not.toHaveProperty("kind");
+  });
+
+  it("checks the window's token before any Touch ID sheet", async () => {
+    let asked = 0;
+    const { c, admin } = await setup({
+      confirm: () => {
+        asked++;
+        return { signature: "x" };
+      },
+    });
+    const { approval } = await securityCard(admin);
+    expect(
+      await admin.request(
+        "approvals.approveWithTouchId",
+        { approvalId: approval.id, answerToken: "not-this-windows-token" },
+        ik(),
+      ),
+    ).toMatchObject({ ok: false, error: { code: "forbidden" } });
+    expect(asked).toBe(0);
+    expect(
+      (await c.audit.query({ kind: "approval.answer_rejected" })).map((e) => e.data.reason),
+    ).toContain("unknown_token");
+  });
+
+  it("raises one sheet at a time, whatever the card", async () => {
+    let release: (v: unknown) => void = () => undefined;
+    const { admin } = await setup({
+      confirm: () =>
+        new Promise((r) => {
+          release = r;
+        }),
+    });
+    const first = await securityCard(admin);
+    const pending = admin.request(
+      "approvals.approveWithTouchId",
+      { approvalId: first.approval.id, answerToken: first.token },
+      ik(),
+    );
+    await new Promise((r) => setTimeout(r, 100));
+    const second = await admin.request(
+      "settings.set",
+      { key: "permissions.policy", value: { deny: [] } },
+      ik(),
+    );
+    const secondId = (second as { error: { details: { approvalId: string } } }).error.details
+      .approvalId;
+    const got = await admin.call<{ answerToken?: string }>("approvals.get", {
+      approvalId: secondId,
+    });
+    await new Promise((r) => setTimeout(r, 450));
+    expect(
+      await admin.request(
+        "approvals.approveWithTouchId",
+        { approvalId: secondId, answerToken: got.answerToken ?? "" },
+        ik(),
+      ),
+    ).toMatchObject({ ok: false, error: { code: "conflict" } });
+    release({ signature: "x" });
+    await pending;
+  });
+
+  it("a cancelled or failed sheet counts as a rejected answer", async () => {
+    const { c, admin } = await setup({
+      confirm: () => {
+        throw Object.assign(new Error("cancelled"), { code: "cancelled" });
+      },
+    });
+    const { approval, token } = await securityCard(admin);
+    await admin.request(
+      "approvals.approveWithTouchId",
+      { approvalId: approval.id, answerToken: token },
+      ik(),
+    );
+    expect(
+      (await c.audit.query({ kind: "approval.answer_rejected" })).map((e) => e.data.reason),
+    ).toContain("presence_cancelled");
+  });
+
+  it("approves once only and refuses UNSANDBOXED (neither is in the signed challenge)", async () => {
+    let asked = 0;
+    const holder: { key?: ReturnType<typeof enclaveKey> } = {};
+    const { admin, key } = await setup({
+      confirm: (p) => {
+        asked++;
+        const k = holder.key as ReturnType<typeof enclaveKey>;
+        return { signature: signChallenge(k.privateKey, p.challenge), keyId: k.keyId };
+      },
+    });
+    holder.key = key;
+    const { approval, token } = await securityCard(admin);
+    for (const extra of [{ scope: "always" }, { unsandboxed: "UNSANDBOXED" }]) {
+      expect(
+        await admin.request(
+          "approvals.approveWithTouchId",
+          { approvalId: approval.id, answerToken: token, ...extra },
+          ik(),
+        ),
+      ).toMatchObject({ ok: false, error: { code: "invalid_params" } });
+    }
+    expect(asked).toBe(0);
+    const res = await admin.call<{ approval: ApprovalRequest }>(
+      "approvals.approveWithTouchId",
+      { approvalId: approval.id, answerToken: token, scope: "once" },
+      ik(),
+    );
+    expect(res.approval.scopeGranted).toBe("once");
+  });
+
+  it("asks only the helper the desktop launched (helperDeviceId)", async () => {
+    let asked = 0;
+    const { admin } = await setup({
+      confirm: () => {
+        asked++;
+        return { signature: "x" };
+      },
+    });
+    const { approval, token } = await securityCard(admin);
+    expect(
+      await admin.request(
+        "approvals.approveWithTouchId",
+        { approvalId: approval.id, answerToken: token, helperDeviceId: "dev_someone_else" },
+        ik(),
+      ),
+    ).toMatchObject({
+      ok: false,
+      error: { code: "unavailable", details: { reason: "helper_offline" } },
+    });
+    expect(asked).toBe(0);
+  });
+
+  it("refuses a development file key unless devices.presence.allowDevFileKey is on", async () => {
+    const { admin, helperDevice, key } = await setup({ kind: "enclave_file", register: false });
+    expect(
+      await admin.request(
+        "devices.presenceKey.register",
+        { deviceId: helperDevice, expectKeyId: key.keyId },
+        ik(),
+      ),
+    ).toMatchObject({
+      ok: false,
+      error: { code: "forbidden", details: { reason: "dev_file_key_off" } },
+    });
+    await admin.call(
+      "settings.set",
+      { key: "devices.presence.allowDevFileKey", value: true },
+      ik(),
+    );
+    expect(
+      await admin.call(
+        "devices.presenceKey.register",
+        { deviceId: helperDevice, expectKeyId: key.keyId },
+        ik(),
+      ),
+    ).toMatchObject({ presenceKey: { kind: "enclave_file" } });
+  });
+
+  it("a key the fingerprint change killed says so, so the card can send the owner to Devices", async () => {
+    const { admin } = await setup({
+      confirm: () => {
+        throw Object.assign(new Error("Touch ID changed"), {
+          code: "unavailable",
+          details: { reason: "presence_key_invalidated" },
+        });
+      },
+    });
+    const { approval, token } = await securityCard(admin);
+    expect(
+      await admin.request(
+        "approvals.approveWithTouchId",
+        { approvalId: approval.id, answerToken: token },
+        ik(),
+      ),
+    ).toMatchObject({
+      ok: false,
+      error: { code: "unavailable", details: { reason: "presence_key_invalidated" } },
+    });
+  });
+
+  it("keeps only short, word-like helper error codes and reasons", () => {
+    expect(
+      helperErrorFields({ code: "x".repeat(500), details: { reason: "a\nb; rm -rf" } }),
+    ).toEqual({ code: "unknown" });
+    expect(helperErrorFields({ code: "cancelled", details: { reason: "user_cancelled" } })).toEqual(
+      {
+        code: "cancelled",
+        reason: "user_cancelled",
+      },
+    );
   });
 });

@@ -333,6 +333,26 @@ export interface HelperPort {
   onState(cb: (state: MacHelperState) => void): Unsubscribe;
   /** Starts the bundled helper now and resolves once it paired or timed out. */
   launch?(): Promise<MacHelperState>;
+  /**
+   * Touch ID through the bundled helper (security §3.7, §10), on main's own channels, which only
+   * the main and Settings windows reach: what the bundled helper says about itself, registering
+   * exactly that key, and approving a card once with it.
+   */
+  touchId?: TouchIdPort;
+}
+
+/** What the helper inside this app reports (`psyche-helper --print-identity`). */
+export interface BundledHelperIdentity {
+  deviceId: string;
+  keyId?: string;
+  kind?: "keychain" | "enclave_file";
+  error?: string;
+}
+
+export interface TouchIdPort {
+  identity(): Promise<BundledHelperIdentity | null>;
+  register(): Promise<unknown>;
+  approve(params: { approvalId: string; answerToken: string }): Promise<unknown>;
 }
 
 /**

@@ -396,3 +396,16 @@ export function renderQuestionForSurface(
   }
   return { text, questions, truncated: false };
 }
+
+/**
+ * A short code for one approval (security §3.7): the first eight hex digits of its binding hash,
+ * `xxxx-xxxx`. The card shows it next to Touch ID and the helper's Touch ID sheet names it, so
+ * the owner can tell the sheet belongs to the card they allowed.
+ */
+export function approvalCode(bindingHash: string): string {
+  const hex = `${bindingHash
+    .replace(/^sha256:/, "")
+    .toLowerCase()
+    .replace(/[^0-9a-f]/g, "")}00000000`;
+  return `${hex.slice(0, 4)}-${hex.slice(4, 8)}`;
+}

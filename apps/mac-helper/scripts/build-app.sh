@@ -16,6 +16,9 @@
 #   PSYCHE_HELPER_DSYM     where to write the dSYM of the unstripped binary (release builds only;
 #                          default: next to the bundle, "<bundle>.dSYM", outside the app so it does not ship)
 #   PSYCHE_HELPER_STRIP    full (default: strip), x (strip -x, keeps global symbols) or none
+#   PSYCHE_PUBLIC_RELEASE  1 for a public release: builds without the development-only Secure Enclave
+#                          file-key fallback (Package.swift, security §10); a build without a
+#                          provisioning profile then has no Touch ID key at all
 #   --install              copy the bundle to ~/Applications/Psyche Helper.app. TCC grants key on the
 #                          signature, bundle id and path: keep using one fixed path.
 set -eu

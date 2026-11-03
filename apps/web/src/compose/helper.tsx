@@ -50,7 +50,10 @@ export function DesktopDevicesSettings({ platform }: { platform: ShellPlatform }
   return (
     <div className="flex flex-col gap-4">
       {helper ? <MacHelperStatusRow state={helper} /> : null}
-      <DevicesSection {...(deviceId === undefined ? {} : { thisDeviceId: deviceId })} />
+      <DevicesSection
+        {...(deviceId === undefined ? {} : { thisDeviceId: deviceId })}
+        {...(platform.helper?.touchId ? { touchId: platform.helper.touchId } : {})}
+      />
     </div>
   );
 }
@@ -59,8 +62,8 @@ type TouchIdFix = Parameters<NonNullable<UiSlots["touchIdFix"]>>[0];
 
 /**
  * An approval card's fix when Touch ID cannot confirm it from the window: start the bundled
- * helper (main's launcher, waiting for it to pair), or register the connected helper's Touch ID
- * key. Registering the first key needs `operator.admin` only; replacing one asks for presence.
+ * helper (main's launcher, waiting for it to pair), or open Settings → Devices, where the owner
+ * checks the key id and registers the key. Neither approves anything.
  */
 export async function fixTouchId(platform: ShellPlatform, fix: TouchIdFix): Promise<void> {
   if (fix === "start_helper") {
@@ -68,10 +71,5 @@ export async function fixTouchId(platform: ShellPlatform, fix: TouchIdFix): Prom
     if (state?.kind !== "paired") throw new Error(t("web.touchId.helperDidNotStart"));
     return;
   }
-  const res = (await platform.gateway.call("nodes.list", {})) as {
-    nodes?: { kind?: string; status?: string; deviceId?: string }[];
-  };
-  const node = res.nodes?.find((n) => n.kind === "mac-helper" && n.status === "online");
-  if (node?.deviceId === undefined) throw new Error(t("web.touchId.helperDidNotStart"));
-  await platform.gateway.call("devices.presenceKey.register", { deviceId: node.deviceId });
+  platform.windows?.openSettings?.("devices");
 }

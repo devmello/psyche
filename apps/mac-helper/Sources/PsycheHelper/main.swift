@@ -2,6 +2,7 @@ import AppKit
 import Foundation
 import PsycheHelperCore
 import PsycheHelperSystem
+import PsycheProtocol
 
 // Psyche Helper (com.psyche.helper): the Mac node (architecture §6, §7). By default it stays
 // connected to the Gateway's node socket and serves capabilities; it must run as its own
@@ -9,12 +10,14 @@ import PsycheHelperSystem
 // grants belong to the helper (spike 04).
 
 let usage = """
-    usage: psyche-helper [--handshake-only [--challenge-only]] [--timeout <seconds>] [--manifest]
+    usage: psyche-helper [--handshake-only [--challenge-only]] [--timeout <seconds>] [--manifest] [--print-identity]
 
       (no flags)        stay connected to the Gateway and serve capabilities (reconnects)
       --handshake-only  connect, pair, print the phase and exit (smoke test)
       --challenge-only  with --handshake-only: stop after the challenge
       --manifest        print the capability manifest as JSON and exit
+      --print-identity  print {deviceId, presenceKeyId, presenceKeyKind} as JSON and exit: what the
+                        desktop compares with the Gateway before it registers the Touch ID key
 
     Environment: PSYCHE_NODE_SOCKET (default $PSYCHE_HOME/run/node.sock), PSYCHE_HOME (default ~/.psyche).
     Exit codes (--handshake-only): 0 handshake done, 2 socket missing, 3 denied, 4 timeout, 1 other errors.
@@ -24,6 +27,7 @@ var timeout: TimeInterval = 10
 var handshakeOnly = false
 var verify = true
 var printManifest = false
+var printIdentity = false
 // `psyche-helper vsock-bridge CID:PORT`: stdin/stdout ⇄ vsock, the bridge psyche-node uses in a
 // macOS guest (PSYCHE_NODE_VSOCK_BRIDGE, VM mode L3). Handled before anything else starts.
 if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "vsock-bridge" {
@@ -62,6 +66,7 @@ while let arg = args.popFirst() {
         handshakeOnly = true
         verify = false
     case "--manifest": printManifest = true
+    case "--print-identity": printIdentity = true
     case "-h", "--help":
         print(usage)
         exit(0)
@@ -78,6 +83,31 @@ let log = HelperLog()
 if printManifest {
     let runtime = HelperRuntime(log: HelperLog(echo: { _ in }))
     print(runtime.registry.manifest(version: HelperVersion.current).jsonString(pretty: true))
+    exit(0)
+}
+
+// The desktop runs its bundled copy with --print-identity (a fixed path inside its own signed app)
+// to learn the device id and Touch ID key id it registers, independently of whatever node answers
+// on the Gateway socket (security §10). Read-only apart from creating them on first use.
+if printIdentity {
+    let quiet = HelperLog(echo: { _ in })
+    var out: [String: JSONValue] = [:]
+    do {
+        out["deviceId"] = .string(try DeviceIdentityStores.resolve(log: quiet).identity.deviceId)
+    } catch {
+        FileHandle.standardError.write(Data("could not load the device identity\n".utf8))
+        exit(1)
+    }
+    let presence = PreferredPresenceKey.live()
+    do {
+        out["presenceKeyId"] = .string(try presence.publicKey().keyId)
+        out["presenceKeyKind"] = .string(presence.keyKind.rawValue)
+    } catch let e as CapabilityError {
+        out["presenceError"] = .string(e.reason)
+    } catch {
+        out["presenceError"] = .string("presence_key")
+    }
+    print(JSONValue.object(out).jsonString(pretty: false))
     exit(0)
 }
 

@@ -143,12 +143,12 @@ Run `computer.ax_tree` against each app with the window frontmost, then again in
 | 9.9 | Three clicks with no subscriber, then subscribe | All three arrive in order |
 | 9.10 | `notify.withdraw`; re-show the same id | Removed; replaced, not stacked |
 | 9.11a | Profile-signed build: `presence.public_key` | 65-byte X9.63 key, `keyId` = SHA-256; same key on every call and after restart |
-| 9.11b | Profile-signed build, key registered: Allow on a Touch ID card in the Psyche window | The Touch ID sheet names the card ("approve “…” in Psyche"); touching approves the card, Cancel leaves it pending; no notification is needed |
-| 9.11c | Quit the helper, then Allow on a Touch ID card in the window | The card says Psyche Helper isn't running and offers Start Psyche Helper; after it pairs, Touch ID asks again |
-| 9.11d | Psyche in front, a new approval arrives | The helper's banner still shows (`willPresent` returns banner, list, sound for non-passive kinds) |
+| 9.11e | Key registered from Settings → Devices (key id matches the one shown): Allow on a Touch ID card in the Psyche window | The Touch ID sheet names the card and its code ("approve “…” (code xxxx-xxxx) in Psyche"), the same code the card shows; touching approves it once, Cancel leaves it pending; no notification is needed |
+| 9.11f | Quit the helper, then Allow on a Touch ID card in the window | The card says Psyche Helper isn't running and offers Start Psyche Helper; after it pairs nothing is approved until Allow is clicked again |
+| 9.11g | Psyche in front, a new approval arrives | The helper's banner still shows (`willPresent` returns banner, list, sound for non-passive kinds) |
 | 9.11b | Approval with `requireBiometry` + `presenceChallenge`; Approve | One Touch ID prompt; event has `presence {signature, keyId}`; Gateway accepts it once the key is registered |
-| 9.11c | Same, Cancel / use password / re-enrol a finger | Cancel → no presence; password alone cannot sign (`biometryCurrentSet`); after re-enrolment the old key fails: record what happens and re-register |
-| 9.11d | Unsigned build, approval with a challenge | `presenceError: missing_entitlement`; the Gateway keeps the approval refused |
+| 9.11c | Same, Cancel / use password / re-enrol a finger | Cancel → no presence; password alone cannot sign (`biometryCurrentSet`); after re-enrolment the next Allow answers `presence_key_invalidated` with no prompt, the dead key is gone, and Settings → Devices recovers it (Remove key, `psyched presence reset` if enrolled, register the new key) |
+| 9.11d | Build without a provisioning profile | Development build: `presence.public_key` reports `kind: enclave_file`, Settings → Devices asks for "Allow a development Touch ID key" before registering. Built with `PSYCHE_PUBLIC_RELEASE=1`: `missing_entitlement`, no key |
 | 9.11 | S15's Notifier payload (`category`, `interruptionLevel`, `textInput` action) | Accepted; the text-input action becomes the reply field |
 
 ## 10. Speech (Q1)

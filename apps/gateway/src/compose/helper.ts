@@ -1,6 +1,7 @@
 import { createPublicKey, type KeyObject, verify } from "node:crypto";
-import { listDevices } from "@psyche/db";
+import { getSetting, listDevices } from "@psyche/db";
 import {
+  approvalCode,
   cardHeader,
   type PresenceAssertion,
   type PresenceVerifier,
@@ -11,7 +12,7 @@ import {
 import {
   type ApprovalRequest,
   chatLinkRoute,
-  type GrantScope,
+  type ErrorCode,
   type IssuedApproval,
   type NodeInfo,
   PsycheError,
@@ -20,7 +21,7 @@ import {
 import type { Call } from "../context.ts";
 import type { Gateway } from "../server.ts";
 import { surfaceOf } from "./handlers.ts";
-import { HelperPresenceKeys, presenceKeyHandlers } from "./presence-keys.ts";
+import { DEV_FILE_KEY_SETTING, HelperPresenceKeys, presenceKeyHandlers } from "./presence-keys.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
 /**
@@ -129,19 +130,37 @@ export type TouchIdUnavailable =
   | "helper_offline"
   | "helper_outdated"
   | "no_presence_key"
-  | "presence_key_unavailable";
+  | "presence_key_unavailable"
+  | "presence_key_invalidated";
 
 function touchIdUnavailable(reason: TouchIdUnavailable, message: string): PsycheError {
   return new PsycheError("unavailable", message, { details: { reason } });
 }
 
+/** A helper-supplied identifier (error code, reason), kept only when it looks like one. */
+function helperWord(v: unknown): string | undefined {
+  return typeof v === "string" && /^[a-z][a-z0-9_]{0,63}$/.test(v) ? v : undefined;
+}
+
 /** The helper's own error code and reason, for logs (a plain object reads as `internal`). */
-function helperErrorFields(err: unknown): Record<string, string> {
+export function helperErrorFields(err: unknown): Record<string, string> {
   const e = (err ?? {}) as { code?: unknown; details?: { reason?: unknown } | null };
-  return {
-    code: typeof e.code === "string" ? e.code : "unknown",
-    ...(typeof e.details?.reason === "string" ? { reason: e.details.reason } : {}),
-  };
+  const reason = helperWord(e.details?.reason);
+  return { code: helperWord(e.code) ?? "unknown", ...(reason === undefined ? {} : { reason }) };
+}
+
+/** A helper-supplied message, as one short line. */
+function helperMessage(v: unknown, fallback: string): string {
+  if (typeof v !== "string") return fallback;
+  const line = [...v]
+    .map((ch) => {
+      const code = ch.charCodeAt(0);
+      return code < 0x20 || code === 0x7f ? " " : ch;
+    })
+    .join("")
+    .replace(/ +/g, " ")
+    .trim();
+  return line === "" ? fallback : line.slice(0, 200);
 }
 
 /** How long the owner has to touch the sensor. */
@@ -188,8 +207,8 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
           ? { code: PsycheError.from(err).code }
           : helperErrorFields(err),
     );
-  /** Approvals a window is confirming with Touch ID now: one prompt per card. */
-  const confirming = new Set<string>();
+  /** A window is confirming with Touch ID now: one sheet at a time, whatever the card. */
+  let confirming = false;
 
   function client(nodeId: string) {
     return gateway?.context.nodes.client(nodeId);
@@ -371,11 +390,18 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
       return c.invoke(capability, {}, { timeoutMs: 10_000 });
     },
     now: () => new Date(services.clock.now()),
+    allowDevFileKey: () => getSetting(services.db, DEV_FILE_KEY_SETTING)?.value === true,
   });
 
-  /** The connected helper that can sign for the window, or why none can. */
-  function touchIdHelper(): Helper {
-    const connected = [...helpers.values()].reverse();
+  /**
+   * The connected helper that signs for the window, or why none can. With `deviceId` (the helper
+   * the desktop launched from its own bundle, read with `psyche-helper --print-identity`), only
+   * that one: another node that paired as a helper never gets the challenge.
+   */
+  function touchIdHelper(deviceId: string | undefined): Helper {
+    const connected = [...helpers.values()]
+      .reverse()
+      .filter((h) => deviceId === undefined || h.deviceId === deviceId);
     if (connected.length === 0) {
       throw touchIdUnavailable(
         "helper_offline",
@@ -404,8 +430,8 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
     params: {
       approvalId: string;
       answerToken: string;
-      scope?: GrantScope;
-      unsandboxed?: "UNSANDBOXED";
+      scope?: "once";
+      helperDeviceId?: string;
     },
   ) {
     // Only the Psyche app on this Mac, whose Allow the owner just clicked, may raise the prompt.
@@ -423,41 +449,83 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
       throw new PsycheError("not_found", `approval ${params.approvalId} not found`);
     if (a.status !== "pending")
       throw new PsycheError("answer_late", `approval already ${a.status}`);
+    if ((params as { unsandboxed?: unknown }).unsandboxed !== undefined) {
+      // Not in the signed challenge: a window must not be able to add it on its own.
+      throw new PsycheError(
+        "invalid_params",
+        "Running a command without the sandbox can't be approved from the window with Touch ID",
+      );
+    }
     if (!a.requiresAuthentication) {
       throw new PsycheError(
         "invalid_params",
         "This approval needs no Touch ID; answer it directly",
       );
     }
-    if (confirming.has(a.id)) {
-      throw new PsycheError("conflict", "Touch ID is already asking about this approval");
+    if (confirming) {
+      throw new PsycheError("conflict", "Touch ID is already asking about an approval");
     }
-    const h = touchIdHelper();
+    const h = touchIdHelper(params.helperDeviceId);
     const c = client(h.nodeId);
     if (c === undefined) throw touchIdUnavailable("helper_offline", "Psyche Helper went away");
-    confirming.add(a.id);
+    const by = { deviceId: h.deviceId, surface: surfaceOf(services.db, call.identity.deviceId) };
+    // Before any sheet: the token is this window's unused one, the card is armed, and this
+    // answerer is not over its rate limit (a bad token counts against the rejected-answer cap).
+    await services.rawBroker.precheckAnswer({
+      approvalId: a.id,
+      answerToken: params.answerToken,
+      decidedBy: by,
+    });
+    confirming = true;
     try {
       const res = await c.invoke(
         "presence.confirm",
         {
           challenge: presenceChallenge(a.id, a.bindingHash, params.answerToken),
-          header: cardHeader(a),
+          // The sheet names this approval: its summary and the code the card shows.
+          summary: a.summary,
+          code: approvalCode(a.bindingHash),
         },
         { timeoutMs: CONFIRM_TIMEOUT_MS },
       );
       const out = (res.result ?? {}) as { signature?: unknown; keyId?: unknown };
       if (!res.ok || typeof out.signature !== "string") {
         const f = helperErrorFields(res.error);
+        // Every failed confirm counts like a rejected answer, so a window cannot raise sheets
+        // without limit.
+        const reject = (reason: string, code: ErrorCode, message: string, details?: object) =>
+          services.rawBroker.rejectPresence({
+            approvalId: a.id,
+            decidedBy: by,
+            reason,
+            code,
+            message,
+            ...(details === undefined ? {} : { details }),
+          });
         if (f.reason === "missing_entitlement") {
-          throw touchIdUnavailable(
+          return reject(
             "presence_key_unavailable",
+            "unavailable",
             "This build of Psyche Helper cannot keep a Touch ID key (it has no keychain access group)",
+            { reason: "presence_key_unavailable" },
           );
         }
-        if (f.code === "cancelled") throw new PsycheError("cancelled", "Touch ID was cancelled");
-        throw new PsycheError("forbidden", res.error?.message ?? "Touch ID did not confirm it", {
-          details: { reason: "touch_id_failed", ...(f.reason ? { helperReason: f.reason } : {}) },
-        });
+        if (f.reason === "presence_key_invalidated") {
+          return reject(
+            "presence_key_invalidated",
+            "unavailable",
+            "Touch ID changed since this key was set up; set up Touch ID again in Settings → Devices",
+            { reason: "presence_key_invalidated" },
+          );
+        }
+        if (f.code === "cancelled")
+          return reject("presence_cancelled", "cancelled", "Touch ID was cancelled");
+        return reject(
+          "presence_failed",
+          "forbidden",
+          helperMessage(res.error?.message, "Touch ID did not confirm it"),
+          { reason: "touch_id_failed", ...(f.reason ? { helperReason: f.reason } : {}) },
+        );
       }
       void services.audit
         .append({
@@ -471,17 +539,14 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
         })
         .catch(() => undefined);
       // The answer is the window's (its token, its surface); the presence is the helper's key,
-      // so the helper device decides it, as for a notification answer.
+      // so the helper device decides it, as for a notification answer. `once` only: the scope is
+      // not part of the signed challenge, so the window cannot widen it.
       const approval = await services.rawBroker.answer({
         approvalId: a.id,
         answerToken: params.answerToken,
         decision: "approve",
-        ...(params.scope === undefined ? {} : { scope: params.scope }),
-        ...(params.unsandboxed === undefined ? {} : { unsandboxed: params.unsandboxed }),
-        decidedBy: {
-          deviceId: h.deviceId,
-          surface: surfaceOf(services.db, call.identity.deviceId),
-        },
+        scope: "once",
+        decidedBy: by,
         presence: {
           kind: "helper",
           deviceId: h.deviceId,
@@ -497,7 +562,7 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
             ) ?? null);
       return { approval, grant };
     } finally {
-      confirming.delete(a.id);
+      confirming = false;
     }
   }
 

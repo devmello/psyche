@@ -188,6 +188,11 @@ const bridge = {
     onState: (cb: (s: unknown) => void) => listen(IPC.helperState, cb),
     /** Starts the bundled helper (an approval card's "Start Psyche Helper"); resolves to its state. */
     launch: () => invoke(IPC.helperLaunch),
+    // Touch ID through the bundled helper: main and Settings windows only (main checks).
+    touchIdIdentity: () => invoke(IPC.touchIdIdentity),
+    touchIdRegister: () => invoke(IPC.touchIdRegister),
+    touchIdApprove: (p: { approvalId: string; answerToken: string }) =>
+      invoke(IPC.touchIdApprove, p),
   },
   /** Copies text to the system clipboard (#507). */
   clipboard: {

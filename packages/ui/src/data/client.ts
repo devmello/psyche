@@ -45,10 +45,14 @@ export interface GatewayClient {
   presence?(approval: ApprovalRequest, answerToken: string): Promise<PresenceAssertion>;
   /**
    * The desktop window: it holds no key, so approving a card that requires authentication goes
-   * through `approvals.approveWithTouchId`, where the Mac helper runs Touch ID and signs the
-   * challenge for this window's answer token with its registered key.
+   * through `approvals.approveWithTouchId` (once), where the Mac helper runs Touch ID and signs
+   * the challenge for this window's answer token with its registered key. The host sends it on
+   * its own channel, which adds the bundled helper's identity (security §10).
    */
-  helperPresence?: boolean;
+  approveWithTouchId?(params: {
+    approvalId: string;
+    answerToken: string;
+  }): Promise<MethodResult<"approvals.approveWithTouchId">>;
 }
 
 /** `ApprovalAnswer.presence` (a WebAuthn or helper assertion). */

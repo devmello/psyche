@@ -66,10 +66,14 @@ struct PresenceKeyTests {
         InvocationContext(invocationId: "i", capability: "presence.confirm", params: params, approvalId: nil, emit: { _ in })
     }
 
+    private static func confirmParams(summary: String = "Run `date` on this Mac", code: String = "ab12-cd34", challenge: String = challenge) -> JSONValue {
+        .object(["challenge": .string(challenge), "summary": .string(summary), "code": .string(code)])
+    }
+
     @Test func confirmSignsTheApprovalChallengeForTheWindow() async throws {
         let key = PresenceKey(secureEnclave: false)
         let cap = try Self.confirmCap(key)
-        let out = try await cap.invoke(Self.ctx(.object(["challenge": .string(Self.challenge), "header": .string("Run command on this Mac")])))
+        let out = try await cap.invoke(Self.ctx(Self.confirmParams()))
         let (x963, keyId) = try key.publicKey()
         #expect(out.result["keyId"] == .string(keyId))
         let der = try #require(out.result["signature"]?.stringValue.flatMap(Base64URL.decode))
@@ -79,26 +83,51 @@ struct PresenceKeyTests {
 
     @Test func confirmRefusesBadParamsAndPassesTheCancel() async throws {
         let cap = try Self.confirmCap(PresenceKey(secureEnclave: false))
-        await #expect(throws: CapabilityError.self) {
-            _ = try await cap.invoke(Self.ctx(.object(["challenge": .string("nothex"), "header": .string("x")])))
-        }
-        await #expect(throws: CapabilityError.self) {
-            _ = try await cap.invoke(Self.ctx(.object(["challenge": .string(Self.challenge), "header": .string("  ")])))
+        for bad in [
+            Self.confirmParams(challenge: "nothex"), Self.confirmParams(summary: "  "),
+            Self.confirmParams(code: "ABCD-1234"), Self.confirmParams(code: "ab12cd34"),
+        ] {
+            await #expect(throws: CapabilityError.self) { _ = try await cap.invoke(Self.ctx(bad)) }
         }
         let cancelling = try Self.confirmCap(FakeSigner(result: .failure(CapabilityError(.cancelled, reason: "user_cancelled", "x"))))
         do {
-            _ = try await cancelling.invoke(Self.ctx(.object(["challenge": .string(Self.challenge), "header": .string("x")])))
+            _ = try await cancelling.invoke(Self.ctx(Self.confirmParams()))
             Issue.record("expected a cancel")
         } catch let e as CapabilityError {
             #expect(e.code == .cancelled && e.reason == "user_cancelled")
         }
     }
 
-    @Test func confirmReasonIsFixedAroundOneLineOfHeader() {
-        let r = PresenceCapabilities.confirmReason(header: "Run command\non this Mac")
-        #expect(r == "approve \u{201C}Run command on this Mac\u{201D} in Psyche")
-        #expect(PresenceCapabilities.confirmReason(header: String(repeating: "a", count: 500)).count <= 140)
+    @Test func theSheetNamesTheApprovalAndItsCode() {
+        let r = PresenceCapabilities.confirmReason(summary: "Run `date`\non this Mac", code: "ab12-cd34")
+        #expect(r == "approve \u{201C}Run `date` on this Mac\u{201D} (code ab12-cd34) in Psyche")
+        #expect(PresenceCapabilities.confirmReason(summary: String(repeating: "a", count: 500), code: "ab12-cd34").count <= 140)
+        #expect(!PresenceCapabilities.confirmReason(summary: "a\u{0007}b", code: "ab12-cd34").contains("\u{0007}"))
     }
+
+    @Test func aChangedEnrollmentRetiresTheKeychainKeyBeforeAnyPrompt() async throws {
+        let state = MutableState(Data([1]))
+        let key = PresenceKey(secureEnclave: false, biometry: state)
+        let before = try key.publicKey().keyId
+        _ = try await key.sign(challenge: Self.challenge, reason: "r")
+        state.value = Data([2])
+        do {
+            _ = try await key.sign(challenge: Self.challenge, reason: "r")
+            Issue.record("expected presence_key_invalidated")
+        } catch let e as CapabilityError {
+            #expect(e.reason == "presence_key_invalidated")
+        }
+        // The dead key is gone: the next one is new, and it signs.
+        #expect(try key.publicKey().keyId != before)
+        _ = try await key.sign(challenge: Self.challenge, reason: "r")
+    }
+}
+
+/// A Touch ID enrollment state the test changes.
+final class MutableState: BiometryStateSource, @unchecked Sendable {
+    var value: Data?
+    init(_ value: Data?) { self.value = value }
+    func current() -> Data? { value }
 }
 
 /// A software P-256 key standing in for the Secure Enclave: its raw representation is the "blob".
@@ -108,6 +137,18 @@ private struct SoftwareBackend: EnclaveKeyBackend {
     func sign(blob: Data, message: Data, reason: String) async throws -> Data {
         try P256.Signing.PrivateKey(rawRepresentation: blob).signature(for: message).derRepresentation
     }
+}
+
+/// The seal secret in memory (the live one is in the login keychain).
+final class MemorySealer: PresenceFileSealer, @unchecked Sendable {
+    var key: SymmetricKey?
+    func newSecret() throws -> SymmetricKey {
+        let k = SymmetricKey(size: .bits256)
+        key = k
+        return k
+    }
+    func secret() throws -> SymmetricKey? { key }
+    func removeSecret() { key = nil }
 }
 
 private struct KeyedFake: PresenceSigning {
@@ -138,34 +179,42 @@ struct EnclaveFilePresenceKeyTests {
         return UInt16(st.st_mode & 0o7777)
     }
 
+    static func fileKey(_ path: String, sealer: MemorySealer = MemorySealer(), state: MutableState = MutableState(Data([1]))) -> EnclaveFilePresenceKey {
+        EnclaveFilePresenceKey(path: path, backend: SoftwareBackend(), sealer: sealer, biometry: state)
+    }
+
     @Test func keepsTheKeychainKeyWhenTheBuildCanHoldIt() async throws {
-        let k = PreferredPresenceKey(primary: KeyedFake(kind: .keychain), fallback: KeyedFake(kind: .enclaveFile))
+        let k = PreferredPresenceKey(primary: KeyedFake(kind: .keychain), fallback: KeyedFake(kind: .enclaveFile), fallbackAllowed: true)
         #expect(try k.publicKey().keyId == "keychain")
         #expect(k.keyKind == .keychain)
         #expect(try await k.sign(challenge: Self.challenge, reason: "r").signature == "keychain")
     }
 
-    @Test func fallsBackOnlyOnMissingEntitlement() async throws {
+    @Test func fallsBackOnlyOnMissingEntitlementAndOnlyInBuildsWithTheFallback() async throws {
         let noProfile = CapabilityError(.unavailable, reason: "missing_entitlement", "x")
-        let k = PreferredPresenceKey(primary: KeyedFake(kind: .keychain, failure: noProfile), fallback: KeyedFake(kind: .enclaveFile))
+        let k = PreferredPresenceKey(primary: KeyedFake(kind: .keychain, failure: noProfile), fallback: KeyedFake(kind: .enclaveFile), fallbackAllowed: true)
         #expect(try k.publicKey().keyId == "enclave_file")
         #expect(k.keyKind == .enclaveFile)
         #expect(try await k.sign(challenge: Self.challenge, reason: "r").signature == "enclave_file")
+        // A release build (PSYCHE_PUBLIC_RELEASE=1) has no fallback: the keychain error stands.
+        let release = PreferredPresenceKey(primary: KeyedFake(kind: .keychain, failure: noProfile), fallback: KeyedFake(kind: .enclaveFile), fallbackAllowed: false)
+        #expect(throws: CapabilityError.self) { _ = try release.publicKey() }
         // Any other keychain failure is reported, never papered over with the file key.
         let locked = CapabilityError(.forbidden, reason: "interaction_not_allowed", "x")
-        let other = PreferredPresenceKey(primary: KeyedFake(kind: .keychain, failure: locked), fallback: KeyedFake(kind: .enclaveFile))
+        let other = PreferredPresenceKey(primary: KeyedFake(kind: .keychain, failure: locked), fallback: KeyedFake(kind: .enclaveFile), fallbackAllowed: true)
         #expect(throws: CapabilityError.self) { _ = try other.publicKey() }
         #expect(other.keyKind == .keychain)
     }
 
-    @Test func writesTheBlobFile0600InA0700FolderAndReusesIt() async throws {
+    @Test func writesTheSealedFile0600InA0700FolderAndReusesIt() async throws {
         let path = Self.tempPath()
-        let key = EnclaveFilePresenceKey(path: path, backend: SoftwareBackend())
+        let sealer = MemorySealer()
+        let key = Self.fileKey(path, sealer: sealer)
         let (x963, keyId) = try key.publicKey()
         #expect(Self.mode(path) == 0o600)
         #expect(Self.mode((path as NSString).deletingLastPathComponent) == 0o700)
-        // The same key on the next start, and its signature verifies against it.
-        let again = EnclaveFilePresenceKey(path: path, backend: SoftwareBackend())
+        // The same key on the next start (same seal), and its signature verifies against it.
+        let again = Self.fileKey(path, sealer: sealer)
         #expect(try again.publicKey().keyId == keyId)
         let signed = try await again.sign(challenge: Self.challenge, reason: "r")
         #expect(signed.keyId == keyId)
@@ -175,24 +224,75 @@ struct EnclaveFilePresenceKeyTests {
         #expect(key.keyKind == .enclaveFile)
     }
 
+    @Test func aPlantedBlobIsNeverUsed() throws {
+        let path = Self.tempPath()
+        try FileManager.default.createDirectory(atPath: (path as NSString).deletingLastPathComponent, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        // Another process writes a blob of its own (made without biometry, say), even a well-formed
+        // file sealed with a secret the helper does not hold.
+        let plantedKey = P256.Signing.PrivateKey()
+        let plantedSecret = SymmetricKey(size: .bits256)
+        var planted = Data("PSYPK1".utf8)
+        planted.append(EnclaveFilePresenceKey.mac(plantedSecret, state: Data(), blob: plantedKey.rawRepresentation))
+        planted.append(contentsOf: [0, 0])
+        planted.append(plantedKey.rawRepresentation)
+        FileManager.default.createFile(atPath: path, contents: planted, attributes: [.posixPermissions: 0o600])
+        let key = Self.fileKey(path)
+        let x963 = try key.publicKey().x963
+        #expect(x963 != plantedKey.publicKey.x963Representation)
+        #expect(FileManager.default.fileExists(atPath: path + ".rejected"))
+    }
+
+    @Test func aChangedFileIsRefusedWhileRunning() throws {
+        let path = Self.tempPath()
+        let sealer = MemorySealer()
+        let key = Self.fileKey(path, sealer: sealer)
+        _ = try key.publicKey()
+        // Replaced with another correctly sealed key (the strongest attacker): still refused.
+        unlink(path)
+        _ = try Self.fileKey(path, sealer: sealer).publicKey()
+        do {
+            _ = try key.publicKey()
+            Issue.record("expected presence_key_changed")
+        } catch let e as CapabilityError {
+            #expect(e.reason == "presence_key_changed")
+        }
+    }
+
+    @Test func aChangedEnrollmentRetiresTheFileKey() async throws {
+        let path = Self.tempPath()
+        let state = MutableState(Data([7]))
+        let key = Self.fileKey(path, state: state)
+        let before = try key.publicKey().keyId
+        state.value = Data([8])
+        do {
+            _ = try await key.sign(challenge: Self.challenge, reason: "r")
+            Issue.record("expected presence_key_invalidated")
+        } catch let e as CapabilityError {
+            #expect(e.reason == "presence_key_invalidated")
+        }
+        #expect(!FileManager.default.fileExists(atPath: path))
+        #expect(try key.publicKey().keyId != before)
+    }
+
     @Test func tightensALooseFolderAndRefusesALooseOrLinkedFile() throws {
         let path = Self.tempPath()
         let dir = (path as NSString).deletingLastPathComponent
+        let sealer = MemorySealer()
         try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o755])
-        _ = try EnclaveFilePresenceKey(path: path, backend: SoftwareBackend()).publicKey()
+        _ = try Self.fileKey(path, sealer: sealer).publicKey()
         #expect(Self.mode(dir) == 0o700)
 
         chmod(path, 0o644)
-        #expect(throws: CapabilityError.self) { _ = try EnclaveFilePresenceKey(path: path, backend: SoftwareBackend()).publicKey() }
+        #expect(throws: CapabilityError.self) { _ = try Self.fileKey(path, sealer: sealer).publicKey() }
 
         let linked = Self.tempPath()
         try FileManager.default.createDirectory(atPath: (linked as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
         symlink(path, linked)
-        #expect(throws: CapabilityError.self) { _ = try EnclaveFilePresenceKey(path: linked, backend: SoftwareBackend()).publicKey() }
+        #expect(throws: CapabilityError.self) { _ = try Self.fileKey(linked, sealer: sealer).publicKey() }
     }
 
     @Test func publicKeyCapabilityReportsTheKind() async throws {
-        let key = EnclaveFilePresenceKey(path: Self.tempPath(), backend: SoftwareBackend())
+        let key = Self.fileKey(Self.tempPath())
         let cap = try #require(PresenceCapabilities.make(key: key).first)
         let out = try await cap.invoke(InvocationContext(invocationId: "i", capability: cap.spec.name, params: .null, approvalId: nil, emit: { _ in }))
         #expect(out.result["kind"] == .string("enclave_file"))

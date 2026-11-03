@@ -96,8 +96,8 @@ export interface UiSlots {
   ) => Promise<boolean | undefined> | boolean | undefined;
   /**
    * The desktop's fixes when Touch ID cannot confirm a card from the window: start the bundled
-   * Mac helper, or register its Touch ID key (`devices.presenceKey.register`). Resolves once
-   * done; the card then asks Touch ID again.
+   * Mac helper, or open Settings → Devices (where the owner checks the key id and registers it).
+   * Resolves once done; the owner then clicks Allow again (nothing is approved on its own).
    */
   touchIdFix?: (fix: TouchIdFix) => Promise<void>;
   /** The host's native folder picker; resolves to the real path, or null when cancelled. */

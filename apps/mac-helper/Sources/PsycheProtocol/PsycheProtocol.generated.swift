@@ -4282,22 +4282,26 @@ public struct Grant: Codable, Sendable {
 public struct ApprovalsApproveWithTouchIDParams: Codable, Sendable {
     public let answerToken: String
     public let approvalID: String
-    public let scope: GrantScope?
-    public let unsandboxed: Unsandboxed?
+    public let helperDeviceID: String?
+    public let scope: ApprovalsApproveWithTouchIDParamsScope?
 
     public enum CodingKeys: String, CodingKey {
         case answerToken = "answerToken"
         case approvalID = "approvalId"
+        case helperDeviceID = "helperDeviceId"
         case scope = "scope"
-        case unsandboxed = "unsandboxed"
     }
 
-    public init(answerToken: String, approvalID: String, scope: GrantScope?, unsandboxed: Unsandboxed?) {
+    public init(answerToken: String, approvalID: String, helperDeviceID: String?, scope: ApprovalsApproveWithTouchIDParamsScope?) {
         self.answerToken = answerToken
         self.approvalID = approvalID
+        self.helperDeviceID = helperDeviceID
         self.scope = scope
-        self.unsandboxed = unsandboxed
     }
+}
+
+public enum ApprovalsApproveWithTouchIDParamsScope: String, Codable, Sendable {
+    case once = "once"
 }
 
 // MARK: - ApprovalsApproveWithTouchIDResult
@@ -11774,7 +11778,7 @@ public enum PresenceKeyInfoKind: String, Codable, Sendable {
 public struct DevicesPresenceKeyRegisterParams: Codable, Sendable {
     public let approvalID: String?
     public let deviceID: String
-    public let expectKeyID: String?
+    public let expectKeyID: String
 
     public enum CodingKeys: String, CodingKey {
         case approvalID = "approvalId"
@@ -11782,7 +11786,7 @@ public struct DevicesPresenceKeyRegisterParams: Codable, Sendable {
         case expectKeyID = "expectKeyId"
     }
 
-    public init(approvalID: String?, deviceID: String, expectKeyID: String?) {
+    public init(approvalID: String?, deviceID: String, expectKeyID: String) {
         self.approvalID = approvalID
         self.deviceID = deviceID
         self.expectKeyID = expectKeyID

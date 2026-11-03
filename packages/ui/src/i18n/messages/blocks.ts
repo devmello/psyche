@@ -218,12 +218,18 @@ export const blocks = {
     "Psyche Helper isn't running, so Touch ID can't confirm this here.",
   "blocks.approval.touchId.helperOutdated":
     "This Psyche Helper is too old to confirm approvals from this window. Update Psyche, then try again.",
-  "blocks.approval.touchId.noKey": "Touch ID isn't set up for approvals on this Mac yet.",
+  "blocks.approval.touchId.noKey":
+    "Touch ID isn't set up for approvals on this Mac yet. Set it up in Settings → Devices, where you can check the key first.",
+  "blocks.approval.touchId.invalidated":
+    "Touch ID changed since this Mac's key was set up, so it can't confirm approvals. Set it up again in Settings → Devices.",
+  "blocks.approval.touchId.noUnsandboxed":
+    "Running a command without the sandbox can't be approved with Touch ID from this window. Set up the sandbox instead",
+  "blocks.approval.touchId.openDevices": "Open Settings → Devices",
+  "blocks.approval.touchId.code": "Code {code}",
   "blocks.approval.touchId.keyUnavailable":
     "This build of Psyche Helper can't keep a Touch ID key (it has no keychain access group), so cards that need Touch ID can't be approved on this Mac.",
   "blocks.approval.touchId.cancelled": "Touch ID was cancelled, so nothing was approved",
   "blocks.approval.touchId.startHelper": "Start Psyche Helper",
-  "blocks.approval.touchId.setUp": "Set up Touch ID",
   "blocks.approval.alsoSentTo": "Also sent to: {surfaces}. The first answer wins.",
   "blocks.approval.details": "Details",
   "blocks.approval.binding": "Binding",

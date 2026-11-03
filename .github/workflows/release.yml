@@ -770,6 +770,8 @@ jobs:
         env:
           ARCH: ${{ matrix.arch }}
           PSYCHE_VERSION: ${{ needs.version.outputs.version }}
+          # Leaves out the development-only Secure Enclave file-key fallback (security §10).
+          PSYCHE_PUBLIC_RELEASE: "1"
         run: |
           # apps/gateway/dist-bin/darwin-<arch>/psyched, started once against /healthz (--smoke).
           node deploy/scripts/build-psyched.mjs --arch "$ARCH" --smoke

@@ -71,26 +71,99 @@ public struct SecureEnclaveBackend: EnclaveKeyBackend {
     }
 }
 
+/// Keeps the secret that seals the key file to this helper: a random HMAC key in the login
+/// (file-based) keychain, which needs no access group. The keychain trusts the program that made
+/// the item (its code signature's designated requirement), so another program reading it gets a
+/// macOS prompt, and a key file sealed by anyone else is refused (security §10).
+public protocol PresenceFileSealer: Sendable {
+    /// A new secret for a new key file, replacing any earlier one.
+    func newSecret() throws -> SymmetricKey
+    /// The current secret, or nil when there is none.
+    func secret() throws -> SymmetricKey?
+    func removeSecret()
+}
+
+public struct LoginKeychainSealer: PresenceFileSealer {
+    static let service = "com.psyche.helper.presence-file"
+    static let account = "hmac-v1"
+
+    public init() {}
+
+    private var base: [String: Any] {
+        [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: Self.service,
+            kSecAttrAccount as String: Self.account,
+            kSecUseDataProtectionKeychain as String: false,
+        ]
+    }
+
+    public func newSecret() throws -> SymmetricKey {
+        removeSecret()
+        let key = SymmetricKey(size: .bits256)
+        var add = base
+        add[kSecValueData as String] = key.withUnsafeBytes { Data($0) }
+        add[kSecAttrLabel as String] = "Psyche Helper Touch ID key seal"
+        let status = SecItemAdd(add as CFDictionary, nil)
+        guard status == errSecSuccess else { throw KeychainStatus.error(from: KeychainOSStatusError(status)) }
+        return key
+    }
+
+    public func secret() throws -> SymmetricKey? {
+        var q = base
+        q[kSecReturnData as String] = true
+        q[kSecMatchLimit as String] = kSecMatchLimitOne
+        var out: CFTypeRef?
+        let status = SecItemCopyMatching(q as CFDictionary, &out)
+        if status == errSecItemNotFound { return nil }
+        guard status == errSecSuccess, let data = out as? Data, data.count == 32 else {
+            throw KeychainStatus.error(from: KeychainOSStatusError(status))
+        }
+        return SymmetricKey(data: data)
+    }
+
+    public func removeSecret() {
+        SecItemDelete(base as CFDictionary)
+    }
+}
+
 /// The Secure Enclave presence key kept as a wrapped blob in
 /// `~/Library/Application Support/Psyche Helper/presence/presence-key.se` (directory 0700, file
 /// 0600, owned by this user, never a symlink). Used only when the keychain key cannot exist
-/// (`missing_entitlement`, see `PreferredPresenceKey`).
+/// (`missing_entitlement`, see `PreferredPresenceKey`), and only in builds made with the fallback.
 ///
-/// Limit (security §10): any process running as this user can read the blob and ask the Secure
-/// Enclave to sign with it, behind its own Touch ID prompt and wording. The keychain key is bound
-/// to the helper's access group instead. Same trust boundary as pairing: a same-user process can
-/// already pair as a helper with the handshake secret.
+/// The file is `PSYPK1`, an HMAC-SHA256 over the rest, the enrollment state the key was made under
+/// and the blob. The HMAC key is `PresenceFileSealer`'s secret, so a blob planted by another
+/// process (one made without biometry, say) does not verify: it is set aside
+/// (`presence-key.se.rejected`) and the helper makes its own. Once loaded, the public key is pinned
+/// for the life of the process; a different key on disk is refused until the helper restarts.
+///
+/// Limit (security §10): a same-user process can still read the blob and ask the Secure Enclave to
+/// sign with it behind its own Touch ID prompt and wording; the keychain key is bound to the
+/// helper's access group instead. Same trust boundary as pairing: a same-user process can already
+/// pair as a helper with the handshake secret.
 public final class EnclaveFilePresenceKey: PresenceSigning, @unchecked Sendable {
     public let path: String
     private let backend: any EnclaveKeyBackend
+    private let sealer: any PresenceFileSealer
+    private let biometry: any BiometryStateSource
     private let expectedOwner: uid_t
     private let lock = NSLock()
+    private var pinned: Data?
+
+    static let magic = Data("PSYPK1".utf8)
 
     public var keyKind: PresenceKeyKind { .enclaveFile }
 
-    public init(path: String = EnclaveFilePresenceKey.defaultPath(), backend: any EnclaveKeyBackend = SecureEnclaveBackend(), expectedOwner: uid_t = geteuid()) {
+    public init(
+        path: String = EnclaveFilePresenceKey.defaultPath(), backend: any EnclaveKeyBackend = SecureEnclaveBackend(),
+        sealer: any PresenceFileSealer = LoginKeychainSealer(), biometry: any BiometryStateSource = LiveBiometryState(),
+        expectedOwner: uid_t = geteuid()
+    ) {
         self.path = path
         self.backend = backend
+        self.sealer = sealer
+        self.biometry = biometry
         self.expectedOwner = expectedOwner
     }
 
@@ -102,19 +175,44 @@ public final class EnclaveFilePresenceKey: PresenceSigning, @unchecked Sendable 
 
     var directory: String { (path as NSString).deletingLastPathComponent }
 
-    /// The blob, created on first use.
-    func blob() throws -> Data {
+    struct Sealed: Equatable {
+        var state: Data
+        var blob: Data
+    }
+
+    /// The verified key (made on first use), pinned for this process.
+    func current() throws -> (sealed: Sealed, x963: Data) {
         try lock.withLock {
-            if let existing = try load() { return existing }
-            let created = try backend.create()
-            try save(created)
-            // A concurrent creator may have won the link: use whatever is on disk now.
-            return try load() ?? created
+            var loaded: Sealed?
+            do {
+                loaded = try load()
+            } catch let e as CapabilityError where e.reason == "presence_key_unsealed" && pinned == nil {
+                // Not this helper's: set it aside and make our own (never adopt it).
+                _ = rename(path, path + ".rejected")
+                loaded = nil
+            }
+            if let loaded {
+                let x963 = try backend.publicKey(blob: loaded.blob)
+                if let pinned, pinned != x963 {
+                    throw failure("presence_key_changed", "changed while the helper was running; restart Psyche Helper")
+                }
+                pinned = x963
+                return (loaded, x963)
+            }
+            if pinned != nil {
+                throw failure("presence_key_changed", "disappeared while the helper was running; restart Psyche Helper")
+            }
+            let made = Sealed(state: biometry.current() ?? Data(), blob: try backend.create())
+            try save(made, secret: try sealer.newSecret())
+            guard let onDisk = try load() else { throw failure("presence_key_file", "could not be read back") }
+            let x963 = try backend.publicKey(blob: onDisk.blob)
+            pinned = x963
+            return (onDisk, x963)
         }
     }
 
     public func publicKey() throws -> (x963: Data, keyId: String) {
-        let x963 = try backend.publicKey(blob: try blob())
+        let x963 = try current().x963
         return (x963, PresenceMessage.keyId(x963: x963))
     }
 
@@ -122,18 +220,45 @@ public final class EnclaveFilePresenceKey: PresenceSigning, @unchecked Sendable 
         guard PresenceMessage.isValidChallenge(challenge) else {
             throw CapabilityError.invalidParams("presenceChallenge must be 64 hex characters", field: "presenceChallenge")
         }
-        let b = try blob()
-        let der = try await backend.sign(blob: b, message: PresenceMessage.bytes(challenge: challenge), reason: reason)
-        return PresenceSignature(signature: Base64URL.encode(der), keyId: PresenceMessage.keyId(x963: try backend.publicKey(blob: b)))
+        let (sealed, x963) = try current()
+        // Before any prompt: a key made under other fingerprints can never sign again.
+        if !sealed.state.isEmpty, let now = biometry.current(), now != sealed.state {
+            discardInvalidated()
+            throw PresenceKeyErrors.invalidated
+        }
+        let der = try await backend.sign(blob: sealed.blob, message: PresenceMessage.bytes(challenge: challenge), reason: reason)
+        return PresenceSignature(signature: Base64URL.encode(der), keyId: PresenceMessage.keyId(x963: x963))
+    }
+
+    /// Deletes the dead key and its seal; the next use makes (and pins) a new one.
+    func discardInvalidated() {
+        lock.withLock {
+            unlink(path)
+            sealer.removeSecret()
+            pinned = nil
+        }
     }
 
     // MARK: File
 
-    private func failure(_ what: String) -> CapabilityError {
-        CapabilityError(.errorCodeInternal, reason: "presence_key_file", "Touch ID key file \(path): \(what)")
+    private func failure(_ reason: String, _ what: String) -> CapabilityError {
+        CapabilityError(.errorCodeInternal, reason: reason, "Touch ID key file \(path): \(what)")
     }
 
-    func load() throws -> Data? {
+    private func failure(_ what: String) -> CapabilityError { failure("presence_key_file", what) }
+
+    static func mac(_ secret: SymmetricKey, state: Data, blob: Data) -> Data {
+        var body = Data()
+        body.append(UInt8(state.count >> 8))
+        body.append(UInt8(state.count & 0xFF))
+        body.append(state)
+        body.append(blob)
+        return Data(HMAC<SHA256>.authenticationCode(for: body, using: secret))
+    }
+
+    /// The sealed key, nil when there is no file. Throws `presence_key_unsealed` for a file this
+    /// helper did not seal.
+    func load() throws -> Sealed? {
         let fd = open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
         if fd < 0 {
             if errno == ENOENT { return nil }
@@ -146,11 +271,27 @@ public final class EnclaveFilePresenceKey: PresenceSigning, @unchecked Sendable 
         guard st.st_uid == expectedOwner else { throw failure("owned by another user") }
         guard UInt16(st.st_mode & 0o7777) & ~0o600 == 0 else { throw failure("readable by others (must be 0600)") }
         guard st.st_size > 0, st.st_size <= 16_384 else { throw failure("malformed") }
-        return try FileHandle(fileDescriptor: fd, closeOnDealloc: false).readToEnd()
+        let data = try FileHandle(fileDescriptor: fd, closeOnDealloc: false).readToEnd() ?? Data()
+        let unsealed = failure("presence_key_unsealed", "was not sealed by this helper")
+        let head = Self.magic.count + 32 + 2
+        guard data.count > head, data.prefix(Self.magic.count) == Self.magic else { throw unsealed }
+        let mac = data.subdata(in: Self.magic.count..<(Self.magic.count + 32))
+        let stateLen = Int(data[Self.magic.count + 32]) << 8 | Int(data[Self.magic.count + 33])
+        guard data.count > head + stateLen else { throw unsealed }
+        let state = data.subdata(in: head..<(head + stateLen))
+        let blob = data.subdata(in: (head + stateLen)..<data.count)
+        guard let secret = try sealer.secret(), Self.mac(secret, state: state, blob: blob) == mac else { throw unsealed }
+        return Sealed(state: state, blob: blob)
     }
 
-    func save(_ data: Data) throws {
+    func save(_ sealed: Sealed, secret: SymmetricKey) throws {
         try ensureDirectory()
+        var data = Self.magic
+        data.append(Self.mac(secret, state: sealed.state, blob: sealed.blob))
+        data.append(UInt8(sealed.state.count >> 8))
+        data.append(UInt8(sealed.state.count & 0xFF))
+        data.append(sealed.state)
+        data.append(sealed.blob)
         let tmp = path + ".tmp-\(getpid())-\(UInt32.random(in: 0...UInt32.max))"
         let fd = open(tmp, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0o600)
         guard fd >= 0 else { throw failure(String(cString: strerror(errno))) }
@@ -159,8 +300,8 @@ public final class EnclaveFilePresenceKey: PresenceSigning, @unchecked Sendable 
         let ok = written == data.count && fchmod(fd, 0o600) == 0 && fsync(fd) == 0
         close(fd)
         guard ok else { throw failure("could not be written") }
-        // link(2) never replaces an existing key.
-        guard link(tmp, path) == 0 || errno == EEXIST else { throw failure(String(cString: strerror(errno))) }
+        // rename(2) replaces a key only on this path, after the old one was set aside or discarded.
+        guard rename(tmp, path) == 0 else { throw failure(String(cString: strerror(errno))) }
     }
 
     /// The key directory 0700: created so, or an existing one checked to be ours and tightened.
@@ -183,17 +324,32 @@ public final class EnclaveFilePresenceKey: PresenceSigning, @unchecked Sendable 
 }
 
 /// The keychain key whenever the build can hold it; the Secure Enclave file key only when the
-/// keychain answers `missing_entitlement` (no provisioning profile). The choice is made once per
-/// process, so one helper never signs with both.
+/// keychain answers `missing_entitlement` (no provisioning profile) and the build has the fallback.
+/// The choice is made once per process, so one helper never signs with both.
 public final class PreferredPresenceKey: PresenceSigning, @unchecked Sendable {
+    /// Whether this build may use the file key at all: on for development builds, off when built
+    /// with `PSYCHE_PUBLIC_RELEASE=1` (Package.swift leaves `PSYCHE_PRESENCE_FILE_FALLBACK` out).
+    #if PSYCHE_PRESENCE_FILE_FALLBACK
+    public static let fallbackBuiltIn = true
+    #else
+    public static let fallbackBuiltIn = false
+    #endif
+
     private let primary: any PresenceSigning
     private let fallback: any PresenceSigning
+    private let fallbackAllowed: Bool
     private let lock = NSLock()
     private var chosen: (any PresenceSigning)?
 
-    public init(primary: any PresenceSigning, fallback: any PresenceSigning) {
+    public init(primary: any PresenceSigning, fallback: any PresenceSigning, fallbackAllowed: Bool = PreferredPresenceKey.fallbackBuiltIn) {
         self.primary = primary
         self.fallback = fallback
+        self.fallbackAllowed = fallbackAllowed
+    }
+
+    /// The helper's key: keychain first, the file key on builds without a provisioning profile.
+    public static func live() -> PreferredPresenceKey {
+        PreferredPresenceKey(primary: PresenceKey(), fallback: EnclaveFilePresenceKey())
     }
 
     func active() throws -> any PresenceSigning {
@@ -203,10 +359,10 @@ public final class PreferredPresenceKey: PresenceSigning, @unchecked Sendable {
             do {
                 _ = try primary.publicKey()
                 pick = primary
-            } catch let e as CapabilityError where e.reason == "missing_entitlement" {
+            } catch let e as CapabilityError where e.reason == "missing_entitlement" && fallbackAllowed {
                 // RELEASE BLOCKER (docs/08-roadmap.md v1.0): before any public release a
                 // provisioned keychain key replaces this, and the file-key fallback is removed or
-                // disabled (security §10).
+                // disabled (security §10). Release builds already leave it out (PSYCHE_PUBLIC_RELEASE).
                 pick = fallback
             }
             chosen = pick

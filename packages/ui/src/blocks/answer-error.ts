@@ -3,13 +3,15 @@ import { describeError, errorCode } from "../i18n/errors.ts";
 import type { MessageId } from "../i18n/messages/index.ts";
 
 /** What the card offers when Touch ID cannot confirm from this window (`touchIdFix` slot). */
-export type TouchIdFix = "start_helper" | "register_key";
+export type TouchIdFix = "start_helper" | "open_devices";
 
 /** `approvals.approveWithTouchId`'s `details.reason` when it cannot run. */
 const TOUCH_ID_SETUP: Record<string, { id: MessageId; fix: TouchIdFix | null }> = {
   helper_offline: { id: "blocks.approval.touchId.helperOffline", fix: "start_helper" },
   helper_outdated: { id: "blocks.approval.touchId.helperOutdated", fix: null },
-  no_presence_key: { id: "blocks.approval.touchId.noKey", fix: "register_key" },
+  // Registering a key happens in Settings → Devices, where the owner sees the key id first.
+  no_presence_key: { id: "blocks.approval.touchId.noKey", fix: "open_devices" },
+  presence_key_invalidated: { id: "blocks.approval.touchId.invalidated", fix: "open_devices" },
   presence_key_unavailable: { id: "blocks.approval.touchId.keyUnavailable", fix: null },
 };
 

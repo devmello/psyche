@@ -352,7 +352,7 @@ export class MockGateway implements GatewayClient {
   /** A host's presence (a web passkey); tests set it to exercise approvals that need one. */
   presence?: GatewayClient["presence"];
   /** The desktop host: Touch ID cards go through `approvals.approveWithTouchId`. */
-  helperPresence?: boolean;
+  approveWithTouchId?: GatewayClient["approveWithTouchId"];
   private seq = 0;
   private stateVersion = 1;
   private state: ConnectionState;

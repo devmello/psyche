@@ -2,17 +2,20 @@ import { describe, expect, it, vi } from "vitest";
 import { fixTouchId } from "../../src/compose/helper.tsx";
 import type { ShellPlatform } from "../../src/shell/platform.ts";
 
-/** An approval card's Touch ID fixes on the desktop: start the helper, register its key. */
+/**
+ * An approval card's Touch ID fixes on the desktop: start the helper, or open Settings → Devices.
+ * Neither registers a key or approves anything on its own (security review, finding 1).
+ */
 
-function platform(over: { launch?: () => Promise<unknown>; nodes?: unknown[] } = {}) {
-  const call = vi.fn(async (method: string) =>
-    method === "nodes.list" ? { nodes: over.nodes ?? [] } : { presenceKey: { keyId: "k" } },
-  );
+function platform(over: { launch?: () => Promise<unknown> } = {}) {
+  const call = vi.fn(async () => ({}));
+  const openSettings = vi.fn();
   const p = {
     gateway: { call },
     helper: { getState: vi.fn(), onState: vi.fn(), launch: over.launch },
+    windows: { openSettings },
   } as unknown as ShellPlatform;
-  return { p, call };
+  return { p, call, openSettings };
 }
 
 describe("fixTouchId", () => {
@@ -25,17 +28,10 @@ describe("fixTouchId", () => {
     ).rejects.toThrow(/did not connect/);
   });
 
-  it("register_key registers the online helper's key", async () => {
-    const { p, call } = platform({
-      nodes: [
-        { kind: "mac-helper", status: "offline", deviceId: "old" },
-        { kind: "mac-helper", status: "online", deviceId: "dev_helper" },
-      ],
-    });
-    await fixTouchId(p, "register_key");
-    expect(call).toHaveBeenLastCalledWith("devices.presenceKey.register", {
-      deviceId: "dev_helper",
-    });
-    await expect(fixTouchId(platform().p, "register_key")).rejects.toThrow(/did not connect/);
+  it("open_devices only opens Settings → Devices: no registration, no Gateway call", async () => {
+    const { p, call, openSettings } = platform();
+    await fixTouchId(p, "open_devices");
+    expect(openSettings).toHaveBeenCalledWith("devices");
+    expect(call).not.toHaveBeenCalled();
   });
 });

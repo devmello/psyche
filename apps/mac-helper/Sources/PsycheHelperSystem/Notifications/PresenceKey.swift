@@ -15,6 +15,35 @@ public protocol PresenceSigning: Sendable {
     var keyKind: PresenceKeyKind { get }
 }
 
+/// The Mac's Touch ID enrollment as an opaque hash (`LAContext.domainState.biometry.stateHash`):
+/// it changes when a fingerprint is added or removed, which is exactly what makes a
+/// `.biometryCurrentSet` key unusable. Recorded when a key is created, compared before each
+/// signature, so a dead key is reported (`presence_key_invalidated`) and replaced instead of failing
+/// every approval with no reason.
+public protocol BiometryStateSource: Sendable {
+    func current() -> Data?
+}
+
+public struct LiveBiometryState: BiometryStateSource {
+    public init() {}
+    public func current() -> Data? {
+        let ctx = LAContext()
+        var error: NSError?
+        guard ctx.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) else { return nil }
+        return ctx.domainState.biometry.stateHash
+    }
+}
+
+public enum PresenceKeyErrors {
+    /// The fingerprints changed since the key was made: it can never sign again. The helper has
+    /// deleted it; the next `presence.public_key` makes a new one, which the owner registers again
+    /// (security §10, recovery).
+    public static let invalidated = CapabilityError(
+        .unavailable, reason: "presence_key_invalidated",
+        "Touch ID changed since this key was set up, so it can no longer sign. Set up Touch ID again in Settings → Devices."
+    )
+}
+
 /// The helper's presence key: one Secure Enclave P-256 key in the data-protection keychain
 /// (`kSecAttrTokenIDSecureEnclave`, permanent, this device only, non-synchronizable), access control
 /// `[.privateKeyUsage, .biometryCurrentSet]`, so every signature needs a current fingerprint.
@@ -30,12 +59,21 @@ public final class PresenceKey: PresenceSigning, @unchecked Sendable {
 
     private let secureEnclave: Bool
     private let accessGroup: String?
+    private let biometry: any BiometryStateSource
     private let lock = NSLock()
     private var ephemeral: SecKey?
+    private var ephemeralState: Data?
 
-    public init(secureEnclave: Bool = true, accessGroup: String? = KeychainAccessGroup.resolve()) {
+    /// Labels the key with the enrollment state it was made under (`kSecAttrLabel`).
+    static let labelPrefix = "psyche-presence|"
+
+    public init(
+        secureEnclave: Bool = true, accessGroup: String? = KeychainAccessGroup.resolve(),
+        biometry: any BiometryStateSource = LiveBiometryState()
+    ) {
         self.secureEnclave = secureEnclave
         self.accessGroup = accessGroup
+        self.biometry = biometry
     }
 
     static func accessControl() throws -> SecAccessControl {
@@ -76,6 +114,7 @@ public final class PresenceKey: PresenceSigning, @unchecked Sendable {
             ]
             guard let key = SecKeyCreateRandomKey(attrs as CFDictionary, &error) else { throw Self.failure(error?.takeRetainedValue()) }
             ephemeral = key
+            ephemeralState = biometry.current()
             return key
         }
         var ref: CFTypeRef?
@@ -87,6 +126,7 @@ public final class PresenceKey: PresenceSigning, @unchecked Sendable {
             kSecAttrApplicationTag as String: Self.tag,
             kSecAttrAccessControl as String: try Self.accessControl(),
         ]
+        if let state = biometry.current() { privateAttrs[kSecAttrLabel as String] = Self.labelPrefix + Base64URL.encode(state) }
         if let accessGroup { privateAttrs[kSecAttrAccessGroup as String] = accessGroup }
         var attrs: [String: Any] = [
             kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
@@ -113,9 +153,43 @@ public final class PresenceKey: PresenceSigning, @unchecked Sendable {
         return (data, PresenceMessage.keyId(x963: data))
     }
 
+    /// The enrollment state the key was made under, when it was recorded. Never prompts.
+    func recordedState() -> Data? {
+        if !secureEnclave { return lock.withLock { ephemeralState } }
+        var q = lookupQuery(context: nil)
+        q.removeValue(forKey: kSecReturnRef as String)
+        q[kSecReturnAttributes as String] = true
+        var out: CFTypeRef?
+        guard SecItemCopyMatching(q as CFDictionary, &out) == errSecSuccess,
+              let label = (out as? [String: Any])?[kSecAttrLabel as String] as? String,
+              label.hasPrefix(Self.labelPrefix)
+        else { return nil }
+        return Base64URL.decode(String(label.dropFirst(Self.labelPrefix.count)))
+    }
+
+    /// Deletes a key the enrollment change made unusable, so the next use makes a new one.
+    func discardInvalidated() {
+        if !secureEnclave {
+            lock.withLock {
+                ephemeral = nil
+                ephemeralState = nil
+            }
+            return
+        }
+        var q = lookupQuery(context: nil)
+        q.removeValue(forKey: kSecReturnRef as String)
+        SecItemDelete(q as CFDictionary)
+    }
+
     public func sign(challenge: String, reason: String) async throws -> PresenceSignature {
         guard PresenceMessage.isValidChallenge(challenge) else {
             throw CapabilityError.invalidParams("presenceChallenge must be 64 hex characters", field: "presenceChallenge")
+        }
+        // Before any prompt: a key made under other fingerprints can never sign again.
+        _ = try privateKey()
+        if let recorded = recordedState(), let now = biometry.current(), recorded != now {
+            discardInvalidated()
+            throw PresenceKeyErrors.invalidated
         }
         var context: LAContext?
         if secureEnclave {
@@ -148,15 +222,18 @@ public final class PresenceKey: PresenceSigning, @unchecked Sendable {
     }
 }
 
-/// `presence.confirm` parameters: the approval's presence challenge and the card header the
-/// Touch ID sheet names.
+/// `presence.confirm` parameters: the approval's presence challenge, its one-line summary and the
+/// short code the card shows next to Touch ID (derived from the binding hash), both named in the
+/// Touch ID sheet so the owner can tell which approval they confirm.
 public struct PresenceConfirmParams: Codable, Sendable, Equatable {
     public var challenge: String
-    public var header: String
+    public var summary: String
+    public var code: String
 
-    public init(challenge: String, header: String) {
+    public init(challenge: String, summary: String, code: String) {
         self.challenge = challenge
-        self.header = header
+        self.summary = summary
+        self.code = code
     }
 }
 
@@ -168,12 +245,22 @@ public struct PresenceConfirmParams: Codable, Sendable, Equatable {
 /// helper). The Gateway never lets `nodes.invoke` or an agent tool reach `presence.*`, so only
 /// it chooses the challenge, and the sheet's wording is fixed here around the card header.
 public enum PresenceCapabilities {
-    public static let maxHeader = 120
+    public static let maxSummary = 100
 
-    /// What the Touch ID sheet says after "psyche-helper is trying to".
-    static func confirmReason(header: String) -> String {
-        let oneLine = header.split(whereSeparator: \.isNewline).joined(separator: " ")
-        return "approve \u{201C}\(NotificationLimits.truncate(oneLine, max: maxHeader))\u{201D} in Psyche"
+    /// `xxxx-xxxx`, lower-case hex: the approval code the card shows.
+    static func isValidCode(_ s: String) -> Bool {
+        let parts = s.split(separator: "-", omittingEmptySubsequences: false)
+        return parts.count == 2 && parts.allSatisfy { p in
+            p.utf8.count == 4 && p.utf8.allSatisfy { (48...57).contains($0) || (97...102).contains($0) }
+        }
+    }
+
+    /// What the Touch ID sheet says after "psyche-helper is trying to": fixed wording around the
+    /// approval's one-line summary and its code.
+    static func confirmReason(summary: String, code: String) -> String {
+        let oneLine = summary.split(whereSeparator: \.isNewline).joined(separator: " ")
+            .filter { !$0.isASCII || $0.asciiValue.map { $0 >= 0x20 && $0 != 0x7F } == true }
+        return "approve \u{201C}\(NotificationLimits.truncate(oneLine, max: maxSummary))\u{201D} (code \(code)) in Psyche"
     }
 
     public static func make(key: any PresenceSigning) -> [any CapabilityHandler] {
@@ -184,24 +271,28 @@ public enum PresenceCapabilities {
         Capability(CapabilitySpec(
             name: "presence.confirm",
             description: "Runs Touch ID for the presence key and signs one approval's presence challenge (an approval allowed in the Psyche window). "
-                + "Returns signature (DER, base64url) and keyId. Fails cancelled/user_cancelled when the owner cancels, unavailable/missing_entitlement without a keychain access group.",
+                + "Returns signature (DER, base64url) and keyId. Fails cancelled/user_cancelled when the owner cancels, unavailable/presence_key_invalidated when the fingerprints changed since the key was made.",
             sideEffect: .write,
             inputSchema: Schema.object(
                 [
                     "challenge": Schema.string("Hex SHA-256 presence challenge of the approval", maxLength: 64),
-                    "header": Schema.string("The approval card's header, named in the Touch ID sheet", maxLength: maxHeader * 4),
+                    "summary": Schema.string("The approval's one-line summary, named in the Touch ID sheet", maxLength: maxSummary * 4),
+                    "code": Schema.string("The approval code the card shows (xxxx-xxxx hex)", maxLength: 9),
                 ],
-                required: ["challenge", "header"]
+                required: ["challenge", "summary", "code"]
             )
         )) { ctx in
             let p = try ctx.decode(PresenceConfirmParams.self)
             guard PresenceMessage.isValidChallenge(p.challenge) else {
                 throw CapabilityError.invalidParams("challenge must be 64 hex characters", field: "challenge")
             }
-            guard !p.header.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-                throw CapabilityError.invalidParams("header must not be empty", field: "header")
+            guard !p.summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                throw CapabilityError.invalidParams("summary must not be empty", field: "summary")
             }
-            let signed = try await key.sign(challenge: p.challenge, reason: confirmReason(header: p.header))
+            guard isValidCode(p.code) else {
+                throw CapabilityError.invalidParams("code must be xxxx-xxxx hex", field: "code")
+            }
+            let signed = try await key.sign(challenge: p.challenge, reason: confirmReason(summary: p.summary, code: p.code))
             return CapabilityOutput(["signature": .string(signed.signature), "keyId": .string(signed.keyId)])
         }
     }

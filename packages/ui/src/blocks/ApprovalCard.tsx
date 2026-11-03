@@ -1,4 +1,4 @@
-import { renderForSurface, sanitizeApproval } from "@psyche/permissions/cards";
+import { approvalCode, renderForSurface, sanitizeApproval } from "@psyche/permissions/cards";
 import type { ApprovalRequest, GrantScope, MissingPermission } from "@psyche/protocol";
 import { CircleAlert, Ellipsis, Fingerprint, ShieldCheck } from "lucide-react";
 import * as m from "motion/react-m";
@@ -943,6 +943,10 @@ export function ApprovalCard({
             <span className="inline-flex items-center gap-1.5">
               <Fingerprint className="size-3.5" aria-hidden="true" />{" "}
               {t("blocks.approval.needsAuth")}
+              {/* The Touch ID sheet names the same code (security §3.7). */}
+              <span className="font-mono" data-testid="approval-code">
+                {t("blocks.approval.touchId.code", { code: approvalCode(approval.bindingHash) })}
+              </span>
             </span>
           ) : null}
           {otherSurfaces.length > 0 ? (
@@ -976,10 +980,10 @@ export function ApprovalCard({
               setBusy(true);
               touchIdFix(fix).then(
                 () => {
+                  // Never approves on its own: the owner clicks Allow again.
                   setBusy(false);
                   setError(null);
                   setTouchIdFixFor(null);
-                  void submit("approve");
                 },
                 (err: unknown) => {
                   setBusy(false);
@@ -990,7 +994,7 @@ export function ApprovalCard({
           >
             {touchIdFixFor === "start_helper"
               ? t("blocks.approval.touchId.startHelper")
-              : t("blocks.approval.touchId.setUp")}
+              : t("blocks.approval.touchId.openDevices")}
           </Button>
         </div>
       ) : null}

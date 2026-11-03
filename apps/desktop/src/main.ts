@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { mkdir, readFile, realpath } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import {
@@ -72,8 +72,10 @@ import {
 } from "./main/glass.ts";
 import {
   askHelperNotificationsIfUndetermined,
+  type HelperIdentity,
   HelperLauncher,
   helperCanHoldKeychain,
+  readHelperIdentity,
 } from "./main/helper-launcher.ts";
 import { LoginItem } from "./main/login-item.ts";
 import { buildAppMenu } from "./main/menu.ts";
@@ -372,6 +374,20 @@ const permissions = createPermissions({
   },
 });
 
+/** The bundled helper's own device id and Touch ID key id (`--print-identity`). */
+function bundledHelperIdentity(): Promise<HelperIdentity | undefined> {
+  return readHelperIdentity(
+    perfProbe === undefined ? bundledHelperPath() : undefined,
+    home,
+    (file, args, env) =>
+      new Promise((resolve) => {
+        execFile(file, args, { env, timeout: 15_000 }, (err, stdout) => {
+          resolve({ code: err ? 1 : 0, stdout: String(stdout) });
+        });
+      }),
+  );
+}
+
 /** `<Resources>/PsycheHelper.app` in packaged macOS builds; dev builds bundle no helper. */
 function bundledHelperPath(): string | undefined {
   return app.isPackaged && process.platform === "darwin"
@@ -578,6 +594,44 @@ function registerIpc(): void {
   handle(IPC.helperLaunch, async () => {
     await helper?.launch();
     return helper?.getState() ?? { kind: "unbundled" };
+  });
+  // Touch ID from the window (security §3.7, §10): the main and Settings windows only, never a
+  // pop-out or the screen-ask window. Main adds what the bundled helper says about itself, so the
+  // Gateway registers and asks only that helper.
+  const approvalWindow = (e: IpcMainInvokeEvent) => {
+    if (windows?.isApprovalContents(e.sender) !== true) {
+      throw new PsycheError("forbidden", "Touch ID approvals come from the main window");
+    }
+  };
+  handle(IPC.touchIdIdentity, async (e) => {
+    approvalWindow(e);
+    return (await bundledHelperIdentity()) ?? null;
+  });
+  handle(IPC.touchIdRegister, async (e) => {
+    approvalWindow(e);
+    const id = await bundledHelperIdentity();
+    if (id?.keyId === undefined) {
+      throw new PsycheError(
+        "unavailable",
+        id === undefined
+          ? "This app has no bundled Psyche Helper to read the Touch ID key from"
+          : `The bundled Psyche Helper has no Touch ID key (${id.error ?? "unknown"})`,
+      );
+    }
+    return requireGateway().call("devices.presenceKey.register", {
+      deviceId: id.deviceId,
+      expectKeyId: id.keyId,
+    });
+  });
+  handle(IPC.touchIdApprove, async (e, arg) => {
+    approvalWindow(e);
+    const r = rec(IPC.touchIdApprove, arg);
+    const id = await bundledHelperIdentity();
+    return requireGateway().call("approvals.approveWithTouchId", {
+      approvalId: str(IPC.touchIdApprove, r.approvalId, "approvalId", 128),
+      answerToken: str(IPC.touchIdApprove, r.answerToken, "answerToken", 512),
+      ...(id === undefined ? {} : { helperDeviceId: id.deviceId }),
+    });
   });
   // The app session refuses navigator.clipboard (the permission check allows only audio), so
   // copy buttons (vault recovery key, credential ids) write through main (#507).

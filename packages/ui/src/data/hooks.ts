@@ -36,6 +36,7 @@ import type {
   Widget,
 } from "@psyche/protocol";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { t } from "../i18n/core.ts";
 import { describeError } from "../i18n/errors.ts";
 import type { ConnectionState } from "./client.ts";
 import { isEmptyUserChat } from "./empty-chat.ts";
@@ -758,20 +759,19 @@ export async function answerApproval(
     const { [approvalId]: _used, ...answerTokens } = s.answerTokens;
     return { ...put(s, "approvals", r.approval), answerTokens };
   };
+  const touchId = store.client.approveWithTouchId?.bind(store.client);
   if (
     decision === "approve" &&
     approval?.requiresAuthentication &&
-    store.client.helperPresence === true &&
+    touchId &&
     !store.client.presence
   ) {
+    // Once, and never UNSANDBOXED: neither is in the challenge the helper signs (security §3.7).
+    if (extras?.unsandboxed !== undefined) {
+      throw new Error(t("blocks.approval.touchId.noUnsandboxed"));
+    }
     return store.mutate({
-      run: () =>
-        store.call("approvals.approveWithTouchId", {
-          approvalId,
-          answerToken: token,
-          ...(scope === undefined ? {} : { scope }),
-          ...(extras?.unsandboxed === undefined ? {} : { unsandboxed: extras.unsandboxed }),
-        }),
+      run: () => touchId({ approvalId, answerToken: token }),
       commit,
     });
   }

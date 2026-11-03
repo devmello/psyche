@@ -492,7 +492,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Approves a requiresAuthentication card from the Psyche desktop window with Touch ID on this Mac (security §3.7): the Gateway asks the paired helper to run Touch ID and sign the presence challenge for this window's answer token with its registered key, then answers through the same broker check. Desktop shell only. Fails unavailable with details.reason helper_offline, helper_outdated, no_presence_key or presence_key_unavailable; cancelled when the owner cancels Touch ID.",
+        "description": "Approves a requiresAuthentication card from the Psyche desktop window with Touch ID on this Mac (security §3.7), once: the Gateway checks the window's answer token, asks the paired helper (helperDeviceId when given) to run Touch ID with a sheet naming the approval and its code, and to sign the presence challenge for that token with its registered key, then answers through the same broker check. One sheet at a time; failed or cancelled sheets count against the rejected-answer cap. UNSANDBOXED is not available on this path. Desktop shell only. Fails unavailable with details.reason helper_offline, helper_outdated, no_presence_key, presence_key_unavailable or presence_key_invalidated; cancelled when the owner cancels Touch ID.",
         "name": "approvals.approveWithTouchId",
         "params": "#/$defs/ApprovalsApproveWithTouchIdParams",
         "result": "#/$defs/ApprovalsApproveWithTouchIdResult",
@@ -1252,7 +1252,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Reads the helper's Secure Enclave presence key (`presence.public_key`) and registers it for that device, so its Touch ID answers verify. Replaces an earlier key; revoked with the device. Needs fresh presence once the Gateway has a presence verifier (approval_required, then retry with approvalId; presence_required when presence was enrolled but nothing can verify now). Side-effecting.",
+        "description": "Reads the helper's Secure Enclave presence key (`presence.public_key`) and registers it for that device when its key id equals expectKeyId, so its Touch ID answers verify. A Secure Enclave file key (kind enclave_file, development builds) is refused unless the setting devices.presence.allowDevFileKey is true. Replaces an earlier key; revoked with the device. Needs fresh presence once the Gateway has a presence verifier (approval_required, then retry with approvalId; presence_required when presence was enrolled but nothing can verify now). Side-effecting.",
         "name": "devices.presenceKey.register",
         "params": "#/$defs/DevicesPresenceKeyRegisterParams",
         "result": "#/$defs/DevicesPresenceKeyRegisterResult",
@@ -7006,10 +7006,13 @@
           "type": "string"
         },
         "scope": {
-          "$ref": "#/$defs/GrantScope"
+          "const": "once",
+          "type": "string"
         },
-        "unsandboxed": {
-          "const": "UNSANDBOXED",
+        "helperDeviceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
           "type": "string"
         }
       },
@@ -16635,7 +16638,8 @@
         }
       },
       "required": [
-        "deviceId"
+        "deviceId",
+        "expectKeyId"
       ],
       "type": "object"
     },
