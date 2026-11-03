@@ -1,8 +1,17 @@
-import { mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync } from "node:fs";
+import {
+  copyFileSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { openDb } from "@psyche/db";
+import { DEFAULT_MIGRATIONS_DIR, openDb, runMigrations } from "@psyche/db";
 import { FakeClock } from "@psyche/testing";
+import Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { GraphStore } from "../src/graph/store.ts";
 import { copyTables, MEMORY_STORE_TABLES, newKey, openEncrypted } from "../src/secure/encrypted.ts";
@@ -117,12 +126,18 @@ describe("clearPlain and copyBack", () => {
 describe("migrations and the encrypted store", () => {
   /** Migrations up to here were applied before any data could live in the encrypted file. */
   const BEFORE_EM9 = "202611021500";
+  /**
+   * Rebuilds that only copy rows into a table with a wider CHECK or new columns (INSERT ... SELECT
+   * into a `_v2` table). The statements the pattern below finds in them are the re-created
+   * citation-cleanup triggers. The encrypted file takes the new shape from `syncSchema`.
+   */
+  const ROW_PRESERVING_REBUILDS = new Set(["202611031400_memory_work.sql"]);
 
   it("no new migration changes rows of a moved table (schema changes reach it, row changes cannot)", () => {
     const dir = join(import.meta.dirname, "..", "..", "db", "migrations");
     const moved = MEMORY_STORE_TABLES.join("|");
     const offending = readdirSync(dir)
-      .filter((f) => f.endsWith(".sql") && f > BEFORE_EM9)
+      .filter((f) => f.endsWith(".sql") && f > BEFORE_EM9 && !ROW_PRESERVING_REBUILDS.has(f))
       .filter((f) =>
         new RegExp(`\\b(UPDATE|INSERT\\s+INTO|DELETE\\s+FROM)\\s+"?(${moved})\\b`, "i").test(
           readFileSync(join(dir, f), "utf8"),
@@ -156,6 +171,77 @@ describe("checksums, backup and restore", () => {
     restorePlain(plain, bak, MEMORY_STORE_TABLES);
     expect(tableChecksums(plain, MEMORY_STORE_TABLES)).toEqual(before);
     expect(new GraphStore({ sqlite: plain, clock }).search("sam", {})).toHaveLength(1);
+    enc.close();
+    plain.close();
+  });
+});
+
+describe("the memory work migration reaches an encrypted file that already holds rows", () => {
+  it("rebuilds the graph tables in the encrypted file, keeps every row and adds the new tables", () => {
+    const NEW = "202611031400_memory_work.sql";
+    const old = join(dir, "old-migrations");
+    mkdirSync(old);
+    for (const f of readdirSync(DEFAULT_MIGRATIONS_DIR)) {
+      if (f.endsWith(".sql") && f < NEW)
+        copyFileSync(join(DEFAULT_MIGRATIONS_DIR, f), join(old, f));
+    }
+    const plain = new Database(join(dir, "plain.sqlite"));
+    plain.pragma("foreign_keys = ON");
+    runMigrations(plain, { dir: old });
+    const t = "2026-11-02T00:00:00.000Z";
+    plain.exec(`
+      INSERT INTO graph_entities (id, kind, name, sort_name, created_at, updated_at) VALUES ('e1','person','Sam','sam','${t}','${t}');
+      INSERT INTO graph_entities (id, kind, name, sort_name, project_status, created_at, updated_at) VALUES ('e2','project','Remodel','remodel','active','${t}','${t}');
+      INSERT INTO graph_facts (id, entity_id, attribute, value, provenance, confidence, valid_from, recorded_at, created_at, updated_at) VALUES ('f1','e1','city','Porto','owner',1,'${t}','${t}','${t}','${t}');
+      INSERT INTO graph_citations (id, target_kind, target_id, source, source_ref, quote, start, "end", source_hash, provenance, observed_at, created_at) VALUES ('c1','fact','f1','mail','m1','I moved to Porto',0,16,'h','owner','${t}','${t}');
+      INSERT INTO graph_interactions (id, kind, source, external_ref, occurred_at, direction, project_id, created_at) VALUES ('i1','mail','mail','m1','${t}','in','e2','${t}');
+      INSERT INTO graph_participants VALUES ('i1','e1','from');
+    `);
+    const enc = openEncrypted(join(dir, "memory.sqlite"), newKey());
+    copyTables(
+      enc,
+      plain,
+      MEMORY_STORE_TABLES.filter(
+        (x) => !["graph_anchors", "graph_interaction_subjects"].includes(x),
+      ),
+    );
+
+    runMigrations(plain);
+    const rebuilt = syncSchema(enc, plain as never, MEMORY_STORE_TABLES);
+    expect(rebuilt).toEqual(
+      expect.arrayContaining([
+        "graph_entities",
+        "graph_facts",
+        "graph_interactions",
+        "graph_anchors",
+        "graph_interaction_subjects",
+      ]),
+    );
+    expect(enc.pragma("foreign_key_check")).toEqual([]);
+    const n = (table: string) =>
+      (enc.prepare(`SELECT count(*) AS n FROM ${table}`).get() as { n: number }).n;
+    expect([
+      n("graph_entities"),
+      n("graph_facts"),
+      n("graph_citations"),
+      n("graph_interactions"),
+      n("graph_participants"),
+    ]).toEqual([2, 1, 1, 1, 1]);
+    expect(syncSchema(enc, plain as never, MEMORY_STORE_TABLES)).toEqual([]);
+
+    // It works: a course, an assignment, a timeline.
+    const g = new GraphStore({ sqlite: enc, clock });
+    const course = g.createEntity({ kind: "project", name: "MATH 21", projectType: "course" });
+    const hw = g.createEntity({
+      kind: "assignment",
+      name: "HW7",
+      dueAt: "2026-11-06T23:59:00.000Z",
+    });
+    g.setEdge({ src: hw.id, rel: "part_of", dst: course.id, provenance: "owner" });
+    expect(g.timeline(course.id).rows.map((r) => r.text)).toEqual(["Due Nov 6"]);
+    // Deleting the fact still takes its citation in the encrypted file.
+    enc.prepare("DELETE FROM graph_facts WHERE id = 'f1'").run();
+    expect(n("graph_citations")).toBe(0);
     enc.close();
     plain.close();
   });

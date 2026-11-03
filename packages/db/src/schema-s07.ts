@@ -93,6 +93,11 @@ export const graphEntities = sqliteTable("graph_entities", {
   cardPath: text("card_path"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
+  // Memory for everything (202611031400_memory_work.sql): cached from the work facts.
+  projectType: text("project_type").notNull(),
+  workStatus: text("work_status"),
+  lastSignalAt: text("last_signal_at"),
+  private: integer("private").notNull(),
 });
 
 export const graphIdentifiers = sqliteTable(
@@ -180,6 +185,8 @@ export const graphInteractions = sqliteTable("graph_interactions", {
   link: text("link"),
   projectId: text("project_id"),
   createdAt: text("created_at").notNull(),
+  // Memory for everything (202611031400_memory_work.sql).
+  gist: text("gist"),
 });
 
 export const graphParticipants = sqliteTable(
@@ -222,6 +229,9 @@ export const graphSuggestions = sqliteTable("graph_suggestions", {
   keyHash: text("key_hash").notNull(),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
+  // Memory for everything (202611031400_memory_work.sql).
+  projectType: text("project_type"),
+  dueAt: text("due_at"),
 });
 
 export const graphFeedback = sqliteTable("graph_feedback", {
@@ -415,6 +425,31 @@ export const feedbackWeekly = sqliteTable(
   (t) => [primaryKey({ columns: [t.week, t.kind] })],
 );
 
+// --- Memory for everything: work (202611031400_memory_work.sql; docs/design/memory-everything-2026.md §2.5, §2.6) ---
+
+export const graphAnchors = sqliteTable("graph_anchors", {
+  id: text("id").primaryKey(),
+  entityId: text("entity_id").notNull(),
+  kind: text("kind").notNull(),
+  ref: text("ref").notNull(),
+  label: text("label").notNull(),
+  addedBy: text("added_by").notNull(),
+  confirmed: integer("confirmed").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
+export const graphInteractionSubjects = sqliteTable(
+  "graph_interaction_subjects",
+  {
+    interactionId: text("interaction_id").notNull(),
+    entityId: text("entity_id").notNull(),
+    linkedBy: text("linked_by").notNull(),
+    confidence: real("confidence").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.interactionId, t.entityId] })],
+);
+
 export const s07Schema = {
   memoryFiles,
   memoryClaims,
@@ -443,6 +478,8 @@ export const s07Schema = {
   memoryTrustedSenders,
   memoryExtractedItems,
   graphFactVectors,
+  graphAnchors,
+  graphInteractionSubjects,
   feedbackEvents,
   lessons,
   feedbackWeekly,
