@@ -492,6 +492,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Approves a requiresAuthentication card from the Psyche desktop window with Touch ID on this Mac (security §3.7), once: the Gateway checks the window's answer token, asks the paired helper (helperDeviceId when given) to run Touch ID with a sheet naming the approval and its code, and to sign the presence challenge for that token with its registered key, then answers through the same broker check. One sheet at a time; failed or cancelled sheets count against the rejected-answer cap. UNSANDBOXED is not available on this path. Desktop shell only. Fails unavailable with details.reason helper_offline, helper_outdated, no_presence_key, presence_key_unavailable or presence_key_invalidated; cancelled when the owner cancels Touch ID.",
+        "name": "approvals.approveWithTouchId",
+        "params": "#/$defs/ApprovalsApproveWithTouchIdParams",
+        "result": "#/$defs/ApprovalsApproveWithTouchIdResult",
+        "scope": "operator.approvals",
+        "sideEffecting": false
+      },
+      {
         "description": "Returns one approval request.",
         "name": "approvals.get",
         "params": "#/$defs/ApprovalsGetParams",
@@ -1244,7 +1252,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Reads the helper's Secure Enclave presence key (`presence.public_key`) and registers it for that device, so its Touch ID answers verify. Replaces an earlier key; revoked with the device. Needs fresh presence once the Gateway has a presence verifier (approval_required, then retry with approvalId; presence_required when presence was enrolled but nothing can verify now). Side-effecting.",
+        "description": "Reads the helper's Secure Enclave presence key (`presence.public_key`) and registers it for that device when its key id equals expectKeyId, so its Touch ID answers verify. A Secure Enclave file key (kind enclave_file, development builds) is refused unless the setting devices.presence.allowDevFileKey is true. Replaces an earlier key; revoked with the device. Needs fresh presence once the Gateway has a presence verifier (approval_required, then retry with approvalId; presence_required when presence was enrolled but nothing can verify now). Side-effecting.",
         "name": "devices.presenceKey.register",
         "params": "#/$defs/DevicesPresenceKeyRegisterParams",
         "result": "#/$defs/DevicesPresenceKeyRegisterResult",
@@ -6965,6 +6973,56 @@
       "type": "object"
     },
     "ApprovalsAnswerResult": {
+      "properties": {
+        "approval": {
+          "$ref": "#/$defs/ApprovalRequest"
+        },
+        "grant": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Grant"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "approval"
+      ],
+      "type": "object"
+    },
+    "ApprovalsApproveWithTouchIdParams": {
+      "properties": {
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "answerToken": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "scope": {
+          "const": "once",
+          "type": "string"
+        },
+        "helperDeviceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "approvalId",
+        "answerToken"
+      ],
+      "type": "object"
+    },
+    "ApprovalsApproveWithTouchIdResult": {
       "properties": {
         "approval": {
           "$ref": "#/$defs/ApprovalRequest"
@@ -16580,7 +16638,8 @@
         }
       },
       "required": [
-        "deviceId"
+        "deviceId",
+        "expectKeyId"
       ],
       "type": "object"
     },
@@ -30081,7 +30140,7 @@
         "route": {
           "anyOf": [
             {
-              "description": "Deep link inside the app: /chat/<threadId>?message=<id> or ?approval=<id>, /overview/run/<runId>, /scheduled?tab=runs, /settings/memory",
+              "description": "Deep link inside the app: /chat/<threadId>?message=<id> or ?approval=<id>, /overview/run/<runId>, /scheduled?tab=runs, /memory/review",
               "type": "string"
             },
             {
@@ -31664,6 +31723,13 @@
         "registeredAt": {
           "description": "ISO-8601 timestamp (UTC)",
           "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "keychain",
+            "enclave_file"
+          ],
           "type": "string"
         }
       },

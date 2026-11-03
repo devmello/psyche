@@ -56,7 +56,7 @@ import type { ComposedPart } from "./services.ts";
  */
 
 const ANNOUNCE_CURSOR = "everything:announce";
-export const REVIEW_LINK = "/settings/memory";
+export const REVIEW_LINK = "/memory/review";
 const BRIEF_WINDOW_MS = 36 * 3_600_000;
 
 interface Announcement {

@@ -496,7 +496,7 @@ export const settings = {
 
   // Security settings waiting for approval with presence (SettingsApproval.tsx).
   "settings.approval.presenceUnavailable":
-    "This window can't confirm it's you. Approve the change with Touch ID in the Psyche notification on this Mac, or from a device with a passkey. Nothing changes until then.",
+    "This window can't confirm it's you. Approve the change in the Psyche app on your Mac (Touch ID), or from a device with a passkey. Nothing changes until then.",
   "settings.approval.saved": "Saved “{label}”.",
   "settings.approval.denied": "Not changed: the approval for “{label}” was denied.",
   "settings.approval.lapsed":
@@ -1374,6 +1374,25 @@ export const settings = {
   "settings.devices.keyLastSeenNever": "· last seen never",
   "settings.devices.lastSeen": "last seen {when}",
   "settings.devices.lastSeenNever": "last seen never",
+  "settings.devices.presenceKey.keychain": "Touch ID key (keychain), as reported by the helper",
+  "settings.devices.presenceKey.enclaveFile":
+    "Touch ID key (Secure Enclave file, this build has no provisioning profile), as reported by the helper",
+  "settings.devices.presenceKey.unknown": "Touch ID key (kind not reported by the helper)",
+  "settings.devices.touchId.none":
+    "No Touch ID key yet. Cards that need Touch ID can't be approved until one is registered.",
+  "settings.devices.touchId.bundled": "The Psyche Helper in this app shows key",
+  "settings.devices.touchId.notBundled":
+    "This helper isn't the one bundled with this app, so its key can't be registered here.",
+  "settings.devices.touchId.noBundledKey":
+    "The Psyche Helper in this app has no Touch ID key ({reason}).",
+  "settings.devices.touchId.register": "Register this key",
+  "settings.devices.touchId.remove": "Remove key",
+  "settings.devices.touchId.manualLabel": "Key id",
+  "settings.devices.touchId.manualHint":
+    "Run psyche-helper --print-identity on the Mac and paste the presenceKeyId it prints.",
+  "settings.devices.touchId.allowDevFileKey": "Allow a development Touch ID key",
+  "settings.devices.touchId.devFileKey":
+    "This build has no provisioning profile, so its key is a Secure Enclave file. Any app running as you could ask it to sign behind its own Touch ID prompt. For development only.",
   "settings.devices.revoked": "Revoked ({n, number})",
   "settings.devices.revokedItem": "{name}, revoked {when}",
   "settings.devices.nodes": "Nodes",

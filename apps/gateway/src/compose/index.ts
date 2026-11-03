@@ -226,6 +226,7 @@ import { composeVault, maskingLogger, type VaultSetup, vaultSetupFromEnv } from 
 import { composeWebTools, type WebToolsSetup } from "./web-tools.ts";
 import { ensureWeeklyCardAutomation, withWeeklyCard } from "./weekly-card.ts";
 import { composeWidgets } from "./widgets.ts";
+import { composeWork } from "./work.ts";
 import { WORKFLOW_SETTING_KEYS } from "./workflow-settings.ts";
 
 /**
@@ -1332,6 +1333,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       nudges.refresh();
       return nudges.keepInTouch();
     },
+    // Catching up and `memory.catchup.*` (MW4): the graph, and what the agent may read of it.
+    catchup: { graph: people.graph, em: everything.store, access: people.agentAccess },
     // Ideas proposes folding a skill's lessons into it once it has three (teaching loop §6).
     skillUpdates: () => skills.updates(),
     // Post-meeting notes transcribe on the Mac through the speech part (§4.6). Record meeting
@@ -1587,6 +1590,17 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     everything.part(scheduler, timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone),
   );
   parts.push(nudges.part());
+  parts.push(
+    composeWork({
+      db,
+      clock,
+      people,
+      apple: appleSearch,
+      broker: rawBroker,
+      ...(background ? {} : { intervalMs: 0 }),
+      ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
+    }).part(),
+  );
   parts.push(people.part(scheduler, timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone));
   // Code plugins (T4): off until the owner turns on `plugins.enabled`.
   parts.push(

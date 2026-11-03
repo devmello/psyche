@@ -1,8 +1,9 @@
 import type { QuarantineItem, ReviewItem } from "@psyche/protocol";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { MockGateway } from "../src/data/mock-gateway.ts";
 import type { FixtureWorld } from "../src/fixtures/index.ts";
+import { MemoryScreen } from "../src/memory-page/MemoryScreen.tsx";
 import { MemoryReviewSection } from "../src/screens/settings/MemoryReviewSection.tsx";
 import { StoryWorld } from "../src/stories/harness.tsx";
 
@@ -91,9 +92,19 @@ const world = {
     return gateway.world.settings;
   },
 };
-function show(edit: (w: FixtureWorld) => void) {
+/** The queue as the owner sees it: the Review tab of the Memory page. */
+function show(edit: (w: FixtureWorld) => void, navigate: (to: string) => void = () => {}) {
   return render(
     <StoryWorld edit={edit} onGateway={(g) => (gateway = g)}>
+      <MemoryScreen view="review" onNavigate={navigate} />
+    </StoryWorld>,
+  );
+}
+
+/** Settings → Memory → Review: the rules and the link row. */
+function showSettings(edit: (w: FixtureWorld) => void, navigate: (to: string) => void = () => {}) {
+  return render(
+    <StoryWorld edit={edit} onGateway={(g) => (gateway = g)} slots={{ navigate }}>
       <MemoryReviewSection />
     </StoryWorld>,
   );
@@ -158,7 +169,9 @@ describe("Memory review", () => {
     expect(within(rows[2] as HTMLElement).getByTestId("review-sensitive").textContent).toMatch(
       /health/,
     );
-    expect(screen.getByText("3 facts are waiting for you")).toBeTruthy();
+    const chip = screen.getByRole("button", { name: "Review, 3 waiting" });
+    expect(chip.getAttribute("aria-current")).toBe("page");
+    expect(within(chip).getByTestId("memory-review-count").textContent).toBe("3");
   });
 
   it("confirm moves a fact out of the queue", async () => {
@@ -245,8 +258,43 @@ describe("Memory review", () => {
     await waitFor(() => expect(world.review?.quarantine[0]?.decided).toBe("released"));
   });
 
-  it("the rules default to review-everything with the owner-authored exception, and write the setting", async () => {
+  it("the Review chip has no count when nothing waits", async () => {
+    show((w) => {
+      seed(w);
+      for (const i of w.review?.items ?? []) i.fact.review = "accepted";
+    });
+    expect(await screen.findByTestId("review-empty")).toBeTruthy();
+    expect(screen.queryByTestId("memory-review-count")).toBeNull();
+  });
+
+  it("the count follows the queue as facts are confirmed", async () => {
     show(seed);
+    const row = (await screen.findAllByTestId("review-row"))[0] as HTMLElement;
+    fireEvent.click(within(row).getByRole("button", { name: /^Confirm/ }));
+    await waitFor(() => expect(screen.getByTestId("memory-review-count").textContent).toBe("2"));
+  });
+});
+
+describe("Settings → Memory → Review", () => {
+  it("links to the queue on the Memory page and shows how many wait", async () => {
+    const navigate = vi.fn();
+    showSettings(seed, navigate);
+    expect(await screen.findByText("3 facts are waiting for you")).toBeTruthy();
+    expect(screen.queryByTestId("review-row")).toBeNull();
+    fireEvent.click(screen.getByTestId("review-link"));
+    expect(navigate).toHaveBeenCalledWith("/memory/review");
+  });
+
+  it("says so when nothing waits", async () => {
+    showSettings((w) => {
+      seed(w);
+      for (const i of w.review?.items ?? []) i.fact.review = "accepted";
+    });
+    expect(await screen.findByText("Nothing is waiting for review.")).toBeTruthy();
+  });
+
+  it("the rules default to review-everything with the owner-authored exception, and write the setting", async () => {
+    showSettings(seed);
     const owner = await screen.findByRole("switch", { name: /things you wrote yourself/i });
     expect(owner.getAttribute("aria-checked")).toBe("true");
     const self = screen.getByRole("switch", { name: /say about themselves/i });

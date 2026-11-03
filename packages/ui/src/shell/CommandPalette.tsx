@@ -124,7 +124,7 @@ export const DEFAULT_ACTIONS: readonly PaletteAction[] = [
     get keywords() {
       return t("shell.palette.keywords.memoryReview");
     },
-    route: "/settings/memory",
+    route: "/memory/review",
   },
   {
     id: "feed-instructions",

@@ -34,6 +34,39 @@ export interface DailyActivity {
   doneBetween?: (fromMs: number, toMs: number) => Promise<ActivityItem[]>;
 }
 
+/** One line of "Catching up" or "Worked on today": a template, already filtered for its surface. */
+export interface CatchUpLine {
+  text: string;
+  /** Opens the item (`/memory?entity=<id>`) or the Review queue. */
+  link?: string;
+  /** The item's title, so reminders and follow-ups that name it are shown once (§5.5). */
+  title?: string;
+}
+
+/** Where a brief is read: the Feed post, or the copy sent to a chat channel. */
+export type BriefSurface = "brief" | "channel";
+
+/**
+ * Work memory in the brief (docs/design/memory-everything-2026.md §5.5). The Gateway supplies it
+ * only while `memory.work.enabled` is on; without it the brief is exactly what it was, `due`
+ * included. Everything returned has already been through `surfaceFilter` for that surface.
+ */
+export interface DailyCatchUp {
+  /** Work memory is on: `catching_up` replaces `due`, and the wrap-up gains `worked_on`. */
+  enabled(): boolean;
+  /** The ranked lines (at most five) and the counted "2 new assignments to confirm" line. */
+  morning(surface: BriefSurface): { lines: CatchUpLine[]; pending?: CatchUpLine };
+  /** "Worked on today" (at most five) and what is due tomorrow. */
+  evening(surface: BriefSurface): { worked: CatchUpLine[]; dueTomorrow: CatchUpLine[] };
+  /**
+   * The opt-in due-soon notification (W4), or nothing: off by default, one a day, never twice.
+   * `wrapup` runs after the 18:00 wrap-up; `dayOf` after the morning brief. Asking marks it sent.
+   */
+  notice(
+    mode: "wrapup" | "dayOf",
+  ): { title: string; body: string; route?: string; dedupeKey: string } | undefined;
+}
+
 export interface DailyServiceOptions {
   clock: { now(): number };
   scheduler: SchedulerLike;
@@ -52,13 +85,15 @@ export interface DailyServiceOptions {
    */
   learned?: () => { text: string; link?: string } | undefined;
   /** Birthdays, anniversaries and events in the next 14 days (everything memory §12.5), counts-free lines. */
-  comingUp?: () => { text: string; link?: string }[];
+  comingUp?: (surface?: BriefSurface) => { text: string; link?: string }[];
   /**
    * Relationship nudges (docs/design/relationship-nudges-2026.md): people to reply to, catch up
    * with or keep a promise to. The service shows at most three; the lines are built from names,
    * numbers and a template, never from message text.
    */
-  keepInTouch?: () => { text: string; link?: string }[];
+  keepInTouch?: (surface?: BriefSurface) => { text: string; link?: string }[];
+  /** Work memory: Catching up, Worked on today and the due-soon notification (MW4). */
+  catchUp?: DailyCatchUp;
   /** Link to the prep note for a calendar event, when meeting prep made one. */
   prepLink?: (event: { id: string; title: string; start: string }) => string | undefined;
   /** Channel surfaces (`imessage:<peer>`) the card is also delivered to when `daily.messages` is on. */
@@ -83,6 +118,14 @@ const hhmm = (iso: string, tz: string): string => {
 };
 
 type Section = DailyBrief["sections"][number];
+
+/** The Markdown a card shows, section by section; empty sections are left out. */
+export function dailyMarkdown(sections: readonly Section[]): string {
+  return sections
+    .filter((s) => s.items.length > 0)
+    .map((s) => `**${s.title}**\n${s.items.map((i) => `- ${i.text}`).join("\n")}`)
+    .join("\n\n");
+}
 
 export class DailyService {
   readonly #o: DailyServiceOptions;
@@ -284,12 +327,101 @@ export class DailyService {
 
   // --- assembly ---------------------------------------------------------------------------------
 
+  /** The brief as the Feed shows it. */
   async assemble(kind: DailyKind): Promise<DailyBrief> {
+    return (await this.#build(kind, false)).brief;
+  }
+
+  /**
+   * "Catching up" for the morning brief, in the place of `due` (§5.5). Reminders and tasks that
+   * `due` showed and that no ranked line covers stay as plain lines after the ranked ones, so
+   * nothing the owner saw before is lost. A follow-up that names a ranked item rides inside that
+   * item's line when it fits, and is then not listed twice.
+   */
+  #catchingUp(
+    work: DailyCatchUp,
+    due: Section,
+    followups: Section["items"],
+    surface: BriefSurface,
+  ): { section: Section | undefined; folded: Set<string> } {
+    const { lines, pending } = work.morning(surface);
+    const folded = new Set<string>();
+    const norm = (t: string) => t.toLowerCase().replace(/\s+/g, " ").trim();
+    const covered = new Set(lines.flatMap((l) => (l.title === undefined ? [] : [norm(l.title)])));
+    const ranked: Section["items"] = lines.map((l) => {
+      let text = cleanHeader(l.text, 140);
+      const title = l.title === undefined ? "" : norm(l.title);
+      for (const f of followups) {
+        if (f.followupId === undefined || folded.has(f.followupId)) continue;
+        if (title.length < 4 || !norm(f.text).includes(title)) continue;
+        const merged = `${text} Follow-up: ${cleanHeader(f.text, 100)}`;
+        if (merged.length > 140) continue;
+        text = merged;
+        folded.add(f.followupId);
+      }
+      return { text, ...(l.link === undefined ? {} : { link: l.link }) };
+    });
+    const plain = due.items.filter((i) => !covered.has(norm(i.text)));
+    const count: Section["items"] =
+      pending === undefined
+        ? []
+        : [
+            {
+              text: cleanHeader(pending.text, 140),
+              ...(pending.link === undefined ? {} : { link: pending.link }),
+            },
+          ];
+    const items = [...ranked, ...plain, ...count];
+    return {
+      section: items.length === 0 ? undefined : { id: "catching_up", title: "Catching up", items },
+      folded,
+    };
+  }
+
+  /** Coming up and Keep in touch, which differ by surface: birthdays and people stay off a channel. */
+  #lineSections(surface: BriefSurface): Section[] {
+    const out: Section[] = [];
+    const coming = this.#o.comingUp?.(surface) ?? [];
+    if (coming.length > 0) {
+      out.push({
+        id: "coming_up",
+        title: "Coming up",
+        items: coming.slice(0, 8).map((c) => ({
+          text: cleanHeader(c.text, 300),
+          ...(c.link === undefined ? {} : { link: c.link }),
+        })),
+      });
+    }
+    const keep = this.#o.keepInTouch?.(surface) ?? [];
+    if (keep.length > 0) {
+      out.push({
+        id: "keep_in_touch",
+        title: "Keep in touch",
+        items: keep.slice(0, 3).map((c) => ({
+          text: cleanHeader(c.text, 300),
+          ...(c.link === undefined ? {} : { link: c.link }),
+        })),
+      });
+    }
+    return out;
+  }
+
+  /**
+   * The brief, and the sections that read differently on a chat channel (work mail subjects,
+   * people and birthdays are off there by default, §4): `channel` maps a section id to its channel
+   * copy, or to `undefined` when the channel gets nothing of it.
+   */
+  async #build(
+    kind: DailyKind,
+    withChannel: boolean,
+  ): Promise<{ brief: DailyBrief; channel: Map<string, Section | undefined> }> {
     const now = this.#o.clock.now();
     const dayStart = startOfLocalDay(now, this.#tz);
     const dayEnd = dayStart + 86_400_000;
     const date = localParts(now, this.#tz).date;
     const sections: Section[] = [];
+    const channel = new Map<string, Section | undefined>();
+    const work = this.#o.catchUp?.enabled() === true ? this.#o.catchUp : undefined;
     let carryOver: DailyBrief["carryOver"];
     if (kind === "morning") {
       const [calendar, mail, due] = await Promise.all([
@@ -297,30 +429,38 @@ export class DailyService {
         this.#mail(now - 36 * 3_600_000, "Mail that matters"),
         this.#due(dayEnd, "Due"),
       ]);
-      sections.push(calendar, mail, due, this.#followupsSection("Follow-ups", dayEnd));
+      const followups = this.#followupsSection("Follow-ups", dayEnd);
+      let folded = new Set<string>();
+      if (work === undefined) {
+        sections.push(calendar, mail, due);
+      } else {
+        const r = this.#catchingUp(work, due, followups.items, "brief");
+        folded = r.folded;
+        sections.push(calendar, mail);
+        if (r.section !== undefined) sections.push(r.section);
+        if (withChannel) {
+          channel.set(
+            "catching_up",
+            this.#catchingUp(work, due, followups.items, "channel").section,
+          );
+        }
+      }
+      sections.push({
+        ...followups,
+        items: followups.items.filter((i) => !folded.has(i.followupId ?? "")),
+      });
       const weather = await this.#weather("Weather");
       if (weather !== undefined) sections.push(weather);
-      const coming = this.#o.comingUp?.() ?? [];
-      if (coming.length > 0) {
-        sections.push({
-          id: "coming_up",
-          title: "Coming up",
-          items: coming.slice(0, 8).map((c) => ({
-            text: cleanHeader(c.text, 300),
-            ...(c.link === undefined ? {} : { link: c.link }),
-          })),
-        });
-      }
-      const keep = this.#o.keepInTouch?.() ?? [];
-      if (keep.length > 0) {
-        sections.push({
-          id: "keep_in_touch",
-          title: "Keep in touch",
-          items: keep.slice(0, 3).map((c) => ({
-            text: cleanHeader(c.text, 300),
-            ...(c.link === undefined ? {} : { link: c.link }),
-          })),
-        });
+      const lines = this.#lineSections("brief");
+      sections.push(...lines);
+      if (withChannel) {
+        const forChannel = this.#lineSections("channel");
+        for (const id of ["coming_up", "keep_in_touch"]) {
+          channel.set(
+            id,
+            forChannel.find((s) => s.id === id),
+          );
+        }
       }
       const learned = this.#o.learned?.();
       if (learned !== undefined) {
@@ -355,7 +495,7 @@ export class DailyService {
         first === undefined
           ? undefined
           : this.#o.prepLink?.({ id: first.id, title: first.title, start: first.start });
-      sections.push({
+      const tomorrow: Section = {
         id: "tomorrow",
         title: "Tomorrow",
         items:
@@ -368,16 +508,80 @@ export class DailyService {
                 },
               ],
         ...(next === undefined ? { unavailable: true } : {}),
-      });
+      };
+      // With work memory on, the day's signals become "Worked on today", and what is due
+      // tomorrow joins "Tomorrow" (§5.4).
+      const evening = (surface: BriefSurface) => {
+        if (work === undefined) return undefined;
+        const e = work.evening(surface);
+        const toItem = (l: CatchUpLine) => ({
+          text: cleanHeader(l.text, 140),
+          ...(l.link === undefined ? {} : { link: l.link }),
+        });
+        return {
+          tomorrow: { ...tomorrow, items: [...tomorrow.items, ...e.dueTomorrow.map(toItem)] },
+          worked:
+            e.worked.length === 0
+              ? undefined
+              : ({
+                  id: "worked_on",
+                  title: "Worked on today",
+                  items: e.worked.slice(0, 5).map(toItem),
+                } satisfies Section),
+        };
+      };
+      const base = evening("brief");
+      sections.push(base?.tomorrow ?? tomorrow);
+      if (base?.worked !== undefined) sections.push(base.worked);
+      if (withChannel && work !== undefined) {
+        const c = evening("channel");
+        channel.set("tomorrow", c?.tomorrow);
+        channel.set("worked_on", c?.worked);
+      }
       carryOver = fu.items;
     }
     return {
-      kind,
-      date,
-      summary: await this.#summary(kind, sections),
-      sections,
-      ...(carryOver === undefined || carryOver.length === 0 ? {} : { carryOver }),
+      brief: {
+        kind,
+        date,
+        summary: await this.#summary(kind, sections),
+        sections,
+        ...(carryOver === undefined || carryOver.length === 0 ? {} : { carryOver }),
+      },
+      channel,
     };
+  }
+
+  /** The Markdown for a chat channel: the brief, with the sections that differ swapped for theirs. */
+  static #channelMarkdown(
+    sections: readonly Section[],
+    channel: ReadonlyMap<string, Section | undefined>,
+  ): string {
+    const swapped = sections.flatMap((s) => {
+      if (!channel.has(s.id)) return [s];
+      const c = channel.get(s.id);
+      return c === undefined ? [] : [c];
+    });
+    return dailyMarkdown(swapped);
+  }
+
+  /** The opt-in due-soon message (W4): one a day at wrap-up, and optionally one in the morning. */
+  async #noticeDue(mode: "wrapup" | "dayOf"): Promise<void> {
+    const o = this.#o;
+    try {
+      const n = o.catchUp?.enabled() === true ? o.catchUp.notice(mode) : undefined;
+      if (n === undefined) return;
+      await o.notifier?.notify({
+        kind: "briefing",
+        title: n.title,
+        body: n.body,
+        ...(n.route === undefined ? {} : { route: n.route }),
+        dedupeKey: n.dedupeKey,
+        surfaces: ["desktop", "web", "notification"],
+      });
+    } catch (err) {
+      o.onError?.(err);
+    }
   }
 
   /** Builds the card, posts it, and notifies; a second run on the same local day reposts nothing. */
@@ -387,16 +591,14 @@ export class DailyService {
   ): Promise<{ postId?: string; skipped?: string }> {
     const o = this.#o;
     const settings = o.settings();
-    const brief = await this.assemble(kind);
+    const channels = settings.notify && settings.messages ? (o.channelSurfaces?.() ?? []) : [];
+    const { brief, channel } = await this.#build(kind, channels.length > 0);
     const dedupe = `daily:${kind}:${brief.date}`;
     const now = new Date(o.clock.now()).toISOString();
     const id = o.newId?.() ?? `post_${ulid(o.clock.now())}`;
     const total = brief.sections.reduce((n, s) => n + s.items.length, 0);
     const title = kind === "morning" ? `Your day · ${brief.date}` : `Wrap-up · ${brief.date}`;
-    const bodyMd = brief.sections
-      .filter((s) => s.items.length > 0)
-      .map((s) => `**${s.title}**\n${s.items.map((i) => `- ${i.text}`).join("\n")}`)
-      .join("\n\n");
+    const bodyMd = dailyMarkdown(brief.sections);
     const post: StoredPost = {
       id,
       title,
@@ -431,12 +633,11 @@ export class DailyService {
           dedupeKey: dedupe,
           surfaces: ["desktop", "web", "notification"],
         });
-        const channels = settings.messages ? (o.channelSurfaces?.() ?? []) : [];
         if (channels.length > 0) {
           await o.notifier?.notify({
             kind: "briefing",
             title,
-            body: bodyMd.slice(0, 1500),
+            body: DailyService.#channelMarkdown(brief.sections, channel).slice(0, 1500),
             route: `/feed/${id}`,
             dedupeKey: `${dedupe}:messages`,
             surfaces: channels,
@@ -568,6 +769,9 @@ export class DailyService {
       run: async (): Promise<LaunchResult> => {
         if (kind === "morning") await this.scanMail().catch((e) => this.#o.onError?.(e));
         const r = await this.run(kind);
+        // The opt-in due-soon messages ride the same two jobs: the 18:00 wrap-up and, when the
+        // owner also asked for it, the morning brief.
+        await this.#noticeDue(kind === "morning" ? "dayOf" : "wrapup");
         return { status: "no_reply", summary: r.postId ?? r.skipped ?? "" };
       },
     }));

@@ -2,7 +2,10 @@ import {
   type Clock,
   type EntitySummary,
   type EventPayload,
+  type GraphAnchor,
+  type GraphAnchorKind,
   type GraphBlocklistEntry,
+  type GraphCitationSource,
   type GraphEdge,
   type GraphEdgeRel,
   GraphEdgeRel as GraphEdgeRelSchema,
@@ -20,6 +23,7 @@ import {
   type GraphLoopStatus,
   type GraphParticipantRole,
   type GraphProjectStatus,
+  type GraphProjectType,
   type GraphRelationshipLabel,
   type GraphRemovedCounts,
   type GraphReviewState,
@@ -28,6 +32,8 @@ import {
   type GraphStatus,
   type GraphSubjectKind,
   type GraphSuggestion,
+  type GraphTimelineRow,
+  type GraphWorkStatus,
   type GraphWriteSource,
   type Provenance,
   PsycheError,
@@ -37,7 +43,15 @@ import { monotonicFactory } from "ulid";
 import { oneLine } from "../daily.ts";
 import { blockingKinds, looksLikeInstruction } from "../filters.ts";
 import { trustRank } from "../provenance.ts";
+import { safeName } from "./clean.ts";
 import { blockHash, normalizeIdentifier, normalizeName, sha256, slugify } from "./normalize.ts";
+import {
+  isWorkKind,
+  isWorkStatus,
+  nextWorkStatus,
+  PROGRESS_ATTRIBUTES,
+  type WorkCause,
+} from "./work.ts";
 
 /**
  * The people and projects graph (docs/memory/people-and-projects-2026.md §4). The database is the
@@ -99,7 +113,30 @@ export const OWNER_ONLY_ATTRIBUTES: ReadonlySet<GraphFactAttribute> = new Set([
   "budget_note",
 ]);
 /** Attributes that hold several values at once (the rest supersede). */
-export const MULTI_VALUED: ReadonlySet<GraphFactAttribute> = new Set(["preference", "note"]);
+export const MULTI_VALUED: ReadonlySet<GraphFactAttribute> = new Set([
+  "preference",
+  "note",
+  "progress",
+]);
+/**
+ * Work state on an assignment (docs/design/memory-everything-2026.md §3.4, W1): written only by
+ * the owner or a rule (`system`). Text from others reaches these through suggestions and asks.
+ */
+const ASSIGNMENT_STATE_ATTRIBUTES: ReadonlySet<GraphFactAttribute> = new Set([
+  "status",
+  "deadline",
+  "next_step",
+  "stopped_at",
+  "progress",
+  "blocked_on",
+]);
+/** Attributes that say the owner was at work on the item: they refresh `last_signal_at`. */
+const SIGNAL_ATTRIBUTES: ReadonlySet<GraphFactAttribute> = new Set([
+  "progress",
+  "stopped_at",
+  "next_step",
+  "blocked_on",
+]);
 /** Relations that carry a personal label: owner or Contacts only (§4.4). */
 export const OWNER_ONLY_RELS: ReadonlySet<GraphEdgeRel> = new Set(["related_to", "reports_to"]);
 /** Which kinds each relation connects. */
@@ -110,8 +147,16 @@ const REL_KINDS: Partial<Record<GraphEdgeRel, [GraphEntityKind[], GraphEntityKin
   located_at: [["person", "org", "project"], ["place"]],
   reports_to: [["person"], ["person"]],
   related_to: [["person"], ["person"]],
-  part_of: [["project"], ["project"]],
+  part_of: [["project", "assignment", "event"], ["project"]],
+  assigned_by: [["assignment"], ["person", "org"]],
+  teaches: [["person"], ["project"]],
 };
+/** Relations where a source has one target at a time (a new one replaces the old). */
+const SINGLE_TARGET_RELS: ReadonlySet<GraphEdgeRel> = new Set([
+  "works_at",
+  "reports_to",
+  "assigned_by",
+]);
 
 /** Review states that count as known (everything memory §4.3). */
 export const ACCEPTED_REVIEW_SQL = "('accepted', 'auto_accepted', 'edited')";
@@ -146,6 +191,8 @@ export interface FactInput {
   sources?: string[];
   evidence?: string | null;
   source?: GraphWriteSource;
+  /** `deterministic` for a rule's fact; the default is the owner's words. */
+  subjectKind?: GraphSubjectKind;
 }
 
 export interface EdgeInput {
@@ -175,7 +222,19 @@ export interface InteractionInput {
   link?: string | null;
   projectId?: string | null;
   participants: ParticipantInput[];
+  /** Other items this belongs to (an assignment as well as its course), §2.6. */
+  subjects?: SubjectInput[];
+  /** One line on what a conversation was about (≤ 120 characters). */
+  gist?: string | null;
 }
+
+export interface SubjectInput {
+  entityId: string;
+  linkedBy?: GraphInteractionSubjectLinkedBy;
+  confidence?: number;
+}
+
+export type GraphInteractionSubjectLinkedBy = "rule" | "owner" | "model";
 
 export interface LoopInput {
   direction: GraphLoop["direction"];
@@ -211,6 +270,10 @@ interface EntityRow {
   card_path: string | null;
   created_at: string;
   updated_at: string;
+  project_type: GraphProjectType;
+  work_status: GraphWorkStatus | null;
+  last_signal_at: string | null;
+  private: number;
 }
 
 interface FactRow {
@@ -324,6 +387,28 @@ function clip(text: string | null | undefined, max: number): string | null {
 
 const toBool = (n: number) => n === 1;
 
+const isControlChar = (ch: string): boolean => {
+  const c = ch.codePointAt(0) as number;
+  return c < 0x20 || c === 0x7f;
+};
+
+const ISO_LIKE =
+  /^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+
+/**
+ * A due date as a UTC ISO string, or null when the text is not an ISO date or date-time. A bare
+ * date is midnight UTC and a time without a zone is UTC, so the result never depends on the host.
+ */
+export function normalizeDueAt(value: string | null | undefined): string | null {
+  if (value === null || value === undefined) return null;
+  const text = value.trim();
+  const m = ISO_LIKE.exec(text);
+  if (m === null) return null;
+  const withZone = m[1] === undefined && text.length > 10 ? `${text.replace(" ", "T")}Z` : text;
+  const t = Date.parse(withZone);
+  return Number.isNaN(t) ? null : new Date(t).toISOString();
+}
+
 function toEntity(r: EntityRow, aliases: string[]): GraphEntity {
   return {
     id: r.id,
@@ -337,6 +422,10 @@ function toEntity(r: EntityRow, aliases: string[]): GraphEntity {
     hidden: toBool(r.hidden),
     ...(r.project_status === null ? {} : { projectStatus: r.project_status }),
     dueAt: r.due_at,
+    ...(r.kind === "project" ? { projectType: r.project_type } : {}),
+    ...(r.kind === "assignment" ? { workStatus: r.work_status } : {}),
+    ...(r.last_signal_at === null ? {} : { lastSignalAt: r.last_signal_at }),
+    ...(r.private === 1 ? { private: true } : {}),
     summary: r.summary,
     summaryAt: r.summary_at,
     lastInteractionAt: r.last_interaction_at,
@@ -405,6 +494,222 @@ function toLoop(r: LoopRow): GraphLoop {
     createdAt: r.created_at,
     closedAt: r.closed_at,
     closedBy: r.closed_by ?? null,
+  };
+}
+
+interface AnchorRow {
+  id: string;
+  entity_id: string;
+  kind: GraphAnchorKind;
+  ref: string;
+  label: string;
+  added_by: GraphAnchor["addedBy"];
+  confirmed: number;
+  created_at: string;
+}
+
+function toAnchor(r: AnchorRow): GraphAnchor {
+  return {
+    id: r.id,
+    entityId: r.entity_id,
+    kind: r.kind,
+    ref: r.ref,
+    label: r.label,
+    addedBy: r.added_by,
+    confirmed: r.confirmed === 1,
+    createdAt: r.created_at,
+  };
+}
+
+interface InteractionRow {
+  id: string;
+  kind: GraphInteractionKind;
+  source: string;
+  occurred_at: string;
+  direction: GraphInteraction["direction"];
+  subject: string | null;
+  link: string | null;
+  gist: string | null;
+}
+
+const WORK_FACTS_SQL = "'status', 'deadline', 'next_step', 'stopped_at', 'progress', 'blocked_on'";
+
+const STATUS_LABELS: Record<string, string> = {
+  not_started: "not started",
+  in_progress: "in progress",
+  submitted: "submitted",
+  done: "done",
+  dropped: "dropped",
+};
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** `Nov 9` for an ISO date; anything else is cleaned and shown as written. */
+function shortDate(value: string): string {
+  const iso = normalizeDueAt(value);
+  if (iso === null) return safeName(value, 60);
+  const d = new Date(iso);
+  return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`;
+}
+
+const INTERACTION_SOURCE: Partial<Record<GraphInteractionKind, GraphCitationSource>> = {
+  mail: "mail",
+  message: "messages",
+  call: "messages",
+  meeting: "calendar",
+  note: "notes",
+  chat: "chats",
+  file: "files",
+  reminder: "reminders",
+};
+
+/**
+ * Whose words a row carries. Mail, messages and calendar items are others' text until the owner
+ * says otherwise; the owner's own sent mail, notes, chats, files and reminders are theirs, and
+ * Psyche's runs are the agent's.
+ */
+function interactionProvenance(kind: GraphInteractionKind, direction: string): Provenance {
+  if (kind === "task" || kind === "work") return "agent";
+  if (kind === "note" || kind === "chat" || kind === "file" || kind === "reminder") return "owner";
+  return direction === "out" ? "owner" : "untrusted";
+}
+
+function interactionTimelineRow(
+  r: InteractionRow,
+  entityId: string,
+  sender: string | undefined,
+): GraphTimelineRow {
+  const title = r.subject === null ? "" : safeName(r.subject, 120);
+  const quoted = title === "" ? "" : `: “${title}”`;
+  let text: string;
+  switch (r.kind) {
+    case "mail":
+      text = r.direction === "out" ? `You sent mail${quoted}` : `New mail${quoted}`;
+      break;
+    case "message":
+    case "call":
+      text = r.direction === "out" ? `You messaged${quoted}` : `New message${quoted}`;
+      break;
+    case "meeting":
+      text = `Meeting${quoted}`;
+      break;
+    case "note":
+      text = `Note${quoted}`;
+      break;
+    case "chat":
+      text = r.gist === null ? `Chat with Psyche${quoted}` : `Chat: ${safeName(r.gist, 120)}`;
+      break;
+    case "file":
+      text = title === "" ? "Edited files" : `Edited ${title}`;
+      break;
+    case "reminder":
+      text = `Reminders${quoted}`;
+      break;
+    default:
+      text = title === "" ? "Psyche worked on this" : `Psyche worked on this${quoted}`;
+  }
+  const source = INTERACTION_SOURCE[r.kind];
+  return {
+    id: r.id,
+    at: r.occurred_at,
+    kind: "interaction",
+    interactionKind: r.kind,
+    entityId,
+    text: text.slice(0, 400),
+    provenance: interactionProvenance(r.kind, r.direction),
+    chip:
+      source === undefined
+        ? null
+        : {
+            source,
+            label: safeName(sender ?? r.source, 200),
+            citationId: null,
+            link: r.link,
+          },
+  };
+}
+
+function factTimelineRow(
+  f: FactRow,
+  entityId: string,
+  prior: FactRow | undefined,
+  cite:
+    | {
+        id: string;
+        source: GraphCitationSource;
+        source_ref: string;
+        author_entity_id: string | null;
+      }
+    | undefined,
+  author: string | undefined,
+): GraphTimelineRow {
+  const value = f.attribute === "deadline" ? shortDate(f.value) : safeName(f.value, 160);
+  const from = prior?.value ?? null;
+  let text: string;
+  switch (f.attribute) {
+    case "deadline":
+      text =
+        prior === undefined
+          ? `Due ${value}`
+          : `Due date moved ${shortDate(prior.value)} → ${value}`;
+      break;
+    case "status":
+      text =
+        prior === undefined
+          ? `Marked ${STATUS_LABELS[f.value] ?? safeName(f.value, 40)}`
+          : `Status ${STATUS_LABELS[prior.value] ?? safeName(prior.value, 40)} → ${STATUS_LABELS[f.value] ?? safeName(f.value, 40)}`;
+      break;
+    case "progress":
+      text = `Progress: ${value}`;
+      break;
+    case "stopped_at":
+      text = `Stopped at ${value}`;
+      break;
+    case "next_step":
+      text = `Next step: ${value}`;
+      break;
+    default:
+      text = `Blocked on ${value}`;
+  }
+  return {
+    id: f.id,
+    at: f.recorded_at,
+    kind: "fact",
+    entityId,
+    text: text.slice(0, 400),
+    provenance: f.provenance,
+    change: { attribute: f.attribute, from, to: f.value },
+    chip:
+      cite === undefined
+        ? null
+        : {
+            source: cite.source,
+            label: safeName(author ?? cite.source_ref, 200),
+            citationId: cite.id,
+            link: null,
+          },
+  };
+}
+
+function loopTimelineRow(l: LoopRow & { counterpart_name: string | null }): GraphTimelineRow {
+  const who = l.counterpart_name === null ? "" : safeName(l.counterpart_name, 60);
+  const what = safeName(l.text, 200);
+  const lead =
+    l.direction === "waiting_on"
+      ? who === ""
+        ? "Waiting on a reply"
+        : `Waiting on ${who}`
+      : who === ""
+        ? "You owe"
+        : `You owe ${who}`;
+  return {
+    id: l.id,
+    at: l.created_at,
+    kind: "loop",
+    entityId: l.project_id ?? "",
+    text: `${lead}: ${what}${l.status === "done" ? " (done)" : ""}`.slice(0, 400),
+    provenance: l.provenance,
+    chip: null,
   };
 }
 
@@ -503,6 +808,10 @@ export class GraphStore {
     aliases?: string[];
     identifiers?: { kind: GraphIdentifierKind; value: string }[];
     projectStatus?: GraphProjectStatus;
+    /** Project, assignment or event: when it is due (an ISO date-time). */
+    dueAt?: string | null;
+    projectType?: GraphProjectType;
+    private?: boolean;
     isOwner?: boolean;
     source?: string;
     linkedBy?: GraphIdentifier["linkedBy"];
@@ -525,13 +834,21 @@ export class GraphStore {
     if (input.isOwner === true && this.ownerEntity() !== undefined) {
       fail("conflict", "the owner already has an entity");
     }
+    const dueAt = normalizeDueAt(input.dueAt);
+    if (input.dueAt !== undefined && input.dueAt !== null && dueAt === null)
+      fail("invalid_params", "dueAt must be a date and time");
+    if (dueAt !== null && !isWorkKind(input.kind))
+      fail("invalid_params", "only a project, assignment or event has a due date");
+    if (input.projectType === "course" && input.kind !== "project")
+      fail("invalid_params", "only a project can be a course");
     const id = this.#id("ent");
     const now = this.#now();
     this.#db.transaction(() => {
       this.#db
         .prepare(
-          `INSERT INTO graph_entities (id, kind, name, sort_name, is_owner, project_status, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO graph_entities (id, kind, name, sort_name, is_owner, project_status, due_at, project_type,
+             work_status, last_signal_at, private, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .run(
           id,
@@ -540,9 +857,25 @@ export class GraphStore {
           normalizeName(name),
           input.isOwner === true ? 1 : 0,
           input.kind === "project" ? (input.projectStatus ?? "active") : null,
+          dueAt,
+          input.kind === "project" ? (input.projectType ?? "project") : "project",
+          input.kind === "assignment" ? "not_started" : null,
+          // Creating a work item is the owner (or an accepted suggestion) saying it exists; it
+          // starts fresh instead of stale.
+          input.kind === "project" || input.kind === "assignment" ? now : null,
+          input.private === true && isWorkKind(input.kind) ? 1 : 0,
           now,
           now,
         );
+      if (dueAt !== null && input.kind !== "event") {
+        this.setFact({
+          entityId: id,
+          attribute: "deadline",
+          value: dueAt,
+          provenance: "owner",
+          source: { kind: "owner_edit" },
+        });
+      }
       for (const a of input.aliases ?? []) this.addAlias(id, a, source);
       for (const ident of input.identifiers ?? []) {
         this.linkIdentifier(id, ident.kind, ident.value, {
@@ -575,6 +908,8 @@ export class GraphStore {
       status?: GraphEntity["status"];
       projectStatus?: GraphProjectStatus;
       dueAt?: string | null;
+      projectType?: GraphProjectType;
+      private?: boolean;
       pinned?: boolean;
       hidden?: boolean;
       notes?: string | null;
@@ -603,17 +938,28 @@ export class GraphStore {
         for (const a of patch.aliases) this.addAlias(id, a, "owner");
         changed.push("aliases");
       }
+      const dueAt = normalizeDueAt(patch.dueAt);
+      if (patch.dueAt !== undefined && patch.dueAt !== null && dueAt === null)
+        fail("invalid_params", "dueAt must be a date and time");
+      if (patch.projectType === "course" && row.kind !== "project")
+        fail("invalid_params", "only a project can be a course");
       const flags: [keyof typeof patch, string, unknown][] = [
         ["status", "status", patch.status],
         ["projectStatus", "project_status", patch.projectStatus],
-        ["dueAt", "due_at", patch.dueAt],
+        ["dueAt", "due_at", patch.dueAt === undefined ? undefined : dueAt],
+        ["projectType", "project_type", patch.projectType],
+        ["private", "private", patch.private === undefined ? undefined : patch.private ? 1 : 0],
         ["pinned", "pinned", patch.pinned === undefined ? undefined : patch.pinned ? 1 : 0],
         ["hidden", "hidden", patch.hidden === undefined ? undefined : patch.hidden ? 1 : 0],
         ["notes", "notes", patch.notes],
       ];
       for (const [key, column, value] of flags) {
         if (value === undefined) continue;
-        if (key === "projectStatus" && row.kind !== "project") continue;
+        if ((key === "projectStatus" || key === "projectType") && row.kind !== "project") continue;
+        if (key === "private" && !isWorkKind(row.kind)) continue;
+        if (key === "dueAt" && !isWorkKind(row.kind)) {
+          fail("invalid_params", "only a project, assignment or event has a due date");
+        }
         if (
           key === "notes" &&
           typeof value === "string" &&
@@ -626,6 +972,14 @@ export class GraphStore {
         }
         this.#db.prepare(`UPDATE graph_entities SET ${column} = ? WHERE id = ?`).run(value, id);
         changed.push(key);
+        if (key === "dueAt" && row.kind !== "event") this.#recordDeadline(id, dueAt);
+      }
+      if (
+        patch.projectStatus === "done" &&
+        row.kind === "project" &&
+        row.project_status !== "done"
+      ) {
+        this.#closeAssignmentsOf(id);
       }
       if (patch.hidden === true) {
         // Don't track: block every identifier so ingest stores nothing new about them.
@@ -944,8 +1298,29 @@ export class GraphStore {
     };
     if (!FACT_ATTRIBUTES.includes(input.attribute))
       return refuse("invalid_params", "unknown attribute");
-    const value = clip(input.value, 2000);
+    if (
+      entity.kind === "assignment" &&
+      ASSIGNMENT_STATE_ATTRIBUTES.has(input.attribute) &&
+      !owner &&
+      input.provenance !== "system"
+    ) {
+      return refuse("policy_denied", `${input.attribute} is set by the owner or a rule`);
+    }
+    let value = clip(input.value, 2000);
     if (value === null) return refuse("invalid_params", "a fact needs a value");
+    if (entity.kind === "assignment" && input.attribute === "status" && !isWorkStatus(value)) {
+      return refuse(
+        "invalid_params",
+        "an assignment is not started, in progress, submitted, done or dropped",
+      );
+    }
+    // A deadline is a date; an assignment's is stored in one form so changes compare.
+    const deadlineAt =
+      input.attribute === "deadline" && isWorkKind(entity.kind) ? normalizeDueAt(value) : null;
+    if (input.attribute === "deadline" && entity.kind === "assignment") {
+      if (deadlineAt === null) return refuse("invalid_params", "a deadline needs a date");
+      value = deadlineAt;
+    }
     if (OWNER_ONLY_ATTRIBUTES.has(input.attribute) && !owner && input.provenance !== "system") {
       return refuse("policy_denied", `${input.attribute} is set by the owner only`);
     }
@@ -980,8 +1355,14 @@ export class GraphStore {
     }
     const prior = current[0];
     if (prior !== undefined && !MULTI_VALUED.has(input.attribute)) {
-      // A model never overrides what the owner said.
+      // A model never overrides what the owner said. A status change made by the state machine
+      // (work.ts) is code, not a model: it follows the owner's last word by design.
+      const byStateMachine =
+        input.attribute === "status" &&
+        input.provenance === "system" &&
+        input.subjectKind === "deterministic";
       if (
+        !byStateMachine &&
         trustRank(prior.provenance) > trustRank(input.provenance) &&
         prior.provenance === "owner"
       ) {
@@ -993,8 +1374,8 @@ export class GraphStore {
       this.#db
         .prepare(
           `INSERT INTO graph_facts (id, entity_id, attribute, value, provenance, confidence, sources, evidence,
-             valid_from, valid_to, recorded_at, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             valid_from, valid_to, recorded_at, created_at, updated_at, subject_kind)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .run(
           id,
@@ -1010,6 +1391,7 @@ export class GraphStore {
           now,
           now,
           now,
+          input.subjectKind ?? "owner_stated",
         );
       if (prior !== undefined && !MULTI_VALUED.has(input.attribute)) {
         this.#db
@@ -1018,12 +1400,148 @@ export class GraphStore {
           )
           .run(id, now, now, prior.id);
       }
+      this.#cacheWorkFact(entity, input, value, deadlineAt, now);
     })();
     this.#touched(entity.id, ["facts"]);
     return {
       fact: toFact(this.#factRow(id) as FactRow),
       superseded: prior !== undefined && !MULTI_VALUED.has(input.attribute) ? prior.id : null,
     };
+  }
+
+  /**
+   * The entity row caches the newest value of a few work facts (§2.3). Only the owner's and a
+   * rule's facts move the cache (W1), and only for the kinds that carry it.
+   */
+  #cacheWorkFact(
+    entity: EntityRow,
+    input: FactInput,
+    value: string,
+    deadlineAt: string | null,
+    now: string,
+  ): void {
+    if (!isWorkKind(entity.kind)) return;
+    const trusted = input.provenance === "owner" || input.provenance === "system";
+    if (trusted && input.attribute === "status" && entity.kind === "assignment") {
+      this.#db
+        .prepare("UPDATE graph_entities SET work_status = ? WHERE id = ?")
+        .run(value, entity.id);
+    }
+    if (trusted && deadlineAt !== null) {
+      this.#db
+        .prepare("UPDATE graph_entities SET due_at = ? WHERE id = ?")
+        .run(deadlineAt, entity.id);
+    }
+    if (input.provenance !== "untrusted" && SIGNAL_ATTRIBUTES.has(input.attribute)) {
+      this.#db
+        .prepare(
+          "UPDATE graph_entities SET last_signal_at = MAX(COALESCE(last_signal_at, ''), ?) WHERE id = ?",
+        )
+        .run(now, entity.id);
+    }
+    if (
+      PROGRESS_ATTRIBUTES.has(input.attribute) &&
+      entity.kind === "assignment" &&
+      (input.provenance === "owner" || input.provenance === "agent")
+    ) {
+      this.#startWork(entity.id);
+    }
+  }
+
+  // --- work items (docs/design/memory-everything-2026.md §3) -------------------------------------
+
+  /**
+   * Applies a cause to an assignment's status through the state machine (work.ts) and writes the
+   * `status` fact when it changes: the owner's word as `owner_stated`, a rule as `deterministic`.
+   * Third-party text never changes it; the result says whether to ask the owner instead.
+   */
+  setWorkStatus(
+    entityId: string,
+    cause: WorkCause,
+    source?: GraphWriteSource,
+  ): ReturnType<typeof nextWorkStatus> & { entity: GraphEntity } {
+    const row = this.#entityRow(entityId);
+    if (row === undefined) fail("not_found", "no such entity");
+    if (row.kind !== "assignment" || row.work_status === null) {
+      fail("invalid_params", "only an assignment has a status");
+    }
+    const transition = nextWorkStatus(row.work_status, cause);
+    if (transition.changed) {
+      const owner = transition.via === "owner_stated";
+      this.setFact({
+        entityId,
+        attribute: "status",
+        value: transition.status,
+        provenance: owner ? "owner" : "system",
+        subjectKind: owner ? "owner_stated" : "deterministic",
+        ...(source === undefined ? {} : { source }),
+      });
+    }
+    return { ...transition, entity: this.getEntity(entityId) as GraphEntity };
+  }
+
+  /**
+   * Records evidence that the owner (or a Psyche run) worked on an item: refreshes
+   * `last_signal_at` and, when `startsWork`, moves a not-started assignment to in progress.
+   */
+  recordSignal(
+    entityId: string,
+    opts: { at?: string; provenance?: "owner" | "agent"; startsWork?: boolean } = {},
+  ): GraphEntity {
+    const row = this.#entityRow(entityId);
+    if (row === undefined) fail("not_found", "no such entity");
+    if (!isWorkKind(row.kind)) fail("invalid_params", "only a work item has signals");
+    const at = opts.at ?? this.#now();
+    this.#db
+      .prepare(
+        "UPDATE graph_entities SET last_signal_at = MAX(COALESCE(last_signal_at, ''), ?) WHERE id = ?",
+      )
+      .run(at, entityId);
+    if (opts.startsWork !== false && row.kind === "assignment")
+      this.#startWork(entityId, opts.provenance);
+    this.#touched(entityId, ["signal"]);
+    return this.getEntity(entityId) as GraphEntity;
+  }
+
+  #startWork(entityId: string, provenance: "owner" | "agent" = "owner"): void {
+    const row = this.#entityRow(entityId);
+    if (row?.work_status !== "not_started") return;
+    this.setWorkStatus(entityId, { type: "signal", provenance });
+  }
+
+  /** Keeps a project's or assignment's deadline fact in step with an owner edit of `dueAt`. */
+  #recordDeadline(id: string, dueAt: string | null): void {
+    if (dueAt !== null) {
+      this.setFact({
+        entityId: id,
+        attribute: "deadline",
+        value: dueAt,
+        provenance: "owner",
+        source: { kind: "owner_edit" },
+      });
+      return;
+    }
+    // Cleared: the deadline stops being current, with no "wrong fact" correction recorded.
+    const now = this.#now();
+    this.#db
+      .prepare(
+        `UPDATE graph_facts SET valid_to = ?, updated_at = ?
+         WHERE entity_id = ? AND attribute = 'deadline' AND superseded_by IS NULL
+           AND retracted_at IS NULL AND valid_to IS NULL`,
+      )
+      .run(now, now, id);
+  }
+
+  /** The parent was marked done: its open assignments are done too (deterministic, §3.4). */
+  #closeAssignmentsOf(projectId: string): void {
+    const children = this.#db
+      .prepare(
+        `SELECT e.id FROM graph_edges g JOIN graph_entities e ON e.id = g.src
+          WHERE g.dst = ? AND g.rel = 'part_of' AND g.superseded_by IS NULL AND g.retracted_at IS NULL
+            AND e.kind = 'assignment'`,
+      )
+      .all(projectId) as { id: string }[];
+    for (const c of children) this.setWorkStatus(c.id, { type: "parent_done" });
   }
 
   /** Inferences expire after 12 months without new evidence; owner and system facts never do. */
@@ -1142,7 +1660,10 @@ export class GraphStore {
       return { edge: toEdge(this.#edgeRow(same.id) as EdgeRow), superseded: null };
     }
     // A person works at one org and reports to one person at a time; other relations accumulate.
-    const single = input.rel === "works_at" || input.rel === "reports_to";
+    // An assignment or event belongs to one project or course at a time.
+    const single =
+      SINGLE_TARGET_RELS.has(input.rel) ||
+      (input.rel === "part_of" && (src.kind === "assignment" || src.kind === "event"));
     const prior = single ? current[0] : current.find((e) => e.dst === dst.id);
     if (prior !== undefined && prior.provenance === "owner" && !owner) return undefined;
     const id = this.#id("edge");
@@ -1211,8 +1732,8 @@ export class GraphStore {
       if (existing === undefined) {
         this.#db
           .prepare(
-            `INSERT INTO graph_interactions (id, kind, source, external_ref, occurred_at, direction, subject, thread_key, link, project_id, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO graph_interactions (id, kind, source, external_ref, occurred_at, direction, subject, thread_key, link, project_id, created_at, gist)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           )
           .run(
             id,
@@ -1226,11 +1747,12 @@ export class GraphStore {
             clip(input.link, 1024),
             input.projectId ?? null,
             this.#now(),
+            clip(input.gist, 120),
           );
       } else {
         this.#db
           .prepare(
-            "UPDATE graph_interactions SET occurred_at = ?, direction = ?, subject = ?, thread_key = ?, link = ?, project_id = COALESCE(?, project_id) WHERE id = ?",
+            "UPDATE graph_interactions SET occurred_at = ?, direction = ?, subject = ?, thread_key = ?, link = ?, project_id = COALESCE(?, project_id), gist = COALESCE(?, gist) WHERE id = ?",
           )
           .run(
             input.occurredAt,
@@ -1239,6 +1761,7 @@ export class GraphStore {
             clip(input.threadKey, 512),
             clip(input.link, 1024),
             input.projectId ?? null,
+            clip(input.gist, 120),
             id,
           );
         this.#db.prepare("DELETE FROM graph_participants WHERE interaction_id = ?").run(id);
@@ -1254,8 +1777,57 @@ export class GraphStore {
         insert.run(id, entityId, p.role);
         bump.run(input.occurredAt, entityId);
       }
+      // A project is also a subject, so one reader finds everything an item owns (§2.6).
+      if (input.projectId != null) this.linkSubject(id, input.projectId, "rule");
+      for (const subject of input.subjects ?? []) {
+        this.linkSubject(id, subject.entityId, subject.linkedBy ?? "rule", subject.confidence);
+      }
     })();
     return id;
+  }
+
+  /** Ties an interaction to another item (the course as well as the assignment). Idempotent. */
+  linkSubject(
+    interactionId: string,
+    entityId: string,
+    linkedBy: GraphInteractionSubjectLinkedBy = "rule",
+    confidence = 1,
+  ): void {
+    const target = this.#entityRow(this.resolveMerged(entityId));
+    if (target === undefined) fail("not_found", "no such entity");
+    this.#db
+      .prepare(
+        "INSERT OR IGNORE INTO graph_interaction_subjects (interaction_id, entity_id, linked_by, confidence, created_at) VALUES (?, ?, ?, ?, ?)",
+      )
+      .run(interactionId, target.id, linkedBy, Math.min(1, Math.max(0, confidence)), this.#now());
+  }
+
+  unlinkSubject(interactionId: string, entityId: string): boolean {
+    return (
+      this.#db
+        .prepare(
+          "DELETE FROM graph_interaction_subjects WHERE interaction_id = ? AND entity_id = ?",
+        )
+        .run(interactionId, entityId).changes > 0
+    );
+  }
+
+  /** The items an interaction belongs to. */
+  subjectsOf(interactionId: string): { entityId: string; linkedBy: string; confidence: number }[] {
+    return (
+      this.#db
+        .prepare(
+          "SELECT entity_id, linked_by, confidence FROM graph_interaction_subjects WHERE interaction_id = ? ORDER BY created_at, entity_id",
+        )
+        .all(interactionId) as { entity_id: string; linked_by: string; confidence: number }[]
+    ).map((r) => ({ entityId: r.entity_id, linkedBy: r.linked_by, confidence: r.confidence }));
+  }
+
+  /** Writes or clears a conversation's one-line gist (≤ 120 characters). */
+  setInteractionGist(interactionId: string, gist: string | null): void {
+    this.#db
+      .prepare("UPDATE graph_interactions SET gist = ? WHERE id = ?")
+      .run(clip(gist, 120), interactionId);
   }
 
   /** The interaction recorded for a source item (a calendar event id, a mail message id). */
@@ -1321,6 +1893,7 @@ export class GraphStore {
       thread_key: string | null;
       link: string | null;
       project_id: string | null;
+      gist: string | null;
     }[];
     const participants = this.#db.prepare(
       "SELECT entity_id, role FROM graph_participants WHERE interaction_id = ?",
@@ -1335,6 +1908,7 @@ export class GraphStore {
       threadKey: r.thread_key,
       link: r.link,
       projectId: r.project_id,
+      ...(r.gist === null ? {} : { gist: r.gist }),
       participants: (
         participants.all(r.id) as { entity_id: string; role: GraphParticipantRole }[]
       ).map((p) => ({
@@ -1546,6 +2120,233 @@ export class GraphStore {
     ).map(toLoop);
   }
 
+  // --- anchors (docs/design/memory-everything-2026.md §2.5) ------------------------------------
+
+  /**
+   * Links a source (a folder, a Reminders list, a mail thread, ...) to a work item: "signals from
+   * here belong to this item". Only owner and rule anchors route signals; a model anchor starts
+   * unconfirmed and routes nothing until the owner confirms it (W6). Adding the same anchor again
+   * returns the existing one, and the owner adding it confirms a model's.
+   */
+  addAnchor(input: {
+    entityId: string;
+    kind: GraphAnchorKind;
+    ref: string;
+    label?: string | null;
+    addedBy: GraphAnchor["addedBy"];
+  }): GraphAnchor {
+    const entity = this.#entityRow(this.resolveMerged(input.entityId));
+    if (entity === undefined) fail("not_found", "no such entity");
+    if (!isWorkKind(entity.kind)) {
+      fail("invalid_params", "a source can be linked to a project, course, assignment or event");
+    }
+    const ref = input.ref.trim();
+    if (ref.length === 0 || ref.length > 1024 || [...ref].some(isControlChar)) {
+      fail("invalid_params", "that link is not valid");
+    }
+    const label = safeName(input.label ?? "", 200);
+    const existing = this.#db
+      .prepare(
+        "SELECT id, confirmed FROM graph_anchors WHERE entity_id = ? AND kind = ? AND ref = ?",
+      )
+      .get(entity.id, input.kind, ref) as { id: string; confirmed: number } | undefined;
+    if (existing !== undefined) {
+      if (existing.confirmed === 0 && input.addedBy !== "model") {
+        this.#db
+          .prepare(
+            "UPDATE graph_anchors SET confirmed = 1, added_by = ?, label = CASE WHEN ? != '' THEN ? ELSE label END WHERE id = ?",
+          )
+          .run(input.addedBy, label, label, existing.id);
+      }
+      return this.getAnchor(existing.id) as GraphAnchor;
+    }
+    const id = this.#id("anc");
+    this.#db
+      .prepare(
+        "INSERT INTO graph_anchors (id, entity_id, kind, ref, label, added_by, confirmed, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      )
+      .run(
+        id,
+        entity.id,
+        input.kind,
+        ref,
+        label,
+        input.addedBy,
+        input.addedBy === "model" ? 0 : 1,
+        this.#now(),
+      );
+    this.#emit({
+      event: "memory.entity.updated",
+      payload: { id: entity.id, kind: entity.kind, changed: ["anchors"] },
+    });
+    return this.getAnchor(id) as GraphAnchor;
+  }
+
+  getAnchor(id: string): GraphAnchor | undefined {
+    const r = this.#db.prepare("SELECT * FROM graph_anchors WHERE id = ?").get(id) as
+      | AnchorRow
+      | undefined;
+    return r === undefined ? undefined : toAnchor(r);
+  }
+
+  anchors(filter: { entityId?: string; kind?: GraphAnchorKind } = {}): GraphAnchor[] {
+    const where: string[] = [];
+    const params: string[] = [];
+    if (filter.entityId !== undefined) {
+      where.push("entity_id = ?");
+      params.push(this.resolveMerged(filter.entityId));
+    }
+    if (filter.kind !== undefined) {
+      where.push("kind = ?");
+      params.push(filter.kind);
+    }
+    return (
+      this.#db
+        .prepare(
+          `SELECT * FROM graph_anchors ${where.length === 0 ? "" : `WHERE ${where.join(" AND ")}`} ORDER BY created_at, id`,
+        )
+        .all(...params) as AnchorRow[]
+    ).map(toAnchor);
+  }
+
+  /** The owner confirms a model's suggested anchor: from now on it routes signals. */
+  confirmAnchor(id: string): GraphAnchor {
+    const r = this.getAnchor(id);
+    if (r === undefined) fail("not_found", "no such link");
+    this.#db.prepare("UPDATE graph_anchors SET confirmed = 1 WHERE id = ?").run(id);
+    return this.getAnchor(id) as GraphAnchor;
+  }
+
+  removeAnchor(id: string): boolean {
+    const row = this.getAnchor(id);
+    if (row === undefined) return false;
+    this.#db.prepare("DELETE FROM graph_anchors WHERE id = ?").run(id);
+    const kind = this.#entityRow(row.entityId)?.kind;
+    if (kind !== undefined) {
+      this.#emit({
+        event: "memory.entity.updated",
+        payload: { id: row.entityId, kind, changed: ["anchors"] },
+      });
+    }
+    return true;
+  }
+
+  /** The items a source belongs to: confirmed anchors only (a model anchor routes nothing). */
+  routeAnchor(kind: GraphAnchorKind, ref: string): GraphAnchor[] {
+    return (
+      this.#db
+        .prepare(
+          "SELECT * FROM graph_anchors WHERE kind = ? AND ref = ? AND confirmed = 1 ORDER BY created_at, id",
+        )
+        .all(kind, ref) as AnchorRow[]
+    ).map(toAnchor);
+  }
+
+  // --- timeline (§3.5) ---------------------------------------------------------------------------
+
+  /**
+   * An item's timeline, newest first: a view over rows the graph already keeps (interactions tied
+   * to it, the history of its work facts, its loops), plus the same for a project's or course's
+   * assignments. Nothing is stored for it. Text is built from templates; titles are cleaned data.
+   */
+  timeline(
+    entityId: string,
+    opts: { before?: string; limit?: number } = {},
+  ): { rows: GraphTimelineRow[]; nextBefore: string | null } {
+    const id = this.resolveMerged(entityId);
+    const root = this.#entityRow(id);
+    if (root === undefined) fail("not_found", "no such entity");
+    const limit = Math.min(Math.max(1, opts.limit ?? 50), 200);
+    const owners = [id];
+    if (root.kind === "project") {
+      owners.push(
+        ...(
+          this.#db
+            .prepare(
+              `SELECT g.src AS id FROM graph_edges g JOIN graph_entities e ON e.id = g.src
+                WHERE g.dst = ? AND g.rel = 'part_of' AND g.superseded_by IS NULL AND g.retracted_at IS NULL
+                  AND e.kind IN ('assignment', 'event')`,
+            )
+            .all(id) as { id: string }[]
+        ).map((r) => r.id),
+      );
+    }
+    const rows = new Map<string, GraphTimelineRow>();
+    const before = opts.before;
+    const keep = (at: string) => before === undefined || at < before;
+    const marks = owners.map(() => "?").join(", ");
+
+    // 1. interactions tied to the item through subjects or the project column
+    const interactionRows = this.#db
+      .prepare(
+        `SELECT i.*, COALESCE(s.entity_id, i.project_id) AS owner_id
+           FROM graph_interactions i
+           LEFT JOIN graph_interaction_subjects s ON s.interaction_id = i.id AND s.entity_id IN (${marks})
+          WHERE s.entity_id IS NOT NULL OR i.project_id IN (${marks})
+          ORDER BY i.occurred_at DESC, i.id DESC LIMIT 400`,
+      )
+      .all(...owners, ...owners) as (InteractionRow & { owner_id: string })[];
+    const senderOf = this.#db.prepare(
+      `SELECT e.name FROM graph_participants p JOIN graph_entities e ON e.id = p.entity_id
+        WHERE p.interaction_id = ? AND p.role = 'from' LIMIT 1`,
+    );
+    for (const r of interactionRows) {
+      if (!keep(r.occurred_at) || rows.has(r.id)) continue;
+      const sender = (senderOf.get(r.id) as { name: string } | undefined)?.name;
+      rows.set(r.id, interactionTimelineRow(r, r.owner_id, sender));
+    }
+
+    // 2. the history of the work facts, newest value last
+    const factStmt = this.#db.prepare(
+      `SELECT * FROM graph_facts WHERE entity_id = ? AND attribute IN (${WORK_FACTS_SQL})
+         AND retracted_at IS NULL AND review IN ${ACCEPTED_REVIEW_SQL} ORDER BY recorded_at, id`,
+    );
+    const citeStmt = this.#db.prepare(
+      "SELECT id, source, source_ref, author_entity_id FROM graph_citations WHERE target_kind = 'fact' AND target_id = ? ORDER BY created_at, id LIMIT 1",
+    );
+    const nameStmt = this.#db.prepare("SELECT name FROM graph_entities WHERE id = ?");
+    for (const owner of owners) {
+      const facts = factStmt.all(owner) as FactRow[];
+      for (const f of facts) {
+        if (!keep(f.recorded_at)) continue;
+        const prior = facts.find((x) => x.superseded_by === f.id);
+        const cite = citeStmt.get(f.id) as
+          | {
+              id: string;
+              source: GraphCitationSource;
+              source_ref: string;
+              author_entity_id: string | null;
+            }
+          | undefined;
+        const author =
+          cite?.author_entity_id == null
+            ? undefined
+            : (nameStmt.get(cite.author_entity_id) as { name: string } | undefined)?.name;
+        rows.set(f.id, factTimelineRow(f, owner, prior, cite, author));
+      }
+    }
+
+    // 3. loops on the item: someone owed, or owing
+    const loopRows = this.#db
+      .prepare(
+        `SELECT l.*, e.name AS counterpart_name FROM graph_loops l
+           LEFT JOIN graph_entities e ON e.id = l.counterpart_id
+          WHERE l.project_id IN (${marks}) AND l.status IN ('open', 'snoozed', 'done')
+          ORDER BY l.created_at DESC, l.id DESC LIMIT 100`,
+      )
+      .all(...owners) as (LoopRow & { counterpart_name: string | null })[];
+    for (const l of loopRows) {
+      if (!keep(l.created_at)) continue;
+      rows.set(l.id, loopTimelineRow(l));
+    }
+
+    const sorted = [...rows.values()].sort(
+      (a, b) => b.at.localeCompare(a.at) || b.id.localeCompare(a.id),
+    );
+    const page = sorted.slice(0, limit);
+    return { rows: page, nextBefore: sorted.length > limit ? (page.at(-1)?.at ?? null) : null };
+  }
+
   // --- suggestions -----------------------------------------------------------------------------
 
   /** Records a suggestion unless the same one was ever made before (accepted or rejected). */
@@ -1554,6 +2355,10 @@ export class GraphStore {
     entityIds: string[];
     name?: string | null;
     reason: string;
+    /** project: a course is a project suggestion with a type. */
+    projectType?: GraphProjectType;
+    /** assignment: the due date it was read from. */
+    dueAt?: string | null;
   }): GraphSuggestion | undefined {
     const ids = [...new Set(input.entityIds.map((id) => this.resolveMerged(id)))].sort();
     if (input.kind === "merge") {
@@ -1567,10 +2372,14 @@ export class GraphStore {
       if (blocked !== undefined) return undefined;
     }
     const name = clip(input.name, 200);
+    const dueAt = input.kind === "assignment" ? normalizeDueAt(input.dueAt) : null;
+    if (input.kind === "assignment" && name === null) return undefined;
     const keyHash =
       input.kind === "merge"
         ? sha256(`merge\n${ids.join("\n")}`)
-        : sha256(`project\n${normalizeName(name ?? "")}`);
+        : input.kind === "assignment"
+          ? sha256(`assignment\n${ids[0] ?? ""}\n${normalizeName(name ?? "")}\n${dueAt ?? ""}`)
+          : sha256(`project\n${normalizeName(name ?? "")}`);
     if (
       input.kind === "project" &&
       this.#db
@@ -1588,7 +2397,7 @@ export class GraphStore {
     const now = this.#now();
     this.#db
       .prepare(
-        "INSERT INTO graph_suggestions (id, kind, entity_ids, name, reason, status, key_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?)",
+        "INSERT INTO graph_suggestions (id, kind, entity_ids, name, reason, status, key_hash, created_at, updated_at, project_type, due_at) VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?)",
       )
       .run(
         id,
@@ -1599,6 +2408,8 @@ export class GraphStore {
         keyHash,
         now,
         now,
+        input.kind === "project" ? (input.projectType ?? null) : null,
+        dueAt,
       );
     const suggestion = this.getSuggestion(id) as GraphSuggestion;
     this.#emit({ event: "memory.suggestion.created", payload: { suggestion } });
@@ -1615,6 +2426,8 @@ export class GraphStore {
           reason: string;
           status: GraphSuggestion["status"];
           created_at: string;
+          project_type: GraphProjectType | null;
+          due_at: string | null;
         }
       | undefined;
     if (r === undefined) return undefined;
@@ -1623,6 +2436,8 @@ export class GraphStore {
       kind: r.kind,
       entityIds: JSON.parse(r.entity_ids) as string[],
       name: r.name,
+      ...(r.project_type === null ? {} : { projectType: r.project_type }),
+      ...(r.due_at === null ? {} : { dueAt: r.due_at }),
       reason: r.reason,
       status: r.status,
       createdAt: r.created_at,
@@ -1650,8 +2465,32 @@ export class GraphStore {
         const [into, ...rest] = s.entityIds;
         if (into !== undefined && rest.length > 0)
           entity = this.merge([into, ...rest], into).entity;
+      } else if (s.kind === "assignment") {
+        // Track: only the owner's answer creates the assignment (W1, W2). The parent is the
+        // first listed entity when it is still a project or course.
+        entity = this.createEntity({
+          kind: "assignment",
+          name: s.name ?? "Untitled assignment",
+          ...(s.dueAt == null ? {} : { dueAt: s.dueAt }),
+        });
+        const parent = s.entityIds[0];
+        if (
+          parent !== undefined &&
+          this.#entityRow(this.resolveMerged(parent))?.kind === "project"
+        ) {
+          this.setEdge({
+            src: entity.id,
+            rel: "part_of",
+            dst: this.resolveMerged(parent),
+            provenance: "owner",
+          });
+        }
       } else {
-        entity = this.createEntity({ kind: "project", name: s.name ?? "Untitled project" });
+        entity = this.createEntity({
+          kind: "project",
+          name: s.name ?? "Untitled project",
+          ...(s.projectType === undefined ? {} : { projectType: s.projectType }),
+        });
         for (const member of s.entityIds) {
           const m = this.#entityRow(member);
           if (m?.kind === "person")
@@ -2193,6 +3032,7 @@ export class GraphStore {
           thread_key: string | null;
           link: string | null;
           project_id: string | null;
+          gist: string | null;
         }
       | undefined;
     if (r === undefined) return undefined;
@@ -2211,6 +3051,7 @@ export class GraphStore {
       threadKey: r.thread_key,
       link: r.link,
       projectId: r.project_id,
+      ...(r.gist === null ? {} : { gist: r.gist }),
       participants,
     };
   }
@@ -2233,6 +3074,7 @@ export class GraphStore {
     this.#db
       .prepare("UPDATE graph_interactions SET project_id = ? WHERE id = ?")
       .run(projectId, interactionId);
+    if (projectId !== null) this.linkSubject(interactionId, projectId, "rule");
   }
 
   /** The owner's recent corrections of an entity's facts (attribute and value), newest first. */
@@ -2266,7 +3108,10 @@ export class GraphStore {
       const members = this.edges(id).filter(
         (x) => x.dst === id && (x.rel === "member_of" || x.rel === "stakeholder_of"),
       ).length;
-      subtitle = `${e.projectStatus ?? "active"} · ${members} ${members === 1 ? "person" : "people"}`;
+      subtitle = `${e.projectType === "course" ? "course · " : ""}${e.projectStatus ?? "active"} · ${members} ${members === 1 ? "person" : "people"}`;
+    } else if (e.kind === "assignment" || e.kind === "event") {
+      const parent = this.edges(id).find((x) => x.rel === "part_of" && x.src === id);
+      subtitle = parent === undefined ? null : (this.#entityRow(parent.dst)?.name ?? null);
     }
     return {
       id: e.id,
@@ -2276,6 +3121,12 @@ export class GraphStore {
       summary: e.summary,
       status: e.status,
       ...(e.projectStatus === undefined ? {} : { projectStatus: e.projectStatus }),
+      ...(e.projectType === undefined ? {} : { projectType: e.projectType }),
+      ...(e.workStatus === undefined ? {} : { workStatus: e.workStatus }),
+      ...(e.kind === "assignment" || e.kind === "project" || e.kind === "event"
+        ? { dueAt: e.dueAt }
+        : {}),
+      ...(e.private === true ? { private: true } : {}),
       lastInteractionAt: e.lastInteractionAt,
       openLoops,
       pinned: e.pinned,

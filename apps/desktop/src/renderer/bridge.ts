@@ -2,6 +2,7 @@ import type { GatewayEvent, GatewayStatus } from "@psyche/web/client";
 import {
   type BrowserHostState,
   type BrowserNav,
+  type BundledHelperIdentity,
   browserStorage,
   type DownloadNotice,
   type GatewayRunView,
@@ -119,6 +120,12 @@ export function desktopPlatform(b: PsycheBridge = window.psyche): ShellPlatform 
     helper: {
       getState: () => b.helper.getState() as Promise<MacHelperState>,
       onState: (cb) => b.helper.onState((s) => cb(s as MacHelperState)),
+      launch: () => b.helper.launch() as Promise<MacHelperState>,
+      touchId: {
+        identity: () => b.helper.touchIdIdentity() as Promise<BundledHelperIdentity | null>,
+        register: () => b.helper.touchIdRegister(),
+        approve: (p) => b.helper.touchIdApprove(p),
+      },
     },
     clipboard: {
       writeText: async (text) => {

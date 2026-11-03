@@ -89,6 +89,15 @@ export function syncSchema(enc: SqlConn, plain: SqlConn, tables: readonly string
           if (exists) enc.exec(`DROP TABLE ${quote(temp)}`);
           continue;
         }
+        if (!exists) {
+          // A table the encrypted file has never had: create it exactly as `plain` has it, so
+          // the definitions match from now on (a rename would only change the quoting).
+          enc.exec(def.sql as string);
+          for (const r of plainAll)
+            if ((r.type === "index" || r.type === "trigger") && r.tbl_name === t)
+              enc.exec(r.sql as string);
+          continue;
+        }
         const temp = `${t}__new`;
         enc.exec(
           (def.sql as string).replace(

@@ -12,7 +12,8 @@ public final class HelperRuntime: @unchecked Sendable {
     public init(log: HelperLog = HelperLog(), environment: [String: String] = ProcessInfo.processInfo.environment) {
         self.log = log
         computer = ComputerUse(environment: environment, log: log)
-        let presence = PresenceKey()
+        // The keychain key when this build has an access group; else the Secure Enclave file key.
+        let presence = PreferredPresenceKey.live()
         notifications = NotificationCenterBridge(log: log, presence: presence)
         var handlers: [any CapabilityHandler] = []
         handlers += PermissionsCapabilities.make(preflight: preflight)

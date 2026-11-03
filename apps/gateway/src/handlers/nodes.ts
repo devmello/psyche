@@ -25,9 +25,11 @@ import { paramsHash } from "../idempotency.ts";
  * JXA, Shortcuts, open / focus), `computer.*` (sessions and per-app tiers), `messages.*`
  * (the iMessage channel's reply authority), `notify.*` (the Gateway's approval notifications),
  * `ocr.*` (search ingest's Vision OCR) and `llm.*` (the model router's Apple on-device model).
+ * `presence.*` is the helper's Touch ID key: only the Gateway picks what it signs (a window's
+ * approval, `approvals.approveWithTouchId`) and reads the key it registers.
  */
 const UNREACHABLE =
-  /^(vault|keychain|settings|permissions|grants|approvals|devices|gateway|dictation|apps|computer|messages|notify|screen|ocr|llm)([^a-z0-9]|$)/;
+  /^(vault|keychain|settings|permissions|grants|approvals|devices|gateway|dictation|apps|computer|messages|notify|screen|ocr|llm|presence)([^a-z0-9]|$)/;
 
 /**
  * The helper's own notification permission, which the desktop's onboarding and Settings read and

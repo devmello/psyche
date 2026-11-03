@@ -1161,8 +1161,6 @@ export const pt: Partial<Catalogue> = {
   "settings.credentials.payments.amount": "Valor",
   "settings.credentials.payments.paidWith": "Pago com",
   "settings.credentials.payments.state": "Estado",
-  "settings.approval.presenceUnavailable":
-    "Esta janela não consegue confirmar que é você. Aprove a alteração com Touch ID na notificação do Psyche neste Mac ou a partir de um dispositivo com chave-senha. Nada muda até lá.",
   "settings.approval.saved": "“{label}” foi salvo.",
   "settings.approval.denied": "Não alterado: a aprovação para “{label}” foi negada.",
   "settings.approval.lapsed":

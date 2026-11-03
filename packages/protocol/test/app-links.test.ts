@@ -23,6 +23,6 @@ describe("notification links", () => {
     expect(chatLinkRoute({ threadId: "a/b?c" })).toBe("/chat/a%2Fb%3Fc");
     expect(runLinkRoute("run_1")).toBe("/overview/run/run_1");
     expect(SCHEDULED_RUNS_ROUTE).toBe("/scheduled?tab=runs");
-    expect(MEMORY_REVIEW_ROUTE).toBe("/settings/memory");
+    expect(MEMORY_REVIEW_ROUTE).toBe("/memory/review");
   });
 });

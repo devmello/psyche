@@ -154,7 +154,7 @@ export const Notification = Type.Object(
     route: Nullable(
       Type.String({
         description:
-          "Deep link inside the app: /chat/<threadId>?message=<id> or ?approval=<id>, /overview/run/<runId>, /scheduled?tab=runs, /settings/memory",
+          "Deep link inside the app: /chat/<threadId>?message=<id> or ?approval=<id>, /overview/run/<runId>, /scheduled?tab=runs, /memory/review",
       }),
     ),
     actions: Type.Array(NotificationAction),

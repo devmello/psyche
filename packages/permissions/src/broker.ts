@@ -1031,6 +1031,78 @@ export class PsychePermissionBroker implements PermissionBroker {
     return fail(code, message, details);
   }
 
+  /**
+   * Checks an answer before a host asks the owner for presence out of band (the desktop window's
+   * Touch ID through the helper, security §3.7): the answerer is not rate limited, the approval is
+   * pending and armed, and the token is an unused one for `decidedBy.surface`. Throws what
+   * `answer` would (each refusal counts against the rejected-answer cap); records nothing else.
+   */
+  async precheckAnswer(input: {
+    approvalId: string;
+    answerToken: string;
+    decidedBy: { deviceId: string; surface: Surface };
+  }): Promise<ApprovalRequest> {
+    this.#sweep();
+    const by = input.decidedBy;
+    const id = input.approvalId;
+    const retryAfterSec = this.#retryAfterSec(`device:${by.deviceId}`);
+    if (retryAfterSec > 0)
+      return this.#reject(
+        undefined,
+        id,
+        by,
+        "rate_limited",
+        "rate_limited",
+        `Too many approvals in a minute. Try again in ${retryAfterSec} s`,
+        { retryAfterSec },
+      );
+    const rec = this.#store.getApproval(id);
+    if (rec === undefined)
+      return this.#reject(undefined, id, by, "not_found", "not_found", `approval ${id} not found`);
+    const a = rec.approval;
+    if (a.status !== "pending" || rec.bootId !== this.#bootId)
+      return this.#reject(rec, id, by, "late", "answer_late", `approval already ${a.status}`);
+    const token = rec.tokens.find((t) => t.hash === sha256(input.answerToken));
+    if (token === undefined || token.surface !== by.surface)
+      return this.#reject(rec, id, by, "unknown_token", "forbidden", "unknown answer token");
+    if (token.usedAt !== null)
+      return this.#reject(rec, id, by, "replayed", "answer_replayed", "answer token already used");
+    if (this.clock.now() < Date.parse(a.requestedAt) + this.#armDelayMs)
+      return this.#reject(
+        rec,
+        id,
+        by,
+        "not_armed",
+        "approval_not_armed",
+        "approval card is not armed yet",
+      );
+    return structuredClone(a);
+  }
+
+  /**
+   * An out-of-band presence step failed (Touch ID cancelled, failed or unavailable): audited as a
+   * rejected answer and counted against the answerer's cap, like a bad assertion would be.
+   */
+  async rejectPresence(input: {
+    approvalId: string;
+    decidedBy: { deviceId: string; surface: Surface };
+    reason: string;
+    code: ErrorCode;
+    message: string;
+    details?: unknown;
+  }): Promise<never> {
+    const rec = this.#store.getApproval(input.approvalId);
+    return this.#reject(
+      rec,
+      input.approvalId,
+      input.decidedBy,
+      input.reason,
+      input.code,
+      input.message,
+      input.details,
+    );
+  }
+
   async answer(input: PolicyAnswerInput): Promise<ApprovalRequest> {
     this.#sweep();
     const by = input.decidedBy;

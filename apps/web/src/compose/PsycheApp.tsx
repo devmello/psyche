@@ -66,6 +66,7 @@ import {
 import { chatFileSlots } from "./attachments.tsx";
 import { ComposedCanvas } from "./canvas.tsx";
 import { FirstRun, onboardingRoute } from "./first-run.tsx";
+import { fixTouchId } from "./helper.tsx";
 import { kitClient } from "./kit-client.ts";
 import { renderLibraryThumbnail } from "./library-thumbnails.tsx";
 import { writeOnboarding } from "./onboarding.ts";
@@ -256,8 +257,8 @@ export function screenRoute(route: string, navigate: (to: string) => void): Reac
       );
     }
     case "memory": {
-      // `/memory[?kind=people|projects|due|events|more][&entity=<id>]`; `/memory/review` is
-      // reserved for the review queue (docs/design/memory-everything-2026.md §6.5).
+      // `/memory[?kind=people|projects|due|events|more][&entity=<id>]`; `/memory/review` is the
+      // review queue's tab (docs/design/memory-everything-2026.md §6.4, §6.5).
       const params = new URLSearchParams(query);
       const entity = params.get("entity");
       return page(
@@ -266,6 +267,7 @@ export function screenRoute(route: string, navigate: (to: string) => void): Reac
           key={entity ?? ""}
           kind={parseMemoryKind(params.get("kind"))}
           onNavigate={navigate}
+          {...(parts[1] === "review" ? { view: "review" as const } : {})}
           {...(entity ? { entity } : {})}
         />,
       );
@@ -539,7 +541,10 @@ function useSystemAppearance(platform: ShellPlatform): SystemAppearance | null {
 }
 
 export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactElement {
-  const client = useMemo(() => kitClient(platform.gateway, platform.passkeys), [platform]);
+  const client = useMemo(
+    () => kitClient(platform.gateway, platform.passkeys, platform.helper?.touchId),
+    [platform],
+  );
   const systemLocale = useSystemLocale(platform);
   const systemAppearance = useSystemAppearance(platform);
   const [gate, setGate] = useState<Gate>("loading");
@@ -684,6 +689,9 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
       ...(platform.clipboard ? { writeClipboard: platform.clipboard.writeText } : {}),
       // Connector sign-ins open in the default browser; app windows refuse window.open (#505).
       ...(platform.external ? { openExternal: platform.external.open } : {}),
+      // A Touch ID card the window cannot confirm yet: start the helper or register its key.
+      ...(platform.helper ? { touchIdFix: (fix) => fixTouchId(platform, fix) } : {}),
+      ...(platform.helper?.touchId ? { touchIdOnceOnly: true } : {}),
     }),
     [persona, platform],
   );
