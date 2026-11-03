@@ -4,8 +4,8 @@ import { PsycheError } from "@psyche/protocol";
  * Git for `code.git` (V10). Git runs on the host, because the repository's history and the
  * owner's credentials live there, but only as the fixed argv this module builds: never a shell,
  * never an argv from the model. Every invocation turns hooks off (a hook is code in the working
- * tree or `.git`, which a tainted turn may have written), external diff and textconv drivers
- * off, prompts off. A push is refused unless the remote's URL and the branch's commit still
+ * tree or `.git`, which a tainted turn may have written), fsmonitor off, and every filter, diff
+ * and merge driver the repository's config names off (`gitDriverOverrides`), prompts off. A push is refused unless the remote's URL and the branch's commit still
  * equal the ones the owner approved, and it is never forced.
  */
 
@@ -41,6 +41,43 @@ export const GIT_HARDENING = [
   "advice.detachedHead=false",
 ] as const;
 
+/**
+ * Lists the filter, diff and merge drivers git's config defines. Reading config runs no program,
+ * so this is safe to run first; its names feed `gitDriverOverrides`.
+ */
+export const GIT_DRIVER_QUERY = [
+  "config",
+  "--name-only",
+  "--get-regexp",
+  "^(filter|diff|merge)\\.",
+] as const;
+
+/**
+ * `-c` pairs that switch off every driver `GIT_DRIVER_QUERY` listed: a `.gitattributes` line
+ * (`* filter=x diff=x`) runs `filter.x.clean` / `process` on status and diff, `diff.x.textconv`
+ * on diff, `merge.x.driver` on merge. Empty values turn each off (git checks `*cmd`).
+ */
+export function gitDriverOverrides(listed: string): string[] {
+  const out = new Set<string>();
+  for (const line of listed.split("\n")) {
+    const m = /^(filter|diff|merge)\.(.+)\.[^.]+$/i.exec(line.trim());
+    if (m === null) continue;
+    const section = (m[1] as string).toLowerCase();
+    const name = m[2] as string;
+    // A name git cannot take back in `-c` is left alone; git then refuses the override and the
+    // command fails rather than run the driver.
+    if (/[=\s]/.test(name)) continue;
+    const keys =
+      section === "filter"
+        ? ["clean=", "smudge=", "process=", "required=false"]
+        : section === "diff"
+          ? ["textconv=", "command="]
+          : ["driver="];
+    for (const k of keys) out.add(`${section}.${name}.${k}`);
+  }
+  return [...out].flatMap((v) => ["-c", v]);
+}
+
 /** Branch names `code.git` accepts (a strict subset of `git check-ref-format --branch`). */
 export const BRANCH_PATTERN =
   "^(?!-)(?!.*\\.\\.)(?!.*//)(?!.*@\\{)(?!.*\\.lock$)(?!.*/$)[A-Za-z0-9._/-]{1,200}$";
@@ -59,7 +96,10 @@ export async function git(
   args: readonly string[],
   signal?: AbortSignal,
 ): Promise<GitResult> {
-  return runner.run(cwd, [...GIT_HARDENING, ...args], signal === undefined ? {} : { signal });
+  const opts = signal === undefined ? {} : { signal };
+  const drivers = await runner.run(cwd, [...GIT_HARDENING, ...GIT_DRIVER_QUERY], opts);
+  const off = drivers.exitCode === 0 ? gitDriverOverrides(drivers.stdout) : [];
+  return runner.run(cwd, [...GIT_HARDENING, ...off, ...args], opts);
 }
 
 /** Runs and throws on a non-zero exit, with git's own message. */

@@ -92,6 +92,10 @@ export interface CallMeta {
   network?: "none" | "proxy";
   /** `exec` writes outside `/workspace`. */
   writesOutsideWorkspace?: boolean;
+  /** `exec_host` in the read-only class, as the Gateway described it (re-checked, §5.4). */
+  hostCommand?: "read_only";
+  /** With `hostCommand`: srt is missing, so the read-only command asks. */
+  hostSandbox?: "missing";
   /** MCP server trust tier. */
   mcpTier?: "bundled" | "verified" | "unknown";
   /** MCP server and the `tools/list` hash the call was described with (grant subject, #279). */

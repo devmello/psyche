@@ -20,6 +20,7 @@ export {
 export * from "./folder-access.ts";
 export * from "./friction.ts";
 export * from "./handlers.ts";
+export * from "./host-readonly.ts";
 export * from "./kinds.ts";
 export * from "./message-compose.ts";
 export * from "./missing.ts";

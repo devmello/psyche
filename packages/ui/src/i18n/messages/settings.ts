@@ -1417,8 +1417,11 @@ export const settings = {
   // Settings → Permissions → Access (FileAccessSection.tsx, AccessList.tsx).
   "settings.files.execHost": "Run commands on this Mac",
   "settings.files.execHostHint":
-    "Lets {persona} run commands in your shared folders, in the sandbox. Each command asks you first.",
-  "settings.files.execHostSwitch": "Allow asking to run commands on this Mac",
+    "Lets {persona} run commands in your shared folders, in the sandbox. Commands that could change files ask you first.",
+  "settings.files.execHostSwitch": "Allow commands on this Mac",
+  "settings.files.readOnlyQuiet": "Run read-only commands without asking",
+  "settings.files.readOnlyQuietHint":
+    "Basic file and info commands that only read, like ls, cat or wc, run in the sandbox without a card. Everything else asks, git included, and so does every command after {persona} reads something from outside.",
   "settings.files.accessTo": "Access to {path}",
   "settings.files.ro": "Read only",
   "settings.files.rw": "Read and write",

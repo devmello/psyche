@@ -276,7 +276,7 @@ function deviceAccessItems(db: PsycheDb): CatalogItem[] {
         id: "setting:terminal",
         name: "Terminal",
         summary:
-          "Run terminal commands on this Mac, in folders the owner shared. Each command asks first; it runs under the sandbox unless the owner types UNSANDBOXED. Owner turns it on in Settings → Connectors → Terminal.",
+          "Run terminal commands on this Mac, in folders the owner shared. Basic read-only file and info commands (ls, cat, wc, date…) run without asking unless the turn read untrusted content; every other command, git included, asks first. It runs under the sandbox unless the owner types UNSANDBOXED. Owner turns it on in Settings → Connectors → Terminal.",
         status: terminalOn ? "installed" : "off",
       },
       keywords: "terminal shell command run exec bash script cli",

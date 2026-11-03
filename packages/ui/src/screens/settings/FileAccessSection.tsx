@@ -200,6 +200,25 @@ export function execHostEnabled(values: Readonly<Record<string, unknown>>): bool
   return isRecord(exec) && exec.execHostEnabled === true;
 }
 
+/**
+ * `permissions.policy.exec.readOnlyWithoutAsking` (security §5.4): read-only commands run without
+ * a card; on unless set to false.
+ */
+export function readOnlyWithoutAsking(values: Readonly<Record<string, unknown>>): boolean {
+  const exec = policyOf(values).exec;
+  return !(isRecord(exec) && exec.readOnlyWithoutAsking === false);
+}
+
+/** The stored policy with `exec.readOnlyWithoutAsking` set, everything else kept. */
+export function policyWithReadOnlyQuiet(
+  values: Readonly<Record<string, unknown>>,
+  on: boolean,
+): Record<string, unknown> {
+  const policy = policyOf(values);
+  const exec = isRecord(policy.exec) ? policy.exec : {};
+  return { ...policy, exec: { ...exec, readOnlyWithoutAsking: on } };
+}
+
 /** The stored policy with `exec.execHostEnabled` set, everything else kept. */
 export function policyWithExecHost(
   values: Readonly<Record<string, unknown>>,
@@ -289,7 +308,7 @@ export function FileAccessPanel({
           </div>
           <SettingHint settingKey={POLICY_KEY} />
         </Group>
-        {/* Security §5.4: off by default; each command still asks on the Mac. */}
+        {/* Security §5.4: off by default; anything outside the read-only class asks on the Mac. */}
         <Advanced description={t("settings.files.advancedHint")}>
           <Group
             title={t("settings.files.execHost")}
@@ -299,6 +318,14 @@ export function FileAccessPanel({
               label={t("settings.files.execHostSwitch")}
               checked={execHostEnabled(values)}
               onChange={(on) => onChange(POLICY_KEY, policyWithExecHost(values, on))}
+            />
+            {/* A security setting: either way needs fresh presence (Touch ID or a passkey). */}
+            <SwitchField
+              label={t("settings.files.readOnlyQuiet")}
+              description={t("settings.files.readOnlyQuietHint", { persona })}
+              checked={readOnlyWithoutAsking(values)}
+              disabled={!execHostEnabled(values)}
+              onChange={(on) => onChange(POLICY_KEY, policyWithReadOnlyQuiet(values, on))}
             />
           </Group>
         </Advanced>

@@ -11,7 +11,7 @@ export const deviceAccess = {
   "settings.deviceAccess.terminal.where":
     "Commands run on your Mac, in the folders you shared, and can write only to a folder you shared read and write.",
   "settings.deviceAccess.terminal.asks":
-    "Each command asks first, unless you choose to always allow that exact command.",
+    "Commands that could change files ask first, unless you choose to always allow that exact command. Basic read-only commands like ls, cat or wc run without asking, unless you turn that off.",
   "settings.deviceAccess.terminal.sandbox":
     "Commands run in the sandbox. One approved run goes without it only if you type UNSANDBOXED on its card.",
   "settings.deviceAccess.terminal.on": "Running commands is on",

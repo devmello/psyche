@@ -104,6 +104,47 @@ describe("ported from the Gateway stand-in", () => {
   });
 });
 
+describe("writes under .git/ (security §5.4)", () => {
+  it("are destructive, so the owner always sees the card; other writes stay plain writes", () => {
+    const git = tools.write_file?.describeCall?.({
+      path: join(granted, "repo", ".git", "config"),
+      content: "[core]",
+    });
+    expect(git?.sideEffect).toBe("destructive");
+    const edit = tools.edit_file?.describeCall?.({
+      path: join(granted, ".git", "hooks", "pre-commit"),
+      old_string: "a",
+      new_string: "b",
+    } as never);
+    expect(edit?.sideEffect).toBe("destructive");
+    const plain = tools.write_file?.describeCall?.({ path: join(granted, "n.md"), content: "a" });
+    expect(plain?.sideEffect).toBeUndefined();
+    // Case-insensitive, as APFS is: `.GIT` is where git looks too.
+    for (const dotGit of [".GIT", ".Git"]) {
+      expect(
+        tools.write_file?.describeCall?.({ path: join(granted, dotGit, "config"), content: "x" })
+          ?.sideEffect,
+      ).toBe("destructive");
+    }
+    // A git directory assembled elsewhere (bare repository, --separate-git-dir): once one of
+    // HEAD / objects / refs is there, the next entry asks.
+    const bare = join(granted, "bare");
+    mkdirSync(join(bare, "objects"), { recursive: true });
+    for (const entry of ["HEAD", "config", join("refs", "heads", "main")]) {
+      expect(
+        tools.write_file?.describeCall?.({ path: join(bare, entry), content: "x" })?.sideEffect,
+        entry,
+      ).toBe("destructive");
+    }
+    // A file merely named like it is not inside a repository's metadata.
+    const named = tools.write_file?.describeCall?.({
+      path: join(granted, ".gitignore"),
+      content: "a",
+    });
+    expect(named?.sideEffect).toBeUndefined();
+  });
+});
+
 describe("side-effect classes and targets", () => {
   it("declares read tools as reads and writes as file_write approvals on the real path", () => {
     expect(Object.keys(tools).sort()).toEqual([
