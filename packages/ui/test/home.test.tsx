@@ -71,10 +71,136 @@ describe("Home", () => {
       w.ideas = [];
       w.goals = [];
     });
-    expect(await section("goals")).toBeTruthy();
-    expect(screen.queryByTestId("section-needs-you")).toBeNull();
+    await screen.findByTestId("section-ask");
+    await new Promise((r) => setTimeout(r, 100));
+    for (const id of ["goals", "needs-you"])
+      expect(screen.queryByTestId(`section-${id}`)).toBeNull();
     expect(screen.queryByTestId("section-suggestions")).toBeNull();
     expect(screen.queryByTestId("section-keep-in-touch")).toBeNull();
+  });
+});
+
+describe("Home's reading order and length", () => {
+  it("lists the sections in one order, top to bottom", async () => {
+    setup(<HomeScreen now={STORY_NOW} />, (w) => {
+      w.review = {
+        ...(w.review ?? { items: [], quarantine: [], runs: [] }),
+        nudges: {
+          items: [
+            {
+              id: "nd1",
+              kind: "birthday",
+              entityId: "ent_alex",
+              name: "Alex Kim",
+              text: "Alex Kim's birthday is on Thursday",
+              daysAgo: null,
+              channel: null,
+              date: "2026-10-22",
+              overdue: false,
+            },
+          ],
+          muted: [],
+        },
+      };
+    });
+    const ids = [
+      "ask",
+      "needs-you",
+      "today",
+      "suggestions",
+      "coming-up",
+      "goals",
+      "keep-in-touch",
+      "more",
+    ];
+    for (const id of ids) await section(id);
+    const order = [...document.querySelectorAll("[data-testid^='section-']")].map((e) =>
+      e.getAttribute("data-testid")?.replace("section-", ""),
+    );
+    expect(order.filter((id) => ids.includes(id ?? ""))).toEqual(ids);
+    // One column: no complementary landmark beside the page.
+    expect(screen.queryByRole("complementary")).toBeNull();
+  });
+
+  it("stops the brief at three posts and the suggestions at two, and says how many more", async () => {
+    const { user } = setup(<HomeScreen now={STORY_NOW} />);
+    const today = await section("today");
+    const posts = () => today.querySelectorAll("#feed-posts > li");
+    await waitFor(() => expect(posts().length).toBe(3));
+    const more = within(today).getByRole("button", { name: /^Show \d+ more$/ });
+    expect(more.getAttribute("aria-expanded")).toBe("false");
+    expect(within(today).queryByText(/That’s it for today|That's it for today/)).toBeNull();
+    await user.click(more);
+    expect(posts().length).toBeGreaterThan(3);
+    expect(within(today).getByRole("button", { name: "Show less" })).toBeTruthy();
+    const suggestions = await section("suggestions");
+    await waitFor(() =>
+      expect(within(suggestions).getByRole("button", { name: /^Show \d+ more$/ })).toBeTruthy(),
+    );
+  });
+
+  it("leaves out an empty brief, and keeps its settings one link away", async () => {
+    const { navigate, user } = setup(<HomeScreen now={STORY_NOW} />, (w) => {
+      w.feed = [];
+    });
+    const more = await section("more");
+    await new Promise((r) => setTimeout(r, 100));
+    expect(screen.queryByTestId("section-today")).toBeNull();
+    await user.click(within(more).getByRole("button", { name: "Brief settings" }));
+    expect(navigate).toHaveBeenLastCalledWith("/home/instructions");
+  });
+
+  it("draws Catching up at the top of Today when it has rows, soonest due first", async () => {
+    setup(
+      <HomeScreen
+        now={STORY_NOW}
+        catchUp={[
+          {
+            id: "b",
+            kind: "assignment",
+            title: "Later thing",
+            line: "Later.",
+            dueAt: "2026-10-30T12:00:00Z",
+          },
+          {
+            id: "a",
+            kind: "assignment",
+            title: "Essay",
+            line: "Outline done.",
+            dueAt: "2026-10-22T12:00:00Z",
+          },
+          { id: "c", kind: "mail", title: "Reply to Dr. Ellis", line: "Waiting." },
+        ]}
+      />,
+    );
+    const block = await screen.findByTestId("catch-up");
+    const titles = within(block)
+      .getAllByRole("listitem")
+      .map((li) => li.textContent);
+    expect(titles[0]).toMatch(/^Essay/);
+    expect(titles[2]).toMatch(/^Reply to Dr. Ellis/);
+    const today = await section("today");
+    expect(today.contains(block)).toBe(true);
+    expect(within(today).getByRole("heading", { name: "Catching up" })).toBeTruthy();
+  });
+
+  it("is only the Ask field and the links on a first visit", async () => {
+    setup(<HomeScreen now={STORY_NOW} />, (w) => {
+      w.notifications = [];
+      w.feed = [];
+      w.ideas = [];
+      w.goals = [];
+      w.automations = [];
+      w.threads = w.threads
+        .filter((e) => e.thread.kind === "main")
+        .map((e) => ({ ...e, thread: { ...e.thread, lastMessageAt: null } }));
+    });
+    await screen.findByTestId("home-starters");
+    await new Promise((r) => setTimeout(r, 100));
+    const drawn = [...document.querySelectorAll("[data-testid^='section-']")].map((e) =>
+      e.getAttribute("data-testid"),
+    );
+    expect(drawn).toEqual(["section-ask", "section-more"]);
   });
 });
 

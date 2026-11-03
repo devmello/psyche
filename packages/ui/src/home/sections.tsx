@@ -1,10 +1,11 @@
 import type { Idea, NudgeAction } from "@psyche/protocol";
-import { ArrowUp, ChevronRight, Plus } from "lucide-react";
+import { ArrowUp, Plus } from "lucide-react";
 import { type ReactElement, type ReactNode, useState } from "react";
 import { toast } from "sonner";
 import { scheduleSentence } from "../agent/UpcomingPanel.tsx";
 import { usePrefillComposer } from "../chat/prefill.ts";
 import { DelayedSkeletons } from "../components/DelayedSkeleton.tsx";
+import { ShowMore } from "../components/show-more.tsx";
 import { Button } from "../components/ui/button.tsx";
 import { Skeleton } from "../components/ui/skeleton.tsx";
 import {
@@ -82,6 +83,7 @@ export function NeedsYouSection({
     <ScreenSection
       id="needs-you"
       title={t("home.needsYou")}
+      large
       needsYou
       meta={t("home.needsYou.count", { n: waiting })}
       actions={
@@ -103,6 +105,7 @@ export function SuggestionsSection({
   accent,
   onNavigate: navigateProp,
   onEdit,
+  limit,
 }: {
   /** No other control on the page holds the accent. */
   accent: boolean;
@@ -110,53 +113,70 @@ export function SuggestionsSection({
   onNavigate?: (to: string) => void;
   /** An idea's Edit (opens its brief to change); absent, the card has no Edit. */
   onEdit?: (idea: Idea) => void;
+  /** Show this many, the rest behind "Show N more" (default: all). */
+  limit?: number;
 }): ReactElement | null {
   const { navigate: slotNavigate } = useSlots();
   const onNavigate = navigateProp ?? slotNavigate ?? (() => {});
   const persona = usePersona();
   const { ideas, busy, accept, dismiss, viewSkill } = useIdeaActions();
   const { goals, later, decide } = useGoalDecisions();
+  const [expanded, setExpanded] = useState(false);
   const candidates = goals.candidates.filter((g) => !later.has(g.id));
-  const n = ideas.proposed.length + candidates.length;
+  const all = [
+    ...ideas.proposed.map((idea) => ({ kind: "idea" as const, idea })),
+    ...candidates.map((goal) => ({ kind: "goal" as const, goal })),
+  ];
+  const n = all.length;
   if (n === 0) return null;
+  const shown = limit === undefined || expanded ? all : all.slice(0, limit);
   return (
     <ScreenSection
       id="suggestions"
       title={t("home.suggestions")}
+      large
+      description={t("home.suggestions.hint")}
       meta={t("home.suggestions.count", { n })}
     >
-      <ul aria-label={t("home.suggestions")} className="flex flex-col gap-3">
-        {ideas.proposed.map((idea, i) => (
-          <ListItem key={idea.id} index={i}>
-            <IdeaCard
-              idea={idea}
-              prominent={accent && i === 0}
-              busy={busy.has(idea.id)}
-              onAccept={accept}
-              onDismiss={dismiss}
-              onViewSkill={viewSkill}
-              onOpenRoute={onNavigate}
-              {...(onEdit ? { onEdit } : {})}
-            />
-          </ListItem>
-        ))}
-        {candidates.map((goal, i) => (
-          <ListItem key={goal.id} index={ideas.proposed.length + i}>
-            <CandidateGoalCard
-              goal={goal}
-              persona={persona.name}
-              quiet
-              onDecide={decide}
-              onOpenRoute={onNavigate}
-            />
+      <ul id="suggestions-list" aria-label={t("home.suggestions")} className="flex flex-col gap-3">
+        {shown.map((item, i) => (
+          <ListItem key={item.kind === "idea" ? item.idea.id : item.goal.id} index={i}>
+            {item.kind === "idea" ? (
+              <IdeaCard
+                idea={item.idea}
+                prominent={accent && i === 0}
+                busy={busy.has(item.idea.id)}
+                onAccept={accept}
+                onDismiss={dismiss}
+                onViewSkill={viewSkill}
+                onOpenRoute={onNavigate}
+                {...(onEdit ? { onEdit } : {})}
+              />
+            ) : (
+              <CandidateGoalCard
+                goal={item.goal}
+                persona={persona.name}
+                quiet
+                onDecide={decide}
+                onOpenRoute={onNavigate}
+              />
+            )}
           </ListItem>
         ))}
       </ul>
+      {limit !== undefined ? (
+        <ShowMore
+          hidden={n - limit}
+          expanded={expanded}
+          onToggle={() => setExpanded((v) => !v)}
+          controls="suggestions-list"
+        />
+      ) : null}
     </ScreenSection>
   );
 }
 
-const COMING_UP_ROWS = 5;
+const COMING_UP_ROWS = 3;
 
 /** The next runs, soonest first; a row opens Scheduled, where they are managed. */
 export function ComingUpSection({
@@ -165,17 +185,15 @@ export function ComingUpSection({
 }: {
   onNavigate: (to: string) => void;
   now?: number;
-}): ReactElement {
+}): ReactElement | null {
   const now = useNow(30_000, fixedNow);
   const { entries, loading, error, reload } = useUpcomingEntries();
   const rows = entries.flatMap((e) => (e.automation ? [{ ...e, automation: e.automation }] : []));
   const shown = rows.slice(0, COMING_UP_ROWS);
+  // Nothing scheduled (or still loading): the section is not drawn, so a quiet day stays short.
+  if (rows.length === 0 && (loading || error === null)) return null;
   let body: ReactElement;
-  if (loading && rows.length === 0) body = <RowSkeletons label={t("home.comingUp")} />;
-  else if (error !== null && rows.length === 0)
-    body = <SectionError what={t("home.comingUp")} onRetry={reload} />;
-  else if (rows.length === 0)
-    body = <p className="px-1 text-callout text-label-secondary">{t("agent.upcoming.empty")}</p>;
+  if (rows.length === 0) body = <SectionError what={t("home.comingUp")} onRetry={reload} />;
   else
     body = (
       <RowList label={t("home.comingUp")}>
@@ -211,6 +229,8 @@ export function ComingUpSection({
     <ScreenSection
       id="coming-up"
       title={t("home.comingUp")}
+      large
+      description={t("home.comingUp.hint")}
       actions={
         <Button type="button" size="sm" variant="ghost" onClick={() => onNavigate("/scheduled")}>
           {t("home.comingUp.all")}
@@ -223,21 +243,18 @@ export function ComingUpSection({
 }
 
 /** Tracked goals as rows (a row opens the goal's page), with Add a goal. */
-export function GoalsSection({ onNavigate }: { onNavigate: (to: string) => void }): ReactElement {
-  const persona = usePersona();
+export function GoalsSection({
+  onNavigate,
+}: {
+  onNavigate: (to: string) => void;
+}): ReactElement | null {
   const { goals } = useGoalDecisions();
   const [adding, setAdding] = useState(false);
   const tracked = goals.goals;
+  // No goals (or still loading): not drawn. "Add a goal" is in ⌘K and under "Suggestions".
+  if (tracked.length === 0 && (goals.loading || goals.error === null)) return null;
   let body: ReactElement;
-  if (goals.loading && goals.goals.length === 0) body = <RowSkeletons label={t("home.goals")} />;
-  else if (goals.error !== null && goals.goals.length === 0)
-    body = <SectionError what={t("home.goals")} onRetry={goals.reload} />;
-  else if (tracked.length === 0)
-    body = (
-      <p className="px-1 text-callout text-label-secondary">
-        {t("home.goals.empty", { name: persona.name })}
-      </p>
-    );
+  if (tracked.length === 0) body = <SectionError what={t("home.goals")} onRetry={goals.reload} />;
   else
     body = (
       <RowList label={t("home.goals")}>
@@ -252,6 +269,8 @@ export function GoalsSection({ onNavigate }: { onNavigate: (to: string) => void 
     <ScreenSection
       id="goals"
       title={t("home.goals")}
+      large
+      description={t("home.goals.hint")}
       actions={
         <>
           <Button
@@ -307,6 +326,8 @@ export function KeepInTouchSection({
     <ScreenSection
       id="keep-in-touch"
       title={t("home.keepInTouch")}
+      large
+      description={t("home.keepInTouch.hint")}
       {...(showPeopleLink
         ? {
             actions: (
@@ -434,12 +455,13 @@ export function AskSection({
 }
 
 /**
- * Everything else, one quiet list at the foot of Home: the deeper pages (run Timelines, Scheduled,
- * notifications, memory) stay reachable without a sidebar row each (consolidation-2026 §7).
+ * Everything else, one quiet line at the foot of Home: the deeper pages (run Timelines, Scheduled,
+ * notifications, memory, the brief's settings) stay reachable without a sidebar row each
+ * (consolidation-2026 §7). Plain links, not a list of cards: it is the end of the page, not a section.
  */
 export function MoreSection({ onNavigate }: { onNavigate: (to: string) => void }): ReactElement {
   const persona = usePersona();
-  const rows: readonly { label: string; hint: string; route: string }[] = [
+  const links: readonly { label: string; hint: string; route: string }[] = [
     {
       label: t("overview.title", { name: persona.name }),
       hint: t("home.more.overview"),
@@ -447,35 +469,38 @@ export function MoreSection({ onNavigate }: { onNavigate: (to: string) => void }
     },
     { label: t("shell.rail.scheduled"), hint: t("home.more.scheduled"), route: "/scheduled" },
     { label: t("screens.inbox.title"), hint: t("home.more.inbox"), route: "/inbox" },
+    { label: t("home.more.brief"), hint: t("home.more.briefHint"), route: "/home/instructions" },
     {
       label: t("agent.sheet.soul"),
       hint: t("home.more.soul", { name: persona.name }),
       route: "/agent/soul",
     },
-    { label: t("settings.nav.memory"), hint: t("home.more.review"), route: "/settings/memory" },
+    {
+      label: t("home.more.memoryReview"),
+      hint: t("home.more.review"),
+      route: "/settings/memory",
+    },
   ];
   return (
-    <ScreenSection id="more" title={t("home.more")}>
-      <RowList label={t("home.more")}>
-        {rows.map((r) => (
-          <li key={r.route}>
-            <button
-              type="button"
-              onClick={() => onNavigate(r.route)}
-              className="flex min-h-11 w-full items-center gap-2 rounded-sm px-2.5 py-1.5 text-start outline-none transition-colors hover:bg-fill-quaternary focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="truncate text-body text-label-primary">{r.label}</span>
-                <span className="truncate text-callout text-label-secondary">{r.hint}</span>
-              </span>
-              <ChevronRight
-                aria-hidden="true"
-                className="size-4 shrink-0 text-label-tertiary rtl:-scale-x-100"
-              />
-            </button>
-          </li>
-        ))}
-      </RowList>
-    </ScreenSection>
+    <nav
+      id="more"
+      aria-label={t("home.more")}
+      data-testid="section-more"
+      className="flex flex-wrap items-center gap-x-1 gap-y-1"
+    >
+      {links.map((r) => (
+        <Button
+          key={r.route}
+          type="button"
+          size="sm"
+          variant="ghost"
+          title={r.hint}
+          className="text-label-secondary"
+          onClick={() => onNavigate(r.route)}
+        >
+          {r.label}
+        </Button>
+      ))}
+    </nav>
   );
 }

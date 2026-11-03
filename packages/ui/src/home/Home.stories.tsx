@@ -3,13 +3,43 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import type { FixtureWorld } from "../fixtures/index.ts";
 import { PeopleScreen } from "../people/PeopleScreen.tsx";
 import { STORY_NOW, withWorld } from "../stories/harness.tsx";
+import type { CatchUpItem } from "./CatchUp.tsx";
 import { HomeScreen } from "./HomeScreen.tsx";
 
 /**
- * Home (docs/design/consolidation-2026.md §3.1): the fixture world's day. Needs you is amber and
- * holds the one accent (the first Approve); the brief, suggestions, coming up, goals and keep in
- * touch follow. Two columns from 896 px of content, one below.
+ * Home (docs/design/home-2026.md): the fixture world's day, one column read top to bottom. Needs
+ * you is amber and holds the one accent (the first Approve); the brief (three posts, the rest
+ * behind "Show more"), suggestions (two), coming up, goals and keep in touch follow, ruled off
+ * from each other, with a line of links to the deeper pages at the foot.
  */
+
+/** What the daily brief's "Catching up" block will carry; fixture data, no source behind it yet. */
+const catchUp: CatchUpItem[] = [
+  {
+    id: "cu_essay",
+    kind: "assignment",
+    title: "Essay on the printing press",
+    line: "You finished the outline yesterday. Drafting is next.",
+    dueAt: "2026-10-22T23:59:00Z",
+    source: "Canvas",
+    route: "/chat",
+  },
+  {
+    id: "cu_lab",
+    kind: "assignment",
+    title: "Lab 4 write-up",
+    line: "Your TA posted feedback on lab 3 an hour ago.",
+    dueAt: "2026-10-26T23:59:00Z",
+    source: "Canvas",
+  },
+  {
+    id: "cu_mail",
+    kind: "mail",
+    title: "Dr. Ellis asked about office hours",
+    line: "Two days without a reply.",
+    source: "Gmail",
+  },
+];
 
 const nudges: NudgeItem[] = [
   {
@@ -80,7 +110,7 @@ export const NothingNeedsYou: Story = {
   ],
 };
 
-/** A quiet day: no brief yet, no suggestions, nothing scheduled, no goals. */
+/** A quiet day: no brief yet, no suggestions, nothing scheduled, no goals: only the Ask field. */
 export const QuietDay: Story = {
   decorators: [
     withWorld({
@@ -108,6 +138,28 @@ export const FirstVisit: Story = {
         w.threads = w.threads
           .filter((e) => e.thread.kind === "main")
           .map((e) => ({ ...e, thread: { ...e.thread, lastMessageAt: null } }));
+      },
+    }),
+  ],
+};
+
+/**
+ * The daily brief with a "Catching up" block ahead of its posts (projects, assignments, due work,
+ * mail). It sits at the top of Today, quiet ink with the due day at the row's end, never amber.
+ */
+export const CatchingUp: Story = { args: { catchUp } };
+
+/** Only the catch-up on a day with no posts: Today is drawn for it alone. */
+export const CatchingUpAlone: Story = {
+  args: { catchUp },
+  decorators: [
+    withWorld({
+      edit: (w) => {
+        w.notifications = [];
+        w.feed = [];
+        w.ideas = [];
+        w.goals = [];
+        w.automations = [];
       },
     }),
   ],

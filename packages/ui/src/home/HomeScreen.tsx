@@ -6,6 +6,7 @@ import { ScreenToolbar } from "../screens/feed/ScreenToolbar.tsx";
 import { needsYou } from "../screens/inbox/InboxScreen.tsx";
 import { useSlots } from "../slots.tsx";
 import { PinnedWidgets } from "../widgets/PinnedWidgets.tsx";
+import { CatchUp, type CatchUpItem } from "./CatchUp.tsx";
 import {
   AskSection,
   ComingUpSection,
@@ -23,23 +24,30 @@ export interface HomeScreenProps {
   instructionsOpen?: boolean;
   /** Scrolls this section into view on arrival (`/home#today`). */
   anchor?: string;
+  /**
+   * The brief's "Catching up" rows (projects, assignments, due work, mail). Nothing supplies them
+   * yet; the memory-for-everything work will (docs/design/home-2026.md §5). Absent or empty, the
+   * block is not drawn.
+   */
+  catchUp?: readonly CatchUpItem[];
   /** Fixed clock (stories, tests). */
   now?: number;
 }
 
 /**
- * Home (docs/design/consolidation-2026.md §3.1): what needs you and what is coming, on one page.
- * It opens with one way in, "Ask {persona} anything" (with things to try on a first visit); then
- * the day (Needs you, Pinned, Today's brief, Suggestions) and, at a glance, Coming up, Goals, Keep
- * in touch and a quiet "More" list of the deeper pages (§7: simple first, powerful one step
- * away). Each section
- * is the component its old page used, and a section with nothing to say is not drawn. Under
- * 896 px of content the columns stack, main first.
+ * Home (docs/design/home-2026.md): one column, read top to bottom, each part ruled off from the
+ * next. "Ask {persona} anything" first (with things to try on a first visit); then what needs
+ * you; your pinned widgets; Today's brief (Catching up, then the posts); Suggestions; and the
+ * quieter trackers, Coming up, Goals and Keep in touch; a line of links to the deeper pages at
+ * the foot (consolidation-2026 §7: simple first, powerful one step away). Each section is the
+ * component its old page used, and a section with nothing to say is not drawn, so a first visit
+ * is the Ask field and a footer. Long lists stop at a few and say how many more there are.
  */
 export function HomeScreen({
   onNavigate,
   instructionsOpen,
   anchor,
+  catchUp,
   now,
 }: HomeScreenProps): ReactElement {
   const { navigate: slotNavigate } = useSlots();
@@ -54,30 +62,37 @@ export function HomeScreen({
   }, [anchor]);
 
   const clock = now === undefined ? {} : { now };
+  const lead =
+    catchUp && catchUp.length > 0 ? (
+      <CatchUp items={catchUp} now={now ?? mountedAt} onOpen={navigate} />
+    ) : undefined;
   return (
     <div className="@container/home flex min-h-0 flex-1 flex-col" data-testid="home">
       <ScreenToolbar
         title={t("home.title")}
         meta={activeI18n().date(mountedAt, { weekday: "long", month: "long", day: "numeric" })}
       />
-      <div className="mx-auto grid w-full max-w-[calc(1120px+3rem)] gap-8 px-4 pt-4 pb-12 md:px-6 @4xl/home:grid-cols-[minmax(0,1fr)_20rem] @4xl/home:gap-10">
-        <div className="flex min-w-0 flex-col gap-8">
-          <AskSection onNavigate={navigate} accent={!waiting} />
+      <div className="mx-auto flex w-full max-w-[calc(720px+3rem)] flex-col gap-10 px-4 pt-4 pb-16 md:px-6">
+        <AskSection onNavigate={navigate} accent={!waiting} />
+        {/* One column. A rule and generous space mark each section's edge; a section that is not
+            drawn leaves no gap, because the rule belongs to whichever section follows. */}
+        <div className="flex flex-col [&>*+*]:mt-10 [&>*+*]:border-t [&>*+*]:border-separator [&>*+*]:pt-10">
           <NeedsYouSection onNavigate={navigate} {...clock} />
           <PinnedWidgets />
           <FeedScreen
             onCloseInstructions={() => navigate("/home")}
+            collapseAfter={3}
+            hideWhenEmpty
+            {...(lead ? { lead } : {})}
             {...(instructionsOpen === undefined ? {} : { instructionsOpen })}
             {...clock}
           />
-          <SuggestionsSection accent={!waiting} onNavigate={navigate} />
-        </div>
-        <aside aria-label={t("home.side")} className="flex min-w-0 flex-col gap-8">
+          <SuggestionsSection accent={!waiting} limit={2} onNavigate={navigate} />
           <ComingUpSection onNavigate={navigate} {...clock} />
           <GoalsSection onNavigate={navigate} />
-          <KeepInTouchSection onNavigate={navigate} />
+          <KeepInTouchSection onNavigate={navigate} limit={2} />
           <MoreSection onNavigate={navigate} />
-        </aside>
+        </div>
       </div>
     </div>
   );
