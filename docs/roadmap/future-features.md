@@ -15,10 +15,11 @@ Each entry has the same parts: what it is, why it beats existing assistants, rou
 **What is built (as of 2026-11-02).**
 - The Life search group (by name and by words) is merged: [#1078](https://github.com/devmello/psyche/pull/1078).
 - Search by meaning and a grounded answer are merged: [#1087](https://github.com/devmello/psyche/pull/1087). The method is `memory.life.answer`. It answers from reviewed, non-sensitive facts about people, cites each claim to a fact, and returns no answer, with a reason, when the model is off, no fact matches or the reply cites nothing it was given. Sensitive facts never go to a model.
+- The answer card in Search and ⌘K (phase 1): for a query that reads like a question it asks `memory.life.answer` and shows the answer above the results, a citation chip after each claim (one chip with a count when a claim rests on several facts), the fact and when Psyche learned it under the chip, a plain reason when there is no answer, and "Open as a chat". The chip opens the fact inline with "Open in Memory"; it does not yet scroll to or highlight the fact on the person's page.
 - The index and the nightly memory pass behind it: [design/search-2026.md](../design/search-2026.md), [design/search-roadmap-2026.md](../design/search-roadmap-2026.md), [design/everything-memory-2026.md](../design/everything-memory-2026.md).
 
 **What is left.**
-- The UI in Search and ⌘K is in progress with the memory session. It needs the answer card with citation chips, the "no answer, and why" states, and a link from each chip to the source.
+- A link from each chip to the source (phase 2). The citation records the source (`mail`, `messages`, `files`, …) and the search document id, but no screen can open a mail message, a Messages conversation day or a granted-folder file: search results for these have no route, and the link policy refuses `message://` and `file:`. It needs a source viewer, or an allowlisted opener in the desktop (Mail's `message://` link, reveal in Finder), and a way to return the citation's document id from the fact.
 - Today the answer cites facts. Citing the underlying mail, message or file passage (not only the fact derived from it) needs the passage to be reachable from the fact.
 - Answers that cover raw mail, messages and files, not only reviewed facts about people.
 - Follow-up questions in the same panel, and "open as a chat".

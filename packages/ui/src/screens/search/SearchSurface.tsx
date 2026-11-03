@@ -36,6 +36,8 @@ import type { EntitySummary } from "../../people/types.ts";
 import type { PaletteAction } from "../../shell/CommandPalette.tsx";
 import { paletteMatches } from "../../shell/palette-match.ts";
 import { isMac } from "../../shell/shortcuts.ts";
+import { LifeAnswerCard, type LifeAnswerState } from "./LifeAnswerCard.tsx";
+import { useLifeAnswer } from "./life-answer.ts";
 import { Highlight, highlightTerms, SCOPE_ICON } from "./search-parts.tsx";
 import {
   filterHits,
@@ -55,24 +57,14 @@ import {
  * animation per keystroke (motion.md §4.2).
  */
 
+export type { LifeAnswerState } from "./LifeAnswerCard.tsx";
+
 /** A row of the surface: an action (palette only) or a search hit. */
 export type SurfaceItem =
   | { kind: "action"; key: string; action: PaletteAction }
   | { kind: "hit"; key: string; hit: SearchHit }
   | { kind: "entity"; key: string; entity: EntitySummary }
   | { kind: "fact"; key: string; fact: LifeFactHit };
-
-/** The "answer from your memory" panel: asked on purpose, since it sends facts to a model. */
-export interface LifeAnswerState {
-  phase: "idle" | "loading" | "done" | "error";
-  result?: {
-    answer?: string | null;
-    facts: readonly LifeFactHit[];
-    reason?: "no_model" | "no_facts" | "no_answer" | "ungrounded" | "model_failed" | null;
-  };
-  onAsk: () => void;
-  onOpenSettings?: () => void;
-}
 
 export interface SurfaceGroup {
   id: SearchScope | "actions" | "people" | "projects" | "life";
@@ -221,7 +213,7 @@ export interface SearchSurfaceProps {
   entities?: readonly EntitySummary[];
   /** Cited facts matching the query (`memory.life.search`), after people and projects. */
   lifeFacts?: readonly LifeFactHit[];
-  /** Offers "Answer from memory" for the query (`memory.life.answer`); absent = not offered. */
+  /** The answer card for the query (`memory.life.answer`); absent = not offered. */
   lifeAnswer?: LifeAnswerState;
   onOpenEntity?: (entity: EntitySummary) => void;
   /** The card for the selected person or project in the preview column. */
@@ -414,7 +406,6 @@ export function SearchSurface({
   } else {
     results = (
       <>
-        {lifeAnswer === undefined ? null : <LifeAnswerPanel state={lifeAnswer} />}
         {relaxedNote === null ? null : (
           <p className="px-3 text-callout text-label-secondary" role="status">
             {relaxedNote}
@@ -668,7 +659,12 @@ export function SearchSurface({
       </div>
 
       <div className={cn("flex min-h-0 flex-1", palette && "overflow-hidden")}>
-        <div className={cn("min-w-0 flex-1", palette && "overflow-y-auto p-1.5")}>{results}</div>
+        <div className={cn("min-w-0 flex-1", palette && "overflow-y-auto p-1.5")}>
+          {lifeAnswer === undefined || !searching ? null : (
+            <LifeAnswerCard state={lifeAnswer} {...(onOpenEntity ? { onOpenEntity } : {})} />
+          )}
+          {results}
+        </div>
         {preview && current ? (
           <aside
             aria-label={t("shell.search.preview")}
@@ -824,70 +820,6 @@ function SurfaceRow({
         </Badge>
       ) : null}
     </>
-  );
-}
-
-const ANSWER_NOTE = {
-  no_model: "screens.search.answer.noModel",
-  no_facts: "screens.search.answer.noFacts",
-  no_answer: "screens.search.answer.noAnswer",
-  ungrounded: "screens.search.answer.noAnswer",
-  model_failed: "screens.search.answer.failed",
-} as const;
-
-function LifeAnswerPanel({ state }: { state: LifeAnswerState }): ReactElement {
-  const r = state.result;
-  return (
-    <section
-      className="mx-3 mb-2 flex flex-col gap-1.5 border-b border-separator pb-2"
-      data-testid="life-answer"
-    >
-      {state.phase === "idle" ? (
-        <Button size="sm" variant="secondary" className="self-start" onClick={state.onAsk}>
-          {t("screens.search.answer.ask")}
-        </Button>
-      ) : null}
-      {state.phase === "loading" ? (
-        <p className="text-callout text-label-secondary" role="status">
-          {t("screens.search.answer.loading")}
-        </p>
-      ) : null}
-      {state.phase === "error" ? (
-        <p className="text-callout text-label-secondary" role="status">
-          {t("screens.search.answer.failed")}
-        </p>
-      ) : null}
-      {state.phase === "done" && r !== undefined ? (
-        r.answer == null ? (
-          <p className="text-callout text-label-secondary" role="status">
-            {t(ANSWER_NOTE[r.reason ?? "no_answer"])}
-            {r.reason === "no_model" && state.onOpenSettings ? (
-              <>
-                {" "}
-                <button type="button" className="underline" onClick={state.onOpenSettings}>
-                  {t("screens.search.answer.settings")}
-                </button>
-              </>
-            ) : null}
-          </p>
-        ) : (
-          <>
-            <p className="text-body text-label-primary" role="status">
-              {r.answer.replace(/\s*\[\d+\]/g, "")}
-            </p>
-            <ul className="flex flex-wrap gap-1.5" aria-label={t("screens.search.answer.from")}>
-              {r.facts.map((f, i) => (
-                <li key={f.factId}>
-                  <Badge variant="outline" data-testid="life-answer-source">
-                    {i + 1} · {f.entity.name}: {t(`people.attr.${f.attribute}`)}
-                  </Badge>
-                </li>
-              ))}
-            </ul>
-          </>
-        )
-      ) : null}
-    </section>
   );
 }
 
@@ -1067,26 +999,15 @@ export function useSearchSurface(initialQuery = "", debounceMs = 200, enabled = 
         enabled && settledParsed.filters.length === 0 && settledParsed.text.trim().length >= 2,
     },
   );
-  const [asked, setAsked] = useState("");
   const question = settledParsed.text.trim();
-  const answerQuery = useGatewayQuery(
-    "memory.life.answer",
-    { q: question },
-    { enabled: enabled && asked === question && question.length >= 2 },
-  );
-  const canAsk = settledParsed.filters.length === 0 && question.length >= 2;
-  const answer: LifeAnswerState | undefined = canAsk
+  const ask = useLifeAnswer(settledParsed.filters.length === 0 ? question : "");
+  const answer: LifeAnswerState | undefined = ask.offered
     ? {
-        phase:
-          asked !== question
-            ? "idle"
-            : answerQuery.error
-              ? "error"
-              : answerQuery.data
-                ? "done"
-                : "loading",
-        ...(answerQuery.data && asked === question ? { result: answerQuery.data } : {}),
-        onAsk: () => setAsked(question),
+        phase: ask.phase,
+        auto: ask.auto,
+        question,
+        ...(ask.result ? { result: ask.result } : {}),
+        onAsk: ask.ask,
       }
     : undefined;
   return {

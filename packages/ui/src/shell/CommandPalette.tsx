@@ -338,6 +338,7 @@ export function CommandPalette({
               ? {
                   lifeAnswer: {
                     ...search.answer,
+                    onDone: close,
                     onOpenSettings: () => {
                       close();
                       onNavigate("/settings/everything");

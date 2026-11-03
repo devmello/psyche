@@ -19904,6 +19904,7 @@ public struct LifeFactHit: Codable, Sendable {
     public let attribute: GraphFactAttribute
     public let entity: EntitySummary
     public let factID: String
+    public let learnedAt: String?
     public let observedAt: String?
     public let provenance: Provenance
     public let quote: String?
@@ -19916,6 +19917,7 @@ public struct LifeFactHit: Codable, Sendable {
         case attribute = "attribute"
         case entity = "entity"
         case factID = "factId"
+        case learnedAt = "learnedAt"
         case observedAt = "observedAt"
         case provenance = "provenance"
         case quote = "quote"
@@ -19924,10 +19926,11 @@ public struct LifeFactHit: Codable, Sendable {
         case value = "value"
     }
 
-    public init(attribute: GraphFactAttribute, entity: EntitySummary, factID: String, observedAt: String?, provenance: Provenance, quote: String?, review: GraphReviewState, source: String?, value: String) {
+    public init(attribute: GraphFactAttribute, entity: EntitySummary, factID: String, learnedAt: String?, observedAt: String?, provenance: Provenance, quote: String?, review: GraphReviewState, source: String?, value: String) {
         self.attribute = attribute
         self.entity = entity
         self.factID = factID
+        self.learnedAt = learnedAt
         self.observedAt = observedAt
         self.provenance = provenance
         self.quote = quote

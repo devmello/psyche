@@ -169,8 +169,13 @@ export async function answerFromFacts(call: {
   const cited = [...reply.matchAll(/\[(\d{1,2})\]/g)].map((m) => Number(m[1]));
   if (cited.length === 0 || cited.some((n) => n < 1 || n > usable.length))
     return fail("ungrounded");
-  const used = [...new Set(cited)].sort((a, b) => a - b).map((n) => usable[n - 1] as LifeFactHit);
-  return { answer: reply.slice(0, 600), facts: used, reason: null };
+  const order = [...new Set(cited)].sort((a, b) => a - b);
+  const used = order.map((n) => usable[n - 1] as LifeFactHit);
+  // The markers in the reply count the facts offered; the owner's screen only knows the facts
+  // returned, so each marker is rewritten to its place in `facts` (the first returned is [1]).
+  const place = new Map(order.map((n, i) => [n, i + 1]));
+  const answer = reply.replace(/\[(\d{1,2})\]/g, (_, n) => `[${place.get(Number(n))}]`);
+  return { answer: answer.slice(0, 600), facts: used, reason: null };
 }
 
 const fail = (reason: "no_facts" | "no_answer" | "ungrounded" | "model_failed"): LifeAnswer => ({

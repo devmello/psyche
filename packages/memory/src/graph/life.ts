@@ -29,6 +29,8 @@ export interface LifeFactHit {
   /** Where it came from (`mail`, `notes`, …) or null. */
   source: string | null;
   observedAt: string | null;
+  /** When Psyche first learned it (first seen, else recorded). */
+  learnedAt: string | null;
 }
 
 export interface LifeResult {
@@ -140,7 +142,8 @@ export function lifeSearch(
 
   const rows = db
     .prepare(
-      `SELECT f.id, f.entity_id, f.attribute, f.value, f.provenance, f.review, f.last_seen_at
+      `SELECT f.id, f.entity_id, f.attribute, f.value, f.provenance, f.review, f.last_seen_at,
+              f.first_seen_at, f.recorded_at
          FROM graph_facts f JOIN graph_entities e ON e.id = f.entity_id
         WHERE e.hidden = 0 AND e.status = 'active' AND f.retracted_at IS NULL AND f.superseded_by IS NULL
           AND (f.valid_to IS NULL OR f.valid_to > ?) AND f.review IN ('accepted', 'auto_accepted', 'edited', 'pending')
@@ -154,6 +157,8 @@ export function lifeSearch(
     provenance: Provenance;
     review: GraphReviewState;
     last_seen_at: string | null;
+    first_seen_at: string | null;
+    recorded_at: string | null;
   }[];
 
   const hits: LifeFactHit[] = [];
@@ -183,6 +188,7 @@ export function lifeSearch(
       quote: first?.quote ?? null,
       source: first?.source ?? null,
       observedAt: first?.observedAt ?? null,
+      learnedAt: r.first_seen_at ?? r.recorded_at,
     });
   }
   return { entities, facts: hits, intent: monthIndex > 0 ? `birthday_month:${monthIndex}` : null };
@@ -205,7 +211,8 @@ export function lifeCandidates(
 ): LifeCandidate[] {
   const rows = db
     .prepare(
-      `SELECT f.id, f.entity_id, f.attribute, f.value, f.provenance, f.review, f.sensitivity
+      `SELECT f.id, f.entity_id, f.attribute, f.value, f.provenance, f.review, f.sensitivity,
+              f.first_seen_at, f.recorded_at
          FROM graph_facts f JOIN graph_entities e ON e.id = f.entity_id
         WHERE e.hidden = 0 AND e.status = 'active' AND f.retracted_at IS NULL AND f.superseded_by IS NULL
           AND (f.valid_to IS NULL OR f.valid_to > ?) AND f.review IN ('accepted', 'auto_accepted', 'edited', 'pending')
@@ -219,6 +226,8 @@ export function lifeCandidates(
     provenance: Provenance;
     review: GraphReviewState;
     sensitivity: string;
+    first_seen_at: string | null;
+    recorded_at: string | null;
   }[];
   const out: LifeCandidate[] = [];
   for (const r of rows) {
@@ -237,6 +246,7 @@ export function lifeCandidates(
         quote: first?.quote ?? null,
         source: first?.source ?? null,
         observedAt: first?.observedAt ?? null,
+        learnedAt: r.first_seen_at ?? r.recorded_at,
       },
     });
   }

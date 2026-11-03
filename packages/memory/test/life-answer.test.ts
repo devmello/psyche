@@ -189,6 +189,25 @@ describe("grounded answer", () => {
     expect(JSON.stringify(provider.requests[0]?.messages)).not.toContain("\\u202e");
   });
 
+  it("numbers the citations by the facts it returns, so a client can pair each claim with its source", async () => {
+    learn("Pat Doe", "city", "Lisbon", "I live in Lisbon");
+    learn("Sam Lee", "employer", "Initech", "I just joined Initech");
+    learn("Eve Wu", "likes", "tea", "I like tea");
+    const hits = [...lexical("pat"), ...lexical("sam"), ...lexical("eve")];
+    // Offered as [1] Pat, [2] Sam, [3] Eve: the reply cites 3 and 2 only.
+    provider.enqueue(say("Eve likes tea [3]. Sam works at Initech [2][3]."));
+    const r = await answerFromFacts({ provider, model: "fake/m", question: "q", hits });
+    expect(r.facts.map((f) => f.value)).toEqual(["Initech", "tea"]);
+    expect(r.answer).toBe("Eve likes tea [2]. Sam works at Initech [1][2].");
+  });
+
+  it("carries when Psyche learned each fact", () => {
+    learn("Sam Lee", "employer", "Initech", "I just joined Initech");
+    const hit = lexical("sam")[0];
+    expect(hit?.learnedAt).toBe(new Date(NOW).toISOString());
+    expect(all()[0]?.hit.learnedAt).toBe(hit?.learnedAt);
+  });
+
   it("leaves out facts the caller excluded", async () => {
     const id = learn("Sam Lee", "employer", "Initech", "I just joined Initech");
     const r = await answerFromFacts({
