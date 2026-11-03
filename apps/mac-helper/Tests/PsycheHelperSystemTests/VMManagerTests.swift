@@ -234,9 +234,12 @@ struct VMManagerTests {
         #expect(backend.calls.last == "setShares 1")
     }
 
-    @Test func guestNodeStreamsAreRelayedToTheGatewaySocket() async throws {
+    @Test func guestNodeStreamsAreRelayedToTheGatewayGuestSocket() async throws {
         let home = tempHome()
-        let listenFD = listenUnix(home.appendingPathComponent("n.sock").path)
+        // Guests go to the Gateway's guest socket (next to the node socket), never the node socket.
+        let guestSocket = home.appendingPathComponent("n-guest.sock").path
+        #expect(guestSocket == HelperPaths.guestSocketPath(environment: ["PSYCHE_NODE_SOCKET": home.appendingPathComponent("n.sock").path]))
+        let listenFD = listenUnix(guestSocket)
         #expect(listenFD >= 0)
         defer { Darwin.close(listenFD) }
 
@@ -249,9 +252,11 @@ struct VMManagerTests {
         #expect(socketpair(AF_UNIX, SOCK_STREAM, 0, &pair) == 0)
         let handler = try #require(backend.gatewayHandler)
         handler(pair[1])
-        let accepted = await withCheckedContinuation { (c: CheckedContinuation<Int32, Never>) in
-            DispatchQueue.global().async { c.resume(returning: accept(listenFD, nil, nil)) }
-        }
+        // Bounded: a relay that never connects fails the test instead of hanging the run.
+        var waiting = pollfd(fd: listenFD, events: Int16(POLLIN), revents: 0)
+        let ready = poll(&waiting, 1, 5_000)
+        try #require(ready == 1, "the relay never connected to the guest socket")
+        let accepted = accept(listenFD, nil, nil)
         let gateway = UnixSocketConnection(fd: accepted)
         let guest = UnixSocketConnection(fd: pair[0])
         let connect = Data(#"{"type":"req","id":"connect","method":"connect"}"#.utf8 + [0x0A])
