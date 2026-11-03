@@ -7,6 +7,7 @@ import {
   Database,
   FileText,
   FolderKanban,
+  GraduationCap,
   ListChecks,
   type LucideIcon,
   Mail,
@@ -40,6 +41,7 @@ const KIND_ICON: Partial<Record<GraphEntityKind, LucideIcon>> = {
   org: Building2,
   project: FolderKanban,
   place: MapPin,
+  assignment: ListChecks,
 };
 
 /**
@@ -50,14 +52,17 @@ export function EntityMonogram({
   kind,
   name,
   size = 20,
+  course = false,
   className,
 }: {
   kind: GraphEntityKind;
   name: string;
   size?: 20 | 32 | 40;
+  /** A project that is a course (docs/design/memory-everything-2026.md §2.2). */
+  course?: boolean;
   className?: string;
 }): ReactElement {
-  const Icon = KIND_ICON[kind];
+  const Icon = course && kind === "project" ? GraduationCap : KIND_ICON[kind];
   return (
     <span
       aria-hidden="true"

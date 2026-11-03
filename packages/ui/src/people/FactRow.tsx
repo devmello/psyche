@@ -9,7 +9,10 @@ import { revealOnHover } from "./LoopRow.tsx";
 import type { FactView, GraphEntityKind, GraphFactAttribute } from "./types.ts";
 
 /** Attributes the owner may set by hand, per kind (spec §4.3; birthday and relations included). */
-export const OWNER_ATTRIBUTES: Record<"person" | "project", readonly GraphFactAttribute[]> = {
+export const OWNER_ATTRIBUTES: Record<
+  "person" | "project" | "course" | "assignment",
+  readonly GraphFactAttribute[]
+> = {
   person: [
     "role",
     "title",
@@ -24,10 +27,31 @@ export const OWNER_ATTRIBUTES: Record<"person" | "project", readonly GraphFactAt
     "note",
   ],
   project: ["next_step", "deadline", "budget_note", "note"],
+  // Memory for everything (docs/design/memory-everything-2026.md §2.3, §6.3). The status is not
+  // here: it has its own control, and the due date its own editor.
+  course: [
+    "course_code",
+    "term",
+    "meets",
+    "next_step",
+    "stopped_at",
+    "progress",
+    "blocked_on",
+    "deadline",
+    "note",
+  ],
+  assignment: ["next_step", "stopped_at", "progress", "blocked_on", "deadline", "note"],
 };
 
-export function attributesFor(kind: GraphEntityKind): readonly GraphFactAttribute[] {
-  return kind === "project" ? OWNER_ATTRIBUTES.project : OWNER_ATTRIBUTES.person;
+/** The attributes the owner may add by hand to an entity of this kind (a course has its own set). */
+export function attributesFor(
+  kind: GraphEntityKind,
+  projectType?: "project" | "course" | null,
+): readonly GraphFactAttribute[] {
+  if (kind === "assignment") return OWNER_ATTRIBUTES.assignment;
+  if (kind === "project")
+    return projectType === "course" ? OWNER_ATTRIBUTES.course : OWNER_ATTRIBUTES.project;
+  return OWNER_ATTRIBUTES.person;
 }
 
 export interface FactRowProps {
@@ -37,6 +61,10 @@ export interface FactRowProps {
   /** "This is wrong": retracts it and records a correction. */
   onRetract?: (fact: FactView) => void;
   busy?: boolean;
+  /** Older than the item's freshness window (§3.6): "may be out of date". */
+  stale?: boolean;
+  /** The group's own title already says what it is: keep the attribute for screen readers only. */
+  hideAttribute?: boolean;
 }
 
 /**
@@ -44,7 +72,14 @@ export interface FactRowProps {
  * someone else's message is shown as their words, never as a plain fact. "Edit" and "This is
  * wrong" appear on hover or focus.
  */
-export function FactRow({ fact, onSet, onRetract, busy = false }: FactRowProps): ReactElement {
+export function FactRow({
+  fact,
+  onSet,
+  onRetract,
+  busy = false,
+  stale = false,
+  hideAttribute = false,
+}: FactRowProps): ReactElement {
   const labelId = useId();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(fact.value);
@@ -63,7 +98,13 @@ export function FactRow({ fact, onSet, onRetract, busy = false }: FactRowProps):
           setEditing(false);
         }}
       >
-        <span id={labelId} className="w-28 shrink-0 text-body text-label-secondary">
+        <span
+          id={labelId}
+          className={cn(
+            "shrink-0 text-body text-label-secondary",
+            hideAttribute ? "sr-only" : "w-28",
+          )}
+        >
           {attribute}
         </span>
         <Input
@@ -99,7 +140,13 @@ export function FactRow({ fact, onSet, onRetract, busy = false }: FactRowProps):
 
   return (
     <div className="group/row relative flex min-h-9 items-start gap-3 px-3 py-1.5 before:absolute before:inset-x-3 before:top-0 before:h-px before:bg-separator first:before:hidden">
-      <span id={labelId} className="w-28 shrink-0 pt-px text-body text-label-secondary">
+      <span
+        id={labelId}
+        className={cn(
+          "shrink-0 pt-px text-body text-label-secondary",
+          hideAttribute ? "sr-only" : "w-28",
+        )}
+      >
         {attribute}
       </span>
       <div className="flex min-w-0 flex-1 flex-col">
@@ -111,6 +158,12 @@ export function FactRow({ fact, onSet, onRetract, busy = false }: FactRowProps):
         <span className="flex items-center gap-1 text-callout text-label-secondary">
           <ProvenanceGlyph provenance={fact.provenance} />
           {source}
+          {stale ? (
+            <span className="text-label-tertiary">
+              {source ? " · " : ""}
+              {t("work.fact.stale")}
+            </span>
+          ) : null}
         </span>
       </div>
       <span
@@ -154,14 +207,16 @@ export function FactRow({ fact, onSet, onRetract, busy = false }: FactRowProps):
 /** "Add a fact": pick an attribute from the allowlist, type the value (an owner fact). */
 export function AddFactRow({
   kind,
+  projectType,
   onAdd,
   busy = false,
 }: {
   kind: GraphEntityKind;
+  projectType?: "project" | "course" | null;
   onAdd: (attribute: GraphFactAttribute, value: string) => void;
   busy?: boolean;
 }): ReactElement {
-  const attributes = attributesFor(kind);
+  const attributes = attributesFor(kind, projectType);
   const [open, setOpen] = useState(false);
   const [attribute, setAttribute] = useState<GraphFactAttribute>(attributes[0] ?? "note");
   const [value, setValue] = useState("");

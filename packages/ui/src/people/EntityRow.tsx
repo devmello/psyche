@@ -51,7 +51,11 @@ export function EntityRow({
         className,
       )}
     >
-      <EntityMonogram kind={entity.kind} name={entity.name} />
+      <EntityMonogram
+        kind={entity.kind}
+        name={entity.name}
+        course={entity.projectType === "course"}
+      />
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-headline text-label-primary">
           {renderName ? renderName(entity.name) : entity.name}

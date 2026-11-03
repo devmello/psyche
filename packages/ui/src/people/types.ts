@@ -7,6 +7,8 @@ import type {
   GraphInteractionKind,
   GraphLoopStatus,
   GraphProjectStatus,
+  GraphProjectType,
+  GraphWorkStatus,
   Provenance,
 } from "@psyche/protocol";
 
@@ -26,6 +28,8 @@ export type {
   GraphLoopStatus,
 };
 export type ProjectStatus = GraphProjectStatus;
+export type ProjectType = GraphProjectType;
+export type WorkStatus = GraphWorkStatus;
 export type GraphProvenance = Provenance;
 export type GraphRel = GraphEdgeRel;
 
@@ -98,6 +102,22 @@ export interface EntityView {
   aliases: string[];
   pinned: boolean;
   projectStatus?: ProjectStatus | null;
+  /** A project or a course (docs/design/memory-everything-2026.md §2.2). */
+  projectType?: ProjectType | null;
+  /** An assignment's stored status; overdue, blocked and stale are computed by the card. */
+  workStatus?: WorkStatus | null;
+  /** When a project, course, assignment or event is due (ISO). */
+  dueAt?: string | null;
+  /** Keep private: shown on its Memory page only (§4). */
+  private?: boolean;
+  /** The last evidence the owner worked on it (§3.6). */
+  lastSignalAt?: string | null;
+  /** What a work item is part of: the course of an assignment, the project of an event. */
+  parent?: EntityRef | null;
+  /** Who set an assignment (`assigned_by`). */
+  assignedBy?: EntityRef | null;
+  /** A project's or course's assignments, as list rows. */
+  assignments?: EntitySummary[];
   summary?: string | null;
   summaryAt?: string | null;
   lastInteractionAt?: string | null;

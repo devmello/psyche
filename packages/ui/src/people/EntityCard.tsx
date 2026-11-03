@@ -4,6 +4,7 @@ import { ErrorState, GroupedList, LoadingCards, useDelayedFlag } from "../compon
 import { Button } from "../components/ui/button.tsx";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
@@ -26,6 +27,7 @@ import type {
   InteractionView,
   LoopView,
   ProjectStatus,
+  WorkStatus,
 } from "./types.ts";
 
 /** Everything a card can ask its host to do; each is optional, and a missing one hides its control. */
@@ -35,7 +37,13 @@ export interface EntityCardActions {
   onUpdateLoop?: (entity: EntityView, loop: LoopView, status: GraphLoopStatus) => void;
   onSaveNotes?: (entity: EntityView, notes: string) => void;
   onSetStatus?: (entity: EntityView, status: ProjectStatus) => void;
+  /** An assignment's status (Not started, In progress, Submitted, Done, Dropped; §3.4). */
+  onSetWorkStatus?: (entity: EntityView, status: WorkStatus) => void;
+  /** A work item's due date; null clears it. */
+  onSetDueAt?: (entity: EntityView, dueAt: string | null) => void;
   onTogglePin?: (entity: EntityView) => void;
+  /** Keep private (§4): a work item shown on its Memory page only, never on a surface. */
+  onTogglePrivate?: (entity: EntityView) => void;
   onMerge?: (entity: EntityView) => void;
   onForget?: (entity: EntityView) => void;
   /** Everything memory (§10.3): export one person, forget what they said, stop learning. */
@@ -70,10 +78,17 @@ export interface EntityCardProps extends EntityCardActions {
 
 /** "Person · Acme", "Project · Active". */
 export function kindLine(entity: EntityView): string {
-  const kind = t(`people.kind.${entity.kind}`);
+  const course = entity.kind === "project" && entity.projectType === "course";
+  const kind = course ? t("work.kind.course") : t(`people.kind.${entity.kind}`);
   let detail: string | null = null;
-  if (entity.kind === "project" && entity.projectStatus)
+  if (course) {
+    // "Course · Fall 2026": the term, else the status.
+    detail =
+      entity.facts.find((f) => f.attribute === "term")?.value ??
+      (entity.projectStatus ? t(`people.project.status.${entity.projectStatus}`) : null);
+  } else if (entity.kind === "project" && entity.projectStatus)
     detail = t(`people.project.status.${entity.projectStatus}`);
+  else if (entity.kind === "assignment") detail = entity.parent?.name ?? null;
   else if (entity.kind === "person") {
     detail =
       entity.edges.find((e) => e.rel === "works_at")?.other.name ??
@@ -83,15 +98,19 @@ export function kindLine(entity: EntityView): string {
   return detail ? t("people.kindLine", { kind, detail }) : kind;
 }
 
-function CardHeader({
+export function CardHeader({
   entity,
   actions,
+  trailing,
 }: {
   entity: EntityView;
   actions: EntityCardActions;
+  /** Beside the menu: a work item's due chip. */
+  trailing?: ReactNode;
 }): ReactElement {
   const hasMenu =
     actions.onTogglePin ||
+    actions.onTogglePrivate ||
     actions.onMerge ||
     actions.onForget ||
     actions.onExport ||
@@ -99,11 +118,17 @@ function CardHeader({
     actions.onExclude;
   return (
     <header className="flex items-start gap-3">
-      <EntityMonogram kind={entity.kind} name={entity.name} size={40} />
+      <EntityMonogram
+        kind={entity.kind}
+        name={entity.name}
+        size={40}
+        course={entity.projectType === "course"}
+      />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <h2 className="text-title-2 text-label-primary">{entity.name}</h2>
         <p className="text-caption text-label-secondary">{kindLine(entity)}</p>
       </div>
+      {trailing}
       {hasMenu ? (
         <DropdownMenu>
           <DropdownMenuTrigger
@@ -124,6 +149,14 @@ function CardHeader({
               <DropdownMenuItem onClick={() => actions.onTogglePin?.(entity)}>
                 {entity.pinned ? t("people.unpin") : t("people.pin")}
               </DropdownMenuItem>
+            ) : null}
+            {actions.onTogglePrivate ? (
+              <DropdownMenuCheckboxItem
+                checked={entity.private === true}
+                onCheckedChange={() => actions.onTogglePrivate?.(entity)}
+              >
+                {t("work.private")}
+              </DropdownMenuCheckboxItem>
             ) : null}
             {actions.onMerge ? (
               <DropdownMenuItem onClick={() => actions.onMerge?.(entity)}>
@@ -165,7 +198,7 @@ function CardHeader({
   );
 }
 
-function Summary({ entity }: { entity: EntityView }): ReactElement | null {
+export function Summary({ entity }: { entity: EntityView }): ReactElement | null {
   if (!entity.summary) return null;
   return (
     <div className="flex flex-col gap-1">
@@ -179,12 +212,12 @@ function Summary({ entity }: { entity: EntityView }): ReactElement | null {
   );
 }
 
-function EmptyRow({ children }: { children: ReactNode }): ReactElement {
+export function EmptyRow({ children }: { children: ReactNode }): ReactElement {
   return <p className="px-3 py-2 text-body text-label-secondary">{children}</p>;
 }
 
 /** Interaction rows, newest first, each linking back to its app (spec §6.5 "Recent"). */
-function RecentRows({
+export function RecentRows({
   interactions,
   limit,
   onOpenLink,
@@ -238,7 +271,7 @@ function RecentRows({
 }
 
 /** The owner's Notes section, verbatim (spec §4.8: Psyche never rewrites it). */
-function NotesEditor({
+export function NotesEditor({
   entity,
   onSave,
   busy,
@@ -275,7 +308,7 @@ function NotesEditor({
   );
 }
 
-function FactRows({
+export function FactRows({
   entity,
   facts,
   actions,
@@ -314,6 +347,7 @@ function FactRows({
       {actions.onSetFact ? (
         <AddFactRow
           kind={entity.kind}
+          projectType={entity.projectType ?? null}
           busy={busy}
           onAdd={(attribute, value) => actions.onSetFact?.(entity, attribute, value)}
         />
@@ -322,7 +356,7 @@ function FactRows({
   );
 }
 
-function LoopRows({
+export function LoopRows({
   entity,
   now,
   actions,
@@ -365,7 +399,7 @@ function LoopRows({
 }
 
 /** A related project, org or person as a row that opens its card. */
-function EdgeRow({
+export function EdgeRow({
   edge,
   onOpenEntity,
 }: {
@@ -401,7 +435,7 @@ function EdgeRow({
   );
 }
 
-function CardFrame({
+export function CardFrame({
   entity,
   loading,
   loadingDelayMs,

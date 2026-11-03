@@ -12,6 +12,7 @@ import type {
   GraphLoopStatus,
   LoopView,
   ProjectStatus,
+  WorkStatus,
 } from "./types.ts";
 
 /**
@@ -53,6 +54,12 @@ export interface EntityCardState {
   retractFact: (entity: EntityView, fact: FactView) => void;
   updateLoop: (entity: EntityView, loop: LoopView, status: GraphLoopStatus) => void;
   setStatus: (entity: EntityView, status: ProjectStatus) => void;
+  /** An assignment's status (§3.4): the owner's word, written as a `status` fact. */
+  setWorkStatus: (entity: EntityView, status: WorkStatus) => void;
+  /** A work item's due date; null clears it. */
+  setDueAt: (entity: EntityView, dueAt: string | null) => void;
+  /** Keep private: the item shows on its Memory page only (§4). */
+  setPrivate: (entity: EntityView, on: boolean) => void;
   togglePin: (entity: EntityView) => void;
 }
 
@@ -106,6 +113,17 @@ export function useEntityCard(id: string | null, now: number = Date.now()): Enti
           ...(res.data ? { etag: res.data.etag } : {}),
         }),
       ),
+    setWorkStatus: (e, status) =>
+      write(() =>
+        call("memory.entities.facts.set", {
+          entityId: e.id,
+          attribute: "status",
+          value: status,
+          source: { kind: "owner_edit" },
+        }),
+      ),
+    setDueAt: (e, dueAt) => write(() => call("memory.entities.update", { id: e.id, dueAt })),
+    setPrivate: (e, on) => write(() => call("memory.entities.update", { id: e.id, private: on })),
     togglePin: (e) => write(() => call("memory.entities.update", { id: e.id, pinned: !e.pinned })),
   };
 }

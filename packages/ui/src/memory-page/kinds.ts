@@ -23,6 +23,7 @@ export function entityHref(id: string): string {
 export function kindForEntity(kind: GraphEntityKind): MemoryKind {
   if (kind === "project") return "projects";
   if (kind === "event") return "events";
+  if (kind === "assignment") return "due";
   if (kind === "topic") return "more";
   return "people";
 }

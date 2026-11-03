@@ -2,6 +2,10 @@ import type { MethodResult } from "@psyche/protocol";
 import { type ReactElement, useState } from "react";
 import { useCall, useGatewayQuery } from "../data/hooks.ts";
 import { useOpenLink } from "../links/LinkPrompt.tsx";
+import { ConnectedAnchors } from "../memory-page/Anchors.tsx";
+import { ConnectedTimeline } from "../memory-page/Timeline.tsx";
+import { WorkCard } from "../memory-page/WorkCard.tsx";
+import { QuickAdd } from "../memory-page/WorkDue.tsx";
 import { PersonNudgeRow } from "../nudges/ConnectedNudges.tsx";
 import { usePersona, useSlots } from "../slots.tsx";
 import { EntityCard, type EntityCardActions } from "./EntityCard.tsx";
@@ -54,46 +58,82 @@ export function ConnectedEntityCard({
   const target = card.entity ? { id: card.entity.id, name: card.entity.name } : null;
   const open =
     onOpenEntity ?? ((other: string) => navigate?.(`/memory?entity=${encodeURIComponent(other)}`));
+  const clock = now ?? Date.now();
+  const common = {
+    entity: card.entity,
+    now: clock,
+    persona: persona.name,
+    loading: card.loading,
+    loadingDelayMs: 150,
+    error: card.error,
+    onRetry: card.reload,
+    busy: card.busy,
+    ...(recentLimit !== undefined ? { recentLimit } : {}),
+    ...(className ? { className } : {}),
+    onSetFact: card.setFact,
+    onRetractFact: card.retractFact,
+    onUpdateLoop: card.updateLoop,
+    onSetStatus: card.setStatus,
+    onTogglePin: card.togglePin,
+    onOpenEntity: open,
+    onOpenLink: openLink,
+    onMerge: onMerge ?? (() => setDialog("merge")),
+    onForget: onForget ?? (() => setDialog("forget")),
+  };
+  const work = card.entity;
   return (
     <>
-      <EntityCard
-        entity={card.entity}
-        now={now ?? Date.now()}
-        persona={persona.name}
-        upcoming={(coming.data?.items ?? []).map((i) => i.text)}
-        {...(isPerson && card.entity
-          ? { keepInTouch: <PersonNudgeRow entityId={id} name={card.entity.name} /> }
-          : {})}
-        loading={card.loading}
-        loadingDelayMs={150}
-        error={card.error}
-        onRetry={card.reload}
-        busy={card.busy}
-        {...(recentLimit !== undefined ? { recentLimit } : {})}
-        {...(className ? { className } : {})}
-        onSetFact={card.setFact}
-        onRetractFact={card.retractFact}
-        onUpdateLoop={card.updateLoop}
-        onSetStatus={card.setStatus}
-        onTogglePin={card.togglePin}
-        onOpenEntity={open}
-        onOpenLink={openLink}
-        onMerge={onMerge ?? (() => setDialog("merge"))}
-        onForget={onForget ?? (() => setDialog("forget"))}
-        {...(isPerson
-          ? {
-              onExport: () => {
-                void call("memory.entities.export", { id }).then((file) => {
-                  if (onExportReady) onExportReady(file);
-                  else downloadZip(file);
-                });
-              },
-              onForgetSaid: () => setDialog("said"),
-              onExclude: (_e: unknown, forget: boolean) =>
-                setDialog(forget ? "exclude_forget" : "exclude"),
-            }
-          : {})}
-      />
+      {work && (work.kind === "project" || work.kind === "assignment") ? (
+        // Projects, courses and assignments get the work page (§6.3): status, due date, where you
+        // stopped, its assignments, the timeline and the sources linked to it.
+        <WorkCard
+          {...common}
+          onSetWorkStatus={card.setWorkStatus}
+          onSetDueAt={card.setDueAt}
+          onTogglePrivate={(e) => card.setPrivate(e, e.private !== true)}
+          timeline={
+            <ConnectedTimeline
+              entityId={id}
+              now={clock}
+              names={new Map((work.assignments ?? []).map((a) => [a.id, a.name]))}
+            />
+          }
+          linked={<ConnectedAnchors entityId={id} />}
+          {...(work.kind === "project"
+            ? {
+                addAssignment: (close: () => void) => (
+                  <QuickAdd
+                    now={clock}
+                    parent={{ id: work.id, name: work.name }}
+                    onAdded={() => card.reload()}
+                    onClose={close}
+                  />
+                ),
+              }
+            : {})}
+        />
+      ) : (
+        <EntityCard
+          {...common}
+          upcoming={(coming.data?.items ?? []).map((i) => i.text)}
+          {...(isPerson && card.entity
+            ? { keepInTouch: <PersonNudgeRow entityId={id} name={card.entity.name} /> }
+            : {})}
+          {...(isPerson
+            ? {
+                onExport: () => {
+                  void call("memory.entities.export", { id }).then((file) => {
+                    if (onExportReady) onExportReady(file);
+                    else downloadZip(file);
+                  });
+                },
+                onForgetSaid: () => setDialog("said"),
+                onExclude: (_e: unknown, forget: boolean) =>
+                  setDialog(forget ? "exclude_forget" : "exclude"),
+              }
+            : {})}
+        />
+      )}
       <PersonDataDialog
         person={target}
         mode={

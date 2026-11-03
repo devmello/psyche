@@ -20,7 +20,8 @@ export const memoryPage = {
   "memory.page.everything.review": "To review",
   "memory.page.everything.reviewCount":
     "{n, plural, one {# fact is waiting for your OK} other {# facts are waiting for your OK}}",
-  "memory.page.everything.projects": "Active projects",
+  "memory.page.everything.due": "Due soon",
+  "memory.page.everything.projects": "Active projects and courses",
   "memory.page.everything.people": "People you're in touch with",
   "memory.page.everything.events": "Coming up",
 

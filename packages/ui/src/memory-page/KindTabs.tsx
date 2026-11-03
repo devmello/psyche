@@ -1,15 +1,24 @@
-import type { ComingUpItem, GraphEntityKind, GraphProjectStatus } from "@psyche/protocol";
-import { CalendarClock } from "lucide-react";
-import { type ReactElement, useState } from "react";
-import { EmptyState, GroupedList } from "../components/page.tsx";
+import type {
+  ComingUpItem,
+  GraphEntityKind,
+  GraphProjectStatus,
+  GraphProjectType,
+} from "@psyche/protocol";
+import { Plus } from "lucide-react";
+import { type ReactElement, useId, useState } from "react";
+import { toast } from "sonner";
+import { GroupedList } from "../components/page.tsx";
+import { Button } from "../components/ui/button.tsx";
+import { Input } from "../components/ui/input.tsx";
 import { useGatewayQuery } from "../data/hooks.ts";
 import { t } from "../i18n/core.ts";
 import { EntityRow } from "../people/EntityRow.tsx";
 import type { EntitySummary } from "../people/types.ts";
 import { ScreenSection } from "../screens/feed/ScreenToolbar.tsx";
 import { SegmentedRadio } from "../screens/settings/SegmentedRadio.tsx";
-import { usePersona } from "../slots.tsx";
 import { entityHref } from "./kinds.ts";
+import { ProjectRow } from "./WorkRow.tsx";
+import { useProjects, useWorkWrites } from "./work-hooks.ts";
 
 /** The quiet line in a list with nothing in it. */
 export function Quiet({ children }: { children: string }): ReactElement {
@@ -64,8 +73,74 @@ export function UpcomingList({
 }
 
 const STATUSES: readonly GraphProjectStatus[] = ["active", "paused", "done"];
+const PROJECT_TYPES: readonly GraphProjectType[] = ["project", "course"];
 
-/** Projects, filtered by status. */
+/** One line to add a project or course (§6.2): a name and what it is; the rest is on its page. */
+function AddProject({
+  onAdded,
+  onClose,
+}: {
+  onAdded: (id: string) => void;
+  onClose: () => void;
+}): ReactElement {
+  const inputId = useId();
+  const writes = useWorkWrites();
+  const [name, setName] = useState("");
+  const [type, setType] = useState<GraphProjectType>("course");
+  const submit = async () => {
+    const value = name.trim();
+    if (value === "") return;
+    const id = await writes.addProject({ name: value, projectType: type });
+    if (id === null) return;
+    toast(t("work.projects.added", { name: value }));
+    onAdded(id);
+  };
+  return (
+    <form
+      aria-label={t("work.projects.label")}
+      className="flex flex-col gap-2 rounded-lg bg-surface-raised p-3 shadow-elevation-1"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void submit();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") onClose();
+      }}
+    >
+      <label htmlFor={inputId} className="text-body text-label-primary">
+        {t("work.projects.label")}
+      </label>
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          id={inputId}
+          autoFocus
+          value={name}
+          placeholder={t("work.projects.placeholder")}
+          onChange={(e) => setName(e.target.value)}
+          className="min-w-48 flex-1"
+        />
+        <SegmentedRadio
+          label={t("work.projects.type")}
+          value={type}
+          onChange={setType}
+          options={PROJECT_TYPES.map((p) => ({ value: p, label: t(`work.projects.type.${p}`) }))}
+        />
+        <Button type="submit" size="sm" disabled={writes.busy || name.trim() === ""}>
+          {t("work.add.submit")}
+        </Button>
+        <Button type="button" size="sm" variant="ghost" onClick={onClose}>
+          {t("work.add.cancel")}
+        </Button>
+      </div>
+      <p className="text-callout text-label-secondary">{t("work.projects.hint")}</p>
+    </form>
+  );
+}
+
+/**
+ * Projects and courses, filtered Active / Paused / Done (§6.2). Each row shows its kind, status,
+ * due date and a stale mark; Add makes a project or a course and opens its page.
+ */
 export function ProjectsTab({
   now,
   onNavigate,
@@ -74,45 +149,56 @@ export function ProjectsTab({
   onNavigate: (to: string) => void;
 }): ReactElement {
   const [status, setStatus] = useState<GraphProjectStatus>("active");
-  const found = useGatewayQuery("memory.entities.search", {
-    q: "",
-    kinds: ["project"],
-    limit: 100,
-  });
-  const rows = (found.data?.entities ?? []).filter(
-    (e) => !e.isOwner && (e.projectStatus ?? "active") === status,
-  );
+  const [adding, setAdding] = useState(false);
+  const { projects, loading } = useProjects();
+  const rows = projects.filter((e) => (e.projectStatus ?? "active") === status);
   return (
-    <section aria-label={t("memory.page.kind.projects")} className="flex flex-col gap-3">
-      <SegmentedRadio
-        label={t("memory.page.projects.filter")}
-        value={status}
-        onChange={setStatus}
-        className="self-start"
-        options={STATUSES.map((s) => ({ value: s, label: t(`people.project.status.${s}`) }))}
-      />
+    <section
+      aria-label={t("memory.page.kind.projects")}
+      data-testid="memory-projects"
+      className="flex flex-col gap-3"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <SegmentedRadio
+          label={t("memory.page.projects.filter")}
+          value={status}
+          onChange={setStatus}
+          options={STATUSES.map((s) => ({ value: s, label: t(`people.project.status.${s}`) }))}
+        />
+        {adding ? null : (
+          <Button type="button" size="sm" variant="outline" onClick={() => setAdding(true)}>
+            <Plus aria-hidden="true" />
+            {t("work.projects.add")}
+          </Button>
+        )}
+      </div>
+      {adding ? (
+        <AddProject
+          onAdded={(id) => {
+            setAdding(false);
+            onNavigate(entityHref(id));
+          }}
+          onClose={() => setAdding(false)}
+        />
+      ) : null}
       <GroupedList>
         {rows.length === 0 ? (
-          found.loading ? null : (
+          loading ? null : (
             <Quiet>{t("memory.page.projects.empty")}</Quiet>
           )
         ) : (
-          <EntityRows entities={rows} now={now} onNavigate={onNavigate} />
+          <div className="flex flex-col p-1">
+            {rows.map((p) => (
+              <ProjectRow
+                key={p.id}
+                item={p}
+                now={now}
+                onOpen={(id) => onNavigate(entityHref(id))}
+              />
+            ))}
+          </div>
         )}
       </GroupedList>
-    </section>
-  );
-}
-
-/** Assignments and deadlines. There is no store for them yet, so this is a calm empty page. */
-export function DueTab(): ReactElement {
-  const persona = usePersona();
-  return (
-    <section aria-label={t("memory.page.kind.due")} data-testid="memory-due">
-      <EmptyState icon={CalendarClock} className="pt-[8vh]">
-        <span className="block text-headline text-label-primary">{t("memory.page.due.title")}</span>
-        {t("memory.page.due.body", { persona: persona.name })}
-      </EmptyState>
     </section>
   );
 }

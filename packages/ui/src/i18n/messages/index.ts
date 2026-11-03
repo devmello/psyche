@@ -43,6 +43,7 @@ import { voice } from "./voice.ts";
 import { web } from "./web.ts";
 import { whatCanYouDo } from "./what-can-you-do.ts";
 import { widgets } from "./widgets.ts";
+import { work } from "./work.ts";
 import { workflows } from "./workflows.ts";
 
 /**
@@ -81,6 +82,7 @@ export const en = {
   ...memoryReview,
   ...memoryPage,
   ...people,
+  ...work,
   ...specialists,
   ...screens,
   ...web,
