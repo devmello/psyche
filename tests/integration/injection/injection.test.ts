@@ -103,7 +103,9 @@ beforeAll(async () => {
   reference = await runCorpus(cases, { files, makeStack: referenceStack });
   write(join(root, "out/security/int2-injection-report.json"), int2);
   writeCommitted(join(here, "report.json"), int2);
-}, 60_000);
+  // ~30 s on its own, but CI runs this file beside the other suites and a loaded runner took
+  // over 60 s (main 4702fa9e), which failed the whole file at setup.
+}, 180_000);
 
 afterAll(async () => {
   await rig?.close();
