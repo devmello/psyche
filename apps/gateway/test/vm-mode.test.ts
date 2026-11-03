@@ -15,8 +15,8 @@ import { composeSandbox } from "../src/compose/sandbox.ts";
 import type { ComposeServices } from "../src/compose/services.ts";
 import { type ComposedVm, composeVm } from "../src/compose/vm.ts";
 import { silentLogger } from "../src/log.ts";
-import { FakeNode } from "./fake-node.ts";
-import { adminClient, ik, type TestClient } from "./helpers.ts";
+import { FakeNode, pairNodeDevice } from "./fake-node.ts";
+import { adminClient, ik, newDeviceKey, type TestClient } from "./helpers.ts";
 
 /**
  * Scripted scenario for VM mode, Gateway side (L1–L5): the owner turns VM mode on, a chat turn
@@ -151,10 +151,15 @@ async function stack(background: boolean) {
     ],
   });
   const ran: unknown[] = [];
+  // The guest's psyche-node declares `vm-guest`, not `mac-helper`: it is not a Host helper.
+  const guestKey = newDeviceKey();
+  pairNodeDevice(c.gateway, "guest-psyche-node", guestKey);
   const guestNode = await FakeNode.connect(c.gateway.config.nodeSocketPath, {
     origin: c.gateway.origin,
     secret: c.gateway.handshakeSecret,
     deviceId: "guest-psyche-node",
+    key: guestKey,
+    deviceFamily: "vm-guest",
     handlers: [
       {
         capability: { name: "exec", sideEffect: "write", streaming: true },

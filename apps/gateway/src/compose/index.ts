@@ -1024,34 +1024,17 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const connectorsPart = parts.find(
     (p): p is ComposedPart & { registry: ConnectorRegistry } => "registry" in p && "mail" in p,
   );
-  // The Mac helper that offers the people graph's Messages metadata reads (#763), when one is live.
-  const graphMessagesHelper = () => {
-    const nodes = gatewayRef?.context.nodes;
-    const node = nodes
-      ?.list()
-      .find(
-        (n) => nodes.isLive(n.id) && n.capabilities.some((c) => c.name === "messages.graph_read"),
-      );
-    return node === undefined ? undefined : nodes?.client(node.id);
-  };
-  // The Mac helper that offers Vision OCR for search ingest (`ocr.recognize`), when one is live.
-  const ocrHelper = () => {
-    const nodes = gatewayRef?.context.nodes;
-    const node = nodes
-      ?.list()
-      .find((n) => nodes.isLive(n.id) && n.capabilities.some((c) => c.name === "ocr.recognize"));
-    return node === undefined ? undefined : nodes?.client(node.id);
-  };
-  // The Mac helper that runs Apple's on-device model (`llm.apple.generate`), when one is live.
-  appleHelper.current = () => {
-    const nodes = gatewayRef?.context.nodes;
-    const node = nodes
-      ?.list()
-      .find(
-        (n) => nodes.isLive(n.id) && n.capabilities.some((c) => c.name === "llm.apple.generate"),
-      );
-    return node === undefined ? undefined : nodes?.client(node.id);
-  };
+  // The three below are the Host's own Mac helper (`NodeRegistry.hostHelper`): the Host's
+  // Messages, the Host's files for OCR and the Host's on-device model. A second Mac that paired as
+  // a node never offers them, whatever capabilities it declares.
+  //
+  // The Host helper that offers the people graph's Messages metadata reads (#763), when live.
+  const graphMessagesHelper = () =>
+    gatewayRef?.context.nodes.hostHelper("messages.graph_read")?.client;
+  // The Host helper that offers Vision OCR for search ingest (`ocr.recognize`), when one is live.
+  const ocrHelper = () => gatewayRef?.context.nodes.hostHelper("ocr.recognize")?.client;
+  // The Host helper that runs Apple's on-device model (`llm.apple.generate`), when one is live.
+  appleHelper.current = () => gatewayRef?.context.nodes.hostHelper("llm.apple.generate")?.client;
   people.useSources(() =>
     graphSourceAdapters({
       connectors: async () => (connectorsPart === undefined ? [] : connectorsPart.registry.list()),

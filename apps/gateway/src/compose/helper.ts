@@ -193,7 +193,6 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
   const helpers = new Map<string, Helper>();
   const deliveries = new Map<string, Delivery>();
   let gateway: Gateway | undefined;
-  let latest: Helper | undefined;
   let stopped = false;
   const unsubscribe: (() => void)[] = [];
 
@@ -219,11 +218,22 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
     if (h === undefined) return;
     h.abort.abort();
     helpers.delete(nodeId);
-    if (latest === h) latest = [...helpers.values()].at(-1);
+  }
+
+  /**
+   * The helper approval notifications go to: the Host's own, and only when it is the one Host
+   * helper (`NodeRegistry.hostHelper` refuses to pick between two). Never "the newest helper":
+   * a second Mac that paired as a node must not see the owner's approval cards.
+   */
+  function current(): Helper | undefined {
+    const sole = gateway?.context.nodes.hostHelper();
+    return sole === undefined ? undefined : helpers.get(sole.info.id);
   }
 
   function attach(node: NodeInfo): void {
     if (stopped || node.kind !== "mac-helper" || node.status !== "online") return;
+    // The kind says `mac-helper`; the registry says whether it is the Host's own.
+    if (gateway?.context.nodes.isHostHelper(node.id) !== true) return;
     const names = new Set(node.capabilities.map((c) => c.name));
     if (!names.has("notify.show") || !names.has("notify.subscribe")) return;
     // A reconnect replaces the connection: drop the old subscription, open a new one.
@@ -235,7 +245,6 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
       confirms: names.has("presence.confirm"),
     };
     helpers.set(node.id, h);
-    latest = h;
     void subscribe(h);
   }
 
@@ -311,7 +320,7 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
   async function deliver(issued: IssuedApproval): Promise<void> {
     const a = issued.approval;
     const token = issued.answerTokens[HELPER_SURFACE];
-    const h = latest;
+    const h = current();
     if (token === undefined || h === undefined || a.status !== "pending") return;
     const c = client(h.nodeId);
     if (c === undefined) return;
@@ -379,11 +388,9 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
   const handlers = presenceKeyHandlers({
     store: keyStore,
     audit: services.audit,
-    helperNode: (deviceId) =>
-      [...helpers.values()].find((h) => h.deviceId === deviceId)?.nodeId ??
-      gateway?.context.nodes
-        .list()
-        .find((n) => n.deviceId === deviceId && gateway?.context.nodes.isLive(n.id))?.id,
+    // A Touch ID key is registered only for the Host's own helper (never a node of another Mac
+    // that happens to share the device id the caller names).
+    helperNode: (deviceId) => gateway?.context.nodes.hostHelperOfDevice(deviceId)?.info.id,
     invoke: async (nodeId, capability) => {
       const c = client(nodeId);
       if (c === undefined) return { ok: false, error: { code: "unavailable", message: "gone" } };
@@ -396,7 +403,9 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
   /**
    * The connected helper that signs for the window, or why none can. With `deviceId` (the helper
    * the desktop launched from its own bundle, read with `psyche-helper --print-identity`), only
-   * that one: another node that paired as a helper never gets the challenge.
+   * that one: another node that paired as a helper never gets the challenge. Without it, only
+   * when exactly one Host helper is connected; two is ambiguous and nothing is asked (the same
+   * rule as every other Host-bound capability, `NodeRegistry.hostHelper`).
    */
   function touchIdHelper(deviceId: string | undefined): Helper {
     const connected = [...helpers.values()]
@@ -406,6 +415,12 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
       throw touchIdUnavailable(
         "helper_offline",
         "Psyche Helper is not running, so Touch ID cannot confirm this approval",
+      );
+    }
+    if (deviceId === undefined && connected.length > 1) {
+      throw touchIdUnavailable(
+        "helper_offline",
+        "More than one Psyche Helper is connected, so Touch ID cannot tell which Mac should confirm this approval",
       );
     }
     const able = connected.filter((h) => h.confirms);
@@ -573,7 +588,7 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
       "approvals.approveWithTouchId": { run: approveWithTouchId },
     },
     relay: {
-      surfaces: () => (latest === undefined ? [] : [HELPER_SURFACE]),
+      surfaces: () => (current() === undefined ? [] : [HELPER_SURFACE]),
       deliver,
       isOwnerSender: async () => false,
     },

@@ -772,18 +772,19 @@ export function composeChannels(
       }),
     );
   }
-  // A live, Messages-capable node (the mac helper); none → the adapter's start fails and retries.
+  // The Host's Messages-capable mac helper; none → the adapter's start fails and retries. Only
+  // the Host's own helper reads the Host's Messages (`NodeRegistry.hostHelper`); `pinned` (a node
+  // id from configuration) picks among the Host's helpers, it never reaches another node.
   const messagesNode = (pinned?: string) => {
     const nodes = gateway?.context.nodes;
-    const node = nodes
-      ?.list()
-      .find(
-        (n) =>
-          (pinned === undefined || n.id === pinned) &&
-          nodes.isLive(n.id) &&
-          n.capabilities.some((c) => c.name === "messages.watch"),
-      );
-    return node === undefined ? undefined : nodes?.client(node.id);
+    if (nodes === undefined) return undefined;
+    const helper =
+      pinned === undefined
+        ? nodes.hostHelper("messages.watch")
+        : nodes.hostHelpers().find((h) => h.info.id === pinned);
+    return helper?.info.capabilities.some((c) => c.name === "messages.watch")
+      ? helper.client
+      : undefined;
   };
   const im = setup.imessage;
   // `messages_send` (agent tool): sends bind to this account whether or not the iMessage channel
@@ -793,13 +794,8 @@ export function composeChannels(
     broker: services.broker,
     surfaces: ["desktop", "web"],
     account: sendAccount,
-    node: () => {
-      const nodes = gateway?.context.nodes;
-      const node = nodes
-        ?.list()
-        .find((n) => nodes.isLive(n.id) && n.capabilities.some((c) => c.name === "messages.send"));
-      return node === undefined ? undefined : nodes?.client(node.id);
-    },
+    // Sends go out through the Host's own Messages, never another Mac's.
+    node: () => gateway?.context.nodes.hostHelper("messages.send")?.client,
     sender: (client) => verifiedMessagesSends(services, client, sendAccount),
   });
   let unregisterSendTool: (() => unknown) | undefined;

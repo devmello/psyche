@@ -9,8 +9,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { composeHelper, helperErrorFields, helperPresenceMessage } from "../src/compose/helper.ts";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
 import { silentLogger } from "../src/log.ts";
-import { FakeNode, type FakeNodeHandler } from "./fake-node.ts";
-import { adminClient, ik, type TestClient } from "./helpers.ts";
+import { FakeNode, type FakeNodeHandler, pairNodeDevice } from "./fake-node.ts";
+import { adminClient, ik, newDeviceKey, type TestClient, wsUrlOf } from "./helpers.ts";
 
 /**
  * Allow in the desktop window on a card that needs Touch ID (security §3.7): the Gateway asks the
@@ -565,6 +565,135 @@ describe("approvals.approveWithTouchId (window Allow on a Touch ID card)", () =>
       ok: false,
       error: { code: "unavailable", details: { reason: "presence_key_invalidated" } },
     });
+  });
+
+  describe("with a second Mac's helper", () => {
+    /** A second Mac: an approved node device that says `mac-helper` over the WebSocket. */
+    async function secondMac(c: ComposedGateway, confirm: Confirm) {
+      const key = enclaveKey();
+      const deviceId = "second-mac";
+      const deviceKey = newDeviceKey();
+      pairNodeDevice(c.gateway, deviceId, deviceKey);
+      const node = await FakeNode.connectWs(wsUrlOf(c.gateway), {
+        origin: c.gateway.origin,
+        handlers: helperHandlers(key, confirm),
+        key: deviceKey,
+        deviceId,
+        deviceFamily: "mac-helper",
+      });
+      nodes.push(node);
+      return { node, key, deviceId };
+    }
+
+    it("never asks it to confirm, with or without a pin, and refuses to register its key", async () => {
+      const hostAsked: unknown[] = [];
+      const { c, admin } = await setup({
+        confirm: (p) => {
+          hostAsked.push(p);
+          return { signature: "x" };
+        },
+      });
+      // It connects last, so "the newest helper" would be this one.
+      const other = await secondMac(c, () => ({ signature: "y" }));
+      const { approval, token } = await securityCard(admin);
+
+      // Pinned to the second Mac: it is not the Host's helper, so there is nothing to ask.
+      expect(
+        await admin.request(
+          "approvals.approveWithTouchId",
+          { approvalId: approval.id, answerToken: token, helperDeviceId: other.deviceId },
+          ik(),
+        ),
+      ).toMatchObject({
+        ok: false,
+        error: { code: "unavailable", details: { reason: "helper_offline" } },
+      });
+      // Not pinned: the Host's helper is asked, never the newer second Mac.
+      await admin.request(
+        "approvals.approveWithTouchId",
+        { approvalId: approval.id, answerToken: token },
+        ik(),
+      );
+      expect(hostAsked).toHaveLength(1);
+      expect(other.node.invocations.map((i) => i.capability)).not.toContain("presence.confirm");
+
+      // Its Touch ID key is never registered as a verifier for approvals.
+      expect(
+        await admin.request(
+          "devices.presenceKey.register",
+          { deviceId: other.deviceId, expectKeyId: other.key.keyId },
+          ik(),
+        ),
+      ).toMatchObject({ ok: false, error: { code: "unavailable" } });
+      expect(other.node.invocations.map((i) => i.capability)).not.toContain("presence.public_key");
+    });
+
+    it("never receives the approval notifications", async () => {
+      const { c, admin } = await setup({ confirm: () => ({ signature: "x" }) });
+      const other = await secondMac(c, () => ({ signature: "y" }));
+      const issued = await c.gateway.context.broker.requestApproval({
+        kind: "policy_change",
+        summary: "Change a security setting",
+        details: {},
+        bindingHash: "c".repeat(64),
+        grantKey: "c".repeat(64),
+        requestedBy: { runId: null, taskId: null, threadId: null },
+        sideEffect: "destructive",
+        surfaces: ["desktop", "notification"],
+        scopesOffered: ["once"],
+        taint: false,
+      });
+      expect(issued.approval.id).toBeTruthy();
+      const host = nodes[0] as FakeNode;
+      await vi.waitFor(() =>
+        expect(host.invocations.map((i) => i.capability)).toContain("notify.show"),
+      );
+      expect(other.node.invocations.map((i) => i.capability)).not.toContain("notify.show");
+      expect(admin).toBeDefined();
+    });
+  });
+
+  it("with two Host helpers and no pin it asks neither; a pin names one", async () => {
+    const asked: string[] = [];
+    const { c, admin, helperDevice } = await setup({
+      confirm: () => {
+        asked.push("first");
+        return { signature: "x" };
+      },
+    });
+    const secondKey = enclaveKey();
+    const second = await FakeNode.connect(c.gateway.config.nodeSocketPath, {
+      origin: c.gateway.origin,
+      secret: c.gateway.handshakeSecret,
+      handlers: helperHandlers(secondKey, () => {
+        asked.push("second");
+        return { signature: "y" };
+      }),
+      deviceId: "helper-two",
+    });
+    nodes.push(second);
+    await vi.waitFor(() =>
+      expect(second.invocations.map((i) => i.capability)).toContain("notify.subscribe"),
+    );
+    const { approval, token } = await securityCard(admin);
+    const unpinned = await admin.request(
+      "approvals.approveWithTouchId",
+      { approvalId: approval.id, answerToken: token },
+      ik(),
+    );
+    expect(unpinned).toMatchObject({
+      ok: false,
+      error: { code: "unavailable", details: { reason: "helper_offline" } },
+    });
+    expect(JSON.stringify(unpinned)).toContain("More than one");
+    expect(asked).toEqual([]);
+    // The desktop's own helper, by device id, is unambiguous.
+    await admin.request(
+      "approvals.approveWithTouchId",
+      { approvalId: approval.id, answerToken: token, helperDeviceId: helperDevice },
+      ik(),
+    );
+    expect(asked).toEqual(["first"]);
   });
 
   it("keeps only short, word-like helper error codes and reasons", () => {

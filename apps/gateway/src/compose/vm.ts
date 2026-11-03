@@ -281,16 +281,11 @@ export function composeVm(services: ComposeServices, setup: VmSetup = {}): Compo
     (taskId) => resetForTask(taskId),
   );
 
+  // The sandbox Mac belongs to the Host: only its own helper reports and controls it
+  // (`NodeRegistry.hostHelper`), never a second Mac that paired as a node.
   const helpers = (): NodeClient[] => {
-    const nodes = gateway?.context.nodes;
-    if (nodes === undefined) return [];
-    return nodes
-      .list()
-      .filter((n) => nodes.isLive(n.id) && n.capabilities.some((c) => c.name === "vm.status"))
-      .flatMap((n) => {
-        const c = nodes.client(n.id);
-        return c === undefined ? [] : [c];
-      });
+    const helper = gateway?.context.nodes.hostHelper("vm.status");
+    return helper === undefined ? [] : [helper.client];
   };
 
   const observe = async (nodeId: string, status: VmStatus) => {
@@ -353,6 +348,9 @@ export function composeVm(services: ComposeServices, setup: VmSetup = {}): Compo
     for (const [nodeId, byName] of guests) {
       const guest = byName.values().next().value as VmGuest | undefined;
       if (guest === undefined || nodes === undefined || !nodes.isLive(nodeId)) continue;
+      // Only the Host's own helper controls the sandbox Mac (a guest report from any other node
+      // is ignored), and only while it is the sole Host helper.
+      if (!nodes.isHostHelper(nodeId) || nodes.hostHelper()?.info.id !== nodeId) continue;
       const info = nodes.list().find((n) => n.id === nodeId);
       if (info?.capabilities.some((c) => c.name === capability) !== true) continue;
       const helper = nodes.client(nodeId);

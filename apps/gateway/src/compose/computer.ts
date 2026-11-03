@@ -1402,19 +1402,15 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
 const RUN_FINISHED = new Set(["done", "failed", "cancelled"]);
 const TASK_FINISHED = new Set(["done", "failed", "cancelled"]);
 
-/** The newest live mac-helper node that offers computer use. */
+/**
+ * The Host's own Mac helper when it offers computer use (`NodeRegistry.hostHelper`): never the
+ * newest node that says it is a Mac helper, so a second Mac that paired as a node cannot be
+ * driven by the agent, and an ambiguous Host (two helpers on the node socket) has none.
+ */
 export function computerHelper(gateway: () => Gateway | undefined): () => HelperNode | undefined {
   return () => {
-    const nodes = gateway()?.context.nodes;
-    if (nodes === undefined) return undefined;
-    const offers = (n: NodeInfo) =>
-      n.kind === "mac-helper" && n.capabilities.some((c) => c.name === "computer.ax_tree");
-    const node = nodes
-      .list()
-      .filter((n) => offers(n) && nodes.isLive(n.id))
-      .at(-1);
-    const client = node === undefined ? undefined : nodes.client(node.id);
-    return node === undefined || client === undefined ? undefined : { nodeId: node.id, client };
+    const helper = gateway()?.context.nodes.hostHelper("computer.ax_tree");
+    return helper === undefined ? undefined : { nodeId: helper.info.id, client: helper.client };
   };
 }
 

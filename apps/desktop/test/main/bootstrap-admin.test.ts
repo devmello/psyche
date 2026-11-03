@@ -4,6 +4,7 @@ import { bootstrapAdminIfNeeded } from "../../src/main/bootstrap-admin.ts";
 function deps(over: Partial<Parameters<typeof bootstrapAdminIfNeeded>[0]> = {}) {
   return {
     packaged: true,
+    local: true,
     scopes: () => ["operator.read", "operator.write", "operator.approvals"],
     call: vi.fn(async () => ({ device: { id: "d1" } })),
     reconnect: vi.fn(),
@@ -34,6 +35,13 @@ describe("bootstrapAdminIfNeeded", () => {
     expect(await bootstrapAdminIfNeeded(dev)).toBe(false);
     expect(admin.call).not.toHaveBeenCalled();
     expect(dev.call).not.toHaveBeenCalled();
+  });
+
+  it("never asks a Gateway on another machine", async () => {
+    const remote = deps({ local: false });
+    expect(await bootstrapAdminIfNeeded(remote)).toBe(false);
+    expect(remote.call).not.toHaveBeenCalled();
+    expect(remote.reconnect).not.toHaveBeenCalled();
   });
 
   it("treats conflict (an admin exists) as normal and warns on anything else", async () => {

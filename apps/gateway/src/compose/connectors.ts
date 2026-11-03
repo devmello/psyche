@@ -639,17 +639,16 @@ function freeTimeTool(services: ComposeServices, registry: ConnectorRegistry): T
   };
 }
 
-/** The newest live Mac helper node with its advertised capabilities (J6 app adapters). */
+/**
+ * The Host's own Mac helper with its advertised capabilities (J6 app adapters): the Apple apps
+ * always read the Host Mac's apps, never a second Mac that paired as a node
+ * (`NodeRegistry.hostHelper`).
+ */
 export function macHelper(gateway: () => Gateway | undefined): () => AppleHelper | undefined {
   return () => {
-    const nodes = gateway()?.context.nodes;
-    if (nodes === undefined) return undefined;
-    const node = nodes
-      .list()
-      .filter((n) => n.kind === "mac-helper" && nodes.isLive(n.id))
-      .at(-1);
-    const client = node === undefined ? undefined : nodes.client(node.id);
-    if (node === undefined || client === undefined) return undefined;
+    const helper = gateway()?.context.nodes.hostHelper();
+    if (helper === undefined) return undefined;
+    const { info: node, client } = helper;
     return {
       nodeId: node.id,
       capabilities: node.capabilities.map((c) => c.name),
