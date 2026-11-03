@@ -49,9 +49,13 @@ describe("psyche-app-guide", () => {
   });
 
   it("mentions every Settings section by its label", () => {
-    const messages = ["settings.ts", "daily.ts", "mail-meetings.ts", "memory-review.ts"].map((f) =>
-      read(`packages/ui/src/i18n/messages/${f}`),
-    );
+    const messages = [
+      "settings.ts",
+      "daily.ts",
+      "mail-meetings.ts",
+      "memory-review.ts",
+      "memory-settings.ts",
+    ].map((f) => read(`packages/ui/src/i18n/messages/${f}`));
     const label = (id: string) => {
       const key = `settings.nav.${id === "computer-use" ? "computerUse" : id}`;
       for (const m of messages) {

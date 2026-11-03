@@ -26,6 +26,8 @@ export const APP_SETTINGS_SECTIONS = [
   "memory",
   "learning",
   "everything",
+  "work",
+  "surfaces",
   "people",
   "daily",
   "skills",
