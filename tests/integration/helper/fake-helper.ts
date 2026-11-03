@@ -1,5 +1,7 @@
 import { createHash, generateKeyPairSync, type KeyObject, sign } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { createConnection, type Socket } from "node:net";
+import { join } from "node:path";
 import { helperPresenceMessage } from "@psyche/gateway/compose";
 import { connectSigningPayload, PROTOCOL_VERSION } from "@psyche/protocol";
 
@@ -51,8 +53,18 @@ const CAPABILITIES = [
 ] as const;
 
 /**
+ * What the real helper does on every connect attempt (`NodeDaemon.runOnce`): read the current
+ * `run/handshake.secret` from the Gateway's home, so a Gateway restart never leaves it holding a
+ * stale one. The Gateway writes the file before its sockets listen.
+ */
+export function readHandshakeSecret(home: string): string {
+  return readFileSync(join(home, "run", "handshake.secret"), "utf8").trim();
+}
+
+/**
  * The mac helper as the Gateway sees it over the node socket (apps/mac-helper README,
- * Notifications): pairs with the handshake secret as `mac-helper`, shows `notify.show` cards,
+ * Notifications): presents the per-launch handshake secret as `mac-helper` (only a helper that
+ * does is the Host's helper; one with none, or a stale one, is denied), shows `notify.show` cards,
  * and streams `notify.response` events on the open `notify.subscribe`. With `requireBiometry`,
  * a non-destructive answer runs "Touch ID" first and, as the S14 issue proposes, signs the
  * card's `presenceChallenge` with its presence key.
@@ -89,8 +101,15 @@ export class FakeHelper {
 
   static async connect(
     socketPath: string,
-    opts: { origin: string; secret: string; presence?: PresenceKey },
+    opts: {
+      origin: string;
+      /** `{ home }` reads `run/handshake.secret` as the Swift helper does; a string is sent as is; `undefined` sends none. */
+      secret: string | { home: string } | undefined;
+      presence?: PresenceKey;
+    },
   ): Promise<FakeHelper> {
+    const secret =
+      typeof opts.secret === "object" ? readHandshakeSecret(opts.secret.home) : opts.secret;
     const socket = createConnection(socketPath);
     await new Promise((r) => socket.once("connect", r));
     const { privateKey } = generateKeyPairSync("ed25519");
@@ -106,7 +125,7 @@ export class FakeHelper {
       deviceFamily: "mac-helper",
       name: "Psyche Helper",
       capabilities: CAPABILITIES,
-      handshakeSecret: opts.secret,
+      ...(secret === undefined ? {} : { handshakeSecret: secret }),
     });
     const { nonce, protocolVersion } = challenge.payload;
     const signature = sign(
@@ -121,8 +140,10 @@ export class FakeHelper {
       privateKey,
     ).toString("base64url");
     const verified = await helper.#request("connect.verify", { nonce, signature });
-    if (verified.payload?.phase !== "paired")
+    if (verified.payload?.phase !== "paired") {
+      socket.destroy();
       throw new Error(`helper did not pair: ${JSON.stringify(verified)}`);
+    }
     helper.nodeId = verified.payload.nodeId;
     return helper;
   }
