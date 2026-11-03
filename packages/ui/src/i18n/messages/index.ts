@@ -22,6 +22,7 @@ import { mailMeetings } from "./mail-meetings.ts";
 import { meetingRecord } from "./meeting-record.ts";
 import { memoryPage } from "./memory-page.ts";
 import { memoryReview } from "./memory-review.ts";
+import { memorySettings } from "./memory-settings.ts";
 import { nudges } from "./nudges.ts";
 import { onboarding } from "./onboarding.ts";
 import { overview } from "./overview.ts";
@@ -81,6 +82,7 @@ export const en = {
   ...whatCanYouDo,
   ...memoryReview,
   ...memoryPage,
+  ...memorySettings,
   ...people,
   ...work,
   ...specialists,

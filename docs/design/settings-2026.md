@@ -35,7 +35,7 @@ one of the old sections, kept whole, so its settings, stories and tests stay whe
 | **General** `general` | Appearance `appearance` · Persona `persona` · Notifications `notifications` · Voice & dictation `voice` |
 | **Models** `model` | Model & providers `model` · Usage `usage` |
 | **Connectors & sources** `connectors` | Connectors `connectors` · Search `search` (new) · Mail & meetings `mail` · Channels `channels` |
-| **Memory** `memory` | Memory review `memory` · Remembering & learning `learning` (new) · Everything memory `everything` · People & projects `people` |
+| **Memory** `memory` | Memory review `memory` · Remembering & learning `learning` (new) · Everything memory `everything` · Work `work` (new) · Where memory shows `surfaces` (new) · People & projects `people` |
 | **Routines & skills** `daily` | Daily `daily` · Skills `skills` · Specialists `specialists` |
 | **Permissions** `permissions` | Approval rules `permissions` · Computer use `computer-use` · Browser `browser` · File access `files` · Credentials `credentials` · VM mode `vm` |
 | **Privacy & data** `data` | Privacy & data `data` |

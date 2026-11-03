@@ -4,9 +4,11 @@ import {
   Bot,
   Brain,
   BrainCircuit,
+  Briefcase,
   CalendarClock,
   Cpu,
   Database,
+  Eye,
   FolderLock,
   Globe,
   GraduationCap,
@@ -68,6 +70,8 @@ export type SettingsPaneId =
   | "memory"
   | "learning"
   | "everything"
+  | "work"
+  | "surfaces"
   | "people"
   | "daily"
   | "skills"
@@ -138,6 +142,8 @@ export const SETTINGS_PANES: readonly SettingsEntry<SettingsPaneId>[] = [
   entry("memory", BrainCircuit),
   entry("learning", GraduationCap),
   entry("everything", Brain),
+  entry("work", Briefcase),
+  entry("surfaces", Eye),
   entry("people", Users),
   entry("daily", CalendarClock),
   entry("skills", Puzzle),
@@ -163,7 +169,7 @@ export const SETTINGS_PAGES: readonly SettingsPage[] = [
   page("general", SlidersHorizontal, ["appearance", "persona", "notifications", "voice"]),
   page("model", Cpu, ["model", "usage"]),
   page("connectors", Plug, ["connectors", "search", "mail", "channels"]),
-  page("memory", Brain, ["learning", "memory", "everything", "people"]),
+  page("memory", Brain, ["learning", "memory", "everything", "work", "surfaces", "people"]),
   page("daily", CalendarClock, ["daily", "skills", "specialists"]),
   page("permissions", ShieldCheck, [
     "permissions",
@@ -224,6 +230,8 @@ export function resolveSection(id: string | undefined): {
 export function paneForKey(key: string): SettingsPaneId | null {
   const root = key.split(".", 1)[0] ?? "";
   if (key.startsWith("permissions.folders")) return "files";
+  if (key.startsWith("memory.work")) return "work";
+  if (key.startsWith("memory.surfaces")) return "surfaces";
   if (key.startsWith("memory.everything.review")) return "memory";
   if (key.startsWith("memory.everything")) return "everything";
   if (key.startsWith("search.")) return "search";

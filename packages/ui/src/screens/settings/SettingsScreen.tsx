@@ -36,6 +36,8 @@ import { EverythingMemorySection } from "./EverythingMemorySection.tsx";
 import { FileAccessSection } from "./FileAccessSection.tsx";
 import { MailMeetingsSection } from "./MailMeetingsSection.tsx";
 import { MemoryReviewSection } from "./MemoryReviewSection.tsx";
+import { MemorySurfacesSection } from "./MemorySurfacesSection.tsx";
+import { MemoryWorkSection } from "./MemoryWorkSection.tsx";
 import { ModelSection } from "./ModelSection.tsx";
 import { NotificationsSection } from "./NotificationsSection.tsx";
 import { PeopleSection } from "./PeopleSection.tsx";
@@ -298,6 +300,10 @@ export function SettingsSectionView({
       return <EverythingMemorySection />;
     case "memory":
       return <MemoryReviewSection />;
+    case "work":
+      return <MemoryWorkSection />;
+    case "surfaces":
+      return <MemorySurfacesSection />;
     case "server":
       return (
         <ServerSection
