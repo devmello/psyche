@@ -188,8 +188,11 @@ export function SectionFrame({
         className={cn(
           "flex flex-wrap items-end gap-x-3 gap-y-2",
           // Pinned inside its own pane while the pane scrolls past (Settings' two-column window).
+          // Sticky insets by the scroller's padding, so -top-5 cancels its py-5 and the header
+          // meets the toolbar instead of leaving a strip for content to scroll through. The two
+          // side shadows in canvas cover the cards' edges and elevation as they pass beneath.
           inPage &&
-            "z-10 border-b border-separator bg-canvas pt-2 pb-3 @min-[720px]:sticky @min-[720px]:top-0",
+            "z-10 border-b border-separator bg-canvas pt-2 pb-3 @min-[720px]:sticky @min-[720px]:-top-5 @min-[720px]:shadow-[-8px_0_0_var(--color-canvas),8px_0_0_var(--color-canvas)]",
         )}
       >
         <div className="flex min-w-0 flex-1 flex-col gap-1">
