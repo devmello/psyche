@@ -276,6 +276,8 @@ export function composeCatchup(deps: CatchupDeps): Catchup {
           // ask comes back tomorrow. Silence never changes status.
           if (until !== undefined) graph.updateEntity(id, { dueAt: until });
           else state.snooze(id, iso(clock.now() + DAY_MS), now);
+          // It also answers a "submitted?" question: the owner says it is not handed in.
+          state.dismissAsks(id, now);
           break;
       }
       state.touch(id, now);

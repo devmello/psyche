@@ -27,6 +27,7 @@ import {
   pastDuePhase,
   type WorkSnapshot,
 } from "./work.ts";
+import { pendingWorkAsks, type WorkAsk } from "./work-signals.ts";
 
 /**
  * Catching up (docs/design/memory-everything-2026.md §5): the few work items that matter today,
@@ -157,6 +158,8 @@ export interface CatchUpCandidate extends SurfaceItem {
   signals: readonly WorkSignal[];
   /** The latest time the owner or a Psyche run worked on it. */
   workedAt: string | null;
+  /** A question MW3 left: a received message, or sent mail, says the owner handed it in. */
+  claim?: { claims: GraphWorkStatus; origin: "untrusted_text" | "sent_mail"; at: string };
   stoppedAt?: { text: string; at: string; provenance: Provenance };
   opener?: { kind: CatchUpResume["open"]["kind"]; ref: string; text: string; at: string };
 }
@@ -316,6 +319,15 @@ export function lineFor(input: {
 }): string {
   const { c, now, tz } = input;
   const lead = `${prefixOf(c)}${titleText(c)}`;
+  if (input.ask && c.claim !== undefined) {
+    // MW3's one-tap question: something other than the owner said it is handed in or done.
+    const verb = c.claim.claims === "submitted" ? "submit" : "finish";
+    const why =
+      c.claim.origin === "sent_mail"
+        ? "You sent mail that looks like it."
+        : "A message says it was.";
+    return fit(`${prefixOf(c)}Did you ${verb} ${titleText(c)}? ${why}`, []);
+  }
   if (input.ask) {
     const when = c.dueAt === null ? "" : ` It was due ${whenText(c.dueAt, now, tz)}.`;
     return fit(`${prefixOf(c)}Did you finish ${titleText(c)}?${when}`, []);
@@ -425,8 +437,9 @@ export function rankCatchUp(
     // An event is not overdue and not an ask: once it is behind us there is nothing to do.
     if (c.kind === "event" && due !== null && due < now) continue;
     const phase = pastDuePhase(snap, now, offset);
-    if (phase === "quiet") continue;
-    const ask = phase === "ask";
+    // A pending "submitted?" ask (MW3) is a question like the past-due one, and stays until answered.
+    if (phase === "quiet" && c.claim === undefined) continue;
+    const ask = phase === "ask" || c.claim !== undefined;
     const overdue = isOverdue(snap, now) || (c.kind === "project" && due !== null && due < now);
 
     const seen = ms(c.seenAt);
@@ -475,6 +488,7 @@ export function rankCatchUp(
       provenance: lowestProvenance([
         c.titleProvenance,
         c.statusProvenance,
+        ...(c.claim?.origin === "untrusted_text" ? (["untrusted"] as const) : []),
         ...shown.map((s) => s.provenance),
       ]),
     };
@@ -728,6 +742,8 @@ export function dueNotice(
 export interface CatchUpMark {
   seenAt?: string;
   snoozedUntil?: string;
+  /** "Still working" on a "submitted?" ask: asks made before this stay put away. */
+  askDismissedAt?: string;
 }
 
 interface StateDoc {
@@ -780,6 +796,13 @@ export class CatchUpState {
   touch(id: string, at: string): void {
     const doc = this.#read();
     doc.marks[id] = { ...doc.marks[id], seenAt: at };
+    this.#write(doc);
+  }
+
+  /** The owner said it is not handed in: the questions asked so far are answered. */
+  dismissAsks(id: string, at: string): void {
+    const doc = this.#read();
+    doc.marks[id] = { ...doc.marks[id], askDismissedAt: at };
     this.#write(doc);
   }
 
@@ -901,6 +924,23 @@ function latest<T>(items: readonly T[], at: (t: T) => string): T | undefined {
 }
 
 /**
+ * The newest unanswered "submitted?" question for an item, as `{ claim }`: it must claim something
+ * the item is not yet, and be newer than the owner's last "still working".
+ */
+function claimFor(
+  asks: readonly WorkAsk[] | undefined,
+  current: GraphWorkStatus | null,
+  dismissedAt: string | undefined,
+): { claim?: NonNullable<CatchUpCandidate["claim"]> } {
+  const open = (asks ?? [])
+    .filter((a) => a.claims !== current && (dismissedAt === undefined || a.at > dismissedAt))
+    .sort((a, b) => b.at.localeCompare(a.at))[0];
+  return open === undefined
+    ? {}
+    : { claim: { claims: open.claims, origin: open.origin, at: open.at } };
+}
+
+/**
  * Reads the open work items and what happened to them. Accepted rows only: the store's own
  * readers already skip pending, discarded and quarantined facts, and a suggestion is not an
  * entity until the owner confirms it.
@@ -912,6 +952,9 @@ export function gatherCandidates(
 ): CatchUpCandidate[] {
   const tz = opts.timeZone ?? "UTC";
   const entities = graph.listEntities(["project", "assignment", "event"]);
+  const asks = new Map<string, WorkAsk[]>();
+  for (const a of pendingWorkAsks(graph))
+    asks.set(a.entityId, [...(asks.get(a.entityId) ?? []), a]);
   const out: CatchUpCandidate[] = [];
   for (const e of entities) {
     if (e.hidden || e.status !== "active") continue;
@@ -937,6 +980,7 @@ export function gatherCandidates(
     const timeline = graph.timeline(e.id, { limit: 60 }).rows;
     const signals = signalsOf(graph, e.id, timeline, tz);
     const mark = state.get(e.id);
+    // Evidence text stays in MW3's state: only the claim and where it came from are used.
 
     const worked = latest(
       signals.filter(
@@ -998,6 +1042,7 @@ export function gatherCandidates(
       blocked: isBlocked({ openWaitingLoops: waiting, blockedOn: blockedOn?.value ?? null }),
       seenAt: mark.seenAt ?? e.createdAt,
       snoozedUntil: mark.snoozedUntil ?? null,
+      ...claimFor(asks.get(e.id), e.workStatus ?? null, mark.askDismissedAt),
       signals,
       workedAt: worked?.at ?? null,
       ...(stopped === undefined
