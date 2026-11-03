@@ -800,6 +800,10 @@ export class PsychePermissionBroker implements PermissionBroker {
       // The broker's own side-effect floor wins over a lower declared class.
       if (SEVERITY[recent.decision.sideEffect] > SEVERITY[input.sideEffect])
         input.sideEffect = recent.decision.sideEffect;
+      // And a host command it checked into the read-only class (§5.4) reads as one on its card,
+      // although the tool itself is declared `destructive`.
+      if (input.kind === "exec_host" && recent.decision.sideEffect === "read")
+        input.sideEffect = "read";
     }
     const se = input.sideEffect;
     const deviceOnly = isDeviceOnly(input.kind, se, this.#policy.config.approvals?.deviceOnly);

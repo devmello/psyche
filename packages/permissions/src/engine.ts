@@ -9,6 +9,7 @@ import {
   classifyFailClosed,
 } from "./classifier.ts";
 import { floorClass, floorLifted, matrixFloor, matrixRule } from "./connector-matrix.ts";
+import { classifyHostCommand, READ_ONLY_RULE } from "./host-readonly.ts";
 import {
   ALL_SCOPES,
   allowedScopes,
@@ -372,7 +373,10 @@ export class PolicyEngine {
     const plainMemory =
       call.tool === "memory" && call.kind === undefined && call.sideEffect === "none";
     const kind = call.kind ?? (plainMemory ? "connector_action" : inferred);
-    const se = effectiveSideEffect(call.tool, call.sideEffect);
+    // Security §5.4: a host command in the read-only class is a `read`, never the `exec_host`
+    // floor, when the Gateway's description says so and this classifier agrees on the argv.
+    const hostReadOnly = kind === "exec_host" && readOnlyHostCall(call);
+    const se = hostReadOnly ? "read" : effectiveSideEffect(call.tool, call.sideEffect);
     if (se !== call.sideEffect) trace.push(`floor:${call.sideEffect}->${se}`);
     const tainted = ctx.taint || ctx.initiator === "mcp_app";
     const state = dry === undefined ? d.task(ctx) : dryTask(dry, d, ctx);
@@ -553,6 +557,21 @@ export class PolicyEngine {
         return done("deny", "folder:not_granted", `${cwd} is outside every granted folder`, {
           binding,
         });
+      }
+      // The read-only class runs without a card for the owner (taint still asks, step 4), unless
+      // the owner turned it off or the mode is `manual`: then it asks every time, as a `read`.
+      if (hostReadOnly) {
+        if (call.meta?.hostSandbox === "missing") {
+          // srt is what keeps it read-only at run time: without it the owner decides (UNSANDBOXED).
+          floors.push({ rule: "exec_host:no_sandbox", reason: "srt is not set up" });
+        } else if (mode !== "manual" && p.config.exec?.readOnlyWithoutAsking !== false) {
+          allowances.push({ rule: READ_ONLY_RULE });
+        } else {
+          floors.push({
+            rule: mode === "manual" ? "mode:manual/exec_host" : "exec_host:read_only_off",
+            reason: "read-only commands ask in this mode or with the setting off",
+          });
+        }
       }
     }
     if (kind === "memory_protected_write") {
@@ -909,3 +928,25 @@ export class PolicyEngine {
 }
 
 export type { JsonObject };
+
+/**
+ * Security §5.4: the Gateway's description marked the call read-only (it checked symlinks, the
+ * system binary and srt) and the argv itself is in the read-only class, with no network and no
+ * extra environment. Both are needed; neither the model nor a description alone lowers the floor.
+ */
+function readOnlyHostCall(call: PolicyCall): boolean {
+  if (call.meta?.hostCommand !== "read_only") return false;
+  const p = (call.params ?? {}) as {
+    argv?: unknown;
+    cwd?: unknown;
+    env?: unknown;
+    allowedDomains?: unknown;
+  };
+  if (!Array.isArray(p.argv) || typeof p.cwd !== "string") return false;
+  if (p.env !== undefined && Object.keys(p.env as object).length > 0) return false;
+  if (
+    Array.isArray(p.allowedDomains) ? p.allowedDomains.length > 0 : p.allowedDomains !== undefined
+  )
+    return false;
+  return classifyHostCommand(p.argv, p.cwd).readOnly;
+}

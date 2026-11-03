@@ -862,6 +862,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       ],
       srt: execHostSrt,
       home: config.home,
+      audit,
       ...(execHostSetup.driver === undefined ? {} : { driver: execHostSetup.driver }),
       ...(execHostSetup.userHome === undefined ? {} : { userHome: execHostSetup.userHome }),
     }),

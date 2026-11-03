@@ -105,6 +105,11 @@ export const PolicyConfig = Type.Object(
       Type.Object(
         {
           execHostEnabled: Type.Optional(Type.Boolean()),
+          /**
+           * Security §5.4: read-only host commands run without a card (default on). Off, they
+           * ask every time. A security setting: changing it needs fresh presence (§10).
+           */
+          readOnlyWithoutAsking: Type.Optional(Type.Boolean()),
           /** Env names the owner typed and allows despite the dangerous-name list. */
           allowEnv: Type.Optional(Type.Array(Type.String())),
         },

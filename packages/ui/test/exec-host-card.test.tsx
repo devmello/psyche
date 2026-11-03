@@ -230,6 +230,57 @@ describe("Settings → File access: Run commands on this Mac", () => {
       exec: { execHostEnabled: true },
     });
   });
+
+  it("Run read-only commands without asking: on by default, off writes false, waits for exec_host", async () => {
+    const onChange = vi.fn();
+    const off = { "permissions.policy": { folders: [] } };
+    const { unmount } = render(
+      <FileAccessPanel values={off} onChange={onChange} persona="Psyche" />,
+    );
+    const name = "Run read-only commands without asking";
+    expect(screen.getByRole("switch", { name }).getAttribute("aria-checked")).toBe("true");
+    const sw = screen.getByRole("switch", { name });
+    expect(
+      sw.hasAttribute("disabled") ||
+        sw.getAttribute("aria-disabled") === "true" ||
+        sw.hasAttribute("data-disabled"),
+    ).toBe(true);
+    unmount();
+    const on = { "permissions.policy": { folders: [], exec: { execHostEnabled: true } } };
+    render(<FileAccessPanel values={on} onChange={onChange} persona="Psyche" />);
+    await userEvent.click(screen.getByRole("switch", { name }));
+    // `permissions.policy` is a security setting: the Gateway asks for fresh presence on save.
+    expect(onChange).toHaveBeenCalledWith("permissions.policy", {
+      folders: [],
+      exec: { execHostEnabled: true, readOnlyWithoutAsking: false },
+    });
+  });
+});
+
+describe("a read-only command's card (security §5.4)", () => {
+  it("says read, never destructive", () => {
+    show(
+      execHost("srt", {
+        summary: "Run `git status` on this Mac",
+        sideEffect: "read",
+        details: {
+          argv: ["git", "status"],
+          cwd: "/Users/me/Projects/app",
+          env: [],
+          executable: "/usr/bin/git",
+          executableSha256: `sha256:${"b".repeat(64)}`,
+          allowedDomains: [],
+          sandbox: "srt",
+          unsandboxedWord: "UNSANDBOXED",
+          readOnly: true,
+        },
+        taint: true,
+        scopesOffered: ["once"],
+      }),
+    );
+    expect(document.body.textContent).toContain("git status");
+    expect(document.body.textContent).not.toMatch(/destructive/i);
+  });
 });
 
 describe("one control set, friendly taint, one reason (shared by every approval card)", () => {

@@ -92,6 +92,13 @@ export interface ToolCallMeta {
   mcpServerId?: string;
   mcpToolsListHash?: string;
   mcpTier?: "bundled" | "verified" | "unknown";
+  /**
+   * `exec_host` (security §5.4): the Gateway found the command in the read-only class. The
+   * broker re-checks the argv itself before treating it as a `read`.
+   */
+  hostCommand?: "read_only";
+  /** With `hostCommand`: srt is not set up, so the command asks (the card offers UNSANDBOXED). */
+  hostSandbox?: "missing";
 }
 
 /**

@@ -5,8 +5,14 @@ import { homedir, userInfo } from "node:os";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { type AgentToolRegistration, defineTool, type ToolRunContext } from "@psyche/agent-core";
 import { createScratchDir, defaultDenyRead, scratchReadRules } from "@psyche/mcp-host";
-import type { FolderGrantEntry } from "@psyche/permissions";
 import {
+  classifyHostCommand,
+  type FolderGrantEntry,
+  READ_ONLY_RULE,
+  SYSTEM_BIN_DIRS,
+} from "@psyche/permissions";
+import {
+  type AuditLog,
   EXEC_DEFAULT_TIMEOUT_MS,
   EXEC_OUTPUT_CAP_BYTES,
   type PermissionBroker,
@@ -28,6 +34,13 @@ import type { SrtResolver } from "./srt.ts";
  * one approved run go without srt; when srt is missing, that is the card's only way to run.
  * Bounded like `exec`: a timeout, 128 KB per stream, output masked with the vault's redactor,
  * the process group killed on Esc / Stop.
+ *
+ * Read-only commands (`classifyHostCommand`: `date`, `ls`, `cat`, `git status`…) are a `read`:
+ * the broker runs them without a card for an untainted owner turn outside `manual` mode
+ * (`exec.readOnlyWithoutAsking`, on by default). They take the system binary only (SIP-protected
+ * folders), file operands that stay inside the cwd after symlinks, no env and no network, and run
+ * under srt with nothing writable but the scratch directory, checked again right before the run.
+ * Each such run is audited (`exec_host.read_only_run`).
  */
 
 export const UNSANDBOXED_WORD = "UNSANDBOXED";
@@ -84,6 +97,8 @@ export interface ExecHostDeps {
   driver?: CliDriver;
   /** The owner's home folder (tests). */
   userHome?: string;
+  /** Records each read-only run the broker let through without a card. */
+  audit?: Pick<AuditLog, "append">;
 }
 
 interface Resolved {
@@ -109,10 +124,14 @@ function sha256Of(path: string): string {
 }
 
 /** argv[0] → the real file that runs: absolute, cwd-relative (`./x`), or from `SAFE_PATH`. */
-export function resolveExecutable(argv0: string, cwd: string): Resolved {
+export function resolveExecutable(
+  argv0: string,
+  cwd: string,
+  path: readonly string[] = SAFE_PATH,
+): Resolved {
   const candidates = argv0.includes("/")
     ? [isAbsolute(argv0) ? argv0 : resolve(cwd, argv0)]
-    : SAFE_PATH.map((d) => join(d, argv0));
+    : path.map((d) => join(d, argv0));
   for (const c of candidates) {
     let real: string;
     try {
@@ -238,12 +257,72 @@ function envList(env: Record<string, string>): string[] {
     .sort();
 }
 
+function under(path: string, root: string): boolean {
+  return path === root || path.startsWith(`${root}/`);
+}
+
+/**
+ * The read-only class with what needs the file system (security §5.4): Apple's binary from the
+ * SIP-protected folders (never Homebrew's, which a same-user process could swap), and every file
+ * operand inside the real cwd after symlinks. A missing operand is checked by name: the command
+ * only fails on it, and the run checks again.
+ */
+export function readOnlyHost(p: HostParams): Resolved | undefined {
+  if (Object.keys(p.env ?? {}).length > 0 || (p.allowedDomains ?? []).length > 0) return undefined;
+  const c = classifyHostCommand(p.argv, p.cwd);
+  if (!c.readOnly) return undefined;
+  let cwd: string;
+  let resolved: Resolved;
+  try {
+    cwd = realpathSync(p.cwd);
+    resolved = resolveExecutable(c.program, p.cwd, SYSTEM_BIN_DIRS);
+  } catch {
+    return undefined;
+  }
+  if (!SYSTEM_BIN_DIRS.some((d) => under(resolved.executable, d))) return undefined;
+  for (const operand of c.paths) {
+    const abs = resolve(cwd, operand);
+    let real: string;
+    try {
+      real = realpathSync(abs);
+    } catch {
+      real = abs;
+    }
+    if (!under(real, cwd)) return undefined;
+  }
+  return resolved;
+}
+
+/**
+ * git in the read-only class: no pager, hooks, fsmonitor, external diff or textconv (each could
+ * run a program the repo config names), and no optional index refresh (a write).
+ */
+function hardenedGit(args: readonly string[]): string[] {
+  const [sub, ...rest] = args;
+  const diffs = sub === "diff" || sub === "show" || sub === "log";
+  return [
+    "--no-pager",
+    "-c",
+    "core.fsmonitor=false",
+    "-c",
+    "core.hooksPath=/dev/null",
+    "-c",
+    "diff.external=",
+    "-c",
+    "core.pager=cat",
+    sub as string,
+    ...(diffs ? ["--no-ext-diff", "--no-textconv"] : []),
+    ...rest,
+  ];
+}
+
 /** What the card shows and what an `always` grant binds (security §3.5, §5.4). */
 function describe(p: HostParams) {
-  const resolved = resolveExecutable(p.argv[0] as string, p.cwd);
+  const readOnly = readOnlyHost(p);
+  const resolved = readOnly ?? resolveExecutable(p.argv[0] as string, p.cwd);
   const env = envList(p.env ?? {});
   const domains = [...(p.allowedDomains ?? [])].sort();
-  return { resolved, env, domains };
+  return { resolved, env, domains, readOnly: readOnly !== undefined };
 }
 
 const Input = Type.Object({
@@ -315,17 +394,29 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
   return defineTool({
     name: "exec_host",
     description:
-      "Run one command (an argv array, no shell string) on the owner's own Mac, in a folder they granted, for their own files and projects (build, test, git, scripts). Prefer `exec` (the sandbox container) whenever the work does not need the owner's real files. Every call asks the owner on their Mac, showing the exact argv, cwd, env and executable; it runs under srt (no secrets, no network unless `allowedDomains`). It is off until the owner turns it on: when a call is denied because it is off, or the cwd is outside granted folders, use request_permission with the `missing` object from the error, then retry.",
+      "Run one command (an argv array, no shell string) on the owner's own Mac, in a folder they granted, for their own files and projects (build, test, git, scripts). Prefer `exec` (the sandbox container) whenever the work does not need the owner's real files. Calls ask the owner on their Mac, showing the exact argv, cwd, env and executable; read-only commands (date, pwd, whoami, uname, ls, cat, head, tail, wc, file, stat, which on files in the cwd; git status, log, diff, show, branch) with no env and no allowedDomains run without asking unless the turn read untrusted content. It runs under srt (no secrets, no network unless `allowedDomains`). It is off until the owner turns it on: when a call is denied because it is off, or the cwd is outside granted folders, use request_permission with the `missing` object from the error, then retry.",
     input: Input,
+    // The broker lowers a call to `read` only when it re-checks the read-only class itself
+    // (`describeCall` names it in `meta`); the tool as such stays `destructive`.
     sideEffect: "destructive",
     provenanceOut: "untrusted",
     describeCall: (p) => {
       checkParams(p);
-      const { resolved, env, domains } = describe(p);
+      const { resolved, env, domains, readOnly } = describe(p);
       const srt = sandbox.known();
       const command = p.argv.join(" ");
+      // Without srt nothing runs without a card (the sandbox is what keeps it read-only); the card
+      // still reads as a read.
       return {
         kind: "exec_host",
+        ...(readOnly
+          ? {
+              meta: {
+                hostCommand: "read_only" as const,
+                ...("missing" in srt ? { hostSandbox: "missing" as const } : {}),
+              },
+            }
+          : {}),
         target: { kind: "command", value: command.slice(0, 1000) },
         summary: `Run \`${command.slice(0, 80)}\` on this Mac`,
         details: {
@@ -338,6 +429,7 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
           sandbox: "path" in srt ? "srt" : "missing",
           ...("missing" in srt ? { sandboxMissingReason: srt.reason } : {}),
           unsandboxedWord: UNSANDBOXED_WORD,
+          ...(readOnly ? { readOnly: true } : {}),
         },
         // Security §3.5 exec_host fields: exact argv, cwd, env subset, binary and its hash.
         bindingFields: {
@@ -355,7 +447,16 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
       checkParams(p);
       const { real, folder } = await grantedFolder(p.cwd, deps.folders(ctx.threadId));
       // Hashed again right before it runs: a binary swapped after approval does not run.
-      const { resolved, domains } = describe(p);
+      const { resolved, domains, readOnly } = describe(p);
+      // Let through without a card as read-only: it must still be read-only now (a symlink
+      // planted since, a changed folder), or it does not run.
+      const quiet = ctx.approvalId === undefined && ctx.authority?.rule === READ_ONLY_RULE;
+      if (quiet && !readOnly) {
+        throw new PsycheError(
+          "forbidden",
+          "This command is no longer read-only (a file operand leaves the folder or the binary changed); it was not run",
+        );
+      }
       const unsandboxed = await approvedUnsandboxed(deps, ctx, resolved.sha256);
       const srt = await sandbox.fresh();
       if (!unsandboxed && "missing" in srt) {
@@ -393,15 +494,21 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
         TMPDIR: scratch,
         ...(p.env ?? {}),
       };
+      const git = readOnly && p.argv[0] === "git";
+      if (git) {
+        env.GIT_OPTIONAL_LOCKS = "0";
+        env.GIT_TERMINAL_PROMPT = "0";
+      }
       let file = resolved.executable;
-      let args = p.argv.slice(1);
+      let args = git ? hardenedGit(p.argv.slice(1)) : p.argv.slice(1);
       if (!unsandboxed && "path" in srt) {
         const profile = execHostSrtSettings({
           psycheHome: deps.home,
           userHome,
           scratch,
-          writable: folder.mode === "rw" ? [folder.path] : [],
-          allowedDomains: domains,
+          // Read-only: nothing writable but the scratch directory, whatever the folder's grant.
+          writable: folder.mode === "rw" && !readOnly ? [folder.path] : [],
+          allowedDomains: readOnly ? [] : domains,
         });
         await writeFile(settings, JSON.stringify(profile), { mode: 0o600 });
         file = srt.path;
@@ -440,6 +547,23 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
       const redact = (b: Buffer) => deps.vault.redact(b.toString("utf8"));
       // An interrupted host command may have done part of its work: uncertain, never replayed.
       const outcome = timedOut || stopped ? "uncertain" : result.exitCode === 0 ? "ok" : "failed";
+      if (quiet) {
+        void deps.audit
+          ?.append({
+            kind: "exec_host.read_only_run",
+            actor: { type: "agent", runId: ctx.runId },
+            subject: { runId: ctx.runId, threadId: ctx.threadId },
+            data: {
+              argv: p.argv,
+              cwd: real,
+              executable: resolved.executable,
+              executableSha256: resolved.sha256,
+              exitCode: result.exitCode,
+              outcome,
+            },
+          })
+          .catch(() => undefined);
+      }
       return {
         output: {
           exitCode: result.exitCode,

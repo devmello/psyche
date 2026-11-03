@@ -3680,6 +3680,9 @@ function toolCallMeta(m: ToolCallMeta | undefined): ToolCallMeta | undefined {
     ...(m.mcpTier === "bundled" || m.mcpTier === "verified" || m.mcpTier === "unknown"
       ? { mcpTier: m.mcpTier }
       : {}),
+    // exec_host's read-only class (security §5.4); the broker re-checks the argv.
+    ...(m.hostCommand === "read_only" ? { hostCommand: m.hostCommand } : {}),
+    ...(m.hostSandbox === "missing" ? { hostSandbox: m.hostSandbox } : {}),
   };
   return Object.keys(out).length === 0 ? undefined : out;
 }

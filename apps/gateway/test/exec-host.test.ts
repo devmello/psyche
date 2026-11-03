@@ -1,4 +1,15 @@
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -11,6 +22,7 @@ import {
   createPermissionBroker,
   type PolicyConfig,
   type PsychePermissionBroker,
+  READ_ONLY_RULE,
 } from "@psyche/permissions";
 import {
   type MissingPermission,
@@ -168,14 +180,24 @@ function run(t: AgentToolRegistration, params: unknown, c: ToolRunContext) {
   return t.run(params, c);
 }
 
+const SEVERITY = { none: 0, read: 1, write: 2, destructive: 3, financial: 4 } as const;
+
 /** What the loop sends the broker for a call (agent-core `#gate`). */
-function decide(t: AgentToolRegistration, params: unknown, taint = false) {
+function decide(
+  t: AgentToolRegistration,
+  params: unknown,
+  taint = false,
+  permissionMode: ToolRunContext["permissionMode"] = "balanced",
+) {
   const desc = t.describeCall?.(params) as ToolCallDescription;
   const hash = paramsHash(params);
+  const declared = desc.sideEffect ?? t.spec.sideEffect;
   return broker.decide(
     {
       tool: t.spec.name,
-      sideEffect: t.spec.sideEffect,
+      // `stricter(spec, description)`, as the loop does.
+      sideEffect: SEVERITY[declared] > SEVERITY[t.spec.sideEffect] ? declared : t.spec.sideEffect,
+      ...(desc.meta === undefined ? {} : { meta: desc.meta }),
       ...(desc.target === undefined ? {} : { target: desc.target, targetKind: desc.target.kind }),
       params: structuredClone(params) as Record<string, unknown>,
       paramsHash: hash,
@@ -187,7 +209,7 @@ function decide(t: AgentToolRegistration, params: unknown, taint = false) {
       }),
       grantKey: namespacedGrantKey(t.spec.name, desc.grantKey as string),
     },
-    { threadId: "thr_1", runId: "run_1", permissionMode: "balanced", taint },
+    { threadId: "thr_1", runId: "run_1", permissionMode, taint },
   );
 }
 
@@ -467,5 +489,306 @@ describe("exec_host: running", () => {
     expect(() => t.describeCall?.({ ...echo, env: { TOKEN: "{{cred:gh}}" } })).toThrow(
       /placeholder/,
     );
+  });
+});
+
+/** The tool's description of a call (empty when it has none). */
+function described(t: AgentToolRegistration, params: unknown): ToolCallDescription {
+  return t.describeCall?.(params) ?? {};
+}
+
+describe("exec_host: read-only commands run without a card (security §5.4)", () => {
+  const audited: { kind: string; data: Record<string, unknown> }[] = [];
+  /** The tool, once its first srt lookup has answered (until then nothing runs quietly). */
+  const quietHost = async () => {
+    const t = makeQuiet();
+    await new Promise((r) => setTimeout(r, 5));
+    return t;
+  };
+  const makeQuiet = () =>
+    execHostTool({
+      broker: recording(),
+      vault: { redact: (t) => t },
+      folders: (threadId) => [...(broker.policy.folders ?? []), ...broker.sessionFolders(threadId)],
+      srt: { resolve: async () => srt },
+      home: psycheHome,
+      userHome: home,
+      driver,
+      audit: {
+        append: async (e) => {
+          audited.push(e as never);
+          return e as never;
+        },
+      },
+    });
+  const on = () => setPolicy({ ...policy, exec: { execHostEnabled: true } });
+
+  /** Decide like the loop, then run with the authority the loop hands the tool. */
+  async function quietRun(t: AgentToolRegistration, params: unknown) {
+    const d = await decide(t, params);
+    expect(d).toMatchObject({ decision: "allow", rule: READ_ONLY_RULE, sideEffect: "read" });
+    const out = run(
+      t,
+      params,
+      ctx({
+        authority: {
+          rule: d.rule,
+          bindingHash: d.bindingHash as string,
+          ...(d.grantKey === undefined ? {} : { grantKey: d.grantKey }),
+        },
+      }),
+    );
+    await new Promise((r) => setTimeout(r, 20));
+    finish({ stdout: Buffer.from("ok\n") });
+    return out;
+  }
+
+  it("date runs quietly under srt with nothing writable and no network, and is audited", async () => {
+    on();
+    audited.length = 0;
+    const t = await quietHost();
+    const params = { argv: ["date"], cwd: project };
+    expect(described(t, params).details).toMatchObject({
+      readOnly: true,
+    });
+    const res = await quietRun(t, params);
+    const s = started[0];
+    expect(s?.file).toBe("/opt/mock/srt");
+    const exe = s?.args[s.args.indexOf("--") + 1] as string;
+    // Apple's binary from the SIP folders, never a PATH or Homebrew lookup.
+    expect(exe).toMatch(/^\/(usr\/)?s?bin\/date$/);
+    const settings = s?.settings as {
+      filesystem: { allowWrite: string[] };
+      network: { allowedDomains: string[]; allowUnixSockets: string[]; allowLocalBinding: boolean };
+    };
+    // The project is granted read-write, but a read-only run may write only its scratch dir.
+    expect(settings.filesystem.allowWrite).toHaveLength(1);
+    expect(settings.filesystem.allowWrite).not.toContain(project);
+    expect(settings.network).toEqual({
+      allowedDomains: [],
+      deniedDomains: [],
+      allowUnixSockets: [],
+      allowLocalBinding: false,
+    });
+    expect(res.output).toMatchObject({ exitCode: 0, sandboxed: true, outcome: "ok" });
+    expect(audited).toEqual([
+      expect.objectContaining({
+        kind: "exec_host.read_only_run",
+        data: expect.objectContaining({ argv: ["date"], cwd: project, executable: exe }),
+      }),
+    ]);
+  });
+
+  it("git runs without pager, hooks, fsmonitor, external diff, textconv or index writes", async () => {
+    on();
+    const t = await quietHost();
+    if (!described(t, { argv: ["git", "log"], cwd: project }).meta) {
+      return; // no /usr/bin/git on this machine
+    }
+    await quietRun(t, { argv: ["git", "log", "--oneline"], cwd: project });
+    const s = started[0];
+    const inner = s?.args.slice((s?.args.indexOf("--") ?? 0) + 2);
+    expect(inner).toEqual([
+      "--no-pager",
+      "-c",
+      "core.fsmonitor=false",
+      "-c",
+      "core.hooksPath=/dev/null",
+      "-c",
+      "diff.external=",
+      "-c",
+      "core.pager=cat",
+      "log",
+      "--no-ext-diff",
+      "--no-textconv",
+      "--oneline",
+    ]);
+    expect(s?.options?.env).toMatchObject({ GIT_OPTIONAL_LOCKS: "0", GIT_TERMINAL_PROMPT: "0" });
+  });
+
+  it("taint forces a card, labelled read, and the run still writes nothing", async () => {
+    on();
+    const t = await quietHost();
+    const d = await decide(t, { argv: ["date"], cwd: project }, true);
+    expect(d).toMatchObject({ decision: "ask", sideEffect: "read", scopesOffered: ["once"] });
+  });
+
+  it("manual mode asks; the owner's switch off asks", async () => {
+    on();
+    const t = await quietHost();
+    expect((await decide(t, { argv: ["date"], cwd: project }, false, "manual")).decision).toBe(
+      "ask",
+    );
+    setPolicy({ ...policy, exec: { execHostEnabled: true, readOnlyWithoutAsking: false } });
+    expect((await decide(t, { argv: ["date"], cwd: project })).decision).toBe("ask");
+  });
+
+  it("without srt nothing runs quietly: it asks, as a read, with UNSANDBOXED on the card", async () => {
+    on();
+    srt = { missing: true, reason: "srt is not installed" };
+    const t = await quietHost();
+    const desc = t.describeCall?.({ argv: ["date"], cwd: project }) as ToolCallDescription;
+    expect(desc.meta).toEqual({ hostCommand: "read_only", hostSandbox: "missing" });
+    expect(desc.details).toMatchObject({ sandbox: "missing", unsandboxedWord: UNSANDBOXED_WORD });
+    expect(await decide(t, { argv: ["date"], cwd: project })).toMatchObject({
+      decision: "ask",
+      rule: "exec_host:no_sandbox",
+      sideEffect: "read",
+    });
+  });
+
+  it("a symlink out of the folder takes cat out of the class, also when planted after the decision", async () => {
+    on();
+    writeFileSync(join(outside, "secret.txt"), "s3cret");
+    writeFileSync(join(project, "notes.txt"), "hi");
+    const link = join(project, "link.txt");
+    if (!existsSync(link)) symlinkSync(join(outside, "secret.txt"), link);
+    const t = await quietHost();
+    expect((await decide(t, { argv: ["cat", "link.txt"], cwd: project })).sideEffect).toBe(
+      "destructive",
+    );
+    // Decided while the operand was a plain file; swapped for a symlink before the run.
+    const late = join(project, "late.txt");
+    writeFileSync(late, "x");
+    const params = { argv: ["cat", "late.txt"], cwd: project };
+    const d = await decide(t, params);
+    expect(d.rule).toBe(READ_ONLY_RULE);
+    spawnSync("/bin/rm", [late]);
+    symlinkSync(join(outside, "secret.txt"), late);
+    await expect(
+      run(t, params, ctx({ authority: { rule: d.rule, bindingHash: d.bindingHash as string } })),
+    ).rejects.toMatchObject({ code: "forbidden" });
+    expect(started).toEqual([]);
+  });
+
+  it("env, allowedDomains or an absolute argv[0] keep the old card", async () => {
+    on();
+    const t = await quietHost();
+    for (const params of [
+      { argv: ["ls"], cwd: project, env: { COLUMNS: "80" } },
+      { argv: ["ls"], cwd: project, allowedDomains: ["example.com"] },
+      { argv: ["/bin/ls"], cwd: project },
+    ]) {
+      expect(described(t, params).meta).toBeUndefined();
+      expect((await decide(t, params)).sideEffect).toBe("destructive");
+    }
+  });
+});
+
+/** Every file under `dir` with its size and mtime: what a run must leave exactly as it was. */
+function snapshot(dir: string): string[] {
+  const out: string[] = [];
+  const walk = (d: string) => {
+    for (const name of readdirSync(d)) {
+      const p = join(d, name);
+      const st = statSync(p, { throwIfNoEntry: false });
+      if (st === undefined) continue;
+      out.push(`${p}:${st.size}:${st.mtimeMs}`);
+      if (st.isDirectory()) walk(p);
+    }
+  };
+  walk(dir);
+  return out.sort();
+}
+
+describe("red team: no read-only command writes a file (real binaries, srt stripped)", () => {
+  const repo = join(home, "Projects", "repo");
+  // The real program, run the way the tool would start it inside srt (the srt prefix dropped,
+  // so this checks the argv rules and the git hardening alone, without the sandbox's help).
+  const real: CliDriver = {
+    start(file, args, options) {
+      const at = args.indexOf("--");
+      const [exe, ...rest] = at === -1 ? [file, ...args] : args.slice(at + 1);
+      const r = spawnSync(exe as string, rest, {
+        cwd: options?.cwd,
+        env: options?.env,
+        timeout: 10_000,
+      });
+      started.push({ file: exe as string, args: rest });
+      return {
+        pid: 1,
+        done: Promise.resolve({
+          exitCode: r.status,
+          signal: null,
+          stdout: r.stdout ?? Buffer.from(""),
+          stderr: r.stderr ?? Buffer.from(""),
+          stdoutTruncated: false,
+          stderrTruncated: false,
+          durationMs: 1,
+        }),
+        kill: () => undefined,
+      };
+    },
+    stream: () => {
+      throw new Error("not used");
+    },
+  };
+
+  it("each command in the class leaves the folder byte for byte", async () => {
+    mkdirSync(repo, { recursive: true });
+    writeFileSync(join(repo, "README.md"), "# repo\nline two\n");
+    const git = (...a: string[]) =>
+      spawnSync("/usr/bin/git", a, {
+        cwd: repo,
+        env: { PATH: "/usr/bin:/bin", HOME: home, GIT_CONFIG_NOSYSTEM: "1" },
+      });
+    const hasGit = git("init", "-q").status === 0;
+    if (hasGit) {
+      git("add", ".");
+      git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "init");
+      // Leave a working-tree change so status and diff have something to read.
+      writeFileSync(join(repo, "README.md"), "# repo\nline two changed\n");
+    }
+    setPolicy({ folders: [{ path: repo, mode: "rw" }], exec: { execHostEnabled: true } });
+    const t = execHostTool({
+      broker: recording(),
+      vault: { redact: (s) => s },
+      folders: () => broker.policy.folders ?? [],
+      srt: { resolve: async () => srt },
+      home: psycheHome,
+      userHome: home,
+      driver: real,
+    });
+    await new Promise((r) => setTimeout(r, 5));
+    const argvs = [
+      ["date"],
+      ["pwd"],
+      ["whoami"],
+      ["uname", "-a"],
+      ["ls", "-la"],
+      ["cat", "README.md"],
+      ["head", "-n", "1", "README.md"],
+      ["tail", "-n", "1", "README.md"],
+      ["wc", "-l", "README.md"],
+      ["file", "README.md"],
+      ["stat", "README.md"],
+      ["which", "ls"],
+      ...(hasGit
+        ? [
+            ["git", "status"],
+            ["git", "log", "--oneline"],
+            ["git", "diff"],
+            ["git", "show", "HEAD"],
+            ["git", "branch", "-a"],
+          ]
+        : []),
+    ];
+    const before = snapshot(repo);
+    let ran = 0;
+    for (const argv of argvs) {
+      const params = { argv, cwd: repo };
+      const desc = t.describeCall?.(params) as ToolCallDescription;
+      if (desc.meta === undefined) continue; // not on this machine's system folders
+      const d = await decide(t, params);
+      expect(d.rule, argv.join(" ")).toBe(READ_ONLY_RULE);
+      await run(
+        t,
+        params,
+        ctx({ authority: { rule: d.rule, bindingHash: d.bindingHash as string } }),
+      );
+      ran++;
+      expect(snapshot(repo), argv.join(" ")).toEqual(before);
+    }
+    expect(ran).toBeGreaterThanOrEqual(10);
   });
 });
