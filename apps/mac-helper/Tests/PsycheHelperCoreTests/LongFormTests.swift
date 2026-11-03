@@ -105,57 +105,15 @@ struct LongFormTests {
         var all: [JSONValue] { lock.withLock { items } }
     }
 
-    /// A one-shot signal: `wait()` returns once `open()` was called, before or after.
-    actor Gate {
-        private var isOpen = false
-        private var waiters: [CheckedContinuation<Void, Never>] = []
-        func wait() async {
-            if isOpen { return }
-            await withCheckedContinuation { waiters.append($0) }
-        }
-        func open() {
-            isOpen = true
-            for w in waiters { w.resume() }
-            waiters = []
-        }
-    }
-
     @Test func calendarChangesFoldIntoOneEventPerWindow() async throws {
-        // Driven by gates, not wall time: the first window closes only after the watcher took all
-        // five changes, and the sixth comes only after the first event went out.
-        let drained = Gate(), closeFirstWindow = Gate(), sendSixth = Gate(), firstEvent = Gate()
-        let pulled = Events()
-        let changes = AsyncStream<Void>(unfolding: {
-            pulled.add(.null)
-            let n = pulled.all.count
-            if n <= 5 { return () }
-            if n == 6 {
-                await drained.open()
-                await sendSixth.wait()
-                return ()
-            }
-            return nil
-        })
-        let windows = Events()
+        let (changes, feed) = AsyncStream.makeStream(of: Void.self)
         let events = Events()
         let at = Date(timeIntervalSince1970: 1_792_000_000)
-        let run = _Concurrency.Task {
-            await CalendarWatchCore.run(
-                changes: changes, debounce: .seconds(30), now: { at },
-                sleep: { _ in
-                    windows.add(.null)
-                    if windows.all.count == 1 { await closeFirstWindow.wait() }
-                },
-                emit: { e in
-                    events.add(e)
-                    if events.all.count == 1 { await firstEvent.open() }
-                }
-            )
-        }
-        await drained.wait()
-        await closeFirstWindow.open()
-        await firstEvent.wait()
-        await sendSixth.open()
+        let run = _Concurrency.Task { await CalendarWatchCore.run(changes: changes, debounce: .milliseconds(150), now: { at }, emit: { events.add($0) }) }
+        for _ in 0..<5 { feed.yield() }
+        try await _Concurrency.Task.sleep(for: .milliseconds(400))
+        feed.yield()
+        feed.finish()
         #expect(await run.value == 2)
         let decoded = try events.all.map { try JSONDecoder().decode(AppleCalendarChangedEvent.self, from: JSONEncoder().encode($0)) }
         #expect(decoded.map(\.coalesced) == [5, 1])
