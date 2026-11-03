@@ -4,6 +4,7 @@ import {
   appleAdapters,
   defaultSourcesConfig,
   isExcluded,
+  RebuildRefused,
   readSourcesConfig,
   SourceIndexer,
   type SourcesConfig,
@@ -467,5 +468,148 @@ describe("controls", () => {
     const st = h.indexer.status();
     expect(st.sources.find((s) => s.id === "notes")?.textBytes).toBeGreaterThan(10);
     expect(st.indexBytes).toBeGreaterThan(0);
+  });
+});
+
+describe("rebuild", () => {
+  const five = () => [
+    mail("m1", "a@x.com", "2026-10-01T10:00:00Z"),
+    mail("m2", "b@x.com", "2026-10-02T10:00:00Z"),
+    mail("m3", "c@x.com", "2026-10-03T10:00:00Z"),
+    mail("m4", "d@x.com", "2026-10-04T10:00:00Z"),
+    mail("m5", "e@x.com", "2026-10-05T10:00:00Z"),
+  ];
+
+  it("refuses a source that is off, and leaves the index as it was", async () => {
+    const h = harness(["notes"]);
+    h.f.world.notes = [{ id: "n1", title: "A", modified: "2026-10-01T00:00:00Z" }];
+    h.f.world.noteBodies.n1 = "alpha";
+    await h.indexer.tick();
+    const err = await h.indexer.rebuild("mail").catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(RebuildRefused);
+    expect(err).toMatchObject({ reason: "off", message: "Turn Mail on first." });
+    expect(h.ids()).toEqual(["notes:n1"]);
+  });
+
+  it("refuses, removing nothing, when the source cannot be read now", async () => {
+    const h = harness(["messages"]);
+    h.f.world.messages = [
+      {
+        row: 1,
+        chatId: "chat1",
+        handle: "+15105550101",
+        sentAt: "2026-10-03T09:00:00Z",
+        direction: "in",
+        text: "hello there",
+      },
+    ];
+    await h.indexer.tick();
+    expect(h.ids()).toHaveLength(1);
+    h.f.setHelper(false);
+    const err = await h.indexer.rebuild("messages").catch((e: unknown) => e);
+    expect(err).toMatchObject({ reason: "unavailable" });
+    expect((err as Error).message).toMatch(/Messages can't be read right now \(the Mac helper/);
+    expect(h.ids()).toHaveLength(1);
+  });
+
+  it("refuses on battery or low power: a first read would wait for power", async () => {
+    const { index } = setup();
+    const f = fakes();
+    f.world.notes = [{ id: "n1", title: "A", modified: "2026-10-01T00:00:00Z" }];
+    f.world.noteBodies.n1 = "alpha";
+    const config = defaultSourcesConfig();
+    config.sources.notes.enabled = true;
+    let power = { onBattery: false, lowPower: false };
+    const indexer = new SourceIndexer(index, appleAdapters(f.deps), {
+      config: () => config,
+      power: () => power,
+      pauseMs: 0,
+    });
+    await indexer.tick();
+    expect(await index.count()).toBe(1);
+    power = { onBattery: true, lowPower: false };
+    await expect(indexer.rebuild("notes")).rejects.toMatchObject({ reason: "power" });
+    power = { onBattery: false, lowPower: true };
+    await expect(indexer.rebuild("notes")).rejects.toMatchObject({ reason: "power" });
+    expect(await index.count()).toBe(1);
+    power = { onBattery: false, lowPower: false };
+    await indexer.rebuild("notes");
+    expect(await index.count()).toBe(0);
+    expect(indexer.status().sources.find((s) => s.id === "notes")).toMatchObject({
+      state: "indexing",
+      items: 0,
+    });
+    await indexer.kick();
+    expect(await index.count()).toBe(1);
+  });
+
+  it("refuses a second rebuild of the same source while one is running", async () => {
+    const h = harness(["notes"]);
+    const first = h.indexer.rebuild("notes");
+    await expect(h.indexer.rebuild("notes")).rejects.toMatchObject({ reason: "busy" });
+    await first;
+  });
+
+  it("waits for the pass in flight, then reads from the start (no stale cursor)", async () => {
+    const { index } = setup();
+    const f = fakes();
+    f.world.mail = five();
+    for (const m of f.world.mail) f.world.bodies[String(m.id)] = `body ${String(m.id)}`;
+    let release: () => void = () => undefined;
+    let gate: Promise<void> | undefined;
+    const real = f.deps.call;
+    const deps: AppleSourceDeps = {
+      ...f.deps,
+      call: () => {
+        const inner = real("mail");
+        if (inner === undefined) return undefined;
+        return async (tool, p, signal) => {
+          if (tool === "mail_search" && gate !== undefined) await gate;
+          return inner(tool, p, signal);
+        };
+      },
+    };
+    const config = defaultSourcesConfig();
+    config.sources.mail.enabled = true;
+    const indexer = new SourceIndexer(index, appleAdapters(deps), {
+      config: () => config,
+      now: () => NOW,
+      pauseMs: 0,
+      pageSize: 2,
+      pagesPerTick: 1,
+    });
+    const ids = () =>
+      (index.db.prepare("SELECT id FROM search_docs ORDER BY id").all() as { id: string }[]).map(
+        (r) => r.id,
+      );
+    await indexer.tick();
+    expect(ids()).toEqual(["mail:m4", "mail:m5"]);
+    // The second page is being read when Rebuild is pressed.
+    gate = new Promise<void>((r) => {
+      release = r;
+    });
+    const running = indexer.tick();
+    const rebuilt = indexer.rebuild("mail");
+    release();
+    await running;
+    await rebuilt;
+    gate = undefined;
+    expect(ids()).toEqual([]);
+    for (let i = 0; i < 4; i++) await indexer.kick();
+    expect(ids()).toEqual(["mail:m1", "mail:m2", "mail:m3", "mail:m4", "mail:m5"]);
+    expect(indexer.status().sources.find((s) => s.id === "mail")).toMatchObject({
+      state: "idle",
+      items: 5,
+    });
+  });
+
+  it("kick runs a pass after the one in flight instead of joining it", async () => {
+    const h = harness(["notes"]);
+    h.f.world.notes = [{ id: "n1", title: "A", modified: "2026-10-01T00:00:00Z" }];
+    h.f.world.noteBodies.n1 = "alpha";
+    const inFlight = h.indexer.tick();
+    await h.indexer.rebuild("notes");
+    await Promise.all([inFlight, h.indexer.kick()]);
+    expect(h.ids()).toEqual(["notes:n1"]);
   });
 });

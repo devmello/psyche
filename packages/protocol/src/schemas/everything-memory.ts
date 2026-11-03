@@ -111,7 +111,29 @@ export const EverythingMemorySettings = Type.Object(
         browser: bool(false),
         transcripts: bool(false),
       },
-      { $id: "EverythingSourceSwitches", description: "One switch per source, all off" },
+      {
+        $id: "EverythingSourceSwitches",
+        description:
+          "Legacy: one switch per source, all off. Superseded by `optOut` (memory follows Search); the Gateway reads it only to migrate a value that has no `optOut`, and a UI keeps it equal to the sources memory learns from",
+      },
+    ),
+    optOut: Type.Object(
+      {
+        mail: bool(false),
+        messages: bool(false),
+        notes: bool(false),
+        calendar: bool(false),
+        reminders: bool(false),
+        chats: bool(false),
+        files: bool(false),
+        browser: bool(false),
+        transcripts: bool(false),
+      },
+      {
+        $id: "EverythingSourceOptOut",
+        description:
+          "Per source: true means do not learn from it. Memory learns from every source Search indexes unless it is opted out here",
+      },
     ),
     people: Type.Object(
       {
@@ -204,6 +226,17 @@ export const EVERYTHING_MEMORY_DEFAULTS = {
     browser: false,
     transcripts: false,
   },
+  optOut: {
+    mail: false,
+    messages: false,
+    notes: false,
+    calendar: false,
+    reminders: false,
+    chats: false,
+    files: false,
+    browser: false,
+    transcripts: false,
+  },
   people: { default: "two_way", aboutOthers: false },
   sensitive: {
     health: false,
@@ -239,6 +272,56 @@ export const EVERYTHING_MEMORY_DEFAULTS = {
 } as const satisfies EverythingMemorySettings;
 
 export const EVERYTHING_MEMORY_SETTING_KEY = "memory.everything" as const;
+
+/**
+ * The sources the nightly pass can read, in the order Search lists them. Browser pages and chats
+ * with Psyche are in `EverythingSource` but are never read, whatever is switched on anywhere.
+ */
+export const EVERYTHING_READABLE_SOURCES = [
+  "mail",
+  "messages",
+  "notes",
+  "calendar",
+  "reminders",
+  "files",
+  "transcripts",
+] as const satisfies readonly EverythingSource[];
+export type EverythingReadableSource = (typeof EVERYTHING_READABLE_SOURCES)[number];
+
+const isRecord = (v: unknown): v is Record<string, unknown> =>
+  typeof v === "object" && v !== null && !Array.isArray(v);
+
+/**
+ * Per source, whether the owner opted out of learning from it, read from a stored
+ * `memory.everything` value (docs/design/everything-memory-2026.md §8: memory follows Search).
+ * A value with `optOut` uses it. An older value has only the per-source switches: one that was
+ * explicitly off becomes an opt-out and one that was on, or never stored, is not. Nothing here
+ * widens what an older value let memory read: a source it switched off stays off.
+ */
+export function everythingOptOut(stored: unknown): Record<EverythingSource, boolean> {
+  const value = isRecord(stored) ? stored : {};
+  const out = { ...EVERYTHING_MEMORY_DEFAULTS.optOut } as Record<EverythingSource, boolean>;
+  const current = value.optOut;
+  const legacy = isRecord(value.sources) ? value.sources : undefined;
+  for (const s of Object.keys(out) as EverythingSource[]) {
+    out[s] = isRecord(current) ? current[s] === true : legacy?.[s] === false;
+  }
+  return out;
+}
+
+/**
+ * The sources memory learns from: Search indexes them and the owner has not opted out.
+ * Effective = indexed && !optOut. Browser pages and chats are never in it.
+ */
+export function effectiveEverythingSources(
+  optOut: Readonly<Partial<Record<EverythingSource, boolean>>>,
+  indexed: Iterable<string>,
+): Record<EverythingSource, boolean> {
+  const on = new Set(indexed);
+  const out = { ...EVERYTHING_MEMORY_DEFAULTS.sources } as Record<EverythingSource, boolean>;
+  for (const s of EVERYTHING_READABLE_SOURCES) out[s] = on.has(s) && optOut[s] !== true;
+  return out;
+}
 
 /** Classes that are never stored, whatever the owner switches on (decision 5). */
 export const HARD_BLOCKED_SENSITIVITY = [

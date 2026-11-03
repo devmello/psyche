@@ -1533,7 +1533,7 @@ export function useSearchIndexStatus() {
 export function useSearchSources() {
   const store = useStore();
   const q = useGatewayQuery("search.sources", {});
-  const apply = (res: MethodResult<"search.sources">) =>
+  const apply = (res: MethodResult<"search.sources">) => {
     store.update((s) => ({
       ...s,
       queries: {
@@ -1546,11 +1546,14 @@ export function useSearchSources() {
         },
       },
     }));
+    return res;
+  };
   return {
     ...q,
     status: q.data,
     configure: async (p: MethodParams<"search.sources.configure">) =>
       apply(await store.call("search.sources.configure", p)),
+    /** Resolves with the status right after it started (the source indexing from zero); rejects with why it was refused. */
     rebuild: async (source: MethodParams<"search.sources.rebuild">["source"]) =>
       apply(await store.call("search.sources.rebuild", { source })),
   };

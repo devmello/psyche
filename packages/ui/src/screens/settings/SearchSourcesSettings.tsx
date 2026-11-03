@@ -3,6 +3,7 @@ import { type ReactElement, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { useSearchSources } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
+import { describeError } from "../../i18n/errors.ts";
 import { formatRelative } from "../../lib/format.ts";
 import { Group, StatusChip, SwitchField } from "./shared.tsx";
 
@@ -10,8 +11,13 @@ import { Group, StatusChip, SwitchField } from "./shared.tsx";
  * Settings → Search sources (docs/design/search-roadmap-2026.md §2): the owner chooses which
  * local sources Psyche reads into the search index. Every one is off until switched on; Messages
  * says plainly what it reads. Each row shows its item count, last indexed time and size, and a
- * Rebuild. "Never index" keeps contacts and folders out.
+ * Rebuild that says what it is doing (busy, how far it has read, done) or why it cannot. A source
+ * switched on here is also one memory learns from unless opted out (Memory → Sources). "Never
+ * index" keeps contacts and folders out.
  */
+
+/** What a Rebuild press has done: the call is out, it is reading in the background, or it was refused. */
+type Rebuild = { phase: "calling" } | { phase: "watching" } | { phase: "failed"; why: string };
 
 const HINT = {
   mail: "settings.searchSources.hint.mail",
@@ -57,6 +63,36 @@ export function sourceStateText(s: SearchSourceStatus): {
   }
 }
 
+/** What to say under a source after Rebuild was pressed; nothing before, and nothing once it is stale. */
+function rebuildNote(
+  s: SearchSourceStatus,
+  rb: Rebuild | undefined,
+): { text: string; tone: "success" | "danger" | "info" } | undefined {
+  if (rb === undefined) return undefined;
+  if (rb.phase === "calling")
+    return {
+      text: t("settings.searchSources.rebuild.starting", { source: s.label }),
+      tone: "info",
+    };
+  if (rb.phase === "failed")
+    return {
+      text: t("settings.searchSources.rebuild.failed", { source: s.label, why: rb.why }),
+      tone: "danger",
+    };
+  if (s.state === "indexing")
+    return {
+      text: t("settings.searchSources.rebuild.progress", { source: s.label, n: s.items }),
+      tone: "info",
+    };
+  if (s.state === "idle")
+    return {
+      text: t("settings.searchSources.rebuild.done", { source: s.label, n: s.items }),
+      tone: "success",
+    };
+  // Off, unavailable or failed: the row's own status line already says so.
+  return undefined;
+}
+
 const split = (v: string) =>
   v
     .split(/[\n,]/)
@@ -79,15 +115,25 @@ export function SearchSourcesSettingsGroup({
     ocr?: boolean;
     exclude?: { contacts?: string[]; folders?: string[] };
   }) => void | Promise<void>;
-  onRebuild?: (source: SearchSourceId) => void | Promise<void>;
+  onRebuild?: (source: SearchSourceId) => unknown;
   now?: number;
 }): ReactElement {
   const live = useSearchSources();
   const data = status ?? live.status;
   const configure = onConfigure ?? ((p) => live.configure(p));
   const rebuild = onRebuild ?? ((id) => live.rebuild(id));
+  const [rebuilds, setRebuilds] = useState<Record<string, Rebuild>>({});
   const [contacts, setContacts] = useState<string | undefined>();
   const [folders, setFolders] = useState<string | undefined>();
+  const press = async (id: SearchSourceId) => {
+    setRebuilds((r) => ({ ...r, [id]: { phase: "calling" } }));
+    try {
+      await rebuild(id);
+      setRebuilds((r) => ({ ...r, [id]: { phase: "watching" } }));
+    } catch (err) {
+      setRebuilds((r) => ({ ...r, [id]: { phase: "failed", why: describeError(err) } }));
+    }
+  };
   return (
     <Group
       title={t("settings.searchSources.title")}
@@ -95,6 +141,10 @@ export function SearchSourcesSettingsGroup({
     >
       {(data?.sources ?? []).map((s) => {
         const line = sourceStateText(s);
+        const rb = rebuilds[s.id];
+        const reading = rb?.phase === "watching" && s.state === "indexing";
+        const busy = rb?.phase === "calling" || reading;
+        const note = rebuildNote(s, rb);
         return (
           <SwitchField
             key={s.id}
@@ -116,18 +166,29 @@ export function SearchSourcesSettingsGroup({
                   {kb(s.textBytes)}
                 </span>
               ) : null}
-              {s.enabled ? (
-                <Button
-                  type="button"
-                  variant="plain"
-                  size="sm"
-                  aria-label={t("settings.searchSources.rebuildLabel", { source: s.label })}
-                  onClick={() => void rebuild(s.id)}
-                >
-                  {t("settings.searchSources.rebuild")}
-                </Button>
-              ) : null}
+              <Button
+                type="button"
+                variant="plain"
+                size="sm"
+                disabled={!s.enabled || busy}
+                aria-label={t("settings.searchSources.rebuildLabel", { source: s.label })}
+                {...(s.enabled
+                  ? {}
+                  : {
+                      title: t("settings.searchSources.rebuild.turnOnFirst", { source: s.label }),
+                    })}
+                onClick={() => void press(s.id)}
+              >
+                {busy
+                  ? t("settings.searchSources.rebuilding")
+                  : t("settings.searchSources.rebuild")}
+              </Button>
             </div>
+            {note === undefined ? null : (
+              <div role="status" data-testid={`rebuild-${s.id}`} className="pt-1">
+                <StatusChip tone={note.tone}>{note.text}</StatusChip>
+              </div>
+            )}
             {s.enabled ? (
               <label className="flex items-center gap-2 pt-1 text-caption text-label-secondary">
                 <input

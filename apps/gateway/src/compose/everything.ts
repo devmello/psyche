@@ -33,6 +33,8 @@ import {
   EVERYTHING_MEMORY_SETTING_KEY,
   EverythingMemorySettings,
   type EverythingRunResult,
+  effectiveEverythingSources,
+  everythingOptOut,
   type FeedWidget,
   type MethodParams,
   type MethodResult,
@@ -40,6 +42,7 @@ import {
   type ModelRef,
   PsycheError,
 } from "@psyche/protocol";
+import { readSourcesConfig } from "@psyche/search";
 import { Value } from "@sinclair/typebox/value";
 import type { Gateway } from "../server.ts";
 import { readSystemState } from "./everything-probe.ts";
@@ -144,14 +147,34 @@ function merge(base: unknown, over: unknown): unknown {
 /**
  * `memory.everything` with its defaults filled in. A stored value that does not fit the schema
  * is ignored whole and the feature reads as off: a bad setting never turns reading on.
+ *
+ * Memory follows Search (everything-memory-2026 §8): `sources` is not the stored switches but the
+ * sources memory learns from, indexed && !optOut. `indexed` is the sources Search reads; leave it
+ * out and nothing counts as indexed, so a caller that forgot it reads nothing. Browser pages and
+ * chats are never in it. A value stored before `optOut` existed is migrated (a switch that was
+ * explicitly off is an opt-out) by `everythingOptOut`.
  */
-export function everythingSettings(value: unknown): EverythingMemorySettings {
+export function everythingSettings(
+  value: unknown,
+  indexed: Iterable<string> = [],
+): EverythingMemorySettings {
   const merged = merge(structuredClone(EVERYTHING_MEMORY_DEFAULTS), value);
-  if (Value.Check(EverythingMemorySettings, merged)) return merged;
-  return {
-    ...(structuredClone(EVERYTHING_MEMORY_DEFAULTS) as EverythingMemorySettings),
-    enabled: false,
-  };
+  if (!Value.Check(EverythingMemorySettings, merged)) {
+    return {
+      ...(structuredClone(EVERYTHING_MEMORY_DEFAULTS) as EverythingMemorySettings),
+      enabled: false,
+    };
+  }
+  const optOut = everythingOptOut(value);
+  return { ...merged, optOut, sources: effectiveEverythingSources(optOut, indexed) };
+}
+
+/** The sources Search reads now (switched on in Settings → Search sources). */
+export function indexedSources(db: PsycheDb): string[] {
+  const cfg = readSourcesConfig(getSetting(db, "search.sources")?.value);
+  return Object.entries(cfg.sources)
+    .filter(([, c]) => c.enabled)
+    .map(([id]) => id);
 }
 
 type EverythingMethod =
@@ -560,7 +583,9 @@ export function composeEverything(deps: EverythingDeps): Everything {
   const memorySql = deps.memorySqlite ?? db.sqlite;
   const store = new EverythingStore({ sqlite: memorySql, graph, clock });
   const vectors = new FactVectorStore(memorySql);
-  const settings = () => everythingSettings(getSetting(db, EVERYTHING_MEMORY_SETTING_KEY)?.value);
+  // Read on every call, so a Search or Memory switch applies to the next pass at once.
+  const settings = () =>
+    everythingSettings(getSetting(db, EVERYTHING_MEMORY_SETTING_KEY)?.value, indexedSources(db));
   let runNowFn: () => Promise<EverythingRunResult> = async () => {
     throw new PsycheError("unavailable", "everything memory is not ready");
   };
@@ -722,7 +747,7 @@ export function composeEverything(deps: EverythingDeps): Everything {
   };
   const WAITING: Record<string, string> = {
     disabled: "Everything memory is off.",
-    no_sources: "No source is turned on.",
+    no_sources: "Search is not reading any source memory can learn from.",
     model_none: "No model is chosen.",
     battery: "Waiting: not plugged in.",
     low_power: "Waiting: Low Power Mode is on.",

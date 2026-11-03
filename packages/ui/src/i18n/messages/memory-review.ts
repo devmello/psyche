@@ -156,9 +156,12 @@ export const memoryReview = {
   "everything.perSource.ref": "Model for {source}",
   "everything.sources.title": "What it reads",
   "everything.sources.description":
-    "Each source is off until you turn it on. Only what Search indexes is read.",
-  "everything.sources.notIndexed": "Search doesn't index this yet.",
-  "everything.sources.openSearch": "Turn on in Search",
+    "Memory learns from what Search reads, in the same order as Settings → Search sources. Switch one off here to stop learning from it; it stays searchable.",
+  "everything.sources.learning": "Learning from it",
+  "everything.sources.notLearning": "Not learning from it",
+  "everything.sources.notRead": "Psyche doesn't read {source}.",
+  "everything.sources.letRead": "Let Psyche read {source}",
+  "everything.sources.letReadFailed": "Couldn't let Psyche read {source}: {reason}",
   "everything.source.mail": "Mail",
   "everything.source.messages": "Messages",
   "everything.source.notes": "Notes",
@@ -229,7 +232,8 @@ export const memoryReview = {
   "everything.run.done":
     "Read {items, number} items: {facts, number} facts proposed, {held, number} held back{more, select, yes {, the rest waits for tomorrow} other {}}.",
   "everything.run.reason.disabled": "Everything memory is off.",
-  "everything.run.reason.no_sources": "Turn on at least one source first.",
+  "everything.run.reason.no_sources":
+    "Search isn't reading anything memory can learn from. Let Psyche read a source first.",
   "everything.run.reason.model_none": "Choose a model first: None reads nothing.",
   "everything.run.reason.battery":
     "Not now: the Mac is on battery. Plug it in, or allow battery runs.",

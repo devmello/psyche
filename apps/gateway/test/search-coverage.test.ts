@@ -196,11 +196,11 @@ describe("search.sources methods", () => {
       ik(),
     );
     expect(st.sources.find((s) => s.id === "messages")?.agent).toBe(true);
-    st = await owner.call<SearchSourcesStatus>(
-      "search.sources.rebuild",
-      { source: "messages" },
-      ik(),
-    );
+    // No Mac helper: a rebuild would empty Messages and could not fill it, so it is refused.
+    const refused = await owner.request("search.sources.rebuild", { source: "messages" }, ik());
+    expect(refused).toMatchObject({ ok: false, error: { code: "unavailable", retryable: true } });
+    expect(JSON.stringify(refused.error)).toMatch(/Messages can't be read right now/);
+    st = await owner.call<SearchSourcesStatus>("search.sources", {});
     expect(st.sources.find((s) => s.id === "messages")?.enabled).toBe(true);
     st = await owner.call<SearchSourcesStatus>(
       "search.sources.configure",
@@ -213,5 +213,33 @@ describe("search.sources methods", () => {
       state: "off",
     });
     expect(st.exclude.contacts).toEqual(["mum@example.com"]);
+  });
+
+  it("Rebuild: refused for a source that is off, answers indexing from zero when it runs", async () => {
+    const owner = await start();
+    const off = await owner.request("search.sources.rebuild", { source: "transcripts" }, ik());
+    expect(off).toMatchObject({
+      ok: false,
+      error: { code: "invalid_params", message: "Turn Transcripts on first." },
+    });
+    await owner.call("search.sources.configure", { source: "transcripts", enabled: true }, ik());
+    const st = await owner.call<SearchSourcesStatus>(
+      "search.sources.rebuild",
+      { source: "transcripts" },
+      ik(),
+    );
+    // Reading starts in the background; the reply says so instead of looking like nothing happened.
+    expect(st.sources.find((s) => s.id === "transcripts")).toMatchObject({
+      enabled: true,
+      state: "indexing",
+      items: 0,
+    });
+    // It finishes by itself (there are no recordings to read).
+    for (let i = 0; i < 40; i++) {
+      const now = await owner.call<SearchSourcesStatus>("search.sources", {});
+      if (now.sources.find((s) => s.id === "transcripts")?.state === "idle") return;
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    throw new Error("the rebuilt source never finished");
   });
 });

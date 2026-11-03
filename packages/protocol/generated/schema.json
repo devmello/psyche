@@ -2777,7 +2777,7 @@
         "sideEffecting": true
       },
       {
-        "description": "Drops one source's documents and reads it again from the start in the background. Side-effecting.",
+        "description": "Drops one source's documents and reads it again from the start in the background; the reply shows the source indexing from zero. Refused, with nothing removed, when the source is off (`invalid_params`), cannot be read now or the Mac is on battery (`unavailable`), or a rebuild of it is running (`conflict`). Side-effecting.",
         "name": "search.sources.rebuild",
         "params": "#/$defs/SearchSourcesRebuildParams",
         "result": "#/$defs/SearchSourcesStatus",
@@ -17552,6 +17552,9 @@
         "sources": {
           "$ref": "#/$defs/EverythingSourceSwitches"
         },
+        "optOut": {
+          "$ref": "#/$defs/EverythingSourceOptOut"
+        },
         "people": {
           "$ref": "#/$defs/EverythingPeopleSetting"
         },
@@ -17590,6 +17593,7 @@
         "enabled",
         "model",
         "sources",
+        "optOut",
         "people",
         "sensitive",
         "agentAccess",
@@ -17909,8 +17913,61 @@
       ],
       "type": "string"
     },
+    "EverythingSourceOptOut": {
+      "description": "Per source: true means do not learn from it. Memory learns from every source Search indexes unless it is opted out here",
+      "properties": {
+        "mail": {
+          "default": false,
+          "type": "boolean"
+        },
+        "messages": {
+          "default": false,
+          "type": "boolean"
+        },
+        "notes": {
+          "default": false,
+          "type": "boolean"
+        },
+        "calendar": {
+          "default": false,
+          "type": "boolean"
+        },
+        "reminders": {
+          "default": false,
+          "type": "boolean"
+        },
+        "chats": {
+          "default": false,
+          "type": "boolean"
+        },
+        "files": {
+          "default": false,
+          "type": "boolean"
+        },
+        "browser": {
+          "default": false,
+          "type": "boolean"
+        },
+        "transcripts": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "mail",
+        "messages",
+        "notes",
+        "calendar",
+        "reminders",
+        "chats",
+        "files",
+        "browser",
+        "transcripts"
+      ],
+      "type": "object"
+    },
     "EverythingSourceSwitches": {
-      "description": "One switch per source, all off",
+      "description": "Legacy: one switch per source, all off. Superseded by `optOut` (memory follows Search); the Gateway reads it only to migrate a value that has no `optOut`, and a UI keeps it equal to the sources memory learns from",
       "properties": {
         "mail": {
           "default": false,

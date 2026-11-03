@@ -10,7 +10,7 @@ Settings had grown to **25 flat sections** in five sidebar groups. An inventory 
 
 | Concept | Where it appeared | Keys / calls |
 |---|---|---|
-| Search sources and search settings | At the bottom of *Model & providers*, far from the sources; *Everything memory* had its own source list that only works for sources Search indexes | `search.*`, `search.sources`, `memory.everything.sources` |
+| Search sources and search settings | At the bottom of *Model & providers*, far from the sources; *Everything memory* had its own source list that only works for sources Search indexes | `search.*`, `search.sources`, `memory.everything.optOut` |
 | Shared folders | *File access* (editor), *Connectors → Files on this Mac* (second editor), *Permissions → Folders* (read-only copy) | `permissions.policy.folders` |
 | Run commands on this Mac | *File access* and *Connectors → Terminal* (same switch twice) | `permissions.policy.exec.execHostEnabled` |
 | Export | *Data controls → Export everything* and *People & projects → Export* (same `memory.export` call) | `memory.export` |
@@ -61,11 +61,16 @@ is an h3 in the serif at 20 px with a hairline above it; groups step down to h4.
 
 1. **Search has one home**: *Connectors & sources → Search* holds Search sources, Semantic search
    (with re-rank, query reading, encrypt the index) and Web search. Removed from Model & providers.
-2. **Everything memory sources stay** (they are a distinct choice: what Psyche *learns facts from*),
-   but each one Search does not index now says "Search doesn't index this yet, so there is nothing
-   to learn from" with **Turn on in Search**, which opens `/settings/search`. The nightly pass only
-   reads the index (everything-memory-2026 §5), so this makes the dependency visible instead of
-   showing two unrelated lists.
+2. **Memory follows Search** (supersedes "Everything memory sources stay", 2026-11-03). The two
+   lists disagreed: a memory source could be on for a source Search did not index, which read
+   nothing. Now Search sources is the one list of what Psyche may read, and memory learns from
+   each source Search reads unless the owner opts it out. *Memory → Sources* lists the same
+   sources in the same order, each with **Learning from it** (the opt-out, `memory.everything.optOut`)
+   when Search reads it, and when it does not, a disabled row saying "Psyche doesn't read Mail"
+   with **Let Psyche read Mail**, which turns on the Search source in one click (the call Essentials
+   makes). Essentials and Search sources keep their meaning and say that turning a source on also
+   lets memory learn from it unless the owner opts out on *Memory → Sources*. The Gateway reads
+   `indexed && !optOut` (everything-memory-2026 D12).
 3. **Folders and Run commands have one editor**: *Permissions → File access*. Connectors' *Files on
    this Mac* and *Terminal* cards stay (people look for them there; `find_capability` points there)
    but now show the shared folders and whether running commands is on, with **Open File access**.
@@ -151,7 +156,7 @@ as its detailed pane, with **More** opening that pane:
 | Group | What it changes | Default |
 |---|---|---|
 | Model | shows the primary model and whether its provider answers; **Set up a model** (amber, the page's one filled button) when none | none until set up |
-| What Psyche may read | Mail, Messages, Notes, Calendar, Reminders, Files (`search.sources.configure`) | all off |
+| What Psyche may read | Mail, Messages, Notes, Calendar, Reminders, Files (`search.sources.configure`); memory learns from what is on unless opted out on *Memory → Sources* | all off |
 | How often Psyche asks first | `permissions.mode` (Balanced, Manual, Auto) | Balanced |
 | When Psyche may interrupt you | Quiet hours (`notifications.quietHours.enabled`), Morning brief (`daily.brief.enabled`) | quiet hours **on**, brief off |
 | Memory | Let Psyche remember our chats (`memory.pause`) | on |

@@ -29,6 +29,7 @@ import {
   OWNER,
   type PowerState,
   QueryModel,
+  RebuildRefused,
   readSourcesConfig,
   type SearchEmbedder,
   SearchIndexer,
@@ -104,6 +105,14 @@ export interface ComposedSearch extends ComposedPart {
 }
 
 export const SOURCES_SETTING = "search.sources";
+
+/** The error code a refused rebuild carries (the message already says why). */
+const REBUILD_CODE = {
+  off: "invalid_params",
+  unavailable: "unavailable",
+  power: "unavailable",
+  busy: "conflict",
+} as const;
 
 export interface SearchDeps extends Omit<SearchSourceDeps, "pageSize"> {
   memory: MemoryStore;
@@ -529,8 +538,20 @@ function buildSearch(deps: SearchDeps, sqlite: PsycheDb["sqlite"]): ComposedSear
     "search.sources.rebuild": {
       run: async (_call, params: never) => {
         const indexer = sourcesOrThrow();
-        await indexer.rebuild((params as { source: SourceId }).source);
-        void indexer.tick();
+        try {
+          await indexer.rebuild((params as { source: SourceId }).source);
+        } catch (err) {
+          // Said in the owner's terms; nothing was removed (see `SourceIndexer.rebuild`).
+          if (err instanceof RebuildRefused)
+            throw new PsycheError(REBUILD_CODE[err.reason], err.message, {
+              retryable: err.reason === "unavailable" || err.reason === "power",
+            });
+          throw err;
+        }
+        // The read starts now and goes on in the background: the reply is the emptied source in
+        // state `indexing`, and `search.sources.updated` follows as items arrive.
+        void indexer.kick().catch(() => undefined);
+        publishSources();
         return indexer.status();
       },
     },

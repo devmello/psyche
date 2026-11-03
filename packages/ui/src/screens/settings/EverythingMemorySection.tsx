@@ -1,4 +1,4 @@
-import type { EverythingRunResult, EverythingSource } from "@psyche/protocol";
+import type { EverythingRunResult, EverythingSource, SearchSourceId } from "@psyche/protocol";
 import { type ReactElement, useId, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "../../components/ui/button.tsx";
@@ -16,7 +16,7 @@ import {
   SourceFields,
 } from "../../memory/EverythingFields.tsx";
 import { estimateMonthly, formatUsd } from "../../memory/estimate.ts";
-import { usePersona, useSlots } from "../../slots.tsx";
+import { usePersona } from "../../slots.tsx";
 import { Group, LoadGate, SectionFrame, SettingRow, useSettingsForm } from "./shared.tsx";
 
 /**
@@ -33,11 +33,11 @@ export function EverythingPanel({
   running = false,
   runResult = null,
   indexed,
-  onOpenSearch,
+  onEnableSource,
 }: {
-  /** Sources Search indexes now; the rest say so (see `SourceFields`). */
+  /** Sources Search reads now; the rest say so, with a way to turn them on (see `SourceFields`). */
   indexed?: ReadonlySet<EverythingSource>;
-  onOpenSearch?: () => void;
+  onEnableSource?: (source: EverythingSource) => void | Promise<void>;
   value: EverythingValues;
   onChange: (next: EverythingValues) => void;
   onTurnOn: () => void;
@@ -66,7 +66,7 @@ export function EverythingPanel({
         value={value}
         onChange={onChange}
         {...(indexed === undefined ? {} : { indexed })}
-        {...(onOpenSearch === undefined ? {} : { onOpenSearch })}
+        {...(onEnableSource === undefined ? {} : { onEnable: onEnableSource })}
       />
       <Group title={t("everything.run.title")}>
         <SettingRow
@@ -140,8 +140,27 @@ export function TimeField({
 export function useEverythingSetup() {
   const form = useSettingsForm();
   const persona = usePersona();
+  const search = useSearchSources();
   const [consent, setConsent] = useState(false);
-  const value = readEverything(form.values);
+  // Unknown until Search answers, so nothing says "Psyche doesn't read this" while it loads.
+  const indexed =
+    search.status === undefined
+      ? undefined
+      : new Set<EverythingSource>(search.status.sources.filter((s) => s.enabled).map((s) => s.id));
+  const value = readEverything(form.values, indexed);
+  /** "Let Psyche read {source}": the call Essentials makes, and the same macOS permission flow. */
+  const enableSource = async (source: EverythingSource) => {
+    try {
+      await search.configure({ source: source as SearchSourceId, enabled: true });
+    } catch (err) {
+      toast.error(
+        t("everything.sources.letReadFailed", {
+          source: t(`everything.source.${source}`),
+          reason: describeError(err),
+        }),
+      );
+    }
+  };
   const localConfirmed = readConfirmed(form.values[EVERYTHING_LOCAL_CONFIRMED]);
   const confirmLocal = (ref: string) =>
     form.onChange(EVERYTHING_LOCAL_CONFIRMED, [...new Set([...localConfirmed, ref])]);
@@ -151,6 +170,8 @@ export function useEverythingSetup() {
       initial={value}
       persona={persona.name}
       localConfirmed={localConfirmed}
+      {...(indexed === undefined ? {} : { indexed })}
+      onEnableSource={enableSource}
       onCancel={() => setConsent(false)}
       onFinish={(settings, confirmed) => {
         if (confirmed.length > 0) form.onChange(EVERYTHING_LOCAL_CONFIRMED, confirmed);
@@ -163,6 +184,8 @@ export function useEverythingSetup() {
     form,
     value,
     localConfirmed,
+    indexed,
+    enableSource,
     confirmLocal,
     turnOn: () => setConsent(true),
     turnOff: () => form.onChange(EVERYTHING_KEY, { ...value, enabled: false }),
@@ -173,13 +196,6 @@ export function useEverythingSetup() {
 
 export function EverythingMemorySection(): ReactElement {
   const persona = usePersona();
-  const { navigate } = useSlots();
-  const search = useSearchSources();
-  // Unknown until Search answers, so nothing says "not indexed" while it loads.
-  const indexed =
-    search.status === undefined
-      ? undefined
-      : new Set<EverythingSource>(search.status.sources.filter((s) => s.enabled).map((s) => s.id));
   const call = useCall();
   const setup = useEverythingSetup();
   const { form } = setup;
@@ -206,8 +222,8 @@ export function EverythingMemorySection(): ReactElement {
           onTurnOn={setup.turnOn}
           running={running}
           runResult={runResult}
-          {...(indexed === undefined ? {} : { indexed })}
-          {...(navigate ? { onOpenSearch: () => navigate("/settings/search") } : {})}
+          {...(setup.indexed === undefined ? {} : { indexed: setup.indexed })}
+          onEnableSource={setup.enableSource}
           onRunNow={() => {
             setRunning(true);
             setRunResult(null);
