@@ -24,7 +24,8 @@ public protocol EnclaveKeyBackend: Sendable {
     /// X9.63 uncompressed public key of a blob. Never prompts.
     func publicKey(blob: Data) throws -> Data
     /// Touch ID for the key's access control with `reason`, then an ECDSA P-256 / SHA-256 DER
-    /// signature over `message` with that same context (one prompt).
+    /// signature over `message` with that same context (one prompt). Throws
+    /// `PresenceKeyErrors.refused` when Touch ID passed but the Secure Enclave refused the key.
     func sign(blob: Data, message: Data, reason: String) async throws -> Data
 }
 
@@ -61,12 +62,17 @@ public struct SecureEnclaveBackend: EnclaveKeyBackend {
         ctx.touchIDAuthenticationAllowableReuseDuration = 0
         do {
             _ = try await ctx.evaluateAccessControl(try PresenceKey.accessControl(), operation: .useKeySign, localizedReason: reason)
-            let key = try SecureEnclave.P256.Signing.PrivateKey(dataRepresentation: blob, authenticationContext: ctx)
-            return try key.signature(for: message).derRepresentation
         } catch let e as CapabilityError {
             throw e
         } catch {
             throw KeychainStatus.error(from: error)
+        }
+        // Touch ID passed: a failure from here on is the Secure Enclave refusing the key.
+        do {
+            let key = try SecureEnclave.P256.Signing.PrivateKey(dataRepresentation: blob, authenticationContext: ctx)
+            return try key.signature(for: message).derRepresentation
+        } catch {
+            throw PresenceKeyErrors.refused
         }
     }
 }
@@ -221,20 +227,33 @@ public final class EnclaveFilePresenceKey: PresenceSigning, @unchecked Sendable 
             throw CapabilityError.invalidParams("presenceChallenge must be 64 hex characters", field: "presenceChallenge")
         }
         let (sealed, x963) = try current()
-        // Before any prompt: a key made under other fingerprints can never sign again.
-        if !sealed.state.isEmpty, let now = biometry.current(), now != sealed.state {
-            discardInvalidated()
-            throw PresenceKeyErrors.invalidated
+        // A changed enrollment hash is only a hint (an OS update can change it): still try to sign.
+        let now = biometry.current()
+        let changed = !sealed.state.isEmpty && now != nil && now != sealed.state
+        let der: Data
+        do {
+            der = try await backend.sign(blob: sealed.blob, message: PresenceMessage.bytes(challenge: challenge), reason: reason)
+        } catch let e as CapabilityError where e.reason == PresenceKeyErrors.refused.reason {
+            retire()
+            throw PresenceKeyErrors.invalidated(enrollmentChanged: changed)
         }
-        let der = try await backend.sign(blob: sealed.blob, message: PresenceMessage.bytes(challenge: challenge), reason: reason)
+        if changed, let now { try? rerecord(Sealed(state: now, blob: sealed.blob)) }
         return PresenceSignature(signature: Base64URL.encode(der), keyId: PresenceMessage.keyId(x963: x963))
     }
 
-    /// Deletes the dead key and its seal; the next use makes (and pins) a new one.
-    func discardInvalidated() {
+    /// The key still signs under a new enrollment state: seal that state with it.
+    func rerecord(_ sealed: Sealed) throws {
+        try lock.withLock {
+            guard let secret = try sealer.secret() else { return }
+            try save(sealed, secret: secret)
+        }
+    }
+
+    /// Moves a refused key aside (`presence-key.se.retired-<time>`, kept, never deleted); the next
+    /// use makes (and pins) a new one.
+    func retire() {
         lock.withLock {
-            unlink(path)
-            sealer.removeSecret()
+            _ = rename(path, path + ".retired-\(Int(Date().timeIntervalSince1970))")
             pinned = nil
         }
     }

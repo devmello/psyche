@@ -226,6 +226,9 @@ export const blocks = {
     "Running a command without the sandbox can't be approved with Touch ID from this window. Set up the sandbox instead",
   "blocks.approval.touchId.openDevices": "Open Settings → Devices",
   "blocks.approval.touchId.code": "Code {code}",
+  "blocks.approval.touchId.onceOnly": "Touch ID approvals from this window are once only.",
+  "blocks.approval.status.allowedOnceTouchId":
+    "Allowed once (Touch ID approvals from this window are once only)",
   "blocks.approval.touchId.keyUnavailable":
     "This build of Psyche Helper can't keep a Touch ID key (it has no keychain access group), so cards that need Touch ID can't be approved on this Mac.",
   "blocks.approval.touchId.cancelled": "Touch ID was cancelled, so nothing was approved",

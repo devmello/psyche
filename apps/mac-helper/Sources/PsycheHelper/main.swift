@@ -10,12 +10,13 @@ import PsycheProtocol
 // grants belong to the helper (spike 04).
 
 let usage = """
-    usage: psyche-helper [--handshake-only [--challenge-only]] [--timeout <seconds>] [--manifest] [--print-identity]
+    usage: psyche-helper [--handshake-only [--challenge-only]] [--timeout <seconds>] [--manifest] [--build-info] [--print-identity]
 
       (no flags)        stay connected to the Gateway and serve capabilities (reconnects)
       --handshake-only  connect, pair, print the phase and exit (smoke test)
       --challenge-only  with --handshake-only: stop after the challenge
       --manifest        print the capability manifest as JSON and exit
+      --build-info      print {"presenceFileFallback": true|false} and exit (release builds: false)
       --print-identity  print {deviceId, presenceKeyId, presenceKeyKind} as JSON and exit: what the
                         desktop compares with the Gateway before it registers the Touch ID key
 
@@ -28,6 +29,7 @@ var handshakeOnly = false
 var verify = true
 var printManifest = false
 var printIdentity = false
+var printBuildInfo = false
 // `psyche-helper vsock-bridge CID:PORT`: stdin/stdout ⇄ vsock, the bridge psyche-node uses in a
 // macOS guest (PSYCHE_NODE_VSOCK_BRIDGE, VM mode L3). Handled before anything else starts.
 if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "vsock-bridge" {
@@ -67,6 +69,7 @@ while let arg = args.popFirst() {
         verify = false
     case "--manifest": printManifest = true
     case "--print-identity": printIdentity = true
+    case "--build-info": printBuildInfo = true
     case "-h", "--help":
         print(usage)
         exit(0)
@@ -83,6 +86,11 @@ let log = HelperLog()
 if printManifest {
     let runtime = HelperRuntime(log: HelperLog(echo: { _ in }))
     print(runtime.registry.manifest(version: HelperVersion.current).jsonString(pretty: true))
+    exit(0)
+}
+
+if printBuildInfo {
+    print(JSONValue.object(["presenceFileFallback": .bool(PreferredPresenceKey.fallbackBuiltIn)]).jsonString(pretty: false))
     exit(0)
 }
 

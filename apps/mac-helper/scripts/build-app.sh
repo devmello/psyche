@@ -55,6 +55,15 @@ swift build --package-path "$HERE" -c "$CONFIG" $ARCH_ARGS --product psyche-help
 # shellcheck disable=SC2086
 BIN="$(swift build --package-path "$HERE" -c "$CONFIG" $ARCH_ARGS --show-bin-path)/psyche-helper"
 
+# A public release must not contain the development Secure Enclave file-key fallback (security
+# §10). SwiftPM may reuse a manifest evaluated without PSYCHE_PUBLIC_RELEASE, so check the binary.
+if [ "${PSYCHE_PUBLIC_RELEASE:-}" = "1" ]; then
+  if ! "$BIN" --build-info | grep -q '"presenceFileFallback":false'; then
+    echo "error: PSYCHE_PUBLIC_RELEASE=1 but the helper still has the file-key fallback; clean .build and rebuild" >&2
+    exit 1
+  fi
+fi
+
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/psyche-helper"

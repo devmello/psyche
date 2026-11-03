@@ -465,19 +465,20 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
     if (confirming) {
       throw new PsycheError("conflict", "Touch ID is already asking about an approval");
     }
-    const h = touchIdHelper(params.helperDeviceId);
-    const c = client(h.nodeId);
-    if (c === undefined) throw touchIdUnavailable("helper_offline", "Psyche Helper went away");
-    const by = { deviceId: h.deviceId, surface: surfaceOf(services.db, call.identity.deviceId) };
-    // Before any sheet: the token is this window's unused one, the card is armed, and this
-    // answerer is not over its rate limit (a bad token counts against the rejected-answer cap).
-    await services.rawBroker.precheckAnswer({
-      approvalId: a.id,
-      answerToken: params.answerToken,
-      decidedBy: by,
-    });
+    // Taken before the first await, so two calls racing through the checks raise one sheet.
     confirming = true;
     try {
+      const h = touchIdHelper(params.helperDeviceId);
+      const c = client(h.nodeId);
+      if (c === undefined) throw touchIdUnavailable("helper_offline", "Psyche Helper went away");
+      const by = { deviceId: h.deviceId, surface: surfaceOf(services.db, call.identity.deviceId) };
+      // Before any sheet: the token is this window's unused one, the card is armed, and this
+      // answerer is not over its rate limit (a bad token counts against the rejected-answer cap).
+      await services.rawBroker.precheckAnswer({
+        approvalId: a.id,
+        answerToken: params.answerToken,
+        decidedBy: by,
+      });
       const res = await c.invoke(
         "presence.confirm",
         {

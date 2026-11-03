@@ -100,6 +100,8 @@ export interface UiSlots {
    * Resolves once done; the owner then clicks Allow again (nothing is approved on its own).
    */
   touchIdFix?: (fix: TouchIdFix) => Promise<void>;
+  /** The desktop: cards that need Touch ID are approved once only from this window. */
+  touchIdOnceOnly?: boolean;
   /** The host's native folder picker; resolves to the real path, or null when cancelled. */
   pickFolder?: (opts?: { title?: string }) => Promise<string | null>;
   /** Persona shown in agent messages and cards. */

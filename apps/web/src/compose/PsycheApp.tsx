@@ -686,6 +686,7 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
       ...(platform.external ? { openExternal: platform.external.open } : {}),
       // A Touch ID card the window cannot confirm yet: start the helper or register its key.
       ...(platform.helper ? { touchIdFix: (fix) => fixTouchId(platform, fix) } : {}),
+      ...(platform.helper?.touchId ? { touchIdOnceOnly: true } : {}),
     }),
     [persona, platform],
   );

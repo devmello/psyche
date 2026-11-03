@@ -385,7 +385,11 @@ export function ApprovalCard({
   const [showIds, setShowIds] = useState(false);
   // folder_access: the folder the owner picks is what is granted, never the agent's string.
   const isFolder = raw.kind === "folder_access";
-  const { pickFolder, permissionAction, touchIdFix } = useSlots();
+  const { pickFolder, permissionAction, touchIdFix, touchIdOnceOnly } = useSlots();
+  // Touch ID from this window approves once only (security §3.7): say so, never drop "Always"
+  // silently.
+  const onceOnlyHere = touchIdOnceOnly === true && approval.requiresAuthentication;
+  const [forcedOnce, setForcedOnce] = useState(false);
   // The Gateway resolved the path the agent named: a usable folder is pre-filled and is exactly
   // what is granted; a blocked or missing one needs the owner's pick.
   const requestedFolder =
@@ -499,6 +503,9 @@ export function ApprovalCard({
               ? { unsandboxed: "UNSANDBOXED" }
               : undefined,
       );
+      if (decision === "approve" && onceOnlyHere && scope !== undefined && scope !== "once") {
+        setForcedOnce(true);
+      }
     } catch (err) {
       const failure = classifyAnswerError(err);
       if (failure.kind === "rate_limited") {
@@ -532,7 +539,10 @@ export function ApprovalCard({
     }
   };
 
-  const status = statusText(approval, now);
+  const status =
+    forcedOnce && approval.status === "approved"
+      ? t("blocks.approval.status.allowedOnceTouchId")
+      : statusText(approval, now);
   const whatLabel = t("blocks.approval.whatItWillDo");
   const onlyOnce = offered.length === 1 && offered[0] === "once";
   const taintNote = pending ? taintSentence(approval, persona, onlyOnce) : null;
@@ -948,6 +958,9 @@ export function ApprovalCard({
                 {t("blocks.approval.touchId.code", { code: approvalCode(approval.bindingHash) })}
               </span>
             </span>
+          ) : null}
+          {onceOnlyHere && choice !== "once" ? (
+            <span data-testid="touch-id-once-only">{t("blocks.approval.touchId.onceOnly")}</span>
           ) : null}
           {otherSurfaces.length > 0 ? (
             <span>{t("blocks.approval.alsoSentTo", { surfaces: otherSurfaces.join(", ") })}</span>

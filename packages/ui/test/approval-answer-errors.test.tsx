@@ -202,6 +202,48 @@ describe("answer failures on the card", () => {
     expect(onAnswer).toHaveBeenCalledTimes(1);
   });
 
+  it("from the window, Always becomes once, and the card says so before and after", async () => {
+    const onAnswer = vi.fn(async () => undefined);
+    const a = approval({ requiresAuthentication: true, scopesOffered: ["once", "always"] });
+    const { rerender } = render(
+      <UiSlotsProvider
+        value={{ persona: { name: "Wren", creature: "moth" }, touchIdOnceOnly: true }}
+      >
+        <ApprovalCard
+          approval={a}
+          persona="Wren"
+          canAnswer
+          now={NOW}
+          armDelayMs={0}
+          mode="balanced"
+          onAnswer={onAnswer as never}
+        />
+      </UiSlotsProvider>,
+    );
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Allow for" }), "always");
+    expect(screen.getByTestId("touch-id-once-only").textContent).toContain("once only");
+    await userEvent.click(allow());
+    await waitFor(() => expect(onAnswer).toHaveBeenCalled());
+    rerender(
+      <UiSlotsProvider
+        value={{ persona: { name: "Wren", creature: "moth" }, touchIdOnceOnly: true }}
+      >
+        <ApprovalCard
+          approval={{ ...a, status: "approved", scopeGranted: "once", decidedAt: FIXTURE_NOW }}
+          persona="Wren"
+          canAnswer
+          now={NOW}
+          armDelayMs={0}
+          mode="balanced"
+          onAnswer={onAnswer as never}
+        />
+      </UiSlotsProvider>,
+    );
+    expect(document.body.textContent).toContain(
+      "Allowed once (Touch ID approvals from this window are once only)",
+    );
+  });
+
   it("shows the approval code the Touch ID sheet names", () => {
     showWithFix(vi.fn(), vi.fn());
     expect(screen.getByTestId("approval-code").textContent).toMatch(

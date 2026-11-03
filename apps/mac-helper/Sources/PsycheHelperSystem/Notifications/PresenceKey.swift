@@ -16,10 +16,11 @@ public protocol PresenceSigning: Sendable {
 }
 
 /// The Mac's Touch ID enrollment as an opaque hash (`LAContext.domainState.biometry.stateHash`):
-/// it changes when a fingerprint is added or removed, which is exactly what makes a
-/// `.biometryCurrentSet` key unusable. Recorded when a key is created, compared before each
-/// signature, so a dead key is reported (`presence_key_invalidated`) and replaced instead of failing
-/// every approval with no reason.
+/// it changes when a fingerprint is added or removed, which is what makes a `.biometryCurrentSet`
+/// key unusable, but it may also change without one (an OS update). So it is only a hint: recorded
+/// when a key is created, compared before each signature, and on a change the helper still tries
+/// to sign. Only when the Secure Enclave then refuses the key is it moved aside (never deleted) and
+/// reported as `presence_key_invalidated`; a key that still signs gets the new state recorded.
 public protocol BiometryStateSource: Sendable {
     func current() -> Data?
 }
@@ -35,13 +36,21 @@ public struct LiveBiometryState: BiometryStateSource {
 }
 
 public enum PresenceKeyErrors {
-    /// The fingerprints changed since the key was made: it can never sign again. The helper has
-    /// deleted it; the next `presence.public_key` makes a new one, which the owner registers again
-    /// (security §10, recovery).
-    public static let invalidated = CapabilityError(
-        .unavailable, reason: "presence_key_invalidated",
-        "Touch ID changed since this key was set up, so it can no longer sign. Set up Touch ID again in Settings → Devices."
-    )
+    /// Touch ID passed but the Secure Enclave refused the key (the fingerprints changed since it
+    /// was made). The helper has moved it aside, never deleted it; the next `presence.public_key`
+    /// makes a new one, which the owner registers again (security §10, recovery).
+    public static func invalidated(enrollmentChanged: Bool) -> CapabilityError {
+        CapabilityError(
+            .unavailable, reason: "presence_key_invalidated",
+            enrollmentChanged
+                ? "Touch ID changed since this key was set up, so it can no longer sign. Set up Touch ID again in Settings → Devices."
+                : "The Secure Enclave refused this Touch ID key. Set up Touch ID again in Settings → Devices.",
+            details: ["enrollmentChanged": .bool(enrollmentChanged)]
+        )
+    }
+
+    /// What a key backend throws when the Secure Enclave refuses a key after Touch ID passed.
+    public static let refused = CapabilityError(.unavailable, reason: "presence_key_refused", "The Secure Enclave refused the Touch ID key")
 }
 
 /// The helper's presence key: one Secure Enclave P-256 key in the data-protection keychain
@@ -167,8 +176,21 @@ public final class PresenceKey: PresenceSigning, @unchecked Sendable {
         return Base64URL.decode(String(label.dropFirst(Self.labelPrefix.count)))
     }
 
-    /// Deletes a key the enrollment change made unusable, so the next use makes a new one.
-    func discardInvalidated() {
+    private var itemQuery: [String: Any] {
+        var q = lookupQuery(context: nil)
+        q.removeValue(forKey: kSecReturnRef as String)
+        return q
+    }
+
+    /// A key that still signs under a new enrollment state: record that state.
+    func rerecord(_ state: Data) {
+        if !secureEnclave { return lock.withLock { ephemeralState = state } }
+        SecItemUpdate(itemQuery as CFDictionary, [kSecAttrLabel as String: Self.labelPrefix + Base64URL.encode(state)] as CFDictionary)
+    }
+
+    /// Moves a refused key aside under another tag (kept, never deleted), so the next use makes a
+    /// new one and the old one can still be inspected or restored.
+    func retire() {
         if !secureEnclave {
             lock.withLock {
                 ephemeral = nil
@@ -176,21 +198,19 @@ public final class PresenceKey: PresenceSigning, @unchecked Sendable {
             }
             return
         }
-        var q = lookupQuery(context: nil)
-        q.removeValue(forKey: kSecReturnRef as String)
-        SecItemDelete(q as CFDictionary)
+        let retiredTag = Data("com.psyche.helper.presence.retired.\(Int(Date().timeIntervalSince1970))".utf8)
+        SecItemUpdate(itemQuery as CFDictionary, [kSecAttrApplicationTag as String: retiredTag] as CFDictionary)
     }
 
     public func sign(challenge: String, reason: String) async throws -> PresenceSignature {
         guard PresenceMessage.isValidChallenge(challenge) else {
             throw CapabilityError.invalidParams("presenceChallenge must be 64 hex characters", field: "presenceChallenge")
         }
-        // Before any prompt: a key made under other fingerprints can never sign again.
+        // A changed enrollment hash is only a hint (an OS update can change it): still try to sign.
         _ = try privateKey()
-        if let recorded = recordedState(), let now = biometry.current(), recorded != now {
-            discardInvalidated()
-            throw PresenceKeyErrors.invalidated
-        }
+        let now = biometry.current()
+        let recorded = recordedState()
+        let changed = recorded != nil && now != nil && recorded != now
         var context: LAContext?
         if secureEnclave {
             // Evaluate exactly the key's access control, then sign with that context: one prompt.
@@ -207,8 +227,14 @@ public final class PresenceKey: PresenceSigning, @unchecked Sendable {
         let keyId = try publicKey().keyId
         var error: Unmanaged<CFError>?
         guard let der = SecKeyCreateSignature(key, Self.algorithm, PresenceMessage.bytes(challenge: challenge) as CFData, &error) as Data? else {
+            // Touch ID passed and the Secure Enclave still refused the key: it is dead.
+            if secureEnclave {
+                retire()
+                throw PresenceKeyErrors.invalidated(enrollmentChanged: changed)
+            }
             throw Self.failure(error?.takeRetainedValue())
         }
+        if changed, let now { rerecord(now) }
         return PresenceSignature(signature: Base64URL.encode(der), keyId: keyId)
     }
 
@@ -260,7 +286,8 @@ public enum PresenceCapabilities {
     static func confirmReason(summary: String, code: String) -> String {
         let oneLine = summary.split(whereSeparator: \.isNewline).joined(separator: " ")
             .filter { !$0.isASCII || $0.asciiValue.map { $0 >= 0x20 && $0 != 0x7F } == true }
-        return "approve \u{201C}\(NotificationLimits.truncate(oneLine, max: maxSummary))\u{201D} (code \(code)) in Psyche"
+        // The code first: it is what the owner compares with the card, and a long summary is cut.
+        return "approve code \(code): \u{201C}\(NotificationLimits.truncate(oneLine, max: maxSummary))\u{201D} in Psyche"
     }
 
     public static func make(key: any PresenceSigning) -> [any CapabilityHandler] {

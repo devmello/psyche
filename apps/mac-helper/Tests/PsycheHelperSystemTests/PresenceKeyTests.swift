@@ -100,26 +100,23 @@ struct PresenceKeyTests {
 
     @Test func theSheetNamesTheApprovalAndItsCode() {
         let r = PresenceCapabilities.confirmReason(summary: "Run `date`\non this Mac", code: "ab12-cd34")
-        #expect(r == "approve \u{201C}Run `date` on this Mac\u{201D} (code ab12-cd34) in Psyche")
+        #expect(r == "approve code ab12-cd34: \u{201C}Run `date` on this Mac\u{201D} in Psyche")
         #expect(PresenceCapabilities.confirmReason(summary: String(repeating: "a", count: 500), code: "ab12-cd34").count <= 140)
         #expect(!PresenceCapabilities.confirmReason(summary: "a\u{0007}b", code: "ab12-cd34").contains("\u{0007}"))
     }
 
-    @Test func aChangedEnrollmentRetiresTheKeychainKeyBeforeAnyPrompt() async throws {
+    @Test func aChangedEnrollmentHashAloneNeverKillsTheKeychainKey() async throws {
+        // An OS update can change the hash without a fingerprint change: still sign, keep the key.
         let state = MutableState(Data([1]))
         let key = PresenceKey(secureEnclave: false, biometry: state)
         let before = try key.publicKey().keyId
         _ = try await key.sign(challenge: Self.challenge, reason: "r")
         state.value = Data([2])
-        do {
-            _ = try await key.sign(challenge: Self.challenge, reason: "r")
-            Issue.record("expected presence_key_invalidated")
-        } catch let e as CapabilityError {
-            #expect(e.reason == "presence_key_invalidated")
-        }
-        // The dead key is gone: the next one is new, and it signs.
-        #expect(try key.publicKey().keyId != before)
-        _ = try await key.sign(challenge: Self.challenge, reason: "r")
+        let signed = try await key.sign(challenge: Self.challenge, reason: "r")
+        #expect(signed.keyId == before)
+        #expect(try key.publicKey().keyId == before)
+        // The new state is recorded, so the next signature sees no change.
+        #expect(key.recordedState() == Data([2]))
     }
 }
 
@@ -137,6 +134,13 @@ private struct SoftwareBackend: EnclaveKeyBackend {
     func sign(blob: Data, message: Data, reason: String) async throws -> Data {
         try P256.Signing.PrivateKey(rawRepresentation: blob).signature(for: message).derRepresentation
     }
+}
+
+/// A key the Secure Enclave refuses after Touch ID passed.
+private struct RefusingBackend: EnclaveKeyBackend {
+    func create() throws -> Data { P256.Signing.PrivateKey().rawRepresentation }
+    func publicKey(blob: Data) throws -> Data { try P256.Signing.PrivateKey(rawRepresentation: blob).publicKey.x963Representation }
+    func sign(blob: Data, message: Data, reason: String) async throws -> Data { throw PresenceKeyErrors.refused }
 }
 
 /// The seal secret in memory (the live one is in the login keychain).
@@ -258,10 +262,25 @@ struct EnclaveFilePresenceKeyTests {
         }
     }
 
-    @Test func aChangedEnrollmentRetiresTheFileKey() async throws {
+    @Test func aChangedEnrollmentHashAloneNeverKillsTheFileKey() async throws {
         let path = Self.tempPath()
+        let sealer = MemorySealer()
         let state = MutableState(Data([7]))
-        let key = Self.fileKey(path, state: state)
+        let key = Self.fileKey(path, sealer: sealer, state: state)
+        let before = try key.publicKey().keyId
+        state.value = Data([8])
+        let signed = try await key.sign(challenge: Self.challenge, reason: "r")
+        #expect(signed.keyId == before)
+        #expect(FileManager.default.fileExists(atPath: path))
+        // Re-sealed with the new state: a fresh process loads the same key and sees no change.
+        #expect(try Self.fileKey(path, sealer: sealer, state: state).current().sealed.state == Data([8]))
+    }
+
+    @Test func aKeyTheSecureEnclaveRefusesIsMovedAsideNotDeleted() async throws {
+        let path = Self.tempPath()
+        let sealer = MemorySealer()
+        let state = MutableState(Data([7]))
+        let key = EnclaveFilePresenceKey(path: path, backend: RefusingBackend(), sealer: sealer, biometry: state)
         let before = try key.publicKey().keyId
         state.value = Data([8])
         do {
@@ -269,7 +288,11 @@ struct EnclaveFilePresenceKeyTests {
             Issue.record("expected presence_key_invalidated")
         } catch let e as CapabilityError {
             #expect(e.reason == "presence_key_invalidated")
+            #expect(e.details["enrollmentChanged"] == .bool(true))
         }
+        let dir = (path as NSString).deletingLastPathComponent
+        let kept = try FileManager.default.contentsOfDirectory(atPath: dir).filter { $0.hasPrefix("presence-key.se.retired-") }
+        #expect(kept.count == 1)
         #expect(!FileManager.default.fileExists(atPath: path))
         #expect(try key.publicKey().keyId != before)
     }

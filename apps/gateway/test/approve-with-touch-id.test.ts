@@ -406,6 +406,50 @@ describe("approvals.approveWithTouchId (window Allow on a Touch ID card)", () =>
     await pending;
   });
 
+  it("two calls at the same moment raise one sheet (the guard is taken before the precheck)", async () => {
+    let asked = 0;
+    let release: (v: unknown) => void = () => undefined;
+    const { admin } = await setup({
+      confirm: () => {
+        asked++;
+        return new Promise((r) => {
+          release = r;
+        });
+      },
+    });
+    const first = await securityCard(admin);
+    const second = await admin.request(
+      "settings.set",
+      { key: "permissions.policy", value: { deny: [] } },
+      ik(),
+    );
+    const secondId = (second as { error: { details: { approvalId: string } } }).error.details
+      .approvalId;
+    const got = await admin.call<{ answerToken?: string }>("approvals.get", {
+      approvalId: secondId,
+    });
+    await new Promise((r) => setTimeout(r, 450));
+    // Both sent before either is answered: no await between them.
+    const a = admin.request(
+      "approvals.approveWithTouchId",
+      { approvalId: first.approval.id, answerToken: first.token },
+      ik(),
+    );
+    const b = admin.request(
+      "approvals.approveWithTouchId",
+      { approvalId: secondId, answerToken: got.answerToken ?? "" },
+      ik(),
+    );
+    await new Promise((r) => setTimeout(r, 150));
+    expect(asked).toBe(1);
+    release({ signature: "x" });
+    const results = await Promise.all([a, b]);
+    expect(
+      results.filter((r) => (r as { error?: { code?: string } }).error?.code === "conflict"),
+    ).toHaveLength(1);
+    expect(asked).toBe(1);
+  });
+
   it("a cancelled or failed sheet counts as a rejected answer", async () => {
     const { c, admin } = await setup({
       confirm: () => {
