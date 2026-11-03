@@ -194,7 +194,10 @@ export function MailMeetingsPanel({
         error={error}
         {...(onRetry ? { onRetry } : {})}
       >
-        <Group title={t("settings.mail.group.master")}>
+        <Group
+          title={t("settings.mail.group.master")}
+          description={t("settings.mail.group.masterHint")}
+        >
           <SwitchField
             label={t("settings.key.workflows.paused")}
             description={t("settings.mail.paused.hint")}
@@ -212,7 +215,10 @@ export function MailMeetingsPanel({
           />
         </Group>
 
-        <Group title={t("settings.mail.group.accounts")}>
+        <Group
+          title={t("settings.mail.group.accounts")}
+          description={t("settings.mail.group.accountsHint")}
+        >
           {accounts.length === 0 ? (
             <div className="flex flex-wrap items-center gap-3">
               <p className="min-w-0 flex-1 text-callout text-label-secondary">
@@ -237,7 +243,10 @@ export function MailMeetingsPanel({
           )}
         </Group>
 
-        <Group title={t("settings.mail.group.digest")}>
+        <Group
+          title={t("settings.mail.group.digest")}
+          description={t("settings.mail.group.digestHint")}
+        >
           <SwitchField
             label={t("settings.key.mail.digest.enabled")}
             settingKey="mail.digest.enabled"
@@ -292,7 +301,10 @@ export function MailMeetingsPanel({
           </div>
         </Group>
 
-        <Group title={t("settings.mail.group.followups")}>
+        <Group
+          title={t("settings.mail.group.followups")}
+          description={t("settings.mail.group.followupsHint")}
+        >
           <SwitchField
             label={t("settings.key.mail.followups.enabled")}
             settingKey="mail.followups.enabled"
@@ -318,7 +330,10 @@ export function MailMeetingsPanel({
           />
         </Group>
 
-        <Group title={t("settings.mail.group.style")}>
+        <Group
+          title={t("settings.mail.group.style")}
+          description={t("settings.mail.group.styleHint")}
+        >
           <SwitchField
             label={t("settings.key.mail.voice.enabled")}
             description={t("settings.mail.voice.learn.hint")}
@@ -385,7 +400,10 @@ export function MailMeetingsPanel({
           )}
         </Group>
 
-        <Group title={t("settings.mail.group.scheduling")}>
+        <Group
+          title={t("settings.mail.group.scheduling")}
+          description={t("settings.mail.group.schedulingHint")}
+        >
           <div className="flex flex-col gap-1">
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex min-w-0 flex-1 flex-col">
@@ -512,7 +530,10 @@ export function MailMeetingsPanel({
           />
         </Group>
 
-        <Group title={t("settings.mail.group.notes")}>
+        <Group
+          title={t("settings.mail.group.notes")}
+          description={t("settings.mail.group.notesHint")}
+        >
           <SwitchField
             label={t("settings.key.meetings.notes.enabled")}
             description={t("settings.mail.notes.enabled.hint")}

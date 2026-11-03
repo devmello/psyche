@@ -314,7 +314,10 @@ export function SpecialistsPanel({
         error={error}
         {...(onRetry ? { onRetry } : {})}
       >
-        <Group title={t("settings.specialists.all")}>
+        <Group
+          title={t("settings.specialists.all")}
+          description={t("settings.specialists.allHint")}
+        >
           <div className="flex flex-col gap-1">
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex min-w-0 flex-1 flex-col">

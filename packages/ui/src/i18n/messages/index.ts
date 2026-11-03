@@ -32,6 +32,7 @@ import { screens } from "./screens.ts";
 import { selfConnectors } from "./self-connectors.ts";
 import { settings } from "./settings.ts";
 import { settingsLanguage } from "./settings-language.ts";
+import { settingsSections } from "./settings-sections.ts";
 import { shell } from "./shell.ts";
 import { skillAuthor } from "./skill-author.ts";
 import { specialists } from "./specialists.ts";
@@ -66,6 +67,7 @@ export const en = {
   ...shell,
   ...settings,
   ...settingsLanguage,
+  ...settingsSections,
   ...skillAuthor,
   ...selfConnectors,
   ...deviceAccess,

@@ -7,6 +7,7 @@ import { t } from "../../i18n/core.ts";
 import { usePersona } from "../../slots.tsx";
 import { AccessListView, ConnectedAccessList } from "./AccessList.tsx";
 import {
+  Advanced,
   EmptyNotice,
   ErrorNotice,
   Group,
@@ -289,16 +290,18 @@ export function FileAccessPanel({
           <SettingHint settingKey={POLICY_KEY} />
         </Group>
         {/* Security §5.4: off by default; each command still asks on the Mac. */}
-        <Group
-          title={t("settings.files.execHost")}
-          description={t("settings.files.execHostHint", { persona })}
-        >
-          <SwitchField
-            label={t("settings.files.execHostSwitch")}
-            checked={execHostEnabled(values)}
-            onChange={(on) => onChange(POLICY_KEY, policyWithExecHost(values, on))}
-          />
-        </Group>
+        <Advanced description={t("settings.files.advancedHint")}>
+          <Group
+            title={t("settings.files.execHost")}
+            description={t("settings.files.execHostHint", { persona })}
+          >
+            <SwitchField
+              label={t("settings.files.execHostSwitch")}
+              checked={execHostEnabled(values)}
+              onChange={(on) => onChange(POLICY_KEY, policyWithExecHost(values, on))}
+            />
+          </Group>
+        </Advanced>
         <details className="group flex flex-col gap-2 px-1">
           <summary className="w-fit cursor-default text-body text-label-primary outline-none marker:text-label-tertiary focus-visible:ring-2 focus-visible:ring-ring">
             {t("settings.files.addYourself")}
