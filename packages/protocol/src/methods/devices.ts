@@ -1,5 +1,5 @@
 import { Type } from "@sinclair/typebox";
-import { DeviceScope, Id, IsoDateTime } from "../common.ts";
+import { DeviceScope, Id, IsoDateTime, StringEnum } from "../common.ts";
 import { Device, PairingRequest, PairingStatus } from "../schemas/identity.ts";
 import { defineMethod } from "./define.ts";
 
@@ -13,6 +13,13 @@ export const PresenceKeyInfo = Type.Object(
     deviceId: Id,
     keyId: KeyId,
     registeredAt: IsoDateTime,
+    /**
+     * Where the helper keeps it: `keychain` (data-protection keychain, bound to the helper's
+     * access group), or `enclave_file` (a Secure Enclave key whose wrapped blob is a file, on
+     * builds without a provisioning profile; any same-user process could ask it to sign behind
+     * its own Touch ID prompt, security §10). Absent for keys registered before it was reported.
+     */
+    kind: Type.Optional(StringEnum(["keychain", "enclave_file"])),
   },
   { $id: "PresenceKeyInfo" },
 );

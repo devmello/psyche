@@ -1,4 +1,4 @@
-import type { Device, DeviceScope, NodeInfo, PairingRequest } from "@psyche/protocol";
+import type { Device, DeviceScope, MethodResult, NodeInfo, PairingRequest } from "@psyche/protocol";
 import { type ReactElement, useCallback, useId, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { Checkbox } from "../../components/ui/checkbox.tsx";
@@ -43,10 +43,24 @@ export function keyFingerprint(publicKey: string): string {
   return (publicKey.slice(0, 16).match(/.{1,4}/g) ?? []).join(" ");
 }
 
+/** A registered helper Touch ID key (`devices.presenceKey.list`). */
+export type PresenceKeyRow = MethodResult<"devices.presenceKey.list">["presenceKeys"][number];
+
+/** Which Touch ID key a helper signs approvals with, in the owner's words. */
+export function presenceKeyText(k: PresenceKeyRow): string {
+  return k.kind === "enclave_file"
+    ? t("settings.devices.presenceKey.enclaveFile")
+    : k.kind === "keychain"
+      ? t("settings.devices.presenceKey.keychain")
+      : t("settings.devices.presenceKey.unknown");
+}
+
 export interface DevicesPanelProps extends LoadProps {
   devices: readonly Device[];
   pairing: readonly PairingRequest[];
   nodes: readonly NodeInfo[];
+  /** Registered helper Touch ID keys; each shows on its helper's row with its kind. */
+  presenceKeys?: readonly PresenceKeyRow[];
   now?: number;
   thisDeviceId?: string;
   onApprove?: (request: PairingRequest, scopes: DeviceScope[]) => void;
@@ -59,6 +73,7 @@ export function DevicesPanel({
   devices,
   pairing,
   nodes,
+  presenceKeys = [],
   now,
   thisDeviceId,
   onApprove,
@@ -227,6 +242,17 @@ export function DevicesPanel({
                         : t("settings.devices.lastSeenNever")}
                     </span>
                   </div>
+                  {presenceKeys
+                    .filter((k) => k.deviceId === n.deviceId)
+                    .map((k) => (
+                      <p
+                        key={k.keyId}
+                        className="text-callout text-muted-foreground"
+                        data-testid="presence-key"
+                      >
+                        {presenceKeyText(k)}
+                      </p>
+                    ))}
                   <ul
                     className="flex flex-wrap gap-1"
                     aria-label={t("settings.devices.capabilitiesOf", {
@@ -350,12 +376,14 @@ export function DevicesSection({
   const devicesQ = useGatewayQuery("devices.list", { includeRevoked: true });
   const pairingQ = useGatewayQuery("devices.pairing.list", { status: "pending" });
   const nodesQ = useGatewayQuery("nodes.list", {});
+  const keysQ = useGatewayQuery("devices.presenceKey.list", {});
   const [actionError, setActionError] = useState<string | null>(null);
   const reloadAll = useCallback(() => {
     devicesQ.reload();
     pairingQ.reload();
     nodesQ.reload();
-  }, [devicesQ.reload, pairingQ.reload, nodesQ.reload]);
+    keysQ.reload();
+  }, [devicesQ.reload, pairingQ.reload, nodesQ.reload, keysQ.reload]);
 
   const run = (action: DeviceAction, p: Promise<unknown>) => {
     setActionError(null);
@@ -367,6 +395,7 @@ export function DevicesSection({
       devices={devicesQ.data?.devices ?? []}
       pairing={pairingQ.data?.pairingRequests ?? []}
       nodes={nodesQ.data?.nodes ?? []}
+      presenceKeys={keysQ.data?.presenceKeys ?? []}
       loading={devicesQ.loading && devicesQ.data === undefined}
       error={devicesQ.error ?? nodesQ.error}
       onRetry={reloadAll}

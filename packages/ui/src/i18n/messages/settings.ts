@@ -1374,6 +1374,10 @@ export const settings = {
   "settings.devices.keyLastSeenNever": "· last seen never",
   "settings.devices.lastSeen": "last seen {when}",
   "settings.devices.lastSeenNever": "last seen never",
+  "settings.devices.presenceKey.keychain": "Touch ID key (keychain)",
+  "settings.devices.presenceKey.enclaveFile":
+    "Touch ID key (Secure Enclave file, this build has no provisioning profile)",
+  "settings.devices.presenceKey.unknown": "Touch ID key",
   "settings.devices.revoked": "Revoked ({n, number})",
   "settings.devices.revokedItem": "{name}, revoked {when}",
   "settings.devices.nodes": "Nodes",

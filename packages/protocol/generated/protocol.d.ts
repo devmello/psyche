@@ -3698,8 +3698,11 @@ export interface DevicesPresenceKeyListResult {
 export interface PresenceKeyInfo {
     deviceId:     string;
     keyId:        string;
+    kind?:        PresenceKeyInfoKind;
     registeredAt: string;
 }
+
+export type PresenceKeyInfoKind = "keychain" | "enclave_file";
 
 export interface DevicesPresenceKeyRegisterParams {
     approvalId?:  string;

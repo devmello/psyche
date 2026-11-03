@@ -47,3 +47,53 @@ describe("Settings → Devices: the first admin", () => {
     expect(screen.getByText("This device")).toBeTruthy();
   });
 });
+
+describe("Settings → Devices: which Touch ID key the helper uses", () => {
+  const helper = {
+    id: "n1",
+    deviceId: "d1",
+    kind: "mac-helper",
+    capabilities: [],
+    status: "online",
+    lastHeartbeatAt: null,
+  } as unknown as Parameters<typeof DevicesPanel>[0]["nodes"][number];
+  const key = (kind?: "keychain" | "enclave_file") => ({
+    deviceId: "d1",
+    keyId: "a".repeat(64),
+    registeredAt: "2026-11-02T10:00:00.000Z",
+    ...(kind === undefined ? {} : { kind }),
+  });
+
+  it("names the keychain key and the Secure Enclave file in plain words", () => {
+    const { rerender } = render(
+      <StoryWorld>
+        <DevicesPanel
+          devices={[mac]}
+          pairing={[]}
+          nodes={[helper]}
+          presenceKeys={[key("keychain")]}
+        />
+      </StoryWorld>,
+    );
+    expect(screen.getByTestId("presence-key").textContent).toBe("Touch ID key (keychain)");
+    rerender(
+      <StoryWorld>
+        <DevicesPanel
+          devices={[mac]}
+          pairing={[]}
+          nodes={[helper]}
+          presenceKeys={[key("enclave_file")]}
+        />
+      </StoryWorld>,
+    );
+    expect(screen.getByTestId("presence-key").textContent).toBe(
+      "Touch ID key (Secure Enclave file, this build has no provisioning profile)",
+    );
+    rerender(
+      <StoryWorld>
+        <DevicesPanel devices={[mac]} pairing={[]} nodes={[helper]} />
+      </StoryWorld>,
+    );
+    expect(screen.queryByTestId("presence-key")).toBeNull();
+  });
+});

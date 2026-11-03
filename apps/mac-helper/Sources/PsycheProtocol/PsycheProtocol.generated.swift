@@ -11747,19 +11747,27 @@ public struct DevicesPresenceKeyListResult: Codable, Sendable {
 public struct PresenceKeyInfo: Codable, Sendable {
     public let deviceID: String
     public let keyID: String
+    public let kind: PresenceKeyInfoKind?
     public let registeredAt: String
 
     public enum CodingKeys: String, CodingKey {
         case deviceID = "deviceId"
         case keyID = "keyId"
+        case kind = "kind"
         case registeredAt = "registeredAt"
     }
 
-    public init(deviceID: String, keyID: String, registeredAt: String) {
+    public init(deviceID: String, keyID: String, kind: PresenceKeyInfoKind?, registeredAt: String) {
         self.deviceID = deviceID
         self.keyID = keyID
+        self.kind = kind
         self.registeredAt = registeredAt
     }
+}
+
+public enum PresenceKeyInfoKind: String, Codable, Sendable {
+    case enclaveFile = "enclave_file"
+    case keychain = "keychain"
 }
 
 // MARK: - DevicesPresenceKeyRegisterParams

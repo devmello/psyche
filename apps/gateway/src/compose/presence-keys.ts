@@ -15,15 +15,24 @@ import { INTERNAL_SETTING_PREFIX } from "../state-version.ts";
  * Limit: any same-user process holding the handshake secret can pair as a helper (design-19), so
  * the owner should compare the key id with the one the genuine helper shows (`expectKeyId`)
  * until peer code signatures are checked.
+ *
+ * Limit (`kind: enclave_file`): a build without a provisioning profile keeps its Secure Enclave key
+ * as a wrapped blob file instead of in the keychain. Every signature still needs Touch ID inside
+ * the Secure Enclave, but any same-user process can read the blob and ask for one behind its own
+ * prompt and wording. Same trust boundary as the pairing limit above; Settings → Devices names
+ * the kind so the owner knows which one is in use.
  */
 
 export const PRESENCE_KEYS_SETTING = `${INTERNAL_SETTING_PREFIX}presence.helperKeys`;
+
+export type PresenceKeyKind = "keychain" | "enclave_file";
 
 /** `PresenceKeyInfo` in the protocol. */
 export interface PresenceKeyInfo {
   deviceId: string;
   keyId: string;
   registeredAt: string;
+  kind?: PresenceKeyKind;
 }
 
 interface StoredKey {
@@ -31,6 +40,11 @@ interface StoredKey {
   publicKey: string;
   keyId: string;
   registeredAt: string;
+  kind?: PresenceKeyKind;
+}
+
+function kindOf(v: unknown): PresenceKeyKind | undefined {
+  return v === "keychain" || v === "enclave_file" ? v : undefined;
 }
 
 export function presenceKeyId(publicKey: string): string {
@@ -65,17 +79,28 @@ export class HelperPresenceKeys {
   list(): PresenceKeyInfo[] {
     return Object.entries(this.#all())
       .filter(([deviceId]) => this.#live(deviceId))
-      .map(([deviceId, k]) => ({ deviceId, keyId: k.keyId, registeredAt: k.registeredAt }));
+      .map(([deviceId, k]) => ({
+        deviceId,
+        keyId: k.keyId,
+        registeredAt: k.registeredAt,
+        ...(k.kind === undefined ? {} : { kind: k.kind }),
+      }));
   }
 
-  set(deviceId: string, publicKey: string, now: Date): PresenceKeyInfo {
+  set(deviceId: string, publicKey: string, now: Date, kind?: PresenceKeyKind): PresenceKeyInfo {
     const stored: StoredKey = {
       publicKey,
       keyId: presenceKeyId(publicKey),
       registeredAt: now.toISOString(),
+      ...(kind === undefined ? {} : { kind }),
     };
     setSetting(this.#db, PRESENCE_KEYS_SETTING, { ...this.#all(), [deviceId]: stored });
-    return { deviceId, keyId: stored.keyId, registeredAt: stored.registeredAt };
+    return {
+      deviceId,
+      keyId: stored.keyId,
+      registeredAt: stored.registeredAt,
+      ...(kind === undefined ? {} : { kind }),
+    };
   }
 
   remove(deviceId: string): boolean {
@@ -127,7 +152,7 @@ export function presenceKeyHandlers(deps: PresenceKeyDeps): Record<string, Handl
           );
         }
         const res = await deps.invoke(nodeId, "presence.public_key");
-        const out = (res.result ?? {}) as { publicKey?: unknown; keyId?: unknown };
+        const out = (res.result ?? {}) as { publicKey?: unknown; keyId?: unknown; kind?: unknown };
         if (!res.ok || typeof out.publicKey !== "string" || !isP256Point(out.publicKey)) {
           throw new PsycheError(
             "unavailable",
@@ -155,8 +180,13 @@ export function presenceKeyHandlers(deps: PresenceKeyDeps): Record<string, Handl
           },
           params.approvalId,
         );
-        const presenceKey = deps.store.set(deviceId, out.publicKey, deps.now());
-        audit("presence_key.registered", { deviceId, keyId });
+        const kind = kindOf(out.kind);
+        const presenceKey = deps.store.set(deviceId, out.publicKey, deps.now(), kind);
+        audit("presence_key.registered", {
+          deviceId,
+          keyId,
+          ...(kind === undefined ? {} : { kind }),
+        });
         call.ctx.presenceState(); // records the enrollment (sticky)
         return { presenceKey };
       },

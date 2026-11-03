@@ -50,11 +50,15 @@ function signChallenge(privateKey: KeyObject, challenge: string): string {
 
 type Confirm = (p: { challenge: string; header: string }) => unknown;
 
-function helperHandlers(key: ReturnType<typeof enclaveKey>, confirm?: Confirm): FakeNodeHandler[] {
+function helperHandlers(
+  key: ReturnType<typeof enclaveKey>,
+  confirm?: Confirm,
+  kind?: string,
+): FakeNodeHandler[] {
   return [
     {
       capability: { name: "presence.public_key", sideEffect: "read", streaming: false },
-      run: () => ({ publicKey: key.publicKey, keyId: key.keyId }),
+      run: () => ({ publicKey: key.publicKey, keyId: key.keyId, ...(kind ? { kind } : {}) }),
     },
     ...(confirm === undefined
       ? []
@@ -83,7 +87,9 @@ function helperHandlers(key: ReturnType<typeof enclaveKey>, confirm?: Confirm): 
   ];
 }
 
-async function setup(opts: { helper?: boolean; confirm?: Confirm; register?: boolean } = {}) {
+async function setup(
+  opts: { helper?: boolean; confirm?: Confirm; register?: boolean; kind?: string } = {},
+) {
   home = mkdtempSync(join(tmpdir(), "psyche-touchid-"));
   composed = await composeGateway({
     env: {},
@@ -102,7 +108,7 @@ async function setup(opts: { helper?: boolean; confirm?: Confirm; register?: boo
     const node = await FakeNode.connect(composed.gateway.config.nodeSocketPath, {
       origin: composed.gateway.origin,
       secret: composed.gateway.handshakeSecret,
-      handlers: helperHandlers(key, opts.confirm),
+      handlers: helperHandlers(key, opts.confirm, opts.kind),
       deviceId: helperDevice,
     });
     nodes.push(node);
@@ -302,5 +308,19 @@ describe("approvals.approveWithTouchId (window Allow on a Touch ID card)", () =>
         ),
       ).toMatchObject({ ok: false, error: { code: "forbidden" } });
     }
+  });
+
+  it("records which key the helper uses: keychain, or the Secure Enclave file on unprofiled builds", async () => {
+    const { admin, helperDevice } = await setup({ kind: "enclave_file" });
+    expect(await admin.call("devices.presenceKey.list", {})).toMatchObject({
+      presenceKeys: [{ deviceId: helperDevice, kind: "enclave_file" }],
+    });
+    await reset();
+    const old = await setup({ kind: "something-else" });
+    const listed = await old.admin.call<{ presenceKeys: Record<string, unknown>[] }>(
+      "devices.presenceKey.list",
+      {},
+    );
+    expect(listed.presenceKeys[0]).not.toHaveProperty("kind");
   });
 });
