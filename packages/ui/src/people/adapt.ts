@@ -161,7 +161,7 @@ export function toSuggestionView(
   details: ReadonlyMap<string, string> = new Map(),
 ): SuggestionView {
   const entities =
-    suggestion.kind === "project" && suggestion.name
+    suggestion.kind !== "merge" && suggestion.name
       ? [{ id: suggestion.entityIds[0] ?? suggestion.id, name: suggestion.name, detail: null }]
       : suggestion.entityIds.map((id) => ({
           id,

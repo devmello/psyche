@@ -9,11 +9,14 @@ import { Id, IsoDateTime, Nullable, Provenance, StringEnum } from "../common.ts"
  * attribute and are never stored.
  */
 
-export const GraphEntityKind = StringEnum(["person", "org", "project", "place", "event", "topic"], {
-  $id: "GraphEntityKind",
-  description:
-    "person, organisation, project, place, event (dated, may recur) or topic (a lightweight label)",
-});
+export const GraphEntityKind = StringEnum(
+  ["person", "org", "project", "place", "event", "topic", "assignment"],
+  {
+    $id: "GraphEntityKind",
+    description:
+      "person, organisation, project (or course), place, event (dated, may recur), topic (a lightweight label) or assignment (one deliverable with a due date)",
+  },
+);
 export type GraphEntityKind = Static<typeof GraphEntityKind>;
 
 export const GraphEntityStatus = StringEnum(["active", "archived", "merged"], {
@@ -25,6 +28,23 @@ export const GraphProjectStatus = StringEnum(["active", "paused", "done"], {
   $id: "GraphProjectStatus",
 });
 export type GraphProjectStatus = Static<typeof GraphProjectStatus>;
+
+/**
+ * What a project is (docs/design/memory-everything-2026.md §2.2). A course has the life cycle,
+ * members and timeline of a project; only its fields and label differ.
+ */
+export const GraphProjectType = StringEnum(["project", "course"], { $id: "GraphProjectType" });
+export type GraphProjectType = Static<typeof GraphProjectType>;
+
+/**
+ * Stored status of an assignment (§3.4). `overdue`, `blocked` and `stale` are computed, never
+ * stored, so they are not here.
+ */
+export const GraphWorkStatus = StringEnum(
+  ["not_started", "in_progress", "submitted", "done", "dropped"],
+  { $id: "GraphWorkStatus" },
+);
+export type GraphWorkStatus = Static<typeof GraphWorkStatus>;
 
 /** Unique merge keys (§4.2). `contact` is the Contacts card identifier. */
 export const GraphIdentifierKind = StringEnum(
@@ -89,6 +109,13 @@ export const GraphFactAttribute = StringEnum(
     "languages",
     "contact_pref",
     "life_event",
+    // Memory for everything: work attributes (docs/design/memory-everything-2026.md §2.3).
+    "progress",
+    "stopped_at",
+    "blocked_on",
+    "course_code",
+    "term",
+    "meets",
   ],
   { $id: "GraphFactAttribute" },
 );
@@ -285,6 +312,9 @@ export const GraphEdgeRel = StringEnum(
     "lives_in",
     "attended",
     "about",
+    // Memory for everything (§2.4): who set an assignment, and who teaches a course.
+    "assigned_by",
+    "teaches",
   ],
   { $id: "GraphEdgeRel" },
 );
@@ -330,7 +360,19 @@ export const GraphEdge = Type.Object(
 export type GraphEdge = Static<typeof GraphEdge>;
 
 export const GraphInteractionKind = StringEnum(
-  ["mail", "message", "meeting", "call", "note", "chat", "task"],
+  [
+    "mail",
+    "message",
+    "meeting",
+    "call",
+    "note",
+    "chat",
+    "task",
+    // Memory for everything (§2.6): pointers to work signals, never contents.
+    "file",
+    "reminder",
+    "work",
+  ],
   { $id: "GraphInteractionKind" },
 );
 export type GraphInteractionKind = Static<typeof GraphInteractionKind>;
@@ -356,6 +398,15 @@ export const GraphInteraction = Type.Object(
     ),
     projectId: Nullable(Id),
     participants: Type.Array(Type.Object({ entityId: Id, role: GraphParticipantRole })),
+    // Memory for everything (§2.6). Optional so older producers stay valid.
+    gist: Type.Optional(
+      Nullable(
+        Type.String({
+          maxLength: 120,
+          description: "One line on what the conversation was about; source provenance applies",
+        }),
+      ),
+    ),
   },
   { $id: "GraphInteraction" },
 );
@@ -404,6 +455,15 @@ export const GraphEntity = Type.Object(
     hidden: Type.Boolean({ description: "Don't track: nothing new is stored about them" }),
     projectStatus: Type.Optional(GraphProjectStatus),
     dueAt: Nullable(IsoDateTime),
+    // Memory for everything (§2.3): cached columns, optional so older producers stay valid.
+    projectType: Type.Optional(GraphProjectType),
+    workStatus: Type.Optional(Nullable(GraphWorkStatus)),
+    lastSignalAt: Type.Optional(Nullable(IsoDateTime)),
+    private: Type.Optional(
+      Type.Boolean({
+        description: "Keep private: shown on its Memory page only, never on a surface (§4)",
+      }),
+    ),
     summary: Nullable(
       Type.String({ maxLength: 400, description: "Model-written (agent provenance), dated" }),
     ),
@@ -429,6 +489,10 @@ export const EntitySummary = Type.Object(
     summary: Nullable(Type.String()),
     status: GraphEntityStatus,
     projectStatus: Type.Optional(GraphProjectStatus),
+    projectType: Type.Optional(GraphProjectType),
+    workStatus: Type.Optional(Nullable(GraphWorkStatus)),
+    dueAt: Type.Optional(Nullable(IsoDateTime)),
+    private: Type.Optional(Type.Boolean()),
     lastInteractionAt: Nullable(IsoDateTime),
     openLoops: Type.Integer({ minimum: 0 }),
     pinned: Type.Boolean(),
@@ -458,11 +522,20 @@ export type GraphEntityDetail = Static<typeof GraphEntityDetail>;
 export const GraphSuggestion = Type.Object(
   {
     id: Id,
-    kind: StringEnum(["merge", "project"], { $id: "GraphSuggestionKind" }),
+    kind: StringEnum(["merge", "project", "assignment"], { $id: "GraphSuggestionKind" }),
     entityIds: Type.Array(Id, {
-      description: "merge: the entities; project: the proposed members",
+      description:
+        "merge: the entities; project: the proposed members; assignment: the parent project or course, if any",
     }),
-    name: Nullable(Type.String({ maxLength: 200, description: "project: the proposed name" })),
+    name: Nullable(
+      Type.String({
+        maxLength: 200,
+        description: "project: the proposed name; assignment: its title (untrusted text)",
+      }),
+    ),
+    // Memory for everything (§3.2): a course is a project suggestion with a type.
+    projectType: Type.Optional(GraphProjectType),
+    dueAt: Type.Optional(Nullable(IsoDateTime)),
     reason: Type.String({ maxLength: 300, description: "Why it was suggested, in plain words" }),
     status: StringEnum(["pending", "accepted", "rejected", "later"], {
       $id: "GraphSuggestionStatus",
@@ -547,3 +620,186 @@ export const GraphStatus = Type.Object(
   { $id: "GraphStatus" },
 );
 export type GraphStatus = Static<typeof GraphStatus>;
+
+// --- Memory for everything: anchors, timeline, catch-up (docs/design/memory-everything-2026.md) ---
+
+/** What an anchor points at (§2.5). Anchors are routing hints, not entities. */
+export const GraphAnchorKind = StringEnum(
+  [
+    "folder",
+    "file",
+    "mail_thread",
+    "calendar_series",
+    "calendar",
+    "reminder_list",
+    "reminder",
+    "note",
+    "note_folder",
+    "chat_thread",
+    "library_item",
+    "repo",
+  ],
+  { $id: "GraphAnchorKind" },
+);
+export type GraphAnchorKind = Static<typeof GraphAnchorKind>;
+
+/**
+ * "Signals from here belong to this item" (§2.5). Only `owner` and `rule` anchors route signals;
+ * a `model` anchor stays a suggestion until the owner confirms it.
+ */
+export const GraphAnchor = Type.Object(
+  {
+    id: Id,
+    entityId: Id,
+    kind: GraphAnchorKind,
+    ref: Type.String({
+      minLength: 1,
+      maxLength: 1024,
+      description: "Path, thread key, calendar or reminder list id, note id or repo path",
+    }),
+    label: Type.String({ maxLength: 200, description: "Display name; third-party text is data" }),
+    addedBy: StringEnum(["owner", "rule", "model"], { $id: "GraphAnchorAddedBy" }),
+    confirmed: Type.Boolean({ description: "Model anchors route nothing until this is true" }),
+    createdAt: IsoDateTime,
+  },
+  { $id: "GraphAnchor" },
+);
+export type GraphAnchor = Static<typeof GraphAnchor>;
+
+/** Where a timeline row comes from (§3.5). */
+export const GraphTimelineKind = StringEnum(["interaction", "fact", "loop"], {
+  $id: "GraphTimelineKind",
+});
+export type GraphTimelineKind = Static<typeof GraphTimelineKind>;
+
+/** The citation chip every timeline row carries ("From your note, Nov 1"). */
+export const GraphTimelineChip = Type.Object(
+  {
+    source: GraphCitationSource,
+    label: Type.String({ maxLength: 200, description: "Sender, list or file name: data" }),
+    citationId: Nullable(Id),
+    link: Nullable(Type.String({ maxLength: 1024, description: "Opens the source" })),
+  },
+  { $id: "GraphTimelineChip" },
+);
+export type GraphTimelineChip = Static<typeof GraphTimelineChip>;
+
+/** One row of an item's timeline: a view over interactions, fact history and loops (§3.5). */
+export const GraphTimelineRow = Type.Object(
+  {
+    id: Id,
+    at: IsoDateTime,
+    kind: GraphTimelineKind,
+    interactionKind: Type.Optional(GraphInteractionKind),
+    entityId: Id,
+    text: Type.String({ maxLength: 400, description: "Built from templates; titles are data" }),
+    provenance: Provenance,
+    change: Type.Optional(
+      Type.Object({
+        attribute: GraphFactAttribute,
+        from: Nullable(Type.String({ maxLength: 2000 })),
+        to: Type.String({ maxLength: 2000 }),
+      }),
+    ),
+    chip: Nullable(GraphTimelineChip),
+  },
+  { $id: "GraphTimelineRow" },
+);
+export type GraphTimelineRow = Static<typeof GraphTimelineRow>;
+
+export const CatchUpUrgency = StringEnum(["overdue", "today", "soon", "later", "none"], {
+  $id: "CatchUpUrgency",
+});
+export type CatchUpUrgency = Static<typeof CatchUpUrgency>;
+
+/** `overdue` and `blocked` are computed (§3.4); the rest are stored statuses. */
+export const CatchUpStatus = StringEnum(
+  [
+    "not_started",
+    "in_progress",
+    "submitted",
+    "done",
+    "dropped",
+    "overdue",
+    "blocked",
+    "active",
+    "paused",
+  ],
+  { $id: "CatchUpStatus" },
+);
+export type CatchUpStatus = Static<typeof CatchUpStatus>;
+
+export const CatchUpAction = StringEnum(["open", "continue", "done", "snooze", "confirm"], {
+  $id: "CatchUpAction",
+});
+export type CatchUpAction = Static<typeof CatchUpAction>;
+
+/** What the owner can do to a catch-up line with `memory.catchup.act`. */
+export const CatchUpActAction = StringEnum(
+  ["done", "snooze", "submitted", "still_working", "drop"],
+  {
+    $id: "CatchUpActAction",
+    description:
+      "done / submitted / drop set the status; snooze hides it until `until`; still_working answers a past-due ask (optionally with a new due date in `until`)",
+  },
+);
+export type CatchUpActAction = Static<typeof CatchUpActAction>;
+
+export const CatchUpResumeKind = StringEnum(["file", "thread", "chat", "library"], {
+  $id: "CatchUpResumeKind",
+});
+export type CatchUpResumeKind = Static<typeof CatchUpResumeKind>;
+
+/** What changed since the owner last looked (§5.1), at most two per line. */
+export const CatchUpChange = Type.Object(
+  {
+    text: Type.String({ maxLength: 200, description: "Quoted, cleaned data" }),
+    at: IsoDateTime,
+    source: GraphCitationSource,
+    provenance: Provenance,
+    citationId: Nullable(Id),
+  },
+  { $id: "CatchUpChange" },
+);
+export type CatchUpChange = Static<typeof CatchUpChange>;
+
+/** Where the owner stopped, and what opens it (§5.4). */
+export const CatchUpResume = Type.Object(
+  {
+    text: Type.String({ maxLength: 200 }),
+    at: IsoDateTime,
+    open: Type.Object({
+      kind: CatchUpResumeKind,
+      ref: Type.String({ maxLength: 1024 }),
+    }),
+  },
+  { $id: "CatchUpResume" },
+);
+export type CatchUpResume = Static<typeof CatchUpResume>;
+
+/**
+ * One line of "Catching up" for the brief and Home (§5.6). Built by code from accepted items
+ * only (W2), already filtered for the surface. `provenance` is the lowest of its parts: any
+ * untrusted part taints an agent turn that reads it (§7.4).
+ */
+export const CatchUpItem = Type.Object(
+  {
+    entityId: Id,
+    kind: StringEnum(["assignment", "project", "event"], { $id: "CatchUpItemKind" }),
+    title: Type.String({ maxLength: 200 }),
+    titleProvenance: Provenance,
+    parent: Type.Optional(Type.Object({ id: Id, name: Type.String({ maxLength: 200 }) })),
+    dueAt: Type.Optional(IsoDateTime),
+    urgency: CatchUpUrgency,
+    status: CatchUpStatus,
+    statusAsOf: IsoDateTime,
+    stale: Type.Boolean(),
+    line: Type.String({ maxLength: 140, description: "The §5.3 template, already filtered" }),
+    changes: Type.Array(CatchUpChange, { maxItems: 2 }),
+    resume: Type.Optional(CatchUpResume),
+    actions: Type.Array(CatchUpAction, { maxItems: 5 }),
+    provenance: Provenance,
+  },
+  { $id: "CatchUpItem" },
+);
+export type CatchUpItem = Static<typeof CatchUpItem>;

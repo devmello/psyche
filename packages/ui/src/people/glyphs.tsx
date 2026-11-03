@@ -1,8 +1,11 @@
 import {
+  Bell,
   Bot,
+  Briefcase,
   Building2,
   CalendarDays,
   Database,
+  FileText,
   FolderKanban,
   ListChecks,
   type LucideIcon,
@@ -84,6 +87,9 @@ export const INTERACTION_ICON: Record<GraphInteractionKind, LucideIcon> = {
   note: StickyNote,
   chat: Bot,
   task: ListChecks,
+  file: FileText,
+  reminder: Bell,
+  work: Briefcase,
 };
 
 const PROVENANCE_ICON: Record<GraphProvenance, LucideIcon> = {

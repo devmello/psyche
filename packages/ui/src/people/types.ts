@@ -112,8 +112,8 @@ export interface EntityView {
 
 export interface SuggestionView {
   id: string;
-  kind: "merge" | "project";
-  /** Merge: the entities; project: the proposed project. */
+  kind: "merge" | "project" | "assignment";
+  /** Merge: the entities; project: the proposed project; assignment: its title. */
   entities: { id: string; name: string; detail?: string | null }[];
   /** "Because:" lines, when the Gateway has them. */
   reasons: string[];
