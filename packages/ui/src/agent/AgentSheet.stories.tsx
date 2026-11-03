@@ -16,7 +16,7 @@ import { SoulMemoryPanel } from "./SoulMemoryPanel.tsx";
 /**
  * The slim agent sheet (docs/design/agent-overview-2026.md §4): a 420 px opaque right sheet
  * (level 3, over a scrim) with the 64 px header (avatar, name, the Now / next line, "Open
- * overview") and two full-width segments, Approvals and Soul & Memory. `Inline*` is the 400 px
+ * overview") and two full-width segments, Approvals and Soul. `Inline*` is the 400 px
  * panel the shell puts beside the content on wide windows (#625). The visual baseline shoots
  * Agent/* in light and dark.
  */

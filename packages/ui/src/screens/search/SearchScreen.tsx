@@ -188,7 +188,7 @@ export interface SearchScreenProps {
   /** Debounce before querying the Gateway. */
   debounceMs?: number;
   autoFocus?: boolean;
-  /** Opens a person or project; defaults to Soul & Memory → People & projects. */
+  /** Opens a person or project; defaults to its page on Memory. */
   onOpenEntity?: (entity: EntitySummary) => void;
   /** Fixed clock (stories, tests). */
   now?: number;

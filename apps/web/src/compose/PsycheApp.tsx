@@ -200,7 +200,6 @@ function RoutedAgentSheet({
       navigate(agentSheetHref(tab, sheet.back ? { back: sheet.back } : {})),
     ...(sheet.view === undefined ? {} : { view: sheet.view }),
     ...(sheet.file === undefined ? {} : { file: sheet.file }),
-    ...(sheet.entity === undefined ? {} : { entity: sheet.entity }),
     onClose: close,
   };
   return presentation === "inline" ? (

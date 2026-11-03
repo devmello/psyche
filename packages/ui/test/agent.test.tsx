@@ -211,7 +211,7 @@ describe("AgentSheetBody", () => {
     // Only the two segments remain.
     expect(
       screen.getAllByRole("tab").map((x) => x.textContent?.replace(/\d+$/, "").trim()),
-    ).toEqual(["Approvals", "Soul & Memory"]);
+    ).toEqual(["Approvals", "Soul"]);
   });
 });
 

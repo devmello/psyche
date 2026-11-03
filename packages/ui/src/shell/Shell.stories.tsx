@@ -79,7 +79,7 @@ export const MainWindowHome: Story = { render: () => <Main start="/home" /> };
  * sidebar is hidden so the 960 px baseline has room for both (the content keeps 480 px).
  */
 export const AgentSheetBeside: Story = { render: () => <Main sheet="approvals" sidebar={false} /> };
-/** #625: Soul & Memory beside Home. */
+/** #625: Soul beside Home. */
 export const AgentSheetBesideHome: Story = {
   render: () => <Main start="/home" sheet="soul" sidebar={false} />,
 };

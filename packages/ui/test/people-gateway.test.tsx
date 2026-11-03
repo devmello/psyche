@@ -308,7 +308,7 @@ describe("Settings → People & projects", () => {
   });
 });
 
-describe("Soul & Memory → People & projects", () => {
+describe("Memory → People", () => {
   it("lists people (not you), filters to projects, and searches", async () => {
     const { user } = setup(<PeopleSheetSection now={STORY_NOW} />);
     expect(await screen.findByRole("button", { name: /Sam Lee/ })).toBeTruthy();

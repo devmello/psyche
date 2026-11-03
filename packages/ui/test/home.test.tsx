@@ -257,7 +257,7 @@ describe("Home's one way in (consolidation-2026 §7)", () => {
     const more = await section("more");
     await user.click(within(more).getByRole("button", { name: /^Scheduled/ }));
     expect(navigate).toHaveBeenLastCalledWith("/scheduled");
-    for (const name of [/^Wren & you/, /^Inbox/, /^Soul & Memory/, /^Memory review/])
+    for (const name of [/^Wren & you/, /^Inbox/, /^Soul/, /^Memory review/])
       expect(within(more).getByRole("button", { name })).toBeTruthy();
   });
 });

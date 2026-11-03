@@ -18,10 +18,10 @@ import { SuggestionCard } from "./SuggestionCard.tsx";
 import type { EntityRef, LoopView } from "./types.ts";
 
 /**
- * Soul & Memory → People & projects (docs/memory/people-and-projects-2026.md §6.5): a searchable
- * list with filter chips (People, Projects, Suggestions, Waiting on). A row opens the card in a
- * level-3 sheet, as the memory files do. It is the People page's body (`/people?entity=<id>` opens
- * a card directly) and a section of Soul & Memory.
+ * Memory → People (docs/memory/people-and-projects-2026.md §6.5): a searchable
+ * list with filter chips (People, Projects, Suggestions, Waiting on). It is the People chip's body
+ * on the Memory page, where a row opens the item's page (`/memory?entity=<id>`); without an
+ * `onOpenEntity` a row opens the card in a sheet over the list.
  */
 
 type Filter = "people" | "projects" | "suggestions" | "waiting";
