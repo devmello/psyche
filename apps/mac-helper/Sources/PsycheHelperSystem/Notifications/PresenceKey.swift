@@ -307,7 +307,8 @@ public enum PresenceCapabilities {
                     "code": Schema.string("The approval code the card shows (xxxx-xxxx hex)", maxLength: 9),
                 ],
                 required: ["challenge", "summary", "code"]
-            )
+            ),
+            receiptKind: "approval_presence"
         )) { ctx in
             let p = try ctx.decode(PresenceConfirmParams.self)
             guard PresenceMessage.isValidChallenge(p.challenge) else {
@@ -320,7 +321,13 @@ public enum PresenceCapabilities {
                 throw CapabilityError.invalidParams("code must be xxxx-xxxx hex", field: "code")
             }
             let signed = try await key.sign(challenge: p.challenge, reason: confirmReason(summary: p.summary, code: p.code))
-            return CapabilityOutput(["signature": .string(signed.signature), "keyId": .string(signed.keyId)])
+            return CapabilityOutput(
+                ["signature": .string(signed.signature), "keyId": .string(signed.keyId)],
+                receipt: ReceiptDraft(
+                    outcome: .ok, summary: "Confirmed an approval with Touch ID",
+                    externalRefs: ["approvalCode": .string(p.code), "keyId": .string(signed.keyId)]
+                )
+            )
         }
     }
 
