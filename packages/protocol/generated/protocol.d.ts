@@ -6563,6 +6563,7 @@ export interface LifeFactHit {
     attribute:   GraphFactAttribute;
     entity:      EntitySummary;
     factId:      string;
+    learnedAt?:  null | string;
     observedAt?: null | string;
     provenance:  Provenance;
     quote?:      null | string;

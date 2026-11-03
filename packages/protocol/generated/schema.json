@@ -23550,6 +23550,18 @@
               "type": "null"
             }
           ]
+        },
+        "learnedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [

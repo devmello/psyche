@@ -801,6 +801,11 @@ Needed by `packages/ui` to render and answer every block type in data model §9.
 
 - Domain schemas from `docs/04-data-model.md`; WS frames (`req` / `res` / `event` with `seq` and `stateVersion`); the M1 method and event registry; pairing handshake (`connect`, `connect.verify`); node protocol; desktop ↔ Gateway browser bridge; contract interfaces in `src/contracts/`; codegen to JSON Schema, TypeScript declarations and Swift `Codable` models.
 
+### v1 additive — 2026-11-02 (everything memory, answer card)
+
+- `LifeFactHit.learnedAt` (optional, nullable): when Psyche first learned the fact (first seen, else recorded), for the answer card's source line. Older hosts omit it.
+- `memory.life.answer`: the `[n]` markers in `answer` now count the returned `facts` (the first fact returned is `[1]`), not the facts offered to the model, so a client can put each claim next to its source. Shape unchanged.
+
 ### v1 additive — 2026-11-02 (everything memory, Life answers)
 
 - New method `memory.life.answer` (read) and type `LifeAnswerReason`: a short answer about people from reviewed, non-sensitive facts, each claim cited; `answer` is null with a reason when the model is off, nothing matches or the reply is not grounded. `memory.life.search` also ranks by meaning when semantic search is on (same shape).

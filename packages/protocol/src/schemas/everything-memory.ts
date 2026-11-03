@@ -467,6 +467,7 @@ export const LifeFactHit = Type.Object(
     quote: Nullable(Type.String({ maxLength: 200 })),
     source: Nullable(Type.String({ maxLength: 40 })),
     observedAt: Nullable(IsoDateTime),
+    learnedAt: Nullable(IsoDateTime),
   },
   { $id: "LifeFactHit" },
 );
