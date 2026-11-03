@@ -59,6 +59,7 @@ import { Type } from "@sinclair/typebox";
 import { ulid } from "ulid";
 import type { Call, HandlerDef } from "../context.ts";
 import type { Logger } from "../log.ts";
+import { type CatchupDeps, composeCatchup } from "./catchup.ts";
 import { mountParamsOnly, surfaceOf } from "./handlers.ts";
 import { type ComposedMeetings, composeMeetings, graphPrepHooks } from "./meetings.ts";
 import { recordingsFolderIo } from "./notes-folder.ts";
@@ -150,6 +151,11 @@ export interface ProactiveSetup {
   /** The people graph while it is on: prep reads people and loops, notes add loops. */
   graph?: () => GraphStore | undefined;
   /**
+   * Memory for everything (MW4): the graph the catch-up reads, and what the agent may see of it.
+   * Without it the brief has no work lines and `memory.catchup.*` is not served.
+   */
+  catchup?: Pick<CatchupDeps, "graph" | "em" | "access">;
+  /**
    * The granted folders (`permissions.policy.folders`). The recordings-folder watch
    * (`meetings.notes.folder`, #953) scans only a folder inside one; without this it never scans.
    */
@@ -213,6 +219,16 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     registry,
     graph,
   } = setup;
+  // Catching up reads the graph store directly and through one filter (`surfaceFilter`).
+  const catchup =
+    setup.catchup === undefined
+      ? undefined
+      : composeCatchup({
+          db,
+          clock,
+          ...setup.catchup,
+          timeZone: () => timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+        });
   const goals = new GoalsService({
     db: db.sqlite,
     clock,
@@ -233,6 +249,8 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     sources: feedSourcesFrom(getSetting(db, "feed.sources")?.value),
     ...(timeZone === undefined ? {} : { timezone: timeZone }),
     onEvent: (e) => publish(e.event, e.payload as never),
+    // The brief's catch-up lines answer to the owner's agent access when the agent reads Feed.
+    ...(catchup === undefined ? {} : { agentView: catchup.agentView }),
   });
   const sessions = createDbSessionResolver(db);
   const ideas = new IdeasService({
@@ -499,8 +517,9 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     followups,
     timezone: dailyTz,
     ...(setup.learned === undefined ? {} : { learned: setup.learned }),
-    ...(setup.comingUp === undefined ? {} : { comingUp: setup.comingUp }),
-    ...(setup.keepInTouch === undefined ? {} : { keepInTouch: setup.keepInTouch }),
+    // Every memory line in the brief goes through `surfaceFilter` (birthdays, life events, people).
+    ...briefLines(setup, catchup),
+    ...(catchup === undefined ? {} : { catchUp: catchup.daily }),
     ...(setup.channelSurfaces === undefined ? {} : { channelSurfaces: setup.channelSurfaces }),
     prepLink: (e) => meetingPrep?.prepLinkFor(e),
     activity: {
@@ -660,6 +679,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
       ...mountParamsOnly(createIdeaHandlers(ideas) as never),
       ...proposalHandlers,
       ...(meetings?.handlers ?? {}),
+      ...(catchup?.handlers ?? {}),
     },
     launcher: (inner, pool) =>
       withProactiveJobs(inner, {
@@ -698,6 +718,20 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     stop() {
       proposals?.stop();
     },
+  };
+}
+
+/** `comingUp` and `keepInTouch` for the daily service, filtered by tier and surface when catch-up is on. */
+function briefLines(
+  setup: ProactiveSetup,
+  catchup: ReturnType<typeof composeCatchup> | undefined,
+): Pick<ConstructorParameters<typeof DailyService>[0], "comingUp" | "keepInTouch"> {
+  const comingUp = catchup === undefined ? setup.comingUp : catchup.comingUp(setup.comingUp);
+  const keepInTouch =
+    catchup === undefined ? setup.keepInTouch : catchup.keepInTouch(setup.keepInTouch);
+  return {
+    ...(comingUp === undefined ? {} : { comingUp }),
+    ...(keepInTouch === undefined ? {} : { keepInTouch }),
   };
 }
 

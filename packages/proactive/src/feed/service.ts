@@ -116,6 +116,12 @@ export interface FeedServiceOptions {
   explorationSlots?: number;
   /** Per-batch model usage, for the owner's usage view (S03 records it). */
   onUsage?: (usage: Usage, job: string) => void;
+  /**
+   * What the agent may read of a post. The daily brief carries lines from memory, and those
+   * answer to the owner's agent-access setting (docs/design/memory-everything-2026.md §4 rule 2);
+   * a line the agent may not see is replaced by a count. The owner's own `feed.list` is untouched.
+   */
+  agentView?: (post: StoredPost) => StoredPost;
 }
 
 export interface GenerateResult {
@@ -148,6 +154,11 @@ export class FeedService {
   constructor(options: FeedServiceOptions) {
     this.#o = options;
     this.store = new FeedStore(options.db);
+  }
+
+  /** A post as the agent may read it (`feed.list` the tool, not the owner's method). */
+  forAgent(post: StoredPost): StoredPost {
+    return this.#o.agentView?.(post) ?? post;
   }
 
   #now(): string {
