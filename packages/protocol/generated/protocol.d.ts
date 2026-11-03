@@ -3872,6 +3872,7 @@ export interface EverythingMemorySettings {
     enabled:           boolean;
     maxTokensPerNight: number;
     model:             EverythingModelSetting;
+    optOut:            EverythingSourceOptOut;
     people:            EverythingPeopleSetting;
     retention:         EverythingRetentionSetting;
     review:            EverythingReviewSetting;
@@ -3900,6 +3901,22 @@ export interface EverythingProcessingModel {
  * none: deterministic graph only; cloud: Haiku-class provider; local: on this Mac
  */
 export type SearchProcessing = "none" | "cloud" | "local";
+
+/**
+ * Per source: true means do not learn from it. Memory learns from every source Search
+ * indexes unless it is opted out here
+ */
+export interface EverythingSourceOptOut {
+    browser:     boolean;
+    calendar:    boolean;
+    chats:       boolean;
+    files:       boolean;
+    mail:        boolean;
+    messages:    boolean;
+    notes:       boolean;
+    reminders:   boolean;
+    transcripts: boolean;
+}
 
 export interface EverythingPeopleSetting {
     /**
@@ -3968,7 +3985,9 @@ export interface EverythingSensitiveSwitches {
 }
 
 /**
- * One switch per source, all off
+ * Legacy: one switch per source, all off. Superseded by `optOut` (memory follows Search);
+ * the Gateway reads it only to migrate a value that has no `optOut`, and a UI keeps it
+ * equal to the sources memory learns from
  */
 export interface EverythingSourceSwitches {
     browser:     boolean;

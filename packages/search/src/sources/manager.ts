@@ -41,6 +41,18 @@ export interface SourceIndexerOptions {
 const DAY_MS = 86_400_000;
 const MIN_DEDUPE_CHARS = 200;
 
+/** Why a rebuild was refused. Nothing is removed when it is: the index stays as it was. */
+export type RebuildRefusal = "off" | "unavailable" | "power" | "busy";
+
+export class RebuildRefused extends Error {
+  readonly reason: RebuildRefusal;
+  constructor(reason: RebuildRefusal, message: string) {
+    super(message);
+    this.name = "RebuildRefused";
+    this.reason = reason;
+  }
+}
+
 const DDL = `
 CREATE TABLE IF NOT EXISTS search_source_items (
   source TEXT NOT NULL,
@@ -87,6 +99,8 @@ export class SourceIndexer {
     SourceIndexerOptions;
   readonly #errors = new Map<SourceId, string>();
   readonly #active = new Set<SourceId>();
+  /** Sources being rebuilt now: a pass skips them, and a second rebuild is refused. */
+  readonly #rebuilding = new Set<SourceId>();
   #abort = new AbortController();
   #running: Promise<void> | undefined;
 
@@ -149,13 +163,27 @@ export class SourceIndexer {
     return run;
   }
 
+  /**
+   * A pass that starts now, or right after the one in flight (which may have skipped a source that
+   * was being rebuilt). `tick` alone would hand back the pass in flight and leave the source
+   * unread until the next timer.
+   */
+  kick(): Promise<void> {
+    const running = this.#running;
+    if (running === undefined) return this.tick();
+    return running.then(
+      () => this.tick(),
+      () => this.tick(),
+    );
+  }
+
   async #tick(): Promise<void> {
     const power = this.#o.power?.() ?? { onBattery: false, lowPower: false };
     if (power.lowPower) return;
     const started = this.#o.now();
     const config = this.#o.config();
     for (const id of SOURCE_IDS) {
-      if (!config.sources[id].enabled) continue;
+      if (!config.sources[id].enabled || this.#rebuilding.has(id)) continue;
       const adapter = this.#adapters.get(id);
       if (adapter === undefined || adapter.unavailable() !== undefined) continue;
       const filled = this.#meta(`src.${id}.backfilled`) === "1";
@@ -389,9 +417,40 @@ export class SourceIndexer {
       this.#index.setAgentSearchable(sourceTag(id), config.sources[id].agent);
   }
 
-  /** Purges a source and reads it again from the start (Settings → Rebuild). */
+  /**
+   * Purges a source so the next passes read it again from the start (Settings → Rebuild). It
+   * refuses, removing nothing, when the source is off, cannot be read now (the Mac helper is not
+   * connected) or the Mac is on battery (a first read waits for power): purging then would leave
+   * the index empty with no way to fill it. It waits for the pass in flight first, because a pull
+   * that is mid-page writes its cursor when it finishes and the rebuild would resume from there.
+   * Callers follow it with `kick()`.
+   */
   async rebuild(id: SourceId): Promise<void> {
-    await this.purge(id);
+    const label = SOURCE_LABELS[id];
+    if (!this.#o.config().sources[id].enabled)
+      throw new RebuildRefused("off", `Turn ${label} on first.`);
+    const adapter = this.#adapters.get(id);
+    const why = adapter === undefined ? "not supported on this host" : adapter.unavailable();
+    if (why !== undefined)
+      throw new RebuildRefused(
+        "unavailable",
+        `${label} can't be read right now (${why}), so it was left as it is.`,
+      );
+    const power = this.#o.power?.() ?? { onBattery: false, lowPower: false };
+    if (power.onBattery || power.lowPower)
+      throw new RebuildRefused(
+        "power",
+        `Plug in to rebuild ${label}: reading it again from the start waits for power.`,
+      );
+    if (this.#rebuilding.has(id))
+      throw new RebuildRefused("busy", `${label} is already being rebuilt.`);
+    this.#rebuilding.add(id);
+    try {
+      await this.#running?.catch(() => undefined);
+      await this.purge(id);
+    } finally {
+      this.#rebuilding.delete(id);
+    }
   }
 
   async stop(): Promise<void> {

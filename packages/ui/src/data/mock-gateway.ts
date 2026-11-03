@@ -2514,7 +2514,12 @@ export class MockGateway implements GatewayClient {
       if (p.exclude !== undefined) Object.assign(cfg.exclude, p.exclude);
       return this.sourcesStatus();
     },
-    "search.sources.rebuild": () => this.sourcesStatus(),
+    "search.sources.rebuild": (p) => {
+      // As the Gateway: a source that is off is refused, nothing is touched.
+      const row = this.sourcesStatus().sources.find((x) => x.id === p.source);
+      if (row?.enabled !== true) fail("invalid_params", `Turn ${row?.label ?? p.source} on first.`);
+      return this.sourcesStatus();
+    },
 
     "memory.read": (p) => {
       const content = this.world.memoryFiles[p.path] ?? fail("not_found", `${p.path} not found`);

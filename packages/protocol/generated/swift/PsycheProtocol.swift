@@ -499,6 +499,7 @@
 //   let everythingSensitiveClass = try? JSONDecoder().decode(EverythingSensitiveClass.self, from: jsonData)
 //   let everythingSensitiveSwitches = try? JSONDecoder().decode(EverythingSensitiveSwitches.self, from: jsonData)
 //   let everythingSource = try? JSONDecoder().decode(EverythingSource.self, from: jsonData)
+//   let everythingSourceOptOut = try? JSONDecoder().decode(EverythingSourceOptOut.self, from: jsonData)
 //   let everythingSourceSwitches = try? JSONDecoder().decode(EverythingSourceSwitches.self, from: jsonData)
 //   let explicitFeedbackKind = try? JSONDecoder().decode(ExplicitFeedbackKind.self, from: jsonData)
 //   let feedFeedback = try? JSONDecoder().decode(FeedFeedback.self, from: jsonData)
@@ -12173,6 +12174,7 @@ public struct EverythingMemorySettings: Codable, Sendable {
     public let enabled: Bool
     public let maxTokensPerNight: Int
     public let model: EverythingModelSetting
+    public let optOut: EverythingSourceOptOut
     public let people: EverythingPeopleSetting
     public let retention: EverythingRetentionSetting
     public let review: EverythingReviewSetting
@@ -12188,6 +12190,7 @@ public struct EverythingMemorySettings: Codable, Sendable {
         case enabled = "enabled"
         case maxTokensPerNight = "maxTokensPerNight"
         case model = "model"
+        case optOut = "optOut"
         case people = "people"
         case retention = "retention"
         case review = "review"
@@ -12197,12 +12200,13 @@ public struct EverythingMemorySettings: Codable, Sendable {
         case writeCardFiles = "writeCardFiles"
     }
 
-    public init(agentAccess: EverythingAgentAccess, agentSeesSensitive: Bool, enabled: Bool, maxTokensPerNight: Int, model: EverythingModelSetting, people: EverythingPeopleSetting, retention: EverythingRetentionSetting, review: EverythingReviewSetting, schedule: EverythingScheduleSetting, sensitive: EverythingSensitiveSwitches, sources: EverythingSourceSwitches, writeCardFiles: Bool) {
+    public init(agentAccess: EverythingAgentAccess, agentSeesSensitive: Bool, enabled: Bool, maxTokensPerNight: Int, model: EverythingModelSetting, optOut: EverythingSourceOptOut, people: EverythingPeopleSetting, retention: EverythingRetentionSetting, review: EverythingReviewSetting, schedule: EverythingScheduleSetting, sensitive: EverythingSensitiveSwitches, sources: EverythingSourceSwitches, writeCardFiles: Bool) {
         self.agentAccess = agentAccess
         self.agentSeesSensitive = agentSeesSensitive
         self.enabled = enabled
         self.maxTokensPerNight = maxTokensPerNight
         self.model = model
+        self.optOut = optOut
         self.people = people
         self.retention = retention
         self.review = review
@@ -12256,6 +12260,45 @@ public enum SearchProcessing: String, Codable, Sendable {
     case cloud = "cloud"
     case local = "local"
     case none = "none"
+}
+
+/// Per source: true means do not learn from it. Memory learns from every source Search
+/// indexes unless it is opted out here
+// MARK: - EverythingSourceOptOut
+public struct EverythingSourceOptOut: Codable, Sendable {
+    public let browser: Bool
+    public let calendar: Bool
+    public let chats: Bool
+    public let files: Bool
+    public let mail: Bool
+    public let messages: Bool
+    public let notes: Bool
+    public let reminders: Bool
+    public let transcripts: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case browser = "browser"
+        case calendar = "calendar"
+        case chats = "chats"
+        case files = "files"
+        case mail = "mail"
+        case messages = "messages"
+        case notes = "notes"
+        case reminders = "reminders"
+        case transcripts = "transcripts"
+    }
+
+    public init(browser: Bool, calendar: Bool, chats: Bool, files: Bool, mail: Bool, messages: Bool, notes: Bool, reminders: Bool, transcripts: Bool) {
+        self.browser = browser
+        self.calendar = calendar
+        self.chats = chats
+        self.files = files
+        self.mail = mail
+        self.messages = messages
+        self.notes = notes
+        self.reminders = reminders
+        self.transcripts = transcripts
+    }
 }
 
 // MARK: - EverythingPeopleSetting
@@ -12395,7 +12438,9 @@ public struct EverythingSensitiveSwitches: Codable, Sendable {
     }
 }
 
-/// One switch per source, all off
+/// Legacy: one switch per source, all off. Superseded by `optOut` (memory follows Search);
+/// the Gateway reads it only to migrate a value that has no `optOut`, and a UI keeps it
+/// equal to the sources memory learns from
 // MARK: - EverythingSourceSwitches
 public struct EverythingSourceSwitches: Codable, Sendable {
     public let browser: Bool

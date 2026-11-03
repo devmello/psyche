@@ -1,3 +1,4 @@
+import type { EverythingSource } from "@psyche/protocol";
 import { type ReactElement, useState } from "react";
 import { Button } from "../components/ui/button.tsx";
 import {
@@ -24,7 +25,7 @@ import {
 
 /**
  * First-run consent (docs/design/everything-memory-2026.md §12.1): what it does, the sources
- * (all off), people and privacy, who reads the day, then a summary. Nothing is saved until
+ * (the ones Search reads, each with a way to opt out), people and privacy, who reads the day, then a summary. Nothing is saved until
  * "Turn on", and cancelling leaves the feature off. The backfill default is 30 days (decision 7).
  */
 
@@ -35,6 +36,8 @@ export function EverythingConsent({
   initial,
   persona,
   localConfirmed,
+  indexed,
+  onEnableSource,
   onCancel,
   onFinish,
 }: {
@@ -42,6 +45,9 @@ export function EverythingConsent({
   initial: EverythingValues;
   persona: string;
   localConfirmed: readonly string[];
+  /** The sources Search reads now; memory learns from those unless opted out (see `SourceFields`). */
+  indexed?: ReadonlySet<EverythingSource>;
+  onEnableSource?: (source: EverythingSource) => void | Promise<void>;
   onCancel: () => void;
   /** `confirmed` lists every local model whose RAM warning the owner confirmed (before and in this flow). */
   onFinish: (settings: EverythingValues, confirmed: string[]) => void;
@@ -80,7 +86,14 @@ export function EverythingConsent({
             </ul>
           </div>
         ) : null}
-        {step === 2 ? <SourceFields value={draft} onChange={setDraft} /> : null}
+        {step === 2 ? (
+          <SourceFields
+            value={draft}
+            onChange={setDraft}
+            {...(indexed === undefined ? {} : { indexed })}
+            {...(onEnableSource === undefined ? {} : { onEnable: onEnableSource })}
+          />
+        ) : null}
         {step === 3 ? (
           <div className="flex flex-col gap-3">
             <PeopleFields value={draft} onChange={setDraft} />

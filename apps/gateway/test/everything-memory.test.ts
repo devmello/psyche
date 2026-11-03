@@ -6,6 +6,8 @@ import { GraphStore } from "@psyche/memory";
 import {
   collectWidgetBinds,
   EVERYTHING_MEMORY_SETTING_KEY,
+  effectiveEverythingSources,
+  everythingOptOut,
   type FeedWidget,
   validateWidgetSpec,
 } from "@psyche/protocol";
@@ -27,6 +29,12 @@ function makeTmpDir() {
 
 const NOW = Date.parse("2026-10-29T03:00:00Z");
 
+/** Search reads these sources (Settings → Search sources); memory learns only from those. */
+const searchReads = (db: ReturnType<typeof openDb>, ...ids: string[]) =>
+  setSetting(db, "search.sources", {
+    sources: Object.fromEntries(ids.map((id) => [id, { enabled: true }])),
+  });
+
 function setup(
   over: {
     readState?: Parameters<typeof composeEverything>[0]["readState"];
@@ -35,6 +43,8 @@ function setup(
 ) {
   const clock = new FakeClock(NOW);
   const db = openDb(":memory:");
+  // Mail and Messages are indexed unless a test says otherwise.
+  searchReads(db, "mail", "messages");
   const graph = new GraphStore({ sqlite: db.sqlite, clock });
   const provider = new FakeModelProvider({ id: "fake" });
   const tmp = makeTmpDir();
@@ -65,9 +75,11 @@ describe("settings", () => {
     expect(Object.values(s.sensitive).some(Boolean)).toBe(false);
   });
   it("merges partial values and fails closed on a bad one", () => {
-    expect(everythingSettings({ enabled: true, sources: { mail: true } })).toMatchObject({
+    expect(
+      everythingSettings({ enabled: true, sources: { mail: true } }, ["mail", "messages"]),
+    ).toMatchObject({
       enabled: true,
-      sources: { mail: true, messages: false },
+      sources: { mail: true, messages: true },
     });
     const bad = everythingSettings({ enabled: true, model: { default: { kind: "remote" } } });
     expect(bad.enabled).toBe(false);
@@ -847,6 +859,106 @@ describe("Run now and the scheduled job", () => {
     provider.enqueue(empty);
     const manual = await e.job.run(req("manual"));
     expect(manual.summary).toMatch(/^everything memory: 0 facts proposed from 1 items/);
+    tmp.cleanup();
+  });
+});
+
+describe("memory follows Search (per-source opt-out)", () => {
+  const ALL = [
+    "mail",
+    "messages",
+    "notes",
+    "calendar",
+    "reminders",
+    "files",
+    "browser",
+    "transcripts",
+  ];
+
+  it("a value stored before optOut migrates: a switch that was off becomes an opt-out", () => {
+    expect(
+      everythingOptOut({ enabled: true, sources: { mail: true, notes: false, messages: false } }),
+    ).toMatchObject({ mail: false, notes: true, messages: true, calendar: false, files: false });
+    // Never stored is not an opt-out, and nothing stored at all opts out of nothing.
+    expect(Object.values(everythingOptOut(undefined)).some(Boolean)).toBe(false);
+    expect(everythingOptOut({ enabled: true, sources: { mail: true } }).messages).toBe(false);
+  });
+
+  it("an optOut, once stored, wins over the old switches", () => {
+    const stored = {
+      enabled: true,
+      sources: { mail: false, notes: true },
+      optOut: { mail: false, notes: true },
+    };
+    expect(everythingOptOut(stored)).toMatchObject({ mail: false, notes: true });
+    expect(everythingSettings(stored, ALL).sources).toMatchObject({ mail: true, notes: false });
+  });
+
+  it("effective = indexed && !optOut: Search off means memory cannot read it", () => {
+    const stored = { enabled: true, optOut: { messages: true } };
+    const s = everythingSettings(stored, ["mail", "messages", "notes"]);
+    expect(s.sources).toMatchObject({
+      mail: true,
+      messages: false, // opted out
+      notes: true,
+      calendar: false, // not indexed
+      files: false,
+    });
+    expect(s.optOut.messages).toBe(true);
+    // Nothing indexed (or the caller forgot): nothing is read.
+    expect(Object.values(everythingSettings(stored).sources).some(Boolean)).toBe(false);
+  });
+
+  it("browser pages and chats stay never-read, indexed and not opted out", () => {
+    const s = everythingSettings({ enabled: true }, [...ALL, "chats"]);
+    expect(s.sources.browser).toBe(false);
+    expect(s.sources.chats).toBe(false);
+    expect(s.sources.transcripts).toBe(true);
+    const direct = effectiveEverythingSources({}, ALL);
+    expect(direct.browser || direct.chats).toBe(false);
+  });
+
+  it("the pass reads exactly what Search indexes minus opt-outs, read on every call", () => {
+    const { e, db, tmp } = setup();
+    setSetting(db, EVERYTHING_MEMORY_SETTING_KEY, {
+      enabled: true,
+      model: { default: { kind: "cloud" } },
+      // Old switches: mail on, messages explicitly off.
+      sources: { mail: true, messages: false },
+    });
+    expect(e.settings().sources).toMatchObject({ mail: true, messages: false });
+    // Search stops reading Mail: memory cannot read it any more, with no change to memory.
+    searchReads(db, "messages");
+    expect(e.settings().sources).toMatchObject({ mail: false, messages: false });
+    searchReads(db);
+    expect(Object.values(e.settings().sources).some(Boolean)).toBe(false);
+    // Search reads Notes too: memory learns from it by default.
+    searchReads(db, "mail", "notes");
+    expect(e.settings().sources).toMatchObject({ mail: true, notes: true, messages: false });
+    tmp.cleanup();
+  });
+
+  it("Run now says no_sources when Search reads nothing memory may learn from", async () => {
+    const { e, db, tmp } = setup({
+      readState: async () => ({
+        onAc: true,
+        lowPowerMode: false,
+        thermal: "nominal" as const,
+        idleMinutes: 0,
+      }),
+    });
+    setSetting(db, EVERYTHING_MEMORY_SETTING_KEY, {
+      enabled: true,
+      model: { default: { kind: "cloud" } },
+      optOut: { mail: true, messages: true },
+    });
+    expect(await e.runNow()).toMatchObject({ ran: false, reason: "no_sources" });
+    searchReads(db);
+    setSetting(db, EVERYTHING_MEMORY_SETTING_KEY, {
+      enabled: true,
+      model: { default: { kind: "cloud" } },
+    });
+    expect(await e.runNow()).toMatchObject({ ran: false, reason: "no_sources" });
     tmp.cleanup();
   });
 });

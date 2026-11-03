@@ -151,6 +151,16 @@ export interface FixtureWorld {
   memoryClaims: MemoryClaim[];
   /** Unified search hits for the query "dentist", grouped by scope. */
   searchHits: SearchHit[];
+  /** The local search sources the mock Gateway reports (`search.sources`); absent = all off. */
+  searchSources?: {
+    sources: Partial<
+      Record<
+        string,
+        { enabled: boolean; processing: "cloud" | "local" | "none"; agent: boolean; ocr?: boolean }
+      >
+    >;
+    exclude: { contacts: string[]; chats: string[]; accounts: string[]; folders: string[] };
+  };
   /** People and projects (docs/memory/people-and-projects-2026.md §8). */
   graph: GraphWorld;
   /** Everything memory's review queue, quarantine and runs (absent = empty). */

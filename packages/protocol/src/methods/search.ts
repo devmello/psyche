@@ -385,6 +385,6 @@ export const SearchMethods = {
     scope: "operator.write",
     sideEffecting: true,
     description:
-      "Drops one source's documents and reads it again from the start in the background. Side-effecting.",
+      "Drops one source's documents and reads it again from the start in the background; the reply shows the source indexing from zero. Refused, with nothing removed, when the source is off (`invalid_params`), cannot be read now or the Mac is on battery (`unavailable`), or a rebuild of it is running (`conflict`). Side-effecting.",
   }),
 } as const;

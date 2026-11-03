@@ -72,7 +72,7 @@ export const settings = {
   "settings.essentials.model.setUp": "Set up a model",
   "settings.essentials.read.title": "What {persona} may read",
   "settings.essentials.read.hint":
-    "Off until you turn one on. What it reads is indexed on this Mac so it can find things for you.",
+    "Off until you turn one on. What it reads is indexed on this Mac so it can find things for you, and memory learns from it too unless you opt out under Memory → Sources.",
   "settings.essentials.asks.title": "How often {persona} asks first",
   "settings.essentials.interrupt.title": "When {persona} may interrupt you",
   "settings.essentials.interrupt.quietHint":
@@ -1146,7 +1146,7 @@ export const settings = {
   // Local search sources (docs/design/search-roadmap-2026.md §2), under Model (SearchSourcesSettings.tsx).
   "settings.searchSources.title": "Search sources",
   "settings.searchSources.description":
-    "What Psyche reads into your search index. All off until you switch them on; the index stays on this Mac.",
+    "What Psyche reads into your search index. All off until you switch them on; the index stays on this Mac. Turning a source on also lets memory learn from it, unless you opt out on Memory → Sources.",
   "settings.searchSources.hint.mail":
     "Subject, sender, recipients, date and the text of your mail in Apple Mail. Quoted replies are skipped.",
   "settings.searchSources.hint.messages":
@@ -1171,6 +1171,14 @@ export const settings = {
   "settings.searchSources.lastIndexed": "Last indexed {when}",
   "settings.searchSources.rebuild": "Rebuild",
   "settings.searchSources.rebuildLabel": "Rebuild {source}",
+  "settings.searchSources.rebuilding": "Rebuilding…",
+  "settings.searchSources.rebuild.turnOnFirst": "Turn {source} on first",
+  "settings.searchSources.rebuild.starting": "Rebuilding {source}…",
+  "settings.searchSources.rebuild.progress":
+    "Rebuilding {source}: {n, plural, one {# item} other {# items}} read so far. It carries on in the background.",
+  "settings.searchSources.rebuild.done":
+    "Rebuilt {source}: {n, plural, one {# item} other {# items}}.",
+  "settings.searchSources.rebuild.failed": "Couldn't rebuild {source}: {why}",
   "settings.searchSources.agent": "Let Psyche's agent search this",
   "settings.searchSources.agentLabel": "Agent search for {source}",
   "settings.searchSources.ocr": "Read text in images (OCR)",

@@ -1,7 +1,8 @@
 import type { SearchSourcesStatus } from "@psyche/protocol";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import type { MockGateway } from "../src/data/mock-gateway.ts";
 import { SearchSourcesSettingsGroup } from "../src/screens/settings/SearchSourcesSettings.tsx";
 import { StoryWorld } from "../src/stories/harness.tsx";
 
@@ -106,5 +107,116 @@ describe("search sources settings", () => {
     expect(onConfigure).toHaveBeenLastCalledWith({
       exclude: { contacts: ["mum@example.com", "+1 510 555 0101"] },
     });
+  });
+});
+
+describe("Rebuild", () => {
+  const show = (props: Parameters<typeof SearchSourcesSettingsGroup>[0]) =>
+    render(
+      <StoryWorld>
+        <SearchSourcesSettingsGroup now={NOW} {...props} />
+      </StoryWorld>,
+    );
+
+  it("is disabled for a source that is off, and says to turn it on first", () => {
+    show({ status, onConfigure: vi.fn(), onRebuild: vi.fn() });
+    const button = screen.getByRole("button", { name: "Rebuild Messages" }) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    expect(button.title).toBe("Turn Messages on first");
+  });
+
+  it("goes busy while the call is out, then says how many items were rebuilt", async () => {
+    let finish: () => void = () => undefined;
+    const onRebuild = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    show({ status, onConfigure: vi.fn(), onRebuild });
+    await userEvent.click(screen.getByRole("button", { name: "Rebuild Mail" }));
+    const busy = screen.getByRole("button", { name: "Rebuild Mail" }) as HTMLButtonElement;
+    expect(busy.disabled).toBe(true);
+    expect(busy.textContent).toBe("Rebuilding…");
+    expect(screen.getByTestId("rebuild-mail").textContent).toBe("Rebuilding Mail…");
+    finish();
+    await waitFor(() =>
+      expect(screen.getByTestId("rebuild-mail").textContent).toBe("Rebuilt Mail: 120 items."),
+    );
+    expect(
+      (screen.getByRole("button", { name: "Rebuild Mail" }) as HTMLButtonElement).disabled,
+    ).toBe(false);
+  });
+
+  it("shows progress while the source is still reading, then the final count as it finishes", async () => {
+    const indexing: SearchSourcesStatus = {
+      ...status,
+      sources: status.sources.map((s) =>
+        s.id === "mail" ? { ...s, state: "indexing" as const, items: 40, backfilled: false } : s,
+      ),
+    };
+    const view = render(
+      <StoryWorld>
+        <SearchSourcesSettingsGroup status={indexing} onRebuild={vi.fn()} now={NOW} />
+      </StoryWorld>,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Rebuild Mail" }));
+    await waitFor(() =>
+      expect(screen.getByTestId("rebuild-mail").textContent).toBe(
+        "Rebuilding Mail: 40 items read so far. It carries on in the background.",
+      ),
+    );
+    // Still busy while it reads: pressing again would start it over.
+    expect(
+      (screen.getByRole("button", { name: "Rebuild Mail" }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    view.rerender(
+      <StoryWorld>
+        <SearchSourcesSettingsGroup status={status} onRebuild={vi.fn()} now={NOW} />
+      </StoryWorld>,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("rebuild-mail").textContent).toBe("Rebuilt Mail: 120 items."),
+    );
+  });
+
+  it("says why when the Gateway refuses, and leaves the button usable", async () => {
+    const why =
+      "Mail can't be read right now (the Mac helper is not connected), so it was left as it is.";
+    show({ status, onConfigure: vi.fn(), onRebuild: vi.fn(() => Promise.reject(new Error(why))) });
+    await userEvent.click(screen.getByRole("button", { name: "Rebuild Mail" }));
+    await waitFor(() =>
+      expect(screen.getByTestId("rebuild-mail").textContent).toBe(`Couldn't rebuild Mail: ${why}`),
+    );
+    expect(
+      (screen.getByRole("button", { name: "Rebuild Mail" }) as HTMLButtonElement).disabled,
+    ).toBe(false);
+  });
+
+  it("through the composed store: the call reaches the Gateway and a refusal is shown", async () => {
+    let gateway: MockGateway | undefined;
+    render(
+      <StoryWorld
+        edit={(w) => {
+          w.searchSources = {
+            sources: { mail: { enabled: true, processing: "cloud", agent: true } },
+            exclude: { contacts: [], chats: [], accounts: [], folders: [] },
+          };
+        }}
+        onGateway={(g) => (gateway = g)}
+      >
+        <SearchSourcesSettingsGroup now={NOW} />
+      </StoryWorld>,
+    );
+    await userEvent.click(await screen.findByRole("button", { name: "Rebuild Mail" }));
+    await waitFor(() =>
+      expect(screen.getByTestId("rebuild-mail").textContent).toBe("Rebuilt Mail: 120 items."),
+    );
+    const why = "Plug in to rebuild Mail: reading it again from the start waits for power.";
+    gateway?.failNext("search.sources.rebuild", "unavailable", why);
+    await userEvent.click(screen.getByRole("button", { name: "Rebuild Mail" }));
+    await waitFor(() =>
+      expect(screen.getByTestId("rebuild-mail").textContent).toBe(`Couldn't rebuild Mail: ${why}`),
+    );
   });
 });

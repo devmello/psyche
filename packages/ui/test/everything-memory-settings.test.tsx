@@ -30,6 +30,18 @@ function show(edit?: (w: FixtureWorld) => void) {
 
 const next = () => fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
+/** Search reads these sources; memory learns from them unless the owner opts out. */
+const searchReads =
+  (...ids: string[]) =>
+  (w: FixtureWorld) => {
+    w.searchSources ??= {
+      sources: {},
+      exclude: { contacts: [], chats: [], accounts: [], folders: [] },
+    };
+    for (const id of ids)
+      w.searchSources.sources[id] = { enabled: true, processing: "cloud", agent: true };
+  };
+
 describe("cost estimate", () => {
   it("is free for None and Local, and about the doc's typical day for Cloud", () => {
     expect(estimateMonthly("none", { mail: true })).toEqual({ low: 0, typical: 0, high: 0 });
@@ -71,9 +83,10 @@ describe("Settings → Memory → Sources, Privacy and Advanced", () => {
     const dialog = await screen.findByTestId("everything-consent");
     expect(within(dialog).getByTestId("consent-what").textContent).toMatch(/Sam’s birthday/);
     next();
-    // Sources: all off.
+    // Sources: Search reads none yet, so none is learned from and each says so.
     for (const sw of within(dialog).getAllByRole("switch"))
       expect(sw.getAttribute("aria-checked")).toBe("false");
+    expect(within(dialog).getByText("Psyche doesn't read Mail.")).toBeTruthy();
     next();
     expect(within(dialog).getByText("Sensitive topics")).toBeTruthy();
     next();
@@ -86,11 +99,14 @@ describe("Settings → Memory → Sources, Privacy and Advanced", () => {
   });
 
   it("turning on with Cloud and Mail saves the accepted defaults plus those choices", async () => {
-    show();
+    show(searchReads("mail"));
     fireEvent.click(await screen.findByRole("switch", { name: "Mail, messages and notes" }));
     const dialog = await screen.findByTestId("everything-consent");
     next();
-    fireEvent.click(within(dialog).getByRole("switch", { name: "Mail" }));
+    // Search reads Mail, so memory learns from it without a choice here.
+    expect(within(dialog).getByRole("switch", { name: "Mail" }).getAttribute("aria-checked")).toBe(
+      "true",
+    );
     next();
     next();
     fireEvent.click(within(dialog).getByRole("radio", { name: /Cloud/ }));
@@ -103,6 +119,7 @@ describe("Settings → Memory → Sources, Privacy and Advanced", () => {
     expect(s?.model.default.kind).toBe("cloud");
     expect(s?.sources.mail).toBe(true);
     expect(s?.sources.messages).toBe(false);
+    expect(s?.optOut.mail).toBe(false);
     expect(s?.schedule.backfillDays).toBe("30");
     expect(s?.schedule.runOnBattery).toBe(false);
     expect(s?.people.default).toBe("two_way");
@@ -255,12 +272,10 @@ describe("Settings → Memory → Sources, Privacy and Advanced", () => {
 
 describe("a model per source (EM11)", () => {
   async function onWithMailAndMessages() {
-    show();
+    show(searchReads("mail", "messages"));
     fireEvent.click(await screen.findByRole("switch", { name: "Mail, messages and notes" }));
     const dialog = await screen.findByTestId("everything-consent");
     next();
-    fireEvent.click(within(dialog).getByRole("switch", { name: "Mail" }));
-    fireEvent.click(within(dialog).getByRole("switch", { name: "Messages" }));
     next();
     next();
     fireEvent.click(within(dialog).getByRole("radio", { name: /Cloud/ }));

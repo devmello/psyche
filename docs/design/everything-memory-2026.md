@@ -28,7 +28,7 @@ Extended on 2026-11-02 by [memory-everything-2026.md](memory-everything-2026.md)
 | # | Decision | Where |
 | --- | --- | --- |
 | D1 | **Local only if the owner chooses.** A clear setting for which model reads the day: cloud (Haiku-class), local, or none, with trade-offs. The owner is warned before any local model runs. Later: a model per source. | §8 |
-| D2 | **Sources are enabled one by one.** | §6.1, §10.4 |
+| D2 | **Sources are enabled one by one, in one place: Search.** What Psyche may read is the Search sources list; memory learns from each source Search reads, unless the owner opts that source out (D12). | §6.1, §10.4, §12.2 |
 | D3 | **Owner-only memory.** The owner can cut the agent off from the memory index. Per-source "agent can search" comes from the search-tool session. | §9 |
 | D4 | **Other people's privacy:** per-contact exclusion with an owner-chosen default; sensitive categories off unless turned on; delete and export per person; retention. | §10 |
 | D5 | **Security first:** third-party mail and messages are untrusted data, and the extraction pass cannot be hijacked: no tools, schema-only output, untrusted provenance, never executed, cannot touch other people's memory or settings, quarantine, red-team tests. | §5 |
@@ -429,7 +429,7 @@ Today `psyche.sqlite` is plain SQLite (0600, FileVault assumed), and only the va
 The feature is **off by default** for everyone, including after an update. Turning it on (from Settings, or from an onboarding step that is skipped by default) walks through four screens:
 
 1. **What it does**: one paragraph and three examples ("Sam's birthday is coming up", "Who was at the Lisbon dinner?", "What did Priya say about the new job?").
-2. **Sources**: a switch per source with a count of items (Mail, Messages, Notes, Calendar, Reminders, chats with Psyche, files, browser pages, transcripts), all off.
+2. **Sources**: the sources Search reads (Mail, Messages, Notes, Calendar, Reminders, Files, Transcripts), in Search's order, each learned from unless the owner switches it off here ("Learning from it"). A source Search does not read shows as off ("Psyche doesn't read Mail") with **Let Psyche read Mail**, which turns on the Search source (the call Essentials makes, with the same macOS permission flow). Browser pages and chats with Psyche are never read and have no row.
 3. **People and privacy**: who is included (§10.1, default `two_way`), sensitive categories (all off), agent access (default `accepted`).
 4. **Who reads your day**: None / Cloud / Local with the §8 table, the monthly estimate for the chosen sources, and backfill (0 / 30 / 90 / 365 days with the estimate). Local shows the RAM warning before it can be picked.
 
@@ -440,8 +440,9 @@ A summary screen restates the choices; **Turn on** records an audit entry (`memo
 ```text
 Settings → Memory → Everything memory                                   [ On ]
   Who reads your day      ( None | Cloud: Claude Haiku 5.5 | Local: … )   ~$4/month · last run 03:12
-  Sources                 Mail ✓  Messages ✓  Notes ✓  Calendar ✓  Reminders  Chats ✓  Files  Browser  Transcripts
-                          each: items, facts, "agent can search" (from Search), Remove learned facts
+  Sources                 Mail ✓  Messages ✓  Notes ✓  Calendar ✓  Reminders  Files  Transcripts
+                          each: "Learning from it" (Search reads it, not opted out) or "Psyche doesn't read it" + Let Psyche read;
+                          "agent can search" stays in Search; Remove learned facts
   People                  Learn about: ( two-way | contacts | everyone | only chosen )   Excluded (12) ›
   Sensitive topics        Health · Finances · Sexuality · Religion · Politics · Ethnicity · Legal · Precise location   all off
                           Government IDs and account numbers are never stored.
@@ -514,6 +515,7 @@ The owner accepted every recommendation below on 2026-10-28; they are now bindin
 | 9 | **Encrypt the memory store** with SQLCipher in its own file. | **Yes**, after the EM-S1 spike; cards to files off by default. | Accepted 2026-10-28 |
 | 10 | **Battery runs**. | **Off** (AC only). | Accepted 2026-10-28 |
 | 11 | **Search index encryption** (raw mail and messages text). | Same as 9, decided with the search-coverage work. | Accepted 2026-10-28 (decided with #9) |
+| 12 | **Memory follows Search** (2026-11-03). Two per-source switches (Search sources, and memory's own) disagreed: memory could say "on" for a source Search did not index, which read nothing. | **One list decides what Psyche may read: Search sources.** Memory learns from every source Search reads by default, with a per-source opt-out (`memory.everything.optOut`, "Don't learn from this"). **Effective = indexed && !optOut**, read by the Gateway on every pass (`everythingSettings(value, indexed)`), so turning a Search source off makes memory unable to read it at once. A value stored before `optOut` is migrated on read: a per-source switch that was explicitly off is an opt-out, one that was on (or never stored) is not, and the old `sources` switches are otherwise ignored (the UI keeps `sources` equal to the effective list when it writes). The master switch, the consent and the model choice are unchanged. Browser pages and chats are never in the effective list, whatever Search or the opt-out says. | Accepted by the owner 2026-11-03 |
 
 ## 15. Risks
 

@@ -1,10 +1,13 @@
 import {
   EVERYTHING_MEMORY_DEFAULTS,
+  EVERYTHING_READABLE_SOURCES,
   type EverythingMemorySettings,
   type EverythingSource,
+  effectiveEverythingSources,
+  everythingOptOut,
 } from "@psyche/protocol";
 import { ChevronRight, TriangleAlert } from "lucide-react";
-import type { ReactElement } from "react";
+import { type ReactElement, useState } from "react";
 import { Button } from "../components/ui/button.tsx";
 import { Input } from "../components/ui/input.tsx";
 import { NativeSelect } from "../components/ui/native-select.tsx";
@@ -39,12 +42,25 @@ function merge(base: unknown, over: unknown): unknown {
   return out;
 }
 
-/** The stored `memory.everything` over the accepted defaults, so a partial value drops nothing. */
-export function readEverything(values: Readonly<Record<string, unknown>>): EverythingValues {
-  return merge(
-    structuredClone(EVERYTHING_MEMORY_DEFAULTS),
-    values[EVERYTHING_KEY],
-  ) as EverythingValues;
+/**
+ * The stored `memory.everything` over the accepted defaults, so a partial value drops nothing.
+ * Memory follows Search: `optOut` is the owner's per-source "Don't learn from this" (an older
+ * value's switches are migrated), and `sources` is what memory learns from, indexed && !optOut,
+ * so the cost, the per-source models and the consent summary all see the same list the Gateway
+ * reads. `indexed` is the sources Search reads; unknown while it loads, when none is held back.
+ */
+export function readEverything(
+  values: Readonly<Record<string, unknown>>,
+  indexed?: ReadonlySet<EverythingSource>,
+): EverythingValues {
+  const stored = values[EVERYTHING_KEY];
+  const merged = merge(structuredClone(EVERYTHING_MEMORY_DEFAULTS), stored) as EverythingValues;
+  const optOut = everythingOptOut(stored);
+  return {
+    ...merged,
+    optOut,
+    sources: effectiveEverythingSources(optOut, indexed ?? EVERYTHING_READABLE_SOURCES),
+  };
 }
 
 /** The local models whose memory warning the owner confirmed (one name, or a list). */
@@ -208,38 +224,82 @@ export function SourceFields({
   value,
   onChange,
   indexed,
-  onOpenSearch,
+  onEnable,
 }: {
   value: EverythingValues;
   onChange: (next: EverythingValues) => void;
   /**
-   * The sources Search indexes now. The nightly pass reads only the index, so a source Search
-   * does not index says so here, with a way to Search sources: their one home (settings-2026).
+   * The sources Search reads now (unknown while it loads). Memory follows Search: a source it
+   * reads is learned from unless opted out here; one it does not read is shown off, with a way to
+   * let Psyche read it.
    */
   indexed?: ReadonlySet<EverythingSource>;
-  onOpenSearch?: () => void;
+  /** Turns the Search source on: the same call as Settings → Essentials and Search sources. */
+  onEnable?: (source: EverythingSource) => void | Promise<void>;
 }): ReactElement {
+  const [pending, setPending] = useState<ReadonlySet<EverythingSource>>(new Set());
+  const enable = (s: EverythingSource) => {
+    if (!onEnable) return;
+    setPending((p) => new Set(p).add(s));
+    void Promise.resolve(onEnable(s))
+      .catch(() => undefined)
+      .finally(() =>
+        setPending((p) => {
+          const next = new Set(p);
+          next.delete(s);
+          return next;
+        }),
+      );
+  };
   return (
     <Group title={t("everything.sources.title")} description={t("everything.sources.description")}>
       {SOURCE_IDS.map((s) => {
-        const missing = indexed !== undefined && !indexed.has(s);
+        const name = t(`everything.source.${s}`);
+        if (indexed !== undefined && !indexed.has(s)) {
+          return (
+            <SwitchField
+              key={s}
+              label={name}
+              description={t("everything.sources.notRead", { source: name })}
+              checked={false}
+              disabled
+              settingKey={EVERYTHING_KEY}
+              onChange={() => undefined}
+            >
+              {onEnable ? (
+                <div>
+                  <Button
+                    type="button"
+                    variant="plain"
+                    size="sm"
+                    disabled={pending.has(s)}
+                    onClick={() => enable(s)}
+                  >
+                    {t("everything.sources.letRead", { source: name })}
+                  </Button>
+                </div>
+              ) : null}
+            </SwitchField>
+          );
+        }
+        const learning = value.optOut[s] !== true;
         return (
           <SwitchField
             key={s}
-            label={t(`everything.source.${s}`)}
-            {...(missing ? { description: t("everything.sources.notIndexed") } : {})}
-            checked={value.sources[s]}
+            label={name}
+            description={t(
+              learning ? "everything.sources.learning" : "everything.sources.notLearning",
+            )}
+            checked={learning}
             settingKey={EVERYTHING_KEY}
-            onChange={(on) => onChange({ ...value, sources: { ...value.sources, [s]: on } })}
-          >
-            {missing && onOpenSearch ? (
-              <div>
-                <Button type="button" variant="plain" size="sm" onClick={onOpenSearch}>
-                  {t("everything.sources.openSearch")}
-                </Button>
-              </div>
-            ) : null}
-          </SwitchField>
+            onChange={(on) =>
+              onChange({
+                ...value,
+                optOut: { ...value.optOut, [s]: !on },
+                sources: { ...value.sources, [s]: on },
+              })
+            }
+          />
         );
       })}
     </Group>
