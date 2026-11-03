@@ -213,6 +213,17 @@ describe("calendar", () => {
     expect(ids?.ids).toHaveLength(2000);
   });
 
+  it("still reads past 500 when one half of a split is empty (the stop rule is for two full halves)", async () => {
+    // 900 events, all in the last month of a year-long window: the older half is empty.
+    const events = Array.from({ length: 900 }, (_, i) => event(i, NOW - DAY - i * 2_880_000));
+    const f = fake(events);
+    const { items } = await drain(calendarAdapter(deps(f.call)));
+    expect(new Set(items.map((i) => i.nativeId)).size).toBe(900);
+    const ids = await calendarAdapter(deps(fake(events).call)).listIds?.(signal);
+    expect(ids?.ids).toHaveLength(900);
+    expect(ids?.complete).toBe(true);
+  });
+
   it("caps the calls for one window even when every half is full and different", async () => {
     // 100,000 events, one every 5 minutes: every split is full. The cap ends it.
     let calls = 0;
@@ -513,6 +524,117 @@ describe("messages", () => {
     expect(page.items[0]?.parties).toEqual(["dana@example.com"]);
     const ex = { contacts: ["dana@example.com"], chats: [], accounts: [], folders: [] };
     expect(isExcluded(page.items[0] as SourceItem, ex)).toBe(true);
+  });
+
+  /** A helper whose directory and message log the test can change, serving rows after `sinceCursor`. */
+  function liveHelper() {
+    const world = {
+      chats: [{ chatId: "iMessage;-;+15550000001", handles: [] as string[], isGroup: false }],
+      messages: [] as { row: number; chatId: string; text: string }[],
+      pages: true,
+      now: NOW,
+    };
+    const calls: string[] = [];
+    const call = async (cap: string, p: Obj) => {
+      calls.push(cap);
+      if (cap === "messages.graph_chats") {
+        const offset = world.pages ? Number(p.offset ?? 0) : 0;
+        return { chats: world.chats.slice(offset, offset + Number(p.limit)) };
+      }
+      const since = Number(p.sinceCursor ?? 0);
+      const rest = world.messages.filter((m) => m.row > since);
+      const page = rest.slice(0, Number(p.limit));
+      return {
+        cursor: page.at(-1)?.row ?? since,
+        hasMore: rest.length > page.length,
+        messages: page.map((m) => ({
+          chatId: m.chatId,
+          sentAt: "2024-03-03T09:00:00Z",
+          direction: "out",
+          text: m.text,
+        })),
+      };
+    };
+    const deps: AppleSourceDeps = {
+      call: () => undefined,
+      helper: () => call,
+      ownAddresses: () => [],
+      now: () => world.now,
+    };
+    return { world, deps, calls };
+  }
+
+  it("reads the directory again when a day names a chat it does not know (a group made mid-pass)", async () => {
+    const h = liveHelper();
+    h.world.messages = [
+      { row: 1, chatId: "iMessage;-;+15550000001", text: "first" },
+      { row: 2, chatId: "iMessage;-;+15550000001", text: "second" },
+      { row: 3, chatId: "iMessage;+;chatNEW", text: "welcome" },
+    ];
+    const adapter = messagesAdapter(h.deps);
+    // A pass has begun: the directory is read once and kept.
+    const first = await adapter.pull(null, { signal, limit: 1 });
+    expect(first.hasMore).toBe(true);
+    const before = h.calls.filter((c) => c === "messages.graph_chats").length;
+    // The group is made after that read. The next page names it.
+    h.world.chats.push({
+      chatId: "iMessage;+;chatNEW",
+      handles: ["dana@example.com"],
+      isGroup: true,
+    });
+    const second = await adapter.pull(first.cursor, { signal, limit: 1 });
+    expect(h.calls.filter((c) => c === "messages.graph_chats").length).toBeGreaterThan(before);
+    expect(second.items.map((i) => i.chatId)).toEqual(["iMessage;+;chatNEW"]);
+    expect(second.items[0]?.parties).toEqual(["dana@example.com"]);
+    expect((second.cursor as { skipped?: unknown }).skipped).toBeUndefined();
+  });
+
+  it("remembers a chat it could not name and reads its rows again once the directory knows it", async () => {
+    const h = liveHelper();
+    h.world.pages = false;
+    // 250 other chats, so the group is past the 200 an older helper can list; then the group.
+    h.world.chats = Array.from({ length: 250 }, (_, i) => ({
+      chatId: `iMessage;-;+1555${String(i).padStart(7, "0")}`,
+      handles: [],
+      isGroup: false,
+    }));
+    h.world.chats.push({
+      chatId: "iMessage;+;chatOLD",
+      handles: ["dana@example.com"],
+      isGroup: true,
+    });
+    const one = "iMessage;-;+15550000001";
+    h.world.messages = [
+      { row: 1, chatId: "iMessage;+;chatOLD", text: "to the group, only me" },
+      { row: 2, chatId: one, text: "a" },
+      { row: 3, chatId: one, text: "b" },
+      { row: 4, chatId: one, text: "c" },
+    ];
+    const adapter = messagesAdapter(h.deps);
+    const pass = await adapter.pull(null, { signal, limit: 100 });
+    // Nothing for the group: its members cannot be known. It is remembered, with where it began.
+    expect(pass.items.map((i) => i.chatId)).toEqual([one]);
+    expect(pass.cursor).toMatchObject({
+      row: 4,
+      skipped: [{ chatId: "iMessage;+;chatOLD", row: 0 }],
+    });
+    // The helper learns to page, and the directory is read again later (past its TTL).
+    h.world.pages = true;
+    h.world.now = NOW + 10 * 60_000;
+    const retry = await adapter.pull(pass.cursor, { signal, limit: 1 });
+    // Only the group's rows come back at first: the one-to-one chat is not read twice.
+    expect(retry.items.map((i) => i.chatId)).toEqual(["iMessage;+;chatOLD"]);
+    expect(retry.items[0]?.parties).toEqual(["dana@example.com"]);
+    expect(retry.cursor).toMatchObject({ only: ["iMessage;+;chatOLD"], stop: 4 });
+    expect((retry.cursor as { skipped?: unknown }).skipped).toBeUndefined();
+    // It goes on to where it had got to, and then the cursor is plain again.
+    let cursor: unknown = retry.cursor;
+    for (let i = 0; i < 5; i++) {
+      const page = await adapter.pull(cursor, { signal, limit: 1 });
+      cursor = page.cursor;
+      if (!page.hasMore) break;
+    }
+    expect(cursor).toEqual({ row: 4 });
   });
 
   it("reads the chat directory once for a pass, and again for the next", async () => {

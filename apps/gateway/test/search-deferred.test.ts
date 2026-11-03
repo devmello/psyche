@@ -3,11 +3,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openDb } from "@psyche/db";
 import type { NodeClient } from "@psyche/protocol";
+import { defaultSourcesConfig } from "@psyche/search";
 import { DerivedKeyStore, isPlainSqlite } from "@psyche/vault";
 import { afterEach, describe, expect, it } from "vitest";
 import { DeferredOpen } from "../src/compose/deferred-open.ts";
 import { composeSearch } from "../src/compose/search.ts";
 import { resolveSearchKey, SEARCH_ENCRYPT_SETTING } from "../src/compose/search-db.ts";
+import { memorySourceDeps } from "../src/compose/search-memory.ts";
 
 const dirs: string[] = [];
 const tmp = () => {
@@ -238,4 +240,65 @@ describe("composeSearch with a key from the Mac helper", () => {
     );
     expect(await b.index.count()).toBe(0);
   }, 30000);
+});
+
+describe("the Memory source and the index's real encryption state", () => {
+  const memoryDeps = () =>
+    memorySourceDeps({
+      graph: () => undefined,
+      config: () => defaultSourcesConfig(),
+      agentMode: () => "accepted",
+      memoryEncrypted: () => true,
+    });
+  const build = (encryption: object, memory: ReturnType<typeof memoryDeps>) => {
+    const f = fixture(true);
+    const search = composeSearch({
+      db: f.db,
+      home: f.home,
+      memory: { search: async () => [] },
+      tasks: { get: async () => undefined, actions: async () => [] },
+      now: () => Date.UTC(2026, 10, 2),
+      librarySyncMs: 0,
+      backfillPauseMs: 0,
+      sources: {
+        apple: {
+          call: () => undefined,
+          helper: () => undefined,
+          ownAddresses: () => [],
+          now: () => 0,
+        },
+        memory,
+      },
+      encryption,
+    } as never);
+    stops.push(() => search.stop?.());
+    return search;
+  };
+
+  it("stays blocked when the switch is on but the key was unavailable (the index is plain)", () => {
+    const memory = memoryDeps();
+    build({ status: { state: "unavailable", reason: "the vault slot would not open" } }, memory);
+    expect(memory.blocked?.()).toMatch(/Turn on search index encryption first/);
+  });
+
+  it("is let through when the index really is encrypted", () => {
+    const memory = memoryDeps();
+    build({ key: Buffer.alloc(32, 7), status: { state: "on" } }, memory);
+    expect(memory.blocked?.()).toBeUndefined();
+  });
+
+  it("is let through once a pending index (key from the helper) has opened encrypted", async () => {
+    const memory = memoryDeps();
+    const search = build(
+      { status: { state: "pending" }, pending: async () => Buffer.alloc(32, 9) },
+      memory,
+    );
+    search.start?.({ bus: { publish() {}, subscribe: () => () => {} } } as never);
+    await wait(
+      async () =>
+        ((await search.status()) as { encryption?: { state: string } }).encryption?.state === "on",
+      8000,
+    );
+    expect(memory.blocked?.()).toBeUndefined();
+  }, 20000);
 });

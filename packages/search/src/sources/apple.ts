@@ -433,6 +433,39 @@ const CHATS_TTL_MS = 5 * 60_000;
 const handleOfChatId = (chatId: string): string | undefined =>
   /^[^;]+;-;(.+)$/.exec(chatId)?.[1]?.trim() || undefined;
 
+/**
+ * The cursor: `row` is where the next page starts. A chat that had no known members when its rows
+ * were read (a group made after the directory was read, or one an older helper cannot list) is
+ * not indexed then, and is kept in `skipped` with the row it was first seen at; once the
+ * directory knows it, those rows are read again (`only` that chat, up to `stop`, the row the
+ * read had reached) so it is indexed after all.
+ */
+interface MessagesCursor {
+  row: number;
+  skipped?: { chatId: string; row: number }[];
+  only?: string[];
+  stop?: number;
+}
+const MAX_SKIPPED = 200;
+
+function messagesCursor(raw: unknown): MessagesCursor {
+  if (!isObj(raw)) return { row: 0 };
+  const skipped = Array.isArray(raw.skipped)
+    ? raw.skipped.flatMap((x): { chatId: string; row: number }[] =>
+        isObj(x) && typeof x.chatId === "string" && typeof x.row === "number"
+          ? [{ chatId: x.chatId, row: x.row }]
+          : [],
+      )
+    : [];
+  return {
+    row: typeof raw.row === "number" ? raw.row : 0,
+    ...(skipped.length > 0 ? { skipped } : {}),
+    ...(Array.isArray(raw.only) && typeof raw.stop === "number"
+      ? { only: raw.only.filter((x): x is string => typeof x === "string"), stop: raw.stop }
+      : {}),
+  };
+}
+
 export function messagesAdapter(deps: AppleSourceDeps): SourceAdapter {
   // Every chat with its participants, so a day's document names who it is with even when the day
   // holds only the owner's own messages: the owner's "never index" list works on those names.
@@ -469,8 +502,22 @@ export function messagesAdapter(deps: AppleSourceDeps): SourceAdapter {
     async pull(raw, { signal, limit }): Promise<SourcePull> {
       const helper = deps.helper();
       if (helper === undefined) throw new Error(NO_HELPER);
-      const row = isObj(raw) && typeof raw.row === "number" ? raw.row : 0;
-      const chats = await chatDirectory(helper, signal, raw === null);
+      const cur = messagesCursor(raw);
+      let fetched = raw === null;
+      let chats = await chatDirectory(helper, signal, raw === null);
+      let skipped = cur.skipped ?? [];
+      let only = cur.only;
+      let stop = cur.stop;
+      let row = cur.row;
+      // A chat skipped before that the directory now knows: read its rows again (only its).
+      const known = skipped.filter((x) => chats.has(x.chatId));
+      if (known.length > 0 && only === undefined) {
+        only = known.map((x) => x.chatId);
+        stop = row;
+        row = Math.min(...known.map((x) => x.row));
+        skipped = skipped.filter((x) => !chats.has(x.chatId));
+      }
+      const pageStart = row;
       const out = await helper(
         "messages.graph_read",
         { sinceCursor: row, limit: Math.min(limit * 2, MESSAGES_PAGE), includeText: true },
@@ -515,13 +562,32 @@ export function messagesAdapter(deps: AppleSourceDeps): SourceAdapter {
         d.first = Math.min(d.first, at);
         d.last = Math.max(d.last, at);
       }
+      // A chat the directory does not have may be new: read the directory again, once.
+      if (
+        !fetched &&
+        [...days.values()].some(
+          (d) => !chats.has(d.chatId) && handleOfChatId(d.chatId) === undefined,
+        )
+      ) {
+        chats = await chatDirectory(helper, signal, true);
+        fetched = true;
+      }
+      const cursor = isObj(out) && typeof out.cursor === "number" ? out.cursor : row;
+      // Re-reading a skipped chat's rows keeps only that chat, until the page that reaches where
+      // the read had got to: its rows past that point are new for every chat, so it keeps all.
+      const filtering = only !== undefined && stop !== undefined && cursor < stop;
       const items: SourceItem[] = [...days.values()].flatMap((d): SourceItem[] => {
+        if (filtering && !only?.includes(d.chatId)) return [];
         const meta = chats.get(d.chatId);
         const direct = handleOfChatId(d.chatId);
         // A chat the directory does not have (an older helper cannot list past 200) and whose id
         // does not name the other person is a group of unknown members: its participants cannot
         // be checked against the "never index" list, so it is not indexed.
-        if (meta === undefined && direct === undefined) return [];
+        if (meta === undefined && direct === undefined) {
+          if (!filtering && !skipped.some((x) => x.chatId === d.chatId))
+            skipped = [...skipped, { chatId: d.chatId, row: pageStart }].slice(-MAX_SKIPPED);
+          return [];
+        }
         const people = [
           ...new Set([
             ...(meta?.handles ?? []),
@@ -544,10 +610,14 @@ export function messagesAdapter(deps: AppleSourceDeps): SourceAdapter {
           },
         ];
       });
-      const cursor = isObj(out) && typeof out.cursor === "number" ? out.cursor : row;
       const hasMore = isObj(out) && out.hasMore === true && cursor > row;
       if (!hasMore) directory = undefined;
-      return { items, cursor: { row: cursor }, hasMore };
+      const next: MessagesCursor = {
+        row: cursor,
+        ...(skipped.length > 0 ? { skipped } : {}),
+        ...(filtering && hasMore ? { only, stop } : {}),
+      };
+      return { items, cursor: next, hasMore };
     },
   };
 }
@@ -700,7 +770,13 @@ export function calendarAdapter(deps: AppleSourceDeps): SourceAdapter {
     const shared = left.filter((e) => inRight.has(key(e))).length;
     // Events that span the split are in both halves; when most of what a half returned is shared,
     // splitting again only repeats them.
-    if (shared * 2 >= Math.min(left.length, right.length))
+    // Only when both halves are full: a half that is short is whole (all of it is read), and the
+    // other half still has events past the page, which splitting it further reads.
+    if (
+      left.length >= APPLE_PAGE &&
+      right.length >= APPLE_PAGE &&
+      shared * 2 >= Math.min(left.length, right.length)
+    )
       return { rows: merge(rows, left, right), complete: false };
     const a = await events(call, from, mid, signal, budget, left);
     const b = await events(call, mid, to, signal, budget, right);

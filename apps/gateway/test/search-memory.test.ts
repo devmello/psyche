@@ -137,7 +137,7 @@ const settings = (em: EverythingStore, config: SourcesConfig) => ({
   em,
   config: () => config,
   agentMode: () => "accepted" as const,
-  encrypted: () => ({ memory: false, search: false }),
+  memoryEncrypted: () => false,
 });
 
 /** Search's source choices as the owner would have them: Memory on, others as they ship. */
@@ -313,6 +313,81 @@ describe("the rules of the sources a fact was learned from", () => {
     expect(v).not.toContain("Messages Town");
   });
 
+  it("treats a people-graph model-pass fact (agent, no citation) by the channel of its interactions", () => {
+    const { graph, em } = world();
+    const sam = graph.createEntity({ kind: "person", name: "Pat Quinn" }).id;
+    const interaction = (source: string, ref: string) => {
+      graph.upsertInteraction({
+        kind: source === "mail" ? "mail" : "message",
+        source,
+        externalRef: ref,
+        occurredAt: "2026-11-01T10:00:00Z",
+        direction: "in",
+        participants: [{ entityId: sam, role: "from" }],
+      });
+      return graph.interactionByRef(source, ref)?.id as string;
+    };
+    const fromMessages = interaction("messages", "m-1");
+    const fromMail = interaction("mail", "e-1");
+    // What `model-pass.ts` writes: provenance agent, the interaction ids as sources, no citation.
+    graph.setFact({
+      entityId: sam,
+      attribute: "role",
+      value: "Model Messages Fact",
+      provenance: "agent",
+      sources: [fromMessages],
+    });
+    graph.setFact({
+      entityId: sam,
+      attribute: "employer",
+      value: "Model Mail Fact",
+      provenance: "agent",
+      sources: [fromMail],
+    });
+    graph.setFact({
+      entityId: sam,
+      attribute: "title",
+      value: "Model Unfindable Fact",
+      provenance: "agent",
+      sources: ["lesson:gone"],
+    });
+    // Memory owner-only, no summaries: nothing narrows, except what cannot be traced.
+    let v = values(memoryRecords(graph, em, sourceRules(searchConfig())));
+    expect(v).toEqual(expect.arrayContaining(["Model Messages Fact", "Model Mail Fact"]));
+    expect(v).not.toContain("Model Unfindable Fact");
+    // Open to the agent: the one drawn from Messages (agent off) goes.
+    v = values(
+      memoryRecords(
+        graph,
+        em,
+        sourceRules(
+          searchConfig((c) => {
+            c.sources.memory.agent = true;
+          }),
+        ),
+      ),
+    );
+    expect(v).toContain("Model Mail Fact");
+    expect(v).not.toContain("Model Messages Fact");
+    // Summaries to a cloud model while Messages is kept off the cloud: it goes too.
+    v = values(
+      memoryRecords(
+        graph,
+        em,
+        sourceRules(
+          searchConfig((c) => {
+            c.sources.memory.processing = "cloud";
+            c.sources.messages.processing = "none";
+          }),
+        ),
+      ),
+    );
+    expect(v).toContain("Model Mail Fact");
+    expect(v).not.toContain("Model Messages Fact");
+    // A fact the owner wrote is untouched by all of it.
+    expect(v).toContain("Acme Robotics");
+  });
+
   it("leaves out a learned fact whose citations cannot be checked", () => {
     const { graph, sam } = world();
     const noCitations = { citations: () => [] };
@@ -344,18 +419,25 @@ describe("Memory and the agent, encryption", () => {
 
   it("cannot be switched on while memory is encrypted and the search index is not, and then reads nothing", () => {
     const { graph, em } = world();
-    let enc = { memory: true, search: false };
+    let memoryEncrypted = true;
     const deps = memorySourceDeps({
       graph: () => graph,
       ...settings(em, searchConfig()),
-      encrypted: () => enc,
+      memoryEncrypted: () => memoryEncrypted,
     });
+    // The index has not said it is encrypted (not bound yet): it counts as plain.
     expect(deps.blocked?.()).toBe(MEMORY_NEEDS_ENCRYPTED_INDEX);
     expect(memoryAdapter(deps).unavailable()).toBe(MEMORY_NEEDS_ENCRYPTED_INDEX);
     expect(memoryAdapter(deps).cannotEnable?.()).toBe(MEMORY_NEEDS_ENCRYPTED_INDEX);
-    enc = { memory: true, search: true };
+    // The switch being on is not enough: the index says it is plain (its key was unavailable).
+    let indexEncrypted = false;
+    deps.bindIndex?.(() => indexEncrypted);
+    expect(deps.blocked?.()).toBe(MEMORY_NEEDS_ENCRYPTED_INDEX);
+    // Only the index really being encrypted lets it through.
+    indexEncrypted = true;
     expect(deps.blocked?.()).toBeUndefined();
-    enc = { memory: false, search: false };
+    indexEncrypted = false;
+    memoryEncrypted = false;
     expect(deps.blocked?.()).toBeUndefined();
   });
 
@@ -364,12 +446,11 @@ describe("Memory and the agent, encryption", () => {
     const s = memorySettings(db);
     // Everything memory is off by default: the agent has no access.
     expect(s.agentMode()).toBe("none");
-    expect(s.encrypted()).toEqual({ memory: false, search: false });
+    expect(s.memoryEncrypted()).toBe(false);
     setSetting(db, "memory.everything", { enabled: true, agentAccess: "accepted" });
     setSetting(db, "memory.encrypt", true);
-    setSetting(db, "search.encrypt", true);
     expect(s.agentMode()).toBe("accepted");
-    expect(s.encrypted()).toEqual({ memory: true, search: true });
+    expect(s.memoryEncrypted()).toBe(true);
     setSetting(db, "memory.everything", { enabled: true, agentAccess: "none" });
     expect(s.agentMode()).toBe("none");
   });

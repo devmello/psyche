@@ -58,6 +58,12 @@ export interface MemorySourceDeps {
   blocked?: () => string | undefined;
   /** Why the agent cannot be let search it (memory's own agent access is none), or undefined. */
   agentBlocked?: () => string | undefined;
+  /**
+   * The search index tells the source whether it is really encrypted now (not whether the switch
+   * is on: the key can be unavailable, and then the index stays plain). Until it does, the index
+   * counts as plain.
+   */
+  bindIndex?: (encrypted: () => boolean) => void;
 }
 
 const KIND_LABEL: Record<MemoryKind, string> = {

@@ -11,7 +11,6 @@ import {
 } from "@psyche/search";
 import { everythingSettings } from "./everything.ts";
 import { MEMORY_ENCRYPT_SETTING } from "./memory-db.ts";
-import { SEARCH_ENCRYPT_SETTING } from "./search-db.ts";
 
 /**
  * What the Memory search source may index (Settings → Search sources → Memory), read from the
@@ -43,7 +42,10 @@ const KINDS: GraphEntityKind[] = [
   "assignment",
 ];
 
-type Graph = Pick<GraphStore, "listEntities" | "getEntity" | "facts" | "edges" | "identifiers">;
+type Graph = Pick<
+  GraphStore,
+  "listEntities" | "getEntity" | "facts" | "edges" | "identifiers" | "interaction"
+>;
 
 /** How far a source's text may travel: none (nowhere), local (this Mac), cloud (any model). */
 const REACH: Record<ProcessingModel, number> = { none: 0, local: 1, cloud: 2 };
@@ -115,12 +117,20 @@ export function memoryRecords(
       .facts(e.id)
       .filter((f) => (f.sensitivity ?? "none") === "none" && f.provenance !== "untrusted")
       .filter((f) => {
-        // Written by the owner or a rule: no source rule. Learned by reading something (it has an
-        // extractor or cites a source): every source it cites must allow it, and one with no
-        // citation to check is not indexed.
+        // Written by the owner or a rule: no source rule. Learned by reading something: every
+        // source it came from must allow it, and one whose sources cannot be found is not indexed.
         const cites = em.citations("fact", f.id);
-        if (f.extractor === undefined && cites.length === 0) return true;
-        return cites.length > 0 && cites.every((c) => allowed(c.source));
+        if (cites.length > 0) return cites.every((c) => allowed(c.source));
+        if (f.extractor !== undefined) return false;
+        // The people graph's own model pass writes `agent` facts with the interactions they were
+        // drawn from (mail, messages, ...) and no citation: the channel of each is its source.
+        if (f.provenance === "agent") {
+          const channels = f.sources.map((id) => graph.interaction(id)?.source);
+          return (
+            channels.length > 0 && channels.every((c) => c !== undefined && allowed(c as string))
+          );
+        }
+        return true;
       })
       .map((f) => ({
         attribute: f.attribute,
@@ -159,8 +169,9 @@ export type AgentMode = "none" | "accepted" | "all";
 /**
  * The source's seam. While the owner has the memory graph off it reads nothing (an empty read,
  * which removes what was indexed: off means off), while memory is still opening it says so, and
- * it stands down when memory is encrypted and the search index is not (the index would hold a
- * plain copy of what the owner chose to keep encrypted).
+ * it stands down when memory is encrypted and the search index is not actually encrypted (the
+ * index would hold a plain copy of what the owner chose to keep encrypted; "actually" because the
+ * index stays plain when its key is unavailable, whatever `search.encrypt` says).
  */
 export function memorySourceDeps(o: {
   /** The graph while the owner has memory on; undefined while it is off. */
@@ -171,18 +182,21 @@ export function memorySourceDeps(o: {
   config: () => SourcesConfig;
   /** What the agent may read of memory (`memory.everything` agent access, off = none). */
   agentMode: () => AgentMode;
-  /** `memory.encrypt` and `search.encrypt`. */
-  encrypted: () => { memory: boolean; search: boolean };
+  /** `memory.encrypt`: the owner keeps memory encrypted. */
+  memoryEncrypted: () => boolean;
   /** False while the memory store is still opening (it may sit behind the Mac helper's key). */
   ready?: () => boolean;
 }): MemorySourceDeps {
   const ready = () => o.ready?.() ?? true;
+  // The index's real state, bound by Search when it builds the index (see `bindIndex`).
+  let indexEncrypted = () => false;
   return {
     unavailable: () => (ready() ? undefined : "Memory is still opening"),
-    blocked: () => {
-      const enc = o.encrypted();
-      return enc.memory && !enc.search ? MEMORY_NEEDS_ENCRYPTED_INDEX : undefined;
+    bindIndex: (encrypted) => {
+      indexEncrypted = encrypted;
     },
+    blocked: () =>
+      o.memoryEncrypted() && !indexEncrypted() ? MEMORY_NEEDS_ENCRYPTED_INDEX : undefined,
     agentBlocked: () => (o.agentMode() === "none" ? MEMORY_AGENT_NONE : undefined),
     read: () => {
       if (!ready()) return undefined;
@@ -197,21 +211,18 @@ export function memorySourceDeps(o: {
 /**
  * The settings Memory's source follows, read on every call so a change applies to the next pass:
  * Search's per-source choices, memory's agent access (off means none, as `agentAccess()` in
- * `people.ts` has it) and the two encryption switches.
+ * `people.ts` has it) and whether memory is encrypted.
  */
 export function memorySettings(
   db: PsycheDb,
-): Pick<Parameters<typeof memorySourceDeps>[0], "config" | "agentMode" | "encrypted"> {
+): Pick<Parameters<typeof memorySourceDeps>[0], "config" | "agentMode" | "memoryEncrypted"> {
   return {
     config: () => readSourcesConfig(getSetting(db, "search.sources")?.value),
     agentMode: () => {
       const s = everythingSettings(getSetting(db, EVERYTHING_MEMORY_SETTING_KEY)?.value);
       return s.enabled ? s.agentAccess : "none";
     },
-    encrypted: () => ({
-      memory: getSetting(db, MEMORY_ENCRYPT_SETTING)?.value === true,
-      search: getSetting(db, SEARCH_ENCRYPT_SETTING)?.value === true,
-    }),
+    memoryEncrypted: () => getSetting(db, MEMORY_ENCRYPT_SETTING)?.value === true,
   };
 }
 

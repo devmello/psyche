@@ -272,6 +272,9 @@ export function composeSearch(deps: SearchDeps): ComposedSearch {
 }
 
 function buildSearch(deps: SearchDeps, sqlite: PsycheDb["sqlite"]): ComposedSearch {
+  // The Memory source needs to know whether this index is really encrypted (it is plain when the
+  // key was unavailable, though the switch is on).
+  deps.sources?.memory?.bindIndex?.(() => deps.encryption?.status.state === "on");
   const index = new SqliteSearchIndex(sqlite, {
     memory: deps.memory,
     now: deps.now,
@@ -509,7 +512,8 @@ function buildSearch(deps: SearchDeps, sqlite: PsycheDb["sqlite"]): ComposedSear
       void (async () => {
         if (reapply) await sourceIndexer?.applyConfig();
         await purgeMemoryIfBlocked();
-        await sourceIndexer?.kick();
+        // Only the Memory source: a pass over Mail and Files is not what a memory change needs.
+        await sourceIndexer?.pullSource("memory");
       })().catch(() => undefined);
     }, MEMORY_KICK_MS);
     memoryKick.unref?.();
