@@ -1503,6 +1503,12 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     derived: new DerivedKeyStore(vault.helper),
   });
   const power = powerReader();
+  // Whether a model ref runs off this Mac. A ref the router does not know counts as cloud.
+  const isCloudRef = (ref: string): boolean => {
+    const providers = "router" in modelSetup ? modelSetup.router.providers : [];
+    const p = providers.find((c) => c.id === ref.split("/")[0]);
+    return p === undefined || !isLocalKind(p.kind);
+  };
   const searchModelEngine = searchEngine(db);
   const searchModels = searchModelProvider(provider, searchModelEngine);
   const search = composeSearch({
@@ -1565,7 +1571,15 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   searchRef = search;
   // `search_everything`: the agent's tool over the main index (roadmap §6); deferred by default.
   registry.register(
-    searchEverythingTool({ index: search.index, provider, model: utility ?? modelRef }),
+    searchEverythingTool({
+      index: search.index,
+      provider,
+      model: utility ?? modelRef,
+      // Processing none/local keeps a source's text off cloud models, here and in research.
+      cloudBlocked: () => search.sources?.cloudBlocked() ?? [],
+      synthesisIsCloud: () => isCloudRef(utility ?? modelRef),
+      outputIsCloud: () => isCloudRef(modelRef),
+    }),
   );
   void memoryRecall.apply();
   // Deep research (`/research`): plan, confirmed run, cited report artifact, follow-ups.
@@ -1577,7 +1591,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     cheapModel: utility ?? modelRef,
     web: webTools,
     // The agent audience: owner-only sources (Messages, Contacts, Memory) are never read into research.
-    localSearch: agentLocalSearch(search.index),
+    localSearch: agentLocalSearch(search.index, 5, {
+      cloudBlocked: () => search.sources?.cloudBlocked() ?? [],
+      cloud: () => isCloudRef(modelRef) || isCloudRef(utility ?? modelRef),
+    }),
     publish: (artifact, version) =>
       publish("artifact.updated", { artifact, version }, artifact.threadId ?? undefined),
   })) {

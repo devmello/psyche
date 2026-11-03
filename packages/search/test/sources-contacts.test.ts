@@ -69,6 +69,9 @@ function world(contacts: Obj[] = [jordan, sam]) {
     listCap: 2000,
     /** An older helper: no `offset`, so every page is the first. */
     ignoreOffset: false,
+    /** Runs after each `contacts.list` answer, to change the address book mid-walk. */
+    afterList: undefined as ((n: number) => void) | undefined,
+    lists: 0,
     up: true,
   };
   const helper: HelperCall = async (capability, params) => {
@@ -90,7 +93,8 @@ function world(contacts: Obj[] = [jordan, sam]) {
       );
       const cap = Math.min(limit, w.listCap);
       const offset = w.ignoreOffset ? 0 : Number(params.offset ?? 0);
-      return {
+      w.lists += 1;
+      const answer = {
         contacts: [
           ...named.slice(offset, offset + cap).map((c) => ({
             id: c.id,
@@ -101,6 +105,8 @@ function world(contacts: Obj[] = [jordan, sam]) {
         total: w.contacts.length,
         truncated: named.length > offset + cap,
       };
+      w.afterList?.(w.lists);
+      return answer;
     }
     if (capability === "contacts.read") {
       if (w.failRead !== undefined) throw new Error(w.failRead);
@@ -144,6 +150,7 @@ function harness(
   return {
     index,
     w,
+    helper,
     adapter,
     indexer,
     config,
@@ -260,7 +267,9 @@ describe("the Contacts source: paging and limits", () => {
     expect(out?.complete).toBe(true);
     expect(out?.ids).toHaveLength(7);
     const offsets = h.w.calls.map((c) => Number(c.params.offset ?? 0));
-    expect(offsets).toEqual([0, 3, 6]);
+    // Three pages, then a one-contact count to catch a change during the last page.
+    expect(offsets).toEqual([0, 3, 6, 0]);
+    expect(Number(h.w.calls.at(-1)?.params.limit)).toBe(1);
     for (const c of h.w.calls) expect(Number(c.params.limit)).toBeLessThanOrEqual(2000);
   });
 
@@ -304,6 +313,89 @@ describe("the Contacts source: paging and limits", () => {
     expect((await h.index.search({ q: "415 555 0199" })).hits.map((x) => x.id)).toContain(
       "contacts:c2",
     );
+  });
+});
+
+describe("the Contacts source: a stable listing", () => {
+  const many = (n: number): Obj[] =>
+    Array.from({ length: n }, (_, i) => ({
+      id: `p${String(i).padStart(4, "0")}`,
+      givenName: `Person${String(i).padStart(4, "0")}`,
+      familyName: "Test",
+      emails: [],
+      phones: [],
+      addresses: [],
+    }));
+
+  it("keeps the pass's list for the whole pass, however long it takes, and lists again for the next", async () => {
+    const h = harness(many(CONTACTS_PAGE * 3));
+    const first = await h.adapter.pull(null, { signal, limit: 100 });
+    // The address book changes and an hour passes between two pulls of one pass.
+    h.w.contacts = [
+      { ...many(1)[0], id: "new", givenName: "Aaron", familyName: "Aaa" },
+      ...h.w.contacts,
+    ];
+    h.setNow(NOW + 3_600_000);
+    const second = await h.adapter.pull(first.cursor, { signal, limit: 100 });
+    const third = await h.adapter.pull(second.cursor, { signal, limit: 100 });
+    const read = [...first.items, ...second.items, ...third.items].map((i) => i.nativeId);
+    // Every contact of the snapshot, once: none skipped or repeated by the shift.
+    expect(new Set(read).size).toBe(CONTACTS_PAGE * 3);
+    expect(read).not.toContain("new");
+    expect(h.w.lists).toBe(1);
+    expect(third.hasMore).toBe(false);
+    // The next pass (after the refresh time) lists again and sees the new contact.
+    h.setNow(NOW + 3_600_000 + CONTACTS_REFRESH_MS + 1);
+    const next = await h.adapter.pull(third.cursor, { signal, limit: 1000 });
+    expect(h.w.lists).toBe(2);
+    expect(next.items.map((i) => i.nativeId)).toContain("new");
+  });
+
+  it("starts the pass over when it has no list for the cursor (a restart mid-pass)", async () => {
+    const h = harness(many(CONTACTS_PAGE * 2));
+    const first = await h.adapter.pull(null, { signal, limit: 100 });
+    // A new adapter (the Gateway restarted) is handed the cursor of a pass it has no list for.
+    const restarted = contactsAdapter({ helper: () => h.helper, now: () => NOW });
+    const resumed = await restarted.pull(first.cursor, { signal, limit: 100 });
+    expect(resumed.items[0]?.nativeId).toBe("p0000");
+  });
+
+  it("is not complete when the address book changed while it was paged", async () => {
+    const h = harness(many(7));
+    h.w.listCap = 3;
+    h.w.afterList = (n) => {
+      if (n === 1) h.w.contacts = h.w.contacts.slice(1);
+    };
+    const out = await h.adapter.listIds?.(signal);
+    expect(out?.complete).toBe(false);
+  });
+
+  it("is not complete when it changed during the last page, found by the count after it", async () => {
+    const h = harness(many(7));
+    h.w.listCap = 3;
+    h.w.afterList = (n) => {
+      if (n === 3) h.w.contacts = [...h.w.contacts, ...many(1).map((c) => ({ ...c, id: "late" }))];
+    };
+    const out = await h.adapter.listIds?.(signal);
+    expect(out?.complete).toBe(false);
+    expect(h.w.lists).toBe(4);
+  });
+
+  it("the sweep deletes nothing on a list that shifted, and everything gone on a steady one", async () => {
+    const h = harness(many(7));
+    for (let i = 0; i < 3; i++) await h.indexer.tick();
+    expect(h.ids()).toHaveLength(7);
+    h.w.listCap = 3;
+    h.w.contacts = h.w.contacts.slice(0, 5);
+    h.w.lists = 0;
+    h.w.afterList = (n) => {
+      if (n === 1) h.w.contacts = h.w.contacts.slice(0, 4);
+    };
+    expect(await h.indexer.sweep("contacts")).toBe(0);
+    expect(h.ids()).toHaveLength(7);
+    h.w.afterList = undefined;
+    expect(await h.indexer.sweep("contacts")).toBe(3);
+    expect(h.ids()).toHaveLength(4);
   });
 });
 
@@ -473,15 +565,44 @@ describe("the exclusion list matches a number however it is written", () => {
     provenance: "owner" as const,
     parties: [party],
   });
+  const hides = (party: string, listed: string) => isExcluded(item(party), ex(listed));
+
   it.each([
     ["+1 555 123 4567", "(555) 123-4567"],
     ["(555) 123-4567", "+1 555 123 4567"],
     ["+44 7911 123456", "07911 123456"],
-  ])("%s is %s", (party, listed) => {
-    expect(isExcluded(item(party), ex(listed))).toBe(true);
+    ["07911 123456", "+44 7911 123456"],
+    ["+49 30 1234567", "030 1234567"],
+    ["030 1234567", "+49 30 1234567"],
+    ["+49 30 1234567", "0049 30 1234567"],
+    ["+1 555 123 4567", "555.123.4567"],
+  ])("a number with a country code and one without: %s is %s", (party, listed) => {
+    expect(hides(party, listed)).toBe(true);
   });
-  it("does not match a different number or a short one", () => {
-    expect(isExcluded(item("+1 555 123 4567"), ex("555 123 4568"))).toBe(false);
-    expect(isExcluded(item("+1 555 123 4567"), ex("123456"))).toBe(false);
+
+  it("two numbers that both have a country code match only in full", () => {
+    expect(hides("+44 7911 123456", "+1 791 112 3456")).toBe(false);
+    expect(hides("+1 791 112 3456", "+44 7911 123456")).toBe(false);
+    expect(hides("+1 555 123 4567", "+1 555 123 4567")).toBe(true);
+    expect(hides("+1 (555) 123-4567", "+15551234567")).toBe(true);
+  });
+
+  it("two numbers without a country code match by the national number", () => {
+    expect(hides("(555) 123-4567", "555 123 4567")).toBe(true);
+    expect(hides("030 1234567", "30 1234567")).toBe(true);
+    expect(hides("(555) 123-4567", "(555) 123-4568")).toBe(false);
+  });
+
+  it("ignores an extension on either side", () => {
+    expect(hides("+1 555 123 4567 x42", "(555) 123-4567")).toBe(true);
+    expect(hides("(555) 123-4567", "+1 555 123 4567 ext. 9")).toBe(true);
+    expect(hides("555-123-4567 #12", "555 123 4567")).toBe(true);
+  });
+
+  it("does not match a different or a short number, or a plain name", () => {
+    expect(hides("+1 555 123 4567", "555 123 4568")).toBe(false);
+    expect(hides("+1 555 123 4567", "123456")).toBe(false);
+    expect(hides("Sam Lee", "sam lee")).toBe(true);
+    expect(hides("Sam Lee", "555 123 4567")).toBe(false);
   });
 });

@@ -86,7 +86,13 @@ export interface SearchEverythingOutput {
     dropped: number;
   };
   /** Why `answer` is missing or empty. */
-  answerNote?: "no_model" | "no_hits" | "unsupported" | "model_failed";
+  answerNote?: "no_model" | "no_hits" | "unsupported" | "model_failed" | "withheld";
+  /**
+   * Results kept from a cloud model because their source's processing setting keeps them on this
+   * Mac (`none` or `local`): how many, per source, and a sentence the model can pass on.
+   */
+  withheld?: { source: string; count: number }[];
+  withheldNote?: string;
 }
 
 export interface SearchEverythingDeps {
@@ -99,7 +105,20 @@ export interface SearchEverythingDeps {
   tzOffsetMinutes?: number;
   /** Kept hit sets for follow-ups (default: in-process, 50 threads). */
   kept?: HitSetStore;
+  /**
+   * Producers (`connector:contacts`, ...) whose processing setting keeps their text off cloud
+   * models (`none` or `local`); read on every call.
+   */
+  cloudBlocked?: () => readonly string[];
+  /** Whether the synthesis model is a cloud model (default true: unknown counts as cloud). */
+  synthesisIsCloud?: () => boolean;
+  /** Whether the model that receives this tool's output is a cloud model (default true). */
+  outputIsCloud?: () => boolean;
 }
+
+/** Every `connector:x` tag as the owner knows it. */
+const sourceName = (tag: string): string =>
+  tag.replace(/^connector:/, "").replace(/^imessage$/, "messages");
 
 export interface KeptSet {
   query: string;
@@ -377,24 +396,52 @@ export async function searchEverything(
     );
     deps.kept?.set(ctx.threadId, { query: input.query, hits, texts });
   }
+  // Processing is enforced where text leaves this Mac: a source whose setting is `none` or `local`
+  // is never shown to a cloud model, in the tool's output (the thread model reads it) or in the
+  // synthesis prompt. The owner still sees every hit in Search.
+  const blocked = new Set(deps.cloudBlocked?.() ?? []);
+  const outCloud = deps.outputIsCloud?.() ?? true;
+  const synthCloud = deps.synthesisIsCloud?.() ?? true;
+  const isBlocked = (h: AgentHit) => blocked.has(h.source);
+  const shown = outCloud ? hits.filter((h) => !isBlocked(h)) : hits;
+  // The answer is part of the output, so a cloud reader of it also rules out blocked sources.
+  const forModel = synthCloud || outCloud ? hits.filter((h) => !isBlocked(h)) : hits;
   const output: SearchEverythingOutput = {
     mode,
     query: input.query,
     notice: UNTRUSTED_NOTICE,
-    hits: renderHits(hits),
+    hits: renderHits(shown),
   };
+  const kept_back = [...(outCloud || synthCloud ? hits.filter(isBlocked) : [])];
+  if (kept_back.length > 0) {
+    const bySource = new Map<string, number>();
+    for (const h of kept_back) bySource.set(h.source, (bySource.get(h.source) ?? 0) + 1);
+    output.withheld = [...bySource].map(([source, count]) => ({
+      source: sourceName(source),
+      count,
+    }));
+    output.withheldNote = `${output.withheld
+      .map((w) => `${w.count} result${w.count === 1 ? "" : "s"} from ${w.source}`)
+      .join(
+        ", ",
+      )} not sent off this Mac: their processing setting keeps them here. The owner can see them in Search.`;
+  }
   const provenance = hits.some((h) => h.provenance === "untrusted") ? "untrusted" : "trusted";
   if (mode === "answer") {
     if (hits.length === 0) output.answerNote = "no_hits";
+    else if (forModel.length === 0) output.answerNote = "withheld";
     else if (deps.complete === undefined) output.answerNote = "no_model";
     else {
       try {
         const reply = await deps.complete(
           SYSTEM,
-          answerPrompt(input.query, hits, texts),
+          answerPrompt(input.query, forModel, texts),
           ctx.signal,
         );
-        const { sentences, dropped } = validateAnswer(parseJson(reply), texts);
+        const { sentences, dropped } = validateAnswer(
+          parseJson(reply),
+          Object.fromEntries(forModel.map((h) => [h.id, texts[h.id] ?? ""])),
+        );
         if (sentences.length === 0) output.answerNote = "unsupported";
         else {
           output.answer = {
