@@ -47,6 +47,8 @@ export const MEMORY_STORE_TABLES = [
   "graph_interactions",
   "graph_participants",
   "graph_loops",
+  "graph_anchors",
+  "graph_interaction_subjects",
   "graph_suggestions",
   "graph_feedback",
   "graph_blocklist",

@@ -433,6 +433,8 @@ export class CardSync {
   async write(entityId: string): Promise<string | undefined> {
     const entity = this.#graph.getEntity(entityId);
     if (entity === undefined || entity.status !== "active" || entity.hidden) return undefined;
+    // An assignment is a row on its course's page, not a card file of its own.
+    if (entity.kind === "assignment") return undefined;
     const rendered = renderCard(this.#graph, entityId, this.#options());
     if (rendered === undefined) return undefined;
     const path = entity.cardPath ?? this.#graph.cardPathFor(entity);

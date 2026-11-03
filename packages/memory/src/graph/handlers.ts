@@ -20,6 +20,10 @@ export type GraphMethod =
   | "memory.entities.edges.set"
   | "memory.entities.edges.retract"
   | "memory.entities.history"
+  | "memory.entities.timeline"
+  | "memory.anchors.list"
+  | "memory.anchors.add"
+  | "memory.anchors.remove"
   | "memory.entities.merge"
   | "memory.entities.split"
   | "memory.entities.suggestions"
@@ -49,6 +53,10 @@ export const GRAPH_METHODS: readonly GraphMethod[] = [
   "memory.entities.edges.set",
   "memory.entities.edges.retract",
   "memory.entities.history",
+  "memory.entities.timeline",
+  "memory.anchors.list",
+  "memory.anchors.add",
+  "memory.anchors.remove",
   "memory.entities.merge",
   "memory.entities.split",
   "memory.entities.suggestions",
@@ -128,6 +136,9 @@ export function createGraphHandlers(
         ...(p.aliases === undefined ? {} : { aliases: p.aliases }),
         ...(p.identifiers === undefined ? {} : { identifiers: p.identifiers }),
         ...(p.projectStatus === undefined ? {} : { projectStatus: p.projectStatus }),
+        ...(p.dueAt === undefined ? {} : { dueAt: p.dueAt }),
+        ...(p.projectType === undefined ? {} : { projectType: p.projectType }),
+        ...(p.private === undefined ? {} : { private: p.private }),
         source: "owner",
         linkedBy: "owner",
         verified: true,
@@ -147,6 +158,9 @@ export function createGraphHandlers(
         ...(p.aliases === undefined ? {} : { aliases: p.aliases }),
         ...(p.status === undefined ? {} : { status: p.status }),
         ...(p.projectStatus === undefined ? {} : { projectStatus: p.projectStatus }),
+        ...(p.dueAt === undefined ? {} : { dueAt: p.dueAt }),
+        ...(p.projectType === undefined ? {} : { projectType: p.projectType }),
+        ...(p.private === undefined ? {} : { private: p.private }),
         ...(p.pinned === undefined ? {} : { pinned: p.pinned }),
         ...(p.hidden === undefined ? {} : { hidden: p.hidden }),
       });
@@ -200,6 +214,38 @@ export function createGraphHandlers(
 
     async "memory.entities.history"(p) {
       return graph.history(graph.resolveMerged(p.entityId), p.attribute);
+    },
+
+    async "memory.entities.timeline"(p) {
+      return graph.timeline(p.entityId, {
+        ...(p.before === undefined ? {} : { before: p.before }),
+        ...(p.limit === undefined ? {} : { limit: p.limit }),
+      });
+    },
+
+    async "memory.anchors.list"(p) {
+      return {
+        anchors: graph.anchors({
+          ...(p.entityId === undefined ? {} : { entityId: p.entityId }),
+          ...(p.kind === undefined ? {} : { kind: p.kind }),
+        }),
+      };
+    },
+
+    // Admin scope: the extraction principal can never redirect signals (W6).
+    async "memory.anchors.add"(p) {
+      const anchor = graph.addAnchor({
+        entityId: p.entityId,
+        kind: p.kind,
+        ref: p.ref,
+        ...(p.label === undefined ? {} : { label: p.label }),
+        addedBy: "owner",
+      });
+      return { anchor };
+    },
+
+    async "memory.anchors.remove"(p) {
+      return { removed: graph.removeAnchor(p.id) };
     },
 
     async "memory.entities.merge"(p) {

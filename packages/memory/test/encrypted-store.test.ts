@@ -170,7 +170,7 @@ describe("moving the memory tables", () => {
       enc
         .prepare("select name from sqlite_master where type='trigger' and name like 'graph_%'")
         .all(),
-    ).toHaveLength(3);
+    ).toHaveLength(4);
     expect(
       enc
         .prepare(
