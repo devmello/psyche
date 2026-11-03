@@ -241,7 +241,7 @@ export function composeCatchup(deps: CatchupDeps): Catchup {
       const now = iso(clock.now());
       const needsAssignment = () => {
         if (entity.kind !== "assignment")
-          badRequest("only an assignment can be handed in or dropped");
+          badRequest("only a to-do can be handed in or dropped");
       };
       let until: string | undefined;
       if (p.until !== undefined) {

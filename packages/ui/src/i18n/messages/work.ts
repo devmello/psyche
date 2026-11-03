@@ -6,7 +6,7 @@ export const work = {
 
   "work.status.not_started": "Not started",
   "work.status.in_progress": "In progress",
-  "work.status.submitted": "Submitted",
+  "work.status.submitted": "Handed in",
   "work.status.done": "Done",
   "work.status.dropped": "Dropped",
 
@@ -41,33 +41,35 @@ export const work = {
   "work.fact.stale": "May be out of date",
 
   "work.add.button": "Add",
-  "work.add.label": "Add an assignment",
-  "work.add.placeholder": "Lab report, CHEM 1B, Fri",
-  "work.add.placeholderChild": "Lecture Work 8, Fri",
-  "work.add.hint": "A title, then a course and a day, like “Lab report, CHEM 1B, Fri”.",
+  "work.add.label": "Add a to-do",
+  "work.add.placeholder": "Pay rent, Fri",
+  "work.add.placeholderChild": "Q3 deck, Thu",
+  "work.add.hint":
+    "A title, then a project and a day, like “Q3 deck, Work, Thu”, or just “Pay rent, Fri”.",
   "work.add.dueOn": "due {date}",
-  "work.add.noParent": "No course or project called “{name}”. It will be added without one.",
+  "work.add.noParent": "No project or course called “{name}”. It will be added without one.",
   "work.add.submit": "Add",
   "work.add.cancel": "Cancel",
   "work.add.added": "Added “{title}”.",
 
   "work.projects.add": "Add",
   "work.projects.label": "Add a project or course",
-  "work.projects.placeholder": "MATH 21",
+  "work.projects.placeholder": "Kitchen remodel",
   "work.projects.type": "Type",
   "work.projects.type.project": "Project",
   "work.projects.type.course": "Course",
-  "work.projects.hint": "Name it and pick what it is. Add its term, code and sources on its page.",
+  "work.projects.hint":
+    "Name it and pick what it is. Add its due date, next step and linked folders on its page.",
   "work.projects.added": "Added “{name}”.",
 
   "work.empty.stopped_at": "Not noted yet.",
   "work.empty.next_step": "No next step yet.",
-  "work.empty.assignments": "No assignments yet.",
+  "work.empty.assignments": "No to-dos yet.",
   "work.set.stopped_at": "Say where you stopped",
   "work.set.next_step": "Add a next step",
 
   "work.section.details": "Details",
-  "work.section.work": "Work due",
+  "work.section.work": "To-dos",
   "work.section.people": "People",
   "work.section.linked": "Linked",
 

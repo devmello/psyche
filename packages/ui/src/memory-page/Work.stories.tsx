@@ -24,20 +24,29 @@ type Story = StoryObj<typeof meta>;
 
 const shell = "max-w-[640px]";
 
-/** The form says what it read before it saves: the title, the course it found and the day. */
+/** The form says what it read before it saves: the title, the project it found and the day. */
 export const QuickAddUnderstood: Story = {
   render: () => (
     <div className={shell}>
-      <QuickAdd now={STORY_NOW} initialText="Lab report 4, CHEM 1B, Fri" onClose={() => {}} />
+      <QuickAdd now={STORY_NOW} initialText="Q3 report, Q4 launch, Fri" onClose={() => {}} />
     </div>
   ),
 };
 
-/** A course that matches nothing is said out loud, and the item is added without one. */
-export const QuickAddNoCourse: Story = {
+/** A project that matches nothing is said out loud, and the item is added without one. */
+export const QuickAddNoProject: Story = {
   render: () => (
     <div className={shell}>
-      <QuickAdd now={STORY_NOW} initialText="Poster, BIO 20, Mon" onClose={() => {}} />
+      <QuickAdd now={STORY_NOW} initialText="Call the plumber, Bathroom, Mon" onClose={() => {}} />
+    </div>
+  ),
+};
+
+/** No project at all: it simply saves without one. */
+export const QuickAddPlain: Story = {
+  render: () => (
+    <div className={shell}>
+      <QuickAdd now={STORY_NOW} initialText="Renew passport, Dec 1" onClose={() => {}} />
     </div>
   ),
 };
@@ -55,30 +64,30 @@ const AT = "2026-09-02T09:00:00Z";
 const anchors: GraphAnchor[] = [
   {
     id: "a1",
-    entityId: WORK_IDS.math,
+    entityId: WORK_IDS.launch,
     kind: "folder",
-    ref: "~/School/MATH21",
-    label: "MATH21",
+    ref: "~/Documents/Acme",
+    label: "Acme",
     addedBy: "owner",
     confirmed: true,
     createdAt: AT,
   },
   {
     id: "a2",
-    entityId: WORK_IDS.math,
+    entityId: WORK_IDS.launch,
     kind: "reminder_list",
-    ref: "MATH 21",
-    label: "MATH 21",
+    ref: "Q4 launch",
+    label: "Q4 launch",
     addedBy: "rule",
     confirmed: true,
     createdAt: AT,
   },
   {
     id: "a3",
-    entityId: WORK_IDS.math,
+    entityId: WORK_IDS.launch,
     kind: "mail_thread",
-    ref: "thread-lw7",
-    label: "Lecture Work 7 is posted",
+    ref: "thread-deck",
+    label: "Q3 board deck by Tuesday?",
     addedBy: "model",
     confirmed: false,
     createdAt: AT,
@@ -106,18 +115,18 @@ export const LinkedEmpty: Story = {
   ),
 };
 
-/** A course's timeline: its own rows and its assignments', newest first, each with its source chip. */
-export const CourseTimeline: Story = {
+/** A project's timeline: its own rows and its to-dos', newest first, each with its source chip. */
+export const ProjectTimeline: Story = {
   render: () => (
     <div className={shell}>
       <GroupedList title="Timeline">
         <ConnectedTimeline
-          entityId={WORK_IDS.math}
+          entityId={WORK_IDS.launch}
           now={STORY_NOW}
           names={
             new Map([
-              [WORK_IDS.lw7, "Lecture Work 7"],
-              [WORK_IDS.lw6, "Lecture Work 6"],
+              [WORK_IDS.deck, "Q3 board deck"],
+              [WORK_IDS.signoff, "Sign off on the launch copy"],
             ])
           }
         />
@@ -127,15 +136,15 @@ export const CourseTimeline: Story = {
 };
 
 /** The card with no host behind it: read-only, no controls that write. */
-export const CardReadOnlyCourse: Story = {
-  render: () => <WorkCard entity={workView(WORK_IDS.math)} now={STORY_NOW} className={shell} />,
+export const CardReadOnlyProject: Story = {
+  render: () => <WorkCard entity={workView(WORK_IDS.launch)} now={STORY_NOW} className={shell} />,
 };
 
-/** The card of an assignment with every control wired to nothing, to see the controls. */
-export const CardAssignment: Story = {
+/** The card of a to-do with every control wired to nothing, to see the controls. */
+export const CardTodo: Story = {
   render: () => (
     <WorkCard
-      entity={workView(WORK_IDS.lw7)}
+      entity={workView(WORK_IDS.deck)}
       now={STORY_NOW}
       className={shell}
       onSetWorkStatus={() => {}}

@@ -70,7 +70,7 @@ export const RAIL_ITEMS: readonly {
     group: "main",
     // People was this row before Memory took it in (docs/design/memory-everything-2026.md §6).
     keywords:
-      "people contacts projects courses work due events relationships keep in touch waiting on remember review",
+      "people contacts projects courses work due to-do deadlines bills events relationships keep in touch waiting on remember review",
     shortcut: "⌘4",
   },
 ];

@@ -54,7 +54,7 @@ export type BriefSurface = "brief" | "channel";
 export interface DailyCatchUp {
   /** Work memory is on: `catching_up` replaces `due`, and the wrap-up gains `worked_on`. */
   enabled(): boolean;
-  /** The ranked lines (at most five) and the counted "2 new assignments to confirm" line. */
+  /** The ranked lines (at most five) and the counted "2 new to-dos to confirm" line. */
   morning(surface: BriefSurface): { lines: CatchUpLine[]; pending?: CatchUpLine };
   /** "Worked on today" (at most five) and what is due tomorrow. */
   evening(surface: BriefSurface): { worked: CatchUpLine[]; dueTomorrow: CatchUpLine[] };

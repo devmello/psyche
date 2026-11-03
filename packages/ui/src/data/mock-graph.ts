@@ -105,7 +105,7 @@ const SIGNAL_FACTS: readonly string[] = ["progress", "stopped_at", "next_step", 
 const STATUS_WORDS: Record<string, string> = {
   not_started: "not started",
   in_progress: "in progress",
-  submitted: "submitted",
+  submitted: "handed in",
   done: "done",
   dropped: "dropped",
 };
@@ -395,10 +395,7 @@ export function graphHandlers(ctx: GraphMockContext): Handlers {
       if (p.dueAt !== undefined && dueAt === null)
         throw new PsycheError("invalid_params", "dueAt must be a date and time");
       if (dueAt !== null && !work)
-        throw new PsycheError(
-          "invalid_params",
-          "only a project, assignment or event has a due date",
-        );
+        throw new PsycheError("invalid_params", "only a project, to-do or event has a due date");
       const entity: GraphEntity = {
         id: `ent_new_${w.entities.length + 1}`,
         kind: p.kind,

@@ -47,7 +47,7 @@ const rowOf = (name: string) =>
   screen.getByText(name, { selector: "span" }).closest("[data-testid=work-row]") as HTMLElement;
 
 describe("Work due", () => {
-  it("groups assignments, in order, and leaves out what was done a month ago", async () => {
+  it("groups to-dos, in order, and leaves out what was done a month ago", async () => {
     setup(<MemoryScreen kind="due" now={STORY_NOW} />);
     await screen.findByText("Lecture Work 7");
     const headings = screen
@@ -57,13 +57,17 @@ describe("Work due", () => {
     expect(headings).toEqual(["Past due", "This week", "Later", "No date", "Done"]);
 
     const past = await group("Past due");
-    expect(within(past).getByText("Lecture Work 6")).toBeTruthy();
+    expect(within(past).getByText("Sign off on the launch copy")).toBeTruthy();
     const week = await group("This week");
-    for (const n of ["Lecture Work 7", "Lab report 3", "Pre-lab quiz"])
+    for (const n of ["Lecture Work 7", "Q3 board deck", "Order cabinet hardware", "Expense report"])
       expect(within(week).getByText(n)).toBeTruthy();
-    expect(within(await group("Later")).getByText("Midterm review sheet")).toBeTruthy();
-    expect(within(await group("No date")).getByText("File taxes extension")).toBeTruthy();
-    expect(within(await group("Done")).getByText("Lecture Work 5")).toBeTruthy();
+    const later = await group("Later");
+    for (const n of ["Midterm review sheet", "Pay rent", "Renew passport"])
+      expect(within(later).getByText(n)).toBeTruthy();
+    expect(within(await group("No date")).getByText("File taxes")).toBeTruthy();
+    const done = await group("Done");
+    for (const n of ["Lecture Work 5", "Book the electrician"])
+      expect(within(done).getByText(n)).toBeTruthy();
     expect(screen.queryByText("Lecture Work 1")).toBeNull();
   });
 
@@ -76,19 +80,28 @@ describe("Work due", () => {
     expect(within(lw7).getByText("Due Wed")).toBeTruthy();
     expect(within(lw7).queryByTestId("stale-mark")).toBeNull();
 
-    const lab = rowOf("Lab report 3");
-    expect(within(lab).getByText("CHEM 1B")).toBeTruthy();
-    expect(within(lab).getByText("Not started")).toBeTruthy();
-    expect(within(lab).getByTestId("stale-mark").textContent).toBe("As of Oct 9");
+    const hardware = rowOf("Order cabinet hardware");
+    expect(within(hardware).getByText("Kitchen remodel")).toBeTruthy();
+    expect(within(hardware).getByText("Not started")).toBeTruthy();
+    expect(within(hardware).getByTestId("stale-mark").textContent).toBe("As of Oct 9");
 
-    expect(within(rowOf("Pre-lab quiz")).getByText("Submitted")).toBeTruthy();
-    expect(within(rowOf("Pre-lab quiz")).queryByTestId("stale-mark")).toBeNull();
+    // Rent belongs to no project: its row says so by saying nothing, and a date a week or more
+    // away is never stale.
+    const rent = rowOf("Pay rent");
+    expect(within(rent).getByText("Not started")).toBeTruthy();
+    expect(within(rent).getByText("Due Nov 1")).toBeTruthy();
+    expect(within(rent).queryByText("Q4 launch")).toBeNull();
+    expect(within(rent).queryByTestId("stale-mark")).toBeNull();
+
+    expect(within(rowOf("Expense report")).getByText("Handed in")).toBeTruthy();
+    expect(within(rowOf("Expense report")).getByText("Q4 launch")).toBeTruthy();
+    expect(within(rowOf("Expense report")).queryByTestId("stale-mark")).toBeNull();
   });
 
   it("marks only past due in amber, and says Overdue in words", async () => {
     setup(<MemoryScreen kind="due" now={STORY_NOW} />);
-    await screen.findByText("Lecture Work 6");
-    const late = within(rowOf("Lecture Work 6")).getByTestId("due-chip");
+    await screen.findByText("Sign off on the launch copy");
+    const late = within(rowOf("Sign off on the launch copy")).getByTestId("due-chip");
     expect(late.textContent).toBe("Overdue since Oct 16");
     expect(late.className).toContain("text-approval-text");
     const soon = within(rowOf("Lecture Work 7")).getByTestId("due-chip");
@@ -100,8 +113,8 @@ describe("Work due", () => {
 
   it("marks a private item and nothing else", async () => {
     setup(<MemoryScreen kind="due" now={STORY_NOW} />);
-    await screen.findByText("File taxes extension");
-    expect(within(rowOf("File taxes extension")).getByText("Private")).toBeTruthy();
+    await screen.findByText("File taxes");
+    expect(within(rowOf("File taxes")).getByText("Private")).toBeTruthy();
     expect(within(rowOf("Lecture Work 7")).queryByText("Private")).toBeNull();
   });
 
@@ -150,41 +163,41 @@ describe("Work due", () => {
 });
 
 describe("Quick add", () => {
-  it("reads 'Lab report 4, CHEM 1B, Fri', says what it understood, and saves with its parent", async () => {
+  it("reads 'Q3 report, Q4 launch, Fri', says what it understood, and saves with its project", async () => {
     const { callsTo, user } = setup(<MemoryScreen kind="due" now={STORY_NOW} />);
     await user.click(await screen.findByRole("button", { name: "Add" }));
-    const input = screen.getByRole("textbox", { name: "Add an assignment" });
-    expect(input.getAttribute("placeholder")).toBe("Lab report, CHEM 1B, Fri");
-    await user.type(input, "Lab report 4, CHEM 1B, Fri");
+    const input = screen.getByRole("textbox", { name: "Add a to-do" });
+    expect(input.getAttribute("placeholder")).toBe("Pay rent, Fri");
+    await user.type(input, "Q3 report, Q4 launch, Fri");
     await waitFor(() =>
       expect(screen.getByTestId("quick-add-preview").textContent).toBe(
-        "Lab report 4 · CHEM 1B · due Fri, Oct 23",
+        "Q3 report · Q4 launch · due Fri, Oct 23",
       ),
     );
     await user.keyboard("{Enter}");
     await waitFor(() => expect(callsTo("memory.entities.create")).toHaveLength(1));
     expect(callsTo("memory.entities.create")[0]?.params).toMatchObject({
       kind: "assignment",
-      name: "Lab report 4",
+      name: "Q3 report",
       dueAt: "2026-10-23T23:59:00.000Z",
     });
     await waitFor(() => expect(callsTo("memory.entities.edges.set")).toHaveLength(1));
     expect(callsTo("memory.entities.edges.set")[0]?.params).toMatchObject({
       rel: "part_of",
-      dst: WORK_IDS.chem,
+      dst: WORK_IDS.launch,
     });
-    // The new row is in This week, under CHEM 1B, and the form is closed.
+    // The new row is in This week, under Q4 launch, and the form is closed.
     const week = await group("This week");
-    await waitFor(() => expect(within(week).getByText("Lab report 4")).toBeTruthy());
-    expect(within(rowOf("Lab report 4")).getByText("CHEM 1B")).toBeTruthy();
-    expect(screen.queryByRole("textbox", { name: "Add an assignment" })).toBeNull();
+    await waitFor(() => expect(within(week).getByText("Q3 report")).toBeTruthy());
+    expect(within(rowOf("Q3 report")).getByText("Q4 launch")).toBeTruthy();
+    expect(screen.queryByRole("textbox", { name: "Add a to-do" })).toBeNull();
   });
 
   it("finds a course by an alias through search", async () => {
     const { callsTo, user } = setup(<MemoryScreen kind="due" now={STORY_NOW} />);
     await user.click(await screen.findByRole("button", { name: "Add" }));
     await user.type(
-      screen.getByRole("textbox", { name: "Add an assignment" }),
+      screen.getByRole("textbox", { name: "Add a to-do" }),
       "Quiz 3, Linear Algebra, Mon",
     );
     await waitFor(() =>
@@ -197,33 +210,43 @@ describe("Quick add", () => {
     });
   });
 
-  it("says when no course matches, and adds the item without one", async () => {
+  it("says when no project matches, and adds the item without one", async () => {
     const { callsTo, user } = setup(<MemoryScreen kind="due" now={STORY_NOW} />);
     await user.click(await screen.findByRole("button", { name: "Add" }));
     await user.type(
-      screen.getByRole("textbox", { name: "Add an assignment" }),
-      "Poster, BIO 20, Mon",
+      screen.getByRole("textbox", { name: "Add a to-do" }),
+      "Call the plumber, Bathroom, Mon",
     );
-    expect(await screen.findByText(/No course or project called “BIO 20”/)).toBeTruthy();
+    expect(await screen.findByText(/No project or course called “Bathroom”/)).toBeTruthy();
     await user.keyboard("{Enter}");
     await waitFor(() => expect(callsTo("memory.entities.create")).toHaveLength(1));
     expect(callsTo("memory.entities.edges.set")).toHaveLength(0);
   });
 
-  it("takes a bare title, offers a hint when empty, and Escape closes it", async () => {
+  it("takes a bare title or a title and a day, with no project, and Escape closes it", async () => {
     const { callsTo, user } = setup(<MemoryScreen kind="due" now={STORY_NOW} />);
     await user.click(await screen.findByRole("button", { name: "Add" }));
-    expect(screen.getByTestId("quick-add-preview").textContent).toMatch(/A title, then a course/);
+    expect(screen.getByTestId("quick-add-preview").textContent).toMatch(/A title, then a project/);
     expect(screen.getByRole("button", { name: "Add", description: "" })).toBeTruthy();
-    await user.type(screen.getByRole("textbox", { name: "Add an assignment" }), "Call the dentist");
+    await user.type(screen.getByRole("textbox", { name: "Add a to-do" }), "Call the dentist");
     await user.keyboard("{Enter}");
     await waitFor(() => expect(callsTo("memory.entities.create")).toHaveLength(1));
     expect(callsTo("memory.entities.create")[0]?.params).not.toHaveProperty("dueAt");
     expect(await within(await group("No date")).findByText("Call the dentist")).toBeTruthy();
 
     await user.click(screen.getByRole("button", { name: "Add" }));
+    await user.type(screen.getByRole("textbox", { name: "Add a to-do" }), "Renew the lease, Dec 1");
+    await user.keyboard("{Enter}");
+    await waitFor(() => expect(callsTo("memory.entities.create")).toHaveLength(2));
+    expect(callsTo("memory.entities.create")[1]?.params).toMatchObject({
+      name: "Renew the lease",
+      dueAt: "2026-12-01T23:59:00.000Z",
+    });
+    expect(callsTo("memory.entities.edges.set")).toHaveLength(0);
+
+    await user.click(screen.getByRole("button", { name: "Add" }));
     await user.keyboard("{Escape}");
-    expect(screen.queryByRole("textbox", { name: "Add an assignment" })).toBeNull();
+    expect(screen.queryByRole("textbox", { name: "Add a to-do" })).toBeNull();
   });
 });
 
@@ -235,20 +258,23 @@ describe("Everything and Back", () => {
       .getAllByTestId("work-row")
       .map((r) => r.querySelector("span.truncate")?.textContent);
     expect(names).toEqual([
-      "Lecture Work 6",
-      "Lab report 3",
+      "Sign off on the launch copy",
+      "Order cabinet hardware",
       "Lecture Work 7",
+      "Q3 board deck",
       "Midterm review sheet",
     ]);
     // Done, handed-in and undated items are not "soon".
     expect(within(due).queryByText("Lecture Work 5")).toBeNull();
-    expect(within(due).queryByText("File taxes extension")).toBeNull();
+    expect(within(due).queryByText("File taxes")).toBeNull();
     await user.click(within(due).getByRole("button", { name: "See all" }));
     expect(navigate).toHaveBeenLastCalledWith("/memory?kind=due");
-    await user.click(within(due).getByRole("checkbox", { name: "Mark “Lecture Work 6” done" }));
+    await user.click(
+      within(due).getByRole("checkbox", { name: "Mark “Sign off on the launch copy” done" }),
+    );
     await waitFor(() =>
       expect(callsTo("memory.entities.facts.set").at(-1)?.params).toMatchObject({
-        entityId: WORK_IDS.lw6,
+        entityId: WORK_IDS.signoff,
         value: "done",
       }),
     );
@@ -264,7 +290,7 @@ describe("Everything and Back", () => {
     expect(screen.queryByRole("region", { name: "Due soon" })).toBeNull();
   });
 
-  it("goes Back from an assignment to Work due, and from a course to Projects", async () => {
+  it("goes Back from a to-do to Work due", async () => {
     const { navigate, user } = setup(<MemoryScreen entity={WORK_IDS.lw7} now={STORY_NOW} />);
     await user.click(await screen.findByRole("button", { name: "Back to Work due" }));
     expect(navigate).toHaveBeenLastCalledWith("/memory?kind=due");
@@ -279,37 +305,58 @@ describe("Projects", () => {
       "[data-testid=project-row]",
     ) as HTMLElement;
     expect(within(math).getByText("Course")).toBeTruthy();
-    expect(within(tab).getByText("CHEM 1B")).toBeTruthy();
+    expect(within(tab).getByText("Q4 launch")).toBeTruthy();
     expect(within(tab).getByText("Kitchen remodel")).toBeTruthy();
-    expect(within(tab).queryByText("ART 10")).toBeNull();
+    expect(within(tab).queryByText("Garage clean-out")).toBeNull();
 
     await user.click(within(tab).getByRole("radio", { name: "Paused" }));
-    expect(await within(tab).findByText("ART 10")).toBeTruthy();
+    expect(await within(tab).findByText("Garage clean-out")).toBeTruthy();
     expect(within(tab).queryByText("MATH 21")).toBeNull();
     await user.click(within(tab).getByRole("radio", { name: "Done" }));
-    expect(await within(tab).findByText("WRIT 2")).toBeTruthy();
+    expect(await within(tab).findByText("Lisbon trip")).toBeTruthy();
   });
 
   it("marks an active project nobody has touched for two weeks as stale", async () => {
     setup(<MemoryScreen kind="projects" now={STORY_NOW} />, {
       edit: (w) => {
-        const chem = w.graph.entities.find((e) => e.id === WORK_IDS.chem);
-        if (chem) chem.lastInteractionAt = "2026-09-20T15:00:00Z";
+        const kitchen = w.graph.entities.find((e) => e.id === WORK_IDS.kitchen);
+        if (kitchen) kitchen.lastInteractionAt = "2026-09-20T15:00:00Z";
       },
     });
-    const chem = (await screen.findByText("CHEM 1B")).closest(
+    const kitchen = (await screen.findByText("Kitchen remodel")).closest(
       "[data-testid=project-row]",
     ) as HTMLElement;
-    expect(within(chem).getByTestId("stale-mark").textContent).toBe("As of Sep 20");
+    expect(within(kitchen).getByTestId("stale-mark").textContent).toBe("As of Sep 20");
     const math = screen.getByText("MATH 21").closest("[data-testid=project-row]") as HTMLElement;
     expect(within(math).queryByTestId("stale-mark")).toBeNull();
   });
 
-  it("adds a course and opens its page", async () => {
+  it("adds a project by default, and opens its page", async () => {
+    const { callsTo, navigate, user } = setup(<MemoryScreen kind="projects" now={STORY_NOW} />);
+    await user.click(await screen.findByRole("button", { name: "Add" }));
+    await user.type(screen.getByRole("textbox", { name: "Add a project or course" }), "Bathroom");
+    expect(screen.getByRole("radio", { name: "Project" }).getAttribute("aria-checked")).toBe(
+      "true",
+    );
+    await user.click(screen.getByRole("button", { name: "Add", description: "" }));
+    await waitFor(() => expect(callsTo("memory.entities.create")).toHaveLength(1));
+    expect(callsTo("memory.entities.create")[0]?.params).toMatchObject({
+      kind: "project",
+      name: "Bathroom",
+      projectType: "project",
+    });
+    await waitFor(() =>
+      expect(navigate).toHaveBeenLastCalledWith(
+        expect.stringMatching(/^\/memory\?entity=ent_new_/),
+      ),
+    );
+  });
+
+  it("adds a course when asked, and opens its page", async () => {
     const { callsTo, navigate, user } = setup(<MemoryScreen kind="projects" now={STORY_NOW} />);
     await user.click(await screen.findByRole("button", { name: "Add" }));
     await user.type(screen.getByRole("textbox", { name: "Add a project or course" }), "PHYS 5A");
-    expect(screen.getByRole("radio", { name: "Course" }).getAttribute("aria-checked")).toBe("true");
+    await user.click(screen.getByRole("radio", { name: "Course" }));
     await user.click(screen.getByRole("button", { name: "Add", description: "" }));
     await waitFor(() => expect(callsTo("memory.entities.create")).toHaveLength(1));
     expect(callsTo("memory.entities.create")[0]?.params).toMatchObject({
@@ -343,26 +390,26 @@ describe("a course's page", () => {
     expect(within(card).getAllByText("MATH 21").length).toBeGreaterThan(1);
   });
 
-  it("lists its assignments, open first, each with a one-tap Done", async () => {
+  it("lists its to-dos, open first, each with a one-tap Done", async () => {
     const { callsTo, user } = open();
     const card = await screen.findByRole("article", { name: "MATH 21" });
     const work = within(card)
-      .getByRole("heading", { name: "Work due" })
+      .getByRole("heading", { name: "To-dos" })
       .closest("section") as HTMLElement;
     const names = within(work)
       .getAllByTestId("work-row")
       .map((r) => r.textContent ?? "");
-    expect(names[0]).toContain("Lecture Work 6");
-    expect(names[1]).toContain("Lecture Work 7");
+    expect(names[0]).toContain("Lecture Work 7");
+    expect(names[1]).toContain("Midterm review sheet");
     // Done last, the oldest first: it stays on the course after it left Work due.
     expect(names.at(-2)).toContain("Lecture Work 1");
     expect(names.at(-1)).toContain("Lecture Work 5");
     expect(within(work).queryByText("MATH 21")).toBeNull();
 
-    await user.click(within(work).getByRole("checkbox", { name: "Mark “Lecture Work 6” done" }));
+    await user.click(within(work).getByRole("checkbox", { name: "Mark “Lecture Work 7” done" }));
     await waitFor(() =>
       expect(callsTo("memory.entities.facts.set").at(-1)?.params).toMatchObject({
-        entityId: WORK_IDS.lw6,
+        entityId: WORK_IDS.lw7,
         attribute: "status",
         value: "done",
       }),
@@ -383,7 +430,7 @@ describe("a course's page", () => {
     expect(navigate).toHaveBeenLastCalledWith(`/memory?entity=${WORK_IDS.prof}`);
   });
 
-  it("draws the timeline of the course and its assignments, newest first, each with its source", async () => {
+  it("draws the timeline of the course and its to-dos, newest first, each with its source", async () => {
     open();
     const card = await screen.findByRole("article", { name: "MATH 21" });
     const rows = await within(card).findAllByTestId("timeline-row");
@@ -393,12 +440,10 @@ describe("a course's page", () => {
       "Lecture Work 7 · Next step: Finish 4b and 5, then submit on Gradescope",
     );
     const index = (needle: string) => text.findIndex((t) => t.includes(needle));
-    expect(index("Edited hw7.tex")).toBeLessThan(index("Due date moved Oct 19 → Oct 21"));
-    expect(index("Due date moved Oct 19 → Oct 21")).toBeLessThan(
-      index("Meeting: “MATH 21 lecture”"),
-    );
-    // The moved due date, the status change and the loop are all there.
-    expect(index("Status not started → in progress")).toBeGreaterThan(-1);
+    expect(index("Edited hw7.tex")).toBeLessThan(index("Meeting: “MATH 21 lecture”"));
+    // The due date, the status change and the loop are all there.
+    expect(index("Due Oct 21")).toBeGreaterThan(-1);
+    expect(index("Marked in progress")).toBeGreaterThan(-1);
     expect(index("Waiting on Prof. Monteiro: Regrade on Lecture Work 5")).toBeGreaterThan(-1);
     // Chips: the owner's own signals by source, someone else's words by sender.
     const chips = within(card)
@@ -451,12 +496,12 @@ describe("a course's page", () => {
     ).toBe("true");
   });
 
-  it("adds an assignment to the course from its page", async () => {
+  it("adds a to-do to the course from its page", async () => {
     const { callsTo, user } = open();
     const card = await screen.findByRole("article", { name: "MATH 21" });
     await user.click(within(card).getByRole("button", { name: "Add" }));
     await user.type(
-      within(card).getByRole("textbox", { name: "Add an assignment" }),
+      within(card).getByRole("textbox", { name: "Add a to-do" }),
       "Lecture Work 8, Fri",
     );
     await user.keyboard("{Enter}");
@@ -471,15 +516,15 @@ describe("a course's page", () => {
 
 describe("linked sources", () => {
   it("lists what is linked, who linked it, and shows a model's guess as a suggestion", async () => {
-    setup(<MemoryScreen entity={WORK_IDS.lw7} now={STORY_NOW} />);
-    const card = await screen.findByRole("article", { name: "Lecture Work 7" });
+    setup(<MemoryScreen entity={WORK_IDS.deck} now={STORY_NOW} />);
+    const card = await screen.findByRole("article", { name: "Q3 board deck" });
     const linked = (await within(card).findByRole("heading", { name: "Linked" })).closest(
       "section",
     ) as HTMLElement;
     const rows = await within(linked).findAllByTestId("anchor-row");
     expect(rows).toHaveLength(2);
-    expect(rows[0]?.textContent).toContain("hw7");
-    expect(rows[0]?.textContent).toContain("~/School/MATH21/hw7");
+    expect(rows[0]?.textContent).toContain("Q3-deck");
+    expect(rows[0]?.textContent).toContain("~/Documents/Acme/Q3-deck");
     expect(rows[0]?.textContent).toContain("You linked it");
     expect(rows[1]?.textContent).toContain("Suggested, not used until you link it");
   });
@@ -513,25 +558,25 @@ describe("linked sources", () => {
   });
 
   it("uses the host's folder picker when it has one", async () => {
-    const pickFolder = vi.fn().mockResolvedValue("/Users/alex/School/CHEM1B");
-    const { callsTo, user } = setup(<MemoryScreen entity={WORK_IDS.chem} now={STORY_NOW} />, {
+    const pickFolder = vi.fn().mockResolvedValue("/Users/alex/Projects/Launch");
+    const { callsTo, user } = setup(<MemoryScreen entity={WORK_IDS.launch} now={STORY_NOW} />, {
       slots: { pickFolder },
     });
-    const card = await screen.findByRole("article", { name: "CHEM 1B" });
+    const card = await screen.findByRole("article", { name: "Q4 launch" });
     await user.click(await within(card).findByRole("button", { name: "Add link" }));
     await user.click(within(card).getByRole("button", { name: "Choose…" }));
     expect(pickFolder).toHaveBeenCalled();
     await waitFor(() =>
       expect(
         (within(card).getByRole("textbox", { name: "Folder path" }) as HTMLInputElement).value,
-      ).toBe("/Users/alex/School/CHEM1B"),
+      ).toBe("/Users/alex/Projects/Launch"),
     );
     await user.click(within(card).getByRole("button", { name: "Link" }));
     await waitFor(() =>
       expect(callsTo("memory.anchors.add").at(-1)?.params).toMatchObject({
         kind: "folder",
-        ref: "/Users/alex/School/CHEM1B",
-        label: "CHEM1B",
+        ref: "/Users/alex/Projects/Launch",
+        label: "Launch",
       }),
     );
   });
@@ -554,71 +599,71 @@ describe("linked sources", () => {
   });
 });
 
-describe("an assignment's page", () => {
-  const open = (id: string = WORK_IDS.lw7) => setup(<MemoryScreen entity={id} now={STORY_NOW} />);
+describe("a to-do's page", () => {
+  const open = (id: string = WORK_IDS.deck) => setup(<MemoryScreen entity={id} now={STORY_NOW} />);
 
   it("leads with the due date, the status, where you stopped and the next step", async () => {
     open();
-    const card = await screen.findByRole("article", { name: "Lecture Work 7" });
-    expect(within(card).getByText("Assignment · MATH 21")).toBeTruthy();
-    expect(within(card).getByTestId("due-full").textContent).toMatch(/^Due Wed, Oct 21, 11:59 PM$/);
+    const card = await screen.findByRole("article", { name: "Q3 board deck" });
+    expect(within(card).getByText("To-do · Q4 launch")).toBeTruthy();
+    expect(within(card).getByTestId("due-full").textContent).toMatch(/^Due Thu, Oct 22, 11:59 PM$/);
     expect(
       within(card).getByRole("radio", { name: "In progress" }).getAttribute("aria-checked"),
     ).toBe("true");
-    for (const s of ["Not started", "In progress", "Submitted", "Done", "Dropped"])
+    for (const s of ["Not started", "In progress", "Handed in", "Done", "Dropped"])
       expect(within(card).getByRole("radio", { name: s })).toBeTruthy();
-    expect(within(card).getByText("Problem 4, part b")).toBeTruthy();
-    expect(within(card).getByText("Finish 4b and 5, then submit on Gradescope")).toBeTruthy();
-    expect(within(card).getByText("Finished problems 1 to 3")).toBeTruthy();
+    expect(within(card).getByText("Slide 9, the pricing table")).toBeTruthy();
+    expect(within(card).getByText("Add last quarter's numbers, then send to Sam")).toBeTruthy();
+    expect(within(card).getByText("Outline and slides 1 to 8")).toBeTruthy();
     // Fresh: no stale note.
     expect(within(card).queryByTestId("stale-note")).toBeNull();
     // Its parent and who assigned it open their pages.
-    expect(within(card).getByRole("button", { name: /MATH 21/ })).toBeTruthy();
+    expect(within(card).getByRole("button", { name: /Q4 launch/ })).toBeTruthy();
     expect(within(card).getByText("Assigned by")).toBeTruthy();
   });
 
   it("sets the status, and says so in the timeline", async () => {
     const { callsTo, user } = open();
-    const card = await screen.findByRole("article", { name: "Lecture Work 7" });
-    await user.click(within(card).getByRole("radio", { name: "Submitted" }));
+    const card = await screen.findByRole("article", { name: "Q3 board deck" });
+    await user.click(within(card).getByRole("radio", { name: "Handed in" }));
     await waitFor(() =>
       expect(callsTo("memory.entities.facts.set").at(-1)?.params).toMatchObject({
-        entityId: WORK_IDS.lw7,
+        entityId: WORK_IDS.deck,
         attribute: "status",
         value: "submitted",
       }),
     );
     await waitFor(() =>
       expect(
-        within(card).getByRole("radio", { name: "Submitted" }).getAttribute("aria-checked"),
+        within(card).getByRole("radio", { name: "Handed in" }).getAttribute("aria-checked"),
       ).toBe("true"),
     );
-    expect(await within(card).findByText("Status in progress → submitted")).toBeTruthy();
+    expect(await within(card).findByText("Status in progress → handed in")).toBeTruthy();
   });
 
   it("changes the due date, and clears it", async () => {
     const { callsTo, user } = open();
-    const card = await screen.findByRole("article", { name: "Lecture Work 7" });
+    const card = await screen.findByRole("article", { name: "Q3 board deck" });
     await user.click(within(card).getByRole("button", { name: "Change" }));
     const field = within(card).getByLabelText("Due date") as HTMLInputElement;
-    expect(field.value).toBe("2026-10-21");
+    expect(field.value).toBe("2026-10-22");
     await user.clear(field);
     await user.type(field, "2026-10-24");
     await user.click(within(card).getByRole("button", { name: "Save" }));
     await waitFor(() =>
       expect(callsTo("memory.entities.update").at(-1)?.params).toMatchObject({
-        id: WORK_IDS.lw7,
+        id: WORK_IDS.deck,
         dueAt: "2026-10-24T23:59:00.000Z",
       }),
     );
-    expect(await within(card).findByText("Due date moved Oct 21 → Oct 24")).toBeTruthy();
+    expect(await within(card).findByText("Due date moved Oct 22 → Oct 24")).toBeTruthy();
     await waitFor(() => expect(within(card).getByTestId("due-full").textContent).toMatch(/Oct 24/));
 
     await user.click(within(card).getByRole("button", { name: "Change" }));
     await user.click(within(card).getByRole("button", { name: "Clear date" }));
     await waitFor(() =>
       expect(callsTo("memory.entities.update").at(-1)?.params).toMatchObject({
-        id: WORK_IDS.lw7,
+        id: WORK_IDS.deck,
         dueAt: null,
       }),
     );
@@ -626,8 +671,8 @@ describe("an assignment's page", () => {
   });
 
   it("says where you stopped, from the owner, and notes when it may be out of date", async () => {
-    const { callsTo, user } = open(WORK_IDS.lw6);
-    const card = await screen.findByRole("article", { name: "Lecture Work 6" });
+    const { callsTo, user } = open(WORK_IDS.signoff);
+    const card = await screen.findByRole("article", { name: "Sign off on the launch copy" });
     // Past due and idle for four days: overdue in words and a stale note.
     expect(within(card).getByTestId("due-full").textContent).toMatch(
       /^Overdue, was due Fri, Oct 16/,
@@ -635,32 +680,35 @@ describe("an assignment's page", () => {
     expect(within(card).getByTestId("stale-note").textContent).toBe(
       "Last activity Oct 14. The status may be out of date.",
     );
-    expect(within(card).getByText("Problem 2")).toBeTruthy();
+    expect(within(card).getByText("Paragraph 3")).toBeTruthy();
 
     await user.click(within(card).getByRole("button", { name: "Add a next step" }));
     await user.type(
       within(card).getByRole("textbox", { name: "Next step" }),
-      "Ask in office hours",
+      "Ask Sam to sign off",
     );
     await user.click(within(card).getByRole("button", { name: "Save" }));
     await waitFor(() =>
       expect(callsTo("memory.entities.facts.set").at(-1)?.params).toMatchObject({
-        entityId: WORK_IDS.lw6,
+        entityId: WORK_IDS.signoff,
         attribute: "next_step",
-        value: "Ask in office hours",
+        value: "Ask Sam to sign off",
       }),
     );
-    expect(await within(card).findByText("Ask in office hours")).toBeTruthy();
+    expect(await within(card).findByText("Ask Sam to sign off")).toBeTruthy();
   });
 
-  it("starts a not-started assignment when the owner says where they stopped", async () => {
-    const { user } = open(WORK_IDS.lab3);
-    const card = await screen.findByRole("article", { name: "Lab report 3" });
+  it("starts a not-started to-do when the owner says where they stopped", async () => {
+    const { user } = open(WORK_IDS.hardware);
+    const card = await screen.findByRole("article", { name: "Order cabinet hardware" });
     expect(
       within(card).getByRole("radio", { name: "Not started" }).getAttribute("aria-checked"),
     ).toBe("true");
     await user.click(within(card).getByRole("button", { name: "Say where you stopped" }));
-    await user.type(within(card).getByRole("textbox", { name: "Where you stopped" }), "Data table");
+    await user.type(
+      within(card).getByRole("textbox", { name: "Where you stopped" }),
+      "Called two suppliers",
+    );
     await user.click(within(card).getByRole("button", { name: "Save" }));
     await waitFor(() =>
       expect(
@@ -669,7 +717,7 @@ describe("an assignment's page", () => {
     );
   });
 
-  it("keeps an assignment private, and the lock shows in Work due", async () => {
+  it("keeps a to-do private", async () => {
     const { callsTo, user } = open(WORK_IDS.review);
     const card = await screen.findByRole("article", { name: "Midterm review sheet" });
     await user.click(within(card).getByRole("button", { name: "More for Midterm review sheet" }));
@@ -682,13 +730,24 @@ describe("an assignment's page", () => {
     );
   });
 
-  it("shows an assignment nobody has touched as stale, in words", async () => {
-    open(WORK_IDS.lab3);
-    const card = await screen.findByRole("article", { name: "Lab report 3" });
+  it("shows a to-do nobody has touched as stale, in words", async () => {
+    open(WORK_IDS.hardware);
+    const card = await screen.findByRole("article", { name: "Order cabinet hardware" });
     expect(await within(card).findByTestId("stale-note")).toBeTruthy();
     expect(within(card).getByTestId("stale-note").textContent).toBe(
       "Last activity Oct 9. The status may be out of date.",
     );
+  });
+});
+
+describe("a to-do with no project", () => {
+  it("reads as a to-do on its own, with no parent and no course framing", async () => {
+    setup(<MemoryScreen entity={WORK_IDS.rent} now={STORY_NOW} />);
+    const card = await screen.findByRole("article", { name: "Pay rent" });
+    expect(within(card).getByText("To-do")).toBeTruthy();
+    expect(within(card).queryByText("Details")).toBeNull();
+    expect(within(card).getByTestId("due-full").textContent).toMatch(/Nov 1/);
+    expect(within(card).queryByText(/course|assignment|homework/i)).toBeNull();
   });
 });
 
@@ -714,6 +773,7 @@ describe("tracking a course end to end", () => {
     // 1. Add the course on Projects: it opens on its own page.
     await user.click(await screen.findByRole("button", { name: "Add" }));
     await user.type(screen.getByRole("textbox", { name: "Add a project or course" }), "PHYS 5A");
+    await user.click(screen.getByRole("radio", { name: "Course" }));
     await user.click(screen.getByRole("button", { name: "Add", description: "" }));
     const course = await screen.findByRole("article", { name: "PHYS 5A" });
     expect(within(course).getByText("Course · Active")).toBeTruthy();
@@ -737,7 +797,7 @@ describe("tracking a course end to end", () => {
     // 4. An assignment, from the course's own page.
     await user.click(within(course).getByRole("button", { name: "Add" }));
     await user.type(
-      within(course).getByRole("textbox", { name: "Add an assignment" }),
+      within(course).getByRole("textbox", { name: "Add a to-do" }),
       "Problem set 1, Fri",
     );
     await user.keyboard("{Enter}");
@@ -746,7 +806,7 @@ describe("tracking a course end to end", () => {
     // 5. Its page: nothing done yet, then saying where the owner stopped starts it.
     await user.click(set);
     const page = await screen.findByRole("article", { name: "Problem set 1" });
-    expect(within(page).getByText("Assignment · PHYS 5A")).toBeTruthy();
+    expect(within(page).getByText("To-do · PHYS 5A")).toBeTruthy();
     expect(
       within(page).getByRole("radio", { name: "Not started" }).getAttribute("aria-checked"),
     ).toBe("true");

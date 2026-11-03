@@ -578,3 +578,4 @@ The owner answered every open question. These are binding, alongside EM's D1–D
 | W4 | Due-soon notifications | **As recommended.** Off by default. When on, one at wrap-up (18:00) for the next 24 hours; a separate morning "due today" notification, also off by default. |
 | W5 | Which folders count as work | **As recommended.** Only folders linked to a project or course, with a suggestion when a folder name matches a course code or project name. |
 | W6 | Rename "Soul & Memory" to "Soul" | **Yes** (done in MW1). |
+| W7 | What Work due is for (owner feedback on MW6) | **Any work, for anyone at any age**, not school. The kind stays `assignment` in the protocol and store, but the owner sees **To-do**. Its parent is optional and general: a project, a course (one kind of project) or nothing. Status labels are Not started / In progress / Handed in / Done / Dropped, and quick add takes "Pay rent, Fri" as readily as "Lab report, CHEM 1B, Fri". |

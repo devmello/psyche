@@ -86,7 +86,7 @@ function AddProject({
   const inputId = useId();
   const writes = useWorkWrites();
   const [name, setName] = useState("");
-  const [type, setType] = useState<GraphProjectType>("course");
+  const [type, setType] = useState<GraphProjectType>("project");
   const submit = async () => {
     const value = name.trim();
     if (value === "") return;

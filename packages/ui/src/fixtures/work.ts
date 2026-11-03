@@ -9,34 +9,39 @@ import type {
 import type { EntityView } from "../people/types.ts";
 import { FIXTURE_NOW } from "./ids.ts";
 import type { FixtureWorld } from "./index.ts";
-import { type GraphWorld, graphView, graphWorld } from "./people.ts";
+import { type GraphWorld, graphView, graphWorld, PEOPLE_IDS } from "./people.ts";
 
 /**
- * A student's term on top of the people fixtures (docs/design/memory-everything-2026.md §2): two
- * courses with their assignments in every state (past due, this week, later, no date, done, one
- * old enough to have left Work due), an instructor who teaches one, a folder and a Reminders list
- * linked to it, and the timeline rows that make "where you stopped" believable. Dates sit around
+ * Things due, on top of the people fixtures (docs/design/memory-everything-2026.md §2): a work
+ * project with a board deck due, the kitchen remodel at home, one course with its homework, and
+ * loose to-dos (rent, a passport, taxes), in every state: past due, this week, later, no date,
+ * handed in, done, and one done long enough ago to have left Work due. A folder and a Reminders
+ * list are linked, and the timeline rows make "where you stopped" believable. Dates sit around
  * the kit's fixture clock (Sunday 2026-10-18).
  */
 
 export const WORK_IDS = {
+  launch: PEOPLE_IDS.launch,
+  kitchen: PEOPLE_IDS.kitchen,
   math: "ent_math21",
-  chem: "ent_chem1b",
-  art: "ent_art10",
-  writ: "ent_writ2",
+  garage: "ent_garage",
+  trip: "ent_lisbon_trip",
   prof: "ent_prof_monteiro",
   priya: "ent_priya_nair",
-  lw5: "ent_lw5",
-  lw6: "ent_lw6",
+  signoff: "ent_signoff",
+  expense: "ent_expense_report",
+  hardware: "ent_cabinet_hardware",
   lw7: "ent_lw7",
+  deck: "ent_q3_deck",
   review: "ent_midterm_review",
-  lab3: "ent_lab_report_3",
-  quiz: "ent_prelab_quiz",
+  rent: "ent_pay_rent",
+  passport: "ent_renew_passport",
   taxes: "ent_file_taxes",
+  electrician: "ent_electrician",
+  lw5: "ent_lw5",
   lw1: "ent_lw1",
 } as const;
 
-const W = WORK_IDS;
 const T0 = "2026-09-01T09:00:00Z";
 const OWNER = "ent_owner";
 
@@ -190,121 +195,200 @@ function loop(l: Partial<GraphLoop> & Pick<GraphLoop, "id" | "text" | "direction
 
 /** Adds the term to a graph: courses, assignments, their facts, links, mail and file days. */
 export function addWork(g: GraphWorld): GraphWorld {
+  const K = WORK_IDS;
+  // Two projects already live in the people fixtures: Q4 launch (work) and Kitchen remodel (home).
+  const launch = g.entities.find((e) => e.id === K.launch);
+  const kitchen = g.entities.find((e) => e.id === K.kitchen);
+  if (launch) launch.lastSignalAt = "2026-10-17T21:40:00Z";
+  if (kitchen) kitchen.lastSignalAt = "2026-10-14T12:00:00Z";
+
   g.entities.push(
-    course(W.math, "MATH 21", {
+    course(K.math, "MATH 21", {
       aliases: ["MATH 21 Linear Algebra"],
-      pinned: true,
       lastSignalAt: "2026-10-17T21:40:00Z",
       lastInteractionAt: "2026-10-17T21:40:00Z",
     }),
-    course(W.chem, "CHEM 1B", {
-      lastSignalAt: "2026-10-09T15:00:00Z",
-      lastInteractionAt: "2026-10-09T15:00:00Z",
-    }),
-    course(W.art, "ART 10", {
+    entity(K.garage, "project", "Garage clean-out", {
+      projectType: "project",
       projectStatus: "paused",
       lastSignalAt: "2026-08-30T15:00:00Z",
       lastInteractionAt: "2026-08-30T15:00:00Z",
     }),
-    course(W.writ, "WRIT 2", {
+    entity(K.trip, "project", "Lisbon trip", {
+      projectType: "project",
       projectStatus: "done",
       lastSignalAt: "2026-06-10T15:00:00Z",
       lastInteractionAt: "2026-06-10T15:00:00Z",
     }),
-    entity(W.prof, "person", "Prof. Monteiro", { lastInteractionAt: "2026-10-16T18:00:00Z" }),
-    entity(W.priya, "person", "Priya Nair", { lastInteractionAt: "2026-10-15T20:00:00Z" }),
-    // Past due, in progress, no activity for four days: needs the owner.
-    assignment(W.lw6, "Lecture Work 6", "in_progress", "2026-10-16T23:59:00.000Z", {
-      lastSignalAt: "2026-10-14T20:00:00Z",
-      lastInteractionAt: "2026-10-14T20:00:00Z",
-    }),
-    // This week, being worked on: fresh.
-    assignment(W.lw7, "Lecture Work 7", "in_progress", "2026-10-21T23:59:00.000Z", {
-      lastSignalAt: "2026-10-17T21:40:00Z",
-      lastInteractionAt: "2026-10-17T21:40:00Z",
-    }),
-    assignment(W.review, "Midterm review sheet", "not_started", "2026-10-30T23:59:00.000Z", {
-      lastSignalAt: "2026-10-12T09:00:00Z",
-      lastInteractionAt: "2026-10-12T09:00:00Z",
-    }),
-    // Due in two days, nothing done and nothing seen for nine days: stale.
-    assignment(W.lab3, "Lab report 3", "not_started", "2026-10-20T23:59:00.000Z", {
-      lastSignalAt: "2026-10-09T15:00:00Z",
-      lastInteractionAt: "2026-10-09T15:00:00Z",
-    }),
-    assignment(W.quiz, "Pre-lab quiz", "submitted", "2026-10-19T17:00:00.000Z", {
+    entity(K.prof, "person", "Prof. Monteiro", { lastInteractionAt: "2026-10-16T18:00:00Z" }),
+    entity(K.priya, "person", "Priya Nair", { lastInteractionAt: "2026-10-15T20:00:00Z" }),
+
+    // Past due, in progress, nothing for four days: the one that needs the owner.
+    assignment(
+      K.signoff,
+      "Sign off on the launch copy",
+      "in_progress",
+      "2026-10-16T23:59:00.000Z",
+      {
+        lastSignalAt: "2026-10-14T20:00:00Z",
+        lastInteractionAt: "2026-10-14T20:00:00Z",
+      },
+    ),
+    // Handed in, due tomorrow.
+    assignment(K.expense, "Expense report", "submitted", "2026-10-19T17:00:00.000Z", {
       lastSignalAt: "2026-10-17T12:00:00Z",
       lastInteractionAt: "2026-10-17T12:00:00Z",
     }),
-    assignment(W.taxes, "File taxes extension", "not_started", null, {
+    // Due in two days, not started, nothing seen for nine days: stale.
+    assignment(K.hardware, "Order cabinet hardware", "not_started", "2026-10-20T23:59:00.000Z", {
+      lastSignalAt: "2026-10-09T15:00:00Z",
+      lastInteractionAt: "2026-10-09T15:00:00Z",
+    }),
+    // This week, being worked on: fresh.
+    assignment(K.lw7, "Lecture Work 7", "in_progress", "2026-10-21T23:59:00.000Z", {
+      lastSignalAt: "2026-10-17T21:40:00Z",
+      lastInteractionAt: "2026-10-17T21:40:00Z",
+    }),
+    assignment(K.deck, "Q3 board deck", "in_progress", "2026-10-22T23:59:00.000Z", {
+      lastSignalAt: "2026-10-17T21:46:00Z",
+      lastInteractionAt: "2026-10-17T21:40:00Z",
+    }),
+    // Later.
+    assignment(K.review, "Midterm review sheet", "not_started", "2026-10-30T23:59:00.000Z", {
+      lastSignalAt: "2026-10-12T09:00:00Z",
+      lastInteractionAt: "2026-10-12T09:00:00Z",
+    }),
+    assignment(K.rent, "Pay rent", "not_started", "2026-11-01T23:59:00.000Z", {
+      lastSignalAt: "2026-10-01T09:00:00Z",
+      lastInteractionAt: "2026-10-01T09:00:00Z",
+    }),
+    assignment(K.passport, "Renew passport", "not_started", "2026-12-01T23:59:00.000Z", {
+      lastSignalAt: "2026-10-05T09:00:00Z",
+      lastInteractionAt: "2026-10-05T09:00:00Z",
+    }),
+    // No date, and kept private: it shows on its own page only.
+    assignment(K.taxes, "File taxes", "not_started", null, {
       private: true,
       lastSignalAt: "2026-10-18T09:00:00Z",
       lastInteractionAt: "2026-10-18T09:00:00Z",
     }),
-    assignment(W.lw5, "Lecture Work 5", "done", "2026-10-09T23:59:00.000Z", {
+    // Done this month: still in Work due for 14 days.
+    assignment(K.electrician, "Book the electrician", "done", "2026-10-12T23:59:00.000Z", {
+      lastSignalAt: "2026-10-12T16:00:00Z",
+      lastInteractionAt: "2026-10-12T16:00:00Z",
+    }),
+    assignment(K.lw5, "Lecture Work 5", "done", "2026-10-09T23:59:00.000Z", {
       lastSignalAt: "2026-10-09T20:00:00Z",
       lastInteractionAt: "2026-10-09T20:00:00Z",
     }),
     // Done a month ago: it has left Work due, and stays on the course's timeline.
-    assignment(W.lw1, "Lecture Work 1", "done", "2026-09-18T23:59:00.000Z", {
+    assignment(K.lw1, "Lecture Work 1", "done", "2026-09-18T23:59:00.000Z", {
       lastSignalAt: "2026-09-18T20:00:00Z",
       lastInteractionAt: "2026-09-18T20:00:00Z",
     }),
   );
 
   g.edges.push(
-    edge("edge_lw5_math", W.lw5, "part_of", W.math),
-    edge("edge_lw6_math", W.lw6, "part_of", W.math),
-    edge("edge_lw7_math", W.lw7, "part_of", W.math),
-    edge("edge_lw1_math", W.lw1, "part_of", W.math),
-    edge("edge_review_math", W.review, "part_of", W.math),
-    edge("edge_lab3_chem", W.lab3, "part_of", W.chem),
-    edge("edge_quiz_chem", W.quiz, "part_of", W.chem),
-    edge("edge_lw7_prof", W.lw7, "assigned_by", W.prof),
-    edge("edge_prof_math", W.prof, "teaches", W.math),
-    edge("edge_priya_math", W.priya, "member_of", W.math),
+    edge("edge_signoff_launch", K.signoff, "part_of", K.launch),
+    edge("edge_expense_launch", K.expense, "part_of", K.launch),
+    edge("edge_deck_launch", K.deck, "part_of", K.launch),
+    edge("edge_deck_sam", K.deck, "assigned_by", PEOPLE_IDS.samLee),
+    edge("edge_hardware_kitchen", K.hardware, "part_of", K.kitchen),
+    edge("edge_electrician_kitchen", K.electrician, "part_of", K.kitchen),
+    edge("edge_lw5_math", K.lw5, "part_of", K.math),
+    edge("edge_lw7_math", K.lw7, "part_of", K.math),
+    edge("edge_lw1_math", K.lw1, "part_of", K.math),
+    edge("edge_review_math", K.review, "part_of", K.math),
+    edge("edge_lw7_prof", K.lw7, "assigned_by", K.prof),
+    edge("edge_prof_math", K.prof, "teaches", K.math),
+    edge("edge_priya_math", K.priya, "member_of", K.math),
   );
 
   g.facts.push(
-    fact("fact_math_code", W.math, "course_code", "MATH 21", "owner", "2026-09-02T09:00:00Z"),
-    fact("fact_math_term", W.math, "term", "Fall 2026", "owner", "2026-09-02T09:00:00Z"),
-    fact("fact_math_meets", W.math, "meets", "MWF 10:40", "owner", "2026-09-02T09:00:00Z"),
+    fact("fact_math_code", K.math, "course_code", "MATH 21", "owner", "2026-09-02T09:00:00Z"),
+    fact("fact_math_term", K.math, "term", "Fall 2026", "owner", "2026-09-02T09:00:00Z"),
+    fact("fact_math_meets", K.math, "meets", "MWF 10:40", "owner", "2026-09-02T09:00:00Z"),
     fact(
       "fact_math_next",
-      W.math,
+      K.math,
       "next_step",
       "Finish Lecture Work 7 before office hours on Tuesday",
       "owner",
       "2026-10-16T20:00:00Z",
     ),
-    fact("fact_chem_term", W.chem, "term", "Fall 2026", "owner", "2026-09-02T09:00:00Z"),
-    // Lecture Work 7: due date moved, started, stopped at 4b.
+
+    // Q3 board deck: due date moved, started, stopped at the pricing table.
     fact(
-      "fact_lw7_due_old",
-      W.lw7,
+      "fact_deck_due_old",
+      K.deck,
       "deadline",
-      "2026-10-19T23:59:00.000Z",
+      "2026-10-20T23:59:00.000Z",
       "untrusted",
       "2026-10-12T16:00:00Z",
-      { sources: ["int_lw7_mail"], supersededBy: "fact_lw7_due", evidence: "due Monday night" },
+      { sources: ["int_deck_mail"], supersededBy: "fact_deck_due", evidence: "by Tuesday?" },
     ),
     fact(
+      "fact_deck_due",
+      K.deck,
+      "deadline",
+      "2026-10-22T23:59:00.000Z",
+      "owner",
+      "2026-10-16T20:05:00Z",
+    ),
+    fact(
+      "fact_deck_status_old",
+      K.deck,
+      "status",
+      "not_started",
+      "system",
+      "2026-10-12T16:05:00Z",
+      {
+        supersededBy: "fact_deck_status",
+      },
+    ),
+    fact("fact_deck_status", K.deck, "status", "in_progress", "system", "2026-10-14T20:00:00Z", {
+      sources: ["int_deck_files"],
+    }),
+    fact(
+      "fact_deck_progress",
+      K.deck,
+      "progress",
+      "Outline and slides 1 to 8",
+      "owner",
+      "2026-10-15T21:00:00Z",
+    ),
+    fact(
+      "fact_deck_stopped",
+      K.deck,
+      "stopped_at",
+      "Slide 9, the pricing table",
+      "owner",
+      "2026-10-17T21:45:00Z",
+    ),
+    fact(
+      "fact_deck_next",
+      K.deck,
+      "next_step",
+      "Add last quarter's numbers, then send to Sam",
+      "owner",
+      "2026-10-17T21:46:00Z",
+    ),
+
+    // Lecture Work 7: started, stopped at 4b.
+    fact(
       "fact_lw7_due",
-      W.lw7,
+      K.lw7,
       "deadline",
       "2026-10-21T23:59:00.000Z",
       "owner",
       "2026-10-16T20:05:00Z",
     ),
-    fact("fact_lw7_status_old", W.lw7, "status", "not_started", "system", "2026-10-12T16:05:00Z", {
-      supersededBy: "fact_lw7_status",
-    }),
-    fact("fact_lw7_status", W.lw7, "status", "in_progress", "system", "2026-10-14T20:00:00Z", {
+    fact("fact_lw7_status", K.lw7, "status", "in_progress", "system", "2026-10-14T20:00:00Z", {
       sources: ["int_lw7_files"],
     }),
     fact(
       "fact_lw7_progress",
-      W.lw7,
+      K.lw7,
       "progress",
       "Finished problems 1 to 3",
       "owner",
@@ -312,7 +396,7 @@ export function addWork(g: GraphWorld): GraphWorld {
     ),
     fact(
       "fact_lw7_stopped",
-      W.lw7,
+      K.lw7,
       "stopped_at",
       "Problem 4, part b",
       "owner",
@@ -320,17 +404,53 @@ export function addWork(g: GraphWorld): GraphWorld {
     ),
     fact(
       "fact_lw7_next",
-      W.lw7,
+      K.lw7,
       "next_step",
       "Finish 4b and 5, then submit on Gradescope",
       "owner",
       "2026-10-17T21:46:00Z",
     ),
-    fact("fact_lw6_stopped", W.lw6, "stopped_at", "Problem 2", "owner", "2026-10-14T20:00:00Z"),
-    fact("fact_lw5_status", W.lw5, "status", "done", "owner", "2026-10-09T20:00:00Z"),
+
+    fact(
+      "fact_signoff_stopped",
+      K.signoff,
+      "stopped_at",
+      "Paragraph 3",
+      "owner",
+      "2026-10-14T20:00:00Z",
+    ),
+    fact("fact_lw5_status", K.lw5, "status", "done", "owner", "2026-10-09T20:00:00Z"),
   );
 
   g.interactions.push(
+    interaction(
+      "int_deck_files",
+      "file",
+      "files",
+      "Q3 deck.key and 2 more in Documents/Acme (40 min)",
+      "2026-10-17T21:40:00Z",
+      "none",
+      K.deck,
+    ),
+    interaction(
+      "int_deck_reminder",
+      "reminder",
+      "reminders",
+      "Q3 board deck",
+      "2026-10-12T16:05:00Z",
+      "none",
+      K.deck,
+    ),
+    interaction(
+      "int_deck_mail",
+      "mail",
+      "mail",
+      "Q3 board deck by Tuesday?",
+      "2026-10-12T16:00:00Z",
+      "in",
+      K.deck,
+      { link: "message://%3Cdeck-1%40acme.com%3E", from: PEOPLE_IDS.samLee },
+    ),
     interaction(
       "int_lw7_files",
       "file",
@@ -338,26 +458,7 @@ export function addWork(g: GraphWorld): GraphWorld {
       "hw7.tex and 2 more in MATH21/hw7 (40 min)",
       "2026-10-17T21:40:00Z",
       "none",
-      W.lw7,
-    ),
-    interaction(
-      "int_lw7_reminder",
-      "reminder",
-      "reminders",
-      "Lecture Work 7",
-      "2026-10-12T16:05:00Z",
-      "none",
-      W.lw7,
-    ),
-    interaction(
-      "int_lw7_mail",
-      "mail",
-      "mail",
-      "Lecture Work 7 is posted",
-      "2026-10-12T16:00:00Z",
-      "in",
-      W.lw7,
-      { link: "message://%3Clw7%40psyche.local%3E", from: W.prof },
+      K.lw7,
     ),
     interaction(
       "int_math_lecture",
@@ -366,7 +467,7 @@ export function addWork(g: GraphWorld): GraphWorld {
       "MATH 21 lecture",
       "2026-10-16T17:40:00Z",
       "both",
-      W.math,
+      K.math,
       { link: "calendar://event/math21-1016" },
     ),
     interaction(
@@ -376,8 +477,8 @@ export function addWork(g: GraphWorld): GraphWorld {
       "Office hours moved to Tuesday",
       "2026-10-16T18:00:00Z",
       "in",
-      W.math,
-      { link: "message://%3Coffice-1%40psyche.local%3E", from: W.prof },
+      K.math,
+      { link: "message://%3Coffice-1%40psyche.local%3E", from: K.prof },
     ),
     interaction(
       "int_math_chat",
@@ -386,16 +487,16 @@ export function addWork(g: GraphWorld): GraphWorld {
       "Study plan for the midterm",
       "2026-10-15T21:10:00Z",
       "both",
-      W.math,
+      K.math,
     ),
     interaction(
-      "int_lw6_files",
+      "int_signoff_files",
       "file",
       "files",
-      "hw6.tex in MATH21/hw6 (15 min)",
+      "launch-copy.md in Documents/Acme (15 min)",
       "2026-10-14T20:00:00Z",
       "none",
-      W.lw6,
+      K.signoff,
     ),
   );
 
@@ -404,32 +505,34 @@ export function addWork(g: GraphWorld): GraphWorld {
       id: "loop_regrade",
       direction: "waiting_on",
       text: "Regrade on Lecture Work 5, problem 3",
-      counterpartId: W.prof,
-      projectId: W.math,
+      counterpartId: K.prof,
+      projectId: K.math,
       createdAt: "2026-10-13T09:00:00Z",
     }),
   );
 
   g.anchors.push(
-    anchor("anc_math_folder", W.math, "folder", "~/School/MATH21", "MATH21", "owner"),
-    anchor("anc_math_list", W.math, "reminder_list", "MATH 21", "MATH 21", "rule"),
-    anchor("anc_lw7_folder", W.lw7, "folder", "~/School/MATH21/hw7", "hw7", "owner"),
+    anchor("anc_launch_folder", K.launch, "folder", "~/Documents/Acme", "Acme", "owner"),
+    anchor("anc_deck_folder", K.deck, "folder", "~/Documents/Acme/Q3-deck", "Q3-deck", "owner"),
     // A model's guess: it routes nothing until the owner links it (§2.5).
     anchor(
-      "anc_lw7_thread",
-      W.lw7,
+      "anc_deck_thread",
+      K.deck,
       "mail_thread",
-      "thread-lw7",
-      "Lecture Work 7 is posted",
+      "thread-deck",
+      "Q3 board deck by Tuesday?",
       "model",
       false,
     ),
+    anchor("anc_math_folder", K.math, "folder", "~/School/MATH21", "MATH21", "owner"),
+    anchor("anc_math_list", K.math, "reminder_list", "MATH 21", "MATH 21", "rule"),
+    anchor("anc_lw7_folder", K.lw7, "folder", "~/School/MATH21/hw7", "hw7", "owner"),
   );
-  g.status.counts.projects += 4;
+  g.status.counts.projects += 3;
   return g;
 }
 
-/** Edits a fixture world to hold the term (for `withWorld({ edit })` and tests). */
+/** Edits a fixture world to hold the work items (for `withWorld({ edit })` and tests). */
 export function withWorkWorld(world: FixtureWorld): void {
   addWork(world.graph);
 }

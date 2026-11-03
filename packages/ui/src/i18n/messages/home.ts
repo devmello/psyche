@@ -38,7 +38,7 @@ export const home = {
   "home.showMore": "{n, plural, one {Show # more} other {Show # more}}",
   "home.showLess": "Show less",
   "home.catchUp": "Catching up",
-  "home.catchUp.hint": "Projects, assignments and mail since you last looked",
+  "home.catchUp.hint": "What is due, what moved, and mail about it since you last looked",
   "home.catchUp.due": "Due {when}",
   "home.catchUp.open": "Open {title}",
   "home.more": "More",

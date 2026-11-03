@@ -321,7 +321,7 @@ export function lineFor(input: {
   const lead = `${prefixOf(c)}${titleText(c)}`;
   if (input.ask && c.claim !== undefined) {
     // MW3's one-tap question: something other than the owner said it is handed in or done.
-    const verb = c.claim.claims === "submitted" ? "submit" : "finish";
+    const verb = c.claim.claims === "submitted" ? "hand in" : "finish";
     const why =
       c.claim.origin === "sent_mail"
         ? "You sent mail that looks like it."
@@ -586,8 +586,8 @@ function actionsFor(c: CatchUpCandidate, ask: boolean): CatchUpAction[] {
 export function pendingText(assignments: number, courses: number): string | undefined {
   const n = assignments + courses;
   if (n === 0) return undefined;
-  if (courses === 0) return `${n} new assignment${n === 1 ? "" : "s"} to confirm`;
-  if (assignments === 0) return `${n} new course${n === 1 ? "" : "s"} to confirm`;
+  if (courses === 0) return `${n} new to-do${n === 1 ? "" : "s"} to confirm`;
+  if (assignments === 0) return `${n} new project${n === 1 ? "" : "s"} to confirm`;
   return `${n} new items to confirm`;
 }
 
@@ -687,7 +687,7 @@ const LISTED_TITLES = 3;
 /**
  * "2 things due tomorrow: Lecture Work 7, Q3 deck." For items due in the next `hours`, or, for the
  * morning message, due before the day ends. Titles appear only when every one of them is the
- * owner's own words; otherwise the text is a count ("1 assignment due tomorrow"), because a
+ * owner's own words; otherwise the text is a count ("1 thing due tomorrow"), because a
  * title from mail is third-party text on a lock screen (§4).
  */
 export function dueNotice(
@@ -718,13 +718,7 @@ export function dueNotice(
   const when = opts.mode === "dayOf" ? "today" : "tomorrow";
   const titled = due.every((c) => c.titleProvenance === "owner");
   const n = due.length;
-  const noun = due.every((c) => c.kind === "assignment")
-    ? n === 1
-      ? "assignment"
-      : "assignments"
-    : n === 1
-      ? "thing"
-      : "things";
+  const noun = n === 1 ? "thing" : "things";
   let body: string;
   if (titled) {
     const names = due.slice(0, LISTED_TITLES).map((c) => clean(c.title, 40));

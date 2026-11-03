@@ -446,9 +446,9 @@ describe("templates (§5.3)", () => {
 
   it("counts pending items in words", () => {
     expect(pendingText(0, 0)).toBeUndefined();
-    expect(pendingText(1, 0)).toBe("1 new assignment to confirm");
-    expect(pendingText(2, 0)).toBe("2 new assignments to confirm");
-    expect(pendingText(0, 1)).toBe("1 new course to confirm");
+    expect(pendingText(1, 0)).toBe("1 new to-do to confirm");
+    expect(pendingText(2, 0)).toBe("2 new to-dos to confirm");
+    expect(pendingText(0, 1)).toBe("1 new project to confirm");
     expect(pendingText(2, 1)).toBe("3 new items to confirm");
   });
 });
@@ -563,7 +563,7 @@ describe("due-soon notice (W4)", () => {
   it("names the items due in the next 24 hours when every title is the owner's", () => {
     expect(dueNotice(items(), { now: NOW, settings: settings(), mode: "wrapup" })).toMatchObject({
       title: "Due soon",
-      body: "2 assignments due tomorrow: Lecture Work 7, Q3 deck.",
+      body: "2 things due tomorrow: Lecture Work 7, Q3 deck.",
       count: 2,
       titled: true,
     });
@@ -571,7 +571,7 @@ describe("due-soon notice (W4)", () => {
 
   it("falls back to a count when a title came from someone else", () => {
     const n = dueNotice(items("untrusted"), { now: NOW, settings: settings(), mode: "wrapup" });
-    expect(n?.body).toBe("2 assignments due tomorrow");
+    expect(n?.body).toBe("2 things due tomorrow");
     expect(n?.titled).toBe(false);
   });
 
@@ -604,7 +604,7 @@ describe("due-soon notice (W4)", () => {
       ],
       { now: morning, settings: settings(), mode: "dayOf" },
     );
-    expect(out).toMatchObject({ title: "Due today", body: "1 assignment due today: Due today." });
+    expect(out).toMatchObject({ title: "Due today", body: "1 thing due today: Due today." });
   });
 
   it("lists three and counts the rest", () => {
@@ -612,7 +612,7 @@ describe("due-soon notice (W4)", () => {
       cand({ title: `T${i}`, dueAt: inHours(5 + i) }),
     );
     expect(dueNotice(five, { now: NOW, settings: settings(), mode: "wrapup" })?.body).toBe(
-      "5 assignments due tomorrow: T0, T1, T2 and 2 more.",
+      "5 things due tomorrow: T0, T1, T2 and 2 more.",
     );
   });
 });
@@ -706,7 +706,7 @@ describe("reading the store", () => {
     seedAsk(a.id);
     const out = ranked();
     expect(out[0]?.ask).toBe(true);
-    expect(out[0]?.item.line).toBe("Did you submit Report? A message says it was.");
+    expect(out[0]?.item.line).toBe("Did you hand in Report? A message says it was.");
     expect(out[0]?.item.provenance).toBe("untrusted");
     expect(JSON.stringify(out[0]?.item)).not.toContain("IGNORE");
     // Answered: the status moved, or the owner said still working.

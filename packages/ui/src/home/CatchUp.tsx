@@ -4,7 +4,7 @@ import { activeI18n, t } from "../i18n/core.ts";
 import { cn } from "../lib/utils.ts";
 
 /**
- * One thing to catch up on: a project, an assignment, work that is due or mail that wants an
+ * One thing to catch up on: a project, a to-do, work that is due or mail that wants an
  * answer, with what changed in a sentence ("You finished the outline yesterday."). A UI type
  * for now; the memory-for-everything work decides where the data comes from.
  */
