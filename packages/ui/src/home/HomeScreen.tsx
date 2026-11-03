@@ -7,6 +7,7 @@ import { needsYou } from "../screens/inbox/InboxScreen.tsx";
 import { useSlots } from "../slots.tsx";
 import { PinnedWidgets } from "../widgets/PinnedWidgets.tsx";
 import { CatchUp, type CatchUpItem } from "./CatchUp.tsx";
+import { useRouteRepeat } from "./route-repeat.ts";
 import {
   AskSection,
   ComingUpSection,
@@ -24,6 +25,12 @@ export interface HomeScreenProps {
   instructionsOpen?: boolean;
   /** Scrolls this section into view on arrival (`/home#today`). */
   anchor?: string;
+  /**
+   * Lands on this post of Today (`/home?post=<id>#today`, which `/feed/<postId>` becomes): opens
+   * "Show more" when the post is hidden, scrolls to it and flashes it. A post that no longer
+   * exists leaves the owner at Today.
+   */
+  post?: string;
   /**
    * The brief's "Catching up" rows (projects, to-dos, due work, mail). Nothing supplies them
    * yet; the memory-for-everything work will (docs/design/home-2026.md §5). Absent or empty, the
@@ -47,6 +54,7 @@ export function HomeScreen({
   onNavigate,
   instructionsOpen,
   anchor,
+  post,
   catchUp,
   now,
 }: HomeScreenProps): ReactElement {
@@ -56,10 +64,14 @@ export function HomeScreen({
   // The accent goes to the first Approve when something waits; otherwise to the first idea.
   const waiting = needsYou(useNotifications().unresolved, now ?? mountedAt).length > 0;
 
+  // Asking for the route the owner is already on (the brief's button, twice) lands again.
+  const repeat = useRouteRepeat();
+  // biome-ignore lint/correctness/useExhaustiveDependencies: repeat re-runs the scroll on a repeat click
   useEffect(() => {
-    if (anchor === undefined) return;
+    // Today lands on its own post, or on the section when the post is gone.
+    if (anchor === undefined || post !== undefined) return;
     document.getElementById(anchor)?.scrollIntoView?.({ block: "start" });
-  }, [anchor]);
+  }, [anchor, post, repeat]);
 
   const clock = now === undefined ? {} : { now };
   const lead =
@@ -83,6 +95,7 @@ export function HomeScreen({
             onCloseInstructions={() => navigate("/home")}
             collapseAfter={3}
             hideWhenEmpty
+            {...(post === undefined ? {} : { focusPostId: post, focusTick: repeat })}
             {...(lead ? { lead } : {})}
             {...(instructionsOpen === undefined ? {} : { instructionsOpen })}
             {...clock}

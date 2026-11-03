@@ -368,6 +368,34 @@
   }
 }
 
+/* A Home post that a brief button or notification landed on: an accent outline that fades out. */
+[data-landed="true"] {
+  animation: psy-landed 1.8s var(--ease-enter) both;
+}
+@keyframes psy-landed {
+  from {
+    outline: 2px solid var(--ring);
+    outline-offset: 3px;
+  }
+  to {
+    outline: 2px solid transparent;
+    outline-offset: 3px;
+  }
+}
+/* Reduced motion: no fade, so the outline holds until the attribute is removed. */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-reduce-motion="false"]) [data-landed="true"] {
+    animation: none !important;
+    outline: 2px solid var(--ring);
+    outline-offset: 3px;
+  }
+}
+:root[data-reduce-motion="true"] [data-landed="true"] {
+  animation: none !important;
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+
 @keyframes psy-rise {
   from {
     opacity: 0;

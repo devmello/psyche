@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { MockGateway } from "../../../../packages/ui/src/data/mock-gateway.ts";
 import { createFixtureWorld, FIXTURE_NOW } from "../../../../packages/ui/src/fixtures/index.ts";
 import { usageSummary } from "../../../../packages/ui/src/fixtures/usage.ts";
+import { ROUTE_REPEAT_EVENT } from "../../../../packages/ui/src/home/route-repeat.ts";
 import type { GatewayEvent, GatewayStatus } from "../../src/client/index.ts";
 import { ONBOARDED_KEY, PsycheApp } from "../../src/compose/PsycheApp.tsx";
 import type { ShellCommand, ShellPlatform } from "../../src/shell/platform.ts";
@@ -136,6 +137,43 @@ describe("the brief's instructions sheet (#614), now over Home", () => {
     fireEvent.keyDown(sheet, { key: "Escape" });
     await waitFor(() => expect(window.location.pathname).toBe("/home"));
     await waitFor(() => expect(screen.queryByTestId("feed-instructions")).toBeNull());
+  });
+});
+
+describe("an old /feed/<postId> link lands on that post of Home", () => {
+  it("opens Today past Show more, flashes the post, and stays on Home with the old URL", async () => {
+    window.innerWidth = 1280;
+    const posts = createFixtureWorld().feed;
+    const hidden = posts[posts.length - 1]?.id ?? "";
+    window.history.replaceState(null, "", `/feed/${hidden}`);
+    const { platform } = webPlatform();
+    render(<PsycheApp platform={platform} />);
+    const home = await screen.findByTestId("screen-home");
+    await waitFor(() => {
+      const el = home.querySelector(`#post-${hidden}`);
+      expect(el).toBeTruthy();
+      expect(el?.getAttribute("data-landed")).toBe("true");
+    });
+    expect(window.location.pathname).toBe(`/feed/${hidden}`);
+    window.history.replaceState(null, "", "/home");
+  });
+
+  it("tells the screen when the route the owner is on is asked for again", async () => {
+    window.innerWidth = 1280;
+    window.history.replaceState(null, "", "/home");
+    const { platform } = webPlatform();
+    render(<PsycheApp platform={platform} />);
+    await screen.findByTestId("screen-home");
+    const again: Event[] = [];
+    const listen = (e: Event) => again.push(e);
+    document.addEventListener(ROUTE_REPEAT_EVENT, listen);
+    try {
+      const nav = screen.getByRole("navigation", { name: "Sidebar" });
+      fireEvent.click(within(nav).getByRole("button", { name: /^Home/ }));
+      expect(again).toHaveLength(1);
+    } finally {
+      document.removeEventListener(ROUTE_REPEAT_EVENT, listen);
+    }
   });
 });
 

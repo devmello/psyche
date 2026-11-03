@@ -12,6 +12,7 @@ import {
   PanePresence,
   RAIL_ITEMS,
   ReflowColumn,
+  ROUTE_REPEAT_EVENT,
   RouteTransition,
   requestChatFocus,
   ShellMotion,
@@ -478,6 +479,9 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
         openInMain?.(to);
         return;
       }
+      // The route the owner is on, asked for again: nothing changes, so tell the screen (Home
+      // scrolls to its post or section once more).
+      if (to === routeRef.current) document.dispatchEvent(new CustomEvent(ROUTE_REPEAT_EVENT));
       // A new destination crossfades the content column (motion.md §4.5); a thread switch inside
       // Chat, or anything on the same screen, changes in place. The agent sheet opening or
       // closing over a section keeps that section where it is (#614).
