@@ -145,6 +145,33 @@ describe("the palette search", () => {
     expect(find("reports")).toContain("go-library");
   });
 
+  it("finds Work due by anything with a deadline, not only school work (W7)", () => {
+    for (const word of [
+      "homework",
+      "rent",
+      "bills",
+      "deadline",
+      "due",
+      "to-do",
+      "taxes",
+      "renewals",
+      "project",
+    ])
+      expect(find(word), word).toContain("memory-due");
+    expect(find("work due")).toContain("memory-due");
+  });
+
+  it("opens each Memory tab from the palette", () => {
+    const route = (id: string) => DEFAULT_ACTIONS.find((a) => a.id === id)?.route;
+    expect(route("memory-people")).toBe("/memory?kind=people");
+    expect(route("memory-projects")).toBe("/memory?kind=projects");
+    expect(route("memory-due")).toBe("/memory?kind=due");
+    expect(route("memory-events")).toBe("/memory?kind=events");
+    expect(route("memory-review")).toBe("/memory/review");
+    expect(find("contacts")).toContain("memory-people");
+    expect(find("calendar")).toContain("memory-events");
+  });
+
   it("lists everything for an empty search and nothing for nonsense", () => {
     expect(find("")).toHaveLength(DEFAULT_ACTIONS.length);
     expect(find("zzzz-no-such-screen")).toEqual([]);
@@ -157,6 +184,17 @@ describe("the palette search", () => {
     expect(first?.items.some((i) => i.kind === "action" && i.action.id === "memory-review")).toBe(
       true,
     );
+  });
+
+  it("still ranks the actions first when a search hit also matches", () => {
+    for (const text of ["homework", "rent"]) {
+      const groups = surfaceGroups([], DEFAULT_ACTIONS, text);
+      expect(groups[0]?.id, text).toBe("actions");
+      expect(
+        groups[0]?.items.some((i) => i.kind === "action" && i.action.id === "memory-due"),
+        text,
+      ).toBe(true);
+    }
   });
 });
 

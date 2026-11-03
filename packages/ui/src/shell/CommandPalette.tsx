@@ -4,6 +4,7 @@ import { type ReactElement, useEffect } from "react";
 import { useOpenInSideChat } from "../chat/ask-about.ts";
 import { usePrefillComposer } from "../chat/prefill.ts";
 import { t } from "../i18n/core.ts";
+import { memoryHref } from "../memory-page/kinds.ts";
 import { ConnectedEntityCard } from "../people/ConnectedEntityCard.tsx";
 import { LIBRARY_SECTIONS } from "../screens/library/library-items.ts";
 import { SearchSurface, useMinWidth, useSearchSurface } from "../screens/search/SearchSurface.tsx";
@@ -23,6 +24,25 @@ export interface PaletteAction {
   shortcut?: string;
   run?: () => void;
 }
+
+const MEMORY_PALETTE_KINDS = [
+  {
+    kind: "people",
+    labelId: "memory.page.kind.people",
+    keywordsId: "shell.palette.keywords.memoryPeople",
+  },
+  {
+    kind: "projects",
+    labelId: "memory.page.kind.projects",
+    keywordsId: "shell.palette.keywords.memoryProjects",
+  },
+  { kind: "due", labelId: "memory.page.kind.due", keywordsId: "shell.palette.keywords.memoryDue" },
+  {
+    kind: "events",
+    labelId: "memory.page.kind.events",
+    keywordsId: "shell.palette.keywords.memoryEvents",
+  },
+] as const;
 
 /**
  * Built-in actions (UI design §2.5): every screen, every Library and Settings section, the
@@ -126,6 +146,18 @@ export const DEFAULT_ACTIONS: readonly PaletteAction[] = [
     },
     route: "/memory/review",
   },
+  // Memory's kind chips (docs/design/memory-everything-2026.md §6.6). Work due is "To-do" to the
+  // owner and covers anything with a deadline, so its keywords are a general mix (W7).
+  ...MEMORY_PALETTE_KINDS.map(({ kind, labelId, keywordsId }) => ({
+    id: `memory-${kind}`,
+    get label() {
+      return t("shell.palette.memoryKind", { kind: t(labelId) });
+    },
+    get keywords() {
+      return t(keywordsId);
+    },
+    route: memoryHref(kind),
+  })),
   {
     id: "feed-instructions",
     get label() {

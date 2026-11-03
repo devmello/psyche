@@ -60,6 +60,14 @@ export const shell = {
   "shell.palette.keywords.rerunSetup": "onboarding setup welcome",
   "shell.palette.keywords.approvals": "permissions decide needs you",
   "shell.palette.keywords.memoryReview": "remember facts follow-ups people quarantine review",
+  // Memory's kind chips as palette entries (docs/design/memory-everything-2026.md §6.6, W7).
+  "shell.palette.memoryKind": "Memory → {kind}",
+  "shell.palette.keywords.memoryPeople":
+    "contacts friends family colleagues relationships keep in touch",
+  "shell.palette.keywords.memoryProjects": "courses classes jobs initiatives work in progress",
+  "shell.palette.keywords.memoryDue":
+    "to-do todo to-dos tasks deadlines due overdue homework assignments bills rent renewals taxes chores deliverables project handed in",
+  "shell.palette.keywords.memoryEvents": "calendar meetings appointments trips happenings",
   "shell.palette.title": "Command palette",
   "shell.palette.description": "Search Psyche or run a command",
   "shell.palette.placeholder": "Search or type a command",
