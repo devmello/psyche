@@ -480,6 +480,18 @@ describe("a course's page", () => {
         projectStatus: "paused",
       }),
     );
+    // Let the write settle (the card is busy and reloads) before opening the menu.
+    await waitFor(() =>
+      expect(within(card).getByRole("radio", { name: "Paused" }).getAttribute("aria-checked")).toBe(
+        "true",
+      ),
+    );
+    await waitFor(() =>
+      expect(
+        (within(card).getByRole("button", { name: "More for MATH 21" }) as HTMLButtonElement)
+          .disabled,
+      ).toBe(false),
+    );
     await user.click(within(card).getByRole("button", { name: "More for MATH 21" }));
     await user.click(await screen.findByRole("menuitemcheckbox", { name: "Keep private" }));
     await waitFor(() =>
@@ -488,12 +500,12 @@ describe("a course's page", () => {
         private: true,
       }),
     );
-    await user.click(within(card).getByRole("button", { name: "More for MATH 21" }));
-    expect(
-      (await screen.findByRole("menuitemcheckbox", { name: "Keep private" })).getAttribute(
-        "aria-checked",
-      ),
-    ).toBe("true");
+    // A checkbox item keeps the menu open: it now reads as checked.
+    await waitFor(() =>
+      expect(
+        screen.getByRole("menuitemcheckbox", { name: "Keep private" }).getAttribute("aria-checked"),
+      ).toBe("true"),
+    );
   });
 
   it("adds a to-do to the course from its page", async () => {
