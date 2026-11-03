@@ -68,6 +68,9 @@ const appPage = `<!doctype html><html><head><title>APP-SECRET-TITLE</title></hea
 
 describe.skipIf(skipBrowserSuites)(
   "React artifacts (Sandpack, self-hosted bundler) in Chrome",
+  // Real Chrome beside other packages on a loaded CI runner: the bundler frame sometimes never
+  // appeared within 30 s (main bcbe46b0/287da9ed, 2026-11-03). A real break fails every attempt.
+  { retry: process.env.CI ? 2 : 0 },
   () => {
     let browser: Browser;
     let app: Srv;
