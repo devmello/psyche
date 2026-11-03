@@ -13,35 +13,58 @@ public enum CalendarWatchCore {
         ["type": .string(changed), "at": .string(AppleDates.string(at)), "coalesced": .int(max(1, coalesced))]
     }
 
-    /// Counts changes inside the open window.
-    final class Window: @unchecked Sendable {
-        private let lock = NSLock()
+    /// The fold, as a synchronous state machine: a change opens a window or joins the open one,
+    /// and closing the window hands back how many changes it folded. `run` drives it with wall
+    /// time; `fold(changesAt:window:)` with given times (no scheduling in between).
+    public struct Fold: Sendable {
         private var count = 0
+        public init() {}
 
         /// Records a change; true when it opened a new window.
-        func note() -> Bool {
-            lock.withLock {
-                count += 1
-                return count == 1
-            }
+        public mutating func note() -> Bool {
+            count += 1
+            return count == 1
         }
 
-        func take() -> Int {
-            lock.withLock {
-                defer { count = 0 }
-                return count
-            }
+        /// Closes the window: the changes it folded (0 when none was open).
+        public mutating func take() -> Int {
+            defer { count = 0 }
+            return count
         }
+    }
+
+    /// What `run` emits for changes at `times`, a window of `window` opening at each change that
+    /// finds none open: the folded count of each window, in order.
+    public static func fold(changesAt times: [Date], window: TimeInterval) -> [Int] {
+        var fold = Fold()
+        var closesAt: Date?
+        var out: [Int] = []
+        for t in times.sorted() {
+            if let end = closesAt, t >= end {
+                out.append(fold.take())
+                closesAt = nil
+            }
+            if fold.note() { closesAt = t.addingTimeInterval(window) }
+        }
+        if closesAt != nil { out.append(fold.take()) }
+        return out
+    }
+
+    /// `Fold` shared between the change loop and the task that closes the window.
+    final class Window: @unchecked Sendable {
+        private let lock = NSLock()
+        private var fold = Fold()
+
+        func note() -> Bool { lock.withLock { fold.note() } }
+        func take() -> Int { lock.withLock { fold.take() } }
     }
 
     /// Emits one event per window: a change opens a window of `debounce`, every change inside it is
     /// folded in, and the event goes out when it closes. So there is at most one event per window
     /// and none is later than `debounce` after the change that opened it. Returns how many events
     /// went out when `changes` ends; cancelling the invocation ends it without a last event.
-    /// `sleep` waits out a window (tests drive it instead of wall time).
     public static func run(changes: AsyncStream<Void>, debounce: Duration = debounce,
                            now: @escaping @Sendable () -> Date = Date.init,
-                           sleep: @escaping @Sendable (Duration) async -> Void = { try? await _Concurrency.Task.sleep(for: $0) },
                            emit: @escaping @Sendable (JSONValue) async -> Void) async -> Int {
         let window = Window()
         let sent = Counter()
@@ -49,7 +72,7 @@ public enum CalendarWatchCore {
             for await _ in changes {
                 guard window.note() else { continue }
                 group.addTask {
-                    await sleep(debounce)
+                    try? await _Concurrency.Task.sleep(for: debounce)
                     let n = window.take()
                     guard n > 0, !_Concurrency.Task.isCancelled else { return }
                     sent.add()
