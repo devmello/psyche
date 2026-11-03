@@ -61,8 +61,8 @@ export const READ_ONLY_CONCURRENCY = 2;
  * Prefixed to every git that `exec_host` runs, carded or not (security §5.4): git runs programs
  * its config names, which an earlier write could have set. fsmonitor, hooks, the pager, an
  * external diff, signature display and gpg are off; `gitDriverOverrides` adds every filter, diff
- * and merge driver the repository's config defines. A side effect: an approved `git commit`
- * runs no hooks and cannot GPG-sign.
+ * and merge driver the repository's config defines. A side effect, and the safer default: an
+ * approved `git commit` runs no hooks and cannot GPG-sign; the owner can in their own terminal.
  */
 export const EXEC_HOST_GIT_HARDENING = [
   "-c",
