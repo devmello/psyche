@@ -226,6 +226,7 @@ import { composeVault, maskingLogger, type VaultSetup, vaultSetupFromEnv } from 
 import { composeWebTools, type WebToolsSetup } from "./web-tools.ts";
 import { ensureWeeklyCardAutomation, withWeeklyCard } from "./weekly-card.ts";
 import { composeWidgets } from "./widgets.ts";
+import { composeWork } from "./work.ts";
 import { WORKFLOW_SETTING_KEYS } from "./workflow-settings.ts";
 
 /**
@@ -1586,6 +1587,17 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     everything.part(scheduler, timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone),
   );
   parts.push(nudges.part());
+  parts.push(
+    composeWork({
+      db,
+      clock,
+      people,
+      apple: appleSearch,
+      broker: rawBroker,
+      ...(background ? {} : { intervalMs: 0 }),
+      ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
+    }).part(),
+  );
   parts.push(people.part(scheduler, timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone));
   // Code plugins (T4): off until the owner turns on `plugins.enabled`.
   parts.push(
