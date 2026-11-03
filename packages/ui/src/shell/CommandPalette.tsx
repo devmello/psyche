@@ -209,7 +209,7 @@ function withShortcut(a: PaletteAction): PaletteAction {
 
 /**
  * ⌘K (redesign §5.5, UI design §2.5): the search surface in a level-2 glass palette, 640 px wide,
- * centred 20% from the top, with the actions as a last group and a preview when the window is at
+ * centred 20% from the top, with the matching actions as the first group and a preview when the window is at
  * least 1080 px wide. It enters like a popover (scale 0.97 + fade) and leaves by fading.
  */
 export function CommandPalette({

@@ -242,6 +242,20 @@ export const PaletteResults: Story = {
   ),
 };
 
+/** A typed query lists the matching actions first, then the results; the first action is selected. */
+export const PaletteActionsFirst: Story = {
+  render: () => (
+    <CommandPalette
+      open
+      onOpenChange={() => {}}
+      onNavigate={() => {}}
+      onOpenInSideChat={() => {}}
+      actions={[{ id: "dentist-notes", label: "Open dentist notes", run: () => {} }]}
+      initialQuery="dentist"
+    />
+  ),
+};
+
 /** Every screen and Settings section is a palette action: "voice" finds Settings → Voice. */
 export const PaletteSettingsSearch: Story = {
   render: () => (

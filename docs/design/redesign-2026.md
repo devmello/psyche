@@ -396,7 +396,7 @@ Wireframes are layout-level. Every string goes through the catalogue.
 
 - **One surface:**
   - ⌘K opens a level-2 glass palette, 640 px wide and centred at 20% from the top.
-  - Results are grouped by kind (Threads, Memory, Library, Feed, Goals, Actions), with the typed filter chips (`in:`, `type:`, `from:`) inline in the field.
+  - Results are grouped by kind (Actions first, then Threads, Memory, Library, Feed, Goals), with the typed filter chips (`in:`, `type:`, `from:`) inline in the field.
   - A preview pane on the right shows the selected result once the window is at least 1080 px wide.
   - A footer shows the keyboard hints (↵ open, ⌘L open in a side chat, tab to filter).
 - **The Search destination** is the same component, embedded full height in the content column for longer sessions.

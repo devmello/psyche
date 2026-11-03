@@ -38,11 +38,69 @@ function Surface(props: {
 }
 
 describe("search surface (redesign §5.5)", () => {
-  it("groups hits by kind with matching actions last", () => {
+  it("puts matching actions first, then the hits by kind", () => {
     const groups = surfaceGroups(hits, [{ id: "a", label: "Go to dentist notes" }], "dentist");
-    expect(groups.at(-1)?.id).toBe("actions");
-    expect(groups.slice(0, -1).every((g) => g.items.every((i) => i.kind === "hit"))).toBe(true);
+    expect(groups[0]?.id).toBe("actions");
+    expect(groups.slice(1).every((g) => g.items.every((i) => i.kind === "hit"))).toBe(true);
+    expect(groups.length).toBeGreaterThan(1);
     expect(surfaceGroups([], [{ id: "b", label: "Open Feed" }], "dentist")).toEqual([]);
+  });
+
+  it("keeps actions ahead of people, projects and facts too", () => {
+    const entity = { id: "e1", kind: "person", name: "Dr Dentist" } as never;
+    const fact = { factId: "f1", entity } as never;
+    const groups = surfaceGroups(
+      hits,
+      [{ id: "a", label: "Go to dentist notes" }],
+      "dentist",
+      [entity],
+      [fact],
+    );
+    expect(groups.map((g) => g.id).slice(0, 3)).toEqual(["actions", "people", "life"]);
+  });
+
+  it("lists every action, first and alone, for an empty query", () => {
+    const actions = [
+      { id: "a", label: "Go to Home" },
+      { id: "b", label: "Open Settings" },
+    ];
+    const groups = surfaceGroups([], actions, "");
+    expect(groups.map((g) => g.id)).toEqual(["actions"]);
+    expect(groups[0]?.items.map((i) => (i.kind === "action" ? i.action.id : ""))).toEqual([
+      "a",
+      "b",
+    ]);
+    // Even handed hits (a stale result set), actions stay on top and in the host's order.
+    expect(surfaceGroups(hits, actions, "")[0]?.id).toBe("actions");
+  });
+
+  it("starts the selection on the first action when one matches, and on a hit otherwise", () => {
+    render(<Surface actions={[{ id: "a", label: "Go to dentist notes" }]} />);
+    const options = screen.getAllByRole("option");
+    expect(options[0]?.textContent).toContain("Go to dentist notes");
+    expect(options[0]?.getAttribute("aria-selected")).toBe("true");
+    expect(options.filter((o) => o.getAttribute("aria-selected") === "true")).toHaveLength(1);
+  });
+
+  it("selects the first hit when no action matches", () => {
+    render(<Surface actions={[{ id: "b", label: "Open Feed" }]} />);
+    const options = screen.getAllByRole("option");
+    expect(options[0]?.getAttribute("aria-selected")).toBe("true");
+    expect(options[0]?.textContent).not.toContain("Open Feed");
+  });
+
+  it("runs the first action on Enter before any hit", async () => {
+    const onRunAction = vi.fn();
+    const onOpen = vi.fn();
+    render(
+      <Surface
+        actions={[{ id: "a", label: "Go to dentist notes" }]}
+        {...{ onRunAction, onOpen }}
+      />,
+    );
+    await userEvent.type(screen.getByRole("combobox"), "{Enter}");
+    expect(onRunAction).toHaveBeenCalledWith(expect.objectContaining({ id: "a" }));
+    expect(onOpen).not.toHaveBeenCalled();
   });
 
   it("walks results with ↑ ↓ through aria-activedescendant and opens with Enter", async () => {
@@ -154,6 +212,37 @@ describe("⌘K palette", () => {
     expect(document.activeElement).toBe(field);
     expect(within(dialog).getByRole("group", { name: /^Actions/ })).toBeTruthy();
     await userEvent.type(field, "Browser pane");
+    await userEvent.keyboard("{Enter}");
+    expect(run).toHaveBeenCalled();
+  });
+
+  it("opens on the first action, with an empty query and while typing", async () => {
+    const run = vi.fn();
+    render(
+      <StoryWorld>
+        <CommandPalette
+          open
+          onOpenChange={() => {}}
+          onNavigate={() => {}}
+          actions={[{ id: "dentist-pane", label: "Open the dentist pane", run }]}
+        />
+      </StoryWorld>,
+    );
+    const dialog = await screen.findByRole("dialog", { name: "Command palette" });
+    const selected = () =>
+      within(dialog)
+        .getAllByRole("option")
+        .find((o) => o.getAttribute("aria-selected") === "true");
+    expect(within(dialog).getAllByRole("option")[0]?.textContent).toContain(
+      "Open the dentist pane",
+    );
+    expect(selected()?.textContent).toContain("Open the dentist pane");
+    await userEvent.type(within(dialog).getByRole("combobox"), "dentist");
+    // Hits arrive after the debounce; the action stays first and selected.
+    await within(dialog).findByRole("group", { name: /^Threads/ });
+    const groups = within(dialog).getAllByRole("group");
+    expect(groups[0]?.getAttribute("aria-label")).toMatch(/^Actions/);
+    expect(selected()?.textContent).toContain("Open the dentist pane");
     await userEvent.keyboard("{Enter}");
     expect(run).toHaveBeenCalled();
   });
