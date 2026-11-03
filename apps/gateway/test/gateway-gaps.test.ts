@@ -73,9 +73,7 @@ describe("node receipts are published once (issue #50)", () => {
       config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
       model: { provider: new FakeModelProvider(), model: "fake/model" },
     });
-    node = await FakeNode.connect(composed.gateway.config.nodeSocketPath, {
-      origin: composed.gateway.origin,
-      secret: composed.gateway.handshakeSecret,
+    node = await FakeNode.connectRemote(composed.gateway, {
       handlers: [
         {
           capability: { name: "status.ping", sideEffect: "read" },

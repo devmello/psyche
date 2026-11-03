@@ -5,7 +5,7 @@ import { assetPath, assetsRoot } from "@psyche/assets";
 import { DEFAULT_GATEWAY_HOST, DEFAULT_GATEWAY_PORT, PsycheError } from "@psyche/protocol";
 import type { RateLimitSettings } from "./compose/rate-limits.ts";
 import { trustedProxyList } from "./proxy.ts";
-import { resolveNodeSocketPath } from "./socket-path.ts";
+import { resolveGuestSocketPath, resolveNodeSocketPath } from "./socket-path.ts";
 import { type BindMode, containerAddress, readGatewayToken } from "./transport-gate.ts";
 import { packagedAsar } from "./web-asar.ts";
 
@@ -20,6 +20,11 @@ export interface GatewayConfig {
   dbPath: string;
   /** Unix socket for local nodes (mac helper), default `$PSYCHE_HOME/run/node.sock`. */
   nodeSocketPath: string;
+  /**
+   * Unix socket where the Host helper relays sandbox guests, default next to the node socket
+   * (`guest.sock`); `null` when it does not fit a socket path (VM guests cannot connect).
+   */
+  guestSocketPath: string | null;
   /** Built web UI served at `/` when present, default `apps/web/dist`. */
   webRoot: string | null;
   /**
@@ -416,12 +421,20 @@ export function resolveConfig(
       : (env.PSYCHE_PUBLIC_ORIGIN ?? file.publicOrigin ?? null),
   );
   const defaultWebRoot = assetPath("apps/web/dist");
+  const nodeSocketPath = resolveNodeSocketPath(
+    home,
+    overrides.nodeSocketPath ?? env.PSYCHE_NODE_SOCKET,
+  );
   return {
     home,
     host,
     port,
     dbPath: overrides.dbPath ?? env.PSYCHE_DB ?? join(home, "state", "psyche.sqlite"),
-    nodeSocketPath: resolveNodeSocketPath(home, overrides.nodeSocketPath ?? env.PSYCHE_NODE_SOCKET),
+    nodeSocketPath,
+    guestSocketPath:
+      overrides.guestSocketPath !== undefined
+        ? overrides.guestSocketPath
+        : resolveGuestSocketPath(nodeSocketPath, env.PSYCHE_GUEST_SOCKET),
     webRoot:
       overrides.webRoot === undefined ? (env.PSYCHE_WEB_ROOT ?? defaultWebRoot) : overrides.webRoot,
     webAsar:

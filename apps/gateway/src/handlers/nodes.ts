@@ -41,6 +41,17 @@ const CLIENT_REACHABLE: ReadonlySet<string> = new Set([
   "notify.request_authorization",
 ]);
 
+/**
+ * The Host's own Mac helper is reachable through `nodes.invoke` only for the capabilities in
+ * `CLIENT_REACHABLE`. Everything else it offers (speech and the microphone, `vm.*`, the Apple
+ * apps' data, Messages, reminders, calendar, contacts, ...) acts on the owner's Mac and has a
+ * Gateway tool or method that describes it and asks; a deny list would miss whatever the helper
+ * adds next, so this is an allowlist. Other nodes keep the deny list above.
+ */
+export function isHostHelperCapabilityReachable(name: string): boolean {
+  return CLIENT_REACHABLE.has(name);
+}
+
 export function isUnreachableCapability(name: string): boolean {
   if (CLIENT_REACHABLE.has(name)) return false;
   return UNREACHABLE.test(name.toLowerCase());
@@ -68,6 +79,15 @@ export const nodesHandlers: Record<string, HandlerDef> = {
       const { ctx } = call;
       const node = getNode(ctx.db, params.nodeId);
       if (!node) throw new PsycheError("not_found", `node ${params.nodeId} not found`);
+      if (
+        (node.kind === "mac-helper" || ctx.nodes.isHostHelper(node.id)) &&
+        !isHostHelperCapabilityReachable(params.capability)
+      ) {
+        throw new PsycheError(
+          "forbidden",
+          `${params.capability} is not reachable through nodes.invoke on the Host's Mac helper`,
+        );
+      }
       if (isUnreachableCapability(params.capability)) {
         throw new PsycheError(
           "forbidden",

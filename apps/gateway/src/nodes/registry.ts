@@ -1,4 +1,11 @@
-import { getNodeByDevice, listNodes, setNodeStatus, upsertNode } from "@psyche/db";
+import {
+  getNodeByDevice,
+  getSetting,
+  listNodes,
+  setNodeStatus,
+  setSetting,
+  upsertNode,
+} from "@psyche/db";
 import {
   type ConnectParams,
   type ErrorPayload,
@@ -19,8 +26,8 @@ export const NODE_INVOKE_TIMEOUT_MS = 60_000;
 
 /**
  * The kind a node's self-declared `deviceFamily` maps to. `mac-helper` is deliberately absent:
- * it is a claim any paired node can make, so `nodeKindOf` grants it only to the node on the
- * Gateway's own Unix node socket (the Host's helper).
+ * it is a claim any paired node can make, so `nodeKindOf` grants it only to the Host's own helper
+ * (`PairedIdentity.hostHelper`: the node socket plus the per-launch handshake secret).
  */
 const KIND_BY_FAMILY: Record<string, NodeKind> = {
   "vm-guest": "vm-guest",
@@ -31,28 +38,27 @@ const KIND_BY_FAMILY: Record<string, NodeKind> = {
 const MAC_HELPER_FAMILY = "mac-helper";
 
 /**
- * Whether a connection is the Host's own Mac helper (remote-gateway design §4.1 rule 1): it
- * declares `mac-helper` and arrived on the Unix node socket, which only a process of the owner's
- * user on the Gateway's own machine can open (0600; `server.ts` builds that `PeerInfo`, and a
- * WebSocket peer can never be `unix`). The family is self-declared and proves nothing by itself:
- * a second Mac that pairs as a node over the network also says `mac-helper`, and must never
- * receive the agent's computer use, Apple-app calls, keychain access or notifications.
+ * `mac-helper` only for the Host's own helper (remote-gateway design §4.1 rule 1); a claimed
+ * `mac-helper` anywhere else is `remote`. The family is self-declared and proves nothing by
+ * itself: a second Mac that pairs as a node, or a sandbox guest whose identity file was copied,
+ * also says `mac-helper`, and must never receive the agent's computer use, Apple-app calls,
+ * keychain access or notifications.
  */
-export function isHostHelperConnection(conn: LiveConnection, params: ConnectParams): boolean {
-  return (
-    params.role === "node" &&
-    params.deviceFamily === MAC_HELPER_FAMILY &&
-    conn.peer.transport === "unix"
-  );
-}
-
-/** `mac-helper` only for the Host's helper; a claimed `mac-helper` anywhere else is `remote`. */
-export function nodeKindOf(conn: LiveConnection, params: ConnectParams): NodeKind {
+export function nodeKindOf(identity: PairedIdentity, params: ConnectParams): NodeKind {
   if (params.deviceFamily === MAC_HELPER_FAMILY) {
-    return isHostHelperConnection(conn, params) ? "mac-helper" : "remote";
+    return identity.hostHelper === true ? "mac-helper" : "remote";
   }
   return KIND_BY_FAMILY[params.deviceFamily] ?? "remote";
 }
+
+/**
+ * Optional setting naming the Host helper's device id (what `psyche-helper --print-identity`
+ * prints). When more than one Host helper is connected, the pinned one is used instead of
+ * denying. It is under `devices.*`, so changing it needs admin and fresh presence.
+ */
+export const HOST_HELPER_PIN_SETTING = "devices.hostHelperDeviceId";
+/** Written by the Gateway: `{ ambiguous, helpers }`, so the app can say why Mac features are off. */
+export const HOST_HELPER_STATUS_SETTING = "devices.hostHelper.status";
 
 /** The Host's Mac helper, resolved to one live node. */
 export interface HostHelper {
@@ -76,8 +82,8 @@ interface Invocation {
 export class NodeRegistry {
   readonly #ctx: GatewayContext;
   readonly #live = new Map<string, { conn: LiveConnection; info: NodeInfo; host: boolean }>();
-  /** The ambiguous set already logged, so a busy selector does not repeat the warning. */
-  #warnedAmbiguous = "";
+  /** Whether Host-bound routing is currently refused for want of one helper. */
+  #ambiguous = false;
   readonly #invocations = new Map<string, Invocation>();
 
   constructor(ctx: GatewayContext) {
@@ -91,7 +97,7 @@ export class NodeRegistry {
       const node = upsertNode(db, {
         id: existing?.id ?? db.newId(),
         deviceId: identity.deviceId,
-        kind: nodeKindOf(conn, params),
+        kind: nodeKindOf(identity, params),
         capabilities: params.capabilities ?? [],
         status: "online",
       });
@@ -100,12 +106,13 @@ export class NodeRegistry {
     })();
     const previous = this.#live.get(info.id);
     // Replace before closing, so the old connection's detach does not mark the node offline.
-    this.#live.set(info.id, { conn, info, host: isHostHelperConnection(conn, params) });
+    this.#live.set(info.id, { conn, info, host: identity.hostHelper === true });
     if (previous && previous.conn !== conn) {
       this.#failInvocations(previous.conn.id, "replaced by a new connection");
       previous.conn.close("replaced by a new connection");
     }
     bus.publish("node.updated", { node: info });
+    this.#syncHostHelperStatus();
     return info;
   }
 
@@ -117,6 +124,7 @@ export class NodeRegistry {
       const node = setNodeStatus(this.#ctx.db, nodeId, "offline");
       if (node) this.#ctx.bus.publish("node.updated", { node });
     }
+    this.#syncHostHelperStatus();
   }
 
   #failInvocations(connId: string, message: string): void {
@@ -146,43 +154,65 @@ export class NodeRegistry {
     return [...this.#live.values()].filter((e) => e.host);
   }
 
+  /** The pinned Host helper's device id (`HOST_HELPER_PIN_SETTING`), when one is set. */
+  #pinnedDevice(): string | undefined {
+    const v = getSetting(this.#ctx.db, HOST_HELPER_PIN_SETTING)?.value;
+    return typeof v === "string" && v !== "" ? v : undefined;
+  }
+
+  /**
+   * The one live Host helper to use, or `undefined` for none or an ambiguous Host. With several,
+   * the pinned device wins when it is among them; otherwise nothing is chosen.
+   */
+  #soleHostHelper(): { conn: LiveConnection; info: NodeInfo } | undefined {
+    const live = this.#liveHostHelpers();
+    if (live.length <= 1) return live[0];
+    const pin = this.#pinnedDevice();
+    return pin === undefined ? undefined : live.find((e) => e.info.deviceId === pin);
+  }
+
   /**
    * The Host's Mac helper, for everything that acts on the Host's own Mac: computer use, the
    * Apple apps, Messages, the keychain, Host notifications, Host speech, OCR, the on-device
    * model and the sandbox Mac (remote-gateway design §4.1). Never "the newest node that offers
-   * `capability`": only a node on the Gateway's own Unix node socket qualifies, so a Mac that
-   * paired over the network is never a candidate, however recently it connected.
+   * `capability`": only a `mac-helper` on the Gateway's node socket that proved the per-launch
+   * handshake secret qualifies, so a Mac paired over the network, or a sandbox guest, is never a
+   * candidate, however recently it connected.
    *
-   * Deny by default: with more than one live Host helper (helpers of different devices on the
-   * socket) the answer is `undefined`, never a guess, until one of them goes away. `capability`
-   * narrows the result: the sole helper must offer it, else `undefined`.
+   * Deny by default: with more than one live Host helper the answer is `undefined`, never a
+   * guess, unless the owner pinned one (`devices.hostHelperDeviceId`) and it is connected. The
+   * ambiguity is reported in `devices.hostHelper.status`. `capability` narrows the result: the
+   * chosen helper must offer it, else `undefined`.
    */
   hostHelper(capability?: string): HostHelper | undefined {
+    const chosen = this.#soleHostHelper();
+    if (chosen === undefined) return undefined;
+    if (capability !== undefined && !chosen.info.capabilities.some((c) => c.name === capability)) {
+      return undefined;
+    }
+    return this.#hostHelperOf(chosen);
+  }
+
+  /**
+   * Publishes whether Host-bound features are off because more than one helper is connected, on
+   * change only: the app can read `devices.hostHelper.status` and say so (UI follows).
+   */
+  #syncHostHelperStatus(): void {
     const live = this.#liveHostHelpers();
-    if (live.length === 0) return undefined;
-    const [only] = live;
-    if (live.length > 1 || only === undefined) {
-      const key = live
-        .map((e) => e.info.id)
-        .sort()
-        .join(",");
-      if (this.#warnedAmbiguous !== key) {
-        this.#warnedAmbiguous = key;
-        this.#ctx.log.log(
-          "warn",
-          "host helper ambiguous: more than one helper on the node socket",
-          {
-            helpers: live.length,
-          },
-        );
-      }
-      return undefined;
+    const ambiguous = live.length > 1 && this.#soleHostHelper() === undefined;
+    if (ambiguous === this.#ambiguous) return;
+    this.#ambiguous = ambiguous;
+    if (ambiguous) {
+      this.#ctx.log.log("warn", "host helper ambiguous: more than one helper on the node socket", {
+        helpers: live.length,
+      });
     }
-    this.#warnedAmbiguous = "";
-    if (capability !== undefined && !only.info.capabilities.some((c) => c.name === capability)) {
-      return undefined;
-    }
-    return this.#hostHelperOf(only);
+    const entry = setSetting(this.#ctx.db, HOST_HELPER_STATUS_SETTING, {
+      ambiguous,
+      helpers: live.length,
+    });
+    this.#ctx.bus.bumpStateVersion();
+    this.#ctx.bus.publish("settings.changed", { entries: [entry] });
   }
 
   /**

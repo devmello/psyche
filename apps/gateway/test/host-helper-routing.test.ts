@@ -165,9 +165,9 @@ describe("a node's kind", () => {
   it("drops a stored mac-helper kind when the same device reconnects over the WebSocket", async () => {
     const g = await start();
     const key = newDeviceKey();
-    pairNodeDevice(g, "moving-mac", key);
     const first = await FakeNode.connect(g.config.nodeSocketPath, {
       origin: g.origin,
+      secret: g.handshakeSecret,
       handlers: handlers("a"),
       key,
       deviceId: "moving-mac",

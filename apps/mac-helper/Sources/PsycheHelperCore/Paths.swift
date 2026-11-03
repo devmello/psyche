@@ -13,6 +13,26 @@ public enum HelperPaths {
         return (psycheHome(environment: env) as NSString).appendingPathComponent("run/node.sock")
     }
 
+    /// Where the Gateway accepts relayed sandbox guests (`PSYCHE_GUEST_SOCKET`, else next to the
+    /// node socket: `node.sock` -> `guest.sock`, `<x>.sock` -> `<x>-guest.sock`). The Host helper
+    /// copies each guest psyche-node stream here and never into the node socket, so the Gateway
+    /// can tell a guest from the Host's own helper whatever the guest declares. The Gateway
+    /// derives the same path (`resolveGuestSocketPath`).
+    public static func guestSocketPath(environment env: [String: String] = ProcessInfo.processInfo.environment) -> String {
+        if let path = env["PSYCHE_GUEST_SOCKET"], !path.isEmpty { return path }
+        let node = nodeSocketPath(environment: env) as NSString
+        let base = node.lastPathComponent
+        let name: String
+        if base == "node.sock" {
+            name = "guest.sock"
+        } else if base.hasSuffix(".sock") {
+            name = String(base.dropLast(".sock".count)) + "-guest.sock"
+        } else {
+            name = base + "-guest.sock"
+        }
+        return (node.deletingLastPathComponent as NSString).appendingPathComponent(name)
+    }
+
     public static func handshakeSecretPath(environment env: [String: String] = ProcessInfo.processInfo.environment) -> String {
         (psycheHome(environment: env) as NSString).appendingPathComponent("run/handshake.secret")
     }

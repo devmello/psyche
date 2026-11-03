@@ -37,11 +37,15 @@ export function defaultGatewayOrigin(): string {
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "::1", "localhost"]);
 
 /**
- * Whether `origin` is the Gateway on this Mac, as opposed to one on another machine (an SSH
- * tunnel or a Tailscale name). Same set the Gateway treats as loopback (`isLoopbackHost`). Things
- * that are only true of a Gateway running on this Mac gate on it: sending the per-launch
- * handshake secret, launching and asking this Mac's own helper, and the first-admin bootstrap
- * (remote-gateway design §4.1 R0, §5.2). An unparsable origin counts as not local.
+ * Whether `origin` is a loopback address, which is where a Gateway on this Mac listens (same set
+ * the Gateway treats as loopback, `isLoopbackHost`). It is not proof the Gateway runs on this Mac:
+ * a local SSH forward (`ssh -L 7979:127.0.0.1:7979 host`) is also `127.0.0.1` and reaches a Gateway
+ * on another machine. The per-launch handshake secret is read from this Mac's own
+ * `$PSYCHE_HOME/run`, so through such a forward the app sends this Mac's secret (a Gateway
+ * elsewhere cannot use it and it names no secret of that Gateway); binding the secret to the
+ * Gateway instance is a follow-up. Things that are only true of a Gateway on this Mac gate on
+ * this check: sending the secret, launching and asking this Mac's own helper, and the first-admin
+ * bootstrap (remote-gateway design §4.1 R0, §5.2). An unparsable origin counts as not local.
  */
 export function isLocalGatewayOrigin(origin: string): boolean {
   try {

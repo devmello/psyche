@@ -76,10 +76,17 @@ function p256Key(b64url: string): KeyObject {
 }
 
 /** Verifies `kind: "helper"` assertions: ECDSA P-256 / SHA-256 (DER) by the device's registered key. */
-export function helperPresenceVerifier(keys: HelperSetup["presenceKeys"]): PresenceVerifier {
+export function helperPresenceVerifier(
+  keys: HelperSetup["presenceKeys"],
+  /** Whether `deviceId` is the Host's own connected Mac helper (`NodeRegistry.hostHelperOfDevice`). */
+  isHostHelperDevice: (deviceId: string) => boolean,
+): PresenceVerifier {
   return {
     async verify(assertion, challenge, deviceId) {
       if (assertion.kind !== "helper" || assertion.deviceId !== deviceId) return false;
+      // A key registered for any other device (a second Mac, a guest) never counts, whatever its
+      // signature: only the Host's helper speaks for the owner's presence on this Mac.
+      if (!isHostHelperDevice(deviceId)) return false;
       const registered = keys?.(deviceId);
       if (registered === undefined) return false;
       try {
@@ -209,8 +216,10 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
   /** A window is confirming with Touch ID now: one sheet at a time, whatever the card. */
   let confirming = false;
 
+  /** The live client of a Host helper only: this file never talks to any other node. */
   function client(nodeId: string) {
-    return gateway?.context.nodes.client(nodeId);
+    const nodes = gateway?.context.nodes;
+    return nodes?.isHostHelper(nodeId) === true ? nodes.client(nodeId) : undefined;
   }
 
   function detach(nodeId: string): void {
@@ -231,13 +240,14 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
   }
 
   function attach(node: NodeInfo): void {
+    // A reconnect replaces the connection: drop the old subscription first. A node that is no
+    // longer (or never was) the Host's helper must not keep one alive either.
+    detach(node.id);
     if (stopped || node.kind !== "mac-helper" || node.status !== "online") return;
     // The kind says `mac-helper`; the registry says whether it is the Host's own.
     if (gateway?.context.nodes.isHostHelper(node.id) !== true) return;
     const names = new Set(node.capabilities.map((c) => c.name));
     if (!names.has("notify.show") || !names.has("notify.subscribe")) return;
-    // A reconnect replaces the connection: drop the old subscription, open a new one.
-    detach(node.id);
     const h: Helper = {
       nodeId: node.id,
       deviceId: node.deviceId,
@@ -384,7 +394,10 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
 
   const keyStore = new HelperPresenceKeys(services.db);
   const presenceKeys = setup.presenceKeys ?? ((deviceId: string) => keyStore.get(deviceId));
-  const verifier = helperPresenceVerifier(presenceKeys);
+  const verifier = helperPresenceVerifier(
+    presenceKeys,
+    (deviceId) => gateway?.context.nodes.hostHelperOfDevice(deviceId) !== undefined,
+  );
   const handlers = presenceKeyHandlers({
     store: keyStore,
     audit: services.audit,

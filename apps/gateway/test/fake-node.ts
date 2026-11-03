@@ -110,6 +110,26 @@ export class FakeNode {
     return node;
   }
 
+  /**
+   * A paired node that is not the Host's helper (family `psyche-node` unless told otherwise) on
+   * the node socket: what `nodes.invoke` may reach, since the Host helper itself is allowlisted.
+   */
+  static async connectRemote(
+    gateway: Gateway,
+    opts: Omit<FakeNodeOptions, "origin" | "secret">,
+  ): Promise<FakeNode> {
+    const key = opts.key ?? newDeviceKey();
+    const deviceId = opts.deviceId ?? `node-${Math.random().toString(36).slice(2)}`;
+    pairNodeDevice(gateway, deviceId, key);
+    return FakeNode.connect(gateway.config.nodeSocketPath, {
+      ...opts,
+      key,
+      deviceId,
+      origin: gateway.origin,
+      deviceFamily: opts.deviceFamily ?? "psyche-node",
+    });
+  }
+
   /** The Gateway's WebSocket: where a node on another machine connects. */
   static async connectWs(wsUrl: string, opts: FakeNodeOptions): Promise<FakeNode> {
     const ws = new WebSocket(wsUrl);

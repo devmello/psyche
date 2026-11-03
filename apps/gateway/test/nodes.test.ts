@@ -39,17 +39,38 @@ const HANDLERS: FakeNodeHandler[] = [
     run: () => ({ authorization: "notDetermined" }),
   },
   { capability: { name: "notify.show", sideEffect: "write" }, run: () => "should never run" },
+  // What the real helper offers beyond the above: all acting on the owner's Mac.
+  {
+    capability: { name: "speech.transcribe_stream", sideEffect: "read", streaming: true },
+    run: () => "should never run",
+  },
+  { capability: { name: "vm.status", sideEffect: "read" }, run: () => "should never run" },
+  {
+    capability: { name: "calendar.list_events", sideEffect: "read", targetKind: "app" },
+    run: () => "should never run",
+  },
+  {
+    capability: { name: "contacts.read", sideEffect: "read", targetKind: "app" },
+    run: () => "should never run",
+  },
 ];
 
-async function setup(policy: ConstructorParameters<typeof RecordingBroker>[0] = {}) {
+/**
+ * `host: true` connects the Host's own Mac helper (the node socket with the handshake secret):
+ * `nodes.invoke` reaches only an allowlist there. The default is another paired node, which is
+ * where generic capabilities are still reachable (behind the deny list and the broker).
+ */
+async function setup(policy: ConstructorParameters<typeof RecordingBroker>[0] = {}, host = false) {
   broker = new RecordingBroker({ armDelayMs: 0, ...policy });
   t = await startTestGateway({ broker });
   desk = await desktopClient(t.gateway);
-  node = await FakeNode.connect(t.gateway.config.nodeSocketPath, {
-    origin: t.gateway.origin,
-    secret: t.gateway.handshakeSecret,
-    handlers: HANDLERS,
-  });
+  node = host
+    ? await FakeNode.connect(t.gateway.config.nodeSocketPath, {
+        origin: t.gateway.origin,
+        secret: t.gateway.handshakeSecret,
+        handlers: HANDLERS,
+      })
+    : await FakeNode.connectRemote(t.gateway, { handlers: HANDLERS });
   return { desk, node };
 }
 
@@ -62,7 +83,7 @@ afterEach(async () => {
 
 describe("node registry", () => {
   it("registers a paired node with its capabilities and lists it", async () => {
-    const { desk, node } = await setup();
+    const { desk, node } = await setup({}, true);
     expect(node.nodeId).toBeTruthy();
     const { nodes } = await desk.call<{ nodes: NodeInfo[] }>("nodes.list", {});
     expect(nodes).toEqual([
@@ -142,7 +163,7 @@ describe("node registry", () => {
   });
 
   it("never reaches a capability that has an agent tool, such as apps.applescript (#274)", async () => {
-    const { desk, node } = await setup({ policy: { default: "allow" } });
+    const { desk, node } = await setup({ policy: { default: "allow" } }, true);
     const res = await desk.request(
       "nodes.invoke",
       {
@@ -157,7 +178,7 @@ describe("node registry", () => {
   });
 
   it("lets the desktop read the helper's notification permission, never post one (#540)", async () => {
-    const { desk, node } = await setup({ policy: { default: "allow" } });
+    const { desk, node } = await setup({ policy: { default: "allow" } }, true);
     // Onboarding polls this every few seconds; it was refused as notify.* (#274).
     const status = await desk.call<{ ok: boolean; result: unknown }>(
       "nodes.invoke",
@@ -174,8 +195,41 @@ describe("node registry", () => {
     expect(node.invocations.map((i) => i.capability)).toEqual(["notify.authorization_status"]);
   });
 
-  it("never reaches helper-internal capabilities such as vault.unlock", async () => {
+  it("reaches only an allowlist on the Host's Mac helper: speech, vm, reminders and the Apple apps' data are refused, even with an allow policy", async () => {
+    const { desk, node } = await setup({ policy: { default: "allow" } }, true);
+    for (const [capability, params] of [
+      // The microphone, with no card.
+      ["speech.transcribe_stream", { source: "microphone" }],
+      ["vm.status", {}],
+      ["reminders.create", { title: "Hi" }],
+      ["calendar.list_events", {}],
+      ["contacts.read", {}],
+      // Anything else the helper offers is refused too, not only what a deny list names.
+      ["system.echo", { hello: "world" }],
+    ] as const) {
+      const res = await desk.request(
+        "nodes.invoke",
+        { nodeId: node.nodeId, capability, params },
+        ik(),
+      );
+      expect(res, capability).toMatchObject({ ok: false, error: { code: "forbidden" } });
+    }
+    expect(node.invocations).toHaveLength(0);
+    expect(broker.decisions).toHaveLength(0);
+  });
+
+  it("still reaches those capabilities on a paired node that is not the Host's helper", async () => {
     const { desk, node } = await setup({ policy: { default: "allow" } });
+    const res = await desk.call<{ ok: boolean; result: unknown }>(
+      "nodes.invoke",
+      { nodeId: node.nodeId, capability: "system.echo", params: { a: 1 } },
+      ik(),
+    );
+    expect(res).toMatchObject({ ok: true, result: { a: 1 } });
+  });
+
+  it("never reaches helper-internal capabilities such as vault.unlock", async () => {
+    const { desk, node } = await setup({ policy: { default: "allow" } }, true);
     const res = await desk.request(
       "nodes.invoke",
       { nodeId: node.nodeId, capability: "vault.unlock", params: {} },

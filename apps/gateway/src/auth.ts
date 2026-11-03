@@ -13,6 +13,7 @@ import {
   expirePendingPairingsForDevice,
   findPendingPairingForDevice,
   getDevice,
+  getDeviceFamily,
   insertDevice,
   type PsycheDb,
   touchLastSeen,
@@ -47,9 +48,15 @@ export const DESKTOP_AUTO_SCOPES: DeviceScope[] = [
 
 /** What the transport knows about the peer (security §10). */
 export interface PeerInfo {
-  transport: "ws" | "unix";
+  /**
+   * `ws`: the HTTP/WebSocket listener. `unix`: the node socket (`run/node.sock`, 0600), where the
+   * Host's own helper and psyche-node dial. `vm-relay`: the guest socket (`run/guest.sock`), where
+   * the Host helper copies each sandbox guest's vsock stream; whatever the guest says, it is never
+   * the Host's helper and never auto-pairs.
+   */
+  transport: "ws" | "unix" | "vm-relay";
   remoteLoopback: boolean;
-  /** Peer IP for WebSockets, `"unix"` for the node socket. Rate limits key on it. */
+  /** Peer IP for WebSockets, `"unix"` / `"vm-relay"` for the sockets. Rate limits key on it. */
   remoteAddress: string;
   /** WebSocket `Origin` header; `null` for native clients and Unix-socket nodes. */
   origin: string | null;
@@ -74,6 +81,30 @@ export interface PairedIdentity {
    * A self-declared platform never makes a device the desktop (#278).
    */
   desktopShell?: true;
+  /**
+   * This connection is the Host's own Mac helper: a `mac-helper` node on the node socket that
+   * presented the per-launch handshake secret at this connect. The secret lives in
+   * `$PSYCHE_HOME/run`, which the sandbox guest and any other machine cannot read, so neither a
+   * guest that copied its identity file nor a Mac paired over the network can have it. The family
+   * a node declares proves nothing by itself (#278, remote-gateway design §4.1).
+   */
+  hostHelper?: true;
+}
+
+/** The Host helper's connection proof: the node socket plus the per-launch handshake secret. */
+export function isHostHelper(
+  params: ConnectParams,
+  peer: PeerInfo,
+  handshakeSecret: string,
+): boolean {
+  return (
+    peer.transport === "unix" &&
+    peer.remoteLoopback &&
+    peer.origin === null &&
+    params.role === "node" &&
+    params.deviceFamily === "mac-helper" &&
+    secretMatches(handshakeSecret, params.handshakeSecret)
+  );
 }
 
 /** The desktop shell's connection proof, the same one its auto-pairing needs. */
@@ -139,8 +170,8 @@ export function issueChallenge(
   nowMs: number,
 ): { pending: PendingChallenge; challenge: ConnectChallenge } {
   // Clients use the WebSocket; the node socket is for nodes only (S23 review PR-1-A).
-  if (peer.transport === "unix" && params.role !== "node") {
-    throw new PsycheError("forbidden", "The node socket accepts only role: node");
+  if (peer.transport !== "ws" && params.role !== "node") {
+    throw new PsycheError("forbidden", "The node sockets accept only role: node");
   }
   const protocolVersion = negotiateVersion(params.protocolVersion);
   rawEd25519PublicKey(params.publicKey); // validate early
@@ -175,7 +206,7 @@ export function autoPairScopes(
   peer: PeerInfo,
   handshakeSecret: string,
 ): DeviceScope[] | null {
-  if (!peer.remoteLoopback || peer.origin !== null) return null;
+  if (!peer.remoteLoopback || peer.origin !== null || peer.transport === "vm-relay") return null;
   if (!secretMatches(handshakeSecret, params.handshakeSecret)) return null;
   if (params.role === "client" && params.deviceFamily === "desktop" && peer.transport === "ws") {
     return [...DESKTOP_AUTO_SCOPES];
@@ -254,6 +285,12 @@ export function verifyChallenge(
     if (existing.role !== "both" && existing.role !== params.role) {
       return denied("device role mismatch");
     }
+    // The family is pinned when the device pairs: a paired device cannot become a Mac helper (or
+    // anything else) by declaring another family later. Devices paired before the column existed
+    // record the family they declare now, once.
+    const pinned = getDeviceFamily(db, existing.id);
+    if (pinned === null) updateDevice(db, existing.id, { deviceFamily: params.deviceFamily });
+    else if (pinned !== params.deviceFamily) return denied("device family mismatch");
     touchLastSeen(db, existing.id, nowIso);
     return {
       result: pairedResult(existing.id, existing.scopes, nowIso),
@@ -262,6 +299,7 @@ export function verifyChallenge(
         scopes: existing.scopes,
         role: params.role,
         ...(isDesktopShell(params, peer, deps.handshakeSecret) ? { desktopShell: true } : {}),
+        ...(isHostHelper(params, peer, deps.handshakeSecret) ? { hostHelper: true } : {}),
       },
       createdRequest: null,
       pendingDeviceId: null,
@@ -269,6 +307,12 @@ export function verifyChallenge(
   }
 
   const scopes = autoPairScopes(params, peer, deps.handshakeSecret);
+  // A Mac helper pairs only by the per-launch handshake secret on the machine. An owner-approved
+  // pairing (a pending request anyone who can reach a transport may open) never makes a Mac
+  // helper: it would be offered the Host's computer use, keychain and approval cards.
+  if (scopes === null && params.role === "node" && params.deviceFamily === "mac-helper") {
+    return denied("a Mac helper pairs only with the handshake secret on its own Mac");
+  }
   const keyChanged = existing !== undefined && existing.publicKey !== params.publicKey;
   if (keyChanged && scopes === null && findPendingPairingForDevice(db, existing.id, nowIso)) {
     // Another key is waiting for approval under this id; re-keying it would let a second
@@ -287,6 +331,7 @@ export function verifyChallenge(
         publicKey: params.publicKey,
         scopes: scopes ?? [],
         pairedAt: scopes ? nowIso : null,
+        deviceFamily: params.deviceFamily,
       });
     } else {
       // Unpaired rows carry no authority. The holder of the handshake secret replaces a squatter.
@@ -297,6 +342,7 @@ export function verifyChallenge(
         role,
         scopes: scopes ?? [],
         pairedAt: scopes ? nowIso : null,
+        deviceFamily: params.deviceFamily,
       });
     }
     touchLastSeen(db, params.deviceId, nowIso);
@@ -308,6 +354,7 @@ export function verifyChallenge(
           scopes,
           role: params.role,
           ...(isDesktopShell(params, peer, deps.handshakeSecret) ? { desktopShell: true } : {}),
+          ...(isHostHelper(params, peer, deps.handshakeSecret) ? { hostHelper: true } : {}),
         },
         createdRequest: null,
         pendingDeviceId: null,
@@ -342,11 +389,12 @@ export function verifyChallenge(
       code: pairingCode(),
       deviceId: params.deviceId,
       display: `${params.name} (${params.platform}, ${params.deviceFamily}; claimed by the device)${
-        peer.claimedIdentity ? `; proxy says ${peer.claimedIdentity}` : ""
-      }`,
+        peer.transport === "vm-relay" ? "; relayed from a sandbox guest" : ""
+      }${peer.claimedIdentity ? `; proxy says ${peer.claimedIdentity}` : ""}`,
       expiresAt: new Date(now.getTime() + deps.limits.pairingTtlMs).toISOString(),
       publicKeyFingerprint: keyFingerprint(params.publicKey),
-      transport: peer.transport,
+      // The pairing record only knows the two transports; the card says when it was relayed.
+      transport: peer.transport === "ws" ? "ws" : "unix",
       remoteAddress: peer.remoteAddress,
     });
     return {
