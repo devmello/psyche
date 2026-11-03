@@ -28,19 +28,19 @@ export interface PaletteAction {
 const MEMORY_PALETTE_KINDS = [
   {
     kind: "people",
-    label: "memory.page.kind.people",
-    keywords: "shell.palette.keywords.memoryPeople",
+    labelId: "memory.page.kind.people",
+    keywordsId: "shell.palette.keywords.memoryPeople",
   },
   {
     kind: "projects",
-    label: "memory.page.kind.projects",
-    keywords: "shell.palette.keywords.memoryProjects",
+    labelId: "memory.page.kind.projects",
+    keywordsId: "shell.palette.keywords.memoryProjects",
   },
-  { kind: "due", label: "memory.page.kind.due", keywords: "shell.palette.keywords.memoryDue" },
+  { kind: "due", labelId: "memory.page.kind.due", keywordsId: "shell.palette.keywords.memoryDue" },
   {
     kind: "events",
-    label: "memory.page.kind.events",
-    keywords: "shell.palette.keywords.memoryEvents",
+    labelId: "memory.page.kind.events",
+    keywordsId: "shell.palette.keywords.memoryEvents",
   },
 ] as const;
 
@@ -148,13 +148,13 @@ export const DEFAULT_ACTIONS: readonly PaletteAction[] = [
   },
   // Memory's kind chips (docs/design/memory-everything-2026.md §6.6). Work due is "To-do" to the
   // owner and covers anything with a deadline, so its keywords are a general mix (W7).
-  ...MEMORY_PALETTE_KINDS.map(({ kind, label, keywords }) => ({
+  ...MEMORY_PALETTE_KINDS.map(({ kind, labelId, keywordsId }) => ({
     id: `memory-${kind}`,
     get label() {
-      return t("shell.palette.memoryKind", { kind: t(label) });
+      return t("shell.palette.memoryKind", { kind: t(labelId) });
     },
     get keywords() {
-      return t(keywords);
+      return t(keywordsId);
     },
     route: memoryHref(kind),
   })),
