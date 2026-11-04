@@ -144,12 +144,15 @@ function AddProject({
 export function ProjectsTab({
   now,
   onNavigate,
+  startAdding = false,
 }: {
   now: number;
   onNavigate: (to: string) => void;
+  /** Opens with the add form showing (`/memory?kind=projects&add=1`, ⌘K's "Add project"). */
+  startAdding?: boolean;
 }): ReactElement {
   const [status, setStatus] = useState<GraphProjectStatus>("active");
-  const [adding, setAdding] = useState(false);
+  const [adding, setAdding] = useState(startAdding);
   const { projects, loading } = useProjects();
   const rows = projects.filter((e) => (e.projectStatus ?? "active") === status);
   return (

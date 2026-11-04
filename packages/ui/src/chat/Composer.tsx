@@ -3,6 +3,7 @@ import type { Message, QueueMode } from "@psyche/protocol";
 import {
   AlertCircle,
   ArrowUp,
+  Brain,
   FileText,
   Image as ImageIcon,
   Loader2,
@@ -84,7 +85,7 @@ function useCommandMenu() {
 /** The item the next message is about (Feed "Ask about this"): a removable chip. */
 export interface ComposerContextChip {
   /** A search result gets its own icon and prompt; the default is a Feed item. */
-  kind?: "feed_item" | "search_hit";
+  kind?: "feed_item" | "search_hit" | "memory_entity";
   title: string;
   /** Source name or host. */
   source: string | null;
@@ -263,6 +264,8 @@ export function Composer({
               <li className="flex max-w-72 items-center gap-1.5 rounded-md bg-fill-tertiary py-1 ps-2 pe-1 text-callout">
                 {context.kind === "search_hit" ? (
                   <Search className="size-3.5 shrink-0 text-label-secondary" aria-hidden="true" />
+                ) : context.kind === "memory_entity" ? (
+                  <Brain className="size-3.5 shrink-0 text-label-secondary" aria-hidden="true" />
                 ) : (
                   <Newspaper
                     className="size-3.5 shrink-0 text-label-secondary"
@@ -392,7 +395,9 @@ export function Composer({
                     ? t(
                         context.kind === "search_hit"
                           ? "chat.composer.placeholderResult"
-                          : "chat.composer.placeholderArticle",
+                          : context.kind === "memory_entity"
+                            ? "chat.composer.placeholderMemory"
+                            : "chat.composer.placeholderArticle",
                       )
                     : t("chat.composer.placeholder", { persona })
               }

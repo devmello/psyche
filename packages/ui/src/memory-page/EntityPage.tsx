@@ -1,5 +1,6 @@
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, MessageSquare } from "lucide-react";
 import type { ReactElement } from "react";
+import { canContinueInChat, continueItemOf, useContinueInChat } from "../chat/continue-in-chat.ts";
 import { Button } from "../components/ui/button.tsx";
 import { useGatewayQuery } from "../data/hooks.ts";
 import { t } from "../i18n/core.ts";
@@ -23,18 +24,38 @@ export function EntityPage({
   const detail = useGatewayQuery("memory.entities.get", { id });
   const kind = kindForEntity(detail.data?.entity.kind ?? "person");
   const back = t(`memory.page.kind.${kind}`);
+  const continueInChat = useContinueInChat();
+  const data = detail.data;
+  // A Keep-private item stays on its page: the agent cannot read it, so there is nothing to continue.
+  const canContinue =
+    continueInChat !== undefined &&
+    data !== undefined &&
+    data.entity.private !== true &&
+    canContinueInChat(data.entity.kind);
   return (
     <div className="flex flex-col gap-3" data-testid="memory-entity">
-      <Button
-        type="button"
-        size="sm"
-        variant="ghost"
-        className="self-start"
-        onClick={() => onNavigate(memoryHref(kind))}
-      >
-        <ArrowLeft aria-hidden="true" className="rtl:rotate-180" />
-        {t("memory.page.back", { tab: back })}
-      </Button>
+      <div className="flex items-center justify-between gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          onClick={() => onNavigate(memoryHref(kind))}
+        >
+          <ArrowLeft aria-hidden="true" className="rtl:rotate-180" />
+          {t("memory.page.back", { tab: back })}
+        </Button>
+        {canContinue ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => continueInChat(continueItemOf(data))}
+          >
+            <MessageSquare aria-hidden="true" />
+            {t("memory.page.continue")}
+          </Button>
+        ) : null}
+      </div>
       <ConnectedEntityCard
         key={id}
         id={id}
