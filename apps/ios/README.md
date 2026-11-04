@@ -3,8 +3,10 @@
 Native SwiftUI, iOS 26 minimum, no third-party dependencies. Architecture and look:
 [docs/design/ios-app-2026.md](../../docs/design/ios-app-2026.md). Mockups: `docs/design/ios-app-2026/*.dc.html`.
 
-This is the skeleton (work package I3): the tab shell, the design system, the pairing screens, and
-fixture data. The real Gateway client is I2; until then a fake `Session` drives the screens.
+The app runs against the real Gateway (`GatewayBackend`, work package I2) unless launched with
+`-psycheScenario <name>`, which uses fixtures. "Try it without a Mac" on the pairing screen also enters
+fixture mode. Pair by scanning the code from Settings → Devices → Add phone, or paste the link
+(`psyche-pair:v1:…`); the link is read only by the in-app scanner or paste button, never as a URL.
 
 ## Build
 
@@ -45,7 +47,13 @@ xcrun simctl launch booted com.psyche.ios -psycheScenario live
 ```
 
 Scenarios: `unpaired` (default), `pending`, `live`, `away`, `gatewayOff`, `tailscaleOff`, `mismatch`.
-In the simulator, which has no camera, the scanner offers "Use a sample code" in Debug builds.
+The simulator has no camera: paste a link (`xcrun simctl pbcopy booted`, then Paste) or use "Try it without a Mac".
+
+## Tests
+
+`swift test` runs the store and client tests on macOS. `LiveGatewayTests` starts a real Gateway from the
+repo (`tests/integration/ios-gateway/serve.ts`, scripted model, temporary `PSYCHE_HOME`) and is skipped when
+`node` or `pnpm install` is missing, or with `PSYCHE_IOS_SKIP_LIVE=1`.
 
 ## Design tokens
 

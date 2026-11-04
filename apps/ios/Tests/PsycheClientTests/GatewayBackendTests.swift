@@ -62,6 +62,18 @@ struct GatewayBackendTests {
         ])
     }
 
+    @Test func theFixtureMainThreadIdMeansTheMainThreadOnARealGateway() async throws {
+        let asked = OutboxTests.Sent()
+        let (backend, _) = try await live { g in
+            g.on("threads.list") { _ in .success(.object(["threads": .array([Self.thread("thr_real_main", kind: "main", title: "Main")])])) }
+            g.on("threads.get") { req in asked.add(req.params?["threadId"]?.stringValue ?? ""); return .success(Self.thread("thr_real_main", kind: "main", title: "Main")) }
+            g.on("chat.history") { _ in .success(.object(["messages": .array([])])) }
+        }
+        let thread = try await backend.thread(id: "thr_main")
+        #expect(thread.id == "thr_real_main")
+        #expect(asked.all == ["thr_real_main"])
+    }
+
     @Test func sendingGoesThroughTheOutboxWithTheClientIDAsTheIdempotencyKey() async throws {
         let sent = OutboxTests.Sent()
         let (backend, _) = try await live { g in

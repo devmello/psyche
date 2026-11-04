@@ -16,7 +16,8 @@ extension GatewayBackend {
         return out
     }
 
-    public func thread(id: String) async throws -> ChatThread {
+    public func thread(id requested: String) async throws -> ChatThread {
+        let id = try await resolveThreadID(requested == FixtureData.mainThreadID ? nil : requested)
         async let entry = call("threads.get", .obj(["threadId": .string(id)]))
         async let history = call("chat.history", .obj(["threadId": .string(id), "limit": .number(60)]))
         let (head, page) = try await (entry, history)
@@ -62,8 +63,10 @@ extension GatewayBackend {
 
     // MARK: -
 
+    /// nil means the main thread. The screens still ask for the fixture's main-thread id ("thr_main") in a
+    /// few places (Home's Ask field); on a real Gateway that id means the same thing.
     private func resolveThreadID(_ id: String?) async throws -> String {
-        if let id { return id }
+        if let id, id != FixtureData.mainThreadID { return id }
         if let known = await mainThread.get() { return known }
         let result = try await call("threads.list", .obj(["kind": "main", "limit": .number(1)]))
         guard let found = result["threads"]?.array?.first?.at("thread", "id")?.string else { throw BackendError.notFound }
