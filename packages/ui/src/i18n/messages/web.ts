@@ -112,6 +112,21 @@ export const web = {
   "web.passkeys.waiting": "Waiting for the passkey…",
   "web.passkeys.add": "Add a passkey",
   "web.passkeys.confirmFirst": "You'll confirm with an existing passkey first.",
+  "web.remotePresence.title": "Touch ID for approvals",
+  "web.remotePresence.description":
+    "Purchases, credential fills, host commands and security changes need Touch ID. Set it up on this computer to answer them here; until then those cards say to answer on {host}. Ordinary approvals never need it.",
+  "web.remotePresence.on": "Touch ID is on for approvals from this computer.",
+  "web.remotePresence.off": "Touch ID isn't set up on this computer.",
+  "web.remotePresence.enable": "Use Touch ID for approvals on this computer",
+  "web.remotePresence.disable": "Turn off",
+  "web.remotePresence.waiting": "Waiting for Touch ID…",
+  "web.remotePresence.passkeyName": "Touch ID on this computer",
+  "web.remotePresence.enabled": "Touch ID is on for approvals from this computer.",
+  "web.remotePresence.disabled": "Touch ID for approvals is off on this computer.",
+  "web.remotePresence.approveOnHost":
+    "Approve “Add a passkey” on {host}, with Touch ID or a passkey, then press the button again.",
+  "web.remotePresence.unavailable":
+    "Touch ID needs {host}'s Gateway at an https:// address (gateway.publicOrigin). Until then, answer those cards on {host}.",
   "web.webauthn.noPasskey": "No passkey was used.",
   "web.webauthn.noPasskeyYet":
     "This browser has no passkey yet. Add one in Settings → Devices, or approve with Touch ID on the Mac.",
@@ -433,6 +448,8 @@ export const web = {
   "web.splash.remote.pairKey": "Gateway key {fingerprint}",
   "web.splash.remote.pairHint":
     "Compare both with the request in {host}'s Settings → Devices, then approve it there.",
+  "web.splash.remote.pairHintLan":
+    "Compare the whole key with the one in {host}'s Settings → Devices, under the request from this computer. On a network, the key is the only proof of who answered. Approve it only if they match.",
   "web.splash.remote.unreachable": "{host} isn't answering.",
   "web.splash.remote.unreachableReason":
     "It may be asleep or off, Psyche may not be running there, or Tailscale may be off on this computer. Psyche keeps trying.",
@@ -445,12 +462,21 @@ export const web = {
     "Its identity proof did not check out, so Psyche will not connect.",
   "web.splash.remote.identityOrigin":
     "It answered for a different address than the one this computer dialed. On {host}, set the public address in Settings → Devices → Server & remote access.",
+  "web.splash.remote.certChanged":
+    "Its network certificate is not the one this computer pinned. Another machine on this network may be answering in its place, or its certificate was replaced.",
+  "web.splash.remote.certMissing":
+    "It did not vouch for the certificate it used, so Psyche will not connect.",
+  "web.splash.remote.certInvalid":
+    "Its proof for the certificate it used did not check out, so Psyche will not connect.",
   "web.splash.remote.olderHost": "{host} runs an older Psyche.",
   "web.splash.remote.olderHostReason": "Update Psyche on {host}, then try again.",
   "web.splash.remote.olderApp": "This app is older than {host}.",
   "web.splash.remote.olderAppReason": "Update Psyche on this computer, then try again.",
   "web.splash.remote.revoked": "This computer was removed from {host}.",
   "web.splash.remote.revokedReason": "Pair again to use it from here, or forget it.",
+  "web.splash.remote.tokenRefused": "{host} refused this pairing link.",
+  "web.splash.remote.tokenRefusedReason":
+    "It was already used, has expired or was revoked. Make a new one on {host} and add it again.",
   "web.splash.remote.switch": "Switch Gateway",
   "web.splash.remote.useThisMac": "Use This Mac",
   "web.splash.remote.pairAgain": "Forget and pair again",

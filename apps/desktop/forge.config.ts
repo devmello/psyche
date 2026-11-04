@@ -71,8 +71,12 @@ const config: ForgeConfig = {
     appBundleId: "com.psyche.desktop",
     appCategoryType: "public.app-category.productivity",
     asar: { unpack: "{*.node,spawn-helper}" },
-    // psyche:// deep links (CFBundleURLTypes).
-    protocols: [{ name: "Psyche", schemes: ["psyche"] }],
+    // psyche:// deep links and psyche-pair: pairing links (CFBundleURLTypes). A pairing link only
+    // opens the Add a Gateway field (src/lib/pair-link.ts).
+    protocols: [
+      { name: "Psyche", schemes: ["psyche"] },
+      { name: "Psyche pairing link", schemes: ["psyche-pair"] },
+    ],
     // macOS attributes the bundled helper's privacy requests to this outer bundle (the helper lives
     // in Contents/Resources), so every usage string the helper needs must be here too, or tccd
     // refuses the request without a prompt (#570). Keep the texts in step with

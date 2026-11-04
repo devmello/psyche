@@ -1,6 +1,6 @@
 import { getRun, getThread, listAllMessages } from "@psyche/db";
 import type { Message, Requester, Thread } from "@psyche/protocol";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SendInput, TxHooks } from "../src/session/controller.ts";
 import { GatedAgentLoop, RecordingBroker } from "./agent.ts";
 import {
@@ -514,10 +514,13 @@ describe("tool calls and cards", () => {
     ]);
     await c.call("chat.send", { threadId: thread.id, content: "go" }, ik());
     await t.gateway.context.sessions.idle();
-    const updates = c
-      .eventsNamed("tool_call.updated")
-      .map((e) => (e.payload as { toolCall: Record<string, unknown> }).toolCall);
-    expect(updates.map((u) => u.status)).toEqual(["running", "ok"]);
+    const updatesNow = () =>
+      c
+        .eventsNamed("tool_call.updated")
+        .map((e) => (e.payload as { toolCall: Record<string, unknown> }).toolCall);
+    // The last event can reach the client just after the session goes idle (raced on CI).
+    await vi.waitFor(() => expect(updatesNow().map((u) => u.status)).toEqual(["running", "ok"]));
+    const updates = updatesNow();
     expect(updates[1]).toMatchObject({
       sideEffect: "read",
       paramsRedacted: { url: "https://example.test" },

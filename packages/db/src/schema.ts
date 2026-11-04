@@ -71,6 +71,18 @@ export const pairingRequests = sqliteTable("pairing_requests", {
   remoteAddress: text("remote_address"),
 });
 
+export const setupTokens = sqliteTable("setup_tokens", {
+  id: text("id").primaryKey(),
+  tokenHash: text("token_hash").notNull(),
+  scopes: text("scopes").notNull(),
+  createdByDeviceId: text("created_by_device_id"),
+  createdAt: text("created_at").notNull(),
+  expiresAt: text("expires_at").notNull(),
+  usedAt: text("used_at"),
+  usedByDeviceId: text("used_by_device_id"),
+  revokedAt: text("revoked_at"),
+});
+
 // §8 Channels and identities (owner: packages/channels, S10) ----------------------------------
 
 export const channels = sqliteTable("channels", {
@@ -441,6 +453,7 @@ export const schema = {
   devices,
   nodes,
   pairingRequests,
+  setupTokens,
   channels,
   identities,
   threads,
@@ -479,6 +492,7 @@ export type NodeRow = typeof nodes.$inferSelect;
 export type NewNodeRow = typeof nodes.$inferInsert;
 export type PairingRequestRow = typeof pairingRequests.$inferSelect;
 export type NewPairingRequestRow = typeof pairingRequests.$inferInsert;
+export type SetupTokenRow = typeof setupTokens.$inferSelect;
 export type ChannelRow = typeof channels.$inferSelect;
 export type IdentityRow = typeof identities.$inferSelect;
 export type ThreadRow = typeof threads.$inferSelect;

@@ -1,15 +1,22 @@
 import { readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { PsycheError } from "@psyche/protocol";
+import { PairingLinkError, PsycheError, parsePairingLink } from "@psyche/protocol";
 import {
   addGateway,
+  addGatewayFromLink,
   clearGatewayPin,
+  clearSetupToken,
+  defaultGatewayName,
   forgetGatewayData,
   GatewayAddressError,
+  GatewayLinkError,
   type GatewaysFile,
   type GatewayTarget,
   gatewayDataDir,
+  isLanOrigin,
+  liveSetupToken,
   loadGatewaysStrict,
+  pinGatewayCert,
   pinGatewayKey,
   removeGateway,
   renameGateway,
@@ -39,12 +46,22 @@ export interface SavedGatewayView {
   /** A Gateway on another computer. */
   remote: boolean;
   active: boolean;
-  /** An identity key is pinned (the first connect has happened). */
+  /** An identity is pinned: the key (the first connect has happened) or a link's fingerprint. */
   pinned: boolean;
+  /** On the local network: reached over a pinned self-signed certificate. */
+  lan: boolean;
 }
 
 export type GatewayConfirm =
-  | { kind: "add"; origin: string; name: string }
+  | { kind: "add"; origin: string; name: string; fingerprint?: string }
+  /** A `.local` or private address: add it as a Psyche on this network, or as a plain https one. */
+  | { kind: "addLan"; origin: string; name: string; fingerprint?: string }
+  /**
+   * From a pairing link: names the address and the identity the Gateway must prove (its
+   * fingerprint), never the link's own host name. `external`: the link was opened by another app
+   * or a website, not pasted by the owner.
+   */
+  | { kind: "addLink"; origin: string; fingerprint: string; external: boolean }
   | { kind: "forget"; name: string; origin: string }
   | { kind: "repair"; name: string; origin: string }
   | { kind: "stopLocal" };
@@ -55,7 +72,7 @@ export interface GatewayManagerDeps {
   /** What this launch connects to. */
   target: GatewayTarget;
   /** The native confirmation; resolves true when the owner confirmed. */
-  confirm: (c: GatewayConfirm) => Promise<boolean>;
+  confirm: (c: GatewayConfirm) => Promise<boolean | "plain">;
   /** Restarts the app (a switch applies to every module at once by starting over). */
   relaunch: () => void;
   /** Stops this Mac's own Gateway (the optional step when switching away from This Mac). */
@@ -78,7 +95,7 @@ export class GatewayManager {
    */
   #load(): GatewaysFile {
     try {
-      return loadGatewaysStrict(this.#file);
+      return loadGatewaysStrict(this.#file, this.#deps.now?.() ?? new Date());
     } catch (err) {
       throw new PsycheError(
         "unavailable",
@@ -103,6 +120,7 @@ export class GatewayManager {
         remote: false,
         active: activeId === THIS_MAC_ID,
         pinned: false,
+        lan: false,
       },
       ...data.gateways.map((g) => ({
         id: g.id,
@@ -110,7 +128,8 @@ export class GatewayManager {
         origin: g.origin,
         remote: true,
         active: g.id === activeId,
-        pinned: g.identityKey !== undefined,
+        pinned: g.identityKey !== undefined || g.identityFingerprint !== undefined,
+        lan: g.lan === true,
       })),
     ];
   }
@@ -122,10 +141,24 @@ export class GatewayManager {
   }
 
   /** Adds the Gateway for `address` after the owner confirms it in a native dialog. */
-  async add(address: string, name?: string): Promise<SavedGatewayView> {
+  async add(
+    address: string,
+    name?: string,
+    hints?: {
+      certPin?: string;
+      identityKey?: string;
+      advertisedFingerprint?: string;
+      lan?: boolean;
+    },
+  ): Promise<SavedGatewayView> {
+    let chosen = hints;
     const attempt = () => {
       try {
-        return addGateway(this.#load(), { address, ...(name === undefined ? {} : { name }) });
+        return addGateway(this.#load(), {
+          address,
+          ...(name === undefined ? {} : { name }),
+          ...(chosen === undefined ? {} : { hints: chosen }),
+        });
       } catch (err) {
         if (err instanceof GatewayAddressError) {
           throw new PsycheError("invalid_params", err.message, {
@@ -137,16 +170,74 @@ export class GatewayManager {
     };
     const first = attempt();
     if (first.existing) return this.#view(first.entry);
+    // A `.local` or private address that was not picked from the network asks which it is: only
+    // the owner knows whether it is a Psyche on this network or a proxy with its own certificate.
+    const asksLan = chosen?.lan === undefined && isLanOrigin(first.entry.origin);
     const ok = await this.#deps.confirm({
-      kind: "add",
+      kind: asksLan ? "addLan" : "add",
       origin: first.entry.origin,
       name: first.entry.name,
+      ...(first.entry.advertisedFingerprint === undefined
+        ? {}
+        : { fingerprint: first.entry.advertisedFingerprint }),
     });
-    if (!ok) throw new PsycheError("forbidden", "Adding the Gateway was cancelled");
+    if (ok === false) throw new PsycheError("forbidden", "Adding the Gateway was cancelled");
+    if (asksLan) chosen = { ...chosen, lan: ok === true };
     // The file is read again after the dialog: it may have changed while the owner decided (a pin
     // written by a connection), and saving the copy read before would erase that.
     const result = attempt();
     if (!result.existing) saveGateways(this.#file, result.gateways);
+    return this.#view(result.entry);
+  }
+
+  /**
+   * Adds (or updates) the Gateway a pasted `psyche-pair:v1` link names, after the owner confirms
+   * the normalized address in a native dialog. The link is parsed strictly here, in main, from the
+   * raw text: nothing the renderer parsed is trusted. The link's fingerprint becomes the pre-pin
+   * and its token is kept for the first connect (never given back to the renderer).
+   */
+  async addFromLink(rawLink: string, opts: { external?: boolean } = {}): Promise<SavedGatewayView> {
+    let link: ReturnType<typeof parsePairingLink>;
+    try {
+      link = parsePairingLink(rawLink);
+    } catch (err) {
+      if (err instanceof PairingLinkError) {
+        throw new PsycheError("invalid_params", err.message, {
+          details: { problem: `link_${err.problem}` },
+        });
+      }
+      throw err;
+    }
+    const attempt = () => {
+      try {
+        return addGatewayFromLink(this.#load(), link, this.#deps.now?.() ?? new Date());
+      } catch (err) {
+        if (err instanceof GatewayAddressError) {
+          throw new PsycheError("invalid_params", err.message, {
+            details: { problem: err.problem },
+          });
+        }
+        if (err instanceof GatewayLinkError) {
+          throw new PsycheError("invalid_params", err.message, {
+            details: {
+              problem: err.problem === "lan_not_supported" ? "link_lan" : "link_pin_mismatch",
+            },
+          });
+        }
+        throw err;
+      }
+    };
+    const first = attempt();
+    const ok = await this.#deps.confirm({
+      kind: "addLink",
+      origin: first.entry.origin,
+      fingerprint: link.gatewayFingerprint,
+      external: opts.external === true,
+    });
+    if (!ok) throw new PsycheError("forbidden", "Adding the Gateway was cancelled");
+    // Read again after the dialog, as `add` does, so a pin written meanwhile is not erased.
+    const result = attempt();
+    saveGateways(this.#file, result.gateways);
     return this.#view(result.entry);
   }
 
@@ -157,7 +248,8 @@ export class GatewayManager {
       origin: entry.origin,
       remote: true,
       active: this.#deps.target.id === entry.id,
-      pinned: entry.identityKey !== undefined,
+      pinned: entry.identityKey !== undefined || entry.identityFingerprint !== undefined,
+      lan: entry.lan === true,
     };
   }
 
@@ -252,6 +344,41 @@ export class GatewayManager {
     return entry.identityKey;
   }
 
+  /**
+   * The fingerprint a pairing link named for the active saved Gateway, while its key is not
+   * pinned yet. Read per attempt; throws like `pinnedKey`.
+   */
+  pinnedFingerprint(): string | undefined {
+    if (!this.#deps.target.remote) return undefined;
+    const entry = this.#load().gateways.find((g) => g.id === this.#deps.target.id);
+    if (entry === undefined)
+      throw new PsycheError("unavailable", "the active Gateway is not saved");
+    return entry.identityFingerprint;
+  }
+
+  /**
+   * The setup token to present at this connect, if the active saved Gateway has one still worth
+   * sending. It goes to the connection, never to the renderer. A lapsed token is dropped here.
+   */
+  setupToken(): string | undefined {
+    if (!this.#deps.target.remote) return undefined;
+    const data = this.#load();
+    const entry = data.gateways.find((g) => g.id === this.#deps.target.id);
+    if (entry?.setupToken === undefined) return undefined;
+    const token = liveSetupToken(entry, this.#deps.now?.() ?? new Date());
+    if (token === undefined) saveGateways(this.#file, clearSetupToken(data, entry.id));
+    return token;
+  }
+
+  /** Forgets the active Gateway's token: it was spent, or the Host refused it. */
+  clearSetupToken(): void {
+    if (!this.#deps.target.remote) return;
+    const data = this.#load();
+    const entry = data.gateways.find((g) => g.id === this.#deps.target.id);
+    if (entry?.setupToken === undefined) return;
+    saveGateways(this.#file, clearSetupToken(data, entry.id));
+  }
+
   /** Trust on first use: stores the key the active Gateway proved at its first connect. */
   pin(key: string): void {
     if (!this.#deps.target.remote) return;
@@ -261,11 +388,57 @@ export class GatewayManager {
     saveGateways(this.#file, pinGatewayKey(data, this.#deps.target.id, key));
   }
 
+  /**
+   * Names the active saved Gateway by the Host's own name (from `gateway.info`, once paired), but
+   * only while it still has the name it got from its address: a name the owner chose stays.
+   */
+  adoptHostName(hostName: string): void {
+    if (!this.#deps.target.remote) return;
+    const data = this.#load();
+    const entry = data.gateways.find((g) => g.id === this.#deps.target.id);
+    if (entry === undefined || entry.name !== defaultGatewayName(entry.origin)) return;
+    const next = renameGateway(data, entry.id, hostName);
+    if (next !== data) saveGateways(this.#file, next);
+  }
+
+  /** The pinned certificate (SPKI) of the active LAN Gateway; throws like `pinnedKey`. */
+  pinnedCert(): string | undefined {
+    if (!this.#deps.target.remote) return undefined;
+    const entry = this.#load().gateways.find((g) => g.id === this.#deps.target.id);
+    if (entry === undefined)
+      throw new PsycheError("unavailable", "the active Gateway is not saved");
+    return entry.certPin;
+  }
+
+  /** Trust on first use for the certificate, stored once the connection is paired. */
+  pinCert(spki: string): void {
+    if (!this.#deps.target.remote) return;
+    const data = this.#load();
+    const entry = data.gateways.find((g) => g.id === this.#deps.target.id);
+    if (entry === undefined || entry.certPin !== undefined) return;
+    saveGateways(this.#file, pinGatewayCert(data, this.#deps.target.id, spki));
+  }
+
+  /** The key fingerprint Bonjour announced for the active Gateway, while no key is pinned. */
+  advertisedFingerprint(): string | undefined {
+    if (!this.#deps.target.remote) return undefined;
+    try {
+      return this.#load().gateways.find((g) => g.id === this.#deps.target.id)
+        ?.advertisedFingerprint;
+    } catch {
+      return undefined;
+    }
+  }
+
   /** Remembers when the active saved Gateway last paired. */
   markConnected(): void {
     if (!this.#deps.target.remote) return;
     if (!this.#load().gateways.some((g) => g.id === this.#deps.target.id)) return;
     const at = (this.#deps.now?.() ?? new Date()).toISOString();
-    saveGateways(this.#file, touchGateway(this.#load(), this.#deps.target.id, at));
+    // Paired: a token this computer held has done its job (or was not needed).
+    saveGateways(
+      this.#file,
+      clearSetupToken(touchGateway(this.#load(), this.#deps.target.id, at), this.#deps.target.id),
+    );
   }
 }

@@ -16,6 +16,11 @@ export interface RoutingConfig {
   /** OS interruption level per kind; merged over `DEFAULT_INTERRUPTION`. */
   interruption?: Partial<Record<NotificationKind, InterruptionLevel>>;
   quietHours?: QuietHoursConfig | null;
+  /**
+   * `device:<deviceId>` surfaces of the remote desktop clients connected right now. Added next to
+   * `notification` (whatever puts a notification on the OS also puts it on those clients' OS).
+   */
+  deviceTargets?: Surface[];
 }
 
 /**
@@ -71,6 +76,8 @@ export function resolveSurfaces(
     const toChat = (config.channelKinds ?? DEFAULT_CHANNEL_KINDS).includes(kind);
     list = toChat ? [...base, ...(config.channelTargets ?? [])] : base;
   }
+  const onOs = list.some((s) => normalizeSurface(s) === "notification");
+  if (onOs && config.deviceTargets !== undefined) list = [...list, ...config.deviceTargets];
   const out: Surface[] = [];
   for (const s of list) {
     const n = normalizeSurface(s);

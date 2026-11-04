@@ -3078,6 +3078,17 @@ export interface ConnectChallenge {
      */
     gatewaySignature?: string;
     /**
+     * base64url Ed25519 signature by the Gateway identity key over lanCertSigningPayload(nonce,
+     * serverOrigin, device key, lanCertSpki)
+     */
+    lanCertSignature?: string;
+    /**
+     * LAN listener only: the SHA-256 (base64url) of the SPKI of the TLS certificate this
+     * connection was served with. The client compares it with the certificate it actually saw,
+     * so a relay with its own certificate is caught
+     */
+    lanCertSpki?: string;
+    /**
      * base64url, 32 random bytes
      */
     nonce: string;
@@ -3092,9 +3103,20 @@ export interface ConnectChallenge {
 export type ConnectChallengePhase = "challenge";
 
 export interface ConnectDenied {
+    /**
+     * Machine-readable cause when there is one: the setup token was used, expired, revoked or
+     * not allowed here
+     */
+    code?:  Code;
     phase:  ConnectDeniedPhase;
     reason: string;
 }
+
+/**
+ * Machine-readable cause when there is one: the setup token was used, expired, revoked or
+ * not allowed here
+ */
+export type Code = "setup_token_invalid";
 
 export type ConnectDeniedPhase = "denied";
 
@@ -3146,12 +3168,16 @@ export interface ConnectPending {
 export type ConnectPendingPhase = "pending";
 
 export interface ConnectResult {
-    deviceId?:         string;
-    nodeId?:           string;
-    phase:             ConnectResultPhase;
-    scopes?:           DeviceScope[];
-    serverTime?:       string;
-    stateVersion?:     number;
+    deviceId?:     string;
+    nodeId?:       string;
+    phase:         ConnectResultPhase;
+    scopes?:       DeviceScope[];
+    serverTime?:   string;
+    stateVersion?: number;
+    /**
+     * Machine-readable cause when there is one: the setup token was used, expired, revoked or
+     * not allowed here
+     */
     code?:             string;
     pairingRequestId?: string;
     reason?:           string;
@@ -3170,6 +3196,14 @@ export interface ConnectVerifyParams {
      * base64url, 32 random bytes
      */
     nonce: string;
+    /**
+     * A one-time setup token from a pairing link (remote-gateway design §3.4). Sent here and
+     * not in `connect`, so only a client that already verified the Gateway's identity ever
+     * presents it. Valid and unexpired, it pairs this device at once with the scopes chosen
+     * when the token was made; a used, expired or revoked token is denied with code
+     * setup_token_invalid. Ignored for a device that is already paired
+     */
+    setupToken?: string;
     /**
      * base64url Ed25519 signature (64 bytes) over connectSigningPayload(...)
      */
@@ -3746,6 +3780,54 @@ export interface DevicesRevokeParams {
 
 export interface DevicesRevokeResult {
     device: Device;
+}
+
+export interface DevicesSetupTokenCreateParams {
+    approvalId?: string;
+    /**
+     * What the computer that uses the token gets, chosen by the owner now; never `node`.
+     * `operator.admin` only when the owner ticks it
+     */
+    scopes: SetupTokenScope[];
+}
+
+export type SetupTokenScope = "operator.read" | "operator.write" | "operator.approvals" | "operator.admin";
+
+export interface DevicesSetupTokenCreateResult {
+    gatewayFingerprint: string;
+    gatewayUrl:         string;
+    hostName:           string;
+    /**
+     * psyche-pair:v1 link: gatewayUrl, gatewayFingerprint, setupToken and hostName, nothing
+     * else. The token appears only here, once
+     */
+    link:       string;
+    setupToken: SetupTokenInfo;
+}
+
+export interface SetupTokenInfo {
+    createdAt:       string;
+    expiresAt:       string;
+    id:              string;
+    revokedAt?:      null | string;
+    scopes:          SetupTokenScope[];
+    status:          SetupTokenInfoStatus;
+    usedAt?:         null | string;
+    usedByDeviceId?: null | string;
+}
+
+export type SetupTokenInfoStatus = "live" | "used" | "expired" | "revoked";
+
+export interface DevicesSetupTokenListResult {
+    setupTokens: SetupTokenInfo[];
+}
+
+export interface DevicesSetupTokenRevokeParams {
+    id: string;
+}
+
+export interface DevicesSetupTokenRevokeResult {
+    setupToken: SetupTokenInfo;
 }
 
 export interface DictationInsertParams {
@@ -4593,6 +4675,7 @@ export interface GatewayInfo {
      */
     hostName: string;
     identity: Identity;
+    lan?:     LAN;
     /**
      * gateway.publicOrigin, the https address other computers reach it at
      */
@@ -4612,6 +4695,62 @@ export interface Identity {
      * base64url raw Ed25519 identity public key
      */
     publicKey: string;
+}
+
+export interface LAN {
+    /**
+     * Bonjour `_psyche._tcp` is being advertised
+     */
+    advertising: boolean;
+    /**
+     * Interfaces the owner can pick
+     */
+    candidates: Candidate[];
+    /**
+     * SHA-256 (base64url) of the LAN certificate's SPKI: the cert pin
+     */
+    certSpki: null | string;
+    /**
+     * The `gateway.lan` setting is on
+     */
+    enabled: boolean;
+    /**
+     * The interface names or addresses the owner chose; empty = the default one
+     */
+    interfaces: string[];
+    /**
+     * What is bound right now; empty when off or when nothing could bind
+     */
+    listening: Listening[];
+    /**
+     * https://<host>.local:<port> while listening
+     */
+    origin: null | string;
+    port:   number;
+    /**
+     * Why something the owner asked for is not happening: unknown_interface:<name>,
+     * no_interface, bind_failed:<address>:<code>, container_bind, advertise_failed
+     */
+    problems: string[];
+}
+
+export interface Candidate {
+    address:   string;
+    isDefault: boolean;
+    name:      string;
+}
+
+export interface Listening {
+    address: string;
+    port:    number;
+}
+
+export interface GatewayLANRotateCERTParams {
+    approvalId?: string;
+}
+
+export interface GatewayLANRotateCERTResult {
+    certSpki: string;
 }
 
 export interface GatewayShutdownPayload {
@@ -7685,6 +7824,18 @@ export interface NotificationAction {
 
 export type NotificationKind = "approval" | "input_needed" | "task_done" | "task_failed" | "proactive" | "briefing" | "reminder" | "system" | "specialist_result";
 
+export interface NotificationDevicePayload {
+    body:         string;
+    createdAt:    string;
+    id:           string;
+    interruption: Interruption;
+    kind:         NotificationKind;
+    route?:       null | string;
+    title:        string;
+}
+
+export type Interruption = "passive" | "active" | "timeSensitive";
+
 export interface NotificationOpenedPayload {
     notificationId: string;
     route:          string;
@@ -7696,6 +7847,14 @@ export interface NotificationResolvedPayload {
 
 export interface NotificationUpdatedPayload {
     notification: Notification;
+}
+
+export interface NotificationsDeviceRegisterParams {
+    enabled: boolean;
+}
+
+export interface NotificationsDeviceRegisterResult {
+    enabled: boolean;
 }
 
 export interface NotificationsListParams {

@@ -132,6 +132,70 @@ describe("container bind transport gate (security §10, issue #79)", () => {
   });
 });
 
+describe("allowedLogins at the gate", () => {
+  const cf = () =>
+    new CloudflareAccessVerifier(
+      { teamDomain: TEAM, audience: AUD },
+      { fetch: async () => ({ ok: true, json: async () => ({ keys: [jwk] }) }) },
+    );
+  const loginGate = (logins: string[], withAccess = true) =>
+    new TransportGate({
+      mode: "loopback",
+      token: null,
+      trustedProxies: trustedProxyList(["127.0.0.1/32"]),
+      tailscaleProxies: trustedProxyList(["127.0.0.1/32"]),
+      cfAccess: withAccess ? cf() : null,
+      allowedLogins: logins,
+    });
+  const run = (g: TransportGate, headers: Record<string, string>, from = "127.0.0.1") => {
+    const r = req(from, { "X-Forwarded-For": "100.64.1.2", ...headers });
+    return g.admit(
+      r,
+      resolvePeer(
+        from,
+        r.headers,
+        { enabled: true, trustedProxies: ["127.0.0.1/32"] },
+        trustedProxyList(["127.0.0.1/32"]),
+      ),
+    );
+  };
+
+  it("lets a listed Tailscale login from a Tailscale proxy through, and no other peer's claim", async () => {
+    const g = loginGate(["owner@example.test"], false);
+    expect(await run(g, { "Tailscale-User-Login": "Owner@Example.test" })).toMatchObject({
+      peer: {},
+    });
+    expect(await run(g, { "Tailscale-User-Login": "mallory@example.test" })).toEqual({
+      refused: "login_not_allowed",
+    });
+    // A trusted proxy that is not the Tailscale one can't vouch for a login.
+    const other = new TransportGate({
+      mode: "loopback",
+      token: null,
+      trustedProxies: trustedProxyList(["127.0.0.1/32"]),
+      tailscaleProxies: trustedProxyList(["192.0.2.9/32"]),
+      cfAccess: null,
+      allowedLogins: ["owner@example.test"],
+    });
+    expect(await run(other, { "Tailscale-User-Login": "owner@example.test" })).toEqual({
+      refused: "login_not_allowed",
+    });
+  });
+
+  it("matches a verified Cloudflare Access email against the same list", async () => {
+    const g = loginGate(["owner@example.test"]);
+    expect(await run(g, { "Cf-Access-Jwt-Assertion": accessJwt() })).toMatchObject({ peer: {} });
+    const g2 = loginGate(["someone-else@example.test"]);
+    expect(await run(g2, { "Cf-Access-Jwt-Assertion": accessJwt() })).toEqual({
+      refused: "login_not_allowed",
+    });
+    const forged = generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKey;
+    expect(await run(g, { "Cf-Access-Jwt-Assertion": accessJwt(forged) })).toEqual({
+      refused: "login_not_allowed",
+    });
+  });
+});
+
 describe("container bind startup", () => {
   it("refuses a token file with loose permissions", () => {
     expect(() => readGatewayToken(tokenFile(0o644))).toThrow(/0600/);

@@ -42,6 +42,21 @@ export interface SavedGatewayView {
   active: boolean;
   /** The Gateway's identity key is pinned. */
   pinned: boolean;
+  /** On the local network, reached over a pinned self-signed certificate. */
+  lan?: boolean;
+}
+
+/** A Gateway the network announced (Bonjour `_psyche._tcp`); a claim, not a proof. */
+export interface DiscoveredGatewayView {
+  /** Stable for this listing; the window adds it by this id, never by an address. */
+  id: string;
+  name: string;
+  /** `sha256:<hex>` the Gateway announced for its identity key, or null. */
+  fingerprint: string | null;
+  /** Announced more than once with different keys: not addable. */
+  conflict: boolean;
+  /** Already in the saved list. */
+  saved: boolean;
 }
 
 /** Why an address was refused when adding a Gateway. */
@@ -51,7 +66,14 @@ export type GatewayAddressProblem =
   | "needs_full_name"
   | "needs_https"
   | "has_path"
-  | "has_credentials";
+  | "has_credentials"
+  | "link_not_a_pairing_link"
+  | "link_unsupported_version"
+  | "link_malformed"
+  | "link_extra_fields"
+  | "link_bad_field"
+  | "link_pin_mismatch"
+  | "link_lan";
 
 /**
  * Desktop only: the saved Gateways (remote-gateway design §1.3). One is active at a time;
@@ -62,6 +84,10 @@ export interface GatewaysPort {
   list(): Promise<SavedGatewayView[]>;
   /** Rejects with `invalid_params` and `details.problem` (`GatewayAddressProblem`) for a bad address. */
   add(address: string, name?: string): Promise<SavedGatewayView>;
+  /** Looks for Gateways on the local network (on the owner's click, a few seconds). */
+  discover?(): Promise<DiscoveredGatewayView[]>;
+  /** Adds a listing `discover` returned; the same native confirmation and pin flow as `add`. */
+  addDiscovered?(id: string): Promise<SavedGatewayView>;
   rename(id: string, name: string): Promise<void>;
   /** Forgets the Gateway: its pin, this computer's key for it and its stored data. */
   remove(id: string): Promise<void>;
@@ -69,6 +95,19 @@ export interface GatewaysPort {
   switchTo(id: string, opts?: { stopLocal?: boolean }): Promise<void>;
   /** Drops the pin and this computer's key for the Gateway so it pairs again as a new device. */
   repair(id: string): Promise<void>;
+  /**
+   * Adds the Gateway a pasted `psyche-pair:v1` link names. Main parses the link itself and asks in
+   * a native dialog that names the normalized address. Rejects with `invalid_params` and
+   * `details.problem` (`GatewayAddressProblem` or `link_<problem>`).
+   */
+  addLink?(link: string): Promise<SavedGatewayView>;
+  /**
+   * A `psyche-pair:` link the OS opened in the app, once: the Add a Gateway field shows it for the
+   * owner to review and press Add. Nothing is connected by opening it.
+   */
+  takePendingLink?(): Promise<string | null>;
+  /** The OS opened a pairing link while this window is open: ask `takePendingLink`. */
+  onPendingLink?(cb: () => void): Unsubscribe;
 }
 
 /** The desktop supervisor's view of the Gateway process (apps/desktop/src/main/supervisor.ts). */
@@ -360,7 +399,8 @@ export interface SystemAppearancePort {
 }
 
 export interface ClipboardPort {
-  writeText(text: string): Promise<void>;
+  /** `clearAfterMs`: clear the clipboard again after that long if it still holds `text`. */
+  writeText(text: string, opts?: { clearAfterMs?: number }): Promise<void>;
 }
 
 /** The system's locales as macOS reports them (`app.getSystemLocale()`, preferred languages). */

@@ -18,6 +18,11 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-04 (pairing links, remote Gateway R2)
+
+- `ConnectVerifyParams.setupToken` (optional): a one-time setup token from a pairing link. It is sent in `connect.verify`, not `connect`, so only a client that already verified the Gateway's key presents it; the Gateway honours it only for a `role: client` on the WebSocket without an `Origin`, and only with a v2 (`gatewayKey`) connect. `ConnectDenied.code` (optional, `setup_token_invalid`): a used, expired, revoked or not-allowed token is a denial, never a pending request.
+- New methods `devices.setupToken.create` (admin, fresh presence, not idempotent on purpose: the link is never stored), `devices.setupToken.list` and `devices.setupToken.revoke` (admin), and types `SetupTokenScope` (never `node`) and `SetupTokenInfo`.
+- `pairing-link.ts`: `encodePairingLink` / `parsePairingLink` for the `psyche-pair:v1:<base64url JSON>` link with exactly `gatewayUrl`, `gatewayFingerprint`, `setupToken` and `hostName` (strict: any other field or shape is refused), plus `SETUP_TOKEN_TTL_MS` (10 minutes) and the token and fingerprint patterns. Shared with the phone.
 ### v1 additive — 2026-11-04 (Terminal on the Host, remote Gateway R4)
 
 - New methods `terminal.session.open`, `terminal.session.write`, `terminal.session.resize`, `terminal.session.ack` and `terminal.session.close`, all `operator.admin`; only `open` is side-effecting. The Gateway starts the Host user's login shell in a PTY and streams it to the device that opened it; nothing runs on the client. A session belongs to that device (any other gets `not_found`), opening needs fresh presence (or the desktop shell on the Host while no verifier exists; otherwise `forbidden`, "Open the terminal on <host>"), and sessions are capped per device (`rate_limited`, `details.reason: "terminal_limit"`).

@@ -16,6 +16,7 @@ import {
 import { backoffDelay } from "./backoff.ts";
 import { type ConnectParams, type GatewayVerifier, Handshake, type Signer } from "./handshake.ts";
 import {
+  FATAL_ERROR_CODES,
   type GatewayStatus,
   INITIAL_STATUS,
   isFatalStatus,
@@ -38,7 +39,7 @@ export interface WebSocketLike {
   close(code?: number, reason?: string): void;
   addEventListener(
     type: "open" | "close" | "error" | "message",
-    cb: (ev: { data?: unknown }) => void,
+    cb: (ev: { data?: unknown; refusal?: string }) => void,
   ): void;
 }
 
@@ -68,6 +69,11 @@ export interface GatewayConnectionOptions {
    * a saved Gateway). A failure stops the connection and the reconnect loop.
    */
   verifyGateway?: GatewayVerifier;
+  /**
+   * A one-time setup token from a pairing link, read per attempt. It is presented in
+   * `connect.verify` and only when `verifyGateway` approved the Gateway's identity.
+   */
+  setupToken?: () => string | undefined;
   onStatus: (status: GatewayStatus) => void;
   onEvent?: (event: GatewayEvent) => void;
   /** Called after a reconnect or a `seq` gap: the shell refetches its collections. */
@@ -235,7 +241,18 @@ export class GatewayConnection {
       return;
     }
     if (this.stopped || attempt !== this.connectSeq) return;
-    const handshake = new Handshake(params, this.opts.sign, this.opts.verifyGateway);
+    let setupToken: string | undefined;
+    try {
+      setupToken = this.opts.setupToken?.();
+    } catch {
+      setupToken = undefined;
+    }
+    const handshake = new Handshake(
+      params,
+      this.opts.sign,
+      this.opts.verifyGateway,
+      this.opts.verifyGateway === undefined ? undefined : setupToken,
+    );
     this.dispatch({ type: "connecting" });
     const create = this.opts.createWebSocket ?? ((url: string) => new WebSocket(url));
     const ws = create(this.opts.wsUrl);
@@ -282,8 +299,13 @@ export class GatewayConnection {
           ws.close(1000, "handshake failed");
         });
     });
-    ws.addEventListener("error", () => {
-      // "close" follows; nothing is logged.
+    ws.addEventListener("error", (ev) => {
+      // "close" follows; nothing is logged. A transport that refused the Gateway's certificate
+      // (a LAN Gateway whose pin did not match) says why, and the connection stops for good.
+      const refusal = (ev as { refusal?: unknown }).refusal;
+      if (typeof refusal === "string" && FATAL_ERROR_CODES.includes(refusal)) {
+        this.dispatch({ type: "error", code: refusal });
+      }
     });
     ws.addEventListener("close", () => {
       if (this.ws !== ws) return;
