@@ -2336,6 +2336,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Undo for a progress, stopped-at or next-step line the owner's chat wrote: restores the previous value only while the field has not changed since (changed_again otherwise, nothing touched; removed when the owner had already marked it wrong in Memory and nothing was left to restore). Also puts back a to-do status and last signal time the write had moved, if they have not changed since. Only for updates a chat note offered, within seven days. Side-effecting.",
+        "name": "memory.work.undoUpdate",
+        "params": "#/$defs/MemoryWorkUndoUpdateParams",
+        "result": "#/$defs/MemoryWorkUndoUpdateResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
         "description": "Writes a workspace memory file (default replace). Protected files may require an approval. Side-effecting.",
         "name": "memory.write",
         "params": "#/$defs/MemoryWriteParams",
@@ -10838,6 +10846,9 @@
         },
         {
           "$ref": "#/$defs/TaughtBlock"
+        },
+        {
+          "$ref": "#/$defs/WorkNoteBlock"
         },
         {
           "$ref": "#/$defs/SpecialistResultBlock"
@@ -29221,6 +29232,31 @@
       ],
       "type": "object"
     },
+    "MemoryWorkUndoUpdateParams": {
+      "properties": {
+        "factId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "factId"
+      ],
+      "type": "object"
+    },
+    "MemoryWorkUndoUpdateResult": {
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/WorkUndoStatus"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "type": "object"
+    },
     "MemoryWriteMode": {
       "enum": [
         "replace",
@@ -46092,6 +46128,93 @@
         "decision"
       ],
       "type": "object"
+    },
+    "WorkNoteAttribute": {
+      "enum": [
+        "status",
+        "deadline",
+        "progress",
+        "stopped_at",
+        "next_step"
+      ],
+      "type": "string"
+    },
+    "WorkNoteBlock": {
+      "properties": {
+        "type": {
+          "const": "work_note",
+          "type": "string"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/WorkNoteItem"
+          },
+          "maxItems": 10,
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "type",
+        "items"
+      ],
+      "type": "object"
+    },
+    "WorkNoteItem": {
+      "properties": {
+        "kind": {
+          "enum": [
+            "proposal",
+            "update"
+          ],
+          "type": "string"
+        },
+        "entityId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "attribute": {
+          "$ref": "#/$defs/WorkNoteAttribute"
+        },
+        "value": {
+          "maxLength": 300,
+          "type": "string"
+        },
+        "previous": {
+          "maxLength": 300,
+          "type": "string"
+        },
+        "factId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "entityId",
+        "name",
+        "attribute",
+        "value",
+        "factId"
+      ],
+      "type": "object"
+    },
+    "WorkUndoStatus": {
+      "enum": [
+        "undone",
+        "changed_again",
+        "already_undone",
+        "removed"
+      ],
+      "type": "string"
     },
     "WorkflowCard": {
       "anyOf": [

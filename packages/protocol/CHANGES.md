@@ -18,6 +18,11 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-04 (MW7 confirm note and undo)
+
+- New block `work_note` (`WorkNoteBlock`, items `WorkNoteItem`: `kind` proposal or update, `entityId`, `name`, `attribute`, `value`, optional `previous`, `factId`; the attribute enum is `WorkNoteAttribute`): the system note under a chat turn that proposed a status or deadline (Confirm / Discard call `memory.review.decide`) or wrote progress, stopped-at or next-step directly (Undo).
+- New method `memory.work.undoUpdate` (`operator.write`, side-effecting): `{factId}` gives `{status: undone | changed_again | already_undone | removed}`; it restores the previous value only while the field has not changed since.
+
 ### v1 additive — 2026-11-04 (pairing links, remote Gateway R2)
 
 - `ConnectVerifyParams.setupToken` (optional): a one-time setup token from a pairing link. It is sent in `connect.verify`, not `connect`, so only a client that already verified the Gateway's key presents it; the Gateway honours it only for a `role: client` on the WebSocket without an `Origin`, and only with a v2 (`gatewayKey`) connect. `ConnectDenied.code` (optional, `setup_token_invalid`): a used, expired, revoked or not-allowed token is a denial, never a pending request.
