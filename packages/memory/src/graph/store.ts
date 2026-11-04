@@ -275,6 +275,7 @@ interface EntityRow {
   work_status: GraphWorkStatus | null;
   last_signal_at: string | null;
   private: number;
+  title_untrusted: number;
 }
 
 interface FactRow {
@@ -386,18 +387,29 @@ function clip(text: string | null | undefined, max: number): string | null {
   return t.length === 0 ? null : t.slice(0, max);
 }
 
+const gistProp = (g: string | null): { gist?: string } => (g === null ? {} : { gist: g });
+
+/** The sensitive classes the owner switched on (all off by default); read on every use. */
+export type SensitiveSwitches = Partial<Record<GraphSensitivity, boolean>>;
+
 /**
  * A conversation gist that may be stored and shown (docs/design/memory-everything-2026.md §2.6):
- * one line of at most 120 characters. A gist that touches a sensitive class (health, finance,
- * religion and so on), holds a credential, or reads like an instruction is dropped, not shown.
- * Unclear means dropped.
+ * one line of at most 120 characters. Credentials and instruction-like text are always dropped,
+ * and so are government ids and account numbers (never switchable). Any other sensitive class
+ * (health, finance, religion and so on) is dropped unless the owner switched that class on, so a
+ * gist about rent or a tax to-do survives only when `finance` is on.
  */
-export function safeGist(text: string | null | undefined): string | null {
+export function safeGist(
+  text: string | null | undefined,
+  on: SensitiveSwitches = {},
+): string | null {
   const g = clip(text, 120);
   if (g === null) return null;
-  if (classifySensitivity(g) !== "none") return null;
   if (blockingKinds(g, true).length > 0 || looksLikeInstruction(g)) return null;
-  return g;
+  const cls = classifySensitivity(g);
+  if (cls === "none") return g;
+  if (cls === "gov_id" || cls === "account_numbers") return null;
+  return on[cls] === true ? g : null;
 }
 
 const toBool = (n: number) => n === 1;
@@ -441,6 +453,7 @@ function toEntity(r: EntityRow, aliases: string[]): GraphEntity {
     ...(r.kind === "assignment" ? { workStatus: r.work_status } : {}),
     ...(r.last_signal_at === null ? {} : { lastSignalAt: r.last_signal_at }),
     ...(r.private === 1 ? { private: true } : {}),
+    ...(r.title_untrusted === 1 ? { titleUntrusted: true } : {}),
     summary: r.summary,
     summaryAt: r.summary_at,
     lastInteractionAt: r.last_interaction_at,
@@ -612,7 +625,7 @@ function interactionTimelineRow(
       text = `Note${quoted}`;
       break;
     case "chat": {
-      const gist = safeGist(r.gist);
+      const gist = r.gist;
       text = gist === null ? `Chat with Psyche${quoted}` : `Chat: ${safeName(gist, 120)}`;
       break;
     }
@@ -748,6 +761,17 @@ export class GraphStore {
   readonly #country: string;
   readonly #retentionDays: number;
 
+  #sensitiveOn: () => SensitiveSwitches = () => ({});
+
+  /** Which sensitive classes the owner switched on, so gists follow the same switches as facts. */
+  setSensitiveSwitches(read: () => SensitiveSwitches): void {
+    this.#sensitiveOn = read;
+  }
+
+  #gist(text: string | null | undefined): string | null {
+    return safeGist(text, this.#sensitiveOn());
+  }
+
   constructor(options: GraphStoreOptions) {
     this.#db = options.sqlite;
     this.#clock = options.clock ?? { now: () => Date.now() };
@@ -829,6 +853,8 @@ export class GraphStore {
     dueAt?: string | null;
     projectType?: GraphProjectType;
     private?: boolean;
+    /** The name is someone else's text; default: anything but the owner's own creation. */
+    titleUntrusted?: boolean;
     isOwner?: boolean;
     source?: string;
     linkedBy?: GraphIdentifier["linkedBy"];
@@ -864,8 +890,8 @@ export class GraphStore {
       this.#db
         .prepare(
           `INSERT INTO graph_entities (id, kind, name, sort_name, is_owner, project_status, due_at, project_type,
-             work_status, last_signal_at, private, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             work_status, last_signal_at, private, title_untrusted, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .run(
           id,
@@ -881,6 +907,7 @@ export class GraphStore {
           // starts fresh instead of stale.
           input.kind === "project" || input.kind === "assignment" ? now : null,
           input.private === true && isWorkKind(input.kind) ? 1 : 0,
+          (input.titleUntrusted ?? source !== "owner") ? 1 : 0,
           now,
           now,
         );
@@ -944,7 +971,9 @@ export class GraphStore {
           // The old name stays findable as an alias.
           this.addAlias(id, row.name, "owner");
           this.#db
-            .prepare("UPDATE graph_entities SET name = ?, sort_name = ? WHERE id = ?")
+            .prepare(
+              "UPDATE graph_entities SET name = ?, sort_name = ?, title_untrusted = 0 WHERE id = ?",
+            )
             .run(name, normalizeName(name), id);
           this.#feedback("rename", id, null, null);
           changed.push("name");
@@ -1764,7 +1793,7 @@ export class GraphStore {
             clip(input.link, 1024),
             input.projectId ?? null,
             this.#now(),
-            safeGist(input.gist),
+            this.#gist(input.gist),
           );
       } else {
         this.#db
@@ -1778,7 +1807,7 @@ export class GraphStore {
             clip(input.threadKey, 512),
             clip(input.link, 1024),
             input.projectId ?? null,
-            safeGist(input.gist),
+            this.#gist(input.gist),
             id,
           );
         this.#db.prepare("DELETE FROM graph_participants WHERE interaction_id = ?").run(id);
@@ -1844,7 +1873,7 @@ export class GraphStore {
   setInteractionGist(interactionId: string, gist: string | null): void {
     this.#db
       .prepare("UPDATE graph_interactions SET gist = ? WHERE id = ?")
-      .run(safeGist(gist), interactionId);
+      .run(this.#gist(gist), interactionId);
   }
 
   /** The interaction recorded for a source item (a calendar event id, a mail message id). */
@@ -1925,7 +1954,7 @@ export class GraphStore {
       threadKey: r.thread_key,
       link: r.link,
       projectId: r.project_id,
-      ...(safeGist(r.gist) === null ? {} : { gist: safeGist(r.gist) as string }),
+      ...gistProp(this.#gist(r.gist)),
       participants: (
         participants.all(r.id) as { entity_id: string; role: GraphParticipantRole }[]
       ).map((p) => ({
@@ -2310,7 +2339,10 @@ export class GraphStore {
     for (const r of interactionRows) {
       if (!keep(r.occurred_at) || rows.has(r.id)) continue;
       const sender = (senderOf.get(r.id) as { name: string } | undefined)?.name;
-      rows.set(r.id, interactionTimelineRow(r, r.owner_id, sender));
+      rows.set(
+        r.id,
+        interactionTimelineRow({ ...r, gist: this.#gist(r.gist) }, r.owner_id, sender),
+      );
     }
 
     // 2. the history of the work facts, newest value last
@@ -2488,6 +2520,9 @@ export class GraphStore {
         entity = this.createEntity({
           kind: "assignment",
           name: s.name ?? "Untitled assignment",
+          // The suggestion's title was read from someone else's text: Track keeps it untrusted
+          // until the owner renames it (W3, W4).
+          titleUntrusted: true,
           ...(s.dueAt == null ? {} : { dueAt: s.dueAt }),
         });
         const parent = s.entityIds[0];
@@ -2506,6 +2541,7 @@ export class GraphStore {
         entity = this.createEntity({
           kind: "project",
           name: s.name ?? "Untitled project",
+          titleUntrusted: true,
           ...(s.projectType === undefined ? {} : { projectType: s.projectType }),
         });
         for (const member of s.entityIds) {
@@ -3068,7 +3104,7 @@ export class GraphStore {
       threadKey: r.thread_key,
       link: r.link,
       projectId: r.project_id,
-      ...(safeGist(r.gist) === null ? {} : { gist: safeGist(r.gist) as string }),
+      ...gistProp(this.#gist(r.gist)),
       participants,
     };
   }

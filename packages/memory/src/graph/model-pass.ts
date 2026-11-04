@@ -6,7 +6,7 @@ import type {
   ModelRef,
 } from "@psyche/protocol";
 import { sha256 } from "./normalize.ts";
-import { FACT_ATTRIBUTES, type GraphStore, safeGist } from "./store.ts";
+import { FACT_ATTRIBUTES, type GraphStore } from "./store.ts";
 
 /**
  * The model pass (docs/memory/people-and-projects-2026.md §5.2–§5.4). Per entity, one tool-less
@@ -278,27 +278,39 @@ The owner's own words: ${JSON.stringify(input.ownerExcerpts)}
       for (const g of Array.isArray(parsed.gists) ? parsed.gists.slice(0, 20) : []) {
         const gist = g as { source?: unknown; gist?: unknown };
         const src = typeof gist.source === "string" ? byId.get(gist.source) : undefined;
-        const text = typeof gist.gist === "string" ? safeGist(gist.gist) : null;
-        if (src === undefined || !CONVERSATION_KINDS.has(src.kind) || text === null) {
+        if (
+          src === undefined ||
+          !CONVERSATION_KINDS.has(src.kind) ||
+          typeof gist.gist !== "string"
+        ) {
           report.dropped++;
           continue;
         }
         const when = day(src.occurredAt);
         if (days.has(when)) continue;
+        // The store keeps it only if it passes `safeGist` with the owner's sensitivity switches.
+        graph.setInteractionGist(src.id, gist.gist);
+        if (graph.interaction(src.id)?.gist === undefined) {
+          report.dropped++;
+          continue;
+        }
         days.add(when);
-        graph.setInteractionGist(src.id, text);
         report.gists++;
       }
     }
     if (entity.kind === "project") {
       if (typeof parsed.next_step === "string" && parsed.next_step.trim().length > 0) {
-        const anyOwned = interactions.find((i) => i.direction === "out");
+        // Only the owner's own words make it Psyche's note: one inbound item among the sources it
+        // was read from (others' subjects shaped it) and it stays untrusted (W1).
+        const cited = interactions.slice(0, 3);
         graph.setFact({
           entityId: entity.id,
           attribute: "next_step",
           value: parsed.next_step,
-          provenance: anyOwned === undefined ? "untrusted" : "agent",
-          sources: interactions.slice(0, 3).map((i) => i.id),
+          provenance: cited.every((i) => i.direction === "out" || i.direction === "both")
+            ? "agent"
+            : "untrusted",
+          sources: cited.map((i) => i.id),
         });
       }
     }

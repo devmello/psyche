@@ -1,6 +1,7 @@
 import {
   type EntitySummary,
   type GraphCitationSource,
+  type GraphEntity,
   type GraphFact,
   type GraphInteraction,
   type GraphLoop,
@@ -11,6 +12,7 @@ import {
 } from "@psyche/protocol";
 import { type Static, type TSchema, Type } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
+import { classifySensitivity } from "../extraction/sensitivity.ts";
 import { looksLikeInstruction } from "../filters.ts";
 import type { MemoryCallClass, MemoryToolContext, ToolOutcome } from "../tools/memory-command.ts";
 import type { EverythingStore } from "./everything.ts";
@@ -415,7 +417,8 @@ export class GraphTools {
   #workStatus(query: string): ToolOutcome {
     const access = this.#access();
     const ref = /^(?:memory:)?([A-Za-z0-9_-]{6,64})$/.exec(query.trim())?.[1];
-    const byId = ref === undefined ? undefined : this.#graph.getEntity(ref);
+    const byId =
+      ref === undefined ? undefined : this.#graph.getEntity(this.#graph.resolveMerged(ref));
     const hit =
       byId !== undefined
         ? byId
@@ -438,17 +441,31 @@ export class GraphTools {
       hit.private === true
     )
       return notFound;
-    // The assignments of a private course are private with it.
-    const parent = this.#graph.edges(hit.id).find((e) => e.rel === "part_of" && e.src === hit.id);
-    const parentEntity = parent === undefined ? undefined : this.#graph.getEntity(parent.dst);
-    if (parentEntity?.private === true) return notFound;
+    // The assignments of a private course are private with it (any parent, not only the first).
+    const parentEntities = this.#graph
+      .edges(hit.id)
+      .filter((e) => e.rel === "part_of" && e.src === hit.id)
+      .map((e) => this.#graph.getEntity(e.dst))
+      .filter((p): p is GraphEntity => p !== undefined);
+    if (parentEntities.some((p) => p.private === true)) return notFound;
+    const parentEntity = parentEntities[0];
+    // A fact is hidden when any interaction it was read from comes from a source the agent may not
+    // search (a project's next step may have been read from Messages).
+    const sourcesAllowed = (f: GraphFact): boolean =>
+      f.sources.every((id) => {
+        const i = this.#graph.interaction(id);
+        return i === undefined || access.sourceAllowed(i.source as GraphCitationSource);
+      });
+    // Text of a timeline row that touches a sensitive class stays out unless the owner allows it.
+    const rowHidden = (text: string): boolean =>
+      !access.seesSensitive && classifySensitivity(text) !== "none";
 
     const taint = { untrusted: false };
     const now = this.#now();
     const facts = this.#graph
       .facts(hit.id)
       .filter((f) => WORK_ATTRIBUTES.includes(f.attribute as (typeof WORK_ATTRIBUTES)[number]))
-      .filter((f) => visibleToAgent(f, access, this.#em))
+      .filter((f) => visibleToAgent(f, access, this.#em) && sourcesAllowed(f))
       .filter((f) => (f.review ?? "accepted") !== "pending");
     const pick = (a: string) => facts.find((f) => f.attribute === a);
     const cited = (f: GraphFact): string => {
@@ -472,10 +489,19 @@ export class GraphTools {
         f.provenance === "untrusted" &&
         (f.attribute === "deadline" || f.attribute === "status" || f.attribute === "progress"),
     );
-    if (titleUntrusted) taint.untrusted = true;
+    // W3/W4: a name read from someone else's text (a tracked suggestion, a rule) is quoted data too.
+    const titleQuoted = titleUntrusted || hit.titleUntrusted === true;
+    if (titleQuoted) taint.untrusted = true;
     const title = oneLine(hit.name, 120);
+    const parentName =
+      parentEntity === undefined
+        ? ""
+        : parentEntity.titleUntrusted === true || parentEntity.kind === "person"
+          ? ` · “${oneLine(parentEntity.name, 60)}”`
+          : ` · ${oneLine(parentEntity.name, 60)}`;
+    if (parentEntity?.titleUntrusted === true) taint.untrusted = true;
     const lines = [
-      `${titleUntrusted ? `“${title}”` : title} (${hit.kind}${parentEntity === undefined ? "" : ` · ${oneLine(parentEntity.name, 60)}`}) [memory:${hit.id}]`,
+      `${titleQuoted ? `“${title}”` : title} (${hit.kind}${parentName}) [memory:${hit.id}]`,
     ];
     const status = pick("status");
     if (status !== undefined) {
@@ -504,13 +530,41 @@ export class GraphTools {
     }
     if (hit.lastSignalAt != null) lines.push(`Last activity: ${day(hit.lastSignalAt)}`);
 
+    // A project's timeline also carries its children's rows: only those the agent may see.
+    const childOk = new Map<string, boolean>();
+    const childVisible = (id: string): boolean => {
+      if (id === hit.id) return true;
+      const known = childOk.get(id);
+      if (known !== undefined) return known;
+      const c = this.#graph.getEntity(id);
+      const ok =
+        c !== undefined &&
+        c.status === "active" &&
+        !c.hidden &&
+        c.private !== true &&
+        !this.#graph
+          .edges(id)
+          .some(
+            (e) =>
+              e.rel === "part_of" && e.src === id && this.#graph.getEntity(e.dst)?.private === true,
+          );
+      childOk.set(id, ok);
+      return ok;
+    };
     const rows = this.#graph.timeline(hit.id, { limit: 20 }).rows.filter((r) => {
+      if (!childVisible(r.entityId)) return false;
       if (r.chip != null && !access.sourceAllowed(r.chip.source)) return false;
       if (r.kind === "fact") {
         const f = this.#graph.getFact(r.id);
-        return f !== undefined && visibleToAgent(f, access, this.#em);
+        return f !== undefined && visibleToAgent(f, access, this.#em) && sourcesAllowed(f);
       }
-      return true;
+      if (r.kind === "loop") {
+        // A loop has no chip: its source is the interaction it was read from.
+        const src = this.#graph.getLoop(r.id)?.sourceInteractionId;
+        const i = src == null ? undefined : this.#graph.interaction(src);
+        if (i !== undefined && !access.sourceAllowed(i.source as GraphCitationSource)) return false;
+      }
+      return !rowHidden(r.text);
     });
     const recent = rows.slice(0, 8).map((r) => {
       if (r.provenance === "untrusted") taint.untrusted = true;

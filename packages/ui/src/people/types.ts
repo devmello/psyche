@@ -79,6 +79,8 @@ export interface InteractionView {
   subject?: string | null;
   /** One line on what a conversation was about (people tier; sensitive ones never get here). */
   gist?: string | null;
+  /** The gist was written from someone else's words (mail, messages, calls, meetings): quote it. */
+  gistUntrusted?: boolean;
   /** The other people in it, by name. */
   with: string[];
 }

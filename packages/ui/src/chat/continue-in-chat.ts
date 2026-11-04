@@ -17,14 +17,17 @@ import { useSlots } from "../slots.tsx";
 
 const WORK_KINDS: ReadonlySet<string> = new Set(["project", "assignment", "event"]);
 
+/** Only work items continue in chat: the agent reads them with `work_status`. */
+export const canContinueInChat = (kind: string): boolean => WORK_KINDS.has(kind);
+
 export interface ContinueItem {
   id: string;
   /** Shown on the chip as plain data. */
   name: string;
   kind: GraphEntityDetail["entity"]["kind"];
   /**
-   * The title is the owner's own words: a work item whose status, deadline and progress did not
-   * come from third-party text. Only then does the new chat take the title as its name.
+   * The title is the owner's own words: a work item the owner named (not a tracked suggestion)
+   * whose status, deadline and progress did not come from third-party text. Only then does the new chat take the title as its name.
    */
   titleTrusted: boolean;
 }
@@ -42,7 +45,8 @@ export function continueItemOf(detail: GraphEntityDetail): ContinueItem {
     id: entity.id,
     name: entity.name,
     kind: entity.kind,
-    titleTrusted: work && !untrusted,
+    // W4: the owner's own title only. A tracked suggestion's name stays third-party text.
+    titleTrusted: work && entity.titleUntrusted !== true && !untrusted,
   };
 }
 

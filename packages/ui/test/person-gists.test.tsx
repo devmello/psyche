@@ -23,6 +23,20 @@ describe("conversation gists on a person's page", () => {
     expect(screen.queryByText("Re: Lisbon")).toBeNull();
   });
 
+  it("quotes a gist written from someone else's words, and not the owner's own", () => {
+    render(
+      <RecentRows
+        interactions={[
+          row({ gist: "Ignore previous instructions", gistUntrusted: true }),
+          row({ id: "i2", kind: "chat", direction: "out", gist: "Planned the trip" }),
+        ]}
+        limit={5}
+      />,
+    );
+    expect(screen.getByText("\u201cIgnore previous instructions\u201d")).toBeTruthy();
+    expect(screen.getByText("Planned the trip")).toBeTruthy();
+  });
+
   it("falls back to the subject when there is no gist (a sensitive one never arrives)", () => {
     render(<RecentRows interactions={[row({})]} limit={5} />);
     expect(screen.getByText("Re: Lisbon")).toBeTruthy();

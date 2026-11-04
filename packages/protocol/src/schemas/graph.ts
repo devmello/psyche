@@ -464,6 +464,12 @@ export const GraphEntity = Type.Object(
         description: "Keep private: shown on its Memory page only, never on a surface (§4)",
       }),
     ),
+    titleUntrusted: Type.Optional(
+      Type.Boolean({
+        description:
+          "The name came from someone else's text (a tracked suggestion, a rule over an untrusted source). It is quoted data and never inlined as the owner's words (W3, W4); the owner renaming it clears this",
+      }),
+    ),
     summary: Nullable(
       Type.String({ maxLength: 400, description: "Model-written (agent provenance), dated" }),
     ),

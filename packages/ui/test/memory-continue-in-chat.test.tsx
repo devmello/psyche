@@ -6,6 +6,7 @@ import { continueItemOf, continuePrefill } from "../src/chat/continue-in-chat.ts
 import { ChatThread } from "../src/chat/Thread.tsx";
 import type { MockGateway } from "../src/data/mock-gateway.ts";
 import type { FixtureWorld } from "../src/fixtures/index.ts";
+import { PEOPLE_IDS } from "../src/fixtures/people.ts";
 import { WORK_IDS, withWorkWorld } from "../src/fixtures/work.ts";
 import { MemoryScreen } from "../src/memory-page/MemoryScreen.tsx";
 import { STORY_NOW, StoryWorld } from "../src/stories/harness.tsx";
@@ -115,6 +116,34 @@ describe("Continue in chat", () => {
       expect(send).toBeDefined();
       expect(JSON.stringify(send?.params)).not.toContain("Ignore previous");
     });
+  });
+
+  it("treats a tracked suggestion's name as someone else's text, with no facts to say so", async () => {
+    const navigate = vi.fn();
+    const user = userEvent.setup();
+    const edit = (w: FixtureWorld) => {
+      withWorkWorld(w);
+      const hw = w.graph.entities.find((e) => e.id === WORK_IDS.lw7);
+      if (hw) {
+        hw.name = INJECTION;
+        hw.titleUntrusted = true;
+      }
+    };
+    render(<Flow entity={WORK_IDS.lw7} navigate={navigate} edit={edit} />);
+    await user.click(await screen.findByRole("button", { name: "Continue in chat" }));
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith(expect.stringMatching(/^\/chat\//)));
+    const create = gw()
+      .calls.filter((c) => c.method === "threads.create")
+      .at(-1);
+    expect(create?.params).toMatchObject({ title: "Continuing from Memory" });
+    expect(JSON.stringify(create?.params)).not.toContain("Ignore previous");
+  });
+
+  it("offers no chip on a person", async () => {
+    render(<Flow entity={PEOPLE_IDS.samLee} navigate={() => {}} edit={withWorkWorld} />);
+    await screen.findByTestId("memory-entity");
+    await screen.findByText("Sam Lee");
+    expect(screen.queryByRole("button", { name: "Continue in chat" })).toBeNull();
   });
 
   it("offers no chip on a Keep-private item", async () => {

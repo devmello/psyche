@@ -1,6 +1,6 @@
 import { ArrowLeft, MessageSquare } from "lucide-react";
 import type { ReactElement } from "react";
-import { continueItemOf, useContinueInChat } from "../chat/continue-in-chat.ts";
+import { canContinueInChat, continueItemOf, useContinueInChat } from "../chat/continue-in-chat.ts";
 import { Button } from "../components/ui/button.tsx";
 import { useGatewayQuery } from "../data/hooks.ts";
 import { t } from "../i18n/core.ts";
@@ -28,7 +28,10 @@ export function EntityPage({
   const data = detail.data;
   // A Keep-private item stays on its page: the agent cannot read it, so there is nothing to continue.
   const canContinue =
-    continueInChat !== undefined && data !== undefined && data.entity.private !== true;
+    continueInChat !== undefined &&
+    data !== undefined &&
+    data.entity.private !== true &&
+    canContinueInChat(data.entity.kind);
   return (
     <div className="flex flex-col gap-3" data-testid="memory-entity">
       <div className="flex items-center justify-between gap-2">

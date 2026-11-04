@@ -6,13 +6,13 @@ import type { GraphStore } from "./store.ts";
  * the Gateway may say about an item when the owner opens a chat about it, and whether that turn
  * starts tainted. Decided here from the store, never from what the window sent.
  *
- * - A **work item** (project, course, assignment, event in a project) whose status, deadline and
- *   progress all came from the owner, a rule or Psyche has a **trusted title**: it may be named in
- *   the context card and the preamble. Any untrusted fact on those attributes makes the title
- *   third-party text (W3), so it is never inlined as the owner's words.
+ * - Only a **work item** (project, course, assignment, event in a project) continues in chat; a
+ *   person, organization, place or topic is not offered (`work_status` is what reads an item).
+ * - A work item has a **trusted title** when the owner wrote it (`titleUntrusted` is false: not a
+ *   tracked suggestion, not a rule over an untrusted source) and no status, deadline or progress
+ *   came from third parties. Only then may it be named in the context card and the preamble.
  * - The turn is **tainted** when anything the agent can read about the item came from someone else:
- *   an untrusted fact or timeline row, or any item that is not a work item (a person's name and
- *   facts come from mail headers and messages). A tainted turn asks before a send or a write to a
+ *   an untrusted title, fact or timeline row. A tainted turn asks before a send or a write to a
  *   new target (`taint:floor`).
  * - A hidden, archived or Keep-private item (or one inside a private course) is not offered.
  */
@@ -31,17 +31,26 @@ export function memoryItemContext(graph: GraphStore, id: string): MemoryItemCont
   const entity = graph.getEntity(graph.resolveMerged(id));
   if (entity === undefined || entity.status !== "active" || entity.hidden) return undefined;
   if (entity.private === true) return undefined;
-  const parent = graph.edges(entity.id).find((e) => e.rel === "part_of" && e.src === entity.id);
-  if (parent !== undefined && graph.getEntity(parent.dst)?.private === true) return undefined;
-  if (!WORK_KINDS.has(entity.kind)) return { entity, titleTrusted: false, tainted: true };
+  // Only work items continue in chat: `work_status` is what reads them. A person's page has no chip.
+  if (!WORK_KINDS.has(entity.kind)) return undefined;
+  const parents = graph
+    .edges(entity.id)
+    .filter((e) => e.rel === "part_of" && e.src === entity.id)
+    .map((e) => graph.getEntity(e.dst));
+  if (parents.some((p) => p?.private === true)) return undefined;
   const facts = graph.facts(entity.id);
-  const titleTrusted = !facts.some(
-    (f) =>
-      f.provenance === "untrusted" &&
-      (f.attribute === "deadline" || f.attribute === "status" || f.attribute === "progress"),
-  );
+  // W4: only an owner-written title may be named. It is the owner's when the name was not read
+  // from someone else's text (`titleUntrusted`) and no status, deadline or progress was either.
+  const titleTrusted =
+    entity.titleUntrusted !== true &&
+    !facts.some(
+      (f) =>
+        f.provenance === "untrusted" &&
+        (f.attribute === "deadline" || f.attribute === "status" || f.attribute === "progress"),
+    );
   const tainted =
     !titleTrusted ||
+    parents.some((p) => p?.titleUntrusted === true) ||
     facts.some((f) => f.provenance === "untrusted") ||
     graph.timeline(entity.id, { limit: 60 }).rows.some((r) => r.provenance === "untrusted");
   return { entity, titleTrusted, tainted };

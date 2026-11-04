@@ -106,14 +106,39 @@ describe("memory_entity chat context", () => {
     }
   });
 
-  it("treats a person as third-party text", async () => {
+  it("offers only work items: a person is refused", async () => {
     const t = await startTestGateway();
     try {
       const graph = new GraphStore({ sqlite: t.gateway.context.db.sqlite });
       const { person } = seed(graph);
-      const r = resolveMemoryEntityContext(ref(person.id), graph);
-      expect(r.taintSources).toHaveLength(1);
-      expect(r.preamble).not.toContain("Ava Stone");
+      expect(() => resolveMemoryEntityContext(ref(person.id), graph)).toThrow(/not found/);
+    } finally {
+      await t.cleanup();
+    }
+  });
+
+  it("keeps a title someone else wrote untrusted after the owner clicks Track", async () => {
+    const t = await startTestGateway();
+    try {
+      const graph = new GraphStore({ sqlite: t.gateway.context.db.sqlite });
+      // A shared Reminders item or an external invite suggested it; Track made the assignment.
+      const sug = graph.suggest({
+        kind: "assignment",
+        entityIds: [],
+        name: INJECTION,
+        reason: "from an invite",
+        dueAt: "2026-11-09T12:00:00.000Z",
+      });
+      const tracked = graph.answerSuggestion(sug?.id ?? "", "accept").entity;
+      const r = resolveMemoryEntityContext(ref(tracked?.id ?? ""), graph);
+      expect(r.taintSources).toEqual([{ sourceKind: "memory", origin: tracked?.id }]);
+      expect(r.preamble).not.toContain("Ignore previous");
+      expect(r.block.title).toBe("Memory: to-do");
+      // Renaming it is the owner's own word.
+      graph.updateEntity(tracked?.id ?? "", { name: "Pay the lab fee" });
+      const after = resolveMemoryEntityContext(ref(tracked?.id ?? ""), graph);
+      expect(after.taintSources).toEqual([]);
+      expect(after.preamble).toContain("Title: Pay the lab fee");
     } finally {
       await t.cleanup();
     }

@@ -1023,7 +1023,7 @@ export function gatherCandidates(
       kind: e.kind as CatchUpCandidate["kind"],
       entityId: e.id,
       title: e.name,
-      titleProvenance: untrustedFact ? "untrusted" : "owner",
+      titleProvenance: untrustedFact || e.titleUntrusted === true ? "untrusted" : "owner",
       ...(parentEntity === undefined
         ? {}
         : { parent: { id: parentEntity.id, name: parentEntity.name } }),

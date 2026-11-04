@@ -129,7 +129,17 @@ export function toEntityView({ detail, notes = null, now }: AdaptInput): EntityV
     direction: i.direction,
     link: i.link ?? null,
     subject: i.subject ?? null,
-    ...(i.gist == null ? {} : { gist: i.gist }),
+    ...(i.gist == null
+      ? {}
+      : {
+          gist: i.gist,
+          gistUntrusted:
+            (i.kind === "mail" ||
+              i.kind === "message" ||
+              i.kind === "call" ||
+              i.kind === "meeting") &&
+            i.direction !== "out",
+        }),
     with: i.participants
       .filter((p) => p.entityId !== entity.id)
       .map((p) => names.get(p.entityId)?.name)
