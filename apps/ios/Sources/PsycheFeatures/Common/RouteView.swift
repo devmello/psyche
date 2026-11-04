@@ -12,9 +12,12 @@ struct RouteView: View {
         switch route {
         case .thread(let id):
             ThreadView(id: id, store: store)
-        case .project(let id): placeholder("Project", id)
-        case .person(let id): placeholder("Person", id)
-        case .file(let id): placeholder("File", id)
+        case .project(let id): ProjectPage(id: id, store: store)
+        case .person(let id): PersonPage(id: id, store: store)
+        case .file(let id): LibraryItemView(id: id)
+        case .inbox: InboxView(store: store)
+        case .scheduled: ScheduledView(store: store)
+        case .overview: OverviewView(store: store)
         }
     }
 

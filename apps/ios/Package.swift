@@ -6,7 +6,7 @@ import PackageDescription
 // No third-party dependencies (A3). Swift 6 language mode throughout (A4).
 //
 // Dependency direction (nothing points up):
-//   PsycheFeatures -> PsycheBlocks -> PsycheDesign
+//   PsycheFeatures -> PsycheBlocks -> PsycheDesign, PsycheStore
 //   PsycheFeatures -> PsycheClient -> PsycheStore -> PsycheShared
 // PsycheClient, PsycheStore and PsycheShared have no UI, so `swift test` runs them on macOS.
 
@@ -38,13 +38,16 @@ let package = Package(
         ),
         // Tokens, type styles and components.
         .target(name: "PsycheDesign", resources: [.process("Resources")]),
-        // Native block views and the generative-UI WebView host (I4, I8). Empty for now.
-        .target(name: "PsycheBlocks", dependencies: ["PsycheDesign"]),
+        // Native block views (I4) and the generative-UI WebView host (I8). Blocks read `ChatItem`, so they
+        // depend on PsycheStore (which has no UI and no further dependencies, so nothing points up).
+        .target(name: "PsycheBlocks", dependencies: ["PsycheDesign", "PsycheStore"]),
         .target(
             name: "PsycheFeatures",
             dependencies: ["PsycheBlocks", "PsycheDesign", "PsycheClient", "PsycheStore", "PsycheShared"]
         ),
-        .testTarget(name: "PsycheStoreTests", dependencies: ["PsycheStore"]),
+        .testTarget(name: "PsycheStoreTests", dependencies: ["PsycheStore", "PsycheShared"]),
+        .testTarget(name: "PsycheFeaturesTests", dependencies: ["PsycheFeatures", "PsycheStore"]),
+        .testTarget(name: "PsycheBlocksTests", dependencies: ["PsycheBlocks", "PsycheStore"]),
         .testTarget(
             name: "PsycheClientTests",
             dependencies: [

@@ -20,6 +20,7 @@ import {
   loadGateways,
   loadGatewaysStrict,
   saveGateways,
+  setupTokenAnswered,
   THIS_MAC_ID,
 } from "../src/lib/gateways.ts";
 import { createPairLinkInbox, pairLinkFromArgv, pairLinkFromUrl } from "../src/lib/pair-link.ts";
@@ -336,6 +337,15 @@ describe("GatewayManager with a pairing link", () => {
     remote.clearSetupToken();
     expect(remote.setupToken()).toBeUndefined();
     expect(remote.pinnedFingerprint()).toBe(fingerprintOf(id.publicKey));
+  });
+
+  it("treats paired, waiting and denied as the Host's answer, but not a dropped connection", () => {
+    for (const phase of ["paired", "pending", "denied"]) {
+      expect(setupTokenAnswered(phase)).toBe(true);
+    }
+    for (const phase of ["idle", "connecting", "challenge", "verifying", "error", "disconnected"]) {
+      expect(setupTokenAnswered(phase)).toBe(false);
+    }
   });
 
   it("Pair again forgets the link's fingerprint and token too", async () => {

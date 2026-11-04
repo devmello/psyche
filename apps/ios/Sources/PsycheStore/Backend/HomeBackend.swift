@@ -40,10 +40,15 @@ public struct InboxItem: Sendable, Equatable, Identifiable {
     public var read: Bool
     /// A desktop route (`/chat/<id>`, `/library/…`) the phone maps with `Route(appPath:)`.
     public var route: String?
+    /// The `NeedsYouItem` this entry is about, so a tap can open the approval or question sheet.
+    public var needsYouID: String?
+    /// Older than today: the Inbox puts it under "Earlier".
+    public var earlier: Bool
 
     public init(
         id: String, title: String, body: String, kindLabel: String, time: String,
-        needsYou: Bool = false, read: Bool = false, route: String? = nil
+        needsYou: Bool = false, read: Bool = false, route: String? = nil, needsYouID: String? = nil,
+        earlier: Bool = false
     ) {
         self.id = id
         self.title = title
@@ -53,6 +58,8 @@ public struct InboxItem: Sendable, Equatable, Identifiable {
         self.needsYou = needsYou
         self.read = read
         self.route = route
+        self.needsYouID = needsYouID
+        self.earlier = earlier
     }
 }
 
@@ -86,12 +93,14 @@ public struct NeedsYouItem: Sendable, Equatable, Identifiable {
     /// Mono time, "9:12".
     public var time: String
     public var approval: ApprovalDetail?
+    /// The options and prompt of a question, so Home can answer it without opening the thread.
+    public var question: QuestionDetail?
     /// The chat thread this came from, for questions and tasks.
     public var threadID: String?
 
     public init(
         id: String, kind: Kind, title: String, source: String, time: String,
-        approval: ApprovalDetail? = nil, threadID: String? = nil
+        approval: ApprovalDetail? = nil, threadID: String? = nil, question: QuestionDetail? = nil
     ) {
         self.id = id
         self.kind = kind
@@ -100,6 +109,32 @@ public struct NeedsYouItem: Sendable, Equatable, Identifiable {
         self.time = time
         self.approval = approval
         self.threadID = threadID
+        self.question = question
+    }
+}
+
+/// A question Psyche asked: a prompt, a few options, and optionally a free-text answer.
+public struct QuestionDetail: Sendable, Equatable {
+    public struct Option: Sendable, Equatable, Identifiable {
+        public var id: String
+        public var label: String
+        /// A quiet line under the label ("Sent Oct 30 · 14 slides").
+        public var detail: String?
+        public init(id: String, label: String, detail: String? = nil) {
+            self.id = id
+            self.label = label
+            self.detail = detail
+        }
+    }
+
+    public var prompt: String
+    public var options: [Option]
+    public var allowsFreeText: Bool
+
+    public init(prompt: String, options: [Option], allowsFreeText: Bool = true) {
+        self.prompt = prompt
+        self.options = options
+        self.allowsFreeText = allowsFreeText
     }
 }
 
@@ -179,11 +214,14 @@ public struct Nudge: Sendable, Equatable, Identifiable {
     public var id: String
     public var initials: String
     public var text: String
+    /// What "Start a message" puts in the composer. nil: the UI makes one from `text`.
+    public var draft: String?
 
-    public init(id: String, initials: String, text: String) {
+    public init(id: String, initials: String, text: String, draft: String? = nil) {
         self.id = id
         self.initials = initials
         self.text = text
+        self.draft = draft
     }
 }
 

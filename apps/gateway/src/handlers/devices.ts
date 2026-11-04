@@ -9,6 +9,7 @@ import {
   listPairingRequests,
   type PsycheDb,
   revokeDevice,
+  revokeSetupTokensCreatedBy,
   setNodeStatus,
   updateDevice,
 } from "@psyche/db";
@@ -148,6 +149,8 @@ export const devicesHandlers: Record<string, HandlerDef> = {
       // Security §10: revoking a device revokes its token and node authority permanently.
       const node = getNodeByDevice(db, device.id);
       const offline = node ? setNodeStatus(db, node.id, "offline") : undefined;
+      // A pairing link it made but nobody used yet dies with it (same transaction).
+      revokeSetupTokensCreatedBy(db, device.id);
       call.ctx.bus.bumpStateVersion();
       call.emit("device.updated", { device });
       if (offline) call.emit("node.updated", { node: offline });

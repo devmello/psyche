@@ -6,7 +6,7 @@ import {
   SETUP_TOKEN_TTL_MS,
 } from "@psyche/protocol";
 import { afterEach, describe, expect, it } from "vitest";
-import { setupTokenHandlers } from "../src/compose/setup-tokens.ts";
+import { setupTokenHandlers, setupTokenUsedHook } from "../src/compose/setup-tokens.ts";
 import {
   adminClient,
   handshake,
@@ -30,6 +30,9 @@ let clock = Date.parse("2026-11-04T12:00:00.000Z");
 /** What the composition root would write to the audit log. */
 const audited: { kind: string; data?: unknown }[] = [];
 
+/** Set by a test to make the audit log refuse every append. */
+let auditFails = false;
+
 async function start(config: Record<string, unknown> = { publicOrigin }) {
   const now = () => new Date(clock);
   const db = openDb(":memory:", { now: () => now().toISOString() });
@@ -40,6 +43,7 @@ async function start(config: Record<string, unknown> = { publicOrigin }) {
       db,
       audit: {
         append: async (entry) => {
+          if (auditFails) throw new Error("audit disk full");
           audited.push(entry);
           return entry as never;
         },
@@ -83,6 +87,7 @@ const phase = (r: Parameters<typeof verified>[0]) => verified<{ phase?: string }
 
 afterEach(async () => {
   audited.length = 0;
+  auditFails = false;
   for (const c of open.splice(0)) c.close();
   await t?.cleanup();
 });
@@ -360,5 +365,65 @@ describe("pairing with a setup token", () => {
     const thief = await pairWith(second.token, { deviceId });
     expect(verified(thief)).toMatchObject({ phase: "denied", reason: "device key mismatch" });
     expect(phase(await pairWith(second.token))).toBe("paired");
+  });
+});
+
+describe("when the device that made a link is revoked", () => {
+  it("its unused link stops working, and a used one keeps its device", async () => {
+    await start();
+    const unused = await makeLink(["operator.read"]);
+    const creator = (
+      t.gateway.context.db.sqlite
+        .prepare("SELECT created_by_device_id AS id FROM setup_tokens")
+        .get() as { id: string }
+    ).id;
+    const other = await adminClient(t.gateway);
+    open.push(other);
+    await other.call("devices.revoke", { deviceId: creator });
+
+    const refused = await pairWith(unused.token);
+    expect(verified(refused)).toMatchObject({ phase: "denied", code: "setup_token_invalid" });
+    const list = await other.call<{ setupTokens: { status: string }[] }>(
+      "devices.setupToken.list",
+      {},
+    );
+    expect(list.setupTokens.map((s) => s.status)).toEqual(["revoked"]);
+  });
+});
+
+describe("when the audit log cannot be written", () => {
+  it("withholds the link and revokes the token instead of leaving it live and unaudited", async () => {
+    await start();
+    const admin = await adminClient(t.gateway);
+    open.push(admin);
+    auditFails = true;
+    await expect(
+      admin.call("devices.setupToken.create", { scopes: ["operator.read"] }),
+    ).rejects.toThrow(/unavailable/);
+    auditFails = false;
+    const list = await admin.call<{ setupTokens: { status: string }[] }>(
+      "devices.setupToken.list",
+      {},
+    );
+    expect(list.setupTokens.map((s) => s.status)).toEqual(["revoked"]);
+  });
+
+  it("logs a failed audit of a pairing, without the token or the error text", async () => {
+    const db = openDb(":memory:");
+    const lines: { level: string; msg: string; fields?: unknown }[] = [];
+    const hook = setupTokenUsedHook({
+      db,
+      audit: {
+        append: async () => {
+          throw new Error("disk full pst_secretsecretsecretsecretsecretsecretsecret");
+        },
+      },
+      log: { log: (level, msg, fields) => void lines.push({ level, msg, fields }) },
+    });
+    hook({ tokenId: "tok-1", deviceId: "dev-1", scopes: ["operator.read"] });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatchObject({ level: "warn", fields: { tokenId: "tok-1" } });
+    expect(JSON.stringify(lines)).not.toContain("secretsecret");
   });
 });

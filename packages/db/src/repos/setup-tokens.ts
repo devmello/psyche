@@ -196,3 +196,26 @@ export function revokeSetupToken(
   const row = db.drizzle.select().from(setupTokens).where(eq(setupTokens.id, id)).get();
   return row === undefined ? undefined : toRecord(row, at);
 }
+
+/**
+ * Revokes every unused token a device made. A device that is revoked loses the authority it used
+ * to hand out a way in, so a link it made but nobody used yet must stop working with it. Used
+ * tokens keep their record. Returns how many were revoked.
+ */
+export function revokeSetupTokensCreatedBy(
+  db: PsycheDb,
+  deviceId: string,
+  now: string = db.now(),
+): number {
+  return db.drizzle
+    .update(setupTokens)
+    .set({ revokedAt: new Date(now).toISOString() })
+    .where(
+      and(
+        eq(setupTokens.createdByDeviceId, deviceId),
+        isNull(setupTokens.usedAt),
+        isNull(setupTokens.revokedAt),
+      ),
+    )
+    .run().changes;
+}

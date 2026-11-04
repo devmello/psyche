@@ -107,6 +107,16 @@ public final class Session {
         Task { await driver.cancelPairing() }
     }
 
+    /// This phone was removed ("Remove this phone" in Settings, after `devices.revoke`). Keys, cache and
+    /// outbox are wiped by the real driver (I2); the UI goes back to the pairing screens.
+    public func markRevoked() {
+        pairing?.cancel()
+        pairing = nil
+        pairingError = nil
+        lastSyncedAt = nil
+        state = .revoked
+    }
+
     /// Dismisses the pairing error banner.
     public func clearPairingError() { pairingError = nil }
 }

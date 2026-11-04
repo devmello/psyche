@@ -29,11 +29,14 @@ public struct ApprovalCard: View {
                     if index > 0 { HairlineDivider() }
                     HStack(alignment: .firstTextBaseline, spacing: 16) {
                         Text(field.key).font(.subheadline).foregroundStyle(PsycheColor.muted)
+                            .fixedSize()
                         Spacer(minLength: 0)
                         Text(field.value)
                             .font(.psycheMono(.subheadline, weight: .medium))
                             .foregroundStyle(PsycheColor.text)
                             .multilineTextAlignment(.trailing)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .layoutPriority(1)
                             .textSelection(.enabled)
                     }
                     .padding(.vertical, 11)
