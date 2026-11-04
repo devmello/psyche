@@ -3,21 +3,34 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { createServer, type Server, type Socket } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { Duplex } from "node:stream";
 import { type TLSSocket, connect as tlsConnect } from "node:tls";
 import { afterEach, describe, expect, it } from "vitest";
 import type { LanInterface } from "../src/lan/interfaces.ts";
-import { isLanPeerAddress, type LanLimits, LanListener } from "../src/lan/listener.ts";
+import {
+  DEFAULT_LAN_LIMITS,
+  isLanPeerAddress,
+  type LanLimits,
+  LanListener,
+} from "../src/lan/listener.ts";
 
 const homes: string[] = [];
 const listeners: LanListener[] = [];
 const sockets: TLSSocket[] = [];
 afterEach(async () => {
+  nowMs = Date.parse("2026-11-04T12:00:00Z");
   for (const s of sockets.splice(0)) s.destroy();
   for (const l of listeners.splice(0)) await l.stop();
   for (const h of homes.splice(0)) rmSync(h, { recursive: true, force: true });
 });
 
 const quiet = { log: () => undefined };
+
+/** The listener's clock: eviction depends on how long a connection has existed. */
+let nowMs = Date.parse("2026-11-04T12:00:00Z");
+const tick = (ms: number) => {
+  nowMs += ms;
+};
 
 /** A stand-in for an accepted socket: only what the limits look at. */
 class Fake extends EventEmitter {
@@ -50,7 +63,7 @@ function listener(opts: {
   const l = new LanListener({
     home,
     log: quiet,
-    now: () => new Date(),
+    now: () => new Date(nowMs),
     identityFingerprint: `sha256:${"ab".repeat(32)}`,
     onRequest: (_req, res) => void res.end("ok"),
     onUpgrade: (_req, socket) => void socket.destroy(),
@@ -129,92 +142,129 @@ describe("who may connect, and how much", () => {
     expect(arrive(l, "192.168.1.7").destroyed).toBe(false);
   });
 
-  it("takes a silent neighbour's sockets before the owner's handshaking one, across a /64", () => {
-    const l = listener({
-      limits: {
-        connectionsPerMinutePerIp: 1000,
-        concurrentPerIp: 4,
-        concurrentTotal: 40,
-        prefixFactor: 2,
-      },
-    });
-    const X1 = "fd12:3456:789a:1::1";
-    const X2 = "fd12:3456:789a:1::2";
-    const attacker = [...Array(4)]
-      .map(() => arrive(l, X1))
-      .concat([...Array(4)].map(() => arrive(l, X2)));
-    expect(attacker.every((s) => !s.destroyed)).toBe(true);
-    // The /64 is at its concurrent cap (8). The owner arrives: an attacker socket makes room.
+  const FILL = {
+    connectionsPerMinutePerIp: 100_000,
+    concurrentPerIp: 4,
+    concurrentTotal: 40,
+    prefixFactor: 2,
+    evictionGraceMs: 5_000,
+  };
+
+  it("never takes the owner's connection to make room for the next arrival", () => {
+    const l = listener({ limits: FILL });
+    // A neighbour holds the /64's whole cap (8), one connection per address, all finished TLS.
+    const flood = [...Array(8)].map((_, i) => arrive(l, `fd12:3456:789a:1::${i + 1}`));
+    tick(6_000);
+    // The owner arrives into the full pool: the oldest of them makes room ...
     const owner = arrive(l, "fd12:3456:789a:1::beef");
     expect(owner.destroyed).toBe(false);
-    expect(attacker.filter((s) => s.destroyed)).toHaveLength(1);
-    // And again: the owner's socket is still not the one taken.
-    const more = arrive(l, "fd12:3456:789a:1::cafe");
-    expect(more.destroyed).toBe(false);
+    expect(flood.filter((s) => s.destroyed)).toHaveLength(1);
+    // ... and the attacker's very next arrival, a moment later, does not take the owner's.
+    tick(300);
+    const next = arrive(l, "fd12:3456:789a:1::cafe");
+    expect(next.destroyed).toBe(false);
     expect(owner.destroyed).toBe(false);
-    expect(attacker.filter((s) => s.destroyed)).toHaveLength(2);
+    expect(flood.filter((s) => s.destroyed)).toHaveLength(2);
+    // And not the one after, nor while the owner is still within the grace period.
+    for (let i = 0; i < 5; i++) {
+      tick(100);
+      arrive(l, `fd12:3456:789a:1::${0x100 + i}`);
+    }
+    expect(owner.destroyed).toBe(false);
   });
 
-  it("takes connections that never finished TLS first, and they cannot fill a cap for good", () => {
-    const l = listener({
-      limits: {
-        connectionsPerMinutePerIp: 1000,
-        concurrentPerIp: 4,
-        concurrentTotal: 40,
-        prefixFactor: 2,
-      },
-    });
-    // A neighbour holds the /64's whole cap (8) with raw sockets that never send a ClientHello.
+  it("refuses the newcomer when every connection is younger than the grace period", () => {
+    const l = listener({ limits: FILL });
+    const young = [...Array(8)].map((_, i) => arrive(l, `fd12:3456:789a:1::${i + 1}`));
+    tick(2_000);
+    const late = arrive(l, "fd12:3456:789a:1::beef");
+    expect(late.destroyed).toBe(true);
+    expect(young.every((s) => !s.destroyed)).toBe(true);
+    // Once they are old enough, a newcomer is let in at their cost.
+    tick(4_000);
+    expect(arrive(l, "fd12:3456:789a:1::beef").destroyed).toBe(false);
+    expect(young.filter((s) => s.destroyed)).toHaveLength(1);
+  });
+
+  it("the grace period outlasts what an attacker can refill at the /64's own rate", () => {
+    // 8 slots at 3 connections a minute per address and 6 a minute per /64 would take far longer
+    // than the grace period to refill; the defaults: cap 64 at 16 a second is 4 s, grace 5 s.
+    const limits = DEFAULT_LAN_LIMITS;
+    const cap = Math.min(limits.concurrentPerIp * limits.prefixFactor, limits.concurrentTotal / 2);
+    const perSecond = (limits.connectionsPerMinutePerIp * limits.prefixFactor) / 60;
+    expect(limits.evictionGraceMs / 1000).toBeGreaterThan(cap / perSecond);
+  });
+
+  it("takes connections that never finished TLS first, once they have sat a moment", () => {
+    const l = listener({ limits: { ...FILL, preTlsGraceMs: 1_000 } });
     const flood = [
       ...[...Array(4)].map(() => arrive(l, "fd12:3456:789a:1::1", false)),
       ...[...Array(4)].map(() => arrive(l, "fd12:3456:789a:1::2", false)),
     ];
-    expect(flood.every((s) => !s.destroyed)).toBe(true);
-    // The owner still gets in (a raw socket is evicted), and is not the one evicted next.
+    // Right away nothing may be taken: a real client's ClientHello may still be on its way.
+    expect(arrive(l, "fd12:3456:789a:1::beef").destroyed).toBe(true);
+    tick(1_500);
     const owner = arrive(l, "fd12:3456:789a:1::beef");
     expect(owner.destroyed).toBe(false);
     expect(flood.filter((s) => s.destroyed)).toHaveLength(1);
+    // The owner is pre-TLS for a moment too, but it is young, and a raw flood socket goes first.
+    tick(200);
     const next = arrive(l, "fd12:3456:789a:1::cafe");
     expect(next.destroyed).toBe(false);
     expect(owner.destroyed).toBe(false);
     expect(flood.filter((s) => s.destroyed)).toHaveLength(2);
   });
 
-  it("does the same at the global cap, and counts slots back at once", () => {
+  it("takes unauthenticated connections before pending ones, and never paired ones", () => {
     const l = listener({
-      limits: { connectionsPerMinutePerIp: 1000, concurrentPerIp: 10, concurrentTotal: 6 },
+      limits: { connectionsPerMinutePerIp: 1000, concurrentPerIp: 10, concurrentTotal: 4 },
     });
-    const owner = arrive(l, "10.0.0.5");
-    const raw = [...Array(5)].map((_, i) => arrive(l, `10.0.1.${i + 1}`, false));
-    expect(arrive(l, "10.0.0.7").destroyed).toBe(false);
-    expect(owner.destroyed).toBe(false);
-    expect(raw.filter((s) => s.destroyed)).toHaveLength(1);
-    // One admission evicts one connection, not one per cap it brushed against.
-    expect(arrive(l, "10.0.0.8").destroyed).toBe(false);
-    expect(raw.filter((s) => s.destroyed)).toHaveLength(2);
+    const bind = (s: Fake, state: "paired" | "pending") =>
+      l.bindAuth(
+        s as unknown as Duplex,
+        () => state === "paired",
+        () => state === "pending",
+      );
+    const paired = arrive(l, "10.0.0.5");
+    const pending = arrive(l, "10.0.0.6");
+    const pending2 = arrive(l, "10.0.0.7");
+    const silent = arrive(l, "10.0.0.8");
+    bind(paired, "paired");
+    bind(pending, "pending");
+    bind(pending2, "pending");
+    tick(6_000);
+    // The silent one goes first ...
+    const n1 = arrive(l, "10.0.0.9");
+    bind(n1, "paired");
+    expect(silent.destroyed).toBe(true);
+    expect([pending.destroyed, pending2.destroyed]).toEqual([false, false]);
+    tick(6_000);
+    // ... then, with nothing unauthenticated left, a pending one (the oldest) ...
+    const n2 = arrive(l, "10.0.0.10");
+    bind(n2, "paired");
+    expect(pending.destroyed).toBe(true);
+    expect(pending2.destroyed).toBe(false);
+    // ... and never a paired one: with only paired and young ones left, the newcomer is refused.
+    tick(6_000);
+    const n3 = arrive(l, "10.0.0.11");
+    bind(n3, "paired");
+    expect(n3.destroyed).toBe(false);
+    expect(pending2.destroyed).toBe(true);
+    tick(6_000);
+    expect(arrive(l, "10.0.0.12").destroyed).toBe(true);
+    expect([paired, n1, n2, n3].every((s) => !s.destroyed)).toBe(true);
   });
 
-  it("when every address holds one connection, the newest goes, not the owner's older one", () => {
-    const l = listener({
-      limits: { connectionsPerMinutePerIp: 1000, concurrentPerIp: 4, concurrentTotal: 4 },
-    });
-    const owner = arrive(l, "10.0.0.5");
-    const others = ["10.0.0.6", "10.0.0.7", "10.0.0.8"].map((a) => arrive(l, a));
-    const late = arrive(l, "10.0.0.9");
-    expect(late.destroyed).toBe(false);
-    expect(owner.destroyed).toBe(false);
-    expect(others.map((s) => s.destroyed)).toEqual([false, false, true]);
-  });
-
-  it("at the global cap, the address holding the most silent sockets loses one", () => {
+  it("at the global cap, the address holding the most silent sockets loses its oldest", () => {
     const l = listener({
       limits: { connectionsPerMinutePerIp: 1000, concurrentPerIp: 8, concurrentTotal: 6 },
     });
     const owner = arrive(l, "10.0.0.5");
     const noisy = [...Array(5)].map(() => arrive(l, "10.0.0.9"));
+    tick(6_000);
     expect(arrive(l, "10.0.0.7").destroyed).toBe(false);
     expect(owner.destroyed).toBe(false);
-    expect(noisy.filter((s) => s.destroyed)).toHaveLength(1);
+    expect(noisy.map((s) => s.destroyed)).toEqual([true, false, false, false, false]);
   });
 });
 

@@ -672,10 +672,15 @@ describe("closing LAN sockets (turn off, rotate, silence)", () => {
 
   it("evicts a silent socket before refusing a newcomer at the cap", async () => {
     const { g, port } = await lanGateway({
-      limits: { concurrentPerIp: 2, unauthenticatedMs: 60_000 },
+      limits: { concurrentPerIp: 2, unauthenticatedMs: 60_000, evictionGraceMs: 150 },
     });
     const silent1 = await openLan(g, port);
     const silent2 = await openLan(g, port);
+    // A connection younger than the grace period is not evicted: the newcomer is refused ...
+    const tooSoon = await openLan(g, port).catch((e: Error) => e);
+    expect(tooSoon).toBeInstanceOf(Error);
+    // ... and once the silent ones are old enough, the oldest makes room.
+    await new Promise((r) => setTimeout(r, 200));
     const third = await openLan(g, port);
     await closed(silent1);
     expect(third.ws.readyState).toBe(1);

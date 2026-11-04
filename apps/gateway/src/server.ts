@@ -506,7 +506,11 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
       connections.add(conn);
       // A LAN socket that has not finished `connect` can be closed or evicted (lan/listener.ts).
       if (peer.lan === true) {
-        lan.bindAuth(socket, () => conn.phase === "paired" || conn.phase === "pending");
+        lan.bindAuth(
+          socket,
+          () => conn.phase === "paired",
+          () => conn.phase === "pending",
+        );
       }
       ws.on("message", (data, isBinary) => {
         if (isBinary) {

@@ -88,6 +88,15 @@ export interface LanLimits {
   concurrentTotal: number;
   /** The limit on an IPv6 peer's whole /64, as a multiple of the per-address one. */
   prefixFactor: number;
+  /**
+   * A connection younger than this is never evicted to make room: its owner is still doing the
+   * handshake (several round trips). With nothing old enough, the newcomer is refused. It must
+   * exceed the largest cap divided by the per-/64 connection rate (64 / 16 per second = 4 s),
+   * or an attacker could keep every slot younger than it.
+   */
+  evictionGraceMs: number;
+  /** A connection that has not even started TLS this long is the first to go. */
+  preTlsGraceMs: number;
   handshakeTimeoutMs: number;
   /** A socket that has not finished `connect` (paired or pending) by then is closed. */
   unauthenticatedMs: number;
@@ -100,6 +109,8 @@ export const DEFAULT_LAN_LIMITS: LanLimits = {
   concurrentPerIp: 16,
   concurrentTotal: 128,
   prefixFactor: 8,
+  evictionGraceMs: 5_000,
+  preTlsGraceMs: 1_000,
   handshakeTimeoutMs: 10_000,
   unauthenticatedMs: 10_000,
   watchMs: 15_000,
@@ -163,8 +174,10 @@ interface Live {
   /** The peer's /64 (IPv6) or its address. */
   prefix: string;
   since: number;
-  /** Whether it finished `connect` (paired or pending): such a connection is never evicted. */
+  /** Whether it is paired: such a connection is never evicted. */
   authed: () => boolean;
+  /** Whether it waits for the owner's approval: evicted only after everything unauthenticated. */
+  pending: () => boolean;
   /** The "must finish `connect`" timer; set once TLS is done. */
   timer: ReturnType<typeof setTimeout> | null;
   /** TLS finished (`track` saw it). A connection that has not is evicted first. */
@@ -293,9 +306,12 @@ export class LanListener {
   }
 
   /** Tells the listener when a LAN socket has finished `connect`; until then it can be evicted. */
-  bindAuth(socket: Duplex, authed: () => boolean): void {
+  bindAuth(socket: Duplex, authed: () => boolean, pending: () => boolean = () => false): void {
     const live = this.#byTls.get(socket as TLSSocket);
-    if (live) live.authed = authed;
+    if (live) {
+      live.authed = authed;
+      live.pending = pending;
+    }
   }
 
   /**
@@ -621,6 +637,7 @@ export class LanListener {
         prefix: peerLimitKey(ip),
         since: this.#deps.now().getTime(),
         authed: () => false,
+        pending: () => false,
         timer: null,
         secured: false,
         evicted: false,
@@ -633,7 +650,7 @@ export class LanListener {
     live.secured = true;
     live.destroy = () => tls.destroy();
     live.timer = setTimeout(() => {
-      if (!live.authed()) tls.destroy();
+      if (!live.authed() && !live.pending()) tls.destroy();
     }, this.#deps.limits.unauthenticatedMs);
     live.timer.unref();
     this.#byTls.set(tls, live);
@@ -645,15 +662,23 @@ export class LanListener {
   }
 
   /**
-   * Closes one connection that has not finished `connect`, among those in `scope` (a /64, an
-   * address, or all). A connection still in its TLS handshake goes before one that finished it:
-   * it is the one that holds a slot and proves nothing. Then the victim comes from the address
-   * holding the most such connections (its oldest), not simply the oldest in scope, so a
-   * neighbour that fills a cap with silent sockets is the one that loses them. When every address
-   * holds just one, the newest goes: an owner mid-handshake is older than the flood that arrives
-   * after it. Slots are given back at once, so one admission frees only what it evicts.
+   * Makes room: closes one connection that is not paired, among those in `scope` (a /64, an
+   * address, or all), or none.
+   *
+   * - A connection younger than `evictionGraceMs` is never taken (its owner is mid-handshake), so
+   *   with nothing old enough the newcomer is refused rather than the owner's connection evicted.
+   *   A connection that has not started TLS is the exception once it has sat for `preTlsGraceMs`:
+   *   a real client's ClientHello comes at once.
+   * - In this order: connections still without TLS, then connections that finished TLS but not
+   *   `connect`, then connections waiting for the owner's approval (`pending`).
+   * - Within the tier, the oldest connection of the address holding the most of them, so a
+   *   neighbour that fills a cap with silent sockets is the one that loses them.
+   *
+   * Slots are given back at once, so one admission frees only what it evicts.
    */
   #evictUnauthenticated(scope?: { prefix?: string; ip?: string }): boolean {
+    const now = this.#deps.now().getTime();
+    const { evictionGraceMs, preTlsGraceMs } = this.#deps.limits;
     const pool = [...this.#conns].filter(
       (c) =>
         !c.evicted &&
@@ -661,16 +686,18 @@ export class LanListener {
         (scope?.prefix === undefined || c.prefix === scope.prefix) &&
         (scope?.ip === undefined || c.ip === scope.ip),
     );
-    const early = pool.filter((c) => !c.secured);
-    const candidates = early.length > 0 ? early : pool;
-    if (candidates.length === 0) return false;
+    const tiers = [
+      pool.filter((c) => !c.secured && now - c.since >= preTlsGraceMs),
+      pool.filter((c) => c.secured && !c.pending() && now - c.since >= evictionGraceMs),
+      pool.filter((c) => c.secured && c.pending() && now - c.since >= evictionGraceMs),
+    ];
+    const candidates = tiers.find((t) => t.length > 0);
+    if (candidates === undefined) return false;
     const byIp = new Map<string, Live[]>();
     for (const c of candidates) byIp.set(c.ip, [...(byIp.get(c.ip) ?? []), c]);
     const most = Math.max(...[...byIp.values()].map((l) => l.length));
     const heaviest = [...byIp.values()].filter((l) => l.length === most).flat();
-    const victim = heaviest.reduce((a, b) =>
-      most === 1 ? (b.since >= a.since ? b : a) : b.since < a.since ? b : a,
-    );
+    const victim = heaviest.reduce((a, b) => (b.since < a.since ? b : a));
     victim.evicted = true;
     victim.release();
     victim.destroy();
@@ -723,6 +750,7 @@ export class LanListener {
       prefix,
       since: this.#deps.now().getTime(),
       authed: () => false,
+      pending: () => false,
       timer: null,
       secured: false,
       evicted: false,

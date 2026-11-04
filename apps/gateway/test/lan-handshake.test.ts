@@ -108,6 +108,86 @@ describe("a handshake gets one answer per challenge", () => {
   });
 });
 
+describe("a connection that is waiting for approval", () => {
+  const KEY = newDeviceKey();
+  const hello = (c: TestClient, deviceId: string) =>
+    handshake(c, t.gateway.origin, { key: KEY, deviceId, deviceFamily: "cli" });
+
+  it("is the only live one for its pairing request: a newer connection replaces the older", async () => {
+    t = await startTestGateway();
+    const sockets: TestClient[] = [];
+    for (let i = 0; i < 4; i++) {
+      const c = await TestClient.open(`ws://127.0.0.1:${t.gateway.port}/ws`);
+      open.push(c);
+      sockets.push(c);
+      const res = await hello(c, "same-device");
+      expect(verified<{ phase?: string }>(res).phase).toBe("pending");
+    }
+    await sleep(100);
+    expect(sockets.slice(0, 3).every((c) => c.ws.readyState >= 2)).toBe(true);
+    expect(sockets[3]?.ws.readyState).toBe(1);
+    // Another device's request is its own.
+    const other = await TestClient.open(`ws://127.0.0.1:${t.gateway.port}/ws`);
+    open.push(other);
+    expect(verified<{ phase?: string }>(await hello(other, "another-device")).phase).toBe(
+      "pending",
+    );
+    expect(sockets[3]?.ws.readyState).toBe(1);
+  });
+
+  it("may send only a handful of frames, and the refusal is logged once", async () => {
+    const lines: string[] = [];
+    t = await startTestGateway({
+      logger: {
+        log: (_level: string, msg: string, fields?: Record<string, unknown>) => {
+          if (msg === "request failed") lines.push(String(fields?.code));
+        },
+      },
+    });
+    const c = await TestClient.open(`ws://127.0.0.1:${t.gateway.port}/ws`);
+    open.push(c);
+    expect(verified<{ phase?: string }>(await hello(c, "chatty")).phase).toBe("pending");
+    for (let i = 0; i < 40; i++) {
+      c.ws.send(JSON.stringify({ type: "req", id: `s${i}`, method: "settings.get", params: {} }));
+    }
+    await sleep(200);
+    expect(c.ws.readyState).toBeGreaterThanOrEqual(2);
+    expect(lines.filter((code) => code === "pairing_pending")).toHaveLength(1);
+  });
+});
+
+describe("a challenge answered once is spent for good", () => {
+  it("does not issue a new challenge after the answer, whatever it was", async () => {
+    t = await startTestGateway();
+    const c = await TestClient.open(`ws://127.0.0.1:${t.gateway.port}/ws`);
+    open.push(c);
+    const key = newDeviceKey();
+    const params = {
+      protocolVersion: { min: 1, max: 1 },
+      deviceId: "spent",
+      publicKey: key.publicKey,
+      role: "client",
+      platform: "macos",
+      deviceFamily: "cli",
+      name: "spent",
+    };
+    const first = await c.request("connect", params);
+    const nonce = (first.payload as { nonce: string }).nonce;
+    const seen: Record<string, unknown>[] = [];
+    c.ws.on("message", (d) => seen.push(JSON.parse(d.toString()) as Record<string, unknown>));
+    const send = (id: string, method: string, p: unknown) =>
+      c.ws.send(JSON.stringify({ type: "req", id, method, params: p }));
+    send("v", "connect.verify", { nonce, signature: Buffer.alloc(64, 1).toString("base64url") });
+    send("c", "connect", params);
+    send("v2", "connect.verify", { nonce, signature: Buffer.alloc(64, 2).toString("base64url") });
+    await sleep(200);
+    // No second challenge was issued, and the connection is gone.
+    const challenges = seen.filter((f) => (f.payload as { nonce?: string } | undefined)?.nonce);
+    expect(challenges).toEqual([]);
+    expect(c.ws.readyState).toBeGreaterThanOrEqual(2);
+  });
+});
+
 // A listener on `::1` as the stand-in for an IPv6 neighbour: its /64 is `0:0:0:0::/64`, its own
 // address `::1`. (Its source is not unique-local, so the listener is told to admit it.)
 const V4: LanInterface = {
