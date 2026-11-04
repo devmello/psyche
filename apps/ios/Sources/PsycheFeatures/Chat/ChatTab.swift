@@ -7,7 +7,7 @@ import SwiftUI
 /// (docs/design/ios-app-2026.md §8, decision 5).
 struct ChatTab: View {
     @Environment(Router.self) private var router
-    @Environment(\.snapshotStore) private var store
+    @Environment(\.backend) private var store
 
     var body: some View {
         @Bindable var router = router
@@ -39,7 +39,7 @@ struct ThreadListView: View {
     @Binding var selection: String?
     @Environment(Session.self) private var session
 
-    init(store: any SnapshotStore, selection: Binding<String?>) {
+    init(store: any PsycheBackend, selection: Binding<String?>) {
         _model = State(initialValue: ThreadListModel(store: store))
         _selection = selection
     }

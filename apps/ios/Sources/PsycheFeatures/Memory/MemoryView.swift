@@ -9,9 +9,9 @@ final class MemoryModel {
     private(set) var phase: LoadPhase<MemorySnapshot> = .idle
     /// Local-only until the Outbox exists (I2): which to-dos were ticked on this phone.
     var ticked: Set<String> = []
-    private let store: any SnapshotStore
+    private let store: any PsycheBackend
 
-    init(store: any SnapshotStore) {
+    init(store: any PsycheBackend) {
         self.store = store
     }
 
@@ -44,7 +44,7 @@ struct MemoryView: View {
     @State private var segment: Segment = .todo
     @Environment(Session.self) private var session
 
-    init(store: any SnapshotStore) {
+    init(store: any PsycheBackend) {
         _model = State(initialValue: MemoryModel(store: store))
     }
 

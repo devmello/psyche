@@ -10,7 +10,7 @@ struct ThreadView: View {
     @Environment(Router.self) private var router
     @Environment(Session.self) private var session
 
-    init(id: String, store: any SnapshotStore) {
+    init(id: String, store: any PsycheBackend) {
         _model = State(initialValue: ThreadModel(id: id, store: store))
     }
 
@@ -18,7 +18,7 @@ struct ThreadView: View {
         ScrollView {
             PhaseView(phase: model.phase, skeleton: .skeleton, retry: model.load) { thread in
                 LazyVStack(alignment: .leading, spacing: 14) {
-                    ForEach(thread.items + model.sent) { item in
+                    ForEach(thread.items) { item in
                         ItemView(item: item, chosen: model.chosen, canAnswer: session.state.canAnswer) { question, option in
                             model.choose(option: option, for: question)
                         }
@@ -45,6 +45,7 @@ struct ThreadView: View {
                 router.pendingDraft = nil
                 composerFocused = true
             }
+            await model.observe()
         }
     }
 

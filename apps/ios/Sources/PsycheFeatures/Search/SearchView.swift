@@ -7,9 +7,9 @@ import SwiftUI
 final class SearchModel {
     var query = ""
     private(set) var results = SearchResults(answer: nil, hits: [])
-    private let store: any SnapshotStore
+    private let store: any PsycheBackend
 
-    init(store: any SnapshotStore) {
+    init(store: any PsycheBackend) {
         self.store = store
     }
 
@@ -23,7 +23,7 @@ final class SearchModel {
 struct SearchView: View {
     @State private var model: SearchModel
 
-    init(store: any SnapshotStore) {
+    init(store: any PsycheBackend) {
         _model = State(initialValue: SearchModel(store: store))
     }
 

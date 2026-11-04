@@ -9,7 +9,7 @@ struct HomeView: View {
     @Environment(Session.self) private var session
     @Environment(Router.self) private var router
 
-    init(store: any SnapshotStore) {
+    init(store: any PsycheBackend) {
         _model = State(initialValue: HomeModel(store: store))
     }
 
@@ -31,8 +31,11 @@ struct HomeView: View {
         }
         .psycheScreen()
         .psycheHidesNavigationBar()
-        .task { await model.load() }
-        .refreshable { await model.resync() }
+        .task {
+            await model.load()
+            await model.observe()
+        }
+        .refreshable { await model.load() }
     }
 
     private var askField: some View {

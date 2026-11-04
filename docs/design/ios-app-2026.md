@@ -128,6 +128,15 @@ All exist today except the ones marked **new** (companion §3.4 and remote-gatew
 
 ## 4. Feature modules (`PsycheFeatures`)
 
+**Backend contract (2026-11-04).** Screens talk to `any PsycheBackend`, a composition of one protocol
+per feature in `apps/ios/Sources/PsycheStore/Backend/` (`HomeBackend`, `ChatBackend`,
+`LibraryBackend`, `MemoryBackend`, `SearchBackend`, `AgentBackend`, `SettingsBackend`) plus
+`LiveUpdates` (one `LiveEvent` stream: chat events carry content, everything else is a refetch hint).
+`FixtureBackend` (an actor, `PsycheStore/Fixtures/`) behaves like a small Gateway so the app runs and
+demos with no Mac; `GatewayBackend` (I2, `PsycheClient`) is the real one. Each feature owns its
+protocol file and its `FixtureBackend+<Feature>.swift` (with its own state struct), so parallel
+sessions never edit the same file.
+
 Every feature follows one shape, so sessions can build them in parallel without inventing a
 pattern each:
 

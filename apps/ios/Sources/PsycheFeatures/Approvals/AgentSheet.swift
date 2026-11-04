@@ -6,7 +6,7 @@ import SwiftUI
 /// The agent sheet (docs/design/ios-app-2026.md §4.8): what Psyche needs from you and what it is doing.
 /// Approvals, Upcoming and Soul arrive with I5.
 struct AgentSheet: View {
-    @Environment(\.snapshotStore) private var store
+    @Environment(\.backend) private var store
     @State private var snapshot: HomeSnapshot?
 
     var body: some View {

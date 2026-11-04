@@ -4,9 +4,9 @@ import PsycheStore
 @MainActor @Observable
 final class HomeModel {
     private(set) var phase: LoadPhase<HomeSnapshot> = .idle
-    private let store: any SnapshotStore
+    private let store: any PsycheBackend
 
-    init(store: any SnapshotStore) {
+    init(store: any PsycheBackend) {
         self.store = store
     }
 
@@ -20,6 +20,13 @@ final class HomeModel {
         }
     }
 
-    /// Called when `stateVersion` moved while the screen is visible.
-    func resync() async { await load() }
+    /// Refetches when Home's data changed or the connection resynced, until the view goes away.
+    func observe() async {
+        for await event in store.events() {
+            switch event {
+            case .changed(.home), .resynced: await load()
+            default: break
+            }
+        }
+    }
 }
