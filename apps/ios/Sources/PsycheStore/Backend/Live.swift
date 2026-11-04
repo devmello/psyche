@@ -18,4 +18,6 @@ public enum LiveEvent: Sendable, Equatable {
 
 public enum LiveTopic: String, Sendable, Equatable, CaseIterable {
     case home, threads, library, memory, activity, settings
+    /// A widget was patched, or a task or automation a widget binds to moved (additive).
+    case widgets
 }

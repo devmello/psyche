@@ -87,6 +87,16 @@ public final class Router {
         tab = .memory
     }
 
+    func openProject(_ id: String) {
+        memoryPath = [.project(id: id)]
+        tab = .memory
+    }
+
+    /// A task hit opens the agent sheet on its Activity tab (the sheet's default segment).
+    func openTask(_ id: String) {
+        sheet = .agent
+    }
+
     /// Opens what a Needs-you item asks for: the approval or question sheet, or the thread for a task.
     func open(_ item: NeedsYouItem) {
         if item.approval != nil {

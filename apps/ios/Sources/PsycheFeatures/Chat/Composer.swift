@@ -157,6 +157,8 @@ private struct AttachmentChip: View {
             switch attachment.state {
             case .uploading:
                 ProgressView().controlSize(.small)
+            case .waiting:
+                Image(systemName: "clock").font(.caption).foregroundStyle(PsycheColor.muted)
             case .ready:
                 Image(systemName: attachment.isImage ? "photo" : "doc").font(.caption).foregroundStyle(PsycheColor.muted)
             case .failed:
@@ -166,6 +168,8 @@ private struct AttachmentChip: View {
                 Text(attachment.name).font(.footnote).foregroundStyle(PsycheColor.text).lineLimit(1)
                 if case .failed(let reason) = attachment.state {
                     Text(reason).font(.caption2).foregroundStyle(PsycheColor.muted)
+                } else if attachment.state == .waiting {
+                    Text(ComposerModel.waitingText).font(.caption2).foregroundStyle(PsycheColor.muted).lineLimit(2)
                 }
             }
             .frame(maxWidth: 160, alignment: .leading)

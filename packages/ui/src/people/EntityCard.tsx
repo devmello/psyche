@@ -1,6 +1,7 @@
 import { Ellipsis, ExternalLink } from "lucide-react";
 import { type ReactElement, type ReactNode, useEffect, useId, useState } from "react";
 import { ErrorState, GroupedList, LoadingCards, useDelayedFlag } from "../components/page.tsx";
+import { Badge } from "../components/ui/badge.tsx";
 import { Button } from "../components/ui/button.tsx";
 import {
   DropdownMenu,
@@ -11,9 +12,10 @@ import {
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu.tsx";
 import { Textarea } from "../components/ui/textarea.tsx";
-import { t } from "../i18n/core.ts";
+import { isMessageId, t } from "../i18n/core.ts";
 import { formatDate } from "../lib/format.ts";
 import { cn } from "../lib/utils.ts";
+import { SourceViewer } from "../screens/search/SourceViewer.tsx";
 import { SegmentedRadio } from "../screens/settings/SegmentedRadio.tsx";
 import { AddFactRow, FactRow } from "./FactRow.tsx";
 import { EntityMonogram, INTERACTION_ICON } from "./glyphs.tsx";
@@ -226,6 +228,8 @@ export function RecentRows({
   limit: number;
   onOpenLink?: (link: string) => void;
 }): ReactElement {
+  // The row whose source passage is open below it (one at a time).
+  const [openSource, setOpenSource] = useState<string | null>(null);
   if (interactions.length === 0) return <EmptyRow>{t("people.empty.recent")}</EmptyRow>;
   const rows = [...interactions]
     .sort((a, b) => Date.parse(b.occurredAt) - Date.parse(a.occurredAt))
@@ -236,42 +240,73 @@ export function RecentRows({
         const Icon = INTERACTION_ICON[it.kind];
         const app = t(`people.app.${it.kind}`);
         const link = it.link ?? null;
+        const docId = it.gist == null ? undefined : it.gistDocId;
         return (
           <div
             key={it.id}
-            className="relative flex min-h-9 items-center gap-3 px-3 py-1.5 before:absolute before:inset-x-3 before:top-0 before:h-px before:bg-separator first:before:hidden"
+            className="relative flex flex-col before:absolute before:inset-x-3 before:top-0 before:h-px before:bg-separator first:before:hidden"
           >
-            <Icon className="size-4 shrink-0 text-label-secondary" aria-hidden="true" />
-            <div className="flex min-w-0 flex-1 flex-col">
-              <span className="truncate text-body text-label-primary">
-                {it.gist == null
-                  ? (it.subject ?? (it.with.length > 0 ? it.with.join(", ") : app))
-                  : it.gistUntrusted === true
-                    ? `\u201c${it.gist}\u201d`
-                    : it.gist}
-              </span>
-              <span className="text-callout text-label-secondary">
-                {t(`people.recent.${it.direction}`)} · {app} · {formatDate(it.occurredAt)}
-              </span>
+            <div className="flex min-h-9 items-center gap-3 px-3 py-1.5">
+              <Icon className="size-4 shrink-0 text-label-secondary" aria-hidden="true" />
+              <div className="flex min-w-0 flex-1 flex-col">
+                <span className="truncate text-body text-label-primary">
+                  {it.gist == null
+                    ? (it.subject ?? (it.with.length > 0 ? it.with.join(", ") : app))
+                    : it.gistUntrusted === true
+                      ? `\u201c${it.gist}\u201d`
+                      : it.gist}
+                </span>
+                <span className="text-callout text-label-secondary">
+                  {t(`people.recent.${it.direction}`)} · {app} · {formatDate(it.occurredAt)}
+                </span>
+              </div>
+              {link && onOpenLink ? (
+                <Button
+                  type="button"
+                  size="icon-sm"
+                  variant="ghost"
+                  className="shrink-0 text-label-secondary"
+                  aria-label={t("people.recent.open", { app })}
+                  title={t("people.recent.open", { app })}
+                  onClick={() => onOpenLink(link)}
+                >
+                  <ExternalLink aria-hidden="true" />
+                </Button>
+              ) : null}
+              {docId === undefined ? null : (
+                <Badge
+                  variant="outline"
+                  data-testid="gist-source"
+                  className="shrink-0"
+                  render={
+                    <button
+                      type="button"
+                      aria-expanded={openSource === it.id}
+                      onClick={() => setOpenSource(openSource === it.id ? null : it.id)}
+                    />
+                  }
+                >
+                  {t("people.recent.source", { source: gistSourceName(it.kind) })}
+                </Badge>
+              )}
             </div>
-            {link && onOpenLink ? (
-              <Button
-                type="button"
-                size="icon-sm"
-                variant="ghost"
-                className="shrink-0 text-label-secondary"
-                aria-label={t("people.recent.open", { app })}
-                title={t("people.recent.open", { app })}
-                onClick={() => onOpenLink(link)}
-              >
-                <ExternalLink aria-hidden="true" />
-              </Button>
+            {docId !== undefined && openSource === it.id ? (
+              <div className="px-3 pb-2">
+                <SourceViewer docId={docId} />
+              </div>
             ) : null}
           </div>
         );
       })}
     </>
   );
+}
+
+/** The Search source a conversation kind is written from, named as in Search. */
+function gistSourceName(kind: InteractionView["kind"]): string {
+  const source = kind === "message" ? "messages" : kind === "meeting" ? "calendar" : kind;
+  const id = `everything.source.${source}`;
+  return isMessageId(id) ? t(id) : t(`people.app.${kind}`);
 }
 
 /** The owner's Notes section, verbatim (spec §4.8: Psyche never rewrites it). */

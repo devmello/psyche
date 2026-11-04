@@ -213,6 +213,14 @@ export const Events = {
     payload: Type.Object({ artifact: Artifact, version: ArtifactVersion }),
     description: "A canvas artifact gained a version (created, edited, restored).",
   }),
+  "library.item.changed": defineEvent({
+    payload: Type.Object({
+      itemId: Id,
+      change: StringEnum(["created", "deleted"]),
+    }),
+    description:
+      "A Library item was uploaded or deleted from a client, so other paired clients refetch the Library (a hint, not state).",
+  }),
   "notification.created": defineEvent({
     payload: Type.Object({ notification: Notification }),
     description: "A notification was created for the in-app inbox.",

@@ -81,6 +81,8 @@ export interface InteractionView {
   gist?: string | null;
   /** The gist was written from someone else's words (mail, messages, calls, meetings): quote it. */
   gistUntrusted?: boolean;
+  /** The search document the gist was written from; the Gateway sends it only when it may be opened. */
+  gistDocId?: string;
   /** The other people in it, by name. */
   with: string[];
 }

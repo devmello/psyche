@@ -3519,13 +3519,13 @@ export interface ContextBlock {
 export type ContextBlockType = "context";
 
 export interface CredentialUpdatedPayload {
-    change:            ChangeEnum;
+    change:            CredentialUpdatedPayloadChange;
     credential?:       CredentialMeta | null;
     credentialId:      string;
     ownerConnectorId?: null | string;
 }
 
-export type ChangeEnum = "created" | "updated" | "deleted" | "rotated" | "revoked" | "used";
+export type CredentialUpdatedPayloadChange = "created" | "updated" | "deleted" | "rotated" | "revoked" | "used";
 
 export interface CredentialMeta {
     backend?:          Backend;
@@ -5092,8 +5092,13 @@ export interface GraphIdentifier {
 export type GraphIdentifierKind = "email" | "phone" | "contact" | "channel" | "domain" | "calendar" | "url";
 
 export interface GraphInteraction {
-    direction:    GraphDirection;
-    gist?:        null | string;
+    direction: GraphDirection;
+    gist?:     null | string;
+    /**
+     * Search document id of the passage the gist was written from. Present only when this
+     * connection may open it (`search.document`); the viewer sends just this id back
+     */
+    gistDocId?:   string;
     id:           string;
     kind:         GraphInteractionKind;
     link?:        null | string;
@@ -5526,6 +5531,13 @@ export type LibraryItemKind = "document" | "image" | "audio" | "video" | "artifa
 
 export type Origin = "upload" | "agent" | "download" | "connector" | "channel";
 
+export interface LibraryItemChangedPayload {
+    change: LibraryItemChangedPayloadChange;
+    itemId: string;
+}
+
+export type LibraryItemChangedPayloadChange = "created" | "deleted";
+
 export interface LibraryListParams {
     /**
      * Opaque cursor
@@ -5953,10 +5965,15 @@ export interface CatchUpItem {
     /**
      * The §5.3 template, already filtered
      */
-    line:            string;
-    parent?:         Parent;
-    provenance:      Provenance;
-    resume?:         CatchUpResume;
+    line:       string;
+    parent?:    Parent;
+    provenance: Provenance;
+    resume?:    CatchUpResume;
+    /**
+     * Indexed passages behind this line's changes. Sent only to a connection that may open each
+     * one (`search.document`'s rules); a chip opens it in the source viewer
+     */
+    sources?:        CatchUpSource[];
     stale:           boolean;
     status:          CatchUpStatus;
     statusAsOf:      string;
@@ -5999,6 +6016,17 @@ export interface Open {
 }
 
 export type CatchUpResumeKind = "file" | "thread" | "chat" | "library";
+
+export interface CatchUpSource {
+    /**
+     * Search document id
+     */
+    docId: string;
+    /**
+     * Search source id: mail, messages, ...
+     */
+    sourceKind: string;
+}
 
 export type CatchUpStatus = "not_started" | "in_progress" | "submitted" | "done" | "dropped" | "overdue" | "blocked" | "active" | "paused";
 

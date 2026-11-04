@@ -269,6 +269,7 @@
 //   let catchUpItemKind = try? JSONDecoder().decode(CatchUpItemKind.self, from: jsonData)
 //   let catchUpResume = try? JSONDecoder().decode(CatchUpResume.self, from: jsonData)
 //   let catchUpResumeKind = try? JSONDecoder().decode(CatchUpResumeKind.self, from: jsonData)
+//   let catchUpSource = try? JSONDecoder().decode(CatchUpSource.self, from: jsonData)
 //   let catchUpStatus = try? JSONDecoder().decode(CatchUpStatus.self, from: jsonData)
 //   let catchUpSurface = try? JSONDecoder().decode(CatchUpSurface.self, from: jsonData)
 //   let catchUpUrgency = try? JSONDecoder().decode(CatchUpUrgency.self, from: jsonData)
@@ -672,6 +673,7 @@
 //   let libraryGetParams = try? JSONDecoder().decode(LibraryGetParams.self, from: jsonData)
 //   let libraryGetResult = try? JSONDecoder().decode(LibraryGetResult.self, from: jsonData)
 //   let libraryItem = try? JSONDecoder().decode(LibraryItem.self, from: jsonData)
+//   let libraryItemChangedPayload = try? JSONDecoder().decode(LibraryItemChangedPayload.self, from: jsonData)
 //   let libraryItemKind = try? JSONDecoder().decode(LibraryItemKind.self, from: jsonData)
 //   let libraryListParams = try? JSONDecoder().decode(LibraryListParams.self, from: jsonData)
 //   let libraryListResult = try? JSONDecoder().decode(LibraryListResult.self, from: jsonData)
@@ -11135,7 +11137,7 @@ public enum ContextBlockType: String, Codable, Sendable {
 
 // MARK: - CredentialUpdatedPayload
 public struct CredentialUpdatedPayload: Codable, Sendable {
-    public let change: ChangeEnum
+    public let change: CredentialUpdatedPayloadChange
     public let credential: CredentialMeta?
     public let credentialID: String
     public let ownerConnectorID: String?
@@ -11147,7 +11149,7 @@ public struct CredentialUpdatedPayload: Codable, Sendable {
         case ownerConnectorID = "ownerConnectorId"
     }
 
-    public init(change: ChangeEnum, credential: CredentialMeta?, credentialID: String, ownerConnectorID: String?) {
+    public init(change: CredentialUpdatedPayloadChange, credential: CredentialMeta?, credentialID: String, ownerConnectorID: String?) {
         self.change = change
         self.credential = credential
         self.credentialID = credentialID
@@ -11155,7 +11157,7 @@ public struct CredentialUpdatedPayload: Codable, Sendable {
     }
 }
 
-public enum ChangeEnum: String, Codable, Sendable {
+public enum CredentialUpdatedPayloadChange: String, Codable, Sendable {
     case created = "created"
     case deleted = "deleted"
     case revoked = "revoked"
@@ -15531,6 +15533,9 @@ public enum GraphIdentifierKind: String, Codable, Sendable {
 public struct GraphInteraction: Codable, Sendable {
     public let direction: GraphDirection
     public let gist: String?
+    /// Search document id of the passage the gist was written from. Present only when this
+    /// connection may open it (`search.document`); the viewer sends just this id back
+    public let gistDocID: String?
     public let id: String
     public let kind: GraphInteractionKind
     public let link: String?
@@ -15545,6 +15550,7 @@ public struct GraphInteraction: Codable, Sendable {
     public enum CodingKeys: String, CodingKey {
         case direction = "direction"
         case gist = "gist"
+        case gistDocID = "gistDocId"
         case id = "id"
         case kind = "kind"
         case link = "link"
@@ -15556,9 +15562,10 @@ public struct GraphInteraction: Codable, Sendable {
         case threadKey = "threadKey"
     }
 
-    public init(direction: GraphDirection, gist: String?, id: String, kind: GraphInteractionKind, link: String?, occurredAt: String, participants: [Participant], projectID: String?, source: String, subject: String?, threadKey: String?) {
+    public init(direction: GraphDirection, gist: String?, gistDocID: String?, id: String, kind: GraphInteractionKind, link: String?, occurredAt: String, participants: [Participant], projectID: String?, source: String, subject: String?, threadKey: String?) {
         self.direction = direction
         self.gist = gist
+        self.gistDocID = gistDocID
         self.id = id
         self.kind = kind
         self.link = link
@@ -16908,6 +16915,27 @@ public enum Origin: String, Codable, Sendable {
     case upload = "upload"
 }
 
+// MARK: - LibraryItemChangedPayload
+public struct LibraryItemChangedPayload: Codable, Sendable {
+    public let change: LibraryItemChangedPayloadChange
+    public let itemID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case change = "change"
+        case itemID = "itemId"
+    }
+
+    public init(change: LibraryItemChangedPayloadChange, itemID: String) {
+        self.change = change
+        self.itemID = itemID
+    }
+}
+
+public enum LibraryItemChangedPayloadChange: String, Codable, Sendable {
+    case created = "created"
+    case deleted = "deleted"
+}
+
 // MARK: - LibraryListParams
 public struct LibraryListParams: Codable, Sendable {
     /// Opaque cursor
@@ -18097,6 +18125,9 @@ public struct CatchUpItem: Codable, Sendable {
     public let parent: Parent?
     public let provenance: Provenance
     public let resume: CatchUpResume?
+    /// Indexed passages behind this line's changes. Sent only to a connection that may open each
+    /// one (`search.document`'s rules); a chip opens it in the source viewer
+    public let sources: [CatchUpSource]?
     public let stale: Bool
     public let status: CatchUpStatus
     public let statusAsOf: String
@@ -18115,6 +18146,7 @@ public struct CatchUpItem: Codable, Sendable {
         case parent = "parent"
         case provenance = "provenance"
         case resume = "resume"
+        case sources = "sources"
         case stale = "stale"
         case status = "status"
         case statusAsOf = "statusAsOf"
@@ -18123,7 +18155,7 @@ public struct CatchUpItem: Codable, Sendable {
         case urgency = "urgency"
     }
 
-    public init(actions: [CatchUpAction], ask: Bool?, changes: [CatchUpChange], dueAt: String?, entityID: String, kind: CatchUpItemKind, line: String, parent: Parent?, provenance: Provenance, resume: CatchUpResume?, stale: Bool, status: CatchUpStatus, statusAsOf: String, title: String, titleProvenance: Provenance, urgency: CatchUpUrgency) {
+    public init(actions: [CatchUpAction], ask: Bool?, changes: [CatchUpChange], dueAt: String?, entityID: String, kind: CatchUpItemKind, line: String, parent: Parent?, provenance: Provenance, resume: CatchUpResume?, sources: [CatchUpSource]?, stale: Bool, status: CatchUpStatus, statusAsOf: String, title: String, titleProvenance: Provenance, urgency: CatchUpUrgency) {
         self.actions = actions
         self.ask = ask
         self.changes = changes
@@ -18134,6 +18166,7 @@ public struct CatchUpItem: Codable, Sendable {
         self.parent = parent
         self.provenance = provenance
         self.resume = resume
+        self.sources = sources
         self.stale = stale
         self.status = status
         self.statusAsOf = statusAsOf
@@ -18252,6 +18285,24 @@ public enum CatchUpResumeKind: String, Codable, Sendable {
     case file = "file"
     case library = "library"
     case thread = "thread"
+}
+
+// MARK: - CatchUpSource
+public struct CatchUpSource: Codable, Sendable {
+    /// Search document id
+    public let docID: String
+    /// Search source id: mail, messages, ...
+    public let sourceKind: String
+
+    public enum CodingKeys: String, CodingKey {
+        case docID = "docId"
+        case sourceKind = "sourceKind"
+    }
+
+    public init(docID: String, sourceKind: String) {
+        self.docID = docID
+        self.sourceKind = sourceKind
+    }
 }
 
 public enum CatchUpStatus: String, Codable, Sendable {

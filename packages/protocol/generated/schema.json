@@ -239,6 +239,11 @@
         "payload": "#/$defs/LessonChangedPayload"
       },
       {
+        "description": "A Library item was uploaded or deleted from a client, so other paired clients refetch the Library (a hint, not state).",
+        "name": "library.item.changed",
+        "payload": "#/$defs/LibraryItemChangedPayload"
+      },
+      {
         "description": "Record meeting started or ended (stopped, silence, the conference app quit), or the ended recording's notes finished or failed (mail and meeting workflows §4.6).",
         "name": "meetings.recording.updated",
         "payload": "#/$defs/MeetingRecordingStatus"
@@ -12370,6 +12375,14 @@
         "resume": {
           "$ref": "#/$defs/CatchUpResume"
         },
+        "sources": {
+          "description": "Indexed passages behind this line's changes. Sent only to a connection that may open each one (`search.document`'s rules); a chip opens it in the source viewer",
+          "items": {
+            "$ref": "#/$defs/CatchUpSource"
+          },
+          "maxItems": 3,
+          "type": "array"
+        },
         "actions": {
           "items": {
             "$ref": "#/$defs/CatchUpAction"
@@ -12452,6 +12465,25 @@
         "library"
       ],
       "type": "string"
+    },
+    "CatchUpSource": {
+      "properties": {
+        "docId": {
+          "description": "Search document id",
+          "maxLength": 400,
+          "type": "string"
+        },
+        "sourceKind": {
+          "description": "Search source id: mail, messages, ...",
+          "maxLength": 40,
+          "type": "string"
+        }
+      },
+      "required": [
+        "docId",
+        "sourceKind"
+      ],
+      "type": "object"
     },
     "CatchUpStatus": {
       "enum": [
@@ -21263,6 +21295,11 @@
               "type": "null"
             }
           ]
+        },
+        "gistDocId": {
+          "description": "Search document id of the passage the gist was written from. Present only when this connection may open it (`search.document`); the viewer sends just this id back",
+          "maxLength": 400,
+          "type": "string"
         }
       },
       "required": [
@@ -23883,6 +23920,28 @@
         "origin",
         "tags",
         "createdAt"
+      ],
+      "type": "object"
+    },
+    "LibraryItemChangedPayload": {
+      "properties": {
+        "itemId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "change": {
+          "enum": [
+            "created",
+            "deleted"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "itemId",
+        "change"
       ],
       "type": "object"
     },

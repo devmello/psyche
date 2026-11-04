@@ -119,6 +119,7 @@ export const people = {
   "people.recent.both": "Together",
   "people.recent.none": "Noted",
   "people.recent.open": "Open in {app}",
+  "people.recent.source": "From {source}",
   "people.app.mail": "Mail",
   "people.app.message": "Messages",
   "people.app.meeting": "Calendar",
