@@ -1,7 +1,10 @@
 import { FsSkillLoader, type FsSkillLoaderOptions } from "./loader.ts";
 
 export * from "./author.ts";
+export * from "./authors.ts";
 export * from "./binding.ts";
+export * from "./bundle.ts";
+export * from "./bundle-url.ts";
 export * from "./diff.ts";
 export * from "./drafts.ts";
 export * from "./frontmatter.ts";

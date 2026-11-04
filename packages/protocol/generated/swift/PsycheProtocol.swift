@@ -255,6 +255,8 @@
 //   let browserTab = try? JSONDecoder().decode(BrowserTab.self, from: jsonData)
 //   let browserTabsParams = try? JSONDecoder().decode(BrowserTabsParams.self, from: jsonData)
 //   let browserTabsResult = try? JSONDecoder().decode(BrowserTabsResult.self, from: jsonData)
+//   let bundleSigner = try? JSONDecoder().decode(BundleSigner.self, from: jsonData)
+//   let bundleSignerStatus = try? JSONDecoder().decode(BundleSignerStatus.self, from: jsonData)
 //   let capabilitiesSearchParams = try? JSONDecoder().decode(CapabilitiesSearchParams.self, from: jsonData)
 //   let capabilitiesSearchResult = try? JSONDecoder().decode(CapabilitiesSearchResult.self, from: jsonData)
 //   let capabilitiesSetLoadingParams = try? JSONDecoder().decode(CapabilitiesSetLoadingParams.self, from: jsonData)
@@ -1228,7 +1230,9 @@
 //   let setupTokenInfo = try? JSONDecoder().decode(SetupTokenInfo.self, from: jsonData)
 //   let setupTokenScope = try? JSONDecoder().decode(SetupTokenScope.self, from: jsonData)
 //   let sideEffect = try? JSONDecoder().decode(SideEffect.self, from: jsonData)
+//   let skillAuthor = try? JSONDecoder().decode(SkillAuthor.self, from: jsonData)
 //   let skillAuthorVersion = try? JSONDecoder().decode(SkillAuthorVersion.self, from: jsonData)
+//   let skillBundleInfo = try? JSONDecoder().decode(SkillBundleInfo.self, from: jsonData)
 //   let skillChangeEvent = try? JSONDecoder().decode(SkillChangeEvent.self, from: jsonData)
 //   let skillCommand = try? JSONDecoder().decode(SkillCommand.self, from: jsonData)
 //   let skillDetails = try? JSONDecoder().decode(SkillDetails.self, from: jsonData)
@@ -1246,6 +1250,9 @@
 //   let skillSummary = try? JSONDecoder().decode(SkillSummary.self, from: jsonData)
 //   let skillTrust = try? JSONDecoder().decode(SkillTrust.self, from: jsonData)
 //   let skillUpdateStatus = try? JSONDecoder().decode(SkillUpdateStatus.self, from: jsonData)
+//   let skillsAuthorsListResult = try? JSONDecoder().decode(SkillsAuthorsListResult.self, from: jsonData)
+//   let skillsAuthorsSetParams = try? JSONDecoder().decode(SkillsAuthorsSetParams.self, from: jsonData)
+//   let skillsAuthorsSetResult = try? JSONDecoder().decode(SkillsAuthorsSetResult.self, from: jsonData)
 //   let skillsCheckUpdatesParams = try? JSONDecoder().decode(SkillsCheckUpdatesParams.self, from: jsonData)
 //   let skillsCheckUpdatesResult = try? JSONDecoder().decode(SkillsCheckUpdatesResult.self, from: jsonData)
 //   let skillsCommandsResult = try? JSONDecoder().decode(SkillsCommandsResult.self, from: jsonData)
@@ -1258,6 +1265,8 @@
 //   let skillsDraftsListResult = try? JSONDecoder().decode(SkillsDraftsListResult.self, from: jsonData)
 //   let skillsDraftsUpdateParams = try? JSONDecoder().decode(SkillsDraftsUpdateParams.self, from: jsonData)
 //   let skillsDraftsUpdateResult = try? JSONDecoder().decode(SkillsDraftsUpdateResult.self, from: jsonData)
+//   let skillsExportParams = try? JSONDecoder().decode(SkillsExportParams.self, from: jsonData)
+//   let skillsExportResult = try? JSONDecoder().decode(SkillsExportResult.self, from: jsonData)
 //   let skillsGetParams = try? JSONDecoder().decode(SkillsGetParams.self, from: jsonData)
 //   let skillsGetProposalParams = try? JSONDecoder().decode(SkillsGetProposalParams.self, from: jsonData)
 //   let skillsGetProposalResult = try? JSONDecoder().decode(SkillsGetProposalResult.self, from: jsonData)
@@ -1266,6 +1275,7 @@
 //   let skillsInstallResult = try? JSONDecoder().decode(SkillsInstallResult.self, from: jsonData)
 //   let skillsListResult = try? JSONDecoder().decode(SkillsListResult.self, from: jsonData)
 //   let skillsProposeApprovalParams = try? JSONDecoder().decode(SkillsProposeApprovalParams.self, from: jsonData)
+//   let skillsProposeImportParams = try? JSONDecoder().decode(SkillsProposeImportParams.self, from: jsonData)
 //   let skillsProposeInstallParams = try? JSONDecoder().decode(SkillsProposeInstallParams.self, from: jsonData)
 //   let skillsProposeUpdateParams = try? JSONDecoder().decode(SkillsProposeUpdateParams.self, from: jsonData)
 //   let skillsRemoveParams = try? JSONDecoder().decode(SkillsRemoveParams.self, from: jsonData)
@@ -27876,6 +27886,7 @@ public struct SkillProposal: Codable, Sendable {
     /// Psyche wrote this skill
     public let author: AuthorEnum?
     public let bindingHash: String
+    public let bundle: SkillBundleInfo?
     public let commit: String?
     /// Epoch ms
     public let expiresAt: Int
@@ -27899,6 +27910,7 @@ public struct SkillProposal: Codable, Sendable {
         case approvalKind = "approvalKind"
         case author = "author"
         case bindingHash = "bindingHash"
+        case bundle = "bundle"
         case commit = "commit"
         case expiresAt = "expiresAt"
         case files = "files"
@@ -27915,10 +27927,11 @@ public struct SkillProposal: Codable, Sendable {
         case update = "update"
     }
 
-    public init(approvalKind: ApprovalKindEnum, author: AuthorEnum?, bindingHash: String, commit: String?, expiresAt: Int, files: [SkillProposalFile], findings: [ScanFinding], grantKey: String, hash: String, id: String, manifest: SkillManifest?, name: String, scope: SkillProposalScope, source: SkillInstallSource, text: String, trust: SkillTrust, update: SkillProposalUpdate?) {
+    public init(approvalKind: ApprovalKindEnum, author: AuthorEnum?, bindingHash: String, bundle: SkillBundleInfo?, commit: String?, expiresAt: Int, files: [SkillProposalFile], findings: [ScanFinding], grantKey: String, hash: String, id: String, manifest: SkillManifest?, name: String, scope: SkillProposalScope, source: SkillInstallSource, text: String, trust: SkillTrust, update: SkillProposalUpdate?) {
         self.approvalKind = approvalKind
         self.author = author
         self.bindingHash = bindingHash
+        self.bundle = bundle
         self.commit = commit
         self.expiresAt = expiresAt
         self.files = files
@@ -27941,6 +27954,65 @@ public struct SkillProposal: Codable, Sendable {
 /// Psyche wrote this skill
 public enum AuthorEnum: String, Codable, Sendable {
     case agent = "agent"
+}
+
+// MARK: - SkillBundleInfo
+public struct SkillBundleInfo: Codable, Sendable {
+    public let bytes: Int
+    /// The author's claimed time; not verified
+    public let createdAt: String
+    public let signer: BundleSigner
+
+    public enum CodingKeys: String, CodingKey {
+        case bytes = "bytes"
+        case createdAt = "createdAt"
+        case signer = "signer"
+    }
+
+    public init(bytes: Int, createdAt: String, signer: BundleSigner) {
+        self.bytes = bytes
+        self.createdAt = createdAt
+        self.signer = signer
+    }
+}
+
+// MARK: - BundleSigner
+public struct BundleSigner: Codable, Sendable {
+    /// `sha256:<hex>` of the public key
+    public let keyID: String?
+    /// The author's claimed name (data, not verified)
+    public let name: String?
+    /// The key seen before when status is `changed`
+    public let previousKeyID: String?
+    /// Differs from the key this skill was installed with (or it was signed and is no longer)
+    public let signerChanged: Bool
+    public let status: BundleSignerStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case keyID = "keyId"
+        case name = "name"
+        case previousKeyID = "previousKeyId"
+        case signerChanged = "signerChanged"
+        case status = "status"
+    }
+
+    public init(keyID: String?, name: String?, previousKeyID: String?, signerChanged: Bool, status: BundleSignerStatus) {
+        self.keyID = keyID
+        self.name = name
+        self.previousKeyID = previousKeyID
+        self.signerChanged = signerChanged
+        self.status = status
+    }
+}
+
+public enum BundleSignerStatus: String, Codable, Sendable {
+    case changed = "changed"
+    case new = "new"
+    case own = "own"
+    case revoked = "revoked"
+    case seen = "seen"
+    case trusted = "trusted"
+    case unsigned = "unsigned"
 }
 
 // MARK: - SkillProposalFile
@@ -27993,29 +28065,36 @@ public enum SkillProposalScope: String, Codable, Sendable {
     case workspace = "workspace"
 }
 
+/// bundleFile: a .psyche-skill file the owner chose (name is for display); bundleUrl: one at
+/// an https URL (no redirect to http, size-capped)
 // MARK: - SkillInstallSource
 public struct SkillInstallSource: Codable, Sendable {
     public let kind: SkillInstallSourceKind
     public let path: String?
     public let ref: String?
     public let url: String?
+    public let name: String?
 
     public enum CodingKeys: String, CodingKey {
         case kind = "kind"
         case path = "path"
         case ref = "ref"
         case url = "url"
+        case name = "name"
     }
 
-    public init(kind: SkillInstallSourceKind, path: String?, ref: String?, url: String?) {
+    public init(kind: SkillInstallSourceKind, path: String?, ref: String?, url: String?, name: String?) {
         self.kind = kind
         self.path = path
         self.ref = ref
         self.url = url
+        self.name = name
     }
 }
 
 public enum SkillInstallSourceKind: String, Codable, Sendable {
+    case bundleFile = "bundleFile"
+    case bundleURL = "bundleUrl"
     case git = "git"
     case path = "path"
     case zip = "zip"
@@ -28034,18 +28113,137 @@ public struct SkillProposalUpdate: Codable, Sendable {
     /// Unified diff per file
     public let diff: String
     public let fromHash: String
+    public let signerChanged: Bool?
     public let upToDate: Bool
+    /// What the new version asks for that the installed one did not
+    public let widened: Widened?
 
     public enum CodingKeys: String, CodingKey {
         case diff = "diff"
         case fromHash = "fromHash"
+        case signerChanged = "signerChanged"
         case upToDate = "upToDate"
+        case widened = "widened"
     }
 
-    public init(diff: String, fromHash: String, upToDate: Bool) {
+    public init(diff: String, fromHash: String, signerChanged: Bool?, upToDate: Bool, widened: Widened?) {
         self.diff = diff
         self.fromHash = fromHash
+        self.signerChanged = signerChanged
         self.upToDate = upToDate
+        self.widened = widened
+    }
+}
+
+/// What the new version asks for that the installed one did not
+// MARK: - Widened
+public struct Widened: Codable, Sendable {
+    public let permissions: [String]
+    public let prompts: [String]
+    public let tools: [String]
+
+    public enum CodingKeys: String, CodingKey {
+        case permissions = "permissions"
+        case prompts = "prompts"
+        case tools = "tools"
+    }
+
+    public init(permissions: [String], prompts: [String], tools: [String]) {
+        self.permissions = permissions
+        self.prompts = prompts
+        self.tools = tools
+    }
+}
+
+// MARK: - SkillsAuthorsListResult
+public struct SkillsAuthorsListResult: Codable, Sendable {
+    public let authors: [SkillAuthor]
+    public let own: Own?
+
+    public enum CodingKeys: String, CodingKey {
+        case authors = "authors"
+        case own = "own"
+    }
+
+    public init(authors: [SkillAuthor], own: Own?) {
+        self.authors = authors
+        self.own = own
+    }
+}
+
+// MARK: - SkillAuthor
+public struct SkillAuthor: Codable, Sendable {
+    public let firstSeen: String
+    public let keyID: String
+    public let names: [String]
+    public let state: SkillAuthorState
+    public let trustedAt: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case firstSeen = "firstSeen"
+        case keyID = "keyId"
+        case names = "names"
+        case state = "state"
+        case trustedAt = "trustedAt"
+    }
+
+    public init(firstSeen: String, keyID: String, names: [String], state: SkillAuthorState, trustedAt: String?) {
+        self.firstSeen = firstSeen
+        self.keyID = keyID
+        self.names = names
+        self.state = state
+        self.trustedAt = trustedAt
+    }
+}
+
+public enum SkillAuthorState: String, Codable, Sendable {
+    case revoked = "revoked"
+    case seen = "seen"
+    case trusted = "trusted"
+}
+
+// MARK: - Own
+public struct Own: Codable, Sendable {
+    public let keyID: String
+    public let name: String
+
+    public enum CodingKeys: String, CodingKey {
+        case keyID = "keyId"
+        case name = "name"
+    }
+
+    public init(keyID: String, name: String) {
+        self.keyID = keyID
+        self.name = name
+    }
+}
+
+// MARK: - SkillsAuthorsSetParams
+public struct SkillsAuthorsSetParams: Codable, Sendable {
+    public let keyID: String
+    public let state: SkillAuthorState
+
+    public enum CodingKeys: String, CodingKey {
+        case keyID = "keyId"
+        case state = "state"
+    }
+
+    public init(keyID: String, state: SkillAuthorState) {
+        self.keyID = keyID
+        self.state = state
+    }
+}
+
+// MARK: - SkillsAuthorsSetResult
+public struct SkillsAuthorsSetResult: Codable, Sendable {
+    public let author: SkillAuthor
+
+    public enum CodingKeys: String, CodingKey {
+        case author = "author"
+    }
+
+    public init(author: SkillAuthor) {
+        self.author = author
     }
 }
 
@@ -28419,6 +28617,62 @@ public struct SkillsDraftsUpdateResult: Codable, Sendable {
     }
 }
 
+// MARK: - SkillsExportParams
+public struct SkillsExportParams: Codable, Sendable {
+    /// Used only when the author key is created
+    public let authorName: String?
+    public let name: String
+
+    public enum CodingKeys: String, CodingKey {
+        case authorName = "authorName"
+        case name = "name"
+    }
+
+    public init(authorName: String?, name: String) {
+        self.authorName = authorName
+        self.name = name
+    }
+}
+
+// MARK: - SkillsExportResult
+public struct SkillsExportResult: Codable, Sendable {
+    /// The .psyche-skill file's text
+    public let bundle: String
+    public let createdKey: Bool
+    public let filename: String
+    public let signer: SkillsExportResultSigner
+
+    public enum CodingKeys: String, CodingKey {
+        case bundle = "bundle"
+        case createdKey = "createdKey"
+        case filename = "filename"
+        case signer = "signer"
+    }
+
+    public init(bundle: String, createdKey: Bool, filename: String, signer: SkillsExportResultSigner) {
+        self.bundle = bundle
+        self.createdKey = createdKey
+        self.filename = filename
+        self.signer = signer
+    }
+}
+
+// MARK: - SkillsExportResultSigner
+public struct SkillsExportResultSigner: Codable, Sendable {
+    public let keyID: String
+    public let name: String
+
+    public enum CodingKeys: String, CodingKey {
+        case keyID = "keyId"
+        case name = "name"
+    }
+
+    public init(keyID: String, name: String) {
+        self.keyID = keyID
+        self.name = name
+    }
+}
+
 // MARK: - SkillsGetParams
 public struct SkillsGetParams: Codable, Sendable {
     public let name: String
@@ -28498,6 +28752,7 @@ public struct SkillDetails: Codable, Sendable {
     public let overrides: [SkillSource]
     public let path: String
     public let reasons: [String]
+    public let signer: SkillDetailsSigner?
     public let source: SkillSource
     public let status: SkillStatus
     public let trust: SkillTrust
@@ -28521,6 +28776,7 @@ public struct SkillDetails: Codable, Sendable {
         case overrides = "overrides"
         case path = "path"
         case reasons = "reasons"
+        case signer = "signer"
         case source = "source"
         case status = "status"
         case trust = "trust"
@@ -28530,7 +28786,7 @@ public struct SkillDetails: Codable, Sendable {
         case version = "version"
     }
 
-    public init(commit: String?, description: String, disableModelInvocation: Bool, enabled: Bool, findings: [ScanFinding], hash: String, history: [SkillAuthorVersion]?, madeBy: AuthorEnum?, manifest: SkillManifest?, name: String, overrides: [SkillSource], path: String, reasons: [String], source: SkillSource, status: SkillStatus, trust: SkillTrust, update: SkillUpdateStatus?, userEnabled: Bool, userInvocable: Bool, version: String?) {
+    public init(commit: String?, description: String, disableModelInvocation: Bool, enabled: Bool, findings: [ScanFinding], hash: String, history: [SkillAuthorVersion]?, madeBy: AuthorEnum?, manifest: SkillManifest?, name: String, overrides: [SkillSource], path: String, reasons: [String], signer: SkillDetailsSigner?, source: SkillSource, status: SkillStatus, trust: SkillTrust, update: SkillUpdateStatus?, userEnabled: Bool, userInvocable: Bool, version: String?) {
         self.commit = commit
         self.description = description
         self.disableModelInvocation = disableModelInvocation
@@ -28544,6 +28800,7 @@ public struct SkillDetails: Codable, Sendable {
         self.overrides = overrides
         self.path = path
         self.reasons = reasons
+        self.signer = signer
         self.source = source
         self.status = status
         self.trust = trust
@@ -28584,6 +28841,32 @@ public enum RetiredBy: String, Codable, Sendable {
     case update = "update"
 }
 
+// MARK: - SkillDetailsSigner
+public struct SkillDetailsSigner: Codable, Sendable {
+    public let keyID: String
+    public let name: String
+    public let state: SignerState
+
+    public enum CodingKeys: String, CodingKey {
+        case keyID = "keyId"
+        case name = "name"
+        case state = "state"
+    }
+
+    public init(keyID: String, name: String, state: SignerState) {
+        self.keyID = keyID
+        self.name = name
+        self.state = state
+    }
+}
+
+public enum SignerState: String, Codable, Sendable {
+    case own = "own"
+    case revoked = "revoked"
+    case seen = "seen"
+    case trusted = "trusted"
+}
+
 public enum SkillStatus: String, Codable, Sendable {
     case active = "active"
     case blocked = "blocked"
@@ -28600,15 +28883,19 @@ public enum SkillStatus: String, Codable, Sendable {
 public struct SkillsInstallParams: Codable, Sendable {
     public let approvalID: String
     public let proposalID: String
+    /// Also trust the bundle's signing key (needs the approved card; never skips it)
+    public let trustAuthor: Bool?
 
     public enum CodingKeys: String, CodingKey {
         case approvalID = "approvalId"
         case proposalID = "proposalId"
+        case trustAuthor = "trustAuthor"
     }
 
-    public init(approvalID: String, proposalID: String) {
+    public init(approvalID: String, proposalID: String, trustAuthor: Bool?) {
         self.approvalID = approvalID
         self.proposalID = proposalID
+        self.trustAuthor = trustAuthor
     }
 }
 
@@ -28687,6 +28974,23 @@ public struct SkillsProposeApprovalParams: Codable, Sendable {
 
     public init(name: String) {
         self.name = name
+    }
+}
+
+// MARK: - SkillsProposeImportParams
+public struct SkillsProposeImportParams: Codable, Sendable {
+    /// File name, for display
+    public let name: String
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case name = "name"
+        case text = "text"
+    }
+
+    public init(name: String, text: String) {
+        self.name = name
+        self.text = text
     }
 }
 

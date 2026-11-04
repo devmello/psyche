@@ -66,6 +66,7 @@ import {
   type RunSummary,
   requiresIdempotencyKey,
   type SearchHit,
+  type SkillAuthor,
   type SkillDetails,
   type SkillDraft,
   type SkillProposal,
@@ -86,7 +87,7 @@ import type { MockFileNode } from "../fixtures/files.ts";
 import { emptyInsights } from "../fixtures/insights.ts";
 import type { GraphWorld } from "../fixtures/people.ts";
 import { appleShortcuts, connectorCatalogue } from "../fixtures/settings.ts";
-import type { MockSkillSource } from "../fixtures/skills.ts";
+import { AUTHOR_KEY, type MockSkillSource } from "../fixtures/skills.ts";
 import { applyOpsLocal } from "../lib/artifact-ops.ts";
 import type { ConnectionState, GatewayClient, GatewayEvent, RequestOptions } from "./client.ts";
 import { isEmptyUserChat } from "./empty-chat.ts";
@@ -417,6 +418,9 @@ export class MockGateway implements GatewayClient {
     };
   }
   private skillProposals = new Map<string, SkillProposal>();
+  private skillAuthor: { keyId: string; name: string } | undefined;
+  private skillAuthorCreated = 0;
+  private skillAuthors: SkillAuthor[] = [];
   /** Settings → MCP (#529): added servers and probes waiting for their trust card. */
   readonly mcpServers: McpServerStatus[] = [];
   /** The capability catalogue `capabilities.search` ranks (stories, tests); registry entries need the online setting. */
@@ -3113,8 +3117,40 @@ export class MockGateway implements GatewayClient {
       return { secret: structuredClone(secret) };
     },
     "skills.proposeInstall": (p) => {
-      const key = p.source.kind === "git" ? p.source.url : p.source.path;
+      const key =
+        p.source.kind === "git" || p.source.kind === "bundleUrl"
+          ? p.source.url
+          : p.source.kind === "bundleFile"
+            ? p.source.name
+            : p.source.path;
       return this.stageSkill(this.world.skillSources[key], `nothing to install at ${key}`);
+    },
+    "skills.proposeImport": (p) =>
+      this.stageSkill(this.world.skillSources[p.name], `${p.name} is not a valid bundle`),
+    "skills.export": (p) => {
+      this.skillAuthor ??= { keyId: AUTHOR_KEY, name: p.authorName ?? "You" };
+      return {
+        filename: `${p.name}.psyche-skill`,
+        bundle: "{}",
+        signer: { ...this.skillAuthor },
+        createdKey: this.skillAuthorCreated++ === 0,
+      };
+    },
+    "skills.authors.list": () => ({
+      ...(this.skillAuthor === undefined ? {} : { own: { ...this.skillAuthor } }),
+      authors: structuredClone(this.skillAuthors),
+    }),
+    "skills.authors.set": (p) => {
+      const found = this.skillAuthors.find((a) => a.keyId === p.keyId);
+      const author = found ?? {
+        keyId: p.keyId,
+        names: [],
+        state: p.state,
+        firstSeen: this.now(),
+      };
+      author.state = p.state;
+      if (found === undefined) this.skillAuthors.push(author);
+      return { author: structuredClone(author) };
     },
     "skills.proposeUpdate": (p) =>
       this.stageSkill(this.world.skillSources[`update:${p.name}`], `${p.name} is up to date`),

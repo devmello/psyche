@@ -3,6 +3,7 @@ import {
   type ApprovalRequest,
   type PermissionBroker,
   PsycheError,
+  type SkillAuthor,
   type SkillDraft,
   type SkillDraftStatus,
   type SkillInstallSource,
@@ -37,7 +38,23 @@ export interface SkillsHandlers {
   "skills.install": (p: {
     proposalId: string;
     approvalId: string;
+    trustAuthor?: boolean;
   }) => Promise<{ skill: SkillSummary }>;
+  "skills.proposeImport": (p: { name: string; text: string }) => Promise<ProposalResult>;
+  "skills.export": (p: { name: string; authorName?: string }) => Promise<{
+    filename: string;
+    bundle: string;
+    signer: { keyId: string; name: string };
+    createdKey: boolean;
+  }>;
+  "skills.authors.list": () => Promise<{
+    own?: { keyId: string; name: string };
+    authors: SkillAuthor[];
+  }>;
+  "skills.authors.set": (p: {
+    keyId: string;
+    state: "seen" | "trusted" | "revoked";
+  }) => Promise<{ author: SkillAuthor }>;
   "skills.setEnabled": (p: {
     name: string;
     enabled: boolean;
@@ -87,9 +104,18 @@ export function createSkillsHandlers(
           : proposal.update !== undefined
             ? "Update skill"
             : "Install skill";
+    const sg = proposal.bundle?.signer;
+    const signerNote =
+      sg === undefined
+        ? ""
+        : sg.status === "unsigned"
+          ? " (unsigned bundle)"
+          : ` (signed by ${sg.name ?? "unknown"}: ${sg.status === "changed" ? "key changed" : sg.status})`;
+    const widenedNote =
+      proposal.update?.widened === undefined ? "" : " (asks for more than before)";
     const issued = await opts.broker.requestApproval({
       kind: "skill_install",
-      summary: `${verb} "${proposal.name}"${counts.high > 0 ? ` (${counts.high} high-severity findings: it will stay disabled)` : ""}`,
+      summary: `${verb} "${proposal.name}"${signerNote}${widenedNote}${counts.high > 0 ? ` (${counts.high} high-severity findings: it will stay disabled)` : ""}`,
       details: {
         name: proposal.name,
         ...(proposedBy === undefined ? {} : { proposedBy }),
@@ -102,6 +128,14 @@ export function createSkillsHandlers(
         tools: proposal.manifest.tools,
         prompts: proposal.manifest.prompts,
         trust: proposal.trust,
+        ...(sg === undefined
+          ? {}
+          : {
+              signerStatus: sg.status,
+              ...(sg.keyId === undefined ? {} : { signerKey: sg.keyId }),
+              ...(sg.name === undefined ? {} : { signerName: sg.name }),
+            }),
+        ...(proposal.update?.widened === undefined ? {} : { widened: proposal.update.widened }),
         findings: counts,
         files: proposal.files.map((f) => f.path),
         ...(proposal.update === undefined ? {} : { fromHash: proposal.update.fromHash }),
@@ -159,7 +193,23 @@ export function createSkillsHandlers(
       return requestApproval(await loader.proposeWorkspaceApproval(p.name));
     },
     async "skills.install"(p) {
-      return { skill: await loader.install(p.proposalId, p.approvalId) };
+      return {
+        skill: await loader.install(p.proposalId, p.approvalId, {
+          ...(p.trustAuthor === undefined ? {} : { trustAuthor: p.trustAuthor }),
+        }),
+      };
+    },
+    async "skills.proposeImport"(p) {
+      return requestApproval(await loader.proposeImport(p.name, p.text));
+    },
+    async "skills.export"(p) {
+      return loader.exportSkill(p.name, p.authorName);
+    },
+    async "skills.authors.list"() {
+      return loader.authors();
+    },
+    async "skills.authors.set"(p) {
+      return { author: loader.setAuthorState(p.keyId, p.state) };
     },
     async "skills.setEnabled"(p) {
       return { skill: await loader.setEnabled(p.name, p.enabled, p.source) };

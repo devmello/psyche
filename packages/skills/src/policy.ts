@@ -30,6 +30,10 @@ export const SKILL_FORBIDDEN_TOOLS: readonly string[] = [
   "skills.proposeInstall",
   "skills.remove",
   "skills.setEnabled",
+  "skills.proposeImport",
+  "skills.proposeUpdate",
+  "skills.export",
+  "skills.authors.*",
   "policy.*",
 ];
 

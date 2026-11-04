@@ -4,6 +4,8 @@ import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { PsycheError, type SkillInstallSource } from "@psyche/protocol";
 import { unzipSync } from "fflate";
+import { type VerifiedBundle, verifyBundle } from "./bundle.ts";
+import { type BundleFetchOptions, fetchBundleText } from "./bundle-url.ts";
 import {
   DEFAULT_LIMITS,
   readSkillDir,
@@ -21,9 +23,11 @@ export interface FetchedSkill {
   tree: SkillTree;
   /** Git commit the ref resolved to. */
   commit?: string;
+  /** A verified `.psyche-skill` bundle (signature checked); `tree` is its payload. */
+  bundle?: VerifiedBundle;
 }
 
-export interface SourceOptions {
+export interface SourceOptions extends BundleFetchOptions {
   limits?: TreeLimits;
   /** Allow `file://` git URLs (tests, local mirrors). Default false. */
   allowFileGitUrls?: boolean;
@@ -46,6 +50,15 @@ export async function fetchSource(
       return { tree: unzipSkill(readArchive(source.path), opts.limits) };
     case "git":
       return fetchGit(source.url, source.ref, opts);
+    case "bundleUrl": {
+      const bundle = verifyBundle(await fetchBundleText(source.url, opts), opts.limits);
+      return { tree: bundle.tree, bundle };
+    }
+    case "bundleFile":
+      throw new PsycheError(
+        "invalid_params",
+        "a bundle file is imported with skills.proposeImport, not fetched",
+      );
   }
 }
 

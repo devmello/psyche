@@ -12,6 +12,7 @@ import {
 } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import {
+  type BundleSigner as BundleSignerInfo,
   type LoadedSkill,
   type PermissionBroker,
   PsycheError,
@@ -25,7 +26,15 @@ import {
   type SkillUpdateCheck,
   type SpecialistRole,
 } from "@psyche/protocol";
+import { AuthorKeyStore, AuthorRing } from "./authors.ts";
 import { skillInstallBinding } from "./binding.ts";
+import {
+  BUNDLE_EXTENSION,
+  type BundleAuthor,
+  buildBundle,
+  type VerifiedBundle,
+  verifyBundle,
+} from "./bundle.ts";
 import { unifiedDiff } from "./diff.ts";
 import { NAME_PATTERN, type ParsedSkill, parseSkill } from "./frontmatter.ts";
 import { defaultGateContext, evaluateGates, type GateContext } from "./gating.ts";
@@ -92,6 +101,8 @@ export interface SkillDetails extends SkillSummary {
   manifest?: SkillManifest;
   /** The last update check for an installed skill (`checkUpdates`). */
   update?: SkillUpdateCheck;
+  /** The bundle author whose signature verified when the owner approved it. */
+  signer?: { keyId: string; name: string; state: "seen" | "trusted" | "revoked" | "own" };
   /** Psyche wrote this skill (lock entry `author`). */
   madeBy?: "agent";
   /** Earlier approved versions of an agent-made skill, newest first. */
@@ -113,7 +124,16 @@ export interface SkillProposal extends SkillInstallProposal {
   grantKey: string;
   commit?: string;
   /** Present for updates and re-approvals: the installed hash and a unified diff per file. */
-  update?: { fromHash: string; upToDate: boolean; diff: string };
+  update?: {
+    fromHash: string;
+    upToDate: boolean;
+    diff: string;
+    /** What the new version asks for that the installed one did not (empty lists: nothing). */
+    widened?: SkillManifest;
+    signerChanged?: boolean;
+  };
+  /** A shared `.psyche-skill` bundle: who signed it and when the author says it was made. */
+  bundle?: { signer: BundleSignerInfo; createdAt: string; bytes: number };
   /** Epoch ms. */
   expiresAt: number;
   manifest: SkillManifest;
@@ -161,6 +181,17 @@ export interface FsSkillLoaderOptions {
   gate?: GateContext | (() => GateContext);
   virusTotal?: VirusTotalClient;
   sourceOptions?: SourceOptions;
+  /**
+   * `$PSYCHE_HOME`, for the owner's author key (`identity/author.key`). Without it `exportSkill`
+   * answers `unavailable`; importing and trust still work.
+   */
+  psycheHome?: string;
+  /** Called when the owner trusts, un-trusts or revokes an author key, or one is created (audit). */
+  onAuthorChange?: (event: {
+    kind: "author_key_created" | "author_trusted" | "author_untrusted" | "author_revoked";
+    keyId: string;
+    name?: string;
+  }) => void;
   /** Workspace skills need an owner approval before they reach the prompt. Default true. */
   requireWorkspaceApproval?: boolean;
   /** Proposal lifetime (default 30 minutes, like approvals). */
@@ -192,7 +223,12 @@ export class FsSkillLoader implements SkillLoader {
   #state: SkillStateStore;
   #entries: Entry[] = [];
   #winners = new Map<string, Entry>();
-  #proposals = new Map<string, { proposal: SkillProposal; tree: SkillTree }>();
+  #proposals = new Map<
+    string,
+    { proposal: SkillProposal; tree: SkillTree; signer?: BundleAuthor }
+  >();
+  #ring: AuthorRing;
+  #keys: AuthorKeyStore | undefined;
   #watchers: FSWatcher[] = [];
   #timer: ReturnType<typeof setTimeout> | undefined;
   #rescan: ReturnType<typeof setInterval> | undefined;
@@ -210,6 +246,9 @@ export class FsSkillLoader implements SkillLoader {
     this.#state = options.state ?? new MemorySkillStateStore();
     this.#now = options.now ?? Date.now;
     this.#newId = options.newId ?? (() => crypto.randomUUID());
+    this.#ring = new AuthorRing(options.homeDir, this.#now);
+    this.#keys =
+      options.psycheHome === undefined ? undefined : new AuthorKeyStore(options.psycheHome);
     this.refresh();
   }
 
@@ -367,6 +406,7 @@ export class FsSkillLoader implements SkillLoader {
     }
 
     // Trust: bundled ships with Psyche; everything else needs a matching lock entry.
+    let signerRevoked = false;
     if (source !== "bundled") {
       const lk = lock.skills[lockKey(source === "home" ? "home" : "workspace", folder)];
       const needsLock = source === "home" || this.#o.requireWorkspaceApproval !== false;
@@ -375,6 +415,13 @@ export class FsSkillLoader implements SkillLoader {
         details.trust = lk.trust;
         if (lk.author === "agent") details.madeBy = "agent";
         if (lk.commit !== undefined) details.commit = lk.commit;
+        if (lk.signer !== undefined) {
+          const state = this.#signerState(lk.signer.keyId);
+          details.signer = { ...lk.signer, state };
+          // Un-trusting a key takes the `verified` label back from what it signed.
+          if (lk.trust === "verified" && state !== "trusted") details.trust = "unknown";
+          if (state === "revoked") signerRevoked = true;
+        }
       }
       if (needsLock && lk === undefined) {
         details.status = source === "home" ? "unlocked" : "draft";
@@ -405,6 +452,9 @@ export class FsSkillLoader implements SkillLoader {
     } else if (violations.length > 0) {
       details.status = "blocked";
       details.reasons.push(...violations);
+    } else if (signerRevoked) {
+      details.status = "blocked";
+      details.reasons.push("signed by an author key you revoked");
     } else if (!details.userEnabled) {
       details.status = "disabled";
       details.reasons.push("disabled by the owner");
@@ -420,6 +470,16 @@ export class FsSkillLoader implements SkillLoader {
       details.enabled = true;
     }
     return entry;
+  }
+
+  #signerState(keyId: string): "seen" | "trusted" | "revoked" | "own" {
+    try {
+      if (this.#keys?.peek()?.keyId === keyId) return "own";
+      return this.#ring.get(keyId)?.state ?? "seen";
+    } catch {
+      // An unreadable keyring trusts nothing.
+      return "seen";
+    }
   }
 
   #readLock(): LockFile {
@@ -655,7 +715,27 @@ export class FsSkillLoader implements SkillLoader {
   /** Fetches, scans and stages a third-party skill for `$PSYCHE_HOME/skills/`. */
   async proposeInstall(source: SkillInstallSource): Promise<SkillProposal> {
     const fetched = await fetchSource(source, this.#o.sourceOptions);
-    return this.#propose("home", source, fetched.tree, fetched.commit);
+    return this.#propose("home", source, fetched.tree, fetched.commit, fetched.bundle);
+  }
+
+  /**
+   * Verifies and stages a `.psyche-skill` file the owner chose (its text, read by their client).
+   * An invalid, tampered or mismatched bundle is refused here, before any card exists.
+   */
+  async proposeImport(fileName: string, text: string): Promise<SkillProposal> {
+    const bundle = verifyBundle(text, this.#o.sourceOptions?.limits);
+    // Shown on the card and bound into the approval: keep it to plain, short text.
+    const name = fileName
+      .replace(/[^\w .()+-]/g, "?")
+      .trim()
+      .slice(0, 200);
+    return this.#propose(
+      "home",
+      { kind: "bundleFile", name: name === "" ? "bundle" : name },
+      bundle.tree,
+      undefined,
+      bundle,
+    );
   }
 
   /** Re-fetches an installed skill from its pinned source and stages the update with a diff. */
@@ -663,10 +743,15 @@ export class FsSkillLoader implements SkillLoader {
     const lk = this.#readLock().skills[lockKey("home", name)];
     if (lk === undefined || lk.origin.kind === "workspace" || lk.author === "agent")
       throw new PsycheError("not_found", `${name} was not installed from a source`);
+    if (lk.origin.kind === "bundleFile")
+      throw new PsycheError(
+        "invalid_params",
+        `${name} came from a file; import the new file to update it`,
+      );
     const origin: SkillInstallSource =
       lk.origin.kind === "git" && ref !== undefined ? { ...lk.origin, ref } : lk.origin;
     const fetched = await fetchSource(origin, this.#o.sourceOptions);
-    return this.#propose("home", origin, fetched.tree, fetched.commit);
+    return this.#propose("home", origin, fetched.tree, fetched.commit, fetched.bundle);
   }
 
   /** Stages the owner's approval of a workspace skill (draft or changed). */
@@ -685,7 +770,14 @@ export class FsSkillLoader implements SkillLoader {
     source: SkillInstallSource,
     tree: SkillTree,
     commit?: string,
+    bundle?: VerifiedBundle,
   ): Promise<SkillProposal> {
+    if (bundle?.signer !== undefined && this.#ring.isRevoked(bundle.signer.keyId))
+      throw new PsycheError(
+        "policy_denied",
+        `this bundle is signed by a key you revoked (${bundle.signer.keyId.slice(0, 23)}…)`,
+        { details: { keyId: bundle.signer.keyId } },
+      );
     const skillMd = tree.get("SKILL.md");
     const text = skillMd === undefined ? undefined : textOf(skillMd);
     const parsed = text === undefined ? undefined : parseSkill(text);
@@ -737,13 +829,17 @@ export class FsSkillLoader implements SkillLoader {
       });
     }
     let update: SkillProposal["update"];
+    let installedLock: LockEntry | undefined;
     if (scope === "home") {
       const installed = sameName.find((e) => e.details.source === "home" && e.tree !== undefined);
       if (installed?.tree !== undefined && installed.lock !== undefined) {
+        installedLock = installed.lock;
+        const widened = widenedBy(installed.lock.manifest ?? installed.details.manifest, manifest);
         update = {
           fromHash: installed.lock.treeHash,
           upToDate: installed.lock.treeHash === hash,
           diff: treeDiff(installed.tree, tree),
+          ...(widened === undefined ? {} : { widened }),
         };
       }
     } else {
@@ -758,6 +854,41 @@ export class FsSkillLoader implements SkillLoader {
         };
       }
     }
+    let bundleInfo: SkillProposal["bundle"];
+    if (bundle !== undefined) {
+      const installedSigner =
+        installedLock === undefined ? undefined : (installedLock.signer ?? null);
+      const signer: BundleSignerInfo =
+        bundle.signer === undefined
+          ? { status: "unsigned", signerChanged: installedSigner != null }
+          : this.#ring.statusOf(bundle.signer, this.#ownKey(), installedSigner);
+      bundleInfo = { signer, createdAt: bundle.manifest.createdAt, bytes: bundle.bytes };
+      if (signer.signerChanged && update !== undefined) update.signerChanged = true;
+      if (signer.status === "changed" || signer.signerChanged) {
+        findings.push({
+          rule: "signer-changed",
+          severity: "warn",
+          message:
+            bundle.signer === undefined
+              ? "the installed version was signed; this one is not"
+              : "the author's key is not the one seen before; check it is the same person",
+        });
+      }
+    }
+    if (update?.widened !== undefined) {
+      findings.push({
+        rule: "permissions-widened",
+        severity: "warn",
+        message: "this version asks for more than the installed one",
+      });
+    }
+    const status = bundleInfo?.signer.status;
+    const trust: SkillTrust =
+      scope === "workspace" || status === "own"
+        ? "local"
+        : status === "trusted"
+          ? "verified"
+          : "unknown";
     const id = this.#newId();
     const files = [...tree.entries()]
       .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
@@ -776,7 +907,7 @@ export class FsSkillLoader implements SkillLoader {
       source: structuredClone(source),
       text: text ?? "",
       hash,
-      trust: scope === "workspace" ? "local" : "unknown",
+      trust,
       findings,
       approvalKind: "skill_install",
       files,
@@ -786,15 +917,21 @@ export class FsSkillLoader implements SkillLoader {
         scope,
         source,
         ...(commit === undefined ? {} : { commit }),
+        ...(bundle?.signer === undefined ? {} : { signer: bundle.signer.keyId }),
         treeHash: hash,
         ...manifest,
       }),
       ...(commit === undefined ? {} : { commit }),
       ...(update === undefined ? {} : { update }),
+      ...(bundleInfo === undefined ? {} : { bundle: bundleInfo }),
       expiresAt: this.#now() + (this.#o.proposalTtlMs ?? TTL_MS),
       manifest,
     };
-    this.#proposals.set(id, { proposal, tree });
+    this.#proposals.set(id, {
+      proposal,
+      tree,
+      ...(bundle?.signer === undefined ? {} : { signer: bundle.signer }),
+    });
     return structuredClone(proposal);
   }
 
@@ -803,10 +940,21 @@ export class FsSkillLoader implements SkillLoader {
    * matches the proposal; writes exactly the scanned tree, pins it in the lock file and records
    * a receipt. A skill with `high` findings is installed disabled.
    */
-  async install(proposalId: string, approvalId: string): Promise<SkillSummary> {
+  async install(
+    proposalId: string,
+    approvalId: string,
+    opts: { trustAuthor?: boolean } = {},
+  ): Promise<SkillSummary> {
     const staged = this.#proposals.get(proposalId);
     if (staged === undefined) throw new PsycheError("not_found", "no such install proposal");
-    const { proposal: p, tree } = staged;
+    const { proposal: staged0, tree, signer } = staged;
+    let p = staged0;
+    if (signer !== undefined && this.#ring.isRevoked(signer.keyId)) {
+      this.#proposals.delete(proposalId);
+      throw new PsycheError("policy_denied", "this bundle is signed by a key you revoked");
+    }
+    // "Trust this author" rides on an approved card: it changes a label, never skips the card.
+    const trustNow = opts.trustAuthor === true && signer !== undefined && p.scope === "home";
     if (this.#now() > p.expiresAt) {
       this.#proposals.delete(proposalId);
       throw new PsycheError("approval_expired", "the install proposal expired; propose it again");
@@ -837,6 +985,7 @@ export class FsSkillLoader implements SkillLoader {
       );
     }
     this.#proposals.delete(proposalId);
+    if (trustNow && p.trust === "unknown") p = { ...p, trust: "verified" };
 
     const root = p.scope === "home" ? this.#o.homeDir : this.#o.workspaceDir;
     if (root === undefined) throw new PsycheError("internal", "no folder for this skill scope");
@@ -851,7 +1000,18 @@ export class FsSkillLoader implements SkillLoader {
           throw new PsycheError("conflict", "the workspace skill changed after the proposal");
         writeTree(this.#snapshotRoot(), join(this.#snapshotRoot(), p.name), tree);
       }
-      this.#writeInstall(p, approvalId, target);
+      this.#writeInstall(p, approvalId, target, signer);
+      if (signer !== undefined) {
+        this.#ring.observe(signer);
+        if (trustNow) {
+          this.#ring.setState(signer.keyId, "trusted");
+          this.#o.onAuthorChange?.({
+            kind: "author_trusted",
+            keyId: signer.keyId,
+            name: signer.name,
+          });
+        }
+      }
     } finally {
       this.#busy = false;
     }
@@ -866,6 +1026,7 @@ export class FsSkillLoader implements SkillLoader {
         skill: p.name,
         hash: p.hash,
         ...(p.commit === undefined ? {} : { commit: p.commit }),
+        ...(signer === undefined ? {} : { signer: signer.keyId }),
       },
     });
     this.refresh();
@@ -880,7 +1041,7 @@ export class FsSkillLoader implements SkillLoader {
     return join(this.#o.homeDir, ".approved", "workspace");
   }
 
-  #writeInstall(p: SkillProposal, approvalId: string, target: string): void {
+  #writeInstall(p: SkillProposal, approvalId: string, target: string, signer?: BundleAuthor): void {
     const counts = summarizeFindings(p.findings);
     const lock = this.#readLock();
     const approvedAt = new Date(this.#now()).toISOString();
@@ -898,6 +1059,7 @@ export class FsSkillLoader implements SkillLoader {
       findings: counts,
       manifest: p.manifest,
       ...(p.author === undefined ? {} : { author: p.author }),
+      ...(signer === undefined ? {} : { signer: { keyId: signer.keyId, name: signer.name } }),
     };
     writeLock(this.lockPath, lock);
     this.#state.upsert({
@@ -910,6 +1072,110 @@ export class FsSkillLoader implements SkillLoader {
       ...(version === undefined ? {} : { version }),
       installedAt: approvedAt,
     });
+  }
+
+  // --- Shared bundles: export and author keys --------------------------------------------------
+
+  #ownKey(): { keyId: string } | undefined {
+    try {
+      return this.#keys?.peek();
+    } catch {
+      return undefined;
+    }
+  }
+
+  /** The owner's author key (if made) and every author key seen on an imported bundle. */
+  authors(): { own?: { keyId: string; name: string }; authors: ReturnType<AuthorRing["list"]> } {
+    const own = this.#keys?.peek();
+    return {
+      ...(own === undefined ? {} : { own: { keyId: own.keyId, name: own.name } }),
+      authors: this.#ring.list(),
+    };
+  }
+
+  /** Trusts, un-trusts or revokes a key seen on a bundle (owner action; never the agent's). */
+  setAuthorState(keyId: string, state: "seen" | "trusted" | "revoked") {
+    const author = this.#ring.setState(keyId, state);
+    this.#o.onAuthorChange?.({
+      kind:
+        state === "trusted"
+          ? "author_trusted"
+          : state === "revoked"
+            ? "author_revoked"
+            : "author_untrusted",
+      keyId,
+    });
+    this.refresh();
+    return author;
+  }
+
+  /**
+   * Signs a skill of the owner's with their author key (created on first use) and returns the
+   * `.psyche-skill` text. Only what the owner approved is exported: a workspace skill with a
+   * lock entry, a skill Psyche made that the owner approved, or one signed with this same key,
+   * and only while its files still match the approved hash. A skill someone else wrote is
+   * refused, so the owner's key never vouches for it.
+   */
+  exportSkill(
+    name: string,
+    authorName?: string,
+  ): {
+    filename: string;
+    bundle: string;
+    signer: { keyId: string; name: string };
+    createdKey: boolean;
+  } {
+    if (this.#keys === undefined)
+      throw new PsycheError("unavailable", "this Gateway has no place for an author key");
+    if (!NAME_PATTERN.test(name)) throw new PsycheError("invalid_params", "invalid skill name");
+    const lock = this.#readLock();
+    const own = this.#ownKey();
+    const wk = lock.skills[lockKey("workspace", name)];
+    const hk = lock.skills[lockKey("home", name)];
+    let dir: string | undefined;
+    let approved: LockEntry | undefined;
+    if (wk !== undefined && this.#o.workspaceDir !== undefined) {
+      dir = join(this.#o.workspaceDir, name);
+      approved = wk;
+    } else if (
+      hk !== undefined &&
+      (hk.author === "agent" || (own !== undefined && hk.signer?.keyId === own.keyId))
+    ) {
+      dir = join(this.#o.homeDir, name);
+      approved = hk;
+    }
+    if (dir === undefined || approved === undefined || !existsSync(join(dir, "SKILL.md")))
+      throw new PsycheError(
+        "conflict",
+        `${name} is not a skill you can sign: only your own approved skills, or ones Psyche made for you, can be exported`,
+      );
+    const tree = readSkillDir(dir, this.#o.sourceOptions?.limits);
+    if (treeHash(tree) !== approved.treeHash)
+      throw new PsycheError(
+        "conflict",
+        `${name} changed since you approved it; review and approve it before exporting`,
+      );
+    if (hasBlockingFindings(scanSkillTree(tree, name)))
+      throw new PsycheError(
+        "conflict",
+        `${name} has high-severity scan findings and cannot be exported`,
+      );
+    const { signer, created } = this.#keys.loadOrCreate(authorName ?? "Psyche owner");
+    const bundle = buildBundle(tree, signer, new Date(this.#now()));
+    if (created)
+      this.#o.onAuthorChange?.({
+        kind: "author_key_created",
+        keyId: signer.author.keyId,
+        name: signer.author.name,
+      });
+    const version =
+      approved.version === undefined ? "" : `-${approved.version.replace(/[^\w.+-]/g, "_")}`;
+    return {
+      filename: `${name}${version}${BUNDLE_EXTENSION}`,
+      bundle,
+      signer: { keyId: signer.author.keyId, name: signer.author.name },
+      createdKey: created,
+    };
   }
 
   // --- Agent-made skills (self-extension) ------------------------------------------------------
@@ -1129,6 +1395,8 @@ export class FsSkillLoader implements SkillLoader {
     const out: SkillUpdateCheck[] = [];
     for (const lk of Object.values(lock.skills)) {
       if (lk.scope !== "home" || lk.origin.kind === "workspace" || lk.author === "agent") continue;
+      // A file the owner chose has no address to re-read; they import the new file instead.
+      if (lk.origin.kind === "bundleFile") continue;
       if (name !== undefined && lk.name !== name) continue;
       const installed = this.#entries.find(
         (e) => e.details.name === lk.name && e.details.source === "home",
@@ -1267,6 +1535,27 @@ export function toSummary(d: SkillDetails): SkillSummary {
     enabled: d.enabled,
     hash: d.hash,
   };
+}
+
+/**
+ * What `after` asks for that `before` did not: new tools, approval kinds or prompt files.
+ * `undefined` when nothing is wider. A tool glob counts as new unless the same glob was there
+ * (a broader glob such as `mail.*` replacing `mail.read` is wider and shows up).
+ */
+export function widenedBy(
+  before: SkillManifest | undefined,
+  after: SkillManifest,
+): SkillManifest | undefined {
+  const had = (xs: string[] | undefined) => new Set(xs ?? []);
+  const t = had(before?.tools);
+  const p = had(before?.permissions);
+  const r = had(before?.prompts);
+  const out: SkillManifest = {
+    tools: after.tools.filter((x) => !t.has(x)),
+    permissions: after.permissions.filter((x) => !p.has(x)),
+    prompts: after.prompts.filter((x) => !r.has(x)),
+  };
+  return out.tools.length + out.permissions.length + out.prompts.length === 0 ? undefined : out;
 }
 
 /** Unified diff across two trees (added, removed and changed text files). */

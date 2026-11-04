@@ -30,7 +30,9 @@ export interface LoadedSkill extends SkillSummary {
 export type SkillInstallSource =
   | { kind: "path"; path: string }
   | { kind: "git"; url: string; ref: string }
-  | { kind: "zip"; path: string };
+  | { kind: "zip"; path: string }
+  | { kind: "bundleFile"; name: string }
+  | { kind: "bundleUrl"; url: string };
 
 export interface ScanFinding {
   rule: string;

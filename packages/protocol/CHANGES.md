@@ -18,6 +18,12 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-04 (shared skills: signed bundles)
+
+- `SkillInstallSource` gains `bundleFile` (`name`: a `.psyche-skill` file the owner chose; staged only by `skills.proposeImport`) and `bundleUrl` (`url`: https only, size-capped, redirects re-checked). `skills.proposeInstall` accepts `bundleUrl`; the `skill_install` binding covers the new sources and, for a signed bundle, the author key (`signer`).
+- New methods `skills.proposeImport` (admin, side-effecting: verifies the bundle's signature, hashes and declared permissions, scans it and opens the device-only `skill_install` card), `skills.export` (admin, side-effecting: signs an owner-approved skill with the owner's author key, creating it on first use; refuses a skill someone else wrote), `skills.authors.list` (read) and `skills.authors.set` (admin, side-effecting: trust, un-trust or revoke a seen author key). `skills.install` gains optional `trustAuthor`, honored only with its approved card.
+- New types `BundleSigner` (`status`: `unsigned`, `own`, `trusted`, `seen`, `new`, `changed`, `revoked`; `keyId`, `name`, `previousKeyId`, `signerChanged`), `BundleSignerStatus`, `SkillBundleInfo` and `SkillAuthor`. `SkillProposal` gains optional `bundle` and `update.widened` / `update.signerChanged`; `SkillDetails` gains optional `signer`. Design: docs/design/shared-bundles-2026.md.
+
 ### v1 additive — 2026-11-04 (pairing links, remote Gateway R2)
 
 - `ConnectVerifyParams.setupToken` (optional): a one-time setup token from a pairing link. It is sent in `connect.verify`, not `connect`, so only a client that already verified the Gateway's key presents it; the Gateway honours it only for a `role: client` on the WebSocket without an `Origin`, and only with a v2 (`gatewayKey`) connect. `ConnectDenied.code` (optional, `setup_token_invalid`): a used, expired, revoked or not-allowed token is a denial, never a pending request.

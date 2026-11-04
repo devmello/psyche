@@ -196,6 +196,18 @@ export function composeSkills(opts: SkillsOptions = {}): ComposedSkills {
       gate: () => defaultGateContext(tools.list().map((t) => t.name)),
       // The owner's tool-only deny rules: a skill may not even declare a denied tool.
       installPolicy: () => ({ deniedTools: deniedToolsFromPolicy(rawBroker.policy) }),
+      // The owner's author key (`identity/author.key`) and shared bundles (design: shared-bundles).
+      psycheHome: home,
+      onAuthorChange: (event) => {
+        services.audit
+          .append({
+            kind: `skill.${event.kind}`,
+            actor: { type: "user" },
+            subject: { keyId: event.keyId },
+            data: event.name === undefined ? {} : { name: event.name },
+          })
+          .catch(() => undefined);
+      },
       onChange: (event) => {
         publish("skills.changed", event);
         if (event.type === "installed") drafts.installed(event.name);

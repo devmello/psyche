@@ -167,9 +167,15 @@ export interface NewOriginBindingArgs {
 export interface SkillInstallBindingArgs {
   name: string;
   scope: "home" | "workspace";
-  source: { kind: "path" | "zip"; path: string } | { kind: "git"; url: string; ref: string };
+  source:
+    | { kind: "path" | "zip"; path: string }
+    | { kind: "git"; url: string; ref: string }
+    | { kind: "bundleFile"; name: string }
+    | { kind: "bundleUrl"; url: string };
   /** Git sources: the commit the ref resolved to. */
   commit?: string;
+  /** Shared bundles: the author key (`sha256:<hex>`) whose signature verified; absent if unsigned. */
+  signer?: string;
   /** `sha256:<hex>` over the whole skill folder. */
   treeHash: string;
   tools: string[];
@@ -631,8 +637,12 @@ function skillInstallBinding(raw: unknown): [JsonObject, JsonObject] {
     source = { kind, url: str(k, "source.url", src.url), ref: str(k, "source.ref", src.ref) };
   } else if (kind === "path" || kind === "zip") {
     source = { kind, path: str(k, "source.path", src.path) };
+  } else if (kind === "bundleFile") {
+    source = { kind, name: str(k, "source.name", src.name) };
+  } else if (kind === "bundleUrl") {
+    source = { kind, url: str(k, "source.url", src.url) };
   } else {
-    bad(k, "source.kind must be path, zip or git");
+    bad(k, "source.kind must be path, zip, git, bundleFile or bundleUrl");
   }
   const sorted = (field: string) => [...new Set(strArray(k, field, a[field] ?? []))].sort();
   return [
@@ -641,6 +651,7 @@ function skillInstallBinding(raw: unknown): [JsonObject, JsonObject] {
       scope,
       source,
       commit: optStr(k, "commit", a.commit),
+      signer: optStr(k, "signer", a.signer),
       treeHash: sha(k, "treeHash", a.treeHash),
       tools: sorted("tools"),
       permissions: sorted("permissions"),

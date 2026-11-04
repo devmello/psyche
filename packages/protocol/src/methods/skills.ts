@@ -145,6 +145,13 @@ export const SkillDetails = Type.Object(
     version: Type.Optional(Type.String()),
     commit: Type.Optional(Type.String()),
     manifest: Type.Optional(SkillManifest),
+    signer: Type.Optional(
+      Type.Object({
+        keyId: Type.String(),
+        name: Type.String(),
+        state: StringEnum(["seen", "trusted", "revoked", "own"]),
+      }),
+    ),
     update: Type.Optional(SkillUpdateStatus),
     madeBy: Type.Optional(
       StringEnum(["agent"], {
@@ -170,9 +177,81 @@ export const SkillInstallSourceSchema = Type.Union(
       ref: Type.String({ minLength: 1, maxLength: 256 }),
     }),
     Type.Object({ kind: Type.Literal("zip"), path: Type.String({ minLength: 1 }) }),
+    Type.Object({
+      kind: Type.Literal("bundleFile"),
+      name: Type.String({ minLength: 1, maxLength: 200 }),
+    }),
+    Type.Object({
+      kind: Type.Literal("bundleUrl"),
+      url: Type.String({ minLength: 1, maxLength: 2048 }),
+    }),
   ],
-  { $id: "SkillInstallSource" },
+  {
+    $id: "SkillInstallSource",
+    description:
+      "bundleFile: a .psyche-skill file the owner chose (name is for display); bundleUrl: one at an https URL (no redirect to http, size-capped)",
+  },
 );
+
+/**
+ * Who signed a shared bundle (docs/design/shared-bundles-2026.md section 4). `keyId` is the
+ * `sha256:<hex>` fingerprint of the author's Ed25519 public key; `name` is the author's own
+ * claim and is never trusted on its own.
+ * - `unsigned`: no signature; installs as `unknown`.
+ * - `own`: the owner's author key. `trusted`: a key the owner trusted before.
+ * - `seen`: a key from an earlier install the owner did not trust. `new`: a key never seen.
+ * - `changed`: the author's name was seen with a different key, or this skill was installed
+ *   with a different key (or it was signed and now is not).
+ * - `revoked`: a key the owner revoked.
+ */
+export const BundleSignerStatus = StringEnum(
+  ["unsigned", "own", "trusted", "seen", "new", "changed", "revoked"],
+  { $id: "BundleSignerStatus" },
+);
+export type BundleSignerStatus = Static<typeof BundleSignerStatus>;
+
+export const BundleSigner = Type.Object(
+  {
+    status: BundleSignerStatus,
+    keyId: Type.Optional(Type.String({ description: "`sha256:<hex>` of the public key" })),
+    name: Type.Optional(
+      Type.String({ description: "The author's claimed name (data, not verified)" }),
+    ),
+    previousKeyId: Type.Optional(
+      Type.String({ description: "The key seen before when status is `changed`" }),
+    ),
+    signerChanged: Type.Boolean({
+      description:
+        "Differs from the key this skill was installed with (or it was signed and is no longer)",
+    }),
+  },
+  { $id: "BundleSigner" },
+);
+export type BundleSigner = Static<typeof BundleSigner>;
+
+/** What a staged bundle import adds to the trust card. */
+export const SkillBundleInfo = Type.Object(
+  {
+    signer: BundleSigner,
+    createdAt: Type.String({ description: "The author's claimed time; not verified" }),
+    bytes: Type.Integer({ minimum: 0 }),
+  },
+  { $id: "SkillBundleInfo" },
+);
+export type SkillBundleInfo = Static<typeof SkillBundleInfo>;
+
+/** An author key the Gateway has seen (`$PSYCHE_HOME/skills/authors.json`). */
+export const SkillAuthor = Type.Object(
+  {
+    keyId: Type.String(),
+    names: Type.Array(Type.String()),
+    state: StringEnum(["seen", "trusted", "revoked"]),
+    firstSeen: IsoDateTime,
+    trustedAt: Type.Optional(IsoDateTime),
+  },
+  { $id: "SkillAuthor" },
+);
+export type SkillAuthor = Static<typeof SkillAuthor>;
 
 export const SkillProposalFile = Type.Object(
   {
@@ -209,6 +288,17 @@ export const SkillProposal = Type.Object(
           fromHash: Type.String(),
           upToDate: Type.Boolean(),
           diff: Type.String({ description: "Unified diff per file" }),
+          widened: Type.Optional(
+            Type.Object(
+              {
+                tools: Type.Array(Type.String()),
+                permissions: Type.Array(Type.String()),
+                prompts: Type.Array(Type.String()),
+              },
+              { description: "What the new version asks for that the installed one did not" },
+            ),
+          ),
+          signerChanged: Type.Optional(Type.Boolean()),
         },
         { description: "Updates and re-approvals: the installed hash and the diff" },
       ),
@@ -216,6 +306,7 @@ export const SkillProposal = Type.Object(
     expiresAt: Type.Integer({ minimum: 0, description: "Epoch ms" }),
     manifest: Type.Optional(SkillManifest),
     author: Type.Optional(StringEnum(["agent"], { description: "Psyche wrote this skill" })),
+    bundle: Type.Optional(SkillBundleInfo),
   },
   { $id: "SkillProposal" },
 );
@@ -409,12 +500,74 @@ export const SkillsMethods = {
       "Side-effecting: opens a skill_install approval for a workspace skill draft or changed workspace skill.",
   }),
   "skills.install": defineMethod({
-    params: Type.Object({ proposalId: Id, approvalId: Id }),
+    params: Type.Object({
+      proposalId: Id,
+      approvalId: Id,
+      trustAuthor: Type.Optional(
+        Type.Boolean({
+          description:
+            "Also trust the bundle's signing key (needs the approved card; never skips it)",
+        }),
+      ),
+    }),
     result: Type.Object({ skill: SkillSummarySchema }),
     scope: "operator.admin",
     sideEffecting: true,
     description:
       "Side-effecting: installs a proposal; fails with approval_required without its approved skill_install.",
+  }),
+  "skills.proposeImport": defineMethod({
+    params: Type.Object({
+      name: Type.String({ minLength: 1, maxLength: 200, description: "File name, for display" }),
+      text: Type.String({ minLength: 2, maxLength: 8 * 1024 * 1024 }),
+    }),
+    result: ProposalResult,
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Side-effecting: verifies a .psyche-skill file's signature, hashes and declared permissions, scans it and opens a device-only skill_install approval. invalid_params for a malformed, tampered or mismatched bundle; policy_denied for a revoked signer or a manifest the policy forbids.",
+  }),
+  "skills.export": defineMethod({
+    params: Type.Object({
+      name: SkillName,
+      authorName: Type.Optional(
+        Type.String({
+          minLength: 1,
+          maxLength: 64,
+          description: "Used only when the author key is created",
+        }),
+      ),
+    }),
+    result: Type.Object({
+      filename: Type.String(),
+      bundle: Type.String({ description: "The .psyche-skill file's text" }),
+      signer: Type.Object({ keyId: Type.String(), name: Type.String() }),
+      createdKey: Type.Boolean(),
+    }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Side-effecting: signs a skill of the owner's (workspace, or made by Psyche) with the owner's author key, creating the key on first use. Refuses a skill someone else wrote.",
+  }),
+  "skills.authors.list": defineMethod({
+    params: EmptyParams,
+    result: Type.Object({
+      own: Type.Optional(Type.Object({ keyId: Type.String(), name: Type.String() })),
+      authors: Type.Array(SkillAuthor),
+    }),
+    scope: "operator.read",
+    description: "Author keys the Gateway has seen on imported bundles, and the owner's own key.",
+  }),
+  "skills.authors.set": defineMethod({
+    params: Type.Object({
+      keyId: Type.String({ pattern: "^sha256:[0-9a-f]{64}$" }),
+      state: StringEnum(["seen", "trusted", "revoked"]),
+    }),
+    result: Type.Object({ author: SkillAuthor }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Side-effecting: trusts, un-trusts or revokes a seen author key. Trust never skips an approval card; a revoked key's bundles are refused and its installed skills stop loading.",
   }),
   "skills.setEnabled": defineMethod({
     params: Type.Object({

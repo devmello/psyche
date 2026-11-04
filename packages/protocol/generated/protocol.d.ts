@@ -9563,6 +9563,7 @@ export interface SkillProposal {
      */
     author?:     AuthorEnum;
     bindingHash: string;
+    bundle?:     SkillBundleInfo;
     commit?:     string;
     /**
      * Epoch ms
@@ -9598,6 +9599,37 @@ export interface SkillProposal {
  */
 export type AuthorEnum = "agent";
 
+export interface SkillBundleInfo {
+    bytes: number;
+    /**
+     * The author's claimed time; not verified
+     */
+    createdAt: string;
+    signer:    BundleSigner;
+}
+
+export interface BundleSigner {
+    /**
+     * `sha256:<hex>` of the public key
+     */
+    keyId?: string;
+    /**
+     * The author's claimed name (data, not verified)
+     */
+    name?: string;
+    /**
+     * The key seen before when status is `changed`
+     */
+    previousKeyId?: string;
+    /**
+     * Differs from the key this skill was installed with (or it was signed and is no longer)
+     */
+    signerChanged: boolean;
+    status:        BundleSignerStatus;
+}
+
+export type BundleSignerStatus = "unsigned" | "own" | "trusted" | "seen" | "new" | "changed" | "revoked";
+
 export interface SkillProposalFile {
     bytes:      number;
     executable: boolean;
@@ -9625,14 +9657,19 @@ export interface SkillManifest {
 
 export type SkillProposalScope = "home" | "workspace";
 
+/**
+ * bundleFile: a .psyche-skill file the owner chose (name is for display); bundleUrl: one at
+ * an https URL (no redirect to http, size-capped)
+ */
 export interface SkillInstallSource {
     kind:  SkillInstallSourceKind;
     path?: string;
     ref?:  string;
     url?:  string;
+    name?: string;
 }
 
-export type SkillInstallSourceKind = "path" | "git" | "zip";
+export type SkillInstallSourceKind = "path" | "git" | "zip" | "bundleFile" | "bundleUrl";
 
 export type SkillTrust = "bundled" | "verified" | "local" | "unknown";
 
@@ -9643,9 +9680,52 @@ export interface SkillProposalUpdate {
     /**
      * Unified diff per file
      */
-    diff:     string;
-    fromHash: string;
-    upToDate: boolean;
+    diff:           string;
+    fromHash:       string;
+    signerChanged?: boolean;
+    upToDate:       boolean;
+    /**
+     * What the new version asks for that the installed one did not
+     */
+    widened?: Widened;
+}
+
+/**
+ * What the new version asks for that the installed one did not
+ */
+export interface Widened {
+    permissions: string[];
+    prompts:     string[];
+    tools:       string[];
+}
+
+export interface SkillsAuthorsListResult {
+    authors: SkillAuthor[];
+    own?:    Own;
+}
+
+export interface SkillAuthor {
+    firstSeen:  string;
+    keyId:      string;
+    names:      string[];
+    state:      SkillAuthorState;
+    trustedAt?: string;
+}
+
+export type SkillAuthorState = "seen" | "trusted" | "revoked";
+
+export interface Own {
+    keyId: string;
+    name:  string;
+}
+
+export interface SkillsAuthorsSetParams {
+    keyId: string;
+    state: SkillAuthorState;
+}
+
+export interface SkillsAuthorsSetResult {
+    author: SkillAuthor;
 }
 
 export interface SkillsCheckUpdatesParams {
@@ -9794,6 +9874,29 @@ export interface SkillsDraftsUpdateResult {
     draft: SkillDraft;
 }
 
+export interface SkillsExportParams {
+    /**
+     * Used only when the author key is created
+     */
+    authorName?: string;
+    name:        string;
+}
+
+export interface SkillsExportResult {
+    /**
+     * The .psyche-skill file's text
+     */
+    bundle:     string;
+    createdKey: boolean;
+    filename:   string;
+    signer:     SkillsExportResultSigner;
+}
+
+export interface SkillsExportResultSigner {
+    keyId: string;
+    name:  string;
+}
+
 export interface SkillsGetParams {
     name:    string;
     source?: SkillSource;
@@ -9844,6 +9947,7 @@ export interface SkillDetails {
     overrides: SkillSource[];
     path:      string;
     reasons:   string[];
+    signer?:   SkillDetailsSigner;
     source:    SkillSource;
     status:    SkillStatus;
     trust:     SkillTrust;
@@ -9866,11 +9970,23 @@ export interface SkillAuthorVersion {
 
 export type RetiredBy = "update" | "delete";
 
+export interface SkillDetailsSigner {
+    keyId: string;
+    name:  string;
+    state: SignerState;
+}
+
+export type SignerState = "seen" | "trusted" | "revoked" | "own";
+
 export type SkillStatus = "active" | "disabled" | "draft" | "unlocked" | "hash_mismatch" | "invalid" | "blocked" | "ineligible" | "shadowed";
 
 export interface SkillsInstallParams {
     approvalId: string;
     proposalId: string;
+    /**
+     * Also trust the bundle's signing key (needs the approved card; never skips it)
+     */
+    trustAuthor?: boolean;
 }
 
 export interface SkillsInstallResult {
@@ -9901,6 +10017,14 @@ export interface SkillsListResult {
 
 export interface SkillsProposeApprovalParams {
     name: string;
+}
+
+export interface SkillsProposeImportParams {
+    /**
+     * File name, for display
+     */
+    name: string;
+    text: string;
 }
 
 export interface SkillsProposeInstallParams {
