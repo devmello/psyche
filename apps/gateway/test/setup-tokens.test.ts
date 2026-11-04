@@ -276,6 +276,22 @@ describe("pairing with a setup token", () => {
     expect(phase(await pairWith(token))).toBe("paired");
   });
 
+  it("pairs the iPhone app (family ios) the same way, but never a page claiming to be it", async () => {
+    await start();
+    const { token } = await makeLink(["operator.read", "operator.write", "operator.approvals"]);
+    const fake = await handshake(
+      await client({ ...forwarded, origin: publicOrigin }),
+      publicOrigin,
+      { gatewayKey: t.gateway.context.identity.publicKey, setupToken: token, deviceFamily: "ios" },
+    );
+    expect(verified(fake)).toMatchObject({ phase: "denied", code: "setup_token_invalid" });
+    const phone = await pairWith(token, { deviceFamily: "ios" });
+    expect(verified(phone)).toMatchObject({
+      phase: "paired",
+      scopes: ["operator.read", "operator.write", "operator.approvals"],
+    });
+  });
+
   it("is never honoured for a node or for a browser page", async () => {
     await start();
     const { token } = await makeLink(["operator.read"]);

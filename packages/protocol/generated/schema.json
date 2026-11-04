@@ -1296,6 +1296,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Revokes the calling device itself: the same effect as devices.revoke on its own id (token and node authority end permanently), and this connection closes right after the reply. Needs no admin scope, because a device may always remove itself, and takes no device id, so it can never name another device. Audited as device.revoked_self. Not idempotency-keyed: a repeat finds the device already revoked and cannot connect to repeat it.",
+        "name": "devices.revokeSelf",
+        "params": "#/$defs/DevicesRevokeSelfParams",
+        "result": "#/$defs/DevicesRevokeSelfResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "Makes a single-use setup token (10 minutes, 256 random bits, stored only as a hash) and the pairing link that carries it. A computer that connects with the token, after verifying the Gateway's fingerprint, is paired at once with exactly these scopes; one without it still waits for approval. At most three live tokens; `unavailable` when gateway.publicOrigin is not set. Needs fresh presence once the Gateway has a presence verifier (approval_required with details.approvalId, then retry with approvalId). Not idempotent on purpose: every call makes a new token, and the link is never kept anywhere in the clear, not even as a stored idempotent result.",
         "name": "devices.setupToken.create",
         "params": "#/$defs/DevicesSetupTokenCreateParams",
@@ -2326,6 +2334,14 @@
         "result": "#/$defs/MemoryUpcomingResult",
         "scope": "operator.read",
         "sideEffecting": false
+      },
+      {
+        "description": "Undo for a progress, stopped-at or next-step line the owner's chat wrote: restores the previous value only while the field has not changed since (changed_again otherwise, nothing touched; removed when the owner had already marked it wrong in Memory and nothing was left to restore). Also puts back a to-do status and last signal time the write had moved, if they have not changed since. Only for updates a chat note offered, within seven days. Side-effecting.",
+        "name": "memory.work.undoUpdate",
+        "params": "#/$defs/MemoryWorkUndoUpdateParams",
+        "result": "#/$defs/MemoryWorkUndoUpdateResult",
+        "scope": "operator.write",
+        "sideEffecting": true
       },
       {
         "description": "Writes a workspace memory file (default replace). Protected files may require an approval. Side-effecting.",
@@ -10840,6 +10856,9 @@
           "$ref": "#/$defs/TaughtBlock"
         },
         {
+          "$ref": "#/$defs/WorkNoteBlock"
+        },
+        {
           "$ref": "#/$defs/SpecialistResultBlock"
         },
         {
@@ -14227,9 +14246,10 @@
           "type": "string"
         },
         "code": {
-          "description": "Machine-readable cause when there is one: the setup token was used, expired, revoked or not allowed here",
+          "description": "Machine-readable cause when there is one: setup_token_invalid (the setup token was used, expired, revoked or not allowed here) or device_revoked (this device was removed on the Gateway and can never connect again, so a client wipes its keys)",
           "enum": [
-            "setup_token_invalid"
+            "setup_token_invalid",
+            "device_revoked"
           ],
           "type": "string"
         }
@@ -16964,6 +16984,21 @@
       "type": "object"
     },
     "DevicesRevokeResult": {
+      "properties": {
+        "device": {
+          "$ref": "#/$defs/Device"
+        }
+      },
+      "required": [
+        "device"
+      ],
+      "type": "object"
+    },
+    "DevicesRevokeSelfParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "DevicesRevokeSelfResult": {
       "properties": {
         "device": {
           "$ref": "#/$defs/Device"
@@ -29289,6 +29324,31 @@
         "anchorsFromFolders",
         "remind",
         "askWhereStopped"
+      ],
+      "type": "object"
+    },
+    "MemoryWorkUndoUpdateParams": {
+      "properties": {
+        "factId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "factId"
+      ],
+      "type": "object"
+    },
+    "MemoryWorkUndoUpdateResult": {
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/WorkUndoStatus"
+        }
+      },
+      "required": [
+        "status"
       ],
       "type": "object"
     },
@@ -46207,6 +46267,93 @@
         "decision"
       ],
       "type": "object"
+    },
+    "WorkNoteAttribute": {
+      "enum": [
+        "status",
+        "deadline",
+        "progress",
+        "stopped_at",
+        "next_step"
+      ],
+      "type": "string"
+    },
+    "WorkNoteBlock": {
+      "properties": {
+        "type": {
+          "const": "work_note",
+          "type": "string"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/WorkNoteItem"
+          },
+          "maxItems": 10,
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "type",
+        "items"
+      ],
+      "type": "object"
+    },
+    "WorkNoteItem": {
+      "properties": {
+        "kind": {
+          "enum": [
+            "proposal",
+            "update"
+          ],
+          "type": "string"
+        },
+        "entityId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "attribute": {
+          "$ref": "#/$defs/WorkNoteAttribute"
+        },
+        "value": {
+          "maxLength": 300,
+          "type": "string"
+        },
+        "previous": {
+          "maxLength": 300,
+          "type": "string"
+        },
+        "factId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "entityId",
+        "name",
+        "attribute",
+        "value",
+        "factId"
+      ],
+      "type": "object"
+    },
+    "WorkUndoStatus": {
+      "enum": [
+        "undone",
+        "changed_again",
+        "already_undone",
+        "removed"
+      ],
+      "type": "string"
     },
     "WorkflowCard": {
       "anyOf": [

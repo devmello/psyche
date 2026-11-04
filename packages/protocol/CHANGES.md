@@ -23,6 +23,10 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 - New method `skills.drafts.fromRecording` (`operator.admin`, side-effecting): turns the owner's reviewed recording into a skill draft. Params `title` and `steps` (1 to 200 `BrowserTeachStep`); result `{ draft }`. A sensitive step carries no value; a value is accepted only on a `type` or `select` step with `keepValue: true` that is not sensitive and not an input (otherwise `invalid_params`). Page text in the steps is quoted as untrusted in the draft. Accepting it is the existing `skills.drafts.accept` (replay check, device-only `skill_install` card). Nothing starts or reads a recording over the protocol: the recorder is local to the desktop app.
 - New types `BrowserTeachStep`, `BrowserTeachStepKind` and `BrowserTeachInputName` (the Mac-app recorder's shapes stay `TeachStep` in `schemas/teach.ts`). `SkillDraft` gains optional `origin` (`SkillDraftOrigin`: `routine` or `recording`).
 - New `browser-teach.ts` helpers, shared by the recorder, the Gateway and the review screen: `classifyTeachField`, `classifyTeachValue`, `teachUrl`, `teachText`, `sanitizeTeachSteps` and `teachStepIssues`. Design: docs/design/teach-by-showing-2026.md.
+### v1 additive — 2026-11-04 (MW7 confirm note and undo)
+
+- New block `work_note` (`WorkNoteBlock`, items `WorkNoteItem`: `kind` proposal or update, `entityId`, `name`, `attribute`, `value`, optional `previous`, `factId`; the attribute enum is `WorkNoteAttribute`): the system note under a chat turn that proposed a status or deadline (Confirm / Discard call `memory.review.decide`) or wrote progress, stopped-at or next-step directly (Undo).
+- New method `memory.work.undoUpdate` (`operator.write`, side-effecting): `{factId}` gives `{status: undone | changed_again | already_undone | removed}`; it restores the previous value only while the field has not changed since.
 
 ### v1 additive — 2026-11-04 (pairing links, remote Gateway R2)
 

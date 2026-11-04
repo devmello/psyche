@@ -24,6 +24,13 @@ public struct GatewayClientDependencies: Sendable {
     public var shareInbox: ShareInbox?
     /// Run on revoke, after keys and outbox are wiped: the cache owner clears its files here.
     public var onWipe: @Sendable () async -> Void
+    /// Where downloaded Library files live (Quick Look); removed with the rest on revoke.
+    public var libraryCache: URL
+
+    public static var defaultLibraryCache: URL {
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("psyche-library", isDirectory: true)
+    }
 
     public init(
         endpointStore: EndpointStore = .standard(),
@@ -37,7 +44,8 @@ public struct GatewayClientDependencies: Sendable {
         backgroundGrace: Duration = .seconds(5),
         pendingRecheck: Duration = .seconds(5),
         shareInbox: ShareInbox? = ShareInbox.shared,
-        onWipe: @escaping @Sendable () async -> Void = {}
+        onWipe: @escaping @Sendable () async -> Void = {},
+        libraryCache: URL = GatewayClientDependencies.defaultLibraryCache
     ) {
         self.endpointStore = endpointStore
         self.identityStore = identityStore
@@ -51,6 +59,7 @@ public struct GatewayClientDependencies: Sendable {
         self.pendingRecheck = pendingRecheck
         self.shareInbox = shareInbox
         self.onWipe = onWipe
+        self.libraryCache = libraryCache
     }
 }
 
@@ -90,6 +99,18 @@ public actor GatewayClient {
 
     public var currentState: ConnectionState { state }
     public var pairedEndpoint: GatewayEndpoint? { endpoint }
+
+    /// This phone's id, name and the scopes the Gateway granted at the last connect (empty before the first).
+    public var ownIdentity: (deviceID: String, name: String, scopes: [String]) { (ownDeviceID, deps.deviceName, ownScopes) }
+
+    /// Where the phone's small durable files live (settings, last-seen state); nil in memory-only tests.
+    public nonisolated var dataDirectory: URL? { deps.stateDirectory }
+
+    /// Where downloaded Library files are kept.
+    public nonisolated var libraryCache: URL { deps.libraryCache }
+
+    /// Lets the backend announce a change it caused itself (a finished upload) to everything listening.
+    public func publishLive(_ event: LiveEvent) { publish(event) }
 
     /// States, starting with the current one. One stream per subscriber.
     public nonisolated func states() -> AsyncStream<ConnectionState> {
@@ -243,7 +264,11 @@ public actor GatewayClient {
     /// inbox and recents, and the cache owner's files.
     private func wipeLocalData() async {
         await deps.outbox.wipe()
-        if let dir = deps.stateDirectory { try? FileManager.default.removeItem(at: dir.appendingPathComponent("state.json")) }
+        if let dir = deps.stateDirectory {
+            try? FileManager.default.removeItem(at: dir.appendingPathComponent("state.json"))
+            try? FileManager.default.removeItem(at: dir.appendingPathComponent(PhoneSettingsStore.fileName))
+        }
+        try? FileManager.default.removeItem(at: deps.libraryCache)
         deps.shareInbox?.wipe()
         resync = Resync(lastStateVersion: nil)
         await deps.onWipe()
@@ -270,13 +295,14 @@ public actor GatewayClient {
         if let failure { throw failure }
     }
 
-    /// "Remove this phone": asks the Gateway to revoke this device (`devices.revoke` on its own id), and only when
+    /// "Remove this phone": asks the Gateway to revoke this device (`devices.revokeSelf`), and only when
     /// it did, wipes everything (`revoke`). Throws `BackendError.unreachable` when there is no live connection, and
     /// the Gateway's refusal as `BackendError.refused`; in both cases nothing is wiped.
     public func revokeThisDevice() async throws {
         guard case .live = state, let connection, !ownDeviceID.isEmpty else { throw BackendError.unreachable }
         do {
-            _ = try await connection.call("devices.revoke", params: .obj(["deviceId": .string(ownDeviceID)]))
+            // The Gateway revokes the caller itself (read scope is enough) and closes this socket after the reply.
+            _ = try await connection.call("devices.revokeSelf", params: .obj([:]))
         } catch {
             throw Self.backendError(error)
         }
@@ -446,7 +472,7 @@ public actor GatewayClient {
         do {
             let outcome = try await connection.handshake(setupToken: setupToken)
             switch outcome {
-            case .paired(let deviceID, _, let stateVersion):
+            case .paired(let deviceID, let scopes, let stateVersion):
                 await pin(connection, to: endpoint, paired: true)
                 self.connection = connection
                 self.mapper = EventMapper(lookupQuestion: { [weak connection] id in
@@ -456,8 +482,13 @@ public actor GatewayClient {
                     return payload["inputRequest"].flatMap(ChatMapping.question(from:))
                 })
                 self.ownDeviceID = deviceID
+                self.ownScopes = scopes
                 set(.live)
-                if resync.connected(stateVersion: stateVersion) { publish(.resynced) }
+                // Always tell the screens: one that loaded while the phone was still connecting failed with
+                // "unreachable", and one that stayed open while offline may be stale, whether or not
+                // `stateVersion` moved (N14 refetch).
+                _ = resync.connected(stateVersion: stateVersion)
+                publish(.resynced)
                 persistStateVersion()
                 Task { await self.flushOutbox() }
                 return .live(connection.events)
@@ -507,6 +538,7 @@ public actor GatewayClient {
     }
 
     private var ownDeviceID = ""
+    private var ownScopes: [String] = []
 
     private func consume(_ events: AsyncStream<WireEventFrame>) async {
         for await frame in events {

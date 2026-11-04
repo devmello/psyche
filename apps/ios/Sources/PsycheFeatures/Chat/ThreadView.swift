@@ -92,7 +92,11 @@ struct ThreadView: View {
             // `simctl launch … -psycheSend "text"` sends a message on open (screenshots, demos).
             if let text = UserDefaults.standard.string(forKey: "psycheSend"), !text.isEmpty {
                 UserDefaults.standard.removeObject(forKey: "psycheSend")
-                model.send(text)
+                Task {
+                    // On a cold launch the first load can run before the Gateway is live; wait for the thread.
+                    for _ in 0..<40 where model.phase.value == nil { try? await Task.sleep(for: .milliseconds(500)) }
+                    model.send(text)
+                }
             }
             #endif
             await model.observe()

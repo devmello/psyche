@@ -33,6 +33,7 @@ import {
 import { TaughtLine } from "../teaching/TaughtLine.tsx";
 import { ChangeChip } from "./ChangeChip.tsx";
 import { CompactionMessage } from "./context/connected.tsx";
+import { WorkNote } from "./WorkNote.tsx";
 
 /** First text of a message, for quotes and previews. */
 export function messageText(message: Message): string {
@@ -109,6 +110,11 @@ export function MessageView({
             // A specialist's result in the thread that spawned it (chat experience §4.5).
             <div key={b.taskId} className="mt-1 text-start">
               <RegisteredBlock block={b} ctx={{ message, pinChecklist: false, untrusted: false }} />
+            </div>
+          ) : b.type === "work_note" ? (
+            // The Gateway's note under a turn that touched the owner's work (MW7), quiet.
+            <div key={b.items.map((i) => i.factId).join()} className="ps-7 text-start">
+              <WorkNote items={b.items} />
             </div>
           ) : b.type === "taught" ? (
             // The Gateway's note after teaching (teaching loop §5.1), quiet and start-aligned.
