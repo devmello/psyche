@@ -123,8 +123,10 @@ function PaneBody(props: {
           {...(props.pane.target ? { cwd: props.pane.target } : {})}
         />
       ) : (
-        <p style={{ padding: 16, color: "var(--shell-muted)" }}>
-          {t("web.panes.terminalDesktopOnly")}
+        <p style={{ padding: 16, color: "var(--shell-muted)" }} data-testid="terminal-remote">
+          {platform.chrome?.remote
+            ? t("web.panes.terminalRemote", { host: platform.chrome.remote.hostName })
+            : t("web.panes.terminalDesktopOnly")}
         </p>
       );
     case "tasks":

@@ -125,11 +125,14 @@ describe("renderer bridge", () => {
       expect(platform.dialogs).toBeUndefined();
       expect(platform.helper).toBeUndefined();
       expect(platform.dictation).toBeUndefined();
+      // A shell is started here from what the Gateway answers: never offered for a remote one.
+      expect(platform.terminal).toBeUndefined();
+      expect(platform.sources).toBeUndefined();
+      expect(platform.permissions).toBeUndefined();
       expect(platform.app?.revealHome).toBeUndefined();
       expect(platform.gateway.showLogs).toBeUndefined();
       // The window is told whose it is, and the shell, the terminal and the switcher stay.
       expect(platform.chrome?.remote).toEqual({ hostName: "studio-mac" });
-      expect(platform.terminal).toBeDefined();
       expect(platform.gateways).toBeDefined();
       expect(platform.gateway.retry).toBeDefined();
       expect(platform.app?.info).toBeDefined();
@@ -144,6 +147,7 @@ describe("renderer bridge", () => {
       expect(platform.dialogs).toBeDefined();
       expect(platform.helper).toBeDefined();
       expect(platform.dictation).toBeDefined();
+      expect(platform.terminal).toBeDefined();
       expect(platform.app?.revealHome).toBeDefined();
     });
   });

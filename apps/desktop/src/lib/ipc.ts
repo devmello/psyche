@@ -273,3 +273,23 @@ export function checkAudioChunk(v: unknown): string {
     throw new IpcPayloadError(IPC.dictationAudio, "not base64");
   return s;
 }
+
+/**
+ * What a client of another computer's Gateway never does here (remote-gateway design §4.2): each
+ * one reaches this Mac's own shell, folders, helper, screen, microphone or apps on a Gateway's
+ * say-so, or for a Host's data. The remote window leaves the controls out; main refuses the
+ * calls as well, whatever the window sends. (The terminal starts a process from what the
+ * Gateway answers: a Gateway on another computer must never be able to ask for one.)
+ */
+export const REMOTE_REFUSED_CHANNELS: ReadonlySet<string> = new Set([
+  IPC.terminalOpen,
+  IPC.dialogPickFolder,
+  IPC.permissionsRequest,
+  IPC.helperLaunch,
+  IPC.touchIdIdentity,
+  IPC.touchIdRegister,
+  IPC.touchIdApprove,
+  IPC.dictationRecheck,
+  IPC.dictationCheckHotkey,
+  IPC.sourceOpen,
+]);

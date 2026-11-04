@@ -63,8 +63,11 @@ export function desktopPlatform(b: PsycheBridge = window.psyche): ShellPlatform 
  * The platform of a window that is a client of a Gateway on another computer (remote-gateway
  * design §4.2). What only works on the machine the Gateway runs on is left out, so the shell
  * hides it or says where it runs: the agent's browser, the folder picker (a path chosen here
- * means nothing there), the Mac helper and Touch ID (the Host's), system-wide dictation, and
- * revealing a folder or the logs (they are the Host's). Main refuses the same calls too.
+ * means nothing there), the Mac helper and Touch ID (the Host's), system-wide dictation,
+ * revealing a folder or the logs (they are the Host's), opening a cited source in this Mac's Mail
+ * or Finder, and the terminal: a shell is started here from what the Gateway answers, so a
+ * Gateway on another computer must never be able to ask for one. Main refuses the same calls too
+ * (`REMOTE_REFUSED` in main.ts), whatever this window sends.
  */
 export function remoteClientPlatform(full: ShellPlatform): ShellPlatform {
   const {
@@ -72,6 +75,9 @@ export function remoteClientPlatform(full: ShellPlatform): ShellPlatform {
     dialogs: _dialogs,
     helper: _helper,
     dictation: _dictation,
+    terminal: _terminal,
+    sources: _sources,
+    permissions: _permissions,
     ...rest
   } = full;
   const { showLogs: _showLogs, ...gateway } = full.gateway;

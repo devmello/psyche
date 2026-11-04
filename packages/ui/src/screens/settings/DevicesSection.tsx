@@ -309,12 +309,13 @@ const PAIR_SCOPES: readonly DeviceScope[] = [
   "node",
 ];
 
-/** A request that came in over the network (a proxy or another address), not from this Mac. */
+/**
+ * A request that came in over the network, not from the Mac's own sockets. Every pending
+ * request on the WebSocket is one: the desktop on this Mac pairs by the handshake secret and
+ * never waits here, so a request from 127.0.0.1 is an SSH tunnel, not this Mac.
+ */
 function isRemoteRequest(request: PairingRequest): boolean {
-  const from = request.remoteAddress;
-  return (
-    request.transport === "ws" && from !== undefined && !["127.0.0.1", "::1", "unix"].includes(from)
-  );
+  return request.transport === "ws";
 }
 
 /**
@@ -359,7 +360,7 @@ function PendingDevice({
       </p>
       {remote ? (
         <p className="text-callout text-label-secondary">
-          {t("settings.devices.fromAddress", { address: request.remoteAddress ?? "" })}
+          {t("settings.devices.fromAddress", { address: request.remoteAddress ?? "?" })}
         </p>
       ) : null}
       {remote && gatewayFingerprint ? (

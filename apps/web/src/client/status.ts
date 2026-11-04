@@ -47,6 +47,7 @@ export const FATAL_ERROR_CODES: readonly string[] = [
   "gateway_identity_missing",
   "gateway_identity_invalid",
   "gateway_origin_mismatch",
+  "gateway_pins_unreadable",
 ];
 
 export function isFatalStatus(status: GatewayStatus): boolean {

@@ -1,4 +1,12 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -9,9 +17,11 @@ import {
   clearGatewayPin,
   EMPTY_GATEWAYS,
   GatewayAddressError,
+  GatewaysFileError,
   gatewayDataDir,
   gatewaysFilePath,
   loadGateways,
+  loadGatewaysStrict,
   normalizeGatewayOrigin,
   pinGatewayKey,
   removeGateway,
@@ -19,6 +29,7 @@ import {
   saveGateways,
   THIS_MAC_ID,
 } from "../src/lib/gateways.ts";
+import { IPC, REMOTE_REFUSED_CHANNELS } from "../src/lib/ipc.ts";
 import {
   type GatewayConfirm,
   GatewayManager,
@@ -400,5 +411,181 @@ describe("GatewayManager", () => {
     await expect(declined.remove(id)).rejects.toMatchObject({ code: "forbidden" });
     await expect(declined.repair(id)).rejects.toMatchObject({ code: "forbidden" });
     expect(loadGateways(s.file).gateways).toHaveLength(1);
+  });
+});
+
+describe("a saved-Gateways file that cannot be understood (never an empty list)", () => {
+  const bad = [
+    ["not JSON", "{nope"],
+    ["not an object", "[]"],
+    [
+      "an entry with a bad id",
+      JSON.stringify({
+        v: 1,
+        active: "this-mac",
+        gateways: [{ id: "x", origin: "https://a.tail1.ts.net" }],
+      }),
+    ],
+    [
+      "a malformed pin",
+      JSON.stringify({
+        v: 1,
+        active: "this-mac",
+        gateways: [
+          { id: "gw_000000000001", origin: "https://a.tail1.ts.net", identityKey: "short" },
+        ],
+      }),
+    ],
+    [
+      "an active Gateway that is not saved",
+      JSON.stringify({ v: 1, active: "gw_00000000000f", gateways: [] }),
+    ],
+  ] as const;
+
+  it("is an error in the strict reader, and a missing file is empty", () => {
+    const dir = tempDir();
+    const file = gatewaysFilePath(dir);
+    expect(loadGatewaysStrict(file)).toEqual(EMPTY_GATEWAYS);
+    for (const [, text] of bad) {
+      writeFileSync(file, text);
+      expect(() => loadGatewaysStrict(file)).toThrow(GatewaysFileError);
+    }
+  });
+
+  it("is never overwritten by a pin, a switch, an add or a forget, and the active pin check fails", async () => {
+    for (const [, text] of bad) {
+      const userData = tempDir();
+      const file = gatewaysFilePath(userData);
+      writeFileSync(file, text);
+      const remote = new GatewayManager({
+        userData,
+        target: {
+          id: "gw_000000000001",
+          name: "a",
+          origin: "https://a.tail1.ts.net",
+          remote: true,
+          dataDir: null,
+        },
+        confirm: async () => true,
+        relaunch: () => {},
+      });
+      expect(() => remote.pinnedKey()).toThrow();
+      expect(() => remote.pin(KEY_A)).toThrow();
+      await expect(remote.add("b.tail1.ts.net")).rejects.toThrow();
+      await expect(remote.switchTo(THIS_MAC_ID)).rejects.toThrow();
+      expect(remote.list().map((g) => g.name)).toEqual(["This Mac"]);
+      expect(readFileSync(file, "utf8")).toBe(text);
+    }
+  });
+
+  it("fails the pin check when the active Gateway is gone from the file", () => {
+    const userData = tempDir();
+    saveGateways(gatewaysFilePath(userData), EMPTY_GATEWAYS);
+    const remote = new GatewayManager({
+      userData,
+      target: {
+        id: "gw_000000000001",
+        name: "a",
+        origin: "https://a.tail1.ts.net",
+        remote: true,
+        dataDir: null,
+      },
+      confirm: async () => true,
+      relaunch: () => {},
+    });
+    expect(() => remote.pinnedKey()).toThrow();
+  });
+});
+
+describe("writes that wait on a native dialog", () => {
+  it("keep a pin written while the owner decided (add and switch read the file again)", async () => {
+    const userData = tempDir();
+    const file = gatewaysFilePath(userData);
+    const a = addGateway(EMPTY_GATEWAYS, { address: "a.tail1.ts.net" }, "gw_aaaaaaaaaaaa");
+    saveGateways(file, a.gateways);
+    const target = {
+      id: "gw_aaaaaaaaaaaa",
+      name: "a",
+      origin: "https://a.tail1.ts.net",
+      remote: true,
+      dataDir: null,
+    };
+    let manager: GatewayManager;
+    manager = new GatewayManager({
+      userData,
+      target,
+      // The connection pins the key while the dialog is open.
+      confirm: async () => {
+        manager.pin(KEY_A);
+        return true;
+      },
+      relaunch: () => {},
+      stopLocal: async () => {},
+    });
+    await manager.add("b.tail1.ts.net");
+    let saved = loadGateways(file).gateways;
+    expect(saved.map((g) => g.name)).toEqual(["a", "b"]);
+    expect(saved[0]?.identityKey).toBe(KEY_A);
+    // Switch with the stop-local dialog: the pin of b, written during it, survives.
+    const bId = saved[1]?.id as string;
+    manager = new GatewayManager({
+      userData,
+      target,
+      confirm: async () => {
+        saveGateways(file, pinGatewayKey(loadGateways(file), bId, KEY_B));
+        return true;
+      },
+      relaunch: () => {},
+      stopLocal: async () => {},
+    });
+    await manager.switchTo(bId, { stopLocal: true });
+    saved = loadGateways(file).gateways;
+    expect(saved[1]?.identityKey).toBe(KEY_B);
+    expect(loadGateways(file).active).toBe(bId);
+  });
+});
+
+describe("what a window can type", () => {
+  it("strips control and bidirectional characters from a name", () => {
+    const { entry } = addGateway(EMPTY_GATEWAYS, {
+      address: "a.tail1.ts.net",
+      name: "Studio\n\nDetail: ok\u202eevil\u0007 Mac",
+    });
+    expect(entry.name).toBe("Studio Detail: ok evil Mac");
+  });
+
+  it("ignores PSYCHE_GATEWAY_ORIGIN in a packaged build", () => {
+    const env = { PSYCHE_GATEWAY_ORIGIN: "https://elsewhere.tail1.ts.net" };
+    expect(
+      resolveTarget({ userData: "/u", env, data: EMPTY_GATEWAYS, packaged: true }),
+    ).toMatchObject({
+      id: THIS_MAC_ID,
+      origin: "http://127.0.0.1:7979",
+    });
+    expect(resolveTarget({ userData: "/u", env, data: EMPTY_GATEWAYS, packaged: false }).id).toBe(
+      "env",
+    );
+  });
+});
+
+describe("what main refuses for a client of another computer's Gateway", () => {
+  it("covers the shell, folders, helper, Touch ID, dictation checks and opening sources", () => {
+    for (const channel of [
+      IPC.terminalOpen,
+      IPC.dialogPickFolder,
+      IPC.permissionsRequest,
+      IPC.helperLaunch,
+      IPC.touchIdIdentity,
+      IPC.touchIdRegister,
+      IPC.touchIdApprove,
+      IPC.dictationRecheck,
+      IPC.dictationCheckHotkey,
+      IPC.sourceOpen,
+    ]) {
+      expect(REMOTE_REFUSED_CHANNELS.has(channel)).toBe(true);
+    }
+    // The Gateway connection itself and the saved Gateways stay.
+    expect(REMOTE_REFUSED_CHANNELS.has(IPC.call)).toBe(false);
+    expect(REMOTE_REFUSED_CHANNELS.has(IPC.gatewaysList)).toBe(false);
   });
 });

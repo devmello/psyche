@@ -63,6 +63,15 @@ function remoteSplashLine(
 ): SplashLine {
   if (status.phase === "paired") return { tone: "ready", text: t("web.splash.ready") };
   const code = status.lastError;
+  if (status.phase === "error" && code === "gateway_pins_unreadable") {
+    return {
+      tone: "error",
+      text: t("web.splash.remote.pinsUnreadable"),
+      reason: t("web.splash.remote.pinsUnreadableReason"),
+      actions: ["switch"],
+      fatal: true,
+    };
+  }
   if (status.phase === "error" && code !== undefined && code in IDENTITY_REASON) {
     return {
       tone: "error",

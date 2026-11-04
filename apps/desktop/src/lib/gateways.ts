@@ -122,6 +122,22 @@ export function isLoopbackOrigin(origin: string): boolean {
   }
 }
 
+/**
+ * A name as shown in a dialog and the switcher: control and bidirectional-override characters
+ * removed (a name typed in the window must not be able to reshape a native dialog), whitespace
+ * collapsed, at most 64 characters.
+ */
+export function cleanGatewayName(name: string): string {
+  return (
+    name
+      // biome-ignore lint/suspicious/noControlCharactersInRegex: removing them is the point
+      .replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2066-\u2069]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 64)
+  );
+}
+
 function cleanEntry(raw: unknown): SavedGateway | null {
   if (typeof raw !== "object" || raw === null) return null;
   const e = raw as Record<string, unknown>;
@@ -134,8 +150,8 @@ function cleanEntry(raw: unknown): SavedGateway | null {
     return null;
   }
   const name =
-    typeof e.name === "string" && e.name.trim() !== ""
-      ? e.name.trim().slice(0, 64)
+    typeof e.name === "string" && cleanGatewayName(e.name) !== ""
+      ? cleanGatewayName(e.name)
       : defaultGatewayName(origin);
   return {
     id: e.id,
@@ -173,6 +189,65 @@ export function loadGateways(file: string): GatewaysFile {
   return { v: 1, active, gateways };
 }
 
+export class GatewaysFileError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "GatewaysFileError";
+  }
+}
+
+/**
+ * Reads the file for anything that will write it back. A missing file is an empty list; a file
+ * that exists but cannot be read, parsed or fully understood (a bad entry, a malformed pin, an
+ * active id that is not saved) is an error, never an empty list: an empty list is unpinned, and
+ * writing it back would erase the pins. Callers refuse to write while this throws.
+ */
+export function loadGatewaysStrict(file: string): GatewaysFile {
+  let text: string;
+  try {
+    text = readFileSync(file, "utf8");
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      return { ...EMPTY_GATEWAYS, gateways: [] };
+    }
+    throw new GatewaysFileError(`cannot read ${file}`);
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    throw new GatewaysFileError(`${file} is not valid JSON`);
+  }
+  if (
+    typeof parsed !== "object" ||
+    parsed === null ||
+    !Array.isArray((parsed as GatewaysFile).gateways)
+  ) {
+    throw new GatewaysFileError(`${file} is not a saved Gateways file`);
+  }
+  const p = parsed as Record<string, unknown>;
+  const seen = new Set<string>();
+  const gateways: SavedGateway[] = [];
+  for (const raw of p.gateways as unknown[]) {
+    const entry = cleanEntry(raw);
+    const key = (raw as { identityKey?: unknown } | null)?.identityKey;
+    if (
+      entry === null ||
+      seen.has(entry.id) ||
+      (key !== undefined && (typeof key !== "string" || !KEY_PATTERN.test(key)))
+    ) {
+      throw new GatewaysFileError(`${file} has an entry Psyche cannot read`);
+    }
+    seen.add(entry.id);
+    gateways.push(entry);
+  }
+  const active = typeof p.active === "string" ? p.active : THIS_MAC_ID;
+  if (active !== THIS_MAC_ID && !seen.has(active)) {
+    throw new GatewaysFileError(`${file} names an active Gateway that is not saved`);
+  }
+  return { v: 1, active, gateways };
+}
+
 export function saveGateways(file: string, data: GatewaysFile): void {
   mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
   const tmp = `${file}.${process.pid}.tmp`;
@@ -205,7 +280,7 @@ export function addGateway(
   const origin = normalizeGatewayOrigin(input.address);
   const found = data.gateways.find((g) => g.origin === origin);
   if (found) return { gateways: data, entry: found, existing: true };
-  const typedName = input.name?.trim();
+  const typedName = input.name === undefined ? "" : cleanGatewayName(input.name);
   const entry: SavedGateway = {
     id,
     name: (typedName ? typedName : defaultGatewayName(origin)).slice(0, 64),
@@ -219,7 +294,7 @@ export function addGateway(
 }
 
 export function renameGateway(data: GatewaysFile, id: string, name: string): GatewaysFile {
-  const trimmed = name.trim().slice(0, 64);
+  const trimmed = cleanGatewayName(name);
   if (trimmed === "") return data;
   return {
     ...data,
@@ -292,9 +367,11 @@ export function resolveTarget(opts: {
   userData: string;
   env: NodeJS.ProcessEnv;
   data: GatewaysFile;
+  /** A packaged build ignores the environment path: it is for development and tests. */
+  packaged?: boolean;
 }): GatewayTarget {
   const envOrigin = opts.env.PSYCHE_GATEWAY_ORIGIN;
-  if (envOrigin !== undefined && envOrigin !== "") {
+  if (opts.packaged !== true && envOrigin !== undefined && envOrigin !== "") {
     return { id: "env", name: envOrigin, origin: envOrigin, remote: false, dataDir: null };
   }
   const active = opts.data.gateways.find((g) => g.id === opts.data.active);

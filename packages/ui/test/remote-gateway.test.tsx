@@ -35,11 +35,13 @@ describe("a pairing request from another computer (remote-gateway design §3.4, 
       "operator.write",
       "operator.approvals",
     ]);
-    // A request from this Mac keeps what it had.
+    // A tunnel arrives from 127.0.0.1 but is not this Mac: it is treated as remote too.
     expect(defaultPairScopes(request({ remoteAddress: "127.0.0.1" }))).toEqual([
       "operator.read",
       "operator.write",
+      "operator.approvals",
     ]);
+    // A request on this Mac's own socket keeps what it had.
     expect(defaultPairScopes(request({ transport: "unix", remoteAddress: "unix" }))).toEqual([
       "operator.read",
       "operator.write",
@@ -74,12 +76,24 @@ describe("a pairing request from another computer (remote-gateway design §3.4, 
     ]);
   });
 
-  it("shows no network details for a request from this Mac", () => {
-    render(
+  it("shows the address and the Gateway key for a tunnel request too, and nothing for a socket one", () => {
+    const { rerender } = render(
       <StoryWorld>
         <DevicesPanel
           devices={noDevices}
           pairing={[request({ remoteAddress: "127.0.0.1" })]}
+          nodes={[]}
+          gatewayFingerprint={`sha256:${"cd34".repeat(16)}`}
+        />
+      </StoryWorld>,
+    );
+    expect(screen.getByText("From 127.0.0.1")).toBeTruthy();
+    expect(screen.getByText(/This Gateway's key/)).toBeTruthy();
+    rerender(
+      <StoryWorld>
+        <DevicesPanel
+          devices={noDevices}
+          pairing={[request({ transport: "unix", remoteAddress: "unix" })]}
           nodes={[]}
           gatewayFingerprint={`sha256:${"cd34".repeat(16)}`}
         />

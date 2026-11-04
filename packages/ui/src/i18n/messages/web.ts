@@ -458,6 +458,11 @@ export const web = {
   "web.remote.switcherLabel": "Connected to {host}. Switch Gateway.",
   "web.remote.manage": "Gateways…",
   "web.panes.title.terminalOn": "Terminal on {host}",
+  "web.panes.terminalRemote":
+    "The terminal runs on {host}. This window has no shell on it yet.",
+  "web.splash.remote.pinsUnreadable": "Psyche can't read its saved Gateways.",
+  "web.splash.remote.pinsUnreadableReason":
+    "The file that remembers each Gateway's identity can't be read, so Psyche won't connect without it. Nothing was changed.",
   "web.browser.remote": "The browser runs on {host}.",
   "web.browser.remoteHint":
     "Browser tasks keep running in Psyche on {host}, which has to be open there.",

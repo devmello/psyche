@@ -60,6 +60,13 @@ export class Handshake {
   private readonly params: ConnectParams;
   private readonly sign: Signer;
   private readonly verifyGateway: GatewayVerifier | undefined;
+  /**
+   * Where this socket is. A result is accepted only after this handshake sent `connect.verify`
+   * for a challenge it received and (when a verifier is set) that the verifier passed. A server
+   * that answers `connect` with a ready-made `connect.verify` result, sends one early, or
+   * repeats one skips nothing: it is refused, and the connection stops.
+   */
+  private stage: "new" | "started" | "verifying" | "sent" | "done" = "new";
 
   constructor(params: ConnectParams, sign: Signer, verifyGateway?: GatewayVerifier) {
     this.params = params;
@@ -68,12 +75,14 @@ export class Handshake {
   }
 
   start(): ReqFrame {
+    this.stage = "started";
     return reqFrame("connect", "connect", this.params);
   }
 
   async onFrame(frame: Frame): Promise<HandshakeStep> {
     if (frame.type !== "res") return {};
     if (!frame.ok) {
+      this.stage = "done";
       const server = (frame.error.details as { server?: unknown } | undefined)?.server;
       return {
         status: {
@@ -85,9 +94,16 @@ export class Handshake {
       };
     }
     const payload = frame.payload;
-    if (!isRecord(payload)) return { status: { type: "error", code: "invalid_frame" }, done: true };
+    const refuse = (): HandshakeStep => {
+      this.stage = "done";
+      return { status: { type: "error", code: "invalid_frame" }, done: true };
+    };
+    if (!isRecord(payload)) return refuse();
 
     if (frame.id === "connect" && payload.phase === "challenge") {
+      // One challenge, answering the one `connect` this handshake sent.
+      if (this.stage !== "started") return refuse();
+      this.stage = "verifying";
       const { nonce, serverOrigin, protocolVersion } = payload;
       if (
         typeof nonce !== "string" ||
@@ -109,7 +125,10 @@ export class Handshake {
           this.params.publicKey,
         );
         // Nothing is signed for a Gateway that failed the check.
-        if (!verdict.ok) return { status: { type: "error", code: verdict.code }, done: true };
+        if (!verdict.ok) {
+          this.stage = "done";
+          return { status: { type: "error", code: verdict.code }, done: true };
+        }
         fingerprint = verdict.fingerprint;
       }
       const bytes = connectSigningPayload({
@@ -120,6 +139,7 @@ export class Handshake {
         serverOrigin,
       });
       const signature = await this.sign(bytes);
+      this.stage = "sent";
       return {
         status: {
           type: "challenge",
@@ -131,6 +151,8 @@ export class Handshake {
     }
 
     if (frame.id === "connect.verify") {
+      if (this.stage !== "sent") return refuse();
+      this.stage = "done";
       switch (payload.phase) {
         case "paired":
           return {
@@ -149,6 +171,6 @@ export class Handshake {
           };
       }
     }
-    return { status: { type: "error", code: "invalid_frame" }, done: true };
+    return refuse();
   }
 }

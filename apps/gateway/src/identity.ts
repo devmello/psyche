@@ -6,7 +6,15 @@ import {
   type KeyObject,
   sign,
 } from "node:crypto";
-import { chmodSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  linkSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, join } from "node:path";
 import { PsycheError } from "@psyche/protocol";
 
@@ -104,17 +112,20 @@ export function loadOrCreateGatewayIdentity(home: string): GatewayIdentity {
     chmodSync(path, 0o600);
     return fromJwk(parsed.jwk);
   }
-  return writeNewIdentity(path);
+  return writeNewIdentity(path, home, false);
 }
 
 /** Replaces the identity with a new key. Every client that pinned the old one must pair again. */
 export function rotateGatewayIdentity(home: string): GatewayIdentity {
-  const path = identityKeyPath(home);
-  rmSync(path, { force: true });
-  return writeNewIdentity(path);
+  return writeNewIdentity(identityKeyPath(home), home, true);
 }
 
-function writeNewIdentity(path: string): GatewayIdentity {
+/**
+ * Writes the file complete, then puts it in place: a first start links it (which fails if a file
+ * appeared meanwhile, and the winner's key is then read, never replaced), a rotation renames over
+ * the old one. There is never a moment with no identity file, and no partial one.
+ */
+function writeNewIdentity(path: string, home: string, replace: boolean): GatewayIdentity {
   const { privateKey } = generateKeyPairSync("ed25519");
   const jwk = privateKey.export({ format: "jwk" });
   if (typeof jwk.x !== "string" || typeof jwk.d !== "string") {
@@ -127,7 +138,21 @@ function writeNewIdentity(path: string): GatewayIdentity {
   try {
     writeFileSync(tmp, `${JSON.stringify(file)}\n`, { mode: 0o600 });
     chmodSync(tmp, 0o600);
-    renameSync(tmp, path);
+    if (replace) {
+      renameSync(tmp, path);
+    } else {
+      try {
+        linkSync(tmp, path);
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code === "EEXIST") {
+          rmSync(tmp, { force: true });
+          return loadOrCreateGatewayIdentity(home);
+        }
+        throw err;
+      } finally {
+        rmSync(tmp, { force: true });
+      }
+    }
   } catch (err) {
     rmSync(tmp, { force: true });
     throw err;

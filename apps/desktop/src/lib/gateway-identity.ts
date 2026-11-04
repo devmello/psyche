@@ -1,4 +1,6 @@
 import { createHash, createPublicKey, verify } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { gatewaySigningPayload } from "@psyche/protocol";
 import type { GatewayVerifier } from "@psyche/web/client";
 
@@ -13,6 +15,22 @@ import type { GatewayVerifier } from "@psyche/web/client";
 /** `sha256:<hex>` of a raw public key given as base64url: what the owner compares. */
 export function fingerprintOf(publicKeyB64url: string): string {
   return `sha256:${createHash("sha256").update(Buffer.from(publicKeyB64url, "base64url")).digest("hex")}`;
+}
+
+/**
+ * The public key of this Mac's own Gateway from `$PSYCHE_HOME/identity/gateway.key`, when that
+ * file can be read (the app and the Gateway run as the same user); undefined otherwise.
+ */
+export function readLocalGatewayKey(home: string): string | undefined {
+  try {
+    const file = JSON.parse(readFileSync(join(home, "identity", "gateway.key"), "utf8")) as {
+      jwk?: { x?: unknown };
+    };
+    const x = file.jwk?.x;
+    return typeof x === "string" && /^[A-Za-z0-9_-]{43}$/.test(x) ? x : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function parseOrigin(origin: string): URL | null {
@@ -31,17 +49,18 @@ function isLoopbackUrl(url: URL): boolean {
 }
 
 /**
- * Whether the origin a challenge names is the one this client dialed. Exact (scheme, host, port)
- * match, with one allowance: two loopback origins of the same scheme match whatever the port,
- * because an SSH tunnel (`ssh -L 8000:127.0.0.1:7979 host`) legitimately dials another port than
- * the Gateway's own. The pin, not the address, is what identifies a tunnelled Gateway.
+ * Whether the origin a challenge names is the one this client dialed: the same scheme, host and
+ * port. The one allowance is that `localhost`, `127.0.0.1` and `::1` are the same host. The port
+ * must match even for a tunnel, so a saved tunnel Gateway cannot be answered by This Mac's own
+ * Gateway or by a squatter on another local port; a tunnel is made with the same port on both
+ * ends (`ssh -L 7979:127.0.0.1:7979 host` with no local Gateway on 7979).
  */
 export function originMatchesDialed(dialed: string, named: string): boolean {
   const a = parseOrigin(dialed);
   const b = parseOrigin(named);
   if (a === null || b === null) return false;
   if (a.origin === b.origin) return true;
-  return a.protocol === b.protocol && isLoopbackUrl(a) && isLoopbackUrl(b);
+  return a.protocol === b.protocol && a.port === b.port && isLoopbackUrl(a) && isLoopbackUrl(b);
 }
 
 function verifySignature(
@@ -76,14 +95,27 @@ export interface GatewayVerifierOptions {
   /** The pinned key (base64url), if any. Read per attempt. */
   pinnedKey: () => string | undefined;
   /**
-   * First sight of a key with nothing pinned (trust on first use): the caller stores it. Called
-   * only after the signature verified, so a pin can only ever be a key whose holder answered.
+   * Local mode only: the public key of this Mac's own Gateway (`identity/gateway.key`), when it
+   * can be read. A Gateway that answers with another key is not This Mac's (a stale
+   * `ssh -L 7979` tunnel, a squatter on the port), and one that presents none while this file
+   * exists is not either.
    */
-  pin: (gatewayKey: string) => void;
+  localKey?: () => string | undefined;
 }
 
-export function createGatewayVerifier(opts: GatewayVerifierOptions): GatewayVerifier {
-  return (challenge, devicePublicKey) => {
+/** A verifier, and the key it saw first when nothing was pinned yet (see `candidateKey`). */
+export type PinningVerifier = GatewayVerifier & {
+  /**
+   * Trust on first use, held in memory: the key a Gateway proved while nothing was pinned. The
+   * caller stores it only once that connection reaches paired, so an abandoned or interrupted
+   * attempt pins nothing. Until then every attempt must present this same key.
+   */
+  candidateKey(): string | undefined;
+};
+
+export function createGatewayVerifier(opts: GatewayVerifierOptions): PinningVerifier {
+  let candidate: string | undefined;
+  const verifier: GatewayVerifier = (challenge, devicePublicKey) => {
     const { gatewayKey, gatewaySignature } = challenge;
     if (opts.mode === "strict" && !originMatchesDialed(opts.dialedOrigin, challenge.serverOrigin)) {
       return { ok: false, code: "gateway_origin_mismatch" };
@@ -91,7 +123,7 @@ export function createGatewayVerifier(opts: GatewayVerifierOptions): GatewayVeri
     if (gatewayKey === undefined || gatewaySignature === undefined) {
       // An older Gateway signs nothing. That is fine for the one this app supervises, never for
       // a remote one: a pinned Gateway that stops presenting its key is not the one we pinned.
-      return opts.mode === "strict"
+      return opts.mode === "strict" || opts.localKey?.() !== undefined
         ? { ok: false, code: "gateway_identity_missing" }
         : { ok: true };
     }
@@ -104,10 +136,28 @@ export function createGatewayVerifier(opts: GatewayVerifierOptions): GatewayVeri
       return { ok: false, code: "gateway_identity_invalid" };
     }
     if (opts.mode === "strict") {
-      const pinned = opts.pinnedKey();
-      if (pinned === undefined) opts.pin(gatewayKey);
-      else if (pinned !== gatewayKey) return { ok: false, code: "gateway_identity_changed" };
+      let pinned: string | undefined;
+      try {
+        pinned = opts.pinnedKey();
+      } catch {
+        // The saved Gateways file cannot be read, or this Gateway is no longer in it: running
+        // without the pin is running without the check.
+        return { ok: false, code: "gateway_pins_unreadable" };
+      }
+      if (pinned !== undefined) {
+        if (pinned !== gatewayKey) return { ok: false, code: "gateway_identity_changed" };
+      } else if (candidate !== undefined && candidate !== gatewayKey) {
+        return { ok: false, code: "gateway_identity_changed" };
+      } else {
+        candidate = gatewayKey;
+      }
+    } else {
+      const own = opts.localKey?.();
+      if (own !== undefined && own !== gatewayKey) {
+        return { ok: false, code: "gateway_identity_changed" };
+      }
     }
     return { ok: true, fingerprint: fingerprintOf(gatewayKey) };
   };
+  return Object.assign(verifier, { candidateKey: () => candidate });
 }

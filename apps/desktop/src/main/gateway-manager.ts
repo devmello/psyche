@@ -9,7 +9,7 @@ import {
   type GatewaysFile,
   type GatewayTarget,
   gatewayDataDir,
-  loadGateways,
+  loadGatewaysStrict,
   pinGatewayKey,
   removeGateway,
   renameGateway,
@@ -72,12 +72,28 @@ export class GatewayManager {
     this.#file = join(deps.userData, "gateways.json");
   }
 
+  /**
+   * The file, for reading and for any write. A file that cannot be understood is an error here
+   * (never an empty list): nothing is written over it, and the list shows only This Mac.
+   */
   #load(): GatewaysFile {
-    return loadGateways(this.#file);
+    try {
+      return loadGatewaysStrict(this.#file);
+    } catch (err) {
+      throw new PsycheError(
+        "unavailable",
+        err instanceof Error ? err.message : "the saved Gateways file cannot be read",
+      );
+    }
   }
 
   list(): SavedGatewayView[] {
-    const data = this.#load();
+    let data: GatewaysFile;
+    try {
+      data = this.#load();
+    } catch {
+      data = { v: 1, active: THIS_MAC_ID, gateways: [] };
+    }
     const activeId = this.#deps.target.id === "env" ? THIS_MAC_ID : this.#deps.target.id;
     return [
       {
@@ -107,23 +123,31 @@ export class GatewayManager {
 
   /** Adds the Gateway for `address` after the owner confirms it in a native dialog. */
   async add(address: string, name?: string): Promise<SavedGatewayView> {
-    const data = this.#load();
-    let result: ReturnType<typeof addGateway>;
-    try {
-      result = addGateway(data, { address, ...(name === undefined ? {} : { name }) });
-    } catch (err) {
-      if (err instanceof GatewayAddressError) {
-        throw new PsycheError("invalid_params", err.message, { details: { problem: err.problem } });
+    const attempt = () => {
+      try {
+        return addGateway(this.#load(), { address, ...(name === undefined ? {} : { name }) });
+      } catch (err) {
+        if (err instanceof GatewayAddressError) {
+          throw new PsycheError("invalid_params", err.message, {
+            details: { problem: err.problem },
+          });
+        }
+        throw err;
       }
-      throw err;
-    }
-    const { entry } = result;
-    if (!result.existing) {
-      const ok = await this.#deps.confirm({ kind: "add", origin: entry.origin, name: entry.name });
-      if (!ok) throw new PsycheError("forbidden", "Adding the Gateway was cancelled");
-      saveGateways(this.#file, result.gateways);
-    }
-    return this.#view(entry);
+    };
+    const first = attempt();
+    if (first.existing) return this.#view(first.entry);
+    const ok = await this.#deps.confirm({
+      kind: "add",
+      origin: first.entry.origin,
+      name: first.entry.name,
+    });
+    if (!ok) throw new PsycheError("forbidden", "Adding the Gateway was cancelled");
+    // The file is read again after the dialog: it may have changed while the owner decided (a pin
+    // written by a connection), and saving the copy read before would erase that.
+    const result = attempt();
+    if (!result.existing) saveGateways(this.#file, result.gateways);
+    return this.#view(result.entry);
   }
 
   #view(entry: SavedGateway): SavedGatewayView {
@@ -154,6 +178,7 @@ export class GatewayManager {
       origin: entry.origin,
     });
     if (!ok) throw new PsycheError("forbidden", "Forgetting the Gateway was cancelled");
+    this.#find(id);
     saveGateways(this.#file, removeGateway(this.#load(), id));
     if (this.#deps.target.id === id) {
       // This app is running out of that directory: Chromium writes into it until the process
@@ -167,7 +192,13 @@ export class GatewayManager {
 
   /** Deletes the data directory of every Gateway that is no longer saved (a forgotten active one). */
   sweepForgottenData(): void {
-    const keep = new Set([this.#deps.target.id, ...this.#load().gateways.map((g) => g.id)]);
+    let saved: SavedGateway[];
+    try {
+      saved = this.#load().gateways;
+    } catch {
+      return; // an unreadable file: delete nothing
+    }
+    const keep = new Set([this.#deps.target.id, ...saved.map((g) => g.id)]);
     let names: string[];
     try {
       names = readdirSync(join(this.#deps.userData, "gateways"));
@@ -183,12 +214,13 @@ export class GatewayManager {
   /** Switches the active Gateway and restarts the app. `stopLocal` also stops this Mac's own. */
   async switchTo(id: string, opts: { stopLocal?: boolean } = {}): Promise<void> {
     if (id !== THIS_MAC_ID) this.#find(id);
-    const data = this.#load();
     if (opts.stopLocal === true && this.#deps.stopLocal) {
       const ok = await this.#deps.confirm({ kind: "stopLocal" });
       if (ok) await this.#deps.stopLocal();
     }
-    saveGateways(this.#file, setActiveGateway(data, id));
+    // Read after the dialog, so a pin written meanwhile survives.
+    if (id !== THIS_MAC_ID) this.#find(id);
+    saveGateways(this.#file, setActiveGateway(this.#load(), id));
     this.#deps.relaunch();
   }
 
@@ -202,28 +234,37 @@ export class GatewayManager {
     const entry = this.#find(id);
     const ok = await this.#deps.confirm({ kind: "repair", name: entry.name, origin: entry.origin });
     if (!ok) throw new PsycheError("forbidden", "Pairing again was cancelled");
+    this.#find(id);
     saveGateways(this.#file, clearGatewayPin(this.#load(), id));
     rmSync(join(gatewayDataDir(this.#deps.userData, id), "device-key.json"), { force: true });
     if (this.#deps.target.id === id) this.#deps.relaunch();
   }
 
-  /** The pinned key of the active saved Gateway; read per connect attempt. */
+  /**
+   * The pinned key of the active saved Gateway; read per connect attempt. Throws when the file
+   * cannot be understood or the entry is gone, so the attempt fails instead of running unpinned.
+   */
   pinnedKey(): string | undefined {
     if (!this.#deps.target.remote) return undefined;
-    return this.#load().gateways.find((g) => g.id === this.#deps.target.id)?.identityKey;
+    const entry = this.#load().gateways.find((g) => g.id === this.#deps.target.id);
+    if (entry === undefined)
+      throw new PsycheError("unavailable", "the active Gateway is not saved");
+    return entry.identityKey;
   }
 
   /** Trust on first use: stores the key the active Gateway proved at its first connect. */
   pin(key: string): void {
     if (!this.#deps.target.remote) return;
     const data = this.#load();
-    if (data.gateways.find((g) => g.id === this.#deps.target.id)?.identityKey !== undefined) return;
+    const entry = data.gateways.find((g) => g.id === this.#deps.target.id);
+    if (entry === undefined || entry.identityKey !== undefined) return;
     saveGateways(this.#file, pinGatewayKey(data, this.#deps.target.id, key));
   }
 
   /** Remembers when the active saved Gateway last paired. */
   markConnected(): void {
     if (!this.#deps.target.remote) return;
+    if (!this.#load().gateways.some((g) => g.id === this.#deps.target.id)) return;
     const at = (this.#deps.now?.() ?? new Date()).toISOString();
     saveGateways(this.#file, touchGateway(this.#load(), this.#deps.target.id, at));
   }

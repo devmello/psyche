@@ -42,12 +42,16 @@ The toolbar then shows the Host's name next to the avatar, with a menu to switch
 
 ## What the identity pin does
 
-The Gateway has a long-lived identity key in `identity/gateway.key` in its data folder. At the first connection this computer pins the key (trust on first use, which is why you compare the fingerprint). After that it refuses to connect, and signs nothing, when:
+The Gateway has a long-lived identity key in `identity/gateway.key` in its data folder. At the first connection this computer holds the key in memory and stores the pin once that connection is paired (trust on first use, which is why you compare the fingerprint). After that it refuses to connect, and signs nothing, when:
 
 - the Gateway presents a different key ("This isn't the studio-mac you paired with");
 - the Gateway's proof does not verify for this computer and this connection;
 - the Gateway answers for a different address than the one this computer dialed;
-- the Gateway presents no key at all.
+- the Gateway presents no key at all;
+- the Gateway answers with a result without this computer having answered its challenge (the handshake is a strict sequence: one challenge, this computer's reply, one result);
+- the saved Gateways file cannot be read, or this Gateway is no longer in it (Psyche does not run without the pin, and never writes over a file it cannot read).
+
+A tunnel Gateway (`ssh -L`) must use the same port on both ends, so another Gateway or a squatter on a different local port cannot answer for it.
 
 There is no "continue anyway". If the identity changed on purpose (you rebuilt the Host, or ran `psyched identity rotate`), choose **Forget and pair again**. Show the fingerprint on the Host with `psyched identity show`.
 
@@ -60,7 +64,7 @@ Chat, Tasks, Search, Library, memory, automations and the non-Apple connectors w
 | The agent's browser | Off. "The browser runs on studio-mac." Browser tasks keep running in Psyche on the Host, which has to be open there. |
 | Computer use | Off. "Computer use works at studio-mac." |
 | Share a folder, Show in Finder, Show logs | Hidden. A path chosen here means nothing on the Host. |
-| Terminal | Titled "Terminal on studio-mac". It is the Host's shell. |
+| Terminal | Off. "The terminal runs on studio-mac." This window starts no shell, because a shell is started here from what the Gateway answers, and a Gateway on another computer must never be able to ask for one. A real Host terminal over the connection is later work. |
 | Apple apps (Notes, Messages, Mail, Calendar, Reminders, Contacts) | The Host's, labelled "On studio-mac". This computer's own are never used. |
 | Ask about my screen, system-wide dictation | Off until they can run on this computer. |
 | Touch ID and passkeys from this window | Not built yet. Answer risky approvals (payments, credential fills, running commands on the Host, security changes) on the Host. |

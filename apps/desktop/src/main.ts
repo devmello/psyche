@@ -36,8 +36,13 @@ import { appInfo } from "./lib/app-info.ts";
 import { APP_ORIGIN, APP_SCHEME, contentType, isSameApp, resolveAppPath } from "./lib/app-path.ts";
 import { deepLinkFromArgv, isAppRoute, parseDeepLink } from "./lib/deep-link.ts";
 import { loadOrCreateDeviceKey } from "./lib/device-key.ts";
-import { createGatewayVerifier } from "./lib/gateway-identity.ts";
-import { gatewaysFilePath, loadGateways, resolveTarget } from "./lib/gateways.ts";
+import { createGatewayVerifier, readLocalGatewayKey } from "./lib/gateway-identity.ts";
+import {
+  EMPTY_GATEWAYS,
+  gatewaysFilePath,
+  loadGatewaysStrict,
+  resolveTarget,
+} from "./lib/gateways.ts";
 import {
   checkCallable,
   checkClipboardText,
@@ -50,6 +55,7 @@ import {
   checkViewport,
   IPC,
   num,
+  REMOTE_REFUSED_CHANNELS,
   rec,
   str,
 } from "./lib/ipc.ts";
@@ -140,10 +146,26 @@ if (!app.requestSingleInstanceLock()) app.quit();
  * over on the new Gateway.
  */
 const baseUserData = app.getPath("userData");
+/**
+ * A saved-Gateways file that exists but cannot be understood is not an empty list (that would
+ * read as "nothing pinned" and be written back over the pins): the app starts on This Mac, says
+ * so in a dialog once it is ready, and nothing writes the file while it stays unreadable
+ * (`GatewayManager` reads it strictly too).
+ */
+let gatewaysFileProblem: string | undefined;
+const savedGateways = (() => {
+  try {
+    return loadGatewaysStrict(gatewaysFilePath(baseUserData));
+  } catch (err) {
+    gatewaysFileProblem = err instanceof Error ? err.message : "unreadable";
+    return { ...EMPTY_GATEWAYS, gateways: [] };
+  }
+})();
 const gatewayTarget = resolveTarget({
   userData: baseUserData,
   env: process.env,
-  data: loadGateways(gatewaysFilePath(baseUserData)),
+  data: savedGateways,
+  packaged: app.isPackaged,
 });
 if (gatewayTarget.dataDir !== null) {
   mkdirSync(gatewayTarget.dataDir, { recursive: true, mode: 0o700 });
@@ -299,6 +321,12 @@ function handle(channel: string, fn: Handler): void {
   ipcMain.handle(channel, async (event, arg: unknown) => {
     if (!trusted(event))
       return { ok: false, error: { code: "forbidden", message: "untrusted sender" } };
+    if (remoteGateway && REMOTE_REFUSED_CHANNELS.has(channel)) {
+      return {
+        ok: false,
+        error: { code: "forbidden", message: "That only works on the computer running Psyche" },
+      };
+    }
     try {
       return { ok: true, value: await fn(event, arg) };
     } catch (err) {
@@ -456,8 +484,8 @@ async function confirmGatewayChange(c: GatewayConfirm): Promise<boolean> {
   const opts =
     c.kind === "add"
       ? {
-          message: `Connect Psyche to ${c.name}?`,
-          detail: `Address: ${c.origin}\n\nThis computer will ask ${c.name} to pair. Nothing is shared until its owner approves this computer there, and Psyche pins the Gateway's identity at the first connection.`,
+          message: `Connect Psyche to ${c.origin}?`,
+          detail: `Name: ${c.name}\n\nThis computer will ask that Gateway to pair. Nothing is shared until its owner approves this computer there, and Psyche pins the Gateway's identity at the first connection.`,
           buttons: ["Add Gateway", "Cancel"],
         }
       : c.kind === "forget"
@@ -876,8 +904,11 @@ function onGatewayEvent(e: {
   stateVersion: number;
 }): void {
   broadcast(IPC.event, e);
-  dictation?.onEvent(e.event, e.payload);
-  screenAskShortcut?.onEvent(e.event, e.payload);
+  // Settings changes would register the Host's dictation and Ask-about-screen hotkeys here.
+  if (!remoteGateway) {
+    dictation?.onEvent(e.event, e.payload);
+    screenAskShortcut?.onEvent(e.event, e.payload);
+  }
   const p = e.payload as Record<string, unknown>;
   if (e.event === "settings.changed") {
     const entries = (p.entries as { key: string; value: unknown }[] | undefined) ?? [];
@@ -972,6 +1003,13 @@ function lockDownDefaultSession(): void {
 }
 
 void app.whenReady().then(async () => {
+  if (gatewaysFileProblem !== undefined) {
+    await dialog.showMessageBox({
+      type: "warning",
+      message: "Psyche can't read its saved Gateways",
+      detail: `${gatewaysFileProblem}. Psyche starts on This Mac and leaves the file as it is, so no pinned identity is lost. Fix or remove the file in Psyche's data folder to use another computer's Gateway.`,
+    });
+  }
   await decideSplash();
   nativeTheme.on("updated", () => {
     windowTheme.refresh();
@@ -1147,6 +1185,13 @@ void app.whenReady().then(async () => {
     },
     onUnpaired: () => dictation?.onDisconnected(),
   });
+  const gatewayVerifier = createGatewayVerifier({
+    dialedOrigin: origin,
+    mode: remoteGateway ? "strict" : "local",
+    pinnedKey: () => gateways.pinnedKey(),
+    // This Mac's own Gateway must answer with the key in this Mac's own identity file.
+    ...(thisMacGateway ? { localKey: () => readLocalGatewayKey(home) } : {}),
+  });
   gateway = createDesktopGateway({
     deviceKey,
     httpOrigin: origin,
@@ -1155,15 +1200,15 @@ void app.whenReady().then(async () => {
     // The Gateway proves its identity key before this app signs anything (design §3.3). A saved
     // remote Gateway is pinned on first use and refused if the key ever differs; This Mac's own
     // is trusted by the per-launch secret, so it keeps no pin.
-    verifyGateway: createGatewayVerifier({
-      dialedOrigin: origin,
-      mode: remoteGateway ? "strict" : "local",
-      pinnedKey: () => gateways.pinnedKey(),
-      pin: (key) => gateways.pin(key),
-    }),
+    verifyGateway: gatewayVerifier,
     onStatus: (s) => {
       broadcast(IPC.status, s);
       tray?.update({ status: s });
+      // Trust on first use is held in memory and stored only once that connection is paired.
+      if (s.phase === "paired" && remoteGateway) {
+        const first = gatewayVerifier.candidateKey();
+        if (first !== undefined) gateways.pin(first);
+      }
       onPairing(s);
       if (s.phase === "paired") gateways.markConnected();
     },
