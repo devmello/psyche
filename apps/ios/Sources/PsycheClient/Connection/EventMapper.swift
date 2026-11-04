@@ -77,7 +77,7 @@ struct EventMapper {
             return ([.changed(.memory)], .none)
         case "settings.changed", "persona.updated":
             return ([.changed(.settings)], .none)
-        case "artifact.updated":
+        case "artifact.updated", "library.item.created", "library.item.updated", "library.item.deleted":
             return ([.changed(.library)], .none)
         case "device.updated":
             if let device = p["device"], device["id"]?.string == ownDeviceID, device["revokedAt"]?.string != nil {

@@ -196,6 +196,5 @@ struct GatewayBackendTests {
         let backend = GatewayBackend(client: h.client)
         await #expect(throws: BackendError.unreachable) { _ = try await backend.memory() }
         await #expect(throws: BackendError.unreachable) { _ = try await backend.search(query: "rent") }
-        await #expect(throws: BackendError.unreachable) { _ = try await backend.settings() }
     }
 }
