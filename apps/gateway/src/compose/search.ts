@@ -53,6 +53,7 @@ import { openSearchDatabase } from "./search-db.ts";
 import { APPLE_RERANK_TOP_N } from "./search-engine.ts";
 import { watchFolders } from "./search-files.ts";
 import type { Recognize } from "./search-ocr.ts";
+import { searchOpenHandlers } from "./search-open.ts";
 import {
   defaultSemanticEngines,
   SEMANTIC_SETTINGS,
@@ -575,6 +576,13 @@ function buildSearch(deps: SearchDeps, sqlite: PsycheDb["sqlite"]): ComposedSear
     "search.query": {
       run: (_call, params: never) => api["search.query"](params, { viewer: OWNER }),
     },
+    ...searchOpenHandlers({
+      indexer: () => sourceIndexer,
+      folders: () => deps.sources?.files?.folders() ?? [],
+      ...(deps.sources?.memory?.blocked === undefined
+        ? {}
+        : { memoryBlocked: () => deps.sources?.memory?.blocked?.() }),
+    }),
     "search.status": { run: () => statusOf(backfill.status()) },
     "search.reindex": { run: () => ({ started: runBackfill(true) }) },
     "search.sources": { run: () => sourcesOrThrow().status() },
@@ -778,6 +786,8 @@ function deferredSearch(
   });
   const handlers: Record<string, HandlerDef> = {
     "search.query": delegate("search.query", () => EMPTY_RESULT) as HandlerDef,
+    "search.document": delegate("search.document", unavailable) as HandlerDef,
+    "search.openSource": delegate("search.openSource", unavailable) as HandlerDef,
     "search.status": delegate("search.status", pendingStatus) as HandlerDef,
     "search.reindex": delegate("search.reindex", () => ({ started: false })) as HandlerDef,
     "search.sources": delegate("search.sources", unavailable) as HandlerDef,

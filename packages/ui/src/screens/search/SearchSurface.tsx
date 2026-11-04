@@ -38,6 +38,7 @@ import { paletteMatches } from "../../shell/palette-match.ts";
 import { isMac } from "../../shell/shortcuts.ts";
 import { LifeAnswerCard, type LifeAnswerState } from "./LifeAnswerCard.tsx";
 import { useLifeAnswer } from "./life-answer.ts";
+import { SourceViewer } from "./SourceViewer.tsx";
 import { Highlight, highlightTerms, SCOPE_ICON } from "./search-parts.tsx";
 import {
   filterHits,
@@ -77,6 +78,12 @@ export interface SurfaceGroup {
  * People and Projects (docs/memory/people-and-projects-2026.md §6.4), then hits by kind in the
  * index's order, best first. An empty search lists every action, in the host's order.
  */
+/**
+ * The groups of results, in order: the filter chips' scopes, then passages from the local sources
+ * (Mail, Messages, Notes, ...), which have no chip of their own and open in the source viewer.
+ */
+const RESULT_SCOPES: readonly SearchScope[] = [...SCOPE_ORDER, "connectors"];
+
 export function surfaceGroups(
   hits: readonly SearchHit[],
   actions: readonly PaletteAction[],
@@ -121,7 +128,7 @@ export function surfaceGroups(
       ),
     });
   }
-  const scoped: SurfaceGroup[] = SCOPE_ORDER.map((scope) => ({
+  const scoped: SurfaceGroup[] = RESULT_SCOPES.map((scope) => ({
     id: scope,
     label: SCOPE_LABEL[scope],
     items: hits
@@ -911,6 +918,7 @@ function SurfacePreview({
   }
   const { hit } = item;
   const Icon = SCOPE_ICON[hit.scope];
+  const sourceOnly = hit.scope === "connectors" && hit.route == null;
   return (
     <>
       <span className="inline-flex items-center gap-1.5 text-caption text-label-tertiary">
@@ -955,11 +963,16 @@ function SurfacePreview({
           ) : null}
         </div>
       ) : null}
+      {/* A passage from a local source (mail, messages, notes, ...) has no pane to open in: the
+          read-only viewer shows what the index holds, with a Mail or Finder button where safe. */}
+      {sourceOnly ? <SourceViewer docId={hit.id} /> : null}
       <div className="mt-auto flex flex-wrap gap-2">
-        <Button size="sm" onClick={onOpen} disabled={hit.route == null}>
-          <CornerDownLeft aria-hidden="true" />
-          {t("shell.search.open")}
-        </Button>
+        {sourceOnly ? null : (
+          <Button size="sm" onClick={onOpen} disabled={hit.route == null}>
+            <CornerDownLeft aria-hidden="true" />
+            {t("shell.search.open")}
+          </Button>
+        )}
         {onSideChat ? (
           <Button size="sm" variant="outline" onClick={onSideChat}>
             {t("shell.search.openInSideChat")}

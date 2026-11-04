@@ -28,6 +28,8 @@ export interface LifeFactHit {
   quote: string | null;
   /** Where it came from (`mail`, `notes`, …) or null. */
   source: string | null;
+  /** The search document id of that citation's source passage, when it is indexed. */
+  docId: string | null;
   observedAt: string | null;
   /** When Psyche first learned it (first seen, else recorded). */
   learnedAt: string | null;
@@ -187,6 +189,7 @@ export function lifeSearch(
       review: r.review,
       quote: first?.quote ?? null,
       source: first?.source ?? null,
+      docId: first?.docId ?? null,
       observedAt: first?.observedAt ?? null,
       learnedAt: r.first_seen_at ?? r.recorded_at,
     });
@@ -245,6 +248,7 @@ export function lifeCandidates(
         review: r.review,
         quote: first?.quote ?? null,
         source: first?.source ?? null,
+        docId: first?.docId ?? null,
         observedAt: first?.observedAt ?? null,
         learnedAt: r.first_seen_at ?? r.recorded_at,
       },

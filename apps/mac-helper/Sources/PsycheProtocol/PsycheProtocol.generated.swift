@@ -1161,6 +1161,9 @@
 //   let searchBackfillState = try? JSONDecoder().decode(SearchBackfillState.self, from: jsonData)
 //   let searchBackfillStatus = try? JSONDecoder().decode(SearchBackfillStatus.self, from: jsonData)
 //   let searchChipKind = try? JSONDecoder().decode(SearchChipKind.self, from: jsonData)
+//   let searchDocument = try? JSONDecoder().decode(SearchDocument.self, from: jsonData)
+//   let searchDocumentOpener = try? JSONDecoder().decode(SearchDocumentOpener.self, from: jsonData)
+//   let searchDocumentParams = try? JSONDecoder().decode(SearchDocumentParams.self, from: jsonData)
 //   let searchExclusions = try? JSONDecoder().decode(SearchExclusions.self, from: jsonData)
 //   let searchGroup = try? JSONDecoder().decode(SearchGroup.self, from: jsonData)
 //   let searchHit = try? JSONDecoder().decode(SearchHit.self, from: jsonData)
@@ -1170,6 +1173,10 @@
 //   let searchIndexEncryption = try? JSONDecoder().decode(SearchIndexEncryption.self, from: jsonData)
 //   let searchIndexStatus = try? JSONDecoder().decode(SearchIndexStatus.self, from: jsonData)
 //   let searchMatch = try? JSONDecoder().decode(SearchMatch.self, from: jsonData)
+//   let searchOpenSourceParams = try? JSONDecoder().decode(SearchOpenSourceParams.self, from: jsonData)
+//   let searchOpenSourceResult = try? JSONDecoder().decode(SearchOpenSourceResult.self, from: jsonData)
+//   let searchOpenTarget = try? JSONDecoder().decode(SearchOpenTarget.self, from: jsonData)
+//   let searchOpenTargetKind = try? JSONDecoder().decode(SearchOpenTargetKind.self, from: jsonData)
 //   let searchProcessing = try? JSONDecoder().decode(SearchProcessing.self, from: jsonData)
 //   let searchQueryChip = try? JSONDecoder().decode(SearchQueryChip.self, from: jsonData)
 //   let searchQueryIntent = try? JSONDecoder().decode(SearchQueryIntent.self, from: jsonData)
@@ -19949,6 +19956,7 @@ public struct MemoryLifeAnswerResult: Codable, Sendable {
 // MARK: - LifeFactHit
 public struct LifeFactHit: Codable, Sendable {
     public let attribute: GraphFactAttribute
+    public let docID: String?
     public let entity: EntitySummary
     public let factID: String
     public let learnedAt: String?
@@ -19962,6 +19970,7 @@ public struct LifeFactHit: Codable, Sendable {
 
     public enum CodingKeys: String, CodingKey {
         case attribute = "attribute"
+        case docID = "docId"
         case entity = "entity"
         case factID = "factId"
         case learnedAt = "learnedAt"
@@ -19973,8 +19982,9 @@ public struct LifeFactHit: Codable, Sendable {
         case value = "value"
     }
 
-    public init(attribute: GraphFactAttribute, entity: EntitySummary, factID: String, learnedAt: String?, observedAt: String?, provenance: Provenance, quote: String?, review: GraphReviewState, source: String?, value: String) {
+    public init(attribute: GraphFactAttribute, docID: String?, entity: EntitySummary, factID: String, learnedAt: String?, observedAt: String?, provenance: Provenance, quote: String?, review: GraphReviewState, source: String?, value: String) {
         self.attribute = attribute
+        self.docID = docID
         self.entity = entity
         self.factID = factID
         self.learnedAt = learnedAt
@@ -26455,6 +26465,74 @@ public struct ScreenDiscardResult: Codable, Sendable {
     }
 }
 
+// MARK: - SearchDocument
+public struct SearchDocument: Codable, Sendable {
+    /// Epoch ms: sent, written, starts or is due
+    public let createdAt: Int
+    public let id: String
+    public let searchDocumentOpen: SearchOpenTargetKind?
+    public let provenance: Provenance
+    public let source: SearchSourceID
+    /// The indexed text, clipped
+    public let text: String
+    public let title: String
+    public let truncated: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case createdAt = "createdAt"
+        case id = "id"
+        case searchDocumentOpen = "open"
+        case provenance = "provenance"
+        case source = "source"
+        case text = "text"
+        case title = "title"
+        case truncated = "truncated"
+    }
+
+    public init(createdAt: Int, id: String, searchDocumentOpen: SearchOpenTargetKind?, provenance: Provenance, source: SearchSourceID, text: String, title: String, truncated: Bool) {
+        self.createdAt = createdAt
+        self.id = id
+        self.searchDocumentOpen = searchDocumentOpen
+        self.provenance = provenance
+        self.source = source
+        self.text = text
+        self.title = title
+        self.truncated = truncated
+    }
+}
+
+/// mail: Mail.app can open the message; file: Finder can reveal the file
+public enum SearchOpenTargetKind: String, Codable, Sendable {
+    case file = "file"
+    case mail = "mail"
+}
+
+public enum SearchSourceID: String, Codable, Sendable {
+    case browser = "browser"
+    case calendar = "calendar"
+    case contacts = "contacts"
+    case files = "files"
+    case mail = "mail"
+    case memory = "memory"
+    case messages = "messages"
+    case notes = "notes"
+    case reminders = "reminders"
+    case transcripts = "transcripts"
+}
+
+// MARK: - SearchDocumentParams
+public struct SearchDocumentParams: Codable, Sendable {
+    public let id: String
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+    }
+
+    public init(id: String) {
+        self.id = id
+    }
+}
+
 // MARK: - SearchIndexStatus
 public struct SearchIndexStatus: Codable, Sendable {
     public let backfill: SearchBackfillStatus
@@ -26620,6 +26698,57 @@ public enum SearchSemanticState: String, Codable, Sendable {
     case loading = "loading"
     case off = "off"
     case ready = "ready"
+}
+
+// MARK: - SearchOpenSourceParams
+public struct SearchOpenSourceParams: Codable, Sendable {
+    public let id: String
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+    }
+
+    public init(id: String) {
+        self.id = id
+    }
+}
+
+// MARK: - SearchOpenSourceResult
+public struct SearchOpenSourceResult: Codable, Sendable {
+    public let target: SearchOpenTarget?
+
+    public enum CodingKeys: String, CodingKey {
+        case target = "target"
+    }
+
+    public init(target: SearchOpenTarget?) {
+        self.target = target
+    }
+}
+
+// MARK: - SearchOpenTarget
+public struct SearchOpenTarget: Codable, Sendable {
+    public let kind: SearchOpenTargetKind
+    /// Mail: the RFC 5322 Message-ID, no angle brackets
+    public let messageID: String?
+    /// File: the real path, inside a granted folder
+    public let path: String?
+    /// File: the real paths of the granted folders, for a second check in main
+    public let roots: [String]?
+
+    public enum CodingKeys: String, CodingKey {
+        case kind = "kind"
+        case messageID = "messageId"
+        case path = "path"
+        case roots = "roots"
+    }
+
+    public init(kind: SearchOpenTargetKind, messageID: String?, path: String?, roots: [String]?) {
+        self.kind = kind
+        self.messageID = messageID
+        self.path = path
+        self.roots = roots
+    }
 }
 
 // MARK: - SearchQueryParams
@@ -26956,19 +27085,6 @@ public struct Exclude: Codable, Sendable {
         self.contacts = contacts
         self.folders = folders
     }
-}
-
-public enum SearchSourceID: String, Codable, Sendable {
-    case browser = "browser"
-    case calendar = "calendar"
-    case contacts = "contacts"
-    case files = "files"
-    case mail = "mail"
-    case memory = "memory"
-    case messages = "messages"
-    case notes = "notes"
-    case reminders = "reminders"
-    case transcripts = "transcripts"
 }
 
 // MARK: - SearchSourcesRebuildParams

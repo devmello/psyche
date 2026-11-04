@@ -59,6 +59,21 @@ interface PowerMode {
   onBattery: boolean;
 }
 
+/** An indexed source passage (`SourceIndexer.document`). */
+export interface SourceDocument {
+  id: string;
+  source: SourceId;
+  title: string;
+  text: string;
+  /** Epoch ms. */
+  createdAt: number;
+  provenance: "owner" | "agent" | "untrusted" | "system";
+  /** Files: the path the file was indexed at. */
+  path: string | null;
+  /** Mail: the stored Message-ID, when the message was indexed with one. */
+  openRef: string | null;
+}
+
 /** Why a rebuild was refused. Nothing is removed when it is: the index stays as it was. */
 export type RebuildRefusal = "off" | "unavailable" | "power" | "busy";
 
@@ -82,6 +97,7 @@ CREATE TABLE IF NOT EXISTS search_source_items (
   chat_id TEXT,
   account TEXT,
   path TEXT,
+  open_ref TEXT,
   PRIMARY KEY (source, native_id)
 ) WITHOUT ROWID;
 CREATE INDEX IF NOT EXISTS search_source_items_hash ON search_source_items (content_hash);
@@ -96,6 +112,7 @@ interface Row {
   chat_id: string | null;
   account: string | null;
   path: string | null;
+  open_ref: string | null;
 }
 
 /**
@@ -151,6 +168,12 @@ export class SourceIndexer {
       budgetMs: options.budgetMs ?? 1500,
     };
     index.db.exec(DDL);
+    // An index made before `open_ref` existed: add it (older mail opens in the viewer only).
+    const cols = index.db.prepare("PRAGMA table_info(search_source_items)").all() as {
+      name: string;
+    }[];
+    if (!cols.some((c) => c.name === "open_ref"))
+      index.db.exec("ALTER TABLE search_source_items ADD COLUMN open_ref TEXT");
     this.#syncAgentFlags();
     // The index may have been rebuilt under us: forget rows whose document is gone.
     index.db.exec(
@@ -304,10 +327,10 @@ export class SourceIndexer {
       "SELECT source, native_id, provenance FROM search_source_items WHERE content_hash = ? AND source != ? LIMIT 1",
     );
     const put = db.prepare(
-      `INSERT INTO search_source_items (source, native_id, doc_id, content_hash, provenance, parties, chat_id, account, path)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO search_source_items (source, native_id, doc_id, content_hash, provenance, parties, chat_id, account, path, open_ref)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT (source, native_id) DO UPDATE SET content_hash = excluded.content_hash,
-         provenance = excluded.provenance, parties = excluded.parties`,
+         provenance = excluded.provenance, parties = excluded.parties, open_ref = excluded.open_ref`,
     );
     const docs: SearchDoc[] = [];
     const tracked: unknown[][] = [];
@@ -332,7 +355,8 @@ export class SourceIndexer {
       if (
         existing?.content_hash === hash &&
         existing.provenance === item.provenance &&
-        existing.parties === JSON.stringify(item.parties ?? [])
+        existing.parties === JSON.stringify(item.parties ?? []) &&
+        (existing.open_ref ?? null) === (item.openRef ?? null)
       )
         continue;
       if (existing === undefined && item.text.length >= MIN_DEDUPE_CHARS) {
@@ -361,6 +385,7 @@ export class SourceIndexer {
         item.chatId ?? null,
         item.account ?? null,
         item.path ?? null,
+        item.openRef ?? null,
       ]);
     }
     for (const nativeId of drop) await this.#forget(id, nativeId);
@@ -371,6 +396,52 @@ export class SourceIndexer {
       })();
     }
     return docs.length + drop.length;
+  }
+
+  /**
+   * One indexed source passage by document id, for the source viewer and the desktop's opener.
+   * `audience` "owner" is the owner's own screens (every source, Messages, Contacts and Memory
+   * included); "agent" gets nothing from a source the owner kept from the agent (`agent` off, or
+   * flagged in the index), the same rule as `search_everything`. Other scopes and ids that are not a
+   * source passage give undefined.
+   */
+  document(id: string, audience: "owner" | "agent" = "agent"): SourceDocument | undefined {
+    const row = this.#index.db
+      .prepare(
+        `SELECT s.source AS source, s.path AS path, s.open_ref AS open_ref, d.id AS id, d.title AS title,
+                d.body AS body, d.provenance AS provenance, d.created_ms AS created_ms, d.scope_key AS scope_key
+           FROM search_source_items s JOIN search_docs d ON d.id = s.doc_id WHERE s.doc_id = ?`,
+      )
+      .get(id) as
+      | {
+          source: string;
+          path: string | null;
+          open_ref: string | null;
+          id: string;
+          title: string;
+          body: string;
+          provenance: SourceDocument["provenance"];
+          created_ms: number;
+          scope_key: string;
+        }
+      | undefined;
+    if (row === undefined || row.scope_key !== OWNER_SCOPE) return undefined;
+    const source = row.source as SourceId;
+    if (!SOURCE_IDS.includes(source)) return undefined;
+    if (audience === "agent") {
+      if (!this.#o.config().sources[source].agent) return undefined;
+      if (!this.#index.agentSearchable(sourceTag(source))) return undefined;
+    }
+    return {
+      id: row.id,
+      source,
+      title: row.title,
+      text: row.body,
+      createdAt: row.created_ms,
+      provenance: row.provenance,
+      path: row.path,
+      openRef: row.open_ref,
+    };
   }
 
   /** Forgets what a whole read of the source no longer has; returns how many documents went. */

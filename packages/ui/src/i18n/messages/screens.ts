@@ -8,7 +8,7 @@ export const screens = {
   "screens.search.scope.feed": "Feed",
   "screens.search.scope.ideas": "Ideas",
   "screens.search.scope.goals": "Goals",
-  "screens.search.scope.connectors": "Connectors",
+  "screens.search.scope.connectors": "Your sources",
   "screens.search.scope.people": "People",
   "screens.search.scope.projects": "Projects",
   "screens.search.type.pdf": "PDF",
