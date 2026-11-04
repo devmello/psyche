@@ -1,5 +1,6 @@
 import Foundation
 import PsycheHelperCore
+import PsycheWire
 import Testing
 
 @Suite("KeyWrap AES-256-GCM v1")

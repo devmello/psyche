@@ -3,6 +3,7 @@ import Darwin
 import Foundation
 import PsycheHelperCore
 import PsycheProtocol
+import PsycheWire
 import Testing
 
 /// Minimal fake Gateway on the other end of a socketpair.

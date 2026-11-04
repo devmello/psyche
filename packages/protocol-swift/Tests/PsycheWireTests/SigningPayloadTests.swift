@@ -1,6 +1,6 @@
 import CryptoKit
 import Foundation
-import PsycheHelperCore
+import PsycheWire
 import Testing
 
 @Suite("connect signing payload")

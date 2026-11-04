@@ -11,7 +11,7 @@ pnpm protocol:check   # CI: exit 1 and list stale files
 | --- | --- | --- |
 | `schema.json` | JSON Schema draft 2020-12: one `$defs` entry per schema `$id` (method params/results and event payloads without an `$id` are named `<Method>Params`, `<Method>Result`, `<Event>Payload`), plus `x-psyche` listing every method (`name`, `scope`, `sideEffecting`, `params`, `result`), event and browser-bridge method/event, and `protocolVersion` | own walk of the TypeBox exports |
 | `protocol.d.ts` | TypeScript declarations for non-workspace consumers | `quicktype-core` 26, `typescript`, `just-types` |
-| `swift/PsycheProtocol.swift` | Swift `Codable`, `Sendable`, `public` structs and enums; also copied to `apps/mac-helper/Sources/PsycheProtocol/PsycheProtocol.generated.swift` | `quicktype-core` 26, `swift`, `struct-or-class: struct`, `access-level: public`, `sendable`, no Alamofire, no convenience initializers |
+| `swift/PsycheProtocol.swift` | Swift `Codable`, `Sendable`, `public` structs and enums; also copied to `packages/protocol-swift/Sources/PsycheProtocol/PsycheProtocol.generated.swift` (the shared SwiftPM package that `apps/mac-helper` and the iOS app depend on) | `quicktype-core` 26, `swift`, `struct-or-class: struct`, `access-level: public`, `sendable`, no Alamofire, no convenience initializers |
 
 Why: the OpenClaw recipe (ADR-015). Our own step keeps `schema.json` exact and deterministic;
 quicktype saves writing a Swift emitter. Output is byte-identical across runs and platforms

@@ -18,10 +18,9 @@ set -eu
 
 list_profiles() { sed -n '8,12p' "$0" | sed 's/^# \{0,1\}//'; }
 
-# apps/mac-helper/Sources/PsycheProtocol stays in every profile: `pnpm protocol:gen` writes the Swift structs there.
+# `packages` is in every profile, so packages/protocol-swift (where `pnpm protocol:gen` writes the Swift structs) is too.
 core_dirs="apps/cli apps/desktop apps/gateway apps/node apps/site apps/web
-packages tests scripts docs skills templates deploy .github .changeset .vscode
- apps/mac-helper/Sources/PsycheProtocol"
+packages tests scripts docs skills templates deploy .github .changeset .vscode"
 
 profile_dirs() {
   case $1 in
