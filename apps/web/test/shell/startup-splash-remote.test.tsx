@@ -102,6 +102,24 @@ describe("splash line for a Gateway on another computer (design §4.6)", () => {
       fatal: true,
     });
   });
+
+  it("says a pairing link was refused when the Host denied its setup token", () => {
+    expect(
+      line({
+        health: "ok",
+        phase: "denied",
+        attempt: 0,
+        lastError: "This pairing link was already used, has expired or was revoked.",
+        deniedCode: "setup_token_invalid",
+      }),
+    ).toMatchObject({
+      text: "studio-mac refused this pairing link.",
+      reason:
+        "It was already used, has expired or was revoked. Make a new one on studio-mac and add it again.",
+      actions: ["switch", "forget"],
+      fatal: true,
+    });
+  });
 });
 
 describe("StartupSplash for a remote Gateway", () => {

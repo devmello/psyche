@@ -21,7 +21,7 @@ Visual mockups: see §9.
 | A4 | **Swift 6 language mode**, strict concurrency, `@Observable` models, actors for I/O | Matches `apps/mac-helper`; the generated types are already `Sendable`. |
 | A5 | **One shared Swift package for the wire**, `packages/protocol-swift`, used by both the mac helper and the phone | Today `gen.ts` copies the generated file into the mac helper. Two copies would drift. |
 | A6 | **The Gateway is the only source of truth.** The phone keeps a small cache and an outbox, nothing more | Matches N14 (`stateVersion` refetch) and "push is a hint, not state" (companion §2.3). No sync engine, no conflict resolution. |
-| A7 | **Native rendering for core chat blocks; one sandboxed WebView for generative UI** (`ui` blocks, artifacts, rich viewers) | Twenty block types exist. Re-implementing every genui widget in SwiftUI would trail the desktop forever. The WebView loads a bundled build of the `packages/ui` block renderer, never remote code. (Owner call, §8 Q3.) |
+| A7 | **Native rendering for every chat block, generative UI included** (revised 2026-11-04) | Genui widgets are data: a fixed catalogue of 21 node types (`WIDGET_NODE_SCHEMAS` in `packages/protocol/src/schemas/widgets.ts`), no script or markup. SwiftUI, Swift Charts and MapKit cover them, with less RAM than a WebView, no JS bundle and no web attack surface. An unknown future node type shows "Open on your Mac". (Owner, 2026-11-04; replaces the sandboxed WebView.) |
 | A8 | **Four tabs + the search tab**: Home, Chat, Library, Memory, and Search as iOS 26's separate search button | Same five places as the desktop (consolidation-2026 §3). The compact web layout already defines these four tabs. |
 | A9 | **Home is the landing tab on the phone** (desktop lands on Chat) | A phone is opened to glance: what needs me, what's today. Chat is one tap away and "Ask Psyche" sits at the top of Home. (Owner call, §8 Q1.) |
 | A10 | **XcodeGen `project.yml`**, no committed `.pbxproj` | Many parallel sessions edit this repo; `.pbxproj` merges are the worst conflicts in iOS repos. All logic lives in SwiftPM targets; the Xcode project is a thin generated shell for the app and its extensions. |
@@ -49,7 +49,7 @@ apps/ios/
     PsycheDesign/        tokens, type, components                           (SwiftUI)
     PsycheFeatures/      Home, Chat, Library, Memory, Search, Approvals,
                          Tasks, Pairing, Settings — one folder each          (SwiftUI)
-    PsycheBlocks/        native block views + the genui WebView host         (SwiftUI, WebKit)
+    PsycheBlocks/        native block views + the native genui renderer      (SwiftUI, Charts, MapKit)
     PsycheShared/        Keychain, app group paths, push decryption,
                          snapshot reader — the only module extensions link   (no SwiftUI)
   App/                   @main, scene, deep-link routing                     (thin)
@@ -168,7 +168,7 @@ Same sections as the desktop Home, in phone order; empty sections aren't drawn:
 4. **Today**: the brief as a bounded list with an end marker
 5. **Coming up** / **To-do**: due items from memory (`memory.upcoming`), catch-up
 6. **Keep in touch**: nudges
-7. **Pinned**: up to 6 widgets (WebView host, A7), lazily loaded below the fold
+7. **Pinned**: up to 6 widgets (native renderer, A7), lazily loaded below the fold
 8. **More** (quiet list): Inbox, Scheduled, Overview — pushed pages
 
 ### 4.2 Chat
@@ -192,8 +192,8 @@ Same sections as the desktop Home, in phone order; empty sections aren't drawn:
 ### 4.4 Library
 
 Sections as on the desktop (documents, images, artifacts, downloads). Grid of first-page
-thumbnails for documents; Quick Look for files the phone can open natively; the WebView host for
-artifacts. Upload from the share sheet and the + button.
+thumbnails for documents; Quick Look for files the phone can open natively; a sandboxed, offline web view for
+HTML artifacts. Upload from the share sheet and the + button.
 
 ### 4.5 Memory
 
@@ -225,18 +225,19 @@ Activity (Needs you / Now / Next up / Recent), Approvals, Upcoming, Soul (read-o
 | `approval`, `question` | Native cards (§4.3) |
 | `task`, `plan`, `checklist` | Native progress rows |
 | `receipt`, `sources`, `context` | Native **evidence line** (the desktop signature: one muted line, mono ids and times, " · ") |
-| `file`, `artifact` | Native file row → Quick Look / WebView host |
+| `file`, `artifact` | Native file row → Quick Look; HTML artifacts in a sandboxed, offline web view |
 | `tool_call` | Native collapsed row ("Searched mail · 4 results"); expands to arguments |
 | `app_link`, `related_threads`, `learned`, `taught`, `wrap_up`, `compaction`, `specialist_result`, `automation_workflow` | Native simple rows |
-| `ui` (generative UI) | **WebView host** |
+| `ui` (generative UI) | **Native renderer** over `widgets.get` (21 node types), actions through `widgets.act` |
 | Unknown future type | Native "Open on your Mac" row, never a crash |
 
-**WebView host (A7):** one `WKWebView` process pool, created lazily on first `ui` block. It loads
-`blocks.html` + a JS bundle built from `packages/ui`'s block renderer and copied into the app at
-build time (`pnpm --filter @psyche/ui build:ios-blocks`). No network access from the web view
-(content rules block every non-`psyche-blocks://` load); data and actions cross a
-`WKScriptMessageHandler` bridge that only accepts `widgets.act` / `widgets.image` with the block's
-own ids. Theme tokens are passed in so the web content matches light/dark and the ink accent.
+**Generative UI (A7, revised 2026-11-04):** a `ui` block names a widget; the phone fetches its spec
+with `widgets.get` and renders the node tree natively: `stack`/`grid`/`tabs`/`card`/`list` as layout,
+`progress`/`checklist`/`timeline`/`status`/`stat`/`kv`/`table` as data views, `chart` with Swift
+Charts, `map` with MapKit, `text`/`markdown`/`code`/`image`/`link`, and `button`/`choices`/`form` posting
+through `widgets.act`. Tones map onto the semantic tokens, never raw colors. A node type the app
+doesn't know shows "Open on your Mac". **HTML artifacts** (not widgets) still open in a sandboxed
+`WKWebView` with no network access (content rules block every load but the artifact's own bundle).
 
 ## 6. Testing and CI
 
@@ -264,7 +265,7 @@ paid account.
 
 1. **Landing tab:** Home (A9).
 2. **Minimum iOS:** 26 (A2). This also answers companion §7 Q5.
-3. **Generative UI:** the sandboxed WebView (A7).
+3. **Generative UI:** native SwiftUI (A7, revised 2026-11-04 once the catalogue turned out to be data; the WebView plan is dropped).
 4. **Project:** XcodeGen (A10).
 5. **Devices:** iPhone and iPad from one target. On iPad the tab bar adapts to a sidebar (`TabView` with `.sidebarAdaptable`) and Chat is a split view (thread list + thread).
 6. **Android:** later, as a native Kotlin app with types generated from the same JSON Schema (companion M3). No cross-platform framework; the PWA covers Android until then.
@@ -318,7 +319,7 @@ hard dependencies; everything else can run in parallel.
 | I5 | Home + approvals + questions + agent sheet | I2, I3 | Approve on the phone, card disappears on the Mac |
 | I6 | Library + share extension | I2, I3 | Companion M1 acceptance 5 |
 | I7 | Memory + Search tab | I2, I3 | To-do, Work, People, Ask your life |
-| I8 | WebView block host + `build:ios-blocks` | I4 | A `ui` block renders offline with theme tokens |
+| I8 | Native genui renderer for the 21 widget node types + `widgets.get/act/image` | I4 | Every node type in the widget fixtures renders natively, actions round-trip, unknown types say "Open on your Mac" |
 | S1 | Spike: Tailscale on demand from a notification action (companion §7 Q6) | — | Result recorded in the companion doc |
 
 M0 (PWA + Web Push, companion §6) doesn't touch any of this and can run beside I0–I3.

@@ -121,6 +121,8 @@ targets:
     dependencies:
       - package: PsycheKit
         product: PsycheShared
+      - package: PsycheKit
+        product: PsycheDesign
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(PSYCHE_BUNDLE_ID).share

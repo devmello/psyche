@@ -31,7 +31,8 @@ export interface ResolvedPeer {
 
 const FORWARDING_HEADERS = ["x-forwarded-for", "forwarded", "x-real-ip"] as const;
 
-function normalize(addr: string): string {
+/** `::ffff:a.b.c.d` as `a.b.c.d`. */
+export function normalizePeerAddress(addr: string): string {
   const v4 = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i.exec(addr);
   return v4?.[1] ?? addr;
 }
@@ -70,7 +71,7 @@ export function trustedProxyList(entries: readonly string[]): BlockList {
 }
 
 function isTrusted(list: BlockList, addr: string): boolean {
-  const a = normalize(addr);
+  const a = normalizePeerAddress(addr);
   const f = family(a);
   return f !== null && list.check(a, f);
 }
@@ -95,7 +96,7 @@ export function resolvePeer(
   config: TrustedProxyConfig,
   list: BlockList,
 ): ResolvedPeer {
-  const direct = normalize(socketAddress ?? "unknown");
+  const direct = normalizePeerAddress(socketAddress ?? "unknown");
   const forwarded = FORWARDING_HEADERS.some((h) => headerValue(headers, h) !== undefined);
   const base: ResolvedPeer = {
     remoteAddress: direct,
@@ -109,7 +110,7 @@ export function resolvePeer(
   // the client. A client can prepend anything, so the left side is never believed.
   const hops = (headerValue(headers, "x-forwarded-for") ?? "")
     .split(",")
-    .map((h) => normalize(h.trim()))
+    .map((h) => normalizePeerAddress(h.trim()))
     .filter((h) => h.length > 0);
   let client = direct;
   for (let i = hops.length - 1; i >= 0; i--) {

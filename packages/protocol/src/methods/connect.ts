@@ -78,6 +78,20 @@ export const ConnectChallenge = Type.Object(
           "base64url Ed25519 signature by the Gateway identity key over gatewaySigningPayload(nonce, serverOrigin, the connecting device's public key)",
       }),
     ),
+    lanCertSpki: Type.Optional(
+      Type.String({
+        pattern: "^[A-Za-z0-9_-]{43}$",
+        description:
+          "LAN listener only: the SHA-256 (base64url) of the SPKI of the TLS certificate this connection was served with. The client compares it with the certificate it actually saw, so a relay with its own certificate is caught",
+      }),
+    ),
+    lanCertSignature: Type.Optional(
+      Type.String({
+        pattern: "^[A-Za-z0-9_-]{86}$",
+        description:
+          "base64url Ed25519 signature by the Gateway identity key over lanCertSigningPayload(nonce, serverOrigin, device key, lanCertSpki)",
+      }),
+    ),
   },
   { $id: "ConnectChallenge" },
 );
@@ -95,6 +109,13 @@ export const ConnectVerifyParams = Type.Object(
         pattern: "^[A-Za-z0-9_-]{43}$",
         description:
           "The Gateway identity key this client verified and pinned (base64url). When present the signature is over the v2 payload, which includes it, and the Gateway refuses the connect unless it is its own key. A client of a remote Gateway always sends it",
+      }),
+    ),
+    setupToken: Type.Optional(
+      Type.String({
+        pattern: "^pst_[A-Za-z0-9_-]{43}$",
+        description:
+          "A one-time setup token from a pairing link (remote-gateway design §3.4). Sent here and not in `connect`, so only a client that already verified the Gateway's identity ever presents it. Valid and unexpired, it pairs this device at once with the scopes chosen when the token was made; a used, expired or revoked token is denied with code setup_token_invalid. Ignored for a device that is already paired",
       }),
     ),
   },
@@ -118,7 +139,16 @@ export const ConnectPending = Type.Object(
   { $id: "ConnectPending" },
 );
 export const ConnectDenied = Type.Object(
-  { phase: Type.Literal("denied"), reason: Type.String() },
+  {
+    phase: Type.Literal("denied"),
+    reason: Type.String(),
+    code: Type.Optional(
+      StringEnum(["setup_token_invalid"], {
+        description:
+          "Machine-readable cause when there is one: the setup token was used, expired, revoked or not allowed here",
+      }),
+    ),
+  },
   { $id: "ConnectDenied" },
 );
 export const ConnectResult = Type.Union([ConnectPaired, ConnectPending, ConnectDenied], {
@@ -204,6 +234,33 @@ export function gatewaySigningPayload(input: GatewaySigningInput): Uint8Array {
   }
   return new TextEncoder().encode(
     [GATEWAY_SIGNING_PREFIX, nonce, serverOrigin, devicePublicKey].join("\n"),
+  );
+}
+
+export const LAN_CERT_SIGNING_PREFIX = "psyche-lan-cert-v1";
+
+export interface LanCertSigningInput extends GatewaySigningInput {
+  /** SHA-256 of the served certificate's SPKI, base64url. */
+  spki: string;
+}
+
+/**
+ * Bytes the Gateway signs to vouch for the TLS certificate of a LAN connection: the UTF-8
+ * encoding of `"psyche-lan-cert-v1\n" + nonce + "\n" + serverOrigin + "\n" + devicePublicKey +
+ * "\n" + spki`. A LAN certificate is self-signed, so nothing else ties the encrypted channel to
+ * the Gateway: a machine that answers with its own certificate and relays the Gateway's frames
+ * would otherwise pass the identity check. The client refuses unless `spki` is the certificate
+ * it actually received (and, once pinned, the pinned one).
+ */
+export function lanCertSigningPayload(input: LanCertSigningInput): Uint8Array {
+  const { nonce, serverOrigin, devicePublicKey, spki } = input;
+  for (const [key, value] of Object.entries({ nonce, serverOrigin, devicePublicKey, spki })) {
+    if (typeof value !== "string" || value.length === 0 || /[\r\n]/.test(value)) {
+      throw new PsycheError("invalid_params", `${key} must be a non-empty single-line string`);
+    }
+  }
+  return new TextEncoder().encode(
+    [LAN_CERT_SIGNING_PREFIX, nonce, serverOrigin, devicePublicKey, spki].join("\n"),
   );
 }
 

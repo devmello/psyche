@@ -111,8 +111,11 @@ export async function presenceChallengeHex(
   approvalId: string,
   bindingHash: string,
   answerToken: string,
+  scope?: string,
 ): Promise<string> {
-  const text = `psyche.presence.v1|${approvalId}|${bindingHash}|${answerToken}`;
+  const base = `psyche.presence.v1|${approvalId}|${bindingHash}|${answerToken}`;
+  // The broker binds a scope wider than `once` into the challenge too.
+  const text = scope === undefined || scope === "once" ? base : `${base}|scope:${scope}`;
   const digest = new Uint8Array(
     await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)),
   );
@@ -175,9 +178,10 @@ export async function approvalPresence(
   host: PasskeyHost,
   approval: Pick<ApprovalRequest, "id" | "bindingHash">,
   answerToken: string,
+  scope?: string,
 ): Promise<PresenceAssertion> {
   const [hex, deviceId] = await Promise.all([
-    presenceChallengeHex(approval.id, approval.bindingHash, answerToken),
+    presenceChallengeHex(approval.id, approval.bindingHash, answerToken, scope),
     host.deviceId(),
   ]);
   let begin: Ceremony;

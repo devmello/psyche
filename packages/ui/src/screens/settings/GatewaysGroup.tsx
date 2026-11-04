@@ -1,9 +1,10 @@
-import { type ReactElement, useCallback, useEffect, useId, useState } from "react";
+import { type ReactElement, useCallback, useEffect, useId, useRef, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { Input } from "../../components/ui/input.tsx";
 import { Label } from "../../components/ui/label.tsx";
 import { t } from "../../i18n/core.ts";
-import { type GatewayEntry, useSlots } from "../../slots.tsx";
+import { groupFingerprint } from "../../lib/fingerprint.ts";
+import { type DiscoveredGateway, type GatewayEntry, useSlots } from "../../slots.tsx";
 import { ErrorNotice, Group, StatusChip } from "./shared.tsx";
 
 /**
@@ -20,7 +21,17 @@ const PROBLEMS = [
   "needs_https",
   "has_path",
   "has_credentials",
+  "link_not_a_pairing_link",
+  "link_unsupported_version",
+  "link_malformed",
+  "link_extra_fields",
+  "link_bad_field",
+  "link_pin_mismatch",
+  "link_lan",
 ] as const;
+
+/** What the field holds is a pairing link, not an address. */
+export const isPairingLinkText = (text: string): boolean => /^psyche-pair:/i.test(text.trim());
 
 /** The sentence for why an address, or any change, was refused. */
 export function gatewayProblemText(err: unknown): string {
@@ -50,7 +61,7 @@ export function useSavedGateways(): {
 export function AddGatewayForm({
   onAdded,
 }: {
-  onAdded: (entry: GatewayEntry) => void;
+  onAdded: (entry: GatewayEntry, viaLink: boolean) => void;
 }): ReactElement | null {
   const { gateways } = useSlots();
   const id = useId();
@@ -58,16 +69,50 @@ export function AddGatewayForm({
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [opened, setOpened] = useState(false);
+  // A link that arrived while the owner had already typed something: offered, never swapped in.
+  const [incoming, setIncoming] = useState<string | null>(null);
+  const addressNow = useRef(address);
+  addressNow.current = address;
+  const takePending = gateways?.takePendingLink;
+  const onPending = gateways?.onPendingLink;
+  // A pairing link the OS opened in the app waits in main; showing it here is all that happens.
+  // The owner still presses Add, and main confirms the address in a native dialog.
+  useEffect(() => {
+    if (!takePending) return;
+    const take = () =>
+      void takePending().then(
+        (link) => {
+          if (link === null) return;
+          if (addressNow.current.trim() !== "") {
+            setIncoming(link);
+            return;
+          }
+          setAddress(link);
+          setOpened(true);
+          setError(null);
+        },
+        () => undefined,
+      );
+    take();
+    return onPending?.(take);
+  }, [takePending, onPending]);
   if (!gateways) return null;
+  const viaLink = isPairingLinkText(address);
   const submit = () => {
     setBusy(true);
     setError(null);
-    gateways.add(address, name.trim() === "" ? undefined : name.trim()).then(
+    const adding =
+      viaLink && gateways.addLink
+        ? gateways.addLink(address.trim())
+        : gateways.add(address, name.trim() === "" ? undefined : name.trim());
+    adding.then(
       (entry) => {
         setBusy(false);
         setAddress("");
         setName("");
-        onAdded(entry);
+        setOpened(false);
+        onAdded(entry, viaLink);
       },
       (err: unknown) => {
         setBusy(false);
@@ -96,22 +141,174 @@ export function AddGatewayForm({
             autoCorrect="off"
             spellCheck={false}
             inputMode="url"
+            aria-describedby={opened ? `${id}-opened` : undefined}
           />
         </div>
         <div className="flex min-w-40 flex-col gap-1">
           <Label htmlFor={`${id}-name`}>{t("settings.gateways.nameLabel")}</Label>
-          <Input id={`${id}-name`} value={name} onChange={(e) => setName(e.target.value)} />
+          <Input
+            id={`${id}-name`}
+            value={name}
+            disabled={viaLink}
+            onChange={(e) => setName(e.target.value)}
+          />
         </div>
         <Button type="submit" size="sm" disabled={busy || address.trim() === ""}>
           {t("settings.gateways.adding")}
         </Button>
       </div>
+      {incoming !== null ? (
+        <div role="status" className="flex flex-wrap items-center gap-2 text-callout">
+          <span>{t("settings.gateways.newLink")}</span>
+          <Button
+            type="button"
+            size="xs"
+            variant="outline"
+            onClick={() => {
+              setAddress(incoming);
+              setIncoming(null);
+              setOpened(true);
+              setError(null);
+            }}
+          >
+            {t("settings.gateways.useNewLink")}
+          </Button>
+          <Button type="button" size="xs" variant="ghost" onClick={() => setIncoming(null)}>
+            {t("settings.gateways.ignoreNewLink")}
+          </Button>
+        </div>
+      ) : null}
+      {opened ? (
+        <p id={`${id}-opened`} role="status" className="text-callout text-label-secondary">
+          {t("settings.gateways.fromLink")}
+        </p>
+      ) : null}
       {error ? (
         <p role="alert" className="text-callout text-danger-text">
           {error}
         </p>
       ) : null}
     </form>
+  );
+}
+
+type Looking =
+  | { kind: "idle" }
+  | { kind: "looking" }
+  | { kind: "failed" }
+  | { kind: "done"; found: DiscoveredGateway[] };
+
+/**
+ * Add a Gateway → On this network (remote-gateway design §3.2). Looks for Psyche that announced
+ * itself with Bonjour, on the owner's click. What a computer announces is a claim: picking one
+ * only adds it to the saved list (after the same native confirmation) and it still goes through
+ * pairing and the key pin. The window adds a listing by its id, never by an address.
+ */
+export function DiscoverGateways({
+  onAdded,
+}: {
+  onAdded: (entry: GatewayEntry) => void;
+}): ReactElement | null {
+  const { gateways } = useSlots();
+  const [state, setState] = useState<Looking>({ kind: "idle" });
+  const [error, setError] = useState<string | null>(null);
+  if (!gateways?.discover) return null;
+  const look = () => {
+    setState({ kind: "looking" });
+    setError(null);
+    gateways.discover?.().then(
+      (found) => setState({ kind: "done", found }),
+      () => setState({ kind: "failed" }),
+    );
+  };
+  const add = (d: DiscoveredGateway) => {
+    setError(null);
+    gateways.addDiscovered?.(d.id).then(
+      (entry) => {
+        setState((s) =>
+          s.kind === "done"
+            ? {
+                kind: "done",
+                found: s.found.map((f) => (f.id === d.id ? { ...f, saved: true } : f)),
+              }
+            : s,
+        );
+        onAdded(entry);
+      },
+      (err: unknown) => setError(gatewayProblemText(err)),
+    );
+  };
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="font-medium">{t("settings.gateways.discoverTitle")}</span>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={state.kind === "looking"}
+          onClick={look}
+        >
+          {state.kind === "looking"
+            ? t("settings.gateways.discovering")
+            : t("settings.gateways.discover")}
+        </Button>
+      </div>
+      {state.kind === "failed" ? (
+        <p role="alert" className="text-callout text-danger-text">
+          {t("settings.gateways.discoverFailed")}
+        </p>
+      ) : null}
+      {state.kind === "done" && state.found.length === 0 ? (
+        <p role="status" className="text-callout text-label-secondary">
+          {t("settings.gateways.discoverNone")}
+        </p>
+      ) : null}
+      {state.kind === "done" && state.found.length > 0 ? (
+        <>
+          <ul className="flex flex-col divide-y divide-gray-6">
+            {state.found.map((d) => (
+              <li key={d.id} className="flex flex-wrap items-center gap-2 py-2 first:pt-0">
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="font-medium">{d.name}</span>
+                  {d.fingerprint ? (
+                    <code className="font-mono text-callout text-label-secondary">
+                      {t("settings.gateways.discoverKey", {
+                        fingerprint: groupFingerprint(d.fingerprint),
+                      })}
+                    </code>
+                  ) : null}
+                </span>
+                {d.conflict ? (
+                  <span className="text-callout text-danger-text">
+                    {t("settings.gateways.discoverConflict")}
+                  </span>
+                ) : d.saved ? (
+                  <span className="text-callout text-label-secondary">
+                    {t("settings.gateways.discoverSaved")}
+                  </span>
+                ) : (
+                  <Button
+                    type="button"
+                    size="sm"
+                    aria-label={t("settings.gateways.discoverAdd", { name: d.name })}
+                    onClick={() => add(d)}
+                  >
+                    {t("settings.gateways.adding")}
+                  </Button>
+                )}
+              </li>
+            ))}
+          </ul>
+          <p className="text-callout text-label-secondary">{t("settings.gateways.discoverHint")}</p>
+        </>
+      ) : null}
+      {error ? (
+        <p role="alert" className="text-callout text-danger-text">
+          {error}
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -254,6 +451,7 @@ export function GatewaysGroup(): ReactElement | null {
     <Group title={t("settings.gateways.title")} description={t("settings.gateways.description")}>
       {error ? <ErrorNotice what={error} did={t("settings.shared.nothingChanged")} /> : null}
       {entries ? <GatewaysList entries={entries} onChanged={reload} onError={setError} /> : null}
+      <DiscoverGateways onAdded={reload} />
       <AddGatewayForm onAdded={reload} />
     </Group>
   );

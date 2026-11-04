@@ -201,6 +201,8 @@ Who gets through:
 | A trusted proxy (`trustedProxies`) | A verified identity: a valid Cloudflare Access assertion, or the `Tailscale-User-Login` header from a peer in `tailscaleProxies`. A proxy connection with neither is refused. |
 | Anything else (the CLI, a script) | `Authorization: Bearer <token>` |
 
+To narrow who may try at all, set `gateway.trustedProxy.allowedLogins` to a list of logins (`you@example.com`, compared without regard to case). It is a Tailscale list: a forwarded connection passes when its `Tailscale-User-Login` is on it and the direct peer is in `tailscaleProxies` (on the loopback bind, with Tailscale Serve on the host, that defaults to loopback). A verified Cloudflare Access email is matched against the same list, so Access users are not locked out by it. Everything else, a missing login included, gets no WebSocket upgrade. It needs `trustedProxy.enabled`. A direct connection on this computer is not forwarded, so it is unaffected. A login on the list is not trusted for anything: the device still has to pair.
+
 `/healthz` stays open for the Compose healthcheck. This only gates the transport: every device still pairs, and its scopes still apply. Another container on the same network gets nothing without the token or a proxy identity.
 
 Put the Gateway and the proxies on an internal network (`internal: true`) and pin `PSYCHE_HOST` to the Gateway's address there. The Gateway still needs outbound access for model APIs and connectors, so it also joins an egress network; it never listens on that one. The shipped Compose file still uses host networking until S22 switches it.

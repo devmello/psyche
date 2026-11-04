@@ -29,6 +29,7 @@ import {
   type ErrorCode,
   type EventName,
   type EventPayload,
+  encodePairingLink,
   type FeedbackEvent,
   type FeedPost,
   FILE_CHUNK_BYTES,
@@ -363,6 +364,8 @@ export class MockGateway implements GatewayClient {
   private latency: number;
   private now: () => string;
   private counter = 0;
+  /** Setup tokens made through `devices.setupToken.create` (Settings → Pair another computer). */
+  private readonly setupTokens: MethodResult<"devices.setupToken.list">["setupTokens"] = [];
   private sourcesStatus(): MethodResult<"search.sources"> {
     const ids = [
       "mail",
@@ -3493,6 +3496,61 @@ export class MockGateway implements GatewayClient {
     "devices.deny": (p) => ({
       pairingRequest: this.decidePairing({ requestId: p.pairingRequestId }, "denied"),
     }),
+    "gateway.info": () => ({
+      identity: {
+        publicKey: "Zm9yLXN0b3JpZXMtb25seS1ub3QtYS1yZWFsLWtleQ",
+        fingerprint: `sha256:${"cd34".repeat(16)}`,
+      },
+      hostName: "studio-mac",
+      publicOrigin: "https://studio-mac.tail1234.ts.net",
+      trustedProxy: true,
+    }),
+    "devices.setupToken.create": (p) => {
+      if (p.scopes.some((s) => (s as string) === "node")) {
+        fail("invalid_params", "A setup token grants operator scopes only");
+      }
+      const now = this.now();
+      const live = this.setupTokens.filter(
+        (s) => s.status === "live" && Date.parse(s.expiresAt) > Date.parse(now),
+      );
+      if (live.length >= 3) fail("rate_limited", "Too many unused setup tokens");
+      const setupToken = {
+        id: this.id("stk"),
+        scopes: [...new Set(p.scopes)],
+        createdAt: now,
+        expiresAt: new Date(Date.parse(now) + 10 * 60_000).toISOString(),
+        usedAt: null,
+        usedByDeviceId: null,
+        revokedAt: null,
+        status: "live" as const,
+      };
+      this.setupTokens.unshift(setupToken);
+      const gatewayFingerprint = `sha256:${"cd34".repeat(16)}`;
+      return {
+        setupToken,
+        link: encodePairingLink({
+          gatewayUrl: "https://studio-mac.tail1234.ts.net",
+          gatewayFingerprint,
+          setupToken: `pst_${String(this.counter).padStart(43, "A")}`,
+          hostName: "studio-mac",
+        }),
+        gatewayUrl: "https://studio-mac.tail1234.ts.net",
+        gatewayFingerprint,
+        hostName: "studio-mac",
+      };
+    },
+    "devices.setupToken.list": () => ({ setupTokens: [...this.setupTokens] }),
+    "devices.setupToken.revoke": (p) => {
+      const index = this.setupTokens.findIndex((s) => s.id === p.id);
+      const found = this.setupTokens[index] ?? fail("not_found", `setup token ${p.id} not found`);
+      const revoked = {
+        ...found,
+        revokedAt: this.now(),
+        status: found.status === "live" ? ("revoked" as const) : found.status,
+      };
+      this.setupTokens[index] = revoked;
+      return { setupToken: revoked };
+    },
     "devices.revoke": (p) => {
       const device = {
         ...this.find(this.world.devices, p.deviceId, "device"),

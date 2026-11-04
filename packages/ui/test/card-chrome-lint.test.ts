@@ -15,6 +15,7 @@ const ALLOWED: Record<string, string> = {
   "blocks/Checklist.tsx": "the pinned checklist is a list surface, not a card",
   "chat/ApprovalDock.tsx": "dock container above the composer",
   "chat/FollowUpQueue.tsx": "composer-attached queue",
+  "chat/OutboxQueue.tsx": "composer-attached queue of waiting messages (chips, like FollowUpQueue)",
   "chat/Thread.tsx": "composer and thread chrome",
   "chat/ThreadChrome.tsx": "thread header chrome",
   "overview/SummarySection.tsx":

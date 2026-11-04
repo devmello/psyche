@@ -384,6 +384,7 @@ export class Connection implements LiveConnection {
       this.#ctx.challengeOrigin(this.peer),
       this.#ctx.now().getTime(),
       this.#ctx.identity,
+      this.peer.lan === true ? this.#ctx.lan.certSpki() : null,
     );
     this.#challenge = pending;
     this.#connectParams = params;
@@ -411,12 +412,22 @@ export class Connection implements LiveConnection {
       now: ctx.now,
       limits: ctx.limits,
       failedChallenges: ctx.failedChallenges,
+      lanPairings: ctx.lanPairings,
     });
     this.#challenge = null;
     const { result, identity } = outcome;
     ctx.log.log("info", "handshake finished", { conn: this.id, phase: result.phase });
     if (outcome.createdRequest) {
       ctx.bus.publish("pairing.requested", { pairingRequest: outcome.createdRequest });
+    }
+    if (outcome.pairedBySetupToken) {
+      // A computer paired itself with a setup token the owner made: tell the Host's screens (the
+      // device list) and the audit trail, since no approval card was involved.
+      const { deviceId } = outcome.pairedBySetupToken;
+      const device = getDevice(ctx.db, deviceId);
+      ctx.bus.bumpStateVersion();
+      if (device) ctx.bus.publish("device.updated", { device });
+      ctx.onSetupTokenUsed?.(outcome.pairedBySetupToken);
     }
     if (result.phase === "paired" && identity) {
       this.#phase = "paired";

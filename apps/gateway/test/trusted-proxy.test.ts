@@ -138,3 +138,54 @@ describe("trusted-proxy mode end to end", () => {
     expect(verified<{ phase: string }>(other).phase).toBe("pending");
   });
 });
+
+describe("gateway.trustedProxy.allowedLogins", () => {
+  const allowed = { ...ON, allowedLogins: ["Owner@Example.test"] };
+  let t: TestGateway;
+  const clients: TestClient[] = [];
+  afterEach(async () => {
+    for (const c of clients.splice(0)) c.close();
+    await t?.cleanup();
+  });
+
+  const fwd = (login?: string) => ({
+    "X-Forwarded-For": "100.101.102.103",
+    ...(login === undefined ? {} : { "Tailscale-User-Login": login }),
+  });
+
+  it("refuses the WebSocket upgrade for a login that is not on the list, or has none", async () => {
+    t = await startTestGateway({ config: { trustedProxy: allowed } });
+    for (const headers of [fwd("mallory@example.test"), fwd(), fwd("")]) {
+      await expect(TestClient.open(wsUrlOf(t.gateway), headers)).rejects.toBeDefined();
+    }
+  });
+
+  it("lets a listed login (any case) and a direct local connection reach pairing", async () => {
+    t = await startTestGateway({ config: { trustedProxy: allowed } });
+    const bound = { gatewayKey: t.gateway.context.identity.publicKey };
+    for (const headers of [fwd("owner@example.test"), {}]) {
+      const c = await TestClient.open(wsUrlOf(t.gateway), headers);
+      clients.push(c);
+      const res = await handshake(c, t.gateway.origin, bound);
+      expect(verified<{ phase: string }>(res).phase).toBe("pending");
+    }
+  });
+
+  it("believes the login only from a Tailscale proxy peer, not from any trusted proxy", async () => {
+    t = await startTestGateway({
+      config: { trustedProxy: { ...allowed, tailscaleProxies: ["192.0.2.1/32"] } },
+    });
+    await expect(
+      TestClient.open(wsUrlOf(t.gateway), fwd("owner@example.test")),
+    ).rejects.toBeDefined();
+  });
+
+  it("fails closed when the proxy peer is not a trusted proxy", async () => {
+    t = await startTestGateway({
+      config: { trustedProxy: { ...allowed, trustedProxies: ["192.0.2.0/24"] } },
+    });
+    await expect(
+      TestClient.open(wsUrlOf(t.gateway), fwd("owner@example.test")),
+    ).rejects.toBeDefined();
+  });
+});

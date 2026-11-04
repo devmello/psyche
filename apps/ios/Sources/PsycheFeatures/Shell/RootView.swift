@@ -70,6 +70,7 @@ struct MainTabs: View {
             .padding(.vertical, 4)
         }
         .tint(PsycheColor.inkText)
+        .syncsShareInbox(store: store)
         #if DEBUG
         .task { await router.openForScreenshot(store: store) }
         #endif

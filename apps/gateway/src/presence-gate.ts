@@ -137,6 +137,9 @@ type Params = Record<string, unknown>;
 export const PRESENCE_METHODS: Readonly<Record<string, (p: Params) => string | undefined>> = {
   "devices.approve": (p) =>
     `Approve a new device with ${Array.isArray(p.scopes) ? p.scopes.join(", ") : "scopes"}`,
+  // A setup token pairs a computer without a second approval, so making one is approving ahead.
+  "devices.setupToken.create": (p) =>
+    `Let a new computer pair itself with ${Array.isArray(p.scopes) ? p.scopes.join(", ") : "scopes"}`,
   "channels.configure": () => "Change a chat channel's access",
   "channels.allowlist.update": (p) =>
     Array.isArray(p.add) && p.add.length > 0 ? "Allow new chat senders" : undefined,
@@ -146,6 +149,7 @@ export const PRESENCE_METHODS: Readonly<Record<string, (p: Params) => string | u
   "memory.lessons.forgetAll": (p) =>
     p.dryRun === true ? undefined : "Forget everything Psyche learned from you",
   "backup.delete": () => "Delete a backup",
+  "gateway.lan.rotateCert": () => "Replace the certificate computers on this network trust",
   "sandbox.installSrt": () =>
     "Install srt (the sandbox runtime) into Psyche's tools folder from the npm registry",
 };

@@ -82,6 +82,24 @@ export function auditRules(s: Snapshot, now: Date): AuditReport {
     });
   }
 
+  // LAN listening (remote-gateway design §3.1): the Gateway also listens on the owner's chosen
+  // network interface with a self-signed certificate. Anyone on that network can reach the
+  // pairing screen (they still need the owner's approval with Touch ID or a passkey).
+  const lan = setting(s, "gateway.lan");
+  if (typeof lan === "object" && lan !== null && (lan as { enabled?: unknown }).enabled === true) {
+    const l = lan as { interfaces?: unknown; port?: unknown };
+    const where =
+      Array.isArray(l.interfaces) && l.interfaces.length > 0
+        ? l.interfaces.join(", ")
+        : "the primary interface";
+    add({
+      id: "lan.listening",
+      severity: "medium",
+      message: `the Gateway listens on the local network (${where}, port ${typeof l.port === "number" ? l.port : 7979}); anyone on that network can reach its pairing screen`,
+      fix: 'Turn off "Allow computers on this network" in Settings, or use it only on a network you trust (not shared or guest Wi-Fi)',
+    });
+  }
+
   // Channels: open DMs, groups without mention gating.
   skip("channels", s.channels);
   if (s.channels.ok) {
