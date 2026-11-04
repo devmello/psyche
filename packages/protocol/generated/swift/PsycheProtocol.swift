@@ -447,6 +447,12 @@
 //   let devicesPresenceKeyRemoveResult = try? JSONDecoder().decode(DevicesPresenceKeyRemoveResult.self, from: jsonData)
 //   let devicesRevokeParams = try? JSONDecoder().decode(DevicesRevokeParams.self, from: jsonData)
 //   let devicesRevokeResult = try? JSONDecoder().decode(DevicesRevokeResult.self, from: jsonData)
+//   let devicesSetupTokenCreateParams = try? JSONDecoder().decode(DevicesSetupTokenCreateParams.self, from: jsonData)
+//   let devicesSetupTokenCreateResult = try? JSONDecoder().decode(DevicesSetupTokenCreateResult.self, from: jsonData)
+//   let devicesSetupTokenListParams = try? JSONDecoder().decode(DevicesSetupTokenListParams.self, from: jsonData)
+//   let devicesSetupTokenListResult = try? JSONDecoder().decode(DevicesSetupTokenListResult.self, from: jsonData)
+//   let devicesSetupTokenRevokeParams = try? JSONDecoder().decode(DevicesSetupTokenRevokeParams.self, from: jsonData)
+//   let devicesSetupTokenRevokeResult = try? JSONDecoder().decode(DevicesSetupTokenRevokeResult.self, from: jsonData)
 //   let dictationInsertMethod = try? JSONDecoder().decode(DictationInsertMethod.self, from: jsonData)
 //   let dictationInsertParams = try? JSONDecoder().decode(DictationInsertParams.self, from: jsonData)
 //   let dictationInsertResult = try? JSONDecoder().decode(DictationInsertResult.self, from: jsonData)
@@ -538,6 +544,8 @@
 //   let gatedCapability = try? JSONDecoder().decode(GatedCapability.self, from: jsonData)
 //   let gatewayInfo = try? JSONDecoder().decode(GatewayInfo.self, from: jsonData)
 //   let gatewayInfoParams = try? JSONDecoder().decode(GatewayInfoParams.self, from: jsonData)
+//   let gatewayLANRotateCERTParams = try? JSONDecoder().decode(GatewayLANRotateCERTParams.self, from: jsonData)
+//   let gatewayLANRotateCERTResult = try? JSONDecoder().decode(GatewayLANRotateCERTResult.self, from: jsonData)
 //   let gatewayShutdownPayload = try? JSONDecoder().decode(GatewayShutdownPayload.self, from: jsonData)
 //   let goal = try? JSONDecoder().decode(Goal.self, from: jsonData)
 //   let goalCategory = try? JSONDecoder().decode(GoalCategory.self, from: jsonData)
@@ -959,10 +967,13 @@
 //   let notification = try? JSONDecoder().decode(Notification.self, from: jsonData)
 //   let notificationAction = try? JSONDecoder().decode(NotificationAction.self, from: jsonData)
 //   let notificationCreatedPayload = try? JSONDecoder().decode(NotificationCreatedPayload.self, from: jsonData)
+//   let notificationDevicePayload = try? JSONDecoder().decode(NotificationDevicePayload.self, from: jsonData)
 //   let notificationKind = try? JSONDecoder().decode(NotificationKind.self, from: jsonData)
 //   let notificationOpenedPayload = try? JSONDecoder().decode(NotificationOpenedPayload.self, from: jsonData)
 //   let notificationResolvedPayload = try? JSONDecoder().decode(NotificationResolvedPayload.self, from: jsonData)
 //   let notificationUpdatedPayload = try? JSONDecoder().decode(NotificationUpdatedPayload.self, from: jsonData)
+//   let notificationsDeviceRegisterParams = try? JSONDecoder().decode(NotificationsDeviceRegisterParams.self, from: jsonData)
+//   let notificationsDeviceRegisterResult = try? JSONDecoder().decode(NotificationsDeviceRegisterResult.self, from: jsonData)
 //   let notificationsListParams = try? JSONDecoder().decode(NotificationsListParams.self, from: jsonData)
 //   let notificationsListResult = try? JSONDecoder().decode(NotificationsListResult.self, from: jsonData)
 //   let notificationsMarkReadParams = try? JSONDecoder().decode(NotificationsMarkReadParams.self, from: jsonData)
@@ -1214,6 +1225,8 @@
 //   let settingsGetResult = try? JSONDecoder().decode(SettingsGetResult.self, from: jsonData)
 //   let settingsSetParams = try? JSONDecoder().decode(SettingsSetParams.self, from: jsonData)
 //   let settingsSetResult = try? JSONDecoder().decode(SettingsSetResult.self, from: jsonData)
+//   let setupTokenInfo = try? JSONDecoder().decode(SetupTokenInfo.self, from: jsonData)
+//   let setupTokenScope = try? JSONDecoder().decode(SetupTokenScope.self, from: jsonData)
 //   let sideEffect = try? JSONDecoder().decode(SideEffect.self, from: jsonData)
 //   let skillAuthorVersion = try? JSONDecoder().decode(SkillAuthorVersion.self, from: jsonData)
 //   let skillChangeEvent = try? JSONDecoder().decode(SkillChangeEvent.self, from: jsonData)
@@ -9945,6 +9958,13 @@ public struct ConnectChallenge: Codable, Sendable {
     /// base64url Ed25519 signature by the Gateway identity key over gatewaySigningPayload(nonce,
     /// serverOrigin, the connecting device's public key)
     public let gatewaySignature: String?
+    /// base64url Ed25519 signature by the Gateway identity key over lanCertSigningPayload(nonce,
+    /// serverOrigin, device key, lanCertSpki)
+    public let lanCERTSignature: String?
+    /// LAN listener only: the SHA-256 (base64url) of the SPKI of the TLS certificate this
+    /// connection was served with. The client compares it with the certificate it actually saw,
+    /// so a relay with its own certificate is caught
+    public let lanCERTSpki: String?
     /// base64url, 32 random bytes
     public let nonce: String
     public let phase: ConnectChallengePhase
@@ -9956,16 +9976,20 @@ public struct ConnectChallenge: Codable, Sendable {
         case expiresAt = "expiresAt"
         case gatewayKey = "gatewayKey"
         case gatewaySignature = "gatewaySignature"
+        case lanCERTSignature = "lanCertSignature"
+        case lanCERTSpki = "lanCertSpki"
         case nonce = "nonce"
         case phase = "phase"
         case protocolVersion = "protocolVersion"
         case serverOrigin = "serverOrigin"
     }
 
-    public init(expiresAt: String, gatewayKey: String?, gatewaySignature: String?, nonce: String, phase: ConnectChallengePhase, protocolVersion: Int, serverOrigin: String) {
+    public init(expiresAt: String, gatewayKey: String?, gatewaySignature: String?, lanCERTSignature: String?, lanCERTSpki: String?, nonce: String, phase: ConnectChallengePhase, protocolVersion: Int, serverOrigin: String) {
         self.expiresAt = expiresAt
         self.gatewayKey = gatewayKey
         self.gatewaySignature = gatewaySignature
+        self.lanCERTSignature = lanCERTSignature
+        self.lanCERTSpki = lanCERTSpki
         self.nonce = nonce
         self.phase = phase
         self.protocolVersion = protocolVersion
@@ -9979,18 +10003,29 @@ public enum ConnectChallengePhase: String, Codable, Sendable {
 
 // MARK: - ConnectDenied
 public struct ConnectDenied: Codable, Sendable {
+    /// Machine-readable cause when there is one: the setup token was used, expired, revoked or
+    /// not allowed here
+    public let code: Code?
     public let phase: ConnectDeniedPhase
     public let reason: String
 
     public enum CodingKeys: String, CodingKey {
+        case code = "code"
         case phase = "phase"
         case reason = "reason"
     }
 
-    public init(phase: ConnectDeniedPhase, reason: String) {
+    public init(code: Code?, phase: ConnectDeniedPhase, reason: String) {
+        self.code = code
         self.phase = phase
         self.reason = reason
     }
+}
+
+/// Machine-readable cause when there is one: the setup token was used, expired, revoked or
+/// not allowed here
+public enum Code: String, Codable, Sendable {
+    case setupTokenInvalid = "setup_token_invalid"
 }
 
 public enum ConnectDeniedPhase: String, Codable, Sendable {
@@ -10129,6 +10164,8 @@ public struct ConnectResult: Codable, Sendable {
     public let scopes: [DeviceScope]?
     public let serverTime: String?
     public let stateVersion: Int?
+    /// Machine-readable cause when there is one: the setup token was used, expired, revoked or
+    /// not allowed here
     public let code: String?
     public let pairingRequestID: String?
     public let reason: String?
@@ -10172,18 +10209,26 @@ public struct ConnectVerifyParams: Codable, Sendable {
     public let gatewayKey: String?
     /// base64url, 32 random bytes
     public let nonce: String
+    /// A one-time setup token from a pairing link (remote-gateway design §3.4). Sent here and
+    /// not in `connect`, so only a client that already verified the Gateway's identity ever
+    /// presents it. Valid and unexpired, it pairs this device at once with the scopes chosen
+    /// when the token was made; a used, expired or revoked token is denied with code
+    /// setup_token_invalid. Ignored for a device that is already paired
+    public let setupToken: String?
     /// base64url Ed25519 signature (64 bytes) over connectSigningPayload(...)
     public let signature: String
 
     public enum CodingKeys: String, CodingKey {
         case gatewayKey = "gatewayKey"
         case nonce = "nonce"
+        case setupToken = "setupToken"
         case signature = "signature"
     }
 
-    public init(gatewayKey: String?, nonce: String, signature: String) {
+    public init(gatewayKey: String?, nonce: String, setupToken: String?, signature: String) {
         self.gatewayKey = gatewayKey
         self.nonce = nonce
+        self.setupToken = setupToken
         self.signature = signature
     }
 }
@@ -11896,6 +11941,138 @@ public struct DevicesRevokeResult: Codable, Sendable {
 
     public init(device: Device) {
         self.device = device
+    }
+}
+
+// MARK: - DevicesSetupTokenCreateParams
+public struct DevicesSetupTokenCreateParams: Codable, Sendable {
+    public let approvalID: String?
+    /// What the computer that uses the token gets, chosen by the owner now; never `node`.
+    /// `operator.admin` only when the owner ticks it
+    public let scopes: [SetupTokenScope]
+
+    public enum CodingKeys: String, CodingKey {
+        case approvalID = "approvalId"
+        case scopes = "scopes"
+    }
+
+    public init(approvalID: String?, scopes: [SetupTokenScope]) {
+        self.approvalID = approvalID
+        self.scopes = scopes
+    }
+}
+
+public enum SetupTokenScope: String, Codable, Sendable {
+    case operatorAdmin = "operator.admin"
+    case operatorApprovals = "operator.approvals"
+    case operatorRead = "operator.read"
+    case operatorWrite = "operator.write"
+}
+
+// MARK: - DevicesSetupTokenCreateResult
+public struct DevicesSetupTokenCreateResult: Codable, Sendable {
+    public let gatewayFingerprint: String
+    public let gatewayURL: String
+    public let hostName: String
+    /// psyche-pair:v1 link: gatewayUrl, gatewayFingerprint, setupToken and hostName, nothing
+    /// else. The token appears only here, once
+    public let link: String
+    public let setupToken: SetupTokenInfo
+
+    public enum CodingKeys: String, CodingKey {
+        case gatewayFingerprint = "gatewayFingerprint"
+        case gatewayURL = "gatewayUrl"
+        case hostName = "hostName"
+        case link = "link"
+        case setupToken = "setupToken"
+    }
+
+    public init(gatewayFingerprint: String, gatewayURL: String, hostName: String, link: String, setupToken: SetupTokenInfo) {
+        self.gatewayFingerprint = gatewayFingerprint
+        self.gatewayURL = gatewayURL
+        self.hostName = hostName
+        self.link = link
+        self.setupToken = setupToken
+    }
+}
+
+// MARK: - SetupTokenInfo
+public struct SetupTokenInfo: Codable, Sendable {
+    public let createdAt: String
+    public let expiresAt: String
+    public let id: String
+    public let revokedAt: String?
+    public let scopes: [SetupTokenScope]
+    public let status: SetupTokenInfoStatus
+    public let usedAt: String?
+    public let usedByDeviceID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case createdAt = "createdAt"
+        case expiresAt = "expiresAt"
+        case id = "id"
+        case revokedAt = "revokedAt"
+        case scopes = "scopes"
+        case status = "status"
+        case usedAt = "usedAt"
+        case usedByDeviceID = "usedByDeviceId"
+    }
+
+    public init(createdAt: String, expiresAt: String, id: String, revokedAt: String?, scopes: [SetupTokenScope], status: SetupTokenInfoStatus, usedAt: String?, usedByDeviceID: String?) {
+        self.createdAt = createdAt
+        self.expiresAt = expiresAt
+        self.id = id
+        self.revokedAt = revokedAt
+        self.scopes = scopes
+        self.status = status
+        self.usedAt = usedAt
+        self.usedByDeviceID = usedByDeviceID
+    }
+}
+
+public enum SetupTokenInfoStatus: String, Codable, Sendable {
+    case expired = "expired"
+    case live = "live"
+    case revoked = "revoked"
+    case used = "used"
+}
+
+// MARK: - DevicesSetupTokenListResult
+public struct DevicesSetupTokenListResult: Codable, Sendable {
+    public let setupTokens: [SetupTokenInfo]
+
+    public enum CodingKeys: String, CodingKey {
+        case setupTokens = "setupTokens"
+    }
+
+    public init(setupTokens: [SetupTokenInfo]) {
+        self.setupTokens = setupTokens
+    }
+}
+
+// MARK: - DevicesSetupTokenRevokeParams
+public struct DevicesSetupTokenRevokeParams: Codable, Sendable {
+    public let id: String
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+    }
+
+    public init(id: String) {
+        self.id = id
+    }
+}
+
+// MARK: - DevicesSetupTokenRevokeResult
+public struct DevicesSetupTokenRevokeResult: Codable, Sendable {
+    public let setupToken: SetupTokenInfo
+
+    public enum CodingKeys: String, CodingKey {
+        case setupToken = "setupToken"
+    }
+
+    public init(setupToken: SetupTokenInfo) {
+        self.setupToken = setupToken
     }
 }
 
@@ -14190,6 +14367,7 @@ public struct GatewayInfo: Codable, Sendable {
     /// The Host machine's name
     public let hostName: String
     public let identity: Identity
+    public let lan: LAN?
     /// gateway.publicOrigin, the https address other computers reach it at
     public let publicOrigin: String?
     /// gateway.trustedProxy is on
@@ -14198,13 +14376,15 @@ public struct GatewayInfo: Codable, Sendable {
     public enum CodingKeys: String, CodingKey {
         case hostName = "hostName"
         case identity = "identity"
+        case lan = "lan"
         case publicOrigin = "publicOrigin"
         case trustedProxy = "trustedProxy"
     }
 
-    public init(hostName: String, identity: Identity, publicOrigin: String?, trustedProxy: Bool) {
+    public init(hostName: String, identity: Identity, lan: LAN?, publicOrigin: String?, trustedProxy: Bool) {
         self.hostName = hostName
         self.identity = identity
+        self.lan = lan
         self.publicOrigin = publicOrigin
         self.trustedProxy = trustedProxy
     }
@@ -14225,6 +14405,113 @@ public struct Identity: Codable, Sendable {
     public init(fingerprint: String, publicKey: String) {
         self.fingerprint = fingerprint
         self.publicKey = publicKey
+    }
+}
+
+// MARK: - LAN
+public struct LAN: Codable, Sendable {
+    /// Bonjour `_psyche._tcp` is being advertised
+    public let advertising: Bool
+    /// Interfaces the owner can pick
+    public let candidates: [Candidate]
+    /// SHA-256 (base64url) of the LAN certificate's SPKI: the cert pin
+    public let certSpki: String?
+    /// The `gateway.lan` setting is on
+    public let enabled: Bool
+    /// The interface names or addresses the owner chose; empty = the default one
+    public let interfaces: [String]
+    /// What is bound right now; empty when off or when nothing could bind
+    public let listening: [Listening]
+    /// https://<host>.local:<port> while listening
+    public let origin: String?
+    public let port: Int
+    /// Why something the owner asked for is not happening: unknown_interface:<name>,
+    /// no_interface, bind_failed:<address>:<code>, container_bind, advertise_failed
+    public let problems: [String]
+
+    public enum CodingKeys: String, CodingKey {
+        case advertising = "advertising"
+        case candidates = "candidates"
+        case certSpki = "certSpki"
+        case enabled = "enabled"
+        case interfaces = "interfaces"
+        case listening = "listening"
+        case origin = "origin"
+        case port = "port"
+        case problems = "problems"
+    }
+
+    public init(advertising: Bool, candidates: [Candidate], certSpki: String?, enabled: Bool, interfaces: [String], listening: [Listening], origin: String?, port: Int, problems: [String]) {
+        self.advertising = advertising
+        self.candidates = candidates
+        self.certSpki = certSpki
+        self.enabled = enabled
+        self.interfaces = interfaces
+        self.listening = listening
+        self.origin = origin
+        self.port = port
+        self.problems = problems
+    }
+}
+
+// MARK: - Candidate
+public struct Candidate: Codable, Sendable {
+    public let address: String
+    public let isDefault: Bool
+    public let name: String
+
+    public enum CodingKeys: String, CodingKey {
+        case address = "address"
+        case isDefault = "isDefault"
+        case name = "name"
+    }
+
+    public init(address: String, isDefault: Bool, name: String) {
+        self.address = address
+        self.isDefault = isDefault
+        self.name = name
+    }
+}
+
+// MARK: - Listening
+public struct Listening: Codable, Sendable {
+    public let address: String
+    public let port: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case address = "address"
+        case port = "port"
+    }
+
+    public init(address: String, port: Int) {
+        self.address = address
+        self.port = port
+    }
+}
+
+// MARK: - GatewayLANRotateCERTParams
+public struct GatewayLANRotateCERTParams: Codable, Sendable {
+    public let approvalID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case approvalID = "approvalId"
+    }
+
+    public init(approvalID: String?) {
+        self.approvalID = approvalID
+    }
+}
+
+// MARK: - GatewayLANRotateCERTResult
+public struct GatewayLANRotateCERTResult: Codable, Sendable {
+    public let certSpki: String
+
+    public enum CodingKeys: String, CodingKey {
+        case certSpki = "certSpki"
+    }
+
+    public init(certSpki: String) {
+        self.certSpki = certSpki
     }
 }
 
@@ -22882,6 +23169,43 @@ public enum NotificationKind: String, Codable, Sendable {
     case taskFailed = "task_failed"
 }
 
+// MARK: - NotificationDevicePayload
+public struct NotificationDevicePayload: Codable, Sendable {
+    public let body: String
+    public let createdAt: String
+    public let id: String
+    public let interruption: Interruption
+    public let kind: NotificationKind
+    public let route: String?
+    public let title: String
+
+    public enum CodingKeys: String, CodingKey {
+        case body = "body"
+        case createdAt = "createdAt"
+        case id = "id"
+        case interruption = "interruption"
+        case kind = "kind"
+        case route = "route"
+        case title = "title"
+    }
+
+    public init(body: String, createdAt: String, id: String, interruption: Interruption, kind: NotificationKind, route: String?, title: String) {
+        self.body = body
+        self.createdAt = createdAt
+        self.id = id
+        self.interruption = interruption
+        self.kind = kind
+        self.route = route
+        self.title = title
+    }
+}
+
+public enum Interruption: String, Codable, Sendable {
+    case active = "active"
+    case passive = "passive"
+    case timeSensitive = "timeSensitive"
+}
+
 // MARK: - NotificationOpenedPayload
 public struct NotificationOpenedPayload: Codable, Sendable {
     public let notificationID: String
@@ -22921,6 +23245,32 @@ public struct NotificationUpdatedPayload: Codable, Sendable {
 
     public init(notification: Notification) {
         self.notification = notification
+    }
+}
+
+// MARK: - NotificationsDeviceRegisterParams
+public struct NotificationsDeviceRegisterParams: Codable, Sendable {
+    public let enabled: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case enabled = "enabled"
+    }
+
+    public init(enabled: Bool) {
+        self.enabled = enabled
+    }
+}
+
+// MARK: - NotificationsDeviceRegisterResult
+public struct NotificationsDeviceRegisterResult: Codable, Sendable {
+    public let enabled: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case enabled = "enabled"
+    }
+
+    public init(enabled: Bool) {
+        self.enabled = enabled
     }
 }
 
@@ -34023,6 +34373,7 @@ public typealias ConnectorsListParams = [String: JSONAny]
 public typealias DailyAutomationsTemplatesParams = [String: JSONAny]
 public typealias DevicesBootstrapAdminParams = [String: JSONAny]
 public typealias DevicesPresenceKeyListParams = [String: JSONAny]
+public typealias DevicesSetupTokenListParams = [String: JSONAny]
 public typealias DictationTargetParams = [String: JSONAny]
 public typealias EmptyParams = [String: JSONAny]
 public typealias GatewayInfoParams = [String: JSONAny]

@@ -10,6 +10,7 @@ export * from "./mcp-official.ts";
 export * from "./mcp-presets.ts";
 export * from "./methods/index.ts";
 export * from "./node.ts";
+export * from "./pairing-link.ts";
 export * from "./prep-note.ts";
 export * from "./registrable.ts";
 export * from "./schemas/index.ts";

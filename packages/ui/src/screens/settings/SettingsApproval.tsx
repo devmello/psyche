@@ -46,7 +46,7 @@ function PendingApprovalBanner({
   const [presenceHint, setPresenceHint] = useState<string | null>(null);
   const retried = useRef(false);
   const status = approval?.status;
-  const label = settingLabel(pending.key);
+  const label = pending.label ?? settingLabel(pending.key);
 
   useEffect(() => {
     if (status === undefined || status === "pending" || retried.current) return;

@@ -159,13 +159,19 @@ export interface PermissionBrokerOptions {
 
 type GrantFields = { grantFields?: JsonObject };
 
-/** Challenge a presence assertion signs (design-04). */
+/**
+ * Challenge a presence assertion signs (design-04). A card answered with a scope wider than
+ * `once` binds that scope too, so Touch ID given for "once" cannot be turned into "always"
+ * afterwards. `once` keeps the original form (the helper's challenge never carries a scope).
+ */
 export function presenceChallenge(
   approvalId: string,
   bindingHash: string,
   answerToken: string,
+  scope?: string,
 ): string {
-  return sha256(`psyche.presence.v1|${approvalId}|${bindingHash}|${answerToken}`);
+  const base = `psyche.presence.v1|${approvalId}|${bindingHash}|${answerToken}`;
+  return sha256(scope === undefined || scope === "once" ? base : `${base}|scope:${scope}`);
 }
 
 const isChat = (s: Surface) => s.includes(":");
@@ -1301,7 +1307,7 @@ export class PsychePermissionBroker implements PermissionBroker {
         }
         const ok = await this.#presence.verify(
           input.presence,
-          presenceChallenge(a.id, a.bindingHash, input.answerToken),
+          presenceChallenge(a.id, a.bindingHash, input.answerToken, scope),
           by.deviceId,
         );
         if (!ok)

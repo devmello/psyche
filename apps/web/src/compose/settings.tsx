@@ -29,6 +29,7 @@ import { DesktopDevicesSettings, useThisDeviceId } from "./helper.tsx";
 import { LogViewer } from "./logs.tsx";
 import { PasskeysPanel } from "./passkeys.tsx";
 import { ComputerUseSettings } from "./permissions.tsx";
+import { RemotePresencePanel } from "./remote-presence.tsx";
 import { ZoomSetting } from "./ZoomSetting.tsx";
 
 /**
@@ -173,6 +174,20 @@ export function WebDevicesSettings({ platform }: { platform: ShellPlatform }): R
   );
 }
 
+/**
+ * Settings → Devices in a window of another computer's Gateway: its devices, and Touch ID for
+ * approvals on this computer (a passkey for the Host's site, R2).
+ */
+export function RemoteDevicesSettings({ platform }: { platform: ShellPlatform }): ReactElement {
+  const deviceId = useThisDeviceId(platform);
+  return (
+    <div className="flex flex-col gap-4">
+      <DevicesSection {...(deviceId === undefined ? {} : { thisDeviceId: deviceId })} />
+      <RemotePresencePanel platform={platform} />
+    </div>
+  );
+}
+
 export function settingsSectionOf(route: string): SettingsSectionId | null {
   return parseSettingsRoute(route)?.section ?? null;
 }
@@ -282,7 +297,9 @@ export function settingsRoute(
               }
             : platform.helper
               ? { devices: <DesktopDevicesSettings platform={platform} /> }
-              : {}),
+              : platform.chrome?.remote && platform.passkeys
+                ? { devices: <RemoteDevicesSettings platform={platform} /> }
+                : {}),
           appearance: (
             <div className="flex flex-col gap-4">
               <AppearanceSection />

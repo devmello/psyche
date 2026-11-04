@@ -5,7 +5,12 @@ import type {
   Notification,
   Surface,
 } from "@psyche/protocol";
-import { type InterruptionLevel, parseChannelSurface, surfaceClass } from "./types.ts";
+import {
+  type InterruptionLevel,
+  parseChannelSurface,
+  parseDeviceSurface,
+  surfaceClass,
+} from "./types.ts";
 
 export type DeliveryOutcome =
   | { status: "delivered" }
@@ -111,6 +116,55 @@ export function createOsSurface(options: OsSurfaceOptions): SurfaceAdapter {
         error: `${code}: ${res.error?.message ?? "notify.show failed"}`,
         retryable: !NON_RETRYABLE.has(code),
       };
+    },
+  };
+}
+
+// --- A remote desktop client's own OS notifications -----------------------------------------------
+
+/**
+ * What a remote client shows through its own OS (`notification.device`). There is no `actions`
+ * field on purpose: a click opens the card on the client, and approving needs the full card (and
+ * a passkey for the risky ones), never a button on a banner.
+ */
+export interface DeviceToast {
+  id: string;
+  kind: Notification["kind"];
+  title: string;
+  body: string;
+  route: string | null;
+  interruption: InterruptionLevel;
+  createdAt: string;
+}
+
+export function toDeviceToast(n: Notification, interruption: InterruptionLevel): DeviceToast {
+  return {
+    id: n.id,
+    kind: n.kind,
+    title: n.title,
+    body: n.body,
+    route: n.route ?? null,
+    interruption,
+    createdAt: n.createdAt,
+  };
+}
+
+export interface DeviceSurfaceOptions {
+  /** Sends the toast to that device's open connections; `false` when none can show it. */
+  send: (deviceId: string, toast: DeviceToast) => boolean;
+}
+
+export function createDeviceSurface(options: DeviceSurfaceOptions): SurfaceAdapter {
+  return {
+    name: "device",
+    handles: (surface) => surfaceClass(surface) === "device",
+    async deliver(n, ctx) {
+      const deviceId = parseDeviceSurface(ctx.surface);
+      if (deviceId === undefined) return { status: "suppressed", reason: "not a device surface" };
+      // Only for clients connected when it is due: never retried, never kept for later.
+      return options.send(deviceId, toDeviceToast(n, ctx.interruption))
+        ? { status: "delivered" }
+        : { status: "suppressed", reason: "device not connected" };
     },
   };
 }

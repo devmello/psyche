@@ -5,6 +5,7 @@ import PsycheStore
 /// What is presented over the tabs.
 enum AppSheet: Identifiable {
     case approval(NeedsYouItem)
+    case question(NeedsYouItem)
     case agent
     case settings
 
@@ -12,6 +13,7 @@ enum AppSheet: Identifiable {
         switch self {
         case .settings: "settings"
         case .approval(let item): "approval-\(item.id)"
+        case .question(let item): "question-\(item.id)"
         case .agent: "agent"
         }
     }
@@ -36,6 +38,7 @@ public final class Router {
 
     public init() {
         #if DEBUG
+        // Screenshots and demos: `-psycheTab library` and `-psycheOpen library/lib_91c0` on the launch line.
         // Screenshots without taps: simctl launch ... -psycheTab memory -psycheSheet settings
         let defaults = UserDefaults.standard
         switch defaults.string(forKey: "psycheTab") {
@@ -51,6 +54,7 @@ public final class Router {
             tab = .memory
             memoryPath = [route]
         }
+        if let path = defaults.string(forKey: "psycheOpen") { open(appPath: path) }
         #endif
     }
 
@@ -83,6 +87,17 @@ public final class Router {
         tab = .memory
     }
 
+    /// Opens what a Needs-you item asks for: the approval or question sheet, or the thread for a task.
+    func open(_ item: NeedsYouItem) {
+        if item.approval != nil {
+            sheet = .approval(item)
+        } else if item.question != nil {
+            sheet = .question(item)
+        } else if let thread = item.threadID {
+            openThread(thread)
+        }
+    }
+
     func openThread(_ id: String) {
         selectedThread = id
         tab = .chat
@@ -98,6 +113,24 @@ public final class Router {
         case .thread(let id): openThread(id)
         case .project, .person: tab = .memory; memoryPath = [route]
         case .file: tab = .library; libraryPath = [route]
+        case .inbox, .scheduled, .overview: tab = .home; homePath = [route]
         }
     }
 }
+
+#if DEBUG
+extension Router {
+    /// `simctl launch … -psycheOpen approval|question|agent|inbox|scheduled|overview` opens that screen at launch,
+    /// for screenshots and demos in the simulator (which can't be tapped headlessly). Debug builds only.
+    func openForScreenshot(store: any PsycheBackend) async {
+        guard let name = UserDefaults.standard.string(forKey: "psycheOpen") else { return }
+        let items = (try? await store.home())?.needsYou ?? []
+        switch name {
+        case "approval": sheet = items.first { $0.approval != nil }.map { .approval($0) }
+        case "question": sheet = items.first { $0.question != nil }.map { .question($0) }
+        case "agent": sheet = .agent
+        default: open(appPath: "/" + name)
+        }
+    }
+}
+#endif

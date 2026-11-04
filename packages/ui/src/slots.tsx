@@ -49,8 +49,21 @@ export interface GatewayEntry {
   /** A Gateway on another computer. */
   remote: boolean;
   active: boolean;
-  /** Its identity key is pinned. */
+  /** Its identity is pinned: the key, or the fingerprint a pairing link named. */
   pinned: boolean;
+  /** On the local network, reached over a pinned self-signed certificate. */
+  lan?: boolean;
+}
+
+/** A Gateway the network announced; a claim, not a proof (desktop: `lib/lan-discovery.ts`). */
+export interface DiscoveredGateway {
+  id: string;
+  name: string;
+  /** `sha256:<hex>` it announced for its identity key, or null. */
+  fingerprint: string | null;
+  /** Announced more than once with different keys: not addable. */
+  conflict: boolean;
+  saved: boolean;
 }
 
 /**
@@ -61,9 +74,22 @@ export interface GatewayEntry {
 export interface GatewaysSlot {
   list(): Promise<GatewayEntry[]>;
   add(address: string, name?: string): Promise<GatewayEntry>;
+  /** Looks for Gateways on the local network; absent where the app cannot (no Bonjour). */
+  discover?(): Promise<DiscoveredGateway[]>;
+  /** Adds one `discover` returned, by its id: the app never takes an address from here. */
+  addDiscovered?(id: string): Promise<GatewayEntry>;
   remove(id: string): Promise<void>;
   switchTo(id: string, opts?: { stopLocal?: boolean }): Promise<void>;
   repair(id: string): Promise<void>;
+  /**
+   * Adds the Gateway a pasted `psyche-pair:v1` link names (confirmed in a native dialog). Rejects
+   * with `invalid_params` and `details.problem` (`link_<problem>` for the link).
+   */
+  addLink?(link: string): Promise<GatewayEntry>;
+  /** A pairing link the OS opened in the app, once; shown in the field, never acted on. */
+  takePendingLink?(): Promise<string | null>;
+  /** The OS opened a pairing link while the window is open. Returns the unsubscribe. */
+  onPendingLink?(cb: () => void): () => void;
 }
 
 export interface UiSlots {
@@ -99,7 +125,7 @@ export interface UiSlots {
   /** The Markdown editor from `packages/viewers` (Rich / Source / Diff). */
   renderEditor?: (props: EditorSlotProps) => ReactNode;
   /** Writes the system clipboard (the desktop's goes through main; #507). */
-  writeClipboard?: (text: string) => Promise<void>;
+  writeClipboard?: (text: string, opts?: { clearAfterMs?: number }) => Promise<void>;
   /** Opens an https page in the system browser (a connector's sign-in; #505). */
   openExternal?: (url: string) => Promise<void>;
   /**
@@ -144,6 +170,13 @@ export interface UiSlots {
   touchIdFix?: (fix: TouchIdFix) => Promise<void>;
   /** The desktop: cards that need Touch ID are approved once only from this window. */
   touchIdOnceOnly?: boolean;
+  /**
+   * A client of another computer's Gateway (remote-gateway design §6.2): a card that needs Touch
+   * ID is approved here only with a passkey made on this computer. Without one the card says
+   * "Answer on {host}" and Allow stays off (Deny still works); ordinary cards are unaffected.
+   * Absent on This Mac and on the web, which have their own paths.
+   */
+  remotePresence?: { hostName: string; hasPasskey: boolean };
   /** The host's native folder picker; resolves to the real path, or null when cancelled. */
   pickFolder?: (opts?: { title?: string }) => Promise<string | null>;
   /** Persona shown in agent messages and cards. */

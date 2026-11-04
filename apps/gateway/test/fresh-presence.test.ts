@@ -37,14 +37,18 @@ const touchId: PresenceVerifier = {
 };
 const DEVICE = "admin-fresh";
 
-async function boot(presence?: PresenceVerifier, parts?: ComposeOptions["parts"]) {
+async function boot(
+  presence?: PresenceVerifier,
+  parts?: ComposeOptions["parts"],
+  config: Record<string, unknown> = {},
+) {
   home = mkdtempSync(join(tmpdir(), "psyche-fresh-"));
   composed = await composeGateway({
     env: {},
     logger: silentLogger,
     retentionIntervalMs: 0,
     background: false,
-    config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+    config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null, ...config },
     model: { provider: new FakeModelProvider(), model: "fake/model" },
     ...(presence === undefined ? {} : { presence }),
     ...(parts === undefined ? {} : { parts }),
@@ -104,6 +108,61 @@ describe("fresh presence on admin methods", () => {
     expect(await admin.request("memory.reset", { approvalId }, ik())).toMatchObject({
       ok: false,
       error: { code: "binding_mismatch" },
+    });
+  });
+
+  it("a pairing link needs a card bound to its scopes, and the card is spent by one link", async () => {
+    const { admin } = await boot(touchId, undefined, {
+      publicOrigin: "https://studio-mac.tail1234.ts.net",
+      allowedOrigins: ["https://studio-mac.tail1234.ts.net"],
+    });
+    const scopes = ["operator.read", "operator.write"];
+    const first = await admin.request("devices.setupToken.create", { scopes });
+    const { approvalId, approval } = await approveWithPresence(admin, first);
+    expect(approval.details).toMatchObject({ method: "devices.setupToken.create" });
+    // The card covers those scopes and no others: asking for admin with it is refused.
+    expect(
+      await admin.request("devices.setupToken.create", {
+        scopes: [...scopes, "operator.admin"],
+        approvalId,
+      }),
+    ).toMatchObject({ ok: false, error: { code: "binding_mismatch" } });
+    const made = await admin.request("devices.setupToken.create", { scopes, approvalId });
+    expect(made).toMatchObject({ ok: true });
+    expect((made.payload as { link: string }).link).toMatch(/^psyche-pair:v1:/);
+    // The card is spent: a second link needs a second approval.
+    expect(await admin.request("devices.setupToken.create", { scopes, approvalId })).toMatchObject({
+      ok: false,
+      error: { code: "binding_mismatch" },
+    });
+  });
+
+  it("another device cannot spend the card the owner approved for a link", async () => {
+    const { admin, c } = await boot(touchId, undefined, {
+      publicOrigin: "https://studio-mac.tail1234.ts.net",
+      allowedOrigins: ["https://studio-mac.tail1234.ts.net"],
+    });
+    const scopes = ["operator.read", "operator.write"];
+    const first = await admin.request("devices.setupToken.create", { scopes });
+    const { approvalId } = await approveWithPresence(admin, first);
+    // A second Host-shell admin presents device A's approved card.
+    const keyB = newDeviceKey();
+    (await desktopClient(c.gateway, keyB, "admin-b")).close();
+    updateDevice(c.gateway.context.db, "admin-b", {
+      scopes: ["operator.read", "operator.write", "operator.approvals", "operator.admin"],
+    });
+    const other = await desktopClient(c.gateway, keyB, "admin-b");
+    clients.push(other);
+    expect(await other.request("devices.setupToken.create", { scopes, approvalId })).toMatchObject({
+      ok: false,
+      error: { code: "binding_mismatch" },
+    });
+    expect(
+      c.gateway.context.db.sqlite.prepare("SELECT count(*) AS n FROM setup_tokens").get(),
+    ).toMatchObject({ n: 0 });
+    // The owner's own device can still use it.
+    expect(await admin.request("devices.setupToken.create", { scopes, approvalId })).toMatchObject({
+      ok: true,
     });
   });
 

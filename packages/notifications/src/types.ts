@@ -14,9 +14,11 @@ export const NOTIFICATION_KINDS = [
 
 /**
  * Surface classes (protocol `Surface`): the in-app clients (`desktop`, `web`) get Gateway events,
- * `notification` is the OS through the mac helper, `<channel>:<peerId>` is a chat channel.
+ * `notification` is the OS through the mac helper, `<channel>:<peerId>` is a chat channel, and
+ * `device:<deviceId>` is one connected remote desktop client's own OS notifications (remote
+ * Gateway design §4.2; the same family as the phone's `push:<deviceId>`).
  */
-export type SurfaceClass = "desktop" | "web" | "notification" | "channel";
+export type SurfaceClass = "desktop" | "web" | "notification" | "channel" | "device";
 
 /** Apple's `UNNotificationInterruptionLevel` minus `critical`, which Psyche never uses. */
 export type InterruptionLevel = "passive" | "active" | "timeSensitive";
@@ -55,7 +57,15 @@ export function normalizeSurface(surface: Surface): Surface {
 export function surfaceClass(surface: Surface): SurfaceClass {
   const s = normalizeSurface(surface);
   if (s === "desktop" || s === "web" || s === "notification") return s;
+  if (s.startsWith("device:")) return "device";
   return "channel";
+}
+
+/** `device:<deviceId>` to the device id; `undefined` for anything else. */
+export function parseDeviceSurface(surface: Surface): string | undefined {
+  const s = normalizeSurface(surface);
+  if (!s.startsWith("device:") || s.length === "device:".length) return undefined;
+  return s.slice("device:".length);
 }
 
 /** Splits `<channel>:<peerId>`; `undefined` for anything that is not a channel surface. */
@@ -71,5 +81,5 @@ export function parseChannelSurface(
 /** Surfaces that interrupt the owner (and therefore wait out quiet hours). */
 export function isInterruptive(surface: Surface): boolean {
   const c = surfaceClass(surface);
-  return c === "notification" || c === "channel";
+  return c === "notification" || c === "channel" || c === "device";
 }

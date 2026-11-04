@@ -63,4 +63,53 @@ struct FixtureStoreTests {
             if case .assistant(_, let text, false) = $0 { text.contains("Is rent paid?") } else { false }
         })
     }
+
+    @Test func answeringSettlesItsInboxEntry() async throws {
+        try await store.answerApproval(id: "appr_electric", decision: .deny)
+        let entry = try #require(try await store.inbox().first { $0.needsYouID == "appr_electric" })
+        #expect(!entry.needsYou)
+        #expect(entry.read)
+    }
+
+    @Test func aFailedAnswerKeepsTheItemAndSucceedsOnRetry() async throws {
+        await store.failNextAnswer(with: "That approval expired.")
+        await #expect(throws: BackendError.refused("That approval expired.")) {
+            try await store.answerApproval(id: "appr_electric", decision: .allow)
+        }
+        #expect(try await store.home().needsYou.contains { $0.id == "appr_electric" })
+        try await store.answerApproval(id: "appr_electric", decision: .allow)
+        #expect(try await store.home().needsYou.allSatisfy { $0.id != "appr_electric" })
+    }
+
+    @Test func aQuestionNeedsAnOptionOrWords() async throws {
+        let question = try #require(try await store.home().needsYou.first { $0.id == "q_deck" }?.question)
+        #expect(question.options.count == 2)
+        await #expect(throws: BackendError.self) {
+            try await store.answerQuestion(id: "q_deck", answer: QuestionAnswer(text: "   "))
+        }
+        try await store.answerQuestion(id: "q_deck", answer: QuestionAnswer(optionID: question.options[0].id))
+        #expect(try await store.home().needsYou.allSatisfy { $0.id != "q_deck" })
+    }
+
+    @Test func answeringAnUnknownItemIsNotFound() async {
+        await #expect(throws: BackendError.notFound) {
+            try await store.answerApproval(id: "nope", decision: .allow)
+        }
+    }
+
+    @Test func markingReadSticksAndNudgesGoAway() async throws {
+        try await store.markRead(ids: ["i1"])
+        #expect(try await store.inbox().first { $0.id == "i1" }?.read == true)
+        try await store.actOnNudge(id: "n1", action: .snooze)
+        #expect(try await store.home().keepInTouch.isEmpty)
+        await #expect(throws: BackendError.notFound) { try await store.actOnNudge(id: "n1", action: .mute) }
+    }
+
+    @Test func cancellingATaskMovesItToRecentAndSaysSo() async throws {
+        try await store.cancelTask(id: "task_q3")
+        let activity = try await store.activity()
+        #expect(activity.now.isEmpty)
+        #expect(activity.recent.first?.outcome == .cancelled)
+        #expect(try await store.home().running.isEmpty)
+    }
 }

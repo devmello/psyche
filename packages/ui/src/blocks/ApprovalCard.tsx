@@ -385,7 +385,12 @@ export function ApprovalCard({
   const [showIds, setShowIds] = useState(false);
   // folder_access: the folder the owner picks is what is granted, never the agent's string.
   const isFolder = raw.kind === "folder_access";
-  const { pickFolder, permissionAction, touchIdFix, touchIdOnceOnly } = useSlots();
+  const { pickFolder, permissionAction, touchIdFix, touchIdOnceOnly, remotePresence } = useSlots();
+  // A remote client with no passkey of its own can't give the presence this card needs.
+  const answerOnHost =
+    remotePresence !== undefined && approval.requiresAuthentication && !remotePresence.hasPasskey
+      ? remotePresence.hostName
+      : null;
   // Touch ID from this window approves once only (security §3.7): say so, never drop "Always"
   // silently.
   const onceOnlyHere = touchIdOnceOnly === true && approval.requiresAuthentication;
@@ -468,7 +473,7 @@ export function ApprovalCard({
   const submit = async (decision: "approve" | "deny", confirmed = false) => {
     if (!interactive || !armed || busy || inFlight.current) return;
     if (limitedUntil !== null && Date.now() < limitedUntil && decision === "approve") return;
-    if (decision === "approve" && !allowReady) return;
+    if (decision === "approve" && (!allowReady || answerOnHost !== null)) return;
     if (decision === "approve" && floor !== null && choice === "always" && !confirmed) {
       liftConfirm.ask(
         floor,
@@ -607,7 +612,7 @@ export function ApprovalCard({
   const limitSecondsLeft =
     limitedUntil === null ? 0 : Math.max(0, Math.ceil((limitedUntil - limitNow) / 1000));
   const limited = limitSecondsLeft > 0;
-  const canAllow = armed && !busy && allowReady && !limited;
+  const canAllow = armed && !busy && allowReady && !limited && answerOnHost === null;
   const specialist = approval.requestedBy.specialist;
   // A specialist asks (specialists §4.4): "For {task} · Shopper started by Psyche in Main chat".
   const requester = specialist
@@ -957,6 +962,11 @@ export function ApprovalCard({
               <span className="font-mono" data-testid="approval-code">
                 {t("blocks.approval.touchId.code", { code: approvalCode(approval.bindingHash) })}
               </span>
+            </span>
+          ) : null}
+          {answerOnHost !== null ? (
+            <span data-testid="answer-on-host">
+              {t("blocks.approval.answerOnHost", { host: answerOnHost })}
             </span>
           ) : null}
           {onceOnlyHere && choice !== "once" ? (

@@ -101,7 +101,8 @@ describe("mail connectors in the Gateway (M7, N9)", () => {
       presence: {
         kind: "webauthn",
         deviceId: ownerId,
-        signature: `ok:${presenceChallenge(p.approval.id, p.approval.bindingHash, p.answerToken)}`,
+        // A "site" answer binds its scope into the challenge (presenceChallenge, design-04).
+        signature: `ok:${presenceChallenge(p.approval.id, p.approval.bindingHash, p.answerToken, "site")}`,
       },
     });
     // Then every poll reads it under that one approval.
