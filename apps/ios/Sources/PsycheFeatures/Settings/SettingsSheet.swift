@@ -13,6 +13,8 @@ final class SettingsModel {
 
     private(set) var phase: LoadPhase<Loaded> = .idle
     var notice: String?
+    /// Set when the Gateway could not be reached for "Remove this phone": the owner may still wipe this phone only.
+    var offeringLocalRemoval = false
     private(set) var removing = false
     private let store: any PsycheBackend
 
@@ -68,8 +70,24 @@ final class SettingsModel {
         do {
             try await store.revokeThisPhone()
             return true
+        } catch BackendError.unreachable {
+            offeringLocalRemoval = true
+            return false
         } catch {
             notice = "\(error.localizedDescription) You can also remove this phone in Settings \u{2192} Devices on your Mac."
+            return false
+        }
+    }
+
+    /// The wipe without the Gateway. Returns whether the caller should now leave to pairing.
+    func removeThisPhoneLocally() async -> Bool {
+        removing = true
+        defer { removing = false }
+        do {
+            try await store.removeThisPhoneLocally()
+            return true
+        } catch {
+            notice = error.localizedDescription
             return false
         }
     }
@@ -137,7 +155,22 @@ struct SettingsSheet: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Open Settings \u{2192} Devices \u{2192} Add phone on your Mac, then scan the code it shows.")
+            Text("Open Settings \u{2192} Server & remote access \u{2192} Pair another computer on your Mac, then scan the code it shows.")
+        }
+        .confirmationDialog(
+            "Your Mac isn't reachable right now.", isPresented: $model.offeringLocalRemoval, titleVisibility: .visible
+        ) {
+            Button("Remove from this phone only", role: .destructive) {
+                Task {
+                    if await model.removeThisPhoneLocally() {
+                        dismiss()
+                        session.markRevoked()
+                    }
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This phone can clear its keys and saved data now, but your Mac will keep listing it until you remove it in Settings \u{2192} Devices there.")
         }
         .confirmationDialog("Remove this phone?", isPresented: $confirmingRemove, titleVisibility: .visible) {
             Button("Remove this phone", role: .destructive) {
@@ -249,7 +282,7 @@ struct SettingsSheet: View {
             Toggle(title, isOn: isOn)
                 .font(.psycheRow)
                 .foregroundStyle(PsycheColor.text)
-                .tint(PsycheColor.ink)
+                .tint(PsycheColor.muted)  // a quiet track: the ink fill is for the screen's one action
                 .disabled(disabled)
                 .padding(PsycheMetrics.rowPadding)
             if !last { HairlineDivider() }

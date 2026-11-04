@@ -2,19 +2,26 @@ import Foundation
 
 // Settings on the phone (§4.7): this device, notifications, Live Activities, presence. Owner: the
 // Memory session (I7). Everything else says "Change this on your Mac". Gateway methods:
-// devices.list (own record), devices.revoke (self), push.* (M2).
+// devices.list (own record, admin only; the phone falls back to what it knows), devices.revokeSelf, push.* (M2).
 
 public protocol SettingsBackend: Sendable {
     func device() async throws -> DeviceInfo
     func settings() async throws -> PhoneSettings
     func updateSettings(_ settings: PhoneSettings) async throws
-    /// "Remove this phone" (devices.revoke on itself). The caller then moves `Session` to `.revoked`.
+    /// "Remove this phone": `devices.revokeSelf`, then wipe keys, outbox and caches. Required, with no
+    /// default: a backend that cannot do it must throw (`BackendError.unreachable`), because the caller moves
+    /// `Session` to `.revoked` only after this returns.
     func revokeThisPhone() async throws
+
+    // Additive. It has a default below, so only a backend with something to wipe overrides it.
+
+    /// "Remove from this phone only": wipes keys, outbox and caches without telling the Gateway, for when the
+    /// Gateway cannot be reached. The Mac keeps listing the phone until it is removed there.
+    func removeThisPhoneLocally() async throws
 }
 
 extension SettingsBackend {
-    // Additive: backends written before this existed treat removal as done locally.
-    public func revokeThisPhone() async throws {}
+    public func removeThisPhoneLocally() async throws {}
 }
 
 public struct DeviceInfo: Sendable, Equatable {

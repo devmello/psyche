@@ -85,6 +85,9 @@ struct SearchView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
+                // The page title is drawn in the column like every other screen (the system's large title
+                // sits at the window edge and ignores the readable column on iPad).
+                PageHeader("Search")
                 if model.trimmed.isEmpty {
                     idle
                 } else {
@@ -104,7 +107,8 @@ struct SearchView: View {
         }
         .scrollDismissesKeyboard(.interactively)
         .psycheScreen()
-        .navigationTitle("Search")
+        .navigationTitle("")
+        .psycheInlineTitle()
         .searchable(text: $model.query, prompt: "Search or ask")
         .onSubmit(of: .search) { model.remember() }
         .task(id: model.query) {

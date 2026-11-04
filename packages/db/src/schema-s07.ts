@@ -311,6 +311,18 @@ export const memoryQuarantine = sqliteTable("memory_quarantine", {
   decidedAt: text("decided_at"),
 });
 
+export const memoryWorkUndo = sqliteTable("memory_work_undo", {
+  factId: text("fact_id").primaryKey(),
+  entityId: text("entity_id").notNull(),
+  createdAt: text("created_at").notNull(),
+  undoneAt: text("undone_at"),
+  statusBefore: text("status_before"),
+  statusAfter: text("status_after"),
+  statusFactId: text("status_fact_id"),
+  signalBefore: text("signal_before"),
+  signalAfter: text("signal_after"),
+});
+
 export const graphExclusions = sqliteTable(
   "graph_exclusions",
   {
@@ -474,6 +486,7 @@ export const s07Schema = {
   graphCitations,
   memoryRuns,
   memoryQuarantine,
+  memoryWorkUndo,
   graphExclusions,
   memoryClaimSubjects,
   memoryNeverRules,

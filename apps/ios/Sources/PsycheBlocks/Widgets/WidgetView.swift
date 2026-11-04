@@ -41,6 +41,7 @@ public struct WidgetView: View {
         }
         .task { await model.load() }
         .task { await model.observe() }
+        .confirmsExternalLinks()
     }
 }
 

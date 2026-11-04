@@ -187,6 +187,7 @@ type EverythingMethod =
   | "memory.review.list"
   | "memory.review.decide"
   | "memory.review.undo"
+  | "memory.work.undoUpdate"
   | "memory.quarantine.list"
   | "memory.quarantine.decide"
   | "memory.runs.list"
@@ -215,6 +216,9 @@ export interface EverythingHandlers {
   "memory.review.undo"(
     p: ReviewParams<"memory.review.undo">,
   ): Promise<ReviewResult<"memory.review.undo">>;
+  "memory.work.undoUpdate"(
+    p: ReviewParams<"memory.work.undoUpdate">,
+  ): Promise<ReviewResult<"memory.work.undoUpdate">>;
   "memory.quarantine.list"(
     p: ReviewParams<"memory.quarantine.list">,
   ): Promise<ReviewResult<"memory.quarantine.list">>;
@@ -344,6 +348,9 @@ export function everythingHandlers(
     },
     async "memory.review.undo"(p) {
       return { fact: em.undo(p.factId) };
+    },
+    async "memory.work.undoUpdate"(p) {
+      return { status: em.undoChatWork(p.factId) };
     },
     async "memory.quarantine.list"(p) {
       const offset = offsetOf(p.cursor);
