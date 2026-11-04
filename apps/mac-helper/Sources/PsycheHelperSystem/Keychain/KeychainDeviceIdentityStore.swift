@@ -1,5 +1,6 @@
 import Foundation
 import PsycheHelperCore
+import PsycheWire
 
 /// The device identity as a data-protection keychain item (generic password, service
 /// `com.psyche.helper.identity`, `AfterFirstUnlockThisDeviceOnly`, no user presence: it is needed at

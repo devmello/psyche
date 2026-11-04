@@ -1,6 +1,7 @@
 import Foundation
 import PsycheHelperCore
 import PsycheProtocol
+import PsycheWire
 import Security
 
 /// Vault key slots and Psyche-owned items in the data-protection keychain (security §4.2, G1).

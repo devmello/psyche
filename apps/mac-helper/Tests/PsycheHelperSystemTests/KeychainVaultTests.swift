@@ -3,6 +3,7 @@ import LocalAuthentication
 import PsycheHelperCore
 import PsycheHelperSystem
 import PsycheProtocol
+import PsycheWire
 import Security
 import Testing
 
