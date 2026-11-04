@@ -6,7 +6,7 @@ import SwiftUI
 /// I6 and I7, so they name what they will hold.
 struct RouteView: View {
     let route: Route
-    @Environment(\.snapshotStore) private var store
+    @Environment(\.backend) private var store
 
     var body: some View {
         switch route {
