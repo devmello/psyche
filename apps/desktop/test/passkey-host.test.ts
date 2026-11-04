@@ -165,8 +165,7 @@ describe("PasskeyHost", () => {
   });
 
   it("tells a cancelled prompt from a failure, and keeps the DOMException name", async () => {
-    const make = (name: string) =>
-      host(fakeWindow({ ok: false, name, message: "m" }));
+    const make = (name: string) => host(fakeWindow({ ok: false, name, message: "m" }));
     await expect(make("NotAllowedError").get(getOptions())).rejects.toMatchObject({
       code: "cancelled",
       details: { name: "NotAllowedError" },

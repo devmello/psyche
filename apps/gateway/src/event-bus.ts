@@ -17,6 +17,9 @@ export interface EventFilter {
 const EVENT_SCOPE: Partial<Record<EventName, DeviceScope | null>> = {
   "device.updated": "operator.admin",
   "pairing.requested": "operator.admin",
+  // A shell on the Host: only an admin device ever receives its output.
+  "terminal.output": "operator.admin",
+  "terminal.exit": "operator.admin",
   "gateway.shutdown": null,
 };
 

@@ -1323,6 +1323,18 @@
 //   let teachStepKind = try? JSONDecoder().decode(TeachStepKind.self, from: jsonData)
 //   let teachTarget = try? JSONDecoder().decode(TeachTarget.self, from: jsonData)
 //   let teachingImplicitSignals = try? JSONDecoder().decode(TeachingImplicitSignals.self, from: jsonData)
+//   let terminalExitPayload = try? JSONDecoder().decode(TerminalExitPayload.self, from: jsonData)
+//   let terminalOutputPayload = try? JSONDecoder().decode(TerminalOutputPayload.self, from: jsonData)
+//   let terminalSessionACKParams = try? JSONDecoder().decode(TerminalSessionACKParams.self, from: jsonData)
+//   let terminalSessionACKResult = try? JSONDecoder().decode(TerminalSessionACKResult.self, from: jsonData)
+//   let terminalSessionCloseParams = try? JSONDecoder().decode(TerminalSessionCloseParams.self, from: jsonData)
+//   let terminalSessionCloseResult = try? JSONDecoder().decode(TerminalSessionCloseResult.self, from: jsonData)
+//   let terminalSessionOpenParams = try? JSONDecoder().decode(TerminalSessionOpenParams.self, from: jsonData)
+//   let terminalSessionOpenResult = try? JSONDecoder().decode(TerminalSessionOpenResult.self, from: jsonData)
+//   let terminalSessionResizeParams = try? JSONDecoder().decode(TerminalSessionResizeParams.self, from: jsonData)
+//   let terminalSessionResizeResult = try? JSONDecoder().decode(TerminalSessionResizeResult.self, from: jsonData)
+//   let terminalSessionWriteParams = try? JSONDecoder().decode(TerminalSessionWriteParams.self, from: jsonData)
+//   let terminalSessionWriteResult = try? JSONDecoder().decode(TerminalSessionWriteResult.self, from: jsonData)
 //   let textBlock = try? JSONDecoder().decode(TextBlock.self, from: jsonData)
 //   let thingsAddParams = try? JSONDecoder().decode(ThingsAddParams.self, from: jsonData)
 //   let thingsCompleteParams = try? JSONDecoder().decode(ThingsCompleteParams.self, from: jsonData)
@@ -30002,6 +30014,183 @@ public struct TeachingImplicitSignals: Codable, Sendable {
     }
 }
 
+// MARK: - TerminalExitPayload
+public struct TerminalExitPayload: Codable, Sendable {
+    public let exitCode: Int?
+    /// Why the session ended
+    public let reason: TerminalExitPayloadReason
+    public let sessionID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case exitCode = "exitCode"
+        case reason = "reason"
+        case sessionID = "sessionId"
+    }
+
+    public init(exitCode: Int?, reason: TerminalExitPayloadReason, sessionID: String) {
+        self.exitCode = exitCode
+        self.reason = reason
+        self.sessionID = sessionID
+    }
+}
+
+/// Why the session ended
+public enum TerminalExitPayloadReason: String, Codable, Sendable {
+    case closed = "closed"
+    case deviceDisconnected = "device_disconnected"
+    case deviceRevoked = "device_revoked"
+    case exited = "exited"
+    case gatewayStopped = "gateway_stopped"
+    case idle = "idle"
+}
+
+// MARK: - TerminalOutputPayload
+public struct TerminalOutputPayload: Codable, Sendable {
+    /// Terminal output, UTF-8 decoded
+    public let data: String
+    /// Characters sent in this session up to and including this chunk
+    public let end: Int
+    public let sessionID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case data = "data"
+        case end = "end"
+        case sessionID = "sessionId"
+    }
+
+    public init(data: String, end: Int, sessionID: String) {
+        self.data = data
+        self.end = end
+        self.sessionID = sessionID
+    }
+}
+
+// MARK: - TerminalSessionACKParams
+public struct TerminalSessionACKParams: Codable, Sendable {
+    /// The `end` of the last terminal.output chunk the client has rendered
+    public let end: Int
+    public let sessionID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case end = "end"
+        case sessionID = "sessionId"
+    }
+
+    public init(end: Int, sessionID: String) {
+        self.end = end
+        self.sessionID = sessionID
+    }
+}
+
+// MARK: - TerminalSessionCloseParams
+public struct TerminalSessionCloseParams: Codable, Sendable {
+    public let sessionID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case sessionID = "sessionId"
+    }
+
+    public init(sessionID: String) {
+        self.sessionID = sessionID
+    }
+}
+
+// MARK: - TerminalSessionCloseResult
+public struct TerminalSessionCloseResult: Codable, Sendable {
+    public let closed: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case closed = "closed"
+    }
+
+    public init(closed: Bool) {
+        self.closed = closed
+    }
+}
+
+// MARK: - TerminalSessionOpenParams
+public struct TerminalSessionOpenParams: Codable, Sendable {
+    /// The approved presence card from a first approval_required
+    public let approvalID: String?
+    public let cols: Int
+    /// An absolute folder on the Host
+    public let cwd: String?
+    public let rows: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case approvalID = "approvalId"
+        case cols = "cols"
+        case cwd = "cwd"
+        case rows = "rows"
+    }
+
+    public init(approvalID: String?, cols: Int, cwd: String?, rows: Int) {
+        self.approvalID = approvalID
+        self.cols = cols
+        self.cwd = cwd
+        self.rows = rows
+    }
+}
+
+// MARK: - TerminalSessionOpenResult
+public struct TerminalSessionOpenResult: Codable, Sendable {
+    /// What the pane shows: the shell and folder
+    public let label: String
+    public let sessionID: String
+    public let target: TargetEnum
+
+    public enum CodingKeys: String, CodingKey {
+        case label = "label"
+        case sessionID = "sessionId"
+        case target = "target"
+    }
+
+    public init(label: String, sessionID: String, target: TargetEnum) {
+        self.label = label
+        self.sessionID = sessionID
+        self.target = target
+    }
+}
+
+public enum TargetEnum: String, Codable, Sendable {
+    case host = "host"
+}
+
+// MARK: - TerminalSessionResizeParams
+public struct TerminalSessionResizeParams: Codable, Sendable {
+    public let cols: Int
+    public let rows: Int
+    public let sessionID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case cols = "cols"
+        case rows = "rows"
+        case sessionID = "sessionId"
+    }
+
+    public init(cols: Int, rows: Int, sessionID: String) {
+        self.cols = cols
+        self.rows = rows
+        self.sessionID = sessionID
+    }
+}
+
+// MARK: - TerminalSessionWriteParams
+public struct TerminalSessionWriteParams: Codable, Sendable {
+    public let data: String
+    public let sessionID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case data = "data"
+        case sessionID = "sessionId"
+    }
+
+    public init(data: String, sessionID: String) {
+        self.data = data
+        self.sessionID = sessionID
+    }
+}
+
 // MARK: - TextBlock
 public struct TextBlock: Codable, Sendable {
     public let md: String
@@ -33930,6 +34119,9 @@ public typealias SearchSourcesParams = [String: JSONAny]
 public typealias SearchStatusParams = [String: JSONAny]
 public typealias Settings = [String: JSONAny]
 public typealias SpecialistsListParams = [String: JSONAny]
+public typealias TerminalSessionACKResult = [String: JSONAny]
+public typealias TerminalSessionResizeResult = [String: JSONAny]
+public typealias TerminalSessionWriteResult = [String: JSONAny]
 public typealias VaultLockParams = [String: JSONAny]
 public typealias VaultPaymentsMethodsParams = [String: JSONAny]
 public typealias VaultStatusParams = [String: JSONAny]

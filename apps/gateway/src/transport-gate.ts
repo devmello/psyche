@@ -142,7 +142,11 @@ export class TransportGate {
   async admit(req: IncomingMessage, resolved: ResolvedPeer): Promise<Admission> {
     const { mode, token, cfAccess } = this.#o;
     const allowed = this.#o.allowedLogins ?? [];
-    if (allowed.length > 0 && resolved.forwarded && !(await this.#loginAllowed(req, resolved, allowed))) {
+    if (
+      allowed.length > 0 &&
+      resolved.forwarded &&
+      !(await this.#loginAllowed(req, resolved, allowed))
+    ) {
       return { refused: "login_not_allowed" };
     }
     if (mode === "loopback") {
@@ -175,7 +179,9 @@ export class TransportGate {
     allowed: readonly string[],
   ): Promise<boolean> {
     const on = (who: string | undefined) =>
-      who !== undefined && who.length > 0 && allowed.some((a) => a.toLowerCase() === who.toLowerCase());
+      who !== undefined &&
+      who.length > 0 &&
+      allowed.some((a) => a.toLowerCase() === who.toLowerCase());
     const header = req.headers["tailscale-user-login"];
     const login = typeof header === "string" ? header : undefined;
     // `claimedIdentity` is set only for a peer in `trustedProxies`; it must also be a Tailscale proxy.

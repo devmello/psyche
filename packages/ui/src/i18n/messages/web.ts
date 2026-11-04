@@ -292,6 +292,12 @@ export const web = {
   "web.terminal.closeTab": "Close shell {n, number}",
   "web.terminal.newTab": "New shell",
   "web.terminal.empty": "No shells open. Press + to open one.",
+  "web.terminal.ended": "session ended",
+  "web.terminal.waitingApproval": "Waiting for your approval…",
+  "web.terminal.approvalDenied": "The terminal wasn't approved.",
+  "web.terminal.approvalTimedOut": "The approval didn't come in time. Open the terminal again.",
+  "web.terminal.openOnHost": "Open the terminal on {host}.",
+  "web.terminal.limit": "Too many terminals are open on {host}. Close one to open another.",
 
   "web.approval.deny": "Deny",
   "web.approval.allowOnce": "Allow once",

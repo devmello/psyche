@@ -224,6 +224,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     deviceDisconnected: new Set<(deviceId: string) => void>(),
     chatRedo: new Set(),
     chatScreen: { resolve: null },
+    terminalSessions: { owns: null },
     chatContext: { resolve: null },
     limits,
     failedChallenges: new RateLimiter(limits.failedChallengesPerMinute, 60_000, () =>
@@ -361,6 +362,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
         {
           send: (f) => ws.readyState === ws.OPEN && ws.send(f),
           close: (r) => ws.close(1000, r.slice(0, 120)),
+          bufferedAmount: () => ws.bufferedAmount,
         },
         ctx,
       );

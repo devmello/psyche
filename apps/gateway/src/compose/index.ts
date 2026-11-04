@@ -140,6 +140,7 @@ import {
   surfaceOf,
 } from "./handlers.ts";
 import { composeHarnesses } from "./harnesses.ts";
+import { type HostTerminalOptions, hostTerminalPart } from "./host-terminal.ts";
 import { insightsHandlers } from "./insights.ts";
 import { libraryHandlers } from "./library.ts";
 import type { ComposedMcp } from "./mcp.ts";
@@ -292,6 +293,8 @@ export interface ComposeOptions
   speech?: SpeechSetup;
   /** `exec_host` (security §5.4): where srt is, and the process driver (tests mock both). */
   execHost?: Partial<Pick<ExecHostDeps, "srt" | "driver" | "userHome">>;
+  /** Terminal on the Host is always mounted; tests inject a fake PTY and limits. */
+  hostTerminal?: HostTerminalOptions;
   /** Ask about my screen is always mounted; this swaps what takes the capture (default: the Mac helper). */
   screenAsk?: ScreenAskOptions;
   /**
@@ -999,6 +1002,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     composeSpeech(speechSetup ?? speechSetupFromEnv(gwOptions.env)),
     composeDictation(),
     composeDeviceNotifications(deviceNotes),
+    // A terminal on the Host (remote-gateway design §4.2, R4): admin + presence, per device.
+    hostTerminalPart(gwOptions.hostTerminal),
     composeScreenAsk(gwOptions.screenAsk),
     // Canvas artifacts (chat-experience-2026 §4.3): the version store and `artifact.*` tools.
     composeArtifacts,
