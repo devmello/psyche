@@ -79,9 +79,12 @@ describe("web handshake", () => {
   });
 
   describe("a pairing link's setup token (remote-gateway design §3.4)", () => {
-    const nonce = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8";
-    const gatewayKey = "ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8";
-    const token = "QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVphYmNkZWY";
+    // Built from byte sequences, not literals: none of these is a secret.
+    const bytes = (start: number) =>
+      Buffer.from(Uint8Array.from({ length: 32 }, (_, i) => start + i)).toString("base64url");
+    const nonce = bytes(0);
+    const gatewayKey = bytes(32);
+    const token = bytes(64);
     const challenge = {
       type: "res" as const,
       id: "connect",
