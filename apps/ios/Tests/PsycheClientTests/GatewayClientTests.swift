@@ -43,7 +43,8 @@ struct GatewayClientTests {
                 transportFactory: { _, _ in route.gateway.makeTransport() }, reachability: reachability,
                 backoff: Backoff(base: 0.02, cap: 0.05, random: { 0 }), deviceName: "Test iPhone",
                 stateDirectory: dir, backgroundGrace: .milliseconds(80), pendingRecheck: .milliseconds(40),
-                shareInbox: inbox, onWipe: { wiped.set() }))
+                shareInbox: inbox, onWipe: { wiped.set() },
+                libraryCache: dir.appendingPathComponent("LibraryCache")))
         }
         deinit { try? FileManager.default.removeItem(at: dir) }
     }

@@ -193,7 +193,7 @@ import { filesSourceDeps, powerReader } from "./search-files.ts";
 import { chatContextResolver } from "./search-hit-context.ts";
 import { memorySettings, memorySourceDeps } from "./search-memory.ts";
 import { helperRecognizer } from "./search-ocr.ts";
-import { agentBlockedHit } from "./search-open.ts";
+import { agentBlockedHit, canOpenGistSource, scrubCitations } from "./search-open.ts";
 import { routerEmbedder, type SemanticEngines } from "./search-semantic.ts";
 import { agentLocalSearch, searchEverythingTool } from "./search-tool.ts";
 import {
@@ -1651,6 +1651,23 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
     }).part(),
   );
+  // A conversation gist can show the source it was written from, opened in the source viewer: the
+  // lookup and the open check are Search's (read late: the index may be unlocked after start).
+  people.useGistSources({
+    docIdFor: (ref) => search.sources?.docIdFor(ref),
+    canOpen: (call, id, kinds) =>
+      canOpenGistSource({ indexer: () => search.sources }, call, id, kinds),
+  });
+  // Review's citations follow the same per-connection rule (document ids, and Messages quotes).
+  everything.useCitationScrub((call, citations) =>
+    scrubCitations({ indexer: () => search.sources }, call, citations),
+  );
+  // The same two checks put source chips on Home's catch-up lines.
+  proactive.useCatchUpSources({
+    docIdFor: (ref) => search.sources?.docIdFor(ref),
+    canOpen: (call, id, kinds) =>
+      canOpenGistSource({ indexer: () => search.sources }, call, id, kinds),
+  });
   parts.push(people.part(scheduler, timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone));
   // Code plugins (T4): off until the owner turns on `plugins.enabled`.
   parts.push(
@@ -1786,6 +1803,19 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     webhooks,
     publicRoutes,
     onSetupTokenUsed: setupTokenUsedHook({ db, audit, log: gwOptions.logger }),
+    onDeviceSelfRevoked: (revoked) => {
+      void audit
+        .append({
+          kind: "device.revoked_self",
+          actor: { type: "device", deviceId: revoked.deviceId },
+          data: { deviceId: revoked.deviceId, name: revoked.name },
+        })
+        .catch((err: unknown) =>
+          gwOptions.logger?.log("warn", "audit append for a device removing itself failed", {
+            code: PsycheError.from(err).code,
+          }),
+        );
+    },
     onDeviceRevoked: (deviceId) => {
       revocations.recordDevice(deviceId);
       return rawBroker.revokeGrantsByDevice(deviceId);

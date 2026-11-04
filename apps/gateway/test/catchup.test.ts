@@ -10,7 +10,7 @@ import {
   readDailySettings,
   type StoredPost,
 } from "@psyche/proactive";
-import { type DailyBrief, PsycheError, validateResult } from "@psyche/protocol";
+import { type CatchUpItem, type DailyBrief, PsycheError, validateResult } from "@psyche/protocol";
 import { createSearchIndex, feedDoc, searchEverything } from "@psyche/search";
 import { FakeClock, FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
@@ -21,6 +21,7 @@ import {
   readWorkSettings,
 } from "../src/compose/catchup.ts";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
+import type { GistSources } from "../src/compose/people.ts";
 import { silentLogger } from "../src/log.ts";
 
 const HOUR = 3_600_000;
@@ -717,5 +718,162 @@ describe("composition", () => {
     };
     const res = (await def.run({}, { surface: "home" })) as { items: unknown[] };
     expect(res.items).toEqual([]);
+  });
+});
+
+describe("source chips on Home lines", () => {
+  const desktop = { identity: { role: "client", desktopShell: true } };
+  const phone = { identity: { role: "client" } };
+  const helper = { identity: { role: "node" } };
+  /** Search's two answers, as `search-open` gives them: mail opens for any client. */
+  const gate = (
+    allowed: (c: typeof desktop | typeof phone, id: string) => boolean,
+  ): GistSources => ({
+    docIdFor: (ref) => (ref.kind === "mail" && ref.externalRef === "m1" ? "mail:1" : undefined),
+    canOpen: (c, id, kinds) => kinds?.includes("mail") === true && allowed(c as typeof desktop, id),
+  });
+  const run = async (w: World, who: unknown, surface: "home" | "brief" = "home") => {
+    const def = w.catchup.handlers["memory.catchup.list"] as unknown as {
+      run: (c: unknown, p: unknown) => Promise<{ items: CatchUpItem[] }>;
+    };
+    return (await def.run(who, { surface })).items.find((i) => i.title === "Q3 board deck");
+  };
+
+  it("puts the mail behind the line on it, for a connection that may open it", async () => {
+    const w = setup();
+    w.on();
+    w.catchup.useSources(gate(() => true));
+    expect((await run(w, desktop))?.sources).toEqual([{ docId: "mail:1", sourceKind: "mail" }]);
+    expect((await run(w, phone))?.sources).toEqual([{ docId: "mail:1", sourceKind: "mail" }]);
+  });
+
+  it("drops the chip on a remote connection when the document is not one it may open", async () => {
+    const w = setup();
+    w.on();
+    w.catchup.useSources(gate((c) => (c as typeof desktop).identity.desktopShell === true));
+    expect((await run(w, desktop))?.sources).toHaveLength(1);
+    const remote = await run(w, phone);
+    expect(remote?.line).toContain("Updated numbers");
+    expect(remote?.sources).toBeUndefined();
+    expect((await run(w, helper))?.sources).toBeUndefined();
+  });
+
+  it("has no chips before Search is bound, when the check throws, or in the brief's own list", async () => {
+    const w = setup();
+    w.on();
+    expect((await run(w, desktop))?.sources).toBeUndefined();
+    w.catchup.useSources({
+      docIdFor: () => "mail:1",
+      canOpen: () => {
+        throw new Error("index locked");
+      },
+    });
+    expect((await run(w, desktop))?.sources).toBeUndefined();
+    w.catchup.useSources(gate(() => true));
+    const plain = await w.catchup.list({ surface: "home" } as never);
+    expect(plain.items.every((i) => i.sources === undefined)).toBe(true);
+  });
+
+  it("is valid against the protocol result", async () => {
+    const w = setup();
+    w.on();
+    w.catchup.useSources(gate(() => true));
+    const def = w.catchup.handlers["memory.catchup.list"] as unknown as {
+      run: (c: unknown, p: unknown) => Promise<unknown>;
+    };
+    validateResult("memory.catchup.list", await def.run(desktop, { surface: "home" }));
+  });
+});
+
+describe("source chips from a fact's citation", () => {
+  const phone = { identity: { role: "client" } };
+  const open: GistSources = {
+    docIdFor: () => undefined,
+    canOpen: () => true,
+  };
+  /** A progress fact on Quiz 3, cited from the given sources in order (oldest first). */
+  function quizFact(w: World, cites: { source: string; docId: string | null }[]) {
+    const out = w.graph.setFact({
+      entityId: w.ids.quiz.id,
+      attribute: "progress",
+      value: "chapters 1 to 3 done",
+      provenance: "owner",
+    });
+    const factId = out?.fact.id ?? "";
+    cites.forEach((c, n) => {
+      w.db.sqlite
+        .prepare(
+          `INSERT INTO graph_citations (id, target_kind, target_id, source, doc_id, source_ref, quote, start, "end", source_hash, provenance, observed_at, created_at)
+           VALUES (?, 'fact', ?, ?, ?, ?, 'chapters 1 to 3', 0, 15, 'h', 'owner', ?, ?)`,
+        )
+        .run(
+          `cite_${n}`,
+          factId,
+          c.source,
+          c.docId,
+          `ref-${n}`,
+          iso(NOW - 3 * HOUR),
+          iso(NOW - 3 * HOUR + n * 1000),
+        );
+    });
+  }
+  const sourcesOfQuiz = async (w: World, surface: "home" | "brief" = "home") => {
+    const def = w.catchup.handlers["memory.catchup.list"] as unknown as {
+      run: (c: unknown, p: unknown) => Promise<{ items: CatchUpItem[] }>;
+    };
+    const items = (await def.run(phone, { surface })).items;
+    return items.find((i) => i.title === "Quiz 3");
+  };
+
+  it("uses the citation the line is based on", async () => {
+    const w = setup();
+    w.on();
+    w.catchup.useSources(open);
+    quizFact(w, [{ source: "notes", docId: "notes:7" }]);
+    const quiz = await sourcesOfQuiz(w);
+    expect(quiz?.changes.some((c) => c.text.includes("chapters 1 to 3"))).toBe(true);
+    expect(quiz?.sources).toEqual([{ docId: "notes:7", sourceKind: "notes" }]);
+  });
+
+  it("never takes another citation of the same fact: a first chat citation hides a later mail one", async () => {
+    const w = setup();
+    w.on();
+    w.catchup.useSources(open);
+    quizFact(w, [
+      { source: "chats", docId: null },
+      { source: "mail", docId: "mail:9" },
+    ]);
+    const quiz = await sourcesOfQuiz(w);
+    expect(quiz?.changes.some((c) => c.text.includes("chapters 1 to 3"))).toBe(true);
+    expect(quiz?.sources).toBeUndefined();
+  });
+
+  it("drops the chip with the change when its source is hidden on that surface", async () => {
+    const w = setup();
+    w.on();
+    w.catchup.useSources(open);
+    quizFact(w, [{ source: "mail", docId: "mail:9" }]);
+    expect((await sourcesOfQuiz(w))?.sources).toEqual([{ docId: "mail:9", sourceKind: "mail" }]);
+    setSetting(w.db, "memory.surfaces", { hideSources: ["mail"] });
+    const hidden = await sourcesOfQuiz(w);
+    expect(hidden?.changes.some((c) => c.text.includes("chapters 1 to 3"))).toBe(false);
+    expect(hidden?.sources).toBeUndefined();
+  });
+
+  it("carries sources only on Home, the surface that draws chips", async () => {
+    const w = setup();
+    w.on();
+    w.catchup.useSources(open);
+    quizFact(w, [{ source: "notes", docId: "notes:7" }]);
+    expect((await sourcesOfQuiz(w, "home"))?.sources).toHaveLength(1);
+    expect((await sourcesOfQuiz(w, "brief"))?.sources).toBeUndefined();
+  });
+
+  it("skips a document id longer than search.document accepts", async () => {
+    const w = setup();
+    w.on();
+    w.catchup.useSources(open);
+    quizFact(w, [{ source: "notes", docId: `notes:${"x".repeat(400)}` }]);
+    expect((await sourcesOfQuiz(w))?.sources).toBeUndefined();
   });
 });

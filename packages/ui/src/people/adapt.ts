@@ -133,6 +133,7 @@ export function toEntityView({ detail, notes = null, now }: AdaptInput): EntityV
       ? {}
       : {
           gist: i.gist,
+          ...(i.gistDocId === undefined ? {} : { gistDocId: i.gistDocId }),
           gistUntrusted:
             (i.kind === "mail" ||
               i.kind === "message" ||

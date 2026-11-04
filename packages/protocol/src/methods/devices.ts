@@ -102,6 +102,13 @@ export const DevicesMethods = {
     description:
       "Revokes a device's token and node authority permanently and closes its connections.",
   }),
+  "devices.revokeSelf": defineMethod({
+    params: Type.Object({}),
+    result: Type.Object({ device: Device }),
+    scope: "operator.read",
+    description:
+      "Revokes the calling device itself: the same effect as devices.revoke on its own id (token and node authority end permanently), and this connection closes right after the reply. Needs no admin scope, because a device may always remove itself, and takes no device id, so it can never name another device. Audited as device.revoked_self. Not idempotency-keyed: a repeat finds the device already revoked and cannot connect to repeat it.",
+  }),
   "devices.pairing.list": defineMethod({
     params: Type.Object({ status: Type.Optional(PairingStatus) }),
     result: Type.Object({ pairingRequests: Type.Array(PairingRequest) }),

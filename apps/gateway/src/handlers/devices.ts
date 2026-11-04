@@ -15,7 +15,7 @@ import {
 } from "@psyche/db";
 import { type Device, type DeviceScope, type PairingRequest, PsycheError } from "@psyche/protocol";
 import { keyFingerprint } from "../auth.ts";
-import type { Call, GatewayContext, HandlerDef } from "../context.ts";
+import type { Call, GatewayContext, HandlerDef, LiveConnection } from "../context.ts";
 
 /**
  * Approves a pending device pairing with owner-chosen scopes. The device's key must still be the
@@ -56,11 +56,48 @@ export function approvePairing(
   return { device: updated, request: decided };
 }
 
-function closeDeviceConnections(ctx: GatewayContext, deviceId: string, reason: string): void {
+function closeDeviceConnections(
+  ctx: GatewayContext,
+  deviceId: string,
+  reason: string,
+  /** The connection making the call: it closes after its reply, not before it. */
+  caller?: LiveConnection,
+): void {
   for (const conn of [...ctx.connections()]) {
-    if (conn.identity?.deviceId === deviceId || conn.pendingDeviceId === deviceId)
-      conn.close(reason);
+    if (conn.identity?.deviceId === deviceId || conn.pendingDeviceId === deviceId) {
+      if (conn === caller && conn.closeAfterReply) conn.closeAfterReply(reason);
+      else conn.close(reason);
+    }
   }
+}
+
+/**
+ * The shared body of `devices.revoke` and `devices.revokeSelf`. The calling connection, when it
+ * belongs to the revoked device, closes after its reply instead of before it.
+ */
+function revokeNow(call: Call, deviceId: string): Device {
+  const { db } = call.ctx;
+  const device = revokeDevice(db, deviceId);
+  if (!device) throw new PsycheError("not_found", `device ${deviceId} not found`);
+  // Security §10: revoking a device revokes its token and node authority permanently.
+  const node = getNodeByDevice(db, device.id);
+  const offline = node ? setNodeStatus(db, node.id, "offline") : undefined;
+  // A pairing link it made but nobody used yet dies with it (same transaction).
+  revokeSetupTokensCreatedBy(db, device.id);
+  call.ctx.bus.bumpStateVersion();
+  call.emit("device.updated", { device });
+  if (offline) call.emit("node.updated", { node: offline });
+  call.afterCommit(() => {
+    closeDeviceConnections(call.ctx, device.id, "device revoked", call.conn);
+    // Grants the device approved end with it (design-28). Failure is logged, not fatal: the
+    // device is already revoked and cannot use them.
+    call.ctx.onDeviceRevoked?.(device.id).catch((err) =>
+      call.ctx.log.log("warn", "grant revocation for a revoked device failed", {
+        code: PsycheError.from(err).code,
+      }),
+    );
+  });
+  return device;
 }
 
 export const devicesHandlers: Record<string, HandlerDef> = {
@@ -143,27 +180,17 @@ export const devicesHandlers: Record<string, HandlerDef> = {
   "devices.revoke": {
     transactional: true,
     run(call: Call, params: { deviceId: string }) {
-      const { db } = call.ctx;
-      const device = revokeDevice(db, params.deviceId);
-      if (!device) throw new PsycheError("not_found", `device ${params.deviceId} not found`);
-      // Security §10: revoking a device revokes its token and node authority permanently.
-      const node = getNodeByDevice(db, device.id);
-      const offline = node ? setNodeStatus(db, node.id, "offline") : undefined;
-      // A pairing link it made but nobody used yet dies with it (same transaction).
-      revokeSetupTokensCreatedBy(db, device.id);
-      call.ctx.bus.bumpStateVersion();
-      call.emit("device.updated", { device });
-      if (offline) call.emit("node.updated", { node: offline });
-      call.afterCommit(() => {
-        closeDeviceConnections(call.ctx, device.id, "device revoked");
-        // Grants the device approved end with it (design-28). Failure is logged, not fatal: the
-        // device is already revoked and cannot use them.
-        call.ctx.onDeviceRevoked?.(device.id).catch((err) =>
-          call.ctx.log.log("warn", "grant revocation for a revoked device failed", {
-            code: PsycheError.from(err).code,
-          }),
-        );
-      });
+      return { device: revokeNow(call, params.deviceId) };
+    },
+  },
+  "devices.revokeSelf": {
+    transactional: true,
+    run(call: Call) {
+      // Only ever the caller's own id: the method takes no parameter that could name another.
+      const device = revokeNow(call, call.identity.deviceId);
+      call.afterCommit(() =>
+        call.ctx.onDeviceSelfRevoked?.({ deviceId: device.id, name: device.name }),
+      );
       return { device };
     },
   },

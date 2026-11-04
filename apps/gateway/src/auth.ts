@@ -39,6 +39,9 @@ import type { RateLimiter } from "./rate-limit.ts";
 
 export const CHALLENGE_TTL_MS = 60_000;
 
+/** App families that may pair with a setup token: the desktop app and the iOS app. */
+const SETUP_TOKEN_FAMILIES: ReadonlySet<string> = new Set(["desktop", "ios"]);
+
 /**
  * Scopes the per-launch handshake secret can buy. Never `operator.admin`: the secret is a
  * bearer token any same-user process can read (S23 review PR-1-A, design-19), so admin needs
@@ -282,7 +285,7 @@ export interface VerifyOutcome {
   pairedBySetupToken?: { tokenId: string; deviceId: string; scopes: DeviceScope[] };
 }
 
-function denied(reason: string, code?: "setup_token_invalid"): VerifyOutcome {
+function denied(reason: string, code?: "setup_token_invalid" | "device_revoked"): VerifyOutcome {
   return {
     result: { phase: "denied", reason, ...(code === undefined ? {} : { code }) },
     identity: null,
@@ -359,7 +362,7 @@ export function verifyChallenge(
   const { db } = deps;
   const nowIso = now.toISOString();
   const existing = getDevice(db, params.deviceId);
-  if (existing?.revokedAt) return denied("device revoked");
+  if (existing?.revokedAt) return denied("device revoked", "device_revoked");
   // A Mac helper on the node socket either proves this launch's handshake secret or is refused:
   // accepted as an ordinary node it would stay connected (the helper only retries after a
   // denial) and Host features would stay off until it restarted. A stale or missing secret
@@ -411,15 +414,15 @@ export function verifyChallenge(
   const presentedToken = scopes === null ? input.setupToken : undefined;
   // The token is a bearer secret, so only a client that verified this Gateway's key (and bound the
   // connect to it, the v2 payload) may present it: an impostor that does not hold the key never
-  // gets a client to send one. The check is unconditional. Only the desktop app pairs this way for
-  // now (the phone comes later).
+  // gets a client to send one. The check is unconditional. The desktop app and the iPhone/iPad app
+  // pair this way; both verify the key and bind the connect to it (mobile companion §2.2).
   if (
     presentedToken !== undefined &&
     !(
       peer.transport === "ws" &&
       peer.origin === null &&
       params.role === "client" &&
-      params.deviceFamily === "desktop" &&
+      SETUP_TOKEN_FAMILIES.has(params.deviceFamily) &&
       deps.gatewayKey !== undefined &&
       input.gatewayKey === deps.gatewayKey
     )

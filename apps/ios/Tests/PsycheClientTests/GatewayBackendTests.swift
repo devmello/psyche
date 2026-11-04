@@ -44,13 +44,13 @@ struct GatewayBackendTests {
     @Test func aThreadReadsOldestFirstAndMapsBlocks() async throws {
         let (backend, _) = try await live { g in
             g.on("threads.get") { _ in .success(Self.thread("thr_1", title: "Rent")) }
-            g.on("chat.history") { _ in .success(.object(["messages": .array([  // newest first
+            g.on("chat.history") { _ in .success(.object(["messages": .array([  // oldest first within a page, as listMessagesPage returns it
+                .object(["id": "m1", "threadId": "thr_1", "role": "user", "blocks": .array([.object(["type": "text", "md": "When is rent due?"])])]),
                 .object(["id": "m2", "threadId": "thr_1", "role": "agent", "blocks": .array([
                     .object(["type": "tool_call", "toolCallId": "tc1", "tool": "mail_search", "status": "done", "level1": "Searched mail"]),
                     .object(["type": "text", "md": "Found it."]),
                     .object(["type": "plan", "planId": "p1"]),
                 ])]),
-                .object(["id": "m1", "threadId": "thr_1", "role": "user", "blocks": .array([.object(["type": "text", "md": "When is rent due?"])])]),
             ])])) }
         }
         let thread = try await backend.thread(id: "thr_1")
@@ -189,11 +189,5 @@ struct GatewayBackendTests {
         #expect(inbox.first?.route == "/chat/thr_1?approval=ap1")
         try await backend.markRead(ids: ["n1", "n2"])
         #expect(marked.all == ["n1,n2"])
-    }
-
-    @Test func unwiredFeaturesAnswerUnreachableNotMadeUpContent() async throws {
-        let h = GatewayClientTests.Harness()
-        let backend = GatewayBackend(client: h.client)
-        await #expect(throws: BackendError.unreachable) { _ = try await backend.settings() }
     }
 }

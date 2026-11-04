@@ -1747,6 +1747,36 @@ export class GraphStore {
     return row === undefined ? undefined : toFact(row);
   }
 
+  /**
+   * MW7: remembers what a direct chat write to a work line moved besides the fact, so
+   * `EverythingStore.undoChatWork` can put it back. Ids and times only, never text.
+   */
+  recordWorkUndo(rec: {
+    factId: string;
+    entityId: string;
+    statusBefore: string | null;
+    statusAfter: string | null;
+    statusFactId: string | null;
+    signalBefore: string | null;
+    signalAfter: string | null;
+  }): void {
+    this.#db
+      .prepare(
+        `INSERT OR REPLACE INTO memory_work_undo (fact_id, entity_id, created_at, undone_at, status_before,
+           status_after, status_fact_id, signal_before, signal_after) VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        rec.factId,
+        rec.entityId,
+        this.#now(),
+        rec.statusBefore,
+        rec.statusAfter,
+        rec.statusFactId,
+        rec.signalBefore,
+        rec.signalAfter,
+      );
+  }
+
   /** The owner marks a fact wrong: retracted, and never proposed again for that entity. */
   retractFact(id: string, source?: GraphWriteSource): GraphFact {
     const row = this.#factRow(id);
@@ -2035,6 +2065,14 @@ export class GraphStore {
     this.#db
       .prepare("UPDATE graph_interactions SET gist = ? WHERE id = ?")
       .run(this.#gist(gist), interactionId);
+  }
+
+  /** The source's own reference for an interaction (a Message-ID, `<chat>:<day>`, an event id). */
+  externalRefOf(interactionId: string): string | undefined {
+    const row = this.#db
+      .prepare("SELECT external_ref FROM graph_interactions WHERE id = ?")
+      .get(interactionId) as { external_ref: string } | undefined;
+    return row?.external_ref;
   }
 
   /** The interaction recorded for a source item (a calendar event id, a mail message id). */
@@ -3604,7 +3642,7 @@ export class GraphStore {
 
   #wipe(): void {
     this.#db.exec(
-      "DELETE FROM graph_loops; DELETE FROM graph_participants; DELETE FROM graph_interactions; DELETE FROM graph_suggestions; DELETE FROM graph_feedback; DELETE FROM graph_blocklist; DELETE FROM graph_cursors; DELETE FROM graph_fts; UPDATE graph_entities SET merged_into = NULL; DELETE FROM graph_entities;",
+      "DELETE FROM graph_loops; DELETE FROM graph_participants; DELETE FROM graph_interactions; DELETE FROM graph_suggestions; DELETE FROM graph_feedback; DELETE FROM graph_blocklist; DELETE FROM graph_cursors; DELETE FROM memory_work_undo; DELETE FROM graph_fts; UPDATE graph_entities SET merged_into = NULL; DELETE FROM graph_entities;",
     );
   }
 }

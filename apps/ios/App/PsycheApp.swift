@@ -27,7 +27,17 @@ private struct AppModel {
             return fixtures(FixtureSessionDriver.fromLaunchArguments(defaults))
         }
         #endif
-        return live()
+        let model = live()
+        #if DEBUG
+        // `-psycheDevPair "<origin>|<sha256 fingerprint>|<pst_ token>"` pairs with a development Gateway on loopback.
+        if let spec = defaults.string(forKey: "psycheDevPair"), let client = model.client {
+            let parts = spec.split(separator: "|").map(String.init)
+            if parts.count == 3, let link = PairingLink.development(origin: parts[0], fingerprint: parts[1], setupToken: parts[2]) {
+                Task { await client.beginPairing(link) }
+            }
+        }
+        #endif
+        return model
     }
 
     static func fixtures(_ driver: FixtureSessionDriver = FixtureSessionDriver(scenario: .live)) -> AppModel {
