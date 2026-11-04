@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Psyche Memory</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+a{color:#2c5aa0}a:hover{color:#234a85}
+.sec{margin:0;font:600 13px/18px -apple-system,system-ui,sans-serif;color:#6a6966}
+.row{display:flex;align-items:center;gap:12px;padding:12px 14px;border-top:1px solid #ebe9e6}
+.row:first-child{border-top:0}
+.t{margin:0;font:400 15px/20px -apple-system,system-ui,sans-serif;color:#21201f}
+.m{margin:0;font:400 12px/16px ui-monospace,"SF Mono",Menlo,monospace;color:#6a6966}
+.chk{width:22px;height:22px;flex-shrink:0;border-radius:11px;border:1.5px solid #a3a19e;background:transparent;padding:0}
+.seg{flex:1 1 0;height:32px;border:0;border-radius:16px;background:transparent;font:500 14px -apple-system,system-ui,sans-serif;color:#21201f}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #faf9f8; font-family: -apple-system, system-ui, sans-serif; color: #21201f">
+  <div style="padding: 62px 20px 120px; display: flex; flex-direction: column; gap: 20px">
+    <h1 style="margin: 0; font-family: ui-serif, 'New York', 'Iowan Old Style', Georgia, serif; font-size: 34px; line-height: 40px; font-weight: 600">Memory</h1>
+
+    <div role="tablist" style="display: flex; gap: 2px; padding: 3px; border-radius: 19px; background: #f1f0ef">
+      <button role="tab" aria-selected="true" class="seg" style="background: #ffffff; box-shadow: 0 1px 3px rgba(33,32,31,0.12); font-weight: 600">To-do</button>
+      <button role="tab" class="seg">Work</button>
+      <button role="tab" class="seg">People</button>
+    </div>
+
+    <section style="display: flex; flex-direction: column; gap: 8px">
+      <h2 class="sec">This week</h2>
+      <div style="background: #ffffff; border: 1px solid #ebe9e6; border-radius: 14px; overflow: hidden">
+        <div class="row"><button class="chk" aria-label="Mark done"></button><div style="flex-grow: 1; min-width: 0"><p class="t">Pay rent</p><p class="m">Fri · Home · $1,850</p></div><span style="width: 8px; height: 8px; border-radius: 4px; background: #ffc53d" title="Needs you"></span></div>
+        <div class="row"><button class="chk" aria-label="Mark done"></button><div style="flex-grow: 1; min-width: 0"><p class="t">Send the Q3 summary to Dana</p><p class="m">Thu · Q3 review · in progress</p></div></div>
+        <div class="row"><button class="chk" aria-label="Mark done"></button><div style="flex-grow: 1; min-width: 0"><p class="t">Book a dentist cleaning</p><p class="m">Sat · no project</p></div></div>
+      </div>
+    </section>
+
+    <section style="display: flex; flex-direction: column; gap: 8px">
+      <h2 class="sec">Later</h2>
+      <div style="background: #ffffff; border: 1px solid #ebe9e6; border-radius: 14px; overflow: hidden">
+        <div class="row"><button class="chk" aria-label="Mark done"></button><div style="flex-grow: 1; min-width: 0"><p class="t">Renew car registration</p><p class="m">Nov 30 · Car</p></div></div>
+        <div class="row"><button class="chk" aria-label="Mark done"></button><div style="flex-grow: 1; min-width: 0"><p class="t">Renew renter's insurance</p><p class="m">Dec 1 · Home</p></div></div>
+        <div class="row"><span style="width: 22px; height: 22px; flex-shrink: 0; border-radius: 11px; background: #6a6966; display: flex; align-items: center; justify-content: center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5 10 17l9-10"/></svg></span><div style="flex-grow: 1; min-width: 0"><p class="t" style="color: #6a6966; text-decoration: line-through">File the expense report</p><p class="m">Handed in · Oct 31</p></div></div>
+      </div>
+    </section>
+
+    <section style="display: flex; flex-direction: column; gap: 8px">
+      <h2 class="sec">Where you left off</h2>
+      <div style="background: #ffffff; border: 1px solid #ebe9e6; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 6px">
+        <p class="t"><strong style="font-weight: 600">Kitchen remodel.</strong> You picked the quartz sample and were waiting on the contractor's second quote.</p>
+        <p class="m">Because · mail Oct 30 · notes/kitchen.md</p>
+      </div>
+    </section>
+  </div>
+
+  <nav aria-label="Tabs" style="position: absolute; left: 16px; right: 16px; bottom: 26px; display: flex; gap: 10px; align-items: center">
+    <div style="flex-grow: 1; height: 62px; border-radius: 31px; background: rgba(255,255,255,0.72); backdrop-filter: blur(20px) saturate(1.6); -webkit-backdrop-filter: blur(20px) saturate(1.6); border: 1px solid rgba(255,255,255,0.9); box-shadow: 0 8px 28px rgba(33,32,31,0.12), inset 0 1px 0 rgba(255,255,255,0.8); display: flex; align-items: center; justify-content: space-around; padding: 0 6px">
+      <a href="Main.dc.html" style="width: 68px; height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; text-decoration: none; color: #21201f; font-size: 10px; font-weight: 500">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#21201f" stroke-width="1.75" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 10.5 12 3.5l8.5 7V20h-5.5v-6h-6v6H3.5z"/></svg>Home</a>
+      <a href="Chat.dc.html" style="width: 68px; height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; text-decoration: none; color: #21201f; font-size: 10px; font-weight: 500">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#21201f" stroke-width="1.75" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg>Chat</a>
+      <a href="#library" style="width: 68px; height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; text-decoration: none; color: #21201f; font-size: 10px; font-weight: 500">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#21201f" stroke-width="1.75" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4v16H5zM10 4h4v16h-4zM15.5 5l3.5-.8 2.6 15.6-3.5.7z"/></svg>Library</a>
+      <a href="Memory.dc.html" aria-current="page" style="width: 68px; height: 52px; border-radius: 26px; background: rgba(44,90,160,0.10); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; text-decoration: none; color: #2c5aa0; font-size: 10px; font-weight: 600">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2c5aa0" stroke-width="1.9" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5h12v17l-6-4-6 4z"/></svg>Memory</a>
+    </div>
+    <a href="Search.dc.html" aria-label="Search" style="width: 62px; height: 62px; flex-shrink: 0; border-radius: 31px; background: rgba(255,255,255,0.72); backdrop-filter: blur(20px) saturate(1.6); -webkit-backdrop-filter: blur(20px) saturate(1.6); border: 1px solid rgba(255,255,255,0.9); box-shadow: 0 8px 28px rgba(33,32,31,0.12), inset 0 1px 0 rgba(255,255,255,0.8); display: flex; align-items: center; justify-content: center">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#21201f" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg></a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

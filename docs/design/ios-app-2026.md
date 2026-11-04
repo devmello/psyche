@@ -257,6 +257,8 @@ paid account.
 2. **Minimum iOS:** 26 (A2). This also answers companion §7 Q5.
 3. **Generative UI:** the sandboxed WebView (A7).
 4. **Project:** XcodeGen (A10).
+5. **Devices:** iPhone and iPad from one target. On iPad the tab bar adapts to a sidebar (`TabView` with `.sidebarAdaptable`) and Chat is a split view (thread list + thread).
+6. **Android:** later, as a native Kotlin app with types generated from the same JSON Schema (companion M3). No cross-platform framework; the PWA covers Android until then.
 
 ## 9. Look
 
@@ -288,7 +290,7 @@ on content.
 - **Haptics:** `.success` on an answered approval, `.warning` when one arrives while open, none
   for streaming.
 
-Mockups (Home, Chat, the approval sheet, Search, Memory, pairing, lock screen with a Live
+Mockup sources are in [ios-app-2026/](ios-app-2026/) (`*.dc.html`, reference only). Mockups (Home, Chat, the approval sheet, Search, Memory, pairing, lock screen with a Live
 Activity, and Home in dark while away from home):
 https://claude.ai/artifact/VTyMAJ8bLhmk7W6DXnyp55 (private to the owner until shared).
 
