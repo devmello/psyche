@@ -34,6 +34,7 @@ let package = Package(
             dependencies: ["PsycheBlocks", "PsycheDesign", "PsycheClient", "PsycheStore", "PsycheShared"]
         ),
         .testTarget(name: "PsycheStoreTests", dependencies: ["PsycheStore"]),
+        .testTarget(name: "PsycheFeaturesTests", dependencies: ["PsycheFeatures", "PsycheStore"]),
         .testTarget(name: "PsycheClientTests", dependencies: ["PsycheClient", "PsycheStore", "PsycheShared"]),
     ],
     swiftLanguageModes: [.v6]
