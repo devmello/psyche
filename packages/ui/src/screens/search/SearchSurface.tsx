@@ -1,9 +1,10 @@
-import type {
-  LifeFactHit,
-  SearchHit,
-  SearchQueryChip,
-  SearchScope,
-  SearchUnderstood,
+import {
+  type LifeFactHit,
+  type SearchHit,
+  type SearchQueryChip,
+  type SearchScope,
+  SearchSourceId,
+  type SearchUnderstood,
 } from "@psyche/protocol";
 import { ChevronDown, CornerDownLeft, Search, ShieldQuestion, X, Zap } from "lucide-react";
 import {
@@ -38,6 +39,7 @@ import { paletteMatches } from "../../shell/palette-match.ts";
 import { isMac } from "../../shell/shortcuts.ts";
 import { LifeAnswerCard, type LifeAnswerState } from "./LifeAnswerCard.tsx";
 import { useLifeAnswer } from "./life-answer.ts";
+import { SourceViewer } from "./SourceViewer.tsx";
 import { Highlight, highlightTerms, SCOPE_ICON } from "./search-parts.tsx";
 import {
   filterHits,
@@ -77,6 +79,27 @@ export interface SurfaceGroup {
  * People and Projects (docs/memory/people-and-projects-2026.md §6.4), then hits by kind in the
  * index's order, best first. An empty search lists every action, in the host's order.
  */
+/**
+ * The groups of results, in order: the filter chips' scopes, then passages from the local sources
+ * (Mail, Messages, Notes, ...), which have no chip of their own and open in the source viewer.
+ */
+const RESULT_SCOPES: readonly SearchScope[] = [...SCOPE_ORDER, "connectors"];
+
+const sourceOf = (hit: SearchHit): string => hit.id.slice(0, Math.max(0, hit.id.indexOf(":")));
+
+/**
+ * A passage from one of the local sources (an id `mail:…`, `notes:…`): it has no pane, so it opens
+ * in the source viewer. A cached cloud-connector document is not one and has no passage to show.
+ */
+const isSourceHit = (hit: SearchHit): boolean =>
+  hit.scope === "connectors" &&
+  hit.route == null &&
+  (SearchSourceId.enum as readonly string[]).includes(sourceOf(hit));
+
+/** Messages, Contacts and Memory stay out of the agent: no side chat about them (the Gateway refuses too). */
+const sideChatBlocked = (hit: SearchHit): boolean =>
+  hit.scope === "connectors" && ["messages", "contacts", "memory"].includes(sourceOf(hit));
+
 export function surfaceGroups(
   hits: readonly SearchHit[],
   actions: readonly PaletteAction[],
@@ -121,7 +144,7 @@ export function surfaceGroups(
       ),
     });
   }
-  const scoped: SurfaceGroup[] = SCOPE_ORDER.map((scope) => ({
+  const scoped: SurfaceGroup[] = RESULT_SCOPES.map((scope) => ({
     id: scope,
     label: SCOPE_LABEL[scope],
     items: hits
@@ -307,14 +330,19 @@ export function SearchSurface({
   };
   const focusField = () => requestAnimationFrame(() => inputRef.current?.focus());
 
+  // Where the window has no preview column, a source passage opens above the results instead.
+  const [viewing, setViewing] = useState<string | null>(null);
   const choose = (item: SurfaceItem | undefined, sideChat = false) => {
     if (!item) return;
     if (item.kind === "action") {
       if (item.action.disabledReason === undefined) onRunAction?.(item.action);
     } else if (item.kind === "entity") onOpenEntity?.(item.entity);
     else if (item.kind === "fact") onOpenEntity?.(item.fact.entity);
-    else if (sideChat && onOpenInSideChat) onOpenInSideChat(item.hit);
-    else onOpen?.(item.hit);
+    else if (sideChat && onOpenInSideChat) {
+      if (!sideChatBlocked(item.hit)) onOpenInSideChat(item.hit);
+    } else if (isSourceHit(item.hit)) {
+      if (!preview) setViewing(item.hit.id);
+    } else onOpen?.(item.hit);
   };
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "ArrowDown" || e.key === "ArrowUp") {
@@ -330,7 +358,7 @@ export function SearchSurface({
     } else if (e.key.toLowerCase() === "l" && (isMac() ? e.metaKey : e.ctrlKey) && !e.shiftKey) {
       // ⌘L: a side chat about the highlighted result (also ⌘↵). Claimed from the browser's
       // address bar only while a result can take it.
-      if (!onOpenInSideChat || current?.kind !== "hit") return;
+      if (!onOpenInSideChat || current?.kind !== "hit" || sideChatBlocked(current.hit)) return;
       e.preventDefault();
       choose(current, true);
     } else if (e.key === "Escape" && !palette && query !== "") {
@@ -664,6 +692,19 @@ export function SearchSurface({
           {lifeAnswer === undefined || !searching ? null : (
             <LifeAnswerCard state={lifeAnswer} {...(onOpenEntity ? { onOpenEntity } : {})} />
           )}
+          {!preview && viewing !== null ? (
+            <div className="mx-3 mb-2 flex flex-col gap-1.5">
+              <SourceViewer docId={viewing} />
+              <Button
+                size="sm"
+                variant="ghost"
+                className="self-start"
+                onClick={() => setViewing(null)}
+              >
+                {t("screens.search.source.hide")}
+              </Button>
+            </div>
+          ) : null}
           {results}
         </div>
         {preview && current ? (
@@ -684,7 +725,7 @@ export function SearchSurface({
               now={now}
               {...(renderEntityPreview ? { renderEntityPreview } : {})}
               onOpen={() => choose(current)}
-              {...(onOpenInSideChat && current.kind === "hit"
+              {...(onOpenInSideChat && current.kind === "hit" && !sideChatBlocked(current.hit)
                 ? { onSideChat: () => choose(current, true) }
                 : {})}
             />
@@ -911,6 +952,7 @@ function SurfacePreview({
   }
   const { hit } = item;
   const Icon = SCOPE_ICON[hit.scope];
+  const sourceOnly = isSourceHit(hit);
   return (
     <>
       <span className="inline-flex items-center gap-1.5 text-caption text-label-tertiary">
@@ -955,11 +997,16 @@ function SurfacePreview({
           ) : null}
         </div>
       ) : null}
+      {/* A passage from a local source (mail, messages, notes, ...) has no pane to open in: the
+          read-only viewer shows what the index holds, with a Mail or Finder button where safe. */}
+      {sourceOnly ? <SourceViewer docId={hit.id} /> : null}
       <div className="mt-auto flex flex-wrap gap-2">
-        <Button size="sm" onClick={onOpen} disabled={hit.route == null}>
-          <CornerDownLeft aria-hidden="true" />
-          {t("shell.search.open")}
-        </Button>
+        {sourceOnly ? null : (
+          <Button size="sm" onClick={onOpen} disabled={hit.route == null}>
+            <CornerDownLeft aria-hidden="true" />
+            {t("shell.search.open")}
+          </Button>
+        )}
         {onSideChat ? (
           <Button size="sm" variant="outline" onClick={onSideChat}>
             {t("shell.search.openInSideChat")}

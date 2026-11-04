@@ -56,6 +56,7 @@ import {
 import { NotificationRelay } from "./lib/notify-relay.ts";
 import { pairingEdge } from "./lib/pairing-edge.ts";
 import { realChromeOpenCommand, realChromeProfileDir } from "./lib/real-chrome.ts";
+import { checkSourceOpen, openSource } from "./lib/source-open.ts";
 import { WindowTheme } from "./lib/window-theme.ts";
 import { ZoomController } from "./lib/zoom.ts";
 import { bootstrapAdminIfNeeded } from "./main/bootstrap-admin.ts";
@@ -772,6 +773,15 @@ function registerIpc(): void {
   handle(IPC.openExternal, async (_event, arg) => {
     await shell.openExternal(checkExternalUrl(arg));
   });
+  // A cited passage's original: the renderer sends a document id; main asks the Gateway what it
+  // may open and checks the answer again (lib/source-open.ts). Nothing else reaches Mail or Finder.
+  handle(IPC.sourceOpen, (_event, arg) =>
+    openSource(checkSourceOpen(arg).docId, {
+      call: (id) => requireGateway().call("search.openSource", { id }),
+      openExternal: (url) => shell.openExternal(url),
+      showItemInFolder: (path) => shell.showItemInFolder(path),
+    }),
+  );
   handle(IPC.appInfo, () =>
     appInfo({
       appVersion: app.getVersion(),

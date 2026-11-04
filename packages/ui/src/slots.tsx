@@ -103,6 +103,13 @@ export interface UiSlots {
   /** Opens an https page in the system browser (a connector's sign-in; #505). */
   openExternal?: (url: string) => Promise<void>;
   /**
+   * Opens the original of a cited source passage outside Psyche from its search document id
+   * (desktop: Mail for a message, Finder for a file in a granted folder; the host resolves the
+   * target, the kit sends only the id). Resolves to what it opened, "none" when nothing safe
+   * could be opened. Absent where the host has no opener: the kit's source viewer is all there is.
+   */
+  openSource?: (docId: string) => Promise<"mail" | "file" | "none">;
+  /**
    * ⌘L or "Open in a side chat" on a search result: a chat about it in a pane beside the current
    * view. Hosts without panes leave it out and the kit opens the chat full screen instead.
    */

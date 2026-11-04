@@ -301,6 +301,8 @@ export interface ShellPlatform {
   locale?: LocalePort;
   /** Desktop only: opens an https page in the default browser; the web uses window.open (#505). */
   external?: ExternalPort;
+  /** Desktop only: opens a cited source passage outside Psyche (Mail, Finder) through main. */
+  sources?: SourcePort;
   /** Desktop only: the system clipboard through main; the web uses `navigator.clipboard` (#507). */
   clipboard?: ClipboardPort;
   /** Desktop only: macOS Reduce Transparency / Increase Contrast; the web reads media queries. */
@@ -363,6 +365,15 @@ export interface SystemLocale {
 
 export interface ExternalPort {
   open(url: string): Promise<void>;
+}
+
+/**
+ * Desktop only: opens the original of a cited passage (a mail message in Mail, a file in a
+ * granted folder in Finder) from its search document id. The host resolves the target itself.
+ * Resolves to what it opened; "none" when there is nothing safe to open (show the viewer).
+ */
+export interface SourcePort {
+  open(docId: string): Promise<"mail" | "file" | "none">;
 }
 
 export interface LocalePort {

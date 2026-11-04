@@ -98,6 +98,18 @@ describe("search_hit chat context", () => {
     });
   });
 
+  it("refuses a result of an owner-only or agent-off source: no window-supplied title stands in for it", async () => {
+    const { lookup } = await world();
+    const blocked = (id: string) => id.startsWith("messages:") || id === "hid_1";
+    for (const id of ["messages:42", "hid_1"]) {
+      expect(() =>
+        resolveSearchHitContext(ref({ id, title: "Priya Rao" }), lookup, blocked),
+      ).toThrowError(expect.objectContaining({ code: "forbidden" }));
+    }
+    // Others resolve as before.
+    expect(resolveSearchHitContext(ref(), lookup, blocked).block.id).toBe("thr_1");
+  });
+
   it("taints a mail result however the window labels it", async () => {
     const { lookup } = await world();
     // Nothing the client sends can say it is clean: a forged scope and title change nothing.

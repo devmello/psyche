@@ -6622,6 +6622,7 @@ export interface MemoryLifeAnswerResult {
 
 export interface LifeFactHit {
     attribute:   GraphFactAttribute;
+    docId?:      null | string;
     entity:      EntitySummary;
     factId:      string;
     learnedAt?:  null | string;
@@ -8965,6 +8966,34 @@ export interface ScreenDiscardResult {
     discarded: boolean;
 }
 
+export interface SearchDocument {
+    /**
+     * Epoch ms: sent, written, starts or is due
+     */
+    createdAt:  number;
+    id:         string;
+    open?:      SearchOpenTargetKind | null;
+    provenance: Provenance;
+    source:     SearchSourceID;
+    /**
+     * The indexed text, clipped
+     */
+    text:      string;
+    title:     string;
+    truncated: boolean;
+}
+
+/**
+ * mail: Mail.app can open the message; file: Finder can reveal the file
+ */
+export type SearchOpenTargetKind = "mail" | "file";
+
+export type SearchSourceID = "mail" | "messages" | "notes" | "calendar" | "reminders" | "files" | "browser" | "transcripts" | "memory" | "contacts";
+
+export interface SearchDocumentParams {
+    id: string;
+}
+
 export interface SearchIndexStatus {
     backfill: SearchBackfillStatus;
     /**
@@ -9057,6 +9086,30 @@ export type SearchSemanticBlock = "no_embedding_model" | "cloud_not_allowed";
 export type SearchSemanticEngine = "builtin" | "router";
 
 export type SearchSemanticState = "off" | "downloading" | "loading" | "indexing" | "ready" | "error" | "blocked";
+
+export interface SearchOpenSourceParams {
+    id: string;
+}
+
+export interface SearchOpenSourceResult {
+    target?: SearchOpenTarget | null;
+}
+
+export interface SearchOpenTarget {
+    kind: SearchOpenTargetKind;
+    /**
+     * Mail: the RFC 5322 Message-ID, no angle brackets
+     */
+    messageId?: string;
+    /**
+     * File: the real path, inside a granted folder
+     */
+    path?: string;
+    /**
+     * File: the real paths of the granted folders, for a second check in main
+     */
+    roots?: string[];
+}
 
 export interface SearchQueryParams {
     /**
@@ -9191,8 +9244,6 @@ export interface Exclude {
     contacts?: string[];
     folders?:  string[];
 }
-
-export type SearchSourceID = "mail" | "messages" | "notes" | "calendar" | "reminders" | "files" | "browser" | "transcripts" | "memory" | "contacts";
 
 export interface SearchSourcesRebuildParams {
     source: SearchSourceID;

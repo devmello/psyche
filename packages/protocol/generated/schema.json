@@ -2753,6 +2753,22 @@
         "sideEffecting": false
       },
       {
+        "description": "One indexed source passage by its search document id (what a citation chip or a search result carries), for the read-only source viewer. Owner only: Messages, Contacts and Memory are readable here even when the agent may not search them; the agent never reaches this method. `not_found` for an unknown id, a source that is off or a document that is not a source passage.",
+        "name": "search.document",
+        "params": "#/$defs/SearchDocumentParams",
+        "result": "#/$defs/SearchDocument",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Where the desktop may open a source passage outside Psyche, resolved from the indexed document and never from caller text: a mail message's Message-ID, or a file's real path when it sits inside a currently granted folder. `target` is null when there is none (the viewer shows the passage instead). Called by the desktop main process only; the renderer may not call it.",
+        "name": "search.openSource",
+        "params": "#/$defs/SearchOpenSourceParams",
+        "result": "#/$defs/SearchOpenSourceResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "Unified search across the given scopes (default all).",
         "name": "search.query",
         "params": "#/$defs/SearchQueryParams",
@@ -23682,6 +23698,18 @@
             }
           ]
         },
+        "docId": {
+          "anyOf": [
+            {
+              "description": "Search document id of the first citation's source passage, when it is indexed; opens the source viewer",
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "observedAt": {
           "anyOf": [
             {
@@ -35796,6 +35824,78 @@
       ],
       "type": "string"
     },
+    "SearchDocument": {
+      "properties": {
+        "id": {
+          "maxLength": 400,
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/SearchSourceId"
+        },
+        "title": {
+          "maxLength": 2000,
+          "type": "string"
+        },
+        "text": {
+          "description": "The indexed text, clipped",
+          "maxLength": 40000,
+          "type": "string"
+        },
+        "truncated": {
+          "type": "boolean"
+        },
+        "createdAt": {
+          "description": "Epoch ms: sent, written, starts or is due",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "open": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SearchDocumentOpener"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "source",
+        "title",
+        "text",
+        "truncated",
+        "createdAt",
+        "provenance"
+      ],
+      "type": "object"
+    },
+    "SearchDocumentOpener": {
+      "description": "mail: Mail.app can open the message; file: Finder can reveal the file",
+      "enum": [
+        "mail",
+        "file"
+      ],
+      "type": "string"
+    },
+    "SearchDocumentParams": {
+      "properties": {
+        "id": {
+          "maxLength": 400,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
     "SearchExclusions": {
       "properties": {
         "contacts": {
@@ -36058,6 +36158,71 @@
         "lexical",
         "semantic",
         "both"
+      ],
+      "type": "string"
+    },
+    "SearchOpenSourceParams": {
+      "properties": {
+        "id": {
+          "maxLength": 400,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "SearchOpenSourceResult": {
+      "properties": {
+        "target": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SearchOpenTarget"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "SearchOpenTarget": {
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/SearchOpenTargetKind"
+        },
+        "messageId": {
+          "description": "Mail: the RFC 5322 Message-ID, no angle brackets",
+          "maxLength": 512,
+          "type": "string"
+        },
+        "path": {
+          "description": "File: the real path, inside a granted folder",
+          "maxLength": 4096,
+          "type": "string"
+        },
+        "roots": {
+          "description": "File: the real paths of the granted folders, for a second check in main",
+          "items": {
+            "maxLength": 4096,
+            "type": "string"
+          },
+          "maxItems": 64,
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "type": "object"
+    },
+    "SearchOpenTargetKind": {
+      "enum": [
+        "mail",
+        "file"
       ],
       "type": "string"
     },

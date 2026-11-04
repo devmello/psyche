@@ -54,6 +54,25 @@ describe("renderer bridge", () => {
     }
   });
 
+  it("opens a cited source by document id and keeps the error code when main refuses", async () => {
+    const sent: string[] = [];
+    const fake = {
+      chrome: { titleBar: "native" },
+      sources: {
+        open: async (docId: string) => {
+          sent.push(docId);
+          return docId === "mail:gone"
+            ? { ok: false, error: { code: "not_found", message: "no such source passage" } }
+            : { ok: true, value: "mail" };
+        },
+      },
+    } as unknown as PsycheBridge;
+    const sources = desktopPlatform(fake).sources;
+    await expect(sources?.open("mail:1")).resolves.toBe("mail");
+    await expect(sources?.open("mail:gone")).rejects.toMatchObject({ code: "not_found" });
+    expect(sent).toEqual(["mail:1", "mail:gone"]);
+  });
+
   it("hands Settings → About main's app info and Reveal in Finder (#610)", async () => {
     const info = { appVersion: "0.3.0", arch: "arm64", psycheHome: "/Users/owner/.psyche" };
     let revealed = 0;

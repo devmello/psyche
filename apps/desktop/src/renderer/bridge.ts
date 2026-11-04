@@ -174,6 +174,9 @@ function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
         await b.external.open(url);
       },
     },
+    sources: {
+      open: async (docId) => (await unwrapCall(b.sources.open(docId))) as "mail" | "file" | "none",
+    },
     locale: {
       get: () => b.locale.get() as Promise<SystemLocale>,
     },
