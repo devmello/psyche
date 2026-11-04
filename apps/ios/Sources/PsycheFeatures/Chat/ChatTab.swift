@@ -8,11 +8,17 @@ import SwiftUI
 struct ChatTab: View {
     @Environment(Router.self) private var router
     @Environment(\.backend) private var store
+    /// Which column a phone shows. Driven here rather than by system list selection, because the system draws
+    /// its own selection ring on iPad and the row's quiet fill is the only mark we want.
+    @State private var column: NavigationSplitViewColumn = .sidebar
+    /// Read here, outside the split view: inside the sidebar column the size class is always compact.
+    @Environment(\.horizontalSizeClass) private var sizeClass
 
     var body: some View {
         @Bindable var router = router
-        NavigationSplitView {
-            ThreadListView(store: store, selection: $router.selectedThread)
+        NavigationSplitView(preferredCompactColumn: $column) {
+            ThreadListView(store: store, selection: $router.selectedThread, column: $column,
+                           sideBySide: sizeClass == .regular)
         } detail: {
             NavigationStack(path: $router.chatPath) {
                 Group {
@@ -31,21 +37,28 @@ struct ChatTab: View {
             }
         }
         .tint(PsycheColor.inkText)
+        .task { if router.selectedThread != nil { column = .detail } }
+        .onChange(of: router.selectedThread) { _, id in column = id == nil ? .sidebar : .detail }
     }
 }
 
 struct ThreadListView: View {
     @State private var model: ThreadListModel
     @Binding var selection: String?
+    /// Shown again after a back swipe on a phone, when the same row is tapped twice.
+    @Binding var column: NavigationSplitViewColumn
     @Environment(Session.self) private var session
+    private let sideBySide: Bool
 
-    init(store: any PsycheBackend, selection: Binding<String?>) {
+    init(store: any PsycheBackend, selection: Binding<String?>, column: Binding<NavigationSplitViewColumn>, sideBySide: Bool) {
+        self.sideBySide = sideBySide
         _model = State(initialValue: ThreadListModel(store: store))
         _selection = selection
+        _column = column
     }
 
     var body: some View {
-        List(selection: $selection) {
+        List {
             if case .unreachable = session.state {
                 ConnectionBanner(state: session.state, lastSyncedAt: session.lastSyncedAt)
                     .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 8, trailing: 0))
@@ -54,8 +67,12 @@ struct ThreadListView: View {
             }
             PhaseView(phase: model.phase, skeleton: .skeleton, retry: model.load) { threads in
                 ForEach(threads) { thread in
-                    ThreadRow(thread: thread).tag(thread.id)
-                        .listRowBackground(PsycheColor.sheet)
+                    // Only a side-by-side layout shows a selected row; on a phone the thread covers the list.
+                    let selected = sideBySide && selection == thread.id
+                    Button { selection = thread.id; column = .detail } label: { ThreadRow(thread: thread) }
+                        .buttonStyle(.plain)
+                        .accessibilityAddTraits(selected ? .isSelected : [])
+                        .listRowBackground(selected ? PsycheColor.fill : PsycheColor.sheet)
                         .listRowSeparatorTint(PsycheColor.hairline)
                         .swipeActions(edge: .leading, allowsFullSwipe: true) {
                             if !thread.isMain {
@@ -80,7 +97,7 @@ struct ThreadListView: View {
         .psycheScreen()
         .navigationTitle("Chat")
         .toolbar {
-            ToolbarItem(placement: .primaryAction) { AgentButton(needsYou: true) }
+            ToolbarItem(placement: .primaryAction) { AgentButton(needsYou: model.phase.value?.contains { $0.statusKind == .needsYou } ?? false) }
             ToolbarItem(placement: .primaryAction) {
                 Button { Task { selection = await model.newThread() ?? selection } } label: {
                     Label("New chat", systemImage: "square.and.pencil")

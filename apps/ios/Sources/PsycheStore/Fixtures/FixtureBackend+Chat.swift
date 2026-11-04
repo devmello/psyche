@@ -73,10 +73,14 @@ extension FixtureBackend: ChatBackend {
     private func streamReply(in threadID: String, to text: String, attachments: Int) async {
         chatState.counter += 1
         let replyID = "reply\(chatState.counter)"
+        let idleStatus = setListStatus(threadID, status: "Thinking", kind: .running, idle: nil)
         publish(.chat(.status(threadID: threadID, status: "Thinking", kind: .running)))
+        publish(.changed(.threads))
         try? await Task.sleep(for: .milliseconds(450))
         if chatState.cancelled.contains(threadID) {
             publish(.chat(.status(threadID: threadID, status: "", kind: .neutral)))
+            setListStatus(threadID, status: idleStatus.text, kind: .neutral, idle: idleStatus)
+            publish(.changed(.threads))
             return
         }
         emit(
@@ -102,6 +106,22 @@ extension FixtureBackend: ChatBackend {
         publish(.chat(.done(threadID: threadID, itemID: replyID)))
         emit(.evidence(id: replyID + "-ev", label: "Sources", parts: ["mail", "calendar", "now"]), in: threadID)
         publish(.chat(.status(threadID: threadID, status: "", kind: .neutral)))
+        setListStatus(threadID, status: idleStatus.text, kind: .neutral, idle: idleStatus)
+        publish(.changed(.threads))
+    }
+
+    /// Sets a thread's list row status and returns the status it had before, which is what the row says
+    /// again once the reply ends (a finished chat reads "Just now", the main thread keeps its label).
+    @discardableResult
+    private func setListStatus(
+        _ threadID: String, status: String, kind: ChatThreadSummary.Status, idle: (text: String, kind: ChatThreadSummary.Status)?
+    ) -> (text: String, kind: ChatThreadSummary.Status) {
+        guard let index = chatState.summaries.firstIndex(where: { $0.id == threadID }) else { return (status, kind) }
+        let summary = chatState.summaries[index]
+        let before = idle ?? (summary.isMain ? summary.status : "Just now", ChatThreadSummary.Status.neutral)
+        chatState.summaries[index].status = status
+        chatState.summaries[index].statusKind = kind
+        return before
     }
 }
 

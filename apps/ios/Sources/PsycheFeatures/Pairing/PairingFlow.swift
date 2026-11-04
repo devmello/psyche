@@ -35,7 +35,7 @@ private struct ScannerView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Pair with your Mac").psycheTitle(.title)
                     .foregroundStyle(PsycheColor.text)
-                Text("On your Mac, open Settings → Devices → Add phone. Then scan the code it shows.")
+                Text("On your Mac, open Settings → Server & remote access → Pair another computer. Then scan the code it shows.")
                     .font(.subheadline).foregroundStyle(PsycheColor.muted)
             }
             viewfinder
@@ -225,11 +225,11 @@ private struct PendingView: View {
     private func step(done: Bool, _ text: Text) -> some View {
         HStack(alignment: .top, spacing: 12) {
             ZStack {
-                Circle().fill(done ? PsycheColor.muted : PsycheColor.amber)
+                Circle().fill(done ? PsycheColor.muted : PsycheColor.fill)
                 if done {
                     Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)).foregroundStyle(PsycheColor.sheet)
                 } else {
-                    Text("2").font(.caption.weight(.semibold)).foregroundStyle(Color(red: 0.29, green: 0.17, blue: 0))
+                    Text("2").font(.caption.weight(.semibold)).foregroundStyle(PsycheColor.muted)
                 }
             }
             .frame(width: 22, height: 22)

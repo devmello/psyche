@@ -83,6 +83,21 @@ struct FixtureChatTests {
         #expect(sawTool && sawDelta && sawSources)
     }
 
+    /// The thread list refetches on `.changed(.threads)`: when a reply starts ("Thinking") and again when it ends.
+    @Test func aReplyAnnouncesTheListChangeAtStartAndEndAndLeavesNoThinkingBehind() async throws {
+        let events = store.events()
+        _ = try await store.send(MessageDraft(threadID: "thr_lease", text: "Any news?"))
+        var ended = false
+        for await event in events {
+            if case .chat(.status(_, _, .neutral)) = event { ended = true }
+            // The change that follows the end of the run is the one that must leave no "Thinking" row.
+            if ended, case .changed(.threads) = event { break }
+        }
+        let row = try await store.threads().first { $0.id == "thr_lease" }
+        #expect(row?.status != "Thinking")
+        #expect(row?.statusKind == .neutral)
+    }
+
     @Test func cancelStopsTheReply() async throws {
         let events = store.events()
         _ = try await store.send(MessageDraft(threadID: "thr_trip", text: "Long one"))

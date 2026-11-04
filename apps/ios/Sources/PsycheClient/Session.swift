@@ -53,7 +53,7 @@ public final class Session {
     /// parses it and asks "Connect to <host>?" first; the fixture pairs at once.
     public func beginPairing(code: String) {
         guard code.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("psyche-pair:") else {
-            pairingError = "That isn't a Psyche pairing code. Open Settings → Devices → Add phone on your Mac."
+            pairingError = "That isn't a Psyche pairing code. Open Settings → Server & remote access → Pair another computer on your Mac."
             return
         }
         pairingError = nil

@@ -137,7 +137,7 @@ struct SettingsSheet: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Open Settings \u{2192} Devices \u{2192} Add phone on your Mac, then scan the code it shows.")
+            Text("Open Settings \u{2192} Server & remote access \u{2192} Pair another computer on your Mac, then scan the code it shows.")
         }
         .confirmationDialog("Remove this phone?", isPresented: $confirmingRemove, titleVisibility: .visible) {
             Button("Remove this phone", role: .destructive) {
@@ -249,7 +249,7 @@ struct SettingsSheet: View {
             Toggle(title, isOn: isOn)
                 .font(.psycheRow)
                 .foregroundStyle(PsycheColor.text)
-                .tint(PsycheColor.ink)
+                .tint(PsycheColor.muted)  // a quiet track: the ink fill is for the screen's one action
                 .disabled(disabled)
                 .padding(PsycheMetrics.rowPadding)
             if !last { HairlineDivider() }
