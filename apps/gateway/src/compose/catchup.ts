@@ -14,6 +14,7 @@ import {
   startOfDay,
   surfaceFilter,
   visibleToAgent,
+  type WorkSignal,
   workedOnToday,
 } from "@psyche/memory";
 import {
@@ -23,14 +24,17 @@ import {
   type StoredPost,
 } from "@psyche/proactive";
 import {
+  type CatchUpItem,
   type Clock,
   type MemorySurfacesSettings,
   type MethodParams,
   type MethodResult,
   PsycheError,
 } from "@psyche/protocol";
-import type { HandlerDef } from "../context.ts";
+import type { Call, HandlerDef } from "../context.ts";
 import { mountParamsOnly } from "./handlers.ts";
+import type { GistSources } from "./people.ts";
+import { CATCHUP_SOURCES, MAX_DOC_ID_CHARS } from "./search-open.ts";
 
 /**
  * Catching up in the Gateway (docs/design/memory-everything-2026.md §5, MW4): the
@@ -167,7 +171,33 @@ export interface CatchupDeps {
   timeZone: () => string;
 }
 
+/**
+ * A line's source chips leave the Gateway only for a connection that may open each passage
+ * (`search.document`'s rules, for mail, Messages, calendar, notes and files). Anything else is
+ * dropped, and so is every chip when Search is not bound or the check throws.
+ */
+export function scrubCatchUpSources(
+  call: Call,
+  sources: GistSources | undefined,
+  items: readonly CatchUpItem[],
+): CatchUpItem[] {
+  return items.map((item) => {
+    if (item.sources === undefined) return item;
+    const kept = item.sources.filter((s) => {
+      try {
+        return sources?.canOpen(call, s.docId, CATCHUP_SOURCES) === true;
+      } catch {
+        return false;
+      }
+    });
+    const { sources: _drop, ...rest } = item;
+    return kept.length === 0 ? rest : { ...rest, sources: kept };
+  });
+}
+
 export interface Catchup {
+  /** Binds Search's lookup and open check for source chips; until then no line has any. */
+  useSources(sources: GistSources): void;
   readonly handlers: Record<string, HandlerDef>;
   /** The brief's side of work memory: `undefined` is not needed; `enabled()` says when it is on. */
   readonly daily: DailyCatchUp;
@@ -202,8 +232,9 @@ export function composeCatchup(deps: CatchupDeps): Catchup {
   const tz = () => deps.timeZone();
   const day = (now: number) => new Date(startOfDay(now, tz())).toISOString().slice(0, 10);
   /** Home and the brief carry a link; the channel copy has the same text without the mail. */
-  const ranked = (surface: "home" | "brief" | "channel", limit?: number) =>
+  const ranked = (surface: "home" | "brief" | "channel", limit?: number, withSources = false) =>
     rankCatchUp(candidates(), {
+      ...(withSources ? { docOf } : {}),
       now: clock.now(),
       timeZone: tz(),
       surface,
@@ -217,10 +248,42 @@ export function composeCatchup(deps: CatchupDeps): Catchup {
     return { ...c, text: pendingText(c.assignments, c.courses) };
   };
 
-  const list: Handlers["memory.catchup.list"] = async (p) => {
+  let sources: GistSources | undefined;
+  /**
+   * The passage behind a signal: a mail message, or the one citation a fact's line is based on
+   * (`citationId`, the source the surface filter already checked), never another citation of the
+   * same fact, which may come from a source that is hidden here.
+   */
+  const docOf = (s: WorkSignal): { docId: string; sourceKind: string } | undefined => {
+    if (sources === undefined) return undefined;
+    let docId: string | undefined;
+    if (s.kind === "fact") {
+      const cite =
+        s.citationId === null
+          ? undefined
+          : deps.em.citations("fact", s.id).find((c) => c.id === s.citationId);
+      if (cite?.docId == null || cite.source !== s.source) return undefined;
+      // The document must be of the source the line was filtered by.
+      if (cite.docId.split(":")[0] !== s.source) return undefined;
+      docId = cite.docId;
+    } else if (s.kind === "mail") {
+      const externalRef = graph.externalRefOf(s.id);
+      docId =
+        externalRef === undefined ? undefined : sources.docIdFor({ kind: "mail", externalRef });
+    }
+    if (docId === undefined || docId.length > MAX_DOC_ID_CHARS) return undefined;
+    return { docId, sourceKind: s.kind === "fact" ? s.source : "mail" };
+  };
+
+  const listWith = async (
+    p: MethodParams<"memory.catchup.list">,
+    withSources: boolean,
+  ): Promise<MethodResult<"memory.catchup.list">> => {
     const asOf = iso(clock.now());
     if (!work().enabled) return { items: [], pendingCount: 0, hiddenCount: 0, asOf };
-    const items = ranked(p.surface, p.limit).map((r) => r.item);
+    const items = ranked(p.surface, p.limit, withSources && p.surface === "home").map(
+      (r) => r.item,
+    );
     const c = pending(p.surface);
     return {
       items,
@@ -229,6 +292,8 @@ export function composeCatchup(deps: CatchupDeps): Catchup {
       asOf,
     };
   };
+  /** The brief and tests: no source chips, which belong to a connection's own screen. */
+  const list: Handlers["memory.catchup.list"] = (p) => listWith(p, false);
 
   const handlers: Handlers = {
     "memory.catchup.list": list,
@@ -430,8 +495,20 @@ export function composeCatchup(deps: CatchupDeps): Catchup {
     };
   };
 
+  const mounted = mountParamsOnly(handlers as never);
   return {
-    handlers: mountParamsOnly(handlers as never),
+    useSources(s) {
+      sources = s;
+    },
+    handlers: {
+      ...mounted,
+      "memory.catchup.list": {
+        run: async (call: Call, params: never) => {
+          const res = await listWith(params, true);
+          return { ...res, items: scrubCatchUpSources(call, sources, res.items) };
+        },
+      },
+    },
     daily,
     comingUp,
     keepInTouch,

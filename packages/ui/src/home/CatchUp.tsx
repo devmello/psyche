@@ -1,8 +1,10 @@
 import type { CatchUpItem } from "@psyche/protocol";
 import { ChevronRight } from "lucide-react";
-import type { ReactElement } from "react";
+import { type ReactElement, useState } from "react";
+import { Badge } from "../components/ui/badge.tsx";
 import { Button } from "../components/ui/button.tsx";
-import { t } from "../i18n/core.ts";
+import { isMessageId, t } from "../i18n/core.ts";
+import { SourceViewer } from "../screens/search/SourceViewer.tsx";
 import { CATCH_UP_LIMIT } from "./use-catch-up.ts";
 
 /** Where a line opens: the item's page in Memory. */
@@ -12,6 +14,11 @@ export const catchUpRoute = (entityId: string): string =>
 export const WORK_DUE_ROUTE = "/memory?kind=due";
 /** Where the work items waiting for the owner's OK are listed. */
 export const REVIEW_ROUTE = "/memory/review";
+
+function sourceName(kind: string): string {
+  const id = `everything.source.${kind}`;
+  return isMessageId(id) ? t(id) : kind;
+}
 
 /**
  * "Catching up" (docs/design/memory-everything-2026.md §5.6): the few lines `memory.catchup.list`
@@ -30,6 +37,8 @@ export function CatchUp({
   onOpen?: (route: string) => void;
 }): ReactElement | null {
   const rows = items.slice(0, CATCH_UP_LIMIT);
+  // The passage open under one line (one at a time): the line's entity and the document.
+  const [open, setOpen] = useState<{ entityId: string; docId: string } | null>(null);
   if (rows.length === 0 && pendingCount === 0) return null;
   return (
     <section
@@ -67,24 +76,57 @@ export function CatchUp({
             key={item.entityId}
             className="relative before:absolute before:inset-x-2.5 before:top-0 before:h-px before:bg-separator first:before:hidden"
           >
-            {onOpen ? (
-              <button
-                type="button"
-                onClick={() => onOpen(catchUpRoute(item.entityId))}
-                aria-label={t("home.catchUp.open", { title: item.title })}
-                className="flex min-h-11 w-full items-center gap-3 rounded-sm px-2.5 py-1.5 text-start outline-none transition-colors hover:bg-fill-quaternary focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <span className="min-w-0 flex-1 text-body text-label-primary">{item.line}</span>
-                <ChevronRight
-                  aria-hidden="true"
-                  className="size-4 shrink-0 text-label-tertiary rtl:-scale-x-100"
-                />
-              </button>
-            ) : (
-              <p className="flex min-h-11 items-center px-2.5 py-1.5 text-body text-label-primary">
-                {item.line}
-              </p>
-            )}
+            <div className="flex items-center">
+              {onOpen ? (
+                <button
+                  type="button"
+                  onClick={() => onOpen(catchUpRoute(item.entityId))}
+                  aria-label={t("home.catchUp.open", { title: item.title })}
+                  className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-sm px-2.5 py-1.5 text-start outline-none transition-colors hover:bg-fill-quaternary focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <span className="min-w-0 flex-1 text-body text-label-primary">{item.line}</span>
+                  <ChevronRight
+                    aria-hidden="true"
+                    className="size-4 shrink-0 text-label-tertiary rtl:-scale-x-100"
+                  />
+                </button>
+              ) : (
+                <p className="flex min-h-11 min-w-0 flex-1 items-center px-2.5 py-1.5 text-body text-label-primary">
+                  {item.line}
+                </p>
+              )}
+              {(item.sources ?? []).length > 0 ? (
+                <span className="flex shrink-0 gap-1 pe-2">
+                  {(item.sources ?? []).map((s) => (
+                    <Badge
+                      key={s.docId}
+                      variant="outline"
+                      data-testid="catch-up-source"
+                      render={
+                        <button
+                          type="button"
+                          aria-expanded={open?.docId === s.docId && open.entityId === item.entityId}
+                          onClick={() =>
+                            setOpen(
+                              open?.docId === s.docId && open.entityId === item.entityId
+                                ? null
+                                : { entityId: item.entityId, docId: s.docId },
+                            )
+                          }
+                        />
+                      }
+                    >
+                      {t("home.catchUp.source", { source: sourceName(s.sourceKind) })}
+                    </Badge>
+                  ))}
+                </span>
+              ) : null}
+            </div>
+            {open?.entityId === item.entityId ? (
+              <div className="px-2.5 pb-2">
+                <SourceViewer docId={open.docId} />
+              </div>
+            ) : null}
           </li>
         ))}
         {pendingCount > 0 ? (
