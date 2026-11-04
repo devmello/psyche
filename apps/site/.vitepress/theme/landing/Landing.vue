@@ -145,7 +145,7 @@ onBeforeUnmount(() => {
           Threads, messages, tasks, memory, your Library and the Feed, in one box. The index is
           built and kept on this machine.
         </p>
-        <DemoClip name="search" :ratio="1440 / 1280" :phone-ratio="740 / 1280" label="The Search palette finding a dentist booking across threads, messages, tasks and the feed">
+        <DemoClip name="search" :ratio="1440 / 1280" :phone-ratio="660 / 1280" label="The Search palette finding a dentist booking across threads, messages, tasks and the feed">
           <b>Search ⌘K</b>, typing “dentist”: a thread, your own message, the running task and the
           morning brief.
         </DemoClip>
@@ -180,7 +180,7 @@ onBeforeUnmount(() => {
             </ul>
             <a class="more" :href="withBase('/security/approvals-and-tiers')"><span class="src">2</span>Approvals and app tiers <span class="where">security/approvals-and-tiers</span></a>
           </div>
-          <DemoClip name="approval" :ratio="1504 / 1320" :phone-ratio="780 / 960" label="An approval card for filling a saved login, then the next card, an email to send, after Allow">
+          <DemoClip name="approval" :ratio="1504 / 1320" :phone-ratio="780 / 1080" label="An approval card for filling a saved login, then the next card, an email to send, after Allow">
             <b>Dentist booking.</b> The card names the exact login, the site it is bound to, and what
             Wren sees: only the placeholder, never the value.
           </DemoClip>
@@ -352,12 +352,6 @@ onBeforeUnmount(() => {
   height: 1px;
   background: var(--paper-5);
   transform-origin: left;
-}
-/* A place in the app rather than a file: set in the text face. */
-.run-head.place {
-  font-family: var(--font-text);
-  font-size: 13.5px;
-  color: var(--paper-11);
 }
 
 /* ---------- The spread ---------- */
@@ -648,10 +642,11 @@ onBeforeUnmount(() => {
   margin: 0 auto;
 }
 .lamplit {
-  box-shadow:
+  --shadow-lamp:
     0 2px 2px oklch(0 0 0 / 0.35),
     0 24px 48px -18px oklch(0 0 0 / 0.7),
     0 70px 120px -50px oklch(0 0 0 / 0.8);
+  box-shadow: var(--shadow-lamp);
 }
 .facts {
   list-style: none;
@@ -955,10 +950,7 @@ onBeforeUnmount(() => {
 }
 .lamplit.to-lay.laid,
 .lamplit.to-lay {
-  box-shadow:
-    0 2px 2px oklch(0 0 0 / 0.35),
-    0 24px 48px -18px oklch(0 0 0 / 0.7),
-    0 70px 120px -50px oklch(0 0 0 / 0.8);
+  box-shadow: var(--shadow-lamp);
 }
 
 /* ---------- Narrow ---------- */

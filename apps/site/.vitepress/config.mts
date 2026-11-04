@@ -30,7 +30,7 @@ export default defineConfig({
           "An open-source personal agent for the Mac that keeps its memory in files you can read.",
       },
     ],
-    ["meta", { property: "og:image", content: "https://devmello.github.io/psyche/og.png" }],
+    ["meta", { property: "og:image", content: "https://devmello.github.io/psyche/og.jpg" }],
     ["meta", { name: "twitter:card", content: "summary_large_image" }],
   ],
   markdown: {

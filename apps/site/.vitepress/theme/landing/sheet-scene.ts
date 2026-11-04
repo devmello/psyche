@@ -29,7 +29,8 @@ const SHEET_H = 1.32;
 const TEX_W = 1024;
 const TEX_H = Math.round(TEX_W * (SHEET_H / SHEET_W));
 
-const SERIF = 'ui-serif, "New York", "Source Serif 4 Variable", Charter, Georgia, serif';
+const SERIF =
+  'ui-serif, "New York", "Iowan Old Style", "Source Serif 4 Variable", Charter, Georgia, serif';
 const SANS = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
 const MONO = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace';
 
