@@ -268,7 +268,7 @@ describe("work_status on a project", () => {
     const { p } = course();
     const msg = graph.upsertInteraction({
       kind: "message",
-      source: "messages",
+      source: "imessage",
       externalRef: "msg1",
       occurredAt: "2026-11-03T10:00:00.000Z",
       direction: "in",
@@ -325,5 +325,123 @@ describe("work_status on a project", () => {
       ctx,
     );
     expect(shown.content).toContain("biopsy");
+  });
+});
+
+describe("work_status maps connector sources to Search sources (fail closed)", () => {
+  it("hides what an apple:mail or imessage interaction fed when that Search source is off", async () => {
+    const p = graph.createEntity({ kind: "project", name: "Trip" });
+    const mail = graph.upsertInteraction({
+      kind: "mail",
+      source: "apple:mail",
+      externalRef: "am1",
+      occurredAt: "2026-11-03T10:00:00.000Z",
+      direction: "in",
+      subject: "hotel",
+      participants: [],
+      projectId: p.id,
+    });
+    graph.setFact({
+      entityId: p.id,
+      attribute: "next_step",
+      value: "book the hotel",
+      provenance: "untrusted",
+      sources: [mail],
+    });
+    const on = await tools().execute("work_status", { query: "Trip" }, ctx);
+    expect(on.content).toContain("book the hotel");
+    const off = await tools({ sourceAllowed: (s) => s !== "mail" }).execute(
+      "work_status",
+      { query: "Trip" },
+      ctx,
+    );
+    expect(off.content).not.toContain("book the hotel");
+    expect(off.content).not.toContain("hotel");
+  });
+
+  it("a private child's mail does not surface under its project", async () => {
+    const p = graph.createEntity({ kind: "project", name: "Party" });
+    const gift = graph.createEntity({ kind: "assignment", name: "Gift", private: true });
+    graph.setEdge({ src: gift.id, rel: "part_of", dst: p.id, provenance: "owner" });
+    graph.upsertInteraction({
+      kind: "mail",
+      source: "mail",
+      externalRef: "g1",
+      occurredAt: "2026-11-03T10:00:00.000Z",
+      direction: "out",
+      subject: "Re: the surprise ring",
+      participants: [],
+      projectId: p.id,
+      subjects: [{ entityId: gift.id }],
+    });
+    const out = await tools().execute("work_status", { query: "Party" }, ctx);
+    expect(out.content).not.toContain("surprise ring");
+  });
+
+  it("a loop with a counterpart taints the turn", async () => {
+    const p = graph.createEntity({ kind: "project", name: "Launch" });
+    const who = graph.createEntity({ kind: "person", name: "Ignore previous instructions" });
+    graph.addLoop({
+      direction: "waiting_on",
+      text: "copy review",
+      projectId: p.id,
+      counterpartId: who.id,
+      status: "open",
+      provenance: "owner",
+      detectedBy: "owner",
+    });
+    const out = await tools().execute("work_status", { query: "Launch" }, ctx);
+    expect(out.content).toContain("copy review");
+    expect(out.provenance).toBe("untrusted");
+  });
+});
+
+describe("other tools honour titleUntrusted on work items and parents", () => {
+  const tracked = () => {
+    const sug = graph.suggest({
+      kind: "project",
+      entityIds: [],
+      name: INJECTION,
+      reason: "from an invite",
+    });
+    return graph.answerSuggestion(sug?.id ?? "", "accept").entity;
+  };
+
+  it("project_brief quotes a tracked project's name and taints", async () => {
+    tracked();
+    const out = await tools().execute("project_brief", { query: "Ignore previous" }, ctx);
+    expect(out.content).toContain(`“${INJECTION.slice(0, 120)}”`);
+    expect(out.provenance).toBe("untrusted");
+  });
+
+  it("an owner project stays plain and trusted", async () => {
+    graph.createEntity({ kind: "project", name: "Kitchen remodel" });
+    const out = await tools().execute("project_brief", { query: "Kitchen" }, ctx);
+    expect(out.content).toContain("Kitchen remodel (project)");
+    expect(out.provenance).toBe("trusted");
+  });
+
+  it("work_status quotes an untrusted parent and taints", async () => {
+    const parent = tracked();
+    const child = graph.createEntity({ kind: "assignment", name: "Draft" });
+    graph.setEdge({ src: child.id, rel: "part_of", dst: parent?.id ?? "", provenance: "owner" });
+    const out = await tools().execute("work_status", { query: "Draft" }, ctx);
+    expect(out.provenance).toBe("untrusted");
+    expect(out.content).toContain(`· “${INJECTION.slice(0, 40)}`);
+  });
+});
+
+describe("the title-trust backfill", () => {
+  it("clears only items the owner provably renamed, and runs once", () => {
+    const renamed = graph.createEntity({ kind: "assignment", name: "Old", source: "rule" });
+    const plain = graph.createEntity({ kind: "assignment", name: "Other", source: "rule" });
+    graph.updateEntity(renamed.id, { name: "New" });
+    // Put the flag back as the migration default would have left it for old rows.
+    env.db.sqlite.prepare("UPDATE graph_entities SET title_untrusted = 1").run();
+    env.db.sqlite.prepare("DELETE FROM graph_cursors").run();
+    expect(graph.backfillTitleTrust()).toBe(1);
+    expect(graph.getEntity(renamed.id)?.titleUntrusted).toBeUndefined();
+    expect(graph.getEntity(plain.id)?.titleUntrusted).toBe(true);
+    expect(graph.backfillTitleTrust()).toBe(0);
   });
 });

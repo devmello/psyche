@@ -17,7 +17,7 @@ import { looksLikeInstruction } from "../filters.ts";
 import type { MemoryCallClass, MemoryToolContext, ToolOutcome } from "../tools/memory-command.ts";
 import type { EverythingStore } from "./everything.ts";
 import { normalizeName } from "./normalize.ts";
-import { type GraphStore, SOURCE_KINDS } from "./store.ts";
+import { type GraphStore, INTERACTION_SOURCE, SOURCE_KINDS } from "./store.ts";
 import { WORK_ATTRIBUTES } from "./work.ts";
 
 /**
@@ -197,6 +197,17 @@ function check<T extends TSchema>(schema: T, input: unknown): Static<T> {
   return input;
 }
 
+/**
+ * May the agent read what came from this interaction? Its `source` is a connector id ("imessage",
+ * "apple:mail"), not a Search source, so it is mapped by kind to the Search source the owner's
+ * per-source flag is keyed on. Psyche's own runs are the agent's; any other kind fails closed.
+ */
+export function interactionAllowed(i: GraphInteraction, access: AgentMemoryAccess): boolean {
+  if (i.kind === "work" || i.kind === "task") return true;
+  const source = INTERACTION_SOURCE[i.kind];
+  return source !== undefined && access.sourceAllowed(source);
+}
+
 const WORK_ENTITY_KINDS: ReadonlySet<string> = new Set(["project", "assignment", "event"]);
 const DAY_MS = 86_400_000;
 /** `next_step` and `stopped_at` older than this "may be out of date" (§3.6). */
@@ -269,12 +280,25 @@ export class GraphTools {
     }
   }
 
+  /**
+   * A work item's name for the agent: quoted data, and the turn tainted, when it was read from
+   * someone else's text (`titleUntrusted`, W3). People keep the convention they always had.
+   */
+  #name(e: { id: string; kind: string; name: string }, taint: { untrusted: boolean }): string {
+    if (!WORK_ENTITY_KINDS.has(e.kind)) return e.name;
+    if (this.#graph.getEntity(e.id)?.titleUntrusted !== true) return e.name;
+    taint.untrusted = true;
+    return `“${oneLine(e.name, 120)}”`;
+  }
+
   /** A compact card; marks taint when it shows anything third parties wrote. */
   #card(id: string, taint: { untrusted: boolean }): string {
     const detail = this.#graph.detail(id);
     if (detail === undefined) return "";
     const { entity } = detail;
-    const lines = [`${entity.name} (${entity.kind}${entity.isOwner ? ", the owner" : ""})`];
+    const lines = [
+      `${this.#name(entity, taint)} (${entity.kind}${entity.isOwner ? ", the owner" : ""})`,
+    ];
     if (entity.summary !== null && entity.summary !== undefined) {
       lines.push(`Summary (${day(entity.summaryAt)}): ${entity.summary}`);
       taint.untrusted = true;
@@ -305,7 +329,7 @@ export class GraphTools {
     if (facts.length > 0) lines.push(`Facts: ${facts.join("; ")}`);
     const rels = detail.related
       .slice(0, 5)
-      .map((r) => `${r.name}${r.subtitle === null ? "" : ` (${r.subtitle})`}`);
+      .map((r) => `${this.#name(r, taint)}${r.subtitle === null ? "" : ` (${r.subtitle})`}`);
     if (rels.length > 0) lines.push(`Related: ${rels.join(", ")}`);
     if (entity.lastInteractionAt !== null && entity.lastInteractionAt !== undefined)
       lines.push(`Last contact: ${day(entity.lastInteractionAt)}`);
@@ -454,7 +478,7 @@ export class GraphTools {
     const sourcesAllowed = (f: GraphFact): boolean =>
       f.sources.every((id) => {
         const i = this.#graph.interaction(id);
-        return i === undefined || access.sourceAllowed(i.source as GraphCitationSource);
+        return i === undefined || interactionAllowed(i, access);
       });
     // Text of a timeline row that touches a sensitive class stays out unless the owner allows it.
     const rowHidden = (text: string): boolean =>
@@ -558,11 +582,16 @@ export class GraphTools {
         const f = this.#graph.getFact(r.id);
         return f !== undefined && visibleToAgent(f, access, this.#em) && sourcesAllowed(f);
       }
+      if (r.kind === "interaction") {
+        // One mail can belong to the project and to a private child: it surfaces under neither.
+        const subjects = this.#graph.subjectsOf(r.id);
+        if (subjects.some((s) => !childVisible(s.entityId))) return false;
+      }
       if (r.kind === "loop") {
         // A loop has no chip: its source is the interaction it was read from.
         const src = this.#graph.getLoop(r.id)?.sourceInteractionId;
         const i = src == null ? undefined : this.#graph.interaction(src);
-        if (i !== undefined && !access.sourceAllowed(i.source as GraphCitationSource)) return false;
+        if (i !== undefined && !interactionAllowed(i, access)) return false;
       }
       return !rowHidden(r.text);
     });
@@ -571,6 +600,9 @@ export class GraphTools {
       // A chip's label is a sender, list or file name: someone else's words unless it is the
       // owner's own note or chat, so showing one taints the turn (W7).
       if (r.chip != null && r.chip.source !== "notes" && r.chip.source !== "chats")
+        taint.untrusted = true;
+      // A loop row names its counterpart from a mail header or contact: someone else's words.
+      if (r.kind === "loop" && this.#graph.getLoop(r.id)?.counterpartId != null)
         taint.untrusted = true;
       const from = r.chip == null ? "" : ` — ${oneLine(r.chip.label, 60)} (${r.chip.source})`;
       const mark = r.provenance === "untrusted" ? " [unverified]" : "";
@@ -595,7 +627,9 @@ export class GraphTools {
       `Meeting: ${typeof meeting.subject === "string" ? `"${meeting.subject}"` : "(untitled)"} at ${meeting.occurredAt}${typeof meeting.link === "string" ? ` ${meeting.link}` : ""}`,
     ];
     if (prep.project !== null)
-      parts.push(`Project: ${prep.project.name} (${prep.project.projectStatus ?? "active"})`);
+      parts.push(
+        `Project: ${this.#name(prep.project, taint)} (${prep.project.projectStatus ?? "active"})`,
+      );
     for (const a of prep.attendees) {
       parts.push(this.#card(a.entity.id, taint));
       const last = a.recent.map((i) => this.#interactionLine(i, taint));

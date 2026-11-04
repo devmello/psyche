@@ -210,6 +210,7 @@ export function composePeople(deps: PeopleDeps): People {
     },
   });
   const store = graph;
+  store.backfillTitleTrust();
   // Conversation gists follow the same sensitive-class switches as learned facts (§2.6).
   store.setSensitiveSwitches(
     () => everythingSettings(getSetting(db, EVERYTHING_MEMORY_SETTING_KEY)?.value).sensitive,

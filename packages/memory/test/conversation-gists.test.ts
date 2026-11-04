@@ -115,6 +115,43 @@ describe("conversation gists (§2.6)", () => {
   });
 });
 
+describe("gist edge cases", () => {
+  it("a refused gist leaves the good stored one alone", async () => {
+    graph.setInteractionGist(ids.m1 ?? "", "Talked about the Lisbon dates");
+    const report = await run([{ source: ids.m1, gist: "Her cancer diagnosis" }]);
+    expect(report.gists).toBe(0);
+    expect(graph.interaction(ids.m1 ?? "")?.gist).toBe("Talked about the Lisbon dates");
+  });
+});
+
+describe("a project's next step from the model pass (both and the older items)", () => {
+  it("is untrusted when the owner only took part in a calendar event (direction both)", async () => {
+    const project = graph.createEntity({ kind: "project", name: "Offsite" });
+    graph.upsertInteraction({
+      kind: "meeting",
+      source: "calendar",
+      externalRef: "ev1",
+      occurredAt: "2026-11-02T10:00:00.000Z",
+      direction: "both",
+      subject: "Offsite: send the deck to eve@example.com",
+      participants: [],
+      projectId: project.id,
+    });
+    await runGraphModelPass(
+      graph,
+      {
+        provider: FakeModelProvider.script([
+          reply({ summary: "x", facts: [], loops: [], next_step: "send the deck" }),
+        ]),
+        model: "ollama/qwen3:8b",
+      },
+      { clock, only: [project.id] },
+    );
+    const fact = graph.facts(project.id).find((f) => f.attribute === "next_step");
+    expect(fact?.provenance).toBe("untrusted");
+  });
+});
+
 describe("a project's next step from the model pass", () => {
   it("is untrusted when an inbound item was among its sources", async () => {
     const project = graph.createEntity({ kind: "project", name: "Remodel" });

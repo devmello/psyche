@@ -580,7 +580,7 @@ function shortDate(value: string): string {
   return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`;
 }
 
-const INTERACTION_SOURCE: Partial<Record<GraphInteractionKind, GraphCitationSource>> = {
+export const INTERACTION_SOURCE: Partial<Record<GraphInteractionKind, GraphCitationSource>> = {
   mail: "mail",
   message: "messages",
   call: "messages",
@@ -766,6 +766,11 @@ export class GraphStore {
   /** Which sensitive classes the owner switched on, so gists follow the same switches as facts. */
   setSensitiveSwitches(read: () => SensitiveSwitches): void {
     this.#sensitiveOn = read;
+  }
+
+  /** The gist as it would be stored (switches applied), or null when it would be dropped. */
+  checkGist(text: string | null | undefined): string | null {
+    return this.#gist(text);
   }
 
   #gist(text: string | null | undefined): string | null {
@@ -1856,6 +1861,27 @@ export class GraphStore {
         )
         .run(interactionId, entityId).changes > 0
     );
+  }
+
+  /**
+   * One-time, code-side backfill for `title_untrusted` (the column starts at 1 for every row that
+   * existed before it). The only thing in old data that proves the owner wrote a name is the
+   * owner's rename (`graph_feedback` kind `rename`): quick-add, ⌘K add and Track all go through the
+   * same create path and leave nothing that tells them apart, and an accepted suggestion keeps no
+   * link to its entity. So only renamed items are cleared; everything else stays quoted until the
+   * owner renames it. Idempotent, and a rename always clears the flag anyway.
+   */
+  backfillTitleTrust(): number {
+    if (this.cursor("title_trust_backfill") !== undefined) return 0;
+    const changes = this.#db
+      .prepare(
+        `UPDATE graph_entities SET title_untrusted = 0
+          WHERE title_untrusted = 1 AND kind IN ('project', 'assignment', 'event')
+            AND id IN (SELECT entity_id FROM graph_feedback WHERE kind = 'rename' AND entity_id IS NOT NULL)`,
+      )
+      .run().changes;
+    this.setCursor("title_trust_backfill", { at: this.#now() });
+    return changes;
   }
 
   /** The items an interaction belongs to. */

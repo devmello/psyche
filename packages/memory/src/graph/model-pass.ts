@@ -150,10 +150,11 @@ export async function runGraphModelPass(
       report.skipped++;
       continue;
     }
-    const prompt = `Entity: ${entity.kind} "${entity.name}"${entity.aliases.length > 0 ? ` (also ${entity.aliases.join(", ")})` : ""}
+    const prompt = `Entity kind: ${entity.kind}
 Known facts: ${JSON.stringify(facts)}
 The owner marked these wrong: ${JSON.stringify(corrected)}
 <data>
+The entity's name and aliases (written by others, or by the owner): ${JSON.stringify({ name: quote(entity.name), aliases: entity.aliases.map(quote) })}
 Recent interactions (subjects are written by others unless direction is "out"): ${JSON.stringify(input.interactions)}
 The owner's own words: ${JSON.stringify(input.ownerExcerpts)}
 </data>`;
@@ -288,28 +289,28 @@ The owner's own words: ${JSON.stringify(input.ownerExcerpts)}
         }
         const when = day(src.occurredAt);
         if (days.has(when)) continue;
-        // The store keeps it only if it passes `safeGist` with the owner's sensitivity switches.
-        graph.setInteractionGist(src.id, gist.gist);
-        if (graph.interaction(src.id)?.gist === undefined) {
+        // Checked first: a refused gist must not erase a good stored one.
+        const text = graph.checkGist(gist.gist);
+        if (text === null) {
           report.dropped++;
           continue;
         }
+        graph.setInteractionGist(src.id, text);
         days.add(when);
         report.gists++;
       }
     }
     if (entity.kind === "project") {
       if (typeof parsed.next_step === "string" && parsed.next_step.trim().length > 0) {
-        // Only the owner's own words make it Psyche's note: one inbound item among the sources it
-        // was read from (others' subjects shaped it) and it stays untrusted (W1).
-        const cited = interactions.slice(0, 3);
+        // Only the owner's own words make it Psyche's note. Everything the model read shaped it, so
+        // one item that is not the owner's (`direction: out`, as `ownerSource` counts it; a
+        // calendar event or a thread the owner spoke in once is `both`) keeps it untrusted (W1).
+        const cited = interactions;
         graph.setFact({
           entityId: entity.id,
           attribute: "next_step",
           value: parsed.next_step,
-          provenance: cited.every((i) => i.direction === "out" || i.direction === "both")
-            ? "agent"
-            : "untrusted",
+          provenance: cited.every((i) => i.direction === "out") ? "agent" : "untrusted",
           sources: cited.map((i) => i.id),
         });
       }
