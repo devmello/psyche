@@ -784,3 +784,96 @@ describe("source chips on Home lines", () => {
     validateResult("memory.catchup.list", await def.run(desktop, { surface: "home" }));
   });
 });
+
+describe("source chips from a fact's citation", () => {
+  const phone = { identity: { role: "client" } };
+  const open: GistSources = {
+    docIdFor: () => undefined,
+    canOpen: () => true,
+  };
+  /** A progress fact on Quiz 3, cited from the given sources in order (oldest first). */
+  function quizFact(w: World, cites: { source: string; docId: string | null }[]) {
+    const out = w.graph.setFact({
+      entityId: w.ids.quiz.id,
+      attribute: "progress",
+      value: "chapters 1 to 3 done",
+      provenance: "owner",
+    });
+    const factId = out?.fact.id ?? "";
+    cites.forEach((c, n) => {
+      w.db.sqlite
+        .prepare(
+          `INSERT INTO graph_citations (id, target_kind, target_id, source, doc_id, source_ref, quote, start, "end", source_hash, provenance, observed_at, created_at)
+           VALUES (?, 'fact', ?, ?, ?, ?, 'chapters 1 to 3', 0, 15, 'h', 'owner', ?, ?)`,
+        )
+        .run(
+          `cite_${n}`,
+          factId,
+          c.source,
+          c.docId,
+          `ref-${n}`,
+          iso(NOW - 3 * HOUR),
+          iso(NOW - 3 * HOUR + n * 1000),
+        );
+    });
+  }
+  const sourcesOfQuiz = async (w: World, surface: "home" | "brief" = "home") => {
+    const def = w.catchup.handlers["memory.catchup.list"] as unknown as {
+      run: (c: unknown, p: unknown) => Promise<{ items: CatchUpItem[] }>;
+    };
+    const items = (await def.run(phone, { surface })).items;
+    return items.find((i) => i.title === "Quiz 3");
+  };
+
+  it("uses the citation the line is based on", async () => {
+    const w = setup();
+    w.on();
+    w.catchup.useSources(open);
+    quizFact(w, [{ source: "notes", docId: "notes:7" }]);
+    const quiz = await sourcesOfQuiz(w);
+    expect(quiz?.changes.some((c) => c.text.includes("chapters 1 to 3"))).toBe(true);
+    expect(quiz?.sources).toEqual([{ docId: "notes:7", sourceKind: "notes" }]);
+  });
+
+  it("never takes another citation of the same fact: a first chat citation hides a later mail one", async () => {
+    const w = setup();
+    w.on();
+    w.catchup.useSources(open);
+    quizFact(w, [
+      { source: "chats", docId: null },
+      { source: "mail", docId: "mail:9" },
+    ]);
+    const quiz = await sourcesOfQuiz(w);
+    expect(quiz?.changes.some((c) => c.text.includes("chapters 1 to 3"))).toBe(true);
+    expect(quiz?.sources).toBeUndefined();
+  });
+
+  it("drops the chip with the change when its source is hidden on that surface", async () => {
+    const w = setup();
+    w.on();
+    w.catchup.useSources(open);
+    quizFact(w, [{ source: "mail", docId: "mail:9" }]);
+    expect((await sourcesOfQuiz(w))?.sources).toEqual([{ docId: "mail:9", sourceKind: "mail" }]);
+    setSetting(w.db, "memory.surfaces", { hideSources: ["mail"] });
+    const hidden = await sourcesOfQuiz(w);
+    expect(hidden?.changes.some((c) => c.text.includes("chapters 1 to 3"))).toBe(false);
+    expect(hidden?.sources).toBeUndefined();
+  });
+
+  it("carries sources only on Home, the surface that draws chips", async () => {
+    const w = setup();
+    w.on();
+    w.catchup.useSources(open);
+    quizFact(w, [{ source: "notes", docId: "notes:7" }]);
+    expect((await sourcesOfQuiz(w, "home"))?.sources).toHaveLength(1);
+    expect((await sourcesOfQuiz(w, "brief"))?.sources).toBeUndefined();
+  });
+
+  it("skips a document id longer than search.document accepts", async () => {
+    const w = setup();
+    w.on();
+    w.catchup.useSources(open);
+    quizFact(w, [{ source: "notes", docId: `notes:${"x".repeat(400)}` }]);
+    expect((await sourcesOfQuiz(w))?.sources).toBeUndefined();
+  });
+});

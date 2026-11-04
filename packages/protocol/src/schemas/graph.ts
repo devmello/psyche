@@ -409,7 +409,7 @@ export const GraphInteraction = Type.Object(
     ),
     gistDocId: Type.Optional(
       Type.String({
-        maxLength: 200,
+        maxLength: 400,
         description:
           "Search document id of the passage the gist was written from. Present only when this connection may open it (`search.document`); the viewer sends just this id back",
       }),
@@ -779,7 +779,7 @@ export type CatchUpChange = Static<typeof CatchUpChange>;
 /** A source behind a catch-up line: opens in the source viewer through `search.document`. */
 export const CatchUpSource = Type.Object(
   {
-    docId: Type.String({ maxLength: 200, description: "Search document id" }),
+    docId: Type.String({ maxLength: 400, description: "Search document id" }),
     sourceKind: Type.String({
       maxLength: 40,
       description: "Search source id: mail, messages, ...",

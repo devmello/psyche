@@ -906,13 +906,17 @@ describe("sources behind a line", () => {
   };
   const docOf = (s: WorkSignal) => docs[s.id];
 
-  it("carries up to three distinct passages from the changes behind the line", () => {
+  it("carries distinct passages from the changes the line shows (two at most)", () => {
     const c = cand({
       dueAt: inHours(20),
-      signals: [mail("a"), mail("dup"), mail("b"), mail("c"), mail("d")],
+      signals: [mail("a"), mail("b"), mail("dup"), mail("c"), mail("d")],
     });
     const item = rank([c], { surface: "home", docOf })[0]?.item;
-    expect(item?.sources).toEqual([docs.a, docs.b, docs.c]);
+    // Only the changes the line shows (two) count, never the ones left out.
+    expect(item?.changes).toHaveLength(2);
+    expect(item?.sources).toEqual([docs.a, docs.b]);
+    const twice = cand({ dueAt: inHours(20), signals: [mail("a"), mail("dup")] });
+    expect(rank([twice], { surface: "home", docOf })[0]?.item.sources).toEqual([docs.a]);
   });
 
   it("has none without a resolver, and for a change that resolves to nothing", () => {

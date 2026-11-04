@@ -174,6 +174,11 @@ export class SourceIndexer {
     }[];
     if (!cols.some((c) => c.name === "open_ref"))
       index.db.exec("ALTER TABLE search_source_items ADD COLUMN open_ref TEXT");
+    // Lookups from the graph (a gist's or a catch-up line's source): by Message-ID, and by chat.
+    index.db.exec(
+      `CREATE INDEX IF NOT EXISTS search_source_items_open_ref ON search_source_items (source, open_ref);
+       CREATE INDEX IF NOT EXISTS search_source_items_chat ON search_source_items (source, chat_id, native_id);`,
+    );
     this.#syncAgentFlags();
     // The index may have been rebuilt under us: forget rows whose document is gone.
     index.db.exec(
@@ -457,16 +462,14 @@ export class SourceIndexer {
   /**
    * The indexed passage a conversation in the graph was read from, as a document id, or undefined
    * when it is not indexed (or the source is off). `externalRef` is the graph's own reference: a
-   * Message-ID for mail, `<chat>:<day>` for a Messages day, the event id for a meeting. This only
-   * finds the id; whether a caller may open it is `document()` and the Gateway's checks.
+   * Message-ID for mail, `<chat>:<day>` for a Messages day, the event id for a meeting. It is read
+   * fresh each time, so a document id that was reused for another message never answers for the
+   * old one. This only finds the id; whether a caller may open it is `sourceOf()` and the
+   * Gateway's checks. A day is labelled `sentAt.slice(0, 10)` here and in the graph from the same
+   * helper string, so the label is matched exactly: a day not indexed yet has no passage (it is
+   * never answered with another day's).
    */
-  docIdFor(ref: {
-    kind: "mail" | "message" | "meeting";
-    externalRef: string;
-    threadKey?: string | null;
-    /** ISO time of the newest message of the day (Messages): the day is found by time, see below. */
-    at?: string;
-  }): string | undefined {
+  docIdFor(ref: { kind: "mail" | "message" | "meeting"; externalRef: string }): string | undefined {
     const db = this.#index.db;
     let row: { doc_id: string; source: string } | undefined;
     if (ref.kind === "mail") {
@@ -478,43 +481,43 @@ export class SourceIndexer {
     } else if (ref.kind === "meeting") {
       row = db
         .prepare(
-          "SELECT doc_id, source FROM search_source_items WHERE source = 'calendar' AND native_id = ? LIMIT 1",
+          "SELECT doc_id, source FROM search_source_items WHERE source = 'calendar' AND native_id = ?",
         )
         .get(ref.externalRef) as typeof row;
     } else {
       const cut = ref.externalRef.lastIndexOf(":");
       if (cut <= 0) return undefined;
-      const prefix = `${ref.externalRef.slice(0, cut)}|${ref.externalRef.slice(cut + 1)}|`;
+      const chat = ref.externalRef.slice(0, cut);
+      const lo = `${chat}|${ref.externalRef.slice(cut + 1)}|`;
+      // `chat|day|<row>`: a range over the day's fragments (`}` follows `|`), the first by time.
       row = db
         .prepare(
-          "SELECT doc_id, source FROM search_source_items WHERE source = 'messages' AND substr(native_id, 1, ?) = ? ORDER BY native_id LIMIT 1",
+          `SELECT s.doc_id AS doc_id, s.source AS source FROM search_source_items s
+             JOIN search_docs d ON d.id = s.doc_id
+            WHERE s.source = 'messages' AND s.chat_id = ? AND s.native_id >= ? AND s.native_id < ?
+            ORDER BY d.created_ms, s.native_id LIMIT 1`,
         )
-        .get(prefix.length, prefix) as typeof row;
-      // The graph and this index each cut a conversation into days from their own reading of a
-      // message's timestamp, so their day labels can differ across midnight in another zone. The
-      // instants do not: with the newest message's time, take the chat's latest day passage that
-      // started at or before it, within a day.
-      const at = ref.at === undefined ? Number.NaN : Date.parse(ref.at);
-      if (row === undefined && !Number.isNaN(at)) {
-        row = db
-          .prepare(
-            `SELECT s.doc_id AS doc_id, s.source AS source FROM search_source_items s
-               JOIN search_docs d ON d.id = s.doc_id
-              WHERE s.source = 'messages' AND substr(s.native_id, 1, ?) = ?
-                AND d.created_ms <= ? AND d.created_ms > ?
-              ORDER BY d.created_ms DESC LIMIT 1`,
-          )
-          .get(
-            `${ref.externalRef.slice(0, cut)}|`.length,
-            `${ref.externalRef.slice(0, cut)}|`,
-            at,
-            at - 86_400_000,
-          ) as typeof row;
-      }
+        .get(chat, lo, `${lo.slice(0, -1)}}`) as typeof row;
     }
     if (row === undefined || !this.#o.config().sources[row.source as SourceId]?.enabled)
       return undefined;
     return row.doc_id;
+  }
+
+  /**
+   * Which source a document id belongs to, without loading its body: for a cheap "may this
+   * connection open it" check. Undefined for an unknown id or one that is not an owner-scoped
+   * source passage.
+   */
+  sourceOf(id: string): SourceId | undefined {
+    const row = this.#index.db
+      .prepare(
+        `SELECT s.source AS source, d.scope_key AS scope_key FROM search_source_items s
+           JOIN search_docs d ON d.id = s.doc_id WHERE s.doc_id = ?`,
+      )
+      .get(id) as { source: string; scope_key: string } | undefined;
+    if (row === undefined || row.scope_key !== OWNER_SCOPE) return undefined;
+    return SOURCE_IDS.includes(row.source as SourceId) ? (row.source as SourceId) : undefined;
   }
 
   /** Forgets what a whole read of the source no longer has; returns how many documents went. */

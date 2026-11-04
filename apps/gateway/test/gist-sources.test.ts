@@ -1,4 +1,3 @@
-import type { GraphInteraction } from "@psyche/protocol";
 import {
   createSearchIndex,
   defaultSourcesConfig,
@@ -6,8 +5,8 @@ import {
   type SourceItem,
 } from "@psyche/search";
 import { describe, expect, it } from "vitest";
-import { type GistSources, scrubGistSources } from "../src/compose/people.ts";
-import { canOpenGistSource } from "../src/compose/search-open.ts";
+import { attachGistSources, type GistSources } from "../src/compose/people.ts";
+import { canOpenGistSource, MAX_DOC_ID_CHARS, scrubCitations } from "../src/compose/search-open.ts";
 import type { Call } from "../src/context.ts";
 
 const NOW = Date.UTC(2026, 10, 4, 12, 0, 0);
@@ -40,15 +39,7 @@ async function world() {
   return { indexer };
 }
 
-const gist = (id: string, docId?: string): GraphInteraction =>
-  ({
-    id,
-    kind: "mail",
-    gist: "Talked about the Lisbon dates",
-    ...(docId === undefined ? {} : { gistDocId: docId }),
-  }) as unknown as GraphInteraction;
-
-describe("which gist sources a connection may open", () => {
+describe("which sources a connection may open from a chip", () => {
   it("lets any paired client open a mail or calendar source, and refuses a helper", async () => {
     const w = await world();
     const deps = { indexer: () => w.indexer };
@@ -67,12 +58,13 @@ describe("which gist sources a connection may open", () => {
     expect(canOpenGistSource(deps, helper, id)).toBe(false);
   });
 
-  it("refuses a source a gist never comes from, a missing passage and no index at all", async () => {
+  it("refuses a source the chip never comes from, a missing passage, a too-long id and no index", async () => {
     const w = await world();
     const deps = { indexer: () => w.indexer };
     expect(canOpenGistSource(deps, desktop, "notes:n1")).toBe(false);
     expect(canOpenGistSource(deps, desktop, "memory:f1")).toBe(false);
     expect(canOpenGistSource(deps, desktop, "mail:gone")).toBe(false);
+    expect(canOpenGistSource(deps, desktop, `mail:${"x".repeat(MAX_DOC_ID_CHARS)}`)).toBe(false);
     expect(canOpenGistSource({ indexer: () => undefined }, desktop, "mail:1")).toBe(false);
   });
 });
@@ -82,35 +74,78 @@ describe("what the people methods send", () => {
     docIdFor: (ref) => w.indexer.docIdFor(ref),
     canOpen: (c, id) => canOpenGistSource({ indexer: () => w.indexer }, c, id),
   });
+  const refs: Record<string, string> = {
+    a: "a@host.example",
+    b: "chat1:2026-11-03",
+    c: "n1",
+    d: "a@host.example",
+    e: "ev1",
+  };
+  type Row = { id: string; kind: string; gist: string | null; gistDocId?: string };
+  const row = (
+    id: string,
+    kind: string,
+    gist: string | null = "Talked about the Lisbon dates",
+  ): Row => ({
+    id,
+    kind,
+    gist,
+  });
+  const attach = (c: Call, sources: GistSources | undefined, rows: ReturnType<typeof row>[]) =>
+    attachGistSources(c, sources, (id) => refs[id], rows);
 
-  it("keeps a reference the connection may open and drops the rest", async () => {
+  it("resolves the source now, and sends it only to a connection that may open it", async () => {
     const w = await world();
-    const rows = [
-      gist("a", "mail:1"),
-      gist("b", "messages:chat1|2026-11-03|9"),
-      gist("c", "notes:n1"),
-      gist("d"),
-    ];
-    const forDesktop = scrubGistSources(desktop, gate(w), rows).map((r) => r.gistDocId);
-    expect(forDesktop).toEqual(["mail:1", "messages:chat1|2026-11-03|9", undefined, undefined]);
-    const forPhone = scrubGistSources(phone, gate(w), rows).map((r) => r.gistDocId);
-    expect(forPhone).toEqual(["mail:1", undefined, undefined, undefined]);
-    // The gist itself is untouched; only the reference goes.
-    expect(scrubGistSources(phone, gate(w), rows)[1]?.gist).toBe("Talked about the Lisbon dates");
-    expect("gistDocId" in (scrubGistSources(phone, gate(w), rows)[1] ?? {})).toBe(false);
+    const rows = [row("a", "mail"), row("b", "message"), row("e", "meeting"), row("c", "note")];
+    expect(attach(desktop, gate(w), rows).map((r) => r.gistDocId)).toEqual([
+      "mail:1",
+      "messages:chat1|2026-11-03|9",
+      "calendar:ev1",
+      undefined,
+    ]);
+    // A remote client: mail and calendar, not Messages.
+    expect(attach(phone, gate(w), rows).map((r) => r.gistDocId)).toEqual([
+      "mail:1",
+      undefined,
+      "calendar:ev1",
+      undefined,
+    ]);
+    expect(attach(helper, gate(w), rows).every((r) => r.gistDocId === undefined)).toBe(true);
   });
 
-  it("drops every reference until Search is bound, and when the check throws", () => {
-    expect(scrubGistSources(desktop, undefined, [gist("a", "mail:1")])[0]?.gistDocId).toBe(
-      undefined,
-    );
+  it("shows no chip without a gist, and drops a reference a client sent or a store held", async () => {
+    const w = await world();
+    const stale = { ...row("a", "mail", null), gistDocId: "mail:1" };
+    const out = attachGistSources(desktop, gate(w), (id) => refs[id], [stale]);
+    expect(out[0]).not.toHaveProperty("gistDocId");
+    expect(out[0]?.gist).toBeNull();
+  });
+
+  it("shows no chip when a document id was re-pointed to another message", async () => {
+    const w = await world();
+    expect(attach(desktop, gate(w), [row("a", "mail")])[0]?.gistDocId).toBe("mail:1");
+    // Mail.app reuses the id `1` for a different message: the old conversation finds nothing.
+    await w.indexer.ingest("mail", [
+      item("1", { openRef: "other@host.example", text: "A different message" }),
+    ]);
+    expect(attach(desktop, gate(w), [row("a", "mail")])[0]).not.toHaveProperty("gistDocId");
+    expect(attach(desktop, gate(w), [row("d", "mail")])[0]).not.toHaveProperty("gistDocId");
+  });
+
+  it("drops every reference until Search is bound, when the check throws and for a too-long id", async () => {
+    expect(attach(desktop, undefined, [row("a", "mail")])[0]).not.toHaveProperty("gistDocId");
     const broken: GistSources = {
-      docIdFor: () => undefined,
+      docIdFor: () => "mail:1",
       canOpen: () => {
         throw new Error("index locked");
       },
     };
-    expect(scrubGistSources(desktop, broken, [gist("a", "mail:1")])[0]?.gistDocId).toBe(undefined);
+    expect(attach(desktop, broken, [row("a", "mail")])[0]).not.toHaveProperty("gistDocId");
+    const long: GistSources = {
+      docIdFor: () => `mail:${"x".repeat(MAX_DOC_ID_CHARS)}`,
+      canOpen: () => true,
+    };
+    expect(attach(desktop, long, [row("a", "mail")])[0]).not.toHaveProperty("gistDocId");
   });
 
   it("finds the passage a conversation came from", async () => {
@@ -123,60 +158,89 @@ describe("what the people methods send", () => {
     expect(
       w.indexer.docIdFor({ kind: "mail", externalRef: "nobody@host.example" }),
     ).toBeUndefined();
-    expect(
-      w.indexer.docIdFor({ kind: "message", externalRef: "chat1:2026-11-04" }),
-    ).toBeUndefined();
   });
 });
 
-describe("a Messages day near midnight in another zone", () => {
-  // Los Angeles, 3 Nov 2026 at 4:40 pm and 5:30 pm: the index labels the day 11-03 by the
-  // connector's local time, while the graph's day for the same newest message is 11-04 (UTC).
-  const first = Date.parse("2026-11-04T00:40:00Z");
-  const newest = "2026-11-04T01:30:00Z";
-
+describe("a Messages day", () => {
   async function chats() {
     const index = createSearchIndex({ now: () => NOW });
     const config = defaultSourcesConfig();
     const indexer = new SourceIndexer(index, [], { config: () => config, now: () => NOW });
     config.sources.messages.enabled = true;
+    const at = (iso: string) => Date.parse(iso);
     await indexer.ingest("messages", [
-      item("chat2|2026-11-03|5", { chatId: "chat2", createdAt: first }),
-      item("chat2|2026-11-02|4", {
-        chatId: "chat2",
-        createdAt: Date.parse("2026-11-03T02:00:00Z"),
-      }),
-      item("chat3|2026-11-03|8", { chatId: "chat3", createdAt: first }),
+      // The same day, two pages: `|1000` sorts before `|999` as text, but `|999` is the first page.
+      item("chat2|2026-11-03|1000", { chatId: "chat2", createdAt: at("2026-11-03T18:00:00Z") }),
+      item("chat2|2026-11-03|999", { chatId: "chat2", createdAt: at("2026-11-03T09:00:00Z") }),
+      item("chat2|2026-11-02|4", { chatId: "chat2", createdAt: at("2026-11-02T09:00:00Z") }),
+      item("chat3|2026-11-03|8", { chatId: "chat3", createdAt: at("2026-11-03T09:00:00Z") }),
     ]);
     return indexer;
   }
 
-  it("finds the day by the time of its newest message when the day labels disagree", async () => {
+  it("is found by chat and day, taking the day's first passage by time", async () => {
     const indexer = await chats();
-    const ref = { kind: "message", externalRef: "chat2:2026-11-04" } as const;
-    // By label alone the two sides do not meet...
-    expect(indexer.docIdFor(ref)).toBeUndefined();
-    // ...by instant they do: the latest day of that chat that began at or before the message.
-    expect(indexer.docIdFor({ ...ref, at: newest })).toBe("messages:chat2|2026-11-03|5");
+    expect(indexer.docIdFor({ kind: "message", externalRef: "chat2:2026-11-03" })).toBe(
+      "messages:chat2|2026-11-03|999",
+    );
+    expect(indexer.docIdFor({ kind: "message", externalRef: "chat3:2026-11-03" })).toBe(
+      "messages:chat3|2026-11-03|8",
+    );
   });
 
-  it("prefers the same label, and never takes another chat or a day more than a day back", async () => {
+  it("has no passage while its day is not indexed yet: never the day before's", async () => {
     const indexer = await chats();
-    expect(indexer.docIdFor({ kind: "message", externalRef: "chat2:2026-11-03", at: newest })).toBe(
-      "messages:chat2|2026-11-03|5",
-    );
+    // 4 Nov is the graph's day; the index holds 2 and 3 Nov only.
+    expect(indexer.docIdFor({ kind: "message", externalRef: "chat2:2026-11-04" })).toBeUndefined();
+    expect(indexer.docIdFor({ kind: "message", externalRef: "chat4:2026-11-03" })).toBeUndefined();
+    expect(indexer.docIdFor({ kind: "message", externalRef: "no-day" })).toBeUndefined();
+  });
+});
+
+describe("a review item's citations", () => {
+  const cite = (source: string, docId: string | null) => ({
+    source,
+    docId,
+    quote: "Dinner on Friday at 7",
+    sourceRef: `${source}-native`,
+  });
+
+  it("keeps ids and quotes for the desktop app, and what a remote client may open", async () => {
+    const w = await world();
+    const deps = { indexer: () => w.indexer };
+    const all = [
+      cite("messages", "messages:chat1|2026-11-03|9"),
+      cite("mail", "mail:1"),
+      cite("contacts", null),
+    ];
+    expect(scrubCitations(deps, desktop, all)).toEqual(all);
+    const remote = scrubCitations(deps, phone, all);
+    // Mail: the id and the quote stay. Messages and Contacts: no id, no quote, the label stays.
+    expect(remote[1]).toEqual(cite("mail", "mail:1"));
+    expect(remote[0]).toEqual({ source: "messages", docId: null, quote: "", sourceRef: "" });
+    expect(remote[2]).toEqual({ source: "contacts", docId: null, quote: "", sourceRef: "" });
+  });
+
+  it("drops an id that is gone, too long or of a connection that is not a client", async () => {
+    const w = await world();
+    const deps = { indexer: () => w.indexer };
+    const out = scrubCitations(deps, helper, [
+      cite("mail", "mail:1"),
+      cite("mail", "mail:gone"),
+      cite("mail", `mail:${"x".repeat(MAX_DOC_ID_CHARS)}`),
+    ]);
+    expect(out.map((c) => c.docId)).toEqual([null, null, null]);
+    expect(out[0]?.quote).toBe("Dinner on Friday at 7");
     expect(
-      indexer.docIdFor({ kind: "message", externalRef: "chat4:2026-11-04", at: newest }),
-    ).toBeUndefined();
-    expect(
-      indexer.docIdFor({
-        kind: "message",
-        externalRef: "chat2:2026-11-06",
-        at: "2026-11-06T12:00:00Z",
-      }),
-    ).toBeUndefined();
-    expect(
-      indexer.docIdFor({ kind: "message", externalRef: "chat2:2026-11-04", at: "not a time" }),
-    ).toBeUndefined();
+      scrubCitations({ indexer: () => undefined }, desktop, [cite("mail", "mail:1")])[0]?.docId,
+    ).toBeNull();
+  });
+
+  it("treats a Messages passage as owner-only even when the citation is labelled otherwise", async () => {
+    const w = await world();
+    const out = scrubCitations({ indexer: () => w.indexer }, phone, [
+      cite("chats", "messages:chat1|2026-11-03|9"),
+    ]);
+    expect(out[0]).toMatchObject({ docId: null, quote: "" });
   });
 });

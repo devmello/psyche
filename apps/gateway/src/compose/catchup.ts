@@ -34,7 +34,7 @@ import {
 import type { Call, HandlerDef } from "../context.ts";
 import { mountParamsOnly } from "./handlers.ts";
 import type { GistSources } from "./people.ts";
-import { CATCHUP_SOURCES } from "./search-open.ts";
+import { CATCHUP_SOURCES, MAX_DOC_ID_CHARS } from "./search-open.ts";
 
 /**
  * Catching up in the Gateway (docs/design/memory-everything-2026.md §5, MW4): the
@@ -249,18 +249,30 @@ export function composeCatchup(deps: CatchupDeps): Catchup {
   };
 
   let sources: GistSources | undefined;
-  /** The passage behind a signal: a mail message, or a fact's first indexed citation. */
+  /**
+   * The passage behind a signal: a mail message, or the one citation a fact's line is based on
+   * (`citationId`, the source the surface filter already checked), never another citation of the
+   * same fact, which may come from a source that is hidden here.
+   */
   const docOf = (s: WorkSignal): { docId: string; sourceKind: string } | undefined => {
     if (sources === undefined) return undefined;
+    let docId: string | undefined;
     if (s.kind === "fact") {
-      const docId = deps.em.citations("fact", s.id).find((c) => c.docId != null)?.docId;
-      return docId == null ? undefined : { docId, sourceKind: docId.split(":")[0] ?? "" };
+      const cite =
+        s.citationId === null
+          ? undefined
+          : deps.em.citations("fact", s.id).find((c) => c.id === s.citationId);
+      if (cite?.docId == null || cite.source !== s.source) return undefined;
+      // The document must be of the source the line was filtered by.
+      if (cite.docId.split(":")[0] !== s.source) return undefined;
+      docId = cite.docId;
+    } else if (s.kind === "mail") {
+      const externalRef = graph.externalRefOf(s.id);
+      docId =
+        externalRef === undefined ? undefined : sources.docIdFor({ kind: "mail", externalRef });
     }
-    if (s.kind !== "mail") return undefined;
-    const externalRef = graph.externalRefOf(s.id);
-    const docId =
-      externalRef === undefined ? undefined : sources.docIdFor({ kind: "mail", externalRef });
-    return docId === undefined ? undefined : { docId, sourceKind: "mail" };
+    if (docId === undefined || docId.length > MAX_DOC_ID_CHARS) return undefined;
+    return { docId, sourceKind: s.kind === "fact" ? s.source : "mail" };
   };
 
   const listWith = async (
@@ -269,7 +281,9 @@ export function composeCatchup(deps: CatchupDeps): Catchup {
   ): Promise<MethodResult<"memory.catchup.list">> => {
     const asOf = iso(clock.now());
     if (!work().enabled) return { items: [], pendingCount: 0, hiddenCount: 0, asOf };
-    const items = ranked(p.surface, p.limit, withSources).map((r) => r.item);
+    const items = ranked(p.surface, p.limit, withSources && p.surface === "home").map(
+      (r) => r.item,
+    );
     const c = pending(p.surface);
     return {
       items,

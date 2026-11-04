@@ -193,7 +193,7 @@ import { filesSourceDeps, powerReader } from "./search-files.ts";
 import { chatContextResolver } from "./search-hit-context.ts";
 import { memorySettings, memorySourceDeps } from "./search-memory.ts";
 import { helperRecognizer } from "./search-ocr.ts";
-import { agentBlockedHit, canOpenGistSource } from "./search-open.ts";
+import { agentBlockedHit, canOpenGistSource, scrubCitations } from "./search-open.ts";
 import { routerEmbedder, type SemanticEngines } from "./search-semantic.ts";
 import { agentLocalSearch, searchEverythingTool } from "./search-tool.ts";
 import {
@@ -1658,6 +1658,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     canOpen: (call, id, kinds) =>
       canOpenGistSource({ indexer: () => search.sources }, call, id, kinds),
   });
+  // Review's citations follow the same per-connection rule (document ids, and Messages quotes).
+  everything.useCitationScrub((call, citations) =>
+    scrubCitations({ indexer: () => search.sources }, call, citations),
+  );
   // The same two checks put source chips on Home's catch-up lines.
   proactive.useCatchUpSources({
     docIdFor: (ref) => search.sources?.docIdFor(ref),

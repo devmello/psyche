@@ -35,7 +35,6 @@ import {
 import {
   type Clock,
   EVERYTHING_MEMORY_SETTING_KEY,
-  type GraphInteraction,
   type GraphSource,
   type ModelProvider,
   type ModelRef,
@@ -52,6 +51,7 @@ import type { Call, HandlerDef } from "../context.ts";
 import type { Gateway } from "../server.ts";
 import { everythingSettings } from "./everything.ts";
 import { mountParamsOnly } from "./handlers.ts";
+import { MAX_DOC_ID_CHARS } from "./search-open.ts";
 import type { ComposedPart } from "./services.ts";
 
 /**
@@ -160,15 +160,11 @@ export const AFTER_RUN_TOKENS = 15_000;
 /**
  * What the people part needs from Search to put a source on a conversation gist: which indexed
  * passage a conversation came from, and whether one connection may open it (the same rule as
- * `search.document`). Bound once Search exists.
+ * `search.document`). Bound once Search exists. Both are asked on every read: nothing about the
+ * passage is stored with the gist, so a reused document id can never point at the wrong one.
  */
 export interface GistSources {
-  docIdFor(ref: {
-    kind: "mail" | "message" | "meeting";
-    externalRef: string;
-    threadKey?: string | null;
-    at?: string;
-  }): string | undefined;
+  docIdFor(ref: { kind: "mail" | "message" | "meeting"; externalRef: string }): string | undefined;
   canOpen(call: Call, docId: string, kinds?: readonly string[]): boolean;
 }
 
@@ -246,23 +242,6 @@ export function composePeople(deps: PeopleDeps): People {
   });
   const store = graph;
   let gistSources: GistSources | undefined;
-  /** The document a conversation's gist is written from, stored with the gist. */
-  const docOf = (i: GraphInteraction): string | undefined => {
-    if (gistSources === undefined) return undefined;
-    if (i.kind !== "mail" && i.kind !== "message" && i.kind !== "meeting") return undefined;
-    const externalRef = store.externalRefOf(i.id);
-    if (externalRef === undefined) return undefined;
-    try {
-      return gistSources.docIdFor({
-        kind: i.kind,
-        externalRef,
-        threadKey: i.threadKey,
-        at: i.occurredAt,
-      });
-    } catch {
-      return undefined;
-    }
-  };
   store.backfillTitleTrust();
   // Conversation gists follow the same sensitive-class switches as learned facts (§2.6).
   store.setSensitiveSwitches(
@@ -385,7 +364,7 @@ export function composePeople(deps: PeopleDeps): People {
         maxEntitiesPerNight: AFTER_RUN_ENTITIES,
         maxTokensPerNight: AFTER_RUN_TOKENS,
       },
-      { clock, only: ids, docOf },
+      { clock, only: ids },
     );
     for (const id of ids) {
       const e = store.getEntity(id);
@@ -486,7 +465,7 @@ export function composePeople(deps: PeopleDeps): People {
           maxEntitiesPerNight: s.model.maxEntitiesPerNight,
           maxTokensPerNight: s.model.maxTokensPerNight,
         },
-        { clock, docOf },
+        { clock },
       );
       lastPass = {
         at: new Date(clock.now()).toISOString(),
@@ -634,7 +613,11 @@ export function composePeople(deps: PeopleDeps): People {
       let timer: ReturnType<typeof setInterval> | undefined;
       const interval = deps.pollIntervalMs ?? DEFAULT_GRAPH_POLL_MS;
       return {
-        handlers: withGistSources(mountParamsOnly(handlers as never), () => gistSources),
+        handlers: withGistSources(
+          mountParamsOnly(handlers as never),
+          () => gistSources,
+          (id) => store.externalRefOf(id),
+        ),
         async start(gateway: Gateway) {
           await ensureOwner();
           sync(getSetting(db, GRAPH_SETTING)?.value);
@@ -664,33 +647,42 @@ export function composePeople(deps: PeopleDeps): People {
 }
 
 /**
- * A gist's source reference leaves the Gateway only when this connection may open that document
- * (`search.document`'s rule: not a remote device for Messages, Contacts or Memory; not a source
- * that is off; not a passage that is gone). The renderer sends the id back and the Gateway checks
- * it again there. With no Search bound the reference is always dropped.
+ * Puts the source on each conversation gist for one connection, read now: the passage the
+ * conversation came from (`docIdFor`), only when this connection may open it (`search.document`'s
+ * rule: not a remote device for Messages, Contacts or Memory; the passage still indexed) and its id
+ * fits `search.document`'s 400 characters. A gist with no source, or any check that fails or
+ * throws, has no `gistDocId`. The renderer sends the id back and the Gateway checks it again there.
  */
-export function scrubGistSources<T extends { gistDocId?: string }>(
+export function attachGistSources<
+  T extends { id: string; kind: string; gist?: string | null; gistDocId?: string },
+>(
   call: Call,
   sources: GistSources | undefined,
+  externalRefOf: (interactionId: string) => string | undefined,
   interactions: readonly T[],
 ): T[] {
   return interactions.map((i) => {
-    if (i.gistDocId === undefined) return i;
-    let ok = false;
+    const { gistDocId: _stale, ...row } = i;
+    if (sources === undefined || i.gist == null) return row as unknown as T;
+    if (i.kind !== "mail" && i.kind !== "message" && i.kind !== "meeting")
+      return row as unknown as T;
     try {
-      ok = sources?.canOpen(call, i.gistDocId) === true;
+      const externalRef = externalRefOf(i.id);
+      const docId =
+        externalRef === undefined ? undefined : sources.docIdFor({ kind: i.kind, externalRef });
+      if (docId === undefined || docId.length > MAX_DOC_ID_CHARS || !sources.canOpen(call, docId))
+        return row as unknown as T;
+      return { ...row, gistDocId: docId } as unknown as T;
     } catch {
-      ok = false;
+      return row as unknown as T;
     }
-    if (ok) return i;
-    const { gistDocId: _drop, ...rest } = i;
-    return rest as unknown as T;
   });
 }
 
 function withGistSources(
   mounted: Record<string, HandlerDef>,
   sources: () => GistSources | undefined,
+  externalRefOf: (interactionId: string) => string | undefined,
 ): Record<string, HandlerDef> {
   const out = { ...mounted };
   const get = mounted["memory.entities.get"];
@@ -700,11 +692,16 @@ function withGistSources(
       ...get,
       run: async (call: Call, params: never) => {
         const detail = (await get.run(call, params)) as {
-          recentInteractions: { gistDocId?: string }[];
+          recentInteractions: { id: string; kind: string; gist?: string | null }[];
         };
         return {
           ...detail,
-          recentInteractions: scrubGistSources(call, sources(), detail.recentInteractions),
+          recentInteractions: attachGistSources(
+            call,
+            sources(),
+            externalRefOf,
+            detail.recentInteractions,
+          ),
         };
       },
     };
@@ -712,8 +709,13 @@ function withGistSources(
     out["memory.entities.interactions"] = {
       ...list,
       run: async (call: Call, params: never) => {
-        const res = (await list.run(call, params)) as { interactions: { gistDocId?: string }[] };
-        return { ...res, interactions: scrubGistSources(call, sources(), res.interactions) };
+        const res = (await list.run(call, params)) as {
+          interactions: { id: string; kind: string; gist?: string | null }[];
+        };
+        return {
+          ...res,
+          interactions: attachGistSources(call, sources(), externalRefOf, res.interactions),
+        };
       },
     };
   return out;

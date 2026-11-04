@@ -42,10 +42,13 @@ async function world() {
     direction: "in",
     participants: [{ entityId: ava, role: "from" }],
   });
-  graph.setInteractionGist(i, "Talked about the Lisbon dates", "messages:chat1|2026-11-03|9");
+  graph.setInteractionGist(i, "Talked about the Lisbon dates");
   // Search's own rule is tested apart (gist-sources.test.ts): here, Messages open on the desktop only.
   composed.people.useGistSources({
-    docIdFor: () => undefined,
+    docIdFor: (ref) =>
+      ref.kind === "message" && ref.externalRef === "chat1:2026-11-03"
+        ? "messages:chat1|2026-11-03|9"
+        : undefined,
     canOpen: (c) => c.identity.desktopShell === true,
   });
   const handlers = composed.gateway.context.extraHandlers;
@@ -94,5 +97,77 @@ describe("the mounted people methods and gist sources", () => {
       interactions: object[];
     };
     expect(res.interactions[0]).not.toHaveProperty("gistDocId");
+  });
+});
+
+describe("the mounted memory.review.list and citations", () => {
+  async function review() {
+    const w = await world();
+    const em = composed?.people.em;
+    const graph = composed?.people.graph;
+    if (em === undefined || graph === undefined) throw new Error("no graph");
+    const sam = graph.createEntity({
+      kind: "person",
+      name: "Sam Lee",
+      identifiers: [{ kind: "email", value: "sam@acme.com" }],
+    }).id;
+    const cite = (source: "messages" | "mail" | "contacts", docId: string, n: number) => ({
+      source,
+      docId,
+      sourceRef: `native-${source}`,
+      quote: "Dinner on Friday at 7",
+      start: n,
+      end: n + 20,
+      sourceHash: `h${n}`,
+    });
+    const out = em.proposeFact({
+      entityId: sam,
+      attribute: "employer",
+      value: "Initech",
+      provenance: "untrusted",
+      subjectKind: "self_disclosure",
+      citations: [
+        cite("messages", "messages:chat1|2026-11-03|9", 1),
+        cite("mail", "mail:1", 2),
+        cite("contacts", "contacts:c1", 3),
+      ],
+    });
+    expect(out.status).toBe("pending");
+    const read = async (c: Call) =>
+      (
+        (await w.run("memory.review.list", c, { state: ["pending"] })) as {
+          items: {
+            citations: {
+              source: string;
+              docId?: string | null;
+              quote: string;
+              sourceRef: string;
+            }[];
+          }[];
+        }
+      ).items[0]?.citations ?? [];
+    return read;
+  }
+
+  it("keeps the quote of a Messages or Contacts citation for the desktop app only", async () => {
+    const read = await review();
+    const desk = await read(desktop);
+    expect(desk.map((c) => [c.source, c.quote])).toEqual([
+      ["messages", "Dinner on Friday at 7"],
+      ["mail", "Dinner on Friday at 7"],
+      ["contacts", "Dinner on Friday at 7"],
+    ]);
+    const rem = await read(remote);
+    expect(rem.map((c) => [c.source, c.quote, c.sourceRef])).toEqual([
+      ["messages", "", ""],
+      ["mail", "Dinner on Friday at 7", "native-mail"],
+      ["contacts", "", ""],
+    ]);
+  });
+
+  it("sends no document id to a connection that cannot open it (here, with no index at all)", async () => {
+    const read = await review();
+    for (const c of [...(await read(remote)), ...(await read(desktop))])
+      expect(c.docId ?? null).toBeNull();
   });
 });

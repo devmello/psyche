@@ -12446,7 +12446,7 @@
       "properties": {
         "docId": {
           "description": "Search document id",
-          "maxLength": 200,
+          "maxLength": 400,
           "type": "string"
         },
         "sourceKind": {
@@ -21258,7 +21258,7 @@
         },
         "gistDocId": {
           "description": "Search document id of the passage the gist was written from. Present only when this connection may open it (`search.document`); the viewer sends just this id back",
-          "maxLength": 200,
+          "maxLength": 400,
           "type": "string"
         }
       },

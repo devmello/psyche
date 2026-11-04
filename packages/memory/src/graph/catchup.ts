@@ -495,6 +495,7 @@ export function rankCatchUp(
     const lineChange = changes.find(
       (s) => s.provenance === "untrusted" || (s.attribute === "deadline" && s.from != null),
     );
+    const sources = sourcesOf(shown, opts.docOf);
     const changeOut: CatchUpChange[] = shown.map((s) => ({
       text: clean(s.text, 200),
       at: s.at,
@@ -502,7 +503,6 @@ export function rankCatchUp(
       provenance: s.provenance,
       citationId: s.citationId,
     }));
-    const sources = sourcesOf(changes, opts.docOf);
     const item: CatchUpItem = {
       entityId: c.entityId,
       kind: c.kind,
