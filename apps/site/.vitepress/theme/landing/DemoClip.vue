@@ -12,10 +12,8 @@ const props = defineProps<{
   label: string;
   /** Width / height of the recording. */
   ratio: number;
-  /** Which part of the recording to keep when a phone crops it (object-position). */
-  focus?: string;
-  /** On a phone: crop to a taller frame (default) or keep the whole recording. */
-  phone?: "crop" | "fit";
+  /** Width / height of the phone-width take (`<name>-phone.*`), shown at 560 px and below. */
+  phoneRatio: number;
 }>();
 
 const video = ref<HTMLVideoElement | null>(null);
@@ -24,8 +22,10 @@ const near = ref(false);
 const playing = ref(false);
 const userPaused = ref(false);
 const reduced = ref(false);
-const poster = computed(() => withBase(`/demos/${props.name}.webp`));
-const src = (ext: string) => withBase(`/demos/${props.name}.${ext}`);
+const phone = ref(false);
+const PHONE = "(max-width: 560px)";
+const poster = computed(() => withBase(`/demos/${props.name}${phone.value ? "-phone" : ""}.webp`));
+const src = (ext: string, take = "") => withBase(`/demos/${props.name}${take}.${ext}`);
 
 let io: IntersectionObserver | null = null;
 let wantPlay = false;
@@ -70,6 +70,7 @@ function toggle() {
 
 onMounted(() => {
   reduced.value = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  phone.value = window.matchMedia(PHONE).matches;
   io = new IntersectionObserver(
     (entries) => {
       for (const e of entries) {
@@ -87,7 +88,11 @@ onBeforeUnmount(() => io?.disconnect());
 </script>
 
 <template>
-  <figure ref="box" class="clip" :class="{ fit: phone === 'fit' }" :style="{ '--ratio': String(ratio), '--focus': focus ?? 'left top' }">
+  <figure
+    ref="box"
+    class="clip"
+    :style="{ '--ratio': String(ratio), '--ratio-phone': String(phoneRatio) }"
+  >
     <div class="frame">
       <video
         ref="video"
@@ -102,6 +107,8 @@ onBeforeUnmount(() => io?.disconnect());
         @play="playing = true"
       >
         <template v-if="near">
+          <source :src="src('webm', '-phone')" type="video/webm" :media="PHONE" />
+          <source :src="src('mp4', '-phone')" type="video/mp4" :media="PHONE" />
           <source :src="src('webm')" type="video/webm" />
           <source :src="src('mp4')" type="video/mp4" />
         </template>
@@ -145,12 +152,12 @@ video {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: var(--focus);
 }
-/* On a phone the frame turns taller and crops to the part that matters, so the UI stays legible. */
+/* On a phone the clip is the app recorded at phone width, so its text stays legible. */
 @media (max-width: 560px) {
-  .clip:not(.fit) .frame {
-    aspect-ratio: 4 / 5;
+  .frame {
+    aspect-ratio: var(--ratio-phone);
+    max-height: 78svh;
   }
 }
 .control {

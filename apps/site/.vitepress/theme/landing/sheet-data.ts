@@ -60,7 +60,7 @@ export const SHEETS: Sheet[] = [
   },
   {
     id: "approval",
-    file: "Approval · 28:41",
+    file: "state/psyche.sqlite",
     kind: "approval",
     lines: [
       { t: "meta", text: "Send email · write" },

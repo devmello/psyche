@@ -174,8 +174,6 @@ onBeforeUnmount(() => {
 }
 .kind-approval .head {
   color: #8a5300;
-  font-family: var(--font-text);
-  font-weight: 600;
 }
 .h1 {
   font-family: var(--font-display);

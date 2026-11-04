@@ -92,7 +92,7 @@ function drawSheet(sheet: Sheet): HTMLCanvasElement {
   // Running head: the file this is.
   g.textBaseline = "alphabetic";
   // The file name is the sheet's label when the stack fans open, so it is set large.
-  g.font = sheet.kind === "approval" ? `600 44px ${SANS}` : `500 44px ${MONO}`;
+  g.font = `500 44px ${MONO}`;
   g.fillStyle = sheet.kind === "approval" ? C.amberText : "#55575b";
   g.fillText(sheet.file, pad, 112, inner);
   g.fillStyle = C.rule;
@@ -212,10 +212,10 @@ const REST: Placement[] = [
 ];
 /** Fanned layout: the stack opens like a hand of cards, so each file name shows. */
 const FAN: Placement[] = [
-  { x: -0.66, y: 0.27, z: 0.0, rz: 0.14 },
-  { x: -0.22, y: 0.1, z: 0.08, rz: 0.05 },
-  { x: 0.22, y: -0.07, z: 0.16, rz: -0.04 },
-  { x: 0.66, y: -0.24, z: 0.24, rz: -0.11 },
+  { x: -0.64, y: 0.33, z: 0.0, rz: 0.07 },
+  { x: -0.21, y: 0.11, z: 0.08, rz: 0.025 },
+  { x: 0.22, y: -0.11, z: 0.16, rz: -0.02 },
+  { x: 0.65, y: -0.33, z: 0.24, rz: -0.05 },
 ];
 
 export interface SheetScene {
@@ -314,7 +314,7 @@ export function mountSheetScene(host: HTMLElement, sheets: Sheet[], dark: boolea
     camera.aspect = w / h;
     // Keep the whole stack in view on tall, narrow hosts.
     baseZ = w / h < 0.9 ? 4.3 : 3.35;
-    camera.position.z = baseZ + scroll * baseZ * 0.65;
+    camera.position.z = baseZ + scroll * baseZ * 0.72;
     camera.updateProjectionMatrix();
     kick();
   }
@@ -349,7 +349,7 @@ export function mountSheetScene(host: HTMLElement, sheets: Sheet[], dark: boolea
     stack.rotation.y = pointer.x * 0.16;
     stack.rotation.x = -0.12 - pointer.y * 0.08 - p * 0.1;
     // Pull back as the hand opens, so every sheet stays in frame.
-    camera.position.z = baseZ + p * baseZ * 0.65;
+    camera.position.z = baseZ + p * baseZ * 0.72;
     renderer.render(scene, camera);
     if (moving && visible) frame = requestAnimationFrame(tick);
   }

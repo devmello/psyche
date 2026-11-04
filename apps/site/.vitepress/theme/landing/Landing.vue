@@ -130,7 +130,7 @@ onBeforeUnmount(() => {
           </p>
           <a class="more" :href="withBase('/using/memory')"><span class="src">1</span>How memory works <span class="where">using/memory</span></a>
         </div>
-        <DemoClip name="memory" :ratio="1440 / 1120" label="Psyche's Memory page showing a person, their facts with sources, and open loops">
+        <DemoClip name="memory" :ratio="1440 / 1120" :phone-ratio="780 / 1280" label="Psyche's Memory page showing a person, their facts with sources, and open loops">
           <b>Memory → Sam Lee.</b> Facts carry their source: “From Sam Lee's mail, Oct 12.” A loop it
           found in mail waits for your Confirm.
         </DemoClip>
@@ -140,25 +140,23 @@ onBeforeUnmount(() => {
     <!-- Search and Home, as two facing pages. -->
     <section class="two-up" aria-label="Search and Home">
       <article class="leaf lit half" data-lay aria-labelledby="search-title">
-        <p class="run-head place">Search, ⌘K</p>
-        <h2 id="search-title">Ask once. Search the whole Mac.</h2>
+                <h2 id="search-title">Ask once. Search the whole Mac.</h2>
         <p>
           Threads, messages, tasks, memory, your Library and the Feed, in one box. The index is
           built and kept on this machine.
         </p>
-        <DemoClip name="search" :ratio="1440 / 1280" phone="fit" label="The Search palette finding a dentist booking across threads, messages, tasks and the feed">
+        <DemoClip name="search" :ratio="1440 / 1280" :phone-ratio="740 / 1280" label="The Search palette finding a dentist booking across threads, messages, tasks and the feed">
           <b>Search ⌘K</b>, typing “dentist”: a thread, your own message, the running task and the
           morning brief.
         </DemoClip>
       </article>
       <article class="leaf lit half" data-lay aria-labelledby="home-title">
-        <p class="run-head place">Home</p>
-        <h2 id="home-title">Catch up in a minute.</h2>
+                <h2 id="home-title">Catch up in a minute.</h2>
         <p>
           What needs you, what moved since you last looked, and a brief whose lines point to their
           sources. The Feed behind the brief is still being finished.
         </p>
-        <DemoClip name="home" :ratio="1440 / 1120" label="Psyche's Home: two items that need you, a catch-up list, and a morning brief with numbered sources">
+        <DemoClip name="home" :ratio="1440 / 1120" :phone-ratio="780 / 1280" label="Psyche's Home: two items that need you, a catch-up list, and a morning brief with numbered sources">
           <b>Home.</b> Two things wait on you; the brief cites Calendar, Gmail and acme.com.
         </DemoClip>
       </article>
@@ -167,8 +165,7 @@ onBeforeUnmount(() => {
     <!-- Approvals: one sheet under the lamp, on the desk at night. -->
     <section class="night" aria-labelledby="approve-title">
       <div class="leaf lit lamplit" data-lay>
-        <p class="run-head place">Permission Broker</p>
-        <div class="split">
+                <div class="split">
           <div class="copy">
             <h2 id="approve-title">Nothing changes until you say so.</h2>
             <p>
@@ -183,9 +180,9 @@ onBeforeUnmount(() => {
             </ul>
             <a class="more" :href="withBase('/security/approvals-and-tiers')"><span class="src">2</span>Approvals and app tiers <span class="where">security/approvals-and-tiers</span></a>
           </div>
-          <DemoClip name="approval" :ratio="1504 / 1320" focus="center top" label="An approval card for filling a saved login, then the next card, an email to send, after Allow">
-            <b>Dentist booking.</b> Allow the vault fill, and the next card, the email to Jane, takes
-            its place.
+          <DemoClip name="approval" :ratio="1504 / 1320" :phone-ratio="780 / 960" label="An approval card for filling a saved login, then the next card, an email to send, after Allow">
+            <b>Dentist booking.</b> The card names the exact login, the site it is bound to, and what
+            Wren sees: only the placeholder, never the value.
           </DemoClip>
         </div>
       </div>
@@ -195,7 +192,7 @@ onBeforeUnmount(() => {
     <section class="leaf lit receipts" data-lay aria-labelledby="receipt-title">
       <p class="run-head">audit/2026-10.jsonl</p>
       <div class="split flip">
-        <DemoClip name="chat" :ratio="1440 / 1120" label="A chat where Psyche plans a dentist booking, shows each step it ran, and records the email it sent">
+        <DemoClip name="chat" :ratio="1440 / 1120" :phone-ratio="780 / 1280" label="A chat where Psyche plans a dentist booking, shows each step it ran, and records the email it sent">
           <b>Chat.</b> The plan, each step it ran, and what it sent, with the Gmail id and the time.
         </DemoClip>
         <div class="copy">
