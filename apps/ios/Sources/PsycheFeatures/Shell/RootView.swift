@@ -26,6 +26,17 @@ public struct RootView: View {
         }
         .environment(router)
         .environment(\.backend, store)
+        // psyche://<route> only, never a Gateway URL or key (docs/design/ios-app-2026.md §4).
+        #if DEBUG
+        // `simctl launch … -psycheOpen /chat/thr_q3` opens a route without a tap (screenshots, demos).
+        .task {
+            if let path = UserDefaults.standard.string(forKey: "psycheOpen") { router.open(appPath: path) }
+        }
+        #endif
+        .onOpenURL { url in
+            guard url.scheme == "psyche", let host = url.host else { return }
+            router.open(appPath: "/" + host + url.path)
+        }
         .animation(.default, value: session.state.needsPairing)
     }
 }
@@ -86,6 +97,8 @@ struct MainTabs: View {
                 }
             case .agent:
                 AgentSheet(store: store)
+            case .settings:
+                SettingsSheet(store: store)
             }
         }
     }

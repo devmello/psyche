@@ -212,7 +212,7 @@ public struct ListRow: Sendable, Equatable, Identifiable {
     public var action: WidgetAction?
 }
 
-public struct ProgressStep: Sendable, Equatable {
+public struct WidgetProgressStep: Sendable, Equatable {
     public var label: String
     public var state: WidgetItemState
 }
@@ -222,7 +222,7 @@ public struct ProgressNode: Sendable, Equatable {
     public var value: Double?
     public var max: Double
     public var indeterminate: Bool
-    public var steps: [ProgressStep]
+    public var steps: [WidgetProgressStep]
     public var tone: WidgetTone
 
     /// 0...1, or nil while indeterminate.
@@ -501,7 +501,7 @@ public indirect enum WidgetNode: Sendable, Equatable, Identifiable {
                 max: json["max"]?.numberValue.flatMap { $0 > 0 ? $0 : nil } ?? 100,
                 indeterminate: json["indeterminate"]?.boolValue == true || json["value"]?.numberValue == nil,
                 steps: objects(json["steps"]).map {
-                    ProgressStep(label: $0["label"]?.text ?? "", state: WidgetItemState($0["state"]))
+                    WidgetProgressStep(label: $0["label"]?.text ?? "", state: WidgetItemState($0["state"]))
                 },
                 tone: WidgetTone(json["tone"])))
         case "checklist":

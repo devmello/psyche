@@ -3,6 +3,13 @@ import Foundation
 /// Settings' fixture state.
 struct SettingsState: Sendable {
     var settings = PhoneSettings(notifications: true, liveActivities: true, taskTitlesOnLockScreen: false, faceIDForApprovals: true)
+    /// Set by `revokeThisPhone`, so tests can see the call arrived.
+    var revoked = false
+}
+
+extension FixtureBackend {
+    /// Whether this phone was removed (fixture bookkeeping for tests).
+    public var phoneWasRemoved: Bool { settingsState.revoked }
 }
 
 extension FixtureBackend: SettingsBackend {
@@ -11,6 +18,11 @@ extension FixtureBackend: SettingsBackend {
 
     public func updateSettings(_ settings: PhoneSettings) async throws {
         settingsState.settings = settings
+        publish(.changed(.settings))
+    }
+
+    public func revokeThisPhone() async throws {
+        settingsState.revoked = true
         publish(.changed(.settings))
     }
 }
