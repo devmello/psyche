@@ -18,6 +18,7 @@ export * from "./flush.ts";
 export * from "./git-sync.ts";
 export * from "./graph/cards.ts";
 export * from "./graph/catchup.ts";
+export * from "./graph/continue.ts";
 export * from "./graph/everything.ts";
 export * from "./graph/handlers.ts";
 export * from "./graph/ingest.ts";

@@ -9204,6 +9204,7 @@ public enum ChecklistItemStatus: String, Codable, Sendable {
 
 public enum BlockKind: String, Codable, Sendable {
     case feedItem = "feed_item"
+    case memoryEntity = "memory_entity"
     case searchHit = "search_hit"
 }
 
@@ -14908,6 +14909,10 @@ public struct GraphEntity: Codable, Sendable {
     public let status: GraphEntityStatus
     public let summary: String?
     public let summaryAt: String?
+    /// The name came from someone else's text (a tracked suggestion, a rule over an untrusted
+    /// source). It is quoted data and never inlined as the owner's words (W3, W4); the owner
+    /// renaming it clears this
+    public let titleUntrusted: Bool?
     public let updatedAt: String
     public let workStatus: GraphWorkStatus?
 
@@ -14931,11 +14936,12 @@ public struct GraphEntity: Codable, Sendable {
         case status = "status"
         case summary = "summary"
         case summaryAt = "summaryAt"
+        case titleUntrusted = "titleUntrusted"
         case updatedAt = "updatedAt"
         case workStatus = "workStatus"
     }
 
-    public init(aliases: [String], cardPath: String?, createdAt: String, dueAt: String?, hidden: Bool, id: String, isOwner: Bool, kind: GraphEntityKind, lastInteractionAt: String?, lastSignalAt: String?, mergedInto: String?, name: String, pinned: Bool, graphEntityPrivate: Bool?, projectStatus: GraphProjectStatus?, projectType: GraphProjectType?, status: GraphEntityStatus, summary: String?, summaryAt: String?, updatedAt: String, workStatus: GraphWorkStatus?) {
+    public init(aliases: [String], cardPath: String?, createdAt: String, dueAt: String?, hidden: Bool, id: String, isOwner: Bool, kind: GraphEntityKind, lastInteractionAt: String?, lastSignalAt: String?, mergedInto: String?, name: String, pinned: Bool, graphEntityPrivate: Bool?, projectStatus: GraphProjectStatus?, projectType: GraphProjectType?, status: GraphEntityStatus, summary: String?, summaryAt: String?, titleUntrusted: Bool?, updatedAt: String, workStatus: GraphWorkStatus?) {
         self.aliases = aliases
         self.cardPath = cardPath
         self.createdAt = createdAt
@@ -14955,6 +14961,7 @@ public struct GraphEntity: Codable, Sendable {
         self.status = status
         self.summary = summary
         self.summaryAt = summaryAt
+        self.titleUntrusted = titleUntrusted
         self.updatedAt = updatedAt
         self.workStatus = workStatus
     }

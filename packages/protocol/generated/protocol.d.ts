@@ -2826,7 +2826,7 @@ export type Provenance = "owner" | "agent" | "untrusted" | "system";
 
 export type ChecklistItemStatus = "pending" | "in_progress" | "completed";
 
-export type BlockKind = "feed_item" | "search_hit";
+export type BlockKind = "feed_item" | "search_hit" | "memory_entity";
 
 export interface Replaced {
     fromMessageId?: null | string;
@@ -4852,8 +4852,14 @@ export interface GraphEntity {
     status:         GraphEntityStatus;
     summary?:       null | string;
     summaryAt?:     null | string;
-    updatedAt:      string;
-    workStatus?:    GraphWorkStatus | null;
+    /**
+     * The name came from someone else's text (a tracked suggestion, a rule over an untrusted
+     * source). It is quoted data and never inlined as the owner's words (W3, W4); the owner
+     * renaming it clears this
+     */
+    titleUntrusted?: boolean;
+    updatedAt:       string;
+    workStatus?:     GraphWorkStatus | null;
 }
 
 /**

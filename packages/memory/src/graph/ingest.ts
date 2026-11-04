@@ -794,6 +794,8 @@ export class GraphIngester {
         kind: "project",
         name: name.charAt(0).toUpperCase() + name.slice(1),
         source: `chat:${p.threadId}`,
+        // Named by the owner in their own chat.
+        titleUntrusted: false,
       });
       report.created++;
     }
