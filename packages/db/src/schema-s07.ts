@@ -189,6 +189,8 @@ export const graphInteractions = sqliteTable("graph_interactions", {
   createdAt: text("created_at").notNull(),
   // Memory for everything (202611031400_memory_work.sql).
   gist: text("gist"),
+  // 202611041400_graph_gist_doc.sql: the search document the gist was written from.
+  gistDocId: text("gist_doc_id"),
 });
 
 export const graphParticipants = sqliteTable(

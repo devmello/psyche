@@ -5078,8 +5078,13 @@ export interface GraphIdentifier {
 export type GraphIdentifierKind = "email" | "phone" | "contact" | "channel" | "domain" | "calendar" | "url";
 
 export interface GraphInteraction {
-    direction:    GraphDirection;
-    gist?:        null | string;
+    direction: GraphDirection;
+    gist?:     null | string;
+    /**
+     * Search document id of the passage the gist was written from. Present only when this
+     * connection may open it (`search.document`); the viewer sends just this id back
+     */
+    gistDocId?:   string;
     id:           string;
     kind:         GraphInteractionKind;
     link?:        null | string;

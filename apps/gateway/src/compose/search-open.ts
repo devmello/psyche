@@ -128,3 +128,25 @@ export function searchOpenHandlers(deps: SearchOpenDeps): Record<string, Handler
     },
   };
 }
+
+/** The sources a conversation gist is written from; its source chip never points anywhere else. */
+const GIST_SOURCES: readonly string[] = ["mail", "messages", "calendar"];
+
+/**
+ * True when this connection may open `id` in the source viewer, for a gist's source chip. The same
+ * rules as `search.document` (a client, not a helper; Messages only from the desktop app on this
+ * Mac; the passage must exist and its source must be on), checked again on every read, and only
+ * for the sources a gist comes from. Never throws.
+ */
+export function canOpenGistSource(
+  deps: Pick<SearchOpenDeps, "indexer">,
+  call: Call,
+  id: string,
+): boolean {
+  try {
+    const doc = needDocument({ ...deps, folders: () => [] }, call, id);
+    return GIST_SOURCES.includes(doc.source);
+  } catch {
+    return false;
+  }
+}

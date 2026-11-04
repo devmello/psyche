@@ -182,3 +182,67 @@ describe("a project's next step from the model pass", () => {
     expect(fact?.provenance).toBe("untrusted");
   });
 });
+
+describe("the source behind a gist", () => {
+  it("stores the document the resolver names and returns it with the gist", async () => {
+    const seen: string[] = [];
+    await runGraphModelPass(
+      graph,
+      {
+        provider: FakeModelProvider.script([
+          reply({
+            summary: "A friend.",
+            facts: [],
+            loops: [],
+            gists: [{ source: ids.m1, gist: "Talked about the Lisbon dates" }],
+          }),
+        ]),
+        model: "ollama/qwen3:8b",
+      },
+      {
+        clock,
+        only: [ava],
+        docOf: (i) => {
+          seen.push(i.id);
+          return "mail:42";
+        },
+      },
+    );
+    expect(seen).toEqual([ids.m1]);
+    expect(graph.interaction(ids.m1 ?? "")?.gistDocId).toBe("mail:42");
+    expect(graph.interactions(ava, { limit: 10 }).find((i) => i.id === ids.m1)?.gistDocId).toBe(
+      "mail:42",
+    );
+    expect(graph.externalRefOf(ids.m1 ?? "")).toBe("m1");
+  });
+
+  it("has no reference when nothing resolves one (an older gist), and the gist still shows", () => {
+    graph.setInteractionGist(ids.m1 ?? "", "Talked about the Lisbon dates");
+    const i = graph.interaction(ids.m1 ?? "");
+    expect(i?.gist).toBe("Talked about the Lisbon dates");
+    expect(i?.gistDocId).toBeUndefined();
+  });
+
+  it("never returns a reference without its gist: a sensitive class switched off hides both", () => {
+    graph.setSensitiveSwitches(() => ({ finance: true }));
+    graph.setInteractionGist(ids.m1 ?? "", "Talked about the rent and the tax return", "mail:7");
+    expect(graph.interaction(ids.m1 ?? "")?.gistDocId).toBe("mail:7");
+    graph.setSensitiveSwitches(() => ({}));
+    const hidden = graph.interaction(ids.m1 ?? "");
+    expect(hidden?.gist).toBeUndefined();
+    expect(hidden?.gistDocId).toBeUndefined();
+    expect(
+      graph
+        .interactions(ava, { limit: 10 })
+        .every((i) => i.gistDocId === undefined || i.gist !== undefined),
+    ).toBe(true);
+  });
+
+  it("does not keep a reference for a refused or cleared gist", () => {
+    graph.setInteractionGist(ids.m1 ?? "", "Talked about the Lisbon dates", "mail:1");
+    graph.setInteractionGist(ids.m1 ?? "", null, "mail:1");
+    expect(graph.interaction(ids.m1 ?? "")?.gistDocId).toBeUndefined();
+    graph.setInteractionGist(ids.m2 ?? "", "Talked about her cancer diagnosis", "mail:2");
+    expect(graph.interaction(ids.m2 ?? "")?.gistDocId).toBeUndefined();
+  });
+});

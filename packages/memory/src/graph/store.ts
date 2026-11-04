@@ -388,7 +388,15 @@ function clip(text: string | null | undefined, max: number): string | null {
   return t.length === 0 ? null : t.slice(0, max);
 }
 
-const gistProp = (g: string | null): { gist?: string } => (g === null ? {} : { gist: g });
+/**
+ * The gist, and the document it was written from. The reference rides only with a gist that is
+ * shown: a gist dropped by the sensitive-class switches takes its source with it.
+ */
+const gistProp = (
+  g: string | null,
+  docId?: string | null,
+): { gist?: string; gistDocId?: string } =>
+  g === null ? {} : { gist: g, ...(docId == null || docId === "" ? {} : { gistDocId: docId }) };
 
 /** The sensitive classes the owner switched on (all off by default); read on every use. */
 export type SensitiveSwitches = Partial<Record<GraphSensitivity, boolean>>;
@@ -2030,11 +2038,24 @@ export class GraphStore {
     ).map((r) => ({ entityId: r.entity_id, linkedBy: r.linked_by, confidence: r.confidence }));
   }
 
-  /** Writes or clears a conversation's one-line gist (≤ 120 characters). */
-  setInteractionGist(interactionId: string, gist: string | null): void {
+  /**
+   * Writes or clears a conversation's one-line gist (≤ 120 characters), with the search document
+   * it came from when there is one (cleared with the gist, and never kept without one).
+   */
+  setInteractionGist(interactionId: string, gist: string | null, docId?: string | null): void {
+    const text = this.#gist(gist);
+    const ref = text === null ? null : (clip(docId, 200) ?? null);
     this.#db
-      .prepare("UPDATE graph_interactions SET gist = ? WHERE id = ?")
-      .run(this.#gist(gist), interactionId);
+      .prepare("UPDATE graph_interactions SET gist = ?, gist_doc_id = ? WHERE id = ?")
+      .run(text, ref, interactionId);
+  }
+
+  /** The source's own reference for an interaction (a Message-ID, `<chat>:<day>`, an event id). */
+  externalRefOf(interactionId: string): string | undefined {
+    const row = this.#db
+      .prepare("SELECT external_ref FROM graph_interactions WHERE id = ?")
+      .get(interactionId) as { external_ref: string } | undefined;
+    return row?.external_ref;
   }
 
   /** The interaction recorded for a source item (a calendar event id, a mail message id). */
@@ -2101,6 +2122,7 @@ export class GraphStore {
       link: string | null;
       project_id: string | null;
       gist: string | null;
+      gist_doc_id: string | null;
     }[];
     const participants = this.#db.prepare(
       "SELECT entity_id, role FROM graph_participants WHERE interaction_id = ?",
@@ -2115,7 +2137,7 @@ export class GraphStore {
       threadKey: r.thread_key,
       link: r.link,
       projectId: r.project_id,
-      ...gistProp(this.#gist(r.gist)),
+      ...gistProp(this.#gist(r.gist), r.gist_doc_id),
       participants: (
         participants.all(r.id) as { entity_id: string; role: GraphParticipantRole }[]
       ).map((p) => ({
@@ -3254,6 +3276,7 @@ export class GraphStore {
           link: string | null;
           project_id: string | null;
           gist: string | null;
+          gist_doc_id: string | null;
         }
       | undefined;
     if (r === undefined) return undefined;
@@ -3272,7 +3295,7 @@ export class GraphStore {
       threadKey: r.thread_key,
       link: r.link,
       projectId: r.project_id,
-      ...gistProp(this.#gist(r.gist)),
+      ...gistProp(this.#gist(r.gist), r.gist_doc_id),
       participants,
     };
   }

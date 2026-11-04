@@ -454,6 +454,46 @@ export class SourceIndexer {
     };
   }
 
+  /**
+   * The indexed passage a conversation in the graph was read from, as a document id, or undefined
+   * when it is not indexed (or the source is off). `externalRef` is the graph's own reference: a
+   * Message-ID for mail, `<chat>:<day>` for a Messages day, the event id for a meeting. This only
+   * finds the id; whether a caller may open it is `document()` and the Gateway's checks.
+   */
+  docIdFor(ref: {
+    kind: "mail" | "message" | "meeting";
+    externalRef: string;
+    threadKey?: string | null;
+  }): string | undefined {
+    const db = this.#index.db;
+    let row: { doc_id: string; source: string } | undefined;
+    if (ref.kind === "mail") {
+      row = db
+        .prepare(
+          "SELECT doc_id, source FROM search_source_items WHERE source = 'mail' AND open_ref = ? LIMIT 1",
+        )
+        .get(ref.externalRef) as typeof row;
+    } else if (ref.kind === "meeting") {
+      row = db
+        .prepare(
+          "SELECT doc_id, source FROM search_source_items WHERE source = 'calendar' AND native_id = ? LIMIT 1",
+        )
+        .get(ref.externalRef) as typeof row;
+    } else {
+      const cut = ref.externalRef.lastIndexOf(":");
+      if (cut <= 0) return undefined;
+      const prefix = `${ref.externalRef.slice(0, cut)}|${ref.externalRef.slice(cut + 1)}|`;
+      row = db
+        .prepare(
+          "SELECT doc_id, source FROM search_source_items WHERE source = 'messages' AND substr(native_id, 1, ?) = ? ORDER BY native_id LIMIT 1",
+        )
+        .get(prefix.length, prefix) as typeof row;
+    }
+    if (row === undefined || !this.#o.config().sources[row.source as SourceId]?.enabled)
+      return undefined;
+    return row.doc_id;
+  }
+
   /** Forgets what a whole read of the source no longer has; returns how many documents went. */
   async #forgetMissing(id: SourceId, present: ReadonlySet<string>): Promise<number> {
     const tracked = this.#index.db

@@ -193,7 +193,7 @@ import { filesSourceDeps, powerReader } from "./search-files.ts";
 import { chatContextResolver } from "./search-hit-context.ts";
 import { memorySettings, memorySourceDeps } from "./search-memory.ts";
 import { helperRecognizer } from "./search-ocr.ts";
-import { agentBlockedHit } from "./search-open.ts";
+import { agentBlockedHit, canOpenGistSource } from "./search-open.ts";
 import { routerEmbedder, type SemanticEngines } from "./search-semantic.ts";
 import { agentLocalSearch, searchEverythingTool } from "./search-tool.ts";
 import {
@@ -1651,6 +1651,12 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
     }).part(),
   );
+  // A conversation gist can show the source it was written from, opened in the source viewer: the
+  // lookup and the open check are Search's (read late: the index may be unlocked after start).
+  people.useGistSources({
+    docIdFor: (ref) => search.sources?.docIdFor(ref),
+    canOpen: (call, id) => canOpenGistSource({ indexer: () => search.sources }, call, id),
+  });
   parts.push(people.part(scheduler, timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone));
   // Code plugins (T4): off until the owner turns on `plugins.enabled`.
   parts.push(

@@ -15482,6 +15482,9 @@ public enum GraphIdentifierKind: String, Codable, Sendable {
 public struct GraphInteraction: Codable, Sendable {
     public let direction: GraphDirection
     public let gist: String?
+    /// Search document id of the passage the gist was written from. Present only when this
+    /// connection may open it (`search.document`); the viewer sends just this id back
+    public let gistDocID: String?
     public let id: String
     public let kind: GraphInteractionKind
     public let link: String?
@@ -15496,6 +15499,7 @@ public struct GraphInteraction: Codable, Sendable {
     public enum CodingKeys: String, CodingKey {
         case direction = "direction"
         case gist = "gist"
+        case gistDocID = "gistDocId"
         case id = "id"
         case kind = "kind"
         case link = "link"
@@ -15507,9 +15511,10 @@ public struct GraphInteraction: Codable, Sendable {
         case threadKey = "threadKey"
     }
 
-    public init(direction: GraphDirection, gist: String?, id: String, kind: GraphInteractionKind, link: String?, occurredAt: String, participants: [Participant], projectID: String?, source: String, subject: String?, threadKey: String?) {
+    public init(direction: GraphDirection, gist: String?, gistDocID: String?, id: String, kind: GraphInteractionKind, link: String?, occurredAt: String, participants: [Participant], projectID: String?, source: String, subject: String?, threadKey: String?) {
         self.direction = direction
         self.gist = gist
+        self.gistDocID = gistDocID
         self.id = id
         self.kind = kind
         self.link = link

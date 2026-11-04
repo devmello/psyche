@@ -81,7 +81,18 @@ function quote(text: string): string {
 export async function runGraphModelPass(
   graph: GraphStore,
   config: GraphModelConfig,
-  options: { clock?: Clock; excerpts?: OwnerExcerpts; signal?: AbortSignal; only?: string[] } = {},
+  options: {
+    clock?: Clock;
+    excerpts?: OwnerExcerpts;
+    signal?: AbortSignal;
+    only?: string[];
+    /**
+     * The search document a conversation's gist was written from (a mail message, a Messages
+     * day, a calendar event), stored with the gist so it can show a source chip. Absent when the
+     * host has no index; a gist then has no source.
+     */
+    docOf?: (interaction: GraphInteraction) => string | undefined;
+  } = {},
 ): Promise<ModelPassReport> {
   const report: ModelPassReport = {
     entities: 0,
@@ -295,7 +306,7 @@ The owner's own words: ${JSON.stringify(input.ownerExcerpts)}
           report.dropped++;
           continue;
         }
-        graph.setInteractionGist(src.id, text);
+        graph.setInteractionGist(src.id, text, options.docOf?.(src));
         days.add(when);
         report.gists++;
       }

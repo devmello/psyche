@@ -18,6 +18,10 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-04 (source links on conversation gists)
+
+- `GraphInteraction.gistDocId` (optional): the search document id of the passage a conversation gist was written from (a mail message, a Messages conversation day, a calendar event). The Gateway includes it in `memory.entities.get` and `memory.entities.interactions` only when that connection may open the document with `search.document` (the same rule: Messages only from the desktop app on this Mac, the source on, the passage still indexed); otherwise it is left out. The client sends only the id back to `search.document`. Gists stored before this carry none.
+
 ### v1 additive — 2026-11-04 (pairing links, remote Gateway R2)
 
 - `ConnectVerifyParams.setupToken` (optional): a one-time setup token from a pairing link. It is sent in `connect.verify`, not `connect`, so only a client that already verified the Gateway's key presents it; the Gateway honours it only for a `role: client` on the WebSocket without an `Origin`, and only with a v2 (`gatewayKey`) connect. `ConnectDenied.code` (optional, `setup_token_invalid`): a used, expired, revoked or not-allowed token is a denial, never a pending request.

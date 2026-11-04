@@ -407,6 +407,13 @@ export const GraphInteraction = Type.Object(
         }),
       ),
     ),
+    gistDocId: Type.Optional(
+      Type.String({
+        maxLength: 200,
+        description:
+          "Search document id of the passage the gist was written from. Present only when this connection may open it (`search.document`); the viewer sends just this id back",
+      }),
+    ),
   },
   { $id: "GraphInteraction" },
 );
