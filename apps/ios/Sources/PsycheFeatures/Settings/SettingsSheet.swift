@@ -137,7 +137,7 @@ struct SettingsSheet: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Open Settings \u{2192} Devices \u{2192} Add phone on your Mac, then scan the code it shows.")
+            Text("Open Settings \u{2192} Server & remote access \u{2192} Pair another computer on your Mac, then scan the code it shows.")
         }
         .confirmationDialog("Remove this phone?", isPresented: $confirmingRemove, titleVisibility: .visible) {
             Button("Remove this phone", role: .destructive) {
