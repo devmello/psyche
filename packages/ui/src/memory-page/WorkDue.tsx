@@ -146,14 +146,17 @@ export function QuickAdd({
 export function WorkDueTab({
   now,
   onNavigate,
+  startAdding = false,
 }: {
   now: number;
   onNavigate: (to: string) => void;
+  /** Opens with the one-line form showing (`/memory?kind=due&add=1`, ⌘K's "Add to-do"). */
+  startAdding?: boolean;
 }): ReactElement {
   const persona = usePersona();
   const { assignments, loading } = useAssignments();
   const writes = useWorkWrites();
-  const [adding, setAdding] = useState(false);
+  const [adding, setAdding] = useState(startAdding);
   // Closed in this view: they stay in Done even when their date is older than 14 days.
   const [closedHere, setClosedHere] = useState<ReadonlySet<string>>(new Set());
   const addButton = useRef<HTMLButtonElement>(null);

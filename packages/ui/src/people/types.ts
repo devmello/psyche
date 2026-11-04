@@ -77,6 +77,8 @@ export interface InteractionView {
   link?: string | null;
   /** Untrusted header text, at most 200 characters. */
   subject?: string | null;
+  /** One line on what a conversation was about (people tier; sensitive ones never get here). */
+  gist?: string | null;
   /** The other people in it, by name. */
   with: string[];
 }

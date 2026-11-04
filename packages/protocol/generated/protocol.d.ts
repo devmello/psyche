@@ -2826,7 +2826,7 @@ export type Provenance = "owner" | "agent" | "untrusted" | "system";
 
 export type ChecklistItemStatus = "pending" | "in_progress" | "completed";
 
-export type BlockKind = "feed_item" | "search_hit";
+export type BlockKind = "feed_item" | "search_hit" | "memory_entity";
 
 export interface Replaced {
     fromMessageId?: null | string;

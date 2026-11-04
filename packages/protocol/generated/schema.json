@@ -13154,7 +13154,8 @@
         "kind": {
           "enum": [
             "feed_item",
-            "search_hit"
+            "search_hit",
+            "memory_entity"
           ],
           "type": "string"
         },
@@ -14821,7 +14822,8 @@
         "kind": {
           "enum": [
             "feed_item",
-            "search_hit"
+            "search_hit",
+            "memory_entity"
           ],
           "type": "string"
         },

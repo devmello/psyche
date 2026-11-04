@@ -244,7 +244,7 @@ export function RecentRows({
             <Icon className="size-4 shrink-0 text-label-secondary" aria-hidden="true" />
             <div className="flex min-w-0 flex-1 flex-col">
               <span className="truncate text-body text-label-primary">
-                {it.subject ?? (it.with.length > 0 ? it.with.join(", ") : app)}
+                {it.gist ?? it.subject ?? (it.with.length > 0 ? it.with.join(", ") : app)}
               </span>
               <span className="text-callout text-label-secondary">
                 {t(`people.recent.${it.direction}`)} · {app} · {formatDate(it.occurredAt)}

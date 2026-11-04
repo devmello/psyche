@@ -270,8 +270,9 @@ export function screenRoute(route: string, navigate: (to: string) => void): Reac
       return page(
         "Memory",
         <MemoryScreen
-          key={entity ?? ""}
+          key={`${entity ?? ""}${params.get("add") === "1" ? ":add" : ""}`}
           kind={parseMemoryKind(params.get("kind"))}
+          startAdding={params.get("add") === "1"}
           onNavigate={navigate}
           {...(parts[1] === "review" ? { view: "review" as const } : {})}
           {...(entity ? { entity } : {})}

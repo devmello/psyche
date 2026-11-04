@@ -163,6 +163,28 @@ export const DEFAULT_ACTIONS: readonly PaletteAction[] = [
     },
     route: memoryHref(kind),
   })),
+  // Owner-created work (docs/design/memory-everything-2026.md §6.6): each opens Memory with its
+  // one-line form showing; the owner types the title, so the item is theirs (trusted).
+  {
+    id: "memory-add-todo",
+    get label() {
+      return t("shell.palette.addTodo");
+    },
+    get keywords() {
+      return t("shell.palette.keywords.addTodo");
+    },
+    route: `${memoryHref("due")}&add=1`,
+  },
+  {
+    id: "memory-add-project",
+    get label() {
+      return t("shell.palette.addProject");
+    },
+    get keywords() {
+      return t("shell.palette.keywords.addProject");
+    },
+    route: `${memoryHref("projects")}&add=1`,
+  },
   {
     id: "feed-instructions",
     get label() {

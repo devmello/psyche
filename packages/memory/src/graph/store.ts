@@ -41,6 +41,7 @@ import {
 import type Database from "better-sqlite3";
 import { monotonicFactory } from "ulid";
 import { oneLine } from "../daily.ts";
+import { classifySensitivity } from "../extraction/sensitivity.ts";
 import { blockingKinds, looksLikeInstruction } from "../filters.ts";
 import { trustRank } from "../provenance.ts";
 import { safeName } from "./clean.ts";
@@ -385,6 +386,20 @@ function clip(text: string | null | undefined, max: number): string | null {
   return t.length === 0 ? null : t.slice(0, max);
 }
 
+/**
+ * A conversation gist that may be stored and shown (docs/design/memory-everything-2026.md §2.6):
+ * one line of at most 120 characters. A gist that touches a sensitive class (health, finance,
+ * religion and so on), holds a credential, or reads like an instruction is dropped, not shown.
+ * Unclear means dropped.
+ */
+export function safeGist(text: string | null | undefined): string | null {
+  const g = clip(text, 120);
+  if (g === null) return null;
+  if (classifySensitivity(g) !== "none") return null;
+  if (blockingKinds(g, true).length > 0 || looksLikeInstruction(g)) return null;
+  return g;
+}
+
 const toBool = (n: number) => n === 1;
 
 const isControlChar = (ch: string): boolean => {
@@ -596,9 +611,11 @@ function interactionTimelineRow(
     case "note":
       text = `Note${quoted}`;
       break;
-    case "chat":
-      text = r.gist === null ? `Chat with Psyche${quoted}` : `Chat: ${safeName(r.gist, 120)}`;
+    case "chat": {
+      const gist = safeGist(r.gist);
+      text = gist === null ? `Chat with Psyche${quoted}` : `Chat: ${safeName(gist, 120)}`;
       break;
+    }
     case "file":
       text = title === "" ? "Edited files" : `Edited ${title}`;
       break;
@@ -1747,7 +1764,7 @@ export class GraphStore {
             clip(input.link, 1024),
             input.projectId ?? null,
             this.#now(),
-            clip(input.gist, 120),
+            safeGist(input.gist),
           );
       } else {
         this.#db
@@ -1761,7 +1778,7 @@ export class GraphStore {
             clip(input.threadKey, 512),
             clip(input.link, 1024),
             input.projectId ?? null,
-            clip(input.gist, 120),
+            safeGist(input.gist),
             id,
           );
         this.#db.prepare("DELETE FROM graph_participants WHERE interaction_id = ?").run(id);
@@ -1827,7 +1844,7 @@ export class GraphStore {
   setInteractionGist(interactionId: string, gist: string | null): void {
     this.#db
       .prepare("UPDATE graph_interactions SET gist = ? WHERE id = ?")
-      .run(clip(gist, 120), interactionId);
+      .run(safeGist(gist), interactionId);
   }
 
   /** The interaction recorded for a source item (a calendar event id, a mail message id). */
@@ -1908,7 +1925,7 @@ export class GraphStore {
       threadKey: r.thread_key,
       link: r.link,
       projectId: r.project_id,
-      ...(r.gist === null ? {} : { gist: r.gist }),
+      ...(safeGist(r.gist) === null ? {} : { gist: safeGist(r.gist) as string }),
       participants: (
         participants.all(r.id) as { entity_id: string; role: GraphParticipantRole }[]
       ).map((p) => ({
@@ -3051,7 +3068,7 @@ export class GraphStore {
       threadKey: r.thread_key,
       link: r.link,
       projectId: r.project_id,
-      ...(r.gist === null ? {} : { gist: r.gist }),
+      ...(safeGist(r.gist) === null ? {} : { gist: safeGist(r.gist) as string }),
       participants,
     };
   }

@@ -1377,6 +1377,7 @@ export class MockGateway implements GatewayClient {
           ? this.world.feed.find((f) => f.id === p.context?.id)
           : undefined;
       const hit = p.context?.kind === "search_hit" ? p.context : undefined;
+      const item = p.context?.kind === "memory_entity" ? p.context : undefined;
       const message = this.commitMessage(
         p.threadId,
         "user",
@@ -1400,6 +1401,17 @@ export class MockGateway implements GatewayClient {
                   id: hit.id,
                   title: hit.title ?? hit.id,
                   ...(hit.scope ? { source: hit.scope } : {}),
+                },
+              ]
+            : []),
+          ...(item
+            ? [
+                {
+                  type: "context" as const,
+                  kind: "memory_entity" as const,
+                  id: item.id,
+                  title: this.world.graph?.entities.find((e) => e.id === item.id)?.name ?? item.id,
+                  source: "Memory",
                 },
               ]
             : []),

@@ -16,6 +16,7 @@ import type { MemoryCallClass, MemoryToolContext, ToolOutcome } from "../tools/m
 import type { EverythingStore } from "./everything.ts";
 import { normalizeName } from "./normalize.ts";
 import { type GraphStore, SOURCE_KINDS } from "./store.ts";
+import { WORK_ATTRIBUTES } from "./work.ts";
 
 /**
  * What the agent may read of everything memory (docs/design/everything-memory-2026.md §9),
@@ -101,6 +102,13 @@ const PrepInput = Type.Object({
     }),
   ),
 });
+const WorkStatusInput = Type.Object({
+  query: Type.String({
+    minLength: 1,
+    maxLength: 200,
+    description: 'A to-do, assignment or project by name ("HW7"), or its id (`memory:<id>`)',
+  }),
+});
 const LoopInput = Type.Object({
   id: Type.String({ minLength: 1, maxLength: 64 }),
   status: Type.Union([
@@ -116,6 +124,7 @@ export const GRAPH_TOOL_NAMES = [
   "project_brief",
   "waiting_on",
   "meeting_prep",
+  "work_status",
   "loop_update",
 ] as const;
 export type GraphToolName = (typeof GRAPH_TOOL_NAMES)[number];
@@ -161,6 +170,12 @@ export const graphToolSpecs: readonly ToolSpec[] = [
     "none",
   ),
   spec(
+    "work_status",
+    "Where the owner is on one to-do, assignment or project: status, where they stopped, next step, due date and the recent timeline, every line citing the fact or row it came from. Reading only; to change something, propose it to the owner. Anything from other people's text is marked unverified.",
+    WorkStatusInput,
+    "none",
+  ),
+  spec(
     "loop_update",
     "Mark an open loop done, snoozed, dismissed or confirmed (open) when the owner says so.",
     LoopInput,
@@ -179,6 +194,16 @@ function check<T extends TSchema>(schema: T, input: unknown): Static<T> {
   if (!Value.Check(schema, input)) throw new PsycheError("invalid_params", "invalid input");
   return input;
 }
+
+const WORK_ENTITY_KINDS: ReadonlySet<string> = new Set(["project", "assignment", "event"]);
+const DAY_MS = 86_400_000;
+/** `next_step` and `stopped_at` older than this "may be out of date" (§3.6). */
+const STALE_DAYS = 14;
+/** One line of data: whitespace collapsed, cut to `max`. */
+const oneLine = (text: string, max: number): string => {
+  const t = text.replace(/\s+/g, " ").trim();
+  return t.length > max ? `${t.slice(0, max - 1)}…` : t;
+};
 
 const day = (iso: string | null | undefined) => (typeof iso === "string" ? iso.slice(0, 10) : "");
 
@@ -219,6 +244,8 @@ export class GraphTools {
           return this.#waiting(check(WaitingInput, input));
         case "meeting_prep":
           return this.#prep(check(PrepInput, input));
+        case "work_status":
+          return this.#workStatus(check(WorkStatusInput, input).query);
         case "loop_update": {
           const args = check(LoopInput, input);
           if (ctx.incognito === true)
@@ -378,6 +405,128 @@ export class GraphTools {
     };
   }
 
+  /**
+   * `work_status` (docs/design/memory-everything-2026.md §3.5–3.6, §7.4): the item's current state
+   * and recent timeline, each claim naming the fact or row it came from. Read-only, owner-only
+   * through the agent's access rules: Keep-private and hidden items are not found, sensitive
+   * facts and facts from sources the agent may not search are left out, and anything a third
+   * party wrote taints the turn. A work fact never comes from the agent (W1).
+   */
+  #workStatus(query: string): ToolOutcome {
+    const access = this.#access();
+    const ref = /^(?:memory:)?([A-Za-z0-9_-]{6,64})$/.exec(query.trim())?.[1];
+    const byId = ref === undefined ? undefined : this.#graph.getEntity(ref);
+    const hit =
+      byId !== undefined
+        ? byId
+        : (() => {
+            const found = this.#graph.search(query, {
+              kinds: ["assignment", "project", "event"],
+              limit: 1,
+            })[0];
+            return found === undefined ? undefined : this.#graph.getEntity(found.id);
+          })();
+    const notFound: ToolOutcome = {
+      content: `No to-do or project matches "${query.slice(0, 80)}".`,
+      provenance: "trusted",
+    };
+    if (
+      hit === undefined ||
+      !WORK_ENTITY_KINDS.has(hit.kind) ||
+      hit.status !== "active" ||
+      hit.hidden ||
+      hit.private === true
+    )
+      return notFound;
+    // The assignments of a private course are private with it.
+    const parent = this.#graph.edges(hit.id).find((e) => e.rel === "part_of" && e.src === hit.id);
+    const parentEntity = parent === undefined ? undefined : this.#graph.getEntity(parent.dst);
+    if (parentEntity?.private === true) return notFound;
+
+    const taint = { untrusted: false };
+    const now = this.#now();
+    const facts = this.#graph
+      .facts(hit.id)
+      .filter((f) => WORK_ATTRIBUTES.includes(f.attribute as (typeof WORK_ATTRIBUTES)[number]))
+      .filter((f) => visibleToAgent(f, access, this.#em))
+      .filter((f) => (f.review ?? "accepted") !== "pending");
+    const pick = (a: string) => facts.find((f) => f.attribute === a);
+    const cited = (f: GraphFact): string => {
+      if (f.provenance === "untrusted") taint.untrusted = true;
+      const how =
+        f.provenance === "owner"
+          ? "you said"
+          : f.provenance === "untrusted"
+            ? "unverified, from someone else's text"
+            : f.provenance === "system"
+              ? "from a rule"
+              : "Psyche's note";
+      // The source's kind only, never its quoted text: a quote may be someone else's words.
+      const where = [...new Set(this.#em?.citations("fact", f.id).map((c) => c.source) ?? [])];
+      const cite = where.length > 0 ? `; from ${where.slice(0, 3).join(", ")}` : "";
+      return `[fact:${f.id} · ${how}, ${day(f.recordedAt)}${cite}]`;
+    };
+    // A title is quoted data when a status, deadline or progress fact came from others (W3).
+    const titleUntrusted = facts.some(
+      (f) =>
+        f.provenance === "untrusted" &&
+        (f.attribute === "deadline" || f.attribute === "status" || f.attribute === "progress"),
+    );
+    if (titleUntrusted) taint.untrusted = true;
+    const title = oneLine(hit.name, 120);
+    const lines = [
+      `${titleUntrusted ? `“${title}”` : title} (${hit.kind}${parentEntity === undefined ? "" : ` · ${oneLine(parentEntity.name, 60)}`}) [memory:${hit.id}]`,
+    ];
+    const status = pick("status");
+    if (status !== undefined) {
+      lines.push(`Status: ${oneLine(status.value, 40)} ${cited(status)}`);
+    } else {
+      const stored = hit.kind === "project" ? hit.projectStatus : hit.workStatus;
+      if (stored != null) lines.push(`Status: ${stored} (no cited fact; the stored default)`);
+    }
+    const deadline = pick("deadline");
+    if (deadline !== undefined) lines.push(`Due: ${day(deadline.value)} ${cited(deadline)}`);
+    else if (hit.dueAt != null) lines.push(`Due: ${day(hit.dueAt)} (no cited fact)`);
+    for (const [attr, label] of [
+      ["stopped_at", "Where you stopped"],
+      ["next_step", "Next step"],
+      ["progress", "Progress"],
+      ["blocked_on", "Blocked on"],
+    ] as const) {
+      const f = pick(attr);
+      if (f === undefined) continue;
+      const stale =
+        (attr === "stopped_at" || attr === "next_step") &&
+        now - Date.parse(f.recordedAt) > STALE_DAYS * DAY_MS
+          ? " (may be out of date)"
+          : "";
+      lines.push(`${label}: ${oneLine(f.value, 200)}${stale} ${cited(f)}`);
+    }
+    if (hit.lastSignalAt != null) lines.push(`Last activity: ${day(hit.lastSignalAt)}`);
+
+    const rows = this.#graph.timeline(hit.id, { limit: 20 }).rows.filter((r) => {
+      if (r.chip != null && !access.sourceAllowed(r.chip.source)) return false;
+      if (r.kind === "fact") {
+        const f = this.#graph.getFact(r.id);
+        return f !== undefined && visibleToAgent(f, access, this.#em);
+      }
+      return true;
+    });
+    const recent = rows.slice(0, 8).map((r) => {
+      if (r.provenance === "untrusted") taint.untrusted = true;
+      // A chip's label is a sender, list or file name: someone else's words unless it is the
+      // owner's own note or chat, so showing one taints the turn (W7).
+      if (r.chip != null && r.chip.source !== "notes" && r.chip.source !== "chats")
+        taint.untrusted = true;
+      const from = r.chip == null ? "" : ` — ${oneLine(r.chip.label, 60)} (${r.chip.source})`;
+      const mark = r.provenance === "untrusted" ? " [unverified]" : "";
+      return `- ${day(r.at)} ${oneLine(r.text, 200)}${mark}${from} [${r.kind}:${r.id}]`;
+    });
+    if (recent.length > 0) lines.push(`Recent timeline:\n${recent.join("\n")}`);
+    else lines.push("Nothing recent on the timeline.");
+    return { content: lines.join("\n"), provenance: taint.untrusted ? "untrusted" : "trusted" };
+  }
+
   #prep(args: Static<typeof PrepInput>): ToolOutcome {
     const prep = meetingPrep(this.#graph, {
       ...(args.event_id === undefined ? {} : { interactionId: args.event_id }),
@@ -513,7 +662,6 @@ export interface EntityRecallOptions {
   visible?: (fact: GraphFact) => boolean;
 }
 
-const DAY_MS = 86_400_000;
 /** A label recall may show as written: letters, digits, spaces and name punctuation only. */
 const PLAIN_LABEL = /^[\p{L}\p{M}\p{N}][\p{L}\p{M}\p{N} .,'’&-]{0,79}$/u;
 const plain = (s: string | null | undefined): string | undefined => {
