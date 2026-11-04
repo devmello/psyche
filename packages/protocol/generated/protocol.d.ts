@@ -2820,7 +2820,13 @@ export interface ItemElement {
     source?:        string;
     span?:          string;
     factId?:        string;
+    attribute?:     AttributeEnum;
+    entityId?:      string;
+    name?:          string;
+    value?:         string;
 }
+
+export type AttributeEnum = "status" | "deadline" | "progress" | "stopped_at" | "next_step";
 
 export type Provenance = "owner" | "agent" | "untrusted" | "system";
 
@@ -2845,7 +2851,7 @@ export interface CompactionSummary {
 
 export type BlockTrigger = "auto" | "manual";
 
-export type BlockType = "text" | "tool_call" | "plan" | "checklist" | "approval" | "question" | "artifact" | "file" | "context" | "receipt" | "task" | "wrap_up" | "related_threads" | "sources" | "compaction" | "learned" | "taught" | "specialist_result" | "automation_workflow" | "app_link" | "ui";
+export type BlockType = "text" | "tool_call" | "plan" | "checklist" | "approval" | "question" | "artifact" | "file" | "context" | "receipt" | "task" | "wrap_up" | "related_threads" | "sources" | "compaction" | "learned" | "taught" | "work_note" | "specialist_result" | "automation_workflow" | "app_link" | "ui";
 
 export interface ChatCancelParams {
     runId?:   string;
@@ -7364,6 +7370,16 @@ export interface MemoryWorkRemind {
     enabled: boolean;
 }
 
+export interface MemoryWorkUndoUpdateParams {
+    factId: string;
+}
+
+export interface MemoryWorkUndoUpdateResult {
+    status: WorkUndoStatus;
+}
+
+export type WorkUndoStatus = "undone" | "changed_again" | "already_undone";
+
 export interface MemoryWriteParams {
     content: string;
     etag?:   string;
@@ -8356,7 +8372,7 @@ export type RunStatus = "running" | "done" | "failed" | "cancelled" | "awaiting_
 
 export interface TraceStep {
     attempt:       number;
-    attributes:    { [key: string]: Attribute };
+    attributes:    { [key: string]: AttributeValue };
     childRunId?:   string;
     endedAt?:      null | string;
     error?:        RunStepError;
@@ -8374,7 +8390,7 @@ export interface TraceStep {
     thinking?:     string;
 }
 
-export type Attribute = boolean | number | string;
+export type AttributeValue = boolean | number | string;
 
 export interface RunStepError {
     code:      string;
@@ -11928,6 +11944,24 @@ export interface WidgetsPreviewResult {
 }
 
 export type WidgetsPreviewResultDecision = "allow" | "ask" | "deny" | "device-only" | "unavailable";
+
+export interface WorkNoteBlock {
+    items: WorkNoteItem[];
+    type:  WorkNoteBlockType;
+}
+
+export interface WorkNoteItem {
+    attribute: AttributeEnum;
+    entityId:  string;
+    factId:    string;
+    kind:      WorkNoteItemKind;
+    name:      string;
+    value:     string;
+}
+
+export type WorkNoteItemKind = "proposal" | "update";
+
+export type WorkNoteBlockType = "work_note";
 
 export interface WrapUpBlock {
     actions?: WrapUpAction[];

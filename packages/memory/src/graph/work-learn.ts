@@ -251,6 +251,14 @@ export interface AppliedWork {
   name: string;
   attribute?: GraphFactAttribute;
   value: string;
+  /**
+   * `proposed`: the pending fact the owner decides in Review. `fact`: the fact just written, set
+   * only when this turn created it (not when the owner had already said the same), so
+   * `EverythingStore.undoChatWork` can take it back.
+   */
+  factId?: string;
+  /** For `fact`: the value this line replaced (a single-valued field), or null. */
+  previousValue?: string | null;
 }
 
 export interface OwnerWorkResult {
@@ -366,6 +374,7 @@ export function applyOwnerChatWork(graph: GraphStore, input: ChatWorkInput): Own
       name: entity.name,
       attribute,
       value,
+      ...(out.fact.review === "pending" ? { factId: out.fact.id } : {}),
     });
   };
 
@@ -454,7 +463,8 @@ export function applyOwnerChatWork(graph: GraphStore, input: ChatWorkInput): Own
         drop("sensitive_work");
         continue;
       }
-      graph.setFact({
+      const before = new Set(graph.facts(entity.id).map((f) => f.id));
+      const written = graph.setFact({
         entityId: entity.id,
         attribute: claim.attribute,
         value,
@@ -464,12 +474,22 @@ export function applyOwnerChatWork(graph: GraphStore, input: ChatWorkInput): Own
         evidence: located,
       });
       graph.recordSignal(entity.id, { provenance: "owner" });
+      const created = written !== undefined && !before.has(written.fact.id);
       result.applied.push({
         kind: "fact",
         entityId: entity.id,
         name: entity.name,
         attribute: claim.attribute,
         value,
+        ...(created ? { factId: written.fact.id } : {}),
+        ...(created
+          ? {
+              previousValue:
+                written.superseded === null
+                  ? null
+                  : (graph.getFact(written.superseded)?.value ?? null),
+            }
+          : {}),
       });
     } catch {
       // A rule refused it (secrets, an unknown item kind): counted, never thrown at a chat turn.

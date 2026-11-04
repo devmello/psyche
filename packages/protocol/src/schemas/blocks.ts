@@ -195,6 +195,34 @@ export const LearnedBlock = Type.Object(
 );
 
 /**
+ * MW7 follow-up: the quiet note under a chat turn that touched the owner's work. A `proposal` is
+ * a status or deadline the owner said and Psyche only proposed; Confirm and Discard call
+ * `memory.review.decide` on `factId`, so it stays in Review until the owner acts. An `update` is
+ * a progress, stopped-at or next-step line written at once; Undo calls `memory.work.undoUpdate`
+ * on `factId`. `name` and `value` are the owner's own words and the item's name: plain text.
+ */
+export const WorkNoteItem = Type.Object(
+  {
+    kind: StringEnum(["proposal", "update"]),
+    entityId: Id,
+    name: Type.String({ maxLength: 200 }),
+    attribute: StringEnum(["status", "deadline", "progress", "stopped_at", "next_step"]),
+    value: Type.String({ maxLength: 300 }),
+    factId: Id,
+  },
+  { $id: "WorkNoteItem" },
+);
+export type WorkNoteItem = Static<typeof WorkNoteItem>;
+
+export const WorkNoteBlock = Type.Object(
+  {
+    type: Type.Literal("work_note"),
+    items: Type.Array(WorkNoteItem, { minItems: 1, maxItems: 10 }),
+  },
+  { $id: "WorkNoteBlock" },
+);
+
+/**
  * The teaching loop (docs/agent/teaching-loop-2026.md §5.1): "Psyche will remember: …" under the
  * message the owner corrected, with Undo (`memory.lessons.forget`) and Change
  * (`memory.lessons.edit`). `lessonId` is null when Psyche only noted the feedback.
@@ -268,6 +296,7 @@ export const Block = Type.Union(
     CompactionBlock,
     LearnedBlock,
     TaughtBlock,
+    WorkNoteBlock,
     SpecialistResultBlock,
     AutomationWorkflowBlock,
     AppLinkBlock,

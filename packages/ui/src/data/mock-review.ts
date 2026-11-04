@@ -86,6 +86,7 @@ export function reviewHandlers(ctx: { world: () => ReviewWorld; now: () => strin
       }
       return { facts };
     },
+    "memory.work.undoUpdate": () => ({ status: "undone" as const }),
     "memory.review.undo": (p) => {
       const item = find(p.factId);
       if (item.fact.review !== "auto_accepted")

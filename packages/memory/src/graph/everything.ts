@@ -64,6 +64,12 @@ export const UNDO_DAYS = 7;
  * become the owner's own facts when confirmed; a confirmed fact the model extracted stays learned.
  */
 export const CHAT_WORK_PROPOSAL = "psyche/chat-work-proposal";
+/** The work lines the owner's chat writes directly (and `undoChatWork` can revert). */
+const CHAT_DIRECT_ATTRIBUTES: ReadonlySet<string> = new Set([
+  "progress",
+  "stopped_at",
+  "next_step",
+]);
 /** Discarded rows are kept this long so the owner's feedback has settled, then deleted. */
 const DISCARDED_KEEP_DAYS = 7;
 
@@ -1156,6 +1162,50 @@ export class EverythingStore {
     })();
     this.#graph.touch(row.entity_id, ["facts"]);
     return toFact(this.#factRow(row.id) as FactRow);
+  }
+
+  /**
+   * Undo for a progress, stopped-at or next-step line the owner's chat wrote directly (MW7). The
+   * prior value is the fact this one superseded, so nothing extra is stored. It reverts only
+   * while the new fact is still the current one: if the field changed again since (the owner
+   * edited it, or said something new), the answer is `changed_again` and nothing is touched.
+   */
+  undoChatWork(factId: string): "undone" | "changed_again" | "already_undone" {
+    const row = this.#factRow(factId);
+    if (row === undefined) fail("not_found", "no such fact");
+    const sources = JSON.parse(row.sources) as string[];
+    if (
+      !CHAT_DIRECT_ATTRIBUTES.has(row.attribute) ||
+      row.provenance !== "owner" ||
+      !sources.some((x) => x.startsWith("chat:"))
+    ) {
+      fail("conflict", "only a work update written from chat can be undone this way");
+    }
+    if (row.retracted_at !== null) return "already_undone";
+    if (row.superseded_by !== null) return "changed_again";
+    // Progress keeps every line, so "changed since" is also a newer current line of the field.
+    const order = (id: string) =>
+      (this.#db.prepare("SELECT rowid AS n FROM graph_facts WHERE id = ?").get(id) as { n: number })
+        .n;
+    const mine = order(row.id);
+    if (this.#current(row.entity_id, row.attribute).some((r) => order(r.id) > mine)) {
+      return "changed_again";
+    }
+    const now = this.#now();
+    this.#db.transaction(() => {
+      this.#db
+        .prepare(
+          "UPDATE graph_facts SET retracted_at = ?, valid_to = COALESCE(valid_to, ?), updated_at = ? WHERE id = ?",
+        )
+        .run(now, now, now, row.id);
+      this.#db
+        .prepare(
+          "UPDATE graph_facts SET superseded_by = NULL, valid_to = NULL, updated_at = ? WHERE superseded_by = ? AND retracted_at IS NULL",
+        )
+        .run(now, row.id);
+    })();
+    this.#graph.touch(row.entity_id, ["facts"]);
+    return "undone";
   }
 
   /** The review queue (§7.1): pending by default, with the quote and what each would change. */

@@ -900,6 +900,8 @@
 //   let memoryWorkFolders = try? JSONDecoder().decode(MemoryWorkFolders.self, from: jsonData)
 //   let memoryWorkRemind = try? JSONDecoder().decode(MemoryWorkRemind.self, from: jsonData)
 //   let memoryWorkSettings = try? JSONDecoder().decode(MemoryWorkSettings.self, from: jsonData)
+//   let memoryWorkUndoUpdateParams = try? JSONDecoder().decode(MemoryWorkUndoUpdateParams.self, from: jsonData)
+//   let memoryWorkUndoUpdateResult = try? JSONDecoder().decode(MemoryWorkUndoUpdateResult.self, from: jsonData)
 //   let memoryWriteMode = try? JSONDecoder().decode(MemoryWriteMode.self, from: jsonData)
 //   let memoryWriteParams = try? JSONDecoder().decode(MemoryWriteParams.self, from: jsonData)
 //   let memoryWriteResult = try? JSONDecoder().decode(MemoryWriteResult.self, from: jsonData)
@@ -1530,6 +1532,9 @@
 //   let widgetsPinResult = try? JSONDecoder().decode(WidgetsPinResult.self, from: jsonData)
 //   let widgetsPreviewParams = try? JSONDecoder().decode(WidgetsPreviewParams.self, from: jsonData)
 //   let widgetsPreviewResult = try? JSONDecoder().decode(WidgetsPreviewResult.self, from: jsonData)
+//   let workNoteBlock = try? JSONDecoder().decode(WorkNoteBlock.self, from: jsonData)
+//   let workNoteItem = try? JSONDecoder().decode(WorkNoteItem.self, from: jsonData)
+//   let workUndoStatus = try? JSONDecoder().decode(WorkUndoStatus.self, from: jsonData)
 //   let workflowCard = try? JSONDecoder().decode(WorkflowCard.self, from: jsonData)
 //   let workflowEvent = try? JSONDecoder().decode(WorkflowEvent.self, from: jsonData)
 //   let workflowEventFilter = try? JSONDecoder().decode(WorkflowEventFilter.self, from: jsonData)
@@ -9178,6 +9183,10 @@ public struct ItemElement: Codable, Sendable {
     public let source: String?
     public let span: String?
     public let factID: String?
+    public let attribute: AttributeEnum?
+    public let entityID: String?
+    public let name: String?
+    public let value: String?
 
     public enum CodingKeys: String, CodingKey {
         case status = "status"
@@ -9194,9 +9203,13 @@ public struct ItemElement: Codable, Sendable {
         case source = "source"
         case span = "span"
         case factID = "factId"
+        case attribute = "attribute"
+        case entityID = "entityId"
+        case name = "name"
+        case value = "value"
     }
 
-    public init(status: ChecklistItemStatus?, text: String?, lastMessageAt: String?, snippet: String?, threadID: String?, title: String?, date: String?, id: String?, kind: String?, provenance: Provenance?, route: String?, source: String?, span: String?, factID: String?) {
+    public init(status: ChecklistItemStatus?, text: String?, lastMessageAt: String?, snippet: String?, threadID: String?, title: String?, date: String?, id: String?, kind: String?, provenance: Provenance?, route: String?, source: String?, span: String?, factID: String?, attribute: AttributeEnum?, entityID: String?, name: String?, value: String?) {
         self.status = status
         self.text = text
         self.lastMessageAt = lastMessageAt
@@ -9211,7 +9224,19 @@ public struct ItemElement: Codable, Sendable {
         self.source = source
         self.span = span
         self.factID = factID
+        self.attribute = attribute
+        self.entityID = entityID
+        self.name = name
+        self.value = value
     }
+}
+
+public enum AttributeEnum: String, Codable, Sendable {
+    case deadline = "deadline"
+    case nextStep = "next_step"
+    case progress = "progress"
+    case status = "status"
+    case stoppedAt = "stopped_at"
 }
 
 public enum Provenance: String, Codable, Sendable {
@@ -9309,6 +9334,7 @@ public enum BlockType: String, Codable, Sendable {
     case text = "text"
     case toolCall = "tool_call"
     case ui = "ui"
+    case workNote = "work_note"
     case wrapUp = "wrap_up"
 }
 
@@ -21817,6 +21843,38 @@ public struct MemoryWorkRemind: Codable, Sendable {
     }
 }
 
+// MARK: - MemoryWorkUndoUpdateParams
+public struct MemoryWorkUndoUpdateParams: Codable, Sendable {
+    public let factID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case factID = "factId"
+    }
+
+    public init(factID: String) {
+        self.factID = factID
+    }
+}
+
+// MARK: - MemoryWorkUndoUpdateResult
+public struct MemoryWorkUndoUpdateResult: Codable, Sendable {
+    public let status: WorkUndoStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case status = "status"
+    }
+
+    public init(status: WorkUndoStatus) {
+        self.status = status
+    }
+}
+
+public enum WorkUndoStatus: String, Codable, Sendable {
+    case alreadyUndone = "already_undone"
+    case changedAgain = "changed_again"
+    case undone = "undone"
+}
+
 // MARK: - MemoryWriteParams
 public struct MemoryWriteParams: Codable, Sendable {
     public let content: String
@@ -24594,7 +24652,7 @@ public enum RunStatus: String, Codable, Sendable {
 // MARK: - TraceStep
 public struct TraceStep: Codable, Sendable {
     public let attempt: Int
-    public let attributes: [String: Attribute]
+    public let attributes: [String: AttributeValue]
     public let childRunID: String?
     public let endedAt: String?
     public let error: RunStepError?
@@ -24631,7 +24689,7 @@ public struct TraceStep: Codable, Sendable {
         case thinking = "thinking"
     }
 
-    public init(attempt: Int, attributes: [String: Attribute], childRunID: String?, endedAt: String?, error: RunStepError?, groupID: String?, id: String, input: JSONAny?, kind: RunStepKind, label: String, output: JSONAny?, parentStepID: String?, seq: Int, startedAt: String, status: RunStepStatus, target: String?, thinking: String?) {
+    public init(attempt: Int, attributes: [String: AttributeValue], childRunID: String?, endedAt: String?, error: RunStepError?, groupID: String?, id: String, input: JSONAny?, kind: RunStepKind, label: String, output: JSONAny?, parentStepID: String?, seq: Int, startedAt: String, status: RunStepStatus, target: String?, thinking: String?) {
         self.attempt = attempt
         self.attributes = attributes
         self.childRunID = childRunID
@@ -24652,7 +24710,7 @@ public struct TraceStep: Codable, Sendable {
     }
 }
 
-public enum Attribute: Codable, Sendable {
+public enum AttributeValue: Codable, Sendable {
     case bool(Bool)
     case double(Double)
     case string(String)
@@ -24671,7 +24729,7 @@ public enum Attribute: Codable, Sendable {
             self = .string(x)
             return
         }
-        throw DecodingError.typeMismatch(Attribute.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Wrong type for Attribute"))
+        throw DecodingError.typeMismatch(AttributeValue.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Wrong type for AttributeValue"))
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -34330,6 +34388,59 @@ public enum WidgetsPreviewResultDecision: String, Codable, Sendable {
     case deny = "deny"
     case deviceOnly = "device-only"
     case unavailable = "unavailable"
+}
+
+// MARK: - WorkNoteBlock
+public struct WorkNoteBlock: Codable, Sendable {
+    public let items: [WorkNoteItem]
+    public let type: WorkNoteBlockType
+
+    public enum CodingKeys: String, CodingKey {
+        case items = "items"
+        case type = "type"
+    }
+
+    public init(items: [WorkNoteItem], type: WorkNoteBlockType) {
+        self.items = items
+        self.type = type
+    }
+}
+
+// MARK: - WorkNoteItem
+public struct WorkNoteItem: Codable, Sendable {
+    public let attribute: AttributeEnum
+    public let entityID: String
+    public let factID: String
+    public let kind: WorkNoteItemKind
+    public let name: String
+    public let value: String
+
+    public enum CodingKeys: String, CodingKey {
+        case attribute = "attribute"
+        case entityID = "entityId"
+        case factID = "factId"
+        case kind = "kind"
+        case name = "name"
+        case value = "value"
+    }
+
+    public init(attribute: AttributeEnum, entityID: String, factID: String, kind: WorkNoteItemKind, name: String, value: String) {
+        self.attribute = attribute
+        self.entityID = entityID
+        self.factID = factID
+        self.kind = kind
+        self.name = name
+        self.value = value
+    }
+}
+
+public enum WorkNoteItemKind: String, Codable, Sendable {
+    case proposal = "proposal"
+    case update = "update"
+}
+
+public enum WorkNoteBlockType: String, Codable, Sendable {
+    case workNote = "work_note"
 }
 
 // MARK: - WrapUpBlock

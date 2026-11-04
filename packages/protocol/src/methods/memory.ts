@@ -715,6 +715,18 @@ export const MemoryMethods = {
     description:
       "Reverts an auto-accepted fact to discarded, within 7 days of accepting. Side-effecting.",
   }),
+  "memory.work.undoUpdate": defineMethod({
+    params: Type.Object({ factId: Id }),
+    result: Type.Object({
+      status: StringEnum(["undone", "changed_again", "already_undone"], {
+        $id: "WorkUndoStatus",
+      }),
+    }),
+    scope: "operator.write",
+    sideEffecting: true,
+    description:
+      "Undo for a progress, stopped-at or next-step line the owner's chat wrote: restores the previous value only while the field has not changed since (changed_again otherwise, nothing touched). Side-effecting.",
+  }),
   "memory.quarantine.list": defineMethod({
     params: Type.Object({ includeDecided: Type.Optional(Type.Boolean()), ...pageParams }),
     result: Type.Object({ items: Type.Array(QuarantineItem), ...nextCursor }),
