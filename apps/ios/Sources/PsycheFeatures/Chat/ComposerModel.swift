@@ -9,6 +9,8 @@ import UniformTypeIdentifiers
 struct ComposerAttachment: Identifiable, Equatable {
     enum State: Equatable {
         case uploading
+        /// The Mac isn't reachable: the file is kept and uploads when it is.
+        case waiting
         case ready(libraryID: String)
         case failed(String)
     }
@@ -39,7 +41,12 @@ final class ComposerModel {
         self.store = store
     }
 
-    var isUploading: Bool { attachments.contains { $0.state == .uploading } }
+    /// Uploading, or waiting for the Mac: Send holds until the file can go with the message.
+    var isUploading: Bool { attachments.contains { $0.state == .uploading || $0.state == .waiting } }
+    /// What a waiting file's chip says.
+    static let waitingText = "This file will upload when your Mac is reachable"
+    /// The bytes of files waiting for the Mac; they upload again from `retryWaiting()`.
+    private var waitingData: [ComposerAttachment.ID: Data] = [:]
     var hasFailedUpload: Bool {
         attachments.contains { if case .failed = $0.state { true } else { false } }
     }
@@ -129,8 +136,21 @@ final class ComposerModel {
             let item = try await store.upload(
                 UploadFile(name: attachment.name, contentType: attachment.contentType, data: data, threadID: threadID))
             update(id, .ready(libraryID: item.id))
+            waitingData[id] = nil
+        } catch BackendError.unreachable {
+            waitingData[id] = data
+            update(id, .waiting)
         } catch {
+            waitingData[id] = nil
             fail(id, (error as? LocalizedError)?.errorDescription ?? "Upload failed")
+        }
+    }
+
+    /// Uploads the files that waited for the Mac. Call when the connection comes back.
+    func retryWaiting() {
+        for (id, data) in waitingData where attachments.first(where: { $0.id == id })?.state == .waiting {
+            update(id, .uploading)
+            Task { await upload(id, data: data) }
         }
     }
 
