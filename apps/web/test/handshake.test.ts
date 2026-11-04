@@ -77,4 +77,64 @@ describe("web handshake", () => {
     });
     expect(pending.status).toEqual({ type: "pending", code: "482913" });
   });
+
+  describe("a pairing link's setup token (remote-gateway design §3.4)", () => {
+    const nonce = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8";
+    const gatewayKey = "ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8";
+    const token = "QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVphYmNkZWY";
+    const challenge = {
+      type: "res" as const,
+      id: "connect",
+      ok: true as const,
+      payload: {
+        phase: "challenge",
+        nonce,
+        serverOrigin: "https://studio-mac.tail1234.ts.net",
+        protocolVersion: 1,
+        expiresAt: "",
+        gatewayKey,
+      },
+    };
+    async function handshake(verify?: (...a: never[]) => unknown) {
+      const key = await createEphemeralDeviceKey();
+      return new Handshake(
+        {
+          protocolVersion: { min: 1, max: 1 },
+          deviceId: key.deviceId,
+          publicKey: key.publicKey,
+          role: "client",
+          platform: "macos",
+          deviceFamily: "desktop",
+          name: "Psyche Desktop",
+          setupToken: token,
+        },
+        (p) => key.sign(p),
+        verify as never,
+      );
+    }
+
+    it("is never in the first frame, which goes out before the Gateway has proved its key", async () => {
+      const hs = await handshake(async () => ({ ok: true, gatewayKey, fingerprint: "sha256:x" }));
+      expect(hs.start().params).not.toHaveProperty("setupToken");
+    });
+
+    it("goes in connect.verify, with the verified key, once the Gateway's key checked out", async () => {
+      const hs = await handshake(async () => ({ ok: true, gatewayKey, fingerprint: "sha256:x" }));
+      hs.start();
+      const step = await hs.onFrame(challenge);
+      expect(step.send?.method).toBe("connect.verify");
+      expect(step.send?.params).toMatchObject({ gatewayKey, setupToken: token });
+    });
+
+    it("is never sent when the Gateway failed the check, or when nothing checked it", async () => {
+      const refused = await handshake(async () => ({ ok: false, code: "gateway_key_mismatch" }));
+      refused.start();
+      const step = await refused.onFrame(challenge);
+      expect(step.send).toBeUndefined();
+      const unchecked = await handshake();
+      unchecked.start();
+      const sent = await unchecked.onFrame(challenge);
+      expect(sent.send?.params).not.toHaveProperty("setupToken");
+    });
+  });
 });

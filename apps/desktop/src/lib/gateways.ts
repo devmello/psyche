@@ -149,15 +149,16 @@ export function isLoopbackOrigin(origin: string): boolean {
 export function cleanGatewayName(name: string): string {
   return (
     name
-      // biome-ignore lint/suspicious/noControlCharactersInRegex: removing them is the point
-      .replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2066-\u2069]/g, " ")
+      // Control, format (bidi marks and overrides, zero-width, tag characters), line and
+      // paragraph separators, and the Hangul fillers that render as nothing.
+      .replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\u115F\u3164]/gu, " ")
       .replace(/\s+/g, " ")
       .trim()
       .slice(0, 64)
   );
 }
 
-function cleanEntry(raw: unknown): SavedGateway | null {
+function cleanEntry(raw: unknown, now: Date): SavedGateway | null {
   if (typeof raw !== "object" || raw === null) return null;
   const e = raw as Record<string, unknown>;
   if (typeof e.id !== "string" || !ID_PATTERN.test(e.id)) return null;
@@ -180,16 +181,18 @@ function cleanEntry(raw: unknown): SavedGateway | null {
       ? { identityKey: e.identityKey }
       : {}),
     ...(typeof e.lastConnectedAt === "string" ? { lastConnectedAt: e.lastConnectedAt } : {}),
+    // A token past its ten minutes is dropped here, so it never lingers in the file.
     ...(typeof e.setupToken === "string" &&
     KEY_PATTERN.test(e.setupToken) &&
-    typeof e.setupTokenAt === "string"
+    typeof e.setupTokenAt === "string" &&
+    liveSetupToken({ setupToken: e.setupToken, setupTokenAt: e.setupTokenAt }, now) !== undefined
       ? { setupToken: e.setupToken, setupTokenAt: e.setupTokenAt }
       : {}),
   };
 }
 
 /** Reads the file; a missing or unreadable file is an empty list, never an error. */
-export function loadGateways(file: string): GatewaysFile {
+export function loadGateways(file: string, now: Date = new Date()): GatewaysFile {
   let parsed: unknown;
   try {
     parsed = JSON.parse(readFileSync(file, "utf8"));
@@ -201,7 +204,7 @@ export function loadGateways(file: string): GatewaysFile {
   const seen = new Set<string>();
   const gateways: SavedGateway[] = [];
   for (const raw of Array.isArray(p.gateways) ? p.gateways : []) {
-    const entry = cleanEntry(raw);
+    const entry = cleanEntry(raw, now);
     if (entry === null || seen.has(entry.id)) continue;
     seen.add(entry.id);
     gateways.push(entry);
@@ -226,7 +229,7 @@ export class GatewaysFileError extends Error {
  * active id that is not saved) is an error, never an empty list: an empty list is unpinned, and
  * writing it back would erase the pins. Callers refuse to write while this throws.
  */
-export function loadGatewaysStrict(file: string): GatewaysFile {
+export function loadGatewaysStrict(file: string, now: Date = new Date()): GatewaysFile {
   let text: string;
   try {
     text = readFileSync(file, "utf8");
@@ -255,7 +258,7 @@ export function loadGatewaysStrict(file: string): GatewaysFile {
   const seen = new Set<string>();
   const gateways: SavedGateway[] = [];
   for (const raw of p.gateways as unknown[]) {
-    const entry = cleanEntry(raw);
+    const entry = cleanEntry(raw, now);
     const key = (raw as { identityKey?: unknown } | null)?.identityKey;
     if (
       entry === null ||
@@ -427,7 +430,10 @@ export function addGatewayFromLink(
 }
 
 /** The saved setup token if it is still within its ten minutes, else undefined. */
-export function liveSetupToken(entry: SavedGateway, now: Date): string | undefined {
+export function liveSetupToken(
+  entry: Pick<SavedGateway, "setupToken" | "setupTokenAt">,
+  now: Date,
+): string | undefined {
   if (entry.setupToken === undefined || entry.setupTokenAt === undefined) return undefined;
   const at = Date.parse(entry.setupTokenAt);
   if (Number.isNaN(at) || now.getTime() - at > SETUP_TOKEN_TTL_MS || now.getTime() < at) {

@@ -254,7 +254,11 @@ export interface VerifyOutcome {
 /** What happened to a setup token at a connect (audited as `pairing_link.used` / `.refused`). */
 export type SetupTokenEvent =
   | { status: "used"; tokenId: string; deviceId: string }
-  | { status: "refused"; reason: "unknown" | "expired" | "used" | "not_client"; deviceId: string };
+  | {
+      status: "refused";
+      reason: "unknown" | "expired" | "used" | "not_client" | "unbound";
+      deviceId: string;
+    };
 
 function denied(reason: string): VerifyOutcome {
   return {
@@ -391,8 +395,10 @@ export function verifyChallenge(
     let viaSetupToken = false;
     let tokenEvent: SetupTokenEvent | undefined;
     // A retry of a request the owner is already looking at does not spend a token.
-    if (scopes === null && live === undefined && params.setupToken !== undefined) {
-      const refuse = (reason: "unknown" | "expired" | "used" | "not_client"): VerifyOutcome => {
+    if (scopes === null && live === undefined && input.setupToken !== undefined) {
+      const refuse = (
+        reason: "unknown" | "expired" | "used" | "not_client" | "unbound",
+      ): VerifyOutcome => {
         deps.failedChallenges.record(peer.remoteAddress);
         return {
           ...denied(LINK_REFUSED),
@@ -400,7 +406,9 @@ export function verifyChallenge(
         };
       };
       if (params.role !== "client") return refuse("not_client");
-      const use = consumeSetupToken(db, params.setupToken, params.deviceId, nowIso);
+      // The client must have verified this Gateway's key before it sent the token.
+      if (input.gatewayKey === undefined) return refuse("unbound");
+      const use = consumeSetupToken(db, input.setupToken, params.deviceId, nowIso);
       if (!use.ok) return refuse(use.reason);
       viaSetupToken = true;
       tokenEvent = { status: "used", tokenId: use.id, deviceId: params.deviceId };
@@ -473,9 +481,7 @@ export function verifyChallenge(
       deviceId: params.deviceId,
       display: `${params.name} (${params.platform}, ${params.deviceFamily}; claimed by the device)${
         peer.transport === "vm-relay" ? "; relayed from a sandbox guest" : ""
-      }${peer.claimedIdentity ? `; proxy says ${peer.claimedIdentity}` : ""}${
-        viaSetupToken ? "; expected via pairing link" : ""
-      }`,
+      }${peer.claimedIdentity ? `; proxy says ${peer.claimedIdentity}` : ""}`,
       expiresAt: new Date(now.getTime() + deps.limits.pairingTtlMs).toISOString(),
       publicKeyFingerprint: keyFingerprint(params.publicKey),
       // The pairing record only knows the two transports; the card says when it was relayed.

@@ -152,7 +152,7 @@ export interface HandshakeOptions {
   tamperSignature?: boolean;
   /** The Gateway key the device verified: signs the v2 connect payload and sends the key. */
   gatewayKey?: string;
-  /** The setup token from a pairing link (`connect.setupToken`). */
+  /** The setup token from a pairing link (`connect.verify.setupToken`). */
   setupToken?: string;
 }
 
@@ -169,7 +169,6 @@ export async function handshake(client: TestClient, origin: string, opts: Handsh
     deviceFamily,
     name: "test device",
     ...(opts.handshakeSecret === undefined ? {} : { handshakeSecret: opts.handshakeSecret }),
-    ...(opts.setupToken === undefined ? {} : { setupToken: opts.setupToken }),
   });
   if (challengeRes.ok !== true) return { challengeRes, verifyRes: null, key };
   const challenge = challengeRes.payload as {
@@ -191,6 +190,7 @@ export async function handshake(client: TestClient, origin: string, opts: Handsh
     nonce: challenge.nonce,
     signature: signature.toString("base64url"),
     ...(opts.gatewayKey === undefined ? {} : { gatewayKey: opts.gatewayKey }),
+    ...(opts.setupToken === undefined ? {} : { setupToken: opts.setupToken }),
   });
   return { challengeRes, verifyRes, key };
 }

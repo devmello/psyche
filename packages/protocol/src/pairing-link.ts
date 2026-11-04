@@ -63,11 +63,10 @@ export function pairingLinkOrigin(input: string): string {
   } catch {
     throw new PsycheError("invalid_params", "gatewayUrl is not a URL");
   }
+  // Exactly these three names: a name like foo.localhost is not guaranteed to reach loopback on
+  // every resolver, and the phone reuses this rule.
   const loopback =
-    url.hostname === "localhost" ||
-    url.hostname === "127.0.0.1" ||
-    url.hostname === "[::1]" ||
-    url.hostname.endsWith(".localhost");
+    url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "[::1]";
   if (url.protocol !== "https:" && !(url.protocol === "http:" && loopback)) {
     throw new PsycheError("invalid_params", "gatewayUrl must be https");
   }
@@ -84,24 +83,15 @@ export function pairingLinkOrigin(input: string): string {
 }
 
 /**
- * Control, bidirectional-override and zero-width characters: a host name is shown in "Connect to
- * studio-mac?", so one that could reshape the sentence is refused rather than cleaned.
+ * Control, format (bidi marks and overrides, zero-width joiners, tag characters), line and
+ * paragraph separators, and the Hangul fillers that render as nothing. A host name is shown in
+ * "Connect to studio-mac?", so one that could reshape or hide part of the sentence is refused
+ * rather than cleaned.
  */
+const INVISIBLE = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\u115F\u3164]/u;
+
 function hasInvisibleChar(text: string): boolean {
-  for (let i = 0; i < text.length; i++) {
-    const c = text.charCodeAt(i);
-    if (
-      c <= 0x1f ||
-      (c >= 0x7f && c <= 0x9f) ||
-      (c >= 0x200b && c <= 0x200f) ||
-      (c >= 0x2028 && c <= 0x202e) ||
-      (c >= 0x2066 && c <= 0x2069) ||
-      c === 0xfeff
-    ) {
-      return true;
-    }
-  }
-  return false;
+  return INVISIBLE.test(text);
 }
 
 function check(payload: PairingLinkPayload): PairingLinkPayload {

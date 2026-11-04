@@ -212,6 +212,11 @@ export interface HandlerDef {
    * idempotency record; events and `afterCommit` work run only once it commits.
    */
   readonly transactional?: boolean;
+  /**
+   * A side-effecting handler whose reply holds a short-lived secret: the reply is not written to
+   * the idempotency table (concurrent duplicates still share one run).
+   */
+  readonly skipIdempotencyStore?: boolean;
 }
 
 export function hasScope(identity: PairedIdentity, scope: DeviceScope): boolean {

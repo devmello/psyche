@@ -92,7 +92,7 @@ export function runCli(
       }
       for (const r of listPairingRequests(db, { status: "pending" })) {
         out(
-          `pending ${r.code}  ${r.display}  key ${r.publicKeyFingerprint ?? "?"}  via ${r.transport ?? "?"} ${r.remoteAddress ?? ""}`,
+          `pending ${r.code}  ${r.display}  key ${r.publicKeyFingerprint ?? "?"}  via ${r.transport ?? "?"} ${r.remoteAddress ?? ""}${r.viaPairingLink ? "  (expected via pairing link)" : ""}`,
         );
       }
       return 0;

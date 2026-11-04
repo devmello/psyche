@@ -65,19 +65,3 @@ export function pruneIdempotencyRecords(db: PsycheDb, cutoff: string): number {
   return db.drizzle.delete(gatewayIdempotency).where(lt(gatewayIdempotency.createdAt, cutoff)).run()
     .changes;
 }
-
-/**
- * Drops the stored results of one method created before `cutoff`. For a method whose result holds
- * a short-lived secret (the pairing link's setup token), so the plaintext does not outlive the
- * secret by the 7 days other results are kept.
- */
-export function pruneIdempotencyRecordsForMethod(
-  db: PsycheDb,
-  method: string,
-  cutoff: string,
-): number {
-  return db.drizzle
-    .delete(gatewayIdempotency)
-    .where(and(eq(gatewayIdempotency.method, method), lt(gatewayIdempotency.createdAt, cutoff)))
-    .run().changes;
-}

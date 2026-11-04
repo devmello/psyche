@@ -6,12 +6,15 @@ import { afterEach, describe, expect, it } from "vitest";
 import { desktopConnectParams } from "../src/gateway-client.ts";
 import { generateDeviceKey } from "../src/lib/device-key.ts";
 import {
+  cleanGatewayName,
   EMPTY_GATEWAYS,
   gatewayDataDir,
   gatewaysFilePath,
   identityKeyFingerprint,
   loadGateways,
+  loadGatewaysStrict,
   normalizeGatewayOrigin,
+  saveGateways,
 } from "../src/lib/gateways.ts";
 import {
   type GatewayConfirm,
@@ -74,6 +77,7 @@ function setup(opts: { confirm?: boolean } = {}) {
     confirms,
     local,
     remoteFor,
+    now: () => clock,
     advance: (ms: number) => {
       clock = new Date(clock.getTime() + ms);
     },
@@ -94,7 +98,7 @@ describe("Add a Gateway from a pairing link", () => {
         viaLink: { fingerprint: identityKeyFingerprint(KEY_A) },
       },
     ]);
-    const saved = loadGateways(s.file).gateways[0];
+    const saved = loadGateways(s.file, s.now()).gateways[0];
     expect(saved).toMatchObject({ origin: URL_A, identityKey: KEY_A, setupToken: TOKEN });
   });
 
@@ -121,7 +125,7 @@ describe("Add a Gateway from a pairing link", () => {
   it("saves nothing when the owner cancels", async () => {
     const s = setup({ confirm: false });
     await expect(s.local.add(link())).rejects.toMatchObject({ code: "forbidden" });
-    expect(loadGateways(s.file).gateways).toEqual([]);
+    expect(loadGateways(s.file, s.now()).gateways).toEqual([]);
   });
 
   it("refuses a link whose key differs from the one already pinned for that address", async () => {
@@ -131,15 +135,15 @@ describe("Add a Gateway from a pairing link", () => {
       code: "invalid_params",
       details: { problem: "pin_mismatch" },
     });
-    expect(loadGateways(s.file).gateways[0]?.identityKey).toBe(KEY_A);
+    expect(loadGateways(s.file, s.now()).gateways[0]?.identityKey).toBe(KEY_A);
   });
 
   it("updates the token (and pins) for an address that was saved without a link", async () => {
     const s = setup();
     await s.local.add("studio-mac.tail1234.ts.net");
-    expect(loadGateways(s.file).gateways[0]?.identityKey).toBeUndefined();
+    expect(loadGateways(s.file, s.now()).gateways[0]?.identityKey).toBeUndefined();
     await s.local.add(link());
-    const saved = loadGateways(s.file).gateways;
+    const saved = loadGateways(s.file, s.now()).gateways;
     expect(saved).toHaveLength(1);
     expect(saved[0]).toMatchObject({ identityKey: KEY_A, setupToken: TOKEN });
   });
@@ -149,7 +153,7 @@ describe("the setup token on the first connect", () => {
   async function added() {
     const s = setup();
     await s.local.add(link());
-    const id = loadGateways(s.file).gateways[0]?.id as string;
+    const id = loadGateways(s.file, s.now()).gateways[0]?.id as string;
     return { s, id, remote: s.remoteFor(id) };
   }
 
@@ -158,7 +162,7 @@ describe("the setup token on the first connect", () => {
     expect(remote.setupToken()).toBe(TOKEN);
     remote.clearSetupToken();
     expect(remote.setupToken()).toBeUndefined();
-    const saved = loadGateways(s.file).gateways[0];
+    const saved = loadGateways(s.file, s.now()).gateways[0];
     expect(saved?.setupToken).toBeUndefined();
     // The pin from the link stays.
     expect(saved?.identityKey).toBe(KEY_A);
@@ -202,5 +206,31 @@ describe("the setup token on the first connect", () => {
     // A connect without a token is exactly what it was.
     const plain = await desktopConnectParams({ key, home, origin: URL_A, remote: true });
     expect("setupToken" in plain).toBe(false);
+  });
+});
+
+describe("an expired token in gateways.json", () => {
+  it("is dropped when the file is loaded, in either loader, and the rest of the entry stays", async () => {
+    const s = setup();
+    await s.local.add(link());
+    const later = new Date(s.now().getTime() + SETUP_TOKEN_TTL_MS + 60_000);
+    const strict = loadGatewaysStrict(s.file, later);
+    expect(strict.gateways[0]).toMatchObject({ origin: URL_A, identityKey: KEY_A });
+    expect(strict.gateways[0]?.setupToken).toBeUndefined();
+    expect(strict.gateways[0]?.setupTokenAt).toBeUndefined();
+    expect(loadGateways(s.file, later).gateways[0]?.setupToken).toBeUndefined();
+    // Still there inside its ten minutes.
+    expect(loadGateways(s.file, s.now()).gateways[0]?.setupToken).toBe(TOKEN);
+    // And saving what was loaded writes it out without the token.
+    saveGateways(s.file, strict);
+    expect(loadGateways(s.file, s.now()).gateways[0]?.setupToken).toBeUndefined();
+  });
+});
+
+describe("a name shown in a native dialog", () => {
+  it("loses format, separator and filler characters, not only controls", () => {
+    expect(cleanGatewayName("Studio\u202EMac")).toBe("Studio Mac");
+    expect(cleanGatewayName("A\u200DB\u115FC\u3164D\u2028E\u{E0041}F")).toBe("A B C D E F");
+    expect(cleanGatewayName("Café 日本")).toBe("Café 日本");
   });
 });

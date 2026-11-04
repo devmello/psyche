@@ -1,9 +1,15 @@
-import { createHash } from "node:crypto";
+import { createHash, sign } from "node:crypto";
 import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getDevice, listPairingRequests } from "@psyche/db";
-import { type AuditEntry, parsePairingLink, SETUP_TOKEN_TTL_MS } from "@psyche/protocol";
+import {
+  type AuditEntry,
+  connectSigningPayload,
+  PROTOCOL_VERSION,
+  parsePairingLink,
+  SETUP_TOKEN_TTL_MS,
+} from "@psyche/protocol";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
@@ -65,6 +71,7 @@ async function connectWith(gw: ComposedGateway, setupToken: string | undefined) 
     key,
     deviceId,
     deviceFamily: "web",
+    gatewayKey: gw.gateway.context.identity.publicKey,
     ...(setupToken === undefined ? {} : { setupToken }),
   });
   return { ...res, deviceId, phase: (res.verifyRes?.payload as { phase?: string })?.phase };
@@ -115,26 +122,49 @@ describe("devices.pairing.createLink", () => {
     expect(JSON.stringify(entries)).not.toContain(setupToken);
   });
 
-  it("does not keep a link in the idempotency table past the token's life", async () => {
+  it("never writes the reply, which holds the token, to the idempotency table", async () => {
     const gw = await compose("https://studio-mac.tail1234.ts.net");
     const a = await admin(gw);
-    const { link } = await createLink(a);
-    const stored = () =>
-      gw.db.sqlite
-        .prepare(
-          "SELECT result FROM gateway_idempotency WHERE method = 'devices.pairing.createLink'",
-        )
-        .all() as { result: string }[];
-    expect(JSON.stringify(stored())).toContain(link);
-    const old = new Date(Date.now() - 11 * 60_000).toISOString();
-    gw.db.sqlite
-      .prepare(
-        "UPDATE gateway_idempotency SET created_at = ? WHERE method = 'devices.pairing.createLink'",
-      )
-      .run(old);
     await createLink(a);
-    expect(JSON.stringify(stored())).not.toContain(link);
-    expect(stored()).toHaveLength(1);
+    const rows = gw.db.sqlite
+      .prepare("SELECT 1 FROM gateway_idempotency WHERE method = 'devices.pairing.createLink'")
+      .all();
+    expect(rows).toHaveLength(0);
+  });
+
+  it("allows one outstanding link per admin: a new one ends that admin's earlier unused one", async () => {
+    const gw = await compose("https://studio-mac.tail1234.ts.net");
+    const a = await admin(gw);
+    const b = await admin(gw);
+    const first = parsePairingLink((await createLink(a)).link).setupToken;
+    const other = parsePairingLink((await createLink(b)).link).setupToken;
+    const second = parsePairingLink((await createLink(a)).link).setupToken;
+    // The first is superseded; the second, and the other admin's, still work.
+    expect((await connectWith(gw, first)).phase).toBe("denied");
+    expect((await connectWith(gw, second)).phase).toBe("pending");
+    expect((await connectWith(gw, other)).phase).toBe("pending");
+    const refused = await auditKinds(a, "pairing_link.refused");
+    expect(refused.map((e) => (e.data as { reason: string }).reason)).toEqual(["expired"]);
+  });
+
+  it("deletes a revoked admin's unused links", async () => {
+    const gw = await compose("https://studio-mac.tail1234.ts.net");
+    const a = await admin(gw);
+    const b = await admin(gw);
+    const { setupToken } = parsePairingLink((await createLink(a)).link);
+    const creator = (
+      gw.db.sqlite.prepare("SELECT created_by_device_id AS id FROM pairing_setup_tokens").get() as {
+        id: string;
+      }
+    ).id;
+    await b.call("devices.revoke", { deviceId: creator });
+    const left = gw.db.sqlite.prepare("SELECT count(*) AS n FROM pairing_setup_tokens").get() as {
+      n: number;
+    };
+    expect(left.n).toBe(0);
+    const r = await connectWith(gw, setupToken);
+    expect(r.phase).toBe("denied");
+    expect(getDevice(gw.db, r.deviceId)).toBeUndefined();
   });
 
   it("needs an address: publicOrigin or an https gatewayUrl, never anything else", async () => {
@@ -174,7 +204,8 @@ describe("connecting with a setup token", () => {
       (p) => p.deviceId === r.deviceId,
     );
     expect(pending?.viaPairingLink).toBe(true);
-    expect(pending?.display).toContain("expected via pairing link");
+    // The label is the structured field only: free text can be forged by a device's own name.
+    expect(pending?.display).not.toContain("pairing link");
     // The token granted nothing: the device is unpaired and has no scopes.
     const device = getDevice(gw.db, r.deviceId);
     expect(device?.pairedAt).toBeNull();
@@ -234,6 +265,7 @@ describe("connecting with a setup token", () => {
         key,
         deviceId,
         deviceFamily: "web",
+        gatewayKey: gw.gateway.context.identity.publicKey,
         setupToken,
       });
       expect((r.verifyRes?.payload as { phase?: string } | undefined)?.phase).toBe("pending");
@@ -254,6 +286,64 @@ describe("connecting with a setup token", () => {
     expect(await auditKinds(a, "pairing_link.used")).toHaveLength(0);
   });
 
+  it("ignores a token sent in connect: the Gateway has not proved its key yet", async () => {
+    const gw = await compose("https://studio-mac.tail1234.ts.net");
+    const a = await admin(gw);
+    const { setupToken } = parsePairingLink((await createLink(a)).link);
+    const c = await TestClient.open(wsUrlOf(gw.gateway));
+    clients.push(c);
+    const key = newDeviceKey();
+    const deviceId = `early-${Math.random().toString(36).slice(2)}`;
+    // Hand-built: the test helper puts the token where it belongs.
+    const challenge = await c.request("connect", {
+      protocolVersion: { min: 1, max: PROTOCOL_VERSION },
+      deviceId,
+      publicKey: key.publicKey,
+      role: "client",
+      platform: "macos",
+      deviceFamily: "web",
+      name: "early",
+      setupToken,
+    });
+    const ch = challenge.payload as { nonce: string; protocolVersion: number };
+    const bytes = connectSigningPayload({
+      nonce: ch.nonce,
+      platform: "macos",
+      deviceFamily: "web",
+      protocolVersion: ch.protocolVersion,
+      serverOrigin: gw.gateway.origin,
+    });
+    const verify = await c.request("connect.verify", {
+      nonce: ch.nonce,
+      signature: sign(null, bytes, key.privateKey).toString("base64url"),
+    });
+    expect((verify.payload as { phase?: string }).phase).toBe("pending");
+    const pending = listPairingRequests(gw.db, { status: "pending" }).find(
+      (p) => p.deviceId === deviceId,
+    );
+    expect(pending?.viaPairingLink).toBeUndefined();
+    // The token is still unspent and works from a proper verify.
+    expect((await connectWith(gw, setupToken)).phase).toBe("pending");
+  });
+
+  it("denies a token that arrives without the Gateway key, and does not spend it", async () => {
+    const gw = await compose("https://studio-mac.tail1234.ts.net");
+    const a = await admin(gw);
+    const { setupToken } = parsePairingLink((await createLink(a)).link);
+    const c = await TestClient.open(wsUrlOf(gw.gateway));
+    clients.push(c);
+    const unbound = await handshake(c, gw.gateway.origin, {
+      deviceId: "unbound-1",
+      deviceFamily: "web",
+      setupToken,
+    });
+    expect((unbound.verifyRes?.payload as { phase?: string } | undefined)?.phase).toBe("denied");
+    expect(getDevice(gw.db, "unbound-1")).toBeUndefined();
+    const refused = await auditKinds(a, "pairing_link.refused");
+    expect(refused.map((e) => (e.data as { reason: string }).reason)).toEqual(["unbound"]);
+    expect((await connectWith(gw, setupToken)).phase).toBe("pending");
+  });
+
   it("does not let a node use a link", async () => {
     const gw = await compose("https://studio-mac.tail1234.ts.net");
     const a = await admin(gw);
@@ -263,6 +353,7 @@ describe("connecting with a setup token", () => {
     const r = await handshake(c, gw.gateway.origin, {
       role: "node",
       deviceFamily: "psyche-node",
+      gatewayKey: gw.gateway.context.identity.publicKey,
       setupToken,
     });
     expect((r.verifyRes?.payload as { phase?: string } | undefined)?.phase).toBe("denied");

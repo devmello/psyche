@@ -3133,13 +3133,6 @@ export interface ConnectParams {
      */
     publicKey: string;
     role:      ConnectRole;
-    /**
-     * The single-use token from a psyche-pair:v1 link (devices.pairing.createLink). It only
-     * marks the resulting pending request as expected via a pairing link: the owner still
-     * approves the device and its scopes. Refused (denied) when expired or already used;
-     * ignored for a device that is already paired
-     */
-    setupToken?: string;
 }
 
 export interface ProtocolVersionRange {
@@ -3182,6 +3175,15 @@ export interface ConnectVerifyParams {
      * base64url, 32 random bytes
      */
     nonce: string;
+    /**
+     * The single-use token from a psyche-pair:v1 link (devices.pairing.createLink). Sent only
+     * here, after the client verified the Gateway's identity key, and only together with
+     * gatewayKey: a token with no gatewayKey is denied unspent. It only marks the resulting
+     * pending request as expected via a pairing link: the owner still approves the device and
+     * its scopes. Refused (denied) when expired or already used; ignored for a device that is
+     * already paired
+     */
+    setupToken?: string;
     /**
      * base64url Ed25519 signature (64 bytes) over connectSigningPayload(...)
      */

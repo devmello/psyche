@@ -1,4 +1,4 @@
-import { type ReactElement, useEffect, useId, useState } from "react";
+import { type ReactElement, useEffect, useId, useRef, useState } from "react";
 import { QrCode } from "../../components/QrCode.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { Input } from "../../components/ui/input.tsx";
@@ -45,12 +45,24 @@ export function AddDeviceGroup({
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const clock = useNow(1000, fixedNow);
+  // The link as last copied to the clipboard, so it can be taken back when it stops working.
+  const copiedLink = useRef<string | null>(null);
 
   const remaining = made ? new Date(made.expiresAt).getTime() - clock : 0;
   const expired = made !== null && remaining <= 0;
   // An expired link is dropped from the page: nothing to copy or scan that no longer works.
+  // If the clipboard still holds the copied link it is cleared too; a clipboard that holds
+  // anything else, or that cannot be read, is left alone.
   useEffect(() => {
-    if (expired) setCopied(false);
+    if (!expired) return;
+    setCopied(false);
+    const link = copiedLink.current;
+    copiedLink.current = null;
+    if (link === null) return;
+    void navigator.clipboard.readText().then(
+      (now) => (now === link ? navigator.clipboard.writeText("") : undefined),
+      () => undefined,
+    );
   }, [expired]);
 
   const needsAddress = publicOrigin === null;
@@ -71,7 +83,10 @@ export function AddDeviceGroup({
   const copy = () => {
     if (!made) return;
     navigator.clipboard.writeText(made.link).then(
-      () => setCopied(true),
+      () => {
+        copiedLink.current = made.link;
+        setCopied(true);
+      },
       () => setError(t("settings.devices.add.copyFailed")),
     );
   };

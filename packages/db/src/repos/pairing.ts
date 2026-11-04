@@ -215,24 +215,56 @@ export function hashSetupToken(token: string): string {
   return createHash("sha256").update(token, "utf8").digest("hex");
 }
 
-/** Stores the hash of a new token that expires at `expiresAt`. Returns the row id. */
+/**
+ * Stores the hash of a new token that expires at `expiresAt`. One outstanding token per creating
+ * device: the same creator's earlier unused tokens end now (they read as expired), so a link that
+ * was shown but never used cannot be picked up later. Call inside a transaction with nothing else.
+ */
 export function createSetupToken(
   db: PsycheDb,
   input: { tokenHash: string; expiresAt: string; createdByDeviceId: string | null },
 ): string {
   const at = db.now();
   const id = db.newId();
-  db.drizzle
-    .insert(pairingSetupTokens)
-    .values({
-      id,
-      tokenHash: input.tokenHash,
-      createdByDeviceId: input.createdByDeviceId,
-      createdAt: at,
-      expiresAt: iso(input.expiresAt),
-    })
-    .run();
+  db.sqlite.transaction(() => {
+    if (input.createdByDeviceId !== null) {
+      db.drizzle
+        .update(pairingSetupTokens)
+        .set({ expiresAt: at })
+        .where(
+          and(
+            eq(pairingSetupTokens.createdByDeviceId, input.createdByDeviceId),
+            sql`${pairingSetupTokens.usedAt} IS NULL`,
+            gt(pairingSetupTokens.expiresAt, at),
+          ),
+        )
+        .run();
+    }
+    db.drizzle
+      .insert(pairingSetupTokens)
+      .values({
+        id,
+        tokenHash: input.tokenHash,
+        createdByDeviceId: input.createdByDeviceId,
+        createdAt: at,
+        expiresAt: iso(input.expiresAt),
+      })
+      .run();
+  })();
   return id;
+}
+
+/** Deletes a device's unused tokens (it was revoked). Returns how many went. */
+export function deleteUnusedSetupTokensFor(db: PsycheDb, deviceId: string): number {
+  return db.drizzle
+    .delete(pairingSetupTokens)
+    .where(
+      and(
+        eq(pairingSetupTokens.createdByDeviceId, deviceId),
+        sql`${pairingSetupTokens.usedAt} IS NULL`,
+      ),
+    )
+    .run().changes;
 }
 
 export type SetupTokenUse =

@@ -1773,7 +1773,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     webhooks,
     publicRoutes,
     // A pairing-link setup token spent or refused at a connect (security §10).
-    onSetupToken: auditSetupToken(audit),
+    onSetupToken: auditSetupToken(audit, gwOptions.logger),
     onDeviceRevoked: (deviceId) => {
       revocations.recordDevice(deviceId);
       return rawBroker.revokeGrantsByDevice(deviceId);

@@ -1212,8 +1212,15 @@ void app.whenReady().then(async () => {
     ...(remoteGateway ? { setupToken: () => gateways.setupToken() } : {}),
     onStatus: (s) => {
       broadcast(IPC.status, s);
-      // The Gateway answered the connect, so the token is spent (or refused): never send it again.
-      if ((s.phase === "paired" || s.phase === "pending") && remoteGateway) {
+      // Any outcome ends the token's use: answered (paired, pending), refused (denied) or failed
+      // (a key mismatch or another error). A dropped network (disconnected) keeps it for a retry.
+      if (
+        (s.phase === "paired" ||
+          s.phase === "pending" ||
+          s.phase === "denied" ||
+          s.phase === "error") &&
+        remoteGateway
+      ) {
         gateways.clearSetupToken();
       }
       tray?.update({ status: s });

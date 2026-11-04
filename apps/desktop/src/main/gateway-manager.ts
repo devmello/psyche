@@ -84,7 +84,7 @@ export class GatewayManager {
    */
   #load(): GatewaysFile {
     try {
-      return loadGatewaysStrict(this.#file);
+      return loadGatewaysStrict(this.#file, this.#deps.now?.() ?? new Date());
     } catch (err) {
       throw new PsycheError(
         "unavailable",

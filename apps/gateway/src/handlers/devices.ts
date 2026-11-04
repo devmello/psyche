@@ -1,6 +1,7 @@
 import { hostname } from "node:os";
 import {
   decidePairingRequest,
+  deleteUnusedSetupTokensFor,
   expirePairingRequests,
   getDevice,
   getNodeByDevice,
@@ -127,6 +128,8 @@ export const devicesHandlers: Record<string, HandlerDef> = {
       const { db } = call.ctx;
       const device = revokeDevice(db, params.deviceId);
       if (!device) throw new PsycheError("not_found", `device ${params.deviceId} not found`);
+      // A pairing link the revoked device made but nobody used must not outlive it.
+      deleteUnusedSetupTokensFor(db, device.id);
       // Security §10: revoking a device revokes its token and node authority permanently.
       const node = getNodeByDevice(db, device.id);
       const offline = node ? setNodeStatus(db, node.id, "offline") : undefined;

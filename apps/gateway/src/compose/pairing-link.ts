@@ -1,12 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { hostname } from "node:os";
-import {
-  createSetupToken,
-  hashSetupToken,
-  type PsycheDb,
-  pruneIdempotencyRecordsForMethod,
-  purgeSetupTokens,
-} from "@psyche/db";
+import { createSetupToken, hashSetupToken, type PsycheDb, purgeSetupTokens } from "@psyche/db";
 import {
   type AuditLog,
   encodePairingLink,
@@ -37,6 +31,10 @@ export function pairingLinkHandlers(deps: {
 }): Record<string, HandlerDef> {
   return {
     "devices.pairing.createLink": {
+      // The reply holds the token in the clear: it is never written to the idempotency table
+      // (which keeps replies for days). A retry with the same key makes a new link, and a new link
+      // ends the creator's earlier unused one.
+      skipIdempotencyStore: true,
       async run(
         call: Call,
         params: { gatewayUrl?: string },
@@ -52,15 +50,8 @@ export function pairingLinkHandlers(deps: {
           );
         }
         const gatewayUrl = pairingLinkOrigin(raw);
-        // Housekeeping: dead tokens, and the stored replies of earlier calls (the idempotency
-        // table keeps a result for 7 days, and this reply holds the token in the clear).
         const nowMs = now().getTime();
         purgeSetupTokens(deps.db, new Date(nowMs).toISOString());
-        pruneIdempotencyRecordsForMethod(
-          deps.db,
-          "devices.pairing.createLink",
-          new Date(nowMs - SETUP_TOKEN_TTL_MS).toISOString(),
-        );
         const token = randomBytes(32).toString("base64url");
         const expiresAt = new Date(now().getTime() + SETUP_TOKEN_TTL_MS).toISOString();
         const tokenId = createSetupToken(deps.db, {
@@ -87,7 +78,10 @@ export function pairingLinkHandlers(deps: {
 }
 
 /** Audit hook for `startGateway({ onSetupToken })`: a token spent or refused at a connect. */
-export function auditSetupToken(audit: Pick<AuditLog, "append">) {
+export function auditSetupToken(
+  audit: Pick<AuditLog, "append">,
+  log?: { log(level: "warn", msg: string, fields?: Record<string, string>): void },
+) {
   return (event: SetupTokenEvent, peer: { transport: string; remoteAddress: string }): void => {
     const common = {
       deviceId: event.deviceId,
@@ -108,6 +102,13 @@ export function auditSetupToken(audit: Pick<AuditLog, "append">) {
               data: { ...common, reason: event.reason },
             },
       )
-      .catch(() => undefined);
+      .catch((err: unknown) => {
+        // A lost audit entry must not be silent. Never the token: only what happened to whom.
+        log?.log("warn", "pairing link audit entry could not be written", {
+          event: event.status,
+          deviceId: event.deviceId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      });
   };
 }

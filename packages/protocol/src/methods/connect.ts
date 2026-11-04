@@ -52,13 +52,6 @@ export const ConnectParams = Type.Object(
           "Per-launch secret from $PSYCHE_HOME/run/handshake.secret; enables loopback auto-pairing only without an Origin header",
       }),
     ),
-    setupToken: Type.Optional(
-      Type.String({
-        pattern: "^[A-Za-z0-9_-]{43}$",
-        description:
-          "The single-use token from a psyche-pair:v1 link (devices.pairing.createLink). It only marks the resulting pending request as expected via a pairing link: the owner still approves the device and its scopes. Refused (denied) when expired or already used; ignored for a device that is already paired",
-      }),
-    ),
   },
   { $id: "ConnectParams" },
 );
@@ -102,6 +95,13 @@ export const ConnectVerifyParams = Type.Object(
         pattern: "^[A-Za-z0-9_-]{43}$",
         description:
           "The Gateway identity key this client verified and pinned (base64url). When present the signature is over the v2 payload, which includes it, and the Gateway refuses the connect unless it is its own key. A client of a remote Gateway always sends it",
+      }),
+    ),
+    setupToken: Type.Optional(
+      Type.String({
+        pattern: "^[A-Za-z0-9_-]{43}$",
+        description:
+          "The single-use token from a psyche-pair:v1 link (devices.pairing.createLink). Sent only here, after the client verified the Gateway's identity key, and only together with gatewayKey: a token with no gatewayKey is denied unspent. It only marks the resulting pending request as expected via a pairing link: the owner still approves the device and its scopes. Refused (denied) when expired or already used; ignored for a device that is already paired",
       }),
     ),
   },

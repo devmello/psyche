@@ -259,7 +259,7 @@ export class Connection implements LiveConnection {
         }
         return this.#execute(def, method, params, identity, { ref, hash });
       },
-      def.transactional !== true,
+      def.transactional !== true && def.skipIdempotencyStore !== true,
     );
   }
 

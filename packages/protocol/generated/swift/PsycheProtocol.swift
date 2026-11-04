@@ -10046,11 +10046,6 @@ public struct ConnectParams: Codable, Sendable {
     /// base64url raw Ed25519 public key (32 bytes)
     public let publicKey: String
     public let role: ConnectRole
-    /// The single-use token from a psyche-pair:v1 link (devices.pairing.createLink). It only
-    /// marks the resulting pending request as expected via a pairing link: the owner still
-    /// approves the device and its scopes. Refused (denied) when expired or already used;
-    /// ignored for a device that is already paired
-    public let setupToken: String?
 
     public enum CodingKeys: String, CodingKey {
         case capabilities = "capabilities"
@@ -10062,10 +10057,9 @@ public struct ConnectParams: Codable, Sendable {
         case protocolVersion = "protocolVersion"
         case publicKey = "publicKey"
         case role = "role"
-        case setupToken = "setupToken"
     }
 
-    public init(capabilities: [NodeCapability]?, deviceFamily: String, deviceID: String, handshakeSecret: String?, name: String, platform: DevicePlatform, protocolVersion: ProtocolVersionRange, publicKey: String, role: ConnectRole, setupToken: String?) {
+    public init(capabilities: [NodeCapability]?, deviceFamily: String, deviceID: String, handshakeSecret: String?, name: String, platform: DevicePlatform, protocolVersion: ProtocolVersionRange, publicKey: String, role: ConnectRole) {
         self.capabilities = capabilities
         self.deviceFamily = deviceFamily
         self.deviceID = deviceID
@@ -10075,7 +10069,6 @@ public struct ConnectParams: Codable, Sendable {
         self.protocolVersion = protocolVersion
         self.publicKey = publicKey
         self.role = role
-        self.setupToken = setupToken
     }
 }
 
@@ -10174,18 +10167,27 @@ public struct ConnectVerifyParams: Codable, Sendable {
     public let gatewayKey: String?
     /// base64url, 32 random bytes
     public let nonce: String
+    /// The single-use token from a psyche-pair:v1 link (devices.pairing.createLink). Sent only
+    /// here, after the client verified the Gateway's identity key, and only together with
+    /// gatewayKey: a token with no gatewayKey is denied unspent. It only marks the resulting
+    /// pending request as expected via a pairing link: the owner still approves the device and
+    /// its scopes. Refused (denied) when expired or already used; ignored for a device that is
+    /// already paired
+    public let setupToken: String?
     /// base64url Ed25519 signature (64 bytes) over connectSigningPayload(...)
     public let signature: String
 
     public enum CodingKeys: String, CodingKey {
         case gatewayKey = "gatewayKey"
         case nonce = "nonce"
+        case setupToken = "setupToken"
         case signature = "signature"
     }
 
-    public init(gatewayKey: String?, nonce: String, signature: String) {
+    public init(gatewayKey: String?, nonce: String, setupToken: String?, signature: String) {
         self.gatewayKey = gatewayKey
         self.nonce = nonce
+        self.setupToken = setupToken
         self.signature = signature
     }
 }

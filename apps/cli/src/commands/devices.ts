@@ -25,6 +25,7 @@ interface PairingRequest {
   publicKeyFingerprint?: string;
   transport?: string;
   remoteAddress?: string;
+  viaPairingLink?: boolean;
 }
 
 function parseScopes(raw: string | undefined, admin: boolean): DeviceScope[] {
@@ -79,6 +80,7 @@ export const devicesCommands: CommandSpec[] = [
           status: "status",
           fingerprint: "publicKeyFingerprint",
           from: "remoteAddress",
+          link: "viaPairingLink",
           expires: "expiresAt",
         }),
       };

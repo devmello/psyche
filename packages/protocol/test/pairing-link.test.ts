@@ -79,8 +79,38 @@ describe("psyche-pair:v1 link", () => {
     expect(parsePairingLink(linkOf({ ...payload, spkiPins: ["x"] }))).toEqual(payload);
   });
 
-  it("allows http only to loopback", () => {
-    expect(pairingLinkOrigin("http://127.0.0.1:7979")).toBe("http://127.0.0.1:7979");
+  it("allows http only to exactly localhost, 127.0.0.1 and [::1]", () => {
+    for (const host of ["localhost", "127.0.0.1", "[::1]"]) {
+      expect(pairingLinkOrigin(`http://${host}:7979`)).toBe(`http://${host}:7979`);
+    }
+    for (const host of ["foo.localhost", "a.b.localhost", "localhost.example.com", "127.0.0.2"]) {
+      expect(() => pairingLinkOrigin(`http://${host}:7979`), host).toThrow();
+    }
+    // https needs no exemption for any of them.
+    expect(pairingLinkOrigin("https://foo.localhost")).toBe("https://foo.localhost");
+  });
+
+  it("refuses a host name that could hide or reshape the sentence it is shown in", () => {
+    const hidden = [
+      "a\u200Db", // zero-width joiner
+      "a\u200Eb", // left-to-right mark
+      "a\u2028b", // line separator
+      "a\u2029b", // paragraph separator
+      "a\u0085b", // C1 control
+      "a\u00ADb", // soft hyphen
+      "a\u115Fb", // Hangul filler
+      "a\u3164b", // Hangul filler
+      "a\u{E0041}b", // tag character
+      "a\u2066b", // isolate
+    ];
+    for (const hostName of hidden) {
+      expect(() => encodePairingLink({ ...payload, hostName }), JSON.stringify(hostName)).toThrow();
+      expect(() => parsePairingLink(linkOf({ ...payload, hostName }))).toThrow();
+    }
+    expect(encodePairingLink({ ...payload, hostName: "Café 日本" })).toBeTruthy();
+  });
+
+  it("normalizes the origin", () => {
     expect(pairingLinkOrigin("https://Studio-Mac.local:7979/")).toBe(
       "https://studio-mac.local:7979",
     );

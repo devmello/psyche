@@ -181,11 +181,11 @@ This is the same design as [mobile companion §2.2 step 4](mobile-companion-2026
 
 1. On the Host, or any admin device, go to Settings → Devices → **Add phone or computer** (`devices.pairing.createLink`, built in R2). It shows a pairing link, `psyche-pair:v1:<base64url {gatewayUrl, gatewayIdentityKey, setupToken, hostName}>`, with **Copy** and a QR code (the QR is for the phone; the same payload works for both).
    - The setup token is single-use, lasts 10 minutes, and is the bootstrap token that security §10 already specifies.
-   - It is stored hashed, spent by the first connect that presents it (`connect.setupToken`) and refused after 10 minutes or a second use. Creation, use and refusal are audited (`pairing_link.created`, `.used`, `.refused`), never with the token.
+   - It is stored hashed, spent by the first `connect.verify` that presents it (`setupToken`, sent only after the Client verified and pinned the Gateway's key, and only together with `gatewayKey`) and refused after 10 minutes or a second use. An admin has one outstanding link: a new one ends the earlier unused one, and revoking the admin deletes it. Creation, use and refusal are audited (`pairing_link.created`, `.used`, `.refused`), never with the token.
    - The link is text, never a URL: it has no `https:` form, the app reads it only from its own field or scanner, and the address in it is checked by the same rules as a typed one.
    - The link holds no long-lived secret. If someone sees it, they can only create a pairing request the owner must still approve, and only within 10 minutes.
 2. On the Client, paste the link into Add a Gateway. The app shows "Connect to **studio-mac** (`studio-mac.tailnet.ts.net`)?".
-3. The Client makes a new device key for this Gateway, connects and gets `pending`. The setup token marks the request as expected (`PairingRequest.viaPairingLink`; the card says "expected via pairing link"). It grants nothing: the owner still chooses the scopes. The link's identity key is the Client's pin from the start, so the first connect trusts nothing on first use.
+3. The Client makes a new device key for this Gateway, connects and gets `pending`. The setup token marks the request as expected (the structured `PairingRequest.viaPairingLink`; the card says "expected via pairing link", and the free-text name is never trusted for it). It grants nothing: the owner still chooses the scopes. The link's identity key is the Client's pin from the start, so the first connect trusts nothing on first use.
 4. The Host shows the request in its approval card, on every admin device, with:
    - the Client's name ("Psyche Desktop (ThinkPad)") and platform (`windows`);
    - the tailnet address;

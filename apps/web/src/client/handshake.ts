@@ -13,7 +13,10 @@ export interface ConnectParams {
   name: string;
   capabilities?: unknown[];
   handshakeSecret?: string;
-  /** A pairing link's single-use setup token (remote desktops only); see `connect.setupToken`. */
+  /**
+   * A pairing link's single-use setup token (remote desktops only). Never sent in `connect`: the
+   * handshake adds it to `connect.verify`, and only once the Gateway's key has been verified.
+   */
   setupToken?: string;
 }
 
@@ -85,7 +88,9 @@ export class Handshake {
 
   start(): ReqFrame {
     this.stage = "started";
-    return reqFrame("connect", "connect", this.params);
+    // The token stays out of the first frame: it is sent only after the Gateway proved its key.
+    const { setupToken: _held, ...wire } = this.params;
+    return reqFrame("connect", "connect", wire);
   }
 
   async onFrame(frame: Frame): Promise<HandshakeStep> {
@@ -169,6 +174,9 @@ export class Handshake {
           nonce,
           signature,
           ...(verifiedKey === undefined ? {} : { gatewayKey: verifiedKey }),
+          ...(verifiedKey !== undefined && this.params.setupToken !== undefined
+            ? { setupToken: this.params.setupToken }
+            : {}),
         }),
       };
     }
