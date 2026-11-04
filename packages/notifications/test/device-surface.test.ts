@@ -94,6 +94,19 @@ describe("device notifications", () => {
     expect(JSON.stringify(toast)).not.toMatch(/"actions"|"Approve"|"Deny"/);
   });
 
+  it("keep device ids out of what other clients see, and out of the delivered map", async () => {
+    const { notifier } = setup();
+    const n = await notifier.notify({ kind: "task_done", title: "Done", body: "" });
+    const stored = (await notifier.get(n.id)) as typeof n;
+    for (const view of [n, stored]) {
+      expect(view.surfaces.some((s) => s.startsWith("device:"))).toBe(false);
+      expect(Object.keys(view.delivered).some((s) => s.startsWith("device:"))).toBe(false);
+    }
+    // The delivery itself is still tracked, server-side.
+    const record = (await notifier.deliveries(n.id)).find((d) => d.surface === "device:dev_a");
+    expect(record?.status).toBe("delivered");
+  });
+
   it("defer a passive toast during quiet hours and deliver it after", async () => {
     const { notifier, sent, clock } = setup({ quiet: true });
     clock.set(Date.UTC(2026, 9, 19, 6)); // 23:00 local

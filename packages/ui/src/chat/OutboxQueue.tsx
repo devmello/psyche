@@ -1,6 +1,6 @@
 import { Clock, X } from "lucide-react";
 import type { ReactElement } from "react";
-import type { OutboxItem } from "../data/outbox.ts";
+import { type OutboxItem, outboxItemIsStale } from "../data/outbox.ts";
 import { t } from "../i18n/core.ts";
 
 /**
@@ -10,9 +10,12 @@ import { t } from "../i18n/core.ts";
 export function OutboxQueue({
   items,
   onRemove,
+  onSendNow,
 }: {
   items: readonly OutboxItem[];
   onRemove: (key: string) => void;
+  /** Sends a message that waited a day, which asks first. */
+  onSendNow?: (key: string) => void;
 }): ReactElement | null {
   if (items.length === 0) return null;
   return (
@@ -29,6 +32,18 @@ export function OutboxQueue({
           <Clock className="size-3.5 shrink-0 text-label-secondary" aria-hidden="true" />
           <span className="shrink-0 text-label-secondary">{t("chat.outbox.waiting")}</span>
           <span className="truncate">{t("chat.quote.text", { text: item.params.content })}</span>
+          {onSendNow && outboxItemIsStale(item) ? (
+            <>
+              <span className="shrink-0 text-label-secondary">{t("chat.outbox.old")}</span>
+              <button
+                type="button"
+                onClick={() => onSendNow(item.key)}
+                className="cursor-default rounded-sm px-1 text-accent-11 hover:bg-fill-tertiary"
+              >
+                {t("chat.outbox.sendNow")}
+              </button>
+            </>
+          ) : null}
           <button
             type="button"
             onClick={() => onRemove(item.key)}

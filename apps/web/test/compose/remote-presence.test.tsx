@@ -25,6 +25,7 @@ afterEach(cleanup);
 function platform(opts: {
   calls: Record<string, (p: unknown) => unknown>;
   withPasskeys?: boolean;
+  created?: () => void;
 }): ShellPlatform & { seen: string[] } {
   const seen: string[] = [];
   return {
@@ -49,7 +50,10 @@ function platform(opts: {
           passkeys: {
             deviceId: async () => "dev-1",
             authenticator: {
-              create: async () => ({ id: "cred" }),
+              create: async () => {
+                opts.created?.();
+                return { id: "cred" };
+              },
               get: async () => ({ id: "cred" }),
             },
           },
@@ -102,7 +106,9 @@ describe("RemotePresencePanel", () => {
       return { passkey: { id: "pk1" } };
     });
     let list: unknown[] = [];
+    const created = vi.fn();
     const p = platform({
+      created,
       calls: {
         "passkeys.list": () => ({ passkeys: list }),
         "passkeys.reauth.begin": () => {
@@ -129,6 +135,9 @@ describe("RemotePresencePanel", () => {
       expect(screen.getByTestId("remote-presence-state").textContent).toContain("is on"),
     );
     expect(finish).toHaveBeenCalledTimes(2);
+    // The second press finished the same registration: one credential made, one ceremony begun.
+    expect(created).toHaveBeenCalledTimes(1);
+    expect(p.seen.filter((m) => m === "passkeys.register.begin")).toHaveLength(1);
   });
 
   it("says so when the Host's Gateway has no https address", async () => {

@@ -856,7 +856,11 @@ export function ChatThread({
                   {...(view.thread ? { mode: view.thread.thread.permissionMode } : {})}
                   {...(now === undefined ? {} : { now })}
                 />
-                <OutboxQueue items={outbox.waiting} onRemove={outbox.remove} />
+                <OutboxQueue
+                  items={outbox.waiting}
+                  onRemove={outbox.remove}
+                  onSendNow={outbox.sendNow}
+                />
                 <FollowUpQueue
                   items={view.queue}
                   onRemove={view.removeQueued}

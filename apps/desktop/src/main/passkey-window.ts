@@ -44,17 +44,25 @@ export function createPasskeyWindow(origin: string): WebAuthnWindow {
   });
   const contents = win.webContents;
   contents.setWindowOpenHandler(() => ({ action: "deny" }));
-  for (const ev of ["will-navigate", "will-redirect", "will-frame-navigate"] as const) {
-    contents.on(ev, (event: { url: string; preventDefault(): void }) => {
-      if (event.url !== pageUrl) event.preventDefault();
-    });
-  }
+  contents.on("will-navigate", (e) => {
+    if (e.url !== pageUrl) e.preventDefault();
+  });
+  contents.on("will-redirect", (e) => {
+    if (e.url !== pageUrl) e.preventDefault();
+  });
+  contents.on("will-frame-navigate", (e) => {
+    if (e.url !== pageUrl) e.preventDefault();
+  });
   return {
     load: (url) => contents.loadURL(url),
     currentUrl: () => contents.getURL(),
     // `true`: the call counts as a user gesture, which the platform authenticator requires.
     run: (script) =>
-      contents.executeJavaScriptInIsolatedWorld(WORLD_ID, [{ code: script }], true) as Promise<unknown>,
+      contents.executeJavaScriptInIsolatedWorld(
+        WORLD_ID,
+        [{ code: script }],
+        true,
+      ) as Promise<unknown>,
     close: () => {
       if (!win.isDestroyed()) win.destroy();
     },

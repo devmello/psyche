@@ -4,6 +4,8 @@ import {
   type ConnectionState,
   type GatewayClient,
   GatewayRequestError,
+  OUTBOX_MAX_FAILURES,
+  OUTBOX_STALE_MS,
   type OutboxItem,
   type OutboxStorage,
 } from "../src/data/index.ts";
@@ -152,6 +154,99 @@ describe("ChatOutbox", () => {
     expect(o.remove(item.key)).toBe(false);
     expect(o.items()).toEqual([]);
     expect(notified).toBe(2);
+  });
+});
+
+describe("ChatOutbox across windows, retries, age and owner", () => {
+  it("two windows over one store never overwrite each other's messages", () => {
+    const storage = memoryStorage();
+    const a = new ChatOutbox(storage);
+    const b = new ChatOutbox(storage);
+    a.enqueue({ threadId: "t", content: "from a" });
+    b.enqueue({ threadId: "t", content: "from b" });
+    expect(a.items().map((i) => i.params.content)).toEqual(["from a", "from b"]);
+    const first = a.items()[0];
+    b.remove(first?.key as string);
+    expect(a.items().map((i) => i.params.content)).toEqual(["from b"]);
+    // A's list was stale in memory terms; its next write still keeps B's message.
+    a.enqueue({ threadId: "t", content: "again a" });
+    expect(b.items().map((i) => i.params.content)).toEqual(["from b", "again a"]);
+  });
+
+  it("tells subscribers when another window changed the store", () => {
+    const listeners: (() => void)[] = [];
+    const storage: OutboxStorage = {
+      ...memoryStorage(),
+      onChange: (_k, cb) => {
+        listeners.push(cb);
+        return () => undefined;
+      },
+    };
+    const o = new ChatOutbox(storage);
+    let heard = 0;
+    o.subscribe(() => {
+      heard += 1;
+    });
+    for (const l of listeners) l();
+    expect(heard).toBe(1);
+  });
+
+  it("gives up on a message the Gateway keeps failing, but never for a lost connection", async () => {
+    const o = new ChatOutbox(memoryStorage());
+    o.enqueue({ threadId: "t", content: "stuck" });
+    const internal = async () => {
+      throw new GatewayRequestError("chat.send", "internal", "boom");
+    };
+    for (let i = 0; i < OUTBOX_MAX_FAILURES - 1; i++) {
+      expect(await o.flush(internal)).toMatchObject({ blocked: true, dropped: [] });
+    }
+    const last = await o.flush(internal);
+    expect(last.dropped).toHaveLength(1);
+    expect(o.items()).toEqual([]);
+
+    o.enqueue({ threadId: "t", content: "offline" });
+    for (let i = 0; i < OUTBOX_MAX_FAILURES * 2; i++) {
+      expect(await o.flush(async () => Promise.reject(unavailable()))).toMatchObject({
+        blocked: true,
+      });
+    }
+    expect(o.items()).toHaveLength(1);
+  });
+
+  it("asks before sending a message that waited more than a day", async () => {
+    let now = Date.parse("2026-11-04T10:00:00Z");
+    const o = new ChatOutbox(memoryStorage(), {
+      now: () => new Date(now).toISOString(),
+      nowMs: () => now,
+    });
+    const item = o.enqueue({ threadId: "t", content: "old news" });
+    now += OUTBOX_STALE_MS + 1;
+    const sent: string[] = [];
+    const send = async (i: OutboxItem) => void sent.push(i.params.content);
+    expect(await o.flush(send)).toMatchObject({ sent: 0, blocked: true, stale: { key: item.key } });
+    expect(sent).toEqual([]);
+    o.confirm(item.key);
+    expect(await o.flush(send)).toMatchObject({ sent: 1 });
+    expect(sent).toEqual(["old news"]);
+  });
+
+  it("holds sends until it knows whose messages these are, and drops another device's", async () => {
+    const storage = memoryStorage();
+    const first = new ChatOutbox(storage, { requireOwner: true });
+    first.enqueue({ threadId: "t", content: "hi" });
+    const sent: string[] = [];
+    const send = async (i: OutboxItem) => void sent.push(i.params.content);
+    expect(await first.flush(send)).toMatchObject({ blocked: true });
+    first.bindOwner("dev-1");
+    expect(await first.flush(send)).toMatchObject({ sent: 1 });
+
+    // The owner forgets the Gateway and pairs again: a new device id.
+    first.enqueue({ threadId: "t", content: "queued as the old device" });
+    const again = new ChatOutbox(storage, { requireOwner: true });
+    again.bindOwner("dev-2");
+    expect(again.items()).toEqual([]);
+    expect(await again.flush(send)).toMatchObject({ sent: 0 });
+    expect(sent).toEqual(["hi"]);
   });
 });
 

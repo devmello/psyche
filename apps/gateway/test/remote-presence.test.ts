@@ -67,10 +67,10 @@ async function registerPasskey(r: Remote, auth: SoftAuthenticator): Promise<void
 async function card(
   c: ComposedGateway,
   r: Remote,
-  kind: "purchase" | "file_write",
+  kind: "purchase" | "file_write" | "exec_host",
   tag: string,
 ): Promise<{ approval: ApprovalRequest; token: string }> {
-  const risky = kind === "purchase";
+  const risky = kind !== "file_write";
   const hash = tag.repeat(64).slice(0, 64);
   const issued = await c.gateway.context.broker.requestApproval({
     kind,
@@ -81,7 +81,7 @@ async function card(
     requestedBy: { runId: null, taskId: null, threadId: null },
     sideEffect: risky ? "financial" : "write",
     surfaces: ["desktop", "web"],
-    scopesOffered: ["once"],
+    scopesOffered: kind === "exec_host" ? ["once", "always"] : ["once"],
     taint: false,
   });
   const got = await r.client.call<{ approval: ApprovalRequest; answerToken?: string }>(
@@ -96,8 +96,9 @@ function assertion(
   auth: SoftAuthenticator,
   deviceId: string,
   c: { approval: ApprovalRequest; token: string },
+  scope?: string,
 ) {
-  const challenge = presenceChallenge(c.approval.id, c.approval.bindingHash, c.token);
+  const challenge = presenceChallenge(c.approval.id, c.approval.bindingHash, c.token, scope);
   const a = auth.get(webauthnChallengeFor(challenge));
   return {
     kind: "webauthn" as const,
@@ -115,12 +116,13 @@ const answer = (
   r: Remote,
   c: { approval: ApprovalRequest; token: string },
   presence?: ReturnType<typeof assertion>,
+  scope = "once",
 ) =>
   r.client.request("approvals.answer", {
     approvalId: c.approval.id,
     answerToken: c.token,
     decision: "approve",
-    scope: "once",
+    scope,
     ...(presence ? { presence } : {}),
   });
 
@@ -206,5 +208,18 @@ describe("presence from a remote client", () => {
     expect(await answer(withKey, third, assertion(authA, withKey.deviceId, third))).toMatchObject({
       ok: true,
     });
+  });
+
+  it("binds a wider scope into the challenge: Touch ID for once is not an always", async () => {
+    const { c, withKey, authA } = await setup();
+    const wide = await card(c, withKey, "exec_host", "f");
+    expect(wide.approval.scopesOffered).toContain("always");
+    const forOnce = assertion(authA, withKey.deviceId, wide);
+    expect(await answer(withKey, wide, forOnce, "always")).toMatchObject({
+      ok: false,
+      error: { details: { reason: "presence_invalid" } },
+    });
+    const forSite = assertion(authA, withKey.deviceId, wide, "always");
+    expect(await answer(withKey, wide, forSite, "always")).toMatchObject({ ok: true });
   });
 });

@@ -241,7 +241,6 @@ let screenAsk: ScreenAskWindow | undefined;
 let screenAskShortcut: ScreenAskShortcut | undefined;
 let dictation: DictationService | undefined;
 const relay = new NotificationRelay();
-relay.remote = remoteGateway;
 const zoom = new ZoomController({
   targets: () => windows?.appContents() ?? [],
   call: (method, params) => requireGateway().call(method, params),
@@ -1259,9 +1258,17 @@ void app.whenReady().then(async () => {
       if (s.phase === "paired") gateways.markConnected();
       // The Host sends this connection OS notifications only once it asks (R2); per connection.
       if (s.phase === "paired" && remoteGateway) {
-        void gateway
-          ?.call("notifications.device.register", { enabled: true })
-          .catch((err: unknown) => console.warn(`[notify] could not register: ${String(err)}`));
+        void gateway?.call("notifications.device.register", { enabled: true }).then(
+          // Only now does the Host route toasts here, so only now does the fallback go quiet:
+          // an older Host without the method keeps the in-app fallback.
+          () => {
+            relay.remote = true;
+          },
+          (err: unknown) => {
+            relay.remote = false;
+            console.warn(`[notify] could not register: ${String(err)}`);
+          },
+        );
       }
     },
     onEvent: onGatewayEvent,

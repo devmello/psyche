@@ -812,7 +812,7 @@ export async function answerApproval(
   }
   const presence =
     decision === "approve" && approval?.requiresAuthentication && store.client.presence
-      ? await store.client.presence(approval, token)
+      ? await store.client.presence(approval, token, scope)
       : undefined;
   return store.mutate({
     run: () =>
@@ -849,6 +849,8 @@ export async function answerApproval(
 export function useOutbox(threadId: string | null): {
   waiting: readonly OutboxItem[];
   remove: (key: string) => void;
+  /** "Send now" for a message that waited a day. */
+  sendNow: (key: string) => void;
   enabled: boolean;
 } {
   const store = useStore();
@@ -863,7 +865,8 @@ export function useOutbox(threadId: string | null): {
     return outbox?.subscribe(() => setWaiting(read()));
   }, [outbox, read]);
   const remove = useCallback((key: string) => void outbox?.remove(key), [outbox]);
-  return { waiting, remove, enabled: outbox !== undefined };
+  const sendNow = useCallback((key: string) => void store.confirmOutbox(key), [store]);
+  return { waiting, remove, sendNow, enabled: outbox !== undefined };
 }
 
 const EMPTY_OUTBOX: readonly OutboxItem[] = [];

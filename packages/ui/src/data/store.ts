@@ -100,8 +100,22 @@ export class GatewayStore {
     if (this.unsubscribe.length > 0) return;
     this.unsubscribe.push(this.client.subscribe((e) => this.onEvent(e)));
     this.unsubscribe.push(this.client.onConnectionState((s) => this.onConnection(s)));
-    // Messages left from an earlier session go out as soon as there is a connection.
+    // Messages left from an earlier session go out as soon as there is a connection (and, in a
+    // remote window, once the outbox knows whose they are).
+    if (this.outbox !== undefined) {
+      this.unsubscribe.push(
+        this.outbox.subscribe(() => {
+          if (this.client.connectionState() === "open") void this.flushOutbox();
+        }),
+      );
+    }
     if (this.client.connectionState() === "open") void this.flushOutbox();
+  }
+
+  /** The owner's "Send now" for a message that waited a day: confirms it, then sends. */
+  async confirmOutbox(key: string): Promise<void> {
+    this.outbox?.confirm(key);
+    await this.flushOutbox();
   }
 
   /**

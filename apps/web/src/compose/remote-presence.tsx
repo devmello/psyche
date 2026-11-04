@@ -1,6 +1,6 @@
 import type { PasskeyInfo } from "@psyche/protocol";
 import { t } from "@psyche/ui";
-import { type ReactElement, useCallback, useEffect, useId, useMemo, useState } from "react";
+import { type ReactElement, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { notifyPasskeysChanged, onPasskeysChanged } from "../lib/passkey-state.ts";
 import { type PasskeyCall, passkeyErrorText, reauthenticate } from "../lib/webauthn.ts";
 import type { ShellPlatform } from "../shell/platform.ts";
@@ -71,9 +71,14 @@ export function RemotePresencePanel({ platform }: { platform: ShellPlatform }): 
   const [state, setState] = useState<State>({ kind: "loading" });
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
-  // The first passkey of a device is approved on the Host (or another device with Touch ID),
-  // then added again with that approval.
-  const [approvalId, setApprovalId] = useState<string | null>(null);
+  // The first passkey of a device is approved on the Host (or another device with Touch ID). The
+  // credential made for it is kept, and the next press finishes the same registration with that
+  // approval, so waiting for the Host leaves no stray passkey behind.
+  const pendingRegistration = useRef<{
+    ceremonyId: string;
+    response: Record<string, unknown>;
+    approvalId: string;
+  } | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -100,26 +105,38 @@ export function RemotePresencePanel({ platform }: { platform: ShellPlatform }): 
     setBusy(true);
     setNotice(null);
     try {
-      const begin = (await call(platform)("passkeys.register.begin", {})) as {
-        ceremonyId: string;
-        options: Record<string, unknown>;
-      };
-      const response = await passkeys.authenticator.create(begin.options);
+      const kept = pendingRegistration.current;
+      let ceremonyId: string;
+      let response: Record<string, unknown>;
+      if (kept) {
+        ({ ceremonyId, response } = kept);
+      } else {
+        const begin = (await call(platform)("passkeys.register.begin", {})) as {
+          ceremonyId: string;
+          options: Record<string, unknown>;
+        };
+        ceremonyId = begin.ceremonyId;
+        response = await passkeys.authenticator.create(begin.options);
+      }
       try {
         await call(platform)("passkeys.register.finish", {
-          ceremonyId: begin.ceremonyId,
+          ceremonyId,
           response,
           name: t("web.remotePresence.passkeyName"),
-          ...(approvalId ? { approvalId } : {}),
+          ...(kept ? { approvalId: kept.approvalId } : {}),
         });
       } catch (err) {
         const pending = codeOf(err) === "approval_required" ? approvalOf(err) : null;
-        if (pending === null) throw err;
-        setApprovalId(pending);
+        if (pending === null) {
+          // The Host forgot the ceremony (it lasts a few minutes): start over on the next press.
+          pendingRegistration.current = null;
+          throw err;
+        }
+        pendingRegistration.current = { ceremonyId, response, approvalId: pending };
         setNotice({ kind: "ok", text: t("web.remotePresence.approveOnHost", { host }) });
         return;
       }
-      setApprovalId(null);
+      pendingRegistration.current = null;
       setNotice({ kind: "ok", text: t("web.remotePresence.enabled") });
       notifyPasskeysChanged();
     } catch (err) {

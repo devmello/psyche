@@ -13,7 +13,7 @@ import { monotonicFactory } from "ulid";
 import { interruptionFor, planDelivery, type RoutingConfig, resolveSurfaces } from "./routing.ts";
 import { MemoryNotificationStore, type NotificationStore } from "./store.ts";
 import type { DeliveryContext, DeliveryOutcome, SurfaceAdapter } from "./surfaces.ts";
-import type { DeliveryRecord, StoredNotification } from "./types.ts";
+import { type DeliveryRecord, type StoredNotification, surfaceClass } from "./types.ts";
 
 export interface NotifierOptions {
   store?: NotificationStore;
@@ -207,7 +207,8 @@ export class PsycheNotifier implements Notifier {
         approvalId: input.approvalId ?? null,
         route: input.route ?? null,
         actions: structuredClone(input.actions ?? []),
-        surfaces,
+        // `device:<id>` stays server-side: it names one client's device and no other client needs it.
+        surfaces: surfaces.filter((s) => surfaceClass(s) !== "device"),
         delivered: {},
         readAt: null,
         resolvedAt: null,
@@ -522,7 +523,7 @@ export class PsycheNotifier implements Notifier {
           detail: null,
         });
         const fresh = this.#store.get(d.notificationId);
-        if (fresh !== undefined) {
+        if (fresh !== undefined && surfaceClass(d.surface) !== "device") {
           fresh.notification.delivered[d.surface] = at;
           this.#store.update(fresh);
         }

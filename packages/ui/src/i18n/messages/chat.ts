@@ -10,6 +10,8 @@ export const chat = {
     "Can't reach the Gateway right now. Messages you send wait here and go out when it's back.",
   "chat.outbox.list": "Messages waiting to send",
   "chat.outbox.waiting": "Waiting:",
+  "chat.outbox.old": "(over a day old)",
+  "chat.outbox.sendNow": "Send now",
   "chat.outbox.remove": 'Don\'t send "{content}"',
 
   "chat.export.label": "Export thread",

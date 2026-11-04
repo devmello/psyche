@@ -42,7 +42,12 @@ export interface GatewayClient {
    * web client's passkey assertion over the approval's presence challenge. Hosts without one omit
    * it, and the Gateway refuses such an approval from them with `presence_required`.
    */
-  presence?(approval: ApprovalRequest, answerToken: string): Promise<PresenceAssertion>;
+  presence?(
+    approval: ApprovalRequest,
+    answerToken: string,
+    /** The scope the card is answered with; a scope wider than `once` is bound into the challenge. */
+    scope?: string,
+  ): Promise<PresenceAssertion>;
   /**
    * The desktop window: it holds no key, so approving a card that requires authentication goes
    * through `approvals.approveWithTouchId` (once), where the Mac helper runs Touch ID and signs
