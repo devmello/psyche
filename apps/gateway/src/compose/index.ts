@@ -42,6 +42,7 @@ import {
   type ModelRouterConfig,
 } from "@psyche/model-router";
 import {
+  createDeviceSurface,
   createNotificationHandlers,
   PsycheNotifier,
   SqliteNotificationStore,
@@ -123,6 +124,7 @@ import { composeComputer } from "./computer.ts";
 import { CONNECTOR_MATRIX_PREFIX } from "./connector-matrix.ts";
 import { createContext } from "./context.ts";
 import { composeConversion } from "./convert.ts";
+import { composeDeviceNotifications, DeviceNotifications } from "./device-notify.ts";
 import { composeDictation } from "./dictation.ts";
 import { composeEverything, type Everything, everythingSettings } from "./everything.ts";
 import { type ExecHostDeps, execHostTool } from "./exec-host.ts";
@@ -536,12 +538,17 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       })
       .catch(() => undefined);
   }
+  // Remote desktop clients' own OS notifications (`device:<deviceId>`, remote Gateway R2).
+  const deviceNotes = new DeviceNotifications();
+  const ownerRouting = notifierRouting(db);
   const notifier = new PsycheNotifier({
     // Tables come from @psyche/db's migration ledger (202610190200_notifications_init).
     store: new SqliteNotificationStore(db.sqlite),
     clock,
     // Quiet hours (#953): a getter, so a change in Settings applies to the next notification.
-    routing: notifierRouting(db),
+    // The connected clients that opted in are read per notification, so a reconnect applies.
+    routing: () => ({ ...ownerRouting(), deviceTargets: deviceNotes.targets() }),
+    adapters: [createDeviceSurface({ send: (id, toast) => deviceNotes.send(id, toast) })],
   });
   // The old "Files on this Mac" connector is File access now: move its folder into the grants.
   migrateFilesConnector(db, config.home);
@@ -991,6 +998,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     skills.part,
     composeSpeech(speechSetup ?? speechSetupFromEnv(gwOptions.env)),
     composeDictation(),
+    composeDeviceNotifications(deviceNotes),
     composeScreenAsk(gwOptions.screenAsk),
     // Canvas artifacts (chat-experience-2026 §4.3): the version store and `artifact.*` tools.
     composeArtifacts,

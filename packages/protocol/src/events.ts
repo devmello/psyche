@@ -29,7 +29,15 @@ import { ApprovalRequest, Receipt } from "./schemas/permissions.ts";
 import { ResearchProgressEvent } from "./schemas/research.ts";
 import { RunStep } from "./schemas/runs.ts";
 import { SpecialistJob, SpecialistResult } from "./schemas/specialists.ts";
-import { Artifact, FeedPost, Goal, Idea, Notification, SettingEntry } from "./schemas/surfaces.ts";
+import {
+  Artifact,
+  FeedPost,
+  Goal,
+  Idea,
+  Notification,
+  NotificationKind,
+  SettingEntry,
+} from "./schemas/surfaces.ts";
 import { InputRequest, Task, TaskAction } from "./schemas/tasks.ts";
 import { Message, Run, RunBudget, Thread } from "./schemas/threads.ts";
 import { ToolCall } from "./schemas/tools.ts";
@@ -207,6 +215,19 @@ export const Events = {
   "notification.created": defineEvent({
     payload: Type.Object({ notification: Notification }),
     description: "A notification was created for the in-app inbox.",
+  }),
+  "notification.device": defineEvent({
+    payload: Type.Object({
+      id: Id,
+      kind: NotificationKind,
+      title: Type.String(),
+      body: Type.String(),
+      route: Nullable(Type.String()),
+      interruption: StringEnum(["passive", "active", "timeSensitive"]),
+      createdAt: Type.String(),
+    }),
+    description:
+      "An OS notification for this connected remote desktop client (`device:<deviceId>` surface). Sent only to a connection that registered with `notifications.device.register`, to that device alone. It carries no action buttons: opening it opens the card, and approving happens in the card.",
   }),
   "notification.opened": defineEvent({
     payload: Type.Object({ notificationId: Id, route: Type.String() }),
