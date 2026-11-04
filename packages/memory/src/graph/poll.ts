@@ -43,6 +43,10 @@ export interface GraphPollOptions {
   enabled: Partial<Record<GraphSource, boolean>>;
   ownerEmails?: string[];
   ownerPhones?: string[];
+  /** The owner's name: when set, the owner card is ensured with the identities found here. */
+  ownerName?: string;
+  /** An owner identifier left on someone else's card because the owner linked it there. */
+  onOwnerConflict?: (kind: "email" | "phone", value: string) => void;
   clock?: Clock;
   signal?: AbortSignal;
 }
@@ -80,6 +84,15 @@ export async function runGraphPoll(
     for (const e of own?.emails ?? []) emails.add(e);
     for (const p of own?.phones ?? []) phones.add(p);
   }
+  if (options.ownerName !== undefined)
+    graph.ensureOwnerEntity({
+      name: options.ownerName,
+      ...(options.onOwnerConflict === undefined ? {} : { onConflict: options.onOwnerConflict }),
+      identifiers: [
+        ...[...emails].map((value) => ({ kind: "email" as const, value })),
+        ...[...phones].map((value) => ({ kind: "phone" as const, value })),
+      ],
+    });
   const ingest = new GraphIngester(graph, {
     ownerEmails: [...emails],
     ownerPhones: [...phones],

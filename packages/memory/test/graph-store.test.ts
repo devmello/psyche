@@ -90,6 +90,103 @@ describe("entities and identifiers", () => {
     expect(g.resolveIdentifier("email", "lees@gmail.com")).toBeUndefined();
   });
 
+  describe("ensureOwnerEntity", () => {
+    const own = [
+      { kind: "email" as const, value: "Pat@Home.com" },
+      { kind: "phone" as const, value: "(415) 555-0100" },
+    ];
+
+    it("gives a fresh graph one owner card holding the owner's identifiers", () => {
+      expect(g.ownerEntity()).toBeUndefined();
+      const owner = g.ensureOwnerEntity({ name: "Pat Kim", identifiers: own });
+      expect(owner).toMatchObject({ name: "Pat Kim", isOwner: true, kind: "person" });
+      expect(g.ownerEntity()?.id).toBe(owner.id);
+      expect(g.resolveIdentifier("email", "pat@home.com")).toBe(owner.id);
+      expect(g.resolveIdentifier("phone", "+14155550100")).toBe(owner.id);
+      expect(g.identifiers(owner.id).every((i) => i.linkedBy === "owner")).toBe(true);
+    });
+
+    it("is idempotent: no second card, no rename, new identifiers still link", () => {
+      const first = g.ensureOwnerEntity({ name: "Pat Kim", identifiers: own });
+      const again = g.ensureOwnerEntity({ name: "Someone Else", identifiers: own });
+      expect(again.id).toBe(first.id);
+      expect(g.listEntities(["person"])).toHaveLength(1);
+      expect(g.ownerEntity()?.name).toBe("Pat Kim");
+      g.ensureOwnerEntity({
+        name: "Pat Kim",
+        identifiers: [{ kind: "email", value: "pat@work.com" }],
+      });
+      expect(g.resolveIdentifier("email", "pat@work.com")).toBe(first.id);
+      expect(g.identifiers(first.id)).toHaveLength(3);
+    });
+
+    it("marks the one existing card that holds the owner's identifier as the owner, no duplicate", () => {
+      const contact = person("Patricia K", "pat@home.com");
+      const owner = g.ensureOwnerEntity({ name: "Pat Kim", identifiers: own });
+      expect(owner.id).toBe(contact.id);
+      expect(owner).toMatchObject({ name: "Patricia K", isOwner: true });
+      expect(g.resolveIdentifier("phone", "+14155550100")).toBe(contact.id);
+      expect(g.listEntities(["person"])).toHaveLength(1);
+    });
+
+    it("merges two existing cards holding the owner's emails into one owner card", () => {
+      const a = person("Pat K", "pat@home.com");
+      const b = person("Patrick Kim", "pat@work.com");
+      const other = person("Sam", "sam@x.io");
+      const owner = g.ensureOwnerEntity({
+        name: "Pat Kim",
+        identifiers: [...own, { kind: "email", value: "pat@work.com" }],
+      });
+      expect(owner.isOwner).toBe(true);
+      expect(owner.id).toBe(a.id);
+      expect(g.resolveIdentifier("email", "pat@work.com")).toBe(a.id);
+      expect(g.resolveIdentifier("phone", "+14155550100")).toBe(a.id);
+      expect(g.getEntity(a.id)?.aliases).toContain("Patrick Kim");
+      expect(g.resolveMerged(b.id)).toBe(a.id);
+      expect(g.getEntity(other.id)?.status).toBe("active");
+    });
+
+    it("leaves a card holding only a third party's claimed email untouched, and an owner-linked one", () => {
+      const claimed = person("Alex", "alex@x.io");
+      g.ensureOwnerEntity({ name: "Pat Kim", identifiers: own });
+      const mine = g.createEntity({
+        kind: "person",
+        name: "Casey",
+        identifiers: [{ kind: "email", value: "casey@x.io" }],
+        linkedBy: "owner",
+      });
+      const conflicts: string[] = [];
+      const owner = g.ensureOwnerEntity({
+        name: "Pat Kim",
+        identifiers: [...own, { kind: "email", value: "casey@x.io" }],
+        onConflict: (_k, v) => conflicts.push(v),
+      });
+      expect(owner.name).toBe("Pat Kim");
+      expect(g.resolveIdentifier("email", "alex@x.io")).toBe(claimed.id);
+      expect(g.getEntity(claimed.id)?.isOwner).toBe(false);
+      expect(g.resolveIdentifier("email", "casey@x.io")).toBe(mine.id);
+      expect(conflicts).toEqual(["casey@x.io"]);
+    });
+
+    it("changes nothing when run again", () => {
+      person("Pat K", "pat@home.com");
+      person("Patrick Kim", "pat@work.com");
+      const input = {
+        name: "Pat Kim",
+        identifiers: [...own, { kind: "email" as const, value: "pat@work.com" }],
+      };
+      g.ensureOwnerEntity(input);
+      const snap = () =>
+        JSON.stringify([
+          db.sqlite.prepare("SELECT * FROM graph_entities ORDER BY id").all(),
+          db.sqlite.prepare("SELECT * FROM graph_identifiers ORDER BY value_norm").all(),
+        ]);
+      const before = snap();
+      g.ensureOwnerEntity(input);
+      expect(snap()).toBe(before);
+    });
+  });
+
   it("keeps exactly one owner entity", () => {
     g.createEntity({ kind: "person", name: "Pat", isOwner: true });
     expect(code(() => g.createEntity({ kind: "person", name: "Pat 2", isOwner: true }))).toBe(

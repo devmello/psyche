@@ -25,6 +25,7 @@ import {
   createMemoryStore,
   ownerTimeZone,
   parseLearned,
+  readHeader,
   retireUnanswered,
   type SqliteMemoryStore,
 } from "@psyche/memory";
@@ -891,6 +892,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     model: utility ?? modelRef,
     publish: (event, payload) => publish(event, payload as never),
     register: (tool) => registry.register(tool),
+    ownerName: async () => readHeader((await memory.readFile("USER.md"))?.content ?? "").name,
     // Tests drive `people.poll()` by hand.
     ...(background ? {} : { pollIntervalMs: 0, afterRunDelayMs: 0 }),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
