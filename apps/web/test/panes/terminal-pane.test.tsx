@@ -100,6 +100,7 @@ describe("TerminalPane", () => {
       cwd: "~/workspace",
       cols: 80,
       rows: 24,
+      onWaiting: expect.any(Function),
     });
     expect(screen.getByText(opened.label)).toBeTruthy();
     expect(screen.getByRole("tab", { name: "shell 1" })).toBeTruthy();
@@ -115,6 +116,14 @@ describe("TerminalPane", () => {
     emitData("term_1", "file.txt\r\n");
     emitData("term_other", "not mine");
     expect(term?.written).toEqual(["file.txt\r\n"]);
+  });
+
+  it("says the session ended, not an exit code, when a Host session was cut off", async () => {
+    const { port, emitExit } = fakePort(opened);
+    render(<TerminalPane port={port} threadId="thr_1" />);
+    await flush();
+    act(() => emitExit("term_1", -1));
+    expect(screen.getByRole("status").textContent).toBe("session ended");
   });
 
   it("shows the exit code, keeps the terminal and stops input", async () => {
