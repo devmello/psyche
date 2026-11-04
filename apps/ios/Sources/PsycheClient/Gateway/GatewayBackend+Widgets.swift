@@ -4,20 +4,26 @@ import enum PsycheProtocol.JSONValue
 import PsycheWire
 
 // Generative-UI widgets over the Gateway: `widgets.get`, `widgets.list { pinned }`, `widgets.act`,
-// `widgets.image`. `widget.updated` events publish `.changed(.home)` (see EventMapper): the widget
-// views and Home's pinned list refetch on any change.
+// `widgets.image`. `widget.updated` publishes `.changed(.widgets)` and `.changed(.home)` (see EventMapper):
+// the widget views refetch (and re-resolve their bindings) and Home's pinned list reloads. Bindings are
+// resolved in GatewayBackend+WidgetBindings.swift.
 //
 // `JSONValue` here is the wire type; the widget model's own type is spelled `PsycheStore.JSONValue`.
 extension GatewayBackend {
     public func widget(id: String) async throws -> WidgetSnapshot {
         let result = try await call("widgets.get", .obj(["widgetIds": .array([.string(id)])]))
-        guard let wire = result["widgets"]?.array?.first, let snapshot = Self.snapshot(wire) else { throw BackendError.notFound }
+        guard let wire = result["widgets"]?.array?.first else { throw BackendError.notFound }
+        guard let snapshot = Self.snapshot(await resolvingBindings(wire)) else { throw BackendError.notFound }
         return snapshot
     }
 
     public func pinnedWidgets() async throws -> [WidgetSnapshot] {
         let result = try await call("widgets.list", .obj(["pinned": .bool(true)]))
-        return Array((result["widgets"]?.array ?? []).compactMap(Self.snapshot).prefix(6))
+        var out: [WidgetSnapshot] = []
+        for wire in (result["widgets"]?.array ?? []).prefix(6) {
+            if let snapshot = Self.snapshot(await resolvingBindings(wire)) { out.append(snapshot) }
+        }
+        return out
     }
 
     public func act(
@@ -79,7 +85,7 @@ extension GatewayBackend {
     // MARK: - Mapping
 
     /// A wire `Widget` as the snapshot the renderer draws. `spec.root` is decoded by the widget model's own
-    /// tolerant decoder. Resolved bindings are not on the wire, so a bound node shows its stored props.
+    /// tolerant decoder. Bindings are resolved before this (GatewayBackend+WidgetBindings.swift).
     static func snapshot(_ w: JSONValue) -> WidgetSnapshot? {
         guard let id = w["id"]?.string, let spec = w["spec"], let root = spec["root"], let title = spec["title"]?.string,
             let model = store(root)

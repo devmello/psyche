@@ -29,10 +29,16 @@ let base: string;
 let home: string;
 let db: PsycheDb;
 
+let emitted: Array<{ event: string; payload: unknown }> = [];
+
 const run = (method: string, params: unknown) => {
   const h = libraryHandlers({ db, home })[method];
   if (h === undefined) throw new Error(`no handler ${method}`);
-  return (async () => h.run({} as never, params as never))() as Promise<Record<string, unknown>>;
+  const call = {
+    identity: { deviceId: "dev_1" },
+    emit: (event: string, payload: unknown) => emitted.push({ event, payload }),
+  };
+  return (async () => h.run(call as never, params as never))() as Promise<Record<string, unknown>>;
 };
 
 const codeOf = async (p: Promise<unknown>): Promise<string> => {
@@ -63,6 +69,7 @@ beforeEach(async () => {
   home = join(base, "home");
   await mkdir(join(home, "library"), { recursive: true });
   db = openDb(":memory:");
+  emitted = [];
 });
 
 afterEach(async () => {
@@ -99,6 +106,36 @@ describe("library.list / library.get", () => {
     expect(out).toEqual(saved);
     expect(out.quarantined).toBe(true);
     expect(await codeOf(run("library.get", { itemId: "missing" }))).toBe("not_found");
+  });
+});
+
+describe("library.item.changed", () => {
+  it("is emitted when an item is uploaded or deleted, so other devices refetch", async () => {
+    const up = await run("library.upload", {
+      name: "notes.txt",
+      bytes: Buffer.from("hello").toString("base64"),
+      final: true,
+    });
+    const uploaded = up.item as LibraryItem;
+    expect(emitted).toEqual([
+      { event: "library.item.changed", payload: { itemId: uploaded.id, change: "created" } },
+    ]);
+
+    await run("library.delete", { itemId: uploaded.id });
+    expect(emitted.at(-1)).toEqual({
+      event: "library.item.changed",
+      payload: { itemId: uploaded.id, change: "deleted" },
+    });
+  });
+
+  it("does not announce a chunk that has not finished the upload, or a failed delete", async () => {
+    await run("library.upload", {
+      name: "big.bin",
+      bytes: Buffer.from("part").toString("base64"),
+      final: false,
+    });
+    expect(await codeOf(run("library.delete", { itemId: "missing" }))).toBe("not_found");
+    expect(emitted).toEqual([]);
   });
 });
 

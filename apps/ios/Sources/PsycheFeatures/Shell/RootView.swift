@@ -65,8 +65,8 @@ struct MainTabs: View {
             Text(title)
         } icon: {
             Image(systemName: router.tab == tab ? symbol + ".fill" : symbol)
-                .environment(\.symbolVariants, .none)
         }
+        .environment(\.symbolVariants, .none)
     }
 
     var body: some View {
@@ -105,6 +105,9 @@ struct MainTabs: View {
             }
         }
         .tabViewStyle(.sidebarAdaptable)
+        // The outline variant holds from the first frame: pinned on the TabView itself, so the tab bar never
+        // gets a first render in the system's automatic filled variant (seen right after pairing).
+        .environment(\.symbolVariants, .none)
         .tabViewSidebarHeader {
             HStack(spacing: 10) {
                 MothAvatar(size: 28)

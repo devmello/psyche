@@ -134,13 +134,18 @@ struct MemorySearchWidgetsTests {
         let seen = Calls()
         let (backend, _) = try await live { g in
             g.on("memory.loops.update") { req in seen.add("loop:\(req.params?["id"]?.stringValue ?? ""):\(req.params?["status"]?.stringValue ?? "")"); return .success(.object([:])) }
+            g.on("memory.entities.facts.set") { req in
+                seen.add("fact:\(req.params?["entityId"]?.stringValue ?? ""):\(req.params?["attribute"]?.stringValue ?? ""):\(req.params?["value"]?.stringValue ?? ""):\(req.params?["source"]?["kind"]?.stringValue ?? "")")
+                return .success(.object([:]))
+            }
             g.on("memory.catchup.act") { req in seen.add("act:\(req.params?["entityId"]?.stringValue ?? ""):\(req.params?["action"]?.stringValue ?? "")"); return .success(.object([:])) }
         }
         try await backend.setTodo(id: "loop_1", done: true)
         try await backend.setTodo(id: "loop_1", done: false)
         try await backend.setTodo(id: "ent_a1", done: true)
-        await #expect(throws: BackendError.refused("Reopen this on your Mac.")) { try await backend.setTodo(id: "ent_a1", done: false) }
-        #expect(seen.all == ["loop:loop_1:done", "loop:loop_1:open", "act:ent_a1:done"])
+        // Reopening an assignment is the desktop's own write: the owner's status fact.
+        try await backend.setTodo(id: "ent_a1", done: false)
+        #expect(seen.all == ["loop:loop_1:done", "loop:loop_1:open", "act:ent_a1:done", "fact:ent_a1:status:not_started:owner_edit"])
     }
 
     @Test func aPersonPageHoldsFactsAndRecentRows() async throws {
@@ -181,6 +186,9 @@ struct MemorySearchWidgetsTests {
                 .object(["scope": "library", "id": "library:lib_1", "title": "lease.pdf", "snippet": "rent due", "score": .number(1), "threadId": .null, "route": .null, "kind": "library"]),
                 .object(["scope": "people", "id": "entity:ent_pe1", "title": "Sam Ortiz", "snippet": "lives in Oakland", "score": .number(1), "threadId": .null, "route": .null, "kind": "person"]),
                 .object(["scope": "memory", "id": "memory:ent_a1", "title": "Pay rent", "snippet": "To-do: Pay rent", "score": .number(1), "threadId": .null, "route": .null, "kind": "memory"]),
+                .object(["scope": "projects", "id": "entity:ent_pr1", "title": "Thesis", "snippet": "chapter 4", "score": .number(1), "threadId": .null, "route": "/agent/soul?entity=ent_pr1", "kind": "project"]),
+                .object(["scope": "tasks", "id": "act_9", "title": "Book flights", "snippet": "searched", "score": .number(1), "threadId": "thr_3", "route": "/agent/activity/tsk_7", "kind": "task"]),
+                .object(["scope": "memory", "id": "memory:ent_pr2", "title": "Garden", "snippet": "Project: Garden", "score": .number(1), "threadId": .null, "route": .null, "kind": "memory"]),
                 .object(["scope": "memory", "id": "memory:notes", "title": "notes", "snippet": "a note", "score": .number(1), "threadId": .null, "route": .null, "kind": "memory"]),
             ])])) }
             g.on("memory.life.answer") { _ in .success(.object([
@@ -190,11 +198,15 @@ struct MemorySearchWidgetsTests {
         }
         let results = try await backend.search(query: "when is rent due?")
         #expect(results.answer?.text == "Rent is due on the 6th." && results.answer?.evidence == ["mail Jan 5"])
-        #expect(results.hits.map(\.group) == [.chatsAndFiles, .chatsAndFiles, .chatsAndFiles, .people, .todo, .chatsAndFiles])
+        #expect(results.hits.map(\.group) == [.chatsAndFiles, .chatsAndFiles, .chatsAndFiles, .people, .todo, .chatsAndFiles, .chatsAndFiles, .chatsAndFiles, .chatsAndFiles])
         #expect(results.hits[0].target == .chat(id: "thr_1") && results.hits[1].target == .chat(id: "thr_2"))
         #expect(results.hits[2].target == .file(id: "lib_1"))
         #expect(results.hits[3].target == .person(id: "ent_pe1") && results.hits[3].detail == "Person")
-        #expect(results.hits[4].target == .todo(id: "ent_a1") && results.hits[5].target == nil)
+        #expect(results.hits[4].target == .todo(id: "ent_a1"))
+        #expect(results.hits[5].target == .project(id: "ent_pr1") && results.hits[5].detail.hasPrefix("Project"))
+        #expect(results.hits[6].target == .task(id: "tsk_7"))
+        #expect(results.hits[7].target == .project(id: "ent_pr2"))
+        #expect(results.hits[8].target == nil)
     }
 
     @Test func aPlainQueryAsksNoQuestionAndNoAnswerMeansNoCard() async throws {
@@ -237,6 +249,69 @@ struct MemorySearchWidgetsTests {
         #expect(try await backend.pinnedWidgets().map { $0.id } == ["wdg_1"])
     }
 
+    static func boundWidget(taskID: String = "tsk_1", thread: String = "thr_1") -> JSONValue {
+        .object([
+            "id": "wdg_b", "threadId": .string(thread), "messageId": "m1", "rev": .number(2),
+            "spec": .object(["v": .number(1), "title": "Trip", "fallbackText": "Trip", "root": .object([
+                "type": "stack", "id": "root", "children": .array([
+                    .object(["type": "progress", "id": "p1", "label": "Packing", "value": .number(0), "max": .number(10),
+                             "bind": .object(["source": "task", "id": .string(taskID), "field": "progress"])]),
+                    .object(["type": "status", "id": "s1", "label": "Stored",
+                             "bind": .object(["source": "task", "id": .string(taskID), "field": "status"])]),
+                    .object(["type": "text", "id": "n1", "text": "Next run",
+                             "bind": .object(["source": "automation", "id": "aut_1", "field": "nextRun"])]),
+                    .object(["type": "text", "id": "r1", "text": "stored research",
+                             "bind": .object(["source": "research", "id": "tc_1", "field": "status"])]),
+                ]),
+            ])]),
+            "taint": .array([]), "owner": .object(["kind": "task", "taskId": "tsk_1"]), "state": "live", "pinned": .bool(true),
+            "createdAt": "2030-01-01T09:00:00Z", "updatedAt": "2030-01-01T09:12:00Z",
+        ])
+    }
+
+    @Test func boundWidgetNodesShowTheLiveTaskAndAutomation() async throws {
+        let (backend, _) = try await live { g in
+            g.on("widgets.get") { _ in .success(.object(["widgets": .array([Self.boundWidget()]), "missing": .array([])])) }
+            g.on("widgets.list") { _ in .success(.object(["widgets": .array([Self.boundWidget()])])) }
+            g.on("tasks.get") { _ in .success(.object(["task": .object([
+                "id": "tsk_1", "threadId": "thr_1", "title": "Trip", "status": "running", "summary": .null,
+                "checklist": .array([
+                    .object(["text": "a", "status": "completed"]), .object(["text": "b", "status": "completed"]),
+                    .object(["text": "c", "status": "in_progress"]), .object(["text": "d", "status": "pending"]),
+                ]),
+            ])])) }
+            g.on("automations.list") { _ in .success(.object(["automations": .array([.object([
+                "id": "aut_1", "enabled": .bool(true), "nextRunAt": .null, "lastRunAt": .null, "lastStatus": .null,
+            ])])])) }
+        }
+        for snapshot in [try await backend.widget(id: "wdg_b"), try #require(try await backend.pinnedWidgets().first)] {
+            guard case .progress(_, let progress)? = snapshot.root.find(id: "p1") else { Issue.record("no progress"); return }
+            #expect(progress.value == 2 && progress.max == 4 && !progress.indeterminate)
+            guard case .status(_, let label, _)? = snapshot.root.find(id: "s1") else { Issue.record("no status"); return }
+            #expect(label == "Running")
+            guard case .text(_, let next)? = snapshot.root.find(id: "n1") else { Issue.record("no text"); return }
+            #expect(next.text == "Not scheduled")
+            // No Gateway read method for research: the stored props stay.
+            guard case .text(_, let stored)? = snapshot.root.find(id: "r1") else { Issue.record("no text"); return }
+            #expect(stored.text == "stored research")
+        }
+    }
+
+    @Test func aBoundTaskOfAnotherChatOrThatIsGoneIsUnavailable() async throws {
+        let (backend, _) = try await live { g in
+            g.on("widgets.get") { _ in .success(.object(["widgets": .array([Self.boundWidget(taskID: "tsk_other")]), "missing": .array([])])) }
+            g.on("tasks.get") { _ in .success(.object(["task": .object([
+                "id": "tsk_other", "threadId": "thr_ELSEWHERE", "title": "x", "status": "running", "checklist": .array([]),
+            ])])) }
+            g.on("automations.list") { _ in .success(.object(["automations": .array([])])) }
+        }
+        let snapshot = try await backend.widget(id: "wdg_b")
+        guard case .text(_, let t)? = snapshot.root.find(id: "p1") else { Issue.record("no text"); return }
+        #expect(t.text == "Packing: Unavailable")
+        guard case .text(_, let auto)? = snapshot.root.find(id: "n1") else { Issue.record("no text"); return }
+        #expect(auto.text == "Unavailable")
+    }
+
     @Test func widgetActionsRouteToTheirOwnMethods() async throws {
         let seen = Calls()
         let (backend, _) = try await live { g in
@@ -265,6 +340,6 @@ struct MemorySearchWidgetsTests {
         func frame(_ e: String) -> WireEventFrame { .init(event: e, payload: .object([:]), seq: 1, stateVersion: 1) }
         #expect(await m.map(frame("memory.review.updated"), ownDeviceID: "d").events == [.changed(.memory)])
         #expect(await m.map(frame("memory.loop.updated"), ownDeviceID: "d").events == [.changed(.memory)])
-        #expect(await m.map(frame("widget.updated"), ownDeviceID: "d").events == [.changed(.home)])
+        #expect(await m.map(frame("widget.updated"), ownDeviceID: "d").events == [.changed(.widgets), .changed(.home)])
     }
 }
