@@ -88,6 +88,13 @@ struct ThreadView: View {
                 router.pendingDraft = nil
                 composerFocused = true
             }
+            #if DEBUG
+            // `simctl launch … -psycheSend "text"` sends a message on open (screenshots, demos).
+            if let text = UserDefaults.standard.string(forKey: "psycheSend"), !text.isEmpty {
+                UserDefaults.standard.removeObject(forKey: "psycheSend")
+                model.send(text)
+            }
+            #endif
             await model.observe()
         }
         .onDisappear { composer.dictation.stop() }
