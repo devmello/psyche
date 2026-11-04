@@ -51,6 +51,8 @@ targets:
         product: PsycheFeatures
       - package: PsycheKit
         product: PsycheDesign
+      - package: PsycheKit
+        product: PsycheBlocks
       - target: NotificationService
       - target: Share
       - target: Widgets
