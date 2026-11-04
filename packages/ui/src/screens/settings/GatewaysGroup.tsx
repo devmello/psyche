@@ -20,6 +20,8 @@ const PROBLEMS = [
   "needs_https",
   "has_path",
   "has_credentials",
+  "bad_link",
+  "pin_mismatch",
 ] as const;
 
 /** The sentence for why an address, or any change, was refused. */

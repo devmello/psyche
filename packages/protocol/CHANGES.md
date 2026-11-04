@@ -18,6 +18,12 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-04 (pairing links, remote Gateway R2)
+
+- New method `devices.pairing.createLink` (operator.admin, side-effecting; optional `gatewayUrl`, an https origin used when `gateway.publicOrigin` is unset): returns `{link, expiresAt}`. The link is `psyche-pair:v1:<base64url JSON {gatewayUrl, gatewayIdentityKey, setupToken, hostName}>`, built and parsed by the new `encodePairingLink` / `parsePairingLink` (also `pairingLinkOrigin`, `PAIRING_LINK_PREFIX`, `SETUP_TOKEN_TTL_MS`). The setup token is 32 random bytes, stored hashed on the Gateway, single use, valid 10 minutes, and carries no authority.
+- `ConnectParams` gains optional `setupToken`. A connect that presents a live token gets a `pending` request marked `PairingRequest.viaPairingLink` (new optional boolean). An expired, reused or unknown token, or one sent by a node, is `denied` with one message for all three. A device that is already paired, or retries a request the owner is already looking at, does not spend a token. No enum values were added.
+- Never a URL: the link has no `https:` form and the CVE-2026-25253 rule (no `gatewayUrl` in a deep link or query) holds. Design: docs/design/remote-gateway-2026.md §3.4, mobile-companion-2026.md §2.2.
+
 ### v1 additive — 2026-11-04 (Gateway identity key, remote Gateway R1)
 
 - `ConnectChallenge` gains optional `gatewayKey` (the Gateway's long-lived Ed25519 identity public key, base64url) and `gatewaySignature` (its signature over `gatewaySigningPayload({nonce, serverOrigin, devicePublicKey})`: `"psyche-gateway-v1\n" + nonce + "\n" + serverOrigin + "\n" + devicePublicKey`). A client that pinned the key refuses a challenge whose key differs, whose signature does not verify for its own device key, or whose `serverOrigin` is not the address it dialed, and signs nothing in those cases. A forwarded (Tailscale Serve) connection is told `gateway.publicOrigin` as `serverOrigin`; a direct loopback one the loopback origin. New constants `GATEWAY_SIGNING_PREFIX` and `gatewaySigningPayload`.

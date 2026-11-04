@@ -1,9 +1,10 @@
+import { createHash } from "node:crypto";
 import type { PairingRequest } from "@psyche/protocol";
 import { PsycheError } from "@psyche/protocol";
 import { and, desc, eq, gt, gte, lte, sql } from "drizzle-orm";
 import { pairingRequestFromRow } from "../mappers.ts";
 import type { PsycheDb } from "../open.ts";
-import { pairingRequests } from "../schema.ts";
+import { pairingRequests, pairingSetupTokens } from "../schema.ts";
 
 /** Default pairing request lifetime. */
 export const PAIRING_TTL_MS = 10 * 60 * 1000;
@@ -22,6 +23,8 @@ export interface NewPairingRequest {
   readonly publicKeyFingerprint?: string | null;
   readonly transport?: "ws" | "unix" | null;
   readonly remoteAddress?: string | null;
+  /** Device requests: the device presented a valid pairing-link setup token. */
+  readonly viaSetupToken?: boolean;
 }
 
 /** Normalizes any parseable timestamp to `Date#toISOString` so string comparison is ordering. */
@@ -52,6 +55,7 @@ export function createPairingRequest(db: PsycheDb, input: NewPairingRequest): Pa
       publicKeyFingerprint: input.publicKeyFingerprint ?? null,
       transport: input.transport ?? null,
       remoteAddress: input.remoteAddress ?? null,
+      viaSetupToken: input.viaSetupToken === true ? 1 : 0,
       createdAt: at,
       updatedAt: at,
     })
@@ -202,4 +206,79 @@ export function countPairingsFromAddress(
     )
     .get();
   return row?.n ?? 0;
+}
+
+// Setup tokens (pairing links) ---------------------------------------------------------------
+
+/** SHA-256 hex of a setup token: the only form that is stored or compared. */
+export function hashSetupToken(token: string): string {
+  return createHash("sha256").update(token, "utf8").digest("hex");
+}
+
+/** Stores the hash of a new token that expires at `expiresAt`. Returns the row id. */
+export function createSetupToken(
+  db: PsycheDb,
+  input: { tokenHash: string; expiresAt: string; createdByDeviceId: string | null },
+): string {
+  const at = db.now();
+  const id = db.newId();
+  db.drizzle
+    .insert(pairingSetupTokens)
+    .values({
+      id,
+      tokenHash: input.tokenHash,
+      createdByDeviceId: input.createdByDeviceId,
+      createdAt: at,
+      expiresAt: iso(input.expiresAt),
+    })
+    .run();
+  return id;
+}
+
+export type SetupTokenUse =
+  | { ok: true; id: string }
+  | { ok: false; reason: "unknown" | "expired" | "used" };
+
+/**
+ * Consumes a setup token for `deviceId`, atomically: the update only matches an unused, unexpired
+ * row, so two connects racing with the same token cannot both win. Call inside the transaction
+ * that creates the pairing request, so a failure after this rolls the use back.
+ */
+export function consumeSetupToken(
+  db: PsycheDb,
+  token: string,
+  deviceId: string,
+  now: string = db.now(),
+): SetupTokenUse {
+  const at = iso(now);
+  const hash = hashSetupToken(token);
+  const won = db.drizzle
+    .update(pairingSetupTokens)
+    .set({ usedAt: at, usedByDeviceId: deviceId })
+    .where(
+      and(
+        eq(pairingSetupTokens.tokenHash, hash),
+        sql`${pairingSetupTokens.usedAt} IS NULL`,
+        gt(pairingSetupTokens.expiresAt, at),
+      ),
+    )
+    .returning({ id: pairingSetupTokens.id })
+    .get();
+  if (won !== undefined) return { ok: true, id: won.id };
+  const row = db.drizzle
+    .select()
+    .from(pairingSetupTokens)
+    .where(eq(pairingSetupTokens.tokenHash, hash))
+    .get();
+  if (row === undefined) return { ok: false, reason: "unknown" };
+  return { ok: false, reason: row.usedAt === null ? "expired" : "used" };
+}
+
+/** Deletes tokens that expired over a day ago (used or not). Returns how many went. */
+export function purgeSetupTokens(db: PsycheDb, now: string = db.now()): number {
+  const cutoff = new Date(new Date(iso(now)).getTime() - 24 * 3_600_000).toISOString();
+  return db.drizzle
+    .delete(pairingSetupTokens)
+    .where(lte(pairingSetupTokens.expiresAt, cutoff))
+    .run().changes;
 }

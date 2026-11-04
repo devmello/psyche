@@ -386,6 +386,7 @@ export class Connection implements LiveConnection {
       failedChallenges: ctx.failedChallenges,
     });
     this.#challenge = null;
+    if (outcome.setupToken) ctx.onSetupToken?.(outcome.setupToken, this.peer);
     const { result, identity } = outcome;
     ctx.log.log("info", "handshake finished", { conn: this.id, phase: result.phase });
     if (outcome.createdRequest) {

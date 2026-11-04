@@ -13,6 +13,8 @@ export interface ConnectParams {
   name: string;
   capabilities?: unknown[];
   handshakeSecret?: string;
+  /** A pairing link's single-use setup token (remote desktops only); see `connect.setupToken`. */
+  setupToken?: string;
 }
 
 export type Signer = (payload: Uint8Array<ArrayBuffer>) => string | Promise<string>;

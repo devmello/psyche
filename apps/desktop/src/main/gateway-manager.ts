@@ -3,13 +3,19 @@ import { join } from "node:path";
 import { PsycheError } from "@psyche/protocol";
 import {
   addGateway,
+  addGatewayFromLink,
   clearGatewayPin,
+  clearSetupToken,
   forgetGatewayData,
   GatewayAddressError,
   type GatewaysFile,
   type GatewayTarget,
   gatewayDataDir,
+  identityKeyFingerprint,
+  isPairingLinkText,
+  liveSetupToken,
   loadGatewaysStrict,
+  PairingLinkError,
   pinGatewayKey,
   removeGateway,
   renameGateway,
@@ -44,7 +50,7 @@ export interface SavedGatewayView {
 }
 
 export type GatewayConfirm =
-  | { kind: "add"; origin: string; name: string }
+  | { kind: "add"; origin: string; name: string; viaLink?: { fingerprint: string } }
   | { kind: "forget"; name: string; origin: string }
   | { kind: "repair"; name: string; origin: string }
   | { kind: "stopLocal" };
@@ -121,8 +127,13 @@ export class GatewayManager {
     return found;
   }
 
-  /** Adds the Gateway for `address` after the owner confirms it in a native dialog. */
+  /**
+   * Adds the Gateway for `address` after the owner confirms it in a native dialog. `address` may
+   * be a pasted `psyche-pair:v1` link instead, which carries the address and the identity key (so
+   * nothing is trusted on first use) and a single-use setup token for the first connect.
+   */
   async add(address: string, name?: string): Promise<SavedGatewayView> {
+    if (isPairingLinkText(address)) return this.#addFromLink(address, name);
     const attempt = () => {
       try {
         return addGateway(this.#load(), { address, ...(name === undefined ? {} : { name }) });
@@ -148,6 +159,66 @@ export class GatewayManager {
     const result = attempt();
     if (!result.existing) saveGateways(this.#file, result.gateways);
     return this.#view(result.entry);
+  }
+
+  async #addFromLink(text: string, name?: string): Promise<SavedGatewayView> {
+    const attempt = () => {
+      try {
+        return addGatewayFromLink(
+          this.#load(),
+          { link: text, ...(name === undefined ? {} : { name }) },
+          this.#deps.now?.() ?? new Date(),
+        );
+      } catch (err) {
+        if (err instanceof PairingLinkError) {
+          throw new PsycheError("invalid_params", err.message, {
+            details: { problem: err.problem },
+          });
+        }
+        throw err;
+      }
+    };
+    const first = attempt();
+    const ok = await this.#deps.confirm({
+      kind: "add",
+      origin: first.entry.origin,
+      name: first.entry.name,
+      viaLink: { fingerprint: identityKeyFingerprint(first.link.gatewayIdentityKey) },
+    });
+    if (!ok) throw new PsycheError("forbidden", "Adding the Gateway was cancelled");
+    // Read again after the dialog, and the link's ten minutes keep running while the owner decides.
+    const result = attempt();
+    saveGateways(this.#file, result.gateways);
+    return this.#view(result.entry);
+  }
+
+  /**
+   * The setup token to send at the next connect to the active saved Gateway, if one is saved and
+   * still within its ten minutes. Never read for This Mac or the dev environment path.
+   */
+  setupToken(): string | undefined {
+    if (!this.#deps.target.remote) return undefined;
+    try {
+      const entry = this.#load().gateways.find((g) => g.id === this.#deps.target.id);
+      return entry === undefined
+        ? undefined
+        : liveSetupToken(entry, this.#deps.now?.() ?? new Date());
+    } catch {
+      return undefined;
+    }
+  }
+
+  /** The Gateway has answered the connect (pending or paired): the token is spent, forget it. */
+  clearSetupToken(): void {
+    if (!this.#deps.target.remote) return;
+    try {
+      const data = this.#load();
+      const entry = data.gateways.find((g) => g.id === this.#deps.target.id);
+      if (entry?.setupToken === undefined) return;
+      saveGateways(this.#file, clearSetupToken(data, entry.id));
+    } catch {
+      // An unreadable file is reported elsewhere; the token is short-lived anyway.
+    }
   }
 
   #view(entry: SavedGateway): SavedGatewayView {

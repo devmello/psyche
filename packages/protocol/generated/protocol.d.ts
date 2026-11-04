@@ -2683,6 +2683,11 @@ export interface PairingRequest {
      * Device requests: how the device connected
      */
     transport?: PairingRequestTransport;
+    /**
+     * Device requests: the device presented a valid setup token from a pairing link, so the
+     * owner expected it. It is not approval: the owner still decides
+     */
+    viaPairingLink?: boolean;
 }
 
 export type PairingRequestKind = "device" | "channel-sender";
@@ -3128,6 +3133,13 @@ export interface ConnectParams {
      */
     publicKey: string;
     role:      ConnectRole;
+    /**
+     * The single-use token from a psyche-pair:v1 link (devices.pairing.createLink). It only
+     * marks the resulting pending request as expected via a pairing link: the owner still
+     * approves the device and its scopes. Refused (denied) when expired or already used;
+     * ignored for a device that is already paired
+     */
+    setupToken?: string;
 }
 
 export interface ProtocolVersionRange {
@@ -3699,6 +3711,24 @@ export interface DevicesListParams {
 
 export interface DevicesListResult {
     devices: Device[];
+}
+
+export interface DevicesPairingCreateLinkParams {
+    /**
+     * The address the new device will dial, as an origin (https://studio-mac.tailnet.ts.net, or
+     * a LAN https origin). Defaults to gateway.publicOrigin; invalid_params when neither is
+     * known
+     */
+    gatewayUrl?: string;
+}
+
+export interface DevicesPairingCreateLinkResult {
+    expiresAt: string;
+    /**
+     * psyche-pair:v1:<base64url JSON {gatewayUrl, gatewayIdentityKey, setupToken, hostName}>.
+     * Show it as text and as a QR code; never as a URL
+     */
+    link: string;
 }
 
 export interface DevicesPairingListParams {

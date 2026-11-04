@@ -1,7 +1,14 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { chmodSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { DEFAULT_GATEWAY_PORT } from "@psyche/protocol";
+import {
+  DEFAULT_GATEWAY_PORT,
+  PAIRING_LINK_PREFIX,
+  type PairingLinkPayload,
+  PsycheError,
+  parsePairingLink,
+  SETUP_TOKEN_TTL_MS,
+} from "@psyche/protocol";
 
 /**
  * Saved Gateways (remote-gateway design §1.3): the Gateways this app can connect to, one active
@@ -27,6 +34,14 @@ export interface SavedGateway {
   /** The pinned Gateway identity key (base64url raw Ed25519), set at the first connect. */
   identityKey?: string;
   lastConnectedAt?: string;
+  /**
+   * The single-use token from the pairing link this entry was added with, kept only until the
+   * first connect has been answered (pending or paired) and for at most ten minutes. It holds no
+   * authority by itself: the owner still approves this computer on the Host.
+   */
+  setupToken?: string;
+  /** When `setupToken` was saved (ISO). */
+  setupTokenAt?: string;
   /** Fields of the file this version does not know, kept so saving never drops them. */
   extra?: Record<string, unknown>;
 }
@@ -165,6 +180,11 @@ function cleanEntry(raw: unknown): SavedGateway | null {
       ? { identityKey: e.identityKey }
       : {}),
     ...(typeof e.lastConnectedAt === "string" ? { lastConnectedAt: e.lastConnectedAt } : {}),
+    ...(typeof e.setupToken === "string" &&
+    KEY_PATTERN.test(e.setupToken) &&
+    typeof e.setupTokenAt === "string"
+      ? { setupToken: e.setupToken, setupTokenAt: e.setupTokenAt }
+      : {}),
   };
 }
 
@@ -271,6 +291,8 @@ const ENTRY_FIELDS: ReadonlySet<string> = new Set([
   "origin",
   "identityKey",
   "lastConnectedAt",
+  "setupToken",
+  "setupTokenAt",
 ]);
 
 export function saveGateways(file: string, data: GatewaysFile): void {
@@ -321,6 +343,108 @@ export function addGateway(
     gateways: { ...data, gateways: [...data.gateways, entry] },
     entry,
     existing: false,
+  };
+}
+
+/** True when the text is a pairing link (so it is parsed as one and never as an address). */
+export function isPairingLinkText(input: string): boolean {
+  return input.trim().startsWith(PAIRING_LINK_PREFIX);
+}
+
+/** `sha256:<hex>` of a raw base64url Ed25519 key: what the Host shows as the Gateway's fingerprint. */
+export function identityKeyFingerprint(keyB64url: string): string {
+  return `sha256:${createHash("sha256").update(Buffer.from(keyB64url, "base64url")).digest("hex")}`;
+}
+
+/** Parses a pasted pairing link; any fault is a `bad_link` problem that is safe to show. */
+export function parseLinkInput(input: string): PairingLinkPayload {
+  try {
+    const link = parsePairingLink(input);
+    // The same address rules as a typed address, so a link cannot reach what typing cannot.
+    return { ...link, gatewayUrl: normalizeGatewayOrigin(link.gatewayUrl) };
+  } catch (err) {
+    if (err instanceof GatewayAddressError || err instanceof PsycheError) {
+      throw new PairingLinkError("bad_link");
+    }
+    throw err;
+  }
+}
+
+export class PairingLinkError extends Error {
+  readonly problem: "bad_link" | "pin_mismatch";
+  constructor(problem: "bad_link" | "pin_mismatch") {
+    super(`pairing link: ${problem}`);
+    this.name = "PairingLinkError";
+    this.problem = problem;
+  }
+}
+
+export type AddFromLinkResult = AddResult & { link: PairingLinkPayload };
+
+/**
+ * Adds (or updates) the saved Gateway for a pasted pairing link. The link's address and identity
+ * key become the entry's origin and pin, so nothing is trusted on first use, and its setup token
+ * is kept for the first connect. An entry for the same address that is already pinned to a
+ * different key is refused (`pin_mismatch`): use "Forget and pair again" for a Gateway whose
+ * identity changed on purpose.
+ */
+export function addGatewayFromLink(
+  data: GatewaysFile,
+  input: { link: string; name?: string },
+  now: Date,
+  id: string = newGatewayId(),
+): AddFromLinkResult {
+  const link = parseLinkInput(input.link);
+  const found = data.gateways.find((g) => g.origin === link.gatewayUrl);
+  const stamp = { setupToken: link.setupToken, setupTokenAt: now.toISOString() };
+  if (found) {
+    if (found.identityKey !== undefined && found.identityKey !== link.gatewayIdentityKey) {
+      throw new PairingLinkError("pin_mismatch");
+    }
+    const entry: SavedGateway = { ...found, identityKey: link.gatewayIdentityKey, ...stamp };
+    return {
+      gateways: { ...data, gateways: data.gateways.map((g) => (g.id === found.id ? entry : g)) },
+      entry,
+      existing: true,
+      link,
+    };
+  }
+  const typedName = input.name === undefined ? "" : cleanGatewayName(input.name);
+  const hostName = cleanGatewayName(link.hostName);
+  const entry: SavedGateway = {
+    id,
+    name: (typedName || hostName || defaultGatewayName(link.gatewayUrl)).slice(0, 64),
+    origin: link.gatewayUrl,
+    identityKey: link.gatewayIdentityKey,
+    ...stamp,
+  };
+  return {
+    gateways: { ...data, gateways: [...data.gateways, entry] },
+    entry,
+    existing: false,
+    link,
+  };
+}
+
+/** The saved setup token if it is still within its ten minutes, else undefined. */
+export function liveSetupToken(entry: SavedGateway, now: Date): string | undefined {
+  if (entry.setupToken === undefined || entry.setupTokenAt === undefined) return undefined;
+  const at = Date.parse(entry.setupTokenAt);
+  if (Number.isNaN(at) || now.getTime() - at > SETUP_TOKEN_TTL_MS || now.getTime() < at) {
+    return undefined;
+  }
+  return entry.setupToken;
+}
+
+/** Drops the saved setup token (spent, or past its ten minutes). */
+export function clearSetupToken(data: GatewaysFile, id: string): GatewaysFile {
+  return {
+    ...data,
+    gateways: data.gateways.map((g) => {
+      if (g.id !== id) return g;
+      const { setupToken: _t, setupTokenAt: _a, ...rest } = g;
+      return rest;
+    }),
   };
 }
 

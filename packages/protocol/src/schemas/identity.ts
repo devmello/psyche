@@ -101,6 +101,12 @@ export const PairingRequest = Type.Object(
     remoteAddress: Type.Optional(
       Type.String({ description: "Device requests: peer address as the Gateway saw it" }),
     ),
+    viaPairingLink: Type.Optional(
+      Type.Boolean({
+        description:
+          "Device requests: the device presented a valid setup token from a pairing link, so the owner expected it. It is not approval: the owner still decides",
+      }),
+    ),
   },
   { $id: "PairingRequest" },
 );

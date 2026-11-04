@@ -437,6 +437,8 @@
 //   let devicesDenyResult = try? JSONDecoder().decode(DevicesDenyResult.self, from: jsonData)
 //   let devicesListParams = try? JSONDecoder().decode(DevicesListParams.self, from: jsonData)
 //   let devicesListResult = try? JSONDecoder().decode(DevicesListResult.self, from: jsonData)
+//   let devicesPairingCreateLinkParams = try? JSONDecoder().decode(DevicesPairingCreateLinkParams.self, from: jsonData)
+//   let devicesPairingCreateLinkResult = try? JSONDecoder().decode(DevicesPairingCreateLinkResult.self, from: jsonData)
 //   let devicesPairingListParams = try? JSONDecoder().decode(DevicesPairingListParams.self, from: jsonData)
 //   let devicesPairingListResult = try? JSONDecoder().decode(DevicesPairingListResult.self, from: jsonData)
 //   let devicesPresenceKeyListParams = try? JSONDecoder().decode(DevicesPresenceKeyListParams.self, from: jsonData)
@@ -8739,6 +8741,9 @@ public struct PairingRequest: Codable, Sendable {
     public let status: PairingStatus
     /// Device requests: how the device connected
     public let transport: PairingRequestTransport?
+    /// Device requests: the device presented a valid setup token from a pairing link, so the
+    /// owner expected it. It is not approval: the owner still decides
+    public let viaPairingLink: Bool?
 
     public enum CodingKeys: String, CodingKey {
         case channelID = "channelId"
@@ -8756,9 +8761,10 @@ public struct PairingRequest: Codable, Sendable {
         case senderID = "senderId"
         case status = "status"
         case transport = "transport"
+        case viaPairingLink = "viaPairingLink"
     }
 
-    public init(channelID: String?, code: String, createdAt: String, decidedAt: String?, decidedByDeviceID: String?, deviceID: String?, display: String, expiresAt: String, id: String, kind: PairingRequestKind, publicKeyFingerprint: String?, remoteAddress: String?, senderID: String?, status: PairingStatus, transport: PairingRequestTransport?) {
+    public init(channelID: String?, code: String, createdAt: String, decidedAt: String?, decidedByDeviceID: String?, deviceID: String?, display: String, expiresAt: String, id: String, kind: PairingRequestKind, publicKeyFingerprint: String?, remoteAddress: String?, senderID: String?, status: PairingStatus, transport: PairingRequestTransport?, viaPairingLink: Bool?) {
         self.channelID = channelID
         self.code = code
         self.createdAt = createdAt
@@ -8774,6 +8780,7 @@ public struct PairingRequest: Codable, Sendable {
         self.senderID = senderID
         self.status = status
         self.transport = transport
+        self.viaPairingLink = viaPairingLink
     }
 }
 
@@ -10039,6 +10046,11 @@ public struct ConnectParams: Codable, Sendable {
     /// base64url raw Ed25519 public key (32 bytes)
     public let publicKey: String
     public let role: ConnectRole
+    /// The single-use token from a psyche-pair:v1 link (devices.pairing.createLink). It only
+    /// marks the resulting pending request as expected via a pairing link: the owner still
+    /// approves the device and its scopes. Refused (denied) when expired or already used;
+    /// ignored for a device that is already paired
+    public let setupToken: String?
 
     public enum CodingKeys: String, CodingKey {
         case capabilities = "capabilities"
@@ -10050,9 +10062,10 @@ public struct ConnectParams: Codable, Sendable {
         case protocolVersion = "protocolVersion"
         case publicKey = "publicKey"
         case role = "role"
+        case setupToken = "setupToken"
     }
 
-    public init(capabilities: [NodeCapability]?, deviceFamily: String, deviceID: String, handshakeSecret: String?, name: String, platform: DevicePlatform, protocolVersion: ProtocolVersionRange, publicKey: String, role: ConnectRole) {
+    public init(capabilities: [NodeCapability]?, deviceFamily: String, deviceID: String, handshakeSecret: String?, name: String, platform: DevicePlatform, protocolVersion: ProtocolVersionRange, publicKey: String, role: ConnectRole, setupToken: String?) {
         self.capabilities = capabilities
         self.deviceFamily = deviceFamily
         self.deviceID = deviceID
@@ -10062,6 +10075,7 @@ public struct ConnectParams: Codable, Sendable {
         self.protocolVersion = protocolVersion
         self.publicKey = publicKey
         self.role = role
+        self.setupToken = setupToken
     }
 }
 
@@ -11734,6 +11748,40 @@ public struct DevicesListResult: Codable, Sendable {
 
     public init(devices: [Device]) {
         self.devices = devices
+    }
+}
+
+// MARK: - DevicesPairingCreateLinkParams
+public struct DevicesPairingCreateLinkParams: Codable, Sendable {
+    /// The address the new device will dial, as an origin (https://studio-mac.tailnet.ts.net, or
+    /// a LAN https origin). Defaults to gateway.publicOrigin; invalid_params when neither is
+    /// known
+    public let gatewayURL: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case gatewayURL = "gatewayUrl"
+    }
+
+    public init(gatewayURL: String?) {
+        self.gatewayURL = gatewayURL
+    }
+}
+
+// MARK: - DevicesPairingCreateLinkResult
+public struct DevicesPairingCreateLinkResult: Codable, Sendable {
+    public let expiresAt: String
+    /// psyche-pair:v1:<base64url JSON {gatewayUrl, gatewayIdentityKey, setupToken, hostName}>.
+    /// Show it as text and as a QR code; never as a URL
+    public let link: String
+
+    public enum CodingKeys: String, CodingKey {
+        case expiresAt = "expiresAt"
+        case link = "link"
+    }
+
+    public init(expiresAt: String, link: String) {
+        self.expiresAt = expiresAt
+        self.link = link
     }
 }
 

@@ -201,7 +201,7 @@ describe("Settings → Gateways on this computer", () => {
         </UiSlotsProvider>
       </StoryWorld>,
     );
-    await userEvent.type(await screen.findByLabelText("Address"), "studio-mac");
+    await userEvent.type(await screen.findByLabelText("Pairing link or address"), "studio-mac");
     await userEvent.click(screen.getByRole("button", { name: "Add Gateway" }));
     await waitFor(() =>
       expect(
@@ -210,6 +210,28 @@ describe("Settings → Gateways on this computer", () => {
         ),
       ).toBeTruthy(),
     );
+  });
+
+  it("says a pasted link is damaged, and passes the pasted text through untouched", async () => {
+    const add = vi.fn(async () => {
+      throw Object.assign(new Error("pairing link"), {
+        code: "invalid_params",
+        details: { problem: "bad_link" },
+      });
+    });
+    const gateways = slot([thisMac], { add });
+    render(
+      <StoryWorld>
+        <UiSlotsProvider value={{ gateways }}>
+          <GatewaysGroup />
+        </UiSlotsProvider>
+      </StoryWorld>,
+    );
+    await userEvent.click(await screen.findByLabelText("Pairing link or address"));
+    await userEvent.paste("psyche-pair:v1:abc");
+    await userEvent.click(screen.getByRole("button", { name: "Add Gateway" }));
+    await waitFor(() => expect(screen.getByText(/pairing link is damaged/)).toBeTruthy());
+    expect(add).toHaveBeenCalledWith("psyche-pair:v1:abc", undefined);
   });
 
   it("draws nothing where there is no switcher (the web)", () => {
@@ -235,5 +257,94 @@ describe("computer use on a client of another computer (decision G5)", () => {
       "Computer use works at studio-mac. Ask from there, or use the browser.",
     );
     expect(screen.queryByRole("switch")).toBeNull();
+  });
+});
+
+describe("Add phone or computer (remote-gateway design §3.4)", () => {
+  const made = {
+    link: "psyche-pair:v1:eyJnYXRld2F5VXJsIjoiaHR0cHM6Ly9zdHVkaW8ifQ",
+    expiresAt: new Date(Date.UTC(2026, 10, 4, 12, 10, 0)).toISOString(),
+  };
+  const at = Date.UTC(2026, 10, 4, 12, 0, 0);
+
+  it("shows the link, a QR code of it and the time left, and nothing else on the page is a URL", async () => {
+    const create = vi.fn(async () => made);
+    render(
+      <StoryWorld>
+        <DevicesPanel
+          devices={noDevices}
+          pairing={[]}
+          nodes={[]}
+          now={at}
+          addDevice={{ create, publicOrigin: "https://studio-mac.tail1234.ts.net" }}
+        />
+      </StoryWorld>,
+    );
+    await userEvent.click(await screen.findByRole("button", { name: "Add phone or computer" }));
+    expect(create).toHaveBeenCalledWith(undefined);
+    expect((await screen.findByTestId("pairing-link-text")).textContent).toBe(made.link);
+    expect(screen.getByTestId("pairing-link-countdown").textContent).toBe("Expires in 10:00");
+    expect(
+      screen.getByRole("img", { name: "Pairing code for the Psyche app" }).querySelector("svg"),
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Copy link" })).toBeTruthy();
+    // The link is text, never an anchor: nothing can open it as a URL.
+    expect(document.querySelector("a[href^='psyche-pair']")).toBeNull();
+  });
+
+  it("asks for the address when the Gateway has none, and sends it", async () => {
+    const create = vi.fn(async () => made);
+    render(
+      <StoryWorld>
+        <DevicesPanel
+          devices={noDevices}
+          pairing={[]}
+          nodes={[]}
+          now={at}
+          addDevice={{ create, publicOrigin: null }}
+        />
+      </StoryWorld>,
+    );
+    const button = await screen.findByRole("button", { name: "Add phone or computer" });
+    expect((button as HTMLButtonElement).disabled).toBe(true);
+    await userEvent.type(
+      screen.getByLabelText("Address the new device will use"),
+      "https://studio-mac.local:7979",
+    );
+    await userEvent.click(button);
+    expect(create).toHaveBeenCalledWith("https://studio-mac.local:7979");
+  });
+
+  it("drops an expired link and offers a new one", async () => {
+    const create = vi.fn(async () => made);
+    render(
+      <StoryWorld>
+        <DevicesPanel
+          devices={noDevices}
+          pairing={[]}
+          nodes={[]}
+          now={made ? Date.parse(made.expiresAt) + 1000 : 0}
+          addDevice={{ create, publicOrigin: "https://studio-mac.tail1234.ts.net" }}
+        />
+      </StoryWorld>,
+    );
+    await userEvent.click(await screen.findByRole("button", { name: "Add phone or computer" }));
+    await screen.findByText("That link expired. Make a new one to add a device.");
+    expect(screen.queryByTestId("pairing-link-text")).toBeNull();
+    expect(screen.getByRole("button", { name: "Make a new link" })).toBeTruthy();
+  });
+
+  it("labels a request that came with a pairing link, and leaves others alone", async () => {
+    render(
+      <StoryWorld>
+        <DevicesPanel
+          devices={noDevices}
+          pairing={[request({ viaPairingLink: true }), request({ id: "pr_2", code: "WXYZ-2345" })]}
+          nodes={[]}
+        />
+      </StoryWorld>,
+    );
+    expect(await screen.findAllByTestId("expected-via-link")).toHaveLength(1);
+    expect(screen.getByText("Expected via pairing link")).toBeTruthy();
   });
 });

@@ -1731,11 +1731,11 @@ export const settings = {
   "settings.gateways.forget": "Forget",
   "settings.gateways.forgetNamed": "Forget {name}",
   "settings.gateways.add": "Add a Gateway",
-  "settings.gateways.addressLabel": "Address",
-  "settings.gateways.addressPlaceholder": "studio-mac.your-tailnet.ts.net",
+  "settings.gateways.addressLabel": "Pairing link or address",
+  "settings.gateways.addressPlaceholder": "psyche-pair:v1:… or studio-mac.your-tailnet.ts.net",
   "settings.gateways.nameLabel": "Name (optional)",
   "settings.gateways.addHint":
-    "The Tailscale address of the Mac that runs Psyche, https://<host>.<tailnet>.ts.net. This computer asks to pair, and the owner approves it there.",
+    "Paste the pairing link from Settings → Devices → Add phone or computer on the Mac that runs Psyche. It carries the address and the Gateway's key, so there is nothing to type. Or type its Tailscale address, https://<host>.<tailnet>.ts.net. This computer asks to pair, and the owner approves it there.",
   "settings.gateways.adding": "Add Gateway",
   "settings.gateways.problem.empty": "Type the Gateway's address.",
   "settings.gateways.problem.invalid": "That isn't an address Psyche can use.",
@@ -1745,6 +1745,10 @@ export const settings = {
     "Use an https:// address. Plain http works only through an SSH tunnel on this computer.",
   "settings.gateways.problem.has_path": "Use just the address, with no path.",
   "settings.gateways.problem.has_credentials": "Leave out any username or password.",
+  "settings.gateways.problem.bad_link":
+    "That pairing link is damaged or not for this version of Psyche. Make a new one on the Mac that runs Psyche.",
+  "settings.gateways.problem.pin_mismatch":
+    "This Gateway is saved with a different key than the link names. If its identity changed on purpose, use Pair again on it first.",
   "settings.gateways.problem.failed": "Couldn't add the Gateway. Nothing changed.",
   "settings.gateways.problem.declined": "Adding the Gateway was cancelled.",
   "settings.gateways.problem.actionFailed": "That didn't work. Nothing changed.",
@@ -1780,6 +1784,27 @@ export const settings = {
   // The pairing card for a computer on another network.
   "settings.devices.gatewayKey": "This Gateway's key {fingerprint}",
   "settings.devices.fromAddress": "From {address}",
+  "settings.devices.expectedViaLink": "Expected via pairing link",
+  // Add phone or computer: the pairing link and its QR code.
+  "settings.devices.add.title": "Add phone or computer",
+  "settings.devices.add.description":
+    "Make a pairing link for a phone or another computer. It works once and only for ten minutes, and you still approve the new device.",
+  "settings.devices.add.button": "Add phone or computer",
+  "settings.devices.add.again": "Make a new link",
+  "settings.devices.add.addressLabel": "Address the new device will use",
+  "settings.devices.add.addressPlaceholder": "https://studio-mac.your-tailnet.ts.net",
+  "settings.devices.add.addressHint":
+    "This Gateway has no public address set. Use its Tailscale name or a LAN address that starts with https://.",
+  "settings.devices.add.howTo":
+    "On a phone, scan the code in the Psyche app. On a computer, paste the link into Add a Gateway.",
+  "settings.devices.add.qrLabel": "Pairing code for the Psyche app",
+  "settings.devices.add.copy": "Copy link",
+  "settings.devices.add.copied": "Copied",
+  "settings.devices.add.copyFailed": "The link could not be copied. Select it and copy by hand.",
+  "settings.devices.add.expiresIn": "Expires in {time}",
+  "settings.devices.add.afterwards":
+    "The device appears under Waiting to pair. Approve it there once its code matches.",
+  "settings.devices.add.expired": "That link expired. Make a new one to add a device.",
   "settings.devices.adminOptIn":
     "Admin lets this computer change security settings, devices and the vault. Leave it off unless you need it.",
   "settings.server.available": "Available",

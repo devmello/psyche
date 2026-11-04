@@ -12,7 +12,7 @@ import type {
   PermissionBroker,
   TaintSource,
 } from "@psyche/protocol";
-import type { PairedIdentity, PeerInfo } from "./auth.ts";
+import type { PairedIdentity, PeerInfo, SetupTokenEvent } from "./auth.ts";
 import type { GatewayConfig } from "./config.ts";
 import type { EventBus, EventFilter } from "./event-bus.ts";
 import type { Idempotency } from "./idempotency.ts";
@@ -126,6 +126,8 @@ export interface GatewayContext {
   readonly onSettingChanged:
     | ((change: { key: string; before: unknown; after: unknown; deviceId: string }) => void)
     | null;
+  /** A pairing-link setup token was used or refused at a connect (audit trail). */
+  readonly onSetupToken: ((event: SetupTokenEvent, peer: PeerInfo) => void) | null;
   readonly limits: GatewayLimits;
   readonly failedChallenges: RateLimiter;
   /** Per-device budgets (security §10), keyed by device id so extra connections do not help. */
