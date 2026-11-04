@@ -8,6 +8,7 @@ import {
   type PsycheDb,
 } from "@psyche/db";
 import {
+  type AppliedWork,
   applyOwnerChatWork,
   type EverythingStore,
   type GraphStore,
@@ -28,6 +29,7 @@ import type {
   ModelRef,
   PermissionBroker,
   Surface,
+  WorkNoteItem,
 } from "@psyche/protocol";
 import type { SecretRedactor } from "@psyche/vault";
 import { resolveAttachments } from "../session/attachments.ts";
@@ -188,6 +190,38 @@ export function parseProposals(text: string, max = MAX_FACTS): Proposal[] {
     }));
 }
 
+/**
+ * The chat note for what one turn did to the owner's work: proposals still waiting in Review
+ * (Confirm / Discard) and direct updates this turn wrote (Undo). Nothing is applied by the note.
+ */
+export function workNoteItems(applied: readonly AppliedWork[]): WorkNoteItem[] {
+  const items: WorkNoteItem[] = [];
+  for (const a of applied) {
+    if (a.factId === undefined || a.entityId === undefined || a.attribute === undefined) continue;
+    if (a.kind !== "proposed" && a.kind !== "fact") continue;
+    if (!NOTE_ATTRIBUTES.has(a.attribute)) continue;
+    items.push({
+      kind: a.kind === "proposed" ? "proposal" : "update",
+      entityId: a.entityId,
+      name: a.name.slice(0, 200),
+      attribute: a.attribute as WorkNoteItem["attribute"],
+      value: a.value.slice(0, 300),
+      ...(a.kind === "fact" && typeof a.previousValue === "string"
+        ? { previous: a.previousValue.slice(0, 300) }
+        : {}),
+      factId: a.factId,
+    });
+  }
+  return items.slice(0, 10);
+}
+const NOTE_ATTRIBUTES: ReadonlySet<string> = new Set([
+  "status",
+  "deadline",
+  "progress",
+  "stopped_at",
+  "next_step",
+]);
+
 export interface UserProfileDeps {
   db: PsycheDb;
   /** `$PSYCHE_HOME`: the owner's uploads are read from its Library. */
@@ -278,6 +312,8 @@ export function createUserProfile(deps: UserProfileDeps) {
       timeZone: deps.work?.timeZone() ?? "UTC",
       ...(em === undefined ? {} : { em }),
     });
+    const items = workNoteItems(result.applied);
+    if (items.length > 0) postBlock(threadId, runId, { type: "work_note", items });
     await deps.audit
       .append({
         kind: "memory.user_profile.work",
@@ -318,8 +354,11 @@ export function createUserProfile(deps: UserProfileDeps) {
     return text.slice(0, MAX_DOC_CHARS);
   };
 
-  const note = (threadId: string, runId: string, facts: LearnedFact[]) => {
-    const block: Block = { type: "learned", items: facts };
+  const note = (threadId: string, runId: string, facts: LearnedFact[]) =>
+    postBlock(threadId, runId, { type: "learned", items: facts });
+
+  /** A system note in the thread (published to every client window). */
+  function postBlock(threadId: string, runId: string, block: Block): void {
     for (const writer of [null, runId]) {
       try {
         const message = appendMessage(
@@ -333,7 +372,7 @@ export function createUserProfile(deps: UserProfileDeps) {
         // The turn's writer may still hold the transcript for a moment: try as that run.
       }
     }
-  };
+  }
 
   const write = async (threadId: string, runId: string, proposals: Proposal[]) => {
     // `onOwnerTurn` is the owner's own words, attended: the only source that may fill the header.

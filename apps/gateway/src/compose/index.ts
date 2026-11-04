@@ -1786,6 +1786,19 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     webhooks,
     publicRoutes,
     onSetupTokenUsed: setupTokenUsedHook({ db, audit, log: gwOptions.logger }),
+    onDeviceSelfRevoked: (revoked) => {
+      void audit
+        .append({
+          kind: "device.revoked_self",
+          actor: { type: "device", deviceId: revoked.deviceId },
+          data: { deviceId: revoked.deviceId, name: revoked.name },
+        })
+        .catch((err: unknown) =>
+          gwOptions.logger?.log("warn", "audit append for a device removing itself failed", {
+            code: PsycheError.from(err).code,
+          }),
+        );
+    },
     onDeviceRevoked: (deviceId) => {
       revocations.recordDevice(deviceId);
       return rawBroker.revokeGrantsByDevice(deviceId);

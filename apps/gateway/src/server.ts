@@ -121,6 +121,8 @@ export interface GatewayOptions {
   settingsPresence?: () => boolean;
   /** After a device is revoked (composition root: end the grants it approved). */
   onDeviceRevoked?: (deviceId: string) => Promise<unknown>;
+  /** A device removed itself with devices.revokeSelf (composition root: audit it). */
+  onDeviceSelfRevoked?: (revoked: { deviceId: string; name: string }) => void;
   /** A computer paired itself with a setup token (composition root: audit it). */
   onSetupTokenUsed?: (used: { tokenId: string; deviceId: string; scopes: DeviceScope[] }) => void;
   /**
@@ -275,6 +277,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     memory: options.memory ?? null,
     extraHandlers: checkExtraHandlers(options.handlers ?? {}),
     onDeviceRevoked: options.onDeviceRevoked ?? null,
+    onDeviceSelfRevoked: options.onDeviceSelfRevoked ?? null,
     onSetupTokenUsed: options.onSetupTokenUsed ?? null,
     onSettingChanged: options.onSettingChanged ?? null,
     brokerPublishesReceipts: options.brokerPublishesReceipts ?? false,

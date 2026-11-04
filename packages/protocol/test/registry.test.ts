@@ -136,6 +136,7 @@ const REQUIRED_METHODS: MethodName[] = [
   "devices.approve",
   "devices.deny",
   "devices.revoke",
+  "devices.revokeSelf",
   "devices.pairing.list",
   "connectors.list",
   "connectors.get",
@@ -292,8 +293,10 @@ describe("method registry", () => {
       const { scope } = methodSpec(name);
       // devices.bootstrapAdmin is the one devices.* method a non-admin may call: the first device on
       // a fresh install claims admin, gated inside the handler by "no admin exists yet", atomic and
-      // audited (docs/05 §4.3.1). Every other devices.* method is admin-only.
+      // audited (docs/05 §4.3.1). devices.revokeSelf is the other: any paired device may remove
+      // itself (it takes no device id). Every other devices.* method is admin-only.
       if (name === "devices.bootstrapAdmin") expect(scope, name).toBe("operator.write");
+      else if (name === "devices.revokeSelf") expect(scope, name).toBe("operator.read");
       else if (name.startsWith("devices.")) expect(scope, name).toBe("operator.admin");
       if (name.startsWith("node.")) expect(scope, name).toBe("node");
       if (

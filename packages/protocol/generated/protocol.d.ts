@@ -2820,7 +2820,14 @@ export interface ItemElement {
     source?:        string;
     span?:          string;
     factId?:        string;
+    attribute?:     WorkNoteAttribute;
+    entityId?:      string;
+    name?:          string;
+    previous?:      string;
+    value?:         string;
 }
+
+export type WorkNoteAttribute = "status" | "deadline" | "progress" | "stopped_at" | "next_step";
 
 export type Provenance = "owner" | "agent" | "untrusted" | "system";
 
@@ -2845,7 +2852,7 @@ export interface CompactionSummary {
 
 export type BlockTrigger = "auto" | "manual";
 
-export type BlockType = "text" | "tool_call" | "plan" | "checklist" | "approval" | "question" | "artifact" | "file" | "context" | "receipt" | "task" | "wrap_up" | "related_threads" | "sources" | "compaction" | "learned" | "taught" | "specialist_result" | "automation_workflow" | "app_link" | "ui";
+export type BlockType = "text" | "tool_call" | "plan" | "checklist" | "approval" | "question" | "artifact" | "file" | "context" | "receipt" | "task" | "wrap_up" | "related_threads" | "sources" | "compaction" | "learned" | "taught" | "work_note" | "specialist_result" | "automation_workflow" | "app_link" | "ui";
 
 export interface ChatCancelParams {
     runId?:   string;
@@ -3104,8 +3111,9 @@ export type ConnectChallengePhase = "challenge";
 
 export interface ConnectDenied {
     /**
-     * Machine-readable cause when there is one: the setup token was used, expired, revoked or
-     * not allowed here
+     * Machine-readable cause when there is one: setup_token_invalid (the setup token was used,
+     * expired, revoked or not allowed here) or device_revoked (this device was removed on the
+     * Gateway and can never connect again, so a client wipes its keys)
      */
     code?:  Code;
     phase:  ConnectDeniedPhase;
@@ -3113,10 +3121,11 @@ export interface ConnectDenied {
 }
 
 /**
- * Machine-readable cause when there is one: the setup token was used, expired, revoked or
- * not allowed here
+ * Machine-readable cause when there is one: setup_token_invalid (the setup token was used,
+ * expired, revoked or not allowed here) or device_revoked (this device was removed on the
+ * Gateway and can never connect again, so a client wipes its keys)
  */
-export type Code = "setup_token_invalid";
+export type Code = "setup_token_invalid" | "device_revoked";
 
 export type ConnectDeniedPhase = "denied";
 
@@ -3175,8 +3184,9 @@ export interface ConnectResult {
     serverTime?:   string;
     stateVersion?: number;
     /**
-     * Machine-readable cause when there is one: the setup token was used, expired, revoked or
-     * not allowed here
+     * Machine-readable cause when there is one: setup_token_invalid (the setup token was used,
+     * expired, revoked or not allowed here) or device_revoked (this device was removed on the
+     * Gateway and can never connect again, so a client wipes its keys)
      */
     code?:             string;
     pairingRequestId?: string;
@@ -3779,6 +3789,10 @@ export interface DevicesRevokeParams {
 }
 
 export interface DevicesRevokeResult {
+    device: Device;
+}
+
+export interface DevicesRevokeSelfResult {
     device: Device;
 }
 
@@ -7376,6 +7390,16 @@ export interface MemoryWorkRemind {
      */
     enabled: boolean;
 }
+
+export interface MemoryWorkUndoUpdateParams {
+    factId: string;
+}
+
+export interface MemoryWorkUndoUpdateResult {
+    status: WorkUndoStatus;
+}
+
+export type WorkUndoStatus = "undone" | "changed_again" | "already_undone" | "removed";
 
 export interface MemoryWriteParams {
     content: string;
@@ -11941,6 +11965,25 @@ export interface WidgetsPreviewResult {
 }
 
 export type WidgetsPreviewResultDecision = "allow" | "ask" | "deny" | "device-only" | "unavailable";
+
+export interface WorkNoteBlock {
+    items: WorkNoteItem[];
+    type:  WorkNoteBlockType;
+}
+
+export interface WorkNoteItem {
+    attribute: WorkNoteAttribute;
+    entityId:  string;
+    factId:    string;
+    kind:      WorkNoteItemKind;
+    name:      string;
+    previous?: string;
+    value:     string;
+}
+
+export type WorkNoteItemKind = "proposal" | "update";
+
+export type WorkNoteBlockType = "work_note";
 
 export interface WrapUpBlock {
     actions?: WrapUpAction[];

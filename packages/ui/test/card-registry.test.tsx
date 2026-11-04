@@ -78,6 +78,7 @@ describe("block registry", () => {
       "compaction",
       "learned",
       "taught",
+      "work_note",
     ] as const)
       expect(blockRenderer(type), type).toBeDefined();
   });

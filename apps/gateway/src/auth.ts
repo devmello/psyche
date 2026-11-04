@@ -291,7 +291,7 @@ export interface VerifyOutcome {
   pairedBySetupToken?: { tokenId: string; deviceId: string; scopes: DeviceScope[] };
 }
 
-function denied(reason: string, code?: "setup_token_invalid"): VerifyOutcome {
+function denied(reason: string, code?: "setup_token_invalid" | "device_revoked"): VerifyOutcome {
   return {
     result: { phase: "denied", reason, ...(code === undefined ? {} : { code }) },
     identity: null,
@@ -377,7 +377,7 @@ export function verifyChallenge(
   if (overLimit && !(existing?.pairedAt && existing.publicKey === params.publicKey)) {
     throw limited();
   }
-  if (existing?.revokedAt) return denied("device revoked");
+  if (existing?.revokedAt) return denied("device revoked", "device_revoked");
   // A Mac helper on the node socket either proves this launch's handshake secret or is refused:
   // accepted as an ordinary node it would stay connected (the helper only retries after a
   // denial) and Host features would stay off until it restarted. A stale or missing secret

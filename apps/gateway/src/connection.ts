@@ -153,6 +153,10 @@ export class Connection implements LiveConnection {
     return this.#transport.bufferedAmount?.() ?? 0;
   }
 
+  closeAfterReply(reason: string): void {
+    this.#closeAfterReply = reason;
+  }
+
   close(reason: string): void {
     if (this.#phase === "closed") return;
     this.#phase = "closed";

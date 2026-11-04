@@ -4,6 +4,7 @@ import { ArrowDown } from "lucide-react";
 import * as m from "motion/react-m";
 import { type ReactElement, type ReactNode, useEffect, useId, useState } from "react";
 import { Avatar } from "../avatar/Avatar.tsx";
+import { WorkNote } from "../chat/WorkNote.tsx";
 import { DelayedSkeleton } from "../components/DelayedSkeleton.tsx";
 import { StatusGlyph } from "../components/status.tsx";
 import { Button } from "../components/ui/button.tsx";
@@ -471,6 +472,7 @@ registerBlock("wrap_up", {
 registerBlock("related_threads", { View: ({ block }) => <RelatedThreads block={block} /> });
 registerBlock("sources", { View: ({ block }) => <SourceChips block={block} /> });
 registerBlock("learned", { View: ({ block }) => <LearnedLine items={block.items} /> });
+registerBlock("work_note", { View: ({ block }) => <WorkNote items={block.items} /> });
 registerBlock("taught", {
   View: ({ block }) => (
     <TaughtLine
