@@ -90,6 +90,13 @@ export const ConnectVerifyParams = Type.Object(
       pattern: "^[A-Za-z0-9_-]{86}$",
       description: "base64url Ed25519 signature (64 bytes) over connectSigningPayload(...)",
     }),
+    gatewayKey: Type.Optional(
+      Type.String({
+        pattern: "^[A-Za-z0-9_-]{43}$",
+        description:
+          "The Gateway identity key this client verified and pinned (base64url). When present the signature is over the v2 payload, which includes it, and the Gateway refuses the connect unless it is its own key. A client of a remote Gateway always sends it",
+      }),
+    ),
   },
   { $id: "ConnectVerifyParams" },
 );
@@ -121,12 +128,20 @@ export type ConnectResult = Static<typeof ConnectResult>;
 
 export const CONNECT_SIGNING_PREFIX = "psyche-connect-v1";
 
+export const CONNECT_SIGNING_PREFIX_V2 = "psyche-connect-v2";
+
 export interface ConnectSigningInput {
   nonce: string;
   platform: string;
   deviceFamily: string;
   protocolVersion: number;
   serverOrigin: string;
+  /**
+   * The Gateway identity key the device verified (v2 payload). Without it the payload is v1, as
+   * before. A v2 signature cannot be passed off as v1 (the prefix differs), so a relay cannot
+   * strip the key.
+   */
+  gatewayKey?: string;
 }
 
 /**
@@ -136,23 +151,30 @@ export interface ConnectSigningInput {
  * payload ambiguous).
  */
 export function connectSigningPayload(input: ConnectSigningInput): Uint8Array {
-  const { nonce, platform, deviceFamily, protocolVersion, serverOrigin } = input;
+  const { nonce, platform, deviceFamily, protocolVersion, serverOrigin, gatewayKey } = input;
   if (!Number.isInteger(protocolVersion) || protocolVersion < 1) {
     throw new PsycheError("invalid_params", "protocolVersion must be a positive integer");
   }
-  for (const [key, value] of Object.entries({ nonce, platform, deviceFamily, serverOrigin })) {
+  for (const [key, value] of Object.entries({
+    nonce,
+    platform,
+    deviceFamily,
+    serverOrigin,
+    ...(gatewayKey === undefined ? {} : { gatewayKey }),
+  })) {
     if (typeof value !== "string" || value.length === 0 || /[\r\n]/.test(value)) {
       throw new PsycheError("invalid_params", `${key} must be a non-empty single-line string`);
     }
   }
   return new TextEncoder().encode(
     [
-      CONNECT_SIGNING_PREFIX,
+      gatewayKey === undefined ? CONNECT_SIGNING_PREFIX : CONNECT_SIGNING_PREFIX_V2,
       nonce,
       platform,
       deviceFamily,
       String(protocolVersion),
       serverOrigin,
+      ...(gatewayKey === undefined ? [] : [gatewayKey]),
     ].join("\n"),
   );
 }

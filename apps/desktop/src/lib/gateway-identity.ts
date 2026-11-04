@@ -157,7 +157,12 @@ export function createGatewayVerifier(opts: GatewayVerifierOptions): PinningVeri
         return { ok: false, code: "gateway_identity_changed" };
       }
     }
-    return { ok: true, fingerprint: fingerprintOf(gatewayKey) };
+    return {
+      ok: true,
+      fingerprint: fingerprintOf(gatewayKey),
+      // A remote Gateway's connect is bound to the key just verified (the v2 payload).
+      ...(opts.mode === "strict" ? { gatewayKey } : {}),
+    };
   };
   return Object.assign(verifier, { candidateKey: () => candidate });
 }

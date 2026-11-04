@@ -232,6 +232,8 @@ export interface VerifyDeps {
   db: PsycheDb;
   handshakeSecret: string;
   serverOrigin: string;
+  /** This Gateway's identity public key: a v2 connect must name it. */
+  gatewayKey?: string;
   now: () => Date;
   limits: GatewayLimits;
   failedChallenges: RateLimiter;
@@ -276,7 +278,18 @@ export function verifyChallenge(
   if (input.nonce !== pending.nonce) fail("Nonce does not match the challenge");
   if (now.getTime() > pending.expiresAtMs) fail("Challenge expired");
   const { params } = pending;
+  // A client that verified a Gateway key signs it into the connect (v2). It must be this
+  // Gateway's own: a connect made for another key is a connect through something else. Without
+  // the field only the v1 payload verifies, so a relay cannot strip it from a v2 signature.
+  if (
+    input.gatewayKey !== undefined &&
+    deps.gatewayKey !== undefined &&
+    input.gatewayKey !== deps.gatewayKey
+  ) {
+    fail("The connect was made for a different Gateway key");
+  }
   const payload = connectSigningPayload({
+    ...(input.gatewayKey === undefined ? {} : { gatewayKey: input.gatewayKey }),
     nonce: pending.nonce,
     platform: params.platform,
     deviceFamily: params.deviceFamily,

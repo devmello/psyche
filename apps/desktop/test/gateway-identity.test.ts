@@ -77,6 +77,7 @@ describe("the identity pin (strict mode, a saved remote Gateway)", () => {
     expect(verify(challenge(id), DEVICE)).toEqual({
       ok: true,
       fingerprint: fingerprintOf(id.publicKey),
+      gatewayKey: id.publicKey,
     });
     expect(verify.candidateKey()).toBe(id.publicKey);
   });

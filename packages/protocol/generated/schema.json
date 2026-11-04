@@ -14184,6 +14184,11 @@
           "description": "base64url Ed25519 signature (64 bytes) over connectSigningPayload(...)",
           "pattern": "^[A-Za-z0-9_-]{86}$",
           "type": "string"
+        },
+        "gatewayKey": {
+          "description": "The Gateway identity key this client verified and pinned (base64url). When present the signature is over the v2 payload, which includes it, and the Gateway refuses the connect unless it is its own key. A client of a remote Gateway always sends it",
+          "pattern": "^[A-Za-z0-9_-]{43}$",
+          "type": "string"
         }
       },
       "required": [

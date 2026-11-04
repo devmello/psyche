@@ -27,8 +27,15 @@ export interface GatewayChallengeView {
 
 export type GatewayVerdict =
   | {
-      ok: true /** `sha256:<hex>` of the verified identity key, when there is one. */;
+      ok: true;
+      /** `sha256:<hex>` of the verified identity key, when there is one. */
       fingerprint?: string;
+      /**
+       * The verified Gateway key itself. When set, the device signs the v2 connect payload that
+       * includes it and sends it, so the Gateway can refuse a connect that was made for another
+       * Gateway's key. A client of a remote Gateway always has one.
+       */
+      gatewayKey?: string;
     }
   | { ok: false; code: string };
 
@@ -113,6 +120,7 @@ export class Handshake {
         return { status: { type: "error", code: "invalid_frame" }, done: true };
       }
       let fingerprint: string | undefined;
+      let verifiedKey: string | undefined;
       if (this.verifyGateway) {
         const { gatewayKey, gatewaySignature } = payload;
         const verdict = await this.verifyGateway(
@@ -130,6 +138,7 @@ export class Handshake {
           return { status: { type: "error", code: verdict.code }, done: true };
         }
         fingerprint = verdict.fingerprint;
+        verifiedKey = verdict.gatewayKey;
       }
       const bytes = connectSigningPayload({
         nonce,
@@ -137,6 +146,7 @@ export class Handshake {
         deviceFamily: this.params.deviceFamily,
         protocolVersion,
         serverOrigin,
+        ...(verifiedKey === undefined ? {} : { gatewayKey: verifiedKey }),
       });
       const signature = await this.sign(bytes);
       this.stage = "sent";
@@ -146,7 +156,11 @@ export class Handshake {
           protocolVersion,
           ...(fingerprint ? { gatewayFingerprint: fingerprint } : {}),
         },
-        send: reqFrame("connect.verify", "connect.verify", { nonce, signature }),
+        send: reqFrame("connect.verify", "connect.verify", {
+          nonce,
+          signature,
+          ...(verifiedKey === undefined ? {} : { gatewayKey: verifiedKey }),
+        }),
       };
     }
 

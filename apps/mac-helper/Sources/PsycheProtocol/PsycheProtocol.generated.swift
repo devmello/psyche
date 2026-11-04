@@ -10153,17 +10153,23 @@ public enum ConnectResultPhase: String, Codable, Sendable {
 
 // MARK: - ConnectVerifyParams
 public struct ConnectVerifyParams: Codable, Sendable {
+    /// The Gateway identity key this client verified and pinned (base64url). When present the
+    /// signature is over the v2 payload, which includes it, and the Gateway refuses the connect
+    /// unless it is its own key. A client of a remote Gateway always sends it
+    public let gatewayKey: String?
     /// base64url, 32 random bytes
     public let nonce: String
     /// base64url Ed25519 signature (64 bytes) over connectSigningPayload(...)
     public let signature: String
 
     public enum CodingKeys: String, CodingKey {
+        case gatewayKey = "gatewayKey"
         case nonce = "nonce"
         case signature = "signature"
     }
 
-    public init(nonce: String, signature: String) {
+    public init(gatewayKey: String?, nonce: String, signature: String) {
+        self.gatewayKey = gatewayKey
         self.nonce = nonce
         self.signature = signature
     }

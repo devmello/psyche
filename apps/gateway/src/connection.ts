@@ -380,6 +380,7 @@ export class Connection implements LiveConnection {
       db: ctx.db,
       handshakeSecret: ctx.handshakeSecret,
       serverOrigin: ctx.challengeOrigin(this.peer),
+      gatewayKey: ctx.identity.publicKey,
       now: ctx.now,
       limits: ctx.limits,
       failedChallenges: ctx.failedChallenges,

@@ -3161,6 +3161,12 @@ export type ConnectResultPhase = "paired" | "pending" | "denied";
 
 export interface ConnectVerifyParams {
     /**
+     * The Gateway identity key this client verified and pinned (base64url). When present the
+     * signature is over the v2 payload, which includes it, and the Gateway refuses the connect
+     * unless it is its own key. A client of a remote Gateway always sends it
+     */
+    gatewayKey?: string;
+    /**
      * base64url, 32 random bytes
      */
     nonce: string;
