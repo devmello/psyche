@@ -242,3 +242,32 @@ jobs:
       - name: Swift test
         run: swift test --package-path apps/mac-helper --skip-build
 
+
+  # The iOS app (docs/design/ios-app-2026.md §6): XcodeGen generates the project, xcodebuild builds the app
+  # and its four extensions for a generic simulator with no signing, and `swift test` runs the suites of
+  # the targets with no UI (PsycheStore, PsycheClient) on macOS. Runs only when apps/ios, the Swift
+  # packages or the protocol changed (the `ios` flag above).
+  ios:
+    name: ios app (xcodegen + xcodebuild + swift test)
+    needs: changes
+    if: needs.changes.outputs.ios == 'true'
+    runs-on: macos-26
+    timeout-minutes: 40
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate the Xcode project
+        working-directory: apps/ios
+        run: xcodegen generate
+      - name: Build the app (iOS Simulator, unsigned)
+        working-directory: apps/ios
+        run: |
+          xcodebuild -project Psyche.xcodeproj -scheme Psyche \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build
+      - name: Swift test (non-UI targets)
+        run: swift test --package-path apps/ios
