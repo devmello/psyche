@@ -2820,13 +2820,14 @@ export interface ItemElement {
     source?:        string;
     span?:          string;
     factId?:        string;
-    attribute?:     AttributeEnum;
+    attribute?:     WorkNoteAttribute;
     entityId?:      string;
     name?:          string;
+    previous?:      string;
     value?:         string;
 }
 
-export type AttributeEnum = "status" | "deadline" | "progress" | "stopped_at" | "next_step";
+export type WorkNoteAttribute = "status" | "deadline" | "progress" | "stopped_at" | "next_step";
 
 export type Provenance = "owner" | "agent" | "untrusted" | "system";
 
@@ -7378,7 +7379,7 @@ export interface MemoryWorkUndoUpdateResult {
     status: WorkUndoStatus;
 }
 
-export type WorkUndoStatus = "undone" | "changed_again" | "already_undone";
+export type WorkUndoStatus = "undone" | "changed_again" | "already_undone" | "removed";
 
 export interface MemoryWriteParams {
     content: string;
@@ -8372,7 +8373,7 @@ export type RunStatus = "running" | "done" | "failed" | "cancelled" | "awaiting_
 
 export interface TraceStep {
     attempt:       number;
-    attributes:    { [key: string]: AttributeValue };
+    attributes:    { [key: string]: Attribute };
     childRunId?:   string;
     endedAt?:      null | string;
     error?:        RunStepError;
@@ -8390,7 +8391,7 @@ export interface TraceStep {
     thinking?:     string;
 }
 
-export type AttributeValue = boolean | number | string;
+export type Attribute = boolean | number | string;
 
 export interface RunStepError {
     code:      string;
@@ -11951,11 +11952,12 @@ export interface WorkNoteBlock {
 }
 
 export interface WorkNoteItem {
-    attribute: AttributeEnum;
+    attribute: WorkNoteAttribute;
     entityId:  string;
     factId:    string;
     kind:      WorkNoteItemKind;
     name:      string;
+    previous?: string;
     value:     string;
 }
 

@@ -20,8 +20,8 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ### v1 additive — 2026-11-04 (MW7 confirm note and undo)
 
-- New block `work_note` (`WorkNoteBlock`, items `WorkNoteItem`: `kind` proposal or update, `entityId`, `name`, `attribute`, `value`, `factId`): the system note under a chat turn that proposed a status or deadline (Confirm / Discard call `memory.review.decide`) or wrote progress, stopped-at or next-step directly (Undo).
-- New method `memory.work.undoUpdate` (`operator.write`, side-effecting): `{factId}` gives `{status: undone | changed_again | already_undone}`; it restores the previous value only while the field has not changed since.
+- New block `work_note` (`WorkNoteBlock`, items `WorkNoteItem`: `kind` proposal or update, `entityId`, `name`, `attribute`, `value`, optional `previous`, `factId`; the attribute enum is `WorkNoteAttribute`): the system note under a chat turn that proposed a status or deadline (Confirm / Discard call `memory.review.decide`) or wrote progress, stopped-at or next-step directly (Undo).
+- New method `memory.work.undoUpdate` (`operator.write`, side-effecting): `{factId}` gives `{status: undone | changed_again | already_undone | removed}`; it restores the previous value only while the field has not changed since.
 
 ### v1 additive — 2026-11-04 (pairing links, remote Gateway R2)
 

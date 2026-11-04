@@ -165,8 +165,12 @@ export const chat = {
   "chat.learned.undone": "Removed. Psyche won't keep it.",
 
   "chat.workNote.noticed": "Psyche noticed:",
-  "chat.workNote.statusChange": "{name} is {status}",
-  "chat.workNote.deadlineChange": "{name}, {due}",
+  "chat.workNote.statusDone": "{name} is done",
+  "chat.workNote.statusSubmitted": "{name} was handed in",
+  "chat.workNote.statusDropped": "{name} was dropped",
+  "chat.workNote.deadlineChange": "{name}, due {date}",
+  "chat.workNote.statusOther": "{name} has a new status",
+  "chat.workNote.was": "(was: {value})",
   "chat.workNote.updated": "Updated {name}:",
   "chat.workNote.stoppedAt": "stopped at {value}",
   "chat.workNote.nextStep": "next, {value}",
@@ -182,6 +186,7 @@ export const chat = {
   "chat.workNote.undone": "Undone. {name} is back as it was.",
   "chat.workNote.changedAgain": "{name} changed again since, so nothing was undone.",
   "chat.workNote.alreadyUndone": "Already undone.",
+  "chat.workNote.removed": "You already removed this in Memory.",
 
   "chat.approvals.announce":
     "Approval needed: {summary}. {count, plural, one {# approval needs you} other {# approvals need you}}.",

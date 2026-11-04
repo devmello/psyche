@@ -142,23 +142,128 @@ describe("undo of a direct chat update", () => {
     expect(again.applied[0]?.factId).toBeUndefined();
   });
 
-  it("only works on chat-written work lines", () => {
+  it("only works on ids a chat note offered", () => {
     const f = graph.setFact({
       entityId: thesis,
       attribute: "stopped_at",
       value: "section 9",
       provenance: "owner",
-    });
-    expect(() => em.undoChatWork(f?.fact.id as string)).toThrow(/written from chat/);
-    const d = graph.setFact({
-      entityId: thesis,
-      attribute: "note",
-      value: "a note",
-      provenance: "owner",
       source: { kind: "chat", ref: "thr_1" },
     });
-    expect(() => em.undoChatWork(d?.fact.id as string)).toThrow(/written from chat/);
-    expect(() => em.undoChatWork("fact_missing")).toThrow(/no such fact/);
+    expect(() => em.undoChatWork(f?.fact.id as string)).toThrow(/not offered/);
+    expect(() => em.undoChatWork("fact_missing")).toThrow(/not offered/);
+    expect(current("stopped_at")).toEqual(["section 9"]);
+  });
+
+  it("deletes the undone line and its quote, and a second undo says so", () => {
+    const r = say("Thesis draft: stopped at section 3", {
+      attribute: "stopped_at",
+      value: "section 3",
+    });
+    const id = r.applied[0]?.factId as string;
+    em.undoChatWork(id);
+    expect(
+      env.db.sqlite.prepare("SELECT count(*) AS n FROM graph_facts WHERE id = ?").get(id),
+    ).toEqual({
+      n: 0,
+    });
+    expect(em.undoChatWork(id)).toBe("already_undone");
+  });
+
+  it("refuses after the seven-day window", () => {
+    const r = say("Thesis draft: stopped at section 3", {
+      attribute: "stopped_at",
+      value: "section 3",
+    });
+    env.db.sqlite
+      .prepare("UPDATE memory_work_undo SET created_at = '2026-10-01T00:00:00.000Z'")
+      .run();
+    expect(() => em.undoChatWork(r.applied[0]?.factId as string)).toThrow(/window/);
+  });
+
+  it("puts back a to-do the write started and its last signal, only if unchanged since", () => {
+    const entity = () => graph.getEntity(thesis);
+    expect(entity()?.workStatus).toBe("not_started");
+    const signalBefore = entity()?.lastSignalAt ?? null;
+    const r = say("Thesis draft: stopped at section 3", {
+      attribute: "stopped_at",
+      value: "section 3",
+    });
+    expect(entity()?.workStatus).toBe("in_progress");
+    expect(em.undoChatWork(r.applied[0]?.factId as string)).toBe("undone");
+    expect(entity()?.workStatus).toBe("not_started");
+    expect(entity()?.lastSignalAt ?? null).toBe(signalBefore);
+    expect(
+      graph.facts(thesis).some((f) => f.attribute === "status" && f.value === "in_progress"),
+    ).toBe(false);
+
+    // The owner moves the item on after the chat line: Undo removes the line, not their status.
+    const r2 = say("Thesis draft: stopped at section 4", {
+      attribute: "stopped_at",
+      value: "section 4",
+    });
+    graph.setWorkStatus(thesis, { type: "owner_set", to: "submitted" });
+    expect(em.undoChatWork(r2.applied[0]?.factId as string)).toBe("undone");
+    expect(entity()?.workStatus).toBe("submitted");
+  });
+
+  it("a revived inference expires again", () => {
+    // Only a project can hold an agent's next step (a to-do's work lines are the owner's).
+    const capstone = graph.createEntity({ kind: "project", name: "Capstone" }).id;
+    graph.setFact({
+      entityId: capstone,
+      attribute: "next_step",
+      value: "outline",
+      provenance: "agent",
+    });
+    const text = "Capstone: next I will write the intro";
+    const r = applyOwnerChatWork(graph, {
+      ownerText: text,
+      threadId: "thr_1",
+      parsed: {
+        claims: [
+          { item: "Capstone", attribute: "next_step", value: "write the intro", quote: text },
+        ],
+        assignments: [],
+      },
+      now: NOW,
+      timeZone: "UTC",
+      em,
+    });
+    expect(em.undoChatWork(r.applied[0]?.factId as string)).toBe("undone");
+    const agent = env.db.sqlite
+      .prepare(
+        "SELECT valid_to, superseded_by FROM graph_facts WHERE entity_id = ? AND provenance = 'agent' AND attribute = 'next_step'",
+      )
+      .get(capstone) as { valid_to: string | null; superseded_by: string | null };
+    expect(agent.superseded_by).toBeNull();
+    expect(agent.valid_to).not.toBeNull();
+  });
+
+  it("when the owner marked the chat line wrong in Memory, undo still revives the prior", () => {
+    graph.setFact({
+      entityId: thesis,
+      attribute: "stopped_at",
+      value: "section 2",
+      provenance: "owner",
+    });
+    const r = say("Thesis draft: stopped at section 3", {
+      attribute: "stopped_at",
+      value: "section 3",
+    });
+    graph.retractFact(r.applied[0]?.factId as string);
+    expect(current("stopped_at")).toEqual([]);
+    expect(em.undoChatWork(r.applied[0]?.factId as string)).toBe("undone");
+    expect(current("stopped_at")).toEqual(["section 2"]);
+  });
+
+  it("when nothing was replaced and the owner removed it, it says removed", () => {
+    const r = say("Thesis draft: stopped at section 3", {
+      attribute: "stopped_at",
+      value: "section 3",
+    });
+    graph.retractFact(r.applied[0]?.factId as string);
+    expect(em.undoChatWork(r.applied[0]?.factId as string)).toBe("removed");
   });
 });
 

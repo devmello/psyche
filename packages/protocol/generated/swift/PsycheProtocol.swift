@@ -1532,6 +1532,7 @@
 //   let widgetsPinResult = try? JSONDecoder().decode(WidgetsPinResult.self, from: jsonData)
 //   let widgetsPreviewParams = try? JSONDecoder().decode(WidgetsPreviewParams.self, from: jsonData)
 //   let widgetsPreviewResult = try? JSONDecoder().decode(WidgetsPreviewResult.self, from: jsonData)
+//   let workNoteAttribute = try? JSONDecoder().decode(WorkNoteAttribute.self, from: jsonData)
 //   let workNoteBlock = try? JSONDecoder().decode(WorkNoteBlock.self, from: jsonData)
 //   let workNoteItem = try? JSONDecoder().decode(WorkNoteItem.self, from: jsonData)
 //   let workUndoStatus = try? JSONDecoder().decode(WorkUndoStatus.self, from: jsonData)
@@ -9183,9 +9184,10 @@ public struct ItemElement: Codable, Sendable {
     public let source: String?
     public let span: String?
     public let factID: String?
-    public let attribute: AttributeEnum?
+    public let attribute: WorkNoteAttribute?
     public let entityID: String?
     public let name: String?
+    public let previous: String?
     public let value: String?
 
     public enum CodingKeys: String, CodingKey {
@@ -9206,10 +9208,11 @@ public struct ItemElement: Codable, Sendable {
         case attribute = "attribute"
         case entityID = "entityId"
         case name = "name"
+        case previous = "previous"
         case value = "value"
     }
 
-    public init(status: ChecklistItemStatus?, text: String?, lastMessageAt: String?, snippet: String?, threadID: String?, title: String?, date: String?, id: String?, kind: String?, provenance: Provenance?, route: String?, source: String?, span: String?, factID: String?, attribute: AttributeEnum?, entityID: String?, name: String?, value: String?) {
+    public init(status: ChecklistItemStatus?, text: String?, lastMessageAt: String?, snippet: String?, threadID: String?, title: String?, date: String?, id: String?, kind: String?, provenance: Provenance?, route: String?, source: String?, span: String?, factID: String?, attribute: WorkNoteAttribute?, entityID: String?, name: String?, previous: String?, value: String?) {
         self.status = status
         self.text = text
         self.lastMessageAt = lastMessageAt
@@ -9227,11 +9230,12 @@ public struct ItemElement: Codable, Sendable {
         self.attribute = attribute
         self.entityID = entityID
         self.name = name
+        self.previous = previous
         self.value = value
     }
 }
 
-public enum AttributeEnum: String, Codable, Sendable {
+public enum WorkNoteAttribute: String, Codable, Sendable {
     case deadline = "deadline"
     case nextStep = "next_step"
     case progress = "progress"
@@ -21872,6 +21876,7 @@ public struct MemoryWorkUndoUpdateResult: Codable, Sendable {
 public enum WorkUndoStatus: String, Codable, Sendable {
     case alreadyUndone = "already_undone"
     case changedAgain = "changed_again"
+    case removed = "removed"
     case undone = "undone"
 }
 
@@ -24652,7 +24657,7 @@ public enum RunStatus: String, Codable, Sendable {
 // MARK: - TraceStep
 public struct TraceStep: Codable, Sendable {
     public let attempt: Int
-    public let attributes: [String: AttributeValue]
+    public let attributes: [String: Attribute]
     public let childRunID: String?
     public let endedAt: String?
     public let error: RunStepError?
@@ -24689,7 +24694,7 @@ public struct TraceStep: Codable, Sendable {
         case thinking = "thinking"
     }
 
-    public init(attempt: Int, attributes: [String: AttributeValue], childRunID: String?, endedAt: String?, error: RunStepError?, groupID: String?, id: String, input: JSONAny?, kind: RunStepKind, label: String, output: JSONAny?, parentStepID: String?, seq: Int, startedAt: String, status: RunStepStatus, target: String?, thinking: String?) {
+    public init(attempt: Int, attributes: [String: Attribute], childRunID: String?, endedAt: String?, error: RunStepError?, groupID: String?, id: String, input: JSONAny?, kind: RunStepKind, label: String, output: JSONAny?, parentStepID: String?, seq: Int, startedAt: String, status: RunStepStatus, target: String?, thinking: String?) {
         self.attempt = attempt
         self.attributes = attributes
         self.childRunID = childRunID
@@ -24710,7 +24715,7 @@ public struct TraceStep: Codable, Sendable {
     }
 }
 
-public enum AttributeValue: Codable, Sendable {
+public enum Attribute: Codable, Sendable {
     case bool(Bool)
     case double(Double)
     case string(String)
@@ -24729,7 +24734,7 @@ public enum AttributeValue: Codable, Sendable {
             self = .string(x)
             return
         }
-        throw DecodingError.typeMismatch(AttributeValue.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Wrong type for AttributeValue"))
+        throw DecodingError.typeMismatch(Attribute.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Wrong type for Attribute"))
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -34408,11 +34413,12 @@ public struct WorkNoteBlock: Codable, Sendable {
 
 // MARK: - WorkNoteItem
 public struct WorkNoteItem: Codable, Sendable {
-    public let attribute: AttributeEnum
+    public let attribute: WorkNoteAttribute
     public let entityID: String
     public let factID: String
     public let kind: WorkNoteItemKind
     public let name: String
+    public let previous: String?
     public let value: String
 
     public enum CodingKeys: String, CodingKey {
@@ -34421,15 +34427,17 @@ public struct WorkNoteItem: Codable, Sendable {
         case factID = "factId"
         case kind = "kind"
         case name = "name"
+        case previous = "previous"
         case value = "value"
     }
 
-    public init(attribute: AttributeEnum, entityID: String, factID: String, kind: WorkNoteItemKind, name: String, value: String) {
+    public init(attribute: WorkNoteAttribute, entityID: String, factID: String, kind: WorkNoteItemKind, name: String, previous: String?, value: String) {
         self.attribute = attribute
         self.entityID = entityID
         self.factID = factID
         self.kind = kind
         self.name = name
+        self.previous = previous
         self.value = value
     }
 }

@@ -1,6 +1,7 @@
 ---
 "@psyche/protocol": minor
 "@psyche/memory": minor
+"@psyche/db": minor
 "@psyche/gateway": minor
 "@psyche/ui": minor
 ---

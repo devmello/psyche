@@ -12,26 +12,23 @@ type Settled =
   | "settled"
   | "undone"
   | "changed_again"
-  | "already_undone";
+  | "already_undone"
+  | "removed";
 
-/** What the note says changed: "Thesis draft is done", "Thesis draft, Due Nov 6", "stopped at …". */
+/** What the note says changed: "Thesis draft is done", "Thesis draft, due Nov 6", "stopped at …". */
 function describe(item: WorkNoteItem): string {
   if (item.attribute === "status") {
-    const label =
-      item.value === "submitted"
-        ? t("work.status.submitted")
-        : item.value === "done"
-          ? t("work.status.done")
-          : item.value === "dropped"
-            ? t("work.status.dropped")
-            : item.value;
-    return t("chat.workNote.statusChange", { name: item.name, status: label });
+    const values = { name: item.name };
+    return item.value === "submitted"
+      ? t("chat.workNote.statusSubmitted", values)
+      : item.value === "done"
+        ? t("chat.workNote.statusDone", values)
+        : item.value === "dropped"
+          ? t("chat.workNote.statusDropped", values)
+          : t("chat.workNote.statusOther", values);
   }
   if (item.attribute === "deadline") {
-    return t("chat.workNote.deadlineChange", {
-      name: item.name,
-      due: t("work.due.date", { date: formatDate(item.value) }),
-    });
+    return t("chat.workNote.deadlineChange", { name: item.name, date: formatDate(item.value) });
   }
   if (item.attribute === "stopped_at") return t("chat.workNote.stoppedAt", { value: item.value });
   if (item.attribute === "next_step") return t("chat.workNote.nextStep", { value: item.value });
@@ -44,7 +41,8 @@ function describe(item: WorkNoteItem): string {
  * the same `memory.review.decide` Review does, and ignoring the note leaves it there. An update
  * (progress, stopped at, next step) was written at once: Undo calls `memory.work.undoUpdate`,
  * which refuses when the field has changed again. Only the owner's connection may write; a
- * read-only window gets the Gateway's refusal.
+ * read-only window gets the Gateway's refusal (the kit does not know the connection's scopes, so
+ * the buttons are shown and the refusal is what the window sees).
  */
 export function WorkNote({ items }: { items: readonly WorkNoteItem[] }): ReactElement {
   const call = useCall();
@@ -60,7 +58,10 @@ export function WorkNote({ items }: { items: readonly WorkNoteItem[] }): ReactEl
       setError(null);
     } catch (err) {
       // Already decided in Review (or on another window): say so, nothing else to do.
-      if (item.kind === "proposal" && errorCode(err) === "conflict") {
+      if (
+        item.kind === "proposal" &&
+        (errorCode(err) === "conflict" || errorCode(err) === "not_found")
+      ) {
         setSettled((s) => ({ ...s, [item.factId]: "settled" }));
       } else setError(describeError(err));
     } finally {
@@ -89,6 +90,8 @@ export function WorkNote({ items }: { items: readonly WorkNoteItem[] }): ReactEl
         return t("chat.workNote.changedAgain", { name: item.name });
       case "already_undone":
         return t("chat.workNote.alreadyUndone");
+      case "removed":
+        return t("chat.workNote.removed");
     }
   };
 
@@ -116,6 +119,14 @@ export function WorkNote({ items }: { items: readonly WorkNoteItem[] }): ReactEl
                   : t("chat.workNote.updated", { name: item.name })}
               </span>{" "}
               <em className="text-label-primary">{describe(item)}</em>
+              {item.previous === undefined ? null : (
+                <>
+                  {" "}
+                  <span className="text-label-tertiary">
+                    {t("chat.workNote.was", { value: item.previous })}
+                  </span>
+                </>
+              )}
             </span>
             {item.kind === "proposal" ? (
               <>

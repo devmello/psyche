@@ -62,7 +62,7 @@ describe("work note under a chat turn (MW7)", () => {
       "memory.review.decide": () => ({ facts: [] }),
     });
     expect(screen.getByText(/Psyche noticed:/)).toBeTruthy();
-    expect(screen.getByText(/Thesis draft, Due Nov 6/)).toBeTruthy();
+    expect(screen.getByText(/Thesis draft, due Nov 6/)).toBeTruthy();
     // Showing the note changes nothing.
     expect(callsOf(gateway, "memory.review.decide")).toEqual([]);
     await userEvent.click(screen.getByRole("button", { name: "Confirm: Thesis draft" }));
@@ -93,6 +93,23 @@ describe("work note under a chat turn (MW7)", () => {
     expect((await screen.findByRole("status")).textContent).toBe(
       "This was already handled in Review.",
     );
+  });
+
+  it("a proposal that is gone says it was handled, too", async () => {
+    setup(<MessageView message={note([proposal])} />, {
+      "memory.review.decide": () => {
+        throw new PsycheError("not_found", "no such fact");
+      },
+    });
+    await userEvent.click(screen.getByRole("button", { name: "Discard: Thesis draft" }));
+    expect((await screen.findByRole("status")).textContent).toBe(
+      "This was already handled in Review.",
+    );
+  });
+
+  it("shows what an update replaced", () => {
+    setup(<MessageView message={note([{ ...update, previous: "section 2" }])} />);
+    expect(screen.getByText("(was: section 2)")).toBeTruthy();
   });
 
   it("an update says what changed and Undo calls memory.work.undoUpdate", async () => {

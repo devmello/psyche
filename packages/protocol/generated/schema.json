@@ -2328,7 +2328,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Undo for a progress, stopped-at or next-step line the owner's chat wrote: restores the previous value only while the field has not changed since (changed_again otherwise, nothing touched). Side-effecting.",
+        "description": "Undo for a progress, stopped-at or next-step line the owner's chat wrote: restores the previous value only while the field has not changed since (changed_again otherwise, nothing touched; removed when the owner had already marked it wrong in Memory and nothing was left to restore). Also puts back a to-do status and last signal time the write had moved, if they have not changed since. Only for updates a chat note offered, within seven days. Side-effecting.",
         "name": "memory.work.undoUpdate",
         "params": "#/$defs/MemoryWorkUndoUpdateParams",
         "result": "#/$defs/MemoryWorkUndoUpdateResult",
@@ -46105,6 +46105,16 @@
       ],
       "type": "object"
     },
+    "WorkNoteAttribute": {
+      "enum": [
+        "status",
+        "deadline",
+        "progress",
+        "stopped_at",
+        "next_step"
+      ],
+      "type": "string"
+    },
     "WorkNoteBlock": {
       "properties": {
         "type": {
@@ -46146,16 +46156,13 @@
           "type": "string"
         },
         "attribute": {
-          "enum": [
-            "status",
-            "deadline",
-            "progress",
-            "stopped_at",
-            "next_step"
-          ],
-          "type": "string"
+          "$ref": "#/$defs/WorkNoteAttribute"
         },
         "value": {
+          "maxLength": 300,
+          "type": "string"
+        },
+        "previous": {
           "maxLength": 300,
           "type": "string"
         },
@@ -46180,7 +46187,8 @@
       "enum": [
         "undone",
         "changed_again",
-        "already_undone"
+        "already_undone",
+        "removed"
       ],
       "type": "string"
     },

@@ -206,8 +206,12 @@ export const WorkNoteItem = Type.Object(
     kind: StringEnum(["proposal", "update"]),
     entityId: Id,
     name: Type.String({ maxLength: 200 }),
-    attribute: StringEnum(["status", "deadline", "progress", "stopped_at", "next_step"]),
+    attribute: StringEnum(["status", "deadline", "progress", "stopped_at", "next_step"], {
+      $id: "WorkNoteAttribute",
+    }),
     value: Type.String({ maxLength: 300 }),
+    /** For an update that replaced a value: what it was ("was: section 2"). */
+    previous: Type.Optional(Type.String({ maxLength: 300 })),
     factId: Id,
   },
   { $id: "WorkNoteItem" },

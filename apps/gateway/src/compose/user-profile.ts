@@ -206,6 +206,9 @@ export function workNoteItems(applied: readonly AppliedWork[]): WorkNoteItem[] {
       name: a.name.slice(0, 200),
       attribute: a.attribute as WorkNoteItem["attribute"],
       value: a.value.slice(0, 300),
+      ...(a.kind === "fact" && typeof a.previousValue === "string"
+        ? { previous: a.previousValue.slice(0, 300) }
+        : {}),
       factId: a.factId,
     });
   }

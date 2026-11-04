@@ -464,6 +464,7 @@ export function applyOwnerChatWork(graph: GraphStore, input: ChatWorkInput): Own
         continue;
       }
       const before = new Set(graph.facts(entity.id).map((f) => f.id));
+      const was = graph.getEntity(entity.id);
       const written = graph.setFact({
         entityId: entity.id,
         attribute: claim.attribute,
@@ -475,6 +476,22 @@ export function applyOwnerChatWork(graph: GraphStore, input: ChatWorkInput): Own
       });
       graph.recordSignal(entity.id, { provenance: "owner" });
       const created = written !== undefined && !before.has(written.fact.id);
+      if (created) {
+        // What the write moved besides the fact (a to-do starting, the last signal), for Undo.
+        const now = graph.getEntity(entity.id);
+        const moved = (was?.workStatus ?? null) !== (now?.workStatus ?? null);
+        graph.recordWorkUndo({
+          factId: written.fact.id,
+          entityId: entity.id,
+          statusBefore: was?.workStatus ?? null,
+          statusAfter: now?.workStatus ?? null,
+          statusFactId: moved
+            ? (graph.facts(entity.id).find((f) => f.attribute === "status")?.id ?? null)
+            : null,
+          signalBefore: was?.lastSignalAt ?? null,
+          signalAfter: now?.lastSignalAt ?? null,
+        });
+      }
       result.applied.push({
         kind: "fact",
         entityId: entity.id,
