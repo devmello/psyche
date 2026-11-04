@@ -23,10 +23,15 @@ const quiet = { log: () => undefined };
 class Fake extends EventEmitter {
   destroyed = false;
   readonly remoteAddress: string;
+  readonly remotePort: number;
+  readonly localAddress = "fd12:3456:789a:1::1";
+  readonly localPort = 7979;
   constructor(remoteAddress: string) {
     super();
     this.remoteAddress = remoteAddress;
+    this.remotePort = ++Fake.ports;
   }
+  static ports = 40000;
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
@@ -60,11 +65,14 @@ function listener(opts: {
   return l;
 }
 
-/** Offers a stand-in connection to the limits; the socket is tracked if it was admitted. */
-function arrive(l: LanListener, address: string): Fake {
+/**
+ * Offers a stand-in connection to the limits. By default its TLS handshake finishes at once (the
+ * socket is tracked); with `tls: false` it stays a raw connection that never sends a ClientHello.
+ */
+function arrive(l: LanListener, address: string, tls = true): Fake {
   const s = new Fake(address);
   l.admit(s as unknown as Socket);
-  if (!s.destroyed) l.track(s as unknown as TLSSocket);
+  if (tls && !s.destroyed) l.track(s as unknown as TLSSocket);
   return s;
 }
 
@@ -145,6 +153,57 @@ describe("who may connect, and how much", () => {
     expect(more.destroyed).toBe(false);
     expect(owner.destroyed).toBe(false);
     expect(attacker.filter((s) => s.destroyed)).toHaveLength(2);
+  });
+
+  it("takes connections that never finished TLS first, and they cannot fill a cap for good", () => {
+    const l = listener({
+      limits: {
+        connectionsPerMinutePerIp: 1000,
+        concurrentPerIp: 4,
+        concurrentTotal: 40,
+        prefixFactor: 2,
+      },
+    });
+    // A neighbour holds the /64's whole cap (8) with raw sockets that never send a ClientHello.
+    const flood = [
+      ...[...Array(4)].map(() => arrive(l, "fd12:3456:789a:1::1", false)),
+      ...[...Array(4)].map(() => arrive(l, "fd12:3456:789a:1::2", false)),
+    ];
+    expect(flood.every((s) => !s.destroyed)).toBe(true);
+    // The owner still gets in (a raw socket is evicted), and is not the one evicted next.
+    const owner = arrive(l, "fd12:3456:789a:1::beef");
+    expect(owner.destroyed).toBe(false);
+    expect(flood.filter((s) => s.destroyed)).toHaveLength(1);
+    const next = arrive(l, "fd12:3456:789a:1::cafe");
+    expect(next.destroyed).toBe(false);
+    expect(owner.destroyed).toBe(false);
+    expect(flood.filter((s) => s.destroyed)).toHaveLength(2);
+  });
+
+  it("does the same at the global cap, and counts slots back at once", () => {
+    const l = listener({
+      limits: { connectionsPerMinutePerIp: 1000, concurrentPerIp: 10, concurrentTotal: 6 },
+    });
+    const owner = arrive(l, "10.0.0.5");
+    const raw = [...Array(5)].map((_, i) => arrive(l, `10.0.1.${i + 1}`, false));
+    expect(arrive(l, "10.0.0.7").destroyed).toBe(false);
+    expect(owner.destroyed).toBe(false);
+    expect(raw.filter((s) => s.destroyed)).toHaveLength(1);
+    // One admission evicts one connection, not one per cap it brushed against.
+    expect(arrive(l, "10.0.0.8").destroyed).toBe(false);
+    expect(raw.filter((s) => s.destroyed)).toHaveLength(2);
+  });
+
+  it("when every address holds one connection, the newest goes, not the owner's older one", () => {
+    const l = listener({
+      limits: { connectionsPerMinutePerIp: 1000, concurrentPerIp: 4, concurrentTotal: 4 },
+    });
+    const owner = arrive(l, "10.0.0.5");
+    const others = ["10.0.0.6", "10.0.0.7", "10.0.0.8"].map((a) => arrive(l, a));
+    const late = arrive(l, "10.0.0.9");
+    expect(late.destroyed).toBe(false);
+    expect(owner.destroyed).toBe(false);
+    expect(others.map((s) => s.destroyed)).toEqual([false, false, true]);
   });
 
   it("at the global cap, the address holding the most silent sockets loses one", () => {
@@ -289,5 +348,40 @@ describe("a change to one address leaves the other listeners alone", () => {
       true,
     );
     expect(both.listening.map((x) => x.address).sort()).toEqual(["127.0.0.1", "::1"]);
+  });
+});
+
+describe("replacing the certificate", () => {
+  it("tells the Gateway the old links are void as soon as the key is replaced, even if the restart fails", async () => {
+    let broken = false;
+    let rotated = 0;
+    const home = mkdtempSync(join(tmpdir(), "psyche-lan-hard-"));
+    homes.push(home);
+    const l = new LanListener({
+      home,
+      log: quiet,
+      now: () => new Date(),
+      identityFingerprint: `sha256:${"ab".repeat(32)}`,
+      onRequest: (_req, res) => void res.end("ok"),
+      onUpgrade: (_req, socket) => void socket.destroy(),
+      candidates: () => {
+        if (broken) throw new Error("interfaces unreadable");
+        return [V4];
+      },
+      hostLabel: () => "studio-mac",
+      advertiser: null,
+      limits: { watchMs: 0 },
+      onCertRotated: () => {
+        rotated += 1;
+      },
+    });
+    listeners.push(l);
+    const port = await freePort();
+    await l.apply({ enabled: true, interfaces: ["lan0"], port, ipv6: false }, true);
+    expect(rotated).toBe(0);
+    broken = true;
+    // Re-applying after the new key was written fails, and the hook has already run.
+    await expect(l.rotateCert()).rejects.toThrow(/interfaces unreadable/);
+    expect(rotated).toBe(1);
   });
 });

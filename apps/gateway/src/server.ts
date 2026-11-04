@@ -263,6 +263,11 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     ...(options.lan?.hostLabel ? { hostLabel: options.lan.hostLabel } : {}),
     ...(options.lan?.limits ? { limits: options.lan.limits } : {}),
     ...(options.lan?.allowPeer ? { allowPeer: options.lan.allowPeer } : {}),
+    // Links made for the old certificate (v2) are void: their tokens stop working at once.
+    onCertRotated: () => {
+      const revoked = revokeSetupTokensWithCertPin(db);
+      if (revoked > 0) log.log("info", "lan links revoked with the certificate", { revoked });
+    },
   });
 
   const broker = options.broker ?? new LockedPermissionBroker();
@@ -292,7 +297,13 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     failedChallenges: new RateLimiter(limits.failedChallengesPerMinute, 60_000, () =>
       now().getTime(),
     ),
+    failedChallengesPrefix: new RateLimiter(limits.failedChallengesPrefixPerMinute, 60_000, () =>
+      now().getTime(),
+    ),
     lanPairings: {
+      perPrefix: new RateLimiter(limits.lanPairingsPerPrefixPerHour, 3_600_000, () =>
+        now().getTime(),
+      ),
       perIp: new RateLimiter(limits.lanPairingsPerIpPerHour, 3_600_000, () => now().getTime()),
       total: new RateLimiter(limits.lanPairingsTotalPerHour, 3_600_000, () => now().getTime()),
     },
@@ -316,13 +327,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
       apply: (value: unknown, owner = false) => lan.apply(readLanSettings(value), owner),
       status: () => lan.status(),
       certSpki: () => lan.certSpki(),
-      rotateCert: async () => {
-        const status = await lan.rotateCert();
-        // Links made for the old certificate (v2) are void: their tokens stop working now.
-        const revoked = revokeSetupTokensWithCertPin(db);
-        if (revoked > 0) log.log("info", "lan links revoked with the certificate", { revoked });
-        return status;
-      },
+      rotateCert: () => lan.rotateCert(),
       refresh: () => lan.refresh(),
     },
     connections: () => connections,

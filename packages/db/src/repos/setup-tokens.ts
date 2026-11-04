@@ -176,6 +176,28 @@ export function consumeSetupToken(
   return scopes.length === stored.length ? { id: row.id, scopes } : undefined;
 }
 
+/**
+ * Whether `token` could be spent now: it exists, is unused, unrevoked and unexpired. A cheap
+ * lookup by hash that changes nothing (spending is `consumeSetupToken`'s one UPDATE).
+ */
+export function peekSetupToken(db: PsycheDb, token: string, now: string = db.now()): boolean {
+  const at = new Date(now).toISOString();
+  return (
+    db.drizzle
+      .select({ id: setupTokens.id })
+      .from(setupTokens)
+      .where(
+        and(
+          eq(setupTokens.tokenHash, hashSetupToken(token)),
+          isNull(setupTokens.usedAt),
+          isNull(setupTokens.revokedAt),
+          gt(setupTokens.expiresAt, at),
+        ),
+      )
+      .get() !== undefined
+  );
+}
+
 /** Tokens made in the last day, newest first. Never the token. */
 export function listSetupTokens(db: PsycheDb, now: string = db.now()): SetupTokenRecord[] {
   const since = new Date(new Date(now).getTime() - 24 * 3_600_000).toISOString();

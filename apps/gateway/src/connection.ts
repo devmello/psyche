@@ -52,6 +52,9 @@ const STREAM_METHODS: ReadonlySet<string> = new Set([
 /** Default wait for a peer's `res` to a Gateway → peer request. */
 const PEER_REQUEST_TIMEOUT_MS = 30_000;
 
+/** Frames a connection may send before it is paired or pending (the handshake is two). */
+const MAX_HANDSHAKE_FRAMES = 8;
+
 type Phase = "new" | "challenged" | "paired" | "pending" | "closed";
 
 interface Outbound {
@@ -65,6 +68,7 @@ export class Connection implements LiveConnection {
   readonly id: string;
   readonly peer: PeerInfo;
   #phase: Phase = "new";
+  #handshakeFrames = 0;
   #challenge: PendingChallenge | null = null;
   #identity: PairedIdentity | null = null;
   #pendingDeviceId: string | null = null;
@@ -106,6 +110,14 @@ export class Connection implements LiveConnection {
   async handleRaw(raw: string): Promise<void> {
     let id = "";
     let method: string | undefined;
+    // Before the handshake finishes a connection gets a handful of frames (connect, connect.verify
+    // and a few retries of a malformed one), not an unbounded stream of them to parse and log.
+    if (this.#phase === "new" || this.#phase === "challenged") {
+      if (++this.#handshakeFrames > MAX_HANDSHAKE_FRAMES) {
+        this.close("too many handshake frames");
+        return;
+      }
+    }
     try {
       const frame = parseFrame(raw);
       if (frame.type === "res") {
@@ -142,6 +154,8 @@ export class Connection implements LiveConnection {
       if (
         e.code === "unauthorized" ||
         e.code === "protocol_version_mismatch" ||
+        // Over the failed-challenge limit during the handshake: no second try on this connection.
+        (e.code === "rate_limited" && (this.#phase === "new" || this.#phase === "challenged")) ||
         (e.code === "forbidden" && this.#phase === "new")
       ) {
         this.close("handshake failed");
@@ -408,6 +422,11 @@ export class Connection implements LiveConnection {
       throw new PsycheError("conflict", "connect.verify needs a pending challenge");
     }
     const ctx = this.#ctx;
+    // The challenge is single-use: it is spent before any work is done on the answer, so a
+    // second `connect.verify` on this connection (pipelined, or after a refusal) finds none and
+    // costs nothing. A refused handshake closes the connection (see `handleRaw`).
+    this.#challenge = null;
+    this.#phase = "new";
     const outcome = verifyChallenge(pending, params, this.peer, {
       db: ctx.db,
       handshakeSecret: ctx.handshakeSecret,
@@ -416,9 +435,9 @@ export class Connection implements LiveConnection {
       now: ctx.now,
       limits: ctx.limits,
       failedChallenges: ctx.failedChallenges,
+      failedChallengesPrefix: ctx.failedChallengesPrefix,
       lanPairings: ctx.lanPairings,
     });
-    this.#challenge = null;
     const { result, identity } = outcome;
     ctx.log.log("info", "handshake finished", { conn: this.id, phase: result.phase });
     if (outcome.createdRequest) {

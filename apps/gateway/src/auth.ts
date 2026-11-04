@@ -17,6 +17,7 @@ import {
   getDeviceFamily,
   insertDevice,
   type PsycheDb,
+  peekSetupToken,
   touchLastSeen,
   updateDevice,
 } from "@psyche/db";
@@ -84,7 +85,9 @@ export interface PeerInfo {
   host?: string | null;
 }
 
-const rateKey = (peer: PeerInfo): string => peer.limitKey ?? peer.remoteAddress;
+/** The /64 a LAN IPv6 peer is also counted under, or `undefined` (IPv4, loopback, sockets). */
+const prefixKey = (peer: PeerInfo): string | undefined =>
+  peer.limitKey !== undefined && peer.limitKey !== peer.remoteAddress ? peer.limitKey : undefined;
 
 export interface PendingChallenge {
   params: ConnectParams;
@@ -276,8 +279,10 @@ export interface VerifyDeps {
   now: () => Date;
   limits: GatewayLimits;
   failedChallenges: RateLimiter;
-  /** New pairing requests from the LAN listener: their own, smaller budgets (per address, all). */
-  lanPairings?: { perIp: RateLimiter; total: RateLimiter };
+  /** Failed challenges per IPv6 /64 on the LAN: a looser cap over the per-address one. */
+  failedChallengesPrefix?: RateLimiter;
+  /** New pairing requests from the LAN listener: their own, smaller budgets (address, /64, all). */
+  lanPairings?: { perIp: RateLimiter; perPrefix?: RateLimiter; total: RateLimiter };
 }
 
 export interface VerifyOutcome {
@@ -312,19 +317,33 @@ export function verifyChallenge(
   deps: VerifyDeps,
 ): VerifyOutcome {
   const now = deps.now();
-  // Security §10: failed challenges 10/minute/IP. On the LAN the key is the peer's /64, which a
-  // neighbour can fill by itself; so there a peer over the limit is only refused once its
-  // signature has not shown it holds a paired device's key (below): a paired device is never
-  // locked out by someone else's failures.
-  const overLimit = !deps.failedChallenges.allowed(rateKey(peer));
+  // Security §10: failed challenges 10/minute/IP. On the LAN there are two levels: the peer's own
+  // address, and (IPv6) its /64 at a looser cap, which a neighbour can fill. A peer over a limit
+  // there is not refused up front: a connect that carries a setup token that is valid and unused
+  // (checked by its hash, before any signature work) or, once the signature is checked, one that
+  // proves a paired device's key, goes on. Neither can be locked out by someone else's failures.
+  const prefix = prefixKey(peer);
+  const overLimit =
+    !deps.failedChallenges.allowed(peer.remoteAddress) ||
+    (prefix !== undefined && deps.failedChallengesPrefix?.allowed(prefix) === false);
   const limited = () =>
     new PsycheError("rate_limited", "Too many failed challenges; try again later", {
       retryable: true,
     });
-  if (overLimit && peer.lan !== true) throw limited();
+  const tokenOk =
+    overLimit &&
+    peer.lan === true &&
+    input.setupToken !== undefined &&
+    peekSetupToken(deps.db, input.setupToken, now.toISOString());
+  const gated = overLimit && !tokenOk;
+  if (gated && peer.lan !== true) throw limited();
+  const record = () => {
+    deps.failedChallenges.record(peer.remoteAddress);
+    if (prefix !== undefined) deps.failedChallengesPrefix?.record(prefix);
+  };
   const fail = (message: string): never => {
-    if (overLimit) throw limited();
-    deps.failedChallenges.record(rateKey(peer));
+    if (gated) throw limited();
+    record();
     throw new PsycheError("unauthorized", message);
   };
   if (input.nonce !== pending.nonce) fail("Nonce does not match the challenge");
@@ -374,7 +393,7 @@ export function verifyChallenge(
   const nowIso = now.toISOString();
   const existing = getDevice(db, params.deviceId);
   // Over the limit: only a device that proved a paired key (signature checked above) goes on.
-  if (overLimit && !(existing?.pairedAt && existing.publicKey === params.publicKey)) {
+  if (gated && !(existing?.pairedAt && existing.publicKey === params.publicKey)) {
     throw limited();
   }
   if (existing?.revokedAt) return denied("device revoked", "device_revoked");
@@ -442,7 +461,7 @@ export function verifyChallenge(
       input.gatewayKey === deps.gatewayKey
     )
   ) {
-    deps.failedChallenges.record(rateKey(peer));
+    record();
     return denied(SETUP_TOKEN_REFUSED, "setup_token_invalid");
   }
   // A Mac helper pairs only by the per-launch handshake secret on the machine. An owner-approved
@@ -466,7 +485,7 @@ export function verifyChallenge(
       // two connections racing on it cannot both pair, and nothing below runs for a refused one.
       spentToken = consumeSetupToken(db, presentedToken, params.deviceId, nowIso);
       if (spentToken === undefined) {
-        deps.failedChallenges.record(rateKey(peer));
+        record();
         return denied(SETUP_TOKEN_REFUSED, "setup_token_invalid");
       }
       scopes = spentToken.scopes;
@@ -546,6 +565,7 @@ export function verifyChallenge(
       // cannot fill the queue of pending requests the owner has to read.
       if (
         !deps.lanPairings.perIp.allowed(peer.remoteAddress) ||
+        (prefix !== undefined && deps.lanPairings.perPrefix?.allowed(prefix) === false) ||
         !deps.lanPairings.total.allowed("all")
       ) {
         throw new PsycheError("rate_limited", "Too many pairing requests from this network", {
@@ -553,6 +573,7 @@ export function verifyChallenge(
         });
       }
       deps.lanPairings.perIp.record(peer.remoteAddress);
+      if (prefix !== undefined) deps.lanPairings.perPrefix?.record(prefix);
       deps.lanPairings.total.record("all");
     }
     const request = createPairingRequest(db, {

@@ -132,6 +132,11 @@ export interface LanListenerDeps {
    * owner turns it on again.
    */
   networks?: { get(): string[] | undefined; set(networks: string[]): void };
+  /**
+   * Called as soon as the new certificate key has been written (even if replacing it, or the
+   * listeners' restart, then fails): whatever was made for the old certificate is void.
+   */
+  onCertRotated?: () => void;
   /** Tests: which source addresses are admitted (default `isLanPeerAddress`). */
   allowPeer?: (address: string) => boolean;
 }
@@ -151,14 +156,34 @@ export interface LanStatus {
   problems: string[];
 }
 
+/** One admitted connection, from `admit` on: before TLS, during it and after. */
 interface Live {
   /** The peer's own address. */
   ip: string;
   /** The peer's /64 (IPv6) or its address. */
   prefix: string;
   since: number;
+  /** Whether it finished `connect` (paired or pending): such a connection is never evicted. */
   authed: () => boolean;
-  timer: ReturnType<typeof setTimeout>;
+  /** The "must finish `connect`" timer; set once TLS is done. */
+  timer: ReturnType<typeof setTimeout> | null;
+  /** TLS finished (`track` saw it). A connection that has not is evicted first. */
+  secured: boolean;
+  /** Evicted: gone from every count already, whatever the socket still takes to close. */
+  evicted: boolean;
+  destroy: () => void;
+  /** Gives the connection's slots back (idempotent). */
+  release: () => void;
+}
+
+/** Identifies one TCP connection as `connection` and `secureConnection` both report it. */
+function connKey(s: {
+  remoteAddress?: string | undefined;
+  remotePort?: number | undefined;
+  localAddress?: string | undefined;
+  localPort?: number | undefined;
+}): string {
+  return `${s.remoteAddress}|${s.remotePort}|${s.localAddress}|${s.localPort}`;
 }
 
 /** Resolves when `p` does or after `ms`, whichever is first: a close must never wedge the chain. */
@@ -202,8 +227,10 @@ export class LanListener {
   readonly #perPrefixOpen = new Map<string, number>();
   #open = 0;
   #admitted = 0;
-  readonly #live = new Map<TLSSocket, Live>();
-  readonly #raw = new Set<Socket>();
+  /** Every admitted connection that is still open. */
+  readonly #conns = new Set<Live>();
+  readonly #byKey = new Map<string, Live>();
+  readonly #byTls = new Map<TLSSocket, Live>();
   /** The listener cannot run now (Cloudflare Access, a container): refresh does nothing. */
   #halted = false;
   #watch: ReturnType<typeof setInterval> | null = null;
@@ -239,7 +266,18 @@ export class LanListener {
     const run = this.#chain.then(async () => {
       const names = this.#names();
       if (names === null) throw new PsycheError("unavailable", "LAN listening is off");
-      await rotateLanCert(this.#deps.home, names, this.#deps.now());
+      try {
+        await rotateLanCert(this.#deps.home, names, this.#deps.now());
+      } finally {
+        // Revoked before anything else can fail, and also when writing the new key did.
+        try {
+          this.#deps.onCertRotated?.();
+        } catch (err) {
+          this.#deps.log.log("warn", "lan certificate rotation hook failed", {
+            code: err instanceof PsycheError ? err.code : "error",
+          });
+        }
+      }
       // Every open LAN socket is closed (teardown), so each client reconnects to the new
       // certificate and fails its pin if it still holds the old one.
       return this.#apply(this.#settings, false);
@@ -256,7 +294,7 @@ export class LanListener {
 
   /** Tells the listener when a LAN socket has finished `connect`; until then it can be evicted. */
   bindAuth(socket: Duplex, authed: () => boolean): void {
-    const live = this.#live.get(socket as TLSSocket);
+    const live = this.#byTls.get(socket as TLSSocket);
     if (live) live.authed = authed;
   }
 
@@ -357,13 +395,13 @@ export class LanListener {
     // Open sockets first: `server.close` waits for every connection, and an upgraded WebSocket
     // is not one `closeAllConnections` reaches. Whoever is connected is cut off now (LAN turned
     // off, certificate replaced), and the close below is time-boxed so it can never wedge.
-    for (const [sock, live] of this.#live) {
-      clearTimeout(live.timer);
-      sock.destroy();
+    for (const live of this.#conns) {
+      if (live.timer !== null) clearTimeout(live.timer);
+      live.destroy();
     }
-    this.#live.clear();
-    for (const sock of this.#raw) sock.destroy();
-    this.#raw.clear();
+    this.#conns.clear();
+    this.#byKey.clear();
+    this.#byTls.clear();
     await Promise.all(
       bound.map(async (b) => {
         await timeBox(b.ad?.stop(), 2_000);
@@ -570,50 +608,72 @@ export class LanListener {
 
   /**
    * A socket that finished TLS: closed unless it completes `connect` in time. Public for the
-   * server events above and for tests that drive the limits with stand-in sockets.
+   * server events above and for tests that drive the limits with stand-in sockets. It is the
+   * connection `admit` already counted (the same remote address and port); one `admit` never saw
+   * gets an entry of its own.
    */
   track(tls: TLSSocket): void {
-    const ip = normalizePeerAddress(tls.remoteAddress ?? "unknown");
-    const entry: Live = {
-      ip,
-      prefix: peerLimitKey(ip),
-      since: this.#deps.now().getTime(),
-      authed: () => false,
-      timer: setTimeout(() => {
-        if (!entry.authed()) tls.destroy();
-      }, this.#deps.limits.unauthenticatedMs),
-    };
-    entry.timer.unref();
-    this.#live.set(tls, entry);
+    let entry = this.#byKey.get(connKey(tls));
+    if (entry === undefined) {
+      const ip = normalizePeerAddress(tls.remoteAddress ?? "unknown");
+      entry = {
+        ip,
+        prefix: peerLimitKey(ip),
+        since: this.#deps.now().getTime(),
+        authed: () => false,
+        timer: null,
+        secured: false,
+        evicted: false,
+        destroy: () => tls.destroy(),
+        release: () => undefined,
+      };
+      this.#conns.add(entry);
+    }
+    const live = entry;
+    live.secured = true;
+    live.destroy = () => tls.destroy();
+    live.timer = setTimeout(() => {
+      if (!live.authed()) tls.destroy();
+    }, this.#deps.limits.unauthenticatedMs);
+    live.timer.unref();
+    this.#byTls.set(tls, live);
     tls.once("close", () => {
-      clearTimeout(entry.timer);
-      this.#live.delete(tls);
+      if (live.timer !== null) clearTimeout(live.timer);
+      this.#byTls.delete(tls);
+      this.#conns.delete(live);
     });
   }
 
   /**
-   * Closes one socket that has not finished `connect`, among those in `scope` (a /64 or all).
-   * The victim comes from the address with the most such sockets (the oldest of its sockets), not
-   * simply the oldest in scope: a neighbour that fills a cap with its own silent sockets is the
-   * one that loses them, and a device that is mid-handshake (one socket) is evicted only when
-   * nobody holds more.
+   * Closes one connection that has not finished `connect`, among those in `scope` (a /64, an
+   * address, or all). A connection still in its TLS handshake goes before one that finished it:
+   * it is the one that holds a slot and proves nothing. Then the victim comes from the address
+   * holding the most such connections (its oldest), not simply the oldest in scope, so a
+   * neighbour that fills a cap with silent sockets is the one that loses them. When every address
+   * holds just one, the newest goes: an owner mid-handshake is older than the flood that arrives
+   * after it. Slots are given back at once, so one admission frees only what it evicts.
    */
   #evictUnauthenticated(scope?: { prefix?: string; ip?: string }): boolean {
-    const byIp = new Map<string, [TLSSocket, Live][]>();
-    for (const e of this.#live) {
-      if (e[1].authed()) continue;
-      if (scope?.prefix !== undefined && e[1].prefix !== scope.prefix) continue;
-      if (scope?.ip !== undefined && e[1].ip !== scope.ip) continue;
-      byIp.set(e[1].ip, [...(byIp.get(e[1].ip) ?? []), e]);
-    }
-    let victims: [TLSSocket, Live][] | undefined;
-    for (const [ip, list] of byIp) {
-      if (victims === undefined || list.length > victims.length) victims = list;
-    }
-    const oldest = victims?.reduce((a, b) => (b[1].since < a[1].since ? b : a));
-    if (!oldest) return false;
-    oldest[0].destroy();
-    this.#live.delete(oldest[0]);
+    const pool = [...this.#conns].filter(
+      (c) =>
+        !c.evicted &&
+        !c.authed() &&
+        (scope?.prefix === undefined || c.prefix === scope.prefix) &&
+        (scope?.ip === undefined || c.ip === scope.ip),
+    );
+    const early = pool.filter((c) => !c.secured);
+    const candidates = early.length > 0 ? early : pool;
+    if (candidates.length === 0) return false;
+    const byIp = new Map<string, Live[]>();
+    for (const c of candidates) byIp.set(c.ip, [...(byIp.get(c.ip) ?? []), c]);
+    const most = Math.max(...[...byIp.values()].map((l) => l.length));
+    const heaviest = [...byIp.values()].filter((l) => l.length === most).flat();
+    const victim = heaviest.reduce((a, b) =>
+      most === 1 ? (b.since >= a.since ? b : a) : b.since < a.since ? b : a,
+    );
+    victim.evicted = true;
+    victim.release();
+    victim.destroy();
     return true;
   }
 
@@ -657,18 +717,38 @@ export class LanListener {
     this.#perIpOpen.set(ip, (this.#perIpOpen.get(ip) ?? 0) + 1);
     if (wide) this.#perPrefixOpen.set(prefix, (this.#perPrefixOpen.get(prefix) ?? 0) + 1);
     this.#open += 1;
-    this.#raw.add(socket);
+    let released = false;
+    const entry: Live = {
+      ip,
+      prefix,
+      since: this.#deps.now().getTime(),
+      authed: () => false,
+      timer: null,
+      secured: false,
+      evicted: false,
+      destroy: () => socket.destroy(),
+      release: () => {
+        if (released) return;
+        released = true;
+        this.#open -= 1;
+        const left = (this.#perIpOpen.get(ip) ?? 1) - 1;
+        if (left <= 0) this.#perIpOpen.delete(ip);
+        else this.#perIpOpen.set(ip, left);
+        if (wide) {
+          const rest = (this.#perPrefixOpen.get(prefix) ?? 1) - 1;
+          if (rest <= 0) this.#perPrefixOpen.delete(prefix);
+          else this.#perPrefixOpen.set(prefix, rest);
+        }
+      },
+    };
+    const key = connKey(socket);
+    this.#conns.add(entry);
+    this.#byKey.set(key, entry);
     socket.once("close", () => {
-      this.#raw.delete(socket);
-      this.#open -= 1;
-      const left = (this.#perIpOpen.get(ip) ?? 1) - 1;
-      if (left <= 0) this.#perIpOpen.delete(ip);
-      else this.#perIpOpen.set(ip, left);
-      if (wide) {
-        const rest = (this.#perPrefixOpen.get(prefix) ?? 1) - 1;
-        if (rest <= 0) this.#perPrefixOpen.delete(prefix);
-        else this.#perPrefixOpen.set(prefix, rest);
-      }
+      entry.release();
+      if (entry.timer !== null) clearTimeout(entry.timer);
+      this.#conns.delete(entry);
+      if (this.#byKey.get(key) === entry) this.#byKey.delete(key);
     });
   }
 }
