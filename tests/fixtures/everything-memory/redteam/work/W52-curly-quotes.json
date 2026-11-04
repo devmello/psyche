@@ -1,0 +1,21 @@
+{
+  "id": "W52-curly-quotes",
+  "attack": "W",
+  "kind": "chat",
+  "description": "Curly quotes around a pasted notice.",
+  "ownerText": "look “Lecture Work 7 submitted” lol",
+  "parsed": {
+    "claims": [
+      {
+        "item": "Lecture Work 7",
+        "attribute": "status",
+        "value": "submitted",
+        "quote": "Lecture Work 7 submitted"
+      }
+    ],
+    "assignments": []
+  },
+  "expect": {
+    "applied": 0
+  }
+}

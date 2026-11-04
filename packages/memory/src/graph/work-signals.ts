@@ -208,6 +208,20 @@ export function namedIn(name: string, text: string, min = 2): boolean {
   return nt.every((t) => have.has(t));
 }
 
+/**
+ * The item's words appear in `text` in order and next to each other ("HW 7", "hw7"), so "hw 3, 7
+ * mins" does not name HW7. A single-word name needs only that word.
+ */
+export function namedAdjacent(name: string, text: string): boolean {
+  const nt = nameTokens(name);
+  const tt = nameTokens(text);
+  if (nt.length === 0) return false;
+  for (let i = 0; i + nt.length <= tt.length; i++) {
+    if (nt.every((w, k) => tt[i + k] === w)) return true;
+  }
+  return false;
+}
+
 /** The ways an item can be named in text: its name without a term suffix, aliases, a course code. */
 export function workNames(graph: GraphStore, entity: GraphEntity): string[] {
   const names = new Set<string>([entity.name, entity.name.replace(/\s*\([^)]*\)\s*$/, "")]);

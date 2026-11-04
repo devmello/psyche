@@ -1,0 +1,21 @@
+{
+  "id": "W49-two-problems",
+  "attack": "W",
+  "kind": "chat",
+  "description": "'finished 1 and 2 of ...' is progress, not done.",
+  "ownerText": "finished 1 and 2 of Lecture Work 7",
+  "parsed": {
+    "claims": [
+      {
+        "item": "Lecture Work 7",
+        "attribute": "status",
+        "value": "done",
+        "quote": "finished 1 and 2 of Lecture Work 7"
+      }
+    ],
+    "assignments": []
+  },
+  "expect": {
+    "applied": 0
+  }
+}

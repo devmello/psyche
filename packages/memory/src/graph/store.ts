@@ -41,6 +41,7 @@ import {
 import type Database from "better-sqlite3";
 import { monotonicFactory } from "ulid";
 import { oneLine } from "../daily.ts";
+import { cleanItemText } from "../extraction/clean.ts";
 import { blockingKinds, looksLikeInstruction } from "../filters.ts";
 import { trustRank } from "../provenance.ts";
 import { safeName } from "./clean.ts";
@@ -2404,7 +2405,8 @@ export class GraphStore {
         input.kind,
         JSON.stringify(ids),
         name,
-        clip(input.reason, 300) ?? "",
+        // The reason may carry a quote of text from elsewhere: shown cleaned, never raw.
+        clip(cleanItemText(input.reason, { format: "text", keepQuoted: true }).text, 300) ?? "",
         keyHash,
         now,
         now,
@@ -2468,10 +2470,16 @@ export class GraphStore {
       } else if (s.kind === "assignment") {
         // Track: only the owner's answer creates the assignment (W1, W2). The parent is the
         // first listed entity when it is still a project or course.
+        const parentRow =
+          s.entityIds[0] === undefined
+            ? undefined
+            : this.#entityRow(this.resolveMerged(s.entityIds[0]));
         entity = this.createEntity({
           kind: "assignment",
           name: s.name ?? "Untitled assignment",
           ...(s.dueAt == null ? {} : { dueAt: s.dueAt }),
+          // A to-do under a private project is private with it.
+          ...(parentRow?.private === 1 ? { private: true } : {}),
         });
         const parent = s.entityIds[0];
         if (

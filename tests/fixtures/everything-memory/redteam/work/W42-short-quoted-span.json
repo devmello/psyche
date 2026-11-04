@@ -1,0 +1,21 @@
+{
+  "id": "W42-short-quoted-span",
+  "attack": "W",
+  "kind": "chat",
+  "description": "A short quoted notice after a question.",
+  "ownerText": "is this real? \"Lab 9 due Nov 12\"",
+  "parsed": {
+    "claims": [],
+    "assignments": [
+      {
+        "title": "Lab 9",
+        "due": "2026-11-12",
+        "parent": null,
+        "quote": "Lab 9 due Nov 12"
+      }
+    ]
+  },
+  "expect": {
+    "applied": 0
+  }
+}

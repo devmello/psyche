@@ -191,12 +191,11 @@ describe("owner chat updates work (Gateway)", () => {
     // The model's "done" had a quote that is not in the message: the status is code's, and it
     // only moved because progress was an owner signal.
     expect(graph.getEntity(lw7.id)).toMatchObject({ workStatus: "in_progress" });
-    // The owner said they have a poster due Friday, quoted verbatim: an accepted to-do, cited.
-    const poster = graph.listEntities(["assignment"]).find((e) => e.name === "Poster");
-    expect(poster).toMatchObject({ dueAt: "2026-11-06T23:59:00.000Z", workStatus: "not_started" });
-    expect(graph.facts(poster?.id as string).find((f) => f.attribute === "deadline")).toMatchObject(
-      { provenance: "owner", evidence: "poster due Friday" },
-    );
+    // A new to-do from chat is only a suggestion with the stated date; Track creates it.
+    expect(graph.listEntities(["assignment"]).map((e) => e.name)).toEqual(["Lecture Work 7"]);
+    expect(graph.suggestions(["pending"])).toMatchObject([
+      { kind: "assignment", name: "Poster", dueAt: "2026-11-06T23:59:00.000Z" },
+    ]);
     // The audit names kinds and counts, never the text.
     const audits = await gw.audit.list({ kind: "memory.user_profile.work" });
     expect(audits).toHaveLength(1);

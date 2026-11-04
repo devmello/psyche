@@ -8,8 +8,9 @@ import type {
 import { detectSensitive, looksLikeInstruction } from "../filters.ts";
 import { type CitationInput, isSingleValued } from "../graph/everything.ts";
 import { hasHiddenChars } from "../graph/normalize.ts";
+import { ownWords } from "../graph/own-words.ts";
 import { OWNER_ONLY_RELS } from "../graph/store.ts";
-import { namedIn } from "../graph/work-signals.ts";
+import { namedAdjacent } from "../graph/work-signals.ts";
 import type { ExtractionEdge, ExtractionFact, ExtractionOutput, ExtractionWork } from "./schema.ts";
 import { screenItem } from "./screen.ts";
 import { classifySensitivity, stricterSensitivity } from "./sensitivity.ts";
@@ -538,6 +539,11 @@ export function validateExtraction(input: ValidateInput): ValidationReport {
         drop("value_not_in_quote");
         continue;
       }
+      // Pasted, quoted or reported text inside a note is not the owner's word.
+      if (locateQuote(ownWords(item.text), located) === undefined) {
+        drop("not_owner_words");
+        continue;
+      }
       // Anything sensitive in a note stays a note: work lines never carry it.
       if (classifySensitivity(`${value} ${located}`, "note") !== "none") {
         drop("sensitive_work");
@@ -557,7 +563,7 @@ export function validateExtraction(input: ValidateInput): ValidationReport {
         }
         // The quote has to name the item it is filed under: a line about something else never
         // becomes progress on it.
-        if (!hit.names.some((n) => namedIn(n, located, 1))) {
+        if (!hit.names.some((n) => namedAdjacent(n, located))) {
           drop("quote_not_naming_item");
           continue;
         }

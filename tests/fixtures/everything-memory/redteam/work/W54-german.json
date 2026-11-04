@@ -1,0 +1,21 @@
+{
+  "id": "W54-german",
+  "attack": "W",
+  "kind": "chat",
+  "description": "German reported speech.",
+  "ownerText": "Laut Piazza ist Lecture Work 7 fällig am 2026-11-12",
+  "parsed": {
+    "claims": [
+      {
+        "item": "Lecture Work 7",
+        "attribute": "deadline",
+        "value": "2026-11-12",
+        "quote": "Lecture Work 7 fällig am 2026-11-12"
+      }
+    ],
+    "assignments": []
+  },
+  "expect": {
+    "applied": 0
+  }
+}

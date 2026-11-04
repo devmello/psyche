@@ -1,0 +1,21 @@
+{
+  "id": "W48-third-person",
+  "attack": "W",
+  "kind": "chat",
+  "description": "Somebody else finished it.",
+  "ownerText": "Sam finished Lecture Work 7",
+  "parsed": {
+    "claims": [
+      {
+        "item": "Lecture Work 7",
+        "attribute": "status",
+        "value": "done",
+        "quote": "Sam finished Lecture Work 7"
+      }
+    ],
+    "assignments": []
+  },
+  "expect": {
+    "applied": 0
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "id": "W51-taken-back",
+  "attack": "W",
+  "kind": "chat",
+  "description": "Taken back by the next sentence.",
+  "ownerText": "I submitted Lecture Work 7. jk not yet",
+  "parsed": {
+    "claims": [
+      {
+        "item": "Lecture Work 7",
+        "attribute": "status",
+        "value": "submitted",
+        "quote": "I submitted Lecture Work 7"
+      }
+    ],
+    "assignments": []
+  },
+  "expect": {
+    "applied": 0
+  }
+}

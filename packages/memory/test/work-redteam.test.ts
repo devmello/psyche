@@ -218,11 +218,18 @@ describe("work red-team corpus", () => {
         parsed: c.parsed as ParsedOwnerWork,
         now: WORK_NOW,
         timeZone: WORK_ZONE,
+        em: world.em,
       });
-      expect(r.applied).toEqual([]);
+      // Chat never applies a status, a deadline or a new to-do: at most a pending proposal.
+      expect(r.applied.every((x) => x.kind !== "fact")).toBe(true);
+      if (c.expect.applied === 0) expect(r.applied).toEqual([]);
       expect(workSnapshot(env.db.sqlite)).toEqual(before);
       expect(entityCount()).toBe(entitiesBefore);
-      expect(world.graph.suggestions(["pending", "later"])).toEqual([]);
+      for (const f of env.db.sqlite
+        .prepare("SELECT provenance, review FROM graph_facts WHERE review = 'pending'")
+        .all() as { provenance: string; review: string }[]) {
+        expect(f.provenance).not.toBe("owner");
+      }
       expect(world.graph.getEntity(world.ids.lw7 as string)).toMatchObject({
         workStatus: "not_started",
         dueAt: "2026-11-06T23:59:00.000Z",

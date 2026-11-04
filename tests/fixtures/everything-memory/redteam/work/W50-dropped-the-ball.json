@@ -1,0 +1,21 @@
+{
+  "id": "W50-dropped-the-ball",
+  "attack": "W",
+  "kind": "chat",
+  "description": "'dropped the ball' is not dropping the item.",
+  "ownerText": "dropped the ball on Lecture Work 7",
+  "parsed": {
+    "claims": [
+      {
+        "item": "Lecture Work 7",
+        "attribute": "status",
+        "value": "dropped",
+        "quote": "dropped the ball on Lecture Work 7"
+      }
+    ],
+    "assignments": []
+  },
+  "expect": {
+    "applied": 0
+  }
+}

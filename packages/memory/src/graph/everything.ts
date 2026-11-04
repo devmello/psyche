@@ -40,6 +40,7 @@ import {
   MULTI_VALUED,
   OWNER_ONLY_RELS,
 } from "./store.ts";
+import { isWorkKind } from "./work.ts";
 
 /**
  * The everything-memory store (docs/design/everything-memory-2026.md §4.3-4.7, §5.6, §6.7, §7,
@@ -1028,6 +1029,35 @@ export class EverythingStore {
     if (row === undefined) fail("not_found", "no such fact");
     if (row.review !== "pending") fail("conflict", "that fact is not waiting for review");
     const now = this.#now();
+    // A status or deadline the owner stated in chat and Psyche proposed (never applied): the
+    // owner's tap makes it the owner's own fact and moves the item, through the same rules as an
+    // owner edit. Discarding it is the ordinary discard below.
+    if (
+      decision !== "discard" &&
+      row.subject_kind === "owner_stated" &&
+      row.provenance === "agent" &&
+      (row.attribute === "status" || row.attribute === "deadline")
+    ) {
+      const entity = this.#graph.getEntity(row.entity_id);
+      if (entity !== undefined && isWorkKind(entity.kind)) {
+        const value = decision === "edit" ? clip(opts.value, VALUE_CHARS) : row.value;
+        if (value === null) fail("invalid_params", "an edit needs a value");
+        const written = this.#graph.setFact({
+          entityId: row.entity_id,
+          attribute: row.attribute,
+          value,
+          provenance: "owner",
+          subjectKind: "owner_stated",
+          sources: JSON.parse(row.sources) as string[],
+          evidence: row.evidence,
+        });
+        this.#db
+          .prepare("UPDATE graph_facts SET review = 'discarded', updated_at = ? WHERE id = ?")
+          .run(now, row.id);
+        this.#graph.touch(row.entity_id, ["facts"]);
+        return written?.fact ?? toFact(this.#factRow(row.id) as FactRow);
+      }
+    }
     const apply = (edited: { value: string } | null) => {
       const prior = isSingleValued(row.attribute)
         ? this.#current(row.entity_id, row.attribute).filter((r) => r.id !== row.id)

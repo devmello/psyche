@@ -63,10 +63,33 @@ describe("due dates are read in the owner's zone", () => {
     expect(at("due tomorrow")).toBe("2026-11-06T07:59:00.000Z");
     expect(at("due today")).toBe("2026-11-05T07:59:00.000Z");
     expect(at("due Friday")).toBe("2026-11-07T07:59:00.000Z");
-    expect(at("due Wednesday")).toBe("2026-11-12T07:59:00.000Z");
     expect(at("due Friday at 5pm")).toBe("2026-11-07T01:00:00.000Z");
     expect(at("due soon")).toBeUndefined();
     expect(at("due Feb 31")).toBeUndefined();
+  });
+
+  it("a weekday that is today means today, and 'next Friday' is the following week's", () => {
+    const at = (q: string) => dateInQuote(q, WORK_NOW, WORK_ZONE);
+    // The clock is Wednesday.
+    expect(at("due Wednesday")).toBe("2026-11-05T07:59:00.000Z");
+    expect(at("due next Wednesday")).toBe("2026-11-12T07:59:00.000Z");
+    expect(at("due Friday")).toBe("2026-11-07T07:59:00.000Z");
+    expect(at("due next Friday")).toBe("2026-11-14T07:59:00.000Z");
+    expect(at("due Tuesday")).toBe("2026-11-11T07:59:00.000Z");
+  });
+
+  it("reads times: 11:59 is end of day, 12:00 is noon, midnight is 23:59, and the time next to the date wins", () => {
+    const at = (q: string) => dateInQuote(q, WORK_NOW, WORK_ZONE);
+    expect(at("due Nov 9 at 11:59")).toBe("2026-11-10T07:59:00.000Z");
+    expect(at("due Nov 9 at 12:00")).toBe("2026-11-09T20:00:00.000Z");
+    expect(at("due Nov 9 at noon")).toBe("2026-11-09T20:00:00.000Z");
+    expect(at("due Nov 9 at midnight")).toBe("2026-11-10T07:59:00.000Z");
+    expect(at("due Nov 9 at 9am")).toBe("2026-11-09T17:00:00.000Z");
+    // A time that belongs to something else is not the due time.
+    expect(at("Meeting at 3pm to plan. Lecture Work 7 is due Nov 9")).toBe(
+      "2026-11-10T07:59:00.000Z",
+    );
+    expect(at("Lab due Nov 9 by 5pm, class starts at 8am")).toBe("2026-11-10T01:00:00.000Z");
   });
 });
 
@@ -76,7 +99,14 @@ describe("hidden characters", () => {
     for (const bad of ["a​b", `Essay${tags}`, "a️b", "a؜b", "a᠎b", "a‮b", "a﻿b"]) {
       expect(hasHiddenChars(bad), JSON.stringify(bad)).toBe(true);
     }
-    for (const ok of ["Lecture Work 7", "Résumé draft", "作业 3", "Café plan"]) {
+    for (const ok of [
+      "Lecture Work 7",
+      "Résumé draft",
+      "作业 3",
+      "Café plan",
+      "Family 👨‍👩‍👧 plan",
+      "Heart ❤️ project",
+    ]) {
       expect(hasHiddenChars(ok), ok).toBe(false);
     }
   });

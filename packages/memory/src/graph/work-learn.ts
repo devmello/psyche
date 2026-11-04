@@ -1,4 +1,5 @@
 import type { GraphEntity, GraphFactAttribute, GraphWorkStatus } from "@psyche/protocol";
+import { cleanItemText } from "../extraction/clean.ts";
 import { classifySensitivity } from "../extraction/sensitivity.ts";
 import {
   locateQuote,
@@ -9,18 +10,22 @@ import {
   valueSupportedByQuote,
 } from "../extraction/validate.ts";
 import type { EverythingStore } from "./everything.ts";
-import { hasHiddenChars, normalizeName, sha256 } from "./normalize.ts";
+import { hasHiddenChars, mixedScript, normalizeName, sha256 } from "./normalize.ts";
+import { ownWords } from "./own-words.ts";
 import type { GraphStore } from "./store.ts";
 import { nextWorkStatus } from "./work.ts";
-import { isOpenWork, namedIn, nameTokens, workNames } from "./work-signals.ts";
+import { isOpenWork, namedAdjacent, nameTokens, workNames } from "./work-signals.ts";
 import { dateInQuote, localDate, parseDueInZone } from "./zoned-date.ts";
+
+export { MAX_OWN_PARAGRAPH_CHARS, MAX_OWN_PARAGRAPH_LINES, ownWords } from "./own-words.ts";
 
 /**
  * What the owner's own words do to their work (docs/design/memory-everything-2026.md §3.1, §3.2,
  * §3.4). Two inputs reach here: the USER.md learner reading the owner's chat message, and the
  * owner-authored notes the extraction pass validated. Both are the owner's text (trusted), and
- * in both the model only proposes: code resolves the item name against open work, verifies the
- * quote is in the owner's text, and decides the status. Text from anyone else never comes here;
+ * in both the model only proposes: code resolves the item name against open work and verifies the
+ * quote is in the owner's own words. Chat writes only progress, where they stopped and the next
+ * step; a status, a deadline and a new to-do become proposals the owner confirms in Review. Text from anyone else never comes here;
  * it has the work lane (`extraction/work-lane.ts`), which can only suggest.
  */
 
@@ -190,71 +195,29 @@ export function workLaneContext(graph: GraphStore): {
   };
 }
 
-// --- text the owner did not write ---------------------------------------------------------------
-
-const REPORTING =
-  /(?:\b(?:says?|said|wrote|writes|told me|according to|forwarded|pasted|dice|dijo|escribi[óo]|escribe)\b|说道?|写道|写着|表示)[^.!?。！？\n]*(?:[.!?。！？]|$)/giu;
-const QUOTED =
-  /"[^"\n]{20,}"|“[^”]{20,}”|«[^»]{20,}»|「[^」]{20,}」|『[^』]{20,}』|„[^“]{20,}“|‘[^’]{20,}’|(?<![\p{L}\p{N}])'[^'\n]{20,}'(?![\p{L}\p{N}])/gu;
-const FENCE = /```[\s\S]*?(?:```|$)/g;
-const HEADER = /^\s*(?:from|to|cc|bcc|subject|date|sent|reply-to|de|para|asunto)\s*:/i;
-/** A paragraph longer than this, or with this many lines, is a paste, not the owner talking. */
-export const MAX_OWN_PARAGRAPH_CHARS = 400;
-export const MAX_OWN_PARAGRAPH_LINES = 4;
-
-/**
- * Only the owner's own sentences (H1): what is left of a chat message after quoted lines (`>`),
- * fenced blocks, mail header blocks and the paragraph under them, long quoted strings, long
- * pastes, and anything reported as another person's words ("my prof says ...", "the email said
- * ..."). A quote, a status cue or a date is read from this text only, so a pasted notice never
- * becomes the owner's word. Cheap and language-tolerant, not exhaustive: it errs towards
- * dropping.
- */
-export function ownWords(text: string): string {
-  const base = text.replace(FENCE, "\n").replace(QUOTED, " ");
-  const kept: string[] = [];
-  let afterHeader = false;
-  for (const para of base.split(/\n\s*\n/)) {
-    const lines = para.split("\n").filter((l) => l.trim() !== "");
-    const headerLike = lines.filter((l) => HEADER.test(l)).length;
-    const quoted = lines.filter((l) => /^\s*>/.test(l)).length;
-    const paste = para.length > MAX_OWN_PARAGRAPH_CHARS || lines.length >= MAX_OWN_PARAGRAPH_LINES;
-    if (headerLike >= 2 || (lines.length > 0 && HEADER.test(lines[0] as string))) {
-      afterHeader = true;
-      continue;
-    }
-    if (afterHeader || paste || (quoted > 0 && quoted === lines.length)) {
-      afterHeader = false;
-      continue;
-    }
-    kept.push(
-      lines
-        .filter((l) => !/^\s*>/.test(l))
-        .join("\n")
-        .replace(REPORTING, " "),
-    );
-  }
-  return kept.join("\n\n");
-}
-
 // --- statuses: code decides ---------------------------------------------------------------------
 
-/** Wording about part of the item, or about the future, or negated: progress at most, never a status. */
+/** Wording about part of the item: a range, a problem, a part, "most of it", a percentage. */
 const PARTIAL =
-  /\b(problems?|probs?|parts?|questions?|sections?|pages?|steps?|half|some|first|second|last|q\s?\d+)\b|#\s?\d+|\bno\.\s?\d+|\d+\s*(?:[-–—]|to|through|thru)\s*\d+|\bq\d+\s*[-–—]\s*q?\d+/i;
+  /\b(problems?|probs?|parts?|questions?|sections?|pages?|steps?|half|some|most|first|second|last|q\s?\d+|draft|reading|except)\b|#\s?\d+|\bno\.\s?\d+|\d\s*%|\d+\s*(?:[-–—]|to|through|thru|and|&|,)\s*\d+|\bq\d+\s*[-–—]\s*q?\d+/i;
+/** Negation, hedges, wishes and the future, and phrases that use a cue word for something else. */
 const HEDGE =
-  /\b(not|never|yet|still|almost|nearly|barely|about to|going to|gonna|will|plan(?:ning)? to|need to|needs to|should|could|would|might|if|when|once|after|before|unless|trying to|try to|hope|hoping)\b|n['’]t\b/i;
+  /\b(not|never|yet|still|almost|nearly|barely|about to|going to|gonna|will|plan(?:ning)? to|need to|needs to|should|could|would|might|if|when|once|after|before|unless|trying to|try to|hope|hoping|no way|wish|for today|wrong file|thinking about|think about|thought about|considering|dropped the ball|dropped by|dropped off|jk|lol)\b|n['’]t\b/i;
 const SUBMITTED = /\b(submitted|handed in|turned in|sent in)\b/i;
 const DONE = /\b(finished|done|completed|complete|wrapped up)\b/i;
 const DROPPED = /\b(dropped|dropping|cancel(?:l)?ed|scrapped|no longer (?:doing|need))\b/i;
+/** Somebody else's subject: "Sam finished", "she submitted", "they turned in". */
+const THIRD_PERSON =
+  /\b(?:he|she|they|(?!(?:I|We|Just|Finally|Already|Also|Then|Today|Yesterday|Now|Ok|Okay|So|Well|Yes|Yeah|Done|Actually|Honestly|Not|Never|Still|Almost|Nearly)\b)[A-Z][a-z]+)\s+(?:has |had |have |just |already |also )?(?:finished|done|completed|submitted|handed|turned|dropped|sent)\b/;
 
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /**
- * The status the owner's quote supports, or undefined. The model's `value` only has to agree; it
- * never picks the status. The quote must name the item (`names`, when given), be about the whole
- * thing (a range, a problem, a part or "half" is progress), and not be negated, hedged or about
- * the future ("not finished", "almost done", "haven't submitted yet", "I'll hand it in").
+ * The status the owner's quote supports, or undefined. This is only a noise filter: a status from
+ * chat is never applied, it is proposed (see `applyOwnerChatWork`). The model's `value` only has
+ * to agree. The quote must name the item (`names`, when given), be about the whole thing (a range,
+ * a problem, a part, "most of it" or a percentage is progress), be a statement in the first
+ * person (no question mark, no other subject), and not be negated, hedged or about the future.
  */
 export function statusFromQuote(
   quote: string,
@@ -262,27 +225,28 @@ export function statusFromQuote(
   names: readonly string[] = [],
 ): Exclude<GraphWorkStatus, "not_started" | "in_progress"> | undefined {
   const c = claimed.toLowerCase().replace(/[\s-]+/g, "_");
+  if (/[?？]/.test(quote)) return undefined;
   // The item's own name ("Problem Set 3", "Lab Report 3") is not wording about part of it.
   let q = quote;
   for (const n of names) {
     if (n.trim() !== "") q = q.replace(new RegExp(escapeRe(n.trim()), "gi"), " ");
   }
-  if (names.length > 0 && !names.some((n) => namedIn(n, quote, 1))) return undefined;
-  if (PARTIAL.test(q) || HEDGE.test(q)) return undefined;
+  if (names.length > 0 && !names.some((n) => namedAdjacent(n, quote))) return undefined;
+  if (PARTIAL.test(q) || HEDGE.test(q) || THIRD_PERSON.test(q)) return undefined;
   if ((c === "submitted" || c === "handed_in") && SUBMITTED.test(q)) return "submitted";
   if (c === "done" && (DONE.test(q) || SUBMITTED.test(q))) return "done";
   if (c === "dropped" && DROPPED.test(q)) return "dropped";
   return undefined;
 }
 
-/** Cues that the owner is changing a date they already set, not just mentioning it. */
-const CHANGE_CUE =
-  /\b(now|moved|changed|pushed|extended|postponed|rescheduled|delayed|instead|new (?:deadline|due))\b/i;
-
 // --- applying -----------------------------------------------------------------------------------
 
 export interface AppliedWork {
-  kind: "fact" | "status" | "deadline" | "created" | "suggested" | "proposed";
+  /**
+   * `fact`: progress, stopped at or next step, written. `proposed`, `suggested`: waiting for the
+   * owner in Review. Nothing else is ever written from chat.
+   */
+  kind: "fact" | "suggested" | "proposed";
   entityId?: string;
   name: string;
   attribute?: GraphFactAttribute;
@@ -301,6 +265,10 @@ function plain(value: string, max: number): string | undefined {
   return valueProblem(v) === undefined ? v : undefined;
 }
 
+/** Dates beyond about two years ahead, or more than a week back, are not deadlines. */
+const MAX_AHEAD_MS = 2 * 366 * 86_400_000;
+const MAX_BEHIND_MS = 7 * 86_400_000;
+
 export interface ChatWorkInput {
   ownerText: string;
   threadId: string;
@@ -309,26 +277,23 @@ export interface ChatWorkInput {
   now: number;
   timeZone: string;
   /**
-   * Where a deadline that would replace one the owner already set is proposed (a pending fact the
-   * owner confirms in Review). Without it such a change is dropped.
+   * Where a status or a deadline is proposed (a pending owner-stated fact the owner confirms in
+   * Review). Without it such claims are dropped.
    */
   em?: EverythingStore;
 }
 
 /**
- * Applies what the owner said in one chat message. `claims` update items the owner already has;
- * `assignments` add new ones. Only the owner's own sentences count (`ownWords`): a pasted mail, a
- * quoted notice or "my prof says ..." is not the owner's word. Each claim needs a quote that is
- * in those sentences and names the item, and a status or a date must be in the quote itself:
+ * What the owner said in one chat message. The text is first reduced to the owner's own
+ * sentences (`ownWords`); the quote must be in them and name the item. Then:
  *
- * - progress, stopped at, next step: an `owner_stated` fact cited to the thread and the quote;
- * - a status: only from the quote's own wording (`statusFromQuote`);
- * - a deadline: derived by code from the quote's date expression (an ISO date, "Nov 9", "Friday",
- *   "tomorrow", in the owner's zone), which must equal the model's; it replaces an existing date
- *   only when the owner says it changed ("now", "moved"), otherwise it is a pending proposal;
- * - a name that resolves to nothing, or to two things, becomes an `assignment` suggestion; a new
- *   item with a stated date is an accepted to-do (the owner said it exists, §3.2) that inherits
- *   `private` from its project.
+ * - progress, stopped at, next step: low-harm, so written at once as an `owner_stated` fact cited
+ *   to the thread and the quote;
+ * - a status, a new or changed deadline, and a new to-do: **never applied from chat.** Each
+ *   becomes a pending proposal the owner confirms with one tap in Review (a pending
+ *   `owner_stated` fact for a status or deadline, an `assignment` suggestion for a new item).
+ *   Confirming writes the owner's fact; the heuristics here only decide whether to propose. A
+ *   deadline is proposed only when the quote's own date expression is the model's date.
  */
 export function applyOwnerChatWork(graph: GraphStore, input: ChatWorkInput): OwnerWorkResult {
   const result: OwnerWorkResult = { applied: [], dropped: {} };
@@ -338,79 +303,69 @@ export function applyOwnerChatWork(graph: GraphStore, input: ChatWorkInput): Own
   const source = { kind: "chat" as const, ref: input.threadId };
   const own = ownWords(input.ownerText);
   const tz = input.timeZone;
+  const clean = (text: string) => cleanItemText(text, { format: "text", keepQuoted: true }).text;
   const quoted = (quote: string): string | undefined => {
     if (quoteProblem(quote) !== undefined) return undefined;
     const span = locateQuote(own, quote);
     if (span === undefined) return undefined;
-    const located = own.slice(span[0], span[1]);
-    return located.length > MAX_QUOTE_CHARS ? undefined : located;
+    const located = clean(own.slice(span[0], span[1]));
+    return located === "" || located.length > MAX_QUOTE_CHARS ? undefined : located;
   };
   const names = (e: GraphEntity) => workNames(graph, e);
-  const namesIt = (e: GraphEntity, quote: string) => names(e).some((n) => namedIn(n, quote, 1));
+  const namesIt = (e: GraphEntity, quote: string) => names(e).some((n) => namedAdjacent(n, quote));
 
-  /** The date the quote states, if it is the one the model gave (same local day). */
+  /** The date the quote states, if it is the one the model gave (same local day) and sane. */
   const statedDate = (quote: string, modelValue: string | null): string | undefined => {
     const stated = dateInQuote(quote, input.now, tz);
     const model = parseDueInZone(modelValue, tz);
     if (stated === undefined || model === null) return undefined;
-    return localDate(Date.parse(stated), tz) === localDate(Date.parse(model), tz)
-      ? stated
-      : undefined;
+    const t = Date.parse(stated);
+    if (t > input.now + MAX_AHEAD_MS || t < input.now - MAX_BEHIND_MS) return undefined;
+    return localDate(t, tz) === localDate(Date.parse(model), tz) ? stated : undefined;
   };
 
-  /** Sets, proposes or refuses a deadline on an item. Returns true when it did something. */
-  const setDeadline = (entity: GraphEntity, due: string, located: string): boolean => {
-    if (entity.dueAt != null && entity.dueAt === due) return false;
-    if (entity.dueAt != null && !CHANGE_CUE.test(located)) {
-      // The owner set a different date earlier and did not say it changed: ask, never overwrite.
-      if (input.em === undefined) {
-        drop("deadline_conflict");
-        return false;
-      }
-      const out = input.em.proposeFact({
-        entityId: entity.id,
-        attribute: "deadline",
-        value: due,
-        provenance: "agent",
-        subjectKind: "owner_stated",
-        sensitivity: "none",
-        confidence: 0.8,
-        citations: [
-          {
-            source: "chats",
-            sourceRef: input.threadId,
-            quote: located.slice(0, 200),
-            start: 0,
-            end: Math.min(located.length, 200),
-            sourceHash: sha256(input.ownerText),
-            authorEntityId: null,
-          },
-        ],
-      });
-      if (out.status === "refused") {
-        drop("deadline_conflict");
-        return false;
-      }
-      result.applied.push({
-        kind: "proposed",
-        entityId: entity.id,
-        name: entity.name,
-        attribute: "deadline",
-        value: due,
-      });
-      return true;
+  /** A pending, owner-stated proposal on an existing item. The owner's tap makes it theirs. */
+  const propose = (
+    entity: GraphEntity,
+    attribute: "status" | "deadline",
+    value: string,
+    located: string,
+  ): void => {
+    if (input.em === undefined) {
+      drop("no_review_store");
+      return;
     }
-    graph.setFact({
+    const out = input.em.proposeFact({
       entityId: entity.id,
-      attribute: "deadline",
-      value: due,
-      provenance: "owner",
+      attribute,
+      value,
+      provenance: "agent",
       subjectKind: "owner_stated",
-      source,
-      evidence: located,
+      sensitivity: "none",
+      confidence: 0.8,
+      citations: [
+        {
+          source: "chats",
+          sourceRef: input.threadId,
+          quote: located.slice(0, 200),
+          start: 0,
+          end: Math.min(located.length, 200),
+          sourceHash: sha256(input.ownerText),
+          authorEntityId: null,
+        },
+      ],
     });
-    result.applied.push({ kind: "deadline", entityId: entity.id, name: entity.name, value: due });
-    return true;
+    if (out.status === "refused") {
+      drop(`proposal_${out.reason}`);
+      return;
+    }
+    result.applied.push({
+      kind: "proposed",
+      entityId: entity.id,
+      name: entity.name,
+      attribute,
+      value,
+    });
   };
 
   const suggest = (
@@ -419,11 +374,12 @@ export function applyOwnerChatWork(graph: GraphStore, input: ChatWorkInput): Own
     parentId: string | undefined,
     dueAt: string | null,
   ) => {
+    const flag = mixedScript(name) ? " (check the spelling: it mixes alphabets)" : "";
     const s = graph.suggest({
       kind: "assignment",
       entityIds: parentId === undefined ? [] : [parentId],
       name,
-      reason: `You said: "${located.slice(0, 200)}"`,
+      reason: `You said: "${located.slice(0, 200)}"${flag}`,
       ...(dueAt === null ? {} : { dueAt }),
     });
     if (s === undefined) drop("duplicate_suggestion");
@@ -441,11 +397,10 @@ export function applyOwnerChatWork(graph: GraphStore, input: ChatWorkInput): Own
       drop("bad_item");
       continue;
     }
-    const match = findWork(graph, name);
-    const entity = match.entity;
+    const entity = findWork(graph, name).entity;
     if (entity === undefined) {
-      // Not something the owner tracks (or two things do): a suggestion with their own words.
-      if (!namedIn(name, located, 1)) {
+      // Not something the owner tracks (or two things are): a suggestion with their own words.
+      if (!namedAdjacent(name, located)) {
         drop("quote_not_naming_item");
         continue;
       }
@@ -460,42 +415,34 @@ export function applyOwnerChatWork(graph: GraphStore, input: ChatWorkInput): Own
       drop("quote_not_naming_item");
       continue;
     }
-    const value =
-      claim.attribute === "status" || claim.attribute === "deadline"
-        ? claim.value.trim().slice(0, 40)
-        : plain(claim.value, 200);
-    if (value === undefined || value === "") {
-      drop("bad_value");
-      continue;
-    }
     try {
       if (claim.attribute === "status") {
-        const to = statusFromQuote(located, value, names(entity));
+        const to = statusFromQuote(located, claim.value.trim().slice(0, 40), names(entity));
         if (to === undefined || entity.kind !== "assignment" || entity.workStatus == null) {
           drop("status_unsupported");
           continue;
         }
-        const t = nextWorkStatus(entity.workStatus, { type: "owner_set", to });
-        if (!t.changed) continue;
-        graph.setFact({
-          entityId: entity.id,
-          attribute: "status",
-          value: to,
-          provenance: "owner",
-          subjectKind: "owner_stated",
-          source,
-          evidence: located,
-        });
-        result.applied.push({ kind: "status", entityId: entity.id, name: entity.name, value: to });
+        if (nextWorkStatus(entity.workStatus, { type: "owner_set", to }).changed) {
+          propose(entity, "status", to, located);
+        }
         continue;
       }
       if (claim.attribute === "deadline") {
-        const due = statedDate(located, value);
+        if (/[?？]/.test(located)) {
+          drop("date_not_in_quote");
+          continue;
+        }
+        const due = statedDate(located, claim.value.trim().slice(0, 40));
         if (due === undefined) {
           drop("date_not_in_quote");
           continue;
         }
-        setDeadline(entity, due, located);
+        if (entity.dueAt !== due) propose(entity, "deadline", due, located);
+        continue;
+      }
+      const value = plain(claim.value, 200);
+      if (value === undefined) {
+        drop("bad_value");
         continue;
       }
       if (!valueSupportedByQuote(value, located)) {
@@ -540,7 +487,7 @@ export function applyOwnerChatWork(graph: GraphStore, input: ChatWorkInput): Own
       drop("bad_title");
       continue;
     }
-    if (!namedIn(title, located, 1)) {
+    if (!namedAdjacent(title, located)) {
       drop("quote_not_naming_item");
       continue;
     }
@@ -549,50 +496,22 @@ export function applyOwnerChatWork(graph: GraphStore, input: ChatWorkInput): Own
     const parent = a.parent === null ? undefined : findWork(graph, a.parent, ["project"]).entity;
     const known = findWork(graph, title, ["assignment"]);
     try {
-      if (known.ambiguous) {
-        suggest(title, located, parent?.id, due);
+      if (known.entity !== undefined && !known.ambiguous) {
+        // Something already tracked: a stated new date is a proposal, nothing else changes.
+        if (due !== null && known.entity.dueAt !== due) {
+          propose(known.entity, "deadline", due, located);
+        }
         continue;
       }
-      if (known.entity !== undefined) {
-        // The owner restated something they already track: a stated date is a deadline update.
-        if (due !== null) setDeadline(known.entity, due, located);
-        continue;
-      }
-      if (findWork(graph, title, ["assignment"], "closed").entity !== undefined) {
+      if (
+        !known.ambiguous &&
+        findWork(graph, title, ["assignment"], "closed").entity !== undefined
+      ) {
         drop("already_finished");
         continue;
       }
-      if (due === null) {
-        suggest(title, located, parent?.id, null);
-        continue;
-      }
-      const made = graph.createEntity({
-        kind: "assignment",
-        name: title,
-        dueAt: due,
-        source: "chat",
-        ...(parent?.private === true ? { private: true } : {}),
-      });
-      // The creation wrote the deadline; add the quote and thread to its citation.
-      graph.setFact({
-        entityId: made.id,
-        attribute: "deadline",
-        value: due,
-        provenance: "owner",
-        subjectKind: "owner_stated",
-        source,
-        evidence: located,
-      });
-      if (parent !== undefined) {
-        graph.setEdge({
-          src: made.id,
-          rel: "part_of",
-          dst: parent.id,
-          provenance: "owner",
-          source,
-        });
-      }
-      result.applied.push({ kind: "created", entityId: made.id, name: made.name, value: due });
+      // New (or ambiguous): never created from chat. The owner's Track makes it a to-do.
+      suggest(title, located, parent?.id, due);
     } catch {
       drop("refused");
     }

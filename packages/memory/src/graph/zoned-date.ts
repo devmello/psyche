@@ -113,40 +113,66 @@ export function dateInQuote(quote: string, now: number, timeZone: string): strin
     return [d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate()];
   };
   let ymd: [number, number, number] | undefined;
+  // Where the date expression sits in the quote, so the time chosen is the one next to it.
+  let at = 0;
   const iso = /\b(\d{4})-(\d{2})-(\d{2})\b/.exec(q);
   const named = MONTH_RE.exec(q);
   if (iso !== null) {
     ymd = [Number(iso[1]), Number(iso[2]), Number(iso[3])];
+    at = iso.index;
   } else if (named !== null) {
     const mo = MONTHS.findIndex((m) => m.startsWith((named[1] as string).slice(0, 3))) + 1;
     let y = ty;
     // A month and day already more than a week behind us mean next year.
     if (Date.UTC(y, mo - 1, Number(named[2])) < Date.UTC(ty, tm - 1, td) - 7 * 86_400_000) y += 1;
     ymd = [y, mo, Number(named[2])];
+    at = named.index;
   } else if (/\btomorrow\b/.test(q)) {
     ymd = addDays(1);
+    at = q.indexOf("tomorrow");
   } else if (/\btoday\b|\btonight\b/.test(q)) {
     ymd = addDays(0);
+    at = Math.max(q.indexOf("today"), q.indexOf("tonight"));
   } else {
-    const wd = new RegExp(`\\b(${WEEKDAYS.join("|")})\\b`).exec(q);
+    const wd = new RegExp(`\\b(next\\s+)?(${WEEKDAYS.join("|")})\\b`).exec(q);
     if (wd !== null) {
-      const target = WEEKDAYS.indexOf(wd[1] as string);
+      const target = WEEKDAYS.indexOf(wd[2] as string);
       const today = new Date(Date.UTC(ty, tm - 1, td)).getUTCDay();
-      let diff = (target - today + 7) % 7;
-      if (diff === 0) diff = 7;
-      ymd = addDays(diff);
+      // The weekday that is today means today; "next Friday" is the Friday of the following week.
+      const diff = (target - today + 7) % 7;
+      ymd = addDays(wd[1] === undefined ? diff : diff + 7);
+      at = wd.index;
     }
   }
   if (ymd === undefined) return undefined;
   let h = 23;
   let mi = 59;
-  const time = /\b(\d{1,2}):(\d{2})\s*(am|pm)?\b|\b(\d{1,2})\s*(am|pm)\b/.exec(q);
-  if (time !== null) {
-    const ap = time[3] ?? time[5];
-    h = Number(time[1] ?? time[4]);
-    mi = time[2] === undefined ? 0 : Number(time[2]);
-    if (ap === "pm" && h < 12) h += 12;
-    if (ap === "am" && h === 12) h = 0;
+  // Every time in the quote; the one closest to the date expression wins (within 20 characters).
+  const timeRe = /\b(\d{1,2}):(\d{2})\s*(am|pm)?\b|\b(\d{1,2})\s*(am|pm)\b|\b(midnight|noon)\b/g;
+  let best: { h: number; mi: number; dist: number } | undefined;
+  for (let m = timeRe.exec(q); m !== null; m = timeRe.exec(q)) {
+    const dist = Math.abs(m.index - at);
+    if (dist > 20 || (best !== undefined && dist >= best.dist)) continue;
+    if (m[6] === "midnight") {
+      best = { h: 23, mi: 59, dist };
+      continue;
+    }
+    if (m[6] === "noon") {
+      best = { h: 12, mi: 0, dist };
+      continue;
+    }
+    const ap = m[3] ?? m[5];
+    let hh = Number(m[1] ?? m[4]);
+    const mm = m[2] === undefined ? 0 : Number(m[2]);
+    if (ap === "pm" && hh < 12) hh += 12;
+    else if (ap === "am" && hh === 12) hh = 0;
+    // "11:59" with no am/pm is the end of the day, "12:00" is noon.
+    else if (ap === undefined && hh === 11 && mm === 59) hh = 23;
+    best = { h: hh, mi: mm, dist };
+  }
+  if (best !== undefined) {
+    h = best.h;
+    mi = best.mi;
   }
   const t = localToUtc(ymd[0], ymd[1], ymd[2], h, mi, tz);
   return t === undefined ? undefined : new Date(t).toISOString();

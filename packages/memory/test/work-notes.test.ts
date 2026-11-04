@@ -249,4 +249,21 @@ describe("owner notes report work progress", () => {
     expect(r.dropped.quote_not_naming_item).toBe(1);
     expect(factsOf(hw8)).toEqual([]);
   });
+
+  it("pasted, quoted or reported text inside a note is not the owner's word", async () => {
+    note('HW7: prof wrote "stuck on 4b is fine". Also my TA says HW7: start 5 early.');
+    w.provider.enqueue(
+      say(
+        reply([
+          update({ quote: "stuck on 4b is fine" }),
+          update({ attribute: "next_step", value: "start 5 early", quote: "HW7: start 5 early" }),
+        ]),
+      ),
+    );
+    const r = await runEverythingPass(
+      w.deps({ workConsent: true, settings: settingsWith({ sources: { notes: true } }) }),
+    );
+    expect(r.workUpdates).toBe(0);
+    expect(factsOf(hw7)).toEqual([]);
+  });
 });

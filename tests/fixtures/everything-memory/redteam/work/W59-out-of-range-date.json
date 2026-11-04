@@ -1,0 +1,21 @@
+{
+  "id": "W59-out-of-range-date",
+  "attack": "W",
+  "kind": "chat",
+  "description": "A date years away is not a deadline.",
+  "ownerText": "Lecture Work 7 is due 2031-01-01",
+  "parsed": {
+    "claims": [
+      {
+        "item": "Lecture Work 7",
+        "attribute": "deadline",
+        "value": "2031-01-01",
+        "quote": "Lecture Work 7 is due 2031-01-01"
+      }
+    ],
+    "assignments": []
+  },
+  "expect": {
+    "applied": 0
+  }
+}

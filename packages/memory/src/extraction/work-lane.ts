@@ -1,6 +1,6 @@
 import type { QuarantineReason } from "@psyche/protocol";
 import { looksLikeInstruction } from "../filters.ts";
-import { hasHiddenChars, normalizeName } from "../graph/normalize.ts";
+import { hasHiddenChars, mixedScript, normalizeName } from "../graph/normalize.ts";
 import { nextWorkStatus } from "../graph/work.ts";
 import { parseDueInZone } from "../graph/zoned-date.ts";
 import type { WorkLaneOutput } from "./schema.ts";
@@ -114,7 +114,7 @@ export interface ValidateWorkLaneInput {
   limits?: WorkLaneLimits;
   now?: number;
   /** The owner's zone: a date with no zone is local, a bare date is 23:59 local. */
-  timeZone?: string;
+  timeZone: string;
 }
 
 /** A title that talks to the reader or asks for money, a login or a transfer is phishing, not work. */
@@ -137,7 +137,7 @@ function titleProblem(title: string): string | undefined {
 }
 
 /** A due date as ISO UTC in the owner's zone, or null for none, junk, impossible or out of range. */
-export function readDue(due: string | null, now: number, timeZone = "UTC"): string | null {
+export function readDue(due: string | null, now: number, timeZone: string): string | null {
   const iso = parseDueInZone(due, timeZone);
   if (iso === null) return null;
   const t = Date.parse(iso);
@@ -169,7 +169,7 @@ const exactly = (names: readonly string[], text: string): boolean => {
  * when they pass the same checks as a value (no link, address, number or instruction); otherwise
  * the reason says the text was withheld. At most 120 characters of it.
  */
-function reasonFor(senderLabel: string, quote: string): string {
+function reasonFor(senderLabel: string, quote: string, title: string): string {
   const who =
     hasHiddenChars(senderLabel) || valueProblem(senderLabel) !== undefined
       ? "a work sender"
@@ -178,7 +178,9 @@ function reasonFor(senderLabel: string, quote: string): string {
   // Dates and times are what these notices are for; they must not read as phone numbers.
   const probe = q.replace(/\d{4}-\d{2}-\d{2}|\d{1,2}:\d{2}/g, "date");
   const safe = q !== "" && valueProblem(probe) === undefined && !hasHiddenChars(q);
-  return safe ? `New from ${who}: "${q}"` : `New from ${who} (quoted text withheld)`;
+  const base = safe ? `New from ${who}: "${q}"` : `New from ${who} (quoted text withheld)`;
+  // A word that mixes Latin with Cyrillic or Greek letters may be a look-alike of a real one.
+  return mixedScript(title) ? `${base} (check the spelling: it mixes alphabets)` : base;
 }
 
 export function validateWorkLane(input: ValidateWorkLaneInput): WorkLaneReport {
@@ -278,7 +280,7 @@ export function validateWorkLane(input: ValidateWorkLaneInput): WorkLaneReport {
         drop("title_not_in_quote");
         continue;
       }
-      const due = readDue(c.due, now, input.timeZone ?? "UTC");
+      const due = readDue(c.due, now, input.timeZone);
       const hint0 = (c.parent_hint ?? "").replace(/\s+/g, " ").trim();
       const matches = input.targets.filter((t) => !t.private && exactly(t.names, title));
       // Two to-dos with one name: the parent hint tells them apart, else none is guessed.
@@ -305,7 +307,7 @@ export function validateWorkLane(input: ValidateWorkLaneInput): WorkLaneReport {
           kind: "assignment",
           ...(parent === undefined ? {} : { parentId: parent.entityId }),
           name: title,
-          reason: reasonFor(item.senderLabel, located),
+          reason: reasonFor(item.senderLabel, located, title),
           dueAt: due,
         });
         if (out.status === "refused") drop(`store:${out.reason}`);

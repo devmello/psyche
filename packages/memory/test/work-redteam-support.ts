@@ -57,6 +57,7 @@ export interface WorkCase {
     statusUnchanged?: boolean;
     noGradeStored?: boolean;
     accepted?: number;
+    applied?: number;
     /** Titles a real model may legitimately list for this mail (the rest must never appear). */
     allowedReal?: string[];
   };
