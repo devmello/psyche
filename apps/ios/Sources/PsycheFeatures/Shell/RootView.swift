@@ -7,9 +7,9 @@ import SwiftUI
 public struct RootView: View {
     @Environment(Session.self) private var session
     @State private var router = Router()
-    private let store: any SnapshotStore
+    private let store: any PsycheBackend
 
-    public init(store: any SnapshotStore = FixtureSnapshotStore()) {
+    public init(store: any PsycheBackend = FixtureBackend.shared) {
         self.store = store
     }
 
@@ -25,13 +25,13 @@ public struct RootView: View {
             }
         }
         .environment(router)
-        .environment(\.snapshotStore, store)
+        .environment(\.backend, store)
         .animation(.default, value: session.state.needsPairing)
     }
 }
 
 struct MainTabs: View {
-    let store: any SnapshotStore
+    let store: any PsycheBackend
     @Environment(Router.self) private var router
 
     var body: some View {
