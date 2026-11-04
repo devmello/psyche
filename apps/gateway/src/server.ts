@@ -182,6 +182,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     trustedProxies: proxies,
     tailscaleProxies: trustedProxyList(config.trustedProxy.tailscaleProxies ?? []),
     cfAccess,
+    allowedLogins: config.trustedProxy.allowedLogins ?? [],
   });
   const log = options.logger ?? createLogger();
   const now = options.now ?? (() => new Date());

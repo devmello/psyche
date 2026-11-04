@@ -110,6 +110,12 @@ export interface TransportGateOptions {
   trustedProxies: BlockList;
   tailscaleProxies: BlockList;
   cfAccess: CloudflareAccessVerifier | null;
+  /**
+   * `gateway.trustedProxy.allowedLogins`: when non-empty, a forwarded connection must carry a
+   * `Tailscale-User-Login` (believed only from a trusted proxy) on this list, or it is refused
+   * before the upgrade. This only narrows who may try; it never authorizes anyone.
+   */
+  allowedLogins?: readonly string[];
 }
 
 export type Admission = { peer: ResolvedPeer } | { refused: string };
@@ -134,6 +140,14 @@ export class TransportGate {
   /** Decides one HTTP request or WebSocket upgrade. Reasons are for logs; they quote nothing. */
   async admit(req: IncomingMessage, resolved: ResolvedPeer): Promise<Admission> {
     const { mode, token, cfAccess } = this.#o;
+    const allowed = this.#o.allowedLogins ?? [];
+    if (allowed.length > 0 && resolved.forwarded) {
+      // `claimedIdentity` is the Tailscale login, set only for a trusted-proxy peer, so a spoofed
+      // header from anywhere else reads as no login at all and fails closed.
+      const login = resolved.claimedIdentity?.toLowerCase();
+      if (login === undefined || !allowed.some((a) => a.toLowerCase() === login))
+        return { refused: "login_not_allowed" };
+    }
     if (mode === "loopback") {
       if (cfAccess === null || (!resolved.forwarded && resolved.remoteLoopback))
         return { peer: resolved };
