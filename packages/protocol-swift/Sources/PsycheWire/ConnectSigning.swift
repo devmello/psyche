@@ -1,15 +1,59 @@
 import CryptoKit
 import Foundation
 
-/// `connectSigningPayload` (wire spec v1, security §10). Byte-identical to
-/// `packages/protocol` and `apps/desktop/src/lib/signing.ts`.
+/// `connectSigningPayload` (wire spec v1, security §10) and its v2 form that binds the Gateway identity
+/// key (remote-gateway design §3.3). Byte-identical to `packages/protocol` and `apps/desktop/src/lib/signing.ts`.
 public enum ConnectSigning {
+    /// With `gatewayKey` the payload is v2 (`psyche-connect-v2`, key appended); without it, v1.
     public static func payload(
-        nonce: String, platform: String, deviceFamily: String, protocolVersion: Int, serverOrigin: String
+        nonce: String, platform: String, deviceFamily: String, protocolVersion: Int, serverOrigin: String,
+        gatewayKey: String? = nil
     ) -> Data {
-        let text = ["psyche-connect-v1", nonce, platform, deviceFamily, String(protocolVersion), serverOrigin]
-            .joined(separator: "\n")
-        return Data(text.utf8)
+        var fields = [
+            gatewayKey == nil ? "psyche-connect-v1" : "psyche-connect-v2", nonce, platform, deviceFamily,
+            String(protocolVersion), serverOrigin,
+        ]
+        if let gatewayKey { fields.append(gatewayKey) }
+        return Data(fields.joined(separator: "\n").utf8)
+    }
+}
+
+/// What the Gateway signs with its identity key in a challenge (`gatewaySigningPayload`):
+/// `psyche-gateway-v1 \n nonce \n serverOrigin \n devicePublicKey`. The device verifies it.
+public enum GatewaySigning {
+    public static func payload(nonce: String, serverOrigin: String, devicePublicKey: String) -> Data {
+        Data(["psyche-gateway-v1", nonce, serverOrigin, devicePublicKey].joined(separator: "\n").utf8)
+    }
+
+    /// True when `signature` (base64url, 64 bytes) is `gatewayKey`'s signature over the payload.
+    public static func verify(
+        signature: String, gatewayKey: String, nonce: String, serverOrigin: String, devicePublicKey: String
+    ) -> Bool {
+        guard let keyBytes = Base64URL.decode(gatewayKey), keyBytes.count == 32,
+              let sigBytes = Base64URL.decode(signature), sigBytes.count == 64,
+              let key = try? Curve25519.Signing.PublicKey(rawRepresentation: keyBytes)
+        else { return false }
+        return key.isValidSignature(
+            sigBytes, for: payload(nonce: nonce, serverOrigin: serverOrigin, devicePublicKey: devicePublicKey))
+    }
+}
+
+/// What the Gateway signs to vouch for the TLS certificate of a LAN connection (`lanCertSigningPayload` in
+/// `packages/protocol/src/methods/connect.ts`): `psyche-lan-cert-v1\nnonce\nserverOrigin\ndevicePublicKey\nspki`.
+public enum LanCertSigning {
+    public static func payload(nonce: String, serverOrigin: String, devicePublicKey: String, spki: String) -> Data {
+        Data(["psyche-lan-cert-v1", nonce, serverOrigin, devicePublicKey, spki].joined(separator: "\n").utf8)
+    }
+
+    public static func verify(
+        signature: String, gatewayKey: String, nonce: String, serverOrigin: String, devicePublicKey: String, spki: String
+    ) -> Bool {
+        guard let keyBytes = Base64URL.decode(gatewayKey), keyBytes.count == 32,
+              let sigBytes = Base64URL.decode(signature), sigBytes.count == 64,
+              let key = try? Curve25519.Signing.PublicKey(rawRepresentation: keyBytes)
+        else { return false }
+        return key.isValidSignature(
+            sigBytes, for: payload(nonce: nonce, serverOrigin: serverOrigin, devicePublicKey: devicePublicKey, spki: spki))
     }
 }
 
