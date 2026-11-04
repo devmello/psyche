@@ -6,6 +6,13 @@ import { defineMethod, nextCursor, pageParams } from "./define.ts";
 /** `notifications.*` (data model §8). */
 
 export const NotificationsMethods = {
+  "notifications.device.register": defineMethod({
+    params: Type.Object({ enabled: Type.Boolean() }),
+    result: Type.Object({ enabled: Type.Boolean() }),
+    scope: "operator.read",
+    description:
+      "Turns this connection's OS notifications on or off (`device:<deviceId>` surface). While on, the Host sends it `notification.device` events for what it would also put on the Host's own screen, with quiet hours and interruption levels applied. Lasts for this connection only: register again after reconnecting.",
+  }),
   "notifications.list": defineMethod({
     params: Type.Object({
       unreadOnly: Type.Optional(Type.Boolean()),

@@ -110,6 +110,13 @@ export interface TransportGateOptions {
   trustedProxies: BlockList;
   tailscaleProxies: BlockList;
   cfAccess: CloudflareAccessVerifier | null;
+  /**
+   * `gateway.trustedProxy.allowedLogins`: when non-empty, a forwarded connection must carry a
+   * `Tailscale-User-Login` (believed only from a peer in `tailscaleProxies`) or a verified
+   * Cloudflare Access email on this list, or it is refused
+   * before the upgrade. This only narrows who may try; it never authorizes anyone.
+   */
+  allowedLogins?: readonly string[];
 }
 
 export type Admission = { peer: ResolvedPeer } | { refused: string };
@@ -134,6 +141,14 @@ export class TransportGate {
   /** Decides one HTTP request or WebSocket upgrade. Reasons are for logs; they quote nothing. */
   async admit(req: IncomingMessage, resolved: ResolvedPeer): Promise<Admission> {
     const { mode, token, cfAccess } = this.#o;
+    const allowed = this.#o.allowedLogins ?? [];
+    if (
+      allowed.length > 0 &&
+      resolved.forwarded &&
+      !(await this.#loginAllowed(req, resolved, allowed))
+    ) {
+      return { refused: "login_not_allowed" };
+    }
     if (mode === "loopback") {
       if (cfAccess === null || (!resolved.forwarded && resolved.remoteLoopback))
         return { peer: resolved };
@@ -150,6 +165,41 @@ export class TransportGate {
       return { peer: { ...resolved, claimedIdentity: `Tailscale ${login.slice(0, 256)}` } };
     }
     return { refused: "proxy_identity_required" };
+  }
+
+  /**
+   * `allowedLogins`: the Tailscale login counts only when the direct peer is a Tailscale proxy
+   * (`tailscaleProxies`; on the loopback bind, Tailscale Serve's own loopback). A verified
+   * Cloudflare Access email may match the same list, so Access users are not locked out by it.
+   * Anything else fails closed.
+   */
+  async #loginAllowed(
+    req: IncomingMessage,
+    resolved: ResolvedPeer,
+    allowed: readonly string[],
+  ): Promise<boolean> {
+    const on = (who: string | undefined) =>
+      who !== undefined &&
+      who.length > 0 &&
+      allowed.some((a) => a.toLowerCase() === who.toLowerCase());
+    const header = req.headers["tailscale-user-login"];
+    const login = typeof header === "string" ? header : undefined;
+    // `claimedIdentity` is set only for a peer in `trustedProxies`; it must also be a Tailscale proxy.
+    if (
+      resolved.claimedIdentity !== null &&
+      inList(this.#o.tailscaleProxies, req.socket.remoteAddress) &&
+      on(login)
+    )
+      return true;
+    const jwt = cfAccessHeader(req.headers);
+    if (this.#o.cfAccess !== null && jwt !== undefined) {
+      try {
+        return on((await this.#o.cfAccess.verify(jwt)).email ?? undefined);
+      } catch {
+        return false;
+      }
+    }
+    return false;
   }
 
   async #viaAccess(req: IncomingMessage, resolved: ResolvedPeer): Promise<Admission> {

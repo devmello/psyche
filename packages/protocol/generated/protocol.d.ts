@@ -7685,6 +7685,18 @@ export interface NotificationAction {
 
 export type NotificationKind = "approval" | "input_needed" | "task_done" | "task_failed" | "proactive" | "briefing" | "reminder" | "system" | "specialist_result";
 
+export interface NotificationDevicePayload {
+    body:         string;
+    createdAt:    string;
+    id:           string;
+    interruption: Interruption;
+    kind:         NotificationKind;
+    route?:       null | string;
+    title:        string;
+}
+
+export type Interruption = "passive" | "active" | "timeSensitive";
+
 export interface NotificationOpenedPayload {
     notificationId: string;
     route:          string;
@@ -7696,6 +7708,14 @@ export interface NotificationResolvedPayload {
 
 export interface NotificationUpdatedPayload {
     notification: Notification;
+}
+
+export interface NotificationsDeviceRegisterParams {
+    enabled: boolean;
+}
+
+export interface NotificationsDeviceRegisterResult {
+    enabled: boolean;
 }
 
 export interface NotificationsListParams {

@@ -151,3 +151,20 @@ describe("passkeyErrorText", () => {
     expect(passkeyErrorText(new Error("boom"))).toBe("boom");
   });
 });
+
+describe("scope in the presence challenge", () => {
+  it("matches the broker: unchanged for once, bound for anything wider", async () => {
+    // The broker's `presenceChallenge`, spelled out (the web client does not import it).
+    const h = "b".repeat(64);
+    const base = `psyche.presence.v1|ap_1|${h}|tok`;
+    const sha = (t: string) => createHash("sha256").update(t).digest("hex");
+    expect(await presenceChallengeHex("ap_1", h, "tok")).toBe(sha(base));
+    expect(await presenceChallengeHex("ap_1", h, "tok", "once")).toBe(sha(base));
+    expect(await presenceChallengeHex("ap_1", h, "tok", "always")).toBe(
+      sha(`${base}|scope:always`),
+    );
+    expect(await presenceChallengeHex("ap_1", h, "tok", "always")).not.toBe(
+      await presenceChallengeHex("ap_1", h, "tok"),
+    );
+  });
+});

@@ -108,12 +108,13 @@ export function kitClient(
     };
   }
   if (passkeys) {
-    client.presence = (approval, answerToken) =>
+    client.presence = (approval, answerToken, scope) =>
       approvalPresence(
         (method, params) => client.request(method as never, params as never),
         passkeys,
         approval,
         answerToken,
+        scope,
       ).catch((err: unknown) => {
         // The card shows the message: a cancelled prompt reads as one, not as a DOMException.
         throw new Error(passkeyErrorText(err));

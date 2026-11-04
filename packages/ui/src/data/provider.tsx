@@ -8,6 +8,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { type GatewayClient, GatewayRequestError } from "./client.ts";
+import type { ChatOutbox } from "./outbox.ts";
 import type { UiState } from "./state.ts";
 import { GatewayStore } from "./store.ts";
 
@@ -18,14 +19,24 @@ export interface GatewayProviderProps {
   children?: ReactNode;
   /** Supply a prebuilt store (tests); otherwise one is created per client. */
   store?: GatewayStore;
+  /**
+   * Where messages typed while offline wait (a remote window's `chat.send` outbox). Without one
+   * the composer stays off while the Gateway is unreachable.
+   */
+  outbox?: ChatOutbox;
 }
 
 /** Makes the Gateway available to every hook below it. */
-export function GatewayProvider({ client, children, store }: GatewayProviderProps): ReactElement {
+export function GatewayProvider({
+  client,
+  children,
+  store,
+  outbox,
+}: GatewayProviderProps): ReactElement {
   const ref = useRef<GatewayStore | null>(null);
   if (store !== undefined) ref.current = store;
   else if (ref.current === null || ref.current.client !== client) {
-    ref.current = new GatewayStore(client);
+    ref.current = new GatewayStore(client, outbox === undefined ? {} : { outbox });
   }
   const current = ref.current;
   useEffect(() => {

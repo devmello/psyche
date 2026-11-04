@@ -180,8 +180,14 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     mode: config.bind,
     token: config.gatewayToken,
     trustedProxies: proxies,
-    tailscaleProxies: trustedProxyList(config.trustedProxy.tailscaleProxies ?? []),
+    // Tailscale Serve on the loopback bind connects from loopback, so that is its default peer.
+    tailscaleProxies: trustedProxyList(
+      (config.trustedProxy.tailscaleProxies ?? []).length > 0 || config.bind !== "loopback"
+        ? (config.trustedProxy.tailscaleProxies ?? [])
+        : ["127.0.0.1/32", "::1"],
+    ),
     cfAccess,
+    allowedLogins: config.trustedProxy.allowedLogins ?? [],
   });
   const log = options.logger ?? createLogger();
   const now = options.now ?? (() => new Date());

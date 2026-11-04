@@ -144,6 +144,13 @@ export interface UiSlots {
   touchIdFix?: (fix: TouchIdFix) => Promise<void>;
   /** The desktop: cards that need Touch ID are approved once only from this window. */
   touchIdOnceOnly?: boolean;
+  /**
+   * A client of another computer's Gateway (remote-gateway design §6.2): a card that needs Touch
+   * ID is approved here only with a passkey made on this computer. Without one the card says
+   * "Answer on {host}" and Allow stays off (Deny still works); ordinary cards are unaffected.
+   * Absent on This Mac and on the web, which have their own paths.
+   */
+  remotePresence?: { hostName: string; hasPasskey: boolean };
   /** The host's native folder picker; resolves to the real path, or null when cancelled. */
   pickFolder?: (opts?: { title?: string }) => Promise<string | null>;
   /** Persona shown in agent messages and cards. */

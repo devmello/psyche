@@ -279,6 +279,11 @@
         "payload": "#/$defs/NotificationCreatedPayload"
       },
       {
+        "description": "An OS notification for this connected remote desktop client (`device:<deviceId>` surface). Sent only to a connection that registered with `notifications.device.register`, to that device alone. It carries no action buttons: opening it opens the card, and approving happens in the card.",
+        "name": "notification.device",
+        "payload": "#/$defs/NotificationDevicePayload"
+      },
+      {
         "description": "The owner tapped an OS notification (the Mac helper's): clients open its route, a chat with the message or approval card, a run, or Scheduled → Runs.",
         "name": "notification.opened",
         "payload": "#/$defs/NotificationOpenedPayload"
@@ -2399,6 +2404,14 @@
         "name": "nodes.list",
         "params": "#/$defs/NodesListParams",
         "result": "#/$defs/NodesListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Turns this connection's OS notifications on or off (`device:<deviceId>` surface). While on, the Host sends it `notification.device` events for what it would also put on the Host's own screen, with quiet hours and interruption levels applied. Lasts for this connection only: register again after reconnecting.",
+        "name": "notifications.device.register",
+        "params": "#/$defs/NotificationsDeviceRegisterParams",
+        "result": "#/$defs/NotificationsDeviceRegisterResult",
         "scope": "operator.read",
         "sideEffecting": false
       },
@@ -30514,6 +30527,55 @@
       ],
       "type": "object"
     },
+    "NotificationDevicePayload": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/NotificationKind"
+        },
+        "title": {
+          "type": "string"
+        },
+        "body": {
+          "type": "string"
+        },
+        "route": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "interruption": {
+          "enum": [
+            "passive",
+            "active",
+            "timeSensitive"
+          ],
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "title",
+        "body",
+        "interruption",
+        "createdAt"
+      ],
+      "type": "object"
+    },
     "NotificationKind": {
       "enum": [
         "approval",
@@ -30565,6 +30627,28 @@
       },
       "required": [
         "notification"
+      ],
+      "type": "object"
+    },
+    "NotificationsDeviceRegisterParams": {
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "enabled"
+      ],
+      "type": "object"
+    },
+    "NotificationsDeviceRegisterResult": {
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "enabled"
       ],
       "type": "object"
     },

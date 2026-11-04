@@ -87,8 +87,12 @@ const bridge = {
      * an Error's message, so the renderer builds the error itself (`renderer/bridge.ts`) and
      * keeps `code` and `details` (e.g. `approval_required` → `{ approvalId }`).
      */
-    call: (method: string, params: unknown) =>
-      ipcRenderer.invoke(IPC.call, { method, params }) as Promise<Envelope>,
+    call: (method: string, params: unknown, idempotencyKey?: string) =>
+      ipcRenderer.invoke(IPC.call, {
+        method,
+        params,
+        ...(idempotencyKey === undefined ? {} : { idempotencyKey }),
+      }) as Promise<Envelope>,
     onEvent: (cb: (e: unknown) => void) => listen(IPC.event, cb),
     onResync: (cb: () => void) => listen(IPC.resync, () => cb()),
     getRun: () => invoke(IPC.gatewayGetRun),
@@ -200,6 +204,15 @@ const bridge = {
     touchIdRegister: () => ipcRenderer.invoke(IPC.touchIdRegister) as Promise<Envelope>,
     touchIdApprove: (p: { approvalId: string; answerToken: string }) =>
       ipcRenderer.invoke(IPC.touchIdApprove, p) as Promise<Envelope>,
+  },
+  /**
+   * A passkey for the remote Gateway (remote windows only; main refuses it elsewhere). Resolves
+   * the raw envelope: the card needs the error's `details.name` to tell a cancel from a failure.
+   */
+  passkeys: {
+    create: (options: unknown) =>
+      ipcRenderer.invoke(IPC.passkeyCreate, options) as Promise<Envelope>,
+    get: (options: unknown) => ipcRenderer.invoke(IPC.passkeyGet, options) as Promise<Envelope>,
   },
   /** Copies text to the system clipboard (#507). */
   clipboard: {

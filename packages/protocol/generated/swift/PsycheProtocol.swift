@@ -959,10 +959,13 @@
 //   let notification = try? JSONDecoder().decode(Notification.self, from: jsonData)
 //   let notificationAction = try? JSONDecoder().decode(NotificationAction.self, from: jsonData)
 //   let notificationCreatedPayload = try? JSONDecoder().decode(NotificationCreatedPayload.self, from: jsonData)
+//   let notificationDevicePayload = try? JSONDecoder().decode(NotificationDevicePayload.self, from: jsonData)
 //   let notificationKind = try? JSONDecoder().decode(NotificationKind.self, from: jsonData)
 //   let notificationOpenedPayload = try? JSONDecoder().decode(NotificationOpenedPayload.self, from: jsonData)
 //   let notificationResolvedPayload = try? JSONDecoder().decode(NotificationResolvedPayload.self, from: jsonData)
 //   let notificationUpdatedPayload = try? JSONDecoder().decode(NotificationUpdatedPayload.self, from: jsonData)
+//   let notificationsDeviceRegisterParams = try? JSONDecoder().decode(NotificationsDeviceRegisterParams.self, from: jsonData)
+//   let notificationsDeviceRegisterResult = try? JSONDecoder().decode(NotificationsDeviceRegisterResult.self, from: jsonData)
 //   let notificationsListParams = try? JSONDecoder().decode(NotificationsListParams.self, from: jsonData)
 //   let notificationsListResult = try? JSONDecoder().decode(NotificationsListResult.self, from: jsonData)
 //   let notificationsMarkReadParams = try? JSONDecoder().decode(NotificationsMarkReadParams.self, from: jsonData)
@@ -22882,6 +22885,43 @@ public enum NotificationKind: String, Codable, Sendable {
     case taskFailed = "task_failed"
 }
 
+// MARK: - NotificationDevicePayload
+public struct NotificationDevicePayload: Codable, Sendable {
+    public let body: String
+    public let createdAt: String
+    public let id: String
+    public let interruption: Interruption
+    public let kind: NotificationKind
+    public let route: String?
+    public let title: String
+
+    public enum CodingKeys: String, CodingKey {
+        case body = "body"
+        case createdAt = "createdAt"
+        case id = "id"
+        case interruption = "interruption"
+        case kind = "kind"
+        case route = "route"
+        case title = "title"
+    }
+
+    public init(body: String, createdAt: String, id: String, interruption: Interruption, kind: NotificationKind, route: String?, title: String) {
+        self.body = body
+        self.createdAt = createdAt
+        self.id = id
+        self.interruption = interruption
+        self.kind = kind
+        self.route = route
+        self.title = title
+    }
+}
+
+public enum Interruption: String, Codable, Sendable {
+    case active = "active"
+    case passive = "passive"
+    case timeSensitive = "timeSensitive"
+}
+
 // MARK: - NotificationOpenedPayload
 public struct NotificationOpenedPayload: Codable, Sendable {
     public let notificationID: String
@@ -22921,6 +22961,32 @@ public struct NotificationUpdatedPayload: Codable, Sendable {
 
     public init(notification: Notification) {
         self.notification = notification
+    }
+}
+
+// MARK: - NotificationsDeviceRegisterParams
+public struct NotificationsDeviceRegisterParams: Codable, Sendable {
+    public let enabled: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case enabled = "enabled"
+    }
+
+    public init(enabled: Bool) {
+        self.enabled = enabled
+    }
+}
+
+// MARK: - NotificationsDeviceRegisterResult
+public struct NotificationsDeviceRegisterResult: Codable, Sendable {
+    public let enabled: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case enabled = "enabled"
+    }
+
+    public init(enabled: Bool) {
+        self.enabled = enabled
     }
 }
 

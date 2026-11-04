@@ -48,11 +48,14 @@ import {
   checkComposerText,
   checkExternalUrl,
   checkHttpUrl,
+  checkIdempotencyKey,
   checkMainRoute,
   checkNotifyRoute,
+  checkPasskeyOptions,
   checkRoute,
   checkViewport,
   IPC,
+  REMOTE_ONLY_CHANNELS,
   REMOTE_REFUSED_CHANNELS,
   rec,
   str,
@@ -88,6 +91,8 @@ import {
 } from "./main/helper-launcher.ts";
 import { LoginItem } from "./main/login-item.ts";
 import { buildAppMenu } from "./main/menu.ts";
+import { PasskeyHost } from "./main/passkey-host.ts";
+import { createPasskeyWindow } from "./main/passkey-window.ts";
 import { perfHold, perfProbeFile, startProbe, watchFirstPaint } from "./main/perf-probe.ts";
 import {
   createPermissions,
@@ -321,6 +326,12 @@ function handle(channel: string, fn: Handler): void {
       return {
         ok: false,
         error: { code: "forbidden", message: "That only works on the computer running Psyche" },
+      };
+    }
+    if (!remoteGateway && REMOTE_ONLY_CHANNELS.has(channel)) {
+      return {
+        ok: false,
+        error: { code: "forbidden", message: "That only works with a Gateway on another computer" },
       };
     }
     try {
@@ -588,7 +599,12 @@ function registerIpc(): void {
   handle(IPC.call, async (e, arg) => {
     const r = rec(IPC.call, arg);
     const method = checkCallable(r.method, isMethodName);
-    const result = await requireGateway().call(method, r.params ?? {});
+    const idempotencyKey = checkIdempotencyKey(r.idempotencyKey);
+    const result = await requireGateway().call(
+      method,
+      r.params ?? {},
+      idempotencyKey === undefined ? undefined : { idempotencyKey },
+    );
     if (method === "terminal.session.open") {
       const id = (result as { sessionId?: unknown } | null)?.sessionId;
       if (typeof id === "string") ownTerminal(e.sender, id);
@@ -598,6 +614,24 @@ function registerIpc(): void {
     }
     return result;
   });
+
+  // A passkey for the remote Gateway's site, made in a hidden window of its origin (R2).
+  const passkeyHost = remoteGateway
+    ? new PasskeyHost({
+        origin: gatewayTarget.origin,
+        createWindow: () => createPasskeyWindow(gatewayTarget.origin),
+      })
+    : undefined;
+  const requirePasskeys = (): PasskeyHost => {
+    if (passkeyHost === undefined) throw new PsycheError("forbidden", "No remote Gateway");
+    return passkeyHost;
+  };
+  handle(IPC.passkeyCreate, (_e, arg) =>
+    requirePasskeys().create(checkPasskeyOptions(IPC.passkeyCreate, arg)),
+  );
+  handle(IPC.passkeyGet, (_e, arg) =>
+    requirePasskeys().get(checkPasskeyOptions(IPC.passkeyGet, arg)),
+  );
 
   handle(IPC.browserGetState, () => requireBrowser().getState());
   on(IPC.browserViewport, (_e, arg) => browser?.setViewport(checkViewport(arg)));
@@ -907,6 +941,12 @@ function onGatewayEvent(e: {
     const route = p.route;
     if (typeof route === "string" && isAppRoute(route)) command({ type: "navigate", route });
   }
+  // A client of another computer's Gateway shows what the Host routes to its own OS surface.
+  if (e.event === "notification.device" && remoteGateway) {
+    const d = relay.decideDevice(e.payload);
+    if (d.show && d.title && d.body && d.route)
+      showNotification(d.title, d.body, d.route, d.urgency);
+  }
   if (e.event === "notification.created") {
     const d = relay.decide(p.notification as PsycheNotification);
     if (d.show && d.title && d.body && d.route)
@@ -1198,6 +1238,20 @@ void app.whenReady().then(async () => {
       }
       onPairing(s);
       if (s.phase === "paired") gateways.markConnected();
+      // The Host sends this connection OS notifications only once it asks (R2); per connection.
+      if (s.phase === "paired" && remoteGateway) {
+        void gateway?.call("notifications.device.register", { enabled: true }).then(
+          // Only now does the Host route toasts here, so only now does the fallback go quiet:
+          // an older Host without the method keeps the in-app fallback.
+          () => {
+            relay.remote = true;
+          },
+          (err: unknown) => {
+            relay.remote = false;
+            console.warn(`[notify] could not register: ${String(err)}`);
+          },
+        );
+      }
     },
     onEvent: onGatewayEvent,
     onResync: () => {
