@@ -12,6 +12,9 @@ struct AgentButton: View {
         Button { router.sheet = .agent } label: { label }
             .buttonStyle(.plain)
             .accessibilityLabel(needsYou ? "Open Psyche's activity, something needs you" : "Open Psyche's activity")
+            .contextMenu {
+                Button { router.sheet = .settings } label: { Label("Settings", systemImage: "gearshape") }
+            }
     }
 
     @ViewBuilder
