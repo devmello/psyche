@@ -83,6 +83,22 @@ struct LiveGatewayTests {
         #expect(full.items.contains(.user(id: full.items.compactMap { if case .user(let id, _) = $0 { id } else { nil } }.first ?? "", text: "Say hello")))
         #expect(full.items.contains { if case .assistant(_, let t, false) = $0 { t == info.reply } else { false } })
 
+        // 4. A real link is single use: a second phone presenting the same token is told to make a new one.
+        if info.realLink {
+            let second = LiveHarness()
+            let failures = second.client.pairingFailures()
+            await second.client.beginPairing(link)
+            let message = await withTaskGroup(of: String?.self) { group in
+                group.addTask { for await m in failures { return m }; return nil }
+                group.addTask { try? await Task.sleep(for: .seconds(15)); return nil }
+                let first = await group.next() ?? nil
+                group.cancelAll()
+                return first
+            }
+            #expect(message?.contains("Make a new link on your Mac") == true)
+            #expect(second.endpointStore.load() == nil)
+        }
+
         // Resilience: the Gateway closing the socket brings the phone back without losing the session.
         let threads = try await backend.threads()
         #expect(threads.contains { $0.id == thread.id })
@@ -108,6 +124,8 @@ final class LiveGateway: @unchecked Sendable {
         var origin: String
         var identityKey: String
         var link: String
+        /// True when the Gateway made the link (`devices.pairing.createLink`); false when serve.ts built it with a placeholder token.
+        var realLink: Bool
         var reply: String
     }
 
