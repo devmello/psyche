@@ -1,5 +1,6 @@
 import { type ContactsSourceDeps, contactsAdapter } from "./contacts.ts";
 import { addressOf } from "./exclusion.ts";
+import { messageIdFromLink } from "./open.ts";
 import { htmlToText, stripQuotedReplies } from "./text.ts";
 import type { SourceAdapter, SourceItem, SourcePull } from "./types.ts";
 
@@ -362,8 +363,20 @@ export function mailAdapter(deps: AppleSourceDeps): SourceAdapter {
           (from !== undefined && own.has(addressOf(from).toLowerCase()));
         const thread =
           str(m.threadId) ?? subject.replace(/^((re|fwd?|aw):\s*)+/i, "").toLowerCase();
+        // The Message-ID comes from the connector's own `message://` link for this message, never
+        // from the body, and only when it has the shape of one (`parseMessageId`).
+        // Each candidate in turn: a summary link that is not a `message://` one does not hide a
+        // good one in the read result.
+        const messageId = [
+          m.link,
+          isObj(full) ? full.link : undefined,
+          isObj(full) && isObj(full.summary) ? full.summary.link : undefined,
+        ]
+          .map(messageIdFromLink)
+          .find((x) => x !== undefined);
         items.push({
           nativeId: id,
+          ...(messageId === undefined ? {} : { openRef: messageId }),
           title: subject,
           text: [
             from ? `From: ${from}` : "",

@@ -142,6 +142,11 @@ export interface SourceItem {
   path?: string;
   /** The document this one is a part of (transcript turns of a recording): results collapse onto it. */
   parentId?: string;
+  /**
+   * What an outside app needs to open the original, kept apart from the text: a mail message's
+   * Message-ID (already validated by `parseMessageId`). Never taken from the text itself.
+   */
+  openRef?: string;
 }
 
 export interface SourcePull {

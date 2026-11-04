@@ -327,6 +327,59 @@ export const SearchSourcesStatus = Type.Object(
 );
 export type SearchSourcesStatus = Static<typeof SearchSourcesStatus>;
 
+/**
+ * One indexed source passage, as the in-app source viewer shows it (Mail, Messages, Notes,
+ * Calendar, Reminders, Contacts, files, ...): the text the index holds, never the live app.
+ * Other people's words: draw as plain text. `open` says which outside opener the desktop may
+ * offer for it (the Gateway has a safe target for it); it carries no target itself.
+ */
+export const SearchDocument = Type.Object(
+  {
+    id: Type.String({ maxLength: 400 }),
+    source: SearchSourceId,
+    title: Type.String({ maxLength: 2000 }),
+    text: Type.String({ maxLength: 40_000, description: "The indexed text, clipped" }),
+    truncated: Type.Boolean(),
+    createdAt: Type.Integer({
+      minimum: 0,
+      description: "Epoch ms: sent, written, starts or is due",
+    }),
+    provenance: Provenance,
+    open: Nullable(
+      StringEnum(["mail", "file"], {
+        $id: "SearchDocumentOpener",
+        description: "mail: Mail.app can open the message; file: Finder can reveal the file",
+      }),
+    ),
+  },
+  { $id: "SearchDocument" },
+);
+export type SearchDocument = Static<typeof SearchDocument>;
+
+/** What the desktop main process opens for a document: resolved by the Gateway from the id. */
+export const SearchOpenTarget = Type.Object(
+  {
+    kind: StringEnum(["mail", "file"], { $id: "SearchOpenTargetKind" }),
+    messageId: Type.Optional(
+      Type.String({
+        maxLength: 512,
+        description: "Mail: the RFC 5322 Message-ID, no angle brackets",
+      }),
+    ),
+    path: Type.Optional(
+      Type.String({ maxLength: 4096, description: "File: the real path, inside a granted folder" }),
+    ),
+    roots: Type.Optional(
+      Type.Array(Type.String({ maxLength: 4096 }), {
+        maxItems: 64,
+        description: "File: the real paths of the granted folders, for a second check in main",
+      }),
+    ),
+  },
+  { $id: "SearchOpenTarget" },
+);
+export type SearchOpenTarget = Static<typeof SearchOpenTarget>;
+
 export const SearchMethods = {
   "search.query": defineMethod({
     params: Type.Object({
@@ -357,6 +410,20 @@ export const SearchMethods = {
     }),
     scope: "operator.read",
     description: "Unified search across the given scopes (default all).",
+  }),
+  "search.document": defineMethod({
+    params: Type.Object({ id: Type.String({ minLength: 1, maxLength: 400 }) }),
+    result: SearchDocument,
+    scope: "operator.read",
+    description:
+      "One indexed source passage by its search document id (what a citation chip or a search result carries), for the read-only source viewer. Owner only: Messages, Contacts and Memory are readable here even when the agent may not search them; the agent never reaches this method. `not_found` for an unknown id, a source that is off or a document that is not a source passage.",
+  }),
+  "search.openSource": defineMethod({
+    params: Type.Object({ id: Type.String({ minLength: 1, maxLength: 400 }) }),
+    result: Type.Object({ target: Nullable(SearchOpenTarget) }),
+    scope: "operator.read",
+    description:
+      "Where the desktop may open a source passage outside Psyche, resolved from the indexed document and never from caller text: a mail message's Message-ID, or a file's real path when it sits inside a currently granted folder. `target` is null when there is none (the viewer shows the passage instead). Called by the desktop main process only; the renderer may not call it.",
   }),
   "search.status": defineMethod({
     params: Type.Object({}),

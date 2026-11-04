@@ -13,6 +13,7 @@ import {
   type LifeAnswerPhase,
   newestFirst,
 } from "./life-answer.ts";
+import { SourceViewer } from "./SourceViewer.tsx";
 
 /**
  * The answer card above Search and ⌘K results (docs/roadmap/future-features.md §1): a short
@@ -181,6 +182,8 @@ function ClaimFacts({
   onOpenEntity: ((entity: EntitySummary) => void) | undefined;
 }): ReactElement {
   const facts = newestFirst(claim.facts);
+  // The fact whose source passage is open below it (one at a time).
+  const [source, setSource] = useState<string | null>(null);
   return (
     <div id={id} className="flex flex-col gap-1.5" data-testid="life-answer-facts">
       {factsDisagree(facts) ? (
@@ -213,16 +216,27 @@ function ClaimFacts({
                   {t("memoryReview.quote", { quote: f.quote })}
                 </blockquote>
               )}
-              {onOpenEntity ? (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="self-start"
-                  onClick={() => onOpenEntity(f.entity)}
-                >
-                  {t("screens.search.answer.openFact")}
-                </Button>
-              ) : null}
+              <div className="flex flex-wrap gap-1">
+                {f.docId != null ? (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    aria-expanded={source === f.factId}
+                    data-testid="life-answer-open-source"
+                    onClick={() => setSource(source === f.factId ? null : f.factId)}
+                  >
+                    {source === f.factId
+                      ? t("screens.search.source.hide")
+                      : t("screens.search.source.show")}
+                  </Button>
+                ) : null}
+                {onOpenEntity ? (
+                  <Button size="sm" variant="ghost" onClick={() => onOpenEntity(f.entity)}>
+                    {t("screens.search.answer.openFact")}
+                  </Button>
+                ) : null}
+              </div>
+              {source === f.factId && f.docId != null ? <SourceViewer docId={f.docId} /> : null}
             </li>
           );
         })}
