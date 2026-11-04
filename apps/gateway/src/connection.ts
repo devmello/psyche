@@ -31,6 +31,8 @@ import { methodPresence, requireFreshPresence } from "./presence-gate.ts";
 export interface Transport {
   send(frame: string): void;
   close(reason: string): void;
+  /** Bytes queued on the socket (WebSockets); absent when the transport cannot tell. */
+  bufferedAmount?(): number;
 }
 
 /** Reply id used when a malformed request carried no usable id. */
@@ -147,6 +149,10 @@ export class Connection implements LiveConnection {
     }
   }
 
+  bufferedAmount(): number {
+    return this.#transport.bufferedAmount?.() ?? 0;
+  }
+
   close(reason: string): void {
     if (this.#phase === "closed") return;
     this.#phase = "closed";
@@ -236,7 +242,7 @@ export class Connection implements LiveConnection {
     if (scope !== "none" && !identity.scopes.includes(scope)) {
       throw new PsycheError("forbidden", `${method} requires scope ${scope}`);
     }
-    this.#rateLimit(identity.deviceId, method, spec.sideEffecting);
+    this.#rateLimit(identity.deviceId, method, spec.sideEffecting, params);
     const def: HandlerDef | undefined = HANDLERS[method] ?? this.#ctx.extraHandlers[method];
     if (def === undefined) {
       throw new PsycheError("not_implemented", `${method} is not implemented yet`);
@@ -278,8 +284,18 @@ export class Connection implements LiveConnection {
    * Per-device budgets (security §10 "rate limits per device token"). Node-protocol frames are
    * exempt: a node streams `node.event`s for invocations the Gateway itself started.
    */
-  #rateLimit(deviceId: string, method: string, sideEffecting: boolean): void {
-    if (method.startsWith("node.") || STREAM_METHODS.has(method)) return;
+  #rateLimit(deviceId: string, method: string, sideEffecting: boolean, params: unknown): void {
+    if (method.startsWith("node.")) return;
+    // Only calls that name a session this device owns; a guess at an id is charged like any call.
+    if (STREAM_METHODS.has(method)) {
+      const sessionId = (params as { sessionId?: unknown } | null)?.sessionId;
+      if (
+        typeof sessionId === "string" &&
+        this.#ctx.terminalSessions.owns?.(deviceId, sessionId) === true
+      ) {
+        return;
+      }
+    }
     const { deviceRequests, deviceSideEffects } = this.#ctx;
     if (
       !deviceRequests.allowed(deviceId) ||

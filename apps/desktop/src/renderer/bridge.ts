@@ -1,3 +1,4 @@
+import { t } from "@psyche/ui";
 import type { GatewayEvent, GatewayStatus } from "@psyche/web/client";
 import { hostTerminalPort } from "@psyche/web/host-terminal-port";
 import {
@@ -6,6 +7,7 @@ import {
   type BundledHelperIdentity,
   browserStorage,
   type DownloadNotice,
+  type GatewayPort,
   type GatewayRunView,
   type HostAppInfo,
   type MacHelperState,
@@ -18,7 +20,6 @@ import {
   type SystemAppearance,
   type SystemDictationStatus,
   type SystemLocale,
-  type TerminalOpenResult,
 } from "@psyche/web/platform";
 import type { PsycheBridge } from "../preload.ts";
 
@@ -94,22 +95,23 @@ export function remoteClientPlatform(full: ShellPlatform): ShellPlatform {
 }
 
 function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
+  const gateway: GatewayPort = {
+    getStatus: () => b.gateway.getStatus() as Promise<GatewayStatus>,
+    deviceId: () => b.gateway.deviceId() as Promise<string | undefined>,
+    onStatus: (cb) => b.gateway.onStatus((s) => cb(s as GatewayStatus)),
+    call: (method, params) => unwrapCall(b.gateway.call(method, params)),
+    onEvent: (cb) => b.gateway.onEvent((e) => cb(e as GatewayEvent)),
+    onResync: (cb) => b.gateway.onResync(cb),
+    getRun: () => b.gateway.getRun() as Promise<GatewayRunView>,
+    onRun: (cb) => b.gateway.onRun((s) => cb(s as GatewayRunView)),
+    showLogs: async () => void (await b.gateway.showLogs()),
+    retry: async () => void (await b.gateway.retry()),
+  };
   return {
     kind: "desktop",
     chrome: b.chrome,
     storage: browserStorage(),
-    gateway: {
-      getStatus: () => b.gateway.getStatus() as Promise<GatewayStatus>,
-      deviceId: () => b.gateway.deviceId() as Promise<string | undefined>,
-      onStatus: (cb) => b.gateway.onStatus((s) => cb(s as GatewayStatus)),
-      call: (method, params) => unwrapCall(b.gateway.call(method, params)),
-      onEvent: (cb) => b.gateway.onEvent((e) => cb(e as GatewayEvent)),
-      onResync: (cb) => b.gateway.onResync(cb),
-      getRun: () => b.gateway.getRun() as Promise<GatewayRunView>,
-      onRun: (cb) => b.gateway.onRun((s) => cb(s as GatewayRunView)),
-      showLogs: async () => void (await b.gateway.showLogs()),
-      retry: async () => void (await b.gateway.retry()),
-    },
+    gateway,
     gateways: {
       list: () => b.gateways.list() as Promise<SavedGatewayView[]>,
       add: (address, name) => b.gateways.add(address, name) as Promise<SavedGatewayView>,
@@ -138,15 +140,9 @@ function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
       openRealChromeProfile: (profile) =>
         b.browser.openRealChromeProfile(profile) as Promise<{ path: string }>,
     },
-    terminal: {
-      open: (opts) =>
-        b.terminal.open(opts) as Promise<TerminalOpenResult | { unavailable: string }>,
-      write: (id, data) => b.terminal.write(id, data),
-      resize: (id, cols, rows) => b.terminal.resize(id, cols, rows),
-      close: (id) => b.terminal.close(id),
-      onData: (cb) => b.terminal.onData((p) => cb(p.sessionId, p.data)),
-      onExit: (cb) => b.terminal.onExit((p) => cb(p.sessionId, p.exitCode)),
-    },
+    // The terminal pane is a session on the Host over this Gateway connection (R4): on This Mac
+    // the Host is this Mac. Main starts nothing from what a Gateway answers.
+    terminal: hostTerminalPort({ gateway, hostName: () => t("web.remote.thisMac") }),
     windows: {
       popOutPane: async (route, title) => void (await b.windows.popOutPane(route, title)),
       focusPopOut: async (route) => (await b.windows.focusPopOut(route)) === true,

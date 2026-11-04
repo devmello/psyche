@@ -69,7 +69,8 @@ class SessionRouter {
     const handler = this.#handlers.get(sessionId);
     if (handler) return handler.data(data);
     const entry = this.#entry(sessionId);
-    if (entry.chars + data.length > PENDING_CHARS) return;
+    // Dropped, so not acknowledged: the port must not tell the Host it was rendered.
+    if (entry.chars + data.length > PENDING_CHARS) return Promise.reject(new Error("dropped"));
     entry.data.push(data);
     entry.chars += data.length;
   }

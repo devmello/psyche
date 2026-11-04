@@ -47,6 +47,7 @@ export const TerminalExitPayload = Type.Object(
       [
         Type.Literal("exited"),
         Type.Literal("closed"),
+        Type.Literal("idle"),
         Type.Literal("device_disconnected"),
         Type.Literal("device_revoked"),
         Type.Literal("gateway_stopped"),

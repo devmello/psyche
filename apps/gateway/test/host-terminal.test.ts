@@ -89,7 +89,7 @@ const touchId: PresenceVerifier = {
 
 async function boot(
   hostTerminal: HostTerminalOptions = {},
-  extra: { presence?: PresenceVerifier } = {},
+  extra: { presence?: PresenceVerifier; limits?: { deviceRequestsPerMinute: number } } = {},
 ) {
   home = mkdtempSync(join(tmpdir(), "psyche-hostterm-"));
   work = join(home, "work");
@@ -102,6 +102,7 @@ async function boot(
     config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
     model: { provider: new FakeModelProvider(), model: "fake/model" },
     ...(extra.presence ? { presence: extra.presence } : {}),
+    ...(extra.limits ? { limits: extra.limits } : {}),
     hostTerminal: {
       spawn: (file, args, options) => {
         const p = new FakePty(file, args, options);
@@ -177,7 +178,7 @@ describe("a terminal on the Host: the round trip", () => {
     expect(pty.options.cwd).toContain("work");
     expect(pty.options).toMatchObject({ cols: 80, rows: 24 });
     expect(Object.keys(pty.options.env).sort()).toEqual(
-      ["COLORTERM", "HOME", "LANG", "LOGNAME", "PATH", "SHELL", "TERM", "USER"].sort(),
+      ["COLORTERM", "HOME", "LANG", "LOGNAME", "PATH", "SHELL", "TERM", "TMPDIR", "USER"].sort(),
     );
     expect(JSON.stringify(pty.options.env)).not.toContain("must-not-leak");
 
@@ -476,6 +477,238 @@ describe("how long a session lives", () => {
     await c.stop("test");
     composed = null;
     expect(ptys.every((p) => p.killed)).toBe(true);
+  });
+});
+
+describe("the presence card is bound to the device that asked", () => {
+  async function approve(client: TestClient, first: Record<string, unknown>, deviceId: string) {
+    const approvalId = (first as { error: { details: { approvalId: string } } }).error.details
+      .approvalId;
+    const got = await client.call<{ approval: ApprovalRequest; answerToken?: string }>(
+      "approvals.get",
+      { approvalId },
+    );
+    const token = got.answerToken ?? "";
+    await tick(450); // past the arm delay
+    const challenge = presenceChallenge(approvalId, got.approval.bindingHash, token);
+    expect(
+      await client.request(
+        "approvals.answer",
+        {
+          approvalId,
+          answerToken: token,
+          decision: "approve",
+          presence: { kind: "webauthn", deviceId, signature: `signed:${challenge}` },
+        },
+        ik(),
+      ),
+    ).toMatchObject({ ok: true });
+    return approvalId;
+  }
+
+  it("refuses another admin device spending an approved terminal card", async () => {
+    const c = await boot({}, { presence: touchId });
+    const x = (await remoteDevice(c, "admin-x", [...ADMIN])).client;
+    const y = (await remoteDevice(c, "admin-y", [...ADMIN])).client;
+    const first = await x.request("terminal.session.open", { cols: 80, rows: 24 }, ik());
+    const approvalId = await approve(x, first, "admin-x");
+    // Y saw the card id on approval.created and presents it.
+    expect(
+      await y.request("terminal.session.open", { cols: 80, rows: 24, approvalId }, ik()),
+    ).toMatchObject({ ok: false, error: { code: "binding_mismatch" } });
+    expect(ptys).toHaveLength(0);
+    // The owner of the request can still use it: Y's attempt did not consume it.
+    expect(
+      await x.request("terminal.session.open", { cols: 80, rows: 24, approvalId }, ik()),
+    ).toMatchObject({ ok: true });
+    expect(ptys).toHaveLength(1);
+  });
+
+  it("holds for another presence-gated method too (memory.reset)", async () => {
+    const c = await boot({}, { presence: touchId });
+    const x = (await remoteDevice(c, "admin-x", [...ADMIN])).client;
+    const y = (await remoteDevice(c, "admin-y", [...ADMIN])).client;
+    const first = await x.request("memory.reset", {}, ik());
+    const approvalId = await approve(x, first, "admin-x");
+    expect(await y.request("memory.reset", { approvalId }, ik())).toMatchObject({
+      ok: false,
+      error: { code: "binding_mismatch" },
+    });
+    expect(await x.request("memory.reset", { approvalId }, ik())).toMatchObject({ ok: true });
+  });
+});
+
+describe("sessions that would be orphaned", () => {
+  it("starts the grace clock for a session whose socket closed while open was still waiting", async () => {
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    const c = await boot({
+      presence: { check: () => gate },
+      limits: { flushMs: 0, sweepMs: 60_000, disconnectGraceMs: 60 },
+    });
+    const { client } = await remoteDevice(c, "slow", [...ADMIN]);
+    void client.request("terminal.session.open", { cols: 80, rows: 24 }, ik());
+    await tick(30);
+    client.close();
+    await tick(50);
+    release();
+    await tick(30);
+    const pty = ptys[0] as FakePty;
+    expect(pty).toBeDefined();
+    await tick(200);
+    expect(pty.killed).toBe(true);
+  });
+
+  it("kills a session whose device is back online but never spoke again", async () => {
+    const c = await boot({
+      presence: { check: async () => undefined },
+      limits: { flushMs: 0, sweepMs: 60_000, disconnectGraceMs: 80 },
+    });
+    const { client, key } = await remoteDevice(c, "silent", [...ADMIN]);
+    await open(client);
+    client.close();
+    await tick(20);
+    await reconnect(c, "silent", key); // connected, but sends nothing for the session
+    await tick(250);
+    expect((ptys[0] as FakePty).killed).toBe(true);
+    const closed = await c.audit.list({ kind: "terminal.session.close" });
+    expect(closed[0]?.data).toMatchObject({ reason: "device_disconnected" });
+  });
+
+  it("closes a session with no calls for the idle timeout", async () => {
+    const c = await boot({ limits: { flushMs: 0, sweepMs: 20, idleTimeoutMs: 80 } });
+    const desk = await adminClient(c.gateway);
+    clients.push(desk);
+    const s = await open(desk);
+    await tick(60);
+    // An ack counts as activity.
+    await desk.call("terminal.session.ack", { sessionId: s.sessionId, end: 0 });
+    await tick(60);
+    expect((ptys[0] as FakePty).killed).toBe(false);
+    const exit = await desk.waitForEvent((e) => e.event === "terminal.exit");
+    expect(exit.payload).toMatchObject({ sessionId: s.sessionId, reason: "idle" });
+    expect((ptys[0] as FakePty).killed).toBe(true);
+  });
+});
+
+describe("terminal calls and the device request budget", () => {
+  it("charges calls naming a session the device does not own to the normal limiter", async () => {
+    const c = await boot({}, { limits: { deviceRequestsPerMinute: 8 } });
+    const desk = await adminClient(c.gateway);
+    clients.push(desk);
+    const s = await open(desk);
+    // Owned stream calls are exempt from the budget...
+    for (let i = 0; i < 20; i++) {
+      await desk.call("terminal.session.write", { sessionId: s.sessionId, data: "a" });
+    }
+    // ...guesses at other ids are not.
+    const codes: string[] = [];
+    for (let i = 0; i < 12; i++) {
+      const r = await desk.request("terminal.session.write", {
+        sessionId: `term_guess${i}`,
+        data: "x",
+      });
+      codes.push(String((r.error as { code?: string } | undefined)?.code));
+    }
+    expect(codes).toContain("rate_limited");
+  });
+
+  it("meters resizes and calls per session", async () => {
+    const c = await boot({
+      limits: {
+        flushMs: 0,
+        sweepMs: 60_000,
+        resizeBurst: 3,
+        resizesPerSecond: 0.001,
+        callBurst: 8,
+        callsPerSecond: 0.001,
+      },
+    });
+    const desk = await adminClient(c.gateway);
+    clients.push(desk);
+    const s = await open(desk);
+    const res = [];
+    for (let i = 0; i < 4; i++) {
+      res.push(
+        await desk.request("terminal.session.resize", {
+          sessionId: s.sessionId,
+          cols: 80 + i,
+          rows: 24,
+        }),
+      );
+    }
+    expect(res.map((r) => r.ok)).toEqual([true, true, true, false]);
+    expect(res[3]).toMatchObject({ error: { code: "rate_limited" } });
+    // Eight calls of any kind in all (the refused resize was charged a call too).
+    let refused = 0;
+    for (let i = 0; i < 6; i++) {
+      const r = await desk.request("terminal.session.write", { sessionId: s.sessionId, data: "a" });
+      if (r.ok !== true) refused += 1;
+    }
+    expect(refused).toBeGreaterThan(0);
+  });
+});
+
+describe("audit and open ordering", () => {
+  it("records the approval, peer and transport on the open, and audits refused opens", async () => {
+    const c = await boot({ presence: { check: async () => undefined } });
+    const { client } = await remoteDevice(c, "auditee", [...ADMIN]);
+    await open(client);
+    const opened = await c.audit.list({ kind: "terminal.session.open" });
+    expect(opened[0]?.data).toMatchObject({ transport: "ws", approvalId: null });
+    expect(opened[0]?.data).toHaveProperty("peerAddress");
+
+    const { client: other } = await remoteDevice(c, "refused-one", [...ADMIN]);
+    await other.request("terminal.session.open", { cols: 80, rows: 24, cwd: "relative" }, ik());
+    await tick();
+    const refused = await c.audit.list({ kind: "terminal.session.refused" });
+    expect(refused).toHaveLength(1);
+    expect(refused[0]?.data).toMatchObject({ code: "invalid_params" });
+  });
+
+  it("opens no shell when the audit record cannot be written (fails closed)", async () => {
+    const c = await boot({ presence: { check: async () => undefined } });
+    const { client } = await remoteDevice(c, "unaudited", [...ADMIN]);
+    const original = c.audit.append.bind(c.audit);
+    c.audit.append = async (entry) => {
+      if (entry.kind === "terminal.session.open") throw new Error("disk full");
+      return original(entry);
+    };
+    const res = await client.request("terminal.session.open", { cols: 80, rows: 24 }, ik());
+    expect(res).toMatchObject({ ok: false, error: { code: "unavailable" } });
+    expect(ptys).toHaveLength(0);
+  });
+
+  it("checks the caps before it asks for presence, so a full house spends no approval", async () => {
+    let checks = 0;
+    const c = await boot({
+      presence: {
+        check: async () => {
+          checks += 1;
+        },
+      },
+      limits: { flushMs: 0, sweepMs: 60_000, maxSessionsPerDevice: 1 },
+    });
+    const { client } = await remoteDevice(c, "capped", [...ADMIN]);
+    await open(client);
+    expect(checks).toBe(1);
+    const res = await client.request("terminal.session.open", { cols: 80, rows: 24 }, ik());
+    expect(res).toMatchObject({ ok: false, error: { code: "rate_limited" } });
+    expect(checks).toBe(1);
+  });
+
+  it("waits for a socket backlog to clear before sending output", async () => {
+    const c = await boot({ limits: { flushMs: 0, sweepMs: 60_000, socketBacklogBytes: -1 } });
+    const desk = await adminClient(c.gateway);
+    clients.push(desk);
+    await open(desk);
+    const pty = ptys[0] as FakePty;
+    pty.emit("held while the socket is backed up");
+    await tick(120);
+    expect(desk.eventsNamed("terminal.output")).toEqual([]);
+    expect(pty.paused).toBe(true);
   });
 });
 

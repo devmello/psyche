@@ -29975,6 +29975,7 @@ public enum TerminalExitPayloadReason: String, Codable, Sendable {
     case deviceRevoked = "device_revoked"
     case exited = "exited"
     case gatewayStopped = "gateway_stopped"
+    case idle = "idle"
 }
 
 // MARK: - TerminalOutputPayload

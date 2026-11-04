@@ -128,17 +128,6 @@ const bridge = {
     openRealChromeProfile: (profile?: string) =>
       invoke(IPC.browserOpenRealChromeProfile, profile ?? "default"),
   },
-  terminal: {
-    open: (opts: unknown) => invoke(IPC.terminalOpen, opts),
-    write: (sessionId: string, data: string) =>
-      ipcRenderer.send(IPC.terminalWrite, { sessionId, data }),
-    resize: (sessionId: string, cols: number, rows: number) =>
-      ipcRenderer.send(IPC.terminalResize, { sessionId, cols, rows }),
-    close: (sessionId: string) => ipcRenderer.send(IPC.terminalClose, sessionId),
-    onData: (cb: (p: { sessionId: string; data: string }) => void) => listen(IPC.terminalData, cb),
-    onExit: (cb: (p: { sessionId: string; exitCode: number }) => void) =>
-      listen(IPC.terminalExit, cb),
-  },
   windows: {
     popOutPane: (route: string, title: string) => invoke(IPC.windowPopOut, { route, title }),
     focusPopOut: (route: string) => invoke(IPC.windowFocusPopOut, { route }),

@@ -158,6 +158,7 @@ describe("renderer bridge", () => {
             return { ok: true, value: { sessionId: "term_1", target: "host", label: "zsh · ~" } };
           },
           onEvent: () => () => undefined,
+          onResync: () => () => undefined,
         },
       } as unknown as PsycheBridge;
       const terminal = desktopPlatform(bridge).terminal;
@@ -183,6 +184,26 @@ describe("renderer bridge", () => {
       expect(platform.dictation).toBeDefined();
       expect(platform.terminal).toBeDefined();
       expect(platform.app?.revealHome).toBeDefined();
+    });
+
+    it("opens This Mac's terminal as a Host session too: main never spawns from Gateway data", async () => {
+      const calls: string[] = [];
+      const bridge = {
+        chrome: { titleBar: "native" },
+        gateway: {
+          call: async (method: string) => {
+            calls.push(method);
+            return { ok: true, value: { sessionId: "term_9", target: "host", label: "zsh · ~" } };
+          },
+          onEvent: () => () => undefined,
+          onResync: () => () => undefined,
+        },
+        // There is no local terminal channel any more.
+      } as unknown as PsycheBridge;
+      expect((bridge as unknown as { terminal?: unknown }).terminal).toBeUndefined();
+      const opened = await desktopPlatform(bridge).terminal?.open({ cols: 80, rows: 24 });
+      expect(opened).toEqual({ sessionId: "term_9", target: "host", label: "zsh · ~" });
+      expect(calls).toEqual(["terminal.session.open"]);
     });
   });
 });

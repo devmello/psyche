@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { accessSync, constants, realpathSync, statSync } from "node:fs";
-import { homedir, hostname, userInfo } from "node:os";
+import { accessSync, constants, existsSync, statSync } from "node:fs";
+import { realpath, stat } from "node:fs/promises";
+import { homedir, hostname, tmpdir, userInfo } from "node:os";
 import { basename, isAbsolute } from "node:path";
 import { getDevice } from "@psyche/db";
 import {
@@ -100,6 +101,18 @@ export interface HostTerminalLimits {
   /** Input budget per session: a burst, and a refill rate in bytes per second. */
   writeBurstBytes: number;
   writeBytesPerSecond: number;
+  /** Calls per session (write, resize, ack alike): a burst, and a refill rate per second. */
+  callBurst: number;
+  callsPerSecond: number;
+  /** Resizes per session: a burst, and a refill rate per second. */
+  resizeBurst: number;
+  resizesPerSecond: number;
+  /** A session with no call (write, resize, ack) for this long is closed. */
+  idleTimeoutMs: number;
+  /** Output waits while the owner's socket has this many bytes queued. */
+  socketBacklogBytes: number;
+  /** Longest the folder check may take (a hung network mount). */
+  cwdTimeoutMs: number;
 }
 
 export const DEFAULT_HOST_TERMINAL_LIMITS: HostTerminalLimits = {
@@ -110,9 +123,16 @@ export const DEFAULT_HOST_TERMINAL_LIMITS: HostTerminalLimits = {
   chunkChars: 32 * 1024,
   maxPendingChars: 2 * TERMINAL_OUTPUT_WINDOW,
   flushMs: 8,
-  sweepMs: 15_000,
+  sweepMs: 5_000,
   writeBurstBytes: 1024 * 1024,
   writeBytesPerSecond: 512 * 1024,
+  callBurst: 600,
+  callsPerSecond: 300,
+  resizeBurst: 20,
+  resizesPerSecond: 5,
+  idleTimeoutMs: 30 * 60_000,
+  socketBacklogBytes: 1024 * 1024,
+  cwdTimeoutMs: 2_000,
 };
 
 /**
@@ -125,6 +145,12 @@ export interface HostTerminalPresence {
     call: Call,
     input: { approvalId: string | undefined; cwd: string | undefined },
   ): Promise<void>;
+}
+
+/** Fixed, never the Gateway's own PATH (a LaunchAgent's is whatever launchd gave it). */
+function systemPath(): string {
+  const extra = ["/opt/homebrew/bin", "/usr/local/bin"].filter((d) => existsSync(d));
+  return [...extra, "/usr/bin", "/bin", "/usr/sbin", "/sbin"].join(":");
 }
 
 export interface HostTerminalOptions {
@@ -174,11 +200,12 @@ export function systemTargetSource(): TargetSource {
  * (then the usual system ones); the folder must be an existing absolute directory. The
  * environment is built from scratch.
  */
-export function resolveHostTarget(
+export async function resolveHostTarget(
   source: TargetSource,
   host: string,
   cwd: string | undefined,
-): HostTarget {
+  cwdTimeoutMs = 2_000,
+): Promise<HostTarget> {
   const shell = [source.userShell, "/bin/zsh", "/bin/bash", "/bin/sh"].find(
     (s): s is string => typeof s === "string" && isAbsolute(s) && !hasNul(s) && isExecutable(s),
   );
@@ -190,20 +217,32 @@ export function resolveHostTarget(
     if (!isAbsolute(cwd) || hasNul(cwd) || cwd.length > MAX_PATH) {
       throw new PsycheError("invalid_params", "cwd must be an absolute folder on the Host");
     }
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      dir = realpathSync(cwd);
-      if (!statSync(dir).isDirectory()) throw new Error("not a directory");
+      dir = await Promise.race([
+        (async () => {
+          const real = await realpath(cwd);
+          if (!(await stat(real)).isDirectory()) throw new Error("not a directory");
+          return real;
+        })(),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => reject(new Error("timeout")), cwdTimeoutMs);
+          timer.unref?.();
+        }),
+      ]);
     } catch {
       throw new PsycheError("invalid_params", `That folder doesn't exist on ${host}`);
+    } finally {
+      if (timer !== undefined) clearTimeout(timer);
     }
   }
   const lang = source.env.LANG;
-  const path = source.env.PATH;
   const env: Record<string, string> = {
     TERM: "xterm-256color",
     COLORTERM: "truecolor",
     LANG: lang && !hasNul(lang) ? lang : "en_US.UTF-8",
-    PATH: path && !hasNul(path) ? path : "/usr/bin:/bin:/usr/sbin:/sbin",
+    PATH: systemPath(),
+    TMPDIR: tmpdir(),
     HOME: source.home,
     SHELL: shell,
     ...(source.user && !hasNul(source.user) ? { USER: source.user, LOGNAME: source.user } : {}),
@@ -224,11 +263,18 @@ async function loadNodePty(): Promise<PtySpawn> {
   return (file, args, options) => spawn(file, args, options);
 }
 
+interface Bucket {
+  tokens: number;
+  at: number;
+}
+
 interface Session {
   id: string;
   deviceId: string;
   pty: PtyProcess;
   startedAt: number;
+  /** The last call from the owner (write, resize, ack); the idle timeout counts from it. */
+  lastActivity: number;
   /** Output held back (the client is behind, or the device is away). */
   pending: string[];
   pendingChars: number;
@@ -241,11 +287,21 @@ interface Session {
   exited: { exitCode: number } | undefined;
   flushTimer: ReturnType<typeof setTimeout> | undefined;
   subscriptions: PtyDisposable[];
-  /** Input budget. */
-  tokens: number;
-  tokensAt: number;
+  /** Budgets: input bytes, calls of any kind, resizes. */
+  input: Bucket;
+  calls: Bucket;
+  resizes: Bucket;
   inputChars: number;
   droppedChars: number;
+}
+
+/** Refills a bucket and takes `cost`; false when it holds less. */
+function take(b: Bucket, cost: number, burst: number, perSecond: number, t: number): boolean {
+  b.tokens = Math.min(burst, b.tokens + ((t - b.at) / 1000) * perSecond);
+  b.at = t;
+  if (cost > b.tokens) return false;
+  b.tokens -= cost;
+  return true;
 }
 
 export function hostTerminalPart(opts: HostTerminalOptions = {}) {
@@ -267,13 +323,12 @@ export function hostTerminalPart(opts: HostTerminalOptions = {}) {
       fields: Record<string, string | number | boolean | null>,
     ) => services.logger?.log(level, message, fields);
 
-    const audit = (
-      kind: string,
-      deviceId: string,
-      data: Record<string, string | number | null>,
-    ) => {
+    type AuditData = Record<string, string | number | null>;
+    const auditActor = (deviceId: string) => ({ type: "device" as const, deviceId });
+    /** Best effort (closes, refusals): a failed write is logged, not fatal. */
+    const audit = (kind: string, deviceId: string, data: AuditData) => {
       services.audit
-        .append({ kind, actor: { type: "device", deviceId }, data })
+        .append({ kind, actor: auditActor(deviceId), data })
         .catch((err: unknown) =>
           log("warn", "terminal audit append failed", { code: PsycheError.from(err).code }),
         );
@@ -281,12 +336,14 @@ export function hostTerminalPart(opts: HostTerminalOptions = {}) {
 
     const presence: HostTerminalPresence = opts.presence ?? defaultPresence(hostName);
 
-    const deviceOnline = (deviceId: string): boolean => {
-      for (const c of gateway?.context.connections() ?? []) {
-        if (c.open && c.identity?.deviceId === deviceId) return true;
-      }
-      return false;
-    };
+    const connectionsOf = (deviceId: string) =>
+      [...(gateway?.context.connections() ?? [])].filter(
+        (c) => c.open && c.identity?.deviceId === deviceId,
+      );
+    const deviceOnline = (deviceId: string): boolean => connectionsOf(deviceId).length > 0;
+    /** The owner's socket has a pile of unsent bytes: stop adding to it. */
+    const backlogged = (deviceId: string): boolean =>
+      connectionsOf(deviceId).some((c) => c.bufferedAmount() > limits.socketBacklogBytes);
 
     /** Ends a session once: the shell dies, the client hears why, the audit log records it. */
     const finish = (s: Session, reason: ExitReason, exitCode: number | null) => {
@@ -325,26 +382,39 @@ export function hostTerminalPart(opts: HostTerminalOptions = {}) {
       for (const s of [...sessions.values()]) if (s.deviceId === deviceId) finish(s, reason, null);
     };
 
-    /** Sends what the window allows; pauses the PTY while the client is behind. */
+    /** Sends what the window and the socket allow; pauses the PTY while the client is behind. */
     const drain = (s: Session) => {
       if (sessions.get(s.id) !== s) return;
+      let jammed = false;
       while (!s.detached && s.pendingChars > 0 && s.sent - s.acked < limits.outputWindow) {
+        if (backlogged(s.deviceId)) {
+          jammed = true;
+          break;
+        }
         const room = Math.min(limits.chunkChars, limits.outputWindow - (s.sent - s.acked));
         const all = s.pending.length === 1 ? (s.pending[0] ?? "") : s.pending.join("");
-        let take = Math.min(room, all.length);
+        let n = Math.min(room, all.length);
         // Never split a surrogate pair across events.
-        const last = all.charCodeAt(take - 1);
-        if (take < all.length && last >= 0xd800 && last <= 0xdbff) take -= 1;
-        if (take <= 0) break;
-        const rest = all.slice(take);
+        const last = all.charCodeAt(n - 1);
+        if (n < all.length && last >= 0xd800 && last <= 0xdbff) n -= 1;
+        if (n <= 0) break;
+        const rest = all.slice(n);
         s.pending = rest.length > 0 ? [rest] : [];
         s.pendingChars = rest.length;
-        s.sent += take;
+        s.sent += n;
         gateway?.bus.publishToDevice(s.deviceId, "terminal.output", {
           sessionId: s.id,
-          data: all.slice(0, take),
+          data: all.slice(0, n),
           end: s.sent,
         });
+      }
+      if (jammed && s.flushTimer === undefined) {
+        // No ack will announce that the socket drained: look again shortly.
+        s.flushTimer = setTimeout(() => {
+          s.flushTimer = undefined;
+          drain(s);
+        }, 50);
+        s.flushTimer.unref?.();
       }
       const behind = s.detached || s.sent - s.acked >= limits.outputWindow || s.pendingChars > 0;
       if (behind && !s.paused) {
@@ -414,12 +484,25 @@ export function hostTerminalPart(opts: HostTerminalOptions = {}) {
       }
     };
 
-    const owned = (call: Call, sessionId: string): Session => {
+    /**
+     * The owner's session for a call, charged to its budgets. Another device's session is
+     * indistinguishable from a missing one.
+     */
+    const owned = (call: Call, sessionId: string, kind: "write" | "resize" | "ack"): Session => {
       const s = sessions.get(sessionId);
-      // Another device's session is indistinguishable from a missing one.
       if (s === undefined || s.deviceId !== call.identity.deviceId) {
         throw new PsycheError("not_found", "There is no such terminal session");
       }
+      const t = now();
+      const tooMany =
+        !take(s.calls, 1, limits.callBurst, limits.callsPerSecond, t) ||
+        (kind === "resize" && !take(s.resizes, 1, limits.resizeBurst, limits.resizesPerSecond, t));
+      if (tooMany) {
+        throw new PsycheError("rate_limited", "Too many terminal calls; slow down", {
+          retryable: true,
+        });
+      }
+      s.lastActivity = t;
       attach(s);
       return s;
     };
@@ -435,7 +518,11 @@ export function hostTerminalPart(opts: HostTerminalOptions = {}) {
       );
     };
 
-    const onDisconnect = (deviceId: string) => {
+    /**
+     * The device has no connection: hold its output and start the grace clock. When it runs
+     * out, every session of the device that never spoke again is killed, online or not.
+     */
+    const detachDevice = (deviceId: string) => {
       const mine = [...sessions.values()].filter((s) => s.deviceId === deviceId);
       if (mine.length === 0) return;
       if (!stillAllowed(deviceId)) {
@@ -452,10 +539,26 @@ export function hostTerminalPart(opts: HostTerminalOptions = {}) {
       if (prior !== undefined) clearTimeout(prior);
       const timer = setTimeout(() => {
         graceTimers.delete(deviceId);
-        if (!deviceOnline(deviceId)) killDevice(deviceId, "device_disconnected");
+        for (const s of [...sessions.values()]) {
+          if (s.deviceId === deviceId && s.detached) finish(s, "device_disconnected", null);
+        }
       }, limits.disconnectGraceMs);
       timer.unref?.();
       graceTimers.set(deviceId, timer);
+    };
+
+    const checkCaps = (deviceId: string, host: string) => {
+      const mine = [...sessions.values()].filter((s) => s.deviceId === deviceId).length;
+      if (
+        mine + pendingOpens >= limits.maxSessionsPerDevice ||
+        sessions.size + pendingOpens >= limits.maxSessions
+      ) {
+        throw new PsycheError(
+          "rate_limited",
+          `Too many terminals are open on ${host}. Close one to open another.`,
+          { details: { reason: "terminal_limit", limit: limits.maxSessionsPerDevice } },
+        );
+      }
     };
 
     const handlers: Record<string, HandlerDef> = {
@@ -465,23 +568,65 @@ export function hostTerminalPart(opts: HostTerminalOptions = {}) {
           params: { cols: number; rows: number; cwd?: string; approvalId?: string },
         ) {
           const host = hostName();
-          // Presence first: nothing about the Host (folders, shells) is revealed before it.
-          await presence.check(call, { approvalId: params.approvalId, cwd: params.cwd });
           const deviceId = call.identity.deviceId;
-          const mine = [...sessions.values()].filter((s) => s.deviceId === deviceId).length;
-          if (
-            mine + pendingOpens >= limits.maxSessionsPerDevice ||
-            sessions.size + pendingOpens >= limits.maxSessions
-          ) {
-            throw new PsycheError(
-              "rate_limited",
-              `Too many terminals are open on ${host}. Close one to open another.`,
-              { details: { reason: "terminal_limit", limit: limits.maxSessionsPerDevice } },
-            );
+          const where: AuditData = {
+            peerAddress: call.conn.peer.remoteAddress,
+            transport: call.conn.peer.transport,
+          };
+          /** A refused open is recorded too (the approval card step is not a refusal). */
+          const refused = (err: unknown): never => {
+            const e = PsycheError.from(err);
+            if (e.code !== "approval_required") {
+              audit("terminal.session.refused", deviceId, {
+                code: e.code,
+                ...(params.cwd === undefined ? {} : { cwd: params.cwd }),
+                ...where,
+              });
+            }
+            throw e;
+          };
+          // Caps before presence: a refused open must not spend the owner's approval.
+          try {
+            checkCaps(deviceId, host);
+            // Presence before anything about the Host (folders, shells) is revealed.
+            await presence.check(call, { approvalId: params.approvalId, cwd: params.cwd });
+            // Again: another open may have taken the last place while the owner approved.
+            checkCaps(deviceId, host);
+          } catch (err) {
+            return refused(err);
           }
           pendingOpens += 1;
           try {
-            const target = resolveHostTarget(targetSource(), host, params.cwd);
+            let target: HostTarget;
+            try {
+              target = await resolveHostTarget(
+                targetSource(),
+                host,
+                params.cwd,
+                limits.cwdTimeoutMs,
+              );
+            } catch (err) {
+              return refused(err);
+            }
+            const id = `term_${randomUUID()}`;
+            // Fail closed: no shell without the record of who opened it.
+            try {
+              await services.audit.append({
+                kind: "terminal.session.open",
+                actor: auditActor(deviceId),
+                data: {
+                  sessionId: id,
+                  cwd: target.cwd,
+                  shell: target.file,
+                  desktopShell: call.identity.desktopShell === true ? 1 : 0,
+                  approvalId: params.approvalId ?? null,
+                  ...where,
+                },
+              });
+            } catch (err) {
+              log("warn", "terminal audit append failed", { code: PsycheError.from(err).code });
+              throw new PsycheError("unavailable", `${host} could not record the terminal`);
+            }
             let pty: PtyProcess;
             try {
               spawn ??= await loadNodePty();
@@ -494,14 +639,16 @@ export function hostTerminalPart(opts: HostTerminalOptions = {}) {
               });
             } catch (err) {
               log("warn", "terminal spawn failed", { code: PsycheError.from(err).code });
+              audit("terminal.session.close", deviceId, { sessionId: id, reason: "spawn_failed" });
               throw new PsycheError("unavailable", `${host} could not start a shell`);
             }
             const t = now();
             const s: Session = {
-              id: `term_${randomUUID()}`,
+              id,
               deviceId,
               pty,
               startedAt: t,
+              lastActivity: t,
               pending: [],
               pendingChars: 0,
               sent: 0,
@@ -511,8 +658,9 @@ export function hostTerminalPart(opts: HostTerminalOptions = {}) {
               exited: undefined,
               flushTimer: undefined,
               subscriptions: [],
-              tokens: limits.writeBurstBytes,
-              tokensAt: t,
+              input: { tokens: limits.writeBurstBytes, at: t },
+              calls: { tokens: limits.callBurst, at: t },
+              resizes: { tokens: limits.resizeBurst, at: t },
               inputChars: 0,
               droppedChars: 0,
             };
@@ -521,12 +669,9 @@ export function hostTerminalPart(opts: HostTerminalOptions = {}) {
               pty.onData((data) => onData(s, data)),
               pty.onExit(({ exitCode }) => onExit(s, exitCode)),
             );
-            audit("terminal.session.open", deviceId, {
-              sessionId: s.id,
-              cwd: target.cwd,
-              shell: target.file,
-              desktopShell: call.identity.desktopShell === true ? 1 : 0,
-            });
+            // The socket may have closed while this open waited on presence or the spawn; its
+            // disconnect event has already passed, so start the grace clock now.
+            if (!deviceOnline(deviceId)) detachDevice(deviceId);
             return { sessionId: s.id, target: "host" as const, label: target.label };
           } finally {
             pendingOpens -= 1;
@@ -535,23 +680,16 @@ export function hostTerminalPart(opts: HostTerminalOptions = {}) {
       },
       "terminal.session.write": {
         run(call: Call, params: { sessionId: string; data: string }) {
-          const s = owned(call, params.sessionId);
+          const s = owned(call, params.sessionId, "write");
           const bytes = Buffer.byteLength(params.data, "utf8");
           if (bytes > TERMINAL_WRITE_MAX_BYTES) {
             throw new PsycheError("invalid_params", "That write is too large");
           }
-          const t = now();
-          s.tokens = Math.min(
-            limits.writeBurstBytes,
-            s.tokens + ((t - s.tokensAt) / 1000) * limits.writeBytesPerSecond,
-          );
-          s.tokensAt = t;
-          if (bytes > s.tokens) {
+          if (!take(s.input, bytes, limits.writeBurstBytes, limits.writeBytesPerSecond, now())) {
             throw new PsycheError("rate_limited", "Typing too fast for this terminal; slow down", {
               retryable: true,
             });
           }
-          s.tokens -= bytes;
           s.inputChars += params.data.length;
           if (s.exited === undefined) s.pty.write(params.data);
           return {};
@@ -559,7 +697,7 @@ export function hostTerminalPart(opts: HostTerminalOptions = {}) {
       },
       "terminal.session.resize": {
         run(call: Call, params: { sessionId: string; cols: number; rows: number }) {
-          const s = owned(call, params.sessionId);
+          const s = owned(call, params.sessionId, "resize");
           if (s.exited === undefined) {
             try {
               s.pty.resize(params.cols, params.rows);
@@ -572,7 +710,7 @@ export function hostTerminalPart(opts: HostTerminalOptions = {}) {
       },
       "terminal.session.ack": {
         run(call: Call, params: { sessionId: string; end: number }) {
-          const s = owned(call, params.sessionId);
+          const s = owned(call, params.sessionId, "ack");
           // Only what was actually sent can be confirmed.
           s.acked = Math.max(s.acked, Math.min(params.end, s.sent));
           drain(s);
@@ -593,8 +731,16 @@ export function hostTerminalPart(opts: HostTerminalOptions = {}) {
       handlers,
       start(gw) {
         gateway = gw;
-        gw.context.deviceDisconnected.add(onDisconnect);
+        gw.context.deviceDisconnected.add(detachDevice);
+        gw.context.terminalSessions.owns = (deviceId, sessionId) =>
+          sessions.get(sessionId)?.deviceId === deviceId;
         sweep = setInterval(() => {
+          const t = now();
+          for (const s of [...sessions.values()]) {
+            if (t - s.lastActivity > limits.idleTimeoutMs) finish(s, "idle", null);
+          }
+          // Output stops promptly when admin is taken away or the device was revoked, even
+          // while its socket stays open (scopes are otherwise re-read on the next request).
           for (const deviceId of new Set([...sessions.values()].map((s) => s.deviceId))) {
             if (!stillAllowed(deviceId)) killDevice(deviceId, "device_revoked");
           }
@@ -602,7 +748,8 @@ export function hostTerminalPart(opts: HostTerminalOptions = {}) {
         sweep.unref?.();
       },
       stop() {
-        gateway?.context.deviceDisconnected.delete(onDisconnect);
+        gateway?.context.deviceDisconnected.delete(detachDevice);
+        if (gateway) gateway.context.terminalSessions.owns = null;
         if (sweep !== undefined) clearInterval(sweep);
         sweep = undefined;
         for (const t of graceTimers.values()) clearTimeout(t);

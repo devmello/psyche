@@ -10343,7 +10343,7 @@ export interface TerminalExitPayload {
 /**
  * Why the session ended
  */
-export type TerminalExitPayloadReason = "exited" | "closed" | "device_disconnected" | "device_revoked" | "gateway_stopped";
+export type TerminalExitPayloadReason = "exited" | "closed" | "idle" | "device_disconnected" | "device_revoked" | "gateway_stopped";
 
 export interface TerminalOutputPayload {
     /**

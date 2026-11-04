@@ -174,4 +174,52 @@ describe("hostTerminalPort", () => {
       unavailable: "The approval didn't come in time. Open the terminal again.",
     });
   });
+
+  it("does not ack data a listener dropped, nor anything after a session ended", async () => {
+    const g = fakeGateway(() => ({}));
+    const port = hostTerminalPort({ gateway: g.gateway, hostName: "h" });
+    port.onData(() => Promise.reject(new Error("dropped")));
+    g.emit("terminal.output", { sessionId: "term_1", data: "lost", end: 4 });
+    await flush();
+    expect(g.calls).toEqual([]);
+
+    const g2 = fakeGateway(() => ({}));
+    const p2 = hostTerminalPort({ gateway: g2.gateway, hostName: "h" });
+    let render: () => void = () => undefined;
+    p2.onData(
+      () =>
+        new Promise<void>((r) => {
+          render = r;
+        }),
+    );
+    g2.emit("terminal.output", { sessionId: "term_1", data: "late", end: 4 });
+    g2.emit("terminal.exit", { sessionId: "term_1", exitCode: 0, reason: "exited" });
+    render();
+    await flush();
+    // Rendered after the session ended: no ack, so no entry is recreated for a dead session.
+    expect(g2.calls).toEqual([]);
+    p2.write("term_1", "x");
+    await flush();
+    expect(g2.calls).toEqual([]);
+  });
+
+  it("tells the Host it is still there after a reconnect, for the sessions it opened", async () => {
+    const resync = new Set<() => void>();
+    const g = fakeGateway(() => opened);
+    const gateway = {
+      ...g.gateway,
+      onResync: (cb: () => void) => {
+        resync.add(cb);
+        return () => resync.delete(cb);
+      },
+    };
+    const port = hostTerminalPort({ gateway, hostName: "h" });
+    await port.open({ cols: 80, rows: 24 });
+    g.calls.length = 0;
+    for (const cb of resync) cb();
+    await flush();
+    expect(g.calls).toEqual([
+      { method: "terminal.session.ack", params: { sessionId: "term_1", end: 0 } },
+    ]);
+  });
 });

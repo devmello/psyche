@@ -40375,6 +40375,10 @@
               "type": "string"
             },
             {
+              "const": "idle",
+              "type": "string"
+            },
+            {
               "const": "device_disconnected",
               "type": "string"
             },

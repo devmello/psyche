@@ -19,9 +19,9 @@ import type { GatewayPort, TerminalOpenResult, TerminalPort, Unsubscribe } from 
  */
 
 export interface HostTerminalPortOptions {
-  gateway: Pick<GatewayPort, "call" | "onEvent">;
+  gateway: Pick<GatewayPort, "call" | "onEvent"> & Partial<Pick<GatewayPort, "onResync">>;
   /** The Host's name, for the messages the pane shows. */
-  hostName: string;
+  hostName: string | (() => string);
   /** How long to wait for the owner's approval of a new terminal. */
   approvalTimeoutMs?: number;
   /** Keystrokes are sent after this long (0: on the next tick). */
@@ -51,7 +51,12 @@ interface Writer {
 }
 
 export function hostTerminalPort(opts: HostTerminalPortOptions): TerminalPort {
-  const { gateway, hostName } = opts;
+  const { gateway } = opts;
+  const hostName = () => (typeof opts.hostName === "function" ? opts.hostName() : opts.hostName);
+  /** Sessions this port opened and still has; a reconnect re-attaches them (see onResync). */
+  const live = new Set<string>();
+  /** Sessions that are over: nothing may be acked or written for them again. */
+  const ended = new Set<string>();
   const batchMs = opts.writeBatchMs ?? WRITE_BATCH_MS;
   const dataListeners = new Set<(id: string, data: string) => void | Promise<void>>();
   const exitListeners = new Set<(id: string, exitCode: number) => void>();
@@ -59,10 +64,12 @@ export function hostTerminalPort(opts: HostTerminalPortOptions): TerminalPort {
   const acks = new Map<string, { sending: boolean; latest: number }>();
   const approvalWaiters = new Set<(approvalId: string, status: string) => void>();
   let off: Unsubscribe | undefined;
+  let offResync: Unsubscribe | undefined;
 
   const quiet = (p: Promise<unknown>) => void p.catch(() => undefined);
 
   const sendAck = (sessionId: string, end: number) => {
+    if (ended.has(sessionId)) return;
     let a = acks.get(sessionId);
     if (!a) {
       a = { sending: false, latest: 0 };
@@ -93,6 +100,12 @@ export function hostTerminalPort(opts: HostTerminalPortOptions): TerminalPort {
     if (w?.timer !== undefined) clearTimeout(w.timer);
     writers.delete(sessionId);
     acks.delete(sessionId);
+    live.delete(sessionId);
+    ended.add(sessionId);
+    if (ended.size > 256) {
+      const oldest = ended.values().next().value;
+      if (oldest !== undefined) ended.delete(oldest);
+    }
   };
 
   const onEvent = (e: GatewayEvent) => {
@@ -105,9 +118,11 @@ export function hostTerminalPort(opts: HostTerminalPortOptions): TerminalPort {
       const results: Array<void | Promise<void>> = [];
       for (const cb of dataListeners) results.push(cb(sessionId, p.data));
       if (end === undefined) return;
+      // Acked only once rendered: a listener that dropped the data (a pane that is not showing
+      // it) rejects, and the Host keeps waiting instead of flooding a sink that discards.
       Promise.all(results).then(
         () => sendAck(sessionId, end),
-        () => sendAck(sessionId, end),
+        () => undefined,
       );
     } else if (e.event === "terminal.exit") {
       if (typeof p.sessionId !== "string") return;
@@ -126,15 +141,22 @@ export function hostTerminalPort(opts: HostTerminalPortOptions): TerminalPort {
 
   const ensureListening = () => {
     off ??= gateway.onEvent(onEvent);
+    // After a reconnect the Host holds the output of the gap until this device speaks again:
+    // an ack of nothing says "still here" and releases it.
+    offResync ??= gateway.onResync?.(() => {
+      for (const sessionId of live) {
+        quiet(gateway.call("terminal.session.ack", { sessionId, end: 0 }));
+      }
+    });
   };
 
   const unavailable = (err: unknown): { unavailable: string } => {
     const details = detailsOf(err);
     if (codeOf(err) === "forbidden" && details.reason === "host_terminal_needs_presence") {
-      return { unavailable: t("web.terminal.openOnHost", { host: hostName }) };
+      return { unavailable: t("web.terminal.openOnHost", { host: hostName() }) };
     }
     if (codeOf(err) === "rate_limited" && details.reason === "terminal_limit") {
-      return { unavailable: t("web.terminal.limit", { host: hostName }) };
+      return { unavailable: t("web.terminal.limit", { host: hostName() }) };
     }
     return { unavailable: describeError(err) };
   };
@@ -185,8 +207,10 @@ export function hostTerminalPort(opts: HostTerminalPortOptions): TerminalPort {
           const result: TerminalOpenResult = {
             sessionId: res.sessionId,
             target: "host",
-            label: typeof res.label === "string" ? res.label : hostName,
+            label: typeof res.label === "string" ? res.label : hostName(),
           };
+          live.add(res.sessionId);
+          ended.delete(res.sessionId);
           return result;
         } catch (err) {
           const id = detailsOf(err).approvalId;
@@ -210,6 +234,7 @@ export function hostTerminalPort(opts: HostTerminalPortOptions): TerminalPort {
       return { unavailable: t("web.terminal.openFailed") };
     },
     write(sessionId, data) {
+      if (ended.has(sessionId)) return;
       let w = writers.get(sessionId);
       if (!w) {
         w = { buffer: "", timer: undefined };
