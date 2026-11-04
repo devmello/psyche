@@ -43,6 +43,10 @@ export interface GatewayLimits {
   pairingsPerHour: number;
   /** Failed challenges per remote address per minute. */
   failedChallengesPerMinute: number;
+  /** New pairing requests per LAN address per hour. */
+  lanPairingsPerIpPerHour: number;
+  /** New pairing requests from the LAN listener in all, per hour. */
+  lanPairingsTotalPerHour: number;
   /** Outstanding pairing requests across all addresses. */
   maxPendingPairings: number;
   /** A `pending` connection is closed after this long. */
@@ -56,6 +60,8 @@ export interface GatewayLimits {
 export const DEFAULT_LIMITS: GatewayLimits = {
   pairingsPerHour: 5,
   failedChallengesPerMinute: 10,
+  lanPairingsPerIpPerHour: 3,
+  lanPairingsTotalPerHour: 10,
   maxPendingPairings: 20,
   pairingTtlMs: 5 * 60_000,
   deviceRequestsPerMinute: 600,
@@ -119,11 +125,13 @@ export type ChatContextResolver = (ref: ChatContextRef) => ResolvedChatContext;
 /** What the rest of the Gateway may ask of the LAN listener. */
 export interface LanControl {
   /** Applies a stored `gateway.lan` value (anything unreadable is off) and reports the result. */
-  apply(value: unknown): Promise<LanStatus>;
+  apply(value: unknown, owner?: boolean): Promise<LanStatus>;
   status(): LanStatus;
   /** The SPKI pin of the certificate being served (cheap; read per LAN challenge). */
   certSpki(): string | null;
   rotateCert(): Promise<LanStatus>;
+  /** Re-reads the interfaces and rebinds or pauses if the chosen network changed. */
+  refresh(): Promise<void>;
 }
 
 export interface GatewayContext {
@@ -141,6 +149,8 @@ export interface GatewayContext {
     | null;
   readonly limits: GatewayLimits;
   readonly failedChallenges: RateLimiter;
+  /** Pairing requests from the LAN listener: smaller budgets than the global ones. */
+  readonly lanPairings: { perIp: RateLimiter; total: RateLimiter };
   /** Per-device budgets (security §10), keyed by device id so extra connections do not help. */
   readonly deviceRequests: RateLimiter;
   readonly deviceSideEffects: RateLimiter;

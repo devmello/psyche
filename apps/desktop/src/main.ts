@@ -39,7 +39,6 @@ import { createGatewayVerifier, readLocalGatewayKey } from "./lib/gateway-identi
 import {
   EMPTY_GATEWAYS,
   gatewaysFilePath,
-  isLanOrigin,
   loadGatewaysStrict,
   resolveTarget,
 } from "./lib/gateways.ts";
@@ -177,7 +176,7 @@ const remoteGateway = gatewayTarget.remote;
 /** The Gateway is this Mac's own: the one this app supervises, launches a helper for and bootstraps. */
 const thisMacGateway = !remoteGateway && isLocalGatewayOrigin(gatewayTarget.origin);
 // A saved Gateway on the local network (`.local` or a private address): pinned self-signed TLS.
-const lanGateway = remoteGateway && isLanOrigin(gatewayTarget.origin);
+const lanGateway = remoteGateway && gatewayTarget.lan === true;
 /** The mode the supervisor runs in: a saved remote Gateway starts nothing here. */
 const supervisorMode = remoteGateway ? "remote" : chooseMode(process.env, app.isPackaged);
 
@@ -495,49 +494,57 @@ function requireBrowser(): BrowserHost {
  * normalized, in a dialog the renderer can neither draw nor click, because the address decides
  * where this app sends its signed handshake (security §10: never an address a page chose).
  */
-async function confirmGatewayChange(c: GatewayConfirm): Promise<boolean> {
+async function confirmGatewayChange(c: GatewayConfirm): Promise<boolean | "plain"> {
   const opts =
-    c.kind === "add"
+    c.kind === "addLan"
       ? {
-          message: `Connect Psyche to ${c.origin}?`,
-          detail: `Name: ${c.name}${c.fingerprint ? `\nKey it announced: ${c.fingerprint.slice(0, 31)}…` : ""}\n\nThis computer will ask that Gateway to pair. Nothing is shared until its owner approves this computer there, and Psyche pins the Gateway's identity at the first connection.`,
-          buttons: ["Add Gateway", "Cancel"],
+          message: `Is ${c.origin} a Psyche on this network?`,
+          detail: `Name: ${c.name}\n\nA Psyche on this network uses its own certificate, which Psyche pins instead of trusting the system's: it checks the certificate and the Gateway's key at the first connection and refuses any other later. Choose "Plain https" only for a server with an ordinary certificate (for example a reverse proxy with your own CA). Nothing is shared until its owner approves this computer there.`,
+          buttons: ["Psyche on this network", "Plain https", "Cancel"],
         }
-      : c.kind === "forget"
+      : c.kind === "add"
         ? {
-            message: `Forget ${c.name}?`,
-            detail: `${c.origin}\n\nThis removes this computer's key for it and everything Psyche stored here for it. ${c.name} still lists this computer until someone removes it there.`,
-            buttons: ["Forget", "Cancel"],
+            message: `Connect Psyche to ${c.origin}?`,
+            detail: `Name: ${c.name}${c.fingerprint ? `\nKey it announced: ${c.fingerprint.slice(0, 31)}…` : ""}\n\nThis computer will ask that Gateway to pair. Nothing is shared until its owner approves this computer there, and Psyche pins the Gateway's identity at the first connection.`,
+            buttons: ["Add Gateway", "Cancel"],
           }
-        : c.kind === "repair"
+        : c.kind === "forget"
           ? {
-              message: `Pair with ${c.name} again?`,
-              detail: `${c.origin}\n\nThis forgets the identity Psyche pinned for it and this computer's key, so the next connection pins whatever answers at that address and asks to pair as a new computer. Only do this if you know why its identity changed.`,
-              buttons: ["Pair again", "Cancel"],
+              message: `Forget ${c.name}?`,
+              detail: `${c.origin}\n\nThis removes this computer's key for it and everything Psyche stored here for it. ${c.name} still lists this computer until someone removes it there.`,
+              buttons: ["Forget", "Cancel"],
             }
-          : {
-              message: "Stop Psyche on this Mac?",
-              detail:
-                "Its automations and scheduled tasks stop until you switch back. Leave it running to keep them going.",
-              buttons: ["Stop Psyche on this Mac", "Keep it running"],
-            };
+          : c.kind === "repair"
+            ? {
+                message: `Pair with ${c.name} again?`,
+                detail: `${c.origin}\n\nThis forgets the identity Psyche pinned for it and this computer's key, so the next connection pins whatever answers at that address and asks to pair as a new computer. Only do this if you know why its identity changed.`,
+                buttons: ["Pair again", "Cancel"],
+              }
+            : {
+                message: "Stop Psyche on this Mac?",
+                detail:
+                  "Its automations and scheduled tasks stop until you switch back. Leave it running to keep them going.",
+                buttons: ["Stop Psyche on this Mac", "Keep it running"],
+              };
   const win = windows?.main();
   const dialogOptions = {
     type: "question" as const,
     buttons: opts.buttons,
-    defaultId: 1,
-    cancelId: 1,
+    defaultId: opts.buttons.length - 1,
+    cancelId: opts.buttons.length - 1,
     message: opts.message,
     detail: opts.detail,
   };
   const res = win
     ? await dialog.showMessageBox(win, dialogOptions)
     : await dialog.showMessageBox(dialogOptions);
+  if (c.kind === "addLan" && res.response === 1) return "plain";
   return res.response === 0;
 }
 
 /** The saved Gateways: the list, adding, forgetting, switching (a restart) and the active pin. */
 const lanDiscovery = new LanDiscovery();
+let discovering: ReturnType<LanDiscovery["discover"]> | null = null;
 const gateways = new GatewayManager({
   userData: baseUserData,
   target: gatewayTarget,
@@ -575,12 +582,17 @@ function registerIpc(): void {
   // "Look on this network": Bonjour `_psyche._tcp`, on the owner's click. The window can add
   // only a Gateway this process found (by id), never an address it supplies.
   handle(IPC.gatewaysDiscover, async () => {
-    const found = await lanDiscovery.discover();
+    // One look at a time: a second click (or a script in the window) joins the one running.
+    discovering ??= lanDiscovery.discover().finally(() => {
+      discovering = null;
+    });
+    const found = await discovering;
     const saved = new Set(gateways.list().map((g) => g.origin));
     return found.map((d) => ({
       id: d.id,
       name: d.name,
       fingerprint: d.fingerprint,
+      conflict: d.conflict,
       saved: saved.has(d.origin),
     }));
   });
@@ -589,7 +601,12 @@ function registerIpc(): void {
       str(IPC.gatewaysAddDiscovered, rec(IPC.gatewaysAddDiscovered, arg).id, "id", 32),
     );
     if (found === undefined) throw new PsycheError("not_found", "Look on the network again");
+    if (found.conflict) {
+      // Two announcements for one name that disagree on the key: one of them is not the Host.
+      throw new PsycheError("forbidden", "That name was announced with different keys");
+    }
     return gateways.add(found.origin, found.name, {
+      lan: true,
       ...(found.fingerprint === null ? {} : { advertisedFingerprint: found.fingerprint }),
     });
   });

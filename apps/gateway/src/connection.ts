@@ -412,6 +412,7 @@ export class Connection implements LiveConnection {
       now: ctx.now,
       limits: ctx.limits,
       failedChallenges: ctx.failedChallenges,
+      lanPairings: ctx.lanPairings,
     });
     this.#challenge = null;
     const { result, identity } = outcome;

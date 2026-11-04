@@ -53,6 +53,8 @@ export interface DiscoveredGatewayView {
   name: string;
   /** `sha256:<hex>` the Gateway announced for its identity key, or null. */
   fingerprint: string | null;
+  /** Announced more than once with different keys: not addable. */
+  conflict: boolean;
   /** Already in the saved list. */
   saved: boolean;
 }

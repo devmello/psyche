@@ -18,6 +18,8 @@ export interface DiscoveredGateway {
   origin: string;
   /** `sha256:<hex>` the Gateway announced for its identity key, or null. A claim, not a proof. */
   fingerprint: string | null;
+  /** Another announcement for this origin disagreed on the key (or left it out). */
+  conflict: boolean;
 }
 
 /** What a Bonjour browser reports for one service. */
@@ -54,6 +56,7 @@ export function toDiscovered(svc: FoundService): DiscoveredGateway | null {
     name: announced === "" ? label : announced,
     origin,
     fingerprint: HEX64.test(fp) ? `sha256:${fp}` : null,
+    conflict: false,
   };
 }
 
@@ -94,7 +97,12 @@ export class LanDiscovery {
     const found = new Map<string, DiscoveredGateway>();
     await this.#browse((svc) => {
       const d = toDiscovered(svc);
-      if (d !== null && found.size < 32) found.set(d.id, d);
+      if (d === null) return;
+      const seen = found.get(d.id);
+      if (seen !== undefined) {
+        // The same name from more than one place that does not agree on the key: not addable.
+        if (seen.fingerprint !== d.fingerprint) seen.conflict = true;
+      } else if (found.size < 32) found.set(d.id, d);
     }, timeoutMs);
     this.#last = found;
     return [...found.values()];

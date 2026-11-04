@@ -71,7 +71,13 @@ export const devicesHandlers: Record<string, HandlerDef> = {
         hostName: hostname(),
         publicOrigin: config.publicOrigin,
         trustedProxy: config.trustedProxy.enabled,
-        lan: call.ctx.lan.status(),
+        // The list of this Host's interfaces and addresses is for admins; others see the rest.
+        lan: {
+          ...call.ctx.lan.status(),
+          candidates: call.identity.scopes.includes("operator.admin")
+            ? call.ctx.lan.status().candidates
+            : [],
+        },
       };
     },
   },

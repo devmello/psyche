@@ -9,7 +9,7 @@ import {
 } from "node:net";
 import { join } from "node:path";
 import type { Duplex } from "node:stream";
-import { getSetting, getThread, openDb, type PsycheDb } from "@psyche/db";
+import { getSetting, getThread, openDb, type PsycheDb, setSetting } from "@psyche/db";
 import {
   type AgentLoop,
   isMethodName,
@@ -70,7 +70,7 @@ import {
 import { RunTraceSink } from "./run-trace/sink.ts";
 import { SessionController } from "./session/controller.ts";
 import { ensureSocketDir, writeSocketPointer } from "./socket-path.ts";
-import { readStateVersion, writeStateVersion } from "./state-version.ts";
+import { INTERNAL_SETTING_PREFIX, readStateVersion, writeStateVersion } from "./state-version.ts";
 import { TransportGate } from "./transport-gate.ts";
 import { NdjsonDecoder } from "./transports/ndjson.ts";
 
@@ -80,6 +80,8 @@ import { NdjsonDecoder } from "./transports/ndjson.ts";
  */
 export const GATEWAY_VERSION: string = pkg.version;
 const WS_PATH = "/ws";
+/** The networks the owner enabled LAN listening on (internal: never readable by clients). */
+const LAN_NETWORKS_SETTING = `${INTERNAL_SETTING_PREFIX}lan.networks`;
 
 export interface GatewayOptions {
   config?: Partial<GatewayConfig>;
@@ -221,6 +223,16 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     onRequest: (req, res) => serveLan(req, res),
     onUpgrade: (req, socket, head, lanContext) => handleUpgrade(req, socket, head, lanContext),
     containerMode: config.bind === "container",
+    // Cloudflare Access in front means "reach this only through Access"; a second door that
+    // skips it is refused, not warned about.
+    blocked: () => (config.cloudflareAccess === null ? null : "cloudflare_access"),
+    networks: {
+      get: () => {
+        const v = getSetting(db, LAN_NETWORKS_SETTING)?.value;
+        return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : undefined;
+      },
+      set: (networks) => void setSetting(db, LAN_NETWORKS_SETTING, networks),
+    },
     advertiser:
       options.lan?.advertiser === undefined
         ? bonjourAdvertiser((err) =>
@@ -257,6 +269,10 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     failedChallenges: new RateLimiter(limits.failedChallengesPerMinute, 60_000, () =>
       now().getTime(),
     ),
+    lanPairings: {
+      perIp: new RateLimiter(limits.lanPairingsPerIpPerHour, 3_600_000, () => now().getTime()),
+      total: new RateLimiter(limits.lanPairingsTotalPerHour, 3_600_000, () => now().getTime()),
+    },
     deviceRequests: new RateLimiter(limits.deviceRequestsPerMinute, 60_000, () => now().getTime()),
     deviceSideEffects: new RateLimiter(limits.deviceSideEffectsPerMinute, 60_000, () =>
       now().getTime(),
@@ -274,10 +290,11 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
           ? config.publicOrigin
           : origin,
     lan: {
-      apply: (value: unknown) => lan.apply(readLanSettings(value)),
+      apply: (value: unknown, owner = false) => lan.apply(readLanSettings(value), owner),
       status: () => lan.status(),
       certSpki: () => lan.certSpki(),
       rotateCert: () => lan.rotateCert(),
+      refresh: () => lan.refresh(),
     },
     connections: () => connections,
   } as Omit<GatewayContext, "sessions" | "nodes" | "runTrace"> as GatewayContext;
@@ -442,6 +459,10 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
         ctx,
       );
       connections.add(conn);
+      // A LAN socket that has not finished `connect` can be closed or evicted (lan/listener.ts).
+      if (peer.lan === true) {
+        lan.bindAuth(socket, () => conn.phase === "paired" || conn.phase === "pending");
+      }
       ws.on("message", (data, isBinary) => {
         if (isBinary) {
           conn.close("binary frames are not supported");

@@ -39,6 +39,12 @@ function problemText(problem: string): string {
       return t("settings.lan.problem.noInterface");
     case "bind_failed":
       return t("settings.lan.problem.bindFailed", { address: rest[0] ?? "" });
+    case "network_paused":
+      return t("settings.lan.problem.paused");
+    case "cert_unavailable":
+      return t("settings.lan.problem.cert");
+    case "cloudflare_access":
+      return t("settings.lan.problem.cloudflare");
     case "container_bind":
       return t("settings.lan.problem.container");
     default:
@@ -185,6 +191,18 @@ export function LanAccessGroup(): ReactElement {
                 {problemText(p)}
               </p>
             ))}
+            {lan.problems.includes("network_paused") ? (
+              <span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => write(true, lan.interfaces)}
+                >
+                  {t("settings.lan.allowHere")}
+                </Button>
+              </span>
+            ) : null}
             {lan.enabled ? (
               <Facts
                 items={[

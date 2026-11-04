@@ -61,6 +61,8 @@ export interface DiscoveredGateway {
   name: string;
   /** `sha256:<hex>` it announced for its identity key, or null. */
   fingerprint: string | null;
+  /** Announced more than once with different keys: not addable. */
+  conflict: boolean;
   saved: boolean;
 }
 

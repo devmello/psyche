@@ -1825,6 +1825,15 @@ export const settings = {
   "settings.lan.problem.noInterface": "There is no network to listen on, so nothing is listening.",
   "settings.lan.problem.bindFailed":
     "Couldn't listen on {address}. Another program may be using the port.",
+  "settings.lan.problem.paused":
+    "LAN access is paused on this network. You turned it on for a different one.",
+  "settings.lan.allowHere": "Allow on this network",
+  "settings.lan.problem.cert":
+    "Psyche couldn't make or read its network certificate, so it isn't listening.",
+  "settings.lan.problem.cloudflare":
+    "This Gateway is set up to be reached only through Cloudflare Access, so it won't also listen on the network.",
+  "settings.gateways.discoverConflict":
+    "More than one computer announced this name with different keys, so Psyche won't add it. Add the right one by its address.",
   "settings.lan.problem.container":
     "A Gateway in a container doesn't listen on the network this way.",
   "settings.lan.problem.advertise":
@@ -1845,6 +1854,7 @@ export const settings = {
   // The pairing card for a computer on another network.
   "settings.devices.gatewayKey": "This Gateway's key {fingerprint}",
   "settings.devices.fromAddress": "From {address}",
+  "settings.devices.fromLan": "From {address}, on your network. Check the whole key below.",
   "settings.devices.adminOptIn":
     "Admin lets this computer change security settings, devices and the vault. Leave it off unless you need it.",
   "settings.server.available": "Available",

@@ -6,41 +6,60 @@ import { isWildcardAddress } from "./settings.ts";
 export interface LanInterface {
   name: string;
   address: string;
+  /** The network this address is on (`192.168.1.0/24`): what an owner's "yes" is bound to. */
+  network: string;
   /** The primary Wi-Fi or Ethernet address, the default when the owner picks none. */
   isDefault: boolean;
 }
 
 export type InterfaceLister = () => Record<string, NetworkInterfaceInfo[] | undefined>;
 
-/** A virtual or tunnel interface is never the right default for "this network". */
+/**
+ * Tunnels, VPNs and VM or container bridges are never offered, not even to pick: a listener on
+ * one of them would reach a tailnet, a VPN's far side or a guest, not "this network".
+ */
 const VIRTUAL =
-  /^(lo|utun|awdl|llw|bridge|gif|stf|ap|anpi|vmnet|vboxnet|docker|veth|br-|virbr|tun|tap|wg|tailscale|zt)/i;
+  /^(lo|utun|ipsec|ppp|awdl|llw|bridge|gif|stf|ap\d|anpi|vmnet|vboxnet|docker|veth|br-|virbr|tun|tap|wg|tailscale|zt|vnic|vlan)/i;
 const PREFERRED = /^(en\d+|eth\d+|wlan\d+|wlp|enp|eno|ens|wl)/i;
 
-function isUsable(info: NetworkInterfaceInfo): boolean {
-  if (info.internal || info.family !== "IPv4") return false;
-  const a = info.address;
-  // Not loopback, not APIPA link-local (no network), not the wildcard, not multicast.
-  if (a.startsWith("127.") || a.startsWith("169.254.") || isWildcardAddress(a)) return false;
-  return Number(a.split(".")[0]) < 224;
+/** Only private IPv4 (RFC 1918): 10/8, 172.16/12, 192.168/16. Public, CGNAT and link-local are out. */
+export function isPrivateLanAddress(a: string): boolean {
+  const [x = 0, y = 0] = a.split(".").map(Number);
+  return x === 10 || (x === 172 && y >= 16 && y <= 31) || (x === 192 && y === 168);
+}
+
+function networkOf(address: string, netmask: string): string {
+  const ip = address.split(".").map(Number);
+  const mask = netmask.split(".").map(Number);
+  const bits = mask.reduce((n, m) => n + m.toString(2).replace(/0/g, "").length, 0);
+  return `${ip.map((o, i) => o & (mask[i] ?? 0)).join(".")}/${bits}`;
+}
+
+function isUsable(name: string, info: NetworkInterfaceInfo): boolean {
+  if (info.internal || info.family !== "IPv4" || VIRTUAL.test(name)) return false;
+  return isPrivateLanAddress(info.address) && !isWildcardAddress(info.address);
 }
 
 /**
- * The interfaces the owner can choose from, the primary one flagged. The default is a
- * physical-looking Wi-Fi or Ethernet name first (en0, eth0, wlan0…), then any other non-virtual
- * interface; tunnels and VM bridges are listed but never the default.
+ * The interfaces the owner can choose from, the primary one flagged: private IPv4 on a
+ * physical-looking interface only. The default prefers Wi-Fi or Ethernet names (en0, eth0…).
  */
 export function listLanInterfaces(lister: InterfaceLister = networkInterfaces): LanInterface[] {
   const out: LanInterface[] = [];
   for (const [name, infos] of Object.entries(lister())) {
     for (const info of infos ?? []) {
-      if (isUsable(info)) out.push({ name, address: info.address, isDefault: false });
+      if (isUsable(name, info)) {
+        out.push({
+          name,
+          address: info.address,
+          network: networkOf(info.address, info.netmask),
+          isDefault: false,
+        });
+      }
     }
   }
   out.sort((a, b) => a.name.localeCompare(b.name, "en", { numeric: true }));
-  const pick =
-    out.find((i) => PREFERRED.test(i.name) && !VIRTUAL.test(i.name)) ??
-    out.find((i) => !VIRTUAL.test(i.name));
+  const pick = out.find((i) => PREFERRED.test(i.name)) ?? out[0];
   return out.map((i) => (i === pick ? { ...i, isDefault: true } : i));
 }
 

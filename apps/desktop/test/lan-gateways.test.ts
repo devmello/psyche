@@ -56,20 +56,29 @@ describe("pins of a LAN Gateway", () => {
   it("keeps a certificate pin from a pairing link only for a LAN address, and stores it", () => {
     const lan = addGateway(EMPTY_GATEWAYS, {
       address: "studio-mac.local:7979",
-      hints: { certPin: PIN, advertisedFingerprint: FP },
+      hints: { lan: true, certPin: PIN, advertisedFingerprint: FP },
     });
     expect(lan.entry.certPin).toBe(PIN);
+    expect(lan.entry.lan).toBe(true);
     expect(lan.entry.advertisedFingerprint).toBe(FP);
     // A certificate pin means nothing for a name a public CA can certify: it is not kept.
     const ts = addGateway(EMPTY_GATEWAYS, {
       address: "studio.tail1234.ts.net",
-      hints: { certPin: PIN },
+      hints: { lan: true, certPin: PIN },
     });
     expect(ts.entry.certPin).toBeUndefined();
+    expect(ts.entry.lan).toBeUndefined();
+    // A `.local` address that is not marked LAN (a proxy with its own CA) stays an ordinary Gateway.
+    const plain = addGateway(EMPTY_GATEWAYS, {
+      address: "nas.local",
+      hints: { certPin: PIN },
+    });
+    expect(plain.entry.lan).toBeUndefined();
+    expect(plain.entry.certPin).toBeUndefined();
     // Malformed hints are dropped.
     const bad = addGateway(EMPTY_GATEWAYS, {
       address: "studio-mac.local",
-      hints: { certPin: "nope", advertisedFingerprint: "sha256:zz" },
+      hints: { lan: true, certPin: "nope", advertisedFingerprint: "sha256:zz" },
     });
     expect(bad.entry.certPin).toBeUndefined();
     expect(bad.entry.advertisedFingerprint).toBeUndefined();
@@ -148,10 +157,65 @@ describe("what the network announces is untrusted text", () => {
     expect(found.get("https://evil.example")).toBeUndefined();
   });
 
+  it("flags one origin announced with different keys, and will not let it be added blindly", async () => {
+    const found = new LanDiscovery(async (onFound) => {
+      onFound(good);
+      onFound({ ...good, txt: { v: "1", name: "studio-mac", fp: "ef".repeat(32) } });
+      onFound({ ...good, host: "other.local" });
+      onFound({ ...good, host: "nokey.local", txt: { v: "1", fp: "cd".repeat(32) } });
+      onFound({ ...good, host: "nokey.local", txt: { v: "1" } });
+    });
+    const list = await found.discover(1);
+    const by = (o: string) => list.find((d) => d.origin === o);
+    expect(by("https://studio-mac.local:7979")?.conflict).toBe(true);
+    expect(by("https://other.local:7979")?.conflict).toBe(false);
+    expect(by("https://nokey.local:7979")?.conflict).toBe(true);
+  });
+
   it("caps the number of listings", async () => {
     const found = new LanDiscovery(async (onFound) => {
       for (let i = 0; i < 100; i++) onFound({ ...good, host: `h${i}.local` });
     });
     expect((await found.discover(1)).length).toBe(32);
+  });
+});
+
+describe("adding a local-looking address asks what it is", () => {
+  async function addWith(answer: boolean | "plain", address: string) {
+    const { GatewayManager } = await import("../src/main/gateway-manager.ts");
+    const userData = mkdtempSync(join(dir, "ud-"));
+    const asked: string[] = [];
+    const m = new GatewayManager({
+      userData,
+      target: {
+        id: "this-mac",
+        name: "This Mac",
+        origin: "http://127.0.0.1:7979",
+        remote: false,
+        dataDir: null,
+      },
+      confirm: async (c) => {
+        asked.push(c.kind);
+        return answer;
+      },
+      relaunch: () => {},
+    });
+    const view = await m.add(address);
+    return { view, asked };
+  }
+
+  it("marks it LAN only when the owner says it is a Psyche on the network", async () => {
+    const lan = await addWith(true, "studio-mac.local:7979");
+    expect(lan.asked).toEqual(["addLan"]);
+    expect(lan.view.lan).toBe(true);
+    const plain = await addWith("plain", "nas.local");
+    expect(plain.view.lan).toBe(false);
+    const normal = await addWith(true, "studio.tail1234.ts.net");
+    expect(normal.asked).toEqual(["add"]);
+    expect(normal.view.lan).toBe(false);
+  });
+
+  it("adds nothing when the owner cancels", async () => {
+    await expect(addWith(false, "studio-mac.local")).rejects.toThrow(/cancelled/);
   });
 });

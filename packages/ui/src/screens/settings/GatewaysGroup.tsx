@@ -203,7 +203,11 @@ export function DiscoverGateways({
                     </code>
                   ) : null}
                 </span>
-                {d.saved ? (
+                {d.conflict ? (
+                  <span className="text-callout text-danger-text">
+                    {t("settings.gateways.discoverConflict")}
+                  </span>
+                ) : d.saved ? (
                   <span className="text-callout text-label-secondary">
                     {t("settings.gateways.discoverSaved")}
                   </span>

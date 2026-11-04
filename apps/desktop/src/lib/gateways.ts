@@ -34,6 +34,13 @@ export interface SavedGateway {
    */
   certPin?: string;
   /**
+   * Reached over the pinned self-signed certificate of a Psyche on the local network (`lan-tls.ts`)
+   * rather than the system's trust. Explicit: set when it was picked from Bonjour, or when the
+   * owner added a `.local` or private address and chose that in the dialog. An address that only
+   * looks local (a reverse proxy with an internal CA) stays an ordinary https Gateway.
+   */
+  lan?: true;
+  /**
    * LAN Gateways picked from Bonjour: the key fingerprint (`sha256:<hex>`) the network said it
    * has. A hint only, checked against the key the Gateway then proves; never a pin.
    */
@@ -209,6 +216,7 @@ function cleanEntry(raw: unknown): SavedGateway | null {
     ...(typeof e.identityKey === "string" && KEY_PATTERN.test(e.identityKey)
       ? { identityKey: e.identityKey }
       : {}),
+    ...(e.lan === true ? { lan: true as const } : {}),
     ...(typeof e.certPin === "string" && KEY_PATTERN.test(e.certPin) ? { certPin: e.certPin } : {}),
     ...(typeof e.advertisedFingerprint === "string" &&
     FINGERPRINT_PATTERN.test(e.advertisedFingerprint)
@@ -323,6 +331,7 @@ const ENTRY_FIELDS: ReadonlySet<string> = new Set([
   "origin",
   "identityKey",
   "certPin",
+  "lan",
   "advertisedFingerprint",
   "lastConnectedAt",
 ]);
@@ -363,7 +372,13 @@ export function addGateway(
     address: string;
     name?: string;
     /** From a pairing link (pins) or a Bonjour listing (a fingerprint hint). */
-    hints?: { certPin?: string; identityKey?: string; advertisedFingerprint?: string };
+    hints?: {
+      certPin?: string;
+      identityKey?: string;
+      advertisedFingerprint?: string;
+      /** A Psyche on the local network: pinned self-signed TLS (see `SavedGateway.lan`). */
+      lan?: boolean;
+    };
   },
   id: string = newGatewayId(),
 ): AddResult {
@@ -379,7 +394,11 @@ export function addGateway(
     ...(hints.identityKey !== undefined && KEY_PATTERN.test(hints.identityKey)
       ? { identityKey: hints.identityKey }
       : {}),
-    ...(hints.certPin !== undefined && KEY_PATTERN.test(hints.certPin) && isLanOrigin(origin)
+    ...(hints.lan === true && isLanOrigin(origin) ? { lan: true as const } : {}),
+    ...(hints.lan === true &&
+    hints.certPin !== undefined &&
+    KEY_PATTERN.test(hints.certPin) &&
+    isLanOrigin(origin)
       ? { certPin: hints.certPin }
       : {}),
     ...(hints.advertisedFingerprint !== undefined &&
@@ -464,6 +483,8 @@ export interface GatewayTarget {
    * supervisor starts nothing and nothing here may reach this Mac's own helper or files.
    */
   remote: boolean;
+  /** The saved entry is a Psyche on the local network (pinned self-signed TLS). */
+  lan?: boolean;
   /** The Electron `userData` for this launch; `null` keeps the base directory (This Mac, env). */
   dataDir: string | null;
 }
@@ -482,7 +503,13 @@ export function resolveTarget(opts: {
 }): GatewayTarget {
   const envOrigin = opts.env.PSYCHE_GATEWAY_ORIGIN;
   if (opts.packaged !== true && envOrigin !== undefined && envOrigin !== "") {
-    return { id: "env", name: envOrigin, origin: envOrigin, remote: false, dataDir: null };
+    return {
+      id: "env",
+      name: envOrigin,
+      origin: envOrigin,
+      remote: false,
+      dataDir: null,
+    };
   }
   const active = opts.data.gateways.find((g) => g.id === opts.data.active);
   if (active !== undefined) {
@@ -491,6 +518,7 @@ export function resolveTarget(opts: {
       name: active.name,
       origin: active.origin,
       remote: true,
+      ...(active.lan === true ? { lan: true } : {}),
       dataDir: gatewayDataDir(opts.userData, active.id),
     };
   }

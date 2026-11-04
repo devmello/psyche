@@ -52,6 +52,17 @@ export function withoutAddressRecords<T extends { type: string }>(records: T[]):
 }
 
 /**
+ * Options for the `multicast-dns` responder. `interface` alone would also make it bind port 5353
+ * to that unicast address (it binds `opts.bind || opts.interface`), and a socket bound to a
+ * unicast address never receives multicast queries on macOS. So it binds the wildcard to hear
+ * them (a UDP socket on 5353 that only answers mDNS), while `interface` keeps the multicast
+ * membership and the outgoing traffic on the chosen network.
+ */
+export function responderOptions(interfaceAddress: string): { bind: string; interface: string } {
+  return { bind: "0.0.0.0", interface: interfaceAddress };
+}
+
+/**
  * The real backend (`bonjour-service` over `multicast-dns`). One responder per chosen interface,
  * bound to that interface's address. It publishes the PTR/SRV/TXT records only: the operating
  * system's own responder already answers `<host>.local` for this machine's addresses, and a
@@ -60,7 +71,7 @@ export function withoutAddressRecords<T extends { type: string }>(records: T[]):
 export function bonjourAdvertiser(onError: (err: unknown) => void = () => {}): MdnsAdvertiser {
   return {
     publish(spec) {
-      const bonjour = new Bonjour({ interface: spec.interfaceAddress } as never, onError);
+      const bonjour = new Bonjour(responderOptions(spec.interfaceAddress) as never, onError);
       const service = bonjour.publish({
         name: spec.name,
         type: PSYCHE_SERVICE_TYPE,

@@ -39,12 +39,14 @@ function integer(bytes: Buffer): Buffer {
   return tlv(0x02, b);
 }
 
-function utcTime(d: Date): Buffer {
+function time(d: Date): Buffer {
   const p = (n: number) => String(n).padStart(2, "0");
   const y = d.getUTCFullYear();
-  if (y >= 2050) throw new RangeError("UTCTime holds years before 2050");
-  const s = `${p(y % 100)}${p(d.getUTCMonth() + 1)}${p(d.getUTCDate())}${p(d.getUTCHours())}${p(d.getUTCMinutes())}${p(d.getUTCSeconds())}Z`;
-  return tlv(0x17, Buffer.from(s, "ascii"));
+  const rest = `${p(d.getUTCMonth() + 1)}${p(d.getUTCDate())}${p(d.getUTCHours())}${p(d.getUTCMinutes())}${p(d.getUTCSeconds())}Z`;
+  // RFC 5280: UTCTime up to 2049, GeneralizedTime from 2050.
+  return y >= 2050
+    ? tlv(0x18, Buffer.from(`${String(y).padStart(4, "0")}${rest}`, "ascii"))
+    : tlv(0x17, Buffer.from(`${p(y % 100)}${rest}`, "ascii"));
 }
 
 /** Attribute type OID and value pairs, in order (`["2.5.4.3", "host"]` is the common name). */
@@ -84,7 +86,7 @@ export function derCertificate(input: DerCertificateInput): Buffer {
     integer(input.serial),
     sigAlg,
     subject,
-    seq(utcTime(input.notBefore), utcTime(input.notAfter)),
+    seq(time(input.notBefore), time(input.notAfter)),
     subject,
     input.spki,
     tlv(

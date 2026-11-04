@@ -433,6 +433,8 @@ export const web = {
   "web.splash.remote.pairKey": "Gateway key {fingerprint}",
   "web.splash.remote.pairHint":
     "Compare both with the request in {host}'s Settings → Devices, then approve it there.",
+  "web.splash.remote.pairHintLan":
+    "Compare the whole key with the one in {host}'s Settings → Devices, under the request from this computer. On a network, the key is the only proof of who answered. Approve it only if they match.",
   "web.splash.remote.unreachable": "{host} isn't answering.",
   "web.splash.remote.unreachableReason":
     "It may be asleep or off, Psyche may not be running there, or Tailscale may be off on this computer. Psyche keeps trying.",

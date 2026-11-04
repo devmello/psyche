@@ -109,7 +109,8 @@ export const settingsHandlers: Record<string, HandlerDef> = {
         // Opens or closes the LAN sockets now. A failure is reported through `gateway.info`
         // (`lan.problems`); the stored choice stays, like any other setting.
         try {
-          await call.ctx.lan.apply(value);
+          // The owner just said yes on this network: remember it (lan/listener.ts `networks`).
+          await call.ctx.lan.apply(value, true);
         } catch (err) {
           call.ctx.log.log("warn", "lan listener failed to apply", {
             code: PsycheError.from(err).code,

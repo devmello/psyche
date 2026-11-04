@@ -102,8 +102,15 @@ describe("Settings → Allow computers on this network", () => {
 });
 
 const found: DiscoveredGateway[] = [
-  { id: "aa", name: "studio-mac", fingerprint: `sha256:${"cd".repeat(32)}`, saved: false },
-  { id: "bb", name: "mini", fingerprint: null, saved: true },
+  {
+    id: "aa",
+    name: "studio-mac",
+    fingerprint: `sha256:${"cd".repeat(32)}`,
+    conflict: false,
+    saved: false,
+  },
+  { id: "bb", name: "mini", fingerprint: null, conflict: false, saved: true },
+  { id: "cc", name: "twin", fingerprint: null, conflict: true, saved: false },
 ];
 
 function slot(over: Partial<GatewaysSlot> = {}): GatewaysSlot {
