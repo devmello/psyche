@@ -161,23 +161,39 @@ struct ChartNodeView: View {
         }
     }
 
+    // Split out of `plot` so the type checker handles each mark on its own (CI's compiler timed out
+    // on the combined builder).
+    @ChartContentBuilder
+    private func mark(series: String, x: String, y: Double, dash: [CGFloat]) -> some ChartContent {
+        if chart.kind == .bar {
+            barMark(series: series, x: x, y: y)
+        } else {
+            lineMark(series: series, x: x, y: y, dash: dash)
+        }
+    }
+
+    private func barMark(series: String, x: String, y: Double) -> some ChartContent {
+        BarMark(x: .value("Point", x), y: .value(series, y), width: .automatic)
+            .position(by: .value("Series", series))
+            .foregroundStyle(by: .value("Series", series))
+            .cornerRadius(2)
+    }
+
+    private func lineMark(series: String, x: String, y: Double, dash: [CGFloat]) -> some ChartContent {
+        let style = StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round, dash: dash)
+        return LineMark(x: .value("Point", x), y: .value(series, y), series: .value("Series", series))
+            .foregroundStyle(by: .value("Series", series))
+            .lineStyle(style)
+            .symbol(by: .value("Series", series))
+            .interpolationMethod(.monotone)
+    }
+
     private var plot: some View {
         let names = chart.series.map(\.name)
         return Chart {
             ForEach(Array(chart.series.enumerated()), id: \.offset) { index, series in
                 ForEach(Array(series.points.enumerated()), id: \.offset) { _, point in
-                    if chart.kind == .bar {
-                        BarMark(x: .value("Point", point.x), y: .value(series.name, point.y), width: .automatic)
-                            .position(by: .value("Series", series.name))
-                            .foregroundStyle(by: .value("Series", series.name))
-                            .cornerRadius(2)
-                    } else {
-                        LineMark(x: .value("Point", point.x), y: .value(series.name, point.y), series: .value("Series", series.name))
-                            .foregroundStyle(by: .value("Series", series.name))
-                            .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round, dash: Self.dashes[min(index, 3)]))
-                            .symbol(by: .value("Series", series.name))
-                            .interpolationMethod(.monotone)
-                    }
+                    mark(series: series.name, x: point.x, y: point.y, dash: Self.dashes[min(index, 3)])
                 }
             }
         }
