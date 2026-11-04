@@ -15,3 +15,14 @@ public enum AppGroup {
         FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: identifier)
     }
 }
+
+extension AppGroup {
+    /// Where the app keeps its small durable files (endpoint, outbox, last-seen state): `<group>/Psyche`,
+    /// or Application Support/Psyche where the group is not provisioned (unit tests, unsigned builds).
+    public static var dataDirectory: URL {
+        let base = containerURL
+            ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
+        return base.appendingPathComponent("Psyche", isDirectory: true)
+    }
+}

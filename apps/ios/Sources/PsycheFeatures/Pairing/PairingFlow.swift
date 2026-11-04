@@ -13,6 +13,8 @@ struct PairingFlow: View {
         Group {
             if case .pending(let pending) = session.state {
                 PendingView(pending: pending)
+            } else if let preview = session.pairingPreview {
+                ConfirmView(preview: preview)
             } else {
                 ScannerView()
             }
@@ -42,6 +44,7 @@ private struct ScannerView: View {
             }
             Spacer(minLength: 0)
             actions
+            alternatives
         }
         .padding(.horizontal, 28)
         .padding(.top, 56)
@@ -98,14 +101,72 @@ private struct ScannerView: View {
             }
             .buttonStyle(.psycheInk)
         case .unavailable:
-            #if DEBUG
-            // The simulator has no camera: pair with a sample link to walk the rest of the flow.
-            Button("Use a sample code") { session.beginPairing(code: "psyche-pair:v1?sample=1") }
-                .buttonStyle(.psycheOutline)
-            #endif
+            EmptyView()
         case .ready:
             EmptyView()
         }
+    }
+}
+
+extension ScannerView {
+    /// Other ways in: a pasted link (read only from this field, never from a URL), and the fixtures.
+    @ViewBuilder
+    fileprivate var alternatives: some View {
+        VStack(spacing: 14) {
+            PasteButton(payloadType: String.self) { strings in
+                Task { @MainActor in session.beginPairing(code: strings.first ?? "") }
+            }
+            .buttonBorderShape(.capsule)
+            .tint(PsycheColor.inkText)
+            .accessibilityLabel("Paste a pairing link")
+            Button("Try it without a Mac") { session.requestFixtureMode() }
+                .font(.subheadline)
+                .foregroundStyle(PsycheColor.muted)
+                .accessibilityHint("Opens the app with sample content")
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+/// "Connect to studio-mac (studio-mac.tail1234.ts.net)?": nothing has been sent to the address yet.
+private struct ConfirmView: View {
+    let preview: PairingPreview
+    @Environment(Session.self) private var session
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 28) {
+            MothAvatar(size: 64)
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Connect to \(preview.hostName)?").psycheTitle(.title)
+                    .foregroundStyle(PsycheColor.text)
+                Text(preview.host)
+                    .font(.psycheMono(.subheadline))
+                    .foregroundStyle(PsycheColor.muted)
+                    .textSelection(.enabled)
+            }
+            PaperCard(padding: 18, radius: 16) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Gateway key").font(.footnote).foregroundStyle(PsycheColor.muted)
+                    Text(preview.fingerprint)
+                        .font(.psycheMono(.title3, weight: .semibold))
+                        .foregroundStyle(PsycheColor.text)
+                        .accessibilityLabel("Gateway key \(preview.fingerprint)")
+                    EvidenceLine([preview.transport.label, "pinned from the code"])
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            Text("Your Mac shows the same key next to this phone's request. If they differ, don't connect.")
+                .font(.subheadline).foregroundStyle(PsycheColor.muted)
+            Spacer(minLength: 0)
+            Button("Connect") { session.confirmPairing() }.buttonStyle(.psycheInk)
+            Button("Not now") { session.declinePairing() }.buttonStyle(.psycheOutline)
+        }
+        .padding(.horizontal, 28)
+        .padding(.top, 56)
+        .padding(.bottom, 32)
+        .frame(maxWidth: 560)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .psycheScreen()
     }
 }
 

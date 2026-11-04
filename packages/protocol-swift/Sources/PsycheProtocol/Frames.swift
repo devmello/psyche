@@ -63,6 +63,10 @@ public enum JSONValue: Codable, Sendable, Equatable {
     }
 }
 
+extension JSONValue: ExpressibleByStringLiteral {
+    public init(stringLiteral value: String) { self = .string(value) }
+}
+
 public struct WireError: Codable, Sendable, Equatable {
     public var code: String
     public var message: String
@@ -76,6 +80,8 @@ public struct WireError: Codable, Sendable, Equatable {
         self.retryable = retryable
     }
 }
+
+extension WireError: Error {}
 
 /// `{ type: "req", id, method, params?, idempotencyKey? }`
 public struct WireReqFrame: Codable, Sendable, Equatable {
@@ -204,15 +210,24 @@ public struct WireConnectChallenge: Codable, Sendable, Equatable {
     public var serverOrigin: String
     public var protocolVersion: Int
     public var expiresAt: String
+    /// The Gateway's identity public key and its signature over the challenge (remote-gateway design §3.3).
+    public var gatewayKey: String?
+    public var gatewaySignature: String?
 }
 
 /// `connect.verify` params.
 public struct WireConnectVerifyParams: Codable, Sendable, Equatable {
     public var nonce: String
     public var signature: String
-    public init(nonce: String, signature: String) {
+    /// The Gateway identity key the client verified and pinned; when set the signature is over the v2 payload.
+    public var gatewayKey: String?
+    /// The single-use token from a `psyche-pair:v1` link; only together with `gatewayKey`.
+    public var setupToken: String?
+    public init(nonce: String, signature: String, gatewayKey: String? = nil, setupToken: String? = nil) {
         self.nonce = nonce
         self.signature = signature
+        self.gatewayKey = gatewayKey
+        self.setupToken = setupToken
     }
 }
 

@@ -1,14 +1,53 @@
 import Foundation
 import PsycheShared
 
-/// What drives a `Session`. I2 replaces the fixture with the real connection (identity pin,
-/// `connect`, resync); the UI only ever sees `Session`.
+/// What the "Connect to <host>?" screen shows before anything is sent to the Gateway.
+public struct PairingPreview: Equatable, Sendable {
+    public var hostName: String
+    public var host: String
+    /// "7F3A 91C2 E04B": the first bytes of SHA-256 of the identity key in the link. The Mac shows the same.
+    public var fingerprint: String
+    public var transport: GatewayEndpoint.Transport
+
+    public init(hostName: String, host: String, fingerprint: String, transport: GatewayEndpoint.Transport) {
+        self.hostName = hostName
+        self.host = host
+        self.fingerprint = fingerprint
+        self.transport = transport
+    }
+}
+
+/// Things a driver reports outside a pairing attempt: the connection moved on its own, or pairing failed.
+public enum DriverUpdate: Equatable, Sendable {
+    case state(ConnectionState)
+    /// Shown on the pairing screen, e.g. "That pairing link expired or was already used. Make a new link on your Mac."
+    case pairingFailed(String)
+}
+
+/// What drives a `Session`: the fixture for previews and screenshots, `LiveSessionDriver` for the
+/// real connection (identity pin, `connect`, resync). The UI only ever sees `Session`.
 public protocol SessionDriver: Sendable {
     var initialState: ConnectionState { get }
     /// When the cache was last refreshed, for "Updated 8:12 · cached".
     var initialSyncedAt: Date? { get }
     /// A pairing code was scanned. Emits states until the attempt settles.
     func pair(code: String) -> AsyncStream<ConnectionState>
+
+    /// Parses a scanned code and returns what to confirm with the person ("Connect to studio-mac?").
+    /// nil means pair at once (the fixture). Throws a message-bearing error for a code that must not be used.
+    func preview(code: String) throws -> PairingPreview?
+    /// Changes that happen on their own: reconnects, `unreachable`, revoke, pairing failures.
+    var updates: AsyncStream<DriverUpdate> { get }
+    /// `scenePhase == .active` (connect) or not (close after a few seconds).
+    func setActive(_ active: Bool) async
+    func cancelPairing() async
+}
+
+extension SessionDriver {
+    public func preview(code: String) throws -> PairingPreview? { nil }
+    public var updates: AsyncStream<DriverUpdate> { AsyncStream { $0.finish() } }
+    public func setActive(_ active: Bool) async {}
+    public func cancelPairing() async {}
 }
 
 /// A scripted driver for previews, screenshots and the skeleton. It accepts any code that looks like
