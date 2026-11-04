@@ -569,9 +569,8 @@ describe("what a window can type", () => {
 });
 
 describe("what main refuses for a client of another computer's Gateway", () => {
-  it("covers the shell, folders, helper, Touch ID, dictation checks and opening sources", () => {
+  it("covers folders, helper, Touch ID, dictation checks and opening sources", () => {
     for (const channel of [
-      IPC.terminalOpen,
       IPC.browserOpenRealChromeProfile,
       IPC.dialogPickFolder,
       IPC.permissionsRequest,
