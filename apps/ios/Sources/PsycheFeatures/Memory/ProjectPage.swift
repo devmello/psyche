@@ -116,7 +116,7 @@ struct ProjectPage: View {
             if detail.todos.isEmpty {
                 Text("Nothing due on this project.").font(.subheadline).foregroundStyle(PsycheColor.muted)
             } else {
-                PaperCard {
+                PaperStack {
                     ForEach(Array(detail.todos.enumerated()), id: \.element.id) { index, todo in
                         if index > 0 { HairlineDivider() }
                         todoRow(todo)
@@ -128,7 +128,7 @@ struct ProjectPage: View {
         if !detail.notes.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
                 SectionHeader("Notes")
-                PaperCard {
+                PaperStack {
                     ForEach(Array(detail.notes.enumerated()), id: \.element.id) { index, note in
                         if index > 0 { HairlineDivider() }
                         VStack(alignment: .leading, spacing: 3) {

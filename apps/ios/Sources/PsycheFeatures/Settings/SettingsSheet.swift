@@ -164,8 +164,8 @@ struct SettingsSheet: View {
         section("This phone") {
             infoRow("Name", device.name)
             infoRow("Access", device.scopes.joined(separator: ", "))
-            infoRow("Gateway", device.gatewayHost, mono: true)
-            infoRow("Fingerprint", device.gatewayFingerprint, mono: true)
+            infoRow("Gateway", device.gatewayHost, mono: true, stacked: true)
+            infoRow("Fingerprint", device.gatewayFingerprint, mono: true, stacked: true)
             infoRow("Connection", device.transport, last: true)
         }
 
@@ -206,23 +206,37 @@ struct SettingsSheet: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             SectionHeader(title)
-            PaperCard { content() }
+            PaperStack { content() }
             if let footer {
                 Text(footer).font(.footnote).foregroundStyle(PsycheColor.muted).padding(.horizontal, 2)
             }
         }
     }
 
-    private func infoRow(_ title: String, _ value: String, mono: Bool = false, last: Bool = false) -> some View {
-        VStack(spacing: 0) {
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                Text(title).font(.psycheRow).foregroundStyle(PsycheColor.text)
-                Spacer(minLength: 12)
-                Text(value)
-                    .font(mono ? .psycheMono(.footnote) : .subheadline)
-                    .foregroundStyle(PsycheColor.muted)
-                    .multilineTextAlignment(.trailing)
-                    .textSelection(.enabled)
+    /// A label and its value. Long values (host, fingerprint) go under the label so they never truncate.
+    private func infoRow(
+        _ title: String, _ value: String, mono: Bool = false, stacked: Bool = false, last: Bool = false
+    ) -> some View {
+        let valueText = Text(value)
+            .font(mono ? .psycheMono(.footnote) : .subheadline)
+            .foregroundStyle(PsycheColor.muted)
+            .textSelection(.enabled)
+            .fixedSize(horizontal: false, vertical: true)
+        return VStack(spacing: 0) {
+            Group {
+                if stacked {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(title).font(.psycheRow).foregroundStyle(PsycheColor.text)
+                        valueText
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        Text(title).font(.psycheRow).foregroundStyle(PsycheColor.text)
+                        Spacer(minLength: 12)
+                        valueText.multilineTextAlignment(.trailing)
+                    }
+                }
             }
             .padding(PsycheMetrics.rowPadding)
             if !last { HairlineDivider() }
@@ -235,6 +249,7 @@ struct SettingsSheet: View {
             Toggle(title, isOn: isOn)
                 .font(.psycheRow)
                 .foregroundStyle(PsycheColor.text)
+                .tint(PsycheColor.ink)
                 .disabled(disabled)
                 .padding(PsycheMetrics.rowPadding)
             if !last { HairlineDivider() }

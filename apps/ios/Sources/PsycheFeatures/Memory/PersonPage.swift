@@ -125,7 +125,7 @@ struct PersonPage: View {
             if detail.facts.isEmpty {
                 Text("Nothing yet.").font(.subheadline).foregroundStyle(PsycheColor.muted)
             } else {
-                PaperCard {
+                PaperStack {
                     ForEach(Array(detail.facts.enumerated()), id: \.element.id) { index, fact in
                         if index > 0 { HairlineDivider() }
                         factRow(fact)
@@ -137,7 +137,7 @@ struct PersonPage: View {
         if !detail.recent.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
                 SectionHeader("Recent")
-                PaperCard {
+                PaperStack {
                     ForEach(Array(detail.recent.enumerated()), id: \.element.id) { index, fact in
                         if index > 0 { HairlineDivider() }
                         VStack(alignment: .leading, spacing: 3) {

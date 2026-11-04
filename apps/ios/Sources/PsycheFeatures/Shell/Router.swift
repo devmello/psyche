@@ -34,7 +34,25 @@ public final class Router {
     /// Set by "Ask Psyche anything" on Home; the thread consumes it and focuses the composer.
     var pendingDraft: String?
 
-    public init() {}
+    public init() {
+        #if DEBUG
+        // Screenshots without taps: simctl launch ... -psycheTab memory -psycheSheet settings
+        let defaults = UserDefaults.standard
+        switch defaults.string(forKey: "psycheTab") {
+        case "chat": tab = .chat
+        case "library": tab = .library
+        case "memory": tab = .memory
+        case "search": tab = .search
+        default: break
+        }
+        if defaults.string(forKey: "psycheSheet") == "settings" { sheet = .settings }
+        // -psycheRoute people/pe1 or goals/p2 opens that page in Memory.
+        if let path = defaults.string(forKey: "psycheRoute"), let route = Route(appPath: path) {
+            tab = .memory
+            memoryPath = [route]
+        }
+        #endif
+    }
 
     /// Home's Ask field: open the main thread with the composer focused.
     func askPsyche(_ text: String) {

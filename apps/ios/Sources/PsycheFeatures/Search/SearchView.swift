@@ -75,7 +75,11 @@ struct SearchView: View {
     @Environment(Router.self) private var router
 
     init(store: any PsycheBackend) {
-        _model = State(initialValue: SearchModel(store: store))
+        let model = SearchModel(store: store)
+        #if DEBUG
+        if let query = UserDefaults.standard.string(forKey: "psycheSearchQuery") { model.query = query }
+        #endif
+        _model = State(initialValue: model)
     }
 
     var body: some View {
@@ -126,7 +130,7 @@ struct SearchView: View {
                         .font(.footnote.weight(.semibold))
                         .foregroundStyle(PsycheColor.inkText)
                 }
-                PaperCard {
+                PaperStack {
                     ForEach(Array(model.recents.enumerated()), id: \.element) { index, recent in
                         if index > 0 { HairlineDivider() }
                         recentRow(recent)
@@ -206,7 +210,7 @@ struct SearchView: View {
     private func group(_ kind: SearchResults.Hit.Group, hits: [SearchResults.Hit]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             SectionHeader(kind.rawValue)
-            PaperCard {
+            PaperStack {
                 ForEach(Array(hits.enumerated()), id: \.element.id) { index, hit in
                     if index > 0 { HairlineDivider() }
                     Button { open(hit) } label: { hitRow(hit) }

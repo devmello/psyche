@@ -18,6 +18,13 @@ struct MemoryView: View {
 
     init(store: any PsycheBackend) {
         _model = State(initialValue: MemoryModel(store: store))
+        #if DEBUG
+        if let name = UserDefaults.standard.string(forKey: "psycheMemorySegment"),
+            let start = Segment(rawValue: name)
+        {
+            _segment = State(initialValue: start)
+        }
+        #endif
     }
 
     var body: some View {

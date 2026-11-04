@@ -146,3 +146,19 @@ struct EditOnMacNote: View {
         .accessibilityElement(children: .combine)
     }
 }
+
+/// A paper card holding stacked rows. (`PaperCard` styles each child separately when handed a bare
+/// `ForEach`, so rows go in one stack first.)
+struct PaperStack<Content: View>: View {
+    private let content: Content
+
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+
+    var body: some View {
+        PaperCard {
+            VStack(alignment: .leading, spacing: 0) { content }
+        }
+    }
+}
