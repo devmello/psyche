@@ -677,6 +677,7 @@
 //   let libraryListResult = try? JSONDecoder().decode(LibraryListResult.self, from: jsonData)
 //   let libraryUploadParams = try? JSONDecoder().decode(LibraryUploadParams.self, from: jsonData)
 //   let libraryUploadResult = try? JSONDecoder().decode(LibraryUploadResult.self, from: jsonData)
+//   let lifeAnswerPassage = try? JSONDecoder().decode(LifeAnswerPassage.self, from: jsonData)
 //   let lifeAnswerReason = try? JSONDecoder().decode(LifeAnswerReason.self, from: jsonData)
 //   let lifeFactHit = try? JSONDecoder().decode(LifeFactHit.self, from: jsonData)
 //   let linkPaymentMethod = try? JSONDecoder().decode(LinkPaymentMethod.self, from: jsonData)
@@ -20338,13 +20339,47 @@ public struct MemoryLessonsListResult: Codable, Sendable {
 
 // MARK: - MemoryLifeAnswerParams
 public struct MemoryLifeAnswerParams: Codable, Sendable {
+    /// Also read source passages (mail, Messages, notes, files, calendar) from the local index.
+    /// Absent or false: facts only, the earlier behaviour
+    public let passages: Bool?
+    /// A follow-up: the question, answer and cited ids of the turn before. The ids are read
+    /// again under this connection's rules; nothing in here is trusted as a source
+    public let previous: Previous?
     public let q: String
 
     public enum CodingKeys: String, CodingKey {
+        case passages = "passages"
+        case previous = "previous"
         case q = "q"
     }
 
-    public init(q: String) {
+    public init(passages: Bool?, previous: Previous?, q: String) {
+        self.passages = passages
+        self.previous = previous
+        self.q = q
+    }
+}
+
+/// A follow-up: the question, answer and cited ids of the turn before. The ids are read
+/// again under this connection's rules; nothing in here is trusted as a source
+// MARK: - Previous
+public struct Previous: Codable, Sendable {
+    public let answer: String
+    public let factIDS: [String]
+    public let passageIDS: [String]
+    public let q: String
+
+    public enum CodingKeys: String, CodingKey {
+        case answer = "answer"
+        case factIDS = "factIds"
+        case passageIDS = "passageIds"
+        case q = "q"
+    }
+
+    public init(answer: String, factIDS: [String], passageIDS: [String], q: String) {
+        self.answer = answer
+        self.factIDS = factIDS
+        self.passageIDS = passageIDS
         self.q = q
     }
 }
@@ -20354,17 +20389,22 @@ public struct MemoryLifeAnswerResult: Codable, Sendable {
     public let answer: String?
     /// The facts the answer cites, in order
     public let facts: [LifeFactHit]
+    /// The source passages the answer cites, in order. `[n]` in the answer is the nth fact,
+    /// `[Pn]` the nth passage
+    public let passages: [LifeAnswerPassage]?
     public let reason: LifeAnswerReason?
 
     public enum CodingKeys: String, CodingKey {
         case answer = "answer"
         case facts = "facts"
+        case passages = "passages"
         case reason = "reason"
     }
 
-    public init(answer: String?, facts: [LifeFactHit], reason: LifeAnswerReason?) {
+    public init(answer: String?, facts: [LifeFactHit], passages: [LifeAnswerPassage]?, reason: LifeAnswerReason?) {
         self.answer = answer
         self.facts = facts
+        self.passages = passages
         self.reason = reason
     }
 }
@@ -20373,6 +20413,9 @@ public struct MemoryLifeAnswerResult: Codable, Sendable {
 public struct LifeFactHit: Codable, Sendable {
     public let attribute: GraphFactAttribute
     public let docID: String?
+    /// Search document ids of every citation's source passage that is indexed, in citation
+    /// order, resolved at read time (never stored on the fact); the first is `docId`
+    public let docIDS: [String]?
     public let entity: EntitySummary
     public let factID: String
     public let learnedAt: String?
@@ -20387,6 +20430,7 @@ public struct LifeFactHit: Codable, Sendable {
     public enum CodingKeys: String, CodingKey {
         case attribute = "attribute"
         case docID = "docId"
+        case docIDS = "docIds"
         case entity = "entity"
         case factID = "factId"
         case learnedAt = "learnedAt"
@@ -20398,9 +20442,10 @@ public struct LifeFactHit: Codable, Sendable {
         case value = "value"
     }
 
-    public init(attribute: GraphFactAttribute, docID: String?, entity: EntitySummary, factID: String, learnedAt: String?, observedAt: String?, provenance: Provenance, quote: String?, review: GraphReviewState, source: String?, value: String) {
+    public init(attribute: GraphFactAttribute, docID: String?, docIDS: [String]?, entity: EntitySummary, factID: String, learnedAt: String?, observedAt: String?, provenance: Provenance, quote: String?, review: GraphReviewState, source: String?, value: String) {
         self.attribute = attribute
         self.docID = docID
+        self.docIDS = docIDS
         self.entity = entity
         self.factID = factID
         self.learnedAt = learnedAt
@@ -20410,6 +20455,32 @@ public struct LifeFactHit: Codable, Sendable {
         self.review = review
         self.source = source
         self.value = value
+    }
+}
+
+// MARK: - LifeAnswerPassage
+public struct LifeAnswerPassage: Codable, Sendable {
+    /// Epoch ms of the passage
+    public let createdAt: Int
+    /// Search document id; opens the source viewer (`search.document`)
+    public let id: String
+    /// `mail`, `messages`, `notes`, …
+    public let source: String
+    /// Untrusted text: written by someone else
+    public let title: String
+
+    public enum CodingKeys: String, CodingKey {
+        case createdAt = "createdAt"
+        case id = "id"
+        case source = "source"
+        case title = "title"
+    }
+
+    public init(createdAt: Int, id: String, source: String, title: String) {
+        self.createdAt = createdAt
+        self.id = id
+        self.source = source
+        self.title = title
     }
 }
 

@@ -18,6 +18,12 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-04 (cited answers, phase 3)
+
+- `memory.life.answer` params: `passages` (optional boolean: also read source passages from the local index; absent or false is the earlier facts-only behaviour, so an older client is unchanged) and `previous` (optional follow-up context: `q`, `answer`, `factIds`, `passageIds` of the turn before, read again by the Gateway under the connection's own rules and never trusted as a source).
+- `memory.life.answer` result: optional `passages` (`LifeAnswerPassage`: `id` is a search document id that opens with `search.document`, `source`, `title`, `createdAt`). In `answer`, `[n]` is the nth entry of `facts` and `[Pn]` the nth entry of `passages`. `answer` may be up to 900 characters. A claim that cites nothing it was given is dropped; nothing left is `ungrounded`.
+- `LifeFactHit.docIds` (optional): the search document ids of every citation, resolved at read time, at most 5; `docId` stays the first.
+
 ### v1 additive — 2026-11-04 (MW7 confirm note and undo)
 
 - New block `work_note` (`WorkNoteBlock`, items `WorkNoteItem`: `kind` proposal or update, `entityId`, `name`, `attribute`, `value`, optional `previous`, `factId`; the attribute enum is `WorkNoteAttribute`): the system note under a chat turn that proposed a status or deadline (Confirm / Discard call `memory.review.decide`) or wrote progress, stopped-at or next-step directly (Undo).

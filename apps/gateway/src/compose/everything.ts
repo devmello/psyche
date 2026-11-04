@@ -1,7 +1,8 @@
 import { join } from "node:path";
 import { getSetting, openDb, type PsycheDb } from "@psyche/db";
 import {
-  answerFromFacts,
+  type AnswerPassage,
+  answerFromSources,
   describeUpcoming,
   EverythingStore,
   FactVectorStore,
@@ -10,10 +11,12 @@ import {
   type ItemReader,
   isAppleOnDeviceRef,
   type LifeEmbedder,
+  type LifeFactHit,
   lifeCandidates,
   lifeFactsForQuestion,
   lifeSearch,
   localMinutesAt,
+  MAX_ANSWER_PASSAGES,
   type NightlyStep,
   type PassDeps,
   type PassReport,
@@ -45,11 +48,18 @@ import {
   type ModelRef,
   PsycheError,
 } from "@psyche/protocol";
-import { readSourcesConfig } from "@psyche/search";
+import { OWNER_ONLY_SOURCES, readSourcesConfig } from "@psyche/search";
 import { Value } from "@sinclair/typebox/value";
+import type { Call } from "../context.ts";
 import type { Gateway } from "../server.ts";
 import { readSystemState } from "./everything-probe.ts";
 import { mountParamsOnly } from "./handlers.ts";
+import {
+  type AnswerViewer,
+  lifePassages,
+  type PassageDeps,
+  type PassageSource,
+} from "./life-passages.ts";
 import type { ComposedPart } from "./services.ts";
 import { workSettings } from "./work.ts";
 
@@ -252,6 +262,8 @@ export interface EverythingHandlers {
   ): Promise<ReviewResult<"memory.life.search">>;
   "memory.life.answer"(
     p: ReviewParams<"memory.life.answer">,
+    /** Who asks; absent is the most restricted viewer (no passages, nothing owner-only). */
+    viewer?: AnswerViewer,
   ): Promise<ReviewResult<"memory.life.answer">>;
   "memory.entities.export"(
     p: ReviewParams<"memory.entities.export">,
@@ -279,9 +291,28 @@ export interface PersonContext {
   vectors?: FactVectorStore;
   /** The model that may answer a question about people (off, or an unconfirmed local one: none). */
   answerModel?: () => { provider: ModelProvider; model: ModelRef } | undefined;
+  /** Raw source passages for an answer (late-bound: the index is composed after this). */
+  passages?: () => PassageSource | undefined;
 }
 
 const PAGE = 50;
+
+const RESTRICTED_VIEWER: AnswerViewer = { passages: false, desktop: false };
+
+const ownerOnly = (x: string | null | undefined): boolean =>
+  x != null && (OWNER_ONLY_SOURCES as readonly string[]).includes(x.split(":")[0] ?? "");
+
+/**
+ * A fact as this connection may be shown it. A connection other than the desktop app cannot open
+ * Messages, Contacts or Memory passages (`search.document`), so a fact that rests on one is left
+ * out of its answer, and a source link it cannot open is not sent.
+ */
+function forViewer(h: LifeFactHit, viewer: AnswerViewer): LifeFactHit | undefined {
+  if (viewer.desktop) return h;
+  if (ownerOnly(h.source) || ownerOnly(h.docId)) return undefined;
+  const docIds = (h.docIds ?? []).filter((d) => !ownerOnly(d));
+  return { ...h, docIds };
+}
 
 export function everythingHandlers(
   em: EverythingStore,
@@ -426,14 +457,14 @@ export function everythingHandlers(
       );
       return { ...found, facts };
     },
-    async "memory.life.answer"(p) {
+    async "memory.life.answer"(p, viewer = RESTRICTED_VIEWER) {
       const ctx = needPerson();
       const now = ctx.clock.now();
       const model = ctx.answerModel?.();
-      if (model === undefined) return { answer: null, facts: [], reason: "no_model" };
+      if (model === undefined) return { answer: null, facts: [], passages: [], reason: "no_model" };
       const lexical = lifeFactsForQuestion(ctx.graph, em, ctx.db, p.q, { limit: 20, now });
       const candidates = lifeCandidates(ctx.graph, em, ctx.db, now);
-      const hits = await fuseLifeHits(
+      const fused = await fuseLifeHits(
         p.q,
         lexical,
         candidates,
@@ -442,13 +473,57 @@ export function everythingHandlers(
         undefined,
         ctx.vectors,
       );
-      const r = await answerFromFacts({
+      // A follow-up keeps the facts its earlier answer cited: read again, under this
+      // connection's rules, never taken from what the client sent back.
+      const prev = p.previous;
+      const earlier =
+        prev === undefined
+          ? []
+          : candidates
+              .filter((c) => !c.sensitive && prev.factIds.includes(c.hit.factId))
+              .map((c) => c.hit);
+      const seen = new Set<string>();
+      const hits = [...earlier, ...fused].flatMap((h) => {
+        if (seen.has(h.factId)) return [];
+        seen.add(h.factId);
+        const shown = forViewer(h, viewer);
+        return shown === undefined ? [] : [shown];
+      });
+      const source = p.passages === true && viewer.passages ? ctx.passages?.() : undefined;
+      let passages: AnswerPassage[] = [];
+      if (source !== undefined) {
+        const seenIds = new Set<string>();
+        const lists = [
+          source.byIds(prev?.passageIds ?? [], p.q, viewer),
+          await source.search(p.q, viewer, MAX_ANSWER_PASSAGES),
+          // "and what about his sister?" reads better next to the question before it.
+          ...(prev === undefined
+            ? []
+            : [await source.search(`${prev.q} ${p.q}`.slice(0, 500), viewer, MAX_ANSWER_PASSAGES)]),
+        ];
+        passages = lists.flat().filter((x) => !seenIds.has(x.id) && seenIds.add(x.id));
+      }
+      const r = await answerFromSources({
         ...model,
         question: p.q,
         hits,
+        passages,
+        ...(prev === undefined ? {} : { prior: { question: prev.q, answer: prev.answer } }),
         exclude: new Set(candidates.filter((c) => c.sensitive).map((c) => c.hit.factId)),
       });
-      return r;
+      return r.answer === null
+        ? { answer: null, facts: [], passages: [], reason: r.reason }
+        : {
+            answer: r.answer,
+            facts: r.facts,
+            passages: r.passages.map((x) => ({
+              id: x.id,
+              source: x.source,
+              title: x.title.slice(0, 200),
+              createdAt: Math.max(0, Math.trunc(x.createdAt)),
+            })),
+            reason: null,
+          };
     },
     async "memory.everything.run"() {
       return run();
@@ -565,6 +640,8 @@ export interface EverythingDeps {
   card?: (path: string) => Promise<string | undefined>;
   /** The embedder Search uses now (late-bound), for Life search by meaning. */
   embedder?: () => LifeEmbedder | undefined;
+  /** The search index and what it needs to read passages for an answer (late-bound, like the embedder). */
+  passageIndex?: () => Pick<PassageDeps, "index" | "document" | "cloudBlocked"> | undefined;
   /** The machine, read once when the pass starts (tests pass fixed numbers). */
   readState?: () => Promise<PassDeps["state"]>;
   /** Posts the "Psyche learned N things" card to the Feed (no notification). */
@@ -626,6 +703,16 @@ export function composeEverything(deps: EverythingDeps): Everything {
     ...(deps.card === undefined ? {} : { card: deps.card }),
     ...(deps.embedder === undefined ? {} : { embedder: deps.embedder }),
     answerModel,
+    passages: () => {
+      const idx = deps.passageIndex?.();
+      return idx === undefined
+        ? undefined
+        : lifePassages({
+            ...idx,
+            cloud: () => settings().model.default.kind === "cloud",
+            sensitive: () => settings().sensitive,
+          });
+    },
   });
   let search: PsycheDb | undefined;
   // A second, read-only connection to the derived index, opened on the first read (so a pass the
@@ -842,7 +929,18 @@ export function composeEverything(deps: EverythingDeps): Everything {
     part(scheduler, timezone) {
       let unsubscribe: (() => void) | undefined;
       return {
-        handlers: mountParamsOnly(handlers as never),
+        handlers: {
+          ...mountParamsOnly(handlers as never),
+          // The answer depends on who asks: the desktop app, another paired client, or no one
+          // who can open a passage (a Mac helper).
+          "memory.life.answer": {
+            run: (call: Call, params: never) =>
+              handlers["memory.life.answer"](params, {
+                passages: call.identity.role === "client",
+                desktop: call.identity.role === "client" && call.identity.desktopShell === true,
+              }),
+          },
+        },
         async start(gateway: Gateway) {
           if (scheduler === undefined) return;
           const sync = () =>

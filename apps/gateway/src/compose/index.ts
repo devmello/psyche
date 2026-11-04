@@ -921,6 +921,17 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     utility: utility ?? modelRef,
     timeZone: () => timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
     card: async (path) => (await memory.readFile(path))?.content,
+    // Raw passages for an answer: the index and the same per-source rules the agent's search has.
+    passageIndex: () => {
+      const sources = searchRef?.sources;
+      return searchRef === undefined || sources === undefined
+        ? undefined
+        : {
+            index: searchRef.index,
+            document: (id) => sources.document(id, "agent"),
+            cloudBlocked: () => sources.cloudBlocked(),
+          };
+    },
     embedder: () => {
       const e = searchRef?.embedder();
       return e === undefined ? undefined : asMemoryEmbedder(e);

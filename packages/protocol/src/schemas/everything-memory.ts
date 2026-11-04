@@ -558,12 +558,37 @@ export const LifeFactHit = Type.Object(
         }),
       ),
     ),
+    docIds: Type.Optional(
+      Type.Array(Type.String({ maxLength: 200 }), {
+        maxItems: 5,
+        description:
+          "Search document ids of every citation's source passage that is indexed, in citation order, resolved at read time (never stored on the fact); the first is `docId`",
+      }),
+    ),
     observedAt: Nullable(IsoDateTime),
     learnedAt: Nullable(IsoDateTime),
   },
   { $id: "LifeFactHit" },
 );
 export type LifeFactHit = Static<typeof LifeFactHit>;
+
+/**
+ * A source passage a life answer cites: what the chip shows. The text is not here; the chip opens
+ * it with `search.document`, which applies the connection's own rules.
+ */
+export const LifeAnswerPassage = Type.Object(
+  {
+    id: Type.String({
+      maxLength: 200,
+      description: "Search document id; opens the source viewer (`search.document`)",
+    }),
+    source: Type.String({ maxLength: 20, description: "`mail`, `messages`, `notes`, …" }),
+    title: Type.String({ maxLength: 200, description: "Untrusted text: written by someone else" }),
+    createdAt: Type.Integer({ minimum: 0, description: "Epoch ms of the passage" }),
+  },
+  { $id: "LifeAnswerPassage" },
+);
+export type LifeAnswerPassage = Static<typeof LifeAnswerPassage>;
 
 // --- Runs (§6.7) ------------------------------------------------------------------------------
 

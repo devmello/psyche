@@ -6773,7 +6773,28 @@ export interface MemoryLessonsListResult {
 }
 
 export interface MemoryLifeAnswerParams {
-    q: string;
+    /**
+     * Also read source passages (mail, Messages, notes, files, calendar) from the local index.
+     * Absent or false: facts only, the earlier behaviour
+     */
+    passages?: boolean;
+    /**
+     * A follow-up: the question, answer and cited ids of the turn before. The ids are read
+     * again under this connection's rules; nothing in here is trusted as a source
+     */
+    previous?: Previous;
+    q:         string;
+}
+
+/**
+ * A follow-up: the question, answer and cited ids of the turn before. The ids are read
+ * again under this connection's rules; nothing in here is trusted as a source
+ */
+export interface Previous {
+    answer:     string;
+    factIds:    string[];
+    passageIds: string[];
+    q:          string;
 }
 
 export interface MemoryLifeAnswerResult {
@@ -6781,13 +6802,23 @@ export interface MemoryLifeAnswerResult {
     /**
      * The facts the answer cites, in order
      */
-    facts:   LifeFactHit[];
-    reason?: LifeAnswerReason | null;
+    facts: LifeFactHit[];
+    /**
+     * The source passages the answer cites, in order. `[n]` in the answer is the nth fact,
+     * `[Pn]` the nth passage
+     */
+    passages?: LifeAnswerPassage[];
+    reason?:   LifeAnswerReason | null;
 }
 
 export interface LifeFactHit {
-    attribute:   GraphFactAttribute;
-    docId?:      null | string;
+    attribute: GraphFactAttribute;
+    docId?:    null | string;
+    /**
+     * Search document ids of every citation's source passage that is indexed, in citation
+     * order, resolved at read time (never stored on the fact); the first is `docId`
+     */
+    docIds?:     string[];
     entity:      EntitySummary;
     factId:      string;
     learnedAt?:  null | string;
@@ -6800,6 +6831,25 @@ export interface LifeFactHit {
      * Untrusted text when it came from someone else
      */
     value: string;
+}
+
+export interface LifeAnswerPassage {
+    /**
+     * Epoch ms of the passage
+     */
+    createdAt: number;
+    /**
+     * Search document id; opens the source viewer (`search.document`)
+     */
+    id: string;
+    /**
+     * `mail`, `messages`, `notes`, …
+     */
+    source: string;
+    /**
+     * Untrusted text: written by someone else
+     */
+    title: string;
 }
 
 export type LifeAnswerReason = "no_model" | "no_facts" | "no_answer" | "ungrounded" | "model_failed";

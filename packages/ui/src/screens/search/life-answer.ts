@@ -1,6 +1,6 @@
-import type { LifeFactHit } from "@psyche/protocol";
-import { useEffect, useState } from "react";
-import { useGatewayQuery } from "../../data/hooks.ts";
+import type { LifeAnswerPassage, LifeFactHit, MethodResult } from "@psyche/protocol";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useCall, useGatewayQuery } from "../../data/hooks.ts";
 
 /**
  * The logic behind the answer card (docs/roadmap/future-features.md §1): when a query reads like
@@ -25,25 +25,28 @@ export function looksLikeQuestion(text: string): boolean {
   return words >= 4 && AUX.test(q);
 }
 
-/** One claim of an answer and the facts it rests on, in the order they were cited. */
+/** One claim of an answer and the facts and passages it rests on, in the order they were cited. */
 export interface AnswerClaim {
   text: string;
   facts: LifeFactHit[];
+  passages: LifeAnswerPassage[];
 }
 
-const MARKERS = /((?:\s*\[\d{1,2}\])+)/g;
-const NUMBER = /\[(\d{1,2})\]/g;
+const MARKERS = /((?:\s*\[(?:P\d{1,2}|\d{1,2})\])+)/g;
+const NUMBER = /\[(P)?(\d{1,2})\]/g;
 
 /**
- * Splits an answer at its `[n]` markers (`n` counts `facts`; the first fact is `[1]`). A claim is
- * the text before a run of markers; text with no marker after it, and markers that name no fact,
- * are dropped: no citation, no claim. An empty list means the answer has nothing to show.
+ * Splits an answer at its markers (`[n]` is the nth fact, `[Pn]` the nth passage; the first of
+ * each is 1). A claim is the text before a run of markers; text with no marker after it, and
+ * markers that name nothing returned, are dropped: no citation, no claim. An empty list means the
+ * answer has nothing to show.
  */
 export function groundedClaims(
   answer: string | null | undefined,
   facts: readonly LifeFactHit[],
+  passages: readonly LifeAnswerPassage[] = [],
 ): AnswerClaim[] {
-  if (answer == null || facts.length === 0) return [];
+  if (answer == null || facts.length + passages.length === 0) return [];
   const claims: AnswerClaim[] = [];
   let last = 0;
   for (const m of answer.matchAll(MARKERS)) {
@@ -53,14 +56,20 @@ export function groundedClaims(
       .replace(/^[\s.!?;,]+/, "")
       .trim();
     last = start + m[0].length;
-    const cited = new Set<LifeFactHit>();
+    const citedFacts = new Set<LifeFactHit>();
+    const citedPassages = new Set<LifeAnswerPassage>();
     for (const n of m[0].matchAll(NUMBER)) {
-      const fact = facts[Number(n[1]) - 1];
-      if (fact !== undefined) cited.add(fact);
+      if (n[1] === "P") {
+        const passage = passages[Number(n[2]) - 1];
+        if (passage !== undefined) citedPassages.add(passage);
+      } else {
+        const fact = facts[Number(n[2]) - 1];
+        if (fact !== undefined) citedFacts.add(fact);
+      }
     }
-    if (before === "" || cited.size === 0) continue;
+    if (before === "" || citedFacts.size + citedPassages.size === 0) continue;
     const end = /^[.!?]/.exec(answer.slice(last))?.[0] ?? "";
-    claims.push({ text: before + end, facts: [...cited] });
+    claims.push({ text: before + end, facts: [...citedFacts], passages: [...citedPassages] });
   }
   return claims;
 }
@@ -97,10 +106,25 @@ const ASK_AFTER_QUESTION_MARK_MS = 250;
 
 export type LifeAnswerPhase = "idle" | "loading" | "done" | "error";
 
+export type LifeAnswerResult = MethodResult<"memory.life.answer">;
+
+/** A follow-up question under the answer, with its own answer. */
+export interface FollowUpTurn {
+  id: number;
+  question: string;
+  phase: LifeAnswerPhase;
+  result?: LifeAnswerResult;
+}
+
+/** The most turns kept under one answer; the card is a panel, not a chat. */
+export const MAX_FOLLOW_UPS = 5;
+
 /**
  * Asks `memory.life.answer` on its own for a settled query that reads like a question, after a
  * short wait so a half-typed question is not sent; for anything else the owner asks by button.
- * `question` is empty while the answer is not on offer (a filter is in the query).
+ * `question` is empty while the answer is not on offer (a filter is in the query). A follow-up
+ * sends the turn before it (question, answer and the ids it cited) so the Gateway reads those
+ * again under this connection's rules; the answers themselves are never trusted as sources.
  */
 export function useLifeAnswer(question: string) {
   const offered = question.length >= 2;
@@ -116,7 +140,11 @@ export function useLifeAnswer(question: string) {
     return () => clearTimeout(timer);
   }, [auto, question]);
   const active = offered && (asked === question || (auto && autoFor === question));
-  const query = useGatewayQuery("memory.life.answer", { q: question }, { enabled: active });
+  const query = useGatewayQuery(
+    "memory.life.answer",
+    { q: question, passages: true },
+    { enabled: active },
+  );
   const phase: LifeAnswerPhase = !active
     ? auto
       ? "loading"
@@ -126,11 +154,49 @@ export function useLifeAnswer(question: string) {
       : query.data
         ? "done"
         : "loading";
+  const result = active ? query.data : undefined;
+
+  const call = useCall();
+  const [turns, setTurns] = useState<FollowUpTurn[]>([]);
+  const next = useRef(1);
+  // A new question starts a new conversation.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset on the question only
+  useEffect(() => {
+    setTurns([]);
+  }, [question]);
+  const followUp = useCallback(
+    (text: string) => {
+      const q = text.trim().slice(0, 500);
+      const before = [...turns].reverse().find((x) => x.result?.answer != null);
+      const base =
+        before === undefined
+          ? { q: question, result }
+          : { q: before.question, result: before.result };
+      if (q === "" || base.result?.answer == null || turns.length >= MAX_FOLLOW_UPS) return;
+      const previous = {
+        q: base.q.slice(0, 500),
+        answer: base.result.answer,
+        factIds: base.result.facts.map((f) => f.factId).slice(0, 12),
+        passageIds: (base.result.passages ?? []).map((p) => p.id).slice(0, 8),
+      };
+      const id = next.current++;
+      setTurns((all) => [...all, { id, question: q, phase: "loading" }]);
+      const settle = (patch: Partial<FollowUpTurn>) =>
+        setTurns((all) => all.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+      call("memory.life.answer", { q, passages: true, previous }).then(
+        (r) => settle({ phase: "done", result: r }),
+        () => settle({ phase: "error" }),
+      );
+    },
+    [call, question, result, turns],
+  );
   return {
     offered,
     auto,
     phase,
-    result: active ? query.data : undefined,
+    result,
     ask: () => setAsked(question),
+    turns,
+    followUp,
   };
 }
