@@ -8,6 +8,7 @@ import { createValidator, defineEvent, type EventSpec, type Validator } from "./
 import { DictationKeyPayload } from "./methods/dictation.ts";
 import { SearchIndexStatus, SearchSourcesStatus } from "./methods/search.ts";
 import { SkillChangeEvent, SkillDraft, SkillUpdateStatus } from "./methods/skills.ts";
+import { TerminalExitPayload, TerminalOutputPayload } from "./methods/terminal.ts";
 import { VoiceEndedPayload, VoiceSegmentPayload } from "./methods/voice.ts";
 import { ArtifactVersion } from "./schemas/artifacts.ts";
 import { Block } from "./schemas/blocks.ts";
@@ -424,6 +425,16 @@ export const Events = {
     payload: DictationKeyPayload,
     description:
       "The watched hold-to-talk key went down or up (dictation.watch), sent only to the watching device.",
+  }),
+  "terminal.output": defineEvent({
+    payload: TerminalOutputPayload,
+    description:
+      "Output of a Host terminal session (terminal.session.open), sent only to the device that opened it, in order and flow-controlled by terminal.session.ack. Admin scope.",
+  }),
+  "terminal.exit": defineEvent({
+    payload: TerminalExitPayload,
+    description:
+      "A Host terminal session ended (the shell exited, it was closed, or its device went away or was revoked), sent only to the device that opened it.",
   }),
   "connectors.updated": defineEvent({
     payload: Type.Object({

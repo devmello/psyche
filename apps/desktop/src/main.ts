@@ -24,7 +24,6 @@ import {
   nativeTheme,
   powerMonitor,
   protocol,
-  screen,
   session,
   shell,
   systemPreferences,
@@ -54,7 +53,6 @@ import {
   checkRoute,
   checkViewport,
   IPC,
-  num,
   REMOTE_REFUSED_CHANNELS,
   rec,
   str,
@@ -110,7 +108,6 @@ import {
   execRunner,
   GatewaySupervisor,
 } from "./main/supervisor.ts";
-import { TerminalHost } from "./main/terminal.ts";
 import { threadRoute } from "./main/thread-route.ts";
 import { PsycheTray } from "./main/tray.ts";
 import { startUpdater } from "./main/updater.ts";
@@ -208,7 +205,6 @@ const attention = createAttentionReporter({
 });
 let browser: BrowserHost | undefined;
 let bridge: BridgeClient | undefined;
-let terminal: TerminalHost | undefined;
 let tray: PsycheTray | undefined;
 let supervisor: GatewaySupervisor | undefined;
 /**
@@ -372,19 +368,33 @@ function on(channel: string, fn: (event: IpcMainEvent, arg: unknown) => void): v
   });
 }
 
-/** PTYs die with the renderer that opened them (crash, reload, window closed). */
+/**
+ * Host terminal sessions (`terminal.session.*`, remote-gateway design §4.2) belong to the window
+ * that opened them. The Gateway connection lives here in main, so a renderer reload or a closed
+ * window never disconnects it: close the sessions when the window goes (crash, reload, closed)
+ * instead of leaving a shell on the Host until its idle timeout. Nothing is ever spawned here.
+ */
 const terminalOwners = new Map<string, WebContents>();
 const watchedOwners = new WeakSet<WebContents>();
+
+function closeHostTerminal(sessionId: string): void {
+  terminalOwners.delete(sessionId);
+  try {
+    void requireGateway()
+      .call("terminal.session.close", { sessionId })
+      .catch(() => undefined);
+  } catch {
+    // no Gateway connection: its disconnect handling ends the session
+  }
+}
 
 function ownTerminal(owner: WebContents, sessionId: string): void {
   terminalOwners.set(sessionId, owner);
   if (watchedOwners.has(owner)) return;
   watchedOwners.add(owner);
   const closeOwned = () => {
-    for (const [id, wc] of terminalOwners) {
-      if (wc !== owner) continue;
-      terminal?.close(id);
-      terminalOwners.delete(id);
+    for (const [id, wc] of [...terminalOwners]) {
+      if (wc === owner) closeHostTerminal(id);
     }
   };
   owner.on("destroyed", closeOwned);
@@ -601,10 +611,18 @@ function registerIpc(): void {
   handle(IPC.gatewaysRepair, (_e, arg) =>
     gateways.repair(str(IPC.gatewaysRepair, rec(IPC.gatewaysRepair, arg).id, "id", 32)),
   );
-  handle(IPC.call, (_e, arg) => {
+  handle(IPC.call, async (e, arg) => {
     const r = rec(IPC.call, arg);
     const method = checkCallable(r.method, isMethodName);
-    return requireGateway().call(method, r.params ?? {});
+    const result = await requireGateway().call(method, r.params ?? {});
+    if (method === "terminal.session.open") {
+      const id = (result as { sessionId?: unknown } | null)?.sessionId;
+      if (typeof id === "string") ownTerminal(e.sender, id);
+    } else if (method === "terminal.session.close") {
+      const id = (r.params as { sessionId?: unknown } | undefined)?.sessionId;
+      if (typeof id === "string") terminalOwners.delete(id);
+    }
+    return result;
   });
 
   handle(IPC.browserGetState, () => requireBrowser().getState());
@@ -705,41 +723,6 @@ function registerIpc(): void {
   handle(IPC.browserClearData, (_e, arg) =>
     requireBrowser().clearBrowsingData(arg === "clean" ? "clean" : "logged-in"),
   );
-
-  handle(IPC.terminalOpen, async (event, arg) => {
-    const r = rec(IPC.terminalOpen, arg);
-    if (!terminal) throw new PsycheError("unavailable", "terminal not ready");
-    const opened = await terminal.open({
-      cols: num(IPC.terminalOpen, r.cols, "cols", 1, 500),
-      rows: num(IPC.terminalOpen, r.rows, "rows", 1, 200),
-      ...(typeof r.threadId === "string"
-        ? { threadId: str(IPC.terminalOpen, r.threadId, "threadId", 64) }
-        : {}),
-      ...(typeof r.cwd === "string" ? { cwd: str(IPC.terminalOpen, r.cwd, "cwd", 4096) } : {}),
-    });
-    if ("sessionId" in opened) ownTerminal(event.sender, opened.sessionId);
-    return opened;
-  });
-  on(IPC.terminalWrite, (_e, arg) => {
-    const r = rec(IPC.terminalWrite, arg);
-    terminal?.write(
-      str(IPC.terminalWrite, r.sessionId, "sessionId", 64),
-      str(IPC.terminalWrite, r.data, "data", 65_536),
-    );
-  });
-  on(IPC.terminalResize, (_e, arg) => {
-    const r = rec(IPC.terminalResize, arg);
-    terminal?.resize(
-      str(IPC.terminalResize, r.sessionId, "sessionId", 64),
-      num(IPC.terminalResize, r.cols, "cols", 1, 500),
-      num(IPC.terminalResize, r.rows, "rows", 1, 200),
-    );
-  });
-  on(IPC.terminalClose, (_e, arg) => {
-    const id = str(IPC.terminalClose, arg, "sessionId", 64);
-    terminal?.close(id);
-    terminalOwners.delete(id);
-  });
 
   handle(IPC.windowPopOut, (_e, arg) => {
     const r = rec(IPC.windowPopOut, arg);
@@ -1046,7 +1029,6 @@ void app.whenReady().then(async () => {
   });
   // 120 Hz check (docs/design/motion.md §5): compare with the renderer's rAF probe.
   if (!app.isPackaged) {
-    console.info(`[display] ${screen.getPrimaryDisplay().displayFrequency} Hz`);
   }
   // Packaged builds get the icon from the bundle (forge.config.ts); dev runs set the Dock icon here.
   if (!app.isPackaged && process.platform === "darwin") {
@@ -1310,9 +1292,6 @@ void app.whenReady().then(async () => {
   powerMonitor.on("resume", () => {
     screenAsk?.resume();
   });
-  terminal = new TerminalHost({ call: (m, p) => requireGateway().call(m, p) });
-  terminal.onData((sessionId, data) => broadcast(IPC.terminalData, { sessionId, data }));
-  terminal.onExit((sessionId, exitCode) => broadcast(IPC.terminalExit, { sessionId, exitCode }));
   registerIpc();
   gateways.sweepForgottenData();
 
@@ -1452,7 +1431,7 @@ app.on("will-quit", () => {
 app.on("before-quit", () => {
   windows?.setQuitting();
   dockPolicy.dispose();
-  terminal?.closeAll();
+  for (const id of [...terminalOwners.keys()]) closeHostTerminal(id);
   void bridge?.stop();
   browser?.dispose();
   gateway?.stop();

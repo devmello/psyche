@@ -10402,6 +10402,83 @@ export interface TeachingImplicitSignals {
     undo:          boolean;
 }
 
+export interface TerminalExitPayload {
+    exitCode?: number | null;
+    /**
+     * Why the session ended
+     */
+    reason:    TerminalExitPayloadReason;
+    sessionId: string;
+}
+
+/**
+ * Why the session ended
+ */
+export type TerminalExitPayloadReason = "exited" | "closed" | "idle" | "device_disconnected" | "device_revoked" | "gateway_stopped";
+
+export interface TerminalOutputPayload {
+    /**
+     * Terminal output, UTF-8 decoded
+     */
+    data: string;
+    /**
+     * Characters sent in this session up to and including this chunk
+     */
+    end:       number;
+    sessionId: string;
+}
+
+export interface TerminalSessionACKParams {
+    /**
+     * The `end` of the last terminal.output chunk the client has rendered
+     */
+    end:       number;
+    sessionId: string;
+}
+
+export interface TerminalSessionCloseParams {
+    sessionId: string;
+}
+
+export interface TerminalSessionCloseResult {
+    closed: boolean;
+}
+
+export interface TerminalSessionOpenParams {
+    /**
+     * The approved presence card from a first approval_required
+     */
+    approvalId?: string;
+    cols:        number;
+    /**
+     * An absolute folder on the Host
+     */
+    cwd?: string;
+    rows: number;
+}
+
+export interface TerminalSessionOpenResult {
+    /**
+     * What the pane shows: the shell and folder
+     */
+    label:     string;
+    sessionId: string;
+    target:    TargetEnum;
+}
+
+export type TargetEnum = "host";
+
+export interface TerminalSessionResizeParams {
+    cols:      number;
+    rows:      number;
+    sessionId: string;
+}
+
+export interface TerminalSessionWriteParams {
+    data:      string;
+    sessionId: string;
+}
+
 export interface TextBlock {
     md:   string;
     type: TextBlockType;

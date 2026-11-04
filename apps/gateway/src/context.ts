@@ -70,6 +70,8 @@ export interface LiveConnection {
   /** Paired and not closed. */
   readonly open: boolean;
   close(reason: string): void;
+  /** Bytes queued on the socket and not yet sent (WebSockets only; 0 otherwise). */
+  bufferedAmount(): number;
   setEventFilter(filter: EventFilter | null): void;
   /** Gateway → peer request (node protocol); resolves with the `res` payload. */
   request(method: string, params: unknown, timeoutMs?: number): Promise<unknown>;
@@ -172,6 +174,12 @@ export interface GatewayContext {
    * the turn gets. The screen-ask part sets it; without one a send naming a capture is refused.
    */
   readonly chatScreen: { resolve: ChatScreenResolver | null };
+  /**
+   * Host terminal sessions (`compose/host-terminal.ts` sets `owns`): whether a device owns a
+   * session, so the stream calls of an open terminal skip the per-minute request budget only
+   * when they name a session the caller owns. Unset: nothing is exempt.
+   */
+  readonly terminalSessions: { owns: ((deviceId: string, sessionId: string) => boolean) | null };
   /**
    * Ask about this (Feed): resolves `chat.send.context` to what the turn gets. The proactive part
    * sets it; without one a send naming a context is refused.

@@ -31,10 +31,23 @@ import { methodPresence, requireFreshPresence } from "./presence-gate.ts";
 export interface Transport {
   send(frame: string): void;
   close(reason: string): void;
+  /** Bytes queued on the socket (WebSockets); absent when the transport cannot tell. */
+  bufferedAmount?(): number;
 }
 
 /** Reply id used when a malformed request carried no usable id. */
 export const UNKNOWN_FRAME_ID = "_unknown";
+
+/**
+ * Keystrokes, resizes and output acks of an open Host terminal arrive faster than a per-minute
+ * budget allows. They need `operator.admin` and an owned session, and the terminal part meters
+ * input bytes per session itself.
+ */
+const STREAM_METHODS: ReadonlySet<string> = new Set([
+  "terminal.session.write",
+  "terminal.session.resize",
+  "terminal.session.ack",
+]);
 
 /** Default wait for a peer's `res` to a Gateway → peer request. */
 const PEER_REQUEST_TIMEOUT_MS = 30_000;
@@ -136,6 +149,10 @@ export class Connection implements LiveConnection {
     }
   }
 
+  bufferedAmount(): number {
+    return this.#transport.bufferedAmount?.() ?? 0;
+  }
+
   close(reason: string): void {
     if (this.#phase === "closed") return;
     this.#phase = "closed";
@@ -225,7 +242,7 @@ export class Connection implements LiveConnection {
     if (scope !== "none" && !identity.scopes.includes(scope)) {
       throw new PsycheError("forbidden", `${method} requires scope ${scope}`);
     }
-    this.#rateLimit(identity.deviceId, method, spec.sideEffecting);
+    this.#rateLimit(identity.deviceId, method, spec.sideEffecting, params);
     const def: HandlerDef | undefined = HANDLERS[method] ?? this.#ctx.extraHandlers[method];
     if (def === undefined) {
       throw new PsycheError("not_implemented", `${method} is not implemented yet`);
@@ -267,8 +284,18 @@ export class Connection implements LiveConnection {
    * Per-device budgets (security §10 "rate limits per device token"). Node-protocol frames are
    * exempt: a node streams `node.event`s for invocations the Gateway itself started.
    */
-  #rateLimit(deviceId: string, method: string, sideEffecting: boolean): void {
+  #rateLimit(deviceId: string, method: string, sideEffecting: boolean, params: unknown): void {
     if (method.startsWith("node.")) return;
+    // Only calls that name a session this device owns; a guess at an id is charged like any call.
+    if (STREAM_METHODS.has(method)) {
+      const sessionId = (params as { sessionId?: unknown } | null)?.sessionId;
+      if (
+        typeof sessionId === "string" &&
+        this.#ctx.terminalSessions.owns?.(deviceId, sessionId) === true
+      ) {
+        return;
+      }
+    }
     const { deviceRequests, deviceSideEffects } = this.#ctx;
     if (
       !deviceRequests.allowed(deviceId) ||
