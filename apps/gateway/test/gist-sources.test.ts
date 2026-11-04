@@ -128,3 +128,55 @@ describe("what the people methods send", () => {
     ).toBeUndefined();
   });
 });
+
+describe("a Messages day near midnight in another zone", () => {
+  // Los Angeles, 3 Nov 2026 at 4:40 pm and 5:30 pm: the index labels the day 11-03 by the
+  // connector's local time, while the graph's day for the same newest message is 11-04 (UTC).
+  const first = Date.parse("2026-11-04T00:40:00Z");
+  const newest = "2026-11-04T01:30:00Z";
+
+  async function chats() {
+    const index = createSearchIndex({ now: () => NOW });
+    const config = defaultSourcesConfig();
+    const indexer = new SourceIndexer(index, [], { config: () => config, now: () => NOW });
+    config.sources.messages.enabled = true;
+    await indexer.ingest("messages", [
+      item("chat2|2026-11-03|5", { chatId: "chat2", createdAt: first }),
+      item("chat2|2026-11-02|4", {
+        chatId: "chat2",
+        createdAt: Date.parse("2026-11-03T02:00:00Z"),
+      }),
+      item("chat3|2026-11-03|8", { chatId: "chat3", createdAt: first }),
+    ]);
+    return indexer;
+  }
+
+  it("finds the day by the time of its newest message when the day labels disagree", async () => {
+    const indexer = await chats();
+    const ref = { kind: "message", externalRef: "chat2:2026-11-04" } as const;
+    // By label alone the two sides do not meet...
+    expect(indexer.docIdFor(ref)).toBeUndefined();
+    // ...by instant they do: the latest day of that chat that began at or before the message.
+    expect(indexer.docIdFor({ ...ref, at: newest })).toBe("messages:chat2|2026-11-03|5");
+  });
+
+  it("prefers the same label, and never takes another chat or a day more than a day back", async () => {
+    const indexer = await chats();
+    expect(indexer.docIdFor({ kind: "message", externalRef: "chat2:2026-11-03", at: newest })).toBe(
+      "messages:chat2|2026-11-03|5",
+    );
+    expect(
+      indexer.docIdFor({ kind: "message", externalRef: "chat4:2026-11-04", at: newest }),
+    ).toBeUndefined();
+    expect(
+      indexer.docIdFor({
+        kind: "message",
+        externalRef: "chat2:2026-11-06",
+        at: "2026-11-06T12:00:00Z",
+      }),
+    ).toBeUndefined();
+    expect(
+      indexer.docIdFor({ kind: "message", externalRef: "chat2:2026-11-04", at: "not a time" }),
+    ).toBeUndefined();
+  });
+});

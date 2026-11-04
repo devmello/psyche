@@ -886,3 +886,59 @@ describe("reading the store", () => {
     expect(s).toMatchObject({ tiers: MEMORY_SURFACES_DEFAULTS.tiers });
   });
 });
+
+describe("sources behind a line", () => {
+  const mail = (id: string) =>
+    signal({
+      id,
+      kind: "mail",
+      tier: "workMail",
+      source: "mail",
+      provenance: "untrusted",
+      text: mailChangeText("Sam", "Updated numbers attached", "Mon"),
+    });
+  const docs: Record<string, { docId: string; sourceKind: string }> = {
+    a: { docId: "mail:1", sourceKind: "mail" },
+    b: { docId: "mail:2", sourceKind: "mail" },
+    c: { docId: "notes:3", sourceKind: "notes" },
+    d: { docId: "mail:4", sourceKind: "mail" },
+    dup: { docId: "mail:1", sourceKind: "mail" },
+  };
+  const docOf = (s: WorkSignal) => docs[s.id];
+
+  it("carries up to three distinct passages from the changes behind the line", () => {
+    const c = cand({
+      dueAt: inHours(20),
+      signals: [mail("a"), mail("dup"), mail("b"), mail("c"), mail("d")],
+    });
+    const item = rank([c], { surface: "home", docOf })[0]?.item;
+    expect(item?.sources).toEqual([docs.a, docs.b, docs.c]);
+  });
+
+  it("has none without a resolver, and for a change that resolves to nothing", () => {
+    const c = cand({ dueAt: inHours(20), signals: [mail("a")] });
+    expect(rank([c], { surface: "home" })[0]?.item.sources).toBeUndefined();
+    expect(rank([c], { surface: "home", docOf: () => undefined })[0]?.item.sources).toBeUndefined();
+    expect(
+      rank([c], {
+        surface: "home",
+        docOf: () => {
+          throw new Error("index locked");
+        },
+      })[0]?.item.sources,
+    ).toBeUndefined();
+  });
+
+  it("never carries a source for a change the surface filter removed", () => {
+    const c = cand({ dueAt: inHours(20), signals: [mail("a")] });
+    const out = rank([c], {
+      surface: "home",
+      docOf,
+      settings: settings({ hideSources: ["mail"] }),
+    });
+    expect(out[0]?.item.changes).toEqual([]);
+    expect(out[0]?.item.sources).toBeUndefined();
+    const channel = rank([c], { surface: "channel", docOf });
+    expect(channel[0]?.item.sources).toBeUndefined();
+  });
+});

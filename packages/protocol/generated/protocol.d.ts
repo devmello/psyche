@@ -5944,10 +5944,15 @@ export interface CatchUpItem {
     /**
      * The §5.3 template, already filtered
      */
-    line:            string;
-    parent?:         Parent;
-    provenance:      Provenance;
-    resume?:         CatchUpResume;
+    line:       string;
+    parent?:    Parent;
+    provenance: Provenance;
+    resume?:    CatchUpResume;
+    /**
+     * Indexed passages behind this line's changes. Sent only to a connection that may open each
+     * one (`search.document`'s rules); a chip opens it in the source viewer
+     */
+    sources?:        CatchUpSource[];
     stale:           boolean;
     status:          CatchUpStatus;
     statusAsOf:      string;
@@ -5990,6 +5995,17 @@ export interface Open {
 }
 
 export type CatchUpResumeKind = "file" | "thread" | "chat" | "library";
+
+export interface CatchUpSource {
+    /**
+     * Search document id
+     */
+    docId: string;
+    /**
+     * Search source id: mail, messages, ...
+     */
+    sourceKind: string;
+}
 
 export type CatchUpStatus = "not_started" | "in_progress" | "submitted" | "done" | "dropped" | "overdue" | "blocked" | "active" | "paused";
 

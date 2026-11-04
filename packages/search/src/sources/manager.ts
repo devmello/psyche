@@ -464,6 +464,8 @@ export class SourceIndexer {
     kind: "mail" | "message" | "meeting";
     externalRef: string;
     threadKey?: string | null;
+    /** ISO time of the newest message of the day (Messages): the day is found by time, see below. */
+    at?: string;
   }): string | undefined {
     const db = this.#index.db;
     let row: { doc_id: string; source: string } | undefined;
@@ -488,6 +490,27 @@ export class SourceIndexer {
           "SELECT doc_id, source FROM search_source_items WHERE source = 'messages' AND substr(native_id, 1, ?) = ? ORDER BY native_id LIMIT 1",
         )
         .get(prefix.length, prefix) as typeof row;
+      // The graph and this index each cut a conversation into days from their own reading of a
+      // message's timestamp, so their day labels can differ across midnight in another zone. The
+      // instants do not: with the newest message's time, take the chat's latest day passage that
+      // started at or before it, within a day.
+      const at = ref.at === undefined ? Number.NaN : Date.parse(ref.at);
+      if (row === undefined && !Number.isNaN(at)) {
+        row = db
+          .prepare(
+            `SELECT s.doc_id AS doc_id, s.source AS source FROM search_source_items s
+               JOIN search_docs d ON d.id = s.doc_id
+              WHERE s.source = 'messages' AND substr(s.native_id, 1, ?) = ?
+                AND d.created_ms <= ? AND d.created_ms > ?
+              ORDER BY d.created_ms DESC LIMIT 1`,
+          )
+          .get(
+            `${ref.externalRef.slice(0, cut)}|`.length,
+            `${ref.externalRef.slice(0, cut)}|`,
+            at,
+            at - 86_400_000,
+          ) as typeof row;
+      }
     }
     if (row === undefined || !this.#o.config().sources[row.source as SourceId]?.enabled)
       return undefined;

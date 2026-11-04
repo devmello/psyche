@@ -1655,7 +1655,14 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // lookup and the open check are Search's (read late: the index may be unlocked after start).
   people.useGistSources({
     docIdFor: (ref) => search.sources?.docIdFor(ref),
-    canOpen: (call, id) => canOpenGistSource({ indexer: () => search.sources }, call, id),
+    canOpen: (call, id, kinds) =>
+      canOpenGistSource({ indexer: () => search.sources }, call, id, kinds),
+  });
+  // The same two checks put source chips on Home's catch-up lines.
+  proactive.useCatchUpSources({
+    docIdFor: (ref) => search.sources?.docIdFor(ref),
+    canOpen: (call, id, kinds) =>
+      canOpenGistSource({ indexer: () => search.sources }, call, id, kinds),
   });
   parts.push(people.part(scheduler, timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone));
   // Code plugins (T4): off until the owner turns on `plugins.enabled`.

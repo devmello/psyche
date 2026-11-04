@@ -20,6 +20,7 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ### v1 additive — 2026-11-04 (source links on conversation gists)
 
+- `CatchUpItem.sources` (optional, at most 3) and type `CatchUpSource` (`docId`, `sourceKind`): the indexed passages behind a Home catch-up line's changes (a mail message, a fact's first indexed citation). `memory.catchup.list` sends each only to a connection that may open it with `search.document` (Messages, Contacts and Memory only from the desktop app on this Mac; the source on; the passage indexed); the rest are left out. The brief and channel copies never carry them.
 - `GraphInteraction.gistDocId` (optional): the search document id of the passage a conversation gist was written from (a mail message, a Messages conversation day, a calendar event). The Gateway includes it in `memory.entities.get` and `memory.entities.interactions` only when that connection may open the document with `search.document` (the same rule: Messages only from the desktop app on this Mac, the source on, the passage still indexed); otherwise it is left out. The client sends only the id back to `search.document`. Gists stored before this carry none.
 
 ### v1 additive — 2026-11-04 (pairing links, remote Gateway R2)

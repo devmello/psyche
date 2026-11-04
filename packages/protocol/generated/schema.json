@@ -12351,6 +12351,14 @@
         "resume": {
           "$ref": "#/$defs/CatchUpResume"
         },
+        "sources": {
+          "description": "Indexed passages behind this line's changes. Sent only to a connection that may open each one (`search.document`'s rules); a chip opens it in the source viewer",
+          "items": {
+            "$ref": "#/$defs/CatchUpSource"
+          },
+          "maxItems": 3,
+          "type": "array"
+        },
         "actions": {
           "items": {
             "$ref": "#/$defs/CatchUpAction"
@@ -12433,6 +12441,25 @@
         "library"
       ],
       "type": "string"
+    },
+    "CatchUpSource": {
+      "properties": {
+        "docId": {
+          "description": "Search document id",
+          "maxLength": 200,
+          "type": "string"
+        },
+        "sourceKind": {
+          "description": "Search source id: mail, messages, ...",
+          "maxLength": 40,
+          "type": "string"
+        }
+      },
+      "required": [
+        "docId",
+        "sourceKind"
+      ],
+      "type": "object"
     },
     "CatchUpStatus": {
       "enum": [

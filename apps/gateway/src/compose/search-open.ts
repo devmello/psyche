@@ -130,7 +130,9 @@ export function searchOpenHandlers(deps: SearchOpenDeps): Record<string, Handler
 }
 
 /** The sources a conversation gist is written from; its source chip never points anywhere else. */
-const GIST_SOURCES: readonly string[] = ["mail", "messages", "calendar"];
+export const GIST_SOURCES: readonly string[] = ["mail", "messages", "calendar"];
+/** The sources a catch-up line's chips may point at: the gist ones, and a fact's note or file. */
+export const CATCHUP_SOURCES: readonly string[] = [...GIST_SOURCES, "notes", "files"];
 
 /**
  * True when this connection may open `id` in the source viewer, for a gist's source chip. The same
@@ -142,10 +144,11 @@ export function canOpenGistSource(
   deps: Pick<SearchOpenDeps, "indexer">,
   call: Call,
   id: string,
+  kinds: readonly string[] = GIST_SOURCES,
 ): boolean {
   try {
     const doc = needDocument({ ...deps, folders: () => [] }, call, id);
-    return GIST_SOURCES.includes(doc.source);
+    return kinds.includes(doc.source);
   } catch {
     return false;
   }

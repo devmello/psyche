@@ -167,8 +167,9 @@ export interface GistSources {
     kind: "mail" | "message" | "meeting";
     externalRef: string;
     threadKey?: string | null;
+    at?: string;
   }): string | undefined;
-  canOpen(call: Call, docId: string): boolean;
+  canOpen(call: Call, docId: string, kinds?: readonly string[]): boolean;
 }
 
 export interface People {
@@ -252,7 +253,12 @@ export function composePeople(deps: PeopleDeps): People {
     const externalRef = store.externalRefOf(i.id);
     if (externalRef === undefined) return undefined;
     try {
-      return gistSources.docIdFor({ kind: i.kind, externalRef, threadKey: i.threadKey });
+      return gistSources.docIdFor({
+        kind: i.kind,
+        externalRef,
+        threadKey: i.threadKey,
+        at: i.occurredAt,
+      });
     } catch {
       return undefined;
     }
