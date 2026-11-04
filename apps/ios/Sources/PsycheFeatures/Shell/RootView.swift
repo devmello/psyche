@@ -45,26 +45,45 @@ struct MainTabs: View {
     let store: any PsycheBackend
     @Environment(Router.self) private var router
 
+    /// Outline symbols on inactive tabs and a filled one on the selected tab. The system would otherwise fill them all,
+    /// so the symbol variant is pinned and the filled name is chosen here.
+    private func tabLabel(_ title: String, symbol: String, tab: AppTab) -> some View {
+        Label {
+            Text(title)
+        } icon: {
+            Image(systemName: router.tab == tab ? symbol + ".fill" : symbol)
+                .environment(\.symbolVariants, .none)
+        }
+    }
+
     var body: some View {
         @Bindable var router = router
         TabView(selection: $router.tab) {
-            Tab("Home", systemImage: "house", value: AppTab.home) {
+            Tab(value: AppTab.home) {
                 NavigationStack(path: $router.homePath) {
                     HomeView(store: store).routeDestinations()
                 }
+            } label: {
+                tabLabel("Home", symbol: "house", tab: .home)
             }
-            Tab("Chat", systemImage: "bubble.left", value: AppTab.chat) {
+            Tab(value: AppTab.chat) {
                 ChatTab()
+            } label: {
+                tabLabel("Chat", symbol: "bubble.left", tab: .chat)
             }
-            Tab("Library", systemImage: "books.vertical", value: AppTab.library) {
+            Tab(value: AppTab.library) {
                 NavigationStack(path: $router.libraryPath) {
                     LibraryView().routeDestinations()
                 }
+            } label: {
+                tabLabel("Library", symbol: "books.vertical", tab: .library)
             }
-            Tab("Memory", systemImage: "bookmark", value: AppTab.memory) {
+            Tab(value: AppTab.memory) {
                 NavigationStack(path: $router.memoryPath) {
                     MemoryView(store: store).routeDestinations()
                 }
+            } label: {
+                tabLabel("Memory", symbol: "bookmark", tab: .memory)
             }
             Tab(value: AppTab.search, role: .search) {
                 NavigationStack(path: $router.searchPath) {

@@ -53,7 +53,7 @@ private struct LibraryContent: View {
             }
             .refreshable { await model.refresh() }
         }
-        .psycheScreen()
+        .psycheScreen(maxWidth: nil)
         .psycheHidesNavigationBar()
         .overlay(alignment: .bottomTrailing) {
             UploadMenuButton { model.upload($0) }
@@ -78,7 +78,8 @@ private struct SectionPicker: View {
                     Text(section.rawValue)
                         .font(.subheadline.weight(selection == section ? .semibold : .regular))
                         .foregroundStyle(selection == section ? PsycheColor.text : PsycheColor.muted)
-                        .lineLimit(1).minimumScaleFactor(0.8)
+                        .lineLimit(1).minimumScaleFactor(0.6)
+                        .padding(.horizontal, 4)
                         .frame(maxWidth: .infinity, minHeight: 34)
                         .background {
                             if selection == section {
@@ -128,7 +129,7 @@ private struct LibraryRow: View {
                     .lineLimit(2).multilineTextAlignment(.leading)
                 Text(item.detail)
                     .font(.psycheMono(.caption)).foregroundStyle(PsycheColor.muted)
-                    .lineLimit(1)
+                    .lineLimit(2).multilineTextAlignment(.leading)
             }
             Spacer(minLength: 8)
             Image(systemName: "chevron.right")

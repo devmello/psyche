@@ -249,7 +249,7 @@ struct SettingsSheet: View {
             Toggle(title, isOn: isOn)
                 .font(.psycheRow)
                 .foregroundStyle(PsycheColor.text)
-                .tint(PsycheColor.ink)
+                .tint(PsycheColor.muted)  // a quiet track: the ink fill is for the screen's one action
                 .disabled(disabled)
                 .padding(PsycheMetrics.rowPadding)
             if !last { HairlineDivider() }
