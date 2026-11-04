@@ -42,11 +42,16 @@ public struct KeychainSecretStore: SecretStore {
     }
 
     public func write(_ data: Data, account: String) throws {
-        try delete(account: account)
-        var q = query(account)
-        q[kSecValueData as String] = data
-        q[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-        let status = SecItemAdd(q as CFDictionary, nil)
+        // Update in place when the item exists, add when it does not: never delete first, so a failed write
+        // cannot leave the phone without the key it already had.
+        let attributes: [String: Any] = [
+            kSecValueData as String: data,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+        ]
+        var status = SecItemUpdate(query(account) as CFDictionary, attributes as CFDictionary)
+        if status == errSecItemNotFound {
+            status = SecItemAdd(query(account).merging(attributes) { _, new in new } as CFDictionary, nil)
+        }
         guard status == errSecSuccess else { throw KeychainError(status: status) }
     }
 

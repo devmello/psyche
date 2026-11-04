@@ -1,4 +1,5 @@
 import Foundation
+import PsycheShared
 import Security
 
 /// One WebSocket, as the connection sees it: text frames in, text frames out. The real one wraps
@@ -84,10 +85,19 @@ public final class URLSessionTransport: WebSocketTransport, @unchecked Sendable 
         session.invalidateAndCancel()
     }
 
-    /// `https://host[:port]` -> `wss://host[:port]/ws`; `http://` (loopback) -> `ws://`.
+    /// `https://host[:port]` -> `wss://host[:port]/ws`; `http://` -> `ws://`, but only for exactly `localhost`,
+    /// `127.0.0.1` or `::1`. Any other scheme, or `http` to any other host, gives nil.
     public static func socketURL(forOrigin origin: String) -> URL? {
-        guard var parts = URLComponents(string: origin) else { return nil }
-        parts.scheme = parts.scheme == "http" ? "ws" : "wss"
+        guard var parts = URLComponents(string: origin), let scheme = parts.scheme?.lowercased(),
+              let host = parts.host, !host.isEmpty
+        else { return nil }
+        switch scheme {
+        case "https": parts.scheme = "wss"
+        case "http":
+            guard GatewayEndpoint.isLoopbackName(host) else { return nil }
+            parts.scheme = "ws"
+        default: return nil
+        }
         parts.path = "/ws"
         return parts.url
     }

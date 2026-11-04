@@ -16,9 +16,11 @@ final class FakeGateway: @unchecked Sendable {
     enum Behavior: Sendable {
         case paired(stateVersion: Int)
         case pending(code: String)
-        case denied(reason: String, setupTokenInvalid: Bool = false)
+        case denied(reason: String, setupTokenInvalid: Bool = false, code: String? = nil)
     }
     enum Lie: Sendable { case none, wrongKey, badSignature, wrongOrigin, noKey }
+    /// What the challenge gets wrong beyond identity: fields `connectSigningPayload` refuses, or an expired challenge.
+    enum Malform: Sendable { case none, emptyNonce, newlineInNonce, protocolZero, protocolTwo, expired }
     /// What the challenge says about the TLS certificate when the transport reports a self-signed one.
     enum Vouch: Sendable { case valid, omitted, badSignature, otherCertificate }
 
@@ -31,20 +33,27 @@ final class FakeGateway: @unchecked Sendable {
     private let lock = NSLock()
     private var _behavior: Behavior
     private var _lie: Lie
+    private var _malform: Malform = .none
     private var _received: [WireReqFrame] = []
     private var _handlers: [String: @Sendable (WireReqFrame) -> Result<JSONValue, WireError>] = [:]
     private var _transports: [FakeTransport] = []
     private var _connects = 0
     private var _dropConnections = false
-    private var _certificate: PeerCertificate?
+    private var _certificate: PeerCertificate? = .trusted
     private var _vouch: Vouch = .valid
 
-    init(behavior: Behavior = .paired(stateVersion: 1), lie: Lie = .none) {
+    /// The key this Gateway signs with (a second Gateway in a test has its own).
+    let identity: Curve25519.Signing.PrivateKey
+    var publicKey: String { Base64URL.encode(identity.publicKey.rawRepresentation) }
+
+    init(behavior: Behavior = .paired(stateVersion: 1), lie: Lie = .none, identity: Curve25519.Signing.PrivateKey = FakeGateway.key) {
         _behavior = behavior
         _lie = lie
+        self.identity = identity
     }
 
     var behavior: Behavior { get { lock.withLock { _behavior } } set { lock.withLock { _behavior = newValue } } }
+    var malform: Malform { get { lock.withLock { _malform } } set { lock.withLock { _malform = newValue } } }
     var lie: Lie { get { lock.withLock { _lie } } set { lock.withLock { _lie = newValue } } }
     var received: [WireReqFrame] { lock.withLock { _received } }
     var connectCount: Int { lock.withLock { _connects } }
@@ -74,20 +83,24 @@ final class FakeGateway: @unchecked Sendable {
         case "connect":
             lock.withLock { _connects += 1 }
             let devicePub = req.params?["publicKey"]?.stringValue ?? ""
-            let nonce = Self.nonce
+            let malform = self.malform
+            var nonce = Self.nonce
+            if malform == .emptyNonce { nonce = "" }
+            if malform == .newlineInNonce { nonce = Self.nonce + "\nX" }
             var origin = Self.origin
-            var key = Self.publicKey
+            var key = publicKey
             let lie = self.lie
             if lie == .wrongOrigin { origin = "https://evil.example" }
             let signedOrigin = lie == .wrongOrigin ? origin : Self.origin
             var payload = GatewaySigning.payload(nonce: nonce, serverOrigin: signedOrigin, devicePublicKey: devicePub)
             if lie == .badSignature { payload = Data("tampered".utf8) }
-            let signer = lie == .wrongKey ? Curve25519.Signing.PrivateKey() : Self.key
+            let signer = lie == .wrongKey ? Curve25519.Signing.PrivateKey() : identity
             if lie == .wrongKey { key = Base64URL.encode(signer.publicKey.rawRepresentation) }
             let signature = Base64URL.encode(try! signer.signature(for: payload))
             var body: [String: JSONValue] = [
                 "phase": "challenge", "nonce": .string(nonce), "serverOrigin": .string(origin),
-                "protocolVersion": .number(1), "expiresAt": "2030-01-01T00:00:00Z",
+                "protocolVersion": .number(malform == .protocolZero ? 0 : malform == .protocolTwo ? 2 : 1),
+                "expiresAt": .string(malform == .expired ? "2020-01-01T00:00:00Z" : "2030-01-01T00:00:00Z"),
             ]
             if lie != .noKey {
                 body["gatewayKey"] = .string(key)
@@ -109,9 +122,9 @@ final class FakeGateway: @unchecked Sendable {
                 result = .object(["phase": "paired", "deviceId": "dev_test", "scopes": .array(["operator.read"]),
                                   "stateVersion": .number(Double(v)), "serverTime": "2030-01-01T00:00:00Z"])
             case .pending(let code): result = .object(["phase": "pending", "pairingRequestId": "pr_1", "code": .string(code)])
-            case .denied(let reason, let tokenInvalid):
+            case .denied(let reason, let tokenInvalid, let code):
                 var body: [String: JSONValue] = ["phase": "denied", "reason": .string(reason)]
-                if tokenInvalid { body["code"] = "setup_token_invalid" }
+                if tokenInvalid { body["code"] = "setup_token_invalid" } else if let code { body["code"] = .string(code) }
                 result = .object(body)
             }
             transport.reply(req.id, .success(result))

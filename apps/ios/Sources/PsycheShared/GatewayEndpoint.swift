@@ -33,6 +33,27 @@ public struct GatewayEndpoint: Hashable, Sendable, Codable {
     /// connected. Later connections must present the same certificate.
     public var lanCertSpki: String?
 
+    /// An origin the phone may dial: `https://host[:port]`, or `http://` only for exactly `localhost`, `127.0.0.1`
+    /// or `::1` (a Gateway on the development machine). No credentials, path, query or fragment. Fixture
+    /// endpoints have no origin at all (empty), which is allowed here and never dialed.
+    public static func isDialableOrigin(_ origin: String) -> Bool {
+        if origin.isEmpty { return true }
+        guard let parts = URLComponents(string: origin), let scheme = parts.scheme?.lowercased(),
+              let host = parts.host?.lowercased(), !host.isEmpty,
+              parts.user == nil, parts.password == nil, parts.query == nil, parts.fragment == nil,
+              parts.path.isEmpty || parts.path == "/"
+        else { return false }
+        switch scheme {
+        case "https": return true
+        case "http": return isLoopbackName(host)
+        default: return false
+        }
+    }
+
+    public static func isLoopbackName(_ host: String) -> Bool {
+        ["localhost", "127.0.0.1", "::1", "[::1]"].contains(host.lowercased())
+    }
+
     public init(
         host: String, fingerprint: String, transport: Transport,
         url: String = "", identityKey: String = "", hostName: String = "",

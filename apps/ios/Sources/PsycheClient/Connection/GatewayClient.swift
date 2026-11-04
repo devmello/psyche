@@ -20,6 +20,8 @@ public struct GatewayClientDependencies: Sendable {
     public var backgroundGrace: Duration
     /// How often a pending (not yet approved) phone asks again.
     public var pendingRecheck: Duration
+    /// The share extension's inbox, wiped with the rest when the pairing ends or the pinned Gateway changes.
+    public var shareInbox: ShareInbox?
     /// Run on revoke, after keys and outbox are wiped: the cache owner clears its files here.
     public var onWipe: @Sendable () async -> Void
 
@@ -34,6 +36,7 @@ public struct GatewayClientDependencies: Sendable {
         stateDirectory: URL? = AppGroup.dataDirectory,
         backgroundGrace: Duration = .seconds(5),
         pendingRecheck: Duration = .seconds(5),
+        shareInbox: ShareInbox? = ShareInbox.shared,
         onWipe: @escaping @Sendable () async -> Void = {}
     ) {
         self.endpointStore = endpointStore
@@ -46,6 +49,7 @@ public struct GatewayClientDependencies: Sendable {
         self.stateDirectory = stateDirectory
         self.backgroundGrace = backgroundGrace
         self.pendingRecheck = pendingRecheck
+        self.shareInbox = shareInbox
         self.onWipe = onWipe
     }
 }
@@ -58,6 +62,10 @@ public actor GatewayClient {
     private let deps: GatewayClientDependencies
 
     private var endpoint: GatewayEndpoint?
+    /// The working pairing, kept aside while a new link is being tried; put back if the attempt fails.
+    private var previousEndpoint: GatewayEndpoint?
+    /// A pairing attempt (link scanned, Gateway not yet proven paired) is under way.
+    private var pairingInProgress = false
     private var setupToken: String?
     private var state: ConnectionState = .unpaired
     private var connection: GatewayConnection?
@@ -178,8 +186,12 @@ public actor GatewayClient {
         let old = connection
         connection = nil
         Task { await old?.close() }
+        // A working pairing stays on disk and in `previousEndpoint` until the new Gateway is proven and paired,
+        // so a link that fails (expired, denied, unreachable, cancelled) costs nothing.
+        if previousEndpoint == nil, let current = endpoint, !current.identityKey.isEmpty { previousEndpoint = current }
         endpoint = link.endpoint
         setupToken = link.setupToken
+        pairingInProgress = true
         set(.connecting)
         active = true
         startRunLoopIfNeeded()
@@ -192,33 +204,100 @@ public actor GatewayClient {
         let old = connection
         connection = nil
         Task { await old?.close() }
-        if deps.endpointStore.load() == nil { endpoint = nil }
         setupToken = nil
+        if pairingInProgress {
+            pairingInProgress = false
+            if restorePreviousEndpoint() {
+                // The earlier pairing was never given up: it carries on.
+                set(.connecting)
+                startRunLoopIfNeeded()
+                return
+            }
+            // Nothing working to go back to: the link's unproven endpoint must not stay in memory or on disk.
+            endpoint = nil
+            deps.endpointStore.clear()
+        } else {
+            endpoint = deps.endpointStore.load()
+        }
         set(.unpaired)
     }
 
-    /// Keys, endpoint, outbox and cache are wiped; the UI returns to pairing.
-    public func revoke() async {
+    /// Puts the working pairing back after a failed attempt. False when there was none.
+    @discardableResult
+    private func restorePreviousEndpoint() -> Bool {
+        guard let previous = previousEndpoint else { return false }
+        previousEndpoint = nil
+        endpoint = previous
+        try? deps.endpointStore.save(previous)  // a pending pin may have written the new one
+        return true
+    }
+
+    /// The fingerprint of the Gateway an endpoint names: its pinned key's, else the link's.
+    static func gatewayBinding(_ endpoint: GatewayEndpoint?) -> String? {
+        guard let endpoint else { return nil }
+        if !endpoint.identityKey.isEmpty { return PairingLink.fingerprint(ofKey: endpoint.identityKey) ?? endpoint.identityKey }
+        return endpoint.linkFingerprint
+    }
+
+    /// Everything saved for the old pairing except the keys and the endpoint: outbox, last-seen state, the share
+    /// inbox and recents, and the cache owner's files.
+    private func wipeLocalData() async {
+        await deps.outbox.wipe()
+        if let dir = deps.stateDirectory { try? FileManager.default.removeItem(at: dir.appendingPathComponent("state.json")) }
+        deps.shareInbox?.wipe()
+        resync = Resync(lastStateVersion: nil)
+        await deps.onWipe()
+    }
+
+    /// Keys, endpoint, outbox, share inbox and cache are wiped; the UI returns to pairing. Everything is wiped
+    /// even when one step fails; the first failure (a Keychain delete) is thrown at the end, after the state
+    /// is `.revoked`, so the caller can say the key may still be on the phone.
+    public func revoke() async throws {
         runLoop?.cancel()
         runLoop = nil
         let old = connection
         connection = nil
         await old?.close()
-        try? await deps.identityStore.wipe()
+        var failure: (any Error)?
+        do { try await deps.identityStore.wipe() } catch { failure = error }
         deps.endpointStore.clear()
-        await deps.outbox.wipe()
-        if let dir = deps.stateDirectory { try? FileManager.default.removeItem(at: dir.appendingPathComponent("state.json")) }
-        resync = Resync(lastStateVersion: nil)
         endpoint = nil
+        previousEndpoint = nil
+        pairingInProgress = false
         setupToken = nil
-        await deps.onWipe()
+        await wipeLocalData()
         set(.revoked)
+        if let failure { throw failure }
+    }
+
+    /// "Remove this phone": asks the Gateway to revoke this device (`devices.revoke` on its own id), and only when
+    /// it did, wipes everything (`revoke`). Throws `BackendError.unreachable` when there is no live connection, and
+    /// the Gateway's refusal as `BackendError.refused`; in both cases nothing is wiped.
+    public func revokeThisDevice() async throws {
+        guard case .live = state, let connection, !ownDeviceID.isEmpty else { throw BackendError.unreachable }
+        do {
+            _ = try await connection.call("devices.revoke", params: .obj(["deviceId": .string(ownDeviceID)]))
+        } catch {
+            throw Self.backendError(error)
+        }
+        // The Gateway has removed this phone, so the wipe is not optional from here: a Keychain failure is shown
+        // on the pairing screen instead of throwing back to a Settings sheet that is about to close.
+        await revokeReportingFailure()
+    }
+
+    /// `revoke` for the paths with no caller to throw to: a Keychain failure goes to the pairing screen's message.
+    private func revokeReportingFailure() async {
+        do { try await revoke() } catch {
+            for c in failureSubscribers.values {
+                c.yield("This phone was removed, but its key could not be deleted from the Keychain. Restart your phone, then try again.")
+            }
+        }
     }
 
     /// The owner chose to start over from the refused or revoked screen.
-    public func forgetGateway() async {
-        await revoke()
-        set(.unpaired)
+    public func forgetGateway() async throws {
+        defer { set(.unpaired) }
+        try await revoke()
     }
 
     // MARK: - Calls
@@ -248,7 +327,17 @@ public actor GatewayClient {
 
     /// Queues a write and sends it now when connected. `.queued` means the Gateway has not acknowledged it yet.
     public func submit(_ entry: OutboxEntry) async -> Outbox.Delivery {
-        await deps.outbox.enqueue(entry)
+        // A write belongs to the Gateway this phone is paired with; without one there is nowhere to send it.
+        guard let gateway = Self.gatewayBinding(endpoint) else { return .rejected("This phone isn't paired with a Mac.") }
+        var stamped = entry
+        stamped.gateway = gateway
+        if await deps.outbox.enqueue(stamped) != nil {
+            // The queue file could not be written. Sent now it is fine; waiting would not survive a relaunch.
+            if case .live = state {} else {
+                await deps.outbox.discard(id: entry.id)
+                return .rejected("This phone couldn't save your message to send later. Try again when your Mac is reachable.")
+            }
+        }
         guard case .live = state else { return .queued }
         let outcomes = await flushOutbox()
         // A flush already running (the one that starts on connect) may have sent this entry, not ours.
@@ -258,12 +347,14 @@ public actor GatewayClient {
 
     @discardableResult
     private func flushOutbox() async -> [String: Outbox.Delivery] {
-        await deps.outbox.flush { [self] entry in
+        let gateway = Self.gatewayBinding(endpoint)
+        return await deps.outbox.flush(gateway: gateway, checkGateway: true) { [self] entry in
             guard case .live = await self.currentState, let connection = await self.connection else {
                 throw Outbox.OutboxSendError.retryLater
             }
             do {
-                return try await connection.call(entry.method, params: entry.params, idempotencyKey: entry.id)
+                // The method comes from the entry's kind, never from what the queue file says.
+                return try await connection.call(entry.kind.method, params: entry.params, idempotencyKey: entry.id)
             } catch ConnectionFailure.remote(let wire) {
                 if wire.retryable == true || wire.code == "unavailable" || wire.code == "rate_limited" {
                     throw Outbox.OutboxSendError.retryLater
@@ -295,15 +386,32 @@ public actor GatewayClient {
                 setupToken = nil
                 set(.pending(PendingApproval(code: Self.groupedCode(code), endpoint: endpoint, deviceName: deps.deviceName)))
                 try? await Task.sleep(for: deps.pendingRecheck)
-            case .denied(let reason, let tokenInvalid):
+            case .denied(let reason, let tokenInvalid, let code, let provenPinned):
                 var wasPairing = token != nil
                 if case .pending = state { wasPairing = true }
-                await handleDenied(reason: reason, tokenInvalid: tokenInvalid, wasPairing: wasPairing)
-                return
+                let action = await handleDenied(
+                    reason: reason, tokenInvalid: tokenInvalid, code: code, wasPairing: wasPairing, provenPinned: provenPinned)
+                if action == .stop { return }
+                try? await Task.sleep(for: .seconds(deps.backoff.delay(attempt: attempt)))
+                attempt += 1
             case .refused:
+                if pairingInProgress, restorePreviousEndpoint() {
+                    pairingInProgress = false
+                    setupToken = nil
+                    publishFailure("That pairing link is for a different Mac than the one it names, so it was not used. Your earlier connection is unchanged.")
+                    set(.connecting)
+                    continue
+                }
                 set(.refused(.identityMismatch))
                 return
             case .unreachable:
+                if pairingInProgress, restorePreviousEndpoint() {
+                    pairingInProgress = false
+                    setupToken = nil
+                    publishFailure("Couldn't reach the Mac in that pairing link. Your earlier connection is unchanged.")
+                    set(.connecting)
+                    continue
+                }
                 let reason = await UnreachableClassifier.classify(endpoint, reachability: deps.reachability)
                 if Task.isCancelled { return }
                 set(.unreachable(reason))
@@ -313,10 +421,14 @@ public actor GatewayClient {
         }
     }
 
+    private func publishFailure(_ message: String) {
+        for c in failureSubscribers.values { c.yield(message) }
+    }
+
     private enum Attempt {
         case live(AsyncStream<WireEventFrame>)
         case pending(code: String)
-        case denied(String, tokenInvalid: Bool)
+        case denied(String, tokenInvalid: Bool, code: String?, provenPinned: Bool)
         case refused
         case unreachable
     }
@@ -335,7 +447,7 @@ public actor GatewayClient {
             let outcome = try await connection.handshake(setupToken: setupToken)
             switch outcome {
             case .paired(let deviceID, _, let stateVersion):
-                await pin(connection, to: endpoint)
+                await pin(connection, to: endpoint, paired: true)
                 self.connection = connection
                 self.mapper = EventMapper(lookupQuestion: { [weak connection] id in
                     guard let connection,
@@ -350,12 +462,16 @@ public actor GatewayClient {
                 Task { await self.flushOutbox() }
                 return .live(connection.events)
             case .pending(let code):
-                await pin(connection, to: endpoint)  // the Gateway proved the key (and certificate) it is pinned by
+                await pin(connection, to: endpoint, paired: false)  // the Gateway proved the key it is pinned by
                 await connection.close()
                 return .pending(code: code)
-            case .denied(let reason, let tokenInvalid):
+            case .denied(let reason, let tokenInvalid, let code):
+                // Whether the Gateway that said no is the one this phone has pinned (a key, not just a link's
+                // fingerprint) and proved it holds that key in this handshake.
+                let proven = await connection.proven
+                let provenPinned = !endpoint.identityKey.isEmpty && proven?.key == endpoint.identityKey
                 await connection.close()
-                return .denied(reason, tokenInvalid: tokenInvalid)
+                return .denied(reason, tokenInvalid: tokenInvalid, code: code, provenPinned: provenPinned)
             }
         } catch ConnectionFailure.identityMismatch {
             return .refused
@@ -367,14 +483,27 @@ public actor GatewayClient {
 
     /// Stores the endpoint with what the Gateway just proved: its key (replacing the link's fingerprint as the pin)
     /// and, on the local network, the certificate it served. Only a connection that passed `IdentityCheck` gets here.
-    private func pin(_ connection: GatewayConnection, to endpoint: GatewayEndpoint) async {
+    ///
+    /// While another pairing is still working (`previousEndpoint`), a `pending` proof stays in memory only and the
+    /// stored endpoint is left alone; only `paired` replaces it, and only then, when the Gateway is a different
+    /// one, is everything saved for the old Gateway wiped.
+    private func pin(_ connection: GatewayConnection, to endpoint: GatewayEndpoint, paired: Bool) async {
         var pinned = endpoint
         if let proven = await connection.proven {
             pinned.identityKey = proven.key
             if pinned.lanCertSpki == nil { pinned.lanCertSpki = proven.certSPKI }
         }
         self.endpoint = pinned
-        try? deps.endpointStore.save(pinned)
+        if paired {
+            if let previous = previousEndpoint, Self.gatewayBinding(previous) != Self.gatewayBinding(pinned) {
+                await wipeLocalData()
+            }
+            previousEndpoint = nil
+            pairingInProgress = false
+            try? deps.endpointStore.save(pinned)
+        } else if previousEndpoint == nil {
+            try? deps.endpointStore.save(pinned)
+        }
     }
 
     private var ownDeviceID = ""
@@ -387,7 +516,7 @@ public actor GatewayClient {
             self.mapper = mapper
             for event in mapped { publish(event) }
             if effect == .thisDeviceRevoked {
-                await revoke()
+                await revokeReportingFailure()
                 return
             }
         }
@@ -396,25 +525,41 @@ public actor GatewayClient {
         persistStateVersion()
     }
 
-    /// `denied` on a reconnect of a paired phone means the device was revoked (or forgotten): wipe and
-    /// return to pairing. `denied` while pairing is a message for the pairing screen.
-    private func handleDenied(reason: String, tokenInvalid: Bool, wasPairing: Bool) async {
-        let lower = reason.lowercased()
-        // The Gateway's own words for a spent link say "revoked" too ("used, expired or was revoked"), so its
-        // machine-readable code decides first: that is about the link, never about this device.
-        if !tokenInvalid && (lower.contains("revoked") || !wasPairing) {
-            await revoke()
-            return
+    private enum DenialAction { case stop, retry }
+
+    /// What a `denied` answer means, decided by the Gateway's machine-readable `code`, never by its wording:
+    /// - `setup_token_invalid`: the link was spent; a message for the pairing screen, and a working pairing is
+    ///   put back rather than cleared.
+    /// - `device_revoked`, from the pinned Gateway that just proved its key, on a reconnect: this phone was
+    ///   removed, so everything is wiped.
+    /// - anything else on a reconnect (a reason that merely says "revoked", a code we do not know): nothing is
+    ///   wiped; the phone keeps its pairing and tries again later.
+    /// - anything else while pairing: a message, and the earlier pairing is put back.
+    private func handleDenied(
+        reason: String, tokenInvalid: Bool, code: String?, wasPairing: Bool, provenPinned: Bool
+    ) async -> DenialAction {
+        if !wasPairing {
+            if code == "device_revoked", provenPinned {
+                await revokeReportingFailure()
+                return .stop
+            }
+            set(.unreachable(.gatewayOff))
+            return .retry
         }
-        // A pairing link that expired, was used, or never existed all read the same on the wire.
-        let message = tokenInvalid || lower.contains("link") || lower.contains("token")
+        let message = tokenInvalid
             ? "That pairing link expired or was already used. Make a new link on your Mac."
             : "Your Mac didn't accept this phone: \(reason)"
-        for c in failureSubscribers.values { c.yield(message) }
+        publishFailure(message)
+        pairingInProgress = false
+        setupToken = nil
+        if restorePreviousEndpoint() {
+            set(.connecting)
+            return .retry
+        }
         deps.endpointStore.clear()
         endpoint = nil
-        setupToken = nil
         set(.unpaired)
+        return .stop
     }
 
     static func groupedCode(_ code: String) -> String {
@@ -433,7 +578,9 @@ public actor GatewayClient {
 
     private func persistStateVersion() {
         guard let dir = deps.stateDirectory, let version = resync.lastStateVersion else { return }
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        try? JSONEncoder().encode(["stateVersion": version]).write(to: dir.appendingPathComponent("state.json"), options: .atomic)
+        try? AppGroup.prepareDirectory(dir)
+        try? JSONEncoder().encode(["stateVersion": version]).write(
+            to: dir.appendingPathComponent("state.json"),
+            options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
     }
 }

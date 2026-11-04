@@ -30,6 +30,12 @@ public enum ConnectionFailure: Error, Equatable, Sendable {
 public enum IdentityCheck {
     public enum Failure: Error, Equatable, Sendable {
         case missingKey, keyChanged, badSignature, originMismatch
+        /// The challenge breaks the signing-input rules (`connectSigningPayload` in `packages/protocol`): an
+        /// empty or newline-containing nonce, origin or key, a protocol version below 1, or one this app
+        /// does not speak.
+        case badChallenge
+        /// The challenge's `expiresAt` is past, or not a date.
+        case challengeExpired
         /// A self-signed LAN certificate was served but the challenge does not vouch for one.
         case certMissing
         /// The Gateway key's signature over the certificate is not valid.
@@ -71,9 +77,18 @@ public enum IdentityCheck {
     /// sent unless all of this holds.
     public static func verify(
         challenge: WireConnectChallenge, pin: Pin, dialedOrigin: String, devicePublicKey: String,
-        certificate: PeerCertificate? = nil
+        certificate: PeerCertificate? = nil, now: Date = Date()
     ) -> Result<Proven, Failure> {
         guard let key = challenge.gatewayKey, let signature = challenge.gatewaySignature else { return .failure(.missingKey) }
+        // The same rules the Gateway's own `connectSigningPayload` enforces, so a challenge it could not have
+        // signed is refused before anything is signed here.
+        guard isSignable(challenge.nonce), isSignable(challenge.serverOrigin), isSignable(key), isSignable(devicePublicKey),
+              challenge.protocolVersion >= 1, challenge.protocolVersion == WireProtocol.version
+        else { return .failure(.badChallenge) }
+        guard let expires = parseDate(challenge.expiresAt), expires > now else { return .failure(.challengeExpired) }
+        // A `wss://` connection always reports how its certificate was accepted; none at all means the
+        // transport cannot vouch for the channel, and the LAN certificate check must not be skipped.
+        if dialedOrigin.lowercased().hasPrefix("https://"), certificate == nil { return .failure(.certMissing) }
         guard challenge.serverOrigin == dialedOrigin else { return .failure(.originMismatch) }
         if let pinned = pin.key {
             guard key == pinned else { return .failure(.keyChanged) }
@@ -104,6 +119,22 @@ public enum IdentityCheck {
     }
 }
 
+extension IdentityCheck {
+    /// Non-empty and free of CR and LF: what `connectSigningPayload` accepts as a field.
+    static func isSignable(_ value: String) -> Bool {
+        !value.isEmpty && !value.contains(where: { $0 == "\n" || $0 == "\r" || $0 == "\r\n" })
+    }
+
+    static func parseDate(_ text: String) -> Date? {
+        let plain = ISO8601DateFormatter()
+        plain.formatOptions = [.withInternetDateTime]
+        if let date = plain.date(from: text) { return date }
+        let fractional = ISO8601DateFormatter()
+        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return fractional.date(from: text)
+    }
+}
+
 /// One WebSocket to the Gateway: handshake with identity verification, typed calls with id
 /// correlation and timeouts, and the event stream with `seq` and `stateVersion` tracking.
 /// A new instance per connection attempt; `GatewayClient` owns the lifetime and the retries.
@@ -112,7 +143,9 @@ public actor GatewayConnection {
         case paired(deviceID: String, scopes: [String], stateVersion: Int)
         case pending(code: String)
         /// `setupTokenInvalid` is the Gateway's machine-readable `code`: the pairing link was used, expired or revoked.
-        case denied(reason: String, setupTokenInvalid: Bool = false)
+        /// `code` is the Gateway's machine-readable cause when it gave one (`device_revoked` means this phone was
+        /// removed); the reason text is for people and decides nothing.
+        case denied(reason: String, setupTokenInvalid: Bool = false, code: String? = nil)
     }
 
     public nonisolated let events: AsyncStream<WireEventFrame>
@@ -148,7 +181,9 @@ public actor GatewayConnection {
         self.deviceName = deviceName
         self.transport = transport
         self.onClose = onClose
-        (events, eventSink) = AsyncStream.makeStream(bufferingPolicy: .unbounded)
+        // Bounded: a Gateway that floods events cannot grow this without limit. When the consumer falls behind,
+        // the oldest are dropped and the `seq` gap makes the client resync.
+        (events, eventSink) = AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1024))
     }
 
     // MARK: - Handshake
@@ -197,7 +232,9 @@ public actor GatewayConnection {
                 deviceID: result.deviceId ?? identity.deviceId, scopes: result.scopes ?? [],
                 stateVersion: result.stateVersion ?? 0)
         case "pending": return .pending(code: result.code ?? "")
-        default: return .denied(reason: result.reason ?? "denied", setupTokenInvalid: result.code == "setup_token_invalid")
+        default:
+            return .denied(
+                reason: result.reason ?? "denied", setupTokenInvalid: result.code == "setup_token_invalid", code: result.code)
         }
     }
 
@@ -266,6 +303,8 @@ public actor GatewayConnection {
             entry.timer.cancel()
             entry.continuation.resume(returning: res)
         case .event(let event):
+            // Nothing from the Gateway is acted on before its identity was proven.
+            guard proven != nil else { return }
             lastSeq = event.seq
             stateVersion = max(stateVersion ?? 0, event.stateVersion)
             eventSink.yield(event)

@@ -15,17 +15,23 @@ import UIKit
 private struct AppModel {
     var session: Session
     var backend: any PsycheBackend
+    /// The live Gateway client, nil in fixture mode.
+    var client: GatewayClient?
 
-    /// `-psycheScenario <name>` (unpaired, pending, live, away, gatewayOff, tailscaleOff, mismatch) runs the fixtures.
+    /// Debug builds only: `-psycheScenario <name>` (unpaired, pending, live, away, gatewayOff, tailscaleOff,
+    /// mismatch) runs the fixtures. A release build ignores launch arguments, so nothing on a device's launch
+    /// line can swap the Gateway for fixtures.
     static func launch(defaults: UserDefaults = .standard) -> AppModel {
+        #if DEBUG
         if let name = defaults.string(forKey: "psycheScenario"), !name.isEmpty {
             return fixtures(FixtureSessionDriver.fromLaunchArguments(defaults))
         }
+        #endif
         return live()
     }
 
     static func fixtures(_ driver: FixtureSessionDriver = FixtureSessionDriver(scenario: .live)) -> AppModel {
-        AppModel(session: Session(driver: driver), backend: FixtureBackend.shared)
+        AppModel(session: Session(driver: driver), backend: FixtureBackend.shared, client: nil)
     }
 
     static func live() -> AppModel {
@@ -37,7 +43,7 @@ private struct AppModel {
         let store = EndpointStore.standard()
         let client = GatewayClient(dependencies: GatewayClientDependencies(endpointStore: store, deviceName: deviceName))
         let driver = LiveSessionDriver(client: client, endpoint: store.load())
-        return AppModel(session: Session(driver: driver), backend: GatewayBackend(client: client))
+        return AppModel(session: Session(driver: driver), backend: GatewayBackend(client: client), client: client)
     }
 }
 
@@ -57,7 +63,12 @@ struct PsycheApp: App {
                 model.session.setActive(phase == .active)
             }
             .onChange(of: model.session.fixtureModeRequested) { _, requested in
-                if requested { model = .fixtures() }
+                guard requested else { return }
+                // Leaving the live client behind must stop it: a pairing attempt in progress is cancelled (nothing
+                // unproven stays stored) and its connection closes.
+                let live = model.client
+                model = .fixtures()
+                if let live { Task { await live.cancelPairing(); await live.setActive(false) } }
             }
     }
 

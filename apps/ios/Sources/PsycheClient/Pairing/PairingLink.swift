@@ -137,6 +137,7 @@ public struct PairingLink: Equatable, Sendable {
         guard parts.path.isEmpty || parts.path == "/" else { throw ParseError.badGatewayURL("path") }
         guard scheme == "https" else { throw ParseError.badGatewayURL("must be https") }
         host = host.trimmingCharacters(in: CharacterSet(charactersIn: "[]"))  // IPv6 literals may or may not carry brackets
+        guard isPlainHost(host) else { throw ParseError.badGatewayURL("not a plain host name") }
         guard !isLoopback(host) else { throw ParseError.badGatewayURL("that is this phone") }
         if host.contains(":") { host = "[\(host)]" }
         var result = "https://\(host)"
@@ -145,6 +146,15 @@ public struct PairingLink: Equatable, Sendable {
             if port != 443 { result += ":\(port)" }
         }
         return result
+    }
+
+    /// A host name made of ASCII letters, digits, `.` and `-` (so also dotted IPv4), or an IPv6 literal (hex
+    /// digits, `:` and, for a mapped IPv4, `.`). Anything else, a zone id (`%`) included, is refused.
+    static func isPlainHost(_ host: String) -> Bool {
+        guard !host.isEmpty else { return false }
+        func hex(_ c: Character) -> Bool { c.isASCII && c.isHexDigit }
+        if host.contains(":") { return host.allSatisfy { hex($0) || $0 == ":" || $0 == "." } }
+        return host.allSatisfy { ($0.isASCII && ($0.isLetter || $0.isNumber)) || $0 == "." || $0 == "-" }
     }
 
     /// `localhost`, `::1` and the whole `127.` block (main refuses the first three names; a URL parser would

@@ -9,8 +9,18 @@ import Testing
 
 /// The whole phone side against a scripted Gateway: pair, pending, refuse, revoke, reconnect, outbox.
 struct GatewayClientTests {
+    /// Which Gateway the transports reach, so a test can move the phone to another one.
+    final class Route: @unchecked Sendable {
+        private let lock = NSLock()
+        private var current: FakeGateway
+        init(_ gateway: FakeGateway) { current = gateway }
+        var gateway: FakeGateway { get { lock.withLock { current } } set { lock.withLock { current = newValue } } }
+    }
+
     final class Harness: @unchecked Sendable {
-        let gateway: FakeGateway
+        let route: Route
+        var gateway: FakeGateway { route.gateway }
+        let inbox: ShareInbox
         let client: GatewayClient
         let endpointStore: EndpointStore
         let secrets = MemorySecretStore()
@@ -20,18 +30,20 @@ struct GatewayClientTests {
         let wiped = Flag()
 
         init(gateway: FakeGateway = FakeGateway(), reachability: any Reachability = FakeReachability(resolvesHost: true, local: true), persist: Bool = false) {
-            self.gateway = gateway
+            let route = Route(gateway)
+            self.route = route
             dir = FileManager.default.temporaryDirectory.appendingPathComponent("client-\(UUID().uuidString)")
+            inbox = ShareInbox(root: dir.appendingPathComponent("ShareInbox"))
             endpointStore = EndpointStore(directory: dir)
             identityStore = DeviceIdentityStore(store: secrets)
             outbox = Outbox(directory: dir)
             let wiped = self.wiped
             client = GatewayClient(dependencies: GatewayClientDependencies(
                 endpointStore: endpointStore, identityStore: identityStore, outbox: outbox,
-                transportFactory: { _, _ in gateway.makeTransport() }, reachability: reachability,
+                transportFactory: { _, _ in route.gateway.makeTransport() }, reachability: reachability,
                 backoff: Backoff(base: 0.02, cap: 0.05, random: { 0 }), deviceName: "Test iPhone",
                 stateDirectory: dir, backgroundGrace: .milliseconds(80), pendingRecheck: .milliseconds(40),
-                onWipe: { wiped.set() }))
+                shareInbox: inbox, onWipe: { wiped.set() }))
         }
         deinit { try? FileManager.default.removeItem(at: dir) }
     }
@@ -60,6 +72,15 @@ struct GatewayClientTests {
             group.cancelAll()
             return first
         }
+    }
+
+    /// Pairs, goes live, then loses the Gateway: what a phone away from home looks like.
+    static func pairedThenOffline(_ h: Harness) async throws {
+        await h.client.beginPairing(try link())
+        #expect(await wait(h.client) { $0 == .live } == .live)
+        h.gateway.down = true
+        h.gateway.lastTransport?.dropFromGatewaySide()
+        #expect(await wait(h.client) { if case .unreachable = $0 { true } else { false } } != nil)
     }
 
     // MARK: -
@@ -143,7 +164,7 @@ struct GatewayClientTests {
         let h = Harness(gateway: gateway)
         await h.client.beginPairing(try Self.link())
         #expect(await Self.wait(h.client) { $0 == .live } == .live)
-        gateway.behavior = .denied(reason: "device revoked")
+        gateway.behavior = .denied(reason: "device revoked", code: "device_revoked")
         gateway.lastTransport?.dropFromGatewaySide()
         #expect(await Self.wait(h.client) { $0 == .revoked } == .revoked)
     }
@@ -206,13 +227,14 @@ struct GatewayClientTests {
             return .success(.object(["messageId": .string("m-" + (req.idempotencyKey ?? "")), "queued": .bool(false)]))
         }
         let h = Harness(gateway: gateway)
+        try await Self.pairedThenOffline(h)
         // Offline: two sends are accepted into the outbox.
         for id in ["one", "two"] {
             let entry = OutboxEntry(id: id, kind: .chatSend, method: "chat.send", params: .object(["threadId": "t", "content": .string(id)]))
             let result = await h.client.submit(entry)
             #expect(result == .queued)
         }
-        await h.client.beginPairing(try Self.link())
+        gateway.down = false
         #expect(await Self.wait(h.client) { $0 == .live } == .live)
         try await Task.sleep(for: .milliseconds(200))
         #expect(order.all == ["one", "two"])

@@ -92,6 +92,7 @@ struct GatewayBackendTests {
     @Test func sendingWhileOfflineIsQueuedNotLost() async throws {
         let gateway = FakeGateway()
         let h = GatewayClientTests.Harness(gateway: gateway)
+        try await GatewayClientTests.pairedThenOffline(h)
         let backend = GatewayBackend(client: h.client)
         let result = try await backend.send(MessageDraft(clientID: "c9", threadID: "thr_1", text: "Later"))
         #expect(result == SentMessage(threadID: "thr_1", messageID: "c9", delivery: .queued))

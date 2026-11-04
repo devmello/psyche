@@ -54,7 +54,8 @@ struct OutboxTests {
             return .null
         }
         #expect(sent.all == ["a", "z"])  // z was sent, not removed unsent in a's place
-        #expect(Set(outcomes.keys) == ["a", "z"])
+        // a's result belongs to the wiped pairing and is ignored; z is the new pairing's and is reported.
+        #expect(Set(outcomes.keys) == ["z"])
         #expect(await outbox.isEmpty)
     }
 

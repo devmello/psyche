@@ -74,7 +74,8 @@ struct GatewayIdentityTests {
     @Test func challengeGateAcceptsOnlyTheFullChain() {
         func check(_ c: WireConnectChallenge, pin: String = Self.gatewayKey, dialed: String = Self.origin) -> IdentityCheck.Failure? {
             let result = IdentityCheck.verify(
-                challenge: c, pin: IdentityCheck.Pin(key: pin), dialedOrigin: dialed, devicePublicKey: Self.devicePublicKey)
+                challenge: c, pin: IdentityCheck.Pin(key: pin), dialedOrigin: dialed, devicePublicKey: Self.devicePublicKey,
+                certificate: .trusted)
             if case .failure(let failure) = result { return failure }
             return nil
         }
@@ -94,7 +95,7 @@ struct GatewayIdentityTests {
         func check(_ fp: String?) -> Result<IdentityCheck.Proven, IdentityCheck.Failure> {
             IdentityCheck.verify(
                 challenge: challenge(), pin: IdentityCheck.Pin(fingerprint: fp), dialedOrigin: Self.origin,
-                devicePublicKey: Self.devicePublicKey)
+                devicePublicKey: Self.devicePublicKey, certificate: .trusted)
         }
         #expect(check(fingerprint) == .success(IdentityCheck.Proven(key: Self.gatewayKey, certSPKI: nil)))
         #expect(check("sha256:" + String(repeating: "0", count: 64)) == .failure(.keyChanged))

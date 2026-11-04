@@ -16,13 +16,18 @@ public struct EndpointStore: Sendable {
 
     private var fileURL: URL { directory.appendingPathComponent("endpoint.json") }
 
+    /// The stored endpoint, revalidated: a file that was edited or came from an older build must still be an
+    /// origin this phone would dial (https, or http only for loopback), or it counts as no pairing at all.
     public func load() -> GatewayEndpoint? {
-        guard let data = try? Data(contentsOf: fileURL) else { return nil }
-        return try? JSONDecoder().decode(GatewayEndpoint.self, from: data)
+        guard let data = try? Data(contentsOf: fileURL),
+              let endpoint = try? JSONDecoder().decode(GatewayEndpoint.self, from: data),
+              GatewayEndpoint.isDialableOrigin(endpoint.url)
+        else { return nil }
+        return endpoint
     }
 
     public func save(_ endpoint: GatewayEndpoint) throws {
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try AppGroup.prepareDirectory(directory)
         try JSONEncoder().encode(endpoint).write(to: fileURL, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
     }
 

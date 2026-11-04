@@ -25,4 +25,17 @@ extension AppGroup {
             ?? FileManager.default.temporaryDirectory
         return base.appendingPathComponent("Psyche", isDirectory: true)
     }
+
+    /// Creates `directory` if needed and keeps it out of iCloud and device backups: what is in here belongs to
+    /// one Gateway pairing on this phone and must not travel to another device or restore after a revoke.
+    /// Files in it are protected until first unlock (readable by the extensions after the first unlock).
+    public static func prepareDirectory(_ directory: URL) throws {
+        var url = directory
+        try FileManager.default.createDirectory(
+            at: url, withIntermediateDirectories: true,
+            attributes: [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication])
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        try url.setResourceValues(values)
+    }
 }

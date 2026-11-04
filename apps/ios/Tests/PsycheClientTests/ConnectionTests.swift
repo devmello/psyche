@@ -79,7 +79,9 @@ struct ConnectionTests {
         #expect(try await connection(pending).handshake(setupToken: nil) == .pending(code: "482917"))
         let denied = FakeGateway(behavior: .denied(reason: "This pairing link was already used, has expired or was revoked.", setupTokenInvalid: true))
         #expect(try await connection(denied).handshake(setupToken: Self.token)
-            == .denied(reason: "This pairing link was already used, has expired or was revoked.", setupTokenInvalid: true))
+            == .denied(
+                reason: "This pairing link was already used, has expired or was revoked.", setupTokenInvalid: true,
+                code: "setup_token_invalid"))
     }
 
     @Test func callsCorrelateByIdEvenWhenAnsweredOutOfOrder() async throws {

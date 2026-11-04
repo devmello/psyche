@@ -9,7 +9,7 @@ public enum ShareInboxDrain {
     /// half-finished attempt can't send the message twice. "New chat" opens a thread first.
     @discardableResult
     public static func run(inbox: ShareInbox, backend: any PsycheBackend) async -> ShareInbox.DrainResult {
-        await inbox.drain { item in
+        await inbox.drain(countsAsAttempt: countsAsAttempt) { item in
             let threadID: String
             if let chosen = item.destination.threadID {
                 threadID = chosen
@@ -26,6 +26,15 @@ public enum ShareInboxDrain {
             _ = try await backend.send(
                 MessageDraft(clientID: item.id, threadID: threadID, text: item.messageText, attachmentIDs: attachments))
         }
+    }
+
+    /// Whether a failed attempt should use one of an item's `maxAttempts`. Away from the Mac (`unreachable`, or
+    /// no network at all) is not the item's fault: it waits without losing an attempt, so a week away from home
+    /// cannot throw a share out. Anything else (refused, not found, a bad file) counts.
+    public static func countsAsAttempt(_ error: any Error) -> Bool {
+        if let backend = error as? BackendError, backend == .unreachable { return false }
+        if error is URLError { return false }
+        return true
     }
 
     /// Writes the threads the share sheet's picker offers: the main thread first, then the newest.
