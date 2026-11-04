@@ -59,6 +59,7 @@ struct GatewayBackendTests {
             .user(id: "m1", text: "When is rent due?"),
             .toolCall(id: "tc1", symbol: "envelope", summary: "Searched mail"),
             .assistant(id: "m2", text: "Found it.", streaming: false),
+            .unknown(id: "m2-2-plan", type: "plan"),  // only an id on the wire: "Open on your Mac"
         ])
     }
 

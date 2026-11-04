@@ -47,6 +47,8 @@ public actor Outbox {
     private var entries: [OutboxEntry]
     private var results: [String: Delivery] = [:]
     private var flushing = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+    private var settled: [String: Delivery] = [:]
 
     /// `directory` nil keeps the queue in memory only (tests).
     public init(directory: URL?) {
@@ -71,23 +73,31 @@ public actor Outbox {
     }
 
     /// Sends queued entries in order until one cannot go (offline) or all are done. Returns each
-    /// entry's outcome. Only one flush runs at a time; a second call returns what is already known.
+    /// entry's outcome. Only one flush runs at a time: a second call waits for the first and then runs
+    /// its own, and an outcome the first one reached stays available through `takeOutcome(for:)`.
     @discardableResult
     public func flush(using send: Sender) async -> [String: Delivery] {
-        guard !flushing else { return [:] }
+        while flushing { await withCheckedContinuation { waiters.append($0) } }
         flushing = true
-        defer { flushing = false }
+        defer {
+            flushing = false
+            let waiting = waiters
+            waiters = []
+            for waiter in waiting { waiter.resume() }
+        }
         var outcomes: [String: Delivery] = [:]
         while let next = entries.first {
             do {
                 let result = try await send(next)
-                entries.removeFirst()
+                entries.removeAll { $0.id == next.id }  // by id: a wipe may have run while the send was in flight
                 persist()
                 outcomes[next.id] = .delivered(result)
+                settle(next.id, .delivered(result))
             } catch OutboxSendError.rejected(let why) {
-                entries.removeFirst()
+                entries.removeAll { $0.id == next.id }  // by id: a wipe may have run while the send was in flight
                 persist()
                 outcomes[next.id] = .rejected(why)
+                settle(next.id, .rejected(why))
             } catch {
                 break  // retryLater / unreachable: keep order, try again on the next connect.
             }
@@ -95,9 +105,19 @@ public actor Outbox {
         return outcomes
     }
 
+    /// What happened to an entry some flush sent, once. A caller whose flush found another one running (the
+    /// one that starts on connect) reads its entry's outcome here.
+    public func takeOutcome(for id: String) -> Delivery? { settled.removeValue(forKey: id) }
+
+    private func settle(_ id: String, _ delivery: Delivery) {
+        if settled.count >= 200 { settled.removeAll() }  // outcomes nobody asked for must not pile up
+        settled[id] = delivery
+    }
+
     /// Revoked or unpaired: nothing from the old pairing may reach a new Gateway.
     public func wipe() {
         entries.removeAll()
+        settled.removeAll()
         if let fileURL { try? FileManager.default.removeItem(at: fileURL) }
     }
 

@@ -251,7 +251,9 @@ public actor GatewayClient {
         await deps.outbox.enqueue(entry)
         guard case .live = state else { return .queued }
         let outcomes = await flushOutbox()
-        return outcomes[entry.id] ?? .queued
+        // A flush already running (the one that starts on connect) may have sent this entry, not ours.
+        if let outcome = outcomes[entry.id] { return outcome }
+        return await deps.outbox.takeOutcome(for: entry.id) ?? .queued
     }
 
     @discardableResult

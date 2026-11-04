@@ -41,6 +41,46 @@ struct OutboxTests {
         #expect(sent.all == ["a", "b", "c"])
     }
 
+    @Test func aWipeDuringASendNeitherCrashesNorDropsAnEntryQueuedAfterIt() async {
+        let outbox = Outbox(directory: nil)
+        await outbox.enqueue(Self.entry("a"))
+        let sent = Sent()
+        let outcomes = await outbox.flush { e in
+            sent.add(e.id)
+            if e.id == "a" {  // revoked while this one is in flight, then the phone is paired again
+                await outbox.wipe()
+                await outbox.enqueue(Self.entry("z"))
+            }
+            return .null
+        }
+        #expect(sent.all == ["a", "z"])  // z was sent, not removed unsent in a's place
+        #expect(Set(outcomes.keys) == ["a", "z"])
+        #expect(await outbox.isEmpty)
+    }
+
+    @Test func aFlushThatFindsAnotherRunningWaitsAndItsEntryOutcomeIsStillReported() async {
+        let outbox = Outbox(directory: nil)
+        await outbox.enqueue(Self.entry("a"))
+        let gate = AsyncStream<Void>.makeStream()
+        let first = Task {
+            await outbox.flush { e in
+                if e.id == "a" { for await _ in gate.stream { break } }  // a is in flight until released
+                return .object(["id": .string(e.id)])
+            }
+        }
+        try? await Task.sleep(for: .milliseconds(50))
+        await outbox.enqueue(Self.entry("b"))
+        let second = Task { await outbox.flush { e in .object(["id": .string(e.id)]) } }
+        try? await Task.sleep(for: .milliseconds(50))
+        gate.continuation.yield()
+        _ = await first.value
+        _ = await second.value
+        // b went out in the first flush's loop; the caller who queued it still learns how it went.
+        #expect(await outbox.takeOutcome(for: "b") == .delivered(.object(["id": "b"])))
+        #expect(await outbox.takeOutcome(for: "b") == nil)
+        #expect(await outbox.isEmpty)
+    }
+
     @Test func aDuplicateIdIsQueuedOnce() async {
         let outbox = Outbox(directory: nil)
         await outbox.enqueue(Self.entry("a"))

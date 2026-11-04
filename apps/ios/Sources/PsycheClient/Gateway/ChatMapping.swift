@@ -8,8 +8,11 @@ import PsycheWire
 /// One message becomes: its text blocks merged into one `.user` / `.assistant` row whose id is the
 /// message id (so `chat.delta`, which names the message, lands on it), a `.toolCall` row per
 /// `tool_call` block (id = toolCallId), a `.question` row per `question` block, and an `.evidence` row
-/// for `sources`. Blocks the phone has no native view for yet (plan, artifact, widget, receipt, …) are
-/// skipped here; I4's block renderers pick them up when they exist.
+/// for `sources`, and so on for every block whose row can be drawn from the block alone (`ui` becomes
+/// `.widget`, `checklist` a progress list, `file`/`artifact`, `app_link`, `context`, `related_threads`,
+/// `wrap_up`, `learned`, `taught`, `compaction`). Blocks that only carry an id of something to fetch
+/// (`plan`, `task`, `approval`, `receipt`, `specialist_result`, `automation_workflow`) and types this build
+/// has never heard of become `.unknown`, which the Chat screen shows as "Open on your Mac".
 enum ChatMapping {
     /// Resolves a `question` block's input request. nil keeps a title-only row.
     typealias QuestionLookup = @Sendable (_ inputRequestID: String) async -> (title: String, options: [ChatOption])?
@@ -22,8 +25,11 @@ enum ChatMapping {
         var out: [ChatItem] = []
         var textIndex: Int?
         var text = ""
-        for block in blocks {
-            switch block["type"]?.string {
+        for (index, block) in blocks.enumerated() {
+            let type = block["type"]?.string
+            // Rows that are not keyed by a Gateway id of their own: message id, position and type are unique.
+            let rowID = "\(id)-\(index)-\(type ?? "block")"
+            switch type {
             case "text" where conversational:
                 let md = block["md"]?.string ?? ""
                 if textIndex == nil {
@@ -48,7 +54,58 @@ enum ChatMapping {
                 let items = block["items"]?.array ?? []
                 let parts = items.compactMap { $0["title"]?.string ?? $0["label"]?.string ?? $0["id"]?.string }
                 if !parts.isEmpty { out.append(.evidence(id: "\(id)-sources", label: "Sources", parts: parts)) }
-            default:
+            case "text":
+                break  // a system or tool message's text carries no conversation
+            case "ui":
+                guard let widgetID = block["widgetId"]?.string else { continue }
+                out.append(.widget(id: rowID, widgetID: widgetID))
+            case "checklist":
+                let steps = (block["items"]?.array ?? []).enumerated().compactMap { n, item -> ProgressStep? in
+                    guard let title = item["text"]?.string else { return nil }
+                    let state: ProgressStep.State = switch item["status"]?.string {
+                    case "completed": .done
+                    case "in_progress": .running
+                    default: .pending
+                    }
+                    return ProgressStep(id: "\(rowID)-\(n)", title: title, state: state)
+                }
+                if !steps.isEmpty { out.append(.progress(id: rowID, kind: .checklist, title: "Checklist", steps: steps)) }
+            case "file":
+                guard let itemID = block["libraryItemId"]?.string else { continue }
+                out.append(.file(id: rowID, title: "File", fileType: "", detail: "", libraryID: itemID, isArtifact: false))
+            case "artifact":
+                guard block["artifactId"]?.string != nil else { continue }
+                out.append(.file(
+                    id: rowID, title: "Artifact", fileType: "", detail: block["preview"]?.string ?? "", libraryID: nil,
+                    isArtifact: true))
+            case "app_link":
+                guard let route = block["route"]?.string else { continue }
+                out.append(.appLink(id: rowID, title: "Open in Psyche", detail: route, route: route))
+            case "context":
+                // Title and source come from fetched content (untrusted): plain text, as `evidence` draws it.
+                let parts = [block["title"]?.string, block["source"]?.string].compactMap { $0 }.filter { !$0.isEmpty }
+                if !parts.isEmpty { out.append(.evidence(id: rowID, label: "About", parts: parts)) }
+            case "related_threads":
+                let threads = (block["items"]?.array ?? []).compactMap { item -> RelatedThread? in
+                    guard let threadID = item["threadId"]?.string, let title = item["title"]?.string else { return nil }
+                    return RelatedThread(id: threadID, title: title, status: item["snippet"]?.string ?? "")
+                }
+                if !threads.isEmpty { out.append(.relatedThreads(id: rowID, threads: threads)) }
+            case "wrap_up":
+                guard let recap = block["recap"]?.string else { continue }
+                out.append(.note(id: rowID, kind: .wrapUp, title: recap, detail: block["ask"]?.string ?? ""))
+            case "learned":
+                let facts = (block["items"]?.array ?? []).compactMap { $0["text"]?.string }
+                if !facts.isEmpty { out.append(.note(id: rowID, kind: .learned, title: "Learned", detail: facts.joined(separator: "\n"))) }
+            case "taught":
+                let statement = block["statement"]?.string
+                out.append(.note(id: rowID, kind: .taught, title: "Psyche will remember", detail: statement ?? "Thanks. Psyche noted it."))
+            case "compaction":
+                let turns = block.at("replaced", "turns")?.int ?? 0
+                out.append(.note(id: rowID, kind: .compaction, title: "Earlier messages summarized", detail: turns > 0 ? "\(turns) turns" : ""))
+            case .some(let other):
+                out.append(.unknown(id: rowID, type: other))
+            case nil:
                 break
             }
         }
