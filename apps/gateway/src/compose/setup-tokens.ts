@@ -103,6 +103,7 @@ export function setupTokenHandlers(deps: {
         const hostName = (hostname().trim() || "Psyche").slice(0, 64);
         const lan = params.via === "lan";
         let gatewayUrl: string;
+        let certPin: string | null = null;
         let makeLink: (token: string) => string;
         if (lan) {
           // The link names the address and the certificate the Gateway is serving right now, so
@@ -120,12 +121,13 @@ export function setupTokenHandlers(deps: {
             );
           }
           gatewayUrl = new URL(status.origin).origin;
-          const certPin = status.certSpki;
+          const pin = status.certSpki;
+          certPin = pin;
           makeLink = (token) =>
             encodePairingLinkV2({
               gatewayUrl,
               gatewayKey: identity.publicKey,
-              certPin,
+              certPin: pin,
               setupToken: token,
               hostName,
             });
@@ -164,6 +166,7 @@ export function setupTokenHandlers(deps: {
         const { token, record } = createSetupToken(db, {
           scopes: params.scopes,
           createdByDeviceId: call.identity.deviceId,
+          certPin,
         });
         const link = makeLink(token);
         try {

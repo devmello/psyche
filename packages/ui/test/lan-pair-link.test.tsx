@@ -146,15 +146,47 @@ describe("Settings → Allow computers on this network, IPv6", () => {
       name: "Also use this network's IPv6 addresses",
     });
     expect(toggle.getAttribute("aria-checked")).toBe("false");
-    // One row per network, listing every address of the interface once.
-    expect(screen.getByText("en0 (192.168.1.20, fd12:3456:789a:1::20)")).toBeTruthy();
-    expect(screen.getAllByText(/en0/)).toHaveLength(1);
+    // While IPv6 is off the IPv6 address is not listed as if it were bound.
+    expect(screen.getByText("en0 (192.168.1.20)")).toBeTruthy();
+    expect(screen.queryByText(/fd12:3456/)).toBeNull();
     await userEvent.click(toggle);
     await waitFor(() => expect(gateway?.calls.some((c) => c.method === "settings.set")).toBe(true));
     expect(gateway?.calls.find((c) => c.method === "settings.set")?.params).toMatchObject({
       key: "gateway.lan",
       value: { enabled: false, interfaces: [], port: 7979, ipv6: true },
     });
+  });
+
+  it("lists every address of an interface once IPv6 is on", async () => {
+    render(
+      <StoryWorld onGateway={withInfo(info(null, { ipv6: true, candidates }))}>
+        <LanAccessGroup />
+      </StoryWorld>,
+    );
+    expect(await screen.findByText("en0 (192.168.1.20, fd12:3456:789a:1::20)")).toBeTruthy();
+    expect(screen.getAllByText(/en0/)).toHaveLength(1);
+  });
+
+  it("explains an IPv6 address that is named but not used", async () => {
+    render(
+      <StoryWorld
+        onGateway={withInfo(
+          info(null, {
+            listening: [],
+            candidates,
+            problems: ["ipv6_off:fd12:3456:789a:1::20", "ipv6_needs_ipv4:fd12:3456:789a:1::20"],
+          }),
+        )}
+      >
+        <LanAccessGroup />
+      </StoryWorld>,
+    );
+    expect(
+      await screen.findByText(/fd12:3456:789a:1::20 is an IPv6 address, and IPv6 is off/),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(/isn't listening on fd12:3456:789a:1::20\. IPv6 is used only together/),
+    ).toBeTruthy();
   });
 
   it("does not show the switch on a network with no IPv6 address", async () => {

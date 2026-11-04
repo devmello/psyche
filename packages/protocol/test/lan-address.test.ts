@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { lanHostKind, parseIpv4, parseIpv6 } from "../src/index.ts";
+import { isLocalSuffixHost, lanHostKind, parseIpv4, parseIpv6 } from "../src/index.ts";
 
 describe("which hosts are the local network", () => {
   it("accepts private IPv4 (RFC 1918) and nothing near it", () => {
@@ -125,6 +125,20 @@ describe("which hosts are the local network", () => {
       expect(lanHostKind(host), host).toBeNull();
     }
     expect(lanHostKind(`${"a".repeat(64)}.local`)).toBeNull();
+  });
+
+  it("drops one trailing dot before classifying, and no more", () => {
+    expect(lanHostKind("studio-mac.local.")).toBe("mdns");
+    expect(lanHostKind("10.0.0.5.")).toBe("ipv4-private");
+    expect(lanHostKind("studio-mac.local..")).toBeNull();
+    expect(lanHostKind("example.com.")).toBeNull();
+    expect(lanHostKind("8.8.8.8.")).toBeNull();
+    expect(isLocalSuffixHost("anything_odd.local")).toBe(true);
+    expect(isLocalSuffixHost("anything_odd.local.")).toBe(true);
+    expect(isLocalSuffixHost("example.com")).toBe(false);
+    // A name in the .local space that is not well formed is not LAN, and callers refuse it.
+    expect(lanHostKind("anything_odd.local")).toBeNull();
+    expect(lanHostKind("-x.local")).toBeNull();
   });
 
   it("parses what it classifies", () => {

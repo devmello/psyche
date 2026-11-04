@@ -114,37 +114,71 @@ export function listLanInterfaces(lister: InterfaceLister = networkInterfaces): 
  * at, and nothing resolves to a wildcard or a loopback address.
  *
  * IPv6 is opt-in. A name (or the primary interface) yields its IPv4 addresses, and its IPv6
- * unique-local addresses only when `includeIpv6` is true. An address the owner typed in full
- * selects exactly that address, in either family. `available` only ever holds addresses
- * `listLanInterfaces` accepted, so a global or link-local address can never resolve.
+ * unique-local addresses only when `includeIpv6` is true. An IPv6 address typed in full needs
+ * `includeIpv6` too (`ipv6Off` reports it otherwise, and nothing is bound for it). `available`
+ * only ever holds addresses `listLanInterfaces` accepted, so a global or link-local address can
+ * never resolve.
+ *
+ * One IPv6 address is bound per interface and prefix. An interface usually holds a stable
+ * address and short-lived "temporary" privacy addresses on the same prefix, and Node does not
+ * say which is which, so the choice is sticky: an address in `prefer` (what is bound now) is
+ * kept for as long as the interface still has it, and only then is the first address in sorted
+ * order taken. A temporary address that appears or goes away elsewhere on the prefix changes
+ * nothing.
  */
 export function resolveLanBinds(
   selection: readonly string[],
   available: readonly LanInterface[],
   includeIpv6 = false,
-): { binds: LanInterface[]; unknown: string[] } {
+  prefer: ReadonlySet<string> = new Set(),
+): { binds: LanInterface[]; unknown: string[]; ipv6Off: string[] } {
   const binds: LanInterface[] = [];
   const unknown: string[] = [];
+  const ipv6Off: string[] = [];
   const add = (hit: LanInterface) => {
     if (!binds.includes(hit)) binds.push(hit);
   };
+  const groupOf = (i: LanInterface) => `${i.name}|${i.network}`;
+  /** The one address of this IPv6 prefix to use. */
+  const pickV6 = (group: string): LanInterface | undefined => {
+    const members = available.filter((i) => i.family === "IPv6" && groupOf(i) === group);
+    return members.find((i) => prefer.has(i.address)) ?? members[0];
+  };
+  const addV6 = (hit: LanInterface) => {
+    const held = binds.find((b) => b.family === "IPv6" && groupOf(b) === groupOf(hit));
+    if (held === undefined) add(pickV6(groupOf(hit)) ?? hit);
+  };
   if (selection.length === 0) {
     const primary = available.find((i) => i.isDefault);
-    if (primary && (primary.family === "IPv4" || includeIpv6)) add(primary);
+    if (primary?.family === "IPv4") add(primary);
+    else if (primary && includeIpv6) addV6(primary);
   }
   for (const wanted of selection) {
     const literal = isIP(wanted) !== 0;
     const hits = available.filter((i) =>
       literal ? i.address === wanted.toLowerCase() : i.name === wanted,
     );
-    const usable = hits.filter((i) => literal || i.family === "IPv4" || includeIpv6);
-    if (usable.length === 0) unknown.push(wanted);
-    for (const hit of usable) add(hit);
+    if (hits.length === 0) {
+      unknown.push(wanted);
+      continue;
+    }
+    const usable = hits.filter((i) => i.family === "IPv4" || includeIpv6);
+    if (usable.length === 0) {
+      // Only IPv6 addresses matched, and IPv6 is off.
+      if (literal) ipv6Off.push(wanted);
+      else unknown.push(wanted);
+      continue;
+    }
+    for (const hit of usable) {
+      if (hit.family === "IPv4") add(hit);
+      else if (literal) add(hit);
+      else addV6(hit);
+    }
   }
   if (includeIpv6) {
-    // Dual stack: the chosen interface's unique-local addresses go with its IPv4 ones.
+    // Dual stack: the chosen interface's unique-local prefixes go with its IPv4 addresses.
     const names = new Set(binds.map((b) => b.name));
-    for (const i of available) if (i.family === "IPv6" && names.has(i.name)) add(i);
+    for (const i of available) if (i.family === "IPv6" && names.has(i.name)) addV6(i);
   }
-  return { binds, unknown };
+  return { binds, unknown, ipv6Off };
 }

@@ -86,7 +86,8 @@ const MDNS_NAME = new RegExp(`^${MDNS_LABEL}(?:\\.${MDNS_LABEL})*\\.local$`);
  * may carry its brackets. Case-insensitive. A zone id (`%`) always yields null.
  */
 export function lanHostKind(host: string): LanHostKind | null {
-  const h = host.trim().toLowerCase();
+  // One trailing dot is the same name (`studio-mac.local.`); it is dropped before classifying.
+  const h = host.trim().toLowerCase().replace(/\.$/, "");
   if (h === "" || h.length > 253 || h.includes("%")) return null;
   const bracketed = h.startsWith("[") && h.endsWith("]");
   const bare = bracketed ? h.slice(1, -1) : h;
@@ -99,6 +100,16 @@ export function lanHostKind(host: string): LanHostKind | null {
     return v4 !== null && isPrivateIpv4(v4) ? "ipv4-private" : null;
   }
   return MDNS_NAME.test(bare) ? "mdns" : null;
+}
+
+/**
+ * Whether the name is in the `.local` (multicast DNS) space at all, valid or not. A name that
+ * ends in `.local` and is not a well-formed one (`lanHostKind` null) is refused outright by
+ * callers: it must never fall through to the system's trust as if it were an ordinary host,
+ * because nothing public can certify a `.local` name.
+ */
+export function isLocalSuffixHost(host: string): boolean {
+  return host.trim().toLowerCase().replace(/\.$/, "").endsWith(".local");
 }
 
 export function isLanHostName(host: string): boolean {

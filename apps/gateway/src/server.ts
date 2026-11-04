@@ -9,7 +9,14 @@ import {
 } from "node:net";
 import { join } from "node:path";
 import type { Duplex } from "node:stream";
-import { getSetting, getThread, openDb, type PsycheDb, setSetting } from "@psyche/db";
+import {
+  getSetting,
+  getThread,
+  openDb,
+  type PsycheDb,
+  revokeSetupTokensWithCertPin,
+  setSetting,
+} from "@psyche/db";
 import {
   type AgentLoop,
   type DeviceScope,
@@ -149,6 +156,8 @@ export interface GatewayOptions {
     hostLabel?: () => string;
     advertiser?: MdnsAdvertiser | null;
     limits?: Partial<LanLimits>;
+    /** Tests: which source addresses the LAN listener admits (see `isLanPeerAddress`). */
+    allowPeer?: (address: string) => boolean;
   };
 }
 
@@ -251,6 +260,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     ...(options.lan?.candidates ? { candidates: options.lan.candidates } : {}),
     ...(options.lan?.hostLabel ? { hostLabel: options.lan.hostLabel } : {}),
     ...(options.lan?.limits ? { limits: options.lan.limits } : {}),
+    ...(options.lan?.allowPeer ? { allowPeer: options.lan.allowPeer } : {}),
   });
 
   const broker = options.broker ?? new LockedPermissionBroker();
@@ -303,7 +313,13 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
       apply: (value: unknown, owner = false) => lan.apply(readLanSettings(value), owner),
       status: () => lan.status(),
       certSpki: () => lan.certSpki(),
-      rotateCert: () => lan.rotateCert(),
+      rotateCert: async () => {
+        const status = await lan.rotateCert();
+        // Links made for the old certificate (v2) are void: their tokens stop working now.
+        const revoked = revokeSetupTokensWithCertPin(db);
+        if (revoked > 0) log.log("info", "lan links revoked with the certificate", { revoked });
+        return status;
+      },
       refresh: () => lan.refresh(),
     },
     connections: () => connections,

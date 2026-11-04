@@ -71,7 +71,13 @@ function toRecord(row: SetupTokenRow, now: string): SetupTokenRecord {
  */
 export function createSetupToken(
   db: PsycheDb,
-  input: { scopes: readonly DeviceScope[]; createdByDeviceId?: string | null; ttlMs?: number },
+  input: {
+    scopes: readonly DeviceScope[];
+    createdByDeviceId?: string | null;
+    ttlMs?: number;
+    /** The LAN certificate pin the token's link carries (a v2 link). */
+    certPin?: string | null;
+  },
 ): { token: string; record: SetupTokenRecord } {
   const requested = [...new Set(input.scopes)];
   const scopes = requested.filter(isTokenScope);
@@ -107,6 +113,7 @@ export function createSetupToken(
           tokenHash: hashSetupToken(token),
           scopes: JSON.stringify(scopes),
           createdByDeviceId: input.createdByDeviceId ?? null,
+          certPin: input.certPin ?? null,
           createdAt: now,
           expiresAt: new Date(
             new Date(now).getTime() + (input.ttlMs ?? SETUP_TOKEN_TTL_MS),
@@ -195,6 +202,24 @@ export function revokeSetupToken(
     .run();
   const row = db.drizzle.select().from(setupTokens).where(eq(setupTokens.id, id)).get();
   return row === undefined ? undefined : toRecord(row, at);
+}
+
+/**
+ * Revokes every unused token whose link carries a LAN certificate pin (a v2 link). Used when the
+ * LAN certificate is replaced: those links belong to the old certificate. Returns how many.
+ */
+export function revokeSetupTokensWithCertPin(db: PsycheDb, now: string = db.now()): number {
+  return db.drizzle
+    .update(setupTokens)
+    .set({ revokedAt: new Date(now).toISOString() })
+    .where(
+      and(
+        sql`${setupTokens.certPin} IS NOT NULL`,
+        isNull(setupTokens.usedAt),
+        isNull(setupTokens.revokedAt),
+      ),
+    )
+    .run().changes;
 }
 
 /**

@@ -212,7 +212,7 @@ describe("it binds only the interface the owner chose", () => {
     expect(resolveLanBinds([], FAKE).binds.map((b) => b.name)).toEqual(["lan0"]);
     expect(resolveLanBinds(["lan1"], FAKE).binds.map((b) => b.address)).toEqual(["192.0.2.77"]);
     expect(resolveLanBinds(["127.0.0.1"], FAKE).binds.map((b) => b.name)).toEqual(["lan0"]);
-    expect(resolveLanBinds(["en9"], FAKE)).toEqual({ binds: [], unknown: ["en9"] });
+    expect(resolveLanBinds(["en9"], FAKE)).toEqual({ binds: [], unknown: ["en9"], ipv6Off: [] });
   });
 
   it("never offers loopback, link-local, tunnels as the default or IPv6", () => {

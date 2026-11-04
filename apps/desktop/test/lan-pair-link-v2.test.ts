@@ -13,6 +13,7 @@ import { fingerprintOf } from "../src/lib/gateway-identity.ts";
 import {
   addGateway,
   addGatewayFromLanLink,
+  addGatewayFromLink,
   EMPTY_GATEWAYS,
   GatewayAddressError,
   GatewayLinkError,
@@ -88,6 +89,46 @@ describe("what the client calls the local network", () => {
     expect(isLanOrigin("https://[fd12:3456:789a:1::20]:7979")).toBe(true);
     expect(isLanOrigin("http://[fd12:3456:789a:1::20]:7979")).toBe(false);
     expect(isLanOrigin("https://[2600:1700::5]:7979")).toBe(false);
+  });
+
+  it("treats one trailing dot like none, and a malformed .local name as an error, never https", () => {
+    expect(isLanHost("studio-mac.local.")).toBe(true);
+    expect(isLanOrigin("https://studio-mac.local.:7979")).toBe(true);
+    for (const address of [
+      "https://foo_bar.local",
+      "foo bar.local",
+      "https://-x.local:7979",
+      "a..local",
+    ]) {
+      expect(() => addGateway(EMPTY_GATEWAYS, { address }), address).toThrow(GatewayAddressError);
+    }
+    // Nothing public certifies .local, so it is not an ordinary https host either.
+    expect(isLanHost("foo_bar.local")).toBe(false);
+  });
+
+  it("refuses a link naming a malformed .local name as not-LAN, before anything else", () => {
+    const link = (gatewayUrl: string) => ({
+      gatewayUrl,
+      gatewayKey: KEY,
+      certPin: PIN,
+      setupToken: TOKEN,
+      hostName: "x",
+    });
+    expect(() => addGatewayFromLanLink(EMPTY_GATEWAYS, link("https://foo_bar.local"), NOW)).toThrow(
+      expect.objectContaining({ problem: "not_lan" }),
+    );
+    expect(() =>
+      addGatewayFromLink(
+        EMPTY_GATEWAYS,
+        {
+          gatewayUrl: "https://foo_bar.local:7979",
+          gatewayFingerprint: fingerprintOf(KEY),
+          setupToken: TOKEN,
+          hostName: "x",
+        },
+        NOW,
+      ),
+    ).toThrow(expect.objectContaining({ problem: "not_lan" }));
   });
 
   it("cannot even write a zone-qualified link-local address as a Gateway address", () => {

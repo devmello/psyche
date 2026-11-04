@@ -6,6 +6,7 @@ import {
   DEFAULT_GATEWAY_PORT,
   GATEWAY_FINGERPRINT_PATTERN,
   isLanHostName,
+  isLocalSuffixHost,
   type PairingLinkPayload,
   type PairingLinkPayloadV2,
   SETUP_TOKEN_PATTERN,
@@ -145,6 +146,9 @@ export function normalizeGatewayOrigin(input: string): string {
   }
   const host = url.hostname.replace(/^\[|\]$/g, "");
   if (host === "") throw new GatewayAddressError("invalid");
+  // A `.local` name that is not a well-formed one is never an ordinary https host: nothing public
+  // certifies `.local`, so it is refused here instead of reaching the system's trust.
+  if (isLocalSuffixHost(host) && !isLanHostName(host)) throw new GatewayAddressError("invalid");
   const loopback = LOOPBACK.has(host);
   if (url.protocol === "http:" && !loopback) throw new GatewayAddressError("needs_https");
   if (!loopback && !host.includes(".") && !host.includes(":")) {
@@ -520,6 +524,16 @@ export function clearGatewayPin(data: GatewaysFile, id: string): GatewaysFile {
 
 export type LinkAddProblem = "pin_mismatch" | "lan_not_supported" | "not_lan";
 
+/** A link naming a malformed `.local` name is refused as not-LAN, before any other handling. */
+function refuseMalformedLocal(address: string): void {
+  try {
+    const host = new URL(address).hostname;
+    if (isLocalSuffixHost(host) && !isLanHostName(host)) throw new GatewayLinkError("not_lan");
+  } catch (err) {
+    if (err instanceof GatewayLinkError) throw err;
+  }
+}
+
 export class GatewayLinkError extends Error {
   readonly problem: LinkAddProblem;
   constructor(problem: LinkAddProblem) {
@@ -544,6 +558,7 @@ export function addGatewayFromLink(
   now: Date,
   id: string = newGatewayId(),
 ): AddResult {
+  refuseMalformedLocal(link.gatewayUrl);
   const origin = normalizeGatewayOrigin(link.gatewayUrl);
   // A Gateway on the local network is reached over its own pinned certificate (`lan-tls.ts`), and
   // a v1 link carries no certificate pin. Saved as an ordinary https Gateway it would fail TLS, so
@@ -600,6 +615,7 @@ export function addGatewayFromLanLink(
   now: Date,
   id: string = newGatewayId(),
 ): AddResult {
+  refuseMalformedLocal(link.gatewayUrl);
   const origin = normalizeGatewayOrigin(link.gatewayUrl);
   if (!isLanOrigin(origin)) throw new GatewayLinkError("not_lan");
   if (!KEY_PATTERN.test(link.gatewayKey) || !KEY_PATTERN.test(link.certPin)) {

@@ -312,13 +312,18 @@ export function verifyChallenge(
   deps: VerifyDeps,
 ): VerifyOutcome {
   const now = deps.now();
-  // Security §10: failed challenges 10/minute/IP.
-  if (!deps.failedChallenges.allowed(rateKey(peer))) {
-    throw new PsycheError("rate_limited", "Too many failed challenges; try again later", {
+  // Security §10: failed challenges 10/minute/IP. On the LAN the key is the peer's /64, which a
+  // neighbour can fill by itself; so there a peer over the limit is only refused once its
+  // signature has not shown it holds a paired device's key (below): a paired device is never
+  // locked out by someone else's failures.
+  const overLimit = !deps.failedChallenges.allowed(rateKey(peer));
+  const limited = () =>
+    new PsycheError("rate_limited", "Too many failed challenges; try again later", {
       retryable: true,
     });
-  }
+  if (overLimit && peer.lan !== true) throw limited();
   const fail = (message: string): never => {
+    if (overLimit) throw limited();
     deps.failedChallenges.record(rateKey(peer));
     throw new PsycheError("unauthorized", message);
   };
@@ -368,6 +373,10 @@ export function verifyChallenge(
   const { db } = deps;
   const nowIso = now.toISOString();
   const existing = getDevice(db, params.deviceId);
+  // Over the limit: only a device that proved a paired key (signature checked above) goes on.
+  if (overLimit && !(existing?.pairedAt && existing.publicKey === params.publicKey)) {
+    throw limited();
+  }
   if (existing?.revokedAt) return denied("device revoked");
   // A Mac helper on the node socket either proves this launch's handshake secret or is refused:
   // accepted as an ordinary node it would stay connected (the helper only retries after a
@@ -536,14 +545,14 @@ export function verifyChallenge(
       // A neighbour on the network gets a smaller budget than the global one, so a few of them
       // cannot fill the queue of pending requests the owner has to read.
       if (
-        !deps.lanPairings.perIp.allowed(rateKey(peer)) ||
+        !deps.lanPairings.perIp.allowed(peer.remoteAddress) ||
         !deps.lanPairings.total.allowed("all")
       ) {
         throw new PsycheError("rate_limited", "Too many pairing requests from this network", {
           retryable: true,
         });
       }
-      deps.lanPairings.perIp.record(rateKey(peer));
+      deps.lanPairings.perIp.record(peer.remoteAddress);
       deps.lanPairings.total.record("all");
     }
     const request = createPairingRequest(db, {

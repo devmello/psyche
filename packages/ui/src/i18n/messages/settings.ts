@@ -1867,6 +1867,10 @@ export const settings = {
   "settings.lan.ipv6": "Also use this network's IPv6 addresses",
   "settings.lan.ipv6Hint":
     "Adds the private IPv6 addresses (they start with fd or fc) of the chosen network. Public IPv6 addresses and fe80 addresses are never used.",
+  "settings.lan.problem.ipv6Off":
+    "{address} is an IPv6 address, and IPv6 is off, so Psyche isn't listening on it. Turn on IPv6 above, or remove it.",
+  "settings.lan.problem.ipv6NeedsIpv4":
+    "Psyche isn't listening on {address}. IPv6 is used only together with this network's IPv4 address, which you have to allow here first.",
   "settings.lan.interface": "Network",
   "settings.lan.interfaceDefault": "Primary network",
   "settings.lan.interfaceOption": "{name} ({address})",

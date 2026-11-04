@@ -35,6 +35,10 @@ function problemText(problem: string): string {
   switch (kind) {
     case "unknown_interface":
       return t("settings.lan.problem.unknownInterface", { name: rest.join(":") });
+    case "ipv6_off":
+      return t("settings.lan.problem.ipv6Off", { address: rest.join(":") });
+    case "ipv6_needs_ipv4":
+      return t("settings.lan.problem.ipv6NeedsIpv4", { address: rest.join(":") });
     case "no_interface":
       return t("settings.lan.problem.noInterface");
     case "bind_failed":
@@ -139,7 +143,9 @@ export function LanAccessGroup(): ReactElement {
       port: lan?.port ?? 7979,
       ipv6: withIpv6,
     });
-  const candidates = lan?.candidates ?? [];
+  const allCandidates = lan?.candidates ?? [];
+  // IPv6 addresses are listed as something that is bound only while the switch is on.
+  const candidates = ipv6 ? allCandidates : allCandidates.filter((c) => !c.address.includes(":"));
   const primary = candidates.find((c) => c.isDefault);
   // One row per interface, listing its addresses (an interface can have IPv4 and IPv6 ones).
   const others = new Map<string, string[]>();
@@ -147,7 +153,7 @@ export function LanAccessGroup(): ReactElement {
     if (c.name === primary?.name) continue;
     others.set(c.name, [...(others.get(c.name) ?? []), c.address]);
   }
-  const offersIpv6 = candidates.some((c) => c.address.includes(":"));
+  const offersIpv6 = allCandidates.some((c) => c.address.includes(":"));
   const options = [
     {
       value: PRIMARY,

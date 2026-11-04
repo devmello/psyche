@@ -148,18 +148,49 @@ describe("what the owner's choice resolves to", () => {
     expect(resolveLanBinds(["en5"], all, true).binds.map((b) => b.address)).toEqual(["10.0.0.8"]);
   });
 
-  it("takes an IPv6 address typed in full as exactly that address, and never an unlisted one", () => {
-    expect(resolveLanBinds(["fd12:3456:789a:1::20"], all).binds.map((b) => b.address)).toEqual([
-      "fd12:3456:789a:1::20",
-    ]);
-    expect(resolveLanBinds(["FD12:3456:789A:1::20"], all).binds).toHaveLength(1);
+  it("takes an IPv6 address typed in full as exactly that address, but only with IPv6 on", () => {
+    const literal = resolveLanBinds(["fd12:3456:789a:1::20"], all, true);
+    expect(literal.binds.map((b) => b.address)).toEqual(["fd12:3456:789a:1::20"]);
+    expect(resolveLanBinds(["FD12:3456:789A:1::20"], all, true).binds).toHaveLength(1);
+    // With IPv6 off the address is not bound, and it says so instead of calling it unknown.
+    expect(resolveLanBinds(["fd12:3456:789a:1::20"], all)).toEqual({
+      binds: [],
+      unknown: [],
+      ipv6Off: ["fd12:3456:789a:1::20"],
+    });
     // A global or link-local address is not in the list, so it is unknown and binds nothing.
     for (const wanted of ["2600:1700:abcd:1::20", "fe80::1", "::1", "fd12::99"]) {
       expect(resolveLanBinds([wanted], all, true), wanted).toEqual({
         binds: [],
         unknown: [wanted],
+        ipv6Off: [],
       });
     }
+  });
+
+  it("binds one IPv6 address per prefix, and keeps the bound one while it exists", () => {
+    const many = listLanInterfaces(() => ({
+      en0: [
+        ip4("192.168.1.20"),
+        ip6("fd12:3456:789a:1::20"),
+        ip6("fd12:3456:789a:1:ba:dc0f:fee1:1234"), // a temporary address on the same prefix
+        ip6("fd12:3456:789a:1:5555:6666:7777:8888"),
+        ip6("fd99:0:0:7::5"), // a second prefix
+      ],
+    }));
+    const pick = (prefer: string[] = []) =>
+      resolveLanBinds([], many, true, new Set(prefer))
+        .binds.filter((b) => b.family === "IPv6")
+        .map((b) => b.address);
+    // First time: the first address in sorted order, once per prefix.
+    expect(pick()).toEqual(["fd12:3456:789a:1::20", "fd99:0:0:7::5"]);
+    // Sticky: a bound address stays chosen while the interface still has it.
+    expect(pick(["fd12:3456:789a:1:ba:dc0f:fee1:1234"])).toEqual([
+      "fd12:3456:789a:1:ba:dc0f:fee1:1234",
+      "fd99:0:0:7::5",
+    ]);
+    // When it is gone, the next one is taken.
+    expect(pick(["fd12:3456:789a:1::dead"])).toEqual(["fd12:3456:789a:1::20", "fd99:0:0:7::5"]);
   });
 
   it("the setting refuses the wildcard and keeps ipv6 a plain boolean", () => {
@@ -270,7 +301,13 @@ describe.skipIf(!hasIpv6)("LAN over IPv6 (listener)", () => {
   async function start(cands: () => LanInterface[]) {
     const a = advertiser();
     const g = await startTestGateway({
-      lan: { candidates: cands, hostLabel: () => "studio-mac", advertiser: a.ad },
+      lan: {
+        candidates: cands,
+        hostLabel: () => "studio-mac",
+        advertiser: a.ad,
+        // `::1` stands in for the peer, and it is not unique-local: see lan-hardening.test.ts.
+        allowPeer: () => true,
+      },
     });
     gateways.push(g);
     return { g, a, port: await freePort() };
@@ -310,14 +347,14 @@ describe.skipIf(!hasIpv6)("LAN over IPv6 (listener)", () => {
     expect(a.published.every((p) => p.interfaceAddress === "127.0.0.1")).toBe(true);
   });
 
-  it("an IPv6-only bind is served but not advertised", async () => {
+  it("never binds IPv6 without the interface's IPv4 network (an advertised prefix alone is no yes)", async () => {
     const { g, a, port } = await start(() => [{ ...V6, isDefault: true }]);
     const status = await g.gateway.context.lan.apply(
       { enabled: true, interfaces: [], port, ipv6: true },
       true,
     );
-    expect(status.listening).toEqual([{ address: "::1", port }]);
-    expect(status.advertising).toBe(false);
+    expect(status.listening).toEqual([]);
+    expect(status.problems).toContain("ipv6_needs_ipv4:::1");
     expect(a.published).toEqual([]);
   });
 
@@ -351,25 +388,19 @@ describe.skipIf(!hasIpv6)("LAN over IPv6 (listener)", () => {
     expect(await origin(`evil.example:${port}`)).toBe(fallback);
   });
 
-  it("pauses when the IPv6 prefix changes, and a rotating address on the same prefix does not", async () => {
-    let cands: LanInterface[] = [
-      { ...V6, isDefault: true, network: "fd12:3456:789a:1:0:0:0:0/64" },
-    ];
-    const { g, port } = await start(() => cands);
+  it("pauses only the IPv6 bind when its prefix changes, and leaves IPv4 listening", async () => {
+    let v6: LanInterface = { ...V6, network: "fd12:3456:789a:1:0:0:0:0/64" };
+    const { g, port } = await start(() => [V4, v6]);
     const lan = g.gateway.context.lan;
-    expect(
-      (await lan.apply({ enabled: true, interfaces: [], port, ipv6: true }, true)).listening,
-    ).toHaveLength(1);
-    // The same prefix again (a rotated privacy address has the same network): still listening.
+    const first = await lan.apply({ enabled: true, interfaces: ["lan0"], port, ipv6: true }, true);
+    expect(first.listening.map((l) => l.address).sort()).toEqual(["127.0.0.1", "::1"]);
+    // The Mac joins another IPv6 prefix: only the IPv6 bind waits for a new yes.
+    v6 = { ...V6, network: "fd99:0:0:7:0:0:0:0/64" };
     await lan.refresh();
-    expect(lan.status().listening).toHaveLength(1);
-    // The Mac joins another network (another prefix): paused until the owner says yes there.
-    cands = [{ ...V6, isDefault: true, network: "fd99:0:0:7:0:0:0:0/64" }];
-    await lan.refresh();
-    expect(lan.status().listening).toEqual([]);
+    expect(lan.status().listening.map((l) => l.address)).toEqual(["127.0.0.1"]);
     expect(lan.status().problems).toContain("network_paused");
-    const again = await lan.apply({ enabled: true, interfaces: [], port, ipv6: true }, true);
-    expect(again.listening).toHaveLength(1);
+    const again = await lan.apply({ enabled: true, interfaces: ["lan0"], port, ipv6: true }, true);
+    expect(again.listening).toHaveLength(2);
   });
 
   it("an address that is global or link-local never reaches a bind, even when named", async () => {
