@@ -74,7 +74,9 @@ describe("setup tokens", () => {
     expect(revokeSetupToken(db, record.id)?.status).toBe("revoked");
     expect(consumeSetupToken(db, token, "dev")).toBeUndefined();
     const other = createSetupToken(db, { scopes: READ_WRITE });
-    expect(consumeSetupToken(db, `${other.token.slice(0, -1)}A`, "dev")).toBeUndefined();
+    // Change the last character to a different one (the token may already end in "A").
+    const last = other.token.slice(-1) === "A" ? "B" : "A";
+    expect(consumeSetupToken(db, `${other.token.slice(0, -1)}${last}`, "dev")).toBeUndefined();
     expect(consumeSetupToken(db, "pst_nothing", "dev")).toBeUndefined();
     expect(consumeSetupToken(db, other.token, "dev")).toBeDefined();
   });
