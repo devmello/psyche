@@ -75,6 +75,16 @@ struct EventMapper {
             return ([.changed(.threads)], .none)
         case "memory.entity.updated", "memory.loop.updated", "memory.suggestion.created", "memory.job.updated", "memory.file.changed":
             return ([.changed(.memory)], .none)
+        // Widgets reuse the Home topic: Home's pinned list and every widget view refetch on any change.
+        case "widget.updated":
+            return ([.changed(.home)], .none)
+        case _ where frame.event.hasPrefix("memory."):
+            return ([.changed(.memory)], .none)
+        // Widgets reuse the Home topic: Home's pinned list and every widget view refetch on any change.
+        case "widget.updated":
+            return ([.changed(.home)], .none)
+        case _ where frame.event.hasPrefix("memory."):
+            return ([.changed(.memory)], .none)
         case "settings.changed", "persona.updated":
             return ([.changed(.settings)], .none)
         case "artifact.updated", "library.item.created", "library.item.updated", "library.item.deleted":
