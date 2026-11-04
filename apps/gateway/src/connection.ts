@@ -384,6 +384,7 @@ export class Connection implements LiveConnection {
       this.#ctx.challengeOrigin(this.peer),
       this.#ctx.now().getTime(),
       this.#ctx.identity,
+      this.peer.lan === true ? this.#ctx.lan.certSpki() : null,
     );
     this.#challenge = pending;
     this.#connectParams = params;
@@ -411,6 +412,7 @@ export class Connection implements LiveConnection {
       now: ctx.now,
       limits: ctx.limits,
       failedChallenges: ctx.failedChallenges,
+      lanPairings: ctx.lanPairings,
     });
     this.#challenge = null;
     const { result, identity } = outcome;

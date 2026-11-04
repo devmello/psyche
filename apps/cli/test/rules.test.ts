@@ -544,6 +544,24 @@ describe("audit rules", () => {
     expect(finding(tls, "transport.plain_http")).toEqual([]);
   });
 
+  it("lan.listening warns only while LAN listening is on", () => {
+    const on = snap({
+      settings: {
+        ok: true,
+        value: { "gateway.lan": { enabled: true, interfaces: ["en0"], port: 7979 } },
+      },
+    });
+    const hit = finding(on, "lan.listening");
+    expect(hit).toMatchObject([{ severity: "medium" }]);
+    expect(hit[0]?.message).toContain("en0");
+    const off = snap({
+      settings: { ok: true, value: { "gateway.lan": { enabled: false, interfaces: [] } } },
+    });
+    expect(finding(off, "lan.listening")).toEqual([]);
+    expect(finding(snap({}), "lan.listening")).toEqual([]);
+    expect(doctorChecks(on).some((c) => c.id === "lan" && c.status === "warn")).toBe(true);
+  });
+
   it("proxy.no_cidrs", () => {
     const s = snap({
       config: {

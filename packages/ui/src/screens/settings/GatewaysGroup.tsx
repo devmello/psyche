@@ -3,7 +3,8 @@ import { Button } from "../../components/ui/button.tsx";
 import { Input } from "../../components/ui/input.tsx";
 import { Label } from "../../components/ui/label.tsx";
 import { t } from "../../i18n/core.ts";
-import { type GatewayEntry, useSlots } from "../../slots.tsx";
+import { groupFingerprint } from "../../lib/fingerprint.ts";
+import { type DiscoveredGateway, type GatewayEntry, useSlots } from "../../slots.tsx";
 import { ErrorNotice, Group, StatusChip } from "./shared.tsx";
 
 /**
@@ -112,6 +113,126 @@ export function AddGatewayForm({
         </p>
       ) : null}
     </form>
+  );
+}
+
+type Looking =
+  | { kind: "idle" }
+  | { kind: "looking" }
+  | { kind: "failed" }
+  | { kind: "done"; found: DiscoveredGateway[] };
+
+/**
+ * Add a Gateway → On this network (remote-gateway design §3.2). Looks for Psyche that announced
+ * itself with Bonjour, on the owner's click. What a computer announces is a claim: picking one
+ * only adds it to the saved list (after the same native confirmation) and it still goes through
+ * pairing and the key pin. The window adds a listing by its id, never by an address.
+ */
+export function DiscoverGateways({
+  onAdded,
+}: {
+  onAdded: (entry: GatewayEntry) => void;
+}): ReactElement | null {
+  const { gateways } = useSlots();
+  const [state, setState] = useState<Looking>({ kind: "idle" });
+  const [error, setError] = useState<string | null>(null);
+  if (!gateways?.discover) return null;
+  const look = () => {
+    setState({ kind: "looking" });
+    setError(null);
+    gateways.discover?.().then(
+      (found) => setState({ kind: "done", found }),
+      () => setState({ kind: "failed" }),
+    );
+  };
+  const add = (d: DiscoveredGateway) => {
+    setError(null);
+    gateways.addDiscovered?.(d.id).then(
+      (entry) => {
+        setState((s) =>
+          s.kind === "done"
+            ? {
+                kind: "done",
+                found: s.found.map((f) => (f.id === d.id ? { ...f, saved: true } : f)),
+              }
+            : s,
+        );
+        onAdded(entry);
+      },
+      (err: unknown) => setError(gatewayProblemText(err)),
+    );
+  };
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="font-medium">{t("settings.gateways.discoverTitle")}</span>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={state.kind === "looking"}
+          onClick={look}
+        >
+          {state.kind === "looking"
+            ? t("settings.gateways.discovering")
+            : t("settings.gateways.discover")}
+        </Button>
+      </div>
+      {state.kind === "failed" ? (
+        <p role="alert" className="text-callout text-danger-text">
+          {t("settings.gateways.discoverFailed")}
+        </p>
+      ) : null}
+      {state.kind === "done" && state.found.length === 0 ? (
+        <p role="status" className="text-callout text-label-secondary">
+          {t("settings.gateways.discoverNone")}
+        </p>
+      ) : null}
+      {state.kind === "done" && state.found.length > 0 ? (
+        <>
+          <ul className="flex flex-col divide-y divide-gray-6">
+            {state.found.map((d) => (
+              <li key={d.id} className="flex flex-wrap items-center gap-2 py-2 first:pt-0">
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="font-medium">{d.name}</span>
+                  {d.fingerprint ? (
+                    <code className="font-mono text-callout text-label-secondary">
+                      {t("settings.gateways.discoverKey", {
+                        fingerprint: groupFingerprint(d.fingerprint),
+                      })}
+                    </code>
+                  ) : null}
+                </span>
+                {d.conflict ? (
+                  <span className="text-callout text-danger-text">
+                    {t("settings.gateways.discoverConflict")}
+                  </span>
+                ) : d.saved ? (
+                  <span className="text-callout text-label-secondary">
+                    {t("settings.gateways.discoverSaved")}
+                  </span>
+                ) : (
+                  <Button
+                    type="button"
+                    size="sm"
+                    aria-label={t("settings.gateways.discoverAdd", { name: d.name })}
+                    onClick={() => add(d)}
+                  >
+                    {t("settings.gateways.adding")}
+                  </Button>
+                )}
+              </li>
+            ))}
+          </ul>
+          <p className="text-callout text-label-secondary">{t("settings.gateways.discoverHint")}</p>
+        </>
+      ) : null}
+      {error ? (
+        <p role="alert" className="text-callout text-danger-text">
+          {error}
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -254,6 +375,7 @@ export function GatewaysGroup(): ReactElement | null {
     <Group title={t("settings.gateways.title")} description={t("settings.gateways.description")}>
       {error ? <ErrorNotice what={error} did={t("settings.shared.nothingChanged")} /> : null}
       {entries ? <GatewaysList entries={entries} onChanged={reload} onError={setError} /> : null}
+      <DiscoverGateways onAdded={reload} />
       <AddGatewayForm onAdded={reload} />
     </Group>
   );

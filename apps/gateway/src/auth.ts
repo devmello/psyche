@@ -27,6 +27,7 @@ import {
   connectSigningPayload,
   type DeviceScope,
   gatewaySigningPayload,
+  lanCertSigningPayload,
   type PairingRequest,
   PROTOCOL_VERSION,
   PsycheError,
@@ -64,6 +65,15 @@ export interface PeerInfo {
   origin: string | null;
   /** Identity a trusted proxy claims for the client; shown on the pairing card, never trusted. */
   claimedIdentity?: string | null;
+  /**
+   * The connection came in on the LAN listener (`lan/listener.ts`). Such a peer is remote by
+   * construction: `remoteLoopback` is false whatever its address, so it is never the desktop
+   * shell, never auto-paired, and the v2 key binding applies. Set only by the listener the
+   * transport owns, never from anything the peer sends.
+   */
+  lan?: true;
+  /** The `Host` header of a LAN connection (names the origin it dialed); `null` otherwise. */
+  host?: string | null;
 }
 
 export interface PendingChallenge {
@@ -71,6 +81,8 @@ export interface PendingChallenge {
   nonce: string;
   protocolVersion: number;
   expiresAtMs: number;
+  /** The origin the challenge named and signed; verification checks against this one. */
+  serverOrigin: string;
 }
 
 export interface PairedIdentity {
@@ -171,6 +183,8 @@ export function issueChallenge(
   serverOrigin: string,
   nowMs: number,
   identity?: GatewayIdentity,
+  /** The SPKI pin of the certificate this LAN connection was served with; LAN peers only. */
+  lanCertSpki?: string | null,
 ): { pending: PendingChallenge; challenge: ConnectChallenge } {
   // Clients use the WebSocket; the node socket is for nodes only (S23 review PR-1-A).
   if (peer.transport !== "ws" && params.role !== "node") {
@@ -181,7 +195,7 @@ export function issueChallenge(
   const nonce = randomBytes(32).toString("base64url");
   const expiresAtMs = nowMs + CHALLENGE_TTL_MS;
   return {
-    pending: { params, nonce, protocolVersion, expiresAtMs },
+    pending: { params, nonce, protocolVersion, expiresAtMs, serverOrigin },
     challenge: {
       phase: "challenge",
       nonce,
@@ -196,6 +210,21 @@ export function issueChallenge(
             gatewaySignature: identity.sign(
               gatewaySigningPayload({ nonce, serverOrigin, devicePublicKey: params.publicKey }),
             ),
+            // On the LAN the certificate is self-signed: the identity key also vouches for the
+            // one this connection was served with, so a relay with its own certificate fails.
+            ...(peer.lan === true && lanCertSpki
+              ? {
+                  lanCertSpki,
+                  lanCertSignature: identity.sign(
+                    lanCertSigningPayload({
+                      nonce,
+                      serverOrigin,
+                      devicePublicKey: params.publicKey,
+                      spki: lanCertSpki,
+                    }),
+                  ),
+                }
+              : {}),
           }
         : {}),
     },
@@ -237,6 +266,8 @@ export interface VerifyDeps {
   now: () => Date;
   limits: GatewayLimits;
   failedChallenges: RateLimiter;
+  /** New pairing requests from the LAN listener: their own, smaller budgets (per address, all). */
+  lanPairings?: { perIp: RateLimiter; total: RateLimiter };
 }
 
 export interface VerifyOutcome {
@@ -291,9 +322,11 @@ export function verifyChallenge(
     peer.transport === "ws" &&
     !peer.remoteLoopback &&
     params.role === "client" &&
-    params.deviceFamily === "desktop"
+    (params.deviceFamily === "desktop" || peer.lan === true)
   ) {
-    fail("A desktop app connecting over the network must name the Gateway key it verified");
+    // Every client on the LAN listener (not only the desktop app) must bind to the key: a LAN
+    // client has to check `lanCertSignature` too, and a v1 connect has nothing to bind.
+    fail("A client connecting over the network must name the Gateway key it verified");
   }
   if (
     input.gatewayKey !== undefined &&
@@ -308,7 +341,8 @@ export function verifyChallenge(
     platform: params.platform,
     deviceFamily: params.deviceFamily,
     protocolVersion: pending.protocolVersion,
-    serverOrigin: deps.serverOrigin,
+    // The origin this challenge named and signed, not one worked out again now.
+    serverOrigin: pending.serverOrigin,
   });
   const signature = Buffer.from(input.signature, "base64url");
   if (!verify(null, payload, rawEd25519PublicKey(params.publicKey), signature)) {
@@ -436,13 +470,29 @@ export function verifyChallenge(
         retryable: true,
       });
     }
+    if (peer.lan === true && deps.lanPairings) {
+      // A neighbour on the network gets a smaller budget than the global one, so a few of them
+      // cannot fill the queue of pending requests the owner has to read.
+      if (
+        !deps.lanPairings.perIp.allowed(peer.remoteAddress) ||
+        !deps.lanPairings.total.allowed("all")
+      ) {
+        throw new PsycheError("rate_limited", "Too many pairing requests from this network", {
+          retryable: true,
+        });
+      }
+      deps.lanPairings.perIp.record(peer.remoteAddress);
+      deps.lanPairings.total.record("all");
+    }
     const request = createPairingRequest(db, {
       kind: "device",
       code: pairingCode(),
       deviceId: params.deviceId,
       display: `${params.name} (${params.platform}, ${params.deviceFamily}; claimed by the device)${
         peer.transport === "vm-relay" ? "; relayed from a sandbox guest" : ""
-      }${peer.claimedIdentity ? `; proxy says ${peer.claimedIdentity}` : ""}`,
+      }${peer.lan === true ? `; on the local network, dialed ${peer.host ?? "an address"}` : ""}${
+        peer.claimedIdentity ? `; proxy says ${peer.claimedIdentity}` : ""
+      }`,
       expiresAt: new Date(now.getTime() + deps.limits.pairingTtlMs).toISOString(),
       publicKeyFingerprint: keyFingerprint(params.publicKey),
       // The pairing record only knows the two transports; the card says when it was relayed.

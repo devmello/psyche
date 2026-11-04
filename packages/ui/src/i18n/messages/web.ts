@@ -448,6 +448,8 @@ export const web = {
   "web.splash.remote.pairKey": "Gateway key {fingerprint}",
   "web.splash.remote.pairHint":
     "Compare both with the request in {host}'s Settings → Devices, then approve it there.",
+  "web.splash.remote.pairHintLan":
+    "Compare the whole key with the one in {host}'s Settings → Devices, under the request from this computer. On a network, the key is the only proof of who answered. Approve it only if they match.",
   "web.splash.remote.unreachable": "{host} isn't answering.",
   "web.splash.remote.unreachableReason":
     "It may be asleep or off, Psyche may not be running there, or Tailscale may be off on this computer. Psyche keeps trying.",
@@ -460,6 +462,12 @@ export const web = {
     "Its identity proof did not check out, so Psyche will not connect.",
   "web.splash.remote.identityOrigin":
     "It answered for a different address than the one this computer dialed. On {host}, set the public address in Settings → Devices → Server & remote access.",
+  "web.splash.remote.certChanged":
+    "Its network certificate is not the one this computer pinned. Another machine on this network may be answering in its place, or its certificate was replaced.",
+  "web.splash.remote.certMissing":
+    "It did not vouch for the certificate it used, so Psyche will not connect.",
+  "web.splash.remote.certInvalid":
+    "Its proof for the certificate it used did not check out, so Psyche will not connect.",
   "web.splash.remote.olderHost": "{host} runs an older Psyche.",
   "web.splash.remote.olderHostReason": "Update Psyche on {host}, then try again.",
   "web.splash.remote.olderApp": "This app is older than {host}.",

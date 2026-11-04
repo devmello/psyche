@@ -1788,9 +1788,73 @@ export const settings = {
   "settings.remote.loadLabel": "Gateway identity",
   "settings.remote.clientNote":
     "This computer is a client of {host}. Remote access is set up on {host}.",
+  // Settings → Server & remote access → Allow computers on this network (§3.1, LAN).
+  "settings.key.gateway.lan": "Allow computers on this network",
+  "settings.key.gateway.lan.rotateCert": "The network certificate",
+  "settings.lan.title": "Allow computers on this network",
+  "settings.lan.description":
+    "Let Psyche on another computer on the same Wi-Fi or Ethernet reach this Mac's Gateway, without Tailscale. It is off until you turn it on.",
+  "settings.lan.loadLabel": "Network access",
+  "settings.lan.unsupported": "This Gateway is too old to listen on the network.",
+  "settings.lan.toggle": "Allow computers on this network",
+  "settings.lan.toggleHint":
+    "Psyche listens on one network, over an encrypted connection with its own certificate. A computer that connects still has to be approved here with Touch ID.",
+  "settings.lan.interface": "Network",
+  "settings.lan.interfaceDefault": "Primary network",
+  "settings.lan.interfaceOption": "{name} ({address})",
+  "settings.lan.noInterface": "No Wi-Fi or Ethernet connection was found on this Mac.",
+  "settings.lan.trustedOnly":
+    "Turn this on only on a network you trust. On shared or guest Wi-Fi, anyone connected can reach the pairing screen.",
+  "settings.lan.status": "Status",
+  "settings.lan.listening": "Listening on {addresses}",
+  "settings.lan.notListening": "Not listening",
+  "settings.lan.address": "Address",
+  "settings.lan.discovery": "Discovery",
+  "settings.lan.advertised": "Shown to Psyche on this network",
+  "settings.lan.notAdvertised": "Not shown. Add this Mac by its address.",
+  "settings.lan.certificate": "Certificate",
+  "settings.lan.certificateHint":
+    "Computers that pair remember this. If you replace the certificate, every one of them has to pair again.",
+  "settings.lan.rotate": "Replace certificate",
+  "settings.lan.rotateTitle": "Replace the network certificate?",
+  "settings.lan.rotateBody":
+    "Computers already paired over the network will stop connecting until they pair again. Use this if you think the certificate was copied.",
+  "settings.lan.rotateConfirm": "Replace and disconnect them",
+  "settings.lan.rotateFailed": "Couldn't replace the certificate ({reason}). Nothing changed.",
+  "settings.lan.problem.unknownInterface": "{name} is not a network on this Mac.",
+  "settings.lan.problem.noInterface": "There is no network to listen on, so nothing is listening.",
+  "settings.lan.problem.bindFailed":
+    "Couldn't listen on {address}. Another program may be using the port.",
+  "settings.lan.problem.paused":
+    "LAN access is paused on this network. You turned it on for a different one.",
+  "settings.lan.allowHere": "Allow on this network",
+  "settings.lan.problem.cert":
+    "Psyche couldn't make or read its network certificate, so it isn't listening.",
+  "settings.lan.problem.cloudflare":
+    "This Gateway is set up to be reached only through Cloudflare Access, so it won't also listen on the network.",
+  "settings.gateways.discoverConflict":
+    "More than one computer announced this name with different keys, so Psyche won't add it. Add the right one by its address.",
+  "settings.lan.problem.container":
+    "A Gateway in a container doesn't listen on the network this way.",
+  "settings.lan.problem.advertise":
+    "Psyche couldn't announce itself on the network. Computers can still add this Mac by its address.",
+  // Add a Gateway → On this network.
+  "settings.gateways.discover": "Look on this network",
+  "settings.gateways.discovering": "Looking…",
+  "settings.gateways.discoverTitle": "On this network",
+  "settings.gateways.discoverNone":
+    "No Psyche found. On that computer, turn on Allow computers on this network.",
+  "settings.gateways.discoverFailed":
+    "Couldn't look on the network. Add it by its address instead.",
+  "settings.gateways.discoverKey": "Key {fingerprint}",
+  "settings.gateways.discoverHint":
+    "What a computer announces on the network is a claim. The pairing screen shows its key: compare it with the Host's before you approve.",
+  "settings.gateways.discoverAdd": "Add {name}",
+  "settings.gateways.discoverSaved": "Saved",
   // The pairing card for a computer on another network.
   "settings.devices.gatewayKey": "This Gateway's key {fingerprint}",
   "settings.devices.fromAddress": "From {address}",
+  "settings.devices.fromLan": "From {address}, on your network. Check the whole key below.",
   "settings.devices.adminOptIn":
     "Admin lets this computer change security settings, devices and the vault. Leave it off unless you need it.",
   "settings.server.available": "Available",

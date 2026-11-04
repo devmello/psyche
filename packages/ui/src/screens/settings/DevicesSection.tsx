@@ -344,6 +344,8 @@ function PendingDevice({
   const id = useId();
   const [scopes, setScopes] = useState<DeviceScope[]>(() => defaultPairScopes(request));
   const remote = isRemoteRequest(request);
+  // The Host marks a request that came in on its network listener in the card text.
+  const lan = request.display.includes("on the local network");
   const toggle = (s: DeviceScope, on: boolean) =>
     setScopes((prev) => (on ? [...prev, s] : prev.filter((x) => x !== s)));
   return (
@@ -360,12 +362,22 @@ function PendingDevice({
       </p>
       {remote ? (
         <p className="text-callout text-label-secondary">
-          {t("settings.devices.fromAddress", { address: request.remoteAddress ?? "?" })}
+          {t(lan ? "settings.devices.fromLan" : "settings.devices.fromAddress", {
+            address: request.remoteAddress ?? "?",
+          })}
         </p>
       ) : null}
       {remote && gatewayFingerprint ? (
         <p className="text-callout text-label-secondary">
-          {t("settings.devices.gatewayKey", { fingerprint: groupFingerprint(gatewayFingerprint) })}
+          {t("settings.devices.gatewayKey", {
+            // From the local network the key is the only proof of who answered: show all of it.
+            fingerprint: lan
+              ? (gatewayFingerprint
+                  .replace(/^sha256:/, "")
+                  .match(/.{1,4}/g)
+                  ?.join(" ") ?? gatewayFingerprint)
+              : groupFingerprint(gatewayFingerprint),
+          })}
         </p>
       ) : null}
       <fieldset className="flex flex-wrap gap-x-4 gap-y-1">

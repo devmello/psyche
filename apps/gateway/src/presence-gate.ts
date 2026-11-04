@@ -146,6 +146,7 @@ export const PRESENCE_METHODS: Readonly<Record<string, (p: Params) => string | u
   "memory.lessons.forgetAll": (p) =>
     p.dryRun === true ? undefined : "Forget everything Psyche learned from you",
   "backup.delete": () => "Delete a backup",
+  "gateway.lan.rotateCert": () => "Replace the certificate computers on this network trust",
   "sandbox.installSrt": () =>
     "Install srt (the sandbox runtime) into Psyche's tools folder from the npm registry",
 };

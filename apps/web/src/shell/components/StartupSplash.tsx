@@ -48,6 +48,9 @@ const IDENTITY_REASON: Record<string, string> = {
   gateway_identity_missing: "web.splash.remote.identityMissing",
   gateway_identity_invalid: "web.splash.remote.identityInvalid",
   gateway_origin_mismatch: "web.splash.remote.identityOrigin",
+  gateway_cert_changed: "web.splash.remote.certChanged",
+  gateway_cert_missing: "web.splash.remote.certMissing",
+  gateway_cert_invalid: "web.splash.remote.certInvalid",
 };
 
 /**
@@ -60,6 +63,7 @@ function remoteSplashLine(
   host: string,
   waited: boolean,
   hostHasLocal: boolean,
+  lan = false,
 ): SplashLine {
   if (status.phase === "paired") return { tone: "ready", text: t("web.splash.ready") };
   const code = status.lastError;
@@ -115,12 +119,19 @@ function remoteSplashLine(
           : []),
         ...(status.gatewayFingerprint
           ? [
+              // On the network the whole fingerprint is shown: it is the only proof of who
+              // answered, so it is compared in full (the Host's pairing card shows it too).
               t("web.splash.remote.pairKey", {
-                fingerprint: groupFingerprint(status.gatewayFingerprint),
+                fingerprint: lan
+                  ? (status.gatewayFingerprint
+                      .replace(/^sha256:/, "")
+                      .match(/.{1,4}/g)
+                      ?.join(" ") ?? status.gatewayFingerprint)
+                  : groupFingerprint(status.gatewayFingerprint),
               }),
             ]
           : []),
-        t("web.splash.remote.pairHint", { host }),
+        t(lan ? "web.splash.remote.pairHintLan" : "web.splash.remote.pairHint", { host }),
       ],
     };
   }
@@ -144,7 +155,7 @@ export function splashLine(i: {
   run: GatewayRunView | undefined;
   helper: MacHelperState["kind"] | undefined;
   /** The window is a client of this Host: the line is about reaching it, not starting one. */
-  remote?: { hostName: string; waited?: boolean; hasLocal?: boolean };
+  remote?: { hostName: string; waited?: boolean; hasLocal?: boolean; lan?: boolean };
 }): SplashLine {
   if (i.remote) {
     return remoteSplashLine(
@@ -152,6 +163,7 @@ export function splashLine(i: {
       i.remote.hostName,
       i.remote.waited === true,
       i.remote.hasLocal === true,
+      i.remote.lan === true,
     );
   }
   if (i.status.phase === "paired") return { tone: "ready", text: t("web.splash.ready") };
@@ -217,7 +229,14 @@ export function StartupSplash({
     helper,
     ...(host === undefined
       ? {}
-      : { remote: { hostName: host, waited, hasLocal: saved.some((g) => !g.remote) } }),
+      : {
+          remote: {
+            hostName: host,
+            waited,
+            hasLocal: saved.some((g) => !g.remote),
+            lan: saved.some((g) => g.active && g.lan === true),
+          },
+        }),
   });
 
   // A Gateway that fails its identity check, or removes this computer, while the app is open
