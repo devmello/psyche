@@ -971,7 +971,9 @@ describe("Devices", () => {
   it("shows the pairing challenge and approves with owner-chosen scopes", async () => {
     const { gateway } = setup({ defaultSection: "devices", thisDeviceId: IDS.devices.mac });
     expect(await screen.findByText("731-904")).toBeTruthy();
-    await userEvent.click(screen.getByRole("checkbox", { name: "Approvals" }));
+    // The Server section on the same page has its own Approvals box (for a pairing link).
+    const waiting = (await screen.findByText("731-904")).closest("li") as HTMLElement;
+    await userEvent.click(within(waiting).getByRole("checkbox", { name: "Approvals" }));
     await userEvent.click(screen.getByRole("button", { name: "Approve iPad Air" }));
     await waitFor(() =>
       expect(callsOf(gateway(), "devices.approve")[0]?.params).toEqual({

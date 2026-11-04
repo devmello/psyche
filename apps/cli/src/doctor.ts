@@ -101,6 +101,16 @@ export function doctorChecks(s: Snapshot): Check[] {
       message: "trusted-proxy mode on (identity headers unlock passkey login only)",
     });
 
+  const lan = setting(s, "gateway.lan");
+  if (typeof lan === "object" && lan !== null && (lan as { enabled?: unknown }).enabled === true) {
+    add({
+      id: "lan",
+      status: "warn",
+      message: "the Gateway listens on the local network (self-signed certificate, pinned)",
+      hint: "Turn it off in Settings when you are on a network you do not trust",
+    });
+  }
+
   // Sandbox backend.
   if (s.sandbox.ok) {
     add(

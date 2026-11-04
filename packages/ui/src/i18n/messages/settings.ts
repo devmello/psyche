@@ -1742,11 +1742,16 @@ export const settings = {
   "settings.gateways.forget": "Forget",
   "settings.gateways.forgetNamed": "Forget {name}",
   "settings.gateways.add": "Add a Gateway",
-  "settings.gateways.addressLabel": "Address",
+  "settings.gateways.addressLabel": "Pairing link or address",
   "settings.gateways.addressPlaceholder": "studio-mac.your-tailnet.ts.net",
   "settings.gateways.nameLabel": "Name (optional)",
   "settings.gateways.addHint":
-    "The Tailscale address of the Mac that runs Psyche, https://<host>.<tailnet>.ts.net. This computer asks to pair, and the owner approves it there.",
+    "Paste the pairing link from the Mac that runs Psyche (Settings, Server & remote access, Pair another computer). Without a link, type its Tailscale address, https://<host>.<tailnet>.ts.net; this computer then asks to pair, and the owner approves it there.",
+  "settings.gateways.newLink": "A new pairing link arrived. Use it?",
+  "settings.gateways.useNewLink": "Use it",
+  "settings.gateways.ignoreNewLink": "Ignore",
+  "settings.gateways.fromLink":
+    "Opened from a pairing link. Check it, then press Add Gateway. Psyche asks you to confirm the address before it connects.",
   "settings.gateways.adding": "Add Gateway",
   "settings.gateways.problem.empty": "Type the Gateway's address.",
   "settings.gateways.problem.invalid": "That isn't an address Psyche can use.",
@@ -1756,6 +1761,19 @@ export const settings = {
     "Use an https:// address. Plain http works only through an SSH tunnel on this computer.",
   "settings.gateways.problem.has_path": "Use just the address, with no path.",
   "settings.gateways.problem.has_credentials": "Leave out any username or password.",
+  "settings.gateways.problem.link_not_a_pairing_link": "That isn't a pairing link.",
+  "settings.gateways.problem.link_unsupported_version":
+    "That pairing link is from a newer Psyche. Update Psyche on this computer and try again.",
+  "settings.gateways.problem.link_malformed":
+    "That pairing link is damaged. Copy it again from the Mac that made it.",
+  "settings.gateways.problem.link_extra_fields":
+    "That pairing link has something Psyche doesn't understand, so it isn't used.",
+  "settings.gateways.problem.link_bad_field":
+    "That pairing link is damaged. Copy it again from the Mac that made it.",
+  "settings.gateways.problem.link_lan":
+    "This pairing link is for a computer on your local network. Use Look on this network to add it instead.",
+  "settings.gateways.problem.link_pin_mismatch":
+    "This Gateway is already saved with a different identity. Use Pair again on it first, then add the link.",
   "settings.gateways.problem.failed": "Couldn't add the Gateway. Nothing changed.",
   "settings.gateways.problem.declined": "Adding the Gateway was cancelled.",
   "settings.gateways.problem.actionFailed": "That didn't work. Nothing changed.",
@@ -1788,9 +1806,109 @@ export const settings = {
   "settings.remote.loadLabel": "Gateway identity",
   "settings.remote.clientNote":
     "This computer is a client of {host}. Remote access is set up on {host}.",
+  // Settings → Server & remote access → Pair another computer (§3.4).
+  "settings.pair.title": "Pair another computer",
+  "settings.pair.description":
+    "Make a pairing link, or a QR code, for Psyche on another computer. It works once, for ten minutes, and the computer that uses it is paired with the access you tick here, with no second approval.",
+  "settings.pair.needsAddress":
+    "Set this Mac's public address first (step 3 above), then make a pairing link.",
+  "settings.pair.scopes": "What the other computer may do",
+  "settings.pair.adminHint":
+    "Admin lets it change security settings, devices and the vault, and stays off unless you tick it. Each admin change still needs your Touch ID here.",
+  "settings.pair.make": "Make a pairing link",
+  "settings.pair.resultRegion": "Pairing link and QR code",
+  "settings.pair.qrLabel": "QR code of the pairing link for {host}",
+  "settings.pair.scan":
+    "On the other computer, choose Add a Gateway and paste this link for {host}.",
+  "settings.pair.expires": "Expires {when}.",
+  "settings.pair.linkLabel": "Pairing link",
+  "settings.pair.copy": "Copy link",
+  "settings.pair.gives": "Once used, that computer gets: {scopes}.",
+  "settings.pair.compare":
+    "It checks this Mac's key before it uses the link: {fingerprint}. You can compare.",
+  "settings.pair.secret":
+    "Anyone who has this link in the next ten minutes can pair one computer. Don't post it or send it to anyone you wouldn't trust with this Mac.",
+  "settings.pair.live": "Unused pairing links",
+  "settings.pair.unused": "Not used yet",
+  "settings.pair.revoke": "Revoke",
+  "settings.pair.revokeNamed": "Revoke the pairing link made {when}",
+  "settings.pair.madeToast": "Pairing link made. It works once, for ten minutes.",
+  "settings.pair.usedToast": "A computer paired with your link.",
+  "settings.pair.gone": "The pairing link is no longer valid, so it is not shown any more.",
+  "settings.pair.err.noAddress":
+    "This Mac has no public address yet, so there is nothing to put in a link.",
+  "settings.pair.err.tooMany":
+    "There are already three unused pairing links. Revoke one, or wait for it to expire.",
+  "settings.pair.err.forbidden":
+    "Only Psyche on the Host itself, paired as admin, can make a pairing link.",
+  "settings.pair.err.failed": "Couldn't make a pairing link ({reason}).",
+  // Settings → Server & remote access → Allow computers on this network (§3.1, LAN).
+  "settings.key.gateway.lan": "Allow computers on this network",
+  "settings.key.gateway.lan.rotateCert": "The network certificate",
+  "settings.lan.title": "Allow computers on this network",
+  "settings.lan.description":
+    "Let Psyche on another computer on the same Wi-Fi or Ethernet reach this Mac's Gateway, without Tailscale. It is off until you turn it on.",
+  "settings.lan.loadLabel": "Network access",
+  "settings.lan.unsupported": "This Gateway is too old to listen on the network.",
+  "settings.lan.toggle": "Allow computers on this network",
+  "settings.lan.toggleHint":
+    "Psyche listens on one network, over an encrypted connection with its own certificate. A computer that connects still has to be approved here with Touch ID.",
+  "settings.lan.interface": "Network",
+  "settings.lan.interfaceDefault": "Primary network",
+  "settings.lan.interfaceOption": "{name} ({address})",
+  "settings.lan.noInterface": "No Wi-Fi or Ethernet connection was found on this Mac.",
+  "settings.lan.trustedOnly":
+    "Turn this on only on a network you trust. On shared or guest Wi-Fi, anyone connected can reach the pairing screen.",
+  "settings.lan.status": "Status",
+  "settings.lan.listening": "Listening on {addresses}",
+  "settings.lan.notListening": "Not listening",
+  "settings.lan.address": "Address",
+  "settings.lan.discovery": "Discovery",
+  "settings.lan.advertised": "Shown to Psyche on this network",
+  "settings.lan.notAdvertised": "Not shown. Add this Mac by its address.",
+  "settings.lan.certificate": "Certificate",
+  "settings.lan.certificateHint":
+    "Computers that pair remember this. If you replace the certificate, every one of them has to pair again.",
+  "settings.lan.rotate": "Replace certificate",
+  "settings.lan.rotateTitle": "Replace the network certificate?",
+  "settings.lan.rotateBody":
+    "Computers already paired over the network will stop connecting until they pair again. Use this if you think the certificate was copied.",
+  "settings.lan.rotateConfirm": "Replace and disconnect them",
+  "settings.lan.rotateFailed": "Couldn't replace the certificate ({reason}). Nothing changed.",
+  "settings.lan.problem.unknownInterface": "{name} is not a network on this Mac.",
+  "settings.lan.problem.noInterface": "There is no network to listen on, so nothing is listening.",
+  "settings.lan.problem.bindFailed":
+    "Couldn't listen on {address}. Another program may be using the port.",
+  "settings.lan.problem.paused":
+    "LAN access is paused on this network. You turned it on for a different one.",
+  "settings.lan.allowHere": "Allow on this network",
+  "settings.lan.problem.cert":
+    "Psyche couldn't make or read its network certificate, so it isn't listening.",
+  "settings.lan.problem.cloudflare":
+    "This Gateway is set up to be reached only through Cloudflare Access, so it won't also listen on the network.",
+  "settings.gateways.discoverConflict":
+    "More than one computer announced this name with different keys, so Psyche won't add it. Add the right one by its address.",
+  "settings.lan.problem.container":
+    "A Gateway in a container doesn't listen on the network this way.",
+  "settings.lan.problem.advertise":
+    "Psyche couldn't announce itself on the network. Computers can still add this Mac by its address.",
+  // Add a Gateway → On this network.
+  "settings.gateways.discover": "Look on this network",
+  "settings.gateways.discovering": "Looking…",
+  "settings.gateways.discoverTitle": "On this network",
+  "settings.gateways.discoverNone":
+    "No Psyche found. On that computer, turn on Allow computers on this network.",
+  "settings.gateways.discoverFailed":
+    "Couldn't look on the network. Add it by its address instead.",
+  "settings.gateways.discoverKey": "Key {fingerprint}",
+  "settings.gateways.discoverHint":
+    "What a computer announces on the network is a claim. The pairing screen shows its key: compare it with the Host's before you approve.",
+  "settings.gateways.discoverAdd": "Add {name}",
+  "settings.gateways.discoverSaved": "Saved",
   // The pairing card for a computer on another network.
   "settings.devices.gatewayKey": "This Gateway's key {fingerprint}",
   "settings.devices.fromAddress": "From {address}",
+  "settings.devices.fromLan": "From {address}, on your network. Check the whole key below.",
   "settings.devices.adminOptIn":
     "Admin lets this computer change security settings, devices and the vault. Leave it off unless you need it.",
   "settings.server.available": "Available",

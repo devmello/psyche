@@ -205,6 +205,8 @@ export const blocks = {
   "blocks.approval.whyAsked": "Why asked",
   "blocks.approval.stale":
     "Psyche restarted, so this card is out of date. It will be re-issued if it is still needed.",
+  "blocks.approval.answerOnHost":
+    "Answer on {host}, or set up Touch ID for approvals on this computer in Settings → Devices.",
   "blocks.approval.answerElsewhere": "Answer this on the device it was sent to.",
   "blocks.approval.decision": "Decision",
   "blocks.approval.alwaysUntil": "Always allow until",

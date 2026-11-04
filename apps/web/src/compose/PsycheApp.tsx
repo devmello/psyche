@@ -9,6 +9,7 @@ import {
   agentSheetHref,
   agentSheetRoute,
   automationOfThread,
+  ChatOutbox,
   ChatThread,
   CommandPalette,
   ConnectedSidebar,
@@ -73,6 +74,7 @@ import { kitClient } from "./kit-client.ts";
 import { renderLibraryThumbnail } from "./library-thumbnails.tsx";
 import { writeOnboarding } from "./onboarding.ts";
 import { saveHabits, saveMemory } from "./onboarding-host.ts";
+import { useRemotePresence } from "./remote-presence.tsx";
 import { settingsRoute } from "./settings.tsx";
 import { SideChatPane } from "./side-chat.tsx";
 import { useTranscriptMode } from "./transcript-mode.tsx";
@@ -555,6 +557,50 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
     () => kitClient(platform.gateway, platform.passkeys, platform.helper?.touchId),
     [platform],
   );
+  // Messages typed while a remote Host is unreachable wait here and go out on reconnect, once.
+  const outbox = useMemo(
+    () =>
+      platform.chrome?.remote
+        ? new ChatOutbox(
+            {
+              get: (k) => platform.storage.get(k),
+              set: (k, v) => platform.storage.set(k, v),
+              // The main window and Settings share this store: each hears the other's writes.
+              onChange: (key, cb) => {
+                const h = (e: StorageEvent) => {
+                  if (e.key === key) cb();
+                };
+                window.addEventListener("storage", h);
+                return () => window.removeEventListener("storage", h);
+              },
+            },
+            // Nothing is sent until this computer's device id for the Gateway is known, so a
+            // queue from before "Forget and pair again" is dropped, not sent as the new device.
+            { requireOwner: true },
+          )
+        : undefined,
+    [platform],
+  );
+  useEffect(() => {
+    if (!outbox) return;
+    let live = true;
+    const bind = () =>
+      void platform.gateway.deviceId?.().then(
+        (id) => {
+          if (live && id !== undefined) outbox.bindOwner(id);
+        },
+        () => undefined,
+      );
+    bind();
+    const off = platform.gateway.onStatus((s) => {
+      if (s.phase === "paired") bind();
+    });
+    return () => {
+      live = false;
+      off();
+    };
+  }, [outbox, platform]);
+  const remotePresence = useRemotePresence(platform);
   const systemLocale = useSystemLocale(platform);
   const systemAppearance = useSystemAppearance(platform);
   const [gate, setGate] = useState<Gate>("loading");
@@ -704,11 +750,13 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
       // A Touch ID card the window cannot confirm yet: start the helper or register its key.
       ...(platform.helper ? { touchIdFix: (fix) => fixTouchId(platform, fix) } : {}),
       ...(platform.helper?.touchId ? { touchIdOnceOnly: true } : {}),
+      // A risky card on a remote window needs this computer's own passkey, or says to answer on the Host.
+      ...(remotePresence ? { remotePresence } : {}),
     }),
-    [persona, platform],
+    [persona, platform, remotePresence],
   );
   return (
-    <GatewayProvider client={client}>
+    <GatewayProvider client={client} {...(outbox ? { outbox } : {})}>
       {/* Appearance (theme, contrast, reduce motion) and the kit's toasts (docs/a11y-audit.md A1, A2). */}
       <AppearanceProvider systemLocale={systemLocale} system={systemAppearance}>
         <UiSlotsProvider value={uiSlots}>

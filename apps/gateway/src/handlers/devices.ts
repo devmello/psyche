@@ -71,7 +71,25 @@ export const devicesHandlers: Record<string, HandlerDef> = {
         hostName: hostname(),
         publicOrigin: config.publicOrigin,
         trustedProxy: config.trustedProxy.enabled,
+        // The list of this Host's interfaces and addresses is for admins; others see the rest.
+        lan: {
+          ...call.ctx.lan.status(),
+          candidates: call.identity.scopes.includes("operator.admin")
+            ? call.ctx.lan.status().candidates
+            : [],
+        },
       };
+    },
+  },
+  "gateway.lan.rotateCert": {
+    async run(call: Call) {
+      const status = await call.ctx.lan.rotateCert();
+      if (status.certSpki === null) {
+        throw new PsycheError("unavailable", "LAN listening is not running; turn it on first");
+      }
+      // The new certificate is a new pin: every client that pinned the old one pairs again.
+      call.ctx.log.log("warn", "lan certificate rotated", { by: call.identity.deviceId });
+      return { certSpki: status.certSpki };
     },
   },
   "devices.list": {

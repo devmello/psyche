@@ -6,6 +6,7 @@ import {
   type BrowserNav,
   type BundledHelperIdentity,
   browserStorage,
+  type DiscoveredGatewayView,
   type DownloadNotice,
   type GatewayPort,
   type GatewayRunView,
@@ -58,7 +59,40 @@ export async function unwrapCall(envelope: Promise<unknown>): Promise<unknown> {
 /** Adapts the preload bridge to the shell's `ShellPlatform` port. */
 export function desktopPlatform(b: PsycheBridge = window.psyche): ShellPlatform {
   const full = fullDesktopPlatform(b);
-  return b.chrome.remote ? remoteClientPlatform(full) : full;
+  return b.chrome.remote ? remoteClientPlatform(full, b) : full;
+}
+
+type PasskeyHostPort = NonNullable<ShellPlatform["passkeys"]>;
+
+/**
+ * Passkeys of a remote window: main runs each ceremony in a hidden window of the Gateway's own
+ * origin, so this side only passes WebAuthn JSON through. A refusal keeps the DOMException's name
+ * (`NotAllowedError` for a cancelled sheet) so the same error text as the web client applies.
+ */
+export function remotePasskeys(b: PsycheBridge): PasskeyHostPort {
+  const run = async (envelope: Promise<unknown>): Promise<never> => {
+    try {
+      return (await unwrapCall(envelope)) as never;
+    } catch (err) {
+      const name = (err as { details?: { name?: unknown } } | null)?.details?.name;
+      if (typeof name !== "string") throw err;
+      const named = new Error((err as Error).message);
+      named.name = name;
+      throw named;
+    }
+  };
+  return {
+    deviceId: async () => {
+      const id = (await b.gateway.deviceId()) as string | undefined;
+      if (id === undefined)
+        throw new GatewayCallError({ code: "unavailable", message: "Not connected" });
+      return id;
+    },
+    authenticator: {
+      create: (options) => run(b.passkeys.create(options)),
+      get: (options) => run(b.passkeys.get(options)),
+    },
+  };
 }
 
 /**
@@ -73,7 +107,7 @@ export function desktopPlatform(b: PsycheBridge = window.psyche): ShellPlatform 
  * session on the Host's own shell over the Gateway connection (`hostTerminalPort`, R4): the
  * PTY runs there, this window only renders it, and nothing is ever spawned from Gateway data.
  */
-export function remoteClientPlatform(full: ShellPlatform): ShellPlatform {
+export function remoteClientPlatform(full: ShellPlatform, b?: PsycheBridge): ShellPlatform {
   const hostName = full.chrome?.remote?.hostName;
   const {
     browser: _browser,
@@ -89,6 +123,8 @@ export function remoteClientPlatform(full: ShellPlatform): ShellPlatform {
   return {
     ...rest,
     gateway,
+    // Touch ID for risky approvals is a passkey for the Host's Gateway, not the Host's helper.
+    ...(b === undefined ? {} : { passkeys: remotePasskeys(b) }),
     ...(hostName === undefined ? {} : { terminal: hostTerminalPort({ gateway, hostName }) }),
     ...(full.app ? { app: { info: () => full.app?.info() as Promise<HostAppInfo> } } : {}),
   };
@@ -99,7 +135,9 @@ function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
     getStatus: () => b.gateway.getStatus() as Promise<GatewayStatus>,
     deviceId: () => b.gateway.deviceId() as Promise<string | undefined>,
     onStatus: (cb) => b.gateway.onStatus((s) => cb(s as GatewayStatus)),
-    call: (method, params) => unwrapCall(b.gateway.call(method, params)),
+    // A retry of the same call (the chat outbox) carries its key, so the Host runs it once.
+    call: (method, params, options) =>
+      unwrapCall(b.gateway.call(method, params, options?.idempotencyKey)),
     onEvent: (cb) => b.gateway.onEvent((e) => cb(e as GatewayEvent)),
     onResync: (cb) => b.gateway.onResync(cb),
     getRun: () => b.gateway.getRun() as Promise<GatewayRunView>,
@@ -115,6 +153,11 @@ function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
     gateways: {
       list: () => b.gateways.list() as Promise<SavedGatewayView[]>,
       add: (address, name) => b.gateways.add(address, name) as Promise<SavedGatewayView>,
+      addLink: (link) => b.gateways.addLink(link) as Promise<SavedGatewayView>,
+      takePendingLink: () => b.gateways.takePendingLink() as Promise<string | null>,
+      onPendingLink: (cb) => b.gateways.onPendingLink(cb),
+      discover: () => b.gateways.discover() as Promise<DiscoveredGatewayView[]>,
+      addDiscovered: (id) => b.gateways.addDiscovered(id) as Promise<SavedGatewayView>,
       rename: async (id, name) => void (await b.gateways.rename(id, name)),
       remove: async (id) => void (await b.gateways.remove(id)),
       switchTo: async (id, opts) => void (await b.gateways.switchTo(id, opts)),
@@ -172,8 +215,8 @@ function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
       },
     },
     clipboard: {
-      writeText: async (text) => {
-        await b.clipboard.writeText(text);
+      writeText: async (text, opts) => {
+        await b.clipboard.writeText(text, opts);
       },
     },
     external: {
