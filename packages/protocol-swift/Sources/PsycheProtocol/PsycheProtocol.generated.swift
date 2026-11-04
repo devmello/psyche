@@ -672,6 +672,7 @@
 //   let libraryGetParams = try? JSONDecoder().decode(LibraryGetParams.self, from: jsonData)
 //   let libraryGetResult = try? JSONDecoder().decode(LibraryGetResult.self, from: jsonData)
 //   let libraryItem = try? JSONDecoder().decode(LibraryItem.self, from: jsonData)
+//   let libraryItemChangedPayload = try? JSONDecoder().decode(LibraryItemChangedPayload.self, from: jsonData)
 //   let libraryItemKind = try? JSONDecoder().decode(LibraryItemKind.self, from: jsonData)
 //   let libraryListParams = try? JSONDecoder().decode(LibraryListParams.self, from: jsonData)
 //   let libraryListResult = try? JSONDecoder().decode(LibraryListResult.self, from: jsonData)
@@ -11135,7 +11136,7 @@ public enum ContextBlockType: String, Codable, Sendable {
 
 // MARK: - CredentialUpdatedPayload
 public struct CredentialUpdatedPayload: Codable, Sendable {
-    public let change: ChangeEnum
+    public let change: CredentialUpdatedPayloadChange
     public let credential: CredentialMeta?
     public let credentialID: String
     public let ownerConnectorID: String?
@@ -11147,7 +11148,7 @@ public struct CredentialUpdatedPayload: Codable, Sendable {
         case ownerConnectorID = "ownerConnectorId"
     }
 
-    public init(change: ChangeEnum, credential: CredentialMeta?, credentialID: String, ownerConnectorID: String?) {
+    public init(change: CredentialUpdatedPayloadChange, credential: CredentialMeta?, credentialID: String, ownerConnectorID: String?) {
         self.change = change
         self.credential = credential
         self.credentialID = credentialID
@@ -11155,7 +11156,7 @@ public struct CredentialUpdatedPayload: Codable, Sendable {
     }
 }
 
-public enum ChangeEnum: String, Codable, Sendable {
+public enum CredentialUpdatedPayloadChange: String, Codable, Sendable {
     case created = "created"
     case deleted = "deleted"
     case revoked = "revoked"
@@ -16906,6 +16907,27 @@ public enum Origin: String, Codable, Sendable {
     case connector = "connector"
     case download = "download"
     case upload = "upload"
+}
+
+// MARK: - LibraryItemChangedPayload
+public struct LibraryItemChangedPayload: Codable, Sendable {
+    public let change: LibraryItemChangedPayloadChange
+    public let itemID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case change = "change"
+        case itemID = "itemId"
+    }
+
+    public init(change: LibraryItemChangedPayloadChange, itemID: String) {
+        self.change = change
+        self.itemID = itemID
+    }
+}
+
+public enum LibraryItemChangedPayloadChange: String, Codable, Sendable {
+    case created = "created"
+    case deleted = "deleted"
 }
 
 // MARK: - LibraryListParams
