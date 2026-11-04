@@ -171,6 +171,15 @@ describe("gateway.trustedProxy.allowedLogins", () => {
     }
   });
 
+  it("believes the login only from a Tailscale proxy peer, not from any trusted proxy", async () => {
+    t = await startTestGateway({
+      config: { trustedProxy: { ...allowed, tailscaleProxies: ["192.0.2.1/32"] } },
+    });
+    await expect(
+      TestClient.open(wsUrlOf(t.gateway), fwd("owner@example.test")),
+    ).rejects.toBeDefined();
+  });
+
   it("fails closed when the proxy peer is not a trusted proxy", async () => {
     t = await startTestGateway({
       config: { trustedProxy: { ...allowed, trustedProxies: ["192.0.2.0/24"] } },

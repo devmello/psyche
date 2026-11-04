@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { PsycheError } from "@psyche/protocol";
 
 /**
@@ -14,6 +15,8 @@ import { PsycheError } from "@psyche/protocol";
 export interface WebAuthnWindow {
   /** Loads the Gateway's own page so the window's origin is the Gateway's. */
   load(url: string): Promise<void>;
+  /** The URL the window is on now (after any redirect); must be exactly the page asked for. */
+  currentUrl(): string;
   /** Runs a script in that page and resolves with what it returns (user activation granted). */
   run(script: string): Promise<unknown>;
   close(): void;
@@ -25,6 +28,51 @@ export interface PasskeyHostOptions {
   createWindow: () => WebAuthnWindow;
   /** A ceremony that never finishes (the sheet is ignored) is given up after this long. */
   timeoutMs?: number;
+}
+
+/**
+ * The page the ceremony runs on: a path of the Gateway's origin that the window serves itself
+ * from a protocol handler (no network, so no Host content, redirect or script is ever involved).
+ */
+export const PASSKEY_PAGE_PATH = "/__psyche/webauthn";
+export const PASSKEY_PAGE_HTML =
+  '<!doctype html><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'"><title>Psyche</title>';
+
+const b64u = (s: unknown): Buffer | null =>
+  typeof s === "string" && /^[A-Za-z0-9_-]*$/.test(s) ? Buffer.from(s, "base64url") : null;
+
+/**
+ * What main checks about a credential the page returned, before the renderer sees it: it was made
+ * for this Gateway's origin, for the challenge main sent, of the right kind, under this RP ID.
+ * A page that lied about any of these (patched APIs, another origin) is refused here.
+ */
+export function verifyCredential(
+  kind: "create" | "get",
+  credential: unknown,
+  expect: { origin: string; rpId: string; challenge: string },
+): void {
+  const bad = (why: string): never => {
+    throw new PsycheError("forbidden", `The passkey was not made for this Gateway (${why})`);
+  };
+  const resp = isRecord(credential) && isRecord(credential.response) ? credential.response : null;
+  if (resp === null) return bad("no response");
+  const raw = b64u(resp.clientDataJSON);
+  if (raw === null) return bad("no client data");
+  let client: unknown;
+  try {
+    client = JSON.parse(raw.toString("utf8"));
+  } catch {
+    return bad("client data");
+  }
+  if (!isRecord(client)) return bad("client data");
+  if (client.type !== (kind === "create" ? "webauthn.create" : "webauthn.get")) return bad("type");
+  if (client.origin !== expect.origin) return bad("origin");
+  if (client.challenge !== expect.challenge) return bad("challenge");
+  if (client.crossOrigin === true) return bad("cross-origin");
+  const auth = b64u(resp.authenticatorData);
+  if (auth === null || auth.length < 37) return bad("authenticator data");
+  const rpIdHash = createHash("sha256").update(expect.rpId).digest();
+  if (!auth.subarray(0, 32).equals(rpIdHash)) return bad("RP ID");
 }
 
 /** What the page script answers: the credential, or the DOMException's name and message. */
@@ -90,12 +138,15 @@ export class PasskeyHost {
     return this.#ceremony("get", options);
   }
 
-  /** The RP ID the options name must be this Gateway's host, exactly: never a parent domain. */
+  /** The RP ID must be named, and be this Gateway's host exactly: never a parent domain. */
   #checkRp(kind: "create" | "get", options: Record<string, unknown>): void {
     const named =
       kind === "create" ? (isRecord(options.rp) ? options.rp.id : undefined) : options.rpId;
-    if (named !== undefined && named !== this.#origin.hostname) {
+    if (named !== this.#origin.hostname) {
       throw new PsycheError("forbidden", "That passkey is for a different site than this Gateway");
+    }
+    if (typeof options.challenge !== "string" || options.challenge === "") {
+      throw new PsycheError("invalid_params", "Passkey options have no challenge");
     }
   }
 
@@ -110,8 +161,12 @@ export class PasskeyHost {
     const win = this.#createWindow();
     let timer: NodeJS.Timeout | undefined;
     try {
-      // `/healthz` is public, tiny and the Gateway's own: a page of the right origin.
-      await win.load(new URL("/healthz", this.#origin).toString());
+      const page = new URL(PASSKEY_PAGE_PATH, this.#origin).toString();
+      await win.load(page);
+      // A redirect or a navigation must not have taken the window anywhere else.
+      if (win.currentUrl() !== page) {
+        throw new PsycheError("forbidden", "The Gateway's page did not load as expected");
+      }
       const timeout = new Promise<never>((_, reject) => {
         timer = setTimeout(
           () =>
@@ -123,7 +178,14 @@ export class PasskeyHost {
         win.run(ceremonyScript(kind, options)),
         timeout,
       ])) as PageResult;
-      if (result?.ok === true) return result.credential;
+      if (result?.ok === true) {
+        verifyCredential(kind, result.credential, {
+          origin: this.#origin.origin,
+          rpId: this.#origin.hostname,
+          challenge: options.challenge as string,
+        });
+        return result.credential;
+      }
       const name = result?.ok === false ? result.name : "Error";
       const message = result?.ok === false ? result.message : "The passkey prompt failed";
       throw new PsycheError(NOT_ALLOWED.has(name) ? "cancelled" : "forbidden", message, {
