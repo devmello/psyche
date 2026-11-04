@@ -37,6 +37,8 @@ public enum PsycheColor {
 
 /// Spacing and radii used across the components.
 public enum PsycheMetrics {
+    /// The widest a reading screen gets; wider windows center the column.
+    public static let readableWidth: CGFloat = 720
     public static let pagePadding: CGFloat = 20
     public static let sectionSpacing: CGFloat = 22
     public static let cardRadius: CGFloat = 14
