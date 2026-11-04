@@ -1,4 +1,5 @@
 import type { GatewayEvent, GatewayStatus } from "@psyche/web/client";
+import { hostTerminalPort } from "@psyche/web/host-terminal-port";
 import {
   type BrowserHostState,
   type BrowserNav,
@@ -65,11 +66,14 @@ export function desktopPlatform(b: PsycheBridge = window.psyche): ShellPlatform 
  * hides it or says where it runs: the agent's browser, the folder picker (a path chosen here
  * means nothing there), the Mac helper and Touch ID (the Host's), system-wide dictation,
  * revealing a folder or the logs (they are the Host's), opening a cited source in this Mac's Mail
- * or Finder, and the terminal: a shell is started here from what the Gateway answers, so a
+ * or Finder, and the local terminal: a shell is started here from what the Gateway answers, so a
  * Gateway on another computer must never be able to ask for one. Main refuses the same calls too
- * (`REMOTE_REFUSED` in main.ts), whatever this window sends.
+ * (`REMOTE_REFUSED` in main.ts), whatever this window sends. The terminal pane instead gets a
+ * session on the Host's own shell over the Gateway connection (`hostTerminalPort`, R4): the
+ * PTY runs there, this window only renders it, and nothing is ever spawned from Gateway data.
  */
 export function remoteClientPlatform(full: ShellPlatform): ShellPlatform {
+  const hostName = full.chrome?.remote?.hostName;
   const {
     browser: _browser,
     dialogs: _dialogs,
@@ -84,6 +88,7 @@ export function remoteClientPlatform(full: ShellPlatform): ShellPlatform {
   return {
     ...rest,
     gateway,
+    ...(hostName === undefined ? {} : { terminal: hostTerminalPort({ gateway, hostName }) }),
     ...(full.app ? { app: { info: () => full.app?.info() as Promise<HostAppInfo> } } : {}),
   };
 }

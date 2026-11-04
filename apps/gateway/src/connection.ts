@@ -36,6 +36,17 @@ export interface Transport {
 /** Reply id used when a malformed request carried no usable id. */
 export const UNKNOWN_FRAME_ID = "_unknown";
 
+/**
+ * Keystrokes, resizes and output acks of an open Host terminal arrive faster than a per-minute
+ * budget allows. They need `operator.admin` and an owned session, and the terminal part meters
+ * input bytes per session itself.
+ */
+const STREAM_METHODS: ReadonlySet<string> = new Set([
+  "terminal.session.write",
+  "terminal.session.resize",
+  "terminal.session.ack",
+]);
+
 /** Default wait for a peer's `res` to a Gateway → peer request. */
 const PEER_REQUEST_TIMEOUT_MS = 30_000;
 
@@ -268,7 +279,7 @@ export class Connection implements LiveConnection {
    * exempt: a node streams `node.event`s for invocations the Gateway itself started.
    */
   #rateLimit(deviceId: string, method: string, sideEffecting: boolean): void {
-    if (method.startsWith("node.")) return;
+    if (method.startsWith("node.") || STREAM_METHODS.has(method)) return;
     const { deviceRequests, deviceSideEffects } = this.#ctx;
     if (
       !deviceRequests.allowed(deviceId) ||

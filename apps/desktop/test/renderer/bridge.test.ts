@@ -125,8 +125,8 @@ describe("renderer bridge", () => {
       expect(platform.dialogs).toBeUndefined();
       expect(platform.helper).toBeUndefined();
       expect(platform.dictation).toBeUndefined();
-      // A shell is started here from what the Gateway answers: never offered for a remote one.
-      expect(platform.terminal).toBeUndefined();
+      // The local terminal starts a process from what the Gateway answers: never for a remote
+      // one. The pane gets a session on the Host instead (below).
       expect(platform.sources).toBeUndefined();
       expect(platform.permissions).toBeUndefined();
       expect(platform.app?.revealHome).toBeUndefined();
@@ -136,6 +136,40 @@ describe("renderer bridge", () => {
       expect(platform.gateways).toBeDefined();
       expect(platform.gateway.retry).toBeDefined();
       expect(platform.app?.info).toBeDefined();
+    });
+
+    it("gives the terminal a session on the Host and never main's local PTY", async () => {
+      const calls: Array<{ method: string; params: unknown }> = [];
+      const local = {
+        open: async () => {
+          throw new Error("the local terminal must not be used in a remote window");
+        },
+        write: () => {
+          throw new Error("the local terminal must not be used in a remote window");
+        },
+      };
+      const bridge = {
+        ...remote,
+        terminal: local,
+        gateway: {
+          ...(remote as unknown as { gateway: object }).gateway,
+          call: async (method: string, params: unknown) => {
+            calls.push({ method, params });
+            return { ok: true, value: { sessionId: "term_1", target: "host", label: "zsh · ~" } };
+          },
+          onEvent: () => () => undefined,
+        },
+      } as unknown as PsycheBridge;
+      const terminal = desktopPlatform(bridge).terminal;
+      expect(terminal).toBeDefined();
+      const opened = await terminal?.open({ cols: 80, rows: 24, cwd: "/Users/me/code" });
+      expect(opened).toEqual({ sessionId: "term_1", target: "host", label: "zsh · ~" });
+      expect(calls).toEqual([
+        {
+          method: "terminal.session.open",
+          params: { cols: 80, rows: 24, cwd: "/Users/me/code" },
+        },
+      ]);
     });
 
     it("keeps everything for This Mac", () => {

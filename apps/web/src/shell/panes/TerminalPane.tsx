@@ -20,7 +20,7 @@ export interface TerminalPaneProps {
 }
 
 type SessionInfo =
-  | { status: "opening" }
+  | { status: "opening"; waiting?: boolean }
   | { status: "open"; sessionId: string; label: string; target: "sandbox" | "host" }
   | {
       status: "exited";
@@ -32,7 +32,8 @@ type SessionInfo =
   | { status: "unavailable"; message: string };
 
 interface SessionHandlers {
-  data(data: string): void;
+  /** May return a promise that settles once the data is rendered (the port's flow control). */
+  data(data: string): void | Promise<void>;
   exit(exitCode: number): void;
 }
 
@@ -64,12 +65,9 @@ class SessionRouter {
   readonly #handlers = new Map<string, SessionHandlers>();
   readonly #pending = new Map<string, { data: string[]; chars: number; exit?: number }>();
 
-  data(sessionId: string, data: string): void {
+  data(sessionId: string, data: string): void | Promise<void> {
     const handler = this.#handlers.get(sessionId);
-    if (handler) {
-      handler.data(data);
-      return;
-    }
+    if (handler) return handler.data(data);
     const entry = this.#entry(sessionId);
     if (entry.chars + data.length > PENDING_CHARS) return;
     entry.data.push(data);
@@ -243,40 +241,50 @@ function TerminalSession({
           });
     observer?.observe(el);
 
-    port.open({ threadId, ...(cwd ? { cwd } : {}), cols: size.cols, rows: size.rows }).then(
-      (res) => {
-        if (disposed) {
-          if ("sessionId" in res) port.close(res.sessionId);
-          return;
-        }
-        if ("unavailable" in res) {
-          setInfo({ status: "unavailable", message: res.unavailable });
-          return;
-        }
-        const id = res.sessionId;
-        sessionId = id;
-        setInfo({ status: "open", sessionId: id, label: res.label, target: res.target });
-        router.attach(id, {
-          data: (data) => term.write(data),
-          exit: (exitCode) => {
-            exited = true;
-            term.options.disableStdin = true;
-            setInfo({
-              status: "exited",
-              sessionId: id,
-              label: res.label,
-              target: res.target,
-              exitCode,
-            });
-            onExitRef.current?.(id, exitCode);
-          },
-        });
-        syncSize();
-      },
-      (error: unknown) => {
-        if (!disposed) setInfo({ status: "unavailable", message: errorMessage(error) });
-      },
-    );
+    port
+      .open({
+        threadId,
+        ...(cwd ? { cwd } : {}),
+        cols: size.cols,
+        rows: size.rows,
+        onWaiting: () => {
+          if (!disposed) setInfo({ status: "opening", waiting: true });
+        },
+      })
+      .then(
+        (res) => {
+          if (disposed) {
+            if ("sessionId" in res) port.close(res.sessionId);
+            return;
+          }
+          if ("unavailable" in res) {
+            setInfo({ status: "unavailable", message: res.unavailable });
+            return;
+          }
+          const id = res.sessionId;
+          sessionId = id;
+          setInfo({ status: "open", sessionId: id, label: res.label, target: res.target });
+          router.attach(id, {
+            data: (data) => new Promise<void>((done) => term.write(data, done)),
+            exit: (exitCode) => {
+              exited = true;
+              term.options.disableStdin = true;
+              setInfo({
+                status: "exited",
+                sessionId: id,
+                label: res.label,
+                target: res.target,
+                exitCode,
+              });
+              onExitRef.current?.(id, exitCode);
+            },
+          });
+          syncSize();
+        },
+        (error: unknown) => {
+          if (!disposed) setInfo({ status: "unavailable", message: errorMessage(error) });
+        },
+      );
 
     return () => {
       disposed = true;
@@ -304,7 +312,9 @@ function TerminalSession({
       />
       {info.status === "exited" ? (
         <div role="status" style={styles.exit}>
-          {t("web.terminal.exit", { code: info.exitCode })}
+          {info.exitCode < 0
+            ? t("web.terminal.ended")
+            : t("web.terminal.exit", { code: info.exitCode })}
         </div>
       ) : null}
     </div>
@@ -312,6 +322,7 @@ function TerminalSession({
 }
 
 function headerLabel(info: SessionInfo | undefined): string {
+  if (info?.status === "opening" && info.waiting) return t("web.terminal.waitingApproval");
   if (!info || info.status === "opening") return t("web.terminal.opening");
   if (info.status === "unavailable") return t("web.terminal.unavailable");
   return info.label;
