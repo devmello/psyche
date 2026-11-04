@@ -1,6 +1,14 @@
 // @vitest-environment happy-dom
 
-import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { RemotePresencePanel, useRemotePresence } from "../../src/compose/remote-presence.tsx";
 import { notifyPasskeysChanged } from "../../src/lib/passkey-state.ts";
