@@ -191,7 +191,11 @@ describe("Cloudflare Access in front of the Gateway", () => {
       "Cf-Access-Jwt-Assertion": jwt(k1, good()),
     });
     clients.push(c);
-    const res = await handshake(c, gw.origin, { handshakeSecret: gw.handshakeSecret });
+    // A desktop over the network binds its connect to the Gateway key it verified.
+    const res = await handshake(c, gw.origin, {
+      handshakeSecret: gw.handshakeSecret,
+      gatewayKey: gw.context.identity.publicKey,
+    });
     expect(verified<{ phase: string }>(res).phase).toBe("pending");
     const evt = await admin.waitForEvent((e) => e.event === "pairing.requested");
     expect((evt.payload as { pairingRequest: PairingRequest }).pairingRequest.display).toContain(

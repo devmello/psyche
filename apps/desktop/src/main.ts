@@ -914,8 +914,11 @@ function onGatewayEvent(e: {
     const entries = (p.entries as { key: string; value: unknown }[] | undefined) ?? [];
     zoom.onSettingsChanged(entries);
     windowTheme.onSettingsChanged(entries);
-    dockPolicy.onSettingsChanged(entries);
-    loginItem.onSettingsChanged(entries);
+    // The Host's Dock and open-at-login settings describe the Host, not this Mac (design §4.4).
+    if (!remoteGateway) {
+      dockPolicy.onSettingsChanged(entries);
+      loginItem.onSettingsChanged(entries);
+    }
   }
   if (e.event === "notification.opened") {
     const route = p.route;
@@ -1163,8 +1166,10 @@ void app.whenReady().then(async () => {
       void refreshApprovals();
       void zoom.load();
       void windowTheme.load();
-      void dockPolicy.load((method, params) => requireGateway().call(method, params));
-      void loginItem.load((method, params) => requireGateway().call(method, params));
+      if (!remoteGateway) {
+        void dockPolicy.load((method, params) => requireGateway().call(method, params));
+        void loginItem.load((method, params) => requireGateway().call(method, params));
+      }
       // System-wide dictation and Ask about my screen would listen to, and capture, the Host's
       // microphone and screen from here: off until they can run on this computer (design §4.2).
       if (!remoteGateway) {
@@ -1246,7 +1251,9 @@ void app.whenReady().then(async () => {
     warn: (m) => console.warn(`[dictation] ${m}`),
     onStatus: (s) => broadcast(IPC.dictationStatus, s),
     // Double-tapping the voice or dictation key opens "Ask about my screen", like the shortcut.
-    onKeyDoubleTap: () => screenAsk?.trigger("window"),
+    onKeyDoubleTap: () => {
+      if (!remoteGateway) screenAsk?.trigger("window");
+    },
     // The voice key (held from any app) opens the ask panel in voice mode: speak, and the answer
     // appears as text. The panel dictates through the renderer, which owns the microphone, and
     // Talk with Psyche keeps the panel window even with Ask about screen off.
@@ -1318,7 +1325,7 @@ void app.whenReady().then(async () => {
       open: () => windows?.showMain(),
       newSideChat: () => command({ type: "newSideChat" }),
       quickEntry: () => windows?.toggleQuickEntry(),
-      askScreen: () => screenAsk?.trigger(),
+      ...(remoteGateway ? {} : { askScreen: () => screenAsk?.trigger() }),
       openApprovals: () => command({ type: "navigate", route: "/agent/approvals" }),
       closeWindow: () => windows?.main()?.close(),
       quitApp: () => app.quit(),
@@ -1339,11 +1346,14 @@ void app.whenReady().then(async () => {
     trigger: () => screenAsk?.trigger(),
     setEnabled: (on) => screenAsk?.setEnabled(on, "screen"),
     warn: (m) => console.warn(`[screen-ask] ${m}`),
+    disabled: remoteGateway,
   });
   screenAskShortcut.apply(screenAskShortcut.settings);
-  app.dock?.setMenu(
-    Menu.buildFromTemplate([{ label: "Ask about screen", click: () => screenAsk?.trigger() }]),
-  );
+  if (!remoteGateway) {
+    app.dock?.setMenu(
+      Menu.buildFromTemplate([{ label: "Ask about screen", click: () => screenAsk?.trigger() }]),
+    );
+  }
 
   // The window shows first and comes forward; the Gateway starts behind it (issue #441).
   let shownAt: number | undefined;

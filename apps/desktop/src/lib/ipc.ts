@@ -283,6 +283,7 @@ export function checkAudioChunk(v: unknown): string {
  */
 export const REMOTE_REFUSED_CHANNELS: ReadonlySet<string> = new Set([
   IPC.terminalOpen,
+  IPC.browserOpenRealChromeProfile,
   IPC.dialogPickFolder,
   IPC.permissionsRequest,
   IPC.helperLaunch,

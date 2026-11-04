@@ -8,12 +8,16 @@ import {
 } from "node:crypto";
 import {
   chmodSync,
+  closeSync,
+  fsyncSync,
   linkSync,
   mkdirSync,
+  openSync,
   readFileSync,
   renameSync,
   rmSync,
   writeFileSync,
+  writeSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
 import { PsycheError } from "@psyche/protocol";
@@ -136,8 +140,16 @@ function writeNewIdentity(path: string, home: string, replace: boolean): Gateway
   chmodSync(dirname(path), 0o700);
   const tmp = `${path}.${process.pid}.tmp`;
   try {
-    writeFileSync(tmp, `${JSON.stringify(file)}\n`, { mode: 0o600 });
-    chmodSync(tmp, 0o600);
+    // A leftover from a crash is ours to replace; the file itself is created exclusively, written
+    // and flushed, and so is the directory entry, before it is put in place.
+    rmSync(tmp, { force: true });
+    const fd = openSync(tmp, "wx", 0o600);
+    try {
+      writeSync(fd, `${JSON.stringify(file)}\n`);
+      fsyncSync(fd);
+    } finally {
+      closeSync(fd);
+    }
     if (replace) {
       renameSync(tmp, path);
     } else {
@@ -156,6 +168,12 @@ function writeNewIdentity(path: string, home: string, replace: boolean): Gateway
   } catch (err) {
     rmSync(tmp, { force: true });
     throw err;
+  }
+  const dirFd = openSync(dirname(path), "r");
+  try {
+    fsyncSync(dirFd);
+  } finally {
+    closeSync(dirFd);
   }
   return fromJwk(file.jwk);
 }

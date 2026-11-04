@@ -90,11 +90,15 @@ export class Handshake {
     if (frame.type !== "res") return {};
     if (!frame.ok) {
       this.stage = "done";
+      // Codes the client itself produces (the identity checks) never come from the wire: a server
+      // that sends one is a server speaking for the check, so it reads as a bad frame.
+      const sent = frame.error.code;
+      const code = sent.startsWith("gateway_") ? "invalid_frame" : sent;
       const server = (frame.error.details as { server?: unknown } | undefined)?.server;
       return {
         status: {
           type: "error",
-          code: frame.error.code,
+          code,
           ...(typeof server === "number" ? { serverProtocolVersion: server } : {}),
         },
         done: true,
@@ -133,6 +137,8 @@ export class Handshake {
           this.params.publicKey,
         );
         // Nothing is signed for a Gateway that failed the check.
+        // Another frame refused this handshake while the check ran: it stays refused.
+        if (this.stage !== "verifying") return refuse();
         if (!verdict.ok) {
           this.stage = "done";
           return { status: { type: "error", code: verdict.code }, done: true };
@@ -149,6 +155,7 @@ export class Handshake {
         ...(verifiedKey === undefined ? {} : { gatewayKey: verifiedKey }),
       });
       const signature = await this.sign(bytes);
+      if (this.stage !== "verifying") return refuse();
       this.stage = "sent";
       return {
         status: {

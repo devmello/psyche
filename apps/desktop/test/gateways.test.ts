@@ -572,6 +572,7 @@ describe("what main refuses for a client of another computer's Gateway", () => {
   it("covers the shell, folders, helper, Touch ID, dictation checks and opening sources", () => {
     for (const channel of [
       IPC.terminalOpen,
+      IPC.browserOpenRealChromeProfile,
       IPC.dialogPickFolder,
       IPC.permissionsRequest,
       IPC.helperLaunch,
@@ -587,5 +588,35 @@ describe("what main refuses for a client of another computer's Gateway", () => {
     // The Gateway connection itself and the saved Gateways stay.
     expect(REMOTE_REFUSED_CHANNELS.has(IPC.call)).toBe(false);
     expect(REMOTE_REFUSED_CHANNELS.has(IPC.gatewaysList)).toBe(false);
+  });
+});
+
+describe("a file from another version, and fields this version does not know", () => {
+  it("fails closed on an unknown version instead of rewriting it as v1", () => {
+    const dir = tempDir();
+    const file = gatewaysFilePath(dir);
+    writeFileSync(file, JSON.stringify({ v: 2, active: "this-mac", gateways: [] }));
+    expect(() => loadGatewaysStrict(file)).toThrow(GatewaysFileError);
+    writeFileSync(file, JSON.stringify({ active: "this-mac", gateways: [] }));
+    expect(() => loadGatewaysStrict(file)).toThrow(GatewaysFileError);
+  });
+
+  it("keeps unknown fields, top-level and per entry, when saving", () => {
+    const dir = tempDir();
+    const file = gatewaysFilePath(dir);
+    writeFileSync(
+      file,
+      JSON.stringify({
+        v: 1,
+        active: "this-mac",
+        futureTop: { a: 1 },
+        gateways: [{ id: "gw_aaaaaaaaaaaa", origin: "https://a.tail1.ts.net", futureEntry: "x" }],
+      }),
+    );
+    saveGateways(file, pinGatewayKey(loadGatewaysStrict(file), "gw_aaaaaaaaaaaa", KEY_A));
+    const raw = JSON.parse(readFileSync(file, "utf8"));
+    expect(raw.futureTop).toEqual({ a: 1 });
+    expect(raw.gateways[0]).toMatchObject({ futureEntry: "x", identityKey: KEY_A });
+    expect(raw.extra).toBeUndefined();
   });
 });

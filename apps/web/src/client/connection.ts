@@ -353,6 +353,7 @@ export class GatewayConnection {
       ...(this.opts.random ? { random: this.opts.random } : {}),
     });
     this.reconnectTimer = setTimeout(() => {
+      if (this.stopped || isFatalStatus(this.status)) return;
       void this.checkHealth();
       void this.connect();
     }, delay);

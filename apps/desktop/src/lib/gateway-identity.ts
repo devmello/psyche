@@ -36,7 +36,20 @@ export function readLocalGatewayKey(home: string): string | undefined {
 function parseOrigin(origin: string): URL | null {
   try {
     const url = new URL(origin);
-    return url.protocol === "http:" || url.protocol === "https:" ? url : null;
+    // An origin and nothing else: no path, query, fragment or credentials, whatever the server
+    // names. (`new URL` adds the "/" of an origin's empty path.)
+    if (
+      (url.protocol !== "http:" && url.protocol !== "https:") ||
+      url.pathname !== "/" ||
+      url.search !== "" ||
+      url.hash !== "" ||
+      url.username !== "" ||
+      url.password !== "" ||
+      origin.replace(/\/$/, "") !== url.origin.replace(/\/$/, "")
+    ) {
+      return null;
+    }
+    return url;
   } catch {
     return null;
   }

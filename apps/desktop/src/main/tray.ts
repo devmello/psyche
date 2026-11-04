@@ -22,7 +22,8 @@ export interface TrayActions {
   newSideChat(): void;
   quickEntry(): void;
   /** Ask about my screen (docs/design/screen-ask-2026.md §2). */
-  askScreen(): void;
+  /** Absent where Ask about screen is off (a client of another computer's Gateway). */
+  askScreen?(): void;
   openApprovals(): void;
   closeWindow(): void;
   quitApp(): void;
@@ -61,7 +62,9 @@ export function trayTemplate(m: TrayModel, a: TrayActions): MenuItemConstructorO
     { label: "Open Psyche", click: a.open },
     { label: "New side chat", click: a.newSideChat },
     { label: "Quick entry", accelerator: "Alt+Space", click: a.quickEntry },
-    { label: "Ask about screen", accelerator: "Alt+Shift+Space", click: a.askScreen },
+    ...(a.askScreen
+      ? [{ label: "Ask about screen", accelerator: "Alt+Shift+Space", click: a.askScreen }]
+      : []),
     { type: "separator" },
     { label: gatewayRowLabel(m.run), enabled: false },
     { type: "separator" },

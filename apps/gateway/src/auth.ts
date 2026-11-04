@@ -281,6 +281,20 @@ export function verifyChallenge(
   // A client that verified a Gateway key signs it into the connect (v2). It must be this
   // Gateway's own: a connect made for another key is a connect through something else. Without
   // the field only the v1 payload verifies, so a relay cannot strip it from a v2 signature.
+  // The Psyche desktop app is the one client that verifies the Gateway key; coming from the
+  // network (a Tailscale Serve connection, not loopback) it must bind its connect to the key, so
+  // a remotely paired desktop is never on the unbound v1 payload. Browsers (family web), the CLI
+  // and nodes never verify a key and connect as before.
+  if (
+    input.gatewayKey === undefined &&
+    deps.gatewayKey !== undefined &&
+    peer.transport === "ws" &&
+    !peer.remoteLoopback &&
+    params.role === "client" &&
+    params.deviceFamily === "desktop"
+  ) {
+    fail("A desktop app connecting over the network must name the Gateway key it verified");
+  }
   if (
     input.gatewayKey !== undefined &&
     deps.gatewayKey !== undefined &&

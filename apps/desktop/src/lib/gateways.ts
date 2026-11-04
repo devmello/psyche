@@ -27,6 +27,8 @@ export interface SavedGateway {
   /** The pinned Gateway identity key (base64url raw Ed25519), set at the first connect. */
   identityKey?: string;
   lastConnectedAt?: string;
+  /** Fields of the file this version does not know, kept so saving never drops them. */
+  extra?: Record<string, unknown>;
 }
 
 export interface GatewaysFile {
@@ -34,6 +36,8 @@ export interface GatewaysFile {
   /** `THIS_MAC_ID` or a saved remote Gateway's id. */
   active: string;
   gateways: SavedGateway[];
+  /** Top-level fields this version does not know, kept on save. */
+  extra?: Record<string, unknown>;
 }
 
 export const EMPTY_GATEWAYS: GatewaysFile = { v: 1, active: THIS_MAC_ID, gateways: [] };
@@ -226,6 +230,8 @@ export function loadGatewaysStrict(file: string): GatewaysFile {
     throw new GatewaysFileError(`${file} is not a saved Gateways file`);
   }
   const p = parsed as Record<string, unknown>;
+  // A file from a newer version is not rewritten as v1: it fails closed like an unreadable one.
+  if (p.v !== 1) throw new GatewaysFileError(`${file} is from another version of Psyche`);
   const seen = new Set<string>();
   const gateways: SavedGateway[] = [];
   for (const raw of p.gateways as unknown[]) {
@@ -239,20 +245,45 @@ export function loadGatewaysStrict(file: string): GatewaysFile {
       throw new GatewaysFileError(`${file} has an entry Psyche cannot read`);
     }
     seen.add(entry.id);
-    gateways.push(entry);
+    const unknownEntry = Object.fromEntries(
+      Object.entries(raw as Record<string, unknown>).filter(([k]) => !ENTRY_FIELDS.has(k)),
+    );
+    gateways.push(Object.keys(unknownEntry).length > 0 ? { ...entry, extra: unknownEntry } : entry);
   }
+  const unknownTop = Object.fromEntries(
+    Object.entries(p).filter(([k]) => !["v", "active", "gateways"].includes(k)),
+  );
   const active = typeof p.active === "string" ? p.active : THIS_MAC_ID;
   if (active !== THIS_MAC_ID && !seen.has(active)) {
     throw new GatewaysFileError(`${file} names an active Gateway that is not saved`);
   }
-  return { v: 1, active, gateways };
+  return {
+    v: 1,
+    active,
+    gateways,
+    ...(Object.keys(unknownTop).length > 0 ? { extra: unknownTop } : {}),
+  };
 }
+
+const ENTRY_FIELDS: ReadonlySet<string> = new Set([
+  "id",
+  "name",
+  "origin",
+  "identityKey",
+  "lastConnectedAt",
+]);
 
 export function saveGateways(file: string, data: GatewaysFile): void {
   mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
   const tmp = `${file}.${process.pid}.tmp`;
   try {
-    writeFileSync(tmp, `${JSON.stringify(data, null, 2)}\n`, { mode: 0o600 });
+    const { extra, gateways, ...known } = data;
+    const out = {
+      ...extra,
+      ...known,
+      gateways: gateways.map(({ extra: entryExtra, ...entry }) => ({ ...entryExtra, ...entry })),
+    };
+    writeFileSync(tmp, `${JSON.stringify(out, null, 2)}\n`, { mode: 0o600 });
     chmodSync(tmp, 0o600);
     renameSync(tmp, file);
   } catch (err) {

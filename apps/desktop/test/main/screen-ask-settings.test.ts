@@ -87,3 +87,29 @@ describe("Ask about screen settings", () => {
     expect(s.check("Control+Alt+Z")).toBe("ok");
   });
 });
+
+describe("Ask about screen for a client of another computer's Gateway", () => {
+  it("is never on: the defaults, a load and a settings event register nothing and read nothing", async () => {
+    const shortcuts = registry();
+    const enabled: boolean[] = [];
+    const calls: string[] = [];
+    const s = new ScreenAskShortcut({
+      call: async (m) => {
+        calls.push(m);
+        return { settings: { "screenAsk.enabled": true } };
+      },
+      shortcuts,
+      trigger: () => {},
+      setEnabled: (on) => enabled.push(on),
+      disabled: true,
+    });
+    s.apply(s.settings);
+    await s.load();
+    s.onEvent("settings.changed", { entries: [{ key: "screenAsk.enabled" }] });
+    expect(s.settings.enabled).toBe(false);
+    expect(enabled.every((on) => on === false)).toBe(true);
+    expect(shortcuts.held.size).toBe(0);
+    expect(s.current).toBe("");
+    expect(calls).toEqual([]);
+  });
+});

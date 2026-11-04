@@ -56,6 +56,15 @@ describe("originMatchesDialed", () => {
     expect(originMatchesDialed(REMOTE, "http://studio-mac.tail1234.ts.net")).toBe(false);
     expect(originMatchesDialed(REMOTE, "https://studio-mac.tail1234.ts.net:8443")).toBe(false);
     expect(originMatchesDialed(REMOTE, "not a url")).toBe(false);
+    // An origin and nothing else: a path, query, fragment or credentials never match.
+    for (const named of [
+      `${REMOTE}/chat`,
+      `${REMOTE}/?a=1`,
+      `${REMOTE}/#x`,
+      "https://user:pw@studio-mac.tail1234.ts.net",
+    ]) {
+      expect(originMatchesDialed(REMOTE, named)).toBe(false);
+    }
   });
 
   it("treats the loopback names as one host, but never lets another local port answer", () => {
@@ -446,5 +455,28 @@ describe("a server that skips or replays the challenge", () => {
     expect(conn.isPaired()).toBe(false);
     expect(conn.getStatus().phase).not.toBe("paired");
     conn.stop();
+  });
+});
+
+describe("a server cannot speak for the client's own checks", () => {
+  it("reads a server-sent gateway_* error as a bad frame", async () => {
+    const params = {
+      protocolVersion: { min: 1, max: 1 },
+      deviceId: "dev_test",
+      publicKey: DEVICE,
+      role: "client" as const,
+      platform: "macos",
+      deviceFamily: "desktop",
+      name: "test",
+    };
+    const hs = new Handshake(params, () => "sig");
+    hs.start();
+    const step = await hs.onFrame({
+      type: "res",
+      id: "connect",
+      ok: false,
+      error: { code: "gateway_identity_changed", message: "x" } as never,
+    });
+    expect(step.status).toEqual({ type: "error", code: "invalid_frame" });
   });
 });
