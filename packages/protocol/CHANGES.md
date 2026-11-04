@@ -18,6 +18,12 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-04 (LAN pairing links v2 and IPv6, remote Gateway)
+
+- `pairing-link.ts`: `psyche-pair:v2` for a Gateway on the local network, with exactly `gatewayUrl` (a local-network origin only), `gatewayKey` (the 32-byte Ed25519 identity key, base64url), `certPin` (SPKI SHA-256 of the LAN certificate, base64url), `setupToken` and `hostName`. New `encodePairingLinkV2`, `parsePairingLinkAny` (v1 or v2, tagged `version`), `PairingLinkPayloadV2`, `ParsedPairingLink`, `isBase64Url32Bytes`, `PAIRING_LINK_PREFIX_V2`. `parsePairingLink` still reads v1 only (a v2 link is `unsupported_version` there), so code that predates v2 fails closed. Format: docs/design/remote-gateway-2026.md §3.4.1.
+- `lan-address.ts` (new): `lanHostKind`, `isLanHostName`, `parseIpv4`, `parseIpv6`, `isPrivateIpv4`, `isUniqueLocalIpv6`. One definition of "the local network" (`.local`, RFC 1918, IPv6 `fc00::/7`; never global, link-local or zone-qualified) for the Gateway, the desktop and the link parser.
+- `devices.setupToken.create`: optional `via` (`SetupTokenVia`: `address` default, `lan`); `lan` makes a v2 link and is `unavailable` while LAN is not listening. Result gains optional `version` (1 or 2).
+- `gateway.info` `lan.ipv6` (optional): the Gateway also listens on the chosen interface's IPv6 unique-local addresses.
 ### v1 additive — 2026-11-04 (pairing links, remote Gateway R2)
 
 - `ConnectVerifyParams.setupToken` (optional): a one-time setup token from a pairing link. It is sent in `connect.verify`, not `connect`, so only a client that already verified the Gateway's key presents it; the Gateway honours it only for a `role: client` on the WebSocket without an `Origin`, and only with a v2 (`gatewayKey`) connect. `ConnectDenied.code` (optional, `setup_token_invalid`): a used, expired, revoked or not-allowed token is a denial, never a pending request.

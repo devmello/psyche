@@ -21,7 +21,7 @@ import {
 } from "node:fs";
 import { isIP } from "node:net";
 import { join } from "node:path";
-import { PsycheError } from "@psyche/protocol";
+import { PsycheError, parseIpv6 } from "@psyche/protocol";
 import { type DerName, derCertificate } from "./der.ts";
 
 /**
@@ -100,15 +100,30 @@ function issue(privateKey: KeyObject, names: readonly string[], now: Date): stri
     spki: publicKey.export({ type: "spki", format: "der" }),
     dnsNames: names.filter((n) => isIP(n) === 0),
     ipv4: names.filter((n) => isIP(n) === 4),
+    ipv6: names
+      .filter((n) => isIP(n) === 6)
+      .flatMap((n) => {
+        const groups = parseIpv6(n);
+        return groups === null ? [] : [groups];
+      }),
     signTbs: (tbs) => sign("sha256", tbs, { key: privateKey, dsaEncoding: "der" }),
   });
   const b64 = der.toString("base64");
   return `-----BEGIN CERTIFICATE-----\n${b64.match(/.{1,64}/g)?.join("\n")}\n-----END CERTIFICATE-----\n`;
 }
 
+/**
+ * One spelling per name: Node prints an IPv6 SAN uncompressed (`FD12:0:0:0:0:0:0:1`) while the
+ * interface list gives `fd12::1`; without this the certificate would look changed on every start.
+ */
+function canonicalName(name: string): string {
+  const groups = isIP(name) === 6 ? parseIpv6(name) : null;
+  return groups === null ? name.toLowerCase() : groups.map((g) => g.toString(16)).join(":");
+}
+
 function sameNames(a: readonly string[], b: readonly string[]): boolean {
-  const x = [...new Set(a.map((n) => n.toLowerCase()))].sort();
-  const y = [...new Set(b.map((n) => n.toLowerCase()))].sort();
+  const x = [...new Set(a.map(canonicalName))].sort();
+  const y = [...new Set(b.map(canonicalName))].sort();
   return x.length === y.length && x.every((n, i) => n === y[i]);
 }
 

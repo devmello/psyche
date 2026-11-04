@@ -52,7 +52,7 @@ import { Idempotency } from "./idempotency.ts";
 import { loadOrCreateGatewayIdentity } from "./identity.ts";
 import { bonjourAdvertiser, type MdnsAdvertiser } from "./lan/discovery.ts";
 import type { LanInterface } from "./lan/interfaces.ts";
-import { type LanContext, type LanLimits, LanListener } from "./lan/listener.ts";
+import { type LanContext, type LanLimits, LanListener, peerLimitKey } from "./lan/listener.ts";
 import { LAN_SETTING, readLanSettings } from "./lan/settings.ts";
 import { createLogger, type Logger } from "./log.ts";
 import { allowedMapOrigins } from "./map-proxy.ts";
@@ -400,6 +400,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
       // gates do not apply to it. Pairing, the key binding and every rate limit still do.
       acceptUpgrade(req, socket, head, requestOrigin, {
         remoteAddress: normalizePeerAddress(req.socket.remoteAddress ?? "unknown"),
+        limitKey: peerLimitKey(normalizePeerAddress(req.socket.remoteAddress ?? "unknown")),
         remoteLoopback: false,
         forwarded: false,
         claimedIdentity: null,
@@ -448,7 +449,11 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     socket: Duplex,
     head: Buffer,
     requestOrigin: string | null,
-    peer: ReturnType<typeof resolvePeer> & { lan?: true; host?: string | null },
+    peer: ReturnType<typeof resolvePeer> & {
+      lan?: true;
+      host?: string | null;
+      limitKey?: string;
+    },
   ) => {
     wss.handleUpgrade(req, socket, head, (ws: WebSocket) => {
       const conn = new Connection(
@@ -459,7 +464,13 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
           remoteAddress: peer.remoteAddress,
           origin: requestOrigin,
           claimedIdentity: peer.claimedIdentity,
-          ...(peer.lan === true ? { lan: true as const, host: peer.host ?? null } : {}),
+          ...(peer.lan === true
+            ? {
+                lan: true as const,
+                host: peer.host ?? null,
+                ...(peer.limitKey === undefined ? {} : { limitKey: peer.limitKey }),
+              }
+            : {}),
         },
         {
           send: (f) => ws.readyState === ws.OPEN && ws.send(f),

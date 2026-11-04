@@ -1771,7 +1771,9 @@ export const settings = {
   "settings.gateways.problem.link_bad_field":
     "That pairing link is damaged. Copy it again from the Mac that made it.",
   "settings.gateways.problem.link_lan":
-    "This pairing link is for a computer on your local network. Use Look on this network to add it instead.",
+    "This pairing link is for a computer on your local network but doesn't carry its certificate, so it isn't used. On that Mac, make a new one: Pair another computer, From this network.",
+  "settings.gateways.problem.link_not_lan":
+    "That pairing link names an address that isn't on a local network, so it isn't used.",
   "settings.gateways.problem.link_pin_mismatch":
     "This Gateway is already saved with a different identity. Use Pair again on it first, then add the link.",
   "settings.gateways.problem.failed": "Couldn't add the Gateway. Nothing changed.",
@@ -1842,6 +1844,15 @@ export const settings = {
   "settings.pair.err.forbidden":
     "Only Psyche on the Host itself, paired as admin, can make a pairing link.",
   "settings.pair.err.failed": "Couldn't make a pairing link ({reason}).",
+  "settings.pair.via": "Where will the other computer connect from?",
+  "settings.pair.viaAddress": "Over Tailscale, at this Mac's address",
+  "settings.pair.viaLan": "From this network",
+  "settings.pair.viaLanHint":
+    "A link for this network holds this Mac's key and certificate, so it works only for computers on the same Wi-Fi or Ethernet.",
+  "settings.pair.lanNote":
+    "This link is for computers on the same network as this Mac. It names the key and certificate Psyche will insist on.",
+  "settings.pair.err.noLan":
+    "Turn on Allow computers on this network, and wait until it is listening, to make a link for this network.",
   // Settings → Server & remote access → Allow computers on this network (§3.1, LAN).
   "settings.key.gateway.lan": "Allow computers on this network",
   "settings.key.gateway.lan.rotateCert": "The network certificate",
@@ -1853,6 +1864,9 @@ export const settings = {
   "settings.lan.toggle": "Allow computers on this network",
   "settings.lan.toggleHint":
     "Psyche listens on one network, over an encrypted connection with its own certificate. A computer that connects still has to be approved here with Touch ID.",
+  "settings.lan.ipv6": "Also use this network's IPv6 addresses",
+  "settings.lan.ipv6Hint":
+    "Adds the private IPv6 addresses (they start with fd or fc) of the chosen network. Public IPv6 addresses and fe80 addresses are never used.",
   "settings.lan.interface": "Network",
   "settings.lan.interfaceDefault": "Primary network",
   "settings.lan.interfaceOption": "{name} ({address})",

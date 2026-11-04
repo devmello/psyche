@@ -1,12 +1,13 @@
 import { randomBytes } from "node:crypto";
 import { chmodSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
-import { isIP } from "node:net";
 import { dirname, join } from "node:path";
 import {
   cleanHostName,
   DEFAULT_GATEWAY_PORT,
   GATEWAY_FINGERPRINT_PATTERN,
+  isLanHostName,
   type PairingLinkPayload,
+  type PairingLinkPayloadV2,
   SETUP_TOKEN_PATTERN,
   SETUP_TOKEN_TTL_MS,
 } from "@psyche/protocol";
@@ -49,9 +50,10 @@ export interface SavedGateway {
   /** When the token was saved (ISO). */
   setupTokenAt?: string;
   /**
-   * LAN Gateways: the pinned SHA-256 of the TLS certificate's SPKI (base64url). A pairing link
-   * carries it (the `psyche-pair:v1` payload's certificate field, when that lands); without a
-   * link it is stored at the first pairing, like the identity key. See `lib/lan-tls.ts`.
+   * LAN Gateways: the pinned SHA-256 of the TLS certificate's SPKI (base64url). A
+   * `psyche-pair:v2` link carries it, so the very first connection is held to it; without a link
+   * (Bonjour, a typed address) it is stored at the first pairing, like the identity key. See
+   * `lib/lan-tls.ts`.
    */
   certPin?: string;
   /**
@@ -160,26 +162,16 @@ export function defaultGatewayName(origin: string): string {
 }
 
 /**
- * Whether the host is one that only exists on a local network: a `.local` name, or a private,
- * link-local or unique-local address. No public CA issues certificates for these, so such a
- * Gateway is reached only through the pinned-certificate path (`lib/lan-tls.ts`), never through
- * the system's trust store. A Tailscale name (`*.ts.net`) is not LAN.
+ * Whether the host is one that only exists on a local network: a `.local` name, a private IPv4
+ * address (RFC 1918) or an IPv6 unique-local address (`fc00::/7`). No public CA issues
+ * certificates for these, so such a Gateway is reached only through the pinned-certificate path
+ * (`lib/lan-tls.ts`), never through the system's trust store. The definition is the protocol's
+ * (`lanHostKind`), the one the Gateway binds by and a pairing link is checked against. A
+ * link-local address (169.254/16, `fe80::/10`) is not LAN here: it is unusable without a zone id,
+ * which no origin can carry. A Tailscale name (`*.ts.net`) is not LAN.
  */
 export function isLanHost(host: string): boolean {
-  const h = host.replace(/^\[|\]$/g, "").toLowerCase();
-  if (h.endsWith(".local")) return true;
-  const kind = isIP(h);
-  if (kind === 4) {
-    const [a = 0, b = 0] = h.split(".").map(Number);
-    return (
-      a === 10 ||
-      (a === 172 && b >= 16 && b <= 31) ||
-      (a === 192 && b === 168) ||
-      (a === 169 && b === 254)
-    );
-  }
-  if (kind === 6) return /^f[cd]/.test(h) || h.startsWith("fe80:");
-  return false;
+  return isLanHostName(host);
 }
 
 export function isLanOrigin(origin: string): boolean {
@@ -252,7 +244,9 @@ function cleanEntry(raw: unknown, now: Date): SavedGateway | null {
     now.getTime() - Date.parse(e.setupTokenAt) >= 0
       ? { setupToken: e.setupToken, setupTokenAt: e.setupTokenAt }
       : {}),
-    ...(e.lan === true ? { lan: true as const } : {}),
+    // Pinned self-signed TLS is for addresses that can only be on a local network; an entry that
+    // says `lan` for any other address (an older, wider definition) is read as an ordinary one.
+    ...(e.lan === true && isLanOrigin(origin) ? { lan: true as const } : {}),
     ...(typeof e.certPin === "string" && KEY_PATTERN.test(e.certPin) ? { certPin: e.certPin } : {}),
     ...(typeof e.advertisedFingerprint === "string" &&
     FINGERPRINT_PATTERN.test(e.advertisedFingerprint)
@@ -524,7 +518,7 @@ export function clearGatewayPin(data: GatewaysFile, id: string): GatewaysFile {
   };
 }
 
-export type LinkAddProblem = "pin_mismatch" | "lan_not_supported";
+export type LinkAddProblem = "pin_mismatch" | "lan_not_supported" | "not_lan";
 
 export class GatewayLinkError extends Error {
   readonly problem: LinkAddProblem;
@@ -553,7 +547,8 @@ export function addGatewayFromLink(
   const origin = normalizeGatewayOrigin(link.gatewayUrl);
   // A Gateway on the local network is reached over its own pinned certificate (`lan-tls.ts`), and
   // a v1 link carries no certificate pin. Saved as an ordinary https Gateway it would fail TLS, so
-  // it is refused until a later link version carries the pin: add it with "Look on this network".
+  // a v1 link for one is refused: the Host makes a `psyche-pair:v2` link for this network
+  // (`addGatewayFromLanLink`), which carries the pin.
   if (isLanOrigin(origin)) throw new GatewayLinkError("lan_not_supported");
   const found = data.gateways.find((g) => g.origin === origin);
   const token = { setupToken: link.setupToken, setupTokenAt: now.toISOString() };
@@ -583,6 +578,66 @@ export function addGatewayFromLink(
     name: defaultGatewayName(origin),
     origin,
     identityFingerprint: link.gatewayFingerprint,
+    ...token,
+  };
+  return { gateways: { ...data, gateways: [...data.gateways, entry] }, entry, existing: false };
+}
+
+/**
+ * Adds, or updates, the saved LAN Gateway a `psyche-pair:v2` link names. The link is the owner's
+ * word for three things and each is stored before anything connects: the address (normalized
+ * like a typed one, and it must be a local-network address, checked again here), the Gateway's
+ * identity key (pinned at once, not just a fingerprint) and the certificate's SPKI (pinned, so
+ * the first TLS handshake is already held to it and no setup token is sent to anything else).
+ *
+ * An entry for the same address that is already pinned to a different key or certificate is
+ * refused (`pin_mismatch`), and so is one saved as an ordinary https Gateway: a link must not
+ * quietly replace a pin or change how an address is trusted; "Pair again" or Forget comes first.
+ */
+export function addGatewayFromLanLink(
+  data: GatewaysFile,
+  link: PairingLinkPayloadV2,
+  now: Date,
+  id: string = newGatewayId(),
+): AddResult {
+  const origin = normalizeGatewayOrigin(link.gatewayUrl);
+  if (!isLanOrigin(origin)) throw new GatewayLinkError("not_lan");
+  if (!KEY_PATTERN.test(link.gatewayKey) || !KEY_PATTERN.test(link.certPin)) {
+    throw new GatewayLinkError("pin_mismatch");
+  }
+  const found = data.gateways.find((g) => g.origin === origin);
+  const token = { setupToken: link.setupToken, setupTokenAt: now.toISOString() };
+  if (found) {
+    if (
+      found.lan !== true ||
+      (found.identityKey !== undefined && found.identityKey !== link.gatewayKey) ||
+      (found.identityFingerprint !== undefined &&
+        found.identityFingerprint !== fingerprintOf(link.gatewayKey)) ||
+      (found.certPin !== undefined && found.certPin !== link.certPin)
+    ) {
+      throw new GatewayLinkError("pin_mismatch");
+    }
+    const { identityFingerprint: _fingerprint, advertisedFingerprint: _hint, ...rest } = found;
+    const updated: SavedGateway = {
+      ...rest,
+      identityKey: link.gatewayKey,
+      certPin: link.certPin,
+      lan: true,
+      ...token,
+    };
+    return {
+      gateways: { ...data, gateways: data.gateways.map((g) => (g.id === found.id ? updated : g)) },
+      entry: updated,
+      existing: false,
+    };
+  }
+  const entry: SavedGateway = {
+    id,
+    name: defaultGatewayName(origin),
+    origin,
+    identityKey: link.gatewayKey,
+    certPin: link.certPin,
+    lan: true,
     ...token,
   };
   return { gateways: { ...data, gateways: [...data.gateways, entry] }, entry, existing: false };

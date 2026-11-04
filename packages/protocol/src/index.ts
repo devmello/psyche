@@ -6,6 +6,7 @@ export * from "./documents.ts";
 export * from "./errors.ts";
 export * from "./events.ts";
 export * from "./frames.ts";
+export * from "./lan-address.ts";
 export * from "./mcp-official.ts";
 export * from "./mcp-presets.ts";
 export * from "./methods/index.ts";

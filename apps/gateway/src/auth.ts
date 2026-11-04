@@ -62,6 +62,13 @@ export interface PeerInfo {
   remoteLoopback: boolean;
   /** Peer IP for WebSockets, `"unix"` / `"vm-relay"` for the sockets. Rate limits key on it. */
   remoteAddress: string;
+  /**
+   * What the pre-authentication rate limits key on when it is not the address itself: a LAN peer
+   * on IPv6 is keyed by its /64 (`lan/listener.ts` `peerLimitKey`), because a neighbour can
+   * choose any address in its own /64 and would otherwise get a fresh budget for each. The
+   * address in `remoteAddress` stays exact for the pairing card.
+   */
+  limitKey?: string;
   /** WebSocket `Origin` header; `null` for native clients and Unix-socket nodes. */
   origin: string | null;
   /** Identity a trusted proxy claims for the client; shown on the pairing card, never trusted. */
@@ -76,6 +83,8 @@ export interface PeerInfo {
   /** The `Host` header of a LAN connection (names the origin it dialed); `null` otherwise. */
   host?: string | null;
 }
+
+const rateKey = (peer: PeerInfo): string => peer.limitKey ?? peer.remoteAddress;
 
 export interface PendingChallenge {
   params: ConnectParams;
@@ -304,13 +313,13 @@ export function verifyChallenge(
 ): VerifyOutcome {
   const now = deps.now();
   // Security §10: failed challenges 10/minute/IP.
-  if (!deps.failedChallenges.allowed(peer.remoteAddress)) {
+  if (!deps.failedChallenges.allowed(rateKey(peer))) {
     throw new PsycheError("rate_limited", "Too many failed challenges; try again later", {
       retryable: true,
     });
   }
   const fail = (message: string): never => {
-    deps.failedChallenges.record(peer.remoteAddress);
+    deps.failedChallenges.record(rateKey(peer));
     throw new PsycheError("unauthorized", message);
   };
   if (input.nonce !== pending.nonce) fail("Nonce does not match the challenge");
@@ -424,7 +433,7 @@ export function verifyChallenge(
       input.gatewayKey === deps.gatewayKey
     )
   ) {
-    deps.failedChallenges.record(peer.remoteAddress);
+    deps.failedChallenges.record(rateKey(peer));
     return denied(SETUP_TOKEN_REFUSED, "setup_token_invalid");
   }
   // A Mac helper pairs only by the per-launch handshake secret on the machine. An owner-approved
@@ -448,7 +457,7 @@ export function verifyChallenge(
       // two connections racing on it cannot both pair, and nothing below runs for a refused one.
       spentToken = consumeSetupToken(db, presentedToken, params.deviceId, nowIso);
       if (spentToken === undefined) {
-        deps.failedChallenges.record(peer.remoteAddress);
+        deps.failedChallenges.record(rateKey(peer));
         return denied(SETUP_TOKEN_REFUSED, "setup_token_invalid");
       }
       scopes = spentToken.scopes;
@@ -527,14 +536,14 @@ export function verifyChallenge(
       // A neighbour on the network gets a smaller budget than the global one, so a few of them
       // cannot fill the queue of pending requests the owner has to read.
       if (
-        !deps.lanPairings.perIp.allowed(peer.remoteAddress) ||
+        !deps.lanPairings.perIp.allowed(rateKey(peer)) ||
         !deps.lanPairings.total.allowed("all")
       ) {
         throw new PsycheError("rate_limited", "Too many pairing requests from this network", {
           retryable: true,
         });
       }
-      deps.lanPairings.perIp.record(peer.remoteAddress);
+      deps.lanPairings.perIp.record(rateKey(peer));
       deps.lanPairings.total.record("all");
     }
     const request = createPairingRequest(db, {

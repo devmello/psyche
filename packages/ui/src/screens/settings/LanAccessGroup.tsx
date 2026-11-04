@@ -38,7 +38,8 @@ function problemText(problem: string): string {
     case "no_interface":
       return t("settings.lan.problem.noInterface");
     case "bind_failed":
-      return t("settings.lan.problem.bindFailed", { address: rest[0] ?? "" });
+      // `bind_failed:<address>:<code>`, and an IPv6 address has colons of its own.
+      return t("settings.lan.problem.bindFailed", { address: rest.slice(0, -1).join(":") });
     case "network_paused":
       return t("settings.lan.problem.paused");
     case "cert_unavailable":
@@ -130,9 +131,23 @@ export function LanAccessGroup(): ReactElement {
   }, [stored, reload]);
 
   const choice = lan?.interfaces[0] ?? PRIMARY;
-  const write = (enabled: boolean, interfaces: string[]) =>
-    form.onChange(LAN_SETTING, { enabled, interfaces, port: lan?.port ?? 7979 });
+  const ipv6 = lan?.ipv6 === true;
+  const write = (enabled: boolean, interfaces: string[], withIpv6: boolean = ipv6) =>
+    form.onChange(LAN_SETTING, {
+      enabled,
+      interfaces,
+      port: lan?.port ?? 7979,
+      ipv6: withIpv6,
+    });
   const candidates = lan?.candidates ?? [];
+  const primary = candidates.find((c) => c.isDefault);
+  // One row per interface, listing its addresses (an interface can have IPv4 and IPv6 ones).
+  const others = new Map<string, string[]>();
+  for (const c of candidates) {
+    if (c.name === primary?.name) continue;
+    others.set(c.name, [...(others.get(c.name) ?? []), c.address]);
+  }
+  const offersIpv6 = candidates.some((c) => c.address.includes(":"));
   const options = [
     {
       value: PRIMARY,
@@ -141,16 +156,17 @@ export function LanAccessGroup(): ReactElement {
         candidates.find((c) => c.isDefault) === undefined
           ? t("settings.lan.noInterface")
           : t("settings.lan.interfaceOption", {
-              name: candidates.find((c) => c.isDefault)?.name ?? "",
-              address: candidates.find((c) => c.isDefault)?.address ?? "",
+              name: primary?.name ?? "",
+              address: candidates
+                .filter((c) => c.name === primary?.name)
+                .map((c) => c.address)
+                .join(", "),
             }),
     },
-    ...candidates
-      .filter((c) => !c.isDefault)
-      .map((c) => ({
-        value: c.name,
-        label: t("settings.lan.interfaceOption", { name: c.name, address: c.address }),
-      })),
+    ...[...others].map(([name, addresses]) => ({
+      value: name,
+      label: t("settings.lan.interfaceOption", { name, address: addresses.join(", ") }),
+    })),
   ];
 
   return (
@@ -183,6 +199,15 @@ export function LanAccessGroup(): ReactElement {
             ) : (
               <p className="text-callout text-label-secondary">{t("settings.lan.noInterface")}</p>
             )}
+            {offersIpv6 || ipv6 ? (
+              <SwitchField
+                label={t("settings.lan.ipv6")}
+                description={t("settings.lan.ipv6Hint")}
+                settingKey={LAN_SETTING}
+                checked={ipv6}
+                onChange={(on) => write(lan.enabled, lan.interfaces, on)}
+              />
+            ) : null}
             {lan.enabled ? (
               <p className="text-callout text-approval-text">{t("settings.lan.trustedOnly")}</p>
             ) : null}

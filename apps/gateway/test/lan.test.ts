@@ -49,8 +49,14 @@ async function freePort(): Promise<number> {
 
 /** Tests bind loopback as the stand-in "LAN interface"; no real network interface is touched. */
 const FAKE: LanInterface[] = [
-  { name: "lan0", address: "127.0.0.1", network: "127.0.0.0/8", isDefault: true },
-  { name: "lan1", address: "192.0.2.77", network: "192.0.2.0/24", isDefault: false },
+  { name: "lan0", address: "127.0.0.1", family: "IPv4", network: "127.0.0.0/8", isDefault: true },
+  {
+    name: "lan1",
+    address: "192.0.2.77",
+    family: "IPv4",
+    network: "192.0.2.0/24",
+    isDefault: false,
+  },
 ];
 
 function fakeAdvertiser(): {
@@ -694,7 +700,7 @@ describe("closing LAN sockets (turn off, rotate, silence)", () => {
 
 describe("LAN stays on the network the owner said yes on", () => {
   const home = (address: string, network: string): LanInterface[] => [
-    { name: "lan0", address, network, isDefault: true },
+    { name: "lan0", address, family: "IPv4", network, isDefault: true },
   ];
 
   it("pauses on another network and listens again when the owner says yes there", async () => {

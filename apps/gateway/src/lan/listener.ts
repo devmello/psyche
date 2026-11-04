@@ -1,10 +1,10 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { createServer as createHttpsServer, type Server as HttpsServer } from "node:https";
-import type { AddressInfo, Socket } from "node:net";
+import { type AddressInfo, isIP, type Socket } from "node:net";
 import { networkInterfaces } from "node:os";
 import type { Duplex } from "node:stream";
 import type { TLSSocket } from "node:tls";
-import { PsycheError } from "@psyche/protocol";
+import { PsycheError, parseIpv6 } from "@psyche/protocol";
 import type { Logger } from "../log.ts";
 import { normalizePeerAddress } from "../proxy.ts";
 import { RateLimiter } from "../rate-limit.ts";
@@ -27,6 +27,38 @@ import { type LanSettings, lanOff } from "./settings.ts";
  * - It limits what an unauthenticated neighbour can cost: connections per address per minute,
  *   concurrent connections per address and in all, and a short TLS handshake window.
  */
+
+/**
+ * The key a neighbour's rate limits and connection caps are counted under. An IPv4 peer is its
+ * address. An IPv6 peer is its /64: whoever holds a /64 can pick any address in it (and a phone
+ * rotates privacy addresses by design), so counting single addresses would hand it a fresh budget
+ * per address. Anything that is not a plain IPv6 address (`unknown`) is kept as it is.
+ */
+export function peerLimitKey(address: string): string {
+  if (isIP(address) !== 6) return address;
+  const groups = parseIpv6(address);
+  if (groups === null) return address;
+  return `${groups
+    .slice(0, 4)
+    .map((g) => g.toString(16))
+    .join(":")}::/64`;
+}
+
+/** `host:port` as a URL writes it, lower case, an IPv6 literal in brackets; null if not a host. */
+function canonicalHost(hostPort: string): string | null {
+  if (hostPort === "" || /[/\\?#@\s]/.test(hostPort)) return null;
+  try {
+    const url = new URL(`https://${hostPort}`);
+    return url.host === "" ? null : url.host.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
+/** `[fd12::1]:7979` or `192.168.1.20:7979`. */
+function addressHostPort(address: string, port: number): string {
+  return isIP(address) === 6 ? `[${address}]:${port}` : `${address}:${port}`;
+}
 
 export interface LanContext {
   /** The origin a LAN challenge names by default: `https://<host>.local:<port>`. */
@@ -86,6 +118,8 @@ export interface LanStatus {
   enabled: boolean;
   port: number;
   interfaces: string[];
+  /** Also listening on the chosen interfaces' IPv6 unique-local addresses. */
+  ipv6: boolean;
   listening: { address: string; port: number }[];
   candidates: LanInterface[];
   origin: string | null;
@@ -202,14 +236,18 @@ export class LanListener {
   }
 
   #signature(): string {
-    const { binds } = resolveLanBinds(this.#settings.interfaces, this.#deps.candidates());
+    const { binds } = resolveLanBinds(
+      this.#settings.interfaces,
+      this.#deps.candidates(),
+      this.#settings.ipv6,
+    );
     return JSON.stringify(binds.map((b) => [b.name, b.address, b.network]));
   }
 
   /** The origin a challenge to a LAN peer names: the Host header when it is one of ours. */
   originFor(hostHeader: string | null | undefined): string {
-    const host = hostHeader?.toLowerCase();
-    if (host !== undefined && this.#hosts.has(host)) return `https://${host}`;
+    const host = hostHeader === undefined || hostHeader === null ? null : canonicalHost(hostHeader);
+    if (host !== null && this.#hosts.has(host)) return `https://${host}`;
     return this.#origin ?? lanOriginFor(this.#deps.hostLabel(), this.#settings.port);
   }
 
@@ -223,6 +261,7 @@ export class LanListener {
       enabled: this.#settings.enabled,
       port: this.#settings.port,
       interfaces: [...this.#settings.interfaces],
+      ipv6: this.#settings.ipv6,
       listening: this.#bound.map((b) => ({
         address: b.address,
         port: (b.server.address() as AddressInfo | null)?.port ?? this.#settings.port,
@@ -238,7 +277,7 @@ export class LanListener {
   #names(): string[] | null {
     if (!this.#settings.enabled) return null;
     const available = this.#deps.candidates();
-    const { binds } = resolveLanBinds(this.#settings.interfaces, available);
+    const { binds } = resolveLanBinds(this.#settings.interfaces, available, this.#settings.ipv6);
     return [lanHostName(this.#deps.hostLabel()), ...binds.map((b) => b.address)];
   }
 
@@ -287,7 +326,7 @@ export class LanListener {
       return this.status();
     }
     const available = this.#deps.candidates();
-    const resolved = resolveLanBinds(settings.interfaces, available);
+    const resolved = resolveLanBinds(settings.interfaces, available, settings.ipv6);
     for (const name of resolved.unknown) this.#problems.push(`unknown_interface:${name}`);
     this.#startWatch();
     this.#boundSig = this.#signature();
@@ -315,10 +354,12 @@ export class LanListener {
       return this.status();
     }
     this.#origin = lanOriginFor(label, settings.port);
-    this.#hosts = new Set([
-      `${lanHostName(label)}:${settings.port}`.toLowerCase(),
-      ...binds.map((b) => `${b.address}:${settings.port}`),
-    ]);
+    this.#hosts = new Set(
+      [
+        `${lanHostName(label)}:${settings.port}`,
+        ...binds.map((b) => addressHostPort(b.address, settings.port)),
+      ].flatMap((h) => canonicalHost(h) ?? []),
+    );
     const lan: LanContext = { origin: this.#origin };
     for (const bind of binds) {
       try {
@@ -359,7 +400,10 @@ export class LanListener {
 
   #advertise(bind: LanInterface, server: HttpsServer, label: string): Advertisement | null {
     const advertiser = this.#deps.advertiser;
-    if (advertiser === null) return null;
+    // The mDNS responder is bound to an IPv4 interface address. A dual-stack interface is found
+    // through its IPv4 advertisement (the PTR, SRV and TXT records are family-neutral, and the
+    // system answers `<host>.local` with its AAAA records); an IPv6-only bind is not advertised.
+    if (advertiser === null || bind.family !== "IPv4") return null;
     try {
       return advertiser.publish({
         name: label,
@@ -424,7 +468,7 @@ export class LanListener {
   /** A socket that finished TLS: closed unless it completes `connect` in time. */
   #track(tls: TLSSocket): void {
     const entry: Live = {
-      ip: normalizePeerAddress(tls.remoteAddress ?? "unknown"),
+      ip: peerLimitKey(normalizePeerAddress(tls.remoteAddress ?? "unknown")),
       since: this.#deps.now().getTime(),
       authed: () => false,
       timer: setTimeout(() => {
@@ -462,7 +506,7 @@ export class LanListener {
    * sockets and says nothing cannot lock out a paired device.
    */
   #admit(socket: Socket): void {
-    const ip = normalizePeerAddress(socket.remoteAddress ?? "unknown");
+    const ip = peerLimitKey(normalizePeerAddress(socket.remoteAddress ?? "unknown"));
     const { concurrentPerIp, concurrentTotal } = this.#deps.limits;
     if (!this.#perIpRate.allowed(ip)) return void socket.destroy();
     if ((this.#perIpOpen.get(ip) ?? 0) >= concurrentPerIp && !this.#evictUnauthenticated(ip)) {

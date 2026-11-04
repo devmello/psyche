@@ -19,13 +19,16 @@ import {
   Group,
   hasCode,
   messageOf,
+  RadioField,
   SettingsApprovalContext,
   StatusChip,
 } from "./shared.tsx";
 
 /**
  * Settings → Server & remote access → Pair another computer (remote-gateway design §3.4). Makes a
- * one-time setup token and the `psyche-pair:v1` link and QR code that carry it. The token lasts
+ * one-time setup token and the link and QR code that carry it: `psyche-pair:v1` for the Host's
+ * public (Tailscale) address, `psyche-pair:v2` when the owner picks "From this network" (LAN
+ * listening must be running; the link then holds the Gateway key and certificate pin). The token lasts
  * ten minutes, works once and gives exactly the access ticked here: Admin is off unless the owner
  * ticks it. Making one is a security change, so it asks for Touch ID or a passkey like approving
  * a computer does. The QR code is drawn in this window; nothing is sent to anyone.
@@ -50,8 +53,13 @@ function scopeWord(s: SetupTokenScope): string {
   return t(`settings.devices.scope.${s}`);
 }
 
-function createError(err: unknown): string {
-  if (hasCode(err, "unavailable")) return t("settings.pair.err.noAddress");
+/** Where the other computer connects: this Mac's public address (a v1 link) or its network (v2). */
+type Via = "address" | "lan";
+
+function createError(err: unknown, via: Via): string {
+  if (hasCode(err, "unavailable")) {
+    return via === "lan" ? t("settings.pair.err.noLan") : t("settings.pair.err.noAddress");
+  }
   if (hasCode(err, "rate_limited")) return t("settings.pair.err.tooMany");
   if (hasCode(err, "forbidden")) return t("settings.pair.err.forbidden");
   return t("settings.pair.err.failed", { reason: messageOf(err) });
@@ -66,6 +74,7 @@ export function PairComputerGroup({ now: fixedNow }: { now?: number }): ReactEle
   const tokens = useGatewayQuery("devices.setupToken.list", {});
   const now = useNow(15_000, fixedNow);
   const [scopes, setScopes] = useState<SetupTokenScope[]>([...DEFAULT_SCOPES]);
+  const [chosenVia, setChosenVia] = useState<Via | null>(null);
   const [made, setMade] = useState<Made | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -97,6 +106,17 @@ export function PairComputerGroup({ now: fixedNow }: { now?: number }): ReactEle
 
   const address = info.data?.publicOrigin ?? null;
   const addressKnown = info.data !== undefined;
+  // A link for this network is offered only while the Gateway is really listening on it with a
+  // certificate: the link names that certificate.
+  const lanInfo = info.data?.lan;
+  const lanReady =
+    lanInfo?.enabled === true &&
+    lanInfo.listening.length > 0 &&
+    lanInfo.certSpki !== null &&
+    lanInfo.origin !== null;
+  // The address is the default; a Mac with no public address but with its network on offers that.
+  const via: Via = chosenVia ?? (address === null && lanReady ? "lan" : "address");
+  const canMake = via === "lan" ? lanReady : !addressKnown || address !== null;
   const live = (tokens.data?.setupTokens ?? []).filter(
     (s) => s.status === "live" && Date.parse(s.expiresAt) > now,
   );
@@ -117,7 +137,8 @@ export function PairComputerGroup({ now: fixedNow }: { now?: number }): ReactEle
     setError(null);
     setMade(null);
     const chosen = SCOPE_CHOICES.filter((s) => scopes.includes(s));
-    call("devices.setupToken.create", { scopes: chosen }).then(
+    const extra = via === "lan" ? ({ via: "lan" } as const) : {};
+    call("devices.setupToken.create", { scopes: chosen, ...extra }).then(
       (result) => {
         setBusy(false);
         finish(result);
@@ -126,7 +147,7 @@ export function PairComputerGroup({ now: fixedNow }: { now?: number }): ReactEle
         setBusy(false);
         const approvalId = approvalIdOf(err);
         if (approvalId === null) {
-          setError(createError(err));
+          setError(createError(err, via));
           return;
         }
         // Fresh presence: the same banner a security setting uses shows the card; once it is
@@ -140,13 +161,17 @@ export function PairComputerGroup({ now: fixedNow }: { now?: number }): ReactEle
           label: t("settings.pair.title"),
           approvalId,
           retry: (approved) =>
-            call("devices.setupToken.create", { scopes: chosen, approvalId: approved }).then(
+            call("devices.setupToken.create", {
+              scopes: chosen,
+              ...extra,
+              approvalId: approved,
+            }).then(
               (result) => {
                 finish(result);
                 return result;
               },
               (retryErr: unknown) => {
-                setError(createError(retryErr));
+                setError(createError(retryErr, via));
                 throw retryErr;
               },
             ),
@@ -169,8 +194,23 @@ export function PairComputerGroup({ now: fixedNow }: { now?: number }): ReactEle
   return (
     <Group title={t("settings.pair.title")} description={t("settings.pair.description")}>
       {error ? <ErrorNotice what={error} did={t("settings.shared.nothingChanged")} /> : null}
-      {addressKnown && address === null ? (
+      {addressKnown && address === null && !lanReady ? (
         <EmptyNotice text={t("settings.pair.needsAddress")} />
+      ) : null}
+      {lanReady ? (
+        <RadioField
+          label={t("settings.pair.via")}
+          value={via}
+          options={[
+            { value: "address" as Via, label: t("settings.pair.viaAddress") },
+            {
+              value: "lan" as Via,
+              label: t("settings.pair.viaLan"),
+              hint: t("settings.pair.viaLanHint"),
+            },
+          ]}
+          onChange={(v) => setChosenVia(v)}
+        />
       ) : null}
       <fieldset className="m-0 flex min-w-0 flex-wrap gap-x-4 gap-y-1 border-0 p-0">
         <legend className="mb-1 text-callout text-muted-foreground">
@@ -194,7 +234,7 @@ export function PairComputerGroup({ now: fixedNow }: { now?: number }): ReactEle
         <Button
           type="button"
           size="sm"
-          disabled={busy || scopes.length === 0 || (addressKnown && address === null)}
+          disabled={busy || scopes.length === 0 || !canMake}
           onClick={make}
         >
           {t("settings.pair.make")}
@@ -258,6 +298,9 @@ export function PairComputerGroup({ now: fixedNow }: { now?: number }): ReactEle
                   fingerprint: groupFingerprint(made.gatewayFingerprint),
                 })}
               </p>
+              {made.version === 2 ? (
+                <p className="text-callout text-label-secondary">{t("settings.pair.lanNote")}</p>
+              ) : null}
               <p className="text-callout text-approval-text">{t("settings.pair.secret")}</p>
             </div>
           </div>

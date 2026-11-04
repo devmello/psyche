@@ -139,7 +139,7 @@ export const PRESENCE_METHODS: Readonly<Record<string, (p: Params) => string | u
     `Approve a new device with ${Array.isArray(p.scopes) ? p.scopes.join(", ") : "scopes"}`,
   // A setup token pairs a computer without a second approval, so making one is approving ahead.
   "devices.setupToken.create": (p) =>
-    `Let a new computer pair itself with ${Array.isArray(p.scopes) ? p.scopes.join(", ") : "scopes"}`,
+    `Let a new computer pair itself${p.via === "lan" ? " from this network" : ""} with ${Array.isArray(p.scopes) ? p.scopes.join(", ") : "scopes"}`,
   "channels.configure": () => "Change a chat channel's access",
   "channels.allowlist.update": (p) =>
     Array.isArray(p.add) && p.add.length > 0 ? "Allow new chat senders" : undefined,

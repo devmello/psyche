@@ -3789,20 +3789,28 @@ export interface DevicesSetupTokenCreateParams {
      * `operator.admin` only when the owner ticks it
      */
     scopes: SetupTokenScope[];
+    via?:   SetupTokenVia;
 }
 
 export type SetupTokenScope = "operator.read" | "operator.write" | "operator.approvals" | "operator.admin";
+
+export type SetupTokenVia = "address" | "lan";
 
 export interface DevicesSetupTokenCreateResult {
     gatewayFingerprint: string;
     gatewayUrl:         string;
     hostName:           string;
     /**
-     * psyche-pair:v1 link: gatewayUrl, gatewayFingerprint, setupToken and hostName, nothing
-     * else. The token appears only here, once
+     * psyche-pair:v1 link (gatewayUrl, gatewayFingerprint, setupToken, hostName) for an
+     * address, or psyche-pair:v2 link (gatewayUrl, gatewayKey, certPin, setupToken, hostName)
+     * for the LAN; nothing else. The token appears only here, once
      */
     link:       string;
     setupToken: SetupTokenInfo;
+    /**
+     * 1 or 2: which link format `link` is
+     */
+    version?: number;
 }
 
 export interface SetupTokenInfo {
@@ -4703,7 +4711,7 @@ export interface LAN {
      */
     advertising: boolean;
     /**
-     * Interfaces the owner can pick
+     * Interfaces the owner can pick: private IPv4 and IPv6 unique-local addresses only
      */
     candidates: Candidate[];
     /**
@@ -4718,6 +4726,11 @@ export interface LAN {
      * The interface names or addresses the owner chose; empty = the default one
      */
     interfaces: string[];
+    /**
+     * Also listen on the chosen interface's IPv6 unique-local (fc00::/7) addresses. Never
+     * global or link-local ones
+     */
+    ipv6?: boolean;
     /**
      * What is bound right now; empty when off or when nothing could bind
      */

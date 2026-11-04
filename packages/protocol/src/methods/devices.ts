@@ -34,6 +34,15 @@ export const SetupTokenScope = StringEnum(
 );
 export type SetupTokenScope = Static<typeof SetupTokenScope>;
 
+/**
+ * Where the computer that uses a setup token will connect. `address` (the default) uses
+ * `gateway.publicOrigin` and makes a `psyche-pair:v1` link (a CA-certified address, for example
+ * Tailscale). `lan` uses this Gateway's LAN address and certificate and makes a `psyche-pair:v2`
+ * link; `unavailable` while LAN listening is not running.
+ */
+export const SetupTokenVia = StringEnum(["address", "lan"], { $id: "SetupTokenVia" });
+export type SetupTokenVia = Static<typeof SetupTokenVia>;
+
 /** A one-time setup token as the Host lists it. The token itself is shown once, inside the link. */
 export const SetupTokenInfo = Type.Object(
   {
@@ -148,6 +157,7 @@ export const DevicesMethods = {
         description:
           "What the computer that uses the token gets, chosen by the owner now; never `node`. `operator.admin` only when the owner ticks it",
       }),
+      via: Type.Optional(SetupTokenVia),
       /** Fresh presence: the approved `policy_change` card from a first `approval_required` call. */
       approvalId: Type.Optional(Id),
     }),
@@ -155,8 +165,15 @@ export const DevicesMethods = {
       setupToken: SetupTokenInfo,
       link: Type.String({
         description:
-          "psyche-pair:v1 link: gatewayUrl, gatewayFingerprint, setupToken and hostName, nothing else. The token appears only here, once",
+          "psyche-pair:v1 link (gatewayUrl, gatewayFingerprint, setupToken, hostName) for an address, or psyche-pair:v2 link (gatewayUrl, gatewayKey, certPin, setupToken, hostName) for the LAN; nothing else. The token appears only here, once",
       }),
+      version: Type.Optional(
+        Type.Integer({
+          minimum: 1,
+          maximum: 2,
+          description: "1 or 2: which link format `link` is",
+        }),
+      ),
       gatewayUrl: Type.String(),
       gatewayFingerprint: Type.String(),
       hostName: Type.String(),

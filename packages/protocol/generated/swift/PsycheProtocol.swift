@@ -1227,6 +1227,7 @@
 //   let settingsSetResult = try? JSONDecoder().decode(SettingsSetResult.self, from: jsonData)
 //   let setupTokenInfo = try? JSONDecoder().decode(SetupTokenInfo.self, from: jsonData)
 //   let setupTokenScope = try? JSONDecoder().decode(SetupTokenScope.self, from: jsonData)
+//   let setupTokenVia = try? JSONDecoder().decode(SetupTokenVia.self, from: jsonData)
 //   let sideEffect = try? JSONDecoder().decode(SideEffect.self, from: jsonData)
 //   let skillAuthorVersion = try? JSONDecoder().decode(SkillAuthorVersion.self, from: jsonData)
 //   let skillChangeEvent = try? JSONDecoder().decode(SkillChangeEvent.self, from: jsonData)
@@ -11950,15 +11951,18 @@ public struct DevicesSetupTokenCreateParams: Codable, Sendable {
     /// What the computer that uses the token gets, chosen by the owner now; never `node`.
     /// `operator.admin` only when the owner ticks it
     public let scopes: [SetupTokenScope]
+    public let via: SetupTokenVia?
 
     public enum CodingKeys: String, CodingKey {
         case approvalID = "approvalId"
         case scopes = "scopes"
+        case via = "via"
     }
 
-    public init(approvalID: String?, scopes: [SetupTokenScope]) {
+    public init(approvalID: String?, scopes: [SetupTokenScope], via: SetupTokenVia?) {
         self.approvalID = approvalID
         self.scopes = scopes
+        self.via = via
     }
 }
 
@@ -11969,15 +11973,23 @@ public enum SetupTokenScope: String, Codable, Sendable {
     case operatorWrite = "operator.write"
 }
 
+public enum SetupTokenVia: String, Codable, Sendable {
+    case address = "address"
+    case lan = "lan"
+}
+
 // MARK: - DevicesSetupTokenCreateResult
 public struct DevicesSetupTokenCreateResult: Codable, Sendable {
     public let gatewayFingerprint: String
     public let gatewayURL: String
     public let hostName: String
-    /// psyche-pair:v1 link: gatewayUrl, gatewayFingerprint, setupToken and hostName, nothing
-    /// else. The token appears only here, once
+    /// psyche-pair:v1 link (gatewayUrl, gatewayFingerprint, setupToken, hostName) for an
+    /// address, or psyche-pair:v2 link (gatewayUrl, gatewayKey, certPin, setupToken, hostName)
+    /// for the LAN; nothing else. The token appears only here, once
     public let link: String
     public let setupToken: SetupTokenInfo
+    /// 1 or 2: which link format `link` is
+    public let version: Int?
 
     public enum CodingKeys: String, CodingKey {
         case gatewayFingerprint = "gatewayFingerprint"
@@ -11985,14 +11997,16 @@ public struct DevicesSetupTokenCreateResult: Codable, Sendable {
         case hostName = "hostName"
         case link = "link"
         case setupToken = "setupToken"
+        case version = "version"
     }
 
-    public init(gatewayFingerprint: String, gatewayURL: String, hostName: String, link: String, setupToken: SetupTokenInfo) {
+    public init(gatewayFingerprint: String, gatewayURL: String, hostName: String, link: String, setupToken: SetupTokenInfo, version: Int?) {
         self.gatewayFingerprint = gatewayFingerprint
         self.gatewayURL = gatewayURL
         self.hostName = hostName
         self.link = link
         self.setupToken = setupToken
+        self.version = version
     }
 }
 
@@ -14412,7 +14426,7 @@ public struct Identity: Codable, Sendable {
 public struct LAN: Codable, Sendable {
     /// Bonjour `_psyche._tcp` is being advertised
     public let advertising: Bool
-    /// Interfaces the owner can pick
+    /// Interfaces the owner can pick: private IPv4 and IPv6 unique-local addresses only
     public let candidates: [Candidate]
     /// SHA-256 (base64url) of the LAN certificate's SPKI: the cert pin
     public let certSpki: String?
@@ -14420,6 +14434,9 @@ public struct LAN: Codable, Sendable {
     public let enabled: Bool
     /// The interface names or addresses the owner chose; empty = the default one
     public let interfaces: [String]
+    /// Also listen on the chosen interface's IPv6 unique-local (fc00::/7) addresses. Never
+    /// global or link-local ones
+    public let ipv6: Bool?
     /// What is bound right now; empty when off or when nothing could bind
     public let listening: [Listening]
     /// https://<host>.local:<port> while listening
@@ -14435,18 +14452,20 @@ public struct LAN: Codable, Sendable {
         case certSpki = "certSpki"
         case enabled = "enabled"
         case interfaces = "interfaces"
+        case ipv6 = "ipv6"
         case listening = "listening"
         case origin = "origin"
         case port = "port"
         case problems = "problems"
     }
 
-    public init(advertising: Bool, candidates: [Candidate], certSpki: String?, enabled: Bool, interfaces: [String], listening: [Listening], origin: String?, port: Int, problems: [String]) {
+    public init(advertising: Bool, candidates: [Candidate], certSpki: String?, enabled: Bool, interfaces: [String], ipv6: Bool?, listening: [Listening], origin: String?, port: Int, problems: [String]) {
         self.advertising = advertising
         self.candidates = candidates
         self.certSpki = certSpki
         self.enabled = enabled
         self.interfaces = interfaces
+        self.ipv6 = ipv6
         self.listening = listening
         self.origin = origin
         self.port = port
