@@ -3,6 +3,7 @@ import Foundation
 import LocalAuthentication
 import PsycheHelperCore
 import PsycheProtocol
+import PsycheWire
 import Security
 
 /// Which presence key signs: the data-protection keychain one (`PresenceKey`), or the Secure

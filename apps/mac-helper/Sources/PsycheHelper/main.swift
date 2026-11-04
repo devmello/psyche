@@ -3,6 +3,7 @@ import Foundation
 import PsycheHelperCore
 import PsycheHelperSystem
 import PsycheProtocol
+import PsycheWire
 
 // Psyche Helper (com.psyche.helper): the Mac node (architecture §6, §7). By default it stays
 // connected to the Gateway's node socket and serves capabilities; it must run as its own

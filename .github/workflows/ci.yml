@@ -85,8 +85,8 @@ jobs:
         if: github.event_name != 'pull_request' || contains(github.event.pull_request.title, 'protocol')
         run: |
           pnpm protocol:check
-          git diff --exit-code -- packages/protocol/generated apps/mac-helper/Sources/PsycheProtocol
-          untracked="$(git status --porcelain --untracked-files=all -- packages/protocol/generated apps/mac-helper/Sources/PsycheProtocol)"
+          git diff --exit-code -- packages/protocol/generated packages/protocol-swift/Sources/PsycheProtocol
+          untracked="$(git status --porcelain --untracked-files=all -- packages/protocol/generated packages/protocol-swift/Sources/PsycheProtocol)"
           if [ -n "$untracked" ]; then
             echo "::error::Generated protocol files are stale or uncommitted. Run 'pnpm protocol:gen' and commit the result."
             echo "$untracked"
@@ -97,6 +97,7 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           swift --version
+          swift build --package-path packages/protocol-swift
           swift build --package-path apps/mac-helper
 
       - name: Swift test (mac-helper)
@@ -194,13 +195,13 @@ jobs:
           # Per-platform filters. The shared protocol (codegen target of every client) is in each.
           flag() { echo "$files" | grep -qE "$2" && echo "$1=true" || echo "$1=false"; }
           {
-            flag helper '^(packages/protocol/|packages/swift/|apps/mac-helper/)'
+            flag helper '^(packages/protocol/|packages/protocol-swift/|packages/swift/|apps/mac-helper/)'
             flag windows '^(packages/protocol/|apps/windows-helper/)'
-            flag ios '^(packages/protocol/|packages/swift/|apps/ios/)'
+            flag ios '^(packages/protocol/|packages/protocol-swift/|packages/swift/|apps/ios/)'
             flag android '^(packages/protocol/|apps/android/)'
             # The TypeScript job runs unless every changed file belongs to a native app folder. The
             # generated protocol structs count as TypeScript: its codegen freshness check guards them.
-            if [ -n "$files" ] && ! echo "$files" | grep -qvE '^(apps/(mac-helper|windows-helper|ios|android)/|packages/swift/)' \
+            if [ -n "$files" ] && ! echo "$files" | grep -qvE '^(apps/(mac-helper|windows-helper|ios|android)/|packages/(swift|protocol-swift)/)' \
               && ! echo "$files" | grep -q 'PsycheProtocol/'; then
               echo "ts=false"
             else
@@ -231,14 +232,49 @@ jobs:
       - name: Swift build cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: apps/mac-helper/.build
+          path: |
+            apps/mac-helper/.build
+            packages/protocol-swift/.build
           # Exact hit for unchanged sources; otherwise the newest build for this toolchain and
           # manifest, so the build is incremental.
-          key: helper-${{ runner.os }}-${{ steps.toolchain.outputs.id }}-${{ hashFiles('apps/mac-helper/Package.swift', 'apps/mac-helper/Package.resolved') }}-${{ hashFiles('apps/mac-helper/Sources/**', 'apps/mac-helper/Tests/**') }}
+          key: helper-${{ runner.os }}-${{ steps.toolchain.outputs.id }}-${{ hashFiles('apps/mac-helper/Package.swift', 'apps/mac-helper/Package.resolved', 'packages/protocol-swift/Package.swift') }}-${{ hashFiles('apps/mac-helper/Sources/**', 'apps/mac-helper/Tests/**', 'packages/protocol-swift/Sources/**', 'packages/protocol-swift/Tests/**') }}
           restore-keys: |
-            helper-${{ runner.os }}-${{ steps.toolchain.outputs.id }}-${{ hashFiles('apps/mac-helper/Package.swift', 'apps/mac-helper/Package.resolved') }}-
-      - name: Swift build (with tests)
+            helper-${{ runner.os }}-${{ steps.toolchain.outputs.id }}-${{ hashFiles('apps/mac-helper/Package.swift', 'apps/mac-helper/Package.resolved', 'packages/protocol-swift/Package.swift') }}-
+      - name: Swift build (protocol-swift, with tests)
+        run: swift build --package-path packages/protocol-swift --build-tests
+      - name: Swift test (protocol-swift)
+        run: swift test --package-path packages/protocol-swift --skip-build
+      - name: Swift build (mac-helper, with tests)
         run: swift build --package-path apps/mac-helper --build-tests
-      - name: Swift test
+      - name: Swift test (mac-helper)
         run: swift test --package-path apps/mac-helper --skip-build
 
+
+  # The iOS app (docs/design/ios-app-2026.md §6): XcodeGen generates the project, xcodebuild builds the app
+  # and its four extensions for a generic simulator with no signing, and `swift test` runs the suites of
+  # the targets with no UI (PsycheStore, PsycheClient) on macOS. Runs only when apps/ios, the Swift
+  # packages or the protocol changed (the `ios` flag above).
+  ios:
+    name: ios app (xcodegen + xcodebuild + swift test)
+    needs: changes
+    if: needs.changes.outputs.ios == 'true'
+    runs-on: macos-26
+    timeout-minutes: 40
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate the Xcode project
+        working-directory: apps/ios
+        run: xcodegen generate
+      - name: Build the app (iOS Simulator, unsigned)
+        working-directory: apps/ios
+        run: |
+          xcodebuild -project Psyche.xcodeproj -scheme Psyche \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build
+      - name: Swift test (non-UI targets)
+        run: swift test --package-path apps/ios

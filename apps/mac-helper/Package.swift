@@ -12,26 +12,30 @@ import PackageDescription
 let publicRelease = ProcessInfo.processInfo.environment["PSYCHE_PUBLIC_RELEASE"] == "1"
 let presenceSettings: [SwiftSetting] = publicRelease ? [] : [.define("PSYCHE_PRESENCE_FILE_FALLBACK")]
 
+let protocolProduct = Target.Dependency.product(name: "PsycheProtocol", package: "protocol-swift")
+let wireProduct = Target.Dependency.product(name: "PsycheWire", package: "protocol-swift")
+
 let package = Package(
     name: "PsycheHelper",
     platforms: [.macOS(.v15)],
     products: [
         .executable(name: "psyche-helper", targets: ["PsycheHelper"]),
-        .library(name: "PsycheProtocol", targets: ["PsycheProtocol"]),
+    ],
+    dependencies: [
+        // PsycheProtocol (generated models + wire frames) and PsycheWire (connect signing, Base64URL,
+        // device identity), shared with the iOS app.
+        .package(path: "../../packages/protocol-swift"),
     ],
     targets: [
-        // Generated models (packages/protocol codegen, post-processed to be Sendable-clean) plus
-        // hand-written wire envelopes. Everything builds in Swift 6 language mode.
-        .target(name: "PsycheProtocol"),
         // Pure logic (Foundation, CryptoKit, Security only): framing, node runtime, capability
         // registry, AX snapshot building over an abstract tree, tiers, hygiene rules, key wrapping.
         // Everything here is unit-tested without TCC grants.
-        .target(name: "PsycheHelperCore", dependencies: ["PsycheProtocol"]),
+        .target(name: "PsycheHelperCore", dependencies: [protocolProduct, wireProduct]),
         // Live adapters over Apple frameworks (AX, CGEvent, ScreenCaptureKit, Keychain,
         // UserNotifications, Speech, AVFoundation, Apple Events) and the capability groups.
-        .target(name: "PsycheHelperSystem", dependencies: ["PsycheHelperCore", "PsycheProtocol"], swiftSettings: presenceSettings),
-        .executableTarget(name: "PsycheHelper", dependencies: ["PsycheHelperSystem", "PsycheHelperCore", "PsycheProtocol"]),
-        .testTarget(name: "PsycheHelperCoreTests", dependencies: ["PsycheHelperCore", "PsycheProtocol"]),
-        .testTarget(name: "PsycheHelperSystemTests", dependencies: ["PsycheHelperSystem", "PsycheHelperCore", "PsycheProtocol"]),
+        .target(name: "PsycheHelperSystem", dependencies: ["PsycheHelperCore", protocolProduct, wireProduct], swiftSettings: presenceSettings),
+        .executableTarget(name: "PsycheHelper", dependencies: ["PsycheHelperSystem", "PsycheHelperCore", protocolProduct, wireProduct]),
+        .testTarget(name: "PsycheHelperCoreTests", dependencies: ["PsycheHelperCore", protocolProduct, wireProduct]),
+        .testTarget(name: "PsycheHelperSystemTests", dependencies: ["PsycheHelperSystem", "PsycheHelperCore", protocolProduct, wireProduct]),
     ]
 )

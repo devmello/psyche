@@ -1,5 +1,6 @@
 import Foundation
 import PsycheProtocol
+import PsycheWire
 
 /// Keeps the helper connected: connect → handshake → serve, reconnecting with capped exponential
 /// backoff when the Gateway restarts, while pairing is pending, or after a denial.
