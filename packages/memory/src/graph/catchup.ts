@@ -172,6 +172,11 @@ export interface RankOptions {
   surface: CatchUpSurface;
   settings: MemorySurfacesSettings;
   limit?: number;
+  /**
+   * The indexed passage behind a signal (a mail message, a fact's first citation), for the
+   * line's source chips. Absent when the host has no index.
+   */
+  docOf?: (signal: WorkSignal) => { docId: string; sourceKind: string } | undefined;
 }
 
 export interface RankedLine {
@@ -418,6 +423,27 @@ function dueSoonEnough(c: CatchUpCandidate, now: number): boolean {
   return due !== null && due - now <= CATCHUP_LIMITS.perProjectDueWithinHours * HOUR_MS;
 }
 
+/** Up to three distinct passages behind the changes a line shows, in the order shown. */
+function sourcesOf(
+  shown: readonly WorkSignal[],
+  docOf: RankOptions["docOf"],
+): { docId: string; sourceKind: string }[] {
+  if (docOf === undefined) return [];
+  const out: { docId: string; sourceKind: string }[] = [];
+  for (const s of shown) {
+    let ref: ReturnType<NonNullable<RankOptions["docOf"]>>;
+    try {
+      ref = docOf(s);
+    } catch {
+      ref = undefined;
+    }
+    if (ref === undefined || out.some((o) => o.docId === ref.docId)) continue;
+    out.push({ docId: ref.docId, sourceKind: ref.sourceKind });
+    if (out.length === 3) break;
+  }
+  return out;
+}
+
 /**
  * Ranks the open items, applies the §5.3 limits and writes the lines. Pure: the caller passes the
  * clock and the owner's surface settings. Excluded: done, submitted, dropped, snoozed (until the
@@ -469,6 +495,7 @@ export function rankCatchUp(
     const lineChange = changes.find(
       (s) => s.provenance === "untrusted" || (s.attribute === "deadline" && s.from != null),
     );
+    const sources = sourcesOf(shown, opts.docOf);
     const changeOut: CatchUpChange[] = shown.map((s) => ({
       text: clean(s.text, 200),
       at: s.at,
@@ -489,6 +516,7 @@ export function rankCatchUp(
       stale,
       line: "",
       changes: changeOut,
+      ...(sources.length === 0 ? {} : { sources }),
       actions: actionsFor(c, ask),
       ...(ask ? { ask: true } : {}),
       provenance: lowestProvenance([

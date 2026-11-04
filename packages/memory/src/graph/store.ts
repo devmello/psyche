@@ -2067,6 +2067,14 @@ export class GraphStore {
       .run(this.#gist(gist), interactionId);
   }
 
+  /** The source's own reference for an interaction (a Message-ID, `<chat>:<day>`, an event id). */
+  externalRefOf(interactionId: string): string | undefined {
+    const row = this.#db
+      .prepare("SELECT external_ref FROM graph_interactions WHERE id = ?")
+      .get(interactionId) as { external_ref: string } | undefined;
+    return row?.external_ref;
+  }
+
   /** The interaction recorded for a source item (a calendar event id, a mail message id). */
   interactionByRef(source: string, externalRef: string): GraphInteraction | undefined {
     const row = this.#db
