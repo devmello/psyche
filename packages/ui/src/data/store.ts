@@ -16,6 +16,7 @@ import {
   GatewayRequestError,
   newIdempotencyKey,
 } from "./client.ts";
+import type { ChatOutbox } from "./outbox.ts";
 import {
   appendBlock,
   INITIAL_STATE,
@@ -54,6 +55,11 @@ export class GatewayStore {
    * `<GatewayProvider>` (stories, tests, previews): loaders stay idle and calls reject.
    */
   readonly detached: boolean;
+  /**
+   * Messages typed while the connection is down wait here and go out on reconnect (remote
+   * windows; remote-gateway design §4.5). Absent elsewhere, where the composer is simply off.
+   */
+  readonly outbox: ChatOutbox | undefined;
   private base: UiState;
   private overlays: Overlay[] = [];
   private snapshot: UiState;
@@ -72,9 +78,13 @@ export class GatewayStore {
   private insightsTimer: ReturnType<typeof setTimeout> | undefined;
   private readonly now: () => string;
 
-  constructor(client: GatewayClient, options: { now?: () => string; detached?: boolean } = {}) {
+  constructor(
+    client: GatewayClient,
+    options: { now?: () => string; detached?: boolean; outbox?: ChatOutbox } = {},
+  ) {
     this.client = client;
     this.detached = options.detached ?? false;
+    this.outbox = options.outbox;
     this.now = options.now ?? (() => new Date().toISOString());
     this.base = { ...INITIAL_STATE, connection: client.connectionState() };
     this.hasOpened = this.base.connection === "open";
@@ -90,6 +100,40 @@ export class GatewayStore {
     if (this.unsubscribe.length > 0) return;
     this.unsubscribe.push(this.client.subscribe((e) => this.onEvent(e)));
     this.unsubscribe.push(this.client.onConnectionState((s) => this.onConnection(s)));
+    // Messages left from an earlier session go out as soon as there is a connection.
+    if (this.client.connectionState() === "open") void this.flushOutbox();
+  }
+
+  /**
+   * Sends what the outbox holds, each under the key it was queued with. A message the Gateway
+   * refuses for good comes back as a "not sent" follow-up, with Retry and Remove, rather than
+   * vanishing.
+   */
+  async flushOutbox(): Promise<void> {
+    const outbox = this.outbox;
+    if (outbox === undefined) return;
+    const result = await outbox.flush((item) =>
+      this.client.request("chat.send", item.params as MethodParams<"chat.send">, {
+        idempotencyKey: item.key,
+      }),
+    );
+    if (result.dropped.length === 0) return;
+    this.update((s) => ({
+      ...s,
+      queue: [
+        ...result.dropped.map(
+          ({ item }): QueuedFollowUp => ({
+            id: `outbox-failed-${item.key}`,
+            threadId: item.params.threadId,
+            content: item.params.content,
+            mode: "followUp",
+            replyToMessageId: item.params.replyToMessageId ?? null,
+            failed: true,
+          }),
+        ),
+        ...s.queue,
+      ],
+    }));
   }
 
   stop(): void {
@@ -292,6 +336,7 @@ export class GatewayStore {
       for (const l of held) l();
       return;
     }
+    if (state === "open") void this.flushOutbox();
     if (state === "open") {
       // open → offline → connecting → open is the usual retry path: still a reconnect.
       if (this.hasOpened) void this.reconnected();

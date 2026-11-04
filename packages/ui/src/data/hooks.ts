@@ -40,6 +40,7 @@ import { t } from "../i18n/core.ts";
 import { describeError } from "../i18n/errors.ts";
 import type { ConnectionState } from "./client.ts";
 import { isEmptyUserChat } from "./empty-chat.ts";
+import type { OutboxItem } from "./outbox.ts";
 import { useStore, useStoreState } from "./provider.tsx";
 import {
   type ArtifactContent,
@@ -487,6 +488,22 @@ export function useThread(threadId: string | null) {
     ) => {
       if (threadId === null) return;
       const mode = options.mode ?? "followUp";
+      // Remote windows: while the Gateway can't be reached the message waits in the outbox and
+      // goes out on reconnect, once (its key is kept). Messages with a file or a context chip
+      // need the connection to be built, so they never get here offline.
+      if (
+        store.outbox !== undefined &&
+        store.getState().connection !== "open" &&
+        !options.context &&
+        (options.attachments ?? []).length === 0
+      ) {
+        store.outbox.enqueue({
+          threadId,
+          content,
+          ...(options.replyToMessageId ? { replyToMessageId: options.replyToMessageId } : {}),
+        });
+        return;
+      }
       if (options.context) {
         await sendNow(
           content,
@@ -824,6 +841,32 @@ export async function answerApproval(
     commit,
   });
 }
+
+/**
+ * The messages of one thread waiting in the outbox (a remote window while offline), oldest first,
+ * and a way to take one back. Empty and inert where no outbox is configured.
+ */
+export function useOutbox(threadId: string | null): {
+  waiting: readonly OutboxItem[];
+  remove: (key: string) => void;
+  enabled: boolean;
+} {
+  const store = useStore();
+  const outbox = store.outbox;
+  const read = useCallback(
+    () => (outbox === undefined || threadId === null ? EMPTY_OUTBOX : outbox.items(threadId)),
+    [outbox, threadId],
+  );
+  const [waiting, setWaiting] = useState<readonly OutboxItem[]>(read);
+  useEffect(() => {
+    setWaiting(read());
+    return outbox?.subscribe(() => setWaiting(read()));
+  }, [outbox, read]);
+  const remove = useCallback((key: string) => void outbox?.remove(key), [outbox]);
+  return { waiting, remove, enabled: outbox !== undefined };
+}
+
+const EMPTY_OUTBOX: readonly OutboxItem[] = [];
 
 /** One approval (for blocks and notification rows); loads it when it is not in the store. */
 export function useApproval(approvalId: string | null) {

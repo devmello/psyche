@@ -19,6 +19,7 @@ import {
   useSpecialistRoles,
   useStore,
   useStoreState,
+  useOutbox,
   useThread,
   useThreads,
 } from "../data/index.ts";
@@ -44,6 +45,7 @@ import {
 } from "./focus-request.ts";
 import { MessageView } from "./MessageView.tsx";
 import { OfflineBanner } from "./OfflineBanner.tsx";
+import { OutboxQueue } from "./OutboxQueue.tsx";
 import { ComposerPrefill } from "./prefill.ts";
 import { failureAnchors, RunFailure } from "./RunFailure.tsx";
 import { RunStepLog, useRunSteps } from "./RunStepLog.tsx";
@@ -189,6 +191,9 @@ export function ChatThread({
   const [mode, setMode] = useState<QueueMode>("followUp");
   const [notice, setNotice] = useState<CommandNotice | null>(null);
   const offline = connection !== "open";
+  // A remote window keeps the composer on while offline: what is typed waits in the outbox.
+  const outbox = useOutbox(threadId);
+  const composerOff = offline && !outbox.enabled;
   // The + button shows when the thread's model can take files (unknown shows it; documents work
   // on any chat model, images need vision). Capabilities come from `models.list`: no new probe.
   const models = useGatewayQuery("models.list", {});
@@ -365,14 +370,27 @@ export function ChatThread({
           });
         }
       };
-      if (!queued) setSentAt(Date.now());
+      // Waiting in the outbox is not working: the agent has not been told yet.
+      const toOutbox =
+        outbox.enabled && connection !== "open" && !sentContext && sentIds.length === 0;
+      if (!queued && !toOutbox) setSentAt(Date.now());
       setQuoting(null);
       setMode("followUp");
       attachments.clear();
       clearAskContext();
       await attempt();
     },
-    [view, mode, quoting, attachments.ids, attachments.clear, askContext, clearAskContext],
+    [
+      view,
+      mode,
+      quoting,
+      attachments.ids,
+      attachments.clear,
+      askContext,
+      clearAskContext,
+      outbox.enabled,
+      connection,
+    ],
   );
 
   runCommandRef.current = runCommand;
@@ -590,7 +608,7 @@ export function ChatThread({
     messages: display,
     // The follow-up queue is ours (client-side, removable), so the runtime never blocks sending.
     isRunning: false,
-    isDisabled: offline,
+    isDisabled: composerOff,
     hasEarlier: view.hasMore,
     onLoadEarlier: view.loadOlder,
     onNew,
@@ -704,7 +722,7 @@ export function ChatThread({
             (redesign-2026 §5.2), so the root is the positioning context.
           */}
           <ThreadPrimitive.Root className="@container/chat relative flex h-full min-h-0 min-w-[min(100%,var(--chat-min-width))] flex-1 flex-col overflow-hidden bg-canvas">
-            {offline ? <OfflineBanner state={connection} /> : null}
+            {offline ? <OfflineBanner state={connection} waiting={outbox.enabled} /> : null}
             <ThreadPrimitive.Viewport
               ref={viewportRef}
               autoScroll={false}
@@ -838,6 +856,7 @@ export function ChatThread({
                   {...(view.thread ? { mode: view.thread.thread.permissionMode } : {})}
                   {...(now === undefined ? {} : { now })}
                 />
+                <OutboxQueue items={outbox.waiting} onRemove={outbox.remove} />
                 <FollowUpQueue
                   items={view.queue}
                   onRemove={view.removeQueued}
@@ -852,7 +871,7 @@ export function ChatThread({
                   threadId={threadId}
                   persona={persona.name}
                   running={view.running}
-                  disabled={offline}
+                  disabled={composerOff}
                   quoting={quoting}
                   onClearQuote={() => setQuoting(null)}
                   {...(askContext
