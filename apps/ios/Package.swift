@@ -17,6 +17,7 @@ let package = Package(
         .library(name: "PsycheFeatures", targets: ["PsycheFeatures"]),
         .library(name: "PsycheDesign", targets: ["PsycheDesign"]),
         .library(name: "PsycheShared", targets: ["PsycheShared"]),
+        .library(name: "PsycheBlocks", targets: ["PsycheBlocks"]),
     ],
     targets: [
         // App group paths and the Gateway endpoint: the only module the extensions link.
@@ -28,12 +29,13 @@ let package = Package(
         // Tokens, type styles and components.
         .target(name: "PsycheDesign", resources: [.process("Resources")]),
         // Native block views and the generative-UI WebView host (I4, I8). Empty for now.
-        .target(name: "PsycheBlocks", dependencies: ["PsycheDesign"]),
+        .target(name: "PsycheBlocks", dependencies: ["PsycheDesign", "PsycheStore"]),
         .target(
             name: "PsycheFeatures",
             dependencies: ["PsycheBlocks", "PsycheDesign", "PsycheClient", "PsycheStore", "PsycheShared"]
         ),
         .testTarget(name: "PsycheStoreTests", dependencies: ["PsycheStore"]),
+        .testTarget(name: "PsycheWidgetTests", dependencies: ["PsycheBlocks", "PsycheStore"]),
         .testTarget(name: "PsycheClientTests", dependencies: ["PsycheClient", "PsycheStore", "PsycheShared"]),
     ],
     swiftLanguageModes: [.v6]
