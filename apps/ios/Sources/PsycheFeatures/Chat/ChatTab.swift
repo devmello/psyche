@@ -57,6 +57,22 @@ struct ThreadListView: View {
                     ThreadRow(thread: thread).tag(thread.id)
                         .listRowBackground(PsycheColor.sheet)
                         .listRowSeparatorTint(PsycheColor.hairline)
+                        .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                            if !thread.isMain {
+                                Button { Task { await model.pin(thread) } } label: {
+                                    Label(thread.isPinned ? "Unpin" : "Pin", systemImage: thread.isPinned ? "pin.slash" : "pin")
+                                }
+                                .tint(PsycheColor.muted)
+                            }
+                        }
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            if !thread.isMain {
+                                Button { Task { await model.archive(thread) } } label: {
+                                    Label("Archive", systemImage: "archivebox")
+                                }
+                                .tint(PsycheColor.muted)
+                            }
+                        }
                 }
             }
         }
@@ -65,9 +81,27 @@ struct ThreadListView: View {
         .navigationTitle("Chat")
         .toolbar {
             ToolbarItem(placement: .primaryAction) { AgentButton(needsYou: true) }
+            ToolbarItem(placement: .primaryAction) {
+                Button { Task { selection = await model.newThread() ?? selection } } label: {
+                    Label("New chat", systemImage: "square.and.pencil")
+                }
+                .accessibilityLabel("New chat")
+            }
         }
-        .task { await model.load() }
+        .alert("Couldn't do that", isPresented: errorShown) {
+            Button("OK") { model.clearError() }
+        } message: {
+            Text(model.actionError ?? "")
+        }
+        .task {
+            await model.load()
+            await model.observe()
+        }
         .refreshable { await model.resync() }
+    }
+
+    private var errorShown: Binding<Bool> {
+        Binding(get: { model.actionError != nil }, set: { if !$0 { model.clearError() } })
     }
 }
 
@@ -80,6 +114,11 @@ private struct ThreadRow: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(thread.title).font(.psycheRow.weight(.medium)).foregroundStyle(PsycheColor.text)
                 StatusDot(thread.statusKind.dot, thread.status, textColor: PsycheColor.muted, font: .caption)
+            }
+            Spacer(minLength: 0)
+            if thread.isPinned, !thread.isMain {
+                Image(systemName: "pin.fill").font(.caption2).foregroundStyle(PsycheColor.muted)
+                    .accessibilityLabel("Pinned")
             }
         }
         .padding(.vertical, 2)
