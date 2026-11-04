@@ -330,11 +330,13 @@ export class SourceIndexer {
       `INSERT INTO search_source_items (source, native_id, doc_id, content_hash, provenance, parties, chat_id, account, path, open_ref)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT (source, native_id) DO UPDATE SET content_hash = excluded.content_hash,
-         provenance = excluded.provenance, parties = excluded.parties, open_ref = excluded.open_ref`,
+         provenance = excluded.provenance, parties = excluded.parties,
+         open_ref = COALESCE(excluded.open_ref, open_ref)`,
     );
     const docs: SearchDoc[] = [];
     const tracked: unknown[][] = [];
     const drop: string[] = [];
+    const refOnly: [string, SourceId, string][] = [];
     for (const item of items) {
       const docId = `${id}:${item.nativeId}`;
       const existing = get.get(id, item.nativeId) as Row | undefined;
@@ -355,10 +357,14 @@ export class SourceIndexer {
       if (
         existing?.content_hash === hash &&
         existing.provenance === item.provenance &&
-        existing.parties === JSON.stringify(item.parties ?? []) &&
-        (existing.open_ref ?? null) === (item.openRef ?? null)
-      )
+        existing.parties === JSON.stringify(item.parties ?? [])
+      ) {
+        // Only the Message-ID is new (mail indexed before it was kept): record it, and leave the
+        // document alone, so nothing is re-indexed or re-embedded because of it.
+        if (item.openRef !== undefined && existing.open_ref !== item.openRef)
+          refOnly.push([item.openRef, id, item.nativeId]);
         continue;
+      }
       if (existing === undefined && item.text.length >= MIN_DEDUPE_CHARS) {
         // The same long text already indexed from another source (a PDF that is also a mail
         // attachment): keep one, unless this copy is the owner's and the other is not.
@@ -388,6 +394,10 @@ export class SourceIndexer {
         item.openRef ?? null,
       ]);
     }
+    for (const [ref, source, nativeId] of refOnly)
+      db.prepare(
+        "UPDATE search_source_items SET open_ref = ? WHERE source = ? AND native_id = ?",
+      ).run(ref, source, nativeId);
     for (const nativeId of drop) await this.#forget(id, nativeId);
     if (docs.length > 0) {
       await this.#index.indexMany(docs);

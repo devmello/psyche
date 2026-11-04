@@ -224,15 +224,24 @@ describe("SourceIndexer.document", () => {
   });
 
   it("keeps the Message-ID kept for a mail message, apart from its text, and updates it", async () => {
-    const { indexer } = indexerWith({ mail: { enabled: true } });
+    const { index, indexer } = indexerWith({ mail: { enabled: true } });
     await indexer.ingest("mail", [item("1", { openRef: "a@host.example" })]);
     expect(indexer.document("mail:1", "owner")?.openRef).toBe("a@host.example");
-    // Same text, a Message-ID that appeared later (an index made before it was kept): re-read.
+    // Same text, a Message-ID that appeared later (an index made before it was kept): it is
+    // recorded, but the document is not re-indexed (so nothing is re-embedded because of it).
     await indexer.ingest("mail", [item("2")]);
     expect(indexer.document("mail:2", "owner")?.openRef).toBeNull();
-    expect(await indexer.ingest("mail", [item("2", { openRef: "b@host.example" })])).toBe(1);
-    expect(indexer.document("mail:2", "owner")?.openRef).toBe("b@host.example");
+    const before = index.db
+      .prepare("SELECT updated_ms, rowid FROM search_docs WHERE id = 'mail:2'")
+      .get();
     expect(await indexer.ingest("mail", [item("2", { openRef: "b@host.example" })])).toBe(0);
+    expect(indexer.document("mail:2", "owner")?.openRef).toBe("b@host.example");
+    expect(
+      index.db.prepare("SELECT updated_ms, rowid FROM search_docs WHERE id = 'mail:2'").get(),
+    ).toEqual(before);
+    // A later pass without one keeps what was stored.
+    await indexer.ingest("mail", [item("2")]);
+    expect(indexer.document("mail:2", "owner")?.openRef).toBe("b@host.example");
   });
 
   it("adds the column to an index made before it existed", () => {
@@ -261,6 +270,7 @@ describe("the Mail source keeps the Message-ID from the connector's link, not fr
       },
       { id: "2", subject: "Two", from: "a@x.com", date: day, link: "message://%3Cnot valid%3E" },
       { id: "3", subject: "Three", from: "a@x.com", date: day },
+      { id: "4", subject: "Four", from: "a@x.com", date: day, link: "https://not-a-message" },
     ];
     const call: ToolCall = async (tool, p) => {
       if (tool === "mail_search")
@@ -268,8 +278,12 @@ describe("the Mail source keeps the Message-ID from the connector's link, not fr
           messages:
             p.until !== undefined && Date.parse(String(p.until)) < Date.parse(day) ? [] : rows,
         };
-      // A body that carries a message:// link of its own: never used.
-      return { body: "see message://%3Cplanted%40evil.example%3E" };
+      // A body that carries a message:// link of its own: never used. The read result's own
+      // link is the second candidate (message 4's summary link is not a message:// one).
+      return {
+        body: "see message://%3Cplanted%40evil.example%3E",
+        ...(p.id === "4" ? { link: "message://%3Cfour%40host.example%3E" } : {}),
+      };
     };
     const deps: AppleSourceDeps = {
       call: () => call,
@@ -289,5 +303,6 @@ describe("the Mail source keeps the Message-ID from the connector's link, not fr
     expect(indexer.document("mail:1", "owner")?.openRef).toBe("one@host.example");
     expect(indexer.document("mail:2", "owner")?.openRef).toBeNull();
     expect(indexer.document("mail:3", "owner")?.openRef).toBeNull();
+    expect(indexer.document("mail:4", "owner")?.openRef).toBe("four@host.example");
   });
 });

@@ -46,7 +46,7 @@ export interface GrantedFile {
 
 const real = (p: string): string | undefined => {
   try {
-    return realpathSync(p);
+    return realpathSync.native(p);
   } catch {
     return undefined;
   }

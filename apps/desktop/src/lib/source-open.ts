@@ -53,7 +53,8 @@ export interface SourceOpenFs {
 }
 
 const nodeFs: SourceOpenFs = {
-  realpath: (p) => realpathSync(p),
+  // The native form asks the OS, so case folding and symlinks resolve as the file system does.
+  realpath: (p) => realpathSync.native(p),
   isFile: (p) => statSync(p).isFile(),
 };
 

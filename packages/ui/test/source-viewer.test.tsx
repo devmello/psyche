@@ -177,3 +177,52 @@ describe("a search result with no pane to open in", () => {
     expect(within(preview).queryByTestId("source-viewer")).toBeNull();
   });
 });
+
+describe("narrow windows, cloud connectors and side chats", () => {
+  const surface = (hits: SearchHit[], extra: { preview?: boolean; side?: () => void } = {}) => (
+    <SearchSurface
+      variant="page"
+      query="contract"
+      onQueryChange={() => undefined}
+      hits={hits}
+      actions={[]}
+      preview={extra.preview ?? false}
+      {...(extra.side ? { onOpenInSideChat: extra.side } : {})}
+    />
+  );
+
+  it("opens a source passage above the results when there is no preview column", async () => {
+    const hit = sourceHit("mail:123");
+    mount(surface([hit]), [hit]);
+    expect(screen.queryByTestId("source-viewer")).toBeNull();
+    fireEvent.click(screen.getAllByRole("option")[0] as HTMLElement);
+    expect(await screen.findByTestId("source-text")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Hide source" }));
+    expect(screen.queryByTestId("source-viewer")).toBeNull();
+  });
+
+  it("does not treat a cached cloud-connector document as a source passage", () => {
+    const hit = sourceHit("gmail-cache-77");
+    mount(surface([hit], { preview: true }), [hit]);
+    const preview = screen.getByTestId("search-preview");
+    expect(within(preview).queryByTestId("source-viewer")).toBeNull();
+  });
+
+  it("offers no side chat about Messages, Contacts or Memory, and still does for Mail", () => {
+    const side = vi.fn();
+    for (const [id, offered] of [
+      ["messages:1", false],
+      ["contacts:1", false],
+      ["memory:1", false],
+      ["mail:1", true],
+    ] as const) {
+      const hit = sourceHit(id);
+      const view = mount(surface([hit], { preview: true, side }), [hit]);
+      const preview = screen.getByTestId("search-preview");
+      expect(!!within(preview).queryByRole("button", { name: "Open in a side chat" }), id).toBe(
+        offered,
+      );
+      view.unmount();
+    }
+  });
+});

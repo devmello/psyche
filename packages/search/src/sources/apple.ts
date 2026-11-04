@@ -365,12 +365,15 @@ export function mailAdapter(deps: AppleSourceDeps): SourceAdapter {
           str(m.threadId) ?? subject.replace(/^((re|fwd?|aw):\s*)+/i, "").toLowerCase();
         // The Message-ID comes from the connector's own `message://` link for this message, never
         // from the body, and only when it has the shape of one (`parseMessageId`).
-        const messageId = messageIdFromLink(
-          m.link ??
-            (isObj(full)
-              ? (full.link ?? (isObj(full.summary) ? full.summary.link : undefined))
-              : undefined),
-        );
+        // Each candidate in turn: a summary link that is not a `message://` one does not hide a
+        // good one in the read result.
+        const messageId = [
+          m.link,
+          isObj(full) ? full.link : undefined,
+          isObj(full) && isObj(full.summary) ? full.summary.link : undefined,
+        ]
+          .map(messageIdFromLink)
+          .find((x) => x !== undefined);
         items.push({
           nativeId: id,
           ...(messageId === undefined ? {} : { openRef: messageId }),

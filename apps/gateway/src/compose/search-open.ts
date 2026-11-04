@@ -5,6 +5,7 @@ import {
   type SearchSourceId,
 } from "@psyche/protocol";
 import {
+  OWNER_ONLY_SOURCES,
   parseMessageId,
   resolveGrantedFile,
   type SourceDocument,
@@ -34,10 +35,35 @@ export interface SearchOpenDeps {
   memoryBlocked?: () => string | undefined;
 }
 
+/**
+ * True when the agent may not be given this search result, not even its title: an id of an
+ * owner-only source (Messages, Contacts, Memory), or of a source the owner kept from the agent.
+ */
+export function agentBlockedHit(indexer: SourceIndexer | undefined, id: string): boolean {
+  const prefix = id.slice(0, Math.max(0, id.indexOf(":")));
+  if ((OWNER_ONLY_SOURCES as readonly string[]).includes(prefix)) return true;
+  return (
+    indexer !== undefined &&
+    indexer.document(id, "owner") !== undefined &&
+    indexer.document(id, "agent") === undefined
+  );
+}
+
 function needDocument(deps: SearchOpenDeps, call: Call, id: string): SourceDocument {
   if (call.identity.role !== "client")
     throw new PsycheError("forbidden", "source passages are for the owner's own screens");
   const doc = deps.indexer()?.document(id, "owner");
+  // Messages, Contacts and Memory are the owner's alone: only the desktop app itself reads them
+  // here, so a paired phone or remote device cannot walk guessable ids (`messages:<rowid>`).
+  if (
+    doc !== undefined &&
+    call.identity.desktopShell !== true &&
+    (OWNER_ONLY_SOURCES as readonly string[]).includes(doc.source)
+  )
+    throw new PsycheError(
+      "forbidden",
+      "this source is readable from the Psyche app on this Mac only",
+    );
   const blocked = doc?.source === "memory" && deps.memoryBlocked?.() !== undefined;
   if (doc === undefined || blocked)
     throw new PsycheError("not_found", "no such source passage (it may have been removed)");

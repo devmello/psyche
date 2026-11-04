@@ -9,7 +9,11 @@ import {
   type SourceItem,
 } from "@psyche/search";
 import { afterEach, describe, expect, it } from "vitest";
-import { searchOpenHandlers, VIEWER_TEXT_CHARS } from "../src/compose/search-open.ts";
+import {
+  agentBlockedHit,
+  searchOpenHandlers,
+  VIEWER_TEXT_CHARS,
+} from "../src/compose/search-open.ts";
 import type { Call } from "../src/context.ts";
 
 const NOW = Date.UTC(2026, 9, 18, 20, 0, 0);
@@ -51,6 +55,7 @@ async function world(folders: string[] = []) {
   const run = async (name: string, c: Call, id: string) => h[name]?.run(c, { id } as never);
   return {
     indexer,
+    config,
     granted,
     run,
     blockMemory: (why: string | undefined) => (memoryBlocked = why),
@@ -87,17 +92,25 @@ describe("search.document", () => {
     });
   });
 
-  it("is the owner's: Messages, Contacts and Memory passages are readable by a paired client", async () => {
+  it("keeps Messages, Contacts and Memory to the desktop app: a paired phone cannot walk their ids", async () => {
     const w = await world();
     await w.indexer.ingest("messages", [item("m1")]);
     await w.indexer.ingest("contacts", [item("c1")]);
     await w.indexer.ingest("memory", [item("f1")]);
+    await w.indexer.ingest("notes", [item("n1")]);
     for (const [id, source] of [
       ["messages:m1", "messages"],
       ["contacts:c1", "contacts"],
       ["memory:f1", "memory"],
-    ] as const)
+    ] as const) {
       expect(await w.run("search.document", desktop, id), id).toMatchObject({ id, source });
+      expect(await code(w.run("search.document", phone, id)), id).toBe("forbidden");
+    }
+    // Other sources stay readable by any paired client.
+    expect(await w.run("search.document", phone, "notes:n1")).toMatchObject({ source: "notes" });
+    // An id that does not exist is not_found for the phone, as before: no probing difference
+    // beyond what the id itself reveals.
+    expect(await code(w.run("search.document", phone, "messages:nope"))).toBe("not_found");
   });
 
   it("is never the agent's: a Mac helper is refused, and the agent audience of the index gets none of the owner-only sources", async () => {
@@ -246,5 +259,21 @@ describe("search.openSource", () => {
         target: null,
       });
     });
+  });
+});
+
+describe("agentBlockedHit (side chats about a search result)", () => {
+  it("blocks owner-only sources by id and any source the owner kept from the agent", async () => {
+    const w = await world();
+    await w.indexer.ingest("notes", [item("n1")]);
+    await w.indexer.ingest("mail", [item("1")]);
+    expect(agentBlockedHit(w.indexer, "messages:anything")).toBe(true);
+    expect(agentBlockedHit(w.indexer, "contacts:c1")).toBe(true);
+    expect(agentBlockedHit(w.indexer, "memory:f1")).toBe(true);
+    expect(agentBlockedHit(w.indexer, "notes:n1")).toBe(false);
+    expect(agentBlockedHit(w.indexer, "thr_1")).toBe(false);
+    expect(agentBlockedHit(undefined, "notes:n1")).toBe(false);
+    w.config.sources.mail.agent = false;
+    expect(agentBlockedHit(w.indexer, "mail:1")).toBe(true);
   });
 });
