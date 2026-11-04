@@ -37,6 +37,10 @@ schemes:
         Psyche: all
     run:
       config: Debug
+    test:
+      config: Debug
+      targets:
+        - PsycheUITests
     archive:
       config: Release
 
@@ -93,6 +97,20 @@ targets:
       path: Generated/Psyche.entitlements
       properties:
         com.apple.security.application-groups: [$(PSYCHE_APP_GROUP)]
+
+  # XCUITest flows over the fixture backend (`-psycheScenario live`): real taps, swipes and typing.
+  PsycheUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: UITests
+    dependencies:
+      - target: Psyche
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(PSYCHE_BUNDLE_ID).uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: Psyche
 
   NotificationService:
     type: app-extension
