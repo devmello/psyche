@@ -130,6 +130,38 @@ describe("psyche-pair:v1 links", () => {
     expect(problem(link({ ...GOOD, hostName: "Studio‮Mac" }))).toBe("bad_field:hostName");
   });
 
+  it("accepts only an https origin for a Host: no loopback, credentials, path, query or fragment", () => {
+    for (const gatewayUrl of [
+      "http://studio-mac.tail1234.ts.net",
+      "https://localhost",
+      "https://127.0.0.1:7979",
+      "https://[::1]",
+      "https://user:pw@studio-mac.tail1234.ts.net",
+      "https://studio-mac.tail1234.ts.net/chat",
+      "https://studio-mac.tail1234.ts.net/?a=1",
+      "https://studio-mac.tail1234.ts.net?",
+      "https://studio-mac.tail1234.ts.net/#x",
+      "ftp://studio-mac.tail1234.ts.net",
+      "studio-mac.tail1234.ts.net",
+    ]) {
+      expect(problem(link({ ...GOOD, gatewayUrl })), gatewayUrl).toBe("bad_field:gatewayUrl");
+    }
+    expect(
+      parsePairingLink(link({ ...GOOD, gatewayUrl: "https://studio-mac.tail1234.ts.net:8443/" }))
+        .gatewayUrl,
+    ).toBe("https://studio-mac.tail1234.ts.net:8443/");
+  });
+
+  it("strips invisible characters from the host name and refuses one that is empty after", () => {
+    const shown = parsePairingLink(link({ ...GOOD, hostName: "Stu\u2060dio\u3164 Mac\ufeff" }));
+    expect(shown.hostName).toBe("Studio Mac");
+    for (const hostName of ["\u3164", "\u115f\u1160", "\u2060\ufeff", "\u{e0041}"]) {
+      expect(problem(link({ ...GOOD, hostName })), JSON.stringify(hostName)).toBe(
+        "bad_field:hostName",
+      );
+    }
+  });
+
   it("will not encode a payload it would not parse", () => {
     expect(() => encodePairingLink({ ...GOOD, setupToken: "pst_x" })).toThrow(PairingLinkError);
     expect(() => encodePairingLink({ ...GOOD, hostName: "" })).toThrow(PairingLinkError);

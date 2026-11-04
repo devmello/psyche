@@ -96,8 +96,8 @@ describe("saved Gateways from a pairing link", () => {
     expect(entry.identityKey).toBeUndefined();
     const file = join(tempDir(), "gateways.json");
     saveGateways(file, gateways);
-    expect(loadGatewaysStrict(file).gateways).toEqual([entry]);
-    expect(loadGateways(file).gateways).toEqual([entry]);
+    expect(loadGatewaysStrict(file, NOW).gateways).toEqual([entry]);
+    expect(loadGateways(file, NOW).gateways).toEqual([entry]);
   });
 
   it("refuses a link whose address an address field would refuse", () => {
@@ -138,7 +138,7 @@ describe("saved Gateways from a pairing link", () => {
     const file = join(tempDir(), "gateways.json");
     saveGateways(file, gateways);
     writeFileSync(file, readFileSync(file, "utf8").replace(/sha256:[0-9a-f]{64}/, "sha256:zz"));
-    expect(() => loadGatewaysStrict(file)).toThrow(/cannot read/);
+    expect(() => loadGatewaysStrict(file, NOW)).toThrow(/cannot read/);
   });
 });
 
@@ -182,8 +182,8 @@ describe("GatewayManager with a pairing link", () => {
       {
         kind: "addLink",
         origin: REMOTE,
-        name: "studio-mac",
         fingerprint: fingerprintOf(id.publicKey),
+        external: false,
       },
     ]);
     expect(view).toMatchObject({ origin: REMOTE, pinned: true, active: false });
@@ -194,12 +194,58 @@ describe("GatewayManager with a pairing link", () => {
     expect(JSON.stringify(view)).not.toContain(TOKEN);
   });
 
+  it("never repeats the link's own host name: the entry is named by its address", async () => {
+    const id = newIdentity();
+    const s = setup();
+    const view = await s.local.addFromLink(
+      encodePairingLink(linkFor(id, { hostName: "Your Bank: call 555-0100" })),
+    );
+    expect(view.name).toBe("studio-mac");
+    expect(JSON.stringify(s.confirms)).not.toContain("Bank");
+  });
+
+  it("tells the owner when the OS, not their paste, handed over the link", async () => {
+    const id = newIdentity();
+    const s = setup();
+    await s.local.addFromLink(encodePairingLink(linkFor(id)), { external: true });
+    expect(s.confirms[0]).toMatchObject({ kind: "addLink", external: true });
+  });
+
+  it("takes the Host's own name once paired, unless the owner renamed the entry", async () => {
+    const id = newIdentity();
+    const s = setup({ now: () => NOW });
+    const { id: gwId } = await s.local.addFromLink(encodePairingLink(linkFor(id)));
+    const remote = s.asRemote(gwId);
+    remote.adoptHostName("Studio Mac");
+    expect(loadGateways(s.file, NOW).gateways[0]?.name).toBe("Studio Mac");
+    remote.adoptHostName("Other");
+    expect(loadGateways(s.file, NOW).gateways[0]?.name).toBe("Studio Mac");
+  });
+
+  it("drops lapsed tokens whenever the file is read, for every entry", () => {
+    const a = addGatewayFromLink(EMPTY_GATEWAYS, linkFor(newIdentity()), NOW, "gw_aaaaaaaaaaaa");
+    const b = addGatewayFromLink(
+      a.gateways,
+      linkFor(newIdentity(), { gatewayUrl: "https://other.tail1234.ts.net" }),
+      new Date(NOW.getTime() + 9 * 60_000),
+      "gw_bbbbbbbbbbbb",
+    );
+    const file = join(tempDir(), "gateways.json");
+    saveGateways(file, b.gateways);
+    const later = new Date(NOW.getTime() + SETUP_TOKEN_TTL_MS + 1_000);
+    for (const load of [loadGatewaysStrict, loadGateways]) {
+      const entries = load(file, later).gateways;
+      expect(entries.map((g) => g.setupToken !== undefined)).toEqual([false, true]);
+      expect(entries.every((g) => g.identityFingerprint !== undefined)).toBe(true);
+    }
+  });
+
   it("saves nothing when the owner declines", async () => {
     const s = setup({ confirm: false });
     await expect(
       s.local.addFromLink(encodePairingLink(linkFor(newIdentity()))),
     ).rejects.toMatchObject({ code: "forbidden" });
-    expect(loadGateways(s.file).gateways).toEqual([]);
+    expect(loadGateways(s.file, NOW).gateways).toEqual([]);
   });
 
   it("refuses malformed links and bad addresses before asking anything", async () => {
@@ -214,11 +260,14 @@ describe("GatewayManager with a pairing link", () => {
     });
     await expect(
       s.local.addFromLink(
-        encodePairingLink(linkFor(id, { gatewayUrl: "http://evil.example.com" })),
+        `psyche-pair:v1:${Buffer.from(JSON.stringify(linkFor(id, { gatewayUrl: "http://evil.example.com" }))).toString("base64url")}`,
       ),
-    ).rejects.toMatchObject({ code: "invalid_params", details: { problem: "needs_https" } });
+    ).rejects.toMatchObject({
+      code: "invalid_params",
+      details: { problem: "link_bad_field" },
+    });
     expect(s.confirms).toEqual([]);
-    expect(loadGateways(s.file).gateways).toEqual([]);
+    expect(loadGateways(s.file, NOW).gateways).toEqual([]);
   });
 
   it("gives the connection the fingerprint and the token, but only for the active remote Gateway", async () => {
@@ -242,7 +291,7 @@ describe("GatewayManager with a pairing link", () => {
     expect(remote.setupToken()).toBe(TOKEN);
     clock = new Date(NOW.getTime() + SETUP_TOKEN_TTL_MS);
     expect(remote.setupToken()).toBeUndefined();
-    expect(loadGateways(s.file).gateways[0]?.setupToken).toBeUndefined();
+    expect(loadGateways(s.file, clock).gateways[0]?.setupToken).toBeUndefined();
     // The fingerprint stays: a later connect without a token is still verified.
     expect(remote.pinnedFingerprint()).toBe(fingerprintOf(id.publicKey));
   });
@@ -253,14 +302,14 @@ describe("GatewayManager with a pairing link", () => {
     const { id: gwId } = await s.local.addFromLink(encodePairingLink(linkFor(id)));
     const remote = s.asRemote(gwId);
     remote.pin(id.publicKey);
-    expect(loadGateways(s.file).gateways[0]).toMatchObject({
+    expect(loadGateways(s.file, NOW).gateways[0]).toMatchObject({
       identityKey: id.publicKey,
       setupToken: TOKEN,
     });
-    expect(loadGateways(s.file).gateways[0]?.identityFingerprint).toBeUndefined();
+    expect(loadGateways(s.file, NOW).gateways[0]?.identityFingerprint).toBeUndefined();
     remote.markConnected();
-    expect(loadGateways(s.file).gateways[0]?.setupToken).toBeUndefined();
-    expect(loadGateways(s.file).gateways[0]?.identityKey).toBe(id.publicKey);
+    expect(loadGateways(s.file, NOW).gateways[0]?.setupToken).toBeUndefined();
+    expect(loadGateways(s.file, NOW).gateways[0]?.identityKey).toBe(id.publicKey);
   });
 
   it("forgets the token when the Host refuses it, and keeps the fingerprint", async () => {
@@ -278,7 +327,7 @@ describe("GatewayManager with a pairing link", () => {
     const s = setup({ now: () => NOW });
     const { id: gwId } = await s.local.addFromLink(encodePairingLink(linkFor(id)));
     await s.local.repair(gwId);
-    expect(loadGateways(s.file).gateways[0]).toEqual({
+    expect(loadGateways(s.file, NOW).gateways[0]).toEqual({
       id: gwId,
       name: "studio-mac",
       origin: REMOTE,
@@ -457,6 +506,9 @@ describe("opening a psyche-pair: link from the OS", () => {
     // The window asks for it once.
     expect(inbox.take()).toBe(link);
     expect(inbox.take()).toBeNull();
+    // Main remembers that the OS made this offer, so its dialog can say so.
+    expect(inbox.wasOffered(link)).toBe(true);
+    expect(inbox.wasOffered(`${link}x`)).toBe(false);
   });
 
   it("keeps a link that arrived before the windows existed, and shows it once they do", () => {

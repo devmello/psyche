@@ -1,5 +1,6 @@
 import type { MethodResult, SetupTokenScope } from "@psyche/protocol";
-import { type ReactElement, useContext, useId, useState } from "react";
+import { type ReactElement, useContext, useEffect, useId, useState } from "react";
+import { toast } from "sonner";
 import { QrCode } from "../../components/QrCode.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { Checkbox } from "../../components/ui/checkbox.tsx";
@@ -69,6 +70,30 @@ export function PairComputerGroup({ now: fixedNow }: { now?: number }): ReactEle
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [gone, setGone] = useState(false);
+  const madeId = made?.setupToken.id;
+  const madeExpiry = made?.setupToken.expiresAt;
+  const reloadTokens = tokens.reload;
+
+  // The link and its QR code are shown only while the token can still be used: they go as soon as
+  // it is used, revoked or expired (this checks every few seconds), and with this screen.
+  useEffect(() => {
+    if (madeId === undefined) return;
+    const timer = setInterval(reloadTokens, 5_000);
+    return () => clearInterval(timer);
+  }, [madeId, reloadTokens]);
+  useEffect(() => {
+    if (madeId === undefined || madeExpiry === undefined) return;
+    const record = tokens.data?.setupTokens.find((s) => s.id === madeId);
+    const lapsed = Date.parse(madeExpiry) <= now;
+    if (record !== undefined && record.status === "used") {
+      toast(t("settings.pair.usedToast"));
+    } else if (record !== undefined ? record.status === "live" && !lapsed : !lapsed) {
+      return;
+    }
+    setMade(null);
+    setGone(true);
+  }, [madeId, madeExpiry, tokens.data, now]);
 
   const address = info.data?.publicOrigin ?? null;
   const addressKnown = info.data !== undefined;
@@ -82,6 +107,8 @@ export function PairComputerGroup({ now: fixedNow }: { now?: number }): ReactEle
   const finish = (result: Made) => {
     setMade(result);
     setCopied(false);
+    setGone(false);
+    toast(t("settings.pair.madeToast"));
     tokens.reload();
   };
 
@@ -174,6 +201,11 @@ export function PairComputerGroup({ now: fixedNow }: { now?: number }): ReactEle
         </Button>
       </div>
 
+      {gone && made === null ? (
+        <p role="status" className="text-callout text-label-secondary">
+          {t("settings.pair.gone")}
+        </p>
+      ) : null}
       {made ? (
         <section
           aria-label={t("settings.pair.resultRegion")}
@@ -206,7 +238,7 @@ export function PairComputerGroup({ now: fixedNow }: { now?: number }): ReactEle
                     size="sm"
                     variant="outline"
                     onClick={() =>
-                      void writeClipboard(made.link).then(() => {
+                      void writeClipboard(made.link, { clearAfterMs: 60_000 }).then(() => {
                         setCopied(true);
                         setTimeout(() => setCopied(false), 2000);
                       })

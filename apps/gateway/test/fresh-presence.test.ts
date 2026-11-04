@@ -137,6 +137,35 @@ describe("fresh presence on admin methods", () => {
     });
   });
 
+  it("another device cannot spend the card the owner approved for a link", async () => {
+    const { admin, c } = await boot(touchId, undefined, {
+      publicOrigin: "https://studio-mac.tail1234.ts.net",
+      allowedOrigins: ["https://studio-mac.tail1234.ts.net"],
+    });
+    const scopes = ["operator.read", "operator.write"];
+    const first = await admin.request("devices.setupToken.create", { scopes });
+    const { approvalId } = await approveWithPresence(admin, first);
+    // A second Host-shell admin presents device A's approved card.
+    const keyB = newDeviceKey();
+    (await desktopClient(c.gateway, keyB, "admin-b")).close();
+    updateDevice(c.gateway.context.db, "admin-b", {
+      scopes: ["operator.read", "operator.write", "operator.approvals", "operator.admin"],
+    });
+    const other = await desktopClient(c.gateway, keyB, "admin-b");
+    clients.push(other);
+    expect(await other.request("devices.setupToken.create", { scopes, approvalId })).toMatchObject({
+      ok: false,
+      error: { code: "binding_mismatch" },
+    });
+    expect(
+      c.gateway.context.db.sqlite.prepare("SELECT count(*) AS n FROM setup_tokens").get(),
+    ).toMatchObject({ n: 0 });
+    // The owner's own device can still use it.
+    expect(await admin.request("devices.setupToken.create", { scopes, approvalId })).toMatchObject({
+      ok: true,
+    });
+  });
+
   it("narrowing admin calls stay admin-only", async () => {
     const { admin } = await boot(touchId);
     expect(await admin.call("devices.list", {})).toBeDefined();

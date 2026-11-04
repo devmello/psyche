@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { DeviceScope, SetupTokenScope } from "@psyche/protocol";
 import { PsycheError, SETUP_TOKEN_TTL_MS } from "@psyche/protocol";
-import { and, desc, eq, gt, gte, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, gt, gte, isNull, lt, or, sql } from "drizzle-orm";
 import type { PsycheDb } from "../open.ts";
 import { type SetupTokenRow, setupTokens } from "../schema.ts";
 
@@ -82,6 +82,7 @@ export function createSetupToken(
   return db.sqlite
     .transaction(() => {
       const now = db.now();
+      pruneSetupTokens(db, now);
       const live = db.drizzle
         .select({ n: sql<number>`count(*)` })
         .from(setupTokens)
@@ -116,6 +117,24 @@ export function createSetupToken(
       return { token, record: toRecord(row, now) };
     })
     .immediate();
+}
+
+/** Deletes tokens that were used, revoked or expired more than a day ago. */
+export function pruneSetupTokens(db: PsycheDb, now: string = db.now()): number {
+  const cutoff = new Date(new Date(now).getTime() - 24 * 3_600_000).toISOString();
+  return db.drizzle
+    .delete(setupTokens)
+    .where(
+      and(
+        lt(setupTokens.createdAt, cutoff),
+        or(
+          lt(setupTokens.expiresAt, cutoff),
+          sql`${setupTokens.usedAt} IS NOT NULL`,
+          sql`${setupTokens.revokedAt} IS NOT NULL`,
+        ),
+      ),
+    )
+    .run().changes;
 }
 
 /**

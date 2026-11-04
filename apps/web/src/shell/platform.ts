@@ -379,7 +379,8 @@ export interface SystemAppearancePort {
 }
 
 export interface ClipboardPort {
-  writeText(text: string): Promise<void>;
+  /** `clearAfterMs`: clear the clipboard again after that long if it still holds `text`. */
+  writeText(text: string, opts?: { clearAfterMs?: number }): Promise<void>;
 }
 
 /** The system's locales as macOS reports them (`app.getSystemLocale()`, preferred languages). */

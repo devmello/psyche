@@ -29,6 +29,9 @@ export const GATEWAY_FINGERPRINT_PATTERN = /^sha256:[0-9a-f]{64}$/;
 const MAX_LINK_LENGTH = 2048;
 const MAX_URL_LENGTH = 300;
 const MAX_NAME_LENGTH = 64;
+// Invisible and format characters (zero-width, bidi, tag characters, the Hangul fillers that
+// render as blanks) that a name must not carry into a dialog.
+const INVISIBLE = /[\p{Cf}\p{Default_Ignorable_Code_Point}\u3164\u115f\u1160]/gu;
 // biome-ignore lint/suspicious/noControlCharactersInRegex: rejecting them is the point
 const UNSAFE_TEXT = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2066-\u2069]/;
 
@@ -81,13 +84,45 @@ function fromBase64Url(text: string): string | null {
   }
 }
 
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
+
+/**
+ * A link names a Gateway on another computer by its https origin: no credentials, path, query or
+ * fragment, and never a loopback address (that is this computer, or an SSH tunnel, not a Host
+ * someone else made a link for).
+ */
+function isLinkOrigin(text: string): boolean {
+  if (text.includes("?") || text.includes("#")) return false;
+  try {
+    const url = new URL(text);
+    return (
+      url.protocol === "https:" &&
+      url.username === "" &&
+      url.password === "" &&
+      url.pathname === "/" &&
+      url.search === "" &&
+      url.hash === "" &&
+      url.hostname !== "" &&
+      !LOOPBACK_HOSTS.has(url.hostname.replace(/^\[|\]$/g, "").toLowerCase())
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** A host name for a dialog: invisible characters removed; empty after that is refused. */
+export function cleanHostName(name: string): string {
+  return name.replace(INVISIBLE, "").replace(/\s+/g, " ").trim();
+}
+
 function checkPayload(p: PairingLinkPayload): void {
   if (
     typeof p.gatewayUrl !== "string" ||
     p.gatewayUrl.length === 0 ||
     p.gatewayUrl.length > MAX_URL_LENGTH ||
     UNSAFE_TEXT.test(p.gatewayUrl) ||
-    /\s/.test(p.gatewayUrl)
+    /\s/.test(p.gatewayUrl) ||
+    !isLinkOrigin(p.gatewayUrl)
   ) {
     throw new PairingLinkError("bad_field", "gatewayUrl");
   }
@@ -102,9 +137,9 @@ function checkPayload(p: PairingLinkPayload): void {
   }
   if (
     typeof p.hostName !== "string" ||
-    p.hostName.trim().length === 0 ||
     p.hostName.length > MAX_NAME_LENGTH ||
-    UNSAFE_TEXT.test(p.hostName)
+    UNSAFE_TEXT.test(p.hostName) ||
+    cleanHostName(p.hostName) === ""
   ) {
     throw new PairingLinkError("bad_field", "hostName");
   }
@@ -159,5 +194,6 @@ export function parsePairingLink(input: string): PairingLinkPayload {
     hostName: record.hostName as string,
   };
   checkPayload(payload);
-  return payload;
+  // What is shown is the name without invisible characters.
+  return { ...payload, hostName: cleanHostName(payload.hostName) };
 }

@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { chmodSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import {
+  cleanHostName,
   DEFAULT_GATEWAY_PORT,
   GATEWAY_FINGERPRINT_PATTERN,
   type PairingLinkPayload,
@@ -153,16 +154,18 @@ export function isLoopbackOrigin(origin: string): boolean {
  */
 export function cleanGatewayName(name: string): string {
   return (
-    name
-      // biome-ignore lint/suspicious/noControlCharactersInRegex: removing them is the point
-      .replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2066-\u2069]/g, " ")
-      .replace(/\s+/g, " ")
-      .trim()
+    cleanHostName(
+      name
+        // biome-ignore lint/suspicious/noControlCharactersInRegex: removing them is the point
+        .replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2066-\u2069]/g, " "),
+    )
+      // Zero-width, format and fill characters are removed too (`cleanHostName`), so a name cannot
+      // look blank or hide text from a native dialog.
       .slice(0, 64)
   );
 }
 
-function cleanEntry(raw: unknown): SavedGateway | null {
+function cleanEntry(raw: unknown, now: Date): SavedGateway | null {
   if (typeof raw !== "object" || raw === null) return null;
   const e = raw as Record<string, unknown>;
   if (typeof e.id !== "string" || !ID_PATTERN.test(e.id)) return null;
@@ -188,11 +191,13 @@ function cleanEntry(raw: unknown): SavedGateway | null {
     GATEWAY_FINGERPRINT_PATTERN.test(e.identityFingerprint)
       ? { identityFingerprint: e.identityFingerprint }
       : {}),
-    // A token is kept only together with the time it was saved, so it can lapse.
+    // A token is kept only together with the time it was saved, and only while the Host would
+    // still accept it: a lapsed one is dropped whenever the file is read.
     ...(typeof e.setupToken === "string" &&
     SETUP_TOKEN_PATTERN.test(e.setupToken) &&
     typeof e.setupTokenAt === "string" &&
-    Number.isFinite(Date.parse(e.setupTokenAt))
+    now.getTime() - Date.parse(e.setupTokenAt) < SETUP_TOKEN_TTL_MS &&
+    now.getTime() - Date.parse(e.setupTokenAt) >= 0
       ? { setupToken: e.setupToken, setupTokenAt: e.setupTokenAt }
       : {}),
     ...(typeof e.lastConnectedAt === "string" ? { lastConnectedAt: e.lastConnectedAt } : {}),
@@ -200,7 +205,7 @@ function cleanEntry(raw: unknown): SavedGateway | null {
 }
 
 /** Reads the file; a missing or unreadable file is an empty list, never an error. */
-export function loadGateways(file: string): GatewaysFile {
+export function loadGateways(file: string, now: Date = new Date()): GatewaysFile {
   let parsed: unknown;
   try {
     parsed = JSON.parse(readFileSync(file, "utf8"));
@@ -212,7 +217,7 @@ export function loadGateways(file: string): GatewaysFile {
   const seen = new Set<string>();
   const gateways: SavedGateway[] = [];
   for (const raw of Array.isArray(p.gateways) ? p.gateways : []) {
-    const entry = cleanEntry(raw);
+    const entry = cleanEntry(raw, now);
     if (entry === null || seen.has(entry.id)) continue;
     seen.add(entry.id);
     gateways.push(entry);
@@ -237,7 +242,7 @@ export class GatewaysFileError extends Error {
  * active id that is not saved) is an error, never an empty list: an empty list is unpinned, and
  * writing it back would erase the pins. Callers refuse to write while this throws.
  */
-export function loadGatewaysStrict(file: string): GatewaysFile {
+export function loadGatewaysStrict(file: string, now: Date = new Date()): GatewaysFile {
   let text: string;
   try {
     text = readFileSync(file, "utf8");
@@ -266,7 +271,7 @@ export function loadGatewaysStrict(file: string): GatewaysFile {
   const seen = new Set<string>();
   const gateways: SavedGateway[] = [];
   for (const raw of p.gateways as unknown[]) {
-    const entry = cleanEntry(raw);
+    const entry = cleanEntry(raw, now);
     const key = (raw as { identityKey?: unknown } | null)?.identityKey;
     const fingerprint = (raw as { identityFingerprint?: unknown } | null)?.identityFingerprint;
     if (
@@ -466,10 +471,12 @@ export function addGatewayFromLink(
       existing: false,
     };
   }
-  const named = cleanGatewayName(link.hostName);
+  // The link's host name is never used here: it is the sender's word, and a dialog or a list
+  // must not repeat it. The entry is named by its address until it pairs and the Host's own name
+  // (from `gateway.info`) replaces it.
   const entry: SavedGateway = {
     id,
-    name: (named === "" ? defaultGatewayName(origin) : named).slice(0, 64),
+    name: defaultGatewayName(origin),
     origin,
     identityFingerprint: link.gatewayFingerprint,
     ...token,

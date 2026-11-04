@@ -351,6 +351,10 @@ export function verifyChallenge(
     if (pinned === null) updateDevice(db, existing.id, { deviceFamily: params.deviceFamily });
     else if (pinned !== params.deviceFamily) return denied("device family mismatch");
     touchLastSeen(db, existing.id, nowIso);
+    // A token presented by a device that is already paired is spent anyway (the link was used,
+    // by someone who did not need it), and grants nothing: the device keeps its own scopes.
+    if (input.setupToken !== undefined)
+      consumeSetupToken(db, input.setupToken, existing.id, nowIso);
     return {
       result: pairedResult(existing.id, existing.scopes, nowIso),
       identity: {
@@ -373,14 +377,17 @@ export function verifyChallenge(
   const presentedToken = scopes === null ? input.setupToken : undefined;
   // The token is a bearer secret, so only a client that verified this Gateway's key (and bound the
   // connect to it, the v2 payload) may present it: an impostor that does not hold the key never
-  // gets a client to send one.
+  // gets a client to send one. The check is unconditional. Only the desktop app pairs this way for
+  // now (the phone comes later).
   if (
     presentedToken !== undefined &&
     !(
       peer.transport === "ws" &&
       peer.origin === null &&
       params.role === "client" &&
-      (deps.gatewayKey === undefined || input.gatewayKey === deps.gatewayKey)
+      params.deviceFamily === "desktop" &&
+      deps.gatewayKey !== undefined &&
+      input.gatewayKey === deps.gatewayKey
     )
   ) {
     deps.failedChallenges.record(peer.remoteAddress);
@@ -411,6 +418,9 @@ export function verifyChallenge(
         return denied(SETUP_TOKEN_REFUSED, "setup_token_invalid");
       }
       scopes = spentToken.scopes;
+      // Whatever was waiting for the owner under this id is moot now: a stale pending card must
+      // not later approve wider scopes than the owner chose when making the link.
+      expirePendingPairingsForDevice(db, params.deviceId);
     }
     if (existing === undefined) {
       insertDevice(db, {

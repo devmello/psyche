@@ -56,13 +56,20 @@ export interface PairLinkInbox {
   showPending(): void;
   /** The waiting link, once. */
   take(): string | null;
+  /**
+   * Whether the OS handed the app exactly this link (so main can tell the owner it came from
+   * another app or a website, not from their own paste). Decided here, never by the window.
+   */
+  wasOffered(link: string): boolean;
 }
 
 export function createPairLinkInbox(deps: PairLinkInboxDeps): PairLinkInbox {
   let pending: string | null = null;
+  const offered = new Set<string>();
   const accept = (link: string | null): boolean => {
     if (link === null) return false;
     pending = link;
+    offered.add(link);
     deps.show();
     deps.notify();
     return true;
@@ -78,5 +85,6 @@ export function createPairLinkInbox(deps: PairLinkInboxDeps): PairLinkInbox {
       pending = null;
       return link;
     },
+    wasOffered: (link) => offered.has(link.trim()),
   };
 }

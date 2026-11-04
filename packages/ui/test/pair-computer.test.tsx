@@ -96,6 +96,26 @@ describe("Settings → Pair another computer (the Host)", () => {
     });
   });
 
+  it("takes the link and QR code off the screen once the token has been used", async () => {
+    let gateway: MockGateway | undefined;
+    render(
+      <StoryWorld
+        onGateway={(g) => {
+          gateway = g;
+        }}
+      >
+        <PairComputerGroup now={STORY_NOW} />
+      </StoryWorld>,
+    );
+    await userEvent.click(await screen.findByRole("button", { name: "Make a pairing link" }));
+    await screen.findByLabelText("Pairing link");
+    const tokens = (gateway as unknown as { setupTokens: { status: string }[] }).setupTokens;
+    for (const token of tokens) token.status = "used";
+    await waitFor(() => expect(screen.queryByTestId("qr-code")).toBeNull(), { timeout: 8000 });
+    expect(screen.queryByLabelText("Pairing link")).toBeNull();
+    expect(screen.getByText(/no longer valid/)).toBeTruthy();
+  }, 15000);
+
   it("lists unused links and revokes one", async () => {
     setup();
     await userEvent.click(await screen.findByRole("button", { name: "Make a pairing link" }));
@@ -203,6 +223,29 @@ describe("Add a Gateway with a pairing link", () => {
     expect(gateways.addLink).toHaveBeenCalledWith(LINK);
     expect(gateways.add).not.toHaveBeenCalled();
     await waitFor(() => expect(onAdded).toHaveBeenCalledWith(added, true));
+  });
+
+  it("does not overwrite what the owner already typed when a link arrives from the OS", async () => {
+    let arrive: () => void = () => {};
+    const gateways = slot({
+      takePendingLink: vi.fn(async () => (arrive === undefined ? null : pending)),
+      onPendingLink: (cb) => {
+        arrive = cb;
+        return () => {};
+      },
+    });
+    let pending: string | null = null;
+    form(gateways);
+    await userEvent.type(screen.getByLabelText("Pairing link or address"), "studio-mac.tail1234");
+    pending = LINK;
+    arrive();
+    expect(await screen.findByText("A new pairing link arrived. Use it?")).toBeTruthy();
+    expect((screen.getByLabelText("Pairing link or address") as HTMLInputElement).value).toBe(
+      "studio-mac.tail1234",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Use it" }));
+    expect((screen.getByLabelText("Pairing link or address") as HTMLInputElement).value).toBe(LINK);
+    expect(gateways.addLink).not.toHaveBeenCalled();
   });
 
   it("keeps typed addresses on the address path", async () => {

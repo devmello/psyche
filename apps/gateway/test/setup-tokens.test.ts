@@ -303,7 +303,42 @@ describe("pairing with a setup token", () => {
     expect(phase(await pairWith(token))).toBe("paired");
   });
 
-  it("is ignored by a device that is already paired, which keeps its own scopes", async () => {
+  it("only the Host's own desktop shell may make a link: a remote admin may not", async () => {
+    await start();
+    const adminLink = await makeLink(["operator.read", "operator.write", "operator.admin"]);
+    const remote = await client(forwarded);
+    const res = await handshake(remote, publicOrigin, {
+      gatewayKey: t.gateway.context.identity.publicKey,
+      setupToken: adminLink.token,
+    });
+    expect((verified(res) as { scopes: string[] }).scopes).toContain("operator.admin");
+    expect(
+      await remote.request("devices.setupToken.create", { scopes: ["operator.read"] }),
+    ).toMatchObject({
+      ok: false,
+      error: { code: "forbidden" },
+    });
+    // Nor can it be done by an admin that only arrived over the loopback without the secret.
+    expect(
+      t.gateway.context.db.sqlite.prepare("SELECT count(*) AS n FROM setup_tokens").get(),
+    ).toMatchObject({ n: 1 });
+  });
+
+  it("a stale pending card cannot later widen the scopes a token chose", async () => {
+    await start();
+    const key = newDeviceKey();
+    const deviceId = "remote-desktop-3";
+    const waiting = await pairWith(undefined, { key, deviceId });
+    expect(phase(waiting)).toBe("pending");
+    const { token } = await makeLink(["operator.read"]);
+    expect(phase(await pairWith(token, { key, deviceId }))).toBe("paired");
+    const pending = t.gateway.context.db.sqlite
+      .prepare("SELECT status FROM pairing_requests WHERE device_id = ?")
+      .all(deviceId) as { status: string }[];
+    expect(pending.map((p) => p.status)).toEqual(["expired"]);
+  });
+
+  it("is spent by a device that is already paired, which keeps its own scopes", async () => {
     await start();
     const first = await makeLink(["operator.read"]);
     const key = newDeviceKey();
@@ -312,8 +347,8 @@ describe("pairing with a setup token", () => {
     const second = await makeLink(["operator.read", "operator.write", "operator.admin"]);
     const again = await pairWith(second.token, { key, deviceId });
     expect(verified(again)).toMatchObject({ phase: "paired", scopes: ["operator.read"] });
-    // The second token was not spent by a device that did not need it.
-    expect(phase(await pairWith(second.token))).toBe("paired");
+    // The link was used all the same: it cannot be used again by anyone.
+    expect(verified(await pairWith(second.token))).toMatchObject({ code: "setup_token_invalid" });
   });
 
   it("does not let a token take over a device id that is paired with another key", async () => {

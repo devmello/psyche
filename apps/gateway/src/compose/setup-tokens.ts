@@ -53,6 +53,19 @@ export function setupTokenHandlers(deps: {
         params: { scopes: DeviceScope[] },
       ): Promise<MethodResult<"devices.setupToken.create">> {
         const { config, identity } = call.ctx;
+        // The link is a secret that pairs a new device. Only the Host's own desktop shell may make
+        // one (loopback, no Origin, the per-launch handshake secret): a remote device must never
+        // mint a way in, even with admin and presence. With presence off the same rule holds.
+        if (
+          call.identity.desktopShell !== true ||
+          !call.conn.peer.remoteLoopback ||
+          call.conn.peer.origin !== null
+        ) {
+          throw new PsycheError(
+            "forbidden",
+            "Only Psyche on the Host itself can make a pairing link",
+          );
+        }
         // The link carries the address other computers reach this Gateway at. Without one there
         // is nothing to put in it, and guessing (a loopback address) would hand out a link that
         // pairs nothing.
@@ -63,17 +76,32 @@ export function setupTokenHandlers(deps: {
             "Set gateway.publicOrigin (the Tailscale address of this Mac) before making a pairing link",
           );
         }
+        // Everything the link needs is checked before a token row exists, so a failure leaves
+        // no live token behind.
+        const hostName = (hostname().trim() || "Psyche").slice(0, 64);
+        const gatewayUrl = new URL(origin).origin;
+        try {
+          encodePairingLink({
+            gatewayUrl,
+            gatewayFingerprint: identity.fingerprint,
+            setupToken: `pst_${"A".repeat(43)}`,
+            hostName,
+          });
+        } catch {
+          throw new PsycheError(
+            "unavailable",
+            "This Mac's address or name cannot go in a pairing link; check gateway.publicOrigin",
+          );
+        }
         const { token, record } = createSetupToken(db, {
           scopes: params.scopes,
           createdByDeviceId: call.identity.deviceId,
         });
-        const hostName = hostname();
-        const gatewayUrl = new URL(origin).origin;
         const link = encodePairingLink({
           gatewayUrl,
           gatewayFingerprint: identity.fingerprint,
           setupToken: token,
-          hostName: hostName.slice(0, 64) || "Psyche",
+          hostName,
         });
         await audit.append({
           kind: SETUP_TOKEN_CREATED_AUDIT_KIND,

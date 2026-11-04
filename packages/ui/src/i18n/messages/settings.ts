@@ -1747,6 +1747,9 @@ export const settings = {
   "settings.gateways.nameLabel": "Name (optional)",
   "settings.gateways.addHint":
     "Paste the pairing link from the Mac that runs Psyche (Settings, Server & remote access, Pair another computer). Without a link, type its Tailscale address, https://<host>.<tailnet>.ts.net; this computer then asks to pair, and the owner approves it there.",
+  "settings.gateways.newLink": "A new pairing link arrived. Use it?",
+  "settings.gateways.useNewLink": "Use it",
+  "settings.gateways.ignoreNewLink": "Ignore",
   "settings.gateways.fromLink":
     "Opened from a pairing link. Check it, then press Add Gateway. Psyche asks you to confirm the address before it connects.",
   "settings.gateways.adding": "Add Gateway",
@@ -1827,11 +1830,15 @@ export const settings = {
   "settings.pair.unused": "Not used yet",
   "settings.pair.revoke": "Revoke",
   "settings.pair.revokeNamed": "Revoke the pairing link made {when}",
+  "settings.pair.madeToast": "Pairing link made. It works once, for ten minutes.",
+  "settings.pair.usedToast": "A computer paired with your link.",
+  "settings.pair.gone": "The pairing link is no longer valid, so it is not shown any more.",
   "settings.pair.err.noAddress":
     "This Mac has no public address yet, so there is nothing to put in a link.",
   "settings.pair.err.tooMany":
     "There are already three unused pairing links. Revoke one, or wait for it to expire.",
-  "settings.pair.err.forbidden": "Only a device paired as admin can make a pairing link.",
+  "settings.pair.err.forbidden":
+    "Only Psyche on the Host itself, paired as admin, can make a pairing link.",
   "settings.pair.err.failed": "Couldn't make a pairing link ({reason}).",
   // The pairing card for a computer on another network.
   "settings.devices.gatewayKey": "This Gateway's key {fingerprint}",

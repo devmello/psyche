@@ -108,7 +108,7 @@ export interface UiSlots {
   /** The Markdown editor from `packages/viewers` (Rich / Source / Diff). */
   renderEditor?: (props: EditorSlotProps) => ReactNode;
   /** Writes the system clipboard (the desktop's goes through main; #507). */
-  writeClipboard?: (text: string) => Promise<void>;
+  writeClipboard?: (text: string, opts?: { clearAfterMs?: number }) => Promise<void>;
   /** Opens an https page in the system browser (a connector's sign-in; #505). */
   openExternal?: (url: string) => Promise<void>;
   /**

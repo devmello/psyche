@@ -44,6 +44,7 @@ import {
 } from "./lib/gateways.ts";
 import {
   checkCallable,
+  checkClipboardClearAfter,
   checkClipboardText,
   checkComposerText,
   checkExternalUrl,
@@ -515,7 +516,11 @@ async function confirmGatewayChange(c: GatewayConfirm): Promise<boolean> {
       : c.kind === "addLink"
         ? {
             message: `Connect Psyche to ${c.origin}?`,
-            detail: `Name: ${c.name}\n\nFrom a pairing link. Psyche will connect only if that Gateway proves this identity:\n${c.fingerprint}\n\nCompare it with the fingerprint on ${c.name} if you are unsure. The link's one-time code then lets that Gateway approve this computer without asking again, with the access its owner chose.`,
+            detail: `${
+              c.external
+                ? "This link was opened by another app or a website, not pasted by you. Only continue if you made it yourself on the Mac that runs Psyche.\n\n"
+                : ""
+            }Psyche will connect only if that Gateway proves this identity:\n${c.fingerprint}\n\nThe link's one-time code then lets that Gateway approve this computer without asking again, with the access its owner chose when making it.`,
             buttons: ["Add Gateway", "Cancel"],
           }
         : c.kind === "forget"
@@ -586,11 +591,11 @@ function registerIpc(): void {
       typeof r.name === "string" ? str(IPC.gatewaysAdd, r.name, "name", 64) : undefined,
     );
   });
-  handle(IPC.gatewaysAddLink, (_e, arg) =>
-    gateways.addFromLink(
-      str(IPC.gatewaysAddLink, rec(IPC.gatewaysAddLink, arg).link, "link", 2100),
-    ),
-  );
+  handle(IPC.gatewaysAddLink, (_e, arg) => {
+    const link = str(IPC.gatewaysAddLink, rec(IPC.gatewaysAddLink, arg).link, "link", 2100);
+    // Whether the OS handed this link to the app is main's own record, not the window's say.
+    return gateways.addFromLink(link, { external: pairLinks.wasOffered(link) });
+  });
   handle(IPC.gatewaysPendingLink, () => pairLinks.take());
   handle(IPC.gatewaysRename, (_e, arg) => {
     const r = rec(IPC.gatewaysRename, arg);
@@ -804,7 +809,17 @@ function registerIpc(): void {
   // The app session refuses navigator.clipboard (the permission check allows only audio), so
   // copy buttons (vault recovery key, credential ids) write through main (#507).
   handle(IPC.clipboardWrite, (_event, arg) => {
-    clipboard.writeText(checkClipboardText(arg));
+    const text = checkClipboardText(arg);
+    clipboard.writeText(text);
+    // A secret (a pairing link) asks to be cleared again, but only if it is still what is there.
+    const clearAfterMs = checkClipboardClearAfter(arg);
+    if (clearAfterMs !== undefined) {
+      setTimeout(() => {
+        void Promise.resolve(clipboard.readText()).then((now) => {
+          if (now === text) void clipboard.clear();
+        });
+      }, clearAfterMs).unref();
+    }
   });
   // A connector's consent page opens in the owner's browser (#505); https only.
   handle(IPC.openExternal, async (_event, arg) => {
@@ -1228,6 +1243,16 @@ void app.whenReady().then(async () => {
       }
       onPairing(s);
       if (s.phase === "paired") gateways.markConnected();
+      // Once paired, the Host says what it is called; until then the entry is named by address.
+      if (s.phase === "paired" && remoteGateway) {
+        void gateway
+          ?.call("gateway.info", {})
+          .then((info) => {
+            const name = (info as { hostName?: unknown } | undefined)?.hostName;
+            if (typeof name === "string") gateways.adoptHostName(name);
+          })
+          .catch(() => undefined);
+      }
       // The Host refused the token (used, expired, revoked): do not offer it again.
       if (s.phase === "denied" && s.deniedCode === "setup_token_invalid")
         gateways.clearSetupToken();

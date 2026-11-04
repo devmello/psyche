@@ -6,6 +6,7 @@ import {
   addGatewayFromLink,
   clearGatewayPin,
   clearSetupToken,
+  defaultGatewayName,
   forgetGatewayData,
   GatewayAddressError,
   GatewayLinkError,
@@ -49,8 +50,12 @@ export interface SavedGatewayView {
 
 export type GatewayConfirm =
   | { kind: "add"; origin: string; name: string }
-  /** From a pairing link: also names the identity the Gateway must prove (its fingerprint). */
-  | { kind: "addLink"; origin: string; name: string; fingerprint: string }
+  /**
+   * From a pairing link: names the address and the identity the Gateway must prove (its
+   * fingerprint), never the link's own host name. `external`: the link was opened by another app
+   * or a website, not pasted by the owner.
+   */
+  | { kind: "addLink"; origin: string; fingerprint: string; external: boolean }
   | { kind: "forget"; name: string; origin: string }
   | { kind: "repair"; name: string; origin: string }
   | { kind: "stopLocal" };
@@ -84,7 +89,7 @@ export class GatewayManager {
    */
   #load(): GatewaysFile {
     try {
-      return loadGatewaysStrict(this.#file);
+      return loadGatewaysStrict(this.#file, this.#deps.now?.() ?? new Date());
     } catch (err) {
       throw new PsycheError(
         "unavailable",
@@ -162,7 +167,7 @@ export class GatewayManager {
    * raw text: nothing the renderer parsed is trusted. The link's fingerprint becomes the pre-pin
    * and its token is kept for the first connect (never given back to the renderer).
    */
-  async addFromLink(rawLink: string): Promise<SavedGatewayView> {
+  async addFromLink(rawLink: string, opts: { external?: boolean } = {}): Promise<SavedGatewayView> {
     let link: ReturnType<typeof parsePairingLink>;
     try {
       link = parsePairingLink(rawLink);
@@ -195,8 +200,8 @@ export class GatewayManager {
     const ok = await this.#deps.confirm({
       kind: "addLink",
       origin: first.entry.origin,
-      name: first.entry.name,
       fingerprint: link.gatewayFingerprint,
+      external: opts.external === true,
     });
     if (!ok) throw new PsycheError("forbidden", "Adding the Gateway was cancelled");
     // Read again after the dialog, as `add` does, so a pin written meanwhile is not erased.
@@ -349,6 +354,19 @@ export class GatewayManager {
     const entry = data.gateways.find((g) => g.id === this.#deps.target.id);
     if (entry === undefined || entry.identityKey !== undefined) return;
     saveGateways(this.#file, pinGatewayKey(data, this.#deps.target.id, key));
+  }
+
+  /**
+   * Names the active saved Gateway by the Host's own name (from `gateway.info`, once paired), but
+   * only while it still has the name it got from its address: a name the owner chose stays.
+   */
+  adoptHostName(hostName: string): void {
+    if (!this.#deps.target.remote) return;
+    const data = this.#load();
+    const entry = data.gateways.find((g) => g.id === this.#deps.target.id);
+    if (entry === undefined || entry.name !== defaultGatewayName(entry.origin)) return;
+    const next = renameGateway(data, entry.id, hostName);
+    if (next !== data) saveGateways(this.#file, next);
   }
 
   /** Remembers when the active saved Gateway last paired. */

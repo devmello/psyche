@@ -36,12 +36,12 @@ Settings → Server & remote access shows the address the Gateway answers to, wh
 
 The quickest way, and the one that needs no typing and no trust on first use.
 
-1. On the Host, Settings → Server & remote access → **Pair another computer**. Tick what the other computer may do (Read, Write and Approvals are ticked, Admin is not) and choose **Make a pairing link**. You confirm with Touch ID or a passkey, as for approving a computer, because the link approves ahead of time.
+1. In Psyche on the Host itself (a computer connected to the Host cannot make links, even as admin), Settings → Server & remote access → **Pair another computer**. Tick what the other computer may do (Read, Write and Approvals are ticked, Admin is not) and choose **Make a pairing link**. You confirm with Touch ID or a passkey, as for approving a computer, because the link approves ahead of time.
 2. The Host shows a link (`psyche-pair:v1:…`) and a QR code of the same link, drawn on the Host without any network. Copy the link to the other computer. The link works once, for ten minutes, and the Host lists unused links where you can **Revoke** one. At most three can be unused at once.
-3. On the other computer, Settings → Server & remote access → Gateways on this computer → **Add a Gateway**, paste the link, and choose **Add Gateway**. A dialog names the Host's address and the identity fingerprint the link carries. Confirm it, then **Switch** to the new Gateway.
+3. On the other computer, Settings → Server & remote access → Gateways on this computer → **Add a Gateway**, paste the link, and choose **Add Gateway**. A dialog names the Host's address and the identity fingerprint the link carries (never the name written in the link, which anyone could have chosen; the Host's real name replaces the address-based name once it pairs). Confirm it, then **Switch** to the new Gateway.
 4. Psyche checks that the Host proves the identity the link named before it presents the one-time code. If it does, the Host pairs this computer at once with exactly the access you ticked, and the window opens. Nobody approves anything a second time. If it does not, Psyche stops with "This isn't the studio-mac you paired with" and sends nothing.
 
-A link that was already used, has expired or was revoked is refused with "studio-mac refused this pairing link". Make a new one on the Host. Without a link (an address typed in), the first connection still waits for you to approve it on the Host, as below.
+A link that was already used, has expired or was revoked is refused with "studio-mac refused this pairing link". Make a new one on the Host. The link and QR code disappear from the Host's screen as soon as the code is used, revoked or expired, and the copied link is cleared from the clipboard after a minute. Without a link (an address typed in), the first connection still waits for you to approve it on the Host, as below.
 
 In a packaged build, opening a `psyche-pair:` link from the system (a chat, a note) only shows Add a Gateway with the link in the field. It adds nothing and connects to nothing: you still press **Add Gateway** and confirm the address in the dialog.
 

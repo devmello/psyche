@@ -7,6 +7,7 @@ import {
   listSetupTokens,
   MAX_LIVE_SETUP_TOKENS,
   openDb,
+  pruneSetupTokens,
   revokeSetupToken,
 } from "../src/index.ts";
 
@@ -125,5 +126,25 @@ describe("setup tokens", () => {
       .run(JSON.stringify(["operator.read", "node"]), record.id);
     expect(consumeSetupToken(db, token, "dev")).toBeUndefined();
     expect(consumeSetupToken(db, token, "dev")).toBeUndefined();
+  });
+
+  it("prunes tokens that were used, revoked or expired more than a day ago, when a new one is made", () => {
+    const { db, set } = clockedDb();
+    const a = createSetupToken(db, { scopes: READ_WRITE });
+    consumeSetupToken(db, a.token, "dev");
+    createSetupToken(db, { scopes: READ_WRITE });
+    const c = createSetupToken(db, { scopes: READ_WRITE });
+    revokeSetupToken(db, c.record.id);
+    const count = () =>
+      (db.sqlite.prepare("SELECT count(*) AS n FROM setup_tokens").get() as { n: number }).n;
+    set(T0 + 23 * 3_600_000);
+    createSetupToken(db, { scopes: READ_WRITE });
+    expect(count()).toBe(4);
+    set(T0 + 25 * 3_600_000);
+    createSetupToken(db, { scopes: READ_WRITE });
+    // Only the one made a moment ago and the two never-used ones that expired a day ago are
+    // judged by age: the used and the revoked are gone, the expired one too.
+    expect(count()).toBe(2);
+    expect(pruneSetupTokens(db)).toBe(0);
   });
 });

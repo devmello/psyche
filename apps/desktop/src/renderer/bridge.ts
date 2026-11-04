@@ -175,8 +175,8 @@ function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
       },
     },
     clipboard: {
-      writeText: async (text) => {
-        await b.clipboard.writeText(text);
+      writeText: async (text, opts) => {
+        await b.clipboard.writeText(text, opts);
       },
     },
     external: {

@@ -206,7 +206,11 @@ const bridge = {
   },
   /** Copies text to the system clipboard (#507). */
   clipboard: {
-    writeText: (text: string) => invoke(IPC.clipboardWrite, { text }),
+    writeText: (text: string, opts?: { clearAfterMs?: number }) =>
+      invoke(IPC.clipboardWrite, {
+        text,
+        ...(opts?.clearAfterMs === undefined ? {} : { clearAfterMs: opts.clearAfterMs }),
+      }),
   },
   /** Opens an https page in the default browser (a connector's sign-in, #505). */
   external: {

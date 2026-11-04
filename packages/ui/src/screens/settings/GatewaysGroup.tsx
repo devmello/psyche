@@ -1,4 +1,4 @@
-import { type ReactElement, useCallback, useEffect, useId, useState } from "react";
+import { type ReactElement, useCallback, useEffect, useId, useRef, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { Input } from "../../components/ui/input.tsx";
 import { Label } from "../../components/ui/label.tsx";
@@ -68,6 +68,10 @@ export function AddGatewayForm({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [opened, setOpened] = useState(false);
+  // A link that arrived while the owner had already typed something: offered, never swapped in.
+  const [incoming, setIncoming] = useState<string | null>(null);
+  const addressNow = useRef(address);
+  addressNow.current = address;
   const takePending = gateways?.takePendingLink;
   const onPending = gateways?.onPendingLink;
   // A pairing link the OS opened in the app waits in main; showing it here is all that happens.
@@ -78,6 +82,10 @@ export function AddGatewayForm({
       void takePending().then(
         (link) => {
           if (link === null) return;
+          if (addressNow.current.trim() !== "") {
+            setIncoming(link);
+            return;
+          }
           setAddress(link);
           setOpened(true);
           setError(null);
@@ -147,6 +155,27 @@ export function AddGatewayForm({
           {t("settings.gateways.adding")}
         </Button>
       </div>
+      {incoming !== null ? (
+        <div role="status" className="flex flex-wrap items-center gap-2 text-callout">
+          <span>{t("settings.gateways.newLink")}</span>
+          <Button
+            type="button"
+            size="xs"
+            variant="outline"
+            onClick={() => {
+              setAddress(incoming);
+              setIncoming(null);
+              setOpened(true);
+              setError(null);
+            }}
+          >
+            {t("settings.gateways.useNewLink")}
+          </Button>
+          <Button type="button" size="xs" variant="ghost" onClick={() => setIncoming(null)}>
+            {t("settings.gateways.ignoreNewLink")}
+          </Button>
+        </div>
+      ) : null}
       {opened ? (
         <p id={`${id}-opened`} role="status" className="text-callout text-label-secondary">
           {t("settings.gateways.fromLink")}
@@ -207,19 +236,13 @@ export function GatewaysList({
   entries,
   onChanged,
   onError,
-  switchRequest = null,
 }: {
   entries: readonly GatewayEntry[];
   onChanged: () => void;
   onError: (message: string | null) => void;
-  /** A Gateway just added from a link: offer to switch to it (its token lasts ten minutes). */
-  switchRequest?: string | null;
 }): ReactElement {
   const { gateways } = useSlots();
   const [switching, setSwitching] = useState<string | null>(null);
-  useEffect(() => {
-    if (switchRequest !== null) setSwitching(switchRequest);
-  }, [switchRequest]);
   const current = entries.find((e) => e.active);
   const run = (p: Promise<unknown> | undefined) => {
     onError(null);
@@ -301,25 +324,12 @@ export function GatewaysGroup(): ReactElement | null {
   const { gateways } = useSlots();
   const { entries, reload } = useSavedGateways();
   const [error, setError] = useState<string | null>(null);
-  const [justAdded, setJustAdded] = useState<string | null>(null);
   if (!gateways) return null;
   return (
     <Group title={t("settings.gateways.title")} description={t("settings.gateways.description")}>
       {error ? <ErrorNotice what={error} did={t("settings.shared.nothingChanged")} /> : null}
-      {entries ? (
-        <GatewaysList
-          entries={entries}
-          onChanged={reload}
-          onError={setError}
-          switchRequest={justAdded}
-        />
-      ) : null}
-      <AddGatewayForm
-        onAdded={(entry, viaLink) => {
-          reload();
-          setJustAdded(viaLink ? entry.id : null);
-        }}
-      />
+      {entries ? <GatewaysList entries={entries} onChanged={reload} onError={setError} /> : null}
+      <AddGatewayForm onAdded={reload} />
     </Group>
   );
 }
