@@ -22,8 +22,9 @@ extension GatewayBackend {
         async let history = call("chat.history", .obj(["threadId": .string(id), "limit": .number(60)]))
         let (head, page) = try await (entry, history)
         guard let summary = Self.summary(from: head) else { throw BackendError.notFound }
-        // chat.history pages backwards from the newest; the thread reads oldest first.
-        let messages = (page["messages"]?.array ?? []).reversed()
+        // chat.history pages backwards from the newest, but each page's messages are oldest first
+        // (`listMessagesPage` reverses its DESC read), which is the order the thread reads in.
+        let messages = page["messages"]?.array ?? []
         let lookup = questionLookup()
         var items: [ChatItem] = []
         for message in messages {
@@ -69,9 +70,16 @@ extension GatewayBackend {
         if let id, id != FixtureData.mainThreadID { return id }
         if let known = await mainThread.get() { return known }
         let result = try await call("threads.list", .obj(["kind": "main", "limit": .number(1)]))
-        guard let found = result["threads"]?.array?.first?.at("thread", "id")?.string else { throw BackendError.notFound }
-        await mainThread.set(found)
-        return found
+        if let found = result["threads"]?.array?.first?.at("thread", "id")?.string {
+            await mainThread.set(found)
+            return found
+        }
+        // A new Gateway has no main thread until someone first talks to it. `threads.create` with kind main
+        // returns the existing one or makes it, so a first visit to Chat is an empty thread, not an error.
+        let made = try await call("threads.create", .obj(["kind": "main"]), key: UUID().uuidString)
+        guard let id = made.at("thread", "id")?.string else { throw BackendError.notFound }
+        await mainThread.set(id)
+        return id
     }
 
     private func questionLookup() -> ChatMapping.QuestionLookup {
@@ -84,7 +92,9 @@ extension GatewayBackend {
     /// A `ThreadListEntry` (or just `{thread, activity}`) as the row the thread list shows.
     static func summary(from entry: JSONValue) -> ChatThreadSummary? {
         guard let thread = entry["thread"], let id = thread["id"]?.string else { return nil }
-        let title = thread["title"]?.string.flatMap { $0.isEmpty ? nil : $0 } ?? "New chat"
+        // The main thread is the conversation with Psyche itself, so an untitled one is named after it.
+        let untitled = thread["kind"]?.string == "main" ? "Psyche" : "New chat"
+        let title = thread["title"]?.string.flatMap { $0.isEmpty ? nil : $0 } ?? untitled
         let activity = entry["activity"]
         let waiting = (activity?["awaitingApproval"]?.int ?? 0) + (activity?["awaitingInput"]?.int ?? 0)
         let running = activity?["running"]?.int ?? 0
