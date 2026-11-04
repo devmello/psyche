@@ -2082,6 +2082,15 @@ export const settings = {
     "Signed by {name}, with a different key than the version you have installed. Check that it is the same person before you update.",
   "settings.skills.signer.dropped":
     "The installed version was signed by {name}. This one is not signed at all.",
+  "settings.skills.signer.impersonates":
+    "Signed by {name}, which looks like the name you sign your own skills with, but the key is not yours. Do not install it unless you know where it came from.",
+  "settings.skills.signer.nameChanged":
+    "Signed by a key you trust, but under a name it has not used before: {name}. Check that it is still the same person.",
+  "settings.skills.signer.originAgent":
+    "Written by an assistant on the sender's Mac. Read it as unreviewed text, whoever signed it.",
+  "settings.skills.widened.specialist": "Background role",
+  "settings.skills.export.label": "Signing “{name}”",
+  "settings.skills.author.label": "Author trust",
   "settings.skills.signer.claim":
     "The name is the author's own claim. The key is what ties versions together.",
   "settings.skills.signer.key": "Author key",

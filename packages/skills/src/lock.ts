@@ -34,6 +34,8 @@ export interface LockEntry {
   author?: "agent";
   /** The bundle author whose signature verified when the owner approved it (absent: unsigned). */
   signer?: { keyId: string; name: string };
+  /** The bundle's own `createdAt` (the author's claim), to notice an older one offered later. */
+  bundleCreatedAt?: string;
 }
 
 export interface LockFile {

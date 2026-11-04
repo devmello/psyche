@@ -8,12 +8,16 @@ import {
 import {
   chmodSync,
   closeSync,
+  constants,
   existsSync,
+  fstatSync,
   fsyncSync,
   linkSync,
+  lstatSync,
   mkdirSync,
   openSync,
   readFileSync,
+  readSync,
   renameSync,
   rmSync,
   writeFileSync,
@@ -61,6 +65,116 @@ export function cleanAuthorName(name: string): string {
   return n;
 }
 
+/** Letters that look like Latin ones, for the comparison skeleton (not exhaustive). */
+const CONFUSABLES: Record<string, string> = {
+  а: "a",
+  е: "e",
+  о: "o",
+  р: "p",
+  с: "c",
+  у: "y",
+  х: "x",
+  і: "i",
+  ј: "j",
+  ѕ: "s",
+  һ: "h",
+  ԁ: "d",
+  ԛ: "q",
+  ԝ: "w",
+  к: "k",
+  м: "m",
+  н: "h",
+  т: "t",
+  в: "b",
+  ο: "o",
+  α: "a",
+  ε: "e",
+  ι: "i",
+  κ: "k",
+  ν: "v",
+  ρ: "p",
+  τ: "t",
+  υ: "u",
+  χ: "x",
+  β: "b",
+  η: "n",
+  μ: "u",
+  ѵ: "v",
+  "0": "o",
+  "1": "l",
+  "|": "l",
+  "5": "s",
+  "3": "e",
+  "!": "l",
+  i: "l",
+  j: "l",
+  $: "s",
+  "@": "a",
+};
+
+/** Normalized for comparison: NFKC, case-folded, trimmed, whitespace collapsed. */
+export function normalizeAuthorName(name: string): string {
+  return name
+    .normalize("NFKC")
+    .toUpperCase()
+    .toLowerCase()
+    .replace(/[\s\u200b-\u200f\ufeff]+/g, " ")
+    .trim();
+}
+
+/**
+ * A confusable skeleton: diacritics dropped, look-alike letters and digits mapped to one Latin
+ * form, everything that is not a letter or digit removed. "Ad\u0430 Lovelace", "ada  lovelace"
+ * and "4da L0velace" share a skeleton with "Ada Lovelace".
+ */
+export function authorNameSkeleton(name: string): string {
+  const base = normalizeAuthorName(name)
+    .normalize("NFKD")
+    .replace(/\p{M}+/gu, "");
+  let out = "";
+  for (const ch of base) {
+    const m = CONFUSABLES[ch] ?? ch;
+    if (/[\p{L}\p{N}]/u.test(m)) out += m;
+  }
+  return out;
+}
+
+/** Opens the author key without following a link, and checks the owner and the mode. */
+function readKeyText(path: string): string | undefined {
+  let fd: number;
+  try {
+    fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === "ENOENT") return undefined;
+    if (code === "ELOOP")
+      throw new PsycheError("internal", `${path} is a link; refusing to read it as the author key`);
+    throw err;
+  }
+  try {
+    const st = fstatSync(fd);
+    if (!st.isFile())
+      throw new PsycheError("internal", `${path} is not a regular file; refusing to read it`);
+    if (typeof process.getuid === "function" && st.uid !== process.getuid())
+      throw new PsycheError("internal", `${path} is not owned by this user; refusing to read it`);
+    if ((st.mode & 0o077) !== 0)
+      throw new PsycheError(
+        "internal",
+        `${path} is readable by others (chmod 600 it); refusing to use it`,
+      );
+    const buf = Buffer.alloc(Math.min(st.size, 65_536));
+    let n = 0;
+    while (n < buf.length) {
+      const r = readSync(fd, buf, n, buf.length - n, null);
+      if (r === 0) break;
+      n += r;
+    }
+    return buf.subarray(0, n).toString("utf8");
+  } finally {
+    closeSync(fd);
+  }
+}
+
 function isKeyFile(v: unknown): v is AuthorKeyFile {
   if (typeof v !== "object" || v === null) return false;
   const f = v as Partial<AuthorKeyFile>;
@@ -106,22 +220,32 @@ export class AuthorKeyStore {
       : { keyId: keyIdOf(f.jwk.x), name: f.name, publicKey: f.jwk.x };
   }
 
-  /** The signer, creating the key (named `name`) on first use. */
-  loadOrCreate(name: string): { signer: BundleSigningKey; created: boolean } {
+  /** The signer, creating the key (named `name`, which is then required) on first use. */
+  loadOrCreate(name: string | undefined): { signer: BundleSigningKey; created: boolean } {
     const existing = this.#read();
     if (existing !== undefined) return { signer: signerFrom(existing), created: false };
+    if (name === undefined || name.trim() === "")
+      throw new PsycheError(
+        "invalid_params",
+        "Choose the name to sign your skills with; everyone who imports them sees it",
+      );
     const file = this.#create(cleanAuthorName(name));
     return { signer: signerFrom(file), created: file.created };
   }
 
   #read(): AuthorKeyFile | undefined {
-    let text: string;
+    const dir = dirname(this.path);
     try {
-      text = readFileSync(this.path, "utf8");
+      if (lstatSync(dir).isSymbolicLink())
+        throw new PsycheError(
+          "internal",
+          `${dir} is a link; refusing to use it for the author key`,
+        );
     } catch (err) {
-      if ((err as NodeJS.ErrnoException).code === "ENOENT") return undefined;
-      throw err;
+      if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
     }
+    const text = readKeyText(this.path);
+    if (text === undefined) return undefined;
     let parsed: unknown;
     try {
       parsed = JSON.parse(text);
@@ -135,7 +259,6 @@ export class AuthorKeyStore {
         "internal",
         `${this.path} is not an author key; refusing to replace it`,
       );
-    chmodSync(this.path, 0o600);
     return parsed;
   }
 
@@ -227,8 +350,9 @@ export class AuthorRing {
   #write(f: AuthorsFile): void {
     mkdirSync(dirname(this.path), { recursive: true, mode: 0o700 });
     const tmp = `${this.path}.${process.pid}.tmp`;
-    writeFileSync(tmp, `${JSON.stringify(f, null, 2)}\n`, { mode: 0o600 });
-    chmodSync(tmp, 0o600);
+    // A leftover of ours is removed; the new file is created exclusively, never through a link.
+    rmSync(tmp, { force: true });
+    writeFileSync(tmp, `${JSON.stringify(f, null, 2)}\n`, { mode: 0o600, flag: "wx" });
     renameSync(tmp, this.path);
   }
 
@@ -245,9 +369,9 @@ export class AuthorRing {
 
   /** Other keys that have signed under `name` (case-insensitive). */
   keysForName(name: string): string[] {
-    const n = name.toLowerCase();
+    const n = authorNameSkeleton(name);
     return Object.values(this.#read().authors)
-      .filter((a) => a.names.some((x) => x.toLowerCase() === n))
+      .filter((a) => a.names.some((x) => authorNameSkeleton(x) === n))
       .map((a) => a.keyId);
   }
 
@@ -305,7 +429,7 @@ export class AuthorRing {
    */
   statusOf(
     signer: BundleAuthor,
-    own: { keyId: string } | undefined,
+    own: { keyId: string; name: string } | undefined,
     installed: { keyId: string } | null | undefined,
   ): BundleSignerStatusInfo {
     const base = { keyId: signer.keyId, name: signer.name };
@@ -313,16 +437,29 @@ export class AuthorRing {
     const signerChanged = installed != null && installed.keyId !== signer.keyId;
     if (rec?.state === "revoked") return { ...base, status: "revoked", signerChanged };
     if (own?.keyId === signer.keyId) return { ...base, status: "own", signerChanged: false };
+    // A look-alike of the owner's own name with another key is the worst impersonation.
+    const impersonates =
+      own !== undefined && authorNameSkeleton(own.name) === authorNameSkeleton(signer.name);
     const others = this.keysForName(signer.name).filter((k) => k !== signer.keyId);
-    if (rec?.state === "trusted" && !signerChanged)
-      return { ...base, status: "trusted", signerChanged };
-    if (signerChanged || (rec === undefined && others.length > 0)) {
-      const previousKeyId = installed?.keyId ?? others[0];
+    if (rec?.state === "trusted" && !signerChanged && !impersonates) {
+      const seenName = rec.names.some(
+        (n) => authorNameSkeleton(n) === authorNameSkeleton(signer.name),
+      );
+      return {
+        ...base,
+        status: "trusted",
+        signerChanged,
+        ...(seenName ? {} : { nameChanged: true }),
+      };
+    }
+    if (signerChanged || impersonates || (rec === undefined && others.length > 0)) {
+      const previousKeyId = installed?.keyId ?? (impersonates ? own?.keyId : others[0]);
       return {
         ...base,
         status: "changed",
         ...(previousKeyId === undefined ? {} : { previousKeyId }),
         signerChanged,
+        ...(impersonates ? { impersonates: true } : {}),
       };
     }
     return { ...base, status: rec === undefined ? "new" : "seen", signerChanged };

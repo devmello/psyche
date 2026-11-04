@@ -126,7 +126,7 @@ describe("Settings → Skills", () => {
     expect(await screen.findByText("Every installed skill is up to date.")).toBeTruthy();
   });
 
-  it("imports a signed bundle file: the card names the signer, and 'trust this author' rides on the install", async () => {
+  it("imports a signed bundle file: the card names the signer, and 'trust this author' is part of the card", async () => {
     const gateway = setup();
     const input = await screen.findByLabelText("Import a file…");
     await userEvent.upload(
@@ -143,14 +143,30 @@ describe("Settings → Skills", () => {
     expect(gateway().calls.find((c) => c.method === "skills.proposeImport")?.params).toMatchObject({
       name: SKILL_BUNDLE_FILE,
     });
+    // Ticking the box stages the review again with trustAuthor, so the approver's card binds it.
     await userEvent.click(
       within(card).getByRole("checkbox", { name: "Trust Ada Lovelace as an author" }),
     );
-    await answer(card, "Allow once");
+    await waitFor(() =>
+      expect(gateway().calls.filter((c) => c.method === "skills.proposeImport")).toHaveLength(2),
+    );
+    expect(
+      gateway().calls.filter((c) => c.method === "skills.proposeImport")[1]?.params,
+    ).toMatchObject({ trustAuthor: true });
+    const again = await screen.findByTestId("skill-trust-card");
+    await waitFor(() =>
+      expect(
+        within(again)
+          .getByRole("checkbox", { name: "Trust Ada Lovelace as an author" })
+          .getAttribute("aria-checked"),
+      ).toBe("true"),
+    );
+    await answer(again, "Allow once");
     expect(await screen.findByText("Installed “pdf-merge”.")).toBeTruthy();
-    expect(gateway().calls.find((c) => c.method === "skills.install")?.params).toMatchObject({
-      trustAuthor: true,
-    });
+    // The install call carries no flag of its own: the approved card already says it.
+    expect(gateway().calls.find((c) => c.method === "skills.install")?.params).not.toHaveProperty(
+      "trustAuthor",
+    );
   });
 
   it("without the box ticked, trustAuthor is not sent", async () => {
@@ -176,6 +192,10 @@ describe("Settings → Skills", () => {
     const signer = within(card).getByTestId("skill-signer");
     expect(signer.textContent).toContain("different key than the version you have installed");
     expect(signer.getAttribute("role")).toBe("alert");
+    // Text Psyche wrote for the sender is labelled, whoever signed it.
+    expect(within(card).getByTestId("skill-origin").textContent).toContain(
+      "Written by an assistant",
+    );
     const widened = within(card).getByTestId("skill-widened");
     expect(widened.textContent).toContain("Asks for more than the installed version");
     expect(widened.textContent).toContain("email.*");

@@ -176,6 +176,8 @@ export interface SkillInstallBindingArgs {
   commit?: string;
   /** Shared bundles: the author key (`sha256:<hex>`) whose signature verified; absent if unsigned. */
   signer?: string;
+  /** The approver also trusts the signer's key (part of what the card binds). */
+  trustAuthor?: boolean;
   /** `sha256:<hex>` over the whole skill folder. */
   treeHash: string;
   tools: string[];
@@ -652,6 +654,7 @@ function skillInstallBinding(raw: unknown): [JsonObject, JsonObject] {
       source,
       commit: optStr(k, "commit", a.commit),
       signer: optStr(k, "signer", a.signer),
+      trustAuthor: a.trustAuthor === true ? true : undefined,
       treeHash: sha(k, "treeHash", a.treeHash),
       tools: sorted("tools"),
       permissions: sorted("permissions"),

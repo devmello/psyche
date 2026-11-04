@@ -698,7 +698,7 @@ export class MockGateway implements GatewayClient {
     return { connector };
   }
 
-  private stageSkill(src: MockSkillSource | undefined, missing: string) {
+  private stageSkill(src: MockSkillSource | undefined, missing: string, trustAuthor = false) {
     if (src === undefined) return fail("not_found", missing);
     if ("violations" in src) {
       throw new PsycheError(
@@ -714,6 +714,9 @@ export class MockGateway implements GatewayClient {
       bindingHash: `sha256:${"b".repeat(64)}`,
       grantKey: `sha256:${"c".repeat(64)}`,
       expiresAt: Date.parse(now) + 30 * 60_000,
+      ...(trustAuthor && src.proposal.bundle?.signer.keyId !== undefined
+        ? { trustAuthor: true }
+        : {}),
     };
     this.skillProposals.set(proposal.id, proposal);
     const manifest = proposal.manifest ?? { tools: [], permissions: [], prompts: [] };
@@ -3123,10 +3126,18 @@ export class MockGateway implements GatewayClient {
           : p.source.kind === "bundleFile"
             ? p.source.name
             : p.source.path;
-      return this.stageSkill(this.world.skillSources[key], `nothing to install at ${key}`);
+      return this.stageSkill(
+        this.world.skillSources[key],
+        `nothing to install at ${key}`,
+        p.trustAuthor === true,
+      );
     },
     "skills.proposeImport": (p) =>
-      this.stageSkill(this.world.skillSources[p.name], `${p.name} is not a valid bundle`),
+      this.stageSkill(
+        this.world.skillSources[p.name],
+        `${p.name} is not a valid bundle`,
+        p.trustAuthor === true,
+      ),
     "skills.export": (p) => {
       this.skillAuthor ??= { keyId: AUTHOR_KEY, name: p.authorName ?? "You" };
       return {

@@ -31,6 +31,7 @@ import { skillInstallBinding } from "./binding.ts";
 import {
   BUNDLE_EXTENSION,
   type BundleAuthor,
+  type BundleOrigin,
   buildBundle,
   type VerifiedBundle,
   verifyBundle,
@@ -64,8 +65,16 @@ import {
   specialistRoleOf,
 } from "./specialists.ts";
 import { MemorySkillStateStore, type SkillStateStore } from "./state.ts";
-import { LESSONS_FILE, readSkillDir, type SkillTree, textOf, treeHash } from "./tree.ts";
+import {
+  foldConflict,
+  LESSONS_FILE,
+  readSkillDir,
+  type SkillTree,
+  textOf,
+  treeHash,
+} from "./tree.ts";
 import type { VirusTotalClient } from "./virustotal.ts";
+import { type Widened, widenedBy } from "./widen.ts";
 
 /**
  * Why a skill is (not) active. `active` is the only status that reaches the prompt.
@@ -129,11 +138,13 @@ export interface SkillProposal extends SkillInstallProposal {
     upToDate: boolean;
     diff: string;
     /** What the new version asks for that the installed one did not (empty lists: nothing). */
-    widened?: SkillManifest;
+    widened?: Widened;
     signerChanged?: boolean;
   };
   /** A shared `.psyche-skill` bundle: who signed it and when the author says it was made. */
-  bundle?: { signer: BundleSignerInfo; createdAt: string; bytes: number };
+  bundle?: { signer: BundleSignerInfo; createdAt: string; bytes: number; origin: BundleOrigin };
+  /** Approving this card also trusts the bundle's author key (bound into the approval). */
+  trustAuthor?: boolean;
   /** Epoch ms. */
   expiresAt: number;
   manifest: SkillManifest;
@@ -186,9 +197,21 @@ export interface FsSkillLoaderOptions {
    * answers `unavailable`; importing and trust still work.
    */
   psycheHome?: string;
+  /**
+   * A background role's definition may have changed under an installed skill (it was installed,
+   * updated, or removed): the Gateway turns the role off again until the owner re-enables it.
+   */
+  onSpecialistReset?: (role: string) => void;
   /** Called when the owner trusts, un-trusts or revokes an author key, or one is created (audit). */
   onAuthorChange?: (event: {
-    kind: "author_key_created" | "author_trusted" | "author_untrusted" | "author_revoked";
+    kind:
+      | "author_key_created"
+      | "author_trusted"
+      | "author_untrusted"
+      | "author_revoked"
+      | "skill_exported";
+    skill?: string;
+    treeHash?: string;
     keyId: string;
     name?: string;
   }) => void;
@@ -211,6 +234,8 @@ interface Entry {
 
 const SOURCES: SkillSource[] = ["workspace", "home", "bundled"];
 const TTL_MS = 30 * 60 * 1000;
+/** Staged install proposals kept at once. */
+const MAX_PROPOSALS = 50;
 
 /**
  * `SkillLoader` over the file system (architecture §13, features T1 and T2). Discovery order
@@ -381,7 +406,7 @@ export class FsSkillLoader implements SkillLoader {
     details.userInvocable = m.userInvocable;
     details.disableModelInvocation = m.disableModelInvocation;
     if (m.version !== undefined) details.version = m.version;
-    const manifest = manifestOf(m, tree);
+    const manifest = manifestOf(m, tree, parsed.skill.frontmatter as Record<string, unknown>);
     if (!manifest.ok) {
       details.reasons.push(...manifest.errors);
       return entry;
@@ -407,6 +432,7 @@ export class FsSkillLoader implements SkillLoader {
 
     // Trust: bundled ships with Psyche; everything else needs a matching lock entry.
     let signerRevoked = false;
+    let signerUnreadable = false;
     if (source !== "bundled") {
       const lk = lock.skills[lockKey(source === "home" ? "home" : "workspace", folder)];
       const needsLock = source === "home" || this.#o.requireWorkspaceApproval !== false;
@@ -417,11 +443,17 @@ export class FsSkillLoader implements SkillLoader {
         if (lk.commit !== undefined) details.commit = lk.commit;
         if (lk.signer !== undefined) {
           const state = this.#signerState(lk.signer.keyId);
-          details.signer = { ...lk.signer, state };
+          details.signer = { ...lk.signer, state: state === "unreadable" ? "seen" : state };
           // Un-trusting a key takes the `verified` label back from what it signed.
-          if (lk.trust === "verified" && state !== "trusted") details.trust = "unknown";
+          if (lk.trust === "verified" && state !== "trusted" && state !== "own")
+            details.trust = "unknown";
           if (state === "revoked") signerRevoked = true;
+          if (state === "unreadable") signerUnreadable = true;
         }
+        // Only a workspace skill is `local`; a lock entry that says otherwise for an installed
+        // skill (a hand-edited lock, an old build) is read as a plain third-party skill.
+        if (source === "home" && (lk.trust === "local" || lk.trust === "bundled"))
+          details.trust = "unknown";
       }
       if (needsLock && lk === undefined) {
         details.status = source === "home" ? "unlocked" : "draft";
@@ -455,6 +487,10 @@ export class FsSkillLoader implements SkillLoader {
     } else if (signerRevoked) {
       details.status = "blocked";
       details.reasons.push("signed by an author key you revoked");
+    } else if (signerUnreadable) {
+      // Fail closed: if the author list cannot be read, a revocation could be hiding in it.
+      details.status = "blocked";
+      details.reasons.push("the list of author keys cannot be read");
     } else if (!details.userEnabled) {
       details.status = "disabled";
       details.reasons.push("disabled by the owner");
@@ -472,13 +508,13 @@ export class FsSkillLoader implements SkillLoader {
     return entry;
   }
 
-  #signerState(keyId: string): "seen" | "trusted" | "revoked" | "own" {
+  /** `unreadable`: the keyring or the author key cannot be read, so the skill stays off. */
+  #signerState(keyId: string): "seen" | "trusted" | "revoked" | "own" | "unreadable" {
     try {
       if (this.#keys?.peek()?.keyId === keyId) return "own";
       return this.#ring.get(keyId)?.state ?? "seen";
     } catch {
-      // An unreadable keyring trusts nothing.
-      return "seen";
+      return "unreadable";
     }
   }
 
@@ -713,16 +749,23 @@ export class FsSkillLoader implements SkillLoader {
   // --- Install and trust -----------------------------------------------------------------------
 
   /** Fetches, scans and stages a third-party skill for `$PSYCHE_HOME/skills/`. */
-  async proposeInstall(source: SkillInstallSource): Promise<SkillProposal> {
+  async proposeInstall(
+    source: SkillInstallSource,
+    opts: { trustAuthor?: boolean } = {},
+  ): Promise<SkillProposal> {
     const fetched = await fetchSource(source, this.#o.sourceOptions);
-    return this.#propose("home", source, fetched.tree, fetched.commit, fetched.bundle);
+    return this.#propose("home", source, fetched.tree, fetched.commit, fetched.bundle, opts);
   }
 
   /**
    * Verifies and stages a `.psyche-skill` file the owner chose (its text, read by their client).
    * An invalid, tampered or mismatched bundle is refused here, before any card exists.
    */
-  async proposeImport(fileName: string, text: string): Promise<SkillProposal> {
+  async proposeImport(
+    fileName: string,
+    text: string,
+    opts: { trustAuthor?: boolean } = {},
+  ): Promise<SkillProposal> {
     const bundle = verifyBundle(text, this.#o.sourceOptions?.limits);
     // Shown on the card and bound into the approval: keep it to plain, short text.
     const name = fileName
@@ -735,11 +778,16 @@ export class FsSkillLoader implements SkillLoader {
       bundle.tree,
       undefined,
       bundle,
+      opts,
     );
   }
 
   /** Re-fetches an installed skill from its pinned source and stages the update with a diff. */
-  async proposeUpdate(name: string, ref?: string): Promise<SkillProposal> {
+  async proposeUpdate(
+    name: string,
+    ref?: string,
+    opts: { trustAuthor?: boolean } = {},
+  ): Promise<SkillProposal> {
     const lk = this.#readLock().skills[lockKey("home", name)];
     if (lk === undefined || lk.origin.kind === "workspace" || lk.author === "agent")
       throw new PsycheError("not_found", `${name} was not installed from a source`);
@@ -751,7 +799,7 @@ export class FsSkillLoader implements SkillLoader {
     const origin: SkillInstallSource =
       lk.origin.kind === "git" && ref !== undefined ? { ...lk.origin, ref } : lk.origin;
     const fetched = await fetchSource(origin, this.#o.sourceOptions);
-    return this.#propose("home", origin, fetched.tree, fetched.commit, fetched.bundle);
+    return this.#propose("home", origin, fetched.tree, fetched.commit, fetched.bundle, opts);
   }
 
   /** Stages the owner's approval of a workspace skill (draft or changed). */
@@ -771,6 +819,7 @@ export class FsSkillLoader implements SkillLoader {
     tree: SkillTree,
     commit?: string,
     bundle?: VerifiedBundle,
+    opts: { trustAuthor?: boolean } = {},
   ): Promise<SkillProposal> {
     if (bundle?.signer !== undefined && this.#ring.isRevoked(bundle.signer.keyId))
       throw new PsycheError(
@@ -788,7 +837,11 @@ export class FsSkillLoader implements SkillLoader {
       );
     }
     const name = parsed.skill.meta.name;
-    const declared = manifestOf(parsed.skill.meta, tree);
+    const declared = manifestOf(
+      parsed.skill.meta,
+      tree,
+      parsed.skill.frontmatter as Record<string, unknown>,
+    );
     if (!declared.ok) {
       throw new PsycheError(
         "invalid_params",
@@ -808,14 +861,12 @@ export class FsSkillLoader implements SkillLoader {
     if (scope === "workspace" && source.kind === "path" && !source.path.endsWith(`/${name}`)) {
       throw new PsycheError("invalid_params", `skill name ${name} must equal its folder name`);
     }
-    const folded = new Set<string>();
-    for (const path of tree.keys()) {
-      const k = path.normalize("NFC").toLowerCase();
-      // Case-insensitive APFS would merge these on disk after the approval is spent.
-      if (folded.has(k))
-        throw new PsycheError("invalid_params", `paths differ only in case: ${path}`);
-      folded.add(k);
-    }
+    // Case-insensitive APFS would merge these on disk after the approval is spent: every path
+    // and every folder prefix is compared with full Unicode case and normalization folding.
+    const clash = foldConflict(tree.keys());
+    if (clash !== undefined)
+      throw new PsycheError("invalid_params", `paths differ only in case or form: ${clash}`);
+    this.#sweepProposals();
     const hash = treeHash(tree);
     const findings = scanSkillTree(tree, name);
     if (this.#o.virusTotal !== undefined) findings.push(...(await this.#o.virusTotal.scan(tree)));
@@ -854,15 +905,22 @@ export class FsSkillLoader implements SkillLoader {
         };
       }
     }
+    // Who signed this, against who signed what is installed: for every kind of source, so a
+    // signed skill replaced from a folder or a repository is flagged too.
+    const installedSigner =
+      installedLock === undefined ? undefined : (installedLock.signer ?? null);
     let bundleInfo: SkillProposal["bundle"];
     if (bundle !== undefined) {
-      const installedSigner =
-        installedLock === undefined ? undefined : (installedLock.signer ?? null);
       const signer: BundleSignerInfo =
         bundle.signer === undefined
           ? { status: "unsigned", signerChanged: installedSigner != null }
-          : this.#ring.statusOf(bundle.signer, this.#ownKey(), installedSigner);
-      bundleInfo = { signer, createdAt: bundle.manifest.createdAt, bytes: bundle.bytes };
+          : this.#ring.statusOf(bundle.signer, this.#keys?.peek(), installedSigner);
+      bundleInfo = {
+        signer,
+        createdAt: bundle.manifest.createdAt,
+        bytes: bundle.bytes,
+        origin: bundle.manifest.origin,
+      };
       if (signer.signerChanged && update !== undefined) update.signerChanged = true;
       if (signer.status === "changed" || signer.signerChanged) {
         findings.push({
@@ -871,9 +929,35 @@ export class FsSkillLoader implements SkillLoader {
           message:
             bundle.signer === undefined
               ? "the installed version was signed; this one is not"
-              : "the author's key is not the one seen before; check it is the same person",
+              : signer.impersonates === true
+                ? "the author's name matches your own author name but the key is not yours"
+                : "the author's key is not the one seen before; check it is the same person",
         });
       }
+      if (signer.nameChanged === true) {
+        findings.push({
+          rule: "signer-name-changed",
+          severity: "warn",
+          message: "a key you trust is signing under a name it has not used before",
+        });
+      }
+      // Rollback: an older bundle offered over a newer install of the same skill.
+      const was = installedLock?.bundleCreatedAt;
+      if (was !== undefined && Date.parse(bundle.manifest.createdAt) < Date.parse(was)) {
+        findings.push({
+          rule: "older-than-installed",
+          severity: "warn",
+          message: "this bundle was made before the installed version; it may be a rollback",
+        });
+      }
+    } else if (installedSigner != null) {
+      // Not a bundle at all (a folder, an archive, a repository): the signature is gone.
+      if (update !== undefined) update.signerChanged = true;
+      findings.push({
+        rule: "signer-changed",
+        severity: "warn",
+        message: "the installed version was signed; this source is not",
+      });
     }
     if (update?.widened !== undefined) {
       findings.push({
@@ -882,13 +966,40 @@ export class FsSkillLoader implements SkillLoader {
         message: "this version asks for more than the installed one",
       });
     }
+    if (manifest.specialist !== undefined) {
+      const role = manifest.specialist.role;
+      const other = this.#entries.find(
+        (e) => e.details.name !== name && e.details.specialist?.role === role,
+      );
+      if (other !== undefined) {
+        findings.push({
+          rule: "role-shadow",
+          severity: "warn",
+          message: `the background role "${role}" is also defined by the skill "${other.details.name}"`,
+        });
+      }
+    }
     const status = bundleInfo?.signer.status;
+    // Trusting the author rides on this very card, so the approver decides it; it makes no
+    // sense for an unsigned bundle, a key already trusted or the owner's own.
+    const trustAuthor =
+      opts.trustAuthor === true &&
+      scope === "home" &&
+      bundle?.signer !== undefined &&
+      status !== "trusted" &&
+      status !== "own" &&
+      status !== "revoked";
+    // A bundle is never `local`: that is for what the owner wrote and approved on this Mac.
+    // The exporter's own account of where it came from (signed) can only lower it further:
+    // text Psyche wrote stays `unknown` whoever signs it.
     const trust: SkillTrust =
-      scope === "workspace" || status === "own"
+      scope === "workspace"
         ? "local"
-        : status === "trusted"
-          ? "verified"
-          : "unknown";
+        : bundle === undefined || bundle.manifest.origin === "agent"
+          ? "unknown"
+          : status === "own" || status === "trusted" || trustAuthor
+            ? "verified"
+            : "unknown";
     const id = this.#newId();
     const files = [...tree.entries()]
       .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
@@ -918,12 +1029,15 @@ export class FsSkillLoader implements SkillLoader {
         source,
         ...(commit === undefined ? {} : { commit }),
         ...(bundle?.signer === undefined ? {} : { signer: bundle.signer.keyId }),
+        ...(trustAuthor ? { trustAuthor: true } : {}),
         treeHash: hash,
         ...manifest,
       }),
       ...(commit === undefined ? {} : { commit }),
       ...(update === undefined ? {} : { update }),
       ...(bundleInfo === undefined ? {} : { bundle: bundleInfo }),
+      ...(trustAuthor ? { trustAuthor: true } : {}),
+      ...(bundle?.manifest.origin === "agent" ? { author: "agent" as const } : {}),
       expiresAt: this.#now() + (this.#o.proposalTtlMs ?? TTL_MS),
       manifest,
     };
@@ -935,26 +1049,34 @@ export class FsSkillLoader implements SkillLoader {
     return structuredClone(proposal);
   }
 
+  /** Drops expired proposals, and the oldest when too many are waiting (a link can be spammed). */
+  #sweepProposals(): void {
+    const now = this.#now();
+    for (const [id, v] of this.#proposals)
+      if (now > v.proposal.expiresAt) this.#proposals.delete(id);
+    while (this.#proposals.size >= MAX_PROPOSALS) {
+      const oldest = this.#proposals.keys().next().value;
+      if (oldest === undefined) break;
+      this.#proposals.delete(oldest);
+    }
+  }
+
   /**
    * Installs (or approves) a staged proposal. Needs an approved `skill_install` whose binding
    * matches the proposal; writes exactly the scanned tree, pins it in the lock file and records
    * a receipt. A skill with `high` findings is installed disabled.
    */
-  async install(
-    proposalId: string,
-    approvalId: string,
-    opts: { trustAuthor?: boolean } = {},
-  ): Promise<SkillSummary> {
+  async install(proposalId: string, approvalId: string): Promise<SkillSummary> {
     const staged = this.#proposals.get(proposalId);
     if (staged === undefined) throw new PsycheError("not_found", "no such install proposal");
-    const { proposal: staged0, tree, signer } = staged;
-    let p = staged0;
+    const { proposal: p, tree, signer } = staged;
     if (signer !== undefined && this.#ring.isRevoked(signer.keyId)) {
       this.#proposals.delete(proposalId);
       throw new PsycheError("policy_denied", "this bundle is signed by a key you revoked");
     }
-    // "Trust this author" rides on an approved card: it changes a label, never skips the card.
-    const trustNow = opts.trustAuthor === true && signer !== undefined && p.scope === "home";
+    // "Trust this author" is part of what the approved card bound: it changes a label and the
+    // warnings for later bundles, and never skips a card.
+    const trustNow = p.trustAuthor === true && signer !== undefined && p.scope === "home";
     if (this.#now() > p.expiresAt) {
       this.#proposals.delete(proposalId);
       throw new PsycheError("approval_expired", "the install proposal expired; propose it again");
@@ -985,11 +1107,12 @@ export class FsSkillLoader implements SkillLoader {
       );
     }
     this.#proposals.delete(proposalId);
-    if (trustNow && p.trust === "unknown") p = { ...p, trust: "verified" };
 
     const root = p.scope === "home" ? this.#o.homeDir : this.#o.workspaceDir;
     if (root === undefined) throw new PsycheError("internal", "no folder for this skill scope");
     const target = join(root, p.name);
+    const previousRole =
+      this.#readLock().skills[lockKey(p.scope, p.name)]?.manifest?.specialist?.role;
     // Watcher reloads wait until the files and the lock agree (no false hash_mismatch).
     this.#busy = true;
     try {
@@ -1015,6 +1138,10 @@ export class FsSkillLoader implements SkillLoader {
     } finally {
       this.#busy = false;
     }
+    // A role this skill defines may now be wider or different: it starts off again, and stays
+    // off until the owner turns it on (the card showed what it asks for).
+    for (const role of new Set([previousRole, p.manifest.specialist?.role]))
+      if (role !== undefined) this.#o.onSpecialistReset?.(role);
     const counts = summarizeFindings(p.findings);
     const blocked = counts.high > 0;
     await broker.recordReceipt({
@@ -1060,6 +1187,7 @@ export class FsSkillLoader implements SkillLoader {
       manifest: p.manifest,
       ...(p.author === undefined ? {} : { author: p.author }),
       ...(signer === undefined ? {} : { signer: { keyId: signer.keyId, name: signer.name } }),
+      ...(p.bundle === undefined ? {} : { bundleCreatedAt: p.bundle.createdAt }),
     };
     writeLock(this.lockPath, lock);
     this.#state.upsert({
@@ -1076,7 +1204,7 @@ export class FsSkillLoader implements SkillLoader {
 
   // --- Shared bundles: export and author keys --------------------------------------------------
 
-  #ownKey(): { keyId: string } | undefined {
+  #ownKey(): { keyId: string; name: string } | undefined {
     try {
       return this.#keys?.peek();
     } catch {
@@ -1110,23 +1238,21 @@ export class FsSkillLoader implements SkillLoader {
   }
 
   /**
-   * Signs a skill of the owner's with their author key (created on first use) and returns the
-   * `.psyche-skill` text. Only what the owner approved is exported: a workspace skill with a
-   * lock entry, a skill Psyche made that the owner approved, or one signed with this same key,
-   * and only while its files still match the approved hash. A skill someone else wrote is
-   * refused, so the owner's key never vouches for it.
+   * What an export would sign, for the approval card: the skill's name, tree hash, files and
+   * where it came from. Only what the owner approved can be exported: a workspace skill with a
+   * lock entry, a skill Psyche made on this Mac that the owner approved, or one signed with this
+   * same key, and only while its files still match the approved hash and carry no high scan
+   * finding. A skill someone else wrote (any import, signed or not) is refused, so the owner's
+   * key never vouches for it, and the agent cannot get an unreviewed draft signed.
    */
-  exportSkill(
-    name: string,
-    authorName?: string,
-  ): {
-    filename: string;
-    bundle: string;
-    signer: { keyId: string; name: string };
-    createdKey: boolean;
+  previewExport(name: string): {
+    name: string;
+    treeHash: string;
+    files: { path: string; bytes: number; executable: boolean }[];
+    origin: BundleOrigin;
+    version?: string;
+    tree: SkillTree;
   } {
-    if (this.#keys === undefined)
-      throw new PsycheError("unavailable", "this Gateway has no place for an author key");
     if (!NAME_PATTERN.test(name)) throw new PsycheError("invalid_params", "invalid skill name");
     const lock = this.#readLock();
     const own = this.#ownKey();
@@ -1134,15 +1260,20 @@ export class FsSkillLoader implements SkillLoader {
     const hk = lock.skills[lockKey("home", name)];
     let dir: string | undefined;
     let approved: LockEntry | undefined;
+    let origin: BundleOrigin = "workspace";
     if (wk !== undefined && this.#o.workspaceDir !== undefined) {
       dir = join(this.#o.workspaceDir, name);
       approved = wk;
-    } else if (
-      hk !== undefined &&
-      (hk.author === "agent" || (own !== undefined && hk.signer?.keyId === own.keyId))
-    ) {
-      dir = join(this.#o.homeDir, name);
-      approved = hk;
+    } else if (hk !== undefined) {
+      const imported = hk.origin.kind === "bundleFile" || hk.origin.kind === "bundleUrl";
+      const madeHere = hk.author === "agent" && !imported && hk.signer === undefined;
+      const ownSigned = own !== undefined && hk.signer?.keyId === own.keyId;
+      if (madeHere || ownSigned) {
+        dir = join(this.#o.homeDir, name);
+        approved = hk;
+        // What the exporter says is signed: text Psyche wrote is labelled so for the recipient.
+        if (hk.author === "agent") origin = "agent";
+      }
     }
     if (dir === undefined || approved === undefined || !existsSync(join(dir, "SKILL.md")))
       throw new PsycheError(
@@ -1150,7 +1281,8 @@ export class FsSkillLoader implements SkillLoader {
         `${name} is not a skill you can sign: only your own approved skills, or ones Psyche made for you, can be exported`,
       );
     const tree = readSkillDir(dir, this.#o.sourceOptions?.limits);
-    if (treeHash(tree) !== approved.treeHash)
+    const hash = treeHash(tree);
+    if (hash !== approved.treeHash)
       throw new PsycheError(
         "conflict",
         `${name} changed since you approved it; review and approve it before exporting`,
@@ -1160,22 +1292,71 @@ export class FsSkillLoader implements SkillLoader {
         "conflict",
         `${name} has high-severity scan findings and cannot be exported`,
       );
-    const { signer, created } = this.#keys.loadOrCreate(authorName ?? "Psyche owner");
-    const bundle = buildBundle(tree, signer, new Date(this.#now()));
+    return {
+      name,
+      treeHash: hash,
+      files: [...tree.entries()]
+        .sort(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0))
+        .map(([path, f]) => ({ path, bytes: f.bytes.byteLength, executable: f.executable })),
+      origin,
+      ...(approved.version === undefined ? {} : { version: approved.version }),
+      tree,
+    };
+  }
+
+  /**
+   * Signs what `previewExport` described with the owner's author key (created on first use;
+   * `authorName` is then required, with no default) and returns the `.psyche-skill` text.
+   * `expectedHash` is the tree hash the owner approved on the card: files that changed since
+   * are refused. The bundle records the origin, signed, so recipients can see agent-made text.
+   */
+  exportSkill(
+    name: string,
+    authorName: string | undefined,
+    expectedHash: string,
+  ): {
+    filename: string;
+    bundle: string;
+    signer: { keyId: string; name: string };
+    createdKey: boolean;
+  } {
+    if (this.#keys === undefined)
+      throw new PsycheError("unavailable", "this Gateway has no place for an author key");
+    const pre = this.previewExport(name);
+    if (pre.treeHash !== expectedHash)
+      throw new PsycheError("conflict", `${name} changed after you approved the export`);
+    const { signer, created } = this.#keys.loadOrCreate(authorName);
+    const bundle = buildBundle(pre.tree, signer, new Date(this.#now()), pre.origin);
     if (created)
       this.#o.onAuthorChange?.({
         kind: "author_key_created",
         keyId: signer.author.keyId,
         name: signer.author.name,
       });
-    const version =
-      approved.version === undefined ? "" : `-${approved.version.replace(/[^\w.+-]/g, "_")}`;
+    this.#o.onAuthorChange?.({
+      kind: "skill_exported",
+      keyId: signer.author.keyId,
+      name: signer.author.name,
+      skill: name,
+      treeHash: pre.treeHash,
+    });
+    const version = pre.version === undefined ? "" : `-${pre.version.replace(/[^\w.+-]/g, "_")}`;
     return {
       filename: `${name}${version}${BUNDLE_EXTENSION}`,
       bundle,
       signer: { keyId: signer.author.keyId, name: signer.author.name },
       createdKey: created,
     };
+  }
+
+  /** Whether the owner has an author key yet (the first export must name one). */
+  hasAuthorKey(): boolean {
+    return this.#ownKey() !== undefined;
+  }
+
+  /** An author key's current state, or `undefined` if never seen (the gateway gates loosening). */
+  authorState(keyId: string): "seen" | "trusted" | "revoked" | undefined {
+    return this.#ring.get(keyId)?.state;
   }
 
   // --- Agent-made skills (self-extension) ------------------------------------------------------
@@ -1270,7 +1451,11 @@ export class FsSkillLoader implements SkillLoader {
     const parsed = text === undefined ? undefined : parseSkill(text, a.name);
     if (parsed === undefined || !parsed.ok)
       throw new PsycheError("invalid_params", "not a valid skill");
-    const declared = manifestOf(parsed.skill.meta, a.tree);
+    const declared = manifestOf(
+      parsed.skill.meta,
+      a.tree,
+      parsed.skill.frontmatter as Record<string, unknown>,
+    );
     if (!declared.ok)
       throw new PsycheError(
         "invalid_params",
@@ -1365,8 +1550,10 @@ export class FsSkillLoader implements SkillLoader {
           : `${name} is not approved; there is nothing to withdraw`,
       );
     }
+    const removedRole = lock.skills[k]?.manifest?.specialist?.role;
     delete lock.skills[k];
     writeLock(this.lockPath, lock);
+    if (removedRole !== undefined) this.#o.onSpecialistReset?.(removedRole);
     if (source === "home") rmSync(e.dir, { recursive: true, force: true });
     else rmSync(join(this.#snapshotRoot(), name), { recursive: true, force: true });
     this.#state.delete(source, name);
@@ -1409,7 +1596,14 @@ export class FsSkillLoader implements SkillLoader {
         const md = fetched.tree.get("SKILL.md");
         const text = md === undefined ? undefined : textOf(md);
         const parsed = text === undefined ? undefined : parseSkill(text);
-        const next = parsed?.ok === true ? manifestOf(parsed.skill.meta, fetched.tree) : undefined;
+        const next =
+          parsed?.ok === true
+            ? manifestOf(
+                parsed.skill.meta,
+                fetched.tree,
+                parsed.skill.frontmatter as Record<string, unknown>,
+              )
+            : undefined;
         result = {
           name: lk.name,
           installedHash: lk.treeHash,
@@ -1537,27 +1731,6 @@ export function toSummary(d: SkillDetails): SkillSummary {
   };
 }
 
-/**
- * What `after` asks for that `before` did not: new tools, approval kinds or prompt files.
- * `undefined` when nothing is wider. A tool glob counts as new unless the same glob was there
- * (a broader glob such as `mail.*` replacing `mail.read` is wider and shows up).
- */
-export function widenedBy(
-  before: SkillManifest | undefined,
-  after: SkillManifest,
-): SkillManifest | undefined {
-  const had = (xs: string[] | undefined) => new Set(xs ?? []);
-  const t = had(before?.tools);
-  const p = had(before?.permissions);
-  const r = had(before?.prompts);
-  const out: SkillManifest = {
-    tools: after.tools.filter((x) => !t.has(x)),
-    permissions: after.permissions.filter((x) => !p.has(x)),
-    prompts: after.prompts.filter((x) => !r.has(x)),
-  };
-  return out.tools.length + out.permissions.length + out.prompts.length === 0 ? undefined : out;
-}
-
 /** Unified diff across two trees (added, removed and changed text files). */
 export function treeDiff(before: SkillTree, after: SkillTree): string {
   const paths = [...new Set([...before.keys(), ...after.keys()])].sort();
@@ -1576,19 +1749,24 @@ export function treeDiff(before: SkillTree, after: SkillTree): string {
 }
 
 /** Writes a tree into `root/<name>` atomically: stage beside it, then swap. */
-function writeTree(root: string, target: string, tree: SkillTree): void {
+export function writeTree(root: string, target: string, tree: SkillTree): void {
   mkdirSync(root, { recursive: true, mode: 0o700 });
   // Hidden staging folder: discovery skips dot-folders, so a crash leaves nothing loadable.
   const stamp = `${process.pid}-${Date.now()}`;
   const staging = join(root, ".staging", `${basename(target)}-${stamp}`);
-  rmSync(staging, { recursive: true, force: true });
-  for (const [path, f] of tree) {
-    const abs = join(staging, path);
-    mkdirSync(dirname(abs), { recursive: true, mode: 0o700 });
-    writeFileSync(abs, f.bytes, { mode: f.executable ? 0o755 : 0o644, flag: "wx" });
-  }
   const old = join(root, ".staging", `old-${basename(target)}-${stamp}`);
-  if (existsSync(target)) renameSync(target, old);
-  renameSync(staging, target);
-  rmSync(old, { recursive: true, force: true });
+  rmSync(staging, { recursive: true, force: true });
+  try {
+    for (const [path, f] of tree) {
+      const abs = join(staging, path);
+      mkdirSync(dirname(abs), { recursive: true, mode: 0o700 });
+      writeFileSync(abs, f.bytes, { mode: f.executable ? 0o755 : 0o644, flag: "wx" });
+    }
+    if (existsSync(target)) renameSync(target, old);
+    renameSync(staging, target);
+  } finally {
+    // A failed write leaves no half-built folder behind; a swapped-out old tree is dropped too.
+    rmSync(staging, { recursive: true, force: true });
+    rmSync(old, { recursive: true, force: true });
+  }
 }

@@ -7,7 +7,15 @@ import type {
   SkillProposal,
 } from "@psyche/protocol";
 import { FolderOpen, ShieldAlert } from "lucide-react";
-import { type ReactElement, type ReactNode, useEffect, useId, useRef, useState } from "react";
+import {
+  type ReactElement,
+  type ReactNode,
+  useContext,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
 import { ApprovalCard } from "../../blocks/ApprovalCard.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { Checkbox } from "../../components/ui/checkbox.tsx";
@@ -22,9 +30,11 @@ import { useLessons } from "../../teaching/hooks.ts";
 import { LessonMark } from "../../teaching/LessonMark.tsx";
 import { AvailableSkills } from "./CapabilityAvailable.tsx";
 import { RowMoreMenu } from "./RowMoreMenu.tsx";
+import { presenceUnavailable } from "./SettingsApproval.tsx";
 import { SkillSuggestions } from "./SkillDraftCard.tsx";
 import {
   Advanced,
+  approvalIdOf,
   EmptyNotice,
   ErrorNotice,
   Facts,
@@ -34,6 +44,7 @@ import {
   type LoadProps,
   messageOf,
   SectionFrame,
+  SettingsApprovalContext,
   StatusChip,
   type Tone,
 } from "./shared.tsx";
@@ -114,23 +125,33 @@ type BundleSignerInfo = NonNullable<SkillProposal["bundle"]>["signer"];
 /** Who signed a bundle, in plain words, and how worried to look about it. */
 function SignerBlock({
   signer,
+  origin,
   updating,
   trustAuthor,
   onTrustAuthor,
 }: {
   signer: BundleSignerInfo;
+  origin?: "workspace" | "agent";
   updating: boolean;
   trustAuthor: boolean;
   onTrustAuthor?: (v: boolean) => void;
 }): ReactElement {
   const id = useId();
   const name = show(signer.name ?? "", 64);
-  const warn = signer.status === "changed" || signer.signerChanged;
+  const warn =
+    signer.status === "changed" ||
+    signer.signerChanged ||
+    signer.impersonates === true ||
+    signer.nameChanged === true;
   let text: string;
   if (signer.status === "unsigned") {
     text = signer.signerChanged
       ? t("settings.skills.signer.dropped", { name })
       : t("settings.skills.signer.unsigned");
+  } else if (signer.impersonates === true) {
+    text = t("settings.skills.signer.impersonates", { name });
+  } else if (signer.nameChanged === true) {
+    text = t("settings.skills.signer.nameChanged", { name });
   } else if (signer.status === "changed") {
     text = t(updating ? "settings.skills.signer.changedUpdate" : "settings.skills.signer.changed", {
       name,
@@ -158,6 +179,11 @@ function SignerBlock({
         {warn ? <ShieldAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" /> : null}
         {text}
       </p>
+      {origin === "agent" ? (
+        <p className="text-callout text-muted-foreground" data-testid="skill-origin">
+          {t("settings.skills.signer.originAgent")}
+        </p>
+      ) : null}
       {signer.status !== "unsigned" ? (
         <>
           <p className="text-callout text-muted-foreground">{t("settings.skills.signer.claim")}</p>
@@ -198,7 +224,7 @@ function SignerBlock({
 function WidenedBlock({
   widened,
 }: {
-  widened: { tools: string[]; permissions: string[]; prompts: string[] };
+  widened: { tools: string[]; permissions: string[]; prompts: string[]; specialist?: string[] };
 }): ReactElement {
   const rows: { term: string; items: string[] }[] = [
     {
@@ -207,6 +233,10 @@ function WidenedBlock({
     },
     { term: t("settings.skills.widened.tools"), items: widened.tools.map((x) => show(x, 80)) },
     { term: t("settings.skills.widened.prompts"), items: widened.prompts.map((x) => show(x, 200)) },
+    {
+      term: t("settings.skills.widened.specialist"),
+      items: (widened.specialist ?? []).map((x) => show(x, 200)),
+    },
   ].filter((r) => r.items.length > 0);
   return (
     <section className="flex flex-col gap-2" data-testid="skill-widened">
@@ -300,8 +330,9 @@ export function SkillTrustCard({
       {proposal.bundle !== undefined ? (
         <SignerBlock
           signer={proposal.bundle.signer}
+          origin={proposal.bundle.origin}
           updating={updating}
-          trustAuthor={trustAuthor}
+          trustAuthor={proposal.trustAuthor === true}
           {...(onTrustAuthor === undefined ? {} : { onTrustAuthor })}
         />
       ) : null}
@@ -1045,7 +1076,13 @@ export function SkillsSection({
   const q = useGatewayQuery("skills.list", {});
   const draftsQ = useGatewayQuery("skills.drafts.list", { status: "open" });
   const authorsQ = useGatewayQuery("skills.authors.list", {});
-  const [trustAuthor, setTrustAuthor] = useState(false);
+  const requestApproval = useContext(SettingsApprovalContext);
+  // Re-runs the last review with or without "trust this author": the choice is part of the card
+  // the owner approves, so changing it stages a new proposal and a new card.
+  const lastStage = useRef<{
+    action: SkillAction;
+    make: (trust: boolean) => Promise<StagedResult>;
+  } | null>(null);
   const skillLessons = useLessons({ destination: "skill" });
   const persona = usePersona().name;
   const [review, setReview] = useState<{ proposal: SkillProposal; approvalId: string } | null>(
@@ -1056,21 +1093,24 @@ export function SkillsSection({
   const [actionError, setActionError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
+  type StagedResult = { proposal: SkillProposal; approval: { id: string } };
   const stage = (
     action: SkillAction,
-    p: Promise<{ proposal: SkillProposal; approval: { id: string } }>,
+    make: (trust: boolean) => Promise<StagedResult>,
+    trust = false,
   ) => {
+    lastStage.current = { action, make };
     setActionError(null);
     setNotice(null);
     setReviewing(true);
-    p.then(
-      (r) => {
-        setTrustAuthor(false);
-        setReview({ proposal: r.proposal, approvalId: r.approval.id });
-      },
-      (err: unknown) => setActionError(refusal(action, err)),
-    ).finally(() => setReviewing(false));
+    make(trust)
+      .then(
+        (r) => setReview({ proposal: r.proposal, approvalId: r.approval.id }),
+        (err: unknown) => setActionError(refusal(action, err)),
+      )
+      .finally(() => setReviewing(false));
   };
+  const withTrust = (trust: boolean) => (trust ? { trustAuthor: true as const } : {});
   const run = (action: SkillAction, p: Promise<unknown>, done?: string) => {
     setActionError(null);
     setNotice(null);
@@ -1102,9 +1142,6 @@ export function SkillsSection({
       call("skills.install", {
         proposalId: current.proposal.id,
         approvalId: current.approvalId,
-        ...(trustAuthor && current.proposal.bundle?.signer.keyId !== undefined
-          ? { trustAuthor: true }
-          : {}),
       }).finally(() => authorsQ.reload()),
       t("settings.skills.installedNamed", { name: show(current.proposal.name, 64) }),
     );
@@ -1138,8 +1175,10 @@ export function SkillsSection({
               <SkillTrustCard
                 proposal={review.proposal}
                 onCancel={() => setReview(null)}
-                trustAuthor={trustAuthor}
-                onTrustAuthor={setTrustAuthor}
+                onTrustAuthor={(trust) => {
+                  const last = lastStage.current;
+                  if (last !== null) stage(last.action, last.make, trust);
+                }}
               >
                 <TrustApproval
                   key={review.approvalId}
@@ -1150,38 +1189,95 @@ export function SkillsSection({
               </SkillTrustCard>
             ),
           })}
-      onReview={(source) => stage("review", call("skills.proposeInstall", { source }))}
-      onImportFile={(name, text) => stage("import", call("skills.proposeImport", { name, text }))}
+      onReview={(source) =>
+        stage("review", (trust) => call("skills.proposeInstall", { source, ...withTrust(trust) }))
+      }
+      onImportFile={(name, text) =>
+        stage("import", (trust) =>
+          call("skills.proposeImport", { name, text, ...withTrust(trust) }),
+        )
+      }
       hasAuthorKey={authorsQ.data?.own !== undefined}
       onExport={(s, authorName) => {
         setActionError(null);
         setNotice(null);
-        call("skills.export", {
-          name: s.name,
-          ...(authorName === undefined ? {} : { authorName }),
-        }).then(
-          (r) => {
-            download(r.filename, r.bundle);
+        const finish = (r: {
+          filename: string;
+          bundle: string;
+          signer: { keyId: string; name: string };
+          createdKey: boolean;
+        }) => {
+          download(r.filename, r.bundle);
+          authorsQ.reload();
+          setNotice(
+            t("settings.skills.exported", {
+              name: show(s.name, 64),
+              file: show(r.filename, 120),
+              author: show(r.signer.name, 64),
+              created: r.createdKey,
+              key: show(r.signer.keyId, 80),
+            }),
+          );
+        };
+        const args = { name: s.name, ...(authorName === undefined ? {} : { authorName }) };
+        call("skills.export", args).then(finish, (err: unknown) => {
+          // Signing needs the owner's approval on a device-only card (with Touch ID or a
+          // passkey once one is set up): the same banner a security setting uses shows it,
+          // and the export is made again with the approval.
+          const approvalId = approvalIdOf(err);
+          if (approvalId === null) return setActionError(refusal("export", err));
+          if (requestApproval === null) return setActionError(presenceUnavailable());
+          requestApproval({
+            key: "skills.export",
+            label: t("settings.skills.export.label", { name: show(s.name, 64) }),
+            approvalId,
+            retry: (approved) =>
+              call("skills.export", { ...args, approvalId: approved }).then(
+                (r) => {
+                  finish(r);
+                  return r;
+                },
+                (retryErr: unknown) => {
+                  setActionError(refusal("export", retryErr));
+                  throw retryErr;
+                },
+              ),
+          });
+        });
+      }}
+      onAuthor={(keyId, state) => {
+        const args = { keyId, state };
+        setActionError(null);
+        setNotice(null);
+        call("skills.authors.set", args).then(
+          () => {
             authorsQ.reload();
-            setNotice(
-              t("settings.skills.exported", {
-                name: show(s.name, 64),
-                file: show(r.filename, 120),
-                author: show(r.signer.name, 64),
-                created: r.createdKey,
-                key: show(r.signer.keyId, 80),
-              }),
-            );
+            q.reload();
           },
-          (err: unknown) => setActionError(refusal("export", err)),
+          (err: unknown) => {
+            const approvalId = approvalIdOf(err);
+            if (approvalId === null) return setActionError(refusal("author", err));
+            if (requestApproval === null) return setActionError(presenceUnavailable());
+            requestApproval({
+              key: "skills.authors",
+              label: t("settings.skills.author.label"),
+              approvalId,
+              retry: (approved) =>
+                call("skills.authors.set", { ...args, approvalId: approved }).then(
+                  (r) => {
+                    authorsQ.reload();
+                    q.reload();
+                    return r;
+                  },
+                  (retryErr: unknown) => {
+                    setActionError(refusal("author", retryErr));
+                    throw retryErr;
+                  },
+                ),
+            });
+          },
         );
       }}
-      onAuthor={(keyId, state) =>
-        run(
-          "author",
-          call("skills.authors.set", { keyId, state }).finally(() => authorsQ.reload()),
-        )
-      }
       suggestions={
         <SkillSuggestions
           drafts={draftsQ.data?.drafts ?? []}
@@ -1191,8 +1287,7 @@ export function SkillsSection({
             call("skills.drafts.update", { draftId: d.id, text }).then(() => draftsQ.reload())
           }
           onAccept={(d) =>
-            stage(
-              "reviewProposed",
+            stage("reviewProposed", () =>
               call("skills.drafts.accept", { draftId: d.id }).finally(() => draftsQ.reload()),
             )
           }
@@ -1219,7 +1314,11 @@ export function SkillsSection({
           t("settings.skills.removed", { name: show(s.name, 64) }),
         )
       }
-      onReviewUpdate={(s) => stage("reviewUpdate", call("skills.proposeUpdate", { name: s.name }))}
+      onReviewUpdate={(s) =>
+        stage("reviewUpdate", (trust) =>
+          call("skills.proposeUpdate", { name: s.name, ...withTrust(trust) }),
+        )
+      }
       onCheckUpdates={() => {
         setChecking(true);
         setActionError(null);

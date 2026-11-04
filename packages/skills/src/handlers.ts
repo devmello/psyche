@@ -32,16 +32,27 @@ export interface SkillsHandlers {
   }) => Promise<{ skill: SkillDetails; text: string | null }>;
   "skills.search": (p: { query: string; limit?: number }) => Promise<{ skills: SkillSummary[] }>;
   "skills.commands": () => Promise<{ commands: SkillCommand[] }>;
-  "skills.proposeInstall": (p: { source: SkillInstallSource }) => Promise<ProposalResult>;
-  "skills.proposeUpdate": (p: { name: string; ref?: string }) => Promise<ProposalResult>;
+  "skills.proposeInstall": (
+    p: { source: SkillInstallSource; trustAuthor?: boolean },
+    call?: unknown,
+  ) => Promise<ProposalResult>;
+  "skills.proposeUpdate": (
+    p: { name: string; ref?: string; trustAuthor?: boolean },
+    call?: unknown,
+  ) => Promise<ProposalResult>;
   "skills.proposeApproval": (p: { name: string }) => Promise<ProposalResult>;
   "skills.install": (p: {
     proposalId: string;
     approvalId: string;
-    trustAuthor?: boolean;
   }) => Promise<{ skill: SkillSummary }>;
-  "skills.proposeImport": (p: { name: string; text: string }) => Promise<ProposalResult>;
-  "skills.export": (p: { name: string; authorName?: string }) => Promise<{
+  "skills.proposeImport": (
+    p: { name: string; text: string; trustAuthor?: boolean },
+    call?: unknown,
+  ) => Promise<ProposalResult>;
+  "skills.export": (
+    p: { name: string; authorName?: string; approvalId?: string },
+    call?: unknown,
+  ) => Promise<{
     filename: string;
     bundle: string;
     signer: { keyId: string; name: string };
@@ -51,10 +62,10 @@ export interface SkillsHandlers {
     own?: { keyId: string; name: string };
     authors: SkillAuthor[];
   }>;
-  "skills.authors.set": (p: {
-    keyId: string;
-    state: "seen" | "trusted" | "revoked";
-  }) => Promise<{ author: SkillAuthor }>;
+  "skills.authors.set": (
+    p: { keyId: string; state: "seen" | "trusted" | "revoked"; approvalId?: string },
+    call?: unknown,
+  ) => Promise<{ author: SkillAuthor }>;
   "skills.setEnabled": (p: {
     name: string;
     enabled: boolean;
@@ -85,6 +96,57 @@ export interface SkillsHandlerOptions {
   onUpdate?: (update: SkillUpdateCheck) => void;
   /** Agent-proposed skill drafts (T3); without it `skills.drafts.*` answer `unavailable`. */
   drafts?: SkillDrafts;
+  /**
+   * The Gateway's gates for the two owner actions that use or loosen trust. Each resolves when
+   * the owner's approval (fresh presence, a device-only card) for exactly that action is
+   * consumed, and throws `approval_required` / `forbidden` otherwise. Without a gate the action
+   * is refused: signing and loosening trust never run unguarded.
+   */
+  gates?: SkillsGates;
+}
+
+export interface SkillsGates {
+  /** Signing a skill with the owner's author key. `call` is the Gateway's call object. */
+  export?: (
+    call: unknown,
+    action: {
+      name: string;
+      treeHash: string;
+      files: { path: string; bytes: number; executable: boolean }[];
+      origin: string;
+      authorName?: string;
+    },
+    approvalId: string | undefined,
+  ) => Promise<void>;
+  /** Trusting a key, or moving one out of `revoked`. */
+  authorChange?: (
+    call: unknown,
+    action: { keyId: string; from: string | undefined; to: string },
+    approvalId: string | undefined,
+  ) => Promise<void>;
+}
+
+/**
+ * Text from a bundle (an author's name) as it goes into an approval summary: quoted, control and
+ * direction characters removed, short, so it cannot pose as the words around it.
+ */
+export function quoteForSummary(text: string, max = 40): string {
+  const plain = [...text]
+    .map((ch) => {
+      const c = ch.codePointAt(0) ?? 0;
+      const bad =
+        c < 0x20 ||
+        (c >= 0x7f && c <= 0x9f) ||
+        (c >= 0x200b && c <= 0x200f) ||
+        (c >= 0x202a && c <= 0x202e) ||
+        (c >= 0x2066 && c <= 0x2069) ||
+        c === 0xfeff ||
+        ch === '"';
+      return bad ? " " : ch;
+    })
+    .join("");
+  const t = plain.replace(/\s+/g, " ").trim();
+  return `"${t.length > max ? `${t.slice(0, max)}…` : t}"`;
 }
 
 export function createSkillsHandlers(
@@ -105,17 +167,19 @@ export function createSkillsHandlers(
             ? "Update skill"
             : "Install skill";
     const sg = proposal.bundle?.signer;
+    // The status comes first and is ours; the author's name is quoted text after it.
     const signerNote =
       sg === undefined
         ? ""
         : sg.status === "unsigned"
           ? " (unsigned bundle)"
-          : ` (signed by ${sg.name ?? "unknown"}: ${sg.status === "changed" ? "key changed" : sg.status})`;
+          : ` (${sg.impersonates === true ? "name matches yours, key does not" : sg.status === "changed" ? "key changed" : sg.status}; signed by ${quoteForSummary(sg.name ?? "unknown")})`;
+    const trustNote = proposal.trustAuthor === true ? " (also trusts this author)" : "";
     const widenedNote =
       proposal.update?.widened === undefined ? "" : " (asks for more than before)";
     const issued = await opts.broker.requestApproval({
       kind: "skill_install",
-      summary: `${verb} "${proposal.name}"${signerNote}${widenedNote}${counts.high > 0 ? ` (${counts.high} high-severity findings: it will stay disabled)` : ""}`,
+      summary: `${verb} "${proposal.name}"${signerNote}${trustNote}${widenedNote}${counts.high > 0 ? ` (${counts.high} high-severity findings: it will stay disabled)` : ""}`,
       details: {
         name: proposal.name,
         ...(proposedBy === undefined ? {} : { proposedBy }),
@@ -134,7 +198,9 @@ export function createSkillsHandlers(
               signerStatus: sg.status,
               ...(sg.keyId === undefined ? {} : { signerKey: sg.keyId }),
               ...(sg.name === undefined ? {} : { signerName: sg.name }),
+              origin: proposal.bundle?.origin,
             }),
+        ...(proposal.trustAuthor === true ? { trustAuthor: true } : {}),
         ...(proposal.update?.widened === undefined ? {} : { widened: proposal.update.widened }),
         findings: counts,
         files: proposal.files.map((f) => f.path),
@@ -159,6 +225,7 @@ export function createSkillsHandlers(
     return opts.drafts;
   };
 
+  const trustOf = (v: boolean | undefined) => (v === true ? { trustAuthor: true } : {});
   return {
     async "skills.list"() {
       return { skills: await loader.listDetailed() };
@@ -184,31 +251,58 @@ export function createSkillsHandlers(
       return { commands: await loader.commands() };
     },
     async "skills.proposeInstall"(p) {
-      return requestApproval(await loader.proposeInstall(p.source));
+      return requestApproval(await loader.proposeInstall(p.source, trustOf(p.trustAuthor)));
     },
     async "skills.proposeUpdate"(p) {
-      return requestApproval(await loader.proposeUpdate(p.name, p.ref));
+      return requestApproval(await loader.proposeUpdate(p.name, p.ref, trustOf(p.trustAuthor)));
     },
     async "skills.proposeApproval"(p) {
       return requestApproval(await loader.proposeWorkspaceApproval(p.name));
     },
     async "skills.install"(p) {
-      return {
-        skill: await loader.install(p.proposalId, p.approvalId, {
-          ...(p.trustAuthor === undefined ? {} : { trustAuthor: p.trustAuthor }),
-        }),
-      };
+      return { skill: await loader.install(p.proposalId, p.approvalId) };
     },
     async "skills.proposeImport"(p) {
-      return requestApproval(await loader.proposeImport(p.name, p.text));
+      return requestApproval(await loader.proposeImport(p.name, p.text, trustOf(p.trustAuthor)));
     },
-    async "skills.export"(p) {
-      return loader.exportSkill(p.name, p.authorName);
+    async "skills.export"(p, call) {
+      const pre = loader.previewExport(p.name);
+      // The first export names the key's owner; refuse before a card is shown for nothing.
+      if (!loader.hasAuthorKey() && (p.authorName === undefined || p.authorName.trim() === ""))
+        throw new PsycheError(
+          "invalid_params",
+          "Choose the name to sign your skills with; everyone who imports them sees it",
+        );
+      const gate = opts.gates?.export;
+      if (gate === undefined)
+        throw new PsycheError("unavailable", "exporting needs the Gateway's approval gate");
+      await gate(
+        call,
+        {
+          name: pre.name,
+          treeHash: pre.treeHash,
+          files: pre.files,
+          origin: pre.origin,
+          ...(p.authorName === undefined ? {} : { authorName: p.authorName }),
+        },
+        p.approvalId,
+      );
+      return loader.exportSkill(p.name, p.authorName, pre.treeHash);
     },
     async "skills.authors.list"() {
       return loader.authors();
     },
-    async "skills.authors.set"(p) {
+    async "skills.authors.set"(p, call) {
+      const from = loader.authorState(p.keyId);
+      // Tightening (un-trust, revoke) is always allowed; loosening needs the owner's presence.
+      const loosening =
+        p.state === "trusted" ? from !== "trusted" : from === "revoked" && p.state !== "revoked";
+      if (loosening) {
+        const gate = opts.gates?.authorChange;
+        if (gate === undefined)
+          throw new PsycheError("unavailable", "changing trust needs the Gateway's approval gate");
+        await gate(call, { keyId: p.keyId, from, to: p.state }, p.approvalId);
+      }
       return { author: loader.setAuthorState(p.keyId, p.state) };
     },
     async "skills.setEnabled"(p) {

@@ -2,8 +2,10 @@ import { createHash, createPublicKey, verify } from "node:crypto";
 import { PsycheError, type SkillManifestDecl } from "@psyche/protocol";
 import { parseSkill } from "./frontmatter.ts";
 import { manifestOf } from "./manifest.ts";
+import { parseSpecialist } from "./specialists.ts";
 import {
   DEFAULT_LIMITS,
+  foldConflict,
   LESSONS_FILE,
   type SkillTree,
   safeRelPath,
@@ -45,6 +47,8 @@ export interface BundleAuthor {
   publicKey: string;
 }
 
+export type BundleOrigin = "workspace" | "agent";
+
 export interface BundleManifest {
   format: "psyche-skill";
   kind: "skill";
@@ -53,6 +57,12 @@ export interface BundleManifest {
   description: string;
   /** ISO time, the author's claim. */
   createdAt: string;
+  /**
+   * Where the exporter's copy came from, signed: `workspace` (the owner's own, approved) or
+   * `agent` (written by Psyche). A bundle never installs as `local` whatever it says; this
+   * only lowers trust further (agent-written text stays `unknown`).
+   */
+  origin: BundleOrigin;
   requests: SkillManifestDecl;
   payload: {
     treeHash: string;
@@ -84,13 +94,13 @@ export function keyIdOf(publicKeyB64url: string): string {
   return `sha256:${createHash("sha256").update(Buffer.from(publicKeyB64url, "base64url")).digest("hex")}`;
 }
 
-/** JSON with sorted keys and no whitespace. Only strings, integers, booleans, null, arrays, objects. */
+/** JSON with sorted keys and no whitespace. Strings, finite numbers, booleans, null, arrays, objects. */
 export function canonicalJson(value: unknown): string {
   if (value === null || typeof value === "boolean" || typeof value === "string")
     return JSON.stringify(value);
   if (typeof value === "number") {
-    if (!Number.isSafeInteger(value)) throw new Error("canonicalJson: only integers");
-    return String(value);
+    if (!Number.isFinite(value)) throw new Error("canonicalJson: only finite numbers");
+    return JSON.stringify(value);
   }
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
   if (typeof value === "object") {
@@ -114,13 +124,14 @@ export function manifestForTree(
   tree: SkillTree,
   author: BundleAuthor | undefined,
   createdAt: string,
+  origin: BundleOrigin,
 ): BundleManifest {
   const md = tree.get("SKILL.md");
   const text = md === undefined ? undefined : textOf(md);
   const parsed = text === undefined ? undefined : parseSkill(text);
   if (parsed === undefined || !parsed.ok) return bad("SKILL.md is missing, not text or invalid");
   const meta = parsed.skill.meta;
-  const declared = manifestOf(meta, tree);
+  const declared = manifestOf(meta, tree, parsed.skill.frontmatter);
   if (!declared.ok) return bad(`manifest: ${declared.errors.join("; ")}`);
   return {
     format: "psyche-skill",
@@ -129,6 +140,7 @@ export function manifestForTree(
     ...(meta.version === undefined ? {} : { version: meta.version }),
     description: meta.description.slice(0, 1000),
     createdAt,
+    origin,
     requests: declared.manifest,
     payload: {
       treeHash: treeHash(tree),
@@ -151,8 +163,9 @@ export function buildBundle(
   tree: SkillTree,
   signer: BundleSigningKey | undefined,
   now: Date,
+  origin: BundleOrigin = "workspace",
 ): string {
-  const manifest = manifestForTree(tree, signer?.author, now.toISOString());
+  const manifest = manifestForTree(tree, signer?.author, now.toISOString(), origin);
   const files = [...tree.keys()].sort().map((path) => ({
     path,
     data: Buffer.from((tree.get(path) as { bytes: Uint8Array }).bytes).toString("base64"),
@@ -214,7 +227,7 @@ export function verifyBundle(text: string, limits: TreeLimits = DEFAULT_LIMITS):
   if (!isObj(m)) return bad("manifest is not an object");
   exactKeys(
     m,
-    ["format", "kind", "name", "description", "createdAt", "requests", "payload"],
+    ["format", "kind", "name", "description", "createdAt", "origin", "requests", "payload"],
     ["version", "author"],
     "manifest",
   );
@@ -224,12 +237,24 @@ export function verifyBundle(text: string, limits: TreeLimits = DEFAULT_LIMITS):
   const description = str(m.description, "description", 1000);
   const createdAt = str(m.createdAt, "createdAt", 40);
   const version = m.version === undefined ? undefined : str(m.version, "version", 64);
+  if (m.origin !== "workspace" && m.origin !== "agent") bad("origin must be workspace or agent");
+  const origin = m.origin as BundleOrigin;
   if (!isObj(m.requests)) return bad("requests is not an object");
-  exactKeys(m.requests, ["tools", "permissions", "prompts"], [], "requests");
+  exactKeys(m.requests, ["tools", "permissions", "prompts"], ["specialist"], "requests");
+  if (m.requests.specialist !== undefined && !isObj(m.requests.specialist))
+    bad("requests.specialist is not an object");
   const requests: SkillManifestDecl = {
     tools: strList(m.requests.tools, "requests.tools"),
     permissions: strList(m.requests.permissions, "requests.permissions"),
     prompts: strList(m.requests.prompts, "requests.prompts"),
+    // Compared field by field with what the skill's own frontmatter defines, below.
+    ...(m.requests.specialist === undefined
+      ? {}
+      : {
+          specialist: m.requests.specialist as unknown as NonNullable<
+            SkillManifestDecl["specialist"]
+          >,
+        }),
   };
   if (!isObj(m.payload)) return bad("payload is not an object");
   exactKeys(m.payload, ["treeHash", "files"], [], "payload");
@@ -278,7 +303,6 @@ export function verifyBundle(text: string, limits: TreeLimits = DEFAULT_LIMITS):
     bad("the payload does not list the files the manifest names");
   const b = new TreeBuilder(limits);
   const seen = new Set<string>();
-  const folded = new Set<string>();
   for (const f of raw.files as unknown[]) {
     if (!isObj(f)) return bad("a payload entry is not an object");
     // Only `path` and `data`: no `type`, `link`, `target` or mode fields can smuggle a symlink.
@@ -291,19 +315,21 @@ export function verifyBundle(text: string, limits: TreeLimits = DEFAULT_LIMITS):
       bad(`${path} cannot be part of a skill`);
     if (seen.has(path)) bad(`duplicate path ${path}`);
     seen.add(path);
-    const k = path.normalize("NFC").toLowerCase();
-    if (folded.has(k)) bad(`paths differ only in case: ${path}`);
-    folded.add(k);
     const d = declared.get(path);
     if (d === undefined) return bad(`${path} is not in the manifest`);
     const data = str(f.data, "data", Math.ceil((limits.maxFileBytes * 4) / 3) + 8);
     if (!/^[A-Za-z0-9+/]*={0,2}$/.test(data) || data.length % 4 !== 0) bad(`${path} is not base64`);
     const content = new Uint8Array(Buffer.from(data, "base64"));
+    // Canonical only: the same bytes must not have two spellings.
+    if (Buffer.from(content).toString("base64") !== data) bad(`${path} is not canonical base64`);
     if (content.byteLength !== d.size || sha256Hex(content) !== d.sha256)
       bad(`${path} does not match its hash in the manifest`);
     b.add(path, content, d.executable);
   }
   const tree = b.tree;
+  // Case and normalization folding over every path and directory prefix (APFS).
+  const clash = foldConflict(seen);
+  if (clash !== undefined) bad(`paths differ only in case or form: ${clash.slice(0, 80)}`);
   if (tree.size !== declared.size) bad("the payload does not list the files the manifest names");
   if (treeHash(tree) !== treeHashDecl) bad("the tree hash does not match the files");
 
@@ -315,6 +341,7 @@ export function verifyBundle(text: string, limits: TreeLimits = DEFAULT_LIMITS):
     ...(version === undefined ? {} : { version }),
     description,
     createdAt,
+    origin,
     requests,
     payload: {
       treeHash: treeHashDecl,
@@ -325,8 +352,16 @@ export function verifyBundle(text: string, limits: TreeLimits = DEFAULT_LIMITS):
   let signer: BundleAuthor | undefined;
   if (author !== undefined) {
     const sig = str(raw.signature, "signature", 200);
-    if (!/^[A-Za-z0-9_-]{86}$/.test(sig)) bad("malformed signature");
-    if (!/^[A-Za-z0-9_-]{43}$/.test(author.publicKey)) bad("malformed public key");
+    if (
+      !/^[A-Za-z0-9_-]{86}$/.test(sig) ||
+      Buffer.from(sig, "base64url").toString("base64url") !== sig
+    )
+      bad("malformed signature");
+    if (
+      !/^[A-Za-z0-9_-]{43}$/.test(author.publicKey) ||
+      Buffer.from(author.publicKey, "base64url").toString("base64url") !== author.publicKey
+    )
+      bad("malformed public key");
     if (keyIdOf(author.publicKey) !== author.keyId) bad("the key id is not the key's fingerprint");
     let ok = false;
     try {
@@ -352,7 +387,10 @@ export function verifyBundle(text: string, limits: TreeLimits = DEFAULT_LIMITS):
   const parsed = skillText === undefined ? undefined : parseSkill(skillText);
   if (parsed === undefined || !parsed.ok) return bad("SKILL.md is missing, not text or invalid");
   const meta = parsed.skill.meta;
-  const actual = manifestOf(meta, tree);
+  const roleDef = parseSpecialist(parsed.skill.frontmatter as Record<string, unknown>);
+  if (roleDef.present && !roleDef.ok)
+    bad(`the background role is invalid: ${roleDef.errors.join("; ")}`);
+  const actual = manifestOf(meta, tree, parsed.skill.frontmatter as Record<string, unknown>);
   if (!actual.ok) return bad(`the skill's own manifest is invalid: ${actual.errors.join("; ")}`);
   if (canonicalJson(actual.manifest) !== canonicalJson(requests))
     bad("the permissions the manifest declares are not what the skill requests");

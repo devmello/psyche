@@ -5494,7 +5494,7 @@ export interface LibraryItem {
     kind:      LibraryItemKind;
     mime:      string;
     name:      string;
-    origin:    Origin;
+    origin:    LibraryItemOrigin;
     /**
      * Relative to library/
      */
@@ -5510,7 +5510,7 @@ export interface LibraryItem {
 
 export type LibraryItemKind = "document" | "image" | "audio" | "video" | "artifact" | "download" | "recording" | "system";
 
-export type Origin = "upload" | "agent" | "download" | "connector" | "channel";
+export type LibraryItemOrigin = "upload" | "agent" | "download" | "connector" | "channel";
 
 export interface LibraryListParams {
     /**
@@ -9587,6 +9587,10 @@ export interface SkillProposal {
     text:  string;
     trust: SkillTrust;
     /**
+     * Approving this card also trusts the bundle's author key
+     */
+    trustAuthor?: boolean;
+    /**
      * Updates and re-approvals: the installed hash and the diff
      */
     update?: SkillProposalUpdate;
@@ -9605,10 +9609,23 @@ export interface SkillBundleInfo {
      * The author's claimed time; not verified
      */
     createdAt: string;
-    signer:    BundleSigner;
+    /**
+     * Where the exporter says the skill came from (signed); a bundle never installs as local
+     */
+    origin: SkillBundleInfoOrigin;
+    signer: BundleSigner;
 }
 
+/**
+ * Where the exporter says the skill came from (signed); a bundle never installs as local
+ */
+export type SkillBundleInfoOrigin = "workspace" | "agent";
+
 export interface BundleSigner {
+    /**
+     * The name looks like the owner's own author name, with another key
+     */
+    impersonates?: boolean;
     /**
      * `sha256:<hex>` of the public key
      */
@@ -9617,6 +9634,10 @@ export interface BundleSigner {
      * The author's claimed name (data, not verified)
      */
     name?: string;
+    /**
+     * A trusted key now signs under a name not seen with it before
+     */
+    nameChanged?: boolean;
     /**
      * The key seen before when status is `changed`
      */
@@ -9650,9 +9671,33 @@ export interface SkillManifest {
      */
     prompts: string[];
     /**
+     * The background role the skill defines (metadata.psyche.specialist): part of what the
+     * skill asks for, so a wider role is a wider request
+     */
+    specialist?: SkillManifestSpecialist;
+    /**
      * Tool names or `family.*` globs, sorted, without duplicates
      */
     tools: string[];
+}
+
+/**
+ * The background role the skill defines (metadata.psyche.specialist): part of what the
+ * skill asks for, so a wider role is a wider request
+ */
+export interface SkillManifestSpecialist {
+    approvals: string[];
+    budget:    { [key: string]: number };
+    caps:      { [key: string]: number };
+    deny:      string[];
+    label:     string;
+    maxMode:   string;
+    memory:    string;
+    model:     string;
+    planFirst: boolean;
+    result:    string;
+    role:      string;
+    tools:     string[];
 }
 
 export type SkillProposalScope = "home" | "workspace";
@@ -9696,6 +9741,10 @@ export interface SkillProposalUpdate {
 export interface Widened {
     permissions: string[];
     prompts:     string[];
+    /**
+     * Plain-text changes to the background role that make it wider
+     */
+    specialist?: string[];
     tools:       string[];
 }
 
@@ -9720,8 +9769,9 @@ export interface Own {
 }
 
 export interface SkillsAuthorsSetParams {
-    keyId: string;
-    state: SkillAuthorState;
+    approvalId?: string;
+    keyId:       string;
+    state:       SkillAuthorState;
 }
 
 export interface SkillsAuthorsSetResult {
@@ -9875,8 +9925,9 @@ export interface SkillsDraftsUpdateResult {
 }
 
 export interface SkillsExportParams {
+    approvalId?: string;
     /**
-     * Used only when the author key is created
+     * Required when the author key does not exist yet; ignored after
      */
     authorName?: string;
     name:        string;
@@ -9983,10 +10034,6 @@ export type SkillStatus = "active" | "disabled" | "draft" | "unlocked" | "hash_m
 export interface SkillsInstallParams {
     approvalId: string;
     proposalId: string;
-    /**
-     * Also trust the bundle's signing key (needs the approved card; never skips it)
-     */
-    trustAuthor?: boolean;
 }
 
 export interface SkillsInstallResult {
@@ -10025,15 +10072,30 @@ export interface SkillsProposeImportParams {
      */
     name: string;
     text: string;
+    /**
+     * Also trust the bundle's signing key when this card is approved. It is part of what the
+     * card binds, so the approver decides; ignored for an unsigned bundle
+     */
+    trustAuthor?: boolean;
 }
 
 export interface SkillsProposeInstallParams {
     source: SkillInstallSource;
+    /**
+     * Also trust the bundle's signing key when this card is approved. It is part of what the
+     * card binds, so the approver decides; ignored for an unsigned bundle
+     */
+    trustAuthor?: boolean;
 }
 
 export interface SkillsProposeUpdateParams {
     name: string;
     ref?: string;
+    /**
+     * Also trust the bundle's signing key when this card is approved. It is part of what the
+     * card binds, so the approver decides; ignored for an unsigned bundle
+     */
+    trustAuthor?: boolean;
 }
 
 export interface SkillsRemoveParams {

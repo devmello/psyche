@@ -16804,7 +16804,7 @@ public struct LibraryItem: Codable, Sendable {
     public let kind: LibraryItemKind
     public let mime: String
     public let name: String
-    public let origin: Origin
+    public let origin: LibraryItemOrigin
     /// Relative to library/
     public let path: String
     public let quarantined: Bool?
@@ -16832,7 +16832,7 @@ public struct LibraryItem: Codable, Sendable {
         case threadID = "threadId"
     }
 
-    public init(createdAt: String, id: String, kind: LibraryItemKind, mime: String, name: String, origin: Origin, path: String, quarantined: Bool?, sha256: String, size: Int, tags: [String], taskID: String?, textExtractRef: String?, threadID: String?) {
+    public init(createdAt: String, id: String, kind: LibraryItemKind, mime: String, name: String, origin: LibraryItemOrigin, path: String, quarantined: Bool?, sha256: String, size: Int, tags: [String], taskID: String?, textExtractRef: String?, threadID: String?) {
         self.createdAt = createdAt
         self.id = id
         self.kind = kind
@@ -16861,7 +16861,7 @@ public enum LibraryItemKind: String, Codable, Sendable {
     case video = "video"
 }
 
-public enum Origin: String, Codable, Sendable {
+public enum LibraryItemOrigin: String, Codable, Sendable {
     case agent = "agent"
     case channel = "channel"
     case connector = "connector"
@@ -27903,6 +27903,8 @@ public struct SkillProposal: Codable, Sendable {
     /// Full `SKILL.md` text, shown before enabling
     public let text: String
     public let trust: SkillTrust
+    /// Approving this card also trusts the bundle's author key
+    public let trustAuthor: Bool?
     /// Updates and re-approvals: the installed hash and the diff
     public let update: SkillProposalUpdate?
 
@@ -27924,10 +27926,11 @@ public struct SkillProposal: Codable, Sendable {
         case source = "source"
         case text = "text"
         case trust = "trust"
+        case trustAuthor = "trustAuthor"
         case update = "update"
     }
 
-    public init(approvalKind: ApprovalKindEnum, author: AuthorEnum?, bindingHash: String, bundle: SkillBundleInfo?, commit: String?, expiresAt: Int, files: [SkillProposalFile], findings: [ScanFinding], grantKey: String, hash: String, id: String, manifest: SkillManifest?, name: String, scope: SkillProposalScope, source: SkillInstallSource, text: String, trust: SkillTrust, update: SkillProposalUpdate?) {
+    public init(approvalKind: ApprovalKindEnum, author: AuthorEnum?, bindingHash: String, bundle: SkillBundleInfo?, commit: String?, expiresAt: Int, files: [SkillProposalFile], findings: [ScanFinding], grantKey: String, hash: String, id: String, manifest: SkillManifest?, name: String, scope: SkillProposalScope, source: SkillInstallSource, text: String, trust: SkillTrust, trustAuthor: Bool?, update: SkillProposalUpdate?) {
         self.approvalKind = approvalKind
         self.author = author
         self.bindingHash = bindingHash
@@ -27945,6 +27948,7 @@ public struct SkillProposal: Codable, Sendable {
         self.source = source
         self.text = text
         self.trust = trust
+        self.trustAuthor = trustAuthor
         self.update = update
     }
 }
@@ -27961,27 +27965,41 @@ public struct SkillBundleInfo: Codable, Sendable {
     public let bytes: Int
     /// The author's claimed time; not verified
     public let createdAt: String
+    /// Where the exporter says the skill came from (signed); a bundle never installs as local
+    public let origin: SkillBundleInfoOrigin
     public let signer: BundleSigner
 
     public enum CodingKeys: String, CodingKey {
         case bytes = "bytes"
         case createdAt = "createdAt"
+        case origin = "origin"
         case signer = "signer"
     }
 
-    public init(bytes: Int, createdAt: String, signer: BundleSigner) {
+    public init(bytes: Int, createdAt: String, origin: SkillBundleInfoOrigin, signer: BundleSigner) {
         self.bytes = bytes
         self.createdAt = createdAt
+        self.origin = origin
         self.signer = signer
     }
 }
 
+/// Where the exporter says the skill came from (signed); a bundle never installs as local
+public enum SkillBundleInfoOrigin: String, Codable, Sendable {
+    case agent = "agent"
+    case workspace = "workspace"
+}
+
 // MARK: - BundleSigner
 public struct BundleSigner: Codable, Sendable {
+    /// The name looks like the owner's own author name, with another key
+    public let impersonates: Bool?
     /// `sha256:<hex>` of the public key
     public let keyID: String?
     /// The author's claimed name (data, not verified)
     public let name: String?
+    /// A trusted key now signs under a name not seen with it before
+    public let nameChanged: Bool?
     /// The key seen before when status is `changed`
     public let previousKeyID: String?
     /// Differs from the key this skill was installed with (or it was signed and is no longer)
@@ -27989,16 +28007,20 @@ public struct BundleSigner: Codable, Sendable {
     public let status: BundleSignerStatus
 
     public enum CodingKeys: String, CodingKey {
+        case impersonates = "impersonates"
         case keyID = "keyId"
         case name = "name"
+        case nameChanged = "nameChanged"
         case previousKeyID = "previousKeyId"
         case signerChanged = "signerChanged"
         case status = "status"
     }
 
-    public init(keyID: String?, name: String?, previousKeyID: String?, signerChanged: Bool, status: BundleSignerStatus) {
+    public init(impersonates: Bool?, keyID: String?, name: String?, nameChanged: Bool?, previousKeyID: String?, signerChanged: Bool, status: BundleSignerStatus) {
+        self.impersonates = impersonates
         self.keyID = keyID
         self.name = name
+        self.nameChanged = nameChanged
         self.previousKeyID = previousKeyID
         self.signerChanged = signerChanged
         self.status = status
@@ -28044,18 +28066,71 @@ public struct SkillManifest: Codable, Sendable {
     public let permissions: [ApprovalKind]
     /// Prompt files inside the skill folder (relative paths), sorted
     public let prompts: [String]
+    /// The background role the skill defines (metadata.psyche.specialist): part of what the
+    /// skill asks for, so a wider role is a wider request
+    public let specialist: SkillManifestSpecialist?
     /// Tool names or `family.*` globs, sorted, without duplicates
     public let tools: [String]
 
     public enum CodingKeys: String, CodingKey {
         case permissions = "permissions"
         case prompts = "prompts"
+        case specialist = "specialist"
         case tools = "tools"
     }
 
-    public init(permissions: [ApprovalKind], prompts: [String], tools: [String]) {
+    public init(permissions: [ApprovalKind], prompts: [String], specialist: SkillManifestSpecialist?, tools: [String]) {
         self.permissions = permissions
         self.prompts = prompts
+        self.specialist = specialist
+        self.tools = tools
+    }
+}
+
+/// The background role the skill defines (metadata.psyche.specialist): part of what the
+/// skill asks for, so a wider role is a wider request
+// MARK: - SkillManifestSpecialist
+public struct SkillManifestSpecialist: Codable, Sendable {
+    public let approvals: [String]
+    public let budget: [String: Double]
+    public let caps: [String: Double]
+    public let deny: [String]
+    public let label: String
+    public let maxMode: String
+    public let memory: String
+    public let model: String
+    public let planFirst: Bool
+    public let result: String
+    public let role: String
+    public let tools: [String]
+
+    public enum CodingKeys: String, CodingKey {
+        case approvals = "approvals"
+        case budget = "budget"
+        case caps = "caps"
+        case deny = "deny"
+        case label = "label"
+        case maxMode = "maxMode"
+        case memory = "memory"
+        case model = "model"
+        case planFirst = "planFirst"
+        case result = "result"
+        case role = "role"
+        case tools = "tools"
+    }
+
+    public init(approvals: [String], budget: [String: Double], caps: [String: Double], deny: [String], label: String, maxMode: String, memory: String, model: String, planFirst: Bool, result: String, role: String, tools: [String]) {
+        self.approvals = approvals
+        self.budget = budget
+        self.caps = caps
+        self.deny = deny
+        self.label = label
+        self.maxMode = maxMode
+        self.memory = memory
+        self.model = model
+        self.planFirst = planFirst
+        self.result = result
+        self.role = role
         self.tools = tools
     }
 }
@@ -28140,17 +28215,21 @@ public struct SkillProposalUpdate: Codable, Sendable {
 public struct Widened: Codable, Sendable {
     public let permissions: [String]
     public let prompts: [String]
+    /// Plain-text changes to the background role that make it wider
+    public let specialist: [String]?
     public let tools: [String]
 
     public enum CodingKeys: String, CodingKey {
         case permissions = "permissions"
         case prompts = "prompts"
+        case specialist = "specialist"
         case tools = "tools"
     }
 
-    public init(permissions: [String], prompts: [String], tools: [String]) {
+    public init(permissions: [String], prompts: [String], specialist: [String]?, tools: [String]) {
         self.permissions = permissions
         self.prompts = prompts
+        self.specialist = specialist
         self.tools = tools
     }
 }
@@ -28220,15 +28299,18 @@ public struct Own: Codable, Sendable {
 
 // MARK: - SkillsAuthorsSetParams
 public struct SkillsAuthorsSetParams: Codable, Sendable {
+    public let approvalID: String?
     public let keyID: String
     public let state: SkillAuthorState
 
     public enum CodingKeys: String, CodingKey {
+        case approvalID = "approvalId"
         case keyID = "keyId"
         case state = "state"
     }
 
-    public init(keyID: String, state: SkillAuthorState) {
+    public init(approvalID: String?, keyID: String, state: SkillAuthorState) {
+        self.approvalID = approvalID
         self.keyID = keyID
         self.state = state
     }
@@ -28619,16 +28701,19 @@ public struct SkillsDraftsUpdateResult: Codable, Sendable {
 
 // MARK: - SkillsExportParams
 public struct SkillsExportParams: Codable, Sendable {
-    /// Used only when the author key is created
+    public let approvalID: String?
+    /// Required when the author key does not exist yet; ignored after
     public let authorName: String?
     public let name: String
 
     public enum CodingKeys: String, CodingKey {
+        case approvalID = "approvalId"
         case authorName = "authorName"
         case name = "name"
     }
 
-    public init(authorName: String?, name: String) {
+    public init(approvalID: String?, authorName: String?, name: String) {
+        self.approvalID = approvalID
         self.authorName = authorName
         self.name = name
     }
@@ -28883,19 +28968,15 @@ public enum SkillStatus: String, Codable, Sendable {
 public struct SkillsInstallParams: Codable, Sendable {
     public let approvalID: String
     public let proposalID: String
-    /// Also trust the bundle's signing key (needs the approved card; never skips it)
-    public let trustAuthor: Bool?
 
     public enum CodingKeys: String, CodingKey {
         case approvalID = "approvalId"
         case proposalID = "proposalId"
-        case trustAuthor = "trustAuthor"
     }
 
-    public init(approvalID: String, proposalID: String, trustAuthor: Bool?) {
+    public init(approvalID: String, proposalID: String) {
         self.approvalID = approvalID
         self.proposalID = proposalID
-        self.trustAuthor = trustAuthor
     }
 }
 
@@ -28982,28 +29063,38 @@ public struct SkillsProposeImportParams: Codable, Sendable {
     /// File name, for display
     public let name: String
     public let text: String
+    /// Also trust the bundle's signing key when this card is approved. It is part of what the
+    /// card binds, so the approver decides; ignored for an unsigned bundle
+    public let trustAuthor: Bool?
 
     public enum CodingKeys: String, CodingKey {
         case name = "name"
         case text = "text"
+        case trustAuthor = "trustAuthor"
     }
 
-    public init(name: String, text: String) {
+    public init(name: String, text: String, trustAuthor: Bool?) {
         self.name = name
         self.text = text
+        self.trustAuthor = trustAuthor
     }
 }
 
 // MARK: - SkillsProposeInstallParams
 public struct SkillsProposeInstallParams: Codable, Sendable {
     public let source: SkillInstallSource
+    /// Also trust the bundle's signing key when this card is approved. It is part of what the
+    /// card binds, so the approver decides; ignored for an unsigned bundle
+    public let trustAuthor: Bool?
 
     public enum CodingKeys: String, CodingKey {
         case source = "source"
+        case trustAuthor = "trustAuthor"
     }
 
-    public init(source: SkillInstallSource) {
+    public init(source: SkillInstallSource, trustAuthor: Bool?) {
         self.source = source
+        self.trustAuthor = trustAuthor
     }
 }
 
@@ -29011,15 +29102,20 @@ public struct SkillsProposeInstallParams: Codable, Sendable {
 public struct SkillsProposeUpdateParams: Codable, Sendable {
     public let name: String
     public let ref: String?
+    /// Also trust the bundle's signing key when this card is approved. It is part of what the
+    /// card binds, so the approver decides; ignored for an unsigned bundle
+    public let trustAuthor: Bool?
 
     public enum CodingKeys: String, CodingKey {
         case name = "name"
         case ref = "ref"
+        case trustAuthor = "trustAuthor"
     }
 
-    public init(name: String, ref: String?) {
+    public init(name: String, ref: String?, trustAuthor: Bool?) {
         self.name = name
         self.ref = ref
+        self.trustAuthor = trustAuthor
     }
 }
 

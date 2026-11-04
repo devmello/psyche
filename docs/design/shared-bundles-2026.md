@@ -37,6 +37,7 @@ One file, `.psyche-skill`, at most 8 MiB (the 5 MiB tree limit as base64, plus t
     "version": "1.2.0",
     "description": "...",
     "createdAt": "2026-11-04T12:00:00.000Z",
+    "origin": "workspace",
     "requests": { "tools": ["files.read"], "permissions": ["file_write"], "prompts": [] },
     "payload": {
       "treeHash": "sha256:...",
@@ -55,10 +56,10 @@ One file, `.psyche-skill`, at most 8 MiB (the 5 MiB tree limit as base64, plus t
 
 1. Size at most 8 MiB; JSON; exactly the known fields and no others anywhere. There is no field for a link, a target or a mode, so a symlink cannot be expressed, and an unknown field is an error rather than ignored.
 2. Caps: file count, per-file bytes and total bytes, the same limits as folder installs (200 files, 1 MiB, 5 MiB). The base64 length is checked before decoding.
-3. Paths are taken as written and must already be normal: relative, `/`-separated, no `..`, no empty or `.` segments, no backslash, no NUL, not absolute, no `.git` or `__MACOSX` or `LESSONS.md`, no duplicates, no two paths that differ only by case or Unicode form. A path that would need normalizing is refused, not repaired.
+3. Paths are taken as written and must already be normal: relative, `/`-separated, no `..`, no empty or `.` segments, no backslash, no NUL, not absolute, no `.git` or `__MACOSX` or `LESSONS.md`, no duplicates. Every path and every folder prefix is compared with full Unicode case and compatibility folding (so `A/x` and `a/y`, `straße` and `STRASSE`, a ligature and its letters, and a file `a` with a folder `A/` all collide, as they would on APFS). A path that would need normalizing is refused, not repaired. The key, the signature and each file's data must be the canonical spelling of their bytes.
 4. Each file's size and SHA-256 equal the manifest's; the manifest lists exactly the files in the payload; the tree hash equals the one in the manifest.
 5. The signature verifies over the manifest with the author's key, the key id is the fingerprint of that key, and a bundle with an author must carry a signature and the other way round. A signature that does not verify is an error. It is never downgraded to "unsigned".
-6. **The declared requests equal what the payload requests.** `requests` must equal what `SKILL.md` (frontmatter `allowed-tools`, `requires.tools`, `permissions`, `prompts`) actually declares, and the manifest name and version must equal the skill's. A signed lie is still refused.
+6. **The declared requests equal what the payload requests.** The background role (`metadata.psyche.specialist`: its tools, denials, highest mode, budgets, caps, approval kinds, plan-first and memory) is part of `requests`, so a wider role is a wider request and a bundle cannot hide one. `requests` must equal what `SKILL.md` (frontmatter `allowed-tools`, `requires.tools`, `permissions`, `prompts`) actually declares, and the manifest name and version must equal the skill's. A signed lie is still refused.
 
 After verification the tree goes through exactly what a folder import goes through: policy check (a manifest that asks for `exec_host`, `skill_install` and so on is refused before any card), the static scanner over every file, the VirusTotal hash lookup if the owner turned it on, and the card.
 
@@ -66,28 +67,33 @@ After verification the tree goes through exactly what a folder import goes throu
 
 ## 4. Author keys
 
-- **Algorithm and place.** Ed25519, made on the first export, in `$PSYCHE_HOME/identity/author.key`: the same JSON JWK format and modes as the Gateway identity key (directory 0700, file 0600, created with a link so two exports cannot make two keys, a file that exists but is not a key is an error and never replaced). It is outside the workspace, outside the vault and outside the backup scope, and the file tools treat `~/.psyche` as protected. It never leaves the Mac: only the public key and the signature go in a bundle.
+- **Algorithm and place.** Ed25519, made on the first export, in `$PSYCHE_HOME/identity/author.key`: the same JSON JWK format and modes as the Gateway identity key (directory 0700, file 0600, created with a link so two exports cannot make two keys, a file that exists but is not a key is an error and never replaced). It is opened without following a link and its owner and mode are checked (a link, a file owned by someone else or readable by others is refused), and temporary files next to the keyring are created exclusively. It is outside the workspace, outside the vault and outside the backup scope, and the file tools treat `~/.psyche` as protected. It never leaves the Mac: only the public key and the signature go in a bundle.
 - **Key id.** `sha256:<hex>` of the raw public key, the same format as a device fingerprint.
 - **Name.** The author's display name, asked once on the first export, signed into every bundle. It is a claim. The key is the identity.
-- **Who can sign.** Only the owner, through `skills.export` (admin scope, a Settings action). It signs only what the owner has approved: a workspace skill with a lock entry, a skill Psyche made that the owner approved, or one already signed with this key, and only while its files still match the approved hash and have no high scan findings. A skill someone else wrote is refused, so the owner's key never vouches for it, and the agent cannot get an unreviewed draft signed by writing it into the workspace.
+- **Who can sign.** Only the owner, through `skills.export` (a Settings action) and only on the Host: like a pairing link it needs the Host's own desktop shell (loopback, no Origin), whatever the scopes. It then needs the owner's approval of exactly what is signed: a device-only card showing the skill's name, tree hash, files and where it came from, answered with fresh presence (Touch ID or a passkey) once a verifier exists, or a plain device-only `once` card before one does. The export is made again with that approval and only signs the tree hash the card named. Every export is audited (`skill.skill_exported`: key, skill, tree hash; the first also `skill.author_key_created`). It signs only what the owner has approved: a workspace skill with a lock entry, a skill Psyche made on this Mac that the owner approved, or one already signed with this key, and only while its files still match the approved hash and have no high scan findings. A skill someone else wrote, signed or not, is refused (even one that arrived carrying `author: agent`), so the owner's key never vouches for it, and the agent cannot get an unreviewed draft signed by writing it into the workspace.
+- **Origin is signed.** The manifest records `origin`: `workspace` (the owner's own, approved) or `agent` (written by Psyche). A recipient sees it on the card and in the lock (`author: agent` survives export and import), and it can only lower trust (§5).
+- **Name.** The first export must name its author; there is no default.
 - **Rotation and loss.** Not built. Deleting the file makes a new key on the next export; readers see "changed" (§5) and decide. A signed rotation statement ("this key is replaced by that key") is designed in §9.
 
 ## 5. Trust, with no central authority
 
-Trust is a per-key record on the reader's Mac: `$PSYCHE_HOME/skills/authors.json` (0600, next to `skills.lock.json`, so the agent cannot write it). A key enters it when the owner approves an install signed by it (`seen`). It becomes `trusted` only by the owner's explicit act: the "Trust this author" box on the card (honored only together with the approved install), or Settings → Skills → ⋯ → Trust this author. It becomes `revoked` by the owner's act (§9).
+Trust is a per-key record on the reader's Mac: `$PSYCHE_HOME/skills/authors.json` (0600, next to `skills.lock.json`, so the agent cannot write it). A key enters it when the owner approves an install signed by it (`seen`). It becomes `trusted` only by the owner's explicit act: the "Trust this author" box on the card, or Settings → Skills → ⋯ → Trust this author. The box is part of the card, not a flag on the install: ticking it stages the review again with `trustAuthor`, and the flag is in the `skill_install` binding and shown on the card, so the approver decides it and a card approved without it cannot trust. Trusting a key later, and moving a key out of `revoked`, need fresh presence once a verifier exists (`skills.authors.set` through the same presence gate as pairing); un-trusting and revoking never do. It becomes `revoked` by the owner's act (§9). If the author list cannot be read, signed skills are `blocked` rather than assumed not revoked.
+
+A bundle is never `local`: that level is for what the owner wrote and approved on this Mac. The level in the last column is the most a bundle can get; the signed `origin` lowers it further, so text Psyche wrote (`origin: agent`) installs as `unknown` whoever signs it, the owner included. A lock entry that says `local` for an installed (home) skill is read as `unknown`.
 
 What the card says, in the order it checks:
 
 | Status | When | Install trust level |
 | --- | --- | --- |
 | `unsigned` | no signature | `unknown` |
-| `own` | signed by this Mac's author key | `local` |
+| `own` | signed by this Mac's author key | `verified` |
 | `trusted` | key the owner trusted, and not a different key than the installed version's | `verified` |
 | `changed` | the claimed name has signed with another key before, or this skill was installed with another key, or it was signed and the update is not | `unknown`, red warning, plus a `signer-changed` finding |
 | `seen` | key met before, not trusted | `unknown` |
 | `new` | key never met | `unknown` |
 | `revoked` | key the owner revoked | refused (`policy_denied`) |
 
+- **Names are compared, not trusted.** The card shows the name as data (the approval summary quotes it after the status, with quotes and control or direction characters removed). For comparison a name is normalized (NFKC, case-folded, whitespace collapsed) and reduced to a confusable skeleton (look-alike Cyrillic and Greek letters, digits like 0 and 1, diacritics and punctuation removed). A key whose name matches the owner's own author name but is not the owner's key is `changed` with an "impersonation" warning, never trusted. A trusted key that starts signing under a name it has not used is flagged (`signer-name-changed`).
 - **"Signed by X, new key"** is TOFU: the first sight of a key proves nothing about who holds it. The card says that, shows the fingerprint, and does not trust it. A name copied from someone the owner trusts, with a different key, shows as `changed`, which is the point of keying the name check on what has signed before.
 - **"Key changed since last time"** also fires for a skill that was installed with key A and is now offered with key B, even if B is trusted. The warning shows, and the install is `unknown`; the owner can tick "Trust" again on that very card if they know why.
 - **What `verified` means** is exactly: signed by a key this owner chose to trust, and nothing else. It does not mean safe, and the model still reads the text as third-party data (the prompt and `skills_read` mark `verified` the same as `unknown`).
@@ -98,7 +104,7 @@ What the card says, in the order it checks:
 
 Sources: a file the owner picks in Settings → Skills (`skills.proposeImport`, the client reads the file and sends its text), an https link (`skills.proposeInstall` with `bundleUrl`), or the existing git source at a pinned ref (a repo may also hold `.psyche-skill` files, which the owner points at by link). Reuse, not a parallel path: all of them end in the same `#propose` → card → `skills.install`.
 
-**URL fetch.** https only, no credentials in the URL, no `localhost`, `.local`, `.internal`, single-label or IP-literal host, at most three redirects each re-checked against the same rules (so a redirect to http or to a local address fails), 8 MiB cap by header and by streamed bytes, 30 s timeout, no cookies or credentials sent, the body is only ever parsed as a bundle. Host names are not resolved first, so a hostile DNS answer is not caught; the damage is bounded because nothing fetched is executed and a response is verified like a file. The URL is the source in the lock, so "Check for updates" re-reads it. A file import has no address, so its update is importing the new file.
+**URL fetch.** https only, no credentials in the URL, no `localhost`, `.local`, `.internal`, single-label or IP-literal host (a trailing dot is removed before the check). On every hop the host name is resolved and every address must be public (loopback, private, shared, link-local, unique-local, multicast and mapped forms are refused), and the connection is made to the address that passed, with the real host name for TLS, so a second lookup cannot rebind it. At most three redirects, each checked the same way (a redirect to http or to a local address fails), 8 MiB cap by header and by streamed bytes, 30 s timeout, no cookies or credentials sent, and the body is only ever parsed as a bundle. Every network failure (DNS, refused, timeout, a status, a redirect with no place to go) is the same message, so a link cannot be used to probe the owner's network. The URL is the source in the lock, so "Check for updates" re-reads it. A file import has no address, so its update is importing the new file.
 
 **The card** is the existing trust card, extended: who signed it (§5) with the key fingerprint, the requested tools, approval kinds and prompt files, every file with its text, the scan findings, the source, and for an update the file diff and what it asks for beyond the installed version. The approval details carry `signerStatus`, `signerKey` and `widened`, and the approval summary says "signed by X: new" or "unsigned bundle". The binding covers the author key and the source, besides what it covered before, so a card approved for one signer cannot install the same files under another.
 
@@ -110,9 +116,11 @@ Sources: a file the owner picks in Settings → Skills (`skills.proposeImport`, 
 
 - A bundle imported from a link is re-fetched by "Check for updates" and staged by "Review update", like git. A file import is updated by importing the new file; the loader finds the installed skill of that name and builds the update view.
 - **The diff** is the existing per-file unified diff against the installed tree.
-- **Widening.** The proposal lists `widened`: tools, approval kinds and prompt files the new version requests that the installed one did not. The card shows them first in red, adds a `permissions-widened` finding and puts "asks for more than before" in the approval summary. Narrowing is quiet.
+- **Widening.** The proposal lists `widened`: tools, approval kinds and prompt files the new version requests that the installed one did not, and the ways its background role got wider (a new role, more tools, fewer denials, a higher mode, bigger budgets or caps, more approval kinds, no plan-first, memory on). The card shows them first in red, adds a `permissions-widened` finding and puts "asks for more than before" in the approval summary. Narrowing is quiet.
 - **Re-approval.** An update is a new proposal with a new binding over its own manifest, so a card approved for the narrower version cannot install the wider one (`binding_mismatch`). There is no silent update path to weaken: nothing installs without a new device-only card, and widening is what the card is built to put in front of the owner.
-- **Signer changes** (different key, or a signed skill updated unsigned) show the §5 warning and the install is `unknown` unless the owner trusts the new key on that card.
+- **Signer changes** (different key, or a signed skill updated unsigned, from a bundle or from a folder, archive or repository) show the §5 warning and the install is `unknown` unless the owner trusts the new key on that card.
+- **Rollback.** The lock keeps the bundle's `createdAt`; an older bundle offered over a newer install is flagged (`older-than-installed`).
+- **Background roles start off.** When a skill that defines a role is installed, updated or removed, `specialists.enabled.<role>` is reset to off until the owner turns it on again, and a new role id that is already defined by another skill is flagged (`role-shadow`).
 - Every load re-hashes the installed tree against the lock. A bundle imports no loader code, so this is unchanged: edit an installed file and the skill turns off.
 
 ## 8. Connectors (phase 3, designed, not built)
@@ -161,13 +169,17 @@ What revocation cannot do is un-install on other people's Macs or reach someone 
 | Downgrade: strip the signature, keep the files | An unsigned update of a signed skill is flagged and is `unknown` |
 | Update quietly asks for more | `widened` shown in red, a new binding over the new manifest, a new card |
 | Agent installs, exports or trusts by itself | No agent tools, admin-scope owner methods, device-only approved card, tools forbidden to skills, audit trail |
-| Agent gets an unreviewed skill signed with the owner's key | Export requires an owner-approved lock entry and an unchanged hash; third-party skills are refused |
+| Agent gets an unreviewed skill signed with the owner's key | Export requires an owner-approved lock entry and an unchanged hash, a Host-only call, a device-only card naming the tree hash and files, fresh presence when a verifier exists, and is audited; third-party skills are refused |
+| Agent-written text laundered into trusted instructions by an export and re-import | A bundle is never `local`; the signed `origin: agent` keeps it `unknown` and `author: agent` |
+| A look-alike name, or a trusted key under a new name | Skeleton comparison, an impersonation warning for the owner's own name, a name-drift flag on trusted keys, names quoted as data in summaries |
+| Loosening trust without the owner | Trusting or leaving `revoked` needs fresh presence; `trustAuthor` is in the card's binding; an unreadable author list blocks signed skills |
+| A role that widens inside a skill | The role is in the signed requests, in `widened`, and starts off again on install |
 | Author key stolen | 0600 file in a 0700 directory like the identity key, protected folder for the agent's file tools; revoke and rotate by §9 |
-| SSRF through the import link | https only, no IP or local host names, redirects re-checked, nothing fetched is executed |
+| SSRF through the import link | https only, no IP or local host names, DNS resolved and pinned on every hop with public addresses only, redirects re-checked, one generic error, nothing fetched is executed |
 | Tampering with an installed skill later | Whole-tree hash re-verified on every load |
 
 ## 12. What is built and what is left
 
-Built: the format and verifier (`packages/skills/src/bundle.ts`), the author key and keyring (`authors.ts`), the URL fetch (`bundle-url.ts`), the loader's import, export, signer status, widening, trust and revocation, the protocol additions (`bundleFile` and `bundleUrl` sources, `skills.proposeImport`, `skills.export`, `skills.authors.list`, `skills.authors.set`, `trustAuthor` on `skills.install`, `bundle`, `widened` and `signer` fields), and the Settings → Skills UI (import, export, signer and widening on the card, trust and revoke on a row).
+Built (including the review fixes of 2026-11-04: signed origin, gated Host-only export, presence for loosening, `trustAuthor` in the binding, roles in the manifest, name skeletons, rollback, pinned DNS, full folding, fail-closed keyring, bounded staging, hardened key file): the format and verifier (`packages/skills/src/bundle.ts`), the author key and keyring (`authors.ts`), the URL fetch (`bundle-url.ts`), the loader's import, export, signer status, widening, trust and revocation, the protocol additions (`bundleFile` and `bundleUrl` sources, `skills.proposeImport`, `skills.export`, `skills.authors.list`, `skills.authors.set`, `trustAuthor` on the propose methods, `approvalId` on `skills.export` and `skills.authors.set`, `bundle`, `widened` and `signer` fields), and the Settings → Skills UI (import, export, signer and widening on the card, trust and revoke on a row).
 
 Left: connector bundles (§8), signed revocation notices and key rotation (§9), the list format (phase 4), a CLI `psyche skills export` and `import`, and Swift (phone) surfaces for the new fields.

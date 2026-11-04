@@ -1,5 +1,6 @@
 import { ApprovalKind, type SkillManifestDecl } from "@psyche/protocol";
 import type { SkillMeta } from "./frontmatter.ts";
+import { parseSpecialist, type SpecialistDef } from "./specialists.ts";
 import { type SkillTree, safeRelPath, textOf } from "./tree.ts";
 
 /**
@@ -23,7 +24,12 @@ export type ManifestResult =
 const sorted = (xs: Iterable<string>) => [...new Set(xs)].sort();
 
 /** Builds and validates the manifest; `tree` checks that declared prompt files exist. */
-export function manifestOf(meta: SkillMeta, tree?: SkillTree): ManifestResult {
+export function manifestOf(
+  meta: SkillMeta,
+  tree?: SkillTree,
+  /** The parsed frontmatter, so the background role the skill defines is part of the manifest. */
+  frontmatter?: Record<string, unknown>,
+): ManifestResult {
   const errors: string[] = [];
   const tools = sorted([...meta.allowedTools, ...meta.requires.tools, ...meta.requires.anyTools]);
   for (const t of tools) {
@@ -57,7 +63,41 @@ export function manifestOf(meta: SkillMeta, tree?: SkillTree): ManifestResult {
     if (list.length > MAX_DECLARED) errors.push(`${field}: more than ${MAX_DECLARED} entries`);
   }
   if (errors.length > 0) return { ok: false, errors };
-  return { ok: true, manifest: { tools, permissions, prompts } };
+  const spec =
+    frontmatter === undefined ? { present: false as const } : parseSpecialist(frontmatter);
+  return {
+    ok: true,
+    manifest: {
+      tools,
+      permissions,
+      prompts,
+      ...(spec.present && spec.ok ? { specialist: specialistRequest(spec.def) } : {}),
+    },
+  };
+}
+
+/** The role section as the manifest carries it: lists sorted, so equal roles compare equal. */
+export function specialistRequest(def: SpecialistDef): NonNullable<SkillManifest["specialist"]> {
+  const nums = (o: object) =>
+    Object.fromEntries(
+      Object.entries(o)
+        .filter(([, v]) => typeof v === "number")
+        .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
+    ) as Record<string, number>;
+  return {
+    role: def.role,
+    label: def.label,
+    model: def.model,
+    maxMode: def.maxMode,
+    tools: sorted(def.tools),
+    deny: sorted(def.deny),
+    memory: def.memory,
+    budget: nums(def.budget),
+    caps: nums(def.caps),
+    result: def.result,
+    planFirst: def.planFirst,
+    approvals: sorted(def.approvals),
+  };
 }
 
 /** Whether two manifests declare different needs (update detection). */

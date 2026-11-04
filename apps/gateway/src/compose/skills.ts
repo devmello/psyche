@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { attachRoutineDetector, PsycheAgentLoop } from "@psyche/agent-core";
 import { assetDir } from "@psyche/assets";
 import { redactSensitive } from "@psyche/audit";
-import { getThread } from "@psyche/db";
+import { getThread, setSetting } from "@psyche/db";
 import {
   PsycheError,
   type SkillLoader,
@@ -22,9 +22,12 @@ import {
   provenanceOfTrust,
   SKILL_UPDATE_MIN_LESSONS,
   SkillDrafts,
+  type SkillsGates,
   SqliteSkillStateStore,
+  skillInstallBinding,
 } from "@psyche/skills";
-import type { HandlerDef } from "../context.ts";
+import type { Call, HandlerDef } from "../context.ts";
+import { requireFreshPresence } from "../presence-gate.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
 /**
@@ -47,6 +50,113 @@ import type { ComposedPart, ComposeServices } from "./services.ts";
  * through the vault and audit redactors. Drafts live in `$PSYCHE_HOME/skills/.drafts/`, which
  * the loader never reads; accepting one goes through the same trust card and approval.
  */
+
+/** Only Psyche on the Host itself (the desktop shell on loopback, no Origin) may sign. */
+function hostShellOnly(call: Call): void {
+  if (
+    call.identity.desktopShell !== true ||
+    !call.conn.peer.remoteLoopback ||
+    call.conn.peer.origin !== null
+  ) {
+    throw new PsycheError(
+      "forbidden",
+      "Only Psyche on the Host itself can sign a skill with your author key",
+    );
+  }
+}
+
+/**
+ * The gates for the two owner actions that use or loosen trust (shared bundles, design doc
+ * sections 4, 5 and 9). Both are Settings actions on an admin connection, and both need the
+ * owner's approval on a device-only card:
+ * - exporting signs with the author key: Host shell only, fresh presence (Touch ID or a
+ *   passkey) once a verifier exists, and a card that names the skill, its tree hash and files;
+ * - trusting a key, or moving one out of `revoked`, needs fresh presence. Un-trusting and
+ *   revoking are never gated.
+ * With no presence verifier (a fresh install) the export still gets a plain device-only `once`
+ * card, so a signature is never made without the owner looking at what is signed.
+ */
+export function skillGates(services: ComposeServices): SkillsGates {
+  return {
+    async export(callRaw, a, approvalId) {
+      const call = callRaw as Call;
+      hostShellOnly(call);
+      const summary = `Sign skill "${a.name}" with your author key`;
+      const details = {
+        kind: "skill_export",
+        name: a.name,
+        treeHash: a.treeHash,
+        origin: a.origin,
+        files: a.files.map((f) => f.path),
+      };
+      if (call.ctx.presenceState() !== "off") {
+        await requireFreshPresence(
+          call,
+          {
+            name: "method:skills.export",
+            summary,
+            subject: { name: a.name, treeHash: a.treeHash },
+            details,
+          },
+          approvalId,
+        );
+        return;
+      }
+      const { bindingHash, grantKey } = skillInstallBinding({
+        name: `export:${a.name}`,
+        scope: "home",
+        source: { kind: "bundleFile", name: "export" },
+        treeHash: a.treeHash,
+        tools: [],
+        permissions: [],
+        prompts: [],
+      });
+      if (approvalId === undefined) {
+        const issued = await services.broker.requestApproval({
+          kind: "skill_install",
+          summary,
+          details: { ...details, requestedByDevice: call.identity.deviceId },
+          bindingHash,
+          grantKey,
+          requestedBy: { runId: null, taskId: null, threadId: null },
+          sideEffect: "destructive",
+          surfaces: ["desktop"],
+          scopesOffered: ["once"],
+          taint: false,
+        });
+        services.publish("approval.created", { approval: issued.approval });
+        throw new PsycheError("approval_required", `${summary} needs your approval`, {
+          details: { approvalId: issued.approval.id },
+        });
+      }
+      const approval = await services.broker.get(approvalId);
+      if (approval?.kind !== "skill_install")
+        throw new PsycheError("forbidden", "That approval is not an export approval");
+      const v = await services.broker.verifyBinding(approvalId, bindingHash);
+      if (!v.ok)
+        throw new PsycheError(
+          "binding_mismatch",
+          `That approval does not cover this export (${v.reason})`,
+        );
+    },
+    async authorChange(callRaw, a, approvalId) {
+      const call = callRaw as Call;
+      await requireFreshPresence(
+        call,
+        {
+          name: "method:skills.authors.set",
+          summary:
+            a.to === "trusted"
+              ? "Trust an author key for shared skills"
+              : "Stop revoking an author key for shared skills",
+          subject: { keyId: a.keyId, to: a.to },
+          details: { kind: "skill_author", keyId: a.keyId, from: a.from ?? "unseen", to: a.to },
+        },
+        approvalId,
+      );
+    },
+  };
+}
 
 export interface SkillsOptions {
   /** Bundled skills folder; `null` for none. Default `PSYCHE_BUNDLED_SKILLS` or the repo's `skills/`. */
@@ -204,9 +314,23 @@ export function composeSkills(opts: SkillsOptions = {}): ComposedSkills {
             kind: `skill.${event.kind}`,
             actor: { type: "user" },
             subject: { keyId: event.keyId },
-            data: event.name === undefined ? {} : { name: event.name },
+            data: {
+              ...(event.name === undefined ? {} : { name: event.name }),
+              ...(event.skill === undefined ? {} : { skill: event.skill }),
+              ...(event.treeHash === undefined ? {} : { treeHash: event.treeHash }),
+            },
           })
           .catch(() => undefined);
+      },
+      // A background role starts off again whenever its skill is installed, updated or removed
+      // (the card showed what it asks for); the owner turns it back on in Settings.
+      onSpecialistReset: (role) => {
+        try {
+          const entry = setSetting(services.db, `specialists.enabled.${role}`, false);
+          services.publish("settings.changed", { entries: [entry] });
+        } catch {
+          // A role id that is not a setting key has nothing to reset.
+        }
       },
       onChange: (event) => {
         publish("skills.changed", event);
@@ -240,14 +364,18 @@ export function composeSkills(opts: SkillsOptions = {}): ComposedSkills {
       }).map((t) => tools.register(t)),
     );
     const handlers: Record<string, HandlerDef> = {};
+    const gates = skillGates(services);
     const table = createSkillsHandlers(fs, {
       broker: services.broker,
       surfaces: ["desktop", "web"],
       onUpdate: (update) => publish("skills.updated", update),
       drafts,
+      gates,
     });
     for (const [name, fn] of Object.entries(table)) {
-      handlers[name] = { run: (_call, params) => (fn as (p: unknown) => unknown)(params ?? {}) };
+      handlers[name] = {
+        run: (call, params) => (fn as (p: unknown, c: unknown) => unknown)(params ?? {}, call),
+      };
     }
     let unwatch: (() => void) | undefined;
     let undetect: (() => void) | undefined;

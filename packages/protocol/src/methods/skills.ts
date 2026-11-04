@@ -88,6 +88,28 @@ export const SkillManifest = Type.Object(
     prompts: Type.Array(Type.String(), {
       description: "Prompt files inside the skill folder (relative paths), sorted",
     }),
+    specialist: Type.Optional(
+      Type.Object(
+        {
+          role: Type.String(),
+          label: Type.String(),
+          model: Type.String(),
+          maxMode: Type.String(),
+          tools: Type.Array(Type.String()),
+          deny: Type.Array(Type.String()),
+          memory: Type.String(),
+          budget: Type.Record(Type.String(), Type.Number()),
+          caps: Type.Record(Type.String(), Type.Number()),
+          result: Type.String(),
+          planFirst: Type.Boolean(),
+          approvals: Type.Array(Type.String()),
+        },
+        {
+          description:
+            "The background role the skill defines (metadata.psyche.specialist): part of what the skill asks for, so a wider role is a wider request",
+        },
+      ),
+    ),
   },
   { $id: "SkillManifest" },
 );
@@ -224,6 +246,14 @@ export const BundleSigner = Type.Object(
       description:
         "Differs from the key this skill was installed with (or it was signed and is no longer)",
     }),
+    nameChanged: Type.Optional(
+      Type.Boolean({ description: "A trusted key now signs under a name not seen with it before" }),
+    ),
+    impersonates: Type.Optional(
+      Type.Boolean({
+        description: "The name looks like the owner's own author name, with another key",
+      }),
+    ),
   },
   { $id: "BundleSigner" },
 );
@@ -235,6 +265,10 @@ export const SkillBundleInfo = Type.Object(
     signer: BundleSigner,
     createdAt: Type.String({ description: "The author's claimed time; not verified" }),
     bytes: Type.Integer({ minimum: 0 }),
+    origin: StringEnum(["workspace", "agent"], {
+      description:
+        "Where the exporter says the skill came from (signed); a bundle never installs as local",
+    }),
   },
   { $id: "SkillBundleInfo" },
 );
@@ -294,6 +328,11 @@ export const SkillProposal = Type.Object(
                 tools: Type.Array(Type.String()),
                 permissions: Type.Array(Type.String()),
                 prompts: Type.Array(Type.String()),
+                specialist: Type.Optional(
+                  Type.Array(Type.String(), {
+                    description: "Plain-text changes to the background role that make it wider",
+                  }),
+                ),
               },
               { description: "What the new version asks for that the installed one did not" },
             ),
@@ -307,6 +346,9 @@ export const SkillProposal = Type.Object(
     manifest: Type.Optional(SkillManifest),
     author: Type.Optional(StringEnum(["agent"], { description: "Psyche wrote this skill" })),
     bundle: Type.Optional(SkillBundleInfo),
+    trustAuthor: Type.Optional(
+      Type.Boolean({ description: "Approving this card also trusts the bundle's author key" }),
+    ),
   },
   { $id: "SkillProposal" },
 );
@@ -473,7 +515,15 @@ export const SkillsMethods = {
       "The staged proposal (full text, files, findings, diff) for an approval card on any device.",
   }),
   "skills.proposeInstall": defineMethod({
-    params: Type.Object({ source: SkillInstallSourceSchema }),
+    params: Type.Object({
+      source: SkillInstallSourceSchema,
+      trustAuthor: Type.Optional(
+        Type.Boolean({
+          description:
+            "Also trust the bundle's signing key when this card is approved. It is part of what the card binds, so the approver decides; ignored for an unsigned bundle",
+        }),
+      ),
+    }),
     result: ProposalResult,
     scope: "operator.admin",
     sideEffecting: true,
@@ -484,6 +534,12 @@ export const SkillsMethods = {
     params: Type.Object({
       name: SkillName,
       ref: Type.Optional(Type.String({ minLength: 1, maxLength: 256 })),
+      trustAuthor: Type.Optional(
+        Type.Boolean({
+          description:
+            "Also trust the bundle's signing key when this card is approved. It is part of what the card binds, so the approver decides; ignored for an unsigned bundle",
+        }),
+      ),
     }),
     result: ProposalResult,
     scope: "operator.admin",
@@ -503,12 +559,6 @@ export const SkillsMethods = {
     params: Type.Object({
       proposalId: Id,
       approvalId: Id,
-      trustAuthor: Type.Optional(
-        Type.Boolean({
-          description:
-            "Also trust the bundle's signing key (needs the approved card; never skips it)",
-        }),
-      ),
     }),
     result: Type.Object({ skill: SkillSummarySchema }),
     scope: "operator.admin",
@@ -520,6 +570,12 @@ export const SkillsMethods = {
     params: Type.Object({
       name: Type.String({ minLength: 1, maxLength: 200, description: "File name, for display" }),
       text: Type.String({ minLength: 2, maxLength: 8 * 1024 * 1024 }),
+      trustAuthor: Type.Optional(
+        Type.Boolean({
+          description:
+            "Also trust the bundle's signing key when this card is approved. It is part of what the card binds, so the approver decides; ignored for an unsigned bundle",
+        }),
+      ),
     }),
     result: ProposalResult,
     scope: "operator.admin",
@@ -534,9 +590,11 @@ export const SkillsMethods = {
         Type.String({
           minLength: 1,
           maxLength: 64,
-          description: "Used only when the author key is created",
+          description: "Required when the author key does not exist yet; ignored after",
         }),
       ),
+      /** Fresh presence: the approved card from a first `approval_required` call. */
+      approvalId: Type.Optional(Id),
     }),
     result: Type.Object({
       filename: Type.String(),
@@ -547,7 +605,7 @@ export const SkillsMethods = {
     scope: "operator.admin",
     sideEffecting: true,
     description:
-      "Side-effecting: signs a skill of the owner's (workspace, or made by Psyche) with the owner's author key, creating the key on first use. Refuses a skill someone else wrote.",
+      "Side-effecting: signs a skill of the owner's (workspace, or made by Psyche) with the owner's author key, creating the key on first use (authorName is then required). Only Psyche on the Host itself may call it (forbidden otherwise), and it needs a device-only approval showing the skill's name, tree hash and files (approval_required with details.approvalId, then retry with approvalId; fresh presence once a verifier exists). Every export is audited. The bundle records where the skill came from (workspace or made by Psyche), signed. Refuses a skill someone else wrote.",
   }),
   "skills.authors.list": defineMethod({
     params: EmptyParams,
@@ -562,12 +620,14 @@ export const SkillsMethods = {
     params: Type.Object({
       keyId: Type.String({ pattern: "^sha256:[0-9a-f]{64}$" }),
       state: StringEnum(["seen", "trusted", "revoked"]),
+      /** Fresh presence for a loosening change: the approved card from a first call. */
+      approvalId: Type.Optional(Id),
     }),
     result: Type.Object({ author: SkillAuthor }),
     scope: "operator.admin",
     sideEffecting: true,
     description:
-      "Side-effecting: trusts, un-trusts or revokes a seen author key. Trust never skips an approval card; a revoked key's bundles are refused and its installed skills stop loading.",
+      "Side-effecting: trusts, un-trusts or revokes a seen author key. Trust never skips an approval card; a revoked key's bundles are refused and its installed skills stop loading. Trusting a key, or moving one out of revoked, needs fresh presence once a verifier exists (approval_required with details.approvalId, then retry with approvalId); un-trusting and revoking do not.",
   }),
   "skills.setEnabled": defineMethod({
     params: Type.Object({

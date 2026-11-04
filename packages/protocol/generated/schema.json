@@ -2896,7 +2896,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Side-effecting: trusts, un-trusts or revokes a seen author key. Trust never skips an approval card; a revoked key's bundles are refused and its installed skills stop loading.",
+        "description": "Side-effecting: trusts, un-trusts or revokes a seen author key. Trust never skips an approval card; a revoked key's bundles are refused and its installed skills stop loading. Trusting a key, or moving one out of revoked, needs fresh presence once a verifier exists (approval_required with details.approvalId, then retry with approvalId); un-trusting and revoking do not.",
         "name": "skills.authors.set",
         "params": "#/$defs/SkillsAuthorsSetParams",
         "result": "#/$defs/SkillsAuthorsSetResult",
@@ -2952,7 +2952,7 @@
         "sideEffecting": true
       },
       {
-        "description": "Side-effecting: signs a skill of the owner's (workspace, or made by Psyche) with the owner's author key, creating the key on first use. Refuses a skill someone else wrote.",
+        "description": "Side-effecting: signs a skill of the owner's (workspace, or made by Psyche) with the owner's author key, creating the key on first use (authorName is then required). Only Psyche on the Host itself may call it (forbidden otherwise), and it needs a device-only approval showing the skill's name, tree hash and files (approval_required with details.approvalId, then retry with approvalId; fresh presence once a verifier exists). Every export is audited. The bundle records where the skill came from (workspace or made by Psyche), signed. Refuses a skill someone else wrote.",
         "name": "skills.export",
         "params": "#/$defs/SkillsExportParams",
         "result": "#/$defs/SkillsExportResult",
@@ -12026,6 +12026,14 @@
         },
         "signerChanged": {
           "description": "Differs from the key this skill was installed with (or it was signed and is no longer)",
+          "type": "boolean"
+        },
+        "nameChanged": {
+          "description": "A trusted key now signs under a name not seen with it before",
+          "type": "boolean"
+        },
+        "impersonates": {
+          "description": "The name looks like the owner's own author name, with another key",
           "type": "boolean"
         }
       },
@@ -37592,12 +37600,21 @@
         "bytes": {
           "minimum": 0,
           "type": "integer"
+        },
+        "origin": {
+          "description": "Where the exporter says the skill came from (signed); a bundle never installs as local",
+          "enum": [
+            "workspace",
+            "agent"
+          ],
+          "type": "string"
         }
       },
       "required": [
         "signer",
         "createdAt",
-        "bytes"
+        "bytes",
+        "origin"
       ],
       "type": "object"
     },
@@ -38175,6 +38192,81 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "specialist": {
+          "description": "The background role the skill defines (metadata.psyche.specialist): part of what the skill asks for, so a wider role is a wider request",
+          "properties": {
+            "role": {
+              "type": "string"
+            },
+            "label": {
+              "type": "string"
+            },
+            "model": {
+              "type": "string"
+            },
+            "maxMode": {
+              "type": "string"
+            },
+            "tools": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "deny": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "memory": {
+              "type": "string"
+            },
+            "budget": {
+              "patternProperties": {
+                "^(.*)$": {
+                  "type": "number"
+                }
+              },
+              "type": "object"
+            },
+            "caps": {
+              "patternProperties": {
+                "^(.*)$": {
+                  "type": "number"
+                }
+              },
+              "type": "object"
+            },
+            "result": {
+              "type": "string"
+            },
+            "planFirst": {
+              "type": "boolean"
+            },
+            "approvals": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "role",
+            "label",
+            "model",
+            "maxMode",
+            "tools",
+            "deny",
+            "memory",
+            "budget",
+            "caps",
+            "result",
+            "planFirst",
+            "approvals"
+          ],
+          "type": "object"
         }
       },
       "required": [
@@ -38275,6 +38367,13 @@
                     "type": "string"
                   },
                   "type": "array"
+                },
+                "specialist": {
+                  "description": "Plain-text changes to the background role that make it wider",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
                 }
               },
               "required": [
@@ -38312,6 +38411,10 @@
         },
         "bundle": {
           "$ref": "#/$defs/SkillBundleInfo"
+        },
+        "trustAuthor": {
+          "description": "Approving this card also trusts the bundle's author key",
+          "type": "boolean"
         }
       },
       "required": [
@@ -38530,6 +38633,12 @@
             "revoked"
           ],
           "type": "string"
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
         }
       },
       "required": [
@@ -38719,7 +38828,13 @@
           "type": "string"
         },
         "authorName": {
-          "description": "Used only when the author key is created",
+          "description": "Required when the author key does not exist yet; ignored after",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "approvalId": {
+          "description": "ULID in production",
           "maxLength": 64,
           "minLength": 1,
           "type": "string"
@@ -38844,10 +38959,6 @@
           "maxLength": 64,
           "minLength": 1,
           "type": "string"
-        },
-        "trustAuthor": {
-          "description": "Also trust the bundle's signing key (needs the approved card; never skips it)",
-          "type": "boolean"
         }
       },
       "required": [
@@ -38907,6 +39018,10 @@
           "maxLength": 8388608,
           "minLength": 2,
           "type": "string"
+        },
+        "trustAuthor": {
+          "description": "Also trust the bundle's signing key when this card is approved. It is part of what the card binds, so the approver decides; ignored for an unsigned bundle",
+          "type": "boolean"
         }
       },
       "required": [
@@ -38919,6 +39034,10 @@
       "properties": {
         "source": {
           "$ref": "#/$defs/SkillInstallSource"
+        },
+        "trustAuthor": {
+          "description": "Also trust the bundle's signing key when this card is approved. It is part of what the card binds, so the approver decides; ignored for an unsigned bundle",
+          "type": "boolean"
         }
       },
       "required": [
@@ -38938,6 +39057,10 @@
           "maxLength": 256,
           "minLength": 1,
           "type": "string"
+        },
+        "trustAuthor": {
+          "description": "Also trust the bundle's signing key when this card is approved. It is part of what the card binds, so the approver decides; ignored for an unsigned bundle",
+          "type": "boolean"
         }
       },
       "required": [
