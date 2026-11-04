@@ -2920,6 +2920,14 @@
         "sideEffecting": true
       },
       {
+        "description": "Side-effecting: turns the owner's reviewed recording (teach by showing) into a skill draft. Sensitive steps keep no value, typed values are kept only when the owner chose to, and page text is quoted as untrusted. Accept it with skills.drafts.accept for the usual approval card.",
+        "name": "skills.drafts.fromRecording",
+        "params": "#/$defs/SkillsDraftsFromRecordingParams",
+        "result": "#/$defs/SkillsDraftsFromRecordingResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Skills the agent proposed from repeated routines (T3), newest first.",
         "name": "skills.drafts.list",
         "params": "#/$defs/SkillsDraftsListParams",
@@ -11974,6 +11982,93 @@
         "tabs"
       ],
       "type": "object"
+    },
+    "BrowserTeachInputName": {
+      "maxLength": 40,
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "type": "string"
+    },
+    "BrowserTeachStep": {
+      "properties": {
+        "id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/BrowserTeachStepKind"
+        },
+        "url": {
+          "description": "navigate: origin and path, no query",
+          "maxLength": 2048,
+          "type": "string"
+        },
+        "role": {
+          "description": "Accessibility role",
+          "maxLength": 64,
+          "type": "string"
+        },
+        "name": {
+          "description": "Accessible name (untrusted page text)",
+          "maxLength": 200,
+          "type": "string"
+        },
+        "selector": {
+          "description": "Fallback CSS selector",
+          "maxLength": 300,
+          "type": "string"
+        },
+        "key": {
+          "description": "press: the key",
+          "maxLength": 40,
+          "type": "string"
+        },
+        "sensitive": {
+          "description": "The field is sensitive: no value is ever stored",
+          "type": "boolean"
+        },
+        "keepValue": {
+          "description": "The owner chose to keep the typed value as it is",
+          "type": "boolean"
+        },
+        "value": {
+          "description": "Only with keepValue, and never on a sensitive step",
+          "maxLength": 500,
+          "type": "string"
+        },
+        "input": {
+          "description": "The value is an input the agent asks for each run",
+          "properties": {
+            "name": {
+              "$ref": "#/$defs/BrowserTeachInputName"
+            },
+            "description": {
+              "maxLength": 200,
+              "type": "string"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "kind"
+      ],
+      "type": "object"
+    },
+    "BrowserTeachStepKind": {
+      "enum": [
+        "navigate",
+        "click",
+        "type",
+        "select",
+        "press"
+      ],
+      "type": "string"
     },
     "CapabilitiesSearchParams": {
       "properties": {
@@ -37773,6 +37868,9 @@
           "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
           "type": "string"
         },
+        "origin": {
+          "$ref": "#/$defs/SkillDraftOrigin"
+        },
         "installProposalId": {
           "description": "ULID in production",
           "maxLength": 64,
@@ -37843,6 +37941,13 @@
         "updatedAt"
       ],
       "type": "object"
+    },
+    "SkillDraftOrigin": {
+      "enum": [
+        "routine",
+        "recording"
+      ],
+      "type": "string"
     },
     "SkillDraftReplay": {
       "properties": {
@@ -38358,6 +38463,40 @@
       "type": "object"
     },
     "SkillsDraftsDismissResult": {
+      "properties": {
+        "draft": {
+          "$ref": "#/$defs/SkillDraft"
+        }
+      },
+      "required": [
+        "draft"
+      ],
+      "type": "object"
+    },
+    "SkillsDraftsFromRecordingParams": {
+      "properties": {
+        "title": {
+          "description": "The owner's name for it",
+          "maxLength": 120,
+          "minLength": 1,
+          "type": "string"
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/BrowserTeachStep"
+          },
+          "maxItems": 200,
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "title",
+        "steps"
+      ],
+      "type": "object"
+    },
+    "SkillsDraftsFromRecordingResult": {
       "properties": {
         "draft": {
           "$ref": "#/$defs/SkillDraft"

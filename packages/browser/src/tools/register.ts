@@ -21,6 +21,7 @@ import type { DevPreviewGate } from "../devpreview/gate.ts";
 import { tryOrigin } from "../origin/canonical.ts";
 import type { OriginPolicy } from "../origin/policy.ts";
 import { redactUrlsIn } from "../origin/redact-url.ts";
+import { matchRecordedTarget, type TargetWant } from "../teach/match.ts";
 import type { ActionTarget, BrowserDriverEx, ElementMeta } from "../types.ts";
 import { type AttentionGate, assertWatched, attentionExempt } from "./attention.ts";
 import {
@@ -398,6 +399,28 @@ export function browserToolDefs(deps: BrowserToolDeps) {
       run: async (p, { callId }) => ({
         matches: await d.find(await sessionTab(callId, p.tabId), p.query),
       }),
+    }),
+    def({
+      name: "browser.check_target",
+      description:
+        "Check that the element a recorded step names is on the page right now, by its role and name (and, with origin, that this is the page the step was recorded on). Answers found with its ref, or missing, ambiguous or wrong_page with stop: true. Skills made from a recording call it before every step; when stop is true, stop and ask the owner instead of guessing.",
+      schema: Type.Object({
+        tabId: TabId,
+        name: Type.String({ minLength: 1, maxLength: 200 }),
+        role: Type.Optional(Type.String({ maxLength: 64 })),
+        origin: Type.Optional(Type.String({ maxLength: 2048 })),
+      }),
+      sideEffect: "read",
+      rerun: true,
+      run: async (p, { callId }) => {
+        const tabId = await sessionTab(callId, p.tabId);
+        const matches = await d.find(tabId, p.name);
+        const want: TargetWant = { name: p.name };
+        if (p.role !== undefined) want.role = p.role;
+        if (p.origin !== undefined) want.origin = p.origin;
+        const check = matchRecordedTarget(matches, want, d.tabOrigin(tabId));
+        return pageOut(tabId, { check });
+      },
     }),
     def({
       name: "browser.read_text",

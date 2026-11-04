@@ -315,6 +315,8 @@ export const SkillDraft = Type.Object(
     status: SkillDraftStatus,
     createdAt: IsoDateTime,
     updatedAt: IsoDateTime,
+    /** `recording`: made from a demonstration the owner recorded (teach by showing). */
+    origin: Type.Optional(StringEnum(["routine", "recording"], { $id: "SkillDraftOrigin" })),
     installProposalId: Type.Optional(Id),
     approvalId: Type.Optional(Id),
     replay: Type.Optional(SkillDraftReplay),
@@ -335,6 +337,67 @@ export const SkillDraft = Type.Object(
   { $id: "SkillDraft" },
 );
 export type SkillDraft = Static<typeof SkillDraft>;
+
+/**
+ * Teach by showing in the built-in browser (feature J8, phase 1; docs/design/teach-by-showing-2026.md).
+ * The owner presses Record, does the task once and presses Stop; the review screen turns the
+ * demonstration into these steps. A step names its target by accessibility role and name with a
+ * selector as a fallback, never by pixels. Typed text is kept only when the owner chose to
+ * (`keepValue`); a sensitive field (password, card, one-time code, ID number) never carries a value
+ * at all (`sensitive`), and page text is quoted as untrusted data when the steps become a skill.
+ * (The Mac-app recorder's shapes are `TeachStep` in `schemas/teach.ts`.)
+ */
+export const BrowserTeachStepKind = StringEnum(["navigate", "click", "type", "select", "press"], {
+  $id: "BrowserTeachStepKind",
+});
+export type BrowserTeachStepKind = Static<typeof BrowserTeachStepKind>;
+
+/** A named input a recorded value became (`recipient`, `from_date`): lowercase words with `_`. */
+export const BrowserTeachInputName = Type.String({
+  minLength: 1,
+  maxLength: 40,
+  pattern: "^[a-z][a-z0-9_]*$",
+  $id: "BrowserTeachInputName",
+});
+
+export const BrowserTeachStep = Type.Object(
+  {
+    id: Type.String({ minLength: 1, maxLength: 64 }),
+    kind: BrowserTeachStepKind,
+    url: Type.Optional(
+      Type.String({ maxLength: 2048, description: "navigate: origin and path, no query" }),
+    ),
+    role: Type.Optional(Type.String({ maxLength: 64, description: "Accessibility role" })),
+    name: Type.Optional(
+      Type.String({ maxLength: 200, description: "Accessible name (untrusted page text)" }),
+    ),
+    selector: Type.Optional(Type.String({ maxLength: 300, description: "Fallback CSS selector" })),
+    key: Type.Optional(Type.String({ maxLength: 40, description: "press: the key" })),
+    sensitive: Type.Optional(
+      Type.Boolean({ description: "The field is sensitive: no value is ever stored" }),
+    ),
+    keepValue: Type.Optional(
+      Type.Boolean({ description: "The owner chose to keep the typed value as it is" }),
+    ),
+    value: Type.Optional(
+      Type.String({
+        maxLength: 500,
+        description: "Only with keepValue, and never on a sensitive step",
+      }),
+    ),
+    input: Type.Optional(
+      Type.Object(
+        {
+          name: BrowserTeachInputName,
+          description: Type.Optional(Type.String({ maxLength: 200 })),
+        },
+        { description: "The value is an input the agent asks for each run" },
+      ),
+    ),
+  },
+  { $id: "BrowserTeachStep" },
+);
+export type BrowserTeachStep = Static<typeof BrowserTeachStep>;
 
 const ProposalResult = Type.Object(
   { proposal: SkillProposal, approval: ApprovalRequest },
@@ -459,6 +522,17 @@ export const SkillsMethods = {
     sideEffecting: true,
     description:
       "Side-effecting: replays the draft against today's tools, then stages it like skills.proposeInstall (trust card, device-only skill_install approval); install with skills.install. policy_denied when the replay or the policy refuses it.",
+  }),
+  "skills.drafts.fromRecording": defineMethod({
+    params: Type.Object({
+      title: Type.String({ minLength: 1, maxLength: 120, description: "The owner's name for it" }),
+      steps: Type.Array(BrowserTeachStep, { minItems: 1, maxItems: 200 }),
+    }),
+    result: Type.Object({ draft: SkillDraft }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Side-effecting: turns the owner's reviewed recording (teach by showing) into a skill draft. Sensitive steps keep no value, typed values are kept only when the owner chose to, and page text is quoted as untrusted. Accept it with skills.drafts.accept for the usual approval card.",
   }),
   "skills.drafts.dismiss": defineMethod({
     params: Type.Object({ draftId: Id }),

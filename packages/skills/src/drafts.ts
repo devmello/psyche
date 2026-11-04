@@ -11,17 +11,21 @@ import {
 import { dirname, join } from "node:path";
 import { inferApprovalKind } from "@psyche/permissions";
 import {
+  type BrowserTeachStep,
   PsycheError,
   type SideEffect,
   type SkillDraft,
   type SkillDraftReplay,
   type SkillDraftStatus,
   type SkillDraftStep,
+  sanitizeTeachSteps,
+  teachStepIssues,
 } from "@psyche/protocol";
 import { stringify } from "yaml";
 import { NAME_PATTERN, parseSkill } from "./frontmatter.ts";
 import type { FsSkillLoader, SkillProposal } from "./loader.ts";
 import { manifestOf } from "./manifest.ts";
+import { recordingDraftSteps, recordingSkillText } from "./recording.ts";
 import { readSkillDir, textOf } from "./tree.ts";
 
 /**
@@ -113,6 +117,7 @@ const DAY = 24 * 60 * 60 * 1000;
 const LINE_BREAKERS = /[\u0000-\u001f\u007f\u2028\u2029]+/g;
 const MAX_TEXT = 200;
 const STORE = "drafts.json";
+const MAX_OPEN_RECORDINGS = 20;
 
 const iso = (ms: number) => new Date(ms).toISOString();
 const unique = (xs: Iterable<string>) => [...new Set(xs)].sort();
@@ -269,6 +274,81 @@ export class SkillDrafts {
       redactions: generated.redactions,
     });
     return structuredClone(generated);
+  }
+
+  /**
+   * A draft from a demonstration the owner recorded and reviewed (teach by showing). Owner-
+   * initiated, so the per-thread limit does not apply; a draft per recording is capped instead.
+   * The steps are validated and cleaned again here (the review screen is not trusted to have done
+   * it): a sensitive step keeps no value, a value survives only when the owner kept it, and page
+   * text is quoted as untrusted in the skill. It stays a draft: accepting it replays the check and
+   * opens the usual `skill_install` approval.
+   */
+  proposeFromRecording(input: { title: string; steps: readonly BrowserTeachStep[] }): SkillDraft {
+    const issues = teachStepIssues(input.steps);
+    if (issues.length > 0)
+      throw new PsycheError(
+        "invalid_params",
+        `the recording cannot become a skill: ${issues.join("; ")}`,
+      );
+    const steps = sanitizeTeachSteps(input.steps);
+    const store = this.#read();
+    this.#expire(store);
+    const signature: `sha256:${string}` = `sha256:${createHash("sha256")
+      .update(`psyche.recording.v1|${JSON.stringify(steps)}`)
+      .digest("hex")}`;
+    const same = store.drafts.find((d) => d.signature === signature && d.status === "open");
+    if (same !== undefined) return structuredClone(same);
+    const open = store.drafts.filter((d) => d.status === "open" && d.origin === "recording");
+    if (open.length >= MAX_OPEN_RECORDINGS)
+      throw new PsycheError(
+        "conflict",
+        `at most ${MAX_OPEN_RECORDINGS} recordings wait to be accepted; accept or dismiss one first`,
+      );
+    const scrubbed = this.scrub(input.title);
+    const title = scrubbed.text === "" ? "Recorded task" : scrubbed.text;
+    const name = this.#nameFor(title, signature, store);
+    const text = recordingSkillText({ name, title, steps });
+    const parsed = parseSkill(text, name);
+    if (!parsed.ok)
+      throw new PsycheError("invalid_params", `not a valid skill: ${parsed.errors.join("; ")}`);
+    const manifest = manifestOf(parsed.skill.meta);
+    if (!manifest.ok)
+      throw new PsycheError(
+        "invalid_params",
+        `invalid skill manifest: ${manifest.errors.join("; ")}`,
+      );
+    const at = iso(this.#now());
+    const draft: SkillDraft = {
+      id: this.#newId(),
+      threadId: "recording",
+      name,
+      description: parsed.skill.meta.description,
+      text,
+      manifest: manifest.manifest as SkillDraft["manifest"],
+      steps: recordingDraftSteps(steps),
+      occurrences: 2,
+      signature,
+      redactions: scrubbed.redactions,
+      // The steps carry page text: the draft says so, and the card shows the warning.
+      tainted: true,
+      edited: false,
+      status: "open",
+      createdAt: at,
+      updatedAt: at,
+      origin: "recording",
+    };
+    store.drafts.push(draft);
+    this.#write(store);
+    this.#emit(draft, "skill.draft.proposed", {
+      origin: "recording",
+      steps: steps.length,
+      sensitiveSteps: steps.filter((x) => x.sensitive === true).length,
+      keptValues: steps.filter((x) => x.keepValue === true).length,
+      inputs: steps.filter((x) => x.input !== undefined).length,
+      redactions: scrubbed.redactions,
+    });
+    return structuredClone(draft);
   }
 
   /**

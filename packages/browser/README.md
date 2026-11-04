@@ -29,6 +29,7 @@ The pane UI and the Electron `WebContentsView` host belong to S11.
 | `src/realchrome/` | `launchRealChrome`, `findBrandedChrome`: the Psyche Chrome profile for real-Chrome mode (I13) |
 | `src/drivers/routing.ts` | `createRoutingDriver`: one driver API over the pane's driver and an attached real Chrome |
 | `src/recording/` | `FileRecordingSink` (frames, snapshots and the event log), `RecordingStore` (reads them back for `browser.recordings.*`) |
+| `src/teach/` | Teach by showing: the page script, `TeachRecorder` (owner-started only, built by the desktop app), `TeachKeptStore`, `matchRecordedTarget` behind `browser.check_target` ([design](../../docs/design/teach-by-showing-2026.md)) |
 | `src/tools/` | `registerBrowserTools`, `classifyActivation`, `ApprovalGate` |
 | `@psyche/browser/testing` | fixture site DSL, `FixtureServer`, `MockBrowser`, `MockDesktop` |
 | `@psyche/browser/conformance` | `describeBrowserDriverConformance` (imports vitest; a test-only entry, so `vitest` is a devDependency here and callers bring their own — it never reaches a production install, #299 DEP-12) |

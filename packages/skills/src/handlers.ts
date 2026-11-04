@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import {
   type ApprovalRequest,
+  type BrowserTeachStep,
   type PermissionBroker,
   PsycheError,
   type SkillDraft,
@@ -50,6 +51,10 @@ export interface SkillsHandlers {
   "skills.drafts.accept": (p: {
     draftId: string;
   }) => Promise<ProposalResult & { draft: SkillDraft }>;
+  "skills.drafts.fromRecording": (p: {
+    title: string;
+    steps: BrowserTeachStep[];
+  }) => Promise<{ draft: SkillDraft }>;
   "skills.drafts.dismiss": (p: { draftId: string }) => Promise<{ draft: SkillDraft }>;
   /** The staged proposal (full text, files, findings, diff) for an approval card on any device. */
   "skills.getProposal": (p: { proposalId: string }) => Promise<{ proposal: SkillProposal }>;
@@ -76,17 +81,19 @@ export function createSkillsHandlers(
 ): SkillsHandlers {
   const requestApproval = async (
     proposal: SkillProposal,
-    proposedBy?: "agent",
+    proposedBy?: "agent" | "recording",
   ): Promise<ProposalResult> => {
     const counts = summarizeFindings(proposal.findings);
     const verb =
       proposedBy === "agent"
         ? "Install skill Psyche proposed"
-        : proposal.scope === "workspace"
-          ? "Approve workspace skill"
-          : proposal.update !== undefined
-            ? "Update skill"
-            : "Install skill";
+        : proposedBy === "recording"
+          ? "Install skill from your recording"
+          : proposal.scope === "workspace"
+            ? "Approve workspace skill"
+            : proposal.update !== undefined
+              ? "Update skill"
+              : "Install skill";
     const issued = await opts.broker.requestApproval({
       kind: "skill_install",
       summary: `${verb} "${proposal.name}"${counts.high > 0 ? ` (${counts.high} high-severity findings: it will stay disabled)` : ""}`,
@@ -183,9 +190,16 @@ export function createSkillsHandlers(
     async "skills.drafts.accept"(p) {
       const drafts = needDrafts();
       const { proposal } = await drafts.accept(p.draftId);
-      const result = await requestApproval(proposal, "agent");
+      const origin = drafts.get(p.draftId).origin;
+      const result = await requestApproval(
+        proposal,
+        origin === "recording" ? "recording" : "agent",
+      );
       const draft = drafts.accepted(p.draftId, proposal.id, result.approval.id);
       return { ...result, draft };
+    },
+    async "skills.drafts.fromRecording"(p) {
+      return { draft: needDrafts().proposeFromRecording(p) };
     },
     async "skills.drafts.dismiss"(p) {
       return { draft: needDrafts().dismiss(p.draftId) };

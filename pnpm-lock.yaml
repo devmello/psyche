@@ -225,6 +225,9 @@ importers:
 
   apps/desktop:
     dependencies:
+      '@psyche/browser':
+        specifier: workspace:*
+        version: link:../../packages/browser
       '@psyche/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol

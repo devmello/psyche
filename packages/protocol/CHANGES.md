@@ -18,6 +18,12 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-04 (teach by showing in the built-in browser, J8 phase 1)
+
+- New method `skills.drafts.fromRecording` (`operator.admin`, side-effecting): turns the owner's reviewed recording into a skill draft. Params `title` and `steps` (1 to 200 `BrowserTeachStep`); result `{ draft }`. A sensitive step carries no value; a value is accepted only on a `type` or `select` step with `keepValue: true` that is not sensitive and not an input (otherwise `invalid_params`). Page text in the steps is quoted as untrusted in the draft. Accepting it is the existing `skills.drafts.accept` (replay check, device-only `skill_install` card). Nothing starts or reads a recording over the protocol: the recorder is local to the desktop app.
+- New types `BrowserTeachStep`, `BrowserTeachStepKind` and `BrowserTeachInputName` (the Mac-app recorder's shapes stay `TeachStep` in `schemas/teach.ts`). `SkillDraft` gains optional `origin` (`SkillDraftOrigin`: `routine` or `recording`).
+- New `browser-teach.ts` helpers, shared by the recorder, the Gateway and the review screen: `classifyTeachField`, `classifyTeachValue`, `teachUrl`, `teachText`, `sanitizeTeachSteps` and `teachStepIssues`. Design: docs/design/teach-by-showing-2026.md.
+
 ### v1 additive — 2026-11-04 (pairing links, remote Gateway R2)
 
 - `ConnectVerifyParams.setupToken` (optional): a one-time setup token from a pairing link. It is sent in `connect.verify`, not `connect`, so only a client that already verified the Gateway's key presents it; the Gateway honours it only for a `role: client` on the WebSocket without an `Origin`, and only with a v2 (`gatewayKey`) connect. `ConnectDenied.code` (optional, `setup_token_invalid`): a used, expired, revoked or not-allowed token is a denial, never a pending request.

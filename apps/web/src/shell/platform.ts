@@ -179,6 +179,43 @@ export interface BrowserHostState {
   activeTabId: string | null;
   /** The Gateway's CDP driver is connected over the bridge socket. */
   bridgeConnected: boolean;
+  /**
+   * The owner is recording a task (teach by showing): the tab, the steps so far, and why it ended
+   * if it ended without Stop. Absent or null when nothing is recorded.
+   */
+  recording?: { tabId: string; steps: number; ended?: "limit" | "interrupted" } | null;
+}
+
+/**
+ * One step as the recorder captured it, for the review screen. `sample` is what the owner typed
+ * into an ordinary field; it never exists for a sensitive field. It stays in this window until
+ * Save, and Save sends it only where the owner chose to keep it.
+ */
+export interface TeachCapturedStep {
+  id: string;
+  kind: "navigate" | "click" | "type" | "select" | "press";
+  url?: string;
+  role?: string;
+  name?: string;
+  selector?: string;
+  key?: string;
+  sensitive?: boolean;
+  sample?: string;
+}
+
+/** What Stop hands the review screen. */
+export interface TeachCapture {
+  id: string;
+  endedBy: "stop" | "limit" | "interrupted";
+  steps: TeachCapturedStep[];
+}
+
+/** A recording the owner chose to keep on this Mac: the reviewed steps only. */
+export interface KeptRecordingView {
+  id: string;
+  title: string;
+  keptAt: number;
+  steps: import("@psyche/protocol").BrowserTeachStep[];
 }
 
 export type BrowserNav =
@@ -227,6 +264,22 @@ export interface BrowserPort {
    * no DevTools port, so the owner can sign in there; resolves to the profile's directory.
    */
   openRealChromeProfile?(profile?: string): Promise<{ path: string }>;
+  /**
+   * Teach by showing (feature J8): Record, Stop and the kept recordings. Owner-only: they exist
+   * only here, behind the pane's own buttons; the agent has no way to call them.
+   */
+  teachStart?(tabId: string): Promise<void>;
+  teachStop?(): Promise<TeachCapture>;
+  teachCancel?(): Promise<void>;
+  /** Keeps the reviewed steps on this Mac. The recording is otherwise gone once it is saved. */
+  teachKeep?(
+    id: string,
+    title: string,
+    steps: import("@psyche/protocol").BrowserTeachStep[],
+  ): Promise<KeptRecordingView>;
+  teachKept?(): Promise<KeptRecordingView[]>;
+  teachOpenKept?(id: string): Promise<KeptRecordingView>;
+  teachDeleteKept?(id: string): Promise<void>;
 }
 
 export interface TerminalOpenResult {

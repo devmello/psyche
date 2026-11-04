@@ -136,6 +136,15 @@ const bridge = {
     forgetSignedInSite: (origin: string) => invoke(IPC.browserSignedInForget, origin),
     openRealChromeProfile: (profile?: string) =>
       invoke(IPC.browserOpenRealChromeProfile, profile ?? "default"),
+    // Teach by showing: owner-only, from the pane's own buttons.
+    teachStart: (tabId: string) => invoke(IPC.teachStart, { tabId }),
+    teachStop: () => invoke(IPC.teachStop),
+    teachCancel: () => invoke(IPC.teachCancel),
+    teachKeep: (id: string, title: string, steps: unknown) =>
+      invoke(IPC.teachKeep, { id, title, steps }),
+    teachKept: () => invoke(IPC.teachKept),
+    teachOpenKept: (id: string) => invoke(IPC.teachOpenKept, { id }),
+    teachDeleteKept: (id: string) => invoke(IPC.teachDeleteKept, { id }),
   },
   windows: {
     popOutPane: (route: string, title: string) => invoke(IPC.windowPopOut, { route, title }),
