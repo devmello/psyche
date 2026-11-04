@@ -67,8 +67,8 @@ enum ChatMapping {
     /// An SF Symbol for a tool name, from a few families; anything else is a generic gear.
     static func symbol(forTool tool: String) -> String {
         let name = tool.lowercased()
+        if name.contains("mail") { return "envelope" }
         if name.contains("search") || name.contains("web") { return "magnifyingglass" }
-        if name.contains("mail") || name.contains("email") { return "envelope" }
         if name.contains("calendar") { return "calendar" }
         if name.contains("file") || name.contains("read") || name.contains("write") || name.contains("doc") { return "doc" }
         if name.contains("browser") || name.contains("navigate") { return "safari" }

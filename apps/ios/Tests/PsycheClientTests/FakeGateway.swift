@@ -98,8 +98,12 @@ final class FakeGateway: @unchecked Sendable {
             transport.reply(req.id, .success(result))
         default:
             let handler = lock.withLock { _handlers[req.method] }
-            if let handler { transport.reply(req.id, handler(req)) }
-            // No handler: stay silent so tests can exercise timeouts.
+            if let handler {
+                transport.reply(req.id, handler(req))
+            } else if !req.method.hasPrefix("silent.") {
+                transport.reply(req.id, .failure(WireError(code: "unknown_method", message: "no such method")))
+            }
+            // "silent.*" methods are never answered, so tests can exercise timeouts.
         }
     }
 }

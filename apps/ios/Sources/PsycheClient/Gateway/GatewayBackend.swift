@@ -18,13 +18,17 @@ public final class GatewayBackend: PsycheBackend, Sendable {
 
     // MARK: - Helpers shared by the feature files
 
+    /// How long a call may take. Optional sections of a screen use a shorter budget (see `optional`).
+    @TaskLocal static var callTimeout: Duration = .seconds(20)
+
     func call(_ method: String, _ params: JSONValue? = nil, key: String? = nil) async throws -> JSONValue {
-        try await client.call(method, params: params, idempotencyKey: key)
+        try await client.call(method, params: params, idempotencyKey: key, timeout: Self.callTimeout)
     }
 
-    /// Runs optional pieces of a screen: a failure leaves that section empty instead of failing the whole read.
+    /// Runs optional pieces of a screen: a failure or a slow answer leaves that section empty instead of
+    /// failing or stalling the whole read.
     func optional<T: Sendable>(_ work: @Sendable () async throws -> T) async -> T? {
-        try? await work()
+        try? await Self.$callTimeout.withValue(.seconds(8)) { try await work() }
     }
 
     func settled<T: Sendable>(_ work: @Sendable () async throws -> T) async -> Result<T, any Error> {

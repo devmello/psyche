@@ -224,10 +224,12 @@ public actor GatewayClient {
     // MARK: - Calls
 
     /// A call on the live connection. Throws `BackendError.unreachable` when there is none.
-    public func call(_ method: String, params: JSONValue? = nil, idempotencyKey: String? = nil) async throws -> JSONValue {
+    public func call(
+        _ method: String, params: JSONValue? = nil, idempotencyKey: String? = nil, timeout: Duration = .seconds(20)
+    ) async throws -> JSONValue {
         guard case .live = state, let connection else { throw BackendError.unreachable }
         do {
-            return try await connection.call(method, params: params, idempotencyKey: idempotencyKey)
+            return try await connection.call(method, params: params, idempotencyKey: idempotencyKey, timeout: timeout)
         } catch {
             throw Self.backendError(error)
         }
