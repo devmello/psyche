@@ -9,6 +9,8 @@ final class HomeModel {
     private(set) var comingUp: [TodoItem] = []
     private(set) var laterTodos: [TodoItem] = []
     private(set) var unreadInbox = 0
+    /// Home's Pinned section (§4.1 item 7): up to 6 widgets, empty when nothing is pinned.
+    private(set) var pinnedWidgets: [WidgetSnapshot] = []
     /// A quiet line shown for a moment (a failed nudge, "Live Activities arrive…").
     private(set) var notice: String?
     private let store: any PsycheBackend
@@ -23,6 +25,7 @@ final class HomeModel {
         if phase.value == nil { phase = .loading }
         async let memory = try? store.memory()
         async let inbox = try? store.inbox()
+        async let pinned = try? store.pinnedWidgets()
         do {
             phase = .loaded(try await store.home())
         } catch {
@@ -34,6 +37,7 @@ final class HomeModel {
             laterTodos = Array(open.filter { $0.bucket == .later }.prefix(3))
         }
         if let inbox = await inbox { unreadInbox = inbox.filter { !$0.read }.count }
+        if let pinned = await pinned { pinnedWidgets = Array(pinned.prefix(6)) }
     }
 
     /// Refetches when Home's data changed or the connection resynced, until the view goes away.

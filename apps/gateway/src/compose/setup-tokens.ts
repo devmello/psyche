@@ -1,5 +1,11 @@
 import { hostname } from "node:os";
-import { createSetupToken, listSetupTokens, type PsycheDb, revokeSetupToken } from "@psyche/db";
+import {
+  createSetupToken,
+  getDevice,
+  listSetupTokens,
+  type PsycheDb,
+  revokeSetupToken,
+} from "@psyche/db";
 import {
   type AuditLog,
   type DeviceScope,
@@ -8,6 +14,7 @@ import {
   PsycheError,
 } from "@psyche/protocol";
 import type { Call, HandlerDef } from "../context.ts";
+import type { Logger } from "../log.ts";
 
 /**
  * Setup tokens and pairing links on the Host (remote-gateway design §3.4). Settings → Server &
@@ -39,6 +46,26 @@ export function auditSetupTokenUse(
       tokenId: used.tokenId,
     },
   });
+}
+
+/**
+ * The hook for a computer that paired itself with a token: audits it, and when the append fails
+ * says so in the log (the code only, never the token or the error text) instead of dropping it.
+ */
+export function setupTokenUsedHook(deps: {
+  db: PsycheDb;
+  audit: Pick<AuditLog, "append">;
+  log?: Logger;
+}): (used: { tokenId: string; deviceId: string; scopes: DeviceScope[] }) => void {
+  return (used) => {
+    const name = getDevice(deps.db, used.deviceId)?.name;
+    void auditSetupTokenUse(deps.audit, used, name).catch((err: unknown) => {
+      deps.log?.log("warn", "audit append for a setup-token pairing failed", {
+        tokenId: used.tokenId,
+        code: PsycheError.from(err).code,
+      });
+    });
+  };
 }
 
 export function setupTokenHandlers(deps: {
@@ -103,11 +130,22 @@ export function setupTokenHandlers(deps: {
           setupToken: token,
           hostName,
         });
-        await audit.append({
-          kind: SETUP_TOKEN_CREATED_AUDIT_KIND,
-          actor: { type: "device", deviceId: call.identity.deviceId },
-          data: { tokenId: record.id, scopes: record.scopes, expiresAt: record.expiresAt },
-        });
+        try {
+          await audit.append({
+            kind: SETUP_TOKEN_CREATED_AUDIT_KIND,
+            actor: { type: "device", deviceId: call.identity.deviceId },
+            data: { tokenId: record.id, scopes: record.scopes, expiresAt: record.expiresAt },
+          });
+        } catch (err) {
+          // A way in nobody can audit is not handed out: the link is withheld, so the token that
+          // belongs to it is revoked rather than left live and unknown to the owner.
+          revokeSetupToken(db, record.id);
+          call.ctx.log.log("warn", "audit append for a new setup token failed; token revoked", {
+            tokenId: record.id,
+            code: PsycheError.from(err).code,
+          });
+          throw new PsycheError("unavailable", "The pairing link could not be recorded; try again");
+        }
         return {
           setupToken: record,
           link,

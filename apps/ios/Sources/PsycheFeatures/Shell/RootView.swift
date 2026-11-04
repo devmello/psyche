@@ -1,3 +1,4 @@
+import PsycheBlocks
 import PsycheClient
 import PsycheDesign
 import PsycheStore
@@ -26,6 +27,18 @@ public struct RootView: View {
         }
         .environment(router)
         .environment(\.backend, store)
+        // Generative-UI widgets (chat blocks and Home's Pinned section): same backend, and the host's
+        // routes and composer for the actions that leave a widget.
+        .environment(\.widgetBackend, store)
+        .environment(
+            \.widgetHandlers,
+            WidgetHandlers(
+                openRoute: { [router] path in
+                    guard Route(appPath: path) != nil else { return false }
+                    router.open(appPath: path)
+                    return true
+                },
+                prefillReply: { [router] text in router.askPsyche(text) }))
         // psyche://<route> only, never a Gateway URL or key (docs/design/ios-app-2026.md §4).
         #if DEBUG
         // `simctl launch … -psycheOpen /chat/thr_q3` opens a route without a tap (screenshots, demos).
