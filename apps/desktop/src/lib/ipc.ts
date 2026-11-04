@@ -26,6 +26,8 @@ export const IPC = {
   gatewaysPendingLink: "psyche:gateways:pending-link",
   /** A pairing link is waiting: ask `gatewaysPendingLink`. Carries nothing. */
   gatewaysLinkOpened: "psyche:gateways:link-opened",
+  gatewaysDiscover: "psyche:gateways:discover",
+  gatewaysAddDiscovered: "psyche:gateways:add-discovered",
   gatewaysRename: "psyche:gateways:rename",
   gatewaysRemove: "psyche:gateways:remove",
   gatewaysSwitch: "psyche:gateways:switch",
@@ -60,6 +62,9 @@ export const IPC = {
   windowOpenInMain: "psyche:window:open-in-main",
   shellCommand: "psyche:shell:command",
   notifyShow: "psyche:notify:show",
+  // A passkey for the remote Gateway, made in a window of its origin (remote windows only).
+  passkeyCreate: "psyche:passkey:create",
+  passkeyGet: "psyche:passkey:get",
   // The bundled Mac helper's launch and pairing state (onboarding, Settings → Devices).
   helperGetState: "psyche:helper:get-state",
   helperState: "psyche:helper:state",
@@ -181,6 +186,37 @@ export function checkExternalUrl(v: unknown): string {
     return u.href;
   }
   return checkHttpUrl(IPC.openExternal, raw);
+}
+
+/**
+ * What only a client of another computer's Gateway does (remote-gateway design §6.2): a passkey
+ * for that Gateway's site. Main refuses these in a window of This Mac's own Gateway.
+ */
+export const REMOTE_ONLY_CHANNELS: ReadonlySet<string> = new Set([
+  IPC.passkeyCreate,
+  IPC.passkeyGet,
+]);
+
+/** WebAuthn options from the renderer: a JSON object, small, never more. */
+export function checkPasskeyOptions(channel: string, v: unknown): Record<string, unknown> {
+  const o = rec(channel, v);
+  let size: number;
+  try {
+    size = JSON.stringify(o).length;
+  } catch {
+    throw new IpcPayloadError(channel, "options are not plain JSON");
+  }
+  if (size > 16_384) throw new IpcPayloadError(channel, "options are too large");
+  return o;
+}
+
+/** The key a call retries under (the chat outbox): short, plain characters. */
+export function checkIdempotencyKey(v: unknown): string | undefined {
+  if (v === undefined) return undefined;
+  const s = str(IPC.call, v, "idempotencyKey", 128);
+  if (!/^[A-Za-z0-9_.:-]+$/.test(s))
+    throw new IpcPayloadError(IPC.call, "idempotencyKey has odd characters");
+  return s;
 }
 
 /** Methods the renderer may call through main: any protocol method except the handshake. */

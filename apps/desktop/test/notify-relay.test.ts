@@ -73,3 +73,48 @@ describe("notification relay", () => {
     expect(route("task_done", "/chat/th_1?message=<script>")).toBe("/inbox");
   });
 });
+
+describe("a client of another computer's Gateway (remote R2)", () => {
+  const toast = {
+    id: "01JBXY6Q8Z0000000000000009",
+    kind: "approval" as const,
+    title: "Buy a flight",
+    body: "$412 on Delta",
+    route: "/chat/th_1?approval=ap_1",
+    interruption: "timeSensitive" as const,
+  };
+
+  it("shows the Host's device toast once, opening its card, never with actions", () => {
+    const r = new NotificationRelay();
+    r.remote = true;
+    const d = r.decideDevice(toast);
+    expect(d).toMatchObject({
+      show: true,
+      title: "Buy a flight",
+      route: "/chat/th_1?approval=ap_1",
+      urgency: "critical",
+    });
+    expect(d).not.toHaveProperty("actions");
+    expect(r.decideDevice(toast)).toMatchObject({ show: false, reason: "duplicate" });
+  });
+
+  it("keeps the interruption level, and falls back to the right place for a bad route", () => {
+    const r = new NotificationRelay();
+    expect(r.decideDevice({ ...toast, id: "a", interruption: "passive" }).urgency).toBe("low");
+    expect(r.decideDevice({ ...toast, id: "b", interruption: "active" }).urgency).toBe("normal");
+    expect(r.decideDevice({ ...toast, id: "c", route: "https://evil.example/x" }).route).toBe(
+      "/agent/approvals",
+    );
+    expect(r.decideDevice({ ...toast, id: "d", kind: "task_done", route: null }).route).toBe(
+      "/inbox",
+    );
+  });
+
+  it("ignores a malformed event, and the in-app fallback stays quiet (the Host routes)", () => {
+    const r = new NotificationRelay();
+    r.remote = true;
+    expect(r.decideDevice({ title: "x" }).reason).toBe("malformed");
+    expect(r.decideDevice(null).reason).toBe("malformed");
+    expect(r.decide(base).reason).toBe("host_routes");
+  });
+});

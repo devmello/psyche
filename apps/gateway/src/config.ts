@@ -43,7 +43,13 @@ export interface GatewayConfig {
    * Trusted-proxy mode (Tailscale Serve, Cloudflare Access). Only unlocks passkey login for the
    * web client later (INT-2); proxy identity headers never authorize anything by themselves.
    */
-  trustedProxy: { enabled: boolean; trustedProxies: string[]; tailscaleProxies?: string[] };
+  trustedProxy: {
+    enabled: boolean;
+    trustedProxies: string[];
+    tailscaleProxies?: string[];
+    /** Tailscale logins allowed to open a forwarded connection; empty means no narrowing. */
+    allowedLogins?: string[];
+  };
   /**
    * `loopback` (default) or `container` (`PSYCHE_BIND=container`, security §10 "Docker
    * defaults"): listen on the container interface; see `src/transport-gate.ts`.
@@ -106,7 +112,12 @@ interface ConfigFile {
     port?: number;
     allowedOrigins?: string[];
     publicOrigin?: string;
-    trustedProxy?: { enabled?: boolean; trustedProxies?: string[]; tailscaleProxies?: string[] };
+    trustedProxy?: {
+      enabled?: boolean;
+      trustedProxies?: string[];
+      tailscaleProxies?: string[];
+      allowedLogins?: string[];
+    };
     cloudflareAccess?: { teamDomain: string; audience: string };
     rateLimits?: Partial<RateLimitSettings>;
   };
@@ -297,8 +308,10 @@ export function readConfigFile(path: string): ConfigFile {
       bad("gateway.trustedProxy.enabled", "must be a boolean");
     const proxies = stringArray(tp.trustedProxies, "gateway.trustedProxy.trustedProxies");
     const tailscale = stringArray(tp.tailscaleProxies, "gateway.trustedProxy.tailscaleProxies");
+    const logins = stringArray(tp.allowedLogins, "gateway.trustedProxy.allowedLogins");
     out.trustedProxy = {
       ...(tp.enabled === undefined ? {} : { enabled: tp.enabled as boolean }),
+      ...(logins ? { allowedLogins: logins } : {}),
       ...(proxies ? { trustedProxies: proxies } : {}),
       ...(tailscale ? { tailscaleProxies: tailscale } : {}),
     };
@@ -413,6 +426,13 @@ export function resolveConfig(
     );
   }
   const tailscaleProxies = file.trustedProxy?.tailscaleProxies ?? [];
+  const allowedLogins = file.trustedProxy?.allowedLogins ?? [];
+  if (allowedLogins.length > 0 && !trustedProxyEnabled) {
+    throw new PsycheError(
+      "invalid_params",
+      "config.json: gateway.trustedProxy.allowedLogins needs trustedProxy.enabled",
+    );
+  }
   trustedProxyList(trustedProxies); // malformed CIDRs fail at startup
   trustedProxyList(tailscaleProxies);
   const publicOrigin = normalizePublicOrigin(
@@ -453,6 +473,7 @@ export function resolveConfig(
       enabled: trustedProxyEnabled,
       trustedProxies,
       tailscaleProxies,
+      allowedLogins,
     },
     bind,
     gatewayToken,

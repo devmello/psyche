@@ -279,6 +279,11 @@
         "payload": "#/$defs/NotificationCreatedPayload"
       },
       {
+        "description": "An OS notification for this connected remote desktop client (`device:<deviceId>` surface). Sent only to a connection that registered with `notifications.device.register`, to that device alone. It carries no action buttons: opening it opens the card, and approving happens in the card.",
+        "name": "notification.device",
+        "payload": "#/$defs/NotificationDevicePayload"
+      },
+      {
         "description": "The owner tapped an OS notification (the Mac helper's): clients open its route, a chat with the message or approval card, a run, or Scheduled → Runs.",
         "name": "notification.opened",
         "payload": "#/$defs/NotificationOpenedPayload"
@@ -1427,6 +1432,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Replaces the LAN TLS certificate and its key. Every client that pinned the old certificate must pair again. Needs fresh presence once a verifier is enrolled.",
+        "name": "gateway.lan.rotateCert",
+        "params": "#/$defs/GatewayLanRotateCertParams",
+        "result": "#/$defs/GatewayLanRotateCertResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
         "description": "Archives a goal and disables its check-ins. Side-effecting.",
         "name": "goals.archive",
         "params": "#/$defs/GoalsArchiveParams",
@@ -2423,6 +2436,14 @@
         "name": "nodes.list",
         "params": "#/$defs/NodesListParams",
         "result": "#/$defs/NodesListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Turns this connection's OS notifications on or off (`device:<deviceId>` surface). While on, the Host sends it `notification.device` events for what it would also put on the Host's own screen, with quiet hours and interruption levels applied. Lasts for this connection only: register again after reconnecting.",
+        "name": "notifications.device.register",
+        "params": "#/$defs/NotificationsDeviceRegisterParams",
+        "result": "#/$defs/NotificationsDeviceRegisterResult",
         "scope": "operator.read",
         "sideEffecting": false
       },
@@ -14080,6 +14101,16 @@
           "description": "base64url Ed25519 signature by the Gateway identity key over gatewaySigningPayload(nonce, serverOrigin, the connecting device's public key)",
           "pattern": "^[A-Za-z0-9_-]{86}$",
           "type": "string"
+        },
+        "lanCertSpki": {
+          "description": "LAN listener only: the SHA-256 (base64url) of the SPKI of the TLS certificate this connection was served with. The client compares it with the certificate it actually saw, so a relay with its own certificate is caught",
+          "pattern": "^[A-Za-z0-9_-]{43}$",
+          "type": "string"
+        },
+        "lanCertSignature": {
+          "description": "base64url Ed25519 signature by the Gateway identity key over lanCertSigningPayload(nonce, serverOrigin, device key, lanCertSpki)",
+          "pattern": "^[A-Za-z0-9_-]{86}$",
+          "type": "string"
         }
       },
       "required": [
@@ -19178,6 +19209,113 @@
         "trustedProxy": {
           "description": "gateway.trustedProxy is on",
           "type": "boolean"
+        },
+        "lan": {
+          "properties": {
+            "enabled": {
+              "description": "The `gateway.lan` setting is on",
+              "type": "boolean"
+            },
+            "port": {
+              "maximum": 65535,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "interfaces": {
+              "description": "The interface names or addresses the owner chose; empty = the default one",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "listening": {
+              "description": "What is bound right now; empty when off or when nothing could bind",
+              "items": {
+                "properties": {
+                  "address": {
+                    "type": "string"
+                  },
+                  "port": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "address",
+                  "port"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "candidates": {
+              "description": "Interfaces the owner can pick",
+              "items": {
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "address": {
+                    "type": "string"
+                  },
+                  "isDefault": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "name",
+                  "address",
+                  "isDefault"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "origin": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "https://<host>.local:<port> while listening"
+            },
+            "certSpki": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "SHA-256 (base64url) of the LAN certificate's SPKI: the cert pin"
+            },
+            "advertising": {
+              "description": "Bonjour `_psyche._tcp` is being advertised",
+              "type": "boolean"
+            },
+            "problems": {
+              "description": "Why something the owner asked for is not happening: unknown_interface:<name>, no_interface, bind_failed:<address>:<code>, container_bind, advertise_failed",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "enabled",
+            "port",
+            "interfaces",
+            "listening",
+            "candidates",
+            "origin",
+            "certSpki",
+            "advertising",
+            "problems"
+          ],
+          "type": "object"
         }
       },
       "required": [
@@ -19190,6 +19328,25 @@
     },
     "GatewayInfoParams": {
       "properties": {},
+      "type": "object"
+    },
+    "GatewayLanRotateCertParams": {
+      "properties": {
+        "approvalId": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "GatewayLanRotateCertResult": {
+      "properties": {
+        "certSpki": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "certSpki"
+      ],
       "type": "object"
     },
     "GatewayShutdownPayload": {
@@ -30643,6 +30800,55 @@
       ],
       "type": "object"
     },
+    "NotificationDevicePayload": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/NotificationKind"
+        },
+        "title": {
+          "type": "string"
+        },
+        "body": {
+          "type": "string"
+        },
+        "route": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "interruption": {
+          "enum": [
+            "passive",
+            "active",
+            "timeSensitive"
+          ],
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "title",
+        "body",
+        "interruption",
+        "createdAt"
+      ],
+      "type": "object"
+    },
     "NotificationKind": {
       "enum": [
         "approval",
@@ -30694,6 +30900,28 @@
       },
       "required": [
         "notification"
+      ],
+      "type": "object"
+    },
+    "NotificationsDeviceRegisterParams": {
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "enabled"
+      ],
+      "type": "object"
+    },
+    "NotificationsDeviceRegisterResult": {
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "enabled"
       ],
       "type": "object"
     },

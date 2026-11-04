@@ -5,6 +5,7 @@ import { useGatewayQuery } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { useSlots } from "../../slots.tsx";
 import { GatewaysGroup } from "./GatewaysGroup.tsx";
+import { LanAccessGroup } from "./LanAccessGroup.tsx";
 import { PairComputerGroup } from "./PairComputerGroup.tsx";
 import { RemoteAccessGroup } from "./RemoteAccessGroup.tsx";
 import {
@@ -219,6 +220,7 @@ export function ServerSection({ status, ...actions }: ServerSectionProps): React
         <>
           <RemoteAccessGroup />
           <PairComputerGroup />
+          <LanAccessGroup />
         </>
       ) : (
         <p className="text-callout text-label-secondary">

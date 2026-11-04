@@ -138,6 +138,62 @@ describe("renderer bridge", () => {
       expect(platform.app?.info).toBeDefined();
     });
 
+    it("offers passkeys for the Host's Gateway, with this window's device id", async () => {
+      const calls: string[] = [];
+      const bridge = {
+        ...remote,
+        gateway: { deviceId: async () => "dev-1" },
+        passkeys: {
+          create: async () => ({ ok: true, value: { id: "made" } }),
+          get: async () => {
+            calls.push("get");
+            return {
+              ok: false,
+              error: {
+                code: "cancelled",
+                message: "cancelled",
+                details: { name: "NotAllowedError" },
+              },
+            };
+          },
+        },
+      } as unknown as PsycheBridge;
+      const passkeys = desktopPlatform(bridge).passkeys;
+      expect(await passkeys?.deviceId()).toBe("dev-1");
+      expect(await passkeys?.authenticator.create({ challenge: "c" })).toEqual({ id: "made" });
+      // A cancelled sheet keeps its DOMException name, so the web client's wording applies.
+      await expect(passkeys?.authenticator.get({ challenge: "c" })).rejects.toMatchObject({
+        name: "NotAllowedError",
+      });
+      expect(calls).toEqual(["get"]);
+    });
+
+    it("keeps no passkeys for This Mac, which has the helper's Touch ID", () => {
+      const platform = desktopPlatform({
+        ...remote,
+        chrome: { titleBar: "native" },
+      } as unknown as PsycheBridge);
+      expect(platform.passkeys).toBeUndefined();
+    });
+
+    it("sends a call's idempotency key through to main", async () => {
+      const seen: unknown[][] = [];
+      const bridge = {
+        chrome: { titleBar: "native" },
+        gateway: {
+          call: async (...args: unknown[]) => {
+            seen.push(args);
+            return { ok: true, value: {} };
+          },
+        },
+      } as unknown as PsycheBridge;
+      const { call } = desktopPlatform(bridge).gateway;
+      await call("chat.send", { threadId: "t" }, { idempotencyKey: "outbox:1" });
+      await call("threads.list", {});
+      expect(seen[0]).toEqual(["chat.send", { threadId: "t" }, "outbox:1"]);
+      expect(seen[1]?.[2]).toBeUndefined();
+    });
+
     it("gives the terminal a session on the Host and never main's local PTY", async () => {
       const calls: Array<{ method: string; params: unknown }> = [];
       const local = {

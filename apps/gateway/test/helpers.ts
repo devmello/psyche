@@ -71,9 +71,13 @@ export class TestClient {
     });
   }
 
-  static open(url: string, headers: Record<string, string> = {}): Promise<TestClient> {
+  static open(
+    url: string,
+    headers: Record<string, string> = {},
+    options: WebSocket.ClientOptions = {},
+  ): Promise<TestClient> {
     return new Promise((resolve, reject) => {
-      const ws = new WebSocket(url, { headers });
+      const ws = new WebSocket(url, { ...options, headers });
       ws.once("open", () => resolve(new TestClient(ws)));
       ws.once("unexpected-response", (_req, res) => reject(new Error(`HTTP ${res.statusCode}`)));
       ws.once("error", reject);

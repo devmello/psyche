@@ -6,6 +6,14 @@ export const chat = {
   "chat.offline.unreachable":
     "Psyche isn't reachable right now. Tasks keep running; this window reconnects on its own.",
 
+  "chat.offline.waiting":
+    "Can't reach the Gateway right now. Messages you send wait here and go out when it's back.",
+  "chat.outbox.list": "Messages waiting to send",
+  "chat.outbox.waiting": "Waiting:",
+  "chat.outbox.old": "(over a day old)",
+  "chat.outbox.sendNow": "Send now",
+  "chat.outbox.remove": 'Don\'t send "{content}"',
+
   "chat.export.label": "Export thread",
   "chat.export.button": "Export",
   "chat.export.markdown": "Markdown",

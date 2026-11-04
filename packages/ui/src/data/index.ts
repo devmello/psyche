@@ -13,6 +13,7 @@ export { isEmptyUserChat } from "./empty-chat.ts";
 export * from "./files.ts";
 export * from "./hooks.ts";
 export * from "./insights.ts";
+export * from "./outbox.ts";
 export {
   GatewayProvider,
   type GatewayProviderProps,

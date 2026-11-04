@@ -50,6 +50,10 @@ export const FATAL_ERROR_CODES: readonly string[] = [
   "gateway_identity_invalid",
   "gateway_origin_mismatch",
   "gateway_pins_unreadable",
+  // A LAN Gateway's self-signed certificate (remote-gateway design §3.1, "LAN").
+  "gateway_cert_changed",
+  "gateway_cert_missing",
+  "gateway_cert_invalid",
 ];
 
 export function isFatalStatus(status: GatewayStatus): boolean {

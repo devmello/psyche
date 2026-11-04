@@ -1,7 +1,7 @@
 import { createHash, createPublicKey, verify } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { gatewaySigningPayload } from "@psyche/protocol";
+import { gatewaySigningPayload, lanCertSigningPayload } from "@psyche/protocol";
 import type { GatewayVerifier } from "@psyche/web/client";
 
 /**
@@ -120,6 +120,23 @@ export interface GatewayVerifierOptions {
    * exists is not either.
    */
   localKey?: () => string | undefined;
+  /**
+   * A Gateway on the local network, reached over a self-signed certificate (strict mode only).
+   * The challenge must carry the SPKI the Gateway says it served and its identity-key signature
+   * of that SPKI, and it must be the certificate this connection actually presented
+   * (`observedSpki`, from `PinnedChannel`): a machine that answers with its own certificate and
+   * relays the real Gateway's frames fails here. The certificate is also held to the pinned SPKI
+   * once there is one, and to the first one seen until then (trust on first use, like the key).
+   */
+  lan?: {
+    observedSpki: () => string | undefined;
+    pinnedSpki: () => string | undefined;
+  };
+  /**
+   * Strict mode: the key fingerprint a Bonjour listing announced for this Gateway (a hint kept
+   * with the saved entry). While no key is pinned, the key the Gateway proves must match it.
+   */
+  expectedFingerprint?: () => string | undefined;
 }
 
 /** A verifier, and the key it saw first when nothing was pinned yet (see `candidateKey`). */
@@ -130,10 +147,13 @@ export type PinningVerifier = GatewayVerifier & {
    * attempt pins nothing. Until then every attempt must present this same key.
    */
   candidateKey(): string | undefined;
+  /** The same for a LAN Gateway's certificate pin: stored once that connection is paired. */
+  candidateCertSpki(): string | undefined;
 };
 
 export function createGatewayVerifier(opts: GatewayVerifierOptions): PinningVerifier {
   let candidate: string | undefined;
+  let candidateCert: string | undefined;
   const verifier: GatewayVerifier = (challenge, devicePublicKey) => {
     const { gatewayKey, gatewaySignature } = challenge;
     if (opts.mode === "strict" && !originMatchesDialed(opts.dialedOrigin, challenge.serverOrigin)) {
@@ -172,8 +192,45 @@ export function createGatewayVerifier(opts: GatewayVerifierOptions): PinningVeri
         return { ok: false, code: "gateway_identity_changed" };
       } else if (candidate !== undefined && candidate !== gatewayKey) {
         return { ok: false, code: "gateway_identity_changed" };
+      } else if (
+        opts.expectedFingerprint?.() !== undefined &&
+        opts.expectedFingerprint() !== fingerprintOf(gatewayKey)
+      ) {
+        // The network announced one key and the Gateway proved another.
+        return { ok: false, code: "gateway_identity_changed" };
       } else {
         candidate = gatewayKey;
+      }
+      if (opts.lan !== undefined) {
+        const { lanCertSpki, lanCertSignature } = challenge;
+        const observed = opts.lan.observedSpki();
+        if (observed === undefined || lanCertSpki === undefined || lanCertSignature === undefined) {
+          return { ok: false, code: "gateway_cert_missing" };
+        }
+        const bound = lanCertSigningPayload({
+          nonce: challenge.nonce,
+          serverOrigin: challenge.serverOrigin,
+          devicePublicKey,
+          spki: lanCertSpki,
+        });
+        if (!verifySignature(gatewayKey, bound, lanCertSignature)) {
+          return { ok: false, code: "gateway_cert_invalid" };
+        }
+        // What the Gateway vouched for must be what this connection is talking to.
+        if (lanCertSpki !== observed) return { ok: false, code: "gateway_cert_changed" };
+        let pinnedCert: string | undefined;
+        try {
+          pinnedCert = opts.lan.pinnedSpki();
+        } catch {
+          return { ok: false, code: "gateway_pins_unreadable" };
+        }
+        if (pinnedCert !== undefined) {
+          if (pinnedCert !== observed) return { ok: false, code: "gateway_cert_changed" };
+        } else if (candidateCert !== undefined && candidateCert !== observed) {
+          return { ok: false, code: "gateway_cert_changed" };
+        } else {
+          candidateCert = observed;
+        }
       }
     } else {
       const own = opts.localKey?.();
@@ -188,5 +245,8 @@ export function createGatewayVerifier(opts: GatewayVerifierOptions): PinningVeri
       ...(opts.mode === "strict" ? { gatewayKey } : {}),
     };
   };
-  return Object.assign(verifier, { candidateKey: () => candidate });
+  return Object.assign(verifier, {
+    candidateKey: () => candidate,
+    candidateCertSpki: () => candidateCert,
+  });
 }

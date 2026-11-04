@@ -16,6 +16,7 @@ import {
 import { backoffDelay } from "./backoff.ts";
 import { type ConnectParams, type GatewayVerifier, Handshake, type Signer } from "./handshake.ts";
 import {
+  FATAL_ERROR_CODES,
   type GatewayStatus,
   INITIAL_STATUS,
   isFatalStatus,
@@ -38,7 +39,7 @@ export interface WebSocketLike {
   close(code?: number, reason?: string): void;
   addEventListener(
     type: "open" | "close" | "error" | "message",
-    cb: (ev: { data?: unknown }) => void,
+    cb: (ev: { data?: unknown; refusal?: string }) => void,
   ): void;
 }
 
@@ -298,8 +299,13 @@ export class GatewayConnection {
           ws.close(1000, "handshake failed");
         });
     });
-    ws.addEventListener("error", () => {
-      // "close" follows; nothing is logged.
+    ws.addEventListener("error", (ev) => {
+      // "close" follows; nothing is logged. A transport that refused the Gateway's certificate
+      // (a LAN Gateway whose pin did not match) says why, and the connection stops for good.
+      const refusal = (ev as { refusal?: unknown }).refusal;
+      if (typeof refusal === "string" && FATAL_ERROR_CODES.includes(refusal)) {
+        this.dispatch({ type: "error", code: refusal });
+      }
     });
     ws.addEventListener("close", () => {
       if (this.ws !== ws) return;

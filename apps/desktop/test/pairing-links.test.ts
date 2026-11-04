@@ -240,6 +240,22 @@ describe("GatewayManager with a pairing link", () => {
     }
   });
 
+  it("refuses a link to a Gateway on the local network until links carry a certificate pin", async () => {
+    const id = newIdentity();
+    const s = setup();
+    for (const gatewayUrl of [
+      "https://studio-mac.local:7979",
+      "https://192.168.1.20:7979",
+      "https://10.0.0.5",
+    ]) {
+      await expect(
+        s.local.addFromLink(encodePairingLink(linkFor(id, { gatewayUrl }))),
+      ).rejects.toMatchObject({ code: "invalid_params", details: { problem: "link_lan" } });
+    }
+    expect(s.confirms).toEqual([]);
+    expect(loadGateways(s.file, NOW).gateways).toEqual([]);
+  });
+
   it("saves nothing when the owner declines", async () => {
     const s = setup({ confirm: false });
     await expect(

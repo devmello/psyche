@@ -1,5 +1,5 @@
 import { chmodSync, existsSync, rmSync } from "node:fs";
-import { createServer, type IncomingMessage, type Server } from "node:http";
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import {
   createConnection,
@@ -9,7 +9,7 @@ import {
 } from "node:net";
 import { join } from "node:path";
 import type { Duplex } from "node:stream";
-import { getSetting, getThread, openDb, type PsycheDb } from "@psyche/db";
+import { getSetting, getThread, openDb, type PsycheDb, setSetting } from "@psyche/db";
 import {
   type AgentLoop,
   type DeviceScope,
@@ -50,11 +50,15 @@ import {
 } from "./http.ts";
 import { Idempotency } from "./idempotency.ts";
 import { loadOrCreateGatewayIdentity } from "./identity.ts";
+import { bonjourAdvertiser, type MdnsAdvertiser } from "./lan/discovery.ts";
+import type { LanInterface } from "./lan/interfaces.ts";
+import { type LanContext, type LanLimits, LanListener } from "./lan/listener.ts";
+import { LAN_SETTING, readLanSettings } from "./lan/settings.ts";
 import { createLogger, type Logger } from "./log.ts";
 import { allowedMapOrigins } from "./map-proxy.ts";
 import { NodeRegistry } from "./nodes/registry.ts";
 import { presenceStateFor } from "./presence-gate.ts";
-import { resolvePeer, trustedProxyList } from "./proxy.ts";
+import { normalizePeerAddress, resolvePeer, trustedProxyList } from "./proxy.ts";
 import { RateLimiter } from "./rate-limit.ts";
 import { type RecoveryReport, recoverAfterRestart } from "./recovery.ts";
 import {
@@ -67,7 +71,7 @@ import {
 import { RunTraceSink } from "./run-trace/sink.ts";
 import { SessionController } from "./session/controller.ts";
 import { ensureSocketDir, writeSocketPointer } from "./socket-path.ts";
-import { readStateVersion, writeStateVersion } from "./state-version.ts";
+import { INTERNAL_SETTING_PREFIX, readStateVersion, writeStateVersion } from "./state-version.ts";
 import { TransportGate } from "./transport-gate.ts";
 import { NdjsonDecoder } from "./transports/ndjson.ts";
 
@@ -77,6 +81,8 @@ import { NdjsonDecoder } from "./transports/ndjson.ts";
  */
 export const GATEWAY_VERSION: string = pkg.version;
 const WS_PATH = "/ws";
+/** The networks the owner enabled LAN listening on (internal: never readable by clients). */
+const LAN_NETWORKS_SETTING = `${INTERNAL_SETTING_PREFIX}lan.networks`;
 
 export interface GatewayOptions {
   config?: Partial<GatewayConfig>;
@@ -134,6 +140,16 @@ export interface GatewayOptions {
    * URL parameters). Every stored or streamed step text goes through it (run trace §4.6).
    */
   traceRedact?: (text: string) => string;
+  /**
+   * LAN listening backends (tests): the interface list, the host label, the mDNS advertiser
+   * (`null` = none) and connection limits. Production uses the machine's interfaces and Bonjour.
+   */
+  lan?: {
+    candidates?: () => LanInterface[];
+    hostLabel?: () => string;
+    advertiser?: MdnsAdvertiser | null;
+    limits?: Partial<LanLimits>;
+  };
 }
 
 export interface Gateway {
@@ -183,8 +199,14 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     mode: config.bind,
     token: config.gatewayToken,
     trustedProxies: proxies,
-    tailscaleProxies: trustedProxyList(config.trustedProxy.tailscaleProxies ?? []),
+    // Tailscale Serve on the loopback bind connects from loopback, so that is its default peer.
+    tailscaleProxies: trustedProxyList(
+      (config.trustedProxy.tailscaleProxies ?? []).length > 0 || config.bind !== "loopback"
+        ? (config.trustedProxy.tailscaleProxies ?? [])
+        : ["127.0.0.1/32", "::1"],
+    ),
     cfAccess,
+    allowedLogins: config.trustedProxy.allowedLogins ?? [],
   });
   const log = options.logger ?? createLogger();
   const now = options.now ?? (() => new Date());
@@ -201,6 +223,35 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
   const connections = new Set<Connection>();
   let connSeq = 0;
   let origin = "";
+  // The LAN listener exists always and listens only when the owner turned `gateway.lan` on.
+  const lan = new LanListener({
+    home: config.home,
+    log,
+    now,
+    identityFingerprint: identity.fingerprint,
+    onRequest: (req, res) => serveLan(req, res),
+    onUpgrade: (req, socket, head, lanContext) => handleUpgrade(req, socket, head, lanContext),
+    containerMode: config.bind === "container",
+    // Cloudflare Access in front means "reach this only through Access"; a second door that
+    // skips it is refused, not warned about.
+    blocked: () => (config.cloudflareAccess === null ? null : "cloudflare_access"),
+    networks: {
+      get: () => {
+        const v = getSetting(db, LAN_NETWORKS_SETTING)?.value;
+        return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : undefined;
+      },
+      set: (networks) => void setSetting(db, LAN_NETWORKS_SETTING, networks),
+    },
+    advertiser:
+      options.lan?.advertiser === undefined
+        ? bonjourAdvertiser((err) =>
+            log.log("warn", "bonjour error", { name: err instanceof Error ? err.name : "error" }),
+          )
+        : options.lan.advertiser,
+    ...(options.lan?.candidates ? { candidates: options.lan.candidates } : {}),
+    ...(options.lan?.hostLabel ? { hostLabel: options.lan.hostLabel } : {}),
+    ...(options.lan?.limits ? { limits: options.lan.limits } : {}),
+  });
 
   const broker = options.broker ?? new LockedPermissionBroker();
   const ctx = {
@@ -228,6 +279,10 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     failedChallenges: new RateLimiter(limits.failedChallengesPerMinute, 60_000, () =>
       now().getTime(),
     ),
+    lanPairings: {
+      perIp: new RateLimiter(limits.lanPairingsPerIpPerHour, 3_600_000, () => now().getTime()),
+      total: new RateLimiter(limits.lanPairingsTotalPerHour, 3_600_000, () => now().getTime()),
+    },
     deviceRequests: new RateLimiter(limits.deviceRequestsPerMinute, 60_000, () => now().getTime()),
     deviceSideEffects: new RateLimiter(limits.deviceSideEffectsPerMinute, 60_000, () =>
       now().getTime(),
@@ -237,9 +292,20 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     serverOrigin: () => origin,
     identity,
     challengeOrigin: (peer: PeerInfo) =>
-      config.publicOrigin !== null && peer.transport === "ws" && !peer.remoteLoopback
-        ? config.publicOrigin
-        : origin,
+      // A LAN peer is told the address it dialed on the LAN (`https://<host>.local:<port>`, or
+      // one of this Host's own LAN addresses), never the loopback or the public origin.
+      peer.lan === true
+        ? lan.originFor(peer.host)
+        : config.publicOrigin !== null && peer.transport === "ws" && !peer.remoteLoopback
+          ? config.publicOrigin
+          : origin,
+    lan: {
+      apply: (value: unknown, owner = false) => lan.apply(readLanSettings(value), owner),
+      status: () => lan.status(),
+      certSpki: () => lan.certSpki(),
+      rotateCert: () => lan.rotateCert(),
+      refresh: () => lan.refresh(),
+    },
     connections: () => connections,
   } as Omit<GatewayContext, "sessions" | "nodes" | "runTrace"> as GatewayContext;
   Object.assign(ctx, {
@@ -305,10 +371,19 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
   });
   const wss = new WebSocketServer({ noServer: true, maxPayload: 1_048_576 });
 
-  http.on("upgrade", (req: IncomingMessage, socket: Duplex, head: Buffer) => {
+  const handleUpgrade = (
+    req: IncomingMessage,
+    socket: Duplex,
+    head: Buffer,
+    lanContext: LanContext | null,
+  ) => {
     const url = new URL(req.url ?? "/", "http://gateway.invalid");
     const requestOrigin = req.headers.origin ?? null;
-    const allowed = new Set([origin, ...config.allowedOrigins]);
+    // A browser on the LAN names the origin it loaded the page from: only the LAN's own.
+    const allowed =
+      lanContext === null
+        ? new Set([origin, ...config.allowedOrigins])
+        : new Set([lanContext.origin, lan.originFor(req.headers.host)]);
     if (url.pathname !== WS_PATH || (requestOrigin !== null && !allowed.has(requestOrigin))) {
       // Security §10: reject any Origin outside the allowlist with 403, before the upgrade.
       log.log("warn", "websocket upgrade rejected", {
@@ -317,6 +392,20 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
       });
       socket.write("HTTP/1.1 403 Forbidden\r\nConnection: close\r\nContent-Length: 0\r\n\r\n");
       socket.destroy();
+      return;
+    }
+    if (lanContext !== null) {
+      // The LAN listener's own connections: never loopback (whatever the address is), forwarding
+      // headers are not believed (no proxy is in front of it) and the container and Cloudflare
+      // gates do not apply to it. Pairing, the key binding and every rate limit still do.
+      acceptUpgrade(req, socket, head, requestOrigin, {
+        remoteAddress: normalizePeerAddress(req.socket.remoteAddress ?? "unknown"),
+        remoteLoopback: false,
+        forwarded: false,
+        claimedIdentity: null,
+        lan: true,
+        host: req.headers.host ?? null,
+      });
       return;
     }
     // Proxy headers never authorize the API; every device pairs (security §10). They only make a
@@ -338,14 +427,28 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
       }
       acceptUpgrade(req, socket, head, requestOrigin, admission.peer);
     });
-  });
+  };
+  http.on("upgrade", (req: IncomingMessage, socket: Duplex, head: Buffer) =>
+    handleUpgrade(req, socket, head, null),
+  );
+
+  /** The LAN listener serves the health check and the WebSocket, nothing else. */
+  const serveLan = (req: IncomingMessage, res: ServerResponse) => {
+    const path = new URL(req.url ?? "/", "http://gateway.invalid").pathname;
+    const ok = path === "/healthz" && (req.method === "GET" || req.method === "HEAD");
+    res.writeHead(ok ? 200 : 404, {
+      "content-type": "application/json",
+      "cache-control": "no-store",
+    });
+    res.end(JSON.stringify(ok ? { ok: true } : { ok: false, error: "not found" }));
+  };
 
   const acceptUpgrade = (
     req: IncomingMessage,
     socket: Duplex,
     head: Buffer,
     requestOrigin: string | null,
-    peer: ReturnType<typeof resolvePeer>,
+    peer: ReturnType<typeof resolvePeer> & { lan?: true; host?: string | null },
   ) => {
     wss.handleUpgrade(req, socket, head, (ws: WebSocket) => {
       const conn = new Connection(
@@ -356,6 +459,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
           remoteAddress: peer.remoteAddress,
           origin: requestOrigin,
           claimedIdentity: peer.claimedIdentity,
+          ...(peer.lan === true ? { lan: true as const, host: peer.host ?? null } : {}),
         },
         {
           send: (f) => ws.readyState === ws.OPEN && ws.send(f),
@@ -365,6 +469,10 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
         ctx,
       );
       connections.add(conn);
+      // A LAN socket that has not finished `connect` can be closed or evicted (lan/listener.ts).
+      if (peer.lan === true) {
+        lan.bindAuth(socket, () => conn.phase === "paired" || conn.phase === "pending");
+      }
       ws.on("message", (data, isBinary) => {
         if (isBinary) {
           conn.close("binary frames are not supported");
@@ -468,6 +576,14 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     chmodSync(config.guestSocketPath, 0o600);
   }
 
+  // LAN listening only when the owner turned it on (`gateway.lan`); a failure here (no usable
+  // interface, no certificate) leaves the Gateway on loopback, which is where it was.
+  try {
+    await lan.apply(readLanSettings(getSetting(db, LAN_SETTING)?.value));
+  } catch (err) {
+    log.log("warn", "lan listener failed to start", { code: PsycheError.from(err).code });
+  }
+
   // Follow-ups queued before the restart run now; then the hourly retention sweep.
   ctx.sessions.drainAll();
   runRetention(ctx);
@@ -498,6 +614,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
       await ctx.sessions.stop();
       for (const conn of connections) conn.close(reason);
       connections.clear();
+      await lan.stop();
       for (const client of wss.clients) client.terminate();
       await new Promise<void>((r) => wss.close(() => r()));
       await new Promise<void>((r) => nodeServer.close(() => r()));
