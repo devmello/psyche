@@ -45,6 +45,8 @@ import {
 } from "./lib/gateways.ts";
 import {
   checkCallable,
+  checkIdempotencyKey,
+  checkPasskeyOptions,
   checkClipboardText,
   checkComposerText,
   checkExternalUrl,
@@ -55,11 +57,14 @@ import {
   checkViewport,
   IPC,
   num,
+  REMOTE_ONLY_CHANNELS,
   REMOTE_REFUSED_CHANNELS,
   rec,
   str,
 } from "./lib/ipc.ts";
 import { NotificationRelay } from "./lib/notify-relay.ts";
+import { PasskeyHost } from "./main/passkey-host.ts";
+import { createPasskeyWindow } from "./main/passkey-window.ts";
 import { pairingEdge } from "./lib/pairing-edge.ts";
 import { realChromeOpenCommand, realChromeProfileDir } from "./lib/real-chrome.ts";
 import { checkSourceOpen, openSource } from "./lib/source-open.ts";
@@ -236,6 +241,7 @@ let screenAsk: ScreenAskWindow | undefined;
 let screenAskShortcut: ScreenAskShortcut | undefined;
 let dictation: DictationService | undefined;
 const relay = new NotificationRelay();
+relay.remote = remoteGateway;
 const zoom = new ZoomController({
   targets: () => windows?.appContents() ?? [],
   call: (method, params) => requireGateway().call(method, params),
@@ -325,6 +331,12 @@ function handle(channel: string, fn: Handler): void {
       return {
         ok: false,
         error: { code: "forbidden", message: "That only works on the computer running Psyche" },
+      };
+    }
+    if (!remoteGateway && REMOTE_ONLY_CHANNELS.has(channel)) {
+      return {
+        ok: false,
+        error: { code: "forbidden", message: "That only works with a Gateway on another computer" },
       };
     }
     try {
@@ -578,8 +590,31 @@ function registerIpc(): void {
   handle(IPC.call, (_e, arg) => {
     const r = rec(IPC.call, arg);
     const method = checkCallable(r.method, isMethodName);
-    return requireGateway().call(method, r.params ?? {});
+    const idempotencyKey = checkIdempotencyKey(r.idempotencyKey);
+    return requireGateway().call(
+      method,
+      r.params ?? {},
+      idempotencyKey === undefined ? undefined : { idempotencyKey },
+    );
   });
+
+  // A passkey for the remote Gateway's site, made in a hidden window of its origin (R2).
+  const passkeyHost = remoteGateway
+    ? new PasskeyHost({
+        origin: gatewayTarget.origin,
+        createWindow: () => createPasskeyWindow(gatewayTarget.origin),
+      })
+    : undefined;
+  const requirePasskeys = (): PasskeyHost => {
+    if (passkeyHost === undefined) throw new PsycheError("forbidden", "No remote Gateway");
+    return passkeyHost;
+  };
+  handle(IPC.passkeyCreate, (_e, arg) =>
+    requirePasskeys().create(checkPasskeyOptions(IPC.passkeyCreate, arg)),
+  );
+  handle(IPC.passkeyGet, (_e, arg) =>
+    requirePasskeys().get(checkPasskeyOptions(IPC.passkeyGet, arg)),
+  );
 
   handle(IPC.browserGetState, () => requireBrowser().getState());
   on(IPC.browserViewport, (_e, arg) => browser?.setViewport(checkViewport(arg)));
@@ -924,6 +959,12 @@ function onGatewayEvent(e: {
     const route = p.route;
     if (typeof route === "string" && isAppRoute(route)) command({ type: "navigate", route });
   }
+  // A client of another computer's Gateway shows what the Host routes to its own OS surface.
+  if (e.event === "notification.device" && remoteGateway) {
+    const d = relay.decideDevice(e.payload);
+    if (d.show && d.title && d.body && d.route)
+      showNotification(d.title, d.body, d.route, d.urgency);
+  }
   if (e.event === "notification.created") {
     const d = relay.decide(p.notification as PsycheNotification);
     if (d.show && d.title && d.body && d.route)
@@ -1216,6 +1257,12 @@ void app.whenReady().then(async () => {
       }
       onPairing(s);
       if (s.phase === "paired") gateways.markConnected();
+      // The Host sends this connection OS notifications only once it asks (R2); per connection.
+      if (s.phase === "paired" && remoteGateway) {
+        void gateway
+          ?.call("notifications.device.register", { enabled: true })
+          .catch((err: unknown) => console.warn(`[notify] could not register: ${String(err)}`));
+      }
     },
     onEvent: onGatewayEvent,
     onResync: () => {
