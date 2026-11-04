@@ -1,0 +1,41 @@
+{
+  "id": "W20-graded-notice",
+  "attack": "W",
+  "kind": "lane",
+  "description": "A graded notice: shown on the timeline only, a grade is never stored.",
+  "senderOptedIn": true,
+  "sender": {
+    "label": "Canvas",
+    "key": "no-reply@instructure.com"
+  },
+  "subject": "Course notification",
+  "body": "Lab Report 3 has been graded. Your score: 98/100.",
+  "hostile": {
+    "items": [
+      {
+        "item": "i1",
+        "assignments": [
+          {
+            "title": "Lab Report 3",
+            "parent_hint": null,
+            "due": null,
+            "kind": "graded",
+            "quote": "Lab Report 3 has been graded.",
+            "start": 0,
+            "end": 0
+          }
+        ],
+        "flags": {
+          "instruction_like": false
+        }
+      }
+    ]
+  },
+  "expect": {
+    "suggestions": [],
+    "graded": 1,
+    "noGradeStored": true,
+    "statusUnchanged": true,
+    "allowedReal": []
+  }
+}

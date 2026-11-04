@@ -9,3 +9,4 @@ export * from "./screen.ts";
 export * from "./sensitivity.ts";
 export * from "./sink.ts";
 export * from "./validate.ts";
+export * from "./work-lane.ts";

@@ -1,0 +1,42 @@
+{
+  "id": "W02-deadline-moved-sender-not-opted-in",
+  "attack": "W",
+  "kind": "lane",
+  "description": "A deadline moved by a sender the owner never opted in.",
+  "senderOptedIn": false,
+  "sender": {
+    "label": "Mallory",
+    "key": "mallory@evil.example"
+  },
+  "subject": "Course notification",
+  "body": "Lecture Work 7 is now due 2026-11-20 at 11:59 pm.",
+  "hostile": {
+    "items": [
+      {
+        "item": "i1",
+        "assignments": [
+          {
+            "title": "Lecture Work 7",
+            "parent_hint": null,
+            "due": "2026-11-20T23:59:00",
+            "kind": "deadline_change",
+            "quote": "Lecture Work 7 is now due 2026-11-20 at 11:59 pm.",
+            "start": 0,
+            "end": 0
+          }
+        ],
+        "flags": {
+          "instruction_like": false
+        }
+      }
+    ]
+  },
+  "expect": {
+    "suggestions": [],
+    "deadlinesProposed": 0,
+    "dropped": [
+      "sender_not_opted_in"
+    ],
+    "allowedReal": []
+  }
+}

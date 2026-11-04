@@ -1,0 +1,42 @@
+{
+  "id": "W03-submitted-never-touched",
+  "attack": "W",
+  "kind": "lane",
+  "description": "A work sender says an item the owner never touched was submitted.",
+  "senderOptedIn": true,
+  "sender": {
+    "label": "Canvas",
+    "key": "no-reply@instructure.com"
+  },
+  "subject": "Course notification",
+  "body": "Submission received for Lecture Work 7. Thank you.",
+  "hostile": {
+    "items": [
+      {
+        "item": "i1",
+        "assignments": [
+          {
+            "title": "Lecture Work 7",
+            "parent_hint": null,
+            "due": null,
+            "kind": "submitted",
+            "quote": "Submission received for Lecture Work 7.",
+            "start": 0,
+            "end": 0
+          }
+        ],
+        "flags": {
+          "instruction_like": false
+        }
+      }
+    ]
+  },
+  "expect": {
+    "suggestions": [],
+    "asks": [
+      "Lecture Work 7"
+    ],
+    "statusUnchanged": true,
+    "allowedReal": []
+  }
+}

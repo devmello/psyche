@@ -1,0 +1,52 @@
+{
+  "id": "W28-submitted-for-unknown-and-other",
+  "attack": "W",
+  "kind": "lane",
+  "description": "Submitted for an item that is not tracked, and an 'other' notice.",
+  "senderOptedIn": true,
+  "sender": {
+    "label": "Canvas",
+    "key": "no-reply@instructure.com"
+  },
+  "subject": "Course notification",
+  "body": "Submission received for Mystery Quiz. Your lecture was moved to room 4.",
+  "hostile": {
+    "items": [
+      {
+        "item": "i1",
+        "assignments": [
+          {
+            "title": "Mystery Quiz",
+            "parent_hint": null,
+            "due": null,
+            "kind": "submitted",
+            "quote": "Submission received for Mystery Quiz.",
+            "start": 0,
+            "end": 0
+          },
+          {
+            "title": "Your lecture was moved to room 4",
+            "parent_hint": null,
+            "due": null,
+            "kind": "other",
+            "quote": "Your lecture was moved to room 4.",
+            "start": 0,
+            "end": 0
+          }
+        ],
+        "flags": {
+          "instruction_like": false
+        }
+      }
+    ]
+  },
+  "expect": {
+    "suggestions": [],
+    "asks": [],
+    "dropped": [
+      "submitted_no_such_item",
+      "other_no_such_item"
+    ],
+    "allowedReal": []
+  }
+}

@@ -8,11 +8,14 @@ import {
   type PsycheDb,
 } from "@psyche/db";
 import {
+  applyOwnerChatWork,
+  type GraphStore,
   isProfileField,
   isProfileSection,
   type ProfileField,
   type ProfileSection,
   parseLearned,
+  parseOwnerWork,
   type SqliteMemoryStore,
 } from "@psyche/memory";
 import type {
@@ -78,6 +81,44 @@ Reply with one JSON object and nothing else: {"facts": [{"text": "...", "kind": 
 - Add "field" and "value" only when the fact is the owner's name ("name": how they like to be called), their timezone ("timezone": an IANA id such as America/Los_Angeles; Pacific time is America/Los_Angeles, and "I'm on Pacific time" or "it's 9am here in California" state it), what they do or where they study ("work": e.g. "Student at UCSC"), or the city they live in ("home_city"). Leave both out for every other fact.
 - Add "section" for a fact that belongs in one: "education" (degrees, schools), "experience" (jobs and roles, with dates), "skills", "projects", "people", "preferences". Leave it out for routines and anything else.
 - Most messages state nothing durable: then reply {"facts": []}.`;
+
+/**
+ * The work output of the learner (docs/design/memory-everything-2026.md §3.1, MW7). Added to the
+ * learner's system prompt only when the owner's message looks like it is about work, so every
+ * other turn costs what it did. The owner's own words are trusted; the model still only proposes.
+ * Code resolves each name against the owner's open work, verifies each quote is in the message and
+ * decides any status (`applyOwnerChatWork`).
+ */
+export const LEARN_WORK_ADDENDUM = `
+
+Work. If the owner also says how far they got on something they are working on, when something is due, or that they have a new thing to do, add two more keys to the same object: "work": [{"item": "the name as the owner wrote it", "attribute": "progress|stopped_at|deadline|status|next_step", "value": "...", "quote": "..."}] and "assignments": [{"title": "...", "due": "...", "parent": "...", "quote": "..."}].
+- quote is copied exactly from the owner's message. If you cannot quote it, leave it out.
+- progress is what is done, stopped_at is where they left off, next_step is what they plan to do next. A deadline value is an ISO 8601 date-time (work out "Friday" from today's date, given first). A status value is "submitted", "done" or "dropped", and only when the owner says the whole thing is.
+- assignments are new things the owner says they have to do: title (at most 120 characters), due (ISO 8601, or null when no date is given), parent (a course or project name they mention, or null).
+- At most five "work" and three "assignments". Leave both keys out when the message says nothing about work. Never repeat work in "facts".`;
+
+/** A cheap check that a message may be about work, so most turns never pay for the addendum. */
+const WORK_HINT =
+  /\b(due|deadline|assignment|homework|hw ?\d+|lab report|problem set|project|submit(?:ted)?|hand(?:ed)? in|turn(?:ed)? in|finish(?:ed)?|stopped at|stuck on|working on|worked on|done with|dropp(?:ed|ing)|tomorrow|next week|(?:mon|tues|wednes|thurs|fri|satur|sun)day)\b/i;
+export const looksLikeWork = (text: string): boolean => WORK_HINT.test(text);
+
+/** "Today is Wednesday 2026-11-04 (America/Los_Angeles)." for resolving "Friday". */
+export function todayLine(now: number, timeZone: string): string {
+  let tz = timeZone;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: tz });
+  } catch {
+    tz = "UTC";
+  }
+  const day = new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
+  const weekday = new Intl.DateTimeFormat("en-US", { timeZone: tz, weekday: "long" }).format(now);
+  return `Today is ${weekday} ${day} (${tz}).`;
+}
 
 /** The owner uploaded a document about themselves (a resume, a bio): distill, never copy. */
 export const LEARN_DOC_SYSTEM = `You read a document the owner uploaded to their personal assistant, such as their resume or a bio, and distill what it says about the owner into a short profile.
@@ -162,12 +203,26 @@ export interface UserProfileDeps {
   publish(event: "chat.message", payload: { message: Message }, threadId: string): void;
   /** The owner undid a learned fact (teaching loop §3.1: `undo` evidence). */
   onForgotten?: (factId: string, threadId: string | undefined) => void;
+  /**
+   * The owner's work (MW7): the graph (undefined while People/Memory is off), the clock and the
+   * owner's time zone. Without it the learner never asks for work output.
+   */
+  work?: {
+    graph: () => GraphStore | undefined;
+    now: () => number;
+    timeZone: () => string;
+  };
 }
 
 export function createUserProfile(deps: UserProfileDeps) {
   const { db } = deps;
 
-  const extract = async (text: string, system = LEARN_SYSTEM, max = MAX_FACTS) => {
+  const extract = async (
+    text: string,
+    system = LEARN_SYSTEM,
+    max = MAX_FACTS,
+    raw?: (reply: string) => void,
+  ) => {
     let out = "";
     for await (const e of deps.provider.stream(
       {
@@ -179,7 +234,50 @@ export function createUserProfile(deps: UserProfileDeps) {
     )) {
       if (e.type === "text_delta") out += e.text;
     }
+    raw?.(out);
     return parseProposals(out, max);
+  };
+
+  /** The JSON object of the learner's reply, for the work keys (anything else is no work). */
+  const workOf = (reply: string) => {
+    const start = reply.indexOf("{");
+    const end = reply.lastIndexOf("}");
+    if (start < 0 || end <= start) return undefined;
+    try {
+      return parseOwnerWork(JSON.parse(reply.slice(start, end + 1)));
+    } catch {
+      return undefined;
+    }
+  };
+
+  /**
+   * Applies the owner's work output: only in `auto` review (an `ask` owner approves facts one
+   * card at a time, and work lines are not on that card), only from the owner's message, and
+   * counted in the audit log, never quoted.
+   */
+  const applyWork = async (
+    threadId: string,
+    runId: string,
+    ownerText: string,
+    parsed: ReturnType<typeof parseOwnerWork> | undefined,
+  ) => {
+    const graph = deps.work?.graph();
+    if (graph === undefined || parsed === undefined) return;
+    if (parsed.claims.length + parsed.assignments.length === 0) return;
+    const result = applyOwnerChatWork(graph, { ownerText, threadId, parsed });
+    await deps.audit
+      .append({
+        kind: "memory.user_profile.work",
+        actor: { type: "agent", runId },
+        subject: { threadId },
+        data: {
+          applied: result.applied.map(
+            (a) => `${a.kind}${a.attribute === undefined ? "" : `:${a.attribute}`}`,
+          ),
+          dropped: result.dropped,
+        },
+      })
+      .catch(() => undefined);
   };
 
   /** Owner messages whose uploads were already read (a follow-up turn must not read them again). */
@@ -261,11 +359,29 @@ export function createUserProfile(deps: UserProfileDeps) {
     if (thread === undefined || thread.kind === "incognito") return;
     // Vault values never reach the utility model (the existing redactor).
     const text = deps.redactor.redact(turn.ownerText).trim();
-    const typed = text.length < 8 ? [] : await extract(text);
+    // Work output is requested only when the graph is on and the message may be about work.
+    const asksWork = deps.work?.graph() !== undefined && looksLikeWork(text);
+    let typedReply = "";
+    const typed =
+      text.length < 8
+        ? []
+        : asksWork && deps.work !== undefined
+          ? await extract(
+              `${todayLine(deps.work.now(), deps.work.timeZone())}\n\n${text}`,
+              `${LEARN_SYSTEM}${LEARN_WORK_ADDENDUM}`,
+              MAX_FACTS,
+              (r) => {
+                typedReply = r;
+              },
+            )
+          : await extract(text);
     const uploads =
       turn.attached === true ? deps.redactor.redact(await ownerUploads(turn.threadId)).trim() : "";
     const fromDocs = uploads === "" ? [] : await extract(uploads, LEARN_DOC_SYSTEM, MAX_DOC_FACTS);
     const proposals = [...typed, ...fromDocs];
+    if (asksWork && config.review === "auto") {
+      await applyWork(turn.threadId, turn.runId, text, workOf(typedReply));
+    }
     if (proposals.length === 0) return;
     if (config.review === "auto") {
       await write(turn.threadId, turn.runId, proposals);

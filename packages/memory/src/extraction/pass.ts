@@ -11,6 +11,7 @@ import type Database from "better-sqlite3";
 import type { EverythingStore } from "../graph/everything.ts";
 import { normalizeName } from "../graph/normalize.ts";
 import type { GraphStore } from "../graph/store.ts";
+import { applyWorkUpdates, openWorkForPrompt } from "../graph/work-learn.ts";
 import { cleanItemText } from "./clean.ts";
 import { callExtractor } from "./extractor.ts";
 import { checkGates, type GateReason, type SystemState } from "./gates.ts";
@@ -102,6 +103,10 @@ export interface PassReport {
   /** Items left for tomorrow because the budget, the time box or the catch-up window ended. */
   deferred: number;
   ownerProposals: OwnerProposal[];
+  /** Work updates from the owner's notes that were validated and applied (counts only). */
+  workUpdates: number;
+  /** Work suggestions written through the sink (owner notes naming an untracked task). */
+  suggestionsStored: number;
   error: string | null;
 }
 
@@ -118,6 +123,8 @@ const empty = (): PassReport => ({
   quarantined: 0,
   deferred: 0,
   ownerProposals: [],
+  workUpdates: 0,
+  suggestionsStored: 0,
   error: null,
 });
 
@@ -539,6 +546,8 @@ async function runBatch(
     ...[...people.values()].map((p) => ({ handle: p.handle, name: p.entity.name, isOwner: false })),
   ];
   report.batches++;
+  // Open work items by opaque handle, for owner-authored batches only (notes): progress on them.
+  const workList = items.every((i) => i.trust === "owner") ? openWorkForPrompt(deps.graph) : [];
   let failures = 0;
   for (;;) {
     const result = await callExtractor({
@@ -547,6 +556,9 @@ async function runBatch(
       items,
       people: listing,
       aboutOthers: vset.allowAboutOther,
+      ...(workList.length === 0
+        ? {}
+        : { work: workList.map((w) => ({ handle: w.handle, name: w.name })) }),
       ...(deps.signal === undefined ? {} : { signal: deps.signal }),
     });
     // Providers that report usage are trusted; otherwise estimate from what was sent.
@@ -565,7 +577,12 @@ async function runBatch(
         settings: vset,
         limits,
         now: deps.clock.now(),
+        workTargets: workList.map((w) => ({ handle: w.handle, entityId: w.entityId })),
       });
+      // The owner's own notes said how far they got: written by code, cited to the note.
+      if (v.workUpdates.length > 0) applyWorkUpdates(deps.graph, v.workUpdates);
+      report.workUpdates += v.workUpdates.length;
+      report.suggestionsStored += v.suggestionsStored;
       report.factsStored += v.factsStored;
       report.edgesStored += v.edgesStored;
       report.quarantined += v.quarantined.length;

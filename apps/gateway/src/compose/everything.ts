@@ -129,6 +129,8 @@ const emptyReport = (): PassReport => ({
   quarantined: 0,
   deferred: 0,
   ownerProposals: [],
+  workUpdates: 0,
+  suggestionsStored: 0,
   error: null,
 });
 

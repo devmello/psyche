@@ -12,6 +12,7 @@ import {
   type GraphReviewState,
   type GraphSensitivity,
   type GraphSubjectKind,
+  type GraphSuggestion,
   type MemoryRun,
   type Provenance,
   PsycheError,
@@ -180,6 +181,30 @@ export interface ProposeEdgeInput {
 export type ProposeEdgeOutcome =
   | { status: "pending" | "refreshed"; edgeId: string }
   | { status: "refused"; reason: RefuseReason | "bad_relation" | "self_relation" };
+
+export interface SuggestWorkInput {
+  kind: "assignment" | "project";
+  /** An existing project or course the item belongs to. */
+  parentId?: string;
+  name: string;
+  /** Built by code from the verified quote; never the model's own text. */
+  reason: string;
+  /** assignment: the due date it was read from (ISO). */
+  dueAt?: string | null;
+}
+
+export type SuggestRefuseReason =
+  | "bad_kind"
+  | "empty_name"
+  | "secret_in_name"
+  | "instruction_like"
+  | "bad_parent"
+  | "excluded";
+
+export type SuggestWorkOutcome =
+  | { status: "created"; suggestion: GraphSuggestion }
+  | { status: "duplicate" }
+  | { status: "refused"; reason: SuggestRefuseReason };
 
 export interface ExclusionEntry {
   /** `<kind>:<hash>`; opaque, for removal. */
@@ -924,6 +949,48 @@ export class EverythingStore {
       for (const c of input.citations) this.#addCitation("edge", id, c, input.provenance);
     })();
     return { status: existing === undefined ? "pending" : "refreshed", edgeId: id };
+  }
+
+  /**
+   * The extraction sink's `suggest` (docs/design/memory-everything-2026.md §7.2). It can only
+   * write a `graph_suggestions` row of kind `assignment` or `project`, never an entity: only the
+   * owner's Track creates one. The parent, when given, must be an existing, visible project or
+   * course (a private one is never named by text from others). The name and reason are data,
+   * checked for secrets and instructions here again whatever the caller already did.
+   */
+  suggestWork(input: SuggestWorkInput): SuggestWorkOutcome {
+    const refused = (reason: SuggestRefuseReason): SuggestWorkOutcome => ({
+      status: "refused",
+      reason,
+    });
+    if ((input.kind as string) !== "assignment" && (input.kind as string) !== "project") {
+      return refused("bad_kind");
+    }
+    const name = clip(input.name, 120);
+    if (name === null) return refused("empty_name");
+    if (blockingKinds(name, true).length > 0 || detectSensitive(name).length > 0) {
+      return refused("secret_in_name");
+    }
+    if (looksLikeInstruction(name) || looksLikeInstruction(input.reason)) {
+      return refused("instruction_like");
+    }
+    const entityIds: string[] = [];
+    if (input.parentId !== undefined) {
+      const parent = this.#graph.getEntity(this.#graph.resolveMerged(input.parentId));
+      if (parent === undefined || parent.kind !== "project" || parent.private === true) {
+        return refused("bad_parent");
+      }
+      if (this.isEntityExcluded(parent.id)) return refused("excluded");
+      entityIds.push(parent.id);
+    }
+    const made = this.#graph.suggest({
+      kind: input.kind,
+      entityIds,
+      name,
+      reason: input.reason,
+      ...(input.dueAt === undefined ? {} : { dueAt: input.dueAt }),
+    });
+    return made === undefined ? { status: "duplicate" } : { status: "created", suggestion: made };
   }
 
   // --- the owner's decisions (§7) ----------------------------------------------------------------

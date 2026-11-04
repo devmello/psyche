@@ -1,0 +1,44 @@
+{
+  "id": "W21-deadline-for-unknown-item",
+  "attack": "W",
+  "kind": "lane",
+  "description": "A deadline change for an item the owner does not track.",
+  "senderOptedIn": true,
+  "sender": {
+    "label": "Canvas",
+    "key": "no-reply@instructure.com"
+  },
+  "subject": "Course notification",
+  "body": "Final Exam is now due 2026-12-01.",
+  "hostile": {
+    "items": [
+      {
+        "item": "i1",
+        "assignments": [
+          {
+            "title": "Final Exam",
+            "parent_hint": null,
+            "due": "2026-12-01",
+            "kind": "deadline_change",
+            "quote": "Final Exam is now due 2026-12-01.",
+            "start": 0,
+            "end": 0
+          }
+        ],
+        "flags": {
+          "instruction_like": false
+        }
+      }
+    ]
+  },
+  "expect": {
+    "suggestions": [],
+    "deadlinesProposed": 0,
+    "dropped": [
+      "deadline_change_no_such_item"
+    ],
+    "allowedReal": [
+      "Final Exam"
+    ]
+  }
+}

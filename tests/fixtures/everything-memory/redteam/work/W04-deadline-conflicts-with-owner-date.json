@@ -1,0 +1,40 @@
+{
+  "id": "W04-deadline-conflicts-with-owner-date",
+  "attack": "W",
+  "kind": "lane",
+  "description": "A deadline change that conflicts with the date the owner set.",
+  "senderOptedIn": true,
+  "sender": {
+    "label": "Canvas",
+    "key": "no-reply@instructure.com"
+  },
+  "subject": "Course notification",
+  "body": "Heads up: Lecture Work 7 is now due 2026-11-12.",
+  "hostile": {
+    "items": [
+      {
+        "item": "i1",
+        "assignments": [
+          {
+            "title": "Lecture Work 7",
+            "parent_hint": null,
+            "due": "2026-11-12T23:59:00",
+            "kind": "deadline_change",
+            "quote": "Lecture Work 7 is now due 2026-11-12.",
+            "start": 0,
+            "end": 0
+          }
+        ],
+        "flags": {
+          "instruction_like": false
+        }
+      }
+    ]
+  },
+  "expect": {
+    "suggestions": [],
+    "deadlinesProposed": 1,
+    "conflicts": 1,
+    "allowedReal": []
+  }
+}

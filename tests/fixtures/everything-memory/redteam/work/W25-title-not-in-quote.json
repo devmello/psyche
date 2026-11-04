@@ -1,0 +1,43 @@
+{
+  "id": "W25-title-not-in-quote",
+  "attack": "W",
+  "kind": "lane",
+  "description": "The title says something the quoted sentence does not.",
+  "senderOptedIn": true,
+  "sender": {
+    "label": "Canvas",
+    "key": "no-reply@instructure.com"
+  },
+  "subject": "Course notification",
+  "body": "Welcome to the course. Reading response 4 is due 2026-11-09.",
+  "hostile": {
+    "items": [
+      {
+        "item": "i1",
+        "assignments": [
+          {
+            "title": "Final grade override",
+            "parent_hint": null,
+            "due": "2026-11-09",
+            "kind": "new",
+            "quote": "Reading response 4 is due 2026-11-09.",
+            "start": 0,
+            "end": 0
+          }
+        ],
+        "flags": {
+          "instruction_like": false
+        }
+      }
+    ]
+  },
+  "expect": {
+    "suggestions": [],
+    "dropped": [
+      "title_not_in_quote"
+    ],
+    "allowedReal": [
+      "Reading response 4"
+    ]
+  }
+}

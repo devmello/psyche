@@ -1106,6 +1106,13 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     surfaces: ["desktop", "web"],
     publish: (event, payload, threadId) => publish(event, payload as never, threadId),
     onForgotten: (factId, threadId) => teachingRef?.onLearnedUndo(factId, threadId),
+    // The owner's own chat updates their work (MW7); off while the People graph is off.
+    work: {
+      graph: () => (people?.settings().enabled === true ? people.graph : undefined),
+      now: () => clock.now(),
+      timeZone: () =>
+        timeZone ?? ownerTimeZoneAt(join(config.home, "workspace", "USER.md")) ?? "UTC",
+    },
   });
   // Background specialists (docs/agent/specialists-2026.md, #683): roles from the role skills,
   // jobs as a subagent thread + Task, one sanitized result.

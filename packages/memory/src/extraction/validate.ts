@@ -8,7 +8,7 @@ import type {
 import { detectSensitive, looksLikeInstruction } from "../filters.ts";
 import { type CitationInput, isSingleValued } from "../graph/everything.ts";
 import { OWNER_ONLY_RELS } from "../graph/store.ts";
-import type { ExtractionEdge, ExtractionFact, ExtractionOutput } from "./schema.ts";
+import type { ExtractionEdge, ExtractionFact, ExtractionOutput, ExtractionWork } from "./schema.ts";
 import { screenItem } from "./screen.ts";
 import { classifySensitivity, stricterSensitivity } from "./sensitivity.ts";
 import type { ExtractionSink } from "./sink.ts";
@@ -107,9 +107,25 @@ export interface OwnerProposal {
   citation: CitationInput;
 }
 
+/**
+ * Progress the owner's own note states about an open work item: validated (handle resolved,
+ * quote verified, value plain), not yet written. The pass writes it as an owner-signal fact;
+ * the sink never can (it cannot make anything `owner`).
+ */
+export interface OwnerWorkUpdate {
+  entityId: string;
+  attribute: "progress" | "stopped_at" | "next_step";
+  value: string;
+  citation: CitationInput;
+}
+
 export interface ValidationReport {
   factsStored: number;
   edgesStored: number;
+  /** Work suggestions written through `sink.suggest` (owner notes naming an unlisted task). */
+  suggestionsStored: number;
+  /** Owner-note work updates for the caller to apply (`applyWorkUpdates`). */
+  workUpdates: OwnerWorkUpdate[];
   /** Counts by reason; never text. Safe to put in the run log. */
   dropped: Record<string, number>;
   /** `source:sourceRef` of items sent to quarantine. */
@@ -126,6 +142,8 @@ export interface ValidateInput {
   settings?: ValidationSettings;
   limits?: NightLimits;
   now?: number;
+  /** The open work items the prompt listed, by opaque handle (`w1`). */
+  workTargets?: { handle: string; entityId: string }[];
 }
 
 const HARD_BLOCKED = new Set<GraphSensitivity>(["gov_id", "account_numbers"]);
@@ -164,7 +182,7 @@ export function valueSupportedByQuote(value: string, quote: string): boolean {
 }
 
 /** What a value must never contain: an identifier, a link, markup or code. */
-function valueProblem(value: string): string | undefined {
+export function valueProblem(value: string): string | undefined {
   if (value.length > MAX_VALUE_CHARS) return "value_too_long";
   if (/[\r\n]/.test(value)) return "value_multiline";
   if (
@@ -185,7 +203,7 @@ function valueProblem(value: string): string | undefined {
   return undefined;
 }
 
-function quoteProblem(quote: string): string | undefined {
+export function quoteProblem(quote: string): string | undefined {
   const t = quote.trim();
   if (t.length < 3) return "quote_too_short";
   if (t.length > MAX_QUOTE_CHARS) return "quote_too_long";
@@ -202,6 +220,8 @@ export function validateExtraction(input: ValidateInput): ValidationReport {
   const report: ValidationReport = {
     factsStored: 0,
     edgesStored: 0,
+    suggestionsStored: 0,
+    workUpdates: [],
     dropped: {},
     quarantined: [],
     ownerProposals: [],
@@ -266,10 +286,29 @@ export function validateExtraction(input: ValidateInput): ValidationReport {
     list.push(e);
     edgesByItem.set(e.item, list);
   }
+  const workByItem = new Map<string, ExtractionWork[]>();
+  for (const w of input.output.work ?? []) {
+    const item = items.get(w.item);
+    if (item === undefined) {
+      drop("unknown_item");
+      continue;
+    }
+    // Work updates are the owner's own words about the owner's own work. Anything else is
+    // dropped, not even a suggestion: a sender's text has its own lane (work-lane.ts).
+    if (item.trust !== "owner") {
+      drop("work_not_owner");
+      continue;
+    }
+    const list = workByItem.get(w.item) ?? [];
+    list.push(w);
+    workByItem.set(w.item, list);
+  }
+  const claimsOf = (handle: string) =>
+    (factsByItem.get(handle)?.length ?? 0) +
+    (edgesByItem.get(handle)?.length ?? 0) +
+    (workByItem.get(handle)?.length ?? 0);
   for (const item of input.items) {
-    const raw =
-      (factsByItem.get(item.handle)?.length ?? 0) + (edgesByItem.get(item.handle)?.length ?? 0);
-    if (raw > MAX_FACTS_PER_ITEM) addReason(item.handle, "too_many_claims");
+    if (claimsOf(item.handle) > MAX_FACTS_PER_ITEM) addReason(item.handle, "too_many_claims");
   }
 
   // 3. Validate each remaining item; quarantine whole items, store the rest.
@@ -285,8 +324,7 @@ export function validateExtraction(input: ValidateInput): ValidationReport {
         excerpt: item.text.slice(0, 300),
       });
       report.quarantined.push(`${item.source}:${item.sourceRef}`);
-      const claims =
-        (factsByItem.get(item.handle)?.length ?? 0) + (edgesByItem.get(item.handle)?.length ?? 0);
+      const claims = claimsOf(item.handle);
       if (claims > 0) drop("item_quarantined", claims);
     };
     const flagged = reasonsByItem.get(item.handle);
@@ -296,7 +334,8 @@ export function validateExtraction(input: ValidateInput): ValidationReport {
     }
     const facts = factsByItem.get(item.handle) ?? [];
     const edges = edgesByItem.get(item.handle) ?? [];
-    if (facts.length + edges.length === 0) continue;
+    const works = workByItem.get(item.handle) ?? [];
+    if (facts.length + edges.length + works.length === 0) continue;
 
     const pending: (() => void)[] = [];
     const itemReasons = new Set<QuarantineReason>();
@@ -474,6 +513,70 @@ export function validateExtraction(input: ValidateInput): ValidationReport {
       });
     }
 
+    const targets = new Map((input.workTargets ?? []).map((t) => [t.handle, t.entityId]));
+    for (const w of works) {
+      const value = w.value.replace(/\s+/g, " ").trim();
+      const vp = valueProblem(value);
+      const qp = quoteProblem(w.quote);
+      if (vp !== undefined || qp !== undefined) {
+        drop((vp ?? qp) as string);
+        continue;
+      }
+      const span = locateQuote(item.text, w.quote);
+      if (span === undefined) {
+        drop("quote_not_found");
+        continue;
+      }
+      const located = item.text.slice(span[0], span[1]);
+      if (located.length > MAX_QUOTE_CHARS) {
+        drop("quote_too_long");
+        continue;
+      }
+      if (!valueSupportedByQuote(value, located)) {
+        drop("value_not_in_quote");
+        continue;
+      }
+      // Anything sensitive in a note stays a note: work lines never carry it.
+      if (classifySensitivity(`${value} ${located}`, "note") !== "none") {
+        drop("sensitive_work");
+        continue;
+      }
+      // Same bar as other owner-authored auto-accepts (settings, confidence ≥ 0.8).
+      if (!settings.autoAcceptOwnerAuthored || w.confidence < 0.8) {
+        drop("work_low_confidence");
+        continue;
+      }
+      const cite = citation(item, span, located, null, now);
+      if (w.target !== null) {
+        const entityId = targets.get(w.target);
+        if (entityId === undefined) {
+          drop("unknown_work_item");
+          continue;
+        }
+        pending.push(() => {
+          report.workUpdates.push({ entityId, attribute: w.attribute, value, citation: cite });
+        });
+        continue;
+      }
+      // A task the owner mentions that is not tracked: a suggestion with the quote, never an entity.
+      const title = (w.title ?? "").replace(/\s+/g, " ").trim();
+      const tp =
+        title === "" ? "empty_title" : title.length > 120 ? "title_too_long" : valueProblem(title);
+      if (tp !== undefined) {
+        drop(tp);
+        continue;
+      }
+      pending.push(() => {
+        const out = input.sink.suggest({
+          kind: "assignment",
+          name: title,
+          reason: `From your note: "${located.slice(0, 200)}"`,
+        });
+        if (out.status === "refused") drop(`store:${out.reason}`);
+        else if (out.status === "created") report.suggestionsStored++;
+      });
+    }
+
     // Item-level rules that need the whole item.
     if (author !== undefined && !author.isOwner && item.trust === "untrusted") {
       if (sensitiveKept && author.firstSeenAt !== undefined) {
@@ -498,7 +601,7 @@ export function validateExtraction(input: ValidateInput): ValidationReport {
   return report;
 }
 
-function citation(
+export function citation(
   item: BatchItem,
   span: [number, number],
   quote: string,
