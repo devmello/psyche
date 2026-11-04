@@ -187,6 +187,7 @@ import { filesSourceDeps, powerReader } from "./search-files.ts";
 import { chatContextResolver } from "./search-hit-context.ts";
 import { memorySettings, memorySourceDeps } from "./search-memory.ts";
 import { helperRecognizer } from "./search-ocr.ts";
+import { agentBlockedHit } from "./search-open.ts";
 import { routerEmbedder, type SemanticEngines } from "./search-semantic.ts";
 import { agentLocalSearch, searchEverythingTool } from "./search-tool.ts";
 import {
@@ -1811,7 +1812,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // Ask about this (Feed) and a search result in a side chat: `chat.send.context` names what the
   // agent reads as data (a search result by what the index holds, not what the window says).
   gateway.context.chatContext.resolve = withMemoryEntityContext(
-    chatContextResolver(feedContextResolver(proactive.feed.store), (id) => search.index.docOf(id)),
+    chatContextResolver(
+      feedContextResolver(proactive.feed.store),
+      (id) => search.index.docOf(id),
+      (id) => agentBlockedHit(search.sources, id),
+    ),
     () => people?.graph,
   );
   await proactive.start();

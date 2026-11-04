@@ -62,6 +62,37 @@ describe("Life search", () => {
     ]);
   });
 
+  it("carries the search document id of the first citation, so a chip can open its source", () => {
+    const sam = person("Sam Lee");
+    const quote = "I just joined Initech";
+    const o = em.proposeFact({
+      entityId: sam,
+      attribute: "employer",
+      value: "Initech",
+      provenance: "untrusted",
+      subjectKind: "self_disclosure",
+      citations: [
+        {
+          source: "mail",
+          sourceRef: "<m1@host.example>",
+          docId: "mail:123",
+          quote,
+          start: 0,
+          end: quote.length,
+          sourceHash: "h1",
+          authorEntityId: sam,
+        },
+      ],
+    });
+    if (o.status === "refused") throw new Error(o.reason);
+    em.decide(o.fact.id, "confirm");
+    learn(person("Priya Rao"), "employer", "Globex", "Starting at Globex");
+    const byName = new Map(search("works at").facts.map((f) => [f.entity.name, f.docId]));
+    expect(byName.get("Sam Lee")).toBe("mail:123");
+    // A citation that was never indexed has none: the chip then has no source to open.
+    expect(byName.get("Priya Rao")).toBeNull();
+  });
+
   it("matches the person's name and the quote too, ignoring accents and case", () => {
     const e = person("José Ñandú");
     learn(e, "likes", "climbing", "I love bouldering on weekends");

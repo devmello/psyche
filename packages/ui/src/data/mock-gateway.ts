@@ -2530,6 +2530,21 @@ export class MockGateway implements GatewayClient {
       };
     },
 
+    "search.document": (p) => {
+      const hit = this.world.searchHits.find((h) => h.id === p.id);
+      if (hit === undefined) throw new PsycheError("not_found", "no such source passage");
+      return {
+        id: hit.id,
+        source: "mail" as const,
+        title: hit.title,
+        text: hit.snippet,
+        truncated: false,
+        createdAt: hit.createdAt ?? 0,
+        provenance: hit.provenance ?? "untrusted",
+        open: p.id.startsWith("mail:") ? ("mail" as const) : null,
+      };
+    },
+    "search.openSource": () => ({ target: null }),
     "search.status": () => ({
       docs: this.world.searchHits.length,
       backfill: { state: "done", done: 0 },

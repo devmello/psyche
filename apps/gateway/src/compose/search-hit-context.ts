@@ -60,7 +60,13 @@ export function searchHitPreamble(ref: ChatContextRef, doc: IndexedDoc | undefin
 export function resolveSearchHitContext(
   ref: ChatContextRef,
   lookup: SearchDocLookup,
+  /** True for an id of an owner-only or agent-off source: its title may not reach the agent either. */
+  blocked?: (id: string) => boolean,
 ): ResolvedChatContext {
+  // `docOf` already hides such documents; without this the window's own `ref.title` would stand
+  // in for them and a contact's name or a conversation's title would get around the agent-off switch.
+  if (blocked?.(ref.id) === true)
+    throw new PsycheError("forbidden", "this result is not shared with the agent");
   const doc = lookup(ref.id);
   const title = doc?.title ?? ref.title ?? "";
   if (title.trim() === "") {
@@ -86,6 +92,8 @@ export function resolveSearchHitContext(
 export function chatContextResolver(
   feed: ChatContextResolver,
   lookup: SearchDocLookup,
+  blocked?: (id: string) => boolean,
 ): ChatContextResolver {
-  return (ref) => (ref.kind === "search_hit" ? resolveSearchHitContext(ref, lookup) : feed(ref));
+  return (ref) =>
+    ref.kind === "search_hit" ? resolveSearchHitContext(ref, lookup, blocked) : feed(ref);
 }

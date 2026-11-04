@@ -699,6 +699,8 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
       ...(platform.clipboard ? { writeClipboard: platform.clipboard.writeText } : {}),
       // Connector sign-ins open in the default browser; app windows refuse window.open (#505).
       ...(platform.external ? { openExternal: platform.external.open } : {}),
+      // A cited passage opens in Mail or Finder through main, which resolves the target itself.
+      ...(platform.sources ? { openSource: platform.sources.open } : {}),
       // A Touch ID card the window cannot confirm yet: start the helper or register its key.
       ...(platform.helper ? { touchIdFix: (fix) => fixTouchId(platform, fix) } : {}),
       ...(platform.helper?.touchId ? { touchIdOnceOnly: true } : {}),
