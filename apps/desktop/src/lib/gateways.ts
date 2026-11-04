@@ -595,6 +595,16 @@ export function liveSetupToken(entry: SavedGateway, now: Date): string | undefin
   return age >= 0 && age < SETUP_TOKEN_TTL_MS ? entry.setupToken : undefined;
 }
 
+/**
+ * True once the Host has answered a connect that carried the token: it paired (spent), is waiting
+ * for approval (the token was not honoured, or none was sent) or denied (refused, or the device
+ * was). In each case the token must not be offered again. A dropped connection or an error is not
+ * an answer: the token may be unspent, and it lapses on its own after ten minutes.
+ */
+export function setupTokenAnswered(phase: string): boolean {
+  return phase === "paired" || phase === "pending" || phase === "denied";
+}
+
 /** Forgets the token (it was spent, refused or has lapsed). The pin and fingerprint stay. */
 export function clearSetupToken(data: GatewaysFile, id: string): GatewaysFile {
   return {

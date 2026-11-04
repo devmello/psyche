@@ -203,7 +203,7 @@ import {
   type ComposeServices,
   createOwnPorts,
 } from "./services.ts";
-import { auditSetupTokenUse, setupTokenHandlers } from "./setup-tokens.ts";
+import { setupTokenHandlers, setupTokenUsedHook } from "./setup-tokens.ts";
 import { composeSkills } from "./skills.ts";
 import { withSpecialistContext } from "./specialist-approvals.ts";
 import {
@@ -1785,10 +1785,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     handlers,
     webhooks,
     publicRoutes,
-    onSetupTokenUsed: (used) => {
-      const name = getDevice(db, used.deviceId)?.name;
-      void auditSetupTokenUse(audit, used, name).catch(() => undefined);
-    },
+    onSetupTokenUsed: setupTokenUsedHook({ db, audit, log: gwOptions.logger }),
     onDeviceRevoked: (deviceId) => {
       revocations.recordDevice(deviceId);
       return rawBroker.revokeGrantsByDevice(deviceId);

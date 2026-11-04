@@ -9,6 +9,7 @@ import {
   openDb,
   pruneSetupTokens,
   revokeSetupToken,
+  revokeSetupTokensCreatedBy,
 } from "../src/index.ts";
 
 const T0 = Date.parse("2026-11-04T12:00:00.000Z");
@@ -148,5 +149,24 @@ describe("setup tokens", () => {
     // judged by age: the used and the revoked are gone, the expired one too.
     expect(count()).toBe(2);
     expect(pruneSetupTokens(db)).toBe(0);
+  });
+});
+
+describe("revoking the tokens a device made", () => {
+  it("revokes its unused tokens and leaves used ones and other devices' tokens alone", () => {
+    const { db } = clockedDb();
+    const mine = createSetupToken(db, { scopes: READ_WRITE, createdByDeviceId: "dev-a" });
+    const used = createSetupToken(db, { scopes: READ_WRITE, createdByDeviceId: "dev-a" });
+    const other = createSetupToken(db, { scopes: READ_WRITE, createdByDeviceId: "dev-b" });
+    expect(consumeSetupToken(db, used.token, "dev-new")).toBeDefined();
+
+    expect(revokeSetupTokensCreatedBy(db, "dev-a")).toBe(1);
+
+    const status = (id: string) => listSetupTokens(db).find((r) => r.id === id)?.status;
+    expect(status(mine.record.id)).toBe("revoked");
+    expect(status(used.record.id)).toBe("used");
+    expect(status(other.record.id)).toBe("live");
+    expect(consumeSetupToken(db, mine.token, "dev-x")).toBeUndefined();
+    expect(revokeSetupTokensCreatedBy(db, "dev-a")).toBe(0);
   });
 });
