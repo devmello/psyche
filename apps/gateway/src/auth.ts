@@ -39,14 +39,14 @@ import type { RateLimiter } from "./rate-limit.ts";
 
 export const CHALLENGE_TTL_MS = 60_000;
 
+/** App families that may pair with a setup token: the desktop app and the iOS app. */
+const SETUP_TOKEN_FAMILIES: ReadonlySet<string> = new Set(["desktop", "ios"]);
+
 /**
  * Scopes the per-launch handshake secret can buy. Never `operator.admin`: the secret is a
  * bearer token any same-user process can read (S23 review PR-1-A, design-19), so admin needs
  * the owner's approval (`devices.approve`, or `psyched devices approve` on the machine).
  */
-/** App families that may pair with a setup token: the desktop app and the iOS app. */
-const SETUP_TOKEN_FAMILIES: ReadonlySet<string> = new Set(["desktop", "ios"]);
-
 export const DESKTOP_AUTO_SCOPES: DeviceScope[] = [
   "operator.read",
   "operator.write",
