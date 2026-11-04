@@ -3,7 +3,7 @@ import PsycheStore
 import SwiftUI
 
 /// One thread item, drawn natively (docs/design/ios-app-2026.md §5). The `ui` (generative UI) block
-/// goes through the WebView host in I8; everything else is here.
+/// renders through `WidgetSlot` (native, I8); everything else is here.
 public struct BlockView: View {
     private let item: ChatItem
     private let context: BlockContext
@@ -43,6 +43,8 @@ public struct BlockView: View {
             NoteRow(kind: kind, title: title, detail: detail)
         case .approval(_, let item, let resolution):
             ApprovalBlock(item: item, resolution: resolution) { context.openApproval(item) }
+        case .widget(_, let widgetID):
+            WidgetSlot(widgetID: widgetID)
         case .unknown(_, let type):
             UnknownBlockRow(type: type)
         }

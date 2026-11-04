@@ -144,6 +144,8 @@ public enum ChatItem: Sendable, Equatable, Identifiable {
     /// `approval`: a card in the thread that opens the approval sheet. `resolution` is nil while open,
     /// then "Allowed" / "Denied" once answered.
     case approval(id: String, item: NeedsYouItem, resolution: String?)
+    /// `ui`: a generative-UI widget, rendered natively by `WidgetSlot` (I8) from `widgetID`.
+    case widget(id: String, widgetID: String)
     /// A block type this build doesn't draw, shown as "Open on your Mac".
     case unknown(id: String, type: String)
 
@@ -152,7 +154,8 @@ public enum ChatItem: Sendable, Equatable, Identifiable {
         case .user(let id, _), .assistant(let id, _, _), .toolCall(let id, _, _),
             .question(let id, _, _), .evidence(let id, _, _), .progress(let id, _, _, _),
             .file(let id, _, _, _, _, _), .toolRun(let id, _, _, _, _), .appLink(let id, _, _, _),
-            .relatedThreads(let id, _), .note(let id, _, _, _), .approval(let id, _, _), .unknown(let id, _):
+            .relatedThreads(let id, _), .note(let id, _, _, _), .approval(let id, _, _), .widget(let id, _),
+            .unknown(let id, _):
             id
         }
     }

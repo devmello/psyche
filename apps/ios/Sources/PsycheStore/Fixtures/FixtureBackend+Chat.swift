@@ -251,6 +251,7 @@ extension FixtureData {
                         RelatedThread(id: "thr_lease", title: "Lease renewal questions", status: "Oct 28"),
                         RelatedThread(id: "thr_q3", title: "Q3 review", status: "Running · step 3 of 7"),
                     ]),
+                .widget(id: "t7", widgetID: "wdg_saturday_route"),
                 .unknown(id: "t6", type: "map_route"),
             ]),
     ]

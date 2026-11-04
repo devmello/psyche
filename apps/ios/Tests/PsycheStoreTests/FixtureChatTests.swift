@@ -32,12 +32,13 @@ struct FixtureChatTests {
             case .relatedThreads: seen.insert("relatedThreads")
             case .note(_, let kind, _, _): seen.insert("note.\(kind.rawValue)")
             case .approval: seen.insert("approval")
+            case .widget: seen.insert("widget")
             case .unknown: seen.insert("unknown")
             }
         }
         let expected: Set<String> = [
             "user", "assistant", "toolCall", "toolRun", "question", "evidence", "progress.task", "progress.plan",
-            "progress.checklist", "file", "artifact", "appLink", "relatedThreads", "approval", "unknown",
+            "progress.checklist", "file", "artifact", "appLink", "relatedThreads", "approval", "widget", "unknown",
             "note.learned", "note.taught", "note.wrap_up", "note.compaction", "note.specialist_result",
             "note.automation_workflow",
         ]
