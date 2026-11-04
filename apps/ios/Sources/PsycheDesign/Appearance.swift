@@ -37,4 +37,24 @@ extension View {
         self
         #endif
     }
+
+    /// Pushed pages bring the system bar back (Home hides it for its own serif header).
+    @ViewBuilder
+    public func psycheShowsNavigationBar() -> some View {
+        #if os(iOS)
+        toolbarVisibility(.visible, for: .navigationBar)
+        #else
+        self
+        #endif
+    }
+
+    /// Full-width rows on white with hairlines, on paper (the Inbox list).
+    @ViewBuilder
+    public func psycheGroupedList() -> some View {
+        #if os(iOS)
+        listStyle(.plain).scrollContentBackground(.hidden)
+        #else
+        scrollContentBackground(.hidden)
+        #endif
+    }
 }

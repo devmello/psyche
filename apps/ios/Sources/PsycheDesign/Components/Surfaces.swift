@@ -46,7 +46,8 @@ public struct PaperCard<Content: View>: View {
     }
 
     public var body: some View {
-        content
+        // One stack, so several rows share one card instead of each getting its own.
+        VStack(alignment: .leading, spacing: 0) { content }
             .padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(PsycheColor.sheet)
