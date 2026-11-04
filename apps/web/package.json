@@ -18,6 +18,10 @@
       "types": "./src/shell/platform.ts",
       "default": "./src/shell/platform.ts"
     },
+    "./host-terminal-port": {
+      "types": "./src/shell/host-terminal-port.ts",
+      "default": "./src/shell/host-terminal-port.ts"
+    },
     "./testing": {
       "types": "./testing/index.ts",
       "default": "./testing/index.ts"
