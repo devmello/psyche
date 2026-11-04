@@ -41,6 +41,7 @@ import {
   gatewaysFilePath,
   loadGatewaysStrict,
   resolveTarget,
+  setupTokenAnswered,
 } from "./lib/gateways.ts";
 import {
   checkCallable,
@@ -1365,9 +1366,9 @@ void app.whenReady().then(async () => {
           })
           .catch(() => undefined);
       }
-      // The Host refused the token (used, expired, revoked): do not offer it again.
-      if (s.phase === "denied" && s.deniedCode === "setup_token_invalid")
-        gateways.clearSetupToken();
+      // The Host answered a connect that carried the token (paired, waiting, or refused): it is
+      // spent or useless, so never offer it again.
+      if (s.phase !== "paired" && setupTokenAnswered(s.phase)) gateways.clearSetupToken();
       // The Host sends this connection OS notifications only once it asks (R2); per connection.
       if (s.phase === "paired" && remoteGateway) {
         void gateway?.call("notifications.device.register", { enabled: true }).then(
