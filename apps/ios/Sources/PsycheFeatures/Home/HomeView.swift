@@ -17,7 +17,7 @@ struct HomeView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: PsycheMetrics.sectionSpacing) {
                 PageHeader("Home", eyebrow: Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day())) {
-                    AgentButton(needsYou: !(model.phase.value?.needsYou.isEmpty ?? true))
+                    AgentButton(needsYou: !(model.phase.value?.needsYou.isEmpty ?? true), glass: true)
                 }
                 ConnectionBanner(state: session.state, lastSyncedAt: session.lastSyncedAt)
                 askField
@@ -31,6 +31,8 @@ struct HomeView: View {
         }
         .psycheScreen()
         .psycheHidesNavigationBar()
+        .overlay(alignment: .bottom) { notice }
+        .animation(.default, value: model.notice)
         .task {
             await model.load()
             await model.observe()
@@ -38,12 +40,22 @@ struct HomeView: View {
         .refreshable { await model.load() }
     }
 
+    // MARK: Ask Psyche
+
     private var askField: some View {
         HStack(spacing: 10) {
             TextField("Ask Psyche anything", text: $ask)
                 .font(.callout)
                 .submitLabel(.send)
                 .onSubmit(submitAsk)
+            if !ask.isEmpty {
+                Button(action: submitAsk) {
+                    Image(systemName: "arrow.up.circle.fill")
+                        .font(.title2)
+                        .foregroundStyle(PsycheColor.inkText)
+                }
+                .accessibilityLabel("Ask")
+            }
         }
         .padding(.horizontal, 16)
         .frame(minHeight: 48)
@@ -59,55 +71,26 @@ struct HomeView: View {
         router.askPsyche(text)
     }
 
+    // MARK: Sections (empty ones aren't drawn)
+
     @ViewBuilder
     private func sections(_ snapshot: HomeSnapshot) -> some View {
-        if !snapshot.needsYou.isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
-                SectionHeader("Needs you", count: snapshot.needsYou.count, needsYou: true)
-                PaperCard {
-                    ForEach(Array(snapshot.needsYou.enumerated()), id: \.element.id) { index, item in
-                        if index > 0 { HairlineDivider() }
-                        needsYouRow(item)
-                    }
-                }
-            }
-        }
-        if !snapshot.running.isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
-                SectionHeader("Running")
-                ForEach(snapshot.running) { task in runningCard(task) }
-            }
-        }
-        if !snapshot.today.isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
-                SectionHeader("Today")
-                VStack(alignment: .leading, spacing: 14) {
-                    ForEach(Array(snapshot.today.enumerated()), id: \.element.id) { index, item in
-                        if index > 0 { HairlineDivider() }
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(item.text).font(.psycheRow).foregroundStyle(PsycheColor.text)
-                            EvidenceLine(item.evidenceLabel, item.evidence)
-                        }
-                    }
-                    Text("That's everything for today.")
-                        .font(.system(.footnote, design: .serif).italic())
-                        .foregroundStyle(PsycheColor.muted)
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, 4)
-                }
-                .padding(.horizontal, 2)
-            }
-        }
-        if !snapshot.keepInTouch.isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
-                SectionHeader("Keep in touch")
-                PaperCard(padding: 14) {
-                    ForEach(snapshot.keepInTouch) { nudge in
-                        HStack(spacing: 12) {
-                            InitialsAvatar(nudge.initials, size: 36)
-                            Text(nudge.text).font(.psycheRow).foregroundStyle(PsycheColor.text)
-                        }
-                    }
+        if !snapshot.needsYou.isEmpty { needsYou(snapshot.needsYou) }
+        if !snapshot.running.isEmpty { running(snapshot.running) }
+        if !snapshot.today.isEmpty { today(snapshot.today) }
+        if !model.comingUp.isEmpty { todos("Coming up", model.comingUp) }
+        if !model.laterTodos.isEmpty { todos("To-do", model.laterTodos) }
+        if !snapshot.keepInTouch.isEmpty { keepInTouch(snapshot.keepInTouch) }
+        more
+    }
+
+    private func needsYou(_ items: [NeedsYouItem]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionHeader("Needs you", count: items.count, needsYou: true)
+            PaperCard {
+                ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                    if index > 0 { HairlineDivider() }
+                    needsYouRow(item)
                 }
             }
         }
@@ -116,39 +99,170 @@ struct HomeView: View {
     @ViewBuilder
     private func needsYouRow(_ item: NeedsYouItem) -> some View {
         let canAnswer = session.state.canAnswer
-        let kind = item.kind == .approval ? "Approval" : item.kind == .question ? "Question" : "Task"
+        let kind = item.kind.label
         let evidence = canAnswer ? [kind, item.source, item.time] : [kind, "reconnect to answer"]
         let row = NeedsYouRow(title: item.title, evidence: evidence, showsChevron: canAnswer)
         if canAnswer {
-            Button { open(item) } label: { row }.buttonStyle(.plain)
+            Button { router.open(item) } label: { row }.buttonStyle(.plain)
         } else {
-            row
+            row.accessibilityElement(children: .combine)
         }
     }
 
-    private func open(_ item: NeedsYouItem) {
-        if item.approval != nil {
-            router.sheet = .approval(item)
-        } else if let thread = item.threadID {
-            router.openThread(thread)
-        }
-    }
-
-    private func runningCard(_ task: RunningTask) -> some View {
-        PaperCard(padding: 14) {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(alignment: .firstTextBaseline, spacing: 12) {
-                    Text(task.title).font(.psycheRow).foregroundStyle(PsycheColor.text)
-                    Spacer(minLength: 0)
-                    if let thread = router.runningThread(for: task.id) {
-                        Button("Watch") { router.openThread(thread) }
-                            .font(.subheadline.weight(.medium))
-                            .foregroundStyle(PsycheColor.muted)
+    private func running(_ tasks: [RunningTask]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionHeader("Running")
+            ForEach(tasks) { task in
+                PaperCard(padding: 14) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack(alignment: .firstTextBaseline, spacing: 12) {
+                            Text(task.title).font(.psycheRow).foregroundStyle(PsycheColor.text)
+                            Spacer(minLength: 0)
+                            Button("Watch") { model.show("Live Activities arrive with phone push.") }
+                                .font(.subheadline.weight(.medium))
+                                .foregroundStyle(PsycheColor.muted)
+                        }
+                        ProgressBar(fraction: task.fraction)
+                        EvidenceLine(["Step \(task.step) of \(task.stepCount)", task.detail, task.elapsed])
                     }
                 }
-                ProgressBar(fraction: task.fraction)
-                EvidenceLine(["Step \(task.step) of \(task.stepCount)", task.detail, task.elapsed])
             }
+        }
+    }
+
+    private func today(_ items: [BriefItem]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionHeader("Today")
+            VStack(alignment: .leading, spacing: 14) {
+                ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                    if index > 0 { HairlineDivider() }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(item.text).font(.psycheRow).foregroundStyle(PsycheColor.text)
+                        EvidenceLine(item.evidenceLabel, item.evidence)
+                    }
+                }
+                Text("That's everything for today.")
+                    .font(.system(.footnote, design: .serif).italic())
+                    .foregroundStyle(PsycheColor.muted)
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 4)
+            }
+            .padding(.horizontal, 2)
+        }
+    }
+
+    private func todos(_ title: String, _ items: [TodoItem]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionHeader(title)
+            PaperCard {
+                ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                    if index > 0 { HairlineDivider() }
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(item.title).font(.psycheRow).foregroundStyle(PsycheColor.text)
+                        EvidenceLine([item.meta])
+                    }
+                    .padding(PsycheMetrics.rowPadding)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityElement(children: .combine)
+                }
+            }
+        }
+    }
+
+    private func keepInTouch(_ nudges: [Nudge]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionHeader("Keep in touch")
+            PaperCard {
+                ForEach(Array(nudges.enumerated()), id: \.element.id) { index, nudge in
+                    if index > 0 { HairlineDivider() }
+                    nudgeRow(nudge)
+                }
+            }
+        }
+    }
+
+    private func nudgeRow(_ nudge: Nudge) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 12) {
+                InitialsAvatar(nudge.initials, size: 36)
+                Text(nudge.text).font(.psycheRow).foregroundStyle(PsycheColor.text)
+            }
+            HStack(spacing: 20) {
+                Button("Start a message") {
+                    router.askPsyche(nudge.draft ?? "Help me reach out. \(nudge.text)")
+                    Task { await model.act(on: nudge, .startMessage) }
+                }
+                .foregroundStyle(PsycheColor.inkText)
+                Button("Snooze") { Task { await model.act(on: nudge, .snooze) } }
+                Button("Mute") { Task { await model.act(on: nudge, .mute) } }
+            }
+            .font(.subheadline.weight(.medium))
+            .foregroundStyle(PsycheColor.muted)
+            .buttonStyle(.plain)
+            .padding(.leading, 48)
+        }
+        .padding(PsycheMetrics.rowPadding)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // MARK: More
+
+    private var more: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionHeader("More")
+            PaperCard {
+                moreRow("Inbox", systemImage: "tray", route: .inbox, trailing: model.unreadInbox > 0 ? "\(model.unreadInbox) new" : nil)
+                HairlineDivider()
+                moreRow("Scheduled", systemImage: "clock", route: .scheduled)
+                HairlineDivider()
+                moreRow("Overview", systemImage: "square.grid.2x2", route: .overview)
+            }
+        }
+    }
+
+    private func moreRow(_ title: String, systemImage: String, route: Route, trailing: String? = nil) -> some View {
+        Button { router.homePath.append(route) } label: {
+            HStack(spacing: 12) {
+                Image(systemName: systemImage)
+                    .font(.body).foregroundStyle(PsycheColor.muted).frame(width: 22)
+                    .accessibilityHidden(true)
+                Text(title).font(.psycheRow).foregroundStyle(PsycheColor.text)
+                Spacer(minLength: 0)
+                if let trailing { Text(trailing).font(.psycheMono(.caption)).foregroundStyle(PsycheColor.muted) }
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(PsycheColor.muted.opacity(0.7))
+                    .accessibilityHidden(true)
+            }
+            .padding(PsycheMetrics.rowPadding)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: Notice
+
+    @ViewBuilder
+    private var notice: some View {
+        if let message = model.notice {
+            Text(message)
+                .font(.subheadline)
+                .foregroundStyle(PsycheColor.text)
+                .padding(.horizontal, 18)
+                .padding(.vertical, 12)
+                .glassEffect(.regular, in: .capsule)
+                .padding(.bottom, 96)
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
+        }
+    }
+}
+
+extension NeedsYouItem.Kind {
+    var label: String {
+        switch self {
+        case .approval: "Approval"
+        case .question: "Question"
+        case .task: "Task"
         }
     }
 }

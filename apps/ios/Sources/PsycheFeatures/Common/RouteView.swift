@@ -15,6 +15,9 @@ struct RouteView: View {
         case .project(let id): placeholder("Project", id)
         case .person(let id): placeholder("Person", id)
         case .file(let id): LibraryItemView(id: id)
+        case .inbox: InboxView(store: store)
+        case .scheduled: ScheduledView(store: store)
+        case .overview: OverviewView(store: store)
         }
     }
 

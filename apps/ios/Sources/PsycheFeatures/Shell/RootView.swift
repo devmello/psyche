@@ -71,14 +71,21 @@ struct MainTabs: View {
         }
         .tint(PsycheColor.inkText)
         .syncsShareInbox(store: store)
+        #if DEBUG
+        .task { await router.openForScreenshot(store: store) }
+        #endif
         .sheet(item: $router.sheet) { sheet in
             switch sheet {
             case .approval(let item):
                 if let detail = item.approval {
                     ApprovalSheet(item: item, detail: detail)
                 }
+            case .question(let item):
+                if let detail = item.question {
+                    QuestionSheet(item: item, detail: detail)
+                }
             case .agent:
-                AgentSheet()
+                AgentSheet(store: store)
             }
         }
     }
