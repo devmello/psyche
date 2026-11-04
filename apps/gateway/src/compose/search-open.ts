@@ -128,3 +128,66 @@ export function searchOpenHandlers(deps: SearchOpenDeps): Record<string, Handler
     },
   };
 }
+
+/** The sources a conversation gist is written from; its source chip never points anywhere else. */
+export const GIST_SOURCES: readonly string[] = ["mail", "messages", "calendar"];
+/** The sources a catch-up line's chips may point at: the gist ones, and a fact's note or file. */
+export const CATCHUP_SOURCES: readonly string[] = [...GIST_SOURCES, "notes", "files"];
+
+/** Longest document id sent to a client: `search.document`'s own cap. A longer one is skipped. */
+export const MAX_DOC_ID_CHARS = 400;
+
+/**
+ * True when this connection may open `id` in the source viewer, for a source chip. The same
+ * rules as `search.document` (a client, not a helper; Messages, Contacts and Memory only from the
+ * desktop app on this Mac; the passage must exist), checked again on every read and only for the
+ * sources a chip comes from. Existence only: the body is not loaded. Never throws.
+ */
+export function canOpenGistSource(
+  deps: Pick<SearchOpenDeps, "indexer">,
+  call: Call,
+  id: string,
+  kinds: readonly string[] = GIST_SOURCES,
+): boolean {
+  try {
+    if (id.length > MAX_DOC_ID_CHARS || call.identity.role !== "client") return false;
+    const source = deps.indexer()?.sourceOf(id);
+    if (source === undefined || !kinds.includes(source)) return false;
+    return (
+      call.identity.desktopShell === true ||
+      !(OWNER_ONLY_SOURCES as readonly string[]).includes(source)
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * A review item's citations for one connection (`memory.review.list`): a `docId` only where the
+ * connection may open it (`canOpenGistSource` with any indexed source), and, for an owner-only
+ * source (Messages, Contacts, Memory), the verbatim `quote` and the native `sourceRef` only for
+ * the desktop app. The source label stays.
+ */
+export function scrubCitations<
+  T extends { source: string; docId?: string | null; quote: string; sourceRef: string },
+>(deps: Pick<SearchOpenDeps, "indexer">, call: Call, citations: readonly T[]): T[] {
+  const desktop = call.identity.role === "client" && call.identity.desktopShell === true;
+  const ownerOnly = (source: string | undefined) =>
+    source !== undefined && (OWNER_ONLY_SOURCES as readonly string[]).includes(source);
+  return citations.map((c) => {
+    let kind: string | undefined;
+    try {
+      kind = c.docId == null ? undefined : deps.indexer()?.sourceOf(c.docId);
+    } catch {
+      kind = undefined;
+    }
+    const open =
+      c.docId != null && kind !== undefined && canOpenGistSource(deps, call, c.docId, [kind]);
+    const hidden = !desktop && (ownerOnly(c.source) || ownerOnly(kind));
+    return {
+      ...c,
+      docId: open ? c.docId : null,
+      ...(hidden ? { quote: "", sourceRef: "" } : {}),
+    };
+  });
+}

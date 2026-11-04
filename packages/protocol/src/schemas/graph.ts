@@ -407,6 +407,13 @@ export const GraphInteraction = Type.Object(
         }),
       ),
     ),
+    gistDocId: Type.Optional(
+      Type.String({
+        maxLength: 400,
+        description:
+          "Search document id of the passage the gist was written from. Present only when this connection may open it (`search.document`); the viewer sends just this id back",
+      }),
+    ),
   },
   { $id: "GraphInteraction" },
 );
@@ -769,6 +776,19 @@ export const CatchUpChange = Type.Object(
 );
 export type CatchUpChange = Static<typeof CatchUpChange>;
 
+/** A source behind a catch-up line: opens in the source viewer through `search.document`. */
+export const CatchUpSource = Type.Object(
+  {
+    docId: Type.String({ maxLength: 400, description: "Search document id" }),
+    sourceKind: Type.String({
+      maxLength: 40,
+      description: "Search source id: mail, messages, ...",
+    }),
+  },
+  { $id: "CatchUpSource" },
+);
+export type CatchUpSource = Static<typeof CatchUpSource>;
+
 /** Where the owner stopped, and what opens it (§5.4). */
 export const CatchUpResume = Type.Object(
   {
@@ -803,6 +823,13 @@ export const CatchUpItem = Type.Object(
     line: Type.String({ maxLength: 140, description: "The §5.3 template, already filtered" }),
     changes: Type.Array(CatchUpChange, { maxItems: 2 }),
     resume: Type.Optional(CatchUpResume),
+    sources: Type.Optional(
+      Type.Array(CatchUpSource, {
+        maxItems: 3,
+        description:
+          "Indexed passages behind this line's changes. Sent only to a connection that may open each one (`search.document`'s rules); a chip opens it in the source viewer",
+      }),
+    ),
     actions: Type.Array(CatchUpAction, { maxItems: 5 }),
     ask: Type.Optional(
       Type.Boolean({

@@ -38,6 +38,7 @@ import {
   effectiveEverythingSources,
   everythingOptOut,
   type FeedWidget,
+  type GraphCitation,
   MEMORY_WORK_SETTING_KEY,
   type MethodParams,
   type MethodResult,
@@ -47,6 +48,7 @@ import {
 } from "@psyche/protocol";
 import { readSourcesConfig } from "@psyche/search";
 import { Value } from "@sinclair/typebox/value";
+import type { Call } from "../context.ts";
 import type { Gateway } from "../server.ts";
 import { readSystemState } from "./everything-probe.ts";
 import { mountParamsOnly } from "./handlers.ts";
@@ -572,7 +574,15 @@ export interface EverythingDeps {
   logger?: { log(level: "warn", msg: string, fields?: Record<string, unknown>): void };
 }
 
+/** What one connection may see of a review item's citations (`scrubCitations`); see `useCitationScrub`. */
+export type CitationScrub = (call: Call, citations: GraphCitation[]) => GraphCitation[];
+
 export interface Everything {
+  /**
+   * Binds the per-connection rule for citations in `memory.review.list`. Until it is bound every
+   * citation loses its `docId` and the quote of an owner-only source.
+   */
+  useCitationScrub(scrub: CitationScrub): void;
   readonly store: EverythingStore;
   readonly settings: () => EverythingMemorySettings;
   readonly handlers: EverythingHandlers;
@@ -593,6 +603,13 @@ export interface Everything {
 
 export function composeEverything(deps: EverythingDeps): Everything {
   const { db, clock, graph } = deps;
+  /** Fail closed until Search is bound: no document ids, and no quote of an owner-only source. */
+  let citationScrub: CitationScrub = (_call, citations) =>
+    citations.map((c) => ({
+      ...c,
+      docId: null,
+      ...(["messages", "contacts"].includes(c.source) ? { quote: "", sourceRef: "" } : {}),
+    }));
   const memorySql = deps.memorySqlite ?? db.sqlite;
   const store = new EverythingStore({ sqlite: memorySql, graph, clock });
   const vectors = new FactVectorStore(memorySql);
@@ -839,10 +856,28 @@ export function composeEverything(deps: EverythingDeps): Everything {
         link: REVIEW_LINK,
       };
     },
+    useCitationScrub(scrub) {
+      citationScrub = scrub;
+    },
     part(scheduler, timezone) {
       let unsubscribe: (() => void) | undefined;
+      const mounted = mountParamsOnly(handlers as never);
       return {
-        handlers: mountParamsOnly(handlers as never),
+        handlers: {
+          ...mounted,
+          "memory.review.list": {
+            run: async (call: Call, params: never) => {
+              const res = await handlers["memory.review.list"](params);
+              return {
+                ...res,
+                items: res.items.map((item) => ({
+                  ...item,
+                  citations: citationScrub(call, item.citations),
+                })),
+              };
+            },
+          },
+        },
         async start(gateway: Gateway) {
           if (scheduler === undefined) return;
           const sync = () =>

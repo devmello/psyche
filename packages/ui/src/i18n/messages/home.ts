@@ -40,6 +40,7 @@ export const home = {
   "home.catchUp": "Catching up",
   "home.catchUp.hint": "What is due and what moved since you last looked",
   "home.catchUp.open": "Open {title}",
+  "home.catchUp.source": "From {source}",
   "home.catchUp.all": "All work due",
   "home.catchUp.pending": "{n, plural, one {# new item to confirm} other {# new items to confirm}}",
   "home.ask.list": "Past-due questions",
