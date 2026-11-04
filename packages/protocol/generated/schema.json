@@ -394,6 +394,16 @@
         "payload": "#/$defs/TaskUpdatedPayload"
       },
       {
+        "description": "A Host terminal session ended (the shell exited, it was closed, or its device went away or was revoked), sent only to the device that opened it.",
+        "name": "terminal.exit",
+        "payload": "#/$defs/TerminalExitPayload"
+      },
+      {
+        "description": "Output of a Host terminal session (terminal.session.open), sent only to the device that opened it, in order and flow-controlled by terminal.session.ack. Admin scope.",
+        "name": "terminal.output",
+        "payload": "#/$defs/TerminalOutputPayload"
+      },
+      {
         "description": "A thread's transcript was emptied (threads.clear); the thread itself stays. Clients drop the loaded messages and show the empty chat.",
         "name": "thread.cleared",
         "payload": "#/$defs/ThreadClearedPayload"
@@ -3055,6 +3065,46 @@
         "result": "#/$defs/TaskResult",
         "scope": "operator.write",
         "sideEffecting": true
+      },
+      {
+        "description": "Confirms output the client rendered; the Gateway reads the PTY again once less than the window is unconfirmed.",
+        "name": "terminal.session.ack",
+        "params": "#/$defs/TerminalSessionAckParams",
+        "result": "#/$defs/TerminalSessionAckResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
+        "description": "Ends a session this device opened (kills its shell). Idempotent.",
+        "name": "terminal.session.close",
+        "params": "#/$defs/TerminalSessionCloseParams",
+        "result": "#/$defs/TerminalSessionCloseResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
+        "description": "Starts a shell on the Host and returns its session id; output arrives as terminal.output events on this device. Needs operator.admin and fresh presence (or the desktop shell on the Host before any verifier exists). Side-effecting.",
+        "name": "terminal.session.open",
+        "params": "#/$defs/TerminalSessionOpenParams",
+        "result": "#/$defs/TerminalSessionOpenResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Resizes the PTY of a session this device opened.",
+        "name": "terminal.session.resize",
+        "params": "#/$defs/TerminalSessionResizeParams",
+        "result": "#/$defs/TerminalSessionResizeResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
+        "description": "Sends keystrokes to a session this device opened (at most 64 KB a call).",
+        "name": "terminal.session.write",
+        "params": "#/$defs/TerminalSessionWriteParams",
+        "result": "#/$defs/TerminalSessionWriteResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
       },
       {
         "description": "Archives a thread; running work is not cancelled.",
@@ -40439,6 +40489,233 @@
         "approvalEdits",
         "dismissals"
       ],
+      "type": "object"
+    },
+    "TerminalExitPayload": {
+      "properties": {
+        "sessionId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "exitCode": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "const": "exited",
+              "type": "string"
+            },
+            {
+              "const": "closed",
+              "type": "string"
+            },
+            {
+              "const": "idle",
+              "type": "string"
+            },
+            {
+              "const": "device_disconnected",
+              "type": "string"
+            },
+            {
+              "const": "device_revoked",
+              "type": "string"
+            },
+            {
+              "const": "gateway_stopped",
+              "type": "string"
+            }
+          ],
+          "description": "Why the session ended"
+        }
+      },
+      "required": [
+        "sessionId",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "TerminalOutputPayload": {
+      "properties": {
+        "sessionId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "data": {
+          "description": "Terminal output, UTF-8 decoded",
+          "type": "string"
+        },
+        "end": {
+          "description": "Characters sent in this session up to and including this chunk",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sessionId",
+        "data",
+        "end"
+      ],
+      "type": "object"
+    },
+    "TerminalSessionAckParams": {
+      "properties": {
+        "sessionId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "end": {
+          "description": "The `end` of the last terminal.output chunk the client has rendered",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sessionId",
+        "end"
+      ],
+      "type": "object"
+    },
+    "TerminalSessionAckResult": {
+      "properties": {},
+      "type": "object"
+    },
+    "TerminalSessionCloseParams": {
+      "properties": {
+        "sessionId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId"
+      ],
+      "type": "object"
+    },
+    "TerminalSessionCloseResult": {
+      "properties": {
+        "closed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "closed"
+      ],
+      "type": "object"
+    },
+    "TerminalSessionOpenParams": {
+      "properties": {
+        "cols": {
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "rows": {
+          "maximum": 200,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "cwd": {
+          "description": "An absolute folder on the Host",
+          "maxLength": 4096,
+          "minLength": 1,
+          "type": "string"
+        },
+        "approvalId": {
+          "description": "The approved presence card from a first approval_required",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cols",
+        "rows"
+      ],
+      "type": "object"
+    },
+    "TerminalSessionOpenResult": {
+      "properties": {
+        "sessionId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "target": {
+          "const": "host",
+          "type": "string"
+        },
+        "label": {
+          "description": "What the pane shows: the shell and folder",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId",
+        "target",
+        "label"
+      ],
+      "type": "object"
+    },
+    "TerminalSessionResizeParams": {
+      "properties": {
+        "sessionId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "cols": {
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "rows": {
+          "maximum": 200,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sessionId",
+        "cols",
+        "rows"
+      ],
+      "type": "object"
+    },
+    "TerminalSessionResizeResult": {
+      "properties": {},
+      "type": "object"
+    },
+    "TerminalSessionWriteParams": {
+      "properties": {
+        "sessionId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "data": {
+          "maxLength": 65536,
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId",
+        "data"
+      ],
+      "type": "object"
+    },
+    "TerminalSessionWriteResult": {
+      "properties": {},
       "type": "object"
     },
     "TextBlock": {

@@ -81,7 +81,15 @@ export async function requireFreshPresence(
   } catch {
     throw new PsycheError("invalid_params", `The parameters of ${action.name} are not plain JSON`);
   }
-  const binding = bindingHash("policy_change", { setting: action.name, valueSha256 });
+  // The card is bound to the device that asked: `approval.created` (id included) reaches every
+  // operator.read subscriber, so without this another admin device could present an approvalId
+  // the owner approved for someone else's request and spend it. A different device hashes to a
+  // different binding and gets `binding_mismatch`.
+  const binding = bindingHash("policy_change", {
+    setting: action.name,
+    valueSha256,
+    requestedByDevice: call.identity.deviceId,
+  });
   const { broker } = call.ctx;
   if (approvalId === undefined) {
     const issued = await broker.requestApproval({

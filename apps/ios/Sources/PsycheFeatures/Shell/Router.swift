@@ -35,7 +35,7 @@ public final class Router {
     /// Home's Ask field: open the main thread with the composer focused.
     func askPsyche(_ text: String) {
         pendingDraft = text
-        selectedThread = FixtureSnapshotStore.mainThreadID
+        selectedThread = FixtureData.mainThreadID
         tab = .chat
     }
 
