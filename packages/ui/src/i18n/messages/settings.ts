@@ -92,9 +92,20 @@ export const settings = {
   "settings.searchModel.utility": "Your utility model",
   "settings.searchModel.utilityHint":
     "The small model set in Models. If it is a cloud model, the text it reads goes to that provider.",
-  "settings.searchModel.apple": "Apple on-device model",
+  "settings.searchModel.apple": "Use Apple's on-device model for private search jobs",
+  "settings.searchModel.appleName": "Apple on-device model",
   "settings.searchModel.appleHint":
-    "Runs on this Mac with Apple Intelligence, so nothing is sent to the cloud. If it can't run, those jobs are skipped.",
+    "The text stays on this Mac: nothing to download, no key, nothing sent to the cloud. It reads about {k}k tokens at a time, so long text is skipped. If it can't answer, that job is skipped. It never falls back to a cloud model.",
+  "settings.searchModel.apple.why.off":
+    "Apple Intelligence is turned off. Turn it on in System Settings, under Apple Intelligence and Siri.",
+  "settings.searchModel.apple.why.os": "This Mac needs macOS 26 or later.",
+  "settings.searchModel.apple.why.device": "This Mac or region doesn't support Apple Intelligence.",
+  "settings.searchModel.apple.why.notReady":
+    "Apple is still getting the model ready. Try again in a while.",
+  "settings.searchModel.apple.why.unknown": "The model isn't available right now.",
+  "settings.searchModel.apple.whySkipped": "Until then, those jobs are skipped.",
+  "settings.searchModel.apple.host":
+    "This is {host}'s setting. The model runs on {host}, not on this computer, and the change applies to every window.",
   "settings.searchModel.apple.ready": "Ready on this Mac",
   "settings.searchModel.apple.needsAi": "Needs Apple Intelligence",
   "settings.searchModel.apple.notReady": "Getting ready",

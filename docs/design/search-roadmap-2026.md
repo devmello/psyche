@@ -384,7 +384,7 @@ R@10 by class against the baseline: every class is equal except **list +0.012**;
 
 ## 13. Apple on-device model (the privacy-first local option)
 
-Status: built behind fakes, 2026-11-03. **Not run against the real model**: the owner is told before any local model runs, and the tests drive a fake helper. Feature entry: [future-features.md §6](../roadmap/future-features.md).
+Status: A1 built behind fakes 2026-11-03; A2 (the Settings control) and A4 (memory extraction per source, Experimental) built behind fakes 2026-11-04. **Not run against the real model**: the owner is told before any local model runs, and the tests drive a fake helper. Feature entry: [future-features.md §6](../roadmap/future-features.md).
 
 **What.** Apple's `FoundationModels` framework (macOS 26, Apple Intelligence) as a model the router can serve, for the small jobs that read private text: reading a question (R13, §4.1), context cards (§3.6), listwise rerank (§5.4, R12) and, later, memory extraction for one source (everything-memory EM11). On-device system model: no download, no key, no cost, nothing leaves the Mac.
 
@@ -402,12 +402,14 @@ Status: built behind fakes, 2026-11-03. **Not run against the real model**: the 
 
 **Limits to remember.** The window is about 4,096 tokens, so input over 9,000 characters is refused, never cut. The model is small: expect it to read a question and reorder eight hits, not to write a faithful card from a long document. Whether it is good enough is what the real run measures.
 
+**A2 and A4 (built behind fakes).** Settings → Search → Model for search offers the Apple choice with the plain statement and the `models.appleStatus` reason, disabled while unavailable and labelled as the Host's setting in a remote client window. Memory settings → Model for one source offers "Apple on-device model (experimental)" only where the model is available; `modelFor` returns it with a 4,096-token `window`, the pass sizes batches under `windowPlan` (items over the budget are skipped as `item_too_long_for_window`), and a refusal is recorded as `model_unavailable`, `model_guardrail`, `model_too_long` or `model_failed` in the run's drop counts: no retry, no cloud model. `model_unavailable` keeps the cursor so the next night reads the same items. Tests drive fake providers only.
+
 **What still needs a real run (A3), on a Mac the owner approves.**
 1. `llm.apple.availability` and one `llm.apple.generate` on a Mac with Apple Intelligence on, and on one with it off, to confirm the unavailable reasons and messages.
 2. The error-case mapping (`exceededContextWindowSize`, `guardrailViolation`, `unsupportedLanguageOrLocale`): the Swift mapping matches on the case names and is unit-tested only with names, not with real thrown errors.
 3. Guided generation with the query model's schema and the rerank schema (the schema is built in a test, never sent).
 4. `--live` Apple modes in the search eval (not written yet) with the gate of §9: no class drops by more than 0.02 R@10.
-5. Memory extraction on a few red-team cases (EM11) to see whether the batch fits the window.
+5. Memory extraction on a few red-team cases (EM11) to see whether the batch fits the window, and whether the per-item budget (`windowPlan`: three characters a token, 600 output tokens reserved) is right. Until then the per-source choice stays labelled Experimental.
 6. That the helper binary still launches on macOS 15: `FoundationModels` is weakly linked (`LC_LOAD_WEAK_DYLIB`, checked), but it has not been started on a macOS 15 machine.
 
 Out of scope on purpose: Private Cloud Compute (`PrivateCloudComputeLanguageModel`) sends text off the Mac and is not offered.

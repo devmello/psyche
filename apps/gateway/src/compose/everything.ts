@@ -8,6 +8,7 @@ import {
   fuseLifeHits,
   type GraphStore,
   type ItemReader,
+  isAppleOnDeviceRef,
   type LifeEmbedder,
   lifeCandidates,
   lifeFactsForQuestion,
@@ -28,6 +29,7 @@ import {
   type SchedulerLike,
 } from "@psyche/proactive";
 import {
+  APPLE_LLM_CONTEXT_TOKENS,
   type Clock,
   EVERYTHING_MEMORY_DEFAULTS,
   EVERYTHING_MEMORY_SETTING_KEY,
@@ -655,7 +657,8 @@ export function composeEverything(deps: EverythingDeps): Everything {
     const localRefs = Object.entries(s.sources)
       .filter(([, on]) => on)
       .map(([src]) => perSource?.[src] ?? s.model.default)
-      .filter((c) => c.kind === "local")
+      // Apple's model is the system's: no download, no RAM to warn about, nothing to confirm.
+      .filter((c) => c.kind === "local" && !isAppleOnDeviceRef(c.ref))
       .map((c) => c.ref);
     return {
       graph,
@@ -669,7 +672,12 @@ export function composeEverything(deps: EverythingDeps): Everything {
       localMinutes: localMinutesAt(clock.now(), zone),
       modelFor: (kind, source) => {
         const model = refOf(kind, source);
-        return model === undefined ? undefined : { provider: deps.provider, model };
+        if (model === undefined) return undefined;
+        // Apple's on-device model has a small window; the router pins a concrete ref (no
+        // fallbacks), and a refusal makes the batch do nothing instead of asking another model.
+        return isAppleOnDeviceRef(model)
+          ? { provider: deps.provider, model, window: { contextTokens: APPLE_LLM_CONTEXT_TOKENS } }
+          : { provider: deps.provider, model };
       },
       // The owner confirms the RAM warning for one named model; changing it asks again.
       localModelConfirmed: localRefs.every((r) => r !== undefined && confirmed.has(r)),
