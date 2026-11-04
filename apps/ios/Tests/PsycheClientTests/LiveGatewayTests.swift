@@ -92,6 +92,13 @@ struct LiveGatewayTests {
         #expect(full.items.contains(.user(id: full.items.compactMap { if case .user(let id, _) = $0 { id } else { nil } }.first ?? "", text: "Say hello")))
         #expect(full.items.contains { if case .assistant(_, let t, false) = $0 { t == info.reply } else { false } })
 
+        // 3b. Memory and Search answer over the real protocol (an empty graph is an empty snapshot, not an error).
+        let memory = try await backend.memory()
+        #expect(memory.todos.isEmpty && memory.people.isEmpty)
+        let found = try await backend.search(query: "hello")
+        #expect(found.answer == nil)
+        #expect(try await backend.pinnedWidgets().isEmpty)
+
         // 4. A gap in today's Gateway, kept here so the test says so when it closes: a phone the owner has not
         //    paired is denied its setup token (desktop only, auth.ts), and the denial reads like an expired link.
         //    When the Gateway takes setup tokens from `ios`, this phone pairs and this expectation flips.
