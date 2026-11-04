@@ -51,6 +51,17 @@ export interface GatewayEntry {
   active: boolean;
   /** Its identity key is pinned. */
   pinned: boolean;
+  /** On the local network, reached over a pinned self-signed certificate. */
+  lan?: boolean;
+}
+
+/** A Gateway the network announced; a claim, not a proof (desktop: `lib/lan-discovery.ts`). */
+export interface DiscoveredGateway {
+  id: string;
+  name: string;
+  /** `sha256:<hex>` it announced for its identity key, or null. */
+  fingerprint: string | null;
+  saved: boolean;
 }
 
 /**
@@ -61,6 +72,10 @@ export interface GatewayEntry {
 export interface GatewaysSlot {
   list(): Promise<GatewayEntry[]>;
   add(address: string, name?: string): Promise<GatewayEntry>;
+  /** Looks for Gateways on the local network; absent where the app cannot (no Bonjour). */
+  discover?(): Promise<DiscoveredGateway[]>;
+  /** Adds one `discover` returned, by its id: the app never takes an address from here. */
+  addDiscovered?(id: string): Promise<GatewayEntry>;
   remove(id: string): Promise<void>;
   switchTo(id: string, opts?: { stopLocal?: boolean }): Promise<void>;
   repair(id: string): Promise<void>;

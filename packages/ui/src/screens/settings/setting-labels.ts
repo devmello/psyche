@@ -81,6 +81,8 @@ const LABELLED_KEYS = [
   "memory.surfaces.kinds.event",
   "memory.recall.mode",
   "gateway.bind",
+  "gateway.lan",
+  "gateway.lan.rotateCert",
   "models.primary",
   "models.utility",
   "models.providers",

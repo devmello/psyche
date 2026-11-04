@@ -40,6 +40,7 @@ import { createGatewayVerifier, readLocalGatewayKey } from "./lib/gateway-identi
 import {
   EMPTY_GATEWAYS,
   gatewaysFilePath,
+  isLanOrigin,
   loadGatewaysStrict,
   resolveTarget,
 } from "./lib/gateways.ts";
@@ -59,6 +60,8 @@ import {
   rec,
   str,
 } from "./lib/ipc.ts";
+import { LanDiscovery } from "./lib/lan-discovery.ts";
+import { createPinnedFetch, createPinnedWebSocket, PinnedChannel } from "./lib/lan-tls.ts";
 import { NotificationRelay } from "./lib/notify-relay.ts";
 import { pairingEdge } from "./lib/pairing-edge.ts";
 import { realChromeOpenCommand, realChromeProfileDir } from "./lib/real-chrome.ts";
@@ -176,6 +179,8 @@ if (gatewayTarget.dataDir !== null) {
 const remoteGateway = gatewayTarget.remote;
 /** The Gateway is this Mac's own: the one this app supervises, launches a helper for and bootstraps. */
 const thisMacGateway = !remoteGateway && isLocalGatewayOrigin(gatewayTarget.origin);
+// A saved Gateway on the local network (`.local` or a private address): pinned self-signed TLS.
+const lanGateway = remoteGateway && isLanOrigin(gatewayTarget.origin);
 /** The mode the supervisor runs in: a saved remote Gateway starts nothing here. */
 const supervisorMode = remoteGateway ? "remote" : chooseMode(process.env, app.isPackaged);
 
@@ -485,7 +490,7 @@ async function confirmGatewayChange(c: GatewayConfirm): Promise<boolean> {
     c.kind === "add"
       ? {
           message: `Connect Psyche to ${c.origin}?`,
-          detail: `Name: ${c.name}\n\nThis computer will ask that Gateway to pair. Nothing is shared until its owner approves this computer there, and Psyche pins the Gateway's identity at the first connection.`,
+          detail: `Name: ${c.name}${c.fingerprint ? `\nKey it announced: ${c.fingerprint.slice(0, 31)}…` : ""}\n\nThis computer will ask that Gateway to pair. Nothing is shared until its owner approves this computer there, and Psyche pins the Gateway's identity at the first connection.`,
           buttons: ["Add Gateway", "Cancel"],
         }
       : c.kind === "forget"
@@ -522,6 +527,7 @@ async function confirmGatewayChange(c: GatewayConfirm): Promise<boolean> {
 }
 
 /** The saved Gateways: the list, adding, forgetting, switching (a restart) and the active pin. */
+const lanDiscovery = new LanDiscovery();
 const gateways = new GatewayManager({
   userData: baseUserData,
   target: gatewayTarget,
@@ -555,6 +561,27 @@ function registerIpc(): void {
       str(IPC.gatewaysAdd, r.address, "address", 300),
       typeof r.name === "string" ? str(IPC.gatewaysAdd, r.name, "name", 64) : undefined,
     );
+  });
+  // "Look on this network": Bonjour `_psyche._tcp`, on the owner's click. The window can add
+  // only a Gateway this process found (by id), never an address it supplies.
+  handle(IPC.gatewaysDiscover, async () => {
+    const found = await lanDiscovery.discover();
+    const saved = new Set(gateways.list().map((g) => g.origin));
+    return found.map((d) => ({
+      id: d.id,
+      name: d.name,
+      fingerprint: d.fingerprint,
+      saved: saved.has(d.origin),
+    }));
+  });
+  handle(IPC.gatewaysAddDiscovered, (_e, arg) => {
+    const found = lanDiscovery.get(
+      str(IPC.gatewaysAddDiscovered, rec(IPC.gatewaysAddDiscovered, arg).id, "id", 32),
+    );
+    if (found === undefined) throw new PsycheError("not_found", "Look on the network again");
+    return gateways.add(found.origin, found.name, {
+      ...(found.fingerprint === null ? {} : { advertisedFingerprint: found.fingerprint }),
+    });
   });
   handle(IPC.gatewaysRename, (_e, arg) => {
     const r = rec(IPC.gatewaysRename, arg);
@@ -1190,10 +1217,28 @@ void app.whenReady().then(async () => {
     },
     onUnpaired: () => dictation?.onDisconnected(),
   });
+  // A Gateway on the local network has a self-signed certificate: it is reached only through a
+  // channel that holds it to the pinned SPKI, and the verifier binds the identity proof to it.
+  const lanChannel = lanGateway
+    ? new PinnedChannel({
+        host: new URL(origin).hostname.replace(/^\[|\]$/g, ""),
+        port: Number(new URL(origin).port || 443),
+        pinned: () => gateways.pinnedCert(),
+      })
+    : null;
   const gatewayVerifier = createGatewayVerifier({
     dialedOrigin: origin,
     mode: remoteGateway ? "strict" : "local",
     pinnedKey: () => gateways.pinnedKey(),
+    ...(remoteGateway ? { expectedFingerprint: () => gateways.advertisedFingerprint() } : {}),
+    ...(lanChannel
+      ? {
+          lan: {
+            observedSpki: () => lanChannel.observedSpki(),
+            pinnedSpki: () => gateways.pinnedCert(),
+          },
+        }
+      : {}),
     // This Mac's own Gateway must answer with the key in this Mac's own identity file.
     ...(thisMacGateway ? { localKey: () => readLocalGatewayKey(home) } : {}),
   });
@@ -1206,6 +1251,14 @@ void app.whenReady().then(async () => {
     // remote Gateway is pinned on first use and refused if the key ever differs; This Mac's own
     // is trusted by the per-launch secret, so it keeps no pin.
     verifyGateway: gatewayVerifier,
+    ...(lanChannel
+      ? {
+          transport: {
+            createWebSocket: (url: string) => createPinnedWebSocket(lanChannel, url),
+            fetch: createPinnedFetch(lanChannel),
+          },
+        }
+      : {}),
     onStatus: (s) => {
       broadcast(IPC.status, s);
       tray?.update({ status: s });
@@ -1213,6 +1266,8 @@ void app.whenReady().then(async () => {
       if (s.phase === "paired" && remoteGateway) {
         const first = gatewayVerifier.candidateKey();
         if (first !== undefined) gateways.pin(first);
+        const cert = gatewayVerifier.candidateCertSpki();
+        if (cert !== undefined) gateways.pinCert(cert);
       }
       onPairing(s);
       if (s.phase === "paired") gateways.markConnected();

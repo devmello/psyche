@@ -3,6 +3,7 @@ import { assertFolderGrantable } from "@psyche/permissions";
 import { isAdminSettingKey, PsycheError } from "@psyche/protocol";
 import { folderAccessEnv } from "../compose/protected-paths.ts";
 import type { Call, HandlerDef } from "../context.ts";
+import { LAN_SETTING, parseLanSettings } from "../lan/settings.ts";
 import { requireFreshPresence } from "../presence-gate.ts";
 import { INTERNAL_SETTING_PREFIX } from "../state-version.ts";
 
@@ -65,7 +66,10 @@ export const settingsHandlers: Record<string, HandlerDef> = {
   "settings.set": {
     // Not transactional: a security key first awaits the broker. The write itself is one row.
     async run(call: Call, params: { key: string; value: unknown; approvalId?: string }) {
-      const { key, value } = params;
+      const { key } = params;
+      // `gateway.lan` is stored in its normalized form, and a malformed or wildcard value is
+      // refused before anything (including the presence card) is created for it.
+      const value = key === LAN_SETTING ? parseLanSettings(params.value) : params.value;
       if (key.startsWith(INTERNAL_SETTING_PREFIX)) {
         throw new PsycheError(
           "invalid_params",
@@ -100,6 +104,17 @@ export const settingsHandlers: Record<string, HandlerDef> = {
         });
       } catch {
         // Reporting never fails the change.
+      }
+      if (key === LAN_SETTING) {
+        // Opens or closes the LAN sockets now. A failure is reported through `gateway.info`
+        // (`lan.problems`); the stored choice stays, like any other setting.
+        try {
+          await call.ctx.lan.apply(value);
+        } catch (err) {
+          call.ctx.log.log("warn", "lan listener failed to apply", {
+            code: PsycheError.from(err).code,
+          });
+        }
       }
       const stateVersion = call.ctx.bus.bumpStateVersion();
       call.emit("settings.changed", { entries: [entry] });

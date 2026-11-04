@@ -42,6 +42,19 @@ export interface SavedGatewayView {
   active: boolean;
   /** The Gateway's identity key is pinned. */
   pinned: boolean;
+  /** On the local network, reached over a pinned self-signed certificate. */
+  lan?: boolean;
+}
+
+/** A Gateway the network announced (Bonjour `_psyche._tcp`); a claim, not a proof. */
+export interface DiscoveredGatewayView {
+  /** Stable for this listing; the window adds it by this id, never by an address. */
+  id: string;
+  name: string;
+  /** `sha256:<hex>` the Gateway announced for its identity key, or null. */
+  fingerprint: string | null;
+  /** Already in the saved list. */
+  saved: boolean;
 }
 
 /** Why an address was refused when adding a Gateway. */
@@ -62,6 +75,10 @@ export interface GatewaysPort {
   list(): Promise<SavedGatewayView[]>;
   /** Rejects with `invalid_params` and `details.problem` (`GatewayAddressProblem`) for a bad address. */
   add(address: string, name?: string): Promise<SavedGatewayView>;
+  /** Looks for Gateways on the local network (on the owner's click, a few seconds). */
+  discover?(): Promise<DiscoveredGatewayView[]>;
+  /** Adds a listing `discover` returned; the same native confirmation and pin flow as `add`. */
+  addDiscovered?(id: string): Promise<SavedGatewayView>;
   rename(id: string, name: string): Promise<void>;
   /** Forgets the Gateway: its pin, this computer's key for it and its stored data. */
   remove(id: string): Promise<void>;

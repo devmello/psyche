@@ -4,6 +4,7 @@ import {
   type BrowserNav,
   type BundledHelperIdentity,
   browserStorage,
+  type DiscoveredGatewayView,
   type DownloadNotice,
   type GatewayRunView,
   type HostAppInfo,
@@ -108,6 +109,8 @@ function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
     gateways: {
       list: () => b.gateways.list() as Promise<SavedGatewayView[]>,
       add: (address, name) => b.gateways.add(address, name) as Promise<SavedGatewayView>,
+      discover: () => b.gateways.discover() as Promise<DiscoveredGatewayView[]>,
+      addDiscovered: (id) => b.gateways.addDiscovered(id) as Promise<SavedGatewayView>,
       rename: async (id, name) => void (await b.gateways.rename(id, name)),
       remove: async (id) => void (await b.gateways.remove(id)),
       switchTo: async (id, opts) => void (await b.gateways.switchTo(id, opts)),

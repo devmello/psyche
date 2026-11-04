@@ -48,6 +48,9 @@ const IDENTITY_REASON: Record<string, string> = {
   gateway_identity_missing: "web.splash.remote.identityMissing",
   gateway_identity_invalid: "web.splash.remote.identityInvalid",
   gateway_origin_mismatch: "web.splash.remote.identityOrigin",
+  gateway_cert_changed: "web.splash.remote.certChanged",
+  gateway_cert_missing: "web.splash.remote.certMissing",
+  gateway_cert_invalid: "web.splash.remote.certInvalid",
 };
 
 /**

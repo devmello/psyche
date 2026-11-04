@@ -538,6 +538,8 @@
 //   let gatedCapability = try? JSONDecoder().decode(GatedCapability.self, from: jsonData)
 //   let gatewayInfo = try? JSONDecoder().decode(GatewayInfo.self, from: jsonData)
 //   let gatewayInfoParams = try? JSONDecoder().decode(GatewayInfoParams.self, from: jsonData)
+//   let gatewayLANRotateCERTParams = try? JSONDecoder().decode(GatewayLANRotateCERTParams.self, from: jsonData)
+//   let gatewayLANRotateCERTResult = try? JSONDecoder().decode(GatewayLANRotateCERTResult.self, from: jsonData)
 //   let gatewayShutdownPayload = try? JSONDecoder().decode(GatewayShutdownPayload.self, from: jsonData)
 //   let goal = try? JSONDecoder().decode(Goal.self, from: jsonData)
 //   let goalCategory = try? JSONDecoder().decode(GoalCategory.self, from: jsonData)
@@ -9933,6 +9935,13 @@ public struct ConnectChallenge: Codable, Sendable {
     /// base64url Ed25519 signature by the Gateway identity key over gatewaySigningPayload(nonce,
     /// serverOrigin, the connecting device's public key)
     public let gatewaySignature: String?
+    /// base64url Ed25519 signature by the Gateway identity key over lanCertSigningPayload(nonce,
+    /// serverOrigin, device key, lanCertSpki)
+    public let lanCERTSignature: String?
+    /// LAN listener only: the SHA-256 (base64url) of the SPKI of the TLS certificate this
+    /// connection was served with. The client compares it with the certificate it actually saw,
+    /// so a relay with its own certificate is caught
+    public let lanCERTSpki: String?
     /// base64url, 32 random bytes
     public let nonce: String
     public let phase: ConnectChallengePhase
@@ -9944,16 +9953,20 @@ public struct ConnectChallenge: Codable, Sendable {
         case expiresAt = "expiresAt"
         case gatewayKey = "gatewayKey"
         case gatewaySignature = "gatewaySignature"
+        case lanCERTSignature = "lanCertSignature"
+        case lanCERTSpki = "lanCertSpki"
         case nonce = "nonce"
         case phase = "phase"
         case protocolVersion = "protocolVersion"
         case serverOrigin = "serverOrigin"
     }
 
-    public init(expiresAt: String, gatewayKey: String?, gatewaySignature: String?, nonce: String, phase: ConnectChallengePhase, protocolVersion: Int, serverOrigin: String) {
+    public init(expiresAt: String, gatewayKey: String?, gatewaySignature: String?, lanCERTSignature: String?, lanCERTSpki: String?, nonce: String, phase: ConnectChallengePhase, protocolVersion: Int, serverOrigin: String) {
         self.expiresAt = expiresAt
         self.gatewayKey = gatewayKey
         self.gatewaySignature = gatewaySignature
+        self.lanCERTSignature = lanCERTSignature
+        self.lanCERTSpki = lanCERTSpki
         self.nonce = nonce
         self.phase = phase
         self.protocolVersion = protocolVersion
@@ -14178,6 +14191,7 @@ public struct GatewayInfo: Codable, Sendable {
     /// The Host machine's name
     public let hostName: String
     public let identity: Identity
+    public let lan: LAN?
     /// gateway.publicOrigin, the https address other computers reach it at
     public let publicOrigin: String?
     /// gateway.trustedProxy is on
@@ -14186,13 +14200,15 @@ public struct GatewayInfo: Codable, Sendable {
     public enum CodingKeys: String, CodingKey {
         case hostName = "hostName"
         case identity = "identity"
+        case lan = "lan"
         case publicOrigin = "publicOrigin"
         case trustedProxy = "trustedProxy"
     }
 
-    public init(hostName: String, identity: Identity, publicOrigin: String?, trustedProxy: Bool) {
+    public init(hostName: String, identity: Identity, lan: LAN?, publicOrigin: String?, trustedProxy: Bool) {
         self.hostName = hostName
         self.identity = identity
+        self.lan = lan
         self.publicOrigin = publicOrigin
         self.trustedProxy = trustedProxy
     }
@@ -14213,6 +14229,113 @@ public struct Identity: Codable, Sendable {
     public init(fingerprint: String, publicKey: String) {
         self.fingerprint = fingerprint
         self.publicKey = publicKey
+    }
+}
+
+// MARK: - LAN
+public struct LAN: Codable, Sendable {
+    /// Bonjour `_psyche._tcp` is being advertised
+    public let advertising: Bool
+    /// Interfaces the owner can pick
+    public let candidates: [Candidate]
+    /// SHA-256 (base64url) of the LAN certificate's SPKI: the cert pin
+    public let certSpki: String?
+    /// The `gateway.lan` setting is on
+    public let enabled: Bool
+    /// The interface names or addresses the owner chose; empty = the default one
+    public let interfaces: [String]
+    /// What is bound right now; empty when off or when nothing could bind
+    public let listening: [Listening]
+    /// https://<host>.local:<port> while listening
+    public let origin: String?
+    public let port: Int
+    /// Why something the owner asked for is not happening: unknown_interface:<name>,
+    /// no_interface, bind_failed:<address>:<code>, container_bind, advertise_failed
+    public let problems: [String]
+
+    public enum CodingKeys: String, CodingKey {
+        case advertising = "advertising"
+        case candidates = "candidates"
+        case certSpki = "certSpki"
+        case enabled = "enabled"
+        case interfaces = "interfaces"
+        case listening = "listening"
+        case origin = "origin"
+        case port = "port"
+        case problems = "problems"
+    }
+
+    public init(advertising: Bool, candidates: [Candidate], certSpki: String?, enabled: Bool, interfaces: [String], listening: [Listening], origin: String?, port: Int, problems: [String]) {
+        self.advertising = advertising
+        self.candidates = candidates
+        self.certSpki = certSpki
+        self.enabled = enabled
+        self.interfaces = interfaces
+        self.listening = listening
+        self.origin = origin
+        self.port = port
+        self.problems = problems
+    }
+}
+
+// MARK: - Candidate
+public struct Candidate: Codable, Sendable {
+    public let address: String
+    public let isDefault: Bool
+    public let name: String
+
+    public enum CodingKeys: String, CodingKey {
+        case address = "address"
+        case isDefault = "isDefault"
+        case name = "name"
+    }
+
+    public init(address: String, isDefault: Bool, name: String) {
+        self.address = address
+        self.isDefault = isDefault
+        self.name = name
+    }
+}
+
+// MARK: - Listening
+public struct Listening: Codable, Sendable {
+    public let address: String
+    public let port: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case address = "address"
+        case port = "port"
+    }
+
+    public init(address: String, port: Int) {
+        self.address = address
+        self.port = port
+    }
+}
+
+// MARK: - GatewayLANRotateCERTParams
+public struct GatewayLANRotateCERTParams: Codable, Sendable {
+    public let approvalID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case approvalID = "approvalId"
+    }
+
+    public init(approvalID: String?) {
+        self.approvalID = approvalID
+    }
+}
+
+// MARK: - GatewayLANRotateCERTResult
+public struct GatewayLANRotateCERTResult: Codable, Sendable {
+    public let certSpki: String
+
+    public enum CodingKeys: String, CodingKey {
+        case certSpki = "certSpki"
+    }
+
+    public init(certSpki: String) {
+        self.certSpki = certSpki
     }
 }
 

@@ -23,6 +23,9 @@ export interface GatewayChallengeView {
   serverOrigin: string;
   gatewayKey?: string;
   gatewaySignature?: string;
+  /** LAN only: the SPKI pin the Gateway says it served, and its identity-key signature of it. */
+  lanCertSpki?: string;
+  lanCertSignature?: string;
 }
 
 export type GatewayVerdict =
@@ -126,13 +129,15 @@ export class Handshake {
       let fingerprint: string | undefined;
       let verifiedKey: string | undefined;
       if (this.verifyGateway) {
-        const { gatewayKey, gatewaySignature } = payload;
+        const { gatewayKey, gatewaySignature, lanCertSpki, lanCertSignature } = payload;
         const verdict = await this.verifyGateway(
           {
             nonce,
             serverOrigin,
             ...(typeof gatewayKey === "string" ? { gatewayKey } : {}),
             ...(typeof gatewaySignature === "string" ? { gatewaySignature } : {}),
+            ...(typeof lanCertSpki === "string" ? { lanCertSpki } : {}),
+            ...(typeof lanCertSignature === "string" ? { lanCertSignature } : {}),
           },
           this.params.publicKey,
         );

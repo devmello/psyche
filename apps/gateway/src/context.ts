@@ -17,6 +17,7 @@ import type { GatewayConfig } from "./config.ts";
 import type { EventBus, EventFilter } from "./event-bus.ts";
 import type { Idempotency } from "./idempotency.ts";
 import type { GatewayIdentity } from "./identity.ts";
+import type { LanStatus } from "./lan/listener.ts";
 import type { Logger } from "./log.ts";
 import type { NodeRegistry } from "./nodes/registry.ts";
 import type { PresenceState } from "./presence-gate.ts";
@@ -113,6 +114,16 @@ export interface ResolvedChatContext {
 
 export type ChatContextResolver = (ref: ChatContextRef) => ResolvedChatContext;
 
+/** What the rest of the Gateway may ask of the LAN listener. */
+export interface LanControl {
+  /** Applies a stored `gateway.lan` value (anything unreadable is off) and reports the result. */
+  apply(value: unknown): Promise<LanStatus>;
+  status(): LanStatus;
+  /** The SPKI pin of the certificate being served (cheap; read per LAN challenge). */
+  certSpki(): string | null;
+  rotateCert(): Promise<LanStatus>;
+}
+
 export interface GatewayContext {
   readonly config: GatewayConfig;
   readonly db: PsycheDb;
@@ -181,6 +192,8 @@ export interface GatewayContext {
    * a challenge whose origin is not the one it dialed (remote-gateway design §3.3).
    */
   challengeOrigin(peer: PeerInfo): string;
+  /** The LAN listener (`lan/listener.ts`): off unless the owner turned `gateway.lan` on. */
+  readonly lan: LanControl;
   /** This Gateway's identity key (`identity/gateway.key`); it signs every challenge. */
   readonly identity: GatewayIdentity;
   connections(): Iterable<LiveConnection>;

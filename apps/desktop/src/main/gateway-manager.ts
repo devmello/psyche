@@ -9,7 +9,9 @@ import {
   type GatewaysFile,
   type GatewayTarget,
   gatewayDataDir,
+  isLanOrigin,
   loadGatewaysStrict,
+  pinGatewayCert,
   pinGatewayKey,
   removeGateway,
   renameGateway,
@@ -41,10 +43,12 @@ export interface SavedGatewayView {
   active: boolean;
   /** An identity key is pinned (the first connect has happened). */
   pinned: boolean;
+  /** On the local network: reached over a pinned self-signed certificate. */
+  lan: boolean;
 }
 
 export type GatewayConfirm =
-  | { kind: "add"; origin: string; name: string }
+  | { kind: "add"; origin: string; name: string; fingerprint?: string }
   | { kind: "forget"; name: string; origin: string }
   | { kind: "repair"; name: string; origin: string }
   | { kind: "stopLocal" };
@@ -103,6 +107,7 @@ export class GatewayManager {
         remote: false,
         active: activeId === THIS_MAC_ID,
         pinned: false,
+        lan: false,
       },
       ...data.gateways.map((g) => ({
         id: g.id,
@@ -111,6 +116,7 @@ export class GatewayManager {
         remote: true,
         active: g.id === activeId,
         pinned: g.identityKey !== undefined,
+        lan: isLanOrigin(g.origin),
       })),
     ];
   }
@@ -122,10 +128,18 @@ export class GatewayManager {
   }
 
   /** Adds the Gateway for `address` after the owner confirms it in a native dialog. */
-  async add(address: string, name?: string): Promise<SavedGatewayView> {
+  async add(
+    address: string,
+    name?: string,
+    hints?: { certPin?: string; identityKey?: string; advertisedFingerprint?: string },
+  ): Promise<SavedGatewayView> {
     const attempt = () => {
       try {
-        return addGateway(this.#load(), { address, ...(name === undefined ? {} : { name }) });
+        return addGateway(this.#load(), {
+          address,
+          ...(name === undefined ? {} : { name }),
+          ...(hints === undefined ? {} : { hints }),
+        });
       } catch (err) {
         if (err instanceof GatewayAddressError) {
           throw new PsycheError("invalid_params", err.message, {
@@ -141,6 +155,9 @@ export class GatewayManager {
       kind: "add",
       origin: first.entry.origin,
       name: first.entry.name,
+      ...(first.entry.advertisedFingerprint === undefined
+        ? {}
+        : { fingerprint: first.entry.advertisedFingerprint }),
     });
     if (!ok) throw new PsycheError("forbidden", "Adding the Gateway was cancelled");
     // The file is read again after the dialog: it may have changed while the owner decided (a pin
@@ -158,6 +175,7 @@ export class GatewayManager {
       remote: true,
       active: this.#deps.target.id === entry.id,
       pinned: entry.identityKey !== undefined,
+      lan: isLanOrigin(entry.origin),
     };
   }
 
@@ -259,6 +277,35 @@ export class GatewayManager {
     const entry = data.gateways.find((g) => g.id === this.#deps.target.id);
     if (entry === undefined || entry.identityKey !== undefined) return;
     saveGateways(this.#file, pinGatewayKey(data, this.#deps.target.id, key));
+  }
+
+  /** The pinned certificate (SPKI) of the active LAN Gateway; throws like `pinnedKey`. */
+  pinnedCert(): string | undefined {
+    if (!this.#deps.target.remote) return undefined;
+    const entry = this.#load().gateways.find((g) => g.id === this.#deps.target.id);
+    if (entry === undefined)
+      throw new PsycheError("unavailable", "the active Gateway is not saved");
+    return entry.certPin;
+  }
+
+  /** Trust on first use for the certificate, stored once the connection is paired. */
+  pinCert(spki: string): void {
+    if (!this.#deps.target.remote) return;
+    const data = this.#load();
+    const entry = data.gateways.find((g) => g.id === this.#deps.target.id);
+    if (entry === undefined || entry.certPin !== undefined) return;
+    saveGateways(this.#file, pinGatewayCert(data, this.#deps.target.id, spki));
+  }
+
+  /** The key fingerprint Bonjour announced for the active Gateway, while no key is pinned. */
+  advertisedFingerprint(): string | undefined {
+    if (!this.#deps.target.remote) return undefined;
+    try {
+      return this.#load().gateways.find((g) => g.id === this.#deps.target.id)
+        ?.advertisedFingerprint;
+    } catch {
+      return undefined;
+    }
   }
 
   /** Remembers when the active saved Gateway last paired. */

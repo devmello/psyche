@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { chmodSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { isIP } from "node:net";
 import { dirname, join } from "node:path";
 import { DEFAULT_GATEWAY_PORT } from "@psyche/protocol";
 
@@ -26,6 +27,17 @@ export interface SavedGateway {
   origin: string;
   /** The pinned Gateway identity key (base64url raw Ed25519), set at the first connect. */
   identityKey?: string;
+  /**
+   * LAN Gateways: the pinned SHA-256 of the TLS certificate's SPKI (base64url). A pairing link
+   * carries it (the `psyche-pair:v1` payload's certificate field, when that lands); without a
+   * link it is stored at the first pairing, like the identity key. See `lib/lan-tls.ts`.
+   */
+  certPin?: string;
+  /**
+   * LAN Gateways picked from Bonjour: the key fingerprint (`sha256:<hex>`) the network said it
+   * has. A hint only, checked against the key the Gateway then proves; never a pin.
+   */
+  advertisedFingerprint?: string;
   lastConnectedAt?: string;
   /** Fields of the file this version does not know, kept so saving never drops them. */
   extra?: Record<string, unknown>;
@@ -44,6 +56,7 @@ export const EMPTY_GATEWAYS: GatewaysFile = { v: 1, active: THIS_MAC_ID, gateway
 
 const ID_PATTERN = /^gw_[0-9a-f]{12}$/;
 const KEY_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+const FINGERPRINT_PATTERN = /^sha256:[0-9a-f]{64}$/;
 
 export function gatewaysFilePath(userData: string): string {
   return join(userData, "gateways.json");
@@ -118,6 +131,38 @@ export function defaultGatewayName(origin: string): string {
     : (host.split(".")[0] ?? host);
 }
 
+/**
+ * Whether the host is one that only exists on a local network: a `.local` name, or a private,
+ * link-local or unique-local address. No public CA issues certificates for these, so such a
+ * Gateway is reached only through the pinned-certificate path (`lib/lan-tls.ts`), never through
+ * the system's trust store. A Tailscale name (`*.ts.net`) is not LAN.
+ */
+export function isLanHost(host: string): boolean {
+  const h = host.replace(/^\[|\]$/g, "").toLowerCase();
+  if (h.endsWith(".local")) return true;
+  const kind = isIP(h);
+  if (kind === 4) {
+    const [a = 0, b = 0] = h.split(".").map(Number);
+    return (
+      a === 10 ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 168) ||
+      (a === 169 && b === 254)
+    );
+  }
+  if (kind === 6) return /^f[cd]/.test(h) || h.startsWith("fe80:");
+  return false;
+}
+
+export function isLanOrigin(origin: string): boolean {
+  try {
+    const url = new URL(origin);
+    return url.protocol === "https:" && isLanHost(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
 export function isLoopbackOrigin(origin: string): boolean {
   try {
     return LOOPBACK.has(new URL(origin).hostname.replace(/^\[|\]$/g, ""));
@@ -163,6 +208,11 @@ function cleanEntry(raw: unknown): SavedGateway | null {
     origin,
     ...(typeof e.identityKey === "string" && KEY_PATTERN.test(e.identityKey)
       ? { identityKey: e.identityKey }
+      : {}),
+    ...(typeof e.certPin === "string" && KEY_PATTERN.test(e.certPin) ? { certPin: e.certPin } : {}),
+    ...(typeof e.advertisedFingerprint === "string" &&
+    FINGERPRINT_PATTERN.test(e.advertisedFingerprint)
+      ? { advertisedFingerprint: e.advertisedFingerprint }
       : {}),
     ...(typeof e.lastConnectedAt === "string" ? { lastConnectedAt: e.lastConnectedAt } : {}),
   };
@@ -237,10 +287,12 @@ export function loadGatewaysStrict(file: string): GatewaysFile {
   for (const raw of p.gateways as unknown[]) {
     const entry = cleanEntry(raw);
     const key = (raw as { identityKey?: unknown } | null)?.identityKey;
+    const cert = (raw as { certPin?: unknown } | null)?.certPin;
     if (
       entry === null ||
       seen.has(entry.id) ||
-      (key !== undefined && (typeof key !== "string" || !KEY_PATTERN.test(key)))
+      (key !== undefined && (typeof key !== "string" || !KEY_PATTERN.test(key))) ||
+      (cert !== undefined && (typeof cert !== "string" || !KEY_PATTERN.test(cert)))
     ) {
       throw new GatewaysFileError(`${file} has an entry Psyche cannot read`);
     }
@@ -270,6 +322,8 @@ const ENTRY_FIELDS: ReadonlySet<string> = new Set([
   "name",
   "origin",
   "identityKey",
+  "certPin",
+  "advertisedFingerprint",
   "lastConnectedAt",
 ]);
 
@@ -305,17 +359,33 @@ export type AddResult = { gateways: GatewaysFile; entry: SavedGateway; existing:
  */
 export function addGateway(
   data: GatewaysFile,
-  input: { address: string; name?: string },
+  input: {
+    address: string;
+    name?: string;
+    /** From a pairing link (pins) or a Bonjour listing (a fingerprint hint). */
+    hints?: { certPin?: string; identityKey?: string; advertisedFingerprint?: string };
+  },
   id: string = newGatewayId(),
 ): AddResult {
   const origin = normalizeGatewayOrigin(input.address);
   const found = data.gateways.find((g) => g.origin === origin);
   if (found) return { gateways: data, entry: found, existing: true };
   const typedName = input.name === undefined ? "" : cleanGatewayName(input.name);
+  const hints = input.hints ?? {};
   const entry: SavedGateway = {
     id,
     name: (typedName ? typedName : defaultGatewayName(origin)).slice(0, 64),
     origin,
+    ...(hints.identityKey !== undefined && KEY_PATTERN.test(hints.identityKey)
+      ? { identityKey: hints.identityKey }
+      : {}),
+    ...(hints.certPin !== undefined && KEY_PATTERN.test(hints.certPin) && isLanOrigin(origin)
+      ? { certPin: hints.certPin }
+      : {}),
+    ...(hints.advertisedFingerprint !== undefined &&
+    FINGERPRINT_PATTERN.test(hints.advertisedFingerprint)
+      ? { advertisedFingerprint: hints.advertisedFingerprint }
+      : {}),
   };
   return {
     gateways: { ...data, gateways: [...data.gateways, entry] },
@@ -355,13 +425,22 @@ export function pinGatewayKey(data: GatewaysFile, id: string, key: string): Gate
   };
 }
 
-/** Drops the pin ("Forget and pair again"): the next connect pins whatever answers. */
+/** Stores a LAN Gateway's certificate pin (trust on first use, or from a pairing link). */
+export function pinGatewayCert(data: GatewaysFile, id: string, spki: string): GatewaysFile {
+  if (!KEY_PATTERN.test(spki)) return data;
+  return {
+    ...data,
+    gateways: data.gateways.map((g) => (g.id === id ? { ...g, certPin: spki } : g)),
+  };
+}
+
+/** Drops the pins ("Forget and pair again"): the next connect pins whatever answers. */
 export function clearGatewayPin(data: GatewaysFile, id: string): GatewaysFile {
   return {
     ...data,
     gateways: data.gateways.map((g) => {
       if (g.id !== id) return g;
-      const { identityKey: _pin, ...rest } = g;
+      const { identityKey: _pin, certPin: _cert, advertisedFingerprint: _hint, ...rest } = g;
       return rest;
     }),
   };

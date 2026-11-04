@@ -51,6 +51,7 @@
     "@psyche/viewers": "workspace:*",
     "@simplewebauthn/server": "14.0.3",
     "@sinclair/typebox": "0.34.52",
+    "bonjour-service": "1.4.4",
     "fflate": "0.8.3",
     "ulid": "3.0.2",
     "ws": "8.22.0"

@@ -1,6 +1,6 @@
 # Use Psyche from another computer
 
-Run Psyche on one Mac (the Host) and use it from the desktop app on another computer over Tailscale. The Host keeps your data, memory, connectors, models and automations. The other computer is a window onto it. Nothing runs in the middle: the path is your own tailnet.
+Run Psyche on one Mac (the Host) and use it from the desktop app on another computer over Tailscale or your own network. The Host keeps your data, memory, connectors, models and automations. The other computer is a window onto it. Nothing runs in the middle: the path is your own tailnet or your own Wi-Fi or Ethernet.
 
 Design and decisions: [remote-gateway-2026.md](../design/remote-gateway-2026.md).
 
@@ -40,6 +40,21 @@ Settings → Server & remote access shows the address the Gateway answers to, wh
 
 The toolbar then shows the Host's name next to the avatar, with a menu to switch. One Gateway is active at a time. Switching restarts Psyche, so drafts, layout and caches from one Gateway never show in another. Psyche on this Mac keeps running when you switch away, so its automations continue. The switch dialog offers **Switch and stop Psyche on this Mac** as a separate step.
 
+## Over your own network (LAN)
+
+If both computers are on the same Wi-Fi or Ethernet, you can skip Tailscale. This is off until you turn it on.
+
+On the Host: Settings → Server & remote access → **Allow computers on this network**. Psyche then listens on one network interface (the primary Wi-Fi or Ethernet by default; you can pick another in the same panel) on port 7979, over TLS, and announces itself on the network with Bonjour (`_psyche._tcp`). The panel shows the address (`https://<host>.local:7979`), where it is listening, and the certificate's fingerprint. Turning it on needs your Touch ID like any Gateway setting, and `psyche security audit` and `psyche doctor` warn while it is on.
+
+- It never listens on every interface. You choose the network, and turning it off closes the socket. The loopback listener is unchanged.
+- The certificate is self-signed and made on the first turn-on, in `identity/lan-tls` in the data folder (private to your user). No certificate authority is involved, so the other computer does not use the system's trust: it pins this certificate and the Gateway's identity key. **Replace certificate** makes a new one; every computer that paired over the network then has to pair again.
+- The LAN listener serves only the health check and the connection to the app. The web UI, webhooks and public routes stay on loopback.
+- Anyone on the network can reach the pairing screen, so a new computer can only ask: nothing is shared until you approve it on the Host with your scopes and Touch ID. Use this only on a network you trust, not on shared or guest Wi-Fi, and not on a network that isolates clients (Bonjour will not cross it).
+
+On the other computer: Settings → Gateways on this computer → **Look on this network** lists the Psyche it finds, each with the key fingerprint it announced. That is a claim anyone on the network could make; the first connection shows the key the Gateway actually proves, and Psyche refuses unless the two match. Add it, **Switch** to it, then compare the pairing code and key on both screens and approve on the Host, exactly as in the steps above. You can also add `https://<host>.local:7979` or the Host's address by hand.
+
+A LAN Gateway is checked more strictly than a tailnet one. The first connection can only complete if the Gateway's identity key vouches (with a signature over this connection) for the exact certificate it presented, so a computer on the network that answers with its own certificate and passes the real Gateway's messages through is refused ("Its network certificate is not the one this computer pinned"). Once paired, the certificate's pin is stored next to the identity pin and a different certificate is refused before anything is sent. There is no "continue anyway". A pairing link will carry the certificate pin, so even the first connection is pinned; until pairing links land the pin is taken at the first pairing.
+
 ## What the identity pin does
 
 The Gateway has a long-lived identity key in `identity/gateway.key` in its data folder. At the first connection this computer holds the key in memory and stores the pin once that connection is paired (trust on first use, which is why you compare the fingerprint). After that it refuses to connect, and signs nothing, when:
@@ -75,4 +90,4 @@ Settings → Gateways on this computer → **Forget** removes the saved Gateway,
 
 ## Not built yet
 
-Pairing links and QR codes, notifications on the other computer, presence (Touch ID or a passkey) on the other computer, the tailnet list in Add a Gateway, LAN reachability, `psyche doctor` checks for Serve and Funnel, and a Windows build. See the design for the order.
+Pairing links and QR codes (the LAN pin will come with them), notifications on the other computer, presence (Touch ID or a passkey) on the other computer, the tailnet list in Add a Gateway, `psyche doctor` checks for Serve and Funnel, a Windows build, and the phone using the same LAN listener. On the LAN: IPv6, picking more than one network in Settings (the `gateway.lan.interfaces` setting takes several), and following an address that changes while the Gateway runs (turn the setting off and on, or restart). See the design for the order.

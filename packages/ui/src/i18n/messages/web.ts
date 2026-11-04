@@ -439,6 +439,12 @@ export const web = {
     "Its identity proof did not check out, so Psyche will not connect.",
   "web.splash.remote.identityOrigin":
     "It answered for a different address than the one this computer dialed. On {host}, set the public address in Settings → Devices → Server & remote access.",
+  "web.splash.remote.certChanged":
+    "Its network certificate is not the one this computer pinned. Another machine on this network may be answering in its place, or its certificate was replaced.",
+  "web.splash.remote.certMissing":
+    "It did not vouch for the certificate it used, so Psyche will not connect.",
+  "web.splash.remote.certInvalid":
+    "Its proof for the certificate it used did not check out, so Psyche will not connect.",
   "web.splash.remote.olderHost": "{host} runs an older Psyche.",
   "web.splash.remote.olderHostReason": "Update Psyche on {host}, then try again.",
   "web.splash.remote.olderApp": "This app is older than {host}.",

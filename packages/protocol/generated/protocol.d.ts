@@ -3078,6 +3078,17 @@ export interface ConnectChallenge {
      */
     gatewaySignature?: string;
     /**
+     * base64url Ed25519 signature by the Gateway identity key over lanCertSigningPayload(nonce,
+     * serverOrigin, device key, lanCertSpki)
+     */
+    lanCertSignature?: string;
+    /**
+     * LAN listener only: the SHA-256 (base64url) of the SPKI of the TLS certificate this
+     * connection was served with. The client compares it with the certificate it actually saw,
+     * so a relay with its own certificate is caught
+     */
+    lanCertSpki?: string;
+    /**
      * base64url, 32 random bytes
      */
     nonce: string;
@@ -4593,6 +4604,7 @@ export interface GatewayInfo {
      */
     hostName: string;
     identity: Identity;
+    lan?:     LAN;
     /**
      * gateway.publicOrigin, the https address other computers reach it at
      */
@@ -4612,6 +4624,62 @@ export interface Identity {
      * base64url raw Ed25519 identity public key
      */
     publicKey: string;
+}
+
+export interface LAN {
+    /**
+     * Bonjour `_psyche._tcp` is being advertised
+     */
+    advertising: boolean;
+    /**
+     * Interfaces the owner can pick
+     */
+    candidates: Candidate[];
+    /**
+     * SHA-256 (base64url) of the LAN certificate's SPKI: the cert pin
+     */
+    certSpki: null | string;
+    /**
+     * The `gateway.lan` setting is on
+     */
+    enabled: boolean;
+    /**
+     * The interface names or addresses the owner chose; empty = the default one
+     */
+    interfaces: string[];
+    /**
+     * What is bound right now; empty when off or when nothing could bind
+     */
+    listening: Listening[];
+    /**
+     * https://<host>.local:<port> while listening
+     */
+    origin: null | string;
+    port:   number;
+    /**
+     * Why something the owner asked for is not happening: unknown_interface:<name>,
+     * no_interface, bind_failed:<address>:<code>, container_bind, advertise_failed
+     */
+    problems: string[];
+}
+
+export interface Candidate {
+    address:   string;
+    isDefault: boolean;
+    name:      string;
+}
+
+export interface Listening {
+    address: string;
+    port:    number;
+}
+
+export interface GatewayLANRotateCERTParams {
+    approvalId?: string;
+}
+
+export interface GatewayLANRotateCERTResult {
+    certSpki: string;
 }
 
 export interface GatewayShutdownPayload {

@@ -7,6 +7,7 @@ import {
   GatewayConnection,
   type GatewayConnectionOptions,
   type GatewayVerifier,
+  type WebSocketLike,
 } from "@psyche/web/client";
 import { type DeviceKey, platformFromNode, signWithDeviceKey } from "./lib/device-key.ts";
 
@@ -32,6 +33,12 @@ export interface DesktopGatewayOptions
   remote?: boolean;
   /** The Gateway identity check (the pin of a saved remote Gateway); see `createGatewayVerifier`. */
   verifyGateway?: GatewayVerifier;
+  /**
+   * How to reach the Gateway when the system's TLS trust cannot be used: a LAN Gateway's
+   * self-signed certificate is checked against its pin (`lib/lan-tls.ts`). Absent = the
+   * platform's own `WebSocket` and `fetch`.
+   */
+  transport?: { createWebSocket: (url: string) => WebSocketLike; fetch: typeof fetch };
 }
 
 export function defaultPsycheHome(): string {
@@ -116,6 +123,9 @@ export function createDesktopGateway(opts: DesktopGatewayOptions): GatewayConnec
       desktopConnectParams({ key, home, origin, ...(opts.remote ? { remote: true } : {}) }),
     sign: (payload) => signWithDeviceKey(key, payload),
     ...(opts.verifyGateway ? { verifyGateway: opts.verifyGateway } : {}),
+    ...(opts.transport
+      ? { createWebSocket: opts.transport.createWebSocket, fetch: opts.transport.fetch }
+      : {}),
     onStatus: opts.onStatus,
     ...(opts.onEvent ? { onEvent: opts.onEvent } : {}),
     ...(opts.onResync ? { onResync: opts.onResync } : {}),

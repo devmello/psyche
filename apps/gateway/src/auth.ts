@@ -27,6 +27,7 @@ import {
   connectSigningPayload,
   type DeviceScope,
   gatewaySigningPayload,
+  lanCertSigningPayload,
   type PairingRequest,
   PROTOCOL_VERSION,
   PsycheError,
@@ -64,6 +65,15 @@ export interface PeerInfo {
   origin: string | null;
   /** Identity a trusted proxy claims for the client; shown on the pairing card, never trusted. */
   claimedIdentity?: string | null;
+  /**
+   * The connection came in on the LAN listener (`lan/listener.ts`). Such a peer is remote by
+   * construction: `remoteLoopback` is false whatever its address, so it is never the desktop
+   * shell, never auto-paired, and the v2 key binding applies. Set only by the listener the
+   * transport owns, never from anything the peer sends.
+   */
+  lan?: true;
+  /** The `Host` header of a LAN connection (names the origin it dialed); `null` otherwise. */
+  host?: string | null;
 }
 
 export interface PendingChallenge {
@@ -171,6 +181,8 @@ export function issueChallenge(
   serverOrigin: string,
   nowMs: number,
   identity?: GatewayIdentity,
+  /** The SPKI pin of the certificate this LAN connection was served with; LAN peers only. */
+  lanCertSpki?: string | null,
 ): { pending: PendingChallenge; challenge: ConnectChallenge } {
   // Clients use the WebSocket; the node socket is for nodes only (S23 review PR-1-A).
   if (peer.transport !== "ws" && params.role !== "node") {
@@ -196,6 +208,21 @@ export function issueChallenge(
             gatewaySignature: identity.sign(
               gatewaySigningPayload({ nonce, serverOrigin, devicePublicKey: params.publicKey }),
             ),
+            // On the LAN the certificate is self-signed: the identity key also vouches for the
+            // one this connection was served with, so a relay with its own certificate fails.
+            ...(peer.lan === true && lanCertSpki
+              ? {
+                  lanCertSpki,
+                  lanCertSignature: identity.sign(
+                    lanCertSigningPayload({
+                      nonce,
+                      serverOrigin,
+                      devicePublicKey: params.publicKey,
+                      spki: lanCertSpki,
+                    }),
+                  ),
+                }
+              : {}),
           }
         : {}),
     },

@@ -78,6 +78,20 @@ export const ConnectChallenge = Type.Object(
           "base64url Ed25519 signature by the Gateway identity key over gatewaySigningPayload(nonce, serverOrigin, the connecting device's public key)",
       }),
     ),
+    lanCertSpki: Type.Optional(
+      Type.String({
+        pattern: "^[A-Za-z0-9_-]{43}$",
+        description:
+          "LAN listener only: the SHA-256 (base64url) of the SPKI of the TLS certificate this connection was served with. The client compares it with the certificate it actually saw, so a relay with its own certificate is caught",
+      }),
+    ),
+    lanCertSignature: Type.Optional(
+      Type.String({
+        pattern: "^[A-Za-z0-9_-]{86}$",
+        description:
+          "base64url Ed25519 signature by the Gateway identity key over lanCertSigningPayload(nonce, serverOrigin, device key, lanCertSpki)",
+      }),
+    ),
   },
   { $id: "ConnectChallenge" },
 );
@@ -204,6 +218,33 @@ export function gatewaySigningPayload(input: GatewaySigningInput): Uint8Array {
   }
   return new TextEncoder().encode(
     [GATEWAY_SIGNING_PREFIX, nonce, serverOrigin, devicePublicKey].join("\n"),
+  );
+}
+
+export const LAN_CERT_SIGNING_PREFIX = "psyche-lan-cert-v1";
+
+export interface LanCertSigningInput extends GatewaySigningInput {
+  /** SHA-256 of the served certificate's SPKI, base64url. */
+  spki: string;
+}
+
+/**
+ * Bytes the Gateway signs to vouch for the TLS certificate of a LAN connection: the UTF-8
+ * encoding of `"psyche-lan-cert-v1\n" + nonce + "\n" + serverOrigin + "\n" + devicePublicKey +
+ * "\n" + spki`. A LAN certificate is self-signed, so nothing else ties the encrypted channel to
+ * the Gateway: a machine that answers with its own certificate and relays the Gateway's frames
+ * would otherwise pass the identity check. The client refuses unless `spki` is the certificate
+ * it actually received (and, once pinned, the pinned one).
+ */
+export function lanCertSigningPayload(input: LanCertSigningInput): Uint8Array {
+  const { nonce, serverOrigin, devicePublicKey, spki } = input;
+  for (const [key, value] of Object.entries({ nonce, serverOrigin, devicePublicKey, spki })) {
+    if (typeof value !== "string" || value.length === 0 || /[\r\n]/.test(value)) {
+      throw new PsycheError("invalid_params", `${key} must be a non-empty single-line string`);
+    }
+  }
+  return new TextEncoder().encode(
+    [LAN_CERT_SIGNING_PREFIX, nonce, serverOrigin, devicePublicKey, spki].join("\n"),
   );
 }
 
