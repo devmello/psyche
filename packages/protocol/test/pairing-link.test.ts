@@ -9,11 +9,15 @@ import {
   SETUP_TOKEN_TTL_MS,
 } from "../src/index.ts";
 
+// Test values built from byte sequences, not literals: they are not secrets.
+const bytes = (start: number): string =>
+  Buffer.from(Uint8Array.from({ length: 32 }, (_, i) => start + i)).toString("base64url");
+
 const payload: PairingLinkPayload = {
   gatewayUrl: "https://studio-mac.tail1234.ts.net",
-  gatewayIdentityKey: "ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8",
-  setupToken: "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
-  hostName: "Studio Mac — Pranav’s",
+  gatewayIdentityKey: bytes(32),
+  setupToken: bytes(0),
+  hostName: "Studio Mac — Café",
 };
 
 function linkOf(value: unknown): string {
@@ -36,13 +40,11 @@ describe("psyche-pair:v1 link", () => {
     );
   });
 
-  it("is a fixed fixture the phone can decode independently", () => {
-    const fixture = {
-      ...payload,
-      hostName: "studio-mac",
-    };
-    expect(encodePairingLink(fixture)).toBe(
-      "psyche-pair:v1:eyJnYXRld2F5VXJsIjoiaHR0cHM6Ly9zdHVkaW8tbWFjLnRhaWwxMjM0LnRzLm5ldCIsImdhdGV3YXlJZGVudGl0eUtleSI6IklDRWlJeVFsSmljb0tTb3JMQzB1THpBeE1qTTBOVFkzT0RrNk96dzlQajgiLCJzZXR1cFRva2VuIjoiQUFFQ0F3UUZCZ2NJQ1FvTERBME9EeEFSRWhNVUZSWVhHQmthR3h3ZEhoOCIsImhvc3ROYW1lIjoic3R1ZGlvLW1hYyJ9",
+  it("encodes exactly this JSON, in this key order, so the phone can build the same bytes", () => {
+    const fixture = { ...payload, hostName: "studio-mac" };
+    const body = encodePairingLink(fixture).slice(PAIRING_LINK_PREFIX.length);
+    expect(Buffer.from(body, "base64url").toString("utf8")).toBe(
+      `{"gatewayUrl":"https://studio-mac.tail1234.ts.net","gatewayIdentityKey":"${fixture.gatewayIdentityKey}","setupToken":"${fixture.setupToken}","hostName":"studio-mac"}`,
     );
   });
 

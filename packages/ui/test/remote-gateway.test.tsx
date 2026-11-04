@@ -262,7 +262,7 @@ describe("computer use on a client of another computer (decision G5)", () => {
 
 describe("Add phone or computer (remote-gateway design §3.4)", () => {
   const made = {
-    link: "psyche-pair:v1:eyJnYXRld2F5VXJsIjoiaHR0cHM6Ly9zdHVkaW8ifQ",
+    link: `psyche-pair:v1:${"x".repeat(24)}`,
     expiresAt: new Date(Date.UTC(2026, 10, 4, 12, 10, 0)).toISOString(),
   };
   const at = Date.UTC(2026, 10, 4, 12, 0, 0);
