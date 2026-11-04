@@ -103,6 +103,9 @@ const bridge = {
   gateways: {
     list: () => invoke(IPC.gatewaysList),
     add: (address: string, name?: string) => invoke(IPC.gatewaysAdd, { address, name }),
+    addLink: (link: string) => invoke(IPC.gatewaysAddLink, { link }),
+    takePendingLink: () => invoke(IPC.gatewaysPendingLink),
+    onPendingLink: (cb: () => void) => listen(IPC.gatewaysLinkOpened, () => cb()),
     discover: () => invoke(IPC.gatewaysDiscover),
     addDiscovered: (id: string) => invoke(IPC.gatewaysAddDiscovered, { id }),
     rename: (id: string, name: string) => invoke(IPC.gatewaysRename, { id, name }),
@@ -218,7 +221,11 @@ const bridge = {
   },
   /** Copies text to the system clipboard (#507). */
   clipboard: {
-    writeText: (text: string) => invoke(IPC.clipboardWrite, { text }),
+    writeText: (text: string, opts?: { clearAfterMs?: number }) =>
+      invoke(IPC.clipboardWrite, {
+        text,
+        ...(opts?.clearAfterMs === undefined ? {} : { clearAfterMs: opts.clearAfterMs }),
+      }),
   },
   /** Opens an https page in the default browser (a connector's sign-in, #505). */
   external: {

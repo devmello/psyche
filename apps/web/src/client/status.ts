@@ -27,6 +27,8 @@ export interface GatewayStatus {
   scopes?: string[];
   /** Error code (from `ErrorCode`) or a short transport reason; never a message body. */
   lastError?: string;
+  /** Why a `denied` handshake was refused, when the Gateway named a cause (`setup_token_invalid`). */
+  deniedCode?: string;
   /**
    * `sha256:<hex>` of the Gateway identity key this connection checked (desktop client only): the
    * first pairing shows it next to the code so the owner can compare it with the Host's.
@@ -72,7 +74,7 @@ export type StatusAction =
   | { type: "verifying" }
   | { type: "paired"; scopes: string[] }
   | { type: "pending"; code: string }
-  | { type: "denied"; reason: string }
+  | { type: "denied"; reason: string; code?: string }
   | { type: "error"; code: string; serverProtocolVersion?: number }
   | { type: "closed" };
 
@@ -92,7 +94,7 @@ export function reduceStatus(state: GatewayStatus, action: StatusAction): Gatewa
     case "verifying":
       return { ...state, phase: "verifying" };
     case "paired": {
-      const { pairingCode: _code, lastError: _err, ...rest } = state;
+      const { pairingCode: _code, lastError: _err, deniedCode: _denied, ...rest } = state;
       return { ...rest, health: "ok", phase: "paired", scopes: action.scopes, attempt: 0 };
     }
     case "pending": {
@@ -100,7 +102,12 @@ export function reduceStatus(state: GatewayStatus, action: StatusAction): Gatewa
       return { ...rest, health: "ok", phase: "pending", pairingCode: action.code, attempt: 0 };
     }
     case "denied":
-      return { ...state, phase: "denied", lastError: action.reason };
+      return {
+        ...state,
+        phase: "denied",
+        lastError: action.reason,
+        ...(action.code === undefined ? {} : { deniedCode: action.code }),
+      };
     case "error":
       return {
         ...state,

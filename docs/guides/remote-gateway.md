@@ -32,7 +32,24 @@ Settings → Server & remote access → **Allow other computers** shows these st
 
 Settings → Server & remote access shows the address the Gateway answers to, whether the trusted proxy is on, and the Gateway's identity fingerprint.
 
-## On the other computer
+## Pair another computer with a link
+
+The quickest way, and the one that needs no typing and no trust on first use.
+
+1. In Psyche on the Host itself (a computer connected to the Host cannot make links, even as admin), Settings → Server & remote access → **Pair another computer**. Tick what the other computer may do (Read, Write and Approvals are ticked, Admin is not) and choose **Make a pairing link**. You confirm with Touch ID or a passkey, as for approving a computer, because the link approves ahead of time.
+2. The Host shows a link (`psyche-pair:v1:…`) and a QR code of the same link, drawn on the Host without any network. Copy the link to the other computer. The link works once, for ten minutes, and the Host lists unused links where you can **Revoke** one. At most three can be unused at once.
+3. On the other computer, Settings → Server & remote access → Gateways on this computer → **Add a Gateway**, paste the link, and choose **Add Gateway**. A dialog names the Host's address and the identity fingerprint the link carries (never the name written in the link, which anyone could have chosen; the Host's real name replaces the address-based name once it pairs). Confirm it, then **Switch** to the new Gateway.
+4. Psyche checks that the Host proves the identity the link named before it presents the one-time code. If it does, the Host pairs this computer at once with exactly the access you ticked, and the window opens. Nobody approves anything a second time. If it does not, Psyche stops with "This isn't the studio-mac you paired with" and sends nothing.
+
+A link that was already used, has expired or was revoked is refused with "studio-mac refused this pairing link". Make a new one on the Host. The link and QR code disappear from the Host's screen as soon as the code is used, revoked or expired, and the copied link is cleared from the clipboard after a minute. Without a link (an address typed in), the first connection still waits for you to approve it on the Host, as below.
+
+A link for a Host on the local network (`.local` or a private address) is refused for now: add that one with **Look on this network**, then approve it on the Host. A link that carries the network certificate's pin is later work.
+
+In a packaged build, opening a `psyche-pair:` link from the system (a chat, a note) only shows Add a Gateway with the link in the field. It adds nothing and connects to nothing: you still press **Add Gateway** and confirm the address in the dialog.
+
+What is in the link: the Host's address, the fingerprint of its identity key, the one-time code and the Host's name. Anyone who has it during its ten minutes can pair one computer with the access you ticked, so do not post it. It holds nothing that lasts: after use or expiry it is worthless.
+
+## On the other computer, with an address
 
 1. Settings → Server & remote access → Gateways on this computer → **Add a Gateway**. Type the Host's full Tailscale name, `https://<host>.<tailnet>.ts.net`. A short name does not work: the certificate is for the full name. Confirm the address in the dialog that appears.
 2. **Switch** to it. Psyche restarts on that Gateway.
@@ -60,7 +77,7 @@ A LAN Gateway is checked more strictly than a tailnet one. The first connection 
 
 ## What the identity pin does
 
-The Gateway has a long-lived identity key in `identity/gateway.key` in its data folder. At the first connection this computer holds the key in memory and stores the pin once that connection is paired (trust on first use, which is why you compare the fingerprint). After that it refuses to connect, and signs nothing, when:
+The Gateway has a long-lived identity key in `identity/gateway.key` in its data folder. With a pairing link the fingerprint in the link is the pin until the key itself is stored: the Host must prove a key with that fingerprint at the first connection. With a typed address there is nothing to check against, so this computer holds the key in memory and stores the pin once that connection is paired (trust on first use, which is why you compare the fingerprint). After that it refuses to connect, and signs nothing, when:
 
 - the Gateway presents a different key ("This isn't the studio-mac you paired with");
 - the Gateway's proof does not verify for this computer and this connection;
@@ -93,4 +110,4 @@ Settings → Gateways on this computer → **Forget** removes the saved Gateway,
 
 ## Not built yet
 
-Pairing links and QR codes (the LAN pin will come with them), notifications on the other computer, presence (Touch ID or a passkey) on the other computer, the tailnet list in Add a Gateway, `psyche doctor` checks for Serve and Funnel, a Windows build, and the phone using the same LAN listener. On the LAN: IPv6, picking more than one network in Settings (the `gateway.lan.interfaces` setting takes several), and following an address that changes while the Gateway runs (turn the setting off and on, or restart). See the design for the order.
+Notifications on the other computer, presence (Touch ID or a passkey) on the other computer, the tailnet list in Add a Gateway, `psyche doctor` checks for Serve and Funnel, a Windows build, and the phone using the same LAN listener. On the LAN: IPv6, picking more than one network in Settings (the `gateway.lan.interfaces` setting takes several), and following an address that changes while the Gateway runs (turn the setting off and on, or restart). See the design for the order.

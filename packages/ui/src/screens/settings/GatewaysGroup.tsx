@@ -1,4 +1,4 @@
-import { type ReactElement, useCallback, useEffect, useId, useState } from "react";
+import { type ReactElement, useCallback, useEffect, useId, useRef, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { Input } from "../../components/ui/input.tsx";
 import { Label } from "../../components/ui/label.tsx";
@@ -21,7 +21,17 @@ const PROBLEMS = [
   "needs_https",
   "has_path",
   "has_credentials",
+  "link_not_a_pairing_link",
+  "link_unsupported_version",
+  "link_malformed",
+  "link_extra_fields",
+  "link_bad_field",
+  "link_pin_mismatch",
+  "link_lan",
 ] as const;
+
+/** What the field holds is a pairing link, not an address. */
+export const isPairingLinkText = (text: string): boolean => /^psyche-pair:/i.test(text.trim());
 
 /** The sentence for why an address, or any change, was refused. */
 export function gatewayProblemText(err: unknown): string {
@@ -51,7 +61,7 @@ export function useSavedGateways(): {
 export function AddGatewayForm({
   onAdded,
 }: {
-  onAdded: (entry: GatewayEntry) => void;
+  onAdded: (entry: GatewayEntry, viaLink: boolean) => void;
 }): ReactElement | null {
   const { gateways } = useSlots();
   const id = useId();
@@ -59,16 +69,50 @@ export function AddGatewayForm({
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [opened, setOpened] = useState(false);
+  // A link that arrived while the owner had already typed something: offered, never swapped in.
+  const [incoming, setIncoming] = useState<string | null>(null);
+  const addressNow = useRef(address);
+  addressNow.current = address;
+  const takePending = gateways?.takePendingLink;
+  const onPending = gateways?.onPendingLink;
+  // A pairing link the OS opened in the app waits in main; showing it here is all that happens.
+  // The owner still presses Add, and main confirms the address in a native dialog.
+  useEffect(() => {
+    if (!takePending) return;
+    const take = () =>
+      void takePending().then(
+        (link) => {
+          if (link === null) return;
+          if (addressNow.current.trim() !== "") {
+            setIncoming(link);
+            return;
+          }
+          setAddress(link);
+          setOpened(true);
+          setError(null);
+        },
+        () => undefined,
+      );
+    take();
+    return onPending?.(take);
+  }, [takePending, onPending]);
   if (!gateways) return null;
+  const viaLink = isPairingLinkText(address);
   const submit = () => {
     setBusy(true);
     setError(null);
-    gateways.add(address, name.trim() === "" ? undefined : name.trim()).then(
+    const adding =
+      viaLink && gateways.addLink
+        ? gateways.addLink(address.trim())
+        : gateways.add(address, name.trim() === "" ? undefined : name.trim());
+    adding.then(
       (entry) => {
         setBusy(false);
         setAddress("");
         setName("");
-        onAdded(entry);
+        setOpened(false);
+        onAdded(entry, viaLink);
       },
       (err: unknown) => {
         setBusy(false);
@@ -97,16 +141,48 @@ export function AddGatewayForm({
             autoCorrect="off"
             spellCheck={false}
             inputMode="url"
+            aria-describedby={opened ? `${id}-opened` : undefined}
           />
         </div>
         <div className="flex min-w-40 flex-col gap-1">
           <Label htmlFor={`${id}-name`}>{t("settings.gateways.nameLabel")}</Label>
-          <Input id={`${id}-name`} value={name} onChange={(e) => setName(e.target.value)} />
+          <Input
+            id={`${id}-name`}
+            value={name}
+            disabled={viaLink}
+            onChange={(e) => setName(e.target.value)}
+          />
         </div>
         <Button type="submit" size="sm" disabled={busy || address.trim() === ""}>
           {t("settings.gateways.adding")}
         </Button>
       </div>
+      {incoming !== null ? (
+        <div role="status" className="flex flex-wrap items-center gap-2 text-callout">
+          <span>{t("settings.gateways.newLink")}</span>
+          <Button
+            type="button"
+            size="xs"
+            variant="outline"
+            onClick={() => {
+              setAddress(incoming);
+              setIncoming(null);
+              setOpened(true);
+              setError(null);
+            }}
+          >
+            {t("settings.gateways.useNewLink")}
+          </Button>
+          <Button type="button" size="xs" variant="ghost" onClick={() => setIncoming(null)}>
+            {t("settings.gateways.ignoreNewLink")}
+          </Button>
+        </div>
+      ) : null}
+      {opened ? (
+        <p id={`${id}-opened`} role="status" className="text-callout text-label-secondary">
+          {t("settings.gateways.fromLink")}
+        </p>
+      ) : null}
       {error ? (
         <p role="alert" className="text-callout text-danger-text">
           {error}

@@ -203,6 +203,7 @@ import {
   type ComposeServices,
   createOwnPorts,
 } from "./services.ts";
+import { auditSetupTokenUse, setupTokenHandlers } from "./setup-tokens.ts";
 import { composeSkills } from "./skills.ts";
 import { withSpecialistContext } from "./specialist-approvals.ts";
 import {
@@ -1740,6 +1741,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...threadSettingsHandlers(modelPins),
     ...vault.handlers,
     ...bootstrapAdminHandlers({ db, audit }),
+    ...setupTokenHandlers({ db, audit }),
     ...changeHandlers({ audit }),
     ...filesHandlers({ folders: () => rawBroker.policy.folders ?? [], home: config.home }),
     ...attentionHandlers(attention),
@@ -1783,6 +1785,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     handlers,
     webhooks,
     publicRoutes,
+    onSetupTokenUsed: (used) => {
+      const name = getDevice(db, used.deviceId)?.name;
+      void auditSetupTokenUse(audit, used, name).catch(() => undefined);
+    },
     onDeviceRevoked: (deviceId) => {
       revocations.recordDevice(deviceId);
       return rawBroker.revokeGrantsByDevice(deviceId);

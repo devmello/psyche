@@ -156,6 +156,8 @@ export interface HandshakeOptions {
   tamperSignature?: boolean;
   /** The Gateway key the device verified: signs the v2 connect payload and sends the key. */
   gatewayKey?: string;
+  /** A setup token from a pairing link, presented in connect.verify. */
+  setupToken?: string;
 }
 
 export async function handshake(client: TestClient, origin: string, opts: HandshakeOptions = {}) {
@@ -192,6 +194,7 @@ export async function handshake(client: TestClient, origin: string, opts: Handsh
     nonce: challenge.nonce,
     signature: signature.toString("base64url"),
     ...(opts.gatewayKey === undefined ? {} : { gatewayKey: opts.gatewayKey }),
+    ...(opts.setupToken === undefined ? {} : { setupToken: opts.setupToken }),
   });
   return { challengeRes, verifyRes, key };
 }

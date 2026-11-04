@@ -34,6 +34,11 @@ export interface DesktopGatewayOptions
   /** The Gateway identity check (the pin of a saved remote Gateway); see `createGatewayVerifier`. */
   verifyGateway?: GatewayVerifier;
   /**
+   * The one-time setup token from a pairing link, read per attempt. The connection presents it
+   * only after `verifyGateway` approved the Gateway's identity.
+   */
+  setupToken?: () => string | undefined;
+  /**
    * How to reach the Gateway when the system's TLS trust cannot be used: a LAN Gateway's
    * self-signed certificate is checked against its pin (`lib/lan-tls.ts`). Absent = the
    * platform's own `WebSocket` and `fetch`.
@@ -123,6 +128,7 @@ export function createDesktopGateway(opts: DesktopGatewayOptions): GatewayConnec
       desktopConnectParams({ key, home, origin, ...(opts.remote ? { remote: true } : {}) }),
     sign: (payload) => signWithDeviceKey(key, payload),
     ...(opts.verifyGateway ? { verifyGateway: opts.verifyGateway } : {}),
+    ...(opts.setupToken ? { setupToken: opts.setupToken } : {}),
     ...(opts.transport
       ? { createWebSocket: opts.transport.createWebSocket, fetch: opts.transport.fetch }
       : {}),

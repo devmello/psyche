@@ -170,6 +170,10 @@ export interface GatewayContext {
    * the composition root wires `PsychePermissionBroker.revokeGrantsByDevice`).
    */
   readonly onDeviceRevoked: ((deviceId: string) => Promise<unknown>) | null;
+  /** A computer paired itself with a setup token (the composition root audits it). */
+  readonly onSetupTokenUsed?:
+    | ((used: { tokenId: string; deviceId: string; scopes: DeviceScope[] }) => void)
+    | null;
   /** The broker emits `receipt.created` itself; handlers must not publish it again. */
   readonly brokerPublishesReceipts: boolean;
   /**

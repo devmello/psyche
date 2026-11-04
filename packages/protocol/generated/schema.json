@@ -1296,6 +1296,30 @@
         "sideEffecting": false
       },
       {
+        "description": "Makes a single-use setup token (10 minutes, 256 random bits, stored only as a hash) and the pairing link that carries it. A computer that connects with the token, after verifying the Gateway's fingerprint, is paired at once with exactly these scopes; one without it still waits for approval. At most three live tokens; `unavailable` when gateway.publicOrigin is not set. Needs fresh presence once the Gateway has a presence verifier (approval_required with details.approvalId, then retry with approvalId). Not idempotent on purpose: every call makes a new token, and the link is never kept anywhere in the clear, not even as a stored idempotent result.",
+        "name": "devices.setupToken.create",
+        "params": "#/$defs/DevicesSetupTokenCreateParams",
+        "result": "#/$defs/DevicesSetupTokenCreateResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
+        "description": "Lists setup tokens made in the last day, newest first (never the token itself).",
+        "name": "devices.setupToken.list",
+        "params": "#/$defs/DevicesSetupTokenListParams",
+        "result": "#/$defs/DevicesSetupTokenListResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
+        "description": "Revokes a setup token that has not been used; a revoked token pairs nobody. Side-effecting.",
+        "name": "devices.setupToken.revoke",
+        "params": "#/$defs/DevicesSetupTokenRevokeParams",
+        "result": "#/$defs/DevicesSetupTokenRevokeResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Desktop only: inserts dictated text into the focused element (AX, else CGEvent typing); refuses secure fields and Psyche's windows; the text never reaches the agent. Side-effecting: a duplicate would type the text twice.",
         "name": "dictation.insert",
         "params": "#/$defs/DictationInsertParams",
@@ -14106,6 +14130,13 @@
         },
         "reason": {
           "type": "string"
+        },
+        "code": {
+          "description": "Machine-readable cause when there is one: the setup token was used, expired, revoked or not allowed here",
+          "enum": [
+            "setup_token_invalid"
+          ],
+          "type": "string"
         }
       },
       "required": [
@@ -14270,6 +14301,11 @@
         "gatewayKey": {
           "description": "The Gateway identity key this client verified and pinned (base64url). When present the signature is over the v2 payload, which includes it, and the Gateway refuses the connect unless it is its own key. A client of a remote Gateway always sends it",
           "pattern": "^[A-Za-z0-9_-]{43}$",
+          "type": "string"
+        },
+        "setupToken": {
+          "description": "A one-time setup token from a pairing link (remote-gateway design §3.4). Sent here and not in `connect`, so only a client that already verified the Gateway's identity ever presents it. Valid and unexpired, it pairs this device at once with the scopes chosen when the token was made; a used, expired or revoked token is denied with code setup_token_invalid. Ignored for a device that is already paired",
+          "pattern": "^pst_[A-Za-z0-9_-]{43}$",
           "type": "string"
         }
       },
@@ -16840,6 +16876,99 @@
       },
       "required": [
         "device"
+      ],
+      "type": "object"
+    },
+    "DevicesSetupTokenCreateParams": {
+      "properties": {
+        "scopes": {
+          "description": "What the computer that uses the token gets, chosen by the owner now; never `node`. `operator.admin` only when the owner ticks it",
+          "items": {
+            "$ref": "#/$defs/SetupTokenScope"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "scopes"
+      ],
+      "type": "object"
+    },
+    "DevicesSetupTokenCreateResult": {
+      "properties": {
+        "setupToken": {
+          "$ref": "#/$defs/SetupTokenInfo"
+        },
+        "link": {
+          "description": "psyche-pair:v1 link: gatewayUrl, gatewayFingerprint, setupToken and hostName, nothing else. The token appears only here, once",
+          "type": "string"
+        },
+        "gatewayUrl": {
+          "type": "string"
+        },
+        "gatewayFingerprint": {
+          "type": "string"
+        },
+        "hostName": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "setupToken",
+        "link",
+        "gatewayUrl",
+        "gatewayFingerprint",
+        "hostName"
+      ],
+      "type": "object"
+    },
+    "DevicesSetupTokenListParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "DevicesSetupTokenListResult": {
+      "properties": {
+        "setupTokens": {
+          "items": {
+            "$ref": "#/$defs/SetupTokenInfo"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "setupTokens"
+      ],
+      "type": "object"
+    },
+    "DevicesSetupTokenRevokeParams": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "DevicesSetupTokenRevokeResult": {
+      "properties": {
+        "setupToken": {
+          "$ref": "#/$defs/SetupTokenInfo"
+        }
+      },
+      "required": [
+        "setupToken"
       ],
       "type": "object"
     },
@@ -37205,6 +37334,95 @@
         "stateVersion"
       ],
       "type": "object"
+    },
+    "SetupTokenInfo": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "scopes": {
+          "items": {
+            "$ref": "#/$defs/SetupTokenScope"
+          },
+          "type": "array"
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "expiresAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "usedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "usedByDeviceId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "revokedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "enum": [
+            "live",
+            "used",
+            "expired",
+            "revoked"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "scopes",
+        "createdAt",
+        "expiresAt",
+        "status"
+      ],
+      "type": "object"
+    },
+    "SetupTokenScope": {
+      "enum": [
+        "operator.read",
+        "operator.write",
+        "operator.approvals",
+        "operator.admin"
+      ],
+      "type": "string"
     },
     "SideEffect": {
       "enum": [

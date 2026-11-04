@@ -20,6 +20,12 @@ export const IPC = {
   // Saved Gateways (remote-gateway design §1.3): the list, add, forget, switch, pair again.
   gatewaysList: "psyche:gateways:list",
   gatewaysAdd: "psyche:gateways:add",
+  /** A pasted `psyche-pair:v1` link; main parses it and asks the owner in a native dialog. */
+  gatewaysAddLink: "psyche:gateways:add-link",
+  /** The link the OS opened, once (main keeps it; the Settings window asks for it). */
+  gatewaysPendingLink: "psyche:gateways:pending-link",
+  /** A pairing link is waiting: ask `gatewaysPendingLink`. Carries nothing. */
+  gatewaysLinkOpened: "psyche:gateways:link-opened",
   gatewaysDiscover: "psyche:gateways:discover",
   gatewaysAddDiscovered: "psyche:gateways:add-discovered",
   gatewaysRename: "psyche:gateways:rename",
@@ -144,6 +150,19 @@ export function rec(channel: string, v: unknown): Record<string, unknown> {
 /** Text the renderer may put on the clipboard: a non-empty string up to 64 KiB. */
 export function checkClipboardText(v: unknown): string {
   return str(IPC.clipboardWrite, rec(IPC.clipboardWrite, v).text, "text", 65_536);
+}
+
+/**
+ * How long after a clipboard write main clears it again if it still holds that text: for secrets
+ * (a pairing link). Optional; between one second and five minutes.
+ */
+export function checkClipboardClearAfter(v: unknown): number | undefined {
+  const ms = rec(IPC.clipboardWrite, v).clearAfterMs;
+  if (ms === undefined) return undefined;
+  if (typeof ms !== "number" || !Number.isInteger(ms) || ms < 1_000 || ms > 300_000) {
+    throw new Error("clearAfterMs must be 1000 to 300000");
+  }
+  return ms;
 }
 
 /** Composer text from another window ("Try it", #677): a non-empty string up to 4,000 chars. */

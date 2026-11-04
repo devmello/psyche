@@ -49,7 +49,7 @@ export interface GatewayEntry {
   /** A Gateway on another computer. */
   remote: boolean;
   active: boolean;
-  /** Its identity key is pinned. */
+  /** Its identity is pinned: the key, or the fingerprint a pairing link named. */
   pinned: boolean;
   /** On the local network, reached over a pinned self-signed certificate. */
   lan?: boolean;
@@ -81,6 +81,15 @@ export interface GatewaysSlot {
   remove(id: string): Promise<void>;
   switchTo(id: string, opts?: { stopLocal?: boolean }): Promise<void>;
   repair(id: string): Promise<void>;
+  /**
+   * Adds the Gateway a pasted `psyche-pair:v1` link names (confirmed in a native dialog). Rejects
+   * with `invalid_params` and `details.problem` (`link_<problem>` for the link).
+   */
+  addLink?(link: string): Promise<GatewayEntry>;
+  /** A pairing link the OS opened in the app, once; shown in the field, never acted on. */
+  takePendingLink?(): Promise<string | null>;
+  /** The OS opened a pairing link while the window is open. Returns the unsubscribe. */
+  onPendingLink?(cb: () => void): () => void;
 }
 
 export interface UiSlots {
@@ -116,7 +125,7 @@ export interface UiSlots {
   /** The Markdown editor from `packages/viewers` (Rich / Source / Diff). */
   renderEditor?: (props: EditorSlotProps) => ReactNode;
   /** Writes the system clipboard (the desktop's goes through main; #507). */
-  writeClipboard?: (text: string) => Promise<void>;
+  writeClipboard?: (text: string, opts?: { clearAfterMs?: number }) => Promise<void>;
   /** Opens an https page in the system browser (a connector's sign-in; #505). */
   openExternal?: (url: string) => Promise<void>;
   /**

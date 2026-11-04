@@ -111,6 +111,13 @@ export const ConnectVerifyParams = Type.Object(
           "The Gateway identity key this client verified and pinned (base64url). When present the signature is over the v2 payload, which includes it, and the Gateway refuses the connect unless it is its own key. A client of a remote Gateway always sends it",
       }),
     ),
+    setupToken: Type.Optional(
+      Type.String({
+        pattern: "^pst_[A-Za-z0-9_-]{43}$",
+        description:
+          "A one-time setup token from a pairing link (remote-gateway design §3.4). Sent here and not in `connect`, so only a client that already verified the Gateway's identity ever presents it. Valid and unexpired, it pairs this device at once with the scopes chosen when the token was made; a used, expired or revoked token is denied with code setup_token_invalid. Ignored for a device that is already paired",
+      }),
+    ),
   },
   { $id: "ConnectVerifyParams" },
 );
@@ -132,7 +139,16 @@ export const ConnectPending = Type.Object(
   { $id: "ConnectPending" },
 );
 export const ConnectDenied = Type.Object(
-  { phase: Type.Literal("denied"), reason: Type.String() },
+  {
+    phase: Type.Literal("denied"),
+    reason: Type.String(),
+    code: Type.Optional(
+      StringEnum(["setup_token_invalid"], {
+        description:
+          "Machine-readable cause when there is one: the setup token was used, expired, revoked or not allowed here",
+      }),
+    ),
+  },
   { $id: "ConnectDenied" },
 );
 export const ConnectResult = Type.Union([ConnectPaired, ConnectPending, ConnectDenied], {

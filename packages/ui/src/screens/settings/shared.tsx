@@ -76,6 +76,8 @@ export function approvalIdOf(err: unknown): string | null {
 /** A security setting waiting for the owner's approval with presence. */
 export interface PendingSettingApproval {
   key: string;
+  /** What the banner calls it when the thing is not a setting (a pairing link). */
+  label?: string;
   approvalId: string;
   /** Writes the value again with the approval; resolves once the Gateway saved it. */
   retry: (approvalId: string) => Promise<unknown>;

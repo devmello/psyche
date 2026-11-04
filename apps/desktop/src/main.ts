@@ -44,6 +44,7 @@ import {
 } from "./lib/gateways.ts";
 import {
   checkCallable,
+  checkClipboardClearAfter,
   checkClipboardText,
   checkComposerText,
   checkExternalUrl,
@@ -63,6 +64,7 @@ import {
 import { LanDiscovery } from "./lib/lan-discovery.ts";
 import { createPinnedFetch, createPinnedWebSocket, PinnedChannel } from "./lib/lan-tls.ts";
 import { NotificationRelay } from "./lib/notify-relay.ts";
+import { createPairLinkInbox, isPairLinkUrl, PAIR_LINK_SCHEME } from "./lib/pair-link.ts";
 import { pairingEdge } from "./lib/pairing-edge.ts";
 import { realChromeOpenCommand, realChromeProfileDir } from "./lib/real-chrome.ts";
 import { checkSourceOpen, openSource } from "./lib/source-open.ts";
@@ -197,6 +199,9 @@ if (perfProbe !== undefined) {
 } else {
   app.setAsDefaultProtocolClient("psyche");
 }
+// psyche-pair: links (a pairing link opened from the OS) only in a packaged build: a dev copy must
+// not take the owner's links away from the installed app.
+if (perfProbe === undefined && app.isPackaged) app.setAsDefaultProtocolClient(PAIR_LINK_SCHEME);
 
 const home = defaultPsycheHome();
 const rendererUrl = MAIN_WINDOW_VITE_DEV_SERVER_URL ?? `${APP_ORIGIN}/`;
@@ -294,6 +299,16 @@ function command(c: ShellCommand): void {
 function openDeepLink(route: string | null): void {
   if (route) command({ type: "navigate", route });
 }
+
+/**
+ * A `psyche-pair:` link the OS handed to the app. It only opens Settings with the link in the Add a
+ * Gateway field: no Gateway is added or connected to from here. The owner presses Add, and main
+ * asks in a native dialog that names the normalized address (design §3.2, CVE-2026-25253).
+ */
+const pairLinks = createPairLinkInbox({
+  show: () => windows?.showSettings("server"),
+  notify: () => broadcast(IPC.gatewaysLinkOpened, null),
+});
 
 // Every renderer: no popups, no navigation away from the app, no <webview>. Agent browser
 // tabs install their own handlers in BrowserHost (their session is an agent partition).
@@ -513,30 +528,40 @@ async function confirmGatewayChange(c: GatewayConfirm): Promise<boolean | "plain
           detail: `Name: ${c.name}\n\nA Psyche on this network uses its own certificate, which Psyche pins instead of trusting the system's: it checks the certificate and the Gateway's key at the first connection and refuses any other later. Choose "Plain https" only for a server with an ordinary certificate (for example a reverse proxy with your own CA). Nothing is shared until its owner approves this computer there.`,
           buttons: ["Psyche on this network", "Plain https", "Cancel"],
         }
-      : c.kind === "add"
+      : c.kind === "addLink"
         ? {
             message: `Connect Psyche to ${c.origin}?`,
-            detail: `Name: ${c.name}${c.fingerprint ? `\nKey it announced: ${c.fingerprint.slice(0, 31)}…` : ""}\n\nThis computer will ask that Gateway to pair. Nothing is shared until its owner approves this computer there, and Psyche pins the Gateway's identity at the first connection.`,
+            detail: `${
+              c.external
+                ? "This link was opened by another app or a website, not pasted by you. Only continue if you made it yourself on the Mac that runs Psyche.\n\n"
+                : ""
+            }Psyche will connect only if that Gateway proves this identity:\n${c.fingerprint}\n\nThe link's one-time code then lets that Gateway approve this computer without asking again, with the access its owner chose when making it.`,
             buttons: ["Add Gateway", "Cancel"],
           }
-        : c.kind === "forget"
+        : c.kind === "add"
           ? {
-              message: `Forget ${c.name}?`,
-              detail: `${c.origin}\n\nThis removes this computer's key for it and everything Psyche stored here for it. ${c.name} still lists this computer until someone removes it there.`,
-              buttons: ["Forget", "Cancel"],
+              message: `Connect Psyche to ${c.origin}?`,
+              detail: `Name: ${c.name}${c.fingerprint ? `\nKey it announced: ${c.fingerprint.slice(0, 31)}…` : ""}\n\nThis computer will ask that Gateway to pair. Nothing is shared until its owner approves this computer there, and Psyche pins the Gateway's identity at the first connection.`,
+              buttons: ["Add Gateway", "Cancel"],
             }
-          : c.kind === "repair"
+          : c.kind === "forget"
             ? {
-                message: `Pair with ${c.name} again?`,
-                detail: `${c.origin}\n\nThis forgets the identity Psyche pinned for it and this computer's key, so the next connection pins whatever answers at that address and asks to pair as a new computer. Only do this if you know why its identity changed.`,
-                buttons: ["Pair again", "Cancel"],
+                message: `Forget ${c.name}?`,
+                detail: `${c.origin}\n\nThis removes this computer's key for it and everything Psyche stored here for it. ${c.name} still lists this computer until someone removes it there.`,
+                buttons: ["Forget", "Cancel"],
               }
-            : {
-                message: "Stop Psyche on this Mac?",
-                detail:
-                  "Its automations and scheduled tasks stop until you switch back. Leave it running to keep them going.",
-                buttons: ["Stop Psyche on this Mac", "Keep it running"],
-              };
+            : c.kind === "repair"
+              ? {
+                  message: `Pair with ${c.name} again?`,
+                  detail: `${c.origin}\n\nThis forgets the identity Psyche pinned for it and this computer's key, so the next connection pins whatever answers at that address and asks to pair as a new computer. Only do this if you know why its identity changed.`,
+                  buttons: ["Pair again", "Cancel"],
+                }
+              : {
+                  message: "Stop Psyche on this Mac?",
+                  detail:
+                    "Its automations and scheduled tasks stop until you switch back. Leave it running to keep them going.",
+                  buttons: ["Stop Psyche on this Mac", "Keep it running"],
+                };
   const win = windows?.main();
   const dialogOptions = {
     type: "question" as const,
@@ -590,6 +615,12 @@ function registerIpc(): void {
       typeof r.name === "string" ? str(IPC.gatewaysAdd, r.name, "name", 64) : undefined,
     );
   });
+  handle(IPC.gatewaysAddLink, (_e, arg) => {
+    const link = str(IPC.gatewaysAddLink, rec(IPC.gatewaysAddLink, arg).link, "link", 2100);
+    // Whether the OS handed this link to the app is main's own record, not the window's say.
+    return gateways.addFromLink(link, { external: pairLinks.wasOffered(link) });
+  });
+  handle(IPC.gatewaysPendingLink, () => pairLinks.take());
   // "Look on this network": Bonjour `_psyche._tcp`, on the owner's click. The window can add
   // only a Gateway this process found (by id), never an address it supplies.
   handle(IPC.gatewaysDiscover, async () => {
@@ -856,7 +887,17 @@ function registerIpc(): void {
   // The app session refuses navigator.clipboard (the permission check allows only audio), so
   // copy buttons (vault recovery key, credential ids) write through main (#507).
   handle(IPC.clipboardWrite, (_event, arg) => {
-    clipboard.writeText(checkClipboardText(arg));
+    const text = checkClipboardText(arg);
+    clipboard.writeText(text);
+    // A secret (a pairing link) asks to be cleared again, but only if it is still what is there.
+    const clearAfterMs = checkClipboardClearAfter(arg);
+    if (clearAfterMs !== undefined) {
+      setTimeout(() => {
+        void Promise.resolve(clipboard.readText()).then((now) => {
+          if (now === text) void clipboard.clear();
+        });
+      }, clearAfterMs).unref();
+    }
   });
   // A connector's consent page opens in the owner's browser (#505); https only.
   handle(IPC.openExternal, async (_event, arg) => {
@@ -1269,6 +1310,8 @@ void app.whenReady().then(async () => {
     dialedOrigin: origin,
     mode: remoteGateway ? "strict" : "local",
     pinnedKey: () => gateways.pinnedKey(),
+    // A pairing link's fingerprint, until the key itself is pinned: the first connect is verified.
+    pinnedFingerprint: () => gateways.pinnedFingerprint(),
     ...(remoteGateway ? { expectedFingerprint: () => gateways.advertisedFingerprint() } : {}),
     ...(lanChannel
       ? {
@@ -1290,6 +1333,8 @@ void app.whenReady().then(async () => {
     // remote Gateway is pinned on first use and refused if the key ever differs; This Mac's own
     // is trusted by the per-launch secret, so it keeps no pin.
     verifyGateway: gatewayVerifier,
+    // A pairing link's one-time token, presented only after the Gateway proved its identity.
+    setupToken: () => gateways.setupToken(),
     ...(lanChannel
       ? {
           transport: {
@@ -1310,6 +1355,19 @@ void app.whenReady().then(async () => {
       }
       onPairing(s);
       if (s.phase === "paired") gateways.markConnected();
+      // Once paired, the Host says what it is called; until then the entry is named by address.
+      if (s.phase === "paired" && remoteGateway) {
+        void gateway
+          ?.call("gateway.info", {})
+          .then((info) => {
+            const name = (info as { hostName?: unknown } | undefined)?.hostName;
+            if (typeof name === "string") gateways.adoptHostName(name);
+          })
+          .catch(() => undefined);
+      }
+      // The Host refused the token (used, expired, revoked): do not offer it again.
+      if (s.phase === "denied" && s.deniedCode === "setup_token_invalid")
+        gateways.clearSetupToken();
       // The Host sends this connection OS notifications only once it asks (R2); per connection.
       if (s.phase === "paired" && remoteGateway) {
         void gateway?.call("notifications.device.register", { enabled: true }).then(
@@ -1483,6 +1541,8 @@ void app.whenReady().then(async () => {
     });
   }
   openDeepLink(deepLinkFromArgv(process.argv));
+  pairLinks.offerArgv(process.argv);
+  pairLinks.showPending();
   if (perfProbe === undefined) void startUpdater({ stateFile: join(home, "run", "updater.json") });
 
   app.on("activate", () => windows?.showMain());
@@ -1496,12 +1556,14 @@ async function quitEntirely(): Promise<void> {
 
 app.on("open-url", (event, url) => {
   event.preventDefault();
-  openDeepLink(parseDeepLink(url));
+  if (isPairLinkUrl(url)) pairLinks.offer(url);
+  else openDeepLink(parseDeepLink(url));
 });
 
 app.on("second-instance", (_e, argv) => {
   windows?.showMain();
   openDeepLink(deepLinkFromArgv(argv));
+  pairLinks.offerArgv(argv);
 });
 
 // Closing the window keeps the app (menu bar) and the Gateway running (feature A7).

@@ -420,6 +420,15 @@ export class Connection implements LiveConnection {
     if (outcome.createdRequest) {
       ctx.bus.publish("pairing.requested", { pairingRequest: outcome.createdRequest });
     }
+    if (outcome.pairedBySetupToken) {
+      // A computer paired itself with a setup token the owner made: tell the Host's screens (the
+      // device list) and the audit trail, since no approval card was involved.
+      const { deviceId } = outcome.pairedBySetupToken;
+      const device = getDevice(ctx.db, deviceId);
+      ctx.bus.bumpStateVersion();
+      if (device) ctx.bus.publish("device.updated", { device });
+      ctx.onSetupTokenUsed?.(outcome.pairedBySetupToken);
+    }
     if (result.phase === "paired" && identity) {
       this.#phase = "paired";
       this.#identity = identity;

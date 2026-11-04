@@ -6,6 +6,7 @@ import { t } from "../../i18n/core.ts";
 import { useSlots } from "../../slots.tsx";
 import { GatewaysGroup } from "./GatewaysGroup.tsx";
 import { LanAccessGroup } from "./LanAccessGroup.tsx";
+import { PairComputerGroup } from "./PairComputerGroup.tsx";
 import { RemoteAccessGroup } from "./RemoteAccessGroup.tsx";
 import {
   EmptyNotice,
@@ -218,6 +219,7 @@ export function ServerSection({ status, ...actions }: ServerSectionProps): React
       {remoteHost === undefined ? (
         <>
           <RemoteAccessGroup />
+          <PairComputerGroup />
           <LanAccessGroup />
         </>
       ) : (

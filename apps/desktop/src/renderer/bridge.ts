@@ -153,6 +153,9 @@ function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
     gateways: {
       list: () => b.gateways.list() as Promise<SavedGatewayView[]>,
       add: (address, name) => b.gateways.add(address, name) as Promise<SavedGatewayView>,
+      addLink: (link) => b.gateways.addLink(link) as Promise<SavedGatewayView>,
+      takePendingLink: () => b.gateways.takePendingLink() as Promise<string | null>,
+      onPendingLink: (cb) => b.gateways.onPendingLink(cb),
       discover: () => b.gateways.discover() as Promise<DiscoveredGatewayView[]>,
       addDiscovered: (id) => b.gateways.addDiscovered(id) as Promise<SavedGatewayView>,
       rename: async (id, name) => void (await b.gateways.rename(id, name)),
@@ -212,8 +215,8 @@ function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
       },
     },
     clipboard: {
-      writeText: async (text) => {
-        await b.clipboard.writeText(text);
+      writeText: async (text, opts) => {
+        await b.clipboard.writeText(text, opts);
       },
     },
     external: {

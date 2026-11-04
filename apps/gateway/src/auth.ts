@@ -7,6 +7,7 @@ import {
   verify,
 } from "node:crypto";
 import {
+  consumeSetupToken,
   countPairingsFromAddress,
   countPendingPairings,
   createPairingRequest,
@@ -277,16 +278,22 @@ export interface VerifyOutcome {
   createdRequest: PairingRequest | null;
   /** The pending device, for `pending` results. */
   pendingDeviceId: string | null;
+  /** Set when a setup token paired this device (the connection reports it to the Host). */
+  pairedBySetupToken?: { tokenId: string; deviceId: string; scopes: DeviceScope[] };
 }
 
-function denied(reason: string): VerifyOutcome {
+function denied(reason: string, code?: "setup_token_invalid"): VerifyOutcome {
   return {
-    result: { phase: "denied", reason },
+    result: { phase: "denied", reason, ...(code === undefined ? {} : { code }) },
     identity: null,
     createdRequest: null,
     pendingDeviceId: null,
   };
 }
+
+/** The sentence a computer shows for a setup token that cannot be used. */
+export const SETUP_TOKEN_REFUSED =
+  "This pairing link was already used, has expired or was revoked. Make a new one on the Host.";
 
 /** Completes the signed challenge and decides paired / pending / denied. */
 export function verifyChallenge(
@@ -378,6 +385,10 @@ export function verifyChallenge(
     if (pinned === null) updateDevice(db, existing.id, { deviceFamily: params.deviceFamily });
     else if (pinned !== params.deviceFamily) return denied("device family mismatch");
     touchLastSeen(db, existing.id, nowIso);
+    // A token presented by a device that is already paired is spent anyway (the link was used,
+    // by someone who did not need it), and grants nothing: the device keeps its own scopes.
+    if (input.setupToken !== undefined)
+      consumeSetupToken(db, input.setupToken, existing.id, nowIso);
     return {
       result: pairedResult(existing.id, existing.scopes, nowIso),
       identity: {
@@ -392,7 +403,30 @@ export function verifyChallenge(
     };
   }
 
-  const scopes = autoPairScopes(params, peer, deps.handshakeSecret);
+  let scopes = autoPairScopes(params, peer, deps.handshakeSecret);
+  // A setup token (remote-gateway design §3.4) pairs a computer's app that came over the network,
+  // never a node or a browser page, and never on the sockets the Host's own helper uses. It is
+  // presented in `connect.verify`, after the client verified this Gateway's identity, and spent
+  // below in the same transaction that writes the device.
+  const presentedToken = scopes === null ? input.setupToken : undefined;
+  // The token is a bearer secret, so only a client that verified this Gateway's key (and bound the
+  // connect to it, the v2 payload) may present it: an impostor that does not hold the key never
+  // gets a client to send one. The check is unconditional. Only the desktop app pairs this way for
+  // now (the phone comes later).
+  if (
+    presentedToken !== undefined &&
+    !(
+      peer.transport === "ws" &&
+      peer.origin === null &&
+      params.role === "client" &&
+      params.deviceFamily === "desktop" &&
+      deps.gatewayKey !== undefined &&
+      input.gatewayKey === deps.gatewayKey
+    )
+  ) {
+    deps.failedChallenges.record(peer.remoteAddress);
+    return denied(SETUP_TOKEN_REFUSED, "setup_token_invalid");
+  }
   // A Mac helper pairs only by the per-launch handshake secret on the machine. An owner-approved
   // pairing (a pending request anyone who can reach a transport may open) never makes a Mac
   // helper: it would be offered the Host's computer use, keychain and approval cards.
@@ -408,6 +442,20 @@ export function verifyChallenge(
 
   return db.sqlite.transaction((): VerifyOutcome => {
     const role = params.role === "node" ? "node" : "client";
+    let spentToken: { id: string; scopes: DeviceScope[] } | undefined;
+    if (presentedToken !== undefined) {
+      // One conditional UPDATE: a token that is unused, unrevoked and unexpired is spent here, so
+      // two connections racing on it cannot both pair, and nothing below runs for a refused one.
+      spentToken = consumeSetupToken(db, presentedToken, params.deviceId, nowIso);
+      if (spentToken === undefined) {
+        deps.failedChallenges.record(peer.remoteAddress);
+        return denied(SETUP_TOKEN_REFUSED, "setup_token_invalid");
+      }
+      scopes = spentToken.scopes;
+      // Whatever was waiting for the owner under this id is moot now: a stale pending card must
+      // not later approve wider scopes than the owner chose when making the link.
+      expirePendingPairingsForDevice(db, params.deviceId);
+    }
     if (existing === undefined) {
       insertDevice(db, {
         id: params.deviceId,
@@ -444,6 +492,11 @@ export function verifyChallenge(
         },
         createdRequest: null,
         pendingDeviceId: null,
+        ...(spentToken === undefined
+          ? {}
+          : {
+              pairedBySetupToken: { tokenId: spentToken.id, deviceId: params.deviceId, scopes },
+            }),
       };
     }
 

@@ -108,6 +108,12 @@ export interface GatewayVerifierOptions {
   /** The pinned key (base64url), if any. Read per attempt. */
   pinnedKey: () => string | undefined;
   /**
+   * The fingerprint a pairing link named (`sha256:<hex>`), if the key is not pinned yet. Until the
+   * first connect pins the key, a Gateway must prove a key with this fingerprint, so a link makes
+   * the first connect verified rather than trust-on-first-use. Read per attempt.
+   */
+  pinnedFingerprint?: () => string | undefined;
+  /**
    * Local mode only: the public key of this Mac's own Gateway (`identity/gateway.key`), when it
    * can be read. A Gateway that answers with another key is not This Mac's (a stale
    * `ssh -L 7979` tunnel, a squatter on the port), and one that presents none while this file
@@ -170,8 +176,10 @@ export function createGatewayVerifier(opts: GatewayVerifierOptions): PinningVeri
     }
     if (opts.mode === "strict") {
       let pinned: string | undefined;
+      let linkFingerprint: string | undefined;
       try {
         pinned = opts.pinnedKey();
+        if (pinned === undefined) linkFingerprint = opts.pinnedFingerprint?.();
       } catch {
         // The saved Gateways file cannot be read, or this Gateway is no longer in it: running
         // without the pin is running without the check.
@@ -179,6 +187,9 @@ export function createGatewayVerifier(opts: GatewayVerifierOptions): PinningVeri
       }
       if (pinned !== undefined) {
         if (pinned !== gatewayKey) return { ok: false, code: "gateway_identity_changed" };
+      } else if (linkFingerprint !== undefined && fingerprintOf(gatewayKey) !== linkFingerprint) {
+        // The link said which Gateway this is, and this is not it.
+        return { ok: false, code: "gateway_identity_changed" };
       } else if (candidate !== undefined && candidate !== gatewayKey) {
         return { ok: false, code: "gateway_identity_changed" };
       } else if (
