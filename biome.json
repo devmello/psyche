@@ -9,6 +9,7 @@
     "includes": [
       "**",
       "!**/generated",
+      "!**/*.dc.html",
       "!**/dist",
       "!**/out",
       "!**/.vite",
