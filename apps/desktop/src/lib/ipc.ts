@@ -42,13 +42,6 @@ export const IPC = {
   browserSignedInList: "psyche:browser:signed-in-list",
   browserSignedInForget: "psyche:browser:signed-in-forget",
   browserOpenRealChromeProfile: "psyche:browser:open-real-chrome-profile",
-  // Terminal.
-  terminalOpen: "psyche:terminal:open",
-  terminalWrite: "psyche:terminal:write",
-  terminalResize: "psyche:terminal:resize",
-  terminalClose: "psyche:terminal:close",
-  terminalData: "psyche:terminal:data",
-  terminalExit: "psyche:terminal:exit",
   // Windows, notifications, native commands.
   windowPopOut: "psyche:window:pop-out",
   /** Raises a pane's pop-out window; resolves false when it is gone. */
@@ -278,11 +271,11 @@ export function checkAudioChunk(v: unknown): string {
  * What a client of another computer's Gateway never does here (remote-gateway design §4.2): each
  * one reaches this Mac's own shell, folders, helper, screen, microphone or apps on a Gateway's
  * say-so, or for a Host's data. The remote window leaves the controls out; main refuses the
- * calls as well, whatever the window sends. (The terminal starts a process from what the
- * Gateway answers: a Gateway on another computer must never be able to ask for one.)
+ * calls as well, whatever the window sends. (There is no local terminal channel at all: the
+ * terminal pane is a session on the Host over the Gateway connection, so main never starts a
+ * process from what a Gateway answers.)
  */
 export const REMOTE_REFUSED_CHANNELS: ReadonlySet<string> = new Set([
-  IPC.terminalOpen,
   IPC.browserOpenRealChromeProfile,
   IPC.dialogPickFolder,
   IPC.permissionsRequest,

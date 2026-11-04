@@ -40,6 +40,7 @@ export const ENTRIES = {
 export const EXTERNAL = [
   "better-sqlite3",
   "better-sqlite3-multiple-ciphers",
+  "node-pty",
   "sqlite-vec",
   "onnxruntime-node",
   "playwright-core",
