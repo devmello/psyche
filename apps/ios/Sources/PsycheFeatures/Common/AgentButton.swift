@@ -10,5 +10,8 @@ struct AgentButton: View {
         Button { router.sheet = .agent } label: { MothButtonLabel(needsYou: needsYou) }
             .buttonStyle(.plain)
             .accessibilityLabel("Open Psyche's activity")
+            .contextMenu {
+                Button { router.sheet = .settings } label: { Label("Settings", systemImage: "gearshape") }
+            }
     }
 }

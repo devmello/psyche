@@ -78,6 +78,8 @@ struct MainTabs: View {
                 }
             case .agent:
                 AgentSheet()
+            case .settings:
+                SettingsSheet(store: store)
             }
         }
     }
