@@ -1,0 +1,34 @@
+{
+  "id": "W08-flood-200",
+  "attack": "W",
+  "kind": "lane",
+  "description": "A flood: 200 assignments from one work sender in one mail.",
+  "senderOptedIn": true,
+  "sender": {
+    "label": "Canvas",
+    "key": "no-reply@instructure.com"
+  },
+  "subject": "Course notification",
+  "body": "__FLOOD__",
+  "hostile": {
+    "items": [
+      {
+        "item": "i1",
+        "assignments": [],
+        "flags": {
+          "instruction_like": false
+        }
+      }
+    ]
+  },
+  "expect": {
+    "suggestions": [],
+    "quarantine": [
+      "too_many_claims"
+    ]
+  },
+  "flood": {
+    "assignments": 200,
+    "template": "Homework {i} is due 2026-11-09."
+  }
+}

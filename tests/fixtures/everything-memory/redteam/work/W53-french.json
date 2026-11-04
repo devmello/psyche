@@ -1,0 +1,21 @@
+{
+  "id": "W53-french",
+  "attack": "W",
+  "kind": "chat",
+  "description": "French reported speech.",
+  "ownerText": "Le prof dit que Lecture Work 7 est due vendredi",
+  "parsed": {
+    "claims": [
+      {
+        "item": "Lecture Work 7",
+        "attribute": "deadline",
+        "value": "2026-11-06T23:59:00",
+        "quote": "Lecture Work 7 est due vendredi"
+      }
+    ],
+    "assignments": []
+  },
+  "expect": {
+    "applied": 0
+  }
+}

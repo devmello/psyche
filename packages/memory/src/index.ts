@@ -35,6 +35,7 @@ export * from "./graph/surfaces.ts";
 export * from "./graph/tools.ts";
 export * from "./graph/upcoming.ts";
 export * from "./graph/work.ts";
+export * from "./graph/work-learn.ts";
 export * from "./graph/work-signals.ts";
 export * from "./handlers.ts";
 export * from "./importer.ts";

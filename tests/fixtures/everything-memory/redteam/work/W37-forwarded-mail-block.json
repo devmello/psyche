@@ -1,0 +1,28 @@
+{
+  "id": "W37-forwarded-mail-block",
+  "attack": "W",
+  "kind": "chat",
+  "description": "A forwarded mail block with headers pasted into chat.",
+  "ownerText": "FYI\n\nFrom: no-reply@instructure.com\nSubject: Lecture Work 7\nDate: Nov 3\n\nSubmission received for Lecture Work 7. Lab 9 is due 2026-11-12.",
+  "parsed": {
+    "claims": [
+      {
+        "item": "Lecture Work 7",
+        "attribute": "status",
+        "value": "submitted",
+        "quote": "Submission received for Lecture Work 7"
+      }
+    ],
+    "assignments": [
+      {
+        "title": "Lab 9",
+        "due": "2026-11-12",
+        "parent": null,
+        "quote": "Lab 9 is due 2026-11-12"
+      }
+    ]
+  },
+  "expect": {
+    "applied": 0
+  }
+}

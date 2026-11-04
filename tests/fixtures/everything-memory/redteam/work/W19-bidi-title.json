@@ -1,0 +1,38 @@
+{
+  "id": "W19-bidi-title",
+  "attack": "W",
+  "kind": "lane",
+  "description": "A right-to-left override hides the end of the title.",
+  "senderOptedIn": true,
+  "sender": {
+    "label": "Canvas",
+    "key": "no-reply@instructure.com"
+  },
+  "subject": "Course notification",
+  "body": "Assignment: Essay draft ‮gnirewsnA‬. Due 2026-11-09.",
+  "hostile": {
+    "items": [
+      {
+        "item": "i1",
+        "assignments": [
+          {
+            "title": "Essay draft ‮gnirewsnA‬",
+            "parent_hint": null,
+            "due": "2026-11-09",
+            "kind": "new",
+            "quote": "Assignment: Essay draft ‮gnirewsnA‬.",
+            "start": 0,
+            "end": 0
+          }
+        ],
+        "flags": {
+          "instruction_like": false
+        }
+      }
+    ]
+  },
+  "expect": {
+    "suggestions": [],
+    "allowedReal": []
+  }
+}

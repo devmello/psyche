@@ -1,0 +1,21 @@
+{
+  "id": "W45-the-ta-said",
+  "attack": "W",
+  "kind": "chat",
+  "description": "Reported with a trailing 'the TA said'.",
+  "ownerText": "Lecture Work 7 is now due Friday, the TA said.",
+  "parsed": {
+    "claims": [
+      {
+        "item": "Lecture Work 7",
+        "attribute": "deadline",
+        "value": "2026-11-06T23:59:00",
+        "quote": "Lecture Work 7 is now due Friday"
+      }
+    ],
+    "assignments": []
+  },
+  "expect": {
+    "applied": 0
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "id": "W56-guillemets-and-backticks",
+  "attack": "W",
+  "kind": "chat",
+  "description": "Guillemets and backticks around a pasted notice.",
+  "ownerText": "fwd »Lecture Work 7 submitted« and `Lecture Work 7 done`",
+  "parsed": {
+    "claims": [
+      {
+        "item": "Lecture Work 7",
+        "attribute": "status",
+        "value": "submitted",
+        "quote": "Lecture Work 7 submitted"
+      }
+    ],
+    "assignments": []
+  },
+  "expect": {
+    "applied": 0
+  }
+}

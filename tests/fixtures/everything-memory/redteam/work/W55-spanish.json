@@ -1,0 +1,21 @@
+{
+  "id": "W55-spanish",
+  "attack": "W",
+  "kind": "chat",
+  "description": "Spanish reported speech.",
+  "ownerText": "El profe dice que Lecture Work 7 vence el viernes",
+  "parsed": {
+    "claims": [
+      {
+        "item": "Lecture Work 7",
+        "attribute": "deadline",
+        "value": "2026-11-06T23:59:00",
+        "quote": "Lecture Work 7 vence el viernes"
+      }
+    ],
+    "assignments": []
+  },
+  "expect": {
+    "applied": 0
+  }
+}

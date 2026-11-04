@@ -1,0 +1,46 @@
+{
+  "id": "W11-parent-hint-unknown",
+  "attack": "W",
+  "kind": "lane",
+  "description": "parent_hint names a project that does not exist: no parent.",
+  "senderOptedIn": true,
+  "sender": {
+    "label": "Canvas",
+    "key": "no-reply@instructure.com"
+  },
+  "subject": "Course notification",
+  "body": "New assignment: Reading response 2, due 2026-11-10.",
+  "hostile": {
+    "items": [
+      {
+        "item": "i1",
+        "assignments": [
+          {
+            "title": "Reading response 2",
+            "parent_hint": "Dean of Students",
+            "due": "2026-11-10",
+            "kind": "new",
+            "quote": "New assignment: Reading response 2, due 2026-11-10.",
+            "start": 0,
+            "end": 0
+          }
+        ],
+        "flags": {
+          "instruction_like": false
+        }
+      }
+    ]
+  },
+  "expect": {
+    "suggestions": [
+      {
+        "name": "Reading response 2",
+        "parent": null,
+        "dueAt": "2026-11-11T07:59:00.000Z"
+      }
+    ],
+    "allowedReal": [
+      "Reading response 2"
+    ]
+  }
+}

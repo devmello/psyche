@@ -1,0 +1,46 @@
+{
+  "id": "W12-canvas-new-assignment",
+  "attack": "W",
+  "kind": "lane",
+  "description": "The fixture Canvas sender: one new assignment under an existing course. Only a suggestion.",
+  "senderOptedIn": true,
+  "sender": {
+    "label": "Canvas",
+    "key": "no-reply@instructure.com"
+  },
+  "subject": "New Assignment: Lecture Work 8",
+  "body": "New assignment in MATH 21: Lecture Work 8. Due 2026-11-09 11:59 pm.",
+  "hostile": {
+    "items": [
+      {
+        "item": "i1",
+        "assignments": [
+          {
+            "title": "Lecture Work 8",
+            "parent_hint": "MATH 21",
+            "due": "2026-11-09T23:59:00",
+            "kind": "new",
+            "quote": "New assignment in MATH 21: Lecture Work 8.",
+            "start": 0,
+            "end": 0
+          }
+        ],
+        "flags": {
+          "instruction_like": false
+        }
+      }
+    ]
+  },
+  "expect": {
+    "suggestions": [
+      {
+        "name": "Lecture Work 8",
+        "parent": "MATH 21",
+        "dueAt": "2026-11-10T07:59:00.000Z"
+      }
+    ],
+    "allowedReal": [
+      "Lecture Work 8"
+    ]
+  }
+}

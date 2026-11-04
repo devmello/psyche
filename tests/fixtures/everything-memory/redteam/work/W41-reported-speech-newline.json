@@ -1,0 +1,21 @@
+{
+  "id": "W41-reported-speech-newline",
+  "attack": "W",
+  "kind": "chat",
+  "description": "'my prof says ...' with a newline after: the verb is on the sentence.",
+  "ownerText": "my prof says Lecture Work 7 is now due Friday\nugh",
+  "parsed": {
+    "claims": [
+      {
+        "item": "Lecture Work 7",
+        "attribute": "deadline",
+        "value": "2026-11-06T23:59:00",
+        "quote": "Lecture Work 7 is now due Friday"
+      }
+    ],
+    "assignments": []
+  },
+  "expect": {
+    "applied": 0
+  }
+}

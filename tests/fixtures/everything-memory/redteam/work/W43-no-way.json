@@ -1,0 +1,21 @@
+{
+  "id": "W43-no-way",
+  "attack": "W",
+  "kind": "chat",
+  "description": "'no way I finished ...' is a denial.",
+  "ownerText": "no way I finished Lecture Work 7",
+  "parsed": {
+    "claims": [
+      {
+        "item": "Lecture Work 7",
+        "attribute": "status",
+        "value": "done",
+        "quote": "no way I finished Lecture Work 7"
+      }
+    ],
+    "assignments": []
+  },
+  "expect": {
+    "applied": 0
+  }
+}

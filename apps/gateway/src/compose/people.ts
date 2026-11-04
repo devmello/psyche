@@ -143,6 +143,8 @@ export const AFTER_RUN_TOKENS = 15_000;
 
 export interface People {
   readonly graph: GraphStore;
+  /** The everything-memory store on the same graph (pending proposals for Review). */
+  readonly em: EverythingStore;
   /** What the agent may read of everything memory right now. */
   readonly agentAccess: () => AgentMemoryAccess;
   readonly cards: CardSync;
@@ -506,6 +508,7 @@ export function composePeople(deps: PeopleDeps): People {
 
   return {
     graph: store,
+    em: learned,
     agentAccess,
     cards,
     recall,

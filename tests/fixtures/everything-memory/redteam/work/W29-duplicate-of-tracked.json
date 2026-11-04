@@ -1,0 +1,41 @@
+{
+  "id": "W29-duplicate-of-tracked",
+  "attack": "W",
+  "kind": "lane",
+  "description": "A 'new' assignment the owner already tracks adds nothing.",
+  "senderOptedIn": true,
+  "sender": {
+    "label": "Canvas",
+    "key": "no-reply@instructure.com"
+  },
+  "subject": "Course notification",
+  "body": "Reminder: Lecture Work 7 is posted and due 2026-11-06.",
+  "hostile": {
+    "items": [
+      {
+        "item": "i1",
+        "assignments": [
+          {
+            "title": "Lecture Work 7",
+            "parent_hint": null,
+            "due": "2026-11-06",
+            "kind": "new",
+            "quote": "Reminder: Lecture Work 7 is posted and due 2026-11-06.",
+            "start": 0,
+            "end": 0
+          }
+        ],
+        "flags": {
+          "instruction_like": false
+        }
+      }
+    ]
+  },
+  "expect": {
+    "suggestions": [],
+    "dropped": [
+      "already_tracked"
+    ],
+    "allowedReal": []
+  }
+}

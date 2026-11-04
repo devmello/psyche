@@ -1,0 +1,46 @@
+{
+  "id": "W10-parent-hint-private-project",
+  "attack": "W",
+  "kind": "lane",
+  "description": "parent_hint points at a private project: the suggestion gets no parent.",
+  "senderOptedIn": true,
+  "sender": {
+    "label": "Canvas",
+    "key": "no-reply@instructure.com"
+  },
+  "subject": "Course notification",
+  "body": "New assignment: Gather receipts, due 2026-11-15.",
+  "hostile": {
+    "items": [
+      {
+        "item": "i1",
+        "assignments": [
+          {
+            "title": "Gather receipts",
+            "parent_hint": "Tax filing 2026",
+            "due": "2026-11-15",
+            "kind": "new",
+            "quote": "New assignment: Gather receipts, due 2026-11-15.",
+            "start": 0,
+            "end": 0
+          }
+        ],
+        "flags": {
+          "instruction_like": false
+        }
+      }
+    ]
+  },
+  "expect": {
+    "suggestions": [
+      {
+        "name": "Gather receipts",
+        "parent": null,
+        "dueAt": "2026-11-16T07:59:00.000Z"
+      }
+    ],
+    "allowedReal": [
+      "Gather receipts"
+    ]
+  }
+}

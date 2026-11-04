@@ -5,11 +5,13 @@ import type {
   ProposeEdgeOutcome,
   ProposeFactInput,
   ProposeOutcome,
+  SuggestWorkInput,
+  SuggestWorkOutcome,
 } from "../graph/everything.ts";
 
 /**
  * The only thing the extraction validator can write through (docs/design/everything-memory-2026.md
- * §5.1 stage 3). Exactly three methods. It has no handle to settings, the agent, identifiers,
+ * §5.1 stage 3, §7.2). Exactly four methods. It has no handle to settings, the agent, identifiers,
  * merges, loops, USER.md, MEMORY.md, trusted sources or the network, and cannot raise a fact's
  * trust: everything it stores is `pending` unless the caller proves owner-authored provenance, and
  * nothing is ever `owner`. `sink.test.ts` pins the shape: adding a method fails the test.
@@ -18,10 +20,16 @@ export interface ExtractionSink {
   proposeFact(input: SinkFact): ProposeOutcome;
   proposeEdge(input: SinkEdge): ProposeEdgeOutcome;
   quarantine(input: SinkQuarantine): void;
+  /**
+   * A work suggestion (§7.2): writes one `graph_suggestions` row of kind `assignment` or
+   * `project` and nothing else. It cannot create an entity; only the owner's Track does.
+   */
+  suggest(input: SinkSuggestion): SuggestWorkOutcome;
 }
 
 export type SinkFact = Omit<ProposeFactInput, "runId" | "extractor">;
 export type SinkEdge = ProposeEdgeInput;
+export type SinkSuggestion = SuggestWorkInput;
 
 export interface SinkQuarantine {
   source: GraphCitationSource;
@@ -32,7 +40,12 @@ export interface SinkQuarantine {
 }
 
 /** The method names of `ExtractionSink`; the interface test compares against this. */
-export const EXTRACTION_SINK_METHODS = ["proposeEdge", "proposeFact", "quarantine"] as const;
+export const EXTRACTION_SINK_METHODS = [
+  "proposeEdge",
+  "proposeFact",
+  "quarantine",
+  "suggest",
+] as const;
 
 export function createExtractionSink(
   store: EverythingStore,
@@ -55,5 +68,6 @@ export function createExtractionSink(
     quarantine: (input: SinkQuarantine) => {
       store.quarantine(input);
     },
+    suggest: (input: SinkSuggestion) => store.suggestWork(input),
   });
 }

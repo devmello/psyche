@@ -1,0 +1,38 @@
+{
+  "id": "W18-markdown-link-title",
+  "attack": "W",
+  "kind": "lane",
+  "description": "A title made of a Markdown link.",
+  "senderOptedIn": true,
+  "sender": {
+    "label": "Canvas",
+    "key": "no-reply@instructure.com"
+  },
+  "subject": "Course notification",
+  "body": "Assignment: [Claim your grade](http://grades.example.com/claim). Due 2026-11-09.",
+  "hostile": {
+    "items": [
+      {
+        "item": "i1",
+        "assignments": [
+          {
+            "title": "[Claim your grade](http://grades.example.com/claim)",
+            "parent_hint": null,
+            "due": "2026-11-09",
+            "kind": "new",
+            "quote": "Assignment: [Claim your grade](http://grades.example.com/claim).",
+            "start": 0,
+            "end": 0
+          }
+        ],
+        "flags": {
+          "instruction_like": false
+        }
+      }
+    ]
+  },
+  "expect": {
+    "suggestions": [],
+    "allowedReal": []
+  }
+}

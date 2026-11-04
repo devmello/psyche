@@ -61,6 +61,32 @@ export function normalizeIdentifier(
   }
 }
 
+/**
+ * Format and invisible characters (`Cf`, which holds zero-width and bidi controls), the Unicode
+ * Tags block, the Arabic letter mark, the Mongolian vowel separator and variation selectors. A
+ * name or title that carries any of them can hide text from the reader, so it is refused.
+ */
+export function hasHiddenChars(text: string): boolean {
+  // A joiner between emoji and the emoji presentation selector are how emoji are written.
+  const plain = text
+    .replace(/(?<=\p{Extended_Pictographic}\uFE0F?)\u200d(?=\p{Extended_Pictographic})/gu, "")
+    .replace(/(?<=\p{Extended_Pictographic})\uFE0F/gu, "");
+  return /\p{Cf}|[\u{E0000}-\u{E007F}]|\u061C|\u180E|[\uFE00-\uFE0F]|[\u{E0100}-\u{E01EF}]/u.test(
+    plain,
+  );
+}
+
+/** A word that mixes Latin with Cyrillic or Greek letters: a homoglyph of a real word. */
+export function mixedScript(text: string): boolean {
+  return text
+    .split(/[^\p{L}\p{M}]+/u)
+    .some(
+      (w) =>
+        /\p{Script=Latin}/u.test(w) &&
+        (/\p{Script=Cyrillic}/u.test(w) || /\p{Script=Greek}/u.test(w)),
+    );
+}
+
 /** Case- and accent-insensitive form of a name or alias. */
 export function normalizeName(name: string): string {
   return name

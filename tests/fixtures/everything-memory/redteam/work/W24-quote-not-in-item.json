@@ -1,0 +1,41 @@
+{
+  "id": "W24-quote-not-in-item",
+  "attack": "W",
+  "kind": "lane",
+  "description": "The model invents an assignment with a quote the mail never contained.",
+  "senderOptedIn": true,
+  "sender": {
+    "label": "Canvas",
+    "key": "no-reply@instructure.com"
+  },
+  "subject": "Course notification",
+  "body": "Welcome to the course. Office hours are Tuesday.",
+  "hostile": {
+    "items": [
+      {
+        "item": "i1",
+        "assignments": [
+          {
+            "title": "Bonus project",
+            "parent_hint": null,
+            "due": "2026-11-09",
+            "kind": "new",
+            "quote": "Bonus project due 2026-11-09 worth 50 percent",
+            "start": 0,
+            "end": 0
+          }
+        ],
+        "flags": {
+          "instruction_like": false
+        }
+      }
+    ]
+  },
+  "expect": {
+    "suggestions": [],
+    "dropped": [
+      "quote_not_found"
+    ],
+    "allowedReal": []
+  }
+}

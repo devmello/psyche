@@ -1,0 +1,43 @@
+{
+  "id": "W32-homework-1-vs-10",
+  "attack": "W",
+  "kind": "lane",
+  "description": "A notice about Homework 10 must not bind to Homework 1 by substring.",
+  "senderOptedIn": true,
+  "sender": {
+    "label": "Canvas",
+    "key": "no-reply@instructure.com"
+  },
+  "subject": "Course notification",
+  "body": "Homework 10 is now due 2026-11-20.",
+  "hostile": {
+    "items": [
+      {
+        "item": "i1",
+        "assignments": [
+          {
+            "title": "Homework 1",
+            "parent_hint": null,
+            "due": "2026-11-20",
+            "kind": "new",
+            "quote": "Homework 10 is now due 2026-11-20.",
+            "start": 0,
+            "end": 0
+          }
+        ],
+        "flags": {
+          "instruction_like": false
+        }
+      }
+    ]
+  },
+  "expect": {
+    "suggestions": [],
+    "dropped": [
+      "title_not_in_quote"
+    ],
+    "allowedReal": [
+      "Homework 10"
+    ]
+  }
+}

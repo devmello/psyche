@@ -1,0 +1,46 @@
+{
+  "id": "W23-absurd-due-date",
+  "attack": "W",
+  "kind": "lane",
+  "description": "A due date thousands of years away reads as no date.",
+  "senderOptedIn": true,
+  "sender": {
+    "label": "Canvas",
+    "key": "no-reply@instructure.com"
+  },
+  "subject": "Course notification",
+  "body": "New assignment: Reading response 3. Due 9999-12-31.",
+  "hostile": {
+    "items": [
+      {
+        "item": "i1",
+        "assignments": [
+          {
+            "title": "Reading response 3",
+            "parent_hint": null,
+            "due": "9999-12-31",
+            "kind": "new",
+            "quote": "New assignment: Reading response 3. Due 9999-12-31.",
+            "start": 0,
+            "end": 0
+          }
+        ],
+        "flags": {
+          "instruction_like": false
+        }
+      }
+    ]
+  },
+  "expect": {
+    "suggestions": [
+      {
+        "name": "Reading response 3",
+        "parent": null,
+        "dueAt": null
+      }
+    ],
+    "allowedReal": [
+      "Reading response 3"
+    ]
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "id": "W47-question",
+  "attack": "W",
+  "kind": "chat",
+  "description": "A question is not a statement.",
+  "ownerText": "is Lecture Work 7 done?",
+  "parsed": {
+    "claims": [
+      {
+        "item": "Lecture Work 7",
+        "attribute": "status",
+        "value": "done",
+        "quote": "is Lecture Work 7 done?"
+      }
+    ],
+    "assignments": []
+  },
+  "expect": {
+    "applied": 0
+  }
+}

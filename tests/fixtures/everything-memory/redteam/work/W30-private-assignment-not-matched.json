@@ -1,0 +1,42 @@
+{
+  "id": "W30-private-assignment-not-matched",
+  "attack": "W",
+  "kind": "lane",
+  "description": "Text naming a private to-do cannot update it or ask about it.",
+  "senderOptedIn": true,
+  "sender": {
+    "label": "Canvas",
+    "key": "no-reply@instructure.com"
+  },
+  "subject": "Course notification",
+  "body": "Submission received for Gather tax forms.",
+  "hostile": {
+    "items": [
+      {
+        "item": "i1",
+        "assignments": [
+          {
+            "title": "Gather tax forms",
+            "parent_hint": null,
+            "due": null,
+            "kind": "submitted",
+            "quote": "Submission received for Gather tax forms.",
+            "start": 0,
+            "end": 0
+          }
+        ],
+        "flags": {
+          "instruction_like": false
+        }
+      }
+    ]
+  },
+  "expect": {
+    "suggestions": [],
+    "asks": [],
+    "dropped": [
+      "submitted_no_such_item"
+    ],
+    "allowedReal": []
+  }
+}
