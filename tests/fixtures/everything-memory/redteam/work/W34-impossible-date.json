@@ -1,0 +1,46 @@
+{
+  "id": "W34-impossible-date",
+  "attack": "W",
+  "kind": "lane",
+  "description": "An impossible date reads as no date, not as March 3.",
+  "senderOptedIn": true,
+  "sender": {
+    "label": "Canvas",
+    "key": "no-reply@instructure.com"
+  },
+  "subject": "Course notification",
+  "body": "New assignment: Reading response 5. Due 2026-02-31.",
+  "hostile": {
+    "items": [
+      {
+        "item": "i1",
+        "assignments": [
+          {
+            "title": "Reading response 5",
+            "parent_hint": null,
+            "due": "2026-02-31",
+            "kind": "new",
+            "quote": "New assignment: Reading response 5. Due 2026-02-31.",
+            "start": 0,
+            "end": 0
+          }
+        ],
+        "flags": {
+          "instruction_like": false
+        }
+      }
+    ]
+  },
+  "expect": {
+    "suggestions": [
+      {
+        "name": "Reading response 5",
+        "parent": null,
+        "dueAt": null
+      }
+    ],
+    "allowedReal": [
+      "Reading response 5"
+    ]
+  }
+}

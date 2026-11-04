@@ -1,0 +1,38 @@
+{
+  "id": "W33-variation-selector-title",
+  "attack": "W",
+  "kind": "lane",
+  "description": "A title padded with variation selectors and a Mongolian vowel separator.",
+  "senderOptedIn": true,
+  "sender": {
+    "label": "Canvas",
+    "key": "no-reply@instructure.com"
+  },
+  "subject": "Course notification",
+  "body": "Assignment: Reading️᠎ response. Due 2026-11-09.",
+  "hostile": {
+    "items": [
+      {
+        "item": "i1",
+        "assignments": [
+          {
+            "title": "Reading️᠎ response",
+            "parent_hint": null,
+            "due": "2026-11-09",
+            "kind": "new",
+            "quote": "Assignment: Reading️᠎ response.",
+            "start": 0,
+            "end": 0
+          }
+        ],
+        "flags": {
+          "instruction_like": false
+        }
+      }
+    ]
+  },
+  "expect": {
+    "suggestions": [],
+    "allowedReal": []
+  }
+}

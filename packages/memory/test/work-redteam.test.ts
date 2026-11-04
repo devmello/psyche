@@ -9,6 +9,7 @@ import {
   rankCatchUp,
 } from "../src/graph/catchup.ts";
 import { resolveSurfaceSettings } from "../src/graph/surfaces.ts";
+import { applyOwnerChatWork, type ParsedOwnerWork } from "../src/graph/work-learn.ts";
 import { runWorkSignals } from "../src/graph/work-signals.ts";
 import { makeEnv, type TestEnv } from "./helpers.ts";
 import {
@@ -18,6 +19,7 @@ import {
   runWorkLane,
   WORK_NOW,
   WORK_RECORDING,
+  WORK_ZONE,
   type WorkCase,
   type WorkWorld,
   workItemsFor,
@@ -202,6 +204,29 @@ describe("work red-team corpus", () => {
         ]);
         expect(all).not.toMatch(/98/);
       }
+    });
+  });
+
+  describe("chat: text the owner pasted or reported is not the owner's word", () => {
+    const chatCases = CASES.filter((c) => c.kind === "chat");
+    it.each(chatCases.map((c) => [c.id, c] as [string, WorkCase]))("%s", (_id, c) => {
+      const before = workSnapshot(env.db.sqlite);
+      const entitiesBefore = entityCount();
+      const r = applyOwnerChatWork(world.graph, {
+        ownerText: c.ownerText as string,
+        threadId: "thr_x",
+        parsed: c.parsed as ParsedOwnerWork,
+        now: WORK_NOW,
+        timeZone: WORK_ZONE,
+      });
+      expect(r.applied).toEqual([]);
+      expect(workSnapshot(env.db.sqlite)).toEqual(before);
+      expect(entityCount()).toBe(entitiesBefore);
+      expect(world.graph.suggestions(["pending", "later"])).toEqual([]);
+      expect(world.graph.getEntity(world.ids.lw7 as string)).toMatchObject({
+        workStatus: "not_started",
+        dueAt: "2026-11-06T23:59:00.000Z",
+      });
     });
   });
 

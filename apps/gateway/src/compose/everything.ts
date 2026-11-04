@@ -36,6 +36,7 @@ import {
   effectiveEverythingSources,
   everythingOptOut,
   type FeedWidget,
+  MEMORY_WORK_SETTING_KEY,
   type MethodParams,
   type MethodResult,
   type ModelProvider,
@@ -48,6 +49,7 @@ import type { Gateway } from "../server.ts";
 import { readSystemState } from "./everything-probe.ts";
 import { mountParamsOnly } from "./handlers.ts";
 import type { ComposedPart } from "./services.ts";
+import { workSettings } from "./work.ts";
 
 /**
  * Everything memory in the Gateway (docs/design/everything-memory-2026.md §6, §7): the review and
@@ -671,6 +673,8 @@ export function composeEverything(deps: EverythingDeps): Everything {
       },
       // The owner confirms the RAM warning for one named model; changing it asks again.
       localModelConfirmed: localRefs.every((r) => r !== undefined && confirmed.has(r)),
+      // Work in the owner's notes only with their work-tracking consent.
+      workConsent: workSettings(getSetting(db, MEMORY_WORK_SETTING_KEY)?.value).enabled,
     };
   };
   // One pass at a time: the scheduled run, "Run now" and a retry never overlap.

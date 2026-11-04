@@ -20,11 +20,12 @@ import { REDTEAM_DIR, sha } from "./redteam-support.ts";
 export const WORK_DIR = join(REDTEAM_DIR, "work");
 export const WORK_RECORDING = join(REDTEAM_DIR, "..", "redteam-recordings", "work-cloud.json");
 /** The fixed clock of the world: Wednesday 2026-11-04, 18:00 UTC. */
+export const WORK_ZONE = "America/Los_Angeles";
 export const WORK_NOW = Date.parse("2026-11-04T18:00:00Z");
 
 export interface WorkCase {
   id: string;
-  kind: "lane" | "signals";
+  kind: "lane" | "signals" | "chat";
   description: string;
   // lane
   senderOptedIn?: boolean;
@@ -35,6 +36,9 @@ export interface WorkCase {
   hostile?: { items: unknown[] };
   /** A reply the closed form must reject (extra fields). */
   hostileRaw?: unknown;
+  // chat: what the owner typed, and what the learner model proposed from it
+  ownerText?: string;
+  parsed?: { claims: unknown[]; assignments: unknown[] };
   // signals
   signals?: {
     reminders?: unknown[];
@@ -231,6 +235,7 @@ export async function runWorkLane(
         sink,
         limits: newWorkLaneLimits(),
         now: WORK_NOW,
+        timeZone: WORK_ZONE,
       });
       return { report, rejected: false, parseFailure: undefined, requests: provider.requests };
     }

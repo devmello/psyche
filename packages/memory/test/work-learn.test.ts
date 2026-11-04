@@ -1,8 +1,10 @@
 import { FakeClock } from "@psyche/testing";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { EverythingStore } from "../src/graph/everything.ts";
 import { GraphStore } from "../src/graph/store.ts";
 import {
   applyOwnerChatWork,
+  ownWords,
   type ParsedOwnerWork,
   parseOwnerWork,
   resolveWorkName,
@@ -17,6 +19,7 @@ import { makeEnv, type TestEnv } from "./helpers.ts";
  */
 
 const NOW = Date.parse("2026-11-04T18:00:00Z");
+const ZONE = "America/Los_Angeles";
 let env: TestEnv;
 let graph: GraphStore;
 let ids: { math: string; chem: string; lw7: string; lab3: string };
@@ -54,6 +57,8 @@ const run = (ownerText: string, parsed: Partial<ParsedOwnerWork>) =>
     ownerText,
     threadId: "thr_1",
     parsed: { claims: [], assignments: [], ...parsed },
+    now: NOW,
+    timeZone: ZONE,
   });
 
 const facts = (id: string, attribute?: string) =>
@@ -112,88 +117,96 @@ describe("resolving a name against open work", () => {
   });
 });
 
-describe("the owner's chat updates progress, with citations", () => {
-  it("writes progress and where they stopped as owner-stated facts cited to the thread and the quote", () => {
-    const text = "I finished problems 1-3 of Lecture Work 7 and stopped at part b of problem 4.";
-    const r = run(text, {
+describe("only the owner's own words count", () => {
+  it("drops quoted lines, fences, mail headers and the paragraph under them, long pastes and reported speech", () => {
+    const own = ownWords(
+      [
+        "Lecture Work 7 is half done.",
+        "> Lab 9 is due 2026-11-12",
+        "```\nSubmission received for Lecture Work 7\n```",
+        "From: no-reply@x.example\nSubject: Lecture Work 7\n\nSubmitted: Lecture Work 7",
+        "my prof says: Lecture Work 7 is now due Friday",
+        'She wrote "Lab 9 is due on the twelfth of November" in the group chat.',
+        `${"Lecture Work 7 ".repeat(40)}`,
+        "line1\nline2\nline3\nline4 Lecture Work 7 submitted",
+        "Told Sam I will work on Lecture Work 7 tonight.",
+      ].join("\n\n"),
+    );
+    expect(own).toContain("Lecture Work 7 is half done.");
+    expect(own).toContain("Told Sam I will work on Lecture Work 7 tonight.");
+    for (const gone of [
+      "Lab 9",
+      "Submission received",
+      "Submitted:",
+      "now due Friday",
+      "submitted",
+    ]) {
+      expect(own, gone).not.toContain(gone);
+    }
+    expect(own.length).toBeLessThan(120);
+  });
+});
+
+describe("a status follows only the owner's wording", () => {
+  const lw7 = ["Lecture Work 7"];
+  it("accepts a plain statement about the whole item", () => {
+    expect(statusFromQuote("I submitted Lab Report 3", "submitted", ["Lab Report 3"])).toBe(
+      "submitted",
+    );
+    expect(statusFromQuote("I turned in Lab Report 3", "handed_in", ["Lab Report 3"])).toBe(
+      "submitted",
+    );
+    expect(statusFromQuote("I finished Lecture Work 7", "done", lw7)).toBe("done");
+    expect(statusFromQuote("I dropped Lecture Work 7", "dropped", lw7)).toBe("dropped");
+    // The item's own name is not wording about part of it.
+    expect(statusFromQuote("I submitted Problem Set 3", "submitted", ["Problem Set 3"])).toBe(
+      "submitted",
+    );
+  });
+
+  it("refuses ranges, parts, negation, hedges and the future (H2)", () => {
+    for (const q of [
+      "finished 1-3 of Lecture Work 7",
+      "I finished problems 1-3 of Lecture Work 7",
+      "done with q1-q3 of Lecture Work 7",
+      "done with q1 on Lecture Work 7",
+      "finished #4 of Lecture Work 7",
+      "finished part b of Lecture Work 7",
+      "I have not finished Lecture Work 7",
+      "I haven't finished Lecture Work 7 yet",
+      "didn't finish Lecture Work 7",
+      "almost done with Lecture Work 7",
+      "nearly finished Lecture Work 7",
+      "still need to finish Lecture Work 7",
+      "I will finish Lecture Work 7 tomorrow",
+      "once I finish Lecture Work 7 I will sleep",
+      "I finished half of Lecture Work 7",
+    ]) {
+      expect(statusFromQuote(q, "done", lw7), q).toBeUndefined();
+    }
+    expect(statusFromQuote("I haven't submitted Lecture Work 7", "submitted", lw7)).toBeUndefined();
+    // The model says dropped, the quote says submitted.
+    expect(statusFromQuote("I submitted Lecture Work 7", "dropped", lw7)).toBeUndefined();
+  });
+
+  it("requires the quote to name the item: 'Finished the dishes' is not about HW7", () => {
+    expect(statusFromQuote("Finished the dishes", "done", lw7)).toBeUndefined();
+    const r = run("Finished the dishes. Lecture Work 7 is on my list.", {
       claims: [
         {
           item: "Lecture Work 7",
-          attribute: "progress",
-          value: "finished problems 1-3",
-          quote: "I finished problems 1-3 of Lecture Work 7",
-        },
-        {
-          item: "Lecture Work 7",
-          attribute: "stopped_at",
-          value: "part b of problem 4",
-          quote: "stopped at part b of problem 4",
+          attribute: "status",
+          value: "done",
+          quote: "Finished the dishes",
         },
       ],
     });
-    expect(r.applied.map((a) => [a.kind, a.attribute])).toEqual([
-      ["fact", "progress"],
-      ["fact", "stopped_at"],
-    ]);
-    const progress = facts(ids.lw7, "progress");
-    expect(progress).toHaveLength(1);
-    expect(progress[0]).toMatchObject({
-      value: "finished problems 1-3",
-      provenance: "owner",
-      subject_kind: "owner_stated",
-      evidence: "I finished problems 1-3 of Lecture Work 7",
-    });
-    expect(JSON.parse(progress[0]?.sources as string)).toContain("chat:thr_1");
-    // The first owner signal started it; code decided that, not the model.
-    expect(graph.getEntity(ids.lw7)).toMatchObject({ workStatus: "in_progress" });
-    expect(graph.getEntity(ids.lw7)?.lastSignalAt).toBeTruthy();
+    expect(r.applied).toEqual([]);
+    expect(r.dropped).toEqual({ quote_not_naming_item: 1 });
+    expect(graph.getEntity(ids.lw7)).toMatchObject({ workStatus: "not_started" });
   });
 
-  it("moves a deadline the owner restates, and cites it", () => {
-    const text = "Lab Report 3 is due Friday now, the TA moved it.";
-    const r = run(text, {
-      claims: [
-        {
-          item: "Lab Report 3",
-          attribute: "deadline",
-          value: "2026-11-13T23:59:00",
-          quote: "Lab Report 3 is due Friday now",
-        },
-      ],
-    });
-    expect(r.applied).toMatchObject([{ kind: "deadline", value: "2026-11-13T23:59:00.000Z" }]);
-    expect(graph.getEntity(ids.lab3)?.dueAt).toBe("2026-11-13T23:59:00.000Z");
-    expect(facts(ids.lab3, "deadline")[0]).toMatchObject({
-      provenance: "owner",
-      evidence: "Lab Report 3 is due Friday now",
-    });
-    // A value that is not a date moves nothing.
-    expect(
-      run("Lab Report 3 is due soon", {
-        claims: [
-          {
-            item: "Lab Report 3",
-            attribute: "deadline",
-            value: "soon",
-            quote: "Lab Report 3 is due soon",
-          },
-        ],
-      }).dropped,
-    ).toEqual({ bad_date: 1 });
-    expect(graph.getEntity(ids.lab3)?.dueAt).toBe("2026-11-13T23:59:00.000Z");
-  });
-
-  it("a status follows only a quote that says it; the model's value never picks it", () => {
-    expect(statusFromQuote("I submitted Lab Report 3", "submitted")).toBe("submitted");
-    expect(statusFromQuote("I turned in Lab Report 3", "handed_in")).toBe("submitted");
-    expect(statusFromQuote("I finished the lab report", "done")).toBe("done");
-    expect(statusFromQuote("I dropped the lab report", "dropped")).toBe("dropped");
-    // The model says done, the quote only says part of it was: no status.
-    expect(statusFromQuote("I finished problems 1-3", "done")).toBeUndefined();
-    expect(statusFromQuote("I finished half of it", "done")).toBeUndefined();
-    // The quote says submitted, the model claims dropped: no status.
-    expect(statusFromQuote("I submitted it", "dropped")).toBeUndefined();
-
+  it("writes an owner-stated status cited to the quote", () => {
     const sub = run("I submitted Lab Report 3 an hour ago.", {
       claims: [
         {
@@ -211,7 +224,6 @@ describe("the owner's chat updates progress, with citations", () => {
       subject_kind: "owner_stated",
       evidence: "I submitted Lab Report 3",
     });
-
     const partial = run("I finished problems 1-3 of Lecture Work 7.", {
       claims: [
         {
@@ -222,9 +234,44 @@ describe("the owner's chat updates progress, with citations", () => {
         },
       ],
     });
-    expect(partial.applied).toEqual([]);
     expect(partial.dropped).toEqual({ status_unsupported: 1 });
     expect(graph.getEntity(ids.lw7)).toMatchObject({ workStatus: "not_started" });
+  });
+});
+
+describe("the owner's chat updates progress, with citations", () => {
+  it("writes progress and where they stopped as owner-stated facts cited to the thread and the quote", () => {
+    const text =
+      "I finished problems 1-3 of Lecture Work 7. Lecture Work 7: stopped at part b of problem 4.";
+    const r = run(text, {
+      claims: [
+        {
+          item: "Lecture Work 7",
+          attribute: "progress",
+          value: "finished problems 1-3",
+          quote: "I finished problems 1-3 of Lecture Work 7",
+        },
+        {
+          item: "Lecture Work 7",
+          attribute: "stopped_at",
+          value: "part b of problem 4",
+          quote: "Lecture Work 7: stopped at part b of problem 4",
+        },
+      ],
+    });
+    expect(r.applied.map((a) => [a.kind, a.attribute])).toEqual([
+      ["fact", "progress"],
+      ["fact", "stopped_at"],
+    ]);
+    const progress = facts(ids.lw7, "progress");
+    expect(progress[0]).toMatchObject({
+      value: "finished problems 1-3",
+      provenance: "owner",
+      subject_kind: "owner_stated",
+      evidence: "I finished problems 1-3 of Lecture Work 7",
+    });
+    expect(JSON.parse(progress[0]?.sources as string)).toContain("chat:thr_1");
+    expect(graph.getEntity(ids.lw7)).toMatchObject({ workStatus: "in_progress" });
   });
 
   it("drops a claim whose quote is not in the owner's message, or whose value is unsafe", () => {
@@ -253,11 +300,9 @@ describe("the owner's chat updates progress, with citations", () => {
     });
     expect(r.applied).toEqual([]);
     expect(r.dropped).toEqual({ quote_not_found: 1, bad_value: 2 });
-    expect(facts(ids.lw7).filter((f) => f.attribute !== "deadline")).toEqual([]);
   });
 
-  it("an item it cannot resolve is a suggestion with the owner's own quote, never a silent create", () => {
-    const before = graph.listEntities(["assignment"]).length;
+  it("an item it cannot resolve is a suggestion, a finished one is not suggested again", () => {
     const r = run("Made some headway on the grant proposal.", {
       claims: [
         {
@@ -269,13 +314,106 @@ describe("the owner's chat updates progress, with citations", () => {
       ],
     });
     expect(r.applied).toMatchObject([{ kind: "suggested", name: "Grant proposal" }]);
-    expect(graph.listEntities(["assignment"]).length).toBe(before);
     expect(graph.suggestions(["pending"])).toMatchObject([
       {
         kind: "assignment",
         name: "Grant proposal",
         reason: 'You said: "Made some headway on the grant proposal"',
       },
+    ]);
+    const done = graph.createEntity({ kind: "assignment", name: "Poster" });
+    graph.setWorkStatus(done.id, { type: "owner_set", to: "done" });
+    const again = run("Poster is going well.", {
+      claims: [
+        {
+          item: "Poster",
+          attribute: "progress",
+          value: "going well",
+          quote: "Poster is going well",
+        },
+      ],
+    });
+    expect(again.applied).toEqual([]);
+    expect(again.dropped).toEqual({ already_finished: 1 });
+  });
+});
+
+describe("a deadline is the date the quote states (H1 b, c, d)", () => {
+  it("derives the date from the quote in the owner's zone and moves it only when the owner says it changed", () => {
+    const r = run("Lab Report 3 is due Friday now, the TA moved it.", {
+      claims: [
+        {
+          item: "Lab Report 3",
+          attribute: "deadline",
+          value: "2026-11-06T23:59:00",
+          quote: "Lab Report 3 is due Friday now",
+        },
+      ],
+    });
+    // Friday after Wednesday 2026-11-04 in Los Angeles, end of day: 07:59 UTC on the 7th.
+    expect(r.applied).toMatchObject([{ kind: "deadline", value: "2026-11-07T07:59:00.000Z" }]);
+    expect(graph.getEntity(ids.lab3)?.dueAt).toBe("2026-11-07T07:59:00.000Z");
+    expect(facts(ids.lab3, "deadline")[0]).toMatchObject({
+      provenance: "owner",
+      evidence: "Lab Report 3 is due Friday now",
+    });
+  });
+
+  it("refuses a date the quote does not state, or that differs from the model's", () => {
+    const none = run("Lab Report 3 is due soon", {
+      claims: [
+        {
+          item: "Lab Report 3",
+          attribute: "deadline",
+          value: "2026-12-31",
+          quote: "Lab Report 3 is due soon",
+        },
+      ],
+    });
+    expect(none.dropped).toEqual({ date_not_in_quote: 1 });
+    const wrong = run("Lab Report 3 is due Friday now", {
+      claims: [
+        {
+          item: "Lab Report 3",
+          attribute: "deadline",
+          value: "2026-11-13",
+          quote: "Lab Report 3 is due Friday now",
+        },
+      ],
+    });
+    expect(wrong.dropped).toEqual({ date_not_in_quote: 1 });
+    expect(graph.getEntity(ids.lab3)?.dueAt).toBe("2026-11-12T23:59:00.000Z");
+  });
+
+  it("proposes instead of overwriting a date the owner set, unless they say it moved", () => {
+    const claim = {
+      item: "Lab Report 3",
+      attribute: "deadline" as const,
+      value: "2026-11-06",
+      quote: "Lab Report 3 is due Friday",
+    };
+    // No store to propose through: dropped, nothing changes.
+    const dropped = run("Lab Report 3 is due Friday", { claims: [claim] });
+    expect(dropped.dropped).toEqual({ deadline_conflict: 1 });
+    // With the store: a pending, lower-ranked proposal; the owner's date stands.
+    const em = new EverythingStore({ sqlite: env.db.sqlite, graph, clock: new FakeClock(NOW) });
+    const r = applyOwnerChatWork(graph, {
+      ownerText: "Lab Report 3 is due Friday",
+      threadId: "thr_1",
+      parsed: { claims: [claim], assignments: [] },
+      now: NOW,
+      timeZone: ZONE,
+      em,
+    });
+    expect(r.applied).toMatchObject([{ kind: "proposed", attribute: "deadline" }]);
+    expect(graph.getEntity(ids.lab3)?.dueAt).toBe("2026-11-12T23:59:00.000Z");
+    const pending = env.db.sqlite
+      .prepare(
+        "SELECT value, review, provenance FROM graph_facts WHERE entity_id = ? AND review = 'pending'",
+      )
+      .all(ids.lab3);
+    expect(pending).toEqual([
+      { value: "2026-11-07T07:59:00.000Z", review: "pending", provenance: "agent" },
     ]);
   });
 });
@@ -287,15 +425,17 @@ describe("new assignments from the owner's words", () => {
       assignments: [
         {
           title: "Lab report",
-          due: "2026-11-06T23:59:00",
+          due: "2026-11-06",
           parent: "CHEM 1B",
           quote: "I have a lab report due Friday for CHEM 1B",
         },
       ],
     });
-    expect(r.applied).toMatchObject([{ kind: "created", name: "Lab report" }]);
+    expect(r.applied).toMatchObject([
+      { kind: "created", name: "Lab report", value: "2026-11-07T07:59:00.000Z" },
+    ]);
     const made = graph.listEntities(["assignment"]).find((e) => e.name === "Lab report");
-    expect(made).toMatchObject({ dueAt: "2026-11-06T23:59:00.000Z", workStatus: "not_started" });
+    expect(made).toMatchObject({ dueAt: "2026-11-07T07:59:00.000Z", workStatus: "not_started" });
     expect(graph.edges(made?.id as string).map((e) => [e.rel, e.dst])).toEqual([
       ["part_of", ids.chem],
     ]);
@@ -307,7 +447,24 @@ describe("new assignments from the owner's words", () => {
     expect(JSON.parse(deadline?.sources as string)).toContain("chat:thr_1");
   });
 
-  it("with no due date it is a suggestion; restating a tracked item only updates its date", () => {
+  it("inherits private from its project", () => {
+    const tax = graph.createEntity({ kind: "project", name: "Tax filing", private: true });
+    run("Gather receipts for Tax filing by Friday.", {
+      assignments: [
+        {
+          title: "Gather receipts",
+          due: "2026-11-06",
+          parent: "Tax filing",
+          quote: "Gather receipts for Tax filing by Friday",
+        },
+      ],
+    });
+    const made = graph.listEntities(["assignment"]).find((e) => e.name === "Gather receipts");
+    expect(made?.private).toBe(true);
+    expect(graph.edges(made?.id as string).map((e) => e.dst)).toEqual([tax.id]);
+  });
+
+  it("with no stated date it is a suggestion; a date the quote does not state is not used", () => {
     const a = run("I need to write the essay for CHEM 1B.", {
       assignments: [
         {
@@ -323,22 +480,31 @@ describe("new assignments from the owner's words", () => {
       name: "Essay",
       entityIds: [ids.chem],
     });
-
-    const b = run("Lecture Work 7 is due Nov 7 at 11:59pm.", {
+    const b = run("I need to write the report for CHEM 1B.", {
       assignments: [
         {
-          title: "Lecture Work 7",
-          due: "2026-11-07T23:59:00",
-          parent: null,
-          quote: "Lecture Work 7 is due Nov 7 at 11:59pm",
+          title: "Report",
+          due: "2026-11-30",
+          parent: "CHEM 1B",
+          quote: "I need to write the report for CHEM 1B",
         },
       ],
     });
-    expect(b.applied).toMatchObject([{ kind: "deadline", name: "Lecture Work 7" }]);
-    expect(
-      graph.listEntities(["assignment"]).filter((e) => e.name === "Lecture Work 7"),
-    ).toHaveLength(1);
-    expect(graph.getEntity(ids.lw7)?.dueAt).toBe("2026-11-07T23:59:00.000Z");
+    expect(b.applied).toMatchObject([{ kind: "suggested", name: "Report" }]);
+    expect(graph.listEntities(["assignment"]).map((e) => e.name)).not.toContain("Report");
+  });
+
+  it("two to-dos with one name are never merged into a third: it is a suggestion", () => {
+    graph.createEntity({ kind: "assignment", name: "Quiz 2" });
+    graph.createEntity({ kind: "assignment", name: "Quiz 2" });
+    const before = graph.listEntities(["assignment"]).length;
+    const r = run("Quiz 2 is due Friday.", {
+      assignments: [
+        { title: "Quiz 2", due: "2026-11-06", parent: null, quote: "Quiz 2 is due Friday" },
+      ],
+    });
+    expect(r.applied).toMatchObject([{ kind: "suggested", name: "Quiz 2" }]);
+    expect(graph.listEntities(["assignment"]).length).toBe(before);
   });
 
   it("caps new items per message, and refuses a title that is an instruction or carries a link", () => {
@@ -362,7 +528,6 @@ describe("new assignments from the owner's words", () => {
         { title: "Task b", due: "2026-11-07", parent: null, quote: "b" },
       ],
     });
-    // Only the first three are read at all; the first two are refused, the third has no quote.
     expect(r.applied).toEqual([]);
     expect(Object.values(r.dropped).reduce((x, y) => x + y, 0)).toBe(3);
   });

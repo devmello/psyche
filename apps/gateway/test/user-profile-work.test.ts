@@ -3,6 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setSetting } from "@psyche/db";
 import type { ModelEvent, ModelProvider, ModelRequest } from "@psyche/protocol";
+import { MEMORY_WORK_SETTING_KEY } from "@psyche/protocol";
+import { FakeClock } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
 import { GRAPH_SETTING } from "../src/compose/people.ts";
@@ -75,7 +77,7 @@ function scripted() {
               assignments: [
                 {
                   title: "Poster",
-                  due: "2026-11-07T23:59:00",
+                  due: "2026-11-06",
                   parent: null,
                   quote: "poster due Friday",
                 },
@@ -122,6 +124,8 @@ describe("owner chat updates work (Gateway)", () => {
     const model = scripted();
     composed = await composeGateway({
       logger: silentLogger,
+      clock: new FakeClock(Date.parse("2026-11-04T18:00:00Z")),
+      timeZone: "UTC",
       retentionIntervalMs: 0,
       background: false,
       config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
@@ -155,6 +159,17 @@ describe("owner chat updates work (Gateway)", () => {
       name: "Lecture Work 7",
       dueAt: "2026-11-06T23:59:00Z",
     });
+    const noConsent = model.calls.length;
+    await turn("I finished problems 1-3 of Lecture Work 7 today.");
+    await waitFor(() => (model.calls.length > noConsent ? true : undefined));
+    expect(model.calls.at(-1)?.system).toBe(LEARN_SYSTEM);
+    expect(graph.facts(lw7.id).filter((f) => f.attribute === "progress")).toEqual([]);
+
+    // With the owner's consent the learner asks for work.
+    setSetting(gw.db, MEMORY_WORK_SETTING_KEY, {
+      enabled: true,
+      consentedAt: "2026-11-01T00:00:00.000Z",
+    });
     const before = model.calls.length;
     await turn(`${QUOTE}, and the poster due Friday is next.`);
     await waitFor(() => (model.calls.length > before ? true : undefined));
@@ -178,7 +193,7 @@ describe("owner chat updates work (Gateway)", () => {
     expect(graph.getEntity(lw7.id)).toMatchObject({ workStatus: "in_progress" });
     // The owner said they have a poster due Friday, quoted verbatim: an accepted to-do, cited.
     const poster = graph.listEntities(["assignment"]).find((e) => e.name === "Poster");
-    expect(poster).toMatchObject({ dueAt: "2026-11-07T23:59:00.000Z", workStatus: "not_started" });
+    expect(poster).toMatchObject({ dueAt: "2026-11-06T23:59:00.000Z", workStatus: "not_started" });
     expect(graph.facts(poster?.id as string).find((f) => f.attribute === "deadline")).toMatchObject(
       { provenance: "owner", evidence: "poster due Friday" },
     );

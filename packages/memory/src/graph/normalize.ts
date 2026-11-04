@@ -62,6 +62,17 @@ export function normalizeIdentifier(
 }
 
 /** Case- and accent-insensitive form of a name or alias. */
+/**
+ * Format and invisible characters (`Cf`, which holds zero-width and bidi controls), the Unicode
+ * Tags block, the Arabic letter mark, the Mongolian vowel separator and variation selectors. A
+ * name or title that carries any of them can hide text from the reader, so it is refused.
+ */
+export function hasHiddenChars(text: string): boolean {
+  return /\p{Cf}|[\u{E0000}-\u{E007F}]|\u061C|\u180E|[\uFE00-\uFE0F]|[\u{E0100}-\u{E01EF}]/u.test(
+    text,
+  );
+}
+
 export function normalizeName(name: string): string {
   return name
     .normalize("NFKD")

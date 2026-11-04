@@ -135,4 +135,20 @@ describe("sink.suggest (docs/design/memory-everything-2026.md §7.2)", () => {
       "assignment",
     ]);
   });
+
+  it("refuses a name or reason that carries hidden characters", () => {
+    const sink = createExtractionSink(world.em);
+    const tags = String.fromCodePoint(0xe0069, 0xe0067);
+    for (const name of [`Essay${tags}`, "Es\u200bsay", "Essay\ufe0f", "Essay\u061c"]) {
+      expect(sink.suggest({ kind: "assignment", name, reason: "New from Canvas" })).toEqual({
+        status: "refused",
+        reason: "hidden_chars",
+      });
+    }
+    expect(sink.suggest({ kind: "assignment", name: "Essay", reason: `New${tags}` })).toEqual({
+      status: "refused",
+      reason: "hidden_chars",
+    });
+    expect(world.graph.suggestions(["pending", "later"])).toEqual([]);
+  });
 });

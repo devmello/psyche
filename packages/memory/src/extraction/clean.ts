@@ -180,9 +180,26 @@ const ZERO_WIDTH = /[​-‍⁠﻿­]/g;
 // biome-ignore lint/suspicious/noControlCharactersInRegex: stripping control characters is the point
 const CONTROL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/g;
 
+/**
+ * More characters a reader never sees: the Unicode Tags block (ASCII smuggling), the Arabic letter
+ * mark, the Mongolian vowel separator and variation selectors. A variation selector after an
+ * emoji or a symbol is normal and stays; anywhere else it is hidden payload.
+ */
+const TAGS_ETC = /[\u{E0000}-\u{E007F}\u061C\u180E]/gu;
+const VARIATION = /[\uFE00-\uFE0F\u{E0100}-\u{E01EF}]/gu;
+
 function stripInvisible(text: string): { text: string; hidden: boolean } {
   let hidden = BIDI.test(text);
   BIDI.lastIndex = 0;
+  if (/[\u{E0000}-\u{E007F}\u061C\u180E]/u.test(text)) hidden = true;
+  if (/[\p{L}\p{N}][\uFE00-\uFE0F\u{E0100}-\u{E01EF}]/u.test(text)) hidden = true;
+  text = text.replace(TAGS_ETC, "").replace(VARIATION, (m, off: number, all: string) => {
+    const before = Array.from(all.slice(Math.max(0, off - 2), off)).pop() ?? "";
+    return /[\p{Extended_Pictographic}\p{S}\u2190-\u21ff#*0-9]/u.test(before) &&
+      !/[\p{L}]/u.test(before)
+      ? m
+      : "";
+  });
   // A zero-width character inside a word splits it past keyword filters; in emoji it is normal.
   if (/[\p{L}\p{N}][​‌⁠﻿­]+[\p{L}\p{N}]/u.test(text)) hidden = true;
   const cleaned = text

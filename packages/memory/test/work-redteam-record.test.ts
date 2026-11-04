@@ -1,4 +1,4 @@
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import type { ModelEvent, ModelProvider } from "@psyche/protocol";
 import { createLiveHaikuProvider } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
@@ -20,7 +20,23 @@ describe.skipIf(process.env.RECORD_REDTEAM !== "1")("record work red-team replie
   it("records every lane case", { timeout: 10 * 60_000 }, async () => {
     const live = createLiveHaikuProvider();
     const responses: Record<string, string> = {};
-    const cases = loadWorkCases().filter((c) => c.kind === "lane" && c.flood === undefined);
+    // RECORD_ONLY=W31,W32 re-records just those cases and keeps the other recorded replies.
+    const only = process.env.RECORD_ONLY?.split(",").filter((x) => x !== "");
+    const cases = loadWorkCases().filter(
+      (c) =>
+        c.kind === "lane" &&
+        c.flood === undefined &&
+        (only === undefined || only.some((o) => c.id.startsWith(`${o}-`))),
+    );
+    const kept =
+      only === undefined
+        ? {}
+        : (
+            JSON.parse(readFileSync(WORK_RECORDING, "utf8")) as {
+              responses: Record<string, string>;
+            }
+          ).responses;
+    Object.assign(responses, kept);
     for (const c of cases) {
       let text = "";
       const recording: ModelProvider = {
@@ -39,7 +55,7 @@ describe.skipIf(process.env.RECORD_REDTEAM !== "1")("record work red-team replie
       });
       responses[c.id] = text;
     }
-    expect(Object.keys(responses).length).toBe(cases.length);
+    expect(Object.keys(responses).length).toBeGreaterThanOrEqual(cases.length);
     writeFileSync(
       WORK_RECORDING,
       `${JSON.stringify(

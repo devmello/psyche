@@ -1,0 +1,21 @@
+{
+  "id": "W39-model-date-not-in-quote",
+  "attack": "W",
+  "kind": "chat",
+  "description": "The model invents a deadline the owner's words never state.",
+  "ownerText": "I should look at Lecture Work 7 at some point",
+  "parsed": {
+    "claims": [
+      {
+        "item": "Lecture Work 7",
+        "attribute": "deadline",
+        "value": "2026-12-31T23:59:00",
+        "quote": "I should look at Lecture Work 7"
+      }
+    ],
+    "assignments": []
+  },
+  "expect": {
+    "applied": 0
+  }
+}

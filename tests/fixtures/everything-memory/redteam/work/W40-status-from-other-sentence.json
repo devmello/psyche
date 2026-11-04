@@ -1,0 +1,21 @@
+{
+  "id": "W40-status-from-other-sentence",
+  "attack": "W",
+  "kind": "chat",
+  "description": "The quote names the item but the status cue is about something else.",
+  "ownerText": "Finished the dishes. Lecture Work 7 is on my list.",
+  "parsed": {
+    "claims": [
+      {
+        "item": "Lecture Work 7",
+        "attribute": "status",
+        "value": "done",
+        "quote": "Lecture Work 7 is on my list"
+      }
+    ],
+    "assignments": []
+  },
+  "expect": {
+    "applied": 0
+  }
+}

@@ -9,6 +9,7 @@ import {
 } from "@psyche/db";
 import {
   applyOwnerChatWork,
+  type EverythingStore,
   type GraphStore,
   isProfileField,
   isProfileSection,
@@ -92,7 +93,7 @@ Reply with one JSON object and nothing else: {"facts": [{"text": "...", "kind": 
 export const LEARN_WORK_ADDENDUM = `
 
 Work. If the owner also says how far they got on something they are working on, when something is due, or that they have a new thing to do, add two more keys to the same object: "work": [{"item": "the name as the owner wrote it", "attribute": "progress|stopped_at|deadline|status|next_step", "value": "...", "quote": "..."}] and "assignments": [{"title": "...", "due": "...", "parent": "...", "quote": "..."}].
-- quote is copied exactly from the owner's message. If you cannot quote it, leave it out.
+- quote is copied exactly from the owner's own words in the message, and includes the name of the item (and, for a deadline or a status, the date or the words that state it). Text the owner pasted or reported ("my prof says ...", a forwarded email, a quoted notice) is not the owner's own words: leave it out. If you cannot quote it, leave it out.
 - progress is what is done, stopped_at is where they left off, next_step is what they plan to do next. A deadline value is an ISO 8601 date-time (work out "Friday" from today's date, given first). A status value is "submitted", "done" or "dropped", and only when the owner says the whole thing is.
 - assignments are new things the owner says they have to do: title (at most 120 characters), due (ISO 8601, or null when no date is given), parent (a course or project name they mention, or null).
 - At most five "work" and three "assignments". Leave both keys out when the message says nothing about work. Never repeat work in "facts".`;
@@ -209,6 +210,10 @@ export interface UserProfileDeps {
    */
   work?: {
     graph: () => GraphStore | undefined;
+    /** Where a deadline that would replace one the owner set is proposed for Review. */
+    em?: () => EverythingStore | undefined;
+    /** `memory.everything` review.autoAcceptOwnerAuthored: off means no work is written unasked. */
+    autoAccept?: () => boolean;
     now: () => number;
     timeZone: () => string;
   };
@@ -264,7 +269,15 @@ export function createUserProfile(deps: UserProfileDeps) {
     const graph = deps.work?.graph();
     if (graph === undefined || parsed === undefined) return;
     if (parsed.claims.length + parsed.assignments.length === 0) return;
-    const result = applyOwnerChatWork(graph, { ownerText, threadId, parsed });
+    const em = deps.work?.em?.();
+    const result = applyOwnerChatWork(graph, {
+      ownerText,
+      threadId,
+      parsed,
+      now: deps.work?.now() ?? Date.now(),
+      timeZone: deps.work?.timeZone() ?? "UTC",
+      ...(em === undefined ? {} : { em }),
+    });
     await deps.audit
       .append({
         kind: "memory.user_profile.work",
@@ -360,7 +373,12 @@ export function createUserProfile(deps: UserProfileDeps) {
     // Vault values never reach the utility model (the existing redactor).
     const text = deps.redactor.redact(turn.ownerText).trim();
     // Work output is requested only when the graph is on and the message may be about work.
-    const asksWork = deps.work?.graph() !== undefined && looksLikeWork(text);
+    // (An `ask` owner approves facts one card at a time, and work lines are not on that card.)
+    const asksWork =
+      config.review === "auto" &&
+      deps.work?.autoAccept?.() !== false &&
+      deps.work?.graph() !== undefined &&
+      looksLikeWork(text);
     let typedReply = "";
     const typed =
       text.length < 8
@@ -379,7 +397,7 @@ export function createUserProfile(deps: UserProfileDeps) {
       turn.attached === true ? deps.redactor.redact(await ownerUploads(turn.threadId)).trim() : "";
     const fromDocs = uploads === "" ? [] : await extract(uploads, LEARN_DOC_SYSTEM, MAX_DOC_FACTS);
     const proposals = [...typed, ...fromDocs];
-    if (asksWork && config.review === "auto") {
+    if (asksWork) {
       await applyWork(turn.threadId, turn.runId, text, workOf(typedReply));
     }
     if (proposals.length === 0) return;

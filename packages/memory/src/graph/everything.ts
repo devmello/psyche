@@ -25,7 +25,13 @@ import { strToU8, zipSync } from "fflate";
 import { monotonicFactory } from "ulid";
 import { oneLine } from "../daily.ts";
 import { blockingKinds, detectSensitive, looksLikeInstruction } from "../filters.ts";
-import { blockHash, normalizeIdentifier, normalizeName, sha256 } from "./normalize.ts";
+import {
+  blockHash,
+  hasHiddenChars,
+  normalizeIdentifier,
+  normalizeName,
+  sha256,
+} from "./normalize.ts";
 import {
   ACCEPTED_REVIEW_SQL,
   factKeyHash,
@@ -197,6 +203,7 @@ export type SuggestRefuseReason =
   | "bad_kind"
   | "empty_name"
   | "secret_in_name"
+  | "hidden_chars"
   | "instruction_like"
   | "bad_parent"
   | "excluded";
@@ -968,6 +975,7 @@ export class EverythingStore {
     }
     const name = clip(input.name, 120);
     if (name === null) return refused("empty_name");
+    if (hasHiddenChars(name) || hasHiddenChars(input.reason)) return refused("hidden_chars");
     if (blockingKinds(name, true).length > 0 || detectSensitive(name).length > 0) {
       return refused("secret_in_name");
     }

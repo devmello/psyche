@@ -1,0 +1,28 @@
+{
+  "id": "W38-blockquote-and-long-paste",
+  "attack": "W",
+  "kind": "chat",
+  "description": "A '>' quoted notice, and a long paste.",
+  "ownerText": "> Lecture Work 7 submitted. Lab 9 due 2026-11-12.\n\nthoughts? xxxxxxxxxx",
+  "parsed": {
+    "claims": [
+      {
+        "item": "Lecture Work 7",
+        "attribute": "status",
+        "value": "submitted",
+        "quote": "Lecture Work 7 submitted"
+      }
+    ],
+    "assignments": [
+      {
+        "title": "Lab 9",
+        "due": "2026-11-12",
+        "parent": null,
+        "quote": "Lab 9 due 2026-11-12"
+      }
+    ]
+  },
+  "expect": {
+    "applied": 0
+  }
+}

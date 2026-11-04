@@ -1,7 +1,8 @@
 import type { QuarantineReason } from "@psyche/protocol";
 import { looksLikeInstruction } from "../filters.ts";
-import { normalizeName } from "../graph/normalize.ts";
+import { hasHiddenChars, normalizeName } from "../graph/normalize.ts";
 import { nextWorkStatus } from "../graph/work.ts";
+import { parseDueInZone } from "../graph/zoned-date.ts";
 import type { WorkLaneOutput } from "./schema.ts";
 import { screenItem } from "./screen.ts";
 import type { ExtractionSink } from "./sink.ts";
@@ -66,6 +67,8 @@ export interface WorkTarget {
   private: boolean;
   /** An owner or rule set its deadline. */
   hasDeadline: boolean;
+  /** The names of the project or course it belongs to, to tell two same-named to-dos apart. */
+  parentNames?: string[];
 }
 
 export interface WorkLaneLimits {
@@ -110,6 +113,8 @@ export interface ValidateWorkLaneInput {
   sink: ExtractionSink;
   limits?: WorkLaneLimits;
   now?: number;
+  /** The owner's zone: a date with no zone is local, a bare date is 23:59 local. */
+  timeZone?: string;
 }
 
 /** A title that talks to the reader or asks for money, a login or a transfer is phishing, not work. */
@@ -126,32 +131,55 @@ function titleProblem(title: string): string | undefined {
   if (looksLikeInstruction(title)) return "instruction_like";
   if (PHISHING_TITLE.test(title)) return "phishing_title";
   if (MARKUP.test(title)) return "markup_in_title";
-  // Zero-width and bidi controls survive some cleaners; a title never has them.
-  if (/[​-‏‪-‮⁠-⁯﻿]/.test(title)) return "hidden_chars";
+  // Zero-width, bidi, tag and variation characters can hide text; a title never has them.
+  if (hasHiddenChars(title)) return "hidden_chars";
   return undefined;
 }
 
-/** A due date as ISO UTC, or null for none, junk or out of range. Never throws. */
-export function readDue(due: string | null, now: number): string | null {
-  if (due === null) return null;
-  const text = due.trim();
-  const m = /^(\d{4}-\d{2}-\d{2})(?:[T ](\d{2}:\d{2})(?::(\d{2}))?(Z|[+-]\d{2}:?\d{2})?)?$/.exec(
-    text,
-  );
-  if (m === null) return null;
-  const stamp =
-    m[2] === undefined ? `${m[1]}T00:00:00Z` : `${m[1]}T${m[2]}:${m[3] ?? "00"}${m[4] ?? "Z"}`;
-  const t = Date.parse(stamp);
-  if (Number.isNaN(t)) return null;
+/** A due date as ISO UTC in the owner's zone, or null for none, junk, impossible or out of range. */
+export function readDue(due: string | null, now: number, timeZone = "UTC"): string | null {
+  const iso = parseDueInZone(due, timeZone);
+  if (iso === null) return null;
+  const t = Date.parse(iso);
   if (t > now + MAX_DUE_FUTURE_DAYS * 86_400_000) return null;
   if (t < now - MAX_DUE_PAST_DAYS * 86_400_000) return null;
-  return new Date(t).toISOString();
+  return iso;
+}
+
+/** Words of a text, split on letters and digits, so `Homework 1` is not inside `Homework 10`. */
+const wordsOf = (text: string): string[] => normalizeName(text).match(/\p{L}+|\p{N}+/gu) ?? [];
+/** Every word of `title` appears in `text` as a run, on word boundaries. */
+function containsWords(text: string, title: string): boolean {
+  const t = wordsOf(title);
+  const h = wordsOf(text);
+  if (t.length === 0) return false;
+  for (let i = 0; i + t.length <= h.length; i++) {
+    if (t.every((w, k) => h[i + k] === w)) return true;
+  }
+  return false;
 }
 
 const exactly = (names: readonly string[], text: string): boolean => {
   const want = normalizeName(text);
   return want !== "" && names.some((n) => normalizeName(n) === want);
 };
+
+/**
+ * The suggestion's reason, built by code. The sender's words are shown as quoted data, and only
+ * when they pass the same checks as a value (no link, address, number or instruction); otherwise
+ * the reason says the text was withheld. At most 120 characters of it.
+ */
+function reasonFor(senderLabel: string, quote: string): string {
+  const who =
+    hasHiddenChars(senderLabel) || valueProblem(senderLabel) !== undefined
+      ? "a work sender"
+      : senderLabel;
+  const q = quote.replace(/\s+/g, " ").replace(/["“”]/g, "'").trim().slice(0, 120);
+  // Dates and times are what these notices are for; they must not read as phone numbers.
+  const probe = q.replace(/\d{4}-\d{2}-\d{2}|\d{1,2}:\d{2}/g, "date");
+  const safe = q !== "" && valueProblem(probe) === undefined && !hasHiddenChars(q);
+  return safe ? `New from ${who}: "${q}"` : `New from ${who} (quoted text withheld)`;
+}
 
 export function validateWorkLane(input: ValidateWorkLaneInput): WorkLaneReport {
   const limits = input.limits ?? newWorkLaneLimits();
@@ -246,16 +274,24 @@ export function validateWorkLane(input: ValidateWorkLaneInput): WorkLaneReport {
         continue;
       }
       // The title must be what the quote says (every word of it appears there).
-      if (normalizeName(located).indexOf(normalizeName(title)) < 0) {
+      if (!containsWords(located, title)) {
         drop("title_not_in_quote");
         continue;
       }
-      const due = readDue(c.due, now);
-      const target = input.targets.find((t) => !t.private && exactly(t.names, title));
+      const due = readDue(c.due, now, input.timeZone ?? "UTC");
+      const hint0 = (c.parent_hint ?? "").replace(/\s+/g, " ").trim();
+      const matches = input.targets.filter((t) => !t.private && exactly(t.names, title));
+      // Two to-dos with one name: the parent hint tells them apart, else none is guessed.
+      const byHint =
+        matches.length > 1 && hint0 !== ""
+          ? matches.filter((t) => (t.parentNames ?? []).some((n) => exactly([n], hint0)))
+          : matches;
+      const ambiguous = byHint.length > 1;
+      const target = byHint.length === 1 ? byHint[0] : undefined;
       const cite = citation(item, span, located, null, now);
 
       if (c.kind === "new") {
-        if (target !== undefined) {
+        if (target !== undefined || ambiguous) {
           drop("already_tracked");
           continue;
         }
@@ -269,7 +305,7 @@ export function validateWorkLane(input: ValidateWorkLaneInput): WorkLaneReport {
           kind: "assignment",
           ...(parent === undefined ? {} : { parentId: parent.entityId }),
           name: title,
-          reason: `New from ${item.senderLabel}: "${located.slice(0, 200)}"`,
+          reason: reasonFor(item.senderLabel, located),
           dueAt: due,
         });
         if (out.status === "refused") drop(`store:${out.reason}`);
@@ -282,6 +318,10 @@ export function validateWorkLane(input: ValidateWorkLaneInput): WorkLaneReport {
         continue;
       }
 
+      if (ambiguous) {
+        drop(`${c.kind}_ambiguous_item`);
+        continue;
+      }
       if (target === undefined) {
         drop(`${c.kind}_no_such_item`);
         continue;

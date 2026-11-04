@@ -70,10 +70,12 @@ import {
 import {
   type ApprovalRequestInput,
   type Clock,
+  EVERYTHING_MEMORY_SETTING_KEY,
   type EventName,
   type EventPayload,
   type IssuedApproval,
   MEMORY_RECALL_MODE_SETTING,
+  MEMORY_WORK_SETTING_KEY,
   type ModelProvider,
   type ModelRef,
   type PermissionBroker,
@@ -121,7 +123,7 @@ import { CONNECTOR_MATRIX_PREFIX } from "./connector-matrix.ts";
 import { createContext } from "./context.ts";
 import { composeConversion } from "./convert.ts";
 import { composeDictation } from "./dictation.ts";
-import { composeEverything, type Everything } from "./everything.ts";
+import { composeEverything, type Everything, everythingSettings } from "./everything.ts";
 import { type ExecHostDeps, execHostTool } from "./exec-host.ts";
 import { feedContextResolver } from "./feed-context.ts";
 import { filesHandlers } from "./files.ts";
@@ -229,7 +231,7 @@ import { composeVault, maskingLogger, type VaultSetup, vaultSetupFromEnv } from 
 import { composeWebTools, type WebToolsSetup } from "./web-tools.ts";
 import { ensureWeeklyCardAutomation, withWeeklyCard } from "./weekly-card.ts";
 import { composeWidgets } from "./widgets.ts";
-import { composeWork } from "./work.ts";
+import { composeWork, workSettings } from "./work.ts";
 import { WORKFLOW_SETTING_KEYS } from "./workflow-settings.ts";
 
 /**
@@ -1109,7 +1111,16 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     onForgotten: (factId, threadId) => teachingRef?.onLearnedUndo(factId, threadId),
     // The owner's own chat updates their work (MW7); off while the People graph is off.
     work: {
-      graph: () => (people?.settings().enabled === true ? people.graph : undefined),
+      // Only with People on and the owner's work-tracking consent (`memory.work`).
+      graph: () =>
+        people?.settings().enabled === true &&
+        workSettings(getSetting(db, MEMORY_WORK_SETTING_KEY)?.value).enabled
+          ? people.graph
+          : undefined,
+      em: () => people?.em,
+      autoAccept: () =>
+        everythingSettings(getSetting(db, EVERYTHING_MEMORY_SETTING_KEY)?.value).review
+          .autoAcceptOwnerAuthored,
       now: () => clock.now(),
       timeZone: () =>
         timeZone ?? ownerTimeZoneAt(join(config.home, "workspace", "USER.md")) ?? "UTC",

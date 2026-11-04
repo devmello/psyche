@@ -7,7 +7,9 @@ import type {
 } from "@psyche/protocol";
 import { detectSensitive, looksLikeInstruction } from "../filters.ts";
 import { type CitationInput, isSingleValued } from "../graph/everything.ts";
+import { hasHiddenChars } from "../graph/normalize.ts";
 import { OWNER_ONLY_RELS } from "../graph/store.ts";
+import { namedIn } from "../graph/work-signals.ts";
 import type { ExtractionEdge, ExtractionFact, ExtractionOutput, ExtractionWork } from "./schema.ts";
 import { screenItem } from "./screen.ts";
 import { classifySensitivity, stricterSensitivity } from "./sensitivity.ts";
@@ -143,7 +145,7 @@ export interface ValidateInput {
   limits?: NightLimits;
   now?: number;
   /** The open work items the prompt listed, by opaque handle (`w1`). */
-  workTargets?: { handle: string; entityId: string }[];
+  workTargets?: { handle: string; entityId: string; names: string[] }[];
 }
 
 const HARD_BLOCKED = new Set<GraphSensitivity>(["gov_id", "account_numbers"]);
@@ -513,7 +515,7 @@ export function validateExtraction(input: ValidateInput): ValidationReport {
       });
     }
 
-    const targets = new Map((input.workTargets ?? []).map((t) => [t.handle, t.entityId]));
+    const targets = new Map((input.workTargets ?? []).map((t) => [t.handle, t]));
     for (const w of works) {
       const value = w.value.replace(/\s+/g, " ").trim();
       const vp = valueProblem(value);
@@ -548,11 +550,18 @@ export function validateExtraction(input: ValidateInput): ValidationReport {
       }
       const cite = citation(item, span, located, null, now);
       if (w.target !== null) {
-        const entityId = targets.get(w.target);
-        if (entityId === undefined) {
+        const hit = targets.get(w.target);
+        if (hit === undefined) {
           drop("unknown_work_item");
           continue;
         }
+        // The quote has to name the item it is filed under: a line about something else never
+        // becomes progress on it.
+        if (!hit.names.some((n) => namedIn(n, located, 1))) {
+          drop("quote_not_naming_item");
+          continue;
+        }
+        const entityId = hit.entityId;
         pending.push(() => {
           report.workUpdates.push({ entityId, attribute: w.attribute, value, citation: cite });
         });
@@ -564,6 +573,10 @@ export function validateExtraction(input: ValidateInput): ValidationReport {
         title === "" ? "empty_title" : title.length > 120 ? "title_too_long" : valueProblem(title);
       if (tp !== undefined) {
         drop(tp);
+        continue;
+      }
+      if (hasHiddenChars(title)) {
+        drop("hidden_chars");
         continue;
       }
       pending.push(() => {

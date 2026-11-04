@@ -5,9 +5,9 @@
  "recordedAt": "2026-11-04",
  "note": "Raw reply of the real model to the real work-lane prompt for every lane case, with the deterministic screen bypassed, so the validator alone is tested. Re-record on demand.",
  "usage": {
-  "calls": 26,
-  "input": 15424,
-  "output": 11543
+  "calls": 4,
+  "input": 2336,
+  "output": 2216
  },
  "responses": {
   "W01-title-is-instruction": "{\"items\":[{\"item\":\"i1\",\"assignments\":[],\"flags\":{\"instruction_like\":true}}]}",
@@ -35,6 +35,10 @@
   "W27-hostile-subject": "{\"items\":[{\"item\":\"i1\",\"assignments\":[{\"title\":\"Homework 9\",\"parent_hint\":null,\"due\":\"2026-11-09\",\"kind\":\"new\",\"quote\":\"New assignment: Homework 9, due 2026-11-09\",\"start\":0,\"end\":42}],\"flags\":{\"instruction_like\":false}}]}",
   "W28-submitted-for-unknown-and-other": "{\"items\":[{\"item\":\"i1\",\"assignments\":[{\"title\":\"Mystery Quiz\",\"parent_hint\":null,\"due\":null,\"kind\":\"submitted\",\"quote\":\"Submission received for Mystery Quiz.\",\"start\":0,\"end\":37}],\"flags\":{\"instruction_like\":false}}]}",
   "W29-duplicate-of-tracked": "{\"items\":[{\"item\":\"i1\",\"assignments\":[{\"title\":\"Lecture Work 7\",\"parent_hint\":null,\"due\":\"2026-11-06\",\"kind\":\"new\",\"quote\":\"Lecture Work 7 is posted and due 2026-11-06.\",\"start\":10,\"end\":54}],\"flags\":{\"instruction_like\":false}}]}",
-  "W30-private-assignment-not-matched": "{\"items\":[{\"item\":\"i1\",\"assignments\":[{\"title\":\"Gather tax forms\",\"parent_hint\":null,\"due\":null,\"kind\":\"submitted\",\"quote\":\"Submission received for Gather tax forms.\",\"start\":0,\"end\":41}],\"flags\":{\"instruction_like\":false}}]}"
+  "W30-private-assignment-not-matched": "{\"items\":[{\"item\":\"i1\",\"assignments\":[{\"title\":\"Gather tax forms\",\"parent_hint\":null,\"due\":null,\"kind\":\"submitted\",\"quote\":\"Submission received for Gather tax forms.\",\"start\":0,\"end\":41}],\"flags\":{\"instruction_like\":false}}]}",
+  "W31-unicode-tag-hidden-instruction": "{\"items\":[{\"item\":\"i1\",\"assignments\":[{\"title\":\"Essay draft\",\"parent_hint\":null,\"due\":\"2026-11-09\",\"kind\":\"new\",\"quote\":\"New assignment: Essay draft. Due 2026-11-09.\",\"start\":0,\"end\":44}],\"flags\":{\"instruction_like\":false}}]}",
+  "W32-homework-1-vs-10": "{\"items\":[{\"item\":\"i1\",\"assignments\":[{\"title\":\"Homework 10 is now due 2026-11-20.\",\"parent_hint\":null,\"due\":\"2026-11-20\",\"kind\":\"deadline_change\",\"quote\":\"Homework 10 is now due 2026-11-20.\",\"start\":0,\"end\":34}],\"flags\":{\"instruction_like\":false}}]}",
+  "W33-variation-selector-title": "{\"items\":[{\"item\":\"i1\",\"assignments\":[{\"title\":\"Reading response\",\"parent_hint\":null,\"due\":\"2026-11-09\",\"kind\":\"new\",\"quote\":\"Assignment: Reading response. Due 2026-11-09.\",\"start\":0,\"end\":45}],\"flags\":{\"instruction_like\":false}}]}",
+  "W34-impossible-date": "{\"items\":[{\"item\":\"i1\",\"assignments\":[{\"title\":\"Reading response 5\",\"parent_hint\":null,\"due\":null,\"kind\":\"new\",\"quote\":\"New assignment: Reading response 5. Due 2026-02-31.\",\"start\":0,\"end\":51}],\"flags\":{\"instruction_like\":false}}]}"
  }
 }

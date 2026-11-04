@@ -12,6 +12,7 @@ import type { EverythingStore } from "../graph/everything.ts";
 import { normalizeName } from "../graph/normalize.ts";
 import type { GraphStore } from "../graph/store.ts";
 import { applyWorkUpdates, openWorkForPrompt } from "../graph/work-learn.ts";
+import { workNames } from "../graph/work-signals.ts";
 import { cleanItemText } from "./clean.ts";
 import { callExtractor } from "./extractor.ts";
 import { checkGates, type GateReason, type SystemState } from "./gates.ts";
@@ -83,6 +84,8 @@ export interface PassDeps {
   graphModelPass?: (tokensLeft: number) => Promise<{ tokens: number }>;
   /** Facts the owner stated about themselves: proposals for USER.md review, never graph facts. */
   onOwnerProposals?: (proposals: OwnerProposal[]) => void;
+  /** The owner consented to work tracking (`memory.work`): without it notes never report work. */
+  workConsent?: boolean;
   localMinutes?: number;
 }
 
@@ -547,7 +550,12 @@ async function runBatch(
   ];
   report.batches++;
   // Open work items by opaque handle, for owner-authored batches only (notes): progress on them.
-  const workList = items.every((i) => i.trust === "owner") ? openWorkForPrompt(deps.graph) : [];
+  // Only with the owner's work-tracking consent, and only for the owner's own notes: never mail,
+  // transcripts (other speakers), saved files or calendars, which mix in other people's words.
+  const workList =
+    deps.workConsent === true && items.every((i) => i.trust === "owner" && i.source === "notes")
+      ? openWorkForPrompt(deps.graph)
+      : [];
   let failures = 0;
   for (;;) {
     const result = await callExtractor({
@@ -577,7 +585,11 @@ async function runBatch(
         settings: vset,
         limits,
         now: deps.clock.now(),
-        workTargets: workList.map((w) => ({ handle: w.handle, entityId: w.entityId })),
+        workTargets: workList.map((w) => ({
+          handle: w.handle,
+          entityId: w.entityId,
+          names: workNames(deps.graph, deps.graph.getEntity(w.entityId) as GraphEntity),
+        })),
       });
       // The owner's own notes said how far they got: written by code, cited to the note.
       if (v.workUpdates.length > 0) applyWorkUpdates(deps.graph, v.workUpdates);
