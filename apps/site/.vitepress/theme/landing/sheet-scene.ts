@@ -29,7 +29,7 @@ const SHEET_H = 1.32;
 const TEX_W = 1024;
 const TEX_H = Math.round(TEX_W * (SHEET_H / SHEET_W));
 
-const SERIF = 'ui-serif, "New York", "Iowan Old Style", Charter, Georgia, serif';
+const SERIF = 'ui-serif, "New York", "Source Serif 4 Variable", Charter, Georgia, serif';
 const SANS = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
 const MONO = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace';
 
@@ -91,13 +91,14 @@ function drawSheet(sheet: Sheet): HTMLCanvasElement {
 
   // Running head: the file this is.
   g.textBaseline = "alphabetic";
-  g.font = `400 30px ${MONO}`;
-  g.fillStyle = sheet.kind === "approval" ? C.amberText : C.faint;
-  g.fillText(sheet.file, pad, 100);
+  // The file name is the sheet's label when the stack fans open, so it is set large.
+  g.font = sheet.kind === "approval" ? `600 44px ${SANS}` : `500 44px ${MONO}`;
+  g.fillStyle = sheet.kind === "approval" ? C.amberText : "#55575b";
+  g.fillText(sheet.file, pad, 112, inner);
   g.fillStyle = C.rule;
-  g.fillRect(pad, 126, inner, 2);
+  g.fillRect(pad, 142, inner, 2);
 
-  let y = 210;
+  let y = 232;
   const lines: Line[] = sheet.lines;
   for (const l of lines) {
     switch (l.t) {
@@ -211,10 +212,10 @@ const REST: Placement[] = [
 ];
 /** Fanned layout: the stack opens like a hand of cards, so each file name shows. */
 const FAN: Placement[] = [
-  { x: -0.6, y: -0.02, z: 0.0, rz: 0.28 },
-  { x: -0.21, y: 0.1, z: 0.08, rz: 0.1 },
-  { x: 0.2, y: 0.1, z: 0.16, rz: -0.09 },
-  { x: 0.58, y: -0.02, z: 0.24, rz: -0.26 },
+  { x: -0.66, y: 0.27, z: 0.0, rz: 0.14 },
+  { x: -0.22, y: 0.1, z: 0.08, rz: 0.05 },
+  { x: 0.22, y: -0.07, z: 0.16, rz: -0.04 },
+  { x: 0.66, y: -0.24, z: 0.24, rz: -0.11 },
 ];
 
 export interface SheetScene {
@@ -298,7 +299,7 @@ export function mountSheetScene(host: HTMLElement, sheets: Sheet[], dark: boolea
   let baseZ = 3.35;
 
   function setDark(d: boolean) {
-    (catcher.material as ShadowMaterial).opacity = d ? 0.5 : 0.16;
+    (catcher.material as ShadowMaterial).opacity = d ? 0.26 : 0.16;
     ambient.intensity = d ? 1.45 : 2.05;
     lamp.intensity = d ? 1.4 : 1.1;
     kick();
@@ -313,7 +314,7 @@ export function mountSheetScene(host: HTMLElement, sheets: Sheet[], dark: boolea
     camera.aspect = w / h;
     // Keep the whole stack in view on tall, narrow hosts.
     baseZ = w / h < 0.9 ? 4.3 : 3.35;
-    camera.position.z = baseZ + scroll * baseZ * 0.42;
+    camera.position.z = baseZ + scroll * baseZ * 0.65;
     camera.updateProjectionMatrix();
     kick();
   }
@@ -348,7 +349,7 @@ export function mountSheetScene(host: HTMLElement, sheets: Sheet[], dark: boolea
     stack.rotation.y = pointer.x * 0.16;
     stack.rotation.x = -0.12 - pointer.y * 0.08 - p * 0.1;
     // Pull back as the hand opens, so every sheet stays in frame.
-    camera.position.z = baseZ + p * baseZ * 0.42;
+    camera.position.z = baseZ + p * baseZ * 0.65;
     renderer.render(scene, camera);
     if (moving && visible) frame = requestAnimationFrame(tick);
   }

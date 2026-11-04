@@ -34,7 +34,8 @@
   --amber-text: #ab6400;
   --amber-soft: #fefbe9;
 
-  --font-display: ui-serif, "New York", "Iowan Old Style", Charter, Georgia, serif;
+  --font-display:
+    ui-serif, "New York", "Iowan Old Style", "Source Serif 4 Variable", Charter, Georgia, serif;
   --font-text:
     system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto,
     "Helvetica Neue", sans-serif;

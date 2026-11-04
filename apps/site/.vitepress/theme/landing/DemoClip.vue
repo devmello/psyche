@@ -12,6 +12,10 @@ const props = defineProps<{
   label: string;
   /** Width / height of the recording. */
   ratio: number;
+  /** Which part of the recording to keep when a phone crops it (object-position). */
+  focus?: string;
+  /** On a phone: crop to a taller frame (default) or keep the whole recording. */
+  phone?: "crop" | "fit";
 }>();
 
 const video = ref<HTMLVideoElement | null>(null);
@@ -83,7 +87,7 @@ onBeforeUnmount(() => io?.disconnect());
 </script>
 
 <template>
-  <figure ref="box" class="clip" :style="{ '--ratio': String(ratio) }">
+  <figure ref="box" class="clip" :class="{ fit: phone === 'fit' }" :style="{ '--ratio': String(ratio), '--focus': focus ?? 'left top' }">
     <div class="frame">
       <video
         ref="video"
@@ -141,6 +145,13 @@ video {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: var(--focus);
+}
+/* On a phone the frame turns taller and crops to the part that matters, so the UI stays legible. */
+@media (max-width: 560px) {
+  .clip:not(.fit) .frame {
+    aspect-ratio: 4 / 5;
+  }
 }
 .control {
   position: absolute;

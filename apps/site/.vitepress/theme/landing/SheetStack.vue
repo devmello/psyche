@@ -98,7 +98,7 @@ onBeforeUnmount(() => {
 }
 .gl {
   position: absolute;
-  inset: -8% -10%;
+  inset: -8% -10% 3%;
   pointer-events: none;
 }
 .gl :deep(canvas) {
@@ -135,7 +135,8 @@ onBeforeUnmount(() => {
 }
 .sheet {
   grid-area: 1 / 1;
-  width: min(78%, 400px);
+  height: min(84%, 520px);
+  max-width: 80%;
   aspect-ratio: 1 / 1.32;
   background: oklch(0.993 0.001 80);
   color: #2b2c2e;
@@ -165,14 +166,16 @@ onBeforeUnmount(() => {
 }
 .head {
   font-family: var(--font-code);
-  font-size: 0.85em;
-  color: #9a9b9e;
+  font-size: 0.95em;
+  color: #55575b;
   border-bottom: 1px solid #e4e3df;
   padding-bottom: 0.6em;
   margin: 0 0 1.4em;
 }
 .kind-approval .head {
   color: #8a5300;
+  font-family: var(--font-text);
+  font-weight: 600;
 }
 .h1 {
   font-family: var(--font-display);

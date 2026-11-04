@@ -76,9 +76,9 @@ onBeforeUnmount(() => {
     <!-- The spread: an open notebook. -->
     <div ref="spread" class="spread-track">
     <section class="spread" aria-labelledby="hero-title">
-      <div class="book">
+      <div class="book lit">
         <div class="page left">
-          <p class="run-head"><span>Psyche</span><span>open source · alpha</span></p>
+          <p class="run-head">README.md</p>
           <h1 id="hero-title">Your agent, kept in files you can read.</h1>
           <p class="deck">
             Psyche is an open-source personal agent for the Mac. It remembers your mail, messages,
@@ -100,7 +100,7 @@ onBeforeUnmount(() => {
         </div>
         <div class="gutter" aria-hidden="true" />
         <div class="page right">
-          <p class="run-head"><span>~/.psyche</span><span>what it keeps</span></p>
+          <p class="run-head">~/.psyche/workspace/</p>
           <div class="stage">
             <SheetStack :progress="fan" />
           </div>
@@ -114,8 +114,8 @@ onBeforeUnmount(() => {
     </div>
 
     <!-- Memory. -->
-    <section class="leaf memory" data-lay aria-labelledby="memory-title">
-      <p class="run-head"><span>workspace/MEMORY.md</span><span>Memory</span></p>
+    <section class="leaf lit memory" data-lay aria-labelledby="memory-title">
+      <p class="run-head">workspace/MEMORY.md</p>
       <div class="split">
         <div class="copy">
           <h2 id="memory-title">It remembers the way you would, if you wrote everything down.</h2>
@@ -128,9 +128,9 @@ onBeforeUnmount(() => {
             The persona and memory files are Markdown you can edit. Change a line and the agent
             follows it.
           </p>
-          <a class="more" :href="withBase('/using/memory')">How memory works</a>
+          <a class="more" :href="withBase('/using/memory')"><span class="src">1</span>How memory works <span class="where">using/memory</span></a>
         </div>
-        <DemoClip name="memory" :ratio="1600 / 1088" label="Psyche's Memory page showing a person, their facts with sources, and open loops">
+        <DemoClip name="memory" :ratio="1440 / 1120" label="Psyche's Memory page showing a person, their facts with sources, and open loops">
           <b>Memory → Sam Lee.</b> Facts carry their source: “From Sam Lee's mail, Oct 12.” A loop it
           found in mail waits for your Confirm.
         </DemoClip>
@@ -139,51 +139,51 @@ onBeforeUnmount(() => {
 
     <!-- Search and Home, as two facing pages. -->
     <section class="two-up" aria-label="Search and Home">
-      <article class="leaf half" data-lay aria-labelledby="search-title">
-        <p class="run-head"><span>⌘K</span><span>Search</span></p>
+      <article class="leaf lit half" data-lay aria-labelledby="search-title">
+        <p class="run-head place">Search, ⌘K</p>
         <h2 id="search-title">Ask once. Search the whole Mac.</h2>
         <p>
           Threads, messages, tasks, memory, your Library and the Feed, in one box. The index is
           built and kept on this machine.
         </p>
-        <DemoClip name="search" :ratio="1600 / 1024" label="The Search palette finding a dentist booking across threads, messages, tasks and the feed">
+        <DemoClip name="search" :ratio="1440 / 1280" phone="fit" label="The Search palette finding a dentist booking across threads, messages, tasks and the feed">
           <b>Search ⌘K</b>, typing “dentist”: a thread, your own message, the running task and the
           morning brief.
         </DemoClip>
       </article>
-      <article class="leaf half" data-lay aria-labelledby="home-title">
-        <p class="run-head"><span>Home</span><span>Catch up</span></p>
+      <article class="leaf lit half" data-lay aria-labelledby="home-title">
+        <p class="run-head place">Home</p>
         <h2 id="home-title">Catch up in a minute.</h2>
         <p>
           What needs you, what moved since you last looked, and a brief whose lines point to their
           sources. The Feed behind the brief is still being finished.
         </p>
-        <DemoClip name="home" :ratio="1600 / 1088" label="Psyche's Home: two items that need you, a catch-up list, and a morning brief with numbered sources">
+        <DemoClip name="home" :ratio="1440 / 1120" label="Psyche's Home: two items that need you, a catch-up list, and a morning brief with numbered sources">
           <b>Home.</b> Two things wait on you; the brief cites Calendar, Gmail and acme.com.
         </DemoClip>
       </article>
     </section>
 
-    <!-- Approvals: the desk at night. -->
+    <!-- Approvals: one sheet under the lamp, on the desk at night. -->
     <section class="night" aria-labelledby="approve-title">
-      <div class="night-inner">
-        <div class="copy" data-lay>
-          <p class="run-head"><span>Permission Broker</span><span>Approvals</span></p>
-          <h2 id="approve-title">Nothing changes until you say so.</h2>
-          <p>
-            Sending, buying, filling a password or running a command stops at an approval card
-            that shows the exact action and binds to it. Text from a web page, an email or a file
-            can never approve anything. Purchases and password fills ask for Touch ID.
-          </p>
-          <ul class="facts">
-            <li>Approve from the app or a paired device; the first answer wins.</li>
-            <li>Passwords and keys stay in an encrypted vault. The model only sees placeholders.</li>
-            <li>A command sandbox with no network unless you allow a domain.</li>
-          </ul>
-          <a class="more" :href="withBase('/security/approvals-and-tiers')">Approvals and app tiers</a>
-        </div>
-        <div data-lay>
-          <DemoClip name="approval" :ratio="1600 / 1000" label="An approval card for filling a saved login, then the next card, an email to send, after Allow">
+      <div class="leaf lit lamplit" data-lay>
+        <p class="run-head place">Permission Broker</p>
+        <div class="split">
+          <div class="copy">
+            <h2 id="approve-title">Nothing changes until you say so.</h2>
+            <p>
+              Sending, buying, filling a password or running a command stops at an approval card
+              that shows the exact action and binds to it. Text from a web page, an email or a file
+              can never approve anything. Purchases and password fills ask for Touch ID.
+            </p>
+            <ul class="facts">
+              <li>Approve from the app or a paired device; the first answer wins.</li>
+              <li>Passwords and keys stay in an encrypted vault. The model only sees placeholders.</li>
+              <li>A command sandbox with no network unless you allow a domain.</li>
+            </ul>
+            <a class="more" :href="withBase('/security/approvals-and-tiers')"><span class="src">2</span>Approvals and app tiers <span class="where">security/approvals-and-tiers</span></a>
+          </div>
+          <DemoClip name="approval" :ratio="1504 / 1320" focus="center top" label="An approval card for filling a saved login, then the next card, an email to send, after Allow">
             <b>Dentist booking.</b> Allow the vault fill, and the next card, the email to Jane, takes
             its place.
           </DemoClip>
@@ -192,10 +192,10 @@ onBeforeUnmount(() => {
     </section>
 
     <!-- Receipts. -->
-    <section class="leaf receipts" data-lay aria-labelledby="receipt-title">
-      <p class="run-head"><span>audit/</span><span>Receipts</span></p>
+    <section class="leaf lit receipts" data-lay aria-labelledby="receipt-title">
+      <p class="run-head">audit/2026-10.jsonl</p>
       <div class="split flip">
-        <DemoClip name="chat" :ratio="1600 / 1088" label="A chat where Psyche plans a dentist booking, shows each step it ran, and records the email it sent">
+        <DemoClip name="chat" :ratio="1440 / 1120" label="A chat where Psyche plans a dentist booking, shows each step it ran, and records the email it sent">
           <b>Chat.</b> The plan, each step it ran, and what it sent, with the Gmail id and the time.
         </DemoClip>
         <div class="copy">
@@ -209,14 +209,14 @@ onBeforeUnmount(() => {
             <li><time>10:04</time> Held Tue Oct 20, 2:30 pm on acme.com <span>browser · task</span></li>
             <li><time>09:58</time> Read your calendar for Oct 19–23 <span>read · no approval</span></li>
           </ol>
-          <a class="more" :href="withBase('/security/audit-log')">The audit log</a>
+          <a class="more" :href="withBase('/security/audit-log')"><span class="src">3</span>The audit log <span class="where">security/audit-log</span></a>
         </div>
       </div>
     </section>
 
     <!-- What stays on the Mac. -->
-    <section class="leaf stays" data-lay aria-labelledby="stays-title">
-      <p class="run-head"><span>security/on-device</span><span>Where your data lives</span></p>
+    <section class="leaf lit stays" data-lay aria-labelledby="stays-title">
+      <p class="run-head">~/.psyche</p>
       <h2 id="stays-title">What stays on your Mac.</h2>
       <p class="lede">
         Everything lives under <code>~/.psyche</code>, on hardware you control. No hosted service
@@ -235,12 +235,12 @@ onBeforeUnmount(() => {
           <tr><th scope="row">Telemetry</th><td>None</td><td>No analytics, crash reports or phone-home</td></tr>
         </tbody>
       </table>
-      <a class="more" :href="withBase('/security/on-device')">What stays on your machine, in full</a>
+      <a class="more" :href="withBase('/security/on-device')"><span class="src">4</span>What stays on your machine <span class="where">security/on-device</span></a>
     </section>
 
     <!-- Honest status. -->
-    <section class="leaf status-page" data-lay aria-labelledby="status-title">
-      <p class="run-head"><span>release-notes/0.3</span><span>Status</span></p>
+    <section class="leaf lit status-page" data-lay aria-labelledby="status-title">
+      <p class="run-head">docs/release-notes/0.3.md</p>
       <h2 id="status-title">Alpha, and plain about it.</h2>
       <div class="columns">
         <div>
@@ -273,7 +273,7 @@ onBeforeUnmount(() => {
     <!-- Close. -->
     <section class="close" data-lay aria-labelledby="close-title">
       <h2 id="close-title">Clone it. Build it. Read every file.</h2>
-      <div class="terminal">
+      <div class="terminal lit">
         <div class="terminal-head">
           <span>Terminal · Node 24+, pnpm 12+</span>
           <button type="button" class="copy-btn" @click="copyInstall">
@@ -339,9 +339,6 @@ onBeforeUnmount(() => {
 
 /* Running head: the file a page is about. */
 .run-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
   font-family: var(--font-code);
   font-size: 12.5px;
   color: var(--paper-9);
@@ -359,8 +356,11 @@ onBeforeUnmount(() => {
   background: var(--paper-5);
   transform-origin: left;
 }
-.run-head span:last-child {
+/* A place in the app rather than a file: set in the text face. */
+.run-head.place {
   font-family: var(--font-text);
+  font-size: 13.5px;
+  color: var(--paper-11);
 }
 
 /* ---------- The spread ---------- */
@@ -557,22 +557,43 @@ onBeforeUnmount(() => {
 .copy p + p {
   margin-top: 14px;
 }
+/* Each section cites the doc page it is drawn from, the way Psyche cites its sources. */
 .more {
-  display: inline-block;
-  margin-top: 24px;
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  column-gap: 8px;
+  row-gap: 2px;
+  margin-top: 26px;
   font-weight: 550;
   font-size: 15.5px;
   color: var(--ink-text);
+  text-decoration: none;
+}
+.more .src {
+  align-self: center;
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 5px;
+  background: var(--ink-soft);
+  font: 500 12px/1 var(--font-code);
+  color: var(--ink-text);
+}
+.more .where {
+  font: 400 12.5px/1.4 var(--font-code);
+  color: var(--paper-9);
+}
+.more:hover {
   text-decoration: underline;
   text-decoration-color: var(--ink-line);
   text-underline-offset: 4px;
-  transition: text-decoration-color 0.15s;
 }
-.more::after {
-  content: " →";
-}
-.more:hover {
-  text-decoration-color: currentColor;
+.more:hover .where,
+.more:hover .src {
+  text-decoration: none;
 }
 .split {
   display: grid;
@@ -606,43 +627,34 @@ onBeforeUnmount(() => {
   margin-bottom: clamp(28px, 3vw, 44px);
 }
 
-/* ---------- Night ---------- */
+/* ---------- Night: one sheet under the lamp ---------- */
 .night {
-  --paper-12: oklch(0.949 0.003 80);
-  --paper-11: oklch(0.79 0.0045 80);
-  --paper-9: oklch(0.62 0.005 80);
-  --paper-6: oklch(0.348 0.004 80);
-  --paper-5: oklch(0.313 0.0035 80);
-  --paper-3: oklch(0.252 0.0025 80);
-  --ink-text: oklch(0.8 0.077 258.67);
-  --ink-line: oklch(0.55 0.0819 258.67);
   margin: clamp(56px, 9vw, 144px) calc(var(--gutter-x) * -1) 0;
-  padding: clamp(64px, 9vw, 140px) var(--gutter-x);
+  padding: clamp(56px, 8vw, 128px) var(--gutter-x);
   background: oklch(0.165 0.002 80);
-  color: var(--paper-12);
   position: relative;
   overflow: hidden;
 }
 .night::before {
-  /* One lamp, off to the upper left. */
+  /* The lamp, above the sheet's upper left. */
   content: "";
   position: absolute;
   inset: 0;
   background: radial-gradient(
-    ellipse 60% 70% at 18% 0%,
-    oklch(0.95 0.02 85 / 0.07),
-    transparent 70%
+    ellipse 55% 75% at 30% 18%,
+    oklch(0.96 0.025 85 / 0.13),
+    transparent 72%
   );
   pointer-events: none;
 }
-.night-inner {
-  position: relative;
-  max-width: 1480px;
+.night .leaf {
   margin: 0 auto;
-  display: grid;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
-  gap: clamp(28px, 5vw, 88px);
-  align-items: center;
+}
+.lamplit {
+  box-shadow:
+    0 2px 2px oklch(0 0 0 / 0.35),
+    0 24px 48px -18px oklch(0 0 0 / 0.7),
+    0 70px 120px -50px oklch(0 0 0 / 0.8);
 }
 .facts {
   list-style: none;
@@ -657,6 +669,38 @@ onBeforeUnmount(() => {
   font-size: 15.5px;
   line-height: 1.5;
   color: var(--paper-11);
+}
+
+/* Lamplit paper: in dark mode, and on the night band, sheets stay paper. */
+.night .lit,
+.dark .landing .lit {
+  --sheet: oklch(0.93 0.0035 80);
+  --paper-1: oklch(0.93 0.0035 80);
+  --paper-2: oklch(0.915 0.0035 80);
+  --paper-3: oklch(0.89 0.004 80);
+  --paper-4: oklch(0.87 0.004 80);
+  --paper-5: oklch(0.84 0.0045 80);
+  --paper-6: oklch(0.81 0.0045 80);
+  --paper-7: oklch(0.77 0.005 80);
+  --paper-9: oklch(0.5 0.005 80);
+  --paper-11: oklch(0.43 0.0045 80);
+  --paper-12: oklch(0.22 0.003 80);
+  --ink: oklch(0.4727 0.1241 258.67);
+  --ink-hover: oklch(0.4377 0.1217 258.67);
+  --ink-text: oklch(0.44 0.124 258.67);
+  --ink-soft: oklch(0.89 0.03 250);
+  --ink-line: oklch(0.68 0.08 258.67);
+  color: var(--paper-12);
+}
+.dark .landing .book::before {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    oklch(0.2 0.01 80 / 0.08) 45%,
+    oklch(0.2 0.01 80 / 0.14) 50%,
+    oklch(0.2 0.01 80 / 0.08) 55%,
+    transparent
+  );
 }
 
 /* ---------- Receipts ---------- */
@@ -908,13 +952,16 @@ onBeforeUnmount(() => {
 .to-lay.laid .run-head::after {
   transform: none;
 }
-.night .to-lay,
-.close.to-lay {
-  box-shadow: none;
-}
-.night .to-lay.laid,
+.close.to-lay,
 .close.to-lay.laid {
   box-shadow: none;
+}
+.lamplit.to-lay.laid,
+.lamplit.to-lay {
+  box-shadow:
+    0 2px 2px oklch(0 0 0 / 0.35),
+    0 24px 48px -18px oklch(0 0 0 / 0.7),
+    0 70px 120px -50px oklch(0 0 0 / 0.8);
 }
 
 /* ---------- Narrow ---------- */
@@ -942,7 +989,6 @@ onBeforeUnmount(() => {
   }
   .split,
   .split.flip,
-  .night-inner,
   .two-up,
   .columns {
     grid-template-columns: minmax(0, 1fr);
@@ -964,9 +1010,6 @@ onBeforeUnmount(() => {
   .book,
   .leaf {
     border-radius: 4px;
-  }
-  .run-head span:last-child {
-    display: none;
   }
   .stays-table thead {
     display: none;

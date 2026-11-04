@@ -45,7 +45,7 @@ export const SHEETS: Sheet[] = [
   },
   {
     id: "receipt",
-    file: "receipt · r_8f2c",
+    file: "audit/2026-10.jsonl",
     kind: "receipt",
     lines: [
       { t: "h1", text: "Sent an email" },
@@ -60,7 +60,7 @@ export const SHEETS: Sheet[] = [
   },
   {
     id: "approval",
-    file: "approval · expires in 28:41",
+    file: "Approval · 28:41",
     kind: "approval",
     lines: [
       { t: "meta", text: "Send email · write" },
