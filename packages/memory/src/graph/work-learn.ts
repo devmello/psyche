@@ -9,7 +9,7 @@ import {
   valueProblem,
   valueSupportedByQuote,
 } from "../extraction/validate.ts";
-import type { EverythingStore } from "./everything.ts";
+import { CHAT_WORK_PROPOSAL, type EverythingStore } from "./everything.ts";
 import { hasHiddenChars, mixedScript, normalizeName, sha256 } from "./normalize.ts";
 import { ownWords } from "./own-words.ts";
 import type { GraphStore } from "./store.ts";
@@ -343,6 +343,7 @@ export function applyOwnerChatWork(graph: GraphStore, input: ChatWorkInput): Own
       subjectKind: "owner_stated",
       sensitivity: "none",
       confidence: 0.8,
+      extractor: CHAT_WORK_PROPOSAL,
       citations: [
         {
           source: "chats",
