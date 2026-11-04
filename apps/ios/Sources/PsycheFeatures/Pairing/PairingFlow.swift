@@ -35,7 +35,7 @@ private struct ScannerView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Pair with your Mac").psycheTitle(.title)
                     .foregroundStyle(PsycheColor.text)
-                Text("On your Mac, open Settings → Devices → Add phone. Then scan the code it shows.")
+                Text("On your Mac, open Settings → Server & remote access → Pair another computer. Then scan the code it shows.")
                     .font(.subheadline).foregroundStyle(PsycheColor.muted)
             }
             viewfinder
