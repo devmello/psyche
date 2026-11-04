@@ -197,18 +197,26 @@ export interface TerminalOpenResult {
   label: string;
 }
 
-/** Desktop only: PTYs whose target the Gateway chose; the shell only renders. */
+/**
+ * Desktop only: a terminal the shell only renders. On This Mac the main process runs the PTY
+ * from what the Gateway answers; in a remote window the PTY runs on the Host and this port is a
+ * session over the Gateway socket (`host-terminal-port.ts`), so nothing runs here.
+ */
 export interface TerminalPort {
   open(opts: {
     cwd?: string;
     threadId?: string;
     cols: number;
     rows: number;
+    /** Called when opening waits for the owner's approval (a Host terminal needs presence). */
+    onWaiting?: () => void;
   }): Promise<TerminalOpenResult | { unavailable: string }>;
   write(sessionId: string, data: string): void;
   resize(sessionId: string, cols: number, rows: number): void;
   close(sessionId: string): void;
-  onData(cb: (sessionId: string, data: string) => void): Unsubscribe;
+  /** A listener may return a promise that settles once the data is rendered (flow control). */
+  onData(cb: (sessionId: string, data: string) => void | Promise<void>): Unsubscribe;
+  /** `exitCode` is -1 when the session was ended rather than the shell exiting. */
   onExit(cb: (sessionId: string, exitCode: number) => void): Unsubscribe;
 }
 

@@ -18,6 +18,11 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-04 (Terminal on the Host, remote Gateway R4)
+
+- New methods `terminal.session.open`, `terminal.session.write`, `terminal.session.resize`, `terminal.session.ack` and `terminal.session.close`, all `operator.admin`; only `open` is side-effecting. The Gateway starts the Host user's login shell in a PTY and streams it to the device that opened it; nothing runs on the client. A session belongs to that device (any other gets `not_found`), opening needs fresh presence (or the desktop shell on the Host while no verifier exists; otherwise `forbidden`, "Open the terminal on <host>"), and sessions are capped per device (`rate_limited`, `details.reason: "terminal_limit"`).
+- New events `terminal.output` (`sessionId`, `data`, `end`: the characters sent so far) and `terminal.exit` (`sessionId`, `exitCode`, `reason`), both admin-scope and sent only to the owning device. The client confirms rendered output with `terminal.session.ack`; the Gateway reads the PTY again only while less than `TERMINAL_OUTPUT_WINDOW` characters are unconfirmed. Constants `TERMINAL_WRITE_MAX_BYTES` and `TERMINAL_OUTPUT_WINDOW`. Design: docs/design/remote-gateway-2026.md §4.2.
+
 ### v1 additive — 2026-11-04 (Gateway identity key, remote Gateway R1)
 
 - `ConnectChallenge` gains optional `gatewayKey` (the Gateway's long-lived Ed25519 identity public key, base64url) and `gatewaySignature` (its signature over `gatewaySigningPayload({nonce, serverOrigin, devicePublicKey})`: `"psyche-gateway-v1\n" + nonce + "\n" + serverOrigin + "\n" + devicePublicKey`). A client that pinned the key refuses a challenge whose key differs, whose signature does not verify for its own device key, or whose `serverOrigin` is not the address it dialed, and signs nothing in those cases. A forwarded (Tailscale Serve) connection is told `gateway.publicOrigin` as `serverOrigin`; a direct loopback one the loopback origin. New constants `GATEWAY_SIGNING_PREFIX` and `gatewaySigningPayload`.
