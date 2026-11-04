@@ -53,7 +53,16 @@ export function identityFingerprint(publicKeyB64url: string): string {
 }
 
 function fromJwk(jwk: IdentityFile["jwk"]): GatewayIdentity {
-  const privateKey: KeyObject = createPrivateKey({ key: jwk, format: "jwk" });
+  let privateKey: KeyObject;
+  try {
+    privateKey = createPrivateKey({ key: jwk, format: "jwk" });
+  } catch {
+    // OpenSSL on Linux checks the pair at import ("Invalid JWK OKP key"); macOS does not.
+    throw new PsycheError(
+      "internal",
+      "identity/gateway.key: the key is invalid or its public key does not match the private",
+    );
+  }
   // The file's public half must be the private key's: a hand-edited file must not make the
   // Gateway sign with one key while advertising another.
   const derived = createPublicKey(privateKey).export({ format: "jwk" }).x;
