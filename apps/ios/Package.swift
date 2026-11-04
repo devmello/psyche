@@ -17,14 +17,26 @@ let package = Package(
         .library(name: "PsycheFeatures", targets: ["PsycheFeatures"]),
         .library(name: "PsycheDesign", targets: ["PsycheDesign"]),
         .library(name: "PsycheShared", targets: ["PsycheShared"]),
+        .library(name: "PsycheBlocks", targets: ["PsycheBlocks"]),
+    ],
+    dependencies: [
+        // The shared wire layer (generated models, frames, connect signing). Path dependency, no network.
+        .package(path: "../../packages/protocol-swift"),
     ],
     targets: [
         // App group paths and the Gateway endpoint: the only module the extensions link.
         .target(name: "PsycheShared"),
         // Snapshot types and the store protocol the UI reads. Fixture implementation only (I2 adds the cache).
         .target(name: "PsycheStore", dependencies: ["PsycheShared"]),
-        // Connection states and Session. Fixture driver only (I2 adds the real connection).
-        .target(name: "PsycheClient", dependencies: ["PsycheStore", "PsycheShared"]),
+        // Connection states, Session, the Gateway connection, pairing, outbox and `GatewayBackend` (I2).
+        .target(
+            name: "PsycheClient",
+            dependencies: [
+                "PsycheStore", "PsycheShared",
+                .product(name: "PsycheProtocol", package: "protocol-swift"),
+                .product(name: "PsycheWire", package: "protocol-swift"),
+            ]
+        ),
         // Tokens, type styles and components.
         .target(name: "PsycheDesign", resources: [.process("Resources")]),
         // Native block views (I4) and the generative-UI WebView host (I8). Blocks read `ChatItem`, so they
@@ -35,9 +47,17 @@ let package = Package(
             dependencies: ["PsycheBlocks", "PsycheDesign", "PsycheClient", "PsycheStore", "PsycheShared"]
         ),
         .testTarget(name: "PsycheStoreTests", dependencies: ["PsycheStore", "PsycheShared"]),
+        .testTarget(name: "PsycheWidgetTests", dependencies: ["PsycheBlocks", "PsycheStore"]),
         .testTarget(name: "PsycheFeaturesTests", dependencies: ["PsycheFeatures", "PsycheStore"]),
         .testTarget(name: "PsycheBlocksTests", dependencies: ["PsycheBlocks", "PsycheStore"]),
-        .testTarget(name: "PsycheClientTests", dependencies: ["PsycheClient", "PsycheStore", "PsycheShared"]),
+        .testTarget(
+            name: "PsycheClientTests",
+            dependencies: [
+                "PsycheClient", "PsycheStore", "PsycheShared",
+                .product(name: "PsycheProtocol", package: "protocol-swift"),
+                .product(name: "PsycheWire", package: "protocol-swift"),
+            ]
+        ),
     ],
     swiftLanguageModes: [.v6]
 )

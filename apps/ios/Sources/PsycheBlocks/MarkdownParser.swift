@@ -168,6 +168,7 @@ extension MarkdownBlock {
     public static func inline(_ text: String) -> AttributedString {
         let options = AttributedString.MarkdownParsingOptions(
             interpretedSyntax: .inlineOnlyPreservingWhitespace, failurePolicy: .returnPartiallyParsedIfPossible)
-        return (try? AttributedString(markdown: text, options: options)) ?? AttributedString(text)
+        let parsed = (try? AttributedString(markdown: text, options: options)) ?? AttributedString(text)
+        return LinkPolicy.sanitized(parsed)
     }
 }

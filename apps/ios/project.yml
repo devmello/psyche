@@ -51,6 +51,8 @@ targets:
         product: PsycheFeatures
       - package: PsycheKit
         product: PsycheDesign
+      - package: PsycheKit
+        product: PsycheBlocks
       - target: NotificationService
       - target: Share
       - target: Widgets
@@ -60,12 +62,14 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: $(PSYCHE_BUNDLE_ID)
         PRODUCT_NAME: Psyche
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     info:
       path: Generated/Psyche-Info.plist
       properties:
         CFBundleDisplayName: Psyche
         PsycheAppGroup: $(PSYCHE_APP_GROUP)
         NSCameraUsageDescription: Psyche uses the camera to read the pairing code shown on your Mac, to scan documents, and to attach photos you take to a message.
+        NSLocalNetworkUsageDescription: Psyche connects to your Mac on your home network. It does not look for other devices.
         NSMicrophoneUsageDescription: Psyche listens only while you dictate a message, and the speech is turned into text on this iPhone.
         NSSpeechRecognitionUsageDescription: Psyche turns your dictation into text, on this iPhone when your language supports it.
         NSFaceIDUsageDescription: Psyche asks for Face ID before it allows a payment or another sensitive action from your phone.

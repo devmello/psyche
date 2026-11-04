@@ -18,6 +18,7 @@ public actor FixtureBackend {
     var memoryState = MemoryState()
     var agentState = AgentState()
     var settingsState = SettingsState()
+    var widgetState = WidgetState()
 
     private let latency: Duration
     private var subscribers: [UUID: AsyncStream<LiveEvent>.Continuation] = [:]

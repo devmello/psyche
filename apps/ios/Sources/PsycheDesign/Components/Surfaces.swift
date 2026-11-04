@@ -1,9 +1,12 @@
 import SwiftUI
 
 extension View {
-    /// The paper under a screen.
-    public func psycheScreen() -> some View {
-        background(PsycheColor.paper.ignoresSafeArea())
+    /// The paper under a screen, with the content held to a readable column on wide windows (iPad):
+    /// centered, at most `maxWidth` points. Pass `nil` for screens that may use the full width (Library's grid).
+    public func psycheScreen(maxWidth: CGFloat? = PsycheMetrics.readableWidth) -> some View {
+        frame(maxWidth: maxWidth ?? .infinity)
+            .frame(maxWidth: .infinity)
+            .background(PsycheColor.paper.ignoresSafeArea())
     }
 }
 

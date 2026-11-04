@@ -29,7 +29,9 @@ final class ThreadListModel {
         for await event in store.events() {
             switch event {
             case .changed(.threads), .resynced: await load()
-            case .chat(.status(let id, let status, let kind)): patch(id) { $0.status = status.isEmpty ? $0.status : status; $0.statusKind = kind }
+            case .chat(.status(let id, let status, let kind)):
+                // An empty status means the run ended: the row's own text (time, "Waiting for you") comes from the Gateway.
+                if status.isEmpty { await load() } else { patch(id) { $0.status = status; $0.statusKind = kind } }
             default: break
             }
         }

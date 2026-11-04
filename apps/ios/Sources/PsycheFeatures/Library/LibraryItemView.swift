@@ -133,8 +133,10 @@ private struct ItemContent: View {
     private func shareButton(_ item: PsycheStore.LibraryItem) -> some View {
         if let url = model.file {
             ShareLink(item: url) { Image(systemName: "square.and.arrow.up") }
+                .accessibilityLabel("Share")
         } else {
             ShareLink(item: item.title) { Image(systemName: "square.and.arrow.up") }
+                .accessibilityLabel("Share")
         }
     }
 
