@@ -3068,6 +3068,16 @@ export type CompactionBlockType = "compaction";
 export interface ConnectChallenge {
     expiresAt: string;
     /**
+     * The Gateway's long-lived identity public key (base64url raw Ed25519). Clients pin it at
+     * first pair and refuse a different one (remote-gateway design §3.3)
+     */
+    gatewayKey?: string;
+    /**
+     * base64url Ed25519 signature by the Gateway identity key over gatewaySigningPayload(nonce,
+     * serverOrigin, the connecting device's public key)
+     */
+    gatewaySignature?: string;
+    /**
      * base64url, 32 random bytes
      */
     nonce: string;
@@ -3150,6 +3160,12 @@ export interface ConnectResult {
 export type ConnectResultPhase = "paired" | "pending" | "denied";
 
 export interface ConnectVerifyParams {
+    /**
+     * The Gateway identity key this client verified and pinned (base64url). When present the
+     * signature is over the v2 payload, which includes it, and the Gateway refuses the connect
+     * unless it is its own key. A client of a remote Gateway always sends it
+     */
+    gatewayKey?: string;
     /**
      * base64url, 32 random bytes
      */
@@ -4570,6 +4586,33 @@ export interface ErrorPayload {
 export type ErrorCode = "not_implemented" | "invalid_frame" | "invalid_params" | "unknown_method" | "protocol_version_mismatch" | "unauthorized" | "forbidden" | "not_paired" | "pairing_pending" | "origin_rejected" | "not_found" | "conflict" | "idempotency_conflict" | "rate_limited" | "timeout" | "cancelled" | "unavailable" | "approval_required" | "approval_expired" | "approval_invalidated" | "approval_not_armed" | "answer_late" | "answer_replayed" | "binding_mismatch" | "taint_blocked" | "policy_denied" | "internal" | "user_in_control" | "debugger_detached" | "tab_not_found" | "method_not_allowed" | "presence_required";
 
 export type FrameType = "req" | "res" | "event";
+
+export interface GatewayInfo {
+    /**
+     * The Host machine's name
+     */
+    hostName: string;
+    identity: Identity;
+    /**
+     * gateway.publicOrigin, the https address other computers reach it at
+     */
+    publicOrigin: null | string;
+    /**
+     * gateway.trustedProxy is on
+     */
+    trustedProxy: boolean;
+}
+
+export interface Identity {
+    /**
+     * sha256:<hex> of the raw key, as clients show it
+     */
+    fingerprint: string;
+    /**
+     * base64url raw Ed25519 identity public key
+     */
+    publicKey: string;
+}
 
 export interface GatewayShutdownPayload {
     reason: string;

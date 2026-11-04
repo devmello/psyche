@@ -99,7 +99,9 @@ describe("loopback auto-pairing", () => {
       "Cf-Access-Authenticated-User-Email": "owner@example.test",
       "X-Forwarded-For": "127.0.0.1",
     });
-    expect(phaseOf(await handshake(c, t.gateway.origin, {}))).toBe("pending");
+    // A browser: a desktop over a proxy must bind its connect to the Gateway key (v2) and the
+    // helper signs v1 (see connect-gateway-key.test.ts).
+    expect(phaseOf(await handshake(c, t.gateway.origin, { deviceFamily: "web" }))).toBe("pending");
   });
 
   it("refuses role: client on the node socket", async () => {

@@ -9,6 +9,7 @@ import {
 import { DeviceScope, PsycheError, type DeviceScope as Scope } from "@psyche/protocol";
 import { resolveConfig } from "./config.ts";
 import { approvePairing } from "./handlers/devices.ts";
+import { loadOrCreateGatewayIdentity, rotateGatewayIdentity } from "./identity.ts";
 import { resetPresenceEnrollment } from "./presence-gate.ts";
 
 const SCOPES = (DeviceScope as unknown as { enum: Scope[] }).enum;
@@ -29,6 +30,11 @@ const USAGE = `usage:
   psyched devices list                      paired devices and pending pairing requests
   psyched devices approve <code> [scopes]   approve the pending request showing <code>
   psyched devices grant <deviceId> <scopes> set a paired device's scopes
+  psyched identity show                     the Gateway's identity key fingerprint (what a new
+                                            computer shows next to its pairing code)
+  psyched identity rotate                   make a new identity key: every computer that pinned the
+                                            old one stops with "identity changed" and must pair
+                                            again; restart psyched afterwards
   psyched presence reset                    after losing every passkey and helper key: let
                                             security changes run on operator.admin until a new
                                             one is registered (they fail presence_required now)
@@ -58,6 +64,18 @@ export function runCli(
     } finally {
       db.close();
     }
+  }
+  if (group === "identity" && (verb === "show" || verb === "rotate")) {
+    const home = resolveConfig().home;
+    const identity =
+      verb === "rotate" ? rotateGatewayIdentity(home) : loadOrCreateGatewayIdentity(home);
+    out(identity.fingerprint);
+    if (verb === "rotate") {
+      out(
+        "identity rotated: restart psyched, then pair each computer again (they refuse the new key until you forget and pair again)",
+      );
+    }
+    return 0;
   }
   if (group !== "devices" || verb === undefined) {
     out(USAGE);

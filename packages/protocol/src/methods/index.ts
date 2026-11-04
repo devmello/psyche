@@ -18,6 +18,7 @@ import { DevicesMethods } from "./devices.ts";
 import { DictationMethods } from "./dictation.ts";
 import { EventsMethods } from "./events.ts";
 import { FilesMethods } from "./files.ts";
+import { GatewayMethods } from "./gateway.ts";
 import { GrantsMethods } from "./grants.ts";
 import { InsightsMethods } from "./insights.ts";
 import { FeedbackMethods, GrowthMethods, LessonsMethods } from "./learning.ts";
@@ -71,6 +72,7 @@ export * from "./devices.ts";
 export * from "./dictation.ts";
 export * from "./events.ts";
 export * from "./files.ts";
+export * from "./gateway.ts";
 export * from "./grants.ts";
 export * from "./insights.ts";
 export * from "./learning.ts";
@@ -129,6 +131,7 @@ export const Methods = {
   ...NotificationsMethods,
   ...NodesMethods,
   ...DevicesMethods,
+  ...GatewayMethods,
   ...PasskeysMethods,
   ...ConnectorsMethods,
   ...ChannelsMethods,

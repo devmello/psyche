@@ -40,7 +40,42 @@ export interface EditorLineMark {
   label: string;
 }
 
+/** A Gateway this computer can connect to (desktop: `apps/desktop/src/main/gateway-manager.ts`). */
+export interface GatewayEntry {
+  id: string;
+  name: string;
+  /** The address; null for This Mac. */
+  origin: string | null;
+  /** A Gateway on another computer. */
+  remote: boolean;
+  active: boolean;
+  /** Its identity key is pinned. */
+  pinned: boolean;
+}
+
+/**
+ * The saved Gateways (remote-gateway design §1.3). Switching restarts the app on the other one;
+ * adding, forgetting and pairing again are confirmed in a native dialog the window cannot draw.
+ * `add` rejects with `invalid_params` and `details.problem` for an address it will not use.
+ */
+export interface GatewaysSlot {
+  list(): Promise<GatewayEntry[]>;
+  add(address: string, name?: string): Promise<GatewayEntry>;
+  remove(id: string): Promise<void>;
+  switchTo(id: string, opts?: { stopLocal?: boolean }): Promise<void>;
+  repair(id: string): Promise<void>;
+}
+
 export interface UiSlots {
+  /**
+   * The name of the Host when this app is a client of a Gateway on another computer. Things that
+   * run on the Host say so, and what only works on this Mac stays out (design §4.2).
+   */
+  remoteHost?: string;
+  /** The saved Gateways and the switcher (desktop only). */
+  gateways?: GatewaysSlot;
+  /** Opens a Settings section (`server`): the host's own window or route. */
+  openSettings?: (section: string) => void;
   /** Navigate to an in-app route, e.g. `/agent/activity/<taskId>`. */
   navigate?: (route: string) => void;
   openArtifact?: (artifact: Artifact) => void;

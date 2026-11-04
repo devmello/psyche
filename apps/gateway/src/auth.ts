@@ -26,11 +26,13 @@ import {
   type ConnectVerifyParams,
   connectSigningPayload,
   type DeviceScope,
+  gatewaySigningPayload,
   type PairingRequest,
   PROTOCOL_VERSION,
   PsycheError,
 } from "@psyche/protocol";
 import type { GatewayLimits } from "./context.ts";
+import type { GatewayIdentity } from "./identity.ts";
 import type { RateLimiter } from "./rate-limit.ts";
 
 export const CHALLENGE_TTL_MS = 60_000;
@@ -168,6 +170,7 @@ export function issueChallenge(
   peer: PeerInfo,
   serverOrigin: string,
   nowMs: number,
+  identity?: GatewayIdentity,
 ): { pending: PendingChallenge; challenge: ConnectChallenge } {
   // Clients use the WebSocket; the node socket is for nodes only (S23 review PR-1-A).
   if (peer.transport !== "ws" && params.role !== "node") {
@@ -185,6 +188,16 @@ export function issueChallenge(
       serverOrigin,
       protocolVersion,
       expiresAt: new Date(expiresAtMs).toISOString(),
+      // Signed over this nonce, the origin and this device's key (design §3.3): it proves the
+      // Gateway holds the key a client pinned, and cannot be replayed to another device.
+      ...(identity
+        ? {
+            gatewayKey: identity.publicKey,
+            gatewaySignature: identity.sign(
+              gatewaySigningPayload({ nonce, serverOrigin, devicePublicKey: params.publicKey }),
+            ),
+          }
+        : {}),
     },
   };
 }
@@ -219,6 +232,8 @@ export interface VerifyDeps {
   db: PsycheDb;
   handshakeSecret: string;
   serverOrigin: string;
+  /** This Gateway's identity public key: a v2 connect must name it. */
+  gatewayKey?: string;
   now: () => Date;
   limits: GatewayLimits;
   failedChallenges: RateLimiter;
@@ -263,7 +278,32 @@ export function verifyChallenge(
   if (input.nonce !== pending.nonce) fail("Nonce does not match the challenge");
   if (now.getTime() > pending.expiresAtMs) fail("Challenge expired");
   const { params } = pending;
+  // A client that verified a Gateway key signs it into the connect (v2). It must be this
+  // Gateway's own: a connect made for another key is a connect through something else. Without
+  // the field only the v1 payload verifies, so a relay cannot strip it from a v2 signature.
+  // The Psyche desktop app is the one client that verifies the Gateway key; coming from the
+  // network (a Tailscale Serve connection, not loopback) it must bind its connect to the key, so
+  // a remotely paired desktop is never on the unbound v1 payload. Browsers (family web), the CLI
+  // and nodes never verify a key and connect as before.
+  if (
+    input.gatewayKey === undefined &&
+    deps.gatewayKey !== undefined &&
+    peer.transport === "ws" &&
+    !peer.remoteLoopback &&
+    params.role === "client" &&
+    params.deviceFamily === "desktop"
+  ) {
+    fail("A desktop app connecting over the network must name the Gateway key it verified");
+  }
+  if (
+    input.gatewayKey !== undefined &&
+    deps.gatewayKey !== undefined &&
+    input.gatewayKey !== deps.gatewayKey
+  ) {
+    fail("The connect was made for a different Gateway key");
+  }
   const payload = connectSigningPayload({
+    ...(input.gatewayKey === undefined ? {} : { gatewayKey: input.gatewayKey }),
     nonce: pending.nonce,
     platform: params.platform,
     deviceFamily: params.deviceFamily,

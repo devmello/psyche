@@ -14,8 +14,14 @@ import {
   validateEventPayload,
 } from "@psyche/protocol";
 import { backoffDelay } from "./backoff.ts";
-import { type ConnectParams, Handshake, type Signer } from "./handshake.ts";
-import { type GatewayStatus, INITIAL_STATUS, reduceStatus, type StatusAction } from "./status.ts";
+import { type ConnectParams, type GatewayVerifier, Handshake, type Signer } from "./handshake.ts";
+import {
+  type GatewayStatus,
+  INITIAL_STATUS,
+  isFatalStatus,
+  reduceStatus,
+  type StatusAction,
+} from "./status.ts";
 
 /**
  * Transport-agnostic Gateway connection (wire spec v1) shared by the desktop main process and
@@ -57,6 +63,11 @@ export interface GatewayConnectionOptions {
   /** Built per attempt (the desktop re-reads the per-launch handshake secret). */
   connectParams: () => ConnectParams | Promise<ConnectParams>;
   sign: Signer;
+  /**
+   * Checks the Gateway's identity before this client signs anything (the desktop pins the key of
+   * a saved Gateway). A failure stops the connection and the reconnect loop.
+   */
+  verifyGateway?: GatewayVerifier;
   onStatus: (status: GatewayStatus) => void;
   onEvent?: (event: GatewayEvent) => void;
   /** Called after a reconnect or a `seq` gap: the shell refetches its collections. */
@@ -224,7 +235,7 @@ export class GatewayConnection {
       return;
     }
     if (this.stopped || attempt !== this.connectSeq) return;
-    const handshake = new Handshake(params, this.opts.sign);
+    const handshake = new Handshake(params, this.opts.sign, this.opts.verifyGateway);
     this.dispatch({ type: "connecting" });
     const create = this.opts.createWebSocket ?? ((url: string) => new WebSocket(url));
     const ws = create(this.opts.wsUrl);
@@ -336,12 +347,13 @@ export class GatewayConnection {
   }
 
   private scheduleReconnect(): void {
-    if (this.stopped || this.status.phase === "denied") return;
+    if (this.stopped || isFatalStatus(this.status)) return;
     clearTimeout(this.reconnectTimer);
     const delay = backoffDelay(Math.max(0, this.status.attempt - 1), {
       ...(this.opts.random ? { random: this.opts.random } : {}),
     });
     this.reconnectTimer = setTimeout(() => {
+      if (this.stopped || isFatalStatus(this.status)) return;
       void this.checkHealth();
       void this.connect();
     }, delay);

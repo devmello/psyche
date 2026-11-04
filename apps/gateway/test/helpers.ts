@@ -150,6 +150,8 @@ export interface HandshakeOptions {
   deviceFamily?: string;
   handshakeSecret?: string;
   tamperSignature?: boolean;
+  /** The Gateway key the device verified: signs the v2 connect payload and sends the key. */
+  gatewayKey?: string;
 }
 
 export async function handshake(client: TestClient, origin: string, opts: HandshakeOptions = {}) {
@@ -178,12 +180,14 @@ export async function handshake(client: TestClient, origin: string, opts: Handsh
     deviceFamily,
     protocolVersion: challenge.protocolVersion,
     serverOrigin: origin,
+    ...(opts.gatewayKey === undefined ? {} : { gatewayKey: opts.gatewayKey }),
   });
   const signature = sign(null, payload, key.privateKey);
   if (opts.tamperSignature) signature[0] = (signature[0] ?? 0) ^ 0xff;
   const verifyRes = await client.request("connect.verify", {
     nonce: challenge.nonce,
     signature: signature.toString("base64url"),
+    ...(opts.gatewayKey === undefined ? {} : { gatewayKey: opts.gatewayKey }),
   });
   return { challengeRes, verifyRes, key };
 }

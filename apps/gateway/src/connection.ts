@@ -354,8 +354,9 @@ export class Connection implements LiveConnection {
     const { pending, challenge } = issueChallenge(
       params,
       this.peer,
-      this.#ctx.serverOrigin(),
+      this.#ctx.challengeOrigin(this.peer),
       this.#ctx.now().getTime(),
+      this.#ctx.identity,
     );
     this.#challenge = pending;
     this.#connectParams = params;
@@ -378,7 +379,8 @@ export class Connection implements LiveConnection {
     const outcome = verifyChallenge(pending, params, this.peer, {
       db: ctx.db,
       handshakeSecret: ctx.handshakeSecret,
-      serverOrigin: ctx.serverOrigin(),
+      serverOrigin: ctx.challengeOrigin(this.peer),
+      gatewayKey: ctx.identity.publicKey,
       now: ctx.now,
       limits: ctx.limits,
       failedChallenges: ctx.failedChallenges,

@@ -19,6 +19,7 @@ import {
 } from "@psyche/protocol";
 import { type WebSocket, WebSocketServer } from "ws";
 import pkg from "../package.json" with { type: "json" };
+import type { PeerInfo } from "./auth.ts";
 import { CloudflareAccessVerifier } from "./cf-access.ts";
 import { type GatewayConfig, resolveConfig } from "./config.ts";
 import { Connection } from "./connection.ts";
@@ -47,6 +48,7 @@ import {
   webhookMethods,
 } from "./http.ts";
 import { Idempotency } from "./idempotency.ts";
+import { loadOrCreateGatewayIdentity } from "./identity.ts";
 import { createLogger, type Logger } from "./log.ts";
 import { allowedMapOrigins } from "./map-proxy.ts";
 import { NodeRegistry } from "./nodes/registry.ts";
@@ -191,6 +193,8 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
   const bus = new EventBus(readStateVersion(db), (v) => writeStateVersion(db, v));
   // The secret is written to disk only after both listeners are up (see below).
   const handshakeSecret = newHandshakeSecret();
+  // Created at first start, never silently replaced (identity.ts): clients pin its public half.
+  const identity = loadOrCreateGatewayIdentity(config.home);
   const connections = new Set<Connection>();
   let connSeq = 0;
   let origin = "";
@@ -226,6 +230,11 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     handshakeSecret,
     idempotency: new Idempotency(db),
     serverOrigin: () => origin,
+    identity,
+    challengeOrigin: (peer: PeerInfo) =>
+      config.publicOrigin !== null && peer.transport === "ws" && !peer.remoteLoopback
+        ? config.publicOrigin
+        : origin,
     connections: () => connections,
   } as Omit<GatewayContext, "sessions" | "nodes" | "runTrace"> as GatewayContext;
   Object.assign(ctx, {

@@ -31,6 +31,46 @@ export interface GatewayPort {
   retry?(): Promise<void>;
 }
 
+/** A Gateway this computer can connect to (apps/desktop/src/main/gateway-manager.ts). */
+export interface SavedGatewayView {
+  id: string;
+  name: string;
+  /** The address; null for This Mac. */
+  origin: string | null;
+  /** A Gateway on another computer. */
+  remote: boolean;
+  active: boolean;
+  /** The Gateway's identity key is pinned. */
+  pinned: boolean;
+}
+
+/** Why an address was refused when adding a Gateway. */
+export type GatewayAddressProblem =
+  | "empty"
+  | "invalid"
+  | "needs_full_name"
+  | "needs_https"
+  | "has_path"
+  | "has_credentials";
+
+/**
+ * Desktop only: the saved Gateways (remote-gateway design §1.3). One is active at a time;
+ * switching restarts the app on the other one so nothing from the first carries over. Adding,
+ * forgetting and pairing again are confirmed in a native dialog the window cannot draw.
+ */
+export interface GatewaysPort {
+  list(): Promise<SavedGatewayView[]>;
+  /** Rejects with `invalid_params` and `details.problem` (`GatewayAddressProblem`) for a bad address. */
+  add(address: string, name?: string): Promise<SavedGatewayView>;
+  rename(id: string, name: string): Promise<void>;
+  /** Forgets the Gateway: its pin, this computer's key for it and its stored data. */
+  remove(id: string): Promise<void>;
+  /** Restarts the app on that Gateway; `stopLocal` also stops this Mac's own Gateway first. */
+  switchTo(id: string, opts?: { stopLocal?: boolean }): Promise<void>;
+  /** Drops the pin and this computer's key for the Gateway so it pairs again as a new device. */
+  repair(id: string): Promise<void>;
+}
+
 /** The desktop supervisor's view of the Gateway process (apps/desktop/src/main/supervisor.ts). */
 export type GatewayRunView =
   | { kind: "unknown" }
@@ -221,6 +261,12 @@ export interface WindowChrome {
   trafficLights?: { x: number; y: number };
   /** The main window opens on the startup splash (#539); main decides at launch. */
   splash?: boolean;
+  /**
+   * This app is a client of a Gateway on another computer (remote-gateway design §1.3): chat,
+   * Search and the Library work as on This Mac, but the browser, computer use, folders, the
+   * shell and the Apple apps are that Host's, so the shell names it and hides what cannot work.
+   */
+  remote?: { hostName: string };
 }
 
 /** Desktop only: native file dialogs. The web host has none; the shell falls back to typed paths. */
@@ -263,6 +309,8 @@ export interface ShellPlatform {
   systemAppearance?: SystemAppearancePort;
   /** Desktop only: versions, platform and the data folder for Settings → About (#610). */
   app?: AppInfoPort;
+  /** Desktop only: the saved Gateways and the switcher (remote-gateway design §1.3). */
+  gateways?: GatewaysPort;
 }
 
 /**
@@ -289,8 +337,8 @@ export interface HostAppInfo {
 
 export interface AppInfoPort {
   info(): Promise<HostAppInfo>;
-  /** Shows the data folder in Finder. */
-  revealHome(): Promise<void>;
+  /** Shows the data folder in Finder. Absent for a client of another computer's Gateway. */
+  revealHome?(): Promise<void>;
 }
 
 export interface SystemAppearance {

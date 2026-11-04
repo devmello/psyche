@@ -262,6 +262,8 @@ Once a paired device has a passkey, changing a security setting (permissions, ex
 
 ### The desktop app
 
+The normal way to use another computer's Gateway is the saved Gateways in Settings → Server & remote access: [remote-gateway.md](remote-gateway.md). The environment variables below stay for development and tests.
+
 On the Mac, start the app so that it uses the remote Gateway and never starts its own. Through an SSH tunnel:
 
 ```bash

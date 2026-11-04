@@ -13,4 +13,11 @@ describe("when the main window opens on the splash (#539)", () => {
     expect(show({ mode: "external" })).toBe(false);
     expect(show({ probing: true })).toBe(false);
   });
+
+  it("always shows for a remote Gateway: the splash is where an unreachable Host is explained", () => {
+    const show = (o: Partial<Parameters<typeof shouldShowSplash>[0]>) =>
+      shouldShowSplash({ packaged: true, env: {}, mode: "remote", healthyAtLaunch: true, ...o });
+    expect(show({})).toBe(true);
+    expect(show({ probing: true })).toBe(false);
+  });
 });

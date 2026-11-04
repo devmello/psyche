@@ -18,6 +18,12 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-04 (Gateway identity key, remote Gateway R1)
+
+- `ConnectChallenge` gains optional `gatewayKey` (the Gateway's long-lived Ed25519 identity public key, base64url) and `gatewaySignature` (its signature over `gatewaySigningPayload({nonce, serverOrigin, devicePublicKey})`: `"psyche-gateway-v1\n" + nonce + "\n" + serverOrigin + "\n" + devicePublicKey`). A client that pinned the key refuses a challenge whose key differs, whose signature does not verify for its own device key, or whose `serverOrigin` is not the address it dialed, and signs nothing in those cases. A forwarded (Tailscale Serve) connection is told `gateway.publicOrigin` as `serverOrigin`; a direct loopback one the loopback origin. New constants `GATEWAY_SIGNING_PREFIX` and `gatewaySigningPayload`.
+- `ConnectVerifyParams` gains optional `gatewayKey`, the Gateway key the client verified. When present the device signs the v2 payload (`psyche-connect-v2`, the v1 fields plus the key as a last line) and the Gateway refuses the connect unless the key is its own; without it only the v1 payload verifies, so a relay cannot strip it. A client of a remote Gateway always sends it; This Mac's clients and older clients keep v1.
+- New method `gateway.info` (operator.read): `identity {publicKey, fingerprint}`, `hostName`, `publicOrigin`, `trustedProxy`. Settings shows the fingerprint beside a pairing request so the owner can compare it with the one the new computer shows. Design: docs/design/remote-gateway-2026.md §3.3.
+
 ### v1 additive — 2026-11-03 (Contacts as a Search source)
 
 - `SearchSourceId` gains `contacts` (last in the list): Settings → Search sources can index the owner's Apple Contacts (name, nickname, company, job title, emails, numbers, the city and country of each address, birthday; never street addresses, notes or groups). Off by default, and off for the agent's `search_everything` until the owner allows it. It is not an `EverythingSource`: memory does not learn from it. The Gateway reads Contacts through the Host's own Mac helper (`contacts.list`, `contacts.read`); both stay unreachable through a client's `nodes.invoke`. The owner's "Index on battery" is the plain setting `search.runOnBattery` (boolean, default false), not a protocol field.

@@ -10,6 +10,7 @@ import {
   type MacHelperState,
   type PermissionKind,
   type PermissionState,
+  type SavedGatewayView,
   type ShellCommand,
   type ShellPlatform,
   type SignedInSiteView,
@@ -54,6 +55,40 @@ export async function unwrapCall(envelope: Promise<unknown>): Promise<unknown> {
 
 /** Adapts the preload bridge to the shell's `ShellPlatform` port. */
 export function desktopPlatform(b: PsycheBridge = window.psyche): ShellPlatform {
+  const full = fullDesktopPlatform(b);
+  return b.chrome.remote ? remoteClientPlatform(full) : full;
+}
+
+/**
+ * The platform of a window that is a client of a Gateway on another computer (remote-gateway
+ * design §4.2). What only works on the machine the Gateway runs on is left out, so the shell
+ * hides it or says where it runs: the agent's browser, the folder picker (a path chosen here
+ * means nothing there), the Mac helper and Touch ID (the Host's), system-wide dictation,
+ * revealing a folder or the logs (they are the Host's), opening a cited source in this Mac's Mail
+ * or Finder, and the terminal: a shell is started here from what the Gateway answers, so a
+ * Gateway on another computer must never be able to ask for one. Main refuses the same calls too
+ * (`REMOTE_REFUSED` in main.ts), whatever this window sends.
+ */
+export function remoteClientPlatform(full: ShellPlatform): ShellPlatform {
+  const {
+    browser: _browser,
+    dialogs: _dialogs,
+    helper: _helper,
+    dictation: _dictation,
+    terminal: _terminal,
+    sources: _sources,
+    permissions: _permissions,
+    ...rest
+  } = full;
+  const { showLogs: _showLogs, ...gateway } = full.gateway;
+  return {
+    ...rest,
+    gateway,
+    ...(full.app ? { app: { info: () => full.app?.info() as Promise<HostAppInfo> } } : {}),
+  };
+}
+
+function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
   return {
     kind: "desktop",
     chrome: b.chrome,
@@ -69,6 +104,14 @@ export function desktopPlatform(b: PsycheBridge = window.psyche): ShellPlatform 
       onRun: (cb) => b.gateway.onRun((s) => cb(s as GatewayRunView)),
       showLogs: async () => void (await b.gateway.showLogs()),
       retry: async () => void (await b.gateway.retry()),
+    },
+    gateways: {
+      list: () => b.gateways.list() as Promise<SavedGatewayView[]>,
+      add: (address, name) => b.gateways.add(address, name) as Promise<SavedGatewayView>,
+      rename: async (id, name) => void (await b.gateways.rename(id, name)),
+      remove: async (id) => void (await b.gateways.remove(id)),
+      switchTo: async (id, opts) => void (await b.gateways.switchTo(id, opts)),
+      repair: async (id) => void (await b.gateways.repair(id)),
     },
     browser: {
       getState: () => b.browser.getState() as Promise<BrowserHostState>,

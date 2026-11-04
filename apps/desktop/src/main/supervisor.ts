@@ -16,9 +16,13 @@ import { dirname, join } from "node:path";
  *   rendered here); without it `renderLaunchAgentPlist` writes the same keys. Plain quit leaves
  *   the agent running; "Quit Psyche entirely" uninstalls it.
  * - `external`: never start anything (tests, a Gateway on another machine via SSH tunnel).
+ * - `remote`: the active saved Gateway is on another computer (remote-gateway design §1.2). Like
+ *   `external` it starts nothing and only reports whether the Gateway answers, and it also leaves
+ *   this Mac's own LaunchAgent alone: "Quit Psyche entirely" in Remote mode must not stop the
+ *   Gateway whose automations keep running here.
  */
 
-export type SupervisorMode = "dev" | "launchd" | "external";
+export type SupervisorMode = "dev" | "launchd" | "external" | "remote";
 
 export const LAUNCH_AGENT_LABEL = "com.psyche.gateway";
 
@@ -264,7 +268,7 @@ export class GatewaySupervisor {
   /** Makes sure a Gateway runs; returns without waiting for it to become healthy. */
   async ensureRunning(): Promise<void> {
     const { mode } = this.opts;
-    if (mode === "external") {
+    if (mode === "external" || mode === "remote") {
       this.set((await this.healthy()) ? { kind: "running", mode } : { kind: "stopped", mode });
       return;
     }
@@ -452,7 +456,7 @@ export class GatewaySupervisor {
   async refresh(): Promise<void> {
     const { mode } = this.opts;
     if (mode !== "launchd") {
-      if (mode === "external")
+      if (mode === "external" || mode === "remote")
         this.set((await this.healthy()) ? { kind: "running", mode } : { kind: "stopped", mode });
       return;
     }

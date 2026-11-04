@@ -3,7 +3,7 @@ import type { ReactElement } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { Kbd } from "../../components/ui/kbd.tsx";
 import { t } from "../../i18n/core.ts";
-import { usePersona } from "../../slots.tsx";
+import { usePersona, useSlots } from "../../slots.tsx";
 import { SegmentedRadio } from "./SegmentedRadio.tsx";
 import {
   bool,
@@ -270,6 +270,16 @@ export function ComputerUseSection({
 }: ComputerUseSectionProps): ReactElement {
   const form = useSettingsForm();
   const persona = usePersona();
+  const { remoteHost } = useSlots();
+  // Driving a Mac nobody can see is unsafe, and the Host's screen may be locked: computer use
+  // stays at the Host (owner decision G5), whatever the Host's own switch says.
+  if (remoteHost !== undefined) {
+    return (
+      <p className="text-callout text-label-secondary" data-testid="computer-use-remote">
+        {t("settings.computerUse.remote", { host: remoteHost })}
+      </p>
+    );
+  }
   return (
     <div className="flex flex-col gap-3">
       <ComputerUsePanel

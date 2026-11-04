@@ -30,6 +30,7 @@ import { ToolbarGroup } from "../components/ui/toolbar.tsx";
 import { useNotifications, useStoreState } from "../data/index.ts";
 import { t } from "../i18n/core.ts";
 import { fade, Presence } from "../motion/index.ts";
+import { GatewayChip } from "../shell/GatewayChip.tsx";
 import { usePersona } from "../slots.tsx";
 import { useAgentStatus } from "./useAgentState.ts";
 
@@ -181,6 +182,7 @@ export function AgentHeader({
       </button>
       <div className="flex min-w-0 flex-1 items-baseline gap-2">
         <p className="min-w-0 truncate text-headline text-label-primary">{persona.name}</p>
+        <GatewayChip />
         {incognito ? (
           <span className="shrink-0 rounded-full border border-dashed border-separator-strong px-2 text-subheadline text-label-secondary">
             {t("chat.toolbar.incognito")}

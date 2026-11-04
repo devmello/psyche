@@ -64,6 +64,20 @@ export const ConnectChallenge = Type.Object(
     serverOrigin: Type.String({ minLength: 1 }),
     protocolVersion: Type.Integer({ minimum: 1, description: "Negotiated version" }),
     expiresAt: IsoDateTime,
+    gatewayKey: Type.Optional(
+      Type.String({
+        pattern: "^[A-Za-z0-9_-]{43}$",
+        description:
+          "The Gateway's long-lived identity public key (base64url raw Ed25519). Clients pin it at first pair and refuse a different one (remote-gateway design §3.3)",
+      }),
+    ),
+    gatewaySignature: Type.Optional(
+      Type.String({
+        pattern: "^[A-Za-z0-9_-]{86}$",
+        description:
+          "base64url Ed25519 signature by the Gateway identity key over gatewaySigningPayload(nonce, serverOrigin, the connecting device's public key)",
+      }),
+    ),
   },
   { $id: "ConnectChallenge" },
 );
@@ -76,6 +90,13 @@ export const ConnectVerifyParams = Type.Object(
       pattern: "^[A-Za-z0-9_-]{86}$",
       description: "base64url Ed25519 signature (64 bytes) over connectSigningPayload(...)",
     }),
+    gatewayKey: Type.Optional(
+      Type.String({
+        pattern: "^[A-Za-z0-9_-]{43}$",
+        description:
+          "The Gateway identity key this client verified and pinned (base64url). When present the signature is over the v2 payload, which includes it, and the Gateway refuses the connect unless it is its own key. A client of a remote Gateway always sends it",
+      }),
+    ),
   },
   { $id: "ConnectVerifyParams" },
 );
@@ -107,12 +128,20 @@ export type ConnectResult = Static<typeof ConnectResult>;
 
 export const CONNECT_SIGNING_PREFIX = "psyche-connect-v1";
 
+export const CONNECT_SIGNING_PREFIX_V2 = "psyche-connect-v2";
+
 export interface ConnectSigningInput {
   nonce: string;
   platform: string;
   deviceFamily: string;
   protocolVersion: number;
   serverOrigin: string;
+  /**
+   * The Gateway identity key the device verified (v2 payload). Without it the payload is v1, as
+   * before. A v2 signature cannot be passed off as v1 (the prefix differs), so a relay cannot
+   * strip the key.
+   */
+  gatewayKey?: string;
 }
 
 /**
@@ -122,24 +151,59 @@ export interface ConnectSigningInput {
  * payload ambiguous).
  */
 export function connectSigningPayload(input: ConnectSigningInput): Uint8Array {
-  const { nonce, platform, deviceFamily, protocolVersion, serverOrigin } = input;
+  const { nonce, platform, deviceFamily, protocolVersion, serverOrigin, gatewayKey } = input;
   if (!Number.isInteger(protocolVersion) || protocolVersion < 1) {
     throw new PsycheError("invalid_params", "protocolVersion must be a positive integer");
   }
-  for (const [key, value] of Object.entries({ nonce, platform, deviceFamily, serverOrigin })) {
+  for (const [key, value] of Object.entries({
+    nonce,
+    platform,
+    deviceFamily,
+    serverOrigin,
+    ...(gatewayKey === undefined ? {} : { gatewayKey }),
+  })) {
     if (typeof value !== "string" || value.length === 0 || /[\r\n]/.test(value)) {
       throw new PsycheError("invalid_params", `${key} must be a non-empty single-line string`);
     }
   }
   return new TextEncoder().encode(
     [
-      CONNECT_SIGNING_PREFIX,
+      gatewayKey === undefined ? CONNECT_SIGNING_PREFIX : CONNECT_SIGNING_PREFIX_V2,
       nonce,
       platform,
       deviceFamily,
       String(protocolVersion),
       serverOrigin,
+      ...(gatewayKey === undefined ? [] : [gatewayKey]),
     ].join("\n"),
+  );
+}
+
+export const GATEWAY_SIGNING_PREFIX = "psyche-gateway-v1";
+
+export interface GatewaySigningInput {
+  nonce: string;
+  serverOrigin: string;
+  /** The connecting device's public key (base64url), as sent in `connect`. */
+  devicePublicKey: string;
+}
+
+/**
+ * Bytes the Gateway signs with its identity key in a challenge: the UTF-8 encoding of
+ * `"psyche-gateway-v1\n" + nonce + "\n" + serverOrigin + "\n" + devicePublicKey`. The nonce makes
+ * it fresh, the origin binds it to the address the client dials, and the device key binds it to
+ * this one connection, so a signature relayed to another device or origin verifies for nobody.
+ * Shared by the Gateway (signs), the desktop client and the phone (verify).
+ */
+export function gatewaySigningPayload(input: GatewaySigningInput): Uint8Array {
+  const { nonce, serverOrigin, devicePublicKey } = input;
+  for (const [key, value] of Object.entries({ nonce, serverOrigin, devicePublicKey })) {
+    if (typeof value !== "string" || value.length === 0 || /[\r\n]/.test(value)) {
+      throw new PsycheError("invalid_params", `${key} must be a non-empty single-line string`);
+    }
+  }
+  return new TextEncoder().encode(
+    [GATEWAY_SIGNING_PREFIX, nonce, serverOrigin, devicePublicKey].join("\n"),
   );
 }
 

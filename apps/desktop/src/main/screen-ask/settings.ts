@@ -35,6 +35,12 @@ export interface ScreenAskShortcutOptions {
   trigger: () => void;
   setEnabled: (on: boolean) => void;
   warn?: (message: string) => void;
+  /**
+   * Never on, whatever the settings (and the defaults) say, and nothing is read from a Gateway:
+   * a client of another computer's Gateway would capture this Mac's screen and send it to the
+   * Host (remote-gateway design §4.2).
+   */
+  disabled?: boolean;
 }
 
 export class ScreenAskShortcut {
@@ -56,6 +62,7 @@ export class ScreenAskShortcut {
   }
 
   async load(): Promise<void> {
+    if (this.#o.disabled === true) return this.apply(this.#settings);
     let values: Record<string, unknown> = {};
     try {
       const res = (await this.#o.call("settings.get", { keys: [...SCREEN_ASK_SETTING_KEYS] })) as {
@@ -68,14 +75,15 @@ export class ScreenAskShortcut {
     this.apply(parseScreenAskSettings(values));
   }
 
-  apply(settings: ScreenAskSettings): void {
+  apply(requested: ScreenAskSettings): void {
+    const settings = this.#o.disabled === true ? { ...requested, enabled: false } : requested;
     this.#settings = settings;
     this.#o.setEnabled(settings.enabled);
     this.#register(settings.enabled ? settings.shortcut : "");
   }
 
   onEvent(event: string, payload: unknown): void {
-    if (event !== "settings.changed") return;
+    if (this.#o.disabled === true || event !== "settings.changed") return;
     const entries = ((payload as { entries?: { key: string }[] } | null)?.entries ?? []) as {
       key: string;
     }[];

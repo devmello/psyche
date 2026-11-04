@@ -220,7 +220,9 @@ function AboutLive({ app }: { app: AppInfoPort | undefined }): ReactElement {
   return (
     <AboutSection
       info={info}
-      {...(app ? { onRevealHome: () => void app.revealHome().catch(() => undefined) } : {})}
+      {...(app?.revealHome
+        ? { onRevealHome: () => void app.revealHome?.().catch(() => undefined) }
+        : {})}
     />
   );
 }

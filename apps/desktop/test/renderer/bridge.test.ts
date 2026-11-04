@@ -87,7 +87,7 @@ describe("renderer bridge", () => {
     } as unknown as PsycheBridge;
     const platform = desktopPlatform(fake);
     await expect(platform.app?.info()).resolves.toBe(info);
-    await platform.app?.revealHome();
+    await platform.app?.revealHome?.();
     expect(revealed).toBe(1);
   });
 
@@ -109,5 +109,46 @@ describe("renderer bridge", () => {
     } as unknown as PsycheBridge;
     desktopPlatform(fake).windows?.openInMain?.("/onboarding");
     expect(sent).toEqual(["/onboarding"]);
+  });
+  describe("a client of a Gateway on another computer (remote-gateway design §4.2)", () => {
+    const remote = {
+      chrome: { titleBar: "native", remote: { hostName: "studio-mac" } },
+      app: { info: async () => ({ appVersion: "1" }), revealHome: async () => {} },
+      gateway: { showLogs: async () => {}, retry: async () => {} },
+    } as unknown as PsycheBridge;
+
+    it("leaves out what only works on the machine the Gateway runs on", () => {
+      const platform = desktopPlatform(remote);
+      // The agent's browser, the folder picker, the Mac helper with its Touch ID, system-wide
+      // dictation, and revealing the Host's folders or logs.
+      expect(platform.browser).toBeUndefined();
+      expect(platform.dialogs).toBeUndefined();
+      expect(platform.helper).toBeUndefined();
+      expect(platform.dictation).toBeUndefined();
+      // A shell is started here from what the Gateway answers: never offered for a remote one.
+      expect(platform.terminal).toBeUndefined();
+      expect(platform.sources).toBeUndefined();
+      expect(platform.permissions).toBeUndefined();
+      expect(platform.app?.revealHome).toBeUndefined();
+      expect(platform.gateway.showLogs).toBeUndefined();
+      // The window is told whose it is, and the shell, the terminal and the switcher stay.
+      expect(platform.chrome?.remote).toEqual({ hostName: "studio-mac" });
+      expect(platform.gateways).toBeDefined();
+      expect(platform.gateway.retry).toBeDefined();
+      expect(platform.app?.info).toBeDefined();
+    });
+
+    it("keeps everything for This Mac", () => {
+      const platform = desktopPlatform({
+        ...remote,
+        chrome: { titleBar: "native" },
+      } as unknown as PsycheBridge);
+      expect(platform.browser).toBeDefined();
+      expect(platform.dialogs).toBeDefined();
+      expect(platform.helper).toBeDefined();
+      expect(platform.dictation).toBeDefined();
+      expect(platform.terminal).toBeDefined();
+      expect(platform.app?.revealHome).toBeDefined();
+    });
   });
 });

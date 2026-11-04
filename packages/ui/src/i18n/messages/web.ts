@@ -418,5 +418,52 @@ export const web = {
   "web.splash.showLogs": "Show logs",
   "web.splash.retry": "Retry",
   "web.splash.openAnyway": "Open Psyche anyway",
+  // The splash and the window when Psyche is a client of another computer's Gateway
+  // (docs/design/remote-gateway-2026.md §4.6).
+  "web.splash.remote.finding": "Finding {host}…",
+  "web.splash.remote.checking": "Checking it's really {host}…",
+  "web.splash.remote.waiting": "Waiting for approval on {host}…",
+  "web.splash.remote.pairCode": "Pairing code {code}",
+  "web.splash.remote.pairKey": "Gateway key {fingerprint}",
+  "web.splash.remote.pairHint":
+    "Compare both with the request in {host}'s Settings → Devices, then approve it there.",
+  "web.splash.remote.unreachable": "{host} isn't answering.",
+  "web.splash.remote.unreachableReason":
+    "It may be asleep or off, Psyche may not be running there, or Tailscale may be off on this computer. Psyche keeps trying.",
+  "web.splash.remote.identity": "This isn't the {host} you paired with.",
+  "web.splash.remote.identityChanged":
+    "Its identity key is not the one this computer pinned. Another machine may be answering in its place, or it was set up again.",
+  "web.splash.remote.identityMissing":
+    "It did not present an identity key, so Psyche will not connect.",
+  "web.splash.remote.identityInvalid":
+    "Its identity proof did not check out, so Psyche will not connect.",
+  "web.splash.remote.identityOrigin":
+    "It answered for a different address than the one this computer dialed. On {host}, set the public address in Settings → Devices → Server & remote access.",
+  "web.splash.remote.olderHost": "{host} runs an older Psyche.",
+  "web.splash.remote.olderHostReason": "Update Psyche on {host}, then try again.",
+  "web.splash.remote.olderApp": "This app is older than {host}.",
+  "web.splash.remote.olderAppReason": "Update Psyche on this computer, then try again.",
+  "web.splash.remote.revoked": "This computer was removed from {host}.",
+  "web.splash.remote.revokedReason": "Pair again to use it from here, or forget it.",
+  "web.splash.remote.switch": "Switch Gateway",
+  "web.splash.remote.useThisMac": "Use This Mac",
+  "web.splash.remote.pairAgain": "Forget and pair again",
+  "web.splash.remote.forget": "Forget {host}",
+  "web.splash.remote.close": "Hide",
+  // Where this window is connected, and what only works on that computer.
+  "web.remote.connectedTo": "Connected to {host}",
+  "web.remote.switch": "Switch…",
+  "web.remote.thisMac": "This Mac",
+  "web.remote.menuLabel": "Gateway",
+  "web.remote.switcherLabel": "Connected to {host}. Switch Gateway.",
+  "web.remote.manage": "Gateways…",
+  "web.panes.title.terminalOn": "Terminal on {host}",
+  "web.panes.terminalRemote": "The terminal runs on {host}. This window has no shell on it yet.",
+  "web.splash.remote.pinsUnreadable": "Psyche can't read its saved Gateways.",
+  "web.splash.remote.pinsUnreadableReason":
+    "The file that remembers each Gateway's identity can't be read, so Psyche won't connect without it. Nothing was changed.",
+  "web.browser.remote": "The browser runs on {host}.",
+  "web.browser.remoteHint":
+    "Browser tasks keep running in Psyche on {host}, which has to be open there.",
   "web.banner.connecting": "Connecting to Psyche…",
 } as const;

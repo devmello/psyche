@@ -107,6 +107,7 @@ describe("trusted-proxy mode end to end", () => {
     const c = await open({ "X-Forwarded-For": "203.0.113.9" });
     const res = await handshake(c, t.gateway.origin, {
       handshakeSecret: t.gateway.handshakeSecret,
+      gatewayKey: t.gateway.context.identity.publicKey,
     });
     expect(verified<{ phase: string }>(res).phase).toBe("pending");
   });
@@ -119,19 +120,20 @@ describe("trusted-proxy mode end to end", () => {
       "X-Forwarded-For": "100.101.102.103",
       "Tailscale-User-Login": "owner@example.test",
     };
-    const first = await handshake(await open(headers), t.gateway.origin, {});
+    const bound = { gatewayKey: t.gateway.context.identity.publicKey };
+    const first = await handshake(await open(headers), t.gateway.origin, bound);
     expect(verified<{ phase: string }>(first).phase).toBe("pending");
     const evt = await admin.waitForEvent((e) => e.event === "pairing.requested");
     const request = (evt.payload as { pairingRequest: PairingRequest }).pairingRequest;
     expect(request.remoteAddress).toBe("100.101.102.103");
     expect(request.display).toContain("proxy says owner@example.test");
     // The per-address limit applies to the client behind the proxy, not to the proxy itself.
-    const second = await handshake(await open(headers), t.gateway.origin, {});
+    const second = await handshake(await open(headers), t.gateway.origin, bound);
     expect(second.verifyRes).toMatchObject({ ok: false, error: { code: "rate_limited" } });
     const other = await handshake(
       await open({ "X-Forwarded-For": "100.64.9.9, 203.0.113.50" }),
       t.gateway.origin,
-      {},
+      bound,
     );
     expect(verified<{ phase: string }>(other).phase).toBe("pending");
   });

@@ -243,6 +243,7 @@ export {
   tableToCsv,
   viewRows,
 } from "./lib/artifact-ops.ts";
+export { groupFingerprint } from "./lib/fingerprint.ts";
 // Formatting helpers.
 export * from "./lib/format.ts";
 export { documentPrefersReducedMotion } from "./lib/reduced-motion.ts";
@@ -293,6 +294,10 @@ export * from "./screens/onboarding/model.ts";
 export * from "./screens/scheduled/index.ts";
 export * from "./screens/search/index.ts";
 export { CONTEXT_KEYS, ContextSettingsGroup } from "./screens/settings/ContextSettings.tsx";
+export {
+  AddGatewayForm,
+  GatewaysList,
+} from "./screens/settings/GatewaysGroup.tsx";
 export * from "./screens/settings/index.ts";
 export * from "./screens/workflows/index.ts";
 export { AppearanceProvider, type AppearanceProviderProps } from "./shell/AppearanceProvider.tsx";
@@ -306,6 +311,7 @@ export {
   paletteMatches,
 } from "./shell/CommandPalette.tsx";
 export { CompactTopBar, type CompactTopBarProps } from "./shell/CompactTopBar.tsx";
+export { GatewayChip } from "./shell/GatewayChip.tsx";
 export {
   PanePresence,
   ReflowColumn,
@@ -347,6 +353,7 @@ export {
 export {
   SPLASH_LEAVE_MS,
   SPLASH_LEAVE_REDUCED_MS,
+  type SplashActionView,
   type SplashLineView,
   StartupSplashView,
   type StartupSplashViewProps,
@@ -389,6 +396,8 @@ export {
 export {
   type EditorLineMark,
   type EditorSlotProps,
+  type GatewayEntry,
+  type GatewaysSlot,
   type UiSlots,
   UiSlotsProvider,
   usePersona,

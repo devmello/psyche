@@ -4,6 +4,8 @@ import { Button } from "../../components/ui/button.tsx";
 import { useGatewayQuery } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { useSlots } from "../../slots.tsx";
+import { GatewaysGroup } from "./GatewaysGroup.tsx";
+import { RemoteAccessGroup } from "./RemoteAccessGroup.tsx";
 import {
   EmptyNotice,
   ErrorNotice,
@@ -188,7 +190,7 @@ export interface ServerSectionProps {
 
 export function ServerSection({ status, ...actions }: ServerSectionProps): ReactElement {
   const form = useSettingsForm();
-  const { openExternal } = useSlots();
+  const { openExternal, remoteHost } = useSlots();
   const sandbox = useGatewayQuery("sandbox.status", {});
   const passkeys = useGatewayQuery("passkeys.list", {});
   const sandboxNow = sandbox.data
@@ -211,6 +213,14 @@ export function ServerSection({ status, ...actions }: ServerSectionProps): React
     });
   return (
     <div className="flex flex-col gap-3">
+      <GatewaysGroup />
+      {remoteHost === undefined ? (
+        <RemoteAccessGroup />
+      ) : (
+        <p className="text-callout text-label-secondary">
+          {t("settings.remote.clientNote", { host: remoteHost })}
+        </p>
+      )}
       <ServerPanel
         {...actions}
         onSetUpRemote={onSetUpRemote}

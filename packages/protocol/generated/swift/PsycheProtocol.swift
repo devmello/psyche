@@ -536,6 +536,8 @@
 //   let filesReadResult = try? JSONDecoder().decode(FilesReadResult.self, from: jsonData)
 //   let frame = try? JSONDecoder().decode(Frame.self, from: jsonData)
 //   let gatedCapability = try? JSONDecoder().decode(GatedCapability.self, from: jsonData)
+//   let gatewayInfo = try? JSONDecoder().decode(GatewayInfo.self, from: jsonData)
+//   let gatewayInfoParams = try? JSONDecoder().decode(GatewayInfoParams.self, from: jsonData)
 //   let gatewayShutdownPayload = try? JSONDecoder().decode(GatewayShutdownPayload.self, from: jsonData)
 //   let goal = try? JSONDecoder().decode(Goal.self, from: jsonData)
 //   let goalCategory = try? JSONDecoder().decode(GoalCategory.self, from: jsonData)
@@ -9925,6 +9927,12 @@ public enum CompactionBlockType: String, Codable, Sendable {
 // MARK: - ConnectChallenge
 public struct ConnectChallenge: Codable, Sendable {
     public let expiresAt: String
+    /// The Gateway's long-lived identity public key (base64url raw Ed25519). Clients pin it at
+    /// first pair and refuse a different one (remote-gateway design §3.3)
+    public let gatewayKey: String?
+    /// base64url Ed25519 signature by the Gateway identity key over gatewaySigningPayload(nonce,
+    /// serverOrigin, the connecting device's public key)
+    public let gatewaySignature: String?
     /// base64url, 32 random bytes
     public let nonce: String
     public let phase: ConnectChallengePhase
@@ -9934,14 +9942,18 @@ public struct ConnectChallenge: Codable, Sendable {
 
     public enum CodingKeys: String, CodingKey {
         case expiresAt = "expiresAt"
+        case gatewayKey = "gatewayKey"
+        case gatewaySignature = "gatewaySignature"
         case nonce = "nonce"
         case phase = "phase"
         case protocolVersion = "protocolVersion"
         case serverOrigin = "serverOrigin"
     }
 
-    public init(expiresAt: String, nonce: String, phase: ConnectChallengePhase, protocolVersion: Int, serverOrigin: String) {
+    public init(expiresAt: String, gatewayKey: String?, gatewaySignature: String?, nonce: String, phase: ConnectChallengePhase, protocolVersion: Int, serverOrigin: String) {
         self.expiresAt = expiresAt
+        self.gatewayKey = gatewayKey
+        self.gatewaySignature = gatewaySignature
         self.nonce = nonce
         self.phase = phase
         self.protocolVersion = protocolVersion
@@ -10142,17 +10154,23 @@ public enum ConnectResultPhase: String, Codable, Sendable {
 
 // MARK: - ConnectVerifyParams
 public struct ConnectVerifyParams: Codable, Sendable {
+    /// The Gateway identity key this client verified and pinned (base64url). When present the
+    /// signature is over the v2 payload, which includes it, and the Gateway refuses the connect
+    /// unless it is its own key. A client of a remote Gateway always sends it
+    public let gatewayKey: String?
     /// base64url, 32 random bytes
     public let nonce: String
     /// base64url Ed25519 signature (64 bytes) over connectSigningPayload(...)
     public let signature: String
 
     public enum CodingKeys: String, CodingKey {
+        case gatewayKey = "gatewayKey"
         case nonce = "nonce"
         case signature = "signature"
     }
 
-    public init(nonce: String, signature: String) {
+    public init(gatewayKey: String?, nonce: String, signature: String) {
+        self.gatewayKey = gatewayKey
         self.nonce = nonce
         self.signature = signature
     }
@@ -14153,6 +14171,49 @@ public enum FrameType: String, Codable, Sendable {
     case event = "event"
     case req = "req"
     case res = "res"
+}
+
+// MARK: - GatewayInfo
+public struct GatewayInfo: Codable, Sendable {
+    /// The Host machine's name
+    public let hostName: String
+    public let identity: Identity
+    /// gateway.publicOrigin, the https address other computers reach it at
+    public let publicOrigin: String?
+    /// gateway.trustedProxy is on
+    public let trustedProxy: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case hostName = "hostName"
+        case identity = "identity"
+        case publicOrigin = "publicOrigin"
+        case trustedProxy = "trustedProxy"
+    }
+
+    public init(hostName: String, identity: Identity, publicOrigin: String?, trustedProxy: Bool) {
+        self.hostName = hostName
+        self.identity = identity
+        self.publicOrigin = publicOrigin
+        self.trustedProxy = trustedProxy
+    }
+}
+
+// MARK: - Identity
+public struct Identity: Codable, Sendable {
+    /// sha256:<hex> of the raw key, as clients show it
+    public let fingerprint: String
+    /// base64url raw Ed25519 identity public key
+    public let publicKey: String
+
+    public enum CodingKeys: String, CodingKey {
+        case fingerprint = "fingerprint"
+        case publicKey = "publicKey"
+    }
+
+    public init(fingerprint: String, publicKey: String) {
+        self.fingerprint = fingerprint
+        self.publicKey = publicKey
+    }
 }
 
 // MARK: - GatewayShutdownPayload
@@ -33775,6 +33836,7 @@ public typealias DevicesBootstrapAdminParams = [String: JSONAny]
 public typealias DevicesPresenceKeyListParams = [String: JSONAny]
 public typealias DictationTargetParams = [String: JSONAny]
 public typealias EmptyParams = [String: JSONAny]
+public typealias GatewayInfoParams = [String: JSONAny]
 public typealias GrowthUpdatedPayload = [String: JSONAny]
 public typealias MCPStatusParams = [String: JSONAny]
 public typealias MeetingsRecordPushResult = [String: JSONAny]

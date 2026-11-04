@@ -17,6 +17,13 @@ export const IPC = {
   gatewayRun: "psyche:gateway:run",
   gatewayShowLogs: "psyche:gateway:show-logs",
   gatewayRetry: "psyche:gateway:retry",
+  // Saved Gateways (remote-gateway design §1.3): the list, add, forget, switch, pair again.
+  gatewaysList: "psyche:gateways:list",
+  gatewaysAdd: "psyche:gateways:add",
+  gatewaysRename: "psyche:gateways:rename",
+  gatewaysRemove: "psyche:gateways:remove",
+  gatewaysSwitch: "psyche:gateways:switch",
+  gatewaysRepair: "psyche:gateways:repair",
   // Embedded agent browser.
   browserGetState: "psyche:browser:get-state",
   browserState: "psyche:browser:state",
@@ -266,3 +273,24 @@ export function checkAudioChunk(v: unknown): string {
     throw new IpcPayloadError(IPC.dictationAudio, "not base64");
   return s;
 }
+
+/**
+ * What a client of another computer's Gateway never does here (remote-gateway design §4.2): each
+ * one reaches this Mac's own shell, folders, helper, screen, microphone or apps on a Gateway's
+ * say-so, or for a Host's data. The remote window leaves the controls out; main refuses the
+ * calls as well, whatever the window sends. (The terminal starts a process from what the
+ * Gateway answers: a Gateway on another computer must never be able to ask for one.)
+ */
+export const REMOTE_REFUSED_CHANNELS: ReadonlySet<string> = new Set([
+  IPC.terminalOpen,
+  IPC.browserOpenRealChromeProfile,
+  IPC.dialogPickFolder,
+  IPC.permissionsRequest,
+  IPC.helperLaunch,
+  IPC.touchIdIdentity,
+  IPC.touchIdRegister,
+  IPC.touchIdApprove,
+  IPC.dictationRecheck,
+  IPC.dictationCheckHotkey,
+  IPC.sourceOpen,
+]);

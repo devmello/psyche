@@ -1,4 +1,5 @@
 import { execFile, spawn } from "node:child_process";
+import { mkdirSync } from "node:fs";
 import { mkdir, readFile, realpath } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import {
@@ -30,16 +31,18 @@ import {
   type WebContents,
   webContents,
 } from "electron";
-import {
-  createDesktopGateway,
-  defaultGatewayOrigin,
-  defaultPsycheHome,
-  isLocalGatewayOrigin,
-} from "./gateway-client.ts";
+import { createDesktopGateway, defaultPsycheHome, isLocalGatewayOrigin } from "./gateway-client.ts";
 import { appInfo } from "./lib/app-info.ts";
 import { APP_ORIGIN, APP_SCHEME, contentType, isSameApp, resolveAppPath } from "./lib/app-path.ts";
 import { deepLinkFromArgv, isAppRoute, parseDeepLink } from "./lib/deep-link.ts";
 import { loadOrCreateDeviceKey } from "./lib/device-key.ts";
+import { createGatewayVerifier, readLocalGatewayKey } from "./lib/gateway-identity.ts";
+import {
+  EMPTY_GATEWAYS,
+  gatewaysFilePath,
+  loadGatewaysStrict,
+  resolveTarget,
+} from "./lib/gateways.ts";
 import {
   checkCallable,
   checkClipboardText,
@@ -52,6 +55,7 @@ import {
   checkViewport,
   IPC,
   num,
+  REMOTE_REFUSED_CHANNELS,
   rec,
   str,
 } from "./lib/ipc.ts";
@@ -69,6 +73,7 @@ import { SystemDictation } from "./main/dictation/controller.ts";
 import { HudWindow } from "./main/dictation/hud.ts";
 import { ACCESSIBILITY_SETTINGS_URL, DictationService } from "./main/dictation/service.ts";
 import { DockPolicy } from "./main/dock-policy.ts";
+import { type GatewayConfirm, GatewayManager } from "./main/gateway-manager.ts";
 import {
   attachNativeGlass,
   GLASS_PROBE_ENV,
@@ -132,6 +137,48 @@ if (!app.isPackaged && process.env.PSYCHE_USER_DATA)
 
 if (!app.requestSingleInstanceLock()) app.quit();
 
+/**
+ * Which Gateway this launch connects to (remote-gateway design §1.3): `PSYCHE_GATEWAY_ORIGIN`
+ * (dev and tests), the active saved Gateway, or This Mac. A saved remote Gateway runs out of its
+ * own data directory: its device key, renderer storage, caches and window state live there, so
+ * nothing from another Gateway can show in it. The base directory keeps `gateways.json` and
+ * This Mac's data exactly where they were. Switching restarts the app, so every module starts
+ * over on the new Gateway.
+ */
+const baseUserData = app.getPath("userData");
+/**
+ * A saved-Gateways file that exists but cannot be understood is not an empty list (that would
+ * read as "nothing pinned" and be written back over the pins): the app starts on This Mac, says
+ * so in a dialog once it is ready, and nothing writes the file while it stays unreadable
+ * (`GatewayManager` reads it strictly too).
+ */
+let gatewaysFileProblem: string | undefined;
+const savedGateways = (() => {
+  try {
+    return loadGatewaysStrict(gatewaysFilePath(baseUserData));
+  } catch (err) {
+    gatewaysFileProblem = err instanceof Error ? err.message : "unreadable";
+    return { ...EMPTY_GATEWAYS, gateways: [] };
+  }
+})();
+const gatewayTarget = resolveTarget({
+  userData: baseUserData,
+  env: process.env,
+  data: savedGateways,
+  packaged: app.isPackaged,
+});
+if (gatewayTarget.dataDir !== null) {
+  mkdirSync(gatewayTarget.dataDir, { recursive: true, mode: 0o700 });
+  app.setPath("userData", gatewayTarget.dataDir);
+  app.setPath("sessionData", gatewayTarget.dataDir);
+}
+/** Connected to a Gateway on another computer: nothing here may reach this Mac's helper or files. */
+const remoteGateway = gatewayTarget.remote;
+/** The Gateway is this Mac's own: the one this app supervises, launches a helper for and bootstraps. */
+const thisMacGateway = !remoteGateway && isLocalGatewayOrigin(gatewayTarget.origin);
+/** The mode the supervisor runs in: a saved remote Gateway starts nothing here. */
+const supervisorMode = remoteGateway ? "remote" : chooseMode(process.env, app.isPackaged);
+
 // A first-paint measurement run (main/perf-probe.ts) changes nothing outside its scratch dirs.
 const perfProbe = perfProbeFile();
 if (perfProbe !== undefined) startProbe(perfProbe);
@@ -168,7 +215,7 @@ let supervisor: GatewaySupervisor | undefined;
 let splashWanted = false;
 
 async function decideSplash(): Promise<void> {
-  const healthyAtLaunch = await fetch(new URL("/healthz", defaultGatewayOrigin()), {
+  const healthyAtLaunch = await fetch(new URL("/healthz", gatewayTarget.origin), {
     signal: AbortSignal.timeout(60),
   }).then(
     (r) => r.ok,
@@ -177,7 +224,7 @@ async function decideSplash(): Promise<void> {
   splashWanted = shouldShowSplash({
     packaged: app.isPackaged,
     env: process.env,
-    mode: chooseMode(process.env, app.isPackaged),
+    mode: supervisorMode,
     healthyAtLaunch,
     probing: perfProbe !== undefined,
   });
@@ -274,6 +321,12 @@ function handle(channel: string, fn: Handler): void {
   ipcMain.handle(channel, async (event, arg: unknown) => {
     if (!trusted(event))
       return { ok: false, error: { code: "forbidden", message: "untrusted sender" } };
+    if (remoteGateway && REMOTE_REFUSED_CHANNELS.has(channel)) {
+      return {
+        ok: false,
+        error: { code: "forbidden", message: "That only works on the computer running Psyche" },
+      };
+    }
     try {
       return { ok: true, value: await fn(event, arg) };
     } catch (err) {
@@ -387,9 +440,7 @@ const permissions = createPermissions({
  * ones that Gateway knows or may ask (remote-gateway design §5.2).
  */
 function helperForThisGateway(): string | undefined {
-  return perfProbe === undefined && isLocalGatewayOrigin(defaultGatewayOrigin())
-    ? bundledHelperPath()
-    : undefined;
+  return perfProbe === undefined && thisMacGateway ? bundledHelperPath() : undefined;
 }
 
 /** The bundled helper's own device id and Touch ID key id (`--print-identity`). */
@@ -424,16 +475,106 @@ function requireBrowser(): BrowserHost {
   return browser;
 }
 
+/**
+ * The native confirmation for a change to the saved Gateways. It names the address main
+ * normalized, in a dialog the renderer can neither draw nor click, because the address decides
+ * where this app sends its signed handshake (security §10: never an address a page chose).
+ */
+async function confirmGatewayChange(c: GatewayConfirm): Promise<boolean> {
+  const opts =
+    c.kind === "add"
+      ? {
+          message: `Connect Psyche to ${c.origin}?`,
+          detail: `Name: ${c.name}\n\nThis computer will ask that Gateway to pair. Nothing is shared until its owner approves this computer there, and Psyche pins the Gateway's identity at the first connection.`,
+          buttons: ["Add Gateway", "Cancel"],
+        }
+      : c.kind === "forget"
+        ? {
+            message: `Forget ${c.name}?`,
+            detail: `${c.origin}\n\nThis removes this computer's key for it and everything Psyche stored here for it. ${c.name} still lists this computer until someone removes it there.`,
+            buttons: ["Forget", "Cancel"],
+          }
+        : c.kind === "repair"
+          ? {
+              message: `Pair with ${c.name} again?`,
+              detail: `${c.origin}\n\nThis forgets the identity Psyche pinned for it and this computer's key, so the next connection pins whatever answers at that address and asks to pair as a new computer. Only do this if you know why its identity changed.`,
+              buttons: ["Pair again", "Cancel"],
+            }
+          : {
+              message: "Stop Psyche on this Mac?",
+              detail:
+                "Its automations and scheduled tasks stop until you switch back. Leave it running to keep them going.",
+              buttons: ["Stop Psyche on this Mac", "Keep it running"],
+            };
+  const win = windows?.main();
+  const dialogOptions = {
+    type: "question" as const,
+    buttons: opts.buttons,
+    defaultId: 1,
+    cancelId: 1,
+    message: opts.message,
+    detail: opts.detail,
+  };
+  const res = win
+    ? await dialog.showMessageBox(win, dialogOptions)
+    : await dialog.showMessageBox(dialogOptions);
+  return res.response === 0;
+}
+
+/** The saved Gateways: the list, adding, forgetting, switching (a restart) and the active pin. */
+const gateways = new GatewayManager({
+  userData: baseUserData,
+  target: gatewayTarget,
+  confirm: confirmGatewayChange,
+  relaunch: () => {
+    app.relaunch();
+    app.quit();
+  },
+  ...(remoteGateway ? {} : { stopLocal: () => supervisor?.stopEverything() ?? Promise.resolve() }),
+});
+
 function registerIpc(): void {
   handle(IPC.getStatus, () => gateway?.getStatus());
   handle(IPC.getDeviceId, () => thisDeviceId);
   handle(IPC.gatewayGetRun, () => supervisor?.getState() ?? { kind: "unknown" });
-  handle(IPC.gatewayShowLogs, () => shell.openPath(join(home, "logs")));
+  handle(IPC.gatewayShowLogs, () => {
+    if (remoteGateway) throw new PsycheError("forbidden", "The logs are on the other computer");
+    return shell.openPath(join(home, "logs"));
+  });
   // The splash's Retry after a failed start: run the supervisor again, then connect.
   handle(IPC.gatewayRetry, async () => {
     await supervisor?.ensureRunning();
+    // A remote Gateway that failed a check has stopped its reconnect loop: start over.
+    if (remoteGateway) gateway?.stop();
     gateway?.start();
   });
+  handle(IPC.gatewaysList, () => gateways.list());
+  handle(IPC.gatewaysAdd, (_e, arg) => {
+    const r = rec(IPC.gatewaysAdd, arg);
+    return gateways.add(
+      str(IPC.gatewaysAdd, r.address, "address", 300),
+      typeof r.name === "string" ? str(IPC.gatewaysAdd, r.name, "name", 64) : undefined,
+    );
+  });
+  handle(IPC.gatewaysRename, (_e, arg) => {
+    const r = rec(IPC.gatewaysRename, arg);
+    gateways.rename(
+      str(IPC.gatewaysRename, r.id, "id", 32),
+      str(IPC.gatewaysRename, r.name, "name", 64),
+    );
+  });
+  handle(IPC.gatewaysRemove, (_e, arg) =>
+    gateways.remove(str(IPC.gatewaysRemove, rec(IPC.gatewaysRemove, arg).id, "id", 32)),
+  );
+  handle(IPC.gatewaysSwitch, (_e, arg) => {
+    const r = rec(IPC.gatewaysSwitch, arg);
+    return gateways.switchTo(str(IPC.gatewaysSwitch, r.id, "id", 32), {
+      stopLocal: r.stopLocal === true,
+    });
+  });
+  handle(IPC.gatewaysRepair, (_e, arg) =>
+    gateways.repair(str(IPC.gatewaysRepair, rec(IPC.gatewaysRepair, arg).id, "id", 32)),
+  );
   handle(IPC.call, (_e, arg) => {
     const r = rec(IPC.call, arg);
     const method = checkCallable(r.method, isMethodName);
@@ -677,10 +818,14 @@ function registerIpc(): void {
       osVersion: process.getSystemVersion(),
       versions: process.versions,
       psycheHome: home,
-      gatewayOrigin: defaultGatewayOrigin(),
+      gatewayOrigin: gatewayTarget.origin,
     }),
   );
-  handle(IPC.appRevealHome, () => shell.showItemInFolder(home));
+  handle(IPC.appRevealHome, () => {
+    // The data folder is on the Host, not here (design §4.2: "Show in Finder" is Host-only).
+    if (remoteGateway) throw new PsycheError("forbidden", "That folder is on the other computer");
+    shell.showItemInFolder(home);
+  });
   handle(IPC.systemAppearanceGet, () => systemAppearance());
   handle(IPC.localeGet, () => ({
     system: app.getSystemLocale(),
@@ -759,15 +904,21 @@ function onGatewayEvent(e: {
   stateVersion: number;
 }): void {
   broadcast(IPC.event, e);
-  dictation?.onEvent(e.event, e.payload);
-  screenAskShortcut?.onEvent(e.event, e.payload);
+  // Settings changes would register the Host's dictation and Ask-about-screen hotkeys here.
+  if (!remoteGateway) {
+    dictation?.onEvent(e.event, e.payload);
+    screenAskShortcut?.onEvent(e.event, e.payload);
+  }
   const p = e.payload as Record<string, unknown>;
   if (e.event === "settings.changed") {
     const entries = (p.entries as { key: string; value: unknown }[] | undefined) ?? [];
     zoom.onSettingsChanged(entries);
     windowTheme.onSettingsChanged(entries);
-    dockPolicy.onSettingsChanged(entries);
-    loginItem.onSettingsChanged(entries);
+    // The Host's Dock and open-at-login settings describe the Host, not this Mac (design §4.4).
+    if (!remoteGateway) {
+      dockPolicy.onSettingsChanged(entries);
+      loginItem.onSettingsChanged(entries);
+    }
   }
   if (e.event === "notification.opened") {
     const route = p.route;
@@ -855,6 +1006,13 @@ function lockDownDefaultSession(): void {
 }
 
 void app.whenReady().then(async () => {
+  if (gatewaysFileProblem !== undefined) {
+    await dialog.showMessageBox({
+      type: "warning",
+      message: "Psyche can't read its saved Gateways",
+      detail: `${gatewaysFileProblem}. Psyche starts on This Mac and leaves the file as it is, so no pinned identity is lost. Fix or remove the file in Psyche's data folder to use another computer's Gateway.`,
+    });
+  }
   await decideSplash();
   nativeTheme.on("updated", () => {
     windowTheme.refresh();
@@ -896,6 +1054,7 @@ void app.whenReady().then(async () => {
     // The pane's window is gone: the main window docks it again instead of keeping it "popped".
     onPopOutClosed: (route) => command({ type: "popOutClosed", route }),
     splash: () => splashWanted,
+    ...(remoteGateway ? { remote: { hostName: gatewayTarget.name } } : {}),
     anySize: wantsAnyWindowSize(app.isPackaged, process.env),
     mainOptions: glassWindowOptions(glass),
     dock: dockPolicy,
@@ -941,6 +1100,9 @@ void app.whenReady().then(async () => {
     },
     onMainCreated: (win, mainView) => {
       browser?.dispose();
+      // The agent's browser stays on the Host (decision G4): no pane, no bridge to this Mac's
+      // own Gateway, nothing for the Host to drive from here.
+      if (remoteGateway) return;
       browser = new BrowserHost({
         window: win,
         rendererZoom: () =>
@@ -994,7 +1156,7 @@ void app.whenReady().then(async () => {
 
   const deviceKey = loadOrCreateDeviceKey(join(app.getPath("userData"), "device-key.json"));
   thisDeviceId = deviceKey.deviceId;
-  const origin = defaultGatewayOrigin();
+  const origin = gatewayTarget.origin;
   // Pairing work runs once per pairing, not on every 10 s health tick (which re-sent
   // dictation.watch and failed it as unavailable while the helper was offline).
   const onPairing = pairingEdge({
@@ -1004,13 +1166,19 @@ void app.whenReady().then(async () => {
       void refreshApprovals();
       void zoom.load();
       void windowTheme.load();
-      void dockPolicy.load((method, params) => requireGateway().call(method, params));
-      void loginItem.load((method, params) => requireGateway().call(method, params));
-      void dictation?.load();
-      void screenAskShortcut?.load();
+      if (!remoteGateway) {
+        void dockPolicy.load((method, params) => requireGateway().call(method, params));
+        void loginItem.load((method, params) => requireGateway().call(method, params));
+      }
+      // System-wide dictation and Ask about my screen would listen to, and capture, the Host's
+      // microphone and screen from here: off until they can run on this computer (design §4.2).
+      if (!remoteGateway) {
+        void dictation?.load();
+        void screenAskShortcut?.load();
+      }
       void bootstrapAdminIfNeeded({
         packaged: app.isPackaged,
-        local: isLocalGatewayOrigin(defaultGatewayOrigin()),
+        local: thisMacGateway,
         scopes: () => gateway?.getStatus().scopes,
         call: (m, p, o) => requireGateway().call(m, p, o),
         reconnect: () => {
@@ -1022,14 +1190,32 @@ void app.whenReady().then(async () => {
     },
     onUnpaired: () => dictation?.onDisconnected(),
   });
+  const gatewayVerifier = createGatewayVerifier({
+    dialedOrigin: origin,
+    mode: remoteGateway ? "strict" : "local",
+    pinnedKey: () => gateways.pinnedKey(),
+    // This Mac's own Gateway must answer with the key in this Mac's own identity file.
+    ...(thisMacGateway ? { localKey: () => readLocalGatewayKey(home) } : {}),
+  });
   gateway = createDesktopGateway({
     deviceKey,
     httpOrigin: origin,
     psycheHome: home,
+    ...(remoteGateway ? { remote: true } : {}),
+    // The Gateway proves its identity key before this app signs anything (design §3.3). A saved
+    // remote Gateway is pinned on first use and refused if the key ever differs; This Mac's own
+    // is trusted by the per-launch secret, so it keeps no pin.
+    verifyGateway: gatewayVerifier,
     onStatus: (s) => {
       broadcast(IPC.status, s);
       tray?.update({ status: s });
+      // Trust on first use is held in memory and stored only once that connection is paired.
+      if (s.phase === "paired" && remoteGateway) {
+        const first = gatewayVerifier.candidateKey();
+        if (first !== undefined) gateways.pin(first);
+      }
       onPairing(s);
+      if (s.phase === "paired") gateways.markConnected();
     },
     onEvent: onGatewayEvent,
     onResync: () => {
@@ -1065,7 +1251,9 @@ void app.whenReady().then(async () => {
     warn: (m) => console.warn(`[dictation] ${m}`),
     onStatus: (s) => broadcast(IPC.dictationStatus, s),
     // Double-tapping the voice or dictation key opens "Ask about my screen", like the shortcut.
-    onKeyDoubleTap: () => screenAsk?.trigger("window"),
+    onKeyDoubleTap: () => {
+      if (!remoteGateway) screenAsk?.trigger("window");
+    },
     // The voice key (held from any app) opens the ask panel in voice mode: speak, and the answer
     // appears as text. The panel dictates through the renderer, which owns the microphone, and
     // Talk with Psyche keeps the panel window even with Ask about screen off.
@@ -1093,9 +1281,10 @@ void app.whenReady().then(async () => {
   terminal.onData((sessionId, data) => broadcast(IPC.terminalData, { sessionId, data }));
   terminal.onExit((sessionId, exitCode) => broadcast(IPC.terminalExit, { sessionId, exitCode }));
   registerIpc();
+  gateways.sweepForgottenData();
 
   supervisor = new GatewaySupervisor({
-    mode: chooseMode(process.env, app.isPackaged),
+    mode: supervisorMode,
     psycheHome: home,
     healthUrl: new URL("/healthz", origin).toString(),
     gatewayDir: resolve(app.getAppPath(), "..", "gateway"),
@@ -1136,7 +1325,7 @@ void app.whenReady().then(async () => {
       open: () => windows?.showMain(),
       newSideChat: () => command({ type: "newSideChat" }),
       quickEntry: () => windows?.toggleQuickEntry(),
-      askScreen: () => screenAsk?.trigger(),
+      ...(remoteGateway ? {} : { askScreen: () => screenAsk?.trigger() }),
       openApprovals: () => command({ type: "navigate", route: "/agent/approvals" }),
       closeWindow: () => windows?.main()?.close(),
       quitApp: () => app.quit(),
@@ -1157,11 +1346,14 @@ void app.whenReady().then(async () => {
     trigger: () => screenAsk?.trigger(),
     setEnabled: (on) => screenAsk?.setEnabled(on, "screen"),
     warn: (m) => console.warn(`[screen-ask] ${m}`),
+    disabled: remoteGateway,
   });
   screenAskShortcut.apply(screenAskShortcut.settings);
-  app.dock?.setMenu(
-    Menu.buildFromTemplate([{ label: "Ask about screen", click: () => screenAsk?.trigger() }]),
-  );
+  if (!remoteGateway) {
+    app.dock?.setMenu(
+      Menu.buildFromTemplate([{ label: "Ask about screen", click: () => screenAsk?.trigger() }]),
+    );
+  }
 
   // The window shows first and comes forward; the Gateway starts behind it (issue #441).
   let shownAt: number | undefined;

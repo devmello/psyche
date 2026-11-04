@@ -1,6 +1,6 @@
 import { useReducedMotionConfig } from "motion/react";
 import * as m from "motion/react-m";
-import { type ReactElement, useLayoutEffect, useRef, useState } from "react";
+import { type ReactElement, type ReactNode, useLayoutEffect, useRef, useState } from "react";
 import { Button } from "../components/ui/button.tsx";
 import { t } from "../i18n/core.ts";
 import { duration, ease, motionSpring, spring } from "../motion/tokens.ts";
@@ -24,6 +24,16 @@ export interface SplashLineView {
   step?: 0 | 1 | 2;
   /** Why the start failed (tone "error"). */
   reason?: string;
+  /** Lines to compare or act on under the status (a pairing code and the Gateway's key). */
+  detail?: readonly string[];
+}
+
+/** One more thing the owner can do from a failed or waiting start (remote Gateways). */
+export interface SplashActionView {
+  id: string;
+  text: string;
+  onClick: () => void;
+  primary?: boolean;
 }
 
 export interface StartupSplashViewProps {
@@ -36,6 +46,10 @@ export interface StartupSplashViewProps {
   onRetry?: () => void;
   /** Shown when set: the owner can open the app behind a slow or failed start. */
   onOpenAnyway?: () => void;
+  /** Other actions for this state, after Show logs and Try again. */
+  actions?: readonly SplashActionView[];
+  /** Content under the actions (the Gateway switcher a "Switch Gateway" action opened). */
+  below?: ReactNode;
 }
 
 /** How long the hand-off takes (the caller unmounts after it). */
@@ -93,6 +107,8 @@ export function StartupSplashView({
   onShowLogs,
   onRetry,
   onOpenAnyway,
+  actions,
+  below,
 }: StartupSplashViewProps): ReactElement {
   const reduce = useReducedMotionConfig() === true;
   const markRef = useRef<HTMLDivElement>(null);
@@ -210,6 +226,16 @@ export function StartupSplashView({
               {line.text}
             </span>
           </p>
+          {line.detail && line.detail.length > 0 ? (
+            <ul
+              className="flex flex-col items-center gap-0.5 text-callout text-label-secondary"
+              data-testid="startup-splash-detail"
+            >
+              {line.detail.map((d) => (
+                <li key={d}>{d}</li>
+              ))}
+            </ul>
+          ) : null}
           {failed ? null : (
             <ol className="startup-splash-steps" aria-hidden="true" data-step={step}>
               {Array.from({ length: STEPS }, (_, i) => (
@@ -239,6 +265,21 @@ export function StartupSplashView({
               </div>
             </div>
           ) : null}
+          {actions && actions.length > 0 ? (
+            <div className="startup-splash-actions flex flex-wrap justify-center gap-2">
+              {actions.map((a) => (
+                <Button
+                  key={a.id}
+                  size="sm"
+                  variant={a.primary ? "default" : "outline"}
+                  onClick={a.onClick}
+                >
+                  {a.text}
+                </Button>
+              ))}
+            </div>
+          ) : null}
+          {below}
           {onOpenAnyway ? (
             <Button
               variant="link"

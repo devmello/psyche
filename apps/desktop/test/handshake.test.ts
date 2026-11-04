@@ -99,6 +99,21 @@ describe("Handshake", () => {
 
   it("reports pending with the pairing code and surfaces error codes", async () => {
     const hs = new Handshake(params, () => "sig");
+    hs.start();
+    // A result is taken only after this handshake answered a challenge (see the refusal tests in
+    // gateway-identity.test.ts).
+    await hs.onFrame({
+      type: "res",
+      id: "connect",
+      ok: true,
+      payload: {
+        phase: "challenge",
+        nonce: Buffer.alloc(32, 7).toString("base64url"),
+        serverOrigin: "http://127.0.0.1:7979",
+        protocolVersion: 1,
+        expiresAt: new Date().toISOString(),
+      },
+    });
     expect(
       await hs.onFrame({
         type: "res",
