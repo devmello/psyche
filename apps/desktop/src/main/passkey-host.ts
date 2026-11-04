@@ -51,28 +51,27 @@ export function verifyCredential(
   credential: unknown,
   expect: { origin: string; rpId: string; challenge: string },
 ): void {
-  const bad = (why: string): never => {
-    throw new PsycheError("forbidden", `The passkey was not made for this Gateway (${why})`);
-  };
+  const bad = (why: string): PsycheError =>
+    new PsycheError("forbidden", `The passkey was not made for this Gateway (${why})`);
   const resp = isRecord(credential) && isRecord(credential.response) ? credential.response : null;
-  if (resp === null) return bad("no response");
+  if (resp === null) throw bad("no response");
   const raw = b64u(resp.clientDataJSON);
-  if (raw === null) return bad("no client data");
+  if (raw === null) throw bad("no client data");
   let client: unknown;
   try {
     client = JSON.parse(raw.toString("utf8"));
   } catch {
-    return bad("client data");
+    throw bad("client data");
   }
-  if (!isRecord(client)) return bad("client data");
-  if (client.type !== (kind === "create" ? "webauthn.create" : "webauthn.get")) return bad("type");
-  if (client.origin !== expect.origin) return bad("origin");
-  if (client.challenge !== expect.challenge) return bad("challenge");
-  if (client.crossOrigin === true) return bad("cross-origin");
+  if (!isRecord(client)) throw bad("client data");
+  if (client.type !== (kind === "create" ? "webauthn.create" : "webauthn.get")) throw bad("type");
+  if (client.origin !== expect.origin) throw bad("origin");
+  if (client.challenge !== expect.challenge) throw bad("challenge");
+  if (client.crossOrigin === true) throw bad("cross-origin");
   const auth = b64u(resp.authenticatorData);
-  if (auth === null || auth.length < 37) return bad("authenticator data");
+  if (auth === null || auth.length < 37) throw bad("authenticator data");
   const rpIdHash = createHash("sha256").update(expect.rpId).digest();
-  if (!auth.subarray(0, 32).equals(rpIdHash)) return bad("RP ID");
+  if (!auth.subarray(0, 32).equals(rpIdHash)) throw bad("RP ID");
 }
 
 /** What the page script answers: the credential, or the DOMException's name and message. */
