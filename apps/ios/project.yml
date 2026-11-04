@@ -65,7 +65,9 @@ targets:
       properties:
         CFBundleDisplayName: Psyche
         PsycheAppGroup: $(PSYCHE_APP_GROUP)
-        NSCameraUsageDescription: Psyche uses the camera only to read the pairing code shown on your Mac.
+        NSCameraUsageDescription: Psyche uses the camera to read the pairing code shown on your Mac, and to attach photos you take to a message.
+        NSMicrophoneUsageDescription: Psyche listens only while you dictate a message, and the speech is turned into text on this iPhone.
+        NSSpeechRecognitionUsageDescription: Psyche turns your dictation into text, on this iPhone when your language supports it.
         UILaunchScreen: {}
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: true
