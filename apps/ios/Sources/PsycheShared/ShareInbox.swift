@@ -125,12 +125,15 @@ public final class ShareInbox: @unchecked Sendable {
         let id = UUID().uuidString
         let folder = root.appending(path: id, directoryHint: .isDirectory)
         let filesFolder = folder.appending(path: "files", directoryHint: .isDirectory)
-        try fm.createDirectory(at: filesFolder, withIntermediateDirectories: true)
+        try AppGroup.prepareDirectory(root)
+        try fm.createDirectory(at: filesFolder, withIntermediateDirectories: true, attributes: Self.protection)
         var shared: [SharedFile] = []
         var used = Set<String>()
         for file in draft.files {
             let name = Self.uniqueName(Self.safeName(file.name), used: &used)
-            try fm.copyItem(at: file.url, to: filesFolder.appending(path: name))
+            let copy = filesFolder.appending(path: name)
+            try fm.copyItem(at: file.url, to: copy)
+            try fm.setAttributes(Self.protection, ofItemAtPath: copy.path)
             shared.append(SharedFile(name: name, contentType: file.contentType, path: "files/\(name)"))
         }
         let item = ShareInboxItem(
@@ -162,6 +165,11 @@ public final class ShareInbox: @unchecked Sendable {
         try? FileManager.default.removeItem(at: folder(of: item))
     }
 
+    /// Everything the extension queued and the thread list: revoked, unpaired or paired with another Gateway.
+    public func wipe() {
+        try? FileManager.default.removeItem(at: root)
+    }
+
     public enum DrainResult: Sendable, Equatable {
         case drained(count: Int)
         /// One item failed and stayed queued; later items wait so order is kept.
@@ -174,7 +182,13 @@ public final class ShareInbox: @unchecked Sendable {
     /// `process` throws, the item stays (its attempt count goes up; at `maxAttempts` it is dropped so one
     /// bad share can't block the rest) and the drain stops. Only one drain runs at a time per inbox, so
     /// launch and foreground racing each other can't send an item twice.
-    public func drain(_ process: (ShareInboxItem) async throws -> Void) async -> DrainResult {
+    ///
+    /// `countsAsAttempt` says whether a failure counts toward `maxAttempts`: an item that could not go because
+    /// the Mac was unreachable is not a bad item, so it waits without using up an attempt.
+    public func drain(
+        countsAsAttempt: (any Error) -> Bool = { _ in true },
+        _ process: (ShareInboxItem) async throws -> Void
+    ) async -> DrainResult {
         guard claim() else { return .busy }
         defer { release() }
 
@@ -186,12 +200,14 @@ public final class ShareInbox: @unchecked Sendable {
                 remove(item)
                 done += 1
             } catch {
-                var failed = item
-                failed.attempts += 1
-                if failed.attempts >= Self.maxAttempts {
-                    remove(item)
-                } else {
-                    try? write(failed)
+                if countsAsAttempt(error) {
+                    var failed = item
+                    failed.attempts += 1
+                    if failed.attempts >= Self.maxAttempts {
+                        remove(item)
+                    } else {
+                        try? write(failed)
+                    }
                 }
                 return .stopped(done: done, remaining: items.count - index)
             }
@@ -202,9 +218,11 @@ public final class ShareInbox: @unchecked Sendable {
     // MARK: Recent threads for the picker
 
     public func writeRecents(_ threads: [ShareThreadChoice]) {
-        try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try? AppGroup.prepareDirectory(root)
         if let data = try? JSONEncoder().encode(threads) {
-            try? data.write(to: root.appending(path: "recents.json"), options: .atomic)
+            try? data.write(
+                to: root.appending(path: "recents.json"),
+                options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
         }
     }
 
@@ -234,8 +252,12 @@ public final class ShareInbox: @unchecked Sendable {
     }
 
     private func write(_ item: ShareInboxItem) throws {
-        try JSONEncoder().encode(item).write(to: folder(of: item).appending(path: "item.json"), options: .atomic)
+        try JSONEncoder().encode(item).write(
+            to: folder(of: item).appending(path: "item.json"),
+            options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
     }
+
+    private static var protection: [FileAttributeKey: Any] { [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication] }
 
     static func safeName(_ name: String) -> String {
         let cleaned = name.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")

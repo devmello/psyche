@@ -8,13 +8,10 @@ public protocol SettingsBackend: Sendable {
     func device() async throws -> DeviceInfo
     func settings() async throws -> PhoneSettings
     func updateSettings(_ settings: PhoneSettings) async throws
-    /// "Remove this phone" (devices.revoke on itself). The caller then moves `Session` to `.revoked`.
+    /// "Remove this phone": `devices.revoke` on itself, then wipe keys, outbox and caches. Required, with no
+    /// default: a backend that cannot do it must throw (`BackendError.unreachable`), because the caller moves
+    /// `Session` to `.revoked` only after this returns.
     func revokeThisPhone() async throws
-}
-
-extension SettingsBackend {
-    // Additive: backends written before this existed treat removal as done locally.
-    public func revokeThisPhone() async throws {}
 }
 
 public struct DeviceInfo: Sendable, Equatable {

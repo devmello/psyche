@@ -23,6 +23,7 @@ public struct MarkdownView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .tint(PsycheColor.inkText)
+        .confirmsExternalLinks()
         .accessibilityElement(children: .contain)
     }
 
