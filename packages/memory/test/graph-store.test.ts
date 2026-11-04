@@ -168,6 +168,42 @@ describe("entities and identifiers", () => {
       expect(conflicts).toEqual(["casey@x.io"]);
     });
 
+    it("does not merge a family member's card that lists the owner's email; the email moves", () => {
+      const mom = g.createEntity({
+        kind: "person",
+        name: "Mom",
+        identifiers: [
+          { kind: "email", value: "pat@home.com" },
+          { kind: "phone", value: "(415) 555-0199" },
+        ],
+        linkedBy: "rule",
+        source: "contacts",
+      });
+      const owner = g.ensureOwnerEntity({ name: "Pat Kim", identifiers: own });
+      expect(owner.id).not.toBe(mom.id);
+      expect(owner.name).toBe("Pat Kim");
+      expect(g.getEntity(mom.id)?.status).toBe("active");
+      expect(g.resolveIdentifier("phone", "+14155550199")).toBe(mom.id);
+      expect(g.resolveIdentifier("email", "pat@home.com")).toBe(owner.id);
+    });
+
+    it("merges a card named like the owner that holds the owner's email and another address", () => {
+      const me = g.createEntity({
+        kind: "person",
+        name: "Pat Kim",
+        identifiers: [
+          { kind: "email", value: "pat@home.com" },
+          { kind: "email", value: "pat@old.com" },
+        ],
+        linkedBy: "rule",
+        source: "contacts",
+      });
+      const owner = g.ensureOwnerEntity({ name: "Pat Kim", identifiers: own });
+      expect(owner.id).toBe(me.id);
+      expect(owner.isOwner).toBe(true);
+      expect(g.listEntities(["person"])).toHaveLength(1);
+    });
+
     it("changes nothing when run again", () => {
       person("Pat K", "pat@home.com");
       person("Patrick Kim", "pat@work.com");

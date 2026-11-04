@@ -983,11 +983,31 @@ export class GraphStore {
       });
 
     let target = this.ownerEntity();
+    // A holder is plausibly the owner only when everything it holds is the owner's, or its name
+    // is the owner's: a family member's card listing one shared address is not merged away.
+    const ownerNames = new Set(
+      [input.name, target?.name, ...(target?.aliases ?? [])]
+        .filter((n): n is string => typeof n === "string" && n.trim() !== "")
+        .map((n) => normalizeName(n)),
+    );
+    const plausible = (id: string): boolean => {
+      const e = this.#entityRow(id);
+      if (e === undefined) return false;
+      if (
+        ownerNames.has(normalizeName(e.name)) ||
+        this.#aliases(id).some((a) => ownerNames.has(normalizeName(a)))
+      )
+        return true;
+      return this.identifiers(id)
+        .filter((x) => x.kind === "email" || x.kind === "phone")
+        .every((x) => seen.has(`${x.kind}:${normalizeIdentifier(x.kind, x.value, this.#country)}`));
+    };
     if (target === undefined) {
       const counts = new Map<string, number>();
       for (const h of holders()) {
         const e = this.#entityRow(h);
-        if (e?.kind === "person" && e.status === "active") counts.set(h, (counts.get(h) ?? 0) + 1);
+        if (e?.kind === "person" && e.status === "active" && plausible(h))
+          counts.set(h, (counts.get(h) ?? 0) + 1);
       }
       const best = [...counts].sort(
         (x, y) =>
@@ -997,7 +1017,8 @@ export class GraphStore {
           ),
       )[0];
       if (best === undefined) {
-        return this.createEntity({
+        // Held identifiers (on cards that are not the owner's) are dealt with below.
+        target = this.createEntity({
           kind: "person",
           name: input.name,
           isOwner: true,
@@ -1005,10 +1026,11 @@ export class GraphStore {
           linkedBy: "owner",
           source: "owner",
         });
+      } else {
+        this.#db.prepare("UPDATE graph_entities SET is_owner = 1 WHERE id = ?").run(best[0]);
+        this.#touched(best[0], ["owner"]);
+        target = this.ownerEntity() as GraphEntity;
       }
-      this.#db.prepare("UPDATE graph_entities SET is_owner = 1 WHERE id = ?").run(best[0]);
-      this.#touched(best[0], ["owner"]);
-      target = this.ownerEntity() as GraphEntity;
     }
     const into = target.id;
     for (const i of idents) {
@@ -1034,7 +1056,20 @@ export class GraphStore {
         continue;
       }
       try {
-        this.merge([holder], into);
+        if (plausible(holder)) {
+          this.merge([holder], into);
+        } else {
+          // Not the owner's card: move just this identifier, the card survives.
+          this.#db.transaction(() => {
+            this.unlinkIdentifier(i.kind, i.value);
+            this.linkIdentifier(into, i.kind, i.value, {
+              source: "owner",
+              linkedBy: "owner",
+              verified: true,
+            });
+          })();
+          this.#touched(holder, ["identifiers"]);
+        }
       } catch {
         input.onConflict?.(i.kind, i.value);
       }
