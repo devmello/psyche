@@ -76,7 +76,8 @@ final class WidgetModel {
     func apply(_ snapshot: WidgetSnapshot) {
         runtime.isLive = snapshot.isLive
         runtime.isUntrusted = snapshot.isUntrusted
-        runtime.primaryControlID = snapshot.root.findPrimaryControl()
+        // An untrusted widget never wears the ink fill: a filled call to action is what an approval looks like.
+        runtime.primaryControlID = snapshot.isUntrusted ? nil : snapshot.root.findPrimaryControl()
         phase = .loaded(snapshot)
     }
 }
