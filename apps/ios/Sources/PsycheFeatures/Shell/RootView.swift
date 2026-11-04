@@ -70,6 +70,7 @@ struct MainTabs: View {
             .padding(.vertical, 4)
         }
         .tint(PsycheColor.inkText)
+        .syncsShareInbox(store: store)
         .sheet(item: $router.sheet) { sheet in
             switch sheet {
             case .approval(let item):
