@@ -12,7 +12,11 @@
     "docs:check": "pnpm docs:build && node scripts/check-links.mjs"
   },
   "devDependencies": {
+    "@types/three": "0.187.0",
     "tsx": "4.23.15",
     "vitepress": "2.0.0-alpha.20"
+  },
+  "dependencies": {
+    "three": "0.187.0"
   }
 }

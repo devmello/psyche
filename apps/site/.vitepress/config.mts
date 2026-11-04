@@ -14,8 +14,25 @@ export default defineConfig({
   lastUpdated: false,
   // Dead links between site pages fail the build (`pnpm docs:check` adds the repository links).
   ignoreDeadLinks: false,
-  srcExclude: ["**/node_modules/**", "scripts/**"],
-  head: [["meta", { name: "color-scheme", content: "light dark" }]],
+  // three.js (the landing page's sheet stack) is its own lazy chunk, loaded after first paint.
+  vite: { build: { chunkSizeWarningLimit: 600 } },
+  srcExclude: ["**/node_modules/**", "scripts/**", "PRODUCT.md", "DESIGN.md", ".impeccable/**"],
+  head: [
+    ["meta", { name: "color-scheme", content: "light dark" }],
+    ["link", { rel: "icon", type: "image/svg+xml", href: "/psyche/mark.svg" }],
+    ["meta", { name: "theme-color", content: "#ededeb" }],
+    ["meta", { property: "og:title", content: "Psyche" }],
+    [
+      "meta",
+      {
+        property: "og:description",
+        content:
+          "An open-source personal agent for the Mac that keeps its memory in files you can read.",
+      },
+    ],
+    ["meta", { property: "og:image", content: "https://devmello.github.io/psyche/og.png" }],
+    ["meta", { name: "twitter:card", content: "summary_large_image" }],
+  ],
   markdown: {
     // Inline code is not compiled as a Vue template, so placeholders such as `{{cred:slug}}`
     // show as written (fenced blocks are already `v-pre`).
@@ -35,6 +52,7 @@ export default defineConfig({
     },
   },
   themeConfig: {
+    logo: { src: "/mark.svg", alt: "" },
     nav: [
       page("Get started", "/get-started/"),
       page("Using Psyche", "/using/"),

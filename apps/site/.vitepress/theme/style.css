@@ -1,0 +1,477 @@
+/*
+ * Psyche docs theme: the app's "ink" world on VitePress.
+ * Paper grays (hue 80, nearly neutral), one ink accent (#2c5aa0), amber only for "needs you".
+ * Titles in the notebook serif (New York on Apple systems), text in the system sans.
+ */
+
+:root {
+  /* Paper, light (the app's gray-1..12). */
+  --paper-1: oklch(0.991 0.0013 80);
+  --paper-2: oklch(0.982 0.0017 80);
+  --paper-3: oklch(0.956 0.0025 80);
+  --paper-4: oklch(0.931 0.003 80);
+  --paper-5: oklch(0.906 0.0035 80);
+  --paper-6: oklch(0.884 0.004 80);
+  --paper-7: oklch(0.85 0.0045 80);
+  --paper-8: oklch(0.795 0.005 80);
+  --paper-9: oklch(0.649 0.005 80);
+  --paper-11: oklch(0.5 0.0045 80);
+  --paper-12: oklch(0.244 0.003 80);
+  --sheet: oklch(0.997 0.001 80);
+  --desk: oklch(0.938 0.003 80);
+
+  /* Ink. */
+  --ink: oklch(0.4727 0.1241 258.67);
+  --ink-hover: oklch(0.4377 0.1217 258.67);
+  --ink-text: oklch(0.4727 0.1241 258.67);
+  --ink-soft: oklch(0.9662 0.0171 245.79);
+  --ink-soft-2: oklch(0.9393 0.0303 249.57);
+  --ink-line: oklch(0.803 0.0742 258.67);
+
+  /* Needs you. */
+  --amber: #ffc53d;
+  --amber-line: #f3d673;
+  --amber-text: #ab6400;
+  --amber-soft: #fefbe9;
+
+  --font-display: ui-serif, "New York", "Iowan Old Style", Charter, Georgia, serif;
+  --font-text:
+    system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto,
+    "Helvetica Neue", sans-serif;
+  --font-code: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+
+  --shadow-sheet:
+    0 1px 1px oklch(0.2 0.01 80 / 0.04), 0 8px 18px -8px oklch(0.2 0.01 80 / 0.16),
+    0 28px 48px -28px oklch(0.2 0.01 80 / 0.22);
+  --shadow-lift:
+    0 1px 1px oklch(0.2 0.01 80 / 0.05), 0 16px 32px -14px oklch(0.2 0.01 80 / 0.22),
+    0 48px 80px -40px oklch(0.2 0.01 80 / 0.28);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+.dark {
+  /* The desk at night: the app's dark grays. */
+  --paper-1: oklch(0.178 0.0013 80);
+  --paper-2: oklch(0.213 0.0017 80);
+  --paper-3: oklch(0.252 0.0025 80);
+  --paper-4: oklch(0.285 0.003 80);
+  --paper-5: oklch(0.313 0.0035 80);
+  --paper-6: oklch(0.348 0.004 80);
+  --paper-7: oklch(0.401 0.0045 80);
+  --paper-8: oklch(0.488 0.005 80);
+  --paper-9: oklch(0.58 0.005 80);
+  --paper-11: oklch(0.771 0.0045 80);
+  --paper-12: oklch(0.949 0.003 80);
+  --sheet: oklch(0.213 0.0017 80);
+  --desk: oklch(0.155 0.0013 80);
+
+  --ink: oklch(0.5127 0.1241 258.67);
+  --ink-hover: oklch(0.5577 0.1217 258.67);
+  --ink-text: oklch(0.78 0.077 258.67);
+  --ink-soft: oklch(0.2448 0.0463 258.67);
+  --ink-soft-2: oklch(0.2907 0.0604 258.67);
+  --ink-line: oklch(0.5 0.0819 258.67);
+
+  --amber: #ffca16;
+  --amber-line: #5c3d05;
+  --amber-text: #ffca16;
+  --amber-soft: #252018;
+
+  --shadow-sheet:
+    0 1px 1px oklch(0 0 0 / 0.3), 0 10px 22px -10px oklch(0 0 0 / 0.6),
+    0 30px 56px -30px oklch(0 0 0 / 0.7);
+  --shadow-lift:
+    0 1px 1px oklch(0 0 0 / 0.35), 0 18px 34px -14px oklch(0 0 0 / 0.65),
+    0 50px 90px -40px oklch(0 0 0 / 0.75);
+}
+
+/* VitePress tokens, mapped onto paper and ink. */
+:root,
+.dark {
+  --vp-font-family-base: var(--font-text);
+  --vp-font-family-mono: var(--font-code);
+
+  --vp-c-bg: var(--paper-1);
+  --vp-c-bg-alt: var(--paper-2);
+  --vp-c-bg-elv: var(--sheet);
+  --vp-c-bg-soft: var(--paper-3);
+
+  --vp-c-text-1: var(--paper-12);
+  --vp-c-text-2: var(--paper-11);
+  --vp-c-text-3: var(--paper-9);
+
+  --vp-c-border: var(--paper-6);
+  --vp-c-divider: var(--paper-5);
+  --vp-c-gutter: var(--paper-4);
+
+  --vp-c-brand-1: var(--ink-text);
+  --vp-c-brand-2: var(--ink-hover);
+  --vp-c-brand-3: var(--ink);
+  --vp-c-brand-soft: var(--ink-soft);
+
+  --vp-c-default-1: var(--paper-7);
+  --vp-c-default-2: var(--paper-6);
+  --vp-c-default-3: var(--paper-5);
+  --vp-c-default-soft: var(--paper-4);
+
+  --vp-c-tip-1: var(--ink-text);
+  --vp-c-tip-2: var(--ink-hover);
+  --vp-c-tip-3: var(--ink);
+  --vp-c-tip-soft: var(--ink-soft);
+
+  --vp-c-note-1: var(--paper-11);
+  --vp-c-note-soft: var(--paper-3);
+  --vp-c-important-1: var(--ink-text);
+  --vp-c-important-soft: var(--ink-soft);
+
+  --vp-c-warning-1: var(--amber-text);
+  --vp-c-warning-2: var(--amber-text);
+  --vp-c-warning-3: var(--amber-text);
+  --vp-c-warning-soft: var(--amber-soft);
+
+  --vp-button-brand-bg: var(--ink);
+  --vp-button-brand-hover-bg: var(--ink-hover);
+  --vp-button-brand-active-bg: var(--ink-hover);
+  --vp-button-brand-border: transparent;
+  --vp-button-brand-text: #fff;
+  --vp-button-brand-hover-text: #fff;
+  --vp-button-brand-active-text: #fff;
+  --vp-button-alt-bg: var(--paper-1);
+  --vp-button-alt-border: var(--paper-7);
+  --vp-button-alt-hover-bg: var(--paper-3);
+  --vp-button-alt-hover-border: var(--paper-8);
+  --vp-button-alt-text: var(--paper-12);
+  --vp-button-alt-hover-text: var(--paper-12);
+
+  --vp-code-color: var(--paper-12);
+  --vp-code-bg: var(--paper-3);
+  --vp-code-link-color: var(--ink-text);
+  --vp-code-block-bg: var(--paper-2);
+  --vp-code-block-color: var(--paper-12);
+  --vp-code-block-divider-color: var(--paper-5);
+  --vp-code-lang-color: var(--paper-9);
+  --vp-code-line-highlight-color: var(--ink-soft);
+  --vp-code-copy-code-bg: var(--paper-3);
+  --vp-code-copy-code-hover-bg: var(--paper-4);
+  --vp-code-copy-code-border-color: var(--paper-6);
+  --vp-code-copy-code-hover-border-color: var(--paper-7);
+  --vp-code-tab-bg: var(--paper-2);
+  --vp-code-tab-divider: var(--paper-5);
+
+  --vp-nav-bg-color: var(--paper-1);
+  --vp-nav-screen-bg-color: var(--paper-1);
+  --vp-local-nav-bg-color: var(--paper-1);
+  --vp-sidebar-bg-color: var(--paper-2);
+  --vp-backdrop-bg-color: oklch(0.2 0.005 80 / 0.4);
+
+  --vp-local-search-bg: var(--paper-1);
+  --vp-local-search-result-bg: var(--paper-1);
+  --vp-local-search-result-border: var(--paper-5);
+  --vp-local-search-result-selected-bg: var(--ink-soft);
+  --vp-local-search-result-selected-border: var(--ink-line);
+  --vp-local-search-highlight-bg: var(--ink-soft-2);
+  --vp-local-search-highlight-text: var(--paper-12);
+
+  --vp-custom-block-tip-bg: var(--paper-2);
+  --vp-custom-block-tip-border: var(--paper-6);
+  --vp-custom-block-tip-text: var(--paper-12);
+  --vp-custom-block-info-bg: var(--paper-2);
+  --vp-custom-block-info-border: var(--paper-6);
+  --vp-custom-block-warning-bg: var(--amber-soft);
+  --vp-custom-block-warning-border: var(--amber-line);
+  --vp-custom-block-details-bg: var(--paper-2);
+  --vp-custom-block-details-border: var(--paper-6);
+
+  --vp-layout-max-width: 1400px;
+}
+
+/* Browser surfaces. */
+::selection {
+  background: var(--ink-soft-2);
+  color: var(--paper-12);
+}
+html {
+  accent-color: var(--ink);
+  caret-color: var(--ink);
+  scrollbar-color: var(--paper-7) transparent;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ---------- Nav ---------- */
+.VPNavBar .title {
+  font-family: var(--font-display);
+  font-size: 21px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.VPNavBar .logo {
+  height: 22px;
+  margin-right: 10px;
+}
+.VPNavBarMenuLink,
+.VPNavBarMenuGroup .button {
+  font-weight: 450;
+}
+.VPNavBarMenuLink.active {
+  color: var(--paper-12);
+  text-decoration: underline;
+  text-decoration-color: var(--ink);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 21px;
+}
+.VPNavBar:not(.home) .divider-line,
+.VPNavBar.has-sidebar .divider-line {
+  background-color: var(--paper-5);
+}
+.DocSearch-Button,
+.VPNavBarSearch .DocSearch-Button {
+  background: var(--paper-3);
+  border: 1px solid transparent;
+}
+.DocSearch-Button:hover {
+  border-color: var(--paper-7);
+  background: var(--paper-2);
+}
+
+/* ---------- Sidebar ---------- */
+.VPSidebar {
+  border-right: 1px solid var(--paper-5);
+}
+.VPSidebarItem.level-0 > .item > .text,
+.VPSidebarItem.level-0 > .item > .link > .text {
+  font-family: var(--font-display);
+  font-size: 15.5px;
+  font-weight: 500;
+  color: var(--paper-12);
+  letter-spacing: -0.005em;
+}
+.VPSidebarItem.level-1 .text {
+  font-size: 14px;
+  color: var(--paper-11);
+}
+.VPSidebarItem.level-1 .item {
+  position: relative;
+}
+.VPSidebarItem.is-active > .item .link > .text {
+  color: var(--paper-12);
+  font-weight: 550;
+}
+.VPSidebarItem.level-1.is-active > .item::before {
+  content: "";
+  position: absolute;
+  left: -12px;
+  top: 8px;
+  bottom: 8px;
+  width: 1px;
+  background: var(--ink);
+}
+.VPSidebarItem .link:hover .text {
+  color: var(--paper-12);
+}
+
+/* ---------- Doc pages ---------- */
+.vp-doc {
+  font-size: 16.5px;
+  line-height: 1.7;
+}
+.vp-doc p,
+.vp-doc li {
+  max-width: 72ch;
+}
+.vp-doc h1,
+.vp-doc h2,
+.vp-doc h3 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  color: var(--paper-12);
+  text-wrap: balance;
+}
+.vp-doc h1 {
+  font-size: clamp(34px, 4vw, 44px);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.5em;
+}
+.vp-doc h2 {
+  font-size: 27px;
+  line-height: 1.2;
+  letter-spacing: -0.012em;
+  border-top: 1px solid var(--paper-5);
+  margin-top: 56px;
+  padding-top: 28px;
+}
+.vp-doc h3 {
+  font-size: 20px;
+  letter-spacing: -0.005em;
+  margin-top: 36px;
+}
+.vp-doc h4 {
+  font-weight: 600;
+}
+.vp-doc a {
+  color: var(--ink-text);
+  font-weight: 450;
+  text-decoration: underline;
+  text-decoration-color: var(--ink-line);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  transition: text-decoration-color 0.15s;
+}
+.vp-doc a:hover {
+  color: var(--ink-text);
+  text-decoration-color: currentColor;
+}
+.vp-doc .header-anchor {
+  text-decoration: none;
+  color: var(--paper-8);
+}
+.vp-doc :not(pre) > code {
+  font-size: 0.86em;
+  padding: 0.15em 0.4em;
+  border-radius: 5px;
+  border: 1px solid var(--paper-5);
+}
+.vp-doc a > code {
+  color: inherit;
+}
+.vp-doc table {
+  display: table;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14.5px;
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 760px) {
+  .vp-doc table {
+    display: block;
+  }
+}
+.vp-doc tr {
+  background: none;
+  border-top: 1px solid var(--paper-5);
+}
+.vp-doc tr:nth-child(2n) {
+  background: none;
+}
+.vp-doc th,
+.vp-doc td {
+  border: none;
+  border-bottom: 1px solid var(--paper-5);
+  padding: 10px 14px 10px 0;
+  vertical-align: top;
+}
+.vp-doc th {
+  background: none;
+  font-weight: 600;
+  color: var(--paper-12);
+  font-size: 13.5px;
+  border-bottom-color: var(--paper-7);
+}
+.vp-doc blockquote {
+  border-left: 1px solid var(--paper-8);
+  color: var(--paper-11);
+}
+.vp-doc hr {
+  border-top-color: var(--paper-5);
+}
+
+/* Code blocks: sheets of paper, not dark slabs. */
+.vp-doc div[class*="language-"] {
+  border: 1px solid var(--paper-5);
+  border-radius: 10px;
+}
+@media (max-width: 639px) {
+  .vp-doc div[class*="language-"] {
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+  }
+}
+.vp-doc div[class*="language-"] code {
+  font-size: 13.5px;
+}
+.vp-doc [class*="language-"] > span.lang {
+  font-family: var(--font-code);
+  font-size: 11.5px;
+  top: 6px;
+}
+
+/* Callouts: a ruled note, the left rule 1px. */
+.custom-block {
+  border-radius: 10px;
+  font-size: 15px;
+  line-height: 1.6;
+}
+.custom-block .custom-block-title {
+  font-weight: 600;
+  font-size: 14px;
+}
+.custom-block.warning {
+  box-shadow: inset 0 0 0 1px var(--amber-line);
+  border-color: transparent;
+}
+.custom-block.warning .custom-block-title {
+  color: var(--amber-text);
+}
+
+/* Outline, footer of the doc, pager. */
+.VPDocAsideOutline .outline-title {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.VPDocAsideOutline .outline-link {
+  font-size: 13.5px;
+}
+.VPDocAsideOutline .outline-marker {
+  background-color: var(--ink);
+  width: 1px;
+}
+.VPDocFooter .pager-link {
+  border-radius: 10px;
+  border-color: var(--paper-5);
+  background: var(--sheet);
+}
+.VPDocFooter .pager-link:hover {
+  border-color: var(--ink-line);
+}
+.VPDocFooter .title {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 16px;
+}
+.VPDocFooter .edit-link-button {
+  color: var(--ink-text);
+}
+.VPFooter {
+  border-top: 1px solid var(--paper-5);
+  background: var(--paper-1);
+}
+
+/* Local search modal. */
+.VPLocalSearchBox .shell {
+  border-radius: 14px;
+  box-shadow: var(--shadow-lift);
+}
+.VPLocalSearchBox .result {
+  border-radius: 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
