@@ -29,6 +29,7 @@ struct SharedPayload {
 
 /// Reads the extension's input items: files, images, links and text. The content is untrusted; nothing
 /// here opens or interprets it beyond making a small preview.
+@MainActor
 enum ShareItemLoader {
     static func load(from items: [NSExtensionItem]) async -> SharedPayload {
         var payload = SharedPayload()
@@ -73,11 +74,12 @@ enum ShareItemLoader {
             type = types.first { $0.conforms(to: .data) || $0.conforms(to: .content) }
         }
         guard let type else { return nil }
+        let suggested = provider.suggestedName
         return await withCheckedContinuation { continuation in
             _ = provider.loadFileRepresentation(forTypeIdentifier: type.identifier) { url, _ in
                 // The system deletes `url` when this handler returns, so the copy happens here.
                 guard let url else { return continuation.resume(returning: nil) }
-                let name = fileName(suggested: provider.suggestedName, original: url, type: type)
+                let name = fileName(suggested: suggested, original: url, type: type)
                 let destination = uniqueURL(in: scratch, name: name)
                 do {
                     try FileManager.default.copyItem(at: url, to: destination)

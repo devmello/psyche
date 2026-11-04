@@ -103,8 +103,9 @@ public final class ShareInbox: @unchecked Sendable {
     public static let maxAttempts = 5
 
     /// The inbox in the app group, or nil where the group isn't provisioned.
-    public static var shared: ShareInbox? {
-        AppGroup.containerURL.map { ShareInbox(root: $0.appending(path: "ShareInbox", directoryHint: .isDirectory)) }
+    /// One instance per process, so the single-drain guard holds across launch and foreground.
+    public static let shared: ShareInbox? = AppGroup.containerURL.map {
+        ShareInbox(root: $0.appending(path: "ShareInbox", directoryHint: .isDirectory))
     }
 
     private let root: URL

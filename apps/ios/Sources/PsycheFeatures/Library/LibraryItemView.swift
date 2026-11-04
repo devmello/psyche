@@ -161,7 +161,7 @@ private struct ItemBody: View {
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.plain)
-            .disabled(file == nil)
+            .allowsHitTesting(file != nil)
             .accessibilityLabel(file == nil ? "\(item.title), preview" : "Open \(item.title)")
 
             VStack(alignment: .leading, spacing: 6) {
