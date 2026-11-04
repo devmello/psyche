@@ -64,6 +64,12 @@ export const UNDO_DAYS = 7;
  * become the owner's own facts when confirmed; a confirmed fact the model extracted stays learned.
  */
 export const CHAT_WORK_PROPOSAL = "psyche/chat-work-proposal";
+/** The work lines the owner's chat writes directly (and `undoChatWork` can revert). */
+const CHAT_DIRECT_ATTRIBUTES: ReadonlySet<string> = new Set([
+  "progress",
+  "stopped_at",
+  "next_step",
+]);
 /** Discarded rows are kept this long so the owner's feedback has settled, then deleted. */
 const DISCARDED_KEEP_DAYS = 7;
 
@@ -1158,6 +1164,120 @@ export class EverythingStore {
     return toFact(this.#factRow(row.id) as FactRow);
   }
 
+  /**
+   * Undo for a progress, stopped-at or next-step line the owner's chat wrote directly (MW7). Only
+   * ids the Gateway put in a chat note (`memory_work_undo`, written with the fact) and only within
+   * seven days, like `undo`. It reverts only while the field is as the chat left it: if it
+   * changed again since (a single-valued field was superseded, or progress has a newer line) the
+   * answer is `changed_again` and nothing is touched. Undoing deletes the line (its evidence is
+   * the owner's quote), revives the value it replaced with that value's normal expiry, and puts
+   * back a to-do's not-started status and last signal time when the write had moved them and
+   * nothing has since.
+   */
+  undoChatWork(factId: string): "undone" | "changed_again" | "already_undone" | "removed" {
+    const rec = this.#db.prepare("SELECT * FROM memory_work_undo WHERE fact_id = ?").get(factId) as
+      | {
+          entity_id: string;
+          created_at: string;
+          undone_at: string | null;
+          status_before: string | null;
+          status_after: string | null;
+          status_fact_id: string | null;
+          signal_before: string | null;
+          signal_after: string | null;
+        }
+      | undefined;
+    if (rec === undefined) fail("conflict", "that update was not offered for undo");
+    if (rec.undone_at !== null) return "already_undone";
+    if (this.#clock.now() - Date.parse(rec.created_at) > UNDO_DAYS * DAY_MS) {
+      fail("conflict", "the undo window has passed");
+    }
+    const row = this.#factRow(factId);
+    if (
+      row === undefined ||
+      !CHAT_DIRECT_ATTRIBUTES.has(row.attribute) ||
+      row.provenance !== "owner"
+    ) {
+      fail("conflict", "only a work update written from chat can be undone this way");
+    }
+    const now = this.#now();
+    const finish = () =>
+      this.#db
+        .prepare("UPDATE memory_work_undo SET undone_at = ? WHERE fact_id = ?")
+        .run(now, factId);
+    const revivable = () =>
+      (
+        this.#db
+          .prepare(
+            "SELECT count(*) AS n FROM graph_facts WHERE superseded_by = ? AND retracted_at IS NULL",
+          )
+          .get(row.id) as { n: number }
+      ).n > 0;
+    if (row.retracted_at !== null) {
+      // The owner marked it wrong in Memory: bring back what it replaced, if anything.
+      const had = revivable();
+      this.#db.transaction(() => {
+        this.#reviveAndDelete(row.id);
+        finish();
+      })();
+      this.#graph.touch(row.entity_id, ["facts"]);
+      return had ? "undone" : "removed";
+    }
+    if (row.superseded_by !== null) return "changed_again";
+    // Progress keeps every line, so "changed since" is also a newer current line of the field.
+    const rank = (id: string) =>
+      this.#db
+        .prepare("SELECT recorded_at AS at, rowid AS n FROM graph_facts WHERE id = ?")
+        .get(id) as { at: string; n: number };
+    const mine = rank(row.id);
+    const newer = this.#current(row.entity_id, row.attribute).some((r) => {
+      if (r.id === row.id) return false;
+      const o = rank(r.id);
+      return o.at > mine.at || (o.at === mine.at && o.n > mine.n);
+    });
+    if (newer) return "changed_again";
+    this.#db.transaction(() => {
+      this.#reviveAndDelete(row.id);
+      // A to-do this write started goes back to not started; the last signal goes back too.
+      const entity = this.#db
+        .prepare("SELECT work_status, last_signal_at FROM graph_entities WHERE id = ?")
+        .get(row.entity_id) as { work_status: string | null; last_signal_at: string | null };
+      if (rec.status_fact_id !== null && entity.work_status === rec.status_after) {
+        const sf = this.#factRow(rec.status_fact_id);
+        if (sf !== undefined && sf.superseded_by === null && sf.retracted_at === null) {
+          this.#reviveAndDelete(sf.id);
+          this.#db
+            .prepare("UPDATE graph_entities SET work_status = ? WHERE id = ?")
+            .run(rec.status_before, row.entity_id);
+        }
+      }
+      if (entity.last_signal_at === rec.signal_after) {
+        this.#db
+          .prepare("UPDATE graph_entities SET last_signal_at = ? WHERE id = ?")
+          .run(rec.signal_before, row.entity_id);
+      }
+      finish();
+    })();
+    this.#graph.touch(row.entity_id, ["facts", "signal"]);
+    return "undone";
+  }
+
+  /**
+   * Deletes a fact and brings back the one it replaced. A revived owner or system fact does not
+   * expire; any other keeps the usual twelve months from now.
+   */
+  #reviveAndDelete(id: string): void {
+    const expiry = new Date(this.#clock.now() + 365 * DAY_MS).toISOString();
+    this.#db
+      .prepare(
+        `UPDATE graph_facts SET superseded_by = NULL, updated_at = ?,
+           valid_to = CASE WHEN provenance IN ('owner', 'system') THEN NULL ELSE ? END
+         WHERE superseded_by = ? AND retracted_at IS NULL`,
+      )
+      .run(this.#now(), expiry, id);
+    this.#db.prepare("DELETE FROM graph_facts WHERE id = ?").run(id);
+  }
+
   /** The review queue (§7.1): pending by default, with the quote and what each would change. */
   reviewItems(
     opts: { states?: GraphReviewState[]; entityId?: string; limit?: number; offset?: number } = {},
@@ -1542,6 +1662,9 @@ export class EverythingStore {
         .prepare("SELECT id FROM graph_facts WHERE review = 'discarded' AND updated_at < ?")
         .all(iso(nowMs - DISCARDED_KEEP_DAYS * DAY_MS)) as { id: string }[];
       this.#deleteFacts(discarded.map((r) => r.id));
+      this.#db
+        .prepare("DELETE FROM memory_work_undo WHERE created_at < ?")
+        .run(iso(nowMs - UNDO_DAYS * DAY_MS));
       const quarantineDeleted = this.#db
         .prepare("DELETE FROM memory_quarantine WHERE created_at < ?")
         .run(iso(nowMs - policy.quarantineDays * DAY_MS)).changes;

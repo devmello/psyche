@@ -448,6 +448,8 @@
 //   let devicesPresenceKeyRemoveResult = try? JSONDecoder().decode(DevicesPresenceKeyRemoveResult.self, from: jsonData)
 //   let devicesRevokeParams = try? JSONDecoder().decode(DevicesRevokeParams.self, from: jsonData)
 //   let devicesRevokeResult = try? JSONDecoder().decode(DevicesRevokeResult.self, from: jsonData)
+//   let devicesRevokeSelfParams = try? JSONDecoder().decode(DevicesRevokeSelfParams.self, from: jsonData)
+//   let devicesRevokeSelfResult = try? JSONDecoder().decode(DevicesRevokeSelfResult.self, from: jsonData)
 //   let devicesSetupTokenCreateParams = try? JSONDecoder().decode(DevicesSetupTokenCreateParams.self, from: jsonData)
 //   let devicesSetupTokenCreateResult = try? JSONDecoder().decode(DevicesSetupTokenCreateResult.self, from: jsonData)
 //   let devicesSetupTokenListParams = try? JSONDecoder().decode(DevicesSetupTokenListParams.self, from: jsonData)
@@ -901,6 +903,8 @@
 //   let memoryWorkFolders = try? JSONDecoder().decode(MemoryWorkFolders.self, from: jsonData)
 //   let memoryWorkRemind = try? JSONDecoder().decode(MemoryWorkRemind.self, from: jsonData)
 //   let memoryWorkSettings = try? JSONDecoder().decode(MemoryWorkSettings.self, from: jsonData)
+//   let memoryWorkUndoUpdateParams = try? JSONDecoder().decode(MemoryWorkUndoUpdateParams.self, from: jsonData)
+//   let memoryWorkUndoUpdateResult = try? JSONDecoder().decode(MemoryWorkUndoUpdateResult.self, from: jsonData)
 //   let memoryWriteMode = try? JSONDecoder().decode(MemoryWriteMode.self, from: jsonData)
 //   let memoryWriteParams = try? JSONDecoder().decode(MemoryWriteParams.self, from: jsonData)
 //   let memoryWriteResult = try? JSONDecoder().decode(MemoryWriteResult.self, from: jsonData)
@@ -1531,6 +1535,10 @@
 //   let widgetsPinResult = try? JSONDecoder().decode(WidgetsPinResult.self, from: jsonData)
 //   let widgetsPreviewParams = try? JSONDecoder().decode(WidgetsPreviewParams.self, from: jsonData)
 //   let widgetsPreviewResult = try? JSONDecoder().decode(WidgetsPreviewResult.self, from: jsonData)
+//   let workNoteAttribute = try? JSONDecoder().decode(WorkNoteAttribute.self, from: jsonData)
+//   let workNoteBlock = try? JSONDecoder().decode(WorkNoteBlock.self, from: jsonData)
+//   let workNoteItem = try? JSONDecoder().decode(WorkNoteItem.self, from: jsonData)
+//   let workUndoStatus = try? JSONDecoder().decode(WorkUndoStatus.self, from: jsonData)
 //   let workflowCard = try? JSONDecoder().decode(WorkflowCard.self, from: jsonData)
 //   let workflowEvent = try? JSONDecoder().decode(WorkflowEvent.self, from: jsonData)
 //   let workflowEventFilter = try? JSONDecoder().decode(WorkflowEventFilter.self, from: jsonData)
@@ -9179,6 +9187,11 @@ public struct ItemElement: Codable, Sendable {
     public let source: String?
     public let span: String?
     public let factID: String?
+    public let attribute: WorkNoteAttribute?
+    public let entityID: String?
+    public let name: String?
+    public let previous: String?
+    public let value: String?
 
     public enum CodingKeys: String, CodingKey {
         case status = "status"
@@ -9195,9 +9208,14 @@ public struct ItemElement: Codable, Sendable {
         case source = "source"
         case span = "span"
         case factID = "factId"
+        case attribute = "attribute"
+        case entityID = "entityId"
+        case name = "name"
+        case previous = "previous"
+        case value = "value"
     }
 
-    public init(status: ChecklistItemStatus?, text: String?, lastMessageAt: String?, snippet: String?, threadID: String?, title: String?, date: String?, id: String?, kind: String?, provenance: Provenance?, route: String?, source: String?, span: String?, factID: String?) {
+    public init(status: ChecklistItemStatus?, text: String?, lastMessageAt: String?, snippet: String?, threadID: String?, title: String?, date: String?, id: String?, kind: String?, provenance: Provenance?, route: String?, source: String?, span: String?, factID: String?, attribute: WorkNoteAttribute?, entityID: String?, name: String?, previous: String?, value: String?) {
         self.status = status
         self.text = text
         self.lastMessageAt = lastMessageAt
@@ -9212,7 +9230,20 @@ public struct ItemElement: Codable, Sendable {
         self.source = source
         self.span = span
         self.factID = factID
+        self.attribute = attribute
+        self.entityID = entityID
+        self.name = name
+        self.previous = previous
+        self.value = value
     }
+}
+
+public enum WorkNoteAttribute: String, Codable, Sendable {
+    case deadline = "deadline"
+    case nextStep = "next_step"
+    case progress = "progress"
+    case status = "status"
+    case stoppedAt = "stopped_at"
 }
 
 public enum Provenance: String, Codable, Sendable {
@@ -9310,6 +9341,7 @@ public enum BlockType: String, Codable, Sendable {
     case text = "text"
     case toolCall = "tool_call"
     case ui = "ui"
+    case workNote = "work_note"
     case wrapUp = "wrap_up"
 }
 
@@ -10004,8 +10036,9 @@ public enum ConnectChallengePhase: String, Codable, Sendable {
 
 // MARK: - ConnectDenied
 public struct ConnectDenied: Codable, Sendable {
-    /// Machine-readable cause when there is one: the setup token was used, expired, revoked or
-    /// not allowed here
+    /// Machine-readable cause when there is one: setup_token_invalid (the setup token was used,
+    /// expired, revoked or not allowed here) or device_revoked (this device was removed on the
+    /// Gateway and can never connect again, so a client wipes its keys)
     public let code: Code?
     public let phase: ConnectDeniedPhase
     public let reason: String
@@ -10023,9 +10056,11 @@ public struct ConnectDenied: Codable, Sendable {
     }
 }
 
-/// Machine-readable cause when there is one: the setup token was used, expired, revoked or
-/// not allowed here
+/// Machine-readable cause when there is one: setup_token_invalid (the setup token was used,
+/// expired, revoked or not allowed here) or device_revoked (this device was removed on the
+/// Gateway and can never connect again, so a client wipes its keys)
 public enum Code: String, Codable, Sendable {
+    case deviceRevoked = "device_revoked"
     case setupTokenInvalid = "setup_token_invalid"
 }
 
@@ -10165,8 +10200,9 @@ public struct ConnectResult: Codable, Sendable {
     public let scopes: [DeviceScope]?
     public let serverTime: String?
     public let stateVersion: Int?
-    /// Machine-readable cause when there is one: the setup token was used, expired, revoked or
-    /// not allowed here
+    /// Machine-readable cause when there is one: setup_token_invalid (the setup token was used,
+    /// expired, revoked or not allowed here) or device_revoked (this device was removed on the
+    /// Gateway and can never connect again, so a client wipes its keys)
     public let code: String?
     public let pairingRequestID: String?
     public let reason: String?
@@ -11934,6 +11970,19 @@ public struct DevicesRevokeParams: Codable, Sendable {
 
 // MARK: - DevicesRevokeResult
 public struct DevicesRevokeResult: Codable, Sendable {
+    public let device: Device
+
+    public enum CodingKeys: String, CodingKey {
+        case device = "device"
+    }
+
+    public init(device: Device) {
+        self.device = device
+    }
+}
+
+// MARK: - DevicesRevokeSelfResult
+public struct DevicesRevokeSelfResult: Codable, Sendable {
     public let device: Device
 
     public enum CodingKeys: String, CodingKey {
@@ -21844,6 +21893,39 @@ public struct MemoryWorkRemind: Codable, Sendable {
         self.dueSoonHours = dueSoonHours
         self.enabled = enabled
     }
+}
+
+// MARK: - MemoryWorkUndoUpdateParams
+public struct MemoryWorkUndoUpdateParams: Codable, Sendable {
+    public let factID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case factID = "factId"
+    }
+
+    public init(factID: String) {
+        self.factID = factID
+    }
+}
+
+// MARK: - MemoryWorkUndoUpdateResult
+public struct MemoryWorkUndoUpdateResult: Codable, Sendable {
+    public let status: WorkUndoStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case status = "status"
+    }
+
+    public init(status: WorkUndoStatus) {
+        self.status = status
+    }
+}
+
+public enum WorkUndoStatus: String, Codable, Sendable {
+    case alreadyUndone = "already_undone"
+    case changedAgain = "changed_again"
+    case removed = "removed"
+    case undone = "undone"
 }
 
 // MARK: - MemoryWriteParams
@@ -34361,6 +34443,62 @@ public enum WidgetsPreviewResultDecision: String, Codable, Sendable {
     case unavailable = "unavailable"
 }
 
+// MARK: - WorkNoteBlock
+public struct WorkNoteBlock: Codable, Sendable {
+    public let items: [WorkNoteItem]
+    public let type: WorkNoteBlockType
+
+    public enum CodingKeys: String, CodingKey {
+        case items = "items"
+        case type = "type"
+    }
+
+    public init(items: [WorkNoteItem], type: WorkNoteBlockType) {
+        self.items = items
+        self.type = type
+    }
+}
+
+// MARK: - WorkNoteItem
+public struct WorkNoteItem: Codable, Sendable {
+    public let attribute: WorkNoteAttribute
+    public let entityID: String
+    public let factID: String
+    public let kind: WorkNoteItemKind
+    public let name: String
+    public let previous: String?
+    public let value: String
+
+    public enum CodingKeys: String, CodingKey {
+        case attribute = "attribute"
+        case entityID = "entityId"
+        case factID = "factId"
+        case kind = "kind"
+        case name = "name"
+        case previous = "previous"
+        case value = "value"
+    }
+
+    public init(attribute: WorkNoteAttribute, entityID: String, factID: String, kind: WorkNoteItemKind, name: String, previous: String?, value: String) {
+        self.attribute = attribute
+        self.entityID = entityID
+        self.factID = factID
+        self.kind = kind
+        self.name = name
+        self.previous = previous
+        self.value = value
+    }
+}
+
+public enum WorkNoteItemKind: String, Codable, Sendable {
+    case proposal = "proposal"
+    case update = "update"
+}
+
+public enum WorkNoteBlockType: String, Codable, Sendable {
+    case workNote = "work_note"
+}
+
 // MARK: - WrapUpBlock
 public struct WrapUpBlock: Codable, Sendable {
     public let actions: [WrapUpAction]?
@@ -34402,6 +34540,7 @@ public typealias ConnectorsListParams = [String: JSONAny]
 public typealias DailyAutomationsTemplatesParams = [String: JSONAny]
 public typealias DevicesBootstrapAdminParams = [String: JSONAny]
 public typealias DevicesPresenceKeyListParams = [String: JSONAny]
+public typealias DevicesRevokeSelfParams = [String: JSONAny]
 public typealias DevicesSetupTokenListParams = [String: JSONAny]
 public typealias DictationTargetParams = [String: JSONAny]
 public typealias EmptyParams = [String: JSONAny]

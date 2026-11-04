@@ -51,15 +51,15 @@ struct SecurityReviewTests {
     @Test func removingThisPhoneRevokesItsOwnDeviceThenWipesBeforeTheStateIsRevoked() async throws {
         let gateway = FakeGateway()
         let asked = OutboxTests.Sent()
-        gateway.on("devices.revoke") { req in
-            asked.add(req.params?["deviceId"]?.stringValue ?? "?")
+        gateway.on("devices.revokeSelf") { req in
+            asked.add(req.method)
             return .success(.object(["device": .object([:])]))
         }
         let h = try await Self.pairedHarness(gateway)
         let keyBefore = try await h.identityStore.identity().publicKey
         let backend = GatewayBackend(client: h.client)
         try await backend.revokeThisPhone()
-        #expect(asked.all == ["dev_test"])  // the Gateway was asked to revoke this device, by id
+        #expect(asked.all == ["devices.revokeSelf"])  // no device id: the Gateway revokes the caller itself
         #expect(await h.client.currentState == .revoked)
         #expect(h.endpointStore.load() == nil)
         #expect(h.wiped.isSet)
@@ -78,7 +78,7 @@ struct SecurityReviewTests {
 
     @Test func aGatewayThatRefusesTheRevokeLeavesThePhonePaired() async throws {
         let gateway = FakeGateway()
-        gateway.on("devices.revoke") { _ in .failure(WireError(code: "forbidden", message: "Needs admin.")) }
+        gateway.on("devices.revokeSelf") { _ in .failure(WireError(code: "forbidden", message: "Needs admin.")) }
         let h = try await Self.pairedHarness(gateway)
         await #expect(throws: BackendError.refused("Needs admin.")) { try await GatewayBackend(client: h.client).revokeThisPhone() }
         #expect(h.endpointStore.load() != nil)

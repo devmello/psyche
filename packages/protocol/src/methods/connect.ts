@@ -143,9 +143,9 @@ export const ConnectDenied = Type.Object(
     phase: Type.Literal("denied"),
     reason: Type.String(),
     code: Type.Optional(
-      StringEnum(["setup_token_invalid"], {
+      StringEnum(["setup_token_invalid", "device_revoked"], {
         description:
-          "Machine-readable cause when there is one: the setup token was used, expired, revoked or not allowed here",
+          "Machine-readable cause when there is one: setup_token_invalid (the setup token was used, expired, revoked or not allowed here) or device_revoked (this device was removed on the Gateway and can never connect again, so a client wipes its keys)",
       }),
     ),
   },

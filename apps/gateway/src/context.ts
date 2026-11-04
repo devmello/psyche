@@ -77,6 +77,8 @@ export interface LiveConnection {
   /** Paired and not closed. */
   readonly open: boolean;
   close(reason: string): void;
+  /** Closes once the reply to the request in progress is out (a device removing itself). */
+  closeAfterReply?(reason: string): void;
   /** Bytes queued on the socket and not yet sent (WebSockets only; 0 otherwise). */
   bufferedAmount(): number;
   setEventFilter(filter: EventFilter | null): void;
@@ -170,6 +172,8 @@ export interface GatewayContext {
    * the composition root wires `PsychePermissionBroker.revokeGrantsByDevice`).
    */
   readonly onDeviceRevoked: ((deviceId: string) => Promise<unknown>) | null;
+  /** A device removed itself (`devices.revokeSelf`; the composition root audits it). */
+  readonly onDeviceSelfRevoked?: ((revoked: { deviceId: string; name: string }) => void) | null;
   /** A computer paired itself with a setup token (the composition root audits it). */
   readonly onSetupTokenUsed?:
     | ((used: { tokenId: string; deviceId: string; scopes: DeviceScope[] }) => void)
