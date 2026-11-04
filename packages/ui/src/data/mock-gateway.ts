@@ -2374,6 +2374,13 @@ export class MockGateway implements GatewayClient {
       ),
     "insights.summary": (p) =>
       structuredClone(this.world.insights?.[p.window] ?? emptyInsights(p.window)),
+    // No Mac helper in the fixture world: the on-device choices stay hidden.
+    "models.appleStatus": () => ({
+      ref: "apple/on-device",
+      helperConnected: false,
+      available: false,
+      contextTokens: 4096,
+    }),
     "models.list": () => ({
       providers: this.world.modelProviders ?? [],
       roles: this.world.modelRoles ?? {},

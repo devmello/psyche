@@ -144,6 +144,12 @@ export const memoryReview = {
   "everything.model.local": "Local",
   "everything.model.localHint":
     "A model on this Mac reads everything. Nothing leaves the Mac. Fewer, noisier facts.",
+  "everything.model.apple": "Apple on-device model (experimental)",
+  "everything.model.appleHint":
+    "The text stays on this Mac: nothing to download, no key, nothing sent to the cloud. It reads about 4k tokens at a time, so long items are skipped. If it can't answer, that batch is skipped and the reason is recorded. It never falls back to a cloud model.",
+  "everything.model.appleExperimental":
+    "Experimental. It has not been checked yet that this window is enough for reading a source, so it is not recommended.",
+  "everything.model.appleSkipped": "Until then, this source is skipped.",
   "everything.model.localRef": "Local model",
   "everything.model.localRefHint": "provider/model, for example ollama/qwen3:4b",
   "everything.model.cloudRef": "Cloud model",
