@@ -549,6 +549,15 @@ export const LifeFactHit = Type.Object(
     review: GraphReviewState,
     quote: Nullable(Type.String({ maxLength: 200 })),
     source: Nullable(Type.String({ maxLength: 40 })),
+    docId: Type.Optional(
+      Nullable(
+        Type.String({
+          maxLength: 200,
+          description:
+            "Search document id of the first citation's source passage, when it is indexed; opens the source viewer",
+        }),
+      ),
+    ),
     observedAt: Nullable(IsoDateTime),
     learnedAt: Nullable(IsoDateTime),
   },

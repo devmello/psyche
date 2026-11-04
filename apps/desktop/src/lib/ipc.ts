@@ -69,6 +69,9 @@ export const IPC = {
   // Open an https page in the default browser: a connector's sign-in (#505). Agent tabs stay
   // in the browser pane; app windows refuse window.open.
   openExternal: "psyche:shell:open-external",
+  // Open the original of a cited passage (a mail message in Mail, a granted file in Finder) from
+  // a search document id; main asks the Gateway what that may open (lib/source-open.ts).
+  sourceOpen: "psyche:source:open",
   // Copy text to the system clipboard (the session refuses navigator.clipboard; #507).
   clipboardWrite: "psyche:clipboard:write",
   // Settings → About: versions, platform and the data folder (#610).
@@ -171,6 +174,8 @@ export function checkCallable(method: unknown, isMethodName: (m: unknown) => boo
     method === "connect.verify" ||
     method.startsWith("node.") ||
     method.startsWith("dictation.") ||
+    // Where a source opens (a Message-ID, a host path) is resolved for main only (`sourceOpen`).
+    method === "search.openSource" ||
     // The first-admin bootstrap runs from main only (approved design, condition 2).
     method === "devices.bootstrapAdmin" ||
     // Touch ID from the window and its key go through their own channels, which only the main

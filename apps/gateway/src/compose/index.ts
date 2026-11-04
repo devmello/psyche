@@ -186,6 +186,7 @@ import { filesSourceDeps, powerReader } from "./search-files.ts";
 import { chatContextResolver } from "./search-hit-context.ts";
 import { memorySettings, memorySourceDeps } from "./search-memory.ts";
 import { helperRecognizer } from "./search-ocr.ts";
+import { agentBlockedHit } from "./search-open.ts";
 import { routerEmbedder, type SemanticEngines } from "./search-semantic.ts";
 import { agentLocalSearch, searchEverythingTool } from "./search-tool.ts";
 import {
@@ -1819,6 +1820,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   gateway.context.chatContext.resolve = chatContextResolver(
     feedContextResolver(proactive.feed.store),
     (id) => search.index.docOf(id),
+    (id) => agentBlockedHit(search.sources, id),
   );
   await proactive.start();
   await ensureWeeklyCardAutomation(scheduler, {

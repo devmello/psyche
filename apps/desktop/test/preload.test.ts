@@ -31,6 +31,17 @@ describe("the preload bridge (#610)", () => {
   });
 });
 
+describe("Open a cited source", () => {
+  it("sends one document id on its own channel and resolves the raw envelope", async () => {
+    const bridge = exposed.psyche as { sources: { open: (docId: string) => Promise<unknown> } };
+    expect(Object.keys(bridge.sources)).toEqual(["open"]);
+    const res = await bridge.sources.open("mail:123");
+    expect(invoke).toHaveBeenLastCalledWith(IPC.sourceOpen, { docId: "mail:123" });
+    // The renderer unwraps the envelope itself (`unwrapCall`), so the error code survives.
+    expect(res).toEqual({ ok: true, value: "v" });
+  });
+});
+
 describe("Try it from the Settings window (#677)", () => {
   it("sends the composer text to main on its own channel, fire-and-forget", () => {
     const bridge = exposed.psyche as { windows: { prefillComposer: (text: string) => void } };

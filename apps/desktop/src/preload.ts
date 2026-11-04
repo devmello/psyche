@@ -204,6 +204,14 @@ const bridge = {
   external: {
     open: (url: string) => invoke(IPC.openExternal, { url }),
   },
+  /**
+   * Opens the original of a cited passage from its search document id (Mail for a message,
+   * Finder for a file in a granted folder). Resolves the raw envelope like `gateway.call`; the
+   * value is "mail" | "file" | "none". Main resolves the target itself: nothing else is sent.
+   */
+  sources: {
+    open: (docId: string) => ipcRenderer.invoke(IPC.sourceOpen, { docId }) as Promise<Envelope>,
+  },
   /** Settings → About (#610): versions, platform, the data folder and the Gateway's origin. */
   app: {
     info: () => invoke(IPC.appInfo),
