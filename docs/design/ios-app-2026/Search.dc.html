@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Psyche Search</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+a{color:#2c5aa0}a:hover{color:#234a85}
+.sec{margin:0;font:600 13px/18px -apple-system,system-ui,sans-serif;color:#6a6966}
+.row{display:flex;align-items:center;gap:12px;padding:11px 14px;border-top:1px solid #ebe9e6}
+.row:first-child{border-top:0}
+.ic{width:32px;height:32px;flex-shrink:0;border-radius:8px;background:#f1f0ef;display:flex;align-items:center;justify-content:center}
+.t{margin:0;font:400 15px/20px -apple-system,system-ui,sans-serif;color:#21201f}
+.m{margin:0;font:400 12px/16px ui-monospace,"SF Mono",Menlo,monospace;color:#6a6966}
+mark{background:#ebf5ff;color:#21201f;border-radius:3px;padding:0 1px}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #faf9f8; font-family: -apple-system, system-ui, sans-serif; color: #21201f">
+  <div style="padding: 62px 20px 120px; display: flex; flex-direction: column; gap: 20px">
+    <h1 style="margin: 0; font-family: ui-serif, 'New York', 'Iowan Old Style', Georgia, serif; font-size: 34px; line-height: 40px; font-weight: 600">Search</h1>
+
+    <section aria-label="Answer" style="display: flex; flex-direction: column; gap: 8px; padding: 16px; background: #ffffff; border: 1px solid #ebe9e6; border-radius: 16px">
+      <p class="sec">From your memory</p>
+      <p style="margin: 0; font-family: ui-serif, 'New York', Georgia, serif; font-size: 20px; line-height: 27px">Rent is due <strong style="font-weight: 600">Friday, November 6</strong>: $1,850 to Sam Ortiz. Autopay is paused this month.</p>
+      <p class="m">Sources · lease-2026.pdf · mail Oct 28 · todo_rent</p>
+    </section>
+
+    <section style="display: flex; flex-direction: column; gap: 8px">
+      <h2 class="sec">To-do</h2>
+      <div style="background: #ffffff; border: 1px solid #ebe9e6; border-radius: 14px; overflow: hidden">
+        <div class="row">
+          <span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#21201f" stroke-width="1.9" aria-hidden="true"><circle cx="12" cy="12" r="8"/></svg></span>
+          <div style="flex-grow: 1; min-width: 0"><p class="t">Pay <mark>rent</mark> for November</p><p class="m">Due Fri · Home</p></div>
+        </div>
+        <div class="row">
+          <span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#21201f" stroke-width="1.9" aria-hidden="true"><circle cx="12" cy="12" r="8"/></svg></span>
+          <div style="flex-grow: 1; min-width: 0"><p class="t">Renew renter's insurance</p><p class="m">Due Dec 1 · Home</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section style="display: flex; flex-direction: column; gap: 8px">
+      <h2 class="sec">Chats and files</h2>
+      <div style="background: #ffffff; border: 1px solid #ebe9e6; border-radius: 14px; overflow: hidden">
+        <div class="row">
+          <span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#21201f" stroke-width="1.9" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg></span>
+          <div style="flex-grow: 1; min-width: 0"><p class="t">Lease renewal questions</p><p class="m">Chat · Oct 28</p></div>
+        </div>
+        <div class="row">
+          <span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#21201f" stroke-width="1.9" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h8l4 4v14H6z"/></svg></span>
+          <div style="flex-grow: 1; min-width: 0"><p class="t">lease-2026.pdf</p><p class="m">Library · p. 3 "<mark>rent</mark> is due on the 6th"</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section style="display: flex; flex-direction: column; gap: 8px">
+      <h2 class="sec">People</h2>
+      <div style="background: #ffffff; border: 1px solid #ebe9e6; border-radius: 14px; overflow: hidden">
+        <div class="row">
+          <span style="width: 32px; height: 32px; flex-shrink: 0; border-radius: 16px; background: #f1f0ef; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; color: #6a6966">SO</span>
+          <div style="flex-grow: 1; min-width: 0"><p class="t">Sam Ortiz</p><p class="m">Landlord · last mail Oct 28</p></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div style="position: absolute; left: 16px; right: 16px; bottom: 26px; display: flex; gap: 10px; align-items: center">
+    <label style="flex-grow: 1; height: 54px; border-radius: 27px; background: rgba(255,255,255,0.78); backdrop-filter: blur(20px) saturate(1.6); -webkit-backdrop-filter: blur(20px) saturate(1.6); border: 1px solid rgba(255,255,255,0.9); box-shadow: 0 8px 28px rgba(33,32,31,0.12); display: flex; align-items: center; gap: 10px; padding: 0 16px">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6a6966" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
+      <input value="when is rent due" aria-label="Search" style="flex-grow: 1; min-width: 0; border: 0; outline: 0; background: transparent; font: 400 16px -apple-system, system-ui, sans-serif; color: #21201f">
+    </label>
+    <a href="Main.dc.html" aria-label="Close search" style="width: 54px; height: 54px; flex-shrink: 0; border-radius: 27px; background: rgba(255,255,255,0.78); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.9); box-shadow: 0 8px 28px rgba(33,32,31,0.12); display: flex; align-items: center; justify-content: center">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#21201f" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
