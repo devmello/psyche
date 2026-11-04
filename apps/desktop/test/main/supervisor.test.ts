@@ -169,6 +169,31 @@ describe("LaunchAgent plist", () => {
     expect(states.at(-1)?.kind).toBe("stopped");
   });
 
+  it("remote mode starts nothing, only reports whether the Host answers, and never touches this Mac's LaunchAgent", async () => {
+    const fake = launchd();
+    const states: GatewayRunState[] = [];
+    const make = (fetchFn: typeof fetch) =>
+      new GatewaySupervisor({
+        mode: "remote",
+        psycheHome: join(dir, "home-remote"),
+        healthUrl: "https://studio-mac.tail1234.ts.net/healthz",
+        run: fake.run,
+        fetch: fetchFn,
+        onState: (s) => states.push(s),
+      });
+    const sup = make(down);
+    await sup.ensureRunning();
+    expect(sup.getState()).toEqual({ kind: "stopped", mode: "remote" });
+    await make(up).ensureRunning();
+    expect(states.at(-1)).toEqual({ kind: "running", mode: "remote" });
+    // "Quit Psyche entirely" in Remote mode must not stop the Gateway whose automations keep
+    // running on this Mac (owner decision G2).
+    await sup.stopEverything();
+    await sup.onAppQuit();
+    expect(fake.calls).toEqual([]);
+    expect(existsSync(join(dir, "home-remote"))).toBe(false);
+  });
+
   it("reports a Gateway that never answers with its last exit code and the logs folder", async () => {
     const program = join(dir, "psyched-dead");
     writeFileSync(program, "#!/bin/sh\n");

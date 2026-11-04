@@ -5,6 +5,7 @@ import { Checkbox } from "../../components/ui/checkbox.tsx";
 import { Label } from "../../components/ui/label.tsx";
 import { useCall, useGatewayQuery } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
+import { groupFingerprint } from "../../lib/fingerprint.ts";
 import { formatRelative } from "../../lib/format.ts";
 import { useNow } from "../../lib/use-now.ts";
 import { RowMoreMenu } from "./RowMoreMenu.tsx";
@@ -73,6 +74,8 @@ export interface DevicesPanelProps extends LoadProps {
   onDeny?: (request: PairingRequest) => void;
   onRevoke?: (device: Device) => void;
   actionError?: string | null;
+  /** This Gateway's identity key fingerprint: compared with what the new computer shows. */
+  gatewayFingerprint?: string;
 }
 
 export function DevicesPanel({
@@ -87,6 +90,7 @@ export function DevicesPanel({
   onDeny,
   onRevoke,
   actionError = null,
+  gatewayFingerprint,
   loading,
   error,
   onRetry,
@@ -122,6 +126,7 @@ export function DevicesPanel({
                   key={p.id}
                   request={p}
                   now={clock}
+                  {...(gatewayFingerprint ? { gatewayFingerprint } : {})}
                   {...(onApprove ? { onApprove } : {})}
                   {...(onDeny ? { onDeny } : {})}
                 />
@@ -304,19 +309,40 @@ const PAIR_SCOPES: readonly DeviceScope[] = [
   "node",
 ];
 
+/** A request that came in over the network (a proxy or another address), not from this Mac. */
+function isRemoteRequest(request: PairingRequest): boolean {
+  const from = request.remoteAddress;
+  return (
+    request.transport === "ws" && from !== undefined && !["127.0.0.1", "::1", "unix"].includes(from)
+  );
+}
+
+/**
+ * What a new device starts with ticked. A computer on another network gets read, write and
+ * approvals (design §3.5); admin is always an opt-in, and Touch ID still guards each admin change.
+ */
+export function defaultPairScopes(request: PairingRequest): DeviceScope[] {
+  return isRemoteRequest(request)
+    ? ["operator.read", "operator.write", "operator.approvals"]
+    : ["operator.read", "operator.write"];
+}
+
 function PendingDevice({
   request,
   now,
+  gatewayFingerprint,
   onApprove,
   onDeny,
 }: {
   request: PairingRequest;
   now: number;
+  gatewayFingerprint?: string;
   onApprove?: (request: PairingRequest, scopes: DeviceScope[]) => void;
   onDeny?: (request: PairingRequest) => void;
 }): ReactElement {
   const id = useId();
-  const [scopes, setScopes] = useState<DeviceScope[]>(["operator.read", "operator.write"]);
+  const [scopes, setScopes] = useState<DeviceScope[]>(() => defaultPairScopes(request));
+  const remote = isRemoteRequest(request);
   const toggle = (s: DeviceScope, on: boolean) =>
     setScopes((prev) => (on ? [...prev, s] : prev.filter((x) => x !== s)));
   return (
@@ -331,6 +357,16 @@ function PendingDevice({
           {t("settings.devices.expires", { when: formatRelative(request.expiresAt, now) })}
         </span>
       </p>
+      {remote ? (
+        <p className="text-callout text-label-secondary">
+          {t("settings.devices.fromAddress", { address: request.remoteAddress ?? "" })}
+        </p>
+      ) : null}
+      {remote && gatewayFingerprint ? (
+        <p className="text-callout text-label-secondary">
+          {t("settings.devices.gatewayKey", { fingerprint: groupFingerprint(gatewayFingerprint) })}
+        </p>
+      ) : null}
       <fieldset className="flex flex-wrap gap-x-4 gap-y-1">
         <legend className="mb-1 text-callout text-muted-foreground">
           {t("settings.devices.scopesFor", { name: request.display })}
@@ -348,6 +384,9 @@ function PendingDevice({
           </div>
         ))}
       </fieldset>
+      {remote ? (
+        <p className="text-callout text-label-secondary">{t("settings.devices.adminOptIn")}</p>
+      ) : null}
       <div className="flex gap-2">
         {onApprove ? (
           <Button
@@ -414,6 +453,13 @@ export function DevicesSection({
   const devicesQ = useGatewayQuery("devices.list", { includeRevoked: true });
   const pairingQ = useGatewayQuery("devices.pairing.list", { status: "pending" });
   const nodesQ = useGatewayQuery("nodes.list", {});
+  const infoQ = useGatewayQuery(
+    "gateway.info",
+    {},
+    {
+      enabled: (pairingQ.data?.pairingRequests ?? []).some((p) => p.status === "pending"),
+    },
+  );
   const keysQ = useGatewayQuery("devices.presenceKey.list", {});
   const settled = (p: Promise<unknown>) =>
     p.then((v) => {
@@ -440,6 +486,7 @@ export function DevicesSection({
       pairing={pairingQ.data?.pairingRequests ?? []}
       nodes={nodesQ.data?.nodes ?? []}
       presenceKeys={keysQ.data?.presenceKeys ?? []}
+      {...(infoQ.data ? { gatewayFingerprint: infoQ.data.identity.fingerprint } : {})}
       touchId={{
         bundled: touchId ? bundled : undefined,
         allowDevFileKey: devSettingQ.data?.settings?.[DEV_FILE_KEY_SETTING] === true,

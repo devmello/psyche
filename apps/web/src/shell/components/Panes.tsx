@@ -151,6 +151,19 @@ function PaneBody(props: {
   }
 }
 
+/**
+ * A pane's title. The terminal's names the computer it is a shell on when that is not this one,
+ * so the owner never mistakes the Host's shell for the machine in front of them (design §1.3).
+ */
+function usePaneTitle(): (kind: PaneInstance["pane"]) => string {
+  const { platform } = useShell();
+  const host = platform.chrome?.remote?.hostName;
+  return (kind) =>
+    kind === "terminal" && host !== undefined
+      ? t("web.panes.title.terminalOn", { host })
+      : PANE_TITLES[kind];
+}
+
 /** A keyboard-operable pane divider (docs/a11y-audit.md W5): drag it, or focus it and use ← →. */
 function PaneResizer({
   onPointerDown,
@@ -289,6 +302,7 @@ function PaneColumns(
   },
 ): ReactElement {
   const { platform } = useShell();
+  const paneTitle = usePaneTitle();
   const { state, pres } = props;
 
   // The drag in progress, if any; ended on release, cancel or when the panes unmount.
@@ -330,7 +344,7 @@ function PaneColumns(
             key={g.groupId}
             className="pane"
             style={{ flex: g.size }}
-            aria-label={active ? PANE_TITLES[active.pane] : t("web.panes.pane")}
+            aria-label={active ? paneTitle(active.pane) : t("web.panes.pane")}
             data-testid="pane-group"
           >
             {gi > 0 ? (
@@ -355,7 +369,7 @@ function PaneColumns(
                       data-testid="pane-tab"
                       data-pane={p.pane}
                     >
-                      {p.title ?? PANE_TITLES[p.pane]}
+                      {p.title ?? paneTitle(p.pane)}
                     </button>
                   );
                 })}
@@ -381,7 +395,7 @@ function PaneColumns(
                     props.dispatch({ type: "popOut", paneId: active.paneId });
                     void platform.windows?.popOutPane(
                       `/chat/${props.threadId}/pane/${active.paneId}`,
-                      active.title ?? PANE_TITLES[active.pane],
+                      active.title ?? paneTitle(active.pane),
                     );
                   }}
                 >

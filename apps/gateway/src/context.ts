@@ -16,6 +16,7 @@ import type { PairedIdentity, PeerInfo } from "./auth.ts";
 import type { GatewayConfig } from "./config.ts";
 import type { EventBus, EventFilter } from "./event-bus.ts";
 import type { Idempotency } from "./idempotency.ts";
+import type { GatewayIdentity } from "./identity.ts";
 import type { Logger } from "./log.ts";
 import type { NodeRegistry } from "./nodes/registry.ts";
 import type { PresenceState } from "./presence-gate.ts";
@@ -173,6 +174,15 @@ export interface GatewayContext {
    */
   readonly chatContext: { resolve: ChatContextResolver | null };
   serverOrigin(): string;
+  /**
+   * The origin a challenge to `peer` names and signs. A connection that came in through a proxy
+   * (Tailscale Serve) is told the configured `gateway.publicOrigin`, which is the address its
+   * client dialed; a direct loopback connection is told the loopback origin. The client refuses
+   * a challenge whose origin is not the one it dialed (remote-gateway design §3.3).
+   */
+  challengeOrigin(peer: PeerInfo): string;
+  /** This Gateway's identity key (`identity/gateway.key`); it signs every challenge. */
+  readonly identity: GatewayIdentity;
   connections(): Iterable<LiveConnection>;
 }
 

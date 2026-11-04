@@ -76,6 +76,11 @@ export interface WindowOptions {
   onViewCreated?: (wc: WebContents) => void;
   /** Whether the main window opens on the startup splash (#539). */
   splash?: () => boolean;
+  /**
+   * The app is a client of a Gateway on another computer: every view is told, so it can say
+   * where things run and hide what only works on this Mac (remote-gateway design §4.2).
+   */
+  remote?: { hostName: string };
   /** The layout e2e sizes the window past CI's small screen (#561). */
   anySize?: boolean;
   /** A chrome window (main, Settings) was made: the native theme and the like. */
@@ -120,6 +125,8 @@ export interface ChromeArg {
   trafficLights?: { x: number; y: number };
   /** The main window opens on the startup splash (#539). */
   splash?: boolean;
+  /** Connected to a Gateway on another computer (remote-gateway design §1.3). */
+  remote?: { hostName: string };
 }
 
 export const CHROME_ARG_PREFIX = "--psyche-chrome=";
@@ -195,7 +202,9 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
       webPreferences: {
         ...APP_PREFS,
         preload: opts.preloadPath,
-        additionalArguments: [`${CHROME_ARG_PREFIX}${JSON.stringify(chrome)}`],
+        additionalArguments: [
+          `${CHROME_ARG_PREFIX}${JSON.stringify(opts.remote ? { ...chrome, remote: opts.remote } : chrome)}`,
+        ],
       },
     });
     win.contentView.addChildView(view, 0); // index 0: agent tab views stay above the app view

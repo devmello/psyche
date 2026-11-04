@@ -1385,6 +1385,14 @@
         "sideEffecting": false
       },
       {
+        "description": "The Gateway's identity key and fingerprint, the Host's name and whether it is set up to be reached from other computers (publicOrigin, trusted proxy). The Host's Settings shows the fingerprint next to a pairing request so the owner can compare it with the one the new computer shows.",
+        "name": "gateway.info",
+        "params": "#/$defs/GatewayInfoParams",
+        "result": "#/$defs/GatewayInfo",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "Archives a goal and disables its check-ins. Side-effecting.",
         "name": "goals.archive",
         "params": "#/$defs/GoalsArchiveParams",
@@ -13971,6 +13979,16 @@
           "description": "ISO-8601 timestamp (UTC)",
           "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
           "type": "string"
+        },
+        "gatewayKey": {
+          "description": "The Gateway's long-lived identity public key (base64url raw Ed25519). Clients pin it at first pair and refuse a different one (remote-gateway design §3.3)",
+          "pattern": "^[A-Za-z0-9_-]{43}$",
+          "type": "string"
+        },
+        "gatewaySignature": {
+          "description": "base64url Ed25519 signature by the Gateway identity key over gatewaySigningPayload(nonce, serverOrigin, the connecting device's public key)",
+          "pattern": "^[A-Za-z0-9_-]{86}$",
+          "type": "string"
         }
       },
       "required": [
@@ -18920,6 +18938,57 @@
         "exec_host"
       ],
       "type": "string"
+    },
+    "GatewayInfo": {
+      "properties": {
+        "identity": {
+          "properties": {
+            "publicKey": {
+              "description": "base64url raw Ed25519 identity public key",
+              "type": "string"
+            },
+            "fingerprint": {
+              "description": "sha256:<hex> of the raw key, as clients show it",
+              "type": "string"
+            }
+          },
+          "required": [
+            "publicKey",
+            "fingerprint"
+          ],
+          "type": "object"
+        },
+        "hostName": {
+          "description": "The Host machine's name",
+          "type": "string"
+        },
+        "publicOrigin": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "gateway.publicOrigin, the https address other computers reach it at"
+        },
+        "trustedProxy": {
+          "description": "gateway.trustedProxy is on",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "identity",
+        "hostName",
+        "publicOrigin",
+        "trustedProxy"
+      ],
+      "type": "object"
+    },
+    "GatewayInfoParams": {
+      "properties": {},
+      "type": "object"
     },
     "GatewayShutdownPayload": {
       "properties": {

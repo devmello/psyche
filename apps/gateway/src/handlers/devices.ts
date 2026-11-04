@@ -1,3 +1,4 @@
+import { hostname } from "node:os";
 import {
   decidePairingRequest,
   expirePairingRequests,
@@ -62,6 +63,17 @@ function closeDeviceConnections(ctx: GatewayContext, deviceId: string, reason: s
 }
 
 export const devicesHandlers: Record<string, HandlerDef> = {
+  "gateway.info": {
+    run(call: Call) {
+      const { identity, config } = call.ctx;
+      return {
+        identity: { publicKey: identity.publicKey, fingerprint: identity.fingerprint },
+        hostName: hostname(),
+        publicOrigin: config.publicOrigin,
+        trustedProxy: config.trustedProxy.enabled,
+      };
+    },
+  },
   "devices.list": {
     run(call: Call, params: { includeRevoked?: boolean }) {
       return {

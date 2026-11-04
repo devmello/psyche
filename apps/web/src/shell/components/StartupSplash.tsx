@@ -1,13 +1,24 @@
+import { PROTOCOL_VERSION } from "@psyche/protocol";
 import {
+  AddGatewayForm,
   documentPrefersReducedMotion,
+  GatewaysList,
+  groupFingerprint,
   SPLASH_LEAVE_MS,
   SPLASH_LEAVE_REDUCED_MS,
+  type SplashActionView,
   StartupSplashView,
   t,
+  UiSlotsProvider,
 } from "@psyche/ui";
 import { type ReactElement, useEffect, useState } from "react";
 import { type GatewayStatus, INITIAL_STATUS } from "../../client/status.ts";
-import type { GatewayRunView, MacHelperState, ShellPlatform } from "../platform.ts";
+import type {
+  GatewayRunView,
+  MacHelperState,
+  SavedGatewayView,
+  ShellPlatform,
+} from "../platform.ts";
 
 /**
  * The startup splash (#539, #595): the main window's first content while Psyche starts, then it
@@ -17,17 +28,123 @@ import type { GatewayRunView, MacHelperState, ShellPlatform } from "../platform.
  * not when Psyche already answered (attach mode).
  */
 
+/** What the owner can do from a remote Gateway's start (remote-gateway design §4.6). */
+export type SplashActionId = "retry" | "switch" | "useThisMac" | "pairAgain" | "forget";
+
 export type SplashLine =
-  | { tone: "progress"; text: string; step: 0 | 1 | 2 }
+  | { tone: "progress"; text: string; step: 0 | 1 | 2; detail?: string[] }
   | { tone: "ready"; text: string }
-  | { tone: "error"; text: string; reason: string };
+  | {
+      tone: "error";
+      text: string;
+      reason: string;
+      actions?: SplashActionId[];
+      /** Retrying cannot help and the app behind must not open: the Gateway failed a check. */
+      fatal?: true;
+    };
+
+const IDENTITY_REASON: Record<string, string> = {
+  gateway_identity_changed: "web.splash.remote.identityChanged",
+  gateway_identity_missing: "web.splash.remote.identityMissing",
+  gateway_identity_invalid: "web.splash.remote.identityInvalid",
+  gateway_origin_mismatch: "web.splash.remote.identityOrigin",
+};
+
+/**
+ * The line for a Gateway on another computer: finding it, checking it is the one that was paired,
+ * waiting for approval, and the failures that each get one cause and their own actions (design
+ * §4.6). `waited` is true once ten seconds have passed without an answer.
+ */
+function remoteSplashLine(
+  status: GatewayStatus,
+  host: string,
+  waited: boolean,
+  hostHasLocal: boolean,
+): SplashLine {
+  if (status.phase === "paired") return { tone: "ready", text: t("web.splash.ready") };
+  const code = status.lastError;
+  if (status.phase === "error" && code !== undefined && code in IDENTITY_REASON) {
+    return {
+      tone: "error",
+      text: t("web.splash.remote.identity", { host }),
+      reason: t(IDENTITY_REASON[code] as "web.splash.remote.identityChanged", { host }),
+      actions: ["switch", "pairAgain"],
+      fatal: true,
+    };
+  }
+  if (status.phase === "error" && code === "protocol_version_mismatch") {
+    const hostOlder =
+      status.serverProtocolVersion !== undefined && status.serverProtocolVersion < PROTOCOL_VERSION;
+    return {
+      tone: "error",
+      text: hostOlder
+        ? t("web.splash.remote.olderHost", { host })
+        : t("web.splash.remote.olderApp", { host }),
+      reason: hostOlder
+        ? t("web.splash.remote.olderHostReason", { host })
+        : t("web.splash.remote.olderAppReason"),
+      actions: ["retry", "switch"],
+    };
+  }
+  if (status.phase === "denied" && code === "device revoked") {
+    return {
+      tone: "error",
+      text: t("web.splash.remote.revoked", { host }),
+      reason: t("web.splash.remote.revokedReason"),
+      actions: ["pairAgain", "forget"],
+      fatal: true,
+    };
+  }
+  if (status.phase === "pending") {
+    return {
+      tone: "progress",
+      text: t("web.splash.remote.waiting", { host }),
+      step: 2,
+      detail: [
+        ...(status.pairingCode
+          ? [t("web.splash.remote.pairCode", { code: status.pairingCode })]
+          : []),
+        ...(status.gatewayFingerprint
+          ? [
+              t("web.splash.remote.pairKey", {
+                fingerprint: groupFingerprint(status.gatewayFingerprint),
+              }),
+            ]
+          : []),
+        t("web.splash.remote.pairHint", { host }),
+      ],
+    };
+  }
+  if (waited && (status.health === "unreachable" || status.attempt > 0)) {
+    return {
+      tone: "error",
+      text: t("web.splash.remote.unreachable", { host }),
+      reason: t("web.splash.remote.unreachableReason"),
+      actions: hostHasLocal ? ["retry", "switch", "useThisMac"] : ["retry", "switch"],
+    };
+  }
+  if (status.health === "ok" || status.phase === "challenge" || status.phase === "verifying") {
+    return { tone: "progress", text: t("web.splash.remote.checking", { host }), step: 1 };
+  }
+  return { tone: "progress", text: t("web.splash.remote.finding", { host }), step: 0 };
+}
 
 /** The one status line for what the supervisor, the connection and the helper are doing. */
 export function splashLine(i: {
   status: GatewayStatus;
   run: GatewayRunView | undefined;
   helper: MacHelperState["kind"] | undefined;
+  /** The window is a client of this Host: the line is about reaching it, not starting one. */
+  remote?: { hostName: string; waited?: boolean; hasLocal?: boolean };
 }): SplashLine {
+  if (i.remote) {
+    return remoteSplashLine(
+      i.status,
+      i.remote.hostName,
+      i.remote.waited === true,
+      i.remote.hasLocal === true,
+    );
+  }
   if (i.status.phase === "paired") return { tone: "ready", text: t("web.splash.ready") };
   const run = i.run;
   if (run?.kind === "stopped" && run.reason && run.reason !== "quit")
@@ -64,7 +181,44 @@ export function StartupSplash({
   const [up, setUp] = useState(platform.chrome?.splash === true);
   const [leaving, setLeaving] = useState(false);
   const [canSkip, setCanSkip] = useState(false);
-  const line = splashLine({ status, run, helper });
+  const host = platform.chrome?.remote?.hostName;
+  const [waited, setWaited] = useState(false);
+  const [saved, setSaved] = useState<SavedGatewayView[]>([]);
+  const [picking, setPicking] = useState(false);
+  // Ten seconds without an answer is "isn't answering", not a spinner (design §4.6).
+  useEffect(() => {
+    if (host === undefined) return;
+    const timer = setTimeout(() => setWaited(true), 10_000);
+    return () => clearTimeout(timer);
+  }, [host]);
+  useEffect(() => {
+    if (host === undefined || !platform.gateways) return;
+    let live = true;
+    void platform.gateways.list().then(
+      (l) => live && setSaved(l),
+      () => undefined,
+    );
+    return () => {
+      live = false;
+    };
+  }, [host, platform.gateways]);
+  const line = splashLine({
+    status,
+    run,
+    helper,
+    ...(host === undefined
+      ? {}
+      : { remote: { hostName: host, waited, hasLocal: saved.some((g) => !g.remote) } }),
+  });
+
+  // A Gateway that fails its identity check, or removes this computer, while the app is open
+  // brings the full-window state back: nothing about that is a banner (design §4.6).
+  const fatalRemote = host !== undefined && line.tone === "error" && line.fatal === true;
+  useEffect(() => {
+    if (!fatalRemote) return;
+    setLeaving(false);
+    setUp(true);
+  }, [fatalRemote]);
 
   // Paired: give way to the app.
   useEffect(() => {
@@ -92,16 +246,83 @@ export function StartupSplash({
 
   if (!up) return null;
   const gateway = platform.gateway;
+  const gateways = platform.gateways;
+  const remoteLine = host !== undefined && line.tone === "error" ? line : undefined;
+  const active = saved.find((g) => g.active);
+  const run1 = (p: Promise<unknown> | undefined) => void p?.catch(() => undefined);
+  const actionViews: SplashActionView[] = [];
+  if (remoteLine?.actions && gateways) {
+    for (const id of remoteLine.actions) {
+      if (id === "retry") {
+        if (gateway.retry)
+          actionViews.push({
+            id,
+            text: t("common.tryAgain"),
+            primary: true,
+            onClick: () => run1(gateway.retry?.()),
+          });
+      } else if (id === "switch") {
+        actionViews.push({
+          id,
+          text: t("web.splash.remote.switch"),
+          onClick: () => setPicking((v) => !v),
+        });
+      } else if (id === "useThisMac") {
+        const mac = saved.find((g) => !g.remote);
+        if (mac)
+          actionViews.push({
+            id,
+            text: t("web.splash.remote.useThisMac"),
+            onClick: () => run1(gateways.switchTo(mac.id)),
+          });
+      } else if (id === "pairAgain" && active) {
+        actionViews.push({
+          id,
+          text: t("web.splash.remote.pairAgain"),
+          primary: true,
+          onClick: () => run1(gateways.repair(active.id)),
+        });
+      } else if (id === "forget" && active) {
+        actionViews.push({
+          id,
+          text: t("web.splash.remote.forget", { host: active.name }),
+          onClick: () => run1(gateways.remove(active.id)),
+        });
+      }
+    }
+  }
+  const reload = () => {
+    void gateways?.list().then(setSaved, () => undefined);
+  };
+  const openAnyway =
+    host !== undefined
+      ? remoteLine?.fatal !== true && (canSkip || line.tone === "error")
+      : canSkip || line.tone === "error";
   return (
     <StartupSplashView
       line={line}
       leaving={leaving}
       slow={canSkip && line.tone === "progress"}
-      {...(line.tone === "error" && gateway.showLogs
+      {...(line.tone === "error" && gateway.showLogs && host === undefined
         ? { onShowLogs: () => void gateway.showLogs?.() }
         : {})}
-      {...(line.tone === "error" && gateway.retry ? { onRetry: () => void gateway.retry?.() } : {})}
-      {...(canSkip || line.tone === "error" ? { onOpenAnyway: () => setUp(false) } : {})}
+      {...(line.tone === "error" && gateway.retry && host === undefined
+        ? { onRetry: () => void gateway.retry?.() }
+        : {})}
+      {...(openAnyway ? { onOpenAnyway: () => setUp(false) } : {})}
+      {...(actionViews.length > 0 ? { actions: actionViews } : {})}
+      {...(picking && gateways
+        ? {
+            below: (
+              <UiSlotsProvider value={{ gateways }}>
+                <div className="flex w-full max-w-lg flex-col gap-3 text-start">
+                  <GatewaysList entries={saved} onChanged={reload} onError={() => undefined} />
+                  <AddGatewayForm onAdded={reload} />
+                </div>
+              </UiSlotsProvider>
+            ),
+          }
+        : {})}
     />
   );
 }

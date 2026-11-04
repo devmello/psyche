@@ -26,11 +26,13 @@ import {
   type ConnectVerifyParams,
   connectSigningPayload,
   type DeviceScope,
+  gatewaySigningPayload,
   type PairingRequest,
   PROTOCOL_VERSION,
   PsycheError,
 } from "@psyche/protocol";
 import type { GatewayLimits } from "./context.ts";
+import type { GatewayIdentity } from "./identity.ts";
 import type { RateLimiter } from "./rate-limit.ts";
 
 export const CHALLENGE_TTL_MS = 60_000;
@@ -168,6 +170,7 @@ export function issueChallenge(
   peer: PeerInfo,
   serverOrigin: string,
   nowMs: number,
+  identity?: GatewayIdentity,
 ): { pending: PendingChallenge; challenge: ConnectChallenge } {
   // Clients use the WebSocket; the node socket is for nodes only (S23 review PR-1-A).
   if (peer.transport !== "ws" && params.role !== "node") {
@@ -185,6 +188,16 @@ export function issueChallenge(
       serverOrigin,
       protocolVersion,
       expiresAt: new Date(expiresAtMs).toISOString(),
+      // Signed over this nonce, the origin and this device's key (design §3.3): it proves the
+      // Gateway holds the key a client pinned, and cannot be replayed to another device.
+      ...(identity
+        ? {
+            gatewayKey: identity.publicKey,
+            gatewaySignature: identity.sign(
+              gatewaySigningPayload({ nonce, serverOrigin, devicePublicKey: params.publicKey }),
+            ),
+          }
+        : {}),
     },
   };
 }

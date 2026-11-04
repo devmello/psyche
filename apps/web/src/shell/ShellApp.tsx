@@ -606,6 +606,8 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
     [store, kitStore, dispatch, openChatId],
   );
   const pickFolder = platform.dialogs?.pickFolder;
+  const remoteHost = platform.chrome?.remote?.hostName;
+  const gatewaysPort = platform.gateways;
   const kitSlots = useMemo<UiSlots>(
     () => ({
       navigate,
@@ -614,8 +616,23 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
       openSideChat,
       renderMcpApp,
       ...(pickFolder === undefined ? {} : { pickFolder }),
+      ...(remoteHost === undefined ? {} : { remoteHost }),
+      ...(gatewaysPort === undefined ? {} : { gateways: gatewaysPort }),
+      openSettings: (section: string) => {
+        if (platform.windows?.openSettings) platform.windows.openSettings(section);
+        else navigate?.(`/settings/${section}`);
+      },
     }),
-    [navigate, prefillComposer, openInPsyche, openSideChat, pickFolder],
+    [
+      navigate,
+      prefillComposer,
+      openInPsyche,
+      openSideChat,
+      pickFolder,
+      remoteHost,
+      gatewaysPort,
+      platform.windows,
+    ],
   );
 
   // The main chat always exists (docs/06 §4.13); create it once if the Gateway has none yet.

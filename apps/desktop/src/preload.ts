@@ -40,12 +40,18 @@ function chromeFromArgv(argv: readonly string[]): {
   titleBar: "inset" | "native";
   trafficLights?: { x: number; y: number };
   splash?: boolean;
+  remote?: { hostName: string };
 } {
   const raw = argv.find((a) => a.startsWith("--psyche-chrome="))?.slice("--psyche-chrome=".length);
   try {
     const v = raw === undefined ? null : (JSON.parse(raw) as Record<string, unknown>);
     const t = v?.trafficLights as { x?: unknown; y?: unknown } | undefined;
     const splash = v?.splash === true ? { splash: true } : {};
+    const host = (v?.remote as { hostName?: unknown } | undefined)?.hostName;
+    const remote =
+      typeof host === "string" && host.length > 0 && host.length <= 64
+        ? { remote: { hostName: host } }
+        : {};
     return v?.titleBar === "inset"
       ? {
           titleBar: "inset",
@@ -53,8 +59,9 @@ function chromeFromArgv(argv: readonly string[]): {
             ? { trafficLights: { x: t.x, y: t.y } }
             : {}),
           ...splash,
+          ...remote,
         }
-      : { titleBar: "native", ...splash };
+      : { titleBar: "native", ...splash, ...remote };
   } catch {
     return { titleBar: "native" };
   }
@@ -88,6 +95,15 @@ const bridge = {
     onRun: (cb: (s: unknown) => void) => listen(IPC.gatewayRun, cb),
     showLogs: () => invoke(IPC.gatewayShowLogs),
     retry: () => invoke(IPC.gatewayRetry),
+  },
+  gateways: {
+    list: () => invoke(IPC.gatewaysList),
+    add: (address: string, name?: string) => invoke(IPC.gatewaysAdd, { address, name }),
+    rename: (id: string, name: string) => invoke(IPC.gatewaysRename, { id, name }),
+    remove: (id: string) => invoke(IPC.gatewaysRemove, { id }),
+    switchTo: (id: string, opts?: { stopLocal?: boolean }) =>
+      invoke(IPC.gatewaysSwitch, { id, stopLocal: opts?.stopLocal === true }),
+    repair: (id: string) => invoke(IPC.gatewaysRepair, { id }),
   },
   browser: {
     getState: () => invoke(IPC.browserGetState),

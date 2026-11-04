@@ -6,6 +6,7 @@ import {
   type ConnectParams,
   GatewayConnection,
   type GatewayConnectionOptions,
+  type GatewayVerifier,
 } from "@psyche/web/client";
 import { type DeviceKey, platformFromNode, signWithDeviceKey } from "./lib/device-key.ts";
 
@@ -24,6 +25,13 @@ export interface DesktopGatewayOptions
   /** Defaults to http://127.0.0.1:7979 (PSYCHE_GATEWAY_ORIGIN in dev and tests). */
   httpOrigin?: string;
   psycheHome?: string;
+  /**
+   * A saved remote Gateway: this Mac's handshake secret is never sent, even when the address is
+   * loopback (an SSH tunnel reaches another machine's Gateway through 127.0.0.1).
+   */
+  remote?: boolean;
+  /** The Gateway identity check (the pin of a saved remote Gateway); see `createGatewayVerifier`. */
+  verifyGateway?: GatewayVerifier;
 }
 
 export function defaultPsycheHome(): string {
@@ -75,10 +83,13 @@ export async function desktopConnectParams(opts: {
   key: DeviceKey;
   home: string;
   origin: string;
+  /** A saved remote Gateway: never send the secret, whatever the address looks like. */
+  remote?: boolean;
 }): Promise<ConnectParams> {
-  const handshakeSecret = isLocalGatewayOrigin(opts.origin)
-    ? await readHandshakeSecret(opts.home)
-    : undefined;
+  const handshakeSecret =
+    opts.remote !== true && isLocalGatewayOrigin(opts.origin)
+      ? await readHandshakeSecret(opts.home)
+      : undefined;
   return {
     protocolVersion: { min: 1, max: PROTOCOL_VERSION },
     deviceId: opts.key.deviceId,
@@ -101,8 +112,10 @@ export function createDesktopGateway(opts: DesktopGatewayOptions): GatewayConnec
     wsUrl: ws.toString(),
     healthUrl: new URL("/healthz", origin).toString(),
     // Re-read per attempt: the secret changes on every Gateway launch.
-    connectParams: () => desktopConnectParams({ key, home, origin }),
+    connectParams: () =>
+      desktopConnectParams({ key, home, origin, ...(opts.remote ? { remote: true } : {}) }),
     sign: (payload) => signWithDeviceKey(key, payload),
+    ...(opts.verifyGateway ? { verifyGateway: opts.verifyGateway } : {}),
     onStatus: opts.onStatus,
     ...(opts.onEvent ? { onEvent: opts.onEvent } : {}),
     ...(opts.onResync ? { onResync: opts.onResync } : {}),

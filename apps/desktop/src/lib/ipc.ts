@@ -17,6 +17,13 @@ export const IPC = {
   gatewayRun: "psyche:gateway:run",
   gatewayShowLogs: "psyche:gateway:show-logs",
   gatewayRetry: "psyche:gateway:retry",
+  // Saved Gateways (remote-gateway design §1.3): the list, add, forget, switch, pair again.
+  gatewaysList: "psyche:gateways:list",
+  gatewaysAdd: "psyche:gateways:add",
+  gatewaysRename: "psyche:gateways:rename",
+  gatewaysRemove: "psyche:gateways:remove",
+  gatewaysSwitch: "psyche:gateways:switch",
+  gatewaysRepair: "psyche:gateways:repair",
   // Embedded agent browser.
   browserGetState: "psyche:browser:get-state",
   browserState: "psyche:browser:state",

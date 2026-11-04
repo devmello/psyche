@@ -9,7 +9,7 @@ import { t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
 import { formatRelative } from "../../lib/format.ts";
 import { useNow } from "../../lib/use-now.ts";
-import { usePersona } from "../../slots.tsx";
+import { usePersona, useSlots } from "../../slots.tsx";
 import { type ActionRule, liftedFloorsOf, withMatrixOverrides } from "./ActionMatrix.tsx";
 import { AvailableConnectors } from "./CapabilityAvailable.tsx";
 import { ConnectForm, galleryEntries } from "./ConnectForm.tsx";
@@ -185,6 +185,7 @@ export function ConnectorsPanel({
   onRetry,
 }: ConnectorsPanelProps): ReactElement {
   const clock = useNow(30_000, now);
+  const { remoteHost } = useSlots();
   const [view, setView] = useState<View>(
     defaultAdding || defaultAddType !== undefined
       ? { kind: "add", type: defaultAddType }
@@ -267,6 +268,11 @@ export function ConnectorsPanel({
           : t("settings.connectors.page.row.lastUsed", { when: formatRelative(used, clock) }),
         c.type === "mcp" && trustTier(c) === "unverified"
           ? t("settings.connectors.page.row.unverified")
+          : null,
+        // The Apple apps are the Host Mac's, read through its helper; this computer's own are
+        // never used (remote-gateway design §4.2).
+        remoteHost !== undefined && c.type.startsWith("apple")
+          ? t("settings.connectors.page.row.onHost", { host: remoteHost })
           : null,
       ];
       return {
@@ -490,7 +496,13 @@ export function ConnectorsPanel({
             <Group title={t("settings.connectors.page.paused")}>{renderRows("paused")}</Group>
           ) : null}
           {policy ? (
-            <Group title={t("settings.connectors.page.onThisMac")}>
+            <Group
+              title={
+                remoteHost === undefined
+                  ? t("settings.connectors.page.onThisMac")
+                  : t("settings.connectors.page.onHost", { host: remoteHost })
+              }
+            >
               <ConnectorRow
                 name={t("settings.deviceAccess.files.title")}
                 icon={<ConnectorIcon type={FILES_ID} />}

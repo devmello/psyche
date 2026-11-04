@@ -19,5 +19,8 @@ export function shouldShowSplash(o: {
   if (o.probing) return false;
   if (!o.packaged && o.env.PSYCHE_NO_SPLASH === "1") return false;
   if (o.mode === "external") return false;
+  // A remote Gateway is never "already up" in the sense that matters: the splash is where an
+  // unreachable Host, a changed identity or a version mismatch is explained (design §4.6).
+  if (o.mode === "remote") return true;
   return !o.healthyAtLaunch;
 }

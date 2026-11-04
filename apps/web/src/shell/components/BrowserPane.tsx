@@ -147,6 +147,14 @@ export function ProfileChip({ profile }: { profile: BridgeProfile }): ReactEleme
 export function BrowserPane(props: { covered: boolean; onClose: () => void }): ReactElement {
   const { platform, store } = useShell();
   const port = platform.browser;
+  const host = platform.chrome?.remote?.hostName;
+  if (!port && host !== undefined)
+    return (
+      <div style={{ padding: 16, color: "var(--shell-muted)" }} data-testid="browser-remote">
+        <p>{t("web.browser.remote", { host })}</p>
+        <p>{t("web.browser.remoteHint", { host })}</p>
+      </div>
+    );
   if (!port)
     return (
       <p style={{ padding: 16, color: "var(--shell-muted)" }}>{t("web.browser.unavailable")}</p>

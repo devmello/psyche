@@ -1706,6 +1706,82 @@ export const settings = {
     "Commands run in a container. Psyche never falls back to the host shell.",
   "settings.server.sandboxFailed": "Psyche couldn't read sandbox health ({reason}).",
   "settings.server.sandboxBlocked": "Commands stay blocked until a backend reports in.",
+  // Settings → Server & remote access → Gateways on this computer (docs/design/remote-gateway-2026.md §1.3).
+  "settings.connectors.page.onHost": "On {host}",
+  "settings.connectors.page.row.onHost": "On {host}",
+  "settings.computerUse.remote":
+    "Computer use works at {host}. Ask from there, or use the browser.",
+  "settings.gateways.title": "Gateways on this computer",
+  "settings.gateways.description":
+    "Use Psyche from this computer with the Gateway on another one, such as your Mac at home. One Gateway is active at a time, and switching restarts Psyche.",
+  "settings.gateways.loadLabel": "saved Gateways",
+  "settings.gateways.thisMac": "This Mac",
+  "settings.gateways.active": "Connected",
+  "settings.gateways.pinned": "Identity pinned",
+  "settings.gateways.notPinned": "Pins its identity on the first connection",
+  "settings.gateways.switch": "Switch",
+  "settings.gateways.switchTo": "Switch to {name}",
+  "settings.gateways.switchTitle": "Switch to {name}?",
+  "settings.gateways.switchKeep":
+    "Psyche restarts on {name}. Psyche on this Mac keeps running, so its automations continue.",
+  "settings.gateways.switchOnly": "Switch",
+  "settings.gateways.switchAndStop": "Switch and stop Psyche on this Mac",
+  "settings.gateways.pairAgain": "Pair again",
+  "settings.gateways.pairAgainNamed": "Pair with {name} again",
+  "settings.gateways.forget": "Forget",
+  "settings.gateways.forgetNamed": "Forget {name}",
+  "settings.gateways.add": "Add a Gateway",
+  "settings.gateways.addressLabel": "Address",
+  "settings.gateways.addressPlaceholder": "studio-mac.your-tailnet.ts.net",
+  "settings.gateways.nameLabel": "Name (optional)",
+  "settings.gateways.addHint":
+    "The Tailscale address of the Mac that runs Psyche, https://<host>.<tailnet>.ts.net. This computer asks to pair, and the owner approves it there.",
+  "settings.gateways.adding": "Add Gateway",
+  "settings.gateways.problem.empty": "Type the Gateway's address.",
+  "settings.gateways.problem.invalid": "That isn't an address Psyche can use.",
+  "settings.gateways.problem.needs_full_name":
+    "Use the full name, like studio-mac.your-tailnet.ts.net. A short name can't be checked.",
+  "settings.gateways.problem.needs_https":
+    "Use an https:// address. Plain http works only through an SSH tunnel on this computer.",
+  "settings.gateways.problem.has_path": "Use just the address, with no path.",
+  "settings.gateways.problem.has_credentials": "Leave out any username or password.",
+  "settings.gateways.problem.failed": "Couldn't add the Gateway. Nothing changed.",
+  "settings.gateways.problem.declined": "Adding the Gateway was cancelled.",
+  "settings.gateways.problem.actionFailed": "That didn't work. Nothing changed.",
+  // Settings → Server & remote access → Allow other computers (§3.1).
+  "settings.remote.title": "Allow other computers",
+  "settings.remote.description":
+    "Let Psyche on another computer use this Mac's Gateway over Tailscale. The Gateway stays on this Mac and listens only to it, and Tailscale Serve is the only way in.",
+  "settings.remote.step1":
+    "Install Tailscale on this Mac and on the other computer, and sign both in to the same tailnet.",
+  "settings.remote.step2":
+    "In Terminal on this Mac, publish the Gateway to your tailnet. This is Serve, not Funnel.",
+  "settings.remote.copyCommand": "Copy command",
+  "settings.remote.copied": "Copied",
+  "settings.remote.step3":
+    "Tell the Gateway its address. In config.json in Psyche's data folder, set:",
+  "settings.remote.step4":
+    "Restart Psyche. Then on the other computer, add this Mac as a Gateway. It shows a pairing code and a key fingerprint: compare them with the request under Waiting to pair here, then approve it.",
+  "settings.remote.funnel":
+    "Never turn on Tailscale Funnel for this. It would put the Gateway on the public internet.",
+  "settings.remote.admin":
+    "A computer that pairs gets read, write and approvals. Admin stays off unless you tick it when you approve, and each admin change still needs your Touch ID here.",
+  "settings.remote.address": "Public address",
+  "settings.remote.addressUnset": "Not set",
+  "settings.remote.proxy": "Trusted proxy",
+  "settings.remote.on": "On",
+  "settings.remote.off": "Off",
+  "settings.remote.fingerprint": "This Gateway's key",
+  "settings.remote.fingerprintHint":
+    "Compare this with the fingerprint the other computer shows when it first connects.",
+  "settings.remote.loadLabel": "Gateway identity",
+  "settings.remote.clientNote":
+    "This computer is a client of {host}. Remote access is set up on {host}.",
+  // The pairing card for a computer on another network.
+  "settings.devices.gatewayKey": "This Gateway's key {fingerprint}",
+  "settings.devices.fromAddress": "From {address}",
+  "settings.devices.adminOptIn":
+    "Admin lets this computer change security settings, devices and the vault. Leave it off unless you need it.",
   "settings.server.available": "Available",
   "settings.server.unavailable": "Unavailable",
   "settings.server.noBackend":
