@@ -36,11 +36,11 @@ pnpm sparse mobile    # core + apps/ios + apps/android + packages/swift
 pnpm sparse all       # everything again
 ```
 
-Sparse checkout is per worktree, so each session picks its own profile. Files in the repo root are always present. Every profile keeps `apps/mac-helper/Sources/PsycheProtocol`, because `pnpm protocol:gen` writes the Swift structs there; without it the generator would scatter files outside the checkout. Directories that do not exist yet are accepted and match nothing.
+Sparse checkout is per worktree, so each session picks its own profile. Files in the repo root are always present. Every profile keeps `packages` (so `packages/protocol-swift`), because `pnpm protocol:gen` writes the Swift structs there; without it the generator would scatter files outside the checkout. Directories that do not exist yet are accepted and match nothing.
 
 ## Protocol codegen is the contract between clients
 
-`packages/protocol` is the single definition of the Gateway protocol. `pnpm protocol:gen` turns it into the TypeScript declarations in `packages/protocol/generated` and the Swift `Codable` structs in `apps/mac-helper/Sources/PsycheProtocol`; `pnpm protocol:check` fails when the committed output is stale, and CI runs it. Every new client follows the same rule:
+`packages/protocol` is the single definition of the Gateway protocol. `pnpm protocol:gen` turns it into the TypeScript declarations in `packages/protocol/generated` and the Swift `Codable` structs in `packages/protocol-swift/Sources/PsycheProtocol`; `pnpm protocol:check` fails when the committed output is stale, and CI runs it. Every new client follows the same rule:
 
 1. The client's models are generated, never hand-written: C# records into `apps/windows-helper/**/Protocol` (quicktype supports C#), Kotlin data classes into `apps/android/**/protocol`, and for iOS the same Swift structs through `packages/swift`.
 2. The generated folder is committed, marked as generated in its header, and listed in `.github/CODEOWNERS` as changed only through `protocol:` PRs.

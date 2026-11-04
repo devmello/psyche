@@ -3,6 +3,7 @@ import Foundation
 import PsycheHelperCore
 @testable import PsycheHelperSystem
 import PsycheProtocol
+import PsycheWire
 import Testing
 
 private struct FakeSigner: PresenceSigning {

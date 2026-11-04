@@ -494,7 +494,7 @@ Every PR: fixtures only, `FakeModelProvider`, `vitest --maxWorkers=1`, typecheck
 | EM-S1 | **Spike:** SQLCipher + sqlite-vec + FTS5 in one build; open and migrate cost; RAM. Report only. | S | – | 9 |
 | EM9 | **Encrypted memory store** `state/memory.sqlite`, backup wrapping, delete everything with re-keying. | M | EM-S1 | 9 |
 | EM10 | **More sources:** calendar life events, reminders, files, browser pages, transcripts (as search R4, R5, R11 land). | S each | search R4/R5/R11 | – |
-| EM11 | **Model per source** (UI on the EM0 schema). | S | EM6 | – |
+| EM11 | **Model per source** (UI on the EM0 schema). The per-source Apple on-device model (`{kind: "local", ref: "apple/on-device"}`, 4,096-token window, no cloud fallback) is built behind fakes and labelled Experimental until the real run (search roadmap §13, A3). | S | EM6 | – |
 
 Order: EM0 → EM1 → EM2 → EM3 → EM4 → EM5, with EM6, EM7 and EM-S1 in parallel once EM3 is in. EM5 does not merge until EM2's suite passes against both model kinds.
 

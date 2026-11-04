@@ -36,6 +36,13 @@ import {
   type ValidationSettings,
   validateExtraction,
 } from "./validate.ts";
+import {
+  type ModelWindow,
+  skipReasonFor,
+  type WindowPlan,
+  windowItemTokens,
+  windowPlan,
+} from "./window.ts";
 
 /**
  * The nightly everything-memory pass over the owner's OWN items (docs/design/everything-memory-2026.md
@@ -58,6 +65,12 @@ const OUTPUT_ALLOWANCE = 600;
 export interface ModelChoice {
   provider: ModelProvider;
   model: ModelRef;
+  /**
+   * Set for a model with a small context window (Apple's on-device model, EM11). Batches are sized
+   * to fit, an item that cannot fit is skipped with a recorded reason, and a refusal makes the
+   * batch do nothing: never a retry on, or fallback to, another model.
+   */
+  window?: ModelWindow;
 }
 
 export interface PassDeps {
@@ -250,6 +263,7 @@ export async function runEverythingPass(deps: PassDeps): Promise<PassReport> {
         stopped = true;
         break;
       }
+      const plan = choice.window === undefined ? undefined : windowPlan(choice.window);
       const stored = graph.cursor(cursorKey(source)) as ReaderCursor | null | undefined;
       let cursor: ReaderCursor = stored ?? {
         updatedMs: now - Number(settings.schedule.backfillDays) * DAY_MS,
@@ -268,8 +282,13 @@ export async function runEverythingPass(deps: PassDeps): Promise<PassReport> {
         if (page.next === undefined) break;
         report.itemsRead += page.items.length + page.skippedUntrusted;
         report.itemsFiltered += page.skippedUntrusted;
-        const prepared = prepare(page.items, deps, names, report, sink);
-        const batches = groupBatches(prepared);
+        const prepared = prepare(page.items, deps, names, report, sink, plan);
+        const batches = groupBatches(
+          prepared,
+          plan === undefined
+            ? undefined
+            : { maxItems: MAX_ITEMS_PER_BATCH, maxTokens: plan.maxBatchTokens },
+        );
         const need = batches.reduce(
           (n, b) =>
             n +
@@ -284,8 +303,30 @@ export async function runEverythingPass(deps: PassDeps): Promise<PassReport> {
           stopped = true;
           break;
         }
+        let unavailable = false;
         for (const batch of batches) {
-          await runBatch(batch, choice, deps, owner, sink, limits, vset, runId, report);
+          const done = await runBatch(
+            batch,
+            choice,
+            deps,
+            owner,
+            sink,
+            limits,
+            vset,
+            runId,
+            report,
+            plan,
+          );
+          if (done === "unavailable") {
+            unavailable = true;
+            break;
+          }
+        }
+        if (unavailable) {
+          // The model cannot answer now: nothing was read for this source, so the cursor stays
+          // before this page and tomorrow tries again. No other model is asked.
+          report.deferred += prepared.length;
+          break;
         }
         cursor = page.next;
         graph.setCursor(cursorKey(source), cursor);
@@ -380,6 +421,7 @@ function prepare(
   names: NameIndex,
   report: PassReport,
   sink: ReturnType<typeof createExtractionSink>,
+  plan?: WindowPlan,
 ): Prepared[] {
   const out: Prepared[] = [];
   const seen = deps.sqlite.prepare(
@@ -446,13 +488,20 @@ function prepare(
       markExtracted(deps, item, report.runId);
       continue;
     }
+    const cost = plan === undefined ? undefined : windowItemTokens(item.text);
+    if (plan !== undefined && cost !== undefined && cost > plan.maxItemTokens) {
+      // Too long for this model's window even alone: skipped, never cut and never sent elsewhere.
+      // Left unmarked, so it is read if the owner later picks a model with room.
+      report.dropped.item_too_long_for_window = (report.dropped.item_too_long_for_window ?? 0) + 1;
+      continue;
+    }
     out.push({
       item,
       ...(author === undefined ? {} : { author }),
       mentions: mentions.filter((m) => m.id !== author?.id),
       // Never mix the owner's words and other people's in one call: they use different prompts.
       group: `${it.trust}:${it.threadId ?? `${it.source}:${new Date(it.createdMs).toISOString().slice(0, 10)}`}`,
-      tokens: estimateExtractTokens(item.text) + 30,
+      tokens: cost ?? estimateExtractTokens(item.text) + 30,
     });
   }
   return out;
@@ -476,7 +525,13 @@ function markExtracted(deps: PassDeps, item: BatchItem, runId: string | undefine
 }
 
 /** Items of one conversation or day together, up to 8 items or ~6k tokens a call (§6.4). */
-export function groupBatches(prepared: Prepared[]): Prepared[][] {
+export function groupBatches(
+  prepared: Prepared[],
+  limits: { maxItems: number; maxTokens: number } = {
+    maxItems: MAX_ITEMS_PER_BATCH,
+    maxTokens: MAX_TOKENS_PER_BATCH,
+  },
+): Prepared[][] {
   const byGroup = new Map<string, Prepared[]>();
   for (const p of prepared) {
     const list = byGroup.get(p.group) ?? [];
@@ -489,8 +544,8 @@ export function groupBatches(prepared: Prepared[]): Prepared[][] {
     let tokens = 0;
     for (const p of list) {
       if (
-        cur.length >= MAX_ITEMS_PER_BATCH ||
-        (cur.length > 0 && tokens + p.tokens > MAX_TOKENS_PER_BATCH)
+        cur.length >= limits.maxItems ||
+        (cur.length > 0 && tokens + p.tokens > limits.maxTokens)
       ) {
         batches.push(cur);
         cur = [];
@@ -514,7 +569,8 @@ async function runBatch(
   vset: ValidationSettings,
   runId: string,
   report: PassReport,
-): Promise<void> {
+  plan?: WindowPlan,
+): Promise<"done" | "unavailable"> {
   // Opaque handles: p0 is the owner, then each person named in the batch; i1.. are the items.
   const people = new Map<string, { handle: string; entity: GraphEntity }>();
   const candidates: BatchCandidate[] = [{ handle: "p0", entityId: owner.id, isOwner: true }];
@@ -567,6 +623,7 @@ async function runBatch(
       ...(workList.length === 0
         ? {}
         : { work: workList.map((w) => ({ handle: w.handle, name: w.name })) }),
+      ...(plan === undefined ? {} : { maxOutputTokens: plan.maxOutputTokens }),
       ...(deps.signal === undefined ? {} : { signal: deps.signal }),
     });
     // Providers that report usage are trusted; otherwise estimate from what was sent.
@@ -603,6 +660,13 @@ async function runBatch(
       report.ownerProposals.push(...v.ownerProposals);
       break;
     }
+    if (plan !== undefined && result.refusal !== undefined) {
+      // The window-limited model refused (unavailable, guardrail, too long): this batch does
+      // nothing and says why. There is no retry, no smaller try on another model, no cloud.
+      const why = skipReasonFor(result.refusal);
+      report.dropped[why] = (report.dropped[why] ?? 0) + 1;
+      return why === "model_unavailable" ? "unavailable" : "done";
+    }
     failures++;
     report.dropped[`batch_${result.reason}`] = (report.dropped[`batch_${result.reason}`] ?? 0) + 1;
     if (rejectBatch(items, sink, failures)) {
@@ -611,6 +675,7 @@ async function runBatch(
     }
   }
   for (const it of items) markExtracted(deps, it, runId);
+  return "done";
 }
 
 /**

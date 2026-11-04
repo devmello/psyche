@@ -1,6 +1,7 @@
 import CryptoKit
 import Foundation
 import PsycheProtocol
+import PsycheWire
 
 /// AES-256-GCM wrapping of the vault data-encryption key (DEK) under a key-encryption key (KEK) that
 /// lives in the data-protection keychain (security §4.2).

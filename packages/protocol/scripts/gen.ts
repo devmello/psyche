@@ -54,7 +54,7 @@ export const OUTPUT_FILES = {
   swift: resolve(PACKAGE_DIR, "generated/swift/PsycheProtocol.swift"),
   swiftHelper: resolve(
     REPO_DIR,
-    "apps/mac-helper/Sources/PsycheProtocol/PsycheProtocol.generated.swift",
+    "packages/protocol-swift/Sources/PsycheProtocol/PsycheProtocol.generated.swift",
   ),
 } as const;
 

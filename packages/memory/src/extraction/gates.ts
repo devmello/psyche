@@ -1,4 +1,5 @@
 import type { EverythingMemorySettings } from "@psyche/protocol";
+import { isAppleOnDeviceRef } from "./window.ts";
 
 /**
  * When the nightly pass may run (docs/design/everything-memory-2026.md §6.1, decisions 1 and 10).
@@ -74,17 +75,26 @@ export function inQuietHours(localMinutes: number, start: string, end: string): 
   return s < e ? localMinutes >= s && localMinutes < e : localMinutes >= s || localMinutes < e;
 }
 
-export function modelKindsInUse(settings: EverythingMemorySettings): Set<"cloud" | "local"> {
-  const out = new Set<"cloud" | "local">();
-  const consider = (k: string) => {
-    if (k === "cloud" || k === "local") out.add(k);
+/**
+ * `apple` is Apple's on-device model (EM11): local, but the system owns it, so it has no download,
+ * no resident size for Psyche to warn about and nothing to confirm. It is never counted as `local`.
+ */
+export function modelKindsInUse(
+  settings: EverythingMemorySettings,
+): Set<"cloud" | "local" | "apple"> {
+  const out = new Set<"cloud" | "local" | "apple">();
+  const consider = (c: { kind: string; ref?: string | undefined }) => {
+    if (c.kind === "cloud") out.add("cloud");
+    else if (c.kind === "local") out.add(isAppleOnDeviceRef(c.ref) ? "apple" : "local");
   };
   const enabled = Object.entries(settings.sources)
     .filter(([, on]) => on)
     .map(([s]) => s);
   for (const s of enabled) {
-    const per = (settings.model.perSource as Record<string, { kind: string }> | undefined)?.[s];
-    consider((per ?? settings.model.default).kind);
+    const per = (
+      settings.model.perSource as Record<string, { kind: string; ref?: string }> | undefined
+    )?.[s];
+    consider(per ?? settings.model.default);
   }
   return out;
 }
