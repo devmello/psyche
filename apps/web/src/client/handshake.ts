@@ -67,6 +67,8 @@ export class Handshake {
   private readonly params: ConnectParams;
   private readonly sign: Signer;
   private readonly verifyGateway: GatewayVerifier | undefined;
+  /** A one-time setup token from a pairing link; sent only after the Gateway proved its key. */
+  private readonly setupToken: string | undefined;
   /**
    * Where this socket is. A result is accepted only after this handshake sent `connect.verify`
    * for a challenge it received and (when a verifier is set) that the verifier passed. A server
@@ -75,10 +77,16 @@ export class Handshake {
    */
   private stage: "new" | "started" | "verifying" | "sent" | "done" = "new";
 
-  constructor(params: ConnectParams, sign: Signer, verifyGateway?: GatewayVerifier) {
+  constructor(
+    params: ConnectParams,
+    sign: Signer,
+    verifyGateway?: GatewayVerifier,
+    setupToken?: string,
+  ) {
     this.params = params;
     this.sign = sign;
     this.verifyGateway = verifyGateway;
+    this.setupToken = setupToken;
   }
 
   start(): ReqFrame {
@@ -167,6 +175,11 @@ export class Handshake {
           nonce,
           signature,
           ...(verifiedKey === undefined ? {} : { gatewayKey: verifiedKey }),
+          // The token is a bearer secret: it goes only to a Gateway that just proved the key this
+          // client pinned, never in `connect` (before that proof) and never without a verifier.
+          ...(verifiedKey !== undefined && this.setupToken !== undefined
+            ? { setupToken: this.setupToken }
+            : {}),
         }),
       };
     }
@@ -187,7 +200,11 @@ export class Handshake {
           return { status: { type: "pending", code: String(payload.code ?? "") }, done: true };
         case "denied":
           return {
-            status: { type: "denied", reason: String(payload.reason ?? "denied") },
+            status: {
+              type: "denied",
+              reason: String(payload.reason ?? "denied"),
+              ...(payload.code === "setup_token_invalid" ? { code: "setup_token_invalid" } : {}),
+            },
             done: true,
           };
       }

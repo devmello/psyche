@@ -49,7 +49,7 @@ export interface GatewayEntry {
   /** A Gateway on another computer. */
   remote: boolean;
   active: boolean;
-  /** Its identity key is pinned. */
+  /** Its identity is pinned: the key, or the fingerprint a pairing link named. */
   pinned: boolean;
 }
 
@@ -64,6 +64,15 @@ export interface GatewaysSlot {
   remove(id: string): Promise<void>;
   switchTo(id: string, opts?: { stopLocal?: boolean }): Promise<void>;
   repair(id: string): Promise<void>;
+  /**
+   * Adds the Gateway a pasted `psyche-pair:v1` link names (confirmed in a native dialog). Rejects
+   * with `invalid_params` and `details.problem` (`link_<problem>` for the link).
+   */
+  addLink?(link: string): Promise<GatewayEntry>;
+  /** A pairing link the OS opened in the app, once; shown in the field, never acted on. */
+  takePendingLink?(): Promise<string | null>;
+  /** The OS opened a pairing link while the window is open. Returns the unsubscribe. */
+  onPendingLink?(cb: () => void): () => void;
 }
 
 export interface UiSlots {

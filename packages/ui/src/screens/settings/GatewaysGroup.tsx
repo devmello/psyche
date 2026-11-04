@@ -20,7 +20,16 @@ const PROBLEMS = [
   "needs_https",
   "has_path",
   "has_credentials",
+  "link_not_a_pairing_link",
+  "link_unsupported_version",
+  "link_malformed",
+  "link_extra_fields",
+  "link_bad_field",
+  "link_pin_mismatch",
 ] as const;
+
+/** What the field holds is a pairing link, not an address. */
+export const isPairingLinkText = (text: string): boolean => /^psyche-pair:/i.test(text.trim());
 
 /** The sentence for why an address, or any change, was refused. */
 export function gatewayProblemText(err: unknown): string {
@@ -50,7 +59,7 @@ export function useSavedGateways(): {
 export function AddGatewayForm({
   onAdded,
 }: {
-  onAdded: (entry: GatewayEntry) => void;
+  onAdded: (entry: GatewayEntry, viaLink: boolean) => void;
 }): ReactElement | null {
   const { gateways } = useSlots();
   const id = useId();
@@ -58,16 +67,42 @@ export function AddGatewayForm({
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [opened, setOpened] = useState(false);
+  const takePending = gateways?.takePendingLink;
+  const onPending = gateways?.onPendingLink;
+  // A pairing link the OS opened in the app waits in main; showing it here is all that happens.
+  // The owner still presses Add, and main confirms the address in a native dialog.
+  useEffect(() => {
+    if (!takePending) return;
+    const take = () =>
+      void takePending().then(
+        (link) => {
+          if (link === null) return;
+          setAddress(link);
+          setOpened(true);
+          setError(null);
+        },
+        () => undefined,
+      );
+    take();
+    return onPending?.(take);
+  }, [takePending, onPending]);
   if (!gateways) return null;
+  const viaLink = isPairingLinkText(address);
   const submit = () => {
     setBusy(true);
     setError(null);
-    gateways.add(address, name.trim() === "" ? undefined : name.trim()).then(
+    const adding =
+      viaLink && gateways.addLink
+        ? gateways.addLink(address.trim())
+        : gateways.add(address, name.trim() === "" ? undefined : name.trim());
+    adding.then(
       (entry) => {
         setBusy(false);
         setAddress("");
         setName("");
-        onAdded(entry);
+        setOpened(false);
+        onAdded(entry, viaLink);
       },
       (err: unknown) => {
         setBusy(false);
@@ -96,16 +131,27 @@ export function AddGatewayForm({
             autoCorrect="off"
             spellCheck={false}
             inputMode="url"
+            aria-describedby={opened ? `${id}-opened` : undefined}
           />
         </div>
         <div className="flex min-w-40 flex-col gap-1">
           <Label htmlFor={`${id}-name`}>{t("settings.gateways.nameLabel")}</Label>
-          <Input id={`${id}-name`} value={name} onChange={(e) => setName(e.target.value)} />
+          <Input
+            id={`${id}-name`}
+            value={name}
+            disabled={viaLink}
+            onChange={(e) => setName(e.target.value)}
+          />
         </div>
         <Button type="submit" size="sm" disabled={busy || address.trim() === ""}>
           {t("settings.gateways.adding")}
         </Button>
       </div>
+      {opened ? (
+        <p id={`${id}-opened`} role="status" className="text-callout text-label-secondary">
+          {t("settings.gateways.fromLink")}
+        </p>
+      ) : null}
       {error ? (
         <p role="alert" className="text-callout text-danger-text">
           {error}
@@ -161,13 +207,19 @@ export function GatewaysList({
   entries,
   onChanged,
   onError,
+  switchRequest = null,
 }: {
   entries: readonly GatewayEntry[];
   onChanged: () => void;
   onError: (message: string | null) => void;
+  /** A Gateway just added from a link: offer to switch to it (its token lasts ten minutes). */
+  switchRequest?: string | null;
 }): ReactElement {
   const { gateways } = useSlots();
   const [switching, setSwitching] = useState<string | null>(null);
+  useEffect(() => {
+    if (switchRequest !== null) setSwitching(switchRequest);
+  }, [switchRequest]);
   const current = entries.find((e) => e.active);
   const run = (p: Promise<unknown> | undefined) => {
     onError(null);
@@ -249,12 +301,25 @@ export function GatewaysGroup(): ReactElement | null {
   const { gateways } = useSlots();
   const { entries, reload } = useSavedGateways();
   const [error, setError] = useState<string | null>(null);
+  const [justAdded, setJustAdded] = useState<string | null>(null);
   if (!gateways) return null;
   return (
     <Group title={t("settings.gateways.title")} description={t("settings.gateways.description")}>
       {error ? <ErrorNotice what={error} did={t("settings.shared.nothingChanged")} /> : null}
-      {entries ? <GatewaysList entries={entries} onChanged={reload} onError={setError} /> : null}
-      <AddGatewayForm onAdded={reload} />
+      {entries ? (
+        <GatewaysList
+          entries={entries}
+          onChanged={reload}
+          onError={setError}
+          switchRequest={justAdded}
+        />
+      ) : null}
+      <AddGatewayForm
+        onAdded={(entry, viaLink) => {
+          reload();
+          setJustAdded(viaLink ? entry.id : null);
+        }}
+      />
     </Group>
   );
 }

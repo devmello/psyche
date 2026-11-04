@@ -59,7 +59,10 @@ describe("forge.config.ts", () => {
 
   it("registers psyche:// and the microphone usage string", async () => {
     const { packagerConfig } = await loadConfig({});
-    expect(packagerConfig.protocols).toEqual([{ name: "Psyche", schemes: ["psyche"] }]);
+    expect(packagerConfig.protocols).toEqual([
+      { name: "Psyche", schemes: ["psyche"] },
+      { name: "Psyche pairing link", schemes: ["psyche-pair"] },
+    ]);
     expect(packagerConfig.extendInfo).toMatchObject({
       NSMicrophoneUsageDescription: expect.stringContaining("dictation"),
       // tccd attributes the nested helper's requests to this bundle (#570): every string the

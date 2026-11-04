@@ -99,6 +99,9 @@ const bridge = {
   gateways: {
     list: () => invoke(IPC.gatewaysList),
     add: (address: string, name?: string) => invoke(IPC.gatewaysAdd, { address, name }),
+    addLink: (link: string) => invoke(IPC.gatewaysAddLink, { link }),
+    takePendingLink: () => invoke(IPC.gatewaysPendingLink),
+    onPendingLink: (cb: () => void) => listen(IPC.gatewaysLinkOpened, () => cb()),
     rename: (id: string, name: string) => invoke(IPC.gatewaysRename, { id, name }),
     remove: (id: string) => invoke(IPC.gatewaysRemove, { id }),
     switchTo: (id: string, opts?: { stopLocal?: boolean }) =>

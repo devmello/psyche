@@ -5,6 +5,7 @@ import { useGatewayQuery } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { useSlots } from "../../slots.tsx";
 import { GatewaysGroup } from "./GatewaysGroup.tsx";
+import { PairComputerGroup } from "./PairComputerGroup.tsx";
 import { RemoteAccessGroup } from "./RemoteAccessGroup.tsx";
 import {
   EmptyNotice,
@@ -215,7 +216,10 @@ export function ServerSection({ status, ...actions }: ServerSectionProps): React
     <div className="flex flex-col gap-3">
       <GatewaysGroup />
       {remoteHost === undefined ? (
-        <RemoteAccessGroup />
+        <>
+          <RemoteAccessGroup />
+          <PairComputerGroup />
+        </>
       ) : (
         <p className="text-callout text-label-secondary">
           {t("settings.remote.clientNote", { host: remoteHost })}

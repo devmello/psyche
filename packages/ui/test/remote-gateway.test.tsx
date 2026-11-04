@@ -201,7 +201,7 @@ describe("Settings → Gateways on this computer", () => {
         </UiSlotsProvider>
       </StoryWorld>,
     );
-    await userEvent.type(await screen.findByLabelText("Address"), "studio-mac");
+    await userEvent.type(await screen.findByLabelText("Pairing link or address"), "studio-mac");
     await userEvent.click(screen.getByRole("button", { name: "Add Gateway" }));
     await waitFor(() =>
       expect(

@@ -447,6 +447,12 @@
 //   let devicesPresenceKeyRemoveResult = try? JSONDecoder().decode(DevicesPresenceKeyRemoveResult.self, from: jsonData)
 //   let devicesRevokeParams = try? JSONDecoder().decode(DevicesRevokeParams.self, from: jsonData)
 //   let devicesRevokeResult = try? JSONDecoder().decode(DevicesRevokeResult.self, from: jsonData)
+//   let devicesSetupTokenCreateParams = try? JSONDecoder().decode(DevicesSetupTokenCreateParams.self, from: jsonData)
+//   let devicesSetupTokenCreateResult = try? JSONDecoder().decode(DevicesSetupTokenCreateResult.self, from: jsonData)
+//   let devicesSetupTokenListParams = try? JSONDecoder().decode(DevicesSetupTokenListParams.self, from: jsonData)
+//   let devicesSetupTokenListResult = try? JSONDecoder().decode(DevicesSetupTokenListResult.self, from: jsonData)
+//   let devicesSetupTokenRevokeParams = try? JSONDecoder().decode(DevicesSetupTokenRevokeParams.self, from: jsonData)
+//   let devicesSetupTokenRevokeResult = try? JSONDecoder().decode(DevicesSetupTokenRevokeResult.self, from: jsonData)
 //   let dictationInsertMethod = try? JSONDecoder().decode(DictationInsertMethod.self, from: jsonData)
 //   let dictationInsertParams = try? JSONDecoder().decode(DictationInsertParams.self, from: jsonData)
 //   let dictationInsertResult = try? JSONDecoder().decode(DictationInsertResult.self, from: jsonData)
@@ -1214,6 +1220,8 @@
 //   let settingsGetResult = try? JSONDecoder().decode(SettingsGetResult.self, from: jsonData)
 //   let settingsSetParams = try? JSONDecoder().decode(SettingsSetParams.self, from: jsonData)
 //   let settingsSetResult = try? JSONDecoder().decode(SettingsSetResult.self, from: jsonData)
+//   let setupTokenInfo = try? JSONDecoder().decode(SetupTokenInfo.self, from: jsonData)
+//   let setupTokenScope = try? JSONDecoder().decode(SetupTokenScope.self, from: jsonData)
 //   let sideEffect = try? JSONDecoder().decode(SideEffect.self, from: jsonData)
 //   let skillAuthorVersion = try? JSONDecoder().decode(SkillAuthorVersion.self, from: jsonData)
 //   let skillChangeEvent = try? JSONDecoder().decode(SkillChangeEvent.self, from: jsonData)
@@ -9967,18 +9975,29 @@ public enum ConnectChallengePhase: String, Codable, Sendable {
 
 // MARK: - ConnectDenied
 public struct ConnectDenied: Codable, Sendable {
+    /// Machine-readable cause when there is one: the setup token was used, expired, revoked or
+    /// not allowed here
+    public let code: Code?
     public let phase: ConnectDeniedPhase
     public let reason: String
 
     public enum CodingKeys: String, CodingKey {
+        case code = "code"
         case phase = "phase"
         case reason = "reason"
     }
 
-    public init(phase: ConnectDeniedPhase, reason: String) {
+    public init(code: Code?, phase: ConnectDeniedPhase, reason: String) {
+        self.code = code
         self.phase = phase
         self.reason = reason
     }
+}
+
+/// Machine-readable cause when there is one: the setup token was used, expired, revoked or
+/// not allowed here
+public enum Code: String, Codable, Sendable {
+    case setupTokenInvalid = "setup_token_invalid"
 }
 
 public enum ConnectDeniedPhase: String, Codable, Sendable {
@@ -10117,6 +10136,8 @@ public struct ConnectResult: Codable, Sendable {
     public let scopes: [DeviceScope]?
     public let serverTime: String?
     public let stateVersion: Int?
+    /// Machine-readable cause when there is one: the setup token was used, expired, revoked or
+    /// not allowed here
     public let code: String?
     public let pairingRequestID: String?
     public let reason: String?
@@ -10160,18 +10181,26 @@ public struct ConnectVerifyParams: Codable, Sendable {
     public let gatewayKey: String?
     /// base64url, 32 random bytes
     public let nonce: String
+    /// A one-time setup token from a pairing link (remote-gateway design §3.4). Sent here and
+    /// not in `connect`, so only a client that already verified the Gateway's identity ever
+    /// presents it. Valid and unexpired, it pairs this device at once with the scopes chosen
+    /// when the token was made; a used, expired or revoked token is denied with code
+    /// setup_token_invalid. Ignored for a device that is already paired
+    public let setupToken: String?
     /// base64url Ed25519 signature (64 bytes) over connectSigningPayload(...)
     public let signature: String
 
     public enum CodingKeys: String, CodingKey {
         case gatewayKey = "gatewayKey"
         case nonce = "nonce"
+        case setupToken = "setupToken"
         case signature = "signature"
     }
 
-    public init(gatewayKey: String?, nonce: String, signature: String) {
+    public init(gatewayKey: String?, nonce: String, setupToken: String?, signature: String) {
         self.gatewayKey = gatewayKey
         self.nonce = nonce
+        self.setupToken = setupToken
         self.signature = signature
     }
 }
@@ -11884,6 +11913,138 @@ public struct DevicesRevokeResult: Codable, Sendable {
 
     public init(device: Device) {
         self.device = device
+    }
+}
+
+// MARK: - DevicesSetupTokenCreateParams
+public struct DevicesSetupTokenCreateParams: Codable, Sendable {
+    public let approvalID: String?
+    /// What the computer that uses the token gets, chosen by the owner now; never `node`.
+    /// `operator.admin` only when the owner ticks it
+    public let scopes: [SetupTokenScope]
+
+    public enum CodingKeys: String, CodingKey {
+        case approvalID = "approvalId"
+        case scopes = "scopes"
+    }
+
+    public init(approvalID: String?, scopes: [SetupTokenScope]) {
+        self.approvalID = approvalID
+        self.scopes = scopes
+    }
+}
+
+public enum SetupTokenScope: String, Codable, Sendable {
+    case operatorAdmin = "operator.admin"
+    case operatorApprovals = "operator.approvals"
+    case operatorRead = "operator.read"
+    case operatorWrite = "operator.write"
+}
+
+// MARK: - DevicesSetupTokenCreateResult
+public struct DevicesSetupTokenCreateResult: Codable, Sendable {
+    public let gatewayFingerprint: String
+    public let gatewayURL: String
+    public let hostName: String
+    /// psyche-pair:v1 link: gatewayUrl, gatewayFingerprint, setupToken and hostName, nothing
+    /// else. The token appears only here, once
+    public let link: String
+    public let setupToken: SetupTokenInfo
+
+    public enum CodingKeys: String, CodingKey {
+        case gatewayFingerprint = "gatewayFingerprint"
+        case gatewayURL = "gatewayUrl"
+        case hostName = "hostName"
+        case link = "link"
+        case setupToken = "setupToken"
+    }
+
+    public init(gatewayFingerprint: String, gatewayURL: String, hostName: String, link: String, setupToken: SetupTokenInfo) {
+        self.gatewayFingerprint = gatewayFingerprint
+        self.gatewayURL = gatewayURL
+        self.hostName = hostName
+        self.link = link
+        self.setupToken = setupToken
+    }
+}
+
+// MARK: - SetupTokenInfo
+public struct SetupTokenInfo: Codable, Sendable {
+    public let createdAt: String
+    public let expiresAt: String
+    public let id: String
+    public let revokedAt: String?
+    public let scopes: [SetupTokenScope]
+    public let status: SetupTokenInfoStatus
+    public let usedAt: String?
+    public let usedByDeviceID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case createdAt = "createdAt"
+        case expiresAt = "expiresAt"
+        case id = "id"
+        case revokedAt = "revokedAt"
+        case scopes = "scopes"
+        case status = "status"
+        case usedAt = "usedAt"
+        case usedByDeviceID = "usedByDeviceId"
+    }
+
+    public init(createdAt: String, expiresAt: String, id: String, revokedAt: String?, scopes: [SetupTokenScope], status: SetupTokenInfoStatus, usedAt: String?, usedByDeviceID: String?) {
+        self.createdAt = createdAt
+        self.expiresAt = expiresAt
+        self.id = id
+        self.revokedAt = revokedAt
+        self.scopes = scopes
+        self.status = status
+        self.usedAt = usedAt
+        self.usedByDeviceID = usedByDeviceID
+    }
+}
+
+public enum SetupTokenInfoStatus: String, Codable, Sendable {
+    case expired = "expired"
+    case live = "live"
+    case revoked = "revoked"
+    case used = "used"
+}
+
+// MARK: - DevicesSetupTokenListResult
+public struct DevicesSetupTokenListResult: Codable, Sendable {
+    public let setupTokens: [SetupTokenInfo]
+
+    public enum CodingKeys: String, CodingKey {
+        case setupTokens = "setupTokens"
+    }
+
+    public init(setupTokens: [SetupTokenInfo]) {
+        self.setupTokens = setupTokens
+    }
+}
+
+// MARK: - DevicesSetupTokenRevokeParams
+public struct DevicesSetupTokenRevokeParams: Codable, Sendable {
+    public let id: String
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+    }
+
+    public init(id: String) {
+        self.id = id
+    }
+}
+
+// MARK: - DevicesSetupTokenRevokeResult
+public struct DevicesSetupTokenRevokeResult: Codable, Sendable {
+    public let setupToken: SetupTokenInfo
+
+    public enum CodingKeys: String, CodingKey {
+        case setupToken = "setupToken"
+    }
+
+    public init(setupToken: SetupTokenInfo) {
+        self.setupToken = setupToken
     }
 }
 
@@ -33834,6 +33995,7 @@ public typealias ConnectorsListParams = [String: JSONAny]
 public typealias DailyAutomationsTemplatesParams = [String: JSONAny]
 public typealias DevicesBootstrapAdminParams = [String: JSONAny]
 public typealias DevicesPresenceKeyListParams = [String: JSONAny]
+public typealias DevicesSetupTokenListParams = [String: JSONAny]
 public typealias DictationTargetParams = [String: JSONAny]
 public typealias EmptyParams = [String: JSONAny]
 public typealias GatewayInfoParams = [String: JSONAny]

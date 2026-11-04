@@ -18,6 +18,12 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-04 (pairing links, remote Gateway R2)
+
+- `ConnectVerifyParams.setupToken` (optional): a one-time setup token from a pairing link. It is sent in `connect.verify`, not `connect`, so only a client that already verified the Gateway's key presents it; the Gateway honours it only for a `role: client` on the WebSocket without an `Origin`, and only with a v2 (`gatewayKey`) connect. `ConnectDenied.code` (optional, `setup_token_invalid`): a used, expired, revoked or not-allowed token is a denial, never a pending request.
+- New methods `devices.setupToken.create` (admin, fresh presence, not idempotent on purpose: the link is never stored), `devices.setupToken.list` and `devices.setupToken.revoke` (admin), and types `SetupTokenScope` (never `node`) and `SetupTokenInfo`.
+- `pairing-link.ts`: `encodePairingLink` / `parsePairingLink` for the `psyche-pair:v1:<base64url JSON>` link with exactly `gatewayUrl`, `gatewayFingerprint`, `setupToken` and `hostName` (strict: any other field or shape is refused), plus `SETUP_TOKEN_TTL_MS` (10 minutes) and the token and fingerprint patterns. Shared with the phone.
+
 ### v1 additive — 2026-11-04 (Gateway identity key, remote Gateway R1)
 
 - `ConnectChallenge` gains optional `gatewayKey` (the Gateway's long-lived Ed25519 identity public key, base64url) and `gatewaySignature` (its signature over `gatewaySigningPayload({nonce, serverOrigin, devicePublicKey})`: `"psyche-gateway-v1\n" + nonce + "\n" + serverOrigin + "\n" + devicePublicKey`). A client that pinned the key refuses a challenge whose key differs, whose signature does not verify for its own device key, or whose `serverOrigin` is not the address it dialed, and signs nothing in those cases. A forwarded (Tailscale Serve) connection is told `gateway.publicOrigin` as `serverOrigin`; a direct loopback one the loopback origin. New constants `GATEWAY_SIGNING_PREFIX` and `gatewaySigningPayload`.

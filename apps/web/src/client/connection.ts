@@ -68,6 +68,11 @@ export interface GatewayConnectionOptions {
    * a saved Gateway). A failure stops the connection and the reconnect loop.
    */
   verifyGateway?: GatewayVerifier;
+  /**
+   * A one-time setup token from a pairing link, read per attempt. It is presented in
+   * `connect.verify` and only when `verifyGateway` approved the Gateway's identity.
+   */
+  setupToken?: () => string | undefined;
   onStatus: (status: GatewayStatus) => void;
   onEvent?: (event: GatewayEvent) => void;
   /** Called after a reconnect or a `seq` gap: the shell refetches its collections. */
@@ -235,7 +240,18 @@ export class GatewayConnection {
       return;
     }
     if (this.stopped || attempt !== this.connectSeq) return;
-    const handshake = new Handshake(params, this.opts.sign, this.opts.verifyGateway);
+    let setupToken: string | undefined;
+    try {
+      setupToken = this.opts.setupToken?.();
+    } catch {
+      setupToken = undefined;
+    }
+    const handshake = new Handshake(
+      params,
+      this.opts.sign,
+      this.opts.verifyGateway,
+      this.opts.verifyGateway === undefined ? undefined : setupToken,
+    );
     this.dispatch({ type: "connecting" });
     const create = this.opts.createWebSocket ?? ((url: string) => new WebSocket(url));
     const ws = create(this.opts.wsUrl);

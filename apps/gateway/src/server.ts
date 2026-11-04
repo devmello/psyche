@@ -12,6 +12,7 @@ import type { Duplex } from "node:stream";
 import { getSetting, getThread, openDb, type PsycheDb } from "@psyche/db";
 import {
   type AgentLoop,
+  type DeviceScope,
   isMethodName,
   type MemoryStore,
   type PermissionBroker,
@@ -107,6 +108,8 @@ export interface GatewayOptions {
   settingsPresence?: () => boolean;
   /** After a device is revoked (composition root: end the grants it approved). */
   onDeviceRevoked?: (deviceId: string) => Promise<unknown>;
+  /** A computer paired itself with a setup token (composition root: audit it). */
+  onSetupTokenUsed?: (used: { tokenId: string; deviceId: string; scopes: DeviceScope[] }) => void;
   /**
    * The broker publishes its own `receipt.created` events (the composition root forwards them),
    * so `nodes.invoke` must not publish the same receipt again (issue #50).
@@ -211,6 +214,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     memory: options.memory ?? null,
     extraHandlers: checkExtraHandlers(options.handlers ?? {}),
     onDeviceRevoked: options.onDeviceRevoked ?? null,
+    onSetupTokenUsed: options.onSetupTokenUsed ?? null,
     onSettingChanged: options.onSettingChanged ?? null,
     brokerPublishesReceipts: options.brokerPublishesReceipts ?? false,
     presenceState: presenceStateFor(db, options.settingsPresence ?? (() => false)),

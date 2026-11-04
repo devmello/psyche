@@ -32,6 +32,11 @@ export interface DesktopGatewayOptions
   remote?: boolean;
   /** The Gateway identity check (the pin of a saved remote Gateway); see `createGatewayVerifier`. */
   verifyGateway?: GatewayVerifier;
+  /**
+   * The one-time setup token from a pairing link, read per attempt. The connection presents it
+   * only after `verifyGateway` approved the Gateway's identity.
+   */
+  setupToken?: () => string | undefined;
 }
 
 export function defaultPsycheHome(): string {
@@ -116,6 +121,7 @@ export function createDesktopGateway(opts: DesktopGatewayOptions): GatewayConnec
       desktopConnectParams({ key, home, origin, ...(opts.remote ? { remote: true } : {}) }),
     sign: (payload) => signWithDeviceKey(key, payload),
     ...(opts.verifyGateway ? { verifyGateway: opts.verifyGateway } : {}),
+    ...(opts.setupToken ? { setupToken: opts.setupToken } : {}),
     onStatus: opts.onStatus,
     ...(opts.onEvent ? { onEvent: opts.onEvent } : {}),
     ...(opts.onResync ? { onResync: opts.onResync } : {}),

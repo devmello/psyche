@@ -95,6 +95,15 @@ function remoteSplashLine(
       actions: ["retry", "switch"],
     };
   }
+  if (status.phase === "denied" && status.deniedCode === "setup_token_invalid") {
+    return {
+      tone: "error",
+      text: t("web.splash.remote.tokenRefused", { host }),
+      reason: t("web.splash.remote.tokenRefusedReason", { host }),
+      actions: ["switch", "forget"],
+      fatal: true,
+    };
+  }
   if (status.phase === "denied" && code === "device revoked") {
     return {
       tone: "error",

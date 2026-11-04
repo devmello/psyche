@@ -445,6 +445,9 @@ export const web = {
   "web.splash.remote.olderAppReason": "Update Psyche on this computer, then try again.",
   "web.splash.remote.revoked": "This computer was removed from {host}.",
   "web.splash.remote.revokedReason": "Pair again to use it from here, or forget it.",
+  "web.splash.remote.tokenRefused": "{host} refused this pairing link.",
+  "web.splash.remote.tokenRefusedReason":
+    "It was already used, has expired or was revoked. Make a new one on {host} and add it again.",
   "web.splash.remote.switch": "Switch Gateway",
   "web.splash.remote.useThisMac": "Use This Mac",
   "web.splash.remote.pairAgain": "Forget and pair again",

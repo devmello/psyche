@@ -1,7 +1,14 @@
 import { randomBytes } from "node:crypto";
 import { chmodSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { DEFAULT_GATEWAY_PORT } from "@psyche/protocol";
+import {
+  DEFAULT_GATEWAY_PORT,
+  GATEWAY_FINGERPRINT_PATTERN,
+  type PairingLinkPayload,
+  SETUP_TOKEN_PATTERN,
+  SETUP_TOKEN_TTL_MS,
+} from "@psyche/protocol";
+import { fingerprintOf } from "./gateway-identity.ts";
 
 /**
  * Saved Gateways (remote-gateway design §1.3): the Gateways this app can connect to, one active
@@ -26,6 +33,19 @@ export interface SavedGateway {
   origin: string;
   /** The pinned Gateway identity key (base64url raw Ed25519), set at the first connect. */
   identityKey?: string;
+  /**
+   * `sha256:<hex>` of the identity key a pairing link named. Until the key itself is pinned (the
+   * first connect that reaches paired), the Gateway must prove a key with this fingerprint: the
+   * first connect is verified, not trust-on-first-use.
+   */
+  identityFingerprint?: string;
+  /**
+   * The one-time setup token from a pairing link, kept only until this computer pairs, the Host
+   * refuses it, or it is older than the Host would accept. A bearer secret for at most ten minutes.
+   */
+  setupToken?: string;
+  /** When the token was saved (ISO). */
+  setupTokenAt?: string;
   lastConnectedAt?: string;
   /** Fields of the file this version does not know, kept so saving never drops them. */
   extra?: Record<string, unknown>;
@@ -164,6 +184,17 @@ function cleanEntry(raw: unknown): SavedGateway | null {
     ...(typeof e.identityKey === "string" && KEY_PATTERN.test(e.identityKey)
       ? { identityKey: e.identityKey }
       : {}),
+    ...(typeof e.identityFingerprint === "string" &&
+    GATEWAY_FINGERPRINT_PATTERN.test(e.identityFingerprint)
+      ? { identityFingerprint: e.identityFingerprint }
+      : {}),
+    // A token is kept only together with the time it was saved, so it can lapse.
+    ...(typeof e.setupToken === "string" &&
+    SETUP_TOKEN_PATTERN.test(e.setupToken) &&
+    typeof e.setupTokenAt === "string" &&
+    Number.isFinite(Date.parse(e.setupTokenAt))
+      ? { setupToken: e.setupToken, setupTokenAt: e.setupTokenAt }
+      : {}),
     ...(typeof e.lastConnectedAt === "string" ? { lastConnectedAt: e.lastConnectedAt } : {}),
   };
 }
@@ -237,10 +268,14 @@ export function loadGatewaysStrict(file: string): GatewaysFile {
   for (const raw of p.gateways as unknown[]) {
     const entry = cleanEntry(raw);
     const key = (raw as { identityKey?: unknown } | null)?.identityKey;
+    const fingerprint = (raw as { identityFingerprint?: unknown } | null)?.identityFingerprint;
     if (
       entry === null ||
       seen.has(entry.id) ||
-      (key !== undefined && (typeof key !== "string" || !KEY_PATTERN.test(key)))
+      (key !== undefined && (typeof key !== "string" || !KEY_PATTERN.test(key))) ||
+      // A pre-pin that cannot be read is a pin lost: refuse the file rather than run without it.
+      (fingerprint !== undefined &&
+        (typeof fingerprint !== "string" || !GATEWAY_FINGERPRINT_PATTERN.test(fingerprint)))
     ) {
       throw new GatewaysFileError(`${file} has an entry Psyche cannot read`);
     }
@@ -270,6 +305,9 @@ const ENTRY_FIELDS: ReadonlySet<string> = new Set([
   "name",
   "origin",
   "identityKey",
+  "identityFingerprint",
+  "setupToken",
+  "setupTokenAt",
   "lastConnectedAt",
 ]);
 
@@ -351,17 +389,108 @@ export function pinGatewayKey(data: GatewaysFile, id: string, key: string): Gate
   if (!KEY_PATTERN.test(key)) return data;
   return {
     ...data,
-    gateways: data.gateways.map((g) => (g.id === id ? { ...g, identityKey: key } : g)),
+    gateways: data.gateways.map((g) => {
+      if (g.id !== id) return g;
+      // The key is the pin now; the fingerprint that vouched for it has done its job.
+      const { identityFingerprint: _fingerprint, ...rest } = g;
+      return { ...rest, identityKey: key };
+    }),
   };
 }
 
-/** Drops the pin ("Forget and pair again"): the next connect pins whatever answers. */
+/**
+ * Drops the pin, the link's fingerprint and any unused token ("Forget and pair again"): the next
+ * connect pins whatever answers.
+ */
 export function clearGatewayPin(data: GatewaysFile, id: string): GatewaysFile {
   return {
     ...data,
     gateways: data.gateways.map((g) => {
       if (g.id !== id) return g;
-      const { identityKey: _pin, ...rest } = g;
+      const {
+        identityKey: _pin,
+        identityFingerprint: _fingerprint,
+        setupToken: _token,
+        setupTokenAt: _at,
+        ...rest
+      } = g;
+      return rest;
+    }),
+  };
+}
+
+export type LinkAddProblem = "pin_mismatch";
+
+export class GatewayLinkError extends Error {
+  readonly problem: LinkAddProblem;
+  constructor(problem: LinkAddProblem) {
+    super(`pairing link: ${problem}`);
+    this.name = "GatewayLinkError";
+    this.problem = problem;
+  }
+}
+
+/**
+ * Adds, or updates, the saved Gateway a pairing link names (remote-gateway design §3.4): the
+ * address is normalized like a typed one (so a link cannot name anything an address cannot), the
+ * link's fingerprint becomes the pre-pin, and its token is kept for the first connect.
+ *
+ * The same address twice updates the entry. That is refused (`pin_mismatch`) when the entry is
+ * already pinned to a different identity than the link names: a link must not quietly replace a
+ * pin, so the owner has to "Pair again" first, which is a confirmed, explicit step.
+ */
+export function addGatewayFromLink(
+  data: GatewaysFile,
+  link: PairingLinkPayload,
+  now: Date,
+  id: string = newGatewayId(),
+): AddResult {
+  const origin = normalizeGatewayOrigin(link.gatewayUrl);
+  const found = data.gateways.find((g) => g.origin === origin);
+  const token = { setupToken: link.setupToken, setupTokenAt: now.toISOString() };
+  if (found) {
+    if (
+      found.identityKey !== undefined &&
+      fingerprintOf(found.identityKey) !== link.gatewayFingerprint
+    ) {
+      throw new GatewayLinkError("pin_mismatch");
+    }
+    const updated: SavedGateway = {
+      ...found,
+      ...(found.identityKey === undefined ? { identityFingerprint: link.gatewayFingerprint } : {}),
+      ...token,
+    };
+    return {
+      gateways: { ...data, gateways: data.gateways.map((g) => (g.id === found.id ? updated : g)) },
+      entry: updated,
+      existing: false,
+    };
+  }
+  const named = cleanGatewayName(link.hostName);
+  const entry: SavedGateway = {
+    id,
+    name: (named === "" ? defaultGatewayName(origin) : named).slice(0, 64),
+    origin,
+    identityFingerprint: link.gatewayFingerprint,
+    ...token,
+  };
+  return { gateways: { ...data, gateways: [...data.gateways, entry] }, entry, existing: false };
+}
+
+/** The setup token still worth presenting: saved less than the Host's lifetime for one ago. */
+export function liveSetupToken(entry: SavedGateway, now: Date): string | undefined {
+  if (entry.setupToken === undefined || entry.setupTokenAt === undefined) return undefined;
+  const age = now.getTime() - Date.parse(entry.setupTokenAt);
+  return age >= 0 && age < SETUP_TOKEN_TTL_MS ? entry.setupToken : undefined;
+}
+
+/** Forgets the token (it was spent, refused or has lapsed). The pin and fingerprint stay. */
+export function clearSetupToken(data: GatewaysFile, id: string): GatewaysFile {
+  return {
+    ...data,
+    gateways: data.gateways.map((g) => {
+      if (g.id !== id) return g;
+      const { setupToken: _token, setupTokenAt: _at, ...rest } = g;
       return rest;
     }),
   };

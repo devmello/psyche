@@ -20,6 +20,12 @@ export const IPC = {
   // Saved Gateways (remote-gateway design §1.3): the list, add, forget, switch, pair again.
   gatewaysList: "psyche:gateways:list",
   gatewaysAdd: "psyche:gateways:add",
+  /** A pasted `psyche-pair:v1` link; main parses it and asks the owner in a native dialog. */
+  gatewaysAddLink: "psyche:gateways:add-link",
+  /** The link the OS opened, once (main keeps it; the Settings window asks for it). */
+  gatewaysPendingLink: "psyche:gateways:pending-link",
+  /** A pairing link is waiting: ask `gatewaysPendingLink`. Carries nothing. */
+  gatewaysLinkOpened: "psyche:gateways:link-opened",
   gatewaysRename: "psyche:gateways:rename",
   gatewaysRemove: "psyche:gateways:remove",
   gatewaysSwitch: "psyche:gateways:switch",

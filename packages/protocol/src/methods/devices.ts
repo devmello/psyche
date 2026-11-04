@@ -1,5 +1,5 @@
-import { Type } from "@sinclair/typebox";
-import { DeviceScope, Id, IsoDateTime, StringEnum } from "../common.ts";
+import { type Static, Type } from "@sinclair/typebox";
+import { DeviceScope, Id, IsoDateTime, Nullable, StringEnum } from "../common.ts";
 import { Device, PairingRequest, PairingStatus } from "../schemas/identity.ts";
 import { defineMethod } from "./define.ts";
 
@@ -22,6 +22,31 @@ export const PresenceKeyInfo = Type.Object(
     kind: Type.Optional(StringEnum(["keychain", "enclave_file"])),
   },
   { $id: "PresenceKeyInfo" },
+);
+
+/**
+ * What a setup token can grant. Never `node`: a token pairs a computer's app, and a node's
+ * authority is a separate decision (remote-gateway design §3.5).
+ */
+export const SetupTokenScope = StringEnum(
+  ["operator.read", "operator.write", "operator.approvals", "operator.admin"],
+  { $id: "SetupTokenScope" },
+);
+export type SetupTokenScope = Static<typeof SetupTokenScope>;
+
+/** A one-time setup token as the Host lists it. The token itself is shown once, inside the link. */
+export const SetupTokenInfo = Type.Object(
+  {
+    id: Id,
+    scopes: Type.Array(SetupTokenScope),
+    createdAt: IsoDateTime,
+    expiresAt: IsoDateTime,
+    usedAt: Nullable(IsoDateTime),
+    usedByDeviceId: Nullable(Id),
+    revokedAt: Nullable(IsoDateTime),
+    status: StringEnum(["live", "used", "expired", "revoked"]),
+  },
+  { $id: "SetupTokenInfo" },
 );
 
 export const DevicesMethods = {
@@ -115,5 +140,43 @@ export const DevicesMethods = {
     scope: "operator.admin",
     sideEffecting: true,
     description: "Removes a helper's registered presence key. Side-effecting.",
+  }),
+  "devices.setupToken.create": defineMethod({
+    params: Type.Object({
+      scopes: Type.Array(SetupTokenScope, {
+        minItems: 1,
+        description:
+          "What the computer that uses the token gets, chosen by the owner now; never `node`. `operator.admin` only when the owner ticks it",
+      }),
+      /** Fresh presence: the approved `policy_change` card from a first `approval_required` call. */
+      approvalId: Type.Optional(Id),
+    }),
+    result: Type.Object({
+      setupToken: SetupTokenInfo,
+      link: Type.String({
+        description:
+          "psyche-pair:v1 link: gatewayUrl, gatewayFingerprint, setupToken and hostName, nothing else. The token appears only here, once",
+      }),
+      gatewayUrl: Type.String(),
+      gatewayFingerprint: Type.String(),
+      hostName: Type.String(),
+    }),
+    scope: "operator.admin",
+    description:
+      "Makes a single-use setup token (10 minutes, 256 random bits, stored only as a hash) and the pairing link that carries it. A computer that connects with the token, after verifying the Gateway's fingerprint, is paired at once with exactly these scopes; one without it still waits for approval. At most three live tokens; `unavailable` when gateway.publicOrigin is not set. Needs fresh presence once the Gateway has a presence verifier (approval_required with details.approvalId, then retry with approvalId). Not idempotent on purpose: every call makes a new token, and the link is never kept anywhere in the clear, not even as a stored idempotent result.",
+  }),
+  "devices.setupToken.list": defineMethod({
+    params: Type.Object({}),
+    result: Type.Object({ setupTokens: Type.Array(SetupTokenInfo) }),
+    scope: "operator.admin",
+    description: "Lists setup tokens made in the last day, newest first (never the token itself).",
+  }),
+  "devices.setupToken.revoke": defineMethod({
+    params: Type.Object({ id: Id }),
+    result: Type.Object({ setupToken: SetupTokenInfo }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Revokes a setup token that has not been used; a revoked token pairs nobody. Side-effecting.",
   }),
 } as const;

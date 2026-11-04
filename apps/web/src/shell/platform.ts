@@ -51,7 +51,13 @@ export type GatewayAddressProblem =
   | "needs_full_name"
   | "needs_https"
   | "has_path"
-  | "has_credentials";
+  | "has_credentials"
+  | "link_not_a_pairing_link"
+  | "link_unsupported_version"
+  | "link_malformed"
+  | "link_extra_fields"
+  | "link_bad_field"
+  | "link_pin_mismatch";
 
 /**
  * Desktop only: the saved Gateways (remote-gateway design §1.3). One is active at a time;
@@ -69,6 +75,19 @@ export interface GatewaysPort {
   switchTo(id: string, opts?: { stopLocal?: boolean }): Promise<void>;
   /** Drops the pin and this computer's key for the Gateway so it pairs again as a new device. */
   repair(id: string): Promise<void>;
+  /**
+   * Adds the Gateway a pasted `psyche-pair:v1` link names. Main parses the link itself and asks in
+   * a native dialog that names the normalized address. Rejects with `invalid_params` and
+   * `details.problem` (`GatewayAddressProblem` or `link_<problem>`).
+   */
+  addLink?(link: string): Promise<SavedGatewayView>;
+  /**
+   * A `psyche-pair:` link the OS opened in the app, once: the Add a Gateway field shows it for the
+   * owner to review and press Add. Nothing is connected by opening it.
+   */
+  takePendingLink?(): Promise<string | null>;
+  /** The OS opened a pairing link while this window is open: ask `takePendingLink`. */
+  onPendingLink?(cb: () => void): Unsubscribe;
 }
 
 /** The desktop supervisor's view of the Gateway process (apps/desktop/src/main/supervisor.ts). */
