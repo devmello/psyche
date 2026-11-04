@@ -851,3 +851,31 @@ describe("tracking a course end to end", () => {
     ).toBeTruthy();
   });
 });
+
+describe("opened from ⌘K's Add to-do and Add project (?add=1)", () => {
+  it("Work due opens with the form showing, and the to-do is the owner's", async () => {
+    const { callsTo, user } = setup(<MemoryScreen kind="due" startAdding now={STORY_NOW} />);
+    const input = await screen.findByRole("textbox", { name: "Add a to-do" });
+    await user.type(input, "Pay rent, Fri");
+    await user.keyboard("{Enter}");
+    await waitFor(() => expect(callsTo("memory.entities.create")).toHaveLength(1));
+    const params = callsTo("memory.entities.create")[0]?.params as Record<string, unknown>;
+    expect(params).toMatchObject({ kind: "assignment", name: "Pay rent" });
+    // Written by the owner's own call: no untrusted marker travels with it.
+    expect(JSON.stringify(params)).not.toContain("untrusted");
+  });
+
+  it("Projects opens with the form showing and adds a project", async () => {
+    const { callsTo, user } = setup(<MemoryScreen kind="projects" startAdding now={STORY_NOW} />);
+    await user.type(
+      await screen.findByRole("textbox", { name: "Add a project or course" }),
+      "Bathroom",
+    );
+    await user.click(screen.getByRole("button", { name: "Add", description: "" }));
+    await waitFor(() => expect(callsTo("memory.entities.create")).toHaveLength(1));
+    expect(callsTo("memory.entities.create")[0]?.params).toMatchObject({
+      kind: "project",
+      name: "Bathroom",
+    });
+  });
+});

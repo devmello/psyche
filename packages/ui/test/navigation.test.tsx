@@ -172,6 +172,16 @@ describe("the palette search", () => {
     expect(find("calendar")).toContain("memory-events");
   });
 
+  it("adds a to-do or a project from the palette, opening the one-line form", () => {
+    const route = (id: string) => DEFAULT_ACTIONS.find((a) => a.id === id)?.route;
+    expect(route("memory-add-todo")).toBe("/memory?kind=due&add=1");
+    expect(route("memory-add-project")).toBe("/memory?kind=projects&add=1");
+    expect(find("add to-do")).toContain("memory-add-todo");
+    expect(find("new task")).toContain("memory-add-todo");
+    expect(find("add project")).toContain("memory-add-project");
+    expect(find("new course")).toContain("memory-add-project");
+  });
+
   it("lists everything for an empty search and nothing for nonsense", () => {
     expect(find("")).toHaveLength(DEFAULT_ACTIONS.length);
     expect(find("zzzz-no-such-screen")).toEqual([]);

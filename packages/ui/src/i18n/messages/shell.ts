@@ -68,6 +68,10 @@ export const shell = {
   "shell.palette.keywords.memoryDue":
     "to-do todo to-dos tasks deadlines due overdue homework assignments bills rent renewals taxes chores deliverables project handed in",
   "shell.palette.keywords.memoryEvents": "calendar meetings appointments trips happenings",
+  "shell.palette.addTodo": "Add to-do",
+  "shell.palette.keywords.addTodo": "new todo task homework assignment deadline due remind create",
+  "shell.palette.addProject": "Add project",
+  "shell.palette.keywords.addProject": "new project course class job initiative create track",
   "shell.palette.title": "Command palette",
   "shell.palette.description": "Search Psyche or run a command",
   "shell.palette.placeholder": "Search or type a command",

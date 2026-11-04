@@ -98,6 +98,8 @@ export const graphEntities = sqliteTable("graph_entities", {
   workStatus: text("work_status"),
   lastSignalAt: text("last_signal_at"),
   private: integer("private").notNull(),
+  // 202611041000_graph_title_untrusted.sql: the name came from someone else's text.
+  titleUntrusted: integer("title_untrusted").notNull(),
 });
 
 export const graphIdentifiers = sqliteTable(

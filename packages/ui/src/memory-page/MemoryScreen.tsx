@@ -22,6 +22,8 @@ export interface MemoryScreenProps {
   entity?: string;
   /** `/memory/review`: the review queue, a tab at the end of the chip row. */
   view?: "review";
+  /** `?add=1` on Work due or Projects: open with the add form showing (⌘K's Add to-do, Add project). */
+  startAdding?: boolean;
   onNavigate?: (to: string) => void;
   now?: number;
 }
@@ -36,6 +38,7 @@ export function MemoryScreen({
   kind = "everything",
   entity,
   view,
+  startAdding = false,
   onNavigate,
   now = Date.now(),
 }: MemoryScreenProps): ReactElement {
@@ -128,9 +131,9 @@ export function MemoryScreen({
                 />
               </div>
             ) : kind === "projects" ? (
-              <ProjectsTab now={now} onNavigate={navigate} />
+              <ProjectsTab now={now} onNavigate={navigate} startAdding={startAdding} />
             ) : kind === "due" ? (
-              <WorkDueTab now={now} onNavigate={navigate} />
+              <WorkDueTab now={now} onNavigate={navigate} startAdding={startAdding} />
             ) : kind === "events" ? (
               <EventsTab now={now} onNavigate={navigate} />
             ) : kind === "more" ? (

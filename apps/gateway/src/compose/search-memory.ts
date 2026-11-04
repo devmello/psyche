@@ -97,10 +97,14 @@ export function memoryRecords(
     const edges = graph.edges(e.id);
     let partOf: string | null = null;
     if (e.kind === "assignment" || e.kind === "event") {
-      const edge = edges.find((x) => x.rel === "part_of" && x.src === e.id);
-      const parent = edge === undefined ? undefined : graph.getEntity(edge.dst);
-      // A parent the owner hid or kept private is not named here either.
-      if (parent !== undefined && visible(parent)) partOf = parent.name;
+      const parents = edges
+        .filter((x) => x.rel === "part_of" && x.src === e.id)
+        .map((x) => graph.getEntity(x.dst))
+        .filter((p): p is NonNullable<typeof p> => p !== undefined);
+      // A parent the owner hid or kept private is not named here either; with several parents,
+      // one private parent keeps every name out (the items of a private course are private).
+      const parent = parents.find((p) => visible(p));
+      if (parent !== undefined && !parents.some((p) => p.private === true)) partOf = parent.name;
     }
     // Who a project, to-do or event is about: everyone it is linked to, hidden or not, so a
     // contact the owner keeps out of the index also keeps out what is about them.

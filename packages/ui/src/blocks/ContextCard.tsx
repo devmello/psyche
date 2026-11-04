@@ -1,4 +1,4 @@
-import { Newspaper, Search } from "lucide-react";
+import { Brain, Newspaper, Search } from "lucide-react";
 import type { ReactElement } from "react";
 import { SafeLink } from "../links/SafeLink.tsx";
 import type { BlockOf } from "./types.ts";
@@ -13,6 +13,8 @@ export function ContextCard({ block }: { block: BlockOf<"context"> }): ReactElem
     <>
       {block.kind === "search_hit" ? (
         <Search className="mt-0.5 size-3.5 shrink-0 text-label-secondary" aria-hidden="true" />
+      ) : block.kind === "memory_entity" ? (
+        <Brain className="mt-0.5 size-3.5 shrink-0 text-label-secondary" aria-hidden="true" />
       ) : (
         <Newspaper className="mt-0.5 size-3.5 shrink-0 text-label-secondary" aria-hidden="true" />
       )}

@@ -86,6 +86,7 @@ export const chat = {
   "chat.composer.placeholder": "Message {persona}",
   "chat.composer.placeholderArticle": "Ask about this article",
   "chat.composer.placeholderResult": "Ask about this result",
+  "chat.composer.placeholderMemory": "Ask about this item",
   "chat.sideChat.title": "About {title}",
   "chat.context.label": "Context for this message",
   "chat.context.remove": "Remove {title} from this message",

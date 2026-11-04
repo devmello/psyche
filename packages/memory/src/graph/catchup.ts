@@ -142,6 +142,8 @@ export interface CatchUpCandidate extends SurfaceItem {
   /** `untrusted` when any part of the item came from third-party text. */
   titleProvenance: Provenance;
   parent?: { id: string; name: string };
+  /** The parent's name came from someone else's text (`titleUntrusted`). */
+  parentUntrusted?: boolean;
   dueAt: string | null;
   /** Assignments: the stored status. Projects: `active` or `paused`. */
   workStatus: GraphWorkStatus | null;
@@ -270,7 +272,10 @@ export function lowestProvenance(parts: readonly Provenance[]): Provenance {
 }
 
 function prefixOf(c: CatchUpCandidate): string {
-  return c.parent === undefined ? "" : `${clean(c.parent.name, 40)} · `;
+  if (c.parent === undefined) return "";
+  const name = clean(c.parent.name, 40);
+  // A parent named from someone else's text is quoted data, like an untrusted title (W3).
+  return `${c.parentUntrusted === true ? quoted(name) : name} · `;
 }
 
 function titleText(c: CatchUpCandidate): string {
@@ -960,6 +965,8 @@ export function gatherCandidates(
       .map((x) => graph.getEntity(x.dst))
       .filter((p): p is GraphEntity => p !== undefined && p.kind === "project");
     const parentEntity = links[0];
+    // The items of a private course are private with it: any parent, not only the first.
+    if (links.some((p) => p.private === true)) continue;
     // A life event ("Ava's party") is the people tier. Only an event inside a project or course
     // is work.
     if (e.kind === "event" && parentEntity === undefined) continue;
@@ -1023,7 +1030,12 @@ export function gatherCandidates(
       kind: e.kind as CatchUpCandidate["kind"],
       entityId: e.id,
       title: e.name,
-      titleProvenance: untrustedFact ? "untrusted" : "owner",
+      // The line names the parent too, so either name from third-party text lowers the item.
+      titleProvenance:
+        untrustedFact || e.titleUntrusted === true || parentEntity?.titleUntrusted === true
+          ? "untrusted"
+          : "owner",
+      ...(parentEntity?.titleUntrusted === true ? { parentUntrusted: true } : {}),
       ...(parentEntity === undefined
         ? {}
         : { parent: { id: parentEntity.id, name: parentEntity.name } }),

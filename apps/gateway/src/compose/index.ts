@@ -141,6 +141,7 @@ import { insightsHandlers } from "./insights.ts";
 import { libraryHandlers } from "./library.ts";
 import type { ComposedMcp } from "./mcp.ts";
 import { memoryStoreStatus, resolveMemoryStore, setMemoryEncrypted } from "./memory-db.ts";
+import { withMemoryEntityContext } from "./memory-item-context.ts";
 import {
   asMemoryEmbedder,
   createMemoryRecall,
@@ -1828,10 +1829,13 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   for (const part of parts) await part.start?.(gateway);
   // Ask about this (Feed) and a search result in a side chat: `chat.send.context` names what the
   // agent reads as data (a search result by what the index holds, not what the window says).
-  gateway.context.chatContext.resolve = chatContextResolver(
-    feedContextResolver(proactive.feed.store),
-    (id) => search.index.docOf(id),
-    (id) => agentBlockedHit(search.sources, id),
+  gateway.context.chatContext.resolve = withMemoryEntityContext(
+    chatContextResolver(
+      feedContextResolver(proactive.feed.store),
+      (id) => search.index.docOf(id),
+      (id) => agentBlockedHit(search.sources, id),
+    ),
+    () => people?.graph,
   );
   await proactive.start();
   await ensureWeeklyCardAutomation(scheduler, {

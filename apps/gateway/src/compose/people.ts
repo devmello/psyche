@@ -212,6 +212,11 @@ export function composePeople(deps: PeopleDeps): People {
     },
   });
   const store = graph;
+  store.backfillTitleTrust();
+  // Conversation gists follow the same sensitive-class switches as learned facts (§2.6).
+  store.setSensitiveSwitches(
+    () => everythingSettings(getSetting(db, EVERYTHING_MEMORY_SETTING_KEY)?.value).sensitive,
+  );
   // Facts about other people stay out of plaintext card files unless the owner allows it (§11.1).
   const cards = new CardSync(store, memory, () => ({
     learnedFacts: everythingSettings(getSetting(db, EVERYTHING_MEMORY_SETTING_KEY)?.value)

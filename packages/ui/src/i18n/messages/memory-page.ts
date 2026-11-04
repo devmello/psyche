@@ -12,6 +12,12 @@ export const memoryPage = {
   "memory.page.review": "Review",
   "memory.page.reviewWaiting": "Review, {n} waiting",
   "memory.page.back": "Back to {tab}",
+  "memory.page.continue": "Continue in chat",
+  "memory.page.continue.prefillWork": "Where am I on this?",
+  "memory.page.continue.prefill": "Catch me up on this.",
+  "memory.page.continue.threadTitle": "Continuing from Memory",
+  "memory.page.continue.source": "Memory",
+  "memory.page.continue.failed": "Couldn't open the chat. {reason}",
   "memory.page.seeAll": "See all",
   "memory.page.loadFailed": "Couldn't load this part of Memory.",
 
