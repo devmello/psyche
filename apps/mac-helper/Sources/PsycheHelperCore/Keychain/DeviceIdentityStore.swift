@@ -1,5 +1,6 @@
 import CryptoKit
 import Foundation
+import PsycheWire
 
 /// Where the helper's Ed25519 device identity persists (security §4, §10). The keychain store is
 /// preferred; the file store is the fallback for dev builds without a keychain entitlement.

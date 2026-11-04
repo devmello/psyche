@@ -10,6 +10,7 @@
       "**",
       "!**/generated",
       "!**/*.dc.html",
+      "!**/*.xcassets",
       "!**/dist",
       "!**/out",
       "!**/.vite",

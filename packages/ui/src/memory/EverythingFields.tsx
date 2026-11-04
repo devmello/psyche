@@ -1,4 +1,6 @@
 import {
+  APPLE_ON_DEVICE_REF,
+  type AppleLlmStatus,
   EVERYTHING_MEMORY_DEFAULTS,
   EVERYTHING_READABLE_SOURCES,
   type EverythingMemorySettings,
@@ -11,7 +13,9 @@ import { type ReactElement, useState } from "react";
 import { Button } from "../components/ui/button.tsx";
 import { Input } from "../components/ui/input.tsx";
 import { NativeSelect } from "../components/ui/native-select.tsx";
+import { useGatewayQuery } from "../data/hooks.ts";
 import { t } from "../i18n/core.ts";
+import { appleReason, appleUsable } from "../screens/settings/apple-status.ts";
 import { LearnMore } from "../screens/settings/LearnMore.tsx";
 import { Group, RadioField, SwitchField } from "../screens/settings/shared.tsx";
 import { estimateBackfill, estimateMonthly, formatUsd } from "./estimate.ts";
@@ -80,7 +84,9 @@ export function localRefsInUse(value: EverythingValues): (string | null)[] {
       value.model.perSource as Record<string, { kind: string; ref?: string }> | undefined
     )?.[s];
     const choice = per ?? value.model.default;
-    if (choice.kind === "local") refs.push(choice.ref ?? null);
+    // Apple's on-device model belongs to the system: no RAM warning, nothing to confirm.
+    if (choice.kind === "local" && choice.ref !== APPLE_ON_DEVICE_REF)
+      refs.push(choice.ref ?? null);
   }
   // With no source on yet, the default alone decides.
   if (refs.length === 0 && value.model.default.kind === "local")
@@ -397,7 +403,7 @@ export function SensitiveFields({
   );
 }
 
-type SourceChoice = "default" | "none" | "cloud" | "local";
+type SourceChoice = "default" | "none" | "cloud" | "local" | "apple";
 
 /**
  * A different model for one source (§8, EM11): Messages on Local while Mail stays on Cloud, say.
@@ -409,12 +415,17 @@ export function PerSourceModels({
   onChange,
   localConfirmed,
   onConfirmLocal,
+  appleStatus,
 }: {
   value: EverythingValues;
   onChange: (next: EverythingValues) => void;
   localConfirmed: readonly string[];
   onConfirmLocal: (ref: string) => void;
+  /** Overrides the live on-device model status (tests, stories); null hides the choice. */
+  appleStatus?: AppleLlmStatus | null;
 }): ReactElement | null {
+  const live = useGatewayQuery("models.appleStatus", {}, { enabled: appleStatus === undefined });
+  const apple = appleStatus === undefined ? (live.data ?? null) : appleStatus;
   const on = SOURCE_IDS.filter((s) => value.sources[s]);
   if (on.length === 0) return null;
   const per = (value.model.perSource ?? {}) as Record<
@@ -441,8 +452,9 @@ export function PerSourceModels({
     >
       {on.map((s) => {
         const cur = per[s];
-        const choice: SourceChoice = cur === undefined ? "default" : cur.kind;
-        const ref = cur?.ref ?? "";
+        const isApple = cur?.kind === "local" && cur.ref === APPLE_ON_DEVICE_REF;
+        const choice: SourceChoice = cur === undefined ? "default" : isApple ? "apple" : cur.kind;
+        const ref = isApple ? "" : (cur?.ref ?? "");
         const labelId = `persource-${s}`;
         return (
           <div key={s} data-testid="persource-row" className="flex flex-col gap-1 px-3">
@@ -455,6 +467,10 @@ export function PerSourceModels({
                 value={choice}
                 onChange={(e) => {
                   const v = e.target.value as SourceChoice;
+                  if (v === "apple") {
+                    write(s, { kind: "local", ref: APPLE_ON_DEVICE_REF });
+                    return;
+                  }
                   write(
                     s,
                     v === "default"
@@ -468,8 +484,29 @@ export function PerSourceModels({
                 <option value="none">{t("everything.model.none")}</option>
                 <option value="cloud">{t("everything.model.cloud")}</option>
                 <option value="local">{t("everything.model.local")}</option>
+                {/* Only where Apple's model can run; a source already set to it keeps showing it. */}
+                {appleUsable(apple) || choice === "apple" ? (
+                  <option value="apple" disabled={!appleUsable(apple)}>
+                    {t("everything.model.apple")}
+                  </option>
+                ) : null}
               </NativeSelect>
             </div>
+            {choice === "apple" ? (
+              <div
+                className="flex flex-col gap-1 text-callout text-label-secondary"
+                data-testid="persource-apple"
+              >
+                <p>{t("everything.model.appleHint")}</p>
+                <p>{t("everything.model.appleExperimental")}</p>
+                {apple !== null && !appleUsable(apple) ? (
+                  <p role="status" data-testid="persource-apple-reason">
+                    {appleReason(apple) ?? t("settings.searchModel.apple.why.unknown")}{" "}
+                    {t("everything.model.appleSkipped")}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
             {choice === "cloud" || choice === "local" ? (
               <Input
                 aria-label={t("everything.perSource.ref", { source: t(`everything.source.${s}`) })}

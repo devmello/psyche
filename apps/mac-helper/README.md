@@ -28,7 +28,7 @@ One helper runs per `$PSYCHE_HOME`. It holds `$PSYCHE_HOME/run/helper.lock`, and
 
 | Target | What |
 | --- | --- |
-| `PsycheProtocol` | Generated models (`pnpm protocol:gen`; do not edit) and the hand-written `Wire*` envelopes and `JSONValue`. |
+| `PsycheProtocol`, `PsycheWire` | Now in `packages/protocol-swift` (shared with the iOS app): generated models (`pnpm protocol:gen`; do not edit), the hand-written `Wire*` envelopes and `JSONValue`, connect signing, `Base64URL`, `DeviceIdentity`. |
 | `PsycheHelperCore` | Pure logic, unit-tested: NDJSON framing, handshake, `FrameChannel`, `NodeSession` (serve loop), `NodeDaemon` (reconnects), the capability API (`CapabilitySpec`, `CapabilityError`, `ReceiptDraft`, `Schema`), the AX snapshot builder over an abstract `AXTreeSource`, tiers and fixed caps, session lock, Esc `StopSignal`, key chords, capture hygiene, permission catalog, key wrapping and keychain status mapping, notification planning, speech helpers. |
 | `PsycheHelperSystem` | Live adapters and capability groups: `LiveAX` / `AXEngine`, `Input` + `EscStopTap`, `ScreenshotCapabilities`, `AppsCapabilities`, `PermissionsCapabilities` / `LivePreflight`, `KeychainCapabilities`, `NotifyCapabilities` / `NotificationCenterBridge`, `SpeechCapabilities`, `HelperRuntime` (assembles the registry). |
 | `PsycheHelper` → `psyche-helper` | Entry: flags, device identity, AppKit run loop on the main thread, node connection on a background thread. |

@@ -642,6 +642,55 @@ describe("a model per source", () => {
     tmp.cleanup();
   });
 
+  describe("Apple's on-device model (EM11, fakes only)", () => {
+    const apple = (s: ReturnType<typeof worldWithTwoSources>) =>
+      setSetting(s.db, EVERYTHING_MEMORY_SETTING_KEY, {
+        enabled: true,
+        sources: { mail: true, messages: true },
+        model: {
+          default: { kind: "cloud" },
+          perSource: { messages: { kind: "local", ref: "apple/on-device" } },
+        },
+      });
+    const empty = [
+      { type: "text_delta" as const, text: '{"facts":[],"edges":[],"flags":[]}' },
+      { type: "finish" as const, reason: "stop" as const },
+    ];
+
+    it("runs with no RAM confirmation, and only the chosen source goes to it", async () => {
+      const s = worldWithTwoSources();
+      apple(s);
+      s.provider.script([empty, empty]);
+      expect(await s.e.nightly()).toMatch(/^everything memory:/);
+      expect(s.provider.requests.map((r) => r.model).sort()).toEqual([
+        "apple/on-device",
+        "fake/utility",
+      ]);
+      const onDevice = s.provider.requests.find((r) => r.model === "apple/on-device");
+      expect(JSON.stringify(onDevice)).toMatch(/plumber/);
+      expect(JSON.stringify(onDevice)).not.toMatch(/dentist/);
+      s.tmp.cleanup();
+    });
+
+    it("when it can't answer the batch does nothing and the cloud model is never asked", async () => {
+      const s = worldWithTwoSources();
+      apple(s);
+      const refuse = [
+        { type: "finish" as const, reason: "error" as const, error: "model_not_found: no helper" },
+      ];
+      s.provider.script([
+        (req) => (req.model === "apple/on-device" ? refuse : empty),
+        (req) => (req.model === "apple/on-device" ? refuse : empty),
+      ]);
+      await s.e.nightly();
+      const models = s.provider.requests.map((r) => r.model);
+      // Mail went to the utility model once; Messages tried Apple once and stopped.
+      expect(models.filter((m) => m === "apple/on-device")).toHaveLength(1);
+      expect(models.filter((m) => m === "fake/utility")).toHaveLength(1);
+      s.tmp.cleanup();
+    });
+  });
+
   it("a source set to None is skipped while the others run", async () => {
     const { e, provider, tmp, db } = worldWithTwoSources();
     setSetting(db, EVERYTHING_MEMORY_SETTING_KEY, {

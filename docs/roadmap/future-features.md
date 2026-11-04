@@ -135,13 +135,13 @@ Each entry has the same parts: what it is, why it beats existing assistants, rou
 
 **What it is not.** It is not an agent model. It has a window of about 4,096 tokens (input and output together), no tools and no vision here, so it is never the primary model. It does one small prompt at a time. When it cannot answer (Apple Intelligence off, an unsupported Mac or region, a guardrail, a prompt that is too long) the job does nothing and the plain path stands (the rules for a question, no card, the normal ranking). It never quietly falls back to a cloud model.
 
-**Status.** Built behind fakes; **not yet run against the real model**, because running a local model is something the owner is told about first. Details and the list of what needs a real run are in [design/search-roadmap-2026.md](../design/search-roadmap-2026.md) ("Apple on-device model"). Private Cloud Compute (Apple's server-side model) is deliberately not used: it sends the text off the Mac.
+**Status.** A1, A2 and A4 are built behind fakes; **not yet run against the real model**, because running a local model is something the owner is told about first. Details and the list of what needs a real run are in [design/search-roadmap-2026.md](../design/search-roadmap-2026.md) ("Apple on-device model"). Private Cloud Compute (Apple's server-side model) is deliberately not used: it sends the text off the Mac.
 
 **Phases.**
 - A1 (built): the Mac helper's `llm.apple.availability` and `llm.apple.generate`, the router provider `apple` (ref `apple/on-device`), the `models.appleStatus` method and the `search.model.engine` setting (`utility` or `apple`).
-- A2: the Settings control for it (owned by the Settings redesign), with the plain statement above and the availability reason when it is off.
+- A2 (built behind fakes, 2026-11-04): Settings → Search → Model for search has "Use Apple's on-device model for private search jobs", with the plain statement (text stays on this Mac, no download or key, about 4k tokens, never a fallback to the cloud) and the availability reason from `models.appleStatus` (Apple Intelligence off, unsupported Mac or region, older macOS, still getting ready). It is disabled while unavailable and shown as the Host's setting in a remote client window.
 - A3: a real run on a Mac the owner approves, to measure it with the search eval (`--live` for Apple) and tune the prompts and the rerank size.
-- A4: memory extraction per source (`model.perSource`, EM11) with `{kind: "local", ref: "apple/on-device"}`, after A3 shows the window is enough for the batch size.
+- A4 (built behind fakes, 2026-11-04, **Experimental**): memory extraction per source (`model.perSource`, EM11) with `{kind: "local", ref: "apple/on-device"}`. Batches are sized to the 4,096-token window (an item that cannot fit is skipped with a recorded reason, never cut); a refusal (unavailable, guardrail, too long) makes the batch do nothing and records why, with no retry and no cloud fallback; it needs no RAM confirmation. The choice appears next to the other per-source options only where Apple's model is available. It is not recommended until A3 shows the window is enough.
 
 **Depends on.** The Mac helper, the model router, the search roadmap's R12/R13 (rerank and query model) and the everything-memory plan's model-per-source setting (EM11).
 

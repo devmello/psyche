@@ -28,12 +28,24 @@ export interface ExtractorCall {
   aboutOthers?: boolean;
   /** Open work items by opaque handle (`w1`): owner-authored batches may report progress on them. */
   work?: readonly { handle: string; name: string }[];
+  /** Smaller answer allowance for a model with a small window (the default is 2,000). */
+  maxOutputTokens?: number;
   signal?: AbortSignal;
 }
 
+/** The router error kind a provider refused with (`model_not_found`, `content_filter`, ...). */
+export type ExtractorRefusal = string;
+
 export type ExtractorResult =
   | { ok: true; output: ExtractionOutput; tokensIn: number; tokensOut: number }
-  | { ok: false; reason: ParseFailure; tokensIn: number; tokensOut: number };
+  | {
+      ok: false;
+      reason: ParseFailure;
+      tokensIn: number;
+      tokensOut: number;
+      /** Set when the provider itself refused (a `finish` error), not when its text was bad. */
+      refusal?: ExtractorRefusal;
+    };
 
 export interface WorkExtractorCall {
   provider: ModelProvider;
@@ -48,13 +60,29 @@ export type WorkExtractorResult =
 
 type Raw =
   | { ok: true; text: string; tokensIn: number; tokensOut: number }
-  | { ok: false; reason: ParseFailure; tokensIn: number; tokensOut: number };
+  | {
+      ok: false;
+      reason: ParseFailure;
+      tokensIn: number;
+      tokensOut: number;
+      refusal?: ExtractorRefusal;
+    };
+
+/** `finish.error` is `<kind>: <message>`; the kind is all a caller may act on. */
+function refusalKind(events: readonly ModelEvent[]): string | undefined {
+  for (const e of events) {
+    if (e.type === "finish" && e.reason === "error")
+      return /^([a-z_]+):/.exec(e.error ?? "")?.[1] ?? "unknown";
+  }
+  return undefined;
+}
 
 async function run(
   provider: ModelProvider,
   model: ModelRef,
   prompt: BatchPrompt,
   signal: AbortSignal | undefined,
+  maxOutputTokens = 2000,
 ): Promise<Raw> {
   const request: ModelRequest = {
     model,
@@ -62,7 +90,7 @@ async function run(
     messages: [{ role: "user", parts: [{ type: "text", text: prompt.user }] }],
     tools: [],
     toolChoice: "none",
-    maxOutputTokens: 2000,
+    maxOutputTokens,
     temperature: 0,
   };
   const events: ModelEvent[] = [];
@@ -82,7 +110,16 @@ async function run(
     return { ok: false, reason: "not_finished", tokensIn, tokensOut };
   }
   const text = extractionText(events);
-  if (!text.ok) return { ok: false, reason: text.reason, tokensIn, tokensOut };
+  if (!text.ok) {
+    const refusal = refusalKind(events);
+    return {
+      ok: false,
+      reason: text.reason,
+      tokensIn,
+      tokensOut,
+      ...(refusal === undefined ? {} : { refusal }),
+    };
+  }
   return { ok: true, text: text.text, tokensIn, tokensOut };
 }
 
@@ -91,7 +128,7 @@ export async function callExtractor(call: ExtractorCall): Promise<ExtractorResul
     ...(call.aboutOthers === undefined ? {} : { aboutOthers: call.aboutOthers }),
     ...(call.work === undefined ? {} : { work: call.work }),
   });
-  const raw = await run(call.provider, call.model, prompt, call.signal);
+  const raw = await run(call.provider, call.model, prompt, call.signal, call.maxOutputTokens);
   if (!raw.ok) return raw;
   const { tokensIn, tokensOut } = raw;
   const parsed = parseExtraction(raw.text);
