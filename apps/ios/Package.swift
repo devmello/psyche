@@ -17,6 +17,7 @@ let package = Package(
         .library(name: "PsycheFeatures", targets: ["PsycheFeatures"]),
         .library(name: "PsycheDesign", targets: ["PsycheDesign"]),
         .library(name: "PsycheShared", targets: ["PsycheShared"]),
+        .library(name: "PsycheBlocks", targets: ["PsycheBlocks"]),
     ],
     dependencies: [
         // The shared wire layer (generated models, frames, connect signing). Path dependency, no network.
@@ -46,6 +47,7 @@ let package = Package(
             dependencies: ["PsycheBlocks", "PsycheDesign", "PsycheClient", "PsycheStore", "PsycheShared"]
         ),
         .testTarget(name: "PsycheStoreTests", dependencies: ["PsycheStore", "PsycheShared"]),
+        .testTarget(name: "PsycheWidgetTests", dependencies: ["PsycheBlocks", "PsycheStore"]),
         .testTarget(name: "PsycheFeaturesTests", dependencies: ["PsycheFeatures", "PsycheStore"]),
         .testTarget(name: "PsycheBlocksTests", dependencies: ["PsycheBlocks", "PsycheStore"]),
         .testTarget(

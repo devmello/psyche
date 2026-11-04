@@ -1,3 +1,4 @@
+import PsycheBlocks
 import PsycheClient
 import PsycheDesign
 import PsycheStore
@@ -9,11 +10,15 @@ struct HomeView: View {
     @Environment(Session.self) private var session
     @Environment(Router.self) private var router
 
+    private let store: any PsycheBackend
+
     init(store: any PsycheBackend) {
+        self.store = store
         _model = State(initialValue: HomeModel(store: store))
     }
 
     var body: some View {
+        ScrollViewReader { proxy in
         ScrollView {
             VStack(alignment: .leading, spacing: PsycheMetrics.sectionSpacing) {
                 PageHeader("Home", eyebrow: Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day())) {
@@ -38,6 +43,14 @@ struct HomeView: View {
             await model.observe()
         }
         .refreshable { await model.load() }
+        #if DEBUG
+        // Screenshots without a swipe: `-psycheHomeScroll pinned` brings the Pinned section into view.
+        .onChange(of: model.pinnedWidgets.count) { _, count in
+            guard count > 0, UserDefaults.standard.string(forKey: "psycheHomeScroll") == "pinned" else { return }
+            Task { try? await Task.sleep(for: .milliseconds(400)); withAnimation { proxy.scrollTo("pinned", anchor: .top) } }
+        }
+        #endif
+        }
     }
 
     // MARK: Ask Psyche
@@ -81,6 +94,7 @@ struct HomeView: View {
         if !model.comingUp.isEmpty { todos("Coming up", model.comingUp) }
         if !model.laterTodos.isEmpty { todos("To-do", model.laterTodos) }
         if !snapshot.keepInTouch.isEmpty { keepInTouch(snapshot.keepInTouch) }
+        if !model.pinnedWidgets.isEmpty { pinned(model.pinnedWidgets) }
         more
     }
 
@@ -203,6 +217,20 @@ struct HomeView: View {
         }
         .padding(PsycheMetrics.rowPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // MARK: Pinned
+
+    /// Up to 6 widgets, below the fold, drawn by the native widget renderer (live, open and reply only).
+    private func pinned(_ widgets: [WidgetSnapshot]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionHeader("Pinned", count: widgets.count).id("pinned")
+            LazyVStack(alignment: .leading, spacing: 12) {
+                ForEach(widgets) { widget in
+                    WidgetView(snapshot: widget, backend: store, surface: .overview)
+                }
+            }
+        }
     }
 
     // MARK: More

@@ -1,3 +1,4 @@
+import PsycheBlocks
 import PsycheClient
 import PsycheDesign
 import PsycheFeatures
@@ -49,16 +50,29 @@ struct PsycheApp: App {
         PsycheAppearance.install()
     }
 
+    private var appRoot: some View {
+        RootView(store: model.backend)
+            .environment(model.session)
+            .onChange(of: scenePhase, initial: true) { _, phase in
+                model.session.setActive(phase == .active)
+            }
+            .onChange(of: model.session.fixtureModeRequested) { _, requested in
+                if requested { model = .fixtures() }
+            }
+    }
+
     var body: some Scene {
         WindowGroup {
-            RootView(store: model.backend)
-                .environment(model.session)
-                .onChange(of: scenePhase, initial: true) { _, phase in
-                    model.session.setActive(phase == .active)
-                }
-                .onChange(of: model.session.fixtureModeRequested) { _, requested in
-                    if requested { model = .fixtures() }
-                }
+            #if DEBUG
+            if WidgetGallery.isRequested {
+                // Hidden: `-psycheWidgetGallery YES` shows every widget fixture instead of the app.
+                WidgetGallery()
+            } else {
+                appRoot
+            }
+            #else
+            appRoot
+            #endif
         }
     }
 }
