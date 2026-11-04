@@ -59,6 +59,11 @@ const QUOTE_CHARS = 200;
 const EXCERPT_CHARS = 300;
 /** How long an auto-accepted fact can be undone (§7.2). */
 export const UNDO_DAYS = 7;
+/**
+ * The `extractor` on a status or deadline the owner stated in chat and Psyche proposed. Only these
+ * become the owner's own facts when confirmed; a confirmed fact the model extracted stays learned.
+ */
+export const CHAT_WORK_PROPOSAL = "psyche/chat-work-proposal";
 /** Discarded rows are kept this long so the owner's feedback has settled, then deleted. */
 const DISCARDED_KEEP_DAYS = 7;
 
@@ -1036,6 +1041,7 @@ export class EverythingStore {
       decision !== "discard" &&
       row.subject_kind === "owner_stated" &&
       row.provenance === "agent" &&
+      row.extractor === CHAT_WORK_PROPOSAL &&
       (row.attribute === "status" || row.attribute === "deadline")
     ) {
       const entity = this.#graph.getEntity(row.entity_id);
