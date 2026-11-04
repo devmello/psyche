@@ -3104,8 +3104,9 @@ export type ConnectChallengePhase = "challenge";
 
 export interface ConnectDenied {
     /**
-     * Machine-readable cause when there is one: the setup token was used, expired, revoked or
-     * not allowed here
+     * Machine-readable cause when there is one: setup_token_invalid (the setup token was used,
+     * expired, revoked or not allowed here) or device_revoked (this device was removed on the
+     * Gateway and can never connect again, so a client wipes its keys)
      */
     code?:  Code;
     phase:  ConnectDeniedPhase;
@@ -3113,10 +3114,11 @@ export interface ConnectDenied {
 }
 
 /**
- * Machine-readable cause when there is one: the setup token was used, expired, revoked or
- * not allowed here
+ * Machine-readable cause when there is one: setup_token_invalid (the setup token was used,
+ * expired, revoked or not allowed here) or device_revoked (this device was removed on the
+ * Gateway and can never connect again, so a client wipes its keys)
  */
-export type Code = "setup_token_invalid";
+export type Code = "setup_token_invalid" | "device_revoked";
 
 export type ConnectDeniedPhase = "denied";
 
@@ -3175,8 +3177,9 @@ export interface ConnectResult {
     serverTime?:   string;
     stateVersion?: number;
     /**
-     * Machine-readable cause when there is one: the setup token was used, expired, revoked or
-     * not allowed here
+     * Machine-readable cause when there is one: setup_token_invalid (the setup token was used,
+     * expired, revoked or not allowed here) or device_revoked (this device was removed on the
+     * Gateway and can never connect again, so a client wipes its keys)
      */
     code?:             string;
     pairingRequestId?: string;
@@ -3779,6 +3782,10 @@ export interface DevicesRevokeParams {
 }
 
 export interface DevicesRevokeResult {
+    device: Device;
+}
+
+export interface DevicesRevokeSelfResult {
     device: Device;
 }
 

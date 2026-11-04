@@ -278,7 +278,11 @@ describe("revocation and bad credentials", () => {
       deviceId: "desk-1",
       handshakeSecret: t.gateway.handshakeSecret,
     });
-    expect(again.verifyRes?.payload).toMatchObject({ phase: "denied", reason: "device revoked" });
+    expect(again.verifyRes?.payload).toMatchObject({
+      phase: "denied",
+      reason: "device revoked",
+      code: "device_revoked",
+    });
   });
 
   it("rejects a bad signature, then rate-limits failed challenges per address", async () => {

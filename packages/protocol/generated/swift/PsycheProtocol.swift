@@ -447,6 +447,8 @@
 //   let devicesPresenceKeyRemoveResult = try? JSONDecoder().decode(DevicesPresenceKeyRemoveResult.self, from: jsonData)
 //   let devicesRevokeParams = try? JSONDecoder().decode(DevicesRevokeParams.self, from: jsonData)
 //   let devicesRevokeResult = try? JSONDecoder().decode(DevicesRevokeResult.self, from: jsonData)
+//   let devicesRevokeSelfParams = try? JSONDecoder().decode(DevicesRevokeSelfParams.self, from: jsonData)
+//   let devicesRevokeSelfResult = try? JSONDecoder().decode(DevicesRevokeSelfResult.self, from: jsonData)
 //   let devicesSetupTokenCreateParams = try? JSONDecoder().decode(DevicesSetupTokenCreateParams.self, from: jsonData)
 //   let devicesSetupTokenCreateResult = try? JSONDecoder().decode(DevicesSetupTokenCreateResult.self, from: jsonData)
 //   let devicesSetupTokenListParams = try? JSONDecoder().decode(DevicesSetupTokenListParams.self, from: jsonData)
@@ -10003,8 +10005,9 @@ public enum ConnectChallengePhase: String, Codable, Sendable {
 
 // MARK: - ConnectDenied
 public struct ConnectDenied: Codable, Sendable {
-    /// Machine-readable cause when there is one: the setup token was used, expired, revoked or
-    /// not allowed here
+    /// Machine-readable cause when there is one: setup_token_invalid (the setup token was used,
+    /// expired, revoked or not allowed here) or device_revoked (this device was removed on the
+    /// Gateway and can never connect again, so a client wipes its keys)
     public let code: Code?
     public let phase: ConnectDeniedPhase
     public let reason: String
@@ -10022,9 +10025,11 @@ public struct ConnectDenied: Codable, Sendable {
     }
 }
 
-/// Machine-readable cause when there is one: the setup token was used, expired, revoked or
-/// not allowed here
+/// Machine-readable cause when there is one: setup_token_invalid (the setup token was used,
+/// expired, revoked or not allowed here) or device_revoked (this device was removed on the
+/// Gateway and can never connect again, so a client wipes its keys)
 public enum Code: String, Codable, Sendable {
+    case deviceRevoked = "device_revoked"
     case setupTokenInvalid = "setup_token_invalid"
 }
 
@@ -10164,8 +10169,9 @@ public struct ConnectResult: Codable, Sendable {
     public let scopes: [DeviceScope]?
     public let serverTime: String?
     public let stateVersion: Int?
-    /// Machine-readable cause when there is one: the setup token was used, expired, revoked or
-    /// not allowed here
+    /// Machine-readable cause when there is one: setup_token_invalid (the setup token was used,
+    /// expired, revoked or not allowed here) or device_revoked (this device was removed on the
+    /// Gateway and can never connect again, so a client wipes its keys)
     public let code: String?
     public let pairingRequestID: String?
     public let reason: String?
@@ -11933,6 +11939,19 @@ public struct DevicesRevokeParams: Codable, Sendable {
 
 // MARK: - DevicesRevokeResult
 public struct DevicesRevokeResult: Codable, Sendable {
+    public let device: Device
+
+    public enum CodingKeys: String, CodingKey {
+        case device = "device"
+    }
+
+    public init(device: Device) {
+        self.device = device
+    }
+}
+
+// MARK: - DevicesRevokeSelfResult
+public struct DevicesRevokeSelfResult: Codable, Sendable {
     public let device: Device
 
     public enum CodingKeys: String, CodingKey {
@@ -34373,6 +34392,7 @@ public typealias ConnectorsListParams = [String: JSONAny]
 public typealias DailyAutomationsTemplatesParams = [String: JSONAny]
 public typealias DevicesBootstrapAdminParams = [String: JSONAny]
 public typealias DevicesPresenceKeyListParams = [String: JSONAny]
+public typealias DevicesRevokeSelfParams = [String: JSONAny]
 public typealias DevicesSetupTokenListParams = [String: JSONAny]
 public typealias DictationTargetParams = [String: JSONAny]
 public typealias EmptyParams = [String: JSONAny]
