@@ -77,6 +77,6 @@
     "@vitejs/plugin-react": "6.1.2",
     "happy-dom": "21.0.4",
     "tailwindcss": "4.3.3",
-    "ws": "8.22.0"
+    "ws": "8.22.1"
   }
 }

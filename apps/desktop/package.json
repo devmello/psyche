@@ -43,8 +43,8 @@
     "@types/ws": "8.18.2",
     "@vitejs/plugin-react": "6.1.2",
     "bonjour-service": "1.4.4",
-    "electron": "44.9.3",
+    "electron": "44.10.1",
     "tailwindcss": "4.3.3",
-    "ws": "8.22.0"
+    "ws": "8.22.1"
   }
 }
