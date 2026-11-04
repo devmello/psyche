@@ -71,7 +71,8 @@ describe("SheetEditor", () => {
       />,
     );
     await screen.findByText("No changes");
-    expect(state.container).toBe(screen.getByTestId("sheet-editor-surface"));
+    // The runtime mounts after the status line renders; wait for it (raced on CI).
+    await waitFor(() => expect(state.container).toBe(screen.getByTestId("sheet-editor-surface")));
     const cells = state.data?.sheets["sheet-1"]?.cellData as Record<
       number,
       Record<number, unknown>
