@@ -138,7 +138,8 @@ struct MemoryView: View {
                 todoRow(todo, position: CardPosition(index: index, count: later.count))
             }
         }
-        if !model.isSearching {
+        // Empty sections aren't drawn (§4.1): no catch-up line means no card.
+        if !model.isSearching, !snapshot.leftOff.text.isEmpty {
             sectionHeader("Where you left off")
             leftOffCard(snapshot.leftOff)
         }

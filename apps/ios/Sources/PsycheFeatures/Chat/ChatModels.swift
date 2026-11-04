@@ -135,7 +135,8 @@ final class ThreadModel {
     func observe() async {
         for await event in store.events() {
             switch event {
-            case .chat(let chat) where chat.threadID == id: apply(chat)
+            // Opened by an alias (the main thread is "thr_main" until loaded), events carry the real id.
+            case .chat(let chat) where chat.threadID == id || chat.threadID == phase.value?.id: apply(chat)
             case .resynced: await load()
             default: break
             }
@@ -181,7 +182,7 @@ final class ThreadModel {
     }
 
     func cancel() {
-        Task { try? await store.cancelRun(threadID: id) }
+        Task { try? await store.cancelRun(threadID: phase.value?.id ?? id) }
     }
 
     func choose(option: String, for question: String) {
@@ -202,7 +203,24 @@ final class ThreadModel {
         guard case .loaded(var thread) = phase else { return }
         switch event {
         case .item(_, let item):
-            if case .user(let userID, _) = item { delivery[userID] = nil }
+            if case .user(let userID, let text) = item {
+                delivery[userID] = nil
+                // The Gateway stores the message under its own id: swap it in for this phone's local echo
+                // (keyed by the draft's clientID) instead of showing the message twice.
+                if !thread.items.contains(where: { $0.id == userID }),
+                    let echo = thread.items.firstIndex(where: {
+                        if case .user(let localID, let localText) = $0 { drafts[localID] != nil && localText == text } else { false }
+                    })
+                {
+                    if case .user(let localID, _) = thread.items[echo] {
+                        drafts[localID] = nil
+                        delivery[localID] = nil
+                    }
+                    thread.items[echo] = item
+                    break
+                }
+            }
+            if case .assistant(_, _, false) = item { Self.endThinking(&thread) }
             Self.upsert(item, into: &thread)
         case .delta:
             break
@@ -212,12 +230,22 @@ final class ThreadModel {
             {
                 thread.items[index] = .assistant(id: id, text: current, streaming: false)
             }
+            Self.endThinking(&thread)
         case .status(_, let status, let kind):
             thread.status = status
             thread.statusKind = kind
         }
         phase = .loaded(thread)
         revision += 1
+    }
+
+    /// "Thinking" is this phone's own placeholder from sending; a finished reply ends it. A real run status
+    /// from the Gateway (`.status`) is left alone.
+    private static func endThinking(_ thread: inout ChatThread) {
+        if thread.status == "Thinking" {
+            thread.status = ""
+            thread.statusKind = .neutral
+        }
     }
 
     private func scheduleFlush() {

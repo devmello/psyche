@@ -39,7 +39,7 @@ extension GatewayBackend {
             ?? catchUpItems.first.flatMap(Self.leftOff)
         return MemorySnapshot(
             todos: todos, projects: projectRows, people: peopleRows,
-            leftOff: leftOff ?? LeftOff(title: "Nothing new.", text: "Psyche will say where you left off once there is something to pick up.", evidence: []))
+            leftOff: leftOff ?? LeftOff(title: "", text: "", evidence: []))  // empty: the card isn't drawn
     }
 
     public func setTodo(id: String, done: Bool) async throws {
