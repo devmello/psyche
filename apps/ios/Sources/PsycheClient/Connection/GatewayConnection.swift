@@ -158,7 +158,7 @@ public actor GatewayConnection {
             pending[id] = Pending(continuation: continuation, timer: timer)
             Task { [transport] in
                 do { try await transport.send(data) } catch {
-                    await self.fail(id, with: .transport(String(describing: error)))
+                    self.fail(id, with: .transport(String(describing: error)))
                 }
             }
         }
@@ -186,10 +186,10 @@ public actor GatewayConnection {
             do {
                 while !Task.isCancelled {
                     let data = try await transport.receive()
-                    await self.handle(data)
+                    self.handle(data)
                 }
             } catch {
-                await self.close(reason: .transport(String(describing: error)), notify: true)
+                self.close(reason: .transport(String(describing: error)), notify: true)
             }
         }
     }

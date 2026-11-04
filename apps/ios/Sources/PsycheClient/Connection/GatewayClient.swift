@@ -143,7 +143,7 @@ public actor GatewayClient {
             backgroundTimer = Task { [grace = deps.backgroundGrace] in
                 try? await Task.sleep(for: grace)
                 guard !Task.isCancelled else { return }
-                await self.closeForBackground()
+                self.closeForBackground()
             }
         }
     }
