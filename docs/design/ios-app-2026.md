@@ -1,6 +1,6 @@
 # The iOS app: architecture and look
 
-Status: proposal (2026-11-03). Docs only; nothing here is built. Companion to
+Status: decided (owner, 2026-11-04; §8); M1 build started 2026-11-04. Companion to
 [mobile-companion-2026.md](mobile-companion-2026.md), which owns **how the phone reaches the
 Gateway** (LAN and Tailscale only, QR pairing, the Gateway identity key), **push** (Web Push first,
 then direct APNs with the owner's own `.p8`, no relay), **lock-screen approvals, Live Activities**
@@ -251,13 +251,14 @@ own ids. Theme tokens are passed in so the web content matches light/dark and th
 M1 works with a free Apple ID (7-day signing) for trying it out; push and TestFlight need the
 paid account.
 
-## 8. Open questions for the owner
+## 8. Owner decisions (2026-11-04)
 
-1. **Landing tab:** Home on the phone (recommended, A9) or Chat like the desktop?
-2. **iOS 26 minimum** (recommended, A2) instead of 18? It settles companion §7 Q5.
-3. **Generative UI in a sandboxed WebView** (recommended, A7), or native-only with "Open on your
-   Mac" for `ui` blocks in M1?
-4. **XcodeGen** as the one dev tool beyond Xcode (recommended, A10), or a committed `.xcodeproj`?
+1. **Landing tab:** Home (A9).
+2. **Minimum iOS:** 26 (A2). This also answers companion §7 Q5.
+3. **Generative UI:** the sandboxed WebView (A7).
+4. **Project:** XcodeGen (A10).
+5. **Devices:** iPhone and iPad from one target. On iPad the tab bar adapts to a sidebar (`TabView` with `.sidebarAdaptable`) and Chat is a split view (thread list + thread).
+6. **Android:** later, as a native Kotlin app with types generated from the same JSON Schema (companion M3). No cross-platform framework; the PWA covers Android until then.
 
 ## 9. Look
 
@@ -289,7 +290,7 @@ on content.
 - **Haptics:** `.success` on an answered approval, `.warning` when one arrives while open, none
   for streaming.
 
-Mockups (Home, Chat, the approval sheet, Search, Memory, pairing, lock screen with a Live
+Mockup sources are in [ios-app-2026/](ios-app-2026/) (`*.dc.html`, reference only). Mockups (Home, Chat, the approval sheet, Search, Memory, pairing, lock screen with a Live
 Activity, and Home in dark while away from home):
 https://claude.ai/artifact/VTyMAJ8bLhmk7W6DXnyp55 (private to the owner until shared).
 
@@ -301,14 +302,14 @@ hard dependencies; everything else can run in parallel.
 | # | Package | Depends on | Done when |
 | --- | --- | --- | --- |
 | I0 | Extract `packages/protocol-swift` (PsycheProtocol + PsycheWire); `gen.ts` writes there; mac helper switches to the path dependency; `protocol:check` builds it | — | Mac helper tests green on the new package |
-| I1 | Gateway identity key + signed `connect` challenge; QR payload `psyche-pair:v1` in Settings → Devices → Add phone (shared with remote-gateway R1) | — | Desktop shows the QR; a Node test client verifies the signature |
+| I1 | `psyche-pair:v1` link + single-use 10-minute setup token + QR in Settings → Devices → Add phone (the pairing-link slice of remote-gateway R2). The identity key and key-bound connect already shipped in R1 (#1188) | — | Desktop shows the link and QR; a token older than 10 minutes or used twice is refused |
 | I2 | `PsycheClient` + `PsycheStore`: connection, pairing, identity pin, states (§3.2), resync, outbox | I0, I1 | Integration suite against the real Gateway green on macOS CI |
 | I3 | `apps/ios` skeleton: XcodeGen project, five targets, `PsycheDesign` tokens and components, tab shell, Pairing screens | I0 | App builds in CI; pairs with a dev Gateway on the LAN |
 | I4 | Chat (thread list, streaming, composer, dictation, native blocks) | I2, I3 | Companion M1 acceptance 3 and 4 |
 | I5 | Home + approvals + questions + agent sheet | I2, I3 | Approve on the phone, card disappears on the Mac |
 | I6 | Library + share extension | I2, I3 | Companion M1 acceptance 5 |
 | I7 | Memory + Search tab | I2, I3 | To-do, Work, People, Ask your life |
-| I8 | WebView block host + `build:ios-blocks` (if §8 Q3 is yes) | I4 | A `ui` block renders offline with theme tokens |
+| I8 | WebView block host + `build:ios-blocks` | I4 | A `ui` block renders offline with theme tokens |
 | S1 | Spike: Tailscale on demand from a notification action (companion §7 Q6) | — | Result recorded in the companion doc |
 
 M0 (PWA + Web Push, companion §6) doesn't touch any of this and can run beside I0–I3.

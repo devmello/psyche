@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Psyche pairing</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+a{color:#2c5aa0}a:hover{color:#234a85}
+.m{margin:0;font:400 12px/16px ui-monospace,"SF Mono",Menlo,monospace;color:#6a6966}
+.step{display:flex;gap:12px;align-items:flex-start}
+.n{width:22px;height:22px;flex-shrink:0;border-radius:11px;font:600 12px/22px -apple-system,system-ui,sans-serif;text-align:center}
+.st{margin:0;font:400 15px/21px -apple-system,system-ui,sans-serif;color:#21201f}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #faf9f8; font-family: -apple-system, system-ui, sans-serif; color: #21201f">
+  <div style="padding: 92px 28px 40px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; gap: 28px">
+    <svg width="64" height="64" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 14C12 7 5 7.5 6 13c.8 4 6 4.5 10 2.5z" fill="#2c5aa0"/><path d="M16 14c4-7 11-6.5 10-1-.8 4-6 4.5-10 2.5z" fill="#2c5aa0"/><path d="M16 17c-3.5 1.5-7 4.5-5.5 7 1.4 2 4.5-2 5.5-5z" fill="#4d72ab"/><path d="M16 17c3.5 1.5 7 4.5 5.5 7-1.4 2-4.5-2-5.5-5z" fill="#4d72ab"/><rect x="15" y="11" width="2" height="12" rx="1" fill="#21201f"/><path d="M15.6 11.5C14.5 8.5 13 7.5 11.5 7.2M16.4 11.5c1.1-3 2.6-4 4.1-4.3" stroke="#21201f" stroke-width="0.8" fill="none" stroke-linecap="round"/></svg>
+
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <h1 style="margin: 0; font-family: ui-serif, 'New York', 'Iowan Old Style', Georgia, serif; font-size: 30px; line-height: 36px; font-weight: 600">Approve this phone on your Mac</h1>
+      <p style="margin: 0; font-size: 15px; line-height: 21px; color: #6a6966">Psyche on your Mac is asking whether to let this phone in. Check that the code matches.</p>
+    </div>
+
+    <div style="padding: 18px; background: #ffffff; border: 1px solid #ebe9e6; border-radius: 16px; display: flex; flex-direction: column; gap: 12px; align-items: center">
+      <p style="margin: 0; font: 600 40px/44px ui-monospace, 'SF Mono', Menlo, monospace; letter-spacing: 4px">482 917</p>
+      <div style="width: 100%; height: 1px; background: #ebe9e6"></div>
+      <div style="width: 100%; display: flex; flex-direction: column; gap: 4px">
+        <p style="margin: 0; font-size: 15px; font-weight: 500">studio-mac.tail3b2c.ts.net</p>
+        <p class="m">Tailscale · Gateway key 7F3A 91C2 E04B · pinned</p>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 14px">
+      <div class="step"><span class="n" style="background: #6a6966; color: #ffffff">✓</span><p class="st">Scanned the code from Settings → Devices</p></div>
+      <div class="step"><span class="n" style="background: #ffc53d; color: #4a2c00">2</span><p class="st">On your Mac, approve <strong style="font-weight: 600">iPhone</strong>. It gets read, write and approvals, not admin.</p></div>
+    </div>
+
+    <div style="flex-grow: 1"></div>
+
+    <p style="margin: 0; font-size: 14px; color: #6a6966; display: flex; align-items: center; justify-content: center; gap: 8px"><span style="width: 6px; height: 6px; border-radius: 3px; background: #ffc53d"></span>Waiting for your Mac</p>
+    <button style="height: 50px; border-radius: 25px; border: 1px solid #dad8d6; background: #ffffff; font: 600 16px -apple-system, system-ui, sans-serif; color: #21201f">Cancel</button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
