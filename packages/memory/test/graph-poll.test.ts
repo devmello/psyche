@@ -57,6 +57,19 @@ const all = (size = 1000) => [
 ];
 
 describe("deterministic pass polling (§5.1)", () => {
+  it("creates the owner card from the connected accounts' identities when given the owner's name", async () => {
+    const adapters = [
+      paged("mail:apple", "mail", "mails", WORLD.mails, 1000, { emails: WORLD.owner.emails }),
+    ];
+    const opts = { enabled: { mail: true }, clock, ownerName: "Pat Kim" } as const;
+    await runGraphPoll(graph, adapters, opts);
+    const owner = graph.ownerEntity();
+    expect(owner?.name).toBe("Pat Kim");
+    expect(graph.resolveIdentifier("email", WORLD.owner.emails[0])).toBe(owner?.id);
+    await runGraphPoll(graph, adapters, opts);
+    expect(graph.listEntities(["person"]).filter((p) => p.isOwner)).toHaveLength(1);
+  });
+
   it("polls only the sources the owner turned on, contacts first", async () => {
     const adapters = all();
     const report = await runGraphPoll(graph, adapters, {

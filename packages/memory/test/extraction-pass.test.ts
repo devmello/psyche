@@ -456,6 +456,20 @@ describe("the nightly pass over owner-authored items", () => {
     expect(sentTexts().join("")).not.toMatch(/imessage|notes/);
   });
 
+  it("gates on a missing owner card until ensureOwnerEntity creates it", async () => {
+    doc({ body: "Dana Reyes loves climbing, we should go." });
+    env.db.sqlite.prepare("UPDATE graph_entities SET is_owner = 0 WHERE is_owner = 1").run();
+    expect((await runEverythingPass(deps())).gate).toBe("no_owner_entity");
+    graph.ensureOwnerEntity({ name: "Me" });
+    provider.enqueue([
+      { type: "text_delta", text: factJson([]) },
+      { type: "finish", reason: "stop" },
+    ]);
+    const r = await runEverythingPass(deps());
+    expect(r.gate).not.toBe("no_owner_entity");
+    expect(r.ran).toBe(true);
+  });
+
   it("gated runs do nothing: no model, no run row, no cursor", async () => {
     doc({ body: "Dana Reyes loves climbing, we should go." });
     for (const over of [

@@ -943,6 +943,140 @@ export class GraphStore {
     return this.getEntity(id) as GraphEntity;
   }
 
+  /**
+   * The owner's own card. The caller passes only identifiers the owner provided or owns (the
+   * configured addresses, their connected accounts, their own Messages handles), never a third
+   * party's claim. Gateway start, the graph turning on and every poll call this; it is
+   * idempotent and cheap when nothing changed.
+   *
+   * - With an owner card, that card is the target. Otherwise the existing person that holds the
+   *   most of these identifiers becomes the owner (it keeps its name), and only when none holds
+   *   any is a new card created with `name`.
+   * - Other people holding these identifiers are merged into the target (aliases kept), unless
+   *   the owner linked that identifier to them by hand (`linked_by: 'owner'`): that is left
+   *   alone and reported through `onConflict`.
+   * - Identifiers nobody holds are linked to the target with `linked_by: 'owner'`.
+   */
+  ensureOwnerEntity(input: {
+    name: string;
+    identifiers?: { kind: "email" | "phone"; value: string }[];
+    onConflict?: (kind: "email" | "phone", value: string) => void;
+  }): GraphEntity {
+    const seen = new Set<string>();
+    const idents: { kind: "email" | "phone"; value: string; norm: string }[] = [];
+    for (const i of input.identifiers ?? []) {
+      const norm = normalizeIdentifier(i.kind, i.value, this.#country);
+      if (norm === undefined || seen.has(`${i.kind}:${norm}`)) continue;
+      seen.add(`${i.kind}:${norm}`);
+      idents.push({ ...i, norm });
+    }
+    const row = (kind: GraphIdentifierKind, norm: string) =>
+      this.#db
+        .prepare(
+          "SELECT entity_id, linked_by, shared FROM graph_identifiers WHERE kind = ? AND value_norm = ?",
+        )
+        .get(kind, norm) as { entity_id: string; linked_by: string; shared: number } | undefined;
+    const holders = () =>
+      idents.flatMap((i) => {
+        const r = row(i.kind, i.norm);
+        return r === undefined || r.shared === 1 ? [] : [this.resolveMerged(r.entity_id)];
+      });
+
+    let target = this.ownerEntity();
+    // A holder is plausibly the owner only when everything it holds is the owner's, or its name
+    // is the owner's: a family member's card listing one shared address is not merged away.
+    const ownerNames = new Set(
+      [input.name, target?.name, ...(target?.aliases ?? [])]
+        .filter((n): n is string => typeof n === "string" && n.trim() !== "")
+        .map((n) => normalizeName(n)),
+    );
+    const plausible = (id: string): boolean => {
+      const e = this.#entityRow(id);
+      if (e === undefined) return false;
+      if (
+        ownerNames.has(normalizeName(e.name)) ||
+        this.#aliases(id).some((a) => ownerNames.has(normalizeName(a)))
+      )
+        return true;
+      return this.identifiers(id)
+        .filter((x) => x.kind === "email" || x.kind === "phone")
+        .every((x) => seen.has(`${x.kind}:${normalizeIdentifier(x.kind, x.value, this.#country)}`));
+    };
+    if (target === undefined) {
+      const counts = new Map<string, number>();
+      for (const h of holders()) {
+        const e = this.#entityRow(h);
+        if (e?.kind === "person" && e.status === "active" && plausible(h))
+          counts.set(h, (counts.get(h) ?? 0) + 1);
+      }
+      const best = [...counts].sort(
+        (x, y) =>
+          y[1] - x[1] ||
+          (this.#entityRow(x[0])?.created_at ?? "").localeCompare(
+            this.#entityRow(y[0])?.created_at ?? "",
+          ),
+      )[0];
+      if (best === undefined) {
+        // Held identifiers (on cards that are not the owner's) are dealt with below.
+        target = this.createEntity({
+          kind: "person",
+          name: input.name,
+          isOwner: true,
+          identifiers: idents.filter((i) => row(i.kind, i.norm) === undefined),
+          linkedBy: "owner",
+          source: "owner",
+        });
+      } else {
+        this.#db.prepare("UPDATE graph_entities SET is_owner = 1 WHERE id = ?").run(best[0]);
+        this.#touched(best[0], ["owner"]);
+        target = this.ownerEntity() as GraphEntity;
+      }
+    }
+    const into = target.id;
+    for (const i of idents) {
+      const r = row(i.kind, i.norm);
+      if (r === undefined) {
+        try {
+          this.linkIdentifier(into, i.kind, i.value, {
+            source: "owner",
+            linkedBy: "owner",
+            verified: true,
+          });
+        } catch {
+          // taken meanwhile: leave it
+        }
+        continue;
+      }
+      const holder = this.resolveMerged(r.entity_id);
+      if (r.shared === 1 || holder === into) continue;
+      // Merging moves all the holder's identifiers: never one the owner set by hand.
+      const handLinked = this.identifiers(holder).some((x) => x.linkedBy === "owner");
+      if (handLinked || this.#entityRow(holder)?.kind !== "person") {
+        input.onConflict?.(i.kind, i.value);
+        continue;
+      }
+      try {
+        if (plausible(holder)) {
+          this.merge([holder], into);
+        } else {
+          // Not the owner's card: move just this identifier, the card survives.
+          this.#db.transaction(() => {
+            this.unlinkIdentifier(i.kind, i.value);
+            this.linkIdentifier(into, i.kind, i.value, {
+              source: "owner",
+              linkedBy: "owner",
+              verified: true,
+            });
+          })();
+          this.#touched(holder, ["identifiers"]);
+        }
+      } catch {
+        input.onConflict?.(i.kind, i.value);
+      }
+    }
+    return this.ownerEntity() as GraphEntity;
+  }
+
   ownerEntity(): GraphEntity | undefined {
     const row = this.#db.prepare("SELECT * FROM graph_entities WHERE is_owner = 1").get() as
       | EntityRow

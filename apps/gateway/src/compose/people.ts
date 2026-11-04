@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import type { AgentToolRegistration, TurnContextProvider } from "@psyche/agent-core";
 import { getSetting, getThread, type PsycheDb, setSetting } from "@psyche/db";
 import {
@@ -127,9 +128,22 @@ export interface PeopleDeps {
   register: (tool: AgentToolRegistration) => () => unknown;
   /** Deterministic pass interval (§5.1, default 15 minutes); 0 disables the timer (tests). */
   pollIntervalMs?: number;
+  /** The owner's name for their own card (USER.md's Name); absent or empty falls back to the Mac account. */
+  ownerName?: () => Promise<string | undefined> | string | undefined;
   /** Debounce of the after-run model pass (§5.2, default 5 minutes); 0 leaves it to `afterRun()`. */
   afterRunDelayMs?: number;
   logger?: { log(level: "warn", msg: string, fields?: Record<string, unknown>): void };
+}
+
+/** The macOS account's full name (`id -F`), else nothing; never throws. */
+export function macAccountName(): string | undefined {
+  try {
+    if (process.platform !== "darwin") return undefined;
+    const out = execFileSync("id", ["-F"], { encoding: "utf8", timeout: 2000 }).trim();
+    return out === "" ? undefined : out;
+  } catch {
+    return undefined;
+  }
 }
 
 export const DEFAULT_GRAPH_POLL_MS = 15 * 60_000;
@@ -411,6 +425,7 @@ export function composePeople(deps: PeopleDeps): People {
   let unregister: (() => unknown)[] | null = null;
   const sync = (value: unknown) => {
     const on = graphSettings(value).enabled;
+    if (on) void ensureOwner();
     if (on && unregister === null) unregister = tools.map((t) => deps.register(t));
     if (!on && unregister !== null) {
       for (const u of unregister) u();
@@ -455,6 +470,45 @@ export function composePeople(deps: PeopleDeps): People {
     }
   };
 
+  /** The owner's card (§ everything memory needs it): name from the profile, else the Mac account, else "Me". */
+  let ownerNameCache: string | undefined;
+  const resolveOwnerName = async (): Promise<string> => {
+    if (ownerNameCache !== undefined) return ownerNameCache;
+    const fromProfile = await Promise.resolve(deps.ownerName?.()).catch(() => undefined);
+    const name = [fromProfile, macAccountName()]
+      .map((n) => n?.trim())
+      .find((n) => n !== undefined && n !== "" && n.length <= 200);
+    if (name !== undefined) ownerNameCache = name;
+    return name ?? "Me";
+  };
+  const ensureOwner = async (): Promise<void> => {
+    const s = settings();
+    if (!s.enabled) return;
+    try {
+      // The owner's own accounts only (never a third party's claim); a poll repeats this with
+      // every adapter once connectors are bound, merging cards that turn out to be theirs.
+      const identifiers: { kind: "email" | "phone"; value: string }[] = [];
+      for (const a of await Promise.resolve(sources()).catch(() => [])) {
+        if (s.sources[a.source] !== true) continue;
+        const own = await a.ownerIdentities?.().catch(() => undefined);
+        for (const value of own?.emails ?? []) identifiers.push({ kind: "email", value });
+        for (const value of own?.phones ?? []) identifiers.push({ kind: "phone", value });
+      }
+      store.ensureOwnerEntity({
+        name: await resolveOwnerName(),
+        identifiers,
+        onConflict: (kind) =>
+          deps.logger?.log("warn", "an owner identifier sits on another card the owner linked", {
+            kind,
+          }),
+      });
+    } catch (err) {
+      deps.logger?.log("warn", "owner card could not be created", {
+        code: PsycheError.from(err).code,
+      });
+    }
+  };
+
   let sources: () => Promise<GraphSourceAdapter[]> | GraphSourceAdapter[] = () => [];
   let polling: Promise<GraphPollReport | undefined> | null = null;
   const poll = (signal?: AbortSignal): Promise<GraphPollReport | undefined> => {
@@ -468,6 +522,11 @@ export function composePeople(deps: PeopleDeps): People {
       const report = await runGraphPoll(store, adapters, {
         enabled: s.sources,
         clock,
+        ownerName: await resolveOwnerName(),
+        onOwnerConflict: (kind) =>
+          deps.logger?.log("warn", "an owner identifier sits on another card the owner linked", {
+            kind,
+          }),
         ...(signal === undefined ? {} : { signal }),
       });
       for (const a of report.adapters)
@@ -537,6 +596,7 @@ export function composePeople(deps: PeopleDeps): People {
       return {
         handlers: mountParamsOnly(handlers as never),
         async start(gateway: Gateway) {
+          await ensureOwner();
           sync(getSetting(db, GRAPH_SETTING)?.value);
           unsubscribe = gateway.bus.subscribe(["operator.read"], (frame) => {
             const f = JSON.parse(frame) as {
