@@ -1,0 +1,10 @@
+// Copy this file to Owner.xcconfig (gitignored) and fill in your own values.
+//   cp Config/Owner.example.xcconfig Config/Owner.xcconfig
+// Then run `pnpm ios:project` and open apps/ios/Psyche.xcodeproj.
+
+// Your Apple developer team id (10 characters). A free Apple ID works for 7-day device builds.
+PSYCHE_TEAM_ID = XXXXXXXXXX
+
+// A bundle id that is yours, for example com.yourname.psyche. The extensions use this plus a
+// suffix, and the app group is group.<this value>.
+PSYCHE_BUNDLE_ID = com.example.psyche
