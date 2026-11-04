@@ -52,6 +52,10 @@ export interface LifeAnswerState {
   /** Follow-up questions asked under this answer, and how to ask one; absent = not offered. */
   turns?: readonly FollowUpTurn[];
   onFollowUp?: (text: string) => void;
+  /** The answer already read mail, messages and files (not only facts). */
+  withPassages?: boolean;
+  /** Asks again, this time reading passages; absent = not offered. */
+  onAskPassages?: () => void;
 }
 
 const NOTE = {
@@ -137,6 +141,11 @@ export function LifeAnswerCard({
           />
         </div>
       ))}
+      {state.phase === "done" && !state.withPassages && state.onAskPassages ? (
+        <Button size="sm" variant="secondary" className="self-start" onClick={state.onAskPassages}>
+          {t("screens.search.answer.askPassages")}
+        </Button>
+      ) : null}
       {answered && state.onFollowUp && turns.length < MAX_FOLLOW_UPS ? (
         <FollowUpBox disabled={busy} onAsk={state.onFollowUp} />
       ) : null}

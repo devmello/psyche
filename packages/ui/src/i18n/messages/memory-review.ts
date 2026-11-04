@@ -108,6 +108,7 @@ export const memoryReview = {
   "screens.search.answer.failed": "Could not answer just now.",
   "screens.search.answer.label": "Answer from your memory",
   "screens.search.answer.facts": "{n, plural, one {# fact} other {# facts}}",
+  "screens.search.answer.askPassages": "Answer from my mail, messages and files",
   "screens.search.answer.passageChip": "{source}: {title}",
   "screens.search.answer.sources": "{n, plural, one {# source} other {# sources}}",
   "screens.search.answer.fromPassages": "Passages this answer comes from",

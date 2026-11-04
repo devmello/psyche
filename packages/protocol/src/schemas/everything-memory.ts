@@ -565,6 +565,13 @@ export const LifeFactHit = Type.Object(
           "Search document ids of every citation's source passage that is indexed, in citation order, resolved at read time (never stored on the fact); the first is `docId`",
       }),
     ),
+    sources: Type.Optional(
+      Type.Array(Type.String({ maxLength: 40 }), {
+        maxItems: 8,
+        description:
+          "Every citation's source (`mail`, `messages`, …), without repeats; `source` is the first. A connection that cannot open one of them is not shown the fact",
+      }),
+    ),
     observedAt: Nullable(IsoDateTime),
     learnedAt: Nullable(IsoDateTime),
   },

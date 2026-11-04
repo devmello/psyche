@@ -46,10 +46,12 @@ interface Rules {
   agentOff?: SourceId[];
   agentOn?: SourceId[];
   cloudBlocked?: SourceId[];
+  /** What the router says about the model actually called; absent = the setting's label. */
+  isCloudRef?: (ref: string) => boolean;
 }
 
 async function world(seeds: Seed[], rules: Rules = {}) {
-  const { agentOff = [], agentOn = [], cloudBlocked = [] } = rules;
+  const { agentOff = [], agentOn = [], cloudBlocked = [], isCloudRef } = rules;
   const clock = new FakeClock(NOW);
   const db = openDb(":memory:");
   const graph = new GraphStore({ sqlite: db.sqlite, clock });
@@ -105,6 +107,7 @@ async function world(seeds: Seed[], rules: Rules = {}) {
     provider,
     utility: "fake/utility",
     timeZone: () => "UTC",
+    ...(isCloudRef === undefined ? {} : { isCloudRef }),
     passageIndex: () => ({
       index,
       // What `SourceIndexer.document(id, "agent")` answers: nothing from an agent-off source.
@@ -123,7 +126,7 @@ async function world(seeds: Seed[], rules: Rules = {}) {
     });
   on();
   const answer = (
-    params: { q: string; passages?: boolean; previous?: never },
+    params: { q: string; passages?: boolean; previous?: unknown },
     who: "desktop" | "phone" | "helper" = "desktop",
   ) => {
     const call = {
@@ -465,11 +468,11 @@ describe("facts for a connection that cannot open their source", () => {
     expect(sam.facts).toEqual([]);
     // Sam's fact came from Messages: the phone's model call never saw it.
     expect(w.sent()).not.toContain("Initech");
-    w.provider.enqueue(say("Pat works at Globex [1]."));
-    const pat = (await w.answer({ q: "where does pat work" }, "phone")) as unknown as {
-      facts: { docIds: string[] }[];
-    };
-    expect(pat.facts[0]?.docIds).toEqual(["mail:1"]);
+    // Pat's fact rests on mail and Messages: the phone cannot open one of them, so the fact is
+    // left out whole, not trimmed.
+    const pat = await w.answer({ q: "where does pat work" }, "phone");
+    expect(pat.facts).toEqual([]);
+    expect(w.sent()).not.toContain("Globex");
     // The desktop app sees both, and every citation's passage.
     w.provider.enqueue(say("Sam works at Initech [1]."));
     const desk = await w.answer({ q: "where does sam work" }, "desktop");
@@ -479,5 +482,210 @@ describe("facts for a connection that cannot open their source", () => {
       facts: { docIds: string[] }[];
     };
     expect(both.facts[0]?.docIds).toEqual(["mail:1", "messages:78"]);
+  });
+});
+
+describe("the check runs on what the model reads", () => {
+  const Q = "what are the offer details";
+  const offer = (text: string): Seed => ({
+    id: "mail:20",
+    source: "mail",
+    title: "Offer details",
+    text,
+  });
+
+  it("finds a card number split by newlines or zero-width characters", async () => {
+    for (const split of ["\n", "\r\n", "​", " ​\n"]) {
+      const w = await world([
+        offer(
+          `Offer details. Pay the deposit with card 4111${split}1111${split}1111${split}1111 today.`,
+        ),
+      ]);
+      w.on({ sensitive: { finance: true } });
+      const r = await w.answer({ q: Q, passages: true });
+      expect(r.reason, JSON.stringify(split)).toBe("no_facts");
+      expect(w.provider.requests).toHaveLength(0);
+    }
+  });
+
+  it("finds a sensitive keyword with a zero-width character inside it", async () => {
+    const w = await world([offer("Offer details: your sal​ary will be 140,000 a year.")]);
+    expect((await w.answer({ q: Q, passages: true })).reason).toBe("no_facts");
+    expect(w.provider.requests).toHaveLength(0);
+    // Once finance is on the same passage is sent.
+    w.on({ sensitive: { finance: true } });
+    w.provider.enqueue(say("The offer is 140,000 [P1]."));
+    expect((await w.answer({ q: Q, passages: true })).passages).toHaveLength(1);
+  });
+});
+
+describe("a follow-up's earlier answer", () => {
+  const Q2 = "and the signed copy?";
+  const prev = (over: Record<string, unknown> = {}) => ({
+    q: "when will the contract be ready",
+    answer: "EARLIER-ANSWER-TEXT the contract will be ready by Friday [P1] (P2) [3].",
+    factIds: [],
+    passageIds: ["mail:1"],
+    ...over,
+  });
+  const prompt = (w: Awaited<ReturnType<typeof world>>) => userText(w.provider.requests[0]);
+
+  it("is sent, without citation markers, when everything it cited reads again", async () => {
+    const w = await world([MAIL]);
+    w.provider.enqueue(say("Signed copy follows [P1]."));
+    await w.answer({ q: Q2, passages: true, previous: prev() });
+    const text = prompt(w);
+    expect(text).toContain("EARLIER-ANSWER-TEXT");
+    expect(text).not.toMatch(/Answer:.*\bP[123]\b/);
+    expect(text).not.toMatch(/Answer:[^\n]*\(3\)/);
+  });
+
+  it("is dropped, keeping only the earlier question, when any id it cited fails to read again", async () => {
+    const w = await world([MAIL]);
+    w.provider.enqueue(say("Signed copy follows [P1]."));
+    await w.answer({
+      q: Q2,
+      passages: true,
+      previous: prev({ passageIds: ["mail:1", "mail:gone"] }),
+    });
+    const text = prompt(w);
+    expect(text).toContain("Question: when will the contract be ready");
+    expect(text).not.toContain("EARLIER-ANSWER-TEXT");
+  });
+
+  it("is dropped when the follow-up is not allowed to read passages at all", async () => {
+    const w = await world([MAIL]);
+    w.provider.enqueue(say("ok [P1]."));
+    await w.answer({
+      q: Q2,
+      passages: true,
+      previous: prev({ passageIds: ["mail:1", "notes:x"] }),
+    });
+    expect(prompt(w)).not.toContain("EARLIER-ANSWER-TEXT");
+  });
+
+  it("is dropped when it holds a sensitive class that is off, and the question too", async () => {
+    const w = await world([MAIL]);
+    w.provider.enqueue(say("ok [P1]."));
+    await w.answer({
+      q: Q2,
+      passages: true,
+      previous: prev({ answer: "Your salary will be 140,000 [P1]." }),
+    });
+    expect(prompt(w)).not.toContain("140,000");
+    expect(prompt(w)).toContain("Earlier in this conversation");
+    const v = await world([MAIL]);
+    v.provider.enqueue(say("ok [P1]."));
+    await v.answer({ q: Q2, passages: true, previous: prev({ q: "my salary is 140,000, so" }) });
+    expect(userText(v.provider.requests[0])).not.toContain("140,000");
+  });
+});
+
+describe("which model is cloud", () => {
+  it("follows the router for the model actually called, not the setting's label", async () => {
+    const q = "when will the contract be ready";
+    // The setting says cloud, the router says the ref is on this Mac: Mail kept off the cloud may be read.
+    const local = await world([MAIL], { cloudBlocked: ["mail"], isCloudRef: () => false });
+    local.provider.enqueue(say("Friday [P1]."));
+    expect((await local.answer({ q, passages: true })).passages).toHaveLength(1);
+    // The router says cloud: it may not.
+    const cloud = await world([MAIL], { cloudBlocked: ["mail"], isCloudRef: () => true });
+    expect((await cloud.answer({ q, passages: true })).reason).toBe("no_facts");
+    expect(cloud.provider.requests).toHaveLength(0);
+  });
+
+  it("counts a model labelled local as cloud when the router says so (fails closed)", async () => {
+    const w = await world([MAIL], { cloudBlocked: ["mail"], isCloudRef: () => true });
+    w.on({ model: { default: { kind: "local", ref: "fake/utility" } } });
+    setSetting(w.db, `${EVERYTHING_MEMORY_SETTING_KEY}.localConfirmed`, ["fake/utility"]);
+    expect((await w.answer({ q: "when will the contract be ready", passages: true })).reason).toBe(
+      "no_facts",
+    );
+    expect(w.provider.requests).toHaveLength(0);
+  });
+});
+
+describe("Memory's own opt-out and cloud-blocked sources", () => {
+  it("keeps a source the owner opted out of Memory out of passages", async () => {
+    const w = await world([MAIL]);
+    w.on({ optOut: { mail: true } });
+    expect((await w.answer({ q: "when will the contract be ready", passages: true })).reason).toBe(
+      "no_facts",
+    );
+    expect(w.provider.requests).toHaveLength(0);
+  });
+
+  it("leaves out a fact whose citation is in a source kept off the cloud, while the model is cloud", async () => {
+    const w = await world([], { cloudBlocked: ["mail"], isCloudRef: () => true });
+    const id = w.graph.createEntity({ kind: "person", name: "Sam Lee" }).id;
+    const o = w.e.store.proposeFact({
+      entityId: id,
+      attribute: "employer",
+      value: "Initech",
+      provenance: "untrusted",
+      subjectKind: "self_disclosure",
+      citations: [
+        {
+          source: "mail",
+          sourceRef: "mail:1",
+          docId: "mail:1",
+          quote: "I joined Initech",
+          start: 0,
+          end: 10,
+          sourceHash: "hx",
+          authorEntityId: id,
+        },
+      ],
+    });
+    if (o.status === "refused") throw new Error(o.reason);
+    w.e.store.decide(o.fact.id, "confirm");
+    expect((await w.answer({ q: "where does sam work" })).reason).toBe("no_facts");
+    expect(w.provider.requests).toHaveLength(0);
+  });
+});
+
+describe("Life search for a connection that cannot open a source", () => {
+  it("lists no fact that rests on a Messages passage for a phone, and every fact for the desktop app", async () => {
+    const w = await world([]);
+    const add = (name: string, source: "mail" | "messages", docId: string) => {
+      const id = w.graph.createEntity({ kind: "person", name }).id;
+      const o = w.e.store.proposeFact({
+        entityId: id,
+        attribute: "employer",
+        value: `${name}Corp`,
+        provenance: "untrusted",
+        subjectKind: "self_disclosure",
+        citations: [
+          {
+            source,
+            sourceRef: docId,
+            docId,
+            quote: "I joined",
+            start: 0,
+            end: 8,
+            sourceHash: `h${name}`,
+            authorEntityId: id,
+          },
+        ],
+      });
+      if (o.status === "refused") throw new Error(o.reason);
+    };
+    add("Alice", "mail", "mail:1");
+    add("Bob", "messages", "messages:5");
+    const search = (who: "desktop" | "phone") => {
+      const call = {
+        identity: { role: "client", ...(who === "desktop" ? { desktopShell: true } : {}) },
+      } as unknown as Call;
+      return Promise.resolve(
+        w.e.part().handlers?.["memory.life.search"]?.run(call, { q: "corp" } as never),
+      ) as Promise<{ facts: { value: string; quote: string | null; docId?: string | null }[] }>;
+    };
+    expect((await search("desktop")).facts.map((f) => f.value).sort()).toEqual([
+      "AliceCorp",
+      "BobCorp",
+    ]);
+    const phone = await search("phone");
+    expect(phone.facts.map((f) => f.value)).toEqual(["AliceCorp"]);
+    expect(JSON.stringify(phone)).not.toContain("messages:5");
   });
 });

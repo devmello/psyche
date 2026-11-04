@@ -6856,6 +6856,11 @@ export interface LifeFactHit {
     review:      GraphReviewState;
     source?:     null | string;
     /**
+     * Every citation's source (`mail`, `messages`, …), without repeats; `source` is the first.
+     * A connection that cannot open one of them is not shown the fact
+     */
+    sources?: string[];
+    /**
      * Untrusted text when it came from someone else
      */
     value: string;

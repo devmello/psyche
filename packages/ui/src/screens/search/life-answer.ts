@@ -140,9 +140,12 @@ export function useLifeAnswer(question: string) {
     return () => clearTimeout(timer);
   }, [auto, question]);
   const active = offered && (asked === question || (auto && autoFor === question));
+  // Typing never sends raw mail, messages or files to a model: the automatic answer reads
+  // reviewed facts only. Passages go with an explicit "Answer from my mail, messages and files".
+  const [deep, setDeep] = useState(false);
   const query = useGatewayQuery(
     "memory.life.answer",
-    { q: question, passages: true },
+    deep ? { q: question, passages: true } : { q: question },
     { enabled: active },
   );
   const phase: LifeAnswerPhase = !active
@@ -163,6 +166,7 @@ export function useLifeAnswer(question: string) {
   // biome-ignore lint/correctness/useExhaustiveDependencies: reset on the question only
   useEffect(() => {
     setTurns([]);
+    setDeep(false);
   }, [question]);
   const followUp = useCallback(
     (text: string) => {
@@ -183,12 +187,12 @@ export function useLifeAnswer(question: string) {
       setTurns((all) => [...all, { id, question: q, phase: "loading" }]);
       const settle = (patch: Partial<FollowUpTurn>) =>
         setTurns((all) => all.map((x) => (x.id === id ? { ...x, ...patch } : x)));
-      call("memory.life.answer", { q, passages: true, previous }).then(
+      call("memory.life.answer", { q, ...(deep ? { passages: true } : {}), previous }).then(
         (r) => settle({ phase: "done", result: r }),
         () => settle({ phase: "error" }),
       );
     },
-    [call, question, result, turns],
+    [call, deep, question, result, turns],
   );
   return {
     offered,
@@ -198,5 +202,7 @@ export function useLifeAnswer(question: string) {
     ask: () => setAsked(question),
     turns,
     followUp,
+    withPassages: deep,
+    askPassages: () => setDeep(true),
   };
 }

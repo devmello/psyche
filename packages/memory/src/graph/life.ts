@@ -32,6 +32,8 @@ export interface LifeFactHit {
   docId: string | null;
   /** Every citation's indexed passage, in order (at most 5), found at read time from the citations. */
   docIds: string[];
+  /** Every citation's source kind, without repeats (at most 8). */
+  sources: string[];
   observedAt: string | null;
   /** When Psyche first learned it (first seen, else recorded). */
   learnedAt: string | null;
@@ -42,6 +44,13 @@ export function docIdsOf(cites: readonly { docId?: string | null }[]): string[] 
   return [
     ...new Set(cites.flatMap((c) => (c.docId == null || c.docId === "" ? [] : [c.docId]))),
   ].slice(0, 5);
+}
+
+/** The source kinds of a fact's citations, without repeats. */
+export function sourcesOf(cites: readonly { source?: string | null }[]): string[] {
+  return [
+    ...new Set(cites.flatMap((c) => (c.source == null || c.source === "" ? [] : [c.source]))),
+  ].slice(0, 8);
 }
 
 export interface LifeResult {
@@ -200,6 +209,7 @@ export function lifeSearch(
       source: first?.source ?? null,
       docId: first?.docId ?? null,
       docIds: docIdsOf(cites),
+      sources: sourcesOf(cites),
       observedAt: first?.observedAt ?? null,
       learnedAt: r.first_seen_at ?? r.recorded_at,
     });
@@ -261,6 +271,7 @@ export function lifeCandidates(
         source: first?.source ?? null,
         docId: first?.docId ?? null,
         docIds: docIdsOf(cites),
+        sources: sourcesOf(cites),
         observedAt: first?.observedAt ?? null,
         learnedAt: r.first_seen_at ?? r.recorded_at,
       },

@@ -435,6 +435,41 @@ describe("follow-up questions", () => {
     expect((screen.getByRole("button", { name: "Ask" }) as HTMLButtonElement).disabled).toBe(true);
   });
 
+  it("reads passages only when asked: a button on the card, then the follow-ups keep reading them", async () => {
+    let gateway: MockGateway | undefined;
+    render(
+      <StoryWorld
+        edit={(w) => {
+          w.review = { items: [], quarantine: [], runs: [], life: [fact("f1", "Initech")] };
+        }}
+        onGateway={(g) => {
+          gateway = g;
+        }}
+      >
+        <SearchScreen initialQuery="" debounceMs={0} />
+      </StoryWorld>,
+    );
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "where does Sam work?" } });
+    await screen.findByRole("button", { name: "Sam Lee: Works at" });
+    const calls = () => gateway?.calls.filter((c) => c.method === "memory.life.answer") ?? [];
+    expect(calls()).toHaveLength(1);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Answer from my mail, messages and files" }),
+    );
+    await waitFor(() => expect(calls()).toHaveLength(2));
+    expect(calls()[1]?.params).toEqual({ q: "where does Sam work?", passages: true });
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: "Answer from my mail, messages and files" }),
+      ).toBeNull(),
+    );
+    const box = await screen.findByTestId("life-answer-followup");
+    fireEvent.change(within(box).getByRole("textbox"), { target: { value: "since when?" } });
+    fireEvent.submit(box);
+    await waitFor(() => expect(calls()).toHaveLength(3));
+    expect(calls()[2]?.params).toMatchObject({ q: "since when?", passages: true });
+  });
+
   it("sends the turn before with the ids it cited, then keeps that context for the next", async () => {
     let gateway: MockGateway | undefined;
     render(
@@ -452,7 +487,8 @@ describe("follow-up questions", () => {
     fireEvent.change(screen.getByRole("combobox"), { target: { value: "where does Sam work?" } });
     await screen.findByRole("button", { name: "Sam Lee: Works at" });
     const asked = gateway?.calls.filter((c) => c.method === "memory.life.answer") ?? [];
-    expect(asked[0]?.params).toEqual({ q: "where does Sam work?", passages: true });
+    // Typing sends facts only: raw passages go only with the explicit button.
+    expect(asked[0]?.params).toEqual({ q: "where does Sam work?" });
 
     const box = screen.getByTestId("life-answer-followup");
     fireEvent.change(within(box).getByRole("textbox"), { target: { value: "since when?" } });
@@ -463,7 +499,6 @@ describe("follow-up questions", () => {
     const second = gateway?.calls.filter((c) => c.method === "memory.life.answer")[1];
     expect(second?.params).toEqual({
       q: "since when?",
-      passages: true,
       previous: {
         q: "where does Sam work?",
         answer: "Sam Lee: Initech [1]",

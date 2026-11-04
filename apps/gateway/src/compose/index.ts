@@ -921,6 +921,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     utility: utility ?? modelRef,
     timeZone: () => timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
     card: async (path) => (await memory.readFile(path))?.content,
+    isCloudRef: (ref) => isCloudRef(ref),
     // Raw passages for an answer: the index and the same per-source rules the agent's search has.
     passageIndex: () => {
       const sources = searchRef?.sources;

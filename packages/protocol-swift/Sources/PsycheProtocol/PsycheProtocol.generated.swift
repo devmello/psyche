@@ -20475,6 +20475,9 @@ public struct LifeFactHit: Codable, Sendable {
     public let quote: String?
     public let review: GraphReviewState
     public let source: String?
+    /// Every citation's source (`mail`, `messages`, …), without repeats; `source` is the first.
+    /// A connection that cannot open one of them is not shown the fact
+    public let sources: [String]?
     /// Untrusted text when it came from someone else
     public let value: String
 
@@ -20490,10 +20493,11 @@ public struct LifeFactHit: Codable, Sendable {
         case quote = "quote"
         case review = "review"
         case source = "source"
+        case sources = "sources"
         case value = "value"
     }
 
-    public init(attribute: GraphFactAttribute, docID: String?, docIDS: [String]?, entity: EntitySummary, factID: String, learnedAt: String?, observedAt: String?, provenance: Provenance, quote: String?, review: GraphReviewState, source: String?, value: String) {
+    public init(attribute: GraphFactAttribute, docID: String?, docIDS: [String]?, entity: EntitySummary, factID: String, learnedAt: String?, observedAt: String?, provenance: Provenance, quote: String?, review: GraphReviewState, source: String?, sources: [String]?, value: String) {
         self.attribute = attribute
         self.docID = docID
         self.docIDS = docIDS
@@ -20505,6 +20509,7 @@ public struct LifeFactHit: Codable, Sendable {
         self.quote = quote
         self.review = review
         self.source = source
+        self.sources = sources
         self.value = value
     }
 }

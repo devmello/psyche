@@ -22,6 +22,7 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 - `memory.life.answer` params: `passages` (optional boolean: also read source passages from the local index; absent or false is the earlier facts-only behaviour, so an older client is unchanged) and `previous` (optional follow-up context: `q`, `answer`, `factIds`, `passageIds` of the turn before, read again by the Gateway under the connection's own rules and never trusted as a source).
 - `memory.life.answer` result: optional `passages` (`LifeAnswerPassage`: `id` is a search document id that opens with `search.document`, `source`, `title`, `createdAt`). In `answer`, `[n]` is the nth entry of `facts` and `[Pn]` the nth entry of `passages`. `answer` may be up to 900 characters. A claim that cites nothing it was given is dropped; nothing left is `ungrounded`.
+- `LifeFactHit.sources` (optional): every citation's source kind, without repeats; a connection that cannot open one of them is not shown the fact. `memory.life.search` follows the same rule.
 - `LifeFactHit.docIds` (optional): the search document ids of every citation, resolved at read time, at most 5; `docId` stays the first.
 
 ### v1 additive — 2026-11-04 (source links on conversation gists)

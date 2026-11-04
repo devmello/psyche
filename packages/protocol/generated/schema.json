@@ -24191,6 +24191,15 @@
           "maxItems": 5,
           "type": "array"
         },
+        "sources": {
+          "description": "Every citation's source (`mail`, `messages`, …), without repeats; `source` is the first. A connection that cannot open one of them is not shown the fact",
+          "items": {
+            "maxLength": 40,
+            "type": "string"
+          },
+          "maxItems": 8,
+          "type": "array"
+        },
         "observedAt": {
           "anyOf": [
             {

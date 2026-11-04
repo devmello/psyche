@@ -55,6 +55,8 @@ export interface PassageDeps {
   cloud: () => boolean;
   /** The sensitive classes the owner switched on. */
   sensitive: () => Partial<Record<string, boolean>>;
+  /** True when Memory's own opt-out keeps this source out (Settings → Memory). */
+  optedOut?: (source: SourceId) => boolean;
 }
 
 export function lifePassages(deps: PassageDeps): PassageSource {
@@ -65,6 +67,7 @@ export function lifePassages(deps: PassageDeps): PassageSource {
   ): AnswerPassage | undefined => {
     if (doc === undefined || !viewer.passages) return undefined;
     if (!ANSWER_SOURCES.includes(doc.source)) return undefined;
+    if (deps.optedOut?.(doc.source) === true) return undefined;
     if (!viewer.desktop && (OWNER_ONLY_SOURCES as readonly string[]).includes(doc.source))
       return undefined;
     if (deps.cloud() && deps.cloudBlocked().includes(sourceTag(doc.source))) return undefined;

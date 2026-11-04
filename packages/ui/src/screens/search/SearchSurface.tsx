@@ -1068,6 +1068,8 @@ export function useSearchSurface(initialQuery = "", debounceMs = 200, enabled = 
         onAsk: ask.ask,
         turns: ask.turns,
         onFollowUp: ask.followUp,
+        withPassages: ask.withPassages,
+        onAskPassages: ask.askPassages,
       }
     : undefined;
   return {

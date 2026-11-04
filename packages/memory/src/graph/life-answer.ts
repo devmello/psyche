@@ -176,7 +176,13 @@ export type SourcesAnswer =
 
 const MARKER_RUN = /((?:\s*\[(?:P\d{1,2}|\d{1,2})\])+)/g;
 const MARKER = /\[(P)?(\d{1,2})\]/g;
-const SENTENCE_BREAK = /(?<=[.!?])\s+(?=[\p{Lu}\p{N}"'(])/u;
+/**
+ * Where one claim ends and the next begins: after a full stop, ! ? or ; and a space, or after a
+ * full-width stop with no space. A title's stop (Dr. Mr. e.g.) is not an end.
+ */
+const SENTENCE_BREAK =
+  /(?<!\b(?:Dr|Mr|Mrs|Ms|Prof|St|vs|etc|e\.g|i\.e)\.)(?<=[.!?;])\s+|(?<=[。！？；])\s*/u;
+const stripMarkers = (s: string): string => s.replace(/[[(]\s*P?\d{1,2}\s*[\])]/gi, "");
 
 /**
  * One completion with no tools. Only reviewed, non-sensitive facts and the passages the caller
@@ -190,8 +196,13 @@ export async function answerFromSources(call: {
   question: string;
   hits: readonly LifeFactHit[];
   passages?: readonly AnswerPassage[];
-  /** The turn before, for a follow-up: context only, never a source. */
+  /**
+   * The turn before, for a follow-up: context only, never a source. Its answer is checked and
+   * stripped of citation markers here; an empty answer sends the question alone.
+   */
   prior?: { question: string; answer: string };
+  /** The sensitive classes the owner switched on; none when absent. */
+  sensitive?: SensitiveSwitches;
   signal?: AbortSignal;
   /** Facts that must not be used (sensitive classes). */
   exclude?: ReadonlySet<string>;
@@ -209,8 +220,11 @@ export async function answerFromSources(call: {
     if (passages.length >= MAX_ANSWER_PASSAGES || budget <= 0) break;
     const text = quoted(p.text).slice(0, Math.min(MAX_PASSAGE_CHARS, budget));
     if (text === "") continue;
+    const title = quoted(p.title).slice(0, 120);
+    // Judged on exactly what is sent: after the clean-up above, not on the raw text.
+    if (!passageSendable(title, text, call.sensitive ?? {})) continue;
     budget -= text.length;
-    passages.push({ ...p, title: quoted(p.title).slice(0, 120), text });
+    passages.push({ ...p, title, text });
   }
   if (usable.length === 0 && passages.length === 0) return fail("no_facts");
   const withPassages = (call.passages ?? []).length > 0 || call.prior !== undefined;
@@ -220,7 +234,7 @@ export async function answerFromSources(call: {
       `Facts:\n<facts>\n${usable
         .map(
           (h, i) =>
-            `[${i + 1}] ${clean(h.entity.name)} | ${h.attribute} | ${clean(h.value)}${h.learnedAt == null ? "" : ` | learned ${h.learnedAt.slice(0, 10)}`}`,
+            `[${i + 1}] ${quoted(h.entity.name)} | ${quoted(h.attribute)} | ${quoted(h.value)}${h.learnedAt == null ? "" : ` | learned ${h.learnedAt.slice(0, 10)}`}`,
         )
         .join("\n")}\n</facts>`,
     );
@@ -233,10 +247,14 @@ export async function answerFromSources(call: {
         )
         .join("\n")}\n</passages>`,
     );
-  if (call.prior !== undefined)
+  const priorQuestion = call.prior === undefined ? "" : quoted(call.prior.question).slice(0, 500);
+  if (call.prior !== undefined && passageSendable("", priorQuestion, call.sensitive ?? {})) {
+    const priorAnswer = quoted(stripMarkers(call.prior.answer)).slice(0, 700);
+    const answerOk = priorAnswer !== "" && passageSendable("", priorAnswer, call.sensitive ?? {});
     parts.push(
-      `Earlier in this conversation (context only, not a source):\nQuestion: ${quoted(call.prior.question).slice(0, 500)}\nAnswer: ${quoted(call.prior.answer).slice(0, 700)}`,
+      `Earlier in this conversation (context only, not a source):\nQuestion: ${priorQuestion}${answerOk ? `\nAnswer: ${priorAnswer}` : ""}`,
     );
+  }
   parts.push(`Question: ${clean(call.question).slice(0, 500)}`);
   const request: ModelRequest = {
     model: call.model,
@@ -291,7 +309,7 @@ export async function answerFromSources(call: {
     // Only the sentence next to the markers is cited; an earlier uncited one is dropped.
     const sentence = before.split(SENTENCE_BREAK).pop()?.trim() ?? "";
     if (sentence === "" || factNs.size + passageNs.size === 0) continue;
-    const end = /^[.!?]/.exec(reply.slice(last))?.[0] ?? "";
+    const end = /^[.!?。！？]/.exec(reply.slice(last))?.[0] ?? "";
     claims.push({ text: sentence, end, facts: [...factNs], passages: [...passageNs] });
   }
   if (claims.length === 0) return fail("ungrounded");
