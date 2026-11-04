@@ -296,7 +296,7 @@ Brief:
 >
 > Then:
 > - add a CHANGES.md entry and a changeset;
-> - run `pnpm protocol:gen` (TS, JSON Schema and Swift; `apps/mac-helper/Sources/PsycheProtocol/PsycheProtocol.generated.swift` must match);
+> - run `pnpm protocol:gen` (TS, JSON Schema and Swift; `packages/protocol-swift/Sources/PsycheProtocol/PsycheProtocol.generated.swift` must match);
 > - check `pnpm protocol:check`.
 >
 > Touch only `packages/protocol/**`, the matching fake in `packages/testing/src/fakes/`, and the generated files. Title: `protocol: Apple app capabilities, wave 1 (part of #637)`.

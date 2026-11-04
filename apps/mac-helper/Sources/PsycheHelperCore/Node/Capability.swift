@@ -1,5 +1,6 @@
 import Foundation
 import PsycheProtocol
+import PsycheWire
 import Security
 
 /// TCC permission a capability needs (security §12). Used for preflight before dispatch and for the

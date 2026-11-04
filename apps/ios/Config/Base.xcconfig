@@ -1,0 +1,12 @@
+// Shared build settings for the app and its extensions. Per-owner values (Apple team, bundle id)
+// come from Owner.xcconfig, which is gitignored; without it the app still builds for the
+// simulator with no signing (docs/design/ios-app-2026.md §7).
+
+PSYCHE_TEAM_ID =
+PSYCHE_BUNDLE_ID = com.psyche.ios
+
+// The optional include: a missing Owner.xcconfig is not an error.
+#include? "Owner.xcconfig"
+
+DEVELOPMENT_TEAM = $(PSYCHE_TEAM_ID)
+PSYCHE_APP_GROUP = group.$(PSYCHE_BUNDLE_ID)

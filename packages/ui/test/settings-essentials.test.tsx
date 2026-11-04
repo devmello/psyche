@@ -1,5 +1,5 @@
 import type { AppleLlmStatus } from "@psyche/protocol";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { MockGateway } from "../src/data/mock-gateway.ts";
@@ -7,6 +7,7 @@ import { AccessListView } from "../src/screens/settings/AccessList.tsx";
 import { EssentialsPanel } from "../src/screens/settings/EssentialsSection.tsx";
 import { SearchModelGroup } from "../src/screens/settings/SearchSection.tsx";
 import { SettingsScreen } from "../src/screens/settings/SettingsScreen.tsx";
+import { UiSlotsProvider } from "../src/slots.tsx";
 import { StoryWorld } from "../src/stories/harness.tsx";
 
 /** Settings → Essentials and the Access list (docs/design/settings-2026.md §7). */
@@ -162,8 +163,20 @@ describe("Search → Model for search (Apple on-device, #1115)", () => {
     expect(
       screen.getByRole("radio", { name: /Your utility model/ }).getAttribute("aria-checked"),
     ).toBe("true");
-    expect(screen.getByText(/nothing is sent to the cloud/)).toBeTruthy();
     expect(screen.getByText("Ready on this Mac")).toBeTruthy();
+  });
+
+  it("says plainly what it is: on this Mac, nothing to download or key, about 4k tokens, no cloud fallback", () => {
+    render(<SearchModelGroup status={status()} values={{}} onChange={vi.fn()} />);
+    const option = screen.getByRole("radio", {
+      name: /Use Apple.s on-device model for private search jobs/,
+    });
+    expect(option).toBeTruthy();
+    const text = document.body.textContent ?? "";
+    expect(text).toMatch(/stays on this Mac/);
+    expect(text).toMatch(/nothing to download, no key/);
+    expect(text).toMatch(/about 4k tokens/);
+    expect(text).toMatch(/never falls back to a cloud model/);
   });
 
   it("writes search.model.engine and says plainly when Apple Intelligence is off", async () => {
@@ -172,7 +185,7 @@ describe("Search → Model for search (Apple on-device, #1115)", () => {
     const { rerender } = render(
       <SearchModelGroup status={status()} values={{}} onChange={onChange} />,
     );
-    await user.click(screen.getByRole("radio", { name: /Apple on-device model/ }));
+    await user.click(screen.getByRole("radio", { name: /Apple.s on-device model/ }));
     expect(onChange).toHaveBeenCalledWith("search.model.engine", "apple");
     rerender(
       <SearchModelGroup
@@ -185,6 +198,55 @@ describe("Search → Model for search (Apple on-device, #1115)", () => {
     expect(chip?.getAttribute("data-tone")).toBe("approval");
   });
 
+  it.each([
+    ["apple_intelligence_not_enabled", /Apple Intelligence is turned off/],
+    ["unsupported_os", /needs macOS 26 or later/],
+    ["device_not_eligible", /doesn.t support Apple Intelligence/],
+    ["model_not_ready", /still getting the model ready/],
+  ] as const)("is disabled and gives the reason when unavailable: %s", (reason, words) => {
+    const onChange = vi.fn();
+    render(
+      <SearchModelGroup
+        status={status({ available: false, reason })}
+        values={{}}
+        onChange={onChange}
+      />,
+    );
+    const apple = screen.getByRole("radio", { name: /Apple.s on-device model/ });
+    expect(apple.hasAttribute("disabled") || apple.hasAttribute("data-disabled")).toBe(true);
+    expect(screen.getByTestId("apple-reason").textContent).toMatch(words);
+    fireEvent.click(apple);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("when it was chosen and then went away it stays shown as chosen and says jobs are skipped", () => {
+    render(
+      <SearchModelGroup
+        status={status({ available: false, reason: "apple_intelligence_not_enabled" })}
+        values={{ "search.model.engine": "apple" }}
+        onChange={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByRole("radio", { name: /Apple.s on-device model/ }).getAttribute("aria-checked"),
+    ).toBe("true");
+    expect(screen.getByTestId("apple-reason").textContent).toMatch(/those jobs are skipped/);
+  });
+
+  it("on a remote client window it is shown as the Host's setting", () => {
+    render(
+      <UiSlotsProvider value={{ remoteHost: "studio-mac" }}>
+        <SearchModelGroup status={status()} values={{}} onChange={vi.fn()} />
+      </UiSlotsProvider>,
+    );
+    expect(screen.getByTestId("apple-host-note").textContent).toMatch(/studio-mac.s setting/);
+  });
+
+  it("shows no Host note on This Mac", () => {
+    render(<SearchModelGroup status={status()} values={{}} onChange={vi.fn()} />);
+    expect(screen.queryByTestId("apple-host-note")).toBeNull();
+  });
+
   it("cannot be chosen on a Mac that can't run it", () => {
     render(
       <SearchModelGroup
@@ -194,7 +256,7 @@ describe("Search → Model for search (Apple on-device, #1115)", () => {
       />,
     );
     expect(screen.getByText("Not available on this Mac")).toBeTruthy();
-    const apple = screen.getByRole("radio", { name: /Apple on-device model/ });
+    const apple = screen.getByRole("radio", { name: /Apple.s on-device model/ });
     expect(apple.hasAttribute("disabled") || apple.hasAttribute("data-disabled")).toBe(true);
   });
 });

@@ -1,6 +1,7 @@
 import Foundation
 import PsycheHelperCore
 import PsycheProtocol
+import PsycheWire
 
 /// Keychain capabilities on S06's contract (`packages/vault` README "Mac helper contract"; security
 /// §4.2; G1): `keychain.set`, `vault.unlock`, `keychain.delete`, plus `keychain.status`. The Gateway

@@ -1,6 +1,7 @@
 import Foundation
-import os
 import PsycheProtocol
+import PsycheWire
+import os
 
 /// Structured, content-free logging (architecture §14, ADR-017): phases and sizes only.
 public struct HelperLog: Sendable {

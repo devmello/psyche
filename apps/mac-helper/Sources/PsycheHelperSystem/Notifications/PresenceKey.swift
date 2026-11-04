@@ -2,6 +2,7 @@ import Foundation
 import LocalAuthentication
 import PsycheHelperCore
 import PsycheProtocol
+import PsycheWire
 import Security
 
 /// Signs presence assertions (issue #84).

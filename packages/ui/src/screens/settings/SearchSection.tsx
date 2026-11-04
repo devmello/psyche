@@ -6,6 +6,8 @@ import {
 import type { ReactElement } from "react";
 import { useGatewayQuery } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
+import { useSlots } from "../../slots.tsx";
+import { appleReason, appleState } from "./apple-status.ts";
 import { SearchSourcesSettingsGroup } from "./SearchSourcesSettings.tsx";
 import { SemanticSearchSettingsGroup } from "./SemanticSearchSettings.tsx";
 import {
@@ -16,7 +18,6 @@ import {
   SectionFrame,
   type SettingsFormProps,
   StatusChip,
-  type Tone,
   useSettingsForm,
 } from "./shared.tsx";
 import { WebSearchSettingsGroup } from "./WebSearchSettings.tsx";
@@ -26,22 +27,6 @@ import { WebSearchSettingsGroup } from "./WebSearchSettings.tsx";
  * and how. These groups used to sit at the bottom of Model & providers, far from the sources they
  * index; Everything memory links here instead of repeating them.
  */
-
-/** Why the on-device model cannot run, in plain words, and how loud to say it. */
-function appleState(status: AppleLlmStatus): { text: string; tone: Tone } {
-  if (status.available) return { text: t("settings.searchModel.apple.ready"), tone: "success" };
-  switch (status.reason) {
-    case "apple_intelligence_not_enabled":
-      return { text: t("settings.searchModel.apple.needsAi"), tone: "approval" };
-    case "model_not_ready":
-      return { text: t("settings.searchModel.apple.notReady"), tone: "info" };
-    case "unsupported_os":
-    case "device_not_eligible":
-      return { text: t("settings.searchModel.apple.notOnThisMac"), tone: "neutral" };
-    default:
-      return { text: t("settings.searchModel.apple.unavailable"), tone: "neutral" };
-  }
-}
 
 /**
  * Which model does the search jobs that read your text (reading a question, context cards,
@@ -56,10 +41,12 @@ export function SearchModelGroup({
 }: Pick<SettingsFormProps, "values" | "onChange"> & {
   status: AppleLlmStatus | null;
 }): ReactElement | null {
+  const { remoteHost } = useSlots();
   if (status === null || !status.helperConnected) return null;
   const engine: SearchModelEngine =
     values[SEARCH_MODEL_ENGINE_KEY] === "apple" ? "apple" : "utility";
   const state = appleState(status);
+  const reason = appleReason(status);
   return (
     <Group
       title={t("settings.searchModel.title")}
@@ -80,21 +67,38 @@ export function SearchModelGroup({
           {
             value: "apple",
             label: t("settings.searchModel.apple"),
-            hint: t("settings.searchModel.appleHint", { tokens: status.contextTokens }),
-            // Choosing it stays possible while it is getting ready; not on a Mac that can't.
-            disabled:
-              !status.available &&
-              engine !== "apple" &&
-              (status.reason === "unsupported_os" || status.reason === "device_not_eligible"),
+            hint: t("settings.searchModel.appleHint", {
+              k: Math.max(1, Math.round(status.contextTokens / 1024)),
+            }),
+            // Off or unavailable: it cannot be picked. If it was chosen earlier it stays shown as
+            // chosen (and skipped, never sent to the cloud) so the owner can see and undo it.
+            disabled: !status.available,
           },
         ]}
       />
-      <div role="status" className="flex flex-wrap items-center gap-2">
-        <span className="text-callout text-label-secondary">{t("settings.searchModel.apple")}</span>
-        <StatusChip tone={engine === "apple" || state.tone !== "approval" ? state.tone : "neutral"}>
-          {state.text}
-        </StatusChip>
+      <div role="status" className="flex flex-col gap-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-callout text-label-secondary">
+            {t("settings.searchModel.appleName")}
+          </span>
+          <StatusChip
+            tone={engine === "apple" || state.tone !== "approval" ? state.tone : "neutral"}
+          >
+            {state.text}
+          </StatusChip>
+        </div>
+        {reason === undefined ? null : (
+          <p className="text-callout text-label-secondary" data-testid="apple-reason">
+            {reason}
+            {engine === "apple" ? ` ${t("settings.searchModel.apple.whySkipped")}` : ""}
+          </p>
+        )}
       </div>
+      {remoteHost === undefined ? null : (
+        <p className="text-callout text-label-secondary" data-testid="apple-host-note">
+          {t("settings.searchModel.apple.host", { host: remoteHost })}
+        </p>
+      )}
     </Group>
   );
 }
