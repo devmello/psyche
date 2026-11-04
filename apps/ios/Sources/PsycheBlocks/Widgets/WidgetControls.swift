@@ -83,7 +83,7 @@ struct ChoicesNodeView: View {
 
     /// Only reply and answer actions make sense for a choice; `ask` (a real InputRequest) is a later phase.
     private var action: WidgetAction? {
-        guard let action = choices.action, !choices.ask, runtime?.surface != .feed else { return nil }
+        guard let action = choices.action, !choices.ask, runtime?.surface == .chat else { return nil }
         switch action {
         case .reply, .answer: return action
         default: return nil
@@ -178,7 +178,7 @@ struct FormNodeView: View {
     private var isTool: Bool { form.submit == .tool }
 
     var body: some View {
-        if form.submit != nil, runtime?.surface != .feed {
+        if form.submit != nil, runtime?.surface == .chat {
             VStack(alignment: .leading, spacing: 12) {
                 Text(form.label).font(.subheadline.weight(.semibold)).foregroundStyle(PsycheColor.text)
                     .accessibilityAddTraits(.isHeader)

@@ -19,7 +19,15 @@ public protocol WidgetBackend: Sendable {
         widgetID: String, nodeID: String, itemID: String?, action: WidgetAction, values: [String: JSONValue]
     ) async throws -> WidgetSnapshot?
 
+    /// The pinned widgets, most recently pinned first (`widgets.list { pinned: true }`), for Home's Pinned
+    /// section. At most 6; empty when nothing is pinned. A backend that can't list them says none.
+    func pinnedWidgets() async throws -> [WidgetSnapshot]
+
     /// The bytes of one image a widget shows (`widgets.image`): a remote https URL that is in the
     /// widget's stored spec, or a Library file id. nil when it isn't available (remote images off).
     func image(widgetID: String, ref: String) async throws -> Data?
+}
+
+extension WidgetBackend {
+    public func pinnedWidgets() async throws -> [WidgetSnapshot] { [] }
 }

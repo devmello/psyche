@@ -12,8 +12,14 @@ struct WidgetState: Sendable {
         var values: [String: JSONValue]
     }
 
+    /// Pinned to Home, most recently pinned first.
+    var pinned = ["wdg_bound", "wdg_progress", "wdg_charts"]
     var widgets: [String: WidgetSnapshot] = Dictionary(
-        uniqueKeysWithValues: WidgetFixture.all.map { ($0.id, $0.snapshot) })
+        uniqueKeysWithValues: WidgetFixture.all.map { fixture in
+            var snapshot = fixture.snapshot
+            snapshot.pinned = ["wdg_bound", "wdg_progress", "wdg_charts"].contains(fixture.id)
+            return (fixture.id, snapshot)
+        })
     var sent: [Sent] = []
     var boundStep = 1
 }
@@ -23,6 +29,11 @@ extension FixtureBackend: WidgetBackend {
         await pause()
         guard let snapshot = widgetState.widgets[id] else { throw BackendError.notFound }
         return snapshot
+    }
+
+    public func pinnedWidgets() async throws -> [WidgetSnapshot] {
+        await pause()
+        return widgetState.pinned.prefix(6).compactMap { widgetState.widgets[$0] }
     }
 
     public func act(

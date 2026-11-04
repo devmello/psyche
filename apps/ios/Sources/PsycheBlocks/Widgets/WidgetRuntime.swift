@@ -6,9 +6,15 @@ import SwiftUI
 // backend, the tone vocabulary and the compact control styles. Widget content never uses raw colors
 // or Liquid Glass; everything maps onto `PsycheColor` (docs/design/ios-app-2026.md §9).
 
-/// Where a widget is drawn. The Feed shows a static snapshot with `open` and `reply` controls only.
+/// Where a widget is drawn. The Feed shows a static snapshot, and Home's Pinned section (`overview`)
+/// a live one, both with `open` and `reply` controls only; chat draws every control.
 public enum WidgetSurface: Sendable, Equatable {
-    case chat, feed
+    case chat, feed, overview
+}
+
+/// The backend widgets in chat load and act through. The app injects its own; the default is the fixture.
+extension EnvironmentValues {
+    @Entry public var widgetBackend: any WidgetBackend = FixtureBackend.shared
 }
 
 /// What the host app lends a widget for actions that leave it.
@@ -101,7 +107,7 @@ final class ActionRunner {
                 } else {
                     throw ActionFailure.unavailable
                 }
-            case .reply(let text) where runtime.surface == .feed:
+            case .reply(let text) where runtime.surface != .chat:
                 guard let prefill = handlers.prefillReply else { throw ActionFailure.unavailable }
                 prefill(text)
             default:

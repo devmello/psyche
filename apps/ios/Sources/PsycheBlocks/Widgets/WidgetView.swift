@@ -19,6 +19,14 @@ public struct WidgetView: View {
         _model = State(initialValue: WidgetModel(widgetID: widgetID, backend: backend, surface: surface))
     }
 
+    /// A widget whose snapshot is already in hand (Home's pins come in one batched read): drawn at once,
+    /// then kept fresh like any other.
+    public init(snapshot: WidgetSnapshot, backend: any WidgetBackend = FixtureBackend.shared, surface: WidgetSurface = .overview) {
+        self.widgetID = snapshot.id
+        self.surface = surface
+        _model = State(initialValue: WidgetModel(widgetID: snapshot.id, backend: backend, surface: surface, initial: snapshot))
+    }
+
     public var body: some View {
         Group {
             switch model.phase {
@@ -45,11 +53,12 @@ final class WidgetModel {
     private let widgetID: String
     private let backend: any WidgetBackend
 
-    init(widgetID: String, backend: any WidgetBackend, surface: WidgetSurface) {
+    init(widgetID: String, backend: any WidgetBackend, surface: WidgetSurface, initial: WidgetSnapshot? = nil) {
         self.widgetID = widgetID
         self.backend = backend
-        runtime = WidgetRuntime(widgetID: widgetID, backend: backend, surface: surface, snapshot: nil)
+        runtime = WidgetRuntime(widgetID: widgetID, backend: backend, surface: surface, snapshot: initial)
         runtime.onUpdate = { [weak self] in self?.apply($0) }
+        if let initial { apply(initial) }
     }
 
     func load() async {
@@ -76,8 +85,9 @@ final class WidgetModel {
     func apply(_ snapshot: WidgetSnapshot) {
         runtime.isLive = snapshot.isLive
         runtime.isUntrusted = snapshot.isUntrusted
-        // An untrusted widget never wears the ink fill: a filled call to action is what an approval looks like.
-        runtime.primaryControlID = snapshot.isUntrusted ? nil : snapshot.root.findPrimaryControl()
+        // An untrusted widget never wears the ink fill (a filled call to action is what an approval looks
+        // like), and outside chat there is no primary: one ink fill per screen belongs to the host.
+        runtime.primaryControlID = snapshot.isUntrusted || runtime.surface != .chat ? nil : snapshot.root.findPrimaryControl()
         phase = .loaded(snapshot)
     }
 }
@@ -110,7 +120,7 @@ public struct WidgetFrame: View {
                     Spacer(minLength: 8)
                     HStack(spacing: 5) {
                         Circle()
-                            .fill(snapshot.isLive && surface == .chat ? PsycheColor.muted : PsycheColor.rule)
+                            .fill(snapshot.isLive && surface != .feed ? PsycheColor.muted : PsycheColor.rule)
                             .frame(width: 6, height: 6)
                         Text(stateLabel).font(.footnote).foregroundStyle(PsycheColor.muted)
                     }

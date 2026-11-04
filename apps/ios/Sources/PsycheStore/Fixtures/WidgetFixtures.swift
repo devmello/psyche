@@ -32,7 +32,7 @@ extension WidgetFixture {
     /// Every fixture, in gallery order.
     public static let all: [WidgetFixture] = [
         progress, data, tabs, charts, map, interactive, tainted, frozen, spoof, imageData, imageRemote, imageRemoteTainted,
-        bound, feed, unknown, stress,
+        bound, feed, unknown, stress, saturdayRoute,
     ]
 
     public static func named(_ id: String) -> WidgetFixture? { all.first { $0.id == id } }
@@ -202,6 +202,20 @@ extension WidgetFixture {
           {"id":"open","type":"button","label":"Open calendar","action":{"kind":"open","route":"/scheduled"}},
           {"id":"tool","type":"button","label":"Book now","action":{"kind":"tool","tool":"book","args":{}}}]}}
         """, untrustedSources: ["travel.example"], isLive: false)
+
+    /// The widget the main-thread fixture shows in chat (`ChatItem.widget`): a plan with a map and a reply.
+    public static let saturdayRoute = WidgetFixture(id: "wdg_saturday_route", name: "Chat: Saturday route", specJSON: """
+        {"v":1,"title":"Saturday route","fallbackText":"Three stops on Saturday, starting at 10:00.",
+         "root":{"id":"root","type":"stack","gap":"md","children":[
+          {"id":"stops","type":"checklist","items":[
+            {"id":"a","label":"Farmers market","state":"done","detail":"10:00 · Lincoln Ave"},
+            {"id":"b","label":"Hardware store","state":"active","detail":"11:30 · closes at 14:00"},
+            {"id":"c","label":"Dinner at Zachary's","state":"todo","detail":"18:00 · table for two"}]},
+          {"id":"m","type":"map","label":"Saturday stops","places":[
+            {"name":"Farmers market","address":"Lincoln Ave","lat":37.3382,"lng":-121.8863},
+            {"name":"Hardware store","address":"Willow St","lat":37.3041,"lng":-121.8890}]},
+          {"id":"go","type":"button","label":"Move dinner to 19:00","action":{"kind":"reply","text":"Move dinner to 19:00"}}]}}
+        """)
 
     /// A newer catalogue than this build: unknown node types and unknown fields must not break it.
     public static let unknown = WidgetFixture(id: "wdg_unknown", name: "Unknown node + unknown fields", specJSON: """
