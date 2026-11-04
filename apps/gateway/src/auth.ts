@@ -7,6 +7,7 @@ import {
   verify,
 } from "node:crypto";
 import {
+  consumeSetupToken,
   countPairingsFromAddress,
   countPendingPairings,
   createPairingRequest,
@@ -246,7 +247,14 @@ export interface VerifyOutcome {
   createdRequest: PairingRequest | null;
   /** The pending device, for `pending` results. */
   pendingDeviceId: string | null;
+  /** Set when the connect presented a pairing-link setup token that was used or refused. */
+  setupToken?: SetupTokenEvent;
 }
+
+/** What happened to a setup token at a connect (audited as `pairing_link.used` / `.refused`). */
+export type SetupTokenEvent =
+  | { status: "used"; tokenId: string; deviceId: string }
+  | { status: "refused"; reason: "unknown" | "expired" | "used" | "not_client"; deviceId: string };
 
 function denied(reason: string): VerifyOutcome {
   return {
@@ -256,6 +264,9 @@ function denied(reason: string): VerifyOutcome {
     pendingDeviceId: null,
   };
 }
+
+/** One message for every refusal, so the reply is not an oracle for which tokens exist. */
+const LINK_REFUSED = "this pairing link expired or was already used; make a new one on the Host";
 
 /** Completes the signed challenge and decides paired / pending / denied. */
 export function verifyChallenge(
@@ -373,6 +384,27 @@ export function verifyChallenge(
   }
 
   return db.sqlite.transaction((): VerifyOutcome => {
+    const live = findPendingPairingForDevice(db, params.deviceId, nowIso);
+    // A pairing link's setup token (design §3.4): single use, 10 minutes. It is spent here, in
+    // the same transaction as the device row and the request, so a later failure (rate limit)
+    // rolls the use back. It only marks the request as expected; scopes stay the owner's choice.
+    let viaSetupToken = false;
+    let tokenEvent: SetupTokenEvent | undefined;
+    // A retry of a request the owner is already looking at does not spend a token.
+    if (scopes === null && live === undefined && params.setupToken !== undefined) {
+      const refuse = (reason: "unknown" | "expired" | "used" | "not_client"): VerifyOutcome => {
+        deps.failedChallenges.record(peer.remoteAddress);
+        return {
+          ...denied(LINK_REFUSED),
+          setupToken: { status: "refused", reason, deviceId: params.deviceId },
+        };
+      };
+      if (params.role !== "client") return refuse("not_client");
+      const use = consumeSetupToken(db, params.setupToken, params.deviceId, nowIso);
+      if (!use.ok) return refuse(use.reason);
+      viaSetupToken = true;
+      tokenEvent = { status: "used", tokenId: use.id, deviceId: params.deviceId };
+    }
     const role = params.role === "node" ? "node" : "client";
     if (existing === undefined) {
       insertDevice(db, {
@@ -414,7 +446,6 @@ export function verifyChallenge(
     }
 
     // Not eligible for auto-approval: the owner approves via devices.approve.
-    const live = findPendingPairingForDevice(db, params.deviceId, nowIso);
     if (live) {
       return {
         result: { phase: "pending", pairingRequestId: live.id, code: live.code },
@@ -442,18 +473,22 @@ export function verifyChallenge(
       deviceId: params.deviceId,
       display: `${params.name} (${params.platform}, ${params.deviceFamily}; claimed by the device)${
         peer.transport === "vm-relay" ? "; relayed from a sandbox guest" : ""
-      }${peer.claimedIdentity ? `; proxy says ${peer.claimedIdentity}` : ""}`,
+      }${peer.claimedIdentity ? `; proxy says ${peer.claimedIdentity}` : ""}${
+        viaSetupToken ? "; expected via pairing link" : ""
+      }`,
       expiresAt: new Date(now.getTime() + deps.limits.pairingTtlMs).toISOString(),
       publicKeyFingerprint: keyFingerprint(params.publicKey),
       // The pairing record only knows the two transports; the card says when it was relayed.
       transport: peer.transport === "ws" ? "ws" : "unix",
       remoteAddress: peer.remoteAddress,
+      viaSetupToken,
     });
     return {
       result: { phase: "pending", pairingRequestId: request.id, code: request.code },
       identity: null,
       createdRequest: request,
       pendingDeviceId: params.deviceId,
+      ...(tokenEvent ? { setupToken: tokenEvent } : {}),
     };
   })();
 }

@@ -19,7 +19,7 @@ import {
 } from "@psyche/protocol";
 import { type WebSocket, WebSocketServer } from "ws";
 import pkg from "../package.json" with { type: "json" };
-import type { PeerInfo } from "./auth.ts";
+import type { PeerInfo, SetupTokenEvent } from "./auth.ts";
 import { CloudflareAccessVerifier } from "./cf-access.ts";
 import { type GatewayConfig, resolveConfig } from "./config.ts";
 import { Connection } from "./connection.ts";
@@ -89,6 +89,8 @@ export interface GatewayOptions {
     after: unknown;
     deviceId: string;
   }) => void;
+  /** A pairing-link setup token was used or refused at a connect (audit trail). */
+  onSetupToken?: (event: SetupTokenEvent, peer: PeerInfo) => void;
   /** Inject an open database (tests); defaults to SQLite at config.dbPath. */
   db?: PsycheDb;
   /** Agent runtime (S02); defaults to a loop that fails every turn cleanly. */
@@ -212,6 +214,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     extraHandlers: checkExtraHandlers(options.handlers ?? {}),
     onDeviceRevoked: options.onDeviceRevoked ?? null,
     onSettingChanged: options.onSettingChanged ?? null,
+    onSetupToken: options.onSetupToken ?? null,
     brokerPublishesReceipts: options.brokerPublishesReceipts ?? false,
     presenceState: presenceStateFor(db, options.settingsPresence ?? (() => false)),
     threadModels: options.threadModels ?? null,

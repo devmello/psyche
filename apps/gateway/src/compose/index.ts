@@ -166,6 +166,7 @@ import {
 import { composeNudges } from "./nudges.ts";
 import { createOtherChats, type OtherChats } from "./other-chats.ts";
 import { PageReadHub } from "./page-reads.ts";
+import { auditSetupToken, pairingLinkHandlers } from "./pairing-link.ts";
 import { composePasskeys } from "./passkeys.ts";
 import { composePayments, paymentsSetupFromEnv } from "./payments.ts";
 import { composePeople, type People } from "./people.ts";
@@ -1727,6 +1728,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...threadSettingsHandlers(modelPins),
     ...vault.handlers,
     ...bootstrapAdminHandlers({ db, audit }),
+    ...pairingLinkHandlers({ db, audit }),
     ...changeHandlers({ audit }),
     ...filesHandlers({ folders: () => rawBroker.policy.folders ?? [], home: config.home }),
     ...attentionHandlers(attention),
@@ -1770,6 +1772,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     handlers,
     webhooks,
     publicRoutes,
+    // A pairing-link setup token spent or refused at a connect (security §10).
+    onSetupToken: auditSetupToken(audit),
     onDeviceRevoked: (deviceId) => {
       revocations.recordDevice(deviceId);
       return rawBroker.revokeGrantsByDevice(deviceId);

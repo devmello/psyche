@@ -69,6 +69,18 @@ export const pairingRequests = sqliteTable("pairing_requests", {
   publicKeyFingerprint: text("public_key_fingerprint"),
   transport: text("transport"),
   remoteAddress: text("remote_address"),
+  viaSetupToken: integer("via_setup_token").notNull().default(0),
+});
+
+/** Setup tokens behind pairing links; only the SHA-256 of the token is kept. */
+export const pairingSetupTokens = sqliteTable("pairing_setup_tokens", {
+  id: text("id").primaryKey(),
+  tokenHash: text("token_hash").notNull().unique(),
+  createdByDeviceId: text("created_by_device_id"),
+  createdAt: text("created_at").notNull(),
+  expiresAt: text("expires_at").notNull(),
+  usedAt: text("used_at"),
+  usedByDeviceId: text("used_by_device_id"),
 });
 
 // §8 Channels and identities (owner: packages/channels, S10) ----------------------------------
@@ -441,6 +453,7 @@ export const schema = {
   devices,
   nodes,
   pairingRequests,
+  pairingSetupTokens,
   channels,
   identities,
   threads,

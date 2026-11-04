@@ -485,7 +485,9 @@ async function confirmGatewayChange(c: GatewayConfirm): Promise<boolean> {
     c.kind === "add"
       ? {
           message: `Connect Psyche to ${c.origin}?`,
-          detail: `Name: ${c.name}\n\nThis computer will ask that Gateway to pair. Nothing is shared until its owner approves this computer there, and Psyche pins the Gateway's identity at the first connection.`,
+          detail: c.viaLink
+            ? `Name: ${c.name}\nGateway key: ${c.viaLink.fingerprint}\n\nThis pairing link names that Gateway and its identity key, which Psyche will pin. This computer will ask it to pair; nothing is shared until its owner approves this computer there.`
+            : `Name: ${c.name}\n\nThis computer will ask that Gateway to pair. Nothing is shared until its owner approves this computer there, and Psyche pins the Gateway's identity at the first connection.`,
           buttons: ["Add Gateway", "Cancel"],
         }
       : c.kind === "forget"
@@ -552,7 +554,7 @@ function registerIpc(): void {
   handle(IPC.gatewaysAdd, (_e, arg) => {
     const r = rec(IPC.gatewaysAdd, arg);
     return gateways.add(
-      str(IPC.gatewaysAdd, r.address, "address", 300),
+      str(IPC.gatewaysAdd, r.address, "address", 2100),
       typeof r.name === "string" ? str(IPC.gatewaysAdd, r.name, "name", 64) : undefined,
     );
   });
@@ -1206,8 +1208,14 @@ void app.whenReady().then(async () => {
     // remote Gateway is pinned on first use and refused if the key ever differs; This Mac's own
     // is trusted by the per-launch secret, so it keeps no pin.
     verifyGateway: gatewayVerifier,
+    // A pairing link's single-use token goes with the first connect to that Gateway only.
+    ...(remoteGateway ? { setupToken: () => gateways.setupToken() } : {}),
     onStatus: (s) => {
       broadcast(IPC.status, s);
+      // The Gateway answered the connect, so the token is spent (or refused): never send it again.
+      if ((s.phase === "paired" || s.phase === "pending") && remoteGateway) {
+        gateways.clearSetupToken();
+      }
       tray?.update({ status: s });
       // Trust on first use is held in memory and stored only once that connection is paired.
       if (s.phase === "paired" && remoteGateway) {

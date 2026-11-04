@@ -88,6 +88,7 @@ interface PairingSqlRow {
   public_key_fingerprint?: string | null;
   transport?: string | null;
   remote_address?: string | null;
+  via_setup_token?: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -108,6 +109,7 @@ function pairingFromSql(row: PairingSqlRow): PairingRequest {
     publicKeyFingerprint: row.public_key_fingerprint ?? null,
     transport: row.transport ?? null,
     remoteAddress: row.remote_address ?? null,
+    viaSetupToken: row.via_setup_token ?? 0,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

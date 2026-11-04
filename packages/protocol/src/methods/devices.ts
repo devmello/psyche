@@ -70,6 +70,28 @@ export const DevicesMethods = {
     description:
       "First run without a terminal: grants operator.admin to the calling device when the Gateway has no operator.admin device at all, in one transaction, and audits it as device.bootstrap_admin. Only the desktop shell's own connection may call it (loopback, no Origin, deviceFamily desktop, the per-launch handshake secret); forbidden otherwise, conflict once any admin exists. Side-effecting.",
   }),
+  "devices.pairing.createLink": defineMethod({
+    params: Type.Object({
+      gatewayUrl: Type.Optional(
+        Type.String({
+          maxLength: 512,
+          description:
+            "The address the new device will dial, as an origin (https://studio-mac.tailnet.ts.net, or a LAN https origin). Defaults to gateway.publicOrigin; invalid_params when neither is known",
+        }),
+      ),
+    }),
+    result: Type.Object({
+      link: Type.String({
+        description:
+          "psyche-pair:v1:<base64url JSON {gatewayUrl, gatewayIdentityKey, setupToken, hostName}>. Show it as text and as a QR code; never as a URL",
+      }),
+      expiresAt: IsoDateTime,
+    }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Makes a pairing link for a phone or another computer: a single-use setup token (stored hashed, valid 10 minutes) with the Gateway's address and identity key. A device that connects with the token gets a pending request marked as expected via a pairing link; the owner still approves it and chooses its scopes, so the token never grants access. Audited as pairing_link.created and pairing_link.used. Side-effecting: each call makes a new token.",
+  }),
   "devices.revoke": defineMethod({
     params: Type.Object({ deviceId: Id }),
     result: Type.Object({ device: Device }),

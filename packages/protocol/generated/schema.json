@@ -1241,6 +1241,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Makes a pairing link for a phone or another computer: a single-use setup token (stored hashed, valid 10 minutes) with the Gateway's address and identity key. A device that connects with the token gets a pending request marked as expected via a pairing link; the owner still approves it and chooses its scopes, so the token never grants access. Audited as pairing_link.created and pairing_link.used. Side-effecting: each call makes a new token.",
+        "name": "devices.pairing.createLink",
+        "params": "#/$defs/DevicesPairingCreateLinkParams",
+        "result": "#/$defs/DevicesPairingCreateLinkResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Lists pairing requests (default: pending).",
         "name": "devices.pairing.list",
         "params": "#/$defs/DevicesPairingListParams",
@@ -14117,6 +14125,11 @@
           "maxLength": 256,
           "minLength": 1,
           "type": "string"
+        },
+        "setupToken": {
+          "description": "The single-use token from a psyche-pair:v1 link (devices.pairing.createLink). It only marks the resulting pending request as expected via a pairing link: the owner still approves the device and its scopes. Refused (denied) when expired or already used; ignored for a device that is already paired",
+          "pattern": "^[A-Za-z0-9_-]{43}$",
+          "type": "string"
         }
       },
       "required": [
@@ -16633,6 +16646,34 @@
       },
       "required": [
         "devices"
+      ],
+      "type": "object"
+    },
+    "DevicesPairingCreateLinkParams": {
+      "properties": {
+        "gatewayUrl": {
+          "description": "The address the new device will dial, as an origin (https://studio-mac.tailnet.ts.net, or a LAN https origin). Defaults to gateway.publicOrigin; invalid_params when neither is known",
+          "maxLength": 512,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "DevicesPairingCreateLinkResult": {
+      "properties": {
+        "link": {
+          "description": "psyche-pair:v1:<base64url JSON {gatewayUrl, gatewayIdentityKey, setupToken, hostName}>. Show it as text and as a QR code; never as a URL",
+          "type": "string"
+        },
+        "expiresAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "link",
+        "expiresAt"
       ],
       "type": "object"
     },
@@ -31099,6 +31140,10 @@
         "remoteAddress": {
           "description": "Device requests: peer address as the Gateway saw it",
           "type": "string"
+        },
+        "viaPairingLink": {
+          "description": "Device requests: the device presented a valid setup token from a pairing link, so the owner expected it. It is not approval: the owner still decides",
+          "type": "boolean"
         }
       },
       "required": [

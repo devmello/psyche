@@ -52,6 +52,13 @@ export const ConnectParams = Type.Object(
           "Per-launch secret from $PSYCHE_HOME/run/handshake.secret; enables loopback auto-pairing only without an Origin header",
       }),
     ),
+    setupToken: Type.Optional(
+      Type.String({
+        pattern: "^[A-Za-z0-9_-]{43}$",
+        description:
+          "The single-use token from a psyche-pair:v1 link (devices.pairing.createLink). It only marks the resulting pending request as expected via a pairing link: the owner still approves the device and its scopes. Refused (denied) when expired or already used; ignored for a device that is already paired",
+      }),
+    ),
   },
   { $id: "ConnectParams" },
 );

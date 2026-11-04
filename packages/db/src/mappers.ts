@@ -110,6 +110,7 @@ export function pairingRequestFromRow(row: PairingRequestRow): PairingRequest {
   if (row.publicKeyFingerprint !== null) out.publicKeyFingerprint = row.publicKeyFingerprint;
   if (row.transport !== null) out.transport = row.transport as "ws" | "unix";
   if (row.remoteAddress !== null) out.remoteAddress = row.remoteAddress;
+  if (row.viaSetupToken === 1) out.viaPairingLink = true;
   return out;
 }
 

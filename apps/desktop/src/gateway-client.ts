@@ -32,6 +32,8 @@ export interface DesktopGatewayOptions
   remote?: boolean;
   /** The Gateway identity check (the pin of a saved remote Gateway); see `createGatewayVerifier`. */
   verifyGateway?: GatewayVerifier;
+  /** The pairing link's setup token for the next connect, if one is saved and still live. */
+  setupToken?: () => string | undefined;
 }
 
 export function defaultPsycheHome(): string {
@@ -85,6 +87,11 @@ export async function desktopConnectParams(opts: {
   origin: string;
   /** A saved remote Gateway: never send the secret, whatever the address looks like. */
   remote?: boolean;
+  /**
+   * The single-use token from a pairing link, for a saved remote Gateway only. It marks the
+   * pending request as expected; the owner still approves this computer.
+   */
+  setupToken?: string;
 }): Promise<ConnectParams> {
   const handshakeSecret =
     opts.remote !== true && isLocalGatewayOrigin(opts.origin)
@@ -99,6 +106,9 @@ export async function desktopConnectParams(opts: {
     deviceFamily: "desktop",
     name: `Psyche Desktop (${hostname()})`.slice(0, 64),
     ...(handshakeSecret ? { handshakeSecret } : {}),
+    ...(opts.remote === true && opts.setupToken !== undefined
+      ? { setupToken: opts.setupToken }
+      : {}),
   };
 }
 
@@ -112,8 +122,16 @@ export function createDesktopGateway(opts: DesktopGatewayOptions): GatewayConnec
     wsUrl: ws.toString(),
     healthUrl: new URL("/healthz", origin).toString(),
     // Re-read per attempt: the secret changes on every Gateway launch.
-    connectParams: () =>
-      desktopConnectParams({ key, home, origin, ...(opts.remote ? { remote: true } : {}) }),
+    connectParams: () => {
+      const setupToken = opts.setupToken?.();
+      return desktopConnectParams({
+        key,
+        home,
+        origin,
+        ...(opts.remote ? { remote: true } : {}),
+        ...(setupToken === undefined ? {} : { setupToken }),
+      });
+    },
     sign: (payload) => signWithDeviceKey(key, payload),
     ...(opts.verifyGateway ? { verifyGateway: opts.verifyGateway } : {}),
     onStatus: opts.onStatus,

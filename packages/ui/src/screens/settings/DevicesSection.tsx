@@ -8,6 +8,7 @@ import { t } from "../../i18n/core.ts";
 import { groupFingerprint } from "../../lib/fingerprint.ts";
 import { formatRelative } from "../../lib/format.ts";
 import { useNow } from "../../lib/use-now.ts";
+import { AddDeviceGroup, type PairingLink } from "./AddDevice.tsx";
 import { RowMoreMenu } from "./RowMoreMenu.tsx";
 import {
   EmptyNotice,
@@ -76,6 +77,11 @@ export interface DevicesPanelProps extends LoadProps {
   actionError?: string | null;
   /** This Gateway's identity key fingerprint: compared with what the new computer shows. */
   gatewayFingerprint?: string;
+  /** Add phone or computer: makes a pairing link (absent: the group is not shown). */
+  addDevice?: {
+    create: (gatewayUrl?: string) => Promise<PairingLink>;
+    publicOrigin: string | null;
+  };
 }
 
 export function DevicesPanel({
@@ -91,6 +97,7 @@ export function DevicesPanel({
   onRevoke,
   actionError = null,
   gatewayFingerprint,
+  addDevice,
   loading,
   error,
   onRetry,
@@ -133,6 +140,14 @@ export function DevicesPanel({
               ))}
             </ul>
           </Group>
+        ) : null}
+
+        {addDevice ? (
+          <AddDeviceGroup
+            create={addDevice.create}
+            publicOrigin={addDevice.publicOrigin}
+            {...(now === undefined ? {} : { now })}
+          />
         ) : null}
 
         <Group title={t("settings.devices.paired")}>
@@ -358,6 +373,11 @@ function PendingDevice({
           {t("settings.devices.expires", { when: formatRelative(request.expiresAt, now) })}
         </span>
       </p>
+      {request.viaPairingLink ? (
+        <p className="text-callout text-label-secondary" data-testid="expected-via-link">
+          {t("settings.devices.expectedViaLink")}
+        </p>
+      ) : null}
       {remote ? (
         <p className="text-callout text-label-secondary">
           {t("settings.devices.fromAddress", { address: request.remoteAddress ?? "?" })}
@@ -454,13 +474,7 @@ export function DevicesSection({
   const devicesQ = useGatewayQuery("devices.list", { includeRevoked: true });
   const pairingQ = useGatewayQuery("devices.pairing.list", { status: "pending" });
   const nodesQ = useGatewayQuery("nodes.list", {});
-  const infoQ = useGatewayQuery(
-    "gateway.info",
-    {},
-    {
-      enabled: (pairingQ.data?.pairingRequests ?? []).some((p) => p.status === "pending"),
-    },
-  );
+  const infoQ = useGatewayQuery("gateway.info", {});
   const keysQ = useGatewayQuery("devices.presenceKey.list", {});
   const settled = (p: Promise<unknown>) =>
     p.then((v) => {
@@ -488,6 +502,15 @@ export function DevicesSection({
       nodes={nodesQ.data?.nodes ?? []}
       presenceKeys={keysQ.data?.presenceKeys ?? []}
       {...(infoQ.data ? { gatewayFingerprint: infoQ.data.identity.fingerprint } : {})}
+      {...(infoQ.data
+        ? {
+            addDevice: {
+              publicOrigin: infoQ.data.publicOrigin,
+              create: (gatewayUrl?: string) =>
+                call("devices.pairing.createLink", gatewayUrl ? { gatewayUrl } : {}),
+            },
+          }
+        : {})}
       touchId={{
         bundled: touchId ? bundled : undefined,
         allowDevFileKey: devSettingQ.data?.settings?.[DEV_FILE_KEY_SETTING] === true,
