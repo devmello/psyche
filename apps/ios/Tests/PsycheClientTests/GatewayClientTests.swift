@@ -28,7 +28,7 @@ struct GatewayClientTests {
             let wiped = self.wiped
             client = GatewayClient(dependencies: GatewayClientDependencies(
                 endpointStore: endpointStore, identityStore: identityStore, outbox: outbox,
-                transportFactory: { _ in gateway.makeTransport() }, reachability: reachability,
+                transportFactory: { _, _ in gateway.makeTransport() }, reachability: reachability,
                 backoff: Backoff(base: 0.02, cap: 0.05, random: { 0 }), deviceName: "Test iPhone",
                 stateDirectory: dir, backgroundGrace: .milliseconds(80), pendingRecheck: .milliseconds(40),
                 onWipe: { wiped.set() }))
@@ -45,7 +45,7 @@ struct GatewayClientTests {
 
     static func link(hostName: String = "studio-mac") throws -> PairingLink {
         try PairingLink.parse(PairingLinkTests.link([
-            "gatewayUrl": FakeGateway.origin, "gatewayIdentityKey": FakeGateway.publicKey,
+            "gatewayUrl": FakeGateway.origin, "gatewayFingerprint": PairingLink.fingerprint(ofKey: FakeGateway.publicKey)!,
             "setupToken": PairingLinkTests.token, "hostName": hostName,
         ]))
     }
@@ -101,7 +101,10 @@ struct GatewayClientTests {
     }
 
     @Test func anExpiredLinkSaysMakeANewOne() async throws {
-        let gateway = FakeGateway(behavior: .denied(reason: "this pairing link expired or was already used; make a new one on the Host"))
+        // The Gateway's own sentence (auth.ts SETUP_TOKEN_REFUSED) says "revoked" too; its code, not the word, decides.
+        let gateway = FakeGateway(behavior: .denied(
+            reason: "This pairing link was already used, has expired or was revoked. Make a new one on the Host.",
+            setupTokenInvalid: true))
         let h = Harness(gateway: gateway)
         let failures = h.client.pairingFailures()
         await h.client.beginPairing(try Self.link())

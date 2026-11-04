@@ -5,8 +5,14 @@ Native SwiftUI, iOS 26 minimum, no third-party dependencies. Architecture and lo
 
 The app runs against the real Gateway (`GatewayBackend`, work package I2) unless launched with
 `-psycheScenario <name>`, which uses fixtures. "Try it without a Mac" on the pairing screen also enters
-fixture mode. Pair by scanning the code from Settings → Devices → Add phone, or paste the link
-(`psyche-pair:v1:…`); the link is read only by the in-app scanner or paste button, never as a URL.
+fixture mode. Pair by scanning the code from Settings → Server & remote access → Pair another computer, or paste the link
+(`psyche-pair:v1:…`); the link is read only by the in-app scanner or paste button, never as a URL. It names the
+Gateway by the `sha256:` fingerprint of its identity key (not the key) and carries a one-time setup token, and the
+parser follows `packages/protocol/src/pairing-link.ts` rule for rule (https only, never loopback, no extra fields).
+The phone pins the key the Gateway proves when it hashes to that fingerprint. On the home network the Gateway's
+certificate is self-signed: the phone accepts it only for an address that is not a Tailscale name (`*.ts.net`), only if the system does not trust it, and only after the identity key
+signed that certificate's SPKI into the challenge (`lanCertSpki`, `lanCertSignature`); later connections must present
+the same certificate.
 
 ## Build
 

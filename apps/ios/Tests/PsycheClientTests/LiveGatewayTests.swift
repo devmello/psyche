@@ -18,37 +18,46 @@ struct LiveGatewayTests {
         defer { gateway.stop() }
         let info = gateway.info
 
-        // 1. A different Gateway key in the link: the real Gateway's challenge fails the pin, so the
-        //    phone stops before signing anything and stores nothing.
+        // Main's pairing links name an https origin that is never loopback, so the test builds the link from its
+        // parts: the real fingerprint and a real setup token minted by the Gateway, dialing the loopback origin.
+        func link(fingerprint: String? = nil, token: String) -> PairingLink {
+            PairingLink(
+                gatewayURL: info.origin, gatewayFingerprint: fingerprint ?? info.fingerprint, setupToken: token,
+                hostName: "ios-test-host")
+        }
+
+        // 1. The link names a different Gateway: the real Gateway's key does not hash to it, so the phone stops
+        //    before signing anything, presents no token, and stores nothing.
         do {
             let h = LiveHarness()
-            var wrong = try PairingLink.parse(info.link)
-            wrong = PairingLink(
-                gatewayURL: wrong.gatewayURL, gatewayIdentityKey: PairingLinkTests.bytes(99),
-                setupToken: wrong.setupToken, hostName: wrong.hostName)
+            let wrong = link(fingerprint: "sha256:" + String(repeating: "0", count: 64), token: info.spareSetupToken)
             await h.client.beginPairing(wrong)
             let state = await GatewayClientTests.wait(h.client, for: { $0 == .refused(.identityMismatch) }, seconds: 15)
             #expect(state == .refused(.identityMismatch))
             #expect(h.endpointStore.load() == nil)
         }
+        gateway.send("tokens")
+        #expect(await gateway.nextLine(timeout: 10)?.contains("\"tokens\":[\"live\",\"live\"]") == true)
 
-        // 2. The right link: pending with a code, approved on the "Mac", then live.
+        // 2. The right link: the key the Gateway proves hashes to the link's fingerprint, the token is presented
+        //    only after that, and the device is paired at once with the scopes chosen when the token was made.
+        //    Today's Gateway takes a setup token from a new device only when it is the desktop app (auth.ts: "the
+        //    phone comes later"), so the owner pairs this phone first, as approving it on the Mac does; the link
+        //    then arrives from a device the Gateway already knows, which it accepts and spends.
         let h = LiveHarness()
-        let link = try PairingLink.parse(info.link)
-        #expect(link.fingerprint == PairingLink.fingerprint(ofKey: info.identityKey))
-        await h.client.beginPairing(link)
-        let pending = await GatewayClientTests.wait(h.client, for: { if case .pending = $0 { true } else { false } }, seconds: 15)
-        guard case .pending(let approval)? = pending else {
-            Issue.record("expected pending, got \(String(describing: pending))")
-            return
-        }
-        #expect(approval.code.filter(\.isNumber).count == 6 || !approval.code.isEmpty)
-        gateway.send("approve")
-        let approved = await gateway.nextLine(timeout: 15)
-        #expect(approved?.contains("\"approved\":true") == true)
+        let me = try await h.identityStore.identity()
+        gateway.send("enroll \(me.deviceId) \(me.publicKey)")
+        #expect(await gateway.nextLine(timeout: 10)?.contains("\"enrolled\":true") == true)
+        await h.client.beginPairing(link(token: info.setupToken))
         let live = await GatewayClientTests.wait(h.client, for: { $0 == .live }, seconds: 20)
         #expect(live == .live)
+        // The pin is now the key itself, learned from the proof and not from the link.
         #expect(h.endpointStore.load()?.identityKey == info.identityKey)
+        #expect(h.endpointStore.load()?.linkFingerprint == info.fingerprint)
+        // The token was presented, and only after the proof: one is spent, the one the refused phone held is not.
+        gateway.send("tokens")
+        let statuses = await gateway.nextLine(timeout: 10) ?? ""
+        #expect(statuses.contains("\"used\"") && statuses.contains("\"live\""))
 
         // 3. Send a message and receive the streamed reply.
         let backend = GatewayBackend(client: h.client)
@@ -83,11 +92,13 @@ struct LiveGatewayTests {
         #expect(full.items.contains(.user(id: full.items.compactMap { if case .user(let id, _) = $0 { id } else { nil } }.first ?? "", text: "Say hello")))
         #expect(full.items.contains { if case .assistant(_, let t, false) = $0 { t == info.reply } else { false } })
 
-        // 4. A real link is single use: a second phone presenting the same token is told to make a new one.
-        if info.realLink {
-            let second = LiveHarness()
-            let failures = second.client.pairingFailures()
-            await second.client.beginPairing(link)
+        // 4. A gap in today's Gateway, kept here so the test says so when it closes: a phone the owner has not
+        //    paired is denied its setup token (desktop only, auth.ts), and the denial reads like an expired link.
+        //    When the Gateway takes setup tokens from `ios`, this phone pairs and this expectation flips.
+        do {
+            let fresh = LiveHarness()
+            let failures = fresh.client.pairingFailures()
+            await fresh.client.beginPairing(link(token: info.spareSetupToken))
             let message = await withTaskGroup(of: String?.self) { group in
                 group.addTask { for await m in failures { return m }; return nil }
                 group.addTask { try? await Task.sleep(for: .seconds(15)); return nil }
@@ -96,7 +107,7 @@ struct LiveGatewayTests {
                 return first
             }
             #expect(message?.contains("Make a new link on your Mac") == true)
-            #expect(second.endpointStore.load() == nil)
+            #expect(fresh.endpointStore.load() == nil)
         }
 
         // Resilience: the Gateway closing the socket brings the phone back without losing the session.
@@ -108,11 +119,12 @@ struct LiveGatewayTests {
 struct LiveHarness {
     let client: GatewayClient
     let endpointStore: EndpointStore
+    let identityStore = DeviceIdentityStore(store: MemorySecretStore())
     init() {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("live-\(UUID().uuidString)")
         endpointStore = EndpointStore(directory: dir)
         client = GatewayClient(dependencies: GatewayClientDependencies(
-            endpointStore: endpointStore, identityStore: DeviceIdentityStore(store: MemorySecretStore()),
+            endpointStore: endpointStore, identityStore: identityStore,
             outbox: Outbox(directory: dir), reachability: FakeReachability(resolvesHost: true, local: true),
             deviceName: "Test iPhone", stateDirectory: dir, pendingRecheck: .milliseconds(300)))
     }
@@ -123,9 +135,11 @@ final class LiveGateway: @unchecked Sendable {
     struct Info: Decodable {
         var origin: String
         var identityKey: String
-        var link: String
-        /// True when the Gateway made the link (`devices.pairing.createLink`); false when serve.ts built it with a placeholder token.
-        var realLink: Bool
+        /// `sha256:<hex>` of the identity key, as a link carries it.
+        var fingerprint: String
+        /// Real one-time setup tokens (operator.read, write, approvals) minted in the Gateway's database.
+        var setupToken: String
+        var spareSetupToken: String
         var reply: String
     }
 

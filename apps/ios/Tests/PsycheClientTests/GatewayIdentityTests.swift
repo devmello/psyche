@@ -18,6 +18,9 @@ struct GatewayIdentityTests {
     static let gatewayKey = "6kpsY-KcUgq-9VB7Ey7F-ZVHdq6-vnuSQh7qaRRG0iw"
     static let nodeSignature = "f6qufXrYpBfmPrwqA2SS9IXJPnL1OPS-O5Nr_Our7r0gVWht8xeOY033CO54B0pWz8dd2rGuCAzqkMMzgom3AQ"
 
+    /// A self-signed P-256 certificate (openssl) and its pin as apps/gateway/src/lan/cert.ts (spkiPin) computes it.
+    static let certificateDER = "MIIBizCCATCgAwIBAgIUa3qjcTwXCm3Vr4mCEF08Zsf+WHEwCgYIKoZIzj0EAwIwHDEaMBgGA1UEAwwRcHN5Y2hlLXRlc3QubG9jYWwwHhcNMjYxMTA0MjEzODQzWhcNMzYxMTAxMjEzODQzWjAcMRowGAYDVQQDDBFwc3ljaGUtdGVzdC5sb2NhbDBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABJGZHAP6dHusrI6lwOMVzR9MOzNlyYiU27ypTGZJFITAqU4bedzVw5CRg1jsKwZntKw7z+nJFmCzc03eF/cvIHijUDBOMB0GA1UdDgQWBBRCDHUEIpwFj265aXgU9e8YpnJGgzAPBgNVHRMBAf8EBTADAQH/MBwGA1UdEQQVMBOCEXBzeWNoZS10ZXN0LmxvY2FsMAoGCCqGSM49BAMCA0kAMEYCIQDqAF7GOuuoQtWEUtVejBB0w0d7D1SLF9iwvMksOIWKcAIhAJNwiNWMvRCrIgSpVWDhTKeqiOXO6Kh8g0+3hKEoNZwg"
+
     private func sha(_ data: Data) -> String { SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined() }
 
     @Test func gatewayPayloadMatchesTheR1Fixture() {
@@ -70,7 +73,10 @@ struct GatewayIdentityTests {
 
     @Test func challengeGateAcceptsOnlyTheFullChain() {
         func check(_ c: WireConnectChallenge, pin: String = Self.gatewayKey, dialed: String = Self.origin) -> IdentityCheck.Failure? {
-            IdentityCheck.verify(challenge: c, pinnedKey: pin, dialedOrigin: dialed, devicePublicKey: Self.devicePublicKey)
+            let result = IdentityCheck.verify(
+                challenge: c, pin: IdentityCheck.Pin(key: pin), dialedOrigin: dialed, devicePublicKey: Self.devicePublicKey)
+            if case .failure(let failure) = result { return failure }
+            return nil
         }
         #expect(check(challenge()) == nil)
         #expect(check(challenge(key: nil, signature: nil)) == .missingKey)
@@ -79,6 +85,43 @@ struct GatewayIdentityTests {
         #expect(check(challenge(origin: "https://evil.example")) == .originMismatch)
         #expect(check(challenge(), dialed: "https://other.example") == .originMismatch)
         #expect(check(challenge(signature: "A" + Self.nodeSignature.dropFirst())) == .badSignature)
+    }
+
+    @Test func theFingerprintPinsTheKeyUntilOneIsStored() {
+        let fingerprint = PairingLink.fingerprint(ofKey: Self.gatewayKey)
+        // packages/protocol: identityFingerprint(key) = sha256:<hex of SHA-256 of the raw key>
+        #expect(fingerprint == "sha256:" + sha(Base64URL.decode(Self.gatewayKey)!))
+        func check(_ fp: String?) -> Result<IdentityCheck.Proven, IdentityCheck.Failure> {
+            IdentityCheck.verify(
+                challenge: challenge(), pin: IdentityCheck.Pin(fingerprint: fp), dialedOrigin: Self.origin,
+                devicePublicKey: Self.devicePublicKey)
+        }
+        #expect(check(fingerprint) == .success(IdentityCheck.Proven(key: Self.gatewayKey, certSPKI: nil)))
+        #expect(check("sha256:" + String(repeating: "0", count: 64)) == .failure(.keyChanged))
+        #expect(check(nil) == .failure(.keyChanged))  // nothing pinned at all fails closed
+    }
+
+    // MARK: LAN certificate binding (Node vectors)
+
+    @Test func lanCertPayloadAndSignatureMatchNode() {
+        let spki = "ZGVhZGJlZWZkZWFkYmVlZmRlYWRiZWVmZGVhZGJlZWY"
+        let payload = LanCertSigning.payload(nonce: Self.nonce, serverOrigin: Self.origin, devicePublicKey: Self.devicePublicKey, spki: spki)
+        #expect(sha(payload) == "4267562373e11a5e45ee99140714d13dde4299db41e7f118e8d3f11d94fd2843")
+        #expect(LanCertSigning.verify(
+            signature: "wKuke6KVuOErndLQs0nU4ojRxoyDb_xmOVhdPRVqVMUUoke6pmUACqUptRRLgOur7Z4MbOYSy3x4d1ICd34DBQ", gatewayKey: Self.gatewayKey, nonce: Self.nonce, serverOrigin: Self.origin,
+            devicePublicKey: Self.devicePublicKey, spki: spki))
+        #expect(!LanCertSigning.verify(
+            signature: "wKuke6KVuOErndLQs0nU4ojRxoyDb_xmOVhdPRVqVMUUoke6pmUACqUptRRLgOur7Z4MbOYSy3x4d1ICd34DBQ", gatewayKey: Self.gatewayKey, nonce: Self.nonce, serverOrigin: Self.origin,
+            devicePublicKey: Self.devicePublicKey, spki: "A" + spki.dropFirst()))
+    }
+
+    // MARK: Certificate pin (Node vector)
+
+    @Test func certificatePinMatchesTheGatewaysSpkiPin() throws {
+        let der = try #require(Data(base64Encoded: GatewayIdentityTests.certificateDER))
+        #expect(CertificatePin.spki(ofCertificate: der) == "y-qIuIwzdHBoooNoUxd1h6ejl3Yw105d7iq5eJ1lK04")
+        #expect(CertificatePin.spki(ofCertificate: Data("not a certificate".utf8)) == nil)
+        #expect(CertificatePin.spki(ofCertificate: der.prefix(40)) == nil)
     }
 
     // MARK: Device key store

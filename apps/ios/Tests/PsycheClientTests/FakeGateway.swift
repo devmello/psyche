@@ -16,9 +16,11 @@ final class FakeGateway: @unchecked Sendable {
     enum Behavior: Sendable {
         case paired(stateVersion: Int)
         case pending(code: String)
-        case denied(reason: String)
+        case denied(reason: String, setupTokenInvalid: Bool = false)
     }
     enum Lie: Sendable { case none, wrongKey, badSignature, wrongOrigin, noKey }
+    /// What the challenge says about the TLS certificate when the transport reports a self-signed one.
+    enum Vouch: Sendable { case valid, omitted, badSignature, otherCertificate }
 
     /// The Gateway identity key every test pins. Seed = 32 bytes of 0x07.
     static let key = try! Curve25519.Signing.PrivateKey(rawRepresentation: Data(repeating: 7, count: 32))
@@ -34,6 +36,8 @@ final class FakeGateway: @unchecked Sendable {
     private var _transports: [FakeTransport] = []
     private var _connects = 0
     private var _dropConnections = false
+    private var _certificate: PeerCertificate?
+    private var _vouch: Vouch = .valid
 
     init(behavior: Behavior = .paired(stateVersion: 1), lie: Lie = .none) {
         _behavior = behavior
@@ -46,6 +50,10 @@ final class FakeGateway: @unchecked Sendable {
     var connectCount: Int { lock.withLock { _connects } }
     /// While true, new sockets fail at once (the Gateway is off).
     var down: Bool { get { lock.withLock { _dropConnections } } set { lock.withLock { _dropConnections = newValue } } }
+
+    /// What every transport of this Gateway reports as the certificate it was given (nil: no TLS to report).
+    var certificate: PeerCertificate? { get { lock.withLock { _certificate } } set { lock.withLock { _certificate = newValue } } }
+    var vouch: Vouch { get { lock.withLock { _vouch } } set { lock.withLock { _vouch = newValue } } }
 
     func on(_ method: String, _ handler: @escaping @Sendable (WireReqFrame) -> Result<JSONValue, WireError>) {
         lock.withLock { _handlers[method] = handler }
@@ -85,6 +93,14 @@ final class FakeGateway: @unchecked Sendable {
                 body["gatewayKey"] = .string(key)
                 body["gatewaySignature"] = .string(signature)
             }
+            if case .selfSigned(let seen)? = certificate, lie != .noKey, vouch != .omitted {
+                let spki = vouch == .otherCertificate ? Base64URL.encode(Data(repeating: 1, count: 32)) : seen
+                var certPayload = LanCertSigning.payload(
+                    nonce: nonce, serverOrigin: signedOrigin, devicePublicKey: devicePub, spki: spki)
+                if vouch == .badSignature { certPayload = Data("tampered".utf8) }
+                body["lanCertSpki"] = .string(spki)
+                body["lanCertSignature"] = .string(Base64URL.encode(try! signer.signature(for: certPayload)))
+            }
             transport.reply(req.id, .success(.object(body)))
         case "connect.verify":
             let result: JSONValue
@@ -93,7 +109,10 @@ final class FakeGateway: @unchecked Sendable {
                 result = .object(["phase": "paired", "deviceId": "dev_test", "scopes": .array(["operator.read"]),
                                   "stateVersion": .number(Double(v)), "serverTime": "2030-01-01T00:00:00Z"])
             case .pending(let code): result = .object(["phase": "pending", "pairingRequestId": "pr_1", "code": .string(code)])
-            case .denied(let reason): result = .object(["phase": "denied", "reason": .string(reason)])
+            case .denied(let reason, let tokenInvalid):
+                var body: [String: JSONValue] = ["phase": "denied", "reason": .string(reason)]
+                if tokenInvalid { body["code"] = "setup_token_invalid" }
+                result = .object(body)
             }
             transport.reply(req.id, .success(result))
         default:
@@ -122,6 +141,8 @@ final class FakeTransport: WebSocketTransport, @unchecked Sendable {
         iterator = inbox.makeAsyncIterator()
         if gateway.down { sink.finish() }
     }
+
+    var peerCertificate: PeerCertificate? { gateway.certificate }
 
     func send(_ frame: Data) async throws {
         if gateway.down { throw TransportClosed() }

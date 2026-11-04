@@ -27,7 +27,7 @@ public struct GatewayClientDependencies: Sendable {
         endpointStore: EndpointStore = .standard(),
         identityStore: DeviceIdentityStore = DeviceIdentityStore(),
         outbox: Outbox = Outbox(directory: AppGroup.dataDirectory),
-        transportFactory: @escaping TransportFactory = { URLSessionTransport(url: $0) },
+        transportFactory: @escaping TransportFactory = { URLSessionTransport(url: $0, trust: $1) },
         reachability: any Reachability = SystemReachability(),
         backoff: Backoff = Backoff(),
         deviceName: String = "iPhone",
@@ -293,10 +293,10 @@ public actor GatewayClient {
                 setupToken = nil
                 set(.pending(PendingApproval(code: Self.groupedCode(code), endpoint: endpoint, deviceName: deps.deviceName)))
                 try? await Task.sleep(for: deps.pendingRecheck)
-            case .denied(let reason):
+            case .denied(let reason, let tokenInvalid):
                 var wasPairing = token != nil
                 if case .pending = state { wasPairing = true }
-                await handleDenied(reason: reason, wasPairing: wasPairing)
+                await handleDenied(reason: reason, tokenInvalid: tokenInvalid, wasPairing: wasPairing)
                 return
             case .refused:
                 set(.refused(.identityMismatch))
@@ -314,7 +314,7 @@ public actor GatewayClient {
     private enum Attempt {
         case live(AsyncStream<WireEventFrame>)
         case pending(code: String)
-        case denied(String)
+        case denied(String, tokenInvalid: Bool)
         case refused
         case unreachable
     }
@@ -323,14 +323,17 @@ public actor GatewayClient {
         guard let url = URLSessionTransport.socketURL(forOrigin: endpoint.url) else { return .unreachable }
         let identity: DeviceIdentity
         do { identity = try await deps.identityStore.identity() } catch { return .unreachable }
-        let transport = deps.transportFactory(url)
+        // A self-signed certificate is accepted for capture on the local network only; Tailscale and everything
+        // else needs a chain the system trusts.
+        let transport = deps.transportFactory(
+            url, TransportTrust(allowSelfSigned: endpoint.transport == .lan, pinnedSPKI: endpoint.lanCertSpki))
         let connection = GatewayConnection(
             endpoint: endpoint, identity: identity, deviceName: deps.deviceName, transport: transport)
         do {
             let outcome = try await connection.handshake(setupToken: setupToken)
             switch outcome {
             case .paired(let deviceID, _, let stateVersion):
-                try? deps.endpointStore.save(endpoint)
+                await pin(connection, to: endpoint)
                 self.connection = connection
                 self.mapper = EventMapper(lookupQuestion: { [weak connection] id in
                     guard let connection,
@@ -345,12 +348,12 @@ public actor GatewayClient {
                 Task { await self.flushOutbox() }
                 return .live(connection.events)
             case .pending(let code):
-                try? deps.endpointStore.save(endpoint)  // the Gateway proved the pinned key
+                await pin(connection, to: endpoint)  // the Gateway proved the key (and certificate) it is pinned by
                 await connection.close()
                 return .pending(code: code)
-            case .denied(let reason):
+            case .denied(let reason, let tokenInvalid):
                 await connection.close()
-                return .denied(reason)
+                return .denied(reason, tokenInvalid: tokenInvalid)
             }
         } catch ConnectionFailure.identityMismatch {
             return .refused
@@ -358,6 +361,18 @@ public actor GatewayClient {
             await connection.close()
             return .unreachable
         }
+    }
+
+    /// Stores the endpoint with what the Gateway just proved: its key (replacing the link's fingerprint as the pin)
+    /// and, on the local network, the certificate it served. Only a connection that passed `IdentityCheck` gets here.
+    private func pin(_ connection: GatewayConnection, to endpoint: GatewayEndpoint) async {
+        var pinned = endpoint
+        if let proven = await connection.proven {
+            pinned.identityKey = proven.key
+            if pinned.lanCertSpki == nil { pinned.lanCertSpki = proven.certSPKI }
+        }
+        self.endpoint = pinned
+        try? deps.endpointStore.save(pinned)
     }
 
     private var ownDeviceID = ""
@@ -381,14 +396,16 @@ public actor GatewayClient {
 
     /// `denied` on a reconnect of a paired phone means the device was revoked (or forgotten): wipe and
     /// return to pairing. `denied` while pairing is a message for the pairing screen.
-    private func handleDenied(reason: String, wasPairing: Bool) async {
+    private func handleDenied(reason: String, tokenInvalid: Bool, wasPairing: Bool) async {
         let lower = reason.lowercased()
-        if lower.contains("revoked") || !wasPairing {
+        // The Gateway's own words for a spent link say "revoked" too ("used, expired or was revoked"), so its
+        // machine-readable code decides first: that is about the link, never about this device.
+        if !tokenInvalid && (lower.contains("revoked") || !wasPairing) {
             await revoke()
             return
         }
         // A pairing link that expired, was used, or never existed all read the same on the wire.
-        let message = lower.contains("link") || lower.contains("token")
+        let message = tokenInvalid || lower.contains("link") || lower.contains("token")
             ? "That pairing link expired or was already used. Make a new link on your Mac."
             : "Your Mac didn't accept this phone: \(reason)"
         for c in failureSubscribers.values { c.yield(message) }

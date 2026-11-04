@@ -38,6 +38,25 @@ public enum GatewaySigning {
     }
 }
 
+/// What the Gateway signs to vouch for the TLS certificate of a LAN connection (`lanCertSigningPayload` in
+/// `packages/protocol/src/methods/connect.ts`): `psyche-lan-cert-v1\nnonce\nserverOrigin\ndevicePublicKey\nspki`.
+public enum LanCertSigning {
+    public static func payload(nonce: String, serverOrigin: String, devicePublicKey: String, spki: String) -> Data {
+        Data(["psyche-lan-cert-v1", nonce, serverOrigin, devicePublicKey, spki].joined(separator: "\n").utf8)
+    }
+
+    public static func verify(
+        signature: String, gatewayKey: String, nonce: String, serverOrigin: String, devicePublicKey: String, spki: String
+    ) -> Bool {
+        guard let keyBytes = Base64URL.decode(gatewayKey), keyBytes.count == 32,
+              let sigBytes = Base64URL.decode(signature), sigBytes.count == 64,
+              let key = try? Curve25519.Signing.PublicKey(rawRepresentation: keyBytes)
+        else { return false }
+        return key.isValidSignature(
+            sigBytes, for: payload(nonce: nonce, serverOrigin: serverOrigin, devicePublicKey: devicePublicKey, spki: spki))
+    }
+}
+
 public enum Base64URL {
     public static func encode(_ data: Data) -> String {
         data.base64EncodedString()

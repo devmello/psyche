@@ -28,23 +28,79 @@ public enum ConnectionFailure: Error, Equatable, Sendable {
 
 /// The Gateway-identity checks that run before this phone signs anything (remote-gateway design §3.3).
 public enum IdentityCheck {
-    public enum Failure: Equatable, Sendable {
+    public enum Failure: Error, Equatable, Sendable {
         case missingKey, keyChanged, badSignature, originMismatch
+        /// A self-signed LAN certificate was served but the challenge does not vouch for one.
+        case certMissing
+        /// The Gateway key's signature over the certificate is not valid.
+        case certInvalid
+        /// The certificate this connection presented is not the one the Gateway vouched for, or not the pinned one.
+        case certChanged
     }
 
-    /// All four must hold: the challenge carries a key, it is the pinned key, its signature over
-    /// `{nonce, serverOrigin, devicePublicKey}` verifies, and `serverOrigin` is the origin we dialed.
+    /// What this phone holds about the Gateway. A key, once pinned, wins; before that the link's fingerprint decides.
+    public struct Pin: Equatable, Sendable {
+        public var key: String?
+        public var fingerprint: String?
+        public var certSPKI: String?
+        public init(key: String? = nil, fingerprint: String? = nil, certSPKI: String? = nil) {
+            self.key = key
+            self.fingerprint = fingerprint
+            self.certSPKI = certSPKI
+        }
+
+        public init(endpoint: GatewayEndpoint) {
+            self.init(
+                key: endpoint.identityKey.isEmpty ? nil : endpoint.identityKey,
+                fingerprint: endpoint.linkFingerprint, certSPKI: endpoint.lanCertSpki)
+        }
+    }
+
+    /// What the checks established, to be stored once the connection reaches pending or paired.
+    public struct Proven: Equatable, Sendable {
+        public var key: String
+        /// The LAN certificate's SPKI pin, when a self-signed certificate was accepted on this connection.
+        public var certSPKI: String?
+    }
+
+    /// In order: the challenge carries a key and signature; `serverOrigin` is the origin we dialed; the key is the
+    /// pinned key (or hashes to the link's fingerprint, when none is pinned yet); the signature over
+    /// `{nonce, serverOrigin, devicePublicKey}` verifies. Then, when the TLS certificate was self-signed (a LAN
+    /// Gateway), the challenge must carry the SPKI the Gateway says it served and its signature of that SPKI, and
+    /// it must be the certificate this connection actually presented and the pinned one. Nothing is signed or
+    /// sent unless all of this holds.
     public static func verify(
-        challenge: WireConnectChallenge, pinnedKey: String, dialedOrigin: String, devicePublicKey: String
-    ) -> Failure? {
-        guard let key = challenge.gatewayKey, let signature = challenge.gatewaySignature else { return .missingKey }
-        guard key == pinnedKey else { return .keyChanged }
-        guard challenge.serverOrigin == dialedOrigin else { return .originMismatch }
+        challenge: WireConnectChallenge, pin: Pin, dialedOrigin: String, devicePublicKey: String,
+        certificate: PeerCertificate? = nil
+    ) -> Result<Proven, Failure> {
+        guard let key = challenge.gatewayKey, let signature = challenge.gatewaySignature else { return .failure(.missingKey) }
+        guard challenge.serverOrigin == dialedOrigin else { return .failure(.originMismatch) }
+        if let pinned = pin.key {
+            guard key == pinned else { return .failure(.keyChanged) }
+        } else {
+            // First connect: the link named the Gateway by the hash of its key. No pin at all fails closed.
+            guard let expected = pin.fingerprint, PairingLink.fingerprint(ofKey: key) == expected else {
+                return .failure(.keyChanged)
+            }
+        }
         guard GatewaySigning.verify(
             signature: signature, gatewayKey: key, nonce: challenge.nonce,
             serverOrigin: challenge.serverOrigin, devicePublicKey: devicePublicKey)
-        else { return .badSignature }
-        return nil
+        else { return .failure(.badSignature) }
+        var certSPKI: String?
+        if case .selfSigned(let observed)? = certificate {
+            guard let vouched = challenge.lanCertSpki, let certSignature = challenge.lanCertSignature else {
+                return .failure(.certMissing)
+            }
+            guard LanCertSigning.verify(
+                signature: certSignature, gatewayKey: key, nonce: challenge.nonce, serverOrigin: challenge.serverOrigin,
+                devicePublicKey: devicePublicKey, spki: vouched)
+            else { return .failure(.certInvalid) }
+            guard vouched == observed else { return .failure(.certChanged) }
+            if let pinned = pin.certSPKI, pinned != observed { return .failure(.certChanged) }
+            certSPKI = observed
+        }
+        return .success(Proven(key: key, certSPKI: certSPKI))
     }
 }
 
@@ -55,7 +111,8 @@ public actor GatewayConnection {
     public enum Outcome: Equatable, Sendable {
         case paired(deviceID: String, scopes: [String], stateVersion: Int)
         case pending(code: String)
-        case denied(reason: String)
+        /// `setupTokenInvalid` is the Gateway's machine-readable `code`: the pairing link was used, expired or revoked.
+        case denied(reason: String, setupTokenInvalid: Bool = false)
     }
 
     public nonisolated let events: AsyncStream<WireEventFrame>
@@ -77,6 +134,8 @@ public actor GatewayConnection {
     private var receiver: Task<Void, Never>?
     private var closed = false
 
+    /// The key (and LAN certificate) the Gateway proved in the last handshake; set before anything was signed.
+    public private(set) var proven: IdentityCheck.Proven?
     public private(set) var lastSeq: Int?
     public private(set) var stateVersion: Int?
 
@@ -108,18 +167,23 @@ public actor GatewayConnection {
         do { challenge = try challengeJSON.decode(as: WireConnectChallenge.self) } catch {
             throw ConnectionFailure.protocolError("bad challenge")
         }
-        if let failure = IdentityCheck.verify(
-            challenge: challenge, pinnedKey: endpoint.identityKey, dialedOrigin: endpoint.url,
-            devicePublicKey: identity.publicKey) {
+        let verified = IdentityCheck.verify(
+            challenge: challenge, pin: IdentityCheck.Pin(endpoint: endpoint), dialedOrigin: endpoint.url,
+            devicePublicKey: identity.publicKey, certificate: transport.peerCertificate)
+        let proof: IdentityCheck.Proven
+        switch verified {
+        case .failure(let failure):
             close(reason: .identityMismatch(failure))
             throw ConnectionFailure.identityMismatch(failure)
+        case .success(let value): proof = value
         }
+        proven = proof
         let signed = ConnectSigning.payload(
             nonce: challenge.nonce, platform: "ios", deviceFamily: "ios",
             protocolVersion: challenge.protocolVersion, serverOrigin: challenge.serverOrigin,
-            gatewayKey: endpoint.identityKey)
+            gatewayKey: proof.key)
         let verify = WireConnectVerifyParams(
-            nonce: challenge.nonce, signature: try identity.sign(signed), gatewayKey: endpoint.identityKey,
+            nonce: challenge.nonce, signature: try identity.sign(signed), gatewayKey: proof.key,
             setupToken: setupToken)
         let resultJSON = try await call("connect.verify", params: try JSONValue(encoding: verify), timeout: timeout)
         let result: WireConnectResult
@@ -133,7 +197,7 @@ public actor GatewayConnection {
                 deviceID: result.deviceId ?? identity.deviceId, scopes: result.scopes ?? [],
                 stateVersion: result.stateVersion ?? 0)
         case "pending": return .pending(code: result.code ?? "")
-        default: return .denied(reason: result.reason ?? "denied")
+        default: return .denied(reason: result.reason ?? "denied", setupTokenInvalid: result.code == "setup_token_invalid")
         }
     }
 

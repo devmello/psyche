@@ -213,6 +213,10 @@ public struct WireConnectChallenge: Codable, Sendable, Equatable {
     /// The Gateway's identity public key and its signature over the challenge (remote-gateway design §3.3).
     public var gatewayKey: String?
     public var gatewaySignature: String?
+    /// LAN listener only: the SHA-256 (base64url) of the SPKI of the TLS certificate this connection was served
+    /// with, and the Gateway key's signature over it (`LanCertSigning`).
+    public var lanCertSpki: String?
+    public var lanCertSignature: String?
 }
 
 /// `connect.verify` params.

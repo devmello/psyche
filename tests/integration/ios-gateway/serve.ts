@@ -1,5 +1,5 @@
 import { createInterface } from "node:readline";
-import { Methods } from "@psyche/protocol";
+import { createSetupToken, insertDevice } from "@psyche/db";
 import { startSkeleton } from "../walking-skeleton/harness.ts";
 import { MAIN, ScriptedModel, say, UTILITY } from "../walking-skeleton/scripted-model.ts";
 
@@ -8,7 +8,8 @@ import { MAIN, ScriptedModel, say, UTILITY } from "../walking-skeleton/scripted-
  * the walking-skeleton rig (composed `psyched`, temporary `$PSYCHE_HOME`, scripted model) listening on
  * loopback. It prints one JSON line when ready, then reads commands on stdin:
  *
- *   approve  approve the newest pending device with read, write and approvals (the owner, on the Mac)
+ *   enroll <deviceId> <publicKey>  the owner pairs this phone (read, write, approvals), as approving it on the Mac does
+ *   tokens   print the status of every setup token made (`live`, `used`, ...), never the token
  *   stop     shut down (so does closing stdin)
  *
  * Run: `node tests/integration/ios-gateway/serve.ts`.
@@ -34,29 +35,13 @@ const info = await admin.call<{ identity: { publicKey: string; fingerprint: stri
   "gateway.info",
 );
 
-// A pairing link. With `devices.pairing.createLink` (remote Gateway R2) it is a real one; without it
-// the link is built here with a placeholder token, which a Gateway that predates setup tokens ignores.
-const bytes = (start: number): string =>
-  Buffer.from(Uint8Array.from({ length: 32 }, (_, i) => start + i)).toString("base64url");
-let link: string;
-let realLink = false;
-if ("devices.pairing.createLink" in Methods) {
-  const made = await admin.call<{ link: string }>(
-    "devices.pairing.createLink",
-    { gatewayUrl: origin },
-    true,
-  );
-  link = made.link;
-  realLink = true;
-} else {
-  const json = JSON.stringify({
-    gatewayUrl: origin,
-    gatewayIdentityKey: info.identity.publicKey,
-    setupToken: bytes(0),
-    hostName: "ios-test-host",
-  });
-  link = `psyche-pair:v1:${Buffer.from(json).toString("base64url")}`;
-}
+// A real one-time setup token, minted the way `devices.setupToken.create` does. That method refuses a Gateway
+// with no public origin (this one listens on loopback), and main's pairing links name an https origin that is
+// never loopback, so the phone's test builds its link from these parts and dials the loopback origin.
+const mint = (): string =>
+  createSetupToken(sk.composed.db, {
+    scopes: ["operator.read", "operator.write", "operator.approvals"],
+  }).token;
 
 emit(
   JSON.stringify({
@@ -65,8 +50,8 @@ emit(
     identityKey: info.identity.publicKey,
     fingerprint: info.identity.fingerprint,
     reply: REPLY,
-    link,
-    realLink,
+    setupToken: mint(),
+    spareSetupToken: mint(),
   }),
 );
 
@@ -88,22 +73,29 @@ lines.on("line", async (line) => {
 });
 
 async function handle(command: string): Promise<void> {
-  if (command === "stop") {
+  const [verb, deviceId, publicKey] = command.split(" ");
+  if (verb === "stop") {
     await stop();
-  } else if (command === "approve") {
-    const { pairingRequests } = await admin.call<{
-      pairingRequests: { id: string; kind: string }[];
-    }>("devices.pairing.list", {});
-    const request = pairingRequests.filter((r) => r.kind === "device").at(-1);
-    if (!request) {
-      emit(JSON.stringify({ approved: false, reason: "no pending request" }));
-      return;
-    }
-    await admin.call("devices.approve", {
-      pairingRequestId: request.id,
+  } else if (verb === "enroll" && deviceId && publicKey) {
+    // The Gateway takes a setup token from a new device only when it is the desktop app (auth.ts, "the phone
+    // comes later"), so the phone is paired the way an owner's approval pairs it, then presents its link.
+    insertDevice(sk.composed.db, {
+      id: deviceId,
+      name: "Test iPhone",
+      platform: "ios",
+      role: "client",
+      publicKey,
       scopes: ["operator.read", "operator.write", "operator.approvals"],
+      pairedAt: new Date().toISOString(),
+      deviceFamily: "ios",
     });
-    emit(JSON.stringify({ approved: true }));
+    emit(JSON.stringify({ enrolled: true }));
+  } else if (verb === "tokens") {
+    const { setupTokens } = await admin.call<{ setupTokens: { status: string }[] }>(
+      "devices.setupToken.list",
+      {},
+    );
+    emit(JSON.stringify({ tokens: setupTokens.map((t) => t.status) }));
   }
 }
 lines.on("close", () => void stop());

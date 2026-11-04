@@ -5,7 +5,7 @@ import PsycheShared
 public struct PairingPreview: Equatable, Sendable {
     public var hostName: String
     public var host: String
-    /// "7F3A 91C2 E04B": the first bytes of SHA-256 of the identity key in the link. The Mac shows the same.
+    /// "7F3A 91C2 E04B": the first bytes of the link's sha256: fingerprint of the Gateway key. The Mac shows the same.
     public var fingerprint: String
     public var transport: GatewayEndpoint.Transport
 

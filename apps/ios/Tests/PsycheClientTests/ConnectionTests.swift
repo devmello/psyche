@@ -17,6 +17,13 @@ struct ConnectionTests {
             url: FakeGateway.origin, identityKey: FakeGateway.publicKey, hostName: "studio-mac")
     }
 
+    /// An endpoint pinned only by the link's fingerprint, as on the first connect of a pairing.
+    static func linkOnlyEndpoint(fingerprint: String = PairingLink.fingerprint(ofKey: FakeGateway.publicKey)!) -> GatewayEndpoint {
+        GatewayEndpoint(
+            host: "studio-mac.local", fingerprint: "AAAA BBBB CCCC", transport: .lan,
+            url: FakeGateway.origin, identityKey: "", hostName: "studio-mac", linkFingerprint: fingerprint)
+    }
+
     func connection(_ gateway: FakeGateway) -> GatewayConnection {
         GatewayConnection(
             endpoint: Self.endpoint(), identity: DeviceIdentity(), deviceName: "iPhone", transport: gateway.makeTransport())
@@ -70,9 +77,9 @@ struct ConnectionTests {
     @Test func reportsPendingWithTheCodeAndDeniedWithTheReason() async throws {
         let pending = FakeGateway(behavior: .pending(code: "482917"))
         #expect(try await connection(pending).handshake(setupToken: nil) == .pending(code: "482917"))
-        let denied = FakeGateway(behavior: .denied(reason: "this pairing link expired or was already used; make a new one on the Host"))
+        let denied = FakeGateway(behavior: .denied(reason: "This pairing link was already used, has expired or was revoked.", setupTokenInvalid: true))
         #expect(try await connection(denied).handshake(setupToken: Self.token)
-            == .denied(reason: "this pairing link expired or was already used; make a new one on the Host"))
+            == .denied(reason: "This pairing link was already used, has expired or was revoked.", setupTokenInvalid: true))
     }
 
     @Test func callsCorrelateByIdEvenWhenAnsweredOutOfOrder() async throws {
@@ -130,5 +137,79 @@ struct ConnectionTests {
         try await Task.sleep(for: .milliseconds(30))
         await conn.close()
         await #expect(throws: ConnectionFailure.closed) { _ = try await pending.value }
+    }
+
+    // MARK: - Pinning by the link's fingerprint
+
+    @Test func theFirstConnectAcceptsTheKeyThatHashesToTheLinkFingerprintAndReportsIt() async throws {
+        let gateway = FakeGateway()
+        let conn = GatewayConnection(
+            endpoint: Self.linkOnlyEndpoint(), identity: DeviceIdentity(), deviceName: "iPhone", transport: gateway.makeTransport())
+        _ = try await conn.handshake(setupToken: Self.token)
+        #expect(await conn.proven == IdentityCheck.Proven(key: FakeGateway.publicKey, certSPKI: nil))
+        // The connect is bound to the key the Gateway proved, which the link only named by hash.
+        let verify = try #require(gateway.received.first { $0.method == "connect.verify" })
+        #expect(verify.params?["gatewayKey"]?.stringValue == FakeGateway.publicKey)
+    }
+
+    @Test func aGatewayWhoseKeyDoesNotHashToTheLinkFingerprintGetsNothing() async {
+        let gateway = FakeGateway()
+        let other = PairingLink.fingerprint(ofKey: Base64URL.encode(Data(repeating: 3, count: 32)))!
+        let conn = GatewayConnection(
+            endpoint: Self.linkOnlyEndpoint(fingerprint: other), identity: DeviceIdentity(), deviceName: "iPhone",
+            transport: gateway.makeTransport())
+        await #expect(throws: ConnectionFailure.identityMismatch(.keyChanged)) { _ = try await conn.handshake(setupToken: Self.token) }
+        #expect(gateway.received.map(\.method) == ["connect"])
+    }
+
+    // MARK: - A self-signed LAN certificate
+
+    static let seenSPKI = Base64URL.encode(Data(repeating: 9, count: 32))
+
+    private func lanConnection(_ gateway: FakeGateway, pinnedSPKI: String? = nil) -> GatewayConnection {
+        var endpoint = Self.linkOnlyEndpoint()
+        endpoint.lanCertSpki = pinnedSPKI
+        return GatewayConnection(endpoint: endpoint, identity: DeviceIdentity(), deviceName: "iPhone", transport: gateway.makeTransport())
+    }
+
+    @Test func aLanGatewayThatVouchesForTheCertificateItServedIsAccepted() async throws {
+        let gateway = FakeGateway()
+        gateway.certificate = .selfSigned(spki: Self.seenSPKI)
+        let conn = lanConnection(gateway)
+        _ = try await conn.handshake(setupToken: Self.token)
+        #expect(await conn.proven == IdentityCheck.Proven(key: FakeGateway.publicKey, certSPKI: Self.seenSPKI))
+    }
+
+    @Test(arguments: [
+        (FakeGateway.Vouch.omitted, IdentityCheck.Failure.certMissing),
+        (.badSignature, .certInvalid),
+        (.otherCertificate, .certChanged),
+    ])
+    func aLanGatewayThatDoesNotVouchForThisCertificateGetsNothing(vouch: FakeGateway.Vouch, failure: IdentityCheck.Failure) async {
+        let gateway = FakeGateway()
+        gateway.certificate = .selfSigned(spki: Self.seenSPKI)
+        gateway.vouch = vouch
+        let conn = lanConnection(gateway)
+        await #expect(throws: ConnectionFailure.identityMismatch(failure)) { _ = try await conn.handshake(setupToken: Self.token) }
+        // No setup token and no signature left the phone.
+        #expect(gateway.received.map(\.method) == ["connect"])
+    }
+
+    @Test func aPinnedCertificateMustBeThePresentedOne() async throws {
+        let gateway = FakeGateway()
+        gateway.certificate = .selfSigned(spki: Self.seenSPKI)
+        let other = Base64URL.encode(Data(repeating: 4, count: 32))
+        await #expect(throws: ConnectionFailure.identityMismatch(.certChanged)) {
+            _ = try await lanConnection(gateway, pinnedSPKI: other).handshake(setupToken: nil)
+        }
+        let again = FakeGateway()
+        again.certificate = .selfSigned(spki: Self.seenSPKI)
+        _ = try await lanConnection(again, pinnedSPKI: Self.seenSPKI).handshake(setupToken: nil)
+    }
+
+    @Test func aCertificateTheSystemTrustsNeedsNoVouching() async throws {
+        let gateway = FakeGateway()
+        gateway.certificate = .trusted
+        _ = try await connection(gateway).handshake(setupToken: nil)
     }
 }

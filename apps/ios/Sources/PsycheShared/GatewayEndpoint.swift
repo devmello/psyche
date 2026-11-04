@@ -22,15 +22,24 @@ public struct GatewayEndpoint: Hashable, Sendable, Codable {
     /// The Gateway's origin from the pairing link: `https://host[:port]`, or `http://` for loopback.
     /// Empty only for fixture endpoints.
     public var url: String
-    /// The pinned Gateway identity key, base64url raw Ed25519 (43 characters). Empty only for fixtures.
+    /// The pinned Gateway identity key, base64url raw Ed25519 (43 characters). Empty until the first connect
+    /// proves a key that hashes to `linkFingerprint`, and for fixtures.
     public var identityKey: String
     /// The Host's name, "studio-mac".
     public var hostName: String
+    /// `sha256:<hex>` of the Gateway key, from the pairing link. Pins the Gateway until `identityKey` is stored.
+    public var linkFingerprint: String?
+    /// SHA-256 (base64url) of the SPKI of the self-signed certificate a LAN Gateway served when this phone first
+    /// connected. Later connections must present the same certificate.
+    public var lanCertSpki: String?
 
     public init(
         host: String, fingerprint: String, transport: Transport,
-        url: String = "", identityKey: String = "", hostName: String = ""
+        url: String = "", identityKey: String = "", hostName: String = "",
+        linkFingerprint: String? = nil, lanCertSpki: String? = nil
     ) {
+        self.linkFingerprint = linkFingerprint
+        self.lanCertSpki = lanCertSpki
         self.host = host
         self.fingerprint = fingerprint
         self.transport = transport
