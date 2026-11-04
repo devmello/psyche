@@ -14,7 +14,7 @@ struct RouteView: View {
             ThreadView(id: id, store: store)
         case .project(let id): placeholder("Project", id)
         case .person(let id): placeholder("Person", id)
-        case .file(let id): placeholder("File", id)
+        case .file(let id): LibraryItemView(id: id)
         }
     }
 
