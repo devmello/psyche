@@ -81,7 +81,8 @@ export function remotePasskeys(b: PsycheBridge): PasskeyHostPort {
   return {
     deviceId: async () => {
       const id = (await b.gateway.deviceId()) as string | undefined;
-      if (id === undefined) throw new GatewayCallError({ code: "unavailable", message: "Not connected" });
+      if (id === undefined)
+        throw new GatewayCallError({ code: "unavailable", message: "Not connected" });
       return id;
     },
     authenticator: {

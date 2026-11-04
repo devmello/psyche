@@ -78,7 +78,11 @@ export class NotificationRelay {
       body: x.body.slice(0, 400),
       route,
       urgency:
-        x.interruption === "timeSensitive" ? "critical" : x.interruption === "passive" ? "low" : "normal",
+        x.interruption === "timeSensitive"
+          ? "critical"
+          : x.interruption === "passive"
+            ? "low"
+            : "normal",
     };
   }
 

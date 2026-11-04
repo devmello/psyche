@@ -4,7 +4,7 @@ import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { ApprovalCard } from "../src/blocks/ApprovalCard.tsx";
 import { createFixtureWorld, FIXTURE_NOW } from "../src/fixtures/index.ts";
-import { UiSlotsProvider, type UiSlots } from "../src/slots.tsx";
+import { type UiSlots, UiSlotsProvider } from "../src/slots.tsx";
 
 /**
  * A card on a client of another computer's Gateway (remote-gateway design §6.2, owner decision
@@ -43,7 +43,9 @@ describe("risky card on a remote client", () => {
   const risky = () => approval({ requiresAuthentication: true });
 
   it("without a passkey says where to answer, and Allow stays off", async () => {
-    const onAnswer = show(risky(), { remotePresence: { hostName: "studio-mac", hasPasskey: false } });
+    const onAnswer = show(risky(), {
+      remotePresence: { hostName: "studio-mac", hasPasskey: false },
+    });
     expect(screen.getByTestId("answer-on-host").textContent).toContain("Answer on studio-mac");
     expect(allow().disabled).toBe(true);
     await userEvent.click(allow());
@@ -51,13 +53,17 @@ describe("risky card on a remote client", () => {
   });
 
   it("Deny still works without a passkey", async () => {
-    const onAnswer = show(risky(), { remotePresence: { hostName: "studio-mac", hasPasskey: false } });
+    const onAnswer = show(risky(), {
+      remotePresence: { hostName: "studio-mac", hasPasskey: false },
+    });
     await userEvent.click(screen.getByRole("button", { name: "Deny" }));
     expect(onAnswer).toHaveBeenCalledWith("deny", undefined, undefined);
   });
 
   it("with a passkey Allow is on and there is no 'Answer on' line", async () => {
-    const onAnswer = show(risky(), { remotePresence: { hostName: "studio-mac", hasPasskey: true } });
+    const onAnswer = show(risky(), {
+      remotePresence: { hostName: "studio-mac", hasPasskey: true },
+    });
     expect(screen.queryByTestId("answer-on-host")).toBeNull();
     expect(allow().disabled).toBe(false);
     await userEvent.click(allow());
@@ -67,10 +73,9 @@ describe("risky card on a remote client", () => {
 
 describe("ordinary card on a remote client", () => {
   it("needs no passkey (G3)", async () => {
-    const onAnswer = show(
-      approval({ requiresAuthentication: false, deviceOnly: false }),
-      { remotePresence: { hostName: "studio-mac", hasPasskey: false } },
-    );
+    const onAnswer = show(approval({ requiresAuthentication: false, deviceOnly: false }), {
+      remotePresence: { hostName: "studio-mac", hasPasskey: false },
+    });
     expect(screen.queryByTestId("answer-on-host")).toBeNull();
     expect(allow().disabled).toBe(false);
     await userEvent.click(allow());

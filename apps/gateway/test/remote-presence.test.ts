@@ -5,7 +5,11 @@ import { presenceChallenge } from "@psyche/permissions";
 import type { ApprovalRequest } from "@psyche/protocol";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
-import { type ComposedGateway, composeGateway, webauthnChallengeFor } from "../src/compose/index.ts";
+import {
+  type ComposedGateway,
+  composeGateway,
+  webauthnChallengeFor,
+} from "../src/compose/index.ts";
 import { silentLogger } from "../src/log.ts";
 import { adminClient, ik, type TestClient } from "./helpers.ts";
 import { SoftAuthenticator } from "./soft-authenticator.ts";
@@ -88,7 +92,11 @@ async function card(
   return { approval: got.approval, token: got.answerToken ?? "" };
 }
 
-function assertion(auth: SoftAuthenticator, deviceId: string, c: { approval: ApprovalRequest; token: string }) {
+function assertion(
+  auth: SoftAuthenticator,
+  deviceId: string,
+  c: { approval: ApprovalRequest; token: string },
+) {
   const challenge = presenceChallenge(c.approval.id, c.approval.bindingHash, c.token);
   const a = auth.get(webauthnChallengeFor(challenge));
   return {

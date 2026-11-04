@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  type ConnectionState,
   ChatOutbox,
+  type ConnectionState,
   type GatewayClient,
   GatewayRequestError,
   type OutboxItem,

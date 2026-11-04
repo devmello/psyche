@@ -147,6 +147,7 @@ describe("passkey channels", () => {
     expect(checkPasskeyOptions(IPC.passkeyGet, { challenge: "c" })).toEqual({ challenge: "c" });
     expect(checkIdempotencyKey(undefined)).toBeUndefined();
     expect(checkIdempotencyKey("outbox:7f3a-12")).toBe("outbox:7f3a-12");
-    for (const bad of ["", "a b", "x".repeat(129), 7]) expect(() => checkIdempotencyKey(bad)).toThrow();
+    for (const bad of ["", "a b", "x".repeat(129), 7])
+      expect(() => checkIdempotencyKey(bad)).toThrow();
   });
 });

@@ -149,7 +149,11 @@ describe("renderer bridge", () => {
             calls.push("get");
             return {
               ok: false,
-              error: { code: "cancelled", message: "cancelled", details: { name: "NotAllowedError" } },
+              error: {
+                code: "cancelled",
+                message: "cancelled",
+                details: { name: "NotAllowedError" },
+              },
             };
           },
         },

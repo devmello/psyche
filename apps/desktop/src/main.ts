@@ -45,14 +45,14 @@ import {
 } from "./lib/gateways.ts";
 import {
   checkCallable,
-  checkIdempotencyKey,
-  checkPasskeyOptions,
   checkClipboardText,
   checkComposerText,
   checkExternalUrl,
   checkHttpUrl,
+  checkIdempotencyKey,
   checkMainRoute,
   checkNotifyRoute,
+  checkPasskeyOptions,
   checkRoute,
   checkViewport,
   IPC,
@@ -63,8 +63,6 @@ import {
   str,
 } from "./lib/ipc.ts";
 import { NotificationRelay } from "./lib/notify-relay.ts";
-import { PasskeyHost } from "./main/passkey-host.ts";
-import { createPasskeyWindow } from "./main/passkey-window.ts";
 import { pairingEdge } from "./lib/pairing-edge.ts";
 import { realChromeOpenCommand, realChromeProfileDir } from "./lib/real-chrome.ts";
 import { checkSourceOpen, openSource } from "./lib/source-open.ts";
@@ -95,6 +93,8 @@ import {
 } from "./main/helper-launcher.ts";
 import { LoginItem } from "./main/login-item.ts";
 import { buildAppMenu } from "./main/menu.ts";
+import { PasskeyHost } from "./main/passkey-host.ts";
+import { createPasskeyWindow } from "./main/passkey-window.ts";
 import { perfHold, perfProbeFile, startProbe, watchFirstPaint } from "./main/perf-probe.ts";
 import {
   createPermissions,

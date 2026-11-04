@@ -221,7 +221,8 @@ const bridge = {
    * the raw envelope: the card needs the error's `details.name` to tell a cancel from a failure.
    */
   passkeys: {
-    create: (options: unknown) => ipcRenderer.invoke(IPC.passkeyCreate, options) as Promise<Envelope>,
+    create: (options: unknown) =>
+      ipcRenderer.invoke(IPC.passkeyCreate, options) as Promise<Envelope>,
     get: (options: unknown) => ipcRenderer.invoke(IPC.passkeyGet, options) as Promise<Envelope>,
   },
   /** Copies text to the system clipboard (#507). */

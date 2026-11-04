@@ -28,9 +28,7 @@ export interface PasskeyHostOptions {
 }
 
 /** What the page script answers: the credential, or the DOMException's name and message. */
-type PageResult =
-  | { ok: true; credential: unknown }
-  | { ok: false; name: string; message: string };
+type PageResult = { ok: true; credential: unknown } | { ok: false; name: string; message: string };
 
 const NOT_ALLOWED = new Set(["NotAllowedError", "AbortError"]);
 
@@ -94,7 +92,8 @@ export class PasskeyHost {
 
   /** The RP ID the options name must be this Gateway's host, exactly: never a parent domain. */
   #checkRp(kind: "create" | "get", options: Record<string, unknown>): void {
-    const named = kind === "create" ? (isRecord(options.rp) ? options.rp.id : undefined) : options.rpId;
+    const named =
+      kind === "create" ? (isRecord(options.rp) ? options.rp.id : undefined) : options.rpId;
     if (named !== undefined && named !== this.#origin.hostname) {
       throw new PsycheError("forbidden", "That passkey is for a different site than this Gateway");
     }
@@ -115,7 +114,8 @@ export class PasskeyHost {
       await win.load(new URL("/healthz", this.#origin).toString());
       const timeout = new Promise<never>((_, reject) => {
         timer = setTimeout(
-          () => reject(new PsycheError("timeout", "The passkey prompt timed out", { retryable: true })),
+          () =>
+            reject(new PsycheError("timeout", "The passkey prompt timed out", { retryable: true })),
           this.#timeoutMs,
         );
       });
@@ -131,9 +131,13 @@ export class PasskeyHost {
       });
     } catch (err) {
       if (err instanceof PsycheError) throw err;
-      throw new PsycheError("unavailable", "Psyche couldn't reach the Gateway to ask for a passkey", {
-        retryable: true,
-      });
+      throw new PsycheError(
+        "unavailable",
+        "Psyche couldn't reach the Gateway to ask for a passkey",
+        {
+          retryable: true,
+        },
+      );
     } finally {
       if (timer !== undefined) clearTimeout(timer);
       win.close();

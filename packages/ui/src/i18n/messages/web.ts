@@ -112,6 +112,21 @@ export const web = {
   "web.passkeys.waiting": "Waiting for the passkey…",
   "web.passkeys.add": "Add a passkey",
   "web.passkeys.confirmFirst": "You'll confirm with an existing passkey first.",
+  "web.remotePresence.title": "Touch ID for approvals",
+  "web.remotePresence.description":
+    "Purchases, credential fills, host commands and security changes need Touch ID. Set it up on this computer to answer them here; until then those cards say to answer on {host}. Ordinary approvals never need it.",
+  "web.remotePresence.on": "Touch ID is on for approvals from this computer.",
+  "web.remotePresence.off": "Touch ID isn't set up on this computer.",
+  "web.remotePresence.enable": "Use Touch ID for approvals on this computer",
+  "web.remotePresence.disable": "Turn off",
+  "web.remotePresence.waiting": "Waiting for Touch ID…",
+  "web.remotePresence.passkeyName": "Touch ID on this computer",
+  "web.remotePresence.enabled": "Touch ID is on for approvals from this computer.",
+  "web.remotePresence.disabled": "Touch ID for approvals is off on this computer.",
+  "web.remotePresence.approveOnHost":
+    "Approve “Add a passkey” on {host}, with Touch ID or a passkey, then press the button again.",
+  "web.remotePresence.unavailable":
+    "Touch ID needs {host}'s Gateway at an https:// address (gateway.publicOrigin). Until then, answer those cards on {host}.",
   "web.webauthn.noPasskey": "No passkey was used.",
   "web.webauthn.noPasskeyYet":
     "This browser has no passkey yet. Add one in Settings → Devices, or approve with Touch ID on the Mac.",

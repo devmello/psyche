@@ -60,10 +60,7 @@ export class ChatOutbox {
   #items: OutboxItem[];
   #flushing: Promise<FlushResult> | null = null;
 
-  constructor(
-    storage: OutboxStorage,
-    options: { storageKey?: string; now?: () => string } = {},
-  ) {
+  constructor(storage: OutboxStorage, options: { storageKey?: string; now?: () => string } = {}) {
     this.#storage = storage;
     this.#storageKey = options.storageKey ?? "psyche.chat-outbox.v1";
     this.#now = options.now ?? (() => new Date().toISOString());
