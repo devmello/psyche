@@ -117,4 +117,35 @@ final class SearchUITests: PsycheUITestCase {
         clear.tap()
         waitGone(text("Recent searches"), 5)
     }
+
+    /// Passages are read only after the explicit button; a chip opens the source (or says to open it on the Mac);
+    /// the follow-up box sends the turn before it.
+    func testAnswerFromPassagesThenChipThenFollowUp() {
+        launch()
+        search("rent")
+        let chips = app.buttons.matching(identifier: "passage-chip")
+        let button = app.buttons["answer-from-passages"]
+        tapWhenHittable(button)
+        let mail = chips.matching(NSPredicate(format: "label CONTAINS %@", "Re: November rent")).firstMatch
+        waitFor(mail, 10)
+        waitGone(button, 5)
+
+        // A chip the phone may open: the passage text, read only.
+        tapWhenHittable(mail)
+        waitFor(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "bank switch settles")).firstMatch, 10)
+        app.buttons["Done"].tap()
+
+        // One it may not: says so.
+        let notes = chips.matching(NSPredicate(format: "label CONTAINS %@", "Autopay and the bank")).firstMatch
+        tapWhenHittable(notes)
+        waitFor(match("Open on your Mac"), 10)
+        app.buttons["Done"].tap()
+
+        // The follow-up box.
+        let field = app.textFields["follow-up-field"]
+        tapWhenHittable(field)
+        field.typeText("and autopay?")
+        app.buttons["Ask follow-up"].tap()
+        waitFor(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "comes back on December 1")).firstMatch, 10)
+    }
 }
