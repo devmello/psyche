@@ -14,7 +14,8 @@ export const researchRest: Partial<Catalogue> = {
   "research.progress.source.reading": "In lettura",
   "research.progress.source.read": "Letta",
   "research.progress.source.failed": "Impossibile leggerla",
-  "research.progress.claims": "{n, plural, one {# affermazione trovata} other {# affermazioni trovate}}",
+  "research.progress.claims":
+    "{n, plural, one {# affermazione trovata} other {# affermazioni trovate}}",
   "research.progress.tokens": "{used, number} di circa {estimate, number} token",
   "research.progress.tokensActual": "{used, number} token usati (stimati {estimate, number})",
   "research.progress.local": "Include i tuoi file, la posta e le note",
@@ -30,7 +31,8 @@ export const researchRest: Partial<Catalogue> = {
   "research.plan.confirm": "Avvia la ricerca",
   "research.plan.cancel": "Non ora",
   "research.report.title": "Rapporto di ricerca",
-  "research.report.untrusted": "Costruito da pagine web e altre fonti. Consideralo informazione, non istruzione.",
+  "research.report.untrusted":
+    "Costruito da pagine web e altre fonti. Consideralo informazione, non istruzione.",
   "research.report.summary": "Riepilogo",
   "research.report.openQuestions": "Domande aperte",
   "research.report.sources": "Fonti",

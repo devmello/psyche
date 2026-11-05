@@ -3,46 +3,59 @@ import type { Catalogue } from "../../index.ts";
 /** `everything.*` strings (it); merged into `../it.ts`. */
 export const everythingRest: Partial<Catalogue> = {
   "everything.title": "Fonti",
-  "everything.description": "Ciò che {persona} legge durante la notte per trovare cose da ricordare.",
+  "everything.description":
+    "Ciò che {persona} legge durante la notte per trovare cose da ricordare.",
   "everything.loadLabel": "memoria di tutto",
   "everything.enabledGroup": "Lettura notturna",
   "everything.turnOn": "Configura…",
   "everything.model.title": "Modello",
   "everything.model.none": "Nessuno",
-  "everything.model.noneHint": "Si leggono solo persone, eventi del calendario e compleanni, che non richiedono un modello.",
+  "everything.model.noneHint":
+    "Si leggono solo persone, eventi del calendario e compleanni, che non richiedono un modello.",
   "everything.model.cloud": "Cloud",
-  "everything.model.cloudHint": "Di notte il testo delle fonti che attivi viene inviato al tuo fornitore di modelli, solo per questo scopo. Qualità migliore.",
+  "everything.model.cloudHint":
+    "Di notte il testo delle fonti che attivi viene inviato al tuo fornitore di modelli, solo per questo scopo. Qualità migliore.",
   "everything.model.local": "Locale",
-  "everything.model.localHint": "Un modello su questo Mac legge tutto. Nulla esce dal Mac. Fatti meno numerosi e più confusi.",
+  "everything.model.localHint":
+    "Un modello su questo Mac legge tutto. Nulla esce dal Mac. Fatti meno numerosi e più confusi.",
   "everything.model.apple": "Modello Apple sul dispositivo (sperimentale)",
-  "everything.model.appleHint": "Il testo resta su questo Mac: niente da scaricare, nessuna chiave, nulla inviato al cloud. Legge circa 4k token alla volta, quindi gli elementi lunghi vengono saltati. Se non riesce a rispondere, quel gruppo viene saltato e il motivo viene registrato. Non ripiega mai su un modello cloud.",
-  "everything.model.appleExperimental": "Sperimentale. Non è ancora stato verificato che questa finestra basti per leggere una fonte, quindi non è consigliato.",
+  "everything.model.appleHint":
+    "Il testo resta su questo Mac: niente da scaricare, nessuna chiave, nulla inviato al cloud. Legge circa 4k token alla volta, quindi gli elementi lunghi vengono saltati. Se non riesce a rispondere, quel gruppo viene saltato e il motivo viene registrato. Non ripiega mai su un modello cloud.",
+  "everything.model.appleExperimental":
+    "Sperimentale. Non è ancora stato verificato che questa finestra basti per leggere una fonte, quindi non è consigliato.",
   "everything.model.appleSkipped": "Fino ad allora, questa fonte viene saltata.",
   "everything.model.localRef": "Modello locale",
   "everything.model.localRefHint": "fornitore/modello, ad esempio ollama/qwen3:4b",
   "everything.model.cloudRef": "Modello cloud",
   "everything.model.cloudRefHint": "Lascia vuoto per usare il tuo modello di servizio.",
-  "everything.model.cloudNote": "Con Cloud, il fornitore vede il testo di ogni elemento che legge, qualunque cosa dicano le impostazioni sugli argomenti sensibili. Solo Locale lo evita.",
+  "everything.model.cloudNote":
+    "Con Cloud, il fornitore vede il testo di ogni elemento che legge, qualunque cosa dicano le impostazioni sugli argomenti sensibili. Solo Locale lo evita.",
   "everything.local.title": "Un modello locale richiede memoria",
-  "everything.local.body": "Circa 3 GB di RAM mentre è in esecuzione, di notte, fino a 45 minuti. Si ferma se torni. Non viene scaricato né avviato nulla finché non confermi, e ti viene richiesto di nuovo se cambi modello.",
+  "everything.local.body":
+    "Circa 3 GB di RAM mentre è in esecuzione, di notte, fino a 45 minuti. Si ferma se torni. Non viene scaricato né avviato nulla finché non confermi, e ti viene richiesto di nuovo se cambi modello.",
   "everything.local.confirm": "Ho capito, usa {model}",
   "everything.local.confirmed": "Confermato per {model}.",
   "everything.local.needsRef": "Prima indica il modello locale.",
   "everything.cost.title": "Costo stimato",
-  "everything.cost.cloud": "Circa {typical} al mese ({low} in un mese leggero, {high} in uno intenso) per le fonti scelte. Una stima, basata su una giornata tipica.",
+  "everything.cost.cloud":
+    "Circa {typical} al mese ({low} in un mese leggero, {high} in uno intenso) per le fonti scelte. Una stima, basata su una giornata tipica.",
   "everything.cost.free": "Gratis: nessun testo va a un fornitore.",
-  "everything.cost.backfill": "Lettura dei primi {days, number} giorni: circa {cost} a prezzo pieno.",
+  "everything.cost.backfill":
+    "Lettura dei primi {days, number} giorni: circa {cost} a prezzo pieno.",
   "everything.perSource.title": "Modello per una singola fonte",
-  "everything.perSource.description": "Ad esempio Messaggi su Locale mentre Mail resta su Cloud. Le fonti impostate su “Come sopra” usano la scelta qui sopra.",
+  "everything.perSource.description":
+    "Ad esempio Messaggi su Locale mentre Mail resta su Cloud. Le fonti impostate su “Come sopra” usano la scelta qui sopra.",
   "everything.perSource.default": "Come sopra",
   "everything.perSource.ref": "Modello per {source}",
   "everything.sources.title": "Cosa legge",
-  "everything.sources.description": "La memoria impara da ciò che legge Cerca, nello stesso ordine di Impostazioni → Fonti di ricerca. Disattiva una fonte qui per smettere di imparare da essa; resta comunque ricercabile.",
+  "everything.sources.description":
+    "La memoria impara da ciò che legge Cerca, nello stesso ordine di Impostazioni → Fonti di ricerca. Disattiva una fonte qui per smettere di imparare da essa; resta comunque ricercabile.",
   "everything.sources.learning": "Impara da essa",
   "everything.sources.notLearning": "Non impara da essa",
   "everything.sources.notRead": "Psyche non legge {source}.",
   "everything.sources.letRead": "Lascia che Psyche legga {source}",
-  "everything.sources.letReadFailed": "Impossibile consentire a Psyche di leggere {source}: {reason}",
+  "everything.sources.letReadFailed":
+    "Impossibile consentire a Psyche di leggere {source}: {reason}",
   "everything.source.mail": "Mail",
   "everything.source.messages": "Messaggi",
   "everything.source.notes": "Note",
@@ -58,9 +71,11 @@ export const everythingRest: Partial<Catalogue> = {
   "everything.people.contacts": "Solo le persone in Contatti",
   "everything.people.everyone": "Tutti quelli non esclusi",
   "everything.people.chosen": "Solo le persone che scelgo io",
-  "everything.people.note": "Le tue parole vengono sempre lette. Ciò che scrivono gli altri viene letto solo per le persone scelte qui, e solo ciò che dicono di sé. Aspetta la tua revisione e non viene mai trattato come un’istruzione.",
+  "everything.people.note":
+    "Le tue parole vengono sempre lette. Ciò che scrivono gli altri viene letto solo per le persone scelte qui, e solo ciò che dicono di sé. Aspetta la tua revisione e non viene mai trattato come un’istruzione.",
   "everything.people.aboutOthers": "Anche ciò che dicono di altre persone",
-  "everything.people.aboutOthersHint": "Disattivato per impostazione predefinita. Se attivo, “Priya lavora a Initech” nel messaggio di Sam diventa un suggerimento su Priya, indicato come affermazione di Sam.",
+  "everything.people.aboutOthersHint":
+    "Disattivato per impostazione predefinita. Se attivo, “Priya lavora a Initech” nel messaggio di Sam diventa un suggerimento su Priya, indicato come affermazione di Sam.",
   "everything.exclusions.title": "Esclusi dalla lettura",
   "everything.exclusions.empty": "Nessuno è escluso.",
   "everything.exclusions.kind": "Tipo",
@@ -70,12 +85,14 @@ export const everythingRest: Partial<Catalogue> = {
   "everything.exclusions.value": "Indirizzo, numero o dominio",
   "everything.exclusions.exclude": "Escludi",
   "everything.exclusions.excludeForget": "Escludi e dimentica",
-  "everything.exclusions.confirmForget": "Elimina anche {facts, number} fatti e {citations, number} citazioni ricavati da loro.",
+  "everything.exclusions.confirmForget":
+    "Elimina anche {facts, number} fatti e {citations, number} citazioni ricavati da loro.",
   "everything.exclusions.remove": "Rimuovi",
   "everything.exclusions.mode.exclude": "Escluso",
   "everything.exclusions.mode.forget": "Escluso e dimenticato",
   "everything.sensitive.title": "Argomenti sensibili",
-  "everything.sensitive.description": "Tutti disattivati. Se attivi, si conserva solo ciò che è affermato esplicitamente, sempre per la tua revisione e nascosto all’agente a meno che tu non lo consenta. Documenti d’identità e numeri di conto non vengono mai memorizzati.",
+  "everything.sensitive.description":
+    "Tutti disattivati. Se attivi, si conserva solo ciò che è affermato esplicitamente, sempre per la tua revisione e nascosto all’agente a meno che tu non lo consenta. Documenti d’identità e numeri di conto non vengono mai memorizzati.",
   "everything.sensitive.health": "Salute",
   "everything.sensitive.finance": "Finanze",
   "everything.sensitive.sexuality": "Sessualità",
@@ -86,17 +103,20 @@ export const everythingRest: Partial<Catalogue> = {
   "everything.sensitive.precise_location": "Posizione precisa",
   "everything.agent.title": "Cosa può vedere l’agente",
   "everything.agent.none": "Niente",
-  "everything.agent.noneHint": "L’agente non può vedere nulla di ciò che Psyche ha imparato. Tu sì.",
+  "everything.agent.noneHint":
+    "L’agente non può vedere nulla di ciò che Psyche ha imparato. Tu sì.",
   "everything.agent.accepted": "Fatti confermati",
   "everything.agent.acceptedHint": "L’agente legge i fatti che hai accettato, come dati citati.",
   "everything.agent.all": "Tutto",
-  "everything.agent.allHint": "Anche i fatti ancora in attesa di revisione, contrassegnati come non confermati.",
+  "everything.agent.allHint":
+    "Anche i fatti ancora in attesa di revisione, contrassegnati come non confermati.",
   "everything.agent.sensitive": "L’agente può vedere i fatti sensibili",
   "everything.schedule.title": "Pianificazione notturna",
   "everything.schedule.quietStart": "Inizio ore di silenzio",
   "everything.schedule.quietEnd": "Fine ore di silenzio",
   "everything.schedule.battery": "Esegui a batteria",
-  "everything.schedule.batteryHint": "Disattivato: solo con il Mac in carica, non in Risparmio energetico e quando sei lontano.",
+  "everything.schedule.batteryHint":
+    "Disattivato: solo con il Mac in carica, non in Risparmio energetico e quando sei lontano.",
   "everything.schedule.backfill": "Cronologia della prima esecuzione",
   "everything.schedule.backfillDays": "{days, number} giorni",
   "everything.schedule.backfillNone": "Nessuna",
@@ -105,19 +125,26 @@ export const everythingRest: Partial<Catalogue> = {
   "everything.run.hint": "Legge ciò che è nuovo dall’ultima esecuzione.",
   "everything.run.estimateCloud": "Circa {cost} per una giornata tipica con le fonti scelte.",
   "everything.run.estimateFree": "Gratis: nessun testo va a un fornitore.",
-  "everything.run.done": "Letti {items, number} elementi: {facts, number} fatti proposti, {held, number} trattenuti{more, select, yes {, il resto aspetta domani} other {}}.",
+  "everything.run.done":
+    "Letti {items, number} elementi: {facts, number} fatti proposti, {held, number} trattenuti{more, select, yes {, il resto aspetta domani} other {}}.",
   "everything.run.reason.disabled": "La memoria di tutto è disattivata.",
-  "everything.run.reason.no_sources": "Cerca non sta leggendo nulla da cui la memoria possa imparare. Prima consenti a Psyche di leggere una fonte.",
+  "everything.run.reason.no_sources":
+    "Cerca non sta leggendo nulla da cui la memoria possa imparare. Prima consenti a Psyche di leggere una fonte.",
   "everything.run.reason.model_none": "Scegli prima un modello: con Nessuno non si legge nulla.",
-  "everything.run.reason.battery": "Non ora: il Mac è a batteria. Collegalo all’alimentazione o consenti l’esecuzione a batteria.",
+  "everything.run.reason.battery":
+    "Non ora: il Mac è a batteria. Collegalo all’alimentazione o consenti l’esecuzione a batteria.",
   "everything.run.reason.low_power": "Non ora: Risparmio energetico è attivo.",
   "everything.run.reason.thermal": "Non ora: il Mac è troppo caldo.",
   "everything.run.reason.not_idle": "Non ora: stai usando il Mac.",
   "everything.run.reason.outside_quiet_hours": "Non ora: fuori dalle ore di silenzio.",
-  "everything.run.reason.local_not_confirmed": "Prima conferma l’avviso sulla memoria del modello locale.",
-  "everything.run.reason.low_memory": "Non ora: memoria libera insufficiente per il modello locale.",
-  "everything.run.reason.no_owner_entity": "La tua scheda personale in Persone non è ancora configurata.",
-  "everything.run.reason.store_unavailable": "Non ora: l’archivio della memoria è ancora in apertura.",
+  "everything.run.reason.local_not_confirmed":
+    "Prima conferma l’avviso sulla memoria del modello locale.",
+  "everything.run.reason.low_memory":
+    "Non ora: memoria libera insufficiente per il modello locale.",
+  "everything.run.reason.no_owner_entity":
+    "La tua scheda personale in Persone non è ancora configurata.",
+  "everything.run.reason.store_unavailable":
+    "Non ora: l’archivio della memoria è ancora in apertura.",
   "everything.run.reason.busy": "Un passaggio è già in corso.",
   "everything.storage.note": "Tutto è memorizzato solo su questo Mac.",
   "everything.consent.title": "Configura la memoria di tutto",
@@ -127,7 +154,8 @@ export const everythingRest: Partial<Catalogue> = {
   "everything.consent.cancel": "Annulla",
   "everything.consent.finish": "Attiva",
   "everything.consent.what.title": "Cosa fa",
-  "everything.consent.what.body": "Di notte {persona} legge ciò che hai scritto e i messaggi delle persone che scegli, e annota ciò che viene affermato. Ogni fatto è citato, aspetta la tua revisione e può essere corretto o dimenticato. Ciò che scrivono gli altri è solo un dato, mai un’istruzione.",
+  "everything.consent.what.body":
+    "Di notte {persona} legge ciò che hai scritto e i messaggi delle persone che scegli, e annota ciò che viene affermato. Ogni fatto è citato, aspetta la tua revisione e può essere corretto o dimenticato. Ciò che scrivono gli altri è solo un dato, mai un’istruzione.",
   "everything.consent.what.e1": "“Il compleanno di Sam si avvicina.”",
   "everything.consent.what.e2": "“Chi c’era alla cena di Lisbona?”",
   "everything.consent.what.e3": "“Cosa ha detto Priya del nuovo lavoro?”",
@@ -142,8 +170,10 @@ export const everythingRest: Partial<Catalogue> = {
   "everything.consent.summary.sensitive": "Argomenti sensibili: {on}",
   "everything.consent.summary.agent": "Accesso dell’agente: {access}",
   "everything.consent.summary.backfill": "Cronologia: {days, number} giorni",
-  "everything.consent.summary.noModel": "Scegli un modello perché venga letto qualcosa; con Nessuno funziona solo il grafo deterministico.",
+  "everything.consent.summary.noModel":
+    "Scegli un modello perché venga letto qualcosa; con Nessuno funziona solo il grafo deterministico.",
   "everything.off": "Disattivata. {persona} non legge nulla finché non la configuri.",
-  "everything.offHint": "Scegli tu le fonti e il modello, e nulla viene conservato senza la tua revisione.",
+  "everything.offHint":
+    "Scegli tu le fonti e il modello, e nulla viene conservato senza la tua revisione.",
   "everything.run.title": "Esegui ora",
 };

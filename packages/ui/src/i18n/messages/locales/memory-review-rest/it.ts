@@ -3,8 +3,10 @@ import type { Catalogue } from "../../index.ts";
 /** `memoryReview.*` strings (it); merged into `../it.ts`. */
 export const memoryReviewRest: Partial<Catalogue> = {
   "memoryReview.title": "Revisione",
-  "memoryReview.description": "Fatti che {persona} ha trovato nella tua posta, nei messaggi e nelle note. Nulla viene ricordato finché non lo accetti, e ogni fatto mostra da dove proviene.",
-  "memoryReview.settingsDescription": "Le regole su cosa {persona} può ricordare senza chiedere. I fatti in attesa di te sono nella pagina Memoria.",
+  "memoryReview.description":
+    "Fatti che {persona} ha trovato nella tua posta, nei messaggi e nelle note. Nulla viene ricordato finché non lo accetti, e ogni fatto mostra da dove proviene.",
+  "memoryReview.settingsDescription":
+    "Le regole su cosa {persona} può ricordare senza chiedere. I fatti in attesa di te sono nella pagina Memoria.",
   "memoryReview.link.label": "Coda di revisione",
   "memoryReview.link.open": "Apri in Memoria",
   "memoryReview.loadLabel": "revisione della memoria",
@@ -50,25 +52,32 @@ export const memoryReviewRest: Partial<Catalogue> = {
   "memoryReview.quarantine.reason.new_sender_sensitive": "Sensibile, da un nuovo mittente",
   "memoryReview.quarantine.reason.subject_mismatch": "Nomina qualcuno di cui non parla",
   "memoryReview.quarantine.release": "Rilascia",
-  "memoryReview.quarantine.releaseHint": "Rileggilo ancora una volta; ciò che viene trovato resta comunque in attesa della tua revisione.",
+  "memoryReview.quarantine.releaseHint":
+    "Rileggilo ancora una volta; ciò che viene trovato resta comunque in attesa della tua revisione.",
   "memoryReview.quarantine.discard": "Scarta",
   "memoryReview.quarantine.block": "Blocca mittente",
   "memoryReview.quarantine.excerpt": "Testo dell’elemento (non mostrato formattato):",
   "memoryReview.rules.title": "Accetta senza chiedere",
-  "memoryReview.rules.description": "Tutto il resto aspetta te. I fatti sensibili, i conflitti, le note e le relazioni sì, sempre.",
+  "memoryReview.rules.description":
+    "Tutto il resto aspetta te. I fatti sensibili, i conflitti, le note e le relazioni sì, sempre.",
   "memoryReview.rules.owner": "Cose che hai scritto tu",
-  "memoryReview.rules.ownerHint": "Aggiunti quando non sono sensibili e non contraddicono nulla di ciò che hai detto. Annullabili per una settimana.",
+  "memoryReview.rules.ownerHint":
+    "Aggiunti quando non sono sensibili e non contraddicono nulla di ciò che hai detto. Annullabili per una settimana.",
   "memoryReview.rules.self": "Ciò che le persone dicono di sé",
-  "memoryReview.rules.selfHint": "Per ora da rivedere. Dopo che hai confermato {n, number} fatti di una persona, Psyche si offre di fidarsi di lei.",
+  "memoryReview.rules.selfHint":
+    "Per ora da rivedere. Dopo che hai confermato {n, number} fatti di una persona, Psyche si offre di fidarsi di lei.",
   "memoryReview.senders.title": "Contatti fidati",
-  "memoryReview.senders.offer": "Hai confermato {n, number} cose che {name} ti ha detto di sé e non ne hai scartata nessuna. Vuoi accettare senza chiedere ciò che {name} dice di sé (compleanno, lavoro, città, scuola, preferenze, animali, figli)?",
-  "memoryReview.senders.offerHint": "Tutto ciò che è sensibile, incerto o in conflitto viene comunque rivisto, e puoi annullare per una settimana.",
+  "memoryReview.senders.offer":
+    "Hai confermato {n, number} cose che {name} ti ha detto di sé e non ne hai scartata nessuna. Vuoi accettare senza chiedere ciò che {name} dice di sé (compleanno, lavoro, città, scuola, preferenze, animali, figli)?",
+  "memoryReview.senders.offerHint":
+    "Tutto ciò che è sensibile, incerto o in conflitto viene comunque rivisto, e puoi annullare per una settimana.",
   "memoryReview.senders.trust": "Accetta automaticamente",
   "memoryReview.senders.decline": "Non ora, non chiedere più",
   "memoryReview.senders.trusted": "{name}: accettato automaticamente",
   "memoryReview.senders.revoke": "Interrompi",
   "memoryReview.recent.undoUntil": "Puoi annullare fino al {date}",
-  "memoryReview.waiting": "{n, plural, one {# fatto è in attesa di te} other {# fatti sono in attesa di te}}",
+  "memoryReview.waiting":
+    "{n, plural, one {# fatto è in attesa di te} other {# fatti sono in attesa di te}}",
   "memoryReview.caughtUp": "Non c’è nulla in attesa di revisione.",
   "memoryReview.open": "Revisione",
 };

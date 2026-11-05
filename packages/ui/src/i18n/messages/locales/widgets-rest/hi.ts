@@ -20,7 +20,8 @@ export const widgetsRest: Partial<Catalogue> = {
   "widgets.frame.building": "विजेट बन रहा है…",
   "widgets.app.title": "{server} से ऐप",
   "widgets.app.untrusted": "अविश्वसनीय सामग्री से बना",
-  "widgets.app.note": "यह पेज कनेक्टर से आया है। यह नेटवर्क, आपके टूल या आपके डेटा का उपयोग नहीं कर सकता, और स्वीकृतियाँ नहीं मांग सकता।",
+  "widgets.app.note":
+    "यह पेज कनेक्टर से आया है। यह नेटवर्क, आपके टूल या आपके डेटा का उपयोग नहीं कर सकता, और स्वीकृतियाँ नहीं मांग सकता।",
   "widgets.app.run": "ऐप चलाएँ",
   "widgets.app.hide": "ऐप छिपाएँ",
   "widgets.app.unavailable": "यह ऐप यहाँ नहीं दिखाया जा सकता।",
@@ -49,7 +50,8 @@ export const widgetsRest: Partial<Catalogue> = {
   "widgets.stat.delta": "बदलाव: {delta}",
   "widgets.list.empty": "यहाँ कुछ नहीं है।",
   "widgets.code.label": "कोड",
-  "widgets.chart.summary": "{label}: {kind, select, bar {बार चार्ट} line {लाइन चार्ट} sparkline {स्पार्कलाइन} other {चार्ट}}, {series, plural, one {# सीरीज़} other {# सीरीज़}}, {points, plural, one {# बिंदु} other {# बिंदु}}, {from} से {to} तक, न्यूनतम {min}, अधिकतम {max}{unit}",
+  "widgets.chart.summary":
+    "{label}: {kind, select, bar {बार चार्ट} line {लाइन चार्ट} sparkline {स्पार्कलाइन} other {चार्ट}}, {series, plural, one {# सीरीज़} other {# सीरीज़}}, {points, plural, one {# बिंदु} other {# बिंदु}}, {from} से {to} तक, न्यूनतम {min}, अधिकतम {max}{unit}",
   "widgets.chart.showData": "डेटा दिखाएँ",
   "widgets.chart.hideData": "डेटा छिपाएँ",
   "widgets.chart.series": "सीरीज़",
@@ -76,7 +78,8 @@ export const widgetsRest: Partial<Catalogue> = {
   "widgets.form.choose": "चुनें…",
   "widgets.map.open": "Maps में खोलें",
   "widgets.map.openNamed": "Maps में {name} खोलें",
-  "widgets.bound.status": "{status, select, queued {कतार में} running {चल रहा है} awaiting_input {आपके जवाब की प्रतीक्षा में} awaiting_approval {आपकी स्वीकृति की प्रतीक्षा में} paused {रुका हुआ} done {पूरा} failed {विफल} cancelled {रद्द} pending {लंबित} ok {पूरा} uncertain {पूरा, नतीजा अज्ञात} blocked {अवरुद्ध} working {काम कर रहा है} needs_you {आपकी ज़रूरत है} partial {आंशिक रूप से पूरा} enabled {शेड्यूल किया गया} disabled {रुका हुआ} other {{status}}}",
+  "widgets.bound.status":
+    "{status, select, queued {कतार में} running {चल रहा है} awaiting_input {आपके जवाब की प्रतीक्षा में} awaiting_approval {आपकी स्वीकृति की प्रतीक्षा में} paused {रुका हुआ} done {पूरा} failed {विफल} cancelled {रद्द} pending {लंबित} ok {पूरा} uncertain {पूरा, नतीजा अज्ञात} blocked {अवरुद्ध} working {काम कर रहा है} needs_you {आपकी ज़रूरत है} partial {आंशिक रूप से पूरा} enabled {शेड्यूल किया गया} disabled {रुका हुआ} other {{status}}}",
   "widgets.bound.never": "कभी नहीं",
   "widgets.bound.noNext": "शेड्यूल नहीं",
   "widgets.bound.sources": "{count, plural, one {# स्रोत} other {# स्रोत}}",

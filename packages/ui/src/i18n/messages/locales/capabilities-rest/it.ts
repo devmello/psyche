@@ -3,7 +3,8 @@ import type { Catalogue } from "../../index.ts";
 /** `capabilities.*` strings (it); merged into `../it.ts`. */
 export const capabilitiesRest: Partial<Catalogue> = {
   "capabilities.title": "Cosa sai fare?",
-  "capabilities.lead": "Cose da provare subito. Le schede che richiedono un account si attivano una volta collegato.",
+  "capabilities.lead":
+    "Cose da provare subito. Le schede che richiedono un account si attivano una volta collegato.",
   "capabilities.available": "Pronte da provare",
   "capabilities.locked": "Collega per sbloccare",
   "capabilities.connect": "Collega account",
@@ -19,11 +20,13 @@ export const capabilitiesRest: Partial<Catalogue> = {
   "capabilities.brief.prompt2": "Su cosa dovrei concentrarmi questa settimana?",
   "capabilities.brief.auto": "Riepilogo del mattino alle 7:30 nei giorni feriali",
   "capabilities.meetings.title": "Preparati per le riunioni",
-  "capabilities.meetings.desc": "Chi c’è nella stanza, cosa è stato detto l’ultima volta, cosa chiedere.",
+  "capabilities.meetings.desc":
+    "Chi c’è nella stanza, cosa è stato detto l’ultima volta, cosa chiedere.",
   "capabilities.meetings.prompt1": "Preparami per la mia prossima riunione.",
   "capabilities.meetings.prompt2": "Quali riunioni di oggi richiedono preparazione?",
   "capabilities.inbox.title": "Smista la mia posta in arrivo",
-  "capabilities.inbox.desc": "Distingue ciò che richiede risposta, ciò che può aspettare e ciò che si può ignorare.",
+  "capabilities.inbox.desc":
+    "Distingue ciò che richiede risposta, ciò che può aspettare e ciò che si può ignorare.",
   "capabilities.inbox.prompt1": "Smista la mia posta in arrivo.",
   "capabilities.inbox.prompt2": "Prepara le risposte alle tre email più urgenti.",
   "capabilities.inbox.auto": "Smistamento della posta alle 8:00 nei giorni feriali",
@@ -32,7 +35,8 @@ export const capabilitiesRest: Partial<Catalogue> = {
   "capabilities.reminders.prompt1": "Ricordami di chiamare il dentista venerdì.",
   "capabilities.reminders.prompt2": "Cosa è in ritardo?",
   "capabilities.notes.title": "Trova e scrivi note",
-  "capabilities.notes.desc": "Cerca nelle tue note, riassumi un argomento o archivia una nuova nota.",
+  "capabilities.notes.desc":
+    "Cerca nelle tue note, riassumi un argomento o archivia una nuova nota.",
   "capabilities.notes.prompt1": "Cosa ho scritto sul viaggio del mese scorso?",
   "capabilities.notes.prompt2": "Salva questo come nota.",
   "capabilities.research.title": "Ricerche e risposte",
@@ -45,10 +49,13 @@ export const capabilitiesRest: Partial<Catalogue> = {
   "capabilities.files.prompt2": "Riordina la mia Scrivania (chiedi prima).",
   "capabilities.automate.title": "Automatizza le routine",
   "capabilities.automate.desc": "Descrivi una routine a parole; Psyche la pianifica.",
-  "capabilities.automate.prompt1": "Ogni venerdì alle 4, ricordami di inviare l’aggiornamento settimanale.",
-  "capabilities.automate.prompt2": "Ogni sera controlla il mio calendario e avvisami delle riunioni di domani presto al mattino.",
+  "capabilities.automate.prompt1":
+    "Ogni venerdì alle 4, ricordami di inviare l’aggiornamento settimanale.",
+  "capabilities.automate.prompt2":
+    "Ogni sera controlla il mio calendario e avvisami delle riunioni di domani presto al mattino.",
   "capabilities.available.title": "Disponibili",
-  "capabilities.available.connectorsHint": "Connettori già pronti e del registro che puoi aggiungere. Nulla viene eseguito finché non lo approvi.",
+  "capabilities.available.connectorsHint":
+    "Connettori già pronti e del registro che puoi aggiungere. Nulla viene eseguito finché non lo approvi.",
   "capabilities.available.skillsHint": "Skill installate ma disattivate.",
   "capabilities.search.label": "Cerca connettori disponibili",
   "capabilities.search.skillsLabel": "Cerca skill disponibili",
@@ -56,7 +63,8 @@ export const capabilitiesRest: Partial<Catalogue> = {
   "capabilities.noConnectors": "Nessun connettore corrisponde.",
   "capabilities.noSkills": "Nessuna skill è disattivata.",
   "capabilities.online.label": "Lascia che Psyche cerchi nel registro MCP online",
-  "capabilities.online.hint": "Disattivato per impostazione predefinita. Se attivo, le parole che cerchi vengono inviate al registro MCP ufficiale.",
+  "capabilities.online.hint":
+    "Disattivato per impostazione predefinita. Se attivo, le parole che cerchi vengono inviate al registro MCP ufficiale.",
   "capabilities.badge.official": "Ufficiale",
   "capabilities.badge.unverified": "Non verificato",
   "capabilities.badge.registry": "Dal registro MCP",
@@ -68,10 +76,12 @@ export const capabilitiesRest: Partial<Catalogue> = {
   "capabilities.action.setUp": "Configura",
   "capabilities.action.check": "Controlla server",
   "capabilities.action.turnOn": "Attiva",
-  "capabilities.action.needsKey": "Richiede una chiave o un accesso. Aggiungila dalla galleria dei connettori o dal modulo JSON.",
+  "capabilities.action.needsKey":
+    "Richiede una chiave o un accesso. Aggiungila dalla galleria dei connettori o dal modulo JSON.",
   "capabilities.loading.title": "Quando Psyche lo carica",
   "capabilities.loading.label": "Sempre attivo",
-  "capabilities.loading.hint": "Su richiesta, Psyche trova gli strumenti di questo connettore quando un’attività ne ha bisogno. “Sempre attivo” li invia a ogni richiesta.",
+  "capabilities.loading.hint":
+    "Su richiesta, Psyche trova gli strumenti di questo connettore quando un’attività ne ha bisogno. “Sempre attivo” li invia a ogni richiesta.",
   "capabilities.loading.failed": "Impossibile modificarlo: {reason}",
   "capabilities.card.source": "Fonte",
   "capabilities.card.kind.connector": "Connettore",

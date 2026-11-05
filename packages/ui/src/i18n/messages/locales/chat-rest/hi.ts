@@ -2,7 +2,8 @@ import type { Catalogue } from "../../index.ts";
 
 /** `chat.*` strings (hi); merged into `../hi.ts`. */
 export const chatRest: Partial<Catalogue> = {
-  "chat.offline.waiting": "अभी Gateway तक नहीं पहुँचा जा सकता। आपके भेजे संदेश यहीं रुके रहेंगे और उसके लौटते ही चले जाएँगे।",
+  "chat.offline.waiting":
+    "अभी Gateway तक नहीं पहुँचा जा सकता। आपके भेजे संदेश यहीं रुके रहेंगे और उसके लौटते ही चले जाएँगे।",
   "chat.outbox.list": "भेजे जाने की प्रतीक्षा में संदेश",
   "chat.outbox.waiting": "प्रतीक्षा में:",
   "chat.outbox.old": "(एक दिन से पुराना)",
@@ -44,8 +45,10 @@ export const chatRest: Partial<Catalogue> = {
   "chat.attach.uploading": "{name} अपलोड हो रही है",
   "chat.attach.failed": "{name} अपलोड नहीं हुई",
   "chat.attach.dismiss": "खारिज करें",
-  "chat.attach.refused.image": "{name}: यह मॉडल चित्र नहीं पढ़ सकता, इसलिए सिर्फ़ दस्तावेज़ (PDF, Word, Excel, टेक्स्ट) संलग्न किए जा सकते हैं",
-  "chat.attach.refused.type": "{name}: Psyche इस तरह की फ़ाइल नहीं पढ़ सकता। PDF, Word, Excel, टेक्स्ट या चित्र फ़ाइल संलग्न करें",
+  "chat.attach.refused.image":
+    "{name}: यह मॉडल चित्र नहीं पढ़ सकता, इसलिए सिर्फ़ दस्तावेज़ (PDF, Word, Excel, टेक्स्ट) संलग्न किए जा सकते हैं",
+  "chat.attach.refused.type":
+    "{name}: Psyche इस तरह की फ़ाइल नहीं पढ़ सकता। PDF, Word, Excel, टेक्स्ट या चित्र फ़ाइल संलग्न करें",
   "chat.attach.refused.size": "{name} संलग्न करने के लिए बहुत बड़ी है (चित्र 5 MB, दस्तावेज़ 25 MB)",
   "chat.attach.refused.count": "{name}: एक संदेश के साथ अधिकतम 8 फ़ाइलें जा सकती हैं",
   "chat.message.fromWidget": "विजेट से",
@@ -107,12 +110,15 @@ export const chatRest: Partial<Catalogue> = {
   "chat.thread.retrySend": "फिर कोशिश करें",
   "chat.thread.modeCurrent": "अनुमति मोड: {mode}।",
   "chat.thread.modeSet": "अनुमति मोड अब {mode} है।",
-  "chat.thread.researchPrompt": "/research {question}\n\nअपने research_plan टूल से इस पर गहराई से शोध करो। मुझे योजना और टोकन का अनुमान दिखाओ, और research_run चलाने से पहले मेरी मंज़ूरी का इंतज़ार करो। सिर्फ़ वेब स्रोतों का उपयोग करो।",
-  "chat.thread.researchPromptLocal": "/research {question}\n\nअपने research_plan टूल से इस पर गहराई से शोध करो, मेरी अपनी फ़ाइलों, मेल और नोट्स को भी शामिल करके (includeLocal)। मुझे योजना और टोकन का अनुमान दिखाओ, और research_run चलाने से पहले मेरी मंज़ूरी का इंतज़ार करो।",
+  "chat.thread.researchPrompt":
+    "/research {question}\n\nअपने research_plan टूल से इस पर गहराई से शोध करो। मुझे योजना और टोकन का अनुमान दिखाओ, और research_run चलाने से पहले मेरी मंज़ूरी का इंतज़ार करो। सिर्फ़ वेब स्रोतों का उपयोग करो।",
+  "chat.thread.researchPromptLocal":
+    "/research {question}\n\nअपने research_plan टूल से इस पर गहराई से शोध करो, मेरी अपनी फ़ाइलों, मेल और नोट्स को भी शामिल करके (includeLocal)। मुझे योजना और टोकन का अनुमान दिखाओ, और research_run चलाने से पहले मेरी मंज़ूरी का इंतज़ार करो।",
   "chat.thread.taught": "Psyche याद रखेगा: {lesson}",
   "chat.thread.teachNothing": "अभी सुधारने के लिए कोई जवाब नहीं है।",
   "chat.runFailed.contextLimit": "यह संदेश मॉडल के संदर्भ के लिए बहुत बड़ा है, इसलिए Psyche ने इसे नहीं भेजा।",
-  "chat.runFailed.contextLimitHint": "जगह बनाने के लिए चैट को कॉम्पैक्ट करें, या अटैचमेंट हटाएँ या छोटा करें और फिर से भेजें।",
+  "chat.runFailed.contextLimitHint":
+    "जगह बनाने के लिए चैट को कॉम्पैक्ट करें, या अटैचमेंट हटाएँ या छोटा करें और फिर से भेजें।",
   "chat.runFailed.compact": "चैट कॉम्पैक्ट करें",
   "chat.steps.label": "इस रन के चरण",
   "chat.steps.showAll": "सभी दिखाएँ ({n})",
@@ -153,7 +159,8 @@ export const chatRest: Partial<Catalogue> = {
   "chat.steps.summary.steps": "{n, plural, one {# चरण} other {# चरण}}",
   "chat.steps.summary.failedAt": "चरण {n, number} पर रुका · {label} विफल · {duration}",
   "chat.steps.summary.failed": "रुका · {duration} बाद विफल",
-  "chat.steps.summary.cancelled": "आपने {duration} बाद रोका · {n, plural, one {# चरण} other {# चरण}}",
+  "chat.steps.summary.cancelled":
+    "आपने {duration} बाद रोका · {n, plural, one {# चरण} other {# चरण}}",
   "chat.steps.summary.incognito": "रखा नहीं गया · गुप्त",
   "chat.steps.effect.sentEmails": "{n, plural, one {# ईमेल भेजा} other {# ईमेल भेजे}}",
   "chat.steps.effect.addedEvents": "{n, plural, one {# इवेंट जोड़ा} other {# इवेंट जोड़े}}",
@@ -166,9 +173,11 @@ export const chatRest: Partial<Catalogue> = {
   "chat.clear.palette": "मुख्य चैट साफ़ करें",
   "chat.clear.paletteKeywords": "खाली रीसेट दोबारा शुरू नया मिटाएँ डिलीट संदेश बातचीत",
   "chat.clear.title": "मुख्य चैट साफ़ करें?",
-  "chat.clear.body": "इस चैट के सभी संदेश हटा दिए जाते हैं और {persona} नए सिरे से शुरू करता है। रसीदें और गतिविधि लॉग रखे जाते हैं।",
+  "chat.clear.body":
+    "इस चैट के सभी संदेश हटा दिए जाते हैं और {persona} नए सिरे से शुरू करता है। रसीदें और गतिविधि लॉग रखे जाते हैं।",
   "chat.clear.forget": "{persona} ने इस चैट से जो सीखा, उसे भी भूल जाएँ",
-  "chat.clear.forgetHint": "इस चैट से जो सीखा गया, वह पहले आपकी समीक्षा के लिए मेमोरी में सूचीबद्ध होता है; वहाँ पुष्टि करने तक कुछ नहीं हटता।",
+  "chat.clear.forgetHint":
+    "इस चैट से जो सीखा गया, वह पहले आपकी समीक्षा के लिए मेमोरी में सूचीबद्ध होता है; वहाँ पुष्टि करने तक कुछ नहीं हटता।",
   "chat.clear.busy": "{persona} इस चैट में काम कर रहा है। टर्न पूरा होने पर इसे साफ़ करें।",
   "chat.clear.confirm": "चैट साफ़ करें",
   "chat.clear.clearing": "साफ़ हो रहा है…",

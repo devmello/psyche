@@ -47,7 +47,8 @@ export const screensRest: Partial<Catalogue> = {
   "screens.search.scope.people": "लोग",
   "screens.search.scope.projects": "प्रोजेक्ट",
   "screens.search.sideChatFailed": "साइड चैट खोली नहीं जा सकी: {reason}",
-  "screens.search.indexing": "आपके इतिहास का इंडेक्सिंग हो रहा है: अब तक {n, plural, one {# आइटम} other {# आइटम}}। नतीजे साथ-साथ भरते जाते हैं।",
+  "screens.search.indexing":
+    "आपके इतिहास का इंडेक्सिंग हो रहा है: अब तक {n, plural, one {# आइटम} other {# आइटम}}। नतीजे साथ-साथ भरते जाते हैं।",
   "screens.search.indexFailed": "इंडेक्सिंग रुक गई: {reason}",
   "screens.search.rebuild": "खोज इंडेक्स फिर से बनाएँ",
   "screens.search.rebuilding": "फिर से बन रहा है…",
@@ -71,8 +72,10 @@ export const screensRest: Partial<Catalogue> = {
   "screens.search.chip.type.image": "चित्र",
   "screens.search.chip.type.sheet": "स्प्रेडशीट",
   "screens.search.chip.type.slides": "स्लाइड",
-  "screens.search.relaxed.filters": "कोई भी नतीजा आपके सभी फ़िल्टर से मेल नहीं खाया, इसलिए ये फ़िल्टर के बिना आपके शब्दों के नतीजे हैं।",
-  "screens.search.relaxed.or": "किसी नतीजे में आपके सारे शब्द नहीं हैं, इसलिए ये उनमें से कुछ से मेल खाते हैं, सबसे अच्छे पहले।",
+  "screens.search.relaxed.filters":
+    "कोई भी नतीजा आपके सभी फ़िल्टर से मेल नहीं खाया, इसलिए ये फ़िल्टर के बिना आपके शब्दों के नतीजे हैं।",
+  "screens.search.relaxed.or":
+    "किसी नतीजे में आपके सारे शब्द नहीं हैं, इसलिए ये उनमें से कुछ से मेल खाते हैं, सबसे अच्छे पहले।",
   "screens.lessons.inFile": "{n, plural, one {आपकी ओर से # सीख} other {आपकी ओर से # सीखें}}",
   "screens.lessons.fileList": "आपसे सीखा",
   "screens.feed.askAbout": "इसके बारे में पूछें",

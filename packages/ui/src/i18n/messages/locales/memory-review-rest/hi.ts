@@ -3,8 +3,10 @@ import type { Catalogue } from "../../index.ts";
 /** `memoryReview.*` strings (hi); merged into `../hi.ts`. */
 export const memoryReviewRest: Partial<Catalogue> = {
   "memoryReview.title": "समीक्षा",
-  "memoryReview.description": "वे तथ्य जो {persona} को आपके मेल, संदेशों और नोट्स में मिले। जब तक आप स्वीकार नहीं करते, कुछ भी याद नहीं रखा जाता, और हर तथ्य दिखाता है कि वह कहाँ से आया।",
-  "memoryReview.settingsDescription": "वे नियम कि {persona} बिना पूछे क्या याद रख सकता है। आपकी प्रतीक्षा वाले तथ्य मेमोरी पेज पर हैं।",
+  "memoryReview.description":
+    "वे तथ्य जो {persona} को आपके मेल, संदेशों और नोट्स में मिले। जब तक आप स्वीकार नहीं करते, कुछ भी याद नहीं रखा जाता, और हर तथ्य दिखाता है कि वह कहाँ से आया।",
+  "memoryReview.settingsDescription":
+    "वे नियम कि {persona} बिना पूछे क्या याद रख सकता है। आपकी प्रतीक्षा वाले तथ्य मेमोरी पेज पर हैं।",
   "memoryReview.link.label": "समीक्षा कतार",
   "memoryReview.link.open": "मेमोरी में खोलें",
   "memoryReview.loadLabel": "मेमोरी समीक्षा",
@@ -50,25 +52,32 @@ export const memoryReviewRest: Partial<Catalogue> = {
   "memoryReview.quarantine.reason.new_sender_sensitive": "संवेदनशील, नए प्रेषक से",
   "memoryReview.quarantine.reason.subject_mismatch": "ऐसे व्यक्ति का नाम लेता है जिसके बारे में यह नहीं है",
   "memoryReview.quarantine.release": "छोड़ें",
-  "memoryReview.quarantine.releaseHint": "इसे एक बार फिर पढ़ा जाएगा; जो भी मिलेगा वह आपकी समीक्षा के लिए रुका रहेगा।",
+  "memoryReview.quarantine.releaseHint":
+    "इसे एक बार फिर पढ़ा जाएगा; जो भी मिलेगा वह आपकी समीक्षा के लिए रुका रहेगा।",
   "memoryReview.quarantine.discard": "त्यागें",
   "memoryReview.quarantine.block": "प्रेषक को ब्लॉक करें",
   "memoryReview.quarantine.excerpt": "आइटम का टेक्स्ट (फ़ॉर्मैट किए बिना दिखाया गया):",
   "memoryReview.rules.title": "बिना पूछे स्वीकार करें",
-  "memoryReview.rules.description": "बाकी सब आपकी प्रतीक्षा करता है। संवेदनशील तथ्य, टकराव, नोट्स और रिश्ते हमेशा ऐसा ही करते हैं।",
+  "memoryReview.rules.description":
+    "बाकी सब आपकी प्रतीक्षा करता है। संवेदनशील तथ्य, टकराव, नोट्स और रिश्ते हमेशा ऐसा ही करते हैं।",
   "memoryReview.rules.owner": "जो बातें आपने खुद लिखीं",
-  "memoryReview.rules.ownerHint": "तब जोड़ी जाती हैं जब वे संवेदनशील न हों और आपकी कही किसी बात से टकराएँ नहीं। एक हफ़्ते तक पूर्ववत किया जा सकता है।",
+  "memoryReview.rules.ownerHint":
+    "तब जोड़ी जाती हैं जब वे संवेदनशील न हों और आपकी कही किसी बात से टकराएँ नहीं। एक हफ़्ते तक पूर्ववत किया जा सकता है।",
   "memoryReview.rules.self": "लोग अपने बारे में जो कहते हैं",
-  "memoryReview.rules.selfHint": "फ़िलहाल समीक्षा के लिए। किसी व्यक्ति के {n, number} तथ्यों की पुष्टि करने के बाद Psyche उन पर भरोसा करने का प्रस्ताव रखता है।",
+  "memoryReview.rules.selfHint":
+    "फ़िलहाल समीक्षा के लिए। किसी व्यक्ति के {n, number} तथ्यों की पुष्टि करने के बाद Psyche उन पर भरोसा करने का प्रस्ताव रखता है।",
   "memoryReview.senders.title": "भरोसेमंद संपर्क",
-  "memoryReview.senders.offer": "आपने {name} द्वारा अपने बारे में बताई {n, number} बातों की पुष्टि की है और किसी को नहीं त्यागा। क्या {name} जो अपने बारे में कहते हैं (जन्मदिन, नौकरी, शहर, स्कूल, पसंद, पालतू जानवर, बच्चे) उसे बिना पूछे स्वीकार करें?",
-  "memoryReview.senders.offerHint": "जो भी संवेदनशील, अनिश्चित या टकराव वाला हो, उसकी समीक्षा फिर भी होती है, और आप एक हफ़्ते तक पूर्ववत कर सकते हैं।",
+  "memoryReview.senders.offer":
+    "आपने {name} द्वारा अपने बारे में बताई {n, number} बातों की पुष्टि की है और किसी को नहीं त्यागा। क्या {name} जो अपने बारे में कहते हैं (जन्मदिन, नौकरी, शहर, स्कूल, पसंद, पालतू जानवर, बच्चे) उसे बिना पूछे स्वीकार करें?",
+  "memoryReview.senders.offerHint":
+    "जो भी संवेदनशील, अनिश्चित या टकराव वाला हो, उसकी समीक्षा फिर भी होती है, और आप एक हफ़्ते तक पूर्ववत कर सकते हैं।",
   "memoryReview.senders.trust": "अपने आप स्वीकार करें",
   "memoryReview.senders.decline": "अभी नहीं, दोबारा न पूछें",
   "memoryReview.senders.trusted": "{name}: अपने आप स्वीकार",
   "memoryReview.senders.revoke": "बंद करें",
   "memoryReview.recent.undoUntil": "आप {date} तक इसे पूर्ववत कर सकते हैं",
-  "memoryReview.waiting": "{n, plural, one {# तथ्य आपकी प्रतीक्षा में है} other {# तथ्य आपकी प्रतीक्षा में हैं}}",
+  "memoryReview.waiting":
+    "{n, plural, one {# तथ्य आपकी प्रतीक्षा में है} other {# तथ्य आपकी प्रतीक्षा में हैं}}",
   "memoryReview.caughtUp": "समीक्षा के लिए कुछ नहीं है।",
   "memoryReview.open": "समीक्षा",
 };

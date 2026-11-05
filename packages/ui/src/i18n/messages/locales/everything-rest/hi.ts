@@ -11,33 +11,42 @@ export const everythingRest: Partial<Catalogue> = {
   "everything.model.none": "कोई नहीं",
   "everything.model.noneHint": "सिर्फ़ लोग, कैलेंडर इवेंट और जन्मदिन पढ़े जाते हैं, जिन्हें मॉडल की ज़रूरत नहीं होती।",
   "everything.model.cloud": "क्लाउड",
-  "everything.model.cloudHint": "रात में आपके चालू किए स्रोतों का टेक्स्ट आपके मॉडल प्रदाता को भेजा जाता है, सिर्फ़ इसी काम के लिए। सबसे अच्छी गुणवत्ता।",
+  "everything.model.cloudHint":
+    "रात में आपके चालू किए स्रोतों का टेक्स्ट आपके मॉडल प्रदाता को भेजा जाता है, सिर्फ़ इसी काम के लिए। सबसे अच्छी गुणवत्ता।",
   "everything.model.local": "लोकल",
-  "everything.model.localHint": "इस Mac पर एक मॉडल सब कुछ पढ़ता है। Mac से कुछ बाहर नहीं जाता। कम और ज़्यादा अस्पष्ट तथ्य।",
+  "everything.model.localHint":
+    "इस Mac पर एक मॉडल सब कुछ पढ़ता है। Mac से कुछ बाहर नहीं जाता। कम और ज़्यादा अस्पष्ट तथ्य।",
   "everything.model.apple": "Apple ऑन-डिवाइस मॉडल (प्रयोगात्मक)",
-  "everything.model.appleHint": "टेक्स्ट इसी Mac पर रहता है: कुछ डाउनलोड नहीं करना, कोई कुंजी नहीं, क्लाउड पर कुछ नहीं भेजा जाता। यह एक बार में लगभग 4k टोकन पढ़ता है, इसलिए लंबे आइटम छोड़ दिए जाते हैं। अगर यह जवाब नहीं दे पाता, तो वह बैच छोड़ दिया जाता है और कारण दर्ज होता है। यह कभी क्लाउड मॉडल पर नहीं जाता।",
-  "everything.model.appleExperimental": "प्रयोगात्मक। अभी जाँचा नहीं गया है कि यह विंडो किसी स्रोत को पढ़ने के लिए पर्याप्त है, इसलिए इसकी सलाह नहीं दी जाती।",
+  "everything.model.appleHint":
+    "टेक्स्ट इसी Mac पर रहता है: कुछ डाउनलोड नहीं करना, कोई कुंजी नहीं, क्लाउड पर कुछ नहीं भेजा जाता। यह एक बार में लगभग 4k टोकन पढ़ता है, इसलिए लंबे आइटम छोड़ दिए जाते हैं। अगर यह जवाब नहीं दे पाता, तो वह बैच छोड़ दिया जाता है और कारण दर्ज होता है। यह कभी क्लाउड मॉडल पर नहीं जाता।",
+  "everything.model.appleExperimental":
+    "प्रयोगात्मक। अभी जाँचा नहीं गया है कि यह विंडो किसी स्रोत को पढ़ने के लिए पर्याप्त है, इसलिए इसकी सलाह नहीं दी जाती।",
   "everything.model.appleSkipped": "तब तक यह स्रोत छोड़ दिया जाता है।",
   "everything.model.localRef": "लोकल मॉडल",
   "everything.model.localRefHint": "प्रदाता/मॉडल, जैसे ollama/qwen3:4b",
   "everything.model.cloudRef": "क्लाउड मॉडल",
   "everything.model.cloudRefHint": "अपना यूटिलिटी मॉडल इस्तेमाल करने के लिए खाली छोड़ें।",
-  "everything.model.cloudNote": "क्लाउड के साथ, प्रदाता हर पढ़े गए आइटम का टेक्स्ट देखता है, संवेदनशील विषयों की सेटिंग्ज़ चाहे कुछ भी कहें। सिर्फ़ लोकल इससे बचाता है।",
+  "everything.model.cloudNote":
+    "क्लाउड के साथ, प्रदाता हर पढ़े गए आइटम का टेक्स्ट देखता है, संवेदनशील विषयों की सेटिंग्ज़ चाहे कुछ भी कहें। सिर्फ़ लोकल इससे बचाता है।",
   "everything.local.title": "लोकल मॉडल को मेमोरी चाहिए",
-  "everything.local.body": "चलते समय लगभग 3 GB RAM, रात में, 45 मिनट तक। आपके लौटने पर यह रुक जाता है। आपकी पुष्टि तक कुछ डाउनलोड या शुरू नहीं होता, और मॉडल बदलने पर फिर पूछा जाता है।",
+  "everything.local.body":
+    "चलते समय लगभग 3 GB RAM, रात में, 45 मिनट तक। आपके लौटने पर यह रुक जाता है। आपकी पुष्टि तक कुछ डाउनलोड या शुरू नहीं होता, और मॉडल बदलने पर फिर पूछा जाता है।",
   "everything.local.confirm": "मैं समझ गया, {model} उपयोग करें",
   "everything.local.confirmed": "{model} के लिए पुष्टि हो गई।",
   "everything.local.needsRef": "पहले लोकल मॉडल का नाम दें।",
   "everything.cost.title": "अनुमानित लागत",
-  "everything.cost.cloud": "आपके चुने स्रोतों के लिए लगभग {typical} प्रति माह ({low} हल्के महीने में, {high} भारी महीने में)। एक सामान्य दिन के आधार पर अनुमान।",
+  "everything.cost.cloud":
+    "आपके चुने स्रोतों के लिए लगभग {typical} प्रति माह ({low} हल्के महीने में, {high} भारी महीने में)। एक सामान्य दिन के आधार पर अनुमान।",
   "everything.cost.free": "मुफ़्त: कोई टेक्स्ट किसी प्रदाता को नहीं जाता।",
   "everything.cost.backfill": "पहले {days, number} दिन पढ़ना: पूरी कीमत पर लगभग {cost}।",
   "everything.perSource.title": "एक स्रोत के लिए मॉडल",
-  "everything.perSource.description": "जैसे संदेश लोकल पर और मेल क्लाउड पर। “ऊपर जैसा” पर सेट स्रोत ऊपर वाला विकल्प इस्तेमाल करते हैं।",
+  "everything.perSource.description":
+    "जैसे संदेश लोकल पर और मेल क्लाउड पर। “ऊपर जैसा” पर सेट स्रोत ऊपर वाला विकल्प इस्तेमाल करते हैं।",
   "everything.perSource.default": "ऊपर जैसा",
   "everything.perSource.ref": "{source} के लिए मॉडल",
   "everything.sources.title": "यह क्या पढ़ता है",
-  "everything.sources.description": "मेमोरी उससे सीखती है जो खोज पढ़ती है, उसी क्रम में जैसा सेटिंग्ज़ → खोज स्रोत में है। किसी से सीखना रोकने के लिए उसे यहाँ बंद करें; वह फिर भी खोजा जा सकता है।",
+  "everything.sources.description":
+    "मेमोरी उससे सीखती है जो खोज पढ़ती है, उसी क्रम में जैसा सेटिंग्ज़ → खोज स्रोत में है। किसी से सीखना रोकने के लिए उसे यहाँ बंद करें; वह फिर भी खोजा जा सकता है।",
   "everything.sources.learning": "इससे सीख रहा है",
   "everything.sources.notLearning": "इससे नहीं सीख रहा",
   "everything.sources.notRead": "Psyche {source} नहीं पढ़ता।",
@@ -58,9 +67,11 @@ export const everythingRest: Partial<Catalogue> = {
   "everything.people.contacts": "सिर्फ़ संपर्क में मौजूद लोग",
   "everything.people.everyone": "वे सभी जिन्हें बाहर नहीं रखा गया",
   "everything.people.chosen": "सिर्फ़ वे लोग जिन्हें मैं चुनूँ",
-  "everything.people.note": "आपके अपने शब्द हमेशा पढ़े जाते हैं। दूसरे जो लिखते हैं वह सिर्फ़ यहाँ चुने गए लोगों के लिए पढ़ा जाता है, और सिर्फ़ वही जो वे अपने बारे में कहते हैं। यह आपकी समीक्षा की प्रतीक्षा करता है और कभी निर्देश नहीं माना जाता।",
+  "everything.people.note":
+    "आपके अपने शब्द हमेशा पढ़े जाते हैं। दूसरे जो लिखते हैं वह सिर्फ़ यहाँ चुने गए लोगों के लिए पढ़ा जाता है, और सिर्फ़ वही जो वे अपने बारे में कहते हैं। यह आपकी समीक्षा की प्रतीक्षा करता है और कभी निर्देश नहीं माना जाता।",
   "everything.people.aboutOthers": "वह भी जो वे दूसरे लोगों के बारे में कहते हैं",
-  "everything.people.aboutOthersHint": "डिफ़ॉल्ट रूप से बंद। चालू होने पर Sam के संदेश में “Priya, Initech में काम करती है” Priya के बारे में एक सुझाव बन जाता है, जिस पर Sam का दावा लिखा होता है।",
+  "everything.people.aboutOthersHint":
+    "डिफ़ॉल्ट रूप से बंद। चालू होने पर Sam के संदेश में “Priya, Initech में काम करती है” Priya के बारे में एक सुझाव बन जाता है, जिस पर Sam का दावा लिखा होता है।",
   "everything.exclusions.title": "पढ़ने से बाहर",
   "everything.exclusions.empty": "कोई बाहर नहीं है।",
   "everything.exclusions.kind": "प्रकार",
@@ -70,12 +81,14 @@ export const everythingRest: Partial<Catalogue> = {
   "everything.exclusions.value": "पता, नंबर या डोमेन",
   "everything.exclusions.exclude": "बाहर रखें",
   "everything.exclusions.excludeForget": "बाहर रखें और भूल जाएँ",
-  "everything.exclusions.confirmForget": "इससे उनसे सीखे गए {facts, number} तथ्य और {citations, number} उद्धरण भी हट जाते हैं।",
+  "everything.exclusions.confirmForget":
+    "इससे उनसे सीखे गए {facts, number} तथ्य और {citations, number} उद्धरण भी हट जाते हैं।",
   "everything.exclusions.remove": "हटाएँ",
   "everything.exclusions.mode.exclude": "बाहर रखा गया",
   "everything.exclusions.mode.forget": "बाहर रखा और भुला दिया",
   "everything.sensitive.title": "संवेदनशील विषय",
-  "everything.sensitive.description": "सब बंद। चालू होने पर सिर्फ़ वही रखा जाता है जो साफ़ कहा गया हो, हमेशा आपकी समीक्षा के लिए, और एजेंट से छिपा रहता है जब तक आप अनुमति न दें। सरकारी पहचान पत्र और खाता संख्याएँ कभी सेव नहीं की जातीं।",
+  "everything.sensitive.description":
+    "सब बंद। चालू होने पर सिर्फ़ वही रखा जाता है जो साफ़ कहा गया हो, हमेशा आपकी समीक्षा के लिए, और एजेंट से छिपा रहता है जब तक आप अनुमति न दें। सरकारी पहचान पत्र और खाता संख्याएँ कभी सेव नहीं की जातीं।",
   "everything.sensitive.health": "स्वास्थ्य",
   "everything.sensitive.finance": "वित्त",
   "everything.sensitive.sexuality": "यौन रुझान",
@@ -96,7 +109,8 @@ export const everythingRest: Partial<Catalogue> = {
   "everything.schedule.quietStart": "शांत घंटों की शुरुआत",
   "everything.schedule.quietEnd": "शांत घंटों का अंत",
   "everything.schedule.battery": "बैटरी पर चलाएँ",
-  "everything.schedule.batteryHint": "बंद: सिर्फ़ तब जब Mac चार्जर से लगा हो, लो पावर मोड में न हो, और आप दूर हों।",
+  "everything.schedule.batteryHint":
+    "बंद: सिर्फ़ तब जब Mac चार्जर से लगा हो, लो पावर मोड में न हो, और आप दूर हों।",
   "everything.schedule.backfill": "पहले रन का इतिहास",
   "everything.schedule.backfillDays": "{days, number} दिन",
   "everything.schedule.backfillNone": "कोई नहीं",
@@ -105,11 +119,14 @@ export const everythingRest: Partial<Catalogue> = {
   "everything.run.hint": "पिछले रन के बाद जो नया है उसे पढ़ता है।",
   "everything.run.estimateCloud": "आपके चुने स्रोतों के साथ एक सामान्य दिन के लिए लगभग {cost}।",
   "everything.run.estimateFree": "मुफ़्त: कोई टेक्स्ट किसी प्रदाता को नहीं जाता।",
-  "everything.run.done": "{items, number} आइटम पढ़े: {facts, number} तथ्य सुझाए गए, {held, number} रोके गए{more, select, yes {, बाकी कल के लिए रुका है} other {}}।",
+  "everything.run.done":
+    "{items, number} आइटम पढ़े: {facts, number} तथ्य सुझाए गए, {held, number} रोके गए{more, select, yes {, बाकी कल के लिए रुका है} other {}}।",
   "everything.run.reason.disabled": "“सब कुछ” मेमोरी बंद है।",
-  "everything.run.reason.no_sources": "खोज ऐसा कुछ नहीं पढ़ रही जिससे मेमोरी सीख सके। पहले Psyche को कोई स्रोत पढ़ने दें।",
+  "everything.run.reason.no_sources":
+    "खोज ऐसा कुछ नहीं पढ़ रही जिससे मेमोरी सीख सके। पहले Psyche को कोई स्रोत पढ़ने दें।",
   "everything.run.reason.model_none": "पहले कोई मॉडल चुनें: “कोई नहीं” पर कुछ नहीं पढ़ा जाता।",
-  "everything.run.reason.battery": "अभी नहीं: Mac बैटरी पर है। उसे चार्जर से लगाएँ या बैटरी पर रन की अनुमति दें।",
+  "everything.run.reason.battery":
+    "अभी नहीं: Mac बैटरी पर है। उसे चार्जर से लगाएँ या बैटरी पर रन की अनुमति दें।",
   "everything.run.reason.low_power": "अभी नहीं: लो पावर मोड चालू है।",
   "everything.run.reason.thermal": "अभी नहीं: Mac बहुत गर्म है।",
   "everything.run.reason.not_idle": "अभी नहीं: आप Mac इस्तेमाल कर रहे हैं।",
@@ -127,7 +144,8 @@ export const everythingRest: Partial<Catalogue> = {
   "everything.consent.cancel": "रद्द करें",
   "everything.consent.finish": "चालू करें",
   "everything.consent.what.title": "यह क्या करता है",
-  "everything.consent.what.body": "रात में {persona} वह पढ़ता है जो आपने लिखा और आपके चुने लोगों के संदेश, और जो कहा गया है उसे लिख लेता है। हर तथ्य का हवाला होता है, वह आपकी समीक्षा की प्रतीक्षा करता है, और उसे सुधारा या भुलाया जा सकता है। दूसरों का लिखा सिर्फ़ डेटा होता है, कभी निर्देश नहीं।",
+  "everything.consent.what.body":
+    "रात में {persona} वह पढ़ता है जो आपने लिखा और आपके चुने लोगों के संदेश, और जो कहा गया है उसे लिख लेता है। हर तथ्य का हवाला होता है, वह आपकी समीक्षा की प्रतीक्षा करता है, और उसे सुधारा या भुलाया जा सकता है। दूसरों का लिखा सिर्फ़ डेटा होता है, कभी निर्देश नहीं।",
   "everything.consent.what.e1": "“Sam का जन्मदिन आने वाला है।”",
   "everything.consent.what.e2": "“लिस्बन के डिनर में कौन था?”",
   "everything.consent.what.e3": "“नई नौकरी के बारे में Priya ने क्या कहा?”",
@@ -142,7 +160,8 @@ export const everythingRest: Partial<Catalogue> = {
   "everything.consent.summary.sensitive": "संवेदनशील विषय: {on}",
   "everything.consent.summary.agent": "एजेंट की पहुँच: {access}",
   "everything.consent.summary.backfill": "इतिहास: {days, number} दिन",
-  "everything.consent.summary.noModel": "कुछ भी पढ़े जाने के लिए मॉडल चुनें; “कोई नहीं” पर सिर्फ़ निर्धारक ग्राफ़ चलता है।",
+  "everything.consent.summary.noModel":
+    "कुछ भी पढ़े जाने के लिए मॉडल चुनें; “कोई नहीं” पर सिर्फ़ निर्धारक ग्राफ़ चलता है।",
   "everything.off": "बंद। जब तक आप सेट अप नहीं करते, {persona} कुछ नहीं पढ़ता।",
   "everything.offHint": "स्रोत और मॉडल आप चुनते हैं, और आपकी समीक्षा के बिना कुछ नहीं रखा जाता।",
   "everything.run.title": "अभी चलाएँ",

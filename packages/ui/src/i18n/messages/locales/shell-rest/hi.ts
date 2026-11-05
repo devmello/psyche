@@ -23,7 +23,8 @@ export const shellRest: Partial<Catalogue> = {
   "shell.palette.memoryKind": "मेमोरी → {kind}",
   "shell.palette.keywords.memoryPeople": "संपर्क दोस्त परिवार सहकर्मी रिश्ते संपर्क में रहें",
   "shell.palette.keywords.memoryProjects": "कोर्स क्लास नौकरी पहल चालू काम",
-  "shell.palette.keywords.memoryDue": "टू-डू काम डेडलाइन देय बकाया होमवर्क असाइनमेंट बिल किराया नवीनीकरण टैक्स घरेलू काम डिलिवरेबल प्रोजेक्ट जमा",
+  "shell.palette.keywords.memoryDue":
+    "टू-डू काम डेडलाइन देय बकाया होमवर्क असाइनमेंट बिल किराया नवीनीकरण टैक्स घरेलू काम डिलिवरेबल प्रोजेक्ट जमा",
   "shell.palette.keywords.memoryEvents": "कैलेंडर मीटिंग अपॉइंटमेंट यात्राएँ घटनाएँ",
   "shell.palette.addTodo": "टू-डू जोड़ें",
   "shell.palette.keywords.addTodo": "नया टू-डू काम होमवर्क असाइनमेंट डेडलाइन देय याद दिलाएँ बनाएँ",

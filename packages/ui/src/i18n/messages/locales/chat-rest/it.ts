@@ -2,7 +2,8 @@ import type { Catalogue } from "../../index.ts";
 
 /** `chat.*` strings (it); merged into `../it.ts`. */
 export const chatRest: Partial<Catalogue> = {
-  "chat.offline.waiting": "Il Gateway non è raggiungibile al momento. I messaggi che invii restano qui in attesa e partono appena torna disponibile.",
+  "chat.offline.waiting":
+    "Il Gateway non è raggiungibile al momento. I messaggi che invii restano qui in attesa e partono appena torna disponibile.",
   "chat.outbox.list": "Messaggi in attesa di invio",
   "chat.outbox.waiting": "In attesa:",
   "chat.outbox.old": "(più vecchio di un giorno)",
@@ -13,7 +14,8 @@ export const chatRest: Partial<Catalogue> = {
   "chat.commands.teach.hint": "cosa fare invece",
   "chat.commands.teach.description": "Correggi l’ultima risposta e fanne tesoro",
   "chat.commands.research.hint": "domanda",
-  "chat.commands.research.description": "Approfondisci una domanda con un rapporto corredato di fonti",
+  "chat.commands.research.description":
+    "Approfondisci una domanda con un rapporto corredato di fonti",
   "chat.commands.usageMode": "Uso: /mode [manual | balanced | auto | plan]",
   "chat.args.label": "Valori per /{command}",
   "chat.args.loading": "Caricamento…",
@@ -44,9 +46,12 @@ export const chatRest: Partial<Catalogue> = {
   "chat.attach.uploading": "Caricamento di {name}",
   "chat.attach.failed": "{name} non è stato caricato",
   "chat.attach.dismiss": "Ignora",
-  "chat.attach.refused.image": "{name}: questo modello non legge le immagini, quindi si possono allegare solo documenti (PDF, Word, Excel, testo)",
-  "chat.attach.refused.type": "{name}: Psyche non riesce a leggere questo tipo di file. Allega un file PDF, Word, Excel, di testo o un’immagine",
-  "chat.attach.refused.size": "{name} è troppo grande per essere allegato (immagini 5 MB, documenti 25 MB)",
+  "chat.attach.refused.image":
+    "{name}: questo modello non legge le immagini, quindi si possono allegare solo documenti (PDF, Word, Excel, testo)",
+  "chat.attach.refused.type":
+    "{name}: Psyche non riesce a leggere questo tipo di file. Allega un file PDF, Word, Excel, di testo o un’immagine",
+  "chat.attach.refused.size":
+    "{name} è troppo grande per essere allegato (immagini 5 MB, documenti 25 MB)",
   "chat.attach.refused.count": "{name}: a un messaggio si possono allegare al massimo 8 file",
   "chat.message.fromWidget": "Dal widget",
   "chat.teach.notLikeThis": "Non così",
@@ -99,7 +104,8 @@ export const chatRest: Partial<Catalogue> = {
   "chat.workNote.discarded": "Scartato. Psyche non lo proporrà più.",
   "chat.workNote.settled": "Questo è già stato gestito in Revisione.",
   "chat.workNote.undone": "Annullato. {name} è tornato com’era.",
-  "chat.workNote.changedAgain": "Nel frattempo {name} è cambiato di nuovo, quindi non è stato annullato nulla.",
+  "chat.workNote.changedAgain":
+    "Nel frattempo {name} è cambiato di nuovo, quindi non è stato annullato nulla.",
   "chat.workNote.alreadyUndone": "Già annullato.",
   "chat.workNote.removed": "L’hai già rimosso in Memoria.",
   "chat.thread.loading": "Caricamento della conversazione",
@@ -107,12 +113,16 @@ export const chatRest: Partial<Catalogue> = {
   "chat.thread.retrySend": "Riprova",
   "chat.thread.modeCurrent": "Modalità permessi: {mode}.",
   "chat.thread.modeSet": "La modalità permessi ora è {mode}.",
-  "chat.thread.researchPrompt": "/research {question}\n\nApprofondisci questo argomento con il tuo strumento research_plan. Mostrami il piano e la stima dei token, e aspetta il mio via libera prima di chiamare research_run. Usa solo fonti web.",
-  "chat.thread.researchPromptLocal": "/research {question}\n\nApprofondisci questo argomento con il tuo strumento research_plan, includendo i miei file, la posta e le note (includeLocal). Mostrami il piano e la stima dei token, e aspetta il mio via libera prima di chiamare research_run.",
+  "chat.thread.researchPrompt":
+    "/research {question}\n\nApprofondisci questo argomento con il tuo strumento research_plan. Mostrami il piano e la stima dei token, e aspetta il mio via libera prima di chiamare research_run. Usa solo fonti web.",
+  "chat.thread.researchPromptLocal":
+    "/research {question}\n\nApprofondisci questo argomento con il tuo strumento research_plan, includendo i miei file, la posta e le note (includeLocal). Mostrami il piano e la stima dei token, e aspetta il mio via libera prima di chiamare research_run.",
   "chat.thread.taught": "Psyche ricorderà: {lesson}",
   "chat.thread.teachNothing": "Non c’è ancora nessuna risposta da correggere.",
-  "chat.runFailed.contextLimit": "Questo messaggio è troppo grande per il contesto del modello, quindi Psyche non lo ha inviato.",
-  "chat.runFailed.contextLimitHint": "Compatta la chat per liberare spazio, oppure rimuovi o riduci l’allegato e invia di nuovo.",
+  "chat.runFailed.contextLimit":
+    "Questo messaggio è troppo grande per il contesto del modello, quindi Psyche non lo ha inviato.",
+  "chat.runFailed.contextLimitHint":
+    "Compatta la chat per liberare spazio, oppure rimuovi o riduci l’allegato e invia di nuovo.",
   "chat.runFailed.compact": "Compatta la chat",
   "chat.steps.label": "Passaggi di questa esecuzione",
   "chat.steps.showAll": "Mostra tutti ({n})",
@@ -137,7 +147,8 @@ export const chatRest: Partial<Catalogue> = {
   "chat.steps.stop": "Interrompi",
   "chat.steps.atOnce": "{n, number} alla volta",
   "chat.steps.moreAtOnce": "altri +{n, number}",
-  "chat.steps.helper": "Assistente · {n, plural, one {# passaggio} other {# passaggi}} · {duration}",
+  "chat.steps.helper":
+    "Assistente · {n, plural, one {# passaggio} other {# passaggi}} · {duration}",
   "chat.steps.helperLive": "Assistente",
   "chat.steps.reviewApproval": "Esamina l’approvazione",
   "chat.steps.reviewQuestion": "Vai alla domanda",
@@ -151,29 +162,40 @@ export const chatRest: Partial<Catalogue> = {
   "chat.steps.announce.waiting": "{label}: in attesa di te",
   "chat.steps.summary.worked": "Ha lavorato per {duration}",
   "chat.steps.summary.steps": "{n, plural, one {# passaggio} other {# passaggi}}",
-  "chat.steps.summary.failedAt": "Interrotto al passaggio {n, number} · {label} non riuscito · {duration}",
+  "chat.steps.summary.failedAt":
+    "Interrotto al passaggio {n, number} · {label} non riuscito · {duration}",
   "chat.steps.summary.failed": "Interrotto · non riuscito dopo {duration}",
-  "chat.steps.summary.cancelled": "Interrotto da te dopo {duration} · {n, plural, one {# passaggio} other {# passaggi}}",
+  "chat.steps.summary.cancelled":
+    "Interrotto da te dopo {duration} · {n, plural, one {# passaggio} other {# passaggi}}",
   "chat.steps.summary.incognito": "Non conservato · incognito",
-  "chat.steps.effect.sentEmails": "{n, plural, one {ha inviato # email} other {ha inviato # email}}",
-  "chat.steps.effect.addedEvents": "{n, plural, one {ha aggiunto # evento} other {ha aggiunto # eventi}}",
+  "chat.steps.effect.sentEmails":
+    "{n, plural, one {ha inviato # email} other {ha inviato # email}}",
+  "chat.steps.effect.addedEvents":
+    "{n, plural, one {ha aggiunto # evento} other {ha aggiunto # eventi}}",
   "chat.steps.effect.wroteFiles": "{n, plural, one {ha scritto # file} other {ha scritto # file}}",
-  "chat.steps.effect.purchases": "{n, plural, one {ha fatto # acquisto} other {ha fatto # acquisti}}",
-  "chat.steps.effect.submittedForms": "{n, plural, one {ha inviato # modulo} other {ha inviato # moduli}}",
-  "chat.steps.effect.changes": "{n, plural, one {ha fatto # modifica} other {ha fatto # modifiche}}",
+  "chat.steps.effect.purchases":
+    "{n, plural, one {ha fatto # acquisto} other {ha fatto # acquisti}}",
+  "chat.steps.effect.submittedForms":
+    "{n, plural, one {ha inviato # modulo} other {ha inviato # moduli}}",
+  "chat.steps.effect.changes":
+    "{n, plural, one {ha fatto # modifica} other {ha fatto # modifiche}}",
   "chat.clear.menu": "Cancella chat…",
   "chat.clear.menuBusy": "Non mentre {persona} lavora",
   "chat.clear.palette": "Cancella la chat principale",
-  "chat.clear.paletteKeywords": "svuota reset ricomincia da capo nuova cancella messaggi conversazione",
+  "chat.clear.paletteKeywords":
+    "svuota reset ricomincia da capo nuova cancella messaggi conversazione",
   "chat.clear.title": "Cancellare la chat principale?",
-  "chat.clear.body": "Tutti i messaggi di questa chat vengono rimossi e {persona} riparte da zero. Le ricevute e il registro delle attività restano.",
+  "chat.clear.body":
+    "Tutti i messaggi di questa chat vengono rimossi e {persona} riparte da zero. Le ricevute e il registro delle attività restano.",
   "chat.clear.forget": "Dimentica anche ciò che {persona} ha imparato da questa chat",
-  "chat.clear.forgetHint": "Ciò che è stato imparato da questa chat compare prima in Memoria, così puoi rivederlo; non viene rimosso nulla finché non confermi lì.",
+  "chat.clear.forgetHint":
+    "Ciò che è stato imparato da questa chat compare prima in Memoria, così puoi rivederlo; non viene rimosso nulla finché non confermi lì.",
   "chat.clear.busy": "{persona} sta lavorando in questa chat. Cancellala quando il turno finisce.",
   "chat.clear.confirm": "Cancella chat",
   "chat.clear.clearing": "Cancellazione…",
   "chat.clear.done": "Chat cancellata",
   "chat.clear.failed": "Impossibile cancellare la chat: {reason}",
-  "chat.clear.mainOnly": "Cancella funziona nella chat principale. Usa /new per una nuova chat secondaria.",
+  "chat.clear.mainOnly":
+    "Cancella funziona nella chat principale. Usa /new per una nuova chat secondaria.",
   "chat.commands.clear.description": "Cancella la chat principale",
 };

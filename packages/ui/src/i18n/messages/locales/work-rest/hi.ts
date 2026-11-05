@@ -52,7 +52,8 @@ export const workRest: Partial<Catalogue> = {
   "work.projects.type": "प्रकार",
   "work.projects.type.project": "प्रोजेक्ट",
   "work.projects.type.course": "कोर्स",
-  "work.projects.hint": "इसे नाम दें और चुनें कि यह क्या है। इसकी देय तिथि, अगला कदम और जुड़े फ़ोल्डर इसके पेज पर जोड़ें।",
+  "work.projects.hint":
+    "इसे नाम दें और चुनें कि यह क्या है। इसकी देय तिथि, अगला कदम और जुड़े फ़ोल्डर इसके पेज पर जोड़ें।",
   "work.projects.added": "“{name}” जोड़ा गया।",
   "work.empty.stopped_at": "अभी नोट नहीं किया गया।",
   "work.empty.next_step": "अभी कोई अगला कदम नहीं।",
@@ -104,7 +105,8 @@ export const workRest: Partial<Catalogue> = {
   "work.noun.browser": "ब्राउज़िंग",
   "work.noun.transcripts": "ट्रांसक्रिप्ट",
   "work.noun.contacts": "संपर्क",
-  "work.anchors.empty": "कुछ जुड़ा नहीं है। कोई फ़ोल्डर, चैट या दस्तावेज़ जोड़ें, और उसकी गतिविधि इसमें गिनी जाएगी।",
+  "work.anchors.empty":
+    "कुछ जुड़ा नहीं है। कोई फ़ोल्डर, चैट या दस्तावेज़ जोड़ें, और उसकी गतिविधि इसमें गिनी जाएगी।",
   "work.anchors.add": "लिंक जोड़ें",
   "work.anchors.addLabel": "कोई स्रोत जोड़ें",
   "work.anchors.kindLabel": "क्या जोड़ना है",
@@ -135,6 +137,7 @@ export const workRest: Partial<Catalogue> = {
   "work.anchors.choose": "चुनें…",
   "work.anchors.pick.chat_thread": "चैट चुनें",
   "work.anchors.pick.library_item": "दस्तावेज़ चुनें",
-  "work.anchors.folderHint": "केवल आपके जोड़े गए फ़ोल्डर काम गिने जाते हैं। {persona} नोट करता है कि वहाँ कौन-सी फ़ाइलें बदलीं, उनमें क्या है यह कभी नहीं।",
+  "work.anchors.folderHint":
+    "केवल आपके जोड़े गए फ़ोल्डर काम गिने जाते हैं। {persona} नोट करता है कि वहाँ कौन-सी फ़ाइलें बदलीं, उनमें क्या है यह कभी नहीं।",
   "work.anchors.routeHint": "इसकी गतिविधि इस आइटम की टाइमलाइन में दिखेगी।",
 };

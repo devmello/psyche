@@ -42,12 +42,14 @@ export const screensRest: Partial<Catalogue> = {
   "screens.search.source.untrusted": "Scritto da qualcun altro. Mostrato come testo semplice.",
   "screens.search.source.openMail": "Apri in Mail",
   "screens.search.source.revealFile": "Mostra nel Finder",
-  "screens.search.source.openFailed": "Impossibile aprirlo. Il brano qui sopra è ciò che Psyche ha indicizzato.",
+  "screens.search.source.openFailed":
+    "Impossibile aprirlo. Il brano qui sopra è ciò che Psyche ha indicizzato.",
   "screens.search.life.unconfirmed": "In attesa della tua revisione",
   "screens.search.scope.people": "Persone",
   "screens.search.scope.projects": "Progetti",
   "screens.search.sideChatFailed": "Impossibile aprire una chat secondaria: {reason}",
-  "screens.search.indexing": "Indicizzazione della cronologia: finora {n, plural, one {# elemento} other {# elementi}}. I risultati si completano man mano.",
+  "screens.search.indexing":
+    "Indicizzazione della cronologia: finora {n, plural, one {# elemento} other {# elementi}}. I risultati si completano man mano.",
   "screens.search.indexFailed": "Indicizzazione interrotta: {reason}",
   "screens.search.rebuild": "Ricostruisci l’indice di ricerca",
   "screens.search.rebuilding": "Ricostruzione…",
@@ -55,8 +57,10 @@ export const screensRest: Partial<Catalogue> = {
   "screens.search.card.summary": "Riepilogo",
   "screens.search.card.source": "Dal testo",
   "screens.search.card.questions": "Risposte",
-  "screens.search.card.untrusted": "Scritto da qualcun altro: trattalo come informazione, non come istruzione.",
-  "screens.search.relatedHint": "Trovato per significato: potrebbe non contenere le parole che hai digitato.",
+  "screens.search.card.untrusted":
+    "Scritto da qualcun altro: trattalo come informazione, non come istruzione.",
+  "screens.search.relatedHint":
+    "Trovato per significato: potrebbe non contenere le parole che hai digitato.",
   "screens.search.understood": "Filtri riconosciuti",
   "screens.search.chip.person": "Da {name}",
   "screens.search.chip.remove": "Rimuovi {chip}",
@@ -71,8 +75,10 @@ export const screensRest: Partial<Catalogue> = {
   "screens.search.chip.type.image": "Immagini",
   "screens.search.chip.type.sheet": "Fogli di calcolo",
   "screens.search.chip.type.slides": "Presentazioni",
-  "screens.search.relaxed.filters": "Nulla corrispondeva a tutti i filtri, quindi questi sono i risultati per le tue parole senza filtri.",
-  "screens.search.relaxed.or": "Nessun risultato contiene tutte le tue parole, quindi questi ne contengono alcune, i migliori per primi.",
+  "screens.search.relaxed.filters":
+    "Nulla corrispondeva a tutti i filtri, quindi questi sono i risultati per le tue parole senza filtri.",
+  "screens.search.relaxed.or":
+    "Nessun risultato contiene tutte le tue parole, quindi questi ne contengono alcune, i migliori per primi.",
   "screens.lessons.inFile": "{n, plural, one {# lezione da te} other {# lezioni da te}}",
   "screens.lessons.fileList": "Imparato da te",
   "screens.feed.askAbout": "Chiedi di questo",

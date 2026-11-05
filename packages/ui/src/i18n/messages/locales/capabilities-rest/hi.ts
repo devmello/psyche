@@ -3,7 +3,8 @@ import type { Catalogue } from "../../index.ts";
 /** `capabilities.*` strings (hi); merged into `../hi.ts`. */
 export const capabilitiesRest: Partial<Catalogue> = {
   "capabilities.title": "आप क्या कर सकते हैं?",
-  "capabilities.lead": "अभी आज़माने की चीज़ें। जिन कार्डों को खाते की ज़रूरत है, वे कनेक्ट होते ही सक्रिय हो जाते हैं।",
+  "capabilities.lead":
+    "अभी आज़माने की चीज़ें। जिन कार्डों को खाते की ज़रूरत है, वे कनेक्ट होते ही सक्रिय हो जाते हैं।",
   "capabilities.available": "आज़माने के लिए तैयार",
   "capabilities.locked": "अनलॉक करने के लिए कनेक्ट करें",
   "capabilities.connect": "खाते कनेक्ट करें",
@@ -23,7 +24,8 @@ export const capabilitiesRest: Partial<Catalogue> = {
   "capabilities.meetings.prompt1": "मुझे मेरी अगली मीटिंग के लिए तैयार करो।",
   "capabilities.meetings.prompt2": "आज की कौन-सी मीटिंग को तैयारी चाहिए?",
   "capabilities.inbox.title": "मेरा इनबॉक्स छाँटें",
-  "capabilities.inbox.desc": "तय करता है कि किसका जवाब देना है, क्या रुक सकता है और क्या अनदेखा किया जा सकता है।",
+  "capabilities.inbox.desc":
+    "तय करता है कि किसका जवाब देना है, क्या रुक सकता है और क्या अनदेखा किया जा सकता है।",
   "capabilities.inbox.prompt1": "मेरा इनबॉक्स छाँटो।",
   "capabilities.inbox.prompt2": "सबसे ज़रूरी तीन ईमेल के जवाब तैयार करो।",
   "capabilities.inbox.auto": "कार्यदिवसों में सुबह 8:00 बजे इनबॉक्स छँटाई",
@@ -48,7 +50,8 @@ export const capabilitiesRest: Partial<Catalogue> = {
   "capabilities.automate.prompt1": "हर शुक्रवार शाम 4 बजे मुझे साप्ताहिक अपडेट भेजने की याद दिलाओ।",
   "capabilities.automate.prompt2": "हर रात मेरा कैलेंडर देखो और कल की सुबह जल्दी वाली मीटिंग के बारे में चेताओ।",
   "capabilities.available.title": "उपलब्ध",
-  "capabilities.available.connectorsHint": "तैयार और रजिस्ट्री वाले कनेक्टर जिन्हें आप जोड़ सकते हैं। आपकी स्वीकृति तक कुछ नहीं चलता।",
+  "capabilities.available.connectorsHint":
+    "तैयार और रजिस्ट्री वाले कनेक्टर जिन्हें आप जोड़ सकते हैं। आपकी स्वीकृति तक कुछ नहीं चलता।",
   "capabilities.available.skillsHint": "इंस्टॉल की गई लेकिन बंद स्किल।",
   "capabilities.search.label": "उपलब्ध कनेक्टर खोजें",
   "capabilities.search.skillsLabel": "उपलब्ध स्किल खोजें",
@@ -56,7 +59,8 @@ export const capabilitiesRest: Partial<Catalogue> = {
   "capabilities.noConnectors": "कोई कनेक्टर मेल नहीं खाता।",
   "capabilities.noSkills": "कोई स्किल बंद नहीं है।",
   "capabilities.online.label": "Psyche को ऑनलाइन MCP रजिस्ट्री में खोजने दें",
-  "capabilities.online.hint": "डिफ़ॉल्ट रूप से बंद। चालू होने पर आपके खोज शब्द आधिकारिक MCP रजिस्ट्री को भेजे जाते हैं।",
+  "capabilities.online.hint":
+    "डिफ़ॉल्ट रूप से बंद। चालू होने पर आपके खोज शब्द आधिकारिक MCP रजिस्ट्री को भेजे जाते हैं।",
   "capabilities.badge.official": "आधिकारिक",
   "capabilities.badge.unverified": "असत्यापित",
   "capabilities.badge.registry": "MCP रजिस्ट्री से",
@@ -71,7 +75,8 @@ export const capabilitiesRest: Partial<Catalogue> = {
   "capabilities.action.needsKey": "कुंजी या साइन इन चाहिए। इसे कनेक्टर गैलरी या JSON फ़ॉर्म से जोड़ें।",
   "capabilities.loading.title": "Psyche इसे कब लोड करता है",
   "capabilities.loading.label": "हमेशा चालू",
-  "capabilities.loading.hint": "मांग पर, जब किसी काम को इस कनेक्टर के टूल चाहिए होते हैं तब Psyche उन्हें ढूँढता है। “हमेशा चालू” उन्हें हर अनुरोध के साथ भेजता है।",
+  "capabilities.loading.hint":
+    "मांग पर, जब किसी काम को इस कनेक्टर के टूल चाहिए होते हैं तब Psyche उन्हें ढूँढता है। “हमेशा चालू” उन्हें हर अनुरोध के साथ भेजता है।",
   "capabilities.loading.failed": "इसे बदला नहीं जा सका: {reason}",
   "capabilities.card.source": "स्रोत",
   "capabilities.card.kind.connector": "कनेक्टर",

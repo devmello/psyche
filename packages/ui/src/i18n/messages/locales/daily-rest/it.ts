@@ -30,7 +30,8 @@ export const dailyRest: Partial<Catalogue> = {
   "daily.followup.reopen": "Riapri",
   "daily.followup.failed": "Impossibile aggiornare il follow-up.",
   "daily.followups.title": "Da seguire",
-  "daily.followups.empty": "Al momento non c’è nulla in sospeso. Psyche aggiunge ciò che hai promesso o che stai aspettando.",
+  "daily.followups.empty":
+    "Al momento non c’è nulla in sospeso. Psyche aggiunge ciò che hai promesso o che stai aspettando.",
   "daily.followups.source.sent_mail": "Da una mail inviata",
   "daily.followups.source.message": "Da un messaggio",
   "daily.followups.source.chat": "Da una chat",
@@ -38,13 +39,16 @@ export const dailyRest: Partial<Catalogue> = {
   "daily.followups.source.manual": "Aggiunto da te",
   "daily.followups.snoozedUntil": "Torna {when}",
   "daily.automations.title": "Automazioni",
-  "daily.automations.description": "Dillo in una frase. Confermi tu prima che venga pianificato qualcosa.",
-  "daily.automations.placeholder": "Ogni venerdì alle 5, riassumi cosa ho consegnato questa settimana",
+  "daily.automations.description":
+    "Dillo in una frase. Confermi tu prima che venga pianificato qualcosa.",
+  "daily.automations.placeholder":
+    "Ogni venerdì alle 5, riassumi cosa ho consegnato questa settimana",
   "daily.automations.input": "Descrivi l’automazione",
   "daily.automations.create": "Anteprima",
   "daily.automations.templates": "Modelli di partenza",
   "daily.automations.empty": "Ancora nessuna automazione.",
-  "daily.automations.parseFailed": "Non ho trovato una pianificazione lì dentro. Prova con “ogni giorno feriale alle 9, …”.",
+  "daily.automations.parseFailed":
+    "Non ho trovato una pianificazione lì dentro. Prova con “ogni giorno feriale alle 9, …”.",
   "daily.automations.noModel": "Collega un modello in Impostazioni per usarlo.",
   "daily.automations.confirm.title": "Creare questa automazione?",
   "daily.automations.confirm.when": "Quando",
@@ -58,7 +62,8 @@ export const dailyRest: Partial<Catalogue> = {
   "daily.automations.edit": "Modifica",
   "daily.automations.save": "Salva",
   "daily.automations.delete": "Elimina",
-  "daily.automations.count": "{n, plural, =0 {Ancora nessuna automazione.} one {# automazione.} other {# automazioni.}}",
+  "daily.automations.count":
+    "{n, plural, =0 {Ancora nessuna automazione.} one {# automazione.} other {# automazioni.}}",
   "daily.automations.manage": "Gestisci in Pianificate",
   "daily.automations.paused": "In pausa",
   "daily.automations.next": "Prossima: {when}",

@@ -3,18 +3,23 @@ import type { Catalogue } from "../../index.ts";
 /** `scheduled.*` strings (it); merged into `../it.ts`. */
 export const scheduledRest: Partial<Catalogue> = {
   "scheduled.title": "Pianificate",
-  "scheduled.description": "Tutto ciò che viene eseguito a orari stabiliti: le tue automazioni e le routine di Psyche.",
+  "scheduled.description":
+    "Tutto ciò che viene eseguito a orari stabiliti: le tue automazioni e le routine di Psyche.",
   "scheduled.timezone": "Orari in {zone}",
   "scheduled.loading": "Caricamento di ciò che è pianificato",
   "scheduled.loadFailed": "Psyche non è riuscito a caricare ciò che è pianificato",
   "scheduled.new": "Nuova automazione",
-  "scheduled.new.prefill": "Voglio automatizzare un’attività che faccio ogni giorno. Aiutami a pianificarla, provala una volta con me, poi pianificala. L’attività: ",
-  "scheduled.edit.prefill": "Voglio modificare la mia automazione “{title}”. Cosa voglio cambiare: ",
+  "scheduled.new.prefill":
+    "Voglio automatizzare un’attività che faccio ogni giorno. Aiutami a pianificarla, provala una volta con me, poi pianificala. L’attività: ",
+  "scheduled.edit.prefill":
+    "Voglio modificare la mia automazione “{title}”. Cosa voglio cambiare: ",
   "scheduled.group.owner": "Le tue automazioni",
   "scheduled.group.routine": "Routine di Psyche",
-  "scheduled.group.routine.hint": "Vengono eseguite da sole. Puoi metterle in pausa o eseguirne una subito, ma non eliminarle.",
+  "scheduled.group.routine.hint":
+    "Vengono eseguite da sole. Puoi metterle in pausa o eseguirne una subito, ma non eliminarle.",
   "scheduled.empty.title": "Non hai ancora impostato nessuna automazione.",
-  "scheduled.empty.hint": "Descrivi qualcosa che vorresti fosse fatto a orari stabiliti. Qualche idea:",
+  "scheduled.empty.hint":
+    "Descrivi qualcosa che vorresti fosse fatto a orari stabiliti. Qualche idea:",
   "scheduled.empty.example.1": "Ogni giorno feriale alle 9, aggiungi al carrello ciò che mi serve",
   "scheduled.empty.example.2": "Ogni venerdì alle 5, riassumi cosa ho consegnato questa settimana",
   "scheduled.empty.example.3": "Ogni mattina, controlla la tracciabilità dei miei pacchi",
@@ -27,8 +32,10 @@ export const scheduledRest: Partial<Catalogue> = {
   "scheduled.row.does": "Cosa fa",
   "scheduled.row.approvals": "Approvazioni che può richiedere",
   "scheduled.row.linked": "Esecuzioni collegate",
-  "scheduled.row.browserWarning": "Non si può garantire il browser quando viene eseguita: {reason}. Attiva “Apri Psyche all’accesso” in Impostazioni → Generali → Aspetto.",
-  "scheduled.row.browserWarningNoReason": "Non si può garantire il browser quando viene eseguita. Attiva “Apri Psyche all’accesso” in Impostazioni → Generali → Aspetto.",
+  "scheduled.row.browserWarning":
+    "Non si può garantire il browser quando viene eseguita: {reason}. Attiva “Apri Psyche all’accesso” in Impostazioni → Generali → Aspetto.",
+  "scheduled.row.browserWarningNoReason":
+    "Non si può garantire il browser quando viene eseguita. Attiva “Apri Psyche all’accesso” in Impostazioni → Generali → Aspetto.",
   "scheduled.row.never": "Non è ancora stata eseguita",
   "scheduled.row.nextPaused": "In pausa: nessuna esecuzione finché non la riprendi",
   "scheduled.row.nextOff": "Disattivata: attivala in Impostazioni",
@@ -40,9 +47,11 @@ export const scheduledRest: Partial<Catalogue> = {
   "scheduled.row.linkedRun": "{title}: {when}",
   "scheduled.row.noSummary": "Esegue l’istruzione che gli hai dato.",
   "scheduled.row.recorded": "Da una registrazione",
-  "scheduled.row.recordedBody": "Ripete l’attività che hai mostrato a Psyche. Se la pagina è cambiata, o un passaggio richiede la tua approvazione, si ferma a quel passaggio, va in pausa e te lo dice.",
+  "scheduled.row.recordedBody":
+    "Ripete l’attività che hai mostrato a Psyche. Se la pagina è cambiata, o un passaggio richiede la tua approvazione, si ferma a quel passaggio, va in pausa e te lo dice.",
   "scheduled.approvals.none": "Nessuna. Usa solo ciò che hai attivato in Impostazioni.",
-  "scheduled.approvals.queued": "Tutto ciò che invia, modifica o elimina qualcosa aspetta in Approvazioni il tuo OK.",
+  "scheduled.approvals.queued":
+    "Tutto ciò che invia, modifica o elimina qualcosa aspetta in Approvazioni il tuo OK.",
   "scheduled.approvals.calendar_write": "Aggiunta di un blocco di concentrazione al calendario",
   "scheduled.status.running": "In corso",
   "scheduled.status.done": "Completata",
@@ -67,12 +76,14 @@ export const scheduledRest: Partial<Catalogue> = {
   "scheduled.action.turnOn": "Attiva in Impostazioni",
   "scheduled.toast.paused": "{title} messa in pausa.",
   "scheduled.toast.resumed": "{title} ripresa.",
-  "scheduled.toast.started": "{title} avviata. Tutto ciò che richiede approvazione aspetterà in Approvazioni.",
+  "scheduled.toast.started":
+    "{title} avviata. Tutto ciò che richiede approvazione aspetterà in Approvazioni.",
   "scheduled.toast.deleted": "{title} eliminata.",
   "scheduled.toast.saved": "{title} salvata.",
   "scheduled.toast.failed": "Non ha funzionato.",
   "scheduled.delete.title": "Eliminare {title}?",
-  "scheduled.delete.body": "Smette di essere eseguita e la sua cronologia delle esecuzioni viene eliminata con lei. L’operazione non si può annullare.",
+  "scheduled.delete.body":
+    "Smette di essere eseguita e la sua cronologia delle esecuzioni viene eliminata con lei. L’operazione non si può annullare.",
   "scheduled.delete.confirm": "Elimina",
   "scheduled.delete.cancel": "Conserva",
   "scheduled.edit.title": "Modifica {title}",
@@ -81,10 +92,13 @@ export const scheduledRest: Partial<Catalogue> = {
   "scheduled.edit.cancel": "Annulla",
   "scheduled.edit.cardTitle": "Salvare questa modifica?",
   "scheduled.edit.save": "Salva modifiche",
-  "scheduled.edit.linked": "Questa è un’esecuzione di un insieme collegato, quindi le modifiche si fanno insieme, in una chat.",
+  "scheduled.edit.linked":
+    "Questa è un’esecuzione di un insieme collegato, quindi le modifiche si fanno insieme, in una chat.",
   "scheduled.edit.inChat": "Modifica in una chat",
-  "scheduled.edit.noModel": "Prima scegli un modello in Impostazioni, poi Psyche potrà leggere la modifica.",
-  "scheduled.edit.parseFailed": "Psyche non è riuscito a trasformarlo in una pianificazione. Indica quando deve essere eseguita, ad esempio “ogni venerdì alle 5”.",
+  "scheduled.edit.noModel":
+    "Prima scegli un modello in Impostazioni, poi Psyche potrà leggere la modifica.",
+  "scheduled.edit.parseFailed":
+    "Psyche non è riuscito a trasformarlo in una pianificazione. Indica quando deve essere eseguita, ad esempio “ogni venerdì alle 5”.",
   "scheduled.tab.schedule": "Pianificazione",
   "scheduled.tab.runs": "Esecuzioni",
   "scheduled.runs.title": "Tutte le esecuzioni",
@@ -104,9 +118,11 @@ export const scheduledRest: Partial<Catalogue> = {
   "scheduled.runs.state.failed": "Non riuscita",
   "scheduled.runs.state.skipped": "Saltata",
   "scheduled.runs.state.cancelled": "Interrotta",
-  "scheduled.runs.waiting": "{n, plural, =0 {In attesa di una risposta.} one {In attesa della tua approvazione.} other {In attesa di # approvazioni.}}",
+  "scheduled.runs.waiting":
+    "{n, plural, =0 {In attesa di una risposta.} one {In attesa della tua approvazione.} other {In attesa di # approvazioni.}}",
   "scheduled.runs.openApprovals": "Esamina l’approvazione",
-  "scheduled.runs.notVerified": "È terminata, ma mancano le prove che ogni passaggio sia avvenuto. Non è un errore, e non è un successo confermato. {reason}",
+  "scheduled.runs.notVerified":
+    "È terminata, ma mancano le prove che ogni passaggio sia avvenuto. Non è un errore, e non è un successo confermato. {reason}",
   "scheduled.runs.evidence": "Cosa è stato registrato ({n})",
   "scheduled.runs.rerun": "Riesegui",
   "scheduled.runs.rerun.aria": "Riesegui {title}",
@@ -128,40 +144,51 @@ export const scheduledRest: Partial<Catalogue> = {
   "scheduled.history.openChat.aria": "Apri la chat dell’esecuzione del {when}",
   "scheduled.history.openTranscript": "Apri la trascrizione",
   "scheduled.history.openTranscript.aria": "Apri la trascrizione dell’esecuzione del {when}",
-  "scheduled.history.changes": "{n, plural, one {# modifica registrata} other {# modifiche registrate}}",
+  "scheduled.history.changes":
+    "{n, plural, one {# modifica registrata} other {# modifiche registrate}}",
   "scheduled.history.showChanges": "Modifiche registrate",
   "scheduled.history.noChanges": "Nessuna modifica registrata",
   "scheduled.history.change": "{action}: {target}",
   "scheduled.history.change.failed": "{action}: {target} (non è andata a buon fine)",
   "scheduled.routine.generic": "Viene eseguita in background per Psyche.",
   "scheduled.routine.dailyBrief.name": "Riepilogo del mattino",
-  "scheduled.routine.dailyBrief.does": "Prepara il tuo riepilogo del mattino con calendario, posta e follow-up e lo pubblica in Home.",
+  "scheduled.routine.dailyBrief.does":
+    "Prepara il tuo riepilogo del mattino con calendario, posta e follow-up e lo pubblica in Home.",
   "scheduled.routine.dailyWrapup.name": "Riepilogo serale",
-  "scheduled.routine.dailyWrapup.does": "Riassume cosa è stato fatto, cosa resta e cosa c’è dopo, e si offre di riportare avanti gli elementi.",
+  "scheduled.routine.dailyWrapup.does":
+    "Riassume cosa è stato fatto, cosa resta e cosa c’è dopo, e si offre di riportare avanti gli elementi.",
   "scheduled.routine.mailDigest.name": "Sintesi della posta",
-  "scheduled.routine.mailDigest.does": "Legge la posta nuova e pubblica una sintesi di ciò che conta.",
+  "scheduled.routine.mailDigest.does":
+    "Legge la posta nuova e pubblica una sintesi di ciò che conta.",
   "scheduled.routine.mailVoice.name": "Stile di scrittura",
-  "scheduled.routine.mailVoice.does": "Impara come scrivi dalla posta inviata, così le bozze suonano come te.",
+  "scheduled.routine.mailVoice.does":
+    "Impara come scrivi dalla posta inviata, così le bozze suonano come te.",
   "scheduled.routine.mailWatch.name": "Controllo della posta",
-  "scheduled.routine.mailWatch.does": "Controlla la posta nuova perché la sintesi e i tuoi follow-up restino aggiornati.",
+  "scheduled.routine.mailWatch.does":
+    "Controlla la posta nuova perché la sintesi e i tuoi follow-up restino aggiornati.",
   "scheduled.routine.mailFocus.name": "Tempo di concentrazione",
   "scheduled.routine.mailFocus.does": "Propone un blocco di lavoro intenso nella tua settimana.",
   "scheduled.routine.meetingPrep.does": "Prepara una breve nota prima di una riunione.",
   "scheduled.routine.notesFolder.name": "Cartella delle registrazioni",
-  "scheduled.routine.notesFolder.does": "Cerca nuove registrazioni di riunioni e le trasforma in note.",
+  "scheduled.routine.notesFolder.does":
+    "Cerca nuove registrazioni di riunioni e le trasforma in note.",
   "scheduled.routine.feedBrief.name": "Riepilogo del Feed",
   "scheduled.routine.feedBrief.does": "Scrive il riepilogo del giorno in Home.",
   "scheduled.routine.feedBriefing.does": "Scrive il tuo riepilogo personalizzato in Home.",
   "scheduled.routine.ideasMine.name": "Idee: ricerca notturna",
-  "scheduled.routine.ideasMine.does": "Passa in rassegna la giornata in cerca di idee da conservare.",
+  "scheduled.routine.ideasMine.does":
+    "Passa in rassegna la giornata in cerca di idee da conservare.",
   "scheduled.routine.ideasDeliver.name": "Idee: finestra di consegna",
   "scheduled.routine.ideasDeliver.does": "Ti invia le idee trovate, al momento giusto.",
   "scheduled.routine.goalCheckin.does": "Controlla come sta andando questo obiettivo.",
   "scheduled.routine.goalWatch.does": "Tiene d’occhio le notizie su questo obiettivo.",
   "scheduled.routine.memoryDreaming.name": "Passaggio notturno sulla memoria",
-  "scheduled.routine.memoryDreaming.does": "Riordina ogni notte ciò che Psyche ricorda: unisce i duplicati, conserva ciò che è utile, aggiorna persone e progetti che conosce.",
+  "scheduled.routine.memoryDreaming.does":
+    "Riordina ogni notte ciò che Psyche ricorda: unisce i duplicati, conserva ciò che è utile, aggiorna persone e progetti che conosce.",
   "scheduled.routine.weeklyCard.name": "Cosa ho imparato questa settimana",
-  "scheduled.routine.weeklyCard.does": "Pubblica in Home una scheda settimanale con ciò che Psyche ha imparato su come preferisci le cose.",
+  "scheduled.routine.weeklyCard.does":
+    "Pubblica in Home una scheda settimanale con ciò che Psyche ha imparato su come preferisci le cose.",
   "scheduled.routine.heartbeat.name": "Battito",
-  "scheduled.routine.heartbeat.does": "Un controllo leggero durante la giornata per vedere se qualcosa richiede la tua attenzione.",
+  "scheduled.routine.heartbeat.does":
+    "Un controllo leggero durante la giornata per vedere se qualcosa richiede la tua attenzione.",
 };

@@ -40,7 +40,8 @@ export const workRest: Partial<Catalogue> = {
   "work.add.label": "Aggiungi una cosa da fare",
   "work.add.placeholder": "Pagare l’affitto, ven",
   "work.add.placeholderChild": "Presentazione Q3, gio",
-  "work.add.hint": "Un titolo, poi un progetto e un giorno, ad esempio “Presentazione Q3, Lavoro, gio”, oppure solo “Pagare l’affitto, ven”.",
+  "work.add.hint":
+    "Un titolo, poi un progetto e un giorno, ad esempio “Presentazione Q3, Lavoro, gio”, oppure solo “Pagare l’affitto, ven”.",
   "work.add.dueOn": "scade il {date}",
   "work.add.noParent": "Nessun progetto o corso chiamato “{name}”. Verrà aggiunta senza.",
   "work.add.submit": "Aggiungi",
@@ -52,7 +53,8 @@ export const workRest: Partial<Catalogue> = {
   "work.projects.type": "Tipo",
   "work.projects.type.project": "Progetto",
   "work.projects.type.course": "Corso",
-  "work.projects.hint": "Dagli un nome e scegli di cosa si tratta. Aggiungi scadenza, prossimo passo e cartelle collegate nella sua pagina.",
+  "work.projects.hint":
+    "Dagli un nome e scegli di cosa si tratta. Aggiungi scadenza, prossimo passo e cartelle collegate nella sua pagina.",
   "work.projects.added": "“{name}” aggiunto.",
   "work.empty.stopped_at": "Ancora non annotato.",
   "work.empty.next_step": "Ancora nessun prossimo passo.",
@@ -104,7 +106,8 @@ export const workRest: Partial<Catalogue> = {
   "work.noun.browser": "navigazione",
   "work.noun.transcripts": "trascrizioni",
   "work.noun.contacts": "contatti",
-  "work.anchors.empty": "Nulla di collegato. Collega una cartella, una chat o un documento e la sua attività conterà qui.",
+  "work.anchors.empty":
+    "Nulla di collegato. Collega una cartella, una chat o un documento e la sua attività conterà qui.",
   "work.anchors.add": "Aggiungi collegamento",
   "work.anchors.addLabel": "Collega una fonte",
   "work.anchors.kindLabel": "Cosa collegare",
@@ -135,6 +138,7 @@ export const workRest: Partial<Catalogue> = {
   "work.anchors.choose": "Scegli…",
   "work.anchors.pick.chat_thread": "Scegli una chat",
   "work.anchors.pick.library_item": "Scegli un documento",
-  "work.anchors.folderHint": "Contano come lavoro solo le cartelle che colleghi. {persona} annota quali file cambiano lì, mai cosa contengono.",
+  "work.anchors.folderHint":
+    "Contano come lavoro solo le cartelle che colleghi. {persona} annota quali file cambiano lì, mai cosa contengono.",
   "work.anchors.routeHint": "La sua attività comparirà nella timeline di questo elemento.",
 };

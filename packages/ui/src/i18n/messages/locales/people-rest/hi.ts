@@ -106,7 +106,8 @@ export const peopleRest: Partial<Catalogue> = {
   "people.loop.markDone": "“{text}” को पूरा चिह्नित करें",
   "people.loop.notALoop": "यह खुला मुद्दा नहीं है",
   "people.loop.confirm": "पुष्टि करें",
-  "people.loop.suggested": "{name} के {source} से सुझाया गया। आपकी पुष्टि के बिना Psyche इस पर कार्रवाई नहीं करेगा।",
+  "people.loop.suggested":
+    "{name} के {source} से सुझाया गया। आपकी पुष्टि के बिना Psyche इस पर कार्रवाई नहीं करेगा।",
   "people.loop.with": "{name} के साथ",
   "people.recent.in": "प्राप्त",
   "people.recent.out": "भेजा",
@@ -177,8 +178,10 @@ export const peopleRest: Partial<Catalogue> = {
   "people.dialog.cancel": "रद्द करें",
   "people.forget.title": "{name} को भूल जाएँ?",
   "people.forget.counting": "जाँच रहा है कि Psyche क्या जानता है…",
-  "people.forget.counts": "Psyche कार्ड, {facts, plural, one {# तथ्य} other {# तथ्य}}, {loops, plural, one {# खुला मुद्दा} other {# खुले मुद्दे}}, {interactions, plural, one {# बातचीत} other {# बातचीत}} और {edges, plural, one {# रिश्ता} other {# रिश्ते}} हटा देता है।",
-  "people.forget.after": "इनके पते ब्लॉक कर दिए जाते हैं, इसलिए Psyche इनके बारे में दोबारा नहीं सीखेगा। आपका मेल और कैलेंडर जैसा है वैसा रहेगा।",
+  "people.forget.counts":
+    "Psyche कार्ड, {facts, plural, one {# तथ्य} other {# तथ्य}}, {loops, plural, one {# खुला मुद्दा} other {# खुले मुद्दे}}, {interactions, plural, one {# बातचीत} other {# बातचीत}} और {edges, plural, one {# रिश्ता} other {# रिश्ते}} हटा देता है।",
+  "people.forget.after":
+    "इनके पते ब्लॉक कर दिए जाते हैं, इसलिए Psyche इनके बारे में दोबारा नहीं सीखेगा। आपका मेल और कैलेंडर जैसा है वैसा रहेगा।",
   "people.forget.previewFailed": "Psyche गिन नहीं सका कि क्या हटेगा ({reason})।",
   "people.forget.confirm": "भूल जाएँ",
   "people.forget.done": "{name} को भुला दिया गया।",
@@ -187,7 +190,8 @@ export const peopleRest: Partial<Catalogue> = {
   "people.merge.search": "यह और कौन है?",
   "people.merge.searchPlaceholder": "नाम या ईमेल",
   "people.merge.checking": "जाँच रहा है कि क्या खिसकेगा…",
-  "people.merge.preview": "{other} से {name} में {identifiers, plural, one {# पता} other {# पते}} और {facts, plural, one {# तथ्य} other {# तथ्य}} ले जाता है। {other} हट जाता है; आप बाद में उन्हें फिर अलग कर सकते हैं।",
+  "people.merge.preview":
+    "{other} से {name} में {identifiers, plural, one {# पता} other {# पते}} और {facts, plural, one {# तथ्य} other {# तथ्य}} ले जाता है। {other} हट जाता है; आप बाद में उन्हें फिर अलग कर सकते हैं।",
   "people.merge.pickAnother": "किसी और को चुनें",
   "people.merge.confirm": "मर्ज करें",
   "people.merge.done": "{other} को {name} में मर्ज कर दिया गया।",

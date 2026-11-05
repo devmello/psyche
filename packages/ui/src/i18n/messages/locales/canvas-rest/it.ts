@@ -6,5 +6,6 @@ export const canvasRest: Partial<Catalogue> = {
   "canvas.exportAs": "Esporta come…",
   "canvas.exportFailed": "Impossibile esportare: {message}",
   "canvas.loadingEditor": "Apertura dell’editor…",
-  "canvas.invalid": "Non è stato possibile leggere {kind, select, slides {questa presentazione} other {questo foglio di calcolo}}.",
+  "canvas.invalid":
+    "Non è stato possibile leggere {kind, select, slides {questa presentazione} other {questo foglio di calcolo}}.",
 };

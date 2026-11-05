@@ -24,7 +24,8 @@ export const specialistsRest: Partial<Catalogue> = {
   "specialists.card.partialOther": "जल्दी रुक गया। देखें क्या छूटा है।",
   "specialists.card.failed": "{role} {task} पूरा नहीं कर सका।",
   "specialists.card.nothingSent": "कुछ भेजा या खरीदा नहीं गया।",
-  "specialists.card.cancelled": "रोक दिया गया। आपके रोकने से पहले इसकी {n, plural, =0 {कोई रसीद नहीं थी} one {# रसीद थी} other {# रसीदें थीं}}।",
+  "specialists.card.cancelled":
+    "रोक दिया गया। आपके रोकने से पहले इसकी {n, plural, =0 {कोई रसीद नहीं थी} one {# रसीद थी} other {# रसीदें थीं}}।",
   "specialists.card.label": "{role} का नतीजा: {task}",
   "specialists.card.findings": "निष्कर्ष",
   "specialists.card.items": "आइटम",

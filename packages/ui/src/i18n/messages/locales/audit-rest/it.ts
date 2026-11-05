@@ -9,10 +9,12 @@ export const auditRest: Partial<Catalogue> = {
   "audit.chip.openTimeline": "Apri nella Timeline",
   "audit.chip.openFile": "Apri file",
   "audit.chip.loadingDiff": "Caricamento delle differenze…",
-  "audit.chip.noDiff": "Nessuna differenza salvata (file binario o grande): {bytes} byte, hash registrati.",
+  "audit.chip.noDiff":
+    "Nessuna differenza salvata (file binario o grande): {bytes} byte, hash registrati.",
   "audit.chip.diffTruncated": "Le differenze sono state troncate al limite salvato.",
   "audit.title": "Registro di controllo",
-  "audit.hint": "Ogni modifica ai tuoi file, alla memoria, alle impostazioni e alle app collegate: chi l’ha fatta e quando. Ogni voce fa parte di una catena di hash, quindi un record alterato viene rilevato.",
+  "audit.hint":
+    "Ogni modifica ai tuoi file, alla memoria, alle impostazioni e alle app collegate: chi l’ha fatta e quando. Ogni voce fa parte di una catena di hash, quindi un record alterato viene rilevato.",
   "audit.empty": "Ancora nulla di registrato.",
   "audit.loadFailed": "Impossibile caricare il registro: {reason}",
   "audit.filter.all": "Tutto",

@@ -24,7 +24,8 @@ export const specialistsRest: Partial<Catalogue> = {
   "specialists.card.partialOther": "Si è fermato prima. Vedi cosa manca.",
   "specialists.card.failed": "{role} non è riuscito a completare {task}.",
   "specialists.card.nothingSent": "Non è stato inviato né acquistato nulla.",
-  "specialists.card.cancelled": "Interrotto. Prima che lo fermassi aveva {n, plural, =0 {nessuna ricevuta} one {# ricevuta} other {# ricevute}}.",
+  "specialists.card.cancelled":
+    "Interrotto. Prima che lo fermassi aveva {n, plural, =0 {nessuna ricevuta} one {# ricevuta} other {# ricevute}}.",
   "specialists.card.label": "Risultato di {role}: {task}",
   "specialists.card.findings": "Risultati",
   "specialists.card.items": "Elementi",
@@ -35,7 +36,8 @@ export const specialistsRest: Partial<Catalogue> = {
   "specialists.card.whatItDid": "Cosa ha fatto",
   "specialists.card.nothingDone": "Non è stato inviato, modificato né acquistato nulla.",
   "specialists.card.usage": "Utilizzo",
-  "specialists.card.taint": "Ha letto contenuti da fonti esterne. Considera le sue affermazioni non verificate.",
+  "specialists.card.taint":
+    "Ha letto contenuti da fonti esterne. Considera le sue affermazioni non verificate.",
   "specialists.card.defaultUsed": "Ha usato il valore predefinito: {label}",
   "specialists.card.source": "Fonte",
   "specialists.card.sources": "Fonti",

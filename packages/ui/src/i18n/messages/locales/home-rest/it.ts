@@ -29,11 +29,14 @@ export const homeRest: Partial<Catalogue> = {
   "home.ask.failed": "Non è stato inviato: {reason}",
   "home.start.try": "Prova",
   "home.start.planWeek": "Pianifica la mia settimana",
-  "home.start.planWeek.prompt": "Aiutami a pianificare questa settimana. Guarda cosa sta per arrivare e chiedimi cosa conta di più.",
+  "home.start.planWeek.prompt":
+    "Aiutami a pianificare questa settimana. Guarda cosa sta per arrivare e chiedimi cosa conta di più.",
   "home.start.brief": "Imposta un riepilogo del mattino",
-  "home.start.brief.prompt": "Imposta per me un breve riepilogo del mattino nei giorni feriali. Chiedimi cosa dovrebbe includere.",
+  "home.start.brief.prompt":
+    "Imposta per me un breve riepilogo del mattino nei giorni feriali. Chiedimi cosa dovrebbe includere.",
   "home.start.remember": "Parla di te a {name}",
-  "home.start.remember.prompt": "Impara a conoscermi: fammi qualche domanda sul mio lavoro e su cosa vorrei che mi aiutassi a fare, e ricorda le risposte.",
+  "home.start.remember.prompt":
+    "Impara a conoscermi: fammi qualche domanda sul mio lavoro e su cosa vorrei che mi aiutassi a fare, e ricorda le risposte.",
   "home.showMore": "{n, plural, one {Mostra altro #} other {Mostra altri #}}",
   "home.showLess": "Mostra meno",
   "home.catchUp": "Recupera",
@@ -41,7 +44,8 @@ export const homeRest: Partial<Catalogue> = {
   "home.catchUp.open": "Apri {title}",
   "home.catchUp.source": "Da {source}",
   "home.catchUp.all": "Tutto il lavoro in scadenza",
-  "home.catchUp.pending": "{n, plural, one {# nuovo elemento da confermare} other {# nuovi elementi da confermare}}",
+  "home.catchUp.pending":
+    "{n, plural, one {# nuovo elemento da confermare} other {# nuovi elementi da confermare}}",
   "home.ask.list": "Domande scadute",
   "home.ask.handedInLabel": "Segna “{title}” come consegnato",
   "home.ask.stillWorking": "Ci sto ancora lavorando",

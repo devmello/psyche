@@ -8,7 +8,8 @@ export const agentRest: Partial<Catalogue> = {
   "agent.timeline.loading": "टाइमलाइन लोड हो रही है",
   "agent.timeline.loadFailed": "Psyche यह टाइमलाइन लोड नहीं कर सका ({reason})।",
   "agent.timeline.incognito": "रखा नहीं गया · गुप्त",
-  "agent.timeline.notVerified": "सत्यापित नहीं: रन खत्म हो गया, लेकिन हर चरण के होने का प्रमाण मौजूद नहीं है। {reason} जो दर्ज हुआ:",
+  "agent.timeline.notVerified":
+    "सत्यापित नहीं: रन खत्म हो गया, लेकिन हर चरण के होने का प्रमाण मौजूद नहीं है। {reason} जो दर्ज हुआ:",
   "agent.timeline.state.partial": "समस्याओं के साथ पूरा",
   "agent.timeline.failure.runError": "अंतिम त्रुटि: {message}",
   "agent.timeline.tokens": "{tokens} टोकन",
@@ -41,7 +42,8 @@ export const agentRest: Partial<Catalogue> = {
   "agent.timeline.failure.did": "Psyche ने क्या किया",
   "agent.timeline.failure.can": "आप क्या कर सकते हैं",
   "agent.timeline.failure.message": "{step} विफल · {message}",
-  "agent.timeline.failure.retried": "{n, plural, one {एक बार कोशिश की, फिर रुक गया।} other {# बार कोशिश की, फिर रुक गया।}}",
+  "agent.timeline.failure.retried":
+    "{n, plural, one {एक बार कोशिश की, फिर रुक गया।} other {# बार कोशिश की, फिर रुक गया।}}",
   "agent.timeline.failure.stopped": "इस चरण पर रुक गया।",
   "agent.timeline.failure.canRetry": "ठीक होने पर फिर कोशिश करें।",
   "agent.timeline.failure.canReconnect": "खाता फिर से कनेक्ट करें, फिर कोशिश करें।",
@@ -101,7 +103,8 @@ export const agentRest: Partial<Catalogue> = {
   "agent.timeline.link.memory": "{path} खोलें",
   "agent.timeline.link.helper": "हेल्पर की टाइमलाइन खोलें",
   "agent.timeline.thinking": "सोच-विचार",
-  "agent.timeline.expired": "{days, plural, one {# दिन} other {# दिन}} तक रखा जाता है। यह चरण उससे पुराना है।",
+  "agent.timeline.expired":
+    "{days, plural, one {# दिन} other {# दिन}} तक रखा जाता है। यह चरण उससे पुराना है।",
   "agent.timeline.outputExpired": "आउटपुट अब रखा नहीं गया है।",
   "agent.timeline.noInput": "कोई इनपुट दर्ज नहीं है।",
   "agent.timeline.noOutput": "कोई आउटपुट दर्ज नहीं है।",
@@ -159,12 +162,14 @@ export const agentRest: Partial<Catalogue> = {
   "agent.memory.openMemoryHint": "ये अब मेमोरी पेज पर हैं।",
   "agent.memory.openMemoryGo": "मेमोरी खोलें",
   "agent.notes.title": "{name} ने क्या नोट किया",
-  "agent.notes.hint": "वे बातें जो {name} ने अपने भविष्य के उपयोग के लिए सेव कीं: क्या काम आया, टूल की खासियतें, आपको काम कैसे पसंद है। जो न रखनी हों उन्हें हटा दें।",
+  "agent.notes.hint":
+    "वे बातें जो {name} ने अपने भविष्य के उपयोग के लिए सेव कीं: क्या काम आया, टूल की खासियतें, आपको काम कैसे पसंद है। जो न रखनी हों उन्हें हटा दें।",
   "agent.notes.empty": "अभी कुछ नोट नहीं किया गया।",
   "agent.notes.updated": "{date} को अपडेट किया गया",
   "agent.notes.delete": "नोट {file} हटाएँ",
   "agent.notes.deleteTitle": "यह नोट हटाएँ?",
-  "agent.notes.deleteBody": "{file} को {name} की मेमोरी से हटा दिया जाता है। इसे पूर्ववत नहीं किया जा सकता।",
+  "agent.notes.deleteBody":
+    "{file} को {name} की मेमोरी से हटा दिया जाता है। इसे पूर्ववत नहीं किया जा सकता।",
   "agent.notes.source.agent": "एजेंट ने नोट किया",
   "agent.notes.source.untrusted": "अविश्वसनीय सामग्री से, कभी उपयोग नहीं की गई",
   "agent.notes.source.owner": "आपने संपादित किया",

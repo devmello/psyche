@@ -8,11 +8,13 @@ export const scheduledRest: Partial<Catalogue> = {
   "scheduled.loading": "जो शेड्यूल है वह लोड हो रहा है",
   "scheduled.loadFailed": "Psyche शेड्यूल की चीज़ें लोड नहीं कर सका",
   "scheduled.new": "नया ऑटोमेशन",
-  "scheduled.new.prefill": "मैं एक ऐसे काम को ऑटोमेट करना चाहता हूँ जो मैं हर दिन करता हूँ। इसकी योजना बनाने में मेरी मदद करो, मेरे साथ एक बार आज़माओ, फिर इसे शेड्यूल करो। काम:",
+  "scheduled.new.prefill":
+    "मैं एक ऐसे काम को ऑटोमेट करना चाहता हूँ जो मैं हर दिन करता हूँ। इसकी योजना बनाने में मेरी मदद करो, मेरे साथ एक बार आज़माओ, फिर इसे शेड्यूल करो। काम:",
   "scheduled.edit.prefill": "मैं अपना “{title}” ऑटोमेशन बदलना चाहता हूँ। मैं क्या बदलना चाहता हूँ:",
   "scheduled.group.owner": "आपके ऑटोमेशन",
   "scheduled.group.routine": "Psyche की दिनचर्याएँ",
-  "scheduled.group.routine.hint": "ये अपने आप चलती हैं। आप इन्हें रोक सकते हैं या किसी को अभी चला सकते हैं, पर हटा नहीं सकते।",
+  "scheduled.group.routine.hint":
+    "ये अपने आप चलती हैं। आप इन्हें रोक सकते हैं या किसी को अभी चला सकते हैं, पर हटा नहीं सकते।",
   "scheduled.empty.title": "आपने अभी कोई ऑटोमेशन सेट अप नहीं किया है।",
   "scheduled.empty.hint": "कुछ ऐसा बताएँ जो आप शेड्यूल पर करवाना चाहते हैं। कुछ विचार:",
   "scheduled.empty.example.1": "हर कार्यदिवस सुबह 9 बजे, मुझे जो चाहिए वह मेरे शॉपिंग कार्ट में जोड़ो",
@@ -27,8 +29,10 @@ export const scheduledRest: Partial<Catalogue> = {
   "scheduled.row.does": "यह क्या करता है",
   "scheduled.row.approvals": "जिन स्वीकृतियों की ज़रूरत पड़ सकती है",
   "scheduled.row.linked": "जुड़े हुए रन",
-  "scheduled.row.browserWarning": "चलते समय ब्राउज़र की गारंटी नहीं दी जा सकती: {reason}। सेटिंग्ज़ → सामान्य → रूप-रंग में “लॉगिन पर Psyche खोलें” चालू करें।",
-  "scheduled.row.browserWarningNoReason": "चलते समय ब्राउज़र की गारंटी नहीं दी जा सकती। सेटिंग्ज़ → सामान्य → रूप-रंग में “लॉगिन पर Psyche खोलें” चालू करें।",
+  "scheduled.row.browserWarning":
+    "चलते समय ब्राउज़र की गारंटी नहीं दी जा सकती: {reason}। सेटिंग्ज़ → सामान्य → रूप-रंग में “लॉगिन पर Psyche खोलें” चालू करें।",
+  "scheduled.row.browserWarningNoReason":
+    "चलते समय ब्राउज़र की गारंटी नहीं दी जा सकती। सेटिंग्ज़ → सामान्य → रूप-रंग में “लॉगिन पर Psyche खोलें” चालू करें।",
   "scheduled.row.never": "अभी तक चला नहीं",
   "scheduled.row.nextPaused": "रुका हुआ: जब तक आप फिर शुरू नहीं करते, कोई रन नहीं",
   "scheduled.row.nextOff": "बंद: इसे सेटिंग्ज़ में चालू करें",
@@ -40,9 +44,11 @@ export const scheduledRest: Partial<Catalogue> = {
   "scheduled.row.linkedRun": "{title}: {when}",
   "scheduled.row.noSummary": "आपके दिए निर्देश को चलाता है।",
   "scheduled.row.recorded": "एक रिकॉर्डिंग से",
-  "scheduled.row.recordedBody": "वही काम दोहराता है जो आपने Psyche को दिखाया था। अगर पेज बदल गया है, या किसी चरण को आपकी स्वीकृति चाहिए, तो वह उसी चरण पर रुक जाता है, पॉज़ हो जाता है और आपको बताता है।",
+  "scheduled.row.recordedBody":
+    "वही काम दोहराता है जो आपने Psyche को दिखाया था। अगर पेज बदल गया है, या किसी चरण को आपकी स्वीकृति चाहिए, तो वह उसी चरण पर रुक जाता है, पॉज़ हो जाता है और आपको बताता है।",
   "scheduled.approvals.none": "कोई नहीं। यह सिर्फ़ वही इस्तेमाल करता है जो आपने सेटिंग्ज़ में चालू किया है।",
-  "scheduled.approvals.queued": "जो कुछ भी कुछ भेजता, बदलता या हटाता है, वह आपकी मंज़ूरी के लिए स्वीकृतियों में रुका रहता है।",
+  "scheduled.approvals.queued":
+    "जो कुछ भी कुछ भेजता, बदलता या हटाता है, वह आपकी मंज़ूरी के लिए स्वीकृतियों में रुका रहता है।",
   "scheduled.approvals.calendar_write": "आपके कैलेंडर में फ़ोकस ब्लॉक जोड़ना",
   "scheduled.status.running": "चल रहा है",
   "scheduled.status.done": "पूरा",
@@ -72,7 +78,8 @@ export const scheduledRest: Partial<Catalogue> = {
   "scheduled.toast.saved": "{title} सेव की गई।",
   "scheduled.toast.failed": "यह काम नहीं किया।",
   "scheduled.delete.title": "{title} हटाएँ?",
-  "scheduled.delete.body": "यह चलना बंद कर देती है और इसका रन इतिहास भी इसके साथ हट जाता है। इसे पूर्ववत नहीं किया जा सकता।",
+  "scheduled.delete.body":
+    "यह चलना बंद कर देती है और इसका रन इतिहास भी इसके साथ हट जाता है। इसे पूर्ववत नहीं किया जा सकता।",
   "scheduled.delete.confirm": "हटाएँ",
   "scheduled.delete.cancel": "रखें",
   "scheduled.edit.title": "{title} बदलें",
@@ -84,7 +91,8 @@ export const scheduledRest: Partial<Catalogue> = {
   "scheduled.edit.linked": "यह एक जुड़े हुए समूह का एक रन है, इसलिए बदलाव चैट में एक साथ किए जाते हैं।",
   "scheduled.edit.inChat": "चैट में बदलें",
   "scheduled.edit.noModel": "पहले सेटिंग्ज़ में कोई मॉडल चुनें, तब Psyche बदलाव पढ़ सकेगा।",
-  "scheduled.edit.parseFailed": "Psyche इसे शेड्यूल में नहीं बदल सका। बताएँ कि यह कब चले, जैसे “हर शुक्रवार शाम 5 बजे”।",
+  "scheduled.edit.parseFailed":
+    "Psyche इसे शेड्यूल में नहीं बदल सका। बताएँ कि यह कब चले, जैसे “हर शुक्रवार शाम 5 बजे”।",
   "scheduled.tab.schedule": "शेड्यूल",
   "scheduled.tab.runs": "रन",
   "scheduled.runs.title": "सभी रन",
@@ -104,9 +112,11 @@ export const scheduledRest: Partial<Catalogue> = {
   "scheduled.runs.state.failed": "विफल",
   "scheduled.runs.state.skipped": "छोड़ा गया",
   "scheduled.runs.state.cancelled": "रोका गया",
-  "scheduled.runs.waiting": "{n, plural, =0 {जवाब की प्रतीक्षा में।} one {आपकी स्वीकृति की प्रतीक्षा में।} other {# स्वीकृतियों की प्रतीक्षा में।}}",
+  "scheduled.runs.waiting":
+    "{n, plural, =0 {जवाब की प्रतीक्षा में।} one {आपकी स्वीकृति की प्रतीक्षा में।} other {# स्वीकृतियों की प्रतीक्षा में।}}",
   "scheduled.runs.openApprovals": "स्वीकृति देखें",
-  "scheduled.runs.notVerified": "यह खत्म हो गया, लेकिन हर चरण के होने का प्रमाण मौजूद नहीं है। यह कोई त्रुटि नहीं है, और पुष्ट सफलता भी नहीं है। {reason}",
+  "scheduled.runs.notVerified":
+    "यह खत्म हो गया, लेकिन हर चरण के होने का प्रमाण मौजूद नहीं है। यह कोई त्रुटि नहीं है, और पुष्ट सफलता भी नहीं है। {reason}",
   "scheduled.runs.evidence": "जो दर्ज हुआ ({n})",
   "scheduled.runs.rerun": "फिर से चलाएँ",
   "scheduled.runs.rerun.aria": "{title} फिर से चलाएँ",
@@ -135,11 +145,14 @@ export const scheduledRest: Partial<Catalogue> = {
   "scheduled.history.change.failed": "{action}: {target} (नहीं हो पाया)",
   "scheduled.routine.generic": "Psyche के लिए बैकग्राउंड में चलता है।",
   "scheduled.routine.dailyBrief.name": "सुबह की ब्रीफ़",
-  "scheduled.routine.dailyBrief.does": "आपके कैलेंडर, मेल और फ़ॉलो-अप से आपकी सुबह की ब्रीफ़ बनाता है और उसे होम पर पोस्ट करता है।",
+  "scheduled.routine.dailyBrief.does":
+    "आपके कैलेंडर, मेल और फ़ॉलो-अप से आपकी सुबह की ब्रीफ़ बनाता है और उसे होम पर पोस्ट करता है।",
   "scheduled.routine.dailyWrapup.name": "शाम का सारांश",
-  "scheduled.routine.dailyWrapup.does": "सारांश देता है कि क्या पूरा हुआ, क्या बाकी है और आगे क्या है, और आइटम आगे बढ़ाने का प्रस्ताव रखता है।",
+  "scheduled.routine.dailyWrapup.does":
+    "सारांश देता है कि क्या पूरा हुआ, क्या बाकी है और आगे क्या है, और आइटम आगे बढ़ाने का प्रस्ताव रखता है।",
   "scheduled.routine.mailDigest.name": "इनबॉक्स डाइजेस्ट",
-  "scheduled.routine.mailDigest.does": "नया मेल पढ़ता है और जो मायने रखता है उसका एक डाइजेस्ट पोस्ट करता है।",
+  "scheduled.routine.mailDigest.does":
+    "नया मेल पढ़ता है और जो मायने रखता है उसका एक डाइजेस्ट पोस्ट करता है।",
   "scheduled.routine.mailVoice.name": "लेखन शैली",
   "scheduled.routine.mailVoice.does": "आपके भेजे मेल से सीखता है कि आप कैसे लिखते हैं, ताकि मसौदे आपके जैसे लगें।",
   "scheduled.routine.mailWatch.name": "मेल जाँच",
@@ -159,9 +172,11 @@ export const scheduledRest: Partial<Catalogue> = {
   "scheduled.routine.goalCheckin.does": "देखता है कि यह लक्ष्य कैसा चल रहा है।",
   "scheduled.routine.goalWatch.does": "इस लक्ष्य के बारे में खबरों पर नज़र रखता है।",
   "scheduled.routine.memoryDreaming.name": "रात की मेमोरी सफ़ाई",
-  "scheduled.routine.memoryDreaming.does": "हर रात Psyche जो याद रखता है उसे व्यवस्थित करता है: दोहराव मर्ज करता है, जो उपयोगी है उसे रखता है, जिन लोगों और प्रोजेक्ट को जानता है उन्हें अपडेट करता है।",
+  "scheduled.routine.memoryDreaming.does":
+    "हर रात Psyche जो याद रखता है उसे व्यवस्थित करता है: दोहराव मर्ज करता है, जो उपयोगी है उसे रखता है, जिन लोगों और प्रोजेक्ट को जानता है उन्हें अपडेट करता है।",
   "scheduled.routine.weeklyCard.name": "इस हफ़्ते मैंने क्या सीखा",
-  "scheduled.routine.weeklyCard.does": "होम पर एक साप्ताहिक कार्ड पोस्ट करता है कि Psyche ने सीखा कि आपको काम कैसे पसंद हैं।",
+  "scheduled.routine.weeklyCard.does":
+    "होम पर एक साप्ताहिक कार्ड पोस्ट करता है कि Psyche ने सीखा कि आपको काम कैसे पसंद हैं।",
   "scheduled.routine.heartbeat.name": "हार्टबीट",
   "scheduled.routine.heartbeat.does": "दिन भर में एक हल्की जाँच कि कहीं कुछ आपका ध्यान तो नहीं चाहता।",
 };

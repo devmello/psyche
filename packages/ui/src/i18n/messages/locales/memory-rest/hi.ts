@@ -22,9 +22,11 @@ export const memoryRest: Partial<Catalogue> = {
   "memory.page.continue.failed": "चैट खोली नहीं जा सकी। {reason}",
   "memory.page.seeAll": "सब देखें",
   "memory.page.loadFailed": "मेमोरी का यह हिस्सा लोड नहीं हो सका।",
-  "memory.page.everything.empty": "अभी कुछ याद नहीं रखा गया। सेटिंग्ज़ → मेमोरी में कोई स्रोत चालू करें, या चैट में {persona} को बताएँ।",
+  "memory.page.everything.empty":
+    "अभी कुछ याद नहीं रखा गया। सेटिंग्ज़ → मेमोरी में कोई स्रोत चालू करें, या चैट में {persona} को बताएँ।",
   "memory.page.everything.review": "समीक्षा के लिए",
-  "memory.page.everything.reviewCount": "{n, plural, one {# तथ्य आपकी मंज़ूरी की प्रतीक्षा में है} other {# तथ्य आपकी मंज़ूरी की प्रतीक्षा में हैं}}",
+  "memory.page.everything.reviewCount":
+    "{n, plural, one {# तथ्य आपकी मंज़ूरी की प्रतीक्षा में है} other {# तथ्य आपकी मंज़ूरी की प्रतीक्षा में हैं}}",
   "memory.page.everything.due": "जल्द देय",
   "memory.page.everything.projects": "सक्रिय प्रोजेक्ट",
   "memory.page.everything.people": "जिन लोगों से आप संपर्क में हैं",
@@ -33,10 +35,12 @@ export const memoryRest: Partial<Catalogue> = {
   "memory.page.projects.empty": "यहाँ अभी कोई प्रोजेक्ट नहीं।",
   "memory.page.projects.nothing": "“{query}” से कोई प्रोजेक्ट मेल नहीं खाता।",
   "memory.page.due.title": "कुछ देय नहीं",
-  "memory.page.due.body": "बिल, नवीनीकरण, काम की डेडलाइन और होमवर्क {persona} के उन्हें ट्रैक करते ही यहाँ दिखेंगे।",
+  "memory.page.due.body":
+    "बिल, नवीनीकरण, काम की डेडलाइन और होमवर्क {persona} के उन्हें ट्रैक करते ही यहाँ दिखेंगे।",
   "memory.page.events.upcoming": "आने वाले",
   "memory.page.events.other": "अन्य इवेंट",
-  "memory.page.events.empty": "कोई आने वाली तारीख नहीं। जन्मदिन, वर्षगाँठ और आपके पुष्ट किए इवेंट यहाँ दिखते हैं।",
+  "memory.page.events.empty":
+    "कोई आने वाली तारीख नहीं। जन्मदिन, वर्षगाँठ और आपके पुष्ट किए इवेंट यहाँ दिखते हैं।",
   "memory.page.events.when": "{n, plural, =0 {आज} =1 {कल} other {# दिन में}}",
   "memory.page.more.place": "स्थान",
   "memory.page.more.org": "संस्थाएँ",

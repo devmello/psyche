@@ -20,7 +20,8 @@ export const widgetsRest: Partial<Catalogue> = {
   "widgets.frame.building": "Creazione del widget…",
   "widgets.app.title": "App da {server}",
   "widgets.app.untrusted": "Creata da contenuti non attendibili",
-  "widgets.app.note": "Questa pagina proviene dal connettore. Non può usare la rete, i tuoi strumenti o i tuoi dati, e non può chiedere approvazioni.",
+  "widgets.app.note":
+    "Questa pagina proviene dal connettore. Non può usare la rete, i tuoi strumenti o i tuoi dati, e non può chiedere approvazioni.",
   "widgets.app.run": "Avvia app",
   "widgets.app.hide": "Nascondi app",
   "widgets.app.unavailable": "Questa app non può essere mostrata qui.",
@@ -49,7 +50,8 @@ export const widgetsRest: Partial<Catalogue> = {
   "widgets.stat.delta": "Variazione: {delta}",
   "widgets.list.empty": "Niente qui.",
   "widgets.code.label": "Codice",
-  "widgets.chart.summary": "{label}: {kind, select, bar {grafico a barre} line {grafico a linee} sparkline {sparkline} other {grafico}}, {series, plural, one {# serie} other {# serie}}, {points, plural, one {# punto} other {# punti}}, da {from} a {to}, minimo {min}, massimo {max}{unit}",
+  "widgets.chart.summary":
+    "{label}: {kind, select, bar {grafico a barre} line {grafico a linee} sparkline {sparkline} other {grafico}}, {series, plural, one {# serie} other {# serie}}, {points, plural, one {# punto} other {# punti}}, da {from} a {to}, minimo {min}, massimo {max}{unit}",
   "widgets.chart.showData": "Mostra dati",
   "widgets.chart.hideData": "Nascondi dati",
   "widgets.chart.series": "Serie",
@@ -57,7 +59,8 @@ export const widgetsRest: Partial<Catalogue> = {
   "widgets.chart.unit": " ({unit})",
   "widgets.image.remoteOff": "Immagine remota non mostrata: {alt}",
   "widgets.image.load": "Carica immagine: {alt}",
-  "widgets.image.loadUntrusted": "Questo widget è stato creato da contenuti non attendibili. Carica immagine: {alt}",
+  "widgets.image.loadUntrusted":
+    "Questo widget è stato creato da contenuti non attendibili. Carica immagine: {alt}",
   "widgets.image.loading": "Caricamento dell’immagine: {alt}",
   "widgets.image.failed": "Impossibile caricare l’immagine: {alt}",
   "widgets.tool.asksFirst": "Chiede prima a te",
@@ -76,7 +79,8 @@ export const widgetsRest: Partial<Catalogue> = {
   "widgets.form.choose": "Scegli…",
   "widgets.map.open": "Apri in Mappe",
   "widgets.map.openNamed": "Apri {name} in Mappe",
-  "widgets.bound.status": "{status, select, queued {In coda} running {In corso} awaiting_input {In attesa della tua risposta} awaiting_approval {In attesa della tua approvazione} paused {In pausa} done {Completato} failed {Non riuscito} cancelled {Annullato} pending {In sospeso} ok {Completato} uncertain {Completato, esito sconosciuto} blocked {Bloccato} working {In lavorazione} needs_you {Serve te} partial {Completato in parte} enabled {Pianificato} disabled {In pausa} other {{status}}}",
+  "widgets.bound.status":
+    "{status, select, queued {In coda} running {In corso} awaiting_input {In attesa della tua risposta} awaiting_approval {In attesa della tua approvazione} paused {In pausa} done {Completato} failed {Non riuscito} cancelled {Annullato} pending {In sospeso} ok {Completato} uncertain {Completato, esito sconosciuto} blocked {Bloccato} working {In lavorazione} needs_you {Serve te} partial {Completato in parte} enabled {Pianificato} disabled {In pausa} other {{status}}}",
   "widgets.bound.never": "Mai",
   "widgets.bound.noNext": "Non pianificato",
   "widgets.bound.sources": "{count, plural, one {# fonte} other {# fonti}}",

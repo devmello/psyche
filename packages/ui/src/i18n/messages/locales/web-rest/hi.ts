@@ -3,7 +3,8 @@ import type { Catalogue } from "../../index.ts";
 /** `web.*` strings (hi); merged into `../hi.ts`. */
 export const webRest: Partial<Catalogue> = {
   "web.remotePresence.title": "स्वीकृतियों के लिए Touch ID",
-  "web.remotePresence.description": "खरीदारी, क्रेडेंशियल भरना, होस्ट कमांड और सुरक्षा बदलावों के लिए Touch ID चाहिए। यहाँ जवाब देने के लिए इसे इस कंप्यूटर पर सेट अप करें; तब तक वे कार्ड {host} पर जवाब देने को कहते हैं। सामान्य स्वीकृतियों को इसकी कभी ज़रूरत नहीं होती।",
+  "web.remotePresence.description":
+    "खरीदारी, क्रेडेंशियल भरना, होस्ट कमांड और सुरक्षा बदलावों के लिए Touch ID चाहिए। यहाँ जवाब देने के लिए इसे इस कंप्यूटर पर सेट अप करें; तब तक वे कार्ड {host} पर जवाब देने को कहते हैं। सामान्य स्वीकृतियों को इसकी कभी ज़रूरत नहीं होती।",
   "web.remotePresence.on": "इस कंप्यूटर से स्वीकृतियों के लिए Touch ID चालू है।",
   "web.remotePresence.off": "इस कंप्यूटर पर Touch ID सेट अप नहीं है।",
   "web.remotePresence.enable": "इस कंप्यूटर पर स्वीकृतियों के लिए Touch ID उपयोग करें",
@@ -12,9 +13,12 @@ export const webRest: Partial<Catalogue> = {
   "web.remotePresence.passkeyName": "इस कंप्यूटर पर Touch ID",
   "web.remotePresence.enabled": "इस कंप्यूटर से स्वीकृतियों के लिए Touch ID चालू है।",
   "web.remotePresence.disabled": "इस कंप्यूटर पर स्वीकृतियों के लिए Touch ID बंद है।",
-  "web.remotePresence.approveOnHost": "{host} पर Touch ID या पासकी से “पासकी जोड़ें” को स्वीकृत करें, फिर बटन दोबारा दबाएँ।",
-  "web.remotePresence.unavailable": "Touch ID के लिए {host} का Gateway https:// पते पर होना चाहिए (gateway.publicOrigin)। तब तक उन कार्डों का जवाब {host} पर दें।",
-  "web.touchId.helperDidNotStart": "Psyche Helper कनेक्ट नहीं हुआ। कारण जानने के लिए सेटिंग्ज़ → डिवाइस खोलें, फिर दोबारा कोशिश करें।",
+  "web.remotePresence.approveOnHost":
+    "{host} पर Touch ID या पासकी से “पासकी जोड़ें” को स्वीकृत करें, फिर बटन दोबारा दबाएँ।",
+  "web.remotePresence.unavailable":
+    "Touch ID के लिए {host} का Gateway https:// पते पर होना चाहिए (gateway.publicOrigin)। तब तक उन कार्डों का जवाब {host} पर दें।",
+  "web.touchId.helperDidNotStart":
+    "Psyche Helper कनेक्ट नहीं हुआ। कारण जानने के लिए सेटिंग्ज़ → डिवाइस खोलें, फिर दोबारा कोशिश करें।",
   "web.panes.title.sidechat": "साइड चैट",
   "web.sideChat.about": "{parent} के बारे में साइड चैट",
   "web.sideChat.aside": "साइड चैट",
@@ -30,11 +34,13 @@ export const webRest: Partial<Catalogue> = {
   "web.approval.folderChoose": "फ़ोल्डर चुनें…",
   "web.approval.messageText": "संदेश का टेक्स्ट, भेजने से पहले बदला जा सकता है",
   "web.approval.messageWeak": "SMS/RCS: कमज़ोर पहचान, जाँच लें",
-  "web.approval.messageUntrusted": "यह प्राप्तकर्ता Psyche द्वारा पढ़ी गई सामग्री ने सुझाया है, आपने नहीं। भेजने से पहले जाँच लें।",
+  "web.approval.messageUntrusted":
+    "यह प्राप्तकर्ता Psyche द्वारा पढ़ी गई सामग्री ने सुझाया है, आपने नहीं। भेजने से पहले जाँच लें।",
   "web.approval.folderPath": "फ़ोल्डर का पाथ",
   "web.approval.folderPickTitle": "फ़ोल्डर साझा करें",
   "web.browser.stay.question": "{site} पर साइन इन रहें?",
-  "web.browser.stay.detail": "Psyche इस साइन-इन को अपनी ब्राउज़र प्रोफ़ाइल में रखता है ताकि टास्क इसका उपयोग कर सकें। बाकी सभी साइट लॉग आउट रहती हैं।",
+  "web.browser.stay.detail":
+    "Psyche इस साइन-इन को अपनी ब्राउज़र प्रोफ़ाइल में रखता है ताकि टास्क इसका उपयोग कर सकें। बाकी सभी साइट लॉग आउट रहती हैं।",
   "web.browser.stay.yes": "साइन इन रहें",
   "web.browser.prompt.notNow": "अभी नहीं",
   "web.browser.vault.question": "लॉगिन को Psyche वॉल्ट में सेव करें?",
@@ -43,25 +49,35 @@ export const webRest: Partial<Catalogue> = {
   "web.browser.vault.save": "लॉगिन सेव करें",
   "web.browser.vault.never": "इस साइट के लिए कभी नहीं",
   "web.browser.vault.error": "लॉगिन सेव नहीं हो सका ({code})। वॉल्ट अनलॉक करें और फिर कोशिश करें।",
-  "web.chat.autoUnavailable": "ऑटो उपलब्ध नहीं है: {model} ऑटो-मोड की अनुमत सूची में नहीं है। इसका उपयोग करने के लिए कोई दूसरा मॉडल चुनें।",
+  "web.chat.autoUnavailable":
+    "ऑटो उपलब्ध नहीं है: {model} ऑटो-मोड की अनुमत सूची में नहीं है। इसका उपयोग करने के लिए कोई दूसरा मॉडल चुनें।",
   "web.toast.threadUpdateFailed": "Psyche यह चैट सेटिंग नहीं बदल सका।",
   "web.splash.remote.finding": "{host} खोजा जा रहा है…",
   "web.splash.remote.checking": "जाँच रहा है कि यह सचमुच {host} है…",
   "web.splash.remote.waiting": "{host} पर स्वीकृति की प्रतीक्षा में…",
   "web.splash.remote.pairCode": "पेयरिंग कोड {code}",
   "web.splash.remote.pairKey": "Gateway कुंजी {fingerprint}",
-  "web.splash.remote.pairHint": "दोनों को {host} की सेटिंग्ज़ → डिवाइस में दिए अनुरोध से मिलाएँ, फिर वहीं उसे स्वीकृत करें।",
-  "web.splash.remote.pairHintLan": "पूरी कुंजी को {host} की सेटिंग्ज़ → डिवाइस में इस कंप्यूटर के अनुरोध के नीचे दी कुंजी से मिलाएँ। नेटवर्क पर, किसने जवाब दिया इसका एकमात्र सबूत कुंजी है। केवल तभी स्वीकृत करें जब वे मेल खाएँ।",
+  "web.splash.remote.pairHint":
+    "दोनों को {host} की सेटिंग्ज़ → डिवाइस में दिए अनुरोध से मिलाएँ, फिर वहीं उसे स्वीकृत करें।",
+  "web.splash.remote.pairHintLan":
+    "पूरी कुंजी को {host} की सेटिंग्ज़ → डिवाइस में इस कंप्यूटर के अनुरोध के नीचे दी कुंजी से मिलाएँ। नेटवर्क पर, किसने जवाब दिया इसका एकमात्र सबूत कुंजी है। केवल तभी स्वीकृत करें जब वे मेल खाएँ।",
   "web.splash.remote.unreachable": "{host} जवाब नहीं दे रहा।",
-  "web.splash.remote.unreachableReason": "हो सकता है वह स्लीप में या बंद हो, वहाँ Psyche न चल रहा हो, या इस कंप्यूटर पर Tailscale बंद हो। Psyche कोशिश करता रहता है।",
+  "web.splash.remote.unreachableReason":
+    "हो सकता है वह स्लीप में या बंद हो, वहाँ Psyche न चल रहा हो, या इस कंप्यूटर पर Tailscale बंद हो। Psyche कोशिश करता रहता है।",
   "web.splash.remote.identity": "यह वह {host} नहीं है जिसके साथ आपने पेयर किया था।",
-  "web.splash.remote.identityChanged": "इसकी पहचान कुंजी वह नहीं है जो इस कंप्यूटर ने पिन की थी। हो सकता है इसकी जगह कोई और मशीन जवाब दे रही हो, या इसे फिर से सेट अप किया गया हो।",
+  "web.splash.remote.identityChanged":
+    "इसकी पहचान कुंजी वह नहीं है जो इस कंप्यूटर ने पिन की थी। हो सकता है इसकी जगह कोई और मशीन जवाब दे रही हो, या इसे फिर से सेट अप किया गया हो।",
   "web.splash.remote.identityMissing": "इसने पहचान कुंजी पेश नहीं की, इसलिए Psyche कनेक्ट नहीं करेगा।",
-  "web.splash.remote.identityInvalid": "इसका पहचान प्रमाण जाँच में खरा नहीं उतरा, इसलिए Psyche कनेक्ट नहीं करेगा।",
-  "web.splash.remote.identityOrigin": "इसने उस पते से अलग पते के लिए जवाब दिया जिसे इस कंप्यूटर ने डायल किया था। {host} पर सेटिंग्ज़ → डिवाइस → सर्वर और रिमोट एक्सेस में सार्वजनिक पता सेट करें।",
-  "web.splash.remote.certChanged": "इसका नेटवर्क सर्टिफ़िकेट वह नहीं है जो इस कंप्यूटर ने पिन किया था। हो सकता है इस नेटवर्क की कोई और मशीन इसकी जगह जवाब दे रही हो, या इसका सर्टिफ़िकेट बदला गया हो।",
-  "web.splash.remote.certMissing": "इसने अपने उपयोग किए सर्टिफ़िकेट की गारंटी नहीं दी, इसलिए Psyche कनेक्ट नहीं करेगा।",
-  "web.splash.remote.certInvalid": "इसके उपयोग किए सर्टिफ़िकेट का प्रमाण जाँच में खरा नहीं उतरा, इसलिए Psyche कनेक्ट नहीं करेगा।",
+  "web.splash.remote.identityInvalid":
+    "इसका पहचान प्रमाण जाँच में खरा नहीं उतरा, इसलिए Psyche कनेक्ट नहीं करेगा।",
+  "web.splash.remote.identityOrigin":
+    "इसने उस पते से अलग पते के लिए जवाब दिया जिसे इस कंप्यूटर ने डायल किया था। {host} पर सेटिंग्ज़ → डिवाइस → सर्वर और रिमोट एक्सेस में सार्वजनिक पता सेट करें।",
+  "web.splash.remote.certChanged":
+    "इसका नेटवर्क सर्टिफ़िकेट वह नहीं है जो इस कंप्यूटर ने पिन किया था। हो सकता है इस नेटवर्क की कोई और मशीन इसकी जगह जवाब दे रही हो, या इसका सर्टिफ़िकेट बदला गया हो।",
+  "web.splash.remote.certMissing":
+    "इसने अपने उपयोग किए सर्टिफ़िकेट की गारंटी नहीं दी, इसलिए Psyche कनेक्ट नहीं करेगा।",
+  "web.splash.remote.certInvalid":
+    "इसके उपयोग किए सर्टिफ़िकेट का प्रमाण जाँच में खरा नहीं उतरा, इसलिए Psyche कनेक्ट नहीं करेगा।",
   "web.splash.remote.olderHost": "{host} पर Psyche का पुराना संस्करण चल रहा है।",
   "web.splash.remote.olderHostReason": "{host} पर Psyche अपडेट करें, फिर दोबारा कोशिश करें।",
   "web.splash.remote.olderApp": "यह ऐप {host} से पुराना है।",
@@ -69,7 +85,8 @@ export const webRest: Partial<Catalogue> = {
   "web.splash.remote.revoked": "इस कंप्यूटर को {host} से हटा दिया गया।",
   "web.splash.remote.revokedReason": "यहाँ से उपयोग करने के लिए फिर से पेयर करें, या इसे भूल जाएँ।",
   "web.splash.remote.tokenRefused": "{host} ने यह पेयरिंग लिंक अस्वीकार कर दिया।",
-  "web.splash.remote.tokenRefusedReason": "यह पहले ही इस्तेमाल हो चुका है, समाप्त हो गया है या रद्द कर दिया गया है। {host} पर नया बनाएँ और फिर से जोड़ें।",
+  "web.splash.remote.tokenRefusedReason":
+    "यह पहले ही इस्तेमाल हो चुका है, समाप्त हो गया है या रद्द कर दिया गया है। {host} पर नया बनाएँ और फिर से जोड़ें।",
   "web.splash.remote.switch": "Gateway बदलें",
   "web.splash.remote.useThisMac": "इस Mac का उपयोग करें",
   "web.splash.remote.pairAgain": "भूलें और फिर से पेयर करें",
@@ -84,7 +101,8 @@ export const webRest: Partial<Catalogue> = {
   "web.panes.title.terminalOn": "{host} पर टर्मिनल",
   "web.panes.terminalRemote": "टर्मिनल {host} पर चलता है। इस विंडो में अभी कोई शेल नहीं है।",
   "web.splash.remote.pinsUnreadable": "Psyche अपने सेव किए Gateway नहीं पढ़ पा रहा।",
-  "web.splash.remote.pinsUnreadableReason": "हर Gateway की पहचान याद रखने वाली फ़ाइल पढ़ी नहीं जा सकती, इसलिए Psyche उसके बिना कनेक्ट नहीं करेगा। कुछ नहीं बदला गया।",
+  "web.splash.remote.pinsUnreadableReason":
+    "हर Gateway की पहचान याद रखने वाली फ़ाइल पढ़ी नहीं जा सकती, इसलिए Psyche उसके बिना कनेक्ट नहीं करेगा। कुछ नहीं बदला गया।",
   "web.browser.remote": "ब्राउज़र {host} पर चलता है।",
   "web.browser.remoteHint": "ब्राउज़र टास्क {host} पर Psyche में चलते रहते हैं, जिसका वहाँ खुला रहना ज़रूरी है।",
   "web.teach.record": "रिकॉर्ड करें",
@@ -92,33 +110,39 @@ export const webRest: Partial<Catalogue> = {
   "web.teach.agentTab": "एजेंट इस टैब का उपयोग कर रहा है। रिकॉर्ड करने के लिए अपना टैब खोलें।",
   "web.teach.startFailed": "Psyche इस टैब की रिकॉर्डिंग शुरू नहीं कर सका।",
   "web.teach.bar.title": "रिकॉर्डिंग",
-  "web.teach.bar.body": "Psyche सिर्फ़ इसी टैब में आपके क्लिक और टाइपिंग नोट करता है। पासवर्ड, कार्ड नंबर और कोड कभी रिकॉर्ड नहीं होते, और आपके सेव करने तक कुछ इस Mac से बाहर नहीं जाता।",
+  "web.teach.bar.body":
+    "Psyche सिर्फ़ इसी टैब में आपके क्लिक और टाइपिंग नोट करता है। पासवर्ड, कार्ड नंबर और कोड कभी रिकॉर्ड नहीं होते, और आपके सेव करने तक कुछ इस Mac से बाहर नहीं जाता।",
   "web.teach.bar.steps": "अब तक {count, plural, one {# चरण} other {# चरण}}",
   "web.teach.bar.stop": "रिकॉर्डिंग रोकें",
   "web.teach.bar.cancel": "त्यागें",
   "web.teach.bar.endedLimit": "रिकॉर्डिंग 200 चरणों की सीमा पर रुक गई। देखें इसने क्या पकड़ा।",
-  "web.teach.bar.endedInterrupted": "रिकॉर्डिंग जल्दी खत्म हो गई क्योंकि टैब बदल गया या बंद हो गया। देखें इसने क्या पकड़ा।",
+  "web.teach.bar.endedInterrupted":
+    "रिकॉर्डिंग जल्दी खत्म हो गई क्योंकि टैब बदल गया या बंद हो गया। देखें इसने क्या पकड़ा।",
   "web.teach.bar.review": "समीक्षा करें",
   "web.teach.stopFailed": "Psyche रिकॉर्डिंग पूरी नहीं कर सका।",
   "web.teach.nothingRecorded": "कुछ रिकॉर्ड नहीं हुआ।",
-  "web.teach.review.keepUnavailable": "उपलब्ध नहीं: रखी गई रिकॉर्डिंग को एन्क्रिप्ट करने के लिए इस Mac की कीचेन उपलब्ध नहीं है।",
+  "web.teach.review.keepUnavailable":
+    "उपलब्ध नहीं: रखी गई रिकॉर्डिंग को एन्क्रिप्ट करने के लिए इस Mac की कीचेन उपलब्ध नहीं है।",
   "web.teach.kept.title": "रखी गई रिकॉर्डिंग",
   "web.teach.kept.open": "खोलें",
   "web.teach.kept.delete": "हटाएँ",
   "web.teach.kept.deleted": "रिकॉर्डिंग हटा दी गई।",
   "web.teach.kept.failed": "Psyche वह रिकॉर्डिंग खोल नहीं सका।",
   "web.teach.review.title": "आपने जो दिखाया उसकी समीक्षा करें",
-  "web.teach.review.intro": "ये वे चरण हैं जो Psyche ने पकड़े, सरल शब्दों में। इनमें से किसी को भी ठीक करें, क्रम बदलें या हटाएँ। सेव दबाने तक कुछ सेव नहीं होता।",
+  "web.teach.review.intro":
+    "ये वे चरण हैं जो Psyche ने पकड़े, सरल शब्दों में। इनमें से किसी को भी ठीक करें, क्रम बदलें या हटाएँ। सेव दबाने तक कुछ सेव नहीं होता।",
   "web.teach.review.name": "इसका नाम क्या हो?",
   "web.teach.review.namePlaceholder": "साप्ताहिक बिलिंग रिपोर्ट एक्सपोर्ट करें",
-  "web.teach.review.skipped": "{count, plural, one {रिकॉर्डिंग के दौरान पेज खुद # बार बदला। उसे छोड़ दिया गया है।} other {रिकॉर्डिंग के दौरान पेज खुद # बार बदला। उन्हें छोड़ दिया गया है।}}",
+  "web.teach.review.skipped":
+    "{count, plural, one {रिकॉर्डिंग के दौरान पेज खुद # बार बदला। उसे छोड़ दिया गया है।} other {रिकॉर्डिंग के दौरान पेज खुद # बार बदला। उन्हें छोड़ दिया गया है।}}",
   "web.teach.review.steps": "चरण",
   "web.teach.review.stepNumber": "चरण {n}",
   "web.teach.review.moveUp": "चरण {n} ऊपर ले जाएँ",
   "web.teach.review.moveDown": "चरण {n} नीचे ले जाएँ",
   "web.teach.review.remove": "चरण {n} हटाएँ",
   "web.teach.review.empty": "सभी चरण हटा दिए गए। रद्द करें, या फिर से रिकॉर्ड करें।",
-  "web.teach.review.sensitive": "रिकॉर्ड नहीं किया गया। यह हिस्सा आप खुद करें, इसके लिए Psyche आपको टैब सौंप देगा।",
+  "web.teach.review.sensitive":
+    "रिकॉर्ड नहीं किया गया। यह हिस्सा आप खुद करें, इसके लिए Psyche आपको टैब सौंप देगा।",
   "web.teach.review.value": "क्या टाइप करना है",
   "web.teach.review.value.ask": "हर बार मुझसे पूछें",
   "web.teach.review.value.keep": "यह मान रखें",
@@ -129,19 +153,23 @@ export const webRest: Partial<Catalogue> = {
   "web.teach.review.inputDescription": "यह क्या है",
   "web.teach.review.inputDescriptionPlaceholder": "सप्ताह का पहला दिन",
   "web.teach.review.keepRecording": "इस रिकॉर्डिंग को इस Mac पर रखें ताकि मैं एक और संस्करण बना सकूँ",
-  "web.teach.review.keepRecordingHint": "सिर्फ़ ऊपर के चरण रखे जाते हैं, आपके रखने के लिए चुने मानों के साथ। नहीं तो सेव करने पर रिकॉर्डिंग हट जाती है।",
+  "web.teach.review.keepRecordingHint":
+    "सिर्फ़ ऊपर के चरण रखे जाते हैं, आपके रखने के लिए चुने मानों के साथ। नहीं तो सेव करने पर रिकॉर्डिंग हट जाती है।",
   "web.teach.review.save": "स्किल के रूप में सेव करें",
   "web.teach.review.saving": "सेव हो रहा है",
   "web.teach.review.discard": "रिकॉर्डिंग त्यागें",
-  "web.teach.review.privacy": "इन चरणों में पेज का टेक्स्ट डेटा माना जाता है, निर्देश नहीं। सेव करने पर चलने से पहले स्किल को स्वीकृत करने को कहा जाता है।",
+  "web.teach.review.privacy":
+    "इन चरणों में पेज का टेक्स्ट डेटा माना जाता है, निर्देश नहीं। सेव करने पर चलने से पहले स्किल को स्वीकृत करने को कहा जाता है।",
   "web.teach.review.issues": "पहले इसे ठीक करें: {problems}",
   "web.teach.review.needName": "पहले इसे एक नाम दें।",
   "web.teach.review.saveFailed": "Psyche इसे स्किल के रूप में सेव नहीं कर सका: {reason}",
   "web.teach.done.title": "सेव हो गया",
-  "web.teach.done.body": "“{title}” आपकी स्वीकृति की प्रतीक्षा में है। कार्ड पढ़ें, फिर स्किल इंस्टॉल करने के लिए उसे स्वीकृत करें।",
+  "web.teach.done.body":
+    "“{title}” आपकी स्वीकृति की प्रतीक्षा में है। कार्ड पढ़ें, फिर स्किल इंस्टॉल करने के लिए उसे स्वीकृत करें।",
   "web.teach.done.installed": "“{title}” इंस्टॉल हो गई।",
   "web.teach.done.run": "अभी एक बार चलाएँ",
-  "web.teach.done.runHint": "स्किल को संदेश बॉक्स में भर देता है। भेजें दबाएँ, फिर ब्राउज़र देखें: हर क्लिक और प्रविष्टि हमेशा की तरह स्वीकृति मांगती है, और पेज बदलने पर यह रुककर पूछता है।",
+  "web.teach.done.runHint":
+    "स्किल को संदेश बॉक्स में भर देता है। भेजें दबाएँ, फिर ब्राउज़र देखें: हर क्लिक और प्रविष्टि हमेशा की तरह स्वीकृति मांगती है, और पेज बदलने पर यह रुककर पूछता है।",
   "web.teach.done.close": "बंद करें",
   "web.teach.step.navigate": "{address} खोलें",
   "web.teach.step.click": "‘{name}’ पर क्लिक करें",

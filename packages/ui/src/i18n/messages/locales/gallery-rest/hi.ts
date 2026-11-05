@@ -35,22 +35,28 @@ export const galleryRest: Partial<Catalogue> = {
   "gallery.preset.github.desc": "रिपॉज़िटरी, इश्यू और पुल रिक्वेस्ट देखें।",
   "gallery.preset.github.example": "कौन-सी पुल रिक्वेस्ट मेरी समीक्षा की प्रतीक्षा में हैं?",
   "gallery.preset.github.field.token.label": "पर्सनल एक्सेस टोकन",
-  "gallery.preset.github.field.token.help": "एक फ़ाइन-ग्रेन्ड टोकन, जो सिर्फ़ उन रिपॉज़िटरी तक सीमित हो जिन्हें आप Psyche को दिखाना चाहते हैं।",
-  "gallery.preset.gitlab.desc": "GitLab.com पर प्रोजेक्ट, मर्ज रिक्वेस्ट और इश्यू। कनेक्ट होते समय आप साइन इन करते हैं।",
+  "gallery.preset.github.field.token.help":
+    "एक फ़ाइन-ग्रेन्ड टोकन, जो सिर्फ़ उन रिपॉज़िटरी तक सीमित हो जिन्हें आप Psyche को दिखाना चाहते हैं।",
+  "gallery.preset.gitlab.desc":
+    "GitLab.com पर प्रोजेक्ट, मर्ज रिक्वेस्ट और इश्यू। कनेक्ट होते समय आप साइन इन करते हैं।",
   "gallery.preset.gitlab.example": "मेरे मुख्य प्रोजेक्ट की खुली मर्ज रिक्वेस्ट का सार बताओ।",
   "gallery.preset.git.desc": "किसी एक लोकल रिपॉज़िटरी का इतिहास, ब्रांच और अंतर पढ़ें।",
   "gallery.preset.git.example": "पिछले हफ़्ते इस रिपॉज़िटरी में क्या बदला?",
   "gallery.preset.git.field.repo.label": "रिपॉज़िटरी फ़ोल्डर",
-  "gallery.preset.git.field.repo.help": "इस Mac पर किसी Git रिपॉज़िटरी का फ़ोल्डर। Psyche उसका इतिहास और अंतर पढ़ सकता है।",
-  "gallery.preset.sentry.desc": "अपने Sentry प्रोजेक्ट की त्रुटियों और इश्यू की जाँच करें। कनेक्ट होते समय आप साइन इन करते हैं।",
+  "gallery.preset.git.field.repo.help":
+    "इस Mac पर किसी Git रिपॉज़िटरी का फ़ोल्डर। Psyche उसका इतिहास और अंतर पढ़ सकता है।",
+  "gallery.preset.sentry.desc":
+    "अपने Sentry प्रोजेक्ट की त्रुटियों और इश्यू की जाँच करें। कनेक्ट होते समय आप साइन इन करते हैं।",
   "gallery.preset.sentry.example": "इस हफ़्ते सबसे ज़्यादा बार आने वाली अनसुलझी त्रुटियाँ कौन-सी हैं?",
   "gallery.preset.linear.desc": "इश्यू और प्रोजेक्ट खोजें और अपडेट करें। कनेक्ट होते समय आप साइन इन करते हैं।",
   "gallery.preset.linear.example": "कौन-से इश्यू मुझे सौंपे गए हैं और इसी हफ़्ते देय हैं?",
   "gallery.preset.jira.desc": "Jira इश्यू और Confluence पेज खोजें। कनेक्ट होते समय आप साइन इन करते हैं।",
   "gallery.preset.jira.example": "कल मेरे अपडेट किए हुए Jira टिकट दिखाओ।",
-  "gallery.preset.notion.desc": "अपने Notion वर्कस्पेस के पेज खोजें, पढ़ें और संपादित करें। कनेक्ट होते समय आप साइन इन करते हैं।",
+  "gallery.preset.notion.desc":
+    "अपने Notion वर्कस्पेस के पेज खोजें, पढ़ें और संपादित करें। कनेक्ट होते समय आप साइन इन करते हैं।",
   "gallery.preset.notion.example": "Notion में पिछले मंगलवार की मेरी मीटिंग के नोट्स ढूँढो।",
-  "gallery.preset.todoist.desc": "अपने Todoist टास्क और प्रोजेक्ट देखें और प्रबंधित करें। कनेक्ट होते समय आप साइन इन करते हैं।",
+  "gallery.preset.todoist.desc":
+    "अपने Todoist टास्क और प्रोजेक्ट देखें और प्रबंधित करें। कनेक्ट होते समय आप साइन इन करते हैं।",
   "gallery.preset.todoist.example": "Todoist में आज क्या देय है?",
   "gallery.preset.airtable.desc": "अपने Airtable बेस के रिकॉर्ड पढ़ें और अपडेट करें।",
   "gallery.preset.airtable.example": "मेरे Projects बेस के वे रिकॉर्ड सूचीबद्ध करो जो ब्लॉक्ड चिह्नित हैं।",
@@ -59,7 +65,8 @@ export const galleryRest: Partial<Catalogue> = {
   "gallery.preset.fetch.desc": "कोई वेब पेज लाएँ और उसे सादे टेक्स्ट के रूप में पढ़ें।",
   "gallery.preset.fetch.example": "यह पेज पढ़ो और मुझे तीन मुख्य बातें बताओ।",
   "gallery.preset.fetch.field.sites.label": "जिन वेबसाइट तक यह पहुँच सकता है",
-  "gallery.preset.fetch.field.sites.help": "कॉमा से अलग किए गए होस्ट नाम, जैसे en.wikipedia.org। खाली छोड़ने पर यह केवल पैकेज रजिस्ट्री तक पहुँच सकता है।",
+  "gallery.preset.fetch.field.sites.help":
+    "कॉमा से अलग किए गए होस्ट नाम, जैसे en.wikipedia.org। खाली छोड़ने पर यह केवल पैकेज रजिस्ट्री तक पहुँच सकता है।",
   "gallery.preset.braveSearch.desc": "Brave से वेब, समाचार और चित्र खोजें।",
   "gallery.preset.braveSearch.example": "ओपन-सोर्स AI मॉडल के बारे में इस हफ़्ते की खबरें खोजो।",
   "gallery.preset.braveSearch.field.key.label": "API कुंजी",
@@ -67,9 +74,11 @@ export const galleryRest: Partial<Catalogue> = {
   "gallery.preset.playwright.desc": "पेज पढ़ने और फ़ॉर्म भरने के लिए एक अलग ब्राउज़र चलाएँ।",
   "gallery.preset.playwright.example": "example.com खोलो और बताओ कि पेज पर क्या लिखा है।",
   "gallery.preset.playwright.field.sites.label": "जिन वेबसाइट तक यह पहुँच सकता है",
-  "gallery.preset.playwright.field.sites.help": "कॉमा से अलग किए गए होस्ट नाम जिन्हें यह खोल सकता है। ऑफ़लाइन रखने के लिए खाली छोड़ें।",
+  "gallery.preset.playwright.field.sites.help":
+    "कॉमा से अलग किए गए होस्ट नाम जिन्हें यह खोल सकता है। ऑफ़लाइन रखने के लिए खाली छोड़ें।",
   "gallery.preset.firecrawl.desc": "वेबसाइट को स्क्रैप और क्रॉल करके साफ़ टेक्स्ट में बदलें।",
-  "gallery.preset.firecrawl.example": "example.com की डॉक्स साइट क्रॉल करो और मुख्य अनुभागों का सार बताओ।",
+  "gallery.preset.firecrawl.example":
+    "example.com की डॉक्स साइट क्रॉल करो और मुख्य अनुभागों का सार बताओ।",
   "gallery.preset.firecrawl.field.key.label": "API कुंजी",
   "gallery.preset.firecrawl.field.key.help": "आपकी ओर से साइट स्क्रैप और क्रॉल करने के लिए उपयोग होती है।",
   "gallery.preset.time.desc": "वर्तमान समय पाएँ और समय क्षेत्रों के बीच बदलें।",
@@ -77,9 +86,11 @@ export const galleryRest: Partial<Catalogue> = {
   "gallery.preset.homeAssistant.desc": "Home Assistant में आपके उपलब्ध कराए डिवाइस देखें और नियंत्रित करें।",
   "gallery.preset.homeAssistant.example": "अभी कौन-सी लाइटें चालू हैं?",
   "gallery.preset.homeAssistant.field.url.label": "सर्वर का पता",
-  "gallery.preset.homeAssistant.field.url.help": "Model Context Protocol Server इंटीग्रेशन चालू करें, फिर उसका पता सेटिंग्ज़, सिस्टम, AI से कॉपी करें। यह https:// से शुरू होना चाहिए।",
+  "gallery.preset.homeAssistant.field.url.help":
+    "Model Context Protocol Server इंटीग्रेशन चालू करें, फिर उसका पता सेटिंग्ज़, सिस्टम, AI से कॉपी करें। यह https:// से शुरू होना चाहिए।",
   "gallery.preset.stripe.desc": "ग्राहक, भुगतान और बैलेंस देखें। केवल पढ़ना, जो आपकी प्रतिबंधित कुंजी तय करती है।",
   "gallery.preset.stripe.example": "पिछले 30 दिनों में मैंने कितना चार्ज किया?",
   "gallery.preset.stripe.field.key.label": "प्रतिबंधित कुंजी",
-  "gallery.preset.stripe.field.key.help": "केवल पढ़ने की अनुमति वाली एक प्रतिबंधित कुंजी बनाएँ (यह rk_ से शुरू होती है)। अन्य कुंजियाँ यहाँ अस्वीकार कर दी जाती हैं।",
+  "gallery.preset.stripe.field.key.help":
+    "केवल पढ़ने की अनुमति वाली एक प्रतिबंधित कुंजी बनाएँ (यह rk_ से शुरू होती है)। अन्य कुंजियाँ यहाँ अस्वीकार कर दी जाती हैं।",
 };

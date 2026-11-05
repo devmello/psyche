@@ -171,23 +171,29 @@ export const peopleRest: Partial<Catalogue> = {
   "people.sheet.filter.projects": "Progetti",
   "people.sheet.filter.suggestions": "Suggerimenti",
   "people.sheet.filter.waiting": "In attesa di",
-  "people.sheet.empty": "Ancora nessuno. Attiva una fonte in Impostazioni → Memoria → Persone e progetti.",
+  "people.sheet.empty":
+    "Ancora nessuno. Attiva una fonte in Impostazioni → Memoria → Persone e progetti.",
   "people.sheet.nothing": "Nessuno corrisponde a “{query}”.",
   "people.sheet.noSuggestions": "Nulla da confermare.",
   "people.dialog.cancel": "Annulla",
   "people.forget.title": "Dimenticare {name}?",
   "people.forget.counting": "Verifica di ciò che Psyche sa…",
-  "people.forget.counts": "Psyche elimina la scheda, {facts, plural, one {# fatto} other {# fatti}}, {loops, plural, one {# questione aperta} other {# questioni aperte}}, {interactions, plural, one {# interazione} other {# interazioni}} e {edges, plural, one {# relazione} other {# relazioni}}.",
-  "people.forget.after": "I suoi indirizzi vengono bloccati, quindi Psyche non imparerà più nulla su di lui/lei. La tua posta e il calendario restano come sono.",
-  "people.forget.previewFailed": "Psyche non è riuscito a contare cosa verrebbe eliminato ({reason}).",
+  "people.forget.counts":
+    "Psyche elimina la scheda, {facts, plural, one {# fatto} other {# fatti}}, {loops, plural, one {# questione aperta} other {# questioni aperte}}, {interactions, plural, one {# interazione} other {# interazioni}} e {edges, plural, one {# relazione} other {# relazioni}}.",
+  "people.forget.after":
+    "I suoi indirizzi vengono bloccati, quindi Psyche non imparerà più nulla su di lui/lei. La tua posta e il calendario restano come sono.",
+  "people.forget.previewFailed":
+    "Psyche non è riuscito a contare cosa verrebbe eliminato ({reason}).",
   "people.forget.confirm": "Dimentica",
   "people.forget.done": "{name} dimenticato.",
   "people.merge.title": "Unisci in {name}",
-  "people.merge.description": "Scegli chi altro è questa persona. Psyche mostra cosa si sposta prima di cambiare qualsiasi cosa.",
+  "people.merge.description":
+    "Scegli chi altro è questa persona. Psyche mostra cosa si sposta prima di cambiare qualsiasi cosa.",
   "people.merge.search": "Chi altro è?",
   "people.merge.searchPlaceholder": "Nome o email",
   "people.merge.checking": "Verifica di cosa verrebbe spostato…",
-  "people.merge.preview": "Sposta {identifiers, plural, one {# indirizzo} other {# indirizzi}} e {facts, plural, one {# fatto} other {# fatti}} da {other} a {name}. {other} scompare; potrai separarli di nuovo in seguito.",
+  "people.merge.preview":
+    "Sposta {identifiers, plural, one {# indirizzo} other {# indirizzi}} e {facts, plural, one {# fatto} other {# fatti}} da {other} a {name}. {other} scompare; potrai separarli di nuovo in seguito.",
   "people.merge.pickAnother": "Scegli qualcun altro",
   "people.merge.confirm": "Unisci",
   "people.merge.done": "{other} unito a {name}.",

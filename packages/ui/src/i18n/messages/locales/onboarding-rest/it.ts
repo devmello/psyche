@@ -4,12 +4,15 @@ import type { Catalogue } from "../../index.ts";
 export const onboardingRest: Partial<Catalogue> = {
   "onboarding.stepCount": "{n, number} di {total, number}",
   "onboarding.connectors.onThisMac": "Su questo Mac",
-  "onboarding.connectors.onThisMacHint": "Ogni app chiede il permesso a macOS mentre si collega, una alla volta.",
-  "onboarding.connectors.connectApps": "{n, plural, =0 {Collega app} one {Collega # app} other {Collega # app}}",
+  "onboarding.connectors.onThisMacHint":
+    "Ogni app chiede il permesso a macOS mentre si collega, una alla volta.",
+  "onboarding.connectors.connectApps":
+    "{n, plural, =0 {Collega app} one {Collega # app} other {Collega # app}}",
   "onboarding.connectors.connecting": "Collegamento di {name}",
   "onboarding.connectors.accounts": "Account",
   "onboarding.step.memory": "Memoria e abitudini quotidiane",
-  "onboarding.about.lead": "Qualche informazione perché Psyche ti conosca fin dall’inizio. Tutto qui è facoltativo e si trova in USER.md, che puoi modificare quando vuoi.",
+  "onboarding.about.lead":
+    "Qualche informazione perché Psyche ti conosca fin dall’inizio. Tutto qui è facoltativo e si trova in USER.md, che puoi modificare quando vuoi.",
   "onboarding.about.name": "Il tuo nome",
   "onboarding.about.nameHint": "Come deve chiamarti Psyche?",
   "onboarding.about.timeZone": "Fuso orario",
@@ -18,8 +21,10 @@ export const onboardingRest: Partial<Catalogue> = {
   "onboarding.about.workHint": "Cosa fai, in poche parole",
   "onboarding.about.city": "Città di residenza",
   "onboarding.about.cityHint": "Dove di solito ti trovi",
-  "onboarding.memory.lead": "Hai già un profilo in ChatGPT o Claude? Incolla l’esportazione della sua memoria, o la risposta a “Cosa sai di me?”. Controlli tutto prima che venga salvato.",
-  "onboarding.memory.unavailable": "L’importazione non è disponibile in questa finestra. Puoi farlo più tardi in Anima.",
+  "onboarding.memory.lead":
+    "Hai già un profilo in ChatGPT o Claude? Incolla l’esportazione della sua memoria, o la risposta a “Cosa sai di me?”. Controlli tutto prima che venga salvato.",
+  "onboarding.memory.unavailable":
+    "L’importazione non è disponibile in questa finestra. Puoi farlo più tardi in Anima.",
   "onboarding.memory.format": "Da dove proviene",
   "onboarding.memory.format.chatgpt": "ChatGPT",
   "onboarding.memory.format.claude": "Claude",
@@ -28,14 +33,16 @@ export const onboardingRest: Partial<Catalogue> = {
   "onboarding.memory.placeholder": "Incolla qui, oppure carica un file .txt, .md o .json",
   "onboarding.memory.upload": "Carica un file",
   "onboarding.memory.review": "Controlla",
-  "onboarding.memory.found": "Trovati {n, number} elementi da controllare ({skipped, number} saltati). Deseleziona ciò che non vuoi conservare.",
+  "onboarding.memory.found":
+    "Trovati {n, number} elementi da controllare ({skipped, number} saltati). Deseleziona ciò che non vuoi conservare.",
   "onboarding.memory.items": "Elementi da importare",
   "onboarding.memory.flagged": "Sembra un’istruzione",
   "onboarding.memory.edit": "Torna al testo",
   "onboarding.memory.save": "Salva {n, number} in memoria",
   "onboarding.memory.saved": "{n, number} elementi salvati in memoria.",
   "onboarding.memory.failed": "Non ha funzionato ({reason}).",
-  "onboarding.habits.lead": "Brevi schede in Home, al mattino e alla sera. Psyche si limita a leggere; non viene inviato nulla senza la tua approvazione.",
+  "onboarding.habits.lead":
+    "Brevi schede in Home, al mattino e alla sera. Psyche si limita a leggere; non viene inviato nulla senza la tua approvazione.",
   "onboarding.habits.brief": "Riepilogo quotidiano",
   "onboarding.habits.briefHint": "La tua giornata, ogni mattina dei giorni feriali.",
   "onboarding.habits.wrapup": "Riepilogo serale",
@@ -43,7 +50,8 @@ export const onboardingRest: Partial<Catalogue> = {
   "onboarding.habits.followups": "Monitoraggio dei follow-up",
   "onboarding.habits.followupsHint": "Si accorge delle risposte che stai ancora aspettando.",
   "onboarding.rerun.title": "Configura di nuovo",
-  "onboarding.rerun.description": "Ripercorri la configurazione iniziale. I passaggi già completati vengono saltati.",
+  "onboarding.rerun.description":
+    "Ripercorri la configurazione iniziale. I passaggi già completati vengono saltati.",
   "onboarding.rerun.button": "Esegui di nuovo la configurazione",
   "onboarding.step.you": "Tu e il tuo agente",
   "onboarding.step.stuff": "Le tue cose",
@@ -52,29 +60,40 @@ export const onboardingRest: Partial<Catalogue> = {
   "onboarding.you.agent": "Il tuo agente",
   "onboarding.you.customize": "Personalizza l’aspetto",
   "onboarding.you.more": "Altro su di te",
-  "onboarding.memory.habitsLead": "Scegli cosa fa {name} ogni giorno e cosa conserva in memoria. Tutto si può cambiare in Impostazioni.",
+  "onboarding.memory.habitsLead":
+    "Scegli cosa fa {name} ogni giorno e cosa conserva in memoria. Tutto si può cambiare in Impostazioni.",
   "onboarding.memory.bring": "Porta la memoria da ChatGPT o Claude",
   "onboarding.habits.title": "Ogni giorno",
   "onboarding.work.title": "Lavoro e cose da fare",
-  "onboarding.work.hint": "Tiene una cosa da fare per tutto ciò che ha una scadenza: bollette, affitto, tasse, rinnovi, scadenze di lavoro, compiti. {persona} legge solo gli elenchi e le cartelle che scegli. Disattivato finché non dici di sì.",
-  "onboarding.work.remindHint": "Inviato con il riepilogo serale. I titoli compaiono solo per ciò che hai aggiunto tu.",
-  "onboarding.work.later": "Scegli quali elenchi e cartelle di Promemoria contano in Impostazioni → Memoria → Lavoro.",
+  "onboarding.work.hint":
+    "Tiene una cosa da fare per tutto ciò che ha una scadenza: bollette, affitto, tasse, rinnovi, scadenze di lavoro, compiti. {persona} legge solo gli elenchi e le cartelle che scegli. Disattivato finché non dici di sì.",
+  "onboarding.work.remindHint":
+    "Inviato con il riepilogo serale. I titoli compaiono solo per ciò che hai aggiunto tu.",
+  "onboarding.work.later":
+    "Scegli quali elenchi e cartelle di Promemoria contano in Impostazioni → Memoria → Lavoro.",
   "onboarding.people.title": "Persone",
   "onboarding.people.label": "Includi le persone nel mio riepilogo",
-  "onboarding.people.hint": "Informazioni sulle persone che conosci e con chi restare in contatto. Disattivato se non lo attivi.",
-  "onboarding.people.needsBrief": "Il riepilogo del mattino è disattivato, quindi le persone non compariranno da nessuna parte. Attivalo per vederle.",
-  "onboarding.safety.lead": "Come ti raggiungono le approvazioni e cosa viene eseguito da solo. L’accesso a file, app e schermo non si chiede qui: {name} lo chiede in chat la prima volta che gli serve.",
+  "onboarding.people.hint":
+    "Informazioni sulle persone che conosci e con chi restare in contatto. Disattivato se non lo attivi.",
+  "onboarding.people.needsBrief":
+    "Il riepilogo del mattino è disattivato, quindi le persone non compariranno da nessuna parte. Attivalo per vederle.",
+  "onboarding.safety.lead":
+    "Come ti raggiungono le approvazioni e cosa viene eseguito da solo. L’accesso a file, app e schermo non si chiede qui: {name} lo chiede in chat la prima volta che gli serve.",
   "onboarding.safety.touchId": "Touch ID per le approvazioni",
   "onboarding.safety.touchId.checking": "Controllo dell’helper del Mac…",
   "onboarding.safety.touchId.again": "Ricontrolla",
   "onboarding.safety.touchId.set": "Configura",
-  "onboarding.safety.touchId.setHint": "Le approvazioni che richiedono te chiedono la tua impronta.",
-  "onboarding.safety.touchId.starting": "L’helper del Mac si sta ancora avviando. Ricontrolla tra un momento.",
+  "onboarding.safety.touchId.setHint":
+    "Le approvazioni che richiedono te chiedono la tua impronta.",
+  "onboarding.safety.touchId.starting":
+    "L’helper del Mac si sta ancora avviando. Ricontrolla tra un momento.",
   "onboarding.safety.touchId.noKey": "L’helper del Mac non ha una chiave Touch ID ({reason}).",
   "onboarding.safety.touchId.register": "Registra questa chiave",
-  "onboarding.safety.touchId.hint": "Registra una volta la chiave dell’helper del Mac, così Touch ID potrà confermare le approvazioni.",
+  "onboarding.safety.touchId.hint":
+    "Registra una volta la chiave dell’helper del Mac, così Touch ID potrà confermare le approvazioni.",
   "onboarding.safety.notifications": "Notifiche",
-  "onboarding.safety.asks": "Se lasci che {name} esegua comandi su questo Mac, quelli che si limitano a leggere, come ls o cat, vengono eseguiti senza scheda. Tutto il resto chiede prima a te.",
+  "onboarding.safety.asks":
+    "Se lasci che {name} esegua comandi su questo Mac, quelli che si limitano a leggere, come ls o cat, vengono eseguiti senza scheda. Tutto il resto chiede prima a te.",
   "onboarding.safety.sandbox": "Configura una sandbox per i comandi",
   "onboarding.safety.optional": "Facoltativo",
   "onboarding.done.on": "Sì",
@@ -87,7 +106,10 @@ export const onboardingRest: Partial<Catalogue> = {
   "onboarding.done.touchIdNot": "Non ancora registrata",
   "onboarding.done.modelKept": "Invariato",
   "onboarding.done.try": "Prova ora",
-  "onboarding.done.try.search": "Fai una domanda in Cerca (⌘K). La risposta mostra da quale parte della tua vita proviene.",
-  "onboarding.done.try.home": "Apri Home. “Recupera” elenca ciò che potresti aver lasciato indietro.",
-  "onboarding.done.try.canDo": "Apri “Cosa sai fare?” nel menu a forma di ingranaggio per attività già pronte.",
+  "onboarding.done.try.search":
+    "Fai una domanda in Cerca (⌘K). La risposta mostra da quale parte della tua vita proviene.",
+  "onboarding.done.try.home":
+    "Apri Home. “Recupera” elenca ciò che potresti aver lasciato indietro.",
+  "onboarding.done.try.canDo":
+    "Apri “Cosa sai fare?” nel menu a forma di ingranaggio per attività già pronte.",
 };

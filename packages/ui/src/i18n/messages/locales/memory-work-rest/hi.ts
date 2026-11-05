@@ -3,14 +3,17 @@ import type { Catalogue } from "../../index.ts";
 /** `memoryWork.*` strings (hi); merged into `../hi.ts`. */
 export const memoryWorkRest: Partial<Catalogue> = {
   "memoryWork.title": "काम",
-  "memoryWork.description": "वह जिस पर {persona} आपके लिए नज़र रखता है: प्रोजेक्ट, समय-सीमा वाले टू-डू, और जहाँ आप रुके थे।",
+  "memoryWork.description":
+    "वह जिस पर {persona} आपके लिए नज़र रखता है: प्रोजेक्ट, समय-सीमा वाले टू-डू, और जहाँ आप रुके थे।",
   "memoryWork.loadLabel": "काम की मेमोरी",
   "memoryWork.enabled.title": "मेमोरी में काम",
   "memoryWork.enabled.label": "मेरे काम पर नज़र रखें",
-  "memoryWork.enabled.hint": "जिस भी चीज़ की समय-सीमा हो उसके लिए एक टू-डू रखता है, कि वह कैसी चल रही है, और आप कहाँ रुके। जब तक आप हाँ नहीं कहते, बंद रहता है।",
+  "memoryWork.enabled.hint":
+    "जिस भी चीज़ की समय-सीमा हो उसके लिए एक टू-डू रखता है, कि वह कैसी चल रही है, और आप कहाँ रुके। जब तक आप हाँ नहीं कहते, बंद रहता है।",
   "memoryWork.enabled.off": "रिमाइंडर सूचियाँ और फ़ोल्डर चुनने और रिमाइंडर सेट करने के लिए चालू करें।",
   "memoryWork.consent.title": "मेमोरी में अपने काम पर नज़र रखें",
-  "memoryWork.consent.body": "{persona} हर समय-सीमा वाली चीज़ (किराया, लैब रिपोर्ट, बोर्ड डेक) के लिए एक टू-डू रखेगा और लिखेगा कि वह कैसी चल रही है और आप कहाँ रुके।",
+  "memoryWork.consent.body":
+    "{persona} हर समय-सीमा वाली चीज़ (किराया, लैब रिपोर्ट, बोर्ड डेक) के लिए एक टू-डू रखेगा और लिखेगा कि वह कैसी चल रही है और आप कहाँ रुके।",
   "memoryWork.consent.reads": "यह क्या पढ़ता है",
   "memoryWork.consent.r1": "आपकी चुनी रिमाइंडर सूचियाँ और आपके अपने कैलेंडर",
   "memoryWork.consent.r2": "किसी प्रोजेक्ट से जोड़े गए फ़ोल्डर की फ़ाइलें",
@@ -22,7 +25,8 @@ export const memoryWorkRest: Partial<Catalogue> = {
   "memoryWork.consent.cancel": "अभी नहीं",
   "memoryWork.consent.confirm": "चालू करें",
   "memoryWork.lists.title": "रिमाइंडर सूचियाँ",
-  "memoryWork.lists.description": "किसी ट्रैक की गई सूची में देय तिथि वाला रिमाइंडर आपके चुने प्रोजेक्ट के तहत टू-डू बन जाता है। बाकी सूचियाँ छुई नहीं जातीं। केवल वही सूचियाँ चीज़ों को पूरा चिह्नित कर सकती हैं जिन्हें आप कनेक्टर में अपना बताते हैं।",
+  "memoryWork.lists.description":
+    "किसी ट्रैक की गई सूची में देय तिथि वाला रिमाइंडर आपके चुने प्रोजेक्ट के तहत टू-डू बन जाता है। बाकी सूचियाँ छुई नहीं जातीं। केवल वही सूचियाँ चीज़ों को पूरा चिह्नित कर सकती हैं जिन्हें आप कनेक्टर में अपना बताते हैं।",
   "memoryWork.lists.none": "ट्रैक नहीं किया गया",
   "memoryWork.lists.pick": "{list} के लिए प्रोजेक्ट",
   "memoryWork.lists.missing": "एक सूची जो अब रिमाइंडर में नहीं है",
@@ -33,13 +37,17 @@ export const memoryWorkRest: Partial<Catalogue> = {
   "memoryWork.lists.loading": "आपकी रिमाइंडर सूचियाँ पढ़ी जा रही हैं…",
   "memoryWork.folders.title": "फ़ोल्डर",
   "memoryWork.folders.anchored": "सिर्फ़ प्रोजेक्ट से जुड़े फ़ोल्डर",
-  "memoryWork.folders.anchoredHint": "किसी प्रोजेक्ट के पेज से फ़ोल्डर जोड़ें। जब किसी फ़ोल्डर का नाम किसी प्रोजेक्ट से मेल खाता है, तो {persona} उसे सुझाता है।",
+  "memoryWork.folders.anchoredHint":
+    "किसी प्रोजेक्ट के पेज से फ़ोल्डर जोड़ें। जब किसी फ़ोल्डर का नाम किसी प्रोजेक्ट से मेल खाता है, तो {persona} उसे सुझाता है।",
   "memoryWork.folders.all": "कोई भी फ़ोल्डर जिसे {persona} पढ़ सकता है, नाम से मिलाया गया",
-  "memoryWork.folders.allHint": "जिस फ़ोल्डर का नाम किसी प्रोजेक्ट से मेल खाता है, वह बिना पूछे जोड़ दिया जाता है। सिर्फ़ नाम और तारीखें पढ़ी जाती हैं।",
+  "memoryWork.folders.allHint":
+    "जिस फ़ोल्डर का नाम किसी प्रोजेक्ट से मेल खाता है, वह बिना पूछे जोड़ दिया जाता है। सिर्फ़ नाम और तारीखें पढ़ी जाती हैं।",
   "memoryWork.remind.title": "चीज़ें पूरी करने के रिमाइंडर",
-  "memoryWork.remind.description": "नोटिफ़िकेशन तब तक बंद हैं जब तक आप उन्हें चालू नहीं करते। ये शांत घंटों में कभी नहीं आते।",
+  "memoryWork.remind.description":
+    "नोटिफ़िकेशन तब तक बंद हैं जब तक आप उन्हें चालू नहीं करते। ये शांत घंटों में कभी नहीं आते।",
   "memoryWork.remind.enabled": "मुझे याद दिलाएँ कि कल क्या देय है",
-  "memoryWork.remind.enabledHint": "दिन में एक नोटिफ़िकेशन सारांश के समय, उन चीज़ों के लिए जो अगले {hours, plural, one {# घंटे} other {# घंटों}} में देय हैं।",
+  "memoryWork.remind.enabledHint":
+    "दिन में एक नोटिफ़िकेशन सारांश के समय, उन चीज़ों के लिए जो अगले {hours, plural, one {# घंटे} other {# घंटों}} में देय हैं।",
   "memoryWork.remind.hours": "कितना पहले से देखें",
   "memoryWork.remind.hoursOption": "{hours, plural, one {# घंटा} other {# घंटे}}",
   "memoryWork.remind.at": "कब",
@@ -48,8 +56,10 @@ export const memoryWorkRest: Partial<Catalogue> = {
   "memoryWork.remind.openDaily": "दैनिक खोलें",
   "memoryWork.remind.dayOf": "सुबह भी बताएँ कि आज क्या देय है",
   "memoryWork.remind.dayOfHint": "सुबह की ब्रीफ़ के बाद दूसरा नोटिफ़िकेशन: “आज देय: …”।",
-  "memoryWork.remind.needsWrapup": "शाम का सारांश बंद है, इसलिए कुछ नहीं भेजा जाएगा। इसे पाने के लिए सारांश चालू करें।",
-  "memoryWork.remind.needsBrief": "सुबह की ब्रीफ़ बंद है, इसलिए कुछ नहीं भेजा जाएगा। इसे पाने के लिए ब्रीफ़ चालू करें।",
+  "memoryWork.remind.needsWrapup":
+    "शाम का सारांश बंद है, इसलिए कुछ नहीं भेजा जाएगा। इसे पाने के लिए सारांश चालू करें।",
+  "memoryWork.remind.needsBrief":
+    "सुबह की ब्रीफ़ बंद है, इसलिए कुछ नहीं भेजा जाएगा। इसे पाने के लिए ब्रीफ़ चालू करें।",
   "memoryWork.remind.turnOnWrapup": "शाम का सारांश चालू करें",
   "memoryWork.remind.turnOnBrief": "सुबह की ब्रीफ़ चालू करें",
 };

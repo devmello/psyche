@@ -30,7 +30,8 @@ export const dailyRest: Partial<Catalogue> = {
   "daily.followup.reopen": "फिर से खोलें",
   "daily.followup.failed": "फ़ॉलो-अप अपडेट नहीं हो सका।",
   "daily.followups.title": "फ़ॉलो-अप",
-  "daily.followups.empty": "अभी कुछ बकाया नहीं है। Psyche वे बातें जोड़ता है जो आपने वादा कीं या जिनका आप इंतज़ार कर रहे हैं।",
+  "daily.followups.empty":
+    "अभी कुछ बकाया नहीं है। Psyche वे बातें जोड़ता है जो आपने वादा कीं या जिनका आप इंतज़ार कर रहे हैं।",
   "daily.followups.source.sent_mail": "भेजे गए मेल से",
   "daily.followups.source.message": "किसी संदेश से",
   "daily.followups.source.chat": "किसी चैट से",
@@ -44,7 +45,8 @@ export const dailyRest: Partial<Catalogue> = {
   "daily.automations.create": "पूर्वावलोकन",
   "daily.automations.templates": "शुरुआती नमूने",
   "daily.automations.empty": "अभी कोई ऑटोमेशन नहीं है।",
-  "daily.automations.parseFailed": "मुझे इसमें कोई शेड्यूल नहीं मिला। “हर कार्यदिवस सुबह 9 बजे, …” जैसा कुछ आज़माएँ।",
+  "daily.automations.parseFailed":
+    "मुझे इसमें कोई शेड्यूल नहीं मिला। “हर कार्यदिवस सुबह 9 बजे, …” जैसा कुछ आज़माएँ।",
   "daily.automations.noModel": "इसका उपयोग करने के लिए सेटिंग्ज़ में कोई मॉडल कनेक्ट करें।",
   "daily.automations.confirm.title": "यह ऑटोमेशन बनाएँ?",
   "daily.automations.confirm.when": "कब",
@@ -58,7 +60,8 @@ export const dailyRest: Partial<Catalogue> = {
   "daily.automations.edit": "संपादित करें",
   "daily.automations.save": "सेव करें",
   "daily.automations.delete": "हटाएँ",
-  "daily.automations.count": "{n, plural, =0 {अभी कोई ऑटोमेशन नहीं है।} one {# ऑटोमेशन।} other {# ऑटोमेशन।}}",
+  "daily.automations.count":
+    "{n, plural, =0 {अभी कोई ऑटोमेशन नहीं है।} one {# ऑटोमेशन।} other {# ऑटोमेशन।}}",
   "daily.automations.manage": "शेड्यूल्ड में प्रबंधित करें",
   "daily.automations.paused": "रुका हुआ",
   "daily.automations.next": "अगला: {when}",
