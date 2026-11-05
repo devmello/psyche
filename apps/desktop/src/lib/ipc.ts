@@ -19,6 +19,7 @@ export const IPC = {
   gatewayRun: "psyche:gateway:run",
   gatewayShowLogs: "psyche:gateway:show-logs",
   gatewayRetry: "psyche:gateway:retry",
+  gatewayRestoredByHand: "psyche:gateway:restored-by-hand",
   // Saved Gateways (remote-gateway design §1.3): the list, add, forget, switch, pair again.
   gatewaysList: "psyche:gateways:list",
   gatewaysAdd: "psyche:gateways:add",

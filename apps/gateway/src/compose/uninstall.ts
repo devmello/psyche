@@ -63,6 +63,8 @@ export function uninstallHandlers(
           subject: { scope: "uninstall" },
           data: { path: folder },
         });
+        // The pre-update snapshots are inside the data folder, so they travel with it to the
+        // Trash and come back with it if the owner changes their mind. Nothing is deleted here.
         return { authorized: true as const };
       },
     },

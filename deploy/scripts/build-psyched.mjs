@@ -15,7 +15,7 @@
 //                              web client; found through @psyche/assets) and node_modules with only
 //                              the packages that cannot be bundled (native addons, pdf.js, playwright)
 //   com.psyche.gateway.plist.template   LaunchAgent with {{PSYCHED}} and {{PSYCHE_HOME}}
-//   build-info.json            {version, commit, node, arch, builtAt, bytes}
+//   build-info.json            {version, build, commit, node, arch, builtAt, bytes}
 //
 // The bundle's size is held to deploy/size-budget.json (psychedMB); the build fails above it.
 //
@@ -508,14 +508,47 @@ export const PSYCHED_LAUNCHER = `#!/bin/sh
 # A 4 MB young generation keeps an idle Gateway near 200 MB instead of ≈ 330 MB.
 ${RESOLVE_HERE}
 ${COMPILE_CACHE}
-exec "$here/runtime/node" --max-semi-space-size=4 --disable-warning=ExperimentalWarning "$here/app/apps/gateway/dist/main.mjs" "$@"
+# Electron's fuses (RunAsNode, NODE_OPTIONS, the inspector) cover only Electron. This Node is not an
+# Electron process, so the same doors are closed by hand: the environment cannot add code to the
+# Gateway, and the per-user module folders are not searched (psyched-harden.cjs,
+# docs/design/updates-and-install-2026.md §2.9). This is DEFENCE IN DEPTH, not a boundary: the
+# LaunchAgent plist is user-writable, and the signed runtime/node can be run directly with any
+# arguments, so nothing may trust runtime/node's identity or its command line.
+unset NODE_OPTIONS NODE_PATH NODE_REPL_EXTERNAL_MODULE
+PSYCHE_BUILD_INFO="$here/build-info.json"
+export PSYCHE_BUILD_INFO
+exec "$here/runtime/node" --max-semi-space-size=4 --disable-warning=ExperimentalWarning --require "$here/psyched-harden.cjs" "$here/app/apps/gateway/dist/main.mjs" "$@"
+`;
+
+/**
+ * Preloaded with --require. CommonJS resolution falls back to ~/.node_modules and ~/.node_libraries
+ * (and $PREFIX/lib/node) when a package is not found beside the code; ESM imports never do. Node has
+ * no flag to turn that off, so: compute the global lookup paths again as if HOME were nowhere, then
+ * put HOME back. Anything the bundle ships resolves from the bundle as before; nothing is picked up
+ * from a folder a same-user process could write to.
+ */
+export const PSYCHED_HARDEN = `"use strict";
+const Module = require("node:module");
+const home = process.env.HOME;
+const nodePath = process.env.NODE_PATH;
+try {
+  process.env.HOME = "/var/empty";
+  delete process.env.NODE_PATH;
+  Module._initPaths();
+} finally {
+  if (home === undefined) delete process.env.HOME;
+  else process.env.HOME = home;
+  if (nodePath !== undefined) process.env.NODE_PATH = nodePath;
+}
 `;
 
 export const PSYCHE_LAUNCHER = `#!/bin/sh
-# The psyche CLI from Psyche.app, on the same runtime as psyched.
+# The psyche CLI from Psyche.app, on the same runtime as psyched, closed the same way (defence in
+# depth, not a boundary: see PSYCHED_LAUNCHER).
 ${RESOLVE_HERE}
 ${COMPILE_CACHE}
-exec "$here/runtime/node" --disable-warning=ExperimentalWarning "$here/app/apps/cli/dist/main.mjs" "$@"
+unset NODE_OPTIONS NODE_PATH NODE_REPL_EXTERNAL_MODULE
+exec "$here/runtime/node" --disable-warning=ExperimentalWarning --require "$here/psyched-harden.cjs" "$here/app/apps/cli/dist/main.mjs" "$@"
 `;
 
 async function smoke(bundle) {
@@ -708,6 +741,7 @@ async function main(argv) {
     chmodSync(join(bundle, "runtime/node"), 0o755);
     stripRuntime(join(bundle, "runtime/node"));
     writeFileSync(join(bundle, "psyched"), PSYCHED_LAUNCHER, { mode: 0o755 });
+    writeFileSync(join(bundle, "psyched-harden.cjs"), PSYCHED_HARDEN, { mode: 0o644 });
     writeFileSync(join(bundle, "psyche"), PSYCHE_LAUNCHER, { mode: 0o755 });
     writeFileSync(
       join(bundle, "com.psyche.gateway.plist.template"),
@@ -720,9 +754,17 @@ async function main(argv) {
   });
   const commit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8" }).trim();
   const pkg = JSON.parse(readFileSync(join(ROOT, "apps/gateway/package.json"), "utf8"));
+  const builtAt = new Date().toISOString();
+  const appVersion = process.env.PSYCHE_VERSION ?? pkg.version;
+  // Opaque and unique per built bundle (even two builds of one commit): the handshake carries it
+  // and the desktop restarts a Gateway whose build is not its own (updates design §2.10).
+  const build = createHash("sha256")
+    .update(`${appVersion}\0${commit}\0${builtAt}`)
+    .digest("hex")
+    .slice(0, 16);
   writeFileSync(
     join(bundle, "build-info.json"),
-    `${JSON.stringify({ version: process.env.PSYCHE_VERSION ?? pkg.version, commit, node: version, arch, builtAt: new Date().toISOString(), bytes }, null, 2)}\n`,
+    `${JSON.stringify({ version: appVersion, build, commit, node: version, arch, builtAt, bytes }, null, 2)}\n`,
   );
   process.stdout.write(
     `built ${bundle} (${(bytes / 1e6).toFixed(0)} MB, Node ${version}, ${plat}-${arch})\n`,

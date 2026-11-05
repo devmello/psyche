@@ -81,6 +81,7 @@ export const web: Partial<Catalogue> = {
   "web.splash.remote.tokenRefused": "{host}拒绝了此配对链接。",
   "web.splash.remote.tokenRefusedReason":
     "它已被使用、已过期或已被撤销。请在{host}上重新生成一条并再次添加。",
+  "web.splash.restoredByHand": "我已自行恢复数据",
   "web.splash.remote.switch": "切换 Gateway",
   "web.splash.remote.useThisMac": "使用这台 Mac",
   "web.splash.remote.pairAgain": "忘记并重新配对",

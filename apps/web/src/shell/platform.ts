@@ -30,6 +30,8 @@ export interface GatewayPort {
   showLogs?(): Promise<void>;
   /** Desktop only: starts the Gateway again after a failed start (the splash's Retry). */
   retry?(): Promise<void>;
+  /** Desktop only: after a restore the Gateway could not finish and the owner did by hand. */
+  restoredByHand?(): Promise<void>;
 }
 
 /** A Gateway this computer can connect to (apps/desktop/src/main/gateway-manager.ts). */
@@ -117,7 +119,14 @@ export type GatewayRunView =
   | { kind: "unknown" }
   | { kind: "starting"; mode: string; step?: "installing" | "waiting" }
   | { kind: "running"; mode: string; pid?: number }
-  | { kind: "stopped"; mode: string; reason?: string; logs?: string };
+  | {
+      kind: "stopped";
+      mode: string;
+      reason?: string;
+      logs?: string;
+      /** A restore of the pre-update data was cut short and could not be finished. */
+      restoreInterrupted?: boolean;
+    };
 
 /** CSS-pixel rectangle relative to the window's content area. */
 export interface Rect {

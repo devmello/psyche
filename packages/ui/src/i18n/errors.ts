@@ -2,6 +2,15 @@ import { PsycheError } from "@psyche/protocol";
 import { GatewayRequestError } from "../data/client.ts";
 import { activeI18n, isMessageId } from "./core.ts";
 
+/** The Gateway's `details.reason` of an error, when it names one. */
+function errorReason(err: unknown): string | null {
+  if (!(err instanceof GatewayRequestError || err instanceof PsycheError)) return null;
+  const details = err.details;
+  if (typeof details !== "object" || details === null) return null;
+  const reason = (details as { reason?: unknown }).reason;
+  return typeof reason === "string" ? reason : null;
+}
+
 /** The error code of a Gateway error (a request error or a `PsycheError`), else null. */
 export function errorCode(err: unknown): string | null {
   if (err instanceof GatewayRequestError || err instanceof PsycheError) return err.code;
@@ -21,6 +30,10 @@ export function describeError(err: unknown): string {
   const code = errorCode(err);
   const detail = err instanceof Error ? err.message.trim() : typeof err === "string" ? err : "";
   if (i18n.messageLocale === "en" && detail) return detail;
+  // A reason the catalogue has a sentence for says more than the code does ("updating").
+  const reason = errorReason(err);
+  const reasonId = reason === null ? null : `errors.reason.${reason}`;
+  if (reasonId !== null && isMessageId(reasonId)) return i18n.t(reasonId);
   const id = code === null ? null : `errors.${code}`;
   return id !== null && isMessageId(id) ? i18n.t(id) : i18n.t("errors.unknown");
 }
@@ -28,6 +41,9 @@ export function describeError(err: unknown): string {
 /** The catalogue sentence for an error's code, ignoring the Gateway's own message. */
 export function errorSummary(err: unknown): string {
   const code = errorCode(err);
+  const reason = errorReason(err);
+  const reasonId = reason === null ? null : `errors.reason.${reason}`;
+  if (reasonId !== null && isMessageId(reasonId)) return activeI18n().t(reasonId);
   const id = code === null ? null : `errors.${code}`;
   return id !== null && isMessageId(id) ? activeI18n().t(id) : activeI18n().t("errors.unknown");
 }

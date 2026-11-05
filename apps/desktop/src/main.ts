@@ -89,6 +89,12 @@ import { bootstrapAdminIfNeeded } from "./main/bootstrap-admin.ts";
 import { BridgeClient, bridgeSocketPath } from "./main/bridge/bridge-client.ts";
 import { createAttentionReporter } from "./main/browser/attention.ts";
 import { BrowserHost } from "./main/browser/browser-host.ts";
+import {
+  bundleFingerprint,
+  checkBundleIntegrity,
+  integrityText,
+  pidsOfExecutable,
+} from "./main/bundle-integrity.ts";
 import { SystemDictation } from "./main/dictation/controller.ts";
 import { HudWindow } from "./main/dictation/hud.ts";
 import { DictationService, dictationSettingsUrl } from "./main/dictation/service.ts";
@@ -123,6 +129,7 @@ import {
   type PermissionKind,
 } from "./main/permissions/permissions.ts";
 import { HAS_UNSENT_TEXT, releaseHiddenAfterMs } from "./main/release.ts";
+import { guardRestoredByHand } from "./main/restore-check.ts";
 import { createSandboxPc, serviceUpdateNotice } from "./main/sandbox-pc/wire.ts";
 import { captureScreenFrame, wantsFallback } from "./main/screen-ask/capture-fallback.ts";
 import { ScreenAskWindow } from "./main/screen-ask/panel.ts";
@@ -140,6 +147,7 @@ import {
   launchAgentPath,
   launchctl,
   plistProgram,
+  readBundledBuild,
   type Supervisor,
 } from "./main/supervisor.ts";
 import { bundledGatewayPaths } from "./main/supervisor-windows.ts";
@@ -156,6 +164,18 @@ import {
   type UninstallDeps,
   UninstallError,
 } from "./main/uninstall.ts";
+import {
+  confirmDetailWindows,
+  planUninstallWindows,
+  runUninstallWindows,
+  UNINSTALL_MANUAL_STEPS_WINDOWS,
+} from "./main/uninstall-windows.ts";
+import { windowsUninstallDeps } from "./main/uninstall-windows-host.ts";
+import {
+  bundleOfExecutable,
+  parsePinnedRequirement,
+  readBundledPinned,
+} from "./main/update-gate.ts";
 import { startUpdater, stopUpdater } from "./main/updater.ts";
 import {
   canvasColor,
@@ -241,9 +261,16 @@ const thisMacGateway = !remoteGateway && isLocalGatewayOrigin(gatewayTarget.orig
 const lanGateway = remoteGateway && gatewayTarget.lan === true;
 /** The mode the supervisor runs in: a saved remote Gateway starts nothing here. */
 const supervisorMode = remoteGateway ? "remote" : chooseMode(process.env, app.isPackaged);
-/** Uninstall Psyche is for a packaged app that runs its own Gateway LaunchAgent. */
+/**
+ * Uninstall Psyche is for a packaged app that runs its own Gateway service: the LaunchAgent on a
+ * Mac, the per-user scheduled task of a Squirrel install on Windows.
+ */
 const canUninstall =
-  app.isPackaged && supervisorMode === "launchd" && process.platform === "darwin";
+  app.isPackaged &&
+  ((supervisorMode === "launchd" && process.platform === "darwin") ||
+    (supervisorMode === "taskscheduler" &&
+      process.platform === "win32" &&
+      squirrelLayout(process.execPath) !== undefined));
 
 // A first-paint measurement run (main/perf-probe.ts) changes nothing outside its scratch dirs.
 const perfProbe = perfProbeFile();
@@ -322,6 +349,64 @@ async function decideSplash(): Promise<void> {
   });
 }
 let helper: HelperLauncher | undefined;
+
+/**
+ * The app's own signature no longer verifies (bundle-integrity.ts): the TCC-backed features
+ * (microphone, screen, Apple Events, Contacts, Calendar) stay off until it is reinstalled.
+ */
+let integrityBlocked = false;
+let integrityMessage =
+  "Turned off: this copy of Psyche was modified. Reinstall it from the official download.";
+
+async function startupIntegrity(): Promise<void> {
+  if (!app.isPackaged || process.platform !== "darwin") return;
+  const pinned = readBundledPinned(process.resourcesPath);
+  const requirement = pinned === undefined ? undefined : parsePinnedRequirement(pinned);
+  if (!requirement) return;
+  const bundle = bundleOfExecutable(app.getPath("exe"));
+  const verdict = await checkBundleIntegrity({
+    bundle,
+    requirement,
+    cacheFile: join(app.getPath("userData"), "bundle-integrity.json"),
+    appVersion: app.getVersion(),
+    fingerprint: bundleFingerprint(bundle),
+  });
+  if (verdict.state !== "blocked") return;
+  integrityBlocked = true;
+  console.warn("[integrity] the app's signature no longer verifies; TCC-backed features are off");
+  // Stop a helper that an earlier launch left running from this bundle (an exact path match, not a
+  // regular expression). Only the helper: the Gateway keeps running and is not booted out from here.
+  void (async () => {
+    const exe = join(
+      bundle,
+      "Contents",
+      "Resources",
+      "PsycheHelper.app",
+      "Contents",
+      "MacOS",
+      "psyche-helper",
+    );
+    const ps = await execRunner("/bin/ps", ["-axo", "pid=,comm="]);
+    for (const pid of pidsOfExecutable(ps.stdout, exe)) {
+      try {
+        process.kill(pid, "SIGTERM");
+      } catch {
+        // Already gone.
+      }
+    }
+  })();
+  void integrityText(app.getSystemLocale())
+    .then((text) => {
+      integrityMessage = text.blocked;
+      return dialog.showMessageBox({
+        type: "warning",
+        message: text.title,
+        detail: text.detail,
+        buttons: [text.ok],
+      });
+    })
+    .catch(() => {});
+}
 let thisDeviceId: string | undefined;
 let hud: HudWindow | undefined;
 let screenAsk: ScreenAskWindow | undefined;
@@ -822,7 +907,43 @@ function registerIpc(): void {
     return shell.openPath(join(home, "logs"));
   });
   // The splash's Retry after a failed start: run the supervisor again, then connect.
+  // "I put my data back myself" after a restore the Gateway could not finish: forget that
+  // restore (and the note), then start again. Only the owner's click gets here.
+  handle(IPC.gatewayRestoredByHand, async () => {
+    // Nothing is cleared until the unfinished restore is really there, every file it was putting
+    // back exists (else the Gateway would start on a new, empty database), and the owner has
+    // confirmed in a dialog the page cannot click.
+    const win = windows?.main();
+    const show = (opts: Electron.MessageBoxOptions) =>
+      win ? dialog.showMessageBox(win, opts) : dialog.showMessageBox(opts);
+    const go = await guardRestoredByHand(
+      home,
+      {
+        refuse: async (title, body) => {
+          await show({ type: "warning", message: title, detail: body, buttons: ["OK"] });
+        },
+        confirm: async (s) =>
+          (
+            await show({
+              type: "question",
+              message: s.confirmTitle,
+              detail: s.confirmBody,
+              buttons: [s.cancel, s.confirmButton],
+              defaultId: 0,
+              cancelId: 0,
+            })
+          ).response === 1,
+      },
+      app.getLocale(),
+    );
+    if (!go) return;
+    supervisor?.retryAfterUpdateFailure({ restoredByHand: true });
+    await supervisor?.ensureRunning();
+    gateway?.start();
+  });
   handle(IPC.gatewayRetry, async () => {
+    // After a failed update was undone the Gateway refuses to try again until told to.
+    supervisor?.retryAfterUpdateFailure();
     await supervisor?.ensureRunning();
     // A remote Gateway that failed a check has stopped its reconnect loop: start over.
     if (remoteGateway) gateway?.stop();
@@ -1288,6 +1409,62 @@ function registerIpc(): void {
     },
     log: (m) => console.warn(`[uninstall] ${m}`),
   });
+  // Windows: the same sheet over uninstall-windows.ts (Recycle Bin, Windows Hello through the same
+  // Gateway gate, the task, the sandbox PC service, then Squirrel's Update.exe --uninstall).
+  const windowsDeps = () =>
+    windowsUninstallDeps(
+      {
+        execPath: process.execPath,
+        userDataDir: app.getPath("userData"),
+        psycheHome: process.env.PSYCHE_HOME,
+        updateExe: squirrelLayout(process.execPath)?.updateExe,
+        appData: app.getPath("appData"),
+      },
+      {
+        trashItem: (p) => shell.trashItem(p),
+        setOpenAtLogin: (v) => loginItem.set(v),
+        restartAgent: async () => {
+          await supervisor?.ensureRunning();
+        },
+        clearStagedUpdate: async () => {
+          stopUpdater();
+          const staged = join(app.getPath("temp"), "psyche-update");
+          return existsSync(staged) ? [staged] : [];
+        },
+        authorizeDelete: async (path, approvalId) => {
+          await requireGateway().call("app.uninstall.authorize", {
+            path,
+            ...(approvalId === undefined ? {} : { approvalId }),
+          });
+        },
+        confirm: async (plan) => {
+          const box = await dialog.showMessageBox({
+            type: "warning",
+            buttons: ["Cancel", plan.deleteData ? "Delete data and uninstall" : "Uninstall"],
+            defaultId: 0,
+            cancelId: 0,
+            message: "Uninstall Psyche?",
+            detail: confirmDetailWindows(plan),
+          });
+          return box.response === 1;
+        },
+        showManualSteps: async (detail) => {
+          await dialog.showMessageBox({
+            type: "info",
+            message: "One more step to finish removing Psyche",
+            detail,
+          });
+        },
+        closeWindows: () => {
+          for (const w of BaseWindow.getAllWindows()) w.destroy();
+        },
+        quit: () => {
+          quittingEntirely = true;
+          app.quit();
+        },
+        log: (m) => console.warn(`[uninstall] ${m}`),
+      },
+    );
   const asPsycheError = (err: unknown): unknown =>
     err instanceof UninstallError ? new PsycheError(err.code, err.message) : err;
   const uninstallAllowed = (): void => {
@@ -1295,11 +1472,13 @@ function registerIpc(): void {
       throw new PsycheError("forbidden", "This copy of Psyche cannot uninstall itself from here");
     }
   };
-  handle(IPC.appUninstallPlan, (_event, arg) => {
+  handle(IPC.appUninstallPlan, async (_event, arg) => {
     uninstallAllowed();
     const req = checkUninstall(IPC.appUninstallPlan, arg);
     try {
-      const plan = planUninstall(uninstallDeps(), req);
+      const plan = windows32
+        ? await planUninstallWindows(await windowsDeps(), req)
+        : planUninstall(uninstallDeps(), req);
       return {
         stops: plan.stops.map(({ kind, label }) => ({ kind, label })),
         trash: plan.trash.map(({ kind, path, label }) => ({ kind, path, label })),
@@ -1317,15 +1496,17 @@ function registerIpc(): void {
     uninstallAllowed();
     const req = checkUninstall(IPC.appUninstall, arg);
     try {
-      const res = await runUninstall(uninstallDeps(), req);
+      const res = windows32
+        ? await runUninstallWindows(await windowsDeps(), req)
+        : await runUninstall(uninstallDeps(), req);
       if (res.failed.length > 0) {
         throw new PsycheError(
           "internal",
-          `Some items could not be moved to the Trash, so Psyche stays open: ${res.failed
+          `Some items could not be moved to the ${windows32 ? "Recycle Bin" : "Trash"}, so Psyche stays open: ${res.failed
             .map((f) => f.path)
             .join(
               ", ",
-            )}. ${res.restarted ? "The Gateway was started again. " : ""}${UNINSTALL_MANUAL_STEPS}`,
+            )}. ${res.restarted ? "The Gateway was started again. " : ""}${windows32 ? UNINSTALL_MANUAL_STEPS_WINDOWS : UNINSTALL_MANUAL_STEPS}`,
         );
       }
     } catch (err) {
@@ -1338,6 +1519,7 @@ function registerIpc(): void {
     preferred: app.getPreferredSystemLanguages(),
   }));
   handle(IPC.permissionsRequest, (_event, arg) => {
+    if (integrityBlocked) throw new Error(integrityMessage);
     const kind = str(IPC.permissionsRequest, rec(IPC.permissionsRequest, arg).kind, "kind", 32);
     if (!(PERMISSION_KINDS as readonly string[]).includes(kind)) {
       throw new Error(`${IPC.permissionsRequest}: unknown permission ${kind}`);
@@ -1526,6 +1708,7 @@ function lockDownDefaultSession(): void {
 }
 
 void app.whenReady().then(async () => {
+  await startupIntegrity().catch((err) => console.warn(`[integrity] ${String(err)}`));
   if (gatewaysFileProblem !== undefined) {
     await dialog.showMessageBox({
       type: "warning",
@@ -1689,6 +1872,7 @@ void app.whenReady().then(async () => {
     // A packaged Windows helper's Authenticode signature is checked once, in the background.
     verifySignature: windows32 && app.isPackaged,
     isPaired: async () => (await onlineHostHelpers()).length > 0,
+    blocked: () => integrityBlocked,
     onState: (s) => {
       broadcast(IPC.helperState, s);
     },
@@ -1741,6 +1925,7 @@ void app.whenReady().then(async () => {
         pinned: () => gateways.pinnedCert(),
       })
     : null;
+  let serverSeen: { server: { version: string; build: string } | undefined } | undefined;
   const gatewayVerifier = createGatewayVerifier({
     dialedOrigin: origin,
     mode: remoteGateway ? "strict" : "local",
@@ -1758,6 +1943,12 @@ void app.whenReady().then(async () => {
       : {}),
     // This Mac's own Gateway must answer with the key in this Mac's own identity file.
     ...(thisMacGateway ? { localKey: () => readLocalGatewayKey(home) } : {}),
+    // An update swaps the files under a Gateway that keeps running: restart it when its build is
+    // not the one this app shipped (updates design §2.10, gap G1).
+    // Called after the identity checks pass; acted on once the connection is paired.
+    onServer: (server) => {
+      serverSeen = { server };
+    },
   });
   gateway = createDesktopGateway({
     deviceKey,
@@ -1781,6 +1972,13 @@ void app.whenReady().then(async () => {
     onStatus: (s) => {
       broadcast(IPC.status, s);
       tray?.update({ status: s });
+      // The Gateway proved it is this Mac's own and the connection is up: if it is not the
+      // build this app shipped, restart it (after asking it to settle its work).
+      if (s.phase === "paired" && !remoteGateway && serverSeen !== undefined) {
+        const seen = serverSeen;
+        serverSeen = undefined;
+        void supervisor?.checkServerBuild(seen.server).catch(() => undefined);
+      }
       // Trust on first use is held in memory and stored only once that connection is paired.
       if (s.phase === "paired" && remoteGateway) {
         const first = gatewayVerifier.candidateKey();
@@ -1846,7 +2044,7 @@ void app.whenReady().then(async () => {
   dictation = new DictationService({
     dictation: controller,
     call: (m, p) => requireGateway().call(m, p),
-    ...(!app.isPackaged && process.env.PSYCHE_DISABLE_GLOBAL_SHORTCUTS === "1"
+    ...((!app.isPackaged && process.env.PSYCHE_DISABLE_GLOBAL_SHORTCUTS === "1") || integrityBlocked
       ? {}
       : { shortcuts: globalShortcut }),
     warn: (m) => console.warn(`[dictation] ${m}`),
@@ -1857,7 +2055,7 @@ void app.whenReady().then(async () => {
       : {}),
     // Double-tapping the voice or dictation key opens "Ask about my screen", like the shortcut.
     onKeyDoubleTap: () => {
-      if (!remoteGateway) screenAsk?.trigger("window");
+      if (!remoteGateway && !integrityBlocked) screenAsk?.trigger("window");
     },
     // The voice key (held from any app) opens the ask panel in voice mode: speak, and the answer
     // appears as text. The panel dictates through the renderer, which owns the microphone, and
@@ -1887,6 +2085,7 @@ void app.whenReady().then(async () => {
 
   // macOS: the LaunchAgent; Windows: the per-user scheduled task (main/supervisor-windows.ts).
   const bundledGateway = bundledGatewayPaths(process.resourcesPath);
+  const expectedBuild = readBundledBuild(join(bundledGateway.dir, "build-info.json"));
   supervisor = createSupervisor({
     mode: supervisorMode,
     psycheHome: home,
@@ -1897,6 +2096,9 @@ void app.whenReady().then(async () => {
     bundledPsyched: bundledGateway.dir,
     bundledNode: bundledGateway.node,
     bundledTemplate: bundledGateway.template,
+    ...(expectedBuild === undefined ? {} : { expectedBuild }),
+    prepareRestart: () =>
+      requireGateway().call("gateway.prepareUpdate", { waitMs: 10_000, timeoutMs: 60_000 }),
     confirmTakeover: async (other) => {
       const opts = {
         type: "question" as const,
@@ -1962,8 +2164,10 @@ void app.whenReady().then(async () => {
   screenAskShortcut = new ScreenAskShortcut({
     call: (m, p) => requireGateway().call(m, p),
     ...(skipShortcuts ? {} : { shortcuts: globalShortcut }),
-    trigger: () => screenAsk?.trigger(),
-    setEnabled: (on) => screenAsk?.setEnabled(on, "screen"),
+    trigger: () => {
+      if (!integrityBlocked) screenAsk?.trigger();
+    },
+    setEnabled: (on) => screenAsk?.setEnabled(on && !integrityBlocked, "screen"),
     warn: (m) => console.warn(`[screen-ask] ${m}`),
     disabled: remoteGateway,
   });
@@ -1971,7 +2175,14 @@ void app.whenReady().then(async () => {
   tray.update({ shortcuts: shownShortcuts() });
   if (!remoteGateway) {
     app.dock?.setMenu(
-      Menu.buildFromTemplate([{ label: "Ask about screen", click: () => screenAsk?.trigger() }]),
+      Menu.buildFromTemplate([
+        {
+          label: "Ask about screen",
+          click: () => {
+            if (!integrityBlocked) screenAsk?.trigger();
+          },
+        },
+      ]),
     );
   }
   // Windows: the taskbar's jump list stands in for the Dock menu.

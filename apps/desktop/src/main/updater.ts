@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { app, autoUpdater } from "electron";
+import { claimedRequirement } from "./bundle-integrity.ts";
 import { TRUSTED_RELEASE_KEYS } from "./release-keys.ts";
 import {
   checkForVerifiedUpdate,
@@ -12,6 +13,13 @@ import {
   type UpdaterStateFile,
   writeUpdaterState,
 } from "./update-flow.ts";
+import {
+  bundleOfExecutable,
+  evaluateUpdaterGate,
+  inspectQuarantine,
+  readBundledPinned,
+  satisfiesRequirement,
+} from "./update-gate.ts";
 
 /**
  * Auto-update (feature A6; security §11). Before Squirrel sees anything, the updater fetches
@@ -23,16 +31,19 @@ import {
  * - macOS (Squirrel.Mac): the zip through a loopback feed; Squirrel then checks the code signature.
  * - Windows (Squirrel.Windows): a local feed folder with RELEASES and the nupkg; Electron's
  *   autoUpdater runs `Update.exe --update <folder>`, which installs the new version beside the
- *   running one (`%LOCALAPPDATA%\Psyche\app-<version>`). The Psyche.exe stub and the shortcuts
+ *   running one (`%LOCALAPPDATA%\Psychepp-<version>`). The Psyche.exe stub and the shortcuts
  *   start the newest version, so like on a Mac the update takes effect when Psyche next starts.
  *
- * Off for unpackaged or unsigned builds (Developer ID on macOS, a valid Authenticode signature
- * on Windows), for a Windows copy not installed by Squirrel (the portable zip), and while no
- * release key is embedded.
+ * Off for unpackaged builds and while no release key is embedded. On macOS, off unless the running
+ * app's own signature satisfies the designated requirement pinned in
+ * deploy/macos/designated-requirements.txt (update-gate.ts: Psyche's self-signed release
+ * certificate, or a Developer ID later); ad-hoc and development builds never update themselves. On
+ * Windows, off unless Psyche.exe has a valid Authenticode signature and was installed by Squirrel
+ * (not the portable zip).
  */
 
 export type UpdaterState =
-  | "disabled" // unpackaged, unsigned, not installed by Squirrel, or another OS
+  | "disabled" // unpackaged, unsigned (or not the pinned release certificate), not installed by Squirrel, or another OS
   | "no_keys" // no release key embedded yet: updates stay off
   | "none" // up to date (or no manifest published)
   | "refused" // a manifest or artifact failed verification; nothing applied
@@ -52,19 +63,6 @@ function stderrLog(message: string): void {
 }
 
 const execFileAsync = promisify(execFile);
-
-/** True for a macOS bundle signed with a Developer ID Application certificate. */
-async function isDeveloperIdSigned(): Promise<boolean> {
-  if (process.platform !== "darwin") return false;
-  // …/Psyche.app/Contents/MacOS/Psyche → …/Psyche.app
-  const bundle = join(app.getPath("exe"), "..", "..", "..");
-  try {
-    const { stderr } = await execFileAsync("/usr/bin/codesign", ["-dvv", bundle]);
-    return /^Authority=Developer ID Application:/m.test(stderr);
-  } catch {
-    return false;
-  }
-}
 
 /** Squirrel.Windows installs Update.exe one level above `app-<version>\Psyche.exe`. */
 export function squirrelUpdateExe(exe: string): string {
@@ -90,14 +88,34 @@ async function isAuthenticodeSigned(exe: string): Promise<boolean> {
   }
 }
 
-async function updatesAllowed(): Promise<boolean> {
+/** Windows: a packaged, Squirrel-installed Psyche.exe with a valid Authenticode signature. */
+async function windowsUpdatesAllowed(): Promise<boolean> {
   if (!app.isPackaged) return false;
-  if (process.platform === "darwin") return isDeveloperIdSigned();
+  const exe = app.getPath("exe");
+  return existsSync(squirrelUpdateExe(exe)) && (await isAuthenticodeSigned(exe));
+}
+
+/** undefined when the updater may run; otherwise the state to report. */
+async function updaterGate(log: (m: string) => void): Promise<RunResult | undefined> {
   if (process.platform === "win32") {
-    const exe = app.getPath("exe");
-    return existsSync(squirrelUpdateExe(exe)) && (await isAuthenticodeSigned(exe));
+    return (await windowsUpdatesAllowed()) ? undefined : { state: "disabled" };
   }
-  return false;
+  const gate = await evaluateUpdaterGate({
+    platform: process.platform,
+    isPackaged: app.isPackaged,
+    keyCount: TRUSTED_RELEASE_KEYS.length,
+    bundlePath: bundleOfExecutable(app.getPath("exe")),
+    readPinned: () => readBundledPinned(process.resourcesPath),
+    // The claimed requirement plus a shallow `codesign --verify --strict`, not the integrity verdict:
+    // a stray file in the bundle (a .DS_Store from Show Package Contents) must never block updates
+    // forever. Squirrel still checks the new bundle against the requirement itself.
+    satisfies: async (bundle, requirement) =>
+      (await claimedRequirement(bundle)) === requirement &&
+      (await satisfiesRequirement(bundle, requirement)),
+  });
+  if (gate.run) return undefined;
+  if (gate.state === "no_keys") log(`${gate.why}: updates stay off`);
+  return { state: gate.state };
 }
 
 let stopped = false;
@@ -127,6 +145,7 @@ export async function startUpdater(opts: UpdaterOptions = {}): Promise<UpdaterSt
         ...(state.code ? { code: state.code } : {}),
         ...(state.reason ? { reason: state.reason } : {}),
         ...(state.release ? { release: state.release } : {}),
+        ...(state.quarantine ? { quarantine: state.quarantine } : {}),
       });
     } catch {
       // The audit then reports the check as not run; the update itself is unaffected.
@@ -136,12 +155,14 @@ export async function startUpdater(opts: UpdaterOptions = {}): Promise<UpdaterSt
 }
 
 type RunResult = { state: UpdaterState } & Partial<
-  Pick<UpdaterStateFile, "code" | "reason" | "release">
+  Pick<UpdaterStateFile, "code" | "reason" | "release" | "quarantine">
 >;
 
 async function runUpdater(opts: UpdaterOptions): Promise<RunResult> {
   const log = opts.log ?? stderrLog;
-  if (stopped || !(await updatesAllowed())) return { state: "disabled" };
+  if (stopped) return { state: "disabled" };
+  const blocked = await updaterGate(log);
+  if (blocked) return blocked;
   const platform = process.platform === "win32" ? "win32" : "darwin";
   const feed = opts.feedUrl ?? process.env.PSYCHE_UPDATE_FEED;
   const result = await checkForVerifiedUpdate({
@@ -153,6 +174,9 @@ async function runUpdater(opts: UpdaterOptions): Promise<RunResult> {
     ...(feed ? { feed } : {}),
     dir: join(app.getPath("temp"), "psyche-update"),
     log,
+    ...(platform === "darwin"
+      ? { inspectDownload: (file: string) => inspectQuarantine(file) }
+      : {}),
   }).catch((err: unknown) => {
     log(`update check failed: ${err instanceof Error ? err.message : String(err)}`);
     return { state: "none" as const, reason: "check failed" };
@@ -193,7 +217,11 @@ async function applyMac(result: Ready, log: (m: string) => void): Promise<RunRes
   });
   autoUpdater.setFeedURL({ url: served.feedUrl, serverType: "json" });
   autoUpdater.checkForUpdates();
-  return { state: "started", release: result.release };
+  return {
+    state: "started",
+    release: result.release,
+    ...(result.quarantine ? { quarantine: result.quarantine } : {}),
+  };
 }
 
 /**

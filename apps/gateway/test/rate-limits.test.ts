@@ -124,11 +124,16 @@ describe("gateway.rateLimits in config.json", () => {
   it("reads the limits and rejects bad values", () => {
     const home = homeWith({ rateLimits: { inboundChatPerMinute: 5 } });
     expect(resolveConfig({ PSYCHE_HOME: home }).rateLimits).toEqual({ inboundChatPerMinute: 5 });
-    for (const bad of [{ inboundChatPerMinute: 0 }, { fetchPerMinute: 1.5 }, { other: 3 }, 7]) {
+    for (const bad of [{ inboundChatPerMinute: 0 }, { fetchPerMinute: 1.5 }, 7]) {
       expect(() => resolveConfig({ PSYCHE_HOME: homeWith({ rateLimits: bad }) })).toThrow(
         /gateway\.rateLimits/,
       );
     }
+  });
+
+  it("ignores a limit it does not know (a newer version's) and keeps the rest", () => {
+    const home = homeWith({ rateLimits: { fetchPerMinute: 9, other: 3 } });
+    expect(resolveConfig({ PSYCHE_HOME: home }).rateLimits).toEqual({ fetchPerMinute: 9 });
   });
 
   it("the composed services carry the configured limits", async () => {

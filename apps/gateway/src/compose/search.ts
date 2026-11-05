@@ -694,6 +694,8 @@ function buildSearch(deps: SearchDeps, sqlite: PsycheDb["sqlite"]): ComposedSear
         const first = setTimeout(() => void sourceTick().catch(() => undefined), 20_000);
         first.unref?.();
         libraryTimer = setInterval(() => {
+          // Not while an app update is being prepared (`gateway.prepareUpdate`).
+          if (gateway?.context.updateGate.accepting() === false) return;
           beat += 1;
           if (beat % 5 === 0 && !backfill.running) void sourceTick().catch(() => undefined);
           if (!backfill.running) void syncLibrary().catch(() => undefined);
