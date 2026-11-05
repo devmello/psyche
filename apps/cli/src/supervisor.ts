@@ -8,6 +8,7 @@ import {
   LEGACY_GATEWAY_TASK,
   taskBelongsTo,
 } from "@psyche/hostfs";
+import { parseGatewayUnit, renderGatewayUnit } from "../../desktop/src/platform/systemd-unit.ts";
 import { CliError } from "./errors.ts";
 import { type Exec, whereExe, which } from "./exec.ts";
 
@@ -114,45 +115,32 @@ ${argv}
 }
 
 /**
- * systemd quoting: double quotes with backslash and quote escaped, `%` doubled (specifiers);
- * `$` doubled only in ExecStart=, where systemd expands variables.
+ * The unit text comes from the desktop's shared renderer (`apps/desktop/src/platform/systemd-unit.ts`,
+ * Linux desktop design §2.3), so the CLI and the desktop write the same bytes for the same input and
+ * never rewrite each other's file. The server profile is what `psyche start` has always written.
+ * When the installed unit is the desktop's (its header says so), the CLI keeps that profile and its
+ * `PSYCHE_BUILD` / `PSYCHE_VAULT_KEY_FILE`, like `carryDesktopEnv` does for the plist.
  */
-function sdQuote(s: string, exec = false): string {
-  let v = s.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/%/g, "%%");
-  if (exec) v = v.replace(/\$/g, "$$$$");
-  return `"${v}"`;
-}
-
-export function renderSystemdUnit(input: ServiceInput): string {
-  const exec = [input.program, ...(input.args ?? [])].map((a) => sdQuote(a, true)).join(" ");
-  return `# Psyche Gateway as a systemd user service. See deploy/README.md.
-# Install: psyche start (writes this file), or copy it to ~/.config/systemd/user/ and run
-#   systemctl --user daemon-reload && systemctl --user enable --now ${SYSTEMD_UNIT}
-# Keep it running after logout: loginctl enable-linger "$USER"
-[Unit]
-Description=Psyche Gateway (psyched)
-Documentation=https://github.com/devmello/psyche/blob/main/deploy/README.md
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=simple
-ExecStart=${exec}
-Environment=${sdQuote(`PSYCHE_HOME=${input.psycheHome}`)}
-Restart=on-failure
-RestartSec=5
-TimeoutStopSec=20
-# Files 0600, directories 0700 (security §14).
-UMask=0077
-NoNewPrivileges=yes
-LockPersonality=yes
-RestrictSUIDSGID=yes
-StandardOutput=journal
-StandardError=journal
-
-[Install]
-WantedBy=default.target
-`;
+export function renderSystemdUnit(input: ServiceInput, installed?: string): string {
+  const base = {
+    program: input.program,
+    psycheHome: input.psycheHome,
+    ...(input.args === undefined ? {} : { args: input.args }),
+  };
+  const parsed = installed === undefined ? undefined : parseGatewayUnit(installed);
+  if (installed !== undefined && parsed?.profile === "desktop") {
+    const memoryHigh = /^MemoryHigh=(.+)$/m.exec(installed)?.[1]?.trim();
+    return renderGatewayUnit({
+      ...base,
+      profile: "desktop",
+      ...(parsed.env.PSYCHE_BUILD === undefined ? {} : { build: parsed.env.PSYCHE_BUILD }),
+      ...(parsed.env.PSYCHE_VAULT_KEY_FILE === undefined
+        ? {}
+        : { vaultKeyFile: parsed.env.PSYCHE_VAULT_KEY_FILE }),
+      ...(memoryHigh === undefined ? {} : { memoryHigh }),
+    });
+  }
+  return renderGatewayUnit({ ...base, profile: "server" });
 }
 
 /**
@@ -821,8 +809,9 @@ export async function startService(s: SupervisorEnv, program: string): Promise<s
   }
   if (kind === "systemd") {
     const file = systemdUnitPath(s.env);
-    const content = renderSystemdUnit(input);
-    if (!existsSync(file) || readFileSync(file, "utf8") !== content) {
+    const installed = existsSync(file) ? readFileSync(file, "utf8") : undefined;
+    const content = renderSystemdUnit(input, installed);
+    if (installed !== content) {
       mkdirSync(join(file, ".."), { recursive: true });
       writeFileSync(file, content, { mode: 0o644 });
       check(await s.exec("systemctl", ["--user", "daemon-reload"]), "systemctl daemon-reload");

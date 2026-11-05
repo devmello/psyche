@@ -12,6 +12,8 @@
  * off) keeps the Dock icon the way it was before this existed.
  */
 
+import { hostPlatform, traitsFor } from "../platform/index.ts";
+
 export const SHOW_IN_DOCK_KEY = "appearance.showInDock";
 
 /** While ⌘H has the app hidden, how often to look again (rarely: it is a waiting state). */
@@ -56,7 +58,7 @@ export class DockPolicy {
 
   constructor(options: DockPolicyOptions) {
     this.#o = options;
-    this.#darwin = (options.platform ?? process.platform) === "darwin";
+    this.#darwin = traitsFor(options.platform ?? hostPlatform()).dock;
   }
 
   get policy(): Policy {
