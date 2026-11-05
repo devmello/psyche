@@ -1,0 +1,89 @@
+# Windows sandbox-PC guest image (deploy/windows/guest-image). Owner: VM-IMAGE.
+# Runs ONLY on windows-guest-image-v* tags and by hand; never on pull requests or main pushes
+# (CI diet). Builds the kernel + rootfs in Docker on a Linux runner, boot-tests the result under
+# QEMU, and uploads the artifacts. A tag (or a manual run with publish ticked) also attaches them
+# to a GitHub release named after the image version:
+#   vmlinuz, initrd, rootfs.vhdx.zst, sessiondata.vhdx, manifest.json, SHA256SUMS,
+#   kernel.config, kernel-info.json, packages.tsv
+# The desktop downloads rootfs.vhdx.zst, verifies the SHA-256 pinned in manifest.json (and the
+# manifest's own digest, shipped in the desktop build), and decompresses it for the VM service.
+name: windows-guest-image
+
+on:
+  push:
+    tags: ["windows-guest-image-v*"]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Attach the artifacts to a GitHub release (tag runs always do)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: windows-guest-image-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build, boot-test, publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install (apps/node and its workspace dependencies)
+        run: pnpm install --frozen-lockfile --filter "@psyche/node..."
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Build the guest image and boot-test it under QEMU
+        shell: pwsh
+        run: ./deploy/windows/guest-image/build-guest-image.ps1 -BootTest
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: windows-guest-image
+          path: |
+            deploy/windows/guest-image/out/vmlinuz
+            deploy/windows/guest-image/out/initrd
+            deploy/windows/guest-image/out/rootfs.vhdx.zst
+            deploy/windows/guest-image/out/sessiondata.vhdx
+            deploy/windows/guest-image/out/manifest.json
+            deploy/windows/guest-image/out/SHA256SUMS
+            deploy/windows/guest-image/out/kernel.config
+            deploy/windows/guest-image/out/kernel-info.json
+            deploy/windows/guest-image/out/packages.tsv
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/windows-guest-image-v') || inputs.publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          out=deploy/windows/guest-image/out
+          version="$(jq -r .imageVersion "$out/manifest.json")"
+          tag="windows-guest-image-v$version"
+          notes="Psyche Windows sandbox-PC guest image $version. Kernel: $(jq -r .tag "$out/kernel-info.json") ($(jq -r .commit "$out/kernel-info.json")), GPL-2.0; source offer in deploy/windows/guest-image/README.md."
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --title "Windows guest image $version" --notes "$notes" \
+            --target "$GITHUB_SHA" \
+            "$out/vmlinuz" "$out/initrd" "$out/rootfs.vhdx.zst" "$out/sessiondata.vhdx" "$out/manifest.json" \
+            "$out/SHA256SUMS" "$out/kernel.config" "$out/kernel-info.json" "$out/packages.tsv"
