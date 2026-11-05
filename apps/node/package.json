@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@psyche/browser": "workspace:*",
+    "@psyche/hostfs": "workspace:*",
     "@psyche/protocol": "workspace:*",
     "@psyche/sandbox": "workspace:*",
     "ulid": "3.0.2",

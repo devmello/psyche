@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { GatewaySupervisor } from "../../src/main/supervisor.ts";
+import { LaunchdSupervisor } from "../../src/main/supervisor.ts";
 
 /** The start-up screen's Retry after an update failure (review round 2). */
 
@@ -15,7 +15,7 @@ describe("retryAfterUpdateFailure", () => {
     mkdirSync(join(home, "run"));
     writeFileSync(join(home, "run", "update-failed.json"), "{}");
     writeFileSync(join(home, "run", "restore-in-progress.json"), "{}");
-    const sup = new GatewaySupervisor({
+    const sup = new LaunchdSupervisor({
       mode: "launchd",
       psycheHome: home,
       healthUrl: "http://127.0.0.1:1/healthz",

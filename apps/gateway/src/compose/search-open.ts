@@ -4,6 +4,7 @@ import {
   type SearchOpenTarget,
   type SearchSourceId,
 } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import {
   OWNER_ONLY_SOURCES,
   parseMessageId,
@@ -62,7 +63,7 @@ function needDocument(deps: SearchOpenDeps, call: Call, id: string): SourceDocum
   )
     throw new PsycheError(
       "forbidden",
-      "this source is readable from the Psyche app on this Mac only",
+      `this source is readable from the Psyche app on ${hostWords().thisDevice} only`,
     );
   const blocked = doc?.source === "memory" && deps.memoryBlocked?.() !== undefined;
   if (doc === undefined || blocked)
@@ -119,9 +120,13 @@ export function searchOpenHandlers(deps: SearchOpenDeps): Record<string, Handler
         // Where a Message-ID or a host path goes is for the Psyche app on this Mac only: another
         // paired device is not on the Host, and its paths mean nothing there.
         if (call.identity.desktopShell !== true)
-          throw new PsycheError("forbidden", "sources open from the Psyche app on this Mac", {
-            details: { reason: "not_desktop" },
-          });
+          throw new PsycheError(
+            "forbidden",
+            `sources open from the Psyche app on ${hostWords().thisDevice}`,
+            {
+              details: { reason: "not_desktop" },
+            },
+          );
         const doc = needDocument(deps, call, (params as { id: string }).id);
         return { target: openTargetOf(deps, doc) };
       },

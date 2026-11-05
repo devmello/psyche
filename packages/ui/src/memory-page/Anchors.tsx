@@ -20,6 +20,7 @@ import { NativeSelect } from "../components/ui/native-select.tsx";
 import { useCall, useGatewayQuery, useLibrary, useThreads } from "../data/hooks.ts";
 import { t } from "../i18n/core.ts";
 import { describeError } from "../i18n/errors.ts";
+import { pathBasename } from "../lib/paths.ts";
 import { SegmentedRadio } from "../screens/settings/SegmentedRadio.tsx";
 import { usePersona, useSlots } from "../slots.tsx";
 
@@ -127,7 +128,7 @@ function AddAnchor({
     if (!ready) return;
     if (kind === "folder") {
       const ref = path.trim();
-      const name = ref.split("/").filter(Boolean).at(-1) ?? ref;
+      const name = pathBasename(ref);
       onAdd({ kind, ref, label: name });
     } else if (picked) onAdd({ kind, ref: picked.id, label: picked.name });
   };

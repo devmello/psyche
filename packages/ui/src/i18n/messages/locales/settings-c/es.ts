@@ -99,6 +99,8 @@ export const settingsC: Partial<Catalogue> = {
   "settings.data.replayRetentionHint":
     "Las pantallas que {persona} miró mientras trabajaba, para la cronología. Desactivado no guarda ninguna.",
   "settings.devices.presenceKey.keychain": "Clave de Touch ID (llavero), según informa el ayudante",
+  "settings.devices.presenceKey.enclaveKeychainAcl":
+    "Clave de Touch ID (Secure Enclave, legible sin aviso de macOS solo por el ayudante de Psyche), según informa el ayudante",
   "settings.devices.presenceKey.enclaveFile":
     "Clave de Touch ID (archivo de Secure Enclave, esta compilación no tiene perfil de aprovisionamiento), según informa el ayudante",
   "settings.devices.presenceKey.unknown": "Clave de Touch ID (el ayudante no indica el tipo)",
@@ -107,6 +109,23 @@ export const settingsC: Partial<Catalogue> = {
   "settings.devices.touchId.bundled": "El Psyche Helper de esta app muestra la clave",
   "settings.devices.touchId.notBundled":
     "Este ayudante no es el que viene con esta app, así que su clave no se puede registrar aquí.",
+  "settings.devices.touchId.untrusted":
+    "La clave de Touch ID del llavero no se usó porque no se puede demostrar que es del ayudante de Psyche. Una causa inofensiva: Psyche se movió o se reinstaló en otro sitio; devuélvelo a /Applications y ábrelo de nuevo. Si no, cierra primero el ayudante de Psyche, ejecuta /Applications/Psyche.app/Contents/Resources/PsycheHelper.app/Contents/MacOS/psyche-helper --reset-presence-key en Terminal y registra la clave nueva.",
+  "settings.devices.touchId.accessDenied":
+    "macOS no permitió que el ayudante de Psyche usara su clave de Touch ID del llavero. Vuelve a abrir Psyche y elige Permitir siempre solo si el cuadro nombra psyche-helper (nunca para otro programa).",
+  "settings.devices.touchId.wrongLocation":
+    "El ayudante de Psyche no creó una clave de Touch ID porque se ejecuta desde una imagen de disco, Descargas u otra carpeta. Mueve Psyche a /Applications, expulsa cualquier imagen de disco y ábrelo desde allí.",
+  "settings.devices.touchId.keyMismatch":
+    "El ayudante de Psyche de esta app ahora muestra la clave {shown}, no la registrada {registered}. Si no restableciste la clave tú, considéralo sospechoso y no la registres.",
+  "settings.devices.touchId.confirmReplace":
+    "Esto reemplaza la clave de Touch ID {previous} registrada para este Mac. Reemplázala solo si restableciste la clave tú.",
+  "settings.devices.touchId.confirmReplaceButton": "Reemplazar la clave",
+  "settings.devices.touchId.interactionNotAllowed":
+    "El llavero no puede pedir permiso ahora. Desbloquea el Mac e inténtalo de nuevo.",
+  "settings.devices.touchId.changed":
+    "La clave de Touch ID cambió mientras el ayudante de Psyche se ejecutaba. Cierra el ayudante de Psyche y vuelve a iniciarlo.",
+  "settings.devices.touchId.aclUnavailable":
+    "El llavero no conservó la lista de acceso de la clave de Touch ID en este Mac. Reinicia el ayudante de Psyche para intentarlo de nuevo.",
   "settings.devices.touchId.noBundledKey":
     "El Psyche Helper de esta app no tiene clave de Touch ID ({reason}).",
   "settings.devices.touchId.register": "Registrar esta clave",

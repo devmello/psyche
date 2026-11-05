@@ -1,18 +1,116 @@
-import { existsSync } from "node:fs";
+import { spawn } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { Runner } from "./supervisor.ts";
+import type { Runner } from "./supervisor-base.ts";
 
 /**
- * Starts the bundled Mac helper (docs/archive/status/s14.md "Packaging"): LaunchServices, never a child
- * process, so TCC attributes its prompts and grants to PsycheHelper.app and not to Psyche.app:
+ * Starts the bundled host helper (docs/archive/status/s14.md "Packaging"); nothing waits on it:
+ * onboarding and chat go on without it. It pairs on its own over the node socket, so this runs at
+ * each desktop start once the Gateway answers, and again when the helper drops offline (throttled).
  *
- *   /usr/bin/open -g -j [--env PSYCHE_HOME=<home>] <Resources>/PsycheHelper.app
+ * - **macOS**: LaunchServices, never a child process, so TCC attributes its prompts and grants to
+ *   PsycheHelper.app and not to Psyche.app:
  *
- * `open` is idempotent and the helper keeps one instance per `$PSYCHE_HOME`, so this runs at each
- * desktop start once the Gateway answers, and again when the helper drops offline (throttled). It
- * pairs on its own over the node socket. Nothing waits on it: onboarding and chat go on without it.
+ *     /usr/bin/open -g -j [--env PSYCHE_HOME=<home>] <Resources>/PsycheHelper.app
+ *
+ *   `open` is idempotent and the helper keeps one instance per `$PSYCHE_HOME`.
+ * - **Windows**: `<resources>\win-helper\psyche-helper.exe` spawned detached in its own process
+ *   (no console, outside the app's job object), so it keeps running after Psyche quits like a
+ *   LaunchServices-launched app; `PSYCHE_HOME` goes in its environment. It holds a single-instance
+ *   mutex, so a second launch exits at once and this stays idempotent.
  */
+
+/** The node kinds that are this computer's own helper (`NodeKind` in @psyche/protocol). */
+export const HOST_HELPER_KINDS: readonly string[] = ["mac-helper", "win-helper"];
+
+export function isHostHelperKind(kind: unknown): boolean {
+  return typeof kind === "string" && HOST_HELPER_KINDS.includes(kind);
+}
+
+/**
+ * Where the helper is: packaged, inside the app's resources; unpackaged on Windows, the Rust
+ * build in the repo (`apps/win-helper/target/{release,debug}`). Dev macOS builds use their own
+ * helper install, as before.
+ */
+export function helperPathFor(o: {
+  platform: NodeJS.Platform;
+  packaged: boolean;
+  resourcesPath: string;
+  /** `app.getAppPath()`: `apps/desktop` when unpackaged. */
+  appPath: string;
+  exists?: (path: string) => boolean;
+}): string | undefined {
+  const exists = o.exists ?? existsSync;
+  if (o.platform === "darwin") {
+    return o.packaged ? join(o.resourcesPath, "PsycheHelper.app") : undefined;
+  }
+  if (o.platform !== "win32") return undefined;
+  if (o.packaged) return join(o.resourcesPath, "win-helper", "psyche-helper.exe");
+  const target = join(o.appPath, "..", "win-helper", "target");
+  return ["release", "debug"]
+    .map((profile) => join(target, profile, "psyche-helper.exe"))
+    .find((p) => exists(p));
+}
+
+/** The executable inside the helper: the .exe itself on Windows, the bundle's binary on macOS. */
+export function helperExecutable(appPath: string): string {
+  return appPath.toLowerCase().endsWith(".exe")
+    ? appPath
+    : join(appPath, "Contents", "MacOS", "psyche-helper");
+}
+
+/** Starts a program in its own detached process; resolves once it started or failed to. */
+export type DetachedLauncher = (
+  file: string,
+  args: string[],
+  env: NodeJS.ProcessEnv,
+) => Promise<{ ok: true } | { ok: false; error: string }>;
+
+export const spawnDetached: DetachedLauncher = (file, args, env) =>
+  new Promise((resolve) => {
+    try {
+      const child = spawn(file, args, {
+        detached: true,
+        stdio: "ignore",
+        windowsHide: true,
+        env,
+      });
+      child.once("error", (err) => resolve({ ok: false, error: err.message }));
+      child.once("spawn", () => {
+        child.unref();
+        resolve({ ok: true });
+      });
+    } catch (err) {
+      resolve({ ok: false, error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+/**
+ * Authenticode status of a Windows executable (`Get-AuthenticodeSignature`): `Valid`,
+ * `NotSigned`, or why a signature is bad (`HashMismatch`, `NotTrusted`, …). Undefined when it
+ * could not be read.
+ */
+export async function authenticodeStatus(
+  exe: string,
+  run: Runner,
+  systemRoot = process.env.SystemRoot ?? "C:\\Windows",
+): Promise<string | undefined> {
+  const lit = `'${exe.replaceAll("'", "''")}'`;
+  const res = await run(`${systemRoot}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe`, [
+    "-NoProfile",
+    "-NonInteractive",
+    "-Command",
+    `[string](Get-AuthenticodeSignature -LiteralPath ${lit}).Status`,
+  ]);
+  const status = res.stdout.trim();
+  return res.code === 0 && /^[A-Za-z]+$/.test(status) ? status : undefined;
+}
+
+/** An unsigned dev build is fine; a signature that does not verify is a tampered helper. */
+export function authenticodeAcceptable(status: string | undefined): boolean {
+  return status === undefined || status === "Valid" || status === "NotSigned";
+}
 
 export type HelperRunState =
   /** Dev builds and other platforms: nothing to launch. */
@@ -23,12 +121,22 @@ export type HelperRunState =
   | { kind: "offline"; reason?: string };
 
 export interface HelperLauncherOptions {
-  /** `<process.resourcesPath>/PsycheHelper.app`, or undefined when not packaged on macOS. */
+  /** `helperPathFor(...)`: the helper bundle or .exe, or undefined when there is none. */
   appPath: string | undefined;
   psycheHome: string;
   run: Runner;
-  /** True when `nodes.list` shows a `mac-helper` node online. */
+  /** True when `nodes.list` shows this computer's helper (`mac-helper`, `win-helper`) online. */
   isPaired: () => Promise<boolean>;
+  /** Default `process.platform`. */
+  platform?: NodeJS.Platform;
+  /** Windows: starts the .exe detached (default `spawnDetached`). */
+  launchDetached?: DetachedLauncher;
+  /**
+   * Windows, packaged: checks the helper's Authenticode signature before the first launch. It runs
+   * in the background from construction and a launch waits for it at most `signatureWaitMs`.
+   */
+  verifySignature?: boolean;
+  signatureWaitMs?: number;
   onState?: (s: HelperRunState) => void;
   /** True while the app's own signature fails (bundle-integrity.ts): the helper is not started. */
   blocked?: () => boolean;
@@ -38,6 +146,21 @@ export interface HelperLauncherOptions {
   relaunchEveryMs?: number;
   now?: () => number;
   sleep?: (ms: number) => Promise<void>;
+  /** The pid in the helper's lock file (`<home>/run/helper.lock`); tests pass their own. */
+  readPid?: () => number | undefined;
+  kill?: (pid: number, signal: "SIGTERM") => void;
+}
+
+function lockPid(psycheHome: string): number | undefined {
+  try {
+    const n = Number.parseInt(
+      readFileSync(join(psycheHome, "run", "helper.lock"), "utf8").trim(),
+      10,
+    );
+    return Number.isInteger(n) && n > 1 ? n : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 export function openHelperArgs(appPath: string, psycheHome: string, home = homedir()): string[] {
@@ -50,11 +173,50 @@ export class HelperLauncher {
   private lastLaunch = Number.NEGATIVE_INFINITY;
   private launching: Promise<void> | undefined;
   private readonly opts: HelperLauncherOptions;
+  /** Windows: whether the signature check passed (true until it says otherwise). */
+  private signature: Promise<boolean> | undefined;
+  private signatureBad = false;
 
   constructor(opts: HelperLauncherOptions) {
     this.opts = opts;
     this.state =
       opts.appPath && existsSync(opts.appPath) ? { kind: "offline" } : { kind: "unbundled" };
+    if (this.windows && opts.verifySignature === true && this.state.kind !== "unbundled") {
+      this.signature = authenticodeStatus(opts.appPath as string, opts.run)
+        .then((status) => authenticodeAcceptable(status))
+        .catch(() => true)
+        .then((ok) => {
+          this.signatureBad = !ok;
+          return ok;
+        });
+    }
+  }
+
+  private get windows(): boolean {
+    return (this.opts.platform ?? process.platform) === "win32";
+  }
+
+  /** Waits for the signature check, never longer than `signatureWaitMs` (default 3 s). */
+  private async signatureOk(): Promise<boolean> {
+    if (this.signature === undefined) return true;
+    const timeout = new Promise<boolean>((r) => {
+      const t = setTimeout(() => r(true), this.opts.signatureWaitMs ?? 3_000);
+      t.unref?.();
+    });
+    return Promise.race([this.signature, timeout]);
+  }
+
+  /** Starts the helper the platform's way; an error message when it could not. */
+  private async start(appPath: string): Promise<string | undefined> {
+    if (this.windows) {
+      const res = await (this.opts.launchDetached ?? spawnDetached)(appPath, [], {
+        ...process.env,
+        PSYCHE_HOME: this.opts.psycheHome,
+      });
+      return res.ok ? undefined : res.error;
+    }
+    const res = await this.opts.run("/usr/bin/open", openHelperArgs(appPath, this.opts.psycheHome));
+    return res.code === 0 ? undefined : res.stderr.trim() || `open exited ${res.code}`;
   }
 
   getState(): HelperRunState {
@@ -65,6 +227,31 @@ export class HelperLauncher {
     if (s.kind === this.state.kind && JSON.stringify(s) === JSON.stringify(this.state)) return;
     this.state = s;
     this.opts.onState?.(s);
+  }
+
+  /**
+   * Windows ("Start Psyche Helper" on a running one): ends the running helper (its
+   * single-instance mutex goes with the process) and starts it again, then waits for it to
+   * pair. Elsewhere the same as `launch`.
+   */
+  async restart(): Promise<void> {
+    if (this.state.kind === "unbundled") return;
+    if (!this.windows) return this.restartMac();
+    await this.launching?.catch(() => undefined);
+    const appPath = this.opts.appPath as string;
+    const lit = `'${appPath.replaceAll("'", "''")}'`;
+    const systemRoot = process.env.SystemRoot ?? "C:\\Windows";
+    await this.opts.run(`${systemRoot}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe`, [
+      "-NoProfile",
+      "-NonInteractive",
+      "-Command",
+      `$p=${lit};Get-CimInstance Win32_Process -Filter "Name='psyche-helper.exe'" | Where-Object { $_.ExecutablePath -eq $p } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }`,
+    ]);
+    this.set({ kind: "offline", reason: "restarting" });
+    this.launching = this.doLaunch(true).finally(() => {
+      this.launching = undefined;
+    });
+    return this.launching;
   }
 
   /** Launches the helper unless it is already paired; resolves once it paired or timed out. */
@@ -80,17 +267,51 @@ export class HelperLauncher {
     return this.launching;
   }
 
-  private async doLaunch(): Promise<void> {
+  /**
+   * Quits the running helper (SIGTERM to the pid in its lock file, and only when `ps` says that pid
+   * is a psyche-helper) and starts it again: a card's "Restart Psyche Helper" after its Touch ID key
+   * changed while it ran.
+   */
+  private async restartMac(): Promise<void> {
+    const pid = this.opts.readPid ? this.opts.readPid() : lockPid(this.opts.psycheHome);
+    if (pid !== undefined) {
+      const ps = await this.opts
+        .run("/bin/ps", ["-p", String(pid), "-o", "comm="])
+        .catch(() => undefined);
+      if (ps?.code === 0 && ps.stdout.includes("psyche-helper")) {
+        try {
+          (this.opts.kill ?? process.kill)(pid, "SIGTERM");
+        } catch {
+          // already gone
+        }
+      }
+    }
+    const now = this.opts.now ?? Date.now;
+    const sleep = this.opts.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
+    const end = now() + 10_000;
+    while (now() < end && (await this.opts.isPaired().catch(() => false))) await sleep(250);
+    this.set({ kind: "offline" });
+    await this.launch();
+  }
+
+  /** `fresh`: a restart, where the old helper's pairing must not count. */
+  private async doLaunch(fresh = false): Promise<void> {
     const appPath = this.opts.appPath as string;
-    if (await this.opts.isPaired().catch(() => false)) return this.set({ kind: "paired" });
+    const sleep = this.opts.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
+    if (fresh) {
+      // The Gateway sees the old one go within a moment of its exit.
+      for (let i = 0; i < 10 && (await this.opts.isPaired().catch(() => false)); i++) {
+        await sleep(500);
+      }
+    } else if (await this.opts.isPaired().catch(() => false)) return this.set({ kind: "paired" });
+    if (!(await this.signatureOk()) || this.signatureBad) {
+      return this.set({ kind: "offline", reason: "the helper's signature is not valid" });
+    }
     this.lastLaunch = (this.opts.now ?? Date.now)();
     this.set({ kind: "starting" });
-    const res = await this.opts.run("/usr/bin/open", openHelperArgs(appPath, this.opts.psycheHome));
-    if (res.code !== 0) {
-      return this.set({ kind: "offline", reason: res.stderr.trim() || `open exited ${res.code}` });
-    }
+    const error = await this.start(appPath);
+    if (error !== undefined) return this.set({ kind: "offline", reason: error });
     const deadline = (this.opts.now ?? Date.now)() + (this.opts.pairTimeoutMs ?? 30_000);
-    const sleep = this.opts.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
     for (;;) {
       if (await this.opts.isPaired().catch(() => false)) return this.set({ kind: "paired" });
       if ((this.opts.now ?? Date.now)() >= deadline) break;
@@ -128,6 +349,8 @@ export async function helperCanHoldKeychain(
   run: Runner,
 ): Promise<boolean> {
   if (appPath === undefined || !existsSync(appPath)) return false;
+  // The Keychain slot is macOS's; a Windows helper has none (the vault uses the key file there).
+  if (appPath.toLowerCase().endsWith(".exe")) return false;
   if (!existsSync(join(appPath, "Contents", "embedded.provisionprofile"))) return false;
   const res = await run("/usr/bin/codesign", ["-dv", appPath]);
   const info = `${res.stdout}\n${res.stderr}`;
@@ -151,12 +374,32 @@ export async function askHelperNotificationsIfUndetermined(
   return true;
 }
 
+/**
+ * Whether the keyboard layout in use has AltGr, as the bundled Windows helper measures it
+ * (`psyche-helper --keyboard-layout` prints `{layout, altGr}`); undefined when not bundled or
+ * the output is not what a helper prints.
+ */
+export async function readAltGrLayout(
+  appPath: string | undefined,
+  run: IdentityRunner,
+): Promise<boolean | undefined> {
+  if (appPath === undefined || !existsSync(appPath)) return undefined;
+  const res = await run(helperExecutable(appPath), ["--keyboard-layout"], process.env);
+  if (res.code !== 0) return undefined;
+  try {
+    const out = JSON.parse(res.stdout.trim()) as { altGr?: unknown };
+    return typeof out.altGr === "boolean" ? out.altGr : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** What the bundled helper says about itself (`psyche-helper --print-identity`). */
 export interface HelperIdentity {
   deviceId: string;
   /** Hex SHA-256 of its Touch ID public key, when it has one. */
   keyId?: string;
-  kind?: "keychain" | "enclave_file";
+  kind?: "keychain" | "enclave_keychain_acl" | "enclave_file";
   /** Why it has no key (`missing_entitlement`, `presence_key_file`, …). */
   error?: string;
 }
@@ -180,7 +423,7 @@ export async function readHelperIdentity(
   run: IdentityRunner,
 ): Promise<HelperIdentity | undefined> {
   if (appPath === undefined || !existsSync(appPath)) return undefined;
-  const exe = join(appPath, "Contents", "MacOS", "psyche-helper");
+  const exe = helperExecutable(appPath);
   const res = await run(exe, ["--print-identity"], { ...process.env, PSYCHE_HOME: psycheHome });
   if (res.code !== 0) return undefined;
   let out: Record<string, unknown>;
@@ -197,7 +440,9 @@ export async function readHelperIdentity(
       ? out.presenceKeyId
       : undefined;
   const kind =
-    out.presenceKeyKind === "keychain" || out.presenceKeyKind === "enclave_file"
+    out.presenceKeyKind === "keychain" ||
+    out.presenceKeyKind === "enclave_keychain_acl" ||
+    out.presenceKeyKind === "enclave_file"
       ? out.presenceKeyKind
       : undefined;
   const error =

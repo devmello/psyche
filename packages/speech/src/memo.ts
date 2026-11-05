@@ -11,6 +11,7 @@ import {
   type TaskEngine,
   type Transcript,
 } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import { decodeWav, encodeWav, isPcm, PCM_16K_MONO, pcmDurationMs } from "./audio.ts";
 import type { PathTranscriber, PathTranscript } from "./engines/node.ts";
 import type { LibraryWriter } from "./library.ts";
@@ -348,7 +349,7 @@ export class VoiceMemoService {
   ): Promise<MeetingRecordingResult> {
     const files = this.#opts.files;
     if (files === undefined) {
-      throw new PsycheError("unavailable", "long recordings need the Mac helper", {
+      throw new PsycheError("unavailable", `long recordings need ${hostWords().helper}`, {
         retryable: true,
       });
     }

@@ -1,6 +1,7 @@
 import type { Preview } from "@storybook/react-vite";
 import "../src/styles/index.css";
 import { createI18n, setActiveI18n, setDefaultTimeZone } from "../src/i18n/core.ts";
+import { setUiPlatform } from "../src/lib/platform.ts";
 import { ThemeProvider } from "../src/theme/ThemeProvider.tsx";
 
 // Stable baselines: US English in UTC whatever the machine's region and clock (the app follows
@@ -30,27 +31,42 @@ const preview: Preview = {
       description: "Increase contrast",
       toolbar: { title: "Contrast", items: ["standard", "high"], dynamicTitle: true },
     },
+    platform: {
+      description: "Copy, shortcuts and platform styles (lib/platform.ts)",
+      toolbar: { title: "Platform", items: ["macos", "windows"], dynamicTitle: true },
+    },
   },
-  initialGlobals: { theme: "light", accent: "#2c5aa0", motion: "full", contrast: "standard" },
+  // macOS by default whatever machine builds the baselines; Windows stories set it themselves.
+  initialGlobals: {
+    theme: "light",
+    accent: "#2c5aa0",
+    motion: "full",
+    contrast: "standard",
+    platform: "macos",
+  },
   parameters: {
     layout: "padded",
     a11y: { test: "error" },
   },
   decorators: [
-    (Story, ctx) => (
-      <ThemeProvider
-        settings={{
-          theme: ctx.globals.theme === "dark" ? "dark" : "light",
-          accentSeed: String(ctx.globals.accent ?? "#2c5aa0"),
-          reduceMotion: ctx.globals.motion === "reduced",
-          contrast: ctx.globals.contrast === "high" ? "high" : "standard",
-        }}
-      >
-        <div className="bg-background text-foreground">
-          <Story />
-        </div>
-      </ThemeProvider>
-    ),
+    (Story, ctx) => {
+      // Before the story renders: `t()` and the shortcut labels read it synchronously.
+      setUiPlatform(ctx.globals.platform === "windows" ? "windows" : "macos");
+      return (
+        <ThemeProvider
+          settings={{
+            theme: ctx.globals.theme === "dark" ? "dark" : "light",
+            accentSeed: String(ctx.globals.accent ?? "#2c5aa0"),
+            reduceMotion: ctx.globals.motion === "reduced",
+            contrast: ctx.globals.contrast === "high" ? "high" : "standard",
+          }}
+        >
+          <div className="bg-background text-foreground">
+            <Story />
+          </div>
+        </ThemeProvider>
+      );
+    },
   ],
 };
 

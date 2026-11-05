@@ -3,6 +3,7 @@ import { createReadStream } from "node:fs";
 import { chmod, mkdir, open, rename, rm, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, normalize, sep } from "node:path";
+import { restrictToOwner } from "@psyche/hostfs";
 import { PsycheError } from "@psyche/protocol";
 
 /**
@@ -14,7 +15,8 @@ import { PsycheError } from "@psyche/protocol";
  * - Every model is pinned to an HTTPS URL and a SHA-256 in the catalog. The bytes are hashed while
  *   streaming into `<file>.part`; a mismatch deletes the partial and rejects. Only a verified file
  *   is renamed into place, so a crash never leaves a half-written model under the real name.
- * - Directories are 0700 and files 0600, like the rest of `$PSYCHE_HOME`.
+ * - Directories are 0700 and files 0600, like the rest of `$PSYCHE_HOME` (on Windows the models
+ *   directory gets an owner-only DACL that the files inside inherit).
  */
 export interface ModelSpec {
   id: string;
@@ -43,6 +45,8 @@ export interface DownloadProgress {
 export interface ModelManagerOptions {
   /** `$PSYCHE_HOME`; defaults to the env var, then `~/.psyche`. */
   home?: string;
+  /** Where the files go instead of `<home>/models` (the whisper.cpp runtime: `speech/bin`). */
+  dir?: string;
   catalog: readonly ModelSpec[];
   fetch?: typeof fetch;
 }
@@ -59,7 +63,7 @@ export class ModelManager {
   readonly #inflight = new Map<string, Promise<string>>();
 
   constructor(options: ModelManagerOptions) {
-    this.dir = join(options.home ?? psycheHome(), "models");
+    this.dir = options.dir ?? join(options.home ?? psycheHome(), "models");
     this.#catalog = new Map(options.catalog.map((s) => [s.id, s]));
     this.#fetch = options.fetch ?? fetch;
     for (const s of options.catalog) {
@@ -138,8 +142,11 @@ export class ModelManager {
     const spec = this.spec(id);
     const dest = this.path(id);
     if (await this.has(id)) return dest;
+    await mkdir(this.dir, { recursive: true, mode: 0o700 });
+    // Windows ignores modes: an owner-only DACL instead, which what is created inside inherits.
+    if (process.platform === "win32") restrictToOwner(this.dir);
+    else await chmod(this.dir, 0o700).catch(() => {});
     await mkdir(dirname(dest), { recursive: true, mode: 0o700 });
-    await chmod(this.dir, 0o700).catch(() => {});
     const part = `${dest}.part`;
     const init: RequestInit = { redirect: "follow" };
     if (options.signal !== undefined) init.signal = options.signal;

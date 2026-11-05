@@ -134,6 +134,16 @@ describe("answer failures on the card", () => {
     });
     expect(why("helper_outdated")).toMatchObject({ kind: "touch_id_setup", fix: null });
     expect(why("presence_key_unavailable")).toMatchObject({ kind: "touch_id_setup", fix: null });
+    for (const [reason, fix] of [
+      ["presence_key_untrusted", "open_devices"],
+      ["presence_key_access_denied", null],
+      ["presence_key_changed", "restart_helper"],
+      ["presence_key_wrong_location", null],
+      ["presence_key_interaction_not_allowed", null],
+      ["presence_key_acl_unavailable", null],
+    ] as const) {
+      expect(why(reason)).toMatchObject({ kind: "touch_id_setup", fix });
+    }
     expect(why("something_else").kind).toBe("other");
     expect(
       classifyAnswerError(

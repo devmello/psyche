@@ -7,6 +7,7 @@ import {
   PsycheError,
   type ToolResult,
 } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import { Type } from "@sinclair/typebox";
 import { askForFolder } from "./folder-access.ts";
 
@@ -44,14 +45,19 @@ export interface RequestPermissionDeps {
   allowConnectorAsk(connector: string, group: string): Promise<boolean>;
   /** Whether the connector is connected now (re-check after the owner's "Check again"). */
   connectorConnected(connector: string): Promise<boolean>;
-  /** Whether srt is installed now. */
+  /** Whether srt is installed now (on Windows: whether the sandbox PC can run srt's features). */
   sandboxReady(): boolean | Promise<boolean>;
+  /** Whose words the cards use (tests; default this process's platform). */
+  platform?: NodeJS.Platform;
 }
 
-function cardText(need: MissingPermission): { summary: string; sideEffect: "write" | "none" } {
+function cardText(
+  need: MissingPermission,
+  platform: NodeJS.Platform,
+): { summary: string; sideEffect: "write" | "none" } {
   switch (need.need) {
     case "capability":
-      return { summary: "Turn on: run commands on this Mac", sideEffect: "write" };
+      return { summary: `Turn on: run commands on ${hostWords().thisDevice}`, sideEffect: "write" };
     case "connector_action":
       return {
         summary: `Let ${need.connector} ask before ${need.group}`,
@@ -60,9 +66,16 @@ function cardText(need: MissingPermission): { summary: string; sideEffect: "writ
     case "connector":
       return { summary: `Connect ${need.connector}`, sideEffect: "none" };
     case "macos_access":
-      return { summary: `Give ${need.connector} access in System Settings`, sideEffect: "none" };
+      return {
+        summary: `Give ${need.connector} access in ${hostWords().systemSettings}`,
+        sideEffect: "none",
+      };
     case "sandbox":
-      return { summary: "Set up the sandbox", sideEffect: "none" };
+      // srt has no Windows build: there the sandbox is the sandbox PC, which the owner turns on.
+      return {
+        summary: platform === "win32" ? "Turn on the sandbox PC" : "Set up the sandbox",
+        sideEffect: "none",
+      };
     case "folder":
       return { summary: `Share a folder: ${need.path}`, sideEffect: "none" };
   }
@@ -101,7 +114,7 @@ async function ask(
   need: Exclude<MissingPermission, { need: "folder" }>,
   reason: string,
 ): Promise<ToolResult> {
-  const { summary, sideEffect } = cardText(need);
+  const { summary, sideEffect } = cardText(need, deps.platform ?? process.platform);
   if (sideEffect === "write" && ctx.taint) {
     // §3.6: a tainted turn never changes settings, whatever the owner would answer.
     return {
@@ -161,8 +174,7 @@ const Need = Type.Union(MissingPermission.anyOf.map((v) => Type.Object(v.propert
 export function requestPermissionTool(deps: RequestPermissionDeps): AgentToolRegistration {
   return defineTool({
     name: "request_permission",
-    description:
-      'Ask the owner for a permission you are missing. When a tool is denied or fails with `Missing permission: {...}` (a folder outside the granted ones, run-commands-on-this-Mac turned off, a connector action set to deny, a connector not connected, macOS access, the sandbox), pass that object as `need` with a one-sentence `reason`. For a folder you may also ask directly: {"need": "folder", "path", "access": "read" | "read_write"} (the owner picks the real folder). The call waits for the owner to answer on their card and returns it in the same turn: when the reply says `granted: true`, retry the denied call and finish the task; on a denial or an expired card tell the owner briefly and never ask again. Make this call by itself, before the calls that need the permission.',
+    description: `Ask the owner for a permission you are missing. When a tool is denied or fails with \`Missing permission: {...}\` (a folder outside the granted ones, run-commands-on-${hostWords().thisDevice.replace(" ", "-")} turned off, a connector action set to deny, a connector not connected, ${hostWords().osName} access, the sandbox), pass that object as \`need\` with a one-sentence \`reason\`. For a folder you may also ask directly: {"need": "folder", "path", "access": "read" | "read_write"} (the owner picks the real folder). The call waits for the owner to answer on their card and returns it in the same turn: when the reply says \`granted: true\`, retry the denied call and finish the task; on a denial or an expired card tell the owner briefly and never ask again. Make this call by itself, before the calls that need the permission.`,
     input: Type.Object({
       need: Need,
       reason: Type.String({ minLength: 1, maxLength: 500, description: "Why, in a sentence" }),

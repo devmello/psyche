@@ -627,6 +627,8 @@ export const settingsRest: Partial<Catalogue> = {
     "Die Bildschirme, die {persona} bei der Arbeit angesehen hat, für den Verlauf. Aus behält keine.",
   "settings.devices.presenceKey.keychain":
     "Touch-ID-Schlüssel (Schlüsselbund), vom Helper gemeldet",
+  "settings.devices.presenceKey.enclaveKeychainAcl":
+    "Touch-ID-Schlüssel (Secure Enclave, ohne macOS-Abfrage nur vom Psyche Helper lesbar), vom Helper gemeldet",
   "settings.devices.presenceKey.enclaveFile":
     "Touch-ID-Schlüssel (Secure-Enclave-Datei, dieser Build hat kein Provisioning-Profil), vom Helper gemeldet",
   "settings.devices.presenceKey.unknown": "Touch-ID-Schlüssel (Art vom Helper nicht gemeldet)",
@@ -635,6 +637,23 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.devices.touchId.bundled": "Der Psyche Helper in dieser App zeigt den Schlüssel",
   "settings.devices.touchId.notBundled":
     "Dieser Helper ist nicht der, der mit dieser App geliefert wurde, daher lässt sich sein Schlüssel hier nicht registrieren.",
+  "settings.devices.touchId.untrusted":
+    "Der Touch-ID-Schlüssel im Schlüsselbund wurde nicht verwendet, weil sich nicht belegen lässt, dass er vom Psyche Helper stammt. Eine harmlose Ursache: Psyche wurde verschoben oder woanders neu installiert, bringe es zurück nach /Applications und öffne es erneut. Sonst beende zuerst den Psyche Helper, führe /Applications/Psyche.app/Contents/Resources/PsycheHelper.app/Contents/MacOS/psyche-helper --reset-presence-key im Terminal aus und registriere den neuen Schlüssel.",
+  "settings.devices.touchId.accessDenied":
+    "macOS hat dem Psyche Helper die Nutzung seines Touch-ID-Schlüssels im Schlüsselbund nicht erlaubt. Starte Psyche neu und wähle „Immer erlauben“ nur, wenn der Dialog psyche-helper nennt (nie für ein anderes Programm).",
+  "settings.devices.touchId.wrongLocation":
+    "Der Psyche Helper hat keinen Touch-ID-Schlüssel angelegt, weil er aus einem Disk-Image, Downloads oder einem anderen Ordner läuft. Bewege Psyche nach /Applications, wirf Disk-Images aus und öffne es von dort.",
+  "settings.devices.touchId.keyMismatch":
+    "Der Psyche Helper in dieser App zeigt jetzt den Schlüssel {shown}, nicht den registrierten {registered}. Wenn du den Schlüssel nicht selbst zurückgesetzt hast, halte das für verdächtig und registriere ihn nicht.",
+  "settings.devices.touchId.confirmReplace":
+    "Dies ersetzt den für diesen Mac registrierten Touch-ID-Schlüssel {previous}. Ersetze ihn nur, wenn du den Schlüssel selbst zurückgesetzt hast.",
+  "settings.devices.touchId.confirmReplaceButton": "Schlüssel ersetzen",
+  "settings.devices.touchId.interactionNotAllowed":
+    "Der Schlüsselbund kann gerade nicht um Erlaubnis fragen. Entsperre den Mac und versuche es erneut.",
+  "settings.devices.touchId.changed":
+    "Der Touch-ID-Schlüssel hat sich geändert, während der Psyche Helper lief. Beende den Psyche Helper und starte ihn neu.",
+  "settings.devices.touchId.aclUnavailable":
+    "Der Schlüsselbund hat die Zugriffsliste des Touch-ID-Schlüssels auf diesem Mac nicht behalten. Starte den Psyche Helper neu, um es erneut zu versuchen.",
   "settings.devices.touchId.noBundledKey":
     "Der Psyche Helper in dieser App hat keinen Touch-ID-Schlüssel ({reason}).",
   "settings.devices.touchId.register": "Diesen Schlüssel registrieren",

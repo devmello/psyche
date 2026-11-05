@@ -24,6 +24,7 @@ import {
   type PermissionBroker,
   PsycheError,
 } from "@psyche/protocol";
+import { isNamedPipePath } from "@psyche/protocol/platform";
 import { type WebSocket, WebSocketServer } from "ws";
 import pkg from "../package.json" with { type: "json" };
 import type { PeerInfo } from "./auth.ts";
@@ -63,7 +64,7 @@ import { LAN_SETTING, readLanSettings } from "./lan/settings.ts";
 import { createLogger, type Logger } from "./log.ts";
 import { allowedMapOrigins } from "./map-proxy.ts";
 import { NodeRegistry } from "./nodes/registry.ts";
-import { openGatewayDb } from "./pre-update.ts";
+import { openGatewayDb, releaseGatewayLock } from "./pre-update.ts";
 import { presenceStateFor } from "./presence-gate.ts";
 import { normalizePeerAddress, resolvePeer, trustedProxyList } from "./proxy.ts";
 import { RateLimiter } from "./rate-limit.ts";
@@ -79,7 +80,7 @@ import { RunTraceSink } from "./run-trace/sink.ts";
 import { SecurityRecoveries } from "./security/recoveries.ts";
 import { StateSeal } from "./security/state-seal.ts";
 import { SessionController } from "./session/controller.ts";
-import { ensureSocketDir, writeSocketPointer } from "./socket-path.ts";
+import { ensureSocketDir, writeGuestPointer, writeSocketPointer } from "./socket-path.ts";
 import { INTERNAL_SETTING_PREFIX, readStateVersion, writeStateVersion } from "./state-version.ts";
 import { TransportGate } from "./transport-gate.ts";
 import { NdjsonDecoder } from "./transports/ndjson.ts";
@@ -624,18 +625,25 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
   const port = (http.address() as AddressInfo).port;
   origin = `http://${config.host.includes(":") ? `[${config.host}]` : config.host}:${port}`;
 
-  // Unix socket for local nodes (mac helper): NDJSON frames, mode 0600. A socket that still
-  // accepts connections belongs to another running Gateway: refuse instead of stealing it.
+  // Local node transport (mac / win helper, psyche-node): NDJSON frames. A Unix socket, mode
+  // 0600; on Windows a named pipe (no file, no mode: the handshake secret and the pipe's default
+  // DACL guard it, `@psyche/protocol/platform`). An endpoint that still accepts connections
+  // belongs to another running Gateway: refuse instead of stealing it.
+  const nodePipe = isNamedPipePath(config.nodeSocketPath);
+  const refuseTaken = async (): Promise<never> => {
+    await new Promise<void>((r) => http.close(() => r()));
+    if (!options.db) db.close();
+    throw new PsycheError(
+      "conflict",
+      `Another Gateway is already listening on ${config.nodeSocketPath}`,
+    );
+  };
   ensureSocketDir(config.nodeSocketPath, config.home);
-  if (existsSync(config.nodeSocketPath)) {
-    if (await socketIsLive(config.nodeSocketPath)) {
-      await new Promise<void>((r) => http.close(() => r()));
-      if (!options.db) db.close();
-      throw new PsycheError(
-        "conflict",
-        `Another Gateway is already listening on ${config.nodeSocketPath}`,
-      );
-    }
+  if (nodePipe) {
+    // A pipe vanishes with its server, so there is nothing stale to remove; only a live one.
+    if (await socketIsLive(config.nodeSocketPath)) await refuseTaken();
+  } else if (existsSync(config.nodeSocketPath)) {
+    if (await socketIsLive(config.nodeSocketPath)) await refuseTaken();
     rmSync(config.nodeSocketPath, { force: true });
   }
   // One server per node socket. The transport is fixed by the socket a stream arrived on, never
@@ -683,18 +691,36 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
   // must find this launch's secret, never the previous one or none.
   const { path: secretPath } = writeHandshakeSecret(config.home, handshakeSecret);
   const nodeServer = serveNodes("unix");
-  await listenOn(nodeServer, config.nodeSocketPath);
-  chmodSync(config.nodeSocketPath, 0o600);
+  try {
+    await listenOn(nodeServer, config.nodeSocketPath);
+  } catch (err) {
+    // A pipe created between the check and now (a racing Gateway, or a squatter holding the
+    // name: libuv opens the first instance exclusively) is refused the same way.
+    if (nodePipe && (err as NodeJS.ErrnoException).code === "EADDRINUSE") await refuseTaken();
+    throw err;
+  }
+  if (!nodePipe) chmodSync(config.nodeSocketPath, 0o600);
   writeSocketPointer(config.home, config.nodeSocketPath);
   let guestServer: NetServer | null = null;
+  const guestPipe = config.guestSocketPath !== null && isNamedPipePath(config.guestSocketPath);
   if (config.guestSocketPath !== null) {
     // The node socket check above proved no other Gateway owns this home; a stale guest socket
     // is ours to replace.
     ensureSocketDir(config.guestSocketPath, config.home);
-    rmSync(config.guestSocketPath, { force: true });
+    if (!guestPipe) rmSync(config.guestSocketPath, { force: true });
     guestServer = serveNodes("vm-relay");
-    await listenOn(guestServer, config.guestSocketPath);
-    chmodSync(config.guestSocketPath, 0o600);
+    try {
+      await listenOn(guestServer, config.guestSocketPath);
+      if (!guestPipe) chmodSync(config.guestSocketPath, 0o600);
+      // Windows: the sandbox PC's service finds the pipe it relays guests into here.
+      if (guestPipe) writeGuestPointer(config.home, config.guestSocketPath);
+    } catch (err) {
+      // A squatter on the guest pipe (libuv opens the first instance exclusively) costs VM mode,
+      // never the Gateway.
+      if (!guestPipe || (err as NodeJS.ErrnoException).code !== "EADDRINUSE") throw err;
+      guestServer = null;
+      log.log("warn", "guest pipe is taken; sandbox guests cannot connect", {});
+    }
   }
 
   // LAN listening only when the owner turned it on (`gateway.lan`); a failure here (no usable
@@ -753,12 +779,19 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
       if (guestServer !== null) await new Promise<void>((r) => guestServer?.close(() => r()));
       http.closeAllConnections();
       await new Promise<void>((r) => http.close(() => r()));
-      rmSync(config.nodeSocketPath, { force: true });
-      if (config.guestSocketPath !== null) rmSync(config.guestSocketPath, { force: true });
+      if (!nodePipe) rmSync(config.nodeSocketPath, { force: true });
+      if (config.guestSocketPath !== null && !guestPipe) {
+        rmSync(config.guestSocketPath, { force: true });
+      }
+      if (guestPipe) rmSync(join(config.home, "run", "guest-socket"), { force: true });
       rmSync(join(config.home, "run", "node-socket"), { force: true });
       removeHandshakeSecret(secretPath);
       seal.close();
-      if (!options.db) db.close();
+      if (!options.db) {
+        db.close();
+        // Windows will not delete a data folder while the lock file in it is open.
+        releaseGatewayLock(config.home);
+      }
       log.log("info", "gateway stopped", { reason });
     },
   };

@@ -18,6 +18,7 @@ import { sanitizeLabel } from "../src/lan/names.ts";
 import { parseLanSettings } from "../src/lan/settings.ts";
 import {
   adminClient,
+  expectPrivate,
   handshake,
   ik,
   newDeviceKey,
@@ -314,9 +315,9 @@ describe("the self-signed certificate", () => {
     const home = tempHome();
     const cert = await ensureLanCert(home, ["studio-mac.local", "192.168.1.20"]);
     const dir = lanTlsDir(home);
-    expect(statSync(dir).mode & 0o777).toBe(0o700);
-    expect(statSync(join(dir, "key.pem")).mode & 0o777).toBe(0o600);
-    expect(statSync(join(dir, "cert.pem")).mode & 0o777).toBe(0o600);
+    expectPrivate(dir, 0o700);
+    expectPrivate(join(dir, "key.pem"), 0o600);
+    expectPrivate(join(dir, "cert.pem"), 0o600);
     expect(cert.names.sort()).toEqual(["192.168.1.20", "studio-mac.local"]);
     const x = new X509Certificate(cert.certPem);
     expect(x.subjectAltName).toContain("DNS:studio-mac.local");
@@ -343,7 +344,7 @@ describe("the self-signed certificate", () => {
     const b = await rotateLanCert(home, ["studio-mac.local"]);
     expect(b.spki).not.toBe(a.spki);
     expect((await ensureLanCert(home, ["studio-mac.local"])).spki).toBe(b.spki);
-    expect(statSync(join(lanTlsDir(home), "key.pem")).mode & 0o777).toBe(0o600);
+    expectPrivate(join(lanTlsDir(home), "key.pem"), 0o600);
   });
 
   it("refuses to replace a key file it cannot read", async () => {

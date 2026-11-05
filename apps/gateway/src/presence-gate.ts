@@ -2,6 +2,7 @@ import { hashCanonical } from "@psyche/audit";
 import { getSetting, type PsycheDb, setSetting } from "@psyche/db";
 import { bindingHash } from "@psyche/permissions";
 import { type JsonObject, PsycheError } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import type { Call } from "./context.ts";
 import { INTERNAL_SETTING_PREFIX } from "./state-version.ts";
 
@@ -87,7 +88,7 @@ export function stateUntrustedError(): PsycheError {
 export function presenceRequiredError(): PsycheError {
   return new PsycheError(
     "presence_required",
-    "This change needs Touch ID or a passkey, and none can verify on this Gateway now. Register the helper's Touch ID key or a passkey (or run `psyched presence reset` on the machine, which applies after 24 hours), then try again.",
+    `This change needs ${hostWords().presence} or a passkey, and none can verify on this Gateway now. Register the helper's ${hostWords().presence} key or a passkey (or run \`psyched presence reset\` on the machine, which applies after 24 hours), then try again.`,
     { details: { reason: "no_presence_verifier" } },
   );
 }
@@ -136,7 +137,7 @@ export async function requireFreshPresence(
     call.ctx.bus.publish("approval.created", { approval: issued.approval });
     throw new PsycheError(
       "approval_required",
-      `${action.summary} needs your approval with Touch ID or a passkey`,
+      `${action.summary} needs your approval with ${hostWords().presence} or a passkey`,
       { details: { approvalId: issued.approval.id } },
     );
   }

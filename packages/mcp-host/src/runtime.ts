@@ -1,22 +1,25 @@
 import { constants } from "node:fs";
 import { access, realpath } from "node:fs/promises";
-import { delimiter, dirname, isAbsolute, join } from "node:path";
+import { posix, win32 } from "node:path";
 import { PsycheError } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 
 /**
  * Which program a stdio server's first word means, and where it really is. A LaunchAgent starts
  * the Gateway with a bare PATH and the app ships `runtime/node` without npm, so a preset's `npx`
  * or `uvx` was never found (`spawn ENOENT` inside srt: "The server did not start"). Node-based
  * servers now run on Psyche's own Node (the `npx` script found on this Mac, started by it), and
- * `uvx` is looked up in the usual install folders and by absolute path.
+ * `uvx` is looked up in the usual install folders and by absolute path. On Windows npm's `npx` is a
+ * `.cmd` shim that cannot be spawned without a shell, so it is `npx-cli.js` on Psyche's Node there
+ * too, and uv is `uvx.exe`.
  */
 
 export type RuntimeKind = "node" | "uv";
 
 /** Stable phrases; `diagnoseLaunch` recognises them. */
 export const RUNTIME_MISSING_TEXT: Record<RuntimeKind, string> = {
-  node: "Node.js tools (npm) are needed to run this server but were not found on this Mac",
-  uv: "uv (uvx) is needed to run this Python server but was not found on this Mac",
+  node: `Node.js tools (npm) are needed to run this server but were not found on ${hostWords().thisDevice}`,
+  uv: `uv (uvx) is needed to run this Python server but was not found on ${hostWords().thisDevice}`,
 };
 
 export interface RuntimeDeps {
@@ -26,6 +29,8 @@ export interface RuntimeDeps {
   searchDirs(): readonly string[];
   isFile(path: string): Promise<boolean>;
   realpath(path: string): Promise<string>;
+  /** Whose path rules apply (default this process's platform). */
+  platform?: NodeJS.Platform;
 }
 
 export function systemRuntimeDeps(
@@ -54,7 +59,21 @@ export interface ResolvedRuntimeCommand {
   runtime: RuntimeKind | null;
 }
 
-const SYSTEM_PATH = ["/usr/bin", "/bin", "/usr/sbin", "/sbin"];
+const POSIX_SYSTEM_PATH = ["/usr/bin", "/bin", "/usr/sbin", "/sbin"];
+
+/** Path rules and the system folders a server's PATH ends with, for `platform`. */
+function rules(platform: NodeJS.Platform) {
+  if (platform !== "win32") return { path: posix, systemPath: POSIX_SYSTEM_PATH, exe: [""] };
+  const root = process.env.SystemRoot ?? "C:\\Windows";
+  return {
+    path: win32,
+    systemPath: [win32.join(root, "System32"), root, win32.join(root, "System32", "Wbem")],
+    // Only real executables: a `.cmd` / `.bat` needs a shell to run.
+    exe: [".exe"],
+  };
+}
+
+type Rules = ReturnType<typeof rules>;
 
 function missing(kind: RuntimeKind): PsycheError {
   return new PsycheError("unavailable", RUNTIME_MISSING_TEXT[kind], {
@@ -62,10 +81,12 @@ function missing(kind: RuntimeKind): PsycheError {
   });
 }
 
-async function findNpxCli(deps: RuntimeDeps): Promise<string | undefined> {
+async function findNpxCli(deps: RuntimeDeps, r: Rules): Promise<string | undefined> {
+  const { join, isAbsolute } = r.path;
   for (const dir of deps.searchDirs()) {
     if (dir === "" || !isAbsolute(dir)) continue;
-    // `npx` is a symlink to npm's `bin/npx-cli.js` in every standard install.
+    // `npx` is a symlink to npm's `bin/npx-cli.js` in every standard install (on Windows a shell
+    // script next to `npx.cmd`, so the lib layout below finds it).
     const bin = join(dir, "npx");
     if (await deps.isFile(bin)) {
       try {
@@ -85,11 +106,18 @@ async function findNpxCli(deps: RuntimeDeps): Promise<string | undefined> {
   return undefined;
 }
 
-async function findExecutable(name: string, deps: RuntimeDeps): Promise<string | undefined> {
+async function findExecutable(
+  name: string,
+  deps: RuntimeDeps,
+  r: Rules,
+): Promise<string | undefined> {
+  const { join, isAbsolute } = r.path;
   for (const dir of deps.searchDirs()) {
     if (dir === "" || !isAbsolute(dir)) continue;
-    const candidate = join(dir, name);
-    if (await deps.isFile(candidate)) return candidate;
+    for (const ext of r.exe) {
+      const candidate = join(dir, `${name}${ext}`);
+      if (await deps.isFile(candidate)) return candidate;
+    }
   }
   return undefined;
 }
@@ -103,8 +131,12 @@ export async function resolveRuntimeCommand(
   deps: RuntimeDeps,
   scratch: string,
 ): Promise<ResolvedRuntimeCommand> {
+  const r = rules(deps.platform ?? process.platform);
+  const { delimiter, dirname, join } = r.path;
+  const { systemPath } = r;
   const [first, ...rest] = command;
-  if (first === undefined || first.includes("/")) {
+  // A path (not a bare name) is run as given.
+  if (first === undefined || first.includes("/") || (r.path === win32 && /[\\:]/.test(first))) {
     return { command: [...command], env: {}, runtime: null };
   }
   const nodeDir = dirname(deps.nodePath);
@@ -122,25 +154,25 @@ export async function resolveRuntimeCommand(
   if (first === "node") {
     return {
       command: [deps.nodePath, ...rest],
-      env: { PATH: [nodeDir, ...SYSTEM_PATH].join(delimiter), ...cacheEnv },
+      env: { PATH: [nodeDir, ...systemPath].join(delimiter), ...cacheEnv },
       runtime: "node",
     };
   }
   if (first === "npx") {
-    const cli = await findNpxCli(deps);
+    const cli = await findNpxCli(deps, r);
     if (cli === undefined) throw missing("node");
     return {
       command: [deps.nodePath, cli, ...rest],
-      env: { PATH: [nodeDir, dirname(cli), ...SYSTEM_PATH].join(delimiter), ...cacheEnv },
+      env: { PATH: [nodeDir, dirname(cli), ...systemPath].join(delimiter), ...cacheEnv },
       runtime: "node",
     };
   }
   if (first === "uvx" || first === "uv") {
-    const exe = await findExecutable(first, deps);
+    const exe = await findExecutable(first, deps, r);
     if (exe === undefined) throw missing("uv");
     return {
       command: [exe, ...rest],
-      env: { PATH: [dirname(exe), nodeDir, ...SYSTEM_PATH].join(delimiter), ...cacheEnv },
+      env: { PATH: [dirname(exe), nodeDir, ...systemPath].join(delimiter), ...cacheEnv },
       runtime: "uv",
     };
   }

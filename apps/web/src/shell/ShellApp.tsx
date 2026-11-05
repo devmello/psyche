@@ -2,6 +2,7 @@ import type { SearchHit, Thread } from "@psyche/protocol";
 import {
   AGENT_PANEL_MIN_CONTENT,
   AGENT_PANEL_WIDTH,
+  applyPlatformAttribute,
   BrowserToggle,
   CompactTopBar,
   chatFocusFromRoute,
@@ -29,6 +30,7 @@ import {
   t,
   type UiSlots,
   UiSlotsProvider,
+  uiPlatform,
   useStore,
 } from "@psyche/ui";
 import {
@@ -64,6 +66,7 @@ import {
 import { PaneArea, type PaneRenderer } from "./components/Panes.tsx";
 import { SecurityStateBanner } from "./components/SecurityStateBanner.tsx";
 import {
+  frameKind,
   hasInsetTitleBar,
   TITLEBAR_HEIGHT,
   TitleBar,
@@ -167,8 +170,9 @@ export function chromeLead(opts: {
   /** The browser button sits beside the sidebar toggle (a chat on the desktop). */
   browser?: boolean;
 }): { lead: number; toolbar: number | null } {
+  // Windows has no traffic lights: only the toggles sit at the top left.
   const lights = Math.max(
-    COLLAPSED_CHROME_LEAD,
+    frameKind(opts.chrome) === "overlay" ? 0 : COLLAPSED_CHROME_LEAD,
     titleBarInset(opts.chrome) + TITLEBAR_TOGGLE_ROOM + (opts.browser ? TITLEBAR_BROWSER_ROOM : 0),
   );
   const visible = !opts.sidebarOpen
@@ -325,17 +329,38 @@ export function ShellApp({
 }): ReactElement {
   const store = useMemo(() => new ShellStore(platform.gateway), [platform]);
   const layout = useMemo(() => createLayoutStore(platform.storage), [platform]);
+  useWindowMaterial(platform.chrome);
   useEffect(() => {
     store.start();
     return () => store.stop();
   }, [store]);
-  const mac =
-    /Mac|iPhone|iPad/.test(globalThis.navigator?.platform ?? "") || platform.kind === "desktop";
+  // ⌘ or Ctrl (`uiPlatform`: the desktop's `data-platform`, else the browser). A desktop host
+  // that reports no platform is the Mac app, as before Windows existed.
+  const os = uiPlatform();
+  const mac = os === "macos" || (os === "other" && platform.kind === "desktop");
   return (
     <ShellProvider platform={platform} store={store} mac={mac}>
       <Shell layout={layout} slots={slots ?? {}} />
     </ShellProvider>
   );
+}
+
+/**
+ * `<html data-platform>` (when the host set none) and `<html data-material="mica">` while the
+ * desktop has Windows 11's Mica under this window: the platform styles (packages/ui
+ * styles/windows.css) read both.
+ */
+function useWindowMaterial(chrome: WindowChrome | undefined): void {
+  const material = chrome?.material;
+  useEffect(() => {
+    applyPlatformAttribute();
+    const root = globalThis.document?.documentElement;
+    if (root === undefined || material === undefined) return;
+    root.dataset.material = material;
+    return () => {
+      delete root.dataset.material;
+    };
+  }, [material]);
 }
 
 type Overlay = "palette" | "shortcuts" | "model" | null;
@@ -1123,7 +1148,12 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
           // Unified chrome on the desktop (#597; redesign §4): the bar is a drag strip over the
           // sidebar only (the traffic lights sit in its material) and each screen's toolbar is
           // the drag region over the canvas.
-          data-chrome={inset && !compact ? "inset" : undefined}
+          // `inset` (macOS traffic lights, top left) or `overlay` (Windows caption buttons, top
+          // right): shell-layout.css keeps each clear.
+          data-chrome={inset && !compact ? frameKind(platform.chrome) : undefined}
+          // Compact keeps the plain bar on top; under Windows' caption buttons it still needs
+          // their room on the right.
+          data-frame={compact ? frameKind(platform.chrome) : undefined}
           // A hidden sidebar or the narrow rail leaves the traffic lights over the toolbars,
           // which then start after them (#624).
           data-toolbar-lead={lead.toolbar === null ? undefined : ""}

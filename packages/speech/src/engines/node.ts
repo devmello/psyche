@@ -11,6 +11,7 @@ import {
   type Transcript,
   type TranscriptSegment,
 } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import { decodeWav, isPcm } from "../audio.ts";
 import { AsyncQueue, toBase64 } from "../queue.ts";
 import { sequenceSegments } from "../stream.ts";
@@ -113,7 +114,9 @@ export class NodeSpeechEngine implements SpeechEngine, PathTranscriber {
   async #node(): Promise<NodeClient> {
     const node = await this.#opts.node();
     if (node === undefined) {
-      throw new PsycheError("unavailable", "no Mac node is online", { retryable: true });
+      throw new PsycheError("unavailable", `${hostWords().helper} is not online`, {
+        retryable: true,
+      });
     }
     return node;
   }
@@ -224,7 +227,7 @@ export class NodeSpeechEngine implements SpeechEngine, PathTranscriber {
     ) {
       throw new PsycheError(
         "invalid_params",
-        "the Mac node takes 8–48 kHz mono or stereo PCM (pcm_s16le / pcm_f32le)",
+        `${hostWords().helper} takes 8–48 kHz mono or stereo PCM (pcm_s16le / pcm_f32le)`,
       );
     }
     const segments = new AsyncQueue<TranscriptSegment>();
@@ -276,7 +279,9 @@ export class NodeSpeechEngine implements SpeechEngine, PathTranscriber {
         });
       } finally {
         // Settles the pump: once the helper call ended, no stream id will arrive.
-        rejectId(new PsycheError("internal", "the Mac node ended the stream before it started"));
+        rejectId(
+          new PsycheError("internal", `${hostWords().helper} ended the stream before it started`),
+        );
       }
       if (!res.ok) {
         // Stop pushing now; the pump may be parked waiting for the next audio chunk.

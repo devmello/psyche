@@ -3,7 +3,9 @@
 //   node deploy/scripts/build-psyched.mjs [--arch arm64|x64] [--out <dir>] [--skip-web-build] [--smoke]
 //   node deploy/scripts/build-psyched.mjs --smoke-only [--out <dir>]     smoke an already built bundle
 //
-// Output: apps/gateway/dist-bin/darwin-<arch>/psyched/
+// Output: apps/gateway/dist-bin/<darwin|win32>-<arch>/psyched/ (the host's platform; on Windows
+// win32-bundle.mjs says what differs: node.exe, .cmd launchers, the Task Scheduler template and a
+// flat node_modules without links)
 //   psyched, psyche            /bin/sh launchers (no PATH needed): runtime/node + app/apps/*/dist/main.mjs
 //   runtime/node               the official Node build of the version deploy/scripts/node-pins.mjs pins,
 //                              SHA-256 checked against nodejs.org's SHASUMS256.txt
@@ -41,8 +43,8 @@ import {
 } from "node:fs";
 import { builtinModules } from "node:module";
 import { homedir, arch as hostArch, platform, tmpdir } from "node:os";
-import { join, relative, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join, relative, resolve, sep } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { bundleGateway, discardSources } from "./bundle-gateway.mjs";
 import { findPins } from "./node-pins.mjs";
 import {
@@ -53,6 +55,17 @@ import {
 } from "./pnpm-store.mjs";
 import { prunePackageWaste } from "./prune-package-waste.mjs";
 import { checkBudget, treeSize } from "./size-budget.mjs";
+import {
+  checkAddonsWin32,
+  findLinks,
+  hoistPnpmLayout,
+  longestPath,
+  minimalWinEnv,
+  nodeRuntimeWin32,
+  PSYCHE_CMD,
+  PSYCHED_CMD,
+  psychedNodeArgs,
+} from "./win32-bundle.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL(".", import.meta.url)), "../..");
 
@@ -60,6 +73,7 @@ const ROOT = resolve(fileURLToPath(new URL(".", import.meta.url)), "../..");
 const PRUNE = [
   "apps/desktop",
   "apps/mac-helper",
+  "apps/win-helper",
   "apps/web/src",
   "apps/web/testing",
   "apps/site",
@@ -69,8 +83,16 @@ const PRUNE = [
   ".github",
   "deploy/homebrew",
   "deploy/macos",
+  "deploy/windows",
   "deploy/scripts",
 ];
+
+const IS_WIN = platform() === "win32";
+
+/** pnpm is pnpm.cmd on Windows, which Node starts only through a shell. */
+function pnpm(args, opts = {}) {
+  run("pnpm", args, { ...opts, ...(IS_WIN ? { shell: true } : {}) });
+}
 
 /** The workspace packages psyched and the CLI start from; their workspace closure ships. */
 const ENTRY_WORKSPACES = ["apps/gateway", "apps/cli"];
@@ -177,11 +199,11 @@ const PLATFORM_DIRS = new Set(["darwin", "linux", "win32", "android", "freebsd",
 
 /**
  * Packages ship prebuilt addons for every platform (`prebuilds/linux-x64.node`, …). Keep only
- * this bundle's `darwin-<arch>`: the rest is dead weight that would also have to be signed.
- * onnxruntime-node (on-device search embeddings) lays them out as `bin/napi-v6/<platform>/<arch>/`
- * (~300 MB for all of them): only `darwin/<arch>` stays.
+ * this bundle's `<platform>-<arch>` (darwin unless given): the rest is dead weight that would also
+ * have to be signed. onnxruntime-node (on-device search embeddings) lays them out as
+ * `bin/napi-v6/<platform>/<arch>/` (~300 MB for all of them): only `<platform>/<arch>` stays.
  */
-export function pruneForeignPrebuilds(appDir, arch) {
+export function pruneForeignPrebuilds(appDir, arch, plat = "darwin") {
   let removed = 0;
   walk(
     appDir,
@@ -190,7 +212,7 @@ export function pruneForeignPrebuilds(appDir, arch) {
       if (/^napi-v\d+$/.test(name)) {
         for (const platformDir of readdirSync(p)) {
           if (!PLATFORM_DIRS.has(platformDir)) continue;
-          if (platformDir !== "darwin") {
+          if (platformDir !== plat) {
             rmSync(join(p, platformDir), { recursive: true, force: true });
             removed++;
             continue;
@@ -206,7 +228,7 @@ export function pruneForeignPrebuilds(appDir, arch) {
       }
       if (name !== "prebuilds") return true;
       for (const entry of readdirSync(p)) {
-        if (PLATFORM_TOKEN.test(entry) && !entry.startsWith(`darwin-${arch}`)) {
+        if (PLATFORM_TOKEN.test(entry) && !entry.startsWith(`${plat}-${arch}`)) {
           rmSync(join(p, entry), { recursive: true, force: true });
           removed++;
         }
@@ -326,9 +348,11 @@ const IMPORT_RE =
  * dependencies into its own node_modules, so that is where each one has to be after pruning.
  * Lazy `import()`s count too; they are what a boot smoke would miss.
  */
-export function checkImports(appDir, subsets = SERVER_SUBSETS) {
+export function checkImports(appDir, subsets = SERVER_SUBSETS, drop = DROP_PACKAGES) {
   const { closure } = workspaceClosure(appDir, subsets);
   const builtins = new Set(builtinModules);
+  // Dropped on purpose; whoever imports one must cope with its absence (image-resize.ts falls back).
+  const dropped = new Set(drop);
   const missing = [];
   for (const [name, pkg] of closure) {
     const root = join(appDir, pkg.dir);
@@ -343,8 +367,9 @@ export function checkImports(appDir, subsets = SERVER_SUBSETS) {
           if (/^[./#]/.test(spec) || spec.startsWith("node:") || builtins.has(spec)) continue;
           const parts = spec.split("/");
           const dep = spec.startsWith("@") ? parts.slice(0, 2).join("/") : parts[0];
-          if (dep === name || existsSync(join(root, "node_modules", dep))) continue;
-          missing.push(`${relative(appDir, p)}: ${spec}`);
+          if (dep === name || dropped.has(dep) || existsSync(join(root, "node_modules", dep)))
+            continue;
+          missing.push(`${relative(appDir, p).split(sep).join("/")}: ${spec}`);
         }
       },
       // Test suites other packages' tests import (`@psyche/browser/conformance` needs vitest).
@@ -408,11 +433,24 @@ export function checkShippedSkills(appDir) {
  * load), the web client, the sandbox image context, the MCP bridge, and a PDF through the
  * extraction worker, each found through @psyche/assets from where the bundle sits.
  */
+/** How to start psyched from the bundle: the sh launcher, or node.exe directly on Windows. */
+function psychedCommand(bundle, args) {
+  return IS_WIN
+    ? { cmd: join(bundle, "runtime", "node.exe"), args: [...psychedNodeArgs(bundle), ...args] }
+    : { cmd: join(bundle, "psyched"), args };
+}
+
+/** Only PSYCHE_HOME (plus what Node itself needs on Windows). */
+function smokeEnv(extra) {
+  return IS_WIN ? minimalWinEnv(extra) : extra;
+}
+
 function smokeBundle(bundle, home) {
   const app = join(bundle, "app");
-  const out = execFileSync(join(bundle, "psyched"), ["--bundle-check"], {
+  const ps = psychedCommand(bundle, ["--bundle-check"]);
+  const out = execFileSync(ps.cmd, ps.args, {
     encoding: "utf8",
-    env: { PSYCHE_HOME: home },
+    env: smokeEnv({ PSYCHE_HOME: home }),
     stdio: ["ignore", "pipe", "inherit"],
   });
   const check = JSON.parse(out.trim().split("\n").pop());
@@ -436,7 +474,7 @@ function smokeNative(bundle, home) {
   const app = join(bundle, "app");
   const script = `
     import { createRequire } from "node:module";
-    const need = createRequire(${JSON.stringify(`${app}/apps/gateway/dist/main.mjs`)});
+    const need = createRequire(${JSON.stringify(join(app, "apps", "gateway", "dist", "main.mjs"))});
     const Sqlite = need("better-sqlite3");
     const db = new Sqlite(":memory:");
     need("sqlite-vec").load(db);
@@ -450,12 +488,12 @@ function smokeNative(bundle, home) {
     process.stdout.write(JSON.stringify({ sqlite: db.prepare("select sqlite_version() v").get().v, vec: db.prepare("select vec_version() v").get().v }));
   `;
   const out = execFileSync(
-    join(bundle, "runtime/node"),
+    join(bundle, IS_WIN ? "runtime/node.exe" : "runtime/node"),
     ["--disable-warning=ExperimentalWarning", "--input-type=module", "-e", script],
     {
       cwd: app,
       encoding: "utf8",
-      env: { PATH: "/usr/bin:/bin", HOME: home },
+      env: IS_WIN ? minimalWinEnv({ USERPROFILE: home }) : { PATH: "/usr/bin:/bin", HOME: home },
       stdio: ["ignore", "pipe", "inherit"],
     },
   );
@@ -514,11 +552,12 @@ exec "$here/runtime/node" --disable-warning=ExperimentalWarning --require "$here
 `;
 
 async function smoke(bundle) {
-  const home = mkdtempSync(join("/tmp", "psy-smoke-"));
+  const home = mkdtempSync(join(IS_WIN ? tmpdir() : "/tmp", "psy-smoke-"));
   try {
-    const child = spawn(join(bundle, "psyched"), [], {
+    const ps = psychedCommand(bundle, []);
+    const child = spawn(ps.cmd, ps.args, {
       // Only what launchd gives it plus PSYCHE_HOME; PSYCHE_PORT=0 avoids a clash with a running Gateway.
-      env: { PSYCHE_HOME: home, PSYCHE_PORT: "0", PSYCHE_BROWSER: "off" },
+      env: smokeEnv({ PSYCHE_HOME: home, PSYCHE_PORT: "0", PSYCHE_BROWSER: "off" }),
       stdio: ["ignore", "ignore", "pipe"],
     });
     const origin = await new Promise((ok, fail) => {
@@ -539,6 +578,8 @@ async function smoke(bundle) {
     });
     const health = await (await fetch(`${origin}/healthz`)).json();
     child.kill("SIGTERM");
+    // Windows keeps the files of a running process open: the home cannot go before it exits.
+    if (IS_WIN) await new Promise((r) => child.once("exit", r));
     if (health?.ok !== true) throw new Error(`/healthz answered ${JSON.stringify(health)}`);
     process.stdout.write(`smoke: psyched healthy at ${origin}/healthz with only PSYCHE_HOME set\n`);
     smokeBundle(bundle, home);
@@ -554,14 +595,17 @@ async function main(argv) {
     return i === -1 ? undefined : argv[i + 1];
   };
   const arch = opt("--arch") ?? (hostArch() === "arm64" ? "arm64" : "x64");
-  if (platform() !== "darwin")
-    throw new Error("build-psyched.mjs builds the macOS bundle; run it on a Mac");
+  const plat = platform();
+  if (plat !== "darwin" && plat !== "win32")
+    throw new Error(
+      "build-psyched.mjs builds the macOS or the Windows bundle; run it on one of them",
+    );
   if (arch !== (hostArch() === "arm64" ? "arm64" : "x64")) {
     throw new Error(
       `--arch ${arch} needs a ${arch} host: native addons are installed for the host`,
     );
   }
-  const out = resolve(opt("--out") ?? join(ROOT, "apps/gateway/dist-bin", `darwin-${arch}`));
+  const out = resolve(opt("--out") ?? join(ROOT, "apps/gateway/dist-bin", `${plat}-${arch}`));
   const bundle = join(out, "psyched");
   const app = join(bundle, "app");
   if (argv.includes("--smoke-only")) return smoke(bundle);
@@ -583,8 +627,7 @@ async function main(argv) {
   }
 
   // 2. Production dependencies of the Gateway and the CLI, for this host.
-  run(
-    "pnpm",
+  pnpm(
     [
       "install",
       "--frozen-lockfile",
@@ -607,8 +650,7 @@ async function main(argv) {
   );
 
   // 3. The web client the Gateway serves at /.
-  if (!argv.includes("--skip-web-build"))
-    run("pnpm", ["--filter", "@psyche/web", "build"], { cwd: ROOT });
+  if (!argv.includes("--skip-web-build")) pnpm(["--filter", "@psyche/web", "build"], { cwd: ROOT });
   const web = join(ROOT, "apps/web/dist");
   if (!existsSync(join(web, "index.html")))
     throw new Error("apps/web/dist is missing; build the web client");
@@ -639,32 +681,73 @@ async function main(argv) {
     `bundled with esbuild: ${sizes}; sources dropped, ${dropped.external.length} external package(s) kept (${dropped.external.join(", ")}), ${dropped.packages} more pnpm entries removed\n`,
   );
 
-  const pruned = pruneForeignPrebuilds(app, arch);
+  const pruned = pruneForeignPrebuilds(app, arch, plat);
   process.stdout.write(`pruned ${pruned} prebuilt addon(s) for other platforms\n`);
   const waste = prunePackageWaste(app);
   process.stdout.write(
     `pruned ${(waste.installed / 1e6).toFixed(0)} MB of docs/tests/sources from ${waste.packages} package(s), ${(waste.workspaces / 1e6).toFixed(1)} MB of workspace tests, ${(waste.dupes / 1e6).toFixed(0)} MB of duplicate libraries\n`,
   );
-  const bad = checkAddons(app, arch);
+  // After the waste pass, which finds packages through the pnpm store layout.
+  if (IS_WIN) {
+    const hoisted = hoistPnpmLayout(app);
+    const links = findLinks(app);
+    if (links.length) throw new Error(`links left in the Windows bundle:\n${links.join("\n")}`);
+    process.stdout.write(`hoisted ${hoisted} package(s) into a flat node_modules without links\n`);
+  }
+  const bad = IS_WIN ? checkAddonsWin32(app, arch) : checkAddons(app, arch);
   if (bad.length) throw new Error(`native addons for the wrong architecture:\n${bad.join("\n")}`);
 
-  // 5. Runtime, launchers, plist template, build info.
-  const rt = await nodeRuntime(version, arch);
-  try {
-    cpSync(rt.node, join(bundle, "runtime/node"));
-  } finally {
-    rt.cleanup();
+  // 5. Runtime, launchers, service template (LaunchAgent plist / scheduled task), build info.
+  const supervisor = await import(pathToFileURL(join(ROOT, "apps/cli/src/supervisor.ts")).href);
+  if (IS_WIN) {
+    const rt = await nodeRuntimeWin32(version, arch);
+    try {
+      cpSync(rt.node, join(bundle, "runtime", "node.exe"));
+    } finally {
+      rt.cleanup();
+    }
+    writeFileSync(join(bundle, "psyched.cmd"), PSYCHED_CMD);
+    writeFileSync(join(bundle, "psyche.cmd"), PSYCHE_CMD);
+    // The service host and the scheduled task the desktop (and `psyche start`) register; the
+    // template's {{PSYCHED_DIR}} is this folder once installed (apps/cli/src/supervisor.ts).
+    writeFileSync(join(bundle, supervisor.SERVICE_HOST_FILE), supervisor.SERVICE_HOST_SCRIPT);
+    const dir = "{{PSYCHED_DIR}}";
+    const node = `${dir}\\runtime\\node.exe`;
+    supervisor.writeTaskXml(
+      join(bundle, supervisor.TASK_TEMPLATE_FILE),
+      supervisor.renderScheduledTaskXml({
+        node,
+        serviceHost: `${dir}\\${supervisor.SERVICE_HOST_FILE}`,
+        program: node,
+        args: [
+          "--max-semi-space-size=4",
+          "--disable-warning=ExperimentalWarning",
+          `${dir}\\app\\apps\\gateway\\dist\\main.mjs`,
+        ],
+        psycheHome: "{{PSYCHE_HOME}}",
+        userId: "{{USER_ID}}",
+        taskName: "{{TASK_NAME}}",
+      }),
+    );
+    const longest = longestPath(bundle);
+    process.stdout.write(`longest path in the bundle: ${longest.length} chars (${longest})\n`);
+  } else {
+    const rt = await nodeRuntime(version, arch);
+    try {
+      cpSync(rt.node, join(bundle, "runtime/node"));
+    } finally {
+      rt.cleanup();
+    }
+    chmodSync(join(bundle, "runtime/node"), 0o755);
+    stripRuntime(join(bundle, "runtime/node"));
+    writeFileSync(join(bundle, "psyched"), PSYCHED_LAUNCHER, { mode: 0o755 });
+    writeFileSync(join(bundle, "psyched-harden.cjs"), PSYCHED_HARDEN, { mode: 0o644 });
+    writeFileSync(join(bundle, "psyche"), PSYCHE_LAUNCHER, { mode: 0o755 });
+    writeFileSync(
+      join(bundle, "com.psyche.gateway.plist.template"),
+      supervisor.renderLaunchAgentPlist({ program: "{{PSYCHED}}", psycheHome: "{{PSYCHE_HOME}}" }),
+    );
   }
-  chmodSync(join(bundle, "runtime/node"), 0o755);
-  stripRuntime(join(bundle, "runtime/node"));
-  writeFileSync(join(bundle, "psyched"), PSYCHED_LAUNCHER, { mode: 0o755 });
-  writeFileSync(join(bundle, "psyched-harden.cjs"), PSYCHED_HARDEN, { mode: 0o644 });
-  writeFileSync(join(bundle, "psyche"), PSYCHE_LAUNCHER, { mode: 0o755 });
-  const { renderLaunchAgentPlist } = await import(join(ROOT, "apps/cli/src/supervisor.ts"));
-  writeFileSync(
-    join(bundle, "com.psyche.gateway.plist.template"),
-    renderLaunchAgentPlist({ program: "{{PSYCHED}}", psycheHome: "{{PSYCHE_HOME}}" }),
-  );
   let bytes = 0;
   walk(bundle, (_p, st) => {
     bytes += st.size;
@@ -684,14 +767,16 @@ async function main(argv) {
     `${JSON.stringify({ version: appVersion, build, commit, node: version, arch, builtAt, bytes }, null, 2)}\n`,
   );
   process.stdout.write(
-    `built ${bundle} (${(bytes / 1e6).toFixed(0)} MB, Node ${version}, darwin-${arch})\n`,
+    `built ${bundle} (${(bytes / 1e6).toFixed(0)} MB, Node ${version}, ${plat}-${arch})\n`,
   );
-  process.stdout.write(`${checkBudget("psychedMB", treeSize(bundle))}\n`);
+  process.stdout.write(
+    `${checkBudget(IS_WIN ? "psychedWin32MB" : "psychedMB", treeSize(bundle))}\n`,
+  );
 
   if (argv.includes("--smoke")) await smoke(bundle);
 }
 
-if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main(process.argv.slice(2)).catch((err) => {
     process.stderr.write(`build-psyched: ${err.message}\n`);
     process.exit(1);

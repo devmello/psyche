@@ -1039,7 +1039,7 @@ export interface PresenceAssertion {
     signature: string;
 }
 
-export type PresenceAssertionKind = "webauthn" | "helper";
+export type PresenceAssertionKind = "webauthn" | "helper" | "password";
 
 export type GrantScope = "once" | "task" | "site" | "session" | "always";
 
@@ -1175,6 +1175,16 @@ export interface Grant {
     subject:                { [key: string]: unknown };
     taskId?:                null | string;
     useCount:               number;
+}
+
+export interface ApprovalsApproveWithPasswordParams {
+    answerToken: string;
+    approvalId:  string;
+}
+
+export interface ApprovalsApproveWithPasswordResult {
+    approval: ApprovalRequest;
+    grant?:   Grant | null;
 }
 
 export interface ApprovalsApproveWithTouchIDParams {
@@ -2550,7 +2560,7 @@ export interface NodeCapability {
     targetKind?: TargetKind;
 }
 
-export type DevicePlatform = "macos" | "ios" | "android" | "web" | "linux";
+export type DevicePlatform = "macos" | "ios" | "android" | "web" | "linux" | "windows";
 
 export interface ChannelsAllowlistUpdateParams {
     add?:        string[];
@@ -3183,6 +3193,8 @@ export interface CompactionBlock {
 }
 
 export type CompactionBlockType = "compaction";
+
+export type ComputerSurface = "direct" | "virtual_screen" | "separate_desktop";
 
 export interface ConnectChallenge {
     expiresAt: string;
@@ -4176,18 +4188,22 @@ export interface DevicesPresenceKeyListResult {
 }
 
 export interface PresenceKeyInfo {
+    algorithm?:   PresenceKeyAlgorithm;
     deviceId:     string;
     keyId:        string;
     kind?:        PresenceKeyInfoKind;
     registeredAt: string;
 }
 
-export type PresenceKeyInfoKind = "keychain" | "enclave_file";
+export type PresenceKeyAlgorithm = "p256-ecdsa-sha256" | "rsa-2048-pkcs1-sha256";
+
+export type PresenceKeyInfoKind = "keychain" | "enclave_keychain_acl" | "enclave_file" | "windows_hello";
 
 export interface DevicesPresenceKeyRegisterParams {
-    approvalId?: string;
-    deviceId:    string;
-    expectKeyId: string;
+    approvalId?:           string;
+    confirmReplacesKeyId?: string;
+    deviceId:              string;
+    expectKeyId:           string;
 }
 
 export interface DevicesPresenceKeyRegisterResult {
@@ -4201,6 +4217,20 @@ export interface DevicesPresenceKeyRemoveParams {
 export interface DevicesPresenceKeyRemoveResult {
     removed: boolean;
 }
+
+export interface DevicesPresenceStatusResult {
+    verifiers: PresenceVerifier[];
+}
+
+export interface PresenceVerifier {
+    detail?: string;
+    kind:    PresenceVerifierKind;
+    state:   PresenceVerifierState;
+}
+
+export type PresenceVerifierKind = "touch_id_key" | "passkey" | "password";
+
+export type PresenceVerifierState = "ready" | "not_enrolled" | "unavailable" | "policy_missing" | "not_enforced" | "no_session" | "agent_missing";
 
 export interface DevicesRevokeParams {
     deviceId: string;
@@ -4295,7 +4325,7 @@ export interface DictationTarget {
     role?:      null | string;
 }
 
-export type DictationRefusal = "no_focus" | "secure_field" | "own_window" | "not_editable" | "focus_changed";
+export type DictationRefusal = "no_focus" | "secure_field" | "own_window" | "not_editable" | "focus_changed" | "elevated_target";
 
 export interface DictationKeyPayload {
     /**
@@ -4307,7 +4337,7 @@ export interface DictationKeyPayload {
     role?: DictationKeyRole;
 }
 
-export type DictationKey = "fn" | "rightOption" | "rightCommand";
+export type DictationKey = "fn" | "rightOption" | "rightCommand" | "rightCtrl" | "rightAlt" | "rightShift" | "rightWin" | "capsLock" | "scrollLock" | "pause" | "menu" | "insert" | "numLock" | "f13" | "f14" | "f15" | "f16" | "f17" | "f18" | "f19" | "f20" | "f21" | "f22" | "f23" | "f24";
 
 export type DictationKeyRole = "dictation" | "voice";
 
@@ -5105,7 +5135,7 @@ export interface ErrorPayload {
 /**
  * Machine-readable error code
  */
-export type ErrorCode = "not_implemented" | "invalid_frame" | "invalid_params" | "unknown_method" | "protocol_version_mismatch" | "unauthorized" | "forbidden" | "not_paired" | "pairing_pending" | "origin_rejected" | "not_found" | "conflict" | "idempotency_conflict" | "rate_limited" | "timeout" | "cancelled" | "unavailable" | "approval_required" | "approval_expired" | "approval_invalidated" | "approval_not_armed" | "answer_late" | "answer_replayed" | "binding_mismatch" | "taint_blocked" | "policy_denied" | "internal" | "user_in_control" | "debugger_detached" | "tab_not_found" | "method_not_allowed" | "presence_required";
+export type ErrorCode = "not_implemented" | "invalid_frame" | "invalid_params" | "unknown_method" | "protocol_version_mismatch" | "unauthorized" | "forbidden" | "not_paired" | "pairing_pending" | "origin_rejected" | "not_found" | "conflict" | "idempotency_conflict" | "rate_limited" | "timeout" | "cancelled" | "unavailable" | "approval_required" | "approval_expired" | "approval_invalidated" | "approval_not_armed" | "answer_late" | "answer_replayed" | "binding_mismatch" | "taint_blocked" | "policy_denied" | "internal" | "user_in_control" | "debugger_detached" | "tab_not_found" | "method_not_allowed" | "presence_required" | "presence_unavailable_here" | "presence_agent_missing" | "presence_policy_missing" | "presence_not_enforced";
 
 export type FrameType = "req" | "res" | "event";
 
@@ -6148,9 +6178,11 @@ export interface MCPSetEnabledResult {
 }
 
 export interface MCPStatusResult {
-    launcher: Sandbox;
+    launcher: Launcher;
     servers:  MCPServerStatus[];
 }
+
+export type Launcher = "srt" | "container" | "vm" | "none";
 
 export interface MCPToolsParams {
     serverId: string;
@@ -7796,6 +7828,23 @@ export interface Chip {
 
 export type WorkHistoryOrigin = "chat" | "mail" | "you" | "nightly" | "source";
 
+export interface MemoryWorkListsResult {
+    lists: WorkReminderList[];
+}
+
+export interface WorkReminderList {
+    id:   string;
+    name: string;
+    /**
+     * Someone else can add to it (shared, read-only, flagged email): untrusted
+     */
+    shared: boolean;
+    /**
+     * Where it lives, e.g. Microsoft To Do
+     */
+    source?: string;
+}
+
 export interface MemoryWorkSettings {
     anchorsFromFolders: MemoryWorkFolders;
     /**
@@ -8239,7 +8288,13 @@ export interface NodeInfo {
     status:           NodeStatus;
 }
 
-export type NodeKind = "mac-helper" | "vm-guest" | "remote" | "phone";
+/**
+ * win-helper: the Windows helper on the Host (the node socket plus the handshake secret).
+ * host-helper: the helper the desktop launched on the Host (macOS mac-helper or Linux
+ * linux-helper; stored rows keep mac-helper, which stays a valid alias). guest: the helper
+ * inside a separate desktop (container or VM).
+ */
+export type NodeKind = "mac-helper" | "vm-guest" | "remote" | "phone" | "win-helper" | "host-helper" | "guest";
 
 export type NodeStatus = "online" | "offline" | "degraded";
 
@@ -8508,6 +8563,8 @@ export interface OnePasswordRef {
     item:  string;
     vault: string;
 }
+
+export type OSPermission = "a11yBus" | "screenCastPortal" | "remoteDesktopPortal" | "x11";
 
 export interface PairingRequestedPayload {
     pairingRequest: PairingRequest;
@@ -9431,7 +9488,11 @@ export interface SandboxSrtStatus {
     version?:  null | string;
 }
 
-export type SandboxSrtProblem = "not_found" | "not_absolute" | "not_executable";
+/**
+ * `unsupported_platform`: srt has no Windows build, so it is never looked for there;
+ * Windows uses the sandbox PC
+ */
+export type SandboxSrtProblem = "not_found" | "not_absolute" | "not_executable" | "unsupported_platform";
 
 export type SandboxSrtSource = "env" | "setting" | "detected";
 
@@ -9458,10 +9519,12 @@ export interface SandboxSetupResult {
     containers: SandboxContainerSetup;
     installer?: SandboxSrtInstaller;
     /**
-     * srt is available, so command servers can run
+     * srt is available (on Windows: the sandbox PC is ready), so scripts and command servers
+     * can run
      */
-    ready: boolean;
-    srt:   SandboxSrtStatus;
+    ready:      boolean;
+    sandboxPc?: SandboxPCStatus;
+    srt:        SandboxSrtStatus;
 }
 
 export interface SandboxContainerSetup {
@@ -9496,6 +9559,18 @@ export interface SandboxSetupBackend {
 
 export type SandboxContainerBackend = "apple-container" | "docker" | "podman";
 
+export interface SandboxPCStatus {
+    /**
+     * The owner turned the sandbox PC on (`vm.enabled`)
+     */
+    enabled: boolean;
+    /**
+     * Its guest runs and its psyche-node is connected with sessions, so those features run in
+     * it now
+     */
+    ready: boolean;
+}
+
 export interface SandboxStatusParams {
     sandboxId?: string;
 }
@@ -9504,11 +9579,12 @@ export interface SandboxStatusResult {
     /**
      * false → exec reports an error; there is never a host fallback
      */
-    available: boolean;
-    backend:   SandboxBackend;
-    egress?:   boolean;
-    sandbox?:  SandboxInfo | null;
-    srt?:      SandboxSrtStatus;
+    available:  boolean;
+    backend:    SandboxBackend;
+    egress?:    boolean;
+    sandbox?:   SandboxInfo | null;
+    sandboxPc?: SandboxPCStatus;
+    srt?:       SandboxSrtStatus;
 }
 
 export interface ScheduledListResult {
@@ -9636,11 +9712,20 @@ export type ScreenCaptureMode = "window" | "region";
 
 export type ScreenCaptureRefusal = "app_excluded" | "secure_field" | "no_window" | "permission_missing";
 
-export interface ScreenContextParams {
+export interface ScreenCaptureParams {
+    frame?:     ScreenContextResult;
     maxHeight?: number;
     maxWidth?:  number;
     mode:       ScreenCaptureMode;
     rect?:      ScreenRect;
+}
+
+export interface ScreenContextResult {
+    context?: ScreenContext | null;
+    height:   number;
+    image?:   null | string;
+    refusal?: ScreenCaptureRefusal;
+    width:    number;
 }
 
 export interface ScreenRect {
@@ -9650,12 +9735,11 @@ export interface ScreenRect {
     y:      number;
 }
 
-export interface ScreenContextResult {
-    context?: ScreenContext | null;
-    height:   number;
-    image?:   null | string;
-    refusal?: ScreenCaptureRefusal;
-    width:    number;
+export interface ScreenContextParams {
+    maxHeight?: number;
+    maxWidth?:  number;
+    mode:       ScreenCaptureMode;
+    rect?:      ScreenRect;
 }
 
 export interface ScreenDiscardParams {
@@ -10628,7 +10712,7 @@ export interface SkillsDraftsFromRecordingParams {
 
 export interface BrowserTeachStep {
     /**
-     * app_*: the Mac app the step was recorded in (phase 2)
+     * app_*: the desktop app the step was recorded in (phase 2)
      */
     app?: BrowserTeachStepApp;
     /**
@@ -10680,7 +10764,7 @@ export interface BrowserTeachStep {
 }
 
 /**
- * app_*: the Mac app the step was recorded in (phase 2)
+ * app_*: the desktop app the step was recorded in (phase 2)
  */
 export interface BrowserTeachStepApp {
     bundleId: string;
@@ -11129,6 +11213,93 @@ export type ModelClassEnum = "utility" | "primary" | "harness" | "vision";
 
 export type SpecialistResultKind = "findings" | "draft" | "changes" | "plan" | "items";
 
+export interface SpeechEngineDownloadResult {
+    /**
+     * False when a download runs or nothing is missing
+     */
+    started: boolean;
+}
+
+export interface SpeechEngineStatus {
+    active?: null | string;
+    /**
+     * Every engine in order for desktop dictation; the first eligible is used
+     */
+    dictation: SpeechEngineEntryStatus[];
+    /**
+     * speech.stt.order in effect
+     */
+    order:    string[];
+    whisper?: SpeechWhisperSetup | null;
+}
+
+export interface SpeechEngineEntryStatus {
+    eligible: boolean;
+    /**
+     * mac-node (the Host's helper), whisper, web-speech
+     */
+    id:       string;
+    location: SpeechEngineLocation;
+    reason?:  SpeechEngineEntryStatusReason;
+}
+
+export type SpeechEngineLocation = "node" | "gateway" | "client" | "cloud";
+
+export type SpeechEngineEntryStatusReason = "unknown" | "unsupported" | "client_only" | "unavailable";
+
+export interface SpeechWhisperSetup {
+    /**
+     * What a download fetches now
+     */
+    downloadBytes: number;
+    /**
+     * The last download's failure
+     */
+    error?:         string;
+    model:          SpeechWhisperModel;
+    receivedBytes?: number;
+    runtime:        SpeechWhisperRuntime;
+    server:         VscreenState;
+    /**
+     * vcredist_missing, crash_loop, crashed, start_timeout, …
+     */
+    serverError?: string;
+    state:        SpeechWhisperSetupState;
+    totalBytes?:  number;
+}
+
+export interface SpeechWhisperModel {
+    description?: string;
+    id:           string;
+    present:      boolean;
+    sizeBytes:    number;
+}
+
+export interface SpeechWhisperRuntime {
+    id:      string;
+    present: boolean;
+    /**
+     * whisper.cpp release tag
+     */
+    release:   string;
+    sizeBytes: number;
+}
+
+export type VscreenState = "stopped" | "starting" | "running" | "stopping";
+
+export type SpeechWhisperSetupState = "missing" | "downloading" | "ready" | "error";
+
+export interface SpeechModelDownloadPayload {
+    error?:        string;
+    fraction:      number;
+    model:         string;
+    phase:         SpeechModelDownloadPayloadPhase;
+    receivedBytes: number;
+    totalBytes:    number;
+}
+
+export type SpeechModelDownloadPayloadPhase = "started" | "progress" | "finished" | "failed";
+
 export interface SpeechProgressEvent {
     /**
      * Chunks finished
@@ -11187,7 +11358,7 @@ export interface SpeechTranscribeFileResult {
     text:     string;
 }
 
-export type SpeechNodeEngine = "speechAnalyzer" | "dictationTranscriber" | "sfSpeech";
+export type SpeechNodeEngine = "speechAnalyzer" | "dictationTranscriber" | "sfSpeech" | "windowsSpeech" | "sapi";
 
 export interface TranscriptSegment {
     confidence?: number;
@@ -11439,7 +11610,7 @@ export type TeachAppEndedBy = "stop" | "limit" | "timeout" | "cancel" | "interru
 
 export interface TeachAppCapturedStep {
     /**
-     * app_*: the Mac app the step was recorded in (phase 2)
+     * app_*: the desktop app the step was recorded in (phase 2)
      */
     app?: TeachAppCapturedStepApp;
     /**
@@ -11480,7 +11651,7 @@ export interface TeachAppCapturedStep {
 }
 
 /**
- * app_*: the Mac app the step was recorded in (phase 2)
+ * app_*: the desktop app the step was recorded in (phase 2)
  */
 export interface TeachAppCapturedStepApp {
     bundleId: string;
@@ -12878,14 +13049,75 @@ export interface VoiceStartResult {
     sessionId: null | string;
 }
 
-export type SpeechEngineLocation = "node" | "gateway" | "client" | "cloud";
-
 export interface VoiceStopParams {
     sessionId: string;
 }
 
 export interface VoiceStopResult {
     transcript: Transcript;
+}
+
+export interface VscreenACK {
+    ok: boolean;
+}
+
+export interface VscreenFrame {
+    changed:  boolean;
+    frameSeq: number;
+    height:   number;
+    image?:   null | string;
+    width:    number;
+}
+
+export interface VscreenFrameParams {
+    maxWidth?: number;
+    since?:    number;
+}
+
+export interface VscreenInputParams {
+    events: VscreenInputEvent[];
+}
+
+export interface VscreenInputEvent {
+    button?: Button;
+    type:    VscreenInputEventType;
+    x?:      number;
+    y?:      number;
+    dx?:     number;
+    dy?:     number;
+    key?:    string;
+    text?:   string;
+}
+
+export type Button = "left" | "middle" | "right";
+
+export type VscreenInputEventType = "move" | "down" | "up" | "scroll" | "key_down" | "key_up" | "text";
+
+export interface VscreenStartParams {
+    height?: number;
+    width?:  number;
+}
+
+export interface VscreenStatus {
+    apps:       VscreenApp[];
+    display?:   null | string;
+    frameSeq:   number;
+    height:     number;
+    startedAt?: null | string;
+    state:      VscreenState;
+    takenOver:  boolean;
+    width:      number;
+}
+
+export interface VscreenApp {
+    appId:              string;
+    hasUnsavedChanges?: boolean;
+    pid:                number;
+    windowTitle?:       null | string;
+}
+
+export interface VscreenStopParams {
+    closeApps?: boolean;
 }
 
 export interface WidgetAction {

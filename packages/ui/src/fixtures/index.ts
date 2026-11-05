@@ -97,6 +97,10 @@ export {
   connectorCatalogue,
   shortcutsAndObsidian,
   type UsageSummary,
+  WINDOWS_IDS,
+  windowsDevices,
+  windowsNodes,
+  windowsPresenceKeys,
 } from "./settings.ts";
 export { subscriptionUsageSummary, usageSummary } from "./usage.ts";
 

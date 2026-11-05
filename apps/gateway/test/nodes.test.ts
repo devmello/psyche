@@ -53,6 +53,19 @@ const HANDLERS: FakeNodeHandler[] = [
     capability: { name: "contacts.read", sideEffect: "read", targetKind: "app" },
     run: () => "should never run",
   },
+  // The listings Settings' trusted-sources and Shortcuts cards read.
+  {
+    capability: { name: "reminders.list_lists", sideEffect: "read" },
+    run: () => ({ lists: [{ id: "l1", title: "Errands", writable: true }] }),
+  },
+  {
+    capability: { name: "calendar.list_calendars", sideEffect: "read" },
+    run: () => ({ calendars: [{ id: "c1", title: "Home", writable: true }] }),
+  },
+  {
+    capability: { name: "reminders.list", sideEffect: "read", targetKind: "app" },
+    run: () => "should never run",
+  },
 ];
 
 /**
@@ -193,6 +206,50 @@ describe("node registry", () => {
     );
     expect(show).toMatchObject({ ok: false, error: { code: "forbidden" } });
     expect(node.invocations.map((i) => i.capability)).toEqual(["notify.authorization_status"]);
+  });
+
+  it("lets Settings list the Reminders lists and calendars it marks trusted, on the Mac and the Windows helper, and nothing in them", async () => {
+    for (const [i, deviceFamily] of (["mac-helper", "win-helper"] as const).entries()) {
+      broker = new RecordingBroker({ armDelayMs: 0, policy: { default: "allow" } });
+      t = await startTestGateway({ broker });
+      desk = await desktopClient(t.gateway);
+      node = await FakeNode.connect(t.gateway.config.nodeSocketPath, {
+        origin: t.gateway.origin,
+        secret: t.gateway.handshakeSecret,
+        handlers: HANDLERS,
+        deviceFamily,
+      });
+      const lists = await desk.call<{ ok: boolean; result: unknown }>(
+        "nodes.invoke",
+        { nodeId: node.nodeId, capability: "reminders.list_lists", params: {} },
+        ik(),
+      );
+      expect(lists, deviceFamily).toMatchObject({ ok: true, result: { lists: [{ id: "l1" }] } });
+      const cals = await desk.call<{ ok: boolean; result: unknown }>(
+        "nodes.invoke",
+        { nodeId: node.nodeId, capability: "calendar.list_calendars", params: {} },
+        ik(),
+      );
+      expect(cals, deviceFamily).toMatchObject({ ok: true });
+      // The items in a list stay behind the connector's tools.
+      const items = await desk.request(
+        "nodes.invoke",
+        { nodeId: node.nodeId, capability: "reminders.list", params: { listId: "l1" } },
+        ik(),
+      );
+      expect(items, deviceFamily).toMatchObject({ ok: false, error: { code: "forbidden" } });
+      expect(node.invocations.map((i) => i.capability)).toEqual([
+        "reminders.list_lists",
+        "calendar.list_calendars",
+      ]);
+      // The last Gateway is afterEach's to stop.
+      if (i === 0) {
+        desk.close();
+        await node.close();
+        node = null;
+        await t.cleanup();
+      }
+    }
   });
 
   it("reaches only an allowlist on the Host's Mac helper: speech, vm, reminders and the Apple apps' data are refused, even with an allow policy", async () => {

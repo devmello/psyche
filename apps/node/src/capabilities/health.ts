@@ -1,4 +1,4 @@
-import { hostname } from "node:os";
+import { hostname, release } from "node:os";
 import type { SkewClock } from "../clock.ts";
 import type { CapabilityProvider } from "./types.ts";
 
@@ -39,7 +39,9 @@ export function createHealthProvider(options: HealthOptions): CapabilityProvider
               result: {
                 version: options.version,
                 host: hostname(),
+                // Node's name (`darwin`, `linux`, `win32`) and the OS release (Windows: 10.0.<build>).
                 platform: process.platform,
+                osRelease: release(),
                 arch: process.arch,
                 node: process.version,
                 uptimeS: Math.round((Date.now() - startedAt) / 1000),

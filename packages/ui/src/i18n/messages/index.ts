@@ -30,7 +30,9 @@ import { onboarding } from "./onboarding.ts";
 import { overview } from "./overview.ts";
 import { overviewGrowth } from "./overview-growth.ts";
 import { people } from "./people.ts";
+import { platform } from "./platform.ts";
 import { research } from "./research.ts";
+import { sandboxPc } from "./sandbox-pc.ts";
 import { scheduled } from "./scheduled.ts";
 import { screenAsk } from "./screen-ask.ts";
 import { screens } from "./screens.ts";
@@ -78,6 +80,7 @@ export const en = {
   ...settingsSections,
   ...skillAuthor,
   ...selfConnectors,
+  ...sandboxPc,
   ...connectorBundles,
   ...deviceAccess,
   ...mailMeetings,
@@ -109,6 +112,7 @@ export const en = {
   ...scheduled,
   ...automationChat,
   ...widgets,
+  ...platform,
   ...securityState,
 } as const;
 

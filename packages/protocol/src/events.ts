@@ -9,7 +9,11 @@ import { DictationKeyPayload } from "./methods/dictation.ts";
 import { SearchIndexStatus, SearchSourcesStatus } from "./methods/search.ts";
 import { SkillChangeEvent, SkillDraft, SkillUpdateStatus } from "./methods/skills.ts";
 import { TerminalExitPayload, TerminalOutputPayload } from "./methods/terminal.ts";
-import { VoiceEndedPayload, VoiceSegmentPayload } from "./methods/voice.ts";
+import {
+  SpeechModelDownloadPayload,
+  VoiceEndedPayload,
+  VoiceSegmentPayload,
+} from "./methods/voice.ts";
 import { ArtifactVersion } from "./schemas/artifacts.ts";
 import { Block } from "./schemas/blocks.ts";
 import { ContextUsage } from "./schemas/context.ts";
@@ -458,6 +462,11 @@ export const Events = {
   "voice.ended": defineEvent({
     payload: VoiceEndedPayload,
     description: "A dictation session ended (stopped, cancelled, idle timeout or engine error).",
+  }),
+  "speech.model_download": defineEvent({
+    payload: SpeechModelDownloadPayload,
+    description:
+      "The owner's on-device speech model download (speech.engine.download) started, progressed (at most four a second), finished or failed.",
   }),
   "dictation.key": defineEvent({
     payload: DictationKeyPayload,

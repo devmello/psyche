@@ -625,6 +625,8 @@ export const settingsRest: Partial<Catalogue> = {
     "Le schermate che {persona} ha guardato mentre lavorava, per la Timeline. Se disattivato, non ne conserva nessuna.",
   "settings.devices.presenceKey.keychain":
     "Chiave Touch ID (portachiavi), come indicata dall’helper",
+  "settings.devices.presenceKey.enclaveKeychainAcl":
+    "Chiave Touch ID (Secure Enclave, leggibile senza richiesta di macOS solo dall’helper di Psyche), come indicata dall’helper",
   "settings.devices.presenceKey.enclaveFile":
     "Chiave Touch ID (file Secure Enclave, questa build non ha un profilo di provisioning), come indicata dall’helper",
   "settings.devices.presenceKey.unknown": "Chiave Touch ID (tipo non indicato dall’helper)",
@@ -633,6 +635,23 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.devices.touchId.bundled": "Il Psyche Helper in questa app mostra la chiave",
   "settings.devices.touchId.notBundled":
     "Questo helper non è quello incluso in questa app, quindi la sua chiave non può essere registrata qui.",
+  "settings.devices.touchId.untrusted":
+    "La chiave Touch ID nel portachiavi non è stata usata perché non si può dimostrare che sia dell’helper di Psyche. Una causa innocua: Psyche è stato spostato o reinstallato altrove, rimettilo in /Applications e riaprilo. Altrimenti esci prima dall’helper di Psyche, esegui /Applications/Psyche.app/Contents/Resources/PsycheHelper.app/Contents/MacOS/psyche-helper --reset-presence-key nel Terminale e registra la nuova chiave.",
+  "settings.devices.touchId.accessDenied":
+    "macOS non ha permesso all’helper di Psyche di usare la sua chiave Touch ID nel portachiavi. Riavvia Psyche e scegli Consenti sempre solo se la finestra nomina psyche-helper (mai per un altro programma).",
+  "settings.devices.touchId.wrongLocation":
+    "L’helper di Psyche non ha creato una chiave Touch ID perché è in esecuzione da un’immagine disco, da Download o da un’altra cartella. Sposta Psyche in /Applications, espelli ogni immagine disco e aprilo da lì.",
+  "settings.devices.touchId.keyMismatch":
+    "L’helper di Psyche in questa app ora mostra la chiave {shown}, non quella registrata {registered}. Se non hai reimpostato tu la chiave, consideralo sospetto e non registrarla.",
+  "settings.devices.touchId.confirmReplace":
+    "Questo sostituisce la chiave Touch ID {previous} registrata per questo Mac. Sostituiscila solo se hai reimpostato tu la chiave.",
+  "settings.devices.touchId.confirmReplaceButton": "Sostituisci la chiave",
+  "settings.devices.touchId.interactionNotAllowed":
+    "Il portachiavi non può chiedere il permesso in questo momento. Sblocca il Mac e riprova.",
+  "settings.devices.touchId.changed":
+    "La chiave Touch ID è cambiata mentre l’helper di Psyche era in esecuzione. Esci dall’helper di Psyche e riavvialo.",
+  "settings.devices.touchId.aclUnavailable":
+    "Il portachiavi non ha conservato l’elenco di accesso della chiave Touch ID su questo Mac. Riavvia l’helper di Psyche per riprovare.",
   "settings.devices.touchId.noBundledKey":
     "Il Psyche Helper in questa app non ha una chiave Touch ID ({reason}).",
   "settings.devices.touchId.register": "Registra questa chiave",

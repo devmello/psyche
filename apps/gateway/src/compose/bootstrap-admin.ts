@@ -1,5 +1,6 @@
 import { getDevice, listDevices, type PsycheDb, updateDevice } from "@psyche/db";
 import { type AuditLog, type MethodResult, PsycheError } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import { keyFingerprint } from "../auth.ts";
 import type { Call, HandlerDef } from "../context.ts";
 import { stateSealFor } from "../security/state-seal.ts";
@@ -37,7 +38,10 @@ export function bootstrapAdminHandlers(deps: {
           !conn.peer.remoteLoopback ||
           conn.peer.origin !== null
         ) {
-          throw new PsycheError("forbidden", "only the Psyche desktop on this Mac can do this");
+          throw new PsycheError(
+            "forbidden",
+            `only the Psyche desktop on ${hostWords().thisDevice} can do this`,
+          );
         }
         // Untrusted security records: no first admin either (the seal may have been reset to
         // make "no admin exists" true).

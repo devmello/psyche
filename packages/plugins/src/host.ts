@@ -14,10 +14,37 @@ import { SHIM } from "./shim.ts";
  */
 
 export const INIT_TIMEOUT_MS = 5_000;
+/** How long `stop()` waits for the killed process to exit. */
+const STOP_TIMEOUT_MS = 5_000;
 /** Bytes of one reply line; a larger one is dropped and its call fails. */
 export const MAX_REPLY_BYTES = 256 * 1024;
 /** Bytes of stderr kept for diagnostics. */
 const STDERR_CAP = 8 * 1024;
+
+/**
+ * The plugin's environment. On Windows libuv copies these from the Gateway into any child that
+ * lacks them (the owner's name, profile folder, PATH, domain…), so they are set, blank, instead:
+ * all but SYSTEMROOT, which Windows' own libraries need and which names no one.
+ */
+function pluginEnv(electron: boolean): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = electron ? { ELECTRON_RUN_AS_NODE: "1" } : {};
+  if (process.platform !== "win32") return env;
+  for (const k of [
+    "HOMEDRIVE",
+    "HOMEPATH",
+    "LOGONSERVER",
+    "PATH",
+    "SYSTEMDRIVE",
+    "TEMP",
+    "USERDOMAIN",
+    "USERNAME",
+    "USERPROFILE",
+    "WINDIR",
+  ])
+    env[k] = "";
+  env.SYSTEMROOT = process.env.SYSTEMROOT ?? "C:\\Windows";
+  return env;
+}
 
 export interface PluginHostOptions {
   name: string;
@@ -34,7 +61,8 @@ export interface PluginHost {
   readonly name: string;
   start(): Promise<void>;
   call(method: string, params: unknown): Promise<unknown>;
-  stop(): void;
+  /** Ends the plugin; resolves once its process has exited (bounded). */
+  stop(): Promise<void> | void;
   /** The last lines the plugin wrote to stderr. */
   stderr(): string;
 }
@@ -69,7 +97,7 @@ export class PluginProcess implements PluginHost {
       {
         cwd: this.#o.dir,
         // No secrets, tokens or proxy settings: an empty environment.
-        env: electron ? { ELECTRON_RUN_AS_NODE: "1" } : {},
+        env: pluginEnv(electron),
         stdio: ["pipe", "pipe", "pipe"],
       },
     );
@@ -106,7 +134,7 @@ export class PluginProcess implements PluginHost {
       );
       if (extra.length > 0) throw new Error(`registered undeclared ${extra.join(", ")}`);
     } catch (err) {
-      this.stop();
+      await this.stop();
       throw new PsycheError("unavailable", `plugin ${this.name}: ${(err as Error).message}`);
     } finally {
       if (timer !== undefined) clearTimeout(timer);
@@ -125,10 +153,25 @@ export class PluginProcess implements PluginHost {
     });
   }
 
-  stop(): void {
+  /**
+   * Kills the plugin and resolves once its process is gone (bounded): on Windows a live process
+   * keeps its working directory, the plugin's folder, from being removed or replaced (EPERM).
+   */
+  stop(): Promise<void> {
     this.#stopped = true;
-    this.#child?.kill("SIGKILL");
+    const child = this.#child;
     this.#child = undefined;
+    if (child === undefined || child.exitCode !== null || child.signalCode !== null) {
+      return Promise.resolve();
+    }
+    return new Promise<void>((resolve) => {
+      const timer = setTimeout(resolve, STOP_TIMEOUT_MS);
+      child.once("exit", () => {
+        clearTimeout(timer);
+        resolve();
+      });
+      child.kill("SIGKILL");
+    });
   }
 
   stderr(): string {

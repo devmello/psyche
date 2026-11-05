@@ -81,6 +81,8 @@ vi.mock("electron", async () => {
     nativeTheme: { shouldUseDarkColors: false },
     screen: {
       getPrimaryDisplay: () => ({ workArea: { x: 0, y: 0, width: 1440, height: 900 } }),
+      getCursorScreenPoint: () => ({ x: 0, y: 0 }),
+      getDisplayNearestPoint: () => ({ workArea: { x: 0, y: 0, width: 1440, height: 900 } }),
       getAllDisplays: () => [],
     },
   };

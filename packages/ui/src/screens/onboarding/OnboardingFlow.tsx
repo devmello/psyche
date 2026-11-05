@@ -12,6 +12,7 @@ import {
 import { useGatewayQuery } from "../../data/index.ts";
 import { t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
+import { isWindows } from "../../lib/platform.ts";
 import { cn } from "../../lib/utils.ts";
 import {
   CONNECTOR_CATALOG,
@@ -139,10 +140,11 @@ export function OnboardingFlow({
     tagline: "",
     ...initial.persona,
   });
-  const [permissions, setPermissions] = useState<Record<TccPermission, PermissionAnswer>>({
+  const [permissions, setPermissions] = useState<OnboardingResult["permissions"]>({
     accessibility: "pending",
     screenRecording: "pending",
     notifications: "pending",
+    ...(isWindows() ? { microphone: "pending" as const } : {}),
     ...initial.permissions,
   });
   const [askingPermission, setAskingPermission] = useState<TccPermission | null>(null);
@@ -292,6 +294,9 @@ export function OnboardingFlow({
               PermissionResult,
             ][]) {
               if (state === "granted") next[p] = "granted";
+              // Windows' microphone toggle is information, never skipped: show what it is.
+              else if (p === "microphone")
+                next[p] = state === "not_determined" ? "pending" : answerOf(state);
               else if (s[p] === "granted" || s[p] === "denied") next[p] = answerOf(state);
             }
             return next;
@@ -535,6 +540,14 @@ export function OnboardingFlow({
                   notifications: permissions.notifications,
                   notificationsBusy: askingPermission === "notifications",
                   onAllowNotifications: () => void allow("notifications"),
+                }
+              : {})}
+            {...(macPermissions && isWindows()
+              ? {
+                  windowsAccess: {
+                    microphone: permissions.microphone ?? "pending",
+                    onOpenMicrophone: () => void allow("microphone"),
+                  },
                 }
               : {})}
           />

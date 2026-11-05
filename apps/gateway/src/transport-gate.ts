@@ -48,7 +48,9 @@ export function readGatewayToken(path: string | undefined): string {
       "PSYCHE_GATEWAY_TOKEN_FILE must be a regular file (not a symlink)",
     );
   }
-  if ((info.mode & 0o077) !== 0) {
+  // Mode bits mean nothing on Windows (every file stats 0666); `PSYCHE_BIND=container` is a Linux
+  // container deployment, where they do.
+  if (process.platform !== "win32" && (info.mode & 0o077) !== 0) {
     throw new PsycheError(
       "forbidden",
       `PSYCHE_GATEWAY_TOKEN_FILE is mode ${(info.mode & 0o777).toString(8)}; it must be 0600 (no group or other access)`,

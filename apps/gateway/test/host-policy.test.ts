@@ -39,7 +39,8 @@ describe("host file policy (#287)", () => {
     const read = s.tools.get("read_file") as { run?: (p: unknown, c: unknown) => Promise<unknown> };
     await expect(
       read.run?.(
-        { path: "/workspace/notes.md" },
+        // An absolute path outside every grant (a drive path on Windows).
+        { path: process.platform === "win32" ? "C:\\workspace\\notes.md" : "/workspace/notes.md" },
         { signal: new AbortController().signal, taint: false },
       ),
     ).rejects.toMatchObject({ code: "forbidden" });

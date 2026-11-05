@@ -1,6 +1,6 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import { PsycheError } from "@psyche/protocol";
 import { FakeClock } from "@psyche/testing";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -30,7 +30,7 @@ afterEach(() => {
 
 /** The Gateway's check, simplified: under a grant, and a write needs a write grant. */
 async function access(path: string, mode: "read" | "write") {
-  const g = grants.find((x) => path === x.path || path.startsWith(`${x.path}/`));
+  const g = grants.find((x) => path === x.path || path.startsWith(`${x.path}${sep}`));
   if (g === undefined)
     throw new PsycheError("forbidden", `${path} is outside every granted folder`);
   if (mode === "write" && g.mode !== "write") throw new PsycheError("forbidden", "read-only");

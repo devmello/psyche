@@ -6,10 +6,10 @@ import type { GraphStore } from "@psyche/memory";
 import {
   type AudioCapture,
   type CapturedAudio,
-  CONFERENCE_APP_BUNDLES,
   CONSENT_LINE,
   type FeedEvent,
   type FeedStore,
+  isConferenceApp,
   MeetingNotesService,
   MeetingRecorder,
   type MeetingRecording,
@@ -32,6 +32,7 @@ import type {
   RecordingSpeakers,
 } from "@psyche/protocol";
 import { PsycheError } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import type { Call, HandlerDef } from "../context.ts";
 import type { Logger } from "../log.ts";
 import { mountParamsOnly } from "./handlers.ts";
@@ -289,7 +290,7 @@ export class RecordMeeting {
     if (capture === undefined) {
       throw new PsycheError(
         "unavailable",
-        "Record meeting needs a way to turn audio into notes: connect the Mac helper",
+        `Record meeting needs a way to turn audio into notes: connect ${hostWords().helper}`,
         { retryable: true },
       );
     }
@@ -365,7 +366,7 @@ export class RecordMeeting {
     const running = this.#o.runningApps;
     if (running === undefined) return;
     const at = await running();
-    const watched = (at ?? []).filter((b) => CONFERENCE_APP_BUNDLES.includes(b));
+    const watched = (at ?? []).filter((b) => isConferenceApp(b));
     const active = this.#active;
     if (watched.length === 0 || active === null || active.recording !== recording) return;
     const timer = setInterval(() => {

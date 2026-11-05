@@ -52,6 +52,14 @@ export function defaultBridge(platform: NodeJS.Platform = process.platform): str
 }
 
 export function bridgeArgv(endpoint: VsockEndpoint, platform = process.platform): string[] {
+  if (platform === "win32" && endpoint.bridge === undefined) {
+    // Psyche's VM guests are Linux or macOS; a Windows node reaches the Gateway over its node
+    // pipe or the WebSocket. (Hyper-V sockets are not vsock and are not supported.)
+    throw new PsycheError(
+      "unavailable",
+      "vsock is not available on Windows; use --socket or --gateway",
+    );
+  }
   const template = endpoint.bridge ?? defaultBridge(platform);
   if (!template || template.length === 0) {
     throw new PsycheError(

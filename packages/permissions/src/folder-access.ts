@@ -1,6 +1,15 @@
+import { realpathSync } from "node:fs";
 import { realpath, stat } from "node:fs/promises";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
+import {
+  canonicalHostPath,
+  isAbsoluteHostPath,
+  isUnderHostPath,
+  isWin32HostPath,
+  joinHostPath,
+  sameHostPath,
+} from "@psyche/hostfs";
 import { PsycheError } from "@psyche/protocol";
 
 /**
@@ -33,6 +42,12 @@ export interface FolderAccessEnv {
    * else under `$PSYCHE_HOME` is, and a folder holding one of them stays refused.
    */
   ownDirs?: readonly string[];
+  /**
+   * Windows: the owner's temp folder (default `os.tmpdir()`, i.e. `%TEMP%`). It and its
+   * subfolders are shareable although the `~\AppData` around it is not, as `/tmp` and `$TMPDIR`
+   * are on macOS; only when its real path lies under the profile's AppData.
+   */
+  tempDir?: string;
 }
 
 /** System roots refused as themselves and as ancestors, but not for their subfolders. */
@@ -52,6 +67,58 @@ const SUBTREE_ROOTS = [
   "/Applications",
 ];
 
+/**
+ * Windows: system folders refused with everything under them, from the environment with the
+ * usual defaults. `$Recycle.Bin` and `System Volume Information` are refused on every drive.
+ */
+function windowsSubtreeRoots(): string[] {
+  const e = process.env;
+  const drive = (e.SystemDrive ?? "C:").replace(/[\\/]+$/, "");
+  return [
+    e.SystemRoot ?? `${drive}\\Windows`,
+    e.ProgramFiles ?? `${drive}\\Program Files`,
+    e["ProgramFiles(x86)"] ?? `${drive}\\Program Files (x86)`,
+    e.ProgramData ?? `${drive}\\ProgramData`,
+    `${drive}\\Recovery`,
+    `${drive}\\Boot`,
+  ].flatMap((r) => {
+    try {
+      return [canonicalHostPath(r, "win32")];
+    } catch {
+      return [];
+    }
+  });
+}
+
+/** Windows: refused as themselves and as ancestors (the profiles folder). */
+function windowsExactRoots(): string[] {
+  const drive = (process.env.SystemDrive ?? "C:").replace(/[\\/]+$/, "");
+  return [`${drive}\\Users`];
+}
+
+/** `C:\`, a UNC share root, or a drive's recycle bin / volume information (any drive). */
+function windowsVolumeRefused(real: string): boolean {
+  if (/^[A-Z]:\\$/.test(real) || /^\\\\[^\\]+\\[^\\]+$/.test(real)) return true;
+  const second = /^[A-Z]:\\([^\\]+)/.exec(real)?.[1]?.toLowerCase();
+  return second === "$recycle.bin" || second === "system volume information";
+}
+
+/** Under the home directory on Windows: the profile's AppData (its `~/Library`) and the CLIs'. */
+const WINDOWS_HOME_SENSITIVE = [
+  "AppData",
+  ".ssh",
+  ".gnupg",
+  ".aws",
+  ".config/gcloud",
+  ".config/gh",
+  ".kube",
+  ".docker",
+  ".netrc",
+  "_netrc",
+  ".psyche",
+  "NTUSER.DAT",
+];
+
 /** Under the home directory: refused with everything under them. */
 const HOME_SENSITIVE = [
   "Library",
@@ -67,19 +134,36 @@ const HOME_SENSITIVE = [
   ".Trash",
 ];
 
+/**
+ * Windows: the real long path of the owner's temp folder when it lies under `~\AppData` (the one
+ * subtree root it opens), else undefined. Resolved by the OS, so a `PRANAV~1`-style short name in
+ * `%TEMP%` becomes the long one, and compared without case like every Windows path here.
+ */
+function windowsTempDir(env: FolderAccessEnv, home: string): string | undefined {
+  try {
+    const real = canonicalHostPath(realpathSync.native(env.tempDir ?? tmpdir()), "win32");
+    const appData = joinHostPath(home, "AppData");
+    return !sameHostPath(real, appData) && isUnderHostPath(real, appData) ? real : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function under(child: string, root: string): boolean {
-  if (root === "/") return true;
-  return child === root || child.startsWith(`${root}/`);
+  if (root === "/") return !isWin32HostPath(child);
+  return isUnderHostPath(child, root);
 }
 
 /** The roots a pick may not equal or contain (and, for subtree roots, lie under). */
 export function sensitiveRoots(env: FolderAccessEnv = {}): { exact: string[]; subtree: string[] } {
+  const win = process.platform === "win32";
   const home = resolve(env.home ?? homedir());
-  const subtree = new Set<string>(SUBTREE_ROOTS);
-  for (const rel of HOME_SENSITIVE) subtree.add(`${home}/${rel}`);
+  const subtree = new Set<string>(win ? windowsSubtreeRoots() : SUBTREE_ROOTS);
+  for (const rel of win ? WINDOWS_HOME_SENSITIVE : HOME_SENSITIVE)
+    subtree.add(joinHostPath(home, rel));
   if (env.psycheHome !== undefined) subtree.add(resolve(env.psycheHome));
   for (const p of env.protectedRoots ?? []) subtree.add(resolve(p));
-  return { exact: [...EXACT_ROOTS, home], subtree: [...subtree] };
+  return { exact: [...(win ? windowsExactRoots() : EXACT_ROOTS), home], subtree: [...subtree] };
 }
 
 export type FolderRefusal = "sensitive_root" | "contains_sensitive_root" | "not_absolute";
@@ -88,23 +172,42 @@ export type FolderRefusal = "sensitive_root" | "contains_sensitive_root" | "not_
  * Why a normalised, real absolute path may not be granted, or `undefined` when it may. `/`, the
  * home root, `~/Library`, `~/.ssh` and `~/.psyche` are refused; so is any folder that contains
  * one of them (the home root contains `~/.ssh`). A folder inside home such as `~/Projects` passes.
+ * On Windows the same holds for drive and share roots, `C:\Users`, the system folders and
+ * `~\AppData`, compared without case; a name Win32 would rewrite (`.ssh.`, `DOCUME~1`) is refused.
+ * The owner's `%TEMP%` inside AppData is shareable, as `/tmp` and `$TMPDIR` are on macOS.
  */
-export function refuseFolder(real: string, env: FolderAccessEnv = {}): FolderRefusal | undefined {
-  if (!real.startsWith("/")) return "not_absolute";
+export function refuseFolder(given: string, env: FolderAccessEnv = {}): FolderRefusal | undefined {
+  let real: string;
+  try {
+    real = canonicalHostPath(given);
+  } catch {
+    return "not_absolute";
+  }
+  // On Windows a folder is a drive or UNC path: a POSIX path names nothing there.
+  if (process.platform === "win32" && !isWin32HostPath(real)) return "not_absolute";
+  if (process.platform === "win32" && windowsVolumeRefused(real)) return "sensitive_root";
   const { exact, subtree } = sensitiveRoots(env);
-  if (exact.includes(real)) return "sensitive_root";
+  if (exact.some((r) => sameHostPath(r, real))) return "sensitive_root";
   // Only the roots that contain the exempt folder are lifted for it: a CLI workdir is never an
   // opening into `~/.ssh` or `~/Library` (those do not contain it).
   const own = (env.ownDirs ?? []).map((d) => resolve(d)).find((d) => under(real, d));
   // Its dot-folders hold the CLI's settings and tool token: never shared, even inside the exempt one.
   if (own !== undefined && real.slice(own.length + 1).startsWith(".")) return "sensitive_root";
+  // Windows' temp folder lifts only `~\AppData`, and only for itself and what is inside it: the
+  // rest of AppData (`Local\Temp2`, `Local\Psyche`) and a protected root inside Temp (a
+  // `$PSYCHE_HOME` there) stay refused.
+  const home = resolve(env.home ?? homedir());
+  const temp = process.platform === "win32" ? windowsTempDir(env, home) : undefined;
+  const appData = joinHostPath(home, "AppData");
+  const inTemp = temp !== undefined && under(real, temp);
   for (const root of subtree) {
     if (!under(real, root)) continue;
     if (own !== undefined && under(own, root)) continue;
+    if (inTemp && sameHostPath(root, appData)) continue;
     return "sensitive_root";
   }
   for (const root of [...exact, ...subtree]) {
-    if (root !== real && under(root, real)) return "contains_sensitive_root";
+    if (!sameHostPath(root, real) && under(root, real)) return "contains_sensitive_root";
   }
   return undefined;
 }
@@ -114,7 +217,7 @@ export function refuseFolder(real: string, env: FolderAccessEnv = {}): FolderRef
  * symlinks first, so a link to `~/.ssh` is judged as `~/.ssh`.
  */
 export async function resolveFolderPick(raw: string, env: FolderAccessEnv = {}): Promise<string> {
-  if (raw.includes("\0") || !raw.startsWith("/")) {
+  if (raw.includes("\0") || !isAbsoluteHostPath(raw)) {
     throw new PsycheError("invalid_params", "pick an absolute folder path");
   }
   let real: string;
@@ -167,8 +270,8 @@ export async function resolveRequestedFolder(
   raw: string,
   env: FolderAccessEnv = {},
 ): Promise<RequestedFolder> {
-  const given = raw.startsWith("~/") ? `${env.home ?? homedir()}/${raw.slice(2)}` : raw;
-  if (given.includes("\0") || !given.startsWith("/")) return { status: "missing" };
+  const given = expandHome(raw, env);
+  if (given.includes("\0") || !isAbsoluteHostPath(given)) return { status: "missing" };
   const real = await existingFolderFor(resolve(given));
   if (real === undefined) return { status: "missing" };
   const protectedReal: string[] = [];
@@ -218,12 +321,29 @@ export function folderCovers(
   path: string,
   access: "ro" | "rw",
 ): FolderGrantEntry | undefined {
-  const target = resolve(path);
+  const canonical = (p: string): string | undefined => {
+    try {
+      return canonicalHostPath(p);
+    } catch {
+      return undefined;
+    }
+  };
+  const target = canonical(path);
+  if (target === undefined) return undefined;
   const best = grants
-    .filter((g) => under(target, resolve(g.path)))
+    .filter((g) => {
+      const root = canonical(g.path);
+      return root !== undefined && under(target, root);
+    })
     .sort((a, b) => b.path.length - a.path.length)[0];
   if (best === undefined) return undefined;
   return access === "rw" && best.mode !== "rw" ? undefined : best;
+}
+
+/** `~/x` (and `~\\x` on Windows) under the owner's home; anything else as given. */
+function expandHome(raw: string, env: FolderAccessEnv): string {
+  const tilde = raw.startsWith("~/") || (process.platform === "win32" && raw.startsWith("~\\"));
+  return tilde ? joinHostPath(resolve(env.home ?? homedir()), raw.slice(2)) : raw;
 }
 
 /** Offers only `once` when the request comes from a tainted context (security §3.6). */
@@ -240,8 +360,8 @@ export async function assertFolderGrantable(
   given: string,
   env: FolderAccessEnv = {},
 ): Promise<void> {
-  const raw = given.startsWith("~/") ? `${env.home ?? homedir()}/${given.slice(2)}` : given;
-  if (raw.includes("\0") || !raw.startsWith("/")) {
+  const raw = expandHome(given, env);
+  if (raw.includes("\0") || !isAbsoluteHostPath(raw)) {
     throw new PsycheError("invalid_params", "folder grants are absolute paths");
   }
   let real = resolve(raw);

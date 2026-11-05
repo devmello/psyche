@@ -227,7 +227,7 @@ export const it: Partial<Catalogue> = {
   "chat.composer.placeholder": "Scrivi a {persona}…",
   "chat.composer.label": "Scrivi a {persona}",
   "chat.composer.attach": "Allega file",
-  "chat.composer.dictate": "Detta (tieni premuto fn)",
+  "chat.composer.dictate": "Detta (tieni premuto {key})",
   "chat.composer.hintIdle": "Digita / per i comandi",
   "chat.composer.hintFollowUp": "Viene inviato quando {persona} finisce questo turno",
   "chat.composer.hintSteer": "Viene inviato ora, per indirizzare {persona}",

@@ -62,4 +62,15 @@ export const ApprovalsMethods = {
     description:
       "Approves a requiresAuthentication card from the Psyche desktop window with Touch ID on this Mac (security §3.7), once: the Gateway checks the window's answer token, asks the paired helper (helperDeviceId when given) to run Touch ID with a sheet naming the approval and its code, and to sign the presence challenge for that token with its registered key, then answers through the same broker check. One sheet at a time; failed or cancelled sheets count against the rejected-answer cap. UNSANDBOXED is not available on this path. Desktop shell only. Fails unavailable with details.reason helper_offline, helper_outdated, no_presence_key, presence_key_unavailable or presence_key_invalidated; cancelled when the owner cancels Touch ID.",
   }),
+  "approvals.approveWithPassword": defineMethod({
+    params: Type.Object({
+      approvalId: Id,
+      /** This window's own answer token for the approval (from `approval.created` or `approvals.get`). */
+      answerToken: Type.String({ minLength: 1 }),
+    }),
+    result: Type.Object({ approval: ApprovalRequest, grant: Nullable(Grant) }),
+    scope: "operator.approvals",
+    description:
+      "Approves a requiresAuthentication card from the Psyche desktop window on Linux by typing the owner's password into the system's own polkit dialog (linux design §9), once. The Gateway checks the window's answer token, asks polkit to authorize the approval's action for this session, then answers through the same broker check with a Gateway-created password presence assertion; no password ever reaches Psyche. Same guards as approveWithTouchId: desktop shell only, one dialog at a time, failed or cancelled dialogs count against the rejected-answer cap. Fails unavailable with details.reason presence_unavailable_here, presence_agent_missing, presence_policy_missing or presence_not_enforced (the matching error codes); cancelled when the owner cancels the dialog.",
+  }),
 } as const;

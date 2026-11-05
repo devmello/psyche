@@ -6,11 +6,14 @@ import PsycheProtocol
 import PsycheWire
 import Security
 
-/// Which presence key signs: the data-protection keychain one (`PresenceKey`), or the Secure
-/// Enclave key whose wrapped blob is a file (`EnclaveFilePresenceKey`) on builds without a
-/// provisioning profile. `presence.public_key` reports it; Settings → Devices shows it.
+/// Which presence key signs: the data-protection keychain one (`PresenceKey`); the Secure Enclave
+/// key whose wrapped blob is a login-keychain item only the helper may read
+/// (`EnclaveKeychainAclPresenceKey`) on builds without a provisioning profile; or, in development
+/// builds only, one whose blob is a file (`EnclaveFilePresenceKey`). `presence.public_key` reports
+/// it; Settings → Devices shows it.
 public enum PresenceKeyKind: String, Sendable {
     case keychain
+    case enclaveKeychainAcl = "enclave_keychain_acl"
     case enclaveFile = "enclave_file"
 }
 
@@ -28,6 +31,13 @@ public protocol EnclaveKeyBackend: Sendable {
     /// signature over `message` with that same context (one prompt). Throws
     /// `PresenceKeyErrors.refused` when Touch ID passed but the Secure Enclave refused the key.
     func sign(blob: Data, message: Data, reason: String) async throws -> Data
+    /// True when the key signs a nonce with no authentication at all (no Touch ID requirement), so it
+    /// is not a key this helper made. Never shows UI. Default false (tests' software keys).
+    func signsWithoutAuthentication(blob: Data) -> Bool
+}
+
+extension EnclaveKeyBackend {
+    public func signsWithoutAuthentication(blob: Data) -> Bool { false }
 }
 
 /// CryptoKit's Secure Enclave key: works without a keychain access group, so builds without a
@@ -56,6 +66,14 @@ public struct SecureEnclaveBackend: EnclaveKeyBackend {
         } catch {
             throw CapabilityError(.errorCodeInternal, reason: "presence_key", "The Touch ID key file can't be used on this Mac")
         }
+    }
+
+    public func signsWithoutAuthentication(blob: Data) -> Bool {
+        // interactionNotAllowed: a key that needs Touch ID fails here instead of showing the sheet.
+        let ctx = LAContext()
+        ctx.interactionNotAllowed = true
+        guard let key = try? SecureEnclave.P256.Signing.PrivateKey(dataRepresentation: blob, authenticationContext: ctx) else { return false }
+        return (try? key.signature(for: Data("psyche-presence-probe".utf8))) != nil
     }
 
     public func sign(blob: Data, message: Data, reason: String) async throws -> Data {
@@ -87,7 +105,7 @@ public protocol PresenceFileSealer: Sendable {
     func newSecret() throws -> SymmetricKey
     /// The current secret, or nil when there is none.
     func secret() throws -> SymmetricKey?
-    func removeSecret()
+    @discardableResult func removeSecret() -> Bool
 }
 
 public struct LoginKeychainSealer: PresenceFileSealer {
@@ -129,8 +147,16 @@ public struct LoginKeychainSealer: PresenceFileSealer {
         return SymmetricKey(data: data)
     }
 
-    public func removeSecret() {
-        SecItemDelete(base as CFDictionary)
+    @discardableResult public func removeSecret() -> Bool {
+        // Pinned to the real login keychain like the ACL key, never the search list.
+        var q = base
+        let path = LoginKeychainAclStore.loginKeychainPath()
+        var kc: SecKeychain?
+        guard LoginKeychainAclStore.pinProblem(file: path, home: LoginKeychainAclStore.passwdHome()) == nil,
+              SecKeychainOpen(path, &kc) == errSecSuccess, let kc
+        else { return false }
+        q[kSecMatchSearchList as String] = [kc]
+        return SecItemDelete(q as CFDictionary) == errSecSuccess
     }
 }
 
@@ -221,6 +247,15 @@ public final class EnclaveFilePresenceKey: PresenceSigning, @unchecked Sendable 
     public func publicKey() throws -> (x963: Data, keyId: String) {
         let x963 = try current().x963
         return (x963, PresenceMessage.keyId(x963: x963))
+    }
+
+    /// Read only: nil when there is no key file; never makes or moves one.
+    public func existingPublicKey() throws -> (x963: Data, keyId: String)? {
+        try lock.withLock {
+            guard let loaded = try load() else { return nil }
+            let x963 = try backend.publicKey(blob: loaded.blob)
+            return (x963, PresenceMessage.keyId(x963: x963))
+        }
     }
 
     public func sign(challenge: String, reason: String) async throws -> PresenceSignature {
@@ -343,9 +378,12 @@ public final class EnclaveFilePresenceKey: PresenceSigning, @unchecked Sendable 
     }
 }
 
-/// The keychain key whenever the build can hold it; the Secure Enclave file key only when the
-/// keychain answers `missing_entitlement` (no provisioning profile) and the build has the fallback.
-/// The choice is made once per process, so one helper never signs with both.
+/// The data-protection keychain key whenever the build can hold it. Without a provisioning profile
+/// (`missing_entitlement`) the login-keychain ACL key (`EnclaveKeychainAclPresenceKey`), in every
+/// build. The development file key is used only when the build has it (not
+/// `PSYCHE_PUBLIC_RELEASE=1`) and the developer opts in with `PSYCHE_PRESENCE_FILE_KEY=1`
+/// (an ad-hoc build is a new program for the keychain on every rebuild). The choice is made once
+/// per process, so one helper never signs with two kinds.
 public final class PreferredPresenceKey: PresenceSigning, @unchecked Sendable {
     /// Whether this build may use the file key at all: on for development builds, off when built
     /// with `PSYCHE_PUBLIC_RELEASE=1` (Package.swift leaves `PSYCHE_PRESENCE_FILE_FALLBACK` out).
@@ -356,20 +394,24 @@ public final class PreferredPresenceKey: PresenceSigning, @unchecked Sendable {
     #endif
 
     private let primary: any PresenceSigning
-    private let fallback: any PresenceSigning
-    private let fallbackAllowed: Bool
+    private let aclKey: any PresenceSigning
+    private let fileKey: any PresenceSigning
+    private let fileKeyAllowed: Bool
     private let lock = NSLock()
     private var chosen: (any PresenceSigning)?
 
-    public init(primary: any PresenceSigning, fallback: any PresenceSigning, fallbackAllowed: Bool = PreferredPresenceKey.fallbackBuiltIn) {
+    public init(
+        primary: any PresenceSigning, aclKey: any PresenceSigning, fileKey: any PresenceSigning,
+        fileKeyAllowed: Bool = PreferredPresenceKey.fallbackBuiltIn && ProcessInfo.processInfo.environment["PSYCHE_PRESENCE_FILE_KEY"] == "1"
+    ) {
         self.primary = primary
-        self.fallback = fallback
-        self.fallbackAllowed = fallbackAllowed
+        self.aclKey = aclKey
+        self.fileKey = fileKey
+        self.fileKeyAllowed = fileKeyAllowed && Self.fallbackBuiltIn
     }
 
-    /// The helper's key: keychain first, the file key on builds without a provisioning profile.
     public static func live() -> PreferredPresenceKey {
-        PreferredPresenceKey(primary: PresenceKey(), fallback: EnclaveFilePresenceKey())
+        PreferredPresenceKey(primary: PresenceKey(), aclKey: EnclaveKeychainAclPresenceKey(), fileKey: EnclaveFilePresenceKey())
     }
 
     func active() throws -> any PresenceSigning {
@@ -377,13 +419,10 @@ public final class PreferredPresenceKey: PresenceSigning, @unchecked Sendable {
             if let chosen { return chosen }
             let pick: any PresenceSigning
             do {
-                _ = try primary.publicKey()
+                _ = try primary.existingPublicKey()
                 pick = primary
-            } catch let e as CapabilityError where e.reason == "missing_entitlement" && fallbackAllowed {
-                // RELEASE BLOCKER (docs/08-roadmap.md v1.0): before any public release a
-                // provisioned keychain key replaces this, and the file-key fallback is removed or
-                // disabled (security §10). Release builds already leave it out (PSYCHE_PUBLIC_RELEASE).
-                pick = fallback
+            } catch let e as CapabilityError where e.reason == "missing_entitlement" {
+                pick = fileKeyAllowed ? fileKey : aclKey
             }
             chosen = pick
             return pick
@@ -393,6 +432,26 @@ public final class PreferredPresenceKey: PresenceSigning, @unchecked Sendable {
     public var keyKind: PresenceKeyKind { (try? active())?.keyKind ?? primary.keyKind }
 
     public func publicKey() throws -> (x963: Data, keyId: String) { try active().publicKey() }
+
+    public func existingPublicKey() throws -> (x963: Data, keyId: String)? { try active().existingPublicKey() }
+
+    /// The owner's reset, only for the keychain ACL key: anything else in use refuses.
+    public func resetByOwner(authorizing: any OwnerAuthorizing) throws -> (x963: Data, keyId: String) {
+        let key = try active()
+        guard key.keyKind == .enclaveKeychainAcl, let resettable = key as? OwnerResettable else {
+            throw CapabilityError(.unavailable, reason: "presence_key_reset_not_applicable", "This helper does not use a keychain ACL Touch ID key (it uses \(key.keyKind.rawValue)), so there is nothing to reset here.")
+        }
+        return try resettable.resetByOwner(authorizing: authorizing)
+    }
+
+    /// Removes the old development file key. Refuses while that file key is the one in use.
+    public func retireLegacyFileKey(remove: () -> [String] = { EnclaveKeychainAclPresenceKey.retireLegacyFileKey() }) throws -> [String] {
+        let key = try active()
+        guard key.keyKind != .enclaveFile else {
+            throw CapabilityError(.unavailable, reason: "presence_key_legacy_in_use", "The development file key is the one this helper uses; nothing was removed.")
+        }
+        return remove()
+    }
 
     public func sign(challenge: String, reason: String) async throws -> PresenceSignature {
         try await active().sign(challenge: challenge, reason: reason)

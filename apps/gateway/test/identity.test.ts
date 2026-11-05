@@ -1,5 +1,5 @@
 import { createPublicKey, verify } from "node:crypto";
-import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { gatewaySigningPayload, PROTOCOL_VERSION } from "@psyche/protocol";
@@ -12,6 +12,7 @@ import {
   rotateGatewayIdentity,
 } from "../src/identity.ts";
 import {
+  expectPrivate,
   handshake,
   newDeviceKey,
   startTestGateway,
@@ -38,8 +39,8 @@ describe("Gateway identity key", () => {
     const home = tempHome();
     const first = loadOrCreateGatewayIdentity(home);
     const path = identityKeyPath(home);
-    expect(statSync(path).mode & 0o777).toBe(0o600);
-    expect(statSync(join(home, "identity")).mode & 0o777).toBe(0o700);
+    expectPrivate(path, 0o600);
+    expectPrivate(join(home, "identity"), 0o700);
     const second = loadOrCreateGatewayIdentity(home);
     expect(second.publicKey).toBe(first.publicKey);
     expect(first.fingerprint).toBe(identityFingerprint(first.publicKey));

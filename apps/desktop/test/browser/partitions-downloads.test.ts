@@ -51,10 +51,10 @@ describe("partitions", () => {
   });
 
   it("builds profile and partition paths", () => {
-    expect(profileDir("/h")).toBe("/h/browser/profiles/default");
-    expect(profileDir("/h", "work")).toBe("/h/browser/profiles/work");
+    expect(profileDir("/h")).toBe(join("/h", "browser", "profiles", "default"));
+    expect(profileDir("/h", "work")).toBe(join("/h", "browser", "profiles", "work"));
     expect(() => profileDir("/h", "a/b")).toThrow();
-    expect(partitionStoragePath("/u", "work")).toBe("/u/Partitions/agent-work");
+    expect(partitionStoragePath("/u", "work")).toBe(join("/u", "Partitions", "agent-work"));
   });
 
   it("links a new partition to the profile dir (0700)", () => {
@@ -64,7 +64,7 @@ describe("partitions", () => {
     const link = partitionStoragePath(userData);
     expect(lstatSync(link).isSymbolicLink()).toBe(true);
     expect(readlinkSync(link)).toBe(profileDir(home));
-    expect(statSync(profileDir(home)).mode & 0o777).toBe(0o700);
+    if (process.platform !== "win32") expect(statSync(profileDir(home)).mode & 0o777).toBe(0o700);
     // Second call: already there.
     expect(linkProfileDir(userData, home)).toBe("exists");
   });
@@ -119,7 +119,7 @@ describe("quarantine paths", () => {
 
   it("creates the quarantine dir 0700", () => {
     const dir = ensureQuarantineDir(join(root, "qh2"));
-    expect(statSync(dir).mode & 0o777).toBe(0o700);
+    if (process.platform !== "win32") expect(statSync(dir).mode & 0o777).toBe(0o700);
   });
 });
 

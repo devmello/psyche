@@ -55,7 +55,7 @@ import { UsageMethods } from "./usage.ts";
 import { VaultMethods } from "./vault.ts";
 import { ViewMethods } from "./view.ts";
 import { VmMethods } from "./vm.ts";
-import { VoiceMethods } from "./voice.ts";
+import { SpeechEngineMethods, VoiceMethods } from "./voice.ts";
 import { WidgetsMethods } from "./widgets.ts";
 import { MeetingsMethods, ProposalsMethods } from "./workflows.ts";
 
@@ -160,6 +160,7 @@ export const Methods = {
   ...IdeasMethods,
   ...GoalsMethods,
   ...VoiceMethods,
+  ...SpeechEngineMethods,
   ...VmMethods,
   ...RunsMethods,
   ...DictationMethods,

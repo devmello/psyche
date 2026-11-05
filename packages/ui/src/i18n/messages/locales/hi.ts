@@ -229,7 +229,7 @@ export const hi: Partial<Catalogue> = {
   "chat.composer.placeholder": "{persona} को संदेश भेजें…",
   "chat.composer.label": "{persona} को संदेश भेजें",
   "chat.composer.attach": "फ़ाइलें अटैच करें",
-  "chat.composer.dictate": "श्रुतलेख (fn दबाए रखें)",
+  "chat.composer.dictate": "श्रुतलेख ({key} दबाए रखें)",
   "chat.composer.hintIdle": "कमांड के लिए / टाइप करें",
   "chat.composer.hintFollowUp": "{persona} के इस टर्न को पूरा करने पर भेजा जाएगा",
   "chat.composer.hintSteer": "अभी भेजा जाएगा, {persona} को दिशा देने के लिए",

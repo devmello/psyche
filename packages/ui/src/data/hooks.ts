@@ -1575,6 +1575,35 @@ export function useSearchIndexStatus() {
   };
 }
 
+/**
+ * Which speech engine dictation uses and, on Windows, the on-device whisper.cpp setup; live
+ * through `speech.model_download`. `download` is the owner's one click (`speech.engine.download`).
+ */
+export function useSpeechEngine() {
+  const store = useStore();
+  const q = useGatewayQuery("speech.engine.status", {});
+  const [requested, setRequested] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  return {
+    ...q,
+    status: q.data,
+    downloading: requested || q.data?.whisper?.state === "downloading",
+    downloadError: error,
+    download: async () => {
+      setRequested(true);
+      setError(null);
+      try {
+        await store.call("speech.engine.download", {});
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setRequested(false);
+        q.reload();
+      }
+    },
+  };
+}
+
 /** Local search sources (Settings → Search sources): live status, switches, exclusions, Rebuild. */
 export function useSearchSources() {
   const store = useStore();

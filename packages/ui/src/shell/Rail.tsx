@@ -2,6 +2,7 @@ import { Brain, House, Library, MessageCircle } from "lucide-react";
 import type { ReactElement } from "react";
 import { legacyRedirect } from "../home/redirects.ts";
 import { t } from "../i18n/core.ts";
+import { keysLabel } from "../lib/keys.ts";
 import { cn } from "../lib/utils.ts";
 
 /**
@@ -20,8 +21,10 @@ export const RAIL_ITEMS: readonly {
   route: string;
   icon: typeof MessageCircle;
   group: RailGroup;
-  /** The ⌘-digit that opens it, shown beside it in the palette. */
-  shortcut?: string;
+  /** The digit whose ⌘-digit (Ctrl+digit on Windows) opens it. */
+  digit?: number;
+  /** That shortcut as shown beside it in the palette ("⌘1", "Ctrl+1"). */
+  readonly shortcut?: string;
   /** Extra words the palette matches (not shown). */
   keywords: string;
 }[] = [
@@ -34,7 +37,10 @@ export const RAIL_ITEMS: readonly {
     icon: MessageCircle,
     group: "main",
     keywords: "threads conversation messages talk",
-    shortcut: "⌘1",
+    digit: 1,
+    get shortcut() {
+      return keysLabel("Mod+1");
+    },
   },
   {
     id: "home",
@@ -47,7 +53,10 @@ export const RAIL_ITEMS: readonly {
     // The pages Home took in, so typing an old name still lands here.
     keywords:
       "dashboard today brief feed news posts digest ideas suggestions goals coming up upcoming needs you inbox approvals nudges keep in touch pinned widgets",
-    shortcut: "⌘2",
+    digit: 2,
+    get shortcut() {
+      return keysLabel("Mod+2");
+    },
   },
   {
     id: "library",
@@ -58,7 +67,10 @@ export const RAIL_ITEMS: readonly {
     icon: Library,
     group: "main",
     keywords: "documents files images artifacts downloads reports",
-    shortcut: "⌘3",
+    digit: 3,
+    get shortcut() {
+      return keysLabel("Mod+3");
+    },
   },
   {
     id: "memory",
@@ -71,7 +83,10 @@ export const RAIL_ITEMS: readonly {
     // People was this row before Memory took it in (docs/design/memory-everything-2026.md §6).
     keywords:
       "people contacts projects courses work due to-do deadlines bills events relationships keep in touch waiting on remember review",
-    shortcut: "⌘4",
+    digit: 4,
+    get shortcut() {
+      return keysLabel("Mod+4");
+    },
   },
 ];
 

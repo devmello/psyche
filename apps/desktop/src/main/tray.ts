@@ -1,11 +1,23 @@
 import type { GatewayStatus } from "@psyche/web/client";
-import { Menu, type MenuItemConstructorOptions, nativeImage, Tray } from "electron";
-import type { GatewayRunState } from "./supervisor.ts";
+import {
+  Menu,
+  type MenuItemConstructorOptions,
+  type NativeImage,
+  nativeImage,
+  Tray,
+} from "electron";
+import type { GatewayRunState } from "./supervisor-base.ts";
+import { TRAY_ICON_SIZES, toBgraPremultiplied, trayIconRgba } from "./tray-icon.ts";
 
 /**
- * Menu-bar item (docs/06 §3.22, feature A7): status, usage meter placeholder, what needs you,
- * shortcuts into the app, and the Gateway row that exists because the window can close while
- * work continues. "Quit Psyche" leaves the Gateway running; "Quit Psyche entirely" stops it.
+ * Menu-bar item on macOS, notification-area icon on Windows (docs/06 §3.22, feature A7): status,
+ * usage meter placeholder, what needs you, shortcuts into the app, and the Gateway row that
+ * exists because the window can close while work continues. "Quit Psyche" leaves the Gateway
+ * running; "Quit Psyche entirely" stops it.
+ *
+ * On Windows a left click opens Psyche and a right click shows the same menu; the icon is the
+ * monochrome mark in the taskbar's light or dark (`tray-icon.ts`), with a dot while something
+ * needs you, and the tooltip says what.
  */
 
 export interface TrayModel {
@@ -15,6 +27,8 @@ export interface TrayModel {
   firstApproval?: string;
   /** Percent remaining from the usage ledger; null until the Gateway reports it. */
   usagePercentRemaining: number | null;
+  /** The accelerators registered now, shown beside their items ("" or unset: none). */
+  shortcuts?: { quickEntry?: string; askScreen?: string };
 }
 
 export interface TrayActions {
@@ -33,7 +47,7 @@ export interface TrayActions {
 /** The tray's status row, in Psyche's name (#539); dev and external runs say so for developers. */
 export function gatewayRowLabel(run: GatewayRunState): string {
   if (run.kind === "running")
-    return run.mode === "launchd"
+    return run.mode === "launchd" || run.mode === "taskscheduler"
       ? "Psyche is running"
       : `Psyche is running (${run.mode === "dev" ? "dev" : "external"})`;
   if (run.kind === "starting") return "Psyche is starting…";
@@ -41,8 +55,16 @@ export function gatewayRowLabel(run: GatewayRunState): string {
   return "Checking Psyche…";
 }
 
+/** An accelerator for a menu item, only when one is registered. */
+function accel(
+  a: string | undefined,
+): Pick<MenuItemConstructorOptions, "accelerator" | "registerAccelerator"> {
+  return a ? { accelerator: a, registerAccelerator: false } : {};
+}
+
 export function trayTemplate(m: TrayModel, a: TrayActions): MenuItemConstructorOptions[] {
   const connected = m.status.phase === "paired";
+  const keys = m.shortcuts ?? { quickEntry: "Alt+Space", askScreen: "Alt+Shift+Space" };
   return [
     { label: connected ? "Psyche — connected" : `Psyche — ${m.status.phase}`, enabled: false },
     {
@@ -61,9 +83,9 @@ export function trayTemplate(m: TrayModel, a: TrayActions): MenuItemConstructorO
     { type: "separator" },
     { label: "Open Psyche", click: a.open },
     { label: "New side chat", click: a.newSideChat },
-    { label: "Quick entry", accelerator: "Alt+Space", click: a.quickEntry },
+    { label: "Quick entry", ...accel(keys.quickEntry), click: a.quickEntry },
     ...(a.askScreen
-      ? [{ label: "Ask about screen", accelerator: "Alt+Shift+Space", click: a.askScreen }]
+      ? [{ label: "Ask about screen", ...accel(keys.askScreen), click: a.askScreen }]
       : []),
     { type: "separator" },
     { label: gatewayRowLabel(m.run), enabled: false },
@@ -74,17 +96,68 @@ export function trayTemplate(m: TrayModel, a: TrayActions): MenuItemConstructorO
   ];
 }
 
+/** The tooltip (Windows shows it on hover; at most 127 characters). */
+export function trayTooltip(m: TrayModel): string {
+  const state =
+    m.status.phase === "paired"
+      ? m.pendingApprovals > 0
+        ? `${m.pendingApprovals} ${m.pendingApprovals === 1 ? "thing needs" : "things need"} you`
+        : "connected"
+      : m.status.phase;
+  return `Psyche — ${state}`.slice(0, 127);
+}
+
+export interface PsycheTrayOptions {
+  platform?: NodeJS.Platform;
+  /** Windows: whether the taskbar is dark (its glyph is white then). */
+  taskbarDark?: () => boolean;
+}
+
+/** The mark at every tray scale, for `new Tray` / `setImage`. */
+export function trayImage(o: { dark: boolean; badge: boolean }): NativeImage {
+  const image = nativeImage.createEmpty();
+  for (const size of TRAY_ICON_SIZES) {
+    const { width, height, rgba } = trayIconRgba(size, o);
+    image.addRepresentation({
+      scaleFactor: size / 16,
+      width,
+      height,
+      buffer: toBgraPremultiplied(rgba),
+    });
+  }
+  return image;
+}
+
 export class PsycheTray {
   private readonly tray: Tray;
   private readonly actions: TrayActions;
+  private readonly opts: PsycheTrayOptions;
   private model: TrayModel;
+  private iconKey = "";
 
-  constructor(model: TrayModel, actions: TrayActions) {
+  constructor(model: TrayModel, actions: TrayActions, opts: PsycheTrayOptions = {}) {
     this.actions = actions;
     this.model = model;
-    this.tray = new Tray(nativeImage.createEmpty());
+    this.opts = opts;
+    this.tray = new Tray(this.windows ? this.image() : nativeImage.createEmpty());
     this.tray.setToolTip("Psyche");
+    if (this.windows) {
+      // Windows: left click opens Psyche; the menu is the right click (setContextMenu).
+      this.tray.on("click", () => this.actions.open());
+      this.tray.on("double-click", () => this.actions.open());
+    }
     this.render();
+  }
+
+  private get windows(): boolean {
+    return (this.opts.platform ?? process.platform) === "win32";
+  }
+
+  private image(): NativeImage {
+    const dark = this.opts.taskbarDark?.() ?? true;
+    const badge = this.model.pendingApprovals > 0;
+    this.iconKey = `${dark}:${badge}`;
+    return trayImage({ dark, badge });
   }
 
   update(patch: Partial<TrayModel>): void {
@@ -92,11 +165,30 @@ export class PsycheTray {
     this.render();
   }
 
+  /** The taskbar switched between light and dark (Windows): redraw the glyph. */
+  refreshIcon(): void {
+    if (!this.windows) return;
+    this.iconKey = "";
+    this.render();
+  }
+
   private render(): void {
     const m = this.model;
-    // Title text stands in for the template icon until S12 ships the moth glyph.
-    this.tray.setTitle(m.pendingApprovals > 0 ? `ψ ${m.pendingApprovals}` : "ψ");
+    if (this.windows) {
+      const dark = this.opts.taskbarDark?.() ?? true;
+      if (this.iconKey !== `${dark}:${m.pendingApprovals > 0}`) this.tray.setImage(this.image());
+      this.tray.setToolTip(trayTooltip(m));
+    } else {
+      // Title text stands in for the template icon until S12 ships the moth glyph.
+      this.tray.setTitle(m.pendingApprovals > 0 ? `ψ ${m.pendingApprovals}` : "ψ");
+    }
     this.tray.setContextMenu(Menu.buildFromTemplate(trayTemplate(m, this.actions)));
+  }
+
+  /** Windows: a one-off balloon from the icon (the first close to the tray). */
+  notify(title: string, content: string): void {
+    if (!this.windows) return;
+    this.tray.displayBalloon({ title, content, iconType: "info", noSound: true });
   }
 
   destroy(): void {

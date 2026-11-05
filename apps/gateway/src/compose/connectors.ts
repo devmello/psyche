@@ -3,6 +3,7 @@ import { open, rm, rmdir } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import {
   type AppleHelper,
+  appleAppOf,
   appleFactories,
   type BusyBlock,
   type CatalogueEntry,
@@ -20,6 +21,7 @@ import {
   type FetchFn,
   findFreeSlots,
   googleFactory,
+  helperOffersApp,
   type ImapBackendOptions,
   imapFactory,
   jmapFactory,
@@ -49,6 +51,7 @@ import {
   PsycheError,
   type ToolRegistration,
 } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import { VaultTokenVault } from "@psyche/vault";
 import type { Call, HandlerDef } from "../context.ts";
 import type { Gateway } from "../server.ts";
@@ -383,11 +386,14 @@ export function composeConnectors(
   handlers["connectors.catalogue"] = {
     run: async () => ({
       // #529: nothing listed as available can fail with "no connector implementation".
-      entries: registry.catalogue().map((e) => ({
-        ...e,
-        available: e.available && implemented.has(e.id),
-        ...(e.id === "google" ? { configured: googleConfigured } : {}),
-      })),
+      entries: registry
+        .catalogue()
+        .filter((e) => !hideAppleEntry(e, appleHelper))
+        .map((e) => ({
+          ...e,
+          available: e.available && implemented.has(e.id),
+          ...(e.id === "google" ? { configured: googleConfigured } : {}),
+        })),
     }),
   };
   const custom = new CustomConnectors({
@@ -574,8 +580,7 @@ function freeTimeTool(services: ComposeServices, registry: ConnectorRegistry): T
   return {
     spec: {
       name: "calendar_find_free_time",
-      description:
-        "Find free time across all connected calendars (Apple Calendar, Google) between from and to: slots of durationMinutes inside working hours (default 09:00–17:00, Monday–Friday, the Mac's time zone), earliest first. Use before proposing or blocking a time.",
+      description: `Find free time across all connected calendars (Apple Calendar, Google) between from and to: slots of durationMinutes inside working hours (default 09:00–17:00, Monday–Friday, ${hostWords().device}'s time zone), earliest first. Use before proposing or blocking a time.`,
       inputSchema: {
         type: "object",
         properties: {
@@ -647,6 +652,24 @@ function freeTimeTool(services: ComposeServices, registry: ConnectorRegistry): T
  * always read the Host Mac's apps, never a second Mac that paired as a node
  * (`NodeRegistry.hostHelper`).
  */
+/**
+ * The helper-routed connectors (`apple-*`, `chrome-tabs`, `things`) are Mac-first
+ * (cross-platform design §4.3 rule 3): off macOS each leaves the catalogue unless the Host's
+ * helper serves its adapter (the capability its connect probes). The Windows helper serves Mail,
+ * Calendar, Contacts and Reminders only when classic Outlook is installed, plus Chrome tabs and
+ * shared-folder files; a Linux server lists none. On macOS they stay listed while the helper is
+ * still starting.
+ */
+export function hideAppleEntry(
+  entry: { id: string },
+  helper: () => AppleHelper | undefined,
+  platform: NodeJS.Platform = process.platform,
+): boolean {
+  const app = appleAppOf(entry.id);
+  if (app === undefined || platform === "darwin") return false;
+  return !helperOffersApp(app, helper());
+}
+
 export function macHelper(gateway: () => Gateway | undefined): () => AppleHelper | undefined {
   return () => {
     const helper = gateway()?.context.nodes.hostHelper();
@@ -654,9 +677,15 @@ export function macHelper(gateway: () => Gateway | undefined): () => AppleHelper
     const { info: node, client } = helper;
     return {
       nodeId: node.id,
+      // The Windows helper serves the Mail / Calendar / Contacts / Reminders routes from Outlook.
+      ...(node.kind === "win-helper" ? { platform: "windows" as const } : {}),
       capabilities: node.capabilities.map((c) => c.name),
       invoke: async (capability, params, options) => {
-        const res = await client.invoke(capability, params, options);
+        const { onEvent, ...rest } = options;
+        const res = await client.invoke(capability, params, {
+          ...rest,
+          ...(onEvent === undefined ? {} : { onEvent: (e) => onEvent(e.data) }),
+        });
         return {
           ok: res.ok,
           ...(res.result === undefined ? {} : { result: res.result }),

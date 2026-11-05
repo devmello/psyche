@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@psyche/browser": "workspace:*",
+    "@psyche/hostfs": "workspace:*",
     "@psyche/protocol": "workspace:*",
     "@psyche/ui": "workspace:*",
     "@psyche/viewers": "workspace:*",
@@ -31,6 +32,7 @@
   },
   "devDependencies": {
     "@electron-forge/cli": "8.0.1",
+    "@electron-forge/maker-squirrel": "8.0.1",
     "@electron-forge/maker-zip": "8.0.1",
     "@electron-forge/plugin-fuses": "8.0.1",
     "@electron-forge/plugin-vite": "8.0.1",

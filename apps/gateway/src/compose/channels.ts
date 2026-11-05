@@ -22,6 +22,7 @@ import {
   isWeakTransport,
   type LibraryIngest,
   type OutboundTarget,
+  parseSignalTcpAddress,
   type SecretSource,
   SignalAdapter,
   type SignalAdapterOptions,
@@ -293,8 +294,9 @@ export function channelsSetupFromEnv(
 }
 
 /**
- * `PSYCHE_SIGNAL_SOCKET` (signal-cli's `--socket` path) + `PSYCHE_SIGNAL_NUMBER` (E.164, the
- * daemon's account) → setup; neither → off; one without the other → refuse to boot.
+ * `PSYCHE_SIGNAL_SOCKET` (signal-cli's `--socket` path, or a loopback `host:port` for
+ * `signal-cli daemon --tcp 127.0.0.1:7583`, the only way on Windows) + `PSYCHE_SIGNAL_NUMBER`
+ * (E.164, the daemon's account) → setup; neither → off; one without the other → refuse to boot.
  */
 export function signalSetupFromEnv(env: NodeJS.ProcessEnv): SignalSetup | undefined {
   const socketPath = env.PSYCHE_SIGNAL_SOCKET?.trim() ?? "";
@@ -312,8 +314,11 @@ export function signalSetupFromEnv(env: NodeJS.ProcessEnv): SignalSetup | undefi
       "PSYCHE_SIGNAL_NUMBER must be an E.164 number (+1555…)",
     );
   }
-  if (!socketPath.startsWith("/")) {
-    throw new PsycheError("invalid_params", "PSYCHE_SIGNAL_SOCKET must be an absolute path");
+  if (!socketPath.startsWith("/") && parseSignalTcpAddress(socketPath) === undefined) {
+    throw new PsycheError(
+      "invalid_params",
+      "PSYCHE_SIGNAL_SOCKET must be an absolute socket path or a loopback address (127.0.0.1:7583)",
+    );
   }
   return { socketPath, account };
 }

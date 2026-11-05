@@ -29,6 +29,7 @@ import {
   connectSigningPayload,
   type DeviceScope,
   gatewaySigningPayload,
+  isHostHelperFamily,
   lanCertSigningPayload,
   type PairingRequest,
   PROTOCOL_VERSION,
@@ -59,8 +60,9 @@ export const DESKTOP_AUTO_SCOPES: DeviceScope[] = [
 /** What the transport knows about the peer (security §10). */
 export interface PeerInfo {
   /**
-   * `ws`: the HTTP/WebSocket listener. `unix`: the node socket (`run/node.sock`, 0600), where the
-   * Host's own helper and psyche-node dial. `vm-relay`: the guest socket (`run/guest.sock`), where
+   * `ws`: the HTTP/WebSocket listener. `unix`: the local node transport, where the Host's own
+   * helper and psyche-node dial: the node socket (`run/node.sock`, 0600) on macOS and Linux, the
+   * named pipe `\\.\pipe\psyche-node-<hash>` on Windows (`socket-path.ts`). `vm-relay`: the guest socket (`run/guest.sock`), where
    * the Host helper copies each sandbox guest's vsock stream; whatever the guest says, it is never
    * the Host's helper and never auto-pairs.
    */
@@ -114,8 +116,8 @@ export interface PairedIdentity {
    */
   desktopShell?: true;
   /**
-   * This connection is the Host's own Mac helper: a `mac-helper` node on the node socket that
-   * presented the per-launch handshake secret at this connect. The secret lives in
+   * This connection is the Host's own helper: a `mac-helper` or `win-helper` node on the local
+   * node transport that presented the per-launch handshake secret at this connect. The secret lives in
    * `$PSYCHE_HOME/run`, which the sandbox guest and any other machine cannot read, so neither a
    * guest that copied its identity file nor a Mac paired over the network can have it. The family
    * a node declares proves nothing by itself (#278, remote-gateway design §4.1).
@@ -123,7 +125,10 @@ export interface PairedIdentity {
   hostHelper?: true;
 }
 
-/** The Host helper's connection proof: the node socket plus the per-launch handshake secret. */
+/**
+ * The Host helper's connection proof: the local node transport (Unix socket, or the named pipe on
+ * Windows) plus the per-launch handshake secret. Either helper family qualifies, the same way.
+ */
 export function isHostHelper(
   params: ConnectParams,
   peer: PeerInfo,
@@ -134,7 +139,7 @@ export function isHostHelper(
     peer.remoteLoopback &&
     peer.origin === null &&
     params.role === "node" &&
-    params.deviceFamily === "mac-helper" &&
+    isHostHelperFamily(params.deviceFamily) &&
     secretMatches(handshakeSecret, params.handshakeSecret)
   );
 }
@@ -274,7 +279,7 @@ export function autoPairScopes(
   if (params.role === "client" && params.deviceFamily === "desktop" && peer.transport === "ws") {
     return [...DESKTOP_AUTO_SCOPES];
   }
-  if (params.role === "node" && params.deviceFamily === "mac-helper") return ["node"];
+  if (params.role === "node" && isHostHelperFamily(params.deviceFamily)) return ["node"];
   return null;
 }
 
@@ -405,13 +410,13 @@ export function verifyChallenge(
     throw limited();
   }
   if (existing?.revokedAt) return denied("device revoked", "device_revoked");
-  // A Mac helper on the node socket either proves this launch's handshake secret or is refused:
-  // accepted as an ordinary node it would stay connected (the helper only retries after a
-  // denial) and Host features would stay off until it restarted. A stale or missing secret
-  // happens around a Gateway restart; the helper re-reads the file and reconnects.
+  // A Host helper (Mac or Windows) on the node transport either proves this launch's handshake
+  // secret or is refused: accepted as an ordinary node it would stay connected (the helper only
+  // retries after a denial) and Host features would stay off until it restarted. A stale or
+  // missing secret happens around a Gateway restart; the helper re-reads the file and reconnects.
   if (
     params.role === "node" &&
-    params.deviceFamily === "mac-helper" &&
+    isHostHelperFamily(params.deviceFamily) &&
     peer.transport === "unix" &&
     !isHostHelper(params, peer, deps.handshakeSecret)
   ) {
@@ -479,11 +484,15 @@ export function verifyChallenge(
     record();
     return denied(SETUP_TOKEN_REFUSED, "setup_token_invalid");
   }
-  // A Mac helper pairs only by the per-launch handshake secret on the machine. An owner-approved
-  // pairing (a pending request anyone who can reach a transport may open) never makes a Mac
+  // A Host helper pairs only by the per-launch handshake secret on the machine. An owner-approved
+  // pairing (a pending request anyone who can reach a transport may open) never makes a Host
   // helper: it would be offered the Host's computer use, keychain and approval cards.
-  if (scopes === null && params.role === "node" && params.deviceFamily === "mac-helper") {
-    return denied("a Mac helper pairs only with the handshake secret on its own Mac");
+  if (scopes === null && params.role === "node" && isHostHelperFamily(params.deviceFamily)) {
+    return denied(
+      params.deviceFamily === "win-helper"
+        ? "a Windows helper pairs only with the handshake secret on its own PC"
+        : "a Mac helper pairs only with the handshake secret on its own Mac",
+    );
   }
   const keyChanged = existing !== undefined && existing.publicKey !== params.publicKey;
   if (keyChanged && scopes === null && findPendingPairingForDevice(db, existing.id, nowIso)) {

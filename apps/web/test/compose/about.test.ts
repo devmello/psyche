@@ -84,6 +84,13 @@ describe("About on the desktop (#610)", () => {
     expect(platformLabel(host({ arch: "x64" }))).toBe("macOS 27.0.1 · Intel");
     expect(archLabel("arm64")).toBe("Apple silicon");
     expect(archLabel("riscv64")).toBe("riscv64");
+    // Windows says its NT version (10.0.x on Windows 11 too) and names Arm64 / x64.
+    expect(platformLabel(host({ platform: "win32", osVersion: "10.0.26200", arch: "x64" }))).toBe(
+      "Windows 11 build 26200 · x64",
+    );
+    expect(platformLabel(host({ platform: "win32", osVersion: "10.0.19045", arch: "arm64" }))).toBe(
+      "Windows 10 build 19045 · Arm64",
+    );
     expect(platformLabel(host({ platform: "linux", osVersion: "6.8" }))).toBe(
       "Linux 6.8 · Apple silicon",
     );

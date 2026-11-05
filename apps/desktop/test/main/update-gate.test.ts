@@ -146,16 +146,20 @@ describe("satisfiesRequirement", () => {
 });
 
 describe("bundle paths", () => {
-  it("finds the bundle from the executable and reads the pinned file from Resources", () => {
-    expect(bundleOfExecutable("/Applications/Psyche.app/Contents/MacOS/Psyche")).toBe(
-      "/Applications/Psyche.app",
-    );
-    const dir = mkdtempSync(join(tmpdir(), "psyche-gate-"));
-    dirs.push(dir);
-    expect(readBundledPinned(dir)).toBeUndefined();
-    writeFileSync(join(dir, "designated-requirements.txt"), PINNED);
-    expect(readBundledPinned(dir)).toBe(PINNED);
-  });
+  // macOS bundle paths (POSIX separators); the gate never runs these on Windows.
+  it.skipIf(process.platform === "win32")(
+    "finds the bundle from the executable and reads the pinned file from Resources",
+    () => {
+      expect(bundleOfExecutable("/Applications/Psyche.app/Contents/MacOS/Psyche")).toBe(
+        "/Applications/Psyche.app",
+      );
+      const dir = mkdtempSync(join(tmpdir(), "psyche-gate-"));
+      dirs.push(dir);
+      expect(readBundledPinned(dir)).toBeUndefined();
+      writeFileSync(join(dir, "designated-requirements.txt"), PINNED);
+      expect(readBundledPinned(dir)).toBe(PINNED);
+    },
+  );
 });
 
 describe("inspectQuarantine", () => {

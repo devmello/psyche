@@ -135,9 +135,11 @@ async function stack(background: boolean) {
   });
   const c = composed;
   let phase: VmGuest["phase"] = "running";
+  // The Host's own helper: the mac helper, or the Windows helper (sandbox PC) on Windows.
   const helper = await FakeNode.connect(c.gateway.config.nodeSocketPath, {
     origin: c.gateway.origin,
     secret: c.gateway.handshakeSecret,
+    deviceFamily: process.platform === "win32" ? "win-helper" : "mac-helper",
     handlers: [
       {
         capability: { name: "vm.status", sideEffect: "read", streaming: false },
@@ -234,6 +236,7 @@ async function approveAll(owner: TestClient, until: () => boolean, ms = 15_000) 
   }
 }
 
+// The sandbox Mac (Virtualization.framework guests, their relay socket) is macOS only.
 describe("VM mode, Gateway side (L1–L5)", () => {
   it("runs a Task in the sandbox Mac end to end against the fake helper", async () => {
     const { c, owner, ran, guestNode, vm } = await stack(true);
@@ -273,7 +276,7 @@ describe("VM mode, Gateway side (L1–L5)", () => {
     expect(receipts.map((r) => r.kind)).toContain("vm.exec");
     const lifecycle = await c.broker.listReceipts();
     expect(lifecycle.filter((r) => r.kind === "vm.lifecycle").map((r) => r.summary)).toEqual([
-      "Sandbox Mac sandbox: found → running",
+      `${process.platform === "win32" ? "Sandbox PC" : "Sandbox Mac"} sandbox: found → running`,
     ]);
   }, 30_000);
 

@@ -108,6 +108,8 @@ export const blocks = {
   "blocks.details.runsSandboxed":
     "on your Mac, in the sandbox: it cannot read Psyche's vault, your SSH keys, Keychains or browser profiles",
   "blocks.details.runsNoSandbox": "on your Mac, and the sandbox is not set up ({reason})",
+  "blocks.details.runsNoHostSandbox":
+    "on this computer, without a sandbox: there is none for commands here",
   "blocks.details.needed": "Needed",
   "blocks.details.neededWhy": "Why",
   "blocks.execHost.sandboxed":
@@ -118,6 +120,9 @@ export const blocks = {
   "blocks.execHost.typeLabel": "Type {word} to run without the sandbox",
   "blocks.execHost.unsandboxedOnce": "Without the sandbox, only Allow once is offered.",
   "blocks.execHost.mustType": "Type {word} to allow, or set up the sandbox first.",
+  "blocks.execHost.noHostSandbox":
+    "There is no sandbox for commands on this computer, so this command can only run without one. Type {word} to run it this once.",
+  "blocks.execHost.mustTypeOnly": "Type {word} to allow it.",
   "blocks.permission.need.capability": "Turn on Run commands on this Mac",
   "blocks.permission.need.connector_action":
     "Let {connector} ask you before {group} (it is set to Deny)",
@@ -232,9 +237,22 @@ export const blocks = {
   "blocks.approval.touchId.onceOnly": "Touch ID approvals from this window are once only.",
   "blocks.approval.status.allowedOnceTouchId":
     "Allowed once (Touch ID approvals from this window are once only)",
+  "blocks.approval.touchId.keyUntrusted":
+    "Psyche Helper’s Touch ID key in the keychain can’t be shown to be its own, so it wasn’t used. Open Settings → Devices to see what to do.",
+  "blocks.approval.touchId.keyAccessDenied":
+    "macOS didn’t let Psyche Helper use its Touch ID key. Try again and choose Always Allow only if the dialog names psyche-helper.",
+  "blocks.approval.touchId.keyChanged":
+    "The Touch ID key changed while Psyche Helper was running. Quit Psyche Helper and start it again.",
+  "blocks.approval.touchId.keyWrongLocation":
+    "Psyche is running from a place where its Touch ID key can’t be kept (a disk image, Downloads or another folder). Move Psyche to Applications and open it from there.",
+  "blocks.approval.touchId.keyLocked":
+    "The keychain can’t ask for permission right now. Unlock the Mac and try again.",
+  "blocks.approval.touchId.keyAclUnavailable":
+    "The keychain wouldn’t keep the Touch ID key’s access list on this Mac. Restart Psyche Helper to try again.",
   "blocks.approval.touchId.keyUnavailable":
     "This build of Psyche Helper can't keep a Touch ID key (it has no keychain access group), so cards that need Touch ID can't be approved on this Mac.",
   "blocks.approval.touchId.cancelled": "Touch ID was cancelled, so nothing was approved",
+  "blocks.approval.touchId.restartHelper": "Restart Psyche Helper",
   "blocks.approval.touchId.startHelper": "Start Psyche Helper",
   "blocks.approval.alsoSentTo": "Also sent to: {surfaces}. The first answer wins.",
   "blocks.approval.details": "Details",

@@ -1,4 +1,5 @@
 import type { BridgeControlState, BridgeProfile } from "@psyche/protocol";
+import type { SandboxPcSlot } from "@psyche/ui";
 import type { CallOptions, GatewayEvent } from "../client/connection.ts";
 import type { GatewayStatus } from "../client/status.ts";
 import type { PasskeyHost } from "../lib/webauthn.ts";
@@ -407,11 +408,20 @@ export interface NotifyPort {
 /**
  * Desktop only: how the host window is framed. `inset` means the window has no native title
  * bar (macOS `hiddenInset`): the shell draws a drag bar and keeps content clear of the traffic
- * lights, whose top-left corner is `trafficLights` (CSS pixels in the window).
+ * lights, whose top-left corner is `trafficLights` (CSS pixels in the window). `overlay` is
+ * Windows' `titleBarStyle: "hidden"` with `titleBarOverlay`: Windows draws minimise, maximise and
+ * close at the top right, and the shell keeps clear of them with the Window Controls Overlay
+ * CSS environment (`env(titlebar-area-*)`, `TitleBar.tsx`).
  */
 export interface WindowChrome {
-  titleBar: "inset" | "native";
+  titleBar: "inset" | "overlay" | "native";
   trafficLights?: { x: number; y: number };
+  /**
+   * Windows 11's Mica backdrop is under the window (`backgroundMaterial: "mica"`): the page keeps
+   * its window background transparent where macOS would use vibrancy (the sidebar). Absent on
+   * Windows 10, or when main could not set it: everything stays opaque.
+   */
+  material?: "mica";
   /** The main window opens on the startup splash (#539); main decides at launch. */
   splash?: boolean;
   /**
@@ -466,6 +476,8 @@ export interface ShellPlatform {
   app?: AppInfoPort;
   /** Desktop only: the saved Gateways and the switcher (remote-gateway design §1.3). */
   gateways?: GatewaysPort;
+  /** Desktop on Windows: the sandbox PC's one-time setup (elevated service install, guest image). */
+  sandboxPc?: SandboxPcSlot;
 }
 
 /**
@@ -584,7 +596,7 @@ export interface HelperPort {
   getState(): Promise<MacHelperState>;
   onState(cb: (state: MacHelperState) => void): Unsubscribe;
   /** Starts the bundled helper now and resolves once it paired or timed out. */
-  launch?(): Promise<MacHelperState>;
+  launch?(restart?: boolean): Promise<MacHelperState>;
   /**
    * Touch ID through the bundled helper (security §3.7, §10), on main's own channels, which only
    * the main and Settings windows reach: what the bundled helper says about itself, registering
@@ -597,13 +609,15 @@ export interface HelperPort {
 export interface BundledHelperIdentity {
   deviceId: string;
   keyId?: string;
-  kind?: "keychain" | "enclave_file";
+  /** `windows_hello` from the Windows helper; its `algorithm` is e.g. "RSA-2048". */
+  kind?: "keychain" | "enclave_keychain_acl" | "enclave_file" | "windows_hello";
+  algorithm?: string;
   error?: string;
 }
 
 export interface TouchIdPort {
   identity(): Promise<BundledHelperIdentity | null>;
-  register(): Promise<unknown>;
+  register(confirmReplacesKeyId?: string): Promise<unknown>;
   approve(params: { approvalId: string; answerToken: string }): Promise<unknown>;
 }
 
@@ -618,8 +632,12 @@ export interface SystemDictationStatus {
   hotkeyTaken?: string;
 }
 
-/** Desktop only: macOS privacy permissions (issue #384). */
-export type PermissionKind = "accessibility" | "screenRecording" | "notifications";
+/**
+ * Desktop only: macOS privacy permissions (issue #384), and on Windows the microphone privacy
+ * toggle (`request("microphone")` opens Settings → Privacy & security → Microphone). Windows has
+ * no Accessibility or Screen Recording grant: main answers those `granted`.
+ */
+export type PermissionKind = "accessibility" | "screenRecording" | "notifications" | "microphone";
 export type PermissionState = "granted" | "denied" | "not_determined" | "unavailable";
 
 export interface PermissionsPort {
@@ -639,8 +657,8 @@ export interface DictationPort {
   /** Whether another app holds a shortcut, asked before Settings saves the toggle hotkey. */
   checkHotkey?(
     accelerator: string,
-    /** Which shortcut it is for: dictation's toggle (default) or Ask about screen. */
-    purpose?: "dictation" | "screenAsk",
+    /** Which shortcut it is for: dictation's toggle (default), Ask about screen or quick entry. */
+    purpose?: "dictation" | "screenAsk" | "quickEntry",
   ): Promise<"ok" | "taken" | "invalid">;
 }
 

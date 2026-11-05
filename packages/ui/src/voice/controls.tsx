@@ -4,6 +4,7 @@ import { Button } from "../components/ui/button.tsx";
 import { t } from "../i18n/core.ts";
 import { cn } from "../lib/utils.ts";
 import { Disclosure } from "../motion/index.ts";
+import { useDictationKeyLabel } from "./hold-keys.ts";
 
 /**
  * Composer dictation in the kit's chat (#690). The host owns capture (the shell's `VoiceCapture`)
@@ -48,6 +49,7 @@ export function ComposerVoiceButtons({
   className: string;
 }): ReactElement {
   const { dictation } = voice;
+  const holdKey = useDictationKeyLabel();
   const listening = dictation?.phase === "listening" || dictation?.phase === "finishing";
   return (
     <>
@@ -57,7 +59,7 @@ export function ComposerVoiceButtons({
           size="icon-sm"
           className={cn(className, listening && "text-danger-text")}
           aria-pressed={listening}
-          aria-label={t("chat.composer.dictate")}
+          aria-label={t("chat.composer.dictate", { key: holdKey })}
           title={t("web.chat.dictateTitle")}
           onPointerDown={dictation.down}
           onPointerUp={dictation.up}

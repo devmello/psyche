@@ -1,6 +1,7 @@
 /// <reference path="./types/better-sqlite3-multiple-ciphers.d.ts" />
 import { chmodSync, closeSync, existsSync, mkdirSync, openSync } from "node:fs";
 import { dirname } from "node:path";
+import { ensureOwnerOnly } from "@psyche/hostfs";
 import type { CredentialBinding, CredentialKind } from "@psyche/protocol";
 import Database from "better-sqlite3-multiple-ciphers";
 import { fail } from "./errors.ts";
@@ -138,6 +139,8 @@ function fromRaw(r: RawItem): ItemRow {
 function prepareFile(path: string): void {
   if (path === ":memory:") return;
   mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+  // Windows has no modes: the folder gets an owner-only DACL, which the files inherit.
+  if (process.platform === "win32") ensureOwnerOnly(dirname(path));
   if (!existsSync(path)) closeSync(openSync(path, "a", 0o600));
   chmodSync(path, 0o600);
 }

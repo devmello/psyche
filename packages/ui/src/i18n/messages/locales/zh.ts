@@ -264,7 +264,7 @@ export const zh: Partial<Catalogue> = {
   "chat.composer.placeholder": "给 {persona} 发消息…",
   "chat.composer.label": "给 {persona} 发消息",
   "chat.composer.attach": "附加文件",
-  "chat.composer.dictate": "听写（按住 fn）",
+  "chat.composer.dictate": "听写（按住 {key}）",
   "chat.composer.hintIdle": "输入 / 查看命令",
   "chat.composer.hintFollowUp": "在 {persona} 完成本轮后发送",
   "chat.composer.hintSteer": "立即发送以引导 {persona}",

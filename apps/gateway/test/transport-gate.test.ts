@@ -197,7 +197,8 @@ describe("allowedLogins at the gate", () => {
 });
 
 describe("container bind startup", () => {
-  it("refuses a token file with loose permissions", () => {
+  // Mode bits: Windows has none (container bind is a Linux deployment).
+  it.skipIf(process.platform === "win32")("refuses a token file with loose permissions", () => {
     expect(() => readGatewayToken(tokenFile(0o644))).toThrow(/0600/);
     expect(() => readGatewayToken(tokenFile(0o640))).toThrow(/0600/);
     expect(readGatewayToken(tokenFile(0o600))).toBe(TOKEN);

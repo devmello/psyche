@@ -1,0 +1,64 @@
+#!/bin/sh
+# psyche-supervise node|control: restart loops started by psyche-boot (as root, in their own session).
+#   node      psyche-node as the unprivileged "psyche" user (uid 1000), restarted with backoff
+#   control   the host control channel: socat listens on vsock port 7000 and runs psyche-control
+#             for every connection (the Hyper-V host connects; guests cannot reach this socket)
+# Both stop when /run/psyche/stopping exists (psyche-shutdown creates it).
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+set -u
+LIB=/usr/lib/psyche
+. /run/psyche/env
+
+case "${1:-}" in
+  node)
+    LOG="$NODE_HOME/logs/psyche-node.log"
+    if [ -f "$LOG" ] && [ "$(wc -c <"$LOG")" -gt 8388608 ]; then mv -f "$LOG" "$LOG.1"; fi
+    [ "$NODELOG" = console ] && LOG=/dev/console
+    delay=1
+    badruns=0
+    while [ ! -e /run/psyche/stopping ]; do
+      started="$(date +%s)"
+      # A bundle installed by the control channel's install_psyche wins unless it keeps crashing.
+      ENTRY="$LIB/psyche-node.mjs"
+      if [ -f /session/payload/psyche-node.mjs ] && [ ! -e /run/psyche/payload-disabled ]; then
+        ENTRY=/session/payload/psyche-node.mjs
+      fi
+      # Unprivileged, no capabilities, no new privileges. HOME is the persistent /workspace.
+      setpriv --reuid=1000 --regid=1000 --clear-groups --no-new-privs --inh-caps=-all --bounding-set=-all \
+        env -i HOME=/workspace PATH=/workspace/.local/bin:/usr/local/bin:/usr/bin:/bin LANG=C.UTF-8 \
+          TMPDIR=/tmp PSYCHE_HOME=/session PSYCHE_NODE_HOME="$NODE_HOME" \
+          UV_CACHE_DIR=/workspace/.cache/uv UV_LINK_MODE=copy npm_config_cache=/workspace/.cache/npm \
+          node "$ENTRY" run >>"$LOG" 2>&1 &
+      pid=$!
+      echo "$pid" >/run/psyche/node.pid
+      wait "$pid"
+      rc=$?
+      rm -f /run/psyche/node.pid
+      [ ! -e /run/psyche/stopping ] || break
+      ran=$(( $(date +%s) - started ))
+      [ "$ran" -ge 60 ] && delay=1
+      if [ "$ENTRY" != "$LIB/psyche-node.mjs" ] && [ "$rc" != 0 ] && [ "$ran" -lt 10 ]; then
+        badruns=$((badruns + 1))
+        if [ "$badruns" -ge 3 ]; then
+          : >/run/psyche/payload-disabled
+          echo "psyche-supervise: the installed node bundle keeps failing; using the built-in one" >>"$LOG"
+        fi
+      else
+        badruns=0
+      fi
+      # Exit 78 means the Gateway refused this node for good (revoked, key mismatch): retry slowly.
+      [ "$rc" = 78 ] && delay=30
+      echo "psyche-supervise: psyche-node exited ($rc) after ${ran}s; restarting in ${delay}s" >>"$LOG"
+      sleep "$delay"
+      delay=$(( delay * 2 )); [ "$delay" -le 30 ] || delay=30
+    done
+    ;;
+  control)
+    while [ ! -e /run/psyche/stopping ]; do
+      socat "$CONTROL_LISTEN,reuseaddr,fork" EXEC:"$LIB/control" 2>>/dev/console
+      sleep 1
+    done
+    ;;
+  *) echo "usage: psyche-supervise node|control" >&2; exit 64 ;;
+esac

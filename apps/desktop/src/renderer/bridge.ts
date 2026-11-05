@@ -1,4 +1,4 @@
-import { t } from "@psyche/ui";
+import { type SandboxPcState, t } from "@psyche/ui";
 import type { GatewayEvent, GatewayStatus } from "@psyche/web/client";
 import { hostTerminalPort } from "@psyche/web/host-terminal-port";
 import {
@@ -27,6 +27,7 @@ import {
   type TeachAppStatusView,
   type TeachCapture,
   type UninstallPlanView,
+  type WindowChrome,
 } from "@psyche/web/platform";
 import type { PsycheBridge } from "../preload.ts";
 
@@ -60,6 +61,15 @@ export async function unwrapCall(envelope: Promise<unknown>): Promise<unknown> {
   };
   if (res?.ok === true) return res.value;
   throw new GatewayCallError(res?.error ?? { code: "internal", message: "IPC failed" });
+}
+
+/**
+ * The window chrome as the shell reads it: the shell lays out for Mica only (`material: "mica"`);
+ * the quick-entry bar's acrylic is the preload's `data-material` alone.
+ */
+export function shellChrome(c: PsycheBridge["chrome"]): WindowChrome {
+  const { material, titleBarOverlay: _height, ...rest } = c;
+  return { ...rest, ...(material === "mica" ? { material } : {}) };
 }
 
 /** Adapts the preload bridge to the shell's `ShellPlatform` port. */
@@ -154,7 +164,7 @@ function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
   };
   return {
     kind: "desktop",
-    chrome: b.chrome,
+    chrome: shellChrome(b.chrome),
     storage: browserStorage(),
     gateway,
     gateways: {
@@ -233,13 +243,28 @@ function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
     helper: {
       getState: () => b.helper.getState() as Promise<MacHelperState>,
       onState: (cb) => b.helper.onState((s) => cb(s as MacHelperState)),
-      launch: () => b.helper.launch() as Promise<MacHelperState>,
+      launch: (restart) => b.helper.launch(restart) as Promise<MacHelperState>,
       touchId: {
         identity: () => b.helper.touchIdIdentity() as Promise<BundledHelperIdentity | null>,
-        register: () => unwrapCall(b.helper.touchIdRegister()),
+        register: (confirmReplacesKeyId) =>
+          unwrapCall(b.helper.touchIdRegister(confirmReplacesKeyId)),
         approve: (p) => unwrapCall(b.helper.touchIdApprove(p)),
       },
     },
+    // Windows only: the sandbox PC's one-time setup. Elsewhere main answers "unsupported".
+    ...(b.platform === "win32"
+      ? {
+          sandboxPc: {
+            getState: () => b.sandboxPc.getState() as Promise<SandboxPcState>,
+            refresh: () => b.sandboxPc.refresh() as Promise<SandboxPcState>,
+            turnOn: () => b.sandboxPc.turnOn() as Promise<SandboxPcState>,
+            updateService: () => b.sandboxPc.updateService() as Promise<SandboxPcState>,
+            cancel: async () => void (await b.sandboxPc.cancel()),
+            onState: (cb: (s: SandboxPcState) => void) =>
+              b.sandboxPc.onState((s) => cb(s as SandboxPcState)),
+          },
+        }
+      : {}),
     clipboard: {
       writeText: async (text, opts) => {
         await b.clipboard.writeText(text, opts);

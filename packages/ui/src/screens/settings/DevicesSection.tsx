@@ -4,7 +4,7 @@ import { Button } from "../../components/ui/button.tsx";
 import { Checkbox } from "../../components/ui/checkbox.tsx";
 import { Label } from "../../components/ui/label.tsx";
 import { useCall, useGatewayQuery } from "../../data/hooks.ts";
-import { t } from "../../i18n/core.ts";
+import { isMessageId, t } from "../../i18n/core.ts";
 import { groupFingerprint } from "../../lib/fingerprint.ts";
 import { formatRelative } from "../../lib/format.ts";
 import { useNow } from "../../lib/use-now.ts";
@@ -33,18 +33,39 @@ import {
 /** A device scope as the owner reads it ("Read", "Admin"). */
 export const scopeLabel = (s: DeviceScope): string => t(`settings.devices.scope.${s}`);
 
-const platformLabel = (p: Device["platform"]): string => t(`settings.devices.platform.${p}`);
+const platformLabel = (p: string): string => {
+  const key = `settings.devices.platform.${p}`;
+  return isMessageId(key) ? t(key) : p;
+};
 
-/** Message ids for node kinds (ids are camelCase). */
-const NODE_KIND_ID = {
+/**
+ * Message ids for node kinds (ids are camelCase). Keyed by string: a kind this build doesn't know
+ * yet shows as written, and `win-helper` (the Windows helper) is named whether or not the
+ * protocol in this checkout lists it.
+ */
+const NODE_KIND_ID: Readonly<Record<NodeInfo["kind"] | "win-helper", string>> = {
   "mac-helper": "macHelper",
+  "win-helper": "winHelper",
   "vm-guest": "vmGuest",
   remote: "remote",
   phone: "phone",
-} as const satisfies Record<NodeInfo["kind"], string>;
+  // Linux L0 kinds. No Gateway emits them yet; a later Linux PR gives them their own labels.
+  "host-helper": "macHelper",
+  guest: "vmGuest",
+};
 
-const nodeKindLabel = (k: NodeInfo["kind"]): string =>
-  t(`settings.devices.nodeKind.${NODE_KIND_ID[k]}`);
+const nodeKindLabel = (k: string): string => {
+  const id = (NODE_KIND_ID as Readonly<Record<string, string | undefined>>)[k];
+  const key = `settings.devices.nodeKind.${id}`;
+  return id !== undefined && isMessageId(key) ? t(key) : k;
+};
+
+/** A bundled desktop helper (Mac or Windows): the node whose presence key Settings registers. */
+export const isHelperNode = (kind: string): boolean =>
+  kind === "mac-helper" || kind === "win-helper";
+
+/** A desktop computer of the owner's, whose admin device is "this Mac" / "this PC". */
+const isDesktopPlatform = (p: string): boolean => p === "macos" || p === "windows";
 
 /** Short, grouped fingerprint of a base64url public key, for comparing on both screens. */
 export function keyFingerprint(publicKey: string): string {
@@ -64,7 +85,11 @@ export interface DevicesPanelProps extends LoadProps {
   touchId?: {
     bundled?: BundledHelperKey | null | undefined;
     allowDevFileKey: boolean;
-    onRegister: (deviceId: string, expectKeyId?: string) => Promise<unknown>;
+    onRegister: (
+      deviceId: string,
+      expectKeyId?: string,
+      confirmReplacesKeyId?: string,
+    ) => Promise<unknown>;
     onRemove: (deviceId: string) => Promise<unknown>;
     onAllowDevFileKey: (on: boolean) => Promise<unknown>;
   };
@@ -185,10 +210,12 @@ export function DevicesPanel({
                     ))}
                   </ul>
                   {d.id === thisDeviceId &&
-                  d.platform === "macos" &&
+                  isDesktopPlatform(d.platform) &&
                   d.scopes.includes("operator.admin") ? (
                     <p className="text-sm" data-testid="this-mac-admin">
-                      {t("settings.devices.thisMacAdmin")}
+                      {(d.platform as string) === "windows"
+                        ? t("settings.devices.thisPcAdmin")
+                        : t("settings.devices.thisMacAdmin")}
                     </p>
                   ) : null}
                   <p className="text-callout text-muted-foreground">
@@ -254,13 +281,16 @@ export function DevicesPanel({
                         : t("settings.devices.lastSeenNever")}
                     </span>
                   </div>
-                  {n.kind === "mac-helper" && touchId ? (
+                  {isHelperNode(n.kind) && touchId ? (
                     <TouchIdKeySetup
                       deviceId={n.deviceId}
+                      nodeKind={n.kind}
                       registered={presenceKeys.find((k) => k.deviceId === n.deviceId)}
                       bundled={touchId.bundled}
                       allowDevFileKey={touchId.allowDevFileKey}
-                      onRegister={(expect) => touchId.onRegister(n.deviceId, expect)}
+                      onRegister={(expect, confirm) =>
+                        touchId.onRegister(n.deviceId, expect, confirm)
+                      }
                       onRemove={() => touchId.onRemove(n.deviceId)}
                       onAllowDevFileKey={touchId.onAllowDevFileKey}
                     />
@@ -273,7 +303,7 @@ export function DevicesPanel({
                           className="text-callout text-muted-foreground"
                           data-testid="presence-key"
                         >
-                          {presenceKeyText(k)}
+                          {presenceKeyText(k, n.kind)}
                         </p>
                       ))
                   )}
@@ -447,7 +477,10 @@ export function DevicesSection({
    * The desktop's Touch ID channels: what the helper bundled with this app reports, and
    * registering exactly that key. Absent on the web, where the owner types the key id.
    */
-  touchId?: { identity(): Promise<BundledHelperKey | null>; register(): Promise<unknown> };
+  touchId?: {
+    identity(): Promise<BundledHelperKey | null>;
+    register(confirmReplacesKeyId?: string): Promise<unknown>;
+  };
 }): ReactElement {
   const call = useCall();
   const devSettingQ = useGatewayQuery("settings.get", { keys: [DEV_FILE_KEY_SETTING] });
@@ -503,11 +536,15 @@ export function DevicesSection({
       touchId={{
         bundled: touchId ? bundled : undefined,
         allowDevFileKey: devSettingQ.data?.settings?.[DEV_FILE_KEY_SETTING] === true,
-        onRegister: (deviceId, expectKeyId) =>
+        onRegister: (deviceId, expectKeyId, confirmReplacesKeyId) =>
           settled(
             touchId && expectKeyId === undefined
-              ? touchId.register()
-              : call("devices.presenceKey.register", { deviceId, expectKeyId: expectKeyId ?? "" }),
+              ? touchId.register(confirmReplacesKeyId)
+              : call("devices.presenceKey.register", {
+                  deviceId,
+                  expectKeyId: expectKeyId ?? "",
+                  ...(confirmReplacesKeyId === undefined ? {} : { confirmReplacesKeyId }),
+                }),
           ),
         onRemove: (deviceId) => settled(call("devices.presenceKey.remove", { deviceId })),
         onAllowDevFileKey: (on) =>

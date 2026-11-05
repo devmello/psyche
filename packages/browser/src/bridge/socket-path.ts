@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { namedPipePath, usesNamedPipes } from "@psyche/protocol/platform";
 
 /** `sun_path` holds 104 bytes on macOS and 108 on Linux, including the terminating NUL. */
 export const MAX_BRIDGE_SOCKET_BYTES = process.platform === "darwin" ? 103 : 107;
@@ -13,8 +14,14 @@ export const BRIDGE_SOCKET_POINTER = "browser-bridge-socket";
  * `$PSYCHE_HOME/run/browser-bridge.sock`, or, when `$PSYCHE_HOME` is too deep for a Unix socket,
  * `<tmp>/psyche-<uid>/b-<hash>.sock` (the directory is made private, 0700, by the server). The
  * desktop finds a fallback through the pointer file the Gateway writes, so both ends agree.
+ * On Windows it is always the named pipe `\\.\pipe\psyche-<hash of the lower-case PSYCHE_HOME>-browser-bridge`, which
+ * the Gateway also records in the pointer file.
  */
-export function defaultBridgeSocketPath(home: string): string {
+export function defaultBridgeSocketPath(
+  home: string,
+  platform: NodeJS.Platform = process.platform,
+): string {
+  if (usesNamedPipes(platform)) return namedPipePath("bridge", home);
   const preferred = join(home, "run", "browser-bridge.sock");
   if (Buffer.byteLength(preferred) <= MAX_BRIDGE_SOCKET_BYTES) return preferred;
   const uid = typeof process.getuid === "function" ? process.getuid() : 0;
