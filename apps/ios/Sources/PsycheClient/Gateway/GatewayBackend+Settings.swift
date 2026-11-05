@@ -80,6 +80,7 @@ struct PhoneSettingsStore: Sendable {
         var liveActivities: Bool?
         var taskTitlesOnLockScreen: Bool?
         var faceIDForApprovals: Bool?
+        var stayConnectedWhileRunning: Bool?
     }
 
     /// What was saved; anything missing (no file, a damaged one, a setting added later) is the default.
@@ -90,7 +91,8 @@ struct PhoneSettingsStore: Sendable {
         return PhoneSettings(
             notifications: stored.notifications ?? d.notifications, liveActivities: stored.liveActivities ?? d.liveActivities,
             taskTitlesOnLockScreen: stored.taskTitlesOnLockScreen ?? d.taskTitlesOnLockScreen,
-            faceIDForApprovals: stored.faceIDForApprovals ?? d.faceIDForApprovals)
+            faceIDForApprovals: stored.faceIDForApprovals ?? d.faceIDForApprovals,
+            stayConnectedWhileRunning: stored.stayConnectedWhileRunning ?? d.stayConnectedWhileRunning)
     }
 
     func save(_ settings: PhoneSettings) throws {
@@ -98,7 +100,8 @@ struct PhoneSettingsStore: Sendable {
         try AppGroup.prepareDirectory(directory)
         let stored = Stored(
             notifications: settings.notifications, liveActivities: settings.liveActivities,
-            taskTitlesOnLockScreen: settings.taskTitlesOnLockScreen, faceIDForApprovals: settings.faceIDForApprovals)
+            taskTitlesOnLockScreen: settings.taskTitlesOnLockScreen, faceIDForApprovals: settings.faceIDForApprovals,
+            stayConnectedWhileRunning: settings.stayConnectedWhileRunning)
         try JSONEncoder().encode(stored).write(
             to: directory.appendingPathComponent(Self.fileName),
             options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])

@@ -39,12 +39,16 @@ public struct TaskActivityContent: Codable, Hashable, Sendable {
     /// plain write approval; a presence-gated one (payments, anything Face ID must gate) leaves it nil and
     /// the island offers "Review…", which opens the full card in the app. Dynamic Island only.
     public var inlineApprovalID: String?
+    /// When the Gateway says the task should finish, if it says so. nil today (the Gateway reports steps, not
+    /// an ETA): the activity then shows elapsed time and steps only. Never filled in from a guess.
+    public var estimatedEnd: Date?
 
     public init(
         step: Int, stepCount: Int, status: TaskActivityStatus, startedAt: Date, endedAt: Date? = nil,
         title: String? = nil, islandTitle: String? = nil, detail: String? = nil, asking: String? = nil,
-        inlineApprovalID: String? = nil
+        inlineApprovalID: String? = nil, estimatedEnd: Date? = nil
     ) {
+        self.estimatedEnd = estimatedEnd
         self.step = step
         self.stepCount = stepCount
         self.status = status
@@ -102,6 +106,21 @@ public struct TaskActivityContent: Codable, Hashable, Sendable {
     }
 
     public var hasStepCount: Bool { stepCount > 0 }
+
+    /// What the progress indicator is based on. Only what the Gateway actually told us: an estimated end if it
+    /// gave one, else the real step count, else nothing but the elapsed time.
+    public enum ProgressBasis: Equatable, Sendable { case estimate, steps, elapsedOnly }
+
+    public var progressBasis: ProgressBasis {
+        if let estimatedEnd, estimatedEnd > startedAt { return .estimate }
+        return hasStepCount ? .steps : .elapsedOnly
+    }
+
+    /// The range `ProgressView(timerInterval:)` counts through, when the basis is an estimate.
+    public var estimateRange: ClosedRange<Date>? {
+        guard let estimatedEnd, estimatedEnd > startedAt else { return nil }
+        return startedAt...estimatedEnd
+    }
 
     /// "Step 3 of 7 · running", or "Running" when the step count is unknown.
     public var statusLine: String {
