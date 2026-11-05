@@ -34,9 +34,9 @@ const props = defineProps<{
   motion: boolean;
   /** Which side the sheet is dealt from. */
   from?: "left" | "right";
-  /** `center`: the recording centred, the copy under it (the stage under the lamp). */
+  /** `center`: the recording centred, the copy under it (unused on the page today). */
   layout?: "side" | "center";
-  /** A lamp hangs over this stage (the approvals band). */
+  /** A lamp hangs over this stage (the night band). */
   lamp?: boolean;
   /** The recording is a phone's screen. */
   phone?: boolean;

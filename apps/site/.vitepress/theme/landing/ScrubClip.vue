@@ -36,9 +36,9 @@ const box = ref<HTMLElement | null>(null);
 const near = ref(false);
 const playing = ref(false);
 const reduced = ref(false);
-const phone = ref(false);
+const narrow = ref(false);
 const userPaused = ref(false);
-const take = computed(() => (phone.value && props.phoneRatio ? "-phone" : ""));
+const take = computed(() => (narrow.value && props.phoneRatio ? "-phone" : ""));
 // Scrubbed, the clip starts from its first frame; playing or still, the poster is its key moment.
 const poster = computed(() =>
   withBase(`/demos/${props.name}${take.value}${props.scrub ? "-start" : ""}.webp`),
@@ -193,13 +193,13 @@ watch(
 let io: IntersectionObserver | null = null;
 let media: MediaQueryList | null = null;
 function onMedia() {
-  phone.value = !!media?.matches;
+  narrow.value = !!media?.matches;
   if (near.value) nextTick(() => video.value?.load());
 }
 onMounted(() => {
   reduced.value = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   media = window.matchMedia(PHONE);
-  phone.value = media.matches;
+  narrow.value = media.matches;
   media.addEventListener("change", onMedia);
   io = new IntersectionObserver(
     (entries) => {
