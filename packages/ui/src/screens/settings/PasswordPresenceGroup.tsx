@@ -15,35 +15,35 @@ export interface PasswordPresenceRow {
 const STATES = {
   ready: {
     chip: "settings.devices.password.state.ready",
-    text: "settings.devices.password.detail.ready",
+    msgId: "settings.devices.password.detail.ready",
     tone: "success",
   },
   policy_missing: {
     chip: "settings.devices.password.state.policyMissing",
-    text: "settings.devices.password.detail.policyMissing",
+    msgId: "settings.devices.password.detail.policyMissing",
     tone: "danger",
   },
   not_enforced: {
     chip: "settings.devices.password.state.notEnforced",
-    text: "settings.devices.password.detail.notEnforced",
+    msgId: "settings.devices.password.detail.notEnforced",
     tone: "danger",
   },
   no_session: {
     chip: "settings.devices.password.state.noSession",
-    text: "settings.devices.password.detail.noSession",
+    msgId: "settings.devices.password.detail.noSession",
     tone: "neutral",
   },
   agent_missing: {
     chip: "settings.devices.password.state.agentMissing",
-    text: "settings.devices.password.detail.agentMissing",
+    msgId: "settings.devices.password.detail.agentMissing",
     tone: "danger",
   },
   unavailable: {
     chip: "settings.devices.password.state.unavailable",
-    text: "settings.devices.password.detail.unavailable",
+    msgId: "settings.devices.password.detail.unavailable",
     tone: "neutral",
   },
-} as const satisfies Record<string, { chip: string; text: string; tone: Tone }>;
+} as const satisfies Record<string, { chip: string; msgId: string; tone: Tone }>;
 
 export function PasswordPresenceGroup({ row }: { row: PasswordPresenceRow }): ReactElement {
   const s = STATES[row.state as keyof typeof STATES] ?? STATES.unavailable;
@@ -55,7 +55,7 @@ export function PasswordPresenceGroup({ row }: { row: PasswordPresenceRow }): Re
       <div className="flex flex-col gap-2" data-testid="password-presence">
         <div className="flex flex-wrap items-center gap-2">
           <StatusChip tone={s.tone}>{t(s.chip)}</StatusChip>
-          <span className="text-callout text-muted-foreground">{t(s.text)}</span>
+          <span className="text-callout text-muted-foreground">{t(s.msgId)}</span>
         </div>
         {row.state === "ready" && row.detail === "x11" ? (
           <p
