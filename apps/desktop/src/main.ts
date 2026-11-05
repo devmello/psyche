@@ -1157,8 +1157,12 @@ function registerIpc(): void {
   handle(IPC.dictationCheckHotkey, (_event, arg) => {
     const r = rec(IPC.dictationCheckHotkey, arg);
     const accelerator = str(IPC.dictationCheckHotkey, r.accelerator, "accelerator", 64);
-    // Settings checks each shortcut against the other's: neither may take the one in use, nor
-    // the quick-entry shortcut.
+    // Settings checks each shortcut against the others': none may take one in use.
+    if (r.purpose === "quickEntry") {
+      if (accelerator !== "" && accelerator === dictation?.hotkey) return "taken";
+      if (accelerator !== "" && accelerator === screenAskShortcut?.current) return "taken";
+      return quickEntryShortcut?.check(accelerator) ?? "ok";
+    }
     if (accelerator !== "" && accelerator === quickEntryShortcut?.current) return "taken";
     if (r.purpose === "screenAsk") {
       if (accelerator !== "" && accelerator === dictation?.hotkey) return "taken";

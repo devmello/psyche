@@ -567,8 +567,8 @@ export interface DictationPort {
   /** Whether another app holds a shortcut, asked before Settings saves the toggle hotkey. */
   checkHotkey?(
     accelerator: string,
-    /** Which shortcut it is for: dictation's toggle (default) or Ask about screen. */
-    purpose?: "dictation" | "screenAsk",
+    /** Which shortcut it is for: dictation's toggle (default), Ask about screen or quick entry. */
+    purpose?: "dictation" | "screenAsk" | "quickEntry",
   ): Promise<"ok" | "taken" | "invalid">;
 }
 

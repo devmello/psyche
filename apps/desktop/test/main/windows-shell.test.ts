@@ -119,6 +119,24 @@ describe("global shortcuts on Windows", () => {
     expect(shortcuts.held.size).toBe(0);
   });
 
+  it("checks a quick-entry shortcut Settings is about to save", () => {
+    const shortcuts = registry(["Control+Shift+T"]);
+    const q = new QuickEntryShortcut({
+      call: async () => ({}),
+      shortcuts,
+      toggle: noop,
+      platform: "win32",
+    });
+    q.apply(undefined);
+    // Its own (registered) keys and "" (back to the default) are fine.
+    expect(q.check("Control+Alt+Space")).toBe("ok");
+    expect(q.check("")).toBe("ok");
+    expect(q.check("Control+Shift+T")).toBe("taken");
+    expect(q.check("Control+Shift+P")).toBe("ok");
+    // Probing leaves nothing registered but the shortcut in use.
+    expect([...shortcuts.held.keys()]).toEqual(["Control+Alt+Space"]);
+  });
+
   it("Ask about screen registers Ctrl+Alt+Shift+Space by default on Windows", () => {
     const shortcuts = registry();
     const s = new ScreenAskShortcut({
