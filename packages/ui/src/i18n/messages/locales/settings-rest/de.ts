@@ -760,6 +760,50 @@ export const settingsRest: Partial<Catalogue> = {
     "Schalte dafür nie Tailscale Funnel ein. Es würde das Gateway im öffentlichen Internet erreichbar machen.",
   "settings.remote.configWarnings":
     "config.json enthält Einstellungen, die diese Version von Psyche nicht kennt und deshalb ignoriert: {keys}. Falls du eine davon meintest, prüfe die Schreibweise.",
+  "settings.uninstall.group": "Psyche deinstallieren",
+  "settings.uninstall.groupHint":
+    "Beendet das Gateway und den Helfer und legt die App in den Papierkorb. Deine Daten bleiben erhalten, außer du entscheidest dich anders.",
+  "settings.uninstall.open": "Psyche deinstallieren…",
+  "settings.uninstall.title": "Psyche deinstallieren",
+  "settings.uninstall.description":
+    "Alles unten kommt in den Papierkorb, du kannst es also wieder herausholen. Nichts wird endgültig gelöscht.",
+  "settings.uninstall.dataChoice": "Deine Daten",
+  "settings.uninstall.keep": "Meine Daten behalten",
+  "settings.uninstall.keepHint": "Chats, Gedächtnis, Tresor und Backups bleiben im Datenordner.",
+  "settings.uninstall.delete": "Meine Daten löschen",
+  "settings.uninstall.deleteHint":
+    "Legt auch den Datenordner in den Papierkorb: Chats, Gedächtnis, Tresor und Backups.",
+  "settings.uninstall.willDo": "Was passiert",
+  "settings.uninstall.stopAgent": "Der Gateway-LaunchAgent wird beendet und entfernt.",
+  "settings.uninstall.stopHelper":
+    "Psyche Helper wird beendet und „Beim Anmelden öffnen“ wird ausgeschaltet.",
+  "settings.uninstall.trash": "In den Papierkorb gelegt",
+  "settings.uninstall.kind.agent": "Gateway-LaunchAgent",
+  "settings.uninstall.kind.support": "Application Support",
+  "settings.uninstall.kind.cache": "Caches, Protokolle, Einstellungen und gesicherter Zustand",
+  "settings.uninstall.kind.data": "Deine Daten",
+  "settings.uninstall.kind.app": "Die App",
+  "settings.uninstall.agentOther":
+    "Der Gateway-Agent gehört zu einer anderen Kopie von Psyche oder zum Kommandozeilen-Tool und bleibt deshalb unberührt.",
+  "settings.uninstall.blocked":
+    "{path} kann von hier aus nicht in den Papierkorb gelegt werden: {reason}",
+  "settings.uninstall.keychainStays":
+    "Schlüsselbund-Einträge bleiben erhalten (der Tresorschlüssel und die Einträge des Helfers). Entferne sie bei Bedarf in der Schlüsselbundverwaltung.",
+  "settings.uninstall.keychainGoes":
+    "Die Schlüsselbund-Einträge für den Tresor und den Helfer werden ebenfalls entfernt.",
+  "settings.uninstall.removeKeychain":
+    "Auch meine Schlüsselbund-Einträge entfernen (com.psyche.vault und die des Helfers). Ohne deine Daten sind sie nutzlos.",
+  "settings.uninstall.kind.state": "Gesicherter Fensterzustand",
+  "settings.uninstall.dataStays": "Dein Datenordner wird nicht angetastet.",
+  "settings.uninstall.typeWord": "Gib {word} zur Bestätigung ein",
+  "settings.uninstall.presence":
+    "Danach wirst du gebeten, mit Touch ID oder auf diesem Gerät zu bestätigen, weil dabei deine Daten entfernt werden.",
+  "settings.uninstall.approvalLabel": "Psyche deinstallieren und Daten löschen",
+  "settings.uninstall.failed":
+    "Psyche konnte nicht deinstalliert werden ({reason}). Es wurde nichts weiter geändert.",
+  "settings.uninstall.cancel": "Abbrechen",
+  "settings.uninstall.go": "Deinstallieren und beenden",
+  "settings.uninstall.goDelete": "Daten löschen und deinstallieren",
   "settings.remote.admin":
     "Ein gekoppelter Computer erhält Lesen, Schreiben und Genehmigungen. Admin bleibt aus, außer du hakst es bei der Genehmigung an, und jede Admin-Änderung braucht hier weiterhin deine Touch ID.",
   "settings.remote.address": "Öffentliche Adresse",

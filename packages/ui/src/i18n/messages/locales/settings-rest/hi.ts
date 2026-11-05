@@ -724,6 +724,47 @@ export const settingsRest: Partial<Catalogue> = {
     "इसके लिए कभी Tailscale Funnel चालू न करें। इससे Gateway सार्वजनिक इंटरनेट पर आ जाएगा।",
   "settings.remote.configWarnings":
     "config.json में ऐसी सेटिंग्स हैं जिन्हें Psyche का यह संस्करण नहीं जानता, इसलिए वह उन्हें अनदेखा करता है: {keys}। अगर आप इनमें से किसी को चाहते थे, तो वर्तनी जाँच लें।",
+  "settings.uninstall.group": "Psyche अनइंस्टॉल करें",
+  "settings.uninstall.groupHint":
+    "Gateway और सहायक को रोकता है और ऐप को ट्रैश में भेज देता है। आपका डेटा बना रहता है, जब तक आप कुछ और न चुनें।",
+  "settings.uninstall.open": "Psyche अनइंस्टॉल करें…",
+  "settings.uninstall.title": "Psyche अनइंस्टॉल करें",
+  "settings.uninstall.description":
+    "नीचे की हर चीज़ ट्रैश में जाती है, इसलिए आप उसे वापस रख सकते हैं। कुछ भी हमेशा के लिए नहीं मिटाया जाता।",
+  "settings.uninstall.dataChoice": "आपका डेटा",
+  "settings.uninstall.keep": "मेरा डेटा रखें",
+  "settings.uninstall.keepHint": "चैट, मेमोरी, वॉल्ट और बैकअप डेटा फ़ोल्डर में बने रहते हैं।",
+  "settings.uninstall.delete": "मेरा डेटा हटाएँ",
+  "settings.uninstall.deleteHint": "डेटा फ़ोल्डर को भी ट्रैश में भेजता है: चैट, मेमोरी, वॉल्ट और बैकअप।",
+  "settings.uninstall.willDo": "क्या होगा",
+  "settings.uninstall.stopAgent": "Gateway LaunchAgent रोककर हटा दिया जाता है।",
+  "settings.uninstall.stopHelper":
+    "Psyche Helper रोक दिया जाता है और “लॉगिन पर खोलें” बंद कर दिया जाता है।",
+  "settings.uninstall.trash": "ट्रैश में भेजा गया",
+  "settings.uninstall.kind.agent": "Gateway LaunchAgent",
+  "settings.uninstall.kind.support": "Application Support",
+  "settings.uninstall.kind.cache": "कैश, लॉग, प्राथमिकताएँ और सहेजी गई स्थिति",
+  "settings.uninstall.kind.data": "आपका डेटा",
+  "settings.uninstall.kind.app": "ऐप",
+  "settings.uninstall.agentOther":
+    "Gateway एजेंट Psyche की किसी दूसरी कॉपी या कमांड-लाइन टूल का है, इसलिए उसे जस का तस छोड़ा जाता है।",
+  "settings.uninstall.blocked": "{path} को यहाँ से ट्रैश में नहीं भेजा जा सकता: {reason}",
+  "settings.uninstall.keychainStays":
+    "Keychain आइटम बने रहते हैं (वॉल्ट की कुंजी और सहायक के आइटम)। चाहें तो उन्हें Keychain Access में हटा दें।",
+  "settings.uninstall.keychainGoes": "वॉल्ट और सहायक के Keychain आइटम भी हटा दिए जाते हैं।",
+  "settings.uninstall.removeKeychain":
+    "मेरे Keychain आइटम भी हटाएँ (com.psyche.vault और सहायक के)। आपके डेटा के बिना वे बेकार हैं।",
+  "settings.uninstall.kind.state": "सहेजी गई विंडो स्थिति",
+  "settings.uninstall.dataStays": "आपके डेटा फ़ोल्डर को छुआ नहीं जाता।",
+  "settings.uninstall.typeWord": "पुष्टि के लिए {word} टाइप करें",
+  "settings.uninstall.presence":
+    "इसके बाद आपसे Touch ID या इस डिवाइस पर पुष्टि करने को कहा जाएगा, क्योंकि इससे आपका डेटा हट जाता है।",
+  "settings.uninstall.approvalLabel": "Psyche अनइंस्टॉल करें और डेटा हटाएँ",
+  "settings.uninstall.failed":
+    "Psyche अनइंस्टॉल नहीं हो सका ({reason})। इसके अलावा कुछ और नहीं बदला गया।",
+  "settings.uninstall.cancel": "रद्द करें",
+  "settings.uninstall.go": "अनइंस्टॉल करें और बाहर निकलें",
+  "settings.uninstall.goDelete": "डेटा हटाएँ और अनइंस्टॉल करें",
   "settings.remote.admin":
     "पेयर होने वाले कंप्यूटर को पढ़ने, लिखने और स्वीकृतियों की पहुँच मिलती है। एडमिन तब तक बंद रहता है जब तक आप स्वीकृति देते समय उसे टिक न करें, और हर एडमिन बदलाव के लिए फिर भी यहाँ आपका Touch ID चाहिए।",
   "settings.remote.address": "सार्वजनिक पता",
