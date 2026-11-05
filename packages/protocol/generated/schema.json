@@ -24297,12 +24297,6 @@
           "const": "life_answer",
           "type": "string"
         },
-        "answerId": {
-          "description": "Opaque",
-          "maxLength": 64,
-          "minLength": 1,
-          "type": "string"
-        },
         "question": {
           "description": "The owner's own question",
           "maxLength": 500,
@@ -24355,7 +24349,6 @@
       },
       "required": [
         "type",
-        "answerId",
         "question",
         "answer",
         "model",

@@ -174,7 +174,6 @@ export const SourcesBlock = Type.Object(
 export const LifeAnswerBlock = Type.Object(
   {
     type: Type.Literal("life_answer"),
-    answerId: Type.String({ minLength: 1, maxLength: 64, description: "Opaque" }),
     question: Type.String({ maxLength: 500, description: "The owner's own question" }),
     answer: Type.String({ maxLength: 900 }),
     model: StringEnum(["cloud", "local"], {

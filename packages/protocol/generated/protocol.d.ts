@@ -2786,12 +2786,8 @@ export interface Block {
     recap?:          string;
     cited?:          string[];
     answer?:         string;
-    /**
-     * Opaque
-     */
-    answerId?: string;
-    factIds?:  string[];
-    facts?:    LifeFactHit[];
+    factIds?:        string[];
+    facts?:          LifeFactHit[];
     /**
      * The kind of model that made the answer
      */
@@ -5655,13 +5651,9 @@ export interface LibraryUploadResult {
 }
 
 export interface LifeAnswerBlock {
-    answer: string;
-    /**
-     * Opaque
-     */
-    answerId: string;
-    factIds:  string[];
-    facts:    LifeFactHit[];
+    answer:  string;
+    factIds: string[];
+    facts:   LifeFactHit[];
     /**
      * The kind of model that made the answer
      */

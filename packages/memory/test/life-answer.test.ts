@@ -497,6 +497,22 @@ describe("what else reaches the prompt", () => {
   });
 });
 
+describe("lifeCandidates by id", () => {
+  it("resolves a fact older than the newest ones, which the limit would cut", () => {
+    learn("Sam Lee", "employer", "Initech", "I work at Initech");
+    learn("Priya Rao", "city", "Lisbon", "I live in Lisbon");
+    const old = all().find((c) => c.hit.value === "Initech");
+    expect(old).toBeDefined();
+    // The newest-first limit of 1 cuts one of the two; looked up by id, both still resolve.
+    expect(lifeCandidates(graph, em, env.db.sqlite, NOW, 1)).toHaveLength(1);
+    const ids = all().map((c) => c.hit.factId);
+    const byId = lifeCandidates(graph, em, env.db.sqlite, NOW, 1, ids);
+    expect(byId.map((c) => c.hit.factId).sort()).toEqual([...ids].sort());
+    expect(lifeCandidates(graph, em, env.db.sqlite, NOW, 2000, [])).toEqual([]);
+    expect(lifeCandidates(graph, em, env.db.sqlite, NOW, 2000, ["nope"])).toEqual([]);
+  });
+});
+
 describe("narrowAnswer", () => {
   const A = "Sam works at Initech [1]. The contract is ready Friday [P1][P2]. It was signed [P3].";
   const all = () => true;
@@ -516,10 +532,25 @@ describe("narrowAnswer", () => {
     expect(r).toEqual({ answer: "It was signed [P1].", facts: [], passages: [3] });
   });
 
-  it("takes a marker off a claim that keeps another source", () => {
-    const r = narrowAnswer(A, 1, 3, all, (n) => n === 2);
-    expect(r.answer).toBe("Sam works at Initech [1]. The contract is ready Friday [P1].");
-    expect(r.passages).toEqual([2]);
+  it("drops a claim whole when any one of its citations fails (its words may come from it)", () => {
+    const mixed = "Sam moves to Denver in June [1][P1]. It was signed [P2].";
+    // The fact fails: the claim goes, not just the marker.
+    expect(narrowAnswer(mixed, 1, 2, () => false, all)).toEqual({
+      answer: "It was signed [P1].",
+      facts: [],
+      passages: [2],
+    });
+    // The passage fails: same.
+    expect(narrowAnswer(mixed, 1, 2, all, (n) => n !== 1).answer).toBe("It was signed [P1].");
+    // A marker that names nothing offered is not a citation that failed.
+    expect(narrowAnswer("Ready [1][P9].", 1, 1, all, all).answer).toBe("Ready [1].");
+  });
+
+  it("repeated narrowing does not pile up full-width stops", () => {
+    const once = narrowAnswer("合同周五好。[P1] 已签。[P2]", 0, 2, all, all);
+    const twice = narrowAnswer(once.answer, 0, 2, all, all);
+    expect(twice.answer).toBe(once.answer);
+    expect(once.answer).not.toMatch(/[。！？]{2}/);
   });
 
   it("refuses a claim by its own text, and gives nothing when nothing stands", () => {

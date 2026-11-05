@@ -23,10 +23,17 @@ export function personalizeMessageEvent(
   payload: { message: Message },
   who: Reader,
 ): { message: Message } | undefined {
-  return payload.message.blocks.some((b) => b.type === "life_answer")
-    ? { ...payload, message: scrubMessage(ctx, payload.message, who) }
-    : undefined;
+  if (!payload.message.blocks.some((b) => b.type === "life_answer")) return undefined;
+  // One publish asks for each subscriber in turn: read the answer once per kind of reader.
+  const key = `${who.role}:${who.desktop}`;
+  const byReader = memo.get(payload.message) ?? new Map<string, Message>();
+  memo.set(payload.message, byReader);
+  const out = byReader.get(key) ?? scrubMessage(ctx, payload.message, who);
+  byReader.set(key, out);
+  return { ...payload, message: out };
 }
+
+const memo = new WeakMap<Message, Map<string, Message>>();
 
 /**
  * A message as `who` may read it. A life answer's citations are read again for each reader
@@ -41,7 +48,8 @@ export function scrubMessage(
 ): Message {
   if (!m.blocks.some((b) => b.type === "life_answer")) return m;
   const scrub = ctx.messageScrub.scrub;
-  return scrub !== null
+  // A part of the Gateway itself (no paired device behind it) never reads the answer.
+  return scrub !== null && who.role !== null
     ? scrub(m, who)
     : { ...m, blocks: m.blocks.filter((b) => b.type !== "life_answer") };
 }

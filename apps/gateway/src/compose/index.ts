@@ -1906,10 +1906,19 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // "Open as a chat" on a Search answer: the Gateway holds the answer and reads its citations
   // again for this connection and this chat's model; every reader of the transcript gets the
   // same pass (`chat.history`, `chat.export`, and the `chat.message` event through the bus).
-  everything.useThreadModel((threadId) => {
-    const ref = getThread(db, threadId)?.modelRef ?? modelPins.defaultModel?.();
-    return ref == null ? true : isCloudRef(ref);
-  });
+  everything.useThreadModel(
+    (threadId) => {
+      const ref = getThread(db, threadId)?.modelRef ?? modelPins.defaultModel?.();
+      return ref == null ? true : isCloudRef(ref);
+    },
+    // An answer opens a chat that has no message yet.
+    (threadId) =>
+      getThread(db, threadId) !== undefined &&
+      db.sqlite.prepare("SELECT 1 FROM messages WHERE thread_id = ? LIMIT 1").get(threadId) ===
+        undefined,
+  );
+  // A forget or a retract cuts the words it supported out of the answers kept in chats.
+  gateway.context.messageScrub.heal = () => everything.healTranscripts();
   gateway.context.chatContext.resolve = (ref, caller) =>
     ref.kind === "life_answer"
       ? everything.lifeChat.resolve(ref, caller)

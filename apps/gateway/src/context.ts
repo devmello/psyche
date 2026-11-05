@@ -155,6 +155,8 @@ export interface MessageScrub {
   scrub:
     | ((message: Message, who: { role: "client" | "node" | null; desktop: boolean }) => Message)
     | null;
+  /** Cuts forgotten sources' words out of the stored answer blocks; run after a memory forget. */
+  heal: (() => void) | null;
 }
 
 /** What the rest of the Gateway may ask of the LAN listener. */

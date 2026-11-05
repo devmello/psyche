@@ -33,6 +33,7 @@ import {
 } from "@psyche/proactive";
 import {
   APPLE_LLM_CONTEXT_TOKENS,
+  type Block,
   type Clock,
   EVERYTHING_MEMORY_DEFAULTS,
   EVERYTHING_MEMORY_SETTING_KEY,
@@ -565,6 +566,8 @@ export function everythingHandlers(
                 factIds: r.facts.map((f) => f.factId),
                 passageIds: r.passages.map((x) => x.id),
                 cloud,
+                // What the model was offered, not only what it cited.
+                untrustedInput: passages.length > 0 || hits.some((h) => h.provenance !== "owner"),
               }) ?? null,
             facts: r.facts,
             passages: r.passages.map((x) => ({
@@ -716,8 +719,16 @@ export interface Everything {
   readonly handlers: EverythingHandlers;
   /** "Open as a chat" for a Search answer: the chat context it gives, and the per-reader pass over its block. */
   readonly lifeChat: LifeAnswerChat;
-  /** Binds how a thread's model is judged (cloud or not); until then every thread counts as cloud. */
-  useThreadModel(isCloud: (threadId: string) => boolean): void;
+  /**
+   * Binds how a thread's model is judged (cloud or not) and whether a thread is still empty; until
+   * then every thread counts as cloud and none as new.
+   */
+  useThreadModel(
+    isCloud: (threadId: string) => boolean,
+    isNew: (threadId: string) => boolean,
+  ): void;
+  /** Cuts the words of forgotten or unreadable sources out of the answers stored in transcripts. */
+  healTranscripts(): void;
   /** The model the owner chose, or none (off, or a local one not confirmed yet). */
   readonly answerModel: () => { provider: ModelProvider; model: ModelRef } | undefined;
   /** The nightly step, for the dreaming automation (after the lesson pass, before the graph pass). */
@@ -792,17 +803,34 @@ export function composeEverything(deps: EverythingDeps): Everything {
         });
   };
   let threadIsCloud: (threadId: string) => boolean = () => true;
+  // Fails closed: no thread counts as new until the composition root says so.
+  let threadIsNew: (threadId: string) => boolean = () => false;
   const lifeChat = lifeAnswerChat({
     records: answers,
     // Fails closed: a thread's model is cloud until the composition root says it is not.
     threadIsCloud: (threadId) => threadIsCloud(threadId),
+    threadIsNew: (threadId) => threadIsNew(threadId),
     read: {
-      facts: () =>
+      // By id, so a fact older than the newest 2000 still resolves.
+      facts: (ids) =>
         new Map(
-          lifeCandidates(graph, store, memorySql, clock.now())
+          lifeCandidates(graph, store, memorySql, clock.now(), 2000, ids)
             .filter((c) => !c.sensitive)
             .map((c) => [c.hit.factId, c.hit]),
         ),
+      // What the agent may read of everything memory: the setting, and Search's per-source flag.
+      agent: () => {
+        const s = settings();
+        const cfg = readSourcesConfig(getSetting(db, "search.sources")?.value);
+        return {
+          mode: s.enabled ? s.agentAccess : "none",
+          seesSensitive: s.agentSeesSensitive,
+          sourceAllowed: (src) =>
+            src !== "contacts" && src in cfg.sources
+              ? cfg.sources[src as keyof typeof cfg.sources].agent
+              : true,
+        };
+      },
       passages: passageSource,
       cloudBlocked: cloudBlockedSources,
       sensitive: () => settings().sensitive,
@@ -1015,8 +1043,20 @@ export function composeEverything(deps: EverythingDeps): Everything {
     settings,
     handlers,
     lifeChat,
-    useThreadModel(isCloud) {
+    useThreadModel(isCloud, isNew) {
       threadIsCloud = isCloud;
+      threadIsNew = isNew;
+    },
+    healTranscripts() {
+      // Messages that hold an answer: cut what no one may read now (a forgotten fact's words).
+      const rows = db.sqlite
+        .prepare("SELECT id, blocks FROM messages WHERE blocks LIKE '%\"life_answer\"%'")
+        .all() as { id: string; blocks: string }[];
+      const put = db.sqlite.prepare("UPDATE messages SET blocks = ? WHERE id = ?");
+      for (const row of rows) {
+        const healed = lifeChat.heal(JSON.parse(row.blocks) as Block[]);
+        if (healed.changed) put.run(JSON.stringify(healed.blocks), row.id);
+      }
     },
     answerModel,
     nightly,

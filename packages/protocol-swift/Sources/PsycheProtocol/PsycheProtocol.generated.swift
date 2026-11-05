@@ -9088,8 +9088,6 @@ public struct Block: Codable, Sendable {
     public let recap: String?
     public let cited: [String]?
     public let answer: String?
-    /// Opaque
-    public let answerID: String?
     public let factIDS: [String]?
     public let facts: [LifeFactHit]?
     /// The kind of model that made the answer
@@ -9138,7 +9136,6 @@ public struct Block: Codable, Sendable {
         case recap = "recap"
         case cited = "cited"
         case answer = "answer"
-        case answerID = "answerId"
         case factIDS = "factIds"
         case facts = "facts"
         case model = "model"
@@ -9160,7 +9157,7 @@ public struct Block: Codable, Sendable {
         case widgetID = "widgetId"
     }
 
-    public init(md: String? = nil, type: BlockType, level1: String? = nil, status: ToolCallStatus? = nil, tool: String? = nil, toolCallID: String? = nil, planID: String? = nil, items: [ItemElement]? = nil, approvalID: String? = nil, inputRequestID: String? = nil, artifactID: String? = nil, preview: String? = nil, libraryItemID: String? = nil, id: String? = nil, kind: BlockKind? = nil, source: String? = nil, title: String? = nil, url: String? = nil, receiptID: String? = nil, taskID: String? = nil, actions: [WrapUpAction]? = nil, ask: String? = nil, recap: String? = nil, cited: [String]? = nil, answer: String? = nil, answerID: String? = nil, factIDS: [String]? = nil, facts: [LifeFactHit]? = nil, model: ModelEnum? = nil, passageIDS: [String]? = nil, passages: [LifeAnswerPassage]? = nil, question: String? = nil, compactionID: String? = nil, replaced: Replaced? = nil, summary: CompactionSummary? = nil, tokensAfter: Int? = nil, tokensBefore: Int? = nil, trigger: BlockTrigger? = nil, feedbackID: String? = nil, lessonID: String? = nil, messageID: String? = nil, statement: String? = nil, proposal: DailyWorkflowProposal? = nil, route: String? = nil, widgetID: String? = nil) {
+    public init(md: String? = nil, type: BlockType, level1: String? = nil, status: ToolCallStatus? = nil, tool: String? = nil, toolCallID: String? = nil, planID: String? = nil, items: [ItemElement]? = nil, approvalID: String? = nil, inputRequestID: String? = nil, artifactID: String? = nil, preview: String? = nil, libraryItemID: String? = nil, id: String? = nil, kind: BlockKind? = nil, source: String? = nil, title: String? = nil, url: String? = nil, receiptID: String? = nil, taskID: String? = nil, actions: [WrapUpAction]? = nil, ask: String? = nil, recap: String? = nil, cited: [String]? = nil, answer: String? = nil, factIDS: [String]? = nil, facts: [LifeFactHit]? = nil, model: ModelEnum? = nil, passageIDS: [String]? = nil, passages: [LifeAnswerPassage]? = nil, question: String? = nil, compactionID: String? = nil, replaced: Replaced? = nil, summary: CompactionSummary? = nil, tokensAfter: Int? = nil, tokensBefore: Int? = nil, trigger: BlockTrigger? = nil, feedbackID: String? = nil, lessonID: String? = nil, messageID: String? = nil, statement: String? = nil, proposal: DailyWorkflowProposal? = nil, route: String? = nil, widgetID: String? = nil) {
         self.md = md
         self.type = type
         self.level1 = level1
@@ -9186,7 +9183,6 @@ public struct Block: Codable, Sendable {
         self.recap = recap
         self.cited = cited
         self.answer = answer
-        self.answerID = answerID
         self.factIDS = factIDS
         self.facts = facts
         self.model = model
@@ -17191,8 +17187,6 @@ public struct LibraryUploadResult: Codable, Sendable {
 // MARK: - LifeAnswerBlock
 public struct LifeAnswerBlock: Codable, Sendable {
     public let answer: String
-    /// Opaque
-    public let answerID: String
     public let factIDS: [String]
     public let facts: [LifeFactHit]
     /// The kind of model that made the answer
@@ -17205,7 +17199,6 @@ public struct LifeAnswerBlock: Codable, Sendable {
 
     public enum CodingKeys: String, CodingKey {
         case answer = "answer"
-        case answerID = "answerId"
         case factIDS = "factIds"
         case facts = "facts"
         case model = "model"
@@ -17215,9 +17208,8 @@ public struct LifeAnswerBlock: Codable, Sendable {
         case type = "type"
     }
 
-    public init(answer: String, answerID: String, factIDS: [String], facts: [LifeFactHit], model: ModelEnum, passageIDS: [String], passages: [LifeAnswerPassage], question: String, type: LifeAnswerBlockType) {
+    public init(answer: String, factIDS: [String], facts: [LifeFactHit], model: ModelEnum, passageIDS: [String], passages: [LifeAnswerPassage], question: String, type: LifeAnswerBlockType) {
         self.answer = answer
-        self.answerID = answerID
         self.factIDS = factIDS
         self.facts = facts
         self.model = model

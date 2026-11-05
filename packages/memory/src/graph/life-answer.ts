@@ -507,9 +507,10 @@ export interface NarrowedAnswer {
 /**
  * Cuts a finished answer (as `answerFromSources` renders it: `claim [1][P2].` joined by spaces)
  * down to the claims that still stand. `keepFact(n)` / `keepPassage(n)` say whether the nth fact or
- * passage may still be cited; `keepClaim` can refuse a claim's own text. A marker that fails is
- * removed, and a claim left with no marker is dropped whole (no citation, no claim); the ones that
- * stay are renumbered from 1 in order of first use. Nothing left gives an empty answer.
+ * passage may still be cited; `keepClaim` can refuse a claim's own text. A claim is dropped whole
+ * when any one of its citations fails (its words may come from that source) or when none is left
+ * (no citation, no claim); the ones that stay are renumbered from 1 in order of first use.
+ * Nothing left gives an empty answer.
  */
 export function narrowAnswer(
   answer: string,
@@ -531,18 +532,27 @@ export function narrowAnswer(
     const start = m.index ?? 0;
     const text = answer
       .slice(last, start)
-      .replace(/^[\s.!?;,]+/, "")
+      .replace(/^[\s.!?;,。！？；]+/, "")
       .trim();
     last = start + m[0].length;
     const facts = new Set<number>();
     const passages = new Set<number>();
+    // Strict: a claim stands only if every citation it carries still passes. Its words may be
+    // drawn from any one of its sources, so one that fails takes the whole claim with it.
+    let failed = false;
     for (const n of m[0].matchAll(MARKER)) {
       const k = Number(n[2]);
       if (n[1] === "P") {
-        if (k >= 1 && k <= nPassages && keepPassage(k)) passages.add(k);
-      } else if (k >= 1 && k <= nFacts && keepFact(k)) facts.add(k);
+        if (k < 1 || k > nPassages) continue;
+        if (keepPassage(k)) passages.add(k);
+        else failed = true;
+      } else {
+        if (k < 1 || k > nFacts) continue;
+        if (keepFact(k)) facts.add(k);
+        else failed = true;
+      }
     }
-    if (text === "" || facts.size + passages.size === 0 || !keepClaim(text)) continue;
+    if (failed || text === "" || facts.size + passages.size === 0 || !keepClaim(text)) continue;
     const end = /^[.!?。！？]/.exec(answer.slice(last))?.[0] ?? "";
     claims.push({ text, end, facts: [...facts], passages: [...passages] });
   }
