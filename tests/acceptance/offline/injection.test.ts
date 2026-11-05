@@ -53,7 +53,9 @@ beforeAll(async () => {
     reference: await runCorpus(cases, { files, makeStack: referenceStack }),
     "int-2": await runCorpus(cases, { files, makeStack: rig.int2Stack, stackName: "int-2" }),
   };
-});
+  // The whole INT-2 corpus, as tests/integration/injection does (and with its budget): ~65 s alone
+  // on Windows, where its git and process spawns are slow, past the 120 s hook default under load.
+}, 420_000);
 
 afterAll(async () => {
   await rig?.close();
