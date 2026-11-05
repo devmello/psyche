@@ -89,6 +89,7 @@ import { WindowTheme } from "./lib/window-theme.ts";
 import { ZoomController } from "./lib/zoom.ts";
 import { bootstrapAdminIfNeeded } from "./main/bootstrap-admin.ts";
 import { BridgeClient, bridgeSocketPath } from "./main/bridge/bridge-client.ts";
+import { passwordApprove } from "./main/bridge/password-approve.ts";
 import { createAttentionReporter } from "./main/browser/attention.ts";
 import { BrowserHost } from "./main/browser/browser-host.ts";
 import {
@@ -1365,6 +1366,11 @@ function registerIpc(): void {
       ...(id === undefined ? {} : { helperDeviceId: id.deviceId }),
     });
   });
+  // Linux: the window's Allow on a card that needs the owner's password (polkit, linux design §9).
+  handle(
+    IPC.passwordApprove,
+    (e, arg) => (approvalWindow(e), passwordApprove(requireGateway(), arg)),
+  );
   // The app session refuses navigator.clipboard (the permission check allows only audio), so
   // copy buttons (vault recovery key, credential ids) write through main (#507).
   handle(IPC.clipboardWrite, (_event, arg) => {

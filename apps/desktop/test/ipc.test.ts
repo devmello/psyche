@@ -63,7 +63,11 @@ describe("IPC validators", () => {
 
   it("Touch ID approvals and key registration never go through the generic relay", () => {
     const known = () => true;
-    for (const m of ["approvals.approveWithTouchId", "devices.presenceKey.register"])
+    for (const m of [
+      "approvals.approveWithTouchId",
+      "approvals.approveWithPassword",
+      "devices.presenceKey.register",
+    ])
       expect(() => checkCallable(m, known)).toThrow(/not callable/);
   });
 

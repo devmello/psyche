@@ -218,6 +218,11 @@ export interface UiSlots {
   /** The desktop: cards that need Touch ID are approved once only from this window. */
   touchIdOnceOnly?: boolean;
   /**
+   * The desktop on Linux: cards that need presence are approved by typing the owner's password
+   * into the system's own dialog (polkit), so the card says so while it waits and in its refusals.
+   */
+  passwordPresence?: boolean;
+  /**
    * A client of another computer's Gateway (remote-gateway design §6.2): a card that needs Touch
    * ID is approved here only with a passkey made on this computer. Without one the card says
    * "Answer on {host}" and Allow stays off (Deny still works); ordinary cards are unaffected.

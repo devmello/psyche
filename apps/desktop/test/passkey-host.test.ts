@@ -225,6 +225,7 @@ describe("passkey channels", () => {
     expect([...REMOTE_ONLY_CHANNELS].sort()).toEqual([IPC.passkeyCreate, IPC.passkeyGet].sort());
     for (const c of REMOTE_ONLY_CHANNELS) expect(REMOTE_REFUSED_CHANNELS.has(c)).toBe(false);
     expect(REMOTE_REFUSED_CHANNELS.has(IPC.touchIdApprove)).toBe(true);
+    expect(REMOTE_REFUSED_CHANNELS.has(IPC.passwordApprove)).toBe(true);
   });
 
   it("take a small JSON object and a plain idempotency key", () => {

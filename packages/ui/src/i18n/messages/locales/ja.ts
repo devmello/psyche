@@ -32,6 +32,7 @@ import { onboardingRest } from "./onboarding-rest/ja.ts";
 import { overview } from "./overview/ja.ts";
 import { overviewGrowth } from "./overview-growth/ja.ts";
 import { overviewShared } from "./overview-shared/ja.ts";
+import { passwordPresence } from "./password-presence/ja.ts";
 import { peopleRest } from "./people-rest/ja.ts";
 import { personDataRest } from "./personData-rest/ja.ts";
 import { researchRest } from "./research-rest/ja.ts";
@@ -3283,6 +3284,8 @@ export const ja: Partial<Catalogue> = {
   "specialists.card.fromAutomation": "オートメーション「{name}」から",
   // signed connector bundles and teach-by-showing in Mac apps
   ...final202611,
+  // password approvals on Linux (polkit)
+  ...passwordPresence,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
 };
