@@ -271,39 +271,17 @@ These are typed node capabilities. Their shapes are in `packages/protocol` `sche
 
 The scripting adapters run constant AppleScript handlers (`psyche_search`, `psyche_compose`, …) with the inputs passed as handler arguments, so app content and model text never become script source. The helper launches the target app in the background if needed and asks for Automation per app on first use. Messages (J7) is a separate adapter.
 
-### Teach mode (J8)
+### Record in an app (J8 phase 2)
 
-The owner demonstrates a flow and the helper turns it into a skill draft. The Gateway offers `teach.*` to the owner's devices only, never to the agent.
-
-| Capability | Side effect | Notes |
-| --- | --- | --- |
-| `teach.start` | write (streaming, receipt `teach`, needs Accessibility) | `{name?, description?, app?, screenshots?, maxSteps? (≤ 200, default 100), maxSeconds? (10–1800, default 600)}`. Streams `teach.started`, then `teach.step` for each step; returns the draft when recording ends. Refused while a computer-use session runs (`computer_busy`) or another recording is active (`teach_busy`) |
-| `teach.stop` | none | `{sessionId}` → the draft (the same one `teach.start` returns) |
-| `teach.cancel` | none | `{sessionId}` → discards everything (`endedBy: cancel`, no steps, no files) |
-| `teach.status` | read | `{active, sessionId?, steps?, startedAt?}` |
-
-- **Recorder:** a listen-only session tap (left and right mouse down, key down), ignoring the helper's own `Input.marker` events. Targets come from the accessibility tree (`AXUIElementCopyElementAtPosition` for clicks, the focused element for keys): role, subrole, title or description, identifier, window title, app. It never reads `AXValue`.
-- **Steps:** typing into one field is coalesced into one `type` step, and backspace edits it. Keys that are not text become `press` steps with `KeyChord` names (`cmd+s`, `return`). A second click becomes `double_click`.
-- **Never recorded:**
-  - text typed into a password field: `secure: true`, no text, and backspace is ignored there;
-  - text typed while Secure Event Input is on (the field counts as secure, and taps get no keys anyway);
-  - text typed into an element whose target cannot be read;
-  - anything in Psyche, password managers, finance apps or system authority prompts: one `skipped` step with no target or text.
-- **Screenshots** (`screenshots: true`, needs Screen Recording): the clicked app's largest window, 300 ms after the click, downscaled, never for apps `computer.screenshot` excludes. The bytes ride on the `teach.step` event, and the draft lists `screens/step-N.jpg` by path.
-- **Draft:** `{sessionId, name, description, startedAt, endedAt, endedBy, steps, files}`. `SKILL.md` has frontmatter (`allowed-tools: ["computer.*", "apps.open", "apps.focus"]`, `metadata.psyche.source: teach`) and numbered steps that name targets by role and JSON-quoted label. App text is single-line, so a label cannot add lines to the skill. It parses with `packages/skills`' `parseSkill` and `manifestOf`.
-- **Nothing is written to disk.** After the owner reviews the draft, the Gateway writes it to `workspace/skills/<name>/`, and T2's `skill_install` trust card makes it active.
-
-#### Record in an app (J8 phase 2)
-
-What the desktop's "Record in an app" uses (docs/design/teach-by-showing-2026.md §13). The older `teach.*` above is unreachable from the Gateway and the desktop; these are the ones in use. Owner only: the Gateway offers them to the desktop shell on the Host through `teach.app.*`, never to `nodes.invoke` or the agent.
+What the desktop's "Record in an app" uses (docs/design/teach-by-showing-2026.md §13). The older J8 `teach.*` (event tap, screenshots) is removed. Owner only: the Gateway offers them to the desktop shell on the Host through `teach.app.*`, never to `nodes.invoke` or the agent.
 
 | Capability | Side effect | Notes |
 | --- | --- | --- |
-| `teach.record.start` | write (receipt `teach`, needs Accessibility) | `{bundleId}` of one app. Refused (`policy_denied`) unless the owner granted it in `config/computer-use.json` (Read, Click or Interact; not Ask or Off) and it is not Psyche, a system security prompt (`loginwindow`, `SecurityAgent`, ...), a password manager, or an app computer use caps below Interact (browsers, terminals, banking). `app_not_running` if the app is closed; `computer_busy` while the agent drives the computer. One recording at a time (`teach_busy`). Shows a menu-bar item "● Recording <App>" with a Stop |
+| `teach.record.start` | write (receipt `teach`, needs Accessibility) | `{bundleId}` of one app. Refused (`policy_denied`) unless the owner granted it in `config/computer-use.json` (Click or Interact; not Read, Ask or Off) and it is not Psyche, a system security prompt (`loginwindow`, `SecurityAgent`, ...), a password manager, or an app computer use caps below Interact (browsers, terminals, banking). `app_not_running` if the app is closed; `computer_busy` while the agent drives the computer (and computer use answers `recording_active` while a recording runs). The recording is bound to the process id and its Team ID, and the mouse tap is per process. One recording at a time (`teach_busy`). Shows a menu-bar item "● Recording <App>" with a Stop |
 | `teach.record.stop` | none | The steps, once, then forgotten: `{id, endedBy, app, steps, skipped}`. Steps are `app_click`, `app_type` and `app_menu` with role, name, title path and a fallback; a secure or secret field is `sensitive: true` with no value |
 | `teach.record.cancel` | none | Stops and drops everything |
 | `teach.record.status` | read | `{active, sessionId?, app?, steps?, startedAt?, ended?}`; `ended` is `limit`, `timeout` or `interrupted` (the app quit) while the steps wait to be collected (forgotten after 30 minutes) |
-| `computer.check_target` | read (Read tier) | Replay: `{app, role?, name?, identifier?, menuPath?}` looked up in the window (and the menu bar for a menu path) by exact role and name; `{status: found \| missing \| ambiguous, ref?, stop}`. Never matches a secure field |
+| `computer.check_target` | read (Read tier) | Replay: `{app, role, name?, identifier?, menuPath?}` (a role is required unless it is a menu path; `generic` means any) looked up in the window (and the menu bar for a menu path) by exact role and name; `{status: found \| missing \| ambiguous \| wrong_app, ref?, stop}`; a truncated snapshot answers ambiguous; never matches a secure field |
 
 - **Source:** an `AXObserver` on the app for focus, value-changed and menu-item notifications, plus a listen-only mouse tap limited to that app for presses (AX has no press notification). `AXValue` is read only for a field that passed the secure-field and sensitive-word checks. The decisions are pure and tested with recorded events (`AppTeachTests.swift`); the live source is checked by hand.
 - **No screenshots.** Keyboard shortcuts, Return and Tab, drag and scroll are not recorded.

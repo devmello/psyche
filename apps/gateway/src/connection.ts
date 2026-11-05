@@ -43,6 +43,17 @@ export const UNKNOWN_FRAME_ID = "_unknown";
  * budget allows. They need `operator.admin` and an owned session, and the terminal part meters
  * input bytes per session itself.
  */
+/**
+ * Methods whose result holds what the owner recorded: the idempotency record keeps only this
+ * projection, never the text (a replay inside the retry window still gets the draft's id and name).
+ */
+export const REPLAY_KEEPS: Record<string, (result: unknown) => unknown> = {
+  "skills.drafts.fromRecording": (result) => {
+    const d = (result as { draft?: Record<string, unknown> } | null)?.draft;
+    return d === undefined ? result : { draft: { ...d, text: "", steps: [] } };
+  },
+};
+
 const STREAM_METHODS: ReadonlySet<string> = new Set([
   "terminal.session.write",
   "terminal.session.resize",
@@ -314,6 +325,7 @@ export class Connection implements LiveConnection {
         return this.#execute(def, method, params, identity, { ref, hash });
       },
       def.transactional !== true,
+      REPLAY_KEEPS[method],
     );
   }
 

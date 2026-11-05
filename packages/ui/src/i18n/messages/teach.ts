@@ -97,7 +97,7 @@ export const teach = {
   "web.teach.app.pickHint":
     "Only apps you allowed for computer use are listed. Open the app first. Passwords, card numbers and codes are never recorded, and neither are Psyche's own windows or sign-in and security prompts.",
   "web.teach.app.none":
-    "No app is ready to record. Turn on computer use in Settings and give an app a level first.",
+    "No app is ready to record. Turn on computer use in Settings and give an app Click or Interact first.",
   "web.teach.app.start": "Start recording",
   "web.teach.app.cancelPick": "Not now",
   "web.teach.app.startFailed":

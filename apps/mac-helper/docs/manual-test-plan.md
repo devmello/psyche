@@ -257,6 +257,8 @@ Spike 06 restarted a 16 GB host under two guests plus an install. Never run thes
 
 ## 13b. Record in an app (J8 phase 2): use a throwaway Mail account or Notes, never real mail
 
+**Needs a real run by the owner before release:** the live AXObserver, the per-process mouse tap and the status item are compile-checked only (their decisions and the run-loop thread are unit-tested).
+
 The AXObserver source cannot run in unit tests; this is its check. Grant the app in Settings → Computer use first (Interact), and Accessibility to the helper.
 
 | # | Step | Expect |

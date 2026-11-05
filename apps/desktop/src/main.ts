@@ -797,9 +797,7 @@ function registerIpc(): void {
       { idempotencyKey: `teach-app-start:${Date.now()}` },
     ),
   );
-  handle(IPC.teachAppStop, () =>
-    requireGateway().call("teach.app.stop", {}, { idempotencyKey: `teach-app-stop:${Date.now()}` }),
-  );
+  handle(IPC.teachAppStop, () => requireGateway().call("teach.app.stop", {}));
   handle(IPC.teachAppCancel, () =>
     requireGateway().call(
       "teach.app.cancel",

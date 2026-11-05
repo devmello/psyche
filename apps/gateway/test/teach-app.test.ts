@@ -79,6 +79,10 @@ async function setup(grant = true) {
       { id: "com.psyche.desktop", name: "Psyche", tier: "interact" },
       { id: "com.apple.Terminal", name: "Terminal", tier: "interact" },
       { id: "com.apple.Safari", name: "Safari", tier: "read" },
+      { id: "com.example.ReadOnly", name: "Read only app", tier: "read" },
+      { id: "com.authy.authy-mac", name: "Authy", tier: "interact" },
+      { id: "org.electrum.electrum", name: "Electrum", tier: "interact" },
+      { id: "com.github.Electron", name: "Electron", tier: "interact" },
     ]);
   }
   const rec: Recorded = { capture: {} };
@@ -230,6 +234,10 @@ describe("what can be recorded", () => {
       "com.apple.Terminal",
       "com.apple.Safari",
       "com.example.Unlisted",
+      "com.example.ReadOnly",
+      "com.authy.authy-mac",
+      "org.electrum.electrum",
+      "com.github.Electron",
     ]) {
       const msg = await failure(desk.call("teach.app.start", { bundleId }, ik()));
       expect(msg, bundleId).toContain("policy_denied");
@@ -286,9 +294,14 @@ describe("the recording round trip", () => {
     const cap = await desk.call<{ steps: { kind: string; sample?: string }[]; skipped: number }>(
       "teach.app.stop",
       {},
-      ik(),
     );
     expect(cap.steps.map((s) => s.kind)).toEqual(["app_click", "app_type"]);
+    // What the owner typed is not kept for replay: no idempotency record holds it.
+    const rows = (composed?.db.sqlite
+      .prepare("SELECT method, result FROM gateway_idempotency")
+      .all() ?? []) as { method: string; result: string }[];
+    expect(rows.map((r) => r.method)).not.toContain("teach.app.stop");
+    expect(JSON.stringify(rows)).not.toContain("Quarterly");
     expect(cap.steps[1]?.sample).toBe("Quarterly report");
     expect(cap.skipped).toBe(3);
     // The receipt names the app and a count, never a name or a typed value.
@@ -300,6 +313,40 @@ describe("the recording round trip", () => {
     expect(mine).toContain("Recorded 2 steps in Mail");
     expect(mine).toContain("Started recording in Mail");
     expect(mine.join("\n")).not.toMatch(/Quarterly|Subject|New Message/);
+  });
+});
+
+describe("kept values are not copied into idempotency records", () => {
+  it("fromRecording keeps only the draft's identity for replay", async () => {
+    const { c, desk } = await setup();
+    const app = { bundleId: MAIL, name: "Mail" };
+    const key = ik();
+    const params = {
+      title: "Send the weekly note",
+      steps: [
+        {
+          id: "a1",
+          kind: "app_type",
+          app,
+          role: "textbox",
+          name: "Subject",
+          value: "ZebraKeptValue",
+          keepValue: true,
+        },
+      ],
+    };
+    const first = await desk.call<{ draft: { id: string; text: string } }>(
+      "skills.drafts.fromRecording",
+      params,
+      key,
+    );
+    expect(first.draft.text).toContain("ZebraKeptValue");
+    const rows = c.db.sqlite
+      .prepare("SELECT result FROM gateway_idempotency WHERE method = ?")
+      .all("skills.drafts.fromRecording") as { result: string }[];
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.result).not.toContain("ZebraKeptValue");
+    expect(rows[0]?.result).toContain(first.draft.id);
   });
 });
 

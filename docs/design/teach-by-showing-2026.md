@@ -223,25 +223,30 @@ owner clicks Start ─▶ renderer ─IPC (teachAppStart)─▶ desktop main ─
 
 ### 13.3 Which apps
 
-The app must be in **Settings → Computer use** with a tier of Read, Click or Interact (not Off, not Ask), with computer use on. The Gateway lists those (`teach.app.apps`) and checks again on start; the helper reads `config/computer-use.json` and checks a third time. Never recordable, whatever is granted:
+The app must be in **Settings → Computer use** with a tier of **Click or Interact** (not Read, not Off, not Ask), with computer use on. The Gateway lists those (`teach.app.apps`) and checks again on start; the helper reads `config/computer-use.json` and checks a third time. Never recordable, whatever is granted:
 
 - Psyche itself (`com.psyche.*`);
 - system security UIs: `loginwindow`, `SecurityAgent`, `LocalAuthentication.UIAgent`, `coreservices.uiagent`, Keychain Access, System Settings, the notification centre;
-- password managers;
+- password managers, authenticators and common crypto wallets (Strongbox, MacPass, KeePassium, RoboForm, Authy, Yubico, Electrum, Sparrow, Trezor Suite, Ledger Live, Exodus, and so on);
+- the unpackaged Electron shell (`com.github.Electron`), which Psyche's own dev build runs as;
 - anything computer use caps below Interact (browsers, terminals and IDEs, banking and trading apps): a replay could not act there, and a keystroke in a terminal is a command.
 
-An event from any other app than the recorded one is dropped. An event from a never-recorded app is dropped and counted.
+The never-list is one list: `TEACH_NEVER_APPS` in `packages/protocol/src/browser-teach.ts`, which `pnpm protocol:gen` also writes as Swift (`TeachNeverApps.generated.swift`), so the Gateway, the draft path and the helper cannot drift. A trailing `.` is a prefix; otherwise the id or the id plus `.something` matches.
+
+The recording is bound to the **process id** (and its code-signing Team ID, checked at start and on every focus change; a change ends the recording), not to the bundle-id string. The mouse tap is made for that pid only (`tapCreateForPid`; if it cannot be made, Start fails), the element's pid is checked before any attribute is read, and events from any other process are dropped. An event from a never-recorded app is dropped and counted.
 
 ### 13.4 Never recorded
 
 | What | How it is kept out |
 | --- | --- |
-| The contents of a **secure text field**, or a field with password, card, one-time-code, ID-number or secret semantics | Decided from the element **before its value is read**: `AXSecureTextField`, Secure Event Input being on (a password field anywhere has focus), or the same words as the browser's list (`TEACH_SENSITIVE_WORDS`, ported to Swift and tested) in its title, description, identifier, placeholder or label. `AXValue` is not read for such a field. It becomes one `app_type` step with `sensitive: true` and no value; the skill says "the owner does this themselves". |
-| A secret typed into an unlabelled field | The value is checked again for the shapes `classifyTeachValue` knows (Luhn card numbers, `ddd-dd-dddd`, tokens). A hit drops the value and makes the step sensitive. Checked a third time in the Gateway and a fourth in `sanitizeTeachSteps`. |
-| Screenshots | None. The phase 2 capabilities have no screenshot path. (The older J8 `teach.start` capability keeps its optional screenshots; it is unreachable from the Gateway and the desktop and nothing here uses it.) |
+| The contents of a **secure text field**, or a field with password, card, one-time-code, ID-number or secret semantics | Decided from the element **before its value is read**: `AXSecureTextField`, Secure Event Input being on (a password field anywhere has focus), or the same words as the browser's list (`TEACH_SENSITIVE_WORDS`, ported to Swift and tested) in its title, description, identifier, placeholder or label. The window, sheet and group titles above the field and the labels linked to it (`AXLinkedUIElements`) count as labels too. `AXValue` is not read for such a field, and a value change is accepted only from the field that has focus. It becomes one `app_type` step with `sensitive: true` and no value; the skill says "the owner does this themselves". |
+| A secret typed into an unlabelled field | The value is checked again for the shapes `classifyTeachValue` knows (Luhn card numbers, `ddd-dd-dddd`, tokens, URLs with a user and password, 12- or 24-word recovery phrases, and a short number next to a label that says code, pin, otp or token). A hit drops the value and makes the step sensitive. Checked a third time in the Gateway and a fourth in `sanitizeTeachSteps`. |
+| Screenshots | None. The phase 2 capabilities have no screenshot path, and the older J8 `teach.*` capability (event tap, optional screenshots) is removed from the helper. |
 | Other apps, Psyche, security prompts | §13.3. |
 | Text that could steer the agent | App text (titles, names, paths) is flattened to one line, redacted for emails, numbers and tokens, cut to 120 characters and quoted as untrusted data in the skill; roles come from a fixed list. |
 | What happens after Stop | The helper holds the steps in memory until `teach.record.stop` hands them over once, then forgets them. The Gateway passes them through without storing them. An unclaimed recording is forgotten after 30 minutes. Receipts name the app and a step count, never a name or a typed value. |
+
+Window titles (a document's name) are left out of paths, and a row, cell or list item is recorded by its role only ("a row"), never by what it contains: that is the user's data, not the app's controls.
 
 Typed values are masked by default exactly as in §4. The example reaches the review screen in memory (helper, then the Gateway process, then the renderer) and is sent back only for a step set to **Keep this value**.
 
@@ -257,7 +262,7 @@ The review screen and `skills.drafts.fromRecording` are the browser's. `BrowserT
 
 "Run it once now" fills the message box, as in §6. The skill declares `apps.open`, `apps.focus`, `computer.snapshot`, `computer.check_target` and `computer.act`, so every action goes through the agent loop and the permission broker with the app's tier, the risky-label checks (`delete`, `send`, ...), the send-app rules and the usual approval cards. It never widens what the agent may do.
 
-`computer.check_target` is the read-only twin of `browser.check_target`: it takes the app and the step's role and name (or identifier, or menu path), snapshots the window (and the menu bar for a menu step) and answers `found`, `missing` or `ambiguous` by **exact role and name** (case and spacing ignored; for a menu, the whole chain of titles). Anything but `found` carries `stop: true` and the skill tells the agent to stop and ask. A secure field is never a target. When found, the agent takes `computer.snapshot` and acts on that ref with `expect` copied from it, so the existing stale-ref and expectation checks apply. The tool needs only the Read tier.
+`computer.check_target` is the read-only twin of `browser.check_target`: it takes the app and the step's role and name (or identifier, or menu path), snapshots the window (and the menu bar for a menu step) and answers `found`, `missing` or `ambiguous` by **exact role and name** (case and spacing ignored; for a menu, the whole chain of titles). Anything but `found` carries `stop: true` and the skill tells the agent to stop and ask. A secure field is never a target. When found, the agent takes `computer.snapshot` and acts on that ref with `expect` copied from it, so the existing stale-ref and expectation checks apply. It needs a role (`generic` means any) unless it is a menu step; a snapshot that was cut short answers `ambiguous` instead of `found`; and a window of another app than the recorded one answers `wrong_app`. The tool needs only the Read tier. While a recording runs, the helper refuses computer use (`recording_active`), so the agent and the owner's demonstration never overlap.
 
 ### 13.8 Threat model (additions)
 
@@ -275,7 +280,10 @@ The review screen and `skills.drafts.fromRecording` are the browser's. `BrowserT
 
 - **The AX observer cannot be exercised in tests.** The decisions are tested with recorded event fixtures (`AppTeachTests.swift`, `AppTeachControllerTests.swift`); the live source (`LiveAppTeach.swift`) is covered only by a manual pass. See `apps/mac-helper/docs/manual-test-plan.md`.
 - Apps with poor AX trees (Electron, games, canvas apps) give unnamed controls; those steps are left out and counted.
-- A tier of Read is enough to be listed, because recording only observes. A skill recorded in a Read-tier app cannot be replayed until the owner raises the tier; the replay stops with the tier message.
+- A Read tier is not enough to be listed: a recording is only worth keeping where the agent may act.
+- **Scheduled runs.** The skill text carries `metadata.psyche.recordedIn: mac_app`. Scheduled runs of recording skills (#1247) must refuse a skill with that marker, or whose allowed-tools include `computer.*`, for now ("Scheduled runs are for browser recordings for now"). That refusal lives with #1247 and is not in this PR if #1247 had not merged yet.
+- **Idempotency.** `teach.app.stop` is deliberately not side-effecting, so no idempotency record (kept 7 days) ever holds what the owner typed. `skills.drafts.fromRecording` keeps only the draft's identity for replay, not its text.
 - Keyboard-driven work (shortcuts, Return, Tab) is not recorded. Adding it needs a chord policy first.
-- The older J8 `teach.*` capabilities (event tap, optional screenshots, whole-draft result) stay in the helper, unreachable. Removing them is a follow-up.
-- Typed examples pass through the Gateway process in memory on their way to the review screen. If that is not acceptable, the alternative is a direct helper-to-main channel; it was not built.
+- The older J8 `teach.*` helper capabilities are gone (they had no caller). The `TeachStep` schema in `schemas/teach.ts` is left as it was.
+- The live source cannot be tested without Accessibility; its thread is tested (`RunLoopThreadTests`), the rest needs the owner's pass over `apps/mac-helper/docs/manual-test-plan.md` §13b.
+- Typed examples pass through the Gateway process in memory on their way to the review screen (never stored, logged or kept in an idempotency record). The alternative is a direct helper-to-main channel; it was not built.

@@ -1,5 +1,6 @@
 import Foundation
 @testable import PsycheHelperCore
+import PsycheProtocol
 import Testing
 
 // Recorded AX event fixtures for "Record in an app" (J8 phase 2). The live AXObserver cannot run
@@ -45,7 +46,9 @@ private func cardNumber() -> String {
 struct AppTeachPolicyTests {
     @Test func grantedAppsOnly() {
         #expect(AppTeachPolicy.refusal(bundleId: mail, settings: settings()) == nil)
-        #expect(AppTeachPolicy.refusal(bundleId: mail, settings: settings([mail: .read])) == nil)
+        #expect(AppTeachPolicy.refusal(bundleId: mail, settings: settings([mail: .click])) == nil)
+        // Read alone is not enough: the agent could not act in the app anyway.
+        #expect(AppTeachPolicy.refusal(bundleId: mail, settings: settings([mail: .read])) == .notGranted)
         #expect(AppTeachPolicy.refusal(bundleId: mail, settings: settings([:])) == .notGranted)  // default: ask
         #expect(AppTeachPolicy.refusal(bundleId: mail, settings: settings([mail: .off])) == .notGranted)
         #expect(AppTeachPolicy.refusal(bundleId: mail, settings: settings([mail: .ask])) == .notGranted)
@@ -90,6 +93,40 @@ struct AppTeachPolicyTests {
         for ok in ["Subject", "To", "Cc", "Search", "Name", "Amount"] {
             #expect(!AppTeachPolicy.isSecret(el("AXTextField", title: ok)), "\(ok)")
         }
+    }
+
+    @Test func theSharedNeverListCoversManagersAuthenticatorsWalletsAndDevElectron() {
+        let ids = [
+            "com.markmcguill.strongbox.mac", "com.hicknhacksoftware.MacPass", "com.keepassium.mac", "com.outercorner.Secrets",
+            "com.siber.roboform", "com.authy.authy-mac", "com.yubico.authenticator", "com.stepwise.StepTwo",
+            "org.electrum.electrum", "com.sparrowwallet.Sparrow", "io.trezor.suite", "com.ledger.live", "com.exodus.wallet",
+            "com.github.Electron", "COM.GITHUB.ELECTRON",
+        ]
+        let s = settings(Dictionary(uniqueKeysWithValues: ids.map { ($0, TierSettings.Value.interact) }))
+        for id in ids { #expect(AppTeachPolicy.refusal(bundleId: id, settings: s) != nil, "\(id)") }
+        // A neighbour with a similar prefix is not caught.
+        #expect(AppTeachPolicy.refusal(bundleId: "com.githubx.Notes", settings: settings(["com.githubx.Notes": .interact])) == nil)
+        #expect(!TeachNeverApps.patterns.isEmpty)
+    }
+
+    @Test func pathAndNearbyLabelsCountForTheSecretWords() {
+        #expect(AppTeachPolicy.isSecret(el("AXTextField", title: "Field", path: ["Enter your verification code"])))
+        var e = el("AXTextField", title: "Field")
+        e.nearby = ["Recovery phrase"]
+        #expect(AppTeachPolicy.isSecret(e))
+        #expect(!AppTeachPolicy.isSecret(el("AXTextField", title: "Field", path: ["New Message"])))
+    }
+
+    @Test func moreSecretShapes() {
+        let phrase = (0..<12).map { _ in "abandon" }.joined(separator: " ")
+        #expect(AppTeachPolicy.valueReason(phrase) == .secret)
+        #expect(AppTeachPolicy.valueReason((0..<24).map { _ in "zoo" }.joined(separator: " ")) == .secret)
+        #expect(AppTeachPolicy.valueReason((0..<11).map { _ in "abandon" }.joined(separator: " ")) == nil)
+        #expect(AppTeachPolicy.valueReason("https://" + "dana" + ":" + "pw" + "@example.com/x") == .secret)
+        #expect(AppTeachPolicy.valueReason("https://example.com/x") == nil)
+        #expect(AppTeachPolicy.valueReason("123456", label: "Code") == .oneTimeCode)
+        #expect(AppTeachPolicy.valueReason("123456", label: "Quantity") == nil)
+        #expect(AppTeachPolicy.valueReason("123456") == nil)
     }
 
     @Test func valuesThatLookLikeSecretsAreCaught() {
@@ -137,6 +174,7 @@ struct AppTeachMapperTests {
         let m = mapper()
         let to = el("AXTextField", title: "To")
         let cc = el("AXTextField", title: "Cc")
+        m.handle(.focus(to))
         m.handle(.valueChanged(to, value: "a"))
         m.handle(.valueChanged(to, value: "ana@example.com"))
         m.handle(.focus(cc))  // leaving the field flushes it
@@ -164,8 +202,12 @@ struct AppTeachMapperTests {
 
     @Test func secureEventInputAndSecretWordsMarkAFieldSensitive() {
         let m = mapper()
-        m.handle(.valueChanged(el("AXTextField", title: "Subject", secureInput: true), value: "secret subject"))
-        m.handle(.valueChanged(el("AXTextField", title: "Verification code"), value: "123456"))
+        let subject = el("AXTextField", title: "Subject", secureInput: true)
+        let code = el("AXTextField", title: "Verification code")
+        m.handle(.focus(subject))
+        m.handle(.valueChanged(subject, value: "secret subject"))
+        m.handle(.focus(code))
+        m.handle(.valueChanged(code, value: "123456"))
         let steps = m.finish()
         #expect(steps.map(\.sensitive) == [true, true])
         #expect(steps.allSatisfy { $0.sample == nil })
@@ -175,12 +217,46 @@ struct AppTeachMapperTests {
         let m = mapper()
         let note = el("AXTextArea", title: "Body")
         let card = cardNumber()
+        m.handle(.focus(note))
         m.handle(.valueChanged(note, value: card))
         let steps = m.finish()
         #expect(steps.count == 1)
         #expect(steps[0].sensitive == true && steps[0].sample == nil)
         let json = String(decoding: (try? JSONEncoder().encode(steps)) ?? Data(), as: UTF8.self)
         #expect(!json.contains(card))
+    }
+
+    @Test func valueChangesAreAcceptedFromTheFocusedFieldOnly() {
+        let m = mapper()
+        let subject = el("AXTextField", title: "Subject")
+        let other = el("AXTextField", title: "Search")
+        // No focus yet: nothing counts.
+        m.handle(.valueChanged(subject, value: "early"))
+        m.handle(.focus(subject))
+        m.handle(.valueChanged(other, value: "typed elsewhere"))
+        m.handle(.valueChanged(subject, value: "Weekly"))
+        let steps = m.finish()
+        #expect(steps.map(\.name) == ["Subject"] && steps[0].sample == "Weekly")
+    }
+
+    @Test func theRecordingIsBoundToTheProcess() {
+        let m = mapper()
+        m.bind(pid: 100)
+        var mine = el("AXButton", title: "Archive")
+        mine.pid = 100
+        var imposter = el("AXButton", title: "Delete")  // same bundle id string, another process
+        imposter.pid = 200
+        #expect(m.handle(.press(imposter)).isEmpty)
+        #expect(m.handle(.press(mine)).count == 1)
+    }
+
+    @Test func rowsAndCellsAreRecordedByRoleNeverByContent() {
+        let m = mapper()
+        let row = el("AXRow", title: "Invoice from dana@example.com", description: "Re: layoffs", identifier: "row7", path: ["Inbox", "Quiet subject"])
+        let step = m.handle(.press(row)).first
+        #expect(step?.role == "row" && step?.name == nil && step?.fallback == nil && step?.path == ["row"])
+        let json = String(decoding: (try? JSONEncoder().encode(m.finish())) ?? Data(), as: UTF8.self)
+        #expect(!json.contains("dana") && !json.contains("layoffs") && !json.contains("Quiet"))
     }
 
     @Test func onlyTextFieldsAreTypedInto() {

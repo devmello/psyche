@@ -16,6 +16,15 @@ public final class ComputerUse: @unchecked Sendable {
     private let escLock = NSLock()
     private let settingsPath: String
     private let log: HelperLog
+    /// True while the owner is recording a demonstration: the agent does not drive the computer then.
+    public var isRecording: @Sendable () -> Bool = { false }
+
+    func refuseWhileRecording() throws {
+        if isRecording() {
+            throw CapabilityError(.conflict, reason: "recording_active", "The owner is recording a demonstration; computer use waits until they stop", retryable: true)
+        }
+    }
+
     /// Notified when the user presses Esc during a session (the app shows / logs it).
     public var onUserStop: (@Sendable (String?) -> Void)?
 
@@ -50,6 +59,7 @@ public final class ComputerUse: @unchecked Sendable {
     /// Session lock for one mutating call. The Gateway must name the session (the run id): a
     /// shared default would let one Esc block every later run, or let runs share a lock.
     func beginAction(session: String?) throws {
+        try refuseWhileRecording()
         guard let session, !session.isEmpty, session.count <= 128 else {
             throw CapabilityError.invalidParams("session (the run id) is required for computer actions", field: "session")
         }
@@ -185,15 +195,26 @@ public enum ComputerCapabilities {
             permissions: [.accessibility]
         )) { ctx in
             let p = try ctx.decode(CheckTargetParams.self)
+            try cu.refuseWhileRecording()
+            let isMenu = !(p.menuPath ?? []).isEmpty
+            // A role is required (`generic` means any): a name alone would match the wrong kind of element.
+            guard isMenu || !(p.role ?? "").isEmpty else { throw CapabilityError.invalidParams("role is required", field: "role") }
             cu.ensureEscTap()
             cu.reloadSettings()
             let app = try AXEngine.findApp(p.app, pid: nil)
             try cu.policy.authorize(.read, bundleId: app.bundleIdentifier, appName: app.localizedName ?? "app", approval: binding(ctx))
-            let isMenu = !(p.menuPath ?? []).isEmpty
             let o = AXSnapshotOptions.clamped(maxVisit: 8000, maxEmit: 2000, textMax: 400, valueMax: 20, clip: true)
             let req = AXEngine.SnapshotRequest(app: app, window: nil, root: isMenu ? "app" : nil, menubar: isMenu, options: o)
             let (snap, target) = try await cu.engine.run { try $0.snapshot(req) }
-            let outcome = AXTargetCheck.check(snap.nodes, AXTargetCheck.Query(role: p.role, name: p.name, identifier: p.identifier, menuPath: p.menuPath))
+            // The app that answered is not the one the recording was made in: a stop.
+            let wanted = (p.app ?? "").lowercased()
+            if wanted.contains("."), let got = target.bundleId?.lowercased(), got != wanted {
+                return CapabilityOutput(["status": "wrong_app", "app": .string(target.bundleId ?? target.name), "stop": true, "provenance": "untrusted",
+                                         "hint": "This is not the app the recording was made in. Ask the owner."])
+            }
+            var outcome = AXTargetCheck.check(snap.nodes, AXTargetCheck.Query(role: p.role, name: p.name, identifier: p.identifier, menuPath: p.menuPath))
+            // A truncated snapshot cannot show that a match is the only one.
+            if snap.header.truncated != nil, case .found(let ref, _, _) = outcome { outcome = .ambiguous([ref]) }
             var result: [String: JSONValue] = [
                 "status": .string(outcome.status), "app": .string(target.bundleId ?? target.name),
                 "stop": .bool(outcome.status != "found"), "provenance": "untrusted",
@@ -235,6 +256,7 @@ public enum ComputerCapabilities {
             let p = try ctx.decode(SnapshotParams.self)
             cu.ensureEscTap()
             cu.reloadSettings()
+            try cu.refuseWhileRecording()
             let app = try AXEngine.findApp(p.app, pid: p.pid)
             try cu.policy.authorize(.read, bundleId: app.bundleIdentifier, appName: app.localizedName ?? "app", approval: binding(ctx))
             let o = AXSnapshotOptions.clamped(maxVisit: p.maxVisit, maxEmit: p.maxEmit, textMax: p.textMax, valueMax: p.valueMax, clip: p.clip)

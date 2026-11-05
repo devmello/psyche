@@ -31006,7 +31006,6 @@ public struct TeachAppChoice: Codable, Sendable {
 public enum Tier: String, Codable, Sendable {
     case click = "click"
     case interact = "interact"
-    case read = "read"
 }
 
 // MARK: - TeachAppCancelResult

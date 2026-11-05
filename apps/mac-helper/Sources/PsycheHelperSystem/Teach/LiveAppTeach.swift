@@ -5,83 +5,162 @@ import CoreGraphics
 import Foundation
 import PsycheHelperCore
 
-/// The live source for "Record in an app": an `AXObserver` on one app for focus, value and
-/// menu-item notifications, plus a listen-only mouse tap for presses and menu choices (AX has no
-/// notification for a button press). Nothing here decides what is kept: it reads an element's
-/// role, titles and identifier, never a field's contents unless `AppTeachPolicy` already cleared
-/// the field, and hands `AppTeachEvent`s to the mapper. No screenshots are taken.
+/// A thread that runs a run loop for a source's observer and tap. `start` returns once `install`
+/// has run on the new thread. Nothing here takes a lock the caller holds, so a caller holding its
+/// own state lock around `start` cannot deadlock against the thread (it did once: the thread
+/// needed the caller's lock before it could signal readiness).
+final class RunLoopThread: @unchecked Sendable {
+    private final class Box: @unchecked Sendable { var loop: CFRunLoop? }
+    private let name: String
+    private let box = Box()
+    private let guardLock = NSLock()
+    private var running = false
+
+    init(name: String) { self.name = name }
+
+    /// Runs `install(loop)` on the new thread's run loop; false if it did not come up in `timeout`.
+    func start(timeout: TimeInterval = 5, install: @escaping @Sendable (CFRunLoop) -> Void) -> Bool {
+        let ready = DispatchSemaphore(value: 0)
+        let box = self.box
+        let t = Thread {
+            let loop = CFRunLoopGetCurrent()!
+            box.loop = loop
+            install(loop)
+            ready.signal()
+            CFRunLoopRun()
+        }
+        t.name = name
+        t.qualityOfService = .userInitiated
+        t.start()
+        guard ready.wait(timeout: .now() + timeout) == .success else { return false }
+        guardLock.withLock { running = true }
+        return true
+    }
+
+    /// Stops the run loop; safe to call twice and from any thread.
+    func stop() {
+        let loop: CFRunLoop? = guardLock.withLock {
+            defer { running = false }
+            return running ? box.loop : nil
+        }
+        if let loop { CFRunLoopStop(loop) }
+    }
+}
+
+/// Code-signing Team ID of a running process (nil when unsigned or unreadable).
+func codeSigningTeamID(pid: pid_t) -> String? {
+    var code: SecCode?
+    let attrs = [kSecGuestAttributePid: pid] as CFDictionary
+    guard SecCodeCopyGuestWithAttributes(nil, attrs, [], &code) == errSecSuccess, let code else { return nil }
+    var staticCode: SecStaticCode?
+    guard SecCodeCopyStaticCode(code, [], &staticCode) == errSecSuccess, let staticCode else { return nil }
+    var info: CFDictionary?
+    guard SecCodeCopySigningInformation(staticCode, SecCSFlags(rawValue: kSecCSSigningInformation), &info) == errSecSuccess,
+          let dict = info as? [String: Any]
+    else { return nil }
+    return dict[kSecCodeInfoTeamIdentifier as String] as? String
+}
+
+/// The live source for "Record in an app": an `AXObserver` on one process for focus and menu-item
+/// notifications, a value-changed watch on the focused field only, and a listen-only mouse tap
+/// for that process alone (`tapCreateForPid`; AX has no notification for a press). It reads an
+/// element's role, titles, identifier and neighbouring labels, never a field's contents unless
+/// `AppTeachPolicy` cleared the field. No screenshots are taken. The recording is bound to the
+/// process id and its code-signing Team ID at start.
 ///
-/// Not exercised by the unit tests (it needs Accessibility and a real app); the decisions it
-/// feeds are, with recorded event fixtures (`AppTeachTests`).
+/// Not exercised by the unit tests (it needs Accessibility and a real app); the decisions it feeds
+/// are, with recorded events (`AppTeachTests`), and its thread is (`RunLoopThreadTests`).
 final class LiveAppTeachSource: AppTeachSource, @unchecked Sendable {
     private let queue = DispatchQueue(label: "com.psyche.helper.teach-app")
     private let lock = NSLock()
     private var bundleId = ""
     private var pid: pid_t = 0
+    private var teamId: String?
     private var observer: AXObserver?
     private var appElement: AXUIElement?
     private var valueWatched: AXUIElement?
-    private var runLoop: CFRunLoop?
+    private var loopThread: RunLoopThread?
     private var tap: CFMachPort?
     private var tapRef: UnsafeMutableRawPointer?
     private var onEvent: (@Sendable (AppTeachEvent, Date) -> Void)?
+    private var onEnd: (@Sendable () -> Void)?
     private var termination: NSObjectProtocol?
     private var menuCandidate: AppTeachElement?
 
-    func start(bundleId: String, onEvent: @escaping @Sendable (AppTeachEvent, Date) -> Void, onEnd: @escaping @Sendable () -> Void) -> Bool {
+    func start(
+        bundleId: String, bind: @escaping @Sendable (Int32) -> Void, onEvent: @escaping @Sendable (AppTeachEvent, Date) -> Void,
+        onEnd: @escaping @Sendable () -> Void
+    ) -> Bool {
         guard AXIsProcessTrusted(),
               let app = NSWorkspace.shared.runningApplications.first(where: { $0.bundleIdentifier?.lowercased() == bundleId.lowercased() })
         else { return false }
-        lock.lock()
-        defer { lock.unlock() }
-        guard observer == nil else { return false }
-        self.bundleId = bundleId
-        self.onEvent = onEvent
-        pid = app.processIdentifier
+        // Quick state check only; nothing below waits on another thread while holding the lock.
+        let fresh = lock.withLock { () -> Bool in
+            guard observer == nil, loopThread == nil else { return false }
+            self.bundleId = bundleId
+            self.onEvent = onEvent
+            self.onEnd = onEnd
+            return true
+        }
+        guard fresh else { return false }
+        let pid = app.processIdentifier
+        self.pid = pid
+        teamId = codeSigningTeamID(pid: pid)
+        bind(pid)
         let appEl = AXUIElementCreateApplication(pid)
         AXUIElementSetMessagingTimeout(appEl, 0.5)
-        appElement = appEl
 
-        var obs: AXObserver?
+        var made: AXObserver?
         guard AXObserverCreate(pid, { _, element, notification, refcon in
             guard let refcon else { return }
             Unmanaged<LiveAppTeachSource>.fromOpaque(refcon).takeUnretainedValue().notified(element, notification as String)
-        }, &obs) == .success, let obs else { return false }
-        observer = obs
+        }, &made) == .success, let obs = made else { reset(); return false }
         let ref = Unmanaged.passRetained(self).toOpaque()
-        tapRef = ref
-        for n in [kAXFocusedUIElementChangedNotification, kAXMenuItemSelectedNotification, kAXValueChangedNotification] {
+        // Focus and menu notifications only. A value watch is added on the focused field alone.
+        for n in [kAXFocusedUIElementChangedNotification, kAXMenuItemSelectedNotification] {
             AXObserverAddNotification(obs, appEl, n as CFString, ref)
         }
 
+        // The tap sees this process's events and nothing else; without it there is no recording.
         let types: [CGEventType] = [.leftMouseDown, .leftMouseUp]
         let mask = types.reduce(CGEventMask(0)) { $0 | (1 << $1.rawValue) }
-        tap = CGEvent.tapCreate(
-            tap: .cgSessionEventTap, place: .tailAppendEventTap, options: .listenOnly, eventsOfInterest: mask,
+        guard let port = CGEvent.tapCreateForPid(
+            pid: pid, place: .tailAppendEventTap, options: .listenOnly, eventsOfInterest: mask,
             callback: { _, type, event, refcon in
                 if let refcon { Unmanaged<LiveAppTeachSource>.fromOpaque(refcon).takeUnretainedValue().mouse(type, event) }
                 return Unmanaged.passUnretained(event)
             }, userInfo: ref
-        )
-
-        let ready = DispatchSemaphore(value: 0)
-        let obsBox = UncheckedSendable(obs)
-        let tapBox = UncheckedSendable(tap)
-        let t = Thread { [weak self, obsBox, tapBox] in
-            CFRunLoopAddSource(CFRunLoopGetCurrent(), AXObserverGetRunLoopSource(obsBox.value), .commonModes)
-            if let port = tapBox.value, let src = CFMachPortCreateRunLoopSource(nil, port, 0) {
-                CFRunLoopAddSource(CFRunLoopGetCurrent(), src, .commonModes)
-                CGEvent.tapEnable(tap: port, enable: true)
-            }
-            self?.lock.withLock { self?.runLoop = CFRunLoopGetCurrent() }
-            ready.signal()
-            CFRunLoopRun()
+        ) else {
+            for n in [kAXFocusedUIElementChangedNotification, kAXMenuItemSelectedNotification] { AXObserverRemoveNotification(obs, appEl, n as CFString) }
+            Unmanaged<LiveAppTeachSource>.fromOpaque(ref).release()
+            reset()
+            return false
         }
-        t.name = "com.psyche.helper.teach-app-ax"
-        t.qualityOfService = .userInitiated
-        t.start()
-        ready.wait()
 
+        let thread = RunLoopThread(name: "com.psyche.helper.teach-app-ax")
+        let obsBox = UncheckedSendable(obs)
+        let portBox = UncheckedSendable(port)
+        // The install closure takes no lock of ours.
+        let up = thread.start { loop in
+            CFRunLoopAddSource(loop, AXObserverGetRunLoopSource(obsBox.value), .commonModes)
+            if let src = CFMachPortCreateRunLoopSource(nil, portBox.value, 0) {
+                CFRunLoopAddSource(loop, src, .commonModes)
+                CGEvent.tapEnable(tap: portBox.value, enable: true)
+            }
+        }
+        guard up else {
+            CFMachPortInvalidate(port)
+            Unmanaged<LiveAppTeachSource>.fromOpaque(ref).release()
+            reset()
+            return false
+        }
+        lock.withLock {
+            observer = obs
+            appElement = appEl
+            tap = port
+            tapRef = ref
+            loopThread = thread
+        }
         termination = NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didTerminateApplicationNotification, object: nil, queue: nil) { [pid] note in
             if (note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.processIdentifier == pid { onEnd() }
         }
@@ -90,34 +169,41 @@ final class LiveAppTeachSource: AppTeachSource, @unchecked Sendable {
         return true
     }
 
+    private func reset() {
+        lock.withLock {
+            onEvent = nil
+            onEnd = nil
+        }
+    }
+
     func stop() {
         lock.lock()
-        let obs = observer, appEl = appElement, watched = valueWatched, port = tap, loop = runLoop, ref = tapRef, term = termination
+        let obs = observer, appEl = appElement, watched = valueWatched, port = tap, thread = loopThread, ref = tapRef, term = termination
         observer = nil
         appElement = nil
         valueWatched = nil
         tap = nil
-        runLoop = nil
+        loopThread = nil
         tapRef = nil
         termination = nil
         onEvent = nil
+        onEnd = nil
         menuCandidate = nil
         lock.unlock()
         if let term { NSWorkspace.shared.notificationCenter.removeObserver(term) }
-        if let obs {
-            if let appEl {
-                for n in [kAXFocusedUIElementChangedNotification, kAXMenuItemSelectedNotification, kAXValueChangedNotification] {
-                    AXObserverRemoveNotification(obs, appEl, n as CFString)
-                }
-            }
-            if let watched { AXObserverRemoveNotification(obs, watched, kAXValueChangedNotification as CFString) }
-            CFRunLoopRemoveSource(loop ?? CFRunLoopGetMain(), AXObserverGetRunLoopSource(obs), .commonModes)
-        }
         if let port {
             CGEvent.tapEnable(tap: port, enable: false)
             CFMachPortInvalidate(port)
         }
-        if let loop { CFRunLoopStop(loop) }
+        if let obs {
+            if let appEl {
+                for n in [kAXFocusedUIElementChangedNotification, kAXMenuItemSelectedNotification] {
+                    AXObserverRemoveNotification(obs, appEl, n as CFString)
+                }
+            }
+            if let watched { AXObserverRemoveNotification(obs, watched, kAXValueChangedNotification as CFString) }
+        }
+        thread?.stop()
         if let ref {
             // Queued callbacks may still hold the pointer; release after them.
             let box = UncheckedSendable(ref)
@@ -144,10 +230,20 @@ final class LiveAppTeachSource: AppTeachSource, @unchecked Sendable {
         handler?(event, Date())
     }
 
+    /// The process is still the one the recording started with (same code-signing Team ID).
+    private func stillTheSameApp() -> Bool {
+        guard NSRunningApplication(processIdentifier: pid) != nil, codeSigningTeamID(pid: pid) == teamId else {
+            let end = lock.withLock { onEnd }
+            end?()
+            return false
+        }
+        return true
+    }
+
     private func focusChanged(_ given: AXUIElement?) {
-        guard let obs = lock.withLock({ observer }) else { return }
+        guard let obs = lock.withLock({ observer }), stillTheSameApp() else { return }
         let el: AXUIElement? = given.flatMap(Self.focused(in:)) ?? lock.withLock({ appElement }).flatMap { Self.focused(in: $0) }
-        guard let el, let info = Self.element(el, bundleId: bundleId) else { return }
+        guard let el, let info = Self.element(el, pid: pid, bundleId: bundleId) else { return }
         // Watch value changes on this field only; the previous field stops being watched.
         let previous = lock.withLock { () -> AXUIElement? in
             let p = valueWatched
@@ -160,7 +256,9 @@ final class LiveAppTeachSource: AppTeachSource, @unchecked Sendable {
     }
 
     private func valueChanged(_ el: AXUIElement) {
-        guard var info = Self.element(el, bundleId: bundleId) else { return }
+        // Only the focused field's value counts.
+        guard let watched = lock.withLock({ valueWatched }), CFEqual(watched, el) else { return }
+        guard var info = Self.element(el, pid: pid, bundleId: bundleId) else { return }
         info.secureInput = info.secureInput || IsSecureEventInputEnabled()
         // The field's contents are read only when its role, labels and the input state say it is
         // not a secret field. The mapper checks again.
@@ -179,11 +277,13 @@ final class LiveAppTeachSource: AppTeachSource, @unchecked Sendable {
             return
         }
         guard event.getIntegerValueField(.eventSourceUserData) != Input.marker else { return }
+        // Belt and braces: the tap is already per process.
+        guard pid_t(event.getIntegerValueField(.eventTargetUnixProcessID)) == pid else { return }
         let point = event.location
         let down = type == .leftMouseDown
         queue.async { [self] in
             if down {
-                guard var info = Self.element(at: point, bundleId: bundleId) else { return }
+                guard var info = Self.element(at: point, pid: pid, bundleId: bundleId) else { return }
                 info.secureInput = info.secureInput || IsSecureEventInputEnabled()
                 if AppTeachRoles.menuItems.contains(info.role) {
                     lock.withLock { menuCandidate = info }
@@ -203,33 +303,43 @@ final class LiveAppTeachSource: AppTeachSource, @unchecked Sendable {
     // MARK: Reading elements
 
     static func focused(in el: AXUIElement) -> AXUIElement? {
-        return AX.element(AX.attr(el, kAXFocusedUIElementAttribute))
+        AX.element(AX.attr(el, kAXFocusedUIElementAttribute))
     }
 
-    static func element(at point: CGPoint, bundleId: String) -> AppTeachElement? {
+    static func element(at point: CGPoint, pid: pid_t, bundleId: String) -> AppTeachElement? {
         var el: AXUIElement?
         let sys = AXUIElementCreateSystemWide()
         AXUIElementSetMessagingTimeout(sys, 0.5)
         guard AXUIElementCopyElementAtPosition(sys, Float(point.x), Float(point.y), &el) == .success, let el else { return nil }
-        return element(el, bundleId: bundleId)
+        return element(el, pid: pid, bundleId: bundleId)
     }
 
     /// Role, titles, identifier, the titles of its ancestors and, for a menu item, the menu path.
-    /// Never `AXValue`.
-    static func element(_ el: AXUIElement, bundleId expected: String) -> AppTeachElement? {
-        guard let pid = AX.pid(el), let app = NSRunningApplication(processIdentifier: pid) else { return nil }
+    /// The element's process is checked **before any attribute is read**; anything outside the
+    /// recorded process yields nothing. Never `AXValue`. Window titles are left out of the path
+    /// (a document's name is the user's data); sheet and group titles stay.
+    static func element(_ el: AXUIElement, pid expected: pid_t, bundleId: String) -> AppTeachElement? {
+        guard AX.pid(el) == expected else { return nil }
         AXUIElementSetMessagingTimeout(el, 0.5)
-        let id = app.bundleIdentifier ?? "pid.\(pid)"
         let role = AX.string(AX.attr(el, kAXRoleAttribute)) ?? "AXUnknown"
         var out = AppTeachElement(
-            bundleId: id, appName: app.localizedName ?? "App", role: role, subrole: AX.string(AX.attr(el, kAXSubroleAttribute)),
+            bundleId: bundleId, appName: NSRunningApplication(processIdentifier: expected)?.localizedName ?? "App", role: role,
+            subrole: AX.string(AX.attr(el, kAXSubroleAttribute)),
             title: AX.string(AX.attr(el, kAXTitleAttribute)), description: AX.string(AX.attr(el, kAXDescriptionAttribute)),
             identifier: AX.string(AX.attr(el, kAXIdentifierAttribute)), placeholder: AX.string(AX.attr(el, kAXPlaceholderValueAttribute)),
-            secureInput: IsSecureEventInputEnabled()
+            secureInput: IsSecureEventInputEnabled(), pid: expected
         )
-        // Anything outside the app being recorded is not described further.
-        guard id.lowercased() == expected.lowercased() else { return out }
-        if let labelEl = AX.element(AX.attr(el, kAXTitleUIElementAttribute)) { out.labelText = AX.string(AX.attr(labelEl, kAXValueAttribute)) ?? AX.string(AX.attr(labelEl, kAXTitleAttribute)) }
+        // A row or cell is the user's data: nothing but its role is kept (the mapper drops the rest).
+        if AppTeachRoles.dataRoles.contains(role) { return out }
+        if let labelEl = AX.element(AX.attr(el, kAXTitleUIElementAttribute)) {
+            out.labelText = AX.string(AX.attr(labelEl, kAXValueAttribute)) ?? AX.string(AX.attr(labelEl, kAXTitleAttribute))
+        }
+        // Linked labels ("Verification code" drawn beside a box) count for the secret-word check.
+        for linked in AX.elements(AX.attr(el, "AXLinkedUIElements")).prefix(3) {
+            if let t = AX.string(AX.attr(linked, kAXTitleAttribute)) ?? AX.string(AX.attr(linked, kAXValueAttribute)), !t.isEmpty {
+                out.nearby.append(String(t.prefix(120)))
+            }
+        }
         var path: [String] = []
         var menu: [String] = []
         var cursor = AX.element(AX.attr(el, kAXParentAttribute))
@@ -237,8 +347,11 @@ final class LiveAppTeachSource: AppTeachSource, @unchecked Sendable {
         while let c = cursor, depth < 12 {
             let r = AX.string(AX.attr(c, kAXRoleAttribute)) ?? ""
             let t = AX.string(AX.attr(c, kAXTitleAttribute)) ?? ""
-            if r == "AXMenuItem" || r == "AXMenuBarItem" || r == "AXMenuButton" { if !t.isEmpty { menu.insert(t, at: 0) } }
-            else if r != "AXApplication", r != "AXMenu", r != "AXMenuBar", !t.isEmpty { path.insert(t, at: 0) }
+            if r == "AXMenuItem" || r == "AXMenuBarItem" || r == "AXMenuButton" {
+                if !t.isEmpty { menu.insert(t, at: 0) }
+            } else if r != "AXApplication", r != "AXMenu", r != "AXMenuBar", r != "AXWindow", !t.isEmpty {
+                path.insert(t, at: 0)
+            }
             cursor = AX.element(AX.attr(c, kAXParentAttribute))
             depth += 1
         }

@@ -19,7 +19,7 @@ export const TeachAppChoice = Type.Object(
   {
     bundleId: Type.String({ minLength: 3, maxLength: 200 }),
     name: Type.String({ maxLength: 120 }),
-    tier: StringEnum(["read", "click", "interact"]),
+    tier: StringEnum(["click", "interact"]),
   },
   { $id: "TeachAppChoice" },
 );
@@ -94,9 +94,10 @@ export const TeachAppMethods = {
     params: Type.Object({}),
     result: TeachAppCapture,
     scope: "operator.admin",
-    sideEffecting: true,
+    // Not side-effecting on purpose: a side-effecting method's result is kept for replay in
+    // `gateway_idempotency` for days, and this result carries what the owner typed.
     description:
-      "Side-effecting, desktop shell only: ends the recording and returns the steps for the review screen. Nothing is stored by the helper or the Gateway.",
+      "Desktop shell only: ends the recording and returns the steps for the review screen. Nothing is stored by the helper or the Gateway, and no idempotency record holds the result.",
   }),
   "teach.app.cancel": defineMethod({
     params: Type.Object({}),

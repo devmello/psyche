@@ -328,7 +328,10 @@ function appRecordingSkillText(input: RecordingSkillInput): string {
       description: `Repeat a task the owner showed in a Mac app: ${title}`.slice(0, 1000),
       "user-invocable": true,
       "allowed-tools": tools,
-      metadata: { psyche: { proposedBy: "owner-recording", steps: input.steps.length } },
+      // The marker later gates (scheduled runs refuse a Mac-app recording for now).
+      metadata: {
+        psyche: { proposedBy: "owner-recording", steps: input.steps.length, recordedIn: "mac_app" },
+      },
     },
     { lineWidth: 0 },
   );

@@ -378,3 +378,75 @@ describe("Mac-app steps (teach by showing, phase 2)", () => {
     expect(s).not.toHaveProperty("app");
   });
 });
+
+describe("more secret shapes and the shared never-list (review fixes)", () => {
+  const phrase12 = Array.from({ length: 12 }, () => "abandon").join(" ");
+
+  it("catches a recovery phrase, URL credentials and a short code next to a code label", () => {
+    expect(classifyTeachValue(phrase12)).toBe("secret");
+    expect(classifyTeachValue(Array.from({ length: 24 }, () => "zoo").join(" "))).toBe("secret");
+    expect(classifyTeachValue(Array.from({ length: 11 }, () => "abandon").join(" "))).toBeNull();
+    expect(classifyTeachValue(`https://${"dana"}:${"pw"}@example.com/x`)).toBe("secret");
+    expect(classifyTeachValue("https://example.com/x")).toBeNull();
+    expect(classifyTeachValue("123456", "Code")).toBe("one_time_code");
+    expect(classifyTeachValue("123456", "Quantity")).toBeNull();
+    expect(classifyTeachValue("123456")).toBeNull();
+  });
+
+  it("drops such a value from an app step, and a path title counts as a label", () => {
+    const app = { bundleId: "com.apple.mail", name: "Mail" };
+    const out = sanitizeTeachSteps([
+      {
+        id: "a1",
+        kind: "app_type",
+        app,
+        role: "textbox",
+        name: "Note",
+        value: phrase12,
+        keepValue: true,
+      },
+      {
+        id: "a2",
+        kind: "app_type",
+        app,
+        role: "textbox",
+        name: "Field",
+        path: ["Enter your verification code"],
+        value: "x",
+        keepValue: true,
+      },
+      {
+        id: "a3",
+        kind: "app_type",
+        app,
+        role: "textbox",
+        name: "Pin",
+        value: "4821",
+        keepValue: true,
+      },
+    ]);
+    for (const s of out) {
+      expect(s.sensitive).toBe(true);
+      expect(s).not.toHaveProperty("value");
+    }
+  });
+
+  it("the never-list covers managers, authenticators, wallets and the dev Electron shell", () => {
+    for (const id of [
+      "com.markmcguill.strongbox.mac",
+      "com.hicknhacksoftware.MacPass",
+      "com.keepassium.mac",
+      "com.siber.roboform",
+      "com.authy.authy-mac",
+      "com.yubico.authenticator",
+      "org.electrum.electrum",
+      "com.sparrowwallet.Sparrow",
+      "io.trezor.suite",
+      "com.ledger.live",
+      "com.exodus.wallet",
+      "com.github.Electron",
+    ])
+      expect(teachAppNever(id), id).toBe(true);
+    expect(teachAppNever("com.githubx.Notes")).toBe(false);
+  });
+});

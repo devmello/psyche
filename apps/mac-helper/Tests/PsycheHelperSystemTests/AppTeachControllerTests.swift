@@ -12,8 +12,12 @@ private final class FakeSource: AppTeachSource, @unchecked Sendable {
     var bundle = ""
     let allow: Bool
     init(allow: Bool = true) { self.allow = allow }
-    func start(bundleId: String, onEvent: @escaping @Sendable (AppTeachEvent, Date) -> Void, onEnd: @escaping @Sendable () -> Void) -> Bool {
+    func start(
+        bundleId: String, bind: @escaping @Sendable (Int32) -> Void, onEvent: @escaping @Sendable (AppTeachEvent, Date) -> Void,
+        onEnd: @escaping @Sendable () -> Void
+    ) -> Bool {
         guard allow else { return false }
+        bind(0)
         self.onEvent = onEvent
         self.onEnd = onEnd
         bundle = bundleId
@@ -43,11 +47,13 @@ private func button(_ title: String, app: String = mail) -> AppTeachElement {
 
 private func controller(
     source: FakeSource = FakeSource(), indicator: FakeIndicator = FakeIndicator(),
-    settings: TierSettings = TierSettings(defaultValue: .ask, apps: [mail: .interact]), running: Bool = true, maxSeconds: Int = 900
+    settings: TierSettings = TierSettings(defaultValue: .ask, apps: [mail: .interact]), running: Bool = true, maxSeconds: Int = 900,
+    unclaimed: TimeInterval = 1800, now: @escaping @Sendable () -> Date = { Date() }
 ) -> AppTeachController {
     AppTeachController(
         makeSource: { source }, indicator: indicator, settings: { settings },
-        appName: { running && $0.lowercased() == mail ? "Mail" : nil }, maxSeconds: maxSeconds, log: HelperLog(echo: { _ in })
+        appName: { running && $0.lowercased() == mail ? "Mail" : nil }, now: now, maxSeconds: maxSeconds, unclaimedSeconds: unclaimed,
+        log: HelperLog(echo: { _ in })
     )
 }
 
@@ -137,6 +143,44 @@ struct AppTeachControllerTests {
         _ = try slow.begin(bundleId: mail)
         try await _Concurrency.Task.sleep(nanoseconds: 1_300_000_000)
         #expect(slow.status()["ended"] == "timeout")
+    }
+
+    @Test func anUnclaimedRecordingIsPurgedOnATimerAndRefusedWhenStale() async throws {
+        let source = FakeSource()
+        let teach = controller(source: source, unclaimed: 0.3)
+        _ = try teach.begin(bundleId: mail)
+        source.send(.press(button("Archive")))
+        source.onEnd?()
+        #expect(teach.status()["ended"] == "interrupted")
+        try await _Concurrency.Task.sleep(nanoseconds: 700_000_000)
+        #expect(teach.status()["active"] == false && teach.status()["sessionId"] == nil)  // gone without anyone asking
+        #expect(throws: CapabilityError.self) { _ = try teach.collect() }
+
+        // The age check in collect, with a clock that moved on.
+        final class Clock: @unchecked Sendable { var t = Date(timeIntervalSince1970: 1_000_000) }
+        let clock = Clock()
+        let stale = controller(source: FakeSource(), unclaimed: 60, now: { clock.t })
+        _ = try stale.begin(bundleId: mail)
+        stale.end(try #require(stale.activeId), .stop)
+        clock.t = clock.t.addingTimeInterval(61)
+        #expect(throws: CapabilityError.self) { _ = try stale.collect() }
+    }
+
+    @Test func computerUseWaitsWhileARecordingRuns() throws {
+        let computer = ComputerUse(environment: [:], log: HelperLog(echo: { _ in }))
+        let teach = controller()
+        computer.isRecording = { teach.activeId != nil }
+        try computer.beginAction(session: "run-1")  // nothing recording: fine
+        computer.sessions.release("run-1")
+        _ = try teach.begin(bundleId: mail)
+        do {
+            try computer.beginAction(session: "run-2")
+            Issue.record("computer use must wait")
+        } catch let e as CapabilityError {
+            #expect(e.reason == "recording_active")
+        }
+        _ = teach.cancel()
+        try computer.beginAction(session: "run-3")
     }
 
     @Test func cancelDropsEverything() throws {

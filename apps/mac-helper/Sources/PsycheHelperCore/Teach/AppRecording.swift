@@ -1,4 +1,5 @@
 import Foundation
+import PsycheProtocol
 
 // Teach by showing in a Mac app (J8 phase 2, docs/design/teach-by-showing-2026.md §13).
 //
@@ -33,11 +34,15 @@ public struct AppTeachElement: Sendable, Equatable {
     public var menuPath: [String]
     /// Secure Event Input was on when the event arrived (a password field somewhere has focus).
     public var secureInput: Bool
+    /// Titles of linked or neighbouring label elements (`AXLinkedUIElements`).
+    public var nearby: [String]
+    /// The process the element belongs to; 0 when the source did not say.
+    public var pid: Int32
 
     public init(
         bundleId: String, appName: String, role: String, subrole: String? = nil, title: String? = nil, description: String? = nil,
         identifier: String? = nil, placeholder: String? = nil, labelText: String? = nil, path: [String] = [], menuPath: [String] = [],
-        secureInput: Bool = false
+        secureInput: Bool = false, nearby: [String] = [], pid: Int32 = 0
     ) {
         self.bundleId = bundleId
         self.appName = appName
@@ -51,6 +56,8 @@ public struct AppTeachElement: Sendable, Equatable {
         self.path = path
         self.menuPath = menuPath
         self.secureInput = secureInput
+        self.nearby = nearby
+        self.pid = pid
     }
 
     /// The name a person would give the element.
@@ -147,9 +154,10 @@ public enum AppTeachPolicy {
     public static func refusal(bundleId: String, settings: TierSettings) -> AppTeachRefusal? {
         if let r = neverRecorded(bundleId) { return r }
         guard FixedCaps.cap(for: bundleId) == .interact else { return .offLimits }
+        // Read alone is not enough: a recording is only worth keeping where the agent may act.
         switch settings.value(for: bundleId) {
-        case .read, .click, .interact: return nil
-        case .off, .ask: return .notGranted
+        case .click, .interact: return nil
+        case .read, .off, .ask: return .notGranted
         }
     }
 
@@ -163,7 +171,13 @@ public enum AppTeachPolicy {
         default: break
         }
         if securityUIs.contains(id) { return .securityPrompt }
+        // The shared list (generated from `TEACH_NEVER_APPS` in the protocol package).
+        if TeachNeverApps.patterns.contains(where: { matches($0.lowercased(), id) }) { return .offLimits }
         return nil
+    }
+
+    static func matches(_ pattern: String, _ id: String) -> Bool {
+        pattern.hasSuffix(".") ? id.hasPrefix(pattern) : (id == pattern || id.hasPrefix(pattern + "."))
     }
 
     // MARK: Sensitive fields
@@ -193,7 +207,8 @@ public enum AppTeachPolicy {
     /// value is read: a secure text field, Secure Event Input, or words in its labels.
     public static func sensitiveReason(_ e: AppTeachElement) -> AppTeachSensitive? {
         if e.secureInput || e.role == "AXSecureTextField" || e.subrole == "AXSecureTextField" { return .password }
-        let text = [e.title, e.description, e.identifier, e.placeholder, e.labelText].compactMap { $0 }.joined(separator: " ")
+        let text = ([e.title, e.description, e.identifier, e.placeholder, e.labelText].compactMap { $0 } + e.path + e.nearby)
+            .joined(separator: " ")
         guard !text.isEmpty else { return nil }
         let range = NSRange(text.startIndex..., in: text)
         for (reason, re) in words where re.firstMatch(in: text, options: [], range: range) != nil { return reason }
@@ -204,10 +219,10 @@ public enum AppTeachPolicy {
 
     /// A value that is a secret whatever field it was typed into (a card number, an ID number, a
     /// token). Mirrors `classifyTeachValue` in browser-teach.ts.
-    public static func valueReason(_ value: String) -> AppTeachSensitive? {
+    public static func valueReason(_ value: String, label: String = "") -> AppTeachSensitive? {
         func matches(_ pattern: String, in s: String) -> [String] {
             guard let re = try? NSRegularExpression(pattern: pattern) else { return [] }
-            return re.matches(in: s, range: NSRange(s.startIndex..., in: s)).compactMap { Range($0.range, in: s).map { String(s[$0]) } }
+            return re.matches(in: s, range: NSRange(s.startIndex..., in: s)).compactMap { Swift.Range($0.range, in: s).map { String(s[$0]) } }
         }
         for m in matches("(?:\\d[ -]?){13,19}", in: value) {
             let digits = m.filter(\.isNumber)
@@ -218,6 +233,14 @@ public enum AppTeachPolicy {
         if !matches("^[A-Za-z0-9_-]{32,}$", in: trimmed).isEmpty { return .secret }
         if !matches("\\beyJ[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]{8,}\\.", in: value).isEmpty { return .secret }
         if !matches("\\b(?:sk|pk|rk|ghp|xox[abp])[-_][A-Za-z0-9_-]{16,}", in: value).isEmpty { return .secret }
+        // Credentials in a URL: scheme://user:pass@host
+        if !matches("[A-Za-z][A-Za-z0-9+.-]*://[^/\\s:@]+:[^/\\s@]+@", in: value).isEmpty { return .secret }
+        // A recovery phrase: 12, 15, 18, 21 or 24 short lowercase words (BIP39 shapes).
+        let words = trimmed.split(whereSeparator: { $0.isWhitespace })
+        if [12, 15, 18, 21, 24].contains(words.count),
+           words.allSatisfy({ $0.count >= 3 && $0.count <= 8 && $0.allSatisfy { $0.isASCII && $0.isLowercase && $0.isLetter } }) { return .secret }
+        // A short numeric code next to a label that says code, pin, otp or token.
+        if !matches("^\\d{4,8}$", in: trimmed).isEmpty, !matches("\\b(?:code|pin|otp|token)\\b", in: label.lowercased()).isEmpty { return .oneTimeCode }
         return nil
     }
 
@@ -261,6 +284,10 @@ public enum AppTeachRoles {
         }
     }
 
+    /// Rows, cells and list items hold the user's data (a message subject, a file name), not the
+    /// app's controls: they are recorded by role, never by what they contain.
+    public static let dataRoles: Set<String> = ["AXRow", "AXCell", "AXOutlineRow", "AXStaticText"]
+
     /// Roles whose press means "the owner moved into a field", not an action.
     public static let textInputs: Set<String> = ["AXTextField", "AXTextArea", "AXSecureTextField", "AXSearchField", "AXComboBox"]
     public static let menuItems: Set<String> = ["AXMenuItem", "AXMenuBarItem"]
@@ -277,6 +304,10 @@ public final class AppTeachMapper: @unchecked Sendable {
     /// Input left out: a secret field's contents, a control with no usable name, a never-recorded app.
     public private(set) var skipped = 0
     private var pending: (element: AppTeachElement, text: String, at: Date)?
+    /// The field that has focus: value changes are accepted from it and from nowhere else.
+    private var focused: AppTeachElement?
+    /// The process the recording is bound to (set at start); events from any other pid are dropped.
+    private var boundPid: Int32?
     /// Fields already recorded as sensitive, so retyping into one does not add a step each time.
     private var sensitiveFields: [AppTeachElement] = []
     private let lock = NSLock()
@@ -288,6 +319,10 @@ public final class AppTeachMapper: @unchecked Sendable {
     }
 
     public var limitReached: Bool { lock.withLock { steps.count >= maxSteps } }
+
+    /// Binds the recording to one process. The bundle id is a string anyone can claim; the pid is
+    /// what the OS handed the source.
+    public func bind(pid: Int32) { lock.withLock { boundPid = pid } }
     public var stepCount: Int { lock.withLock { steps.count } }
 
     /// Feeds one event; returns the steps it finalized.
@@ -296,6 +331,7 @@ public final class AppTeachMapper: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         let e = Self.element(of: event)
+        if let pid = boundPid, e.pid != pid { return [] }
         if e.bundleId.lowercased() != app.bundleId.lowercased() {
             // Another app: never recorded. A security prompt or Psyche is counted so the review can say so.
             if AppTeachPolicy.neverRecorded(e.bundleId) != nil { skipped += 1 }
@@ -307,6 +343,7 @@ public final class AppTeachMapper: @unchecked Sendable {
         switch event {
         case .focus(let el):
             if let p = pending, !p.element.sameField(el) { out += flushLocked() }
+            focused = el
         case .valueChanged(let el, let value):
             out += valueLocked(el, value, at)
         case .press(let el):
@@ -340,6 +377,8 @@ public final class AppTeachMapper: @unchecked Sendable {
         var out: [AppTeachStep] = []
         // Only text fields are typed into: a label or a progress bar whose value changes is not input.
         guard AppTeachRoles.textInputs.contains(el.role) || el.subrole == "AXSecureTextField" else { return out }
+        // And only the field that has focus: a value changing elsewhere in the app is not the owner typing.
+        guard let focus = focused, focus.sameField(el) else { return out }
         // A secret field: one sensitive step, no value, and the value is not even looked at.
         if AppTeachPolicy.isSecret(el) {
             if pending != nil { out += flushLocked() }
@@ -363,7 +402,7 @@ public final class AppTeachMapper: @unchecked Sendable {
         pending = nil
         // The value is checked once more, whatever the source decided: a card number or token
         // typed into an unlabelled field makes the step sensitive and drops the value.
-        if AppTeachPolicy.isSecret(p.element) || AppTeachPolicy.valueReason(p.text) != nil {
+        if AppTeachPolicy.isSecret(p.element) || AppTeachPolicy.valueReason(p.text, label: p.element.name ?? "") != nil {
             skipped += 1
             return [appendLocked(kind: "app_type", p.element, sensitive: true)]
         }
@@ -382,6 +421,11 @@ public final class AppTeachMapper: @unchecked Sendable {
         if AppTeachRoles.menuItems.contains(el.role) { return menuLocked(el) }
         // A secret control (a "Show password" button) is not described either.
         if AppTeachPolicy.isSecret(el) { skipped += 1; return [] }
+        // A row or cell is the user's data: recorded as "a row", never by its contents.
+        if AppTeachRoles.dataRoles.contains(el.role) {
+            if let last = steps.last, last.kind == "app_click", last.role == AppTeachRoles.map(el.role, el.subrole), last.name == nil { return [] }
+            return [appendLocked(kind: "app_click", el)]
+        }
         guard el.name != nil || AppTeachText.clean(el.identifier, 200) != nil else {
             skipped += 1  // not replayable: nothing a person or the next run could find it by
             return []
@@ -411,6 +455,14 @@ public final class AppTeachMapper: @unchecked Sendable {
 
     private func appendLocked(kind: String, _ el: AppTeachElement, sensitive: Bool = false, sample: String? = nil, menuPath: [String]? = nil) -> AppTeachStep {
         var path: [String]? = nil
+        let data = AppTeachRoles.dataRoles.contains(el.role)
+        if data {
+            // By role only: no title, description, identifier or path from the user's data.
+            let role = AppTeachRoles.map(el.role, el.subrole)
+            let step = AppTeachStep(id: "a\(steps.count + 1)", kind: kind, app: app, role: role, name: nil, path: [role == "generic" ? "item" : role], fallback: nil, sensitive: nil, sample: nil)
+            steps.append(step)
+            return step
+        }
         if let menuPath {
             path = Array(menuPath.prefix(8))
         } else {

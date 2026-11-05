@@ -38,7 +38,8 @@ import type { ComposedPart, ComposeServices } from "./services.ts";
 
 const CALL_TIMEOUT_MS = 20_000;
 const BUNDLE_ID = /^[A-Za-z0-9-]+(\.[A-Za-z0-9_-]+)+$/;
-const TIERS = new Set(["read", "click", "interact"]);
+// Read alone is not enough: a recording is only worth keeping where the agent may act.
+const TIERS = new Set(["click", "interact"]);
 
 function unwrap(r: NodeInvokeResult): unknown {
   if (r.ok) return r.result;
@@ -122,7 +123,7 @@ export function cleanAppCapture(raw: unknown, expected: { bundleId: string }): T
     delete (step as { value?: unknown }).value;
     delete (step as { input?: unknown }).input;
     if (typeof s.sample === "string" && step.sensitive !== true && step.kind === "app_type") {
-      if (classifyTeachValue(s.sample) !== null) step.sensitive = true;
+      if (classifyTeachValue(s.sample, step.name ?? "") !== null) step.sensitive = true;
       else step.sample = teachText(s.sample, 500);
     }
     steps.push(step);

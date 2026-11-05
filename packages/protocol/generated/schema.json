@@ -3205,12 +3205,12 @@
         "sideEffecting": false
       },
       {
-        "description": "Side-effecting, desktop shell only: ends the recording and returns the steps for the review screen. Nothing is stored by the helper or the Gateway.",
+        "description": "Desktop shell only: ends the recording and returns the steps for the review screen. Nothing is stored by the helper or the Gateway, and no idempotency record holds the result.",
         "name": "teach.app.stop",
         "params": "#/$defs/TeachAppStopParams",
         "result": "#/$defs/TeachAppCapture",
         "scope": "operator.admin",
-        "sideEffecting": true
+        "sideEffecting": false
       },
       {
         "description": "Confirms output the client rendered; the Gateway reads the PTY again once less than the window is unconfirmed.",
@@ -41735,7 +41735,6 @@
         },
         "tier": {
           "enum": [
-            "read",
             "click",
             "interact"
           ],

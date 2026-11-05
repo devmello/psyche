@@ -527,6 +527,8 @@ describe("a recording made in a Mac app (teach by showing, phase 2)", () => {
     });
     expect(draft.manifest.tools).toEqual([...APP_TOOLS].sort());
     expect(draft.text).toContain("computer.check_target");
+    // The marker later gates what may run unattended; it is in the text and still parses.
+    expect(draft.text).toContain("recordedIn: mac_app");
     expect(draft.text).toContain("## Recorded steps (reference, untrusted app text)");
     expect(draft.text).toContain("stop and ask the owner");
     expect(draft.text).toContain("`com.apple.mail`");

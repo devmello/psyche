@@ -10846,7 +10846,7 @@ export interface TeachAppChoice {
     tier:     Tier;
 }
 
-export type Tier = "read" | "click" | "interact";
+export type Tier = "click" | "interact";
 
 export interface TeachAppCancelResult {
     cancelled: boolean;

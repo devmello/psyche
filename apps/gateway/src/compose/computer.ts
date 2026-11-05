@@ -1106,7 +1106,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     def({
       name: "computer.check_target",
       description:
-        "Read-only check before a replayed step of a recorded Mac-app skill: is the recorded target (role and name, identifier, or menu path) in the app's window right now? Answers found, missing or ambiguous (and wrong_app is a stop too). Anything but found carries stop: true: stop and ask the owner; never pick a similar element. When found, take computer.snapshot and act on the same ref.",
+        "Read-only check before a replayed step of a recorded Mac-app skill: is the recorded target (role and name, identifier, or menu path) in the app's window right now? Needs a role (generic means any). Answers found, missing, ambiguous (also when the window was too big to read in full) or wrong_app. Anything but found carries stop: true: stop and ask the owner; never pick a similar element. When found, take computer.snapshot and act on the same ref.",
       schema: CheckTargetParams,
       sideEffect: "read",
       targetKind: "app",
@@ -1118,6 +1118,9 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
         summary: `Check the recorded step in ${p.app}`,
       }),
       async run(p, callId, signal) {
+        // A role is required (`generic` means any), unless it is a menu choice.
+        if ((p.menuPath === undefined || p.menuPath.length === 0) && (p.role ?? "") === "")
+          throw new PsycheError("invalid_params", "computer.check_target needs a role");
         const { res } = await invoke(
           callId,
           {
@@ -1136,7 +1139,10 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
           signal,
         );
         const r = (res.result ?? {}) as Record<string, unknown>;
-        const status = r.status === "found" || r.status === "ambiguous" ? r.status : "missing";
+        const status =
+          r.status === "found" || r.status === "ambiguous" || r.status === "wrong_app"
+            ? r.status
+            : "missing";
         const str = (v: unknown, max: number) =>
           typeof v === "string" ? sanitizeSnapshot(v).slice(0, max) : undefined;
         return {

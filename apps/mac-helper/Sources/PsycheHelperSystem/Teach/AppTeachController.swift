@@ -5,9 +5,14 @@ import PsycheProtocol
 /// Teach by showing in a Mac app (J8 phase 2): the live part is a `AppTeachSource`; everything
 /// that decides what is recorded is `AppTeachMapper` / `AppTeachPolicy` in PsycheHelperCore.
 public protocol AppTeachSource: AnyObject, Sendable {
-    /// Starts watching `bundleId`'s app. `onEnd` is called if the app quits. False without
-    /// Accessibility or when the app is not running.
-    func start(bundleId: String, onEvent: @escaping @Sendable (AppTeachEvent, Date) -> Void, onEnd: @escaping @Sendable () -> Void) -> Bool
+    /// Starts watching `bundleId`'s app. `bind` gets the process id before anything is observed, so
+    /// the recording is bound to that process and not to a name; `onEnd` is called if the app quits
+    /// (or its code-signing identity changes). False without Accessibility, when the app is not
+    /// running, or when the mouse tap for that process cannot be made.
+    func start(
+        bundleId: String, bind: @escaping @Sendable (Int32) -> Void, onEvent: @escaping @Sendable (AppTeachEvent, Date) -> Void,
+        onEnd: @escaping @Sendable () -> Void
+    ) -> Bool
     func stop()
 }
 
@@ -24,7 +29,7 @@ public final class AppTeachController: @unchecked Sendable {
 
     public static let defaultMaxSeconds = 900
     /// An ended recording nobody collected is forgotten after this long.
-    public static let unclaimedSeconds: TimeInterval = 30 * 60
+    public static let defaultUnclaimedSeconds: TimeInterval = 30 * 60
 
     struct Active {
         let id: String
@@ -43,13 +48,16 @@ public final class AppTeachController: @unchecked Sendable {
     private let appName: @Sendable (String) -> String?
     private let now: @Sendable () -> Date
     private let maxSeconds: Int
+    private let unclaimedSeconds: TimeInterval
     let log: HelperLog
 
     public init(
         makeSource: @escaping @Sendable () -> any AppTeachSource, indicator: any AppTeachIndicator,
         settings: @escaping @Sendable () -> TierSettings, appName: @escaping @Sendable (String) -> String?,
-        now: @escaping @Sendable () -> Date = { Date() }, maxSeconds: Int = AppTeachController.defaultMaxSeconds, log: HelperLog = HelperLog()
+        now: @escaping @Sendable () -> Date = { Date() }, maxSeconds: Int = AppTeachController.defaultMaxSeconds,
+        unclaimedSeconds: TimeInterval = AppTeachController.defaultUnclaimedSeconds, log: HelperLog = HelperLog()
     ) {
+        self.unclaimedSeconds = unclaimedSeconds
         self.makeSource = makeSource
         self.indicator = indicator
         self.settings = settings
@@ -85,6 +93,7 @@ public final class AppTeachController: @unchecked Sendable {
         }
         let started = source.start(
             bundleId: bundleId,
+            bind: { pid in mapper.bind(pid: pid) },
             onEvent: { [weak self] event, at in self?.input(id, event, at) },
             onEnd: { [weak self] in _ = self?.end(id, .interrupted) }
         )
@@ -122,11 +131,26 @@ public final class AppTeachController: @unchecked Sendable {
         a.source.stop()
         indicator.hide()
         log.info("teach app ended id=\(id) by=\(how.rawValue) steps=\(a.mapper.stepCount)")
+        // Nobody collected it: forget it on a timer, not only when someone next asks.
+        let wait = unclaimedSeconds
+        _Concurrency.Task { [weak self] in
+            try? await _Concurrency.Task.sleep(nanoseconds: UInt64(wait * 1e9))
+            self?.forgetIfUnclaimed(id)
+        }
         return true
+    }
+
+    func forgetIfUnclaimed(_ id: String) {
+        lock.withLock {
+            if let c = current, c.id == id, c.ended != nil { current = nil }
+        }
     }
 
     /// Ends the recording if it still runs and returns what it caught, once.
     public func collect() throws -> JSONValue {
+        lock.withLock {
+            if let c = current, let at = c.endedAt, now().timeIntervalSince(at) > unclaimedSeconds { current = nil }
+        }
         let id: String? = lock.withLock { current?.id }
         guard let id else { throw CapabilityError(.notFound, reason: "teach_not_found", "Nothing is being recorded") }
         end(id, .stop)
@@ -162,7 +186,7 @@ public final class AppTeachController: @unchecked Sendable {
     public func status() -> JSONValue {
         lock.lock()
         defer { lock.unlock() }
-        if let c = current, let at = c.endedAt, now().timeIntervalSince(at) > Self.unclaimedSeconds { current = nil }
+        if let c = current, let at = c.endedAt, now().timeIntervalSince(at) > unclaimedSeconds { current = nil }
         guard let c = current else { return ["active": false] }
         var o: [String: JSONValue] = [
             "active": .bool(c.ended == nil), "sessionId": .string(c.id),

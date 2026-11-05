@@ -112,7 +112,7 @@ function luhn(digits: string): boolean {
 }
 
 /** A value that is a secret whatever field it was typed into: a card number, an ID number, a token. */
-export function classifyTeachValue(value: string): TeachSensitiveReason | null {
+export function classifyTeachValue(value: string, label = ""): TeachSensitiveReason | null {
   for (const m of value.matchAll(/(?:\d[ -]?){13,19}/g)) {
     const digits = m[0].replace(/\D/g, "");
     if (digits.length >= 13 && digits.length <= 19 && luhn(digits)) return "payment";
@@ -121,6 +121,15 @@ export function classifyTeachValue(value: string): TeachSensitiveReason | null {
   if (/^[A-Za-z0-9_-]{32,}$/.test(value.trim())) return "secret";
   if (/\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\./.test(value)) return "secret";
   if (/\b(?:sk|pk|rk|ghp|xox[abp])[-_][A-Za-z0-9_-]{16,}/.test(value)) return "secret";
+  // Credentials in a URL: scheme://user:pass@host
+  if (/[a-z][a-z0-9+.-]*:\/\/[^/\s:@]+:[^/\s@]+@/i.test(value)) return "secret";
+  // A recovery phrase: 12, 15, 18, 21 or 24 short lowercase words (BIP39 shapes).
+  const words = value.trim().split(/\s+/);
+  if ([12, 15, 18, 21, 24].includes(words.length) && words.every((w) => /^[a-z]{3,8}$/.test(w)))
+    return "secret";
+  // A short numeric code next to a label that says "code" or "pin".
+  if (/^\d{4,8}$/.test(value.trim()) && /\b(?:code|pin|otp|token)\b/i.test(label))
+    return "one_time_code";
   return null;
 }
 
@@ -287,13 +296,33 @@ export const TEACH_NEVER_APPS: readonly string[] = [
   "com.nordpass.",
   "me.proton.pass",
   "com.keepersecurity.",
+  // More password managers, authenticators and wallets (best-effort ids; a prefix covers variants).
+  "com.markmcguill.strongbox",
+  "com.hicknhacksoftware.macpass",
+  "com.keepassium.",
+  "com.outercorner.secrets",
+  "com.siber.roboform",
+  "com.authy.",
+  "com.twilio.authy",
+  "com.yubico.",
+  "com.stepwise.steptwo",
+  "org.electrum.",
+  "com.sparrowwallet.",
+  "io.trezor.",
+  "com.ledger.",
+  "com.exodus.",
+  "com.exodusmovement.",
+  "org.bitcoin.",
+  "com.electron.ledger-live-desktop",
+  // The unpackaged Electron shell: Psyche's own dev build runs as this.
+  "com.github.Electron",
 ];
 
 export function teachAppNever(bundleId: string): boolean {
   const id = bundleId.toLowerCase();
   return TEACH_NEVER_APPS.some((raw) => {
     const p = raw.toLowerCase();
-    return p.endsWith(".") ? id.startsWith(p) : id === p;
+    return p.endsWith(".") ? id.startsWith(p) : id === p || id.startsWith(`${p}.`);
   });
 }
 
@@ -339,8 +368,10 @@ export function sanitizeTeachSteps(steps: readonly BrowserTeachStep[]): BrowserT
           ...(s.role === undefined ? {} : { type: s.role === "password" ? "password" : "" }),
           ...(s.name === undefined ? {} : { label: s.name }),
           ...(s.fallback === undefined ? {} : { id: s.fallback }),
+          // The window, sheet and group titles above the field count as labels too.
+          ...(s.path === undefined ? {} : { placeholder: s.path.join(" ") }),
         }) !== null) ||
-      (s.value !== undefined && classifyTeachValue(s.value) !== null);
+      (s.value !== undefined && classifyTeachValue(s.value, s.name ?? "") !== null);
     if (sensitive && typed) out.sensitive = true;
     if (typed && !sensitive && s.input !== undefined) {
       out.input = { name: s.input.name };

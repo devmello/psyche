@@ -38,10 +38,10 @@ public final class HelperRuntime: @unchecked Sendable {
         handlers += AppleAppsCapabilities.make(.live(environment: environment))
         // #673 H2: calendar.changed events for the Gateway's event triggers.
         handlers += CalendarWatchCapabilities.make()
-        // J8 teach mode (owner demonstrations into skill drafts).
-        handlers += TeachCapabilities.make(TeachController(screenshot: TeachCapabilities.liveScreenshotter(computer), log: log), computer: computer)
         // J8 phase 2: "Record in an app" (AX events of one granted app; desktop shell only, via the Gateway).
-        handlers += AppTeachCapabilities.make(AppTeachCapabilities.live(computer: computer, environment: environment, log: log), computer: computer)
+        let teachApp = AppTeachCapabilities.live(computer: computer, environment: environment, log: log)
+        computer.isRecording = { [teachApp] in teachApp.activeId != nil }
+        handlers += AppTeachCapabilities.make(teachApp, computer: computer)
         registry = CapabilityRegistry(handlers)
     }
 
