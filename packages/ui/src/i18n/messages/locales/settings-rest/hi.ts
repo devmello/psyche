@@ -12,7 +12,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.daily.group.brief": "सुबह की ब्रीफ़",
   "settings.daily.group.wrapup": "शाम का सारांश",
   "settings.daily.group.delivery": "यह कहाँ दिखता है",
-  "settings.daily.group.followups": "फ़ॉलो-अप",
+  "settings.daily.group.followups": "फ़ॉलो-अप सेटिंग्स",
   "settings.daily.group.automations": "ऑटोमेशन",
   "settings.key.daily.brief.enabled": "सुबह की ब्रीफ़",
   "settings.key.daily.wrapup.enabled": "शाम का सारांश",
