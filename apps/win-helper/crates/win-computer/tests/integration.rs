@@ -535,6 +535,41 @@ fn esc_hook_stops_the_session_and_in_flight_actions() {
     println!("last owner input: {:?}", wc::win::hooks::last_owner_input());
 }
 
+/// Absolute `SendInput` moves land on the exact pixel across the virtual desktop (every monitor,
+/// physical pixels). Moves only; nothing is clicked.
+#[test]
+#[ignore]
+fn mouse_moves_land_on_exact_pixels() {
+    setup();
+    let (x0, y0) = wc::win::input::cursor();
+    let vd = apps::virtual_desktop();
+    let mut points = vec![];
+    for m in wc::win::capture::monitors() {
+        let r = m.rect;
+        points.extend([(r.x + 1.0, r.y + 1.0), (r.mid_x(), r.mid_y()), (r.max_x() - 2.0, r.max_y() - 2.0), (r.x + 123.0, r.y + 77.0)]);
+    }
+    println!("virtual desktop {vd:?}, {} monitor(s)", wc::win::capture::monitors().len());
+    for (x, y) in points {
+        wc::win::input::move_to(x, y).unwrap();
+        std::thread::sleep(Duration::from_millis(30));
+        let (cx, cy) = wc::win::input::cursor();
+        assert_eq!((cx, cy), (x.round(), y.round()), "moved to {x},{y}");
+    }
+    wc::win::input::move_to(x0, y0).unwrap();
+}
+
+/// The system capture picker opens and, with nobody picking, times out and closes.
+#[test]
+#[ignore]
+fn screenshot_pick_times_out_when_nobody_picks() {
+    setup();
+    let started = Instant::now();
+    let e = wc::computer_screenshot_pick(json!({"timeoutSeconds": 10})).unwrap_err();
+    println!("pick → {} after {:?}", e.to_wire(), started.elapsed());
+    assert_eq!((e.code, e.reason.as_str()), ("timeout", "picker_timeout"), "{e}");
+    assert!(started.elapsed() >= Duration::from_secs(10) && started.elapsed() < Duration::from_secs(20));
+}
+
 #[test]
 #[ignore]
 fn policy_uipi_and_refusals() {

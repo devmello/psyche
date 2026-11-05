@@ -66,6 +66,12 @@ fn run(timeout: Duration) -> CapResult<(Frame, String)> {
     }
     super::com::ensure_dpi_awareness();
     let owner = owner_window()?;
+    // The picker is modal to a visible, foreground owner (it cancels itself otherwise).
+    unsafe {
+        let _ = ShowWindow(owner, SW_SHOWNORMAL);
+        crate::win::input::nudge();
+        let _ = SetForegroundWindow(owner);
+    }
     let failed = |_| CapError::unavailable("picker_failed", "The capture picker failed");
     let result = (|| {
         let picker = GraphicsCapturePicker::new().map_err(failed)?;
@@ -83,7 +89,13 @@ fn run(timeout: Duration) -> CapResult<(Frame, String)> {
             match op.Status() {
                 Ok(s) if s == AsyncStatus::Started => {}
                 Ok(s) if s == AsyncStatus::Completed => break,
-                _ => return Err(CapError::new(code::CANCELLED, "user_cancelled", "The user closed the picker")),
+                Ok(s) if s == AsyncStatus::Canceled => {
+                    return Err(CapError::new(code::CANCELLED, "user_cancelled", "The user closed the picker"))
+                }
+                _ => {
+                    let hr = op.ErrorCode().map(|h| h.0 as u32).unwrap_or(0);
+                    return Err(CapError::unavailable("picker_failed", format!("The capture picker failed (0x{hr:08x})")));
+                }
             }
             if Instant::now() > deadline {
                 let _ = op.Cancel();
