@@ -464,6 +464,25 @@ export class GatewaySupervisor {
   }
 
   /**
+   * Why the Gateway refused to start when it undid a failed data migration (it leaves a plain
+   * sentence in `run/update-failed.json`): shown in place of "did not answer". Only for the
+   * build this app ships, so a note from an older build never explains a new failure.
+   */
+  private updateFailure(): string | undefined {
+    try {
+      const note = JSON.parse(
+        readFileSync(join(this.opts.psycheHome, "run", "update-failed.json"), "utf8"),
+      ) as { message?: unknown; build?: unknown };
+      if (typeof note.message !== "string" || note.message === "") return undefined;
+      if (this.opts.expectedBuild !== undefined && note.build !== this.opts.expectedBuild)
+        return undefined;
+      return note.message.slice(0, 600);
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
    * Installs or updates the LaunchAgent for the bundled psyched (a moved or updated app changes
    * the plist), starts it and waits for `/healthz`. A Gateway that already answers while our agent
    * is not loaded (a terminal, another install) is attached to, never doubled.
@@ -531,7 +550,8 @@ export class GatewaySupervisor {
     const exit = parseLaunchctlPrint(printed.stdout).lastExit;
     const secs = Math.round((this.opts.healthTimeoutMs ?? 60_000) / 1000);
     this.failed(
-      `The Gateway did not answer within ${secs} s${exit && exit !== "0" ? ` (last exit code ${exit})` : ""}`,
+      this.updateFailure() ??
+        `The Gateway did not answer within ${secs} s${exit && exit !== "0" ? ` (last exit code ${exit})` : ""}`,
     );
   }
 

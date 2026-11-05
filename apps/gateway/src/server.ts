@@ -12,7 +12,6 @@ import type { Duplex } from "node:stream";
 import {
   getSetting,
   getThread,
-  openDb,
   type PsycheDb,
   revokeSetupTokensWithCertPin,
   setSetting,
@@ -64,6 +63,7 @@ import { LAN_SETTING, readLanSettings } from "./lan/settings.ts";
 import { createLogger, type Logger } from "./log.ts";
 import { allowedMapOrigins } from "./map-proxy.ts";
 import { NodeRegistry } from "./nodes/registry.ts";
+import { openGatewayDb } from "./pre-update.ts";
 import { presenceStateFor } from "./presence-gate.ts";
 import { normalizePeerAddress, resolvePeer, trustedProxyList } from "./proxy.ts";
 import { RateLimiter } from "./rate-limit.ts";
@@ -224,7 +224,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
   const limits: GatewayLimits = { ...DEFAULT_LIMITS, ...options.limits };
 
   ensureHome(config.home);
-  const db = options.db ?? openDb(config.dbPath, { now: () => now().toISOString() });
+  const db = options.db ?? (await openGatewayDb(config, () => now().toISOString(), log));
   const recovery = recoverAfterRestart(db, log);
   const bus = new EventBus(readStateVersion(db), (v) => writeStateVersion(db, v));
   // The secret is written to disk only after both listeners are up (see below).

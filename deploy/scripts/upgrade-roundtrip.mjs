@@ -8,13 +8,27 @@
 //   5. stop psyched; `psyche backup verify` and `restore` into a second fresh home
 //   6. `psyche migrate --check` on the restored home: up to date, no blockers
 //   7. a second psyched boots from the restored home and the setting and file are there
+//   8. a newer build whose migration fails: it snapshots the data into backups/pre-update first,
+//      puts it back, refuses to start with a plain message, and leaves the data as it was
+//   9. the same build is not tried again on every restart (no second snapshot)
+//  10. the next build (the real migrations) starts on that data and clears the failure
 //
 // Usage: node deploy/scripts/upgrade-roundtrip.mjs
 //   PSYCHE   the CLI to test (default: node apps/cli/src/main.ts; a release binary works)
 //   PSYCHED  the Gateway to test (default: node apps/gateway/src/main.ts)
 // Exit 0 when every step passes; prints one line per step. Never touches ~/.psyche.
 import { spawn, spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -69,10 +83,16 @@ function psyche(home, url, args, env = {}) {
   return { code: r.status, json, stderr: r.stderr, stdout: r.stdout };
 }
 
-function startPsyched(home) {
+function startPsyched(home, extraEnv = {}) {
   const [bin, ...pre] = PSYCHED;
   const child = spawn(bin, pre, {
-    env: { ...process.env, PSYCHE_HOME: home, PSYCHE_PORT: "0", PSYCHE_BROWSER: "off" },
+    env: {
+      ...process.env,
+      PSYCHE_HOME: home,
+      PSYCHE_PORT: "0",
+      PSYCHE_BROWSER: "off",
+      ...extraEnv,
+    },
     stdio: ["ignore", "ignore", "pipe"],
   });
   procs.push(child);
@@ -99,6 +119,68 @@ function stop(child) {
     child.once("exit", () => r());
     child.kill("SIGTERM");
   });
+}
+
+/** Runs psyched expecting it to refuse to start; resolves with its exit code and stderr. */
+function psychedRefuses(home, extraEnv) {
+  const [bin, ...pre] = PSYCHED;
+  return new Promise((resolveExit, reject) => {
+    const child = spawn(bin, pre, {
+      env: {
+        ...process.env,
+        PSYCHE_HOME: home,
+        PSYCHE_PORT: "0",
+        PSYCHE_BROWSER: "off",
+        ...extraEnv,
+      },
+      stdio: ["ignore", "ignore", "pipe"],
+    });
+    procs.push(child);
+    let buf = "";
+    const timer = setTimeout(() => {
+      child.kill("SIGKILL");
+      reject(new Error(`psyched neither started nor refused within 30 s:\n${buf}`));
+    }, 30_000);
+    child.stderr.on("data", (d) => {
+      buf += String(d);
+    });
+    child.on("exit", (code) => {
+      clearTimeout(timer);
+      resolveExit({ code, stderr: buf });
+    });
+  });
+}
+
+/**
+ * An assets root that is the repository's, except that `packages/db/migrations` also holds two
+ * pending migrations: one that applies and one that fails halfway (PSYCHE_ASSETS_ROOT).
+ */
+function assetsWithFailingMigration() {
+  const root = mkdtempSync(join(process.platform === "darwin" ? "/tmp" : tmpdir(), "psy-ast-"));
+  dirs.push(root);
+  const skip = new Set([".git", "node_modules"]);
+  for (const name of readdirSync(ROOT)) {
+    if (name !== "packages" && !skip.has(name)) symlinkSync(join(ROOT, name), join(root, name));
+  }
+  mkdirSync(join(root, "packages", "db"), { recursive: true });
+  for (const name of readdirSync(join(ROOT, "packages"))) {
+    if (name !== "db") symlinkSync(join(ROOT, "packages", name), join(root, "packages", name));
+  }
+  for (const name of readdirSync(join(ROOT, "packages", "db"))) {
+    if (name !== "migrations" && name !== "node_modules")
+      symlinkSync(join(ROOT, "packages", "db", name), join(root, "packages", "db", name));
+  }
+  const migrations = join(root, "packages", "db", "migrations");
+  cpSync(join(ROOT, "packages", "db", "migrations"), migrations, { recursive: true });
+  writeFileSync(
+    join(migrations, "299912310000_roundtrip_applies.sql"),
+    "CREATE TABLE roundtrip_applied_first (id INTEGER);\n",
+  );
+  writeFileSync(
+    join(migrations, "299912310100_roundtrip_fails.sql"),
+    "CREATE TABLE roundtrip_half_done (id INTEGER);\nSELECT * FROM roundtrip_no_such_table;\n",
+  );
+  return root;
 }
 
 const offline = "http://127.0.0.1:9"; // nothing listens: commands that need no Gateway
@@ -181,6 +263,65 @@ if (!String(row?.value).includes("dark")) fail("restored setting", JSON.stringif
 if (!readFileSync(join(target, "workspace", "MEMORY.md"), "utf8").includes("round trip marker"))
   fail("restored workspace file");
 ok("restored Gateway healthy; setting and workspace file intact");
+
+// 8. a newer build whose migration fails
+const tables = () => {
+  const d = new DatabaseSync(join(target, "state", "psyche.sqlite"), { readOnly: true });
+  const names = d
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")
+    .all()
+    .map((r) => r.name);
+  const applied = d.prepare("SELECT count(*) AS n FROM _migrations").get().n;
+  d.close();
+  return { names, applied };
+};
+const before = tables();
+const snapshotsDir = join(target, "backups", "pre-update");
+const snapshotNames = () =>
+  existsSync(snapshotsDir) ? readdirSync(snapshotsDir).filter((n) => !n.startsWith(".")) : [];
+const failing = { PSYCHE_ASSETS_ROOT: assetsWithFailingMigration(), PSYCHE_BUILD: "roundtrip-a" };
+let refused = await psychedRefuses(target, failing).catch((err) =>
+  fail("a build with a failing migration", err.message),
+);
+if (refused.code === 0 || !refused.stderr.includes("put everything back the way it was"))
+  fail("a failing migration makes psyched refuse with a plain message", refused.stderr);
+const snaps = snapshotNames();
+if (snaps.length !== 1) fail("one pre-update snapshot was made", JSON.stringify(snaps));
+const manifest = JSON.parse(readFileSync(join(snapshotsDir, snaps[0], "manifest.json"), "utf8"));
+if (!manifest.entries.some((e) => e.rel === "state/psyche.sqlite" && e.kind === "sqlite"))
+  fail("the snapshot holds the main database", JSON.stringify(manifest.entries));
+const after = tables();
+if (JSON.stringify(after) !== JSON.stringify(before))
+  fail(
+    "the data is exactly as it was after the failed migration",
+    JSON.stringify({ before, after }),
+  );
+if (!existsSync(join(target, "run", "update-failed.json"))) fail("the failure is recorded");
+ok(
+  `failing migration: snapshot ${snaps[0]} made, data restored (${after.applied} migrations, no half-applied tables), psyched refused to start`,
+);
+
+// 9. the same build is not tried again
+refused = await psychedRefuses(target, failing).catch((err) =>
+  fail("the same failing build again", err.message),
+);
+if (refused.code === 0 || snapshotNames().length !== 1)
+  fail("the same build refuses without making another snapshot", JSON.stringify(snapshotNames()));
+ok("the same build refuses again without making another snapshot");
+
+// 10. the next build starts on the restored data
+let gw3;
+try {
+  gw3 = await startPsyched(target, { PSYCHE_BUILD: "roundtrip-b" });
+} catch (err) {
+  fail("the next build starts on the restored data", err.message);
+}
+if ((await fetch(`${gw3.url}/healthz`)).ok !== true) fail("the next build is healthy");
+await stop(gw3.child);
+if (existsSync(join(target, "run", "update-failed.json")))
+  fail("a start clears the failure record");
+if (JSON.stringify(tables()) !== JSON.stringify(before)) fail("data unchanged by the next build");
+ok("the next build started on the same data and cleared the failure record");
 
 cleanup();
 process.stdout.write("upgrade round trip: all steps passed\n");

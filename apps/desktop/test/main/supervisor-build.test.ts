@@ -19,7 +19,7 @@ const down: typeof fetch = () => Promise.reject(new Error("down"));
 const up: typeof fetch = () => Promise.resolve(new Response("{}", { status: 200 }));
 
 /** Loaded after bootstrap, healthy once kickstarted. */
-function launchd() {
+function launchd(opts: { neverHealthy?: boolean } = {}) {
   const calls: string[][] = [];
   let loaded = false;
   let started = false;
@@ -34,11 +34,11 @@ function launchd() {
         : { code: 113, stdout: "", stderr: "not found" };
     return { code: 0, stdout: "", stderr: "" };
   };
-  const fetchFn: typeof fetch = () => (started && loaded ? up("") : down(""));
+  const fetchFn: typeof fetch = () => (started && loaded && !opts.neverHealthy ? up("") : down(""));
   return { calls, run, fetch: fetchFn };
 }
 
-function setup(build = "build-new") {
+function setup(build = "build-new", fakeOpts: { neverHealthy?: boolean } = {}) {
   const base = mkdtempSync(join(tmpdir(), "psy-build-"));
   const program = join(base, "Psyche.app", "psyched", "psyched");
   mkdirSync(dirname(program), { recursive: true });
@@ -47,7 +47,7 @@ function setup(build = "build-new") {
     join(dirname(program), "build-info.json"),
     JSON.stringify({ version: "0.5.0", build }),
   );
-  const fake = launchd();
+  const fake = launchd(fakeOpts);
   const states: GatewayRunState[] = [];
   const make = (expectedBuild: string | undefined) =>
     new GatewaySupervisor({
@@ -57,6 +57,7 @@ function setup(build = "build-new") {
       bundledProgram: program,
       launchAgentsDir: join(base, "LaunchAgents"),
       uid: 501,
+      healthTimeoutMs: 0,
       ...(expectedBuild === undefined ? {} : { expectedBuild }),
       run: fake.run,
       fetch: fake.fetch,
@@ -175,5 +176,34 @@ describe("the Gateway's build", () => {
     });
     expect(await dev.checkServerBuild({ build: "x" })).toBe("skipped");
     expect(fake.calls).toEqual([]);
+  });
+});
+
+describe("a Gateway that undid a failed data migration", () => {
+  const note = (build: string) =>
+    JSON.stringify({ build, message: "Psyche 0.5.0 couldn't update your data. Nothing was lost." });
+
+  it("shows its plain message instead of 'did not answer'", async () => {
+    const { base, make } = setup("build-new", { neverHealthy: true });
+    mkdirSync(join(base, "home", "run"), { recursive: true });
+    writeFileSync(join(base, "home", "run", "update-failed.json"), note("build-new"));
+    const sup = make("build-new");
+    await sup.ensureRunning();
+    expect(sup.getState()).toMatchObject({
+      kind: "stopped",
+      reason: "Psyche 0.5.0 couldn't update your data. Nothing was lost.",
+    });
+  });
+
+  it("ignores a note left by another build", async () => {
+    const { base, make } = setup("build-new", { neverHealthy: true });
+    mkdirSync(join(base, "home", "run"), { recursive: true });
+    writeFileSync(join(base, "home", "run", "update-failed.json"), note("build-old"));
+    const sup = make("build-new");
+    await sup.ensureRunning();
+    expect(sup.getState()).toMatchObject({
+      kind: "stopped",
+      reason: expect.stringContaining("did not answer"),
+    });
   });
 });

@@ -88,7 +88,7 @@ The last line says either `Safe to start Psyche <version> on this data.` (exit c
 | Line | What it means | What to do |
 | --- | --- | --- |
 | `database: up to date` | Nothing to migrate. | Continue. |
-| `database: … will apply at the next Gateway start: …` | Pending migrations. The new Gateway applies them automatically when it starts. | Continue. This is the step you cannot undo without your backup. |
+| `database: … will apply at the next Gateway start: …` | Pending migrations. The new Gateway applies them automatically when it starts, after copying every database and `config.json` into `$PSYCHE_HOME/backups/pre-update/<from>-to-<to>-<time>/` (the newest 3 are kept; `PSYCHE_PRE_UPDATE_KEEP` changes that). If a migration fails, it puts that copy back and refuses to start. | Continue. Your own backup from step 1 is still the one that survives a lost disk. |
 | `database: no database at … yet` | A new install. | Continue. |
 | `database: this build cannot list its migrations` | This CLI build cannot check the database. It is a warning, not a blocker. | Make sure your backup from step 1 verified, then continue. |
 | `database: the data is from a newer Psyche` | You installed an older version than the one that last ran on this data. That is a downgrade, and the Gateway refuses to start. | Install the newer version again, or follow [Go back to an older version](#go-back-to-an-older-version). |
@@ -202,4 +202,4 @@ Database migrations only go forward, so an older version cannot run on data a ne
 
 ## For maintainers: the scripted round trip
 
-`node deploy/scripts/upgrade-roundtrip.mjs` runs this whole path on throwaway homes with real processes: `migrate --check` on a fresh home, an online backup through a running Gateway, `migrate --check` on the live data, verify and restore into a second fresh home, `migrate --check` there, and a Gateway booting from the restored data. Point `PSYCHE` (and `PSYCHED`) at a release build to check it before tagging.
+`node deploy/scripts/upgrade-roundtrip.mjs` runs this whole path on throwaway homes with real processes: `migrate --check` on a fresh home, an online backup through a running Gateway, `migrate --check` on the live data, verify and restore into a second fresh home, `migrate --check` there, a Gateway booting from the restored data, and then a newer build whose migration fails (the pre-update snapshot is made, the data is put back, the Gateway refuses to start, and the next build starts on the same data). Point `PSYCHE` (and `PSYCHED`) at a release build to check it before tagging.

@@ -15,7 +15,7 @@ import {
 } from "@psyche/audit";
 import { redactUrl } from "@psyche/browser";
 import type { ConnectorRegistry } from "@psyche/connectors";
-import { getDevice, getSetting, getThread, openDb, type PsycheDb, setSetting } from "@psyche/db";
+import { getDevice, getSetting, getThread, type PsycheDb, setSetting } from "@psyche/db";
 import { fileTools } from "@psyche/files";
 import {
   brokerApprovalCheck,
@@ -104,6 +104,7 @@ import type { HandlerDef } from "../context.ts";
 import type { PublicRoute, WebhookRoute } from "../http.ts";
 import { createLogger } from "../log.ts";
 import { personalizeMessageEvent } from "../message-scrub.ts";
+import { openGatewayDb } from "../pre-update.ts";
 import { taskRunTrace } from "../run-trace/tasks.ts";
 import { type Gateway, type GatewayOptions, startGateway } from "../server.ts";
 import { ApprovalTokens } from "./approval-tokens.ts";
@@ -479,7 +480,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // A database the caller passes in stays theirs to close; one compose opens, `stop()` closes.
   const ownsDb = gwOptions.db === undefined;
   const db =
-    gwOptions.db ?? openDb(config.dbPath, { now: () => new Date(clock.now()).toISOString() });
+    gwOptions.db ??
+    (await openGatewayDb(config, () => new Date(clock.now()).toISOString(), gwOptions.logger));
 
   // Events from packages are published once the Gateway's bus exists.
   let bus: Gateway["bus"] | null = null;

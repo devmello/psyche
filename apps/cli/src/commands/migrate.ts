@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { listBackups } from "@psyche/backup";
 import type { CommandSpec } from "../command.ts";
-import { readConfig, validateConfig } from "../config-file.ts";
+import { readConfig, unknownConfigKeys, validateConfig } from "../config-file.ts";
 import type { Check } from "../doctor.ts";
 import { toReport } from "../errors.ts";
 import {
@@ -83,8 +83,11 @@ export const migrateCommands: CommandSpec[] = [
       }
 
       let configProblems: string[] = [];
+      let configWarnings: string[] = [];
       try {
-        configProblems = validateConfig(readConfig(ctx.home).config);
+        const { config } = readConfig(ctx.home);
+        configProblems = validateConfig(config);
+        configWarnings = unknownConfigKeys(config);
       } catch (err) {
         configProblems = [toReport(err).message];
       }
@@ -96,7 +99,13 @@ export const migrateCommands: CommandSpec[] = [
               message: `config.json: ${configProblems.join("; ")}`,
               hint: "Fix it with `psyche config set`",
             }
-          : { id: "config", status: "ok", message: "config.json is valid for this version" },
+          : configWarnings.length
+            ? {
+                id: "config",
+                status: "warn",
+                message: `config.json has keys this version does not know (${configWarnings.join(", ")}); they are kept and ignored`,
+              }
+            : { id: "config", status: "ok", message: "config.json is valid for this version" },
       );
 
       const latest = listBackups(ctx.home)[0] ?? null;
@@ -141,6 +150,7 @@ export const migrateCommands: CommandSpec[] = [
           gatewayVersion: running,
           database: { path: dbPath, exists: existsSync(dbPath), ...(plan ?? {}) },
           configProblems,
+          configWarnings,
           latestBackup: latest,
           checks,
         },

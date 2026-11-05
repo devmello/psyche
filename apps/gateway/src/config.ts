@@ -128,24 +128,29 @@ interface ConfigFile {
 /** A `{{cred:slug}}` placeholder, the vault's slug grammar. */
 export const CRED_PLACEHOLDER = /^\{\{cred:[a-z0-9][a-z0-9-]{0,63}(\.[a-z]+)?\}\}$/;
 
+const TOP_LEVEL_KEYS = new Set(["gateway", "credentials", "connectors"]);
+
 /** `connectors` in `config.json`: client ids and vault placeholders, never a secret. */
-function connectorsFrom(value: unknown): NonNullable<ConfigFile["connectors"]> {
+function connectorsFrom(value: unknown, warn: ConfigWarn): NonNullable<ConfigFile["connectors"]> {
   if (value === null || typeof value !== "object" || Array.isArray(value))
     bad("connectors", "must be an object");
   const c = value as Record<string, unknown>;
-  for (const key of Object.keys(c))
-    if (key !== "google") bad(`connectors.${key}`, "is not a known key");
+  for (const key of Object.keys(c)) if (key !== "google") warn(`connectors.${key}`);
   if (c.google === undefined) return {};
-  return { google: googleClientFrom(c.google, "connectors.google") };
+  return { google: googleClientFrom(c.google, "connectors.google", warn) };
 }
 
 /** Validates a Google OAuth client from `config.json` or the environment. */
-export function googleClientFrom(value: unknown, path: string): GoogleClientConfig {
+export function googleClientFrom(
+  value: unknown,
+  path: string,
+  warn: ConfigWarn = warnUnknownKey,
+): GoogleClientConfig {
   if (value === null || typeof value !== "object" || Array.isArray(value))
     bad(path, "must be an object");
   const g = value as Record<string, unknown>;
   for (const key of Object.keys(g))
-    if (key !== "clientId" && key !== "clientSecret") bad(`${path}.${key}`, "is not a known key");
+    if (key !== "clientId" && key !== "clientSecret") warn(`${path}.${key}`);
   const out: GoogleClientConfig = {};
   if (g.clientId !== undefined) {
     if (
@@ -167,29 +172,24 @@ export function googleClientFrom(value: unknown, path: string): GoogleClientConf
 }
 
 /** `credentials` in `config.json`: references to external sources only, never a secret. */
-function credentialsFrom(value: unknown): NonNullable<ConfigFile["credentials"]> {
+function credentialsFrom(value: unknown, warn: ConfigWarn): NonNullable<ConfigFile["credentials"]> {
   if (value === null || typeof value !== "object" || Array.isArray(value))
     bad("credentials", "must be an object");
   const c = value as Record<string, unknown>;
   for (const key of Object.keys(c))
-    if (key !== "onePassword" && key !== "bitwarden")
-      bad(`credentials.${key}`, "is not a known key");
-  const bw = c.bitwarden === undefined ? {} : { bitwarden: bitwardenFrom(c.bitwarden) };
+    if (key !== "onePassword" && key !== "bitwarden") warn(`credentials.${key}`);
+  const bw = c.bitwarden === undefined ? {} : { bitwarden: bitwardenFrom(c.bitwarden, warn) };
   if (c.onePassword === undefined) return bw;
-  return { ...bw, ...onePasswordFrom(c.onePassword) };
+  return { ...bw, ...onePasswordFrom(c.onePassword, warn) };
 }
 
 /** `credentials.bitwarden`: paths only; the session key lives in the vault. */
-function bitwardenFrom(value: unknown): BitwardenConfig {
+function bitwardenFrom(value: unknown, warn: ConfigWarn): BitwardenConfig {
   if (value === null || typeof value !== "object" || Array.isArray(value))
     bad("credentials.bitwarden", "must be an object");
   const b = value as Record<string, unknown>;
   for (const key of Object.keys(b))
-    if (key !== "bw" && key !== "appDataDir")
-      bad(
-        `credentials.bitwarden.${key}`,
-        "is not a known key (the session key lives in the vault)",
-      );
+    if (key !== "bw" && key !== "appDataDir") warn(`credentials.bitwarden.${key}`);
   const out: BitwardenConfig = {};
   for (const key of ["bw", "appDataDir"] as const) {
     const v = b[key];
@@ -204,13 +204,13 @@ function bitwardenFrom(value: unknown): BitwardenConfig {
 /** `credentials.onePassword`: the `op` CLI or a Connect URL; the token lives in the vault. */
 function onePasswordFrom(
   value: unknown,
+  warn: ConfigWarn,
 ): Pick<NonNullable<ConfigFile["credentials"]>, "onePassword"> {
   const op = value as Record<string, unknown>;
   if (op === null || typeof op !== "object" || Array.isArray(op))
     bad("credentials.onePassword", "must be an object");
   for (const key of Object.keys(op))
-    if (!["kind", "op", "url"].includes(key))
-      bad(`credentials.onePassword.${key}`, "is not a known key (the token lives in the vault)");
+    if (!["kind", "op", "url"].includes(key)) warn(`credentials.onePassword.${key}`);
   if (op.kind === "cli") {
     if (op.op !== undefined && (typeof op.op !== "string" || !isAbsolute(op.op)))
       bad("credentials.onePassword.op", "must be an absolute path to the op binary");
@@ -240,6 +240,22 @@ export function isLoopbackHost(host: string): boolean {
   return LOOPBACK.has(host);
 }
 
+/**
+ * A key this build does not know. Never fatal (updates design §2.7): a newer version may have
+ * written it, and a rollback must still start. It is left in the file untouched (nothing here
+ * writes `config.json` back) and mentioned once per process.
+ */
+export type ConfigWarn = (path: string) => void;
+
+const warned = new Set<string>();
+const warnUnknownKey: ConfigWarn = (path) => {
+  if (warned.has(path)) return;
+  warned.add(path);
+  process.stderr.write(
+    `${JSON.stringify({ ts: new Date().toISOString(), level: "warn", msg: "config.json has a key this version does not know; ignoring it and leaving it in the file", key: path })}\n`,
+  );
+};
+
 function bad(path: string, message: string): never {
   throw new PsycheError("invalid_params", `config.json: ${path} ${message}`);
 }
@@ -252,7 +268,7 @@ function stringArray(value: unknown, path: string): string[] | undefined {
 }
 
 /** Reads and validates `$PSYCHE_HOME/config.json`; invalid config fails fast (feature A5). */
-export function readConfigFile(path: string): ConfigFile {
+export function readConfigFile(path: string, warn: ConfigWarn = warnUnknownKey): ConfigFile {
   if (!existsSync(path)) return {};
   let raw: unknown;
   try {
@@ -262,9 +278,11 @@ export function readConfigFile(path: string): ConfigFile {
   }
   if (raw === null || typeof raw !== "object" || Array.isArray(raw)) bad("", "must be an object");
   const credentialsRaw = (raw as { credentials?: unknown }).credentials;
-  const credentials = credentialsRaw === undefined ? undefined : credentialsFrom(credentialsRaw);
+  for (const key of Object.keys(raw as object)) if (!TOP_LEVEL_KEYS.has(key)) warn(key);
+  const credentials =
+    credentialsRaw === undefined ? undefined : credentialsFrom(credentialsRaw, warn);
   const connectorsRaw = (raw as { connectors?: unknown }).connectors;
-  const connectors = connectorsRaw === undefined ? undefined : connectorsFrom(connectorsRaw);
+  const connectors = connectorsRaw === undefined ? undefined : connectorsFrom(connectorsRaw, warn);
   const withCredentials = (file: ConfigFile): ConfigFile => ({
     ...file,
     ...(credentials === undefined ? {} : { credentials }),
@@ -284,8 +302,7 @@ export function readConfigFile(path: string): ConfigFile {
     "cloudflareAccess",
     "rateLimits",
   ]);
-  for (const key of Object.keys(g))
-    if (!known.has(key)) bad(`gateway.${key}`, "is not a known key");
+  for (const key of Object.keys(g)) if (!known.has(key)) warn(`gateway.${key}`);
   if (g.host !== undefined && typeof g.host !== "string") bad("gateway.host", "must be a string");
   if (
     g.port !== undefined &&
@@ -327,17 +344,19 @@ export function readConfigFile(path: string): ConfigFile {
     }
     out.cloudflareAccess = { teamDomain: cf.teamDomain as string, audience: cf.audience as string };
   }
-  if (g.rateLimits !== undefined) out.rateLimits = rateLimitsFrom(g.rateLimits);
+  if (g.rateLimits !== undefined) out.rateLimits = rateLimitsFrom(g.rateLimits, warn);
   return withCredentials({ gateway: out });
 }
 
-function rateLimitsFrom(value: unknown): Partial<RateLimitSettings> {
+function rateLimitsFrom(value: unknown, warn: ConfigWarn): Partial<RateLimitSettings> {
   if (value === null || typeof value !== "object" || Array.isArray(value))
     bad("gateway.rateLimits", "must be an object");
   const out: Partial<RateLimitSettings> = {};
   for (const [key, n] of Object.entries(value as Record<string, unknown>)) {
-    if (key !== "inboundChatPerMinute" && key !== "fetchPerMinute")
-      bad(`gateway.rateLimits.${key}`, "is not a known key");
+    if (key !== "inboundChatPerMinute" && key !== "fetchPerMinute") {
+      warn(`gateway.rateLimits.${key}`);
+      continue;
+    }
     if (!Number.isInteger(n) || (n as number) < 1 || (n as number) > 10_000)
       bad(`gateway.rateLimits.${key}`, "must be an integer 1-10000");
     out[key] = n as number;

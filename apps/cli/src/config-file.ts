@@ -4,8 +4,9 @@ import { CliError } from "./errors.ts";
 
 /**
  * `$PSYCHE_HOME/config.json` (feature A5; architecture §12): operator config, never secrets.
- * The Gateway reads it at start and rejects unknown `gateway.*` keys, so the CLI validates with
- * the same rules before writing (apps/gateway README "Config keys").
+ * The Gateway reads it at start, refuses bad values for the keys it knows and warns about (and
+ * keeps) keys it does not, so the CLI validates with the same rules before writing (apps/gateway
+ * README "Config keys").
  */
 
 export const GATEWAY_KEYS: Record<string, "string" | "port" | "string[]" | "boolean"> = {
@@ -41,6 +42,17 @@ export function readConfig(home: string): { exists: boolean; config: ConfigObjec
   return { exists: true, config: raw as ConfigObject };
 }
 
+/**
+ * Dotted `gateway.*` keys this version does not know. The Gateway warns about them and keeps
+ * them (a newer version may have written them and a rollback must still start), so they are
+ * reported, never a reason to refuse.
+ */
+export function unknownConfigKeys(config: ConfigObject): string[] {
+  const gateway = config.gateway;
+  if (gateway === null || typeof gateway !== "object" || Array.isArray(gateway)) return [];
+  return Object.keys(flatten({ gateway })).filter((key) => !GATEWAY_KEYS[key]);
+}
+
 /** Problems the Gateway would refuse to start with, as readable strings. */
 export function validateConfig(config: ConfigObject): string[] {
   const problems: string[] = [];
@@ -52,10 +64,7 @@ export function validateConfig(config: ConfigObject): string[] {
   const flat = flatten({ gateway });
   for (const [key, value] of Object.entries(flat)) {
     const type = GATEWAY_KEYS[key];
-    if (!type) {
-      problems.push(`${key} is not a known key`);
-      continue;
-    }
+    if (!type) continue; // unknown keys are kept and warned about, not refused (unknownConfigKeys)
     const err = checkType(type, value);
     if (err) problems.push(`${key} ${err}`);
   }
