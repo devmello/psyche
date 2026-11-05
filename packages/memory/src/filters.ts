@@ -81,8 +81,22 @@ function hasIban(text: string): boolean {
   return false;
 }
 
+/**
+ * Text as a model effectively reads it: compatibility-normalised, with format characters
+ * (zero-width, bidi, soft hyphen) removed and every run of whitespace one space. Detection runs on
+ * this, so a number split by newlines or zero-width characters, or a keyword with one inside it,
+ * is found the way it would be read.
+ */
+export function foldForDetection(text: string): string {
+  return text
+    .normalize("NFKC")
+    .replace(/\p{Cf}/gu, "")
+    .replace(/\s+/g, " ");
+}
+
 /** Every sensitive kind found in `text` (empty when clean). */
-export function detectSensitive(text: string): SensitiveKind[] {
+export function detectSensitive(raw: string): SensitiveKind[] {
+  const text = foldForDetection(raw);
   const found = new Set<SensitiveKind>();
   if (SECRET_PATTERNS.some((p) => p.test(text))) found.add("secret");
   if (hasCardNumber(text)) found.add("card");

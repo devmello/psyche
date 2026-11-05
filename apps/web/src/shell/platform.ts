@@ -73,7 +73,8 @@ export type GatewayAddressProblem =
   | "link_extra_fields"
   | "link_bad_field"
   | "link_pin_mismatch"
-  | "link_lan";
+  | "link_lan"
+  | "link_not_lan";
 
 /**
  * Desktop only: the saved Gateways (remote-gateway design §1.3). One is active at a time;

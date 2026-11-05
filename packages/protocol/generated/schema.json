@@ -2149,7 +2149,7 @@
         "sideEffecting": false
       },
       {
-        "description": "A short answer to a question about the owner's people, from reviewed, non-sensitive facts only, each claim cited to a fact. Owner-only. No answer (with a reason) when the model is off, no fact matches, or the reply cites nothing it was given.",
+        "description": "A short answer to a question about the owner's life, from reviewed, non-sensitive facts and, when asked, from source passages in the local index, each claim cited to a fact (`[n]`) or a passage (`[Pn]`). Owner-only. A claim that cites nothing it was given is dropped; no answer (with a reason) when the model is off, nothing matches or nothing is left. A sensitive-class passage, a source kept from the agent, or a source the connection cannot open is never read for that connection.",
         "name": "memory.life.answer",
         "params": "#/$defs/MemoryLifeAnswerParams",
         "result": "#/$defs/MemoryLifeAnswerResult",
@@ -17036,6 +17036,9 @@
           "minItems": 1,
           "type": "array"
         },
+        "via": {
+          "$ref": "#/$defs/SetupTokenVia"
+        },
         "approvalId": {
           "description": "ULID in production",
           "maxLength": 64,
@@ -17054,8 +17057,14 @@
           "$ref": "#/$defs/SetupTokenInfo"
         },
         "link": {
-          "description": "psyche-pair:v1 link: gatewayUrl, gatewayFingerprint, setupToken and hostName, nothing else. The token appears only here, once",
+          "description": "psyche-pair:v1 link (gatewayUrl, gatewayFingerprint, setupToken, hostName) for an address, or psyche-pair:v2 link (gatewayUrl, gatewayKey, certPin, setupToken, hostName) for the LAN; nothing else. The token appears only here, once",
           "type": "string"
+        },
+        "version": {
+          "description": "1 or 2: which link format `link` is",
+          "maximum": 2,
+          "minimum": 1,
+          "type": "integer"
         },
         "gatewayUrl": {
           "type": "string"
@@ -19375,6 +19384,10 @@
               },
               "type": "array"
             },
+            "ipv6": {
+              "description": "Also listen on the chosen interface's IPv6 unique-local (fc00::/7) addresses. Never global or link-local ones",
+              "type": "boolean"
+            },
             "listening": {
               "description": "What is bound right now; empty when off or when nothing could bind",
               "items": {
@@ -19395,7 +19408,7 @@
               "type": "array"
             },
             "candidates": {
-              "description": "Interfaces the owner can pick",
+              "description": "Interfaces the owner can pick: private IPv4 and IPv6 unique-local addresses only",
               "items": {
                 "properties": {
                   "name": {
@@ -24162,6 +24175,37 @@
       ],
       "type": "object"
     },
+    "LifeAnswerPassage": {
+      "properties": {
+        "id": {
+          "description": "Search document id; opens the source viewer (`search.document`)",
+          "maxLength": 200,
+          "type": "string"
+        },
+        "source": {
+          "description": "`mail`, `messages`, `notes`, …",
+          "maxLength": 20,
+          "type": "string"
+        },
+        "title": {
+          "description": "Untrusted text: written by someone else",
+          "maxLength": 200,
+          "type": "string"
+        },
+        "createdAt": {
+          "description": "Epoch ms of the passage",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "source",
+        "title",
+        "createdAt"
+      ],
+      "type": "object"
+    },
     "LifeAnswerReason": {
       "enum": [
         "no_model",
@@ -24230,6 +24274,24 @@
               "type": "null"
             }
           ]
+        },
+        "docIds": {
+          "description": "Search document ids of every citation's source passage that is indexed, in citation order, resolved at read time (never stored on the fact); the first is `docId`",
+          "items": {
+            "maxLength": 200,
+            "type": "string"
+          },
+          "maxItems": 5,
+          "type": "array"
+        },
+        "sources": {
+          "description": "Every citation's source (`mail`, `messages`, …), without repeats; `source` is the first. A connection that cannot open one of them is not shown the fact",
+          "items": {
+            "maxLength": 40,
+            "type": "string"
+          },
+          "maxItems": 8,
+          "type": "array"
         },
         "observedAt": {
           "anyOf": [
@@ -27988,6 +28050,48 @@
           "maxLength": 500,
           "minLength": 1,
           "type": "string"
+        },
+        "passages": {
+          "description": "Also read source passages (mail, Messages, notes, files, calendar) from the local index. Absent or false: facts only, the earlier behaviour",
+          "type": "boolean"
+        },
+        "previous": {
+          "description": "A follow-up: the question, answer and cited ids of the turn before. The ids are read again under this connection's rules; nothing in here is trusted as a source",
+          "properties": {
+            "q": {
+              "maxLength": 500,
+              "type": "string"
+            },
+            "answer": {
+              "maxLength": 900,
+              "type": "string"
+            },
+            "factIds": {
+              "items": {
+                "description": "ULID in production",
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 12,
+              "type": "array"
+            },
+            "passageIds": {
+              "items": {
+                "maxLength": 200,
+                "type": "string"
+              },
+              "maxItems": 8,
+              "type": "array"
+            }
+          },
+          "required": [
+            "q",
+            "answer",
+            "factIds",
+            "passageIds"
+          ],
+          "type": "object"
         }
       },
       "required": [
@@ -28000,7 +28104,7 @@
         "answer": {
           "anyOf": [
             {
-              "maxLength": 600,
+              "maxLength": 900,
               "type": "string"
             },
             {
@@ -28012,6 +28116,13 @@
           "description": "The facts the answer cites, in order",
           "items": {
             "$ref": "#/$defs/LifeFactHit"
+          },
+          "type": "array"
+        },
+        "passages": {
+          "description": "The source passages the answer cites, in order. `[n]` in the answer is the nth fact, `[Pn]` the nth passage",
+          "items": {
+            "$ref": "#/$defs/LifeAnswerPassage"
           },
           "type": "array"
         },
@@ -37620,6 +37731,13 @@
         "operator.write",
         "operator.approvals",
         "operator.admin"
+      ],
+      "type": "string"
+    },
+    "SetupTokenVia": {
+      "enum": [
+        "address",
+        "lan"
       ],
       "type": "string"
     },

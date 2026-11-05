@@ -1,8 +1,10 @@
 import { readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { PairingLinkError, PsycheError, parsePairingLink } from "@psyche/protocol";
+import { PairingLinkError, PsycheError, parsePairingLinkAny } from "@psyche/protocol";
+import { fingerprintOf } from "../lib/gateway-identity.ts";
 import {
   addGateway,
+  addGatewayFromLanLink,
   addGatewayFromLink,
   clearGatewayPin,
   clearSetupToken,
@@ -61,7 +63,14 @@ export type GatewayConfirm =
    * fingerprint), never the link's own host name. `external`: the link was opened by another app
    * or a website, not pasted by the owner.
    */
-  | { kind: "addLink"; origin: string; fingerprint: string; external: boolean }
+  | {
+      kind: "addLink";
+      origin: string;
+      fingerprint: string;
+      external: boolean;
+      /** A `psyche-pair:v2` link: a Psyche on this network, held to the certificate it names. */
+      lan?: { certPin: string };
+    }
   | { kind: "forget"; name: string; origin: string }
   | { kind: "repair"; name: string; origin: string }
   | { kind: "stopLocal" };
@@ -191,15 +200,15 @@ export class GatewayManager {
   }
 
   /**
-   * Adds (or updates) the Gateway a pasted `psyche-pair:v1` link names, after the owner confirms
+   * Adds (or updates) the Gateway a pasted `psyche-pair:v1` or `psyche-pair:v2` link names, after the owner confirms
    * the normalized address in a native dialog. The link is parsed strictly here, in main, from the
    * raw text: nothing the renderer parsed is trusted. The link's fingerprint becomes the pre-pin
    * and its token is kept for the first connect (never given back to the renderer).
    */
   async addFromLink(rawLink: string, opts: { external?: boolean } = {}): Promise<SavedGatewayView> {
-    let link: ReturnType<typeof parsePairingLink>;
+    let link: ReturnType<typeof parsePairingLinkAny>;
     try {
-      link = parsePairingLink(rawLink);
+      link = parsePairingLinkAny(rawLink);
     } catch (err) {
       if (err instanceof PairingLinkError) {
         throw new PsycheError("invalid_params", err.message, {
@@ -210,7 +219,10 @@ export class GatewayManager {
     }
     const attempt = () => {
       try {
-        return addGatewayFromLink(this.#load(), link, this.#deps.now?.() ?? new Date());
+        const now = this.#deps.now?.() ?? new Date();
+        return link.version === 2
+          ? addGatewayFromLanLink(this.#load(), link.payload, now)
+          : addGatewayFromLink(this.#load(), link.payload, now);
       } catch (err) {
         if (err instanceof GatewayAddressError) {
           throw new PsycheError("invalid_params", err.message, {
@@ -220,7 +232,12 @@ export class GatewayManager {
         if (err instanceof GatewayLinkError) {
           throw new PsycheError("invalid_params", err.message, {
             details: {
-              problem: err.problem === "lan_not_supported" ? "link_lan" : "link_pin_mismatch",
+              problem:
+                err.problem === "lan_not_supported"
+                  ? "link_lan"
+                  : err.problem === "not_lan"
+                    ? "link_not_lan"
+                    : "link_pin_mismatch",
             },
           });
         }
@@ -231,8 +248,12 @@ export class GatewayManager {
     const ok = await this.#deps.confirm({
       kind: "addLink",
       origin: first.entry.origin,
-      fingerprint: link.gatewayFingerprint,
+      fingerprint:
+        link.version === 2
+          ? fingerprintOf(link.payload.gatewayKey)
+          : link.payload.gatewayFingerprint,
       external: opts.external === true,
+      ...(link.version === 2 ? { lan: { certPin: link.payload.certPin } } : {}),
     });
     if (!ok) throw new PsycheError("forbidden", "Adding the Gateway was cancelled");
     // Read again after the dialog, as `add` does, so a pin written meanwhile is not erased.

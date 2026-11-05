@@ -3803,20 +3803,28 @@ export interface DevicesSetupTokenCreateParams {
      * `operator.admin` only when the owner ticks it
      */
     scopes: SetupTokenScope[];
+    via?:   SetupTokenVia;
 }
 
 export type SetupTokenScope = "operator.read" | "operator.write" | "operator.approvals" | "operator.admin";
+
+export type SetupTokenVia = "address" | "lan";
 
 export interface DevicesSetupTokenCreateResult {
     gatewayFingerprint: string;
     gatewayUrl:         string;
     hostName:           string;
     /**
-     * psyche-pair:v1 link: gatewayUrl, gatewayFingerprint, setupToken and hostName, nothing
-     * else. The token appears only here, once
+     * psyche-pair:v1 link (gatewayUrl, gatewayFingerprint, setupToken, hostName) for an
+     * address, or psyche-pair:v2 link (gatewayUrl, gatewayKey, certPin, setupToken, hostName)
+     * for the LAN; nothing else. The token appears only here, once
      */
     link:       string;
     setupToken: SetupTokenInfo;
+    /**
+     * 1 or 2: which link format `link` is
+     */
+    version?: number;
 }
 
 export interface SetupTokenInfo {
@@ -4717,7 +4725,7 @@ export interface LAN {
      */
     advertising: boolean;
     /**
-     * Interfaces the owner can pick
+     * Interfaces the owner can pick: private IPv4 and IPv6 unique-local addresses only
      */
     candidates: Candidate[];
     /**
@@ -4732,6 +4740,11 @@ export interface LAN {
      * The interface names or addresses the owner chose; empty = the default one
      */
     interfaces: string[];
+    /**
+     * Also listen on the chosen interface's IPv6 unique-local (fc00::/7) addresses. Never
+     * global or link-local ones
+     */
+    ipv6?: boolean;
     /**
      * What is bound right now; empty when off or when nothing could bind
      */
@@ -6801,7 +6814,28 @@ export interface MemoryLessonsListResult {
 }
 
 export interface MemoryLifeAnswerParams {
-    q: string;
+    /**
+     * Also read source passages (mail, Messages, notes, files, calendar) from the local index.
+     * Absent or false: facts only, the earlier behaviour
+     */
+    passages?: boolean;
+    /**
+     * A follow-up: the question, answer and cited ids of the turn before. The ids are read
+     * again under this connection's rules; nothing in here is trusted as a source
+     */
+    previous?: Previous;
+    q:         string;
+}
+
+/**
+ * A follow-up: the question, answer and cited ids of the turn before. The ids are read
+ * again under this connection's rules; nothing in here is trusted as a source
+ */
+export interface Previous {
+    answer:     string;
+    factIds:    string[];
+    passageIds: string[];
+    q:          string;
 }
 
 export interface MemoryLifeAnswerResult {
@@ -6809,13 +6843,23 @@ export interface MemoryLifeAnswerResult {
     /**
      * The facts the answer cites, in order
      */
-    facts:   LifeFactHit[];
-    reason?: LifeAnswerReason | null;
+    facts: LifeFactHit[];
+    /**
+     * The source passages the answer cites, in order. `[n]` in the answer is the nth fact,
+     * `[Pn]` the nth passage
+     */
+    passages?: LifeAnswerPassage[];
+    reason?:   LifeAnswerReason | null;
 }
 
 export interface LifeFactHit {
-    attribute:   GraphFactAttribute;
-    docId?:      null | string;
+    attribute: GraphFactAttribute;
+    docId?:    null | string;
+    /**
+     * Search document ids of every citation's source passage that is indexed, in citation
+     * order, resolved at read time (never stored on the fact); the first is `docId`
+     */
+    docIds?:     string[];
     entity:      EntitySummary;
     factId:      string;
     learnedAt?:  null | string;
@@ -6825,9 +6869,33 @@ export interface LifeFactHit {
     review:      GraphReviewState;
     source?:     null | string;
     /**
+     * Every citation's source (`mail`, `messages`, …), without repeats; `source` is the first.
+     * A connection that cannot open one of them is not shown the fact
+     */
+    sources?: string[];
+    /**
      * Untrusted text when it came from someone else
      */
     value: string;
+}
+
+export interface LifeAnswerPassage {
+    /**
+     * Epoch ms of the passage
+     */
+    createdAt: number;
+    /**
+     * Search document id; opens the source viewer (`search.document`)
+     */
+    id: string;
+    /**
+     * `mail`, `messages`, `notes`, …
+     */
+    source: string;
+    /**
+     * Untrusted text: written by someone else
+     */
+    title: string;
 }
 
 export type LifeAnswerReason = "no_model" | "no_facts" | "no_answer" | "ungrounded" | "model_failed";
