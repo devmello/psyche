@@ -32,6 +32,7 @@ import {
   isHostHelperFamily,
   lanCertSigningPayload,
   type PairingRequest,
+  type PeerCheck,
   PROTOCOL_VERSION,
   PsycheError,
   type ServerBuild,
@@ -78,6 +79,13 @@ export interface PeerInfo {
   limitKey?: string;
   /** WebSocket `Origin` header; `null` for native clients and Unix-socket nodes. */
   origin: string | null;
+  /**
+   * What the accept-time peer check found for a process on the Linux node socket (design §4.3):
+   * set only by the transport that owns that socket, after it looked at the connecting process,
+   * and never from anything the peer sends. Absent off Linux and on every other transport. A
+   * `mismatch` is never a Host helper.
+   */
+  peerCheck?: PeerCheck;
   /** Identity a trusted proxy claims for the client; shown on the pairing card, never trusted. */
   claimedIdentity?: string | null;
   /**
@@ -126,7 +134,9 @@ export interface PairedIdentity {
 
 /**
  * The Host helper's connection proof: the local node transport (Unix socket, or the named pipe on
- * Windows) plus the per-launch handshake secret. Either helper family qualifies, the same way.
+ * Windows) plus the per-launch handshake secret. Every helper family qualifies, the same way. On
+ * Linux the accept-time peer check must also not have found another program (`mismatch`); the
+ * other outcomes are recorded and shown, not refused.
  */
 export function isHostHelper(
   params: ConnectParams,
@@ -139,8 +149,20 @@ export function isHostHelper(
     peer.origin === null &&
     params.role === "node" &&
     isHostHelperFamily(params.deviceFamily) &&
+    peerCheckAllows(params, peer) &&
     secretMatches(handshakeSecret, params.handshakeSecret)
   );
+}
+
+/**
+ * Whether the accept-time peer check (Linux) lets this node be the Host helper. No check ran
+ * (macOS, Windows, a Gateway started in process): nothing to add. Otherwise the connecting
+ * process must not be another program, and only the Linux helper family is possible there: a
+ * Mac or Windows helper cannot exist on this computer, so a node that says it is one is lying.
+ */
+function peerCheckAllows(params: ConnectParams, peer: PeerInfo): boolean {
+  if (peer.peerCheck === undefined) return true;
+  return peer.peerCheck !== "mismatch" && params.deviceFamily === "linux-helper";
 }
 
 /** The desktop shell's connection proof, the same one its auto-pairing needs. */
@@ -419,7 +441,11 @@ export function verifyChallenge(
     peer.transport === "unix" &&
     !isHostHelper(params, peer, deps.handshakeSecret)
   ) {
-    return denied("stale or missing handshake secret; reconnect with the current one");
+    return denied(
+      peer.peerCheck !== undefined && !peerCheckAllows(params, peer)
+        ? "this process is not the Linux helper of this computer"
+        : "stale or missing handshake secret; reconnect with the current one",
+    );
   }
   if (existing?.pairedAt) {
     // A paired device must present its pairing key, and keeps the role it was paired with.
@@ -483,7 +509,9 @@ export function verifyChallenge(
     return denied(
       params.deviceFamily === "win-helper"
         ? "a Windows helper pairs only with the handshake secret on its own PC"
-        : "a Mac helper pairs only with the handshake secret on its own Mac",
+        : params.deviceFamily === "linux-helper"
+          ? "a Linux helper pairs only with the handshake secret on its own computer"
+          : "a Mac helper pairs only with the handshake secret on its own Mac",
     );
   }
   const keyChanged = existing !== undefined && existing.publicKey !== params.publicKey;

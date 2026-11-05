@@ -7,6 +7,7 @@ import {
   vaultModelSetup,
 } from "./compose/index.ts";
 import { createLogger } from "./log.ts";
+import { defaultPeerChecker } from "./transports/peer-check.ts";
 
 const args = process.argv.slice(2);
 if (args[0] === "--bundle-check") {
@@ -17,6 +18,7 @@ if (args[0] === "--bundle-check") {
 if (args.length > 0) process.exit(runCli(args));
 
 const log = createLogger();
+const peerChecker = defaultPeerChecker();
 
 try {
   // PSYCHE_MODEL (development, server mode) wins; otherwise provider keys come from the vault
@@ -26,6 +28,8 @@ try {
     logger: log,
     model,
     parts: partsFromEnv(process.env),
+    // Linux: look at the process on the other end of the node socket before it is read from.
+    ...(peerChecker === undefined ? {} : { peerChecker }),
   });
   const shutdown = (signal: string) => {
     log.log("info", "signal received", { signal });

@@ -21,6 +21,7 @@ import {
   type DeviceScope,
   isMethodName,
   type MemoryStore,
+  type PeerCheck,
   type PermissionBroker,
   PsycheError,
 } from "@psyche/protocol";
@@ -82,6 +83,7 @@ import { ensureSocketDir, writeGuestPointer, writeSocketPointer } from "./socket
 import { INTERNAL_SETTING_PREFIX, readStateVersion, writeStateVersion } from "./state-version.ts";
 import { TransportGate } from "./transport-gate.ts";
 import { NdjsonDecoder } from "./transports/ndjson.ts";
+import type { PeerChecker } from "./transports/peer-check.ts";
 import { UpdateGate } from "./update-gate.ts";
 
 /**
@@ -98,6 +100,13 @@ export interface GatewayOptions {
   env?: NodeJS.ProcessEnv;
   logger?: Logger;
   now?: () => Date;
+  /**
+   * The accept-time peer check for the Unix node socket (Linux; ). Each
+   * accepted socket is paused until it finishes, and the verdict goes into .
+   *  installs the Linux one. A Gateway started in process (tests, embedding) has none
+   * unless it passes one, and its node socket then behaves as it does on macOS.
+   */
+  peerChecker?: PeerChecker;
   /** The owner changed a setting (audit trail: key and value hashes, never the value). */
   onSettingChanged?: (change: {
     key: string;
@@ -576,31 +585,59 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     createNetServer((socket: Socket) => {
       socket.setEncoding("utf8");
       const decoder = new NdjsonDecoder();
-      const conn = new Connection(
-        `node-${++connSeq}`,
-        {
-          transport,
-          // A relayed guest is not "this machine's own process": never loopback-trusted.
-          remoteLoopback: transport === "unix",
-          remoteAddress: transport,
-          origin: null,
-        },
-        { send: (f) => socket.writable && socket.write(`${f}\n`), close: () => socket.end() },
-        ctx,
-      );
-      connections.add(conn);
+      let conn: Connection | undefined;
       socket.on("data", (chunk: string) => {
+        const live = conn;
+        if (live === undefined) return; // not before the peer check has finished
         try {
-          for (const line of decoder.push(chunk)) void conn.handleRaw(line);
+          for (const line of decoder.push(chunk)) void live.handleRaw(line);
         } catch {
-          conn.close("frame too large");
+          live.close("frame too large");
         }
       });
       socket.on("close", () => {
+        if (conn === undefined) return;
         conn.close("socket closed");
         connections.delete(conn);
       });
-      socket.on("error", () => conn.close("socket error"));
+      socket.on("error", () => {
+        if (conn === undefined) socket.destroy();
+        else conn.close("socket error");
+      });
+      const open = (peerCheck: PeerCheck | undefined) => {
+        if (socket.destroyed) return;
+        const live = new Connection(
+          `node-${++connSeq}`,
+          {
+            transport,
+            // A relayed guest is not "this machine's own process": never loopback-trusted.
+            remoteLoopback: transport === "unix",
+            remoteAddress: transport,
+            origin: null,
+            // Only the checker sets it, from what it saw of the process, never from the peer.
+            ...(peerCheck === undefined ? {} : { peerCheck }),
+          },
+          { send: (f) => socket.writable && socket.write(`${f}\n`), close: () => socket.end() },
+          ctx,
+        );
+        conn = live;
+        connections.add(live);
+        socket.resume();
+      };
+      // The peer check runs on the node socket only (never the guest relay, whose peer is the
+      // Host helper's own process). The socket is paused until it has finished, so no frame is
+      // read, let alone answered, before the Gateway knows who is on the other end.
+      const check = transport === "unix" ? options.peerChecker : undefined;
+      if (check === undefined) {
+        open(undefined);
+        return;
+      }
+      socket.pause();
+      check(socket).then(
+        (verdict) => open(verdict),
+        // A checker that throws is a check that could not tell.
+        () => open("unverified"),
+      );
     });
   const listenOn = (server: NetServer, path: string) =>
     new Promise<void>((resolveListen, reject) => {

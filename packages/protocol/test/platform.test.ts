@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { isHostHelperFamily, isHostHelperKind } from "../src/index.ts";
+import { hostHelperKindOf, isHostHelperFamily, isHostHelperKind } from "../src/index.ts";
 import {
   fsyncDirSync,
   isNamedPipePath,
@@ -13,15 +13,24 @@ import {
 } from "../src/platform.ts";
 
 describe("host helper families", () => {
-  it("knows the Mac and Windows helpers and nothing else", () => {
+  it("knows the Mac, Windows and Linux helpers and nothing else", () => {
     expect(isHostHelperFamily("mac-helper")).toBe(true);
     expect(isHostHelperFamily("win-helper")).toBe(true);
+    expect(isHostHelperFamily("linux-helper")).toBe(true);
     for (const f of ["desktop", "psyche-node", "vm-guest", "Mac-Helper", "", undefined, null]) {
       expect(isHostHelperFamily(f)).toBe(false);
     }
     expect(isHostHelperKind("mac-helper")).toBe(true);
     expect(isHostHelperKind("win-helper")).toBe(true);
+    expect(isHostHelperKind("host-helper")).toBe(true);
     expect(isHostHelperKind("remote")).toBe(false);
+    expect(isHostHelperKind("guest")).toBe(false);
+  });
+
+  it("stores a Linux helper as host-helper and keeps the Mac and Windows kinds", () => {
+    expect(hostHelperKindOf("linux-helper")).toBe("host-helper");
+    expect(hostHelperKindOf("mac-helper")).toBe("mac-helper");
+    expect(hostHelperKindOf("win-helper")).toBe("win-helper");
   });
 });
 

@@ -9,6 +9,7 @@ import {
 import {
   type ConnectParams,
   type ErrorPayload,
+  hostHelperKindOf,
   isHostHelperFamily,
   type NodeCapability,
   type NodeClient,
@@ -17,6 +18,7 @@ import {
   type NodeInvokeResult,
   type NodeKind,
   type NodeReceipt,
+  type PeerCheck,
   PsycheError,
 } from "@psyche/protocol";
 import type { PairedIdentity, PeerInfo } from "../auth.ts";
@@ -27,9 +29,9 @@ export const NODE_INVOKE_TIMEOUT_MS = 60_000;
 
 /**
  * The kind a node's self-declared `deviceFamily` maps to. The helper families (`mac-helper`,
- * `win-helper`) are deliberately absent: they are a claim any paired node can make, so
- * `nodeKindOf` grants them only to the Host's own helper (`PairedIdentity.hostHelper`: the local
- * node transport plus the per-launch handshake secret).
+ * `win-helper`, `linux-helper`) are deliberately absent: they are a claim any paired node can
+ * make, so `nodeKindOf` grants them only to the Host's own helper (`PairedIdentity.hostHelper`:
+ * the local node transport plus the per-launch handshake secret).
  */
 const KIND_BY_FAMILY: Record<string, NodeKind> = {
   "vm-guest": "vm-guest",
@@ -37,15 +39,15 @@ const KIND_BY_FAMILY: Record<string, NodeKind> = {
 };
 
 /**
- * `mac-helper` / `win-helper` only for the Host's own helper (remote-gateway design §4.1 rule 1);
- * a claimed helper family anywhere else is `remote`. The family is self-declared and proves
- * nothing by itself: a second computer that pairs as a node, or a sandbox guest whose identity
- * file was copied, can say it too, and must never receive the agent's computer use, Apple-app
- * calls, keychain access or notifications.
+ * `mac-helper` / `win-helper` / `host-helper` (a Linux helper) only for the Host's own helper
+ * (remote-gateway design §4.1 rule 1); a claimed helper family anywhere else is `remote`. The
+ * family is self-declared and proves nothing by itself: a second computer that pairs as a node,
+ * or a sandbox guest whose identity file was copied, can say it too, and must never receive the
+ * agent's computer use, Apple-app calls, keychain access or notifications.
  */
 export function nodeKindOf(identity: PairedIdentity, params: ConnectParams): NodeKind {
   if (isHostHelperFamily(params.deviceFamily)) {
-    return identity.hostHelper === true ? params.deviceFamily : "remote";
+    return identity.hostHelper === true ? hostHelperKindOf(params.deviceFamily) : "remote";
   }
   return KIND_BY_FAMILY[params.deviceFamily] ?? "remote";
 }
@@ -56,7 +58,11 @@ export function nodeKindOf(identity: PairedIdentity, params: ConnectParams): Nod
  * denying. It is under `devices.*`, so changing it needs admin and fresh presence.
  */
 export const HOST_HELPER_PIN_SETTING = "devices.hostHelperDeviceId";
-/** Written by the Gateway: `{ ambiguous, helpers }`, so the app can say why Mac features are off. */
+/**
+ * Written by the Gateway: `{ ambiguous, helpers, peerCheck? }`, so the app can say why Host
+ * features are off. `peerCheck` (Linux only, additive) is what the accept-time peer check found
+ * for the Host helper in use: absent when there is no single helper or no check ran.
+ */
 export const HOST_HELPER_STATUS_SETTING = "devices.hostHelper.status";
 
 /** The Host's Mac helper, resolved to one live node. */
@@ -82,10 +88,19 @@ export class NodeRegistry {
   readonly #ctx: GatewayContext;
   readonly #live = new Map<
     string,
-    { conn: LiveConnection; info: NodeInfo; host: boolean; transport: PeerInfo["transport"] }
+    {
+      conn: LiveConnection;
+      info: NodeInfo;
+      host: boolean;
+      transport: PeerInfo["transport"];
+      /** The Linux accept-time peer check of this connection, when one ran (Host helper only). */
+      peerCheck?: PeerCheck;
+    }
   >();
   /** Whether Host-bound routing is currently refused for want of one helper. */
   #ambiguous = false;
+  /** The `peerCheck` last published in `devices.hostHelper.status`. */
+  #publishedPeerCheck: PeerCheck | undefined;
   readonly #invocations = new Map<string, Invocation>();
 
   constructor(ctx: GatewayContext) {
@@ -122,6 +137,10 @@ export class NodeRegistry {
       info,
       host: identity.hostHelper === true,
       transport: conn.peer.transport,
+      // Only a Host helper carries one, and only the checker sets it on the peer, never the peer.
+      ...(identity.hostHelper === true && conn.peer.peerCheck !== undefined
+        ? { peerCheck: conn.peer.peerCheck }
+        : {}),
     });
     if (previous && previous.conn !== conn) {
       this.#failInvocations(previous.conn.id, "replaced by a new connection");
@@ -166,7 +185,7 @@ export class NodeRegistry {
     return this.#live.has(nodeId);
   }
 
-  #liveHostHelpers(): { conn: LiveConnection; info: NodeInfo }[] {
+  #liveHostHelpers(): { conn: LiveConnection; info: NodeInfo; peerCheck?: PeerCheck }[] {
     return [...this.#live.values()].filter((e) => e.host);
   }
 
@@ -180,7 +199,7 @@ export class NodeRegistry {
    * The one live Host helper to use, or `undefined` for none or an ambiguous Host. With several,
    * the pinned device wins when it is among them; otherwise nothing is chosen.
    */
-  #soleHostHelper(): { conn: LiveConnection; info: NodeInfo } | undefined {
+  #soleHostHelper(): { conn: LiveConnection; info: NodeInfo; peerCheck?: PeerCheck } | undefined {
     const live = this.#liveHostHelpers();
     if (live.length <= 1) return live[0];
     const pin = this.#pinnedDevice();
@@ -217,10 +236,14 @@ export class NodeRegistry {
    */
   #syncHostHelperStatus(): void {
     const live = this.#liveHostHelpers();
-    const ambiguous = live.length > 1 && this.#soleHostHelper() === undefined;
-    if (ambiguous === this.#ambiguous) return;
+    const sole = this.#soleHostHelper();
+    const ambiguous = live.length > 1 && sole === undefined;
+    const peerCheck = sole?.peerCheck;
+    if (ambiguous === this.#ambiguous && peerCheck === this.#publishedPeerCheck) return;
+    const ambiguityChanged = ambiguous !== this.#ambiguous;
     this.#ambiguous = ambiguous;
-    if (ambiguous) {
+    this.#publishedPeerCheck = peerCheck;
+    if (ambiguous && ambiguityChanged) {
       this.#ctx.log.log("warn", "host helper ambiguous: more than one helper on the node socket", {
         helpers: live.length,
       });
@@ -228,6 +251,7 @@ export class NodeRegistry {
     const entry = setSetting(this.#ctx.db, HOST_HELPER_STATUS_SETTING, {
       ambiguous,
       helpers: live.length,
+      ...(peerCheck === undefined ? {} : { peerCheck }),
     });
     this.#ctx.bus.bumpStateVersion();
     this.#ctx.bus.publish("settings.changed", { entries: [entry] });
