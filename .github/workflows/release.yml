@@ -7,7 +7,7 @@
 #   Docker image   ghcr.io/<owner>/psyche-gateway:<version>, linux/amd64 + linux/arm64, SBOM and
 #                  provenance, signed keyless with cosign (GitHub OIDC; signer identity
 #                  .github/workflows/release.yml@refs/tags/v*)
-#   Sandbox image  ghcr.io/devmello/psyche-sandbox core/base/full (deploy/sandbox-image/publish.sh),
+#   Sandbox image  ghcr.io/devmello/psyche-sandbox core/base/full/desktop (deploy/sandbox-image/publish.sh),
 #                  same platforms, SBOM and provenance, signed keyless and verified against
 #                  versions.json .signing; the updated versions.json is a release asset
 #                  (sandbox-image-versions.json) and comes back to main as a PR
@@ -368,9 +368,12 @@ jobs:
         run: cosign sign --yes "${IMAGE}@${DIGEST}"
 
   # K8: the sandbox image (owner S21). Each architecture builds natively (no QEMU) on its own
-  # runner, core -> base -> full in order so each target reuses the previous one's layers, and
-  # pushes them by digest (publish.sh --platform). sandbox-image-manifest then tags, signs and
-  # records all three in versions.json (publish.sh --merge). It only publishes on a v* tag (a
+  # runner, core -> base -> full -> desktop in order so each target reuses the previous one's
+  # layers, and pushes them by digest (publish.sh --platform). `desktop` is the Linux separate
+  # desktop's image: it carries the Linux helper, built here for the runner's architecture and
+  # pinned by its sha256 (PSYCHE_HELPER_SHA256; publish.sh refuses to build it without).
+  # sandbox-image-manifest then tags, signs and records all four in versions.json
+  # (publish.sh --merge). It only publishes on a v* tag (a
   # manual run on a tag with dry_run unticked counts); otherwise publish.sh --dry-run.
   sandbox-image:
     name: sandbox image ${{ matrix.arch }}
@@ -436,7 +439,20 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build and push core, base, full for linux/${{ matrix.arch }} by digest
+      - name: Build the Linux helper for the desktop image (linux/${{ matrix.arch }})
+        if: steps.mode.outputs.publish == 'true'
+        env:
+          PSYCHE_VERSION: ${{ needs.version.outputs.version }}
+          # Leaves out the development-only fallbacks, as for the packaged helper.
+          PSYCHE_PUBLIC_RELEASE: "1"
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          cargo build --release --locked --manifest-path apps/linux-helper/Cargo.toml
+          install -m 0755 apps/linux-helper/target/release/psyche-helper deploy/sandbox-image/desktop/psyche-helper
+          # The image build checks this checksum against the staged binary.
+          echo "PSYCHE_HELPER_SHA256=$(sha256sum deploy/sandbox-image/desktop/psyche-helper | cut -d' ' -f1)" >> "$GITHUB_ENV"
+      - name: Build and push core, base, full, desktop for linux/${{ matrix.arch }} by digest
         env:
           VERSION: ${{ needs.version.outputs.version }}
           PUBLISH_SANDBOX: ${{ steps.mode.outputs.publish }}
@@ -445,7 +461,7 @@ jobs:
           flags=()
           if [ "$PUBLISH_SANDBOX" != "true" ]; then flags+=(--dry-run); fi
           deploy/sandbox-image/publish.sh "${flags[@]}" --version "$VERSION" \
-            --platform "linux/$ARCH" --digests-dir "$RUNNER_TEMP/sandbox-digests" core base full
+            --platform "linux/$ARCH" --digests-dir "$RUNNER_TEMP/sandbox-digests" core base full desktop
       - name: Upload the digests
         if: steps.mode.outputs.publish == 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -502,7 +518,7 @@ jobs:
       - name: Install cosign
         if: steps.mode.outputs.publish == 'true'
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
-      - name: Tag, sign and record core, base, full (manifest lists)
+      - name: Tag, sign and record core, base, full, desktop (manifest lists)
         env:
           VERSION: ${{ needs.version.outputs.version }}
           PUBLISH_SANDBOX: ${{ steps.mode.outputs.publish }}
@@ -510,7 +526,7 @@ jobs:
           flags=()
           if [ "$PUBLISH_SANDBOX" != "true" ]; then flags+=(--dry-run); fi
           deploy/sandbox-image/publish.sh "${flags[@]}" --version "$VERSION" \
-            --merge "$RUNNER_TEMP/sandbox-digests" core base full
+            --merge "$RUNNER_TEMP/sandbox-digests" core base full desktop
       - name: Verify the signatures against versions.json
         if: steps.mode.outputs.publish == 'true'
         working-directory: deploy/sandbox-image
@@ -518,7 +534,7 @@ jobs:
           repo="$(jq -er .repository versions.json)"
           re="$(jq -er .signing.certificateIdentityRegexp versions.json)"
           issuer="$(jq -er .signing.certificateOidcIssuer versions.json)"
-          for v in core base full; do
+          for v in core base full desktop; do
             digest="$(jq -er --arg v "$v" '.variants[$v].digest' versions.json)"
             cosign verify "${repo}@${digest}" \
               --certificate-identity-regexp "$re" --certificate-oidc-issuer "$issuer" > /dev/null
