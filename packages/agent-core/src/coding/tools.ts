@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { lstat, realpath, stat } from "node:fs/promises";
-import { basename, resolve } from "node:path";
+import { basename, isAbsolute, resolve } from "node:path";
+import { absoluteHostPathPattern } from "@psyche/hostfs";
 import {
   type DecisionContext,
   EXEC_DEFAULT_TIMEOUT_MS,
@@ -84,7 +85,11 @@ export interface CodingToolsDeps {
 const MAX_TIMEOUT_MS = 30 * 60_000;
 /** Lines `code.read` returns per call. */
 export const CODE_READ_LINES = 2000;
-const AbsolutePath = Type.String({ minLength: 1, maxLength: 4096, pattern: "^/" });
+const AbsolutePath = Type.String({
+  minLength: 1,
+  maxLength: 4096,
+  pattern: absoluteHostPathPattern(),
+});
 const RelPath = Type.String({ minLength: 1, maxLength: 4096 });
 
 const sha256 = (s: string) => createHash("sha256").update(s).digest("hex");
@@ -102,7 +107,8 @@ function rootOf(root: string): string {
 function joinTarget(root: string, path: string | undefined): string {
   const r = rootOf(root);
   if (path === undefined || path === "" || path === ".") return r;
-  return path.startsWith("/") ? resolve(path) : resolve(r, path);
+  const full = isAbsolute(path) ? resolve(path) : resolve(r, path);
+  return rootOf(full);
 }
 
 function cancelled(ctx: ToolRunContext): void {
