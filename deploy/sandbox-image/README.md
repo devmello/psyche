@@ -22,7 +22,7 @@ The base images are pinned by digest in the Dockerfile and in [`versions.json`](
 
 `desktop` is not a sandbox for commands. It is the image the Linux **separate desktop** runs (`packages/sandbox/src/desktop.ts`, [design §8](../../docs/design/linux-desktop-2026.md)): a graphical desktop that the Gateway drives through the helper inside it. It keeps the rules above (UID 1000, read-only root, `/tmp` a tmpfs, `/workspace` a volume, no setuid) and adds: no network at all, one read-only socket mount for the Gateway, a single-use pairing token in `PSYCHE_GUEST_TOKEN`, and shared folders only at `/shares/<name>`.
 
-`desktop/entrypoint.sh` starts a private session bus, Xvfb on `:1`, the AT-SPI bus, then the helper in the foreground (the container exits if it does). The helper is not built here: stage the Linux helper binary at `desktop/psyche-helper` (git-ignored) first, and optionally pin it with `--build-arg HELPER_SHA256=<sha256>`:
+`desktop/entrypoint.sh` starts a private session bus, Xvfb on `:1`, the AT-SPI bus, then the helper in the foreground (the container exits if it does). The helper is not built here: stage the Linux helper binary at `desktop/psyche-helper` (git-ignored) first. Its checksum is **required**: the build fails without `--build-arg HELPER_SHA256=<sha256>` (a local dev build may skip it with `--build-arg ALLOW_UNVERIFIED_HELPER=1`; `publish.sh` never does and needs `PSYCHE_HELPER_SHA256` for this variant):
 
 ```bash
 cp apps/linux-helper/target/release/psyche-helper deploy/sandbox-image/desktop/psyche-helper

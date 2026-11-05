@@ -61,11 +61,20 @@ describe.skipIf(!REAL)("a real separate desktop", () => {
     mkdirSync(join(shareDir, "docs"));
     writeFileSync(join(shareDir, "docs", "note.txt"), "hello from the host\n");
     const share = join(shareDir, "docs");
+    mkdirSync(join(shareDir, "repo", ".git", "hooks"), { recursive: true });
+    const repo = join(shareDir, "repo");
     t = await startTestGateway();
     guests = new GuestSockets({ ctx: t.gateway.context, home: t.home });
     const desktop = new DesktopContainers();
     const backend = await desktop.requireBackend();
-    const sd = new SeparateDesktop({ desktop, guests, home: t.home, pairTimeoutMs: 30_000 });
+    const states: unknown[] = [];
+    const sd = new SeparateDesktop({
+      desktop,
+      guests,
+      home: t.home,
+      pairTimeoutMs: 30_000,
+      report: (st) => states.push(st),
+    });
 
     // Time the engine's part (create, start, up) apart from the helper's pairing.
     let engineMs = 0;
@@ -77,7 +86,12 @@ describe.skipIf(!REAL)("a real separate desktop", () => {
       return out;
     };
     const began = Date.now();
-    await sd.use("real-1", { shares: [{ source: share, name: "docs", readOnly: true }] });
+    await sd.use("real-1", {
+      shares: [
+        { source: share, name: "docs", readOnly: true },
+        { source: repo, name: "repo", readOnly: false },
+      ],
+    });
     const readyMs = Date.now() - began;
 
     // Paired as a guest bound to the container, on the container's socket only.
@@ -115,8 +129,14 @@ describe.skipIf(!REAL)("a real separate desktop", () => {
     expect(exec("rm /shares/docs/note.txt").code).not.toBe(0);
     expect(existsSync(join(share, "new.txt"))).toBe(false);
     expect(readFileSync(join(share, "note.txt"), "utf8")).toBe("hello from the host\n");
+    // A read-write share keeps its git data read-only: files can be made, hooks cannot.
+    expect(exec("touch /shares/repo/new.txt").code).toBe(0);
+    expect(existsSync(join(repo, "new.txt"))).toBe(true);
+    expect(exec("touch /shares/repo/.git/hooks/pre-commit").code).not.toBe(0);
+    expect(exec("touch /shares/repo/.git/config").code).not.toBe(0);
+    expect(existsSync(join(repo, ".git", "config"))).toBe(false);
     // Nothing else of the host is there.
-    expect(exec("ls /shares").out.trim()).toBe("docs");
+    expect(exec("ls /shares").out.trim().split(/\s+/)).toEqual(["docs", "repo"]);
     expect(exec("ls /run/psyche").out.trim()).toBe("node.sock");
     expect(
       exec(
@@ -150,6 +170,7 @@ describe.skipIf(!REAL)("a real separate desktop", () => {
     )[0];
     const rss = exec("ps -eo rss= | awk '{s+=$1} END {print s}'").out.trim();
     const img = JSON.parse(podman("image", "inspect", "psyche-sandbox:desktop-dev"))[0].Size;
+    console.log("[real] state:", JSON.stringify(states.at(-1)));
     console.log(
       `[real] engine=${backend.kind} ${backend.version} rootless=${backend.rootless} image=${(img / 1e9).toFixed(2)}GB ` +
         `container_up_ms=${engineMs} start_to_paired_ms=${readyMs} sum_rss_kb=${rss} mem_usage=${stats.mem_usage ?? stats.MemUsage}`,
