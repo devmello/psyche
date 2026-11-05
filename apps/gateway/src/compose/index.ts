@@ -84,6 +84,7 @@ import {
   type PermissionBroker,
   PsycheError,
   type Task,
+  TERMINAL_TASK_STATUSES,
 } from "@psyche/protocol";
 import {
   createAutomationHandlers,
@@ -180,6 +181,14 @@ import { type ComposedProactive, composeProactive } from "./proactive.ts";
 import { folderAccessEnv, ownWorkdirs, protectedRoots } from "./protected-paths.ts";
 import { notifierRouting } from "./quiet-hours.ts";
 import { createRateLimits } from "./rate-limits.ts";
+import {
+  attachRecordedRunGuard,
+  createRecordingScheduleHandlers,
+  RECORDED_RUN_RULES,
+  RecordedRuns,
+  withoutAgentRecordingSchedules,
+  withRecordedSkillRuns,
+} from "./recording-schedule.ts";
 import { requestPermissionTool } from "./request-permission.ts";
 import { researchTools } from "./research.ts";
 import { withRunSnapshot } from "./run-snapshot.ts";
@@ -1227,7 +1236,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     memory,
     tasks,
     notifier,
-    scheduler,
+    // The agent cannot schedule a recorded skill: that is the owner's action (teach by showing §8).
+    scheduler: withoutAgentRecordingSchedules(scheduler, skills.recorded),
     registry,
     clock,
     ...(timeZone === undefined ? {} : { timeZone }),
@@ -1449,37 +1459,63 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // The dreaming automation runs memory dreaming and the people graph pass in-process.
   // Dreaming, then the lesson pass (teaching loop §6, #681), then the people graph pass.
   // Automations with a `specialist` run as unattended specialist jobs (specialists §4.10).
+  // A scheduled recording holds to its rules (stops on a changed page, no guessing); other
+  // automations pass through. The guard watches the loop's tool calls for those tasks only.
+  const recordedRuns = new RecordedRuns({
+    // The guard lives in memory. A task whose goal carries the recorded run's rules and has no
+    // guard (after a restart) gets no tools and is stopped.
+    isRecorded: async (taskId) =>
+      (await tasks.get(taskId))?.goal.includes(RECORDED_RUN_RULES) === true,
+  });
+  attachRecordedRunGuard(
+    loop.hooks,
+    recordedRuns,
+    (taskId, reason) => tasks.cancel(taskId, reason),
+    () => skills.recorded.names(),
+    skills.recorded,
+  );
   launcher = withPausedRoutines(
-    withAutomationSpecialists(
-      people.launcher(
-        // The weekly "What I learned" Feed post (teaching loop §5.4) runs in-process too.
-        withWeeklyCard(
-          // Everything memory (#1010) is its own scheduled job (03:15, after dreaming), so
-          // Scheduled shows it and can Run it now.
-          withProactiveJobs(proactive.launcher(createTaskLauncher({ engine: tasks, pool }), pool), {
-            jobs: [everything.job],
-          }),
-          {
-            store: teaching.service.store,
-            memory,
-            clock,
-            enabled: () =>
-              teachingSettings(db).enabled &&
-              getSetting(db, "teaching.weeklyCard")?.value !== false,
-            post: (card) => proactive.feed.postGrowth(card),
-          },
+    withRecordedSkillRuns(
+      withAutomationSpecialists(
+        people.launcher(
+          // The weekly "What I learned" Feed post (teaching loop §5.4) runs in-process too.
+          withWeeklyCard(
+            // Everything memory (#1010) is its own scheduled job (03:15, after dreaming), so
+            // Scheduled shows it and can Run it now.
+            withProactiveJobs(
+              proactive.launcher(createTaskLauncher({ engine: tasks, pool }), pool),
+              {
+                jobs: [everything.job],
+              },
+            ),
+            {
+              store: teaching.service.store,
+              memory,
+              clock,
+              enabled: () =>
+                teachingSettings(db).enabled &&
+                getSetting(db, "teaching.weeklyCard")?.value !== false,
+              post: (card) => proactive.feed.postGrowth(card),
+            },
+          ),
+          [
+            async () => {
+              if (!teachingSettings(db).enabled) return undefined;
+              const r = await consolidateLessons(teaching.service, memory, { clock });
+              // "Still true?" left unanswered: the lesson goes dormant (teaching loop §3.3).
+              const dormant = await retireUnanswered(teaching.service, memory, { clock });
+              return `lessons: ${r.merged} merged, ${r.promoted} promoted, ${r.proposed} proposed, ${r.flagged} flagged, ${dormant} dormant`;
+            },
+          ],
         ),
-        [
-          async () => {
-            if (!teachingSettings(db).enabled) return undefined;
-            const r = await consolidateLessons(teaching.service, memory, { clock });
-            // "Still true?" left unanswered: the lesson goes dormant (teaching loop §3.3).
-            const dormant = await retireUnanswered(teaching.service, memory, { clock });
-            return `lessons: ${r.merged} merged, ${r.promoted} promoted, ${r.proposed} proposed, ${r.flagged} flagged, ${dormant} dormant`;
-          },
-        ],
+        { db, tasks, host: specialists, now: () => clock.now() },
       ),
-      { db, tasks, host: specialists, now: () => clock.now() },
+      {
+        skills: skills.recorded,
+        runs: recordedRuns,
+        pause: (id) => scheduler.update(id, { enabled: false }),
+        automationOf: (id) => scheduler.get(id),
+      },
     ),
     // Scheduled → Pause: a paused routine skips its scheduled runs (Run now still goes through).
     () => pausedRoutines(scheduledKv),
@@ -1750,6 +1786,12 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       }) as never,
     ),
     ...mountParamsOnly(createAutomationHandlers(scheduler) as never),
+    // "Run it every week" for a skill made from a recording: the desktop shell only.
+    ...createRecordingScheduleHandlers({
+      skills: skills.recorded,
+      scheduler,
+      timezone: () => timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+    }),
     ...mountParamsOnly(
       createScheduledHandlers({
         scheduler,
@@ -1935,6 +1977,17 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   await teaching.resume().catch(() => undefined);
 
   if (background) {
+    // Recorded runs that were still going when the app stopped have lost their guard (it is in
+    // memory). They are cancelled before the pool can requeue an expired lease and run them on;
+    // the scheduler then records them as failed and pauses their schedules.
+    for (const row of db.sqlite
+      .prepare(
+        `SELECT id FROM tasks WHERE created_from = 'automation' AND instr(goal, ?) > 0
+           AND status NOT IN (${TERMINAL_TASK_STATUSES.map(() => "?").join(", ")})`,
+      )
+      .all(RECORDED_RUN_RULES, ...TERMINAL_TASK_STATUSES) as { id: string }[]) {
+      await tasks.cancel(row.id, "The app restarted during a recorded run").catch(() => undefined);
+    }
     pool.start();
     specialistPool.start();
     try {

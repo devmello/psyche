@@ -18,6 +18,46 @@ export const teach = {
   "web.teach.stopFailed": "Psyche couldn't finish the recording.",
   "web.teach.nothingRecorded": "Nothing was recorded.",
 
+  // Settings → Skills: run a skill made from a recording on a schedule.
+  "settings.recording.madeBy": "From a recording",
+  "settings.recording.open": "Run it every week",
+  "settings.recording.title": "Run it on a schedule",
+  "settings.recording.checking": "Checking the steps.",
+  "settings.recording.cannot": "This one can't run when you're not there:",
+  "settings.recording.reason.sensitive": "Step {step} is a field you fill in yourself.",
+  "settings.recording.reason.input": "Step {step} asks you for a value each time.",
+  "settings.recording.reason.unreadable":
+    "Its steps can't be read. Record it again to schedule it.",
+  "settings.recording.reason.browserOnly": "Scheduled runs are for browser recordings for now.",
+  "settings.recording.reason.off": "It is turned off or has changed since you approved it.",
+  "settings.recording.reason.notRecording": "It isn't a skill made from a recording.",
+  "settings.recording.cannotWhy":
+    "A scheduled run has nobody to ask, so it never fills in a password or asks for a value. You can still run it yourself from the chat.",
+  "settings.recording.rules":
+    "You choose when. Each run uses your usual approvals. If the page has changed, or a step needs your approval, it stops at that step, pauses, and tells you. It never guesses.",
+  "settings.recording.every": "Every",
+  "settings.recording.daily": "day",
+  "settings.recording.weekly": "week on",
+  "settings.recording.monthly": "month on day",
+  "settings.recording.dayOfWeek": "Day of the week",
+  "settings.recording.dayOfMonth": "Day of the month",
+  "settings.recording.at": "at",
+  "settings.recording.confirm": "Schedule it",
+  "settings.recording.close": "Cancel",
+  "settings.recording.runs": "Runs",
+  "settings.recording.seeScheduled": "pause, remove or see its history in Scheduled",
+
+  // Settings → Browser: where kept recordings go.
+  "settings.teach.storage.title": "Recordings you keep",
+  "settings.teach.storage.description":
+    "When you ask Psyche to keep a recording so you can make another version, the steps are saved on this Mac.",
+  "settings.teach.storage.encrypted":
+    "Encrypted. The file is locked with a key held in this Mac's keychain, so it cannot be read outside Psyche. It expires after 90 days.",
+  "settings.teach.storage.unavailable":
+    "Recordings are not kept. This Mac's keychain is not available, and Psyche will not save a recording as plain text. You can still save a recording as a skill.",
+  "web.teach.review.keepUnavailable":
+    "Not available: this Mac's keychain is not available to encrypt a kept recording.",
+
   "web.teach.kept.title": "Kept recordings",
   "web.teach.kept.open": "Open",
   "web.teach.kept.delete": "Delete",

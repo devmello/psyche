@@ -594,6 +594,16 @@ export class FsSkillLoader implements SkillLoader {
     };
   }
 
+  /**
+   * The `SKILL.md` text of the winning skill, from the tree that was hashed (not read again from
+   * disk), or `undefined`.
+   */
+  skillText(name: string): string | undefined {
+    this.#fresh();
+    const f = this.#winners.get(name)?.tree?.get("SKILL.md");
+    return f === undefined ? undefined : textOf(f);
+  }
+
   /** The winning skill of `name`, without its body (synchronous; for drafts and their replay). */
   summarySync(name: string): SkillSummary | undefined {
     this.#fresh();

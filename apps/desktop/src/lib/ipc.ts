@@ -58,6 +58,7 @@ export const IPC = {
   teachCancel: "psyche:teach:cancel",
   teachKeep: "psyche:teach:keep",
   teachKept: "psyche:teach:kept",
+  teachStorage: "psyche:teach:storage",
   teachOpenKept: "psyche:teach:open-kept",
   teachDeleteKept: "psyche:teach:delete-kept",
   // Windows, notifications, native commands.
@@ -381,6 +382,7 @@ export const REMOTE_REFUSED_CHANNELS: ReadonlySet<string> = new Set([
   IPC.teachCancel,
   IPC.teachKeep,
   IPC.teachKept,
+  IPC.teachStorage,
   IPC.teachOpenKept,
   IPC.teachDeleteKept,
   IPC.dialogPickFolder,

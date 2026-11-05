@@ -102,6 +102,8 @@ export const automations = sqliteTable("automations", {
   trigger: text("trigger"),
   // 202610262100_scheduler_automation-specialist (#683): run as a specialist job (§4.10).
   specialist: text("specialist"),
+  // 202611041600_scheduler_recorded_skill: runs a skill made from a recording ({skill}).
+  recordedSkill: text("recorded_skill"),
 });
 
 export const automationRuns = sqliteTable("automation_runs", {

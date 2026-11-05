@@ -1295,6 +1295,10 @@
 //   let skillsProposeImportParams = try? JSONDecoder().decode(SkillsProposeImportParams.self, from: jsonData)
 //   let skillsProposeInstallParams = try? JSONDecoder().decode(SkillsProposeInstallParams.self, from: jsonData)
 //   let skillsProposeUpdateParams = try? JSONDecoder().decode(SkillsProposeUpdateParams.self, from: jsonData)
+//   let skillsRecordingScheduleParams = try? JSONDecoder().decode(SkillsRecordingScheduleParams.self, from: jsonData)
+//   let skillsRecordingScheduleResult = try? JSONDecoder().decode(SkillsRecordingScheduleResult.self, from: jsonData)
+//   let skillsRecordingUnattendedParams = try? JSONDecoder().decode(SkillsRecordingUnattendedParams.self, from: jsonData)
+//   let skillsRecordingUnattendedResult = try? JSONDecoder().decode(SkillsRecordingUnattendedResult.self, from: jsonData)
 //   let skillsRemoveParams = try? JSONDecoder().decode(SkillsRemoveParams.self, from: jsonData)
 //   let skillsSearchParams = try? JSONDecoder().decode(SkillsSearchParams.self, from: jsonData)
 //   let skillsSearchResult = try? JSONDecoder().decode(SkillsSearchResult.self, from: jsonData)
@@ -6303,6 +6307,7 @@ public struct Automation: Codable, Sendable {
     public let lightContext: Bool?
     public let nextRunAt: String?
     public let prompt: String
+    public let recordedSkill: RecordedSkill?
     /// cron expression, ISO-8601 duration or watch interval
     public let schedule: String
     public let scratch: String?
@@ -6326,6 +6331,7 @@ public struct Automation: Codable, Sendable {
         case lightContext = "lightContext"
         case nextRunAt = "nextRunAt"
         case prompt = "prompt"
+        case recordedSkill = "recordedSkill"
         case schedule = "schedule"
         case scratch = "scratch"
         case sessionTarget = "sessionTarget"
@@ -6337,7 +6343,7 @@ public struct Automation: Codable, Sendable {
         case watch = "watch"
     }
 
-    public init(createdAt: String, delivery: Delivery, enabled: Bool, id: String, kind: AutomationKind, lastRunAt: String? = nil, lastStatus: String? = nil, lightContext: Bool? = nil, nextRunAt: String? = nil, prompt: String, schedule: String, scratch: String? = nil, sessionTarget: String, specialist: AutomationSpecialist? = nil, timezone: String, title: String, trigger: AutomationTrigger? = nil, updatedAt: String, watch: WatchConfig? = nil) {
+    public init(createdAt: String, delivery: Delivery, enabled: Bool, id: String, kind: AutomationKind, lastRunAt: String? = nil, lastStatus: String? = nil, lightContext: Bool? = nil, nextRunAt: String? = nil, prompt: String, recordedSkill: RecordedSkill? = nil, schedule: String, scratch: String? = nil, sessionTarget: String, specialist: AutomationSpecialist? = nil, timezone: String, title: String, trigger: AutomationTrigger? = nil, updatedAt: String, watch: WatchConfig? = nil) {
         self.createdAt = createdAt
         self.delivery = delivery
         self.enabled = enabled
@@ -6348,6 +6354,7 @@ public struct Automation: Codable, Sendable {
         self.lightContext = lightContext
         self.nextRunAt = nextRunAt
         self.prompt = prompt
+        self.recordedSkill = recordedSkill
         self.schedule = schedule
         self.scratch = scratch
         self.sessionTarget = sessionTarget
@@ -6392,6 +6399,25 @@ public enum AutomationKind: String, Codable, Sendable {
     case interval = "interval"
     case reminder = "reminder"
     case watch = "watch"
+}
+
+// MARK: - RecordedSkill
+public struct RecordedSkill: Codable, Sendable {
+    public let hash: String?
+    public let lessons: String?
+    public let skill: String
+
+    public enum CodingKeys: String, CodingKey {
+        case hash = "hash"
+        case lessons = "lessons"
+        case skill = "skill"
+    }
+
+    public init(hash: String? = nil, lessons: String? = nil, skill: String) {
+        self.hash = hash
+        self.lessons = lessons
+        self.skill = skill
+    }
 }
 
 // MARK: - AutomationSpecialist
@@ -10316,7 +10342,7 @@ public struct ConnectDenied: Codable, Sendable {
     /// Machine-readable cause when there is one: setup_token_invalid (the setup token was used,
     /// expired, revoked or not allowed here) or device_revoked (this device was removed on the
     /// Gateway and can never connect again, so a client wipes its keys)
-    public let code: Code?
+    public let code: ConnectDeniedCode?
     public let phase: ConnectDeniedPhase
     public let reason: String
 
@@ -10326,7 +10352,7 @@ public struct ConnectDenied: Codable, Sendable {
         case reason = "reason"
     }
 
-    public init(code: Code? = nil, phase: ConnectDeniedPhase, reason: String) {
+    public init(code: ConnectDeniedCode? = nil, phase: ConnectDeniedPhase, reason: String) {
         self.code = code
         self.phase = phase
         self.reason = reason
@@ -10336,7 +10362,7 @@ public struct ConnectDenied: Codable, Sendable {
 /// Machine-readable cause when there is one: setup_token_invalid (the setup token was used,
 /// expired, revoked or not allowed here) or device_revoked (this device was removed on the
 /// Gateway and can never connect again, so a client wipes its keys)
-public enum Code: String, Codable, Sendable {
+public enum ConnectDeniedCode: String, Codable, Sendable {
     case deviceRevoked = "device_revoked"
     case setupTokenInvalid = "setup_token_invalid"
 }
@@ -26890,6 +26916,7 @@ public struct ScheduledItem: Codable, Sendable {
     public let linked: ScheduledLink?
     public let nextRunAt: String?
     public let prompt: String?
+    public let recordedSkill: String?
     public let routine: String?
     public let schedule: String
     public let settings: String?
@@ -26913,6 +26940,7 @@ public struct ScheduledItem: Codable, Sendable {
         case linked = "linked"
         case nextRunAt = "nextRunAt"
         case prompt = "prompt"
+        case recordedSkill = "recordedSkill"
         case routine = "routine"
         case schedule = "schedule"
         case settings = "settings"
@@ -26925,7 +26953,7 @@ public struct ScheduledItem: Codable, Sendable {
         case warnings = "warnings"
     }
 
-    public init(approvals: [String], deletable: Bool, enabled: Bool, group: ScheduledGroup, id: String, kind: AutomationKind, lastRunAt: String? = nil, lastStatus: String? = nil, linked: ScheduledLink? = nil, nextRunAt: String? = nil, prompt: String? = nil, routine: String? = nil, schedule: String, settings: String? = nil, state: ScheduledState, summary: String, timezone: String, title: String, trigger: AutomationTrigger? = nil, warningReason: String? = nil, warnings: [ScheduledWarning]? = nil) {
+    public init(approvals: [String], deletable: Bool, enabled: Bool, group: ScheduledGroup, id: String, kind: AutomationKind, lastRunAt: String? = nil, lastStatus: String? = nil, linked: ScheduledLink? = nil, nextRunAt: String? = nil, prompt: String? = nil, recordedSkill: String? = nil, routine: String? = nil, schedule: String, settings: String? = nil, state: ScheduledState, summary: String, timezone: String, title: String, trigger: AutomationTrigger? = nil, warningReason: String? = nil, warnings: [ScheduledWarning]? = nil) {
         self.approvals = approvals
         self.deletable = deletable
         self.enabled = enabled
@@ -26937,6 +26965,7 @@ public struct ScheduledItem: Codable, Sendable {
         self.linked = linked
         self.nextRunAt = nextRunAt
         self.prompt = prompt
+        self.recordedSkill = recordedSkill
         self.routine = routine
         self.schedule = schedule
         self.settings = settings
@@ -29661,6 +29690,96 @@ public struct SkillsProposeUpdateParams: Codable, Sendable {
         self.ref = ref
         self.trustAuthor = trustAuthor
     }
+}
+
+// MARK: - SkillsRecordingScheduleParams
+public struct SkillsRecordingScheduleParams: Codable, Sendable {
+    public let name: String
+    /// cron: minute and hour are fixed numbers (at most a few runs a day), e.g. 0 9 * * 1
+    public let schedule: String
+    public let timezone: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case name = "name"
+        case schedule = "schedule"
+        case timezone = "timezone"
+    }
+
+    public init(name: String, schedule: String, timezone: String? = nil) {
+        self.name = name
+        self.schedule = schedule
+        self.timezone = timezone
+    }
+}
+
+// MARK: - SkillsRecordingScheduleResult
+public struct SkillsRecordingScheduleResult: Codable, Sendable {
+    public let automation: Automation
+
+    public enum CodingKeys: String, CodingKey {
+        case automation = "automation"
+    }
+
+    public init(automation: Automation) {
+        self.automation = automation
+    }
+}
+
+// MARK: - SkillsRecordingUnattendedParams
+public struct SkillsRecordingUnattendedParams: Codable, Sendable {
+    public let name: String
+
+    public enum CodingKeys: String, CodingKey {
+        case name = "name"
+    }
+
+    public init(name: String) {
+        self.name = name
+    }
+}
+
+// MARK: - SkillsRecordingUnattendedResult
+public struct SkillsRecordingUnattendedResult: Codable, Sendable {
+    public let eligible: Bool
+    public let reasons: [ReasonElement]
+    public let steps: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case eligible = "eligible"
+        case reasons = "reasons"
+        case steps = "steps"
+    }
+
+    public init(eligible: Bool, reasons: [ReasonElement], steps: Int) {
+        self.eligible = eligible
+        self.reasons = reasons
+        self.steps = steps
+    }
+}
+
+// MARK: - ReasonElement
+public struct ReasonElement: Codable, Sendable {
+    public let code: ReasonCode
+    public let step: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case code = "code"
+        case step = "step"
+    }
+
+    public init(code: ReasonCode, step: Int? = nil) {
+        self.code = code
+        self.step = step
+    }
+}
+
+public enum ReasonCode: String, Codable, Sendable {
+    case browserOnly = "browser_only"
+    case input = "input"
+    case notRecording = "not_recording"
+    case off = "off"
+    case sensitive = "sensitive"
+    case unreadable = "unreadable"
 }
 
 // MARK: - SkillsRemoveParams

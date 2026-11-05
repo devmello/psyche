@@ -18,6 +18,10 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-04 (teach by showing: run a recorded skill on a schedule)
+
+- New methods `skills.recording.unattended` (`operator.read`: whether a skill made from a recording can run with nobody there; `reasons` name the sensitive steps and the steps whose value is asked for each run) and `skills.recording.schedule` (`operator.admin`, side-effecting, Psyche desktop shell on the Host only, `forbidden` for anything else: creates the Scheduled automation for an installed recording skill; `invalid_params` with the reasons when a step is sensitive or asks for a value each time, and when the schedule is not a fixed minute and hour; `conflict` when the skill already has a schedule).
+- `Automation` gains optional `recordedSkill` (`{ skill }`) and `ScheduledItem` gains optional `recordedSkill` (the skill's name). Set only by `skills.recording.schedule`: `automations.create` and `automations.update` ignore it, and the agent's `schedule` tool has no such field. `recordedSkill` is `{ skill, hash?, lessons? }`: the tree hash and lessons hash of the skill when the owner scheduled it. Once set, the scheduler lets only `enabled` change on the automation (`invalid_params` otherwise). Needs the database column `automations.recorded_skill` (migration 202611041600).
 ### v1 additive — 2026-11-04 (cited answers, "Open as a chat")
 
 - `memory.life.answer` result: optional `answerId` (nullable string, opaque). The Gateway keeps the answer (text, cited fact and passage ids, the kind of model) in memory for a few hours, for the asking device only. It is not the answer's text and not a source.

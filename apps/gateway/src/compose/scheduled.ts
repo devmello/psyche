@@ -213,6 +213,7 @@ export function createScheduledHandlers(deps: ScheduledDeps): ScheduledHandlers 
         }
       }
       if (a.trigger !== undefined) item.trigger = a.trigger;
+      if (a.recordedSkill !== undefined) item.recordedSkill = a.recordedSkill.skill;
       if (g !== undefined && siblings.length > 0) {
         item.linked = {
           groupId: g,

@@ -24,7 +24,8 @@ export function createAutomationHandlers(scheduler: SqliteScheduler): Automation
     }),
     "automations.create": async (p) => ({
       automation: await scheduler.create({
-        ...strip(p),
+        // The recorded-skill marker is set only by the owner's own action (skills.recording.schedule).
+        ...strip({ ...p, recordedSkill: undefined }),
         kind: p.kind,
         title: p.title,
         schedule: p.schedule,
@@ -32,7 +33,10 @@ export function createAutomationHandlers(scheduler: SqliteScheduler): Automation
       }),
     }),
     "automations.update": async ({ automationId, ...patch }) => ({
-      automation: await scheduler.update(automationId, strip(patch)),
+      automation: await scheduler.update(
+        automationId,
+        strip({ ...patch, recordedSkill: undefined }),
+      ),
     }),
     "automations.delete": async (p) => {
       const a = await scheduler.get(p.automationId);
