@@ -34,6 +34,7 @@ import { memoryWorkRest } from "./memory-work-rest/hi.ts";
 import { memorySurfacesRest } from "./memory-surfaces-rest/hi.ts";
 import { workRest } from "./work-rest/hi.ts";
 import { specialistsRest } from "./specialists-rest/hi.ts";
+import { webRest } from "./web-rest/hi.ts";
 
 /** Hindi catalogue (hi). Same ids as `en`; missing ids fall back to English. */
 export const hi: Partial<Catalogue> = {
@@ -80,6 +81,7 @@ export const hi: Partial<Catalogue> = {
   ...memorySurfacesRest,
   ...workRest,
   ...specialistsRest,
+  ...webRest,
   "common.cancel": "रद्द करें",
   "common.close": "बंद करें",
   "common.save": "सेव करें",
