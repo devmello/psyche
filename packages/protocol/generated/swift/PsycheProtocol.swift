@@ -28840,42 +28840,52 @@ public struct SecurityAlert: Codable, Sendable {
 public struct Details: Codable, Sendable {
     public let admins: Int?
     public let changes: [SecurityStateChange]?
+    /// sha256:<hex> of the device key, shown next to its name
+    public let deviceFingerprint: String?
     public let deviceName: String?
     public let devices: Int?
     public let more: Int?
     public let notBefore: String?
+    public let occurrences: Int?
     public let op: SecurityRecoveryOp?
     public let reason: String?
     public let recoveryID: String?
     public let restored: Bool?
     public let scopes: [String]?
+    public let via: Via?
 
     public enum CodingKeys: String, CodingKey {
         case admins = "admins"
         case changes = "changes"
+        case deviceFingerprint = "deviceFingerprint"
         case deviceName = "deviceName"
         case devices = "devices"
         case more = "more"
         case notBefore = "notBefore"
+        case occurrences = "occurrences"
         case op = "op"
         case reason = "reason"
         case recoveryID = "recoveryId"
         case restored = "restored"
         case scopes = "scopes"
+        case via = "via"
     }
 
-    public init(admins: Int? = nil, changes: [SecurityStateChange]? = nil, deviceName: String? = nil, devices: Int? = nil, more: Int? = nil, notBefore: String? = nil, op: SecurityRecoveryOp? = nil, reason: String? = nil, recoveryID: String? = nil, restored: Bool? = nil, scopes: [String]? = nil) {
+    public init(admins: Int? = nil, changes: [SecurityStateChange]? = nil, deviceFingerprint: String? = nil, deviceName: String? = nil, devices: Int? = nil, more: Int? = nil, notBefore: String? = nil, occurrences: Int? = nil, op: SecurityRecoveryOp? = nil, reason: String? = nil, recoveryID: String? = nil, restored: Bool? = nil, scopes: [String]? = nil, via: Via? = nil) {
         self.admins = admins
         self.changes = changes
+        self.deviceFingerprint = deviceFingerprint
         self.deviceName = deviceName
         self.devices = devices
         self.more = more
         self.notBefore = notBefore
+        self.occurrences = occurrences
         self.op = op
         self.reason = reason
         self.recoveryID = recoveryID
         self.restored = restored
         self.scopes = scopes
+        self.via = via
     }
 }
 
@@ -28911,6 +28921,11 @@ public enum SecurityRecoveryOp: String, Codable, Sendable {
     case devicesGrant = "devices.grant"
     case presenceReset = "presence.reset"
     case sealReset = "seal.reset"
+}
+
+public enum Via: String, Codable, Sendable {
+    case desktop = "desktop"
+    case mac = "mac"
 }
 
 public enum SecurityAlertKind: String, Codable, Sendable {
@@ -28962,6 +28977,7 @@ public struct SecurityRecoveriesApproveResult: Codable, Sendable {
 // MARK: - SecurityRecovery
 public struct SecurityRecovery: Codable, Sendable {
     public let decidedAt: String?
+    public let deviceFingerprint: String?
     public let deviceID: String?
     public let deviceName: String?
     public let id: String
@@ -28974,6 +28990,7 @@ public struct SecurityRecovery: Codable, Sendable {
 
     public enum CodingKeys: String, CodingKey {
         case decidedAt = "decidedAt"
+        case deviceFingerprint = "deviceFingerprint"
         case deviceID = "deviceId"
         case deviceName = "deviceName"
         case id = "id"
@@ -28985,8 +29002,9 @@ public struct SecurityRecovery: Codable, Sendable {
         case status = "status"
     }
 
-    public init(decidedAt: String? = nil, deviceID: String? = nil, deviceName: String? = nil, id: String, notBefore: String, op: SecurityRecoveryOp, outcome: String? = nil, requestedAt: String, scopes: [String]? = nil, status: SecurityRecoveryStatus) {
+    public init(decidedAt: String? = nil, deviceFingerprint: String? = nil, deviceID: String? = nil, deviceName: String? = nil, id: String, notBefore: String, op: SecurityRecoveryOp, outcome: String? = nil, requestedAt: String, scopes: [String]? = nil, status: SecurityRecoveryStatus) {
         self.decidedAt = decidedAt
+        self.deviceFingerprint = deviceFingerprint
         self.deviceID = deviceID
         self.deviceName = deviceName
         self.id = id

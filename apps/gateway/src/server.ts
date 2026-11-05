@@ -290,7 +290,13 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
   const broker = options.broker ?? new LockedPermissionBroker();
   const basePresence = presenceStateFor(db, options.settingsPresence ?? (() => false));
   // While the security records are untrusted, presence fails closed (nothing that widens works).
-  const presenceState = () => (seal.untrusted() !== null ? "unavailable" : basePresence());
+  const presenceState = () => {
+    if (seal.untrusted() !== null) return "unavailable" as const;
+    const state = basePresence();
+    // Enrolled once is remembered outside the database too: no first-admin shortcut since (D8).
+    if (state !== "off") seal.notePresenceEnrolled();
+    return state;
+  };
   const ctx = {
     config,
     db,
@@ -380,7 +386,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     ...(options.security?.recoveryDelayMs === undefined
       ? {}
       : { delayMs: options.security.recoveryDelayMs }),
-    presence: { state: basePresence, forget: () => basePresence.forget() },
+    presence: { state: presenceState, forget: () => basePresence.forget() },
     onDeviceChanged: (device) => {
       bus.bumpStateVersion();
       bus.publish("device.updated", { device });
@@ -751,6 +757,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
       if (config.guestSocketPath !== null) rmSync(config.guestSocketPath, { force: true });
       rmSync(join(config.home, "run", "node-socket"), { force: true });
       removeHandshakeSecret(secretPath);
+      seal.close();
       if (!options.db) db.close();
       log.log("info", "gateway stopped", { reason });
     },

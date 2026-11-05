@@ -591,9 +591,16 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     routing: () => ({ ...ownerRouting(), deviceTargets: deviceNotes.targets() }),
     adapters: [createDeviceSurface({ send: (id, toast) => deviceNotes.send(id, toast) })],
   });
-  // Every security alert reaches the owner's inbox once: the desktop, the Mac's notification
-  // and the phone (the in-app banner reads `security.state.get`).
+  // Every security alert reaches the owner's inbox: the desktop, the Mac's notification and the
+  // phone (the in-app banner reads `security.state.get`). An open alert raised again (one
+  // "changed outside" alert counts repeats) updates its notification at most every 10 minutes,
+  // and only its first delivery may break through quiet hours.
+  const lastNotified = new Map<string, number>();
   const notifyAlert = (alert: SecurityAlert) => {
+    const now = clock.now();
+    const last = lastNotified.get(alert.id);
+    if (last !== undefined && now - last < 10 * 60 * 1000) return;
+    lastNotified.set(alert.id, now);
     const { title, body } = alertNotice(alert);
     void notifier
       .notify({
@@ -602,7 +609,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
         body,
         route: "/settings/devices",
         dedupeKey: `security-alert:${alert.id}`,
-        breakQuietHours: alert.severity === "warning",
+        breakQuietHours: last === undefined && alert.severity === "warning",
       })
       .then(
         () => seal.alerts.markNotified(alert.id),
@@ -661,11 +668,14 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
         seal.ensure();
         const d = getDevice(db, deviceId);
         if (d === undefined) return undefined;
+        // Untrusted security records: only what the seal still trusts this device with.
+        const authz = seal.authorizeDevice(d);
+        const scopes = authz.ok ? authz.scopes : [];
         // The mac helper answers only through its part's relay, on the `notification` surface.
         const viaPart = parts.some((p) => p.approver?.(deviceId) === true);
         return {
-          scopes: viaPart ? [...d.scopes, "operator.approvals"] : d.scopes,
-          ...(d.revokedAt ? { revoked: true } : {}),
+          scopes: viaPart && authz.ok ? [...scopes, "operator.approvals" as const] : scopes,
+          ...(d.revokedAt || !authz.ok ? { revoked: true } : {}),
         };
       },
       // Channel owners (S10) come from the channels part, when one is mounted.

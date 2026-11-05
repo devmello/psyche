@@ -60,7 +60,14 @@ export const SecurityAlert = Type.Object(
       op: Type.Optional(SecurityRecoveryOp),
       notBefore: Type.Optional(IsoDateTime),
       deviceName: Type.Optional(Type.String()),
+      deviceFingerprint: Type.Optional(
+        Type.String({ description: "sha256:<hex> of the device key, shown next to its name" }),
+      ),
       scopes: Type.Optional(Type.Array(Type.String())),
+      /** How many times this open alert was raised again (one alert, not a wall of them). */
+      occurrences: Type.Optional(Type.Integer({ minimum: 1 })),
+      /** Who asked: `mac` (a `psyched` command), `desktop` (the app's first-admin bootstrap). */
+      via: Type.Optional(StringEnum(["mac", "desktop"])),
       devices: Type.Optional(Type.Integer({ minimum: 0 })),
       admins: Type.Optional(Type.Integer({ minimum: 0 })),
       restored: Type.Optional(Type.Boolean()),
@@ -83,6 +90,7 @@ export const SecurityRecovery = Type.Object(
     decidedAt: Nullable(IsoDateTime),
     deviceId: Type.Optional(Id),
     deviceName: Type.Optional(Type.String()),
+    deviceFingerprint: Type.Optional(Type.String()),
     scopes: Type.Optional(Type.Array(Type.String())),
     outcome: Nullable(Type.String()),
   },

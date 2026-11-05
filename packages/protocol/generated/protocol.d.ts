@@ -10033,17 +10033,23 @@ export interface SecurityAlert {
 }
 
 export interface Details {
-    admins?:     number;
-    changes?:    SecurityStateChange[];
-    deviceName?: string;
-    devices?:    number;
-    more?:       number;
-    notBefore?:  string;
-    op?:         SecurityRecoveryOp;
-    reason?:     string;
-    recoveryId?: string;
-    restored?:   boolean;
-    scopes?:     string[];
+    admins?:  number;
+    changes?: SecurityStateChange[];
+    /**
+     * sha256:<hex> of the device key, shown next to its name
+     */
+    deviceFingerprint?: string;
+    deviceName?:        string;
+    devices?:           number;
+    more?:              number;
+    notBefore?:         string;
+    occurrences?:       number;
+    op?:                SecurityRecoveryOp;
+    reason?:            string;
+    recoveryId?:        string;
+    restored?:          boolean;
+    scopes?:            string[];
+    via?:               Via;
 }
 
 export interface SecurityStateChange {
@@ -10062,6 +10068,8 @@ export type SecurityStateChangeChange = "added" | "modified" | "removed";
 
 export type SecurityRecoveryOp = "devices.approve" | "devices.grant" | "presence.reset" | "seal.reset";
 
+export type Via = "mac" | "desktop";
+
 export type SecurityAlertKind = "state_changed_outside" | "state_untrusted" | "state_first_seal" | "state_resealed" | "local_first_admin" | "recovery_requested" | "recovery_applied" | "recovery_cancelled" | "recovery_failed";
 
 export type SecurityAlertSeverity = "warning" | "info";
@@ -10076,16 +10084,17 @@ export interface SecurityRecoveriesApproveResult {
 }
 
 export interface SecurityRecovery {
-    decidedAt?:  null | string;
-    deviceId?:   string;
-    deviceName?: string;
-    id:          string;
-    notBefore:   string;
-    op:          SecurityRecoveryOp;
-    outcome?:    null | string;
-    requestedAt: string;
-    scopes?:     string[];
-    status:      SecurityRecoveryStatus;
+    decidedAt?:         null | string;
+    deviceFingerprint?: string;
+    deviceId?:          string;
+    deviceName?:        string;
+    id:                 string;
+    notBefore:          string;
+    op:                 SecurityRecoveryOp;
+    outcome?:           null | string;
+    requestedAt:        string;
+    scopes?:            string[];
+    status:             SecurityRecoveryStatus;
 }
 
 export type SecurityRecoveryStatus = "waiting" | "applied" | "cancelled" | "failed";

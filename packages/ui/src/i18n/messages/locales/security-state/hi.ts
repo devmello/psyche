@@ -34,6 +34,7 @@ export const securityState: Partial<Catalogue> = {
     "नई कुंजी दर्ज होने तक सुरक्षा बदलावों के लिए Touch ID या पासकी न माँगना।",
   "web.security.op.sealReset": "मौजूदा सुरक्षा रिकॉर्ड जैसे हैं वैसे ही स्वीकार करना।",
   "web.security.device": "एक डिवाइस",
+  "web.security.deviceKey": "{name} (कुंजी {fingerprint})",
   "web.security.change":
     "{change, select, added {जोड़ा गया} modified {बदला गया} other {हटाया गया}}: {what}",
   "web.security.more": "{count, plural, one {और 1} other {और #}}",

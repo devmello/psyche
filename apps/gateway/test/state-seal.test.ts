@@ -128,6 +128,10 @@ describe("state seal", () => {
     setSetting(d, "permissions.policy", { folders: [] });
     setSetting(d, "appearance.theme", "dark"); // not sealed
     d.sqlite.prepare("UPDATE devices SET last_seen_at = ? WHERE id = 'dev-a'").run(d.now());
+    seal.ensure();
+    // An upsert of an existing sealed setting is an update the guard lets through.
+    setSetting(d, PRESENCE_ENROLLED_SETTING, false);
+    setSetting(d, PRESENCE_ENROLLED_SETTING, true);
     d.sqlite.prepare("DELETE FROM settings WHERE key = 'permissions.policy'").run();
     seal.ensure();
     d.close();
@@ -174,9 +178,10 @@ describe("state seal", () => {
     const revoked: string[][] = [];
     seal.onDevicesRevoked((ids) => revoked.push(ids));
     foreign((f) => pairDevice(f, "rogue"));
-    // The row is there until the check; the check runs before every authorizing read.
-    expect(getDevice(d, "rogue")?.revokedAt).toBeNull();
-    seal.ensure();
+    // The row is in the file until a check; reading a device is itself checked first.
+    expect(
+      d.sqlite.prepare("SELECT revoked_at FROM devices WHERE id = 'rogue'").pluck().get(),
+    ).toBeNull();
     const rogue = getDevice(d, "rogue");
     expect(rogue?.revokedAt).not.toBeNull();
     expect(rogue?.scopes).toEqual([]);
@@ -358,22 +363,28 @@ describe("state seal", () => {
     });
     const seal = await StateSeal.open(db(), { home });
     expect(seal.status()).toEqual({ status: "untrusted", reason: "ledger_mismatch" });
-    // The forged entry does not protect the row: it is still revoked.
-    expect(getDevice(open[0] as PsycheDb, "rogue")?.revokedAt).not.toBeNull();
+    // A ledger that does not verify is never repaired from (nothing is destroyed), and the forged
+    // entry buys nothing: untrusted since boot, a device gets read-only at most.
+    const rogue = getDevice(open[0] as PsycheDb, "rogue");
+    expect(rogue?.revokedAt).toBeNull();
+    expect(seal.authorizeDevice(rogue as never)).toEqual({ ok: true, scopes: ["operator.read"] });
   });
 
-  it("a restored backup is sealed again as it is", async () => {
+  it("a restore on the same Mac verifies with the kept key; anything else waits for a re-seal", async () => {
     const d = db();
     pairDevice(d, "phone");
     await StateSeal.open(d, { home });
     d.close();
     open.length = 0;
-    rmSync(join(home, SEAL_KEY_FILE)); // a new machine
     const seal = await StateSeal.open(db(), { home, restored: true });
     expect(seal.status().status).toBe("sealed");
     const resealed = seal.alerts.open().filter((a) => a.kind === "state_resealed");
     expect(resealed.map((a) => a.details.restored)).toEqual([true]);
     expect(seal.alerts.open().some((a) => a.kind === "state_changed_outside")).toBe(false);
+    for (const x of open.splice(0)) x.close();
+    rmSync(join(home, SEAL_KEY_FILE)); // another Mac: the key does not travel
+    const elsewhere = await StateSeal.open(db(), { home, restored: true });
+    expect(elsewhere.status()).toEqual({ status: "untrusted", reason: "restore_unverified" });
   });
 
   it("an alert deleted to hide it comes back", async () => {
@@ -383,7 +394,10 @@ describe("state seal", () => {
     seal.ensure();
     foreign((f) => f.sqlite.prepare("DELETE FROM security_alerts").run());
     seal.ensure();
-    expect(seal.alerts.list().length).toBeGreaterThanOrEqual(2);
+    // Put back from memory, and the same open alert counts the second incident.
+    const [alert] = seal.alerts.open();
+    expect(alert?.kind).toBe("state_changed_outside");
+    expect(alert?.details.occurrences).toBe(2);
   });
 
   it("ensureSecurityState finds the seal of a connection", async () => {

@@ -24,8 +24,23 @@ const approvalIdOf = (err: unknown): string | null => {
   return typeof id === "string" && id !== "" ? id : null;
 };
 
-function opText(d: { op?: string | undefined; deviceName?: string | undefined }): string {
+/** A device as the owner should check it: its name and the start of its key's fingerprint. */
+function deviceText(d: {
+  deviceName?: string | undefined;
+  deviceFingerprint?: string | undefined;
+}): string {
   const name = d.deviceName ?? t("web.security.device");
+  if (d.deviceFingerprint === undefined) return name;
+  const fingerprint = d.deviceFingerprint.replace(/^sha256:/, "").slice(0, 16);
+  return t("web.security.deviceKey", { name, fingerprint });
+}
+
+function opText(d: {
+  op?: string | undefined;
+  deviceName?: string | undefined;
+  deviceFingerprint?: string | undefined;
+}): string {
+  const name = deviceText(d);
   switch (d.op) {
     case "devices.approve":
       return t("web.security.op.devicesApprove", { name });
@@ -52,7 +67,7 @@ function alertText(a: SecurityAlert, when: (iso: string | undefined) => string):
         ? t("web.security.alert.restored")
         : t("web.security.alert.resealed");
     case "local_first_admin":
-      return t("web.security.alert.firstAdmin", { name: d.deviceName ?? t("web.security.device") });
+      return t("web.security.alert.firstAdmin", { name: deviceText(d) });
     case "recovery_requested":
       return t("web.security.alert.requested", { action: opText(d), when: when(d.notBefore) });
     case "recovery_applied":

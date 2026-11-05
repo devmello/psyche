@@ -30,6 +30,7 @@ export const securityState: Partial<Catalogue> = {
   "web.security.op.presenceReset": "在注册新密钥之前，安全更改不再需要触控 ID 或通行密钥。",
   "web.security.op.sealReset": "按原样接受当前的安全记录。",
   "web.security.device": "一台设备",
+  "web.security.deviceKey": "{name}（密钥 {fingerprint}）",
   "web.security.change":
     "{change, select, added {已添加} modified {已更改} other {已移除}}：{what}",
   "web.security.more": "{count, plural, other {及另外 # 项}}",

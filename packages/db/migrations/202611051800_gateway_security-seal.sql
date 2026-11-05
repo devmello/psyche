@@ -7,12 +7,16 @@ CREATE TABLE security_seal (
   id INTEGER PRIMARY KEY NOT NULL CHECK (id = 1),
   format INTEGER NOT NULL,
   key_id TEXT NOT NULL,
-  -- XOR of HMAC(K, "agg" || mac) over every ledger entry, hex.
+  -- HMAC(K, "agg-init" || key_id) XOR HMAC(K, "agg" || mac) over every ledger entry, hex.
   agg TEXT NOT NULL,
   -- 'sealed', or 'untrusted:<reason>' until the owner re-seals.
   state TEXT NOT NULL DEFAULT 'sealed',
+  -- Bumped by every ledger change: a lower value than the Gateway saw is a rollback.
+  gen INTEGER NOT NULL DEFAULT 0,
   sealed_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
+  updated_at TEXT NOT NULL,
+  -- HMAC(K, format || key_id || agg || gen || state): the row cannot be edited without K.
+  mac TEXT NOT NULL DEFAULT ''
 );
 
 CREATE TABLE security_ledger (

@@ -18,6 +18,7 @@ import { activeAdminCount } from "../compose/bootstrap-admin.ts";
 import { approvePairing } from "../handlers/devices.ts";
 import type { Logger } from "../log.ts";
 import { type PresenceState, resetPresenceEnrollment } from "../presence-gate.ts";
+import { cleanLabel } from "./alerts.ts";
 import type { StateSeal } from "./state-seal.ts";
 
 /**
@@ -33,10 +34,13 @@ import type { StateSeal } from "./state-seal.ts";
  */
 
 export const RECOVERY_DELAY_MS = 24 * 60 * 60 * 1000;
-/** A queued request the Gateway did not pick up within this is refused, not applied later. */
-export const REQUEST_TTL_MS = 10 * 60 * 1000;
-/** At most this many recoveries wait at once. */
-const MAX_WAITING = 10;
+/**
+ * At most this many of one kind wait at once, so a flood of device requests cannot bury or block
+ * a presence reset or a re-seal (each of those has one place, and a repeat joins it).
+ */
+const MAX_WAITING_PER_OP = 5;
+/** Cancels from `psyched recovery cancel` per hour (each one is an alert). */
+const MAX_MAC_CANCELS_PER_HOUR = 5;
 /** Old inbox rows are dropped after this. */
 const INBOX_KEEP_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -122,6 +126,7 @@ const isOp = (op: string): op is SecurityRecoveryOp =>
 
 export class SecurityRecoveries {
   readonly #d: RecoveryDeps;
+  readonly #macCancels: number[] = [];
 
   constructor(deps: RecoveryDeps) {
     this.#d = deps;
@@ -171,8 +176,14 @@ export class SecurityRecoveries {
         "SELECT * FROM security_recoveries WHERE status = 'waiting' AND not_before <= ? ORDER BY not_before, id",
       )
       .all(this.#iso()) as RecoveryRow[];
-    for (const r of due) this.#decide(r, "apply", null);
-    return due.length;
+    let n = 0;
+    for (const r of due) {
+      // Untrusted: only a recovery this run knows is genuine (not one replayed into the file).
+      if (!this.#d.seal.rowTrusted("security_recoveries", r.id)) continue;
+      this.#decide(r, "apply", null);
+      n++;
+    }
+    return n;
   }
 
   list(limit = 20): SecurityRecovery[] {
@@ -198,14 +209,45 @@ export class SecurityRecoveries {
     return r === undefined ? undefined : this.#view(r);
   }
 
-  /** What `security.recoveries.approve` binds its presence card to. */
-  subject(id: string): { id: string; op: string; params: unknown } {
+  /** What `security.recoveries.approve` binds its presence card to, and what the card shows. */
+  subject(id: string): {
+    id: string;
+    op: string;
+    params: unknown;
+    card: Record<string, string | string[]>;
+  } {
     const r = this.#waiting(id);
-    return { id: r.id, op: r.op, params: parseJson(r.params) };
+    const p = parseJson(r.params) as RecoveryParams;
+    return {
+      id: r.id,
+      op: r.op,
+      params: p,
+      card: {
+        ...(typeof p.deviceName === "string" ? { deviceName: p.deviceName } : {}),
+        ...(typeof p.fingerprint === "string" ? { deviceFingerprint: p.fingerprint } : {}),
+        ...(Array.isArray(p.scopes) ? { scopes: p.scopes.map(String) } : {}),
+      },
+    };
   }
 
-  cancel(id: string, byDeviceId: string | null): SecurityRecovery {
-    return this.#decide(this.#waiting(id), "cancel", byDeviceId);
+  /**
+   * Cancels a waiting recovery. A re-seal is the owner's only way out of an untrusted state, so
+   * it is cancelled only from a device the seal still trusts with admin (`trustedAdmin`), never
+   * from the Mac, where any program could cancel it as fast as the owner asks.
+   */
+  cancel(
+    id: string,
+    byDeviceId: string | null,
+    opts: { trustedAdmin?: boolean } = {},
+  ): SecurityRecovery {
+    const r = this.#waiting(id);
+    if (r.op === "seal.reset" && opts.trustedAdmin !== true) {
+      throw new PsycheError(
+        "forbidden",
+        "A re-seal can be cancelled only from an admin device Psyche still trusts",
+      );
+    }
+    return this.#decide(r, "cancel", byDeviceId);
   }
 
   /** Applies a waiting recovery now; the caller checked fresh presence. */
@@ -258,7 +300,8 @@ export class SecurityRecoveries {
       notBefore: r.not_before,
       decidedAt: r.decided_at,
       ...(typeof p.deviceId === "string" ? { deviceId: p.deviceId } : {}),
-      ...(typeof p.deviceName === "string" ? { deviceName: p.deviceName } : {}),
+      ...(typeof p.deviceName === "string" ? { deviceName: cleanLabel(p.deviceName) } : {}),
+      ...(typeof p.fingerprint === "string" ? { deviceFingerprint: p.fingerprint } : {}),
       ...(Array.isArray(p.scopes) ? { scopes: p.scopes.map(String) } : {}),
       outcome: r.outcome,
     };
@@ -272,16 +315,15 @@ export class SecurityRecoveries {
   #firstAdmin(): boolean {
     return (
       this.#d.seal.untrusted() === null &&
+      !this.#d.seal.presenceEverEnrolled() &&
       this.#d.presence.state() === "off" &&
       activeAdminCount(this.#d.db) === 0
     );
   }
 
   #intake(r: RequestRow): Intake {
-    const age = this.#d.now().getTime() - Date.parse(r.created_at);
-    if (!(age <= REQUEST_TTL_MS)) {
-      return { status: "refused", outcome: "the request expired before psyched picked it up" };
-    }
+    // No expiry from the row's own time (anything can write it): the CLI takes back a request
+    // nobody answered, and the delay counts from when this Gateway first saw it.
     const params = parseJson(r.params);
     switch (r.op) {
       case "devices.approve":
@@ -299,8 +341,15 @@ export class SecurityRecoveries {
         }
         return this.#queue("seal.reset", {});
       case "recovery.cancel": {
-        const id = String(params.id ?? "");
-        const done = this.cancel(id, null);
+        const now = this.#d.now().getTime();
+        while (this.#macCancels.length > 0 && (this.#macCancels[0] as number) < now - 3_600_000) {
+          this.#macCancels.shift();
+        }
+        if (this.#macCancels.length >= MAX_MAC_CANCELS_PER_HOUR) {
+          throw new PsycheError("rate_limited", "too many cancels from this Mac; try again later");
+        }
+        this.#macCancels.push(now);
+        const done = this.cancel(String(params.id ?? ""), null);
         return { status: "applied", outcome: `recovery ${done.id} cancelled` };
       }
       default:
@@ -322,6 +371,12 @@ export class SecurityRecoveries {
     if (device === undefined || device.revokedAt !== null) {
       throw new PsycheError("not_found", "the device of that request is gone");
     }
+    if (typeof request.publicKeyFingerprint !== "string" || request.publicKeyFingerprint === "") {
+      throw new PsycheError(
+        "conflict",
+        "that pairing request names no key; ask the device to connect again",
+      );
+    }
     if (this.#firstAdmin()) {
       const { device: approved } = db.sqlite.transaction(() =>
         approvePairing(db, {
@@ -340,8 +395,8 @@ export class SecurityRecoveries {
     return this.#queue("devices.approve", {
       pairingRequestId: request.id,
       deviceId: device.id,
-      deviceName: device.name,
-      fingerprint: request.publicKeyFingerprint ?? null,
+      deviceName: cleanLabel(device.name),
+      fingerprint: request.publicKeyFingerprint,
       scopes,
       code,
     });
@@ -365,7 +420,12 @@ export class SecurityRecoveries {
       this.#localFirstAdmin(updated, "devices.grant");
       return { status: "applied", outcome: `${deviceId} now has ${updated.scopes.join(",")}` };
     }
-    return this.#queue("devices.grant", { deviceId, deviceName: device.name, scopes });
+    return this.#queue("devices.grant", {
+      deviceId,
+      deviceName: cleanLabel(device.name),
+      fingerprint: keyFingerprint(device.publicKey),
+      scopes,
+    });
   }
 
   #localFirstAdmin(device: Device, op: string): void {
@@ -378,18 +438,42 @@ export class SecurityRecoveries {
     if (device.scopes.includes("operator.admin")) {
       this.#d.seal.alerts.add("local_first_admin", {
         deviceName: device.name,
+        deviceFingerprint: keyFingerprint(device.publicKey),
         scopes: [...device.scopes],
+        via: "mac",
       });
     }
   }
 
   #queue(op: SecurityRecoveryOp, params: RecoveryParams): Intake {
     const { db } = this.#d;
+    const waiting = (
+      db.sqlite
+        .prepare(
+          "SELECT id, params, not_before FROM security_recoveries WHERE status = 'waiting' AND op = ?",
+        )
+        .all(op) as { id: string; params: string; not_before: string }[]
+    ).filter((w) => this.#d.seal.rowTrusted("security_recoveries", w.id));
+    // The same request again joins the one that waits (its time does not move).
+    const same = waiting.find(
+      (w) =>
+        op === "presence.reset" ||
+        op === "seal.reset" ||
+        JSON.stringify(parseJson(w.params)) === JSON.stringify(params),
+    );
+    if (same !== undefined) {
+      return {
+        status: "waiting",
+        recoveryId: same.id,
+        notBefore: same.not_before,
+        outcome: `waiting: the same request already waits and applies at ${same.not_before} unless it is cancelled (recovery ${same.id}).`,
+      };
+    }
     // A program flooding the inbox gets a few visible requests, not a wall of notifications.
-    if (this.waitingCount() >= MAX_WAITING) {
+    if (waiting.length >= MAX_WAITING_PER_OP) {
       throw new PsycheError(
         "rate_limited",
-        `${MAX_WAITING} requests from this Mac are already waiting; cancel some first`,
+        `${MAX_WAITING_PER_OP} requests like this one are already waiting; cancel some first`,
       );
     }
     const id = db.newId();
@@ -408,7 +492,9 @@ export class SecurityRecoveries {
       op,
       notBefore,
       ...(params.deviceName === undefined ? {} : { deviceName: params.deviceName }),
+      ...(typeof params.fingerprint === "string" ? { deviceFingerprint: params.fingerprint } : {}),
       ...(params.scopes === undefined ? {} : { scopes: params.scopes }),
+      via: "mac",
     });
     return {
       status: "waiting",
@@ -460,8 +546,11 @@ export class SecurityRecoveries {
         recoveryId: r.id,
         ...(op === undefined ? {} : { op }),
         ...(p.deviceName === undefined ? {} : { deviceName: p.deviceName }),
+        ...(typeof p.fingerprint === "string" ? { deviceFingerprint: p.fingerprint } : {}),
         ...(p.scopes === undefined ? {} : { scopes: p.scopes }),
         ...(status === "failed" ? { reason: outcome } : {}),
+        // Cancelled with no device: from `psyched recovery cancel` on the Mac.
+        ...(byDeviceId === null && status === "cancelled" ? { via: "mac" as const } : {}),
       },
     );
     return this.get(r.id) as SecurityRecovery;
@@ -477,7 +566,7 @@ export class SecurityRecoveries {
           throw new PsycheError("not_found", "the device is gone or revoked");
         }
         if (
-          typeof p.fingerprint === "string" &&
+          typeof p.fingerprint !== "string" ||
           keyFingerprint(device.publicKey) !== p.fingerprint
         ) {
           throw new PsycheError("conflict", "the device key changed since the request");

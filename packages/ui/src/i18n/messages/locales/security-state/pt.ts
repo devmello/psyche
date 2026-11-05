@@ -34,6 +34,7 @@ export const securityState: Partial<Catalogue> = {
     "deixar de exigir Touch ID ou uma chave de acesso para alterações de segurança até que uma nova chave seja registrada.",
   "web.security.op.sealReset": "aceitar os registros de segurança atuais como estão.",
   "web.security.device": "um dispositivo",
+  "web.security.deviceKey": "{name} (chave {fingerprint})",
   "web.security.change":
     "{change, select, added {Adicionado} modified {Alterado} other {Removido}}: {what}",
   "web.security.more": "{count, plural, one {e mais 1} other {e mais #}}",

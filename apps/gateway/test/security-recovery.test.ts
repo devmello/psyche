@@ -195,6 +195,33 @@ describe("psyched commands once an admin exists", () => {
     ]);
   });
 
+  it("the same request again joins the waiting one; a flood of one kind cannot block another", async () => {
+    const gw = await boot();
+    const admin = await adminClient(gw.gateway);
+    open.push(admin);
+    setSetting(gw.gateway.context.db, PRESENCE_ENROLLED_SETTING, true);
+    const a = await cli(["presence", "reset"]);
+    const b = await cli(["presence", "reset"]);
+    expect([a.code, b.code]).toEqual([3, 3]);
+    expect(b.lines[0]).toMatch(/already waits/);
+    expect((await state(admin)).recoveries.filter((r) => r.status === "waiting")).toHaveLength(1);
+  });
+
+  it("a re-seal cannot be cancelled from the Mac, and cancels from the Mac are visible", async () => {
+    const gw = await boot();
+    const admin = await adminClient(gw.gateway);
+    open.push(admin);
+    const other = openDb(gw.gateway.context.db.path, { migrate: false });
+    other.sqlite.prepare("UPDATE security_seal SET agg = ?").run("00".repeat(32));
+    other.close();
+    expect((await state(admin)).status).toBe("untrusted");
+    expect((await cli(["security", "reseal"])).code).toBe(3);
+    const [reseal] = (await state(admin)).recoveries;
+    const r = await cli(["recovery", "cancel", reseal?.id ?? ""]);
+    expect(r.code).toBe(1);
+    expect(r.lines[0]).toMatch(/only from an admin device Psyche still trusts/);
+  });
+
   it("presence reset with nothing enrolled is a no-op; reseal of a sealed state too", async () => {
     await boot();
     expect((await cli(["presence", "reset"])).lines[0]).toMatch(/nothing to reset/);
@@ -293,7 +320,7 @@ describe("the seal in a running Gateway", () => {
     other.sqlite.prepare("UPDATE security_seal SET agg = ?").run("00".repeat(32));
     other.close();
     const s = await state(admin);
-    expect(s).toMatchObject({ status: "untrusted", reason: "ledger_mismatch" });
+    expect(s).toMatchObject({ status: "untrusted", reason: "seal_forged" });
     const untrusted = s.alerts.find((a) => a.kind === "state_untrusted");
     const ack = await admin.request("security.alerts.acknowledge", { id: untrusted?.id }, ik());
     expect(ack).toMatchObject({

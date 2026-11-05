@@ -12,8 +12,10 @@ export const securitySeal = sqliteTable("security_seal", {
   keyId: text("key_id").notNull(),
   agg: text("agg").notNull(),
   state: text("state").notNull(),
+  gen: integer("gen").notNull(),
   sealedAt: text("sealed_at").notNull(),
   updatedAt: text("updated_at").notNull(),
+  mac: text("mac").notNull(),
 });
 
 export const securityLedger = sqliteTable(

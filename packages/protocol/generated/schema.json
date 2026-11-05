@@ -38481,11 +38481,26 @@
             "deviceName": {
               "type": "string"
             },
+            "deviceFingerprint": {
+              "description": "sha256:<hex> of the device key, shown next to its name",
+              "type": "string"
+            },
             "scopes": {
               "items": {
                 "type": "string"
               },
               "type": "array"
+            },
+            "occurrences": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "via": {
+              "enum": [
+                "mac",
+                "desktop"
+              ],
+              "type": "string"
             },
             "devices": {
               "minimum": 0,
@@ -38678,6 +38693,9 @@
           "type": "string"
         },
         "deviceName": {
+          "type": "string"
+        },
+        "deviceFingerprint": {
           "type": "string"
         },
         "scopes": {

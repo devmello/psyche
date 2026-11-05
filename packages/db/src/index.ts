@@ -11,6 +11,7 @@ export {
   runMigrations,
 } from "./migrate.ts";
 export { type OpenDbOptions, openDb, type PsycheDb } from "./open.ts";
+export { type ReadGuard, readGuardOf, setReadGuard } from "./read-guard.ts";
 export * from "./repos/artifacts.ts";
 export * from "./repos/chat-queue.ts";
 export * from "./repos/devices.ts";

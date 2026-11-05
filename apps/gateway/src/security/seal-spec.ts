@@ -294,6 +294,17 @@ export const SEALED_TABLES: readonly SealedTable[] = [
   },
 ];
 
+/**
+ * Tables whose schema the seal checks against this build's migrations (columns, defaults, keys),
+ * and whose names mark a trigger or view as security state.
+ */
+export const SCHEMA_GUARDED_TABLES: readonly string[] = [
+  ...SEALED_TABLES.map((t) => t.table),
+  "security_seal",
+  "security_ledger",
+  "security_requests",
+];
+
 /** `json_object(...)` over a row's sealed columns; `p` is `NEW.`, `OLD.` or `t.`. */
 export function rowJson(spec: SealedTable, p: string): string {
   const blobs = new Set(spec.blobs ?? []);

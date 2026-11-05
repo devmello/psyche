@@ -75,6 +75,15 @@ function keepIdentity(result: unknown, always: boolean): unknown {
   return out;
 }
 
+/** Calls that only take access away: allowed on stored scopes while the seal is untrusted. */
+const NARROWING_METHODS: ReadonlySet<string> = new Set([
+  "devices.revoke",
+  "devices.deny",
+  "devices.presenceKey.remove",
+  "security.state.get",
+  "security.recoveries.cancel",
+]);
+
 const STREAM_METHODS: ReadonlySet<string> = new Set([
   "terminal.session.write",
   "terminal.session.resize",
@@ -109,6 +118,8 @@ export class Connection implements LiveConnection {
   #challenge: PendingChallenge | null = null;
   #identity: PairedIdentity | null = null;
   #pendingDeviceId: string | null = null;
+  /** The device row's own scopes, before the seal narrowed them (see `#refreshIdentity`). */
+  #storedScopes: DeviceScope[] = [];
   #connectParams: ConnectParams | null = null;
   #unsubscribe: (() => void) | null = null;
   #sink: FrameSink | null = null;
@@ -310,7 +321,13 @@ export class Connection implements LiveConnection {
     this.#refreshIdentity(identity);
     const spec = methodSpec(method);
     const scope = spec.scope as DeviceScope | "none";
-    if (scope !== "none" && !identity.scopes.includes(scope)) {
+    // Untrusted: the calls that only narrow (revoke, deny, cancel) keep the device's stored scopes,
+    // so the owner can still lock things down; everything else uses what the seal trusts.
+    const have =
+      NARROWING_METHODS.has(method) && this.#ctx.securityState?.untrusted() != null
+        ? this.#storedScopes
+        : identity.scopes;
+    if (scope !== "none" && !have.includes(scope)) {
       throw new PsycheError("forbidden", `${method} requires scope ${scope}`);
     }
     this.#rateLimit(identity.deviceId, method, spec.sideEffecting, params);
@@ -392,11 +409,23 @@ export class Connection implements LiveConnection {
       // `unauthorized` closes the connection once the error is sent (handleRaw).
       throw new PsycheError("unauthorized", "This device is no longer paired");
     }
+    // While the security records are untrusted, a device has only what the seal still trusts.
+    const authz = this.#ctx.securityState?.authorizeDevice(device) ?? {
+      ok: true as const,
+      scopes: device.scopes,
+    };
+    if (!authz.ok) {
+      throw new PsycheError(
+        "unauthorized",
+        "Psyche's security records are untrusted and this device is not one it knows; pair it again after a re-seal",
+      );
+    }
+    this.#storedScopes = [...device.scopes];
     const same =
-      device.scopes.length === identity.scopes.length &&
-      device.scopes.every((s) => identity.scopes.includes(s));
+      authz.scopes.length === identity.scopes.length &&
+      authz.scopes.every((s) => identity.scopes.includes(s));
     if (!same) {
-      identity.scopes = [...device.scopes];
+      identity.scopes = [...authz.scopes];
       if (this.#sink) this.#ctx.bus.setScopes(this.#sink, identity.scopes);
     }
   }

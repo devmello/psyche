@@ -59,7 +59,12 @@ export const securityHandlers: Record<string, HandlerDef> = {
   "security.recoveries.cancel": {
     run(call: Call, params: { id: string }): MethodResult<"security.recoveries.cancel"> {
       const { recoveries } = parts(call);
-      return { recovery: recoveries.cancel(params.id, call.identity.deviceId) };
+      // `identity.scopes` are what the seal still trusts this device with (untrusted: narrowed).
+      return {
+        recovery: recoveries.cancel(params.id, call.identity.deviceId, {
+          trustedAdmin: call.identity.scopes.includes("operator.admin"),
+        }),
+      };
     },
   },
   "security.recoveries.approve": {
@@ -80,8 +85,14 @@ export const securityHandlers: Record<string, HandlerDef> = {
         {
           name: "method:security.recoveries.approve",
           summary: "Apply a security change asked for on the Mac now",
-          subject,
-          details: { method: "security.recoveries.approve", id: subject.id, op: subject.op },
+          subject: { id: subject.id, op: subject.op, params: subject.params },
+          // The card names what it approves: the device, its key and the scopes.
+          details: {
+            method: "security.recoveries.approve",
+            id: subject.id,
+            op: subject.op,
+            ...subject.card,
+          },
         },
         params.approvalId,
       );

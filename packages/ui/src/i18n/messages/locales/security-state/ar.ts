@@ -33,6 +33,7 @@ export const securityState: Partial<Catalogue> = {
     "التوقف عن طلب Touch ID أو مفتاح المرور لتغييرات الأمان حتى يُسجَّل مفتاح جديد.",
   "web.security.op.sealReset": "قبول سجلات الأمان الحالية كما هي.",
   "web.security.device": "جهاز",
+  "web.security.deviceKey": "{name} (المفتاح {fingerprint})",
   "web.security.change": "{change, select, added {أُضيف} modified {تغيّر} other {أُزيل}}: {what}",
   "web.security.more":
     "{count, plural, one {وواحد آخر} two {واثنان آخران} few {و# أخرى} many {و# أخرى} other {و# أخرى}}",

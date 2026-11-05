@@ -34,6 +34,7 @@ export const securityState: Partial<Catalogue> = {
     "新しいキーが登録されるまで、セキュリティ変更に Touch ID やパスキーを求めない。",
   "web.security.op.sealReset": "現在のセキュリティ記録をそのまま受け入れる。",
   "web.security.device": "デバイス",
+  "web.security.deviceKey": "{name}（キー {fingerprint}）",
   "web.security.change": "{change, select, added {追加} modified {変更} other {削除}}: {what}",
   "web.security.more": "{count, plural, other {ほか # 件}}",
   "web.security.ack": "確認済みにする",

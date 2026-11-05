@@ -36,6 +36,7 @@ export const securityState = {
     "stop requiring Touch ID or a passkey for security changes until a new key is registered.",
   "web.security.op.sealReset": "accept the current security records as they are.",
   "web.security.device": "a device",
+  "web.security.deviceKey": "{name} (key {fingerprint})",
   "web.security.change":
     "{change, select, added {Added} modified {Changed} other {Removed}}: {what}",
   "web.security.more": "{count, plural, one {and 1 more} other {and # more}}",

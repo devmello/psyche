@@ -71,8 +71,8 @@ import {
 import type { Call, HandlerDef } from "../context.ts";
 import { MAIN_SESSION_KEY } from "../handlers/threads.ts";
 import { type WebhookRoute, webhookRoute } from "../http.ts";
-import { sealedReads } from "../security/sealed-stores.ts";
-import { ensureSecurityState } from "../security/state-seal.ts";
+import { sealedChannelStore } from "../security/sealed-stores.ts";
+import { ensureSecurityState, stateSealFor } from "../security/state-seal.ts";
 import type { Gateway } from "../server.ts";
 import type { TxHooks } from "../session/controller.ts";
 import { channelSecretHandlers, vaultChannelSecret } from "./channel-secrets.ts";
@@ -809,7 +809,9 @@ export function composeChannels(
   };
   const service = new ChannelService({
     // Allowlists, DM policies and owner identities are sealed security state: checked first.
-    store: sealedReads(new SqliteChannelStore(db), { ensure: () => ensureSecurityState(db) }),
+    store: sealedChannelStore(new SqliteChannelStore(db), stateSealFor(db), () =>
+      ensureSecurityState(db),
+    ),
     broker: services.broker,
     sink,
     clock,

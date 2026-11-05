@@ -38,6 +38,7 @@ import {
 import type { GatewayLimits } from "./context.ts";
 import type { GatewayIdentity } from "./identity.ts";
 import type { RateLimiter } from "./rate-limit.ts";
+import { stateSealFor } from "./security/state-seal.ts";
 
 export const CHALLENGE_TTL_MS = 60_000;
 
@@ -425,6 +426,13 @@ export function verifyChallenge(
     // The family is pinned when the device pairs: a paired device cannot become a Mac helper (or
     // anything else) by declaring another family later. Devices paired before the column existed
     // record the family they declare now, once.
+    // While the security records are untrusted, only what the seal still trusts (H4).
+    const authz = stateSealFor(db)?.authorizeDevice(existing) ?? {
+      ok: true as const,
+      scopes: existing.scopes,
+    };
+    if (!authz.ok)
+      return denied("device not trusted while Psyche's security records are untrusted");
     const pinned = getDeviceFamily(db, existing.id);
     if (pinned === null) updateDevice(db, existing.id, { deviceFamily: params.deviceFamily });
     else if (pinned !== params.deviceFamily) return denied("device family mismatch");
@@ -434,10 +442,10 @@ export function verifyChallenge(
     if (input.setupToken !== undefined)
       consumeSetupToken(db, input.setupToken, existing.id, nowIso);
     return {
-      result: pairedResult(existing.id, existing.scopes, nowIso),
+      result: pairedResult(existing.id, authz.scopes, nowIso),
       identity: {
         deviceId: existing.id,
-        scopes: existing.scopes,
+        scopes: authz.scopes,
         role: params.role,
         ...(isDesktopShell(params, peer, deps.handshakeSecret) ? { desktopShell: true } : {}),
         ...(isHostHelper(params, peer, deps.handshakeSecret) ? { hostHelper: true } : {}),
