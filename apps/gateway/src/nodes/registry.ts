@@ -37,6 +37,14 @@ const KIND_BY_FAMILY: Record<string, NodeKind> = {
 };
 
 /**
+ * What a separate desktop's helper is stored as. TODO(L3): this is `"guest"` once the migration that
+ * lets `nodes.kind` hold `host-helper` and `guest` is merged (PR #1275); until then the only
+ * guest-like value the table accepts is `vm-guest`. Routing never reads this kind: a separate
+ * desktop is found by the container its socket belongs to (`nodes/guest-sockets.ts`).
+ */
+export const GUEST_NODE_KIND: NodeKind = "vm-guest";
+
+/**
  * `mac-helper` / `win-helper` only for the Host's own helper (remote-gateway design §4.1 rule 1);
  * a claimed helper family anywhere else is `remote`. The family is self-declared and proves
  * nothing by itself: a second computer that pairs as a node, or a sandbox guest whose identity
@@ -44,6 +52,9 @@ const KIND_BY_FAMILY: Record<string, NodeKind> = {
  * calls, keychain access or notifications.
  */
 export function nodeKindOf(identity: PairedIdentity, params: ConnectParams): NodeKind {
+  // The helper inside a separate desktop: its kind comes from the socket it paired on, never from
+  // the family it declares (it runs the same helper binary and says `linux-helper`).
+  if (identity.guestContainer !== undefined) return GUEST_NODE_KIND;
   if (isHostHelperFamily(params.deviceFamily)) {
     return identity.hostHelper === true ? params.deviceFamily : "remote";
   }
