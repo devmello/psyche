@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-04T23:00:00Z",
+  "generatedAt": "2026-11-05T06:00:00Z",
   "title": "Design System: Psyche Docs",
   "extensions": {
     "colorMeta": {
@@ -539,7 +539,11 @@
       },
       "label": {
         "displayName": "Label",
-        "purpose": "Status lines, stage captions, margin notes, button text."
+        "purpose": "Status lines, stage captions (12.5px, paper-11), margin notes, button text."
+      },
+      "title-index": {
+        "displayName": "Index Title",
+        "purpose": "An index-sheet entry's h3, led by its source chip."
       },
       "mono-head": {
         "displayName": "Mono Head",
@@ -563,9 +567,19 @@
         "purpose": "A recording's frame, printed onto its sheet."
       },
       {
+        "name": "shadow-plate",
+        "value": "0 0 0 1px var(--paper-6), 0 1px 2px oklch(0.2 0.01 80 / 0.08), 0 14px 30px -20px oklch(0.2 0.01 80 / 0.4)",
+        "purpose": "An index plate: the clip ring with a shorter far stop."
+      },
+      {
+        "name": "shadow-screen",
+        "value": "0 0 0 1.5px oklch(0.25 0.004 80), 0 1px 2px oklch(0.2 0.01 80 / 0.1), 0 22px 44px -26px oklch(0.2 0.01 80 / 0.55)",
+        "purpose": "An iPhone recording's own dark rim; no device is drawn."
+      },
+      {
         "name": "shadow-lamplit",
         "value": "0 2px 2px oklch(0 0 0 / calc(0.35 * k)), 0 24px 48px -18px oklch(0 0 0 / calc(0.7 * k)), 0 70px 120px -50px oklch(0 0 0 / calc(0.8 * k)); k = 1 - 0.78 * --x",
-        "purpose": "The approvals stage on the night band, easing toward daylight strength as the band leaves."
+        "purpose": "The Face ID stage on the night band, easing toward daylight strength as the band leaves."
       },
       {
         "name": "shadow-button-primary",
@@ -625,6 +639,16 @@
         "purpose": "A step lighting as the clip reaches it."
       },
       {
+        "name": "manual",
+        "value": "fine pointer: entry hover start(), leave stop(); control hidden until plate hover or focus; touch: play in view, one at a time; reduced motion: control shown, Play only",
+        "purpose": "Index plates."
+      },
+      {
+        "name": "index-deal",
+        "value": "per entry k = clamp(0, (--q - --i * 0.07) / 0.5, 1): opacity 0.15 to 1, translateY(44px) to 0",
+        "purpose": "Index entries dealt in turn as the sheet's flow scene arrives."
+      },
+      {
         "name": "reduced-motion",
         "value": "all durations 0.01ms; nothing pinned or dealt, timeline hidden, key-moment posters with Play on request, HTML stack instead of WebGL",
         "purpose": "Static fallback."
@@ -633,7 +657,7 @@
     "breakpoints": [
       {
         "name": "phone",
-        "value": "560px (phone takes, 12px gutter)"
+        "value": "560px (phone takes, 12px gutter, index sheet one column with 4:5 plates)"
       },
       {
         "name": "code-flush",
@@ -645,7 +669,7 @@
       },
       {
         "name": "single-page",
-        "value": "960px"
+        "value": "960px (one-column stages; index sheet two columns)"
       },
       {
         "name": "pinned-spread",
@@ -690,9 +714,9 @@
       "name": "Demo Stage",
       "kind": "card",
       "refersTo": "demo-stage",
-      "description": "One use case: heading, deck, steps and source link beside a real recording with its timeline and caption.",
-      "html": "<section class=\"ds-desk\"><div class=\"ds-stage\"><div class=\"ds-copy\"><h2>Its memory is files you can open.</h2><p class=\"ds-deck\">No hosted service holds your threads or memory.</p><ol class=\"ds-steps\"><li class=\"ds-reached\"><button type=\"button\"><span class=\"ds-tick\"></span><span>Who Wren is and what it remembers: Markdown files.</span></button></li><li class=\"ds-now\"><button type=\"button\" aria-current=\"step\"><span class=\"ds-tick\"></span><span>Open <code>MEMORY.md</code>. Plain text, yours to edit.</span></button></li><li><button type=\"button\"><span class=\"ds-tick\"></span><span>All of it lives under <code>~/.psyche</code>.</span></button></li></ol><a class=\"ds-more\" href=\"#\"><span class=\"ds-src\">6</span>What stays on your machine <span class=\"ds-where\">security/on-device</span></a></div><div class=\"ds-screen\"><div class=\"ds-clip\"></div><div class=\"ds-timeline\"><span class=\"ds-fill\"></span><span class=\"ds-mark ds-on\" style=\"left:0%\"></span><span class=\"ds-mark ds-on\" style=\"left:27%\"></span><span class=\"ds-mark\" style=\"left:65%\"></span></div><p class=\"ds-fixture\">The agent sheet, Soul, recorded from Psyche's own UI on fictional data.</p></div></div></section>",
-      "css": ".ds-desk{background:var(--desk,oklch(0.938 0.003 80));padding:32px}.ds-stage{position:relative;display:grid;grid-template-columns:minmax(220px,4fr) minmax(0,8fr);gap:40px;align-items:center;background:var(--sheet,oklch(0.997 0.001 80));color:var(--paper-12,oklch(0.244 0.003 80));border-radius:6px;padding:32px 44px;box-shadow:0 1px 1px oklch(0.2 0.01 80 / 0.04),0 8px 18px -8px oklch(0.2 0.01 80 / 0.16),0 28px 48px -28px oklch(0.2 0.01 80 / 0.22)}.ds-stage::before{content:'';position:absolute;top:0;bottom:0;left:18px;width:1px;background:var(--paper-4,oklch(0.931 0.003 80))}.ds-stage h2{margin:0;max-width:14ch;font:500 34px/1.05 var(--font-display,ui-serif,Georgia,serif);letter-spacing:-0.022em}.ds-deck{margin:16px 0 0;font:400 16.5px/1.55 var(--font-text,system-ui,sans-serif);color:var(--paper-11,oklch(0.5 0.0045 80))}.ds-steps{list-style:none;padding:0;margin:24px 0 0;border-top:1px solid var(--paper-5,oklch(0.906 0.0035 80))}.ds-steps li{border-bottom:1px solid var(--paper-5,oklch(0.906 0.0035 80))}.ds-steps button{display:grid;grid-template-columns:18px 1fr;align-items:baseline;width:100%;padding:10px 0;border:0;background:none;text-align:left;font:400 15px/1.45 var(--font-text,system-ui,sans-serif);color:var(--paper-9,oklch(0.55 0.005 80));cursor:pointer;transition:color .25s cubic-bezier(0.16,1,0.3,1)}.ds-steps button:hover{color:var(--paper-12,oklch(0.244 0.003 80))}.ds-steps button:focus-visible{outline:2px solid var(--ink,oklch(0.4727 0.1241 258.67));outline-offset:2px;border-radius:4px}.ds-tick{width:7px;height:7px;border-radius:2px;border:1.5px solid currentColor;transform:translateY(-1px);transition:background .25s,border-color .25s,transform .25s}.ds-reached button{color:var(--paper-11,oklch(0.5 0.0045 80))}.ds-reached .ds-tick{background:var(--paper-11,oklch(0.5 0.0045 80));border-color:var(--paper-11,oklch(0.5 0.0045 80))}.ds-now button{color:var(--paper-12,oklch(0.244 0.003 80))}.ds-now .ds-tick{background:var(--ink,oklch(0.4727 0.1241 258.67));border-color:var(--ink,oklch(0.4727 0.1241 258.67));transform:translateY(-1px) scale(1.25)}.ds-steps code{font:400 0.88em var(--font-code,ui-monospace,monospace);padding:0.05em 0.3em;border-radius:4px;background:var(--paper-3,oklch(0.956 0.0025 80));border:1px solid var(--paper-5,oklch(0.906 0.0035 80))}.ds-more{display:inline-flex;align-items:baseline;flex-wrap:wrap;column-gap:8px;margin-top:22px;font:550 15.5px/1.4 var(--font-text,system-ui,sans-serif);color:var(--ink-text,oklch(0.4727 0.1241 258.67));text-decoration:none}.ds-src{align-self:center;display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:var(--ink-soft,oklch(0.9662 0.0171 245.79));font:500 12px/1 var(--font-code,ui-monospace,monospace)}.ds-where{font:400 12.5px/1.4 var(--font-code,ui-monospace,monospace);color:var(--paper-9,oklch(0.55 0.005 80))}.ds-clip{aspect-ratio:1408/960;border-radius:10px;background:oklch(0.985 0.0015 80);box-shadow:0 0 0 1px var(--paper-6,oklch(0.884 0.004 80)),0 1px 2px oklch(0.2 0.01 80 / 0.08),0 18px 40px -24px oklch(0.2 0.01 80 / 0.45)}.ds-timeline{position:relative;height:2px;margin-top:14px;background:var(--paper-5,oklch(0.906 0.0035 80));border-radius:1px}.ds-fill{position:absolute;inset:0;background:var(--paper-12,oklch(0.244 0.003 80));transform-origin:left;transform:scaleX(0.42);border-radius:1px}.ds-mark{position:absolute;top:-3px;width:2px;height:8px;margin-left:-1px;background:var(--paper-7,oklch(0.85 0.0045 80));border-radius:1px}.ds-mark.ds-on{background:var(--paper-12,oklch(0.244 0.003 80))}.ds-fixture{margin:10px 0 0;font:400 12.5px/1.4 var(--font-text,system-ui,sans-serif);color:var(--paper-9,oklch(0.55 0.005 80))}"
+      "description": "One original capability: heading, deck, steps and source link beside a real recording with its timeline and caption.",
+      "html": "<section class=\"ds-desk\"><div class=\"ds-stage\"><div class=\"ds-copy\"><h2>Show it once. It becomes a skill.</h2><p class=\"ds-deck\">Passwords, card numbers and codes are never recorded.</p><ol class=\"ds-steps\"><li class=\"ds-reached\"><button type=\"button\"><span class=\"ds-tick\"></span><span>Record a task; the steps come back in plain words.</span></button></li><li class=\"ds-now\"><button type=\"button\" aria-current=\"step\"><span class=\"ds-tick\"></span><span>Turn the date into an input it asks for each time.</span></button></li><li><button type=\"button\"><span class=\"ds-tick\"></span><span>Save makes a skill draft that waits for your approval.</span></button></li></ol><a class=\"ds-more\" href=\"#\"><span class=\"ds-src\">4</span>Teach by showing <span class=\"ds-where\">docs/design/teach-by-showing-2026.md</span></a></div><div class=\"ds-screen\"><div class=\"ds-clip\"></div><div class=\"ds-timeline\"><span class=\"ds-fill\"></span><span class=\"ds-mark ds-on\" style=\"left:0%\"></span><span class=\"ds-mark ds-on\" style=\"left:27%\"></span><span class=\"ds-mark\" style=\"left:65%\"></span></div><p class=\"ds-fixture\">The built-in browser, teach by showing, recorded from Psyche's own UI on fictional data.</p></div></div></section>",
+      "css": ".ds-desk{background:var(--desk,oklch(0.938 0.003 80));padding:32px}.ds-stage{position:relative;display:grid;grid-template-columns:minmax(220px,4fr) minmax(0,8fr);gap:40px;align-items:center;background:var(--sheet,oklch(0.997 0.001 80));color:var(--paper-12,oklch(0.244 0.003 80));border-radius:6px;padding:32px 44px;box-shadow:0 1px 1px oklch(0.2 0.01 80 / 0.04),0 8px 18px -8px oklch(0.2 0.01 80 / 0.16),0 28px 48px -28px oklch(0.2 0.01 80 / 0.22)}.ds-stage::before{content:'';position:absolute;top:0;bottom:0;left:18px;width:1px;background:var(--paper-4,oklch(0.931 0.003 80))}.ds-stage h2{margin:0;max-width:14ch;font:500 34px/1.05 var(--font-display,ui-serif,Georgia,serif);letter-spacing:-0.022em}.ds-deck{margin:16px 0 0;font:400 16.5px/1.55 var(--font-text,system-ui,sans-serif);color:var(--paper-11,oklch(0.5 0.0045 80))}.ds-steps{list-style:none;padding:0;margin:24px 0 0;border-top:1px solid var(--paper-5,oklch(0.906 0.0035 80))}.ds-steps li{border-bottom:1px solid var(--paper-5,oklch(0.906 0.0035 80))}.ds-steps button{display:grid;grid-template-columns:18px 1fr;align-items:baseline;width:100%;padding:10px 0;border:0;background:none;text-align:left;font:400 15px/1.45 var(--font-text,system-ui,sans-serif);color:var(--paper-9,oklch(0.55 0.005 80));cursor:pointer;transition:color .25s cubic-bezier(0.16,1,0.3,1)}.ds-steps button:hover{color:var(--paper-12,oklch(0.244 0.003 80))}.ds-steps button:focus-visible{outline:2px solid var(--ink,oklch(0.4727 0.1241 258.67));outline-offset:2px;border-radius:4px}.ds-tick{width:7px;height:7px;border-radius:2px;border:1.5px solid currentColor;transform:translateY(-1px);transition:background .25s,border-color .25s,transform .25s}.ds-reached button{color:var(--paper-11,oklch(0.5 0.0045 80))}.ds-reached .ds-tick{background:var(--paper-11,oklch(0.5 0.0045 80));border-color:var(--paper-11,oklch(0.5 0.0045 80))}.ds-now button{color:var(--paper-12,oklch(0.244 0.003 80))}.ds-now .ds-tick{background:var(--ink,oklch(0.4727 0.1241 258.67));border-color:var(--ink,oklch(0.4727 0.1241 258.67));transform:translateY(-1px) scale(1.25)}.ds-steps code{font:400 0.88em var(--font-code,ui-monospace,monospace);padding:0.05em 0.3em;border-radius:4px;background:var(--paper-3,oklch(0.956 0.0025 80));border:1px solid var(--paper-5,oklch(0.906 0.0035 80))}.ds-more{display:inline-flex;align-items:baseline;flex-wrap:wrap;column-gap:8px;margin-top:22px;font:550 15.5px/1.4 var(--font-text,system-ui,sans-serif);color:var(--ink-text,oklch(0.4727 0.1241 258.67));text-decoration:none}.ds-src{align-self:center;display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 5px;border-radius:5px;background:var(--ink-soft,oklch(0.9662 0.0171 245.79));font:500 12px/1 var(--font-code,ui-monospace,monospace)}.ds-where{font:400 12.5px/1.4 var(--font-code,ui-monospace,monospace);color:var(--paper-9,oklch(0.55 0.005 80))}.ds-clip{aspect-ratio:1408/960;border-radius:10px;background:oklch(0.985 0.0015 80);box-shadow:0 0 0 1px var(--paper-6,oklch(0.884 0.004 80)),0 1px 2px oklch(0.2 0.01 80 / 0.08),0 18px 40px -24px oklch(0.2 0.01 80 / 0.45)}.ds-timeline{position:relative;height:2px;margin-top:14px;background:var(--paper-5,oklch(0.906 0.0035 80));border-radius:1px}.ds-fill{position:absolute;inset:0;background:var(--paper-12,oklch(0.244 0.003 80));transform-origin:left;transform:scaleX(0.42);border-radius:1px}.ds-mark{position:absolute;top:-3px;width:2px;height:8px;margin-left:-1px;background:var(--paper-7,oklch(0.85 0.0045 80));border-radius:1px}.ds-mark.ds-on{background:var(--paper-12,oklch(0.244 0.003 80))}.ds-fixture{margin:10px 0 0;font:400 12.5px/1.4 var(--font-text,system-ui,sans-serif);color:var(--paper-11,oklch(0.5 0.0045 80))}"
     },
     {
       "name": "Clip Frame",
@@ -701,6 +725,22 @@
       "description": "A real recording framed as a print; unpinned clips carry a pill Play/Pause control.",
       "html": "<div class=\"ds-frame\"><button class=\"ds-control\" type=\"button\" aria-label=\"Pause\"><svg viewBox=\"0 0 16 16\" aria-hidden=\"true\"><rect x=\"4\" y=\"3\" width=\"2.6\" height=\"10\" rx=\"0.8\"/><rect x=\"9.4\" y=\"3\" width=\"2.6\" height=\"10\" rx=\"0.8\"/></svg><span>Pause</span></button></div>",
       "css": ".ds-frame{position:relative;max-width:420px;aspect-ratio:1408/960;border-radius:10px;overflow:hidden;background:oklch(0.985 0.0015 80);box-shadow:0 0 0 1px var(--paper-6,oklch(0.884 0.004 80)),0 1px 2px oklch(0.2 0.01 80 / 0.08),0 18px 40px -24px oklch(0.2 0.01 80 / 0.45)}.ds-control{position:absolute;right:12px;bottom:12px;display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px 0 10px;border-radius:999px;border:1px solid oklch(0.85 0.0045 80);background:oklch(0.991 0.0013 80 / 0.94);color:oklch(0.244 0.003 80);font:500 13px/1 var(--font-text,system-ui,sans-serif);cursor:pointer;transition:background .15s}.ds-control svg{width:13px;height:13px;fill:currentColor}.ds-control:hover{background:#fff}.ds-control:focus-visible{outline:2px solid var(--ink,oklch(0.4727 0.1241 258.67));outline-offset:2px}"
+    },
+    {
+      "name": "iPhone Screen Frame",
+      "kind": "custom",
+      "refersTo": "clip-frame-phone",
+      "description": "An iPhone recording shown as its own capture: the screen's corners and a dark rim, no drawn device.",
+      "html": "<div class=\"ds-screen-frame\"></div>",
+      "css": ".ds-screen-frame{width:min(320px,100%);aspect-ratio:540/1174;margin:0 auto;border-radius:13% / 6%;overflow:hidden;background:#f9f8f6;box-shadow:0 0 0 1.5px oklch(0.25 0.004 80),0 1px 2px oklch(0.2 0.01 80 / 0.1),0 22px 44px -26px oklch(0.2 0.01 80 / 0.55)}"
+    },
+    {
+      "name": "Index Sheet Entry",
+      "kind": "card",
+      "refersTo": "index-plate",
+      "description": "A contents-page entry: numbered title linked to its doc, one line, a 4:3 plate cropped to what the line says.",
+      "html": "<ol class=\"ds-contents\"><li class=\"ds-entry\"><h3><a href=\"#\"><span class=\"ds-isrc\">6</span>Its memory is files you can open</a></h3><p class=\"ds-line\"><code>MEMORY.md</code>, <code>USER.md</code> and <code>SOUL.md</code> are Markdown under <code>~/.psyche</code>, yours to edit.</p><div class=\"ds-plate\"></div></li></ol>",
+      "css": ".ds-contents{list-style:none;margin:0;padding:0;max-width:380px}.ds-entry{padding-top:14px;border-top:1px solid var(--paper-5,oklch(0.906 0.0035 80));display:flex;flex-direction:column}.ds-entry h3{margin:0;font:500 21px/1.2 var(--font-display,ui-serif,Georgia,serif);letter-spacing:-0.01em}.ds-entry h3 a{color:var(--paper-12,oklch(0.244 0.003 80));text-decoration:none}.ds-entry h3 a:hover{text-decoration:underline;text-decoration-color:var(--ink-line,oklch(0.803 0.0742 258.67));text-underline-offset:4px}.ds-isrc{display:inline-grid;place-items:center;min-width:20px;height:20px;margin-right:9px;padding:0 5px;border-radius:5px;background:var(--ink-soft,oklch(0.9662 0.0171 245.79));font:500 12px/1 var(--font-code,ui-monospace,monospace);color:var(--ink-text,oklch(0.4727 0.1241 258.67));vertical-align:3px}.ds-line{margin:8px 0 0;font:400 15px/1.5 var(--font-text,system-ui,sans-serif);color:var(--paper-11,oklch(0.5 0.0045 80))}.ds-line code{font-family:var(--font-code,ui-monospace,monospace);font-size:0.88em;padding:0.05em 0.3em;border-radius:4px;background:var(--paper-3,oklch(0.956 0.0025 80));border:1px solid var(--paper-5,oklch(0.906 0.0035 80))}.ds-plate{margin-top:16px;aspect-ratio:4/3;border-radius:8px;overflow:hidden;background:oklch(0.985 0.0015 80);box-shadow:0 0 0 1px var(--paper-6,oklch(0.884 0.004 80)),0 1px 2px oklch(0.2 0.01 80 / 0.08),0 14px 30px -20px oklch(0.2 0.01 80 / 0.4)}"
     },
     {
       "name": "Leaf with Running Head",
@@ -714,8 +754,8 @@
       "name": "Lamplit Stage on the Night Band",
       "kind": "custom",
       "refersTo": "leaf-lamplit",
-      "description": "The approvals treatment: an inset lamplit sheet on a dark band, the lamp's pool around it.",
-      "html": "<section class=\"ds-night\"><div class=\"ds-lamplit\"><h2>Nothing changes until you say so.</h2><p>An approval card shows the exact action and binds to it.</p></div></section>",
+      "description": "The Face ID treatment: an inset lamplit sheet on a dark band, the lamp's pool around it.",
+      "html": "<section class=\"ds-night\"><div class=\"ds-lamplit\"><h2>Payments wait for Face ID.</h2><p>The card binds one exact payment, and the phone asks for Face ID before it answers.</p></div></section>",
       "css": ".ds-night{position:relative;overflow:hidden;background:oklch(0.165 0.002 80);padding:56px 32px}.ds-lamplit{max-width:1180px;margin:0 auto}.ds-night::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 46% 58% at 28% 6%,oklch(0.97 0.03 85 / 0.16),transparent 70%);pointer-events:none}.ds-lamplit{position:relative;background:oklch(0.93 0.0035 80);color:oklch(0.22 0.003 80);border-radius:6px;padding:40px 48px;box-shadow:0 2px 2px oklch(0 0 0 / 0.35),0 24px 48px -18px oklch(0 0 0 / 0.7),0 70px 120px -50px oklch(0 0 0 / 0.8)}.ds-lamplit h2{margin:0;font:500 40px/1.04 var(--font-display,ui-serif,Georgia,serif);letter-spacing:-0.022em}.ds-lamplit p{margin:20px 0 0;font:400 17.5px/1.6 var(--font-text,system-ui,sans-serif);color:oklch(0.43 0.0045 80)}"
     },
     {
@@ -737,14 +777,14 @@
   ],
   "narrative": {
     "northStar": "The Notebook of Files",
-    "overview": "**Creative North Star: \"The Notebook of Files\"**\n\nThe site is the app's ink world set down on a desk. Every surface is a sheet of paper: the landing page is an open notebook with a two-page spread, then one sheet per use case dealt onto the desk, then the status leaf and the close; the doc pages are the same paper, read flat. Paper is a warm-neutral gray (hue 80, almost no chroma), text is near-black ink, and one ink blue carries every link, button, source mark and the step being shown. Amber appears only when something needs you.\n\nThe world is literal about what Psyche is: memory and receipts are plain files, so pages are headed by the file they are about, set in mono, and every use case closes by citing the doc page it was drawn from with a numbered source chip, the way Psyche cites its sources. Proof is the real app: each stage holds a recording of Psyche's own UI on fictional fixture data, framed like a print pinned to the page, and the scroll is its playhead. Nothing is illustrated or invented.\n\nNight is a material change, not an inversion. Doc pages go to true dark grays. The landing page keeps every sheet as lamplit paper on a dark desk, and the approvals stage is one lamplit sheet on a dark night band under a single warm pool of light, in either theme.",
+    "overview": "**Creative North Star: \"The Notebook of Files\"**\n\nThe site is the app's ink world set down on a desk. Every surface is a sheet of paper: the landing page is an open notebook with a two-page spread, then four sheets dealt onto the desk for what only Psyche does, one index sheet for the rest, then the status leaf and the close; the doc pages are the same paper, read flat. Paper is a warm-neutral gray (hue 80, almost no chroma), text is near-black ink, and one ink blue carries every link, button, source mark and the step being shown. Amber appears only when something needs you.\n\nThe world is literal about what Psyche is: memory and receipts are plain files, so pages are headed by the file they are about, set in mono, and every use case closes by citing the doc page it was drawn from with a numbered source chip, the way Psyche cites its sources. Proof is the real app: each stage holds a recording of Psyche's own UI on fictional fixture data, framed like a print pinned to the page, and the scroll is its playhead. An iPhone recording is shown as its own screen capture, with the screen's corners and no drawn device. Nothing is illustrated or invented.\n\nNight is a material change, not an inversion. Doc pages go to true dark grays. The landing page keeps every sheet as lamplit paper on a dark desk, and the Face ID stage is one lamplit sheet on a dark night band under a single warm pool of light, in either theme.",
     "keyCharacteristics": [
       "Warm-neutral paper grays, one ink accent per view, amber reserved for \"needs you\".",
       "Display serif (New York first) for titles at weight 500 with tight negative tracking; system sans for reading; mono only for real paths, ids and commands.",
       "Sheets with soft, layered offset shadows and a 1px margin rule; no borders on sheets.",
       "Running heads are real file paths only; demo stages carry none.",
-      "Numbered source chips close each use case and link its doc page.",
-      "Demos are real recordings scrubbed by the scroll: on a wide, tall screen each stage pins and the clip moves only as you scroll, backwards too, with its steps lighting as it reaches them. Nothing idles."
+      "Numbered source chips close each use case and head each index entry, linking its doc page.",
+      "Demos are real recordings scrubbed by the scroll: on a wide, tall screen each stage pins and the clip moves only as you scroll, backwards too, with its steps lighting as it reaches them. Index plates play on hover (in view on touch). Nothing idles."
     ],
     "rules": [
       {
@@ -773,6 +813,11 @@
         "section": "typography"
       },
       {
+        "name": "The Contents Page Rule",
+        "body": "The lead stages are for what only Psyche does. Everything else it does goes on the one index sheet, as numbered entries with a plate each; never as a grid of feature cards and never as another stage.",
+        "section": "layout"
+      },
+      {
         "name": "The Laid Down Rule",
         "body": "Stages are dealt onto the desk by the scroll: as a stage's top edge rises through the viewport (`--e`) its sheet slides in 6% from its `from` side, rises 14svh and straightens from a 2.2deg turn on a cubic ease, and its copy settles a beat later (opacity 0.15 to 1, 18px rise). Leaving (`--x`), it is set aside, shrinking up to 5%. Reduced motion and no-script show every sheet flat.",
         "section": "elevation"
@@ -781,6 +826,11 @@
         "name": "The Lamp Rule",
         "body": "Night is one band and one lamp. The band darkens from the desk as it arrives and the desk fades back in at its lower edge as it leaves; a single warm radial pool hangs inside the pinned stage over its upper left, at the band's darkness (`--dark`).",
         "section": "elevation"
+      },
+      {
+        "name": "The Own Screen Rule",
+        "body": "A phone recording is shown as its own capture, edged by the screen's corners and rim. Never draw a device frame, bezel or notch around it.",
+        "section": "components"
       }
     ],
     "dos": [
@@ -788,10 +838,11 @@
       "**Do** keep landing sheets as lamplit paper in dark mode, and put doc pages on the true dark ramp.",
       "**Do** head a sheet with the real file it is about, in mono, or leave it without a head.",
       "**Do** close each demo stage with a numbered source chip linking its doc page.",
-      "**Do** show the product with real recordings of Psyche's UI on fictional fixture data, each with a first-frame poster, a key-moment poster, a phone take and a `.webp.json` provenance sidecar.",
+      "**Do** show the product with real recordings of Psyche's UI on fictional fixture data, each with a first-frame poster (`<name>-start.webp`), a key-moment poster (`<name>.webp`), a phone take unless the recording is already phone-shaped, and a `.webp.json` provenance sidecar.",
       "**Do** encode scrubbed takes as H.264 with a 1s GOP so the scroll can seek anywhere.",
       "**Do** set titles in the display serif at 500 with negative tracking; body in the system sans.",
       "**Do** give small metadata text at least 4.5:1 against its sheet; the lamplit overrides already darken paper-9 to `lit-paper-9` for this.",
+      "**Do** put what only Psyche does on the lead stages, and everything else on the index sheet.",
       "**Do** give every motion a static fallback under `prefers-reduced-motion` and a no-WebGL HTML stack for the hero."
     ],
     "donts": [
@@ -801,7 +852,11 @@
       "**Don't** use mono for prose, labels or decoration.",
       "**Don't** invert the landing sheets to dark paper at night.",
       "**Don't** use sparkles or other AI glyphs, testimonials, counts or illustrated proof.",
-      "**Don't** let anything idle or loop for attention; a clip plays only while it is the one in view, and a scrubbed clip moves only with the scroll."
+      "**Don't** let anything idle or loop for attention; a clip plays only while it is the one in view, and a scrubbed clip moves only with the scroll.",
+      "**Don't** draw device frames around phone recordings; the screen's own corners and rim are the edge.",
+      "**Don't** lay out secondary features as a grid of feature cards; they go on the contents page.",
+      "**Don't** give a stage to a capability every agent has.",
+      "**Don't** claim more for the iPhone app than main does: Live Activities update while the app is open (closed-app updates need the owner's own Apple developer key), and Face ID on the phone runs on the app's demo data until the phone presence key ships."
     ]
   }
 }

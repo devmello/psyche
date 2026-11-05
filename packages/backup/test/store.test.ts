@@ -1,6 +1,6 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   backupFileName,
@@ -48,7 +48,7 @@ describe("createBackup with snapshots (the Gateway keeps running)", () => {
     rmSync(dir, { recursive: true, force: true });
     // The live file is untouched and no staging is left behind.
     expect(readFileSync(join(h, "state/psyche.sqlite"), "utf8")).toBe("LIVE-HALF-WRITTEN");
-    expect(listBackups(h).map((b) => b.file)).toEqual([out.split("/").at(-1)]);
+    expect(listBackups(h).map((b) => b.file)).toEqual([basename(out)]);
   });
 });
 

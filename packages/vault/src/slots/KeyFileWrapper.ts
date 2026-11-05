@@ -1,4 +1,5 @@
 import { readFile, stat } from "node:fs/promises";
+import { isOwnerOnly } from "@psyche/hostfs";
 import { open, type SealedBox, seal, zeroize } from "../crypto.ts";
 import { fail } from "../errors.ts";
 import type { KeyWrapper, WrappedKey } from "./KeyWrapper.ts";
@@ -20,7 +21,11 @@ export class KeyFileWrapper implements KeyWrapper {
     try {
       const st = await stat(this.#path);
       if (!st.isFile()) return "vault key file is not a regular file";
-      if ((st.mode & 0o077) !== 0) return "vault key file must be mode 0600";
+      if (!isOwnerOnly(this.#path, st)) {
+        return process.platform === "win32"
+          ? "vault key file must be readable by this user only (the counterpart of mode 0600)"
+          : "vault key file must be mode 0600";
+      }
       if (typeof process.getuid === "function" && st.uid !== process.getuid()) {
         return "vault key file is owned by another user";
       }

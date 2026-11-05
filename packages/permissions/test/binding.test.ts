@@ -1472,7 +1472,9 @@ describe("canonical targets", () => {
   it("canonicalPath normalizes lexically and never Unicode-normalizes", () => {
     expect(canonicalPath("/a/./b/../c/")).toBe("/a/c");
     expect(canonicalPath("/")).toBe("/");
-    expect(canonicalPath("//a//b")).toBe("/a/b");
+    // `//` starts a UNC path on Windows (`\\server\share`), so there `//a//b` names no share.
+    if (process.platform === "win32") expectInvalid(() => canonicalPath("//a//b"));
+    else expect(canonicalPath("//a//b")).toBe("/a/b");
     expect(canonicalPath("/w/café")).toBe("/w/café");
     expectInvalid(() => canonicalPath("a/b"));
     expectInvalid(() => canonicalPath("/a\0b"));

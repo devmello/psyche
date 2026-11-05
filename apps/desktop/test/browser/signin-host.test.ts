@@ -151,6 +151,12 @@ vi.mock("electron", () => ({
   // No OS keychain in tests: kept recordings use their plain file key.
   safeStorage: { isEncryptionAvailable: () => false },
   session: { fromPartition: (p: string) => h.sessionFor(p) },
+  // The recording store asks for the keychain; these tests keep no recordings.
+  safeStorage: {
+    isEncryptionAvailable: () => false,
+    encryptString: () => Buffer.alloc(0),
+    decryptString: () => "",
+  },
 }));
 
 import { BrowserHost } from "../../src/main/browser/browser-host.ts";

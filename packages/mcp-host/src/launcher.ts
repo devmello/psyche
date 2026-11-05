@@ -4,6 +4,7 @@ import { homedir } from "node:os";
 import { isAbsolute, join } from "node:path";
 import type { Readable, Writable } from "node:stream";
 import type { Transport } from "@modelcontextprotocol/client";
+import { restrictToOwner } from "@psyche/hostfs";
 import type { McpTrustTier, SandboxInstance, SandboxNetwork, SandboxScope } from "@psyche/protocol";
 import { PsycheError } from "@psyche/protocol";
 import { PipeTransport } from "./pipe-transport.ts";
@@ -223,7 +224,12 @@ export function srtLauncher(options: SrtLauncherOptions): SpawnLauncher {
           ),
           { mode: 0o600 },
         );
+        // Windows ignores the mode: the policy srt reads must not be someone else's to edit.
+        if (process.platform === "win32" && !restrictToOwner(file)) {
+          throw new PsycheError("forbidden", `cannot make ${file} private to this user`);
+        }
       } catch (e) {
+        await rm(file, { force: true });
         await rm(scratch, { recursive: true, force: true });
         throw e;
       }

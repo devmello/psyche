@@ -23,6 +23,10 @@ const props = defineProps<{
   phoneRatio?: number;
   scrub: boolean;
   progress: number;
+  /** A phone recording: the screen's own rounded corners, no window ring. */
+  phone?: boolean;
+  /** Plays only when asked (`play()`), e.g. on hover in a grid; never when scrolled into view. */
+  manual?: boolean;
 }>();
 const emit = defineEmits<{ time: [seconds: number]; duration: [seconds: number] }>();
 
@@ -32,9 +36,9 @@ const box = ref<HTMLElement | null>(null);
 const near = ref(false);
 const playing = ref(false);
 const reduced = ref(false);
-const phone = ref(false);
+const narrow = ref(false);
 const userPaused = ref(false);
-const take = computed(() => (phone.value && props.phoneRatio ? "-phone" : ""));
+const take = computed(() => (narrow.value && props.phoneRatio ? "-phone" : ""));
 // Scrubbed, the clip starts from its first frame; playing or still, the poster is its key moment.
 const poster = computed(() =>
   withBase(`/demos/${props.name}${take.value}${props.scrub ? "-start" : ""}.webp`),
@@ -162,7 +166,16 @@ function seekTo(t: number) {
   if (v.readyState >= 1) go();
   else v.addEventListener("loadedmetadata", go, { once: true });
 }
-defineExpose({ seekTo });
+/** For a manual clip: start or stop it (a grid card's hover); reduced motion still waits for Play. */
+function start() {
+  if (reduced.value || userPaused.value) return;
+  near.value = true;
+  play();
+}
+function stop() {
+  if (playing.value || wantPlay) pause();
+}
+defineExpose({ seekTo, start, stop });
 
 watch(near, async (n) => {
   if (!n) return;
@@ -180,19 +193,19 @@ watch(
 let io: IntersectionObserver | null = null;
 let media: MediaQueryList | null = null;
 function onMedia() {
-  phone.value = !!media?.matches;
+  narrow.value = !!media?.matches;
   if (near.value) nextTick(() => video.value?.load());
 }
 onMounted(() => {
   reduced.value = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   media = window.matchMedia(PHONE);
-  phone.value = media.matches;
+  narrow.value = media.matches;
   media.addEventListener("change", onMedia);
   io = new IntersectionObserver(
     (entries) => {
       for (const e of entries) {
         if (e.isIntersecting) near.value = true;
-        if (props.scrub || reduced.value || userPaused.value) continue;
+        if (props.scrub || props.manual || reduced.value || userPaused.value) continue;
         if (e.intersectionRatio >= 0.45) play();
         else if (playing.value) pause();
       }
@@ -215,7 +228,7 @@ onBeforeUnmount(() => {
   <div
     ref="box"
     class="clip"
-    :class="{ scrub }"
+    :class="{ scrub, phone, manual: manual && !reduced }"
     :style="{ '--ratio': String(ratio), '--ratio-phone': String(phoneRatio ?? ratio) }"
   >
     <video
@@ -278,6 +291,15 @@ video {
     aspect-ratio: var(--ratio-phone);
   }
 }
+/* A phone's screen, as captured: its own corner radius and a dark hairline, no window frame. */
+.clip.phone {
+  border-radius: 13% / 6%;
+  background: #f9f8f6;
+  box-shadow:
+    0 0 0 1.5px oklch(0.25 0.004 80),
+    0 1px 2px oklch(0.2 0.01 80 / 0.1),
+    0 22px 44px -26px oklch(0.2 0.01 80 / 0.55);
+}
 .control {
   position: absolute;
   right: 12px;
@@ -313,6 +335,15 @@ video {
 }
 .control:hover {
   background: #fff;
+}
+/* Played by hover: the control stays out of the way until the plate is hovered or focused. */
+.clip.manual .control {
+  opacity: 0;
+}
+.clip.manual:hover .control,
+.clip.manual .control:focus-visible {
+  opacity: 1;
+  transform: none;
 }
 @media (hover: none) {
   .control {

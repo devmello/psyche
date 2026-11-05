@@ -1,17 +1,17 @@
 import {
-  chmodSync,
   existsSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
   realpathSync,
   rmSync,
-  statSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { openDb } from "@psyche/db";
+import { restrictToOwner } from "@psyche/hostfs";
+import { exposeToOthers, OWNER_FILE, privacyOf } from "@psyche/hostfs/testing";
 import { FakeClock } from "@psyche/testing";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { EverythingStore } from "../src/graph/everything.ts";
@@ -34,7 +34,7 @@ afterEach(() => rmSync(dir, { recursive: true, force: true }));
 /** Every byte of every file belonging to the database (main, WAL, shm). */
 function bytesOf(path: string): Buffer {
   const parts = readdirSync(dir)
-    .filter((f) => f.startsWith(path.split("/").pop() as string))
+    .filter((f) => f.startsWith(basename(path)))
     .map((f) => readFileSync(join(dir, f)));
   return Buffer.concat(parts);
 }
@@ -47,7 +47,7 @@ describe("openEncrypted", () => {
     db.exec("create table t(v text)");
     db.prepare("insert into t values (?)").run("SENTINEL-sam-birthday-may-3");
     db.close();
-    expect(statSync(path).mode & 0o077).toBe(0);
+    expect(privacyOf(path)).toBe(OWNER_FILE);
     expect(bytesOf(path).includes("SENTINEL-sam-birthday")).toBe(false);
     expect(readFileSync(path).subarray(0, 15).toString("latin1")).not.toBe("SQLite format 3");
     const again = openEncrypted(path, key);
@@ -87,7 +87,7 @@ describe("MemoryKeyFile", () => {
     const f = new MemoryKeyFile(join(dir, "security", "memory.key"));
     const a = f.loadOrCreate();
     expect(a.created).toBe(true);
-    expect(statSync(f.path).mode & 0o777).toBe(0o600);
+    expect(privacyOf(f.path)).toBe(OWNER_FILE);
     const b = f.loadOrCreate();
     expect(b.created).toBe(false);
     expect(b.key.equals(a.key)).toBe(true);
@@ -97,9 +97,9 @@ describe("MemoryKeyFile", () => {
     const f = new MemoryKeyFile(join(dir, "memory.key"));
     expect(() => f.load()).toThrow(/missing/);
     f.write(newKey());
-    chmodSync(f.path, 0o644);
-    expect(() => f.load()).toThrow(/mode 0600/);
-    chmodSync(f.path, 0o600);
+    exposeToOthers(f.path);
+    expect(() => f.load()).toThrow(/0600/);
+    restrictToOwner(f.path);
     writeFileSync(f.path, "abcd\n", { mode: 0o600 });
     expect(() => f.load()).toThrow(/32-byte/);
   });

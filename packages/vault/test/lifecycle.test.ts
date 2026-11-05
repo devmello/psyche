@@ -1,6 +1,8 @@
 import { randomBytes } from "node:crypto";
-import { chmodSync, cpSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { cpSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { restrictToOwner } from "@psyche/hostfs";
+import { exposeToOthers, OWNER_DIR, OWNER_FILE, privacyOf } from "@psyche/hostfs/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   KEYCHAIN_ACCESS_CONTROL,
@@ -38,10 +40,10 @@ describe("vault create / unlock / lock (G1)", () => {
       recoveryConfirmed: false,
     });
     for (const f of ["vault.db", "slots.json", "recovery.slot"]) {
-      expect(statSync(join(h.home, "vault", f)).mode & 0o777).toBe(0o600);
+      expect(privacyOf(join(h.home, "vault", f))).toBe(OWNER_FILE);
       expect(readFileSync(join(h.home, "vault", f)).toString("latin1")).not.toContain(recoveryKey);
     }
-    expect(statSync(join(h.home, "vault")).mode & 0o777).toBe(0o700);
+    expect(privacyOf(join(h.home, "vault"))).toBe(OWNER_DIR);
     await expect(h.vault.setup()).rejects.toMatchObject({ code: "conflict" });
   });
 
@@ -194,11 +196,11 @@ describe("key wrappers", () => {
   it("key file must be 0600", async () => {
     const tmp = tmpHome();
     const path = join(tmp.home, "vault.key");
-    writeFileSync(path, randomBytes(32).toString("hex"), { mode: 0o644 });
-    chmodSync(path, 0o644);
+    writeFileSync(path, randomBytes(32).toString("hex"), { mode: 0o600 });
+    exposeToOthers(path, 0o644);
     const w = new KeyFileWrapper(path);
     expect(await w.unavailableReason()).toMatch(/0600/);
-    chmodSync(path, 0o600);
+    restrictToOwner(path);
     expect(await w.unavailableReason()).toBeNull();
     const dek = randomBytes(32);
     expect((await w.unwrap(await w.wrap(dek))).equals(dek)).toBe(true);

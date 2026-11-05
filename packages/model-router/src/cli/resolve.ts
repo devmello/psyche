@@ -1,13 +1,26 @@
 import { execFile } from "node:child_process";
 import { accessSync, constants, readdirSync, statSync } from "node:fs";
 import { homedir } from "node:os";
-import { delimiter, isAbsolute, join } from "node:path";
+import { delimiter, dirname, extname, isAbsolute, join } from "node:path";
+import { envPath, windowsLaunchable } from "@psyche/hostfs";
+
+export {
+  envPath,
+  type HostLaunch as CliLaunch,
+  hostLaunch as cliLaunch,
+  setEnvPath,
+  shimTarget,
+} from "@psyche/hostfs";
 
 /**
  * Where a subscription CLI (`claude`, `codex`) lives (#530). The packaged Gateway runs under
  * launchd with a minimal PATH, so "on PATH" is not enough: an explicit path wins, then PATH, then
  * the places installers put these tools, and as a last resort the owner's login shell (a
  * Homebrew or nvm setup only `~/.zprofile` knows about).
+ *
+ * On Windows a GUI app inherits the owner's PATH, so there is no login-shell lookup; a bare name
+ * is tried with `.exe`, `.cmd`, `.bat` and `.com`, and an npm `.cmd` shim is never run through
+ * `cmd.exe` (the prompt is in argv): `cliLaunch` runs the shim's target instead.
  */
 
 export type CliPathSource = "config" | "env" | "path" | "known_dir" | "login_shell";
@@ -23,7 +36,7 @@ export interface ResolveCliOptions {
   /** Environment to read `PSYCHE_<NAME>_PATH` and PATH from (default `process.env`). */
   env?: NodeJS.ProcessEnv;
   home?: string;
-  /** Ask the login shell (default true). */
+  /** Ask the login shell (default true; never on Windows). */
   loginShell?: boolean;
   /** Login-shell lookup budget (default 3 s). */
   timeoutMs?: number;
@@ -32,6 +45,10 @@ export interface ResolveCliOptions {
   /** Replaces the installers' directories (tests: a Homebrew-like temp directory). */
   knownDirs?: readonly string[];
 }
+
+const WIN = process.platform === "win32";
+/** Windows: the extensions a bare name is tried with (never npm's extensionless sh shim). */
+const WIN_EXTS = [".exe", ".cmd", ".bat", ".com"] as const;
 
 /** nvm's per-version bins, newest first (`zsh -lc` does not read `.zshrc`, where nvm lives). */
 function nvmDirs(home: string): string[] {
@@ -48,9 +65,19 @@ function nvmDirs(home: string): string[] {
 
 /**
  * Directories installers use, in order: Homebrew (Apple silicon, Intel), user bins, npm's global
- * prefix, Bun, Claude Code's own local install, then nvm.
+ * prefix, Bun, Claude Code's own local install, then nvm. On Windows: Claude Code's native
+ * installer (`~\.local\bin`), npm's global prefix (`%APPDATA%\npm`), Bun, Claude Code's local
+ * install.
  */
-export function knownCliDirs(home: string): string[] {
+export function knownCliDirs(home: string, env: NodeJS.ProcessEnv = {}): string[] {
+  if (WIN) {
+    return [
+      join(home, ".local", "bin"),
+      join(env.APPDATA ?? join(home, "AppData", "Roaming"), "npm"),
+      join(home, ".bun", "bin"),
+      join(home, ".claude", "local"),
+    ];
+  }
   return [
     "/opt/homebrew/bin",
     "/usr/local/bin",
@@ -62,8 +89,9 @@ export function knownCliDirs(home: string): string[] {
   ];
 }
 
-/** A regular file this user may execute. */
+/** A regular file this user may execute (Windows: one `cliLaunch` can start). */
 export function executable(path: string): boolean {
+  if (WIN) return windowsLaunchable(path);
   try {
     if (!statSync(path).isFile()) return false;
     accessSync(path, constants.X_OK);
@@ -73,11 +101,24 @@ export function executable(path: string): boolean {
   }
 }
 
+/** `command` is a path, not a bare name to look up. */
+export function isCommandPath(command: string): boolean {
+  return isAbsolute(command) || command.includes("/") || (WIN && command.includes("\\"));
+}
+
+/** The file names a bare `name` may have on disk. */
+function fileNames(name: string): readonly string[] {
+  if (!WIN || extname(name) !== "") return [name];
+  return WIN_EXTS.map((e) => `${name}${e}`);
+}
+
 function inDirs(name: string, dirs: readonly string[]): string | undefined {
   for (const d of dirs) {
     if (d.length === 0) continue;
-    const p = join(d, name);
-    if (executable(p)) return p;
+    for (const n of fileNames(name)) {
+      const p = join(d, n);
+      if (executable(p)) return p;
+    }
   }
   return undefined;
 }
@@ -116,20 +157,21 @@ export async function resolveCli(
   const home = options.home ?? env.HOME ?? homedir();
   const explicit = options.command;
   if (explicit !== undefined && explicit !== name) {
-    if (isAbsolute(explicit) || explicit.includes("/")) {
+    if (isCommandPath(explicit)) {
       return executable(explicit) ? { path: explicit, source: "config" } : undefined;
     }
   }
-  const envPath = env[`PSYCHE_${name.toUpperCase()}_PATH`];
-  if (envPath !== undefined && envPath.length > 0 && executable(envPath)) {
-    return { path: envPath, source: "env" };
+  const envPathVar = env[`PSYCHE_${name.toUpperCase()}_PATH`];
+  if (envPathVar !== undefined && envPathVar.length > 0 && executable(envPathVar)) {
+    return { path: envPathVar, source: "env" };
   }
-  const bare = explicit !== undefined && !explicit.includes("/") ? explicit : name;
-  const onPath = inDirs(bare, (env.PATH ?? "").split(delimiter));
+  const bare = explicit !== undefined && !isCommandPath(explicit) ? explicit : name;
+  const onPath = inDirs(bare, envPath(env).split(delimiter));
   if (onPath !== undefined) return { path: onPath, source: "path" };
-  const known = inDirs(bare, options.knownDirs ?? knownCliDirs(home));
+  const known = inDirs(bare, options.knownDirs ?? knownCliDirs(home, env));
   if (known !== undefined) return { path: known, source: "known_dir" };
-  if (options.loginShell === false) return undefined;
+  // Windows has no login shell to ask: a GUI app already inherits the owner's PATH.
+  if (options.loginShell === false || WIN) return undefined;
   const shell = options.shell ?? (executable("/bin/zsh") ? "/bin/zsh" : "/bin/sh");
   const viaShell = await loginShellLookup(bare, shell, options.timeoutMs ?? 3000);
   return viaShell === undefined ? undefined : { path: viaShell, source: "login_shell" };
@@ -141,13 +183,11 @@ export async function resolveCli(
  * then what the Gateway has.
  */
 export function cliChildPath(resolved: string, env: NodeJS.ProcessEnv, home: string): string {
-  const dir = resolved.slice(0, Math.max(1, resolved.lastIndexOf("/")));
   const parts = [
-    dir,
-    ...knownCliDirs(home),
-    ...(env.PATH ?? "").split(delimiter),
-    "/usr/bin",
-    "/bin",
+    dirname(resolved),
+    ...knownCliDirs(home, env),
+    ...envPath(env).split(delimiter),
+    ...(WIN ? [] : ["/usr/bin", "/bin"]),
   ];
   return [...new Set(parts.filter((p) => p.length > 0))].join(delimiter);
 }

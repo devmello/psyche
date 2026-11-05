@@ -1,6 +1,6 @@
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import { PsycheError } from "@psyche/protocol";
 import { FakeClock } from "@psyche/testing";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -204,7 +204,7 @@ describe("Obsidian settings (#727)", () => {
     rmSync(other, { recursive: true, force: true });
   });
   const access = async (path: string) => {
-    if (!grants.some((g) => path === g || path.startsWith(`${g}/`))) {
+    if (!grants.some((g) => path === g || path.startsWith(`${g}${sep}`))) {
       throw new PsycheError("forbidden", "outside every granted folder");
     }
   };

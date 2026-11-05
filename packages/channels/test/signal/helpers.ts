@@ -1,5 +1,5 @@
 import { chmodSync, mkdtempSync, rmSync } from "node:fs";
-import { createServer, type Server, type Socket } from "node:net";
+import { type AddressInfo, createServer, type Server, type Socket } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Channel } from "@psyche/protocol";
@@ -25,14 +25,19 @@ export interface RpcRequest {
 
 type Handler = (params: Record<string, unknown>) => unknown;
 
+/** Windows reaches signal-cli over loopback TCP (`daemon --tcp`), not a UNIX socket. */
+export const WINDOWS = process.platform === "win32";
+
 /**
  * A stand-in for `signal-cli daemon --socket`: a `node:net` server on a temp UNIX socket (in a
  * mkdtemp directory, mode 0700) speaking newline-delimited JSON-RPC 2.0. It records every request,
- * answers `send` with a timestamp, and pushes `receive` notifications on demand.
+ * answers `send` with a timestamp, and pushes `receive` notifications on demand. On Windows it is
+ * `daemon --tcp`: a loopback port, and `path` is its `127.0.0.1:<port>` address.
  */
 export class FixtureDaemon {
   readonly dir: string;
-  readonly path: string;
+  path: string;
+  #port = 0;
   readonly requests: RpcRequest[] = [];
   /** Raw lines received, including any the client should never have written. */
   readonly lines: string[] = [];
@@ -62,9 +67,16 @@ export class FixtureDaemon {
     const server = createServer((socket) => this.#accept(socket));
     await new Promise<void>((resolve, reject) => {
       server.once("error", reject);
-      server.listen(this.path, () => resolve());
+      if (WINDOWS) server.listen(this.#port, "127.0.0.1", () => resolve());
+      else server.listen(this.path, () => resolve());
     });
-    chmodSync(this.path, 0o700);
+    if (WINDOWS) {
+      // Later listens reuse the port: the adapter keeps the address it was given.
+      this.#port = (server.address() as AddressInfo).port;
+      this.path = `127.0.0.1:${this.#port}`;
+    } else {
+      chmodSync(this.path, 0o700);
+    }
     this.#server = server;
   }
 
@@ -237,6 +249,12 @@ let counter = 0;
 /** Lets socket I/O run (a pushed line reaches the adapter, a request reaches the daemon). */
 export async function ticks(n = 5): Promise<void> {
   for (let i = 0; i < n; i++) await new Promise((r) => setTimeout(r, 2));
+}
+
+/** Waits for a (re)connect to finish: on Windows the daemon's owner is checked first. */
+export async function untilConnected(adapter: SignalAdapter, ms = 10_000): Promise<void> {
+  const end = Date.now() + ms;
+  while ((await adapter.health()).ok !== true && Date.now() < end) await ticks(1);
 }
 
 export async function harness(

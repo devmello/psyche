@@ -19,6 +19,31 @@ export const MAX_REPLY_BYTES = 256 * 1024;
 /** Bytes of stderr kept for diagnostics. */
 const STDERR_CAP = 8 * 1024;
 
+/**
+ * The plugin's environment. On Windows libuv copies these from the Gateway into any child that
+ * lacks them (the owner's name, profile folder, PATH, domain…), so they are set, blank, instead:
+ * all but SYSTEMROOT, which Windows' own libraries need and which names no one.
+ */
+function pluginEnv(electron: boolean): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = electron ? { ELECTRON_RUN_AS_NODE: "1" } : {};
+  if (process.platform !== "win32") return env;
+  for (const k of [
+    "HOMEDRIVE",
+    "HOMEPATH",
+    "LOGONSERVER",
+    "PATH",
+    "SYSTEMDRIVE",
+    "TEMP",
+    "USERDOMAIN",
+    "USERNAME",
+    "USERPROFILE",
+    "WINDIR",
+  ])
+    env[k] = "";
+  env.SYSTEMROOT = process.env.SYSTEMROOT ?? "C:\\Windows";
+  return env;
+}
+
 export interface PluginHostOptions {
   name: string;
   /** Real path of the installed folder. */
@@ -69,7 +94,7 @@ export class PluginProcess implements PluginHost {
       {
         cwd: this.#o.dir,
         // No secrets, tokens or proxy settings: an empty environment.
-        env: electron ? { ELECTRON_RUN_AS_NODE: "1" } : {},
+        env: pluginEnv(electron),
         stdio: ["pipe", "pipe", "pipe"],
       },
     );

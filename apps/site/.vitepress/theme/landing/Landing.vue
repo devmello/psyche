@@ -2,6 +2,7 @@
 import { withBase } from "vitepress";
 import { onBeforeUnmount, onMounted, ref } from "vue";
 import CloseStack from "./CloseStack.vue";
+import DemoIndex from "./DemoIndex.vue";
 import DemoStage from "./DemoStage.vue";
 import SheetStack from "./SheetStack.vue";
 import { type SceneEngine, startScenes } from "./scroll-scenes";
@@ -113,7 +114,7 @@ onBeforeUnmount(() => {
             </a>
             <a class="btn quiet" :href="withBase('/get-started/')">Build it from source</a>
           </div>
-          <p class="status">Alpha 0.3 · macOS, built from source · Apache-2.0 · no telemetry</p>
+          <p class="status">Alpha 0.3 · macOS, built from source · iPhone app in development · Apache-2.0 · no telemetry</p>
         </div>
         <div class="gutter" aria-hidden="true" />
         <div class="page right">
@@ -130,33 +131,33 @@ onBeforeUnmount(() => {
     </section>
     </div>
 
-    <!-- Six things Psyche does, each shown by the app itself. The scroll is the playhead. -->
+    <!-- What only Psyche does, each shown by the app itself. The scroll is the playhead. -->
     <DemoStage
-      id="brief-title"
-      title="Start the morning with what needs you."
-      where="Home"
-      clip="brief"
-      label="Psyche's Home: what needs you, a catch-up line opened to the message behind it, then the morning brief with numbered sources"
-      :ratio="1408 / 960"
-      :phone-ratio="720 / 1292"
-      :duration="13.54"
+      id="live-title"
+      title="A running task lives in your Dynamic Island."
+      where="The iPhone app, a Live Activity"
+      clip="ios-live"
+      label="The iPhone app: Watch on a running task, then the task in the Dynamic Island step by step, turning amber when it asks to send the Q3 summary, with a notification"
+      :ratio="540 / 1174"
+      :duration="20.04"
       :beats="[
-        { at: 0, text: 'Approvals and questions that wait on you come first.' },
-        { at: 3.62, text: 'Catching up: what is due, and what moved since you last looked.' },
-        { at: 6.0, text: 'Each line opens the message it came from.' },
-        { at: 9.82, text: 'Then the brief, each line numbered to its source. The Feed behind it is still being finished.' },
+        { at: 0, text: 'Watch a running task from Home.' },
+        { at: 4.0, text: 'Its steps show in the Dynamic Island while the app is open.' },
+        { at: 5.0, text: 'When it needs you, the island turns amber and asks.' },
+        { at: 9.0, text: 'The question arrives as a notification too.' },
       ]"
       :scrub="pinned"
       :motion="motion"
       from="right"
+      phone
     >
-      <p>What waits on you and what moved, each line with the message behind it.</p>
-      <template #foot><a class="more" :href="withBase('/using/feed-ideas-goals')"><span class="src">1</span>Home and the brief <span class="where">using/feed-ideas-goals</span></a></template>
+      <p>A task running on your Mac, step by step in the Dynamic Island and on the Lock Screen while the app is open. Updates with the app closed need your own Apple developer key. The iPhone app is in development.</p>
+      <template #foot><a class="more" href="https://github.com/devmello/psyche/blob/main/apps/ios/README.md" rel="noopener"><span class="src">1</span>The iPhone app <span class="where">apps/ios/README.md</span></a></template>
     </DemoStage>
 
     <DemoStage
       id="answer-title"
-      title="Ask, then open the source."
+      title="Answers that cite your own mail."
       where="Search, ⌘K"
       clip="answer"
       label="A question typed into Search, answered from memory with source chips; one chip opens the mail it came from"
@@ -173,106 +174,76 @@ onBeforeUnmount(() => {
       :motion="motion"
       from="left"
     >
-      <p>Search reads your threads, mail, messages, files and memory, indexed on this Mac.</p>
+      <p>Search reads your threads, mail, messages, files and memory, indexed on this Mac. A claim that cites nothing is dropped.</p>
       <template #foot><a class="more" :href="withBase('/using/memory')"><span class="src">2</span>How memory and search work <span class="where">using/memory</span></a></template>
     </DemoStage>
 
-    <!-- Approvals: the lights go down, and one sheet sits under the lamp. -->
-    <section class="night" data-scene="flow" data-end="0.15" data-exit aria-label="Approvals">
+    <!-- Under the lamp: a payment that waits for a face. -->
+    <section class="night" data-scene="flow" data-end="0.15" data-exit aria-label="Face ID approvals">
       <DemoStage
-        id="approve-title"
-        title="Nothing changes until you say so."
-        where="Chat, Dentist booking"
-        clip="approval"
-        label="A dentist booking waiting on two approvals: the card for filling a saved login, Allow once, and then the next card, an email to send"
-        :ratio="1408 / 960"
-        :phone-ratio="720 / 1140"
-        :duration="10.2"
+        id="faceid-title"
+        title="Payments wait for Face ID."
+        where="The iPhone app, an approval"
+        clip="ios-faceid"
+        label="The iPhone app: a payment approval for the electricity bill with amount, payee, site and card; Allow with Face ID, the Face ID check, then Allowed, your Mac has the answer"
+        :ratio="540 / 1174"
+        :duration="8.58"
         :beats="[
-          { at: 0, text: 'Wren is booking the dentist. Two steps wait on you.' },
-          { at: 2.9, text: 'The card names the exact login and site. Wren sees only a placeholder.' },
-          { at: 5.78, text: 'Allow once. The email still waits its turn.' },
-          { at: 7.4, text: 'Text from a page, an email or a file can never approve. Purchases also ask for Touch ID.' },
+          { at: 0, text: 'Your Bills automation wants to pay the electricity bill.' },
+          { at: 1.2, text: 'The card names the exact amount, payee, site and card.' },
+          { at: 3.6, text: 'Allow asks for Face ID first.' },
+          { at: 6.5, text: 'Allowed. Your Mac has the answer.' },
         ]"
         :scrub="pinned"
         :motion="motion"
         from="right"
-        layout="center"
+        phone
         lamp
         class="lamplit"
       >
-        <p>Anything that sends, buys, fills a password or runs a command waits for a card bound to that exact action.</p>
+        <p>The card binds one exact payment, and the phone asks for Face ID before it answers. Today that runs on the app's demo data: payments from your Mac still need the Mac until the phone's presence key ships. The iPhone app is in development.</p>
         <template #foot><a class="more" :href="withBase('/security/approvals-and-tiers')"><span class="src">3</span>Approvals and app tiers <span class="where">security/approvals-and-tiers</span></a></template>
       </DemoStage>
     </section>
 
     <DemoStage
-      id="memory-title"
-      title="It learns the people in your life, and checks with you."
-      where="Memory, Review and then Sam Lee"
-      clip="memory"
-      label="Memory's review list: facts found in mail with the words they came from, one confirmed; then Sam Lee's page with facts, sources and open loops"
+      id="teach-title"
+      title="Show it once. It becomes a skill."
+      where="The built-in browser, teach by showing"
+      clip="teach"
+      label="The review screen after recording a task in Psyche's browser: the steps in plain words, a name, a typed date turned into an input, then Save as a skill, waiting for approval"
       :ratio="1408 / 960"
       :phone-ratio="720 / 1140"
-      :duration="13.63"
+      :duration="20.96"
       :beats="[
-        { at: 0, text: 'Wren proposes what it found in your mail, messages and notes.' },
-        { at: 2.7, text: 'Each fact shows the words it came from.' },
-        { at: 5.2, text: 'Nothing is remembered until you confirm it.' },
-        { at: 7.4, text: 'A person\'s page builds up: role, preferences and open loops, each with its source.' },
+        { at: 0, text: 'Record a task in Psyche\'s browser; the steps come back in plain words.' },
+        { at: 4.58, text: 'Give it a name.' },
+        { at: 6.4, text: 'Turn the date into an input it asks for each time.' },
+        { at: 14.95, text: 'Save makes a skill draft that waits for your approval.' },
       ]"
       :scrub="pinned"
       :motion="motion"
       from="left"
     >
-      <p>It learns who people are from what they write to you, and asks before it keeps anything.</p>
-      <template #foot><a class="more" :href="withBase('/guides/memory-and-persona')"><span class="src">4</span>Memory and persona <span class="where">guides/memory-and-persona</span></a></template>
+      <p>Passwords, card numbers and codes are never recorded, and other typed values stay hidden unless you keep them.</p>
+      <template #foot><a class="more" href="https://github.com/devmello/psyche/blob/main/docs/design/teach-by-showing-2026.md" rel="noopener"><span class="src">4</span>Teach by showing <span class="where">docs/design/teach-by-showing-2026.md</span></a></template>
     </DemoStage>
 
-    <DemoStage
-      id="devices-title"
-      title="Use it from your phone or another computer."
-      where="Settings, Devices &amp; nodes, then the iPhone app"
-      clip="devices"
-      label="Settings on the Mac: an iPad waiting to pair with a code to compare, and the paired iPhone and browser with what each may do. Then the iPhone app: an approval to add a calendar event, allowed, and the Mac has the answer"
-      :ratio="1600 / 806"
-      :phone-ratio="720 / 1292"
-      :duration="14.04"
-      :beats="[
-        { at: 0, text: 'A new device asks to pair, and waits for you on this Mac.' },
-        { at: 2.69, text: 'Check the same code shows on both, and choose what it may do.' },
-        { at: 5.3, text: 'Each device gets only what you chose: the iPhone answers approvals, a browser only reads and writes.' },
-        { at: 8.2, text: 'On the iPhone, the same approval. Allow, and your Mac has the answer.' },
-      ]"
-      :scrub="pinned"
-      :motion="motion"
-      from="right"
-    >
-      <p>Your Mac keeps the data; other devices are windows onto it. The iPhone app is in development.</p>
-      <template #foot><a class="more" :href="withBase('/guides/remote-gateway')"><span class="src">5</span>Use Psyche from another computer <span class="where">guides/remote-gateway</span></a></template>
-    </DemoStage>
-
-    <DemoStage
-      id="files-title"
-      title="Its memory is files you can open."
-      where="The agent sheet, Soul"
-      clip="files"
-      label="The agent sheet's files, SOUL.md, IDENTITY.md, USER.md, MEMORY.md and AGENTS.md; MEMORY.md opens as plain Markdown"
-      :ratio="1408 / 960"
-      :phone-ratio="588 / 840"
-      :duration="10.58"
-      :beats="[
-        { at: 0, text: 'Who Wren is, what it knows about you and what it remembers: Markdown files.' },
-        { at: 2.85, text: 'Open `MEMORY.md`. Plain text, rewritten each night, yours to edit.' },
-        { at: 6.86, text: 'All of it lives under `~/.psyche`, on this Mac.' },
-      ]"
-      :scrub="pinned"
-      :motion="motion"
-      from="left"
-    >
-      <p>No hosted service holds your threads or memory. Only model calls leave, to the provider you choose.</p>
-      <template #foot><a class="more" :href="withBase('/security/on-device')"><span class="src">6</span>What stays on your machine <span class="where">security/on-device</span></a></template>
-    </DemoStage>
+    <!-- The rest, on one sheet: smaller recordings, each of the real app. -->
+    <section class="leaf lit index-leaf" data-scene="flow" data-end="0.1" aria-labelledby="index-title">
+      <p class="run-head">docs/03-feature-spec.md</p>
+      <h2 id="index-title">More of what it does, one page each.</h2>
+      <DemoIndex
+        :items="[
+          { n: 5, clip: 'memory', title: 'It learns people, and checks with you', line: 'Facts it finds in your mail wait for you to confirm, each with the words it came from.', label: 'Memory review: facts with their quotes, one confirmed, then a person page', ratio: 1408 / 960, phoneRatio: 720 / 1140, href: '/using/memory', focus: { x: 28, y: 40, zoom: 1.55 } },
+          { n: 6, clip: 'files', title: 'Its memory is files you can open', line: '`MEMORY.md`, `USER.md` and `SOUL.md` are Markdown under `~/.psyche`, yours to edit. Memory is tidied each night.', label: 'The agent sheet listing memory files, then MEMORY.md open as plain text', ratio: 1408 / 960, href: '/guides/memory-and-persona', focus: { x: 34, y: 22, zoom: 1.6 } },
+          { n: 7, clip: 'skill', title: 'Skills you can share, signed', line: 'A `.psyche-skill` file names who signed it and what it asks for before anything installs.', label: 'Importing a shared skill: the signer, its permissions and the full SKILL.md, then trusting the author', ratio: 1408 / 960, phoneRatio: 720 / 1140, href: 'https://github.com/devmello/psyche/blob/main/docs/design/shared-bundles-2026.md', focus: { x: 42, y: 30, zoom: 1.5 } },
+          { n: 8, clip: 'brief', title: 'Catch up with the source of each line', line: 'What is due and what moved since you looked, each line one tap from the message behind it.', label: 'Home: Needs you, catch-up with a source opened, and the brief', ratio: 1408 / 960, phoneRatio: 720 / 1292, href: '/using/feed-ideas-goals', focus: { x: 50, y: 58, zoom: 1.5 } },
+          { n: 9, clip: 'devices', title: 'Each device gets only what you choose', line: 'A phone, a browser or another Mac pairs with a code you compare, then reads, writes or answers approvals as you allowed.', label: 'Devices and nodes with a pairing request and paired devices, then the iPhone answering an approval', ratio: 1600 / 806, phoneRatio: 720 / 1292, href: '/guides/remote-gateway', focus: { x: 26, y: 30, zoom: 1.45 } },
+          { n: 10, clip: 'ios-genui', title: 'Native cards on the iPhone', line: 'Plans, files and questions from the agent draw as native iPhone views. The iPhone app is in development.', label: 'The iPhone chat with a question card, a file card and a plan checklist', ratio: 540 / 1174, href: 'https://github.com/devmello/psyche/blob/main/docs/design/ios-app-2026.md', focus: { x: 50, y: 36, zoom: 1.0 }, phone: true },
+        ]"
+      />
+    </section>
 
     <!-- Honest status. -->
     <section class="leaf lit status-page" data-scene="flow" data-end="-0.6" aria-labelledby="status-title">
@@ -530,6 +501,7 @@ onBeforeUnmount(() => {
   background: var(--paper-2);
 }
 .status {
+  text-wrap: balance;
   margin-top: 22px;
   font-size: 13.5px;
   color: var(--paper-11);
@@ -870,6 +842,16 @@ onBeforeUnmount(() => {
 .motion .night :deep(.lamp) {
   opacity: var(--dark);
 }
+/* The index sheet: its six recordings are dealt in turn as the sheet arrives. */
+.index-leaf h2 {
+  max-width: 22ch;
+}
+.motion .index-leaf :deep(.entry) {
+  --k: clamp(0, calc((var(--q, 1) - var(--i) * 0.07) / 0.5), 1);
+  opacity: calc(0.15 + var(--k) * 0.85);
+  transform: translateY(calc((1 - var(--k)) * 44px));
+}
+
 /* Status: "Also works today" is checked off row by row; "Not yet" stays in pencil. */
 .status-page .columns li {
   border-bottom-color: transparent;
@@ -1007,12 +989,18 @@ onBeforeUnmount(() => {
 }
 :root.landing-night:has(.landing) .VPNav,
 :root.landing-night:has(.landing) .VPNavBar,
+:root.landing-night:has(.landing) .VPNavBar .wrapper,
+:root.landing-night:has(.landing) .VPNavBar .container,
+:root.landing-night:has(.landing) .VPNavBar .content,
 :root.landing-night:has(.landing) .VPNavBar .content-body,
 :root.landing-night:has(.landing) .VPNavBar .title {
   background: oklch(0.165 0.002 80) !important;
 }
 :root.dark.landing-night:has(.landing) .VPNav,
 :root.dark.landing-night:has(.landing) .VPNavBar,
+:root.dark.landing-night:has(.landing) .VPNavBar .wrapper,
+:root.dark.landing-night:has(.landing) .VPNavBar .container,
+:root.dark.landing-night:has(.landing) .VPNavBar .content,
 :root.dark.landing-night:has(.landing) .VPNavBar .content-body,
 :root.dark.landing-night:has(.landing) .VPNavBar .title {
   background: oklch(0.118 0.0015 80) !important;

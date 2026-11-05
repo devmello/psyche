@@ -13,6 +13,10 @@ import {
 } from "../src/index.ts";
 import { call, DEVICE, makeBroker, path } from "./helpers.ts";
 
+const WIN = process.platform === "win32";
+/** The profile's private folder: `~/Library` on macOS, `~\\AppData` on Windows. */
+const LIBRARY = WIN ? "AppData" : "Library";
+
 /**
  * Folder access the agent asks for (security §3.5): the owner's pick is what is granted, `once`
  * lasts for the conversation, `always` is stored for Settings, taint allows `once` only, and
@@ -28,7 +32,7 @@ let notes: string;
 beforeAll(async () => {
   home = await realpath(await mkdtemp(join(tmpdir(), "psy-home-")));
   psycheHome = join(home, ".psyche");
-  for (const d of ["Library/Mail", ".ssh", ".psyche/state", "Projects/app", "Documents/notes"]) {
+  for (const d of [`${LIBRARY}/Mail`, ".ssh", ".psyche/state", "Projects/app", "Documents/notes"]) {
     await mkdir(join(home, d), { recursive: true });
   }
   docs = join(home, "Projects/app");
@@ -38,10 +42,10 @@ beforeAll(async () => {
 
 describe("sensitive roots", () => {
   it("refuses /, the home root, ~/Library, ~/.ssh and ~/.psyche", async () => {
-    for (const p of ["/", home, join(home, "Library"), join(home, ".ssh"), psycheHome]) {
+    for (const p of ["/", home, join(home, LIBRARY), join(home, ".ssh"), psycheHome]) {
       await expect(resolveFolderPick(p, env)).rejects.toMatchObject({ code: "forbidden" });
     }
-    await expect(resolveFolderPick(join(home, "Library/Mail"), env)).rejects.toMatchObject({
+    await expect(resolveFolderPick(join(home, LIBRARY, "Mail"), env)).rejects.toMatchObject({
       code: "forbidden",
     });
     await expect(resolveFolderPick(join(psycheHome, "state"), env)).rejects.toMatchObject({
@@ -51,8 +55,8 @@ describe("sensitive roots", () => {
 
   it("refuses an ancestor of a sensitive root (nothing broader than needed)", () => {
     expect(refuseFolder(home, env)).toBe("sensitive_root");
-    expect(refuseFolder("/Users", env)).toBe("sensitive_root");
-    expect(refuseFolder("/", env)).toBe("sensitive_root");
+    expect(refuseFolder(WIN ? "C:\\Users" : "/Users", env)).toBe("sensitive_root");
+    expect(refuseFolder(WIN ? "C:\\" : "/", env)).toBe("sensitive_root");
   });
 
   it("allows an ordinary folder inside home and returns its real path", async () => {
