@@ -117,11 +117,14 @@ export function isAltGraphText(e: AltGraphEventLike, platform: UiPlatform = uiPl
   if (platform === "macos" || !e.ctrlKey || !e.altKey || e.metaKey === true) return false;
   // Only keys that type something: AltGr+Esc or AltGr+Enter are not text.
   if (e.key !== "Dead" && [...e.key].length !== 1) return false;
-  if (e.getModifierState?.("AltGraph") === true) return true;
   if (e.key === "Dead") return true;
+  // The key's own character: nothing was typed (this layout has no AltGr meaning for the key, or
+  // it was plain Ctrl+Alt), so it is the shortcut even when the AltGraph state is set.
+  const plain = plainKeyOf(e.code);
+  if (plain !== undefined && e.key.toLowerCase() === plain) return false;
+  if (e.getModifierState?.("AltGraph") === true) return true;
   // Without the modifier state (an older engine, a synthesised event): a symbol other than the
   // key's own is AltGr's. A letter is not taken for one, so Ctrl+Alt+B on a Cyrillic or Greek
   // layout (key "и") still works as the shortcut.
-  const plain = plainKeyOf(e.code);
-  return e.key.toLowerCase() !== plain && !/\p{L}/u.test(e.key);
+  return !/\p{L}/u.test(e.key);
 }

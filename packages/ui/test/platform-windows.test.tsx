@@ -233,6 +233,8 @@ describe("Windows shortcuts", () => {
     expect(isAltGraphText(e("ł", "KeyL", true), "windows")).toBe(true); // Polish AltGr+L
     expect(isAltGraphText(e("Dead", "BracketRight"), "windows")).toBe(true);
     expect(isAltGraphText(e("b", "KeyB", false), "windows")).toBe(false);
+    // An AltGr layout without an AltGr meaning for B types nothing: still the shortcut.
+    expect(isAltGraphText(e("b", "KeyB", true), "windows")).toBe(false);
     expect(isAltGraphText(e("Escape", "Escape", true), "windows")).toBe(false);
     expect(isAltGraphText(e("∫", "KeyB"), "macos")).toBe(false);
     expect(
