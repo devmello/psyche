@@ -8,12 +8,18 @@ protocol AlertConnection: Sendable {
     func ensureLive(timeout: Duration) async -> Bool
     /// Lets go of the connection. `appActive` is whether the app is in front, in which case it stays up.
     func release(appActive: Bool) async
+    /// "Stay connected while a task runs": hold the connection open (and reconnect) while the app is in the background.
+    func setKeepConnected(_ keep: Bool) async
+    /// Whether the connection is live, now and on every change. Event-driven: nothing is polled.
+    func liveStates() -> AsyncStream<Bool>
 }
 
 /// Fixtures have no Mac to reach: always live.
 struct FixtureAlertConnection: AlertConnection {
     func ensureLive(timeout: Duration) async -> Bool { true }
     func release(appActive: Bool) async {}
+    func setKeepConnected(_ keep: Bool) async {}
+    func liveStates() -> AsyncStream<Bool> { AsyncStream { $0.yield(true) } }
 }
 
 struct GatewayAlertConnection: AlertConnection {
@@ -44,5 +50,22 @@ struct GatewayAlertConnection: AlertConnection {
     func release(appActive: Bool) async {
         // Not active: the client closes the socket a few seconds later, as it does after backgrounding.
         await client.setActive(appActive)
+    }
+
+    func setKeepConnected(_ keep: Bool) async {
+        await client.setKeepConnected(keep)
+    }
+
+    func liveStates() -> AsyncStream<Bool> {
+        let states = client.states()
+        return AsyncStream { continuation in
+            let task = Task {
+                for await state in states {
+                    if case .live = state { continuation.yield(true) } else { continuation.yield(false) }
+                }
+                continuation.finish()
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
     }
 }

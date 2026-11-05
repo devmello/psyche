@@ -20,6 +20,10 @@ public struct GatewayClientDependencies: Sendable {
     public var backgroundGrace: Duration
     /// How often a pending (not yet approved) phone asks again.
     public var pendingRecheck: Duration
+    /// How often a connection held open in the background is checked for life (no heartbeat otherwise: the Gateway pushes events).
+    public var keptPingInterval: Duration
+    /// How long a liveness ping may go unanswered before the connection is dropped and re-made.
+    public var keptPingTimeout: Duration
     /// The share extension's inbox, wiped with the rest when the pairing ends or the pinned Gateway changes.
     public var shareInbox: ShareInbox?
     /// Run on revoke, after keys and outbox are wiped: the cache owner clears its files here.
@@ -43,6 +47,8 @@ public struct GatewayClientDependencies: Sendable {
         stateDirectory: URL? = AppGroup.dataDirectory,
         backgroundGrace: Duration = .seconds(5),
         pendingRecheck: Duration = .seconds(5),
+        keptPingInterval: Duration = .seconds(180),
+        keptPingTimeout: Duration = .seconds(10),
         shareInbox: ShareInbox? = ShareInbox.shared,
         onWipe: @escaping @Sendable () async -> Void = {},
         libraryCache: URL = GatewayClientDependencies.defaultLibraryCache
@@ -57,6 +63,8 @@ public struct GatewayClientDependencies: Sendable {
         self.stateDirectory = stateDirectory
         self.backgroundGrace = backgroundGrace
         self.pendingRecheck = pendingRecheck
+        self.keptPingInterval = keptPingInterval
+        self.keptPingTimeout = keptPingTimeout
         self.shareInbox = shareInbox
         self.onWipe = onWipe
         self.libraryCache = libraryCache
@@ -81,6 +89,11 @@ public actor GatewayClient {
     private var runLoop: Task<Void, Never>?
     private var backgroundTimer: Task<Void, Never>?
     private var active = false
+    /// "Stay connected while a task runs": the app is in the background but is holding itself awake, so the socket stays
+    /// (and reconnects) like an active one. Set and cleared only by `setKeepConnected`.
+    private var keepConnected = false
+    private var pingTask: Task<Void, Never>?
+    private var wantsConnection: Bool { active || keepConnected }
     private var resync: Resync
     private var mapper: EventMapper?
 
@@ -167,18 +180,51 @@ public actor GatewayClient {
             backgroundTimer?.cancel()
             backgroundTimer = nil
             startRunLoopIfNeeded()
-        } else {
-            backgroundTimer?.cancel()
-            backgroundTimer = Task { [grace = deps.backgroundGrace] in
-                try? await Task.sleep(for: grace)
-                guard !Task.isCancelled else { return }
-                self.closeForBackground()
-            }
+        } else if !keepConnected {
+            scheduleBackgroundClose()
         }
     }
 
+    private func scheduleBackgroundClose() {
+        backgroundTimer?.cancel()
+        backgroundTimer = Task { [grace = deps.backgroundGrace] in
+            try? await Task.sleep(for: grace)
+            guard !Task.isCancelled else { return }
+            self.closeForBackground()
+        }
+    }
+
+    /// Holds the connection open in the background while Psyche keeps itself awake for a running task, and lets it go
+    /// (after the usual grace) when that ends. While held, a small liveness ping every `keptPingInterval` notices a
+    /// socket the network dropped silently; nothing else is sent. There is no polling: events arrive on their own.
+    public func setKeepConnected(_ keep: Bool) {
+        guard keep != keepConnected else { return }
+        keepConnected = keep
+        pingTask?.cancel()
+        pingTask = nil
+        if keep {
+            backgroundTimer?.cancel()
+            backgroundTimer = nil
+            startRunLoopIfNeeded()
+            pingTask = Task { [interval = deps.keptPingInterval] in
+                while !Task.isCancelled {
+                    try? await Task.sleep(for: interval)
+                    guard !Task.isCancelled else { return }
+                    await self.pingIfLive()
+                }
+            }
+        } else if !active {
+            scheduleBackgroundClose()
+        }
+    }
+
+    private func pingIfLive() async {
+        guard case .live = state, let connection else { return }
+        do { try await connection.ping(timeout: deps.keptPingTimeout) } catch { await connection.close() }
+    }
+
     private func closeForBackground() {
-        guard !active else { return }
+        guard !wantsConnection else { return }
         runLoop?.cancel()
         runLoop = nil
         let old = connection
@@ -189,7 +235,7 @@ public actor GatewayClient {
     }
 
     private func startRunLoopIfNeeded() {
-        guard runLoop == nil, active, endpoint != nil else { return }
+        guard runLoop == nil, wantsConnection, endpoint != nil else { return }
         switch state {
         case .refused, .revoked, .unpaired: return
         default: break
@@ -396,7 +442,7 @@ public actor GatewayClient {
 
     private func run() async {
         var attempt = 0
-        while !Task.isCancelled, active, let endpoint {
+        while !Task.isCancelled, wantsConnection, let endpoint {
             if case .unreachable = state {} else if case .pending = state {} else { set(.connecting) }
             let token = setupToken
             let outcome = await connectOnce(endpoint: endpoint, setupToken: token)
@@ -406,7 +452,7 @@ public actor GatewayClient {
                 attempt = 0
                 setupToken = nil
                 await consume(events)
-                if Task.isCancelled || !active { return }
+                if Task.isCancelled || !wantsConnection { return }
                 try? await Task.sleep(for: .seconds(deps.backoff.delay(attempt: 0)))
             case .pending(let code):
                 setupToken = nil
