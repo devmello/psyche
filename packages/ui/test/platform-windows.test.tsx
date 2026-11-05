@@ -57,7 +57,8 @@ describe("platform detection", () => {
     expect(normalizePlatform("windows")).toBe("windows");
     expect(normalizePlatform("darwin")).toBe("macos");
     expect(normalizePlatform("MacIntel")).toBe("macos");
-    expect(normalizePlatform("linux")).toBe("other");
+    expect(normalizePlatform("linux")).toBe("linux");
+    expect(normalizePlatform("web")).toBe("other");
     document.documentElement.dataset.platform = "win32";
     expect(uiPlatform()).toBe("windows");
     delete document.documentElement.dataset.platform;
