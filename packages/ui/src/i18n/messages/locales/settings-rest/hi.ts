@@ -594,7 +594,7 @@ export const settingsRest: Partial<Catalogue> = {
     "काम करते समय {persona} ने जो स्क्रीन देखीं, टाइमलाइन के लिए। बंद करने पर कोई नहीं रखी जाती।",
   "settings.devices.presenceKey.keychain": "Touch ID कुंजी (कीचेन), जैसा हेल्पर ने बताया",
   "settings.devices.presenceKey.enclaveKeychainAcl":
-    "Touch ID कुंजी (Secure Enclave, लॉगिन कीचेन में रखी गई, जिसे केवल हेल्पर पढ़ सकता है), जैसा हेल्पर ने बताया",
+    "Touch ID कुंजी (Secure Enclave, macOS प्रॉम्प्ट के बिना केवल Psyche हेल्पर पढ़ सकता है), जैसा हेल्पर ने बताया",
   "settings.devices.presenceKey.enclaveFile":
     "Touch ID कुंजी (Secure Enclave फ़ाइल, इस बिल्ड में प्रोविज़निंग प्रोफ़ाइल नहीं है), जैसा हेल्पर ने बताया",
   "settings.devices.presenceKey.unknown": "Touch ID कुंजी (हेल्पर ने प्रकार नहीं बताया)",
@@ -604,9 +604,16 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.devices.touchId.notBundled":
     "यह हेल्पर इस ऐप के साथ आया हेल्पर नहीं है, इसलिए इसकी कुंजी यहाँ रजिस्टर नहीं की जा सकती।",
   "settings.devices.touchId.untrusted":
-    "कीचेन में मौजूद Touch ID कुंजी इस्तेमाल नहीं की गई, क्योंकि यह साबित नहीं हो सकता कि वह Psyche हेल्पर की है: किसी और ने उसे बदला या जोड़ा है। हेल्पर को --reset-presence-key विकल्प के साथ चलाकर उसे रीसेट करें (सुरक्षा दस्तावेज़ देखें), फिर नई कुंजी पंजीकृत करें।",
+    "कीचेन में मौजूद Touch ID कुंजी इस्तेमाल नहीं की गई, क्योंकि यह साबित नहीं हो सकता कि वह Psyche हेल्पर की है। एक हानिरहित कारण यह है कि Psyche को हटाकर कहीं और ले जाया गया या दोबारा इंस्टॉल किया गया: उसे वापस /Applications में रखें और फिर खोलें। नहीं तो पहले Psyche हेल्पर बंद करें, Terminal में /Applications/Psyche.app/Contents/MacOS/psyche-helper --reset-presence-key चलाएँ, और नई कुंजी पंजीकृत करें।",
   "settings.devices.touchId.accessDenied":
-    "macOS ने Psyche हेल्पर को कीचेन की अपनी Touch ID कुंजी इस्तेमाल करने नहीं दी। Psyche फिर से चलाएँ और macOS पूछे तो हमेशा अनुमति दें चुनें।",
+    "macOS ने Psyche हेल्पर को कीचेन की अपनी Touch ID कुंजी इस्तेमाल करने नहीं दी। Psyche फिर से चलाएँ और हमेशा अनुमति दें केवल तभी चुनें जब संवाद में psyche-helper का नाम हो (किसी और प्रोग्राम के लिए कभी नहीं)।",
+  "settings.devices.touchId.wrongLocation":
+    "Psyche हेल्पर ने Touch ID कुंजी नहीं बनाई, क्योंकि वह डिस्क इमेज, डाउनलोड या किसी और फ़ोल्डर से चल रहा है। Psyche को /Applications में ले जाएँ, कोई भी डिस्क इमेज निकालें और वहीं से खोलें।",
+  "settings.devices.touchId.keyMismatch":
+    "इस ऐप का Psyche हेल्पर अब कुंजी {shown} दिखा रहा है, पंजीकृत {registered} नहीं। अगर आपने कुंजी खुद रीसेट नहीं की, तो इसे संदिग्ध मानें और इसे पंजीकृत न करें।",
+  "settings.devices.touchId.confirmReplace":
+    "यह इस Mac के लिए पंजीकृत Touch ID कुंजी {previous} को बदल देगा। इसे तभी बदलें जब आपने कुंजी खुद रीसेट की हो।",
+  "settings.devices.touchId.confirmReplaceButton": "कुंजी बदलें",
   "settings.devices.touchId.noBundledKey":
     "इस ऐप के Psyche Helper के पास Touch ID कुंजी नहीं है ({reason})।",
   "settings.devices.touchId.register": "यह कुंजी रजिस्टर करें",

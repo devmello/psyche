@@ -122,6 +122,17 @@ export const blocks: Partial<Catalogue> = {
   "blocks.approval.touchId.onceOnly": "从此窗口进行的 Touch ID 批准只有一次有效。",
   "blocks.approval.status.allowedOnceTouchId":
     "已允许一次（从此窗口进行的 Touch ID 批准只有一次有效）",
+  "blocks.approval.touchId.keyUntrusted":
+    "钥匙串中 Psyche 助手的 Touch ID 密钥无法证明属于它自己，因此未被使用。请打开“设置 → 设备”查看如何处理。",
+  "blocks.approval.touchId.keyAccessDenied":
+    "macOS 未允许 Psyche 助手使用其 Touch ID 密钥。请重试，仅当对话框写明 psyche-helper 时才选择“始终允许”。",
+  "blocks.approval.touchId.keyChanged":
+    "Psyche 助手运行期间 Touch ID 密钥发生了变化。请退出 Psyche 助手并重新启动。",
+  "blocks.approval.touchId.keyWrongLocation":
+    "Psyche 正在无法保存其 Touch ID 密钥的位置运行（磁盘映像、“下载”或其他文件夹）。请把 Psyche 移到“应用程序”并从那里打开。",
+  "blocks.approval.touchId.keyLocked": "钥匙串目前无法请求权限。请解锁 Mac 后重试。",
+  "blocks.approval.touchId.keyAclUnavailable":
+    "这台 Mac 的钥匙串不肯保存 Touch ID 密钥的访问列表。请重启 Psyche 助手再试。",
   "blocks.approval.touchId.keyUnavailable":
     "此版本的 Psyche 助手无法保存 Touch ID 密钥（没有钥匙串访问组），因此需要 Touch ID 的卡片无法在这台 Mac 上批准。",
   "blocks.approval.touchId.cancelled": "Touch ID 已取消，因此没有批准任何内容",

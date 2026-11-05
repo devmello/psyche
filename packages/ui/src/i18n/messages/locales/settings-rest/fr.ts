@@ -624,7 +624,7 @@ export const settingsRest: Partial<Catalogue> = {
     "Les écrans que {persona} a regardés pendant son travail, pour la chronologie. Désactivé, aucun n’est conservé.",
   "settings.devices.presenceKey.keychain": "Clé Touch ID (trousseau), signalée par l’assistant",
   "settings.devices.presenceKey.enclaveKeychainAcl":
-    "Clé Touch ID (Secure Enclave, conservée dans le trousseau de session, lisible uniquement par l’assistant), signalée par l’assistant",
+    "Clé Touch ID (Secure Enclave, lisible sans invite macOS uniquement par l’assistant Psyche), signalée par l’assistant",
   "settings.devices.presenceKey.enclaveFile":
     "Clé Touch ID (fichier Secure Enclave, cette version n’a pas de profil de provisionnement), signalée par l’assistant",
   "settings.devices.presenceKey.unknown": "Clé Touch ID (type non signalé par l’assistant)",
@@ -634,9 +634,16 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.devices.touchId.notBundled":
     "Cet assistant n’est pas celui fourni avec cette app, sa clé ne peut donc pas être enregistrée ici.",
   "settings.devices.touchId.untrusted":
-    "La clé Touch ID du trousseau n’a pas été utilisée, car rien ne prouve qu’elle appartient à l’assistant Psyche : autre chose l’a modifiée ou ajoutée. Réinitialisez-la en lançant l’assistant avec --reset-presence-key (voir la documentation de sécurité), puis enregistrez la nouvelle clé.",
+    "La clé Touch ID du trousseau n’a pas été utilisée, car rien ne prouve qu’elle appartient à l’assistant Psyche. Une cause bénigne : Psyche a été déplacé ou réinstallé ailleurs, remettez-le dans /Applications et rouvrez-le. Sinon, quittez d’abord l’assistant Psyche, lancez /Applications/Psyche.app/Contents/MacOS/psyche-helper --reset-presence-key dans le Terminal, puis enregistrez la nouvelle clé.",
   "settings.devices.touchId.accessDenied":
-    "macOS n’a pas autorisé l’assistant Psyche à utiliser sa clé Touch ID du trousseau. Relancez Psyche et choisissez Toujours autoriser quand macOS le demande.",
+    "macOS n’a pas autorisé l’assistant Psyche à utiliser sa clé Touch ID du trousseau. Relancez Psyche et choisissez Toujours autoriser seulement si la fenêtre nomme psyche-helper (jamais pour un autre programme).",
+  "settings.devices.touchId.wrongLocation":
+    "L’assistant Psyche n’a pas créé de clé Touch ID, car il s’exécute depuis une image disque, Téléchargements ou un autre dossier. Déplacez Psyche dans /Applications, éjectez toute image disque et ouvrez-le depuis là.",
+  "settings.devices.touchId.keyMismatch":
+    "L’assistant Psyche de cette app affiche maintenant la clé {shown}, et non celle enregistrée {registered}. Si vous n’avez pas réinitialisé la clé vous-même, considérez cela comme suspect et ne l’enregistrez pas.",
+  "settings.devices.touchId.confirmReplace":
+    "Cela remplace la clé Touch ID {previous} enregistrée pour ce Mac. Ne la remplacez que si vous avez réinitialisé la clé vous-même.",
+  "settings.devices.touchId.confirmReplaceButton": "Remplacer la clé",
   "settings.devices.touchId.noBundledKey":
     "Le Psyche Helper de cette app n’a pas de clé Touch ID ({reason}).",
   "settings.devices.touchId.register": "Enregistrer cette clé",

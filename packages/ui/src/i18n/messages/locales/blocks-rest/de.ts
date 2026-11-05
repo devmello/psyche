@@ -137,6 +137,18 @@ export const blocksRest: Partial<Catalogue> = {
     "Touch-ID-Genehmigungen aus diesem Fenster gelten nur einmal.",
   "blocks.approval.status.allowedOnceTouchId":
     "Einmal erlaubt (Touch-ID-Genehmigungen aus diesem Fenster gelten nur einmal)",
+  "blocks.approval.touchId.keyUntrusted":
+    "Der Touch-ID-Schlüssel des Psyche Helpers im Schlüsselbund lässt sich nicht als seiner belegen und wurde deshalb nicht verwendet. Öffne Einstellungen → Geräte, um zu sehen, was zu tun ist.",
+  "blocks.approval.touchId.keyAccessDenied":
+    "macOS hat dem Psyche Helper die Nutzung seines Touch-ID-Schlüssels nicht erlaubt. Versuche es erneut und wähle „Immer erlauben“ nur, wenn der Dialog psyche-helper nennt.",
+  "blocks.approval.touchId.keyChanged":
+    "Der Touch-ID-Schlüssel hat sich geändert, während der Psyche Helper lief. Beende den Psyche Helper und starte ihn neu.",
+  "blocks.approval.touchId.keyWrongLocation":
+    "Psyche läuft von einem Ort, an dem sein Touch-ID-Schlüssel nicht bleiben kann (Disk-Image, Downloads oder anderer Ordner). Bewege Psyche in „Programme“ und öffne es von dort.",
+  "blocks.approval.touchId.keyLocked":
+    "Der Schlüsselbund kann gerade nicht um Erlaubnis fragen. Entsperre den Mac und versuche es erneut.",
+  "blocks.approval.touchId.keyAclUnavailable":
+    "Der Schlüsselbund hat die Zugriffsliste des Touch-ID-Schlüssels auf diesem Mac nicht behalten. Starte den Psyche Helper neu, um es erneut zu versuchen.",
   "blocks.approval.touchId.keyUnavailable":
     "Dieser Build von Psyche Helper kann keinen Touch-ID-Schlüssel speichern (er hat keine Schlüsselbund-Zugriffsgruppe), daher lassen sich Karten, die Touch ID brauchen, auf diesem Mac nicht genehmigen.",
   "blocks.approval.touchId.cancelled": "Touch ID wurde abgebrochen, daher wurde nichts genehmigt",

@@ -145,12 +145,18 @@ export const DevicesMethods = {
       expectKeyId: KeyId,
       /** Fresh presence: the approved `policy_change` card from a first `approval_required` call. */
       approvalId: Type.Optional(Id),
+      /**
+       * The key id this registration replaces, confirmed by the owner. Needed only when no presence
+       * card is possible (no verifier, or after `psyched presence reset`): the first call then fails
+       * `conflict` with `details.reason: replace_confirmation_required` and `details.replacesKeyId`.
+       */
+      confirmReplacesKeyId: Type.Optional(KeyId),
     }),
     result: Type.Object({ presenceKey: PresenceKeyInfo }),
     scope: "operator.admin",
     sideEffecting: true,
     description:
-      "Reads the helper's Secure Enclave presence key (`presence.public_key`) and registers it for that device when its key id equals expectKeyId, so its Touch ID answers verify. A key of kind enclave_keychain_acl is accepted in every build. A Secure Enclave file key (kind enclave_file, development builds) is refused unless the setting devices.presence.allowDevFileKey is true. Replaces an earlier key; revoked with the device. Needs fresh presence once the Gateway has a presence verifier (approval_required, then retry with approvalId; presence_required when presence was enrolled but nothing can verify now). Side-effecting.",
+      "Reads the helper's Secure Enclave presence key (`presence.public_key`) and registers it for that device when its key id equals expectKeyId, so its Touch ID answers verify. A key of kind keychain or enclave_keychain_acl is accepted in every build. The kind is what the helper says about itself and is advisory: only expectKeyId binds the key. A kind this Gateway does not know is always refused; a missing kind or a Secure Enclave file key (kind enclave_file, development builds) is refused unless the setting devices.presence.allowDevFileKey is true. Replaces an earlier key or one a Remove just forgot (the approval card says REPLACE and names the old key id; without a possible card the owner confirms with confirmReplacesKeyId); revoked with the device. Needs fresh presence once the Gateway has a presence verifier (approval_required, then retry with approvalId; presence_required when presence was enrolled but nothing can verify now). Side-effecting.",
   }),
   "devices.presenceKey.remove": defineMethod({
     params: Type.Object({ deviceId: Id }),

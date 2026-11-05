@@ -153,7 +153,10 @@ final class MemorySealer: PresenceFileSealer, @unchecked Sendable {
         return k
     }
     func secret() throws -> SymmetricKey? { key }
-    func removeSecret() { key = nil }
+    @discardableResult func removeSecret() -> Bool {
+        key = nil
+        return true
+    }
 }
 
 private struct KeyedFake: PresenceSigning {

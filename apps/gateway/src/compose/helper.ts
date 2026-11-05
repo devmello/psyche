@@ -138,7 +138,25 @@ export type TouchIdUnavailable =
   | "helper_outdated"
   | "no_presence_key"
   | "presence_key_unavailable"
-  | "presence_key_invalidated";
+  | "presence_key_invalidated"
+  | KeyProblem;
+
+/** What the helper reports when its keychain key cannot be used; the card names the fix. */
+const KEY_PROBLEMS = {
+  presence_key_untrusted:
+    "The Touch ID key in the keychain cannot be shown to be Psyche Helper's, so it was not used; open Settings → Devices",
+  presence_key_access_denied:
+    "macOS did not let Psyche Helper use its Touch ID key in the keychain",
+  presence_key_changed:
+    "The Touch ID key changed while Psyche Helper was running; restart Psyche Helper",
+  presence_key_wrong_location:
+    "Psyche is running from a place where its Touch ID key cannot be kept; move Psyche to Applications",
+  presence_key_interaction_not_allowed:
+    "The keychain cannot ask for permission right now; unlock the Mac and try again",
+  presence_key_acl_unavailable:
+    "The keychain would not keep the Touch ID key's access list; restart Psyche Helper",
+} as const;
+type KeyProblem = keyof typeof KEY_PROBLEMS;
 
 function touchIdUnavailable(reason: TouchIdUnavailable, message: string): PsycheError {
   return new PsycheError("unavailable", message, { details: { reason } });
@@ -544,6 +562,11 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
             "This build of Psyche Helper cannot keep a Touch ID key (it has no keychain access group)",
             { reason: "presence_key_unavailable" },
           );
+        }
+        if (f.reason !== undefined && Object.hasOwn(KEY_PROBLEMS, f.reason)) {
+          return reject(f.reason, "unavailable", KEY_PROBLEMS[f.reason as KeyProblem], {
+            reason: f.reason,
+          });
         }
         if (f.reason === "presence_key_invalidated") {
           return reject(

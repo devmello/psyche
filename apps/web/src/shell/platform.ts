@@ -594,7 +594,7 @@ export interface BundledHelperIdentity {
 
 export interface TouchIdPort {
   identity(): Promise<BundledHelperIdentity | null>;
-  register(): Promise<unknown>;
+  register(confirmReplacesKeyId?: string): Promise<unknown>;
   approve(params: { approvalId: string; answerToken: string }): Promise<unknown>;
 }
 

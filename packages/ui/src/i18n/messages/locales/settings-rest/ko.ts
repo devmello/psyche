@@ -606,7 +606,7 @@ export const settingsRest: Partial<Catalogue> = {
     "작업 중 {persona}가 본 화면으로, 타임라인에 사용됩니다. 끄면 보관하지 않습니다.",
   "settings.devices.presenceKey.keychain": "Touch ID 키 (키체인), 도우미가 보고함",
   "settings.devices.presenceKey.enclaveKeychainAcl":
-    "Touch ID 키 (Secure Enclave, 로그인 키체인에 보관되며 도우미만 읽을 수 있음), 도우미가 보고함",
+    "Touch ID 키 (Secure Enclave, macOS 확인 창 없이는 Psyche 도우미만 읽을 수 있음), 도우미가 보고함",
   "settings.devices.presenceKey.enclaveFile":
     "Touch ID 키 (Secure Enclave 파일, 이 빌드에는 프로비저닝 프로파일 없음), 도우미가 보고함",
   "settings.devices.presenceKey.unknown": "Touch ID 키 (도우미가 종류를 보고하지 않음)",
@@ -616,9 +616,16 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.devices.touchId.notBundled":
     "이 도우미는 이 앱에 포함된 것이 아니므로 여기서 키를 등록할 수 없습니다.",
   "settings.devices.touchId.untrusted":
-    "키체인의 Touch ID 키는 Psyche 도우미의 것임을 확인할 수 없어 사용하지 않았습니다. 다른 무언가가 바꾸거나 추가했습니다. --reset-presence-key 옵션으로 도우미를 실행해 초기화하고(보안 문서 참조) 새 키를 등록하세요.",
+    "키체인의 Touch ID 키는 Psyche 도우미의 것임을 확인할 수 없어 사용하지 않았습니다. 무해한 원인으로 Psyche를 옮기거나 다른 곳에 다시 설치했을 수 있습니다. /Applications로 되돌리고 다시 여세요. 그렇지 않으면 먼저 Psyche 도우미를 종료하고, 터미널에서 /Applications/Psyche.app/Contents/MacOS/psyche-helper --reset-presence-key 를 실행한 다음 새 키를 등록하세요.",
   "settings.devices.touchId.accessDenied":
-    "macOS가 Psyche 도우미의 키체인 Touch ID 키 사용을 허용하지 않았습니다. Psyche를 다시 실행하고 macOS가 물으면 항상 허용을 선택하세요.",
+    "macOS가 Psyche 도우미의 키체인 Touch ID 키 사용을 허용하지 않았습니다. Psyche를 다시 실행하고, 대화상자에 psyche-helper가 표시될 때만 항상 허용을 선택하세요(다른 프로그램에는 절대 선택하지 마세요).",
+  "settings.devices.touchId.wrongLocation":
+    "Psyche 도우미가 디스크 이미지, 다운로드 또는 다른 폴더에서 실행 중이어서 Touch ID 키를 만들지 않았습니다. Psyche를 /Applications로 옮기고 디스크 이미지를 꺼낸 다음 그곳에서 여세요.",
+  "settings.devices.touchId.keyMismatch":
+    "이 앱의 Psyche 도우미가 등록된 {registered}이(가) 아니라 키 {shown}을(를) 보여 줍니다. 직접 키를 초기화하지 않았다면 의심스러운 것으로 보고 등록하지 마세요.",
+  "settings.devices.touchId.confirmReplace":
+    "이 Mac에 등록된 Touch ID 키 {previous}을(를) 바꿉니다. 직접 키를 초기화한 경우에만 바꾸세요.",
+  "settings.devices.touchId.confirmReplaceButton": "키 바꾸기",
   "settings.devices.touchId.noBundledKey":
     "이 앱의 Psyche Helper에 Touch ID 키가 없습니다 ({reason}).",
   "settings.devices.touchId.register": "이 키 등록",

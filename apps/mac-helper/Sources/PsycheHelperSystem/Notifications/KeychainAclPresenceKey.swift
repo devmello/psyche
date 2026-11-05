@@ -55,14 +55,28 @@ extension PresenceKeyErrors {
     public static func untrusted(_ what: String) -> CapabilityError {
         CapabilityError(
             .errorCodeInternal, reason: "presence_key_untrusted",
-            "The Touch ID key in the keychain was not used because it cannot be shown to be Psyche Helper's (\(what)). Reset it with the helper's --reset-presence-key option, then register the new key."
+            "The Touch ID key in the keychain was not used because it cannot be shown to be Psyche Helper's (\(what)). A harmless cause is that Psyche was moved or reinstalled somewhere else: move it back to /Applications and open it again. Otherwise quit Psyche Helper, run /Applications/Psyche.app/Contents/MacOS/psyche-helper --reset-presence-key in Terminal, and register the new key."
         )
     }
+
+    /// The helper runs from a place its keychain access list cannot stay valid in.
+    public static func wrongLocation(_ why: String) -> CapabilityError {
+        CapabilityError(
+            .unavailable, reason: "presence_key_wrong_location",
+            "No Touch ID key was made because Psyche Helper is running from \(why). The key is bound to where the app is: move Psyche to /Applications (or ~/Applications), eject any disk image, and open it from there."
+        )
+    }
+
+    /// The keychain could not ask the owner (locked, no session): not a "no" from the owner.
+    public static let interactionNotAllowed = CapabilityError(
+        .unavailable, reason: "presence_key_interaction_not_allowed",
+        "The keychain cannot ask for permission right now (it is locked, or there is no logged-in session). Unlock the Mac and try again."
+    )
 
     /// macOS asked the owner whether this helper may use the keychain item and they said no.
     public static let accessDenied = CapabilityError(
         .forbidden, reason: "presence_key_access_denied",
-        "macOS did not let Psyche Helper use its Touch ID key in the keychain. Choose Always Allow when it asks, then try again."
+        "macOS did not let Psyche Helper use its Touch ID key in the keychain. Choose Always Allow only if the dialog names psyche-helper (never for another program), then try again."
     )
 
     /// The keychain access-list API did not behave: stop, do not retry in this process.
@@ -70,6 +84,65 @@ extension PresenceKeyErrors {
         .unavailable, reason: "presence_key_acl_unavailable",
         "The keychain would not keep an access list for the Touch ID key on this Mac. Nothing was changed further; restart Psyche Helper to try again."
     )
+}
+
+/// The owner's go-ahead for a reset: an interactive terminal and macOS owner authentication
+/// (Touch ID or password) with fixed wording. Only the real owner run uses the live one; tests stub it.
+public protocol OwnerAuthorizing: Sendable {
+    func authorize(reason: String) throws
+}
+
+public struct LiveOwnerAuthorizer: OwnerAuthorizing {
+    public init() {}
+
+    private final class Box: @unchecked Sendable {
+        var ok = false
+    }
+
+    public func authorize(reason: String) throws {
+        guard isatty(STDIN_FILENO) != 0, isatty(STDOUT_FILENO) != 0 else {
+            throw CapabilityError(.forbidden, reason: "presence_key_reset_needs_terminal", "Run this from an interactive Terminal window yourself.")
+        }
+        let ctx = LAContext()
+        var error: NSError?
+        guard ctx.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else {
+            throw CapabilityError(.unavailable, reason: "presence_key_reset_no_auth", "This Mac cannot ask for owner authentication.")
+        }
+        let box = Box()
+        let sem = DispatchSemaphore(value: 0)
+        ctx.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason) { success, _ in
+            box.ok = success
+            sem.signal()
+        }
+        sem.wait()
+        guard box.ok else { throw CapabilityError(.forbidden, reason: "presence_key_reset_declined", "The reset was not confirmed.") }
+    }
+}
+
+/// A presence key the owner can replace (`--reset-presence-key`).
+public protocol OwnerResettable: PresenceSigning {
+    func resetByOwner(authorizing: any OwnerAuthorizing) throws -> (x963: Data, keyId: String)
+}
+
+/// Where the helper runs. The access list names the helper by its exact path, so the key must not
+/// be made while the app is somewhere it will not stay: a mounted disk image, App Translocation
+/// (a quarantined app run from Downloads), or any folder but /Applications and ~/Applications.
+public enum AppLocation {
+    public static func problem(path: String?, home: String) -> String? {
+        guard let path else { return "an unknown place" }
+        if path.contains("/AppTranslocation/") { return "a translocated copy (an app opened from Downloads or a disk image)" }
+        if path.hasPrefix("/Volumes/") { return "a mounted disk or disk image" }
+        if path.hasPrefix("/Applications/") || path.hasPrefix(home + "/Applications/") { return nil }
+        return "outside the Applications folders"
+    }
+
+    @Sendable public static func liveProblem() -> String? {
+        #if PSYCHE_PRESENCE_FILE_FALLBACK
+        // Development builds run from .build; opt in to any place.
+        if ProcessInfo.processInfo.environment["PSYCHE_PRESENCE_ANY_LOCATION"] == "1" { return nil }
+        #endif
+        return problem(path: AclAudit.ownPath(), home: LoginKeychainAclStore.passwdHome())
+    }
 }
 
 /// The key: a CryptoKit Secure Enclave key (same access control as `PresenceKey`) whose wrapped blob
@@ -84,11 +157,12 @@ extension PresenceKeyErrors {
 /// Fail closed (security §10): anything that cannot be vouched for is refused with
 /// `presence_key_untrusted` and left alone; the helper never deletes it and makes a new key on its
 /// own. Only `resetByOwner()` (`psyche-helper --reset-presence-key`) replaces it.
-public final class EnclaveKeychainAclPresenceKey: PresenceSigning, @unchecked Sendable {
+public final class EnclaveKeychainAclPresenceKey: OwnerResettable, @unchecked Sendable {
     private let backend: any EnclaveKeyBackend
     private let store: any AclKeychainStore
     private let biometry: any BiometryStateSource
     private let lockPath: String
+    private let location: @Sendable () -> String?
     private let lock = NSLock()
     private var pinned: Data?
     private var probed = false
@@ -101,8 +175,10 @@ public final class EnclaveKeychainAclPresenceKey: PresenceSigning, @unchecked Se
     public init(
         store: any AclKeychainStore = LoginKeychainAclStore(), backend: any EnclaveKeyBackend = SecureEnclaveBackend(),
         biometry: any BiometryStateSource = LiveBiometryState(),
-        lockPath: String = EnclaveKeychainAclPresenceKey.defaultLockPath()
+        lockPath: String = EnclaveKeychainAclPresenceKey.defaultLockPath(),
+        location: @escaping @Sendable () -> String? = AppLocation.liveProblem
     ) {
+        self.location = location
         self.store = store
         self.backend = backend
         self.biometry = biometry
@@ -118,6 +194,11 @@ public final class EnclaveKeychainAclPresenceKey: PresenceSigning, @unchecked Se
     var markerExists: Bool {
         var st = stat()
         return lstat(markerPath, &st) == 0
+    }
+
+    /// The key id the marker records, nil when there is no marker.
+    private var markerKeyId: String? {
+        FileManager.default.contents(atPath: markerPath).flatMap { String(data: $0, encoding: .utf8) }
     }
 
     private func writeMarker(_ x963: Data) {
@@ -190,7 +271,7 @@ public final class EnclaveKeychainAclPresenceKey: PresenceSigning, @unchecked Se
 
     /// Adopts a stored key or throws; caller holds `lock`. Checks, in order: the seal verifies, and
     /// the key refuses to sign without Touch ID (a planted key made without biometry is refused).
-    private func adopt(payload: Data, verify: @Sendable (Data, Data) -> Bool) throws -> (env: Envelope, x963: Data) {
+    private func adopt(payload: Data, verify: @Sendable (Data, Data) -> Bool, checkMarker: Bool = true) throws -> (env: Envelope, x963: Data) {
         guard let env = Self.openEnvelope(payload, verify: verify) else { throw PresenceKeyErrors.untrusted("it is not sealed by this helper") }
         if !probed {
             // Never shows UI: the probe's context forbids interaction. A key that signs anyway needs
@@ -207,6 +288,11 @@ public final class EnclaveKeychainAclPresenceKey: PresenceSigning, @unchecked Se
         if let pinned, pinned != x963 {
             throw failure("presence_key_changed", "changed while the helper was running; restart Psyche Helper")
         }
+        // Only creation and the owner's reset write the marker; a different key than the one it
+        // names is not the key this Mac made.
+        if checkMarker, let marked = markerKeyId, marked != PresenceMessage.keyId(x963: x963) {
+            throw PresenceKeyErrors.untrusted("it is not the key this Mac made")
+        }
         pinned = x963
         return (env, x963)
     }
@@ -219,9 +305,7 @@ public final class EnclaveKeychainAclPresenceKey: PresenceSigning, @unchecked Se
             case .untrusted(let why):
                 throw PresenceKeyErrors.untrusted(why)
             case .trusted(let payload, let verify):
-                let adopted = try adopt(payload: payload, verify: verify)
-                if create, !markerExists { writeMarker(adopted.x963) }
-                return adopted
+                return try adopt(payload: payload, verify: verify)
             case .absent:
                 if pinned != nil {
                     throw failure("presence_key_changed", "disappeared while the helper was running; restart Psyche Helper")
@@ -236,26 +320,34 @@ public final class EnclaveKeychainAclPresenceKey: PresenceSigning, @unchecked Se
     /// Makes the first key, under a cross-process lock so two helper processes (or a helper and
     /// `--reset-presence-key`) cannot both create. Caller holds `lock`.
     private func createLocked() throws -> (env: Envelope, x963: Data) {
-        try withCreationLock {
-            // Another process may have made it while we waited.
-            switch try store.read() {
-            case .untrusted(let why): throw PresenceKeyErrors.untrusted(why)
-            case .trusted(let payload, let verify): return try adopt(payload: payload, verify: verify)
-            case .absent: break
-            }
-            if markerExists { throw gone() }
-            let made = Envelope(state: biometry.current() ?? Data(), blob: try backend.create())
-            try store.create { seal in try encode(made, seal: seal) }
-            // The read-back must pass our own audit. If it does not, the ACL API is not doing what we
-            // rely on: stop, and do not retry or churn in this process.
-            guard case .trusted(let payload, let verify) = try store.read() else {
-                creationFailure = PresenceKeyErrors.aclUnavailable
-                throw PresenceKeyErrors.aclUnavailable
-            }
-            let adopted = try adopt(payload: payload, verify: verify)
-            writeMarker(adopted.x963)
-            return adopted
+        try withCreationLock { try makeKeyHoldingFileLock(adoptExisting: true, ignoreMarker: false) }
+    }
+
+    /// Caller holds `lock` and the creation file lock. `adoptExisting: false` (the owner's reset)
+    /// never adopts what is there: the slot must be empty.
+    private func makeKeyHoldingFileLock(adoptExisting: Bool, ignoreMarker: Bool) throws -> (env: Envelope, x963: Data) {
+        // Another process may have made it while we waited.
+        switch try store.read() {
+        case .untrusted(let why): throw PresenceKeyErrors.untrusted(why)
+        case .trusted(let payload, let verify):
+            guard adoptExisting else { throw PresenceKeyErrors.untrusted("the old key could not be removed") }
+            return try adopt(payload: payload, verify: verify)
+        case .absent: break
         }
+        if !ignoreMarker, markerExists { throw gone() }
+        // A key bound to a path that will not last is never made.
+        if let problem = location() { throw PresenceKeyErrors.wrongLocation(problem) }
+        let made = Envelope(state: biometry.current() ?? Data(), blob: try backend.create())
+        try store.create { seal in try encode(made, seal: seal) }
+        // The read-back must pass our own audit. If it does not, the ACL API is not doing what we
+        // rely on: stop, and do not retry or churn in this process.
+        guard case .trusted(let payload, let verify) = try store.read() else {
+            creationFailure = PresenceKeyErrors.aclUnavailable
+            throw PresenceKeyErrors.aclUnavailable
+        }
+        let adopted = try adopt(payload: payload, verify: verify, checkMarker: false)
+        writeMarker(adopted.x963)
+        return adopted
     }
 
     private func withCreationLock<T>(_ body: () throws -> T) throws -> T {
@@ -306,7 +398,14 @@ public final class EnclaveKeychainAclPresenceKey: PresenceSigning, @unchecked Se
 
     /// The key still signs under a new enrollment state: seal that state with it.
     func rerecord(_ env: Envelope) throws {
-        try lock.withLock { try store.rewrite { seal in try encode(env, seal: seal) } }
+        try lock.withLock {
+            // Only rewrite the very key this process pinned: a replaced item is not re-sealed.
+            guard case .trusted(let payload, let verify) = try store.read(),
+                  let stored = Self.openEnvelope(payload, verify: verify),
+                  let pub = try? backend.publicKey(blob: stored.blob), pub == pinned
+            else { throw PresenceKeyErrors.untrusted("the stored key is not the one in use") }
+            try store.rewrite { seal in try encode(env, seal: seal) }
+        }
     }
 
     /// Our own key, which the Secure Enclave refused (fingerprints changed): removed, so the owner
@@ -320,20 +419,23 @@ public final class EnclaveKeychainAclPresenceKey: PresenceSigning, @unchecked Se
         }
     }
 
-    /// The owner's reset (`psyche-helper --reset-presence-key`): deletes whatever is stored (macOS
-    /// may ask when another program made it) and makes a new key. The new key has a new key id: the
-    /// owner registers it again in Settings → Devices.
-    public func resetByOwner() throws -> (x963: Data, keyId: String) {
-        try lock.withLock {
+    /// The owner's reset (`psyche-helper --reset-presence-key`, after `authorizing` confirmed it):
+    /// deletes whatever is stored (macOS may ask when another program made it) and makes a new key,
+    /// all under ONE hold of the creation lock, and never adopts what is there. The marker stays until
+    /// the new key exists, so a reset that is killed half way leaves an empty slot with a marker
+    /// (`presence_key_untrusted`) and needs another reset. The new key has a new key id: the owner
+    /// registers it again in Settings → Devices.
+    public func resetByOwner(authorizing: any OwnerAuthorizing) throws -> (x963: Data, keyId: String) {
+        try authorizing.authorize(reason: "Reset Psyche's Touch ID key")
+        return try lock.withLock {
             creationFailure = nil
-            try withCreationLock {
+            return try withCreationLock {
                 try store.reset()
-                removeMarker()
+                pinned = nil
+                probed = false
+                let made = try makeKeyHoldingFileLock(adoptExisting: false, ignoreMarker: true)
+                return (made.x963, PresenceMessage.keyId(x963: made.x963))
             }
-            pinned = nil
-            probed = false
-            let made = try createLocked()  // the real error, not a generic one
-            return (made.x963, PresenceMessage.keyId(x963: made.x963))
         }
     }
 
@@ -342,11 +444,18 @@ public final class EnclaveKeychainAclPresenceKey: PresenceSigning, @unchecked Se
     /// removes the old file on its own: the owner runs `psyche-helper --retire-legacy-presence-key`
     /// (or deletes the file) once the new key is registered and Settings → Devices no longer lists
     /// the old one.
-    public static func retireLegacyFileKey() {
-        let path = EnclaveFilePresenceKey.defaultPath()
-        unlink(path)
-        unlink(path + ".rejected")
-        LoginKeychainSealer().removeSecret()
+    @discardableResult
+    public static func retireLegacyFileKey(
+        path: String = EnclaveFilePresenceKey.defaultPath(), removeSeal: () -> Bool = { LoginKeychainSealer().removeSecret() }
+    ) -> [String] {
+        var removed: [String] = []
+        let dir = (path as NSString).deletingLastPathComponent
+        let base = (path as NSString).lastPathComponent
+        var names = [base, base + ".rejected"]
+        names += ((try? FileManager.default.contentsOfDirectory(atPath: dir)) ?? []).filter { $0.hasPrefix(base + ".retired-") }
+        for name in names where unlink(dir + "/" + name) == 0 { removed.append(name) }
+        if removeSeal() { removed.append("keychain item com.psyche.helper.presence-file") }
+        return removed
     }
 }
 
@@ -456,9 +565,8 @@ public struct LoginKeychainAclStore: AclKeychainStore {
     }
 
     static func mapped(_ status: OSStatus) -> Error {
-        if status == errSecAuthFailed || status == errSecInteractionNotAllowed || status == errSecUserCanceled
-            || status == errSecNotAvailable
-        {
+        if status == errSecInteractionNotAllowed { return PresenceKeyErrors.interactionNotAllowed }
+        if status == errSecAuthFailed || status == errSecUserCanceled || status == errSecNotAvailable {
             return PresenceKeyErrors.accessDenied
         }
         return KeychainStatus.error(from: KeychainOSStatusError(status))

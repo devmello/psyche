@@ -105,7 +105,7 @@ public protocol PresenceFileSealer: Sendable {
     func newSecret() throws -> SymmetricKey
     /// The current secret, or nil when there is none.
     func secret() throws -> SymmetricKey?
-    func removeSecret()
+    @discardableResult func removeSecret() -> Bool
 }
 
 public struct LoginKeychainSealer: PresenceFileSealer {
@@ -147,8 +147,16 @@ public struct LoginKeychainSealer: PresenceFileSealer {
         return SymmetricKey(data: data)
     }
 
-    public func removeSecret() {
-        SecItemDelete(base as CFDictionary)
+    @discardableResult public func removeSecret() -> Bool {
+        // Pinned to the real login keychain like the ACL key, never the search list.
+        var q = base
+        let path = LoginKeychainAclStore.loginKeychainPath()
+        var kc: SecKeychain?
+        guard LoginKeychainAclStore.pinProblem(file: path, home: LoginKeychainAclStore.passwdHome()) == nil,
+              SecKeychainOpen(path, &kc) == errSecSuccess, let kc
+        else { return false }
+        q[kSecMatchSearchList as String] = [kc]
+        return SecItemDelete(q as CFDictionary) == errSecSuccess
     }
 }
 
@@ -426,6 +434,24 @@ public final class PreferredPresenceKey: PresenceSigning, @unchecked Sendable {
     public func publicKey() throws -> (x963: Data, keyId: String) { try active().publicKey() }
 
     public func existingPublicKey() throws -> (x963: Data, keyId: String)? { try active().existingPublicKey() }
+
+    /// The owner's reset, only for the keychain ACL key: anything else in use refuses.
+    public func resetByOwner(authorizing: any OwnerAuthorizing) throws -> (x963: Data, keyId: String) {
+        let key = try active()
+        guard key.keyKind == .enclaveKeychainAcl, let resettable = key as? OwnerResettable else {
+            throw CapabilityError(.unavailable, reason: "presence_key_reset_not_applicable", "This helper does not use a keychain ACL Touch ID key (it uses \(key.keyKind.rawValue)), so there is nothing to reset here.")
+        }
+        return try resettable.resetByOwner(authorizing: authorizing)
+    }
+
+    /// Removes the old development file key. Refuses while that file key is the one in use.
+    public func retireLegacyFileKey(remove: () -> [String] = { EnclaveKeychainAclPresenceKey.retireLegacyFileKey() }) throws -> [String] {
+        let key = try active()
+        guard key.keyKind != .enclaveFile else {
+            throw CapabilityError(.unavailable, reason: "presence_key_legacy_in_use", "The development file key is the one this helper uses; nothing was removed.")
+        }
+        return remove()
+    }
 
     public func sign(challenge: String, reason: String) async throws -> PresenceSignature {
         try await active().sign(challenge: challenge, reason: reason)

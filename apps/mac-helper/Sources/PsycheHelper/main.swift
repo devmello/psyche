@@ -112,18 +112,33 @@ if printBuildInfo {
 // on the Gateway socket (security §10). Creates only the device identity on first use, never a
 // Touch ID key (the running helper makes that).
 if retireLegacy {
-    EnclaveKeychainAclPresenceKey.retireLegacyFileKey()
-    print(JSONValue.object(["retired": .bool(true)]).jsonString(pretty: false))
-    exit(0)
+    do {
+        let removed = try PreferredPresenceKey.live().retireLegacyFileKey()
+        print(JSONValue.object(["removed": .array(removed.map { .string($0) })]).jsonString(pretty: false))
+        exit(0)
+    } catch let e as CapabilityError {
+        FileHandle.standardError.write(Data("retire failed: \(e.reason)\n".utf8))
+        exit(1)
+    } catch {
+        FileHandle.standardError.write(Data("retire failed\n".utf8))
+        exit(1)
+    }
 }
 
 if resetPresenceKey {
+    // Owner action only: refuse while the helper runs (its single-instance lock), then the real
+    // reset asks for an interactive terminal and macOS owner authentication.
+    guard let resetLock = SingleInstanceLock.acquire(path: SingleInstanceLock.path()) else {
+        FileHandle.standardError.write(Data("Quit Psyche Helper first, then run this again.\n".utf8))
+        exit(1)
+    }
+    _ = resetLock
     do {
-        let made = try EnclaveKeychainAclPresenceKey().resetByOwner()
+        let made = try PreferredPresenceKey.live().resetByOwner(authorizing: LiveOwnerAuthorizer())
         print(JSONValue.object(["presenceKeyId": .string(made.keyId)]).jsonString(pretty: false))
         exit(0)
     } catch let e as CapabilityError {
-        FileHandle.standardError.write(Data("reset failed: \(e.reason)\n".utf8))
+        FileHandle.standardError.write(Data("reset failed: \(e.reason): \(e.message)\n".utf8))
         exit(1)
     } catch {
         FileHandle.standardError.write(Data("reset failed\n".utf8))

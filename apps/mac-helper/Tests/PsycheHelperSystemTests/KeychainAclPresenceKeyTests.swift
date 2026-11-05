@@ -29,6 +29,10 @@ final class MemoryAclStore: AclKeychainStore, @unchecked Sendable {
     var rewrites = 0
     /// Models an ACL API that does not keep the list: what create stores is not trusted on read-back.
     var createdIsUntrusted = false
+    /// A reset that does not remove anything (models a delete that macOS refused silently).
+    var resetIsNoop = false
+    /// A create that fails after a reset (models a reset that is killed half way).
+    var failCreate = false
     static let pinned = "login"
 
     var visibleItems: [Item] { items.filter { $0.keychain == Self.pinned } }
@@ -51,6 +55,7 @@ final class MemoryAclStore: AclKeychainStore, @unchecked Sendable {
 
     func create(_ build: (_ seal: (Data) throws -> Data) throws -> Data) throws {
         guard visibleItems.isEmpty, visibleSeals.isEmpty else { throw PresenceKeyErrors.untrusted("a key is already stored") }
+        if failCreate { throw CapabilityError(.errorCodeInternal, reason: "killed", "interrupted") }
         creates += 1
         let key = P256.Signing.PrivateKey()
         let payload = try build { try key.signature(for: $0).derRepresentation }
@@ -69,6 +74,7 @@ final class MemoryAclStore: AclKeychainStore, @unchecked Sendable {
 
     func reset() throws {
         resets += 1
+        if resetIsNoop { return }
         items.removeAll { $0.keychain == Self.pinned }
         seals.removeAll { $0.keychain == Self.pinned }
     }
@@ -115,6 +121,16 @@ final class CreatedCounter: @unchecked Sendable {
     var n = 0
 }
 
+/// Stands in for the terminal and macOS owner authentication.
+struct StubAuthorizer: OwnerAuthorizing {
+    var allow = true
+    func authorize(reason: String) throws {
+        guard allow, reason == "Reset Psyche's Touch ID key" else {
+            throw CapabilityError(.forbidden, reason: "presence_key_reset_declined", "no")
+        }
+    }
+}
+
 @Suite("presence key in the login keychain behind an access list")
 struct KeychainAclPresenceKeyTests {
     static let challenge = String(repeating: "0f", count: 32)
@@ -127,7 +143,7 @@ struct KeychainAclPresenceKeyTests {
         _ store: any AclKeychainStore, backend: any EnclaveKeyBackend = SoftBackend(), state: MutableState = MutableState(Data([1])),
         signed: CreatedCounter = CreatedCounter(), lock: String = KeychainAclPresenceKeyTests.lockPath()
     ) -> EnclaveKeychainAclPresenceKey {
-        EnclaveKeychainAclPresenceKey(store: store, backend: backend, biometry: state, lockPath: lock)
+        EnclaveKeychainAclPresenceKey(store: store, backend: backend, biometry: state, lockPath: lock, location: { nil })
     }
 
     static func reason(_ body: () throws -> Void) -> String? {
@@ -175,7 +191,7 @@ struct KeychainAclPresenceKeyTests {
         #expect(Self.reason { _ = try Self.key(store, lock: lock).existingPublicKey() } == "presence_key_untrusted")
         #expect(store.creates == 1)
         // Only the owner's reset makes the next one.
-        let after = try Self.key(store, lock: lock).resetByOwner()
+        let after = try Self.key(store, lock: lock).resetByOwner(authorizing: StubAuthorizer())
         #expect(after.keyId != before.keyId)
         #expect(try Self.key(store, lock: lock).publicKey().keyId == after.keyId)
     }
@@ -192,7 +208,7 @@ struct KeychainAclPresenceKeyTests {
     @Test func resetByOwnerReportsTheRealCreationError() throws {
         let store = MemoryAclStore()
         store.createdIsUntrusted = true
-        #expect(Self.reason { _ = try Self.key(store).resetByOwner() } == "presence_key_acl_unavailable")
+        #expect(Self.reason { _ = try Self.key(store).resetByOwner(authorizing: StubAuthorizer()) } == "presence_key_acl_unavailable")
     }
 
     // MARK: H2 fail closed
@@ -223,7 +239,7 @@ struct KeychainAclPresenceKeyTests {
         let before = try Self.key(store).publicKey()
         store.items[0].trusted = false
         let k = Self.key(store)
-        let after = try k.resetByOwner()
+        let after = try k.resetByOwner(authorizing: StubAuthorizer())
         #expect(after.keyId != before.keyId)
         #expect(store.resets == 1 && store.creates == 2)
         #expect(try Self.key(store).publicKey().keyId == after.keyId)
@@ -319,6 +335,144 @@ struct KeychainAclPresenceKeyTests {
         store.items[0].trusted = false
         #expect(Self.reason { _ = try Self.key(store).existingPublicKey() } == "presence_key_untrusted")
         #expect(store.resets == 0 && store.rewrites == 0 && store.creates == 1)
+    }
+
+
+    // MARK: M1 reset, M2 marker id, M4 location
+
+    @Test func theOwnersResetNeedsTheOwnersGoAheadAndChangesNothingWithoutIt() throws {
+        let store = MemoryAclStore()
+        let k = Self.key(store)
+        let before = try k.publicKey()
+        #expect(Self.reason { _ = try k.resetByOwner(authorizing: StubAuthorizer(allow: false)) } == "presence_key_reset_declined")
+        #expect(store.resets == 0 && store.creates == 1)
+        #expect(try Self.key(store).publicKey().keyId == before.keyId)
+    }
+
+    @Test func aResetNeverAdoptsWhatIsStillThereAfterTheDelete() throws {
+        let store = MemoryAclStore()
+        let lock = Self.lockPath()
+        let before = try Self.key(store, lock: lock).publicKey()
+        store.resetIsNoop = true  // the old key could not be removed
+        #expect(Self.reason { _ = try Self.key(store, lock: lock).resetByOwner(authorizing: StubAuthorizer()) } == "presence_key_untrusted")
+        #expect(store.creates == 1)
+        store.resetIsNoop = false
+        #expect(try Self.key(store, lock: lock).publicKey().keyId == before.keyId)
+    }
+
+    @Test func aResetKilledHalfWayFailsClosedUntilTheNextReset() throws {
+        let store = MemoryAclStore()
+        let lock = Self.lockPath()
+        _ = try Self.key(store, lock: lock).publicKey()
+        store.failCreate = true  // killed after the delete
+        #expect(Self.reason { _ = try Self.key(store, lock: lock).resetByOwner(authorizing: StubAuthorizer()) } == "killed")
+        store.failCreate = false
+        // The slot is empty but the marker is still there: not a first run, nothing is made.
+        #expect(Self.reason { _ = try Self.key(store, lock: lock).publicKey() } == "presence_key_untrusted")
+        #expect(store.visibleItems.isEmpty)
+        _ = try Self.key(store, lock: lock).resetByOwner(authorizing: StubAuthorizer())
+        #expect(store.visibleItems.count == 1)
+    }
+
+    @Test func aKeyThatIsNotTheOneTheMarkerNamesIsNeverAdopted() throws {
+        let store = MemoryAclStore()
+        let lock = Self.lockPath()
+        _ = try Self.key(store, lock: lock).publicKey()
+        // Another trusted-looking key, valid seal and all, replaces it (the marker still names the old one).
+        let other = MemoryAclStore()
+        _ = try Self.key(other).publicKey()
+        store.items = other.items
+        store.seals = other.seals
+        #expect(Self.reason { _ = try Self.key(store, lock: lock).publicKey() } == "presence_key_untrusted")
+        #expect(store.resets == 0)
+    }
+
+    @Test func aWrongPlaceNeverMakesAKeyButAnExistingKeyStillReads() throws {
+        let store = MemoryAclStore()
+        let lock = Self.lockPath()
+        let wrong = EnclaveKeychainAclPresenceKey(
+            store: store, backend: SoftBackend(), biometry: MutableState(Data([1])), lockPath: lock, location: { "a translocated copy" }
+        )
+        #expect(Self.reason { _ = try wrong.publicKey() } == "presence_key_wrong_location")
+        #expect(store.creates == 0)
+        _ = try Self.key(store, lock: lock).publicKey()
+        #expect(try wrong.existingPublicKey() != nil)
+    }
+
+    @Test func rewritingOnlyTouchesTheKeyThisProcessPinned() throws {
+        let store = MemoryAclStore()
+        let k = Self.key(store)
+        _ = try k.publicKey()
+        let other = MemoryAclStore()
+        _ = try Self.key(other).publicKey()
+        store.items = other.items
+        store.seals = other.seals
+        #expect(Self.reason { try k.rerecord(.init(state: Data([9]), blob: Data([1]))) } == "presence_key_untrusted")
+        #expect(store.rewrites == 0)
+    }
+
+    @Test func theMainCommandsGoThroughPreferredPresenceKey() throws {
+        let noProfile = CapabilityError(.unavailable, reason: "missing_entitlement", "x")
+        struct Fake: PresenceSigning {
+            var kind: PresenceKeyKind
+            var failure: CapabilityError?
+            var keyKind: PresenceKeyKind { kind }
+            func publicKey() throws -> (x963: Data, keyId: String) {
+                if let failure { throw failure }
+                return (Data([4]), "id")
+            }
+            func sign(challenge: String, reason: String) async throws -> PresenceSignature { PresenceSignature(signature: "s", keyId: "id") }
+        }
+        let store = MemoryAclStore()
+        let acl = Self.key(store)
+        let acting = PreferredPresenceKey(primary: Fake(kind: .keychain, failure: noProfile), aclKey: acl, fileKey: Fake(kind: .enclaveFile), fileKeyAllowed: false)
+        _ = try acting.publicKey()
+        let first = try acting.existingPublicKey()?.keyId
+        let reset = try acting.resetByOwner(authorizing: StubAuthorizer())
+        #expect(reset.keyId != first)
+        // The legacy file key goes only when it is not the one in use, and the answer lists it.
+        var removed = false
+        #expect(try acting.retireLegacyFileKey(remove: { removed = true; return ["presence-key.se"] }) == ["presence-key.se"])
+        #expect(removed)
+        // The keychain (provisioned) key has nothing to reset.
+        let provisioned = PreferredPresenceKey(primary: Fake(kind: .keychain), aclKey: acl, fileKey: Fake(kind: .enclaveFile), fileKeyAllowed: false)
+        #expect(Self.reason { _ = try provisioned.resetByOwner(authorizing: StubAuthorizer()) } == "presence_key_reset_not_applicable")
+        // The file key in use is never retired.
+        let dev = PreferredPresenceKey(primary: Fake(kind: .keychain, failure: noProfile), aclKey: acl, fileKey: Fake(kind: .enclaveFile), fileKeyAllowed: PreferredPresenceKey.fallbackBuiltIn)
+        if PreferredPresenceKey.fallbackBuiltIn {
+            #expect(Self.reason { _ = try dev.retireLegacyFileKey(remove: { removed = false; return [] }) } == "presence_key_legacy_in_use")
+        }
+    }
+
+    @Test func retiringTheOldFileKeyListsWhatItRemovedAndCleansRetiredCopies() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("psy-legacy-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let file = dir.appendingPathComponent("presence-key.se").path
+        for name in ["presence-key.se", "presence-key.se.rejected", "presence-key.se.retired-1700000000", "other.txt"] {
+            FileManager.default.createFile(atPath: dir.path + "/" + name, contents: Data([1]))
+        }
+        let removed = EnclaveKeychainAclPresenceKey.retireLegacyFileKey(path: file, removeSeal: { true })
+        #expect(Set(removed) == ["presence-key.se", "presence-key.se.rejected", "presence-key.se.retired-1700000000", "keychain item com.psyche.helper.presence-file"])
+        #expect(FileManager.default.fileExists(atPath: dir.path + "/other.txt"))
+    }
+
+    @Test func theKeychainsAnswersAreToldApart() {
+        #expect((LoginKeychainAclStore.mapped(errSecInteractionNotAllowed) as? CapabilityError)?.reason == "presence_key_interaction_not_allowed")
+        #expect((LoginKeychainAclStore.mapped(errSecAuthFailed) as? CapabilityError)?.reason == "presence_key_access_denied")
+        #expect((LoginKeychainAclStore.mapped(errSecUserCanceled) as? CapabilityError)?.reason == "presence_key_access_denied")
+        #expect(PresenceKeyErrors.accessDenied.message.contains("only if the dialog names psyche-helper"))
+    }
+
+    @Test func appLocationAcceptsOnlyTheApplicationsFolders() {
+        let home = "/Users/o"
+        let ok = "/Applications/Psyche.app/Contents/MacOS/psyche-helper"
+        #expect(AppLocation.problem(path: ok, home: home) == nil)
+        #expect(AppLocation.problem(path: home + "/Applications/Psyche.app/Contents/MacOS/psyche-helper", home: home) == nil)
+        #expect(AppLocation.problem(path: "/private/var/folders/x/AppTranslocation/ABC/d/Psyche.app/Contents/MacOS/psyche-helper", home: home) != nil)
+        #expect(AppLocation.problem(path: "/Volumes/Psyche/Psyche.app/Contents/MacOS/psyche-helper", home: home) != nil)
+        #expect(AppLocation.problem(path: home + "/Downloads/Psyche.app/Contents/MacOS/psyche-helper", home: home) != nil)
+        #expect(AppLocation.problem(path: nil, home: home) != nil)
     }
 
     // MARK: key behaviour kept from before
@@ -532,7 +686,7 @@ struct LoginKeychainAclStoreTests {
         guard case .untrusted = try store.read() else { Issue.record("an open list was trusted"); return }
         #expect(KeychainAclPresenceKeyTests.reason { _ = try Self.key(store).publicKey() } == "presence_key_untrusted")
         // Only the owner's reset replaces it.
-        let fresh = try Self.key(store).resetByOwner()
+        let fresh = try Self.key(store).resetByOwner(authorizing: StubAuthorizer())
         #expect(fresh.keyId.count == 64)
         guard case .trusted = try store.read() else { Issue.record("expected a trusted key after reset"); return }
         // A second seal key with the same label makes it ambiguous: fail closed.
