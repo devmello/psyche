@@ -41,6 +41,9 @@ const NODE_KIND_ID = {
   "vm-guest": "vmGuest",
   remote: "remote",
   phone: "phone",
+  // Linux L0 kinds. No Gateway emits them yet; a later Linux PR gives them their own labels.
+  "host-helper": "macHelper",
+  guest: "vmGuest",
 } as const satisfies Record<NodeInfo["kind"], string>;
 
 const nodeKindLabel = (k: NodeInfo["kind"]): string =>

@@ -26,6 +26,43 @@ export const PresenceKeyInfo = Type.Object(
   { $id: "PresenceKeyInfo" },
 );
 
+/** One way this Gateway can check that the owner is present (security §3.7, linux design §9.9). */
+export const PresenceVerifierKind = StringEnum(["touch_id_key", "passkey", "password"], {
+  $id: "PresenceVerifierKind",
+});
+export type PresenceVerifierKind = Static<typeof PresenceVerifierKind>;
+
+/**
+ * `ready` works now. `not_enrolled`: nothing registered yet (no Touch ID key, no passkey).
+ * `unavailable`: not offered on this platform or build. The rest are the Linux password's causes:
+ * `policy_missing` (no polkit policy file), `not_enforced` (polkit would not ask),
+ * `no_session` (no active local graphical session), `agent_missing` (no polkit agent).
+ */
+export const PresenceVerifierState = StringEnum(
+  [
+    "ready",
+    "not_enrolled",
+    "unavailable",
+    "policy_missing",
+    "not_enforced",
+    "no_session",
+    "agent_missing",
+  ],
+  { $id: "PresenceVerifierState" },
+);
+export type PresenceVerifierState = Static<typeof PresenceVerifierState>;
+
+export const PresenceVerifier = Type.Object(
+  {
+    kind: PresenceVerifierKind,
+    state: PresenceVerifierState,
+    /** A short plain-language line for Settings. */
+    detail: Type.Optional(Type.String({ maxLength: 500 })),
+  },
+  { $id: "PresenceVerifier" },
+);
+export type PresenceVerifier = Static<typeof PresenceVerifier>;
+
 /**
  * What a setup token can grant. Never `node`: a token pairs a computer's app, and a node's
  * authority is a separate decision (remote-gateway design §3.5).
@@ -125,6 +162,13 @@ export const DevicesMethods = {
     result: Type.Object({ pairingRequests: Type.Array(PairingRequest) }),
     scope: "operator.admin",
     description: "Lists pairing requests (default: pending).",
+  }),
+  "devices.presence.status": defineMethod({
+    params: Type.Object({}),
+    result: Type.Object({ verifiers: Type.Array(PresenceVerifier) }),
+    scope: "operator.admin",
+    description:
+      "Read-only: lists the ways this Gateway can verify the owner's presence now (the Touch ID key on macOS, passkeys, the password through polkit on Linux) and the state of each, so Settings can say why one is not ready.",
   }),
   "devices.presenceKey.list": defineMethod({
     params: Type.Object({}),

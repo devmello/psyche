@@ -18,6 +18,17 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-05 (Linux desktop L0, linux design §11)
+
+- `PresenceAssertion.kind` gains `password`: created by the Gateway after polkit authorized the owner, never accepted from a client.
+- New method `approvals.approveWithPassword { approvalId, answerToken }` (`operator.approvals`, desktop shell only, same guards as `approveWithTouchId`) and `devices.presence.status` (`operator.admin`, read-only) returning `{ verifiers: PresenceVerifier[] }` (`kind`: `touch_id_key` | `passkey` | `password`; `state`: `ready`, `not_enrolled`, `unavailable`, `policy_missing`, `not_enforced`, `no_session`, `agent_missing`; optional `detail`).
+- New `ErrorCode` values `presence_unavailable_here`, `presence_agent_missing`, `presence_policy_missing`, `presence_not_enforced`.
+- New `ComputerSurface` enum (`direct`, `virtual_screen`, `separate_desktop`); the tool params that carry it stay Gateway-local.
+- `NodeKind` gains `host-helper` (with `mac-helper` kept as its alias in stored rows) and `guest`.
+- New `OsPermission` enum (`a11yBus`, `screenCastPortal`, `remoteDesktopPortal`, `x11`).
+- `vscreen.*` capability shapes in `methods/screen.ts` (`VSCREEN_CAPABILITIES`, `VscreenStatus`, `VscreenStartParams`, `VscreenStopParams`, `VscreenFrameParams`, `VscreenFrame`, `VscreenInputParams`, `VscreenAck`): helper capabilities, not Gateway methods; `nodes.invoke` reaches only `vscreen.status`. `deviceFamily: "linux-helper"` needs no schema change (`DeviceFamily` is a free string).
+- `protocolVersion` unchanged.
+
 ### v1 additive — 2026-11-05 (review of the update foundation)
 
 - `ServerBuild` gains optional `envBuild`: the build the LaunchAgent plist claims (`PSYCHE_BUILD`), reported next to `build`, which now comes from the bundle's own `build-info.json` read at start. `ConnectChallenge.server` is sent only to a direct loopback peer without an Origin (the Host's own app), not to remote, LAN or browser peers.
