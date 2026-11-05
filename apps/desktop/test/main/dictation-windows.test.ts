@@ -1,28 +1,27 @@
 import { describe, expect, it } from "vitest";
 import {
-  defaultDictationKey,
   parseDictationSettings,
-  platformKey,
+  physicalKey,
   type SystemDictation,
+  sameKey,
 } from "../../src/main/dictation/controller.ts";
 import {
   DictationService,
-  defaultVoiceKey,
   dictationSettingsUrl,
   parseVoiceKey,
 } from "../../src/main/dictation/service.ts";
 
 /**
  * Hold-to-talk on Windows: the Windows helper's `dictation.watch` (a low-level keyboard hook)
- * takes the same key names as the Mac helper's; `rightCommand` is Right Ctrl and `rightOption`
- * Right Alt there, and a PC keyboard has no Fn that Windows sees.
+ * takes the macOS key names as stored; it holds `fn` and `rightOption` on Right Alt and
+ * `rightCommand` on Right Ctrl.
  */
 
-function gateway() {
+function gateway(settings: Record<string, unknown> = {}) {
   const calls: { method: string; params: unknown }[] = [];
   const call = async (method: string, params: unknown) => {
     calls.push({ method, params });
-    if (method === "settings.get") return { settings: {} };
+    if (method === "settings.get") return { settings };
     if (method === "dictation.watch") return { watching: true };
     throw { code: "unknown_method" };
   };
@@ -39,32 +38,25 @@ const dictation = {
 } as unknown as SystemDictation;
 
 describe("Windows dictation keys", () => {
-  it("defaults to Right Ctrl, and reads a stored fn as that (no Fn reaches Windows)", () => {
-    expect(defaultDictationKey("win32")).toBe("rightCommand");
-    expect(defaultDictationKey("darwin")).toBe("fn");
-    expect(parseDictationSettings({}, "win32").key).toBe("rightCommand");
-    expect(parseDictationSettings({ "voice.pushToTalk": "fn" }, "win32").key).toBe("rightCommand");
-    expect(parseDictationSettings({ "voice.pushToTalk": "rightOption" }, "win32").key).toBe(
-      "rightOption",
-    );
-    expect(parseDictationSettings({ "voice.pushToTalk": "fn" }, "darwin").key).toBe("fn");
-    expect(platformKey("fn", "darwin")).toBe("fn");
+  it("passes the stored names through; fn and Right Option are one key (Right Alt)", () => {
+    expect(parseDictationSettings({}).key).toBe("fn");
+    expect(physicalKey("fn", "win32")).toBe("rightAlt");
+    expect(physicalKey("rightOption", "win32")).toBe("rightAlt");
+    expect(physicalKey("rightCommand", "win32")).toBe("rightCtrl");
+    expect(sameKey("fn", "rightOption", "win32")).toBe(true);
+    expect(sameKey("fn", "rightOption", "darwin")).toBe(false);
   });
 
-  it("gives the voice key Right Alt by default, apart from dictation's Right Ctrl", () => {
-    expect(defaultVoiceKey("win32")).toBe("rightOption");
-    const dict = parseDictationSettings({}, "win32");
-    expect(parseVoiceKey({ "voice.conversation.enabled": true }, dict, "win32")).toBe(
+  it("turns the voice key off when it would share dictation's physical key", () => {
+    const dict = parseDictationSettings({});
+    const on = { "voice.conversation.enabled": true };
+    expect(parseVoiceKey(on, dict, "win32")).toBe("rightCommand");
+    expect(parseVoiceKey({ ...on, "voice.conversation.key": "rightOption" }, dict, "win32")).toBe(
+      null,
+    );
+    expect(parseVoiceKey({ ...on, "voice.conversation.key": "rightOption" }, dict, "darwin")).toBe(
       "rightOption",
     );
-    // A stored voice key that collides with dictation's is off, as on macOS.
-    expect(
-      parseVoiceKey(
-        { "voice.conversation.enabled": true, "voice.conversation.key": "fn" },
-        dict,
-        "win32",
-      ),
-    ).toBeNull();
   });
 
   it("sends the microphone privacy page when dictation cannot listen", () => {
@@ -72,12 +64,18 @@ describe("Windows dictation keys", () => {
     expect(dictationSettingsUrl("darwin")).toMatch(/^x-apple\.systempreferences:/);
   });
 
-  it("arms the Windows helper's watch, and re-arms when a win-helper node comes back", async () => {
-    const gw = gateway();
+  it("arms the Windows helper's watch with the names as stored, and re-arms on win-helper", async () => {
+    const gw = gateway({ "voice.conversation.enabled": true });
     const svc = new DictationService({ dictation, call: gw.call, platform: "win32" });
     await svc.load();
     const watches = () => gw.calls.filter((c) => c.method === "dictation.watch");
-    expect(watches().at(-1)?.params).toEqual({ key: "rightCommand" });
+    expect(watches().at(-1)?.params).toEqual({
+      key: "fn",
+      keys: [
+        { key: "fn", role: "dictation" },
+        { key: "rightCommand", role: "voice" },
+      ],
+    });
     expect(svc.status).toMatchObject({ helper: "online", watching: true });
 
     svc.onEvent("node.updated", { node: { kind: "win-helper", status: "offline" } });

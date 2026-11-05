@@ -122,6 +122,19 @@ describe("HelperLauncher on Windows", () => {
     expect(f.ran).toEqual([]);
   });
 
+  it("restarts a running helper: ends that exe's processes, then starts it again", async () => {
+    const f = fake();
+    await f.launcher.launch();
+    expect(f.spawned).toHaveLength(1);
+    await f.launcher.restart();
+    // The kill names this exe only, then it is spawned again (not short-circuited as paired).
+    expect(f.ran).toHaveLength(1);
+    expect(f.ran[0]?.at(-1)).toContain(`$p='${exe.replaceAll("'", "''")}'`);
+    expect(f.ran[0]?.at(-1)).toContain("Stop-Process");
+    expect(f.spawned).toHaveLength(2);
+    expect(f.launcher.getState().kind).toBe("paired");
+  });
+
   it("reports a spawn failure", async () => {
     const f = fake({ spawnError: "spawn EACCES" });
     await f.launcher.launch();

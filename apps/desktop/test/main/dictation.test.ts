@@ -13,8 +13,8 @@ import {
   type ShortcutRegistry,
 } from "../../src/main/dictation/service.ts";
 
-// These tests use the macOS key names and defaults (fn); the Windows mapping is in
-// dictation-windows.test.ts. Vitest hoists this above the imports, which read the defaults.
+// These tests use the macOS keys, where fn, Right Option and Right Command are three keys; on
+// Windows fn and Right Option share Right Alt (dictation-windows.test.ts). Hoisted by Vitest.
 vi.hoisted(() => Object.defineProperty(process, "platform", { value: "darwin" }));
 
 const notes = { pid: 11, bundleId: "com.apple.Notes", appName: "Notes", insertable: true };

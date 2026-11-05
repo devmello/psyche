@@ -31,7 +31,7 @@ export const DICTATION_SETTING_KEYS = [
 
 export const DEFAULT_DICTATION_SETTINGS: DictationSettings = {
   enabled: true,
-  key: defaultDictationKey(),
+  key: "fn",
   mode: "hold",
   hotkey: "",
 };
@@ -39,32 +39,28 @@ export const DEFAULT_DICTATION_SETTINGS: DictationSettings = {
 const KEYS: readonly DictationKey[] = ["fn", "rightOption", "rightCommand"];
 
 /**
- * The hold-to-talk keys by their macOS names, which the helpers' `dictation.watch` takes on every
- * OS. The Windows helper reads `rightCommand` as Right Ctrl and `rightOption` as Right Alt
- * (Command is the Ctrl of a PC, as in `CmdOrCtrl`); a PC keyboard's Fn never reaches Windows, so
- * there the default (and a stored `fn`) is Right Ctrl.
+ * The hold-to-talk keys keep their macOS names on every OS and go to the helper's
+ * `dictation.watch` as stored. The Windows helper (a `WH_KEYBOARD_LL` hook) holds `fn` and
+ * `rightOption` on Right Alt (a PC's Fn never reaches Windows) and `rightCommand` on Right Ctrl,
+ * so there two names can be one physical key.
  */
-export function defaultDictationKey(platform: NodeJS.Platform = process.platform): DictationKey {
-  return platform === "win32" ? "rightCommand" : "fn";
+export function physicalKey(key: DictationKey, platform: NodeJS.Platform): string {
+  if (platform !== "win32") return key;
+  return key === "rightCommand" ? "rightCtrl" : "rightAlt";
 }
 
-/** A key this OS can watch: `fn` becomes the Windows default there. */
-export function platformKey(key: DictationKey, platform: NodeJS.Platform): DictationKey {
-  return platform === "win32" && key === "fn" ? defaultDictationKey(platform) : key;
+/** Whether two settings name the same key on this OS (one watch cannot serve both roles). */
+export function sameKey(a: DictationKey, b: DictationKey, platform: NodeJS.Platform): boolean {
+  return physicalKey(a, platform) === physicalKey(b, platform);
 }
 
 /** Reads the `voice.*` settings; anything unknown falls back to the default. */
-export function parseDictationSettings(
-  values: Record<string, unknown>,
-  platform: NodeJS.Platform = process.platform,
-): DictationSettings {
+export function parseDictationSettings(values: Record<string, unknown>): DictationSettings {
   const key = values["voice.pushToTalk"];
   const hotkey = values["voice.hotkey"];
   return {
     enabled: values["voice.systemWide"] !== false,
-    key: KEYS.includes(key as DictationKey)
-      ? platformKey(key as DictationKey, platform)
-      : defaultDictationKey(platform),
+    key: KEYS.includes(key as DictationKey) ? (key as DictationKey) : "fn",
     mode: values["voice.mode"] === "toggle" ? "toggle" : "hold",
     hotkey: typeof hotkey === "string" ? hotkey.trim().slice(0, 64) : "",
   };

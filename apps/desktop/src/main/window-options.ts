@@ -1,3 +1,4 @@
+import { release as osRelease } from "node:os";
 import type { BaseWindowConstructorOptions } from "electron";
 
 /**
@@ -62,9 +63,26 @@ export function titleBarOverlayColors(
 /** The system material behind Windows chrome windows; `none` in high contrast. */
 export type WindowMaterial = "mica" | "acrylic" | "none";
 
-/** Mica on Windows unless high contrast asks for solid colours (`material: none`). */
-export function windowMaterial(platform: NodeJS.Platform, highContrast = false): WindowMaterial {
-  return platform === "win32" && !highContrast ? "mica" : "none";
+/**
+ * Whether Windows draws a system backdrop for this app: `DWMWA_SYSTEMBACKDROP_TYPE`, which
+ * Electron's `backgroundMaterial` sets, exists from Windows 11 22H2 (build 22621). `release` is
+ * `os.release()`, "10.0.<build>".
+ */
+export function backdropSupported(release: string = osRelease()): boolean {
+  const build = Number(/^10\.0\.(\d+)/.exec(release)?.[1] ?? 0);
+  return build >= 22621;
+}
+
+/**
+ * Mica on Windows 11 22H2+ unless a contrast theme asks for solid colours; `none` on Windows 10,
+ * where everything stays opaque.
+ */
+export function windowMaterial(
+  platform: NodeJS.Platform,
+  highContrast = false,
+  release: string = osRelease(),
+): WindowMaterial {
+  return platform === "win32" && !highContrast && backdropSupported(release) ? "mica" : "none";
 }
 
 /**
@@ -76,8 +94,11 @@ export function chromeViewBackground(
   platform: NodeJS.Platform,
   dark: boolean,
   highContrast = false,
+  release: string = osRelease(),
 ): string {
-  return windowMaterial(platform, highContrast) === "none" ? canvasColor(dark) : "#00000000";
+  return windowMaterial(platform, highContrast, release) === "none"
+    ? canvasColor(dark)
+    : "#00000000";
 }
 
 /** Shared by the main and Settings windows: hidden title bar, lights on the sidebar. */
@@ -85,16 +106,17 @@ function chromeOptions(
   dark: boolean,
   platform: NodeJS.Platform,
   highContrast: boolean,
+  release: string = osRelease(),
 ): BaseWindowConstructorOptions {
   if (platform === "win32") {
-    const material = windowMaterial(platform, highContrast);
+    const material = windowMaterial(platform, highContrast, release);
     return {
       titleBarStyle: "hidden",
       titleBarOverlay: {
         ...titleBarOverlayColors(dark, highContrast),
         height: TITLE_BAR_OVERLAY_HEIGHT,
       },
-      backgroundColor: chromeViewBackground(platform, dark, highContrast),
+      backgroundColor: chromeViewBackground(platform, dark, highContrast, release),
       ...(material === "none" ? {} : { backgroundMaterial: material }),
     };
   }
@@ -112,6 +134,8 @@ export interface ChromeWindowOptionsInput {
   highContrast?: boolean;
   /** Default `process.platform`. */
   platform?: NodeJS.Platform;
+  /** `os.release()` (tests): Windows 11 22H2+ draws Mica and acrylic. */
+  release?: string;
 }
 
 export function mainWindowOptions(
@@ -129,7 +153,12 @@ export function mainWindowOptions(
     minHeight: 600,
     title: "Psyche",
     show: false,
-    ...chromeOptions(o.dark === true, o.platform ?? process.platform, o.highContrast === true),
+    ...chromeOptions(
+      o.dark === true,
+      o.platform ?? process.platform,
+      o.highContrast === true,
+      o.release,
+    ),
     ...(o.anySize ? { enableLargerThanScreen: true } : {}),
   };
 }
@@ -149,7 +178,12 @@ export function settingsWindowOptions(
     title: "Settings",
     show: false,
     fullscreenable: false,
-    ...chromeOptions(o.dark === true, o.platform ?? process.platform, o.highContrast === true),
+    ...chromeOptions(
+      o.dark === true,
+      o.platform ?? process.platform,
+      o.highContrast === true,
+      o.release,
+    ),
   };
 }
 
@@ -179,7 +213,9 @@ export function quickEntryWindowOptions(
           minimizable: false,
           fullscreenable: false,
           backgroundColor: canvasColor(o.dark === true),
-          ...(o.highContrast === true ? {} : { backgroundMaterial: "acrylic" as const }),
+          ...(o.highContrast === true || !backdropSupported(o.release)
+            ? {}
+            : { backgroundMaterial: "acrylic" as const }),
         }
       : {}),
   };

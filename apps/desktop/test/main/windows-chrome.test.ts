@@ -7,6 +7,7 @@ vi.mock("electron", () => ({
 
 const { chromeFromArgv, platformAttribute } = await import("../../src/preload.ts");
 const {
+  backdropSupported,
   CANVAS_COLOR,
   CAPTION_SYMBOL_COLOR,
   chromeViewBackground,
@@ -20,10 +21,13 @@ const {
 } = await import("../../src/main/window-options.ts");
 const { quickEntryBounds } = await import("../../src/main/window-placement.ts");
 const { WindowTheme } = await import("../../src/lib/window-theme.ts");
+const { transparencyEffects } = await import("../../src/main/tray-icon.ts");
+
+const WIN11 = "10.0.26200";
 
 describe("Windows window chrome", () => {
   it("hides the title bar behind a 40 px caption-button overlay over Mica", () => {
-    const o = mainWindowOptions({ platform: "win32" });
+    const o = mainWindowOptions({ platform: "win32", release: WIN11 });
     expect(o).toMatchObject({
       minWidth: 900,
       minHeight: 600,
@@ -38,7 +42,7 @@ describe("Windows window chrome", () => {
     });
     expect(TITLE_BAR_OVERLAY_HEIGHT).toBe(40);
     expect(o).not.toHaveProperty("trafficLightPosition");
-    expect(settingsWindowOptions({ platform: "win32", dark: true })).toMatchObject({
+    expect(settingsWindowOptions({ platform: "win32", dark: true, release: WIN11 })).toMatchObject({
       minWidth: 760,
       minHeight: 520,
       titleBarOverlay: { symbolColor: CAPTION_SYMBOL_COLOR.dark, height: 40 },
@@ -48,7 +52,12 @@ describe("Windows window chrome", () => {
   });
 
   it("drops the material and uses solid system colours in a contrast theme", () => {
-    const o = mainWindowOptions({ platform: "win32", dark: true, highContrast: true });
+    const o = mainWindowOptions({
+      platform: "win32",
+      dark: true,
+      highContrast: true,
+      release: WIN11,
+    });
     expect(o).not.toHaveProperty("backgroundMaterial");
     expect(o.titleBarOverlay).toEqual({ color: "#000000", symbolColor: "#ffffff", height: 40 });
     expect(windowMaterial("win32", true)).toBe("none");
@@ -59,14 +68,26 @@ describe("Windows window chrome", () => {
     });
   });
 
+  it("draws Mica only on Windows 11 22H2 and later (Windows 10 stays opaque)", () => {
+    expect(backdropSupported("10.0.22621")).toBe(true);
+    expect(backdropSupported("10.0.26200")).toBe(true);
+    expect(backdropSupported("10.0.22000")).toBe(false);
+    expect(backdropSupported("10.0.19045")).toBe(false);
+    expect(windowMaterial("win32", false, "10.0.19045")).toBe("none");
+    expect(windowMaterial("win32", false, "10.0.26200")).toBe("mica");
+    expect(transparencyEffects("    EnableTransparency    REG_DWORD    0x0\r\n")).toBe(false);
+    expect(transparencyEffects("    EnableTransparency    REG_DWORD    0x1\r\n")).toBe(true);
+    expect(transparencyEffects(undefined)).toBe(true);
+  });
+
   it("keeps the app view transparent over Mica and on the canvas elsewhere", () => {
-    expect(chromeViewBackground("win32", true)).toBe("#00000000");
+    expect(chromeViewBackground("win32", true, false, WIN11)).toBe("#00000000");
     expect(chromeViewBackground("win32", true, true)).toBe(CANVAS_COLOR.dark);
     expect(chromeViewBackground("darwin", false)).toBe(CANVAS_COLOR.light);
   });
 
   it("makes quick entry a rounded, acrylic, always-on-top bar out of the taskbar", () => {
-    expect(quickEntryWindowOptions({ platform: "win32" })).toMatchObject({
+    expect(quickEntryWindowOptions({ platform: "win32", release: WIN11 })).toMatchObject({
       ...QUICK_ENTRY_SIZE,
       frame: false,
       resizable: false,
@@ -117,7 +138,7 @@ describe("Windows window chrome", () => {
       setThemeSource: () => undefined,
       canvas: () => (dark ? CANVAS_COLOR.dark : CANVAS_COLOR.light),
       overlay: () => titleBarOverlayColors(dark),
-      materialBackground: () => chromeViewBackground("win32", dark),
+      materialBackground: () => chromeViewBackground("win32", dark, false, WIN11),
     });
     dark = true;
     theme.refresh();

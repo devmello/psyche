@@ -119,11 +119,48 @@ describe("Windows permissions", () => {
       accessibility: "granted",
       screenRecording: "granted",
       notifications: "granted",
+      microphone: "granted",
     });
     expect(await p.request("accessibility")).toBe("granted");
     expect(await p.request("screenRecording")).toBe("granted");
     expect(d.systemPreferences.isTrustedAccessibilityClient).not.toHaveBeenCalled();
     expect(d.openExternal).not.toHaveBeenCalled();
+  });
+
+  it("reports the microphone privacy toggle and opens its settings page when it is off", async () => {
+    const d = deps({
+      systemPreferences: {
+        isTrustedAccessibilityClient: vi.fn(() => false),
+        getMediaAccessStatus: vi.fn((t: string) => (t === "microphone" ? "denied" : "granted")),
+      },
+    });
+    const p = createPermissions(d);
+    expect(await p.status("microphone")).toBe("denied");
+    expect(await p.request("microphone")).toBe("denied");
+    expect(d.openExternal).toHaveBeenCalledWith("ms-settings:privacy-microphone");
+  });
+
+  it("asks for the microphone on macOS the first time, then sends to System Settings", async () => {
+    let state = "not-determined";
+    const ask = vi.fn(async () => {
+      state = "granted";
+      return true;
+    });
+    const opened: string[] = [];
+    const p = createPermissions({
+      platform: "darwin",
+      systemPreferences: {
+        isTrustedAccessibilityClient: () => false,
+        getMediaAccessStatus: () => state,
+        askForMediaAccess: ask,
+      },
+      desktopCapturer: { getSources: async () => [] },
+      openExternal: (u) => void opened.push(u),
+    });
+    expect(await p.request("microphone")).toBe("granted");
+    state = "denied";
+    expect(await p.request("microphone")).toBe("denied");
+    expect(opened).toEqual([expect.stringContaining("Privacy_Microphone")]);
   });
 
   it("uses the Windows helper's notifications when it is online", async () => {

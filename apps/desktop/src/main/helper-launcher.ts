@@ -212,6 +212,31 @@ export class HelperLauncher {
     this.opts.onState?.(s);
   }
 
+  /**
+   * Windows ("Start Psyche Helper" on a running one): ends the running helper (its
+   * single-instance mutex goes with the process) and starts it again, then waits for it to
+   * pair. Elsewhere the same as `launch`.
+   */
+  async restart(): Promise<void> {
+    if (this.state.kind === "unbundled") return;
+    if (!this.windows) return this.launch();
+    await this.launching?.catch(() => undefined);
+    const appPath = this.opts.appPath as string;
+    const lit = `'${appPath.replaceAll("'", "''")}'`;
+    const systemRoot = process.env.SystemRoot ?? "C:\\Windows";
+    await this.opts.run(`${systemRoot}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe`, [
+      "-NoProfile",
+      "-NonInteractive",
+      "-Command",
+      `$p=${lit};Get-CimInstance Win32_Process -Filter "Name='psyche-helper.exe'" | Where-Object { $_.ExecutablePath -eq $p } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }`,
+    ]);
+    this.set({ kind: "offline", reason: "restarting" });
+    this.launching = this.doLaunch(true).finally(() => {
+      this.launching = undefined;
+    });
+    return this.launching;
+  }
+
   /** Launches the helper unless it is already paired; resolves once it paired or timed out. */
   launch(): Promise<void> {
     if (this.state.kind === "unbundled") return Promise.resolve();
@@ -221,9 +246,16 @@ export class HelperLauncher {
     return this.launching;
   }
 
-  private async doLaunch(): Promise<void> {
+  /** `fresh`: a restart, where the old helper's pairing must not count. */
+  private async doLaunch(fresh = false): Promise<void> {
     const appPath = this.opts.appPath as string;
-    if (await this.opts.isPaired().catch(() => false)) return this.set({ kind: "paired" });
+    const sleep = this.opts.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
+    if (fresh) {
+      // The Gateway sees the old one go within a moment of its exit.
+      for (let i = 0; i < 10 && (await this.opts.isPaired().catch(() => false)); i++) {
+        await sleep(500);
+      }
+    } else if (await this.opts.isPaired().catch(() => false)) return this.set({ kind: "paired" });
     if (!(await this.signatureOk()) || this.signatureBad) {
       return this.set({ kind: "offline", reason: "the helper's signature is not valid" });
     }
@@ -232,7 +264,6 @@ export class HelperLauncher {
     const error = await this.start(appPath);
     if (error !== undefined) return this.set({ kind: "offline", reason: error });
     const deadline = (this.opts.now ?? Date.now)() + (this.opts.pairTimeoutMs ?? 30_000);
-    const sleep = this.opts.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
     for (;;) {
       if (await this.opts.isPaired().catch(() => false)) return this.set({ kind: "paired" });
       if ((this.opts.now ?? Date.now)() >= deadline) break;

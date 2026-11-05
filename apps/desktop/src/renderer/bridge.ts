@@ -59,6 +59,15 @@ export async function unwrapCall(envelope: Promise<unknown>): Promise<unknown> {
   throw new GatewayCallError(res?.error ?? { code: "internal", message: "IPC failed" });
 }
 
+/**
+ * The window chrome as the shell reads it: the shell lays out for Mica only (`material: "mica"`);
+ * the quick-entry bar's acrylic is the preload's `data-material` alone.
+ */
+export function shellChrome(c: PsycheBridge["chrome"]): WindowChrome {
+  const { material, titleBarOverlay: _height, ...rest } = c;
+  return { ...rest, ...(material === "mica" ? { material } : {}) };
+}
+
 /** Adapts the preload bridge to the shell's `ShellPlatform` port. */
 export function desktopPlatform(b: PsycheBridge = window.psyche): ShellPlatform {
   const full = fullDesktopPlatform(b);
@@ -150,9 +159,7 @@ function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
   };
   return {
     kind: "desktop",
-    // Windows adds `titleBar: "overlay"` (caption buttons on the right, `titleBarOverlay.height`)
-    // and `material`; the shell's `WindowChrome` gains them in @psyche/web (UI side).
-    chrome: b.chrome as WindowChrome,
+    chrome: shellChrome(b.chrome),
     storage: browserStorage(),
     gateway,
     gateways: {

@@ -137,7 +137,7 @@ import { bundledGatewayPaths } from "./main/supervisor-windows.ts";
 import { firstCloseToTray, jumpListTasks, type TaskbarTask, taskFromArgv } from "./main/taskbar.ts";
 import { threadRoute } from "./main/thread-route.ts";
 import { PsycheTray } from "./main/tray.ts";
-import { PERSONALIZE_KEY, taskbarIsDark } from "./main/tray-icon.ts";
+import { PERSONALIZE_KEY, taskbarIsDark, transparencyEffects } from "./main/tray-icon.ts";
 import { startUpdater } from "./main/updater.ts";
 import {
   canvasColor,
@@ -315,7 +315,8 @@ const zoom = new ZoomController({
 /** The macOS accessibility displays settings the renderer and the native layer follow. */
 function systemAppearance(): { reduceTransparency: boolean; highContrast: boolean } {
   return {
-    reduceTransparency: nativeTheme.prefersReducedTransparency,
+    // Windows: Settings → Personalization → Colors → Transparency effects off.
+    reduceTransparency: nativeTheme.prefersReducedTransparency || !windowsTransparency,
     highContrast: nativeTheme.shouldUseHighContrastColors,
   };
 }
@@ -599,15 +600,26 @@ async function readAppPath(exe: string): Promise<string | undefined> {
   return undefined;
 }
 
-/** Windows: whether the taskbar is dark (the tray glyph is white then); re-read on theme changes. */
+/**
+ * Windows' Personalize settings, re-read whenever `nativeTheme` says the appearance changed
+ * (Chromium watches that registry key): whether the taskbar is dark (the tray glyph is white
+ * then) and whether "Transparency effects" is on (off is the app's Reduce transparency).
+ */
 let taskbarDark = true;
-async function readTaskbarTheme(): Promise<void> {
+let windowsTransparency = true;
+async function readPersonalize(): Promise<void> {
   const reg = `${process.env.SystemRoot ?? "C:\\Windows"}\\System32\\reg.exe`;
-  const res = await execRunner(reg, ["query", PERSONALIZE_KEY, "/v", "SystemUsesLightTheme"]);
-  const dark = taskbarIsDark(res.code === 0 ? res.stdout : undefined);
+  const res = await execRunner(reg, ["query", PERSONALIZE_KEY]);
+  const out = res.code === 0 ? res.stdout : undefined;
+  const dark = taskbarIsDark(out);
   if (dark !== taskbarDark) {
     taskbarDark = dark;
     tray?.refreshIcon();
+  }
+  const transparency = transparencyEffects(out);
+  if (transparency !== windowsTransparency) {
+    windowsTransparency = transparency;
+    broadcast(IPC.systemAppearance, systemAppearance());
   }
 }
 
@@ -1042,9 +1054,10 @@ function registerIpc(): void {
   });
   handle(IPC.permissionsStatus, () => permissions.statusAll());
   handle(IPC.helperGetState, () => helper?.getState() ?? { kind: "unbundled" });
-  // An approval card's "Start Psyche Helper": launch now (no relaunch throttle), wait to pair.
+  // An approval card's "Start Psyche Helper": launch now (no relaunch throttle), wait to pair. On
+  // Windows a running helper is ended and started again (`restart`).
   handle(IPC.helperLaunch, async () => {
-    await helper?.launch();
+    await (windows32 ? helper?.restart() : helper?.launch());
     return helper?.getState() ?? { kind: "unbundled" };
   });
   // Touch ID from the window (security §3.7, §10): the main and Settings windows only, never a
@@ -1362,9 +1375,9 @@ void app.whenReady().then(async () => {
     windowTheme.refresh();
     broadcast(IPC.systemAppearance, systemAppearance());
     // Windows' taskbar has its own light/dark setting; "updated" fires when either changes.
-    if (windows32) void readTaskbarTheme();
+    if (windows32) void readPersonalize();
   });
-  if (windows32) void readTaskbarTheme();
+  if (windows32) void readPersonalize();
   // 120 Hz check (docs/design/motion.md §5): compare with the renderer's rAF probe.
   if (!app.isPackaged) {
   }

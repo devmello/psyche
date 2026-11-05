@@ -6,8 +6,8 @@ import {
   type DictationKey,
   type DictationSettings,
   parseDictationSettings,
-  platformKey,
   type SystemDictation,
+  sameKey,
 } from "./controller.ts";
 import { KeyGesture } from "./key-gesture.ts";
 
@@ -52,7 +52,7 @@ export interface DictationServiceOptions {
   onKeyDoubleTap?: () => void;
   /** Talk with Psyche was turned on or off (its key is armed or not): the pop-up's window. */
   onVoiceEnabled?: (on: boolean) => void;
-  /** Default `process.platform`: which keys exist (no Fn on a PC keyboard). */
+  /** Default `process.platform`: which key names share a physical key (Windows). */
   platform?: NodeJS.Platform;
 }
 
@@ -72,15 +72,9 @@ export function parseVoiceKey(
 ): DictationKey | null {
   if (values["voice.conversation.enabled"] !== true) return null;
   const raw = values["voice.conversation.key"];
-  const key = VOICE_KEYS.includes(raw as DictationKey)
-    ? platformKey(raw as DictationKey, platform)
-    : defaultVoiceKey(platform);
-  return dictation.enabled && key === dictation.key ? null : key;
-}
-
-/** Right Command on a Mac; Right Alt on Windows, where Right Ctrl is dictation's default. */
-export function defaultVoiceKey(platform: NodeJS.Platform = process.platform): DictationKey {
-  return platform === "win32" ? "rightOption" : "rightCommand";
+  const key = VOICE_KEYS.includes(raw as DictationKey) ? (raw as DictationKey) : "rightCommand";
+  // On Windows `fn` and `rightOption` are both Right Alt: that is a collision too.
+  return dictation.enabled && sameKey(key, dictation.key, platform) ? null : key;
 }
 
 /**
@@ -147,7 +141,7 @@ export class DictationService implements VoiceKeySource {
       this.#o.warn?.(`could not read voice settings: ${String(err)}`);
     }
     const platform = this.#o.platform ?? process.platform;
-    const settings = parseDictationSettings(values, platform);
+    const settings = parseDictationSettings(values);
     this.#voiceKey = parseVoiceKey(values, settings, platform);
     this.#o.onVoiceEnabled?.(this.#voiceKey !== null);
     await this.apply(settings);

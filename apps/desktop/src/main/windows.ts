@@ -134,10 +134,12 @@ export function chromeArgFor(
 ): ChromeArg {
   if (platform === "darwin") return { titleBar: "inset", trafficLights: { ...TRAFFIC_LIGHTS } };
   if (platform === "win32") {
+    // `material` only when Windows draws Mica (11 22H2+, no contrast theme): else opaque.
+    const material = windowMaterial(platform, look.highContrast === true);
     return {
       titleBar: "overlay",
       titleBarOverlay: { height: TITLE_BAR_OVERLAY_HEIGHT },
-      material: windowMaterial(platform, look.highContrast === true),
+      ...(material === "none" ? {} : { material }),
     };
   }
   return { titleBar: "native" };
@@ -407,16 +409,14 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
   function createQuick(): { win: BaseWindow; view: WebContentsView } {
     const look = systemLook();
     const win = new BaseWindow(quickEntryWindowOptions(look));
-    const windows = process.platform === "win32";
+    // Windows 11 22H2+: acrylic behind the bar, showing wherever the renderer paints nothing.
+    const acrylic = windowMaterial(process.platform, look.highContrast) !== "none";
     const view = makeView(
       win,
       "/quick",
-      windows
-        ? { titleBar: "native", material: look.highContrast ? "none" : "acrylic" }
-        : undefined,
+      acrylic ? { titleBar: "native", material: "acrylic" } : undefined,
     );
-    // The acrylic behind the bar shows wherever the renderer paints nothing.
-    if (windows && !look.highContrast) view.setBackgroundColor("#00000000");
+    if (acrylic) view.setBackgroundColor("#00000000");
     win.on("blur", () => win.hide());
     win.on("closed", () => {
       quick = undefined;

@@ -138,5 +138,14 @@ export function taskbarIsDark(regOutput: string | undefined): boolean {
   return m ? Number.parseInt(m[1] as string, 16) === 0 : true;
 }
 
+/**
+ * Windows "Transparency effects" (`EnableTransparency` under Personalize, from `reg query` of
+ * the key); on when unreadable, Windows' default.
+ */
+export function transparencyEffects(regOutput: string | undefined): boolean {
+  const m = /EnableTransparency\s+REG_DWORD\s+0x([0-9a-f]+)/i.exec(regOutput ?? "");
+  return m ? Number.parseInt(m[1] as string, 16) !== 0 : true;
+}
+
 export const PERSONALIZE_KEY =
   "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize";

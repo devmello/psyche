@@ -83,13 +83,14 @@ describe("macOS permissions (issue #384)", () => {
     expect(await createPermissions(deps().d).request("notifications")).toBe("unavailable");
   });
 
-  it("is unavailable off macOS", async () => {
+  it("is unavailable off macOS and Windows", async () => {
     const p = createPermissions(deps({ platform: "linux" }).d);
     expect(await p.request("accessibility")).toBe("unavailable");
     expect(await p.statusAll()).toEqual({
       accessibility: "unavailable",
       screenRecording: "unavailable",
       notifications: "unavailable",
+      microphone: "unavailable",
     });
   });
 
