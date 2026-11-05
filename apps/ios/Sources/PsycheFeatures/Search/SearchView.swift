@@ -72,6 +72,7 @@ final class SearchModel {
 /// The field is the system's (at the bottom on iPhone); the results are paper.
 struct SearchView: View {
     @State private var model: SearchModel
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(Router.self) private var router
 
     init(store: any PsycheBackend) {
@@ -109,7 +110,12 @@ struct SearchView: View {
         .psycheScreen()
         .navigationTitle("")
         .psycheInlineTitle()
-        .searchable(text: $model.query, prompt: "Search or ask")
+        // iPhone: the search tab's field sits at the bottom (system). iPad: a field that is always shown, not a
+        // toolbar button, so the tab opens ready to type.
+        .searchable(
+            text: $model.query,
+            placement: sizeClass == .regular ? .navigationBarDrawer(displayMode: .always) : .automatic,
+            prompt: "Search or ask")
         .onSubmit(of: .search) { model.remember() }
         .task(id: model.query) {
             if !model.trimmed.isEmpty { try? await Task.sleep(for: .milliseconds(250)) }
