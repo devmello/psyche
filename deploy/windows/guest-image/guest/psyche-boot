@@ -1,0 +1,177 @@
+#!/bin/sh
+# psyche-boot: one-shot setup run by psyche-init (PID 1) on every boot, as root.
+#
+#   1. runtime mounts (/run, /tmp, devpts, cgroup2), hostname
+#   2. network: nothing unless a NIC exists (the host attaches one only when the owner turned
+#      networking on); DHCP in the background
+#   3. session disk (label psyche-data): format a blank disk once, mount at /session, bind
+#      /session/home on /workspace; node state in /session/node (identity survives reboots)
+#   4. boot-time shares from psyche.share=, then the control listener and the node supervisor
+#
+# Kernel command line (all optional):
+#   psyche.hostname=NAME        default psyche-pc
+#   psyche.name=TEXT            name on the owner's pairing card (underscores become spaces)
+#   psyche.port=N               host Gateway vsock port (default 7980, the mac guest's)
+#   psyche.net=off              never configure a NIC
+#   psyche.share=NAME:vsock:PORT:ro|rw[:ANAME]   mount a Plan9 share at boot
+#   Test hooks (the CI QEMU boot test; not used on Hyper-V):
+#   psyche.bridge=ADDR          socat address replacing VSOCK-CONNECT:2:<port>, e.g. TCP:10.0.2.2:7980
+#   psyche.control=ADDR         socat listen address replacing VSOCK-LISTEN:7000, e.g. TCP-LISTEN:7000
+#   psyche.share=NAME:virtio:TAG:ro|rw
+#   psyche.nodelog=console      send psyche-node output to the console
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+set -u
+set -f
+LIB=/usr/lib/psyche
+
+log() { echo "psyche-boot: $*" >/dev/console 2>&1 || echo "psyche-boot: $*"; }
+
+CMDLINE="$(cat /proc/cmdline)"
+karg() { # karg NAME DEFAULT
+  for t in $CMDLINE; do
+    case "$t" in "psyche.$1="*) printf '%s' "${t#psyche.$1=}"; return ;; esac
+  done
+  printf '%s' "${2:-}"
+}
+
+mkdir -p /run /tmp
+mountpoint -q /run || mount -t tmpfs -o mode=0755,nosuid,nodev,size=64m tmpfs /run
+mkdir -p /run/psyche
+mountpoint -q /tmp || mount -t tmpfs -o mode=1777,nosuid,nodev tmpfs /tmp
+mkdir -p /dev/pts /dev/shm
+mountpoint -q /dev/pts || mount -t devpts -o gid=5,mode=0620,nosuid,noexec devpts /dev/pts
+mountpoint -q /dev/shm || mount -t tmpfs -o mode=1777,nosuid,nodev tmpfs /dev/shm
+mountpoint -q /sys/fs/cgroup || mount -t cgroup2 -o nsdelegate nodev /sys/fs/cgroup 2>/dev/null || true
+chmod 0755 /run
+
+HOST="$(karg hostname psyche-pc)"
+case "$HOST" in *[!A-Za-z0-9-]*|"") HOST=psyche-pc ;; esac
+hostname "$HOST"
+printf '%s\n' "$HOST" >/etc/hostname
+printf '127.0.0.1 localhost\n127.0.1.1 %s\n::1 localhost ip6-localhost\n' "$HOST" >/etc/hosts
+ln -sf /run/psyche/resolv.conf /etc/resolv.conf
+: >/run/psyche/resolv.conf
+
+# --- network ---------------------------------------------------------------------------------
+busybox ip link set lo up 2>/dev/null || true
+if [ "$(karg net on)" != off ]; then
+  for ifname in $(ls /sys/class/net); do
+    [ "$ifname" = lo ] && continue
+    log "network adapter $ifname found; starting DHCP"
+    busybox ip link set "$ifname" up
+    busybox udhcpc -b -i "$ifname" -s "$LIB/udhcpc.script" -t 8 -T 3 -p "/run/psyche/udhcpc-$ifname.pid" >/dev/null 2>&1 &
+  done
+fi
+
+# --- session disk ----------------------------------------------------------------------------
+NODE_HOME=/run/psyche/node
+SESSION=no
+find_blank_disk() {
+  # Exactly one disk with no filesystem and no partition table, at least 64 MiB, is "ours".
+  found=""; count=0
+  rootdisk="$(blkid -L psyche-root 2>/dev/null || true)"
+  for d in $(lsblk -dnpo NAME,TYPE 2>/dev/null | while read -r n t; do [ "$t" = disk ] && echo "$n"; done); do
+    [ "$d" = "$rootdisk" ] && continue
+    [ -z "$(blkid -p -o value -s TYPE "$d" 2>/dev/null)" ] || continue
+    [ -z "$(blkid -p -o value -s PTTYPE "$d" 2>/dev/null)" ] || continue
+    [ "$(blockdev --getsize64 "$d" 2>/dev/null || echo 0)" -ge 67108864 ] || continue
+    found="$d"; count=$((count + 1))
+  done
+  [ "$count" = 1 ] && printf '%s' "$found"
+}
+wait_for() { # wait_for N CMD...: retry up to N tenths of a second
+  n="$1"; shift
+  while ! "$@" >/dev/null 2>&1; do
+    n=$((n - 1)); [ "$n" -gt 0 ] || return 1; sleep 0.1
+  done
+}
+wait_for 100 blkid -L psyche-data || true
+DATA="$(blkid -L psyche-data 2>/dev/null || true)"
+if [ -z "$DATA" ]; then
+  blank="$(find_blank_disk || true)"
+  if [ -n "$blank" ]; then
+    log "formatting blank session disk $blank"
+    mkfs.ext4 -q -F -L psyche-data -m 1 -E lazy_itable_init=1,lazy_journal_init=1 "$blank" && DATA="$blank"
+  else
+    log "WARNING: no session disk (label psyche-data) and no single blank disk to format"
+  fi
+fi
+if [ -n "$DATA" ]; then
+  e2fsck -p "$DATA" >/dev/null 2>&1 || true
+  mkdir -p /session
+  if mount -t ext4 -o noatime,nodev,nosuid "$DATA" /session; then
+    resize2fs "$DATA" >/dev/null 2>&1 || true   # grows the filesystem when the VHDX was enlarged
+    mkdir -p /session/node /session/home
+    chown 1000:1000 /session/node /session/home
+    chmod 0700 /session/node
+    mount --bind /session/home /workspace
+    NODE_HOME=/session/node
+    SESSION=yes
+  else
+    log "WARNING: cannot mount session disk $DATA; running with a temporary identity"
+  fi
+fi
+if [ "$SESSION" = no ]; then
+  mkdir -p "$NODE_HOME"
+  chown 1000:1000 "$NODE_HOME"
+  chmod 0700 "$NODE_HOME"
+fi
+mkdir -p "$NODE_HOME/logs"
+chown 1000:1000 "$NODE_HOME/logs"
+PORT="$(karg port 7980)"
+case "$PORT" in *[!0-9]*|"") PORT=7980 ;; esac
+CONTROL="$(karg control 'VSOCK-LISTEN:7000')"
+NODELOG="$(karg nodelog file)"
+case "$CONTROL$NODELOG" in *[!A-Za-z0-9:.,_-]*) log "ignoring unsafe control/nodelog values"; CONTROL='VSOCK-LISTEN:7000'; NODELOG=file ;; esac
+{
+  printf 'NODE_HOME=%s\nSESSION=%s\nGATEWAY_PORT=%s\nGUEST_HOSTNAME=%s\n' "$NODE_HOME" "$SESSION" "$PORT" "$HOST"
+  printf 'CONTROL_LISTEN=%s\nNODELOG=%s\n' "$CONTROL" "$NODELOG"
+} >/run/psyche/env
+
+# --- node.json: the gateway endpoint is rewritten every boot; fs roots (added by mounts) and
+# anything else the owner put there are preserved. Guest exec is on: this VM is the sandbox.
+BRIDGE="$(karg bridge '')"
+if [ -n "$BRIDGE" ]; then
+  bridge_json="$(jq -cn --arg a "$BRIDGE" '["socat", "-", $a]')"
+else
+  bridge_json='["socat","-","VSOCK-CONNECT:{cid}:{port}"]'
+fi
+NAME="$(karg name 'Psyche sandbox PC')"
+NAME="$(printf '%s' "$NAME" | tr '_' ' ')"
+[ -f "$NODE_HOME/node.json" ] || echo '{}' >"$NODE_HOME/node.json"
+tmpcfg="$NODE_HOME/node.json.new"
+jq --arg name "$NAME" --argjson port "$PORT" --argjson bridge "$bridge_json" \
+  '.name = $name | .gateway = {vsock: {cid: 2, port: $port, bridge: $bridge}} | .exec.guest.enabled = true' \
+  "$NODE_HOME/node.json" >"$tmpcfg" 2>/dev/null \
+  || jq -n --arg name "$NAME" --argjson port "$PORT" --argjson bridge "$bridge_json" \
+       '{name: $name, gateway: {vsock: {cid: 2, port: $port, bridge: $bridge}}, exec: {guest: {enabled: true}}}' >"$tmpcfg"
+chown 1000:1000 "$tmpcfg"
+chmod 0600 "$tmpcfg"
+mv "$tmpcfg" "$NODE_HOME/node.json"
+
+# --- boot-time shares ------------------------------------------------------------------------
+for t in $CMDLINE; do
+  case "$t" in
+    psyche.share=*)
+      spec="${t#psyche.share=}"
+      oldifs="$IFS"; IFS=:
+      # shellcheck disable=SC2086
+      set -- $spec
+      IFS="$oldifs"
+      sname="${1:-}" stransport="${2:-}" sarg="${3:-}" smode="${4:-ro}" saname="${5:-}"
+      if [ "$stransport" = vsock ]; then
+        "$LIB/share" mount "$sname" vsock "$sarg" "$smode" ${saname:+"$saname"} || log "share $sname failed"
+      else
+        "$LIB/share" mount "$sname" "$stransport" "$sarg" "$smode" || log "share $sname failed"
+      fi
+      ;;
+  esac
+done
+
+# --- services --------------------------------------------------------------------------------
+mkdir -p /run/psyche
+setsid "$LIB/supervise" control &
+setsid "$LIB/supervise" node &
+log "guest ready: node home $NODE_HOME, session disk $SESSION, gateway vsock 2:$PORT"
+exit 0

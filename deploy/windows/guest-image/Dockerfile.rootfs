@@ -1,0 +1,84 @@
+# syntax=docker/dockerfile:1
+# Psyche Windows guest: rootfs.vhdx, sessiondata.vhdx and the initrd.
+#
+# The guest userland is the sandbox image (deploy/sandbox-image, "base" target: Node 24, Python
+# + uv, git, ripgrep, jq, ffmpeg, pandoc, poppler, pdftk) plus socat (the vsock bridge psyche-node
+# uses), busybox (DHCP, ip), the apps/node bundle and the Psyche init (guest/*).
+#
+# Inputs (build-guest-image.ps1 / build-rootfs.sh provide them):
+#   SANDBOX_IMAGE          the sandbox base image, built from deploy/sandbox-image
+#   --build-context nodebundle=<dir with psyche-node.mjs>   (bundle-node.mjs output)
+# Targets:
+#   export         rootfs.vhdx, rootfs.vhdx.zst, sessiondata.vhdx, packages.tsv
+#   export-initrd  initrd
+ARG SANDBOX_IMAGE=psyche-sandbox-base:guest-build
+ARG DEBIAN_IMAGE=debian:trixie-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2
+
+# ---- static helpers: PID 1 and the Plan9 mount tool ------------------------------------------
+FROM ${DEBIAN_IMAGE} AS tools
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev binutils \
+ && rm -rf /var/lib/apt/lists/*
+COPY guest/psyche-init.c guest/psyche-mount9p.c /src/
+RUN mkdir /out && cd /src \
+ && gcc -O2 -static -Wall -Werror -o /out/init psyche-init.c \
+ && gcc -O2 -static -Wall -Werror -o /out/mount9p psyche-mount9p.c \
+ && strip /out/init /out/mount9p
+
+# ---- the guest root filesystem ---------------------------------------------------------------
+FROM ${SANDBOX_IMAGE} AS rootfs
+USER 0:0
+ARG IMAGE_VERSION=dev
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends busybox e2fsprogs mount socat util-linux \
+ && rm -rf /var/lib/apt/lists/* /var/cache/apt /var/log/apt /var/log/dpkg.log /var/log/alternatives.log \
+ && rm -rf /usr/share/man /usr/share/info /usr/share/lintian /usr/share/locale/* \
+ && find /usr/share/doc -type f ! -name copyright -delete \
+ && find /usr/share/doc -type d -empty -delete \
+ && mkdir -p /usr/lib/psyche /usr/share/psyche /mnt/psyche /session
+COPY --from=tools /out/init /usr/lib/psyche/init
+COPY --from=tools /out/mount9p /usr/lib/psyche/mount9p
+COPY --chmod=0755 guest/psyche-boot /usr/lib/psyche/boot
+COPY --chmod=0755 guest/psyche-shutdown /usr/lib/psyche/shutdown
+COPY --chmod=0755 guest/psyche-supervise /usr/lib/psyche/supervise
+COPY --chmod=0755 guest/psyche-control /usr/lib/psyche/control
+COPY --chmod=0755 guest/psyche-share /usr/lib/psyche/share
+COPY --chmod=0755 guest/udhcpc.script /usr/lib/psyche/udhcpc.script
+COPY --chmod=0755 guest/poweroff /usr/sbin/poweroff
+COPY --from=nodebundle --chmod=0644 psyche-node.mjs /usr/lib/psyche/psyche-node.mjs
+RUN chmod 0755 /usr/lib/psyche/init /usr/lib/psyche/mount9p \
+ && for n in halt reboot shutdown; do ln -sf poweroff "/usr/sbin/$n"; done \
+ && ln -sf /usr/lib/psyche/share /usr/local/bin/psyche-share \
+ && chown 1000:1000 /workspace \
+ && sh /usr/local/lib/psyche/harden.sh \
+ && dpkg-query -W -f='${binary:Package}\t${Version}\t${source:Package}\t${source:Version}\n' > /usr/share/psyche/packages.tsv \
+ && printf '%s\n' "${IMAGE_VERSION}" > /usr/lib/psyche/image-version
+# Written by the init at boot (overlay on tmpfs); the image itself is mounted read-only.
+USER 0:0
+
+# ---- ext4 -> VHDX -----------------------------------------------------------------------------
+FROM ${DEBIAN_IMAGE} AS disks
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends e2fsprogs qemu-utils zstd \
+ && rm -rf /var/lib/apt/lists/*
+COPY build-disks.sh /build-disks.sh
+RUN --mount=type=bind,from=rootfs,source=/,target=/rootfs sh /build-disks.sh /rootfs /out
+
+FROM scratch AS export
+COPY --from=disks /out/ /
+
+# ---- initrd -----------------------------------------------------------------------------------
+FROM ${DEBIAN_IMAGE} AS initrd-build
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends busybox-static cpio gzip \
+ && rm -rf /var/lib/apt/lists/*
+COPY --chmod=0755 guest/initrd-init /tree/init
+RUN mkdir -p /tree/bin /tree/dev /tree/proc /tree/sys /tree/mnt /tree/etc /out \
+ && cp /bin/busybox /tree/bin/busybox \
+ && cd /tree \
+ && find . -exec touch -h -d @0 {} + \
+ && find . | LC_ALL=C sort | cpio -o -H newc --owner=0:0 --quiet | gzip -9n > /out/initrd
+
+FROM scratch AS export-initrd
+COPY --from=initrd-build /out/initrd /initrd

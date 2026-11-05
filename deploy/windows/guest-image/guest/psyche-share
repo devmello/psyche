@@ -1,0 +1,71 @@
+#!/bin/sh
+# psyche-share: mounts and unmounts host folders (Plan9 shares) under /mnt/psyche/<name>.
+#
+#   psyche-share mount <name> vsock <port> <ro|rw> [aname]   HCS Plan9 over Hyper-V sockets
+#   psyche-share mount <name> virtio <tag> <ro|rw>           QEMU virtio-9p (CI boot test only)
+#   psyche-share umount <name>
+#   psyche-share list                                        JSON array of mounted shares
+#
+# Names follow the mac helper (SharePolicy.isValidName): ^[A-Za-z0-9][A-Za-z0-9 ._-]{0,63}$, no "..".
+# Exit: 0 ok; 64 bad arguments; 69 not mounted / unavailable; 73 already mounted; 1 mount failed.
+set -eu
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ROOT=/mnt/psyche
+MOUNT9P=/usr/lib/psyche/mount9p
+
+die() { echo "psyche-share: $2" >&2; exit "$1"; }
+
+valid_name() {
+  case "$1" in
+    ""|*..*|*/*|.*|-*) return 1 ;;
+  esac
+  [ "${#1}" -le 64 ] || return 1
+  # Letters, digits, space, dot, underscore, hyphen; first character alphanumeric.
+  case "$1" in
+    [!A-Za-z0-9]*) return 1 ;;
+    *[!A-Za-z0-9\ ._-]*) return 1 ;;
+  esac
+}
+
+cmd="${1:-}"
+[ $# -gt 0 ] && shift
+case "$cmd" in
+  mount)
+    [ $# -ge 4 ] || die 64 "usage: mount <name> vsock <port> <ro|rw> [aname] | mount <name> virtio <tag> <ro|rw>"
+    name="$1" transport="$2" arg="$3" mode="$4"
+    valid_name "$name" || die 64 "invalid share name"
+    case "$mode" in ro|rw) ;; *) die 64 "mode must be ro or rw" ;; esac
+    target="$ROOT/$name"
+    mkdir -p "$ROOT"
+    if mountpoint -q "$target" 2>/dev/null; then die 73 "share $name is already mounted"; fi
+    mkdir -p "$target"
+    case "$transport" in
+      vsock)
+        aname="${5:-$name}"
+        "$MOUNT9P" vsock "$arg" "$aname" "$target" "$mode" || { rmdir "$target" 2>/dev/null || true; exit 1; }
+        ;;
+      virtio)
+        "$MOUNT9P" virtio "$arg" "$target" "$mode" || { rmdir "$target" 2>/dev/null || true; exit 1; }
+        ;;
+      *) die 64 "transport must be vsock or virtio" ;;
+    esac
+    ;;
+  umount)
+    [ $# -eq 1 ] || die 64 "usage: umount <name>"
+    valid_name "$1" || die 64 "invalid share name"
+    target="$ROOT/$1"
+    mountpoint -q "$target" 2>/dev/null || die 69 "share $1 is not mounted"
+    umount "$target" 2>/dev/null || umount -l "$target"
+    rmdir "$target" 2>/dev/null || true
+    ;;
+  list)
+    # findmnt escapes names safely in JSON; the share name is the last path component.
+    # findmnt prints nothing when no 9p filesystem is mounted.
+    mounts="$(findmnt -J -t 9p -o TARGET,OPTIONS 2>/dev/null || true)"
+    [ -n "$mounts" ] || mounts='{}'
+    printf '%s' "$mounts" | jq -c --arg root "$ROOT/" '[ (.filesystems // [])[]
+          | select(.target | startswith($root))
+          | { name: (.target | ltrimstr($root)), path: .target, readOnly: (.options | split(",") | index("ro") != null) } ]'
+    ;;
+  *) die 64 "usage: psyche-share mount|umount|list" ;;
+esac
