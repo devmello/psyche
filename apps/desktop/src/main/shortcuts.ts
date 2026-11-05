@@ -1,3 +1,4 @@
+import { traitsFor } from "../platform/index.ts";
 import type { ShortcutRegistry } from "./dictation/service.ts";
 
 /**
@@ -8,6 +9,8 @@ import type { ShortcutRegistry } from "./dictation/service.ts";
  * other app holds wins.
  */
 export function quickEntryShortcuts(platform: NodeJS.Platform = process.platform): string[] {
+  // Linux: Alt+Space is the window menu on GNOME and KDE (platform/index.ts).
+  if (platform === "linux") return [...traitsFor(platform).quickEntry];
   return platform === "win32"
     ? ["Control+Alt+Space", "Alt+Shift+Space"]
     : ["Alt+Space", "Control+Alt+Space"];
