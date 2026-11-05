@@ -1,4 +1,4 @@
-import type { NodeCapability, SandboxRunner } from "@psyche/protocol";
+import type { DevicePlatform, NodeCapability, SandboxRunner } from "@psyche/protocol";
 import { NodeAgent } from "./agent.ts";
 import { createBrowserProvider } from "./capabilities/browser.ts";
 import { createExecProvider } from "./capabilities/exec.ts";
@@ -59,6 +59,8 @@ export async function createNodeRuntime(input: RuntimeInput): Promise<NodeRuntim
       createBrowserProvider({ home: config.home, enabled: config.browser.enabled === true }),
     );
   }
+  // The helper hub is for a co-located Mac helper. On Windows the win-helper dials the Gateway's
+  // node pipe itself, so `auto` never starts the hub there.
   const helperWanted =
     config.helper.enabled === true ||
     (config.helper.enabled === "auto" && process.platform === "darwin");
@@ -86,7 +88,7 @@ export async function createNodeRuntime(input: RuntimeInput): Promise<NodeRuntim
   const agent = new NodeAgent({
     identity,
     name: config.name,
-    platform: process.platform === "darwin" ? "macos" : "linux",
+    platform: devicePlatformOf(process.platform),
     deviceFamily: isGuest ? "vm-guest" : "psyche-node",
     version: NODE_VERSION,
     providers: all,
@@ -113,4 +115,11 @@ export async function createNodeRuntime(input: RuntimeInput): Promise<NodeRuntim
     },
     stop: () => agent.stop(),
   };
+}
+
+/** The protocol's `DevicePlatform` for a Node `process.platform` (BSDs count as `linux`). */
+export function devicePlatformOf(platform: NodeJS.Platform): DevicePlatform {
+  if (platform === "darwin") return "macos";
+  if (platform === "win32") return "windows";
+  return "linux";
 }

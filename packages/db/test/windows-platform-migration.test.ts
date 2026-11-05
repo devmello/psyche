@@ -20,7 +20,8 @@ describe("202611050900 windows platform", () => {
     const old = join(dir, "before");
     mkdirSync(old);
     for (const f of readdirSync(DEFAULT_MIGRATIONS_DIR)) {
-      if (f.endsWith(".sql") && f < NEW) copyFileSync(join(DEFAULT_MIGRATIONS_DIR, f), join(old, f));
+      if (f.endsWith(".sql") && f < NEW)
+        copyFileSync(join(DEFAULT_MIGRATIONS_DIR, f), join(old, f));
     }
     const sqlite = new Database(":memory:");
     sqlite.pragma("foreign_keys = ON");

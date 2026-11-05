@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { chmod, lstat, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, sep } from "node:path";
 import { PsycheError } from "@psyche/protocol";
 
 /** `sun_path` holds 104 bytes on macOS and 108 on Linux, including the terminating NUL. */
@@ -17,8 +17,13 @@ export function socketPathFits(path: string): boolean {
   return Buffer.byteLength(path, "utf8") <= MAX_SOCKET_PATH_BYTES;
 }
 
-/** Whether a scratch directory leaves room for a socket file in it. */
-export function scratchFits(dir: string): boolean {
+/**
+ * Whether a scratch directory leaves room for a socket file in it. Windows has no `sun_path`
+ * limit to fit (and srt, the only thing that makes sockets there, does not run on Windows), so the
+ * first candidate, under the settings directory, is always used.
+ */
+export function scratchFits(dir: string, platform: NodeJS.Platform = process.platform): boolean {
+  if (platform === "win32") return true;
   return socketPathFits(join(dir, "x".repeat(SCRATCH_SOCKET_NAME_BYTES)));
 }
 
@@ -37,7 +42,7 @@ async function ensurePrivateDir(dir: string): Promise<void> {
       `refusing scratch directory ${dir}: not a private directory`,
     );
   }
-  if ((info.mode & 0o077) !== 0) await chmod(dir, 0o700);
+  if (process.platform !== "win32" && (info.mode & 0o077) !== 0) await chmod(dir, 0o700);
 }
 
 /**
@@ -78,7 +83,8 @@ export function scratchReadRules(
   psycheHome: string,
   scratchDir: string,
 ): { denyRead: string[]; allowRead: string[] } {
-  const inside = scratchDir.startsWith(`${psycheHome}/`);
+  const inside =
+    scratchDir.startsWith(`${psycheHome}${sep}`) || scratchDir.startsWith(`${psycheHome}/`);
   return inside
     ? { denyRead: [], allowRead: [] }
     : { denyRead: [dirname(scratchDir)], allowRead: [scratchDir] };

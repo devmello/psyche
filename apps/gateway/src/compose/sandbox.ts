@@ -287,6 +287,15 @@ export function composeSandbox(
           const log = (level: "info" | "warn", msg: string, f: Record<string, string>) =>
             services.logger?.log(level, msg, { device: call.identity.deviceId, ...f });
           const nodePath = setup.srtInstall?.nodePath ?? process.execPath;
+          if (process.platform === "win32" && setup.srtInstall?.deps === undefined) {
+            // srt sandboxes with Seatbelt (macOS) and bubblewrap (Linux); there is no Windows
+            // build. Sandboxed commands on Windows run in Docker Desktop or Podman instead.
+            throw new PsycheError(
+              "unavailable",
+              "The lightweight sandbox (srt) runs on macOS and Linux only; on Windows use Docker Desktop or Podman",
+              { details: { reason: "unsupported_platform" } },
+            );
+          }
           log("info", "sandbox.srt.install.start", { package: SRT_PACKAGE, version: SRT_VERSION });
           let result: Awaited<ReturnType<typeof installSrt>>;
           try {

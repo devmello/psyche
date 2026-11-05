@@ -1,6 +1,6 @@
 import { realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
-import { posix } from "node:path";
+import { posix, win32 } from "node:path";
 import type { SandboxMount, SandboxScope } from "@psyche/protocol";
 import { fail } from "./errors.ts";
 import { WORKSPACE_PATH } from "./limits.ts";
@@ -90,6 +90,46 @@ const under = (child: string, root: string) =>
   root === "/" ? true : child === root || child.startsWith(`${root}/`);
 
 /**
+ * Host-side path rules for mount sources. POSIX: absolute `/…`. Windows (Docker Desktop and
+ * Podman take `C:\…` sources): a drive-letter path (never UNC or device paths), compared without
+ * case, since NTFS is case-insensitive; the `~/Library` analogue is `%USERPROFILE%\AppData`.
+ */
+interface HostPaths {
+  absolute(p: string): boolean;
+  normalize(p: string): string;
+  under(child: string, root: string): boolean;
+  same(a: string, b: string): boolean;
+  isRoot(p: string): boolean;
+  appData(home: string): string;
+}
+
+const POSIX_PATHS: HostPaths = {
+  absolute: (p) => p.startsWith("/"),
+  normalize: (p) => posix.normalize(p),
+  under,
+  same: (a, b) => a === b,
+  isRoot: (p) => p === "/",
+  appData: (home) => `${home}/Library`,
+};
+
+const WINDOWS_PATHS: HostPaths = {
+  absolute: (p) => /^[A-Za-z]:\\/.test(p),
+  normalize: (p) => win32.normalize(p),
+  under: (child, root) => {
+    const c = child.toLowerCase().replace(/\\+$/, "");
+    const r = root.toLowerCase().replace(/\\+$/, "");
+    return c === r || c.startsWith(`${r}\\`);
+  },
+  same: (a, b) => a.toLowerCase() === b.toLowerCase(),
+  isRoot: (p) => /^[A-Za-z]:\\?$/.test(p),
+  appData: (home) => win32.join(home, "AppData"),
+};
+
+export function hostPathsFor(platform: NodeJS.Platform = process.platform): HostPaths {
+  return platform === "win32" ? WINDOWS_PATHS : POSIX_PATHS;
+}
+
+/**
  * Bind-mount sources and targets (security §5.1 "mount sources are validated … after path
  * resolution"; §13's never-shared roots). The caller (the coding helper) checks the owner's
  * folder grant; this refuses what no grant can make safe: a source that is not its own real
@@ -100,21 +140,26 @@ const under = (child: string, root: string) =>
 export async function validateMounts(
   mounts: unknown,
   protectedRoots: readonly string[] = [],
+  platform: NodeJS.Platform = process.platform,
 ): Promise<SandboxMount[]> {
   if (mounts === undefined) return [];
   if (!Array.isArray(mounts) || mounts.length > 8) {
     fail("invalid_params", "mounts must be an array of at most 8 entries");
   }
+  const host = hostPathsFor(platform);
   const home = homedir();
-  const never = [`${home}/Library`, ...protectedRoots].map((p) => posix.normalize(p));
+  const never = [host.appData(home), ...protectedRoots].map((p) => host.normalize(p));
   const out: SandboxMount[] = [];
   for (const m of mounts as SandboxMount[]) {
     const { source, target, readOnly } = m ?? ({} as SandboxMount);
     if (typeof source !== "string" || typeof target !== "string" || typeof readOnly !== "boolean") {
       fail("invalid_params", "a mount is {source, target, readOnly}");
     }
-    for (const v of [source, target]) {
-      if (!v.startsWith("/") || v.includes("\0") || v.includes(",") || v.includes("=")) {
+    for (const [v, absolute] of [
+      [source, host.absolute(source)],
+      [target, target.startsWith("/")],
+    ] as const) {
+      if (!absolute || v.includes("\0") || v.includes(",") || v.includes("=")) {
         fail("forbidden", `mount path ${JSON.stringify(v)} is not allowed`);
       }
     }
@@ -125,11 +170,13 @@ export async function validateMounts(
     } catch {
       return fail("not_found", `mount source ${source} does not exist`);
     }
-    if (real !== source) fail("forbidden", `mount source ${source} goes through a symlink`);
+    if (!host.same(real, source)) {
+      fail("forbidden", `mount source ${source} goes through a symlink`);
+    }
     if (
-      source === "/" ||
-      under(home, source) ||
-      never.some((r) => under(source, r) || under(r, source))
+      host.isRoot(source) ||
+      host.under(home, source) ||
+      never.some((r) => host.under(source, r) || host.under(r, source))
     ) {
       fail("forbidden", `${source} is never mounted into a sandbox`);
     }

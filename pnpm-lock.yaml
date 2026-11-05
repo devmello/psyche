@@ -419,6 +419,10 @@ importers:
       '@types/ws':
         specifier: 8.18.2
         version: 8.18.2
+    optionalDependencies:
+      '@napi-rs/canvas':
+        specifier: 1.0.11
+        version: 1.0.11
 
   apps/node:
     dependencies:

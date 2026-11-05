@@ -152,7 +152,11 @@ export const MIN_RSA_PRESENCE_BITS = 2048;
 
 export function parsePresenceKey(b64url: string, declared?: unknown): ParsedPresenceKey | null {
   if (!/^[A-Za-z0-9_-]+$/.test(b64url)) return null;
-  if (declared !== undefined && declared !== "p256-ecdsa-sha256" && declared !== "rsa-2048-pkcs1-sha256") {
+  if (
+    declared !== undefined &&
+    declared !== "p256-ecdsa-sha256" &&
+    declared !== "rsa-2048-pkcs1-sha256"
+  ) {
     return null;
   }
   const raw = Buffer.from(b64url, "base64url");

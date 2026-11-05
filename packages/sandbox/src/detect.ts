@@ -1,13 +1,16 @@
 import { constants } from "node:fs";
 import { access } from "node:fs/promises";
 import { homedir } from "node:os";
-import { delimiter, join } from "node:path";
+import { delimiter, isAbsolute, join } from "node:path";
 import { CONTAINER_BACKENDS, type ContainerBackendKind, DEFAULT_CLI } from "./backends.ts";
 import { type CliDriver, nodeCliDriver, runCli } from "./cli.ts";
 
 /**
  * Backend detection. Preference order (ADR-008): Apple `container` on macOS 26+ on Apple
- * silicon, then Docker (Docker Desktop, Colima, OrbStack or Linux), then Podman. An explicit
+ * silicon, then Docker (Docker Desktop, Colima, OrbStack or Linux), then Podman. On Windows:
+ * Docker Desktop (WSL 2 backend; the CLI reaches the engine over the named pipe
+ * `//./pipe/docker_engine`, or `DOCKER_HOST`) in Linux-containers mode, then Podman (a
+ * `podman machine` on WSL 2). An explicit
  * override (option or `PSYCHE_SANDBOX_BACKEND`) restricts detection to that one backend. An
  * empty result means no sandbox at all: callers report an error, never a host-shell fallback.
  */
@@ -60,6 +63,25 @@ function majorVersion(version: string | null): number {
   return Number.isFinite(major) ? major : 0;
 }
 
+/**
+ * Docker on Windows also answers in Windows-containers mode, which cannot run the sandbox's Linux
+ * images: the probe asks for the engine's OS too and only `linux/<version>` counts.
+ */
+const WINDOWS_DOCKER_PROBE = ["version", "--format", "{{.Server.Os}}/{{.Server.Version}}"] as const;
+
+async function probeVersion(
+  deps: DetectDeps,
+  kind: ContainerBackendKind,
+  cli: string,
+): Promise<string | null> {
+  if (kind === "docker" && deps.platform === "win32") {
+    const out = await deps.probe(cli, WINDOWS_DOCKER_PROBE);
+    const m = out === null ? null : /^linux\/(.+)$/i.exec(out.trim());
+    return m?.[1] ?? null;
+  }
+  return deps.probe(cli, PROBES[kind]);
+}
+
 /** Probe arguments per backend: each must fail when the daemon / service cannot be used. */
 const PROBES: Record<ContainerBackendKind, readonly string[]> = {
   // The CLI alone; `ensureSandbox` starts the system service when it is stopped.
@@ -85,7 +107,7 @@ export async function detectBackends(
     }
     const cli = await deps.which(options.cliPaths?.[kind] ?? DEFAULT_CLI[kind]);
     if (cli === null) continue;
-    const version = await deps.probe(cli, PROBES[kind]);
+    const version = await probeVersion(deps, kind, cli);
     if (version === null) continue;
     found.push({ kind, cli, version });
   }
@@ -117,7 +139,7 @@ export async function inspectBackends(
         deps.arch === "arm64" &&
         majorVersion(await deps.macosVersion()) >= 26);
     const cli = supported ? await deps.which(options.cliPaths?.[kind] ?? DEFAULT_CLI[kind]) : null;
-    const version = cli === null ? null : await deps.probe(cli, PROBES[kind]);
+    const version = cli === null ? null : await probeVersion(deps, kind, cli);
     out.push({
       kind,
       supported,
@@ -131,10 +153,23 @@ export async function inspectBackends(
 
 /**
  * Directories searched after `PATH`. A Gateway started by launchd gets a minimal PATH, so the
- * usual install locations of the three CLIs are listed explicitly.
+ * usual install locations of the three CLIs are listed explicitly. On Windows: Docker Desktop's
+ * `resources\bin`, and Podman's installer and per-user locations.
  */
-function extraPathDirs(): string[] {
+export function extraPathDirs(
+  platform: NodeJS.Platform = process.platform,
+  env: NodeJS.ProcessEnv = process.env,
+): string[] {
   const home = homedir();
+  if (platform === "win32") {
+    const programFiles = env.ProgramFiles ?? "C:\\Program Files";
+    const local = env.LOCALAPPDATA ?? join(home, "AppData", "Local");
+    return [
+      join(programFiles, "Docker", "Docker", "resources", "bin"),
+      join(programFiles, "RedHat", "Podman"),
+      join(local, "Programs", "Podman"),
+    ];
+  }
   return [
     "/opt/homebrew/bin",
     "/usr/local/bin",
@@ -161,12 +196,20 @@ export function systemDetectDeps(driver: CliDriver = nodeCliDriver): DetectDeps 
     arch: process.arch,
     env: process.env,
     async which(command) {
-      if (command.includes("/")) return (await isExecutable(command)) ? command : null;
+      const win = process.platform === "win32";
+      if (command.includes("/") || (win && isAbsolute(command))) {
+        return (await isExecutable(command)) ? command : null;
+      }
+      // Windows: only `<name>.exe`. The CLIs are spawned without a shell, which cannot run a
+      // `.cmd` / `.bat` shim, and a bare name with no extension is not executable there.
+      const names = win && !/\.exe$/i.test(command) ? [`${command}.exe`] : [command];
       const dirs = [...(process.env.PATH ?? "").split(delimiter), ...extraPathDirs()];
       for (const dir of dirs) {
         if (dir === "") continue;
-        const candidate = join(dir, command);
-        if (await isExecutable(candidate)) return candidate;
+        for (const name of names) {
+          const candidate = join(dir, name);
+          if (await isExecutable(candidate)) return candidate;
+        }
       }
       return null;
     },
