@@ -9,7 +9,8 @@ export interface CapabilityNeed {
 
 const MAIL: CapabilityNeed = { anyOf: ["apple:mail", "google", "microsoft", "imap"] };
 const CALENDAR: CapabilityNeed = { anyOf: ["apple:calendar", "google", "microsoft"] };
-const REMINDERS: CapabilityNeed = { anyOf: ["apple:reminders"] };
+// `microsoft:todo`: a Microsoft 365 connection that holds the To Do scope (`connectedTypesOf`).
+const REMINDERS: CapabilityNeed = { anyOf: ["apple:reminders", "microsoft:todo"] };
 const NOTES: CapabilityNeed = { anyOf: ["apple:notes", "obsidian"] };
 
 export const CAPABILITY_IDS = [

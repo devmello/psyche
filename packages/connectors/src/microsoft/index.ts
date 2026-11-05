@@ -4,3 +4,5 @@ export { GraphCalendar, graphEventBody, graphEventView } from "./calendar.ts";
 export * from "./connector.ts";
 export * from "./files.ts";
 export * from "./mail.ts";
+export * from "./todo.ts";
+export * from "./todo-tools.ts";

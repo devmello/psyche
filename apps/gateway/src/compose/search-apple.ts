@@ -11,10 +11,21 @@ import type { GraphStore } from "@psyche/memory";
 import type { AppleSourceDeps, HelperCall, ToolCall } from "@psyche/search";
 import { graphDocId } from "@psyche/search";
 import { helperFailure, type MessagesHelper, type SourceDeps } from "./people-sources.ts";
+import {
+  cloudCalendarCall,
+  cloudMailCall,
+  type Exec,
+  mergedRemindersCall,
+} from "./search-cloud.ts";
 
 /**
  * The seams the Apple search sources read through: the Apple connector's tools (one record per
  * app) and the Mac helper's Messages read. Nothing here opens Mail, Messages or chat.db itself.
+ *
+ * Reminders read every Reminders backend: the `apple:reminders` connection (Apple Reminders on a
+ * Mac, Outlook tasks through the Windows helper) and Microsoft To Do on a Microsoft 365 connection.
+ * On Windows, Mail and Calendar fall back to the Microsoft 365 and Google connections when no
+ * Outlook (Windows helper) connection is there (`search-cloud.ts`).
  */
 
 type App = "mail" | "notes" | "calendar" | "reminders";
@@ -42,11 +53,22 @@ export function appleSearchSeams(o: {
   contacts?: () => MessagesHelper | undefined;
   /** The people graph, when memory is on: a contact that is a known person collapses onto them. */
   graph?: () => Pick<GraphStore, "resolveIdentifier" | "getEntity"> | undefined;
+  /** The host's `process.platform` (default the Gateway's own). */
+  platform?: string;
   now: () => number;
 }): AppleSearchSeams {
+  const platform = o.platform ?? process.platform;
   let records: ConnectorRecord[] = [];
   const record = (app: App) =>
     records.find((r) => r.type === `apple:${app}` && r.status === "connected");
+  /** Connected records of these types that offer `tool` (a To Do scope, a read-only mode). */
+  const offering = (types: readonly string[], tool: (r: ConnectorRecord) => string) =>
+    records.filter(
+      (r) =>
+        types.includes(r.type) &&
+        r.status === "connected" &&
+        o.tools.get(toolName(r.id, tool(r))) !== undefined,
+    );
   const trust = new Map<string, TrustContext>();
 
   const helperCall = (client: MessagesHelper): HelperCall => {
@@ -72,10 +94,33 @@ export function appleSearchSeams(o: {
     };
   };
 
+  const exec: Exec = (rec, tool, params, signal) => callFor(rec)(tool, params, signal);
+
   const deps: AppleSourceDeps = {
     call: (app) => {
       const rec = record(app);
-      return rec === undefined ? undefined : callFor(rec);
+      if (app === "reminders") {
+        const backends = [
+          ...(rec === undefined ? [] : [rec]),
+          ...offering(["microsoft"], () => "reminders_list"),
+        ];
+        if (backends.length <= 1)
+          return backends[0] === undefined ? undefined : callFor(backends[0]);
+        return mergedRemindersCall(backends, exec);
+      }
+      if (rec !== undefined) return callFor(rec);
+      if (platform !== "win32") return undefined;
+      if (app === "mail") {
+        const cloud = offering(["microsoft", "google"], (r) =>
+          r.type === "google" ? "gmail_search_threads" : "mail_search_messages",
+        );
+        return cloud.length === 0 ? undefined : cloudMailCall(cloud, exec);
+      }
+      if (app === "calendar") {
+        const cloud = offering(["microsoft", "google"], () => "calendar_list_events");
+        return cloud.length === 0 ? undefined : cloudCalendarCall(cloud, exec);
+      }
+      return undefined;
     },
     helper: () => {
       const client = o.messages();
@@ -90,7 +135,12 @@ export function appleSearchSeams(o: {
       records.flatMap((r) => (r.account !== null && EMAIL.test(r.account) ? [r.account] : [])),
     refreshTrust: async (app, signal) => {
       const rec = record(app);
-      if (rec === undefined) return;
+      // No Apple connection (To Do alone, a cloud calendar): nothing is declared trusted, and
+      // only rows the connector attests as the owner's own (`shared: false`) count as theirs.
+      if (rec === undefined) {
+        trust.set(app, { trusted: new Set(), facts: new Map() });
+        return;
+      }
       const trusted = readTrustedSources(rec.config);
       const facts = new Map<string, SourceFact>();
       if (trusted.size > 0) {
@@ -108,6 +158,7 @@ export function appleSearchSeams(o: {
       const ctx = trust.get(app);
       return ctx !== undefined && ownerContent(app, [row], ctx);
     },
+    platform,
     now: o.now,
   };
   return {
