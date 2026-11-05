@@ -356,7 +356,7 @@ pub fn speech_transcribe_stream(params: Value, inv: &Invocation) -> Result<Value
     let _registration = Registration { registry: &st.registry, handle: handle.clone() };
     let _com = Com::init();
     let p = probe(req.locale.as_deref());
-    let kind = select(req.source, &p.availability, &req.vocabulary, req.preset)?;
+    let kind = select(req.source, &p.availability, req.engine, &req.vocabulary, req.preset)?;
     let (tx, rx) = channel();
     let running = match kind {
         EngineKind::WindowsSpeech => start_winrt(&req, p.availability.language(kind).unwrap_or(&p.requested), &handle, tx)?,
@@ -427,7 +427,7 @@ pub fn speech_status(params: Value) -> Result<Value, CapError> {
     let _com = Com::init();
     let p = probe(locale.as_deref());
     let a = &p.availability;
-    let pick = |source, vocab: &[String], preset| select(source, a, vocab, preset).ok().map(|k| k.as_str());
+    let pick = |source, vocab: &[String], preset| select(source, a, None, vocab, preset).ok().map(|k| k.as_str());
     let st = state();
     let mut sorted_topic = p.topic_languages.clone();
     sorted_topic.sort();
@@ -488,7 +488,7 @@ pub fn speech_transcribe_file(params: Value, inv: &Invocation) -> Result<Value, 
     let audio_ms = file.duration_ms;
     req.check_duration(audio_ms)?;
     let p = probe(req.locale.as_deref());
-    select(SpeechSource::Push, &p.availability, &req.vocabulary, SpeechPreset::Long)?;
+    select(SpeechSource::Push, &p.availability, None, &req.vocabulary, SpeechPreset::Long)?;
     let rec = p.sapi.as_ref().ok_or_else(|| CapError::unavailable("no_speech_engine", "No on-device speech engine supports this locale on this PC"))?;
     let language = p.availability.sapi_language.clone().unwrap_or_else(|| p.requested.clone());
     let chunks = plan(audio_ms, CHUNK_MS, OVERLAP_MS);

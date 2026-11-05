@@ -29,6 +29,7 @@ pub enum ErrorCode {
     PolicyDenied,
     Internal,
     PresenceRequired,
+    RateLimited,
 }
 
 impl ErrorCode {
@@ -47,7 +48,30 @@ impl ErrorCode {
             ErrorCode::PolicyDenied => "policy_denied",
             ErrorCode::Internal => "internal",
             ErrorCode::PresenceRequired => "presence_required",
+            ErrorCode::RateLimited => "rate_limited",
         }
+    }
+
+    /// The code for a wire string (capability crates report codes as strings); unknown → `Internal`.
+    pub fn parse(s: &str) -> ErrorCode {
+        [
+            ErrorCode::NotImplemented,
+            ErrorCode::InvalidParams,
+            ErrorCode::UnknownMethod,
+            ErrorCode::Forbidden,
+            ErrorCode::NotFound,
+            ErrorCode::Conflict,
+            ErrorCode::Timeout,
+            ErrorCode::Cancelled,
+            ErrorCode::Unavailable,
+            ErrorCode::ApprovalRequired,
+            ErrorCode::PolicyDenied,
+            ErrorCode::PresenceRequired,
+            ErrorCode::RateLimited,
+        ]
+        .into_iter()
+        .find(|c| c.as_str() == s)
+        .unwrap_or(ErrorCode::Internal)
     }
 }
 
@@ -70,6 +94,18 @@ impl SideEffect {
             SideEffect::Destructive => "destructive",
             SideEffect::Financial => "financial",
         }
+    }
+
+    pub fn parse(s: &str) -> Option<SideEffect> {
+        [
+            SideEffect::None,
+            SideEffect::Read,
+            SideEffect::Write,
+            SideEffect::Destructive,
+            SideEffect::Financial,
+        ]
+        .into_iter()
+        .find(|e| e.as_str() == s)
     }
 }
 
@@ -94,6 +130,47 @@ impl TargetKind {
             TargetKind::Recipient => "recipient",
             TargetKind::App => "app",
         }
+    }
+
+    pub fn parse(s: &str) -> Option<TargetKind> {
+        [
+            TargetKind::Origin,
+            TargetKind::Path,
+            TargetKind::Account,
+            TargetKind::Command,
+            TargetKind::Recipient,
+            TargetKind::App,
+        ]
+        .into_iter()
+        .find(|k| k.as_str() == s)
+    }
+}
+
+impl ReceiptOutcome {
+    /// `ok` | `failed` | `uncertain` (anything else is `uncertain`).
+    pub fn parse(s: &str) -> ReceiptOutcome {
+        match s {
+            "ok" => ReceiptOutcome::Ok,
+            "failed" => ReceiptOutcome::Failed,
+            _ => ReceiptOutcome::Uncertain,
+        }
+    }
+}
+
+impl CapabilityError {
+    /// From a capability crate's wire `ErrorPayload` (`{code, message, details: {reason, …},
+    /// retryable?}`), so crates need not depend on the core's types.
+    pub fn from_wire(w: &Value) -> CapabilityError {
+        let code = ErrorCode::parse(w["code"].as_str().unwrap_or("internal"));
+        let mut details = w["details"].as_object().cloned().unwrap_or_default();
+        let reason = match details.remove("reason") {
+            Some(Value::String(r)) => r,
+            _ => code.as_str().to_owned(),
+        };
+        let mut e = CapabilityError::new(code, reason, w["message"].as_str().unwrap_or_default());
+        e.details = details;
+        e.retryable = w["retryable"].as_bool() == Some(true);
+        e
     }
 }
 

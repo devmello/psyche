@@ -4,6 +4,7 @@
 
 #![cfg(windows)]
 
+pub mod bridge;
 pub mod groups;
 pub mod node;
 pub mod win;

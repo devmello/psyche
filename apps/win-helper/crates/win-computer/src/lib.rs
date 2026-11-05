@@ -31,6 +31,11 @@
 //! Physical pixels of the virtual desktop, origin at the primary monitor's top-left: snapshot
 //! frames, `x`/`y` targets and screenshot `screen` rects all agree (see `hygiene.rs`).
 
+// In the helper's workspace serde_json has `preserve_order` (the core's choice), which makes
+// `Map`, and with it `CapError`, larger than clippy's 128-byte `Err` threshold. Errors are rare
+// and returned once per call, so they stay unboxed.
+#![allow(clippy::result_large_err)]
+
 pub mod error;
 pub mod hygiene;
 pub mod keychord;

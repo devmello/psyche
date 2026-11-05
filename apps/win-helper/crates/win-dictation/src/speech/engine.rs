@@ -6,14 +6,15 @@
 //!   recognition: the dictation topic is recognized by Microsoft's online service, so it is not
 //!   on-device (status reports `onDevice: false`).
 //! - `sapi`: the SAPI 5.4 in-process desktop recognizer ("Microsoft Speech Recognizer 8.0") with a
-//!   dictation grammar, fed our own 16 kHz mono stream. On-device; serves pushed audio, files and
-//!   the microphone (via WASAPI) when online recognition is off.
+//!   dictation grammar, fed our own 16 kHz mono stream. On-device and the default for every
+//!   source (pushed audio, files, the microphone via WASAPI); `windowsSpeech` only on request.
 
 use super::params::{SpeechPreset, SpeechSource};
 use crate::error::CapError;
 use serde_json::{Value, json};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub enum EngineKind {
     WindowsSpeech,
     Sapi,
@@ -104,25 +105,34 @@ pub fn blockers(a: &Availability) -> Vec<Blocker> {
     out
 }
 
-/// Picks the engine. Microphone: Windows dictation when it can serve the locale, else the
-/// on-device SAPI recognizer. Pushed audio and files: SAPI only (WinRT recognizes only the
-/// microphone). The vocabulary and preset do not change the choice on Windows.
-pub fn select(source: SpeechSource, a: &Availability, _vocabulary: &[String], _preset: SpeechPreset) -> Result<EngineKind, CapError> {
-    if source == SpeechSource::Microphone && a.windows_speech() {
+/// Picks the engine. Audio never leaves the PC unless the caller asks (the mac helper's engines
+/// are all on-device): every source uses the on-device SAPI recognizer by default, and Windows
+/// dictation (`windowsSpeech`, Microsoft's online service) only when `requested` names it, for
+/// the microphone only (WinRT cannot take pushed audio or files). Never a silent switch from one
+/// to the other. The vocabulary and preset do not change the choice on Windows.
+pub fn select(
+    source: SpeechSource,
+    a: &Availability,
+    requested: Option<EngineKind>,
+    _vocabulary: &[String],
+    _preset: SpeechPreset,
+) -> Result<EngineKind, CapError> {
+    let online = requested == Some(EngineKind::WindowsSpeech);
+    if online && source != SpeechSource::Microphone {
+        return Err(CapError::invalid_params("engine \"windowsSpeech\" serves the microphone only", Some("engine")));
+    }
+    if online && a.windows_speech() {
         return Ok(EngineKind::WindowsSpeech);
     }
-    if a.sapi() {
+    if !online && a.sapi() {
         return Ok(EngineKind::Sapi);
     }
-    let found: Vec<Value> = blockers(a)
-        .iter()
-        .filter(|b| source == SpeechSource::Microphone || b.engine == EngineKind::Sapi)
-        .map(Blocker::json)
-        .collect();
-    let message = if source == SpeechSource::Microphone {
-        "No speech engine supports this locale on this PC"
-    } else {
-        "No on-device speech engine supports this locale on this PC (pushed audio and files need the desktop recognizer)"
+    let wanted = if online { EngineKind::WindowsSpeech } else { EngineKind::Sapi };
+    let found: Vec<Value> = blockers(a).iter().filter(|b| b.engine == wanted).map(Blocker::json).collect();
+    let message = match (online, source) {
+        (true, _) => "Windows online dictation cannot serve this locale on this PC",
+        (false, SpeechSource::Microphone) => "No on-device speech engine supports this locale on this PC",
+        (false, _) => "No on-device speech engine supports this locale on this PC (pushed audio and files need the desktop recognizer)",
     };
     let first_uri = found.first().and_then(|b| b["settingsUri"].as_str()).unwrap_or("ms-settings:speech").to_string();
     Err(CapError::unavailable("no_speech_engine", message).with_detail("blockers", found).with_detail("settingsUri", first_uri))
@@ -233,24 +243,44 @@ mod tests {
     fn selection() {
         let both = Availability { windows_speech_language: Some("en-US".into()), online_speech: true, sapi_language: Some("en-US".into()) };
         let v: Vec<String> = vec![];
-        assert_eq!(select(SpeechSource::Microphone, &both, &v, SpeechPreset::Long).unwrap(), EngineKind::WindowsSpeech);
-        assert_eq!(select(SpeechSource::Push, &both, &v, SpeechPreset::Short).unwrap(), EngineKind::Sapi);
+        let mic = SpeechSource::Microphone;
+        let online = Some(EngineKind::WindowsSpeech);
+        // On-device by default, even with online recognition available.
+        assert_eq!(select(mic, &both, None, &v, SpeechPreset::Long).unwrap(), EngineKind::Sapi);
+        assert_eq!(select(mic, &both, Some(EngineKind::Sapi), &v, SpeechPreset::Long).unwrap(), EngineKind::Sapi);
+        // Online only when asked for, and only for the microphone.
+        assert_eq!(select(mic, &both, online, &v, SpeechPreset::Long).unwrap(), EngineKind::WindowsSpeech);
+        let e = select(SpeechSource::Push, &both, online, &v, SpeechPreset::Long).unwrap_err();
+        assert_eq!((e.code, e.details["field"].as_str()), (crate::error::ErrorCode::InvalidParams, Some("engine")));
+        assert_eq!(select(SpeechSource::Push, &both, None, &v, SpeechPreset::Short).unwrap(), EngineKind::Sapi);
         let offline = Availability { online_speech: false, ..both.clone() };
-        assert_eq!(select(SpeechSource::Microphone, &offline, &v, SpeechPreset::Long).unwrap(), EngineKind::Sapi);
+        assert_eq!(select(mic, &offline, None, &v, SpeechPreset::Long).unwrap(), EngineKind::Sapi);
+        // Asked for online while it is off: an error, never a silent switch to SAPI.
+        let e = select(mic, &offline, online, &v, SpeechPreset::Long).unwrap_err();
+        assert_eq!(e.details["blockers"][0]["reason"], "online_speech_disabled");
+        // No SAPI recognizer: the default never falls back to the online service.
+        let no_sapi = Availability { sapi_language: None, ..both.clone() };
+        let e = select(mic, &no_sapi, None, &v, SpeechPreset::Long).unwrap_err();
+        assert_eq!(e.reason, "no_speech_engine");
+        assert_eq!(e.details["blockers"][0]["reason"], "desktop_recognizer_not_installed");
         assert!(EngineKind::Sapi.on_device() && !EngineKind::WindowsSpeech.on_device());
     }
 
     #[test]
     fn no_engine_is_unavailable_with_actionable_blockers() {
         let only_winrt_offline = Availability { windows_speech_language: Some("fr-FR".into()), online_speech: false, sapi_language: None };
-        let e = select(SpeechSource::Microphone, &only_winrt_offline, &[], SpeechPreset::Long).unwrap_err();
+        let e = select(SpeechSource::Microphone, &only_winrt_offline, Some(EngineKind::WindowsSpeech), &[], SpeechPreset::Long).unwrap_err();
         assert_eq!((e.code, e.reason.as_str()), (crate::error::ErrorCode::Unavailable, "no_speech_engine"));
         let reasons: Vec<&str> = e.details["blockers"].as_array().unwrap().iter().map(|b| b["reason"].as_str().unwrap()).collect();
-        assert_eq!(reasons, ["online_speech_disabled", "desktop_recognizer_not_installed"]);
+        assert_eq!(reasons, ["online_speech_disabled"]);
         assert_eq!(e.details["settingsUri"], "ms-settings:privacy-speech");
-        // Push ignores the WinRT blockers: it cannot use that engine at all.
-        let e = select(SpeechSource::Push, &only_winrt_offline, &[], SpeechPreset::Long).unwrap_err();
-        assert_eq!(e.details["blockers"].as_array().unwrap().len(), 1);
+        // The on-device default lists only the SAPI blocker.
+        for source in [SpeechSource::Microphone, SpeechSource::Push] {
+            let e = select(source, &only_winrt_offline, None, &[], SpeechPreset::Long).unwrap_err();
+            let reasons: Vec<&str> = e.details["blockers"].as_array().unwrap().iter().map(|b| b["reason"].as_str().unwrap()).collect();
+            assert_eq!(reasons, ["desktop_recognizer_not_installed"]);
+            assert_eq!(e.details["settingsUri"], "ms-settings:speech");
+        }
         let nothing = Availability::default();
         let reasons: Vec<String> = blockers(&nothing).iter().map(|b| b.reason.to_string()).collect();
         assert_eq!(reasons, ["language_not_installed", "desktop_recognizer_not_installed"]);

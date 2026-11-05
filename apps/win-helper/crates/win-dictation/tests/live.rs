@@ -2,6 +2,9 @@
 //! focus, type, use the clipboard and run speech recognizers). Run with
 //! `cargo test -- --ignored --test-threads=1`.
 
+// CapError with preserve_order Maps (see lib.rs).
+#![allow(clippy::result_large_err)]
+
 use psyche_win_dictation::testing::{self, KeyEvent};
 use psyche_win_dictation::{Invocation, dictation_insert, dictation_target, dictation_watch, speech_audio_push, speech_status, speech_transcribe_file, speech_transcribe_stream};
 use serde_json::{Value, json};

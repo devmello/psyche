@@ -368,6 +368,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "psyche-win-dictation"
+version = "0.1.0"
+dependencies = [
+ "base64",
+ "serde",
+ "serde_json",
+ "unicode-segmentation",
+ "windows",
+ "windows-collections",
+ "windows-core",
+ "windows-future",
+]
+
+[[package]]
 name = "psyche-win-helper"
 version = "0.1.0"
 dependencies = [
@@ -376,6 +390,7 @@ dependencies = [
  "ed25519-dalek",
  "hkdf",
  "psyche-win-computer",
+ "psyche-win-dictation",
  "serde",
  "serde_json",
  "serde_path_to_error",
@@ -584,9 +599,9 @@ checksum = "a2c754d6c33795a1c324727428e5a7dedb5b06195f9890bdbcba760d3e246563"
 
 [[package]]
 name = "unicode-segmentation"
-version = "1.12.0"
+version = "1.13.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f6ccf251212114b54433ec949fd6a7841275f9ada20dddd2f29e9ceea4501493"
+checksum = "c6f5d3c3b1bf09027a88a6bc961fc00497d651009560b5463668dc81b0fa87a8"
 
 [[package]]
 name = "universal-hash"
