@@ -1,6 +1,7 @@
 import type { UiPlatform } from "../../../lib/platform.ts";
 import type { MessageId } from "../index.ts";
 import { windows } from "./windows.ts";
+import { WINDOWS_LOCALES } from "./windows-locales.ts";
 
 /**
  * Platform variants of catalogue messages (`./windows.ts`). macOS is the base wording, so only
@@ -9,14 +10,6 @@ import { windows } from "./windows.ts";
 export const PLATFORM_VARIANTS: Partial<
   Record<UiPlatform, Readonly<Partial<Record<MessageId, string>>>>
 > = { windows };
-
-/**
- * Translations of the Windows variants, by message locale (`{ de: { "web.remote.thisMac": "Dieser
- * PC" } }`). Empty until translators add them; a missing one shows the English variant.
- */
-export const WINDOWS_LOCALES: Readonly<
-  Record<string, Readonly<Partial<Record<MessageId, string>>>>
-> = {};
 
 /** The variant of `id` on `platform`, or undefined when the base message applies. */
 export function platformVariant(platform: UiPlatform, id: MessageId): string | undefined {
