@@ -883,11 +883,7 @@ jobs:
           mkdir -p "$dir"
           gh release download "$prev" --repo "$GITHUB_REPOSITORY" --dir "$dir" --pattern RELEASES --pattern '*-full.nupkg'
           ls -la "$dir"
-          # electron-winstaller's remoteReleases (forge.config.ts): Squirrel's SyncReleases copies
-          # RELEASES and the newest full package from this folder and releasify makes the delta. A
-          # local file:// folder, because a github.com URL makes SyncReleases ask the API for the
-          # latest release instead (which may have no Windows files).
-          echo "PSYCHE_SQUIRREL_REMOTE_RELEASES=file:///$(cygpath -m "$dir")/" >> "$GITHUB_ENV"
+          echo "feed=$(cygpath -w "$dir")" >> "$GITHUB_OUTPUT"
           echo "version=${prev#v}" >> "$GITHUB_OUTPUT"
       - name: Signing certificate (when the secret exists)
         shell: pwsh
@@ -915,8 +911,26 @@ jobs:
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-        # -Smoke starts the bundled Gateway once against /healthz, like --smoke for the DMG.
-        run: ./deploy/windows/build-local.ps1 -Smoke
+          PREVIOUS_FEED: ${{ steps.previous.outputs.feed }}
+        run: |
+          # The delta: electron-winstaller's remoteReleases (PSYCHE_SQUIRREL_REMOTE_RELEASES,
+          # forge.config.ts) has Squirrel's SyncReleases fetch RELEASES and the newest full nupkg,
+          # then releasify diffs against it. SyncReleases reads only http(s) (a file:// or plain path
+          # fails), and a github.com URL makes it ask the API for the latest release, which may have
+          # no Windows files; so the previous release's files are served on loopback for the build.
+          $server = $null
+          if ($env:PREVIOUS_FEED) {
+            $server = Start-Process python -PassThru -WindowStyle Hidden -ArgumentList @(
+              "-m", "http.server", "18765", "--bind", "127.0.0.1", "--directory", $env:PREVIOUS_FEED)
+            Start-Sleep -Seconds 2
+            $env:PSYCHE_SQUIRREL_REMOTE_RELEASES = "http://127.0.0.1:18765/"
+          }
+          try {
+            # -Smoke starts the bundled Gateway once against /healthz, like --smoke for the DMG.
+            ./deploy/windows/build-local.ps1 -Smoke
+          } finally {
+            if ($server) { Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue }
+          }
       - name: Remove the signing certificate
         if: always()
         shell: pwsh

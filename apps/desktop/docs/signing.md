@@ -245,8 +245,9 @@ list keeps macOS files only, so Mac builds released before Windows support keep 
 
 The release workflow (`.github/workflows/release.yml`, job `windows`) builds with
 `deploy/windows/build-local.ps1 -Smoke`. When an earlier release has Windows files it downloads that
-release's `RELEASES` and full nupkg into a local folder and points `PSYCHE_SQUIRREL_REMOTE_RELEASES`
-at it (`file:///…/`: with a github.com URL Squirrel's SyncReleases would ask the API for the latest
-release instead), so Squirrel also makes a delta nupkg; the `release` job then builds the manifest
-with `--win-arch x64 --delta-base <that version>`. `build-local.ps1` copies only this version's
-nupkgs into `distsquirrel-win32-x64`.
+release's `RELEASES` and full nupkg, serves them on loopback for the build and points
+`PSYCHE_SQUIRREL_REMOTE_RELEASES` at `http://127.0.0.1:18765/` (Squirrel's SyncReleases reads only
+http(s), not a `file://` URL or a path, and a github.com URL would make it ask the API for the
+latest release instead), so Squirrel also makes a delta nupkg; the `release` job then builds the
+manifest with `--win-arch x64 --delta-base <that version>`. `build-local.ps1` copies only this
+version's nupkgs into `dist\squirrel-win32-x64\`.
