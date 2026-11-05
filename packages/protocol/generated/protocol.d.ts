@@ -7519,6 +7519,23 @@ export interface Chip {
 
 export type WorkHistoryOrigin = "chat" | "mail" | "you" | "nightly" | "source";
 
+export interface MemoryWorkListsResult {
+    lists: WorkReminderList[];
+}
+
+export interface WorkReminderList {
+    id:   string;
+    name: string;
+    /**
+     * Someone else can add to it (shared, read-only, flagged email): untrusted
+     */
+    shared: boolean;
+    /**
+     * Where it lives, e.g. Microsoft To Do
+     */
+    source?: string;
+}
+
 export interface MemoryWorkSettings {
     anchorsFromFolders: MemoryWorkFolders;
     /**

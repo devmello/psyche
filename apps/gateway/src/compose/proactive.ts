@@ -758,5 +758,13 @@ export function connectorToolLookup(registry: AgentToolRegistry): ToolLookup {
         .find((s) => s.name.startsWith("mcp__") && s.name.endsWith(suffix));
       return match === undefined ? undefined : registry.get(match.name);
     },
+    names(name) {
+      if (registry.get(name) !== undefined) return [name];
+      const suffix = `__${name}`;
+      return registry
+        .list()
+        .filter((s) => s.name.startsWith("mcp__") && s.name.endsWith(suffix))
+        .map((s) => s.name);
+    },
   };
 }
