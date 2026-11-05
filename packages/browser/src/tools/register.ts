@@ -161,9 +161,8 @@ const Ref = Type.String({
   description: "Element ref from the latest snapshot",
 });
 const Url = Type.String({ minLength: 1, maxLength: 8192 });
-const STRICT = { additionalProperties: false } as const;
-const Point = Type.Object({ x: Type.Number(), y: Type.Number() }, STRICT);
-const Target = Type.Union([Type.Object({ ref: Ref }, STRICT), Point]);
+const Point = Type.Object({ x: Type.Number(), y: Type.Number() });
+const Target = Type.Union([Type.Object({ ref: Ref }), Point]);
 
 interface Def<S extends TSchema> {
   name: string;
@@ -177,15 +176,8 @@ interface Def<S extends TSchema> {
   run: (p: Static<S>, call: { callId: string; signal: AbortSignal }) => Promise<unknown>;
 }
 
-/**
- * Every browser tool takes exactly the keys it declares. An extra key is an error, not something
- * a guard and the tool could read differently (`{ ref: "a", target: { ref: "b" } }`).
- */
 function def<S extends TSchema>(d: Def<S>): Def<S> {
-  const schema = d.schema as { type?: string; additionalProperties?: unknown };
-  return schema.type === "object" && schema.additionalProperties === undefined
-    ? { ...d, schema: { ...d.schema, additionalProperties: false } as S }
-    : d;
+  return d;
 }
 
 function originTarget(url: string): ToolCallDescription {
