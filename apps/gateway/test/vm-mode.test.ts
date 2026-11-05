@@ -235,7 +235,7 @@ async function approveAll(owner: TestClient, until: () => boolean, ms = 15_000) 
 }
 
 // The sandbox Mac (Virtualization.framework guests, their relay socket) is macOS only.
-describe.skipIf(process.platform === "win32")("VM mode, Gateway side (L1–L5)", () => {
+describe("VM mode, Gateway side (L1–L5)", () => {
   it("runs a Task in the sandbox Mac end to end against the fake helper", async () => {
     const { c, owner, ran, guestNode, vm } = await stack(true);
     await owner.call("settings.set", { key: VM_SETTING_KEYS.enabled, value: true }, ik());

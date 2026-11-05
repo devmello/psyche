@@ -61,7 +61,11 @@ describe.skipIf(process.platform !== "win32")("the node pipe on Windows", () => 
     try {
       t = await startTestGateway({ home });
       expect(t.gateway.config.nodeSocketPath).toBe(path);
-      expect(t.gateway.config.guestSocketPath).toBeNull();
+      // The sandbox PC's relay target, recorded for the service in run/guest-socket.
+      expect(t.gateway.config.guestSocketPath).toMatch(/^\\\\\.\\pipe\\psyche-guest-[0-9a-f]{16}$/);
+      expect(readFileSync(join(home, "run", "guest-socket"), "utf8").trim()).toBe(
+        t.gateway.config.guestSocketPath,
+      );
       expect(readFileSync(join(home, "run", "node-socket"), "utf8").trim()).toBe(path);
       // A second Gateway on the same home finds the pipe taken.
       await expect(startTestGateway({ home })).rejects.toThrow(/already listening/);

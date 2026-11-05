@@ -128,10 +128,18 @@ describe.skipIf(unix)("on Windows", () => {
     expect(resolveNodeSocketPath("C:\\a", undefined)).not.toBe(
       resolveNodeSocketPath("C:\\b", undefined),
     );
-    // An explicit endpoint must be a pipe; there is no guest socket (VM guests are macOS only).
+    // An explicit endpoint must be a pipe; the guest endpoint is a pipe named by the home.
     expect(() => resolveNodeSocketPath("C:\\a", "C:\\a\\run\\node.sock")).toThrow(/named pipe/);
     expect(resolveNodeSocketPath("C:\\a", "\\\\.\\pipe\\mine")).toBe("\\\\.\\pipe\\mine");
-    expect(resolveGuestSocketPath(resolveNodeSocketPath("C:\\a", undefined), undefined)).toBeNull();
+    const node = resolveNodeSocketPath("C:\\a", undefined);
+    expect(resolveGuestSocketPath(node, undefined, "win32")).toBeNull();
+    expect(resolveGuestSocketPath(node, undefined, "win32", "C:\\a")).toMatch(
+      /^\\\\\.\\pipe\\psyche-guest-[0-9a-f]{16}$/,
+    );
+    expect(resolveGuestSocketPath(node, "\\\\.\\pipe\\g", "win32", "C:\\a")).toBe("\\\\.\\pipe\\g");
+    expect(() => resolveGuestSocketPath(node, "C:\\g.sock", "win32", "C:\\a")).toThrow(
+      /named pipe/,
+    );
   });
 
   it("a bridge pipe binds and the pointer names it for the desktop", async () => {
