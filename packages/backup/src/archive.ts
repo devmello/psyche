@@ -42,7 +42,12 @@ export const BACKUP_ENTRIES = [
   "audit",
 ] as const;
 /** Never in a backup: kept recordings of the owner's demonstrations (teach by showing). */
-export const BACKUP_EXCLUDED = ["state/teach"] as const;
+export const BACKUP_EXCLUDED = [
+  "state/teach",
+  "state/channels/held.json",
+  // Which build last booted here: a fact about this folder's history, not part of the data.
+  "state/last-boot.json",
+] as const;
 export const MANIFEST = "psyche-backup.json";
 const FORMAT = "psyche-backup";
 
@@ -434,6 +439,12 @@ function tighten(path: string): void {
 export const RESTORE_MARKER = join("security", "restored.json");
 
 function writeRestoreMarker(home: string, restoredAt: string, backupCreatedAt: string): void {
+  // Chat messages held across an update belong to the Gateway that held them; a restored
+  // backup must not bring old ones back to be answered.
+  rmSync(join(home, "state", "channels", "held.json"), { force: true });
+  // The restored data has no boot of this install behind it: the Gateway must not judge it by
+  // the last-boot note of the data it replaced.
+  rmSync(join(home, "state", "last-boot.json"), { force: true });
   const dir = join(home, "security");
   mkdirSync(dir, { recursive: true, mode: 0o700 });
   makePrivate(dir, 0o700);

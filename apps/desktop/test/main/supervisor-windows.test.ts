@@ -513,6 +513,216 @@ describe("TaskSchedulerSupervisor", () => {
     expect(existsSync(cfg)).toBe(false);
   });
 
+  it("passes the build in run\\gateway-service.json, so a new build restarts the task", async () => {
+    const b = bundle("build-cfg");
+    const f = scheduler();
+    let build = "build-old";
+    const keyFile = join(b.home, "secrets", "vault.key");
+    const make = () =>
+      supervisor(b, f, { vaultKeyFile: async () => keyFile, expectedBuild: build });
+    await make().ensureRunning();
+    const cfg = gatewayServiceConfigFile(b.home);
+    expect(JSON.parse(readFileSync(cfg, "utf8"))).toEqual({
+      vaultKeyFile: keyFile,
+      build: "build-old",
+    });
+    expect(privacyOf(cfg)).toBe(OWNER_FILE);
+    // Not on the task's command line: the definition is the same for every build.
+    expect(f.registered()).not.toContain("build-old");
+
+    // The app updated in place: same task, new build. The service host must start the Gateway
+    // again to hand it the new PSYCHE_BUILD.
+    build = "build-new";
+    f.calls.length = 0;
+    await make().ensureRunning();
+    expect(verbs(f.calls)).toEqual(["/Query", "/End", "/Run", "/Query"]);
+    expect(JSON.parse(readFileSync(cfg, "utf8"))).toMatchObject({ build: "build-new" });
+
+    // A bundle without build info passes none.
+    await supervisor(b, f, { vaultKeyFile: async () => keyFile }).ensureRunning();
+    expect(JSON.parse(readFileSync(cfg, "utf8"))).toEqual({ vaultKeyFile: keyFile });
+    expect(gatewayServiceConfig(undefined, "b1")).toBe(`${JSON.stringify({ build: "b1" })}\n`);
+    expect(gatewayServiceConfig(undefined, undefined)).toBeUndefined();
+  });
+
+  it("restarts the task once when the running Gateway reports another build", async () => {
+    const b = bundle("build-check");
+    const f = scheduler();
+    const order: string[] = [];
+    const sup = supervisor(b, f, {
+      expectedBuild: "build-new",
+      prepareRestart: async () => {
+        order.push(`prepare after ${verbs(f.calls).join(" ")}`);
+      },
+    });
+    await sup.ensureRunning();
+    f.calls.length = 0;
+    expect(await sup.checkServerBuild({ build: "build-new" })).toBe("match");
+    expect(f.calls).toEqual([]);
+    // The config on disk is stale (an older app wrote it); the restart writes this build's.
+    const cfg = gatewayServiceConfigFile(b.home);
+    writeFileSync(cfg, `${JSON.stringify({ build: "build-old" })}\n`);
+    writeFileSync(join(b.home, "run", GATEWAY_PID_FILE), "4200");
+    // An old Gateway left running across the update.
+    expect(await sup.checkServerBuild({ build: "build-old" })).toBe("restarted");
+    // Asked to settle after checking the task is this copy's, before it is ended.
+    expect(order).toEqual(["prepare after /Query"]);
+    const v = verbs(f.calls);
+    expect(v.indexOf("/End")).toBeGreaterThan(-1);
+    expect(v.indexOf("/Run")).toBeGreaterThan(v.indexOf("/End"));
+    // Same definition: ended and run again, not registered again.
+    expect(v).not.toContain("/Create");
+    expect(f.calls.map((c) => c.join(" "))).toContain("taskkill.exe /PID 4200 /T /F");
+    expect(JSON.parse(readFileSync(cfg, "utf8"))).toEqual({ build: "build-new" });
+    expect(sup.getState()).toMatchObject({ kind: "running", mode: "taskscheduler" });
+
+    // Still another build after the restart: the task runs somebody else's Gateway. Say so, and
+    // do not restart again.
+    f.calls.length = 0;
+    expect(await sup.checkServerBuild(undefined)).toBe("mismatch");
+    expect(verbs(f.calls)).not.toContain("/Run");
+    expect(sup.getState()).toMatchObject({
+      kind: "stopped",
+      mode: "taskscheduler",
+      reason: expect.stringContaining("Another copy of Psyche runs the Gateway"),
+    });
+  });
+
+  it("shares one task restart between concurrent handshakes, and re-registers a stale task", async () => {
+    const b = bundle("build-concurrent");
+    const f = scheduler();
+    const sup = supervisor(b, f, { expectedBuild: "build-new" });
+    await sup.ensureRunning();
+    // The definition this home's copy wrote differs from what this build wants.
+    const stale = decodeTaskXml(readFileSync(gatewayTaskFile(b.home))).replace(
+      "--max-semi-space-size=4",
+      "--max-semi-space-size=8",
+    );
+    writeFileSync(gatewayTaskFile(b.home), encodeTaskXml(stale));
+    f.calls.length = 0;
+    const both = await Promise.all([
+      sup.checkServerBuild({ build: "old" }),
+      sup.checkServerBuild({ build: "old" }),
+    ]);
+    expect(both).toEqual(["restarted", "restarted"]);
+    expect(verbs(f.calls).filter((v) => v === "/Run")).toHaveLength(1);
+    expect(verbs(f.calls)).toContain("/Create");
+    expect(f.registered()).not.toContain("--max-semi-space-size=8");
+    expect(await sup.checkServerBuild({ build: "build-new" })).toBe("match");
+    expect(await sup.checkServerBuild({ build: "old-again" })).toBe("restarted");
+  });
+
+  it("leaves another copy's task, a Gateway it attached to, and every other mode alone", async () => {
+    const other = bundle("build-other-copy");
+    const mine = bundle("build-this-copy");
+    const otherXml = fillTaskTemplate(bundleTemplate(), {
+      psychedDir: other.psyched,
+      psycheHome: mine.home,
+      userId: "HOST\\ada",
+      taskName: TASK,
+    });
+    // The owner kept the other copy's task.
+    const f = scheduler({ registered: otherXml });
+    f.start();
+    const declined = supervisor(mine, f, {
+      expectedBuild: "build-new",
+      confirmTakeover: async () => false,
+    });
+    await declined.ensureRunning();
+    f.calls.length = 0;
+    expect(await declined.checkServerBuild({ build: "theirs" })).toBe("skipped");
+    expect(f.calls).toEqual([]);
+
+    // A Gateway this copy did not start answers on the port.
+    const g = scheduler();
+    g.start();
+    const attached = supervisor(bundle("build-attached"), g, { expectedBuild: "build-new" });
+    await attached.ensureRunning();
+    g.calls.length = 0;
+    expect(await attached.checkServerBuild({ build: "someone-elses" })).toBe("skipped");
+    expect(g.calls).toEqual([]);
+
+    // Another copy registered its own task since this one started: not this copy's to restart.
+    const h = scheduler();
+    const r = bundle("build-replaced");
+    const replaced = supervisor(r, h, { expectedBuild: "build-new" });
+    await replaced.ensureRunning();
+    const theirs = fillTaskTemplate(bundleTemplate(), {
+      psychedDir: other.psyched,
+      psycheHome: r.home,
+      userId: "HOST\\ada",
+      taskName: TASK,
+    });
+    writeFileSync(gatewayTaskFile(r.home), encodeTaskXml(theirs));
+    await h.run("C:\\Windows\\System32\\schtasks.exe", [
+      ...schtasks.create(TASK, gatewayTaskFile(r.home)),
+    ]);
+    h.calls.length = 0;
+    expect(await replaced.checkServerBuild({ build: "theirs" })).toBe("skipped");
+    expect(verbs(h.calls)).toEqual(["/Query"]);
+
+    const dev = new TaskSchedulerSupervisor({
+      mode: "dev",
+      psycheHome: join(dir, "build-dev"),
+      healthUrl: "http://127.0.0.1:1/healthz",
+      expectedBuild: "build-new",
+      run: f.run,
+      fetch: f.fetch,
+    });
+    f.calls.length = 0;
+    expect(await dev.checkServerBuild({ build: "x" })).toBe("skipped");
+    expect(f.calls).toEqual([]);
+  });
+
+  it("shows the Gateway's failed-update note (and an unfinished restore), and Retry forgets it", async () => {
+    const b = bundle("build-failed");
+    const f = scheduler({ neverHealthy: true });
+    mkdirSync(join(b.home, "run"), { recursive: true });
+    const note = join(b.home, "run", "update-failed.json");
+    writeFileSync(
+      note,
+      JSON.stringify({
+        build: "build-new",
+        key: "restore-interrupted",
+        message: "Psyche was putting your data back and could not finish",
+      }),
+    );
+    const sup = supervisor(b, f, { expectedBuild: "build-new", healthTimeoutMs: 0 });
+    await sup.ensureRunning();
+    expect(sup.getState()).toEqual({
+      kind: "stopped",
+      mode: "taskscheduler",
+      reason: "Psyche was putting your data back and could not finish",
+      logs: join(b.home, "logs"),
+      restoreInterrupted: true,
+    });
+    writeFileSync(join(b.home, "run", "restore-in-progress.json"), "{}");
+    expect(sup.retryAfterUpdateFailure()).toBe(true);
+    expect(existsSync(note)).toBe(false);
+    expect(existsSync(join(b.home, "run", "restore-in-progress.json"))).toBe(true);
+    sup.retryAfterUpdateFailure({ restoredByHand: true });
+    expect(existsSync(join(b.home, "run", "restore-in-progress.json"))).toBe(false);
+  });
+
+  it("keeps waiting while the Gateway says it is migrating the data", async () => {
+    const b = bundle("build-progress");
+    const f = scheduler({ neverHealthy: true });
+    mkdirSync(join(b.home, "run"), { recursive: true });
+    const progress = join(b.home, "run", "update-progress.json");
+    writeFileSync(progress, JSON.stringify({ phase: "migrating", at: new Date().toISOString() }));
+    let sleeps = 0;
+    const sup = supervisor(b, f, {
+      healthTimeoutMs: 0,
+      sleep: async () => {
+        sleeps += 1;
+        if (sleeps === 4) rmSync(progress);
+      },
+    });
+    await sup.ensureRunning();
+    expect(sleeps).toBeGreaterThanOrEqual(4);
+    expect(sup.getState()).toMatchObject({ kind: "stopped", mode: "taskscheduler" });
+  });
+
   it("remote mode starts nothing and never touches the task", async () => {
     const f = scheduler();
     const sup = new TaskSchedulerSupervisor({

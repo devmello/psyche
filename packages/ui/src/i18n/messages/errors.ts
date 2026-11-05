@@ -41,4 +41,7 @@ export const errors = {
   "errors.presence_required": "Confirm it's you on a passkey or the Mac helper first.",
   "errors.offline": "Psyche isn't reachable.",
   "errors.unknown": "Something went wrong.",
+  // A more specific sentence for a code, chosen by the Gateway's `details.reason` (describeError).
+  "errors.reason.updating":
+    "Psyche is about to restart to install an update. Try again in a moment.",
 } as const;

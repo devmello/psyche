@@ -1,8 +1,8 @@
-import { existsSync } from "node:fs";
+import { existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { listBackups } from "@psyche/backup";
-import type { CommandSpec } from "../command.ts";
-import { readConfig, validateConfig } from "../config-file.ts";
+import { bool, type CommandSpec } from "../command.ts";
+import { readConfig, unknownConfigKeys, validateConfig } from "../config-file.ts";
 import type { Check } from "../doctor.ts";
 import { toReport } from "../errors.ts";
 import {
@@ -12,6 +12,7 @@ import {
   planMigrations,
 } from "../migrate.ts";
 import { statusLine } from "../output.ts";
+import { checkRestoredByHand, gatewayLockHeld } from "../restore-check.ts";
 import { CLI_VERSION } from "../version.ts";
 
 const DAY = 86_400_000;
@@ -27,8 +28,59 @@ export const migrateCommands: CommandSpec[] = [
         type: "boolean",
         description: "Only check (the default; migrations apply at Gateway start)",
       },
+      "restored-by-hand": {
+        type: "boolean",
+        description:
+          "With --retry, after a restore that could not be finished and that you did yourself: forget it",
+      },
+      retry: {
+        type: "boolean",
+        description:
+          "After a failed update was undone: forget the failure so the next Gateway start tries the update again",
+      },
     },
-    async run(ctx) {
+    async run(ctx, { opts }) {
+      if (bool(opts, "retry")) {
+        if (bool(opts, "restored-by-hand")) {
+          // Forgetting an unfinished restore lets the Gateway start, on a new empty database if
+          // the old one is not there. Not while a Gateway holds the folder, and not unless
+          // everything the restore was putting back is in place.
+          if (gatewayLockHeld(ctx.home) || (await ctx.probe().catch(() => null))?.reachable) {
+            return {
+              data: { retry: true, refused: "gateway_running" },
+              human:
+                "A Psyche Gateway is running on this data folder. Quit Psyche first, then run this again.",
+              exitCode: 1,
+            };
+          }
+          const check = checkRestoredByHand(ctx.home);
+          if (!check.ok) {
+            return {
+              data: { retry: true, refused: check.reason, missing: check.missing },
+              human:
+                check.reason === "missing"
+                  ? `Not all of your data is back yet. Missing: ${check.missing.slice(0, 6).join(", ")}. Put it back from backups/pre-update, then run this again.`
+                  : "There is no unfinished restore to forget, so nothing was changed.",
+              exitCode: 1,
+            };
+          }
+        }
+        // The Gateway refuses to start the same build on the same data after a failed update
+        // (run/update-failed.json). This is the owner's "try again".
+        const note = join(ctx.home, "run", "update-failed.json");
+        const had = existsSync(note);
+        rmSync(note, { force: true });
+        // After a restore the Gateway could not finish, and only if the owner says they did it.
+        const marker = join(ctx.home, "run", "restore-in-progress.json");
+        const hadMarker = bool(opts, "restored-by-hand") && existsSync(marker);
+        if (bool(opts, "restored-by-hand")) rmSync(marker, { force: true });
+        return {
+          data: { retry: true, cleared: had, ...(hadMarker ? { restoredByHand: true } : {}) },
+          human: had
+            ? "Cleared the failed-update note. Start Psyche again to retry the update."
+            : "There was no failed update to retry.",
+        };
+      }
       const checks: Check[] = [];
       const dbPath = ctx.env.PSYCHE_DB ?? join(ctx.home, "state", "psyche.sqlite");
       const known = knownMigrations();
@@ -83,8 +135,11 @@ export const migrateCommands: CommandSpec[] = [
       }
 
       let configProblems: string[] = [];
+      let configWarnings: string[] = [];
       try {
-        configProblems = validateConfig(readConfig(ctx.home).config);
+        const { config } = readConfig(ctx.home);
+        configProblems = validateConfig(config);
+        configWarnings = unknownConfigKeys(config);
       } catch (err) {
         configProblems = [toReport(err).message];
       }
@@ -96,7 +151,13 @@ export const migrateCommands: CommandSpec[] = [
               message: `config.json: ${configProblems.join("; ")}`,
               hint: "Fix it with `psyche config set`",
             }
-          : { id: "config", status: "ok", message: "config.json is valid for this version" },
+          : configWarnings.length
+            ? {
+                id: "config",
+                status: "warn",
+                message: `config.json has keys this version does not know (${configWarnings.join(", ")}); they are kept and ignored`,
+              }
+            : { id: "config", status: "ok", message: "config.json is valid for this version" },
       );
 
       const latest = listBackups(ctx.home)[0] ?? null;
@@ -141,6 +202,7 @@ export const migrateCommands: CommandSpec[] = [
           gatewayVersion: running,
           database: { path: dbPath, exists: existsSync(dbPath), ...(plan ?? {}) },
           configProblems,
+          configWarnings,
           latestBackup: latest,
           checks,
         },

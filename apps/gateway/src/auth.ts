@@ -34,6 +34,7 @@ import {
   type PairingRequest,
   PROTOCOL_VERSION,
   PsycheError,
+  type ServerBuild,
 } from "@psyche/protocol";
 import type { GatewayLimits } from "./context.ts";
 import type { GatewayIdentity } from "./identity.ts";
@@ -206,6 +207,8 @@ export function issueChallenge(
   identity?: GatewayIdentity,
   /** The SPKI pin of the certificate this LAN connection was served with; LAN peers only. */
   lanCertSpki?: string | null,
+  /** Which build is answering (`build-info.ts`); omitted, the challenge names none. */
+  server?: ServerBuild,
 ): { pending: PendingChallenge; challenge: ConnectChallenge } {
   // Clients use the WebSocket; the node socket is for nodes only (S23 review PR-1-A).
   if (peer.transport !== "ws" && params.role !== "node") {
@@ -223,6 +226,7 @@ export function issueChallenge(
       serverOrigin,
       protocolVersion,
       expiresAt: new Date(expiresAtMs).toISOString(),
+      ...(server === undefined ? {} : { server }),
       // Signed over this nonce, the origin and this device's key (design §3.3): it proves the
       // Gateway holds the key a client pinned, and cannot be replayed to another device.
       ...(identity

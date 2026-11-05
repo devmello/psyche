@@ -185,6 +185,7 @@ export const zh: Partial<Catalogue> = {
   "errors.rate_limited": "请求过多，请稍候再试。",
   "errors.timeout": "Psyche 响应超时。",
   "errors.cancelled": "已取消。",
+  "errors.reason.updating": "Psyche 即将重启以安装更新，请稍后再试。",
   "errors.unavailable": "Psyche 目前无法执行该操作。",
   "errors.approval_required": "此操作需要先获得你的批准。",
   "errors.approval_expired": "批准已过期，请重新请求。",

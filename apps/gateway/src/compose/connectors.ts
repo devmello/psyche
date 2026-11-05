@@ -538,7 +538,10 @@ export function composeConnectors(
         log?.log("warn", "connector restore failed", { code: PsycheError.from(err).code }),
       );
       if (interval <= 0) return;
-      timer = setInterval(() => void syncAll(), interval);
+      timer = setInterval(() => {
+        // Not while an app update is being prepared (`gateway.prepareUpdate`).
+        if (gateway?.context.updateGate.accepting() !== false) void syncAll();
+      }, interval);
       timer.unref?.();
     },
     async stop() {

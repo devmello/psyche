@@ -22,6 +22,7 @@ import type { HandlerDef } from "../context.ts";
 import type { PublicRoute, WebhookRoute } from "../http.ts";
 import type { Logger } from "../log.ts";
 import type { Gateway } from "../server.ts";
+import type { BusySources } from "../update-gate.ts";
 import type { ApprovalTokens } from "./approval-tokens.ts";
 import type { OwnerAttention } from "./attention.ts";
 import type { CallContexts } from "./call-context.ts";
@@ -44,6 +45,8 @@ export interface ComposeServices {
     snapshot(): ((dest: string) => Promise<void>) | undefined;
     afterBackup(encrypted: boolean): void;
   };
+  /** What an app update would interrupt, beyond runs and tasks (`gateway.prepareUpdate`). */
+  readonly busy?: Pick<BusySources, "add" | "count">;
   readonly db: PsycheDb;
   readonly clock: Clock;
   /** `$PSYCHE_HOME`. */
