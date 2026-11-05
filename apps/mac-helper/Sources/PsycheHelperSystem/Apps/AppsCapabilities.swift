@@ -9,7 +9,7 @@ import PsycheProtocol
 /// the Automation prompt names Psyche Helper and each target app is asked once (security §12).
 public enum AppsCapabilities {
     public static func make(_ cu: ComputerUse) -> [any CapabilityHandler] {
-        [list(cu), open(), focus(cu), applescript(), jxa(), shortcutRun(), shortcutsList()]
+        [list(cu), open(cu), focus(cu), applescript(cu), jxa(cu), shortcutRun(cu), shortcutsList()]
     }
 
     // MARK: Running apps
@@ -75,7 +75,7 @@ public enum AppsCapabilities {
     static let executableExtensions: Set = ["app", "command", "tool", "sh", "zsh", "bash", "scpt", "scptd", "applescript",
                                             "workflow", "terminal", "shortcut", "pkg", "mpkg", "dmg", "jar", "py", "rb", "pl"]
 
-    static func open() -> Capability {
+    static func open(_ cu: ComputerUse) -> Capability {
         Capability(CapabilitySpec(
             name: "apps.open", description: "Open (launch or bring forward) an app by bundle id or name, optionally with a document or URL.",
             sideEffect: .write, targetKind: .app,
@@ -85,6 +85,7 @@ public enum AppsCapabilities {
             ]),
             receiptKind: "app_open"
         )) { ctx in
+            try cu.refuseWhileRecording()
             let p = try ctx.decode(AppRefParams.self)
             let appURL = try applicationURL(p)
             let bundleId = Bundle(url: appURL)?.bundleIdentifier
@@ -129,6 +130,7 @@ public enum AppsCapabilities {
                 var window: Int?
             }
             let p = try ctx.decode(P.self)
+            try cu.refuseWhileRecording()
             let app = try AXEngine.findApp(p.app)
             let target = AXEngine.target(app)
             try cu.policy.authorize(.read, bundleId: target.bundleId, appName: target.name, approval: ComputerCapabilities.binding(ctx))
@@ -162,13 +164,14 @@ public enum AppsCapabilities {
         ], required: ["source", "target"])
     }
 
-    static func applescript() -> Capability {
+    static func applescript(_ cu: ComputerUse) -> Capability {
         Capability(CapabilitySpec(
             name: "apps.applescript",
             description: "Run AppleScript against one target app (osascript, out of process, without the helper's permissions). Destructive, device-only, approved per exact source; shell, ObjC and other apps are refused.",
             sideEffect: .destructive, targetKind: .app, inputSchema: scriptSchema("AppleScript"),
             permissions: [], receiptKind: "apple_event"
         )) { ctx in
+            try cu.refuseWhileRecording()
             let p = try ctx.decode(ScriptParams.self)
             try ScriptGuard.check(p.source, language: .appleScript, target: p.target, resolve: AppResolver.bundleId)
             let t = p.target ?? ""
@@ -178,13 +181,14 @@ public enum AppsCapabilities {
         }
     }
 
-    static func jxa() -> Capability {
+    static func jxa(_ cu: ComputerUse) -> Capability {
         Capability(CapabilitySpec(
             name: "apps.jxa",
             description: "Run JavaScript for Automation against one target app (osascript, out of process, without the helper's permissions). Destructive, device-only, approved per exact source; shell, ObjC bridging and other apps are refused.",
             sideEffect: .destructive, targetKind: .app, inputSchema: scriptSchema("JavaScript for Automation"),
             receiptKind: "apple_event"
         )) { ctx in
+            try cu.refuseWhileRecording()
             let p = try ctx.decode(ScriptParams.self)
             try ScriptGuard.check(p.source, language: .javaScript, target: p.target, resolve: AppResolver.bundleId)
             let t = p.target ?? ""
@@ -205,7 +209,7 @@ public enum AppsCapabilities {
 
     // MARK: Shortcuts
 
-    static func shortcutRun() -> Capability {
+    static func shortcutRun(_ cu: ComputerUse) -> Capability {
         Capability(CapabilitySpec(
             name: "apps.shortcut_run",
             description: "Run one of the user's Shortcuts by name with optional text input; returns its text output. Runs /usr/bin/shortcuts with responsibility disclaimed, so it does not inherit the helper's permissions.",
@@ -220,6 +224,7 @@ public enum AppsCapabilities {
                 var input: String?
                 var timeoutSeconds: Int?
             }
+            try cu.refuseWhileRecording()
             let p = try ctx.decode(P.self)
             // The same runner as shortcuts.run (apple-apps-2026 K2); this name stays for older Gateways.
             let output = try await LiveShortcutsBackend().run(p.name, input: p.input, timeout: TimeInterval(p.timeoutSeconds ?? 120))

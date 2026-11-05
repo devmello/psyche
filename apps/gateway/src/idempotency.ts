@@ -66,6 +66,8 @@ export class Idempotency {
     hash: string,
     fn: () => Promise<unknown>,
     storeAfter: boolean,
+    /** What to keep for replay instead of the result (a method whose result holds recorded text). */
+    keep?: (result: unknown) => unknown,
   ): Promise<unknown> {
     const key = `${ref.deviceId}\u0000${ref.method}\u0000${ref.key}`;
     const flying = this.#inflight.get(key);
@@ -82,7 +84,7 @@ export class Idempotency {
     if (prior) return prior.result;
     const promise = (async () => {
       const result = await fn();
-      if (storeAfter) this.store(ref, hash, result);
+      if (storeAfter) this.store(ref, hash, keep === undefined ? result : keep(result));
       return result;
     })();
     this.#inflight.set(key, { hash, promise });

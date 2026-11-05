@@ -16,6 +16,15 @@ public final class ComputerUse: @unchecked Sendable {
     private let escLock = NSLock()
     private let settingsPath: String
     private let log: HelperLog
+    /// True while the owner is recording a demonstration: the agent does not drive the computer then.
+    public var isRecording: @Sendable () -> Bool = { false }
+
+    func refuseWhileRecording() throws {
+        if isRecording() {
+            throw CapabilityError(.conflict, reason: "recording_active", "The owner is recording a demonstration; computer use waits until they stop", retryable: true)
+        }
+    }
+
     /// Notified when the user presses Esc during a session (the app shows / logs it).
     public var onUserStop: (@Sendable (String?) -> Void)?
 
@@ -50,6 +59,7 @@ public final class ComputerUse: @unchecked Sendable {
     /// Session lock for one mutating call. The Gateway must name the session (the run id): a
     /// shared default would let one Esc block every later run, or let runs share a lock.
     func beginAction(session: String?) throws {
+        try refuseWhileRecording()
         guard let session, !session.isEmpty, session.count <= 128 else {
             throw CapabilityError.invalidParams("session (the run id) is required for computer actions", field: "session")
         }
@@ -153,9 +163,75 @@ public enum ComputerCapabilities {
     }
 
     public static func make(_ cu: ComputerUse) -> [any CapabilityHandler] {
-        [axTree(cu), axValue(cu), click(cu, "computer.click", count: 1, right: false), click(cu, "computer.double_click", count: 2, right: false),
+        [axTree(cu), checkTarget(cu), axValue(cu), click(cu, "computer.click", count: 1, right: false), click(cu, "computer.double_click", count: 2, right: false),
          click(cu, "computer.right_click", count: 1, right: true), press(cu), setValue(cu), select(cu), type(cu), key(cu), scroll(cu),
          drag(cu), menu(cu), endSession(cu)]
+    }
+
+    struct CheckTargetParams: Decodable {
+        var app: String?
+        var role: String?
+        var name: String?
+        var identifier: String?
+        var menuPath: [String]?
+        var session: String?
+    }
+
+    /// Replay of a recorded step (teach by showing): is the recorded target in the app right now?
+    /// Read-only. Exact role and name; `missing` / `ambiguous` carry `stop` so the run asks the owner.
+    static func checkTarget(_ cu: ComputerUse) -> Capability {
+        cap(cu, CapabilitySpec(
+            name: "computer.check_target",
+            description: "Read-only check before a replayed step: is the target (role and name, an identifier, or a menu path) in the app's window right now? Answers found (with its ref, role and label for computer.act), missing or ambiguous. Anything but found carries stop: true: ask the owner, do not guess.",
+            sideEffect: .read, targetKind: .app,
+            inputSchema: Schema.object([
+                "app": Schema.string("Bundle id the recording was made in"),
+                "role": Schema.string("Role as recorded: button, textbox, menuitem, ..."),
+                "name": Schema.string("Name as recorded", maxLength: 200),
+                "identifier": Schema.string("Accessibility identifier as recorded", maxLength: 200),
+                "menuPath": ["type": "array", "items": Schema.string(maxLength: 120), "maxItems": 8],
+                "session": Schema.string(),
+            ], required: ["app"]),
+            permissions: [.accessibility]
+        )) { ctx in
+            let p = try ctx.decode(CheckTargetParams.self)
+            try cu.refuseWhileRecording()
+            let isMenu = !(p.menuPath ?? []).isEmpty
+            // A role is required (`generic` means any): a name alone would match the wrong kind of element.
+            guard isMenu || !(p.role ?? "").isEmpty else { throw CapabilityError.invalidParams("role is required", field: "role") }
+            cu.ensureEscTap()
+            cu.reloadSettings()
+            let app = try AXEngine.findApp(p.app, pid: nil)
+            try cu.policy.authorize(.read, bundleId: app.bundleIdentifier, appName: app.localizedName ?? "app", approval: binding(ctx))
+            let o = AXSnapshotOptions.clamped(maxVisit: 8000, maxEmit: 2000, textMax: 400, valueMax: 20, clip: true)
+            let req = AXEngine.SnapshotRequest(app: app, window: nil, root: isMenu ? "app" : nil, menubar: isMenu, options: o)
+            let (snap, target) = try await cu.engine.run { try $0.snapshot(req) }
+            // The app that answered is not the one the recording was made in: a stop.
+            let wanted = (p.app ?? "").lowercased()
+            if wanted.contains("."), let got = target.bundleId?.lowercased(), got != wanted {
+                return CapabilityOutput(["status": "wrong_app", "app": .string(target.bundleId ?? target.name), "stop": true, "provenance": "untrusted",
+                                         "hint": "This is not the app the recording was made in. Ask the owner."])
+            }
+            var outcome = AXTargetCheck.check(snap.nodes, AXTargetCheck.Query(role: p.role, name: p.name, identifier: p.identifier, menuPath: p.menuPath))
+            // A truncated snapshot cannot show that a match is the only one.
+            if snap.header.truncated != nil, case .found(let ref, _, _) = outcome { outcome = .ambiguous([ref]) }
+            var result: [String: JSONValue] = [
+                "status": .string(outcome.status), "app": .string(target.bundleId ?? target.name),
+                "stop": .bool(outcome.status != "found"), "provenance": "untrusted",
+            ]
+            switch outcome {
+            case .found(let ref, let role, let label):
+                result["ref"] = .string(ref)
+                result["role"] = .string(role)
+                if let label { result["label"] = .string(label) }
+            case .ambiguous(let refs):
+                result["candidates"] = .array(refs.map { .string($0) })
+                result["hint"] = "Several elements match; do not pick one. Ask the owner."
+            case .missing:
+                result["hint"] = "The recorded element is not in the window. Ask the owner what to do."
+            }
+            return CapabilityOutput(.object(result))
+        }
     }
 
     // MARK: Read
@@ -180,6 +256,7 @@ public enum ComputerCapabilities {
             let p = try ctx.decode(SnapshotParams.self)
             cu.ensureEscTap()
             cu.reloadSettings()
+            try cu.refuseWhileRecording()
             let app = try AXEngine.findApp(p.app, pid: p.pid)
             try cu.policy.authorize(.read, bundleId: app.bundleIdentifier, appName: app.localizedName ?? "app", approval: binding(ctx))
             let o = AXSnapshotOptions.clamped(maxVisit: p.maxVisit, maxEmit: p.maxEmit, textMax: p.textMax, valueMax: p.valueMax, clip: p.clip)
@@ -214,6 +291,7 @@ public enum ComputerCapabilities {
             permissions: [.accessibility]
         )) { ctx in
             let p = try ctx.decode(ValueParams.self)
+            try cu.refuseWhileRecording()
             let el = try await cu.engine.run { try $0.element(for: p.ref) }
             try cu.policy.authorize(.read, bundleId: el.app.bundleId, appName: el.app.name, approval: binding(ctx))
             if el.info.isSecure { throw secureRefusal() }

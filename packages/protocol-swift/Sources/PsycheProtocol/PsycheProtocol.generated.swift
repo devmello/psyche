@@ -1261,6 +1261,7 @@
 //   let skillDetails = try? JSONDecoder().decode(SkillDetails.self, from: jsonData)
 //   let skillDraft = try? JSONDecoder().decode(SkillDraft.self, from: jsonData)
 //   let skillDraftOrigin = try? JSONDecoder().decode(SkillDraftOrigin.self, from: jsonData)
+//   let skillDraftRecordedIn = try? JSONDecoder().decode(SkillDraftRecordedIn.self, from: jsonData)
 //   let skillDraftReplay = try? JSONDecoder().decode(SkillDraftReplay.self, from: jsonData)
 //   let skillDraftStatus = try? JSONDecoder().decode(SkillDraftStatus.self, from: jsonData)
 //   let skillDraftStep = try? JSONDecoder().decode(SkillDraftStep.self, from: jsonData)
@@ -1368,6 +1369,19 @@
 //   let tasksSteerParams = try? JSONDecoder().decode(TasksSteerParams.self, from: jsonData)
 //   let tasksUpdateParams = try? JSONDecoder().decode(TasksUpdateParams.self, from: jsonData)
 //   let taughtBlock = try? JSONDecoder().decode(TaughtBlock.self, from: jsonData)
+//   let teachAppAppsParams = try? JSONDecoder().decode(TeachAppAppsParams.self, from: jsonData)
+//   let teachAppAppsResult = try? JSONDecoder().decode(TeachAppAppsResult.self, from: jsonData)
+//   let teachAppCancelParams = try? JSONDecoder().decode(TeachAppCancelParams.self, from: jsonData)
+//   let teachAppCancelResult = try? JSONDecoder().decode(TeachAppCancelResult.self, from: jsonData)
+//   let teachAppCapture = try? JSONDecoder().decode(TeachAppCapture.self, from: jsonData)
+//   let teachAppCapturedStep = try? JSONDecoder().decode(TeachAppCapturedStep.self, from: jsonData)
+//   let teachAppChoice = try? JSONDecoder().decode(TeachAppChoice.self, from: jsonData)
+//   let teachAppEndedBy = try? JSONDecoder().decode(TeachAppEndedBy.self, from: jsonData)
+//   let teachAppStartParams = try? JSONDecoder().decode(TeachAppStartParams.self, from: jsonData)
+//   let teachAppStartResult = try? JSONDecoder().decode(TeachAppStartResult.self, from: jsonData)
+//   let teachAppStatus = try? JSONDecoder().decode(TeachAppStatus.self, from: jsonData)
+//   let teachAppStatusParams = try? JSONDecoder().decode(TeachAppStatusParams.self, from: jsonData)
+//   let teachAppStopParams = try? JSONDecoder().decode(TeachAppStopParams.self, from: jsonData)
 //   let teachDraft = try? JSONDecoder().decode(TeachDraft.self, from: jsonData)
 //   let teachDraftFile = try? JSONDecoder().decode(TeachDraftFile.self, from: jsonData)
 //   let teachEndedBy = try? JSONDecoder().decode(TeachEndedBy.self, from: jsonData)
@@ -3174,7 +3188,7 @@ public struct AppleMailSetFlagsParams: Codable, Sendable {
 public struct AppleMusicControlParams: Codable, Sendable {
     public let action: AppleMusicControlParamsAction
     /// Which player (default: whichever is playing, else Music)
-    public let app: App?
+    public let app: AppEnum?
     /// With action shuffle
     public let shuffle: Bool?
     /// With action volume
@@ -3187,7 +3201,7 @@ public struct AppleMusicControlParams: Codable, Sendable {
         case volume = "volume"
     }
 
-    public init(action: AppleMusicControlParamsAction, app: App? = nil, shuffle: Bool? = nil, volume: Int? = nil) {
+    public init(action: AppleMusicControlParamsAction, app: AppEnum? = nil, shuffle: Bool? = nil, volume: Int? = nil) {
         self.action = action
         self.app = app
         self.shuffle = shuffle
@@ -3206,7 +3220,7 @@ public enum AppleMusicControlParamsAction: String, Codable, Sendable {
 }
 
 /// Which player (default: whichever is playing, else Music)
-public enum App: String, Codable, Sendable {
+public enum AppEnum: String, Codable, Sendable {
     case music = "music"
     case spotify = "spotify"
 }
@@ -3484,7 +3498,7 @@ public struct AppleNotesUpdateParams: Codable, Sendable {
 
 // MARK: - AppleNowPlaying
 public struct AppleNowPlaying: Codable, Sendable {
-    public let app: App
+    public let app: AppEnum
     public let shuffle: Bool?
     public let state: AppleNowPlayingState
     public let track: Track?
@@ -3498,7 +3512,7 @@ public struct AppleNowPlaying: Codable, Sendable {
         case volume = "volume"
     }
 
-    public init(app: App, shuffle: Bool? = nil, state: AppleNowPlayingState, track: Track? = nil, volume: Int? = nil) {
+    public init(app: AppEnum, shuffle: Bool? = nil, state: AppleNowPlayingState, track: Track? = nil, volume: Int? = nil) {
         self.app = app
         self.shuffle = shuffle
         self.state = state
@@ -29492,6 +29506,7 @@ public struct SkillDraft: Codable, Sendable {
     /// Runs in the thread with this routine
     public let occurrences: Int
     public let origin: SkillDraftOrigin?
+    public let recordedIn: SkillDraftRecordedIn?
     public let recordedOn: String?
     /// Values stripped from the owner's words
     public let redactions: Int
@@ -29518,6 +29533,7 @@ public struct SkillDraft: Codable, Sendable {
         case name = "name"
         case occurrences = "occurrences"
         case origin = "origin"
+        case recordedIn = "recordedIn"
         case recordedOn = "recordedOn"
         case redactions = "redactions"
         case replay = "replay"
@@ -29531,7 +29547,7 @@ public struct SkillDraft: Codable, Sendable {
         case updatedAt = "updatedAt"
     }
 
-    public init(approvalID: String? = nil, createdAt: String, description: String, edited: Bool, id: String, installProposalID: String? = nil, manifest: SkillManifest, name: String, occurrences: Int, origin: SkillDraftOrigin? = nil, recordedOn: String? = nil, redactions: Int, replay: SkillDraftReplay? = nil, signature: String, status: SkillDraftStatus, steps: [SkillDraftStep], tainted: Bool, text: String, threadID: String, update: SkillDraftUpdate? = nil, updatedAt: String) {
+    public init(approvalID: String? = nil, createdAt: String, description: String, edited: Bool, id: String, installProposalID: String? = nil, manifest: SkillManifest, name: String, occurrences: Int, origin: SkillDraftOrigin? = nil, recordedIn: SkillDraftRecordedIn? = nil, recordedOn: String? = nil, redactions: Int, replay: SkillDraftReplay? = nil, signature: String, status: SkillDraftStatus, steps: [SkillDraftStep], tainted: Bool, text: String, threadID: String, update: SkillDraftUpdate? = nil, updatedAt: String) {
         self.approvalID = approvalID
         self.createdAt = createdAt
         self.description = description
@@ -29542,6 +29558,7 @@ public struct SkillDraft: Codable, Sendable {
         self.name = name
         self.occurrences = occurrences
         self.origin = origin
+        self.recordedIn = recordedIn
         self.recordedOn = recordedOn
         self.redactions = redactions
         self.replay = replay
@@ -29559,6 +29576,11 @@ public struct SkillDraft: Codable, Sendable {
 public enum SkillDraftOrigin: String, Codable, Sendable {
     case recording = "recording"
     case routine = "routine"
+}
+
+public enum SkillDraftRecordedIn: String, Codable, Sendable {
+    case browser = "browser"
+    case macApp = "mac_app"
 }
 
 // MARK: - SkillDraftReplay
@@ -29707,6 +29729,10 @@ public struct SkillsDraftsFromRecordingParams: Codable, Sendable {
 
 // MARK: - BrowserTeachStep
 public struct BrowserTeachStep: Codable, Sendable {
+    /// app_*: the Mac app the step was recorded in (phase 2)
+    public let app: BrowserTeachStepApp?
+    /// app_*: the element's accessibility identifier, when it has one
+    public let fallback: String?
     public let id: String
     /// The value is an input the agent asks for each run
     public let input: Input?
@@ -29717,6 +29743,8 @@ public struct BrowserTeachStep: Codable, Sendable {
     public let kind: BrowserTeachStepKind
     /// Accessible name (untrusted page text)
     public let name: String?
+    /// app_*: titles from the window down to the element, or the menu path (File, Export)
+    public let path: [String]?
     /// Accessibility role
     public let role: String?
     /// Fallback CSS selector
@@ -29729,12 +29757,15 @@ public struct BrowserTeachStep: Codable, Sendable {
     public let value: String?
 
     public enum CodingKeys: String, CodingKey {
+        case app = "app"
+        case fallback = "fallback"
         case id = "id"
         case input = "input"
         case keepValue = "keepValue"
         case key = "key"
         case kind = "kind"
         case name = "name"
+        case path = "path"
         case role = "role"
         case selector = "selector"
         case sensitive = "sensitive"
@@ -29742,18 +29773,38 @@ public struct BrowserTeachStep: Codable, Sendable {
         case value = "value"
     }
 
-    public init(id: String, input: Input? = nil, keepValue: Bool? = nil, key: String? = nil, kind: BrowserTeachStepKind, name: String? = nil, role: String? = nil, selector: String? = nil, sensitive: Bool? = nil, url: String? = nil, value: String? = nil) {
+    public init(app: BrowserTeachStepApp? = nil, fallback: String? = nil, id: String, input: Input? = nil, keepValue: Bool? = nil, key: String? = nil, kind: BrowserTeachStepKind, name: String? = nil, path: [String]? = nil, role: String? = nil, selector: String? = nil, sensitive: Bool? = nil, url: String? = nil, value: String? = nil) {
+        self.app = app
+        self.fallback = fallback
         self.id = id
         self.input = input
         self.keepValue = keepValue
         self.key = key
         self.kind = kind
         self.name = name
+        self.path = path
         self.role = role
         self.selector = selector
         self.sensitive = sensitive
         self.url = url
         self.value = value
+    }
+}
+
+/// app_*: the Mac app the step was recorded in (phase 2)
+// MARK: - BrowserTeachStepApp
+public struct BrowserTeachStepApp: Codable, Sendable {
+    public let bundleID: String
+    public let name: String
+
+    public enum CodingKeys: String, CodingKey {
+        case bundleID = "bundleId"
+        case name = "name"
+    }
+
+    public init(bundleID: String, name: String) {
+        self.bundleID = bundleID
+        self.name = name
     }
 }
 
@@ -29775,6 +29826,9 @@ public struct Input: Codable, Sendable {
 }
 
 public enum BrowserTeachStepKind: String, Codable, Sendable {
+    case appClick = "app_click"
+    case appMenu = "app_menu"
+    case appType = "app_type"
     case click = "click"
     case navigate = "navigate"
     case press = "press"
@@ -31696,6 +31750,266 @@ public struct TaughtBlock: Codable, Sendable {
 
 public enum TaughtBlockType: String, Codable, Sendable {
     case taught = "taught"
+}
+
+// MARK: - TeachAppAppsResult
+public struct TeachAppAppsResult: Codable, Sendable {
+    public let apps: [TeachAppChoice]
+
+    public enum CodingKeys: String, CodingKey {
+        case apps = "apps"
+    }
+
+    public init(apps: [TeachAppChoice]) {
+        self.apps = apps
+    }
+}
+
+// MARK: - TeachAppChoice
+public struct TeachAppChoice: Codable, Sendable {
+    public let bundleID: String
+    public let name: String
+    public let tier: Tier
+
+    public enum CodingKeys: String, CodingKey {
+        case bundleID = "bundleId"
+        case name = "name"
+        case tier = "tier"
+    }
+
+    public init(bundleID: String, name: String, tier: Tier) {
+        self.bundleID = bundleID
+        self.name = name
+        self.tier = tier
+    }
+}
+
+public enum Tier: String, Codable, Sendable {
+    case click = "click"
+    case interact = "interact"
+}
+
+// MARK: - TeachAppCancelResult
+public struct TeachAppCancelResult: Codable, Sendable {
+    public let cancelled: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case cancelled = "cancelled"
+    }
+
+    public init(cancelled: Bool) {
+        self.cancelled = cancelled
+    }
+}
+
+// MARK: - TeachAppCapture
+public struct TeachAppCapture: Codable, Sendable {
+    public let app: TeachAppCaptureApp
+    public let endedBy: TeachAppEndedBy
+    public let id: String
+    public let skipped: Int
+    public let steps: [TeachAppCapturedStep]
+
+    public enum CodingKeys: String, CodingKey {
+        case app = "app"
+        case endedBy = "endedBy"
+        case id = "id"
+        case skipped = "skipped"
+        case steps = "steps"
+    }
+
+    public init(app: TeachAppCaptureApp, endedBy: TeachAppEndedBy, id: String, skipped: Int, steps: [TeachAppCapturedStep]) {
+        self.app = app
+        self.endedBy = endedBy
+        self.id = id
+        self.skipped = skipped
+        self.steps = steps
+    }
+}
+
+// MARK: - TeachAppCaptureApp
+public struct TeachAppCaptureApp: Codable, Sendable {
+    public let bundleID: String
+    public let name: String
+
+    public enum CodingKeys: String, CodingKey {
+        case bundleID = "bundleId"
+        case name = "name"
+    }
+
+    public init(bundleID: String, name: String) {
+        self.bundleID = bundleID
+        self.name = name
+    }
+}
+
+public enum TeachAppEndedBy: String, Codable, Sendable {
+    case cancel = "cancel"
+    case interrupted = "interrupted"
+    case limit = "limit"
+    case stop = "stop"
+    case timeout = "timeout"
+}
+
+// MARK: - TeachAppCapturedStep
+public struct TeachAppCapturedStep: Codable, Sendable {
+    /// app_*: the Mac app the step was recorded in (phase 2)
+    public let app: TeachAppCapturedStepApp?
+    /// app_*: the element's accessibility identifier, when it has one
+    public let fallback: String?
+    public let id: String
+    /// press: the key
+    public let key: String?
+    public let kind: BrowserTeachStepKind
+    /// Accessible name (untrusted page text)
+    public let name: String?
+    /// app_*: titles from the window down to the element, or the menu path (File, Export)
+    public let path: [String]?
+    /// Accessibility role
+    public let role: String?
+    public let sample: String?
+    /// Fallback CSS selector
+    public let selector: String?
+    /// The field is sensitive: no value is ever stored
+    public let sensitive: Bool?
+    /// navigate: origin and path, no query
+    public let url: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case app = "app"
+        case fallback = "fallback"
+        case id = "id"
+        case key = "key"
+        case kind = "kind"
+        case name = "name"
+        case path = "path"
+        case role = "role"
+        case sample = "sample"
+        case selector = "selector"
+        case sensitive = "sensitive"
+        case url = "url"
+    }
+
+    public init(app: TeachAppCapturedStepApp? = nil, fallback: String? = nil, id: String, key: String? = nil, kind: BrowserTeachStepKind, name: String? = nil, path: [String]? = nil, role: String? = nil, sample: String? = nil, selector: String? = nil, sensitive: Bool? = nil, url: String? = nil) {
+        self.app = app
+        self.fallback = fallback
+        self.id = id
+        self.key = key
+        self.kind = kind
+        self.name = name
+        self.path = path
+        self.role = role
+        self.sample = sample
+        self.selector = selector
+        self.sensitive = sensitive
+        self.url = url
+    }
+}
+
+/// app_*: the Mac app the step was recorded in (phase 2)
+// MARK: - TeachAppCapturedStepApp
+public struct TeachAppCapturedStepApp: Codable, Sendable {
+    public let bundleID: String
+    public let name: String
+
+    public enum CodingKeys: String, CodingKey {
+        case bundleID = "bundleId"
+        case name = "name"
+    }
+
+    public init(bundleID: String, name: String) {
+        self.bundleID = bundleID
+        self.name = name
+    }
+}
+
+// MARK: - TeachAppStartParams
+public struct TeachAppStartParams: Codable, Sendable {
+    public let bundleID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case bundleID = "bundleId"
+    }
+
+    public init(bundleID: String) {
+        self.bundleID = bundleID
+    }
+}
+
+// MARK: - TeachAppStartResult
+public struct TeachAppStartResult: Codable, Sendable {
+    public let app: TeachAppStartResultApp
+    public let sessionID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case app = "app"
+        case sessionID = "sessionId"
+    }
+
+    public init(app: TeachAppStartResultApp, sessionID: String) {
+        self.app = app
+        self.sessionID = sessionID
+    }
+}
+
+// MARK: - TeachAppStartResultApp
+public struct TeachAppStartResultApp: Codable, Sendable {
+    public let bundleID: String
+    public let name: String
+
+    public enum CodingKeys: String, CodingKey {
+        case bundleID = "bundleId"
+        case name = "name"
+    }
+
+    public init(bundleID: String, name: String) {
+        self.bundleID = bundleID
+        self.name = name
+    }
+}
+
+// MARK: - TeachAppStatus
+public struct TeachAppStatus: Codable, Sendable {
+    public let active: Bool
+    public let app: TeachAppStatusApp?
+    public let ended: TeachAppEndedBy?
+    public let sessionID: String?
+    public let startedAt: String?
+    public let steps: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case active = "active"
+        case app = "app"
+        case ended = "ended"
+        case sessionID = "sessionId"
+        case startedAt = "startedAt"
+        case steps = "steps"
+    }
+
+    public init(active: Bool, app: TeachAppStatusApp? = nil, ended: TeachAppEndedBy? = nil, sessionID: String? = nil, startedAt: String? = nil, steps: Int? = nil) {
+        self.active = active
+        self.app = app
+        self.ended = ended
+        self.sessionID = sessionID
+        self.startedAt = startedAt
+        self.steps = steps
+    }
+}
+
+// MARK: - TeachAppStatusApp
+public struct TeachAppStatusApp: Codable, Sendable {
+    public let bundleID: String
+    public let name: String
+
+    public enum CodingKeys: String, CodingKey {
+        case bundleID = "bundleId"
+        case name = "name"
+    }
+
+    public init(bundleID: String, name: String) {
+        self.bundleID = bundleID
+        self.name = name
+    }
 }
 
 // MARK: - TeachDraft
@@ -36158,6 +36472,10 @@ public typealias SearchSourcesParams = [String: JSONAny]
 public typealias SearchStatusParams = [String: JSONAny]
 public typealias Settings = [String: JSONAny]
 public typealias SpecialistsListParams = [String: JSONAny]
+public typealias TeachAppAppsParams = [String: JSONAny]
+public typealias TeachAppCancelParams = [String: JSONAny]
+public typealias TeachAppStatusParams = [String: JSONAny]
+public typealias TeachAppStopParams = [String: JSONAny]
 public typealias TerminalSessionACKResult = [String: JSONAny]
 public typealias TerminalSessionResizeResult = [String: JSONAny]
 public typealias TerminalSessionWriteResult = [String: JSONAny]

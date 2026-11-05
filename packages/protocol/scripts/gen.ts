@@ -56,6 +56,10 @@ export const OUTPUT_FILES = {
     REPO_DIR,
     "packages/protocol-swift/Sources/PsycheProtocol/PsycheProtocol.generated.swift",
   ),
+  swiftTeachNever: resolve(
+    REPO_DIR,
+    "packages/protocol-swift/Sources/PsycheProtocol/TeachNeverApps.generated.swift",
+  ),
 } as const;
 
 const SCHEMA_DIALECT = "https://json-schema.org/draft/2020-12/schema";
@@ -404,6 +408,14 @@ function finish(body: string): string {
 }
 
 /** Generates every output in memory, keyed by absolute path. */
+/** The apps a recording never keeps, from the one list the Gateway uses (browser-teach.ts). */
+function teachNeverSwift(): string {
+  const items = protocol.TEACH_NEVER_APPS.map((a) => `        ${JSON.stringify(a)},`).join("\n");
+  return finish(
+    `${header("//")}\n/// Apps "Record in an app" never records (docs/design/teach-by-showing-2026.md §13.3). A trailing\n/// "." is a prefix; otherwise the id or the id plus ".something" matches, ignoring case.\npublic enum TeachNeverApps {\n    public static let patterns: [String] = [\n${items}\n    ]\n}\n`,
+  );
+}
+
 export async function generateAll(): Promise<Map<string, string>> {
   const doc = buildSchemaDocument();
   const swift = finish(`${header("//")}\n${postProcessSwift(await runQuicktype(doc, "swift"))}`);
@@ -413,6 +425,7 @@ export async function generateAll(): Promise<Map<string, string>> {
     [OUTPUT_FILES.typescript, ts],
     [OUTPUT_FILES.swift, swift],
     [OUTPUT_FILES.swiftHelper, swift],
+    [OUTPUT_FILES.swiftTeachNever, teachNeverSwift()],
   ]);
 }
 

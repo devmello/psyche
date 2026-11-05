@@ -3237,6 +3237,46 @@
         "sideEffecting": true
       },
       {
+        "description": "Desktop shell only: the Mac apps the owner granted for computer use that can be recorded (Settings → Computer use). Psyche, security prompts, password managers, banking, browsers and terminals are never listed.",
+        "name": "teach.app.apps",
+        "params": "#/$defs/TeachAppAppsParams",
+        "result": "#/$defs/TeachAppAppsResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
+        "description": "Side-effecting, desktop shell only: ends the recording and drops everything it caught.",
+        "name": "teach.app.cancel",
+        "params": "#/$defs/TeachAppCancelParams",
+        "result": "#/$defs/TeachAppCancelResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Side-effecting, desktop shell only, on the owner's click: the Mac helper starts watching one granted app's accessibility events. Refused (forbidden, policy_denied) for any other caller, for an app that is not granted, and for Psyche and system security prompts. A visible indicator shows on the Mac while it records.",
+        "name": "teach.app.start",
+        "params": "#/$defs/TeachAppStartParams",
+        "result": "#/$defs/TeachAppStartResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Desktop shell only: whether a Mac app is being recorded, and how many steps so far.",
+        "name": "teach.app.status",
+        "params": "#/$defs/TeachAppStatusParams",
+        "result": "#/$defs/TeachAppStatus",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
+        "description": "Desktop shell only: ends the recording and returns the steps for the review screen. Nothing is stored by the helper or the Gateway, and no idempotency record holds the result.",
+        "name": "teach.app.stop",
+        "params": "#/$defs/TeachAppStopParams",
+        "result": "#/$defs/TeachAppCapture",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
         "description": "Confirms output the client rendered; the Gateway reads the PTY again once less than the window is unconfirmed.",
         "name": "terminal.session.ack",
         "params": "#/$defs/TerminalSessionAckParams",
@@ -12179,6 +12219,40 @@
           "maxLength": 300,
           "type": "string"
         },
+        "app": {
+          "description": "app_*: the Mac app the step was recorded in (phase 2)",
+          "properties": {
+            "bundleId": {
+              "maxLength": 200,
+              "minLength": 3,
+              "pattern": "^[A-Za-z0-9-]+(\\.[A-Za-z0-9_-]+)+$",
+              "type": "string"
+            },
+            "name": {
+              "maxLength": 120,
+              "type": "string"
+            }
+          },
+          "required": [
+            "bundleId",
+            "name"
+          ],
+          "type": "object"
+        },
+        "path": {
+          "description": "app_*: titles from the window down to the element, or the menu path (File, Export)",
+          "items": {
+            "maxLength": 120,
+            "type": "string"
+          },
+          "maxItems": 8,
+          "type": "array"
+        },
+        "fallback": {
+          "description": "app_*: the element's accessibility identifier, when it has one",
+          "maxLength": 300,
+          "type": "string"
+        },
         "key": {
           "description": "press: the key",
           "maxLength": 40,
@@ -12226,7 +12300,10 @@
         "click",
         "type",
         "select",
-        "press"
+        "press",
+        "app_click",
+        "app_type",
+        "app_menu"
       ],
       "type": "string"
     },
@@ -38966,6 +39043,9 @@
         "origin": {
           "$ref": "#/$defs/SkillDraftOrigin"
         },
+        "recordedIn": {
+          "$ref": "#/$defs/SkillDraftRecordedIn"
+        },
         "recordedOn": {
           "maxLength": 128,
           "type": "string"
@@ -39045,6 +39125,13 @@
       "enum": [
         "routine",
         "recording"
+      ],
+      "type": "string"
+    },
+    "SkillDraftRecordedIn": {
+      "enum": [
+        "browser",
+        "mac_app"
       ],
       "type": "string"
     },
@@ -42368,6 +42455,293 @@
         "feedbackId",
         "messageId"
       ],
+      "type": "object"
+    },
+    "TeachAppAppsParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "TeachAppAppsResult": {
+      "properties": {
+        "apps": {
+          "items": {
+            "$ref": "#/$defs/TeachAppChoice"
+          },
+          "maxItems": 200,
+          "type": "array"
+        }
+      },
+      "required": [
+        "apps"
+      ],
+      "type": "object"
+    },
+    "TeachAppCancelParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "TeachAppCancelResult": {
+      "properties": {
+        "cancelled": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "cancelled"
+      ],
+      "type": "object"
+    },
+    "TeachAppCapture": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "endedBy": {
+          "$ref": "#/$defs/TeachAppEndedBy"
+        },
+        "app": {
+          "properties": {
+            "bundleId": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "bundleId",
+            "name"
+          ],
+          "type": "object"
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/TeachAppCapturedStep"
+          },
+          "maxItems": 200,
+          "type": "array"
+        },
+        "skipped": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "endedBy",
+        "app",
+        "steps",
+        "skipped"
+      ],
+      "type": "object"
+    },
+    "TeachAppCapturedStep": {
+      "properties": {
+        "id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/BrowserTeachStepKind"
+        },
+        "url": {
+          "description": "navigate: origin and path, no query",
+          "maxLength": 2048,
+          "type": "string"
+        },
+        "role": {
+          "description": "Accessibility role",
+          "maxLength": 64,
+          "type": "string"
+        },
+        "name": {
+          "description": "Accessible name (untrusted page text)",
+          "maxLength": 200,
+          "type": "string"
+        },
+        "selector": {
+          "description": "Fallback CSS selector",
+          "maxLength": 300,
+          "type": "string"
+        },
+        "app": {
+          "description": "app_*: the Mac app the step was recorded in (phase 2)",
+          "properties": {
+            "bundleId": {
+              "maxLength": 200,
+              "minLength": 3,
+              "pattern": "^[A-Za-z0-9-]+(\\.[A-Za-z0-9_-]+)+$",
+              "type": "string"
+            },
+            "name": {
+              "maxLength": 120,
+              "type": "string"
+            }
+          },
+          "required": [
+            "bundleId",
+            "name"
+          ],
+          "type": "object"
+        },
+        "path": {
+          "description": "app_*: titles from the window down to the element, or the menu path (File, Export)",
+          "items": {
+            "maxLength": 120,
+            "type": "string"
+          },
+          "maxItems": 8,
+          "type": "array"
+        },
+        "fallback": {
+          "description": "app_*: the element's accessibility identifier, when it has one",
+          "maxLength": 300,
+          "type": "string"
+        },
+        "key": {
+          "description": "press: the key",
+          "maxLength": 40,
+          "type": "string"
+        },
+        "sensitive": {
+          "description": "The field is sensitive: no value is ever stored",
+          "type": "boolean"
+        },
+        "sample": {
+          "maxLength": 500,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind"
+      ],
+      "type": "object"
+    },
+    "TeachAppChoice": {
+      "properties": {
+        "bundleId": {
+          "maxLength": 200,
+          "minLength": 3,
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 120,
+          "type": "string"
+        },
+        "tier": {
+          "enum": [
+            "click",
+            "interact"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "bundleId",
+        "name",
+        "tier"
+      ],
+      "type": "object"
+    },
+    "TeachAppEndedBy": {
+      "enum": [
+        "stop",
+        "limit",
+        "timeout",
+        "cancel",
+        "interrupted"
+      ],
+      "type": "string"
+    },
+    "TeachAppStartParams": {
+      "properties": {
+        "bundleId": {
+          "maxLength": 200,
+          "minLength": 3,
+          "type": "string"
+        }
+      },
+      "required": [
+        "bundleId"
+      ],
+      "type": "object"
+    },
+    "TeachAppStartResult": {
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "app": {
+          "properties": {
+            "bundleId": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "bundleId",
+            "name"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "sessionId",
+        "app"
+      ],
+      "type": "object"
+    },
+    "TeachAppStatus": {
+      "properties": {
+        "active": {
+          "type": "boolean"
+        },
+        "sessionId": {
+          "type": "string"
+        },
+        "app": {
+          "properties": {
+            "bundleId": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "bundleId",
+            "name"
+          ],
+          "type": "object"
+        },
+        "steps": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "startedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "ended": {
+          "$ref": "#/$defs/TeachAppEndedBy"
+        }
+      },
+      "required": [
+        "active"
+      ],
+      "type": "object"
+    },
+    "TeachAppStatusParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "TeachAppStopParams": {
+      "properties": {},
       "type": "object"
     },
     "TeachDraft": {

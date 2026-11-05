@@ -230,6 +230,7 @@ export function createSkillsHandlers(
     proposedBy?: "agent" | "recording",
     recordedOn?: string,
     tainted = false,
+    recordedIn: "browser" | "mac_app" = "browser",
   ): Promise<ProposalResult> => {
     const counts = summarizeFindings(proposal.findings);
     const verb =
@@ -269,7 +270,9 @@ export function createSkillsHandlers(
         ...(proposal.author === "recording"
           ? {
               untrustedText:
-                "This skill was made from pages you visited. Its steps quote text from those pages as data; it will be treated as untrusted instructions, and every action it takes still asks as usual.",
+                recordedIn === "mac_app"
+                  ? "This skill was made from an app you showed Psyche. Its steps quote text from that app's windows and menus as data; it will be treated as untrusted instructions, and every action it takes still asks as usual."
+                  : "This skill was made from pages you visited. Its steps quote text from those pages as data; it will be treated as untrusted instructions, and every action it takes still asks as usual.",
             }
           : tainted
             ? {
@@ -310,7 +313,15 @@ export function createSkillsHandlers(
       scopesOffered: ["once"],
       // A skill made from a recording carries web page text: the card says so, in plain words.
       ...(proposal.author === "recording"
-        ? { taint: true, taintSources: [{ sourceKind: "recorded web pages" }] }
+        ? {
+            taint: true,
+            taintSources: [
+              {
+                sourceKind:
+                  recordedIn === "mac_app" ? "recorded app windows" : "recorded web pages",
+              },
+            ],
+          }
         : tainted
           ? { taint: true, taintSources: [{ sourceKind: "content read in the conversation" }] }
           : { taint: false }),
@@ -487,6 +498,7 @@ export function createSkillsHandlers(
         made.origin === "recording" ? "recording" : "agent",
         made.recordedOn,
         made.tainted,
+        made.recordedIn ?? "browser",
       );
       const draft = drafts.accepted(p.draftId, proposal.id, result.approval.id);
       return { ...result, draft };

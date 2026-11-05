@@ -9,7 +9,10 @@ import {
   checkMainRoute,
   checkNotifyRoute,
   checkRoute,
+  checkTeachApp,
   checkViewport,
+  IPC,
+  REMOTE_REFUSED_CHANNELS,
 } from "../src/lib/ipc.ts";
 
 describe("IPC validators", () => {
@@ -71,6 +74,37 @@ describe("IPC validators", () => {
     expect(checkAudioChunk("AAEC/+8=")).toBe("AAEC/+8=");
     for (const bad of ["", "not base64!", "A".repeat(64_001), 42])
       expect(() => checkAudioChunk(bad)).toThrow();
+  });
+
+  it("recording in a Mac app starts only from main's own channels, never the generic relay", () => {
+    const known = (m: unknown) => typeof m === "string" && m.startsWith("teach.");
+    for (const m of [
+      "teach.app.start",
+      "teach.app.stop",
+      "teach.app.cancel",
+      "teach.app.status",
+      "teach.app.apps",
+    ])
+      expect(() => checkCallable(m, known), m).toThrow(/not callable/);
+    // The dedicated channels take a bundle id and nothing else, and a remote window refuses them.
+    expect(checkTeachApp({ bundleId: "com.apple.mail" })).toBe("com.apple.mail");
+    for (const bad of [
+      {},
+      { bundleId: "" },
+      { bundleId: "Mail; rm -rf /" },
+      { bundleId: 4 },
+      "com.apple.mail",
+      null,
+    ])
+      expect(() => checkTeachApp(bad), JSON.stringify(bad)).toThrow();
+    for (const ch of [
+      IPC.teachAppApps,
+      IPC.teachAppStart,
+      IPC.teachAppStop,
+      IPC.teachAppCancel,
+      IPC.teachAppStatus,
+    ])
+      expect(REMOTE_REFUSED_CHANNELS.has(ch), ch).toBe(true);
   });
 
   it("viewports are finite, rounded rectangles or null", () => {

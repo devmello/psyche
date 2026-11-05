@@ -478,6 +478,8 @@ export const SkillDraft = Type.Object(
     updatedAt: IsoDateTime,
     /** `recording`: made from a demonstration the owner recorded (teach by showing). */
     origin: Type.Optional(StringEnum(["routine", "recording"], { $id: "SkillDraftOrigin" })),
+    /** `recording`: where it was recorded. Absent means the built-in browser (phase 1). */
+    recordedIn: Type.Optional(StringEnum(["browser", "mac_app"], { $id: "SkillDraftRecordedIn" })),
     /** `recording`: the device the owner recorded on; the approval card names it. */
     recordedOn: Type.Optional(Type.String({ maxLength: 128 })),
     installProposalId: Type.Optional(Id),
@@ -510,9 +512,10 @@ export type SkillDraft = Static<typeof SkillDraft>;
  * at all (`sensitive`), and page text is quoted as untrusted data when the steps become a skill.
  * (The Mac-app recorder's shapes are `TeachStep` in `schemas/teach.ts`.)
  */
-export const BrowserTeachStepKind = StringEnum(["navigate", "click", "type", "select", "press"], {
-  $id: "BrowserTeachStepKind",
-});
+export const BrowserTeachStepKind = StringEnum(
+  ["navigate", "click", "type", "select", "press", "app_click", "app_type", "app_menu"],
+  { $id: "BrowserTeachStepKind" },
+);
 export type BrowserTeachStepKind = Static<typeof BrowserTeachStepKind>;
 
 /** A named input a recorded value became (`recipient`, `from_date`): lowercase words with `_`. */
@@ -535,6 +538,32 @@ export const BrowserTeachStep = Type.Object(
       Type.String({ maxLength: 200, description: "Accessible name (untrusted page text)" }),
     ),
     selector: Type.Optional(Type.String({ maxLength: 300, description: "Fallback CSS selector" })),
+    app: Type.Optional(
+      Type.Object(
+        {
+          bundleId: Type.String({
+            minLength: 3,
+            maxLength: 200,
+            pattern: "^[A-Za-z0-9-]+(\\.[A-Za-z0-9_-]+)+$",
+          }),
+          name: Type.String({ maxLength: 120 }),
+        },
+        { description: "app_*: the Mac app the step was recorded in (phase 2)" },
+      ),
+    ),
+    path: Type.Optional(
+      Type.Array(Type.String({ maxLength: 120 }), {
+        maxItems: 8,
+        description:
+          "app_*: titles from the window down to the element, or the menu path (File, Export)",
+      }),
+    ),
+    fallback: Type.Optional(
+      Type.String({
+        maxLength: 300,
+        description: "app_*: the element's accessibility identifier, when it has one",
+      }),
+    ),
     key: Type.Optional(Type.String({ maxLength: 40, description: "press: the key" })),
     sensitive: Type.Optional(
       Type.Boolean({ description: "The field is sensitive: no value is ever stored" }),

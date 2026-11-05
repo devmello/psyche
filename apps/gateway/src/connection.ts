@@ -44,6 +44,36 @@ export const UNKNOWN_FRAME_ID = "_unknown";
  * budget allows. They need `operator.admin` and an owned session, and the terminal part meters
  * input bytes per session itself.
  */
+/**
+ * Methods whose result holds what the owner recorded: the idempotency record keeps only this
+ * projection, never the text (a replay inside the retry window still gets the draft's id and name).
+ */
+export const REPLAY_KEEPS: Record<string, (result: unknown) => unknown> = {
+  "skills.drafts.fromRecording": (result) => keepIdentity(result, true),
+  // The other draft methods return the draft's text too; for a draft made from a recording that
+  // text can hold values the owner kept, so only its identity and status are stored.
+  "skills.drafts.update": (result) => keepIdentity(result, false),
+  "skills.drafts.accept": (result) => keepIdentity(result, false),
+  "skills.drafts.dismiss": (result) => keepIdentity(result, false),
+};
+
+/** The result of a draft method without the text, the steps and the proposal's files and diff. */
+function keepIdentity(result: unknown, always: boolean): unknown {
+  const r = result as {
+    draft?: Record<string, unknown>;
+    proposal?: Record<string, unknown>;
+  } | null;
+  const d = r?.draft;
+  if (d === undefined || (!always && d.origin !== "recording")) return result;
+  const out: Record<string, unknown> = { ...r, draft: { ...d, text: "", steps: [] } };
+  const p = r?.proposal;
+  if (p !== undefined) {
+    const { update: _update, ...rest } = p;
+    out.proposal = { ...rest, text: "", files: [] };
+  }
+  return out;
+}
+
 const STREAM_METHODS: ReadonlySet<string> = new Set([
   "terminal.session.write",
   "terminal.session.resize",
@@ -315,6 +345,7 @@ export class Connection implements LiveConnection {
         return this.#execute(def, method, params, identity, { ref, hash });
       },
       def.transactional !== true,
+      REPLAY_KEEPS[method],
     );
   }
 

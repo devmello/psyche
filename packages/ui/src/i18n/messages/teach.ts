@@ -128,4 +128,44 @@ export const teach = {
   "web.teach.step.selectSensitive": "You choose in ‘{name}’ yourself",
   "web.teach.step.press": "Press {key}",
   "web.teach.step.pressIn": "Press {key} in ‘{name}’",
+
+  // Recording in a Mac app (phase 2): the control, the picker, the bar.
+  "web.teach.app.record": "Record in an app",
+  "web.teach.app.recordHint": "Show Psyche how to do something in a Mac app you already allowed",
+  "web.teach.app.pickTitle": "Record in which app?",
+  "web.teach.app.pickLabel": "App",
+  "web.teach.app.pickHint":
+    "Only apps you allowed for computer use are listed. Open the app first. Passwords, card numbers and codes are never recorded, and neither are Psyche's own windows or sign-in and security prompts.",
+  "web.teach.app.none":
+    "No app is ready to record. Turn on computer use in Settings and give an app Click or Interact first.",
+  "web.teach.app.start": "Start recording",
+  "web.teach.app.cancelPick": "Not now",
+  "web.teach.app.startFailed":
+    "Psyche couldn't start recording that app. Open it first, and check that Psyche has Accessibility access.",
+  "web.teach.app.bar.title": "Recording {app}",
+  "web.teach.app.bar.body":
+    "Psyche is noting your clicks, menu choices and typing in {app} only. Secure fields are never recorded, no screenshots are taken, and nothing leaves this Mac until you save. The menu bar also has a Stop.",
+  "web.teach.app.bar.endedLimit":
+    "Recording stopped at the limit of 200 steps. Review what it caught.",
+  "web.teach.app.bar.endedTimeout": "Recording stopped at its time limit. Review what it caught.",
+  "web.teach.app.bar.endedInterrupted":
+    "Recording ended early because the app closed. Review what it caught.",
+  "web.teach.app.stopFailed": "Psyche couldn't finish the recording.",
+  "web.teach.app.skipped":
+    "{count, plural, one {# thing was left out: a secure field, or a control with no name to find it by.} other {# things were left out: secure fields, or controls with no name to find them by.}}",
+  "web.teach.app.privacy":
+    "Text in these steps came from the app's windows and menus. It is treated as data, never as instructions. Saving asks you to approve the skill before it can run.",
+  "web.teach.app.sensitive": "Not recorded. Psyche will ask you to do this part yourself.",
+  "web.teach.app.runHint":
+    "Fills the message box with the skill. Press Send, then watch the app: every click and entry asks for approval as usual, and it stops and asks if something is not where it was.",
+
+  // Plain-words steps in a Mac app.
+  "web.teach.step.app.click": "In {app}, click ‘{name}’",
+  "web.teach.step.app.clickRole": "In {app}, click the {role}",
+  "web.teach.step.app.menu": "In {app}, choose {path}",
+  "web.teach.step.app.type": "In {app}, type into ‘{name}’",
+  "web.teach.step.app.typeKept": "In {app}, type {value} into ‘{name}’",
+  "web.teach.step.app.typeInput": "In {app}, type the {input} into ‘{name}’",
+  "web.teach.step.app.typeAsk": "In {app}, type what you tell it into ‘{name}’",
+  "web.teach.step.app.typeSensitive": "In {app}, you type into ‘{name}’ yourself",
 } as const;
