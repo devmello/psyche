@@ -124,6 +124,7 @@ public final class Router {
         case .project, .person: tab = .memory; memoryPath = [route]
         case .file: tab = .library; libraryPath = [route]
         case .inbox, .scheduled, .overview: tab = .home; homePath = [route]
+        case .task(let id): openTask(id)
         }
     }
 }

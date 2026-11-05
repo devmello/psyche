@@ -22,11 +22,13 @@ public struct MothAvatar: View {
     }
 }
 
-struct MothShape: Shape {
-    enum Part { case upperWings, lowerWings, body, antennae }
+public struct MothShape: Shape {
+    public enum Part: Sendable { case upperWings, lowerWings, body, antennae }
     let part: Part
 
-    func path(in rect: CGRect) -> Path {
+    public init(part: Part) { self.part = part }
+
+    public func path(in rect: CGRect) -> Path {
         var p = Path()
         switch part {
         case .upperWings:
@@ -57,6 +59,32 @@ struct MothShape: Shape {
         }
         let scale = min(rect.width, rect.height) / 32
         return p.applying(CGAffineTransform(scaleX: scale, y: scale)).offsetBy(dx: rect.minX, dy: rect.minY)
+    }
+}
+
+/// The moth in fixed colors, for surfaces that draw their own background (the Lock Screen, the Dynamic Island),
+/// where the asset colors would follow the system appearance instead of the card behind them.
+public struct MothMark: View {
+    private let size: CGFloat
+    private let wings: Color
+    private let lowerWings: Color
+    private let body_: Color
+
+    public init(size: CGFloat, wings: Color, lowerWings: Color, body: Color) {
+        self.size = size
+        self.wings = wings
+        self.lowerWings = lowerWings
+        body_ = body
+    }
+
+    public var body: some View {
+        ZStack {
+            MothShape(part: .lowerWings).fill(lowerWings)
+            MothShape(part: .upperWings).fill(wings)
+            MothShape(part: .body).fill(body_)
+        }
+        .frame(width: size, height: size)
+        .accessibilityHidden(true)
     }
 }
 

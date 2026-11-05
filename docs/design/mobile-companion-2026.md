@@ -157,6 +157,16 @@ A running Task or automation shows step progress on the Lock Screen and in the D
 - **End.** The Gateway ends the activity with an `event: end` push on completion, failure or when the Task needs approval. For needs-approval, the activity moves to a "Needs approval" state and the Gateway also sends the normal encrypted notification with Approve / Deny (§4). iOS limits an activity to about 8 hours, so a longer run ends the activity and relies on the completion notification.
 - **Off switch.** Settings → Notifications → Live Activities turns it off for every device; the app also respects the system toggle.
 
+### M2-lite (no developer account)
+
+The owner has no paid Apple Developer account, so there is no APNs and none of §3.3 to §3.5's push paths. M2-lite gives the visible half of M2 with nothing but the app itself and a free Apple ID (7-day signing, `apps/ios/README.md`).
+
+- **Live Activities and the Dynamic Island.** `ActivityKit` with `pushType: nil`: the app starts one from Home's **Watch** button (or from an offer after the owner starts a task on the phone) and updates it from `LiveEvent.changed(.activity)` / `.home`, at most about once a second. The attributes live in `PsycheShared`, so the app and the `Widgets` extension share them. The content state is the one from §3.6, and the task title appears only when "Task titles on the Lock Screen" is on; because nothing goes through Apple, the title never leaves the phone. The activity ends on done or failed and moves to "Needs approval" while the task waits. Tapping it opens `psyche://task/<id>`, which the router's allowlist maps.
+- **Local notifications.** The app posts them itself when a new needs-you item arrives over the live connection, with the §4 categories: **Approve** (`.authenticationRequired`) and **Deny** (`.destructive`) for `write` approvals; only **Review…** (`.foreground`) for anything with a `presenceNote`, payments included; **Open** for questions; a passive note for finished tasks. The identifier is the approval id, so answering anywhere removes the delivered notification. The permission prompt comes from Settings' Notifications toggle or the first time an approval arrives, never at launch.
+- **Background checks.** `BGTaskScheduler` app refresh. Each run connects briefly, reads `approvals.list` and the running tasks, posts what is new (de-duplicated by id in the app group), updates any running activity and disconnects. iOS decides when it runs; expect a few times a day at best, and less if the app is rarely opened.
+- **Approve and Deny from a notification** run once the connection is live (the app waits a few seconds). If the Mac is unreachable the notification is replaced by "Reconnect to answer". Approvals are never queued, and no path skips the Face ID or passcode check; presence-gated kinds are answered only in the app after the presence check.
+- **What it cannot do.** Notify while the app is closed and iOS declines to run a refresh, update an activity while the app is suspended, or push-to-start an activity for an automation. Those need the paid account and the §3.3 setup. Time-sensitive interruption needs a capability a free team cannot sign, so approvals use the `active` level and finished tasks `passive`.
+
 ## 4. Mobile-specific features
 
 | Feature | Design | Milestone |

@@ -10,6 +10,8 @@ public enum Route: Hashable, Sendable {
     case inbox
     case scheduled
     case overview
+    /// A running task (`psyche://task/<id>`, the Live Activity's tap target): opens the agent sheet.
+    case task(id: String)
 
     /// Maps the desktop's routes so a notification's `route` opens the same thing on the phone.
     /// `/chat/<id>`, `/goals/<id>`, `/people/<id>`, `/library/<id>`, `/inbox`, `/scheduled` and
@@ -27,6 +29,7 @@ public enum Route: Hashable, Sendable {
         case ("inbox", 1): self = .inbox
         case ("scheduled", 1): self = .scheduled
         case ("overview", _): self = .overview
+        case ("task", 2): self = .task(id: parts[1])
         default: return nil
         }
     }

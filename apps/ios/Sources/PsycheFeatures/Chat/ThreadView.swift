@@ -14,6 +14,7 @@ struct ThreadView: View {
     @FocusState private var composerFocused: Bool
     @Environment(Router.self) private var router
     @Environment(Session.self) private var session
+    @Environment(\.alerts) private var alerts
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(id: String, store: any PsycheBackend) {
@@ -120,6 +121,7 @@ struct ThreadView: View {
 
     private func send() {
         let message = composer.takeMessage()
+        alerts?.noteSentFromPhone()
         pinned = true
         model.send(message.text, attachments: message.attachments)
     }

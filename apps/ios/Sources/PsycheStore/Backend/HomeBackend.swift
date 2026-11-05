@@ -97,11 +97,15 @@ public struct NeedsYouItem: Sendable, Equatable, Identifiable {
     public var question: QuestionDetail?
     /// The chat thread this came from, for questions and tasks.
     public var threadID: String?
+    /// The running task this waits on, so its Live Activity can say "Needs approval".
+    public var taskID: String?
 
     public init(
         id: String, kind: Kind, title: String, source: String, time: String,
-        approval: ApprovalDetail? = nil, threadID: String? = nil, question: QuestionDetail? = nil
+        approval: ApprovalDetail? = nil, threadID: String? = nil, question: QuestionDetail? = nil,
+        taskID: String? = nil
     ) {
+        self.taskID = taskID
         self.id = id
         self.kind = kind
         self.title = title
@@ -182,10 +186,15 @@ public struct RunningTask: Sendable, Equatable, Identifiable {
     public var stepCount: Int
     public var detail: String
     public var elapsed: String
+    /// When the task started, for a Live Activity's timer. nil when the Gateway did not say.
+    public var startedAt: Date?
 
     public var fraction: Double { stepCount > 0 ? Double(step) / Double(stepCount) : 0 }
 
-    public init(id: String, title: String, step: Int, stepCount: Int, detail: String, elapsed: String) {
+    public init(
+        id: String, title: String, step: Int, stepCount: Int, detail: String, elapsed: String, startedAt: Date? = nil
+    ) {
+        self.startedAt = startedAt
         self.id = id
         self.title = title
         self.step = step
