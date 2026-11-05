@@ -279,6 +279,20 @@ public actor GatewayConnection {
 
     public func close() { close(reason: .closed) }
 
+    /// Checks the socket still carries traffic (a WebSocket ping); throws when it does not answer in `timeout`.
+    public func ping(timeout: Duration = .seconds(10)) async throws {
+        if closed { throw ConnectionFailure.closed }
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            group.addTask { [transport] in try await transport.ping() }
+            group.addTask {
+                try await Task.sleep(for: timeout)
+                throw ConnectionFailure.timeout
+            }
+            defer { group.cancelAll() }
+            _ = try await group.next()
+        }
+    }
+
     // MARK: - Plumbing
 
     private func startReceiving() {

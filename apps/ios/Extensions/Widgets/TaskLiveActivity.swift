@@ -43,7 +43,7 @@ private enum LA {
 struct TaskLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: PsycheTaskAttributes.self) { context in
-            TaskLockScreenView(content: context.state)
+            TaskLockScreenView(content: context.state, isStale: context.isStale)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 14)
                 .activityBackgroundTint(LA.card)
@@ -51,6 +51,7 @@ struct TaskLiveActivity: Widget {
                 .widgetURL(TaskActivityContent.url(forTask: context.attributes.taskID))
         } dynamicIsland: { context in
             let content = context.state
+            let isStale = context.isStale
             let url = TaskActivityContent.url(forTask: context.attributes.taskID)
             return DynamicIsland {
                 // Expanded (long-press, unlocked only): what the task is, what it's doing now, and how far along.
@@ -60,26 +61,26 @@ struct TaskLiveActivity: Widget {
                     LA.moth(24).padding(.leading, 8)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    ElapsedText(content: content, size: 14).padding(.trailing, 8)
+                    ElapsedText(content: content, size: 14, isStale: isStale).padding(.trailing, 8)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     VStack(alignment: .leading, spacing: 10) {
-                        IslandHeadline(content: content)
-                        IslandFooter(content: content, url: url)
+                        IslandHeadline(content: content, isStale: isStale)
+                        IslandFooter(content: content, url: url, isStale: isStale)
                     }
                     .padding(.horizontal, 8)
                 }
             } compactLeading: {
-                ProgressRing(content: content, diameter: 24, lineWidth: 2.5, moth: 12)
+                ProgressRing(content: content, isStale: isStale, diameter: 24, lineWidth: 2.5, moth: 12)
                     .padding(.leading, 4)
             } compactTrailing: {
                 // Inset from the pill's rounded end so the timer doesn't crowd the edge.
-                CompactTrailing(content: content)
+                CompactTrailing(content: content, isStale: isStale)
                     .padding(.trailing, 6)
             } minimal: {
-                ProgressRing(content: content, diameter: 22, lineWidth: 2, moth: 12)
+                ProgressRing(content: content, isStale: isStale, diameter: 22, lineWidth: 2, moth: 12)
             }
-            .keylineTint(content.status == .needsApproval ? LA.amber : LA.muted)
+            .keylineTint(content.status == .needsApproval && !isStale ? LA.amber : LA.muted)
             .widgetURL(TaskActivityContent.url(forTask: context.attributes.taskID))
         }
     }
@@ -89,6 +90,8 @@ struct TaskLiveActivity: Widget {
 
 struct TaskLockScreenView: View {
     let content: TaskActivityContent
+    /// `ActivityViewContext.isStale`: nothing has updated this since its stale date passed.
+    let isStale: Bool
     /// iOS sets `.privacy` while the phone is locked (with a passcode); it is how a Live Activity learns that.
     @Environment(\.redactionReasons) private var redaction
 
@@ -113,9 +116,9 @@ struct TaskLockScreenView: View {
                         .fixedSize(horizontal: false, vertical: true)
                         .privacySensitive(isPrivate && title != nil)
                     Spacer(minLength: 8)
-                    ElapsedText(content: content, size: 14)
+                    ElapsedText(content: content, size: 14, isStale: isStale)
                 }
-                if let detail {
+                if let detail, !isStale {
                     Text(detail)
                         .font(.system(size: 13))
                         .foregroundStyle(LA.muted)
@@ -125,9 +128,11 @@ struct TaskLockScreenView: View {
                 }
             }
             if content.hasStepCount {
-                SegmentBar(content: content)
+                SegmentBar(content: content, isStale: isStale)
+            } else if let range = estimateRange(content, isStale: isStale) {
+                EstimateBar(range: range)
             }
-            StatusLine(content: content)
+            StatusLine(content: content, isStale: isStale)
         }
     }
 }
@@ -136,8 +141,17 @@ struct TaskLockScreenView: View {
 /// for needs-approval only.
 struct StatusLine: View {
     let content: TaskActivityContent
+    let isStale: Bool
 
     var body: some View {
+        if ActivityPresentation(content: content, isStale: isStale).showsStaleNotice {
+            StaleNotice(size: 13)
+        } else {
+            live
+        }
+    }
+
+    private var live: some View {
         HStack(spacing: 6) {
             if let dot = LA.dot(for: content.status) {
                 Circle().fill(dot).frame(width: 7, height: 7)
@@ -153,6 +167,7 @@ struct StatusLine: View {
 /// rest a dim track.
 struct SegmentBar: View {
     let content: TaskActivityContent
+    var isStale: Bool = false
 
     var body: some View {
         let (total, finished) = content.segments
@@ -170,6 +185,8 @@ struct SegmentBar: View {
     private func color(for index: Int, finished: Int) -> Color {
         if index < finished { return LA.muted }
         if index == finished && content.status != .done && content.status != .failed {
+            // Stale: the step may have moved on, so the current segment is no longer shown as lit.
+            if isStale { return LA.track }
             return content.status == .needsApproval ? LA.amber : LA.text
         }
         return LA.track
@@ -180,6 +197,7 @@ struct SegmentBar: View {
 struct ElapsedText: View {
     let content: TaskActivityContent
     let size: CGFloat
+    var isStale: Bool = false
 
     var body: some View {
         Group {
@@ -194,6 +212,8 @@ struct ElapsedText: View {
         .foregroundStyle(LA.muted)
         .multilineTextAlignment(.trailing)
         .frame(minWidth: size * 4, alignment: .trailing)
+        // Stale and still counting would read as "running right now": dim it; the notice says why.
+        .opacity(isStale && content.endedAt == nil ? 0.5 : 1)
     }
 }
 
@@ -203,6 +223,7 @@ struct ElapsedText: View {
 /// for (amber) when it needs you, otherwise what the current step is doing.
 private struct IslandHeadline: View {
     let content: TaskActivityContent
+    let isStale: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
@@ -211,7 +232,10 @@ private struct IslandHeadline: View {
                 .foregroundStyle(LA.text)
                 .lineLimit(content.answersInline ? 1 : 2)
                 .fixedSize(horizontal: false, vertical: true)
-            if let line = content.asking ?? content.detail {
+            if ActivityPresentation(content: content, isStale: isStale).showsStaleNotice {
+                // What it was asking may already be answered: say so instead of showing the old question.
+                StaleNotice(size: 13)
+            } else if let line = content.asking ?? content.detail {
                 Text(line)
                     .font(.system(size: 13))
                     .foregroundStyle(content.asking != nil ? LA.amber : LA.muted)
@@ -226,11 +250,17 @@ private struct IslandHeadline: View {
 private struct IslandFooter: View {
     let content: TaskActivityContent
     let url: URL?
+    let isStale: Bool
 
     var body: some View {
+        let presentation = ActivityPresentation(content: content, isStale: isStale)
         VStack(spacing: 9) {
-            if content.hasStepCount { SegmentBar(content: content) }
-            if content.answersInline, let id = content.inlineApprovalID {
+            if content.hasStepCount {
+                SegmentBar(content: content, isStale: isStale)
+            } else if let range = estimateRange(content, isStale: isStale) {
+                EstimateBar(range: range)
+            }
+            if presentation.showsInlineAnswer, let id = content.inlineApprovalID {
                 // The island is only so tall: the buttons take the step row's place. The amber question above
                 // and the amber segment already say it needs you.
                 InlineAnswerButtons(approvalID: id)
@@ -248,16 +278,18 @@ private struct IslandFooter: View {
                     .foregroundStyle(LA.muted)
             }
             Spacer(minLength: 8)
-            if content.status == .needsApproval, let url {
+            if ActivityPresentation(content: content, isStale: isStale).showsOpenLink, let url {
                 Link(destination: url) {
-                    Text("Review…")
+                    Text(isStale ? "Open Psyche" : "Review…")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(LA.card)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 6)
                         .background(LA.amber, in: Capsule())
                 }
-                .accessibilityLabel("Review the approval in Psyche")
+                .accessibilityLabel(isStale ? "Open Psyche" : "Review the approval in Psyche")
+            } else if ActivityPresentation(content: content, isStale: isStale).showsStaleNotice {
+                StaleNotice(size: 12)
             } else {
                 HStack(spacing: 5) {
                     if let dot = LA.dot(for: content.status) {
@@ -304,8 +336,18 @@ private struct InlineAnswerButtons: View {
 
 private struct CompactTrailing: View {
     let content: TaskActivityContent
+    let isStale: Bool
 
     var body: some View {
+        if ActivityPresentation(content: content, isStale: isStale).showsStaleNotice {
+            Image(systemName: "exclamationmark.circle").font(.system(size: 13, weight: .medium)).foregroundStyle(LA.muted)
+                .accessibilityLabel("May be out of date")
+        } else {
+            live
+        }
+    }
+
+    @ViewBuilder private var live: some View {
         switch content.status {
         case .needsApproval:
             HStack(spacing: 4) {
@@ -332,16 +374,18 @@ private struct CompactTrailing: View {
 /// With no step count the ring is a full track, closed in amber when it needs you.
 private struct ProgressRing: View {
     let content: TaskActivityContent
+    let isStale: Bool
     let diameter: CGFloat
     let lineWidth: CGFloat
     let moth: CGFloat
 
     private var tint: Color {
+        if isStale && content.status != .done && content.status != .failed { return LA.muted }
         switch content.status {
-        case .running: LA.wings
-        case .needsApproval: LA.amber
-        case .done: LA.green
-        case .failed: LA.red
+        case .running: return LA.wings
+        case .needsApproval: return LA.amber
+        case .done: return LA.green
+        case .failed: return LA.red
         }
     }
 
@@ -355,16 +399,72 @@ private struct ProgressRing: View {
 
     var body: some View {
         ZStack {
-            Circle().stroke(LA.track, lineWidth: lineWidth)
-            Circle()
-                .trim(from: 0, to: trim)
-                .stroke(tint, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
-                .rotationEffect(.degrees(-90))
+            if let range = estimateRange(content, isStale: isStale), content.status == .running {
+                // The Gateway gave an estimated end: the system draws and advances the ring by itself, with no updates.
+                ProgressView(timerInterval: range, countsDown: false) {
+                    EmptyView()
+                } currentValueLabel: {
+                    EmptyView()
+                }
+                .progressViewStyle(.circular)
+                .tint(tint)
+                .padding(lineWidth / 2)
+            } else {
+                Circle().stroke(LA.track, lineWidth: lineWidth)
+                Circle()
+                    .trim(from: 0, to: trim)
+                    .stroke(tint, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+            }
             LA.moth(moth)
         }
         .padding(lineWidth / 2)
         .frame(width: diameter, height: diameter)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(content.stepLabel.map { "\($0), \(content.statusWord)" } ?? content.statusWord)
+        .accessibilityLabel(
+            isStale && content.status != .done && content.status != .failed
+                ? Text("May be out of date")
+                : Text(content.stepLabel.map { "\($0), \(content.statusWord)" } ?? content.statusWord))
+    }
+}
+
+// MARK: - Progress from the Gateway, and the stale notice
+
+/// The range a self-advancing bar or ring counts through, only when the Gateway gave an estimated end and
+/// nothing is stale. Otherwise there is no estimate to draw: steps and elapsed time only, never a guess.
+private func estimateRange(_ content: TaskActivityContent, isStale: Bool) -> ClosedRange<Date>? {
+    ActivityPresentation(content: content, isStale: isStale).showsEstimate ? content.estimateRange : nil
+}
+
+/// A thin bar the system advances by itself from the task's start to its estimated end.
+private struct EstimateBar: View {
+    let range: ClosedRange<Date>
+
+    var body: some View {
+        ProgressView(timerInterval: range, countsDown: false) {
+            EmptyView()
+        } currentValueLabel: {
+            EmptyView()
+        }
+        .progressViewStyle(.linear)
+        .tint(LA.wings)
+        .accessibilityHidden(true)
+    }
+}
+
+/// "May be out of date · open Psyche": what every stale state says, in place of the live status.
+struct StaleNotice: View {
+    let size: CGFloat
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "exclamationmark.circle")
+                .font(.system(size: size, weight: .medium))
+            Text("May be out of date · open Psyche")
+                .font(.system(size: size))
+                .lineLimit(2)
+        }
+        .foregroundStyle(LA.muted)
+        .accessibilityElement(children: .combine)
     }
 }

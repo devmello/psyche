@@ -8,6 +8,7 @@ options:
     iOS: "26.0"
   createIntermediateGroups: true
   developmentLanguage: en
+  knownRegions: [en, ar, de, es, fr, hi, it, ja, ko, pt, zh-Hans]
   generateEmptyDirectories: false
 
 configFiles:
@@ -83,7 +84,9 @@ targets:
         # Live Activities for a running task, updated by the app itself (no APNs without a paid account).
         NSSupportsLiveActivities: true
         # Background checks without push: BGTaskScheduler app refresh (AlertCenter.refreshIdentifier).
-        UIBackgroundModes: [fetch]
+        # `audio`: "Stay connected while a task runs" holds a silent, mixable audio session while a watched task runs (StayAwake.swift).
+        # Needs no entitlement, so it works on a free Personal Team. `fetch` is the background check.
+        UIBackgroundModes: [fetch, audio]
         BGTaskSchedulerPermittedIdentifiers: [$(PSYCHE_BUNDLE_ID).refresh]
         UILaunchScreen: {}
         UIApplicationSceneManifest:

@@ -102,8 +102,8 @@ private final class WatchedTasks: ActivityHost {
     let activeTaskIDs: [String]
     init(_ watching: [String]) { activeTaskIDs = watching }
     var isEnabled: Bool { true }
-    func start(taskID: String, content: TaskActivityContent) -> Bool { true }
-    func update(taskID: String, content: TaskActivityContent) async {}
+    func start(taskID: String, content: TaskActivityContent, staleDate: Date?) -> Bool { true }
+    func update(taskID: String, content: TaskActivityContent, staleDate: Date?) async {}
     func end(taskID: String, final: TaskActivityContent?, dismissAfter: TimeInterval) async {}
 }
 
@@ -112,7 +112,7 @@ private final class StartedActivities: ActivityHost {
     var started: [String: TaskActivityContent] = [:]
     var activeTaskIDs: [String] { Array(started.keys) }
     var isEnabled: Bool { true }
-    func start(taskID: String, content: TaskActivityContent) -> Bool { started[taskID] = content; return true }
-    func update(taskID: String, content: TaskActivityContent) async {}
+    func start(taskID: String, content: TaskActivityContent, staleDate: Date?) -> Bool { started[taskID] = content; return true }
+    func update(taskID: String, content: TaskActivityContent, staleDate: Date?) async {}
     func end(taskID: String, final: TaskActivityContent?, dismissAfter: TimeInterval) async {}
 }

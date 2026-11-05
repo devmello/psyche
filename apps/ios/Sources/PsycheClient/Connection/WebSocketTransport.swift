@@ -9,12 +9,16 @@ public protocol WebSocketTransport: Sendable {
     /// The next frame, or throws when the socket closed.
     func receive() async throws -> Data
     func close()
+    /// A WebSocket ping, answered by the Gateway's socket layer: proves the path still works without an app message.
+    /// The default does nothing (test transports).
+    func ping() async throws
     /// How the TLS certificate of this connection was accepted. Nil when there is no TLS to speak of
     /// (`ws://` to loopback in development, and test transports).
     var peerCertificate: PeerCertificate? { get }
 }
 
 extension WebSocketTransport {
+    public func ping() async throws {}
     public var peerCertificate: PeerCertificate? { nil }
 }
 
@@ -77,6 +81,14 @@ public final class URLSessionTransport: WebSocketTransport, @unchecked Sendable 
         case .string(let text): return Data(text.utf8)
         case .data(let data): return data
         @unknown default: throw TransportClosed()
+        }
+    }
+
+    public func ping() async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
+            task.sendPing { error in
+                if let error { continuation.resume(throwing: error) } else { continuation.resume() }
+            }
         }
     }
 

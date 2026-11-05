@@ -42,6 +42,21 @@ public final class AlertCenter {
     private var settings = PhoneSettings(
         notifications: true, liveActivities: true, taskTitlesOnLockScreen: false, faceIDForApprovals: true)
     private var coalescer = UpdateCoalescer(interval: 1)
+    /// Live Activity updates: a change goes out at most every few seconds, an unchanged one never.
+    private let gate = ActivityUpdateGate(minInterval: 5)
+    private var lastPush: [String: Date] = [:]
+    /// The stale date each activity was last given.
+    private var staleDates: [String: Date] = [:]
+    private var deferredPush: Task<Void, Never>?
+    private var staleRefresh: Task<Void, Never>?
+    /// Task ids the Gateway said were running or waiting at the last sync.
+    private var activeIDs: Set<String> = []
+    private var connectionLive = true
+    private var connectionWatcher: Task<Void, Never>?
+    private(set) var awake: StayAwakeController?
+    /// Debug builds only: `-psycheStaleSeconds 20` makes every stale date that many seconds out, to see the stale
+    /// state without waiting minutes.
+    private let staleOverride: TimeInterval?
     private var observer: Task<Void, Never>?
     private var scheduledSync: Task<Void, Never>?
     private var baselined = false
@@ -54,8 +69,11 @@ public final class AlertCenter {
 
     init(
         store: any PsycheBackend, notifier: any LocalNotifier, activities: any ActivityHost,
-        connection: any AlertConnection, ledger: NotifiedLedger, isFixture: Bool = false
+        connection: any AlertConnection, ledger: NotifiedLedger, isFixture: Bool = false,
+        awakeAudio: any SilentAudio = NoSilentAudio(), deviceConditions: any DeviceConditions = NoDeviceConditions(),
+        awakeLedger: AwakeTimeLedger = AwakeTimeLedger(directory: nil), staleOverride: TimeInterval? = nil
     ) {
+        self.staleOverride = staleOverride
         self.store = store
         self.notifier = notifier
         self.activities = activities
@@ -63,6 +81,11 @@ public final class AlertCenter {
         self.ledger = ledger
         self.isFixture = isFixture
         watching = Set(activities.activeTaskIDs)
+        awake = StayAwakeController(
+            audio: awakeAudio, conditions: deviceConditions, ledger: awakeLedger,
+            setKeepConnected: { [connection] keep in Task { await connection.setKeepConnected(keep) } },
+            onStopped: { [weak self] reason in self?.awakeStopped(reason) })
+        activities.observeChanges { [weak self] in self?.activitiesChangedBySystem() }
     }
 
     /// The real wiring. `client` is nil in fixture mode (`-psycheScenario`, "Try it without a Mac").
@@ -74,11 +97,25 @@ public final class AlertCenter {
         #endif
         // Fixtures keep their own ledger in memory: made-up data must not touch the real one.
         let ledger = NotifiedLedger(directory: client == nil ? nil : AppGroup.dataDirectory)
+        let awakeLedger = AwakeTimeLedger(directory: client == nil ? nil : AppGroup.dataDirectory)
+        #if os(iOS)
+        let audio: any SilentAudio = SystemSilentAudio()
+        let conditions: any DeviceConditions = SystemDeviceConditions()
+        #else
+        let audio: any SilentAudio = NoSilentAudio()
+        let conditions: any DeviceConditions = NoDeviceConditions()
+        #endif
+        var staleOverride: TimeInterval?
+        #if DEBUG
+        let seconds = UserDefaults.standard.double(forKey: "psycheStaleSeconds")
+        if seconds > 0 { staleOverride = seconds }
+        #endif
         return AlertCenter(
             store: store, notifier: SystemNotifier(),
             activities: host,
             connection: client.map { GatewayAlertConnection(client: $0) } ?? FixtureAlertConnection(),
-            ledger: ledger, isFixture: client == nil)
+            ledger: ledger, isFixture: client == nil, awakeAudio: audio, deviceConditions: conditions,
+            awakeLedger: awakeLedger, staleOverride: staleOverride)
     }
 
     // MARK: - App hooks
@@ -99,12 +136,34 @@ public final class AlertCenter {
     }
 
     public func setAppActive(_ active: Bool) {
+        let changed = appActive != active
         appActive = active
+        guard changed else { return }
+        Task {
+            if active {
+                // Open again: the connection vouches for the state, so give each activity a fresh, longer fuse.
+                await refreshStaleDates()
+            } else if awake?.isRunning != true {
+                // Leaving with nothing keeping the app awake: nothing can refresh the activity, so shorten its fuse.
+                await shortenStaleDates()
+            }
+        }
     }
+
+    /// Seconds Psyche has kept itself awake today, for Settings.
+    public func awakeSecondsToday() async -> TimeInterval { await awake?.secondsToday() ?? 0 }
 
     /// Starts watching the backend's events. Safe to call again; the shell calls it once the phone is paired.
     public func start() {
         guard observer == nil else { return }
+        connectionWatcher = Task { [weak self] in
+            guard let self else { return }
+            for await live in self.connection.liveStates() {
+                self.connectionLive = live
+                self.awake?.setGateway(live: live)
+                if live { self.requestSync() }
+            }
+        }
         observer = Task { [weak self] in
             guard let self else { return }
             await self.loadSettings()
@@ -134,6 +193,7 @@ public final class AlertCenter {
 
     private func loadSettings() async {
         if let loaded = try? await store.settings() { settings = loaded }
+        awake?.setSwitch(settings.stayConnectedWhileRunning && liveActivitiesOn)
     }
 
     private var liveActivitiesOn: Bool { settings.notifications && settings.liveActivities }
@@ -145,7 +205,10 @@ public final class AlertCenter {
             for id in watching { await activities.end(taskID: id, final: nil, dismissAfter: 0) }
             watching = []
             lastContent = [:]
+            lastPush = [:]
+            staleDates = [:]
             offer = nil
+            updateAwake()
         } else {
             lastContent = [:]
             await sync(.live)
@@ -176,9 +239,15 @@ public final class AlertCenter {
         // sync, which may not come before the app is suspended.
         let waiting = (try? await store.home())?.needsYou ?? []
         let content = activityContent(task: task, needsYou: waiting, fallbackStart: nil)
-        guard activities.start(taskID: task.id, content: content) else { return "Couldn't start the Live Activity." }
+        let now = Date.now
+        let stale = staleDate(from: now)
+        guard activities.start(taskID: task.id, content: content, staleDate: stale) else { return "Couldn't start the Live Activity." }
         watching.insert(task.id)
         lastContent[task.id] = content
+        lastPush[task.id] = now
+        staleDates[task.id] = stale
+        updateAwake()
+        scheduleStaleRefresh()
         titles[task.id] = task.title
         if offer?.id == task.id { offer = nil }
         if let fixtures = store as? FixtureBackend { await fixtures.startRunningDemo(taskID: task.id) }
@@ -212,7 +281,9 @@ public final class AlertCenter {
         // app may be suspended right after it, which would leave the island showing the old state.
         let vanished = previous.union(watching).subtracting(running)
         let recent = vanished.isEmpty ? [] : ((try? await store.activity())?.recent ?? [])
+        activeIDs = running.union(home.needsYou.compactMap(\.taskID))
         await updateActivities(home: home, recent: recent)
+        updateAwake()
 
         await announce(home.needsYou, mode: effective)
         await clearStale(pending: Set(home.needsYou.map(\.id)))
@@ -235,13 +306,23 @@ public final class AlertCenter {
     }
 
     private func updateActivities(home: HomeSnapshot, recent: [RecentRun]) async {
+        // The system's list is the truth: an activity the owner swiped away is no longer being watched.
+        watching.formIntersection(activities.activeTaskIDs)
+        let now = Date.now
         for id in watching {
             if let task = home.running.first(where: { $0.id == id }) {
                 titles[id] = task.title
                 let content = activityContent(task: task, needsYou: home.needsYou, fallbackStart: lastContent[id]?.startedAt)
-                if lastContent[id] != content {
-                    lastContent[id] = content
-                    await activities.update(taskID: id, content: content)
+                switch gate.decide(
+                    old: lastContent[id], new: content, lastPush: lastPush[id], staleDate: staleDates[id],
+                    awake: isAwake, now: now)
+                {
+                case .push, .refreshStale:
+                    await push(id, content, at: now)
+                case .wait(let delay):
+                    scheduleDeferredSync(after: delay)
+                case .skip:
+                    break
                 }
             } else {
                 let outcome = recent.first { $0.id == id }?.outcome
@@ -256,6 +337,108 @@ public final class AlertCenter {
                 }
                 watching.remove(id)
                 lastContent[id] = nil
+                lastPush[id] = nil
+                staleDates[id] = nil
+            }
+        }
+        scheduleStaleRefresh()
+    }
+
+    // MARK: - Freshness
+
+    /// Awake: the app is open or keeping itself awake, and the Gateway connection is live to vouch for the state.
+    private var isAwake: Bool { (appActive || awake?.isRunning == true) && connectionLive }
+
+    private func staleDate(from now: Date) -> Date {
+        if let staleOverride { return now.addingTimeInterval(staleOverride) }
+        return ActivityFreshness.staleDate(lastUpdate: now, awake: isAwake)
+    }
+
+    /// One update to an activity: records what it now shows and when it goes stale.
+    private func push(_ id: String, _ content: TaskActivityContent, at now: Date, staleDate: Date? = nil) async {
+        let stale = staleDate ?? self.staleDate(from: now)
+        lastContent[id] = content
+        lastPush[id] = now
+        staleDates[id] = stale
+        await activities.update(taskID: id, content: content, staleDate: stale)
+    }
+
+    /// A changed state that came too soon after the last push goes out once the interval has passed.
+    private func scheduleDeferredSync(after delay: TimeInterval) {
+        guard deferredPush == nil else { return }
+        deferredPush = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(delay))
+            guard !Task.isCancelled, let self else { return }
+            self.deferredPush = nil
+            await self.sync(.live)
+        }
+    }
+
+    /// While awake, one sleep until the earliest stale date is about to pass; then the unchanged activity gets a
+    /// later one. Not a poll: it is re-armed only by an update and runs once per stale period.
+    private func scheduleStaleRefresh() {
+        staleRefresh?.cancel()
+        staleRefresh = nil
+        guard staleOverride == nil, isAwake, let soonest = watching.compactMap({ staleDates[$0] }).min() else { return }
+        let delay = max(1, ActivityFreshness.refreshTime(forStaleDate: soonest).timeIntervalSinceNow)
+        staleRefresh = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(delay))
+            guard !Task.isCancelled, let self else { return }
+            await self.sync(.live)
+        }
+    }
+
+    /// The app came to the front: every activity gets the longer fuse again.
+    private func refreshStaleDates() async {
+        let now = Date.now
+        for id in watching {
+            if let content = lastContent[id] { await push(id, content, at: now) }
+        }
+        scheduleStaleRefresh()
+    }
+
+    /// The app left with nothing holding it awake: nothing can refresh the activities, so their fuse is cut to the
+    /// short one. (Only ever shortened, so it cannot make a stale one fresh.)
+    private func shortenStaleDates() async {
+        let now = Date.now
+        let short = now.addingTimeInterval(staleOverride ?? ActivityFreshness.staleAfterAsleep)
+        for id in watching {
+            guard let content = lastContent[id], let current = staleDates[id], short < current else { continue }
+            await push(id, content, at: now, staleDate: short)
+        }
+        staleRefresh?.cancel()
+        staleRefresh = nil
+    }
+
+    // MARK: - Staying awake
+
+    /// Tells the awake controller what is being watched: the system's list of activities, and how many of those
+    /// the Gateway says are still running or waiting.
+    private func updateAwake() {
+        let systemWatched = Set(activities.activeTaskIDs)
+        awake?.setTasks(watched: systemWatched.count, active: systemWatched.intersection(activeIDs).count)
+    }
+
+    /// The owner dismissed an activity, or the system ended one.
+    private func activitiesChangedBySystem() {
+        watching.formIntersection(activities.activeTaskIDs)
+        updateAwake()
+    }
+
+    /// An awake stretch ended while tasks are still being watched: what the activity shows can no longer be
+    /// vouched for. The cap and an unreachable Gateway mark it stale at once; any other reason, once the app is
+    /// away, leaves only the short fuse.
+    private func awakeStopped(_ reason: StayAwake.StopReason) {
+        scheduleStaleRefresh()
+        guard !watching.isEmpty else { return }
+        Task {
+            if reason == .gatewayUnreachable || (reason == .hardCap && !appActive) {
+                let now = Date.now
+                for id in watching {
+                    if let content = lastContent[id] { await push(id, content, at: now, staleDate: now) }
+                }
+            } else if !appActive {
+                await shortenStaleDates()
             }
         }
     }

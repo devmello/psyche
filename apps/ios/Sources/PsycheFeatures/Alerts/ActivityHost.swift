@@ -12,10 +12,17 @@ protocol ActivityHost: AnyObject {
     var isEnabled: Bool { get }
     /// Task ids that already have an activity (kept across an app relaunch by the system).
     var activeTaskIDs: [String] { get }
-    func start(taskID: String, content: TaskActivityContent) -> Bool
-    func update(taskID: String, content: TaskActivityContent) async
+    /// `staleDate`: when iOS should mark the activity "out of date" if nothing updated it first.
+    func start(taskID: String, content: TaskActivityContent, staleDate: Date?) -> Bool
+    func update(taskID: String, content: TaskActivityContent, staleDate: Date?) async
+    /// Calls `handler` when the system ends or dismisses an activity on its own (the owner swiped it away).
+    func observeChanges(_ handler: @escaping @MainActor () -> Void)
     /// Ends the activity showing `final` for `dismissAfter` seconds (0: remove it at once).
     func end(taskID: String, final: TaskActivityContent?, dismissAfter: TimeInterval) async
+}
+
+extension ActivityHost {
+    func observeChanges(_ handler: @escaping @MainActor () -> Void) {}
 }
 
 #if canImport(ActivityKit) && os(iOS)
@@ -36,14 +43,15 @@ final class SystemActivityHost: ActivityHost {
         Activity<PsycheTaskAttributes>.activities.filter { $0.activityState == .active }.map(\.attributes.taskID)
     }
 
-    func start(taskID: String, content: TaskActivityContent) -> Bool {
+    func start(taskID: String, content: TaskActivityContent, staleDate: Date?) -> Bool {
         guard isEnabled, activities[taskID] == nil else { return activities[taskID] != nil }
         do {
             // pushType nil: updates come from the app itself over its live connection (no APNs without a
             // paid developer account), so there is no push token to register with the Gateway.
             let activity = try Activity.request(
                 attributes: PsycheTaskAttributes(taskID: taskID),
-                content: ActivityContent(state: content, staleDate: nil), pushType: nil)
+                content: ActivityContent(state: content, staleDate: staleDate), pushType: nil)
+            watchForEnd(activity)
             activities[taskID] = activity
             return true
         } catch {
@@ -51,9 +59,33 @@ final class SystemActivityHost: ActivityHost {
         }
     }
 
-    func update(taskID: String, content: TaskActivityContent) async {
+    func update(taskID: String, content: TaskActivityContent, staleDate: Date?) async {
         guard let activity = activities[taskID] else { return }
-        await Box(activity).update(ActivityContent(state: content, staleDate: nil))
+        await Box(activity).update(ActivityContent(state: content, staleDate: staleDate))
+    }
+
+    private var changeHandler: (@MainActor () -> Void)?
+
+    func observeChanges(_ handler: @escaping @MainActor () -> Void) {
+        changeHandler = handler
+        for activity in activities.values { watchForEnd(activity) }
+    }
+
+    private var watched: Set<String> = []
+
+    /// One cheap async sequence per activity: it wakes only when the system changes the activity's state.
+    private func watchForEnd(_ activity: Activity<PsycheTaskAttributes>) {
+        guard changeHandler != nil, watched.insert(activity.id).inserted else { return }
+        let box = Box(activity)
+        Task { @MainActor [weak self] in
+            for await state in box.activity.activityStateUpdates where state == .dismissed || state == .ended {
+                if self?.activities[box.activity.attributes.taskID]?.id == box.activity.id {
+                    self?.activities[box.activity.attributes.taskID] = nil
+                }
+                self?.changeHandler?()
+                return
+            }
+        }
     }
 
     func end(taskID: String, final: TaskActivityContent?, dismissAfter: TimeInterval) async {
@@ -80,7 +112,7 @@ final class SystemActivityHost: ActivityHost {
 final class NoActivityHost: ActivityHost {
     var isEnabled: Bool { false }
     var activeTaskIDs: [String] { [] }
-    func start(taskID: String, content: TaskActivityContent) -> Bool { false }
-    func update(taskID: String, content: TaskActivityContent) async {}
+    func start(taskID: String, content: TaskActivityContent, staleDate: Date?) -> Bool { false }
+    func update(taskID: String, content: TaskActivityContent, staleDate: Date?) async {}
     func end(taskID: String, final: TaskActivityContent?, dismissAfter: TimeInterval) async {}
 }
