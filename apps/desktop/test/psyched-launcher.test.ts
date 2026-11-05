@@ -3,8 +3,12 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import {
+  PSYCHE_LAUNCHER,
+  PSYCHED_HARDEN,
+  PSYCHED_LAUNCHER,
 // @ts-expect-error plain .mjs without types; importing it does not run the build.
-import { PSYCHED_HARDEN, PSYCHED_LAUNCHER } from "../../../deploy/scripts/build-psyched.mjs";
+} from "../../../deploy/scripts/build-psyched.mjs";
 
 /**
  * Electron's fuses do not cover psyched's Node. The launcher clears the environment variables that
@@ -23,6 +27,13 @@ describe("psyched launcher", () => {
     expect(launcher).toMatch(/^unset NODE_OPTIONS NODE_PATH NODE_REPL_EXTERNAL_MODULE$/m);
     expect(launcher).toContain('--require "$here/psyched-harden.cjs"');
     // The unset comes before the exec that starts Node.
+    expect(launcher.indexOf("unset NODE_OPTIONS")).toBeLessThan(launcher.indexOf("exec "));
+  });
+
+  it("the psyche CLI launcher is closed the same way", () => {
+    const launcher = String(PSYCHE_LAUNCHER);
+    expect(launcher).toMatch(/^unset NODE_OPTIONS NODE_PATH NODE_REPL_EXTERNAL_MODULE$/m);
+    expect(launcher).toContain('--require "$here/psyched-harden.cjs"');
     expect(launcher.indexOf("unset NODE_OPTIONS")).toBeLessThan(launcher.indexOf("exec "));
   });
 

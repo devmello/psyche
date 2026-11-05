@@ -226,7 +226,7 @@ export const final202611: Partial<Catalogue> = {
   "web.teach.step.app.typeSensitive": "In {app}, digiti tu stesso in «{name}»",
   "app.integrity.title": "I file di Psyche sono stati modificati",
   "app.integrity.detail":
-    "Questa copia di Psyche non corrisponde più alla firma con cui è stata pubblicata, quindi qualcosa potrebbe averla modificata. Finché non la reinstalli dal download ufficiale, Psyche tiene disattivate le funzioni di microfono, schermo, Apple Events, Contatti e Calendario.",
+    "Questa copia di Psyche non corrisponde più alla firma con cui è stata pubblicata, quindi qualcosa potrebbe averla modificata. Finché non la reinstalli dal download ufficiale, Psyche tiene disattivate le funzioni di microfono, schermo, Apple Events, Contatti e Calendario. Il servizio in background di Psyche (il Gateway) continua a funzionare.",
   "app.integrity.blocked":
     "Disattivato: questa copia di Psyche è stata modificata. Reinstallala dal download ufficiale.",
   "app.integrity.ok": "OK",

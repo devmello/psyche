@@ -65,6 +65,16 @@ if [ -r "$REQS" ]; then
   case "$REQ" in *SHA1_OF_PSYCHE_RELEASE_CERT*) REQ="" ;; esac
 fi
 
+# A hash identity is the release certificate only if it is the SHA-1 pinned in the requirements file
+# (while that file still has its placeholder nothing is pinned and any hash is accepted).
+pinned_hash="$(printf '%s' "$REQ" | sed -n 's/.*certificate leaf = H"\([0-9a-fA-F]\{40\}\)".*/\1/p')"
+if [ "$ID" != "Psyche Release" ] && [ -n "$pinned_hash" ]; then
+  if [ "$(printf '%s' "$ID" | tr 'A-F' 'a-f')" != "$(printf '%s' "$pinned_hash" | tr 'A-F' 'a-f')" ]; then
+    echo "identity $ID is not the SHA-1 pinned in $REQS ($pinned_hash): refusing to sign with another certificate" >&2
+    exit 64
+  fi
+fi
+
 sign() { # sign <path> <entitlements|""> [extra codesign args...]
   local path="$1" ent="$2"; shift 2
   local args=(--force --options runtime "$TS")
@@ -73,39 +83,67 @@ sign() { # sign <path> <entitlements|""> [extra codesign args...]
   "$CODESIGN" "${args[@]}" "$@" --sign "$ID" "$path"
 }
 
-# Mach-O files under a directory, deepest first (executables, .node addons, dylibs).
-macho_files() { # macho_files <dir> [find prune args...]
-  local dir="$1"
-  find "$dir" -type f \( -perm -u+x -o -name '*.node' -o -name '*.dylib' -o -name '*.so' \) -print 2>/dev/null |
-    while IFS= read -r f; do
-      case "$(file -b "$f" 2>/dev/null)" in *Mach-O*) printf '%s\t%s\n' "$(printf '%s' "$f" | tr -cd / | wc -c)" "$f" ;; esac
-    done | sort -rn | cut -f2-
-}
-
 HELPER="$APP/Contents/Resources/PsycheHelper.app"
 GATEWAY="$APP/Contents/Resources/psyched"
 
+# Paths are collected NUL-separated (a name with a newline or a space is just a name) and only paths
+# under "$APP"/ are ever signed. `find` does not follow symlinks, so nothing outside the bundle is reached.
+FOUND=()
+collect_macho() { # collect_macho <dir>: Mach-O files (executables, .node addons, dylibs)
+  local f
+  FOUND=()
+  while IFS= read -r -d '' f; do
+    case "$f" in "$APP"/*) ;; *) continue ;; esac
+    case "$(file -b "$f" 2>/dev/null)" in *Mach-O*) FOUND+=("$f") ;; esac
+  done < <(find "$1" -type f \( -perm -u+x -o -name '*.node' -o -name '*.dylib' -o -name '*.so' \) -print0 2>/dev/null)
+}
+collect_bundles() { # collect_bundles <dir>: .framework and .app directories
+  local f
+  FOUND=()
+  while IFS= read -r -d '' f; do
+    case "$f" in "$APP"/*) FOUND+=("$f") ;; esac
+  done < <(find "$1" -type d \( -name '*.framework' -o -name '*.app' \) -print0 2>/dev/null)
+}
+each_deepest() { # each_deepest <callback>: calls it on every path in FOUND, deepest first
+  local cb="$1" max=0 d f slashes
+  for f in ${FOUND[@]+"${FOUND[@]}"}; do
+    slashes="${f//[!\/]/}"
+    if [ "${#slashes}" -gt "$max" ]; then max="${#slashes}"; fi
+  done
+  d="$max"
+  while [ "$d" -ge 0 ]; do
+    for f in ${FOUND[@]+"${FOUND[@]}"}; do
+      slashes="${f//[!\/]/}"
+      if [ "${#slashes}" -eq "$d" ]; then "$cb" "$f"; fi
+    done
+    d=$((d - 1))
+  done
+}
+sign_gateway_file() { sign "$1" "$GW_ENT"; }
+sign_app_file() {
+  case "$1" in "$HELPER"/*|"$GATEWAY"/*) return 0 ;; esac
+  sign "$1" "$APP_ENT"
+}
+sign_bundle_dir() {
+  case "$1" in
+    *.framework) sign "$1" "" ;;
+    *) sign "$1" "$APP_ENT" ;;
+  esac
+}
+
 echo "==> signing Gateway binaries"
 if [ -d "$GATEWAY" ]; then
-  while IFS= read -r f; do [ -n "$f" ] && sign "$f" "$GW_ENT"; done < <(macho_files "$GATEWAY")
+  collect_macho "$GATEWAY"
+  each_deepest sign_gateway_file
 fi
 
 echo "==> signing the rest of the bundle, inside out"
-while IFS= read -r f; do
-  [ -n "$f" ] || continue
-  case "$f" in "$HELPER"/*|"$GATEWAY"/*) continue ;; esac
-  sign "$f" "$APP_ENT"
-done < <(macho_files "$APP/Contents")
+collect_macho "$APP/Contents"
+each_deepest sign_app_file
 
 # Frameworks and helper apps, deepest first.
-while IFS= read -r d; do
-  [ -n "$d" ] || continue
-  case "$d" in
-    *.framework) sign "$d" "" ;;
-    *) sign "$d" "$APP_ENT" ;;
-  esac
-done < <(find "$APP/Contents/Frameworks" -type d \( -name '*.framework' -o -name '*.app' \) 2>/dev/null |
-  while IFS= read -r d; do printf '%s\t%s\n' "$(printf '%s' "$d" | tr -cd / | wc -c)" "$d"; done | sort -rn | cut -f2-)
+collect_bundles "$APP/Contents/Frameworks"
+each_deepest sign_bundle_dir
 
 if [ -d "$HELPER" ]; then
   echo "==> signing PsycheHelper.app (its own entitlements, full library validation)"

@@ -471,9 +471,11 @@ export const PSYCHED_LAUNCHER = `#!/bin/sh
 ${RESOLVE_HERE}
 ${COMPILE_CACHE}
 # Electron's fuses (RunAsNode, NODE_OPTIONS, the inspector) cover only Electron. This Node is not an
-# Electron process, so it is closed by hand: nothing from the environment may add code to the Gateway
-# (it holds the vault key and runs with the app's privacy grants through the helper), and the
-# per-user module folders are not searched (psyched-harden.cjs, docs/design/updates-and-install-2026.md §2.9).
+# Electron process, so the same doors are closed by hand: the environment cannot add code to the
+# Gateway, and the per-user module folders are not searched (psyched-harden.cjs,
+# docs/design/updates-and-install-2026.md §2.9). This is DEFENCE IN DEPTH, not a boundary: the
+# LaunchAgent plist is user-writable, and the signed runtime/node can be run directly with any
+# arguments, so nothing may trust runtime/node's identity or its command line.
 unset NODE_OPTIONS NODE_PATH NODE_REPL_EXTERNAL_MODULE
 PSYCHE_BUILD_INFO="$here/build-info.json"
 export PSYCHE_BUILD_INFO
@@ -503,10 +505,12 @@ try {
 `;
 
 export const PSYCHE_LAUNCHER = `#!/bin/sh
-# The psyche CLI from Psyche.app, on the same runtime as psyched.
+# The psyche CLI from Psyche.app, on the same runtime as psyched, closed the same way (defence in
+# depth, not a boundary: see PSYCHED_LAUNCHER).
 ${RESOLVE_HERE}
 ${COMPILE_CACHE}
-exec "$here/runtime/node" --disable-warning=ExperimentalWarning "$here/app/apps/cli/dist/main.mjs" "$@"
+unset NODE_OPTIONS NODE_PATH NODE_REPL_EXTERNAL_MODULE
+exec "$here/runtime/node" --disable-warning=ExperimentalWarning --require "$here/psyched-harden.cjs" "$here/app/apps/cli/dist/main.mjs" "$@"
 `;
 
 async function smoke(bundle) {

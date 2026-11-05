@@ -15,9 +15,11 @@
   inside the bundle, and it then runs in the Gateway's Node process, where the vault key is. The
   Electron fuses do not apply to this Node. Its launcher clears NODE_OPTIONS, NODE_PATH and
   NODE_REPL_EXTERNAL_MODULE and preloads psyched-harden.cjs so the per-user module folders are not
-  searched, which stops injection from the environment and from the home folder, but not a write
-  inside the bundle. The app's daily seal check covers that (bundle-integrity.ts). TCC access belongs
-  to the app and to PsycheHelper.app, not to this process. A Developer ID build does not use this file.
+  searched. That is defence in depth, not a boundary: the LaunchAgent plist is user-writable and this
+  signed runtime/node can be run directly with any arguments, so nothing may trust its identity or
+  command line. The app's daily seal check (bundle-integrity.ts) is a tripwire for an attacker who
+  does not know about it, not containment. TCC access belongs to the app and to PsycheHelper.app, not
+  to this process. A Developer ID build does not use this file.
 -->
 <plist version="1.0">
   <dict>

@@ -81,7 +81,12 @@ import { bootstrapAdminIfNeeded } from "./main/bootstrap-admin.ts";
 import { BridgeClient, bridgeSocketPath } from "./main/bridge/bridge-client.ts";
 import { createAttentionReporter } from "./main/browser/attention.ts";
 import { BrowserHost } from "./main/browser/browser-host.ts";
-import { bundleFingerprint, checkBundleIntegrity, integrityText } from "./main/bundle-integrity.ts";
+import {
+  bundleFingerprint,
+  checkBundleIntegrity,
+  integrityText,
+  pidsOfExecutable,
+} from "./main/bundle-integrity.ts";
 import { SystemDictation } from "./main/dictation/controller.ts";
 import { HudWindow } from "./main/dictation/hud.ts";
 import { ACCESSIBILITY_SETTINGS_URL, DictationService } from "./main/dictation/service.ts";
@@ -295,11 +300,27 @@ async function startupIntegrity(): Promise<void> {
   if (verdict.state !== "blocked") return;
   integrityBlocked = true;
   console.warn("[integrity] the app's signature no longer verifies; TCC-backed features are off");
-  // Stop a helper that an earlier launch left running from this bundle.
-  void execRunner("/usr/bin/pkill", [
-    "-f",
-    join(bundle, "Contents", "Resources", "PsycheHelper.app", "Contents", "MacOS", "psyche-helper"),
-  ]);
+  // Stop a helper that an earlier launch left running from this bundle (an exact path match, not a
+  // regular expression). Only the helper: the Gateway keeps running and is not booted out from here.
+  void (async () => {
+    const exe = join(
+      bundle,
+      "Contents",
+      "Resources",
+      "PsycheHelper.app",
+      "Contents",
+      "MacOS",
+      "psyche-helper",
+    );
+    const ps = await execRunner("/bin/ps", ["-axo", "pid=,comm="]);
+    for (const pid of pidsOfExecutable(ps.stdout, exe)) {
+      try {
+        process.kill(pid, "SIGTERM");
+      } catch {
+        // Already gone.
+      }
+    }
+  })();
   void integrityText(app.getSystemLocale())
     .then((text) => {
       integrityMessage = text.blocked;

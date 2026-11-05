@@ -46,7 +46,7 @@ on its own.
 ## Who signs what
 
 - **Release (CI):** the `dmg` and `cli` jobs build unsigned (ad-hoc), with no environment and no signing
-  secrets. One `sign` job (`environment: release`, one approval per tag) signs the app inside out with
+  secrets. One `sign` job (`environment: release`) signs the app inside out with
   `deploy/macos/sign-bundle.sh`, checks it, makes the DMGs and signs the CLI binaries, running only
   Apple's tools and our own scripts while its keychain is unlocked.
 - **Local self-signed build:** `deploy/macos/build-local.sh` packages ad-hoc and then runs the same
@@ -161,15 +161,19 @@ native addons. So a self-signed build uses two other files, and only these two c
 write inside a user-owned `/Applications/Psyche.app` can swap a dylib in the bundle, and the swapped
 library then runs inside Psyche's process and inherits its TCC grants (microphone, screen, Apple
 Events, Contacts, Calendar) and keychain entries. The hardened runtime still blocks `DYLD_*`
-injection and debugger attach, but not that. Mitigations (design §2.9): the app verifies its own seal
-once a day (`bundle-integrity.ts`, cached; not on every launch) and, if it fails, warns in the owner's
-language and turns the TCC-backed features off until a reinstall. It is a tripwire, not a wall.
-The Electron fuses cover only Electron, so psyched's launcher clears `NODE_OPTIONS`, `NODE_PATH` and
-`NODE_REPL_EXTERNAL_MODULE` and preloads `psyched-harden.cjs` (no `~/.node_modules` lookup). Check
-which files carry the entitlement with `codesign -d --entitlements - <file>`; `release.yml` also
-fails the release if the hardened runtime is off anywhere, if any file has
-`allow-dyld-environment-variables` or `get-task-allow`, or if `PsycheHelper.app` has
-`disable-library-validation`.
+injection and debugger attach, but not that. Mitigations (design §2.9) are partial: the app verifies
+its own seal once a day (`bundle-integrity.ts`, cached) and, if it fails, warns in the owner's language
+and turns the TCC-backed features of the app off until a reinstall; the Gateway keeps running. That is
+a tripwire for an attacker who does not know about it, not containment: a swapped library that loads at
+launch runs before the check and can hide it. The updater does not depend on that verdict (it checks
+the claimed requirement and a shallow `codesign --verify --strict`), so a stray file never blocks
+updates. The Electron fuses cover only Electron, so the psyched and `psyche` launchers clear
+`NODE_OPTIONS`, `NODE_PATH` and `NODE_REPL_EXTERNAL_MODULE` and preload `psyched-harden.cjs` (no
+`~/.node_modules` lookup); that is defence in depth, not a boundary (the LaunchAgent plist is
+user-writable and the signed `runtime/node` can be run directly). Check which files carry the
+entitlement with `codesign -d --entitlements - <file>`; `release.yml` also fails the release if the
+hardened runtime is off anywhere, if any file has `allow-dyld-environment-variables` or
+`get-task-allow`, or if `PsycheHelper.app` has `disable-library-validation`.
 
 **If the certificate leaks:** there is no revocation, and raising `minimumVersion` does not help. See
 design §6, "Certificate leak".

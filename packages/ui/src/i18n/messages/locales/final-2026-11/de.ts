@@ -231,7 +231,7 @@ export const final202611: Partial<Catalogue> = {
   "web.teach.step.app.typeSensitive": "In {app} tippst du selbst in „{name}“",
   "app.integrity.title": "Die Dateien von Psyche wurden verändert",
   "app.integrity.detail":
-    "Diese Kopie von Psyche stimmt nicht mehr mit der Signatur überein, mit der sie veröffentlicht wurde. Möglicherweise hat sie jemand verändert. Bis du sie über den offiziellen Download neu installierst, bleiben die Funktionen für Mikrofon, Bildschirm, Apple Events, Kontakte und Kalender in Psyche ausgeschaltet.",
+    "Diese Kopie von Psyche stimmt nicht mehr mit der Signatur überein, mit der sie veröffentlicht wurde. Möglicherweise hat sie jemand verändert. Bis du sie über den offiziellen Download neu installierst, bleiben die Funktionen für Mikrofon, Bildschirm, Apple Events, Kontakte und Kalender in Psyche ausgeschaltet. Der Hintergrunddienst von Psyche (das Gateway) läuft weiter.",
   "app.integrity.blocked":
     "Ausgeschaltet: Diese Kopie von Psyche wurde verändert. Installiere sie über den offiziellen Download neu.",
   "app.integrity.ok": "OK",

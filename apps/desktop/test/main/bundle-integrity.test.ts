@@ -8,6 +8,7 @@ import {
   claimedRequirement,
   INTEGRITY_MAX_AGE_MS,
   integrityText,
+  pidsOfExecutable,
   type Run,
 } from "../../src/main/bundle-integrity.ts";
 import { HelperLauncher } from "../../src/main/helper-launcher.ts";
@@ -113,6 +114,27 @@ describe("checkBundleIntegrity", () => {
     writeFileSync(join(dir, "bundle-integrity.json"), "{nope");
     const st = { claim: REQ, verifies: true, calls: [] as string[][] };
     expect((await checkBundleIntegrity(base(dir, { run: fakeRun(st) }))).state).toBe("ok");
+  });
+});
+
+describe("pidsOfExecutable", () => {
+  const exe =
+    "/Applications/Psyche.app/Contents/Resources/PsycheHelper.app/Contents/MacOS/psyche-helper";
+  it("matches the executable path exactly, not as a pattern", () => {
+    const ps = [
+      `  101 ${exe}`,
+      `  102 ${exe}-other`,
+      `  103 /Applications/PsycheXapp/Contents/Resources/PsycheHelper.app/Contents/MacOS/psyche-helper`,
+      `  104 /usr/bin/grep ${exe}`,
+      `  105   ${exe}  `,
+      "garbage",
+    ].join("\n");
+    expect(pidsOfExecutable(ps, exe)).toEqual([101, 105]);
+    // A path with regex characters matches only itself.
+    const odd = "/Apps/Psyche+1 (x).app/Contents/MacOS/psyche-helper";
+    expect(
+      pidsOfExecutable(`7 ${odd}\n8 /Apps/Psyche+1 (x)Xapp/Contents/MacOS/psyche-helper`, odd),
+    ).toEqual([7]);
   });
 });
 

@@ -5,7 +5,7 @@
 export const bundleIntegrity = {
   "app.integrity.title": "Psyche's files were changed",
   "app.integrity.detail":
-    "This copy of Psyche no longer matches the signature it was released with, so something may have modified it. Until you reinstall it from the official download, Psyche keeps the microphone, screen, Apple Events, Contacts and Calendar features turned off.",
+    "This copy of Psyche no longer matches the signature it was released with, so something may have modified it. Until you reinstall it from the official download, Psyche keeps the microphone, screen, Apple Events, Contacts and Calendar features turned off. Psyche's background service (the Gateway) keeps running.",
   "app.integrity.blocked":
     "Turned off: this copy of Psyche was modified. Reinstall it from the official download.",
   "app.integrity.ok": "OK",

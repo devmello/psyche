@@ -56,19 +56,32 @@ export type SigningKind =
   | "self-signed"
   | "other";
 
+/** The certificate hash in a pinned requirement (`certificate leaf = H"<sha1>"`), lower case. */
+export function pinnedSha1(requirement: string | undefined): string | undefined {
+  return requirement?.match(/certificate leaf = H"([0-9a-fA-F]{40})"/)?.[1]?.toLowerCase();
+}
+
 /**
  * What an identity string is. Psyche's own self-signed certificate is named only by its SHA-1
- * (40 hex digits) or the exact name "Psyche Release": it has no team ID, so its designated
+ * (40 hex digits) or the exact name "Psyche Release". A hash counts only when it equals the SHA-1
+ * pinned in deploy/macos/designated-requirements.txt (`pinned`); while nothing is pinned yet (the
+ * placeholder) any hash is accepted, so the owner can sign the first build. A hash that differs from
+ * the pinned one is "other". The certificate has no team ID, so its designated
  * requirement is the certificate hash (`certificate leaf = H"<sha1>"`), and Gatekeeper does not
  * know it. Any other name is "other": signed as given with the hardened runtime, but never given
  * the self-signed relaxations (no library-validation exemption, no skipped identity validation).
  */
-export function signingKind(identity: string | undefined): SigningKind {
+export function signingKind(identity: string | undefined, pinned?: string): SigningKind {
   if (!identity) return "none";
   if (identity === "-") return "adhoc";
   if (identity.startsWith("Developer ID Application:")) return "developer-id";
   if (identity.startsWith("Apple Development:")) return "apple-development";
-  if (/^[0-9a-fA-F]{40}$/.test(identity) || identity === "Psyche Release") return "self-signed";
+  if (identity === "Psyche Release") return "self-signed";
+  if (/^[0-9a-fA-F]{40}$/.test(identity)) {
+    return pinned === undefined || identity.toLowerCase() === pinned.toLowerCase()
+      ? "self-signed"
+      : "other";
+  }
   return "other";
 }
 
@@ -146,7 +159,7 @@ export function macSigningOptions(
   },
 ): MacSigningOptions {
   const identity = value(env, "PSYCHE_SIGN_IDENTITY");
-  const kind = signingKind(identity);
+  const kind = signingKind(identity, pinnedSha1(opts.pinnedDesktopRequirement));
   const ignore = opts.ignore ? { ignore: opts.ignore } : {};
   if (!identity) {
     if (!opts.adHoc) return {};

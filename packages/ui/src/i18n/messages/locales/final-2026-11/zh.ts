@@ -206,7 +206,7 @@ export const final202611: Partial<Catalogue> = {
   "web.teach.step.app.typeSensitive": "在 {app} 中，由你自己在“{name}”中输入",
   "app.integrity.title": "Psyche 的文件已被更改",
   "app.integrity.detail":
-    "这份 Psyche 与发布时的签名不再一致，可能有程序修改过它。在你从官方下载重新安装之前，Psyche 会一直关闭麦克风、屏幕、Apple 事件、通讯录和日历功能。",
+    "这份 Psyche 与发布时的签名不再一致，可能有程序修改过它。在你从官方下载重新安装之前，Psyche 会一直关闭麦克风、屏幕、Apple 事件、通讯录和日历功能。 Psyche 的后台服务（Gateway）会继续运行。",
   "app.integrity.blocked": "已关闭：这份 Psyche 被修改过。请从官方下载重新安装。",
   "app.integrity.ok": "好",
 };

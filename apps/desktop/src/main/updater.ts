@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { app, autoUpdater } from "electron";
-import { bundleFingerprint, checkBundleIntegrity } from "./bundle-integrity.ts";
+import { claimedRequirement } from "./bundle-integrity.ts";
 import { TRUSTED_RELEASE_KEYS } from "./release-keys.ts";
 import {
   checkForVerifiedUpdate,
@@ -13,6 +13,7 @@ import {
   evaluateUpdaterGate,
   inspectQuarantine,
   readBundledPinned,
+  satisfiesRequirement,
 } from "./update-gate.ts";
 
 /**
@@ -97,17 +98,12 @@ async function runUpdater(opts: UpdaterOptions): Promise<RunResult> {
     keyCount: TRUSTED_RELEASE_KEYS.length,
     bundlePath: bundleOfExecutable(app.getPath("exe")),
     readPinned: () => readBundledPinned(process.resourcesPath),
-    // Not a full verify on every launch: the deep check is cached for a day (bundle-integrity.ts).
+    // The claimed requirement plus a shallow `codesign --verify --strict`, not the integrity verdict:
+    // a stray file in the bundle (a .DS_Store from Show Package Contents) must never block updates
+    // forever. Squirrel still checks the new bundle against the requirement itself.
     satisfies: async (bundle, requirement) =>
-      (
-        await checkBundleIntegrity({
-          bundle,
-          requirement,
-          cacheFile: join(app.getPath("userData"), "bundle-integrity.json"),
-          appVersion: app.getVersion(),
-          fingerprint: bundleFingerprint(bundle),
-        })
-      ).state === "ok",
+      (await claimedRequirement(bundle)) === requirement &&
+      (await satisfiesRequirement(bundle, requirement)),
   });
   if (!gate.run) {
     if (gate.state === "no_keys") log(`${gate.why}: updates stay off`);

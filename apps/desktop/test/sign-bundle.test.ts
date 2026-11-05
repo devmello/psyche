@@ -138,6 +138,29 @@ describe.runIf(process.platform === "darwin")("sign-bundle.sh", () => {
     }
   });
 
+  it("refuses a hash that is not the pinned one", () => {
+    const r = run([
+      "--app",
+      app,
+      "--identity",
+      "0".repeat(40),
+      "--requirements",
+      join(root, "reqs.txt"),
+    ]);
+    expect(r.status).toBe(64);
+    expect(r.stderr).toMatch(/not the SHA-1 pinned/);
+    expect(
+      run([
+        "--app",
+        app,
+        "--identity",
+        HASH.toUpperCase(),
+        "--requirements",
+        join(root, "reqs.txt"),
+      ]).status,
+    ).toBe(0);
+  });
+
   it("refuses a Developer ID, another name, a short hash and a missing app", () => {
     for (const id of ["Developer ID Application: X (TEAM)", "Some Cert", "70ae89ae"]) {
       const r = run(["--app", app, "--identity", id]);

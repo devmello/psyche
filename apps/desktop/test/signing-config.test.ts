@@ -3,6 +3,7 @@ import { isGatewayFile } from "../src/packaging/bundle-resources.ts";
 import {
   describeSigning,
   macSigningOptions,
+  pinnedSha1,
   signingKeychain,
   signingKind,
 } from "../src/packaging/signing-config.ts";
@@ -59,6 +60,14 @@ describe("signingKind", () => {
     expect(signingKind("Psyche Release 2")).toBe("other");
     expect(signingKind("Some Other Cert")).toBe("other");
     expect(signingKind("70ae89ae")).toBe("other");
+    // A hash is the release certificate only when it is the pinned one.
+    expect(signingKind(HASH, HASH)).toBe("self-signed");
+    expect(signingKind(HASH.toUpperCase(), HASH)).toBe("self-signed");
+    expect(signingKind("0".repeat(40), HASH)).toBe("other");
+    expect(pinnedSha1(`identifier "x" and certificate leaf = H"${HASH}"`)).toBe(HASH);
+    expect(
+      pinnedSha1('identifier "x" and certificate leaf = H"SHA1_OF_PSYCHE_RELEASE_CERT"'),
+    ).toBeUndefined();
   });
 });
 

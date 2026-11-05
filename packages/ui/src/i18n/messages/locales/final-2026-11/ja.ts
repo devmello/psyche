@@ -224,7 +224,7 @@ export const final202611: Partial<Catalogue> = {
   "web.teach.step.app.typeSensitive": "{app}では「{name}」にご自身で入力",
   "app.integrity.title": "Psyche のファイルが変更されました",
   "app.integrity.detail":
-    "この Psyche は、公開時の署名と一致しなくなりました。何かが書き換えた可能性があります。公式のダウンロードから入れ直すまで、Psyche はマイク、画面、Apple イベント、連絡先、カレンダーの機能をオフにしたままにします。",
+    "この Psyche は、公開時の署名と一致しなくなりました。何かが書き換えた可能性があります。公式のダウンロードから入れ直すまで、Psyche はマイク、画面、Apple イベント、連絡先、カレンダーの機能をオフにしたままにします。 Psyche のバックグラウンドサービス（Gateway）は動き続けます。",
   "app.integrity.blocked":
     "オフになっています: この Psyche は変更されています。公式のダウンロードから入れ直してください。",
   "app.integrity.ok": "OK",

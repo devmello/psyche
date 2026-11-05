@@ -14,7 +14,7 @@
 #   CLI            psyche-{darwin,linux}-{arm64,x64} single binaries (bun --compile) with the
 #                  version and the database migrations baked in (`psyche migrate --check`)
 #   Desktop        the dmg and cli jobs BUILD, unsigned (ad-hoc), with no environment and no signing
-#                  secrets. One `sign` job (environment release, one approval per tag) downloads them,
+#                  secrets. One `sign` job (environment release) downloads them,
 #                  signs the apps inside out (deploy/macos/sign-bundle.sh, the same script
 #                  build-local.sh uses) with Psyche's own self-signed certificate
 #                  (deploy/macos/make-signing-cert.sh), checks them (codesign --verify --deep --strict,
@@ -747,7 +747,7 @@ jobs:
           if-no-files-found: error
 
   sign:
-    name: Sign (one approval per tag)
+    name: Sign
     needs: [version, cli, dmg]
     # Same rule as the release job: the DMG matrix may lose its Intel leg in a pre-release.
     if: >-
@@ -755,7 +755,8 @@ jobs:
       && needs.version.result == 'success' && needs.cli.result == 'success'
       && (needs.dmg.result == 'success' || needs.version.outputs.prerelease == 'true') }}
     # THE only job that sees the signing certificate. Secrets are secrets of the `release` environment
-    # (tags only, required reviewers), so there is one approval per tag; a manual dry run uses
+    # (tags only, required reviewers), so a tag needs TWO approvals: this job and the `release` job (manifest signing, GitHub Release) both use the
+    # `release` environment; a manual dry run uses
     # `release-dry-run`, which has none, and checks the unsigned build without publishing.
     # While the keychain is unlocked this job runs only our own scripts and Apple's tools: codesign,
     # ditto, hdiutil, security, find, file and shell. No package manager, no build tool, no
@@ -904,11 +905,12 @@ jobs:
         if: always()
         run: |
           # Right after the last thing that signs (the DMGs, the CLI binaries), not at the end of the job.
-          if [ -n "${PSYCHE_SIGN_KEYCHAIN:-}" ]; then
-            security lock-keychain "$PSYCHE_SIGN_KEYCHAIN" || true
-            security delete-keychain "$PSYCHE_SIGN_KEYCHAIN" || true
-          fi
-          rm -f "$RUNNER_TEMP/entitlements.plist" "$RUNNER_TEMP/cert.p12"
+          # The fixed path the keychain step creates, whatever state that step reached (it may have
+          # failed after create-keychain and before exporting PSYCHE_SIGN_KEYCHAIN).
+          kc="$RUNNER_TEMP/signing.keychain-db"
+          security lock-keychain "$kc" 2>/dev/null || true
+          security delete-keychain "$kc" 2>/dev/null || true
+          rm -f "$kc" "$RUNNER_TEMP/entitlements.plist" "$RUNNER_TEMP/cert.p12"
       - name: Update zips, size checks and the CLI smoke test (the keychain is gone by now)
         env:
           VERSION: ${{ needs.version.outputs.version }}

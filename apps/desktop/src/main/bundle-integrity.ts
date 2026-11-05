@@ -7,20 +7,27 @@ import { promisify } from "node:util";
  * Does this app still match the signature it was released with? (docs/design/updates-and-install-2026.md §2.9)
  *
  * With library validation off (the self-signed design), same-user malware that can write inside a
- * user-owned `/Applications/Psyche.app` could swap a dylib in the bundle, and it would then run
- * inside Psyche's process with Psyche's TCC grants and keychain entries. The signature seal covers
- * every file in the bundle, so `codesign --verify --deep --strict` notices the swap. This module
- * runs that check, and the caller turns the TCC-backed features off when it fails.
+ * user-owned `/Applications/Psyche.app` can swap a dylib in the bundle, and it then runs inside
+ * Psyche's process with Psyche's TCC grants and keychain entries. The signature seal covers every file
+ * in the bundle, so `codesign --verify --deep --strict` notices the swap. This module runs that check,
+ * and the caller turns the TCC-backed features off when it fails.
  *
- * It is a tripwire, not a wall: the verdict is cached for a day in the app's data folder (a full
- * deep verify costs seconds of CPU, so not on every launch), malware that can write the bundle can
- * also write the cache, and a swap done after the check goes unseen until the next one. It catches
- * the common case, a bundle that was modified and left that way.
+ * What this is, honestly: a tripwire for an attacker who does not know it is there. It is not
+ * containment. A swapped library that loads at launch runs BEFORE this check, in the same process, so
+ * it can hide the warning, report "ok", or rewrite the cache file. A swap made after the day's check
+ * goes unseen until the next one. A false positive (a .DS_Store that Finder's Show Package Contents
+ * left in the bundle) also raises it, which is why the updater does NOT use this verdict (it checks the
+ * claimed requirement and a shallow `--verify --strict`; Squirrel then checks the new bundle against
+ * the requirement itself). When it fires, only the TCC-backed features of the APP stop: the Mac helper
+ * is not started and the app refuses permission requests. The Gateway (psyched, the LaunchAgent) keeps
+ * running, and the app does not boot it out.
  *
  * Only an app that CLAIMS the pinned release identity is checked: its designated requirement, read
  * without verifying anything, equals the pinned one. An ad-hoc or development build, or a copy
  * re-signed with another certificate, is "not_release": it has no release identity for a swap to
  * inherit (its TCC grants are its own), and developers keep a working app.
+ *
+ * The verdict is cached for a day in the app's data folder (a deep verify costs seconds of CPU).
  */
 
 export type Run = (file: string, args: string[]) => Promise<{ stdout: string; stderr: string }>;
@@ -170,4 +177,18 @@ export async function integrityText(systemLocale: string): Promise<IntegrityText
     blocked: i18n.t("app.integrity.blocked"),
     ok: i18n.t("app.integrity.ok"),
   };
+}
+
+/**
+ * Process ids whose executable is EXACTLY `exe`, from `ps -axo pid=,comm=` output (macOS prints the
+ * full path in `comm`). An exact comparison, not a regular expression: a path with a dot, a plus or a
+ * space in it matches only itself.
+ */
+export function pidsOfExecutable(psOutput: string, exe: string): number[] {
+  const pids: number[] = [];
+  for (const line of psOutput.split("\n")) {
+    const m = /^\s*(\d+)\s+(.*?)\s*$/.exec(line);
+    if (m?.[1] !== undefined && m[2] === exe) pids.push(Number(m[1]));
+  }
+  return pids;
 }

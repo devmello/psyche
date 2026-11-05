@@ -63,7 +63,16 @@ SELF_ID=""
 case "${PSYCHE_SIGN_IDENTITY:-}" in
   "Psyche Release") SELF_ID="$PSYCHE_SIGN_IDENTITY" ;;
   ????????????????????????????????????????)
-    case "$PSYCHE_SIGN_IDENTITY" in *[!0-9a-fA-F]*) ;; *) SELF_ID="$PSYCHE_SIGN_IDENTITY" ;; esac ;;
+    # A 40-digit hash is the release certificate only if it is the SHA-1 pinned in
+    # designated-requirements.txt (any hash while nothing is pinned yet).
+    case "$PSYCHE_SIGN_IDENTITY" in
+      *[!0-9a-fA-F]*) ;;
+      *)
+        pinned_now="$(sed -n 's/^desktop[[:space:]].*certificate leaf = H"\([0-9a-fA-F]\{40\}\)".*/\1/p' deploy/macos/designated-requirements.txt | head -n1)"
+        if [ -z "$pinned_now" ] || [ "$(printf '%s' "$pinned_now" | tr A-F a-f)" = "$(printf '%s' "$PSYCHE_SIGN_IDENTITY" | tr A-F a-f)" ]; then
+          SELF_ID="$PSYCHE_SIGN_IDENTITY"
+        fi ;;
+    esac ;;
 esac
 if [ -n "$SELF_ID" ]; then unset PSYCHE_SIGN_IDENTITY; fi
 export PSYCHE_DMG_LAYOUT="${PSYCHE_DMG_LAYOUT:-0}"

@@ -23,14 +23,16 @@
 #                        terminal, with no echo.
 #
 # The password: 16 characters at least; use 20 or more, random: `openssl rand -base64 24`, kept in your
-# password manager. It protects the .p12 and (while this script runs) the temporary private key. It is
-# never echoed, logged or put on a command line.
+# password manager. It protects the .p12 and the temporary private key. This script never puts it on a
+# command line, in its output or in a log, and never echoes it.
 #
 # What it makes: CN "Psyche Release", basicConstraints CA:false, keyUsage digitalSignature, Extended
-# Key Usage codeSigning (critical). The private key exists only in a 0700 temp dir that is removed on
-# exit (encrypted with the password; with --import-to a second, unprotected copy of the key exists in
-# that temp dir for the few seconds the import takes, protected by a random one-off password,
-# because `security import` can only take a password on its command line), and inside the .p12.
+# Key Usage codeSigning (critical). While it runs, the private key lives in a 0700 temp dir that is
+# removed on exit, encrypted with your password. The finished key exists in the .p12.
+# With --import-to there is one more, short-lived file in that temp dir: a copy of the .p12 protected
+# by a RANDOM ONE-OFF password (not yours), because `security import` can only take a password as a
+# command-line argument and rejects an empty one. That one-off password is visible to `ps` for the
+# seconds the import takes, and guards nothing but that temp file, which is deleted right after.
 #
 # It prints the SHA-1 and SHA-256 of the certificate and the designated requirement it implies. Put the
 # SHA-1 in deploy/macos/designated-requirements.txt (see deploy/macos/check-designated-requirements.sh).
@@ -41,7 +43,7 @@ ALGO="rsa"
 DAYS=7305
 IMPORT_TO=""
 PW_FILE=""
-usage() { sed -n '2,36p' "$0"; }
+usage() { sed -n '2,38p' "$0"; }
 while [ $# -gt 0 ]; do
   case "$1" in
     --out) OUT="${2:?--out needs a directory}"; shift 2 ;;
