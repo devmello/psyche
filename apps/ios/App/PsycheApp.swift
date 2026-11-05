@@ -17,6 +17,8 @@ private struct AppModel {
     var backend: any PsycheBackend
     /// The live Gateway client, nil in fixture mode.
     var client: GatewayClient?
+    /// Live Activities and local notifications, driven from this backend's live connection.
+    var alerts: AlertCenter
 
     /// Debug builds only: `-psycheScenario <name>` (unpaired, pending, live, away, gatewayOff, tailscaleOff,
     /// mismatch) runs the fixtures. A release build ignores launch arguments, so nothing on a device's launch
@@ -41,7 +43,9 @@ private struct AppModel {
     }
 
     static func fixtures(_ driver: FixtureSessionDriver = FixtureSessionDriver(scenario: .live)) -> AppModel {
-        AppModel(session: Session(driver: driver), backend: FixtureBackend.shared, client: nil)
+        AppModel(
+            session: Session(driver: driver), backend: FixtureBackend.shared, client: nil,
+            alerts: AlertCenter.make(store: FixtureBackend.shared, client: nil))
     }
 
     static func live() -> AppModel {
@@ -53,7 +57,10 @@ private struct AppModel {
         let store = EndpointStore.standard()
         let client = GatewayClient(dependencies: GatewayClientDependencies(endpointStore: store, deviceName: deviceName))
         let driver = LiveSessionDriver(client: client, endpoint: store.load())
-        return AppModel(session: Session(driver: driver), backend: GatewayBackend(client: client), client: client)
+        let backend = GatewayBackend(client: client)
+        return AppModel(
+            session: Session(driver: driver), backend: backend, client: client,
+            alerts: AlertCenter.make(store: backend, client: client))
     }
 }
 
@@ -64,13 +71,23 @@ struct PsycheApp: App {
 
     init() {
         PsycheAppearance.install()
+        // Before launch finishes: the delegate must be set for a tap that launched the app, and the background
+        // task registered. Neither asks for any permission.
+        model.alerts.installSystemHooks()
+        #if os(iOS)
+        model.alerts.registerBackgroundRefresh()
+        #endif
     }
 
     private var appRoot: some View {
-        RootView(store: model.backend)
+        RootView(store: model.backend, alerts: model.alerts)
             .environment(model.session)
             .onChange(of: scenePhase, initial: true) { _, phase in
                 model.session.setActive(phase == .active)
+                model.alerts.setAppActive(phase == .active)
+                #if os(iOS)
+                if phase == .background { model.alerts.scheduleBackgroundRefresh() }
+                #endif
             }
             .onChange(of: model.session.fixtureModeRequested) { _, requested in
                 guard requested else { return }
@@ -78,6 +95,7 @@ struct PsycheApp: App {
                 // unproven stays stored) and its connection closes.
                 let live = model.client
                 model = .fixtures()
+                model.alerts.installSystemHooks()
                 if let live { Task { await live.cancelPairing(); await live.setActive(false) } }
             }
     }

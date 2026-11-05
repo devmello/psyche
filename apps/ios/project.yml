@@ -78,6 +78,11 @@ targets:
         NSSpeechRecognitionUsageDescription: Psyche turns your dictation into text, on this iPhone when your language supports it.
         NSFaceIDUsageDescription: Psyche asks for Face ID before it allows a payment or another sensitive action from your phone.
         LSApplicationQueriesSchemes: [tailscale]
+        # Live Activities for a running task, updated by the app itself (no APNs without a paid account).
+        NSSupportsLiveActivities: true
+        # Background checks without push: BGTaskScheduler app refresh (AlertCenter.refreshIdentifier).
+        UIBackgroundModes: [fetch]
+        BGTaskSchedulerPermittedIdentifiers: [$(PSYCHE_BUNDLE_ID).refresh]
         UILaunchScreen: {}
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: true
