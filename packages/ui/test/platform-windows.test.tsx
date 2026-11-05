@@ -1,3 +1,4 @@
+import { appCap } from "@psyche/permissions/apps";
 import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { IntlMessageFormat } from "intl-messageformat";
@@ -15,7 +16,12 @@ import { chordLabel, keysLabel, parseChord } from "../src/lib/keys.ts";
 import { normalizePlatform, setUiPlatform, uiPlatform } from "../src/lib/platform.ts";
 import { platformTerm } from "../src/lib/platform-copy.ts";
 import { ConnectorsStep } from "../src/screens/onboarding/OnboardingSteps.tsx";
-import { ComputerUsePanel } from "../src/screens/settings/ComputerUseSection.tsx";
+import {
+  ComputerUsePanel,
+  LOCKED_APPS,
+  lockedApps,
+  WINDOWS_LOCKED_APPS,
+} from "../src/screens/settings/ComputerUseSection.tsx";
 import { offeredCatalog } from "../src/screens/settings/connector-catalog.tsx";
 import { DevicesPanel } from "../src/screens/settings/DevicesSection.tsx";
 import { MacHelperStatusRow } from "../src/screens/settings/MacHelperStatus.tsx";
@@ -273,6 +279,39 @@ describe("Windows in Settings and onboarding", () => {
       screen.getByRole("button", { name: "Open Windows Settings for Microphone" }),
     );
     expect(open).toHaveBeenCalledWith("microphone");
+  });
+
+  it("lists the apps the Gateway locks on Windows, by their executables, with the enforced caps", () => {
+    setUiPlatform("windows");
+    render(
+      <ComputerUsePanel
+        values={{
+          "computerUse.enabled": true,
+          "computerUse.apps": [{ id: "notepad.exe", name: "Notepad", tier: "ask" }],
+        }}
+        onChange={vi.fn()}
+        persona="Wren"
+        tcc={{}}
+      />,
+    );
+    const rows = Array.from(document.querySelectorAll<HTMLElement>('[data-locked="true"]'));
+    const text = rows.map((r) => r.textContent ?? "");
+    expect(text.some((r) => r.includes("Microsoft Edge") && r.includes("Read only (fixed)"))).toBe(
+      true,
+    );
+    expect(
+      text.some((r) => r.includes("Windows Terminal") && r.includes("Click only (fixed)")),
+    ).toBe(true);
+    expect(screen.queryByText("Safari")).toBeNull();
+    // Each row's cap is the one @psyche/permissions enforces for that id.
+    for (const a of WINDOWS_LOCKED_APPS.filter((x) => x.id !== "banking")) {
+      expect(a.id).toMatch(/^[a-z0-9 ._-]+\.exe$/);
+      expect(a.locked?.cap, a.id).toBe(appCap(a.id).cap);
+    }
+    for (const a of LOCKED_APPS.filter((x) => x.id !== "banking")) {
+      expect(a.locked?.cap, a.id).toBe(appCap(a.id).cap);
+    }
+    expect(lockedApps("macos")).toBe(LOCKED_APPS);
   });
 
   it("restarts the helper from its status row and says when it did not start", async () => {

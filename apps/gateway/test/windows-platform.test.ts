@@ -152,19 +152,28 @@ describe("Apple connectors off macOS", () => {
 });
 
 describe("Windows app identities", () => {
-  it("knows messaging apps by executable or AUMID, as the Windows helper names them", () => {
+  it("knows messaging apps by the lowercase executable the Windows helper names them by", () => {
     for (const id of [
       "slack.exe",
       "C:\\Users\\me\\AppData\\Local\\slack\\slack.exe",
       "ms-teams.exe",
       "olk.exe",
-      "5319275A.WhatsAppDesktop_cv1g1gvanyjgm!App",
+      "outlook.exe",
+      "hxoutlook.exe",
+      "whatsapp.root.exe",
+      "telegram.exe",
+      "signal.exe",
+      "phoneexperiencehost.exe",
+      "Discord.exe",
       "com.tinyspeck.slackmacgap",
     ]) {
       expect(isSendApp(id), id).toBe(true);
     }
     expect(isSendApp("notepad.exe")).toBe(false);
+    expect(isSendApp("msedge.exe")).toBe(false);
     expect(isSendApp("C:\\slack.exe.bak\\notepad.exe")).toBe(false);
+    // AppUserModelIDs are reported next to the id, never as it.
+    expect(isSendApp("5319275A.WhatsAppDesktop_cv1g1gvanyjgm!App")).toBe(false);
   });
 
   it("knows conference apps the same way", () => {

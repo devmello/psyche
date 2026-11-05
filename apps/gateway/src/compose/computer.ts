@@ -123,40 +123,43 @@ export const SEND_APPS = [
 export { ATTENTION_WINDOW_MS };
 
 /**
- * The same apps as the Windows helper names them (`bundleId` is the AppUserModelID, or the
- * executable path for an app without one): executables, and AUMIDs by prefix.
+ * The same apps as the Windows helper names them: by the lowercase file name of the app's
+ * executable (`apps/win-helper/crates/win-computer/src/app_id.rs`), packaged (Store) apps
+ * included: their frame belongs to the hosted app's own process, so New Outlook is `olk.exe` and
+ * Mail is `hxoutlook.exe`, never an AppUserModelID. A full path (an older helper) still matches by
+ * its file name.
  */
 const SEND_EXES = [
+  // Mail
   "outlook.exe",
   "olk.exe",
+  "hxoutlook.exe",
+  "thunderbird.exe",
+  "mailbird.exe",
+  "mailclient.exe",
+  // Chat
   "slack.exe",
   "discord.exe",
+  "discordptb.exe",
+  "discordcanary.exe",
   "whatsapp.exe",
+  "whatsapp.root.exe",
   "telegram.exe",
   "signal.exe",
   "messenger.exe",
   "ms-teams.exe",
   "teams.exe",
-  "thunderbird.exe",
-];
-const SEND_AUMID_PREFIXES = [
-  "microsoft.outlookforwindows_",
-  "microsoft.office.outlook",
-  "com.squirrel.slack.",
-  "com.squirrel.discord.",
-  "5319275a.whatsappdesktop_",
-  "telegramdesktop",
-  "org.whispersystems.signal-desktop",
-  "facebook.messenger",
-  "msteams_8wekyb3d8bbwe!",
-  "microsoft.windowscommunicationsapps_",
+  "element.exe",
+  "viber.exe",
+  // Phone Link sends texts from the paired phone.
+  "phoneexperiencehost.exe",
 ];
 
 export function isSendApp(app: string): boolean {
-  const id = app.toLowerCase();
+  const id = app.trim().toLowerCase();
   if (SEND_APPS.some((a) => a.toLowerCase() === id)) return true;
   const exe = id.split(/[\\/]/).pop() ?? "";
-  return SEND_EXES.includes(exe) || SEND_AUMID_PREFIXES.some((p) => id.startsWith(p));
+  return SEND_EXES.includes(exe);
 }
 
 /** Return / Enter (with or without cmd), and Mail's cmd+shift+D: send in a messaging app. */
