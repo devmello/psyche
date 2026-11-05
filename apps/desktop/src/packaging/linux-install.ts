@@ -1,6 +1,7 @@
 import { homedir } from "node:os";
 import { isAbsolute, join } from "node:path";
 import type { InstallKind } from "../main/update-manifest.ts";
+import { LINUX_PACKAGE_ROOT, linuxInstallKind } from "../platform/install-kind.ts";
 
 /**
  * How this copy of Psyche is installed on Linux, and where its update files live
@@ -12,7 +13,7 @@ import type { InstallKind } from "../main/update-manifest.ts";
  */
 
 /** Where the deb and rpm makers put the app. */
-export const PACKAGE_INSTALL_DIR = "/usr/lib/psyche";
+export const PACKAGE_INSTALL_DIR = LINUX_PACKAGE_ROOT;
 
 export interface CommandResult {
   code: number;
@@ -50,8 +51,11 @@ async function owns(run: RunCommand, file: string, args: string[]): Promise<bool
  * development build or a copy somebody moved has no install kind, and so no updates.
  */
 export async function detectInstallKind(p: InstallProbe): Promise<InstallInfo | undefined> {
+  // L1's platform/install-kind.ts decides AppImage from $APPIMAGE; the path must be absolute to be replaced.
   const image = p.env.APPIMAGE?.trim();
-  if (image && isAbsolute(image)) return { kind: "appimage", appImagePath: image };
+  if (linuxInstallKind(p.env) === "appimage") {
+    return image && isAbsolute(image) ? { kind: "appimage", appImagePath: image } : undefined;
+  }
   if (!p.execPath.startsWith(`${PACKAGE_INSTALL_DIR}/`)) return undefined;
   if (await owns(p.run, "/usr/bin/dpkg", ["-S", p.execPath])) return { kind: "deb" };
   if (await owns(p.run, "/usr/bin/rpm", ["-qf", p.execPath])) return { kind: "rpm" };

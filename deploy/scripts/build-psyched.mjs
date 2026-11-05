@@ -73,7 +73,6 @@ const ROOT = resolve(fileURLToPath(new URL(".", import.meta.url)), "../..");
 
 /** Dirs of the exported tree the runtime never reads (the Dockerfile's deps stage drops the same). */
 const PRUNE = [
-  "apps/desktop",
   "apps/mac-helper",
   "apps/win-helper",
   "apps/linux-helper",
@@ -93,6 +92,25 @@ const PRUNE = [
 
 const IS_WIN = platform() === "win32";
 const CROSS = process.env.PSYCHE_CROSS_ARCH === "1";
+
+/**
+ * The desktop app never ships in the Gateway bundle, except the one file the CLI imports (the
+ * systemd unit renderer, apps/cli/src/supervisor.ts); esbuild inlines it and the sources go after.
+ */
+export const DESKTOP_KEEP = ["src/platform/systemd-unit.ts"];
+
+export function pruneDesktop(appDir, keep = DESKTOP_KEEP) {
+  const desktop = join(appDir, "apps/desktop");
+  if (!existsSync(desktop)) return;
+  const saved = keep
+    .filter((f) => existsSync(join(desktop, f)))
+    .map((f) => [f, readFileSync(join(desktop, f))]);
+  rmSync(desktop, { recursive: true, force: true });
+  for (const [f, bytes] of saved) {
+    mkdirSync(join(desktop, f, ".."), { recursive: true });
+    writeFileSync(join(desktop, f), bytes);
+  }
+}
 
 /** pnpm is pnpm.cmd on Windows, which Node starts only through a shell. */
 function pnpm(args, opts = {}) {
@@ -264,6 +282,47 @@ export function checkAddons(appDir, arch, plat = "darwin") {
     else if (!out.includes(want)) bad.push(`${p.slice(appDir.length + 1)}: ${out.trim()}`);
   });
   return bad;
+}
+
+/**
+ * Linux cross build: addons that compile at install (node-pty has no Linux prebuild) were built for
+ * the host. Rebuild them for `arch` with the cross toolchain (`g++-aarch64-linux-gnu` on Debian
+ * and Ubuntu); the addon check afterwards still refuses anything left over for the wrong arch.
+ */
+export function rebuildCompiledAddons(appDir, arch) {
+  const prefix = arch === "arm64" ? "aarch64-linux-gnu" : "x86_64-linux-gnu";
+  const store = join(appDir, "node_modules", ".pnpm");
+  const dirs = existsSync(store)
+    ? readdirSync(store)
+        .filter((n) => /^node-pty@/.test(n))
+        .map((n) => join(store, n, "node_modules", "node-pty"))
+    : [];
+  if (dirs.length === 0) return 0;
+  const gyp = join(
+    execFileSync("npm", ["root", "-g"], { encoding: "utf8" }).trim(),
+    "npm",
+    "node_modules",
+    "node-gyp",
+    "bin",
+    "node-gyp.js",
+  );
+  const env = {
+    ...process.env,
+    CC: `${prefix}-gcc`,
+    CXX: `${prefix}-g++`,
+    CC_target: `${prefix}-gcc`,
+    CXX_target: `${prefix}-g++`,
+    AR: `${prefix}-ar`,
+    LINK: `${prefix}-g++`,
+  };
+  for (const dir of dirs) {
+    rmSync(join(dir, "build"), { recursive: true, force: true });
+    run(process.execPath, [gyp, "rebuild", `--arch=${arch}`, `--target_arch=${arch}`], {
+      cwd: dir,
+      env,
+    });
+  }
+  return dirs.length;
 }
 
 /** `name` → `{ dir, deps }` for every workspace package in the exported tree. */
@@ -692,7 +751,7 @@ async function main(argv) {
       // Linux cross build (PSYCHE_CROSS_ARCH=1): the other architecture's optional packages, and
       // prebuild-install (better-sqlite3 and friends) fetches that architecture's binaries.
       ...(CROSS && arch !== (hostArch() === "arm64" ? "arm64" : "x64")
-        ? ["--cpu", arch, "--os", "linux", "--libc", "glibc"]
+        ? ["--cpu", arch, "--os", "linux", "--libc", "glibc", "--config.sideEffectsCache=false"]
         : []),
     ],
     {
@@ -709,6 +768,12 @@ async function main(argv) {
     },
   );
 
+  if (CROSS && arch !== (hostArch() === "arm64" ? "arm64" : "x64")) {
+    const n = rebuildCompiledAddons(app, arch);
+    process.stdout.write(`rebuilt ${n} compiled addon(s) for ${arch}
+`);
+  }
+
   // 3. The web client the Gateway serves at /.
   if (!argv.includes("--skip-web-build")) pnpm(["--filter", "@psyche/web", "build"], { cwd: ROOT });
   const web = join(ROOT, "apps/web/dist");
@@ -722,6 +787,7 @@ async function main(argv) {
 
   // 4. Drop what the runtime never reads.
   for (const p of PRUNE) rmSync(join(app, p), { recursive: true, force: true });
+  pruneDesktop(app);
   rmSync(join(app, "node_modules/.cache"), { recursive: true, force: true });
   const cut = pruneToServerSubset(app);
   process.stdout.write(

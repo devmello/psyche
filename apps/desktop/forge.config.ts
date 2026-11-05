@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
@@ -28,8 +29,10 @@ import {
 import {
   bundleSourcesLinux,
   copyBundleResourcesLinux,
+  crossBuildNodePty,
   linuxIconSet,
   renameLinuxArtifacts,
+  wrongArchAddons,
 } from "./src/packaging/linux-bundle.ts";
 import { pruneLocales, pruneWin32Locales } from "./src/packaging/locales.ts";
 import {
@@ -75,6 +78,7 @@ import { dropGatewayWebCopy } from "./src/packaging/web-copy.ts";
 const root = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(root, "..", "..");
 const isMacHost = process.platform === "darwin";
+const hostArch = process.arch;
 const isLinuxHost = process.platform === "linux";
 const linuxDeploy = join(repoRoot, "deploy", "linux");
 const linuxIcons = linuxIconSet(join(linuxDeploy, "root", "usr", "share", "icons", "hicolor"));
@@ -128,7 +132,16 @@ function copyNodePty(buildPath: string, platform: string, arch: string): void {
   // Linux has no prebuild: the install step compiles into build/Release. On Windows that folder
   // holds only a copy of conpty; the prebuilds have everything.
   const compiled = join("build", "Release");
-  if (platform !== "win32" && existsSync(join(src, compiled))) {
+  if (platform === "linux" && arch !== hostArch) {
+    // Another architecture than the host's: compile it with the cross toolchain.
+    crossBuildNodePty(
+      src,
+      join(dest, compiled),
+      arch as "x64" | "arm64",
+      (file, args, opts) => void execFileSync(file, args, { stdio: "inherit", ...opts }),
+      execFileSync("npm", ["root", "-g"], { encoding: "utf8" }).trim(),
+    );
+  } else if (platform !== "win32" && existsSync(join(src, compiled))) {
     cpSync(join(src, compiled), join(dest, compiled), { recursive: true });
   }
 }
@@ -339,7 +352,12 @@ const config: ForgeConfig = {
           dirname(resourcesDir),
           { allowPartial: allowPartial(process.env), warn: (m) => console.warn(m) },
         );
-        dropGatewayWebCopy(buildPath, resourcesDir);
+        const wrong = wrongArchAddons(join(buildPath, "node_modules", "node-pty"), arch);
+        if (wrong.length)
+          throw new Error(`node-pty addons not built for ${arch}: ${wrong.join(", ")}`);
+        // The Gateway keeps its own web client on Linux: serving it from app.asar checks the
+        // asar's hash in an Info.plist, which only macOS has (web-asar.ts), so dropping it would
+        // leave `GET /` answering 500.
         return;
       }
       if (platform === "win32") {

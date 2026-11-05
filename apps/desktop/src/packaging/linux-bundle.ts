@@ -1,11 +1,14 @@
 import {
   chmodSync,
+  closeSync,
   cpSync,
   existsSync,
   lstatSync,
   mkdirSync,
+  openSync,
   readdirSync,
   readFileSync,
+  readSync,
   renameSync,
   rmSync,
   writeFileSync,
@@ -280,5 +283,83 @@ export function renameLinuxArtifacts(
       log(`${basename(file)} -> ${basename(to)}`);
       return to;
     });
+  }
+}
+
+const E_MACHINE: Record<string, number> = { x64: 0x3e, arm64: 0xb7 };
+
+/** `x64` or `arm64` for an ELF file, from its header (undefined for anything else). */
+export function elfArch(file: string): "x64" | "arm64" | undefined {
+  const fd = openSync(file, "r");
+  try {
+    const h = Buffer.alloc(20);
+    if (readSync(fd, h, 0, 20, 0) !== 20 || h.readUInt32BE(0) !== 0x7f454c46) return undefined;
+    const machine = h.readUInt16LE(18);
+    return (Object.keys(E_MACHINE) as ("x64" | "arm64")[]).find((a) => E_MACHINE[a] === machine);
+  } finally {
+    closeSync(fd);
+  }
+}
+
+/** Every `.node` file under `dir` that is not an ELF object for `arch` (relative paths). */
+export function wrongArchAddons(dir: string, arch: string): string[] {
+  const bad: string[] = [];
+  const visit = (d: string) => {
+    for (const name of readdirSync(d)) {
+      const p = join(d, name);
+      const st = lstatSync(p);
+      if (st.isDirectory()) visit(p);
+      else if (st.isFile() && name.endsWith(".node") && elfArch(p) !== arch)
+        bad.push(relative(dir, p));
+    }
+  };
+  if (existsSync(dir)) visit(dir);
+  return bad;
+}
+
+/**
+ * node-pty has no Linux prebuild: `pnpm install` compiles it for the host. For another
+ * architecture, compile it with the cross toolchain (`g++-aarch64-linux-gnu`) in place, copy the
+ * result to `dest`, and put the host build back. Needs `node-gyp` from npm.
+ */
+export function crossBuildNodePty(
+  srcDir: string,
+  destRelease: string,
+  arch: "x64" | "arm64",
+  run: (file: string, args: string[], opts: { cwd: string; env: NodeJS.ProcessEnv }) => void,
+  npmRootGlobal: string,
+): void {
+  const prefix = arch === "arm64" ? "aarch64-linux-gnu" : "x86_64-linux-gnu";
+  const build = join(srcDir, "build");
+  const host = join(srcDir, "build.host");
+  rmSync(host, { recursive: true, force: true });
+  if (existsSync(build)) renameSync(build, host);
+  try {
+    run(
+      process.execPath,
+      [
+        join(npmRootGlobal, "npm", "node_modules", "node-gyp", "bin", "node-gyp.js"),
+        "rebuild",
+        `--arch=${arch}`,
+        `--target_arch=${arch}`,
+      ],
+      {
+        cwd: srcDir,
+        env: {
+          ...process.env,
+          CC: `${prefix}-gcc`,
+          CXX: `${prefix}-g++`,
+          CC_target: `${prefix}-gcc`,
+          CXX_target: `${prefix}-g++`,
+          AR: `${prefix}-ar`,
+          LINK: `${prefix}-g++`,
+        },
+      },
+    );
+    rmSync(destRelease, { recursive: true, force: true });
+    cpSync(join(build, "Release"), destRelease, { recursive: true });
+  } finally {
+    rmSync(build, { recursive: true, force: true });
+    if (existsSync(host)) renameSync(host, build);
   }
 }

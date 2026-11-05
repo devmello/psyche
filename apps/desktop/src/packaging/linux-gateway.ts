@@ -12,10 +12,12 @@
  */
 
 /**
- * Why the Gateway restarts here: "update" after an update (or a failed one, same build), and
- * "build_mismatch" after a rollback, when the files are not the build the data was written by.
+ * Why the Gateway restarts here ("update" after an update or a failed one, "build_mismatch" after
+ * a rollback, when the files are not the build the data was written by): L1's own type.
  */
-export type RestartReason = "build_mismatch" | "update";
+export type { RestartReason } from "../platform/systemd-supervisor.ts";
+
+import type { RestartReason } from "../platform/systemd-supervisor.ts";
 
 /** The members of L1's `GatewaySupervisor` (§2.3) that updating uses. */
 export interface SupervisorForUpdate {

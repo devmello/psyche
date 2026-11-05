@@ -14,11 +14,14 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   bundleSourcesLinux,
   copyBundleResourcesLinux,
+  crossBuildNodePty,
+  elfArch,
   findLinks,
   linuxArtifactName,
   linuxIconSet,
   renameLinuxArtifacts,
   renderGatewayUnit,
+  wrongArchAddons,
 } from "../../src/packaging/linux-bundle.ts";
 
 const REPO = join(import.meta.dirname, "..", "..", "..", "..");
@@ -223,5 +226,61 @@ describe("icons and artifact names", () => {
         () => {},
       ),
     ).toThrow(/two \.deb/);
+  });
+});
+
+describe("ELF architecture checks", () => {
+  /** The first 20 bytes of an ELF header with the given e_machine. */
+  const elf = (machine: number) => {
+    const b = Buffer.alloc(64);
+    b.writeUInt32BE(0x7f454c46, 0);
+    b.writeUInt16LE(machine, 18);
+    return b;
+  };
+
+  it("reads x64 and arm64 from the header and nothing else", () => {
+    const d = temp();
+    writeFileSync(join(d, "x.node"), elf(0x3e));
+    writeFileSync(join(d, "a.node"), elf(0xb7));
+    writeFileSync(join(d, "risc.node"), elf(0xf3));
+    writeFileSync(join(d, "text.node"), "not an elf at all, just text");
+    expect(elfArch(join(d, "x.node"))).toBe("x64");
+    expect(elfArch(join(d, "a.node"))).toBe("arm64");
+    expect(elfArch(join(d, "risc.node"))).toBeUndefined();
+    expect(elfArch(join(d, "text.node"))).toBeUndefined();
+  });
+
+  it("lists the addons that are not for the wanted architecture", () => {
+    const d = temp();
+    mkdirSync(join(d, "build", "Release"), { recursive: true });
+    writeFileSync(join(d, "build", "Release", "pty.node"), elf(0x3e));
+    writeFileSync(join(d, "other.node"), elf(0xb7));
+    expect(wrongArchAddons(d, "arm64")).toEqual([join("build", "Release", "pty.node")]);
+    expect(wrongArchAddons(d, "x64")).toEqual(["other.node"]);
+    expect(wrongArchAddons(join(d, "missing"), "x64")).toEqual([]);
+  });
+
+  it("crossBuildNodePty puts the other architecture's build in place and restores the host build", () => {
+    const src = temp();
+    mkdirSync(join(src, "build", "Release"), { recursive: true });
+    writeFileSync(join(src, "build", "Release", "pty.node"), "host build");
+    const dest = join(temp(), "Release");
+    const ran: string[][] = [];
+    crossBuildNodePty(
+      src,
+      dest,
+      "arm64",
+      (file, args, opts) => {
+        ran.push(args);
+        expect(opts.env.CXX).toBe("aarch64-linux-gnu-g++");
+        mkdirSync(join(src, "build", "Release"), { recursive: true });
+        writeFileSync(join(src, "build", "Release", "pty.node"), "arm64 build");
+      },
+      "/usr/lib/node_modules",
+    );
+    expect(ran[0]).toContain("--arch=arm64");
+    expect(readFileSync(join(dest, "pty.node"), "utf8")).toBe("arm64 build");
+    expect(readFileSync(join(src, "build", "Release", "pty.node"), "utf8")).toBe("host build");
+    expect(existsSync(join(src, "build.host"))).toBe(false);
   });
 });

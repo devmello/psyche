@@ -20,6 +20,7 @@ import {
   linuxUpdatePaths,
   type RunCommand,
 } from "../packaging/linux-install.ts";
+import { hostPlatform, isLinux } from "../platform/index.ts";
 import { claimedRequirement } from "./bundle-integrity.ts";
 import { TRUSTED_RELEASE_KEYS } from "./release-keys.ts";
 import {
@@ -155,7 +156,7 @@ export function stopUpdater(): void {
   for (const s of servers.splice(0)) void s.close();
   linuxStaged = undefined;
   // Electron has no auto-updater on Linux; there is nothing to detach.
-  if (process.platform !== "linux") autoUpdater.removeAllListeners();
+  if (!isLinux()) autoUpdater.removeAllListeners();
 }
 
 // -- Linux ------------------------------------------------------------------------------------
@@ -261,7 +262,7 @@ async function runLinuxUpdater(opts: UpdaterOptions, log: (m: string) => void): 
     run: nodeRun,
   });
   const gate = evaluateLinuxGate({
-    platform: process.platform,
+    platform: hostPlatform(),
     isPackaged: app.isPackaged,
     keyCount: TRUSTED_RELEASE_KEYS.length,
     install: linuxInstall,
@@ -334,7 +335,7 @@ type RunResult = { state: UpdaterState } & Partial<
 async function runUpdater(opts: UpdaterOptions): Promise<RunResult> {
   const log = opts.log ?? stderrLog;
   if (stopped) return { state: "disabled" };
-  if (process.platform === "linux") return runLinuxUpdater(opts, log);
+  if (isLinux()) return runLinuxUpdater(opts, log);
   const blocked = await updaterGate(log);
   if (blocked) return blocked;
   const platform = process.platform === "win32" ? "win32" : "darwin";
