@@ -94,6 +94,8 @@ export interface RichHit extends SearchIndexHit {
   createdAt: number;
   snippetHighlights: Range[];
   titleHighlights: Range[];
+  /** Memory-source hits: the kind of entity remembered (`assignment` is a to-do), from the `memory:<kind>` tag. */
+  entityType?: "person" | "org" | "project" | "place" | "event" | "topic" | "assignment";
   /** Memory chunks: the workspace path (`memory/2026-10-16.md`). */
   sourcePath?: string;
 }

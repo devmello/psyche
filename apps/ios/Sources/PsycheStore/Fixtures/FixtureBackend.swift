@@ -19,6 +19,8 @@ public actor FixtureBackend {
     var agentState = AgentState()
     var settingsState = SettingsState()
     var widgetState = WidgetState()
+    /// The scripted run of the watched task (`startRunningDemo`).
+    var demoTask: Task<Void, Never>?
 
     private let latency: Duration
     private var subscribers: [UUID: AsyncStream<LiveEvent>.Continuation] = [:]

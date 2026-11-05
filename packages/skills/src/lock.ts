@@ -32,6 +32,15 @@ export interface LockEntry {
   manifest?: SkillManifestDecl;
   /** Psyche wrote the skill (self-extension); trust stays `unknown`. Absent for everything else. */
   author?: "agent";
+  /** The bundle author whose signature verified when the owner approved it (absent: unsigned). */
+  signer?: { keyId: string; name: string };
+  /**
+   * An imported bundle: where the sender says it came from (signed). Kept apart from `author`,
+   * which means "made by this Mac's agent" and gives the agent tools a hold on the skill.
+   */
+  bundleOrigin?: "workspace" | "agent";
+  /** The bundle's own `createdAt` (the author's claim), to notice an older one offered later. */
+  bundleCreatedAt?: string;
 }
 
 export interface LockFile {

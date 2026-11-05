@@ -90,6 +90,13 @@ export const SearchHitCard = Type.Object(
 );
 export type SearchHitCard = Static<typeof SearchHitCard>;
 
+/** What a Memory hit is about (the kind of the remembered entity); to-dos are `assignment`. */
+export const SearchEntityType = StringEnum(
+  ["person", "org", "project", "place", "event", "topic", "assignment"],
+  { $id: "SearchEntityType" },
+);
+export type SearchEntityType = Static<typeof SearchEntityType>;
+
 /** One unified-search result; `route` is the in-app deep link. */
 export const SearchHit = Type.Object(
   {
@@ -101,6 +108,7 @@ export const SearchHit = Type.Object(
     threadId: Nullable(Id),
     route: Nullable(Type.String()),
     kind: Type.Optional(SearchIndexDocKindSchema),
+    entityType: Type.Optional(SearchEntityType),
     group: Type.Optional(SearchGroup),
     provenance: Type.Optional(Provenance),
     createdAt: Type.Optional(Type.Integer({ minimum: 0, description: "Epoch ms" })),

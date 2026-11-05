@@ -1,14 +1,25 @@
 import { getSetting, getWidgets, listPinnedWidgets } from "@psyche/db";
-import { type MethodParams, type MethodResult, PsycheError } from "@psyche/protocol";
+import {
+  collectWidgetBinds,
+  type MethodParams,
+  type MethodResult,
+  PsycheError,
+  type ResearchProgressEvent,
+  type WidgetBind,
+} from "@psyche/protocol";
+import type { Static } from "@sinclair/typebox";
 import type { Call } from "../context.ts";
 import { requireThread } from "../handlers/threads.ts";
 import { resolveToolAction } from "../widgets/act.ts";
 import { checkWidgetBindings } from "../widgets/bindings.ts";
 import { fetchWidgetImage } from "../widgets/image.ts";
 import { claimWidgetClick } from "../widgets/rate.ts";
+import { ResearchTracker, resolveCallBinding } from "../widgets/resolve.ts";
 import { WidgetStore } from "../widgets/store.ts";
 import { widgetTools } from "../widgets/tools.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
+
+type ResearchEvent = Static<typeof ResearchProgressEvent>;
 
 export const REMOTE_IMAGES_KEY = "widgets.remoteImages";
 
@@ -43,16 +54,28 @@ export function composeWidgets(services: ComposeServices): ComposedPart {
     publish: (event, payload, threadId) => services.publish(event, payload, threadId),
   });
   const unregister = widgetTools(store).map((t) => services.tools.register(t));
+  const research = new ResearchTracker();
   let unsubscribe: (() => void) | undefined;
   const ENDED = new Set(["done", "failed", "cancelled"]);
   return {
     // A task that ends freezes the widgets it owns (generative-ui-2026 §5.1); bound ones keep going.
     start: (gw) => {
       unsubscribe = gw.bus.subscribe(["operator.read"], (frame) => {
-        let f: { event?: string; payload?: { task?: { id?: string; status?: string } } };
+        let f: {
+          event?: string;
+          payload?: {
+            task?: { id?: string; status?: string };
+            toolCallId?: string;
+            event?: ResearchEvent;
+          };
+        };
         try {
           f = JSON.parse(frame);
         } catch {
+          return;
+        }
+        if (f.event === "research.progress" && f.payload?.toolCallId && f.payload.event) {
+          research.apply(f.payload.toolCallId, f.payload.event);
           return;
         }
         const task = f.payload?.task;
@@ -125,6 +148,26 @@ export function composeWidgets(services: ComposeServices): ComposedPart {
             taintSources: widget.taint,
           });
           return { tool: action.tool, decision: verdict?.decision ?? "unavailable" };
+        },
+      },
+      "widgets.binding.resolve": {
+        run: (
+          call: Call,
+          p: MethodParams<"widgets.binding.resolve">,
+        ): MethodResult<"widgets.binding.resolve"> => {
+          const [widget] = getWidgets(services.db, [p.widgetId]);
+          if (widget === undefined) throw new PsycheError("not_found", "No such widget.");
+          requireThread(call, widget.threadId);
+          const found = collectWidgetBinds(widget.spec.root).find((b) => b.nodeId === p.nodeId);
+          if (found === undefined) throw new PsycheError("not_found", "No such binding.");
+          const bind: WidgetBind = found.bind;
+          if (bind.source !== "tool_call" && bind.source !== "research") {
+            throw new PsycheError(
+              "invalid_params",
+              "Only tool_call and research bindings are resolved here.",
+            );
+          }
+          return resolveCallBinding(services.db, research, bind, widget.threadId);
         },
       },
       "widgets.image": {

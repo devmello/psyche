@@ -9,6 +9,7 @@ struct HomeView: View {
     @State private var ask = ""
     @Environment(Session.self) private var session
     @Environment(Router.self) private var router
+    @Environment(\.alerts) private var alerts
 
     private let store: any PsycheBackend
 
@@ -132,15 +133,29 @@ struct HomeView: View {
                         HStack(alignment: .firstTextBaseline, spacing: 12) {
                             Text(task.title).font(.psycheRow).foregroundStyle(PsycheColor.text)
                             Spacer(minLength: 0)
-                            Button("Watch") { model.show("Live Activities arrive with phone push.") }
-                                .font(.subheadline.weight(.medium))
-                                .foregroundStyle(PsycheColor.muted)
+                            if alerts?.watching.contains(task.id) == true {
+                                Text("Watching")
+                                    .font(.subheadline.weight(.medium))
+                                    .foregroundStyle(PsycheColor.muted)
+                            } else {
+                                Button("Watch") { watch(task) }
+                                    .font(.subheadline.weight(.medium))
+                                    .foregroundStyle(PsycheColor.muted)
+                            }
                         }
                         ProgressBar(fraction: task.fraction)
                         EvidenceLine(["Step \(task.step) of \(task.stepCount)", task.detail, task.elapsed])
                     }
                 }
             }
+        }
+    }
+
+    /// Starts a Live Activity for the task; a quiet line says why when it can't.
+    private func watch(_ task: RunningTask) {
+        guard let alerts else { return }
+        Task {
+            if let message = await alerts.watch(task) { model.show(message, seconds: 5) }
         }
     }
 

@@ -125,7 +125,8 @@ struct GatewayBackendTests {
         let approval = try #require(home.needsYou.first?.approval)
         #expect(approval.fields.contains { $0.key == "To" && $0.value == "dana@example.com" })
         #expect(approval.kindLabel == "Send email")
-        #expect(home.running == [RunningTask(id: "tk1", title: "Reconcile receipts", step: 2, stepCount: 3, detail: "Match", elapsed: home.running.first?.elapsed ?? "")])
+        #expect(home.running == [RunningTask(id: "tk1", title: "Reconcile receipts", step: 2, stepCount: 3, detail: "Match", elapsed: home.running.first?.elapsed ?? "", startedAt: home.running.first?.startedAt)])
+        #expect(home.running.first?.startedAt == Date(timeIntervalSince1970: 1_893_484_800))
         #expect(home.today.isEmpty && home.keepInTouch.isEmpty)
     }
 

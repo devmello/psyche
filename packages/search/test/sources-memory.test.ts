@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createSearchHandlers } from "../src/handlers.ts";
 import {
   defaultSourcesConfig,
   graphDocId,
@@ -94,6 +95,20 @@ describe("the Memory source", () => {
       backfilled: true,
       label: "Memory",
     });
+  });
+
+  it("tells a to-do, a project and a person apart by entityType on the hit", async () => {
+    const h = harness([
+      rec({ id: "a1", kind: "assignment", name: "Renew passport", status: "todo" }),
+      rec({ id: "pr1", kind: "project", name: "Passport project", status: "active" }),
+    ]);
+    await h.indexer.tick();
+    const res = await createSearchHandlers(h.index)["search.query"]({
+      query: "passport",
+    });
+    const byId = Object.fromEntries(res.hits.map((x) => [x.id, x.entityType]));
+    expect(byId["memory:a1"]).toBe("assignment");
+    expect(byId["memory:pr1"]).toBe("project");
   });
 
   it("skips a bare person or project: their own document already holds the name", () => {

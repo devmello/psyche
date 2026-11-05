@@ -117,6 +117,35 @@ export function readSkillDir(dir: string, limits: TreeLimits = DEFAULT_LIMITS): 
 
 const decoder = new TextDecoder("utf-8", { fatal: true });
 
+/**
+ * The key two paths share on a case-insensitive, normalization-insensitive file system (APFS):
+ * Unicode compatibility-decomposed, upper-cased then lower-cased so `ß`/`SS` and `İ` fold too.
+ */
+export function foldPath(path: string): string {
+  return path.normalize("NFKD").toUpperCase().toLowerCase().normalize("NFKD");
+}
+
+/**
+ * A path in `paths` that would collide with another once folded, checking every directory prefix
+ * (`A/x` and `a/y` share a folder; `a` as a file and `A/b` as a folder collide). `undefined`
+ * when the set is safe to write to such a file system.
+ */
+export function foldConflict(paths: Iterable<string>): string | undefined {
+  const seen = new Map<string, { raw: string; file: boolean }>();
+  for (const path of paths) {
+    const segs = path.split("/");
+    for (let i = 1; i <= segs.length; i += 1) {
+      const raw = segs.slice(0, i).join("/");
+      const file = i === segs.length;
+      const key = foldPath(raw);
+      const prev = seen.get(key);
+      if (prev === undefined) seen.set(key, { raw, file });
+      else if (prev.raw !== raw || prev.file !== file || file) return path;
+    }
+  }
+  return undefined;
+}
+
 /** UTF-8 text of a file, or `undefined` for binary content. */
 export function textOf(file: SkillFile): string | undefined {
   if (file.bytes.includes(0)) return undefined;

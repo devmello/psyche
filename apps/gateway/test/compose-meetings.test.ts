@@ -14,7 +14,7 @@ import type { PathTranscribeOptions, PathTranscriber, PathTranscript } from "@ps
 import { VoiceMemoService } from "@psyche/speech";
 import { FakeClock, FakeModelProvider, FakeSpeechEngine } from "@psyche/testing";
 import { Type } from "@sinclair/typebox";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
 import { ClientAudioCapture } from "../src/compose/meeting-capture.ts";
 import { composeMeetings, graphPrepHooks, RecordMeeting } from "../src/compose/meetings.ts";
@@ -477,12 +477,17 @@ describe("Record meeting with the device's microphone (§4.6)", () => {
     r.meetings.deviceGone("dev2");
     expect(r.meetings.record.status().recording).toBe(true);
     r.meetings.deviceGone("dev1");
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    await r.meetings.record.pending;
-    expect(r.meetings.record.status()).toMatchObject({
-      recording: false,
-      last: { reason: "source_ended", notes: "done" },
-    });
+    // Ending the recording and writing its notes is async; wait for it rather than a fixed delay (CI is slower).
+    await vi.waitFor(
+      async () => {
+        await r.meetings.record.pending;
+        expect(r.meetings.record.status()).toMatchObject({
+          recording: false,
+          last: { reason: "source_ended", notes: "done" },
+        });
+      },
+      { timeout: 5000, interval: 25 },
+    );
   });
 
   it("a recording with no audio ends without notes instead of hanging", async () => {

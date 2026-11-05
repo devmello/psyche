@@ -9,9 +9,11 @@ public struct RootView: View {
     @Environment(Session.self) private var session
     @State private var router = Router()
     private let store: any PsycheBackend
+    private let alerts: AlertCenter?
 
-    public init(store: any PsycheBackend = FixtureBackend.shared) {
+    public init(store: any PsycheBackend = FixtureBackend.shared, alerts: AlertCenter? = nil) {
         self.store = store
+        self.alerts = alerts
     }
 
     public var body: some View {
@@ -27,6 +29,7 @@ public struct RootView: View {
         }
         .environment(router)
         .environment(\.backend, store)
+        .environment(\.alerts, alerts)
         // Generative-UI widgets (chat blocks and Home's Pinned section): same backend, and the host's
         // routes and composer for the actions that leave a widget.
         .environment(\.widgetBackend, store)
@@ -57,6 +60,7 @@ public struct RootView: View {
 struct MainTabs: View {
     let store: any PsycheBackend
     @Environment(Router.self) private var router
+    @Environment(\.alerts) private var alerts
 
     /// Outline symbols on inactive tabs and a filled one on the selected tab. The system would otherwise fill them all,
     /// so the symbol variant is pinned and the filled name is chosen here.
@@ -117,6 +121,16 @@ struct MainTabs: View {
         }
         .tint(PsycheColor.inkText)
         .syncsShareInbox(store: store)
+        .task {
+            alerts?.visibleThread = { [router] in router.tab == .chat ? router.selectedThread : nil }
+            alerts?.start()
+        }
+        .onChange(of: alerts?.pendingOpen, initial: true) { _, request in
+            guard let request, let alerts else { return }
+            alerts.pendingOpen = nil
+            Task { await open(request) }
+        }
+        .overlay(alignment: .bottom) { watchOffer }
         #if DEBUG
         .task { await router.openForScreenshot(store: store) }
         #endif
@@ -135,6 +149,56 @@ struct MainTabs: View {
             case .settings:
                 SettingsSheet(store: store)
             }
+        }
+    }
+}
+
+extension MainTabs {
+    /// A notification tap: the approval or question sheet, or a route. On a cold launch the connection may
+    /// not be live yet, so the lookup tries for a few seconds.
+    fileprivate func open(_ request: AlertCenter.OpenRequest) async {
+        switch request {
+        case .path(let path): router.open(appPath: path)
+        case .item(let id):
+            for _ in 0..<8 {
+                if let snapshot = try? await store.home() {
+                    if let item = snapshot.needsYou.first(where: { $0.id == id }) {
+                        router.open(item)
+                    } else {
+                        router.tab = .home  // answered somewhere else already
+                    }
+                    return
+                }
+                try? await Task.sleep(for: .seconds(1))
+            }
+            router.tab = .home
+        }
+    }
+
+    /// "Watch on your Lock Screen?" after the owner starts a task from this phone and Live Activities are on.
+    @ViewBuilder
+    fileprivate var watchOffer: some View {
+        if let alerts, let task = alerts.offer {
+            HStack(spacing: 12) {
+                Text("Watch this on your Lock Screen?")
+                    .font(.subheadline).foregroundStyle(PsycheColor.text)
+                Spacer(minLength: 0)
+                Button("Not now") { alerts.dismissOffer() }
+                    .font(.subheadline).foregroundStyle(PsycheColor.muted)
+                Button("Watch") {
+                    Task {
+                        _ = await alerts.watch(task)
+                        alerts.dismissOffer()
+                    }
+                }
+                .font(.subheadline.weight(.semibold)).foregroundStyle(PsycheColor.inkText)
+            }
+            .padding(.horizontal, 16).padding(.vertical, 12)
+            .background(PsycheColor.sheet, in: RoundedRectangle(cornerRadius: PsycheMetrics.cardRadius))
+            .overlay(RoundedRectangle(cornerRadius: PsycheMetrics.cardRadius).strokeBorder(PsycheColor.hairline))
+            .padding(.horizontal, PsycheMetrics.pagePadding)
+            .padding(.bottom, 64)
+            .transition(.move(edge: .bottom).combined(with: .opacity))
         }
     }
 }

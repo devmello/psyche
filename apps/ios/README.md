@@ -34,6 +34,20 @@ xcodebuild -project Psyche.xcodeproj -scheme Psyche -destination 'generic/platfo
 swift test        # PsycheStore and PsycheClient, on macOS
 ```
 
+## Run on your own iPhone with a free Apple ID
+
+You do not need the paid Apple Developer Program to run Psyche on your own phone.
+
+1. **Personal Team.** In Xcode, Settings > Accounts, sign in with your Apple ID. Xcode creates a "Personal Team" for you. Its team id is the 10-character code shown next to it (also in the signing section of any target).
+2. **`Config/Owner.xcconfig`.** `cp Config/Owner.example.xcconfig Config/Owner.xcconfig`, then set `PSYCHE_TEAM_ID` to that team id and `PSYCHE_BUNDLE_ID` to a bundle id nobody else has, for example `com.yourname.psyche`. A free team cannot reuse `com.psyche.ios`. The extensions and the app group are derived from this value. Run `pnpm ios:project` again.
+3. **Developer Mode.** On the phone: Settings > Privacy & Security > Developer Mode > on, then restart. Connect the phone, pick it as the run destination and press Run.
+4. **Trust the certificate.** The first launch says the developer is not trusted. Open Settings > General > VPN & Device Management, tap your Apple ID under "Developer App" and choose Trust.
+5. **Re-sign every 7 days.** A free profile expires after 7 days and the app stops opening. Run it from Xcode again (no data is lost) before then. A free team may also sign at most 3 apps and a handful of new app ids per week.
+
+What works on a free account: pairing, chat, approvals in the app, the share sheet, widgets, **Live Activities and the Dynamic Island**, and **local notifications**. Psyche drives those itself from its live Gateway connection while it is open, plus a short background check iOS grants now and then (an app refresh, usually a few times a day, never guaranteed). Tapping Approve or Deny on a notification asks iOS to unlock first, then connects to your Mac for a few seconds; if the Mac cannot be reached the notification becomes "Reconnect to answer" and nothing is queued.
+
+What needs the paid account ($99 a year): **Gateway push while the app is closed** (APNs with your own key, push-updated Live Activities, push-to-start, lock-screen answers that arrive within seconds), the notification service extension's decryption, and TestFlight. See `docs/design/mobile-companion-2026.md` section 3.
+
 ## Layout
 
 | Path | What |

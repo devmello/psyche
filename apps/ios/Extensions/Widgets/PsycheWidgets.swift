@@ -1,11 +1,12 @@
 import SwiftUI
 import WidgetKit
 
-/// WidgetKit widgets and Live Activity views (M2). One placeholder keeps the target building.
+/// WidgetKit widgets and the running-task Live Activity (M2-lite: the app drives it locally, no push).
 @main
 struct PsycheWidgets: WidgetBundle {
     var body: some Widget {
         NeedsYouWidget()
+        TaskLiveActivity()
     }
 }
 

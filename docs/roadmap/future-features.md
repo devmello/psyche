@@ -84,6 +84,8 @@ Each entry has the same parts: what it is, why it beats existing assistants, rou
 - Psyche can build its own skills and connectors with approval ([#977](https://github.com/devmello/psyche/pull/977)), which gives something worth sharing.
 - The capability catalogue with an online-registry toggle ([#987](https://github.com/devmello/psyche/pull/987)), and connector install cards.
 
+**Design and status.** [Shared bundles design](../design/shared-bundles-2026.md) (2026-11-04) answers the open questions below and records what is built. Phases 1 and 2 for skills are built there: the `.psyche-skill` file, signing with an author key, export, import from a file or an https link, the signer block on the trust card, "trust this author", the key-changed warning, the update diff, the "asks for more" warning and local revocation. Connectors (phase 3), signed revocation notices and lists (phase 4) are designed and not built; the list under "What is left" below is the original plan.
+
 **What is left.**
 - A **bundle format**: a skill or connector, its manifest, its requested permissions and a signature, in one file.
 - **Signing and keys.** An author key, a "trust this author" step, and showing "signed by X, new key" or "changed key since last time".

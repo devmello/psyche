@@ -18,6 +18,7 @@ struct RouteView: View {
         case .inbox: InboxView(store: store)
         case .scheduled: ScheduledView(store: store)
         case .overview: OverviewView(store: store)
+        case .task: EmptyView()  // opens the agent sheet through the router, never pushed
         }
     }
 

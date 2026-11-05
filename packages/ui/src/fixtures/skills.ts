@@ -139,8 +139,78 @@ prompts: [prompts/naming.md]
 
 export const SKILL_FOLDER = "/Users/you/Downloads/pdf-merge";
 export const GREEDY_SKILL_FOLDER = "/Users/you/Downloads/greedy-shell";
+/** A signed bundle from an author the owner has not met, and an update that asks for more. */
+export const SKILL_BUNDLE_FILE = "pdf-merge.psyche-skill";
+export const WIDER_BUNDLE_FILE = "pdf-merge-2.psyche-skill";
+export const AUTHOR_KEY = `sha256:${"ab12".repeat(16)}`;
 
 export function skillSources(): Record<string, MockSkillSource> {
+  const base = skillSourcesFolder;
+  return {
+    [SKILL_BUNDLE_FILE]: {
+      proposal: {
+        ...base(),
+        source: { kind: "bundleFile", name: SKILL_BUNDLE_FILE },
+        bundle: {
+          signer: {
+            status: "new",
+            keyId: AUTHOR_KEY,
+            name: "Ada Lovelace",
+            signerChanged: false,
+          },
+          createdAt: "2026-11-02T09:00:00.000Z",
+          bytes: 2048,
+          origin: "workspace" as const,
+        },
+      },
+    },
+    [WIDER_BUNDLE_FILE]: {
+      proposal: {
+        ...base(),
+        source: { kind: "bundleFile", name: WIDER_BUNDLE_FILE },
+        findings: [
+          {
+            rule: "permissions-widened",
+            severity: "warn",
+            message: "this version asks for more than the installed one",
+          },
+        ],
+        manifest: {
+          tools: ["list_dir", "read_file", "write_file", "email.*"],
+          permissions: ["file_write", "send_email"],
+          prompts: ["prompts/naming.md"],
+        },
+        update: {
+          fromHash: fakeSha("skill:pdf-merge:old"),
+          upToDate: false,
+          diff: "--- a/SKILL.md\n+++ b/SKILL.md\n@@ -1,1 +1,1 @@\n-Merge PDFs.\n+Merge PDFs and email them.\n",
+          widened: { tools: ["email.*"], permissions: ["send_email"], prompts: [] },
+          signerChanged: true,
+        },
+        bundle: {
+          signer: {
+            status: "changed",
+            keyId: `sha256:${"cd34".repeat(16)}`,
+            name: "Ada Lovelace",
+            signerChanged: true,
+          },
+          createdAt: "2026-11-03T09:00:00.000Z",
+          bytes: 2300,
+          origin: "agent" as const,
+        },
+      },
+    },
+    ...folderSources(),
+  };
+}
+
+function skillSourcesFolder() {
+  const src = folderSources()[SKILL_FOLDER];
+  if (src === undefined || !("proposal" in src)) throw new Error("fixture missing");
+  return src.proposal;
+}
+
+function folderSources(): Record<string, MockSkillSource> {
   return {
     [SKILL_FOLDER]: {
       proposal: {
@@ -184,7 +254,7 @@ export function skillSources(): Record<string, MockSkillSource> {
 
 /** A staged proposal as the Gateway returns it (stories of the trust card). */
 export function stagedSkillProposal(): SkillProposal {
-  const src = skillSources()[SKILL_FOLDER];
+  const src = folderSources()[SKILL_FOLDER];
   if (src === undefined || !("proposal" in src)) throw new Error("fixture missing");
   return {
     ...src.proposal,

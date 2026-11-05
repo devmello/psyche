@@ -84,6 +84,7 @@ interface DocRow {
   sender: string | null;
   mime: string | null;
   source: string | null;
+  tags: string;
   created_ms: number;
 }
 
@@ -979,7 +980,7 @@ export class SqliteSearchIndex implements SearchIndex {
     const placeholders = rids.map(() => "?").join(", ");
     const docs = this.db
       .prepare(
-        `SELECT rowid, id, kind, grp, title, body, provenance, thread_id, parent_id, sender, mime, source, created_ms
+        `SELECT rowid, id, kind, grp, title, body, provenance, thread_id, parent_id, sender, mime, source, tags, created_ms
          FROM search_docs WHERE rowid IN (${placeholders})`,
       )
       .all(...rids) as DocRow[];
@@ -1026,12 +1027,38 @@ export class SqliteSearchIndex implements SearchIndex {
       if (d.sender !== null) hit.from = d.sender;
       if (d.mime !== null) hit.mime = d.mime;
       if (d.source !== null) hit.source = d.source;
+      const entityType = memoryEntityType(d.tags);
+      if (entityType !== undefined) hit.entityType = entityType;
       const card = previews.get(d.id);
       if (card !== undefined) hit.card = card;
       out.set(r.rid, hit);
     }
     return out;
   }
+}
+
+const ENTITY_TYPES: ReadonlySet<string> = new Set([
+  "person",
+  "org",
+  "project",
+  "place",
+  "event",
+  "topic",
+  "assignment",
+]);
+
+/** The entity kind a Memory-source document carries as its `memory:<kind>` tag. */
+function memoryEntityType(tags: string): RichHit["entityType"] {
+  try {
+    for (const t of JSON.parse(tags) as unknown[]) {
+      if (typeof t === "string" && t.startsWith("memory:") && ENTITY_TYPES.has(t.slice(7))) {
+        return t.slice(7) as RichHit["entityType"];
+      }
+    }
+  } catch {
+    // malformed tags: no entity type
+  }
+  return undefined;
 }
 
 /** Kinds allowed by `groups` and `kinds` (intersection), or `undefined` for all. */

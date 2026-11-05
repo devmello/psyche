@@ -125,7 +125,7 @@ extension FixtureData {
         running: [
             RunningTask(
                 id: "task_q3", title: "Drafting the Q3 review summary", step: 3, stepCount: 7,
-                detail: "reading 12 files", elapsed: "2 min")
+                detail: "reading 12 files", elapsed: "2 min", startedAt: Date.now.addingTimeInterval(-134))
         ],
         today: [
             BriefItem(
