@@ -52,8 +52,8 @@ export const EXTERNAL = [
 
 /** What survives next to the bundles, relative to the app dir (whole folders unless a file). */
 export const ASSET_PATHS = [
-  "skills",
-  "templates",
+  "packages/skills/bundled",
+  "packages/memory/templates",
   "deploy/sandbox-image",
   "apps/web/dist",
   "packages/db/migrations",

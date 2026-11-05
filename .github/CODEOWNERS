@@ -25,8 +25,6 @@
 /.github/                       @devmello  # S00 CI and templates (C2 adds release workflows)
 /.vscode/                       @devmello  # S00 editor recommendations
 /scripts/                       @devmello  # S00 repo scripts
-/CONTRIBUTING.md                @devmello  # S00
-/SECURITY.md                    @devmello  # S00
 /README.md                      @devmello  # S00
 /LICENSE                        @devmello  # S00
 
@@ -66,8 +64,8 @@
 /packages/speech/               @devmello  # S17 speech and voice notes
 
 # Content, deploy, tests
-/skills/                        @devmello  # S20 content: bundled skills
-/templates/                     @devmello  # S20 content: workspace templates
+/packages/skills/bundled/        @devmello  # S20 content: bundled skills
+/packages/memory/templates/     @devmello  # S20 content: workspace templates
 /deploy/                        @devmello  # S22 CLI and deploy
 /deploy/sandbox-image/          @devmello  # S21 sandbox image
 /tests/                         @devmello  # S18 security and test harness

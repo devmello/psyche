@@ -7,7 +7,7 @@ import { activeDirectives, addDirective, parseIdentity } from "../src/persona.ts
 import { DEFAULT_TEMPLATES_DIR } from "../src/store.ts";
 import { makeEnv, type TestEnv } from "./helpers.ts";
 
-// S20's shipped templates (templates/, repository root).
+// S20's shipped templates (packages/memory/templates).
 const present = TEMPLATE_FILES.every((f) => existsSync(join(DEFAULT_TEMPLATES_DIR, f)));
 
 let env: TestEnv | undefined;

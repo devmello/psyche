@@ -45,8 +45,8 @@ psyche/
     search/         S16  unified index and query
     skills/         S16  SKILL.md loading, index, install/trust
     speech/         S17  STT/TTS abstractions, whisper.cpp path, voice-note transcoding
-  skills/           S20  bundled SKILL.md files
-  templates/        S20  default SOUL.md / AGENTS.md / USER.md / IDENTITY.md / interests.md
+  # S20 content now lives inside packages: bundled SKILL.md files in packages/skills/bundled/,
+  # default SOUL.md / AGENTS.md / USER.md / IDENTITY.md / interests.md in packages/memory/templates/
   deploy/           S22   Dockerfile, compose, launchd plists, Tailscale/Cloudflare examples
   docs/             all  (originally each session added a plan and a status file; those, the session prompts and the spike write-ups now live in docs/archive/)
   site/             S20  documentation site (now apps/site)
@@ -92,7 +92,7 @@ The integrator (S00 after bootstrap) merges in this order whenever PRs are ready
 | S17 | Speech and voice notes | `packages/speech` | Q1 TS side (Q3, Q4, N11) | helper engines via node capability | `docs/archive/prompts/s17-speech.md` |
 | S18 | Security and test harness | `packages/testing` content, `tests/` | cross-cutting acceptance criteria; corpus; secret-leak checker; scenario runner | all (as fakes) | `docs/archive/prompts/s18-security-test-harness.md` |
 | S19 | Node agent (M2) | `apps/node` | L3, N13 node side | protocol | `docs/archive/prompts/s19-node-agent.md` |
-| S20 | Content: skills and templates | `skills/`, `templates/` | T5 content, H1 templates, R1 copy | — | `docs/archive/prompts/s20-content-skills-templates.md` |
+| S20 | Content: skills and templates | `packages/skills/bundled/`, `packages/memory/templates/` | T5 content, H1 templates, R1 copy | — | `docs/archive/prompts/s20-content-skills-templates.md` |
 | SP1–SP6 | Spikes | `docs/archive/spikes/<name>`, `docs/archive/spikes-docs/` | roadmap M0 spikes | — | `docs/archive/prompts/spike-*.md` |
 | INT-1..3 | Integration | cross-package wiring only | walking skeleton, server mode, acceptance | merged packages | `docs/archive/prompts/int-*.md` |
 | S21 | Sandbox | `packages/sandbox`, `deploy/sandbox-image` | K1–K3, K8 base | protocol | `docs/archive/prompts/s21-sandbox.md` |

@@ -5,7 +5,7 @@ title: "bug: "
 labels: ["bug"]
 ---
 
-<!-- Security vulnerability? Do not file it here. Follow SECURITY.md (private reporting). -->
+<!-- Security vulnerability? Do not file it here. Follow .github/SECURITY.md (private reporting). -->
 <!-- Remove secrets, tokens, personal data and private message contents from everything you paste. -->
 
 ## What happened

@@ -10,14 +10,14 @@ import { FsSkillLoader } from "../src/loader.ts";
 import { BUNDLED_DIR, OPEN_GATE, tempDir } from "./helpers.ts";
 
 /**
- * Keeps `skills/psyche-app-guide` in step with the app. Adding a Settings section, a top-level
+ * Keeps `packages/skills/bundled/psyche-app-guide` in step with the app. Adding a Settings section, a top-level
  * route, a Library section or a slash command without describing it in the guide fails here:
  * add it to the guide (and, for a route, to `packages/protocol/src/app-routes.ts`).
  */
 
 const ROOT = fileURLToPath(new URL("../../../", import.meta.url));
 const read = (rel: string) => readFileSync(`${ROOT}${rel}`, "utf8");
-const guide = read("skills/psyche-app-guide/SKILL.md");
+const guide = read("packages/skills/bundled/psyche-app-guide/SKILL.md");
 
 const all = (source: string, re: RegExp) => [...source.matchAll(re)].map((m) => m[1] as string);
 const unique = (xs: string[]) => [...new Set(xs)];

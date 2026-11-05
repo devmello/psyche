@@ -39,7 +39,7 @@ Most of the machinery exists: the task engine, the worker pool, approvals, the s
 | **Step log** (#630), `packages/ui/src/chat/RunStepLog.tsx`; **`chat.reasoning`** (#633) | Steps of the running message: tool, text, approval, question, thinking. | No "specialist" step that links to a child run. |
 | **Inbox**, `Notification` (`task_done`, `task_failed`, …) | Rows with a title, a body and a deep link (`route`). | No result card: no artifacts, receipts, cost or "what it did". |
 | **Run** schema | `{id, threadId, status, modelRef, attempt, usage, …}` | No `parentRunId`, role, budget or deadline. |
-| **Skills**, `skills/*/SKILL.md` | Frontmatter `requires.tools`, `metadata.psyche`. `research-brief` already suggests parallel `fresh` subagents. | No role definition: prompt, allowlist, model class, default budget. |
+| **Skills**, `packages/skills/bundled/*/SKILL.md` | Frontmatter `requires.tools`, `metadata.psyche`. `research-brief` already suggests parallel `fresh` subagents. | No role definition: prompt, allowlist, model class, default budget. |
 
 ## 2. What users want (evidence summary)
 
@@ -288,7 +288,7 @@ The evaluation (§8, fixtures) checks delegation choices on a set of 30 scripted
 
 ### 5.1 The `specialist` section
 
-Each role is a skill folder `skills/specialist-<role>/` with:
+Each role is a skill folder `packages/skills/bundled/specialist-<role>/` with:
 - `SKILL.md` (frontmatter plus the role prompt as the body);
 - `acceptance.md`;
 - `examples/` (two scripted fixtures).
@@ -557,7 +557,7 @@ Brief:
 ### K: role skills and prompts (content; one session, after P0)
 
 Brief:
-> You own `skills/specialist-*` and the specialist section of the base prompt for docs/agent/specialists-2026.md §4.8 and §5.
+> You own `packages/skills/bundled/specialist-*` and the specialist section of the base prompt for docs/agent/specialists-2026.md §4.8 and §5.
 >
 > - **Six role skills:** researcher, shopper, coder, organizer, writer, planner. Each has a `SKILL.md` with the `metadata.psyche.specialist` section from §5.1–5.2 and a role prompt that covers:
 >   - objective and output format (the `specialist.report` fields for its `result` kind);

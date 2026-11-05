@@ -184,7 +184,7 @@ export interface FsSkillLoaderOptions {
   workspaceDir?: string;
   /** `$PSYCHE_HOME/skills` (installed skills and `skills.lock.json`). */
   homeDir: string;
-  /** The repository's `skills/` (S20's bundled skills). */
+  /** The repository's `packages/skills/bundled/` (S20's bundled skills). */
   bundledDir?: string;
   state?: SkillStateStore;
   /** Verifies `skill_install` approvals and records receipts. Without it, installs are refused. */

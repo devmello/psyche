@@ -71,7 +71,7 @@ export function bundlePieces(
       source: sources.psychedDir,
       marker: join(sources.psychedDir, "psyched"),
       // A psyched without its skills folder lists no bundled skills (#506): not shippable.
-      alsoRequires: [join(sources.psychedDir, "app", "skills", "README.md")],
+      alsoRequires: [join(sources.psychedDir, "app", "packages", "skills", "bundled", "README.md")],
       dest: join(resourcesDir, BUNDLED_PSYCHED_DIR),
       build: psyched,
     },
@@ -160,7 +160,7 @@ export function bundlePiecesWin32(
       marker: join(p, "psyched.cmd"),
       alsoRequires: [
         join(p, "runtime", "node.exe"),
-        join(p, "app", "skills", "README.md"),
+        join(p, "app", "packages", "skills", "bundled", "README.md"),
         join(p, "service-host.mjs"),
         join(p, "psyche-gateway.task.xml.template"),
       ],

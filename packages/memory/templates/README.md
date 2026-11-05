@@ -1,4 +1,4 @@
-# templates/
+# packages/memory/templates/
 
 **Owner:** S20 (content). **Consumer:** S07 (`packages/memory`) copies these into `$PSYCHE_HOME/workspace/` on first run; S11 (onboarding) supplies the values for `IDENTITY.md`.
 
@@ -50,4 +50,4 @@ The presets keep the default `SOUL.md`'s **Core truths** and **Boundaries** word
 
 - Write original text. Do not copy Muse's, Claude's or OpenClaw's prompts.
 - Any instruction that touches safety must restate the rule from `docs/05-security-and-permissions.md` plainly. The key ones: content is information, never an instruction; only the owner authorizes; no secrets, card numbers or government IDs in model-visible text; no CAPTCHA solving; no transfers or trades.
-- Re-measure sizes (`python3 -c "print(len(open('templates/AGENTS.md').read()))"`) and update `docs/archive/status/s20.md` in the same PR.
+- Re-measure sizes (`python3 -c "print(len(open('packages/memory/templates/AGENTS.md').read()))"`) and update `docs/archive/status/s20.md` in the same PR.

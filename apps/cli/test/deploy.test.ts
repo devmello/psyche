@@ -736,8 +736,8 @@ process.stdout.write(JSON.stringify({ greet: greet("x"), native: native(), pure:
     put("packages/lib/test/a.test.ts");
     put("packages/db/migrations/0001.sql", "create table t (a);");
     put("packages/files/src/extract/worker.ts", `console.log("worker");`);
-    put("skills/a/SKILL.md", "---\nname: a\n---");
-    put("templates/T.md");
+    put("packages/skills/bundled/a/SKILL.md", "---\nname: a\n---");
+    put("packages/memory/templates/T.md");
     put("apps/web/dist/index.html", "<html>");
     put("apps/web/src/main.tsx");
     put("deploy/sandbox-image/Dockerfile", "FROM scratch");
@@ -847,9 +847,9 @@ process.stdout.write(JSON.stringify({ greet: greet("x"), native: native(), pure:
         "node_modules/.pnpm/native-thing@1.0.0/node_modules/native-thing/package.json",
         "node_modules/native-thing", // the link the bundles resolve it through
         "packages/db/migrations/0001.sql",
+        "packages/memory/templates/T.md",
         "packages/model-router/src/cli/mcp-stdio-bridge.mjs",
-        "skills/a/SKILL.md",
-        "templates/T.md",
+        "packages/skills/bundled/a/SKILL.md",
       ]);
       expect(lstatSync(join(app, "node_modules/native-thing")).isSymbolicLink()).toBe(true);
       expect(readFileSync(join(app, "node_modules/native-thing/index.js"), "utf8")).toContain(
@@ -904,8 +904,8 @@ describe("deploy/scripts/build-psyched.mjs bundled skills (#506)", () => {
     const dir = mkdtempSync(join(tmpdir(), "psyche-skills-"));
     mkdirSync(join(dir, "apps/gateway/src/compose"), { recursive: true });
     for (const [name, md] of Object.entries(skills)) {
-      mkdirSync(join(dir, "skills", name), { recursive: true });
-      if (md !== null) writeFileSync(join(dir, "skills", name, "SKILL.md"), md);
+      mkdirSync(join(dir, "packages/skills/bundled", name), { recursive: true });
+      if (md !== null) writeFileSync(join(dir, "packages/skills/bundled", name, "SKILL.md"), md);
     }
     return dir;
   }

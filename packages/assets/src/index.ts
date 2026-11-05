@@ -2,7 +2,7 @@ import { dirname, isAbsolute, join, normalize, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 /**
- * Where the files that ship next to the code live: SQL migrations, `templates/`, `skills/`, the built
+ * Where the files that ship next to the code live: SQL migrations, `packages/memory/templates/`, `packages/skills/bundled/`, the built
  * web client, the sandbox image context, the MCP stdio bridge. They sit at the same paths below one
  * root in the source tree and in the bundled Gateway (Psyche.app's `Resources/psyched/app`), so
  * `assetPath("packages/db/migrations")` is right in both and no module needs `import.meta.url` to
@@ -28,7 +28,7 @@ export function assetsRoot(env: NodeJS.ProcessEnv = process.env): string {
   return resolve(import.meta.dirname, "../../..");
 }
 
-/** `assetPath("skills")`, `assetPath("packages", "db", "migrations")`: a path below the root; never outside it. */
+/** `assetPath("packages", "skills", "bundled")`, `assetPath("packages", "db", "migrations")`: a path below the root; never outside it. */
 export function assetPath(...segments: string[]): string {
   const root = assetsRoot();
   const rel = normalize(join(...segments));

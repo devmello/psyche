@@ -58,3 +58,6 @@ packages/protocol/generated/.tmp/
 # Claude Desktop session worktrees: git-ignored so Biome (vcs.useIgnoreFile) skips them from the main
 # checkout; a glob on ".claude" would also match the worktrees' own files and break their lint.
 .claude/worktrees/
+
+# macOS
+.DS_Store

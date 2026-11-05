@@ -16,7 +16,7 @@ export interface OnboardingAnswers {
   city?: string;
   /** A re-run: leave IDENTITY.md and SOUL.md alone and write only the owner's facts. */
   skipIdentity?: boolean;
-  /** Full text of a persona preset (`templates/personas/*.md`) to use as SOUL.md. */
+  /** Full text of a persona preset (`packages/memory/templates/personas/*.md`) to use as SOUL.md. */
   soul?: string;
 }
 

@@ -11,7 +11,7 @@ on:
       - "docs/guides/**"
       - "docs/release-notes/**"
       - "apps/cli/src/**"
-      - "SECURITY.md"
+      - ".github/SECURITY.md"
       - "pnpm-lock.yaml"
       - ".github/workflows/docs.yml"
   workflow_dispatch:

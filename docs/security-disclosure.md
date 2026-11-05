@@ -1,6 +1,6 @@
 # Security disclosure process
 
-How Psyche handles a vulnerability report from the moment it arrives to the public write-up. [SECURITY.md](../SECURITY.md) is the short policy for reporters. This is the process maintainers follow, and what reporters and owners can expect. It implements [docs/05-security-and-permissions.md](05-security-and-permissions.md) §15.3.
+How Psyche handles a vulnerability report from the moment it arrives to the public write-up. [SECURITY.md](../.github/SECURITY.md) is the short policy for reporters. This is the process maintainers follow, and what reporters and owners can expect. It implements [docs/05-security-and-permissions.md](05-security-and-permissions.md) §15.3.
 
 ## 1. Intake
 
@@ -20,7 +20,7 @@ How Psyche handles a vulnerability report from the moment it arrives to the publ
 | Medium | A deterministic control is bypassed but another layer still asks; local-only information disclosure | 90 days |
 | Low | Defense-in-depth gaps, misleading messages, hardening | normal work |
 
-3. **Decide scope**, using SECURITY.md. Out-of-scope reports get a reasoned answer, and a public issue if they are still worth fixing as hardening.
+3. **Decide scope**, using .github/SECURITY.md. Out-of-scope reports get a reasoned answer, and a public issue if they are still worth fixing as hardening.
 4. **Name an owner** (the package owner from `docs/09-execution-plan.md`) and a fix branch in a **private fork** opened from the advisory. Fixes for in-scope reports are never developed in public branches before disclosure.
 
 ## 3. Fix

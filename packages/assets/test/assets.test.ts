@@ -19,8 +19,8 @@ describe("assetsRoot", () => {
       "packages/db/migrations",
       "packages/connectors/migrations",
       "packages/notifications/migrations",
-      "templates",
-      "skills",
+      "packages/memory/templates",
+      "packages/skills/bundled",
       "deploy/sandbox-image",
       "packages/model-router/src/cli/mcp-stdio-bridge.mjs",
     ]) {
@@ -35,7 +35,9 @@ describe("assetsRoot", () => {
         join(root, "apps/gateway/dist/main.mjs"),
       ).href;
       expect(assetsRoot()).toBe(resolve(root));
-      expect(assetPath("skills")).toBe(join(resolve(root), "skills"));
+      expect(assetPath("packages/skills/bundled")).toBe(
+        join(resolve(root), "packages/skills/bundled"),
+      );
       globalThis.__PSYCHE_BUNDLE_URL__ = pathToFileURL(join(root, "apps/cli/dist/main.mjs")).href;
       expect(assetsRoot()).toBe(resolve(root));
     } finally {
@@ -47,7 +49,9 @@ describe("assetsRoot", () => {
     globalThis.__PSYCHE_BUNDLE_URL__ = "file:///somewhere/apps/gateway/dist/main.mjs";
     vi.stubEnv("PSYCHE_ASSETS_ROOT", "/custom/root");
     expect(assetsRoot()).toBe(resolve("/custom/root"));
-    expect(assetPath("templates")).toBe(join(resolve("/custom/root"), "templates"));
+    expect(assetPath("packages/memory/templates")).toBe(
+      join(resolve("/custom/root"), "packages/memory/templates"),
+    );
   });
 
   it("ignores an empty PSYCHE_ASSETS_ROOT", () => {
@@ -63,12 +67,14 @@ describe("assetPath", () => {
 
   it("refuses to leave the root", () => {
     expect(() => assetPath("..", "etc")).toThrow(/escapes/);
-    expect(() => assetPath("skills/../../x")).toThrow(/escapes/);
+    expect(() => assetPath("packages/../../x")).toThrow(/escapes/);
     expect(() => assetPath("/etc/passwd")).toThrow(/escapes/);
   });
 
   it("assetDir keeps the trailing separator", () => {
-    expect(assetDir("templates")).toBe(`${assetPath("templates")}${sep}`);
+    expect(assetDir("packages/memory/templates")).toBe(
+      `${assetPath("packages/memory/templates")}${sep}`,
+    );
   });
 });
 

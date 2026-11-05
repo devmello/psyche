@@ -375,7 +375,7 @@ Brief:
 ### P: prompts and skills (content; one session, after G0)
 
 Brief:
-> You own `skills/` and `packages/skills/src/gating.ts` `TOOL_CAPABILITIES` for docs/connectors/apple-apps-2026.md §6–7.3.
+> You own `packages/skills/bundled/` and `packages/skills/src/gating.ts` `TOOL_CAPABILITIES` for docs/connectors/apple-apps-2026.md §6–7.3.
 >
 > 1. Add the families `notes.*`, `reminders.*`, `contacts.*`, `music.*`, `files.*` and `shortcuts.*`, mapped to the tool names in §4 (e.g. `notes.*` → `notes_*`), with Settings hints.
 > 2. New bundled skills: `morning-brief` (§6, with a default weekday automation the owner can turn on), `email-to-task`, `meeting-prep`, `downloads-cleanup`. Each has `acceptance.md` and two few-shot examples.

@@ -187,5 +187,5 @@ Google requires every app that reads Gmail to have its own sign-in client. Psych
 - Body: "Your main chat is open. {agent} will say hello and ask a couple of questions to finish setting up."
 - Summary list: "Name: {agent} · Model: {model} · Connected: {connectors or "nothing yet"} · Mode: Balanced (asks before acting)"
 - Button: **Start chatting**
-- The first agent message comes from `BOOTSTRAP.md` (templates/BOOTSTRAP.md), in the agent's voice. Example for a calm default:
+- The first agent message comes from `BOOTSTRAP.md` (packages/memory/templates/BOOTSTRAP.md), in the agent's voice. Example for a calm default:
   > "Hi, I'm Wren. I can take care of email, your calendar, research and errands on the web, and I'll ask before anything that matters. Two quick questions so I get things right."
