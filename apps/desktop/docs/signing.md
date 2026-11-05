@@ -43,6 +43,18 @@ needed): `make-signing-cert.sh --import-to <keychain>`, or point the build at a 
 `PSYCHE_SIGN_KEYCHAIN`. `deploy/macos/build-local.sh` then picks up a "Psyche Release" identity
 on its own.
 
+## Who signs what
+
+- **Release (CI):** the `dmg` and `cli` jobs build unsigned (ad-hoc), with no environment and no signing
+  secrets. One `sign` job (`environment: release`, one approval per tag) signs the app inside out with
+  `deploy/macos/sign-bundle.sh`, checks it, makes the DMGs and signs the CLI binaries, running only
+  Apple's tools and our own scripts while its keychain is unlocked.
+- **Local self-signed build:** `deploy/macos/build-local.sh` packages ad-hoc and then runs the same
+  `sign-bundle.sh`, so a local build is signed exactly like a release.
+- **Developer ID (optional, later):** `electron-forge package` signs (and notarizes) it, using
+  `PSYCHE_SIGN_IDENTITY` as described below. `signing-config.ts` also still signs a self-signed identity
+  if you set it for `pnpm --filter @psyche/desktop package` directly.
+
 ## Environment variables
 
 | Variable | Purpose |

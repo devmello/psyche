@@ -95,7 +95,8 @@ if [ -n "$leaf" ] && [ -d "$APP/Contents/Resources/psyched" ]; then
   while IFS= read -r f; do
     [ -n "$f" ] || continue
     checked=$((checked + 1))
-    if ! "$CODESIGN" -d -r- "$f" 2>/dev/null | grep -qF "certificate leaf = $leaf"; then
+    dr="$("$CODESIGN" -d -r- "$f" 2>/dev/null || true)"
+    if ! printf '%s' "$dr" | grep -qF "certificate leaf = $leaf"; then
       echo "FAIL ${f#"$APP"/}: not signed with the release certificate" >&2
       fail=1
       bad=$((bad + 1))
@@ -124,7 +125,9 @@ node_rt="$APP/Contents/Resources/psyched/runtime/node"
 loose=0
 for t in "${runtime_targets[@]}"; do
   label="${t#"$APP"}"; label="${label:-Psyche.app}"
-  if ! "$CODESIGN" -dv "$t" 2>&1 | grep -q 'flags=.*runtime'; then
+  # Capture first: `grep -q` closing the pipe early would fail codesign under pipefail.
+  info="$("$CODESIGN" -dv "$t" 2>&1 || true)"
+  if ! printf '%s' "$info" | grep -q 'flags=.*runtime'; then
     echo "FAIL $label: the hardened runtime is not on" >&2
     fail=1; loose=1
   fi
@@ -136,7 +139,9 @@ for t in "${runtime_targets[@]}"; do
     fi
   done
 done
-if [ -d "$helper" ] && "$CODESIGN" -d --entitlements :- "$helper" 2>/dev/null | grep -qF com.apple.security.cs.disable-library-validation; then
+helper_ents=""
+[ -d "$helper" ] && helper_ents="$("$CODESIGN" -d --entitlements :- "$helper" 2>/dev/null || true)"
+if printf '%s' "$helper_ents" | grep -qF com.apple.security.cs.disable-library-validation; then
   echo "FAIL PsycheHelper.app has disable-library-validation: it must keep full library validation" >&2
   fail=1; loose=1
 fi

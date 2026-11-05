@@ -55,6 +55,17 @@ case "${PSYCHE_SIGN_IDENTITY:-}" in
     if [ -z "${APPLE_API_KEY:-}" ] && [ -z "${APPLE_ID:-}" ]; then echo "==> notarization skipped: no Apple API key or Apple ID credentials set"; fi ;;
   *) echo "==> notarization skipped: self-signed or non-Developer-ID identity (users approve it once under Privacy & Security, Open Anyway)" ;;
 esac
+# Psyche's self-signed certificate (a 40-digit hash or the exact name) is applied AFTER packaging by
+# deploy/macos/sign-bundle.sh, the same script the release workflow's `sign` job runs, so local and CI
+# signing cannot drift. Everything before that builds ad-hoc. A Developer ID (or Apple Development)
+# identity still goes through electron-forge, which notarizes.
+SELF_ID=""
+case "${PSYCHE_SIGN_IDENTITY:-}" in
+  "Psyche Release") SELF_ID="$PSYCHE_SIGN_IDENTITY" ;;
+  ????????????????????????????????????????)
+    case "$PSYCHE_SIGN_IDENTITY" in *[!0-9a-fA-F]*) ;; *) SELF_ID="$PSYCHE_SIGN_IDENTITY" ;; esac ;;
+esac
+if [ -n "$SELF_ID" ]; then unset PSYCHE_SIGN_IDENTITY; fi
 export PSYCHE_DMG_LAYOUT="${PSYCHE_DMG_LAYOUT:-0}"
 VERSION="$(node -p "require('./apps/desktop/package.json').version")"
 step() { printf '\n==> %s (%s)\n' "$1" "$(date '+%H:%M:%S')"; }
@@ -68,10 +79,16 @@ rm -rf apps/desktop/out
 pnpm --filter @psyche/desktop run package --arch="$ARCH"
 APP="apps/desktop/out/Psyche-darwin-$ARCH/Psyche.app"
 [ -d "$APP" ] || { echo "packaging produced no app at $APP" >&2; exit 1; }
+if [ -n "$SELF_ID" ]; then
+  step "sign Psyche.app with the self-signed certificate (deploy/macos/sign-bundle.sh)"
+  bash deploy/macos/sign-bundle.sh --app "$APP" --identity "$SELF_ID" \
+    ${PSYCHE_SIGN_KEYCHAIN:+--keychain "$PSYCHE_SIGN_KEYCHAIN"} \
+    ${PSYCHE_SIGN_TIMESTAMP:+$([ "$PSYCHE_SIGN_TIMESTAMP" = 1 ] && echo --timestamp)}
+fi
 if [ "$DMG" = 1 ]; then
   step "DMG"
   mkdir -p dist
-  sh deploy/macos/make-dmg.sh "$APP" "$VERSION" "$ARCH" dist
+  PSYCHE_SIGN_IDENTITY="${SELF_ID:-${PSYCHE_SIGN_IDENTITY:-}}" sh deploy/macos/make-dmg.sh "$APP" "$VERSION" "$ARCH" dist
   printf '\n==> done: dist/Psyche-%s-%s.dmg (install with: pnpm app:install)\n' "$VERSION" "$ARCH"
 else
   printf '\n==> done: %s (install with: pnpm app:install %s)\n' "$APP" "$APP"
