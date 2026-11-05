@@ -588,6 +588,8 @@ export const settings = {
   "settings.uninstall.willDo": "What happens",
   "settings.uninstall.stopAgent": "The Gateway LaunchAgent is stopped and removed.",
   "settings.uninstall.stopHelper": "Psyche Helper is stopped and “Open at login” is turned off.",
+  "settings.uninstall.stopSandboxPc":
+    "The sandbox PC service is removed. Windows asks for administrator approval once.",
   "settings.uninstall.trash": "Moved to the Trash",
   "settings.uninstall.kind.agent": "Gateway LaunchAgent",
   "settings.uninstall.kind.support": "Application Support",
@@ -1860,6 +1862,8 @@ export const settings = {
     "Restart Psyche. Then on the other computer, add this Mac as a Gateway. It shows a pairing code and a key fingerprint: compare them with the request under Waiting to pair here, then approve it.",
   "settings.remote.funnel":
     "Never turn on Tailscale Funnel for this. It would put the Gateway on the public internet.",
+  "settings.remote.configWarnings":
+    "config.json has settings this version of Psyche does not know, so it ignores them: {keys}. If you meant one of them, check the spelling.",
   "settings.remote.admin":
     "A computer that pairs gets read, write and approvals. Admin stays off unless you tick it when you approve, and each admin change still needs your Touch ID here.",
   "settings.remote.address": "Public address",

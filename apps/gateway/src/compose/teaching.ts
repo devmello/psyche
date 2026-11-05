@@ -574,7 +574,9 @@ export function composeTeaching(deps: TeachingComposeDeps): ComposedTeaching {
       service.retain();
       const every = deps.retentionIntervalMs ?? 24 * 3_600_000;
       if (every > 0) {
-        timer = setInterval(() => service.retain(), every);
+        timer = setInterval(() => {
+          if (gatewayRef?.context.updateGate.accepting() !== false) service.retain();
+        }, every);
         timer.unref?.();
       }
     },

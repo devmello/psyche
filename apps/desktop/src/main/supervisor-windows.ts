@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve, sep } from "node:path";
+import { join, resolve, sep, win32 } from "node:path";
 import {
   currentUserSid,
   gatewayTaskName,
@@ -38,6 +38,12 @@ import { defaultSleep, SupervisorBase, type SupervisorOptions } from "./supervis
  * (`{"vaultKeyFile": …}`, owner-only) and the service host puts the path into the Gateway's
  * environment alone at every start, so it is on no command line. A changed file restarts the task.
  *
+ * The build this app ships travels the same way (`{"build": …}` → `PSYCHE_BUILD`, the plist's
+ * variable on macOS): a new build changes the file, so the task's Gateway restarts on the next
+ * launch, and `checkServerBuild` restarts the task (once per build) when the Gateway that answers
+ * the handshake is still another build. The task runs main.mjs without `PSYCHE_BUILD_INFO`, so
+ * this is the build the Gateway reports.
+ *
  * Before the name was per user every account shared `\Psyche\Gateway`; a launch replaces that
  * task when it runs as this account (and asks first, like any task, when it runs another copy).
  */
@@ -54,9 +60,19 @@ export function gatewayServiceConfigFile(psycheHome: string): string {
   return join(psycheHome, "run", SERVICE_CONFIG_FILE);
 }
 
-/** The service config's exact text for a key file, or undefined when there is nothing to pass. */
-export function gatewayServiceConfig(vaultKeyFile: string | undefined): string | undefined {
-  return vaultKeyFile === undefined ? undefined : `${JSON.stringify({ vaultKeyFile })}\n`;
+/**
+ * The service config's exact text for a key file and the build this app ships (`PSYCHE_BUILD`,
+ * the plist's on macOS), or undefined when there is nothing to pass.
+ */
+export function gatewayServiceConfig(
+  vaultKeyFile: string | undefined,
+  build?: string,
+): string | undefined {
+  if (vaultKeyFile === undefined && build === undefined) return undefined;
+  return `${JSON.stringify({
+    ...(vaultKeyFile === undefined ? {} : { vaultKeyFile }),
+    ...(build === undefined ? {} : { build }),
+  })}\n`;
 }
 
 /** Where the definition last registered is kept (compared on every launch; shared with the CLI). */
@@ -227,6 +243,27 @@ export function taskProgram(xml: string): string | undefined {
   return at < 0 ? undefined : args[at + 1];
 }
 
+/**
+ * Whether a task definition runs a Gateway from inside `root` (an install folder): the runtime it
+ * names must sit below it. A definition that names no runtime is not provably ours.
+ */
+export function taskRunsFrom(xml: string, root: string): boolean {
+  const program = taskProgram(xml);
+  if (program === undefined) return false;
+  const base = `${win32.normalize(root).replace(/\\+$/, "").toLowerCase()}\\`;
+  return win32.normalize(program).toLowerCase().startsWith(base);
+}
+
+/** The `--home` the task's service host is given: the data folder the Gateway really uses. */
+export function taskPsycheHome(xml: string): string | undefined {
+  const raw = /<Arguments>([^<]*)<\/Arguments>/.exec(xml)?.[1];
+  if (raw === undefined) return undefined;
+  const args = splitWindowsArgs(xmlUnescape(raw));
+  const at = args.indexOf("--home");
+  const v = at < 0 ? undefined : args[at + 1];
+  return v === undefined || v === "" ? undefined : v;
+}
+
 /** `schtasks /create /xml` reads UTF-16 LE with a BOM (what Task Scheduler exports). */
 export function encodeTaskXml(xml: string): Buffer {
   return Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(xml, "utf16le")]);
@@ -366,13 +403,13 @@ export class TaskSchedulerSupervisor extends SupervisorBase {
   }
 
   /**
-   * Writes (or removes) `run\gateway-service.json` for this vault key file, owner-only. True when
-   * it changed, so a running Gateway must restart to read it. A file Windows will not restrict to
-   * this account is not left behind: the Gateway then starts without the key file.
+   * Writes (or removes) `run\gateway-service.json` for this vault key file and build, owner-only.
+   * True when it changed, so a running Gateway must restart to read it. A file Windows will not
+   * restrict to this account is not left behind: the Gateway then starts without either.
    */
   private async syncServiceConfig(): Promise<boolean> {
     const file = gatewayServiceConfigFile(this.opts.psycheHome);
-    const want = gatewayServiceConfig(await this.opts.vaultKeyFile?.());
+    const want = gatewayServiceConfig(await this.opts.vaultKeyFile?.(), this.opts.expectedBuild);
     const have = existsSync(file) ? readFileSync(file, "utf8") : undefined;
     if (want === have) return false;
     if (want === undefined) {
@@ -422,6 +459,7 @@ export class TaskSchedulerSupervisor extends SupervisorBase {
     if (other !== undefined && other.toLowerCase() !== node.toLowerCase() && existsSync(other)) {
       const takeOver = (await this.opts.confirmTakeover?.(other).catch(() => false)) ?? false;
       if (!takeOver) {
+        this.attached = true;
         this.set(
           (await this.healthy())
             ? { kind: "running", mode: "taskscheduler" }
@@ -441,9 +479,11 @@ export class TaskSchedulerSupervisor extends SupervisorBase {
       await this.schtasks(schtasks.delete(LEGACY_GATEWAY_TASK));
     } else if (!loaded && (await this.healthy())) {
       // Someone else serves the Gateway on this port; starting ours would fail to bind.
+      this.attached = true;
       this.set({ kind: "running", mode: "taskscheduler" });
       return;
     }
+    this.attached = false;
     mkdirSync(this.opts.psycheHome, { recursive: true, mode: 0o700 });
     mkdirSync(this.logDir(), { recursive: true, mode: 0o700 });
     const configChanged = await this.syncServiceConfig();
@@ -469,9 +509,50 @@ export class TaskSchedulerSupervisor extends SupervisorBase {
     if (await this.waitHealthy()) return this.refreshService();
     const exit = parseLastResult((await this.schtasks(schtasks.queryVerbose(task))).stdout);
     const secs = Math.round((this.opts.healthTimeoutMs ?? 60_000) / 1000);
-    this.failed(
+    this.failedToStart(
       `The Gateway did not answer within ${secs} s${exit && !NOT_AN_EXIT.has(exit) ? ` (last exit code ${exit})` : ""}`,
     );
+  }
+
+  /** This account's task runs this app's bundled runtime (`checkServerBuild`). */
+  protected async ownsService(): Promise<boolean> {
+    const task = this.taskName();
+    const ours = this.win.bundledNode;
+    if (task === undefined || !ours) return false;
+    const registered = await this.schtasks(schtasks.queryXml(task));
+    if (registered.code !== 0) return false;
+    const program = taskProgram(this.definitionOf(task, registered.stdout));
+    return program !== undefined && program.toLowerCase() === ours.toLowerCase();
+  }
+
+  /**
+   * A restart for a build mismatch: end the task's processes, write `run\gateway-service.json`
+   * with this build (the service host hands it to the Gateway as `PSYCHE_BUILD` when it starts
+   * it), register the definition again if this build wants another one, and run the task.
+   */
+  protected async restartService(): Promise<boolean> {
+    const task = this.taskName();
+    const content = task === undefined ? undefined : this.content(task);
+    if (task === undefined || content === undefined) {
+      this.failed("psyched is not bundled");
+      return false;
+    }
+    await this.stopTask(task);
+    await this.syncServiceConfig();
+    const registered = await this.schtasks(schtasks.queryXml(task));
+    const current = registered.code === 0 ? this.definitionOf(task, registered.stdout) : undefined;
+    if (current !== content) {
+      const file = gatewayTaskFile(this.opts.psycheHome);
+      mkdirSync(join(this.opts.psycheHome, "run"), { recursive: true, mode: 0o700 });
+      writeFileSync(file, encodeTaskXml(content), { mode: 0o600 });
+      if ((await this.schtasks(schtasks.create(task, file))).code !== 0) {
+        rmSync(file, { force: true });
+        this.failed("Task Scheduler could not register the Psyche Gateway task after the update");
+        return false;
+      }
+    }
+    await this.schtasks(schtasks.run(task));
+    return true;
   }
 
   protected async refreshService(): Promise<void> {

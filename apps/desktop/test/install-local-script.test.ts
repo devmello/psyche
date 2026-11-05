@@ -120,7 +120,8 @@ const installed = () => readFileSync(join(apps, "Psyche.app", "Contents", "marke
 beforeEach(setup);
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
-describe("install-local.sh", () => {
+// Bash with fake macOS tools: runs on macOS and Linux; the Windows script has install-local-ps1.test.ts.
+describe.skipIf(process.platform === "win32")("install-local.sh", () => {
   it("keeps your data by default and installs the new build", () => {
     const r = run([]);
     expect(r.code, r.out).toBe(0);

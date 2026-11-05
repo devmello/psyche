@@ -135,6 +135,8 @@ export const de: Partial<Catalogue> = {
   "errors.rate_limited": "Zu viele Anfragen; warte kurz und versuche es erneut.",
   "errors.timeout": "Psyche hat zu lange für eine Antwort gebraucht.",
   "errors.cancelled": "Es wurde abgebrochen.",
+  "errors.reason.updating":
+    "Psyche startet gleich neu, um ein Update zu installieren. Versuche es in einem Moment erneut.",
   "errors.unavailable": "Psyche kann das gerade nicht.",
   "errors.approval_required": "Das braucht zuerst deine Genehmigung.",
   "errors.approval_expired": "Die Genehmigung ist abgelaufen; frage erneut.",

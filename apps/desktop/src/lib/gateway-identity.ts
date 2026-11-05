@@ -137,6 +137,13 @@ export interface GatewayVerifierOptions {
    * with the saved entry). While no key is pinned, the key the Gateway proves must match it.
    */
   expectedFingerprint?: () => string | undefined;
+  /**
+   * Local mode only: told which build the Gateway reports (`server` in the challenge, undefined
+   * from a Gateway that predates it), before the identity checks. The desktop restarts its own
+   * LaunchAgent when this is not the build it shipped. It restarts nothing but that agent, so an
+   * unauthenticated claim cannot do more than that.
+   */
+  onServer?: (server: { version: string; build: string } | undefined) => void;
 }
 
 /** A verifier, and the key it saw first when nothing was pinned yet (see `candidateKey`). */
@@ -154,7 +161,7 @@ export type PinningVerifier = GatewayVerifier & {
 export function createGatewayVerifier(opts: GatewayVerifierOptions): PinningVerifier {
   let candidate: string | undefined;
   let candidateCert: string | undefined;
-  const verifier: GatewayVerifier = (challenge, devicePublicKey) => {
+  const check: GatewayVerifier = (challenge, devicePublicKey) => {
     const { gatewayKey, gatewaySignature } = challenge;
     if (opts.mode === "strict" && !originMatchesDialed(opts.dialedOrigin, challenge.serverOrigin)) {
       return { ok: false, code: "gateway_origin_mismatch" };
@@ -244,6 +251,14 @@ export function createGatewayVerifier(opts: GatewayVerifierOptions): PinningVeri
       // A remote Gateway's connect is bound to the key just verified (the v2 payload).
       ...(opts.mode === "strict" ? { gatewayKey } : {}),
     };
+  };
+  // The build is reported only once the Gateway has proved to be this Mac's own (its key
+  // matches the identity file): an impostor on the port cannot make the app restart anything.
+  const verifier: GatewayVerifier = (challenge, devicePublicKey) => {
+    const verdict = check(challenge, devicePublicKey);
+    if (opts.mode === "local" && !(verdict instanceof Promise) && verdict.ok)
+      opts.onServer?.(challenge.server);
+    return verdict;
   };
   return Object.assign(verifier, {
     candidateKey: () => candidate,

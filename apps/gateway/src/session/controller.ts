@@ -250,6 +250,19 @@ export class SessionController {
     return getThread(this.#ctx.db, threadId)?.activeWriterRunId ?? null;
   }
 
+  /**
+   * An app update is being prepared (`gateway.prepareUpdate`): no new turn starts. Retryable, and
+   * the UI says why through `details.reason` (`errors.reason.updating`).
+   */
+  #refuseWhileUpdating(): void {
+    if (this.#ctx.updateGate.accepting()) return;
+    throw new PsycheError(
+      "unavailable",
+      "Psyche is about to restart to update; try again in a moment",
+      { retryable: true, details: { reason: "updating" } },
+    );
+  }
+
   /** Runs inside the request's transaction. */
   send(input: SendInput, hooks: TxHooks): SendResult {
     const { db } = this.#ctx;
@@ -257,6 +270,10 @@ export class SessionController {
     if (!thread || this.#closing.has(thread.id)) {
       throw new PsycheError("not_found", `thread ${input.threadId} not found`);
     }
+    // A message for a busy chat still queues or steers (it runs after the restart); one that
+    // would start a turn waits until the update is over or cancelled.
+    if ((thread.activeWriterRunId ?? null) === null || input.mode === "interrupt")
+      this.#refuseWhileUpdating();
     const attachments = input.attachments ?? [];
     const quote = this.#quote(thread.id, input.replyToMessageId ?? null);
     const active = thread.activeWriterRunId ?? null;
@@ -601,6 +618,7 @@ export class SessionController {
     if (listMessagesPage(db, thread.id, { limit: 1 }).messages.length > 0) {
       return { started: false, runId: null };
     }
+    this.#refuseWhileUpdating();
     const run = createRun(db, {
       threadId: thread.id,
       modelRef: thread.modelRef ?? DEFAULT_MODEL_REF,
@@ -651,7 +669,9 @@ export class SessionController {
 
   /** If the thread is idle, starts the next queued follow-up. */
   #drain(threadId: string): void {
-    if (this.#stopping || this.#closing.has(threadId)) return;
+    // While an update is prepared the follow-ups stay queued (they are stored); they start after
+    // the restart, or when the gate opens again (`drainAll`).
+    if (this.#stopping || this.#closing.has(threadId) || !this.#ctx.updateGate.accepting()) return;
     const { db, bus } = this.#ctx;
     const thread = getThread(db, threadId);
     if (!thread || (thread.activeWriterRunId ?? null) !== null) return;

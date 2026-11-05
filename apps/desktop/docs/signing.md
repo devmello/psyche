@@ -231,6 +231,12 @@ Gateway and sets `PSYCHE_VAULT_KEY_FILE` in the Gateway's environment only, so t
 command line (which any local process can read) and in no other process's environment; the app
 restarts the task when the file changes. "Quit Psyche entirely" removes it with the task.
 
+The same file carries the build the app ships (`{"build": …}`, from `resources\psyched\build-info.json`),
+which the service host sets as `PSYCHE_BUILD`: the Gateway reports it in the handshake, and when
+the Gateway that answers is another build (one left running across an update) the app asks it to
+settle (`gateway.prepareUpdate`) and restarts the task, once per build, as it reloads the
+LaunchAgent on macOS.
+
 ### Updates on Windows
 
 The signed manifest's `platforms["win32-x64"]` lists Squirrel's `RELEASES`, the full nupkg, an

@@ -10,12 +10,14 @@ import {
 import { type TaskSchedulerOptions, TaskSchedulerSupervisor } from "./supervisor-windows.ts";
 
 export {
+  type BuildCheck,
   chooseMode,
   desktopVaultKeyFile,
   devGatewayCommand,
   execRunner,
   type GatewayRunState,
   type Runner,
+  readBundledBuild,
   type Supervisor,
   type SupervisorMode,
   type SupervisorOptions,
@@ -142,6 +144,8 @@ export const launchctl = {
   print: (uid: number) => ["print", `gui/${uid}/${LAUNCH_AGENT_LABEL}`],
   bootstrap: (uid: number, plist: string) => ["bootstrap", `gui/${uid}`, plist],
   kickstart: (uid: number) => ["kickstart", `gui/${uid}/${LAUNCH_AGENT_LABEL}`],
+  /** `-k` kills the running job first, so the same plist starts a fresh process. */
+  restart: (uid: number) => ["kickstart", "-k", `gui/${uid}/${LAUNCH_AGENT_LABEL}`],
   bootout: (uid: number) => ["bootout", `gui/${uid}/${LAUNCH_AGENT_LABEL}`],
 } as const;
 
@@ -199,7 +203,41 @@ export class LaunchdSupervisor extends SupervisorBase {
         ? renderPlistTemplate(readFileSync(this.launchd.bundledPlist, "utf8"), values)
         : renderLaunchAgentPlist({ ...values, logDir: this.logDir() });
     const keyFile = await this.opts.vaultKeyFile?.();
-    return keyFile === undefined ? plist : withPlistEnv(plist, { PSYCHE_VAULT_KEY_FILE: keyFile });
+    const env: Record<string, string> = {
+      ...(keyFile === undefined ? {} : { PSYCHE_VAULT_KEY_FILE: keyFile }),
+      ...(this.opts.expectedBuild === undefined ? {} : { PSYCHE_BUILD: this.opts.expectedBuild }),
+    };
+    return withPlistEnv(plist, env);
+  }
+
+  /** The installed plist runs this app's bundled psyched (`checkServerBuild`). */
+  protected async ownsService(): Promise<boolean> {
+    const plistPath = this.plistPath();
+    const installed = existsSync(plistPath)
+      ? plistProgram(readFileSync(plistPath, "utf8"))
+      : undefined;
+    return installed !== undefined && installed === this.launchd.bundledProgram;
+  }
+
+  /**
+   * A restart for a build mismatch. `kickstart -k` restarts the loaded job with the plist launchd
+   * already read: unload it, write the plist this build wants (its `PSYCHE_BUILD`), load that.
+   */
+  protected async restartService(): Promise<boolean> {
+    const uid = this.uid();
+    const plistPath = this.plistPath();
+    const content = await this.launchAgentContent();
+    await this.run("/bin/launchctl", [...launchctl.bootout(uid)]);
+    if (content !== undefined) {
+      mkdirSync(dirname(plistPath), { recursive: true });
+      writeFileSync(plistPath, content, { mode: 0o644 });
+    }
+    if (!(await this.bootstrap(uid, plistPath))) {
+      this.failed("launchctl could not load com.psyche.gateway after the update");
+      return false;
+    }
+    await this.run("/bin/launchctl", [...launchctl.kickstart(uid)]);
+    return true;
   }
 
   private async bootstrap(uid: number, plistPath: string): Promise<boolean> {
@@ -246,6 +284,7 @@ export class LaunchdSupervisor extends SupervisorBase {
     if (other !== undefined && other !== program && existsSync(other)) {
       const takeOver = (await this.opts.confirmTakeover?.(other).catch(() => false)) ?? false;
       if (!takeOver) {
+        this.attached = true;
         this.set(
           (await this.healthy())
             ? { kind: "running", mode: "launchd" }
@@ -261,9 +300,11 @@ export class LaunchdSupervisor extends SupervisorBase {
     }
     if (!loaded && (await this.healthy())) {
       // Someone else serves the Gateway on this port; starting ours would crash-loop on bind.
+      this.attached = true;
       this.set({ kind: "running", mode: "launchd" });
       return;
     }
+    this.attached = false;
     if (changed) {
       this.set({ kind: "starting", mode: "launchd", step: "installing" });
       if (loaded) await this.run("/bin/launchctl", [...launchctl.bootout(uid)]);
@@ -284,7 +325,7 @@ export class LaunchdSupervisor extends SupervisorBase {
     const printed = await this.run("/bin/launchctl", [...launchctl.print(uid)]);
     const exit = parseLaunchctlPrint(printed.stdout).lastExit;
     const secs = Math.round((this.opts.healthTimeoutMs ?? 60_000) / 1000);
-    this.failed(
+    this.failedToStart(
       `The Gateway did not answer within ${secs} s${exit && exit !== "0" ? ` (last exit code ${exit})` : ""}`,
     );
   }

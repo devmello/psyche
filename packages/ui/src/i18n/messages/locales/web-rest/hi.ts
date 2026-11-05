@@ -87,6 +87,7 @@ export const webRest: Partial<Catalogue> = {
   "web.splash.remote.tokenRefused": "{host} ने यह पेयरिंग लिंक अस्वीकार कर दिया।",
   "web.splash.remote.tokenRefusedReason":
     "यह पहले ही इस्तेमाल हो चुका है, समाप्त हो गया है या रद्द कर दिया गया है। {host} पर नया बनाएँ और फिर से जोड़ें।",
+  "web.splash.restoredByHand": "मैंने अपना डेटा खुद वापस रख दिया है",
   "web.splash.remote.switch": "Gateway बदलें",
   "web.splash.remote.useThisMac": "इस Mac का उपयोग करें",
   "web.splash.remote.pairAgain": "भूलें और फिर से पेयर करें",

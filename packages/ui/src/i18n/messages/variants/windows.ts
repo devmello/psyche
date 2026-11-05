@@ -119,6 +119,34 @@ export const windows: Partial<Record<MessageId, string>> = {
   "settings.approval.presenceInvalid":
     "Windows Hello or the passkey didn't confirm it's you. Try again.",
   "settings.about.revealHome": "Show in File Explorer",
+  // Uninstall Psyche (UninstallSheet.tsx): the Recycle Bin, the scheduled task, Credential Manager.
+  "settings.uninstall.groupHint":
+    "Stops the Gateway and the helper and removes the app. Your data stays unless you choose otherwise.",
+  "settings.uninstall.description":
+    "Your files go to the Recycle Bin, so you can still put them back. The app itself is removed the way Settings › Apps removes it. Psyche deletes nothing permanently.",
+  "settings.uninstall.deleteHint":
+    "Also moves the data folder to the Recycle Bin: chats, memory, vault and backups.",
+  "settings.uninstall.stopAgent": "The Gateway scheduled task is stopped and deleted.",
+  "settings.uninstall.stopHelper":
+    "Psyche Helper is stopped, “Open at login” is turned off and its notification settings are removed.",
+  "settings.uninstall.stopSandboxPc":
+    "The sandbox PC service is removed. Windows asks for administrator approval once.",
+  "settings.uninstall.trash": "Moved to the Recycle Bin",
+  "settings.uninstall.kind.agent": "Gateway scheduled task",
+  "settings.uninstall.kind.support": "Settings and web storage",
+  "settings.uninstall.kind.cache": "Caches, logs and the sandbox PC image",
+  "settings.uninstall.kind.app": "The app (removed by Windows)",
+  "settings.uninstall.agentOther":
+    "The Gateway scheduled task belongs to another copy of Psyche or the command-line tool, so it is left alone.",
+  "settings.uninstall.blocked": "{path} can't be moved to the Recycle Bin from here: {reason}",
+  "settings.uninstall.keychainStays":
+    "Credential Manager items stay (the vault key and helper items). Remove them in Credential Manager if you want.",
+  "settings.uninstall.keychainGoes":
+    "The Credential Manager items for the vault and the helper are removed too.",
+  "settings.uninstall.removeKeychain":
+    "Also remove my Credential Manager items (the ones named Psyche/…). Without your data they are useless.",
+  "settings.uninstall.presence":
+    "You will then be asked to confirm with Windows Hello or on this device, because this removes your data.",
   "settings.appearance.showInDockHint":
     "Off, Psyche keeps running in the notification area when its last window closes.",
   "settings.appearance.openAtLoginHint":

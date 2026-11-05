@@ -321,24 +321,25 @@ describe("SERVICE_HOST_SCRIPT", () => {
     expect(readFileSync(join(home, "logs", "gateway.err.log"), "utf8")).toContain("err line");
   }, 20_000);
 
-  it("hands the Gateway alone the vault key file named in run\\gateway-service.json", async () => {
+  it("hands the Gateway alone the vault key file and the build named in run\\gateway-service.json", async () => {
     const dir = tempDir();
     const home = join(dir, "home");
     mkdirSync(join(home, "run"), { recursive: true });
     const keyFile = join(dir, "secrets dir", "vault.key");
     writeFileSync(
       join(home, "run", SERVICE_CONFIG_FILE),
-      JSON.stringify({ vaultKeyFile: keyFile }),
+      JSON.stringify({ vaultKeyFile: keyFile, build: "b-123" }),
     );
     const host = join(dir, SERVICE_HOST_FILE);
     writeFileSync(host, SERVICE_HOST_SCRIPT);
     const prog = join(dir, "prog.mjs");
     writeFileSync(
       prog,
-      'console.log("key=" + process.env.PSYCHE_VAULT_KEY_FILE); setTimeout(() => process.exit(0), 50);',
+      'console.log("key=" + process.env.PSYCHE_VAULT_KEY_FILE + " build=" + process.env.PSYCHE_BUILD); setTimeout(() => process.exit(0), 50);',
     );
     const env = { ...process.env };
     delete env.PSYCHE_VAULT_KEY_FILE;
+    delete env.PSYCHE_BUILD;
     const child = spawn(process.execPath, [host, "--home", home, "--", process.execPath, prog], {
       stdio: "ignore",
       env,
@@ -352,7 +353,7 @@ describe("SERVICE_HOST_SCRIPT", () => {
     }
     child.kill();
     await new Promise((r) => child.once("exit", r));
-    expect(text).toContain(`key=${keyFile}`);
+    expect(text).toContain(`key=${keyFile} build=b-123`);
     // The path is not on the service host's command line.
     expect(child.spawnargs.join(" ")).not.toContain("vault.key");
   }, 20_000);

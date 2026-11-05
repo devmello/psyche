@@ -186,6 +186,7 @@ export const ar: Partial<Catalogue> = {
   "errors.rate_limited": "طلبات كثيرة جدًا؛ انتظر لحظة وحاول مرة أخرى.",
   "errors.timeout": "استغرق Psyche وقتًا طويلًا في الرد.",
   "errors.cancelled": "تم إلغاؤه.",
+  "errors.reason.updating": "سيعيد Psyche التشغيل الآن لتثبيت تحديث. حاول مرة أخرى بعد لحظة.",
   "errors.unavailable": "لا يستطيع Psyche القيام بذلك الآن.",
   "errors.approval_required": "يحتاج هذا إلى موافقتك أولًا.",
   "errors.approval_expired": "انتهت صلاحية الموافقة؛ اطلب مرة أخرى.",
