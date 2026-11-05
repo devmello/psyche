@@ -57,7 +57,7 @@ describe("Settings → Computer use → computer-use.json and broker tiers (J5, 
     expect(
       appTiersFrom([
         { id: "com.apple.Notes", name: "Notes", tier: "interact" },
-        { id: "banking", name: "Banking", tier: "off" },
+        { id: "not an id", name: "Banking", tier: "off" },
         { id: "com.apple.Mail", tier: "ask" },
         { id: "com.apple.Maps", tier: "read" },
         null,

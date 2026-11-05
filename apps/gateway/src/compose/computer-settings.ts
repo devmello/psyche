@@ -31,8 +31,16 @@ export const COMPUTER_USE_ENABLED = "computerUse.enabled";
 export const COMPUTER_USE_APPS = "computerUse.apps";
 
 const TIERS: readonly AppTier[] = ["off", "read", "click", "interact"];
-/** A macOS bundle id, or a Windows app as its helper names it: the lowercase executable. */
-const BUNDLE_ID = /^(?:[A-Za-z0-9-]+(\.[A-Za-z0-9_-]+)+|[a-z0-9_][a-z0-9 _().-]*\.exe)$/;
+/**
+ * An app id as a helper names it: a macOS bundle id (`com.apple.Notes`) or a Linux desktop-file
+ * id, dotted (`org.gnome.TextEditor`) or not (`firefox`, `gnome-terminal`). Dot-separated,
+ * non-empty segments of letters, digits, `_`, `+` and `-`, starting with a letter or digit: no
+ * whitespace, slashes, `..`, quotes or control characters. Callers also cap the length at 200.
+ */
+export const APP_ID_PATTERN = "^[A-Za-z0-9][A-Za-z0-9_+-]*(?:\\.[A-Za-z0-9_+-]+)*$";
+/** The ids above, or a Windows app as its helper names it: the lowercase executable. */
+const BUNDLE_ID =
+  /^(?:[A-Za-z0-9][A-Za-z0-9_+-]*(?:\.[A-Za-z0-9_+-]+)*|[a-z0-9_][a-z0-9 _().-]*\.exe)$/;
 
 export interface ComputerUseFile {
   version: 1;
@@ -46,7 +54,11 @@ export interface ComputerUseFile {
   caps: Record<string, AppTier>;
 }
 
-/** Fixed caps as the helper reads them: password managers, banking, settings off; etc. */
+/**
+ * Fixed caps as the helper reads them: password managers, banking, settings off; etc. Ids are
+ * macOS bundle ids, Windows executables and Linux desktop-file ids; an entry ending in `*`
+ * (`com.chase.*`, `jetbrains-*`) is a prefix pattern.
+ */
 export function fixedCaps(): Record<string, AppTier> {
   const caps: Record<string, AppTier> = {};
   for (const id of TERMINAL_IDE_APPS) caps[id] = "click";

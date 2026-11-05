@@ -10,6 +10,7 @@ import { galleryA } from "./gallery-a/es.ts";
 import { helperCheck } from "./helper-check/es.ts";
 import { homeA } from "./home-a/es.ts";
 import { links } from "./links/es.ts";
+import { linuxAccess } from "./linux-access/es.ts";
 import { mailMeetings } from "./mail-meetings/es.ts";
 import { memoryA } from "./memory-a/es.ts";
 import { memoryB } from "./memory-b/es.ts";
@@ -3363,6 +3364,8 @@ export const es: Partial<Catalogue> = {
   ...helperCheck,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Settings → Computer use on Linux: screen and input access
+  ...linuxAccess,
   // Settings > Computer use > Separate desktop (Linux)
   ...separateDesktop,
 };

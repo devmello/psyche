@@ -21,6 +21,7 @@ import { glass } from "./glass.ts";
 import { helperCheck } from "./helper-check.ts";
 import { home } from "./home.ts";
 import { links } from "./links.ts";
+import { linuxAccess } from "./linux-access.ts";
 import { mailMeetings } from "./mail-meetings.ts";
 import { meetingRecord } from "./meeting-record.ts";
 import { memoryPage } from "./memory-page.ts";
@@ -119,6 +120,7 @@ export const en = {
   ...passwordPresence,
   ...helperCheck,
   ...securityState,
+  ...linuxAccess,
   ...separateDesktop,
 } as const;
 

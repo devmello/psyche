@@ -15,6 +15,7 @@ import { galleryRest } from "./gallery-rest/fr.ts";
 import { helperCheck } from "./helper-check/fr.ts";
 import { homeRest } from "./home-rest/fr.ts";
 import { links } from "./links/fr.ts";
+import { linuxAccess } from "./linux-access/fr.ts";
 import { mailMeetings } from "./mail-meetings/fr.ts";
 import { memoryRest } from "./memory-rest/fr.ts";
 import { memoryReviewRest } from "./memoryReview-rest/fr.ts";
@@ -3320,6 +3321,8 @@ export const fr: Partial<Catalogue> = {
   ...helperCheck,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Settings → Computer use on Linux: screen and input access
+  ...linuxAccess,
   // Settings > Computer use > Separate desktop (Linux)
   ...separateDesktop,
 };
