@@ -588,6 +588,8 @@ export const settings = {
   "settings.uninstall.willDo": "What happens",
   "settings.uninstall.stopAgent": "The Gateway LaunchAgent is stopped and removed.",
   "settings.uninstall.stopHelper": "Psyche Helper is stopped and “Open at login” is turned off.",
+  "settings.uninstall.stopSandboxPc":
+    "The sandbox PC service is removed. Windows asks for administrator approval once.",
   "settings.uninstall.trash": "Moved to the Trash",
   "settings.uninstall.kind.agent": "Gateway LaunchAgent",
   "settings.uninstall.kind.support": "Application Support",
@@ -827,6 +829,8 @@ export const settings = {
   "settings.computerUse.tcc.notifications.name": "Notifications",
   "settings.computerUse.tcc.notifications.why":
     "lets Psyche ask for approvals when the window is closed",
+  "settings.computerUse.tcc.microphone.name": "Microphone",
+  "settings.computerUse.tcc.microphone.why": "lets Psyche hear you for dictation and meeting notes",
   "settings.computerUse.tccState.granted": "Granted",
   "settings.computerUse.tccState.denied": "Denied",
   "settings.computerUse.tccState.not_determined": "Not asked yet",
@@ -1084,6 +1088,17 @@ export const settings = {
   "settings.sandbox.restart.body":
     "The Gateway looked for a container runtime when it started and found none. Restart it, then it picks up {runtime}.",
   "settings.sandbox.restart.step": "Restart the Gateway",
+  "settings.sandbox.restart.reopen": "Quit Psyche and open it again.",
+  "settings.sandbox.pc.title": "Turn on the sandbox PC",
+  "settings.sandbox.pc.body":
+    "srt, Psyche's lightweight sandbox for commands, doesn't run on Windows. Here scripts, command servers and connectors Psyche makes run in the sandbox PC instead: a small Linux computer of its own, with no access to your files. Turn it on in Settings → Sandbox PC, then check again.",
+  "settings.sandbox.pc.notReady.title": "The sandbox PC isn't ready yet",
+  "settings.sandbox.pc.notReady.body":
+    "It's turned on, but it isn't running yet, or the Psyche inside it is out of date. Start or update it in Settings → Sandbox PC, then check again.",
+  "settings.sandbox.pc.ready":
+    "The sandbox PC is on: scripts, command servers and connectors Psyche makes run in it.",
+  "settings.sandbox.pc.open": "Open Sandbox PC settings",
+  "settings.sandbox.pc.where": "It's in Settings → Sandbox PC.",
   "settings.sandbox.without":
     "Without srt, Psyche can still use URL servers and your connectors, but it can't run local MCP command servers.",
   "settings.mcp.kind.url": "URL",
@@ -1418,10 +1433,12 @@ export const settings = {
   "settings.devices.platform.android": "Android",
   "settings.devices.platform.web": "Web browser",
   "settings.devices.platform.linux": "Linux",
+  "settings.devices.platform.windows": "Windows PC",
   "settings.devices.nodeKind.macHelper": "Mac helper",
   "settings.devices.nodeKind.vmGuest": "VM guest",
   "settings.devices.nodeKind.remote": "Remote node",
   "settings.devices.nodeKind.phone": "Phone",
+  "settings.devices.nodeKind.winHelper": "Windows helper",
   "settings.devices.title": "Devices & nodes",
   "settings.devices.description":
     "Devices that can reach this Gateway, and the nodes that give it hands.",
@@ -1440,6 +1457,9 @@ export const settings = {
   "settings.devices.scopesOf": "{name} scopes",
   "settings.devices.thisMacAdmin":
     "This Mac is the admin device. Another admin device can revoke it here.",
+  // The device row names its own kind of computer, whatever this window runs on.
+  "settings.devices.thisPcAdmin":
+    "This PC is the admin device. Another admin device can revoke it here.",
   "settings.devices.key": "Key",
   "settings.devices.keyLastSeen": "· last seen {when}",
   "settings.devices.keyLastSeenNever": "· last seen never",
@@ -1451,6 +1471,11 @@ export const settings = {
   "settings.devices.presenceKey.enclaveFile":
     "Touch ID key (Secure Enclave file, this build has no provisioning profile), as reported by the helper",
   "settings.devices.presenceKey.unknown": "Touch ID key (kind not reported by the helper)",
+  // A Windows helper's key: Windows Hello (a TPM-backed key; RSA-2048 today), as the helper reports it.
+  "settings.devices.presenceKey.windowsHello":
+    "Windows Hello key ({algorithm}), as reported by the helper",
+  "settings.devices.presenceKey.windowsHelloNoAlgorithm":
+    "Windows Hello key, as reported by the helper",
   "settings.devices.touchId.none":
     "No Touch ID key yet. Cards that need Touch ID can't be approved until one is registered.",
   "settings.devices.touchId.bundled": "The Psyche Helper in this app shows key",
@@ -2016,10 +2041,18 @@ export const settings = {
   "settings.shortcut.reserved.screenshots": "screenshots",
   "settings.shortcut.reserved.forceQuit": "Force Quit",
   "settings.shortcut.reserved.quickEntry": "Psyche's quick entry",
+  // Windows' own shortcuts (ShortcutRecorder on Windows).
+  "settings.shortcut.reserved.windowsKey": "Windows (shortcuts with the Windows key)",
+  "settings.shortcut.reserved.windowMenu": "the window menu",
+  "settings.shortcut.reserved.closeApp": "closing apps",
+  "settings.shortcut.reserved.taskManager": "Task Manager",
+  "settings.shortcut.reserved.startMenu": "the Start menu",
+  "settings.shortcut.reserved.securityScreen": "the Windows security screen",
   "settings.shortcut.key.Command": "Command",
   "settings.shortcut.key.Control": "Control",
   "settings.shortcut.key.Alt": "Option",
   "settings.shortcut.key.Shift": "Shift",
+  "settings.shortcut.key.Super": "Windows key",
   "settings.shortcut.usedBy": "{keys} is used by {by}. Pick another shortcut.",
   "settings.shortcut.taken": "{keys} is taken by another app. Pick another shortcut.",
   "settings.shortcut.invalid": "{keys} can't be a system-wide shortcut. Pick another one.",
@@ -2032,6 +2065,11 @@ export const settings = {
   "settings.shortcut.press": "Press the shortcut…",
   "settings.shortcut.offClick": "Off. Click to record",
   "settings.shortcut.turnOff": "Turn off",
+  "settings.shortcut.useDefault": "Use default",
+  "settings.quickEntry.title": "Quick entry",
+  "settings.key.quickEntry.shortcut": "Shortcut",
+  "settings.quickEntry.shortcutHint":
+    "Opens the pop-up chat from any app. Unless you choose other keys, Psyche uses {keys}, or {fallback} when another app holds it.",
 
   // Skills the agent proposed from repeated routines (SkillDraftCard.tsx).
   "settings.skills.draft.effect.none": "no side effect",
@@ -2311,11 +2349,33 @@ export const settings = {
   "settings.voice.key.fn": "fn",
   "settings.voice.key.rightOption": "Right Option",
   "settings.voice.key.rightCommand": "Right Command",
+  // Hold-to-talk keys a PC has (Windows; the helper watches them by these names).
+  "settings.voice.key.rightCtrl": "Right Ctrl",
+  "settings.voice.key.rightAlt": "Right Alt",
+  "settings.voice.key.rightShift": "Right Shift",
+  "settings.voice.key.rightWin": "Right Windows key",
+  "settings.voice.key.capsLock": "Caps Lock",
+  "settings.voice.key.scrollLock": "Scroll Lock",
+  "settings.voice.key.pause": "Pause",
+  "settings.voice.key.menu": "Menu key",
+  "settings.voice.key.insert": "Insert",
+  "settings.voice.key.numLock": "Num Lock",
+  "settings.voice.key.other": "Another key",
+  "settings.voice.key.press": "Press a key",
+  "settings.voice.key.pressNow": "Press the key to hold…",
+  "settings.voice.key.cantUse":
+    "That key types text, so it can't be held to talk. Try Right Ctrl, Caps Lock, Pause, the Menu key or F13 to F24.",
+  "settings.voice.key.capsLockHint":
+    "Caps Lock keeps its on or off state: holding it to talk doesn't change it, and a quick tap still toggles it.",
+  "settings.voice.key.altGrWarning":
+    "On your keyboard layout Right Alt is AltGr, which types characters such as @ or €. Holding it to talk can get in the way of typing them; Right Ctrl is a safer key.",
   "settings.voice.access.helperOff": "Helper not running",
   "settings.voice.access.needed": "Needed",
   "settings.voice.access.unknown": "Not checked yet",
   "settings.voice.access.why":
     "lets the Psyche helper see the key you hold and type into the focused app",
+  "settings.voice.access.windowsWhy":
+    "watches the key you hold and types into the focused app. Windows needs no permission for it; apps that run as administrator don't get dictated text.",
   "settings.voice.hold": "Hold",
   "settings.voice.toDictate": "to dictate into any message field.",
   "settings.voice.loadLabel": "voice settings",
@@ -2349,6 +2409,24 @@ export const settings = {
   "settings.voice.engine.systemHint": "Apple's on-device recognizer.",
   "settings.voice.engine.cloud": "Your model provider",
   "settings.voice.engine.cloudHint": "Audio goes to the provider you configured.",
+  "settings.voice.model.title": "Speech model",
+  "settings.voice.model.usingHelper":
+    "Dictation uses the helper's speech recognition. The speech model transcribes better and runs on this Mac.",
+  "settings.voice.model.download": "Download the speech model ({mb} MB) for better dictation",
+  "settings.voice.model.downloadHint":
+    "A one-time download from the whisper.cpp project, checked before it is used. Audio never leaves this Mac.",
+  "settings.voice.model.downloading": "Downloading the speech model: {received} of {total} MB",
+  "settings.voice.model.ready": "Whisper ({model}) on this Mac",
+  "settings.voice.model.readyHint":
+    "Dictation and recordings are transcribed here; audio never leaves the Mac.",
+  "settings.voice.model.readyNotFirst":
+    "Installed. Your engine order puts another engine first, so dictation doesn't use it now.",
+  "settings.voice.model.failed": "The download failed: {reason}",
+  "settings.voice.model.retry": "Try again",
+  "settings.voice.model.vcredist":
+    "The speech model needs the Microsoft Visual C++ Redistributable. Install it, then dictate again.",
+  "settings.voice.model.crashed":
+    "The speech engine stopped unexpectedly; dictation uses the helper until it starts again.",
   "settings.connect.starting": "Starting the sign-in to {name}…",
   "settings.connect.finish":
     "Finish signing in to {name} in your browser. This updates when you're done.",

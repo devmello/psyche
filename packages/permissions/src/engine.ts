@@ -1,4 +1,5 @@
 import type { ApprovalKind, GrantScope, JsonObject, SideEffect } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import { appleAppAction, appleAppConnector, appleAppEffect } from "./apple-apps.ts";
 import { appCap, effectiveTier, TIER_RANK, tierRequired } from "./apps.ts";
 import { type Binding, bindingFor, genericBindingFor, readsCwdConfig } from "./binding.ts";
@@ -744,7 +745,7 @@ export class PolicyEngine {
       if (kind === "exec_host") {
         escalation = {
           rule: escalation?.rule ?? "taint:exec_host",
-          reason: escalation?.reason ?? "a command on this Mac in a tainted turn",
+          reason: escalation?.reason ?? `a command on ${hostWords().thisDevice} in a tainted turn`,
           scopes: ["once"],
         };
       }

@@ -69,6 +69,10 @@ const fill = async (placeholder = "{{cred:github}}", element = PASSWORD_FIELD, f
   return h.vault.resolve(placeholder, GH, apr, { executor: "browser", element, selector: "ref_7" });
 };
 
+/** What a password-manager CLI gets besides PATH and HOME on Windows: the profile folders. */
+const WIN_CLI_ENV =
+  process.platform === "win32" ? ["APPDATA", "LOCALAPPDATA", "SystemRoot", "USERPROFILE"] : [];
+
 describe("1Password as an external source (G10)", () => {
   it("links by reference only and maps onto {{cred:slug}}", async () => {
     expect(h.vault.backendOf(id)).toBe("1password");
@@ -207,6 +211,7 @@ describe("OpCliSource", () => {
         PATH: expect.any(String),
         HOME: expect.any(String),
         OP_SERVICE_ACCOUNT_TOKEN: SA_TOKEN,
+        ...Object.fromEntries(WIN_CLI_ENV.map((k) => [k, expect.any(String)])),
       },
     });
     expect(calls[1]?.args[1]).toBe("op://Work/GitHub/one-time password?attribute=otp");

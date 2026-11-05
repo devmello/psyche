@@ -1,17 +1,10 @@
 import { generateKeyPairSync, sign } from "node:crypto";
-import {
-  existsSync,
-  mkdtempSync,
-  readdirSync,
-  readFileSync,
-  rmSync,
-  statSync,
-  writeFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getSetting, listDevices, setSetting } from "@psyche/db";
+import { isOwnerOnly } from "@psyche/hostfs";
 import { type ConnectorBundleCard, type McpProposal, PsycheError } from "@psyche/protocol";
 import {
   AuthorKeyStore,
@@ -29,7 +22,7 @@ import {
   verifyNotice,
 } from "@psyche/skills";
 import { FakeModelProvider } from "@psyche/testing";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
 import { type ComposedMcp, composeMcp } from "../src/compose/mcp.ts";
 import { serverConfig } from "../src/compose/mcp-add.ts";
@@ -69,6 +62,9 @@ const fakeSrt = {
     };
   },
 };
+
+// Each test composes a whole Gateway and spawns Node servers and `icacls`; Windows needs the room.
+vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
 
 let home = "";
 let composed: ComposedGateway | null = null;
@@ -301,7 +297,7 @@ describe("export", () => {
     );
     expect(["approval_required", "forbidden", "binding_mismatch"]).toContain(again.code);
     // The author key was made with the right modes.
-    expect(statSync(new AuthorKeyStore(home).path).mode & 0o077).toBe(0);
+    expect(isOwnerOnly(new AuthorKeyStore(home).path)).toBe(true);
   });
 
   it("is for Psyche on the Host itself only, and the agent has no tool for it", async () => {
@@ -479,7 +475,7 @@ describe("import: the card and the sandboxed first run", () => {
       bundleHash: card.bundleHash,
       signerKeyId: key.author.keyId,
     });
-    expect(statSync(join(home, "connectors", "bundles.json")).mode & 0o077).toBe(0);
+    expect(isOwnerOnly(join(home, "connectors", "bundles.json"))).toBe(true);
     expect(new AuthorRing(join(home, "skills")).get(key.author.keyId)?.state).toBe("seen");
     // A connector that came from a file is someone else's: it is never signed with the owner's key.
     const e = await rejects(
@@ -961,8 +957,8 @@ describe("review fixes", () => {
     const e = entryOf(s, "notes-sync");
     expect(e?.trust).toBe("unknown");
     expect(e?.bundle?.hash).toMatch(/^sha256:/);
-    expect(e?.sandbox?.denyRead?.some((p) => p.endsWith("/Documents"))).toBe(true);
-    expect(e?.sandbox?.denyRead?.some((p) => p.endsWith("/Library/Mail"))).toBe(true);
+    expect(e?.sandbox?.denyRead?.some((p) => p === join(homedir(), "Documents"))).toBe(true);
+    expect(e?.sandbox?.denyRead?.some((p) => p === join(homedir(), "Library", "Mail"))).toBe(true);
   });
 
   it("M4/L10: the export card shows the whole command and who signs; a credential in it stops the export", async () => {

@@ -7,7 +7,13 @@ import type { EndpointProbeResult, ProbedModel } from "../endpoint-probe.ts";
 import { formatModelRef } from "../refs.ts";
 import { type CliDialect, notInstalled } from "./adapter.ts";
 import { cliContextWindow } from "./catalog.ts";
-import { cliChildPath, type ResolveCliOptions, resolveCli } from "./resolve.ts";
+import {
+  cliChildPath,
+  cliLaunch,
+  type ResolveCliOptions,
+  resolveCli,
+  setEnvPath,
+} from "./resolve.ts";
 
 /**
  * Probe for a subscription CLI (B4): is it installed (`--version`), and is it signed in
@@ -96,7 +102,14 @@ export async function probeCli(
     env: base,
     ...(config.command === undefined ? {} : { command: config.command }),
   });
-  if (resolved === undefined) {
+  const command = resolved?.path;
+  const env: NodeJS.ProcessEnv = { ...base };
+  for (const k of dialect.stripEnv) delete env[k];
+  if (command !== undefined) {
+    setEnvPath(env, cliChildPath(command, base, deps.resolve?.home ?? base.HOME ?? homedir()));
+  }
+  const launch = command === undefined ? undefined : cliLaunch(command, env);
+  if (command === undefined || launch === undefined) {
     return {
       state: "unreachable",
       probedAt,
@@ -105,12 +118,10 @@ export async function probeCli(
       error: notInstalled(dialect, config.command),
     };
   }
-  const command = resolved.path;
-  const env: NodeJS.ProcessEnv = { ...base };
-  for (const k of dialect.stripEnv) delete env[k];
-  env.PATH = cliChildPath(command, base, deps.resolve?.home ?? base.HOME ?? homedir());
+  const cli = (args: string[]) =>
+    exec(launch.command, [...launch.args, ...args], { ...env, ...launch.env }, timeoutMs);
 
-  const version = await exec(command, ["--version"], env, timeoutMs);
+  const version = await cli(["--version"]);
   if (version.missing || version.code !== 0) {
     return {
       state: "unreachable",
@@ -124,7 +135,7 @@ export async function probeCli(
   let signedIn = false;
   let detail = "";
   if (config.kind === "claude-code") {
-    const status = await exec(command, ["auth", "status", "--json"], env, timeoutMs);
+    const status = await cli(["auth", "status", "--json"]);
     try {
       const j = JSON.parse(status.stdout) as {
         loggedIn?: unknown;
@@ -141,7 +152,7 @@ export async function probeCli(
       signedIn = false;
     }
   } else {
-    const status = await exec(command, ["login", "status"], env, timeoutMs);
+    const status = await cli(["login", "status"]);
     const text = `${status.stdout}\n${status.stderr}`;
     signedIn = status.code === 0 && /logged in/i.test(text) && !/not logged in/i.test(text);
     const using = /logged in using ([\w -]+)/i.exec(text)?.[1]?.trim();

@@ -18,7 +18,7 @@ describe("CHECK and FK constraints", () => {
     ],
     [
       "devices.platform",
-      "INSERT INTO devices (id, name, platform, role, public_key, created_at, updated_at) VALUES ('d', 'n', 'windows', 'client', x'00', ?, ?)",
+      "INSERT INTO devices (id, name, platform, role, public_key, created_at, updated_at) VALUES ('d', 'n', 'beos', 'client', x'00', ?, ?)",
     ],
     [
       "devices.scopes json",

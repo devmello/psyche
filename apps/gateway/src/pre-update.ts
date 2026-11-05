@@ -998,6 +998,12 @@ export function releaseGatewayLock(home: string): void {
   lockedHomes.delete(key);
 }
 
+/** Test hook: lets go of every lock this process holds (Windows cannot delete a folder with one open). */
+export function releaseAllGatewayLocks(): void {
+  for (const lock of lockedHomes.values()) lock.release();
+  lockedHomes.clear();
+}
+
 /**
  * What says this folder has held data before: a boot that succeeded, a snapshot, something a
  * restore moved aside, or another database next to where the main one should be. Empty for a

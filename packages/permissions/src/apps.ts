@@ -19,6 +19,14 @@ export const BROWSER_APPS = [
   "com.operasoftware.Opera",
   "com.vivaldi.Vivaldi",
   "org.chromium.Chromium",
+  // Windows: the helper names an app by its lowercase executable (apps/win-helper).
+  "msedge.exe",
+  "chrome.exe",
+  "brave.exe",
+  "firefox.exe",
+  "opera.exe",
+  "vivaldi.exe",
+  "arc.exe",
 ];
 
 export const TERMINAL_IDE_APPS = [
@@ -35,6 +43,28 @@ export const TERMINAL_IDE_APPS = [
   "com.apple.dt.Xcode",
   "com.sublimetext.4",
   "com.jetbrains.*",
+  // Windows terminals, shells and IDEs.
+  "windowsterminal.exe",
+  "wt.exe",
+  "cmd.exe",
+  "powershell.exe",
+  "pwsh.exe",
+  "conhost.exe",
+  "openconsole.exe",
+  "wezterm-gui.exe",
+  "alacritty.exe",
+  "code.exe",
+  "code - insiders.exe",
+  "cursor.exe",
+  "zed.exe",
+  "devenv.exe",
+  "sublime_text.exe",
+  "idea64.exe",
+  "pycharm64.exe",
+  "webstorm64.exe",
+  "rider64.exe",
+  "goland64.exe",
+  "clion64.exe",
 ];
 
 /** Off, and the owner cannot raise them (chat or settings). */
@@ -68,6 +98,21 @@ export const LOCKED_OFF_APPS = [
   "com.interactivebrokers.*",
   "com.paypal.*",
   "com.chase.*",
+  // Windows: password managers, Settings and the system's credential and consent prompts,
+  // Psyche's own app and helper.
+  "1password.exe",
+  "bitwarden.exe",
+  "keepass.exe",
+  "keepassxc.exe",
+  "dashlane.exe",
+  "lastpass.exe",
+  "systemsettings.exe",
+  "consent.exe",
+  "credentialuibroker.exe",
+  "lockapp.exe",
+  "logonui.exe",
+  "psyche.exe",
+  "psyche-helper.exe",
 ];
 
 /** Bundle ids compare without case: LaunchServices treats them case-insensitively (review #13). */

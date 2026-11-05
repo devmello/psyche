@@ -261,7 +261,7 @@ export async function applyAppImage(
   try {
     await replaceFile(d.fs, staged.file, appImagePath, 0o755);
   } catch (err) {
-    await d.gateway.restart("update-failed").catch(() => undefined);
+    await d.gateway.restart("update").catch(() => undefined);
     return fail("swap_failed", errorText(err));
   }
   d.log(`replaced ${appImagePath} with ${staged.release}`);
@@ -372,7 +372,7 @@ export async function applyPackage(
   const res = await runPackageManager(d, cmd);
   if (!res.ok) {
     // Still the old version, so the old Gateway comes back.
-    await d.gateway.restart("update-failed").catch(() => undefined);
+    await d.gateway.restart("update").catch(() => undefined);
     if (res.cancelled) return { state: "cancelled" };
     d.log(`package manager refused ${staged.artifact.name}: ${res.detail}`);
     return fail("package_manager_failed", res.detail);
@@ -430,25 +430,25 @@ export async function rollbackLinux(
   if (kind === "appimage") {
     if (!appImagePath) return fail("swap_failed", "the AppImage path is unknown");
     if (!(await canReplace(d.fs, appImagePath))) {
-      await d.gateway.restart("rollback-failed").catch(() => undefined);
+      await d.gateway.restart("update").catch(() => undefined);
       return { state: "manual", reason: "not_writable", file };
     }
     try {
       await replaceFile(d.fs, file, appImagePath, 0o755);
       await d.fs.rm(join(dir, RECORD_FILE), { force: true });
     } catch (err) {
-      await d.gateway.restart("rollback-failed").catch(() => undefined);
+      await d.gateway.restart("update").catch(() => undefined);
       return fail("swap_failed", errorText(err));
     }
   } else {
     const cmd = await packageCommand(d.fs, kind, file, "downgrade");
     if (!cmd) {
-      await d.gateway.restart("rollback-failed").catch(() => undefined);
+      await d.gateway.restart("update").catch(() => undefined);
       return { state: "manual", reason: "no_package_manager", file };
     }
     const res = await runPackageManager(d, cmd);
     if (!res.ok) {
-      await d.gateway.restart("rollback-failed").catch(() => undefined);
+      await d.gateway.restart("update").catch(() => undefined);
       if (res.cancelled) return { state: "cancelled" };
       return fail("package_manager_failed", res.detail);
     }
@@ -465,11 +465,11 @@ export async function rollbackLinux(
     await hooks.recordSkipBuild(leaving);
   } catch (err) {
     d.log(`rolled the app back, but the data restore did not finish: ${errorText(err)}`);
-    await d.gateway.restart("rollback").catch(() => undefined);
+    await d.gateway.restart("build_mismatch").catch(() => undefined);
     return fail("swap_failed", errorText(err));
   }
   d.log(`went back to ${rec.version}`);
-  await d.gateway.restart("rollback");
+  await d.gateway.restart("build_mismatch");
   d.relaunch();
   return { state: "applied", release: rec.version };
 }

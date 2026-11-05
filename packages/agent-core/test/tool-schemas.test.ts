@@ -53,6 +53,7 @@ describe("tool input schemas (#414)", () => {
   });
 
   it("flattens code.git's operations and still validates each one exactly", () => {
+    const R = process.platform === "win32" ? "C:\\r" : "/r";
     const git = allTools().find((t) => t.spec.name === "code.git") as AgentToolRegistration;
     const s = git.spec.inputSchema as {
       properties: Record<string, { enum?: string[]; description?: string }>;
@@ -64,10 +65,10 @@ describe("tool input schemas (#414)", () => {
       "push (requires remote, remote_url, branch, commit)",
     );
     expect(s.required.sort()).toEqual(["op", "root"]);
-    expect(git.validate?.({ root: "/r", op: "status" })).toBeUndefined();
-    expect(git.validate?.({ root: "/r", op: "commit", message: "Fix" })).toBeUndefined();
-    expect(git.validate?.({ root: "/r", op: "commit" })).toMatch(/message/);
-    expect(git.validate?.({ root: "/r", op: "rebase" })).toMatch(/\/op: must be one of/);
+    expect(git.validate?.({ root: R, op: "status" })).toBeUndefined();
+    expect(git.validate?.({ root: R, op: "commit", message: "Fix" })).toBeUndefined();
+    expect(git.validate?.({ root: R, op: "commit" })).toMatch(/message/);
+    expect(git.validate?.({ root: R, op: "rebase" })).toMatch(/\/op: must be one of/);
   });
 
   it("flattens memory's commands the same way", () => {

@@ -1,12 +1,4 @@
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  statSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { extractAndVerify } from "@psyche/backup";
@@ -31,11 +23,15 @@ import {
   setMemoryEncrypted,
 } from "../src/compose/memory-db.ts";
 import type { ComposeServices } from "../src/compose/services.ts";
+import { expectPrivate } from "./helpers.ts";
 
 const dirs: string[] = [];
 const stops: Array<() => unknown> = [];
+/** Closed after the stops and before the folders go: Windows cannot delete an open database. */
+const dbs: Array<{ close(): void }> = [];
 afterEach(() => {
   for (const s of stops.splice(0)) s();
+  for (const db of dbs.splice(0)) db.close();
   for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
 });
 
@@ -63,6 +59,7 @@ async function fixture(encrypt?: boolean) {
   const dir = mkdtempSync(join(tmpdir(), "psyche-mdb-"));
   dirs.push(dir);
   const db = openDb(join(dir, "psyche.sqlite"));
+  dbs.push(db);
   if (encrypt === false) setSetting(db, MEMORY_ENCRYPT_SETTING, false);
   const keyPath = join(dir, "vault.key");
   writeFileSync(keyPath, "c".repeat(64), { mode: 0o600 });
@@ -438,7 +435,7 @@ describe("recovery and backups", () => {
     first.start();
     await wait(() => first.status().state === "ready");
     expect(existsSync(safety)).toBe(true);
-    expect(statSync(safety).mode & 0o777).toBe(0o600);
+    expectPrivate(safety, 0o600);
     expect(memoryStoreStatus(f.db, first).safetyCopy).toBe("kept");
     // Not yet: the encrypted file has not opened on a later start.
     first.afterBackup(true);

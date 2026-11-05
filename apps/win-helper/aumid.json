@@ -1,0 +1,18 @@
+{
+  "$comment": "Windows identity contract between the desktop installer (apps/desktop/src/main/squirrel-events.ts) and the helper (apps/win-helper/src/notify/toast.rs, which registers the same values itself on every start; a desktop test checks they agree). Changing a value orphans existing shortcuts, toasts and notification settings; see apps/desktop/docs/signing.md \"Install layout and identity\".",
+  "app": {
+    "aumid": "com.psyche.desktop",
+    "shortcut": "Psyche.lnk",
+    "exe": "Psyche.exe"
+  },
+  "helper": {
+    "aumid": "com.psyche.helper",
+    "displayName": "Psyche Helper",
+    "toastDisplayName": "Psyche",
+    "activatorName": "Psyche Helper toast activator",
+    "shortcut": "Psyche Helper.lnk",
+    "exe": "psyche-helper.exe",
+    "resourcesDir": "win-helper",
+    "toastActivatorClsid": "{B1DFC43D-98FC-44C2-9C1B-F3C21D0871C6}"
+  }
+}

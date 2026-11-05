@@ -1,0 +1,70 @@
+[package]
+name = "psyche-win-computer"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80"
+description = "Psyche Windows helper: computer use (UI Automation, SendInput, Esc stop) and Ask about my screen"
+license = "MIT"
+publish = false
+
+[lib]
+name = "psyche_win_computer"
+path = "src/lib.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+base64 = "0.22"
+# Grapheme counts, so truncation (`…(+N)`) and typing chunks match Swift's `String.count`.
+unicode-segmentation = "1"
+
+[target.'cfg(windows)'.dependencies]
+# The version `windows` 0.62.2 itself uses (WinRT async status polling for the capture picker).
+windows-future = "=0.3.2"
+
+# Pinned exactly: the helper core uses the same version, so both crates share one copy.
+[target.'cfg(windows)'.dependencies.windows]
+version = "=0.62.2"
+features = [
+  "Foundation",
+  "Graphics",
+  "Graphics_Capture",
+  "Graphics_DirectX",
+  "Graphics_DirectX_Direct3D11",
+  "Security_Authorization_AppCapabilityAccess",
+  "Win32_Foundation",
+  "Win32_Graphics_Direct3D",
+  "Win32_Graphics_Direct3D11",
+  "Win32_Graphics_Dwm",
+  "Win32_Graphics_Dxgi",
+  "Win32_Graphics_Dxgi_Common",
+  "Win32_Graphics_Gdi",
+  "Win32_Graphics_Imaging",
+  "Win32_Security",
+  "Win32_Storage_FileSystem",
+  "Win32_Storage_Xps",
+  "Win32_System_Com",
+  "Win32_System_Com_StructuredStorage",
+  "Win32_System_LibraryLoader",
+  "Win32_System_Memory",
+  "Win32_System_Ole",
+  "Win32_System_StationsAndDesktops",
+  "Win32_System_SystemInformation",
+  "Win32_System_Threading",
+  "Win32_System_Variant",
+  "Win32_System_WinRT",
+  "Win32_System_WinRT_Direct3D11",
+  "Win32_System_WinRT_Graphics_Capture",
+  "Win32_UI_Accessibility",
+  "Win32_UI_HiDpi",
+  "Win32_UI_Input_KeyboardAndMouse",
+  "Win32_UI_Shell",
+  "Win32_UI_WindowsAndMessaging",
+]
+
+[[example]]
+name = "probe"
+
+[[test]]
+name = "integration"
+path = "tests/integration.rs"

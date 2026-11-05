@@ -6,6 +6,7 @@ import { requestClearChat, selectChatBusy } from "../chat/ClearChatDialog.tsx";
 import { usePrefillComposer } from "../chat/prefill.ts";
 import { useStore, useStoreState } from "../data/index.ts";
 import { t } from "../i18n/core.ts";
+import { keysLabel } from "../lib/keys.ts";
 import { memoryHref } from "../memory-page/kinds.ts";
 import { ConnectedEntityCard } from "../people/ConnectedEntityCard.tsx";
 import { LIBRARY_SECTIONS } from "../screens/library/library-items.ts";
@@ -125,7 +126,9 @@ export const DEFAULT_ACTIONS: readonly PaletteAction[] = [
       return t("shell.palette.keywords.approvals");
     },
     route: "/agent/approvals",
-    shortcut: "⌘⇧P",
+    get shortcut() {
+      return keysLabel("Mod+Shift+P");
+    },
   },
   {
     id: "soul",
@@ -228,7 +231,9 @@ export const DEFAULT_ACTIONS: readonly PaletteAction[] = [
       return t("shell.palette.settings");
     },
     route: "/settings/model",
-    shortcut: "⌘,",
+    get shortcut() {
+      return keysLabel("Mod+,");
+    },
   },
   ...SETTINGS_SECTIONS.map((section) => ({
     id: `settings-${section.id}`,

@@ -19,6 +19,7 @@
   "dependencies": {
     "@psyche/assets": "workspace:*",
     "@psyche/backup": "workspace:*",
+    "@psyche/hostfs": "workspace:*",
     "@psyche/permissions": "workspace:*",
     "@psyche/protocol": "workspace:*"
   },

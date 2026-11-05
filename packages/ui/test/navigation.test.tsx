@@ -12,14 +12,18 @@ import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { chatFocusFromRoute } from "../src/chat/focus-request.ts";
 import { LEGACY_ROUTES, legacyRedirect } from "../src/home/redirects.ts";
+import { setUiPlatform } from "../src/lib/platform.ts";
 import { InboxRow } from "../src/screens/inbox/InboxScreen.tsx";
 import { surfaceGroups } from "../src/screens/search/SearchSurface.tsx";
 import { DEFAULT_ACTIONS, paletteMatches } from "../src/shell/CommandPalette.tsx";
 import { notificationRoute } from "../src/shell/notification-target.ts";
 import { destinationFor, RAIL_ITEMS } from "../src/shell/Rail.tsx";
 
+/** This package's root: `vitest run` at the repository root does not change the cwd. */
+const PKG = `${import.meta.dirname}/..`;
+
 // Vitest runs in packages/ui; the shell code the screens come from is two levels up.
-const read = (rel: string) => readFileSync(resolve(process.cwd(), "../..", rel), "utf8");
+const read = (rel: string) => readFileSync(resolve(PKG, "../..", rel), "utf8");
 
 /** Every route the sidebar's destinations or the palette open, as written. */
 const reachable = new Set<string>([
@@ -117,8 +121,27 @@ describe("every screen is reachable (sidebar or palette)", () => {
   });
 
   it("gives the numbered shortcuts to distinct main screens", () => {
-    const keys = RAIL_ITEMS.flatMap((i) => (i.shortcut?.match(/^⌘\d$/) ? [i.shortcut] : []));
-    expect(keys).toEqual(["⌘1", "⌘2", "⌘3", "⌘4"]);
+    expect(RAIL_ITEMS.flatMap((i) => (i.digit === undefined ? [] : [i.digit]))).toEqual([
+      1, 2, 3, 4,
+    ]);
+    setUiPlatform("macos");
+    try {
+      expect(RAIL_ITEMS.flatMap((i) => (i.shortcut ? [i.shortcut] : []))).toEqual([
+        "⌘1",
+        "⌘2",
+        "⌘3",
+        "⌘4",
+      ]);
+      setUiPlatform("windows");
+      expect(RAIL_ITEMS.flatMap((i) => (i.shortcut ? [i.shortcut] : []))).toEqual([
+        "Ctrl+1",
+        "Ctrl+2",
+        "Ctrl+3",
+        "Ctrl+4",
+      ]);
+    } finally {
+      setUiPlatform(undefined);
+    }
   });
 });
 

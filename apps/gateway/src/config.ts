@@ -191,6 +191,9 @@ function bitwardenFrom(value: unknown, warn: ConfigWarn): BitwardenConfig {
   if (value === null || typeof value !== "object" || Array.isArray(value))
     bad("credentials.bitwarden", "must be an object");
   const b = value as Record<string, unknown>;
+  // A secret in this file is refused outright, not warned about and left on disk.
+  if (b.session !== undefined)
+    bad("credentials.bitwarden.session", "is not allowed: the session key lives in the vault");
   for (const key of Object.keys(b))
     if (key !== "bw" && key !== "appDataDir")
       unknownKey("credentials.bitwarden", key, ["bw", "appDataDir"], warn);
@@ -213,6 +216,8 @@ function onePasswordFrom(
   const op = value as Record<string, unknown>;
   if (op === null || typeof op !== "object" || Array.isArray(op))
     bad("credentials.onePassword", "must be an object");
+  if (op.token !== undefined)
+    bad("credentials.onePassword.token", "is not allowed: the token lives in the vault");
   for (const key of Object.keys(op))
     if (!["kind", "op", "url"].includes(key))
       unknownKey("credentials.onePassword", key, ["kind", "op", "url"], warn);
@@ -556,7 +561,7 @@ export function resolveConfig(
     guestSocketPath:
       overrides.guestSocketPath !== undefined
         ? overrides.guestSocketPath
-        : resolveGuestSocketPath(nodeSocketPath, env.PSYCHE_GUEST_SOCKET),
+        : resolveGuestSocketPath(nodeSocketPath, env.PSYCHE_GUEST_SOCKET, process.platform, home),
     webRoot:
       overrides.webRoot === undefined ? (env.PSYCHE_WEB_ROOT ?? defaultWebRoot) : overrides.webRoot,
     webAsar:

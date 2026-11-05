@@ -20,7 +20,7 @@ Environment (all optional):
 | --- | --- |
 | `PSYCHE_HOME` | Gateway home (default `~/.psyche`): handshake secret, bridge socket, quarantine, browser profiles |
 | `PSYCHE_GATEWAY_ORIGIN` | Gateway to connect to (default `http://127.0.0.1:7979`). Never taken from a deep link or the renderer |
-| `PSYCHE_GATEWAY_MODE` | `dev` (spawn `apps/gateway`), `launchd` (packaged default), `external` (never start anything) |
+| `PSYCHE_GATEWAY_MODE` | `dev` (spawn `apps/gateway`), `launchd` (packaged macOS default), `taskscheduler` (packaged Windows default: the per-user `\Psyche\Gateway-<SID>` task), `external` (never start anything) |
 | `PSYCHE_BROWSER_BRIDGE_SOCKET` | Bridge socket path (default `$PSYCHE_HOME/run/browser-bridge.sock`; macOS limit 104 bytes) |
 | `PSYCHE_USER_DATA`, `PSYCHE_DISABLE_GLOBAL_SHORTCUTS=1` | Tests only; ignored by packaged builds |
 | `PSYCHE_SIGN_IDENTITY`, `APPLE_*` | Signing and notarization, see [docs/signing.md](docs/signing.md) |
@@ -49,7 +49,7 @@ Tray                      status, usage placeholder, needs-you, Gateway row, Qui
 | `src/preload.ts` / `src/renderer/bridge.ts` | `window.psyche` typed bridge → `ShellPlatform`. Invoke results are `{ok, value} \| {ok:false, error}` so error codes survive IPC |
 | `psyche:dialog:pick-folder` | Native folder chooser for Settings → File access; main returns the folder's real path (the broker matches real paths) or null |
 | `src/gateway-client.ts` | `GatewayConnection` from `@psyche/web/client` with the device key, handshake secret and loopback origin |
-| `src/main/supervisor.ts` | Gateway lifecycle: dev child, LaunchAgent `com.psyche.gateway`, or external |
+| `src/main/supervisor*.ts` | Gateway lifecycle: dev child, LaunchAgent `com.psyche.gateway` (macOS), scheduled task `\Psyche\Gateway-<SID>` (Windows, `supervisor-windows.ts`), or external |
 | `src/main/browser/*` | `BrowserHost` (tabs, partitions, popups, downloads, PDF interception, highlight, pop-out), `CdpPolicy`, `TakeControl`, partitions, quarantine |
 | `src/main/bridge/*` | `BridgeClient`: the CDP bridge to the Gateway |
 | `src/main/terminal.ts` | `TerminalHost`: node-pty sessions for the target the Gateway returns |

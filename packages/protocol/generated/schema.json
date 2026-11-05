@@ -394,6 +394,11 @@
         "payload": "#/$defs/SpecialistSpawnedPayload"
       },
       {
+        "description": "The owner's on-device speech model download (speech.engine.download) started, progressed (at most four a second), finished or failed.",
+        "name": "speech.model_download",
+        "payload": "#/$defs/SpeechModelDownloadPayload"
+      },
+      {
         "description": "A new Activity line for a task.",
         "name": "task.action",
         "payload": "#/$defs/TaskActionPayload"
@@ -521,6 +526,14 @@
         "name": "approvals.answer",
         "params": "#/$defs/ApprovalAnswer",
         "result": "#/$defs/ApprovalsAnswerResult",
+        "scope": "operator.approvals",
+        "sideEffecting": false
+      },
+      {
+        "description": "Approves a requiresAuthentication card from the Psyche desktop window on Linux by typing the owner's password into the system's own polkit dialog (linux design §9), once. The Gateway checks the window's answer token, asks polkit to authorize the approval's action for this session, then answers through the same broker check with a Gateway-created password presence assertion; no password ever reaches Psyche. Same guards as approveWithTouchId: desktop shell only, one dialog at a time, failed or cancelled dialogs count against the rejected-answer cap. Fails unavailable with details.reason presence_unavailable_here, presence_agent_missing, presence_policy_missing or presence_not_enforced (the matching error codes); cancelled when the owner cancels the dialog.",
+        "name": "approvals.approveWithPassword",
+        "params": "#/$defs/ApprovalsApproveWithPasswordParams",
+        "result": "#/$defs/ApprovalsApproveWithPasswordResult",
         "scope": "operator.approvals",
         "sideEffecting": false
       },
@@ -1301,6 +1314,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Read-only: lists the ways this Gateway can verify the owner's presence now (the Touch ID key on macOS, passkeys, the password through polkit on Linux) and the state of each, so Settings can say why one is not ready.",
+        "name": "devices.presence.status",
+        "params": "#/$defs/DevicesPresenceStatusParams",
+        "result": "#/$defs/DevicesPresenceStatusResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
         "description": "Lists the registered helper presence keys (Touch ID approvals, issue #253): device id and key id only.",
         "name": "devices.presenceKey.list",
         "params": "#/$defs/DevicesPresenceKeyListParams",
@@ -1309,7 +1330,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Reads the helper's Secure Enclave presence key (`presence.public_key`) and registers it for that device when its key id equals expectKeyId, so its Touch ID answers verify. A key of kind keychain or enclave_keychain_acl is accepted in every build. The kind is what the helper says about itself and is advisory: only expectKeyId binds the key. A kind this Gateway does not know is always refused; a missing kind or a Secure Enclave file key (kind enclave_file, development builds) is refused unless the setting devices.presence.allowDevFileKey is true. Replaces an earlier key or one a Remove just forgot (the approval card says REPLACE and names the old key id; without a possible card the owner confirms with confirmReplacesKeyId); revoked with the device. Needs fresh presence once the Gateway has a presence verifier (approval_required, then retry with approvalId; presence_required when presence was enrolled but nothing can verify now). Side-effecting.",
+        "description": "Reads the helper's presence key (`presence.public_key`: the Secure Enclave P-256 key of a mac-helper, or the Windows Hello RSA key of a win-helper, `algorithm: rsa-2048-pkcs1-sha256`, SPKI DER of at least 2048 bits) and registers it for that device when its key id equals expectKeyId, so its Touch ID / Windows Hello answers verify. A Secure Enclave file key (kind enclave_file, development builds) is refused unless the setting devices.presence.allowDevFileKey is true. Replaces an earlier key; revoked with the device. Needs fresh presence once the Gateway has a presence verifier (approval_required, then retry with approvalId; presence_required when presence was enrolled but nothing can verify now). Side-effecting.",
         "name": "devices.presenceKey.register",
         "params": "#/$defs/DevicesPresenceKeyRegisterParams",
         "result": "#/$defs/DevicesPresenceKeyRegisterResult",
@@ -2389,6 +2410,14 @@
         "sideEffecting": false
       },
       {
+        "description": "The Reminders lists work tracking can follow, from every connected Reminders backend through its connector (Apple Reminders or Outlook tasks, Microsoft To Do). Lists only: no reminder is read. A backend that cannot answer is left out.",
+        "name": "memory.work.lists",
+        "params": "#/$defs/MemoryWorkListsParams",
+        "result": "#/$defs/MemoryWorkListsResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "Undo for a progress, stopped-at or next-step line the owner's chat wrote: restores the previous value only while the field has not changed since (changed_again otherwise, nothing touched; removed when the owner had already marked it wrong in Memory and nothing was left to restore). Also puts back a to-do status and last signal time the write had moved, if they have not changed since. Only for updates a chat note offered, within seven days. Side-effecting.",
         "name": "memory.work.undoUpdate",
         "params": "#/$defs/MemoryWorkUndoUpdateParams",
@@ -2861,9 +2890,9 @@
         "sideEffecting": false
       },
       {
-        "description": "Desktop only: captures the frontmost window (or a box) and its text context once, on the owner's ask shortcut; the frame is stored as an untrusted Library item that expires unless sent.",
+        "description": "Desktop only: captures the frontmost window (or a box) and its text context once, on the owner's ask shortcut; the frame is stored as an untrusted Library item that expires unless sent. Without a Host helper offering screen.context, the desktop shell may pass its own capture as frame (JPEG, screenshot only).",
         "name": "screen.capture",
-        "params": "#/$defs/ScreenContextParams",
+        "params": "#/$defs/ScreenCaptureParams",
         "result": "#/$defs/ScreenCapture",
         "scope": "operator.write",
         "sideEffecting": false
@@ -2949,7 +2978,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Sets one setting. Every key outside the cosmetic allowlist (appearance, ui, editor, shortcuts, locale, notifications.sound, notifications.badges, notifications.quietHours) also needs operator.admin. Security keys (permissions, exec, vault, devices, gateway, owner identities, channel DM / allow policies) also need fresh user presence once the Gateway has a presence verifier: the first call fails approval_required with details.approvalId (a device-only policy_change card bound to the key and value); retry with that approvalId after approving. Once presence was enrolled, a Gateway whose verifiers can no longer verify fails presence_required instead of falling back to operator.admin alone. Side-effecting.",
+        "description": "Sets one setting. Every key outside the cosmetic allowlist (appearance, ui, editor, shortcuts, locale, notifications.sound, notifications.badges, notifications.quietHours, quickEntry.shortcut) also needs operator.admin. Security keys (permissions, exec, vault, devices, gateway, owner identities, channel DM / allow policies) also need fresh user presence once the Gateway has a presence verifier: the first call fails approval_required with details.approvalId (a device-only policy_change card bound to the key and value); retry with that approvalId after approving. Once presence was enrolled, a Gateway whose verifiers can no longer verify fails presence_required instead of falling back to operator.admin alone. Side-effecting.",
         "name": "settings.set",
         "params": "#/$defs/SettingsSetParams",
         "result": "#/$defs/SettingsSetResult",
@@ -3181,6 +3210,22 @@
         "sideEffecting": false
       },
       {
+        "description": "Side-effecting: downloads the on-device speech model and the pinned whisper.cpp runtime into $PSYCHE_HOME, each verified by SHA-256 (an explicit owner action; nothing downloads on its own). Progress arrives as speech.model_download. `unavailable` where Psyche does not provision whisper.cpp.",
+        "name": "speech.engine.download",
+        "params": "#/$defs/SpeechEngineDownloadParams",
+        "result": "#/$defs/SpeechEngineDownloadResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Which speech-to-text engine dictation uses and why (Settings → Voice & dictation); on Windows also the on-device whisper.cpp setup and what downloading it costs.",
+        "name": "speech.engine.status",
+        "params": "#/$defs/SpeechEngineStatusParams",
+        "result": "#/$defs/SpeechEngineStatus",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "Pages a task's Activity lines (level 1 and 2; level 3 is fetched by ref).",
         "name": "tasks.actions",
         "params": "#/$defs/TasksActionsParams",
@@ -3253,7 +3298,7 @@
         "sideEffecting": true
       },
       {
-        "description": "Desktop shell only: the Mac apps the owner granted for computer use that can be recorded (Settings → Computer use). Psyche, security prompts, password managers, banking, browsers and terminals are never listed.",
+        "description": "Desktop shell only: the apps the owner granted for computer use that can be recorded (Settings → Computer use). Psyche, security prompts, password managers, banking, browsers and terminals are never listed. An app is its bundle id on a Mac and its lowercase executable name on Windows (`notepad.exe`).",
         "name": "teach.app.apps",
         "params": "#/$defs/TeachAppAppsParams",
         "result": "#/$defs/TeachAppAppsResult",
@@ -3269,7 +3314,7 @@
         "sideEffecting": true
       },
       {
-        "description": "Side-effecting, desktop shell only, on the owner's click: the Mac helper starts watching one granted app's accessibility events. Refused (forbidden, policy_denied) for any other caller, for an app that is not granted, and for Psyche and system security prompts. A visible indicator shows on the Mac while it records.",
+        "description": "Side-effecting, desktop shell only, on the owner's click: the Host helper starts watching one granted app's accessibility events. Refused (forbidden, policy_denied) for any other caller, for an app that is not granted, and for Psyche and system security prompts. A visible indicator shows on the owner's computer while it records.",
         "name": "teach.app.start",
         "params": "#/$defs/TeachAppStartParams",
         "result": "#/$defs/TeachAppStartResult",
@@ -3277,7 +3322,7 @@
         "sideEffecting": true
       },
       {
-        "description": "Desktop shell only: whether a Mac app is being recorded, and how many steps so far.",
+        "description": "Desktop shell only: whether an app is being recorded, and how many steps so far.",
         "name": "teach.app.status",
         "params": "#/$defs/TeachAppStatusParams",
         "result": "#/$defs/TeachAppStatus",
@@ -7321,6 +7366,46 @@
       "type": "object"
     },
     "ApprovalsAnswerResult": {
+      "properties": {
+        "approval": {
+          "$ref": "#/$defs/ApprovalRequest"
+        },
+        "grant": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Grant"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "approval"
+      ],
+      "type": "object"
+    },
+    "ApprovalsApproveWithPasswordParams": {
+      "properties": {
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "answerToken": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "approvalId",
+        "answerToken"
+      ],
+      "type": "object"
+    },
+    "ApprovalsApproveWithPasswordResult": {
       "properties": {
         "approval": {
           "$ref": "#/$defs/ApprovalRequest"
@@ -12255,12 +12340,12 @@
           "type": "string"
         },
         "app": {
-          "description": "app_*: the Mac app the step was recorded in (phase 2)",
+          "description": "app_*: the desktop app the step was recorded in (phase 2)",
           "properties": {
             "bundleId": {
               "maxLength": 200,
               "minLength": 3,
-              "pattern": "^[A-Za-z0-9-]+(\\.[A-Za-z0-9_-]+)+$",
+              "pattern": "^(?:[A-Za-z0-9-]+(?:\\.[A-Za-z0-9_-]+)+|[a-z0-9_][a-z0-9 _().-]*\\.exe)$",
               "type": "string"
             },
             "name": {
@@ -14534,6 +14619,14 @@
         "pinnedInstructions"
       ],
       "type": "object"
+    },
+    "ComputerSurface": {
+      "enum": [
+        "direct",
+        "virtual_screen",
+        "separate_desktop"
+      ],
+      "type": "string"
     },
     "ConnectChallenge": {
       "properties": {
@@ -17493,7 +17586,8 @@
         "ios",
         "android",
         "web",
-        "linux"
+        "linux",
+        "windows"
       ],
       "type": "string"
     },
@@ -17743,6 +17837,24 @@
       ],
       "type": "object"
     },
+    "DevicesPresenceStatusParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "DevicesPresenceStatusResult": {
+      "properties": {
+        "verifiers": {
+          "items": {
+            "$ref": "#/$defs/PresenceVerifier"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "verifiers"
+      ],
+      "type": "object"
+    },
     "DevicesRevokeParams": {
       "properties": {
         "deviceId": {
@@ -17934,7 +18046,29 @@
       "enum": [
         "fn",
         "rightOption",
-        "rightCommand"
+        "rightCommand",
+        "rightCtrl",
+        "rightAlt",
+        "rightShift",
+        "rightWin",
+        "capsLock",
+        "scrollLock",
+        "pause",
+        "menu",
+        "insert",
+        "numLock",
+        "f13",
+        "f14",
+        "f15",
+        "f16",
+        "f17",
+        "f18",
+        "f19",
+        "f20",
+        "f21",
+        "f22",
+        "f23",
+        "f24"
       ],
       "type": "string"
     },
@@ -17974,7 +18108,8 @@
         "secure_field",
         "own_window",
         "not_editable",
-        "focus_changed"
+        "focus_changed",
+        "elevated_target"
       ],
       "type": "string"
     },
@@ -17987,6 +18122,7 @@
         "bundleId": {
           "anyOf": [
             {
+              "description": "macOS bundle id; on Windows the package family name of a packaged app, else its lowercase executable",
               "type": "string"
             },
             {
@@ -18000,7 +18136,7 @@
         "role": {
           "anyOf": [
             {
-              "description": "AX role of the focused element, e.g. AXTextArea",
+              "description": "AX role of the focused element (AXTextArea); on Windows its UI Automation control type (Edit, Document, …)",
               "type": "string"
             },
             {
@@ -18224,7 +18360,7 @@
           "description": "an absolute path in a granted folder",
           "maxLength": 4096,
           "minLength": 2,
-          "pattern": "^/",
+          "pattern": "^(/|[A-Za-z]:[\\\\/])",
           "type": "string"
         },
         "libraryPath": {
@@ -18524,7 +18660,11 @@
         "debugger_detached",
         "tab_not_found",
         "method_not_allowed",
-        "presence_required"
+        "presence_required",
+        "presence_unavailable_here",
+        "presence_agent_missing",
+        "presence_policy_missing",
+        "presence_not_enforced"
       ],
       "type": "string"
     },
@@ -19935,7 +20075,7 @@
           "description": "an absolute path in a granted folder",
           "maxLength": 4096,
           "minLength": 2,
-          "pattern": "^/",
+          "pattern": "^(/|[A-Za-z]:[\\\\/])",
           "type": "string"
         },
         "offset": {
@@ -19980,7 +20120,7 @@
           "description": "an absolute path in a granted folder",
           "maxLength": 4096,
           "minLength": 2,
-          "pattern": "^/",
+          "pattern": "^(/|[A-Za-z]:[\\\\/])",
           "type": "string"
         },
         "libraryPath": {
@@ -25968,6 +26108,7 @@
           "enum": [
             "srt",
             "container",
+            "vm",
             "none"
           ],
           "type": "string"
@@ -30309,6 +30450,24 @@
       ],
       "type": "object"
     },
+    "MemoryWorkListsParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "MemoryWorkListsResult": {
+      "properties": {
+        "lists": {
+          "items": {
+            "$ref": "#/$defs/WorkReminderList"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "lists"
+      ],
+      "type": "object"
+    },
     "MemoryWorkRemind": {
       "properties": {
         "enabled": {
@@ -31689,11 +31848,15 @@
       "type": "object"
     },
     "NodeKind": {
+      "description": "win-helper: the Windows helper on the Host (the node socket plus the handshake secret). host-helper: the helper the desktop launched on the Host (macOS mac-helper or Linux linux-helper; stored rows keep mac-helper, which stays a valid alias). guest: the helper inside a separate desktop (container or VM).",
       "enum": [
         "mac-helper",
         "vm-guest",
         "remote",
-        "phone"
+        "phone",
+        "win-helper",
+        "host-helper",
+        "guest"
       ],
       "type": "string"
     },
@@ -32612,6 +32775,15 @@
       ],
       "type": "object"
     },
+    "OsPermission": {
+      "enum": [
+        "a11yBus",
+        "screenCastPortal",
+        "remoteDesktopPortal",
+        "x11"
+      ],
+      "type": "string"
+    },
     "PairingRequest": {
       "properties": {
         "id": {
@@ -33368,7 +33540,7 @@
         "path": {
           "maxLength": 4096,
           "minLength": 1,
-          "pattern": "^/",
+          "pattern": "^(/|[A-Za-z]:[\\\\/])",
           "type": "string"
         }
       },
@@ -33542,7 +33714,8 @@
         "kind": {
           "enum": [
             "webauthn",
-            "helper"
+            "helper",
+            "password"
           ],
           "type": "string"
         },
@@ -33576,6 +33749,13 @@
       ],
       "type": "object"
     },
+    "PresenceKeyAlgorithm": {
+      "enum": [
+        "p256-ecdsa-sha256",
+        "rsa-2048-pkcs1-sha256"
+      ],
+      "type": "string"
+    },
     "PresenceKeyInfo": {
       "properties": {
         "deviceId": {
@@ -33597,9 +33777,13 @@
           "enum": [
             "keychain",
             "enclave_keychain_acl",
-            "enclave_file"
+            "enclave_file",
+            "windows_hello"
           ],
           "type": "string"
+        },
+        "algorithm": {
+          "$ref": "#/$defs/PresenceKeyAlgorithm"
         }
       },
       "required": [
@@ -33608,6 +33792,45 @@
         "registeredAt"
       ],
       "type": "object"
+    },
+    "PresenceVerifier": {
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/PresenceVerifierKind"
+        },
+        "state": {
+          "$ref": "#/$defs/PresenceVerifierState"
+        },
+        "detail": {
+          "maxLength": 500,
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "state"
+      ],
+      "type": "object"
+    },
+    "PresenceVerifierKind": {
+      "enum": [
+        "touch_id_key",
+        "passkey",
+        "password"
+      ],
+      "type": "string"
+    },
+    "PresenceVerifierState": {
+      "enum": [
+        "ready",
+        "not_enrolled",
+        "unavailable",
+        "policy_missing",
+        "not_enforced",
+        "no_session",
+        "agent_missing"
+      ],
+      "type": "string"
     },
     "ProbedModel": {
       "properties": {
@@ -36500,6 +36723,23 @@
       ],
       "type": "string"
     },
+    "SandboxPcStatus": {
+      "properties": {
+        "enabled": {
+          "description": "The owner turned the sandbox PC on (`vm.enabled`)",
+          "type": "boolean"
+        },
+        "ready": {
+          "description": "Its guest runs and its psyche-node is connected with sessions, so those features run in it now",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "enabled",
+        "ready"
+      ],
+      "type": "object"
+    },
     "SandboxSetupBackend": {
       "properties": {
         "kind": {
@@ -36542,11 +36782,14 @@
     "SandboxSetupResult": {
       "properties": {
         "ready": {
-          "description": "srt is available, so command servers can run",
+          "description": "srt is available (on Windows: the sandbox PC is ready), so scripts and command servers can run",
           "type": "boolean"
         },
         "srt": {
           "$ref": "#/$defs/SandboxSrtStatus"
+        },
+        "sandboxPc": {
+          "$ref": "#/$defs/SandboxPcStatus"
         },
         "installer": {
           "$ref": "#/$defs/SandboxSrtInstaller"
@@ -36601,10 +36844,12 @@
       "type": "object"
     },
     "SandboxSrtProblem": {
+      "description": "`unsupported_platform`: srt has no Windows build, so it is never looked for there; Windows uses the sandbox PC",
       "enum": [
         "not_found",
         "not_absolute",
-        "not_executable"
+        "not_executable",
+        "unsupported_platform"
       ],
       "type": "string"
     },
@@ -36711,6 +36956,9 @@
         },
         "srt": {
           "$ref": "#/$defs/SandboxSrtStatus"
+        },
+        "sandboxPc": {
+          "$ref": "#/$defs/SandboxPcStatus"
         }
       },
       "required": [
@@ -37275,6 +37523,33 @@
         "region"
       ],
       "type": "string"
+    },
+    "ScreenCaptureParams": {
+      "properties": {
+        "mode": {
+          "$ref": "#/$defs/ScreenCaptureMode"
+        },
+        "rect": {
+          "$ref": "#/$defs/ScreenRect"
+        },
+        "maxWidth": {
+          "maximum": 2560,
+          "minimum": 320,
+          "type": "integer"
+        },
+        "maxHeight": {
+          "maximum": 1600,
+          "minimum": 240,
+          "type": "integer"
+        },
+        "frame": {
+          "$ref": "#/$defs/ScreenContextResult"
+        }
+      },
+      "required": [
+        "mode"
+      ],
+      "type": "object"
     },
     "ScreenCaptureRefusal": {
       "enum": [
@@ -41725,6 +42000,51 @@
       ],
       "type": "object"
     },
+    "SpeechEngineDownloadParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "SpeechEngineDownloadResult": {
+      "properties": {
+        "started": {
+          "description": "False when a download runs or nothing is missing",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "started"
+      ],
+      "type": "object"
+    },
+    "SpeechEngineEntryStatus": {
+      "properties": {
+        "id": {
+          "description": "mac-node (the Host's helper), whisper, web-speech",
+          "type": "string"
+        },
+        "location": {
+          "$ref": "#/$defs/SpeechEngineLocation"
+        },
+        "eligible": {
+          "type": "boolean"
+        },
+        "reason": {
+          "enum": [
+            "unknown",
+            "unsupported",
+            "client_only",
+            "unavailable"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "location",
+        "eligible"
+      ],
+      "type": "object"
+    },
     "SpeechEngineLocation": {
       "enum": [
         "node",
@@ -41734,11 +42054,101 @@
       ],
       "type": "string"
     },
+    "SpeechEngineStatus": {
+      "properties": {
+        "order": {
+          "description": "speech.stt.order in effect",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "dictation": {
+          "description": "Every engine in order for desktop dictation; the first eligible is used",
+          "items": {
+            "$ref": "#/$defs/SpeechEngineEntryStatus"
+          },
+          "type": "array"
+        },
+        "active": {
+          "anyOf": [
+            {
+              "description": "The engine desktop dictation uses now",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "whisper": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpeechWhisperSetup"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "order",
+        "dictation"
+      ],
+      "type": "object"
+    },
+    "SpeechEngineStatusParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "SpeechModelDownloadPayload": {
+      "properties": {
+        "phase": {
+          "enum": [
+            "started",
+            "progress",
+            "finished",
+            "failed"
+          ],
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "receivedBytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "totalBytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "fraction": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "error": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "phase",
+        "model",
+        "receivedBytes",
+        "totalBytes",
+        "fraction"
+      ],
+      "type": "object"
+    },
     "SpeechNodeEngine": {
       "enum": [
         "speechAnalyzer",
         "dictationTranscriber",
-        "sfSpeech"
+        "sfSpeech",
+        "windowsSpeech",
+        "sapi"
       ],
       "type": "string"
     },
@@ -41861,6 +42271,117 @@
       "enum": [
         "long",
         "short"
+      ],
+      "type": "string"
+    },
+    "SpeechWhisperModel": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "sizeBytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "present": {
+          "type": "boolean"
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "sizeBytes",
+        "present"
+      ],
+      "type": "object"
+    },
+    "SpeechWhisperRuntime": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "release": {
+          "description": "whisper.cpp release tag",
+          "type": "string"
+        },
+        "sizeBytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "present": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "release",
+        "sizeBytes",
+        "present"
+      ],
+      "type": "object"
+    },
+    "SpeechWhisperServerState": {
+      "enum": [
+        "stopped",
+        "starting",
+        "running",
+        "stopping"
+      ],
+      "type": "string"
+    },
+    "SpeechWhisperSetup": {
+      "properties": {
+        "state": {
+          "$ref": "#/$defs/SpeechWhisperSetupState"
+        },
+        "model": {
+          "$ref": "#/$defs/SpeechWhisperModel"
+        },
+        "runtime": {
+          "$ref": "#/$defs/SpeechWhisperRuntime"
+        },
+        "downloadBytes": {
+          "description": "What a download fetches now",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "receivedBytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "totalBytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "error": {
+          "description": "The last download's failure",
+          "type": "string"
+        },
+        "server": {
+          "$ref": "#/$defs/SpeechWhisperServerState"
+        },
+        "serverError": {
+          "description": "vcredist_missing, crash_loop, crashed, start_timeout, …",
+          "type": "string"
+        }
+      },
+      "required": [
+        "state",
+        "model",
+        "runtime",
+        "downloadBytes",
+        "server"
+      ],
+      "type": "object"
+    },
+    "SpeechWhisperSetupState": {
+      "enum": [
+        "missing",
+        "downloading",
+        "ready",
+        "error"
       ],
       "type": "string"
     },
@@ -42728,12 +43249,12 @@
           "type": "string"
         },
         "app": {
-          "description": "app_*: the Mac app the step was recorded in (phase 2)",
+          "description": "app_*: the desktop app the step was recorded in (phase 2)",
           "properties": {
             "bundleId": {
               "maxLength": 200,
               "minLength": 3,
-              "pattern": "^[A-Za-z0-9-]+(\\.[A-Za-z0-9_-]+)+$",
+              "pattern": "^(?:[A-Za-z0-9-]+(?:\\.[A-Za-z0-9_-]+)+|[a-z0-9_][a-z0-9 _().-]*\\.exe)$",
               "type": "string"
             },
             "name": {
@@ -47649,6 +48170,309 @@
       ],
       "type": "object"
     },
+    "VscreenAck": {
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ok"
+      ],
+      "type": "object"
+    },
+    "VscreenApp": {
+      "properties": {
+        "appId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "pid": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "windowTitle": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hasUnsavedChanges": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "appId",
+        "pid"
+      ],
+      "type": "object"
+    },
+    "VscreenFrame": {
+      "properties": {
+        "changed": {
+          "type": "boolean"
+        },
+        "frameSeq": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "image": {
+          "anyOf": [
+            {
+              "contentEncoding": "base64",
+              "description": "JPEG",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "width": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "height": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "changed",
+        "frameSeq",
+        "width",
+        "height"
+      ],
+      "type": "object"
+    },
+    "VscreenFrameParams": {
+      "properties": {
+        "since": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "maxWidth": {
+          "maximum": 3840,
+          "minimum": 160,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "VscreenInputEvent": {
+      "anyOf": [
+        {
+          "properties": {
+            "type": {
+              "enum": [
+                "move",
+                "down",
+                "up"
+              ],
+              "type": "string"
+            },
+            "x": {
+              "type": "number"
+            },
+            "y": {
+              "type": "number"
+            },
+            "button": {
+              "enum": [
+                "left",
+                "middle",
+                "right"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "x",
+            "y"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "scroll",
+              "type": "string"
+            },
+            "x": {
+              "type": "number"
+            },
+            "y": {
+              "type": "number"
+            },
+            "dx": {
+              "type": "number"
+            },
+            "dy": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "type",
+            "x",
+            "y",
+            "dx",
+            "dy"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "enum": [
+                "key_down",
+                "key_up"
+              ],
+              "type": "string"
+            },
+            "key": {
+              "maxLength": 32,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "key"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "text",
+              "type": "string"
+            },
+            "text": {
+              "maxLength": 1000,
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "text"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "VscreenInputParams": {
+      "properties": {
+        "events": {
+          "items": {
+            "$ref": "#/$defs/VscreenInputEvent"
+          },
+          "maxItems": 100,
+          "type": "array"
+        }
+      },
+      "required": [
+        "events"
+      ],
+      "type": "object"
+    },
+    "VscreenStartParams": {
+      "properties": {
+        "width": {
+          "maximum": 3840,
+          "minimum": 640,
+          "type": "integer"
+        },
+        "height": {
+          "maximum": 2160,
+          "minimum": 480,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "VscreenState": {
+      "enum": [
+        "stopped",
+        "starting",
+        "running",
+        "stopping"
+      ],
+      "type": "string"
+    },
+    "VscreenStatus": {
+      "properties": {
+        "state": {
+          "$ref": "#/$defs/VscreenState"
+        },
+        "display": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "width": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "height": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "apps": {
+          "items": {
+            "$ref": "#/$defs/VscreenApp"
+          },
+          "type": "array"
+        },
+        "takenOver": {
+          "type": "boolean"
+        },
+        "frameSeq": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "startedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "state",
+        "width",
+        "height",
+        "apps",
+        "takenOver",
+        "frameSeq"
+      ],
+      "type": "object"
+    },
+    "VscreenStopParams": {
+      "properties": {
+        "closeApps": {
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
     "WatchCheck": {
       "enum": [
         "change",
@@ -48777,6 +49601,34 @@
         "attribute",
         "value",
         "factId"
+      ],
+      "type": "object"
+    },
+    "WorkReminderList": {
+      "properties": {
+        "id": {
+          "maxLength": 500,
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 500,
+          "type": "string"
+        },
+        "shared": {
+          "description": "Someone else can add to it (shared, read-only, flagged email): untrusted",
+          "type": "boolean"
+        },
+        "source": {
+          "description": "Where it lives, e.g. Microsoft To Do",
+          "maxLength": 100,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "shared"
       ],
       "type": "object"
     },

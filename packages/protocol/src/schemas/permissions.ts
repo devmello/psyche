@@ -203,7 +203,12 @@ export type ApprovalRequest = Static<typeof ApprovalRequest>;
  */
 export const PresenceAssertionSchema = Type.Object(
   {
-    kind: StringEnum(["webauthn", "helper"]),
+    /**
+     * `password` (Linux): created by the Gateway itself after the system's polkit agent
+     * authorized the owner (linux design §9). A client never sends it: the Gateway rejects a
+     * `password` assertion that arrives in an answer.
+     */
+    kind: StringEnum(["webauthn", "helper", "password"]),
     deviceId: Id,
     signature: Type.String({ minLength: 1, maxLength: 4096, description: "base64url" }),
     payload: Type.Optional(
@@ -215,6 +220,19 @@ export const PresenceAssertionSchema = Type.Object(
   },
   { $id: "PresenceAssertion" },
 );
+
+/**
+ * OS-level access the host can have granted or not, the cross-platform generalization of the
+ * macOS TCC list (linux design §4.2, §11), added here only for Linux. `a11yBus`: the AT-SPI
+ * accessibility bus is enabled (`IsEnabled`); `screenCastPortal` and `remoteDesktopPortal`: a
+ * portal session the owner approved (Wayland); `x11` is informational (an X11 session has no
+ * per-app screen or input grant).
+ */
+export const OsPermission = StringEnum(
+  ["a11yBus", "screenCastPortal", "remoteDesktopPortal", "x11"],
+  { $id: "OsPermission" },
+);
+export type OsPermission = Static<typeof OsPermission>;
 
 export const ApprovalAnswer = Type.Object(
   {

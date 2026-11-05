@@ -24,12 +24,13 @@ describe("device key", () => {
     expect(Buffer.from(a.publicKey, "base64url")).toHaveLength(32);
     expect(a.deviceId).toBe(deviceIdFromPublicKey(a.publicKey));
     expect(a.deviceId).toMatch(/^dev_[A-Za-z0-9_-]{22}$/);
-    expect(statSync(path).mode & 0o777).toBe(0o600);
+    if (process.platform !== "win32") expect(statSync(path).mode & 0o777).toBe(0o600);
     expect(JSON.parse(readFileSync(path, "utf8")).v).toBe(1);
   });
 
   it("maps node platforms to DevicePlatform", () => {
     expect(platformFromNode("darwin")).toBe("macos");
+    expect(platformFromNode("win32")).toBe("windows");
     expect(platformFromNode("linux")).toBe("linux");
   });
 });

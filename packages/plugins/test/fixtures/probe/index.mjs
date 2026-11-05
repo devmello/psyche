@@ -11,10 +11,17 @@ const attempt = async (label, fn) => {
   }
 };
 
+const win = process.platform === "win32";
+// A file that exists outside the plugin's folder.
+const outside = win ? `${process.env.SYSTEMROOT}\\System32\\drivers\\etc\\hosts` : "/etc/hosts";
+// macOS adds __CF_USER_TEXT_ENCODING (a locale hint) to every process. On Windows the host blanks
+// what libuv would copy in, and keeps SYSTEMROOT. Nothing else may be set.
+const allowed = ["ELECTRON_RUN_AS_NODE", "__CF_USER_TEXT_ENCODING", ...(win ? ["SYSTEMROOT"] : [])];
+
 export default function setup(api) {
   api.on("context", async () => {
     const results = [
-      await attempt("read-outside", () => readFileSync("/etc/hosts")),
+      await attempt("read-outside", () => readFileSync(outside)),
       await attempt("read-own", () =>
         readFileSync(new URL("./psyche-plugin.json", import.meta.url)),
       ),
@@ -22,8 +29,7 @@ export default function setup(api) {
       await attempt("exec", () => execSync("true")),
       await attempt("connect", () => connect({ host: "127.0.0.1", port: 9 })),
       await attempt("fetch", () => fetch("http://127.0.0.1:9/")),
-      // macOS adds __CF_USER_TEXT_ENCODING (a locale hint) to every process; nothing else may be set.
-      `env:${Object.keys(process.env).filter((k) => !["ELECTRON_RUN_AS_NODE", "__CF_USER_TEXT_ENCODING"].includes(k)).length}`,
+      `env:${Object.entries(process.env).filter(([k, v]) => !allowed.includes(k) && (!win || v !== "")).length}`,
     ];
     return [{ title: "probe", text: results.join(" ") }];
   });

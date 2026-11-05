@@ -1,3 +1,4 @@
+import { DEVICE_ONLY_TEXT } from "@psyche/permissions/cards";
 import type { ApprovalRequestInput } from "@psyche/protocol";
 import { afterEach, describe, expect, it } from "vitest";
 import { SIGNAL_REACTION_HINT } from "../../src/adapters/signal/index.ts";
@@ -110,7 +111,7 @@ describe("Signal approvals (👍 / 👎 only)", () => {
       { surface: `signal:${OWNER}`, delivered: false, reason: "device_only" },
     ]);
     const pointer = h.daemon.sentTexts().at(-1);
-    expect(pointer).toBe("Pay · financial\nAnswer this on your Mac.");
+    expect(pointer).toBe(`Pay · financial\n${DEVICE_ONLY_TEXT}`);
     expect(pointer).not.toContain(SIGNAL_REACTION_HINT);
     await expect(
       h.adapter.sendApprovalButtons(OWNER, { ...issued.approval, deviceOnly: true }, token),

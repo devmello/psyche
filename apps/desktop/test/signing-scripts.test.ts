@@ -37,7 +37,8 @@ afterEach(() => {
   rmSync(root, { recursive: true, force: true });
 });
 
-describe("check-designated-requirements.sh", () => {
+// POSIX shell scripts with fake codesign/plutil on PATH: macOS and Linux hosts only.
+describe.skipIf(process.platform === "win32")("check-designated-requirements.sh", () => {
   let app: string;
   let state: string;
   let bin: string;
@@ -265,7 +266,7 @@ describe("make-signing-cert.sh", () => {
     },
   );
 
-  it("refuses to overwrite an existing .p12", () => {
+  it.skipIf(process.platform === "win32")("refuses to overwrite an existing .p12", () => {
     const out = join(root, "out2");
     mkdirSync(out, { mode: 0o700 });
     writeFileSync(join(out, "psyche-release.p12"), "old");
@@ -277,27 +278,30 @@ describe("make-signing-cert.sh", () => {
     );
   });
 
-  it("refuses the login keychain in every spelling, short passwords, and needs --out", () => {
-    for (const kc of [
-      "login.keychain-db",
-      "login",
-      "login.keychain",
-      "/x/y/login",
-      `${root}/Library/Keychains/login.keychain-db`,
-    ]) {
-      const login = make(["--out", join(root, "o3"), "--import-to", kc]);
-      expect(login.status, kc).toBe(1);
-      expect(login.stderr, kc).toMatch(/login|system/);
-    }
-    expect(existsSync(join(root, "o3"))).toBe(false);
+  it.skipIf(process.platform === "win32")(
+    "refuses the login keychain in every spelling, short passwords, and needs --out",
+    () => {
+      for (const kc of [
+        "login.keychain-db",
+        "login",
+        "login.keychain",
+        "/x/y/login",
+        `${root}/Library/Keychains/login.keychain-db`,
+      ]) {
+        const login = make(["--out", join(root, "o3"), "--import-to", kc]);
+        expect(login.status, kc).toBe(1);
+        expect(login.stderr, kc).toMatch(/login|system/);
+      }
+      expect(existsSync(join(root, "o3"))).toBe(false);
 
-    writeFileSync(pw, "fifteen-chars-ok\n".slice(0, 15));
-    const short = make(["--out", join(root, "o4")]);
-    expect(short.status).toBe(1);
-    expect(short.stderr).toMatch(/at least 16 characters/);
+      writeFileSync(pw, "fifteen-chars-ok\n".slice(0, 15));
+      const short = make(["--out", join(root, "o4")]);
+      expect(short.status).toBe(1);
+      expect(short.stderr).toMatch(/at least 16 characters/);
 
-    expect(make([]).status).toBe(64);
-  });
+      expect(make([]).status).toBe(64);
+    },
+  );
 
   it("refuses an existing folder that is not 0700, and one inside a git work tree", () => {
     const loose = join(root, "loose");

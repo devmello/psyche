@@ -1,5 +1,6 @@
-import { chmodSync, existsSync, readdirSync, readFileSync, renameSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, renameSync } from "node:fs";
 import { join } from "node:path";
+import { exposeToOthers } from "@psyche/hostfs/testing";
 import { PsycheError } from "@psyche/protocol";
 import { describe, expect, it } from "vitest";
 import { authorNameSkeleton } from "../src/authors.ts";
@@ -107,7 +108,7 @@ describe("the author key file and the export audit", () => {
     );
     await o.loader.install(p0.id, await approve(o.broker, o.clock, p0));
     await exportOf(o.loader, "tidy", "Ada");
-    chmodSync(join(o.psycheHome, "identity", "author.key"), 0o644);
+    exposeToOthers(join(o.psycheHome, "identity", "author.key"));
     const err = await rejects(
       o.loader.proposeImport("b.psyche-skill", buildBundle(simple("third"), authorKey("Cy"), NOW)),
     );

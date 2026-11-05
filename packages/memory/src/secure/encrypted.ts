@@ -13,6 +13,7 @@ import {
   writeSync,
 } from "node:fs";
 import { dirname } from "node:path";
+import { ensureOwnerOnly, isOwnerOnly } from "@psyche/hostfs";
 import { PsycheError } from "@psyche/protocol";
 import Database from "better-sqlite3-multiple-ciphers";
 import * as sqliteVec from "sqlite-vec";
@@ -133,7 +134,11 @@ export class MemoryKeyFile {
     try {
       const st = statSync(this.#path);
       if (!st.isFile()) return "the memory key is not a regular file";
-      if ((st.mode & 0o077) !== 0) return "the memory key file must be mode 0600";
+      if (!isOwnerOnly(this.#path, st)) {
+        return process.platform === "win32"
+          ? "the memory key file must be readable by this user only (the counterpart of mode 0600)"
+          : "the memory key file must be mode 0600";
+      }
       if (typeof process.getuid === "function" && st.uid !== process.getuid()) {
         return "the memory key file is owned by another user";
       }
@@ -161,6 +166,8 @@ export class MemoryKeyFile {
 
   write(key: Buffer): void {
     mkdirSync(dirname(this.#path), { recursive: true, mode: 0o700 });
+    // Windows has no modes: the folder gets an owner-only DACL, which the key inherits.
+    if (process.platform === "win32") ensureOwnerOnly(dirname(this.#path));
     const tmp = `${this.#path}.${process.pid}.tmp`;
     const fd = openSync(tmp, "w", 0o600);
     try {

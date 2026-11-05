@@ -1,7 +1,7 @@
 import { type Static, Type } from "@sinclair/typebox";
 import { Id } from "./common.ts";
 import { ErrorPayload } from "./errors.ts";
-import { DevicePlatform, NodeCapability } from "./schemas/identity.ts";
+import { DevicePlatform, NodeCapability, type NodeKind } from "./schemas/identity.ts";
 import { Receipt } from "./schemas/permissions.ts";
 
 /**
@@ -20,6 +20,27 @@ import { Receipt } from "./schemas/permissions.ts";
  * tools, so a `computer.click` on a node is treated like any other write. Security settings are
  * never reachable through `node.invoke` (security §10).
  */
+
+/**
+ * The `deviceFamily` values the Host's own helper declares: the Swift `apps/mac-helper` on macOS
+ * and the Rust `apps/win-helper` on Windows. Both speak the same capability names and shapes
+ * (minus the Apple-app ones on Windows). The family alone proves nothing: the Gateway makes such
+ * a node the Host helper (the `NodeKind` of the same name) only when it connected on the local
+ * node transport (the Unix socket, or the named pipe on Windows) with the per-launch handshake
+ * secret; anywhere else it is `remote`.
+ */
+export const HOST_HELPER_FAMILIES = ["mac-helper", "win-helper"] as const;
+export type HostHelperFamily = (typeof HOST_HELPER_FAMILIES)[number];
+
+/** Whether a self-declared `deviceFamily` is one of the Host helper families. */
+export function isHostHelperFamily(family: string | undefined | null): family is HostHelperFamily {
+  return family === "mac-helper" || family === "win-helper";
+}
+
+/** Whether a node's kind is the Host's own helper (`mac-helper` or `win-helper`). */
+export function isHostHelperKind(kind: NodeKind | string | undefined | null): boolean {
+  return kind === "mac-helper" || kind === "win-helper";
+}
 
 export const InvocationId = Type.String({ minLength: 1, maxLength: 128, $id: "InvocationId" });
 

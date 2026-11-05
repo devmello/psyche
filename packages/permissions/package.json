@@ -10,6 +10,10 @@
       "types": "./src/index.ts",
       "default": "./src/index.ts"
     },
+    "./apps": {
+      "types": "./src/apps.ts",
+      "default": "./src/apps.ts"
+    },
     "./cards": {
       "types": "./src/cards.ts",
       "default": "./src/cards.ts"
@@ -22,6 +26,7 @@
   },
   "dependencies": {
     "@psyche/audit": "workspace:*",
+    "@psyche/hostfs": "workspace:*",
     "@psyche/protocol": "workspace:*",
     "@sinclair/typebox": "0.34.52",
     "ulid": "3.0.2"

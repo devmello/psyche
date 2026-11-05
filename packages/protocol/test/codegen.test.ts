@@ -1,10 +1,14 @@
-import { readdir, readFile } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   buildSchemaDocument,
   generateAll,
+  normalizeGeneratedEol,
   OUTPUT_FILES,
   renderSchemaJson,
+  toLf,
 } from "../scripts/gen.ts";
 import { BridgeEvents, BridgeMethods, Events, Methods, PROTOCOL_VERSION } from "../src/index.ts";
 
@@ -27,7 +31,34 @@ describe("codegen", () => {
   const x = doc["x-psyche"] as Record<string, unknown>;
 
   it("generated/schema.json is fresh (run `pnpm protocol:gen`)", async () => {
-    expect(await readFile(OUTPUT_FILES.schema, "utf8")).toBe(renderSchemaJson(doc));
+    expect(toLf(await readFile(OUTPUT_FILES.schema, "utf8"))).toBe(renderSchemaJson(doc));
+  });
+
+  it("generates LF only, whatever the platform", async () => {
+    for (const [path, content] of await generateAll()) expect(content, path).not.toContain("\r");
+    expect(renderSchemaJson(doc)).not.toContain("\r");
+  });
+
+  it("rewrites CRLF text files under generated/ (the README included) to LF", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "psy-gen-eol-"));
+    try {
+      await writeFile(join(dir, "README.md"), "# Generated\r\n\r\nDo not edit.\r\n");
+      await writeFile(join(dir, "schema.json"), '{\r\n  "a": 1\r\n}\r\n');
+      await writeFile(join(dir, "clean.d.ts"), "export {};\n");
+      await writeFile(join(dir, "logo.png"), Buffer.from([0x89, 0x0d, 0x0a, 0x1a]));
+      const changed = await normalizeGeneratedEol(dir);
+      expect(changed.map((p) => p.replace(/^.*[\\/]/, "")).sort()).toEqual([
+        "README.md",
+        "schema.json",
+      ]);
+      expect(await readFile(join(dir, "README.md"), "utf8")).toBe("# Generated\n\nDo not edit.\n");
+      expect(await readFile(join(dir, "schema.json"), "utf8")).toBe('{\n  "a": 1\n}\n');
+      // Binary files are not touched; a second pass has nothing to do.
+      expect([...(await readFile(join(dir, "logo.png")))]).toEqual([0x89, 0x0d, 0x0a, 0x1a]);
+      expect(await normalizeGeneratedEol(dir)).toEqual([]);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 
   it("is deterministic", () => {
@@ -82,7 +113,7 @@ describe("codegen", () => {
   it("every generated file on disk matches a fresh generation", { timeout: 60_000 }, async () => {
     const outputs = await generateAll();
     for (const [path, content] of outputs) {
-      expect(await readFile(path, "utf8"), path).toBe(content);
+      expect(toLf(await readFile(path, "utf8")), path).toBe(content);
     }
     const swift = outputs.get(OUTPUT_FILES.swift) ?? "";
     expect(swift).toContain("public struct ConnectParams: Codable, Sendable");

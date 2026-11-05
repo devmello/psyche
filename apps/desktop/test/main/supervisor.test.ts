@@ -9,12 +9,13 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { exposeToOthers, OWNER_DIR, OWNER_FILE, privacyOf } from "@psyche/hostfs/testing";
 import { afterAll, describe, expect, it } from "vitest";
 import {
   chooseMode,
   desktopVaultKeyFile,
   type GatewayRunState,
-  GatewaySupervisor,
+  LaunchdSupervisor,
   parseLaunchctlPrint,
   plistProgram,
   type Runner,
@@ -53,10 +54,10 @@ function launchd(opts: { neverHealthy?: boolean } = {}) {
 
 describe("supervisor mode", () => {
   it("defaults to dev unpackaged and launchd packaged; env overrides", () => {
-    expect(chooseMode({}, false)).toBe("dev");
-    expect(chooseMode({}, true)).toBe("launchd");
-    expect(chooseMode({ PSYCHE_GATEWAY_MODE: "external" }, true)).toBe("external");
-    expect(chooseMode({ PSYCHE_GATEWAY_MODE: "bogus" }, true)).toBe("launchd");
+    expect(chooseMode({}, false, "darwin")).toBe("dev");
+    expect(chooseMode({}, true, "darwin")).toBe("launchd");
+    expect(chooseMode({ PSYCHE_GATEWAY_MODE: "external" }, true, "darwin")).toBe("external");
+    expect(chooseMode({ PSYCHE_GATEWAY_MODE: "bogus" }, true, "darwin")).toBe("launchd");
   });
 });
 
@@ -107,7 +108,7 @@ describe("LaunchAgent plist", () => {
     writeFileSync(template, "<plist>{{PSYCHED}} {{PSYCHE_HOME}}</plist>");
     const fake = launchd();
     const states: GatewayRunState[] = [];
-    const sup = new GatewaySupervisor({
+    const sup = new LaunchdSupervisor({
       mode: "launchd",
       psycheHome: join(dir, "home"),
       healthUrl: "http://127.0.0.1:1/healthz",
@@ -173,7 +174,7 @@ describe("LaunchAgent plist", () => {
     const fake = launchd();
     const states: GatewayRunState[] = [];
     const make = (fetchFn: typeof fetch) =>
-      new GatewaySupervisor({
+      new LaunchdSupervisor({
         mode: "remote",
         psycheHome: join(dir, "home-remote"),
         healthUrl: "https://studio-mac.tail1234.ts.net/healthz",
@@ -198,7 +199,7 @@ describe("LaunchAgent plist", () => {
     const program = join(dir, "psyched-dead");
     writeFileSync(program, "#!/bin/sh\n");
     const fake = launchd({ neverHealthy: true });
-    const sup = new GatewaySupervisor({
+    const sup = new LaunchdSupervisor({
       mode: "launchd",
       psycheHome: join(dir, "home2"),
       healthUrl: "http://127.0.0.1:1/healthz",
@@ -221,7 +222,7 @@ describe("LaunchAgent plist", () => {
 
   it("refuses a translocated app and attaches to a Gateway it did not install", async () => {
     const fake = launchd();
-    const translocated = new GatewaySupervisor({
+    const translocated = new LaunchdSupervisor({
       mode: "launchd",
       psycheHome: dir,
       healthUrl: "http://127.0.0.1:1/healthz",
@@ -237,7 +238,7 @@ describe("LaunchAgent plist", () => {
     });
     const program = join(dir, "psyched-foreign");
     writeFileSync(program, "#!/bin/sh\n");
-    const foreign = new GatewaySupervisor({
+    const foreign = new LaunchdSupervisor({
       mode: "launchd",
       psycheHome: dir,
       healthUrl: "http://127.0.0.1:1/healthz",
@@ -255,7 +256,7 @@ describe("LaunchAgent plist", () => {
 
   it("attaches to a healthy Gateway instead of starting another", async () => {
     const calls: string[][] = [];
-    const sup = new GatewaySupervisor({
+    const sup = new LaunchdSupervisor({
       mode: "dev",
       psycheHome: dir,
       healthUrl: "http://127.0.0.1:1/healthz",
@@ -272,7 +273,7 @@ describe("LaunchAgent plist", () => {
   });
 
   it("reports a missing gateway package in dev", async () => {
-    const sup = new GatewaySupervisor({
+    const sup = new LaunchdSupervisor({
       mode: "dev",
       psycheHome: dir,
       healthUrl: "http://127.0.0.1:1/healthz",
@@ -290,7 +291,7 @@ describe("desktop vault key file", () => {
     const keyFile = desktopVaultKeyFile(home);
     expect(keyFile).toBe(join(home, "secrets", "vault.key"));
     const st = statSync(keyFile as string);
-    expect(st.mode & 0o777).toBe(0o600);
+    if (process.platform !== "win32") expect(st.mode & 0o777).toBe(0o600);
     expect(st.size).toBe(32);
     const first = readFileSync(keyFile as string);
     desktopVaultKeyFile(home);
@@ -303,6 +304,15 @@ describe("desktop vault key file", () => {
       /<key>EnvironmentVariables<\/key>\s*<dict>\s*<key>PSYCHE_VAULT_KEY_FILE<\/key>\s*<string>[^<]+vault\.key<\/string>/,
     );
     expect(plist).toContain("<key>PSYCHE_HOME</key>");
+  });
+
+  it("keeps the key file owner-only even in a home others can read (the key-file slot checks)", () => {
+    const home = mkdtempSync(join(tmpdir(), "psy-vk-"));
+    // Windows: an ACL handed down to everything inside, as a home outside the profile has.
+    exposeToOthers(home);
+    const keyFile = desktopVaultKeyFile(home) as string;
+    expect(privacyOf(keyFile)).toBe(OWNER_FILE);
+    expect(privacyOf(dirname(keyFile))).toBe(OWNER_DIR);
   });
 
   it("never switches a vault that already uses another slot", () => {
@@ -340,7 +350,7 @@ describe("two copies of Psyche share the agent label", () => {
     writeFileSync(plist, otherPlist(other));
     const fake = launchd();
     const asked: string[] = [];
-    const sup = new GatewaySupervisor({
+    const sup = new LaunchdSupervisor({
       mode: "launchd",
       psycheHome: join(base, "home"),
       healthUrl: "http://127.0.0.1:1/healthz",

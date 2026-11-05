@@ -1,0 +1,136 @@
+/*
+  Windows and high-contrast styles (docs/design/cross-platform-2026.md). `:root[data-platform]` is
+  set by the desktop renderer, else from the browser (lib/platform.ts); `:root[data-material="mica"]`
+  by the shell when the desktop put Windows 11's Mica under the window (WindowChrome.material).
+  Everything here is additive: macOS and the web on other systems never match these selectors,
+  except the forced-colors block, which any OS in a high-contrast theme gets.
+*/
+
+/*
+  Type (§3.2 on Windows): Segoe UI Variable is Windows 11's system face, with optical sizes
+  ("Text" for UI sizes); Chromium's system-ui is plain Segoe UI there. Windows has no ui-monospace
+  or ui-serif, so they are named: Cascadia (Windows Terminal's face) and Sitka, the system serif.
+*/
+:root[data-platform="windows"] {
+  --font-sans:
+    "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, Roboto,
+    sans-serif;
+  --font-mono: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
+  --font-display: "Sitka Text", "Sitka", Georgia, ui-serif, serif;
+}
+:root[data-platform="windows"] body {
+  font-family: var(--font-sans);
+}
+/*
+  The macOS text styles carry SF's negative tracking (−0.08 to −0.43 px); Segoe UI is spaced for
+  0 and crowds at negative values. Zero by default, at no specificity, so an explicit tracking-*
+  utility still wins.
+*/
+:where(:root[data-platform="windows"]) * {
+  --tw-tracking: 0;
+}
+
+/*
+  Hairlines: macOS draws 0.5 px edges as one device pixel on a Retina display; at Windows' 100 %
+  and 125 % scale a 0.5 px border rounds away or blurs. The ask-about-screen panel (a transparent
+  window with no system frame) keeps a visible 1 px edge there.
+*/
+@media (max-resolution: 1.99dppx) {
+  :root[data-platform="windows"] .psy-ask-in {
+    border-width: 1px;
+  }
+}
+
+/*
+  Mica (Windows 11): the window's own backdrop shows through where macOS would use vibrancy, the
+  sidebar, over a transparent page. The canvas, cards and sheets stay opaque. Opaque again with
+  Reduce Transparency (Windows' "Transparency effects" off, which the desktop reports as
+  `data-reduce-transparency`, or the media query), the Opaque preset, Increase Contrast, and in
+  an inactive window (Windows draws inactive Mica as a flat fill anyway).
+*/
+:root[data-material="mica"]:not(
+  [data-reduce-transparency="true"],
+  [data-glass-preset="opaque"],
+  [data-contrast="high"]
+) {
+  --surface-sidebar-mica: color-mix(in oklch, var(--surface-sidebar) 35%, transparent);
+  background: transparent;
+}
+:root[data-material="mica"]:not(
+    [data-reduce-transparency="true"],
+    [data-glass-preset="opaque"],
+    [data-contrast="high"]
+  )
+  body {
+  background: transparent;
+}
+:root[data-material="mica"]:not(
+    [data-reduce-transparency="true"],
+    [data-glass-preset="opaque"],
+    [data-contrast="high"],
+    [data-window-active="false"]
+  )
+  .material-sidebar {
+  background-color: var(--surface-sidebar-mica);
+}
+@media (prefers-reduced-transparency: reduce) {
+  :root[data-material="mica"] .material-sidebar {
+    background-color: var(--surface-sidebar);
+  }
+}
+
+/*
+  High contrast (Windows contrast themes; `forced-colors: active`). The system colours replace
+  ours, and box-shadows are dropped, which is how the design draws edges and elevation, so edges
+  come back as outlines; glass becomes the system's Canvas; selection and the current page, drawn
+  only with a fill elsewhere, get a Highlight outline; focus uses Highlight.
+*/
+@media (forced-colors: active) {
+  :root {
+    --material-glass: Canvas;
+    --material-glass-refraction: Canvas;
+    --material-glass-clear: Canvas;
+    --material-blur: none;
+    --material-blur-refraction: none;
+    --material-blur-clear: none;
+  }
+  .material-glass,
+  .material-sidebar,
+  .sidebar-peek,
+  .shadow-elevation-1,
+  .shadow-elevation-2,
+  .shadow-elevation-3,
+  .elevation-1,
+  [data-slot="card"],
+  [data-slot="dialog-content"],
+  [data-slot="sheet-content"],
+  [data-slot="popover-content"],
+  [data-slot="dropdown-menu-content"],
+  [data-slot="select-content"] {
+    outline: 1px solid CanvasText;
+    outline-offset: -1px;
+  }
+  .material-sidebar {
+    outline: 0;
+    border-inline-end: 1px solid CanvasText;
+  }
+  :focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+  [aria-current="page"],
+  [aria-current="true"],
+  [aria-selected="true"],
+  [data-selected],
+  [data-highlighted] {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+  /* Icons drawn with currentColor follow the text; fills that carry meaning keep a system colour. */
+  svg.lucide {
+    forced-color-adjust: auto;
+  }
+  .material-toolbar::after {
+    display: none;
+  }
+}

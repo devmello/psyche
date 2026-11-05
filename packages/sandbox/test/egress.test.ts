@@ -415,7 +415,11 @@ describe("egress proxy (K4)", () => {
   });
 });
 
-describe("egress shim over stdio (K4)", () => {
+// These run the in-container scripts (python3, bash, setsid, ps) on the host itself: they need a
+// POSIX host. On Windows the same scripts run only inside the Linux sandbox container.
+const posixHost = process.platform !== "win32";
+
+describe.skipIf(!posixHost)("egress shim over stdio (K4)", () => {
   it("carries a CONNECT tunnel from the shim's loopback port to the proxy", async () => {
     const up = await upstream();
     const { proxy, dialed } = proxyFor(up.port, { "pypi.org": ["151.101.0.223"] });

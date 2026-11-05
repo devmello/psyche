@@ -1,4 +1,10 @@
-import { type DictationKey, VOICE_CONVERSATION_SETTING_KEYS as K } from "@psyche/protocol";
+import {
+  type DictationKey,
+  defaultHoldKeys,
+  VOICE_CONVERSATION_SETTING_KEYS as K,
+} from "@psyche/protocol";
+import { isWindows } from "../lib/platform.ts";
+import { holdKeysHere } from "./hold-keys.ts";
 
 /**
  * Settings → Voice & dictation → Talk with Psyche. Voice is speech-to-text into the pop-up chat
@@ -21,13 +27,15 @@ export const VOICE_DEFAULTS: VoiceSettings = {
   reviewBeforeSend: false,
 };
 
+/** The Mac's voice keys; Windows reads its own names too (`voice/hold-keys.ts`). */
 export const VOICE_KEYS: readonly DictationKey[] = ["fn", "rightOption", "rightCommand"];
 
 export function readVoiceSettings(values: Readonly<Record<string, unknown>>): VoiceSettings {
   const key = values[K.key];
   return {
     enabled: values[K.enabled] === true,
-    key: VOICE_KEYS.find((k) => k === key) ?? VOICE_DEFAULTS.key,
+    // Right ⌘ on a Mac; Right Alt on Windows, where dictation defaults to Right Ctrl.
+    key: holdKeysHere().find((k) => k === key) ?? defaultHoldKeys(isWindows()).voice,
     reviewBeforeSend: values[K.reviewBeforeSend] === true,
   };
 }

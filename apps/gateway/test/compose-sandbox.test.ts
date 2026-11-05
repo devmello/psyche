@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import { openDb, setSetting } from "@psyche/db";
 import type { SandboxBackend } from "@psyche/protocol";
 import {
@@ -149,6 +150,7 @@ describe("sandbox.status (for psyche security audit)", () => {
   it("reports the backend and the egress proxy", async () => {
     const part = composeSandbox(services, {
       exec: false,
+      platform: "darwin",
       runner: { cli: fakeCli(() => ({})) } as never,
     });
     (part.runner as unknown as { backends: () => Promise<string[]> }).backends = async () => [
@@ -162,6 +164,55 @@ describe("sandbox.status (for psyche security audit)", () => {
       egress: true,
     });
     await part.stop?.();
+  });
+
+  it("on Windows says srt's features use the sandbox PC, and whether it is ready", async () => {
+    const vm = {
+      settings: () => ({ enabled: true }),
+      runner: { canIsolate: () => false },
+    } as never;
+    const part = composeSandbox(services, {
+      exec: false,
+      platform: "win32",
+      vm,
+      runner: { cli: fakeCli(() => ({})) } as never,
+    });
+    const status = await part.handlers?.["sandbox.status"]?.run({} as never, {} as never);
+    expect(status).toMatchObject({ sandboxPc: { enabled: true, ready: false } });
+    await part.stop?.();
+    // The guided setup is ready on Windows once the sandbox PC is, with srt never found there.
+    const noSrt: SrtResolver = {
+      inspect: async () => ({
+        available: false,
+        path: null,
+        source: null,
+        version: null,
+        problem: "unsupported_platform",
+      }),
+      resolve: async () => ({ missing: true, reason: "unsupported_platform" }),
+    };
+    const windows: DetectDeps = {
+      platform: "win32",
+      arch: "x64",
+      env: {},
+      which: async () => null,
+      macosVersion: async () => null,
+      probe: async () => null,
+    };
+    for (const ready of [false, true]) {
+      const r = await sandboxSetupHandler(
+        async () => "none",
+        noSrt,
+        windows,
+        undefined,
+        () => ({
+          enabled: true,
+          ready,
+        }),
+      ).run();
+      expect(r).toMatchObject({ ready, sandboxPc: { enabled: true, ready } });
+      expect(r.srt.problem).toBe("unsupported_platform");
+    }
   });
 });
 
@@ -246,12 +297,16 @@ describe("srt resolution (shared by MCP servers and host exec)", () => {
     isExecutable: async (p) => executables.includes(p),
     searchDirs: () => dirs,
     version: async () => "srt 1.0.0",
+    // srt is macOS and Linux only; on Windows it is never looked for (below).
+    platform: "darwin",
   });
 
   it("finds srt on PATH or in the usual folders", async () => {
-    expect(await resolveSrt(deps(["/opt/homebrew/bin/srt"]), {})).toEqual({
+    // The candidate is joined with the platform's separator (srt itself is macOS and Linux only).
+    const found = join("/opt/homebrew/bin", "srt");
+    expect(await resolveSrt(deps([found]), {})).toEqual({
       available: true,
-      path: "/opt/homebrew/bin/srt",
+      path: found,
       source: "detected",
       version: "srt 1.0.0",
       problem: null,
@@ -260,6 +315,24 @@ describe("srt resolution (shared by MCP servers and host exec)", () => {
       available: false,
       problem: "not_found",
     });
+  });
+
+  it("never resolves on Windows, whatever PATH, the setting or PSYCHE_SRT_PATH name (no srt.cmd shim)", async () => {
+    const shim = "C:\\Users\\me\\AppData\\Roaming\\npm\\srt.cmd";
+    const d = { ...deps([shim, join("C:\\npm", "srt")], ["C:\\npm"]), platform: "win32" as const };
+    for (const inputs of [{}, { env: shim }, { setting: shim }]) {
+      expect(await resolveSrt(d, inputs)).toEqual({
+        available: false,
+        path: null,
+        source: null,
+        version: null,
+        problem: "unsupported_platform",
+      });
+    }
+    const db = openDb(":memory:");
+    setSetting(db, SRT_SETTING, shim);
+    const resolver = createSrtResolver({ db }, { PSYCHE_SRT_PATH: shim }, d);
+    expect(await resolver.resolve()).toEqual({ missing: true, reason: "unsupported_platform" });
   });
 
   it("prefers PSYCHE_SRT_PATH, then the setting, and never falls through a broken override", async () => {

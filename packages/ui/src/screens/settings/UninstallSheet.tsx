@@ -16,10 +16,12 @@ import type { UninstallPlanInfo, UninstallPort } from "./types.ts";
 
 /**
  * Settings → About → Uninstall Psyche (docs/design/updates-and-install-2026.md §3.5). One honest
- * sheet: it stops the Gateway agent and the helper, lists exactly what goes to the Trash, and
- * keeps the data in `~/.psyche` unless the owner picks "Delete my data". Deleting data also needs
- * a typed word and fresh presence (the approval banner above the section), then the same call
- * runs again with the approved card. Only the desktop shell on this Mac passes an `UninstallPort`.
+ * sheet: it stops the Gateway agent and the helper, lists exactly what goes to the Trash (the
+ * Recycle Bin on Windows, where the sandbox PC service is removed too), and keeps the data in
+ * `~/.psyche` unless the owner picks "Delete my data". Deleting data also needs a typed word and
+ * fresh presence (the approval banner above the section), then the same call runs again with the
+ * approved card. Only the desktop shell on the PC or Mac that runs the Gateway passes an
+ * `UninstallPort`.
  */
 
 const KIND_HEADINGS = {
@@ -175,6 +177,9 @@ export function UninstallSheet({
                 : t("settings.uninstall.stopAgent")}
             </li>
             <li>{t("settings.uninstall.stopHelper")}</li>
+            {plan?.stops.some((i) => i.kind === "service") ? (
+              <li>{t("settings.uninstall.stopSandboxPc")}</li>
+            ) : null}
           </ul>
           {plan?.warnings.map((w) => (
             <p key={w} role="status" className="text-callout text-approval-text">

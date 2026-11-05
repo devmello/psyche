@@ -214,7 +214,11 @@ afterEach(async () => {
   await rm(dir, { recursive: true, force: true });
 });
 
-describe("helper hub handshake", () => {
+// The hub relays a co-located Mac helper; on Windows the win-helper dials the Gateway's pipe
+// itself, and the hub refuses to start (`createHelperProvider`).
+const macHub = process.platform !== "win32";
+
+describe.skipIf(!macHub)("helper hub handshake", () => {
   it("writes the socket and secret owner-only", async () => {
     expect(hub.socketPath).toBe(join(dir, "run", "node.sock"));
     expect((await stat(hub.socketPath)).mode & 0o777).toBe(0o600);
@@ -268,7 +272,7 @@ describe("helper hub handshake", () => {
   });
 });
 
-describe("helper hub proxy", () => {
+describe.skipIf(!macHub)("helper hub proxy", () => {
   it("offers computer/apps/notify/speech and non-secret keychain calls, verbatim", async () => {
     const changed = vi.fn();
     hub.onChange?.(changed);

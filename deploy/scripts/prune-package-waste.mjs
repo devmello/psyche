@@ -43,8 +43,8 @@ const DEAD_FILE =
 const DEAD_MARKDOWN = /\.(md|markdown)$/i;
 const KEEP_LEGAL = /^(licen[cs]e|notice|copying|patents|third[-_ ]?party)/i;
 
-/** Sourcemaps, declaration files and TypeScript build info. */
-const DEAD_ANYWHERE = /\.(map|d\.ts|d\.mts|d\.cts|tsbuildinfo)$/;
+/** Sourcemaps, declaration files, TypeScript build info and Windows debug symbols (`.pdb`). */
+const DEAD_ANYWHERE = /\.(map|d\.ts|d\.mts|d\.cts|tsbuildinfo|pdb)$/;
 
 /**
  * Per package: top-level paths (relative to the package root) that the Gateway never loads.

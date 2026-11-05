@@ -1,3 +1,4 @@
+import { TOO_LONG_TEXT } from "@psyche/permissions/cards";
 import type { ApprovalRequestInput } from "@psyche/protocol";
 import { PsycheError } from "@psyche/protocol";
 import { describe, expect, it } from "vitest";
@@ -65,7 +66,7 @@ describe("review regressions", () => {
     expect(reports).toEqual([
       { surface: `telegram:${OWNER}`, delivered: false, reason: "too_long_for_chat" },
     ]);
-    expect(sentTexts(h).at(-1)).toMatch(/Open on your Mac to review/);
+    expect(sentTexts(h).at(-1)).toContain(TOO_LONG_TEXT);
     h.clock.advance(1000);
     await h.adapter.receive({
       senderId: OWNER,

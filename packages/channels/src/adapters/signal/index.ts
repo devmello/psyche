@@ -27,3 +27,11 @@ export {
   signalId,
   signalTarget,
 } from "./mapping.ts";
+export {
+  checkSignalTcpPeer,
+  isLoopbackAddress as isSignalLoopbackAddress,
+  parseSignalTcpAddress,
+  type SignalEndpoint,
+  type SignalPeerTools,
+  type SignalTcpAddress,
+} from "./tcp.ts";

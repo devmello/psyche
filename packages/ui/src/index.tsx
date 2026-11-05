@@ -246,6 +246,38 @@ export {
 export { groupFingerprint } from "./lib/fingerprint.ts";
 // Formatting helpers.
 export * from "./lib/format.ts";
+export {
+  type AltGraphEventLike,
+  chordLabel,
+  isAltGraphText,
+  type KeyChord,
+  keysLabel,
+  modKey,
+  parseChord,
+} from "./lib/keys.ts";
+// Host paths (POSIX, drive and UNC) for labels; `displayPath` comes with the Files pane.
+export {
+  isAbsolutePath,
+  joinPath,
+  type PathFlavor,
+  pathBasename,
+  pathDirname,
+  pathFlavor,
+} from "./lib/paths.ts";
+export {
+  applyPlatformAttribute,
+  isWindows,
+  normalizePlatform,
+  setUiPlatform,
+  type UiPlatform,
+  uiPlatform,
+} from "./lib/platform.ts";
+export {
+  macOnlyAvailable,
+  macOnlyLabel,
+  type PlatformTerm,
+  platformTerm,
+} from "./lib/platform-copy.ts";
 export { documentPrefersReducedMotion } from "./lib/reduced-motion.ts";
 export { cn } from "./lib/utils.ts";
 export * from "./links/index.ts";
@@ -398,6 +430,8 @@ export {
   type EditorSlotProps,
   type GatewayEntry,
   type GatewaysSlot,
+  type SandboxPcSlot,
+  type SandboxPcState,
   type UiSlots,
   UiSlotsProvider,
   usePersona,

@@ -1,4 +1,5 @@
 import type { NodeClient } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import { randomKey } from "../crypto.ts";
 import { KeychainItemStore } from "./KeychainItems.ts";
 
@@ -26,7 +27,7 @@ export class DerivedKeyStore {
     try {
       return await this.#items.unavailableReason();
     } catch (err) {
-      return err instanceof Error ? err.message : "the Mac helper is not connected";
+      return err instanceof Error ? err.message : `${hostWords().helper} is not connected`;
     }
   }
 

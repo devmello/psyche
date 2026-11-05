@@ -18,6 +18,34 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-05 (Teach by showing in a Windows app)
+
+- New `TEACH_APP_ID_PATTERN` and `isTeachAppId` (`common.ts`): an app is a macOS bundle id or, on Windows, its lowercase executable name (`notepad.exe`, `adobe premiere pro.exe`). `BrowserTeachStep.app.bundleId`'s `pattern` widens to it (additive: every earlier id still matches); `sanitizeTeachSteps` and the Gateway use `isTeachAppId`.
+- New `TEACH_NEVER_APPS_WINDOWS` (`browser-teach.ts`), and `teachAppNever` checks it too. `pnpm protocol:gen` also writes it as Rust, `apps/win-helper/src/teach/never_apps.generated.rs`. The Windows helper serves the same `teach.record.*` capabilities as the Mac helper; `recordedIn` stays `mac_app` for a Windows recording.
+
+### v1 additive — 2026-11-05 (Windows polish: hold-to-talk keys, host words)
+
+- `DictationKey` gains the Windows helper's keys at the end of the list: `rightCtrl`, `rightAlt`, `rightShift`, `rightWin`, `capsLock`, `scrollLock`, `pause`, `menu`, `insert`, `numLock`, `f13`…`f24` (`WINDOWS_DICTATION_KEYS`; the Mac's are `MAC_DICTATION_KEYS`). The mac helper refuses them (`invalid_params`); the Swift `DictationKey` gains the cases (its switches have a `default`). `fn` and `rightOption` stay Right Alt on Windows and `rightCommand` Right Ctrl (`windowsHoldKey`). `defaultHoldKeys(windows)`: fn / Right ⌘ on a Mac, Right Ctrl (dictation) / Right Alt (voice) on Windows.
+- New browser-safe subpath `@psyche/protocol/host-words`: `hostWords(helperKind?, platform?)` names the Host in owner-facing text ("this Mac" / "this PC", "Touch ID" / "Windows Hello", "System Settings" / "Settings"…).
+
+### v1 additive — 2026-11-05 (Windows: win-helper, named pipes, Windows Hello presence keys)
+
+- `DevicePlatform` gains `windows`; `NodeKind` gains `win-helper` (the Host's own Windows helper, `apps/win-helper`). Needs migration 202611050900 (the `devices.platform` and `nodes.kind` CHECKs). A `win-helper` is granted exactly like a `mac-helper`: only on the local node transport with the per-launch handshake secret, otherwise `remote`; it pairs only with the secret.
+- New `HOST_HELPER_FAMILIES`, `isHostHelperFamily(family)` and `isHostHelperKind(kind)` (`node.ts`): use them instead of comparing with `"mac-helper"`.
+- `PresenceKeyInfo` gains optional `algorithm` (`PresenceKeyAlgorithm`: `p256-ecdsa-sha256`, `rsa-2048-pkcs1-sha256`) and `kind` gains `windows_hello`. A win-helper's `presence.public_key` answers `{ publicKey, keyId, algorithm: "rsa-2048-pkcs1-sha256", kind?: "windows_hello" }` with `publicKey` the base64url SPKI DER of a Windows Hello RSA key (at least 2048 bits) and `keyId` the hex SHA-256 of those DER bytes; signatures (`notify.response` presence, `presence.confirm`) are base64url PKCS#1 v1.5 / SHA-256 over the same `psyche.presence.helper.v1|<challenge>` bytes.
+- New Node-only subpath `@psyche/protocol/platform` (not in the index, not in the schema): `usesNamedPipes`, `isNamedPipePath`, `namedPipePath(kind, home)` (`\\.\pipe\psyche-node-<16 hex of sha256(absolute PSYCHE_HOME)>`, `\\.\pipe\psyche-<16 hex of sha256(lower-case absolute PSYCHE_HOME)>-browser-bridge`, the desktop's fallback), `psycheHomeHash`, `system32`, `fsyncDirSync` (owner-only files and folders are `@psyche/hostfs`). On Windows the Gateway listens on the node pipe and writes it to `$PSYCHE_HOME/run/node-socket` as before; there is no guest socket.
+- `DictationKey` on Windows: `rightOption` is Right Alt, `rightCommand` is Right Ctrl, `fn` is refused (doc only).
+### v1 additive — 2026-11-05 (Linux desktop L0, linux design §11)
+
+- `PresenceAssertion.kind` gains `password`: created by the Gateway after polkit authorized the owner, never accepted from a client.
+- New method `approvals.approveWithPassword { approvalId, answerToken }` (`operator.approvals`, desktop shell only, same guards as `approveWithTouchId`) and `devices.presence.status` (`operator.admin`, read-only) returning `{ verifiers: PresenceVerifier[] }` (`kind`: `touch_id_key` | `passkey` | `password`; `state`: `ready`, `not_enrolled`, `unavailable`, `policy_missing`, `not_enforced`, `no_session`, `agent_missing`; optional `detail`).
+- New `ErrorCode` values `presence_unavailable_here`, `presence_agent_missing`, `presence_policy_missing`, `presence_not_enforced`.
+- New `ComputerSurface` enum (`direct`, `virtual_screen`, `separate_desktop`); the tool params that carry it stay Gateway-local.
+- `NodeKind` gains `host-helper` (with `mac-helper` kept as its alias in stored rows) and `guest`.
+- New `OsPermission` enum (`a11yBus`, `screenCastPortal`, `remoteDesktopPortal`, `x11`).
+- `vscreen.*` capability shapes in `methods/screen.ts` (`VSCREEN_CAPABILITIES`, `VscreenStatus`, `VscreenStartParams`, `VscreenStopParams`, `VscreenFrameParams`, `VscreenFrame`, `VscreenInputParams`, `VscreenAck`): helper capabilities, not Gateway methods; `nodes.invoke` reaches only `vscreen.status`. `deviceFamily: "linux-helper"` needs no schema change (`DeviceFamily` is a free string).
+- `protocolVersion` unchanged.
+
 ### v1 additive — 2026-11-05 (review of the update foundation)
 
 - `ServerBuild` gains optional `envBuild`: the build the LaunchAgent plist claims (`PSYCHE_BUILD`), reported next to `build`, which now comes from the bundle's own `build-info.json` read at start. `ConnectChallenge.server` is sent only to a direct loopback peer without an Origin (the Host's own app), not to remote, LAN or browser peers.

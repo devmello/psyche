@@ -104,7 +104,7 @@ import type { HandlerDef } from "../context.ts";
 import type { PublicRoute, WebhookRoute } from "../http.ts";
 import { createLogger } from "../log.ts";
 import { personalizeMessageEvent } from "../message-scrub.ts";
-import { openGatewayDb, purgePreUpdateSnapshots } from "../pre-update.ts";
+import { openGatewayDb, purgePreUpdateSnapshots, releaseGatewayLock } from "../pre-update.ts";
 import { taskRunTrace } from "../run-trace/tasks.ts";
 import { type Gateway, type GatewayOptions, startGateway } from "../server.ts";
 import { BusySources, UpdateGate } from "../update-gate.ts";
@@ -127,6 +127,7 @@ import {
 import { ChannelConversations } from "./channel-conversations.ts";
 import { composeComputer } from "./computer.ts";
 import { CONNECTOR_MATRIX_PREFIX } from "./connector-matrix.ts";
+import { macHelper } from "./connectors.ts";
 import { createContext } from "./context.ts";
 import { composeConversion } from "./convert.ts";
 import { composeDeviceNotifications, DeviceNotifications } from "./device-notify.ts";
@@ -137,6 +138,7 @@ import { feedContextResolver } from "./feed-context.ts";
 import { filesHandlers } from "./files.ts";
 import { migrateFilesConnector } from "./files-migration.ts";
 import { withFolder } from "./folder-access.ts";
+import { usesSandboxPc } from "./guest-sandbox.ts";
 import {
   mountParamsOnly,
   mountPermissions,
@@ -250,6 +252,7 @@ import { updateHandlers } from "./update.ts";
 import { usageSummaryHandlers } from "./usage-summary.ts";
 import { createUserProfile } from "./user-profile.ts";
 import { composeVault, maskingLogger, type VaultSetup, vaultSetupFromEnv } from "./vault.ts";
+import type { ComposedVm } from "./vm.ts";
 import { composeWebTools, type WebToolsSetup } from "./web-tools.ts";
 import { ensureWeeklyCardAutomation, withWeeklyCard } from "./weekly-card.ts";
 import { composeWidgets } from "./widgets.ts";
@@ -848,6 +851,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // host commands and every part that runs under srt share it (`services.srt`).
   const srt: SrtResolver = createSrtResolver({ db }, gwOptions.env ?? process.env);
   const execHostSrt = execHostSetup.srt ?? srt;
+  // VM mode's part, once composed: on Windows srt's features run in its guest (the sandbox PC).
+  const vmPart = () => parts.find((p): p is ComposedVm => "runner" in p && "workspaceFor" in p);
   registry.register(
     requestPermissionTool({
       broker: executorBroker,
@@ -886,7 +891,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
         const record = await connectorsPart?.registry.get(connector).catch(() => undefined);
         return record?.status === "connected";
       },
-      sandboxReady: async () => "path" in (await execHostSrt.resolve()),
+      // On Windows the sandbox is the sandbox PC: ready when its guest can run srt's features.
+      sandboxReady: async () =>
+        usesSandboxPc()
+          ? vmPart()?.runner.canIsolate() === true
+          : "path" in (await execHostSrt.resolve()),
     }),
   );
   // "Run commands on this Mac" (security §5.4): registered always, so a call while it is off is
@@ -1405,6 +1414,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     broker,
     registry,
     audit,
+    // Calendar changes from the Host's helper (`calendar.watch`) for calendar.changed automations.
+    calendarHelper: macHelper(() => gatewayRef ?? undefined),
     channelSurfaces: () =>
       relays.flatMap((r) => r.surfaces()).filter((x) => x.startsWith("imessage:")),
     learned: () => everything.learnedYesterday(),
@@ -1479,6 +1490,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   for (const tool of scriptTools({
     services,
     srt: execHostSrt,
+    // Windows: scripts run in the sandbox PC's guest instead of srt.
+    vm: () => vmPart()?.runner,
     vault: vault.vault,
     record: (change) => void changes.record(change),
     ...(execHostSetup.driver === undefined ? {} : { driver: execHostSetup.driver }),
@@ -2099,6 +2112,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       for (const p of router?.providers() ?? []) if (p instanceof CliAdapter) await p.close();
       await gateway.stop(reason);
       if (ownsDb) db.close();
+      // A stopped Gateway no longer uses the data folder. Letting go of its lock here (a real
+      // Gateway exits next, which releases it anyway) is what lets the folder be removed on
+      // Windows, where an open file pins its directory.
+      releaseGatewayLock(config.home);
     },
   };
 }

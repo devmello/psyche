@@ -1,5 +1,6 @@
 import type { ReactElement, ReactNode } from "react";
 import { t } from "../i18n/core.ts";
+import { pathBasename } from "../lib/paths.ts";
 import { registerToolView, type ToolViewProps } from "./registry.tsx";
 
 /**
@@ -137,7 +138,7 @@ function FileMatches({ result }: ToolViewProps): ReactElement {
   const rows = matches.map((m) => (
     <>
       <Cell dim>
-        {str(m.path)?.split("/").at(-1) ?? ""}:{typeof m.line === "number" ? m.line : ""}
+        {pathBasename(str(m.path) ?? "")}:{typeof m.line === "number" ? m.line : ""}
       </Cell>
       <Cell>{str(m.text)?.trim() ?? ""}</Cell>
     </>

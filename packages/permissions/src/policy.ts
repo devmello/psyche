@@ -1,3 +1,4 @@
+import { isWin32HostPath, slashHostPath } from "@psyche/hostfs";
 import {
   ApprovalKind,
   GrantScope,
@@ -207,8 +208,13 @@ function escapeRe(s: string): string {
   return s.replace(/[.+^${}()|[\]\\]/g, "\\$&");
 }
 
-/** Path globs: `**` crosses segments, `*` and `?` do not. Other globs: `*` is any run. */
+/**
+ * Path globs: `**` crosses segments, `*` and `?` do not. Other globs: `*` is any run. On Windows a
+ * path glob may be written with `\` (`C:\Users\*\Docs\**`): it is read with `/`, the form Windows
+ * paths are matched in (`targetCandidates`), so `*` never crosses a `\` either.
+ */
 export function globToRegExp(glob: string, flavor: "path" | "plain"): RegExp {
+  if (flavor === "path" && process.platform === "win32") glob = glob.replaceAll("\\", "/");
   let re = "";
   for (let i = 0; i < glob.length; i += 1) {
     const c = glob[i] ?? "";
@@ -248,7 +254,7 @@ export function parseRule(raw: string): Rule {
     return {
       raw,
       tool: globToRegExp(call[1], "plain"),
-      target: globToRegExp(arg, arg.startsWith("/") || arg.startsWith("**") ? "path" : "plain"),
+      target: globToRegExp(arg, looksLikePath(arg) ? "path" : "plain"),
     };
   }
   if (/[()\s]/.test(s))
@@ -256,7 +262,16 @@ export function parseRule(raw: string): Rule {
   return { raw, tool: globToRegExp(s, "plain") };
 }
 
-/** Strings a target rule is compared against: canonical forms only. */
+/** `/…`, `**…`, and on Windows `C:\…`, `C:/…` or `\\server\share`. */
+function looksLikePath(arg: string): boolean {
+  if (arg.startsWith("/") || arg.startsWith("**")) return true;
+  return process.platform === "win32" && (/^[A-Za-z]:[\\/]/.test(arg) || arg.startsWith("\\\\"));
+}
+
+/**
+ * Strings a target rule is compared against: canonical forms only. A Windows path is matched with
+ * `/` separators (`C:/Users/o/.ssh/id`), the form `globToRegExp` reads Windows globs in.
+ */
 export function targetCandidates(target: Target | undefined): string[] {
   if (target === undefined) return [];
   const v = target.value;
@@ -274,7 +289,8 @@ export function targetCandidates(target: Target | undefined): string[] {
       }
     case "path":
       try {
-        return [canonicalPath(v)];
+        const p = canonicalPath(v);
+        return [isWin32HostPath(p) ? slashHostPath(p) : p];
       } catch {
         return [v];
       }

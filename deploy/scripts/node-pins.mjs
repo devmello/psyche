@@ -14,7 +14,7 @@
 // re-pin with docs/archive/status/s21.md.
 import { readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ROOT = resolve(fileURLToPath(new URL(".", import.meta.url)), "../..");
 export const PIN_FILES = [
@@ -145,7 +145,7 @@ async function main(argv) {
   );
 }
 
-if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main(process.argv.slice(2)).catch((err) => {
     process.stderr.write(`node-pins: ${err.message}\n`);
     process.exit(2);

@@ -29,7 +29,8 @@ struct GatewayClientTests {
         let dir: URL
         let wiped = Flag()
 
-        init(gateway: FakeGateway = FakeGateway(), reachability: any Reachability = FakeReachability(resolvesHost: true, local: true), persist: Bool = false) {
+        init(gateway: FakeGateway = FakeGateway(), reachability: any Reachability = FakeReachability(resolvesHost: true, local: true), persist: Bool = false,
+             keptPingInterval: Duration = .seconds(180), keptPingTimeout: Duration = .seconds(10)) {
             let route = Route(gateway)
             self.route = route
             dir = FileManager.default.temporaryDirectory.appendingPathComponent("client-\(UUID().uuidString)")
@@ -43,6 +44,7 @@ struct GatewayClientTests {
                 transportFactory: { _, _ in route.gateway.makeTransport() }, reachability: reachability,
                 backoff: Backoff(base: 0.02, cap: 0.05, random: { 0 }), deviceName: "Test iPhone",
                 stateDirectory: dir, backgroundGrace: .milliseconds(80), pendingRecheck: .milliseconds(40),
+                keptPingInterval: keptPingInterval, keptPingTimeout: keptPingTimeout,
                 shareInbox: inbox, onWipe: { wiped.set() },
                 libraryCache: dir.appendingPathComponent("LibraryCache")))
         }
@@ -218,6 +220,35 @@ struct GatewayClientTests {
         await h.client.setActive(true)
         #expect(await Self.wait(h.client) { $0 == .live } == .live)
         #expect(gateway.connectCount > before)
+    }
+
+    @Test func aHeldConnectionStaysOpenInTheBackgroundAndLetsGoWhenReleased() async throws {
+        let gateway = FakeGateway()
+        let h = Harness(gateway: gateway)
+        await h.client.beginPairing(try Self.link())
+        #expect(await Self.wait(h.client) { $0 == .live } == .live)
+        await h.client.setKeepConnected(true)
+        await h.client.setActive(false)
+        try await Task.sleep(for: .milliseconds(300))
+        #expect(gateway.lastTransport?.closedByClient == false)  // the grace did not close it
+        #expect(await h.client.currentState == .live)
+        await h.client.setKeepConnected(false)
+        try await Task.sleep(for: .milliseconds(300))
+        #expect(gateway.lastTransport?.closedByClient == true)
+    }
+
+    @Test func aPingThatNeverAnswersEndsInUnreachableInsteadOfHanging() async throws {
+        let gateway = FakeGateway()
+        let h = Harness(gateway: gateway, keptPingInterval: .milliseconds(60), keptPingTimeout: .milliseconds(80))
+        await h.client.beginPairing(try Self.link())
+        #expect(await Self.wait(h.client) { $0 == .live } == .live)
+        await h.client.setActive(false)
+        await h.client.setKeepConnected(true)
+        gateway.pingHangs = true
+        gateway.down = true  // and the way back is closed too
+        let reached = await Self.wait(h.client) { if case .unreachable = $0 { true } else { false } }
+        #expect(reached != nil)
+        #expect(gateway.pingCount >= 1)
     }
 
     @Test func queuedWritesFlushInOrderOnConnectExactlyOnce() async throws {

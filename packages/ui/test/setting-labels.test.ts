@@ -4,13 +4,16 @@ import { VM_SETTING_KEYS } from "@psyche/protocol";
 import { describe, expect, it } from "vitest";
 import { SETTING_LABELS, settingLabel } from "../src/screens/settings/setting-labels.ts";
 
+/** This package's root: `vitest run` at the repository root does not change the cwd. */
+const PKG = `${import.meta.dirname}/..`;
+
 /** Every setting key the kit (and the composed app) reads or writes, found in the source. */
 function keysInSource(): Set<string> {
   const roots = [
     // Vitest runs from packages/ui.
-    join(process.cwd(), "src/screens"),
-    join(process.cwd(), "src/agent"),
-    join(process.cwd(), "../../apps/web/src/compose"),
+    join(PKG, "src/screens"),
+    join(PKG, "src/agent"),
+    join(PKG, "../../apps/web/src/compose"),
   ];
   const files: string[] = [];
   const walk = (dir: string) => {

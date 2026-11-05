@@ -211,6 +211,8 @@ struct SettingsSheet: View {
                 disabled: !settings.notifications || !settings.liveActivities, last: true)
         }
 
+        stayConnectedSection(settings)
+
         section("Approvals", footer: "Asks for Face ID before you allow a risky action from this phone.") {
             toggleRow("Face ID for approvals", isOn: binding(\.faceIDForApprovals, settings), last: true)
         }
@@ -233,6 +235,31 @@ struct SettingsSheet: View {
         }
 
         EditOnMacNote(text: "Change everything else on your Mac, in Settings.")
+    }
+
+    /// "Stay connected while a task runs" (off by default), its battery note, and what it has cost today.
+    private func stayConnectedSection(_ settings: PhoneSettings) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionHeader(String(localized: "Background", bundle: .module))
+            PaperStack {
+                Toggle(isOn: binding(\.stayConnectedWhileRunning, settings)) {
+                    Text("Stay connected while a task runs", bundle: .module)
+                }
+                .font(.psycheRow)
+                .foregroundStyle(PsycheColor.text)
+                .tint(PsycheColor.muted)
+                .disabled(!settings.notifications || !settings.liveActivities)
+                .padding(PsycheMetrics.rowPadding)
+                .accessibilityIdentifier("stayConnectedToggle")
+                HairlineDivider()
+                AwakeTodayRow(alerts: alerts, isOn: settings.stayConnectedWhileRunning)
+            }
+            Text(
+                "Keeps Psyche running in the background, with a silent audio session, only while a task you're watching runs or waits for you. It uses some battery, and stops on Low Power Mode or when the battery is below 20 percent and unplugged.",
+                bundle: .module
+            )
+            .font(.footnote).foregroundStyle(PsycheColor.muted).padding(.horizontal, 2)
+        }
     }
 
     private func section<Body: View>(
@@ -355,4 +382,34 @@ extension SettingsModel.Loaded {
             name: "Placeholder", scopes: ["Read", "Write"], gatewayHost: "placeholder.example.net",
             gatewayFingerprint: "sha256:0000 0000 0000", transport: "Tailscale"),
         settings: PhoneSettings(notifications: true, liveActivities: true, taskTitlesOnLockScreen: false, faceIDForApprovals: true))
+}
+
+
+/// "Kept awake 42 min today": read when the sheet opens and every half minute while it is open and the switch is on.
+private struct AwakeTodayRow: View {
+    let alerts: AlertCenter?
+    let isOn: Bool
+    @State private var seconds: TimeInterval = 0
+
+    var body: some View {
+        let minutes = Int(seconds / 60)
+        HStack {
+            if minutes > 0 {
+                Text("Kept awake \(minutes) min today", bundle: .module)
+            } else {
+                Text("Not kept awake today", bundle: .module)
+            }
+            Spacer(minLength: 0)
+        }
+        .font(.subheadline)
+        .foregroundStyle(PsycheColor.muted)
+        .padding(PsycheMetrics.rowPadding)
+        .accessibilityIdentifier("keptAwakeToday")
+        .task(id: isOn) {
+            while !Task.isCancelled {
+                seconds = await alerts?.awakeSecondsToday() ?? 0
+                try? await Task.sleep(for: .seconds(isOn ? 30 : 3600))
+            }
+        }
+    }
 }

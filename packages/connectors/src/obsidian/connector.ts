@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { type JsonObject, PsycheError, type ToolCallDescription } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import { canonicalJSON, sha256 } from "../framework/binding.ts";
 import type {
   CatalogueEntry,
@@ -54,8 +55,7 @@ export const OBSIDIAN_CATALOGUE: CatalogueEntry = {
   type: "obsidian",
   id: "obsidian",
   label: "Obsidian",
-  description:
-    "Search and read the notes in an Obsidian vault on your Mac, add to today's daily note, and create notes. Uses the vault folder you share in Settings → File access.",
+  description: `Search and read the notes in an Obsidian vault on ${hostWords().yourDevice}, add to today's daily note, and create notes. Uses the vault folder you share in Settings → File access.`,
   category: "first_party",
   vendor: "Obsidian",
   auth: "none",
@@ -77,6 +77,11 @@ const untrusted = (output: unknown, extra: Partial<ToolOutput> = {}): ToolOutput
   provenance: "untrusted",
   ...extra,
 });
+
+/** A note's path inside the vault as Obsidian writes it, with `/` (also on Windows). */
+function vaultPath(vault: string, file: string): string {
+  return relative(vault, file).split(sep).join("/");
+}
 
 /** A vault-relative note path, refused when it escapes the vault or is not Markdown. */
 function notePath(vault: string, rel: unknown, field = "path"): string {
@@ -264,7 +269,7 @@ class ObsidianConnector implements Connector {
             const title = basename(file, ".md");
             if (!title.toLowerCase().includes(q) && !text.toLowerCase().includes(q)) continue;
             hits.push({
-              path: relative(root, file),
+              path: vaultPath(root, file),
               title,
               modified: st.mtime.toISOString(),
               snippet: snippet(text, o.query),
@@ -286,10 +291,14 @@ class ObsidianConnector implements Connector {
           const file = notePath(root, (p as { path?: unknown }).path);
           await this.#opts.access(file, "read");
           const text = await readFile(file, "utf8").catch(() => {
-            throw new PsycheError("not_found", `${relative(root, file)} does not exist`);
+            throw new PsycheError("not_found", `${vaultPath(root, file)} does not exist`);
           });
           const truncated = text.length > 200_000;
-          return untrusted({ path: relative(root, file), text: text.slice(0, 200_000), truncated });
+          return untrusted({
+            path: vaultPath(root, file),
+            text: text.slice(0, 200_000),
+            truncated,
+          });
         },
       },
       {
@@ -315,8 +324,8 @@ class ObsidianConnector implements Connector {
             `${before}${before.endsWith("\n") || before === "" ? "" : "\n"}${o.text}\n`,
           );
           return untrusted(
-            { path: relative(root, file) },
-            { receiptSummary: `Added to ${relative(root, file)}` },
+            { path: vaultPath(root, file) },
+            { receiptSummary: `Added to ${vaultPath(root, file)}` },
           );
         },
       },
@@ -348,7 +357,7 @@ class ObsidianConnector implements Connector {
             `${before}${before.endsWith("\n") || before === "" ? "" : "\n"}${o.text}\n`,
           );
           return untrusted(
-            { path: relative(root, file), created: before === "" },
+            { path: vaultPath(root, file), created: before === "" },
             { receiptSummary: `Added to the daily note ${date}` },
           );
         },
@@ -377,10 +386,10 @@ class ObsidianConnector implements Connector {
           });
           return untrusted(
             {
-              path: relative(root, file),
+              path: vaultPath(root, file),
               sha256: createHash("sha256").update(o.content).digest("hex"),
             },
-            { receiptSummary: `Created ${relative(root, file)}` },
+            { receiptSummary: `Created ${vaultPath(root, file)}` },
           );
         },
       },

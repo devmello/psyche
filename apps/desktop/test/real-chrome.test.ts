@@ -1,12 +1,15 @@
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { realChromeOpenCommand, realChromeProfileDir } from "../src/lib/real-chrome.ts";
 
 describe("Psyche Chrome profile (I13)", () => {
   it("lives under $PSYCHE_HOME and accepts only plain profile names", () => {
     expect(realChromeProfileDir("/Users/me/.psyche")).toBe(
-      "/Users/me/.psyche/browser/real-chrome/default",
+      join("/Users/me/.psyche", "browser", "real-chrome", "default"),
     );
-    expect(realChromeProfileDir("/h", "work-2")).toBe("/h/browser/real-chrome/work-2");
+    expect(realChromeProfileDir("/h", "work-2")).toBe(
+      join("/h", "browser", "real-chrome", "work-2"),
+    );
     for (const bad of ["../x", "Default", "a/b", "", "-x"]) {
       expect(() => realChromeProfileDir("/h", bad), bad).toThrow();
     }
@@ -28,6 +31,7 @@ describe("Psyche Chrome profile (I13)", () => {
     });
     expect(mac?.args.join(" ")).not.toMatch(/remote-debugging/);
     expect(realChromeOpenCommand("linux", "/d")?.command).toBe("google-chrome");
+    // Windows needs the browser findWindowsChromium found (windows-platform.test.ts).
     expect(realChromeOpenCommand("win32", "/d")).toBeNull();
   });
 });

@@ -1,3 +1,4 @@
+import { DEVICE_ONLY_TEXT } from "@psyche/permissions/cards";
 import { type ApprovalRequestInput, PsycheError } from "@psyche/protocol";
 import { afterEach, describe, expect, it } from "vitest";
 import { type Harness, harness, OWNER, OWNER_DM, STRANGER, until } from "./helpers.ts";
@@ -115,7 +116,7 @@ describe("Discord approval buttons", () => {
     });
     expect(report?.delivered).toBe(false);
     const [card] = cards(h);
-    expect(card?.content).toBe("Pay · financial\nAnswer this on your Mac.");
+    expect(card?.content).toBe(`Pay · financial\n${DEVICE_ONLY_TEXT}`);
     expect(card?.components).toBeUndefined();
     const err = await h.adapter
       .sendApprovalButtons(OWNER, { ...issued.approval, deviceOnly: true }, "t")

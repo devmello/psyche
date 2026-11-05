@@ -39,6 +39,8 @@ final class FakeGateway: @unchecked Sendable {
     private var _transports: [FakeTransport] = []
     private var _connects = 0
     private var _dropConnections = false
+    private var _pingHangs = false
+    private var _pings = 0
     private var _certificate: PeerCertificate? = .trusted
     private var _vouch: Vouch = .valid
 
@@ -59,6 +61,11 @@ final class FakeGateway: @unchecked Sendable {
     var connectCount: Int { lock.withLock { _connects } }
     /// While true, new sockets fail at once (the Gateway is off).
     var down: Bool { get { lock.withLock { _dropConnections } } set { lock.withLock { _dropConnections = newValue } } }
+
+    /// While true, a WebSocket ping never gets an answer and ignores cancellation (a half-open socket).
+    var pingHangs: Bool { get { lock.withLock { _pingHangs } } set { lock.withLock { _pingHangs = newValue } } }
+    var pingCount: Int { lock.withLock { _pings } }
+    func notePing() { lock.withLock { _pings += 1 } }
 
     /// What every transport of this Gateway reports as the certificate it was given (nil: no TLS to report).
     var certificate: PeerCertificate? { get { lock.withLock { _certificate } } set { lock.withLock { _certificate = newValue } } }
@@ -169,6 +176,11 @@ final class FakeTransport: WebSocketTransport, @unchecked Sendable {
         guard let next = await it.next() else { throw TransportClosed() }
         lock.withLock { iterator = it }
         return next
+    }
+
+    func ping() async throws {
+        gateway.notePing()
+        if gateway.pingHangs { await withCheckedContinuation { (_: CheckedContinuation<Void, Never>) in } }
     }
 
     func close() {

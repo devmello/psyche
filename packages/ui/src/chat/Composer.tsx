@@ -32,6 +32,7 @@ import { t } from "../i18n/core.ts";
 import { cn } from "../lib/utils.ts";
 import { motionSpring, spring } from "../motion/index.ts";
 import { type ComposerVoice, ComposerVoiceButtons } from "../voice/controls.tsx";
+import { useDictationKeyLabel } from "../voice/hold-keys.ts";
 import { ArgMenu, useArgMenu } from "./ArgMenu.tsx";
 import type { ArgContext } from "./command-args.ts";
 import { COMMANDS, type CommandInfo, completion, matchCommands } from "./commands.ts";
@@ -141,6 +142,7 @@ export function Composer({
   argContext,
 }: ComposerProps): ReactElement {
   const menu = useCommandMenu();
+  const holdKey = useDictationKeyLabel();
   const argMenu = useArgMenu(argContext);
   const menuId = useId();
   const hintId = useId();
@@ -452,7 +454,7 @@ export function Composer({
                 size="icon-sm"
                 className={round}
                 onClick={onDictate}
-                aria-label={t("chat.composer.dictate")}
+                aria-label={t("chat.composer.dictate", { key: holdKey })}
                 disabled={disabled}
               >
                 <Mic aria-hidden="true" />

@@ -11,9 +11,15 @@
  * later rename in L1's interface changes one adapter, not the apply step or its tests.
  */
 
+/**
+ * Why the Gateway restarts here: "update" after an update (or a failed one, same build), and
+ * "build_mismatch" after a rollback, when the files are not the build the data was written by.
+ */
+export type RestartReason = "build_mismatch" | "update";
+
 /** The members of L1's `GatewaySupervisor` (§2.3) that updating uses. */
 export interface SupervisorForUpdate {
-  restart(reason: string): Promise<void>;
+  restart(reason: RestartReason): Promise<void>;
   stopForUpdate(): Promise<void>;
 }
 
@@ -24,7 +30,7 @@ export interface UpdateGateway {
   /** Stop the Gateway (the systemd user unit) so its files can change. */
   stop(): Promise<void>;
   /** Start it again, on the new files (or the old ones after a failed update). */
-  restart(reason: string): Promise<void>;
+  restart(reason: RestartReason): Promise<void>;
 }
 
 export function updateGateway(

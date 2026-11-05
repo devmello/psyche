@@ -1,6 +1,7 @@
 import { getNode } from "@psyche/db";
 import {
   type ErrorPayload,
+  isHostHelperKind,
   type JsonObject,
   type NodeEventParams,
   type NodeResultParams,
@@ -25,14 +26,16 @@ import { paramsHash } from "../idempotency.ts";
  * JXA, Shortcuts, open / focus), `computer.*` (sessions and per-app tiers), `messages.*`
  * (the iMessage channel's reply authority), `notify.*` (the Gateway's approval notifications),
  * `ocr.*` (search ingest's Vision OCR) and `llm.*` (the model router's Apple on-device model).
- * `teach.*` records the owner's actions in a Mac app (teach by showing, phase 2): only the desktop
- * shell reaches it, through the Gateway's own `teach.app.*` methods, so neither a client nor an
- * agent tool can start, stop or read a recording.
- * `presence.*` is the helper's Touch ID key: only the Gateway picks what it signs (a window's
- * approval, `approvals.approveWithTouchId`) and reads the key it registers.
+ * `teach.*` records the owner's actions in a desktop app (teach by showing, phase 2): only the
+ * desktop shell reaches it, through the Gateway's own `teach.app.*` methods, so neither a client
+ * nor an agent tool can start, stop or read a recording, on any node.
+ * `presence.*` is the helper's Touch ID / Windows Hello key: only the Gateway picks what it signs
+ * (a window's approval, `approvals.approveWithTouchId`) and reads the key it registers.
+ * `chrome.*` reads the owner's open browser tabs: never through `nodes.invoke` on any node (the
+ * Host helper's are already behind the allowlist below; this keeps a remote node's out too).
  */
 const UNREACHABLE =
-  /^(vault|keychain|settings|permissions|grants|approvals|devices|gateway|dictation|apps|computer|messages|notify|screen|ocr|llm|presence|teach)([^a-z0-9]|$)/;
+  /^(vault|keychain|settings|permissions|grants|approvals|devices|gateway|dictation|apps|computer|messages|notify|screen|ocr|llm|presence|teach|chrome)([^a-z0-9]|$)/;
 
 /**
  * The helper's own notification permission, which the desktop's onboarding and Settings read and
@@ -42,17 +45,34 @@ const UNREACHABLE =
 const CLIENT_REACHABLE: ReadonlySet<string> = new Set([
   "notify.authorization_status",
   "notify.request_authorization",
+  // What the OS granted the helper, and its version and signing (`psyche doctor`): read-only,
+  // never prompts.
+  "permissions.status",
 ]);
 
 /**
- * The Host's own Mac helper is reachable through `nodes.invoke` only for the capabilities in
- * `CLIENT_REACHABLE`. Everything else it offers (speech and the microphone, `vm.*`, the Apple
- * apps' data, Messages, reminders, calendar, contacts, ...) acts on the owner's Mac and has a
- * Gateway tool or method that describes it and asks; a deny list would miss whatever the helper
- * adds next, so this is an allowlist. Other nodes keep the deny list above.
+ * Read-only listings Settings shows from the Host helper: the names of the owner's Reminders lists
+ * (Outlook task lists on Windows), calendars and Notes folders for "These are mine — treat as
+ * trusted" (TrustedSourcesCard), and their Shortcuts (ConnectorSettingsCards). Names and ids
+ * only, no items, events, notes or runs; every other capability in those groups stays out.
+ */
+const SETTINGS_LISTINGS: ReadonlySet<string> = new Set([
+  "reminders.list_lists",
+  "calendar.list_calendars",
+  "notes.folders",
+  "shortcuts.list",
+]);
+
+/**
+ * The Host's own helper (Mac or Windows) is reachable through `nodes.invoke` only for the
+ * capabilities in `CLIENT_REACHABLE` and `SETTINGS_LISTINGS`. Everything else it offers (speech
+ * and the microphone, `vm.*`, the Apple apps' data, Messages, reminders, calendar, contacts, ...)
+ * acts on the owner's computer and has a Gateway tool or method that describes it and asks; a
+ * deny list would miss whatever the helper adds next, so this is an allowlist. Other nodes keep
+ * the deny list above.
  */
 export function isHostHelperCapabilityReachable(name: string): boolean {
-  return CLIENT_REACHABLE.has(name);
+  return CLIENT_REACHABLE.has(name) || SETTINGS_LISTINGS.has(name);
 }
 
 export function isUnreachableCapability(name: string): boolean {
@@ -83,12 +103,12 @@ export const nodesHandlers: Record<string, HandlerDef> = {
       const node = getNode(ctx.db, params.nodeId);
       if (!node) throw new PsycheError("not_found", `node ${params.nodeId} not found`);
       if (
-        (node.kind === "mac-helper" || ctx.nodes.isHostHelper(node.id)) &&
+        (isHostHelperKind(node.kind) || ctx.nodes.isHostHelper(node.id)) &&
         !isHostHelperCapabilityReachable(params.capability)
       ) {
         throw new PsycheError(
           "forbidden",
-          `${params.capability} is not reachable through nodes.invoke on the Host's Mac helper`,
+          `${params.capability} is not reachable through nodes.invoke on the Host's ${node.kind === "win-helper" ? "Windows" : "Mac"} helper`,
         );
       }
       if (isUnreachableCapability(params.capability)) {

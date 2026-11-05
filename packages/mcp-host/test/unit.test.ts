@@ -2,6 +2,7 @@ import { readFile, stat } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Tool } from "@modelcontextprotocol/client";
+import { isOwnerOnly } from "@psyche/hostfs";
 import { PsycheError } from "@psyche/protocol";
 import { assertNoSecrets, FakeCredentialBroker } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
@@ -189,7 +190,8 @@ describe("launchers", () => {
     expect(p.args.slice(0, 1)).toEqual(["--settings"]);
     expect(p.args.slice(2)).toEqual(["--", "npx", "-y", "some-server"]);
     const file = p.args[1] as string;
-    expect((await stat(file)).mode & 0o777).toBe(0o600);
+    if (process.platform === "win32") expect(isOwnerOnly(file)).toBe(true);
+    else expect((await stat(file)).mode & 0o777).toBe(0o600);
     const settings = JSON.parse(await readFile(file, "utf8"));
     expect(settings.filesystem.denyRead).toEqual(
       expect.arrayContaining([

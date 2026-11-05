@@ -1,6 +1,7 @@
-import { createHash } from "node:crypto";
+import { constants, createHash, createPublicKey, type KeyObject, verify } from "node:crypto";
 import { getDevice, getSetting, type PsycheDb, setSetting } from "@psyche/db";
 import { type AuditLog, PsycheError } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import type { Call, HandlerDef } from "../context.ts";
 import { requireFreshPresence } from "../presence-gate.ts";
 import { INTERNAL_SETTING_PREFIX } from "../state-version.ts";
@@ -51,7 +52,11 @@ interface RemovedKey {
  */
 export const DEV_FILE_KEY_SETTING = "devices.presence.allowDevFileKey";
 
-export type PresenceKeyKind = "keychain" | "enclave_keychain_acl" | "enclave_file";
+export type PresenceKeyKind =
+  | "keychain"
+  | "enclave_keychain_acl"
+  | "enclave_file"
+  | "windows_hello";
 
 /** `PresenceKeyInfo` in the protocol. */
 export interface PresenceKeyInfo {
@@ -59,18 +64,26 @@ export interface PresenceKeyInfo {
   keyId: string;
   registeredAt: string;
   kind?: PresenceKeyKind;
+  algorithm?: PresenceKeyAlgorithm;
 }
 
 interface StoredKey {
-  /** X9.63 uncompressed P-256 point, base64url. */
+  /** X9.63 uncompressed P-256 point, or SPKI DER of an RSA key; base64url. */
   publicKey: string;
   keyId: string;
   registeredAt: string;
   kind?: PresenceKeyKind;
+  /** Absent for keys stored before it was recorded (all P-256). */
+  algorithm?: PresenceKeyAlgorithm;
 }
 
 function kindOf(v: unknown): PresenceKeyKind | undefined {
-  return v === "keychain" || v === "enclave_keychain_acl" || v === "enclave_file" ? v : undefined;
+  return v === "keychain" ||
+    v === "enclave_keychain_acl" ||
+    v === "enclave_file" ||
+    v === "windows_hello"
+    ? v
+    : undefined;
 }
 
 export function presenceKeyId(publicKey: string): string {
@@ -110,6 +123,7 @@ export class HelperPresenceKeys {
         keyId: k.keyId,
         registeredAt: k.registeredAt,
         ...(k.kind === undefined ? {} : { kind: k.kind }),
+        ...(k.algorithm === undefined ? {} : { algorithm: k.algorithm }),
       }));
   }
 
@@ -125,12 +139,19 @@ export class HelperPresenceKeys {
     return this.#removed()[deviceId];
   }
 
-  set(deviceId: string, publicKey: string, now: Date, kind?: PresenceKeyKind): PresenceKeyInfo {
+  set(
+    deviceId: string,
+    publicKey: string,
+    now: Date,
+    kind?: PresenceKeyKind,
+    algorithm?: PresenceKeyAlgorithm,
+  ): PresenceKeyInfo {
     const stored: StoredKey = {
       publicKey,
       keyId: presenceKeyId(publicKey),
       registeredAt: now.toISOString(),
       ...(kind === undefined ? {} : { kind }),
+      ...(algorithm === undefined ? {} : { algorithm }),
     };
     setSetting(this.#db, PRESENCE_KEYS_SETTING, { ...this.#all(), [deviceId]: stored });
     const { [deviceId]: _was, ...stillRemoved } = this.#removed();
@@ -140,6 +161,7 @@ export class HelperPresenceKeys {
       keyId: stored.keyId,
       registeredAt: stored.registeredAt,
       ...(kind === undefined ? {} : { kind }),
+      ...(algorithm === undefined ? {} : { algorithm }),
     };
   }
 
@@ -165,11 +187,83 @@ export class HelperPresenceKeys {
   }
 }
 
-/** A P-256 point in X9.63 uncompressed form: 65 bytes starting with 0x04. */
-function isP256Point(b64url: string): boolean {
-  if (!/^[A-Za-z0-9_-]+$/.test(b64url)) return false;
+/**
+ * A helper presence key, parsed. Two formats, both base64url and both signing
+ * `psyche.presence.helper.v1|<challenge>` with SHA-256:
+ * - `p256-ecdsa-sha256`: the mac-helper's Secure Enclave key, an X9.63 uncompressed point (65
+ *   bytes starting with 0x04); DER-encoded ECDSA signatures.
+ * - `rsa-2048-pkcs1-sha256`: the win-helper's Windows Hello key (`KeyCredential`), SPKI DER of an
+ *   RSA key of at least 2048 bits; PKCS#1 v1.5 signatures.
+ * The format is detected from the bytes; a declared `algorithm` must agree with them.
+ */
+export interface ParsedPresenceKey {
+  algorithm: PresenceKeyAlgorithm;
+  key: KeyObject;
+}
+
+export type PresenceKeyAlgorithm = "p256-ecdsa-sha256" | "rsa-2048-pkcs1-sha256";
+
+/** The smallest RSA modulus a presence key may have. */
+export const MIN_RSA_PRESENCE_BITS = 2048;
+
+export function parsePresenceKey(b64url: string, declared?: unknown): ParsedPresenceKey | null {
+  if (!/^[A-Za-z0-9_-]+$/.test(b64url)) return null;
+  if (
+    declared !== undefined &&
+    declared !== "p256-ecdsa-sha256" &&
+    declared !== "rsa-2048-pkcs1-sha256"
+  ) {
+    return null;
+  }
   const raw = Buffer.from(b64url, "base64url");
-  return raw.length === 65 && raw[0] === 0x04;
+  if (raw.length === 65 && raw[0] === 0x04) {
+    if (declared !== undefined && declared !== "p256-ecdsa-sha256") return null;
+    try {
+      const key = createPublicKey({
+        key: {
+          kty: "EC",
+          crv: "P-256",
+          x: raw.subarray(1, 33).toString("base64url"),
+          y: raw.subarray(33).toString("base64url"),
+        },
+        format: "jwk",
+      });
+      return { algorithm: "p256-ecdsa-sha256", key };
+    } catch {
+      return null;
+    }
+  }
+  if (declared !== undefined && declared !== "rsa-2048-pkcs1-sha256") return null;
+  let key: KeyObject;
+  try {
+    key = createPublicKey({ key: raw, format: "der", type: "spki" });
+  } catch {
+    return null;
+  }
+  if (key.asymmetricKeyType !== "rsa") return null;
+  const bits = key.asymmetricKeyDetails?.modulusLength ?? 0;
+  if (bits < MIN_RSA_PRESENCE_BITS) return null;
+  // SPKI DER is canonical: bytes that parse but are not exactly the key's own encoding (trailing
+  // data, a non-minimal length) would give the same key two key ids.
+  if (!key.export({ format: "der", type: "spki" }).equals(raw)) return null;
+  return { algorithm: "rsa-2048-pkcs1-sha256", key };
+}
+
+/** Verifies a presence signature with a parsed key, by its algorithm. */
+export function verifyPresenceSignature(
+  parsed: ParsedPresenceKey,
+  message: Buffer,
+  signature: Buffer,
+): boolean {
+  if (parsed.algorithm === "p256-ecdsa-sha256") {
+    return verify("sha256", message, { key: parsed.key, dsaEncoding: "der" }, signature);
+  }
+  return verify(
+    "sha256",
+    message,
+    { key: parsed.key, padding: constants.RSA_PKCS1_PADDING },
+    signature,
+  );
 }
 
 export interface PresenceKeyDeps {
@@ -222,19 +316,29 @@ export function presenceKeyHandlers(deps: PresenceKeyDeps): Record<string, Handl
         if (typeof params.expectKeyId !== "string") {
           throw new PsycheError(
             "invalid_params",
-            "Registering a Touch ID key needs the key id the Psyche Helper shows (expectKeyId)",
+            `Registering a ${hostWords().presence} key needs the key id the Psyche Helper shows (expectKeyId)`,
           );
         }
         const nodeId = deps.helperNode(deviceId);
         if (nodeId === undefined) {
           throw new PsycheError(
             "unavailable",
-            "That Mac helper is not connected; open Psyche Helper on the Mac and try again",
+            "That helper is not connected; open Psyche Helper on that computer and try again",
           );
         }
         const res = await deps.invoke(nodeId, "presence.public_key");
-        const out = (res.result ?? {}) as { publicKey?: unknown; keyId?: unknown; kind?: unknown };
-        if (!res.ok || typeof out.publicKey !== "string" || !isP256Point(out.publicKey)) {
+        const out = (res.result ?? {}) as {
+          publicKey?: unknown;
+          keyId?: unknown;
+          kind?: unknown;
+          algorithm?: unknown;
+        };
+        // P-256 (mac-helper) or RSA >= 2048 (win-helper); a declared algorithm must match the key.
+        const parsed =
+          res.ok && typeof out.publicKey === "string"
+            ? parsePresenceKey(out.publicKey, out.algorithm)
+            : null;
+        if (!res.ok || typeof out.publicKey !== "string" || parsed === null) {
           const why = helperReason(res.error);
           throw new PsycheError(
             "unavailable",
@@ -265,7 +369,23 @@ export function presenceKeyHandlers(deps: PresenceKeyDeps): Record<string, Handl
             },
           );
         }
-        if (kind !== "keychain" && kind !== "enclave_keychain_acl" && !deps.allowDevFileKey()) {
+        // A Windows Hello key credential (TPM-backed, a Hello gesture per signature) is a
+        // production key like the Mac's keychain ones, but only as the RSA key Hello makes: a
+        // P-256 key claiming the kind is refused, and so is an RSA key claiming a Mac kind.
+        const hello = parsed.algorithm === "rsa-2048-pkcs1-sha256";
+        if ((kind === "windows_hello") !== hello) {
+          throw new PsycheError(
+            "forbidden",
+            "This helper's presence key does not match the kind it reports",
+            { details: { reason: "key_kind_mismatch" } },
+          );
+        }
+        if (
+          kind !== "keychain" &&
+          kind !== "enclave_keychain_acl" &&
+          kind !== "windows_hello" &&
+          !deps.allowDevFileKey()
+        ) {
           throw new PsycheError(
             "forbidden",
             kind === "enclave_file"
@@ -320,8 +440,12 @@ export function presenceKeyHandlers(deps: PresenceKeyDeps): Record<string, Handl
             name: "method:devices.presenceKey.register",
             summary:
               replaces === undefined
-                ? "Register the Mac helper's Touch ID key"
-                : "REPLACE the Mac helper's Touch ID key with a different one",
+                ? parsed.algorithm === "rsa-2048-pkcs1-sha256"
+                  ? "Register the Windows helper's Windows Hello key"
+                  : "Register the Mac helper's Touch ID key"
+                : parsed.algorithm === "rsa-2048-pkcs1-sha256"
+                  ? "REPLACE the Windows helper's Windows Hello key with a different one"
+                  : "REPLACE the Mac helper's Touch ID key with a different one",
             subject: {
               deviceId,
               keyId,
@@ -347,10 +471,21 @@ export function presenceKeyHandlers(deps: PresenceKeyDeps): Record<string, Handl
             "The registered Touch ID key changed while this was waiting; start again",
           );
         }
-        const presenceKey = deps.store.set(deviceId, out.publicKey, deps.now(), kind);
+        const presenceKey = deps.store.set(
+          deviceId,
+          out.publicKey,
+          deps.now(),
+          kind,
+          parsed.algorithm,
+        );
         audit(
           "presence_key.registered",
-          { deviceId, keyId, ...(kind === undefined ? {} : { kind }) },
+          {
+            deviceId,
+            keyId,
+            algorithm: parsed.algorithm,
+            ...(kind === undefined ? {} : { kind }),
+          },
           call.identity.deviceId,
         );
         if (replaces !== undefined) {
