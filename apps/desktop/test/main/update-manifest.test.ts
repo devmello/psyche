@@ -516,7 +516,7 @@ describe("per-platform manifests (Windows)", () => {
     const m = signed({
       ...base,
       platforms: {
-        "linux-x64": [{ anything: true }],
+        "freebsd-x64": [{ anything: true }],
         "win32-x64": [art, { ...art, name: "x.msix", kind: "msix" }],
       },
     })();
