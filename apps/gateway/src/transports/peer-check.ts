@@ -358,8 +358,8 @@ export interface ScanResult {
  * Every process that holds `inode` open, from the kernel's fd tables (main and per-thread), in
  * bounded batches with the deadline checked inside the loops. Entries that cannot be read are
  * skipped, except that a same-user process whose table is unreadable and that is related to the
- * holder (an ancestor, a descendant, or one sharing an ancestor other than init and the user's
- * systemd) is reported: a fork that made itself non-dumpable can keep a copy of the socket hidden
+ * holder (an ancestor, a descendant, or one sharing an ancestor of this user's that is not init or
+ * the user's systemd) is reported: a fork that made itself non-dumpable can keep a copy of the socket hidden
  * while the parent executes the real helper. Other users' processes and unrelated same-user
  * daemons (gpg-agent, Chromium's sandboxed processes) are not reported: they cannot have inherited
  * this socket from the connecting process. `strictHidden` reports every unreadable same-user
@@ -399,6 +399,10 @@ export async function scanHolders(
       const common = [...(await lineageOf(deps, pid))].filter((p) => holderLine?.has(p));
       let related = false;
       for (const p of common) {
+        // The process that connected is this user's, and so is whatever it forked: a shared
+        // ancestor owned by someone else (init, a login relay) cannot be where the socket came from.
+        const st = await statusOf(deps, p);
+        if (st === undefined || !st.uids.includes(deps.uid())) continue;
         if (!(await isManager(deps, p))) {
           related = true;
           break;

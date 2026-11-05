@@ -110,7 +110,9 @@ describe.skipIf(!enabled)("the Linux helper pairs with a real Gateway", () => {
     expect(status.helpers).toBe(1);
     // A build tree is not the packaged, root-owned helper. Run as root, the file is root-owned
     // outside /usr/lib/psyche, which cannot be vouched for.
-    expect(status.peerCheck).toBe(process.getuid?.() === 0 ? "unverified" : "user_owned");
+    expect(status).toMatchObject({
+      peerCheck: process.getuid?.() === 0 ? "unverified" : "user_owned",
+    });
   });
 
   describeHostHelperConformance(
@@ -203,7 +205,7 @@ describe.skipIf(!enabled)("the Linux helper pairs with a real Gateway", () => {
         expect(["unverified", "mismatch"]).toContain(r.check);
       });
 
-      it("a client bound to a path with a space is unverified", async () => {
+      it("a client bound to a path with a space is still identified by the kernel: not the helper", async () => {
         const dir = tmp("psyche spaced ");
         const r = await attacker(
           [
@@ -212,7 +214,22 @@ describe.skipIf(!enabled)("the Linux helper pairs with a real Gateway", () => {
             "c.connect(sys.argv[1]); time.sleep(5)",
           ].join("\n"),
         );
-        expect(r).toEqual({ check: "unverified", reason: "ss_unparsable" });
+        expect(r.check).toBe("mismatch");
+      });
+
+      it("a fork that made itself non-dumpable to hide its copy of the socket is unverified", async () => {
+        const r = await attacker(
+          [
+            "import socket,sys,time,os,ctypes",
+            "c = socket.socket(socket.AF_UNIX); c.connect(sys.argv[1])",
+            "if os.fork() == 0:",
+            "    ctypes.CDLL(None).prctl(4, 0, 0, 0, 0)",
+            "    time.sleep(5)",
+            "else:",
+            "    time.sleep(5)",
+          ].join("\n"),
+        );
+        expect(r).toEqual({ check: "unverified", reason: "hidden_holder" });
       });
 
       it("a fork (two holders of the socket) is unverified", async () => {
@@ -228,4 +245,20 @@ describe.skipIf(!enabled)("the Linux helper pairs with a real Gateway", () => {
       });
     },
   );
+
+  it("pairs when PSYCHE_HOME has a space in its path", async () => {
+    const home = tmp("psyche home ");
+    const spaced = await startTestGateway({ home, peerChecker: linuxPeerChecker() });
+    try {
+      spawnHelper({ PSYCHE_HOME: home });
+      const id = await until(
+        "the helper to pair",
+        () => spaced.gateway.context.nodes.hostHelpers()[0]?.info.id,
+      );
+      expect(spaced.gateway.context.nodes.isHostHelper(id)).toBe(true);
+      expect(spaced.gateway.config.nodeSocketPath).toContain(" ");
+    } finally {
+      await spaced.cleanup();
+    }
+  }, 30000);
 });

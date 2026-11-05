@@ -574,6 +574,14 @@ describe("what a same-user process can do through ss and the socket", () => {
       reason: "hidden_holder",
     });
   });
+  it("a hidden process that only shares a root-owned ancestor (a login relay) is not related", async () => {
+    const procs = {
+      [PID]: { ...packaged, ppid: 2 },
+      2: { ppid: 1, comm: "init", owner: 0 },
+      3000: { hidden: true, start: "10", ppid: 2, comm: "pkexec" },
+    };
+    expect((await check(system(procs))).check).toBe("root_owned");
+  });
   it("a thread's unreadable fd table counts as hidden", async () => {
     const holder: Proc = { ...packaged, ppid: 5000 };
     const hiddenThread: Proc = { start: "12", ppid: 5000, comm: "evil", fds: [], taskFds: {} };
