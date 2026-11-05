@@ -1,0 +1,6 @@
+[alias]
+xtask = "run --quiet --package xtask --"
+gen = "run --quiet --package xtask -- gen"
+gen-check = "run --quiet --package xtask -- gen-check"
+[target.aarch64-unknown-linux-gnu]
+linker = "aarch64-linux-gnu-gcc"

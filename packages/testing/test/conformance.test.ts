@@ -2,6 +2,7 @@
 import {
   describeAuditLogConformance,
   describeCredentialBrokerConformance,
+  describeHostHelperConformance,
   describeMemoryStoreConformance,
   describeModelProviderConformance,
   describeNodeClientConformance,
@@ -10,6 +11,7 @@ import {
   describeSandboxRunnerConformance,
   describeSearchIndexConformance,
   describeTaskEngineConformance,
+  LINUX_HELPER_L3_SPEC,
 } from "../src/conformance/index.ts";
 import {
   FakeAuditLog,
@@ -100,3 +102,60 @@ describeNodeClientConformance(
 describeAuditLogConformance("FakeAuditLog", ({ clock }) => new FakeAuditLog({ clock }));
 
 describeSearchIndexConformance("FakeSearchIndex", () => new FakeSearchIndex());
+
+describeHostHelperConformance(
+  "FakeNodeClient as a Linux helper",
+  () =>
+    new FakeNodeClient({ kind: "host-helper" }).handle({
+      capability: { name: "health", sideEffect: "none" },
+      handle: () => ({
+        ok: true,
+        platform: "linux",
+        version: "0.0.0",
+        build: "dev",
+        uptimeMs: 1,
+      }),
+    }),
+  {
+    ...LINUX_HELPER_L3_SPEC,
+    // The fake always offers its echo capability.
+    manifest: [...LINUX_HELPER_L3_SPEC.manifest, { name: "system.echo", sideEffect: "none" }],
+  },
+);
+
+describeHostHelperConformance(
+  "FakeNodeClient with a destructive capability",
+  () =>
+    new FakeNodeClient({ kind: "mac-helper" })
+      .handle({
+        capability: { name: "health", sideEffect: "none" },
+        handle: () => ({
+          ok: true,
+          platform: "linux",
+          version: "0.0.0",
+          build: "dev",
+          uptimeMs: 1,
+        }),
+      })
+      .handle({
+        capability: { name: "computer.delete_file", sideEffect: "destructive" },
+        handle: () => ({ deleted: true }),
+      }),
+  {
+    ...LINUX_HELPER_L3_SPEC,
+    kinds: ["mac-helper"],
+    manifest: [
+      { name: "health", sideEffect: "none" },
+      { name: "computer.delete_file", sideEffect: "destructive" },
+      { name: "system.echo", sideEffect: "none" },
+    ],
+    refusals: [
+      {
+        label: "a destructive capability without an approval id",
+        capability: "computer.delete_file",
+        params: {},
+        code: "approval_required",
+      },
+    ],
+  },
+);
