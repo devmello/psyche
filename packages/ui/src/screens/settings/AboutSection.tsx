@@ -26,7 +26,7 @@ export interface AboutPanelProps {
   onOpenLogs?: () => void;
   /** Desktop only: shows the data folder in Finder. */
   onRevealHome?: () => void;
-  /** Desktop on the Mac running the Gateway only: the Uninstall Psyche sheet. */
+  /** Desktop on the Mac or PC running the Gateway only: the Uninstall Psyche sheet. */
   uninstall?: UninstallPort;
 }
 

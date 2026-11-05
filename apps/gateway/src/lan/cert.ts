@@ -21,6 +21,7 @@ import {
 } from "node:fs";
 import { isIP } from "node:net";
 import { join } from "node:path";
+import { ensureOwnerOnly } from "@psyche/hostfs";
 import { PsycheError, parseIpv6 } from "@psyche/protocol";
 import { type DerName, derCertificate } from "./der.ts";
 
@@ -77,6 +78,13 @@ function writePrivate(path: string, content: string): void {
   }
   renameSync(tmp, path);
   chmodSync(path, 0o600);
+}
+
+/** Never a TLS key in a folder other accounts can read: refuse when it cannot be made private. */
+function privateDir(dir: string): void {
+  if (!ensureOwnerOnly(dir)) {
+    throw new PsycheError("forbidden", `${dir} could not be made private to this user`);
+  }
 }
 
 function newKeyPem(): string {
@@ -150,7 +158,8 @@ export async function ensureLanCert(
   const dir = lanTlsDir(home);
   mkdirSync(dir, { recursive: true, mode: 0o700 });
   chmodSync(join(home, "identity"), 0o700);
-  chmodSync(dir, 0o700);
+  // 0700 on POSIX; on Windows (no modes) the folder's DACL: this user and SYSTEM only.
+  privateDir(dir);
   const keyPath = join(dir, "key.pem");
   const certPath = join(dir, "cert.pem");
   let keyPem: string | undefined;
@@ -200,7 +209,7 @@ export async function rotateLanCert(
 ): Promise<LanCert> {
   const dir = lanTlsDir(home);
   mkdirSync(dir, { recursive: true, mode: 0o700 });
-  chmodSync(dir, 0o700);
+  privateDir(dir);
   const keyPem = newKeyPem();
   const certPem = issue(createPrivateKey(keyPem), names, now);
   writePrivate(join(dir, "key.pem"), keyPem);

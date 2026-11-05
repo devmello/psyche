@@ -1,5 +1,5 @@
-import { posix } from "node:path";
 import { domainToASCII } from "node:url";
+import { canonicalHostPath, HostPathError, isUnderHostPath } from "@psyche/hostfs";
 import { PsycheError } from "@psyche/protocol";
 
 /**
@@ -164,19 +164,23 @@ export function canonicalEmail(input: string): CanonicalEmail {
   };
 }
 
-/** Lexically normalized absolute POSIX path; the executor supplies the real path (realpath). */
+/**
+ * Lexically normalized absolute host path; the executor supplies the real path (realpath). POSIX
+ * paths everywhere; on Windows also drive and UNC paths, with names Win32 would rewrite (streams,
+ * trailing dots, devices, 8.3 short names) refused (`@psyche/hostfs`).
+ */
 export function canonicalPath(input: string): string {
-  if (!input.startsWith("/"))
-    throw new TargetError(`path is not absolute: ${JSON.stringify(input)}`);
-  if (input.includes("\0")) throw new TargetError("NUL in path");
-  const p = posix.normalize(input);
-  return p.length > 1 && p.endsWith("/") ? p.slice(0, -1) : p;
+  try {
+    return canonicalHostPath(input);
+  } catch (err) {
+    if (err instanceof HostPathError) throw new TargetError(err.message);
+    throw err;
+  }
 }
 
-/** `child` equals `root` or lies under it, by whole segments. */
+/** `child` equals `root` or lies under it, by whole segments (Windows paths without case). */
 export function isUnder(child: string, root: string): boolean {
-  if (root === "/") return child.startsWith("/");
-  return child === root || child.startsWith(`${root}/`);
+  return isUnderHostPath(child, root);
 }
 
 export function isDangerousLookalike(host: string): boolean {

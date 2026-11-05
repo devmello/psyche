@@ -5,6 +5,7 @@ import { useSearchSources } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
 import { formatRelative } from "../../lib/format.ts";
+import { isWindows } from "../../lib/platform.ts";
 import { bool, Group, type SettingsValues, StatusChip, SwitchField } from "./shared.tsx";
 
 /**
@@ -31,6 +32,9 @@ const HINT = {
   transcripts: "settings.searchSources.hint.transcripts",
   memory: "settings.searchSources.hint.memory",
 } as const satisfies Record<SearchSourceId, string>;
+
+/** Mac apps: a Windows Gateway does not list them, and an older one's rows are not shown. */
+const MAC_ONLY: ReadonlySet<SearchSourceId> = new Set(["notes", "messages"]);
 
 const kb = (bytes: number) =>
   bytes >= 1_000_000
@@ -155,118 +159,120 @@ export function SearchSourcesSettingsGroup({
           settingKey="search.runOnBattery"
         />
       )}
-      {(data?.sources ?? []).map((s) => {
-        const line = sourceStateText(s);
-        const rb = rebuilds[s.id];
-        const reading = rb?.phase === "watching" && s.state === "indexing";
-        const busy = rb?.phase === "calling" || reading;
-        const note = rebuildNote(s, rb);
-        return (
-          <SwitchField
-            key={s.id}
-            label={s.label}
-            description={t(HINT[s.id])}
-            checked={s.enabled}
-            // Greyed, with the reason, until it can be switched on (it can always be switched off).
-            disabled={!s.enabled && s.cannotEnable !== undefined}
-            onChange={(v) => void configure({ source: s.id, enabled: v })}
-          >
-            {!s.enabled && s.cannotEnable !== undefined ? (
-              <p role="status" className="text-caption text-label-secondary">
-                {t("settings.searchSources.cannotEnable", { why: s.cannotEnable })}
-              </p>
-            ) : null}
-            <div role="status" className="flex flex-wrap items-center gap-2 pt-1">
-              <StatusChip tone={line.tone}>{line.text}</StatusChip>
-              {s.enabled ? (
-                <span className="text-caption text-label-secondary">
-                  {s.lastIndexedAt === undefined
-                    ? t("settings.searchSources.neverIndexed")
-                    : t("settings.searchSources.lastIndexed", {
-                        when: formatRelative(new Date(s.lastIndexedAt).toISOString(), now),
-                      })}
-                  {" · "}
-                  {kb(s.textBytes)}
-                </span>
+      {(data?.sources ?? [])
+        .filter((s) => !(isWindows() && MAC_ONLY.has(s.id)))
+        .map((s) => {
+          const line = sourceStateText(s);
+          const rb = rebuilds[s.id];
+          const reading = rb?.phase === "watching" && s.state === "indexing";
+          const busy = rb?.phase === "calling" || reading;
+          const note = rebuildNote(s, rb);
+          return (
+            <SwitchField
+              key={s.id}
+              label={s.label}
+              description={t(HINT[s.id])}
+              checked={s.enabled}
+              // Greyed, with the reason, until it can be switched on (it can always be switched off).
+              disabled={!s.enabled && s.cannotEnable !== undefined}
+              onChange={(v) => void configure({ source: s.id, enabled: v })}
+            >
+              {!s.enabled && s.cannotEnable !== undefined ? (
+                <p role="status" className="text-caption text-label-secondary">
+                  {t("settings.searchSources.cannotEnable", { why: s.cannotEnable })}
+                </p>
               ) : null}
-              <Button
-                type="button"
-                variant="plain"
-                size="sm"
-                disabled={!s.enabled || busy}
-                aria-label={t("settings.searchSources.rebuildLabel", { source: s.label })}
-                {...(s.enabled
-                  ? {}
-                  : {
-                      title: t("settings.searchSources.rebuild.turnOnFirst", { source: s.label }),
-                    })}
-                onClick={() => void press(s.id)}
-              >
-                {busy
-                  ? t("settings.searchSources.rebuilding")
-                  : t("settings.searchSources.rebuild")}
-              </Button>
-            </div>
-            {note === undefined ? null : (
-              <div role="status" data-testid={`rebuild-${s.id}`} className="pt-1">
-                <StatusChip tone={note.tone}>{note.text}</StatusChip>
-              </div>
-            )}
-            {s.enabled ? (
-              <label className="flex items-center gap-2 pt-1 text-caption text-label-secondary">
-                <input
-                  type="checkbox"
-                  checked={s.agent}
-                  disabled={!s.agent && s.cannotAgent !== undefined}
-                  aria-label={t("settings.searchSources.agentLabel", { source: s.label })}
-                  onChange={(e) => void configure({ source: s.id, agent: e.target.checked })}
-                />
-                {t("settings.searchSources.agent")}
-              </label>
-            ) : null}
-            {s.enabled && !s.agent && s.cannotAgent !== undefined ? (
-              <p className="text-caption text-label-secondary">
-                {t("settings.searchSources.cannotAgent", { why: s.cannotAgent })}
-              </p>
-            ) : null}
-            {s.enabled && s.id === "files" ? (
-              <label className="flex items-start gap-2 pt-1 text-caption text-label-secondary">
-                <input
-                  type="checkbox"
-                  className="mt-0.5"
-                  checked={s.ocr}
-                  aria-label={t("settings.searchSources.ocrLabel", { source: s.label })}
-                  onChange={(e) => void configure({ source: s.id, ocr: e.target.checked })}
-                />
-                <span className="flex flex-col">
-                  {t("settings.searchSources.ocr")}
-                  <span>{t("settings.searchSources.ocrHint")}</span>
-                </span>
-              </label>
-            ) : null}
-            {s.enabled ? (
-              <label className="flex items-center gap-2 pt-1 text-caption text-label-secondary">
-                {t("settings.searchSources.processing")}
-                <select
-                  className="rounded-md border border-separator bg-transparent px-1 py-0.5"
-                  aria-label={t("settings.searchSources.processingLabel", { source: s.label })}
-                  value={s.processing}
-                  onChange={(e) =>
-                    void configure({
-                      source: s.id,
-                      processing: e.target.value as "cloud" | "local" | "none",
-                    })
-                  }
+              <div role="status" className="flex flex-wrap items-center gap-2 pt-1">
+                <StatusChip tone={line.tone}>{line.text}</StatusChip>
+                {s.enabled ? (
+                  <span className="text-caption text-label-secondary">
+                    {s.lastIndexedAt === undefined
+                      ? t("settings.searchSources.neverIndexed")
+                      : t("settings.searchSources.lastIndexed", {
+                          when: formatRelative(new Date(s.lastIndexedAt).toISOString(), now),
+                        })}
+                    {" · "}
+                    {kb(s.textBytes)}
+                  </span>
+                ) : null}
+                <Button
+                  type="button"
+                  variant="plain"
+                  size="sm"
+                  disabled={!s.enabled || busy}
+                  aria-label={t("settings.searchSources.rebuildLabel", { source: s.label })}
+                  {...(s.enabled
+                    ? {}
+                    : {
+                        title: t("settings.searchSources.rebuild.turnOnFirst", { source: s.label }),
+                      })}
+                  onClick={() => void press(s.id)}
                 >
-                  <option value="cloud">{t("settings.searchSources.processing.cloud")}</option>
-                  <option value="local">{t("settings.searchSources.processing.local")}</option>
-                  <option value="none">{t("settings.searchSources.processing.none")}</option>
-                </select>
-              </label>
-            ) : null}
-          </SwitchField>
-        );
-      })}
+                  {busy
+                    ? t("settings.searchSources.rebuilding")
+                    : t("settings.searchSources.rebuild")}
+                </Button>
+              </div>
+              {note === undefined ? null : (
+                <div role="status" data-testid={`rebuild-${s.id}`} className="pt-1">
+                  <StatusChip tone={note.tone}>{note.text}</StatusChip>
+                </div>
+              )}
+              {s.enabled ? (
+                <label className="flex items-center gap-2 pt-1 text-caption text-label-secondary">
+                  <input
+                    type="checkbox"
+                    checked={s.agent}
+                    disabled={!s.agent && s.cannotAgent !== undefined}
+                    aria-label={t("settings.searchSources.agentLabel", { source: s.label })}
+                    onChange={(e) => void configure({ source: s.id, agent: e.target.checked })}
+                  />
+                  {t("settings.searchSources.agent")}
+                </label>
+              ) : null}
+              {s.enabled && !s.agent && s.cannotAgent !== undefined ? (
+                <p className="text-caption text-label-secondary">
+                  {t("settings.searchSources.cannotAgent", { why: s.cannotAgent })}
+                </p>
+              ) : null}
+              {s.enabled && s.id === "files" ? (
+                <label className="flex items-start gap-2 pt-1 text-caption text-label-secondary">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5"
+                    checked={s.ocr}
+                    aria-label={t("settings.searchSources.ocrLabel", { source: s.label })}
+                    onChange={(e) => void configure({ source: s.id, ocr: e.target.checked })}
+                  />
+                  <span className="flex flex-col">
+                    {t("settings.searchSources.ocr")}
+                    <span>{t("settings.searchSources.ocrHint")}</span>
+                  </span>
+                </label>
+              ) : null}
+              {s.enabled ? (
+                <label className="flex items-center gap-2 pt-1 text-caption text-label-secondary">
+                  {t("settings.searchSources.processing")}
+                  <select
+                    className="rounded-md border border-separator bg-transparent px-1 py-0.5"
+                    aria-label={t("settings.searchSources.processingLabel", { source: s.label })}
+                    value={s.processing}
+                    onChange={(e) =>
+                      void configure({
+                        source: s.id,
+                        processing: e.target.value as "cloud" | "local" | "none",
+                      })
+                    }
+                  >
+                    <option value="cloud">{t("settings.searchSources.processing.cloud")}</option>
+                    <option value="local">{t("settings.searchSources.processing.local")}</option>
+                    <option value="none">{t("settings.searchSources.processing.none")}</option>
+                  </select>
+                </label>
+              ) : null}
+            </SwitchField>
+          );
+        })}
       {data !== undefined ? (
         <div className="flex flex-col gap-2 pt-2">
           <label className="flex flex-col gap-1 text-body text-label-primary">

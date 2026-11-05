@@ -35,6 +35,10 @@ const exec = (runner: ContainerSandboxRunner, id: string, env?: Record<string, s
 /** Index of the first call whose argv includes `script`. */
 const at = (d: FakeDriver, script: string) => d.calls.findIndex((c) => c.args.includes(script));
 
+// These run the in-container scripts (python3, bash, setsid, ps) on the host itself: they need a
+// POSIX host. On Windows the same scripts run only inside the Linux sandbox container.
+const posixHost = process.platform !== "win32";
+
 describe("secrets never in argv (#289)", () => {
   it("passes env only to the trampoline over stdin, never as arguments, and leaves no child behind", () => {
     const execs = EXEC_WRAPPER.split("\n").filter((l) => l.includes("/usr/bin/setsid"));
@@ -50,81 +54,87 @@ describe("secrets never in argv (#289)", () => {
     execFileSync("bash", ["-n", "-c", EXEC_WRAPPER]);
   });
 
-  it("the trampoline gives the command the value and the mark, and no process's argv holds it", async () => {
-    const value = `s3cr3t-${process.pid}-${Date.now()}`;
-    const child = spawn(
-      "python3",
-      [
-        "-I",
-        "-S",
-        "-c",
-        ENV_TRAMPOLINE,
-        "e1",
-        "/bin/sh",
-        "-c",
-        'printf "%s|%s" "$API_KEY" "$PSYCHE_EXEC_MARK"; read x || printf "|eof"; sleep 1',
-      ],
-      { stdio: ["pipe", "pipe", "inherit"] },
-    );
-    child.stdin?.end(Buffer.from(`API_KEY=${value}\0`));
-    const out: Buffer[] = [];
-    child.stdout?.on("data", (d: Buffer) => out.push(d));
-    await new Promise((r) => setTimeout(r, 400));
-    const table = execFileSync("ps", ["-axo", "args="]).toString();
-    expect(table.includes(value)).toBe(false);
-    await new Promise((r) => child.once("exit", r));
-    // The command's stdin is /dev/null, not the pipe that carried the pairs.
-    expect(Buffer.concat(out).toString()).toBe(`${value}|e1|eof`);
-  });
-
-  it("runs end to end under a strict setsid --wait: env, literal argv, hostile names, no env", () => {
-    const pairs = (o: Record<string, string>) =>
-      Buffer.from(
-        Object.entries(o)
-          .map(([k, v]) => `${k}=${v}\0`)
-          .join(""),
+  it.skipIf(!posixHost)(
+    "the trampoline gives the command the value and the mark, and no process's argv holds it",
+    async () => {
+      const value = `s3cr3t-${process.pid}-${Date.now()}`;
+      const child = spawn(
+        "python3",
+        [
+          "-I",
+          "-S",
+          "-c",
+          ENV_TRAMPOLINE,
+          "e1",
+          "/bin/sh",
+          "-c",
+          'printf "%s|%s" "$API_KEY" "$PSYCHE_EXEC_MARK"; read x || printf "|eof"; sleep 1',
+        ],
+        { stdio: ["pipe", "pipe", "inherit"] },
       );
-    const literal = runWrapper(EXEC_WRAPPER, {
-      id: "e1",
-      mode: "--env",
-      argv: ["printf", "%s|%s", "$HOME; rm -rf /", "$PSYCHE_SMOKE"],
-      stdin: pairs({ PSYCHE_SMOKE: "a b;c" }),
-    });
-    expect(literal).toEqual({ status: 0, stdout: "$HOME; rm -rf /|$PSYCHE_SMOKE", stderr: "" });
-    const env = runWrapper(EXEC_WRAPPER, {
-      id: "e2",
-      mode: "--env",
-      argv: ["/bin/sh", "-c", 'printf %s "$PSYCHE_SMOKE|$PSYCHE_EXEC_MARK"'],
-      stdin: pairs({ PSYCHE_SMOKE: "a b;c" }),
-    });
-    expect(env.stdout).toBe("a b;c|e2");
-    // Names the wrapper uses itself cannot touch it; PATH applies to the command only.
-    const hostile = runWrapper(EXEC_WRAPPER, {
-      id: "e3",
-      mode: "--env",
-      argv: ["/usr/bin/printf", "%s", "ok"],
-      stdin: pairs({
-        PSYCHE_SECRET_SMOKE: "do-not-leak",
-        secs: "86400",
-        __id: "x",
-        __mode: "--",
-        PATH: "/nowhere",
-      }),
-    });
-    expect(hostile).toEqual({ status: 0, stdout: "ok", stderr: "" });
-    expect(runWrapper(EXEC_WRAPPER, { id: "e4", mode: "--", argv: ["printf", "ok"] })).toEqual({
-      status: 0,
-      stdout: "ok",
-      stderr: "",
-    });
-    const missing = runWrapper(EXEC_WRAPPER, {
-      id: "e5",
-      mode: "--env",
-      argv: ["/nonexistent/cmd"],
-      stdin: pairs({ K: "v" }),
-    });
-    expect(missing.status).toBe(127);
-  });
+      child.stdin?.end(Buffer.from(`API_KEY=${value}\0`));
+      const out: Buffer[] = [];
+      child.stdout?.on("data", (d: Buffer) => out.push(d));
+      await new Promise((r) => setTimeout(r, 400));
+      const table = execFileSync("ps", ["-axo", "args="]).toString();
+      expect(table.includes(value)).toBe(false);
+      await new Promise((r) => child.once("exit", r));
+      // The command's stdin is /dev/null, not the pipe that carried the pairs.
+      expect(Buffer.concat(out).toString()).toBe(`${value}|e1|eof`);
+    },
+  );
+
+  it.skipIf(!posixHost)(
+    "runs end to end under a strict setsid --wait: env, literal argv, hostile names, no env",
+    () => {
+      const pairs = (o: Record<string, string>) =>
+        Buffer.from(
+          Object.entries(o)
+            .map(([k, v]) => `${k}=${v}\0`)
+            .join(""),
+        );
+      const literal = runWrapper(EXEC_WRAPPER, {
+        id: "e1",
+        mode: "--env",
+        argv: ["printf", "%s|%s", "$HOME; rm -rf /", "$PSYCHE_SMOKE"],
+        stdin: pairs({ PSYCHE_SMOKE: "a b;c" }),
+      });
+      expect(literal).toEqual({ status: 0, stdout: "$HOME; rm -rf /|$PSYCHE_SMOKE", stderr: "" });
+      const env = runWrapper(EXEC_WRAPPER, {
+        id: "e2",
+        mode: "--env",
+        argv: ["/bin/sh", "-c", 'printf %s "$PSYCHE_SMOKE|$PSYCHE_EXEC_MARK"'],
+        stdin: pairs({ PSYCHE_SMOKE: "a b;c" }),
+      });
+      expect(env.stdout).toBe("a b;c|e2");
+      // Names the wrapper uses itself cannot touch it; PATH applies to the command only.
+      const hostile = runWrapper(EXEC_WRAPPER, {
+        id: "e3",
+        mode: "--env",
+        argv: ["/usr/bin/printf", "%s", "ok"],
+        stdin: pairs({
+          PSYCHE_SECRET_SMOKE: "do-not-leak",
+          secs: "86400",
+          __id: "x",
+          __mode: "--",
+          PATH: "/nowhere",
+        }),
+      });
+      expect(hostile).toEqual({ status: 0, stdout: "ok", stderr: "" });
+      expect(runWrapper(EXEC_WRAPPER, { id: "e4", mode: "--", argv: ["printf", "ok"] })).toEqual({
+        status: 0,
+        stdout: "ok",
+        stderr: "",
+      });
+      const missing = runWrapper(EXEC_WRAPPER, {
+        id: "e5",
+        mode: "--env",
+        argv: ["/nonexistent/cmd"],
+        stdin: pairs({ K: "v" }),
+      });
+      expect(missing.status).toBe(127);
+    },
+  );
 
   it("the host CLI's argv and environment never hold the value either", async () => {
     const { driver, runner } = setup();

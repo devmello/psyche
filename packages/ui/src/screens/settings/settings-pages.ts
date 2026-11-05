@@ -264,6 +264,7 @@ export function paneForKey(key: string): SettingsPaneId | null {
     vm: "vm",
     voice: "voice",
     screenAsk: "voice",
+    quickEntry: "voice",
     mail: "mail",
     meetings: "mail",
     workflows: "mail",

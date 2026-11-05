@@ -13,7 +13,8 @@ describe("task taint sources (design-08)", () => {
       { sourceKind: "email", sender: "billing@vendor.example" },
     ];
     const clock = new FakeClock();
-    const { engine } = testEngine({ clock, db: testDb(clock, tmp.file) });
+    const db = testDb(clock, tmp.file);
+    const { engine } = testEngine({ clock, db });
     const created = await engine.create({
       threadId: THREAD,
       title: "Follow up",
@@ -27,8 +28,12 @@ describe("task taint sources (design-08)", () => {
     expect((await engine.get(created.id))?.taintSources).toEqual(sources);
 
     // A new engine over the same file: the sources are still there.
-    const reopened = new SqliteTaskEngine({ db: testDb(clock, tmp.file), clock, newId: () => "x" });
+    db.close();
+    const db2 = testDb(clock, tmp.file);
+    const reopened = new SqliteTaskEngine({ db: db2, clock, newId: () => "x" });
     expect((await reopened.get(created.id))?.taintSources).toEqual(sources);
+    // Open files cannot be removed on Windows (afterEach).
+    db2.close();
   });
 
   it("are absent on a task created in an untainted turn, and listed with the task", async () => {

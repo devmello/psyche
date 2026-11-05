@@ -1,9 +1,11 @@
+import { execFileSync } from "node:child_process";
 import { generateKeyPairSync, type KeyObject, sign } from "node:crypto";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { updateDevice } from "@psyche/db";
 import { connectSigningPayload, PROTOCOL_VERSION } from "@psyche/protocol";
+import { expect } from "vitest";
 import WebSocket from "ws";
 import { silentLogger } from "../src/log.ts";
 import { type Gateway, type GatewayOptions, startGateway } from "../src/server.ts";
@@ -158,11 +160,13 @@ export interface HandshakeOptions {
   gatewayKey?: string;
   /** A setup token from a pairing link, presented in connect.verify. */
   setupToken?: string;
+  /** The DevicePlatform the device declares (default `macos`). */
+  platform?: "macos" | "windows" | "linux" | "ios" | "android" | "web";
 }
 
 export async function handshake(client: TestClient, origin: string, opts: HandshakeOptions = {}) {
   const key = opts.key ?? newDeviceKey();
-  const platform = "macos";
+  const platform = opts.platform ?? "macos";
   const deviceFamily = opts.deviceFamily ?? "desktop";
   const challengeRes = await client.request("connect", {
     protocolVersion: { min: 1, max: PROTOCOL_VERSION },
@@ -214,12 +218,14 @@ export async function desktopClient(
   gateway: Gateway,
   key = newDeviceKey(),
   deviceId?: string,
+  platform?: HandshakeOptions["platform"],
 ): Promise<TestClient> {
   const c = await TestClient.open(wsUrlOf(gateway));
   const r = await handshake(c, gateway.origin, {
     key,
     handshakeSecret: gateway.handshakeSecret,
     ...(deviceId ? { deviceId } : {}),
+    ...(platform ? { platform } : {}),
   });
   if ((r.verifyRes?.payload as { phase?: string } | undefined)?.phase !== "paired") {
     throw new Error(`desktop did not pair: ${JSON.stringify(r.verifyRes)}`);
@@ -242,4 +248,18 @@ export async function adminClient(gateway: Gateway): Promise<TestClient> {
 /** The `connect.verify` payload of a handshake (tests assert on its fields). */
 export function verified<T>(res: { verifyRes: Json | null }): T {
   return res.verifyRes?.payload as T;
+}
+
+/**
+ * A file or folder only this user can open: the mode bits on POSIX; on Windows (every file stats
+ * 0666) its DACL, which must grant nothing to Everyone, Users or Authenticated Users.
+ */
+export function expectPrivate(path: string, mode: number): void {
+  if (process.platform !== "win32") {
+    expect(statSync(path).mode & 0o777).toBe(mode);
+    return;
+  }
+  const icacls = join(process.env.SystemRoot ?? "C:\\Windows", "System32", "icacls.exe");
+  const acl = execFileSync(icacls, [path], { encoding: "utf8" });
+  expect(acl).not.toMatch(/\b(Everyone|BUILTIN\\Users|Authenticated Users):/i);
 }

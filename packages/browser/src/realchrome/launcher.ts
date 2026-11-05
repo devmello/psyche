@@ -2,7 +2,8 @@ import { type ChildProcess, spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { chmod, mkdir, readFile, rm } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join, resolve, sep } from "node:path";
+import { join, resolve } from "node:path";
+import { canonicalHostPath, isUnderHostPath, restrictToOwner } from "@psyche/hostfs";
 import { PsycheError } from "@psyche/protocol";
 import { assertProfileName, psycheHome } from "../profiles.ts";
 
@@ -49,6 +50,12 @@ export interface RealChromeOptions {
 
 /** Google Chrome (branded: store extensions work), never Chromium or the embedded browser. */
 export function findBrandedChrome(env: NodeJS.ProcessEnv = process.env): string | undefined {
+  // Windows: the machine-wide install, then the per-user one.
+  const windows = [env.ProgramFiles, env["ProgramFiles(x86)"], env.LOCALAPPDATA].map((root) =>
+    root === undefined || root === "" || process.platform !== "win32"
+      ? undefined
+      : join(root, "Google", "Chrome", "Application", "chrome.exe"),
+  );
   const candidates = [
     env.PSYCHE_REAL_CHROME_PATH,
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
@@ -56,6 +63,7 @@ export function findBrandedChrome(env: NodeJS.ProcessEnv = process.env): string 
     "/usr/bin/google-chrome",
     "/usr/bin/google-chrome-stable",
     "/opt/google/chrome/chrome",
+    ...windows,
   ];
   return candidates.find((c) => c !== undefined && c !== "" && existsSync(c));
 }
@@ -70,6 +78,11 @@ export function ownerChromeDirs(home = homedir()): string[] {
     join(home, ".config", "google-chrome"),
     join(home, ".config", "google-chrome-beta"),
     join(home, ".config", "chromium"),
+    // Windows keeps them under %LOCALAPPDATA% (`Chrome SxS` is Canary).
+    join(home, "AppData", "Local", "Google", "Chrome", "User Data"),
+    join(home, "AppData", "Local", "Google", "Chrome Beta", "User Data"),
+    join(home, "AppData", "Local", "Google", "Chrome SxS", "User Data"),
+    join(home, "AppData", "Local", "Chromium", "User Data"),
   ];
 }
 
@@ -81,10 +94,13 @@ export function realChromeDir(profile = "default", home = psycheHome()): string 
 const FORBIDDEN_ARG =
   /^--(remote-debugging|user-data-dir|profile-directory|load-extension|disable-extensions-except|remote-allow-origins)/;
 
+/** Whole segments, without case on Windows; a path that cannot be compared counts as inside. */
 function within(child: string, parent: string): boolean {
-  const c = resolve(child);
-  const p = resolve(parent);
-  return c === p || c.startsWith(p + sep);
+  try {
+    return isUnderHostPath(canonicalHostPath(resolve(child)), canonicalHostPath(resolve(parent)));
+  } catch {
+    return true;
+  }
 }
 
 /** Parses `DevToolsActivePort`: the port, then the browser target path. */
@@ -132,8 +148,12 @@ export async function launchRealChrome(options: RealChromeOptions = {}): Promise
     }
   }
   await mkdir(userDataDir, { recursive: true, mode: 0o700 });
-  // mkdir leaves an existing directory's mode alone: sessions and cookies live here.
-  await chmod(userDataDir, 0o700);
+  // mkdir leaves an existing directory's mode alone: sessions and cookies live here. Windows has
+  // no modes: the folder's DACL is narrowed to this user instead.
+  if (process.platform !== "win32") await chmod(userDataDir, 0o700);
+  else if (!restrictToOwner(userDataDir)) {
+    throw new PsycheError("forbidden", `cannot make ${userDataDir} private to this user`);
+  }
   const portFile = join(userDataDir, "DevToolsActivePort");
   // A stale file from a crashed run would point at a dead (or someone else's) port.
   await rm(portFile, { force: true });
@@ -146,10 +166,15 @@ export async function launchRealChrome(options: RealChromeOptions = {}): Promise
     ...(options.extraArgs ?? []),
     "about:blank",
   ];
-  const child: ChildProcess = (options.spawn ?? spawn)(executable, args, {
-    stdio: "ignore",
-    detached: false,
-  });
+  let child: ChildProcess;
+  try {
+    child = (options.spawn ?? spawn)(executable, args, { stdio: "ignore", detached: false });
+  } catch (error) {
+    // Some failures (not an executable: EFTYPE, EINVAL) are thrown rather than emitted.
+    throw new PsycheError("unavailable", `Chrome could not be started (${String(error)})`, {
+      details: { reason: "spawn_failed" },
+    });
+  }
   let running = true;
   const exitListeners = new Set<() => void>();
   const exited = new Promise<void>((r) => {

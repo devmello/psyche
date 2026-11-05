@@ -1,4 +1,4 @@
-import type { BrowserTeachStep } from "@psyche/protocol";
+import { type BrowserTeachStep, isTeachAppId } from "@psyche/protocol";
 
 /**
  * IPC channel names shared by main and preload (`psyche:<area>:<verb>`) and the validators main
@@ -87,6 +87,14 @@ export const IPC = {
   helperGetState: "psyche:helper:get-state",
   helperState: "psyche:helper:state",
   helperLaunch: "psyche:helper:launch",
+  // "Turn on the sandbox PC" (Windows, Settings → Sandbox PC): state, and the elevated install +
+  // guest image download.
+  sandboxPcGetState: "psyche:sandbox-pc:get-state",
+  sandboxPcRefresh: "psyche:sandbox-pc:refresh",
+  sandboxPcTurnOn: "psyche:sandbox-pc:turn-on",
+  sandboxPcUpdateService: "psyche:sandbox-pc:update-service",
+  sandboxPcCancel: "psyche:sandbox-pc:cancel",
+  sandboxPcState: "psyche:sandbox-pc:state",
   // Touch ID from the window (security §3.7, §10): main and Settings windows only.
   touchIdIdentity: "psyche:touchid:identity",
   touchIdRegister: "psyche:touchid:register",
@@ -211,13 +219,11 @@ export function checkTeachKeep(v: unknown): {
   };
 }
 
-const BUNDLE_ID = /^[A-Za-z0-9-]+(\.[A-Za-z0-9_-]+)+$/;
-
 /** The app to record in: a bundle id, nothing else (the Gateway checks the grant list). */
 export function checkTeachApp(v: unknown): string {
   const r = rec(IPC.teachAppStart, v);
   const id = str(IPC.teachAppStart, r.bundleId, "bundleId", 200);
-  if (!BUNDLE_ID.test(id)) throw new IpcPayloadError(IPC.teachAppStart, "not an app bundle id");
+  if (!isTeachAppId(id)) throw new IpcPayloadError(IPC.teachAppStart, "not an app bundle id");
   return id;
 }
 
@@ -424,6 +430,12 @@ export const REMOTE_REFUSED_CHANNELS: ReadonlySet<string> = new Set([
   IPC.dialogPickFolder,
   IPC.permissionsRequest,
   IPC.helperLaunch,
+  // The sandbox PC is this computer's: a client of another Gateway never turns it on.
+  IPC.sandboxPcGetState,
+  IPC.sandboxPcRefresh,
+  IPC.sandboxPcTurnOn,
+  IPC.sandboxPcUpdateService,
+  IPC.sandboxPcCancel,
   IPC.touchIdIdentity,
   IPC.touchIdRegister,
   IPC.touchIdApprove,

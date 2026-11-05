@@ -76,15 +76,19 @@ const timePreset = () => {
 };
 
 describe("preset Set up", () => {
-  it("starts the Time preset's uvx under the srt launcher", async () => {
-    const owner = await setup({ uvx: true });
-    const { proposal } = await owner.call<{ proposal: { tools: { name: string }[] } }>(
-      "mcp.probe",
-      { server: timePreset() },
-      ik(),
-    );
-    expect(proposal.tools.map((t) => t.name)).toContain("echo");
-  });
+  // srt (Seatbelt / bubblewrap) has no Windows build; Windows MCP servers run without it.
+  it.skipIf(process.platform === "win32")(
+    "starts the Time preset's uvx under the srt launcher",
+    async () => {
+      const owner = await setup({ uvx: true });
+      const { proposal } = await owner.call<{ proposal: { tools: { name: string }[] } }>(
+        "mcp.probe",
+        { server: timePreset() },
+        ik(),
+      );
+      expect(proposal.tools.map((t) => t.name)).toContain("echo");
+    },
+  );
 
   it("says uv is missing, not just 'did not start'", async () => {
     const owner = await setup({ uvx: false });

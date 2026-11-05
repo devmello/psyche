@@ -118,7 +118,9 @@ describe("model-visible capture", () => {
 });
 
 describe("check:secrets repo scan", () => {
-  it("passes on this repository", () => {
+  // Reads every tracked file (~6,000): 1.7 s alone on Windows, where opening a file costs far
+  // more (real-time scanning) than on macOS; 14 s under the full parallel suite.
+  it("passes on this repository", { timeout: 60_000 }, () => {
     const root = join(import.meta.dirname, "../../..");
     expect(scanRepo(root)).toEqual([]);
   });

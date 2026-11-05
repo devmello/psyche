@@ -1,6 +1,7 @@
-import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { OWNER_DIR, OWNER_FILE, privacyOf } from "@psyche/hostfs/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { ANCHOR_KEY_FILE, SoftwareAnchorKey } from "../src/anchor-key.ts";
 import { createAuditLog } from "../src/log.ts";
@@ -63,8 +64,8 @@ describe("SoftwareAnchorKey", () => {
       signingSinceSeq: 0,
     });
     expect(key.keyId).toMatch(/^ed25519:[0-9a-f]{16}$/);
-    expect(statSync(join(home, ANCHOR_KEY_FILE)).mode & 0o777).toBe(0o600);
-    expect(statSync(join(home, "security")).mode & 0o777).toBe(0o700);
+    expect(privacyOf(join(home, ANCHOR_KEY_FILE))).toBe(OWNER_FILE);
+    expect(privacyOf(join(home, "security"))).toBe(OWNER_DIR);
     // Reopening keeps the key.
     expect(open().key.keyId).toBe(key.keyId);
   });

@@ -36,7 +36,7 @@ export interface McpSecret {
 
 export interface McpState {
   servers: readonly McpServerStatus[];
-  launcher: "srt" | "container" | "none";
+  launcher: "srt" | "container" | "vm" | "none";
   loading: boolean;
   error: string | null;
   reload: () => void;

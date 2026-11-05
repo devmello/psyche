@@ -156,6 +156,104 @@ export const VoiceMethods = {
   }),
 } as const;
 
+/** One engine in the transcription order and why it is or is not used now (`explain`). */
+export const SpeechEngineEntryStatus = Type.Object(
+  {
+    id: Type.String({ description: "mac-node (the Host's helper), whisper, web-speech" }),
+    location: SpeechEngineLocation,
+    eligible: Type.Boolean(),
+    reason: Type.Optional(StringEnum(["unknown", "unsupported", "client_only", "unavailable"])),
+  },
+  { $id: "SpeechEngineEntryStatus" },
+);
+
+/**
+ * whisper.cpp where Psyche provisions it (Windows): the pinned runtime and the dictation model,
+ * downloaded together by `speech.engine.download`.
+ */
+export const SpeechWhisperSetup = Type.Object(
+  {
+    state: StringEnum(["missing", "downloading", "ready", "error"], {
+      $id: "SpeechWhisperSetupState",
+    }),
+    model: Type.Object(
+      {
+        id: Type.String(),
+        sizeBytes: Type.Integer({ minimum: 0 }),
+        present: Type.Boolean(),
+        description: Type.Optional(Type.String()),
+      },
+      { $id: "SpeechWhisperModel" },
+    ),
+    runtime: Type.Object(
+      {
+        id: Type.String(),
+        release: Type.String({ description: "whisper.cpp release tag" }),
+        sizeBytes: Type.Integer({ minimum: 0 }),
+        present: Type.Boolean(),
+      },
+      { $id: "SpeechWhisperRuntime" },
+    ),
+    downloadBytes: Type.Integer({ minimum: 0, description: "What a download fetches now" }),
+    receivedBytes: Type.Optional(Type.Integer({ minimum: 0 })),
+    totalBytes: Type.Optional(Type.Integer({ minimum: 0 })),
+    error: Type.Optional(Type.String({ description: "The last download's failure" })),
+    server: StringEnum(["stopped", "starting", "running", "stopping"], {
+      $id: "SpeechWhisperServerState",
+    }),
+    serverError: Type.Optional(
+      Type.String({ description: "vcredist_missing, crash_loop, crashed, start_timeout, …" }),
+    ),
+  },
+  { $id: "SpeechWhisperSetup" },
+);
+export type SpeechWhisperSetup = Static<typeof SpeechWhisperSetup>;
+
+export const SpeechEngineStatus = Type.Object(
+  {
+    order: Type.Array(Type.String(), { description: "speech.stt.order in effect" }),
+    dictation: Type.Array(SpeechEngineEntryStatus, {
+      description: "Every engine in order for desktop dictation; the first eligible is used",
+    }),
+    active: Nullable(Type.String({ description: "The engine desktop dictation uses now" })),
+    whisper: Nullable(SpeechWhisperSetup),
+  },
+  { $id: "SpeechEngineStatus" },
+);
+export type SpeechEngineStatus = Static<typeof SpeechEngineStatus>;
+
+export const SpeechModelDownloadPayload = Type.Object(
+  {
+    phase: StringEnum(["started", "progress", "finished", "failed"]),
+    model: Type.String(),
+    receivedBytes: Type.Integer({ minimum: 0 }),
+    totalBytes: Type.Integer({ minimum: 0 }),
+    fraction: Type.Number({ minimum: 0, maximum: 1 }),
+    error: Type.Optional(Type.String()),
+  },
+  { $id: "SpeechModelDownloadPayload" },
+);
+
+export const SpeechEngineMethods = {
+  "speech.engine.status": defineMethod({
+    params: Type.Object({}),
+    result: SpeechEngineStatus,
+    scope: "operator.read",
+    description:
+      "Which speech-to-text engine dictation uses and why (Settings → Voice & dictation); on Windows also the on-device whisper.cpp setup and what downloading it costs.",
+  }),
+  "speech.engine.download": defineMethod({
+    params: Type.Object({}),
+    result: Type.Object({
+      started: Type.Boolean({ description: "False when a download runs or nothing is missing" }),
+    }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Side-effecting: downloads the on-device speech model and the pinned whisper.cpp runtime into $PSYCHE_HOME, each verified by SHA-256 (an explicit owner action; nothing downloads on its own). Progress arrives as speech.model_download. `unavailable` where Psyche does not provision whisper.cpp.",
+  }),
+} as const;
+
 /** Event payloads (registered in `src/events.ts`). */
 export const VoiceSegmentPayload = Type.Object({
   sessionId: SessionId,

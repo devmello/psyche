@@ -1,0 +1,6 @@
+{
+  "$comment": "The Windows Gateway task's name: <folder><prefix><user SID>, e.g. \\Psyche\\Gateway-S-1-5-21-…-1001. Task Scheduler names are machine-wide, so each Windows account that installs Psyche gets its own. One definition for packages/hostfs/src/gateway-task.ts (the desktop's supervisor and uninstall hook, the CLI) and deploy/windows/install-local.ps1, which reads this file. legacyName is the name before it was per user (\\Psyche\\Gateway), migrated when it belongs to this account.",
+  "folder": "\\Psyche\\",
+  "prefix": "Gateway-",
+  "legacyName": "Gateway"
+}

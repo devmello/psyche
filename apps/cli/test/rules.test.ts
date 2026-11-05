@@ -1,3 +1,7 @@
+import { spawnSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { PROTOCOL_VERSION } from "@psyche/protocol";
 import { describe, expect, it } from "vitest";
 import { type AuditReport, auditExitCode, auditRules, parseSeverity } from "../src/audit.ts";
@@ -8,7 +12,7 @@ import {
   firstRunChecklist,
   slotLabel,
 } from "../src/doctor.ts";
-import { appOfProgram, launchAgentProgram, type Snapshot } from "../src/snapshot.ts";
+import { appOfProgram, launchAgentProgram, type Snapshot, scanModes } from "../src/snapshot.ts";
 import { renderLaunchAgentPlist } from "../src/supervisor.ts";
 import { CLI_VERSION } from "../src/version.ts";
 
@@ -329,6 +333,24 @@ describe("doctor rules", () => {
       status: "fail",
       hint: "chmod 700 /home/me/.psyche",
     });
+  });
+
+  it("Windows: an ACL others can reach → fail with an icacls fix; owner-only → ok", () => {
+    const home = "C:\\Users\\me\\.psyche";
+    const win = (o: Partial<Snapshot>) => snap({ platform: "win32", home, ...o });
+    const shared = check(win({ homeMode: "acl" }), "modes");
+    expect(shared).toMatchObject({ status: "fail" });
+    expect(shared?.message).toContain("not owner-only");
+    expect(shared?.hint).toMatch(/^icacls "C:\\Users\\me\\.psyche" \/reset \/t/);
+    const vault = check(
+      win({ modeIssues: [{ path: "vault/vault.db", mode: "acl", kind: "file" }] }),
+      "modes",
+    );
+    expect(vault).toMatchObject({ status: "fail" });
+    expect(vault?.message).toContain("vault/vault.db (acl)");
+    expect(vault?.hint).toContain("icacls");
+    expect(check(win({}), "modes")).toMatchObject({ status: "ok" });
+    expect(check(win({ homeMode: null }), "modes")).toMatchObject({ status: "skip" });
   });
 
   it("sensitive file 644 → fail; other paths → warn", () => {
@@ -810,6 +832,13 @@ describe("audit rules", () => {
     ]);
   });
 
+  it("files.home_mode on Windows names the ACL and an icacls fix", () => {
+    const s = snap({ platform: "win32", home: "C:\\Users\\me\\.psyche", homeMode: "acl" });
+    const [f] = finding(s, "files.home_mode") as { message: string; fix: string }[];
+    expect(f?.message).toContain("not owner-only");
+    expect(f?.fix).toContain("icacls");
+  });
+
   it("files.sensitive_modes and files.modes", () => {
     const sensitive = snap({
       modeIssues: [
@@ -1142,3 +1171,129 @@ describe("audit completeness (M3: docs/05 §10 and the S05 review)", () => {
     ]);
   });
 });
+
+describe("doctor: the Windows helper", () => {
+  const winHelper = (status: string) => ({
+    ok: true as const,
+    value: [{ id: "n1", kind: "win-helper", status, capabilities: [{ name: "computer.click" }] }],
+  });
+  const perms = (value: Record<string, unknown>) => ({ ok: true as const, value: value as never });
+
+  it("reports it paired, online and its version; offline or missing warns", () => {
+    const online = check(
+      snap({
+        platform: "win32",
+        nodes: winHelper("online"),
+        helperPermissions: perms({ permissions: [], next: null, bundle: { version: "0.3.0" } }),
+      }),
+      "helper",
+    );
+    expect(online).toMatchObject({ status: "ok" });
+    expect(online?.message).toBe("Windows helper 0.3.0 paired and online with 1 capabilities");
+    const offline = check(snap({ platform: "win32", nodes: winHelper("offline") }), "helper");
+    expect(offline).toMatchObject({
+      status: "warn",
+      message: "Windows helper is paired but offline",
+    });
+    const missing = check(snap({ platform: "win32", nodes: { ok: true, value: [] } }), "helper");
+    expect(missing?.status).toBe("warn");
+    expect(missing?.message).toContain("Windows Hello");
+    expect(missing?.hint).toContain("Settings › Devices");
+    // A mac-helper node on a Windows host is not the Host's helper.
+    const mac = {
+      ok: true as const,
+      value: [{ id: "n2", kind: "mac-helper", status: "online", capabilities: [] }],
+    };
+    expect(check(snap({ platform: "win32", nodes: mac }), "helper")?.status).toBe("warn");
+    expect(check(snap({ platform: "win32", nodes: unavailable }), "helper")?.status).toBe("skip");
+  });
+
+  it("names a permission Windows turned off, with its ms-settings page", () => {
+    const c = check(
+      snap({
+        platform: "win32",
+        nodes: winHelper("online"),
+        helperPermissions: perms({
+          permissions: [
+            { permission: "accessibility", status: "granted" },
+            {
+              permission: "microphone",
+              status: "denied",
+              title: "Microphone",
+              settingsURL: "ms-settings:privacy-microphone",
+            },
+          ],
+          next: null,
+          bundle: { signing: "authenticode", insideApp: true },
+        }),
+      }),
+      "permissions",
+    );
+    expect(c).toMatchObject({ status: "warn" });
+    expect(c?.message).toContain("Microphone");
+    expect(c?.hint).toContain("ms-settings:privacy-microphone");
+    const ok = snap({
+      platform: "win32",
+      nodes: winHelper("online"),
+      helperPermissions: perms({
+        permissions: [{ permission: "notifications", status: "granted" }],
+        next: null,
+        bundle: { signing: "authenticode", insideApp: true },
+      }),
+    });
+    expect(check(ok, "permissions")).toMatchObject({
+      status: "ok",
+      message: "granted: notifications",
+    });
+    expect(check(ok, "helper.signing")).toBeUndefined();
+  });
+
+  it("warns on an unsigned helper and on one outside the install; unknown is a skip", () => {
+    const s = snap({
+      platform: "win32",
+      app: "C:\\Users\\me\\AppData\\Local\\Psyche\\Psyche.exe",
+      nodes: winHelper("online"),
+      helperPermissions: perms({
+        permissions: [],
+        next: null,
+        bundle: { signing: "unsigned", insideApp: false, path: "D:\\dev\\psyche-helper.exe" },
+      }),
+    });
+    expect(check(s, "helper.signing")).toMatchObject({ status: "warn" });
+    expect(check(s, "helper.location")?.message).toContain("D:\\dev\\psyche-helper.exe");
+    const unknown = snap({
+      platform: "win32",
+      nodes: winHelper("online"),
+      helperPermissions: unavailable,
+    });
+    expect(check(unknown, "permissions")?.status).toBe("skip");
+  });
+});
+describe.runIf(process.platform === "win32")(
+  "scanModes on Windows (DACLs, not made-up modes)",
+  () => {
+    it("passes an owner-only home and names the entries other accounts can reach", () => {
+      const home = mkdtempSync(join(tmpdir(), "psy-acl-"));
+      try {
+        mkdirSync(join(home, "vault"));
+        writeFileSync(join(home, "vault", "vault.db"), "x");
+        mkdirSync(join(home, "browser", "profile"), { recursive: true });
+        writeFileSync(join(home, "browser", "profile", "Cookies"), "x");
+        // A temp folder inherits the profile's DACL (you, SYSTEM, Administrators): owner-only.
+        expect(scanModes(home)).toEqual({ homeMode: "700", issues: [] });
+        const everyone = (p: string) =>
+          expect(spawnSync("icacls", [p, "/grant", "*S-1-1-0:(R)", "/q"]).status).toBe(0);
+        everyone(join(home, "vault", "vault.db"));
+        everyone(join(home, "browser", "profile", "Cookies"));
+        // Browser profiles are their subsystem's and not walked, as on POSIX.
+        expect(scanModes(home).issues).toEqual([
+          { path: "vault/vault.db", mode: "acl", kind: "file" },
+        ]);
+        everyone(home);
+        expect(scanModes(home).homeMode).toBe("acl");
+      } finally {
+        rmSync(home, { recursive: true, force: true });
+      }
+    });
+  },
+);

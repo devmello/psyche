@@ -10,12 +10,14 @@ import {
   SCREEN_CAPTURE_TTL_MS,
   type ScreenCapture,
   type ScreenCaptureMode,
+  type ScreenCaptureParams,
   type ScreenContext,
   type ScreenContextParams,
   type ScreenContextResult,
   type TaintSource,
   type ToolRegistration,
 } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import { Type } from "@sinclair/typebox";
 import type { Call, HandlerDef, ResolvedScreen } from "../context.ts";
 import { expireScreenFrames, removeScreenFrame, SCREEN_TAG } from "../retention.ts";
@@ -61,10 +63,14 @@ interface Held {
 function unwrap(r: NodeInvokeResult): unknown {
   if (r.ok) return r.result;
   const e = r.error;
-  throw new PsycheError((e?.code as never) ?? "internal", e?.message ?? "the Mac helper failed", {
-    details: (e?.details ?? {}) as Record<string, unknown>,
-    ...(e?.retryable === true ? { retryable: true } : {}),
-  });
+  throw new PsycheError(
+    (e?.code as never) ?? "internal",
+    e?.message ?? `${hostWords().helper} failed`,
+    {
+      details: (e?.details ?? {}) as Record<string, unknown>,
+      ...(e?.retryable === true ? { retryable: true } : {}),
+    },
+  );
 }
 
 /** Strips anything that could close the context block early, and control characters. */
@@ -114,6 +120,44 @@ export function screenTaint(context: ScreenContext | null): TaintSource {
  * today, another platform's capture tomorrow. Returns the frame (base64 JPEG) and the text
  * context; throws `unavailable` when nothing can capture here.
  */
+/** The largest desktop frame taken (base64 characters): a 2560-px JPEG fits well inside. */
+export const MAX_DESKTOP_FRAME_CHARS = 12 * 1024 * 1024;
+
+/**
+ * A frame the desktop captured itself, checked before it is stored: a base64 JPEG (or none, with
+ * a refusal), bounded in size, with only the fields a capture has. Its text context is whatever
+ * the desktop could see (the window title at most) and is as untrusted as any capture.
+ */
+export function desktopFrame(frame: ScreenContextResult): ScreenContextResult {
+  const image = frame.image ?? null;
+  if (image !== null) {
+    if (image.length > MAX_DESKTOP_FRAME_CHARS || !/^[A-Za-z0-9+/]+={0,2}$/.test(image)) {
+      throw new PsycheError("invalid_params", "frame.image must be a base64 JPEG");
+    }
+    const head = Buffer.from(image.slice(0, 8), "base64");
+    if (head[0] !== 0xff || head[1] !== 0xd8) {
+      throw new PsycheError("invalid_params", "frame.image must be a JPEG");
+    }
+  }
+  const c = frame.context ?? null;
+  return {
+    image,
+    width: frame.width,
+    height: frame.height,
+    context:
+      c === null
+        ? null
+        : {
+            appName: c.appName.slice(0, 200),
+            bundleId: c.bundleId?.slice(0, 200) ?? null,
+            windowTitle: c.windowTitle?.slice(0, 500) ?? null,
+            selectedText: null,
+            url: null,
+          },
+    ...(frame.refusal === undefined ? {} : { refusal: frame.refusal }),
+  };
+}
+
 export interface ScreenCapturer {
   capture(params: ScreenContextParams): Promise<ScreenContextResult>;
 }
@@ -124,7 +168,7 @@ export function helperScreenCapturer(gateway: () => Gateway | null): ScreenCaptu
     async capture(params) {
       const node = dictationNode(gateway, "screen.context");
       if (!node) {
-        throw new PsycheError("unavailable", "the Psyche helper is not running on this Mac", {
+        throw new PsycheError("unavailable", "the Psyche helper is not running on this computer", {
           retryable: true,
         });
       }
@@ -176,9 +220,15 @@ export function composeScreenAsk(opts: ScreenAskOptions = {}) {
 
     const handlers: Record<string, HandlerDef> = {
       "screen.capture": {
-        async run(call: Call, params: ScreenContextParams): Promise<ScreenCapture> {
+        async run(call: Call, input: ScreenCaptureParams): Promise<ScreenCapture> {
           requireDesktop(call);
-          const r = await capturer.capture(params);
+          const { frame, ...params } = input;
+          // The desktop's own capture is the fallback for a Host with no helper capture (Windows
+          // without the helper); with one, the helper's capture is used and the frame ignored.
+          const r =
+            frame !== undefined && dictationNode(() => gateway, "screen.context") === undefined
+              ? desktopFrame(frame)
+              : await capturer.capture(params);
           const id = db.newId();
           let libraryItemId: string | null = null;
           let path: string | null = null;

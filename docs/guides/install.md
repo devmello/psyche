@@ -3,18 +3,20 @@
 Psyche has three parts:
 
 - **The Gateway** (`psyched`): the always-on process that runs your agent. It listens only on `127.0.0.1:7979` and keeps its data in `$PSYCHE_HOME` (default `~/.psyche`, mode 0700).
-- **The desktop app** (`Psyche.app`, macOS only): installs and supervises the Gateway on your Mac.
-- **The CLI** (`psyche`): setup, status, pairing, backups and upgrades, on macOS and Linux.
+- **The desktop app** (`Psyche.app` on macOS, `Psyche.exe` on Windows): installs and supervises the Gateway on your computer.
+- **The CLI** (`psyche`): setup, status, pairing, backups and upgrades, on macOS, Windows and Linux.
 
 Pick one setup:
 
 - [On your Mac](#on-your-mac): the desktop app runs the Gateway locally.
+- [On Windows](#on-windows): the same, for Windows 10 and 11 on x64.
 - [On a Linux server with Docker Compose](#on-a-linux-server-with-docker-compose): recommended for servers.
 - [On a Linux host without Docker](#on-a-linux-host-without-docker): a systemd user service.
 
 ## Requirements
 
 - **Mac:** macOS 15 Sequoia or later, Apple silicon or Intel. Some features need newer macOS: on macOS 15 the command sandbox needs Colima or Docker Desktop; macOS 26 and later can use Apple's `container` instead.
+- **Windows:** Windows 10 (1903 or later) or Windows 11, x64. No administrator rights: Psyche installs for your user only.
 - **Linux server:** Docker with Compose. There is no other OS requirement.
 
 ## On your Mac
@@ -200,6 +202,94 @@ The vault and helper also keep items in your Keychain (`com.psyche.vault`, `com.
 
 **Building from source.** `pnpm app:install` (from a checkout) keeps your data by default. `pnpm app:install --reset` is the explicit wipe: it prints everything it will delete and asks you to type `RESET`. It uses the data folder from the installed LaunchAgent (warning if `PSYCHE_HOME` differs), refuses anything that is not a Psyche folder strictly inside your home folder, and refuses `--yes` unless the folder is the default `~/.psyche`. A path it cannot remove is reported at the end; the rest still goes.
 
+## On Windows
+
+### 1. Install the desktop app
+
+There is no signed Windows release yet: build the installer from a source checkout (see [getting-started.md](getting-started.md#on-windows) for the tools), then run it:
+
+```powershell
+pnpm app:build
+```
+
+```powershell
+pnpm app:install
+```
+
+`pnpm app:build` writes `dist\Psyche-<version>-Setup.exe` (and a portable `dist\Psyche-<version>-win32-x64.zip`). `pnpm app:install` runs the installer silently. Like the Mac script, it **keeps your data** by default: it quits Psyche, ends the Gateway task so nothing runs from the old install, installs, and opens the new build, which registers the task again. `--keep-data` is accepted and does nothing.
+
+`pnpm app:install --reset` is the explicit wipe, for a from-scratch first run. It prints everything it will delete (permanently, not to the Recycle Bin) and asks you to type `RESET`:
+
+```powershell
+pnpm app:install --reset
+```
+
+- It deletes the data folder (`%USERPROFILE%\.psyche`), `%APPDATA%\Psyche`, the helper's and Gateway's folders (`%APPDATA%\com.psyche.helper`, `%LOCALAPPDATA%\com.psyche.helper`, `%LOCALAPPDATA%\Psyche Helper`, `%LOCALAPPDATA%\com.psyche.gateway`), the sandbox PC's guest image (`%LOCALAPPDATA%\Psyche\vm-images`), the Gateway scheduled task and the Credential Manager items whose name starts with `Psyche/`. It lists only what exists.
+- It uses the data folder from the installed Gateway task (warning if `PSYCHE_HOME` differs), refuses anything that is not a Psyche folder strictly inside your user folder (never the user folder, a drive, a network share, `Documents`, `Desktop`, `Downloads`, `AppData`, `OneDrive` and the like, or a path that goes through a link), and refuses `--yes` unless the folder is the default `%USERPROFILE%\.psyche`.
+- Without a terminal it refuses unless you pass `--yes`, which skips the question. A path it cannot remove is reported at the end; the rest still goes.
+- It does not remove the sandbox PC service, which needs an administrator; see [Uninstall on Windows](#uninstall-on-windows).
+
+You can also double-click `Psyche-<version>-Setup.exe`. It installs Psyche for your Windows user into `%LOCALAPPDATA%\Psyche` without asking for administrator rights, adds Psyche to the Start menu and the desktop, and opens it. The app carries the Gateway (`psyched`, with its own Node runtime), the `psyche` CLI and Psyche Helper; nothing else needs to be installed.
+
+**Unsigned builds.** A build without the project's code-signing certificate is unsigned. When you open its installer, Microsoft Defender SmartScreen says "Windows protected your PC". Click **More info**, then **Run anyway**. Signed releases do not show this once the certificate has built up reputation.
+
+### 2. Open Psyche
+
+Open Psyche from the Start menu. The Gateway runs as a scheduled task for your user, `\Psyche\Gateway-<your SID>` (for example `\Psyche\Gateway-S-1-5-21-…-1001`; each Windows account that installs Psyche has its own), started when you sign in to Windows; it keeps running when you close the window. An install of an earlier version used `\Psyche\Gateway` for everyone; the app replaces that task with yours the first time it starts, when the old one is yours. Its logs are in `%USERPROFILE%\.psyche\logs\` (`gateway.out.log`, `gateway.err.log`). Task Scheduler shows the task under **Task Scheduler Library › Psyche**.
+
+To start it from the CLI instead, point `psyche start` at the `psyched.cmd` inside the install (the CLI also finds it on its own):
+
+```powershell
+psyche start --psyched "$env:LOCALAPPDATA\Psyche\app-<version>\resources\psyched\psyched.cmd"
+```
+
+`psyche stop`, `psyche restart` and `psyche status` work on the task the same way.
+
+### 3. Updates and uninstalling
+
+Psyche checks for updates when it starts, verifies them against the signed update manifest and installs them in the background; the new version opens the next time you start Psyche. Updates are off in builds without a signature or a release key.
+
+To uninstall, see [Uninstall on Windows](#uninstall-on-windows).
+
+## Uninstall on Windows
+
+**From the app (recommended).** Open Settings › About › **Uninstall Psyche…**. The sheet lists exactly what will go before you confirm:
+
+- It stops and deletes your Gateway scheduled task (`\Psyche\Gateway-<your SID>`, and this account's `\Psyche\Gateway` of an earlier version), stops Psyche Helper, turns off "Open at login" and removes the `psyche://` and `psyche-pair:` link handlers and the helper's notification keys.
+- It moves the app's files outside the install folder to the Recycle Bin: `%APPDATA%\Psyche` (settings, web storage, caches, logs), the helper's and Gateway's folders and the sandbox PC's guest image. Chromium keeps `%APPDATA%\Psyche` open while Psyche runs, so that folder is moved right after Psyche quits.
+- It removes the app with Squirrel's own uninstaller (`Update.exe --uninstall`, the same as Settings › Apps), then quits. That removes `%LOCALAPPDATA%\Psyche`, the shortcuts and the Programs and Features entry; it does not use the Recycle Bin, and installing Psyche again brings the app back.
+- **Keep my data** is the default: `%USERPROFILE%\.psyche` (chats, memory, vault, backups) stays where it is, so installing Psyche again picks up where you left off.
+- **Delete my data** also moves the data folder to the Recycle Bin. Because it cannot be undone once the bin is emptied, it asks you to type `DELETE` and to confirm with Windows Hello (or the approval card on this PC), and the card names the exact folder. Back up first with `psyche backup create` if you want a copy. Psyche refuses a folder that is not clearly its own: it must be inside your user folder (never the user folder itself, `Documents`, `Desktop`, `Downloads`, `AppData`, `OneDrive`, a drive or a network share) and hold Psyche's database or `config.json`. If your data lives somewhere else, move it to the Recycle Bin from File Explorer.
+- **Credential Manager items stay** unless you tick "Also remove my Credential Manager items", which removes exactly the generic credentials whose name starts with `Psyche/` (the vault key and the helper's items, including their `#2`, `#3` parts), listed one by one. Without your data they are useless; you can also remove them in Credential Manager (Control Panel › Credential Manager › Windows Credentials).
+- **The sandbox PC service** (`PsycheVM-<your SID>`), when you set the sandbox PC up, is registered with Windows and removing it needs an administrator: Windows shows one prompt. If you dismiss it or your account cannot elevate, Psyche carries on and shows these steps (also saved to `%TEMP%\Psyche-remove-sandbox-pc.txt`); open Windows Terminal as an administrator and run `sc.exe stop PsycheVM-<your SID>` then `sc.exe delete PsycheVM-<your SID>`.
+- If the Gateway task runs another copy of Psyche or the `psyche` CLI (its runtime is not inside this install folder), it is left alone and the sheet says so.
+- Before it stops anything, Psyche checks that every item can be moved to the Recycle Bin (a read-only folder or a network location is refused with the manual step), shows a confirmation dialog, and stops the updater so nothing can reinstall the app. If the Gateway will not stop or a step fails, Psyche stays open, starts the Gateway again and lists what to finish by hand.
+
+Nothing is deleted outright except the app itself: your files go to the Recycle Bin, so you can put them back until you empty it. The sheet is only offered by a packaged, Squirrel-installed Psyche that runs its own Gateway task on this PC, never from a window connected to another computer or from a development build, and the Gateway cannot start it.
+
+**From Settings › Apps.** Open **Settings › Apps › Installed apps**, find Psyche and choose **Uninstall**. That removes the app, its shortcuts, your Gateway task (unless it runs another copy), the sandbox PC service (one administrator prompt, or the manual steps in `%TEMP%\Psyche-remove-sandbox-pc.txt`), the **Open at login** entry and the `psyche://` link handler. It leaves your data (`%USERPROFILE%\.psyche`), `%APPDATA%\Psyche` and the Credential Manager items alone; use the app's sheet above, or remove them by hand.
+
+**If the app won't launch.** Do the same steps by hand in PowerShell, then move the folders to the Recycle Bin in File Explorer (skip `%USERPROFILE%\.psyche` to keep your data):
+
+```powershell
+schtasks /End /TN "\Psyche\Gateway-<your SID>"
+schtasks /Delete /TN "\Psyche\Gateway-<your SID>" /F
+Stop-Process -Name Psyche, psyche-helper -Force -ErrorAction SilentlyContinue
+& "$env:LOCALAPPDATA\Psyche\Update.exe" --uninstall
+```
+
+```
+%APPDATA%\Psyche
+%APPDATA%\com.psyche.helper
+%LOCALAPPDATA%\com.psyche.helper
+%LOCALAPPDATA%\Psyche Helper
+%LOCALAPPDATA%\com.psyche.gateway
+%LOCALAPPDATA%\Psyche\vm-images   (the sandbox PC's guest image)
+%USERPROFILE%\.psyche   (your data: skip it to keep it)
+```
+
+Your SID is the last column of `whoami /user`. To remove the credentials, run `cmdkey /list` and `cmdkey /delete:Psyche/<name>` for each target that starts with `Psyche/`.
+
 ## On a Linux server with Docker Compose
 
 The Gateway image is `ghcr.io/devmello/psyche-gateway`, built for amd64 and arm64 and signed with cosign.
@@ -301,7 +391,7 @@ Then pair and check as in steps 4 and 5 of the Mac section, approving the code w
 
 ## Install the CLI from a release
 
-Each release has `psyche` binaries: `psyche-darwin-arm64`, `psyche-darwin-x64`, `psyche-linux-x64` and `psyche-linux-arm64`, plus `SHA256SUMS`.
+Each release has `psyche` binaries: `psyche-darwin-arm64`, `psyche-darwin-x64`, `psyche-linux-x64` and `psyche-linux-arm64`, plus `SHA256SUMS`. On Windows the CLI comes with the desktop app: `psyche.cmd` sits next to `psyched.cmd` in `%LOCALAPPDATA%\Psyche\app-<version>\resources\psyched\`.
 
 1. Download your binary and `SHA256SUMS` from the [releases page](https://github.com/devmello/psyche/releases) into one folder.
 2. Check the hash. On macOS:

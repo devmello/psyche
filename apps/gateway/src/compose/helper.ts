@@ -1,4 +1,3 @@
-import { createPublicKey, type KeyObject, verify } from "node:crypto";
 import { getSetting, listDevices } from "@psyche/db";
 import {
   approvalCode,
@@ -14,14 +13,22 @@ import {
   chatLinkRoute,
   type ErrorCode,
   type IssuedApproval,
+  isHostHelperKind,
   type NodeInfo,
   PsycheError,
   type Surface,
 } from "@psyche/protocol";
+import { type HostWords, hostWords } from "@psyche/protocol/host-words";
 import type { Call } from "../context.ts";
 import type { Gateway } from "../server.ts";
 import { surfaceOf } from "./handlers.ts";
-import { DEV_FILE_KEY_SETTING, HelperPresenceKeys, presenceKeyHandlers } from "./presence-keys.ts";
+import {
+  DEV_FILE_KEY_SETTING,
+  HelperPresenceKeys,
+  parsePresenceKey,
+  presenceKeyHandlers,
+  verifyPresenceSignature,
+} from "./presence-keys.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
 /**
@@ -53,32 +60,23 @@ export function helperPresenceMessage(challenge: string): Buffer {
 
 export interface HelperSetup {
   /**
-   * The owner-registered presence key of a helper device: a Secure Enclave P-256 public key in
-   * X9.63 uncompressed form (`SecKeyCopyExternalRepresentation`), base64url. No key → presence
+   * The owner-registered presence key of a helper device, base64url: a mac-helper's Secure
+   * Enclave P-256 public key in X9.63 uncompressed form (`SecKeyCopyExternalRepresentation`), or a
+   * win-helper's Windows Hello RSA key (>= 2048 bits) as SPKI DER. No key → presence
    * approvals answered from that helper are refused. Default: the keys registered with
    * `devices.presenceKey.register` (issue #253); tests may pass their own.
    */
   presenceKeys?: (deviceId: string) => string | undefined;
 }
 
-function p256Key(b64url: string): KeyObject {
-  const raw = Buffer.from(b64url, "base64url");
-  if (raw.length !== 65 || raw[0] !== 0x04) throw new Error("not an uncompressed P-256 point");
-  return createPublicKey({
-    key: {
-      kty: "EC",
-      crv: "P-256",
-      x: raw.subarray(1, 33).toString("base64url"),
-      y: raw.subarray(33).toString("base64url"),
-    },
-    format: "jwk",
-  });
-}
-
-/** Verifies `kind: "helper"` assertions: ECDSA P-256 / SHA-256 (DER) by the device's registered key. */
+/**
+ * Verifies `kind: "helper"` assertions by the device's registered key: ECDSA P-256 / SHA-256 (DER)
+ * for a mac-helper key, RSA PKCS#1 v1.5 / SHA-256 for a win-helper (Windows Hello) key; the
+ * format is read from the key itself (`parsePresenceKey`).
+ */
 export function helperPresenceVerifier(
   keys: HelperSetup["presenceKeys"],
-  /** Whether `deviceId` is the Host's own connected Mac helper (`NodeRegistry.hostHelperOfDevice`). */
+  /** Whether `deviceId` is the Host's own connected helper (`NodeRegistry.hostHelperOfDevice`). */
   isHostHelperDevice: (deviceId: string) => boolean,
 ): PresenceVerifier {
   return {
@@ -89,11 +87,12 @@ export function helperPresenceVerifier(
       if (!isHostHelperDevice(deviceId)) return false;
       const registered = keys?.(deviceId);
       if (registered === undefined) return false;
+      const parsed = parsePresenceKey(registered);
+      if (parsed === null) return false;
       try {
-        return verify(
-          "sha256",
+        return verifyPresenceSignature(
+          parsed,
           helperPresenceMessage(challenge),
-          { key: p256Key(registered), dsaEncoding: "der" },
           Buffer.from(assertion.signature, "base64url"),
         );
       } catch {
@@ -127,6 +126,8 @@ function isResponse(data: unknown): data is NotifyResponse {
 interface Helper {
   nodeId: string;
   deviceId: string;
+  /** `mac-helper` / `win-helper`: picks "Touch ID" or "Windows Hello" in what the owner reads. */
+  kind: string;
   abort: AbortController;
   /** The helper signs a window's approval after Touch ID (`presence.confirm`). */
   confirms: boolean;
@@ -204,13 +205,16 @@ const SUBSCRIBE_TIMEOUT_MS = 2_147_483_647;
  * The notification card: the fixed template (design-12) when it fits a notification, with
  * Approve / Deny; otherwise the header and Deny only, so nothing is approved from a cut card.
  */
-function card(a: ApprovalRequest): { title: string; body: string; approvable: boolean } {
+export function approvalNotificationCard(
+  a: ApprovalRequest,
+  words: HostWords = hostWords(),
+): { title: string; body: string; approvable: boolean } {
   const title = cardHeader(a);
   const full = renderForSurface("desktop", a);
   if (full.text.length <= SURFACE_LIMITS.notification) {
     return { title, body: full.text.split("\n").slice(1).join("\n"), approvable: true };
   }
-  return { title, body: "Open Psyche on your Mac to review.", approvable: false };
+  return { title, body: `Open Psyche on ${words.yourDevice} to review.`, approvable: false };
 }
 
 export function composeHelper(services: ComposeServices, setup: HelperSetup = {}): ComposedPart {
@@ -233,6 +237,13 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
     );
   /** A window is confirming with Touch ID now: one sheet at a time, whatever the card. */
   let confirming = false;
+
+  /**
+   * What the owner reads for the Host: the helper's kind when one is connected (`win-helper` →
+   * "Windows Hello", "this PC"), else the Gateway's platform (the helper runs on this computer).
+   */
+  const words = (kind?: string): HostWords =>
+    hostWords(kind ?? gateway?.context.nodes.hostHelper()?.info.kind);
 
   /** The live client of a Host helper only: this file never talks to any other node. */
   function client(nodeId: string) {
@@ -261,14 +272,15 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
     // A reconnect replaces the connection: drop the old subscription first. A node that is no
     // longer (or never was) the Host's helper must not keep one alive either.
     detach(node.id);
-    if (stopped || node.kind !== "mac-helper" || node.status !== "online") return;
-    // The kind says `mac-helper`; the registry says whether it is the Host's own.
+    if (stopped || !isHostHelperKind(node.kind) || node.status !== "online") return;
+    // The kind says `mac-helper` / `win-helper`; the registry says whether it is the Host's own.
     if (gateway?.context.nodes.isHostHelper(node.id) !== true) return;
     const names = new Set(node.capabilities.map((c) => c.name));
     if (!names.has("notify.show") || !names.has("notify.subscribe")) return;
     const h: Helper = {
       nodeId: node.id,
       deviceId: node.deviceId,
+      kind: node.kind,
       abort: new AbortController(),
       confirms: names.has("presence.confirm"),
     };
@@ -341,7 +353,7 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
       });
     } catch (err) {
       // Refused answers are audited by the broker; the approval stays pending on the other surfaces.
-      warn("approval answer from the Mac notification refused", err);
+      warn("approval answer from the helper notification refused", err);
     }
   }
 
@@ -352,7 +364,7 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
     if (token === undefined || h === undefined || a.status !== "pending") return;
     const c = client(h.nodeId);
     if (c === undefined) return;
-    const { title, body, approvable } = card(a);
+    const { title, body, approvable } = approvalNotificationCard(a, hostWords(h.kind));
     deliveries.set(a.id, { approval: a, token, nodeId: h.nodeId });
     const deny = {
       id: "deny",
@@ -397,7 +409,7 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
     );
     if (!res.ok) {
       deliveries.delete(a.id);
-      warn("approval notification to the Mac helper failed", res.error);
+      warn("approval notification to the helper failed", res.error);
     }
   }
 
@@ -425,7 +437,9 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
     invoke: async (nodeId, capability) => {
       const c = client(nodeId);
       if (c === undefined) return { ok: false, error: { code: "unavailable", message: "gone" } };
-      return c.invoke(capability, {}, { timeoutMs: 10_000 });
+      // The Windows helper's first `presence.public_key` creates the Hello key credential, which
+      // shows a Windows Hello prompt: give the owner as long as a Touch ID confirm.
+      return c.invoke(capability, {}, { timeoutMs: CONFIRM_TIMEOUT_MS });
     },
     now: () => new Date(services.clock.now()),
     allowDevFileKey: () => getSetting(services.db, DEV_FILE_KEY_SETTING)?.value === true,
@@ -445,7 +459,7 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
     if (connected.length === 0) {
       throw touchIdUnavailable(
         "helper_offline",
-        "Psyche Helper is not running, so Touch ID cannot confirm this approval",
+        `Psyche Helper is not running, so ${words().presence} cannot confirm this approval`,
       );
     }
     if (deviceId === undefined && connected.length > 1) {
@@ -454,9 +468,10 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
       const chosen = gateway?.context.nodes.hostHelper()?.info.id;
       connected = connected.filter((h) => h.nodeId === chosen);
       if (connected.length === 0) {
+        const w = words(connected[0]?.kind);
         throw touchIdUnavailable(
           "helper_offline",
-          "More than one Psyche Helper is connected, so Touch ID cannot tell which Mac should confirm this approval",
+          `More than one Psyche Helper is connected, so ${w.presence} cannot tell which ${w.device} should confirm this approval`,
         );
       }
     }
@@ -469,9 +484,10 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
     }
     const keyed = able.find((h) => presenceKeys(h.deviceId) !== undefined);
     if (keyed === undefined) {
+      const w = words(able[0]?.kind);
       throw touchIdUnavailable(
         "no_presence_key",
-        "Touch ID is not set up for approvals: register the helper's Touch ID key first",
+        `${w.presence} is not set up for approvals: register the helper's ${w.presence} key first`,
       );
     }
     return keyed;
@@ -486,11 +502,13 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
       helperDeviceId?: string;
     },
   ) {
-    // Only the Psyche app on this Mac, whose Allow the owner just clicked, may raise the prompt.
+    // Only the Psyche app on this computer, whose Allow the owner just clicked, may raise the
+    // prompt.
+    const w = words();
     if (call.identity.desktopShell !== true) {
       throw new PsycheError(
         "forbidden",
-        "Touch ID approvals come from the Psyche app on this Mac",
+        `${w.presence} approvals come from the Psyche app on ${w.thisDevice}`,
         {
           details: { reason: "not_desktop" },
         },
@@ -505,22 +523,23 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
       // Not in the signed challenge: a window must not be able to add it on its own.
       throw new PsycheError(
         "invalid_params",
-        "Running a command without the sandbox can't be approved from the window with Touch ID",
+        `Running a command without the sandbox can't be approved from the window with ${w.presence}`,
       );
     }
     if (!a.requiresAuthentication) {
       throw new PsycheError(
         "invalid_params",
-        "This approval needs no Touch ID; answer it directly",
+        `This approval needs no ${w.presence}; answer it directly`,
       );
     }
     if (confirming) {
-      throw new PsycheError("conflict", "Touch ID is already asking about an approval");
+      throw new PsycheError("conflict", `${w.presence} is already asking about an approval`);
     }
     // Taken before the first await, so two calls racing through the checks raise one sheet.
     confirming = true;
     try {
       const h = touchIdHelper(params.helperDeviceId);
+      const hw = words(h.kind);
       const c = client(h.nodeId);
       if (c === undefined) throw touchIdUnavailable("helper_offline", "Psyche Helper went away");
       const by = { deviceId: h.deviceId, surface: surfaceOf(services.db, call.identity.deviceId) };
@@ -559,7 +578,9 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
           return reject(
             "presence_key_unavailable",
             "unavailable",
-            "This build of Psyche Helper cannot keep a Touch ID key (it has no keychain access group)",
+            hw.os === "windows"
+              ? "This Psyche Helper cannot keep a Windows Hello key on this PC"
+              : "This build of Psyche Helper cannot keep a Touch ID key (it has no keychain access group)",
             { reason: "presence_key_unavailable" },
           );
         }
@@ -572,16 +593,16 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
           return reject(
             "presence_key_invalidated",
             "unavailable",
-            "Touch ID changed since this key was set up; set up Touch ID again in Settings → Devices",
+            `${hw.presence} changed since this key was set up; set up ${hw.presence} again in Settings → Devices`,
             { reason: "presence_key_invalidated" },
           );
         }
         if (f.code === "cancelled")
-          return reject("presence_cancelled", "cancelled", "Touch ID was cancelled");
+          return reject("presence_cancelled", "cancelled", `${hw.presence} was cancelled`);
         return reject(
           "presence_failed",
           "forbidden",
-          helperMessage(res.error?.message, "Touch ID did not confirm it"),
+          helperMessage(res.error?.message, `${hw.presence} did not confirm it`),
           { reason: "touch_id_failed", ...(f.reason ? { helperReason: f.reason } : {}) },
         );
       }

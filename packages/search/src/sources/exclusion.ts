@@ -82,8 +82,10 @@ export function isExcluded(item: SourceItem, ex: SourceExclusions): boolean {
   if (item.account !== undefined && ex.accounts.some((a) => norm(a) === norm(item.account ?? "")))
     return true;
   if (item.path !== undefined) {
-    const p = norm(item.path);
-    if (ex.folders.some((f) => p === norm(f) || p.startsWith(`${norm(f).replace(/\/+$/, "")}/`)))
+    // Folders compare with "/" whatever the separator (Windows paths use "\\").
+    const slash = (s: string) => norm(s).replaceAll("\\", "/");
+    const p = slash(item.path);
+    if (ex.folders.some((f) => p === slash(f) || p.startsWith(`${slash(f).replace(/\/+$/, "")}/`)))
       return true;
   }
   return false;

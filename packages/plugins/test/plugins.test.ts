@@ -1,4 +1,4 @@
-import { cpSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -23,8 +23,8 @@ let hosts: PluginProcess[] = [];
 beforeEach(() => {
   dir = realpathSync(mkdtempSync(join(tmpdir(), "psyche-plugins-")));
 });
-afterEach(() => {
-  for (const h of hosts) h.stop();
+afterEach(async () => {
+  await Promise.all(hosts.map((h) => h.stop()));
   hosts = [];
   rmSync(dir, { recursive: true, force: true });
 });
@@ -70,6 +70,24 @@ describe("plugin processes", () => {
       block: "notifications wait until office hours",
     });
     expect(await h.call("before_tool_call", { ...run, tool: "notes.save" })).toBeNull();
+  });
+
+  it("stop only once the process is gone, so its folder can be removed at once", async () => {
+    // A copy: on Windows a live process holds its working directory, the plugin's folder.
+    const copy = join(dir, "office-hours");
+    cpSync(join(FIXTURES, "office-hours"), copy, { recursive: true });
+    const h = new PluginProcess({
+      name: "office-hours",
+      dir: copy,
+      main: "index.mjs",
+      capabilities: ["context", "before_tool_call"],
+    });
+    await h.start();
+    await h.stop();
+    rmSync(copy, { recursive: true });
+    expect(existsSync(copy)).toBe(false);
+    await expect(h.call("context", run)).rejects.toThrow(/not running/);
+    await h.stop();
   });
 
   it("run without secrets, outside reads, writes, processes or network", async () => {

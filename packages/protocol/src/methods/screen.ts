@@ -93,6 +93,21 @@ export const ScreenContextParams = Type.Object(
 );
 export type ScreenContextParams = Static<typeof ScreenContextParams>;
 
+/**
+ * `screen.capture` params: the helper's, plus `frame`, a capture the desktop app took itself
+ * (Electron `desktopCapturer`) for when no Host helper offers `screen.context` (Windows without the
+ * helper: the screenshot-only fallback, cross-platform design §4.3). Used only then, and only from
+ * the Psyche desktop shell on the Host; a helper's own capture always wins.
+ */
+export const ScreenCaptureParams = Type.Object(
+  {
+    ...ScreenContextParams.properties,
+    frame: Type.Optional(ScreenContextResult),
+  },
+  { $id: "ScreenCaptureParams" },
+);
+export type ScreenCaptureParams = Static<typeof ScreenCaptureParams>;
+
 export const ScreenCapture = Type.Object(
   {
     captureId: Id,
@@ -112,11 +127,11 @@ export type ScreenCapture = Static<typeof ScreenCapture>;
 
 export const ScreenMethods = {
   "screen.capture": defineMethod({
-    params: ScreenContextParams,
+    params: ScreenCaptureParams,
     result: ScreenCapture,
     scope: "operator.write",
     description:
-      "Desktop only: captures the frontmost window (or a box) and its text context once, on the owner's ask shortcut; the frame is stored as an untrusted Library item that expires unless sent.",
+      "Desktop only: captures the frontmost window (or a box) and its text context once, on the owner's ask shortcut; the frame is stored as an untrusted Library item that expires unless sent. Without a Host helper offering screen.context, the desktop shell may pass its own capture as frame (JPEG, screenshot only).",
   }),
   "screen.discard": defineMethod({
     params: Type.Object({ captureId: Id }),

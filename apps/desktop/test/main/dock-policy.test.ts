@@ -75,6 +75,7 @@ vi.mock("electron", async () => {
     }
     focus() {}
     center() {}
+    setBounds() {}
     getContentBounds() {
       return { x: 0, y: 0, width: 1200, height: 800 };
     }
@@ -93,6 +94,8 @@ vi.mock("electron", async () => {
     nativeTheme: { shouldUseDarkColors: false },
     screen: {
       getPrimaryDisplay: () => ({ workArea: { x: 0, y: 0, width: 1440, height: 900 } }),
+      getCursorScreenPoint: () => ({ x: 0, y: 0 }),
+      getDisplayNearestPoint: () => ({ workArea: { x: 0, y: 0, width: 1440, height: 900 } }),
       getAllDisplays: () => [],
     },
   };
@@ -477,9 +480,9 @@ describe("main.ts opens windows only through showMain", () => {
     expect(text).toMatch(/function command\(c: ShellCommand\): void \{\s*windows\?\.showMain\(\)/);
   });
 
-  it("closing the last window does not quit on macOS, and the policy is wired in", () => {
+  it("closing the last window does not quit on macOS or Windows, and the policy is wired in", () => {
     expect(text).toMatch(
-      /app\.on\("window-all-closed", \(\) => \{\s*if \(process\.platform !== "darwin"\) app\.quit\(\)/,
+      /app\.on\("window-all-closed", \(\) => \{\s*if \(process\.platform !== "darwin" && process\.platform !== "win32"\) app\.quit\(\)/,
     );
     expect(text).toContain("dock: dockPolicy");
     expect(text).toContain("dockPolicy.onSettingsChanged(entries)");

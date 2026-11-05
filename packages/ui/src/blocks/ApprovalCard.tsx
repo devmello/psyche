@@ -23,6 +23,9 @@ import { NativeSelect } from "../components/ui/native-select.tsx";
 import { t } from "../i18n/core.ts";
 import { describeError } from "../i18n/errors.ts";
 import { formatCountdown, formatRelative } from "../lib/format.ts";
+import { keysLabel } from "../lib/keys.ts";
+import { pathBasename } from "../lib/paths.ts";
+import { isMac } from "../lib/platform.ts";
 import { useNow } from "../lib/use-now.ts";
 import { cn } from "../lib/utils.ts";
 import { easeLinear, fade, motionSpring, spring } from "../motion/index.ts";
@@ -37,6 +40,9 @@ import {
 import { ApprovalDetails, ApprovalIds } from "./approval-details.tsx";
 import { floorClassOf, useLiftFloorConfirm } from "./LiftFloorDialog.tsx";
 import { taintSentence } from "./taint-text.ts";
+
+/** The approve chord on the button: the compact ⌘↩ on macOS, "Ctrl+Enter" elsewhere. */
+const approveKeys = (): string => (isMac() ? "⌘↩" : keysLabel("Mod+Enter"));
 
 /**
  * Approval card (UI design §3.3). Host-rendered, fixed structure and button order, never inside a
@@ -248,10 +254,8 @@ function MessageCompose({
 
 const scopeLabel = (scope: GrantScope): string => t(`blocks.approval.scope.${scope}`);
 
-/** "Downloads" for `/Users/me/Downloads`. */
-function folderName(path: string): string {
-  return path.replace(/\/+$/, "").split("/").pop() || path;
-}
+/** "Downloads" for `/Users/me/Downloads` or `C:\Users\me\Downloads`. */
+const folderName = pathBasename;
 
 function originOf(approval: ApprovalRequest): string | null {
   if (approval.target?.kind === "origin") return approval.target.display ?? approval.target.value;
@@ -426,6 +430,8 @@ export function ApprovalCard({
   // Set up from this card's "Set up sandbox": the run re-resolves srt, so the card follows.
   const [sandboxSetUp, setSandboxSetUp] = useState(false);
   const sandboxReady = rawDetails.sandbox === "srt" || sandboxSetUp;
+  // Windows: no sandbox exists for commands on the PC itself, so there is nothing to set up.
+  const noHostSandbox = rawDetails.hostSandbox === "none";
   const [typed, setTyped] = useState("");
   const unsandboxed = isExecHost && typed === unsandboxedWord;
   // permission_request (§3.13): Enable turns a setting on; the rest are fixed elsewhere, then checked.
@@ -870,7 +876,9 @@ export function ApprovalCard({
           >
             {sandboxReady
               ? t("blocks.execHost.sandboxed", { word: unsandboxedWord })
-              : t("blocks.execHost.noSandbox", { word: unsandboxedWord })}
+              : noHostSandbox
+                ? t("blocks.execHost.noHostSandbox", { word: unsandboxedWord })
+                : t("blocks.execHost.noSandbox", { word: unsandboxedWord })}
           </p>
           <div className="flex flex-wrap items-center gap-2">
             <input
@@ -886,7 +894,7 @@ export function ApprovalCard({
               spellCheck={false}
               className="h-7 min-w-0 flex-1 rounded-md bg-fill-secondary px-2 font-mono text-callout outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
-            {!sandboxReady && permissionAction ? (
+            {!sandboxReady && !noHostSandbox && permissionAction ? (
               <Button
                 variant="outline"
                 size="sm"
@@ -911,7 +919,9 @@ export function ApprovalCard({
             </p>
           ) : !sandboxReady ? (
             <p className="text-callout text-label-secondary">
-              {t("blocks.execHost.mustType", { word: unsandboxedWord })}
+              {noHostSandbox
+                ? t("blocks.execHost.mustTypeOnly", { word: unsandboxedWord })
+                : t("blocks.execHost.mustType", { word: unsandboxedWord })}
             </p>
           ) : null}
         </div>
@@ -1078,7 +1088,7 @@ export function ApprovalCard({
             aria-describedby={hintId}
           >
             {isPermission ? permissionLabel : t("chat.approval.allow")}
-            <kbd className="font-sans text-callout opacity-85">⌘↩</kbd>
+            <kbd className="font-sans text-callout opacity-85">{approveKeys()}</kbd>
             {!armed ? (
               <m.span
                 className="absolute inset-x-0 bottom-0 h-0.5 origin-left bg-accent-9"

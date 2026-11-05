@@ -1,4 +1,7 @@
+import { createHash, randomUUID } from "node:crypto";
+import { PassThrough, Writable } from "node:stream";
 import { getSetting } from "@psyche/db";
+import type { SandboxStdioProcess } from "@psyche/mcp-host";
 import {
   EXEC_DEFAULT_TIMEOUT_MS,
   type ExecRequest,
@@ -8,6 +11,8 @@ import {
   PsycheError,
   type SandboxBackendKind,
   type SandboxInstance,
+  type SandboxMount,
+  type SandboxNetwork,
   type SandboxRunner,
   type SandboxScope,
   type TaskWorkspace,
@@ -64,6 +69,11 @@ export interface ComposedVm extends ComposedPart {
   refresh(): Promise<void>;
 }
 
+/** What the guest is called to the owner: the sandbox Mac (macOS host) or sandbox PC (Windows). */
+const SANDBOX = process.platform === "win32" ? "sandbox PC" : "sandbox Mac";
+const SANDBOX_TITLE = process.platform === "win32" ? "Sandbox PC" : "Sandbox Mac";
+const FRESH = process.platform === "win32" ? "a fresh PC" : "a fresh Mac";
+
 /** Phases a restore or reset first stops (the helper refuses an active guest). */
 const UP: ReadonlySet<VmGuest["phase"]> = new Set(["running", "starting", "paused"]);
 const TERMINAL = new Set(["done", "failed", "cancelled"]);
@@ -78,6 +88,47 @@ const BUSY: ReadonlySet<VmGuest["phase"]> = new Set([
 ]);
 /** Grace on top of the command's own timeout for the node round trip. */
 const INVOKE_GRACE_MS = 15_000;
+/** A stdio session lives until it is closed; the invocation timer is only a backstop (~24 days). */
+const SESSION_INVOKE_MS = 2_147_000_000;
+/** What the guest node declares when it can run the srt features (stdin, staging, sessions). */
+export const GUEST_SESSION_CAPABILITY = "exec.session.open";
+
+/** A file staged into the guest's workspace before a run or session starts. */
+export interface VmFile {
+  /** Relative, `/`-separated. */
+  path: string;
+  content: string;
+  encoding?: "utf8" | "base64";
+}
+
+/**
+ * One isolated run in the guest (`run_script`): a fresh folder removed afterwards, the files
+ * staged first, text on stdin, and no network unless `network: "allow"` (then the guest's own,
+ * which is none unless the owner turned the guest's network on).
+ */
+export interface VmRunRequest {
+  argv: string[];
+  stdin?: string;
+  files?: VmFile[];
+  network: "none" | "allow";
+  env?: Record<string, string>;
+  timeoutMs: number;
+  signal?: AbortSignal;
+  /** Default `{kind: "thread", id: "scripts"}`; each run gets its own throwaway folder in it. */
+  scope?: SandboxScope;
+}
+
+/** `openStdio` options: a long-lived process with raw pipes, off the network by default. */
+export interface VmStdioOptions {
+  argv: string[];
+  cwd?: string;
+  env?: Record<string, string>;
+  files?: VmFile[];
+  network?: "none" | "allow";
+}
+
+/** Adds a host folder as a guest share (the helper's `vm.share_add`); returns the guest path. */
+export type VmShareFolder = (mount: SandboxMount) => Promise<string>;
 
 function settingsOf(services: ComposeServices): ResolvedVmSettings {
   const value = (key: string) => getSetting(services.db, key)?.value;
@@ -109,9 +160,12 @@ export class VmRunner implements SandboxRunner {
   readonly #gateway: () => Gateway | null;
   readonly #guestPhase: () => VmGuest["phase"] | null | undefined;
   readonly #resetForTask: ((taskId: string) => Promise<void>) | undefined;
+  readonly #share: VmShareFolder | undefined;
   readonly #instances = new Map<string, SandboxInstance>();
   /** Commands running in the guest now; a restore or reset waits for none. */
   #running = 0;
+  /** Open stdio sessions (MCP servers), closed on `closeAll`. */
+  readonly #sessions = new Map<string, { kill(signal?: "TERM" | "KILL"): Promise<void> }>();
 
   constructor(
     services: ComposeServices,
@@ -119,11 +173,24 @@ export class VmRunner implements SandboxRunner {
     guestPhase: () => VmGuest["phase"] | null | undefined,
     /** L6: resets the guest once for this Task when `vm.resetPerTask` is on. */
     resetForTask?: (taskId: string) => Promise<void>,
+    /** Shares a granted host folder with the guest (the helper's `vm.share_add`). */
+    share?: VmShareFolder,
   ) {
     this.#services = services;
     this.#gateway = gateway;
     this.#guestPhase = guestPhase;
     this.#resetForTask = resetForTask;
+    this.#share = share;
+  }
+
+  /**
+   * Whether the guest can run the srt features now: VM mode on, the guest running and its
+   * psyche-node connected with stdin, staging and sessions (`exec.session.open`).
+   */
+  canIsolate(): boolean {
+    const phase = this.#guestPhase();
+    if (phase !== undefined && phase !== null && phase !== "running") return false;
+    return this.#guest(GUEST_SESSION_CAPABILITY) !== undefined;
   }
 
   /** Whether a command is running in the guest. */
@@ -143,8 +210,8 @@ export class VmRunner implements SandboxRunner {
       .map((i) => i.scope.id);
   }
 
-  /** The guest node's client when VM mode is on and it is connected with `exec`. */
-  #guest(): NodeClient | undefined {
+  /** The guest node's client when VM mode is on and it is connected with `capability`. */
+  #guest(capability = "exec"): NodeClient | undefined {
     const s = settingsOf(this.#services);
     const nodes = this.#gateway()?.context.nodes;
     if (!s.enabled || s.guestNodeId === null || nodes === undefined) return undefined;
@@ -154,24 +221,32 @@ export class VmRunner implements SandboxRunner {
     // any other transport (a WebSocket node that declares `vm-guest`) is never the guest.
     if (nodes.transportOf(info.id) !== "vm-relay") return undefined;
     if (!info.capabilities.some((c) => c.name === "exec")) return undefined;
+    if (!info.capabilities.some((c) => c.name === capability)) return undefined;
     return nodes.client(info.id);
   }
 
-  #require(): NodeClient {
+  #require(capability = "exec"): NodeClient {
     const s = settingsOf(this.#services);
     if (!s.enabled) throw vmDisabled();
     // The helper reports the guest; while it is not running nothing reaches it.
     const phase = this.#guestPhase();
     if (phase !== undefined && phase !== null && phase !== "running") {
-      throw new PsycheError("unavailable", `the sandbox Mac is ${phase}`, {
+      throw new PsycheError("unavailable", `the ${SANDBOX} is ${phase}`, {
         details: { reason: "vm_not_running", phase },
       });
     }
     const guest = this.#guest();
     if (guest === undefined) {
-      throw new PsycheError("unavailable", "the sandbox Mac's psyche-node is not connected", {
+      throw new PsycheError("unavailable", `the ${SANDBOX}'s psyche-node is not connected`, {
         details: { reason: "vm_guest_offline" },
       });
+    }
+    if (capability !== "exec" && this.#guest(capability) === undefined) {
+      throw new PsycheError(
+        "unavailable",
+        `the ${SANDBOX}'s psyche-node is too old to run this; update Psyche in the ${SANDBOX}`,
+        { details: { reason: "vm_guest_outdated", capability } },
+      );
     }
     return guest;
   }
@@ -180,14 +255,39 @@ export class VmRunner implements SandboxRunner {
     return this.#guest() === undefined ? [] : ["vm"];
   }
 
-  async ensureSandbox(scope: SandboxScope): Promise<SandboxInstance> {
+  async ensureSandbox(
+    scope: SandboxScope,
+    options: { network?: SandboxNetwork; mounts?: SandboxMount[] } = {},
+  ): Promise<SandboxInstance> {
     const id = `vm:${scope.kind}:${scope.id}`;
     if (!settingsOf(this.#services).enabled) throw vmDisabled();
     // A fresh Mac per Task: never a first command on an unreset guest; a failed reset fails it.
     if (!this.#instances.has(id) && scope.kind === "task") await this.#resetForTask?.(scope.id);
     this.#require();
+    const wanted = options.mounts ?? [];
     let instance = this.#instances.get(id);
+    if (instance !== undefined && wanted.length > 0) {
+      const have = (instance.mounts ?? []).map((m) => `${m.source}|${m.readOnly}`).sort();
+      const want = wanted.map((m) => `${m.source}|${m.readOnly}`).sort();
+      if (JSON.stringify(have) !== JSON.stringify(want)) {
+        throw new PsycheError(
+          "conflict",
+          "this sandbox exists with other folders; destroy it first",
+        );
+      }
+    }
     if (instance === undefined) {
+      // Granted folders become guest shares (Plan9 on the sandbox PC), read-only unless the
+      // grant is read-write; the helper refuses sensitive roots and asks before read-write.
+      const mounts: SandboxMount[] = [];
+      for (const m of wanted) {
+        if (this.#share === undefined) {
+          throw new PsycheError("unavailable", `the ${SANDBOX} cannot share folders here`, {
+            details: { reason: "vm_no_shares" },
+          });
+        }
+        mounts.push({ source: m.source, target: await this.#share(m), readOnly: m.readOnly });
+      }
       instance = {
         id,
         scope: { ...scope },
@@ -195,18 +295,175 @@ export class VmRunner implements SandboxRunner {
         network: "none",
         workspacePath: "/workspace",
         status: "ready",
+        ...(mounts.length === 0 ? {} : { mounts }),
       };
       this.#instances.set(id, instance);
     }
-    return { ...instance, scope: { ...instance.scope } };
+    return {
+      ...instance,
+      scope: { ...instance.scope },
+      ...(instance.mounts === undefined ? {} : { mounts: instance.mounts.map((m) => ({ ...m })) }),
+    };
   }
 
   async exec(request: ExecRequest): Promise<ExecResult> {
     const instance = this.#instances.get(request.sandboxId);
     if (instance === undefined) throw new PsycheError("not_found", "unknown sandbox");
+    return this.#exec(instance, request, {});
+  }
+
+  /**
+   * One run with the srt policy mapped onto the guest (`VmRunRequest`): what `run_script` uses
+   * on Windows. The guest refuses a `network: "none"` run it cannot keep off its network.
+   */
+  async run(request: VmRunRequest): Promise<ExecResult> {
+    if (request.argv.length === 0) throw new PsycheError("invalid_params", "empty argv");
+    this.#require(GUEST_SESSION_CAPABILITY);
+    const instance = await this.ensureSandbox(request.scope ?? { kind: "thread", id: "scripts" });
+    return this.#exec(
+      instance,
+      {
+        sandboxId: instance.id,
+        argv: request.argv,
+        cwd: "/workspace",
+        timeoutMs: request.timeoutMs,
+        ...(request.env === undefined ? {} : { env: request.env }),
+        ...(request.signal === undefined ? {} : { signal: request.signal }),
+      },
+      {
+        network: request.network,
+        ephemeral: true,
+        ...(request.stdin === undefined ? {} : { stdin: request.stdin }),
+        ...(request.files === undefined ? {} : { files: request.files }),
+      },
+    );
+  }
+
+  /**
+   * A long-lived process in the guest with raw pipes (stdio MCP servers, `SandboxStdioHost`):
+   * stdout and stderr stream back as the guest node's events, stdin goes as ordered writes.
+   * Off the network unless `network: "allow"`. Killing it, or the guest going away, ends it.
+   */
+  async openStdio(sandboxId: string, options: VmStdioOptions): Promise<SandboxStdioProcess> {
+    const instance = this.#instances.get(sandboxId);
+    if (instance === undefined) throw new PsycheError("not_found", "unknown sandbox");
+    if (options.argv.length === 0) throw new PsycheError("invalid_params", "empty argv");
+    const guest = this.#require(GUEST_SESSION_CAPABILITY);
+    const sessionId = `s${randomUUID().replace(/-/g, "")}`;
+    const stdout = new PassThrough();
+    const stderr = new PassThrough();
+    let started: (() => void) | undefined;
+    const isStarted = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    let ended = false;
+    const done = guest.invoke(
+      "exec.session.open",
+      {
+        sessionId,
+        argv: options.argv,
+        cwd: options.cwd ?? "/workspace",
+        scope: instance.scope,
+        network: options.network ?? "none",
+        ...(options.env === undefined ? {} : { env: options.env }),
+        ...(options.files === undefined ? {} : { files: options.files }),
+      },
+      {
+        timeoutMs: SESSION_INVOKE_MS,
+        onEvent: ({ data }) => {
+          const e = (data ?? {}) as { phase?: unknown; stream?: unknown; data?: unknown };
+          if (e.phase === "started") started?.();
+          if (typeof e.data !== "string") return;
+          // Only the documented streams cross; the guest is another machine.
+          if (e.stream === "stdout") stdout.write(Buffer.from(e.data, "base64"));
+          else if (e.stream === "stderr") stderr.write(Buffer.from(e.data, "base64"));
+        },
+      },
+    );
+    const finished = done.then(async (res) => {
+      ended = true;
+      this.#sessions.delete(sessionId);
+      stdout.end();
+      stderr.end();
+      if (res.receipt !== undefined) {
+        await this.#services.broker
+          .recordReceipt({
+            kind: "vm.exec",
+            outcome: res.receipt.outcome,
+            summary: res.receipt.summary,
+            ...(instance.scope.kind === "task" ? { taskId: instance.scope.id } : {}),
+          })
+          .catch(() => undefined);
+      }
+      return res;
+    });
+    const first = await Promise.race([isStarted.then(() => null), finished]);
+    if (first !== null) {
+      const e = first.error;
+      throw new PsycheError(
+        e?.code ?? "internal",
+        e?.message ?? `the ${SANDBOX} did not start it`,
+        {
+          details: { reason: "vm_session_failed" },
+        },
+      );
+    }
+    const exited = finished.then((res) => {
+      const r = (res.ok ? res.result : undefined) as
+        | { exitCode?: unknown; signal?: unknown }
+        | undefined;
+      return {
+        exitCode: typeof r?.exitCode === "number" ? r.exitCode : null,
+        signal: (typeof r?.signal === "string" ? r.signal : null) as NodeJS.Signals | null,
+      };
+    });
+    const control = (capability: string, params: object) =>
+      guest.invoke(capability, { sessionId, ...params }, { timeoutMs: 30_000 });
+    let killing: Promise<void> | undefined;
+    const kill = (signal: "TERM" | "KILL" = "TERM"): Promise<void> => {
+      if (ended) return Promise.resolve();
+      if (signal === "TERM" && killing !== undefined) return killing;
+      const k = control("exec.session.close", { signal }).then(() => undefined);
+      if (signal === "TERM") killing = k;
+      return k;
+    };
+    const stdin = new Writable({
+      // One write at a time, in order: each is acknowledged by the guest before the next.
+      write(chunk: Buffer, _encoding, callback) {
+        if (ended) return callback(new Error("the process has exited"));
+        control("exec.session.write", { data: Buffer.from(chunk).toString("base64") }).then(
+          (r) => callback(r.ok ? null : new Error(r.error?.message ?? "write failed")),
+          (err: unknown) => callback(err instanceof Error ? err : new Error(String(err))),
+        );
+      },
+      final(callback) {
+        if (ended) return callback();
+        control("exec.session.write", { end: true }).then(
+          () => callback(),
+          () => callback(),
+        );
+      },
+    });
+    this.#sessions.set(sessionId, { kill });
+    return { stdin, stdout, stderr, exited, kill };
+  }
+
+  /** Stops every open stdio session (the Gateway is stopping). */
+  async closeAll(): Promise<void> {
+    await Promise.all([...this.#sessions.values()].map((s) => s.kill("KILL").catch(() => {})));
+  }
+
+  async #exec(
+    instance: SandboxInstance,
+    request: ExecRequest,
+    extras: Pick<VmRunRequest, "stdin" | "files"> & {
+      network?: VmRunRequest["network"];
+      ephemeral?: boolean;
+    },
+  ): Promise<ExecResult> {
     if (request.argv.length === 0) throw new PsycheError("invalid_params", "empty argv");
     if (request.signal?.aborted === true) throw new PsycheError("cancelled", "exec cancelled");
-    const guest = this.#require();
+    const guest = this.#require(Object.keys(extras).length > 0 ? GUEST_SESSION_CAPABILITY : "exec");
     const timeoutMs = request.timeoutMs || EXEC_DEFAULT_TIMEOUT_MS;
     this.#running += 1;
     const res = await guest
@@ -218,6 +475,7 @@ export class VmRunner implements SandboxRunner {
           ...(request.env === undefined ? {} : { env: request.env }),
           timeoutMs,
           scope: instance.scope,
+          ...extras,
         },
         {
           timeoutMs: timeoutMs + INVOKE_GRACE_MS,
@@ -239,7 +497,7 @@ export class VmRunner implements SandboxRunner {
     }
     if (!res.ok) {
       const e = res.error;
-      throw new PsycheError(e?.code ?? "internal", e?.message ?? "exec in the sandbox Mac failed", {
+      throw new PsycheError(e?.code ?? "internal", e?.message ?? `exec in the ${SANDBOX} failed`, {
         details: { reason: "vm_exec_failed" },
       });
     }
@@ -282,7 +540,42 @@ export function composeVm(services: ComposeServices, setup: VmSetup = {}): Compo
     () => gateway,
     guestPhase,
     (taskId) => resetForTask(taskId),
+    (mount) => shareFolder(mount),
   );
+
+  /**
+   * A granted host folder as a guest share (`vm.share_add`, Plan9 on the sandbox PC): read-only
+   * unless the mount is read-write, which the helper refuses without the owner's approval. One
+   * share per folder, reused while the guest has it. Adding one restarts the guest's psyche-node.
+   */
+  const shareFolder = async (mount: SandboxMount): Promise<string> => {
+    const { helper, name } = target("vm.share_add");
+    const share = `psyche-${createHash("sha256").update(mount.source, "utf8").digest("hex").slice(0, 12)}`;
+    const find = () => {
+      for (const byName of guests.values()) {
+        const s = byName.get(name)?.shares.find((x) => x.name === share);
+        if (s !== undefined) return s;
+      }
+      return undefined;
+    };
+    const have = find();
+    if (have !== undefined && have.readOnly === mount.readOnly) return have.guestPath;
+    if (have !== undefined) await invoke(helper, "vm.share_remove", { name, share });
+    const after = await invoke<VmGuest>(helper, "vm.share_add", {
+      name,
+      share,
+      path: mount.source,
+      readOnly: mount.readOnly,
+    });
+    await refresh();
+    const added = after?.shares?.find((x) => x.name === share) ?? find();
+    if (added === undefined) {
+      throw new PsycheError("internal", `the ${SANDBOX} did not report the new share`, {
+        details: { reason: "vm_share_missing" },
+      });
+    }
+    return added.guestPath;
+  };
 
   // The sandbox Mac belongs to the Host: only its own helper reports and controls it
   // (`NodeRegistry.hostHelper`), never a second Mac that paired as a node.
@@ -306,7 +599,7 @@ export function composeVm(services: ComposeServices, setup: VmSetup = {}): Compo
           .recordReceipt({
             kind: "vm.lifecycle",
             outcome: guest.phase === "failed" ? "failed" : "ok",
-            summary: `Sandbox Mac ${guest.name}: ${prev?.phase ?? "found"} → ${guest.phase}`,
+            summary: `${SANDBOX_TITLE} ${guest.name}: ${prev?.phase ?? "found"} → ${guest.phase}`,
             payload: {
               nodeId,
               name: guest.name,
@@ -324,7 +617,7 @@ export function composeVm(services: ComposeServices, setup: VmSetup = {}): Compo
         .recordReceipt({
           kind: "vm.lifecycle",
           outcome: "ok",
-          summary: `Sandbox Mac ${name}: ${prev.phase} → deleted`,
+          summary: `${SANDBOX_TITLE} ${name}: ${prev.phase} → deleted`,
           payload: { nodeId, name, from: prev.phase, to: "deleted" },
         })
         .catch(() => undefined);
@@ -359,7 +652,7 @@ export function composeVm(services: ComposeServices, setup: VmSetup = {}): Compo
       const helper = nodes.client(nodeId);
       if (helper !== undefined) return { helper, name: guest.name };
     }
-    throw new PsycheError("unavailable", "no mac helper with the sandbox Mac is connected", {
+    throw new PsycheError("unavailable", `no helper with the ${SANDBOX} is connected`, {
       details: { reason: "vm_helper_unavailable", capability },
     });
   };
@@ -420,7 +713,7 @@ export function composeVm(services: ComposeServices, setup: VmSetup = {}): Compo
       await refresh();
       if (guestPhase() === "running" && runner.ready()) return;
       if (services.clock.now() > until) {
-        throw new PsycheError("timeout", "the sandbox Mac did not come back", {
+        throw new PsycheError("timeout", `the ${SANDBOX} did not come back`, {
           details: { reason: "vm_guest_not_ready" },
         });
       }
@@ -439,7 +732,7 @@ export function composeVm(services: ComposeServices, setup: VmSetup = {}): Compo
   ): Promise<VmRestoreResult> => {
     const { helper, name } = target(capability);
     if (runner.busy) {
-      throw new PsycheError("conflict", "a command is running in the sandbox Mac", {
+      throw new PsycheError("conflict", `a command is running in the ${SANDBOX}`, {
         details: { reason: "vm_busy" },
       });
     }
@@ -478,14 +771,14 @@ export function composeVm(services: ComposeServices, setup: VmSetup = {}): Compo
             | { status: string }
             | undefined;
           if (row !== undefined && !TERMINAL.has(row.status)) {
-            throw new PsycheError("conflict", "another Task is using the sandbox Mac", {
+            throw new PsycheError("conflict", `another Task is using the ${SANDBOX}`, {
               details: { reason: "vm_in_use", taskId: id },
             });
           }
         }
         await audited(
           "task_reset",
-          "Reset the sandbox Mac for a new Task",
+          `Reset the ${SANDBOX} for a new Task`,
           {},
           () => rewind("vm.reset", undefined, true),
           taskId,
@@ -514,7 +807,7 @@ export function composeVm(services: ComposeServices, setup: VmSetup = {}): Compo
         const kind = params.base === true ? "base" : "manual";
         return audited(
           "create",
-          kind === "base" ? "Saved the sandbox Mac's reset point" : "Snapshotted the sandbox Mac",
+          kind === "base" ? `Saved the ${SANDBOX}'s reset point` : `Snapshotted the ${SANDBOX}`,
           { kind, ...(params.label === undefined ? {} : { label: params.label }) },
           () =>
             invoke<VmSnapshotResult>(helper, "vm.snapshot", {
@@ -530,7 +823,7 @@ export function composeVm(services: ComposeServices, setup: VmSetup = {}): Compo
         target("vm.restore");
         return audited(
           "restore",
-          "Restored the sandbox Mac to a snapshot",
+          `Restored the ${SANDBOX} to a snapshot`,
           { snapshot: params.snapshot },
           () => rewind("vm.restore", params.snapshot, false),
         );
@@ -539,7 +832,7 @@ export function composeVm(services: ComposeServices, setup: VmSetup = {}): Compo
     "vm.snapshots.reset": {
       run: () => {
         target("vm.reset");
-        return audited("reset", "Reset the sandbox Mac to a fresh Mac", {}, () =>
+        return audited("reset", `Reset the ${SANDBOX} to ${FRESH}`, {}, () =>
           rewind("vm.reset", undefined, false),
         );
       },
@@ -549,7 +842,7 @@ export function composeVm(services: ComposeServices, setup: VmSetup = {}): Compo
         const { helper, name } = target("vm.snapshot_delete");
         return audited(
           "delete",
-          "Deleted a sandbox Mac snapshot",
+          `Deleted a ${SANDBOX} snapshot`,
           { snapshot: params.snapshot },
           async () => {
             await invoke(helper, "vm.snapshot_delete", { name, snapshot: params.snapshot });
@@ -593,9 +886,10 @@ export function composeVm(services: ComposeServices, setup: VmSetup = {}): Compo
       await refresh();
       schedule();
     },
-    stop() {
+    async stop() {
       stopped = true;
       if (timer !== undefined) clearTimeout(timer);
+      await runner.closeAll();
     },
   };
 }

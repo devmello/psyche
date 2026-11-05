@@ -1,6 +1,7 @@
-import { existsSync, mkdtempSync, rmSync, statSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { OWNER_FILE, privacyOf } from "@psyche/hostfs/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { RevocationLedger, replayRevocations, writeRestoreMarker } from "../src/index.ts";
 import { approve, CTX, call, makeBroker, memoryDb, origin } from "./helpers.ts";
@@ -47,7 +48,7 @@ describe("revocation ledger", () => {
     expect(ledger.entries().filter((e) => e.type === "grant")).toMatchObject([
       { type: "grant", id: approval.grantId, reason: "owner" },
     ]);
-    expect(statSync(ledger.path).mode & 0o777).toBe(0o600);
+    expect(privacyOf(ledger.path)).toBe(OWNER_FILE);
   });
 
   it("replay re-revokes what the ledger lists and is idempotent", () => {

@@ -11,6 +11,28 @@ import {
   type SandboxStdioProcess,
 } from "../src/index.ts";
 
+/**
+ * libuv copies these from the parent into every child it starts on Windows, whatever env it is
+ * given. The fake below runs the probe on the host; a real container gets none of them.
+ */
+const LIBUV_WINDOWS_ENV = new Set(
+  process.platform === "win32"
+    ? [
+        "HOMEDRIVE",
+        "HOMEPATH",
+        "LOGONSERVER",
+        "PATH",
+        "SYSTEMDRIVE",
+        "SYSTEMROOT",
+        "TEMP",
+        "USERDOMAIN",
+        "USERNAME",
+        "USERPROFILE",
+        "WINDIR",
+      ]
+    : [],
+);
+
 const PROBE = fileURLToPath(new URL("./fixtures/probe-server.mjs", import.meta.url));
 const text = (content: unknown) =>
   (content as { blocks: { text?: string }[] }).blocks.map((b) => b.text ?? "").join("");
@@ -151,7 +173,7 @@ describe("stdio MCP servers in the sandbox container (M3)", () => {
       // macOS adds `__CF_*` to every process; nothing of the host's environment is visible.
       const visible = text(names.content)
         .split(",")
-        .filter((n) => !n.startsWith("__CF_"));
+        .filter((n) => !n.startsWith("__CF_") && !LIBUV_WINDOWS_ENV.has(n));
       expect(visible).toEqual(["API_TOKEN", "MODE"]);
       const len = await host.callTool(
         "probe",

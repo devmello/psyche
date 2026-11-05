@@ -2,7 +2,7 @@
 
 **An open-source, self-hosted personal AI agent.** Psyche is an open-source take on Meta's Muse: one persistent conversation with a named agent that remembers you in files you can read. It runs on your Mac or on your own Linux server, keeps your data there, and asks before it does anything that changes something.
 
-> **Status: alpha (v0.3).** The macOS desktop app is built from source; there is no signed release yet. Windows is planned. Linux is supported for the Gateway (server mode) only, not the desktop app.
+> **Status: alpha (v0.3).** The desktop app runs on macOS and on Windows 10/11 (x64); both are built from source (`pnpm app:build`) and there is no signed release yet. Linux is supported for the Gateway (server mode) only, not the desktop app.
 
 ## What it does
 

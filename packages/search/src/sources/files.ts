@@ -193,7 +193,8 @@ export function filesAdapter(deps: FilesSourceDeps): SourceAdapter & { invalidat
     createdAt: e.mtime,
     // Downloads come from third parties; anything else in a granted folder is the owner's.
     // Text read from an image or a scan keeps the provenance of its file.
-    provenance: /\/Downloads(\/|$)/.test(e.path) ? "untrusted" : "owner",
+    // Either separator: `C:\\Users\\me\\Downloads\\x.pdf` is a download too (Windows).
+    provenance: /[\\/]Downloads([\\/]|$)/i.test(e.path) ? "untrusted" : "owner",
     tags: ["file", extname(e.path).slice(1).toLowerCase()],
     path: e.path,
   });

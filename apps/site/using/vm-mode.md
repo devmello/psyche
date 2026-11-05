@@ -56,6 +56,25 @@ Not isolated:
 - **Copying a file out of the guest**, installing Psyche in the guest, granting the guest helper its permissions, and deleting the guest are owner actions that ask you. The agent cannot do them.
 - Inside the guest, the agent asks for the same things it asks for on your Mac.
 
+## On Windows: the sandbox PC
+
+On Windows the same idea is a **sandbox PC**: a small Linux virtual machine on your PC, run through Hyper-V's Host Compute Service by a Windows service that Psyche installs. It is Linux, not Windows, and it is a command sandbox: a task that runs there gets a Linux shell with common tools (Node, Python, Git, ffmpeg and more), the folders you share with it, and no access to the rest of your PC. Psyche never falls back to running those commands on your PC.
+
+**Turn it on:** Settings → Sandbox PC → turn it on.
+
+1. Psyche asks Windows for administrator rights once, with a single UAC prompt, to install the service. Nothing else needs administrator rights, and the service serves only your account. If you dismiss the prompt, or your account cannot elevate, nothing is installed.
+2. Psyche restarts its helper and downloads the guest image (a Linux kernel, an initial RAM disk and a root disk). Settings shows the download size and the disk it takes before you start; every file is checked against a published SHA-256 as it arrives. The image is kept in `%LOCALAPPDATA%\Psyche\vm-images`, readable only by your account and SYSTEM.
+3. Create and start the guest from the same screen. When its Psyche node connects, approve it like any new device.
+
+**Limits:**
+
+- One sandbox PC per account, and one guest running at a time. A guest defaults to 4 CPUs, 4 GB of memory and a 64 GB session disk (it only takes the space it uses).
+- It runs the `exec` tool only. `run_script`, scripts saved as tools, connectors Psyche makes itself and local (stdio) MCP servers need `srt`, which has no Windows build, so they are unavailable on Windows; the sandbox PC does not carry them. A local MCP server can run in a Docker or Podman container instead if the Gateway has `PSYCHE_MCP_LAUNCHER=container`.
+- Folders are shared read only unless you approve more, as above. The guest has no network unless Psyche attaches one for the task.
+- The root disk is never written: each start begins from the same system, and only the session disk (the node's identity, the guest's home) persists.
+- It needs virtualization that Windows lets Psyche's service use. Settings says when it cannot be turned on.
+- Docker or Podman, if installed, remain an alternative for the `exec` tool; a task's workspace chooses which one runs it.
+
 ## Limits today
 
 - **You cannot create the sandbox Mac from the app.** Settings says to create one from Psyche Helper, but the helper has no window or menu for it, and no Psyche screen or CLI command starts the creation. Until that lands, VM mode cannot be set up by an owner.

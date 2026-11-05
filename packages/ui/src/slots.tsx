@@ -92,7 +92,54 @@ export interface GatewaysSlot {
   onPendingLink?(cb: () => void): () => void;
 }
 
+/**
+ * The sandbox PC's one-time setup on Windows, which only the desktop app can do (an elevated
+ * service install and the guest image download; apps/desktop `main/sandbox-pc`). Everything after
+ * it, creating, starting, snapshots, is the helper's `vm.*` through the Gateway.
+ */
+export interface SandboxPcState {
+  /** `off`: not turned on yet (or the download was cancelled); `ready`: service and image are in place. */
+  phase:
+    | "unsupported"
+    | "off"
+    | "installing"
+    | "updating"
+    | "downloading"
+    | "restarting"
+    | "ready"
+    | "failed";
+  /** Plain words: why it is unsupported or what went wrong. */
+  message?: string;
+  serviceInstalled: boolean;
+  /** The complete guest image on disk, if any. */
+  imageVersion: string | null;
+  download?: { receivedBytes: number; totalBytes: number };
+  /** The published image's download size, once known. */
+  downloadBytes?: number;
+  /** What it takes unpacked. */
+  diskBytes?: number;
+  /**
+   * Set while the installed service is older than the one this build ships (after an app
+   * update). `compatible`: the sandbox PC keeps working until it is updated.
+   */
+  serviceUpdate?: { installed: string; bundled: string; compatible: boolean };
+}
+
+export interface SandboxPcSlot {
+  getState(): Promise<SandboxPcState>;
+  /** Re-reads what is installed and the image size (may use the network). */
+  refresh(): Promise<SandboxPcState>;
+  /** Installs the service (one administrator prompt), restarts the helper, downloads the image. */
+  turnOn(): Promise<SandboxPcState>;
+  /** Replaces the installed service with this build's (one administrator prompt, on the click). */
+  updateService(): Promise<SandboxPcState>;
+  cancel(): Promise<void>;
+  onState(cb: (state: SandboxPcState) => void): () => void;
+}
+
 export interface UiSlots {
+  /** Windows desktop: turning the sandbox PC on (service install, guest image download). */
+  sandboxPc?: SandboxPcSlot;
   /**
    * The name of the Host when this app is a client of a Gateway on another computer. Things that
    * run on the Host say so, and what only works on this Mac stays out (design §4.2).

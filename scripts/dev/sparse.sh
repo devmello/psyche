@@ -7,7 +7,7 @@
 # Profiles:
 #   core     TypeScript apps and packages, docs, skills, tests, deploy, CI. No native app folders.
 #   mac      core + apps/mac-helper and the shared Swift package (packages/swift).
-#   windows  core + apps/windows-helper (C#/.NET).
+#   windows  core + apps/win-helper (the Rust Windows helper).
 #   mobile   core + apps/ios, apps/android and the shared Swift package.
 #   all      everything (turns sparse-checkout off).
 #
@@ -26,7 +26,7 @@ profile_dirs() {
   case $1 in
     core) echo "$core_dirs" ;;
     mac) echo "$core_dirs apps/mac-helper packages/swift" ;;
-    windows) echo "$core_dirs apps/windows-helper" ;;
+    windows) echo "$core_dirs apps/win-helper" ;;
     mobile) echo "$core_dirs apps/ios apps/android packages/swift" ;;
     *) return 1 ;;
   esac

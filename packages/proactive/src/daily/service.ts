@@ -244,19 +244,29 @@ export class DailyService {
   async #due(dayEnd: number, title: string): Promise<Section> {
     const items: Section["items"] = [];
     let seen = false;
-    if (this.#o.tools.get("reminders_list") !== undefined) {
-      const r = await this.#read("reminders_list", {
+    // Every Reminders backend (Apple Reminders, Outlook tasks, Microsoft To Do), soonest first. A
+    // task that syncs into two of them (Outlook and To Do on one account) is listed once.
+    const backends =
+      this.#o.tools.names?.("reminders_list") ??
+      (this.#o.tools.get("reminders_list") === undefined ? [] : ["reminders_list"]);
+    const due: { title: string; at: number; key: string }[] = [];
+    for (const name of backends) {
+      const r = await this.#read(name, {
         completed: false,
         dueBefore: new Date(dayEnd).toISOString(),
         limit: 20,
       });
-      if (r !== undefined) {
-        seen = true;
-        for (const x of output<Record<string, unknown>>(r, "reminders").slice(0, 10)) {
-          items.push({ text: cleanHeader(String(x.title ?? ""), 160) });
-        }
+      if (r === undefined) continue;
+      seen = true;
+      for (const x of output<Record<string, unknown>>(r, "reminders")) {
+        const text = cleanHeader(String(x.title ?? ""), 160);
+        const at = typeof x.due === "string" ? Date.parse(x.due) : Number.NaN;
+        const key = `${text.toLowerCase()}\u0000${typeof x.due === "string" ? x.due.slice(0, 10) : ""}`;
+        if (text === "" || due.some((d) => d.key === key)) continue;
+        due.push({ title: text, at: Number.isNaN(at) ? Number.POSITIVE_INFINITY : at, key });
       }
     }
+    for (const d of due.sort((a, b) => a.at - b.at).slice(0, 10)) items.push({ text: d.title });
     const tasks = await this.#o.activity?.openTasks?.();
     if (tasks !== undefined) {
       seen = true;

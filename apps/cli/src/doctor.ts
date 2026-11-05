@@ -1,7 +1,7 @@
 import { PROTOCOL_VERSION } from "@psyche/protocol";
 import { bytes } from "./output.ts";
 import { isLoopbackHost } from "./paths.ts";
-import { type Snapshot, setting } from "./snapshot.ts";
+import { ownerOnlyAclHint, type Snapshot, setting } from "./snapshot.ts";
 
 /** One `psyche doctor` check (architecture §14; feature A10 "done when"). */
 export interface Check {
@@ -179,32 +179,88 @@ export function doctorChecks(s: Snapshot): Check[] {
     });
   }
 
-  // Permissions from the mac helper.
-  if (s.platform === "darwin") {
+  // The Host's own helper: the mac helper on macOS, the Windows helper on Windows.
+  const windows = s.platform === "win32";
+  if (s.platform === "darwin" || windows) {
+    const name = windows ? "Windows helper" : "mac helper";
+    const kind = windows ? "win-helper" : "mac-helper";
     if (!s.nodes.ok) {
       add({
         id: "helper",
         status: "skip",
-        message: `mac helper status unknown (${s.nodes.message})`,
+        message: `${name} status unknown (${s.nodes.message})`,
       });
     } else {
-      const helper = s.nodes.value.find((n) => n.kind === "mac-helper");
+      const helper = s.nodes.value.find((n) => n.kind === kind);
+      const version =
+        s.helperPermissions?.ok && s.helperPermissions.value.bundle?.version
+          ? ` ${s.helperPermissions.value.bundle.version}`
+          : "";
       add(
         helper && helper.status === "online"
           ? {
               id: "helper",
               status: "ok",
-              message: `mac helper online with ${helper.capabilities.length} capabilities`,
+              message: `${name}${version} paired and online with ${helper.capabilities.length} capabilities`,
             }
           : {
               id: "helper",
               status: "warn",
               message: helper
-                ? `mac helper is ${helper.status}`
-                : "mac helper not connected (computer use, notifications and Keychain unavailable)",
-              hint: "Open the Psyche app and grant its permissions in Settings › Permissions",
+                ? `${name} is paired but ${helper.status}`
+                : windows
+                  ? "Windows helper not connected (computer use, dictation, notifications, Windows Hello and Credential Manager unavailable)"
+                  : "mac helper not connected (computer use, notifications and Keychain unavailable)",
+              hint: windows
+                ? "Open the Psyche app: it starts and pairs its Windows helper (Settings › Devices shows it)"
+                : "Open the Psyche app and grant its permissions in Settings › Permissions",
             },
       );
+    }
+  }
+
+  // What Windows reports for the helper, and how it is signed.
+  if (windows && s.helperPermissions) {
+    const hp = s.helperPermissions;
+    if (!hp.ok) {
+      add({ id: "permissions", status: "skip", message: `permissions unknown (${hp.message})` });
+    } else {
+      const rows = hp.value.permissions ?? [];
+      const granted = rows.filter((r) => r.status === "granted").map((r) => r.permission);
+      const denied = rows.filter((r) => r.status === "denied");
+      const next = hp.value.next ? rows.find((r) => r.permission === hp.value.next) : undefined;
+      const fix = next ?? denied[0];
+      add(
+        fix
+          ? {
+              id: "permissions",
+              status: "warn",
+              message: `turned off in Windows: ${fix.title ?? fix.permission} (granted: ${granted.join(", ") || "none"})`,
+              hint: `Psyche › Settings › Permissions${fix.settingsURL ? `, or open ${fix.settingsURL}` : ""}`,
+            }
+          : {
+              id: "permissions",
+              status: "ok",
+              message: `granted: ${granted.join(", ") || "none needed yet"}`,
+            },
+      );
+      const signing = hp.value.bundle?.signing;
+      if (signing === "unsigned" || signing === "untrusted") {
+        add({
+          id: "helper.signing",
+          status: "warn",
+          message: `the Windows helper is ${signing === "unsigned" ? "not signed" : "signed by an untrusted certificate"} (a development build?)`,
+          hint: "Install Psyche from its signed installer",
+        });
+      }
+      if (s.app && hp.value.bundle?.insideApp === false) {
+        add({
+          id: "helper.location",
+          status: "warn",
+          message: `the Windows helper runs from ${hp.value.bundle.path ?? "outside the Psyche install"}, not from ${s.app}`,
+          hint: "Quit that helper (Task Manager › psyche-helper.exe) and reopen Psyche, which starts its own",
+        });
+      }
     }
   }
 
@@ -277,14 +333,17 @@ export function doctorChecks(s: Snapshot): Check[] {
     add({ id: "disk", status, message: `${bytes(free)} free on the volume holding ${s.home}` });
   }
 
-  // File modes.
+  // File modes; on Windows the DACLs (scanModes): an entry another account can reach is `acl`.
+  const win = s.platform === "win32";
   const sensitive = s.modeIssues.filter((i) => SENSITIVE.test(i.path));
   if (s.homeMode && s.homeMode !== "700") {
     add({
       id: "modes",
       status: "fail",
-      message: `${s.home} is mode ${s.homeMode}, want 700`,
-      hint: `chmod 700 ${s.home}`,
+      message: win
+        ? `${s.home} is readable by other accounts (its permissions are not owner-only)`
+        : `${s.home} is mode ${s.homeMode}, want 700`,
+      hint: win ? ownerOnlyAclHint(s.home) : `chmod 700 ${s.home}`,
     });
   } else if (sensitive.length) {
     add({
@@ -294,22 +353,37 @@ export function doctorChecks(s: Snapshot): Check[] {
         .slice(0, 3)
         .map((i) => `${i.path} (${i.mode})`)
         .join(", ")}`,
-      hint: `chmod -R go-rwx ${s.home}`,
+      hint: win ? ownerOnlyAclHint(s.home) : `chmod -R go-rwx ${s.home}`,
     });
   } else if (s.modeIssues.length) {
     add({
       id: "modes",
       status: "warn",
       message: `${s.modeIssues.length} path(s) under ${s.home} readable by others`,
-      hint: `chmod -R go-rwx ${s.home}`,
+      hint: win ? ownerOnlyAclHint(s.home) : `chmod -R go-rwx ${s.home}`,
     });
   } else if (s.homeMode) {
-    add({ id: "modes", status: "ok", message: "file modes 0700/0600" });
+    add({
+      id: "modes",
+      status: "ok",
+      message: win ? "owner-only permissions (you and SYSTEM)" : "file modes 0700/0600",
+    });
+  } else if (win) {
+    add({
+      id: "modes",
+      status: "skip",
+      message: `Windows: could not read the permissions of ${s.home}`,
+    });
   }
 
   // Service.
   if (s.service && s.service.kind !== "none") {
-    const what = s.service.kind === "launchd" ? "LaunchAgent" : `${s.service.kind} service`;
+    const what =
+      s.service.kind === "launchd"
+        ? "LaunchAgent"
+        : s.service.kind === "taskscheduler"
+          ? `scheduled task ${s.service.file ?? ""}`.trim()
+          : `${s.service.kind} service`;
     const state = !s.service.installed
       ? "not installed"
       : s.service.detail === "not loaded"
@@ -319,7 +393,9 @@ export function doctorChecks(s: Snapshot): Check[] {
     const hint =
       s.service.kind === "launchd" && s.app
         ? "Open Psyche.app, or run psyche start"
-        : "psyche start";
+        : s.service.kind === "taskscheduler" && s.app
+          ? "Open Psyche from the Start menu, or run psyche start"
+          : "psyche start";
     add(
       s.service.running
         ? { id: "service", status: "ok", message: `${what} running` }
@@ -367,6 +443,18 @@ export function doctorChecks(s: Snapshot): Check[] {
             id: "app",
             status: "skip",
             message: "Psyche.app not found in /Applications (server or source install)",
+          },
+    );
+  }
+  if (s.platform === "win32" && s.app !== undefined) {
+    add(
+      s.app
+        ? { id: "app", status: "ok", message: `Psyche installed at ${s.app}` }
+        : {
+            id: "app",
+            status: "skip",
+            message:
+              "Psyche is not installed for this user (no %LOCALAPPDATA%Psyche; server or source install)",
           },
     );
   }

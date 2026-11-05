@@ -1,6 +1,6 @@
 import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 import { FakeModelProvider } from "@psyche/testing";
 import type { OnePasswordSource } from "@psyche/vault";
 import { afterEach, describe, expect, it } from "vitest";
@@ -8,6 +8,7 @@ import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
 import { opOnPath } from "../src/compose/vault.ts";
 import { readConfigFile } from "../src/config.ts";
 import { silentLogger } from "../src/log.ts";
+import { releaseAllGatewayLocks } from "../src/pre-update.ts";
 
 /** G10: the Gateway hands the vault its 1Password source (`credentials.onePassword`). */
 
@@ -16,6 +17,7 @@ let composed: ComposedGateway | null = null;
 afterEach(async () => {
   await composed?.stop("test");
   composed = null;
+  releaseAllGatewayLocks();
   if (home) rmSync(home, { recursive: true, force: true });
 });
 
@@ -103,9 +105,11 @@ describe("1Password in the composition (G10)", () => {
     home = mkdtempSync(join(tmpdir(), "psyche-op-"));
     const bin = join(home, "bin");
     mkdirSync(bin);
-    writeFileSync(join(bin, "op"), "#!/bin/sh\n");
-    chmodSync(join(bin, "op"), 0o755);
-    expect(opOnPath(`relative/dir:${bin}`)).toBe(join(bin, "op"));
+    // Windows finds `op` by its PATHEXT extension (1Password's CLI is op.exe).
+    const file = process.platform === "win32" ? "op.exe" : "op";
+    writeFileSync(join(bin, file), "#!/bin/sh\n");
+    chmodSync(join(bin, file), 0o755);
+    expect(opOnPath(["relative/dir", bin].join(delimiter))).toBe(join(bin, file));
     expect(opOnPath("/nonexistent")).toBeUndefined();
   });
 });

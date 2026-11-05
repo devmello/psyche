@@ -1,3 +1,4 @@
+import { DEVICE_ONLY_TEXT } from "@psyche/permissions/cards";
 import type { ApprovalRequestInput } from "@psyche/protocol";
 import { afterEach, describe, expect, it } from "vitest";
 import { mapMessageEvent, plainText } from "../../src/adapters/slack/index.ts";
@@ -200,7 +201,7 @@ describe("Slack approvals", () => {
       answerTokens: { ...issued.answerTokens, [`slack:${OWNER}`]: "tok" },
     });
     const post = h.slack.posts().at(-1);
-    expect(String(post?.text)).toContain("Answer this on your Mac.");
+    expect(String(post?.text)).toContain(DEVICE_ONLY_TEXT);
     expect(String(post?.text)).not.toContain("laptop");
     expect(post?.blocks).toBeUndefined();
   });

@@ -2,6 +2,7 @@ import { readFileSync, statSync } from "node:fs";
 import { createConnection } from "node:net";
 import { join } from "node:path";
 import { PROTOCOL_VERSION } from "@psyche/protocol";
+import { isNamedPipePath } from "@psyche/protocol/platform";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   handshake,
@@ -290,7 +291,19 @@ describe("startup", () => {
     expect(readFileSync(join(t.home, "run", "handshake.secret"), "utf8").trim()).toBe(
       t.gateway.handshakeSecret,
     );
-    expect(statSync(t.gateway.config.nodeSocketPath).isSocket()).toBe(true);
+    // Still the first Gateway's endpoint: a socket file, or on Windows a named pipe that answers.
+    if (isNamedPipePath(t.gateway.config.nodeSocketPath)) {
+      await new Promise<void>((resolve, reject) => {
+        const probe = createConnection(t.gateway.config.nodeSocketPath);
+        probe.once("connect", () => {
+          probe.destroy();
+          resolve();
+        });
+        probe.once("error", reject);
+      });
+    } else {
+      expect(statSync(t.gateway.config.nodeSocketPath).isSocket()).toBe(true);
+    }
   });
 });
 

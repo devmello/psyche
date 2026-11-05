@@ -32,10 +32,16 @@ export {
   type SandboxStdioProcess,
   type SpawnLauncher,
   type SrtLauncherOptions,
+  type StagedFile,
   type StdioLauncher,
   type StdioLaunchSpec,
   srtLauncher,
   srtSettings,
+  VM_STAGE_MAX_BYTES,
+  VM_STAGE_MAX_FILES,
+  type VmLauncherOptions,
+  type VmStdioHost,
+  vmLauncher,
 } from "./launcher.ts";
 export { type LoopbackReceiver, startLoopbackReceiver } from "./loopback.ts";
 export {

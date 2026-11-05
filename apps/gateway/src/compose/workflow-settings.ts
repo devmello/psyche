@@ -93,11 +93,16 @@ const bool = (v: unknown): boolean => v === true;
  * The recordings folder from Settings as an absolute path (`~/` is the owner's home); anything
  * else (empty, relative, NUL) means "no folder".
  */
+const win = () => process.platform === "win32";
+
 function folderPath(v: unknown): string | undefined {
   if (typeof v !== "string") return undefined;
   const raw = v.trim();
   if (raw === "" || raw.length > 4096 || raw.includes("\0")) return undefined;
-  const p = raw === "~" || raw.startsWith("~/") ? join(homedir(), raw.slice(1)) : raw;
+  const home = raw === "~" || raw.startsWith("~/") || (win() && raw.startsWith("~\\"));
+  const p = home ? join(homedir(), raw.slice(1)) : raw;
+  // Windows: a drive path only. `\Users\me` is relative to whichever drive is current.
+  if (win() && !home && !/^[A-Za-z]:[\\/]/.test(p)) return undefined;
   return isAbsolute(p) ? resolve(p) : undefined;
 }
 

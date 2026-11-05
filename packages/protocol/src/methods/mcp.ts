@@ -213,10 +213,10 @@ export const McpMethods = {
     result: Type.Object({
       /**
        * How stdio servers are isolated: `srt` (sandbox-runtime), `container` (each in its own
-       * sandbox container) or `none` (no launcher: non-bundled stdio servers are refused, never
-       * run bare).
+       * sandbox container), `vm` (in the sandbox guest: the sandbox PC on Windows) or `none` (no
+       * launcher: non-bundled stdio servers are refused, never run bare).
        */
-      launcher: StringEnum(["srt", "container", "none"]),
+      launcher: StringEnum(["srt", "container", "vm", "none"]),
       servers: Type.Array(McpServerStatus),
     }),
     scope: "operator.read",

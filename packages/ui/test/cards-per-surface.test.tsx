@@ -1,4 +1,4 @@
-import { renderForSurface } from "@psyche/permissions/cards";
+import { DEVICE_ONLY_TEXT, renderForSurface } from "@psyche/permissions/cards";
 import type { ApprovalRequest, InputRequest } from "@psyche/protocol";
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
@@ -122,7 +122,7 @@ describe("ApprovalCard renders through renderForSurface (design-12)", () => {
     expect(screen.queryByRole("button", { name: "Allow with scope" })).toBeNull();
     expect(screen.getByText("Answer this on the device it was sent to.")).toBeDefined();
     const chat = renderForSurface("telegram:1", pay);
-    expect(chat.text).toBe("Pay · financial\nAnswer this on your Mac.");
+    expect(chat.text).toBe(`Pay · financial\n${DEVICE_ONLY_TEXT}`);
     expect(chat.buttons).toHaveLength(0);
   });
 

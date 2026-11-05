@@ -6,6 +6,7 @@ import { ApprovalCard } from "../src/blocks/ApprovalCard.tsx";
 import { PermissionActionsProvider } from "../src/blocks/permission-actions.tsx";
 import type { MockGateway } from "../src/data/mock-gateway.ts";
 import { createFixtureWorld, FIXTURE_NOW } from "../src/fixtures/index.ts";
+import { setUiPlatform } from "../src/lib/platform.ts";
 import { FileAccessPanel } from "../src/screens/settings/FileAccessSection.tsx";
 import { type UiSlots, UiSlotsProvider } from "../src/slots.tsx";
 import { StoryWorld } from "../src/stories/harness.tsx";
@@ -123,6 +124,49 @@ describe("exec_host card", () => {
     await userEvent.clear(screen.getByRole("textbox", { name: /Type UNSANDBOXED/ }));
     await userEvent.type(screen.getByRole("textbox", { name: /Type UNSANDBOXED/ }), "UNSANDBOXED");
     expect(allow().hasAttribute("disabled")).toBe(false);
+  });
+});
+
+describe("exec_host card on Windows (no host sandbox)", () => {
+  it("offers no sandbox to set up; Allow waits for the typed word, once only", async () => {
+    setUiPlatform("windows");
+    try {
+      const permissionAction = vi.fn();
+      const onAnswer = show(
+        execHost("missing", {
+          details: {
+            argv: ["whoami"],
+            cwd: "C:\\Users\\me\\Projects\\app",
+            env: [],
+            executable: "C:\\Windows\\System32\\whoami.exe",
+            executableSha256: `sha256:${"a".repeat(64)}`,
+            allowedDomains: [],
+            sandbox: "missing",
+            sandboxMissingReason: "unsupported_platform",
+            hostSandbox: "none",
+            unsandboxedWord: "UNSANDBOXED",
+          },
+        }),
+        { permissionAction },
+      );
+      expect(screen.getByText(/Windows has no sandbox for commands on this PC/)).toBeTruthy();
+      expect(screen.getByText(/without a sandbox: Windows has none/)).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Set up sandbox" })).toBeNull();
+      expect(screen.getByText("Type UNSANDBOXED to allow it.")).toBeTruthy();
+      expect(allow().hasAttribute("disabled")).toBe(true);
+      await userEvent.type(
+        screen.getByRole("textbox", { name: /Type UNSANDBOXED/ }),
+        "UNSANDBOXED",
+      );
+      expect(screen.queryByRole("option", { name: /Always/ })).toBeNull();
+      await userEvent.click(allow());
+      await waitFor(() =>
+        expect(onAnswer).toHaveBeenCalledWith("approve", "once", { unsandboxed: "UNSANDBOXED" }),
+      );
+      expect(permissionAction).not.toHaveBeenCalled();
+    } finally {
+      setUiPlatform(undefined);
+    }
   });
 });
 

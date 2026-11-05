@@ -59,6 +59,22 @@ export const MEMORY_WORK_DEFAULTS = {
 
 export const MEMORY_WORK_SETTING_KEY = "memory.work" as const;
 
+/** A Reminders list work tracking can follow (`trackedLists` keys), from any Reminders backend. */
+export const WorkReminderList = Type.Object(
+  {
+    id: Type.String({ minLength: 1, maxLength: 500 }),
+    name: Type.String({ maxLength: 500 }),
+    shared: Type.Boolean({
+      description: "Someone else can add to it (shared, read-only, flagged email): untrusted",
+    }),
+    source: Type.Optional(
+      Type.String({ maxLength: 100, description: "Where it lives, e.g. Microsoft To Do" }),
+    ),
+  },
+  { $id: "WorkReminderList" },
+);
+export type WorkReminderList = Static<typeof WorkReminderList>;
+
 /** The places memory can show up outside the Memory page (§4). */
 export const MemorySurface = StringEnum(["home", "brief", "notification", "channel"], {
   $id: "MemorySurface",

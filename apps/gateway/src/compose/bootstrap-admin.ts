@@ -1,5 +1,6 @@
 import { getDevice, listDevices, type PsycheDb, updateDevice } from "@psyche/db";
 import { type AuditLog, type MethodResult, PsycheError } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import type { Call, HandlerDef } from "../context.ts";
 
 /**
@@ -35,7 +36,10 @@ export function bootstrapAdminHandlers(deps: {
           !conn.peer.remoteLoopback ||
           conn.peer.origin !== null
         ) {
-          throw new PsycheError("forbidden", "only the Psyche desktop on this Mac can do this");
+          throw new PsycheError(
+            "forbidden",
+            `only the Psyche desktop on ${hostWords().thisDevice} can do this`,
+          );
         }
         const grant = deps.db.sqlite.transaction(() => {
           if (activeAdminCount(deps.db) > 0) {

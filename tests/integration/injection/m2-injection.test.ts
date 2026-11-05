@@ -21,6 +21,7 @@ import { type M2Rig, prepareM2, SHOPPING_ID } from "./m2-stack.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, "../../..");
+const BIOME = join(root, "node_modules/@biomejs/biome/bin/biome");
 const CORPUS_DIR = "tests/corpus/injection/cases";
 const EXAMPLE = "tests/integration/injection/example-cases.json";
 
@@ -57,7 +58,8 @@ beforeAll(async () => {
   if (!same) {
     writeFileSync(committed, `${JSON.stringify(report, null, 2)}\n`);
     try {
-      execFileSync(join(root, "node_modules/.bin/biome"), ["format", "--write", committed], {
+      // The package's Node entry point: `.bin/biome` is a shell script (`biome.cmd` on Windows).
+      execFileSync(process.execPath, [BIOME, "format", "--write", committed], {
         stdio: "ignore",
       });
     } catch {

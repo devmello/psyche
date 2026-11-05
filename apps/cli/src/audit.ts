@@ -1,6 +1,6 @@
 import { appCap, TIER_RANK } from "@psyche/permissions";
 import { isLoopbackHost } from "./paths.ts";
-import { type Snapshot, setting } from "./snapshot.ts";
+import { ownerOnlyAclHint, type Snapshot, setting } from "./snapshot.ts";
 import { CLI_VERSION } from "./version.ts";
 
 /**
@@ -279,13 +279,16 @@ export function auditRules(s: Snapshot, now: Date): AuditReport {
     }
   } else skip("vault", s.vault);
 
-  // File modes.
+  // File modes; on Windows the DACLs (scanModes): an entry another account can reach is `acl`.
+  const win = s.platform === "win32";
   if (s.homeMode && s.homeMode !== "700") {
     add({
       id: "files.home_mode",
       severity: "high",
-      message: `${s.home} is mode ${s.homeMode}`,
-      fix: `chmod 700 ${s.home}`,
+      message: win
+        ? `${s.home} is readable by other accounts (its permissions are not owner-only)`
+        : `${s.home} is mode ${s.homeMode}`,
+      fix: win ? ownerOnlyAclHint(s.home) : `chmod 700 ${s.home}`,
     });
   }
   const sensitive = s.modeIssues.filter((i) => /^(vault|state|audit|cli)(\/|$)/.test(i.path));
@@ -294,14 +297,14 @@ export function auditRules(s: Snapshot, now: Date): AuditReport {
       id: "files.sensitive_modes",
       severity: "high",
       message: `${sensitive.length} vault/state/audit path(s) readable by others`,
-      fix: `chmod -R go-rwx ${s.home}`,
+      fix: win ? ownerOnlyAclHint(s.home) : `chmod -R go-rwx ${s.home}`,
     });
   } else if (s.modeIssues.length) {
     add({
       id: "files.modes",
       severity: "medium",
       message: `${s.modeIssues.length} path(s) readable by others`,
-      fix: `chmod -R go-rwx ${s.home}`,
+      fix: win ? ownerOnlyAclHint(s.home) : `chmod -R go-rwx ${s.home}`,
     });
   }
 
@@ -461,7 +464,7 @@ export function auditRules(s: Snapshot, now: Date): AuditReport {
         fix: "Install a release build; until then update by hand (docs/guides/upgrade.md)",
       });
     }
-  } else if (s.platform === "darwin") {
+  } else if (s.platform === "darwin" || s.platform === "win32") {
     skip("updates (manifest verification)", s.updater);
   }
 

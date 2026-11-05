@@ -17,7 +17,12 @@ export const SRT_ENV = "PSYCHE_SRT_PATH";
 export const SRT_SETTING = "exec.srtPath";
 
 export type SrtSource = "env" | "setting" | "detected";
-export type SrtProblem = "not_found" | "not_absolute" | "not_executable";
+/**
+ * `unsupported_platform`: srt sandboxes with Seatbelt (macOS) and bubblewrap (Linux); there is
+ * no Windows build, and npm's `srt.cmd` shim there would run commands unsandboxed. On Windows
+ * nothing is looked for (not even an override): srt's features run in the sandbox PC instead.
+ */
+export type SrtProblem = "not_found" | "not_absolute" | "not_executable" | "unsupported_platform";
 
 export interface SrtStatus {
   available: boolean;
@@ -35,6 +40,8 @@ export interface SrtDeps {
   searchDirs(): string[];
   /** `srt --version`'s trimmed stdout, or `null`. */
   version(path: string): Promise<string | null>;
+  /** The system's platform (default this process's); srt is never looked for on `win32`. */
+  platform?: NodeJS.Platform;
 }
 
 export interface SrtInputs {
@@ -42,6 +49,8 @@ export interface SrtInputs {
   env?: string | undefined;
   /** The `exec.srtPath` setting's value (anything; only a non-empty string counts). */
   setting?: unknown;
+  /** Whose rules apply (default this process's platform). */
+  platform?: NodeJS.Platform;
 }
 
 async function check(deps: SrtDeps, path: string, source: SrtSource): Promise<SrtStatus> {
@@ -52,6 +61,16 @@ async function check(deps: SrtDeps, path: string, source: SrtSource): Promise<Sr
 }
 
 export async function resolveSrt(deps: SrtDeps, inputs: SrtInputs): Promise<SrtStatus> {
+  if ((inputs.platform ?? deps.platform ?? process.platform) === "win32") {
+    // Never a shim that cannot sandbox: whatever PATH, the setting or the env name.
+    return {
+      available: false,
+      path: null,
+      source: null,
+      version: null,
+      problem: "unsupported_platform",
+    };
+  }
   if (inputs.env !== undefined && inputs.env !== "") return check(deps, inputs.env, "env");
   if (typeof inputs.setting === "string" && inputs.setting !== "") {
     return check(deps, inputs.setting, "setting");

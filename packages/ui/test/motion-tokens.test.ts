@@ -3,6 +3,9 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { motionSpring, spring, springPhysics } from "../src/motion/tokens.ts";
 
+/** This package's root: `vitest run` at the repository root does not change the cwd. */
+const PKG = `${import.meta.dirname}/..`;
+
 describe("motion tokens (docs/design/motion.md §2.3)", () => {
   it("reproduces Apple's Spring(duration: 0.5, bounce: 0.3) example", () => {
     const p = springPhysics({ duration: 0.5, bounce: 0.3 });
@@ -35,7 +38,7 @@ describe("motion tokens (docs/design/motion.md §2.3)", () => {
 describe("motion CSS and literals (docs/design/motion.md §8)", () => {
   it("styles/motion.css is generated from the tokens", async () => {
     const { motionCss } = await import("../src/motion/css.ts");
-    const css = readFileSync(join(process.cwd(), "src/styles/motion.css"), "utf8");
+    const css = readFileSync(join(PKG, "src/styles/motion.css"), "utf8");
     expect(css, "run `pnpm --filter @psyche/ui gen:motion`").toBe(motionCss());
   });
 
@@ -54,8 +57,8 @@ describe("motion CSS and literals (docs/design/motion.md §8)", () => {
 
   it("the kit reads motion tokens instead of literals", async () => {
     const { readdirSync, readFileSync, statSync } = await import("node:fs");
-    const { join, relative } = await import("node:path");
-    const src = join(process.cwd(), "src");
+    const { join, relative, sep } = await import("node:path");
+    const src = join(PKG, "src");
     const walk = (dir: string): string[] =>
       readdirSync(dir).flatMap((f) => {
         const p = join(dir, f);
@@ -63,7 +66,8 @@ describe("motion CSS and literals (docs/design/motion.md §8)", () => {
       });
     const offenders = new Map<string, string[]>();
     for (const file of walk(src)) {
-      const rel = relative(src, file);
+      // POSIX separators on every OS (Windows paths come back with backslashes).
+      const rel = relative(src, file).split(sep).join("/");
       // Tokens live in styles/ and motion/; stories are fixtures.
       if (/^(styles|motion)\//.test(rel) || !/\.tsx?$/.test(rel) || rel.endsWith(".stories.tsx"))
         continue;
@@ -96,7 +100,7 @@ describe("run-trace motion (docs/design/motion.md §4.9)", () => {
   });
 
   it("grows bars and slides sparklines with transform only", async () => {
-    const read = (f: string) => readFileSync(join(process.cwd(), "src/components", f), "utf8");
+    const read = (f: string) => readFileSync(join(PKG, "src/components", f), "utf8");
     const bar = read("timeline/Timeline.tsx");
     expect(bar).toMatch(/transform \$\{TICK_MS\}ms linear/);
     expect(bar).not.toMatch(/transition[^\n]*width/);
@@ -109,7 +113,7 @@ describe("run-trace motion (docs/design/motion.md §4.9)", () => {
 
 describe("reduced-motion CSS keeps opacity fades (docs/design/smoothness-2026.md §3.6)", () => {
   it("global kill switches fade opacity at --duration-short instead of 0 ms", () => {
-    const css = readFileSync(join(process.cwd(), "src/styles/index.css"), "utf8");
+    const css = readFileSync(join(PKG, "src/styles/index.css"), "utf8");
     expect(css).not.toMatch(/transition-duration:\s*0ms/);
     expect(css).toMatch(/transition-property:\s*opacity !important/);
     expect(css).toMatch(/transition-duration:\s*var\(--duration-short\) !important/);

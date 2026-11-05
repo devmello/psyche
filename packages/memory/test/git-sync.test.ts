@@ -63,7 +63,8 @@ describe("validateRemoteUrl", () => {
   });
 });
 
-describe.skipIf(!hasGit)("WorkspaceGit (H10)", () => {
+// A sync is ~30 `git` processes; spawning one costs ~150 ms on Windows, so a loaded run needs room.
+describe.skipIf(!hasGit)("WorkspaceGit (H10)", { timeout: 90_000 }, () => {
   async function setup() {
     env = await makeEnv();
     const bare = join(env.dir, "remote.git");

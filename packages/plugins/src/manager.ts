@@ -260,7 +260,8 @@ export class PluginManager {
     await this.#stop(name);
     delete lock.plugins[name];
     this.#writeLock(lock);
-    rmSync(join(this.#o.dir, name), { recursive: true, force: true });
+    // Retried: on Windows a scanner may still hold a file of the folder for a moment.
+    rmSync(join(this.#o.dir, name), { recursive: true, force: true, maxRetries: 5 });
     this.#failed.delete(name);
   }
 
@@ -335,7 +336,7 @@ export class PluginManager {
     if (r === undefined) return;
     this.#running.delete(name);
     r.unregister();
-    r.host.stop();
+    await r.host.stop();
   }
 
   #status(name: string, e: LockEntry): PluginStatus {

@@ -406,7 +406,9 @@ describe("agent-made connector files", () => {
     }
   });
 
-  it("caps files and bytes, and refuses symlinks", async () => {
+  // Writes up to the file and byte caps: fast alone, but file creation on Windows (real-time
+  // scanning) passed vitest's 5 s default under the full parallel suite.
+  it("caps files and bytes, and refuses symlinks", { timeout: 30_000 }, async () => {
     const dir = tmp();
     try {
       const store = selfConnectorStore(dir);
