@@ -1,0 +1,48 @@
+import type { Catalogue } from "../../index.ts";
+
+/** memory strings not covered elsewhere (ja); merged into `../ja.ts`. */
+export const memoryRest: Partial<Catalogue> = {
+  "memory.page.title": "メモリ",
+  "memory.page.soul": "Soul",
+  "memory.page.kinds": "表示する内容",
+  "memory.page.kind.everything": "すべて",
+  "memory.page.kind.people": "人物",
+  "memory.page.kind.projects": "プロジェクト",
+  "memory.page.kind.due": "期限のある仕事",
+  "memory.page.kind.events": "イベント",
+  "memory.page.kind.more": "その他",
+  "memory.page.review": "確認",
+  "memory.page.reviewWaiting": "確認、{n}件待ち",
+  "memory.page.back": "{tab}に戻る",
+  "memory.page.continue": "チャットで続ける",
+  "memory.page.continue.prefillWork": "これについて、今どこまで進んでいますか？",
+  "memory.page.continue.prefill": "これについて状況を教えて。",
+  "memory.page.continue.threadTitle": "メモリから続ける",
+  "memory.page.continue.source": "メモリ",
+  "memory.page.continue.failed": "チャットを開けませんでした。{reason}",
+  "memory.page.seeAll": "すべて表示",
+  "memory.page.loadFailed": "メモリのこの部分を読み込めませんでした。",
+  "memory.page.everything.empty":
+    "まだ何も記憶されていません。設定 → メモリで情報源をオンにするか、チャットで{persona}に伝えてください。",
+  "memory.page.everything.review": "確認待ち",
+  "memory.page.everything.reviewCount": "{n, plural, other {#件の事実があなたのOKを待っています}}",
+  "memory.page.everything.due": "もうすぐ期限",
+  "memory.page.everything.projects": "進行中のプロジェクト",
+  "memory.page.everything.people": "連絡を取っている人",
+  "memory.page.everything.events": "これから",
+  "memory.page.projects.filter": "ステータス",
+  "memory.page.projects.empty": "ここにはまだプロジェクトがありません。",
+  "memory.page.projects.nothing": "「{query}」に一致するプロジェクトはありません。",
+  "memory.page.due.title": "期限のものはありません",
+  "memory.page.due.body":
+    "請求書、更新手続き、仕事の締め切り、宿題は、{persona}が追跡するとここに表示されます。",
+  "memory.page.events.upcoming": "今後の予定",
+  "memory.page.events.other": "その他のイベント",
+  "memory.page.events.empty":
+    "今後の日付はありません。誕生日、記念日、確認したイベントがここに表示されます。",
+  "memory.page.events.when": "{n, plural, =0 {今日} =1 {明日} other {#日後}}",
+  "memory.page.more.place": "場所",
+  "memory.page.more.org": "組織",
+  "memory.page.more.topic": "トピック",
+  "memory.page.more.empty": "場所、組織、トピックはまだありません。",
+};
