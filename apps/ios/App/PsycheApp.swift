@@ -26,6 +26,12 @@ private struct AppModel {
     static func launch(defaults: UserDefaults = .standard) -> AppModel {
         #if DEBUG
         if let name = defaults.string(forKey: "psycheScenario"), !name.isEmpty {
+            // `psycheDemoParked YES` (a launch argument, or `defaults write` so a launch by the system sees it too)
+            // starts the watched task's script already waiting on its approval: for answering from the Dynamic
+            // Island with the app closed.
+            if defaults.bool(forKey: "psycheDemoParked") {
+                Task { await FixtureBackend.shared.startRunningDemoParkedOnApproval(taskID: "task_q3") }
+            }
             return fixtures(FixtureSessionDriver.fromLaunchArguments(defaults))
         }
         #endif
