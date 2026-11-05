@@ -55,6 +55,7 @@ import {
   checkNotifyRoute,
   checkPasskeyOptions,
   checkRoute,
+  checkTeachApp,
   checkTeachId,
   checkTeachKeep,
   checkViewport,
@@ -786,6 +787,27 @@ function registerIpc(): void {
       checkTeachId(IPC.teachDeleteKept, rec(IPC.teachDeleteKept, arg).id),
     ),
   );
+  // Teach by showing in a Mac app. Main asks the Gateway (which asks the Mac helper) only when the
+  // owner's renderer sends one of these; `teach.app.*` is not callable through the generic call.
+  handle(IPC.teachAppApps, () => requireGateway().call("teach.app.apps", {}));
+  handle(IPC.teachAppStart, (_e, arg) =>
+    requireGateway().call(
+      "teach.app.start",
+      { bundleId: checkTeachApp(arg) },
+      { idempotencyKey: `teach-app-start:${Date.now()}` },
+    ),
+  );
+  handle(IPC.teachAppStop, () =>
+    requireGateway().call("teach.app.stop", {}, { idempotencyKey: `teach-app-stop:${Date.now()}` }),
+  );
+  handle(IPC.teachAppCancel, () =>
+    requireGateway().call(
+      "teach.app.cancel",
+      {},
+      { idempotencyKey: `teach-app-cancel:${Date.now()}` },
+    ),
+  );
+  handle(IPC.teachAppStatus, () => requireGateway().call("teach.app.status", {}));
   handle(IPC.browserPopOut, (_e, arg) => {
     const r = rec(IPC.browserPopOut, arg);
     return requireBrowser().popOut(

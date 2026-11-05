@@ -23,6 +23,9 @@ export interface ReviewStep {
   role?: string;
   name?: string;
   selector?: string;
+  app?: { bundleId: string; name: string };
+  path?: string[];
+  fallback?: string;
   key?: string;
   sensitive: boolean;
   /** The example typed; absent when sensitive. In memory in this window only. */
@@ -49,6 +52,9 @@ export function reviewFrom(capture: TeachCapture): ReviewStep[] {
     if (s.role !== undefined) step.role = s.role;
     if (s.name !== undefined) step.name = s.name;
     if (s.selector !== undefined) step.selector = s.selector;
+    if (s.app !== undefined) step.app = s.app;
+    if (s.path !== undefined) step.path = s.path;
+    if (s.fallback !== undefined) step.fallback = s.fallback;
     if (s.key !== undefined) step.key = s.key;
     if (!sensitive && s.sample !== undefined) step.sample = s.sample;
     if (isTyped(step) && !sensitive) {
@@ -61,7 +67,7 @@ export function reviewFrom(capture: TeachCapture): ReviewStep[] {
 }
 
 export const isTyped = (s: Pick<ReviewStep, "kind">): boolean =>
-  s.kind === "type" || s.kind === "select";
+  s.kind === "type" || s.kind === "select" || s.kind === "app_type";
 
 /** `input1`, `input2`, ...: a name that is not page text. The owner renames it. */
 export function suggestInputName(_name: string | undefined, taken: ReadonlySet<string>): string {
@@ -110,6 +116,9 @@ export function toSaveSteps(steps: readonly ReviewStep[]): BrowserTeachStep[] {
     if (s.role !== undefined) o.role = s.role;
     if (s.name !== undefined) o.name = s.name;
     if (s.selector !== undefined) o.selector = s.selector;
+    if (s.app !== undefined) o.app = s.app;
+    if (s.path !== undefined) o.path = s.path;
+    if (s.fallback !== undefined) o.fallback = s.fallback;
     if (s.key !== undefined) o.key = s.key;
     if (s.sensitive) {
       o.sensitive = true;
@@ -143,6 +152,9 @@ export function reviewFromKept(steps: readonly BrowserTeachStep[]): ReviewStep[]
     if (s.role !== undefined) step.role = s.role;
     if (s.name !== undefined) step.name = s.name;
     if (s.selector !== undefined) step.selector = s.selector;
+    if (s.app !== undefined) step.app = s.app;
+    if (s.path !== undefined) step.path = s.path;
+    if (s.fallback !== undefined) step.fallback = s.fallback;
     if (s.key !== undefined) step.key = s.key;
     if (!step.sensitive && s.keepValue === true && s.value !== undefined) {
       step.choice = "keep";

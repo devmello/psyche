@@ -259,6 +259,53 @@ export function redactTeachText(text: string): string {
 }
 
 /**
+ * Mac apps a recording never keeps a step from, whatever the owner granted (phase 2): Psyche's
+ * own windows, the system's security and sign-in prompts, and password managers. The Mac helper
+ * refuses them at the source; this list lets the Gateway and the draft path refuse them again.
+ * Bundle ids compare without case; a trailing `.` matches a prefix.
+ */
+export const TEACH_NEVER_APPS: readonly string[] = [
+  "com.psyche.desktop",
+  "com.psyche.helper",
+  "com.apple.loginwindow",
+  "com.apple.SecurityAgent",
+  "com.apple.LocalAuthentication.UIAgent",
+  "com.apple.coreservices.uiagent",
+  "com.apple.keychainaccess",
+  "com.apple.Passwords",
+  "com.apple.systempreferences",
+  "com.apple.SystemSettings",
+  "com.apple.notificationcenterui",
+  "com.apple.UserNotificationCenter",
+  "com.1password.",
+  "com.agilebits.",
+  "com.bitwarden.",
+  "com.lastpass.",
+  "com.dashlane.",
+  "org.keepassxc.",
+  "com.enpass.",
+  "com.nordpass.",
+  "me.proton.pass",
+  "com.keepersecurity.",
+];
+
+export function teachAppNever(bundleId: string): boolean {
+  const id = bundleId.toLowerCase();
+  return TEACH_NEVER_APPS.some((raw) => {
+    const p = raw.toLowerCase();
+    return p.endsWith(".") ? id.startsWith(p) : id === p;
+  });
+}
+
+/** The step kinds recorded in a Mac app (phase 2). */
+export const isTeachAppKind = (kind: string): boolean =>
+  kind === "app_click" || kind === "app_type" || kind === "app_menu";
+
+/** Steps that carry a typed or chosen value. */
+const isTypedKind = (kind: string): boolean =>
+  kind === "type" || kind === "select" || kind === "app_type";
+
+/**
  * What may leave the review screen for the Gateway. A value survives only on a `type` or `select`
  * step the owner chose to keep, that is not sensitive and does not look like a secret, and that is
  * not an input (an input's value is asked for at run time). Everything else is cleaned again:
@@ -272,17 +319,26 @@ export function sanitizeTeachSteps(steps: readonly BrowserTeachStep[]): BrowserT
     if (s.role !== undefined) out.role = teachRole(s.role);
     if (s.name !== undefined) out.name = redactTeachText(teachText(s.name, 200));
     if (s.selector !== undefined) out.selector = redactTeachText(teachText(s.selector, 300));
+    if (s.app !== undefined && /^[A-Za-z0-9-]+(\.[A-Za-z0-9_-]+)+$/.test(s.app.bundleId))
+      out.app = {
+        bundleId: s.app.bundleId.slice(0, 200),
+        name: redactTeachText(teachText(s.app.name, 120)),
+      };
+    if (s.path !== undefined)
+      out.path = s.path.slice(0, 8).map((seg) => redactTeachText(teachText(seg, 120)));
+    if (s.fallback !== undefined) out.fallback = redactTeachText(teachText(s.fallback, 300));
     if (s.key !== undefined) {
       const key = teachKey(s.key);
       if (key !== "") out.key = key;
     }
-    const typed = s.kind === "type" || s.kind === "select";
+    const typed = isTypedKind(s.kind);
     const sensitive =
       s.sensitive === true ||
       (typed &&
         classifyTeachField({
           ...(s.role === undefined ? {} : { type: s.role === "password" ? "password" : "" }),
           ...(s.name === undefined ? {} : { label: s.name }),
+          ...(s.fallback === undefined ? {} : { id: s.fallback }),
         }) !== null) ||
       (s.value !== undefined && classifyTeachValue(s.value) !== null);
     if (sensitive && typed) out.sensitive = true;
@@ -309,8 +365,28 @@ export function sanitizeTeachSteps(steps: readonly BrowserTeachStep[]): BrowserT
 export function teachStepIssues(steps: readonly BrowserTeachStep[]): string[] {
   const issues: string[] = [];
   const names = new Set<string>();
+  const appIds = new Set(
+    steps.filter((s) => isTeachAppKind(s.kind)).map((s) => (s.app?.bundleId ?? "").toLowerCase()),
+  );
+  if (appIds.size > 0 && steps.some((s) => !isTeachAppKind(s.kind)))
+    issues.push("a recording is either in the browser or in one Mac app, not both");
+  if (appIds.size > 1) issues.push("a recording is made in one Mac app");
   steps.forEach((s, i) => {
     const at = `step ${i + 1}`;
+    if (isTeachAppKind(s.kind)) {
+      if (s.app === undefined) issues.push(`${at}: a step in a Mac app names the app`);
+      else if (teachAppNever(s.app.bundleId))
+        issues.push(`${at}: Psyche, security prompts and password managers are never recorded`);
+      if (s.kind === "app_menu" && (s.path === undefined || s.path.length === 0))
+        issues.push(`${at}: a menu step needs its menu path`);
+      if (
+        s.kind !== "app_menu" &&
+        s.name === undefined &&
+        s.fallback === undefined &&
+        (s.path === undefined || s.path.length === 0)
+      )
+        issues.push(`${at}: it needs a name, a path or an identifier`);
+    }
     if (s.kind === "navigate" && (s.url === undefined || s.url === ""))
       issues.push(`${at}: a navigation needs an http(s) address`);
     if (

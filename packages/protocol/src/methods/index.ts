@@ -45,6 +45,7 @@ import { SettingsMethods } from "./settings.ts";
 import { SkillsMethods } from "./skills.ts";
 import { SpecialistsMethods } from "./specialists.ts";
 import { TasksMethods } from "./tasks.ts";
+import { TeachAppMethods } from "./teach.ts";
 import { TerminalMethods } from "./terminal.ts";
 import { ThreadsMethods } from "./threads.ts";
 import { UsageMethods } from "./usage.ts";
@@ -100,6 +101,7 @@ export * from "./settings.ts";
 export * from "./skills.ts";
 export * from "./specialists.ts";
 export * from "./tasks.ts";
+export * from "./teach.ts";
 export * from "./terminal.ts";
 export * from "./threads.ts";
 export * from "./vault.ts";
@@ -156,6 +158,7 @@ export const Methods = {
   ...VmMethods,
   ...RunsMethods,
   ...DictationMethods,
+  ...TeachAppMethods,
   ...AttentionMethods,
   ...SkillsMethods,
   ...PluginsMethods,

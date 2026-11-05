@@ -220,6 +220,7 @@ import {
 } from "./speech.ts";
 import { createSrtResolver, type SrtResolver } from "./srt.ts";
 import { taskUpdateHandlers } from "./task-controls.ts";
+import { composeTeachApp } from "./teach-app.ts";
 import {
   type ComposedTeaching,
   composeTeaching,
@@ -1014,6 +1015,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     skills.part,
     composeSpeech(speechSetup ?? speechSetupFromEnv(gwOptions.env)),
     composeDictation(),
+    // Teach by showing in a Mac app (J8 phase 2): the desktop shell only (compose/teach-app.ts).
+    composeTeachApp(),
     composeDeviceNotifications(deviceNotes),
     // A terminal on the Host (remote-gateway design §4.2, R4): admin + presence, per device.
     hostTerminalPart(gwOptions.hostTerminal),

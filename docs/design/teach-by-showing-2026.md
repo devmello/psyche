@@ -1,6 +1,6 @@
-# Teach by showing: the built-in browser (2026)
+# Teach by showing: the built-in browser and Mac apps (2026)
 
-**Status:** phase 1 built, 2026-11-04. **Feature:** J8 in [03-feature-spec.md](../03-feature-spec.md), spelled out in [future-features.md §2](../roadmap/future-features.md#2-teach-by-showing). **Companion:** [the teaching loop](../agent/teaching-loop-2026.md), which learns from feedback ("not like this"). The two share lessons and marks. They do not share the recorder.
+**Status:** phase 1 (browser) built, 2026-11-04; phase 2 (Mac apps) built, 2026-11-04, see [§13](#13-phase-2-recording-in-a-mac-app). **Feature:** J8 in [03-feature-spec.md](../03-feature-spec.md), spelled out in [future-features.md §2](../roadmap/future-features.md#2-teach-by-showing). **Companion:** [the teaching loop](../agent/teaching-loop-2026.md), which learns from feedback ("not like this"). The two share lessons and marks. They do not share the recorder.
 
 **The short version:**
 - The owner presses **Record** on a tab of the built-in browser, does a task once, and presses **Stop**.
@@ -8,6 +8,7 @@
 - **Save** makes a skill draft through the existing owner-approved skill path, with the usual approval card. Nothing runs until the owner approves it.
 - **Run it once now** fills the message box with the skill. The agent runs it with the normal browser tools, so every action passes the permission broker, and it stops and asks when the page is not what was recorded.
 - Passwords, card numbers, one-time codes and ID numbers are never recorded. Other typed values are hidden by default and kept only when the owner says so. Cookies and session contents are never read.
+- **Phase 2:** the same, in one Mac app the owner already allowed for computer use ("Record in an app"). The helper watches that app's accessibility events and returns steps like "In Mail, click ‘New Message’" and "In Mail, choose ‘File > Export’". Same review screen, same save path, same rules. §13.
 
 ---
 
@@ -15,7 +16,7 @@
 
 | In phase 1 | Not yet |
 | --- | --- |
-| The built-in browser's own tabs (the owner's, not the agent's) | Real Chrome (R-mode), Mac apps (phase 2, J1/J2; the Mac helper already has an accessibility recorder, `apps/mac-helper/.../Teach/`, with its own `TeachStep` in `schemas/teach.ts`) |
+| The built-in browser's own tabs (the owner's, not the agent's) | Real Chrome (R-mode). Mac apps are phase 2, built: §13 |
 | Navigations, clicks, typing, choosing in a `<select>`, Enter | Drag, hover, file uploads, rich-text editors, keyboard shortcuts, cross-origin iframes |
 | One skill draft per recording, run once now | "Run it every week" through Scheduled (phase 3, §8) |
 
@@ -130,7 +131,7 @@ A masked value that is not kept and not named becomes an unnamed input (`input2`
 ## 8. Phase 3 is left alone, on purpose
 
 - **Offering "run it every week".** The automation path (`automations.create` and Scheduled, #1030, #1002) runs a prompt on a schedule, unattended. A skill from a recording needs the skill to be installed first, inputs filled each run, and sensitive steps handed to the owner, so an unattended weekly run needs decisions this phase should not make for the owner (what to do when a sensitive step or a changed page stops it). That is phase 3 with the input questions in the roadmap. It is not a cheap button, so it is not built here.
-- **Mac apps (phase 2)** reuse the review screen and the draft path. Only the recorder differs (the Mac helper's).
+- **Mac apps (phase 2)** reuse the review screen and the draft path. Only the recorder differs (the Mac helper's). Built: §13.
 
 ## 9. Threat model
 
@@ -176,3 +177,105 @@ A masked value that is not kept and not named becomes an unnamed input (`input2`
 | Skill text and draft | `packages/skills/src/recording.ts`, `drafts.ts` (`proposeFromRecording`), `handlers.ts` |
 | Kept recordings (signed, `state/teach`) | `packages/browser/src/teach/store.ts`; denied in `packages/permissions/src/prohibitions.ts`; left out of `packages/backup/src/archive.ts` |
 | Words | `packages/ui/src/i18n/messages/teach.ts` |
+| Phase 2 (Mac apps): the pure rules and the event-to-step mapper | `apps/mac-helper/Sources/PsycheHelperCore/Teach/AppRecording.swift`, `AXTargetCheck.swift` |
+| Phase 2: the live AXObserver source, the menu-bar indicator, the controller and `teach.record.*` | `apps/mac-helper/Sources/PsycheHelperSystem/Teach/LiveAppTeach.swift`, `AppTeachController.swift` |
+| Phase 2: `computer.check_target` (helper and Gateway tool) | `.../Computer/ComputerCapabilities.swift` (`checkTarget`), `apps/gateway/src/compose/computer.ts` |
+| Phase 2: `teach.app.*` (desktop shell only) | `packages/protocol/src/methods/teach.ts`, `apps/gateway/src/compose/teach-app.ts` |
+| Phase 2: IPC and the control | `apps/desktop/src/lib/ipc.ts` (`teachApp*`), `apps/web/src/shell/components/AppRecord.tsx` |
+
+---
+
+## 13. Phase 2: recording in a Mac app
+
+The owner picks **one** app they already allowed for computer use, presses **Start**, does the task once, and presses **Stop**. The Mac helper watches that app's accessibility (AX) events and returns semantic steps. Everything after Stop is phase 1: the same review screen (steps in plain words, edit, reorder, delete, inputs), the same save path (`skills.drafts.fromRecording`, desktop shell only), the same approval card, the same tainted draft.
+
+### 13.1 What is recorded
+
+| Event | Source | Step | Plain words |
+| --- | --- | --- | --- |
+| A press on a control | the owner's mouse press, resolved to an element through AX (`AXUIElementCopyElementAtPosition`) | `app_click` | In Mail, click ‘New Message’ |
+| A field's value changed | `AXValueChanged` on the focused field, coalesced into one step per field | `app_type` | In Mail, type what you tell it into ‘Subject’ |
+| A menu item chosen | the press on a menu item, with its menu-bar path from the AX parents | `app_menu` | In Mail, choose ‘File > Export’ |
+| Focus moved | `AXFocusedUIElementChanged` | no step: it ends the previous field's typing and picks the next field to watch | |
+
+A step carries the app (bundle id and name), the AX role mapped to the protocol's fixed list, the element's name, the path of titles from the window down to it (or the menu path), and a fallback (the AX identifier, else a differing description). It never carries coordinates or an element ref.
+
+`AXObserver` has no notification for a button press, so presses come from a listen-only mouse tap limited to this app's pid. The helper's own synthetic events (`Input.marker`) are ignored. A menu item is chosen at mouse-up, not on highlight (`AXMenuItemSelected` only says it was highlighted).
+
+Limits: 200 steps, 15 minutes. Not recorded: keyboard shortcuts, Return or Tab, drag, scroll, hover, a menu item chosen with the keyboard, anything in a second window of another app. A control with no name and no identifier is left out and counted ("left out" on the review screen), because nothing could find it on replay.
+
+### 13.2 Who can start it
+
+Only the owner, from the control next to the browser's Record. That is wiring:
+
+```
+owner clicks Start ─▶ renderer ─IPC (teachAppStart)─▶ desktop main ─▶ Gateway teach.app.start
+                                                                     (desktop shell + operator.admin, Host helper only)
+                                                                              │
+                                                                              ▼
+                                      Mac helper teach.record.start ─▶ AX events of that one app ─▶ menu-bar indicator
+```
+
+- `teach.app.*` needs `identity.desktopShell` (loopback and the per-launch handshake secret) **and** `operator.admin`, which the secret cannot buy. A paired phone, a web client or a script with an admin scope gets `forbidden`.
+- The renderer reaches them through five dedicated IPC channels that the desktop refuses in a window that is a client of another computer's Gateway. The generic `call` relay refuses `teach.app.*`.
+- The helper's `teach.record.*` capabilities are unreachable through `nodes.invoke`: the Host's helper allows only its notification-permission capabilities there, and the deny list for any other node now includes `teach`. No agent tool starts, stops, lists or reads a recording (a test lists the tool catalogue).
+- The helper refuses to start while a computer-use session is running (`computer_busy`), and again checks the grant itself.
+
+### 13.3 Which apps
+
+The app must be in **Settings → Computer use** with a tier of Read, Click or Interact (not Off, not Ask), with computer use on. The Gateway lists those (`teach.app.apps`) and checks again on start; the helper reads `config/computer-use.json` and checks a third time. Never recordable, whatever is granted:
+
+- Psyche itself (`com.psyche.*`);
+- system security UIs: `loginwindow`, `SecurityAgent`, `LocalAuthentication.UIAgent`, `coreservices.uiagent`, Keychain Access, System Settings, the notification centre;
+- password managers;
+- anything computer use caps below Interact (browsers, terminals and IDEs, banking and trading apps): a replay could not act there, and a keystroke in a terminal is a command.
+
+An event from any other app than the recorded one is dropped. An event from a never-recorded app is dropped and counted.
+
+### 13.4 Never recorded
+
+| What | How it is kept out |
+| --- | --- |
+| The contents of a **secure text field**, or a field with password, card, one-time-code, ID-number or secret semantics | Decided from the element **before its value is read**: `AXSecureTextField`, Secure Event Input being on (a password field anywhere has focus), or the same words as the browser's list (`TEACH_SENSITIVE_WORDS`, ported to Swift and tested) in its title, description, identifier, placeholder or label. `AXValue` is not read for such a field. It becomes one `app_type` step with `sensitive: true` and no value; the skill says "the owner does this themselves". |
+| A secret typed into an unlabelled field | The value is checked again for the shapes `classifyTeachValue` knows (Luhn card numbers, `ddd-dd-dddd`, tokens). A hit drops the value and makes the step sensitive. Checked a third time in the Gateway and a fourth in `sanitizeTeachSteps`. |
+| Screenshots | None. The phase 2 capabilities have no screenshot path. (The older J8 `teach.start` capability keeps its optional screenshots; it is unreachable from the Gateway and the desktop and nothing here uses it.) |
+| Other apps, Psyche, security prompts | §13.3. |
+| Text that could steer the agent | App text (titles, names, paths) is flattened to one line, redacted for emails, numbers and tokens, cut to 120 characters and quoted as untrusted data in the skill; roles come from a fixed list. |
+| What happens after Stop | The helper holds the steps in memory until `teach.record.stop` hands them over once, then forgets them. The Gateway passes them through without storing them. An unclaimed recording is forgotten after 30 minutes. Receipts name the app and a step count, never a name or a typed value. |
+
+Typed values are masked by default exactly as in §4. The example reaches the review screen in memory (helper, then the Gateway process, then the renderer) and is sent back only for a step set to **Keep this value**.
+
+### 13.5 A visible indicator, and Stop is always there
+
+While recording, the helper puts a menu-bar item on the Mac ("● Recording Mail") with its own **Stop recording**; the pane shows a recording bar with the count and Stop; both end it. It also ends when the app quits, at 200 steps and after 15 minutes; what was caught stays for review. Cancel ("Discard") drops everything.
+
+### 13.6 Review and save
+
+The review screen and `skills.drafts.fromRecording` are the browser's. `BrowserTeachStep` gains the kinds `app_click`, `app_type`, `app_menu` and the fields `app`, `path`, `fallback`. `teachStepIssues` refuses a recording that mixes browser and app steps, spans two apps or names a never-recorded app. The draft is marked `recordedIn: "mac_app"` **on the draft record**, is `tainted`, has origin `recording`, and `skills.drafts.accept` marks the install proposal `author: "recording"` from that record, as in phase 1. The card says the skill "was made from an app you showed Psyche" and names the taint source "recorded app windows". Kept recordings use the same signed store (§5).
+
+### 13.7 Replay
+
+"Run it once now" fills the message box, as in §6. The skill declares `apps.open`, `apps.focus`, `computer.snapshot`, `computer.check_target` and `computer.act`, so every action goes through the agent loop and the permission broker with the app's tier, the risky-label checks (`delete`, `send`, ...), the send-app rules and the usual approval cards. It never widens what the agent may do.
+
+`computer.check_target` is the read-only twin of `browser.check_target`: it takes the app and the step's role and name (or identifier, or menu path), snapshots the window (and the menu bar for a menu step) and answers `found`, `missing` or `ambiguous` by **exact role and name** (case and spacing ignored; for a menu, the whole chain of titles). Anything but `found` carries `stop: true` and the skill tells the agent to stop and ask. A secure field is never a target. When found, the agent takes `computer.snapshot` and acts on that ref with `expect` copied from it, so the existing stale-ref and expectation checks apply. The tool needs only the Read tier.
+
+### 13.8 Threat model (additions)
+
+| Threat | Mitigation |
+| --- | --- |
+| The agent starts a recording to watch the owner | No tool, method or capability it can reach starts one: `teach.app.*` is desktop-shell + admin only, `teach.record.*` is unreachable through `nodes.invoke` (Host allowlist and the `teach` deny prefix for other nodes), the generic IPC relay refuses `teach.app.*`. Tested. |
+| A same-user process with the handshake secret records the owner | The secret does not buy `operator.admin`, which `teach.app.*` needs. |
+| Recording in the wrong place (a banking app, a password prompt, Psyche) | Three checks (Gateway list, Gateway start, helper start) plus per-event filtering; the never-recorded list cannot be unlocked by a setting. |
+| A password typed into a field the app labels oddly | Secure fields and Secure Event Input are decided before any value is read; labels by words; the value by shape; the owner reviews every step. A secret in an unlabelled, unrecognisable field is held in memory only and sent only if the owner chooses **Keep this value**. |
+| App text plants instructions in the skill | §6 rules: quoted, one line, fixed roles, inputs named by step; tainted draft, card and lock entry. |
+| The recorder keeps running unseen | Menu-bar indicator with Stop, the pane bar, the time and step limits, the app quitting. |
+| A replay hits a different element | Exact role and name, whole menu chain, ambiguity is a stop; refs are re-checked by `expect`. |
+
+### 13.9 Limits and open points
+
+- **The AX observer cannot be exercised in tests.** The decisions are tested with recorded event fixtures (`AppTeachTests.swift`, `AppTeachControllerTests.swift`); the live source (`LiveAppTeach.swift`) is covered only by a manual pass. See `apps/mac-helper/docs/manual-test-plan.md`.
+- Apps with poor AX trees (Electron, games, canvas apps) give unnamed controls; those steps are left out and counted.
+- A tier of Read is enough to be listed, because recording only observes. A skill recorded in a Read-tier app cannot be replayed until the owner raises the tier; the replay stops with the tier message.
+- Keyboard-driven work (shortcuts, Return, Tab) is not recorded. Adding it needs a chord policy first.
+- The older J8 `teach.*` capabilities (event tap, optional screenshots, whole-draft result) stay in the helper, unreachable. Removing them is a follow-up.
+- Typed examples pass through the Gateway process in memory on their way to the review screen. If that is not acceptable, the alternative is a direct helper-to-main channel; it was not built.

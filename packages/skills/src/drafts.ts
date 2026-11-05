@@ -25,7 +25,7 @@ import { stringify } from "yaml";
 import { NAME_PATTERN, parseSkill } from "./frontmatter.ts";
 import type { FsSkillLoader, SkillProposal } from "./loader.ts";
 import { manifestOf } from "./manifest.ts";
-import { recordingDraftSteps, recordingSkillText } from "./recording.ts";
+import { isAppRecording, recordingDraftSteps, recordingSkillText } from "./recording.ts";
 import { readSkillDir, textOf } from "./tree.ts";
 
 /**
@@ -342,6 +342,7 @@ export class SkillDrafts {
       createdAt: at,
       updatedAt: at,
       origin: "recording",
+      recordedIn: isAppRecording(steps) ? "mac_app" : "browser",
       ...(input.device === undefined ? {} : { recordedOn: input.device.slice(0, 128) }),
     };
     store.drafts.push(draft);

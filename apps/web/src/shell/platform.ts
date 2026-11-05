@@ -194,11 +194,15 @@ export interface BrowserHostState {
  */
 export interface TeachCapturedStep {
   id: string;
-  kind: "navigate" | "click" | "type" | "select" | "press";
+  kind: "navigate" | "click" | "type" | "select" | "press" | "app_click" | "app_type" | "app_menu";
   url?: string;
   role?: string;
   name?: string;
   selector?: string;
+  /** Mac app steps: the app, the titles down to the element (or the menu path) and a fallback. */
+  app?: { bundleId: string; name: string };
+  path?: string[];
+  fallback?: string;
   key?: string;
   sensitive?: boolean;
   sample?: string;
@@ -207,10 +211,28 @@ export interface TeachCapturedStep {
 /** What Stop hands the review screen. */
 export interface TeachCapture {
   id: string;
-  endedBy: "stop" | "limit" | "interrupted";
+  endedBy: "stop" | "limit" | "interrupted" | "timeout" | "cancel";
   steps: TeachCapturedStep[];
   /** Page changes the page made by itself, left out of the steps. */
   skippedNavigations?: number;
+  /** A recording made in a Mac app: which one, and how much input was left out. */
+  app?: { bundleId: string; name: string };
+  skippedInput?: number;
+}
+
+/** An app the owner can record in (granted for computer use, not off limits). */
+export interface TeachAppChoiceView {
+  bundleId: string;
+  name: string;
+  tier: "read" | "click" | "interact";
+}
+
+/** The Mac helper's recording, as the pane shows it. */
+export interface TeachAppStatusView {
+  active: boolean;
+  app?: { bundleId: string; name: string };
+  steps?: number;
+  ended?: "stop" | "limit" | "timeout" | "cancel" | "interrupted";
 }
 
 /** A recording the owner chose to keep on this Mac: the reviewed steps only. */
@@ -280,6 +302,23 @@ export interface BrowserPort {
     title: string,
     steps: import("@psyche/protocol").BrowserTeachStep[],
   ): Promise<KeptRecordingView>;
+  /**
+   * Teach by showing in a Mac app (J8 phase 2): the granted apps, Record, Stop, Cancel and status.
+   * Owner-only like the rest: main asks the Gateway, which asks the Mac helper; the agent cannot.
+   */
+  teachAppApps?(): Promise<{ apps: TeachAppChoiceView[] }>;
+  teachAppStart?(
+    bundleId: string,
+  ): Promise<{ sessionId: string; app: { bundleId: string; name: string } }>;
+  teachAppStop?(): Promise<{
+    id: string;
+    endedBy: TeachCapture["endedBy"];
+    app: { bundleId: string; name: string };
+    steps: TeachCapturedStep[];
+    skipped: number;
+  }>;
+  teachAppCancel?(): Promise<{ cancelled: boolean }>;
+  teachAppStatus?(): Promise<TeachAppStatusView>;
   teachKept?(): Promise<KeptRecordingView[]>;
   teachOpenKept?(id: string): Promise<KeptRecordingView>;
   teachDeleteKept?(id: string): Promise<void>;

@@ -675,7 +675,7 @@ export interface AppleMusicControlParams {
     /**
      * Which player (default: whichever is playing, else Music)
      */
-    app?: App;
+    app?: AppEnum;
     /**
      * With action shuffle
      */
@@ -691,7 +691,7 @@ export type AppleMusicControlParamsAction = "play" | "pause" | "playpause" | "ne
 /**
  * Which player (default: whichever is playing, else Music)
  */
-export type App = "music" | "spotify";
+export type AppEnum = "music" | "spotify";
 
 export interface AppleMusicItem {
     album?:  null | string;
@@ -818,7 +818,7 @@ export interface AppleNotesUpdateParams {
 }
 
 export interface AppleNowPlaying {
-    app:      App;
+    app:      AppEnum;
     shuffle?: boolean | null;
     state:    AppleNowPlayingState;
     track?:   Track | null;
@@ -9972,6 +9972,7 @@ export interface SkillDraft {
      */
     occurrences: number;
     origin?:     SkillDraftOrigin;
+    recordedIn?: SkillDraftRecordedIn;
     recordedOn?: string;
     /**
      * Values stripped from the owner's words
@@ -9995,6 +9996,8 @@ export interface SkillDraft {
 }
 
 export type SkillDraftOrigin = "routine" | "recording";
+
+export type SkillDraftRecordedIn = "browser" | "mac_app";
 
 export interface SkillDraftReplay {
     checkedAt: string;
@@ -10047,7 +10050,15 @@ export interface SkillsDraftsFromRecordingParams {
 }
 
 export interface BrowserTeachStep {
-    id: string;
+    /**
+     * app_*: the Mac app the step was recorded in (phase 2)
+     */
+    app?: BrowserTeachStepApp;
+    /**
+     * app_*: the element's accessibility identifier, when it has one
+     */
+    fallback?: string;
+    id:        string;
     /**
      * The value is an input the agent asks for each run
      */
@@ -10065,6 +10076,10 @@ export interface BrowserTeachStep {
      * Accessible name (untrusted page text)
      */
     name?: string;
+    /**
+     * app_*: titles from the window down to the element, or the menu path (File, Export)
+     */
+    path?: string[];
     /**
      * Accessibility role
      */
@@ -10088,6 +10103,14 @@ export interface BrowserTeachStep {
 }
 
 /**
+ * app_*: the Mac app the step was recorded in (phase 2)
+ */
+export interface BrowserTeachStepApp {
+    bundleId: string;
+    name:     string;
+}
+
+/**
  * The value is an input the agent asks for each run
  */
 export interface Input {
@@ -10095,7 +10118,7 @@ export interface Input {
     name:         string;
 }
 
-export type BrowserTeachStepKind = "navigate" | "click" | "type" | "select" | "press";
+export type BrowserTeachStepKind = "navigate" | "click" | "type" | "select" | "press" | "app_click" | "app_type" | "app_menu";
 
 export interface SkillsDraftsFromRecordingResult {
     draft: SkillDraft;
@@ -10775,6 +10798,115 @@ export interface TaughtBlock {
 }
 
 export type TaughtBlockType = "taught";
+
+export interface TeachAppAppsResult {
+    apps: TeachAppChoice[];
+}
+
+export interface TeachAppChoice {
+    bundleId: string;
+    name:     string;
+    tier:     Tier;
+}
+
+export type Tier = "read" | "click" | "interact";
+
+export interface TeachAppCancelResult {
+    cancelled: boolean;
+}
+
+export interface TeachAppCapture {
+    app:     TeachAppCaptureApp;
+    endedBy: TeachAppEndedBy;
+    id:      string;
+    skipped: number;
+    steps:   TeachAppCapturedStep[];
+}
+
+export interface TeachAppCaptureApp {
+    bundleId: string;
+    name:     string;
+}
+
+export type TeachAppEndedBy = "stop" | "limit" | "timeout" | "cancel" | "interrupted";
+
+export interface TeachAppCapturedStep {
+    /**
+     * app_*: the Mac app the step was recorded in (phase 2)
+     */
+    app?: TeachAppCapturedStepApp;
+    /**
+     * app_*: the element's accessibility identifier, when it has one
+     */
+    fallback?: string;
+    id:        string;
+    /**
+     * press: the key
+     */
+    key?: string;
+    kind: BrowserTeachStepKind;
+    /**
+     * Accessible name (untrusted page text)
+     */
+    name?: string;
+    /**
+     * app_*: titles from the window down to the element, or the menu path (File, Export)
+     */
+    path?: string[];
+    /**
+     * Accessibility role
+     */
+    role?:   string;
+    sample?: string;
+    /**
+     * Fallback CSS selector
+     */
+    selector?: string;
+    /**
+     * The field is sensitive: no value is ever stored
+     */
+    sensitive?: boolean;
+    /**
+     * navigate: origin and path, no query
+     */
+    url?: string;
+}
+
+/**
+ * app_*: the Mac app the step was recorded in (phase 2)
+ */
+export interface TeachAppCapturedStepApp {
+    bundleId: string;
+    name:     string;
+}
+
+export interface TeachAppStartParams {
+    bundleId: string;
+}
+
+export interface TeachAppStartResult {
+    app:       TeachAppStartResultApp;
+    sessionId: string;
+}
+
+export interface TeachAppStartResultApp {
+    bundleId: string;
+    name:     string;
+}
+
+export interface TeachAppStatus {
+    active:     boolean;
+    app?:       TeachAppStatusApp;
+    ended?:     TeachAppEndedBy;
+    sessionId?: string;
+    startedAt?: string;
+    steps?:     number;
+}
+
+export interface TeachAppStatusApp {
+    bundleId: string;
+    name:     string;
+}
 
 export interface TeachDraft {
     description: string;

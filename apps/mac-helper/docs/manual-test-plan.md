@@ -255,6 +255,24 @@ Spike 06 restarted a 16 GB host under two guests plus an install. Never run thes
 | 12.8 | `finder.list` with no granted folders / inside / outside / through a symlink out | `no_granted_folders` / entries / `outside_granted_folders` / refused |
 | 12.9 | `safari.tabs`, `safari.current_tab`, `safari.open_url` | Tabs and URLs; a new tab; `file:` and `javascript:` refused |
 
+## 13b. Record in an app (J8 phase 2): use a throwaway Mail account or Notes, never real mail
+
+The AXObserver source cannot run in unit tests; this is its check. Grant the app in Settings → Computer use first (Interact), and Accessibility to the helper.
+
+| # | Step | Expect |
+| --- | --- | --- |
+| 13b.1 | Psyche → browser pane → "Record in an app": the list shows only the apps you allowed; open Mail, pick it, Start | A "● Recording Mail" item appears in the menu bar and the pane shows the recording bar. No screenshot permission prompt appears |
+| 13b.2 | In Mail: click "New Message", type a Subject, choose File ▸ Close or another harmless menu item | The count in the bar goes up; typing in one field is one step |
+| 13b.3 | Type into a password field of any sheet (add a mail account, cancel before saving), and into a field labelled "Verification code" | The review shows the step as "you type into ‘…’ yourself" with no value; the pane never shows the text. With Secure Event Input on (a password field has focus) nothing typed elsewhere is kept either |
+| 13b.4 | Switch to Notes (or Psyche) and click and type there | Nothing is recorded from the other app; Psyche's own windows never add a step |
+| 13b.5 | Trigger a macOS password sheet (System Settings ▸ unlock) while recording | Nothing is recorded from it; the review says some input was left out |
+| 13b.6 | Choose "Stop recording" from the menu-bar item | Recording ends and the pane offers Review with the steps; the menu-bar item is gone |
+| 13b.7 | Start again, quit Mail | Recording ends ("the app closed"), the steps wait for Review |
+| 13b.8 | Review, name it, Save, approve the card ("Install skill from your recording", tainted wording about an app) | Installed; "Run it once now" fills the message box |
+| 13b.9 | Run it with Mail closed, then with the New Message button renamed or hidden | `app_not_running`-style stop; `computer.check_target` answers missing and the agent asks, it does not pick a similar control |
+| 13b.10 | Start a computer-use run, then try Record | `computer_busy` |
+| 13b.11 | Start recording, close Psyche | The menu-bar Stop still works; steps are held only until collected (30 min) |
+
 ## 14. Install from DMG (bundled helper)
 
 The contract is in `docs/archive/status/s14.md` "Packaging". Build a DMG with `deploy/macos/build-helper.sh`, then `electron-forge package`, then `deploy/macos/make-dmg.sh`. Run each row twice:

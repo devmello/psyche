@@ -153,9 +153,64 @@ public enum ComputerCapabilities {
     }
 
     public static func make(_ cu: ComputerUse) -> [any CapabilityHandler] {
-        [axTree(cu), axValue(cu), click(cu, "computer.click", count: 1, right: false), click(cu, "computer.double_click", count: 2, right: false),
+        [axTree(cu), checkTarget(cu), axValue(cu), click(cu, "computer.click", count: 1, right: false), click(cu, "computer.double_click", count: 2, right: false),
          click(cu, "computer.right_click", count: 1, right: true), press(cu), setValue(cu), select(cu), type(cu), key(cu), scroll(cu),
          drag(cu), menu(cu), endSession(cu)]
+    }
+
+    struct CheckTargetParams: Decodable {
+        var app: String?
+        var role: String?
+        var name: String?
+        var identifier: String?
+        var menuPath: [String]?
+        var session: String?
+    }
+
+    /// Replay of a recorded step (teach by showing): is the recorded target in the app right now?
+    /// Read-only. Exact role and name; `missing` / `ambiguous` carry `stop` so the run asks the owner.
+    static func checkTarget(_ cu: ComputerUse) -> Capability {
+        cap(cu, CapabilitySpec(
+            name: "computer.check_target",
+            description: "Read-only check before a replayed step: is the target (role and name, an identifier, or a menu path) in the app's window right now? Answers found (with its ref, role and label for computer.act), missing or ambiguous. Anything but found carries stop: true: ask the owner, do not guess.",
+            sideEffect: .read, targetKind: .app,
+            inputSchema: Schema.object([
+                "app": Schema.string("Bundle id the recording was made in"),
+                "role": Schema.string("Role as recorded: button, textbox, menuitem, ..."),
+                "name": Schema.string("Name as recorded", maxLength: 200),
+                "identifier": Schema.string("Accessibility identifier as recorded", maxLength: 200),
+                "menuPath": ["type": "array", "items": Schema.string(maxLength: 120), "maxItems": 8],
+                "session": Schema.string(),
+            ], required: ["app"]),
+            permissions: [.accessibility]
+        )) { ctx in
+            let p = try ctx.decode(CheckTargetParams.self)
+            cu.ensureEscTap()
+            cu.reloadSettings()
+            let app = try AXEngine.findApp(p.app, pid: nil)
+            try cu.policy.authorize(.read, bundleId: app.bundleIdentifier, appName: app.localizedName ?? "app", approval: binding(ctx))
+            let isMenu = !(p.menuPath ?? []).isEmpty
+            let o = AXSnapshotOptions.clamped(maxVisit: 8000, maxEmit: 2000, textMax: 400, valueMax: 20, clip: true)
+            let req = AXEngine.SnapshotRequest(app: app, window: nil, root: isMenu ? "app" : nil, menubar: isMenu, options: o)
+            let (snap, target) = try await cu.engine.run { try $0.snapshot(req) }
+            let outcome = AXTargetCheck.check(snap.nodes, AXTargetCheck.Query(role: p.role, name: p.name, identifier: p.identifier, menuPath: p.menuPath))
+            var result: [String: JSONValue] = [
+                "status": .string(outcome.status), "app": .string(target.bundleId ?? target.name),
+                "stop": .bool(outcome.status != "found"), "provenance": "untrusted",
+            ]
+            switch outcome {
+            case .found(let ref, let role, let label):
+                result["ref"] = .string(ref)
+                result["role"] = .string(role)
+                if let label { result["label"] = .string(label) }
+            case .ambiguous(let refs):
+                result["candidates"] = .array(refs.map { .string($0) })
+                result["hint"] = "Several elements match; do not pick one. Ask the owner."
+            case .missing:
+                result["hint"] = "The recorded element is not in the window. Ask the owner what to do."
+            }
+            return CapabilityOutput(.object(result))
+        }
     }
 
     // MARK: Read

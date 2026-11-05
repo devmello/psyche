@@ -9,6 +9,7 @@ import type {
   KeptRecordingView,
   TeachCapture,
 } from "../platform.ts";
+import { AppRecordButton, AppRecordPanel, useAppRecord } from "./AppRecord.tsx";
 import { openNewTab } from "./browser-new-tab.ts";
 import { SignInPrompt } from "./SignInPrompts.tsx";
 import { TeachReview } from "./TeachReview.tsx";
@@ -196,6 +197,13 @@ function DesktopBrowserPane(props: {
   const [keptOpen, setKeptOpen] = useState(false);
   const reviewing = review !== null;
   const recording = state.recording ?? null;
+  // Recording in a Mac app (phase 2): one recording at a time, in the browser or in an app.
+  const [appActive, setAppActive] = useState(false);
+  const appRec = useAppRecord({
+    port,
+    onActive: setAppActive,
+    onCapture: (capture) => setReview({ capture }),
+  });
 
   useEffect(() => {
     if (!keptOpen || !port.teachKept) return;
@@ -376,6 +384,7 @@ function DesktopBrowserPane(props: {
             </button>
           </span>
         ))}
+        <AppRecordButton rec={appRec} disabled={reviewing || recording !== null} />
         <button
           type="button"
           className="pill"
@@ -396,6 +405,7 @@ function DesktopBrowserPane(props: {
           ×
         </button>
       </div>
+      <AppRecordPanel rec={appRec} />
       {newTabText !== null ? (
         <form
           style={{ display: "flex", gap: 4, padding: "0 4px 4px" }}
@@ -610,7 +620,7 @@ function DesktopBrowserPane(props: {
               {t("web.browser.stopTask")}
             </button>
           ) : null}
-          {port.teachStart && recording === null ? (
+          {port.teachStart && recording === null && !appActive ? (
             <button
               type="button"
               className="pill"

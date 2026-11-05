@@ -145,6 +145,12 @@ const bridge = {
     teachKept: () => invoke(IPC.teachKept),
     teachOpenKept: (id: string) => invoke(IPC.teachOpenKept, { id }),
     teachDeleteKept: (id: string) => invoke(IPC.teachDeleteKept, { id }),
+    // Teach by showing in a Mac app: the owner picks a granted app and presses Record.
+    teachAppApps: () => invoke(IPC.teachAppApps),
+    teachAppStart: (bundleId: string) => invoke(IPC.teachAppStart, { bundleId }),
+    teachAppStop: () => invoke(IPC.teachAppStop),
+    teachAppCancel: () => invoke(IPC.teachAppCancel),
+    teachAppStatus: () => invoke(IPC.teachAppStatus),
   },
   windows: {
     popOutPane: (route: string, title: string) => invoke(IPC.windowPopOut, { route, title }),

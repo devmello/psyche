@@ -293,6 +293,21 @@ The owner demonstrates a flow and the helper turns it into a skill draft. The Ga
 - **Draft:** `{sessionId, name, description, startedAt, endedAt, endedBy, steps, files}`. `SKILL.md` has frontmatter (`allowed-tools: ["computer.*", "apps.open", "apps.focus"]`, `metadata.psyche.source: teach`) and numbered steps that name targets by role and JSON-quoted label. App text is single-line, so a label cannot add lines to the skill. It parses with `packages/skills`' `parseSkill` and `manifestOf`.
 - **Nothing is written to disk.** After the owner reviews the draft, the Gateway writes it to `workspace/skills/<name>/`, and T2's `skill_install` trust card makes it active.
 
+#### Record in an app (J8 phase 2)
+
+What the desktop's "Record in an app" uses (docs/design/teach-by-showing-2026.md §13). The older `teach.*` above is unreachable from the Gateway and the desktop; these are the ones in use. Owner only: the Gateway offers them to the desktop shell on the Host through `teach.app.*`, never to `nodes.invoke` or the agent.
+
+| Capability | Side effect | Notes |
+| --- | --- | --- |
+| `teach.record.start` | write (receipt `teach`, needs Accessibility) | `{bundleId}` of one app. Refused (`policy_denied`) unless the owner granted it in `config/computer-use.json` (Read, Click or Interact; not Ask or Off) and it is not Psyche, a system security prompt (`loginwindow`, `SecurityAgent`, ...), a password manager, or an app computer use caps below Interact (browsers, terminals, banking). `app_not_running` if the app is closed; `computer_busy` while the agent drives the computer. One recording at a time (`teach_busy`). Shows a menu-bar item "● Recording <App>" with a Stop |
+| `teach.record.stop` | none | The steps, once, then forgotten: `{id, endedBy, app, steps, skipped}`. Steps are `app_click`, `app_type` and `app_menu` with role, name, title path and a fallback; a secure or secret field is `sensitive: true` with no value |
+| `teach.record.cancel` | none | Stops and drops everything |
+| `teach.record.status` | read | `{active, sessionId?, app?, steps?, startedAt?, ended?}`; `ended` is `limit`, `timeout` or `interrupted` (the app quit) while the steps wait to be collected (forgotten after 30 minutes) |
+| `computer.check_target` | read (Read tier) | Replay: `{app, role?, name?, identifier?, menuPath?}` looked up in the window (and the menu bar for a menu path) by exact role and name; `{status: found \| missing \| ambiguous, ref?, stop}`. Never matches a secure field |
+
+- **Source:** an `AXObserver` on the app for focus, value-changed and menu-item notifications, plus a listen-only mouse tap limited to that app for presses (AX has no press notification). `AXValue` is read only for a field that passed the secure-field and sensitive-word checks. The decisions are pure and tested with recorded events (`AppTeachTests.swift`); the live source is checked by hand.
+- **No screenshots.** Keyboard shortcuts, Return and Tab, drag and scroll are not recorded.
+
 ## Name in macOS (#541)
 
 macOS prompts, System Settings › Privacy & Security, Finder and Activity Monitor show the helper as **Psyche (Helper)**: "“Psyche (Helper)” would like to control this computer using accessibility features". The prompt text below the title starts with "Psyche …", from the usage strings.

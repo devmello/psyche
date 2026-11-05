@@ -40,6 +40,8 @@ public final class HelperRuntime: @unchecked Sendable {
         handlers += CalendarWatchCapabilities.make()
         // J8 teach mode (owner demonstrations into skill drafts).
         handlers += TeachCapabilities.make(TeachController(screenshot: TeachCapabilities.liveScreenshotter(computer), log: log), computer: computer)
+        // J8 phase 2: "Record in an app" (AX events of one granted app; desktop shell only, via the Gateway).
+        handlers += AppTeachCapabilities.make(AppTeachCapabilities.live(computer: computer, environment: environment, log: log), computer: computer)
         registry = CapabilityRegistry(handlers)
     }
 

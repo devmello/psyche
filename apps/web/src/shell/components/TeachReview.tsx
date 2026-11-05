@@ -29,7 +29,23 @@ const addressOf = (url: string | undefined) => (url ?? "").replace(/^https?:\/\/
 export function stepWords(s: ReviewStep): string {
   const field = s.name ?? t("web.teach.step.typeUnnamed");
   const value = s.sample === undefined ? "" : `“${s.sample}”`;
+  const app = s.app?.name ?? "";
   switch (s.kind) {
+    case "app_click":
+      return s.name === undefined
+        ? t("web.teach.step.app.clickRole", { app, role: s.role ?? "" })
+        : t("web.teach.step.app.click", { app, name: s.name });
+    case "app_menu":
+      return t("web.teach.step.app.menu", {
+        app,
+        path: `‘${(s.path ?? [s.name ?? ""]).join(" > ")}’`,
+      });
+    case "app_type":
+      if (s.sensitive) return t("web.teach.step.app.typeSensitive", { app, name: field });
+      if (s.choice === "keep") return t("web.teach.step.app.typeKept", { app, value, name: field });
+      if (s.choice === "input")
+        return t("web.teach.step.app.typeInput", { app, input: s.inputName, name: field });
+      return t("web.teach.step.app.typeAsk", { app, name: field });
     case "navigate":
       return t("web.teach.step.navigate", { address: addressOf(s.url) });
     case "click":
@@ -72,6 +88,10 @@ export function TeachReview(props: {
   const [draft, setDraft] = useState<SkillDraft | null>(null);
   const [installed, setInstalled] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Decided once: the rows are emptied after Save, but the wording of the last screen stays.
+  const [isApp] = useState(
+    () => rows.some((r) => r.app !== undefined) || props.capture.app !== undefined,
+  );
 
   // The skill is installed once the owner approves the card: watch the draft.
   useEffect(() => {
@@ -140,7 +160,11 @@ export function TeachReview(props: {
             ? t("web.teach.done.installed", { title: title.trim() })
             : t("web.teach.done.body", { title: title.trim() })}
         </p>
-        {installed ? <p className="teach-hint">{t("web.teach.done.runHint")}</p> : null}
+        {installed ? (
+          <p className="teach-hint">
+            {isApp ? t("web.teach.app.runHint") : t("web.teach.done.runHint")}
+          </p>
+        ) : null}
         <div className="teach-actions">
           {installed ? (
             <button
@@ -181,6 +205,11 @@ export function TeachReview(props: {
           onChange={(e) => setTitle(e.target.value)}
         />
       </label>
+      {(props.capture.skippedInput ?? 0) > 0 ? (
+        <p className="teach-hint" data-testid="teach-skipped-input">
+          {t("web.teach.app.skipped", { count: props.capture.skippedInput ?? 0 })}
+        </p>
+      ) : null}
       {(props.capture.skippedNavigations ?? 0) > 0 ? (
         <p className="teach-hint" data-testid="teach-skipped">
           {t("web.teach.review.skipped", { count: props.capture.skippedNavigations ?? 0 })}
@@ -226,7 +255,11 @@ export function TeachReview(props: {
               </span>
             </div>
             {s.sensitive ? (
-              <p className="teach-hint">{t("web.teach.review.sensitive")}</p>
+              <p className="teach-hint">
+                {s.kind === "app_type"
+                  ? t("web.teach.app.sensitive")
+                  : t("web.teach.review.sensitive")}
+              </p>
             ) : isTyped(s) ? (
               <div className="teach-value">
                 <label className="teach-field">
@@ -292,7 +325,9 @@ export function TeachReview(props: {
         <span>{t("web.teach.review.keepRecording")}</span>
       </label>
       <p className="teach-hint">{t("web.teach.review.keepRecordingHint")}</p>
-      <p className="teach-hint">{t("web.teach.review.privacy")}</p>
+      <p className="teach-hint">
+        {isApp ? t("web.teach.app.privacy") : t("web.teach.review.privacy")}
+      </p>
       {error !== null ? (
         <p role="alert" className="teach-error" data-testid="teach-error">
           {error}

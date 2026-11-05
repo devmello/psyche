@@ -18,6 +18,12 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-04 (teach by showing in a Mac app, J8 phase 2)
+
+- `BrowserTeachStepKind` gains `app_click`, `app_type` and `app_menu` (at the end of the list); `BrowserTeachStep` gains optional `app` (`bundleId`, `name`), `path` (titles from the window down to the element, or a menu path; at most 8) and `fallback` (the element's accessibility identifier). `skills.drafts.fromRecording` accepts them: a recording is either in the browser or in one Mac app (`invalid_params` for a mix, for two apps, and for Psyche, system security prompts and password managers); the rules for sensitive fields, kept values and inputs are the browser's. `SkillDraft` gains optional `recordedIn` (`SkillDraftRecordedIn`: `browser` or `mac_app`, set by the Gateway from the steps; absent means the browser).
+- New methods `teach.app.apps`, `teach.app.start`, `teach.app.stop`, `teach.app.cancel` and `teach.app.status` (all `operator.admin`; `start`, `stop` and `cancel` side-effecting). The Psyche desktop shell on the Host only: they forward to the Host's Mac helper (`teach.record.*`), which watches one granted app's accessibility events. New types `TeachAppChoice`, `TeachAppCapturedStep`, `TeachAppCapture`, `TeachAppStatus` and `TeachAppEndedBy`. Nothing is stored by the Gateway or the helper after `teach.app.stop` hands the steps over.
+- New `browser-teach.ts` helpers `teachAppNever`, `TEACH_NEVER_APPS` and `isTeachAppKind`; `sanitizeTeachSteps` and `teachStepIssues` handle the app fields.
+- Node capabilities (not protocol types): the helper's `teach.record.*` and `computer.check_target`. `teach.*` joins the capability namespaces `nodes.invoke` never reaches. Design: docs/design/teach-by-showing-2026.md §13.
 ### v1 additive — 2026-11-04 (teach by showing in the built-in browser, J8 phase 1)
 
 - New method `skills.drafts.fromRecording` (`operator.admin`, side-effecting): turns the owner's reviewed recording into a skill draft. Params `title` and `steps` (1 to 200 `BrowserTeachStep`); result `{ draft }`. A sensitive step carries no value; a value is accepted only on a `type` or `select` step with `keepValue: true` that is not sensitive and not an input (otherwise `invalid_params`). Page text in the steps is quoted as untrusted in the draft. Accepting it is the existing `skills.drafts.accept` (replay check, device-only `skill_install` card). Nothing starts or reads a recording over the protocol: the recorder is local to the desktop app.

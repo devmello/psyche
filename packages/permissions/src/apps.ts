@@ -99,7 +99,18 @@ export function appCap(bundleId: string): { cap: AppTier; reason: string } {
 /** Tier an action needs. Unknown actions need `interact`. */
 export function tierRequired(action: string): AppTier {
   const a = action.replace(/^computer\./, "");
-  if (["screenshot", "ax_tree", "snapshot", "read", "find", "zoom", "list_windows"].includes(a))
+  if (
+    [
+      "screenshot",
+      "ax_tree",
+      "snapshot",
+      "check_target",
+      "read",
+      "find",
+      "zoom",
+      "list_windows",
+    ].includes(a)
+  )
     return "read";
   if (["click", "left_click", "double_click", "scroll", "hover", "open_app", "focus"].includes(a))
     return "click";
