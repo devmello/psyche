@@ -1,8 +1,9 @@
 import { randomBytes } from "node:crypto";
-import { chmodSync, mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ensureOwnerOnly } from "@psyche/hostfs";
 import { PsycheError } from "@psyche/protocol";
+import { renameOverSync } from "@psyche/protocol/platform";
 
 /** Homes already restricted by this process (Windows: one `icacls` per home, not per start). */
 const restricted = new Set<string>();
@@ -56,30 +57,12 @@ export function writeHandshakeSecret(
   try {
     writeFileSync(tmp, `${secret}\n`, { mode: 0o600 });
     chmodSync(tmp, 0o600);
-    renameOver(tmp, path);
+    renameOverSync(tmp, path);
   } catch (err) {
     rmSync(tmp, { force: true });
     throw err;
   }
   return { secret, path };
-}
-
-/**
- * `rename` over an existing file. On Windows it fails with EPERM/EBUSY/EACCES for the moment a
- * reader (the helper re-reading the secret) has the old file open; that clears in milliseconds.
- */
-function renameOver(from: string, to: string): void {
-  for (let attempt = 0; ; attempt++) {
-    try {
-      renameSync(from, to);
-      return;
-    } catch (err) {
-      const code = (err as NodeJS.ErrnoException).code;
-      const busy = code === "EPERM" || code === "EBUSY" || code === "EACCES";
-      if (process.platform !== "win32" || !busy || attempt >= 20) throw err;
-      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 25);
-    }
-  }
 }
 
 export function removeHandshakeSecret(path: string): void {

@@ -23,7 +23,7 @@ import {
 } from "../src/compose/library.ts";
 import { FsAudioLibrary } from "../src/compose/speech.ts";
 import { silentLogger } from "../src/log.ts";
-import { desktopClient, ik, newDeviceKey, type TestClient } from "./helpers.ts";
+import { desktopClient, expectPrivate, ik, newDeviceKey, type TestClient } from "./helpers.ts";
 
 let base: string;
 let home: string;
@@ -196,7 +196,7 @@ describe("writers index what they save", () => {
     expect(saved?.sha256).toMatch(/^sha256:[0-9a-f]{64}$/);
     const onDisk = join(home, "library", saved?.path ?? "");
     expect([...(await readFile(onDisk))]).toEqual([0x89, 0x50, 0x4e, 0x47]);
-    expect((await stat(onDisk)).mode & 0o777).toBe(0o600);
+    expectPrivate(onDisk, 0o600);
   });
 
   it("browser downloads: quarantined downloads with sniffed flags as tags", async () => {

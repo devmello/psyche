@@ -4,6 +4,7 @@ import { mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { createServer, type Server } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { isOwnerOnly } from "@psyche/hostfs";
 import { afterEach, describe, expect, it } from "vitest";
 import { WebSocketServer } from "ws";
 import { NodeAgent } from "../src/agent.ts";
@@ -234,10 +235,10 @@ describe("identity and config", () => {
     const home = tempDir();
     const a = loadOrCreateIdentity(home);
     if (process.platform === "win32") {
-      // No mode bits: the node home's DACL is this user and SYSTEM only, nothing inherited.
+      // No mode bits: the node home's DACL names only this user and the system principals.
+      expect(isOwnerOnly(home)).toBe(true);
       const acl = execFileSync("icacls", [home], { encoding: "utf8" });
       expect(acl).not.toMatch(/\b(Everyone|BUILTIN\\Users|Authenticated Users):/i);
-      expect(acl).not.toMatch(/\(I\)/);
     } else {
       expect(statSync(identityPath(home)).mode & 0o777).toBe(0o600);
     }

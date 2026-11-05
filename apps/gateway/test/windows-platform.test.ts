@@ -5,6 +5,7 @@ import { hideAppleEntry } from "../src/compose/connectors.ts";
 import { createDesktopLauncher, desktopInstalled } from "../src/compose/desktop-launch.ts";
 import { readSystemState } from "../src/compose/everything-probe.ts";
 import { powerReader, windowsPowerState } from "../src/compose/search-files.ts";
+import { isHostHelperCapabilityReachable, isUnreachableCapability } from "../src/handlers/nodes.ts";
 import { openExternalUrl, parseWindowsPower, windowsDesktopExe } from "../src/platform.ts";
 
 /** The Gateway's Windows branches, driven with fakes (no PowerShell, no browser, no app). */
@@ -171,5 +172,26 @@ describe("Windows app identities", () => {
     expect(isConferenceApp("C:\\Users\\me\\AppData\\Roaming\\Zoom\\bin\\Zoom.exe")).toBe(true);
     expect(isConferenceApp("MSTeams_8wekyb3d8bbwe!MSTeams")).toBe(true);
     expect(isConferenceApp("notepad.exe")).toBe(false);
+  });
+});
+
+describe("what nodes.invoke can reach", () => {
+  it("never teach.* or chrome.* on any node, and nothing but the notification permission on a Host helper", () => {
+    for (const cap of [
+      "teach.start",
+      "teach.stop",
+      "chrome.tabs",
+      "chrome.current_tab",
+      "presence.confirm",
+    ]) {
+      expect(isUnreachableCapability(cap), cap).toBe(true);
+      expect(isHostHelperCapabilityReachable(cap), cap).toBe(false);
+    }
+    for (const cap of ["speech.transcribe_stream", "files.trash", "health", "computer.click"]) {
+      expect(isHostHelperCapabilityReachable(cap), cap).toBe(false);
+    }
+    expect(isHostHelperCapabilityReachable("notify.authorization_status")).toBe(true);
+    // Words that only start like a namespace are not that namespace.
+    expect(isUnreachableCapability("teacher.list")).toBe(false);
   });
 });

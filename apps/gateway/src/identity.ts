@@ -14,14 +14,13 @@ import {
   mkdirSync,
   openSync,
   readFileSync,
-  renameSync,
   rmSync,
   writeSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
 import { ensureOwnerOnly } from "@psyche/hostfs";
 import { PsycheError } from "@psyche/protocol";
-import { fsyncDirSync } from "@psyche/protocol/platform";
+import { fsyncDirSync, renameOverSync } from "@psyche/protocol/platform";
 
 /**
  * The Gateway identity key (remote-gateway design §3.3): a long-lived Ed25519 key created at first
@@ -164,7 +163,7 @@ function writeNewIdentity(path: string, home: string, replace: boolean): Gateway
       closeSync(fd);
     }
     if (replace) {
-      renameSync(tmp, path);
+      renameOverSync(tmp, path);
     } else {
       try {
         linkSync(tmp, path);
