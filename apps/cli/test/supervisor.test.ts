@@ -65,20 +65,27 @@ describe("LaunchAgent plist", () => {
     expect(execFileSync("/usr/bin/plutil", ["-lint", file]).toString()).toContain("OK");
   });
 
-  it("is byte-identical to the desktop's plist for the same input", () => {
-    for (const home of ["/Users/me/.psyche", "/Users/me/Psyche & <data>"]) {
-      const i = { program: "/usr/local/bin/psyched", args: ["--x"], psycheHome: home };
-      expect(renderLaunchAgentPlist(i)).toBe(desktopPlist({ ...i, logDir: join(home, "logs") }));
-    }
-  });
+  // The desktop joins its log paths with the host separator: a macOS file, compared on a Mac or Linux.
+  it.skipIf(process.platform === "win32")(
+    "is byte-identical to the desktop's plist for the same input",
+    () => {
+      for (const home of ["/Users/me/.psyche", "/Users/me/Psyche & <data>"]) {
+        const i = { program: "/usr/local/bin/psyched", args: ["--x"], psycheHome: home };
+        expect(renderLaunchAgentPlist(i)).toBe(desktopPlist({ ...i, logDir: join(home, "logs") }));
+      }
+    },
+  );
 
   // Regression: the CLI used to escape `'` as `&apos;` while the desktop leaves it literal.
-  it("is byte-identical to the desktop's plist for a path with an apostrophe", () => {
-    const i = { program: "/usr/local/bin/psyched", psycheHome: "/Users/o'brien/.psyche" };
-    expect(renderLaunchAgentPlist(i)).toBe(
-      desktopPlist({ ...i, logDir: join(i.psycheHome, "logs") }),
-    );
-  });
+  it.skipIf(process.platform === "win32")(
+    "is byte-identical to the desktop's plist for a path with an apostrophe",
+    () => {
+      const i = { program: "/usr/local/bin/psyched", psycheHome: "/Users/o'brien/.psyche" };
+      expect(renderLaunchAgentPlist(i)).toBe(
+        desktopPlist({ ...i, logDir: join(i.psycheHome, "logs") }),
+      );
+    },
+  );
 });
 
 describe("systemd unit", () => {
