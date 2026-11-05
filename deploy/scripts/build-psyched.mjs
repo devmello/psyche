@@ -13,7 +13,7 @@
 //                              web client; found through @psyche/assets) and node_modules with only
 //                              the packages that cannot be bundled (native addons, pdf.js, playwright)
 //   com.psyche.gateway.plist.template   LaunchAgent with {{PSYCHED}} and {{PSYCHE_HOME}}
-//   build-info.json            {version, commit, node, arch, builtAt, bytes}
+//   build-info.json            {version, build, commit, node, arch, builtAt, bytes}
 //
 // The bundle's size is held to deploy/size-budget.json (psychedMB); the build fails above it.
 //
@@ -470,6 +470,8 @@ export const PSYCHED_LAUNCHER = `#!/bin/sh
 # A 4 MB young generation keeps an idle Gateway near 200 MB instead of ≈ 330 MB.
 ${RESOLVE_HERE}
 ${COMPILE_CACHE}
+PSYCHE_BUILD_INFO="$here/build-info.json"
+export PSYCHE_BUILD_INFO
 exec "$here/runtime/node" --max-semi-space-size=4 --disable-warning=ExperimentalWarning "$here/app/apps/gateway/dist/main.mjs" "$@"
 `;
 
@@ -637,9 +639,17 @@ async function main(argv) {
   });
   const commit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8" }).trim();
   const pkg = JSON.parse(readFileSync(join(ROOT, "apps/gateway/package.json"), "utf8"));
+  const builtAt = new Date().toISOString();
+  const appVersion = process.env.PSYCHE_VERSION ?? pkg.version;
+  // Opaque and unique per built bundle (even two builds of one commit): the handshake carries it
+  // and the desktop restarts a Gateway whose build is not its own (updates design §2.10).
+  const build = createHash("sha256")
+    .update(`${appVersion}\0${commit}\0${builtAt}`)
+    .digest("hex")
+    .slice(0, 16);
   writeFileSync(
     join(bundle, "build-info.json"),
-    `${JSON.stringify({ version: process.env.PSYCHE_VERSION ?? pkg.version, commit, node: version, arch, builtAt: new Date().toISOString(), bytes }, null, 2)}\n`,
+    `${JSON.stringify({ version: appVersion, build, commit, node: version, arch, builtAt, bytes }, null, 2)}\n`,
   );
   process.stdout.write(
     `built ${bundle} (${(bytes / 1e6).toFixed(0)} MB, Node ${version}, darwin-${arch})\n`,

@@ -15,7 +15,7 @@ import {
 } from "@psyche/audit";
 import { redactUrl } from "@psyche/browser";
 import type { ConnectorRegistry } from "@psyche/connectors";
-import { getDevice, getSetting, getThread, openDb, type PsycheDb, setSetting } from "@psyche/db";
+import { getDevice, getSetting, getThread, type PsycheDb, setSetting } from "@psyche/db";
 import { fileTools } from "@psyche/files";
 import {
   brokerApprovalCheck,
@@ -104,8 +104,10 @@ import type { HandlerDef } from "../context.ts";
 import type { PublicRoute, WebhookRoute } from "../http.ts";
 import { createLogger } from "../log.ts";
 import { personalizeMessageEvent } from "../message-scrub.ts";
+import { openGatewayDb, purgePreUpdateSnapshots } from "../pre-update.ts";
 import { taskRunTrace } from "../run-trace/tasks.ts";
 import { type Gateway, type GatewayOptions, startGateway } from "../server.ts";
+import { BusySources, UpdateGate } from "../update-gate.ts";
 import { ApprovalTokens } from "./approval-tokens.ts";
 import { artifactContextProvider, composeArtifacts } from "./artifacts.ts";
 import { attentionHandlers, OwnerAttention, parkWhenUnwatched } from "./attention.ts";
@@ -244,6 +246,7 @@ import { SqliteThreadStateStore } from "./thread-state.ts";
 import { CROSS_THREAD_SETTING, crossThreadToggle, threadTools } from "./thread-tools.ts";
 import { modelPinsFor, restoreModelPins, threadSettingsHandlers } from "./threads.ts";
 import { uninstallHandlers } from "./uninstall.ts";
+import { updateHandlers } from "./update.ts";
 import { usageSummaryHandlers } from "./usage-summary.ts";
 import { createUserProfile } from "./user-profile.ts";
 import { composeVault, maskingLogger, type VaultSetup, vaultSetupFromEnv } from "./vault.ts";
@@ -449,6 +452,9 @@ function ownerTimeZoneAt(path: string): string | undefined {
   }
 }
 
+/** Methods that erase the owner's data and so must erase the pre-update snapshots too. */
+export const PURGES_SNAPSHOTS = ["memory.reset", "memory.lessons.forgetAll"] as const;
+
 export async function composeGateway(options: ComposeOptions): Promise<ComposedGateway> {
   const {
     model,
@@ -480,7 +486,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // A database the caller passes in stays theirs to close; one compose opens, `stop()` closes.
   const ownsDb = gwOptions.db === undefined;
   const db =
-    gwOptions.db ?? openDb(config.dbPath, { now: () => new Date(clock.now()).toISOString() });
+    gwOptions.db ??
+    (await openGatewayDb(config, () => new Date(clock.now()).toISOString(), gwOptions.logger));
 
   // Events from packages are published once the Gateway's bus exists.
   let bus: Gateway["bus"] | null = null;
@@ -973,6 +980,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   });
   const calls = new CallContexts();
   const ownPorts = createOwnPorts();
+  // `gateway.prepareUpdate` closes this door to new chat turns and tasks; the task pools and the
+  // session controller check it. Recordings are counted by the parts that own them.
+  const updateGate = gwOptions.updateGate ?? new UpdateGate();
+  const busySources = new BusySources();
   const browserAvailability: BrowserAvailability = {};
   ownPorts.add(config.port, "gateway (configured)");
   const pageReads = new PageReadHub();
@@ -980,6 +991,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     memoryStore: memoryDb,
     documents,
     pageReads,
+    busy: busySources,
     db,
     srt,
     clock,
@@ -1313,6 +1325,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     notifier,
     tools: registry,
     ...(taskPollMs === undefined ? {} : { pollMs: taskPollMs }),
+    canClaim: () => updateGate.accepting(),
     // Run trace §4.2: each task turn is its own run (ULID), recorded like a chat turn.
     newRunId: () => db.newId(),
     trace: taskRunTrace({
@@ -1357,8 +1370,24 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ),
     ...(taskPollMs === undefined ? {} : { pollMs: taskPollMs }),
     claim: { origins: ["subagent"], perParentLimit: 2 },
+    // While an update is prepared, a helper job of a chat or task that is already running still
+    // starts (its parent is waiting on it); nothing new does.
+    canClaim: () =>
+      updateGate.accepting() ||
+      (
+        db.sqlite
+          .prepare(
+            "SELECT count(*) AS n FROM runs WHERE status = 'running' AND parent_run_id IS NULL",
+          )
+          .get() as { n: number }
+      ).n > 0,
   });
   pokeSpecialists = () => specialistPool.poke();
+  // An update that never came: queued tasks are claimed again.
+  updateGate.onReopen(() => {
+    pool.poke();
+    specialistPool.poke();
+  });
   const speechPart = parts.find(
     (p): p is ComposedPart & { meetings: MeetingIngest } => "meetings" in p,
   );
@@ -1824,6 +1853,16 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...vault.handlers,
     ...bootstrapAdminHandlers({ db, audit }),
     ...setupTokenHandlers({ db, audit }),
+    // "Restart to update": stop taking new work and report what is busy (desktop shell only).
+    ...updateHandlers({
+      db,
+      home: config.home,
+      gate: updateGate,
+      runningTasks: () => tasks.list({ status: ["running"] }),
+      broker,
+      busy: busySources,
+      ...(gwOptions.logger === undefined ? {} : { log: gwOptions.logger }),
+    }),
     ...changeHandlers({ audit }),
     ...filesHandlers({ folders: () => rawBroker.policy.folders ?? [], home: config.home }),
     ...attentionHandlers(attention),
@@ -1842,6 +1881,21 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     }),
   };
   for (const part of parts) Object.assign(handlers, part.handlers ?? {});
+  // "Erase all memory" and "forget everything learned" also erase the safety copies of the data
+  // that sit in backups/pre-update: they hold what the owner just asked to be gone.
+  for (const name of PURGES_SNAPSHOTS) {
+    const def = handlers[name];
+    if (def === undefined) continue;
+    handlers[name] = {
+      ...def,
+      run: async (call, params) => {
+        const result = await (def.run as (c: unknown, p: unknown) => unknown)(call, params);
+        if ((params as { dryRun?: boolean } | undefined)?.dryRun !== true)
+          purgePreUpdateSnapshots(config.home);
+        return result;
+      },
+    };
+  }
   const webhooks: Record<string, WebhookRoute> = { ...gwOptions.webhooks };
   for (const part of parts) {
     for (const [path, route] of Object.entries(part.webhooks ?? {})) {
@@ -1860,6 +1914,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
 
   const gateway = await startGateway({
     ...gwOptions,
+    updateGate,
     db,
     agent: loop,
     broker,

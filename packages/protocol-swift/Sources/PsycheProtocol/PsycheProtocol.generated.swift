@@ -563,6 +563,7 @@
 //   let gatewayInfoParams = try? JSONDecoder().decode(GatewayInfoParams.self, from: jsonData)
 //   let gatewayLANRotateCERTParams = try? JSONDecoder().decode(GatewayLANRotateCERTParams.self, from: jsonData)
 //   let gatewayLANRotateCERTResult = try? JSONDecoder().decode(GatewayLANRotateCERTResult.self, from: jsonData)
+//   let gatewayPrepareUpdateParams = try? JSONDecoder().decode(GatewayPrepareUpdateParams.self, from: jsonData)
 //   let gatewayShutdownPayload = try? JSONDecoder().decode(GatewayShutdownPayload.self, from: jsonData)
 //   let goal = try? JSONDecoder().decode(Goal.self, from: jsonData)
 //   let goalCategory = try? JSONDecoder().decode(GoalCategory.self, from: jsonData)
@@ -1059,6 +1060,7 @@
 //   let pluginsSetEnabledParams = try? JSONDecoder().decode(PluginsSetEnabledParams.self, from: jsonData)
 //   let pluginsSetEnabledResult = try? JSONDecoder().decode(PluginsSetEnabledResult.self, from: jsonData)
 //   let policyRule = try? JSONDecoder().decode(PolicyRule.self, from: jsonData)
+//   let prepareUpdateResult = try? JSONDecoder().decode(PrepareUpdateResult.self, from: jsonData)
 //   let presenceAssertion = try? JSONDecoder().decode(PresenceAssertion.self, from: jsonData)
 //   let presenceKeyInfo = try? JSONDecoder().decode(PresenceKeyInfo.self, from: jsonData)
 //   let probedModel = try? JSONDecoder().decode(ProbedModel.self, from: jsonData)
@@ -1243,6 +1245,7 @@
 //   let senderTrust = try? JSONDecoder().decode(SenderTrust.self, from: jsonData)
 //   let senderTrustDecision = try? JSONDecoder().decode(SenderTrustDecision.self, from: jsonData)
 //   let senderTrustState = try? JSONDecoder().decode(SenderTrustState.self, from: jsonData)
+//   let serverBuild = try? JSONDecoder().decode(ServerBuild.self, from: jsonData)
 //   let settingEntry = try? JSONDecoder().decode(SettingEntry.self, from: jsonData)
 //   let settings = try? JSONDecoder().decode(Settings.self, from: jsonData)
 //   let settingsChangedPayload = try? JSONDecoder().decode(SettingsChangedPayload.self, from: jsonData)
@@ -1457,6 +1460,8 @@
 //   let uIBlock = try? JSONDecoder().decode(UIBlock.self, from: jsonData)
 //   let uninstallAuthorized = try? JSONDecoder().decode(UninstallAuthorized.self, from: jsonData)
 //   let upcomingItem = try? JSONDecoder().decode(UpcomingItem.self, from: jsonData)
+//   let updateBusy = try? JSONDecoder().decode(UpdateBusy.self, from: jsonData)
+//   let updateGateState = try? JSONDecoder().decode(UpdateGateState.self, from: jsonData)
 //   let usage = try? JSONDecoder().decode(Usage.self, from: jsonData)
 //   let usageByModel = try? JSONDecoder().decode(UsageByModel.self, from: jsonData)
 //   let usageDay = try? JSONDecoder().decode(UsageDay.self, from: jsonData)
@@ -1630,7 +1635,7 @@ public struct AccessEntry: Codable, Sendable {
     public let kind: ApprovalKind?
     public let label: String
     public let lastUsedAt: String?
-    public let mode: Mode?
+    public let mode: FolderModeEnum?
     public let path: String?
     public let scope: AccessEntryScope
     public let since: String?
@@ -1651,7 +1656,7 @@ public struct AccessEntry: Codable, Sendable {
         case type = "type"
     }
 
-    public init(grantID: String? = nil, id: String, kind: ApprovalKind? = nil, label: String, lastUsedAt: String? = nil, mode: Mode? = nil, path: String? = nil, scope: AccessEntryScope, since: String? = nil, threadID: String? = nil, type: AccessEntryType) {
+    public init(grantID: String? = nil, id: String, kind: ApprovalKind? = nil, label: String, lastUsedAt: String? = nil, mode: FolderModeEnum? = nil, path: String? = nil, scope: AccessEntryScope, since: String? = nil, threadID: String? = nil, type: AccessEntryType) {
         self.grantID = grantID
         self.id = id
         self.kind = kind
@@ -1696,7 +1701,7 @@ public enum ApprovalKind: String, Codable, Sendable {
     case taskStart = "task_start"
 }
 
-public enum Mode: String, Codable, Sendable {
+public enum FolderModeEnum: String, Codable, Sendable {
     case ro = "ro"
     case rw = "rw"
 }
@@ -3954,7 +3959,7 @@ public struct ApprovalAnswer: Codable, Sendable {
     public let approvalID: String
     public let decision: ApprovalAnswerDecision
     public let editedText: String?
-    public let folderMode: Mode?
+    public let folderMode: FolderModeEnum?
     public let folderPath: String?
     public let presence: PresenceAssertion?
     public let recipientChoice: String?
@@ -3976,7 +3981,7 @@ public struct ApprovalAnswer: Codable, Sendable {
         case via = "via"
     }
 
-    public init(answerToken: String, approvalID: String, decision: ApprovalAnswerDecision, editedText: String? = nil, folderMode: Mode? = nil, folderPath: String? = nil, presence: PresenceAssertion? = nil, recipientChoice: String? = nil, scope: GrantScope? = nil, unsandboxed: Unsandboxed? = nil, via: InputVia? = nil) {
+    public init(answerToken: String, approvalID: String, decision: ApprovalAnswerDecision, editedText: String? = nil, folderMode: FolderModeEnum? = nil, folderPath: String? = nil, presence: PresenceAssertion? = nil, recipientChoice: String? = nil, scope: GrantScope? = nil, unsandboxed: Unsandboxed? = nil, via: InputVia? = nil) {
         self.answerToken = answerToken
         self.approvalID = approvalID
         self.decision = decision
@@ -10353,6 +10358,7 @@ public struct ConnectChallenge: Codable, Sendable {
     public let phase: ConnectChallengePhase
     /// Negotiated version
     public let protocolVersion: Int
+    public let server: ServerBuild?
     public let serverOrigin: String
 
     public enum CodingKeys: String, CodingKey {
@@ -10364,10 +10370,11 @@ public struct ConnectChallenge: Codable, Sendable {
         case nonce = "nonce"
         case phase = "phase"
         case protocolVersion = "protocolVersion"
+        case server = "server"
         case serverOrigin = "serverOrigin"
     }
 
-    public init(expiresAt: String, gatewayKey: String? = nil, gatewaySignature: String? = nil, lanCERTSignature: String? = nil, lanCERTSpki: String? = nil, nonce: String, phase: ConnectChallengePhase, protocolVersion: Int, serverOrigin: String) {
+    public init(expiresAt: String, gatewayKey: String? = nil, gatewaySignature: String? = nil, lanCERTSignature: String? = nil, lanCERTSpki: String? = nil, nonce: String, phase: ConnectChallengePhase, protocolVersion: Int, server: ServerBuild? = nil, serverOrigin: String) {
         self.expiresAt = expiresAt
         self.gatewayKey = gatewayKey
         self.gatewaySignature = gatewaySignature
@@ -10376,12 +10383,41 @@ public struct ConnectChallenge: Codable, Sendable {
         self.nonce = nonce
         self.phase = phase
         self.protocolVersion = protocolVersion
+        self.server = server
         self.serverOrigin = serverOrigin
     }
 }
 
 public enum ConnectChallengePhase: String, Codable, Sendable {
     case challenge = "challenge"
+}
+
+// MARK: - ServerBuild
+public struct ServerBuild: Codable, Sendable {
+    /// Opaque build id from build-info.json (or PSYCHE_BUILD); "dev" when running from a checkout
+    public let build: String
+    /// The git commit it was built from
+    public let commit: String?
+    /// The build the LaunchAgent plist (PSYCHE_BUILD) says this process was started for,
+    /// reported next to the bundle's build-info.json build when both exist. A claim, not a
+    /// check: `build` is what counts
+    public let envBuild: String?
+    /// The Gateway's version
+    public let version: String
+
+    public enum CodingKeys: String, CodingKey {
+        case build = "build"
+        case commit = "commit"
+        case envBuild = "envBuild"
+        case version = "version"
+    }
+
+    public init(build: String, commit: String? = nil, envBuild: String? = nil, version: String) {
+        self.build = build
+        self.commit = commit
+        self.envBuild = envBuild
+        self.version = version
+    }
 }
 
 // MARK: - ConnectDenied
@@ -15415,6 +15451,9 @@ public enum FrameType: String, Codable, Sendable {
 
 // MARK: - GatewayInfo
 public struct GatewayInfo: Codable, Sendable {
+    /// Keys in config.json that this version does not know: kept and ignored. Admins only; the
+    /// Settings screen shows them so a misspelt setting is noticed
+    public let configWarnings: [String]?
     /// The Host machine's name
     public let hostName: String
     public let identity: Identity
@@ -15425,6 +15464,7 @@ public struct GatewayInfo: Codable, Sendable {
     public let trustedProxy: Bool
 
     public enum CodingKeys: String, CodingKey {
+        case configWarnings = "configWarnings"
         case hostName = "hostName"
         case identity = "identity"
         case lan = "lan"
@@ -15432,7 +15472,8 @@ public struct GatewayInfo: Codable, Sendable {
         case trustedProxy = "trustedProxy"
     }
 
-    public init(hostName: String, identity: Identity, lan: LAN? = nil, publicOrigin: String? = nil, trustedProxy: Bool) {
+    public init(configWarnings: [String]? = nil, hostName: String, identity: Identity, lan: LAN? = nil, publicOrigin: String? = nil, trustedProxy: Bool) {
+        self.configWarnings = configWarnings
         self.hostName = hostName
         self.identity = identity
         self.lan = lan
@@ -15569,6 +15610,39 @@ public struct GatewayLANRotateCERTResult: Codable, Sendable {
     public init(certSpki: String) {
         self.certSpki = certSpki
     }
+}
+
+// MARK: - GatewayPrepareUpdateParams
+public struct GatewayPrepareUpdateParams: Codable, Sendable {
+    /// `prepare` (default) stops new work and waits; `check` only reports what is busy; `cancel`
+    /// resumes normal service now
+    public let mode: GatewayPrepareUpdateParamsMode?
+    /// How long the Gateway stays closed to new work if no update follows (default 120000). It
+    /// then resumes by itself
+    public let timeoutMS: Int?
+    /// How long `prepare` waits for running turns and tasks to finish (default 30000). Then it
+    /// answers ready anyway, naming what it left running
+    public let waitMS: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case mode = "mode"
+        case timeoutMS = "timeoutMs"
+        case waitMS = "waitMs"
+    }
+
+    public init(mode: GatewayPrepareUpdateParamsMode? = nil, timeoutMS: Int? = nil, waitMS: Int? = nil) {
+        self.mode = mode
+        self.timeoutMS = timeoutMS
+        self.waitMS = waitMS
+    }
+}
+
+/// `prepare` (default) stops new work and waits; `check` only reports what is busy; `cancel`
+/// resumes normal service now
+public enum GatewayPrepareUpdateParamsMode: String, Codable, Sendable {
+    case cancel = "cancel"
+    case check = "check"
+    case prepare = "prepare"
 }
 
 // MARK: - GatewayShutdownPayload
@@ -17432,9 +17506,9 @@ public struct InsightTotalsRuns: Codable, Sendable {
 // MARK: - RunsByKind
 public struct RunsByKind: Codable, Sendable {
     public let automation: AutomationClass
-    public let chat: Chat
+    public let chat: RunsByKindChat
     public let subagent: Subagent
-    public let task: TaskClass
+    public let task: RunsByKindTask
 
     public enum CodingKeys: String, CodingKey {
         case automation = "automation"
@@ -17443,7 +17517,7 @@ public struct RunsByKind: Codable, Sendable {
         case task = "task"
     }
 
-    public init(automation: AutomationClass, chat: Chat, subagent: Subagent, task: TaskClass) {
+    public init(automation: AutomationClass, chat: RunsByKindChat, subagent: Subagent, task: RunsByKindTask) {
         self.automation = automation
         self.chat = chat
         self.subagent = subagent
@@ -17467,8 +17541,8 @@ public struct AutomationClass: Codable, Sendable {
     }
 }
 
-// MARK: - Chat
-public struct Chat: Codable, Sendable {
+// MARK: - RunsByKindChat
+public struct RunsByKindChat: Codable, Sendable {
     public let done: Int
     public let failed: Int
 
@@ -17499,8 +17573,8 @@ public struct Subagent: Codable, Sendable {
     }
 }
 
-// MARK: - TaskClass
-public struct TaskClass: Codable, Sendable {
+// MARK: - RunsByKindTask
+public struct RunsByKindTask: Codable, Sendable {
     public let done: Int
     public let failed: Int
 
@@ -25115,6 +25189,125 @@ public struct PolicyRule: Codable, Sendable {
         self.note = note
         self.priority = priority
     }
+}
+
+// MARK: - PrepareUpdateResult
+public struct PrepareUpdateResult: Codable, Sendable {
+    public let busy: UpdateBusy
+    /// Turns still running when the wait ended. Not stopped here: a task's steps are
+    /// checkpointed as they run and the task resumes after the restart; a chat turn is cancelled
+    /// by the shutdown and recovered at the next start
+    public let checkpointed: Checkpointed
+    public let deadline: String?
+    /// True when the Gateway has stopped taking new work and the wait is over: it can be stopped
+    /// now
+    public let ready: Bool
+    public let state: UpdateGateState
+
+    public enum CodingKeys: String, CodingKey {
+        case busy = "busy"
+        case checkpointed = "checkpointed"
+        case deadline = "deadline"
+        case ready = "ready"
+        case state = "state"
+    }
+
+    public init(busy: UpdateBusy, checkpointed: Checkpointed, deadline: String? = nil, ready: Bool, state: UpdateGateState) {
+        self.busy = busy
+        self.checkpointed = checkpointed
+        self.deadline = deadline
+        self.ready = ready
+        self.state = state
+    }
+}
+
+// MARK: - UpdateBusy
+public struct UpdateBusy: Codable, Sendable {
+    /// Chat (and automation) turns running right now
+    public let activeChats: Int
+    public let chats: [ChatElement]
+    /// Approvals waiting for the owner; the runs parked on them resume after a restart
+    public let pendingApprovals: Int
+    /// Recordings in progress that the Gateway knows of (a Mac app being recorded)
+    public let recordings: Int
+    /// Tasks with a turn running right now
+    public let runningTasks: Int
+    public let tasks: [TaskElement]
+
+    public enum CodingKeys: String, CodingKey {
+        case activeChats = "activeChats"
+        case chats = "chats"
+        case pendingApprovals = "pendingApprovals"
+        case recordings = "recordings"
+        case runningTasks = "runningTasks"
+        case tasks = "tasks"
+    }
+
+    public init(activeChats: Int, chats: [ChatElement], pendingApprovals: Int, recordings: Int, runningTasks: Int, tasks: [TaskElement]) {
+        self.activeChats = activeChats
+        self.chats = chats
+        self.pendingApprovals = pendingApprovals
+        self.recordings = recordings
+        self.runningTasks = runningTasks
+        self.tasks = tasks
+    }
+}
+
+// MARK: - ChatElement
+public struct ChatElement: Codable, Sendable {
+    public let runID: String
+    public let threadID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case runID = "runId"
+        case threadID = "threadId"
+    }
+
+    public init(runID: String, threadID: String) {
+        self.runID = runID
+        self.threadID = threadID
+    }
+}
+
+// MARK: - TaskElement
+public struct TaskElement: Codable, Sendable {
+    public let id: String
+    public let title: String
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case title = "title"
+    }
+
+    public init(id: String, title: String) {
+        self.id = id
+        self.title = title
+    }
+}
+
+/// Turns still running when the wait ended. Not stopped here: a task's steps are
+/// checkpointed as they run and the task resumes after the restart; a chat turn is cancelled
+/// by the shutdown and recovered at the next start
+// MARK: - Checkpointed
+public struct Checkpointed: Codable, Sendable {
+    public let chats: Int
+    public let tasks: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case chats = "chats"
+        case tasks = "tasks"
+    }
+
+    public init(chats: Int, tasks: Int) {
+        self.chats = chats
+        self.tasks = tasks
+    }
+}
+
+public enum UpdateGateState: String, Codable, Sendable {
+    case draining = "draining"
+    case ready = "ready"
+    case updateGateStateOpen = "open"
 }
 
 // MARK: - ProposalUpdatedPayload

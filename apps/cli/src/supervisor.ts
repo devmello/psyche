@@ -39,6 +39,34 @@ function xml(s: string): string {
  */
 export const LAUNCH_AGENT_PATH = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin";
 
+/** The variables the desktop app adds to the agent's environment; `psyche` must not undo them. */
+export const DESKTOP_ENV_KEYS = ["PSYCHE_VAULT_KEY_FILE", "PSYCHE_BUILD"] as const;
+
+/**
+ * `fresh` (what this CLI renders) with the desktop's extra variables carried over from the plist
+ * already installed for the same program. Without this, `psyche start` and the desktop app each
+ * rewrote the other's plist and restarted the Gateway every time either ran. The insertion is
+ * the desktop's (`withPlistEnv`): after the opening of the dict, in {@link DESKTOP_ENV_KEYS}
+ * order, so both sides write the same bytes.
+ */
+export function carryDesktopEnv(fresh: string, installed: string | undefined): string {
+  if (installed === undefined) return fresh;
+  const program = (plist: string) =>
+    /<key>ProgramArguments<\/key>\s*<array>\s*<string>([^<]*)<\/string>/.exec(plist)?.[1];
+  if (program(installed) !== program(fresh)) return fresh;
+  const lines: string[] = [];
+  for (const key of DESKTOP_ENV_KEYS) {
+    if (fresh.includes(`<key>${key}</key>`)) continue;
+    const m = new RegExp(`<key>${key}</key>\\s*<string>([^<]*)</string>`).exec(installed);
+    if (m?.[1] !== undefined) lines.push(`    <key>${key}</key>\n    <string>${m[1]}</string>`);
+  }
+  if (lines.length === 0) return fresh;
+  return fresh.replace(
+    /(<key>EnvironmentVariables<\/key>\s*<dict>)/,
+    (m) => `${m}\n${lines.join("\n")}`,
+  );
+}
+
 export function renderLaunchAgentPlist(input: ServiceInput): string {
   const logDir = join(input.psycheHome, "logs");
   const argv = [input.program, ...(input.args ?? [])]
@@ -272,8 +300,9 @@ export async function startService(s: SupervisorEnv, program: string): Promise<s
   const input: ServiceInput = { ...(await serviceCommand(s, program)), psycheHome: s.home };
   if (kind === "launchd") {
     const file = launchAgentPath(s.env);
-    const content = renderLaunchAgentPlist(input);
-    const changed = !existsSync(file) || readFileSync(file, "utf8") !== content;
+    const installed = existsSync(file) ? readFileSync(file, "utf8") : undefined;
+    const content = carryDesktopEnv(renderLaunchAgentPlist(input), installed);
+    const changed = installed === undefined || installed !== content;
     mkdirSync(join(s.home, "logs"), { recursive: true, mode: 0o700 });
     if (changed) {
       mkdirSync(join(userHome(s.env), "Library", "LaunchAgents"), { recursive: true });

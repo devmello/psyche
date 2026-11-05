@@ -112,6 +112,8 @@ export const pt: Partial<Catalogue> = {
   "errors.rate_limited": "Solicitações demais; aguarde um momento e tente novamente.",
   "errors.timeout": "O Psyche demorou demais para responder.",
   "errors.cancelled": "Foi cancelado.",
+  "errors.reason.updating":
+    "O Psyche vai reiniciar para instalar uma atualização. Tente novamente em instantes.",
   "errors.unavailable": "O Psyche não consegue fazer isso agora.",
   "errors.approval_required": "Isso precisa da sua aprovação primeiro.",
   "errors.approval_expired": "A aprovação expirou; peça novamente.",

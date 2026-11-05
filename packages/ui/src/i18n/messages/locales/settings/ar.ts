@@ -690,6 +690,8 @@ export const settings: Partial<Catalogue> = {
     "أعد تشغيل Psyche. ثم على الكمبيوتر الآخر أضف هذا الـ Mac كـ Gateway. سيعرض رمز إقران وبصمة مفتاح: قارنهما بالطلب ضمن «بانتظار الإقران» هنا، ثم وافق عليه.",
   "settings.remote.funnel":
     "لا تفعّل Tailscale Funnel لهذا الغرض أبدًا. فسيضع Gateway على الإنترنت العام.",
+  "settings.remote.configWarnings":
+    "يحتوي config.json على إعدادات لا تعرفها هذه النسخة من Psyche، لذلك تتجاهلها: {keys}. إن كنت تقصد أحدها، فتحقق من الإملاء.",
   "settings.uninstall.group": "إلغاء تثبيت Psyche",
   "settings.uninstall.groupHint":
     "يوقف Gateway والمساعد وينقل التطبيق إلى سلة المهملات. تبقى بياناتك ما لم تختر غير ذلك.",

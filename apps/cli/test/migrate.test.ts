@@ -124,12 +124,23 @@ describe("psyche migrate --check", () => {
     expect(checks.find((c) => c.id === "backup")?.status).toBe("warn");
   });
 
-  it("fails on a config.json this version rejects", async () => {
+  it("fails on a config.json value this version rejects", async () => {
     const home = temp();
-    writeFileSync(join(home, "config.json"), JSON.stringify({ gateway: { bind: "0.0.0.0" } }));
+    writeFileSync(join(home, "config.json"), JSON.stringify({ gateway: { port: "seven" } }));
     const { code, json } = await migrate(home);
     expect(code).toBe(1);
-    expect(json.configProblems).toEqual(["gateway.bind is not a known key"]);
+    expect(json.configProblems).toEqual(["gateway.port must be an integer 0-65535"]);
+  });
+
+  it("only warns about keys this version does not know, and leaves them in the file", async () => {
+    const home = temp();
+    const text = JSON.stringify({ gateway: { bind: "0.0.0.0", port: 8000 }, future: { a: 1 } });
+    writeFileSync(join(home, "config.json"), text);
+    const { code, json } = await migrate(home);
+    expect(code).toBe(0);
+    expect(json.configProblems).toEqual([]);
+    expect(json.configWarnings).toEqual(["gateway.bind"]);
+    expect(readFileSync(join(home, "config.json"), "utf8")).toBe(text);
   });
 });
 

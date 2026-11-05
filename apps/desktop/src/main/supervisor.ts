@@ -26,13 +26,23 @@ export type SupervisorMode = "dev" | "launchd" | "external" | "remote";
 
 export const LAUNCH_AGENT_LABEL = "com.psyche.gateway";
 
+/** What `checkServerBuild` did: nothing to compare, same build, restarted the agent, or gave up. */
+export type BuildCheck = "skipped" | "match" | "restarted" | "mismatch";
+
 export type GatewayRunState =
   | { kind: "unknown" }
   /** `step` (launchd): installing the launch agent, then waiting for `/healthz` (the splash). */
   | { kind: "starting"; mode: SupervisorMode; step?: "installing" | "waiting" }
   | { kind: "running"; mode: SupervisorMode; pid?: number }
   /** `logs`: the folder with gateway.{out,err}.log when the failure is worth reading them for. */
-  | { kind: "stopped"; mode: SupervisorMode; reason?: string; logs?: string };
+  | {
+      kind: "stopped";
+      mode: SupervisorMode;
+      reason?: string;
+      logs?: string;
+      /** A restore of the pre-update data was cut short and could not be finished. */
+      restoreInterrupted?: boolean;
+    };
 
 export function chooseMode(env: NodeJS.ProcessEnv, isPackaged: boolean): SupervisorMode {
   const forced = env.PSYCHE_GATEWAY_MODE;
@@ -100,6 +110,19 @@ export function desktopVaultKeyFile(psycheHome: string): string | undefined {
     writeFileSync(keyFile, randomBytes(32), { mode: 0o600, flag: "wx" });
   }
   return keyFile;
+}
+
+/**
+ * The `build` of the bundled Gateway (`Resources/psyched/build-info.json`, written by
+ * deploy/scripts/build-psyched.mjs), or undefined when there is no such file or it names none.
+ */
+export function readBundledBuild(buildInfoPath: string): string | undefined {
+  try {
+    const build = (JSON.parse(readFileSync(buildInfoPath, "utf8")) as { build?: unknown }).build;
+    return typeof build === "string" && build.trim() !== "" ? build.trim().slice(0, 64) : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /** The program a LaunchAgent plist runs: the first `ProgramArguments` string, XML-unescaped. */
@@ -172,6 +195,8 @@ export const launchctl = {
   print: (uid: number) => ["print", `gui/${uid}/${LAUNCH_AGENT_LABEL}`],
   bootstrap: (uid: number, plist: string) => ["bootstrap", `gui/${uid}`, plist],
   kickstart: (uid: number) => ["kickstart", `gui/${uid}/${LAUNCH_AGENT_LABEL}`],
+  /** `-k` kills the running job first, so the same plist starts a fresh process. */
+  restart: (uid: number) => ["kickstart", "-k", `gui/${uid}/${LAUNCH_AGENT_LABEL}`],
   bootout: (uid: number) => ["bootout", `gui/${uid}/${LAUNCH_AGENT_LABEL}`],
 } as const;
 
@@ -218,6 +243,19 @@ export interface SupervisorOptions {
   launchAgentsDir?: string;
   /** launchd: pass `PSYCHE_VAULT_KEY_FILE` to the Gateway (`desktopVaultKeyFile`). */
   vaultKeyFile?: () => string | undefined | Promise<string | undefined>;
+  /**
+   * launchd: the build of the Gateway this app ships (`build` in the bundled
+   * `psyched/build-info.json`). It goes into the plist as `PSYCHE_BUILD`, so a new build changes
+   * the plist and the agent is restarted, and `checkServerBuild` compares it with what a running
+   * Gateway reports in the handshake. Unset (a bundle without build info): neither happens.
+   */
+  expectedBuild?: string;
+  /**
+   * launchd: asked before the agent is restarted for a build mismatch, so running turns and
+   * tasks are not killed mid-flight (`gateway.prepareUpdate` on the connected Gateway). Best
+   * effort: a Gateway too old to have the method just answers an error, which is ignored.
+   */
+  prepareRestart?: () => Promise<unknown>;
   /** launchd: how long to wait for `/healthz` after starting the agent (default 60 s). */
   healthTimeoutMs?: number;
   /**
@@ -232,11 +270,21 @@ export interface SupervisorOptions {
   onState?: (s: GatewayRunState) => void;
 }
 
+/** A progress note older than this is a Gateway that died while updating, not one that is busy. */
+const UPDATE_PROGRESS_FRESH_MS = 5 * 60_000;
+/** Never wait longer than this for an update to finish, whatever the note says. */
+const UPDATE_WAIT_CEILING_MS = 15 * 60_000;
+
 const defaultSleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 export class GatewaySupervisor {
   private child: ChildProcess | undefined;
   private state: GatewayRunState = { kind: "unknown" };
+  /** Builds the agent was restarted for already (once each), and the restart in flight. */
+  private readonly buildRestarts = new Set<string>();
+  private buildRestart: Promise<BuildCheck> | undefined;
+  /** This app attached to a Gateway it does not run (a terminal's, another copy's). */
+  private attached = false;
   private readonly opts: SupervisorOptions;
   private readonly run: Runner;
 
@@ -354,7 +402,78 @@ export class GatewaySupervisor {
         ? renderPlistTemplate(readFileSync(this.opts.bundledPlist, "utf8"), values)
         : renderLaunchAgentPlist({ ...values, logDir: this.logDir() });
     const keyFile = await this.opts.vaultKeyFile?.();
-    return keyFile === undefined ? plist : withPlistEnv(plist, { PSYCHE_VAULT_KEY_FILE: keyFile });
+    const env: Record<string, string> = {
+      ...(keyFile === undefined ? {} : { PSYCHE_VAULT_KEY_FILE: keyFile }),
+      ...(this.opts.expectedBuild === undefined ? {} : { PSYCHE_BUILD: this.opts.expectedBuild }),
+    };
+    return withPlistEnv(plist, env);
+  }
+
+  /**
+   * The Gateway's build, from the handshake challenge's `server` (updates design §2.10), against
+   * the build this app shipped. An update swaps the files under a Gateway that is still running
+   * (G1); when the running one is not this app's build, restart the agent once. A mismatch that
+   * outlives the restart means the agent runs somebody else's psyched: say so and stop trying.
+   *
+   * Only for the bundled agent this app installed: with another copy's Gateway attached (the
+   * owner declined the takeover) or a Gateway nobody supervises, the builds differ by design.
+   */
+  checkServerBuild(server: { build: string } | undefined): Promise<BuildCheck> {
+    const expected = this.opts.expectedBuild;
+    if (this.opts.mode !== "launchd" || expected === undefined) return Promise.resolve("skipped");
+    // A Gateway this app did not start, or one that is still being started: leave it be.
+    if (this.attached || this.state.kind === "starting") return Promise.resolve("skipped");
+    if (server?.build === expected) {
+      this.buildRestarts.delete(expected);
+      return Promise.resolve("match");
+    }
+    if (this.buildRestart) return this.buildRestart;
+    const plistPath = this.plistPath();
+    const installed = existsSync(plistPath)
+      ? plistProgram(readFileSync(plistPath, "utf8"))
+      : undefined;
+    if (installed === undefined || installed !== this.opts.bundledProgram)
+      return Promise.resolve("skipped");
+    if (this.buildRestarts.has(expected)) {
+      // Restarted once already and it still reports another build.
+      this.set({
+        kind: "stopped",
+        mode: "launchd",
+        reason: `Another copy of Psyche runs the Gateway (build ${server?.build ?? "unknown"})`,
+        logs: this.logDir(),
+      });
+      return Promise.resolve("mismatch");
+    }
+    this.buildRestarts.add(expected);
+    const restart = (async (): Promise<BuildCheck> => {
+      // Stop new work and give running turns a moment to settle before the process goes.
+      await this.opts.prepareRestart?.().catch(() => undefined);
+      this.set({ kind: "starting", mode: "launchd", step: "waiting" });
+      // `kickstart -k` restarts the loaded job with the plist launchd already read. Unload it,
+      // write the plist this build wants, and load that.
+      const uid = this.uid();
+      const content = await this.launchAgentContent();
+      await this.run("/bin/launchctl", [...launchctl.bootout(uid)]);
+      if (content !== undefined) {
+        mkdirSync(dirname(plistPath), { recursive: true });
+        writeFileSync(plistPath, content, { mode: 0o644 });
+      }
+      if (!(await this.bootstrap(uid, plistPath))) {
+        this.failed("launchctl could not load com.psyche.gateway after the update");
+        return "mismatch";
+      }
+      await this.run("/bin/launchctl", [...launchctl.kickstart(uid)]);
+      if (await this.waitHealthy()) {
+        await this.refresh();
+        return "restarted";
+      }
+      this.failed("The Gateway did not come back after the update");
+      return "mismatch";
+    })().finally(() => {
+      this.buildRestart = undefined;
+    });
+    this.buildRestart = restart;
+    return restart;
   }
 
   private async bootstrap(uid: number, plistPath: string): Promise<boolean> {
@@ -368,17 +487,79 @@ export class GatewaySupervisor {
     return false;
   }
 
+  /** The Gateway is copying the data or migrating it (`run/update-progress.json`, still fresh). */
+  private updateInProgress(): boolean {
+    try {
+      const note = JSON.parse(
+        readFileSync(join(this.opts.psycheHome, "run", "update-progress.json"), "utf8"),
+      ) as { at?: unknown };
+      const at = typeof note.at === "string" ? Date.parse(note.at) : Number.NaN;
+      return Number.isFinite(at) && Date.now() - at < UPDATE_PROGRESS_FRESH_MS;
+    } catch {
+      return false;
+    }
+  }
+
   private async waitHealthy(): Promise<boolean> {
-    const deadline = Date.now() + (this.opts.healthTimeoutMs ?? 60_000);
+    const started = Date.now();
+    const deadline = started + (this.opts.healthTimeoutMs ?? 60_000);
     for (;;) {
       if (await this.healthy()) return true;
-      if (Date.now() >= deadline) return false;
+      if (Date.now() >= deadline) {
+        // A big database can take minutes to copy and migrate: keep waiting while the Gateway
+        // says it is doing that, up to a ceiling, instead of reporting a failure under it.
+        if (!this.updateInProgress() || Date.now() - started >= UPDATE_WAIT_CEILING_MS)
+          return false;
+      }
       await (this.opts.sleep ?? defaultSleep)(500);
     }
   }
 
-  private failed(reason: string): void {
-    this.set({ kind: "stopped", mode: "launchd", reason, logs: this.logDir() });
+  /**
+   * The splash's Retry after a failed update was undone: forget the note that makes the Gateway
+   * refuse the same build on the same data, so the next start tries the update again.
+   */
+  retryAfterUpdateFailure(opts: { restoredByHand?: boolean } = {}): boolean {
+    const note = join(this.opts.psycheHome, "run", "update-failed.json");
+    const had = existsSync(note);
+    rmSync(note, { force: true });
+    // Only for an owner who has put their data back themselves after a restore that could not
+    // be finished; without it the Gateway tries to finish that restore again.
+    if (opts.restoredByHand === true)
+      rmSync(join(this.opts.psycheHome, "run", "restore-in-progress.json"), { force: true });
+    return had;
+  }
+
+  private failed(reason: string, restoreInterrupted = false): void {
+    this.set({
+      kind: "stopped",
+      mode: "launchd",
+      reason,
+      logs: this.logDir(),
+      ...(restoreInterrupted ? { restoreInterrupted: true } : {}),
+    });
+  }
+
+  /**
+   * Why the Gateway refused to start when it undid a failed data migration (it leaves a plain
+   * sentence in `run/update-failed.json`): shown in place of "did not answer". Only for the
+   * build this app ships, so a note from an older build never explains a new failure.
+   */
+  private updateFailure(): { message: string; restoreInterrupted: boolean } | undefined {
+    try {
+      const note = JSON.parse(
+        readFileSync(join(this.opts.psycheHome, "run", "update-failed.json"), "utf8"),
+      ) as { message?: unknown; build?: unknown; key?: unknown };
+      if (typeof note.message !== "string" || note.message === "") return undefined;
+      if (this.opts.expectedBuild !== undefined && note.build !== this.opts.expectedBuild)
+        return undefined;
+      return {
+        message: note.message.slice(0, 600),
+        restoreInterrupted: note.key === "restore-interrupted",
+      };
+    } catch {
+      return undefined;
+    }
   }
 
   /**
@@ -410,6 +591,7 @@ export class GatewaySupervisor {
     if (other !== undefined && other !== program && existsSync(other)) {
       const takeOver = (await this.opts.confirmTakeover?.(other).catch(() => false)) ?? false;
       if (!takeOver) {
+        this.attached = true;
         this.set(
           (await this.healthy())
             ? { kind: "running", mode: "launchd" }
@@ -425,9 +607,11 @@ export class GatewaySupervisor {
     }
     if (!loaded && (await this.healthy())) {
       // Someone else serves the Gateway on this port; starting ours would crash-loop on bind.
+      this.attached = true;
       this.set({ kind: "running", mode: "launchd" });
       return;
     }
+    this.attached = false;
     if (changed) {
       this.set({ kind: "starting", mode: "launchd", step: "installing" });
       if (loaded) await this.run("/bin/launchctl", [...launchctl.bootout(uid)]);
@@ -448,8 +632,11 @@ export class GatewaySupervisor {
     const printed = await this.run("/bin/launchctl", [...launchctl.print(uid)]);
     const exit = parseLaunchctlPrint(printed.stdout).lastExit;
     const secs = Math.round((this.opts.healthTimeoutMs ?? 60_000) / 1000);
+    const known = this.updateFailure();
     this.failed(
-      `The Gateway did not answer within ${secs} s${exit && exit !== "0" ? ` (last exit code ${exit})` : ""}`,
+      known?.message ??
+        `The Gateway did not answer within ${secs} s${exit && exit !== "0" ? ` (last exit code ${exit})` : ""}`,
+      known?.restoreInterrupted === true,
     );
   }
 

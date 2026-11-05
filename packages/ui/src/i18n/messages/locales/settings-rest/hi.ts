@@ -722,6 +722,8 @@ export const settingsRest: Partial<Catalogue> = {
     "Psyche रीस्टार्ट करें। फिर दूसरे कंप्यूटर पर इस Mac को Gateway के रूप में जोड़ें। यह एक पेयरिंग कोड और कुंजी फ़िंगरप्रिंट दिखाता है: उन्हें यहाँ “पेयर होने की प्रतीक्षा में” के तहत अनुरोध से मिलाएँ, फिर स्वीकृत करें।",
   "settings.remote.funnel":
     "इसके लिए कभी Tailscale Funnel चालू न करें। इससे Gateway सार्वजनिक इंटरनेट पर आ जाएगा।",
+  "settings.remote.configWarnings":
+    "config.json में ऐसी सेटिंग्स हैं जिन्हें Psyche का यह संस्करण नहीं जानता, इसलिए वह उन्हें अनदेखा करता है: {keys}। अगर आप इनमें से किसी को चाहते थे, तो वर्तनी जाँच लें।",
   "settings.uninstall.group": "Psyche अनइंस्टॉल करें",
   "settings.uninstall.groupHint":
     "Gateway और सहायक को रोकता है और ऐप को ट्रैश में भेज देता है। आपका डेटा बना रहता है, जब तक आप कुछ और न चुनें।",

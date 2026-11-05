@@ -228,6 +228,7 @@ export const specialistsA: Partial<Catalogue> = {
   "web.splash.remote.tokenRefused": "{host} rechazó este enlace de vinculación.",
   "web.splash.remote.tokenRefusedReason":
     "Ya se usó, caducó o se revocó. Crea uno nuevo en {host} y añádelo de nuevo.",
+  "web.splash.restoredByHand": "Ya restauré mis datos por mi cuenta",
   "web.splash.remote.switch": "Cambiar de Gateway",
   "web.splash.remote.useThisMac": "Usar este Mac",
   "web.splash.remote.pairAgain": "Olvidar y vincular de nuevo",

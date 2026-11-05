@@ -651,6 +651,8 @@ export const settings: Partial<Catalogue> = {
   "settings.remote.step4":
     "重启 Psyche。然后在另一台电脑上，把这台 Mac 添加为 Gateway。它会显示配对码和密钥指纹：请与这里“等待配对”下的请求核对，然后批准。",
   "settings.remote.funnel": "切勿为此开启 Tailscale Funnel。那样会把 Gateway 暴露在公共互联网上。",
+  "settings.remote.configWarnings":
+    "config.json 中有此版本 Psyche 不认识的设置，因此会忽略它们：{keys}。如果你指的是其中之一，请检查拼写。",
   "settings.uninstall.group": "卸载 Psyche",
   "settings.uninstall.groupHint":
     "停止 Gateway 和辅助程序，并将应用移到废纸篓。除非你另行选择，否则你的数据会保留。",

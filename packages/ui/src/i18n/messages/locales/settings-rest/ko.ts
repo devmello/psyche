@@ -735,6 +735,8 @@ export const settingsRest: Partial<Catalogue> = {
     "Psyche를 다시 시작합니다. 그런 다음 다른 컴퓨터에서 이 Mac을 Gateway로 추가합니다. 페어링 코드와 키 지문이 표시되면, 여기 페어링 대기 중의 요청과 비교한 다음 승인하십시오.",
   "settings.remote.funnel":
     "이 용도로 Tailscale Funnel을 켜지 마십시오. Gateway가 공개 인터넷에 노출됩니다.",
+  "settings.remote.configWarnings":
+    "config.json에 이 버전의 Psyche가 알지 못하는 설정이 있어 무시됩니다: {keys}. 그중 하나를 의도하셨다면 철자를 확인하십시오.",
   "settings.uninstall.group": "Psyche 제거",
   "settings.uninstall.groupHint":
     "Gateway와 도우미를 중지하고 앱을 휴지통으로 이동합니다. 데이터는 다르게 선택하지 않는 한 그대로 남습니다.",

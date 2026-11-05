@@ -742,6 +742,8 @@ export const settingsRest: Partial<Catalogue> = {
     "Psycheを再起動します。次に、ほかのコンピュータでこのMacをGatewayとして追加します。ペアリングコードとキーのフィンガープリントが表示されるので、ここの「ペアリング待ち」の要求と照合してから承認してください。",
   "settings.remote.funnel":
     "このためにTailscale Funnelをオンにしないでください。Gatewayが公開インターネットに出てしまいます。",
+  "settings.remote.configWarnings":
+    "config.json に、このバージョンのPsycheが認識できない設定があるため、無視されます: {keys}。いずれかを意図していた場合は、つづりを確認してください。",
   "settings.uninstall.group": "Psycheをアンインストール",
   "settings.uninstall.groupHint":
     "GatewayとHelperを停止し、アプリをゴミ箱に移動します。データは、別の選択をしない限り残ります。",
