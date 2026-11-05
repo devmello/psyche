@@ -48,6 +48,9 @@ export const EXTERNAL = [
   "@napi-rs/canvas",
   "bufferutil",
   "utf-8-validate",
+  // dbus-next (Linux password presence) requires it only to find a session bus from the X11
+  // display; psyched uses the system bus and never takes that path.
+  "x11",
 ];
 
 /** What survives next to the bundles, relative to the app dir (whole folders unless a file). */

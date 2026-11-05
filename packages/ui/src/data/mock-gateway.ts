@@ -356,6 +356,8 @@ export class MockGateway implements GatewayClient {
   presence?: GatewayClient["presence"];
   /** The desktop host: Touch ID cards go through `approvals.approveWithTouchId`. */
   approveWithTouchId?: GatewayClient["approveWithTouchId"];
+  /** The desktop on Linux: password cards go through `approvals.approveWithPassword`. */
+  approveWithPassword?: GatewayClient["approveWithPassword"];
   private seq = 0;
   private stateVersion = 1;
   private state: ConnectionState;
@@ -1707,6 +1709,30 @@ export class MockGateway implements GatewayClient {
       this.emit("approval.updated", { approval: decided });
       return { approval: decided, grant: null };
     },
+    // The desktop's Allow on a card that needs the owner's password (Linux): polkit says yes here.
+    "approvals.approveWithPassword": (p) => {
+      const approval = this.find(this.world.approvals, p.approvalId, "approval");
+      if (approval.status !== "pending") fail("answer_late", "this approval was already decided");
+      if (this.world.answerTokens[approval.id] !== p.answerToken)
+        fail("answer_replayed", "the answer token is not valid for this surface");
+      delete this.world.answerTokens[approval.id];
+      const decided: ApprovalRequest = {
+        ...approval,
+        status: "approved",
+        scopeGranted: "once",
+        decidedBy: { deviceId: "dev_this", surface: "desktop" },
+        decidedAt: this.now(),
+      };
+      this.replace("approvals", decided);
+      this.emit("approval.updated", { approval: decided });
+      return { approval: decided, grant: null };
+    },
+    "devices.presence.status": () => ({
+      verifiers: [
+        { kind: "passkey" as const, state: "not_enrolled" as const },
+        { kind: "password" as const, state: "ready" as const },
+      ],
+    }),
     // The access list: folders from `permissions.policy` plus the live grants (as the Gateway).
     "access.list": () => {
       const policy = this.world.settings["permissions.policy"] as

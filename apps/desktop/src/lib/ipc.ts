@@ -99,6 +99,9 @@ export const IPC = {
   touchIdIdentity: "psyche:touchid:identity",
   touchIdRegister: "psyche:touchid:register",
   touchIdApprove: "psyche:touchid:approve",
+  // Password presence on Linux (linux design §9): the main window's Allow asks the Gateway to run
+  // the polkit check. Main and Settings windows only.
+  passwordApprove: "psyche:password:approve",
   // The owner's macOS region format (A12: numbers, dates and times; Settings can override it).
   localeGet: "psyche:locale:get",
   systemAppearanceGet: "psyche:system-appearance:get",
@@ -318,6 +321,7 @@ export function checkCallable(method: unknown, isMethodName: (m: unknown) => boo
     // Touch ID from the window and its key go through their own channels, which only the main
     // and Settings windows reach and which add the bundled helper's identity (security §10).
     method === "approvals.approveWithTouchId" ||
+    method === "approvals.approveWithPassword" ||
     method === "devices.presenceKey.register"
   )
     throw new IpcPayloadError(IPC.call, `${method} is not callable from the renderer`);
@@ -439,6 +443,8 @@ export const REMOTE_REFUSED_CHANNELS: ReadonlySet<string> = new Set([
   IPC.touchIdIdentity,
   IPC.touchIdRegister,
   IPC.touchIdApprove,
+  // polkit prompts on the computer that runs the Gateway, never on a remote Host.
+  IPC.passwordApprove,
   IPC.dictationRecheck,
   IPC.dictationCheckHotkey,
   IPC.sourceOpen,

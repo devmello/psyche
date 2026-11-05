@@ -10,6 +10,7 @@ import { composeConnectors } from "./connectors.ts";
 import { usesSandboxPc } from "./guest-sandbox.ts";
 import { composeHelper } from "./helper.ts";
 import { composeMcp } from "./mcp.ts";
+import { composePasswordPresence } from "./password-presence.ts";
 import { type ComposedSandbox, composeSandboxIfAvailable, type SandboxSetup } from "./sandbox.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 import { createSrtResolver, type SrtResolver } from "./srt.ts";
@@ -211,6 +212,8 @@ export function partsFromEnv(
   parts.push((s) => composeChannels(s, channels));
   // Touch ID answers verify against keys the owner registers (devices.presenceKey.*, #253).
   parts.push((s) => composeHelper(s));
+  // Linux: the owner's password through polkit (linux design §9). Inert elsewhere.
+  parts.push((s) => composePasswordPresence(s));
   parts.push((s) =>
     composeBackup(s, {
       ...(env.PSYCHE_BACKUP_IDENTITY_FILE ? { identityFile: env.PSYCHE_BACKUP_IDENTITY_FILE } : {}),

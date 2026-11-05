@@ -22,6 +22,17 @@ const TOUCH_ID_SETUP: Record<string, { id: MessageId; fix: TouchIdFix | null }> 
   presence_key_acl_unavailable: { id: "blocks.approval.touchId.keyAclUnavailable", fix: null },
 };
 
+/**
+ * `approvals.approveWithPassword`'s refusals (linux design §9.5), by error code: what the owner
+ * can do about each. The Gateway's own wording is English; the card always shows these.
+ */
+const PASSWORD_REFUSAL: Record<string, MessageId> = {
+  presence_unavailable_here: "blocks.approval.password.unavailableHere",
+  presence_agent_missing: "blocks.approval.password.agentMissing",
+  presence_policy_missing: "blocks.approval.password.policyMissing",
+  presence_not_enforced: "blocks.approval.password.notEnforced",
+};
+
 /** What went wrong answering a card, in the words the card shows. */
 export type AnswerFailure =
   | { kind: "rate_limited"; retryAfterSec: number }
@@ -46,6 +57,20 @@ export function classifyAnswerError(err: unknown): AnswerFailure {
   }
   if (code === "forbidden" && details.reason === "presence_required") {
     return { kind: "presence_unavailable" };
+  }
+  const refusal = code === null ? undefined : PASSWORD_REFUSAL[code];
+  if (refusal !== undefined) return { kind: "other", text: t(refusal) };
+  if (
+    code === "unavailable" &&
+    (details.reason === "polkit_unreachable" || details.reason === "polkit_error")
+  ) {
+    return { kind: "other", text: t("blocks.approval.password.unreachable") };
+  }
+  if (code === "cancelled" && details.reason === "presence_cancelled") {
+    return { kind: "other", text: t("blocks.approval.password.cancelled") };
+  }
+  if (code === "forbidden" && details.reason === "password_failed") {
+    return { kind: "other", text: t("blocks.approval.password.failed") };
   }
   const setup = code === "unavailable" ? TOUCH_ID_SETUP[String(details.reason)] : undefined;
   if (setup !== undefined) return { kind: "touch_id_setup", text: t(setup.id), fix: setup.fix };

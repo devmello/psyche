@@ -32,6 +32,7 @@ import { onboardingRest } from "./onboarding-rest/ko.ts";
 import { overview } from "./overview/ko.ts";
 import { overviewGrowth } from "./overview-growth/ko.ts";
 import { overviewShared } from "./overview-shared/ko.ts";
+import { passwordPresence } from "./password-presence/ko.ts";
 import { peopleRest } from "./people-rest/ko.ts";
 import { personDataRest } from "./personData-rest/ko.ts";
 import { researchRest } from "./research-rest/ko.ts";
@@ -3265,6 +3266,8 @@ export const ko: Partial<Catalogue> = {
   "specialists.card.fromAutomation": "자동화 {name}에서",
   // signed connector bundles and teach-by-showing in Mac apps
   ...final202611,
+  // password approvals on Linux (polkit)
+  ...passwordPresence,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
 };

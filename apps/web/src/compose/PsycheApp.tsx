@@ -554,7 +554,8 @@ function useSystemAppearance(platform: ShellPlatform): SystemAppearance | null {
 
 export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactElement {
   const client = useMemo(
-    () => kitClient(platform.gateway, platform.passkeys, platform.helper?.touchId),
+    () =>
+      kitClient(platform.gateway, platform.passkeys, platform.helper?.touchId, platform.password),
     [platform],
   );
   // Messages typed while a remote Host is unreachable wait here and go out on reconnect, once.
@@ -749,7 +750,8 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
       ...(platform.sources ? { openSource: platform.sources.open } : {}),
       // A Touch ID card the window cannot confirm yet: start the helper or register its key.
       ...(platform.helper ? { touchIdFix: (fix) => fixTouchId(platform, fix) } : {}),
-      ...(platform.helper?.touchId ? { touchIdOnceOnly: true } : {}),
+      ...(platform.helper?.touchId || platform.password ? { touchIdOnceOnly: true } : {}),
+      ...(platform.password ? { passwordPresence: true } : {}),
       // Windows: Settings → Sandbox PC turns it on through main (elevated install, image download).
       ...(platform.sandboxPc ? { sandboxPc: platform.sandboxPc } : {}),
       // A risky card on a remote window needs this computer's own passkey, or says to answer on the Host.
