@@ -14,7 +14,7 @@ if (args[0] === "--bundle-check") {
   process.stdout.write(`${JSON.stringify(await bundleCheck())}\n`);
   process.exit(0);
 }
-if (args.length > 0) process.exit(runCli(args));
+if (args.length > 0) process.exit(await runCli(args));
 
 const log = createLogger();
 

@@ -1,5 +1,7 @@
 import { existsSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
+import { disableAutostart, enableAutostart } from "../platform/autostart.ts";
+import { hostPlatform } from "../platform/index.ts";
 
 /**
  * "Open Psyche at login" (Settings → Appearance → Background). On, the OS starts Psyche when the
@@ -11,6 +13,9 @@ import { basename, dirname, join } from "node:path";
  * Windows registers the login item in `HKCU\…\Run` through Electron. A Squirrel.Windows install
  * keeps each version in its own `app-<version>` folder that the next update deletes, so the item
  * must start the stable `Update.exe --processStart Psyche.exe` instead (`windowsLoginCommand`).
+ *
+ * Linux has no Electron login item: an XDG autostart entry (`platform/autostart.ts`) does the
+ * same, written only when the caller passes `autostart` (main.ts does on Linux).
  */
 export const OPEN_AT_LOGIN_KEY = "appearance.openAtLogin";
 
@@ -102,11 +107,18 @@ export function loginItemSettings(
   return undefined;
 }
 
+/** Linux: the XDG autostart file and the command it runs (without `--background`). */
+export interface LinuxAutostart {
+  file: string;
+  exec: readonly string[];
+}
+
 export class LoginItem {
   readonly #app: LoginApp;
   readonly #platform: NodeJS.Platform;
   readonly #execPath: string;
   readonly #command: LaunchCommandOptions;
+  readonly #autostart: LinuxAutostart | undefined;
   readonly #warn: ((message: string) => void) | undefined;
 
   constructor(
@@ -114,11 +126,14 @@ export class LoginItem {
     o: LaunchCommandOptions & {
       platform?: NodeJS.Platform;
       execPath?: string;
+      /** Linux: where the autostart entry goes and what it runs. Without it Linux does nothing. */
+      autostart?: LinuxAutostart;
       warn?: (m: string) => void;
     } = {},
   ) {
     this.#app = app;
-    this.#platform = o.platform ?? process.platform;
+    this.#autostart = o.autostart;
+    this.#platform = o.platform ?? hostPlatform();
     this.#execPath = o.execPath ?? process.execPath;
     this.#command = {
       ...(o.exists ? { exists: o.exists } : {}),
@@ -128,6 +143,10 @@ export class LoginItem {
   }
 
   set(value: unknown): void {
+    if (this.#platform === "linux") {
+      this.#setAutostart(openAtLogin(value));
+      return;
+    }
     const settings = loginItemSettings(
       openAtLogin(value),
       this.#platform,
@@ -139,6 +158,16 @@ export class LoginItem {
       this.#app.setLoginItemSettings(settings);
     } catch (err) {
       this.#warn?.(`could not set the login item: ${String(err)}`);
+    }
+  }
+
+  #setAutostart(on: boolean): void {
+    if (this.#autostart === undefined) return;
+    try {
+      if (on) enableAutostart(this.#autostart.file, [...this.#autostart.exec, BACKGROUND_ARG]);
+      else disableAutostart(this.#autostart.file);
+    } catch (err) {
+      this.#warn?.(`could not set the autostart entry: ${String(err)}`);
     }
   }
 

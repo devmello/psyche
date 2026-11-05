@@ -36,6 +36,7 @@ import { sandboxPc } from "./sandbox-pc.ts";
 import { scheduled } from "./scheduled.ts";
 import { screenAsk } from "./screen-ask.ts";
 import { screens } from "./screens.ts";
+import { securityState } from "./security-state.ts";
 import { selfConnectors } from "./self-connectors.ts";
 import { settings } from "./settings.ts";
 import { settingsLanguage } from "./settings-language.ts";
@@ -112,6 +113,7 @@ export const en = {
   ...automationChat,
   ...widgets,
   ...platform,
+  ...securityState,
 } as const;
 
 export type MessageId = keyof typeof en;

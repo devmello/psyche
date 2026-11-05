@@ -1133,7 +1133,11 @@ describe.skipIf(!posixHost)(
  */
 describe.skipIf(process.platform !== "win32")("exec_host on Windows", () => {
   const sys = join(process.env.SystemRoot ?? "C:\\Windows", "System32");
-  const whoami = realpathSync.native(join(sys, "whoami.exe"));
+  // skipIf still runs this body on other platforms, so only resolve the real path on Windows.
+  const whoami =
+    process.platform === "win32"
+      ? realpathSync.native(join(sys, "whoami.exe"))
+      : join(sys, "whoami.exe");
   const winHost = (audit = false) =>
     execHostTool({
       broker: recording(),

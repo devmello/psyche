@@ -23,7 +23,7 @@ Never expose port 7979 directly. A non-loopback bind needs explicit configuratio
 
 ## Pair your devices
 
-The first admin device is approved on the server itself (`psyched devices approve <CODE>`). Later devices are approved from a device that already has the admin scope. You choose each device's scopes; a device never declares its own. See [Pairing clients with a server](/guides/server-mode#pairing-clients-with-a-server).
+The first admin device is approved on the server itself (`psyched devices approve <CODE>`, with `psyched` running). Later devices are approved from a device that already has the admin scope. Running `psyched devices approve` again after that does not approve at once: it waits 24 hours, with a warning on every device, unless an admin device approves it sooner or cancels it. You choose each device's scopes; a device never declares its own. See [Pairing clients with a server](/guides/server-mode#pairing-clients-with-a-server).
 
 ## Use the Mac app with a server
 
