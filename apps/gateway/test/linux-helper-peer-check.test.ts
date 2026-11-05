@@ -6,8 +6,8 @@ import { HOST_HELPER_STATUS_SETTING } from "../src/nodes/registry.ts";
 import type { Gateway } from "../src/server.ts";
 import {
   checkPeerOfFd,
-  devMajorMinor,
   findSsPair,
+  HELPER_READY_COMM,
   linuxPeerChecker,
   PACKAGED_HELPER,
   PACKAGED_ROOT,
@@ -53,7 +53,7 @@ const GOOD_LIBS: Record<string, FileStat> = {
 interface Proc {
   start?: string;
   fds?: string[];
-  /** Extra per-thread fd tables (thread id to the sockets it holds). */
+  /** Extra per-thread fd tables (thread id to the sockets it holds, by descriptor number). */
   taskFds?: Record<number, string[]>;
   /** The fd tables cannot be read (a non-dumpable process). */
   hidden?: boolean;
@@ -66,9 +66,15 @@ interface Proc {
   /** The owner of the process (default 1000, the Gateway's user). */
   owner?: number;
   ppid?: number;
+  /** Default: the helper's ready name for a process with an exe. */
   comm?: string;
+  /** `State:` letter and `TracerPid` of /proc/<pid>/status. */
+  state?: string;
+  tracer?: number;
   maps?: string;
   environ?: string | null;
+  /** What `map_files` shows for a mapped path, when the file was replaced since. */
+  replaced?: Record<string, FileStat>;
 }
 
 type Dirs = Record<string, { uid: number; mode: number }>;
@@ -106,6 +112,7 @@ function system(
     const m = /^\/proc\/(\d+)\//.exec(path);
     return m ? procs[Number(m[1])] : undefined;
   };
+  const commOf = (proc: Proc) => proc.comm ?? (proc.exe ? HELPER_READY_COMM : "x");
   return {
     runSs:
       opts.runSs ??
@@ -157,22 +164,32 @@ function system(
       }
       if (/\/status$/.test(p) && proc) {
         const o = proc.owner ?? 1000;
-        return `Name:\tx\nUid:\t${o}\t${o}\t${o}\t${o}\nPPid:\t${proc.ppid ?? 1}\n`;
+        return `Name:\tx\nState:\t${proc.state ?? "S"} (sleeping)\nTracerPid:\t${proc.tracer ?? 0}\nUid:\t${o}\t${o}\t${o}\t${o}\nPPid:\t${proc.ppid ?? 1}\n`;
       }
-      if (/\/comm$/.test(p)) {
-        if (proc) return `${proc.comm ?? "x"}\n`;
-        if (p === "/proc/1/comm") return "systemd\n";
-      }
+      if (/\/comm$/.test(p) && proc) return `${commOf(proc)}\n`;
       if (/\/maps$/.test(p) && proc?.exe) return proc.maps ?? exeMaps(proc.exe, proc.ino ?? 10);
       if (/\/environ$/.test(p) && proc && proc.environ !== null) return proc.environ ?? "HOME=/x\0";
-      if (/\/status$/.test(p) && p === "/proc/1/status")
-        return "Name:\tsystemd\nUid:\t0\t0\t0\t0\nPPid:\t0\n";
       throw eErr("ENOENT");
     },
     async stat(p) {
       const proc = procOf(p);
       if (/\/exe$/.test(p) && proc) {
         return { uid: proc.uid ?? 0, mode: proc.mode ?? 0o100755, dev: DEV, ino: proc.ino ?? 10 };
+      }
+      // The file behind a mapping, as map_files shows it (the mapped file, not the path).
+      const mf = /^\/proc\/\d+\/map_files\/([0-9a-f]+-[0-9a-f]+)$/.exec(p);
+      if (mf && proc?.exe) {
+        const line = (proc.maps ?? exeMaps(proc.exe, proc.ino ?? 10))
+          .split("\n")
+          .find((l) => l.startsWith(`${mf[1]} `));
+        const path = line?.replace(/^\S+ \S+ \S+ \S+ \S+ */, "").replace(/ \(deleted\)$/, "");
+        if (path === undefined) throw eErr("ENOENT");
+        if (path === proc.exe) {
+          return { uid: proc.uid ?? 0, mode: proc.mode ?? 0o100755, dev: DEV, ino: proc.ino ?? 10 };
+        }
+        const mapped = proc.replaced?.[path] ?? libs[path];
+        if (!mapped) throw eErr("ENOENT");
+        return mapped;
       }
       for (const candidate of Object.values(procs)) {
         if (candidate.exe === p) {
@@ -189,7 +206,6 @@ function system(
       if (d) return { ...d, dev: DEV, ino: 99 };
       throw eErr("ENOENT");
     },
-    uid: () => 1000,
     now() {
       clock += opts.slowScan ? 2500 : 0;
       return clock;
@@ -197,15 +213,12 @@ function system(
   };
 }
 
-const HELD = [`socket:[${THEIRS}]`];
+// Descriptors 0 to 2 are pipes, the socket is on fd 3 (a helper that opened it itself).
+const HELD = ["pipe:[1]", "pipe:[2]", "pipe:[3]", `socket:[${THEIRS}]`];
 const packaged: Proc = { start: "555", fds: HELD, exe: PACKAGED_HELPER, uid: 0 };
 const only = (p: Proc) => ({ [PID]: p });
-const check = (
-  deps: PeerCheckDeps,
-  fd: number | null = 22,
-  options: { strictHidden?: boolean } = {},
-): Promise<PeerResult> =>
-  checkPeerOfFd(fd ?? undefined, deps, new AbortController().signal, options);
+const check = (deps: PeerCheckDeps, fd: number | null = 22): Promise<PeerResult> =>
+  checkPeerOfFd(fd ?? undefined, deps, new AbortController().signal);
 const verdict = async (deps: PeerCheckDeps, fd?: number | null) => (await check(deps, fd)).check;
 
 describe("parsing ss, /proc and maps", () => {
@@ -274,14 +287,11 @@ describe("parsing ss, /proc and maps", () => {
   });
   it("reads maps and the loader environment", () => {
     expect(parseMaps(exeMaps("/x/y", 5))?.[0]).toMatchObject({
-      major: 8,
-      minor: 1,
+      range: "00400000-00500000",
       inode: 5,
       path: "/x/y",
     });
     expect(parseMaps("garbage")).toBeUndefined();
-    expect(devMajorMinor(mkdev(8, 1))).toEqual({ major: 8, minor: 1 });
-    expect(devMajorMinor(mkdev(259, 3))).toEqual({ major: 259, minor: 3 });
     expect(setsLoaderEnv("HOME=/h\0PATH=/bin\0")).toBe(false);
     for (const name of ["LD_PRELOAD", "LD_AUDIT", "LD_LIBRARY_PATH"]) {
       expect(setsLoaderEnv(`HOME=/h\0${name}=/tmp/x.so\0`)).toBe(true);
@@ -373,60 +383,97 @@ describe("the verdict", () => {
   });
 });
 
-describe("injected libraries and the loader environment", () => {
+describe("injected libraries, anonymous code and the loader environment", () => {
   const run = (p: Proc, o: Parameters<typeof system>[1] = {}) => check(system(only(p), o));
   const withMap = (...lines: string[]) => ({
     ...packaged,
     maps: exeMaps(PACKAGED_HELPER, 10, lines),
   });
+  const LIB = "/usr/lib/x86_64-linux-gnu/libz.so.1";
+  const libLine = (path = LIB, perms = "r-xp") =>
+    `7f1000000000-7f1000100000 ${perms} 00000000 08:01 888 ${path}`;
+  const goodLib: FileStat = { uid: 0, mode: 0o100644, dev: DEV, ino: 888 };
+  const libs = (s: FileStat, path = LIB) => ({ ...GOOD_LIBS, [path]: s });
 
   it("a foreign library mapped executable makes the packaged helper a mismatch", async () => {
-    const evil = "7f1000000000-7f1000100000 r-xp 00000000 08:01 888 /home/u/evil.so";
-    expect(await run(withMap(evil))).toEqual({ check: "mismatch", reason: "foreign_mapping" });
-    const tmp = "7f1000000000-7f1000100000 r-xp 00000000 08:01 888 /tmp/inject.so";
-    expect((await run(withMap(tmp))).check).toBe("mismatch");
-    const memfd = "7f1000000000-7f1000100000 r-xp 00000000 00:01 888 /memfd:payload (deleted)";
-    expect((await run(withMap(memfd))).check).toBe("mismatch");
+    expect(await run(withMap(libLine("/home/u/evil.so")))).toEqual({
+      check: "mismatch",
+      reason: "foreign_mapping",
+    });
+    expect((await run(withMap(libLine("/tmp/inject.so")))).check).toBe("mismatch");
+    expect((await run(withMap(libLine("/memfd:payload (deleted)")))).check).toBe("mismatch");
+    // A deleted file outside the system directories is not an upgrade, it is foreign.
+    expect((await run(withMap(libLine("/home/u/x.so (deleted)")))).check).toBe("mismatch");
   });
-  it("a library in a system directory must be root-owned, not writable, and the file mapped", async () => {
-    const lib =
-      "7f1000000000-7f1000100000 r-xp 00000000 08:01 888 /usr/lib/x86_64-linux-gnu/libz.so.1";
-    const libs = (s: FileStat) => ({ ...GOOD_LIBS, "/usr/lib/x86_64-linux-gnu/libz.so.1": s });
-    const good = { uid: 0, mode: 0o100644, dev: DEV, ino: 888 };
-    expect((await run(withMap(lib), { libs: libs(good) })).check).toBe("root_owned");
-    expect((await run(withMap(lib), { libs: libs({ ...good, uid: 1000 }) })).check).toBe(
-      "mismatch",
-    );
-    expect((await run(withMap(lib), { libs: libs({ ...good, mode: 0o100666 }) })).check).toBe(
-      "mismatch",
-    );
-    // The path now names another file than the one mapped (replaced, or a mount over it).
-    expect((await run(withMap(lib), { libs: libs({ ...good, ino: 999 }) })).check).toBe("mismatch");
-    expect((await run(withMap(lib), { libs: libs({ ...good, dev: mkdev(8, 2) }) })).check).toBe(
-      "mismatch",
-    );
-    expect((await run(withMap(lib))).check).toBe("mismatch");
+  it("anonymous executable memory is refused, except the vdso and vsyscall", async () => {
+    const anon = "7f2000000000-7f2000100000 rwxp 00000000 00:00 0";
+    expect(await run(withMap(anon))).toEqual({ check: "mismatch", reason: "foreign_mapping" });
     expect(
-      (await run(withMap(lib.replace("libz.so.1", "libz.so.1 (deleted)")), { libs: libs(good) }))
-        .check,
+      (await run(withMap("7f2000000000-7f2000100000 r-xp 00000000 00:00 0 [heap]"))).check,
     ).toBe("mismatch");
+    const vsyscall = "ffffffffff600000-ffffffffff601000 --xp 00000000 00:00 0 [vsyscall]";
+    expect((await run(withMap(vsyscall))).check).toBe("root_owned");
+    // Non-executable anonymous memory is the heap and stacks: fine.
+    expect((await run(withMap("7f2000000000-7f2000100000 rw-p 00000000 00:00 0"))).check).toBe(
+      "root_owned",
+    );
+  });
+  it("a system library must be root-owned and not writable", async () => {
+    expect((await run(withMap(libLine()), { libs: libs(goodLib) })).check).toBe("root_owned");
+    expect((await run(withMap(libLine()), { libs: libs({ ...goodLib, uid: 1000 }) })).check).toBe(
+      "mismatch",
+    );
+    expect(
+      (await run(withMap(libLine()), { libs: libs({ ...goodLib, mode: 0o100666 }) })).check,
+    ).toBe("mismatch");
+  });
+  it("device numbers are compared through stat, so overlayfs and btrfs do not cause false alarms", async () => {
+    // The maps line says 00:2e (what overlayfs prints) while stat says another device: the mapped
+    // file and the named file are compared with stat, both agree.
+    const line = `7f1000000000-7f1000100000 r-xp 00000000 00:2e 888 ${LIB}`;
+    expect((await run(withMap(line), { libs: libs(goodLib) })).check).toBe("root_owned");
+  });
+  it("a library replaced since it was mapped is unverified (library_replaced), so the helper is restarted", async () => {
+    const replaced = { ...withMap(libLine()), replaced: { [LIB]: { ...goodLib, ino: 111 } } };
+    expect(await run(replaced, { libs: libs(goodLib) })).toEqual({
+      check: "unverified",
+      reason: "library_replaced",
+    });
+    // Another device for the same inode number.
+    const otherDev = {
+      ...withMap(libLine()),
+      replaced: { [LIB]: { ...goodLib, dev: mkdev(8, 2) } },
+    };
+    expect((await run(otherDev, { libs: libs(goodLib) })).reason).toBe("library_replaced");
+    // The path no longer exists, or the mapping says (deleted) in a system directory.
+    expect((await run({ ...withMap(libLine()), replaced: { [LIB]: goodLib } })).reason).toBe(
+      "library_replaced",
+    );
+    const deleted = withMap(libLine(`${LIB} (deleted)`));
+    expect(await run(deleted, { libs: libs(goodLib) })).toEqual({
+      check: "unverified",
+      reason: "library_replaced",
+    });
+  });
+  it("a mapping that cannot be inspected is unverified", async () => {
+    const deps = system(only(withMap(libLine())), { libs: libs(goodLib) });
+    const base = deps.stat.bind(deps);
+    deps.stat = async (p) => {
+      if (p.includes("/map_files/") && !p.includes("00400000")) throw eErr("EACCES");
+      return base(p);
+    };
+    expect(await check(deps)).toEqual({ check: "unverified", reason: "image_unreadable" });
   });
   it("a library in the package directory counts as the package's own", async () => {
     const own = `${PACKAGED_ROOT}/resources/linux-helper/libhelper.so`;
-    const line = `7f1000000000-7f1000100000 r-xp 00000000 08:01 888 ${own}`;
-    const libs = { ...GOOD_LIBS, [own]: { uid: 0, mode: 0o100755, dev: DEV, ino: 888 } };
-    expect((await run(withMap(line), { libs })).check).toBe("root_owned");
-    expect(
-      (
-        await run(withMap(line), {
-          libs: { ...libs, [own]: { uid: 1000, mode: 0o100755, dev: DEV, ino: 888 } },
-        })
-      ).check,
-    ).toBe("mismatch");
+    const mapped = withMap(libLine(own));
+    expect((await run(mapped, { libs: libs(goodLib, own) })).check).toBe("root_owned");
+    expect((await run(mapped, { libs: libs({ ...goodLib, uid: 1000 }, own) })).check).toBe(
+      "mismatch",
+    );
   });
   it("non-executable file mappings are not code", async () => {
-    const data = "7f1000000000-7f1000100000 r--p 00000000 08:01 888 /home/u/data.bin";
-    expect((await run(withMap(data))).check).toBe("root_owned");
+    expect((await run(withMap(libLine("/home/u/data.bin", "r--p")))).check).toBe("root_owned");
   });
   it("any loader variable in the initial environment makes the packaged helper a mismatch", async () => {
     for (const name of ["LD_PRELOAD", "LD_AUDIT", "LD_LIBRARY_PATH"]) {
@@ -440,15 +487,87 @@ describe("injected libraries and the loader environment", () => {
     expect((await run({ ...packaged, environ: null })).reason).toBe("image_unreadable");
     expect((await run({ ...packaged, maps: "garbage" })).reason).toBe("image_unreadable");
   });
-  it("a user-owned helper with a foreign mapping stays user_owned (the weak mode)", async () => {
+  it("a user-owned helper with a foreign mapping or anonymous code stays user_owned (the weak mode)", async () => {
+    const exe = "/home/u/target/debug/psyche-helper";
+    const dev = {
+      ...packaged,
+      exe,
+      uid: 1000,
+      maps: exeMaps(exe, 10, [
+        libLine("/home/u/evil.so"),
+        "7f2000000000-7f2000100000 rwxp 00000000 00:00 0",
+      ]),
+      environ: "LD_PRELOAD=/home/u/evil.so\0",
+      comm: "psyche-helper",
+    };
+    expect((await run(dev)).check).toBe("user_owned");
+  });
+});
+
+describe("start-up mark, tracing and inherited sockets", () => {
+  const run = (p: Proc) => check(system(only(p)));
+
+  it("the packaged helper must carry its ready name, on both looks", async () => {
+    expect(await run({ ...packaged, comm: "psyche-helper" })).toEqual({
+      check: "unverified",
+      reason: "not_ready",
+    });
+    expect((await run({ ...packaged, comm: "evil" })).reason).toBe("not_ready");
+    // The name changes between the two reads (a process still starting, or one that renamed).
+    const deps = system(only(packaged));
+    let reads = 0;
+    const base = deps.readFile.bind(deps);
+    deps.readFile = async (p) => {
+      const text = await base(p);
+      if (!p.endsWith("/comm")) return text;
+      reads++;
+      return reads > 1 ? "psyche-helper\n" : text;
+    };
+    expect((await check(deps)).reason).toBe("not_ready");
+    expect(HELPER_READY_COMM.length).toBeLessThanOrEqual(15);
+  });
+  it("a stopped or traced helper is unverified", async () => {
+    expect(await run({ ...packaged, state: "T" })).toEqual({
+      check: "unverified",
+      reason: "stopped_or_traced",
+    });
+    expect((await run({ ...packaged, state: "t" })).reason).toBe("stopped_or_traced");
+    expect((await run({ ...packaged, tracer: 4321 })).reason).toBe("stopped_or_traced");
+    // Stopped only at the second look.
+    const deps = system(only(packaged));
+    let reads = 0;
+    const base = deps.readFile.bind(deps);
+    deps.readFile = async (p) => {
+      const text = await base(p);
+      if (!p.endsWith("/status")) return text;
+      reads++;
+      return reads > 1 ? text.replace("State:\tS", "State:\tT") : text;
+    };
+    expect((await check(deps)).reason).toBe("stopped_or_traced");
+  });
+  it("a socket on stdin, stdout or stderr was made by the parent: unverified", async () => {
+    for (const fd of [0, 1, 2]) {
+      const fds = ["pipe:[1]", "pipe:[2]", "pipe:[3]", `socket:[${THEIRS}]`];
+      fds[fd] = `socket:[${THEIRS}]`;
+      fds[3] = "pipe:[9]";
+      expect(await run({ ...packaged, fds })).toEqual({
+        check: "unverified",
+        reason: "inherited_socket",
+      });
+    }
+    // Also through a thread's own table.
+    const threaded = { ...packaged, fds: [], taskFds: { 18200: [`socket:[${THEIRS}]`] } };
+    expect((await run(threaded)).reason).toBe("inherited_socket");
+    // On fd 3 or higher it is the helper's own.
+    expect((await run(packaged)).check).toBe("root_owned");
+  });
+  it("the marks do not apply to a development build (the weak mode records what it saw)", async () => {
     const dev = {
       ...packaged,
       exe: "/home/u/target/debug/psyche-helper",
       uid: 1000,
-      maps: exeMaps("/home/u/target/debug/psyche-helper", 10, [
-        "7f1000000000-7f1000100000 r-xp 00000000 08:01 888 /home/u/evil.so",
-      ]),
-      environ: "LD_PRELOAD=/home/u/evil.so\0",
+      comm: "cargo",
+      state: "t",
     };
     expect((await run(dev)).check).toBe("user_owned");
   });
@@ -518,81 +637,37 @@ describe("what a same-user process can do through ss and the socket", () => {
     });
   });
   it("a copy of the socket in another thread's own fd table is found", async () => {
-    const threaded: Proc = { ...packaged, fds: [], taskFds: { 18200: HELD } };
+    const pad = ["pipe:[1]", "pipe:[2]", "pipe:[3]", `socket:[${THEIRS}]`];
+    const threaded: Proc = { ...packaged, fds: [], taskFds: { 18200: pad } };
     // The only holder is a thread table: the process is still the one holder.
     expect((await check(system(only(threaded)))).check).toBe("root_owned");
     // A second process that holds it only through a thread table is a second holder.
-    const sneaky: Proc = { start: "700", fds: [], taskFds: { 19001: HELD }, exe: "/home/u/evil" };
+    const sneaky: Proc = { start: "700", fds: [], taskFds: { 19001: pad }, exe: "/home/u/evil" };
     expect(await check(system({ [PID]: packaged, 19000: sneaky }))).toEqual({
       check: "unverified",
       reason: "many_holders",
     });
   });
-  it("a hidden holder related to the helper (its non-dumpable fork) makes the answer unverified", async () => {
-    // The child made itself non-dumpable (its fd table is EACCES) and keeps the socket; the
-    // parent executed the real helper, which inherited it.
-    const child: Proc = { hidden: true, start: "601", ppid: PID, comm: "evil" };
-    expect(await check(system({ [PID]: { ...packaged, ppid: 5000 }, 18157: child }))).toEqual({
-      check: "unverified",
-      reason: "hidden_holder",
-    });
-    // The hidden process is the parent of the real helper.
-    const parent: Proc = { hidden: true, start: "400", ppid: 5000, comm: "evil" };
-    expect(await check(system({ [PID]: { ...packaged, ppid: 17000 }, 17000: parent }))).toEqual({
-      check: "unverified",
-      reason: "hidden_holder",
-    });
-    // A sibling under the same non-manager parent.
-    const sibling: Proc = { hidden: true, start: "602", ppid: 5000, comm: "evil" };
-    expect(
-      (
-        await check(
-          system({
-            [PID]: { ...packaged, ppid: 5000 },
-            18158: sibling,
-            5000: { ppid: 1, comm: "bash" },
-          }),
-        )
-      ).reason,
-    ).toBe("hidden_holder");
-  });
-  it("unrelated hidden daemons of the user, and other users' processes, do not block pairing", async () => {
-    // gpg-agent, ssh-agent and Chromium's sandboxed processes are non-dumpable: a desktop has them.
-    const agent: Proc = { hidden: true, start: "10", ppid: 1, comm: "gpg-agent" };
-    const stranger: Proc = { hidden: true, start: "11", owner: 0, ppid: 1 };
-    // Both run under the user's systemd, which the helper does too: not a relationship.
+  it("unreadable fd tables of other processes are ignored, whoever they are", async () => {
+    // gpg-agent, Chromium's sandboxed processes, other users' processes, a fork of the helper
+    // that went non-dumpable: no relatedness heuristic, so none of them blocks pairing.
     const procs = {
       [PID]: { ...packaged, ppid: 2000 },
-      2000: { ppid: 1, comm: "systemd" },
-      3000: { ...agent, ppid: 2000 },
-      3001: stranger,
-    };
-    expect((await check(system(procs))).check).toBe("root_owned");
-    // The strict switch refuses any unreadable same-user table.
-    expect(await check(system(procs), 22, { strictHidden: true })).toEqual({
-      check: "unverified",
-      reason: "hidden_holder",
-    });
-  });
-  it("a hidden process that only shares a root-owned ancestor (a login relay) is not related", async () => {
-    const procs = {
-      [PID]: { ...packaged, ppid: 2 },
-      2: { ppid: 1, comm: "init", owner: 0 },
-      3000: { hidden: true, start: "10", ppid: 2, comm: "pkexec" },
+      3000: { hidden: true, start: "10", ppid: 2000, comm: "gpg-agent" },
+      3001: { hidden: true, start: "11", owner: 0, ppid: 1 },
+      3002: { hidden: true, start: "12", ppid: PID, comm: "child" },
     };
     expect((await check(system(procs))).check).toBe("root_owned");
   });
-  it("a thread's unreadable fd table counts as hidden", async () => {
-    const holder: Proc = { ...packaged, ppid: 5000 };
-    const hiddenThread: Proc = { start: "12", ppid: 5000, comm: "evil", fds: [], taskFds: {} };
-    const dep = system({ [PID]: holder, 18159: hiddenThread, 5000: { ppid: 1, comm: "bash" } });
+  it("a thread's unreadable fd table is skipped too", async () => {
+    const dep = system({ [PID]: packaged, 18159: { start: "12", fds: [], taskFds: {} } });
     const base = dep.readdir.bind(dep);
     dep.readdir = async (p) => {
       if (p === "/proc/18159/task") return ["18159", "18160"];
       if (p === "/proc/18159/task/18160/fd") throw eErr("EACCES");
       return base(p);
     };
-    expect((await check(dep)).reason).toBe("hidden_holder");
+    expect((await check(dep)).check).toBe("root_owned");
   });
   it("a /proc scan that runs out of time makes the answer unverified", async () => {
     expect(await check(system(only(packaged), { slowScan: true }))).toEqual({

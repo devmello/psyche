@@ -4,7 +4,7 @@ import { readdir, readFile, readlink, stat } from "node:fs/promises";
 import type { Socket } from "node:net";
 import { basename, dirname } from "node:path";
 import type { PeerCheck } from "@psyche/protocol";
-import { LINUX_PACKAGED_HELPER_PATH } from "@psyche/protocol/platform";
+import { LINUX_HELPER_READY_COMM, LINUX_PACKAGED_HELPER_PATH } from "@psyche/protocol/platform";
 
 /**
  * The accept-time peer check for the Linux helper (linux-desktop design §4.3).
@@ -22,35 +22,49 @@ import { LINUX_PACKAGED_HELPER_PATH } from "@psyche/protocol/platform";
  *      about other sockets are none of our business and are ignored. `ss` is only used for this
  *      pairing and as a cross-check;
  *   3. who holds A comes from the kernel's fd tables, not from `ss`: every `/proc/<pid>/fd` and
- *      `/proc/<pid>/task/<tid>/fd` is scanned for `socket:[A]`. Exactly one process may hold it,
- *      and it must be the pid `ss` named. A same-user process whose fd table cannot be read (a
- *      non-dumpable one can hide a copy of the socket) that is related to the holder is a hidden
- *      holder: `unverified`;
+ *      `/proc/<pid>/task/<tid>/fd` that can be read is scanned for `socket:[A]`. Exactly one
+ *      process may hold it, and it must be the pid `ss` named. Tables that cannot be read
+ *      (other users', or a non-dumpable process of this user) are skipped: no heuristic about who
+ *      is related to whom (a double fork or `systemd-run --user` reparents to systemd, and any
+ *      process can name itself anything);
  *   4. that process must still hold the socket after we looked at it, with the same start time,
  *      and `/proc/<pid>/exe` (`stat`ed through the link, so it is the real file) says which file
- *      runs. Its executable mappings (`/proc/<pid>/maps`) must all be root-owned system libraries
- *      or the package's own files, and its initial environment must not set `LD_PRELOAD`,
- *      `LD_AUDIT` or `LD_LIBRARY_PATH`. The packaged, root-owned helper with clean mappings is
- *      `root_owned`; another file named `psyche-helper` is `user_owned`; anything else is a
- *      `mismatch`.
+ *      runs. For the packaged helper the process must also: not hold the socket on fd 0, 1 or 2
+ *      (a parent that connected and then executed it left the socket on stdio); carry the name the
+ *      helper gives itself once its start-up hardening is done (`LINUX_HELPER_READY_COMM`; before
+ *      that it is still between `exec` and the descriptor cleanup); not be stopped, traced or have
+ *      a tracer; map no anonymous executable memory (except `[vdso]` and `[vsyscall]`); map only
+ *      files that are root-owned, not group- or world-writable, under a system library directory
+ *      or the package (each mapped file and the file its path names now are compared with `stat`,
+ *      through `/proc/<pid>/map_files`, so overlayfs and btrfs device numbers cannot cause false
+ *      alarms); and not set `LD_PRELOAD`, `LD_AUDIT` or `LD_LIBRARY_PATH` in its initial
+ *      environment. The packaged, root-owned helper that passes is `root_owned`; another file
+ *      named `psyche-helper` is `user_owned`; anything else is a `mismatch`. A system library
+ *      replaced since it was mapped (an upgrade) is `unverified` with reason `library_replaced`,
+ *      so the desktop restarts the helper.
  *
  * Everything that goes wrong is `unverified`, never `root_owned`: no `ss`, unparsable pairing rows,
  * a peer already gone, several or hidden holders, a timeout, an unreadable `/proc`, a deleted
  * binary.
  *
- * What this proves: which binary FILE is running as the peer, and that no foreign library is
- * mapped executable into it. It does not prove the code in that process is unmodified: a same-user
- * process may `ptrace` it where Yama allows (`kernel.yama.ptrace_scope` 1 limits ptrace to
- * descendants, so a parent can). Pid reuse cannot be closed completely without a pidfd, which
- * Node lacks; the holder scan, the start-time and the second look shrink that window, they do not
- * remove it. This is the accepted same-user boundary (security §1.3); the check is defence in
- * depth for packaged installs, not a seal.
+ * What this proves: that the peer is the root-owned packaged helper binary, running only its own
+ * and the system's executable code, not stopped or traced, and not holding a socket its parent
+ * made for it. What it does not: it is defence in depth against same-user impersonation, not a
+ * boundary. A same-user process can ptrace its own child (Yama scope 1 allows that), or inject
+ * code and clean up before the check, or patch the text of a mapped system library in place with
+ * `mprotect` after the cleanup. None of that can be seen from outside, and a static build would
+ * not help (later helper PRs link PipeWire and other C libraries). Pid reuse cannot be closed
+ * without a pidfd, which Node lacks. Security §1.3 accepts the same-user boundary: such an
+ * attacker can also edit psyched's own unit. For AppImage and development installs the check
+ * only records what it saw.
  */
 
 /** The packaged install root (deb and rpm). */
 export const PACKAGED_ROOT = "/usr/lib/psyche";
 /** Where the packaged helper lives; shared with the desktop packaging through the protocol. */
 export const PACKAGED_HELPER = LINUX_PACKAGED_HELPER_PATH;
+/** The name the helper gives itself once its start-up hardening is done. */
+export const HELPER_READY_COMM = LINUX_HELPER_READY_COMM;
 /** The binary's name, in the package and in a build tree. */
 export const HELPER_BINARY_NAME = "psyche-helper";
 /** Directories whose root-owned files may be mapped executable into the helper. */
@@ -148,9 +162,9 @@ export function startTimeOf(statText: string): string | undefined {
 
 /** One line of `/proc/<pid>/maps`. */
 export interface MapEntry {
+  /** `start-end`, as `/proc/<pid>/map_files` names the mapping. */
+  range: string;
   perms: string;
-  major: number;
-  minor: number;
   inode: number;
   path: string;
 }
@@ -160,27 +174,18 @@ export function parseMaps(text: string): MapEntry[] | undefined {
   const entries: MapEntry[] = [];
   for (const line of text.split("\n")) {
     if (line === "") continue;
-    const m = /^[0-9a-f]+-[0-9a-f]+ (\S{4}) [0-9a-f]+ ([0-9a-f]+):([0-9a-f]+) (\d+) *(.*)$/.exec(
+    const m = /^([0-9a-f]+-[0-9a-f]+) (\S{4}) [0-9a-f]+ [0-9a-f]+:[0-9a-f]+ (\d+) *(.*)$/.exec(
       line,
     );
     if (m === null) return undefined;
     entries.push({
-      perms: m[1] as string,
-      major: Number.parseInt(m[2] as string, 16),
-      minor: Number.parseInt(m[3] as string, 16),
-      inode: Number(m[4]),
-      path: m[5] as string,
+      range: m[1] as string,
+      perms: m[2] as string,
+      inode: Number(m[3]),
+      path: m[4] as string,
     });
   }
   return entries;
-}
-
-/** The `major:minor` of a `st_dev` value, as Linux encodes it. */
-export function devMajorMinor(dev: number): { major: number; minor: number } {
-  const d = BigInt(dev);
-  const major = ((d >> 8n) & 0xfffn) | ((d >> 32n) & ~0xfffn);
-  const minor = (d & 0xffn) | ((d >> 12n) & ~0xffn);
-  return { major: Number(major), minor: Number(minor) };
 }
 
 /** Whether the initial environment (`/proc/<pid>/environ`) sets a loader variable. */
@@ -199,8 +204,6 @@ export interface PeerCheckDeps {
   readFile(path: string): Promise<string>;
   /** `stat` (following links) with the owner, mode and identity of the real file. */
   stat(path: string): Promise<{ uid: number; mode: number; dev: number; ino: number }>;
-  /** The Gateway's own user id: a hidden holder only matters when it is this user's. */
-  uid(): number;
   /** Milliseconds, for the scan's time budget. */
   now(): number;
 }
@@ -239,7 +242,6 @@ export const systemPeerCheckDeps: PeerCheckDeps = {
     const s = await stat(p);
     return { uid: s.uid, mode: s.mode, dev: s.dev, ino: s.ino };
   },
-  uid: () => process.getuid?.() ?? -1,
   now: () => Date.now(),
 };
 
@@ -269,6 +271,8 @@ interface FdTables {
   holds: boolean;
   /** Some fd table of this process (or one of its threads) could not be read. */
   hidden: boolean;
+  /** The descriptor numbers through which it holds the inode (in any of its tables). */
+  fdNumbers: number[];
 }
 
 /** Whether `pid` holds `inode` in any fd table, main or per-thread; and whether any was hidden. */
@@ -278,7 +282,7 @@ async function readFdTables(
   inode: number,
   c: Control,
 ): Promise<FdTables> {
-  const out: FdTables = { holds: false, hidden: false };
+  const out: FdTables = { holds: false, hidden: false, fdNumbers: [] };
   const dirs = [`/proc/${pid}/fd`];
   try {
     for (const tid of await deps.readdir(`/proc/${pid}/task`)) {
@@ -297,82 +301,38 @@ async function readFdTables(
     }
     for (let i = 0; i < fds.length; i += FD_CHUNK) {
       guard(deps, c);
+      const chunk = fds.slice(i, i + FD_CHUNK);
       const targets = await Promise.all(
-        fds
-          .slice(i, i + FD_CHUNK)
-          .map((fd) => deps.readlink(`${dir}/${fd}`).catch(() => undefined)),
+        chunk.map((fd) => deps.readlink(`${dir}/${fd}`).catch(() => undefined)),
       );
-      if (targets.some((t) => t !== undefined && socketInodeOf(t) === inode)) out.holds = true;
+      targets.forEach((t, n) => {
+        if (t === undefined || socketInodeOf(t) !== inode) return;
+        out.holds = true;
+        out.fdNumbers.push(Number(chunk[n]));
+      });
     }
   }
   return out;
 }
 
-/** `Uid:` and `PPid:` of a process from `/proc/<pid>/status`; `undefined` if it is gone. */
-async function statusOf(
-  deps: PeerCheckDeps,
-  pid: number,
-): Promise<{ uids: number[]; ppid: number } | undefined> {
-  let text: string;
-  try {
-    text = await deps.readFile(`/proc/${pid}/status`);
-  } catch (e) {
-    if (gone(e)) return undefined;
-    // Unreadable status of some process: treat it as ours and related, never as nothing.
-    return { uids: [deps.uid()], ppid: -1 };
-  }
-  const uid = /^Uid:\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)/m.exec(text);
-  const ppid = /^PPid:\s+(\d+)/m.exec(text);
-  if (uid === null || ppid === null) return { uids: [deps.uid()], ppid: -1 };
-  return { uids: [1, 2, 3, 4].map((i) => Number(uid[i])), ppid: Number(ppid[1]) };
-}
-
-/** `pid` and its ancestors (never past 64 levels), as a set. */
-async function lineageOf(deps: PeerCheckDeps, pid: number): Promise<Set<number>> {
-  const seen = new Set<number>();
-  let at = pid;
-  for (let i = 0; i < 64 && at > 0 && !seen.has(at); i++) {
-    seen.add(at);
-    at = (await statusOf(deps, at))?.ppid ?? 0;
-  }
-  return seen;
-}
-
-/** A service manager or init: related to everything of the user, so it proves nothing. */
-async function isManager(deps: PeerCheckDeps, pid: number): Promise<boolean> {
-  if (pid === 1) return true;
-  try {
-    return (await deps.readFile(`/proc/${pid}/comm`)).trim() === "systemd";
-  } catch {
-    return false;
-  }
-}
-
 export interface ScanResult {
   holders: number[];
-  /** Same-user processes whose fd tables could not be read, and that are not unrelated. */
-  hiddenRelated: number[];
 }
 
 /**
  * Every process that holds `inode` open, from the kernel's fd tables (main and per-thread), in
- * bounded batches with the deadline checked inside the loops. Entries that cannot be read are
- * skipped, except that a same-user process whose table is unreadable and that is related to the
- * holder (an ancestor, a descendant, or one sharing an ancestor of this user's that is not init or
- * the user's systemd) is reported: a fork that made itself non-dumpable can keep a copy of the socket hidden
- * while the parent executes the real helper. Other users' processes and unrelated same-user
- * daemons (gpg-agent, Chromium's sandboxed processes) are not reported: they cannot have inherited
- * this socket from the connecting process. `strictHidden` reports every unreadable same-user
- * process instead.
+ * bounded batches with the deadline checked inside the loops. Entries that cannot be read (other
+ * users' processes, a process that just exited, a non-dumpable process) are skipped: deciding who
+ * of the unreadable ones "must be related" is a heuristic a same-user process can sidestep (a
+ * double fork, `systemd-run --user`, any process naming itself `systemd`) and one that could
+ * refuse the real helper when Electron's sandboxed processes share an ancestor with it.
  */
 export async function scanHolders(
   deps: PeerCheckDeps,
   inode: number,
   c: Control,
-  strictHidden = false,
 ): Promise<ScanResult> {
   const holders: number[] = [];
-  const unreadable: number[] = [];
   const pids = await deps.listPids();
   for (let i = 0; i < pids.length; i += PID_BATCH) {
     guard(deps, c);
@@ -380,38 +340,10 @@ export async function scanHolders(
       pids.slice(i, i + PID_BATCH).map(async (pid) => {
         const t = await readFdTables(deps, pid, inode, c);
         if (t.holds) holders.push(Number(pid));
-        else if (t.hidden) unreadable.push(Number(pid));
       }),
     );
   }
-  const holder = holders.length === 1 ? (holders[0] as number) : undefined;
-  const hiddenRelated: number[] = [];
-  if (unreadable.length > 0) {
-    const holderLine = holder === undefined ? undefined : await lineageOf(deps, holder);
-    for (const pid of unreadable) {
-      guard(deps, c);
-      const st = await statusOf(deps, pid);
-      if (st === undefined || !st.uids.includes(deps.uid())) continue;
-      if (strictHidden || holder === undefined) {
-        hiddenRelated.push(pid);
-        continue;
-      }
-      const common = [...(await lineageOf(deps, pid))].filter((p) => holderLine?.has(p));
-      let related = false;
-      for (const p of common) {
-        // The process that connected is this user's, and so is whatever it forked: a shared
-        // ancestor owned by someone else (init, a login relay) cannot be where the socket came from.
-        const st = await statusOf(deps, p);
-        if (st === undefined || !st.uids.includes(deps.uid())) continue;
-        if (!(await isManager(deps, p))) {
-          related = true;
-          break;
-        }
-      }
-      if (related) hiddenRelated.push(pid);
-    }
-  }
-  return { holders, hiddenRelated };
+  return { holders };
 }
 
 /** A directory the user cannot write to: root-owned, a directory, not group- or world-writable. */
@@ -423,52 +355,90 @@ async function isRootControlledDir(deps: PeerCheckDeps, path: string): Promise<b
 const isCanonical = (path: string): boolean =>
   path.startsWith("/") && !path.split("/").some((part) => part === ".." || part === ".");
 
+type ImageVerdict = "ok" | "foreign" | "replaced" | "unreadable";
+
 /**
- * Whether every file-backed executable mapping is a root-owned, not group- or world-writable
- * regular file under a system library directory (or the package), identified by device and inode
- * from `stat`, not just by path. The executable itself is judged separately. Anonymous mappings
- * (the stack guard, the vdso, the heap) are not files and are skipped.
+ * Judges the executable mappings of `pid`. Every executable mapping must be a file (anonymous
+ * executable memory is refused, except `[vdso]` and `[vsyscall]`), and every file must be
+ * root-owned, a regular file, not group- or world-writable, under a system library directory (or
+ * the package). The mapped file is `stat`ed through `/proc/<pid>/map_files/<range>` and compared
+ * with `stat` of the path it is mapped under, both via `stat`, so overlayfs and btrfs device
+ * numbers (which differ from the ones `maps` prints) cannot cause false alarms. A system library
+ * that was replaced since it was mapped (an upgrade; a `(deleted)` file in a system directory) is
+ * `replaced`, not foreign: the helper just needs a restart. The executable itself is judged
+ * separately and skipped here.
  */
 async function mappingsAreSystem(
   deps: PeerCheckDeps,
+  pid: number,
   entries: MapEntry[],
   exe: { dev: number; ino: number },
-): Promise<boolean> {
-  const exeDev = devMajorMinor(exe.dev);
+): Promise<ImageVerdict> {
   const seen = new Set<string>();
+  let replaced = false;
   for (const e of entries) {
-    if (e.perms[2] !== "x" || e.inode === 0 || e.path === "") continue;
-    if (e.inode === exe.ino && e.major === exeDev.major && e.minor === exeDev.minor) continue;
-    const key = `${e.major}:${e.minor}:${e.inode}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    if (e.path.endsWith(" (deleted)") || !isCanonical(e.path)) return false;
-    if (!SYSTEM_LIBRARY_DIRS.some((dir) => e.path.startsWith(dir))) return false;
-    let s: Awaited<ReturnType<PeerCheckDeps["stat"]>>;
+    if (e.perms[2] !== "x") continue;
+    if (e.inode === 0) {
+      if (e.path === "[vdso]" || e.path === "[vsyscall]") continue;
+      return "foreign";
+    }
+    if (e.path === "" || seen.has(`${e.path}:${e.inode}`)) continue;
+    seen.add(`${e.path}:${e.inode}`);
+    const deleted = e.path.endsWith(" (deleted)");
+    const path = deleted ? e.path.slice(0, -" (deleted)".length) : e.path;
+    if (!isCanonical(path) || !SYSTEM_LIBRARY_DIRS.some((dir) => path.startsWith(dir))) {
+      return "foreign";
+    }
+    let mapped: Awaited<ReturnType<PeerCheckDeps["stat"]>>;
     try {
-      s = await deps.stat(e.path);
+      mapped = await deps.stat(`/proc/${pid}/map_files/${e.range}`);
     } catch {
-      return false;
+      return "unreadable";
     }
-    const dev = devMajorMinor(s.dev);
-    if (s.ino !== e.inode || dev.major !== e.major || dev.minor !== e.minor) return false;
-    if (s.uid !== 0 || (s.mode & S_IFMT) !== S_IFREG || (s.mode & GROUP_OTHER_WRITE) !== 0) {
-      return false;
+    if (mapped.ino === exe.ino && mapped.dev === exe.dev) continue;
+    if (deleted) {
+      replaced = true;
+      continue;
     }
+    let named: Awaited<ReturnType<PeerCheckDeps["stat"]>> | undefined;
+    try {
+      named = await deps.stat(path);
+    } catch {
+      named = undefined;
+    }
+    if (named === undefined || named.ino !== mapped.ino || named.dev !== mapped.dev) {
+      replaced = true;
+      continue;
+    }
+    if (mapped.uid !== 0 || (mapped.mode & S_IFMT) !== S_IFREG) return "foreign";
+    if ((mapped.mode & GROUP_OTHER_WRITE) !== 0) return "foreign";
   }
-  return true;
+  return replaced ? "replaced" : "ok";
 }
 
-/** Whether `pid` still holds `inode` by its own tables (main and threads). Hidden is not a yes. */
-async function stillHolds(
-  deps: PeerCheckDeps,
-  pid: number,
-  inode: number,
-  c: Control,
-): Promise<boolean | "hidden"> {
-  const t = await readFdTables(deps, String(pid), inode, c);
-  if (t.hidden) return "hidden";
-  return t.holds;
+/** What `/proc/<pid>/status` and `comm` say about the process right now. */
+interface ProcState {
+  comm: string;
+  state: string;
+  tracer: number;
+}
+
+async function procState(deps: PeerCheckDeps, pid: number): Promise<ProcState | undefined> {
+  const status = await deps.readFile(`/proc/${pid}/status`);
+  const comm = (await deps.readFile(`/proc/${pid}/comm`)).replace(/\n$/, "");
+  const state = /^State:\s+(\S)/m.exec(status)?.[1];
+  const tracer = /^TracerPid:\s+(\d+)/m.exec(status)?.[1];
+  if (state === undefined || tracer === undefined) return undefined;
+  return { comm, state, tracer: Number(tracer) };
+}
+
+/** A running (not stopped or traced) helper that has finished its start-up hardening. */
+function startedUp(st: ProcState | undefined): PeerResult | undefined {
+  if (st === undefined) return unverified("process_unreadable");
+  if (st.state === "T" || st.state === "t" || st.tracer !== 0)
+    return unverified("stopped_or_traced");
+  if (st.comm !== HELPER_READY_COMM) return unverified("not_ready");
+  return undefined;
 }
 
 /**
@@ -484,9 +454,12 @@ async function judgePid(
   const proc = `/proc/${pid}`;
   const startBefore = startTimeOf(await deps.readFile(`${proc}/stat`));
   if (startBefore === undefined) return unverified("process_unreadable");
-  const first = await stillHolds(deps, pid, peerInode, c);
-  if (first === "hidden") return unverified("hidden_holder");
-  if (!first) return unverified("peer_left");
+  const first = await readFdTables(deps, String(pid), peerInode, c);
+  if (first.hidden) return unverified("hidden_holder");
+  if (!first.holds) return unverified("peer_left");
+  // A socket on stdin, stdout or stderr was made by a parent that connected and then executed us.
+  if (first.fdNumbers.some((n) => n <= 2)) return unverified("inherited_socket");
+  const stateBefore = await procState(deps, pid);
 
   const exePath = await deps.readlink(`${proc}/exe`);
   // The real file the process runs (through the magic link), not whatever the path names today.
@@ -503,10 +476,13 @@ async function judgePid(
   }
   if (maps === undefined) return unverified("image_unreadable");
 
-  // Same process after the lookups, and still holding the socket.
+  // Same process after the lookups, still holding the socket, still in the same state.
   const startAfter = startTimeOf(await deps.readFile(`${proc}/stat`));
   if (startAfter !== startBefore) return unverified("process_changed");
-  if ((await stillHolds(deps, pid, peerInode, c)) !== true) return unverified("peer_left");
+  const second = await readFdTables(deps, String(pid), peerInode, c);
+  if (second.hidden || !second.holds) return unverified("peer_left");
+  if (second.fdNumbers.some((n) => n <= 2)) return unverified("inherited_socket");
+  const stateAfter = await procState(deps, pid);
 
   // The kernel marks a replaced or removed binary; what it ran is no longer what the path holds.
   if (exePath.endsWith(" (deleted)")) return unverified("binary_replaced");
@@ -525,11 +501,15 @@ async function judgePid(
       if (!(await isRootControlledDir(deps, dir))) return unverified("dir_writable");
       if (dir === PACKAGED_ROOT) break;
     }
-    // The real helper, but is it running only its own and the system's code?
+    // The real helper, but is it past its start-up, untraced, and running only its own and the
+    // system's code?
+    const notUp = startedUp(stateBefore) ?? startedUp(stateAfter);
+    if (notUp !== undefined) return notUp;
     if (setsLoaderEnv(environ)) return { check: "mismatch", reason: "loader_env" };
-    if (!(await mappingsAreSystem(deps, maps, exe))) {
-      return { check: "mismatch", reason: "foreign_mapping" };
-    }
+    const image = await mappingsAreSystem(deps, pid, maps, exe);
+    if (image === "foreign") return { check: "mismatch", reason: "foreign_mapping" };
+    if (image === "replaced") return unverified("library_replaced");
+    if (image === "unreadable") return unverified("image_unreadable");
     return { check: "root_owned", reason: "packaged" };
   }
   // A root-owned file elsewhere is not something we can vouch for.
@@ -546,7 +526,6 @@ export async function checkPeerOfFd(
   fd: number | undefined,
   deps: PeerCheckDeps = systemPeerCheckDeps,
   signal: AbortSignal = new AbortController().signal,
-  options: { strictHidden?: boolean } = {},
 ): Promise<PeerResult> {
   const c: Control = { signal, deadline: deps.now() + SCAN_BUDGET_MS };
   try {
@@ -557,16 +536,10 @@ export async function checkPeerOfFd(
     if ("reason" in pair) return unverified(pair.reason);
 
     // Who holds the other end: the kernel's fd tables decide, `ss` only has to agree.
-    const { holders, hiddenRelated } = await scanHolders(
-      deps,
-      pair.peerInode,
-      c,
-      options.strictHidden === true,
-    );
+    const { holders } = await scanHolders(deps, pair.peerInode, c);
     if (holders.length !== 1)
       return unverified(holders.length === 0 ? "peer_gone" : "many_holders");
     const pid = holders[0] as number;
-    if (hiddenRelated.length > 0) return unverified("hidden_holder");
     const ssPids = [...new Set(pair.pids)];
     if (ssPids.length !== 1 || ssPids[0] !== pid) return unverified("ss_disagrees");
     return await judgePid(deps, pid, pair.peerInode, c);
@@ -591,8 +564,6 @@ export interface LinuxPeerCheckerOptions {
   concurrency?: number;
   /** Connections waiting; more are `unverified` (reason `busy`) without a lookup. Default 16. */
   maxQueue?: number;
-  /** Treat every unreadable same-user fd table as a hidden holder, related or not. */
-  strictHidden?: boolean;
 }
 
 /**
@@ -634,9 +605,9 @@ export function linuxPeerChecker(options: LinuxPeerCheckerOptions = {}): PeerChe
     let timer: NodeJS.Timeout | undefined;
     const handle = (socket as unknown as { _handle?: { fd?: unknown } })._handle;
     const fd = typeof handle?.fd === "number" ? handle.fd : undefined;
-    const work = checkPeerOfFd(fd, deps, abort.signal, {
-      strictHidden: options.strictHidden === true,
-    }).catch((): PeerResult => unverified("check_failed"));
+    const work = checkPeerOfFd(fd, deps, abort.signal).catch(
+      (): PeerResult => unverified("check_failed"),
+    );
     // The slot goes back when the work has really stopped, not when the answer was given.
     void work.finally(release);
     const timeout = new Promise<PeerResult>((resolve) => {
