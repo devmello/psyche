@@ -10,7 +10,12 @@
     "defaultMode": {
       "$id": "PermissionMode",
       "type": "string",
-      "enum": ["plan", "manual", "balanced", "auto"]
+      "enum": [
+        "plan",
+        "manual",
+        "balanced",
+        "auto"
+      ]
     },
     "grants": {
       "additionalProperties": false,
@@ -97,6 +102,7 @@
               "git_write",
               "git_push",
               "folder_access",
+              "separate_desktop_share",
               "batch",
               "permission_request"
             ]
@@ -107,7 +113,13 @@
           "items": {
             "$id": "GrantScope",
             "type": "string",
-            "enum": ["once", "task", "site", "session", "always"]
+            "enum": [
+              "once",
+              "task",
+              "site",
+              "session",
+              "always"
+            ]
           }
         },
         "answersPerMinute": {
@@ -149,7 +161,11 @@
             "^(.*)$": {
               "$id": "RuleEffect",
               "type": "string",
-              "enum": ["allow", "ask", "deny"]
+              "enum": [
+                "allow",
+                "ask",
+                "deny"
+              ]
             }
           }
         }
@@ -173,7 +189,12 @@
         "^(.*)$": {
           "$id": "AppTier",
           "type": "string",
-          "enum": ["off", "read", "click", "interact"]
+          "enum": [
+            "off",
+            "read",
+            "click",
+            "interact"
+          ]
         }
       }
     },
@@ -183,7 +204,11 @@
         "^(.*)$": {
           "$id": "RuleEffect",
           "type": "string",
-          "enum": ["allow", "ask", "deny"]
+          "enum": [
+            "allow",
+            "ask",
+            "deny"
+          ]
         }
       }
     },
@@ -192,7 +217,10 @@
       "items": {
         "additionalProperties": false,
         "type": "object",
-        "required": ["path", "mode"],
+        "required": [
+          "path",
+          "mode"
+        ],
         "properties": {
           "path": {
             "minLength": 1,
@@ -200,7 +228,10 @@
           },
           "mode": {
             "type": "string",
-            "enum": ["ro", "rw"]
+            "enum": [
+              "ro",
+              "rw"
+            ]
           }
         }
       }
