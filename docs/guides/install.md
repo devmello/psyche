@@ -185,7 +185,7 @@ psyche start --psyched "$env:LOCALAPPDATA\Psyche\app-<version>\resources\psyched
 
 Psyche checks for updates when it starts, verifies them against the signed update manifest and installs them in the background; the new version opens the next time you start Psyche. Updates are off in builds without a signature or a release key.
 
-To uninstall, open **Settings › Apps › Installed apps**, find Psyche and choose **Uninstall**. That removes the app, its shortcuts and the `\Psyche\Gateway` task. Your data in `%USERPROFILE%\.psyche` stays; delete that folder to remove it too.
+To uninstall, open **Settings › Apps › Installed apps**, find Psyche and choose **Uninstall**. That removes the app, its shortcuts, your Gateway task, the **Open at login** entry and the `psyche://` link handler. Your data in `%USERPROFILE%\.psyche` stays; delete that folder to remove it too.
 
 ## On a Linux server with Docker Compose
 

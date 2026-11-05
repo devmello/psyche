@@ -206,18 +206,30 @@ changing one orphans existing shortcuts, toast settings and notification history
 
 `src/main/squirrel-events.ts` handles Squirrel's events before anything else in `main.ts` starts:
 
-- `--squirrel-install`: `Psyche.lnk` in the Start menu (`%APPDATA%\Microsoft\Windows\Start Menu\Programs`) and on the desktop, both on the stub with the app's AUMID; `Psyche Helper.lnk` in the Start menu on `psyche-helper.exe` with the helper's AUMID and toast activator CLSID; and the helper's toast identity as the helper itself registers it on every start (`apps/win-helper/src/notify/toast.rs`), so the first toast works before the helper ever ran: `HKCU\Software\Classes\CLSID\{…}` (`Psyche Helper toast activator`) with `LocalServer32` = `"…\psyche-helper.exe" -ToastActivated`, and `HKCU\Software\Classes\AppUserModelId\com.psyche.helper` with `DisplayName` = `Psyche` and `CustomActivator` = the CLSID.
+- `--squirrel-install`: the Programs and Features icon (`resources\icon.ico` copied to `%LOCALAPPDATA%\Psyche\app.ico`, named as `DisplayIcon` of `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\Psyche`; Squirrel downloads the nupkg's `iconUrl` into that file only while it is missing, so an install fetches nothing; the `iconUrl` in `forge.config.ts` is a local `file://` URL for the same reason); `Psyche.lnk` in the Start menu (`%APPDATA%\Microsoft\Windows\Start Menu\Programs`) and on the desktop, both on the stub with the app's AUMID; `Psyche Helper.lnk` in the Start menu on `psyche-helper.exe` with the helper's AUMID and toast activator CLSID; and the helper's toast identity as the helper itself registers it on every start (`apps/win-helper/src/notify/toast.rs`), so the first toast works before the helper ever ran: `HKCU\Software\Classes\CLSID\{…}` (`Psyche Helper toast activator`) with `LocalServer32` = `"…\psyche-helper.exe" -ToastActivated`, and `HKCU\Software\Classes\AppUserModelId\com.psyche.helper` with `DisplayName` = `Psyche` and `CustomActivator` = the CLSID.
 - `--squirrel-updated`: the same for the new version (the helper path changes with every `app-<version>`); the desktop shortcut only if it still exists. The helper keeps its versioned path rather than a copy at a fixed one, which a running helper would lock during an update; the helper rewrites `LocalServer32` itself when it starts but leaves an existing shortcut alone, which is why the hook refreshes both. Squirrel keeps the previous `app-<version>` until the next update, so a toast clicked in between still finds an executable.
-- `--squirrel-uninstall`: ends the Gateway's service host, deletes the `\Psyche\Gateway` task, ends other `Psyche.exe` and `psyche-helper.exe` processes, removes the three shortcuts, the CLSID and AppUserModelId keys and `HKCU\Software\Microsoft\Windows\CurrentVersion\Notifications\Settings\com.psyche.helper`. `%USERPROFILE%\.psyche` stays.
+- `--squirrel-uninstall`: ends the Gateway's service host, deletes the account's `\Psyche\Gateway-<SID>` task (and a `\Psyche\Gateway` of an earlier version when it runs as this account), ends other `Psyche.exe` and `psyche-helper.exe` processes, removes the three shortcuts, the CLSID and AppUserModelId keys, `HKCU\Software\Microsoft\Windows\CurrentVersion\Notifications\Settings\com.psyche.helper`, the login item (the `Psyche` value that `app.setLoginItemSettings` writes under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`, and the one Windows adds under `…\Explorer\StartupApproved\Run` when it is switched off in Task Manager) and the URL handlers `HKCU\Software\Classes\psyche` and `psyche-pair`. `%USERPROFILE%\.psyche` stays.
 
-The Gateway task `\Psyche\Gateway` (per user, at logon) runs
+The Gateway task `\Psyche\Gateway-<user SID>` (at logon; Task Scheduler names are machine-wide, so
+the name carries the account's SID: `packages/hostfs/src/gateway-task.ts` and `gateway-task.json`,
+which the desktop, the CLI, the uninstall hook and `deploy/windows/install-local.ps1` share) runs
 `conhost.exe --headless <node.exe> <service-host.mjs> --home <PSYCHE_HOME> -- <psyched>`: the
 service host sets `PSYCHE_HOME`, appends to `$PSYCHE_HOME\logs\gateway.out.log` and `gateway.err.log`,
 restarts the Gateway when it exits and records `$PSYCHE_HOME\run\gateway-service.pid` and
 `gateway.pid`. `schtasks /End` ends only conhost, so stopping also ends that process tree.
 `apps/cli/src/supervisor.ts` renders the task; the bundle's `psyche-gateway.task.xml.template`
-is the same XML with `{{PSYCHED_DIR}}`, `{{PSYCHE_HOME}}` and `{{USER_ID}}` (`DOMAIN\user`), stored
-UTF-16 as `schtasks /Create /XML` expects.
+is the same XML with `{{PSYCHED_DIR}}`, `{{PSYCHE_HOME}}`, `{{USER_ID}}` (`DOMAIN\user`) and
+`{{TASK_NAME}}`, stored UTF-16 as `schtasks /Create /XML` expects. The app and `psyche start` replace
+an earlier version's shared `\Psyche\Gateway` when its logon trigger or principal names this
+account, and leave another account's alone.
+
+The vault's key-file slot works as on macOS: the app creates `$PSYCHE_HOME\secrets\vault.key`
+(owner-only ACL) unless the vault already uses another slot, and writes its path to
+`$PSYCHE_HOME\run\gateway-service.json` (`{"vaultKeyFile": …}`, owner-only through
+`@psyche/hostfs` `restrictToOwner`). The service host reads that file whenever it starts the
+Gateway and sets `PSYCHE_VAULT_KEY_FILE` in the Gateway's environment only, so the path is on no
+command line (which any local process can read) and in no other process's environment; the app
+restarts the task when the file changes. "Quit Psyche entirely" removes it with the task.
 
 ### Updates on Windows
 

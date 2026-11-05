@@ -3,9 +3,11 @@ import { tmpdir } from "node:os";
 import { join, win32 } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import identity from "../../../win-helper/aumid.json" with { type: "json" };
+import { LOGIN_ITEM_NAME, loginItemSettings } from "../../src/main/login-item.ts";
 import {
   APP_AUMID,
-  GATEWAY_TASK,
+  APP_ICON,
+  gatewayTasks,
   HELPER_AUMID,
   HELPER_TOAST_CLSID,
   helperExe,
@@ -14,14 +16,19 @@ import {
   type SquirrelAction,
   squirrelEvent,
   squirrelPlan,
+  UNINSTALL_KEY,
 } from "../../src/main/squirrel-events.ts";
+import { APP_ICON as BUNDLED_APP_ICON } from "../../src/packaging/bundle-resources.ts";
 
+const SID = "S-1-5-21-1111111111-2222222222-3333333333-1001";
+const TASK = `\\Psyche\\Gateway-${SID}`;
 const paths = {
   exe: "C:\\Users\\me\\AppData\\Local\\Psyche\\app-0.3.0\\Psyche.exe",
   startMenu: "C:\\Users\\me\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs",
   desktop: "C:\\Users\\me\\Desktop",
   psycheHome: "C:\\Users\\me\\.psyche",
   pid: 4321,
+  gatewayTasks: [TASK, "\\Psyche\\Gateway"],
 };
 const ROOT = "C:\\Users\\me\\AppData\\Local\\Psyche";
 const STUB = `${ROOT}\\Psyche.exe`;
@@ -132,15 +139,51 @@ describe("Squirrel events", () => {
     expect(links.map((l) => l.operation)).toEqual(["create", "update", "create"]);
   });
 
-  it("uninstall: ends the Gateway, deletes its task, the shortcuts and the activator", () => {
+  it("install and updated: Programs and Features' icon from the bundle, so Squirrel fetches none", () => {
+    expect(APP_ICON).toBe(BUNDLED_APP_ICON);
+    for (const event of ["install", "updated"] as const) {
+      const plan = squirrelPlan(event, paths);
+      // Squirrel downloads the nupkg's iconUrl into <root>\app.ico only while it is missing.
+      expect(plan).toContainEqual({
+        kind: "copy",
+        from: `${ROOT}\\app-0.3.0\\resources\\icon.ico`,
+        to: `${ROOT}\\app.ico`,
+      });
+      expect(plan).toContainEqual({
+        kind: "run",
+        cmd: "reg.exe",
+        args: [
+          "add",
+          UNINSTALL_KEY,
+          "/v",
+          "DisplayIcon",
+          "/t",
+          "REG_SZ",
+          "/d",
+          `${ROOT}\\app.ico`,
+          "/f",
+        ],
+      });
+    }
+    expect(UNINSTALL_KEY).toBe(
+      "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Psyche",
+    );
+  });
+
+  it("uninstall: ends the Gateway, deletes its tasks, the shortcuts, the activator, the login item and the URL handlers", () => {
     const plan = squirrelPlan("uninstall", paths);
-    expect(plan[0]).toEqual({ kind: "stopGateway", psycheHome: paths.psycheHome });
-    expect(plan).toContainEqual({
-      kind: "run",
-      cmd: "schtasks.exe",
-      args: ["/Delete", "/TN", GATEWAY_TASK, "/F"],
-      ignoreFailure: true,
+    expect(plan[0]).toEqual({
+      kind: "stopGateway",
+      psycheHome: paths.psycheHome,
+      tasks: paths.gatewayTasks,
     });
+    for (const task of paths.gatewayTasks)
+      expect(plan).toContainEqual({
+        kind: "run",
+        cmd: "schtasks.exe",
+        args: ["/Delete", "/TN", task, "/F"],
+        ignoreFailure: true,
+      });
     expect(
       plan.filter((a) => a.kind === "remove").map((a) => a.kind === "remove" && a.file),
     ).toEqual([
@@ -148,15 +191,23 @@ describe("Squirrel events", () => {
       `${paths.desktop}\\Psyche.lnk`,
       `${paths.startMenu}\\Psyche Helper.lnk`,
     ]);
-    expect(GATEWAY_TASK).toBe("\\Psyche\\Gateway");
     const deleted = plan.flatMap((a) =>
-      a.kind === "run" && a.cmd === "reg.exe" ? [a.args[1]] : [],
+      a.kind === "run" && a.cmd === "reg.exe" ? [a.args.slice(1, -1).join(" ")] : [],
     );
     expect(deleted).toEqual([
       `HKCU\\Software\\Classes\\CLSID\\${HELPER_TOAST_CLSID}`,
       "HKCU\\Software\\Classes\\AppUserModelId\\com.psyche.helper",
       "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Notifications\\Settings\\com.psyche.helper",
+      // app.setLoginItemSettings' value, and Task Manager's switch for it.
+      `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run /v ${LOGIN_ITEM_NAME}`,
+      `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartupApproved\\Run /v ${LOGIN_ITEM_NAME}`,
+      "HKCU\\Software\\Classes\\psyche",
+      "HKCU\\Software\\Classes\\psyche-pair",
     ]);
+    // The value the login item writes is the one removed.
+    expect(loginItemSettings(true, "win32", paths.exe, { exists: () => true })?.name).toBe(
+      LOGIN_ITEM_NAME,
+    );
     // Every other Psyche.exe and the helper end, so Squirrel can delete app-<version>.
     expect(plan).toContainEqual({
       kind: "run",
@@ -205,6 +256,35 @@ describe("Squirrel events", () => {
     expect(written).toEqual(["new.lnk create a 0"]);
     expect(logs).toEqual(["boom"]);
     expect(existsSync(gone)).toBe(false);
+  });
+
+  it("uninstall ends this account's task and, only when it is this account's, the old shared one", () => {
+    const ours =
+      "<Task><Principals><Principal><UserId>DESK\\me</UserId></Principal></Principals></Task>";
+    const theirs =
+      "<Task><Principals><Principal><UserId>DESK\\you</UserId></Principal></Principals></Task>";
+    const asked: string[] = [];
+    const query = (xml: string | null) => (task: string) => {
+      asked.push(task);
+      return xml;
+    };
+    expect(gatewayTasks(SID, "DESK\\me", query(ours))).toEqual([TASK, "\\Psyche\\Gateway"]);
+    expect(asked).toEqual(["\\Psyche\\Gateway"]);
+    expect(gatewayTasks(SID, "DESK\\me", query(theirs))).toEqual([TASK]);
+    expect(gatewayTasks(SID, "DESK\\me", query(null))).toEqual([TASK]);
+    // Without a SID there is no name to delete (and the old one cannot be told apart).
+    expect(gatewayTasks(null, "DESK\\me", query(ours))).toEqual([]);
+  });
+
+  it("carries out a copy action (the uninstall icon)", () => {
+    const dir = mkdtempSync(join(tmpdir(), "psyche-squirrel-"));
+    dirs.push(dir);
+    writeFileSync(join(dir, "icon.ico"), "ico");
+    runSquirrelActions([{ kind: "copy", from: join(dir, "icon.ico"), to: join(dir, "app.ico") }], {
+      writeShortcutLink: () => true,
+      log: () => undefined,
+    });
+    expect(readFileSync(join(dir, "app.ico"), "utf8")).toBe("ico");
   });
 
   it("the aumid.json the helper reads names the files the installer writes", () => {

@@ -96,15 +96,18 @@ export function bundlePieces(
  *
  *   psyched\                  the Gateway bundle (build-psyched.mjs on Windows): psyched.cmd,
  *                             runtime\node.exe, app\, service-host.mjs and
- *                             psyche-gateway.task.xml.template for the \Psyche\Gateway task
+ *                             psyche-gateway.task.xml.template for the \Psyche\Gateway-<SID> task
  *   win-helper\psyche-helper.exe   the Rust helper (apps/win-helper, cargo build --release)
  *   tray.ico                  the notification-area icon (deploy/windows/make-icon.mjs)
+ *   icon.ico                  the app icon as a file: the install hook copies it to
+ *                             <root>\app.ico for Programs and Features (squirrel-events.ts)
  *
  * The macOS pieces (LaunchAgent plist, PsycheHelper.app) are not part of it.
  */
 export const WIN_HELPER_DIR = "win-helper";
 export const WIN_HELPER_EXE = "psyche-helper.exe";
 export const TRAY_ICON = "tray.ico";
+export const APP_ICON = "icon.ico";
 
 export interface BundleSourcesWin32 {
   /** apps/gateway/dist-bin/win32-<arch>/psyched (or PSYCHE_PSYCHED_DIR). */
@@ -113,6 +116,8 @@ export interface BundleSourcesWin32 {
   helperExe: string;
   /** apps/desktop/assets/tray.ico. */
   trayIcon: string;
+  /** apps/desktop/assets/icon.ico. */
+  appIcon: string;
 }
 
 export function bundleSourcesWin32(
@@ -128,6 +133,7 @@ export function bundleSourcesWin32(
       value(env, "PSYCHE_WIN_HELPER_EXE") ??
       join(repoRoot, "apps", "win-helper", "target", "release", WIN_HELPER_EXE),
     trayIcon: join(repoRoot, "apps", "desktop", "assets", TRAY_ICON),
+    appIcon: join(repoRoot, "apps", "desktop", "assets", APP_ICON),
   };
 }
 
@@ -163,6 +169,13 @@ export function bundlePiecesWin32(
       source: sources.trayIcon,
       marker: sources.trayIcon,
       dest: join(resourcesDir, TRAY_ICON),
+      build: "node deploy/windows/make-icon.mjs",
+    },
+    {
+      name: APP_ICON,
+      source: sources.appIcon,
+      marker: sources.appIcon,
+      dest: join(resourcesDir, APP_ICON),
       build: "node deploy/windows/make-icon.mjs",
     },
   ];

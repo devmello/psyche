@@ -1,8 +1,17 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, rmSync } from "node:fs";
+import { copyFileSync, existsSync, readFileSync, rmSync } from "node:fs";
 import { homedir } from "node:os";
 import { win32 } from "node:path";
+import {
+  currentUserSid,
+  gatewayTaskName,
+  LEGACY_GATEWAY_TASK,
+  taskBelongsTo,
+} from "@psyche/hostfs";
 import identity from "../../../win-helper/aumid.json" with { type: "json" };
+import { PAIR_LINK_SCHEME } from "../lib/pair-link.ts";
+import { LOGIN_ITEM_NAME } from "./login-item.ts";
+import { windowsUserId } from "./supervisor-windows.ts";
 
 /**
  * Squirrel.Windows install events (deploy/windows, docs/guides/install.md "Windows"). Squirrel
@@ -10,11 +19,14 @@ import identity from "../../../win-helper/aumid.json" with { type: "json" };
  * exit; the app must do its install work and quit without opening a window:
  *
  *   --squirrel-install    first install: Start-menu and desktop shortcuts, the helper's shortcut and
- *                         its toast activator
+ *                         its toast activator, the Programs and Features icon
  *   --squirrel-updated    after an update: the same, refreshed to the new version (the desktop
  *                         shortcut only when the owner kept it)
- *   --squirrel-uninstall  removes all of that, and the Gateway task (\Psyche\Gateway), whose
- *                         node.exe would otherwise keep files of the install folder open
+ *   --squirrel-uninstall  removes all of that, the Gateway task (\Psyche\Gateway-<SID>, and this
+ *                         account's \Psyche\Gateway of an earlier version), whose node.exe would
+ *                         otherwise keep files of the install folder open, the login item
+ *                         (Settings › Appearance › Open at login) and the psyche:// and
+ *                         psyche-pair: handlers the app registered
  *   --squirrel-obsolete   an older version being replaced: nothing to do
  *   --squirrel-firstrun   the first normal launch after install: not handled here, the app starts
  *
@@ -22,6 +34,11 @@ import identity from "../../../win-helper/aumid.json" with { type: "json" };
  * because Squirrel stamps its own AppUserModelID (`com.squirrel.Psyche.Psyche`) on the shortcuts it
  * makes. The identity values (AUMIDs, the helper's toast activator CLSID) are shared with the Rust
  * helper through apps/win-helper/aumid.json.
+ *
+ * Programs and Features shows `<root>\app.ico`. Squirrel would download the nupkg's `iconUrl` into
+ * that file after the install hook (Update.exe's CreateUninstallerRegistryEntry), but only when the
+ * file does not exist yet: the hook copies the bundled `resources\icon.ico` there first and names
+ * it as the uninstall entry's DisplayIcon, so an install never fetches anything.
  *
  * The helper stays at its versioned path inside app-<version> (no copy at a fixed path: a running
  * helper would lock the copy during an update). The helper re-registers its identity whenever it
@@ -39,7 +56,17 @@ import identity from "../../../win-helper/aumid.json" with { type: "json" };
 export const APP_AUMID: string = identity.app.aumid;
 export const HELPER_AUMID: string = identity.helper.aumid;
 export const HELPER_TOAST_CLSID: string = identity.helper.toastActivatorClsid;
-export const GATEWAY_TASK = "\\Psyche\\Gateway";
+/** `resources\icon.ico` (apps/desktop/src/packaging/bundle-resources.ts APP_ICON). */
+export const APP_ICON = "icon.ico";
+/** Squirrel's uninstall entry, named after the nupkg id (forge.config.ts MakerSquirrel `name`). */
+export const UNINSTALL_KEY =
+  "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Psyche";
+/** What `app.setLoginItemSettings` writes: a `Run` value, and its on/off switch in Task Manager. */
+export const RUN_KEY = "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run";
+export const STARTUP_APPROVED_KEY =
+  "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartupApproved\\Run";
+/** The URL schemes main.ts registers (`app.setAsDefaultProtocolClient`). */
+export const URL_SCHEMES: readonly string[] = ["psyche", PAIR_LINK_SCHEME];
 
 export type SquirrelEvent = "install" | "updated" | "uninstall" | "obsolete";
 
@@ -57,6 +84,11 @@ export interface SquirrelPaths {
   psycheHome: string;
   /** This hook process, which must outlive the other Psyche.exe it ends on uninstall. */
   pid: number;
+  /**
+   * The Gateway tasks to end and delete on uninstall: this account's `\Psyche\Gateway-<SID>`, and
+   * `\Psyche\Gateway` when an earlier version left one for this account (`gatewayTasks`).
+   */
+  gatewayTasks: readonly string[];
 }
 
 export interface ShortcutSpec {
@@ -74,8 +106,9 @@ export interface ShortcutSpec {
 export type SquirrelAction =
   | { kind: "shortcut"; spec: ShortcutSpec }
   | { kind: "remove"; file: string }
+  | { kind: "copy"; from: string; to: string }
   | { kind: "run"; cmd: string; args: string[]; ignoreFailure?: boolean }
-  | { kind: "stopGateway"; psycheHome: string };
+  | { kind: "stopGateway"; psycheHome: string; tasks: readonly string[] };
 
 export function installRoot(exe: string): string {
   // …\Psyche\app-<version>\Psyche.exe → …\Psyche
@@ -153,12 +186,18 @@ export function squirrelPlan(event: SquirrelEvent, p: SquirrelPaths): SquirrelAc
     regAdd(AUMID_KEY, "DisplayName", identity.helper.toastDisplayName),
     regAdd(AUMID_KEY, "CustomActivator", HELPER_TOAST_CLSID),
   ];
-  const regDelete = (key: string): SquirrelAction => ({
+  const regDelete = (key: string, value?: string): SquirrelAction => ({
     kind: "run",
     cmd: "reg.exe",
-    args: ["delete", key, "/f"],
+    args: ["delete", key, ...(value === undefined ? [] : ["/v", value]), "/f"],
     ignoreFailure: true,
   });
+  // Programs and Features' icon, local: Squirrel downloads iconUrl only while app.ico is missing.
+  const appIcon = win32.join(root, "app.ico");
+  const icon: SquirrelAction[] = [
+    { kind: "copy", from: win32.join(win32.dirname(p.exe), "resources", APP_ICON), to: appIcon },
+    regAdd(UNINSTALL_KEY, "DisplayIcon", appIcon),
+  ];
   switch (event) {
     case "install":
       return [
@@ -166,6 +205,7 @@ export function squirrelPlan(event: SquirrelEvent, p: SquirrelPaths): SquirrelAc
         appLink(p.desktop, "create"),
         helperLink,
         ...activator,
+        ...icon,
       ];
     case "updated":
       return [
@@ -173,10 +213,11 @@ export function squirrelPlan(event: SquirrelEvent, p: SquirrelPaths): SquirrelAc
         appLink(p.desktop, "update"),
         helperLink,
         ...activator,
+        ...icon,
       ];
     case "uninstall":
       return [
-        { kind: "stopGateway", psycheHome: p.psycheHome },
+        { kind: "stopGateway", psycheHome: p.psycheHome, tasks: p.gatewayTasks },
         // A running Psyche or helper keeps app-<version> open, and Squirrel then leaves the folder
         // behind (marked .dead). End them; this hook process stays.
         {
@@ -191,12 +232,14 @@ export function squirrelPlan(event: SquirrelEvent, p: SquirrelPaths): SquirrelAc
           args: ["/F", "/FI", `IMAGENAME eq ${identity.app.exe}`, "/FI", `PID ne ${p.pid}`],
           ignoreFailure: true,
         },
-        {
-          kind: "run",
-          cmd: "schtasks.exe",
-          args: ["/Delete", "/TN", GATEWAY_TASK, "/F"],
-          ignoreFailure: true,
-        },
+        ...p.gatewayTasks.map(
+          (task): SquirrelAction => ({
+            kind: "run",
+            cmd: "schtasks.exe",
+            args: ["/Delete", "/TN", task, "/F"],
+            ignoreFailure: true,
+          }),
+        ),
         { kind: "remove", file: win32.join(p.startMenu, identity.app.shortcut) },
         { kind: "remove", file: win32.join(p.desktop, identity.app.shortcut) },
         { kind: "remove", file: win32.join(p.startMenu, identity.helper.shortcut) },
@@ -204,6 +247,12 @@ export function squirrelPlan(event: SquirrelEvent, p: SquirrelPaths): SquirrelAc
         regDelete(AUMID_KEY),
         // What the owner chose in Settings › Notifications for the helper.
         regDelete(NOTIFICATION_SETTINGS_KEY),
+        // Open at login (login-item.ts): Electron's Run value, and the switch Windows keeps for it
+        // once the owner turns it off in Task Manager or Settings › Apps › Startup.
+        regDelete(RUN_KEY, LOGIN_ITEM_NAME),
+        regDelete(STARTUP_APPROVED_KEY, LOGIN_ITEM_NAME),
+        // The URL handlers main.ts registered; nothing would open them any more.
+        ...URL_SCHEMES.map((scheme) => regDelete(`HKCU\\Software\\Classes\\${scheme}`)),
       ];
     case "obsolete":
       return [];
@@ -243,11 +292,35 @@ function run(cmd: string, args: string[]): number {
 }
 
 /**
+ * This account's Gateway tasks: `\Psyche\Gateway-<SID>`, and the shared `\Psyche\Gateway` of an
+ * earlier version when it runs as this account (another account's is not ours to delete).
+ */
+export function gatewayTasks(
+  sid: string | null,
+  userId: string | undefined,
+  queryXml: (task: string) => string | null,
+): string[] {
+  if (sid === null) return [];
+  const legacy = queryXml(LEGACY_GATEWAY_TASK);
+  const ours = legacy !== null && taskBelongsTo(legacy, { sid, ...(userId ? { userId } : {}) });
+  return [gatewayTaskName(sid), ...(ours ? [LEGACY_GATEWAY_TASK] : [])];
+}
+
+function queryTaskXml(task: string): string | null {
+  const r = spawnSync("schtasks.exe", ["/Query", "/TN", task, "/XML"], {
+    windowsHide: true,
+    timeout: 5000,
+    encoding: "utf8",
+  });
+  return r.status === 0 ? r.stdout : null;
+}
+
+/**
  * The Gateway task runs a service host and node.exe from this install folder
  * (apps/cli/src/supervisor.ts); `schtasks /End` ends only conhost, so their pids end the tree.
  */
-function stopGateway(psycheHome: string): void {
-  run("schtasks.exe", ["/End", "/TN", GATEWAY_TASK]);
+function stopGateway(psycheHome: string, tasks: readonly string[]): void {
+  for (const task of tasks) run("schtasks.exe", ["/End", "/TN", task]);
   for (const f of ["gateway-service.pid", "gateway.pid"]) {
     const pid = readPid(win32.join(psycheHome, "run", f));
     if (pid) run("taskkill.exe", ["/PID", String(pid), "/T", "/F"]);
@@ -264,8 +337,10 @@ export function runSquirrelActions(actions: readonly SquirrelAction[], rt: Squir
           rt.log(`could not write ${file}`);
       } else if (a.kind === "remove") {
         rmSync(a.file, { force: true });
+      } else if (a.kind === "copy") {
+        copyFileSync(a.from, a.to);
       } else if (a.kind === "stopGateway") {
-        stopGateway(a.psycheHome);
+        stopGateway(a.psycheHome, a.tasks);
       } else {
         const code = run(a.cmd, a.args);
         if (code !== 0 && !a.ignoreFailure) rt.log(`${a.cmd} ${a.args[0]} exited ${code}`);
@@ -305,6 +380,8 @@ export function handleSquirrelEvent(
     desktop: electron.app.getPath("desktop"),
     psycheHome: env.PSYCHE_HOME ?? win32.join(homedir(), ".psyche"),
     pid: process.pid,
+    gatewayTasks:
+      event === "uninstall" ? gatewayTasks(currentUserSid(), windowsUserId(env), queryTaskXml) : [],
   };
   runSquirrelActions(squirrelPlan(event, paths), {
     writeShortcutLink: (f, op, o) => electron.shell.writeShortcutLink(f, op, o),

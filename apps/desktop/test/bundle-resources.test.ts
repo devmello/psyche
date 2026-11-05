@@ -11,6 +11,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  APP_ICON,
   BUNDLED_PLIST,
   bundleSources,
   bundleSourcesWin32,
@@ -145,7 +146,9 @@ describe("bundle resources (Windows)", () => {
     }
     const trayIcon = join(dir, TRAY_ICON);
     writeFileSync(trayIcon, "ico");
-    return { psychedDir, helperExe, trayIcon };
+    const appIcon = join(dir, APP_ICON);
+    writeFileSync(appIcon, "ico");
+    return { psychedDir, helperExe, trayIcon, appIcon };
   }
 
   it("defaults to the win32 psyched build, the cargo release helper and the tray icon", () => {
@@ -153,6 +156,7 @@ describe("bundle resources (Windows)", () => {
       psychedDir: join("/repo", "apps/gateway/dist-bin/win32-x64/psyched"),
       helperExe: join("/repo", "apps/win-helper/target/release", WIN_HELPER_EXE),
       trayIcon: join("/repo", "apps/desktop/assets", TRAY_ICON),
+      appIcon: join("/repo", "apps/desktop/assets", APP_ICON),
     });
     expect(
       bundleSourcesWin32(
@@ -173,6 +177,8 @@ describe("bundle resources (Windows)", () => {
     expect(existsSync(join(res, "psyched", "runtime", "node.exe"))).toBe(true);
     expect(existsSync(join(res, WIN_HELPER_DIR, WIN_HELPER_EXE))).toBe(true);
     expect(existsSync(join(res, TRAY_ICON))).toBe(true);
+    // Programs and Features icon, copied to <root>app.ico by the install hook.
+    expect(existsSync(join(res, APP_ICON))).toBe(true);
     expect(existsSync(join(res, BUNDLED_PLIST))).toBe(false);
     expect(existsSync(join(res, HELPER_APP_NAME))).toBe(false);
   });
