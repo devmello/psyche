@@ -196,12 +196,12 @@ jobs:
           flag() { echo "$files" | grep -qE "$2" && echo "$1=true" || echo "$1=false"; }
           {
             flag helper '^(packages/protocol/|packages/protocol-swift/|packages/swift/|apps/mac-helper/)'
-            flag windows '^(packages/protocol/|apps/windows-helper/)'
+            flag windows '^(packages/protocol/|apps/win-helper/)'
             flag ios '^(packages/protocol/|packages/protocol-swift/|packages/swift/|apps/ios/)'
             flag android '^(packages/protocol/|apps/android/)'
             # The TypeScript job runs unless every changed file belongs to a native app folder. The
             # generated protocol structs count as TypeScript: its codegen freshness check guards them.
-            if [ -n "$files" ] && ! echo "$files" | grep -qvE '^(apps/(mac-helper|windows-helper|ios|android)/|packages/(swift|protocol-swift)/)' \
+            if [ -n "$files" ] && ! echo "$files" | grep -qvE '^(apps/(mac-helper|win-helper|ios|android)/|packages/(swift|protocol-swift)/)' \
               && ! echo "$files" | grep -q 'PsycheProtocol/'; then
               echo "ts=false"
             else
@@ -249,6 +249,109 @@ jobs:
       - name: Swift test (mac-helper)
         run: swift test --package-path apps/mac-helper --skip-build
 
+
+  # Windows (docs/design/cross-platform-2026.md §4.4 item 8): typecheck, lint and the unit tests on
+  # windows-latest. The suites that are clean on Windows (the CLI, the desktop's packaging, updater and
+  # install-event tests) gate; the full run is reported but does not block yet, while the Gateway's
+  # Windows fixes land (its directory fsync fails on NTFS).
+  windows:
+    name: ci (windows-latest)
+    needs: changes
+    if: needs.changes.outputs.ts == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm (version from packageManager in package.json)
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Set up Node (version from .nvmrc)
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm -w typecheck
+
+      - name: Lint
+        run: pnpm -w lint
+
+      - name: Test (CLI)
+        # PowerShell, so `tar` is Windows' bsdtar (packages/backup); Git Bash puts GNU tar first.
+        shell: pwsh
+        run: pnpm --filter @psyche/cli test
+
+      - name: Test (desktop packaging, updater, install events)
+        run: >
+          pnpm --filter @psyche/desktop exec vitest run
+          test/bundle-resources.test.ts test/forge-config.test.ts test/locales.test.ts
+          test/main/update-manifest.test.ts test/main/squirrel-events.test.ts
+
+      - name: Test (everything, report only)
+        if: github.event_name != 'pull_request'
+        continue-on-error: true
+        run: pnpm -r --workspace-concurrency=2 test
+
+  # The Rust helper for Windows (apps/win-helper): build, tests and clippy whenever it or the protocol
+  # changes. Skips with a notice while the crate is not on the branch.
+  win-helper:
+    name: win helper (cargo build + test + clippy)
+    needs: changes
+    if: needs.changes.outputs.windows == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Crate present
+        id: crate
+        run: |
+          if [ -f apps/win-helper/Cargo.toml ]; then echo "present=true" >> "$GITHUB_OUTPUT"; else
+            echo "::notice title=win helper skipped::apps/win-helper/Cargo.toml is not on this branch yet."
+            echo "present=false" >> "$GITHUB_OUTPUT"; fi
+      - name: Toolchain
+        if: steps.crate.outputs.present == 'true'
+        run: |
+          rustup toolchain install stable --profile minimal --component clippy
+          rustup default stable
+          rustc --version
+          cargo --version
+      - name: Cargo cache
+        if: steps.crate.outputs.present == 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            apps/win-helper/target
+          key: win-helper-${{ runner.os }}-${{ hashFiles('apps/win-helper/Cargo.lock') }}-${{ hashFiles('apps/win-helper/src/**') }}
+          restore-keys: |
+            win-helper-${{ runner.os }}-${{ hashFiles('apps/win-helper/Cargo.lock') }}-
+      - name: cargo build
+        if: steps.crate.outputs.present == 'true'
+        run: cargo build --release --locked --manifest-path apps/win-helper/Cargo.toml
+      - name: cargo test
+        if: steps.crate.outputs.present == 'true'
+        run: cargo test --locked --manifest-path apps/win-helper/Cargo.toml
+      - name: cargo clippy
+        if: steps.crate.outputs.present == 'true'
+        run: cargo clippy --locked --manifest-path apps/win-helper/Cargo.toml --all-targets -- -D warnings
 
   # The iOS app (docs/design/ios-app-2026.md §6): XcodeGen generates the project, xcodebuild builds the app
   # and its four extensions for a generic simulator with no signing, and `swift test` runs the suites of

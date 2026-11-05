@@ -74,7 +74,9 @@ export function launchAgentProgram(plist: string): string | null {
 
 /** The Psyche.app a bundled psyched lives in, or null for any other program. */
 export function appOfProgram(program: string): string | null {
-  return /^(.*\.app)\/Contents\/Resources\/psyched\/psyched$/.exec(program)?.[1] ?? null;
+  return (
+    /^(.*\.app)[\\/]Contents[\\/]Resources[\\/]psyched[\\/]psyched$/.exec(program)?.[1] ?? null
+  );
 }
 
 export function readLaunchAgent(file: string): LaunchAgentInfo | null {
@@ -176,7 +178,7 @@ export interface Snapshot {
   updater: Query<UpdaterState>;
   /** macOS: the installed LaunchAgent (null when there is none). */
   launchAgent?: LaunchAgentInfo | null;
-  /** macOS: Psyche.app, from the LaunchAgent's program, else /Applications or ~/Applications. */
+  /** macOS: Psyche.app; Windows: Psyche.exe of the per-user install. macOS: from the LaunchAgent's program, else /Applications or ~/Applications. */
   app?: string | null;
   /** macOS: the helper's `permissions.status` (read only, no prompts). */
   helperPermissions?: Query<HelperPermissions>;
@@ -374,11 +376,13 @@ export async function gatherSnapshot(ctx: Ctx, opts: { connect: boolean }): Prom
         join(ctx.env.HOME ?? "", "Applications", "Psyche.app"),
       ].find((p) => existsSync(p)) ??
       null;
+  } else if (ctx.deps.platform === "win32") {
+    app = windowsApp(ctx.env);
   }
 
   const localSandboxBackends: string[] = [];
   for (const bin of ["container", "docker", "podman"]) {
-    if (await which(ctx.deps.exec, bin))
+    if (await which(ctx.deps.exec, bin, ctx.deps.platform))
       localSandboxBackends.push(bin === "container" ? "apple-container" : bin);
   }
   let disk: Snapshot["disk"] = null;
@@ -388,7 +392,9 @@ export async function gatherSnapshot(ctx: Ctx, opts: { connect: boolean }): Prom
   } catch {
     disk = null;
   }
-  const { homeMode, issues } = scanModes(ctx.home);
+  // Windows keeps files private with the profile folder ACLs; POSIX modes there are made up.
+  const { homeMode, issues } =
+    ctx.deps.platform === "win32" ? { homeMode: null, issues: [] } : scanModes(ctx.home);
   const [chromeDebugPort, localModel] = await Promise.all([
     reachable(ctx.deps.fetch, "http://127.0.0.1:9222/json/version"),
     reachable(ctx.deps.fetch, "http://127.0.0.1:11434/api/tags"),
@@ -425,8 +431,16 @@ export async function gatherSnapshot(ctx: Ctx, opts: { connect: boolean }): Prom
     updater: readUpdaterState(ctx.home),
     localModel,
     ...(ctx.deps.platform === "darwin" ? { launchAgent, app } : {}),
+    ...(ctx.deps.platform === "win32" ? { app } : {}),
     ...(helperPermissions === undefined ? {} : { helperPermissions }),
   };
+}
+
+/** Windows: the Squirrel install (`%LOCALAPPDATA%\Psyche\Psyche.exe`, per user), or null. */
+export function windowsApp(env: NodeJS.ProcessEnv): string | null {
+  if (!env.LOCALAPPDATA) return null;
+  const exe = join(env.LOCALAPPDATA, "Psyche", "Psyche.exe");
+  return existsSync(exe) && existsSync(join(env.LOCALAPPDATA, "Psyche", "Update.exe")) ? exe : null;
 }
 
 /** Reads a setting stored either flat (`"a.b": v`) or nested (`a: {b: v}`). */

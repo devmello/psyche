@@ -260,7 +260,7 @@ export function doctorChecks(s: Snapshot): Check[] {
     add({ id: "disk", status, message: `${bytes(free)} free on the volume holding ${s.home}` });
   }
 
-  // File modes.
+  // File modes (POSIX only: on Windows the profile folder ACLs keep $PSYCHE_HOME private).
   const sensitive = s.modeIssues.filter((i) => SENSITIVE.test(i.path));
   if (s.homeMode && s.homeMode !== "700") {
     add({
@@ -288,11 +288,22 @@ export function doctorChecks(s: Snapshot): Check[] {
     });
   } else if (s.homeMode) {
     add({ id: "modes", status: "ok", message: "file modes 0700/0600" });
+  } else if (s.platform === "win32") {
+    add({
+      id: "modes",
+      status: "skip",
+      message: `Windows: ${s.home} is private through your profile folder permissions (no POSIX modes)`,
+    });
   }
 
   // Service.
   if (s.service && s.service.kind !== "none") {
-    const what = s.service.kind === "launchd" ? "LaunchAgent" : `${s.service.kind} service`;
+    const what =
+      s.service.kind === "launchd"
+        ? "LaunchAgent"
+        : s.service.kind === "taskscheduler"
+          ? `scheduled task ${s.service.file ?? ""}`.trim()
+          : `${s.service.kind} service`;
     const state = !s.service.installed
       ? "not installed"
       : s.service.detail === "not loaded"
@@ -302,7 +313,9 @@ export function doctorChecks(s: Snapshot): Check[] {
     const hint =
       s.service.kind === "launchd" && s.app
         ? "Open Psyche.app, or run psyche start"
-        : "psyche start";
+        : s.service.kind === "taskscheduler" && s.app
+          ? "Open Psyche from the Start menu, or run psyche start"
+          : "psyche start";
     add(
       s.service.running
         ? { id: "service", status: "ok", message: `${what} running` }
@@ -350,6 +363,18 @@ export function doctorChecks(s: Snapshot): Check[] {
             id: "app",
             status: "skip",
             message: "Psyche.app not found in /Applications (server or source install)",
+          },
+    );
+  }
+  if (s.platform === "win32" && s.app !== undefined) {
+    add(
+      s.app
+        ? { id: "app", status: "ok", message: `Psyche installed at ${s.app}` }
+        : {
+            id: "app",
+            status: "skip",
+            message:
+              "Psyche is not installed for this user (no %LOCALAPPDATA%Psyche; server or source install)",
           },
     );
   }

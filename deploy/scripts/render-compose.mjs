@@ -7,6 +7,7 @@
 // Usage: node render-compose.mjs <docker-compose.yml> <ghcr.io/…/psyche-gateway:<version>@sha256:…>
 // Prints the rendered file.
 import { readFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 
 const PINNED = /^[a-z0-9./_-]+(:[A-Za-z0-9._-]+)?@sha256:[0-9a-f]{64}$/;
 const LOCAL = /^[a-z0-9-]+:local$/;
@@ -48,7 +49,7 @@ export function renderCompose(text, imageRef) {
   return rendered;
 }
 
-if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const [file, ref] = process.argv.slice(2);
   if (!file || !ref) {
     process.stderr.write(

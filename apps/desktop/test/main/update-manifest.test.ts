@@ -6,10 +6,14 @@ import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   checkForVerifiedUpdate,
+  parseSquirrelReleases,
   serveVerifiedUpdate,
+  squirrelReleasesFor,
+  switchToFullPackage,
   writeUpdaterState,
 } from "../../src/main/update-flow.ts";
 import {
+  artifactsFor,
   compareVersions,
   keyIdOf,
   ManifestError,
@@ -337,6 +341,264 @@ describe("updater state file (read by psyche security audit)", () => {
       code: "bad_signature",
       reason: "manifest signature does not match",
     });
-    expect(statSync(file).mode & 0o777).toBe(0o600);
+    // Windows keeps the file private through the profile folder ACLs (no POSIX modes).
+    if (process.platform !== "win32") expect(statSync(file).mode & 0o777).toBe(0o600);
+  });
+});
+
+/**
+ * Windows: a release with the macOS zip and the Squirrel.Windows files, built and signed by the
+ * real release script. RELEASES is what electron-winstaller writes (BOM, SHA-1, name, size).
+ */
+function winRelease(
+  version: string,
+  pem: string,
+  opts: { deltaBase?: string; tamperReleases?: boolean; macZip?: boolean } = {},
+) {
+  const dir = temp();
+  const nuget = version.replace(
+    /^(\d+\.\d+\.\d+)-(.*)$/,
+    (_m, v, pre) => `${v}-${pre.replace(/\./g, "")}`,
+  );
+  const full = join(dir, `Psyche-${nuget}-full.nupkg`);
+  const delta = join(dir, `Psyche-${nuget}-delta.nupkg`);
+  writeFileSync(full, Buffer.from(`full nupkg ${version}`.repeat(200)));
+  writeFileSync(delta, Buffer.from(`delta nupkg ${version}`.repeat(20)));
+  const line = (file: string) => {
+    const b = readFileSync(file);
+    const sha1 = createHash("sha1").update(b).digest("hex").toUpperCase();
+    return `${opts.tamperReleases ? "0".repeat(40) : sha1} ${file.split(/[\\/]/).pop()} ${b.length}`;
+  };
+  const releases = join(dir, "RELEASES");
+  writeFileSync(releases, `\uFEFF${line(full)}\r\n${line(delta)}`);
+  const setup = join(dir, `Psyche-${version}-Setup.exe`);
+  writeFileSync(setup, "MZ setup");
+  const files = [releases, full, delta, setup];
+  if (opts.macZip !== false) {
+    const zip = join(dir, `Psyche-${version}-darwin-arm64.zip`);
+    writeFileSync(zip, Buffer.from(`zip bytes of ${version}`.repeat(100)));
+    files.push(zip);
+  }
+  const manifest = execFileSync(
+    process.execPath,
+    [
+      SCRIPT,
+      "build",
+      "--release",
+      version,
+      "--base",
+      `${PINNED}v${version}/`,
+      ...(opts.deltaBase ? ["--delta-base", opts.deltaBase] : []),
+      ...files,
+    ],
+    { encoding: "utf8" },
+  );
+  const file = join(dir, "update-manifest.json");
+  writeFileSync(file, manifest);
+  execFileSync(process.execPath, [SCRIPT, "sign", file], {
+    env: { ...process.env, PSYCHE_RELEASE_SIGNING_KEY: pem },
+  });
+  return {
+    dir,
+    full,
+    delta,
+    releases,
+    manifestBytes: readFileSync(file),
+    sig: readFileSync(`${file}.sig`, "utf8"),
+  };
+}
+
+describe("per-platform manifests (Windows)", () => {
+  it("keeps macOS-only artifacts where released Mac builds look, and lists every platform", () => {
+    const k = fixtureKey();
+    const r = winRelease("1.3.0", k.pem, { deltaBase: "1.2.0" });
+    const raw = JSON.parse(r.manifestBytes.toString("utf8"));
+    // What a Mac build from before Windows support accepts: every `artifacts` entry is darwin.
+    expect(
+      raw.artifacts.map((a: { platform: string; kind: string }) => [a.platform, a.kind]),
+    ).toEqual([["darwin", "zip"]]);
+    expect(Object.keys(raw.platforms).sort()).toEqual(["darwin-arm64", "win32-x64"]);
+    expect(raw.platforms["win32-x64"].map((a: { kind: string }) => a.kind)).toEqual([
+      "squirrel-releases",
+      "nupkg-full",
+      "nupkg-delta",
+      "setup",
+    ]);
+    expect(raw.platforms["win32-x64"][2].baseVersion).toBe("1.2.0");
+    const m = verifyManifest(r.manifestBytes, r.sig, [k.key]);
+    expect(artifactsFor(m, "darwin", "arm64").map((a) => a.kind)).toEqual(["zip"]);
+    expect(
+      planUpdate(m, { currentVersion: "1.2.0", arch: "arm64", pinnedBase: PINNED }),
+    ).toMatchObject({ action: "update", url: `${PINNED}v1.3.0/Psyche-1.3.0-darwin-arm64.zip` });
+  });
+
+  it("a darwin-only build is unchanged: no platforms key, the legacy list still plans", () => {
+    const k = fixtureKey();
+    const r = release("1.2.3", k.pem);
+    expect(JSON.parse(r.manifestBytes.toString("utf8")).platforms).toBeUndefined();
+    const m = verifyManifest(r.manifestBytes, r.sig, [k.key]);
+    expect(
+      code(() =>
+        planUpdate(m, {
+          currentVersion: "1.0.0",
+          arch: "x64",
+          platform: "win32",
+          pinnedBase: PINNED,
+        }),
+      ),
+    ).toBe("no_artifact");
+  });
+
+  it("plans RELEASES + the full nupkg on Windows, or the delta for the version it was made from", () => {
+    const k = fixtureKey();
+    const r = winRelease("1.3.0-beta.1", k.pem, { deltaBase: "1.2.0" });
+    const m = verifyManifest(r.manifestBytes, r.sig, [k.key]);
+    const win = { arch: "x64", platform: "win32" as const, pinnedBase: PINNED };
+    const fromOld = planUpdate(m, { ...win, currentVersion: "1.1.0" });
+    if (fromOld.action !== "update") throw new Error("expected an update");
+    expect(fromOld.files.map((f) => f.artifact.name)).toEqual([
+      "RELEASES",
+      "Psyche-1.3.0-beta1-full.nupkg",
+    ]);
+    expect(fromOld.full).toBeUndefined();
+    const fromBase = planUpdate(m, { ...win, currentVersion: "1.2.0" });
+    if (fromBase.action !== "update") throw new Error("expected an update");
+    expect(fromBase.artifact.kind).toBe("nupkg-delta");
+    expect(fromBase.full?.artifact.kind).toBe("nupkg-full");
+    expect(planUpdate(m, { ...win, currentVersion: "1.3.0" })).toMatchObject({ action: "none" });
+    expect(code(() => planUpdate(m, { ...win, arch: "arm64", currentVersion: "1.0.0" }))).toBe(
+      "no_artifact",
+    );
+  });
+
+  it("skips unknown platforms and kinds, refuses a malformed entry under a known one", () => {
+    const k = fixtureKey();
+    const signed = (body: object) => {
+      const bytes = Buffer.from(JSON.stringify(body));
+      const env = JSON.stringify({
+        alg: "ed25519",
+        keyId: k.key.keyId,
+        signature: sign(null, bytes, k.priv).toString("base64"),
+      });
+      return () => verifyManifest(bytes, env, [k.key]);
+    };
+    const base = {
+      format: "psyche-update-manifest",
+      version: 1,
+      release: "2.0.0",
+      minimumVersion: "0.0.0",
+      publishedAt: "2026-11-05T00:00:00.000Z",
+      baseUrl: `${PINNED}v2.0.0/`,
+      artifacts: [],
+    };
+    const art = { name: "RELEASES", kind: "squirrel-releases", sha256: "a".repeat(64), bytes: 1 };
+    const m = signed({
+      ...base,
+      platforms: {
+        "linux-x64": [{ anything: true }],
+        "win32-x64": [art, { ...art, name: "x.msix", kind: "msix" }],
+      },
+    })();
+    expect(m.platforms).toEqual({ "win32-x64": [art] });
+    expect(
+      code(signed({ ...base, platforms: { "win32-x64": [{ ...art, name: "../evil" }] } })),
+    ).toBe("malformed");
+    expect(
+      code(signed({ ...base, platforms: { "win32-x64": [{ ...art, sha256: "nope" }] } })),
+    ).toBe("malformed");
+    expect(code(signed({ ...base, platforms: [] }))).toBe("malformed");
+  });
+
+  /** A fake release host for the Windows files. */
+  function winHost(r: ReturnType<typeof winRelease>, swap?: Record<string, Buffer>): typeof fetch {
+    return (async (input: string | URL) => {
+      const url = String(input);
+      const name = url.split("/").pop() ?? "";
+      if (name === "update-manifest.json") return new Response(new Uint8Array(r.manifestBytes));
+      if (name === "update-manifest.json.sig") return new Response(r.sig);
+      const file = join(r.dir, name);
+      if (swap?.[name]) return new Response(new Uint8Array(swap[name]));
+      if (existsSync(file)) return new Response(new Uint8Array(readFileSync(file)));
+      return new Response("not found", { status: 404 });
+    }) as typeof fetch;
+  }
+  const win = { arch: "x64", platform: "win32" as const, log: () => {} };
+
+  it("hands Squirrel.Windows a local feed: verified nupkg and RELEASES cut to its line", async () => {
+    const k = fixtureKey();
+    const r = winRelease("1.3.0", k.pem, { macZip: false });
+    const out = await checkForVerifiedUpdate({
+      ...win,
+      currentVersion: "1.2.0",
+      fetch: winHost(r),
+      keys: [k.key],
+      dir: temp(),
+    });
+    expect(out).toMatchObject({ state: "ready", release: "1.3.0" });
+    if (out.state !== "ready" || !out.feedDir) throw new Error("expected a feed");
+    expect(readFileSync(out.file)).toEqual(readFileSync(r.full));
+    const lines = parseSquirrelReleases(readFileSync(join(out.feedDir, "RELEASES"), "utf8"));
+    expect(lines.map((l) => l.name)).toEqual(["Psyche-1.3.0-full.nupkg"]);
+    expect(lines[0]?.bytes).toBe(readFileSync(r.full).length);
+  });
+
+  it("refuses a nupkg or a RELEASES that does not match, and leaves no feed behind", async () => {
+    const k = fixtureKey();
+    const r = winRelease("1.3.0", k.pem, { macZip: false });
+    const dir = temp();
+    const evil = Buffer.alloc(readFileSync(r.full).length, 0x41);
+    expect(
+      await checkForVerifiedUpdate({
+        ...win,
+        currentVersion: "1.2.0",
+        fetch: winHost(r, { "Psyche-1.3.0-full.nupkg": evil }),
+        keys: [k.key],
+        dir,
+      }),
+    ).toMatchObject({ state: "refused", code: "hash_mismatch" });
+    expect(existsSync(join(dir, "feed-1.3.0"))).toBe(false);
+    // RELEASES itself is in the signed manifest, so a RELEASES that names other bytes was signed
+    // that way: still refused, because Update.exe would refuse the package.
+    const bad = winRelease("1.3.0", k.pem, { macZip: false, tamperReleases: true });
+    expect(
+      await checkForVerifiedUpdate({
+        ...win,
+        currentVersion: "1.2.0",
+        fetch: winHost(bad),
+        keys: [k.key],
+        dir: temp(),
+      }),
+    ).toMatchObject({ state: "refused", code: "hash_mismatch" });
+  });
+
+  it("takes the delta for its base version and falls back to the verified full package", async () => {
+    const k = fixtureKey();
+    const r = winRelease("1.3.0", k.pem, { deltaBase: "1.2.0", macZip: false });
+    const out = await checkForVerifiedUpdate({
+      ...win,
+      currentVersion: "1.2.0",
+      fetch: winHost(r),
+      keys: [k.key],
+      dir: temp(),
+    });
+    if (out.state !== "ready" || !out.feedDir || !out.full) throw new Error("expected a delta");
+    expect(readFileSync(out.file)).toEqual(readFileSync(r.delta));
+    // Squirrel needs the full package's line even when it applies the delta.
+    expect(
+      parseSquirrelReleases(readFileSync(join(out.feedDir, "RELEASES"), "utf8")).map((l) => l.name),
+    ).toEqual(["Psyche-1.3.0-delta.nupkg", "Psyche-1.3.0-full.nupkg"]);
+    const feed = await switchToFullPackage(
+      { fetch: winHost(r), log: () => {} },
+      { feedDir: out.feedDir, full: out.full },
+    );
+    expect(readFileSync(join(feed, "Psyche-1.3.0-full.nupkg"))).toEqual(readFileSync(r.full));
+    expect(
+      parseSquirrelReleases(readFileSync(join(feed, "RELEASES"), "utf8")).map((l) => l.name),
+    ).toEqual(["Psyche-1.3.0-full.nupkg"]);
+  });
+
+  it("parses RELEASES strictly", () => {
+    expect(() => parseSquirrelReleases("not a line")).toThrow(/malformed/);
+    expect(() => squirrelReleasesFor("", ["Psyche-1.0.0-full.nupkg"], [])).toThrow(/does not list/);
   });
 });

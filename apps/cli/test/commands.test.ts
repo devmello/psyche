@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { Readable } from "node:stream";
 import { MockGateway } from "@psyche/web/testing";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -7,7 +7,16 @@ import { run } from "../src/cli.ts";
 import { loadOrCreateIdentity } from "../src/identity.ts";
 import { renderLaunchAgentPlist } from "../src/supervisor.ts";
 import { AUTOMATION, CREDENTIAL, DEVICE, HANDLERS, PAIRING_REQUEST, TS } from "./fixtures.ts";
-import { cleanupTempDirs, err, makeDeps, out, runJson, type TestDeps, tempDir } from "./helpers.ts";
+import {
+  cleanupTempDirs,
+  err,
+  makeDeps,
+  out,
+  POSIX_MODES,
+  runJson,
+  type TestDeps,
+  tempDir,
+} from "./helpers.ts";
 
 const ALL_SCOPES = ["operator.read", "operator.write", "operator.approvals", "operator.admin"];
 const SECRET = "psyche-test-secret-value-9f8e7d";
@@ -325,7 +334,7 @@ describe("commands against a paired MockGateway", () => {
       expect(out(deps)).toContain("Restart the Gateway");
       const file = join(deps.home, "config.json");
       expect(JSON.parse(readFileSync(file, "utf8"))).toEqual({ gateway: { port: 8000 } });
-      expect(statSync(file).mode & 0o777).toBe(0o600);
+      if (POSIX_MODES) expect(statSync(file).mode & 0o777).toBe(0o600);
       expect(gw.connects).toHaveLength(0);
       expect(gw.calls).toHaveLength(0);
     });
@@ -578,8 +587,8 @@ describe("commands against a paired MockGateway", () => {
       expect(await run(["vault", "status", ...urlArgs(deps)], deps)).toBe(0);
       const dir = join(deps.home, "cli");
       const file = join(dir, "device.json");
-      expect(statSync(dir).mode & 0o777).toBe(0o700);
-      expect(statSync(file).mode & 0o777).toBe(0o600);
+      if (POSIX_MODES) expect(statSync(dir).mode & 0o777).toBe(0o700);
+      if (POSIX_MODES) expect(statSync(file).mode & 0o777).toBe(0o600);
       const stored = JSON.parse(readFileSync(file, "utf8")) as Record<string, string>;
 
       expect(await run(["vault", "status", ...urlArgs(deps)], deps)).toBe(0);
@@ -675,7 +684,7 @@ describe("commands against a paired MockGateway", () => {
       expect(out(deps)).toContain("config.json");
       expect(out(deps)).not.toContain(SECRET);
       checkFiles(dir);
-      expect(statSync(dir).mode & 0o777).toBe(0o700);
+      if (POSIX_MODES) expect(statSync(dir).mode & 0o777).toBe(0o700);
     });
 
     it("export --out --json lists counts and skipped items", async () => {
@@ -794,11 +803,11 @@ describe("skills", () => {
       });
       await run(["skills", "install", "/tmp/s.zip", ...urlArgs(deps)], deps);
       expect(lastParams("skills.proposeInstall")).toEqual({
-        source: { kind: "zip", path: "/tmp/s.zip" },
+        source: { kind: "zip", path: resolve("/tmp/s.zip") },
       });
       await run(["skills", "install", "/tmp/skill-dir", ...urlArgs(deps)], deps);
       expect(lastParams("skills.proposeInstall")).toEqual({
-        source: { kind: "path", path: "/tmp/skill-dir" },
+        source: { kind: "path", path: resolve("/tmp/skill-dir") },
       });
       // Never installs directly: that needs the owner's approved skill_install.
       expect(gw.calls.some((c) => c.method === "skills.install")).toBe(false);

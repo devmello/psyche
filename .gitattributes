@@ -1,6 +1,15 @@
 # Keep LF in every checkout, Windows included (.editorconfig, biome and the protocol codegen all
-# write LF; core.autocrlf=true would otherwise show generated files as modified on Windows).
+# write LF; core.autocrlf=true would otherwise show generated files as modified on Windows, and
+# actions/checkout on windows-latest uses it). cmd.exe needs CRLF in batch files.
 * text=auto eol=lf
 *.cmd text eol=crlf
 *.bat text eol=crlf
+*.png binary
+*.jpg binary
+*.webp binary
+*.icns binary
+*.ico binary
+*.mp4 binary
+*.wav binary
+*.pdf binary
 packages/protocol/CHANGES.md merge=union
