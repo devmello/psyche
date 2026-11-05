@@ -206,7 +206,9 @@ export function DevicesPanel({
                   isDesktopPlatform(d.platform) &&
                   d.scopes.includes("operator.admin") ? (
                     <p className="text-sm" data-testid="this-mac-admin">
-                      {t("settings.devices.thisMacAdmin")}
+                      {(d.platform as string) === "windows"
+                        ? t("settings.devices.thisPcAdmin")
+                        : t("settings.devices.thisMacAdmin")}
                     </p>
                   ) : null}
                   <p className="text-callout text-muted-foreground">

@@ -125,8 +125,6 @@ export const windows: Partial<Record<MessageId, string>> = {
   "settings.semanticSearch.state.cloudBlocked":
     "The embedding model in Roles is a cloud service. Semantic search only uses models on this PC.",
   "settings.data.encryptMemory.pending": "Waiting for the key from the Windows helper.",
-  "settings.devices.thisMacAdmin":
-    "This PC is the admin device. Another admin device can revoke it here.",
   "settings.devices.touchId.none":
     "No Windows Hello key yet. Cards that need Windows Hello can't be approved until one is registered.",
   "settings.devices.touchId.noBundledKey":

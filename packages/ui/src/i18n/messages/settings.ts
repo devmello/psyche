@@ -1402,6 +1402,9 @@ export const settings = {
   "settings.devices.scopesOf": "{name} scopes",
   "settings.devices.thisMacAdmin":
     "This Mac is the admin device. Another admin device can revoke it here.",
+  // The device row names its own kind of computer, whatever this window runs on.
+  "settings.devices.thisPcAdmin":
+    "This PC is the admin device. Another admin device can revoke it here.",
   "settings.devices.key": "Key",
   "settings.devices.keyLastSeen": "· last seen {when}",
   "settings.devices.keyLastSeenNever": "· last seen never",

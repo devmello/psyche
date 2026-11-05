@@ -294,6 +294,9 @@ export function OnboardingFlow({
               PermissionResult,
             ][]) {
               if (state === "granted") next[p] = "granted";
+              // Windows' microphone toggle is information, never skipped: show what it is.
+              else if (p === "microphone")
+                next[p] = state === "not_determined" ? "pending" : answerOf(state);
               else if (s[p] === "granted" || s[p] === "denied") next[p] = answerOf(state);
             }
             return next;
