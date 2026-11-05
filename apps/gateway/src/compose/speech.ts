@@ -5,11 +5,13 @@ import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { deleteSettings, getLibraryItem, getSetting, type PsycheDb } from "@psyche/db";
 import { defaultDenyRead } from "@psyche/mcp-host";
-import type { LibraryItem, NodeClient } from "@psyche/protocol";
+import type { LibraryItem, MethodResult, NodeClient } from "@psyche/protocol";
 import { PsycheError } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import {
   createSpeechHandlers,
   createSpeechStack,
+  defaultSpeechSettings,
   type LibrarySaveInput,
   type LibraryTranscriptWriter,
   type LibraryWriter,
@@ -20,8 +22,11 @@ import {
   OpenAiAudioTranscriber,
   type PathTranscriber,
   type ProcessRunner,
+  parseSttOrder,
+  pcmWavInfo,
   SPEECH_METHODS,
   type SpeechCaller,
+  type SpeechSettings,
   VoiceMemoService,
   VoiceSessionManager,
 } from "@psyche/speech";
@@ -222,7 +227,8 @@ export class FsAudioLibrary implements LibraryWriter {
 
 /** Writes `extracts/<id>.txt` under the Library root (0700 / 0600); returns its relative path. */
 async function writeExtract(root: string, id: string, text: string): Promise<string> {
-  const rel = join("extracts", `${id}.txt`);
+  // Library paths are stored with "/" on every OS (the database and backups move between them).
+  const rel = `extracts/${id}.txt`;
   await mkdir(join(root, "extracts"), { recursive: true, mode: 0o700 });
   await writeFile(join(root, rel), text, { mode: 0o600 });
   await chmod(join(root, rel), 0o600);
@@ -297,7 +303,14 @@ export function composeSpeech(setup: SpeechSetup = {}) {
       home: services.home,
       runner,
       macNode: speechNode(() => gateway),
+      settings: sttSettings(db),
+      whisper: {
+        onListening: (port) => services.ownPorts.add(port, "whisper-server"),
+        log: (level, event, fields) => services.logger?.log(level, event, fields),
+        onDownload: (e) => services.publish("speech.model_download", e),
+      },
     });
+    const managed = stack.whisper;
     const toDevice = (deviceId: string, e: { event: string; payload: unknown }) =>
       gateway?.bus.publishToDevice(deviceId, e.event as never, e.payload as never);
     const library = new FsAudioLibrary(services.home, undefined, indexSavedAudio(db));
@@ -307,16 +320,35 @@ export function composeSpeech(setup: SpeechSetup = {}) {
     const appsNode = speechNode(() => gateway, "apps.list");
     const onMac = new NodeSpeechEngine({ node: filesNode });
     const endpoint = () => transcriptionEndpoint(db);
-    // The Mac helper first (on the device, no network); else the owner's OpenAI-compatible
-    // endpoint, so meeting notes work on platforms without the helper (#842 item 5).
+    // whisper.cpp when the order puts it first and it is installed (Windows), for the PCM WAV
+    // recordings the Gateway keeps; else the Host's helper (on the device, no network); else the
+    // owner's OpenAI-compatible endpoint, so meeting notes work without the helper (#842 item 5).
+    const whisperFirst = async (path: string): Promise<boolean> => {
+      if (managed === undefined) return false;
+      const sel = await stack.selector
+        .select({ purpose: "file", caller: "agent" })
+        .catch(() => null);
+      return sel?.id === "whisper" && (await pcmWavInfo(path).catch(() => undefined)) !== undefined;
+    };
     const files: PathTranscriber = {
-      transcribePath: (path, options) => {
+      transcribePath: async (path, options) => {
+        if (managed !== undefined && (await whisperFirst(path))) {
+          try {
+            return await managed.engine.transcribePath(path, options);
+          } catch (err) {
+            // The server would not start (or kept crashing): the helper still has the file.
+            if (filesNode() === undefined || options?.signal?.aborted === true) throw err;
+            services.logger?.log("warn", "speech.whisper_path_failed", {
+              code: PsycheError.from(err).code,
+            });
+          }
+        }
         if (filesNode() !== undefined) return onMac.transcribePath(path, options);
         const other = endpoint();
         if (other === undefined) {
           throw new PsycheError(
             "unavailable",
-            "long recordings need the Mac helper or a transcription endpoint in Settings",
+            `long recordings need ${hostWords().helper} or a transcription endpoint in Settings`,
             { retryable: true },
           );
         }
@@ -345,12 +377,51 @@ export function composeSpeech(setup: SpeechSetup = {}) {
           fn(params, { deviceId: call.identity.deviceId, caller: caller(call) }),
       };
     }
+    handlers["speech.engine.status"] = {
+      run: async () => {
+        const explain = await stack.selector.explain({ purpose: "dictation", caller: "desktop" });
+        const out: MethodResult<"speech.engine.status"> = {
+          order: [...stack.selector.settings.stt.order],
+          dictation: explain.map((e) => ({
+            id: e.id,
+            location: e.location,
+            eligible: e.eligible,
+            ...(e.reason === undefined ? {} : { reason: e.reason }),
+          })),
+          active: explain.find((e) => e.eligible)?.id ?? null,
+          whisper: managed === undefined ? null : await managed.installer.status(),
+        };
+        return out;
+      },
+    };
+    handlers["speech.engine.download"] = {
+      run: async () => {
+        if (managed === undefined) {
+          throw new PsycheError(
+            "unavailable",
+            "Psyche provisions the whisper.cpp runtime on Windows only; install whisper-cli here",
+          );
+        }
+        services.logger?.log("info", "speech.model_download.requested", {
+          model: managed.installer.modelId,
+        });
+        return managed.installer.download();
+      },
+    };
     const onDisconnect = (deviceId: string) => voice.cancelAll(deviceId);
+    let unsubscribeSettings: (() => void) | undefined;
+    // An installed model can serve the file path right away, so meetings check it too.
+    let whisperReady = false;
+    const refreshReady = () =>
+      void managed?.installer.ready().then((r) => {
+        whisperReady = r;
+      });
+    refreshReady();
     return {
       handlers,
       meetings: {
         ingestMeeting: (input) => memos.ingestMeeting(input, transcripts),
-        available: () => filesNode() !== undefined || endpoint() !== undefined,
+        available: () => whisperReady || filesNode() !== undefined || endpoint() !== undefined,
         runningApps: async () => {
           const node = appsNode();
           if (node === undefined) return undefined;
@@ -363,14 +434,47 @@ export function composeSpeech(setup: SpeechSetup = {}) {
       start(gw) {
         gateway = gw;
         gw.context.deviceDisconnected.add(onDisconnect);
+        // `speech.stt.order` applies on the next selection; a finished download refreshes readiness.
+        unsubscribeSettings = gw.bus.subscribe(["operator.read"], (frame) => {
+          const f = JSON.parse(frame) as {
+            event?: string;
+            payload?: { entries?: { key: string }[]; phase?: string };
+          };
+          if (f.event === "speech.model_download" && f.payload?.phase === "finished") {
+            refreshReady();
+          }
+          if (f.event !== "settings.changed") return;
+          if ((f.payload?.entries ?? []).some((e) => e.key === STT_ORDER_SETTING)) {
+            stack.selector.configure(sttSettings(db));
+          }
+        });
       },
-      stop() {
+      async stop() {
         gateway?.context.deviceDisconnected.delete(onDisconnect);
+        unsubscribeSettings?.();
         voice.cancelAll();
+        managed?.installer.cancel();
+        await managed?.process.stop();
         gateway = null;
       },
     };
   };
+}
+
+/** The owner's transcription order (`settings.set`, operator.admin; no Settings control yet). */
+export const STT_ORDER_SETTING = "speech.stt.order";
+
+/**
+ * The selector's settings: the owner's `speech.stt.order` when it is a valid list, else the
+ * host's default (Windows: whisper.cpp, then the helper's SAPI; elsewhere the Mac helper first).
+ */
+export function sttSettings(
+  db: PsycheDb,
+  platform: NodeJS.Platform = process.platform,
+): SpeechSettings {
+  const base = defaultSpeechSettings(platform);
+  const order = parseSttOrder(getSetting(db, STT_ORDER_SETTING)?.value);
+  return order === undefined ? base : { stt: { ...base.stt, order } };
 }
 
 /**

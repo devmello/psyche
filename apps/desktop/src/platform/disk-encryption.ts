@@ -1,4 +1,4 @@
-import type { Runner } from "./runner.ts";
+import type { Runner } from "../main/supervisor-base.ts";
 
 /**
  * The full-disk-encryption check onboarding runs (design §10.1). The Gateway's vault key is a

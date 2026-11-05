@@ -1,5 +1,12 @@
 import { type Static, Type } from "@sinclair/typebox";
-import { Id, IsoDateTime, Sha256, SideEffect, StringEnum } from "../common.ts";
+import {
+  Id,
+  IsoDateTime,
+  Sha256,
+  SideEffect,
+  StringEnum,
+  TEACH_APP_ID_PATTERN,
+} from "../common.ts";
 import { Automation } from "../schemas/integrations.ts";
 import { ApprovalKind, ApprovalRequest } from "../schemas/permissions.ts";
 import { defineMethod, EmptyParams, OkResult } from "./define.ts";
@@ -544,11 +551,11 @@ export const BrowserTeachStep = Type.Object(
           bundleId: Type.String({
             minLength: 3,
             maxLength: 200,
-            pattern: "^[A-Za-z0-9-]+(\\.[A-Za-z0-9_-]+)+$",
+            pattern: TEACH_APP_ID_PATTERN,
           }),
           name: Type.String({ maxLength: 120 }),
         },
-        { description: "app_*: the Mac app the step was recorded in (phase 2)" },
+        { description: "app_*: the desktop app the step was recorded in (phase 2)" },
       ),
     ),
     path: Type.Optional(

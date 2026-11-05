@@ -62,7 +62,8 @@ interface Fake {
 
 function fakeBw(): Fake {
   const dir = mkdtempSync(join(tmpdir(), "psyche-bw-"));
-  const bin = join(dir, "bw");
+  // Windows cannot run a script itself: a `.js` CLI runs with node (as npm's `bw.cmd` shim does).
+  const bin = join(dir, process.platform === "win32" ? "bw.js" : "bw");
   writeFileSync(bin, FAKE_BW);
   chmodSync(bin, 0o755);
   writeFileSync(
@@ -163,9 +164,24 @@ describe("BwCliSource (G11)", () => {
       ["status", "--nointeraction"],
     ]);
     // Nothing of the Gateway's env is inherited; the session is never an argument.
-    const allowed = ["BITWARDENCLI_APPDATA_DIR", "BW_NOINTERACTION", "BW_SESSION", "HOME", "PATH"];
+    const allowed = [
+      "BITWARDENCLI_APPDATA_DIR",
+      "BW_NOINTERACTION",
+      "BW_SESSION",
+      "HOME",
+      "PATH",
+      // Windows: the profile folders the CLI keeps its data in, and what libuv adds to every child.
+      ...(process.platform === "win32"
+        ? [
+            ...["USERPROFILE", "APPDATA", "LOCALAPPDATA", "SYSTEMROOT", "HOMEDRIVE", "HOMEPATH"],
+            ...["LOGONSERVER", "SYSTEMDRIVE", "TEMP", "USERDOMAIN", "USERNAME", "WINDIR"],
+          ]
+        : []),
+    ];
     for (const c of calls) {
-      expect(c.env.filter((k) => !allowed.includes(k) && !k.startsWith("__CF"))).toEqual([]);
+      expect(
+        c.env.filter((k) => !allowed.includes(k.toUpperCase()) && !k.startsWith("__CF")),
+      ).toEqual([]);
       expect(c.argv.join(" ")).not.toContain(SESSION);
     }
     expect(process.env.BW_SESSION).toBeUndefined();

@@ -1,4 +1,4 @@
-import type { Runner } from "./runner.ts";
+import type { Runner } from "../main/supervisor-base.ts";
 
 /**
  * Whether a tray can be shown (design §10.3). Electron's `Tray` uses StatusNotifierItem. KDE and

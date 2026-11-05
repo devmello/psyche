@@ -77,6 +77,8 @@ There is no shopping connector in the Gateway. The agent compares prices and bui
 - **Google cannot be connected.** The Gateway has the connector, but no screen or command offers the connect step.
 - **IMAP, SMTP and Fastmail (JMAP) mail are not available.** The code exists but the Gateway does not include it.
 - **Microsoft, Apple Notes and Apple Reminders** do not connect from Settings. Apple apps can be used through [Computer use](/using/computer-use).
+- **On Windows**, local mail, calendar and contacts (Outlook Mail, Outlook Calendar, Outlook Tasks and Outlook contacts) work only with classic Outlook. The new Outlook app has no local route; connect the Microsoft, Google or IMAP connector instead. Apple Notes, Messages and the other Apple apps do not exist there.
+- **On Windows, local (stdio) MCP servers cannot run under `srt`**, which has no Windows build. Set `PSYCHE_MCP_LAUNCHER=container` on the Gateway and run Docker or Podman to use them; the [sandbox PC](/using/vm-mode#on-windows-the-sandbox-pc) does not launch MCP servers. Remote (HTTP) servers are unaffected.
 - **Web search is not available.** Brave, Exa, Tavily and SearXNG are implemented, but the Gateway does not configure any of them. The agent opens pages in its browser instead.
 - **There is no screen for MCP servers.** Use `psyche config set mcp.servers`. OAuth sign-in for remote MCP servers has not been confirmed to work end to end.
 - Settings → Permissions has a Connector actions group (Allow, Ask or Deny per action). It stays empty because no connector can be connected, and the values it would save are not read by the Gateway yet.

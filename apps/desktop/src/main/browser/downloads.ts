@@ -1,11 +1,13 @@
 import { execFile as nodeExecFile } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync } from "node:fs";
+import { writeFile } from "node:fs/promises";
 import { basename, dirname, extname, join, resolve } from "node:path";
 
 /**
  * Download quarantine (architecture §12, security §6): every agent-tab download is diverted by
  * `will-download` into `$PSYCHE_HOME/library/quarantine/<timestamp>-<sanitized filename>` and,
- * on macOS, tagged with `com.apple.quarantine` so Gatekeeper treats it as downloaded. Files are
+ * tagged as downloaded: `com.apple.quarantine` for Gatekeeper on macOS, the Mark of the Web
+ * (`Zone.Identifier`, zone 3) for SmartScreen on Windows. Files are
  * never opened or executed from here without approval.
  */
 
@@ -116,15 +118,73 @@ export function quarantineAttributeValue(nowMs: number, agent = "Psyche"): strin
   return `0081;${Math.floor(nowMs / 1000).toString(16)};${agent};`;
 }
 
+/** Where a download came from, for the Windows Mark of the Web. */
+export interface DownloadSource {
+  url: string;
+  /** The page that started it (the tab's URL). */
+  referrer?: string;
+}
+
 /**
- * Best effort: tags `path` with the macOS quarantine attribute through `/usr/bin/xattr -w`
- * (execFile, no shell). Resolves false on other platforms or on failure; never throws.
+ * A URL as the Mark of the Web records it, like Chromium: http(s) and ftp without credentials
+ * or fragment; anything else (data:, blob:, file:) becomes `about:internet`. Never a line break.
+ */
+export function motwUrl(raw: string | undefined): string | undefined {
+  if (raw === undefined || raw === "") return undefined;
+  try {
+    const u = new URL(raw);
+    if (u.protocol !== "http:" && u.protocol !== "https:" && u.protocol !== "ftp:")
+      return "about:internet";
+    u.username = "";
+    u.password = "";
+    u.hash = "";
+    return u.toString().replace(/[\r\n]/g, "");
+  } catch {
+    return "about:internet";
+  }
+}
+
+/**
+ * The `Zone.Identifier` stream Windows reads as the Mark of the Web (the counterpart of
+ * `com.apple.quarantine`): zone 3 (Internet), so SmartScreen, Office Protected View and
+ * "This file came from another computer" apply, with the page and the file's URL as Chromium
+ * writes them.
+ */
+export function zoneIdentifier(source: DownloadSource | undefined): string {
+  const lines = ["[ZoneTransfer]", "ZoneId=3"];
+  const referrer = motwUrl(source?.referrer);
+  const host = motwUrl(source?.url);
+  if (referrer) lines.push(`ReferrerUrl=${referrer}`);
+  if (host) lines.push(`HostUrl=${host}`);
+  return `${lines.join("\r\n")}\r\n`;
+}
+
+export type WriteFileFn = (path: string, data: string) => Promise<void>;
+
+/**
+ * Best effort: marks `path` as downloaded. macOS: the quarantine attribute through
+ * `/usr/bin/xattr -w` (execFile, no shell). Windows: the Mark of the Web, an NTFS alternate data
+ * stream `<path>:Zone.Identifier` (FAT and exFAT have none: false). Resolves false on other
+ * platforms or on failure; never throws.
  */
 export function setQuarantineAttribute(
   path: string,
-  opts: { platform?: NodeJS.Platform; execFile?: ExecFileFn; now?: () => number } = {},
+  opts: {
+    platform?: NodeJS.Platform;
+    execFile?: ExecFileFn;
+    now?: () => number;
+    source?: DownloadSource;
+    writeFile?: WriteFileFn;
+  } = {},
 ): Promise<boolean> {
   const platform = opts.platform ?? process.platform;
+  if (platform === "win32") {
+    const write = opts.writeFile ?? ((p: string, d: string) => writeFile(p, d, "utf8"));
+    return write(`${path}:Zone.Identifier`, zoneIdentifier(opts.source)).then(
+      () => true,
+      () => false,
+    );
+  }
   if (platform !== "darwin") return Promise.resolve(false);
   const run = opts.execFile ?? defaultExecFile;
   const value = quarantineAttributeValue((opts.now ?? Date.now)());

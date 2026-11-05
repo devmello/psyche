@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   chmodSync,
@@ -16,10 +16,11 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, join, relative, sep } from "node:path";
+import { dirname, join, relative, sep, win32 } from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { createGunzip, createGzip } from "node:zlib";
+import { restrictToOwner } from "@psyche/hostfs";
 import { PsycheError } from "@psyche/protocol";
 import { Decrypter, Encrypter } from "age-encryption";
 
@@ -119,9 +120,43 @@ export async function buildManifest(
   return { format: FORMAT, version: 1, createdAt: now.toISOString(), cliVersion, entries, files };
 }
 
+/**
+ * Windows: the bsdtar that ships in System32 (the same libarchive tar as macOS), by absolute path.
+ * A GNU tar earlier on PATH (Git for Windows) reads `C:\...` as a remote `host:path`. Without the
+ * System32 one (Windows before 10 1803), the tar on PATH, with `--force-local` when it is GNU tar.
+ */
+let windowsTar: { command: string; args: string[] } | undefined;
+
+function tarCommand(): { command: string; args: string[] } {
+  if (process.platform !== "win32") return { command: "tar", args: [] };
+  if (windowsTar !== undefined) return windowsTar;
+  const system = win32.join(process.env.SystemRoot ?? "C:\\Windows", "System32", "tar.exe");
+  if (existsSync(system)) windowsTar = { command: system, args: [] };
+  else {
+    const v = spawnSync("tar", ["--version"], { encoding: "utf8", windowsHide: true });
+    windowsTar = { command: "tar", args: /GNU tar/.test(v.stdout ?? "") ? ["--force-local"] : [] };
+  }
+  return windowsTar;
+}
+
+/**
+ * Owner-only, as `chmod 0600` / `0700` is on macOS and Linux: on Windows a DACL for this user
+ * only, which a folder hands down to everything in it.
+ */
+function makePrivate(path: string, mode: 0o600 | 0o700): void {
+  if (process.platform !== "win32") {
+    chmodSync(path, mode);
+    return;
+  }
+  if (!restrictToOwner(path)) {
+    throw new PsycheError("internal", `cannot make ${path} private to this user`);
+  }
+}
+
 function tarProcess(args: string[], cwd?: string) {
   // No shell; COPYFILE_DISABLE keeps macOS tar from adding AppleDouble ._ files.
-  return spawn("tar", args, {
+  const tar = tarCommand();
+  return spawn(tar.command, [...tar.args, ...args], {
     cwd,
     stdio: ["pipe", "pipe", "pipe"],
     env: { ...process.env, COPYFILE_DISABLE: "1" },
@@ -241,7 +276,7 @@ export async function createBackup(
     ]);
     if (tarErr) throw tarErr;
     renameSync(tmpOut, out);
-    chmodSync(out, 0o600);
+    makePrivate(out, 0o600);
     return manifest;
   } finally {
     rmSync(stage, { recursive: true, force: true });
@@ -384,6 +419,11 @@ export async function verifyBackup(
 function tighten(path: string): void {
   const st = lstatSync(path);
   if (st.isSymbolicLink()) return;
+  // One DACL at the top: what is inside inherits it.
+  if (process.platform === "win32") {
+    makePrivate(path, st.isDirectory() ? 0o700 : 0o600);
+    return;
+  }
   if (st.isDirectory()) {
     chmodSync(path, 0o700);
     for (const name of readdirSync(path)) tighten(join(path, name));
@@ -407,7 +447,7 @@ function writeRestoreMarker(home: string, restoredAt: string, backupCreatedAt: s
   rmSync(join(home, "state", "last-boot.json"), { force: true });
   const dir = join(home, "security");
   mkdirSync(dir, { recursive: true, mode: 0o700 });
-  chmodSync(dir, 0o700);
+  makePrivate(dir, 0o700);
   writeFileSync(
     join(home, RESTORE_MARKER),
     `${JSON.stringify({ restoredAt, backupCreatedAt })}\n`,
@@ -470,7 +510,7 @@ export async function restoreBackup(
       if (movedAside) rmSync(movedAside, { recursive: true, force: true });
       throw err;
     }
-    chmodSync(home, 0o700);
+    makePrivate(home, 0o700);
     writeRestoreMarker(home, (opts.now ?? new Date()).toISOString(), manifest.createdAt);
     return { manifest, movedAside: movedAside ? relative(home, movedAside) : null };
   } finally {

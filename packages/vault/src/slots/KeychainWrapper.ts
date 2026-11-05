@@ -1,7 +1,7 @@
 import type { NodeClient } from "@psyche/protocol";
 import { open, randomKey, type SealedBox, seal, zeroize } from "../crypto.ts";
 import { fail } from "../errors.ts";
-import { promptReason } from "./helper.ts";
+import { HELLO_KEY_INVALIDATED, helperKeyInvalidated, promptReason } from "./helper.ts";
 import type { KeyWrapper, UnwrapContext, WrappedKey } from "./KeyWrapper.ts";
 
 /**
@@ -105,6 +105,13 @@ export class KeychainWrapper implements KeyWrapper {
       reuseDurationSeconds: 0,
     };
     const res = await this.#helper.invoke(KEYCHAIN_CAPABILITIES.unlock, params);
+    if (!res.ok && helperKeyInvalidated(res.error)) {
+      // Windows Hello was reset: the slot's key is gone for good, as if it were missing; only the
+      // recovery key opens the vault now (and re-wraps it for a new slot key).
+      return fail("not_found", "the keychain key is gone; unlock with the recovery key", {
+        reason: HELLO_KEY_INVALIDATED,
+      });
+    }
     if (!res.ok) {
       const code = res.error?.code === "cancelled" ? "cancelled" : "unauthorized";
       return fail(code, "keychain unlock was refused or cancelled");

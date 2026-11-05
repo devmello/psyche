@@ -1,8 +1,10 @@
+import { appCap } from "@psyche/permissions/apps";
 import { Lock } from "lucide-react";
 import type { ReactElement } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { Kbd } from "../../components/ui/kbd.tsx";
 import { t } from "../../i18n/core.ts";
+import { isWindows, type UiPlatform, uiPlatform } from "../../lib/platform.ts";
 import { usePersona, useSlots } from "../../slots.tsx";
 import { SegmentedRadio } from "./SegmentedRadio.tsx";
 import {
@@ -20,6 +22,7 @@ import {
   useSettingsForm,
 } from "./shared.tsx";
 import type { AppTier, ComputerUseApp, TccPermission, TccState } from "./types.ts";
+import { WindowsAccessRows } from "./WindowsAccess.tsx";
 
 /** Computer use (UI design §3.18; architecture §6). */
 
@@ -39,55 +42,66 @@ export const TIERS: readonly { value: AppTier; readonly label: string }[] = [
 
 type LockReason = "browser" | "terminal" | "ide" | "passwords" | "banking";
 
-const locked = (cap: "read" | "click" | "off", reason: LockReason) => ({
-  cap,
-  get reason(): string {
-    return t(`settings.computerUse.locked.${reason}`);
+/**
+ * A locked row: an app the Gateway caps (`@psyche/permissions/apps`, the lists the broker
+ * enforces), shown by its product name. The cap is read from those lists, never restated here.
+ */
+function lockedApp(id: string, name: string, reason: LockReason): ComputerUseApp {
+  const { cap } = appCap(id);
+  if (cap === "interact") throw new Error(`${id} is not a capped app`);
+  return {
+    id,
+    // App names are product names.
+    name,
+    tier: cap === "off" ? "off" : "read",
+    locked: {
+      cap,
+      get reason(): string {
+        return t(`settings.computerUse.locked.${reason}`);
+      },
+    },
+  };
+}
+
+const banking: ComputerUseApp = {
+  id: "banking",
+  get name(): string {
+    return t("settings.computerUse.bankingApps");
   },
-});
+  tier: "off",
+  locked: {
+    cap: "off",
+    get reason(): string {
+      return t("settings.computerUse.locked.banking");
+    },
+  },
+};
 
 /** Fixed caps (architecture §6): browsers read-only, terminals and IDEs click-only, money Off. */
 export const LOCKED_APPS: readonly ComputerUseApp[] = [
-  {
-    id: "com.apple.Safari",
-    // App names are product names.
-    name: "Safari",
-    tier: "read",
-    locked: locked("read", "browser"),
-  },
-  {
-    id: "com.google.Chrome",
-    name: "Google Chrome",
-    tier: "read",
-    locked: locked("read", "browser"),
-  },
-  {
-    id: "com.apple.Terminal",
-    name: "Terminal",
-    tier: "read",
-    locked: locked("click", "terminal"),
-  },
-  {
-    id: "com.microsoft.VSCode",
-    name: "Visual Studio Code",
-    tier: "read",
-    locked: locked("click", "ide"),
-  },
-  {
-    id: "com.1password.1password",
-    name: "1Password",
-    tier: "off",
-    locked: locked("off", "passwords"),
-  },
-  {
-    id: "banking",
-    get name(): string {
-      return t("settings.computerUse.bankingApps");
-    },
-    tier: "off",
-    locked: locked("off", "banking"),
-  },
+  lockedApp("com.apple.Safari", "Safari", "browser"),
+  lockedApp("com.google.Chrome", "Google Chrome", "browser"),
+  lockedApp("com.apple.Terminal", "Terminal", "terminal"),
+  lockedApp("com.microsoft.VSCode", "Visual Studio Code", "ide"),
+  lockedApp("com.1password.1password", "1Password", "passwords"),
+  banking,
 ];
+
+/** The same caps as the Windows helper names apps: by their lowercase executable. */
+export const WINDOWS_LOCKED_APPS: readonly ComputerUseApp[] = [
+  lockedApp("msedge.exe", "Microsoft Edge", "browser"),
+  lockedApp("chrome.exe", "Google Chrome", "browser"),
+  lockedApp("windowsterminal.exe", "Windows Terminal", "terminal"),
+  lockedApp("powershell.exe", "Windows PowerShell", "terminal"),
+  lockedApp("code.exe", "Visual Studio Code", "ide"),
+  lockedApp("1password.exe", "1Password", "passwords"),
+  banking,
+];
+
+/** The locked rows for the Host's platform (computer use runs on the Host, never remotely). */
+export function lockedApps(platform: UiPlatform = uiPlatform()): readonly ComputerUseApp[] {
+  return platform === "windows" ? WINDOWS_LOCKED_APPS : LOCKED_APPS;
+}
 
 const tccLabel = (p: TccPermission) => ({
   /** The macOS pane's name, in the active language. */
@@ -105,6 +119,7 @@ export const TCC_LABEL: Record<
   accessibility: tccLabel("accessibility"),
   screenRecording: tccLabel("screenRecording"),
   notifications: tccLabel("notifications"),
+  microphone: tccLabel("microphone"),
 };
 
 const TCC_TONE: Record<TccState, "success" | "danger" | "neutral"> = {
@@ -175,36 +190,44 @@ export function ComputerUsePanel({
           title={t("settings.computerUse.macPermissions")}
           description={t("settings.computerUse.macPermissionsHint")}
         >
-          <>
-            {(["accessibility", "screenRecording"] as const).map((p) => {
-              const state = tcc[p] ?? "not_determined";
-              return (
-                <div key={p} className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium">{TCC_LABEL[p].name}</span>
-                  <StatusChip tone={TCC_TONE[state]}>
-                    {t(`settings.computerUse.tccState.${state}`)}
-                  </StatusChip>
-                  <span className="text-callout text-muted-foreground">
-                    {TCC_LABEL[p].why(persona)}
-                  </span>
-                  {state !== "granted" && onOpenSystemSettings ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="xs"
-                      className="ms-auto"
-                      onClick={() => onOpenSystemSettings(p)}
-                      aria-label={t("settings.computerUse.openSystemSettingsFor", {
-                        name: TCC_LABEL[p].name,
-                      })}
-                    >
-                      {t("settings.computerUse.openSystemSettings")}
-                    </Button>
-                  ) : null}
-                </div>
-              );
-            })}
-          </>
+          {isWindows() ? (
+            <WindowsAccessRows
+              persona={persona}
+              microphone={tcc.microphone}
+              onOpenSettings={onOpenSystemSettings}
+            />
+          ) : (
+            <>
+              {(["accessibility", "screenRecording"] as const).map((p) => {
+                const state = tcc[p] ?? "not_determined";
+                return (
+                  <div key={p} className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium">{TCC_LABEL[p].name}</span>
+                    <StatusChip tone={TCC_TONE[state]}>
+                      {t(`settings.computerUse.tccState.${state}`)}
+                    </StatusChip>
+                    <span className="text-callout text-muted-foreground">
+                      {TCC_LABEL[p].why(persona)}
+                    </span>
+                    {state !== "granted" && onOpenSystemSettings ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="xs"
+                        className="ms-auto"
+                        onClick={() => onOpenSystemSettings(p)}
+                        aria-label={t("settings.computerUse.openSystemSettingsFor", {
+                          name: TCC_LABEL[p].name,
+                        })}
+                      >
+                        {t("settings.computerUse.openSystemSettings")}
+                      </Button>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </>
+          )}
         </Group>
 
         <Group
@@ -239,7 +262,7 @@ export function ComputerUsePanel({
                   />
                 </div>
               ))}
-              {LOCKED_APPS.map((a) => (
+              {lockedApps().map((a) => (
                 <div key={a.id} data-locked="true" className="flex items-center gap-3">
                   <Lock className="size-3.5 shrink-0 text-label-tertiary" aria-hidden="true" />
                   <div className="flex min-w-0 flex-1 flex-col">

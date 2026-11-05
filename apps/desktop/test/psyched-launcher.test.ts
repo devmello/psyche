@@ -37,27 +37,31 @@ describe("psyched launcher", () => {
     expect(launcher.indexOf("unset NODE_OPTIONS")).toBeLessThan(launcher.indexOf("exec "));
   });
 
-  it("psyched-harden.cjs stops require() from reading ~/.node_modules, and keeps HOME", () => {
-    const dir = mkdtempSync(join(tmpdir(), "psyche-harden-"));
-    dirs.push(dir);
-    const home = join(dir, "home");
-    mkdirSync(join(home, ".node_modules", "psyche_probe"), { recursive: true });
-    writeFileSync(
-      join(home, ".node_modules", "psyche_probe", "index.js"),
-      "module.exports = 'from-home';",
-    );
-    const harden = join(dir, "harden.cjs");
-    writeFileSync(harden, PSYCHED_HARDEN);
-    const probe =
-      "try { process.stdout.write(require('psyche_probe') + ' ' + process.env.HOME); } catch { process.stdout.write('not-found ' + process.env.HOME); }";
-    const run = (args: string[]) =>
-      spawnSync(process.execPath, [...args, "-e", probe], {
-        cwd: dir,
-        encoding: "utf8",
-        env: { PATH: process.env.PATH ?? "", HOME: home },
-      }).stdout;
-    // Control: without the preload, the home folder is searched.
-    expect(run([])).toBe(`from-home ${home}`);
-    expect(run(["--require", harden])).toBe(`not-found ${home}`);
-  });
+  // The POSIX launcher only (HOME and ~/.node_modules); Windows ships psyched.cmd.
+  it.skipIf(process.platform === "win32")(
+    "psyched-harden.cjs stops require() from reading ~/.node_modules, and keeps HOME",
+    () => {
+      const dir = mkdtempSync(join(tmpdir(), "psyche-harden-"));
+      dirs.push(dir);
+      const home = join(dir, "home");
+      mkdirSync(join(home, ".node_modules", "psyche_probe"), { recursive: true });
+      writeFileSync(
+        join(home, ".node_modules", "psyche_probe", "index.js"),
+        "module.exports = 'from-home';",
+      );
+      const harden = join(dir, "harden.cjs");
+      writeFileSync(harden, PSYCHED_HARDEN);
+      const probe =
+        "try { process.stdout.write(require('psyche_probe') + ' ' + process.env.HOME); } catch { process.stdout.write('not-found ' + process.env.HOME); }";
+      const run = (args: string[]) =>
+        spawnSync(process.execPath, [...args, "-e", probe], {
+          cwd: dir,
+          encoding: "utf8",
+          env: { PATH: process.env.PATH ?? "", HOME: home },
+        }).stdout;
+      // Control: without the preload, the home folder is searched.
+      expect(run([])).toBe(`from-home ${home}`);
+      expect(run(["--require", harden])).toBe(`not-found ${home}`);
+    },
+  );
 });

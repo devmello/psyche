@@ -750,6 +750,8 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
       // A Touch ID card the window cannot confirm yet: start the helper or register its key.
       ...(platform.helper ? { touchIdFix: (fix) => fixTouchId(platform, fix) } : {}),
       ...(platform.helper?.touchId ? { touchIdOnceOnly: true } : {}),
+      // Windows: Settings → Sandbox PC turns it on through main (elevated install, image download).
+      ...(platform.sandboxPc ? { sandboxPc: platform.sandboxPc } : {}),
       // A risky card on a remote window needs this computer's own passkey, or says to answer on the Host.
       ...(remotePresence ? { remotePresence } : {}),
     }),

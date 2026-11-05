@@ -10,6 +10,14 @@
       "types": "./src/index.ts",
       "default": "./src/index.ts"
     },
+    "./platform": {
+      "types": "./src/platform.ts",
+      "default": "./src/platform.ts"
+    },
+    "./host-words": {
+      "types": "./src/host-words.ts",
+      "default": "./src/host-words.ts"
+    },
     "./binding": {
       "types": "./src/binding.ts",
       "default": "./src/binding.ts"

@@ -213,3 +213,98 @@ export function macSigningOptions(
 export function signingIdentity(env: BuildEnv): string | undefined {
   return value(env, "PSYCHE_SIGN_IDENTITY");
 }
+
+/**
+ * Authenticode signing for the Windows build (docs/signing.md "Windows"), gated on the environment
+ * like Developer ID above: with nothing set the build is unsigned and still installs.
+ *
+ *   PFX certificate:
+ *     WINDOWS_CERTIFICATE_FILE (path to the .pfx), WINDOWS_CERTIFICATE_PASSWORD
+ *     WINDOWS_TIMESTAMP_SERVER (optional; default http://timestamp.digicert.com)
+ *   or Azure Trusted Signing, through signtool's dlib:
+ *     AZURE_TRUSTED_SIGNING_ENDPOINT   e.g. https://eus.codesigning.azure.net
+ *     AZURE_TRUSTED_SIGNING_ACCOUNT    the code signing account name
+ *     AZURE_TRUSTED_SIGNING_PROFILE    the certificate profile name
+ *     AZURE_TRUSTED_SIGNING_DLIB       path to Azure.CodeSigning.Dlib.dll
+ *     AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET (read by the dlib itself)
+ *   WINDOWS_SIGNTOOL_PATH (optional): a Windows SDK signtool.exe; Trusted Signing needs one newer
+ *   than the copy @electron/windows-sign vendors.
+ *
+ * The same options go to the packager, which signs every .exe, .dll and .node under the app folder
+ * (Psyche.exe, resources\psyched\runtime\node.exe, the native addons,
+ * resources\win-helper\psyche-helper.exe and psyche-vm-svc.exe, the sandbox PC service), and to the
+ * Squirrel maker (Setup.exe, Update.exe). The bundle is copied in before the packager signs, so a
+ * binary added to resources\ is signed without being listed anywhere; the app also refuses to
+ * install an unsigned psyche-vm-svc.exe in a packaged build.
+ */
+export interface WindowsSigning {
+  certificateFile?: string;
+  certificatePassword?: string;
+  signWithParams?: string;
+  signToolPath?: string;
+  timestampServer: string;
+  description: string;
+  website: string;
+  /** SHA-256 only: SHA-1 Authenticode is long deprecated and Trusted Signing does not offer it. */
+  hashes: string[];
+}
+
+export interface WindowsSigningPlan {
+  kind: "pfx" | "azure-trusted-signing";
+  options: WindowsSigning;
+  /** Trusted Signing: this JSON must be at `file` (signWithParams names it) before signing. */
+  azureMetadata?: { file: string; json: Record<string, string> };
+}
+
+const WIN_SIGN_COMMON = {
+  description: "Psyche",
+  website: "https://github.com/devmello/psyche",
+  hashes: ["sha256"],
+};
+
+/** The Windows signing plan, or undefined for an unsigned build. */
+export function windowsSigning(
+  env: BuildEnv,
+  metadataFile: string,
+): WindowsSigningPlan | undefined {
+  const signToolPath = value(env, "WINDOWS_SIGNTOOL_PATH");
+  const tool = signToolPath ? { signToolPath } : {};
+  const certificateFile = value(env, "WINDOWS_CERTIFICATE_FILE");
+  const certificatePassword = value(env, "WINDOWS_CERTIFICATE_PASSWORD");
+  if (certificateFile && certificatePassword) {
+    return {
+      kind: "pfx",
+      options: {
+        ...WIN_SIGN_COMMON,
+        ...tool,
+        certificateFile,
+        certificatePassword,
+        timestampServer: value(env, "WINDOWS_TIMESTAMP_SERVER") ?? "http://timestamp.digicert.com",
+      },
+    };
+  }
+  const endpoint = value(env, "AZURE_TRUSTED_SIGNING_ENDPOINT");
+  const account = value(env, "AZURE_TRUSTED_SIGNING_ACCOUNT");
+  const profile = value(env, "AZURE_TRUSTED_SIGNING_PROFILE");
+  const dlib = value(env, "AZURE_TRUSTED_SIGNING_DLIB");
+  if (endpoint && account && profile && dlib) {
+    return {
+      kind: "azure-trusted-signing",
+      options: {
+        ...WIN_SIGN_COMMON,
+        ...tool,
+        signWithParams: `/v /dlib "${dlib}" /dmdf "${metadataFile}"`,
+        timestampServer: "http://timestamp.acs.microsoft.com",
+      },
+      azureMetadata: {
+        file: metadataFile,
+        json: {
+          Endpoint: endpoint,
+          CodeSigningAccountName: account,
+          CertificateProfileName: profile,
+        },
+      },
+    };
+  }
+  return undefined;
+}

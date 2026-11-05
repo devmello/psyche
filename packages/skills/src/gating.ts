@@ -1,5 +1,6 @@
 import { accessSync, constants } from "node:fs";
 import { delimiter, join } from "node:path";
+import { hostWords } from "@psyche/protocol/host-words";
 import type { SkillRequires } from "./frontmatter.ts";
 
 /** What gating checks against. Build one per Gateway (or per thread when tools differ). */
@@ -104,7 +105,7 @@ export const TOOL_CAPABILITIES: Readonly<
   "reminders.*": {
     tools: ["reminders_*"],
     label: "reminders",
-    hint: "connect Apple Reminders in Settings → Connectors",
+    hint: "connect Apple Reminders, or Microsoft 365 for To Do, in Settings → Connectors",
   },
   "contacts.*": {
     tools: ["contacts_*"],
@@ -118,14 +119,14 @@ export const TOOL_CAPABILITIES: Readonly<
   },
   "files.*": {
     tools: ["files_*"],
-    label: "your Mac's files",
+    label: `${hostWords().yourDevice}'s files`,
     hint: "turn on Files in Settings → Connectors and share the folder in Settings → File access",
   },
   // Mail and meeting workflows (docs/workflows/mail-and-meetings-2026.md §8.1, §8.4).
   "speech.*": {
     tools: ["speech_*"],
     label: "transcription",
-    hint: "turn on the Mac helper's speech engine in Settings → Voice & dictation",
+    hint: `turn on ${hostWords().helper}'s speech engine in Settings → Voice & dictation`,
   },
   "proposals.*": {
     tools: ["proposals_*"],
@@ -172,9 +173,29 @@ function anyOfText(requirements: readonly string[]): string {
   return `needs ${names.join(" or ")}${hints.length === 0 ? "" : ` (${hints.join("; ")})`}`;
 }
 
+/**
+ * `requires.os` values are Node's `process.platform` names (`darwin`, `linux`, `win32`); the
+ * names people write instead (`macos`, `mac`, `windows`, `win`) mean the same platform.
+ */
+const OS_ALIASES: Record<string, string> = {
+  macos: "darwin",
+  mac: "darwin",
+  osx: "darwin",
+  windows: "win32",
+  win: "win32",
+  win64: "win32",
+};
+
+export function osMatches(wanted: readonly string[], platform: string): boolean {
+  return wanted.some((os) => {
+    const v = os.trim().toLowerCase();
+    return (OS_ALIASES[v] ?? v) === platform;
+  });
+}
+
 export function evaluateGates(requires: SkillRequires, ctx: GateContext): GateResult {
   const missing: string[] = [];
-  if (requires.os.length > 0 && !requires.os.includes(ctx.platform))
+  if (requires.os.length > 0 && !osMatches(requires.os, ctx.platform))
     missing.push(`os: needs ${requires.os.join(" or ")}`);
   for (const bin of requires.bins) if (!ctx.hasBin(bin)) missing.push(`missing binary: ${bin}`);
   if (requires.anyBins.length > 0 && !requires.anyBins.some((b) => ctx.hasBin(b)))

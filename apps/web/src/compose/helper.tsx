@@ -47,9 +47,13 @@ export function useThisDeviceId(platform: ShellPlatform): string | undefined {
 export function DesktopDevicesSettings({ platform }: { platform: ShellPlatform }): ReactElement {
   const helper = useMacHelper(platform);
   const deviceId = useThisDeviceId(platform);
+  // "Restart helper": main's launcher starts it again (the Mac helper or the Windows helper).
+  const launch = platform.helper?.launch?.bind(platform.helper);
   return (
     <div className="flex flex-col gap-4">
-      {helper ? <MacHelperStatusRow state={helper} /> : null}
+      {helper ? (
+        <MacHelperStatusRow state={helper} {...(launch ? { onRestart: launch } : {})} />
+      ) : null}
       <DevicesSection
         {...(deviceId === undefined ? {} : { thisDeviceId: deviceId })}
         {...(platform.helper?.touchId ? { touchId: platform.helper.touchId } : {})}

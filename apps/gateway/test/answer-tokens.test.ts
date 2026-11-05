@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { updateDevice } from "@psyche/db";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
-import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
+import { type ComposedGateway, composeGateway, surfaceOf } from "../src/compose/index.ts";
 import { silentLogger } from "../src/log.ts";
 import { FakeNode } from "./fake-node.ts";
 import { desktopClient, ik, newDeviceKey, type TestClient } from "./helpers.ts";
@@ -80,5 +80,59 @@ describe("approval.created carries the approver's own answer token (issue #50)",
       ik(),
     );
     expect(answered).toMatchObject({ ok: true });
+  });
+
+  it("treats the desktop app on Windows (platform windows) as the desktop surface, as on the Mac", async () => {
+    home = mkdtempSync(join(tmpdir(), "psyche-tokens-"));
+    composed = await composeGateway({
+      env: {},
+      logger: silentLogger,
+      retentionIntervalMs: 0,
+      background: false,
+      config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+      model: { provider: new FakeModelProvider(), model: "fake/model" },
+    });
+    const gw = composed.gateway;
+    node = await FakeNode.connectRemote(gw, {
+      handlers: [
+        {
+          capability: { name: "files.trash", sideEffect: "destructive" },
+          run: () => ({ ok: true }),
+        },
+      ],
+    });
+    const windows = await desktopClient(gw, newDeviceKey(), "desk-windows", "windows");
+    // Before the protocol had `windows` the app paired as `linux`: a surface with no token.
+    const linux = await desktopClient(gw, newDeviceKey(), "desk-linux", "linux");
+    clients.push(windows, linux);
+    expect(surfaceOf(gw.context.db, "desk-windows")).toBe("desktop");
+    expect(surfaceOf(gw.context.db, "desk-linux")).toBe("device:linux");
+
+    const res = await windows.request(
+      "nodes.invoke",
+      { nodeId: node.nodeId, capability: "files.trash", params: { path: "C:\\x" } },
+      ik(),
+    );
+    expect(res).toMatchObject({ ok: false, error: { code: "approval_required" } });
+    const approvalId = (res.error as { details: { approvalId: string } }).details.approvalId;
+    const created = (c: TestClient) =>
+      c.waitForEvent(
+        (e) =>
+          e.event === "approval.created" &&
+          (e.payload as { approval: { id: string } }).approval.id === approvalId,
+      );
+    const token = ((await created(windows)).payload as { answerToken?: string }).answerToken;
+    expect(token).toBeTruthy();
+    expect(
+      ((await created(linux)).payload as { answerToken?: string }).answerToken,
+    ).toBeUndefined();
+    await new Promise((r) => setTimeout(r, 450)); // cards arm after 400 ms
+    expect(
+      await windows.request(
+        "approvals.answer",
+        { approvalId, answerToken: token, decision: "approve", scope: "once" },
+        ik(),
+      ),
+    ).toMatchObject({ ok: true });
   });
 });

@@ -3,10 +3,15 @@ import { type ReactElement, type ReactNode, useCallback, useEffect, useId, useSt
 import { Button } from "../../components/ui/button.tsx";
 import { t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
+import { isWindows } from "../../lib/platform.ts";
 import { cn } from "../../lib/utils.ts";
 import { type MacHelperStatus, MacHelperStatusRow } from "../settings/MacHelperStatus.tsx";
+import { SandboxPcOnboarding } from "../settings/SandboxPcSection.tsx";
+import { SpeechModelRow } from "../settings/SpeechModel.tsx";
 import { CARD, CARD_ROWS, StatusChip, SwitchField } from "../settings/shared.tsx";
 import { keyIdShort, presenceKeyText } from "../settings/TouchIdKeySetup.tsx";
+import type { TccState } from "../settings/types.ts";
+import { WindowsAccessRows } from "../settings/WindowsAccess.tsx";
 import { SandboxStep } from "./SandboxStep.tsx";
 import type { PermissionAnswer, TouchIdSetupPort, TouchIdStatus } from "./types.ts";
 
@@ -37,6 +42,13 @@ function Row({
 }
 
 const hint = "text-callout text-label-secondary";
+
+/** The helper bundled with this app: the Windows helper on Windows, else the Mac helper. */
+const bundledHelperKind = (): string => (isWindows() ? "win-helper" : "mac-helper");
+
+/** An onboarding answer as a grant state: skipped and unavailable read as not checked. */
+const tccOf = (a: PermissionAnswer): TccState =>
+  a === "granted" ? "granted" : a === "denied" ? "denied" : "not_determined";
 
 /**
  * The helper's Touch ID key (security §10), registered once. The key shown is the one the helper
@@ -124,7 +136,7 @@ export function TouchIdRow({
         <p className={hint}>{t("onboarding.safety.touchId.setHint")}</p>
         {identity.keyId ? (
           <p className={hint} data-testid="touch-id-key-id">
-            {presenceKeyText(identity)}{" "}
+            {presenceKeyText(identity, bundledHelperKind())}{" "}
             <code className="font-mono">{keyIdShort(identity.keyId)}</code>
           </p>
         ) : null}
@@ -161,7 +173,7 @@ export function TouchIdRow({
         >
           <p className={hint}>{t("onboarding.safety.touchId.hint")}</p>
           <p className={hint} data-testid="touch-id-key-id">
-            {presenceKeyText(identity)}{" "}
+            {presenceKeyText(identity, bundledHelperKind())}{" "}
             <code className="font-mono">{keyIdShort(identity.keyId)}</code>
           </p>
         </Row>
@@ -277,6 +289,7 @@ export function SafetyStep({
   notifications,
   notificationsBusy = false,
   onAllowNotifications,
+  windowsAccess,
 }: {
   persona: string;
   touchId?: TouchIdSetupPort | undefined;
@@ -286,9 +299,17 @@ export function SafetyStep({
   notifications?: PermissionAnswer | undefined;
   notificationsBusy?: boolean;
   onAllowNotifications?: (() => void) | undefined;
+  /**
+   * The desktop on Windows: what Windows asks for (no Accessibility or Screen Recording grant;
+   * the microphone privacy toggle), shown as information under the approval rows.
+   */
+  windowsAccess?:
+    | { microphone: PermissionAnswer; onOpenMicrophone?: (() => void) | undefined }
+    | undefined;
 }): ReactElement {
   const touch = useTouchId(touchId, helper?.kind, onTouchIdRegistered);
-  const hasRows = touch.visible || (notifications !== undefined && onAllowNotifications);
+  const hasRows =
+    touch.visible || (notifications !== undefined && onAllowNotifications) || windowsAccess;
   return (
     <div className="flex flex-col gap-5" data-testid="onboarding-safety">
       <p className="text-reading text-label-secondary">
@@ -307,6 +328,14 @@ export function SafetyStep({
                 onAllow={onAllowNotifications}
               />
             ) : null}
+            {windowsAccess ? (
+              <WindowsAccessRows
+                persona={persona}
+                microphone={tccOf(windowsAccess.microphone)}
+                onOpenSettings={windowsAccess.onOpenMicrophone}
+              />
+            ) : null}
+            {windowsAccess ? <SpeechModelRow /> : null}
           </div>
         </div>
       ) : null}
@@ -314,6 +343,8 @@ export function SafetyStep({
         {t("onboarding.safety.asks", { name: persona })}
       </p>
       <SandboxDisclosure />
+      {/* Windows desktop: the sandbox PC, turned on once here or later in Settings. */}
+      <SandboxPcOnboarding />
     </div>
   );
 }

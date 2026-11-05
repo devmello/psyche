@@ -107,6 +107,7 @@ export async function desktopConnectParams(opts: {
     deviceId: opts.key.deviceId,
     publicKey: opts.key.publicKey,
     role: "client",
+    // `windows` on Windows: the Gateway gives `macos` and `windows` the desktop approval surface.
     platform: platformFromNode(process.platform),
     deviceFamily: "desktop",
     name: `Psyche Desktop (${hostname()})`.slice(0, 64),

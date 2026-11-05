@@ -188,12 +188,17 @@ public struct RunningTask: Sendable, Equatable, Identifiable {
     public var elapsed: String
     /// When the task started, for a Live Activity's timer. nil when the Gateway did not say.
     public var startedAt: Date?
+    /// When the Gateway expects it to finish, if it says so (it does not yet). Never a guess: nil means the
+    /// Live Activity shows elapsed time and steps only.
+    public var estimatedEnd: Date?
 
     public var fraction: Double { stepCount > 0 ? Double(step) / Double(stepCount) : 0 }
 
     public init(
-        id: String, title: String, step: Int, stepCount: Int, detail: String, elapsed: String, startedAt: Date? = nil
+        id: String, title: String, step: Int, stepCount: Int, detail: String, elapsed: String, startedAt: Date? = nil,
+        estimatedEnd: Date? = nil
     ) {
+        self.estimatedEnd = estimatedEnd
         self.startedAt = startedAt
         self.id = id
         self.title = title

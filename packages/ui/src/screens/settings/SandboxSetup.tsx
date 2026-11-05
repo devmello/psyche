@@ -13,7 +13,9 @@ import { Input } from "../../components/ui/input.tsx";
 import { Label } from "../../components/ui/label.tsx";
 import { useCall, useGatewayQuery } from "../../data/index.ts";
 import { t } from "../../i18n/core.ts";
+import { uiPlatform } from "../../lib/platform.ts";
 import { SafeLink } from "../../links/SafeLink.tsx";
+import { useSlots } from "../../slots.tsx";
 import { SettingsApprovalProvider } from "./SettingsApproval.tsx";
 import { approvalIdOf, messageOf, SettingsApprovalContext, useSettingsForm } from "./shared.tsx";
 
@@ -34,6 +36,8 @@ const SRT_SETTING = "exec.srtPath";
 const APPLE_RELEASES = "https://github.com/apple/container/releases";
 const DOCKER_DESKTOP = "https://www.docker.com/products/docker-desktop/";
 const RESTART_GATEWAY = "launchctl kickstart -k gui/$(id -u)/com.psyche.gateway";
+/** Settings → Sandbox PC (VM mode), where Windows turns on what runs srt's features there. */
+const SANDBOX_PC_SETTINGS = "/settings/vm";
 
 type Setup = MethodResult<"sandbox.setup">;
 type Installer = NonNullable<Setup["installer"]>;
@@ -325,7 +329,44 @@ function SrtPart({ data, onSaved }: { data: Setup | undefined; onSaved: () => vo
   );
 }
 
+/**
+ * Windows: srt has no Windows build, so scripts, command servers and Psyche-made connectors run
+ * in the sandbox PC (VM mode). Its state, and the way to Settings → Sandbox PC to turn it on.
+ */
+function SandboxPcPart({ data }: { data: Setup | undefined }): ReactElement {
+  const { navigate } = useSlots();
+  const pc = data?.sandboxPc;
+  if (pc?.ready === true) {
+    return (
+      <p role="status" className="text-callout text-label-primary">
+        <strong>{t("settings.sandbox.ready")}</strong> {t("settings.sandbox.pc.ready")}
+      </p>
+    );
+  }
+  const on = pc?.enabled === true;
+  return (
+    <>
+      <p className="text-callout font-medium text-label-primary">
+        {on ? t("settings.sandbox.pc.notReady.title") : t("settings.sandbox.pc.title")}
+      </p>
+      <p className="text-callout text-label-secondary">
+        {on ? t("settings.sandbox.pc.notReady.body") : t("settings.sandbox.pc.body")}
+      </p>
+      {navigate !== undefined ? (
+        <span>
+          <Button type="button" size="sm" onClick={() => navigate(SANDBOX_PC_SETTINGS)}>
+            {t("settings.sandbox.pc.open")}
+          </Button>
+        </span>
+      ) : (
+        <p className="text-footnote text-label-tertiary">{t("settings.sandbox.pc.where")}</p>
+      )}
+    </>
+  );
+}
+
 function ContainerPart({ containers }: { containers: Setup["containers"] }): ReactElement {
+  const windows = uiPlatform() === "windows";
   const running = containers.backends.find((b) => b.running);
   const stopped = containers.backends.find((b) => b.supported && b.installed && !b.running);
   const recommended = containers.recommended;
@@ -340,7 +381,13 @@ function ContainerPart({ containers }: { containers: Setup["containers"] }): Rea
         </p>
         <ol className="flex flex-col gap-3">
           <Step n={1} title={t("settings.sandbox.restart.step")}>
-            <CopyCommand command={RESTART_GATEWAY} />
+            {windows ? (
+              <span className="text-callout text-label-secondary">
+                {t("settings.sandbox.restart.reopen")}
+              </span>
+            ) : (
+              <CopyCommand command={RESTART_GATEWAY} />
+            )}
           </Step>
         </ol>
       </>
@@ -362,11 +409,14 @@ function ContainerPart({ containers }: { containers: Setup["containers"] }): Rea
         <p className="text-callout text-label-secondary">
           {t(`settings.sandbox.stopped.${KEY[stopped.kind]}`)}
         </p>
-        <ol className="flex flex-col gap-3">
-          <Step n={1} title={t("settings.sandbox.step.start")}>
-            <CopyCommand command={START_COMMAND[stopped.kind]} />
-          </Step>
-        </ol>
+        {windows && stopped.kind === "docker" ? null : (
+          // Docker Desktop is opened, not started from a terminal, on Windows.
+          <ol className="flex flex-col gap-3">
+            <Step n={1} title={t("settings.sandbox.step.start")}>
+              <CopyCommand command={START_COMMAND[stopped.kind]} />
+            </Step>
+          </ol>
+        )}
       </>
     );
   }
@@ -389,6 +439,15 @@ function ContainerPart({ containers }: { containers: Setup["containers"] }): Rea
           </Step>
           <Step n={2} title={t("settings.sandbox.step.start")}>
             <CopyCommand command={START_COMMAND["apple-container"]} />
+          </Step>
+        </ol>
+      ) : windows ? (
+        // No Homebrew or Colima on Windows: Docker Desktop (on WSL 2) is the way.
+        <ol className="flex flex-col gap-3">
+          <Step n={1} title={t("settings.sandbox.step.orDesktop")}>
+            <SafeLink href={DOCKER_DESKTOP} className={linkClass}>
+              {t("settings.sandbox.step.desktopLink")}
+            </SafeLink>
           </Step>
         </ol>
       ) : (
@@ -445,6 +504,8 @@ export function SandboxSetup({
         <p className="text-footnote text-label-tertiary">{t("settings.sandbox.privacy")}</p>
         {data === undefined && q.loading ? (
           <p className="text-callout text-label-secondary">{t("settings.sandbox.checking")}</p>
+        ) : uiPlatform() === "windows" ? (
+          <SandboxPcPart data={data} />
         ) : (
           <SrtPart data={data} onSaved={q.reload} />
         )}

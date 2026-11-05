@@ -12,6 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { MigrationError, openDb } from "@psyche/db";
+import { isOwnerOnly } from "@psyche/hostfs";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   createSnapshot,
@@ -22,6 +23,7 @@ import {
   openDbWithSnapshot,
   pruneSnapshots,
   readUpdateFailure,
+  releaseAllGatewayLocks,
   restoreSnapshot,
   UPDATE_FAILED_FILE,
 } from "../src/pre-update.ts";
@@ -33,6 +35,7 @@ import {
 
 const roots: string[] = [];
 afterEach(() => {
+  releaseAllGatewayLocks();
   for (const r of roots.splice(0)) rmSync(r, { recursive: true, force: true });
 });
 
@@ -143,7 +146,9 @@ describe("openDbWithSnapshot", () => {
     ).toContain("tag");
 
     const [snap] = listSnapshots(s.home);
-    expect(snap?.dir).toMatch(/backups\/pre-update\/unknown-to-0\.5\.0-2026-11-05T12-01-00-000Z$/);
+    expect(snap?.dir).toMatch(
+      /backups(?:\/|\\)pre-update(?:\/|\\)unknown-to-0\.5\.0-2026-11-05T12-01-00-000Z$/,
+    );
     const m = snap?.manifest;
     expect(m).toMatchObject({
       from: "unknown",
@@ -162,9 +167,7 @@ describe("openDbWithSnapshot", () => {
     // The encrypted store's log is checksummed and private; the rebuildable index is not copied.
     const memory = m?.entries.find((e) => e.rel === "state/memory.sqlite");
     expect(memory?.sidecars?.map((x) => x.suffix)).toEqual(["-wal"]);
-    expect(
-      statSync(join(snap?.dir ?? "", "files", "state", "memory.sqlite-wal")).mode & 0o777,
-    ).toBe(0o600);
+    expect(isOwnerOnly(join(snap?.dir ?? "", "files", "state", "memory.sqlite-wal"))).toBe(true);
     expect(existsSync(join(snap?.dir ?? "", "files", "state", "memory.sqlite-shm"))).toBe(false);
     // The key files that open the stores travel with them.
     expect(readFileSync(join(snap?.dir ?? "", "files", "vault", "slots.json"), "utf8")).toBe(
@@ -191,11 +194,11 @@ describe("openDbWithSnapshot", () => {
     expect(existsSync(join(snap?.dir ?? "", "files", "state", "teach"))).toBe(false);
     expect(existsSync(join(snap?.dir ?? "", "files", "workspace"))).toBe(false);
     // Private: 0700 folders, 0600 files.
-    expect(statSync(snap?.dir ?? "").mode & 0o777).toBe(0o700);
-    expect(statSync(join(snap?.dir ?? "", "files")).mode & 0o777).toBe(0o700);
-    expect(statSync(copy).mode & 0o777).toBe(0o600);
-    expect(statSync(join(snap?.dir ?? "", "manifest.json")).mode & 0o777).toBe(0o600);
-    expect(statSync(join(s.home, "backups", "pre-update")).mode & 0o777).toBe(0o700);
+    expect(isOwnerOnly(snap?.dir ?? "")).toBe(true);
+    expect(isOwnerOnly(join(snap?.dir ?? "", "files"))).toBe(true);
+    expect(isOwnerOnly(copy)).toBe(true);
+    expect(isOwnerOnly(join(snap?.dir ?? "", "manifest.json"))).toBe(true);
+    expect(isOwnerOnly(join(s.home, "backups", "pre-update"))).toBe(true);
   });
 
   it("names the snapshot after the version that last opened the data", async () => {
@@ -244,7 +247,7 @@ describe("openDbWithSnapshot", () => {
       to: "0.5.0",
       migration: M3.slice(0, -4),
     });
-    expect(statSync(join(s.home, UPDATE_FAILED_FILE)).mode & 0o777).toBe(0o600);
+    expect(isOwnerOnly(join(s.home, UPDATE_FAILED_FILE))).toBe(true);
   });
 
   it("does not try again on every restart with the same build, but does with a newer one", async () => {

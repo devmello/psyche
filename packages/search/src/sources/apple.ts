@@ -12,6 +12,10 @@ import type { SourceAdapter, SourceItem, SourcePull } from "./types.ts";
  * Provenance: other people's mail and messages are `untrusted` (the highest prompt-injection
  * risk); the owner's own sent mail and messages are `owner`. Notes, events and reminders are
  * `owner` only when the #1006 trusted-sources check says so (`owned`), else `untrusted`.
+ *
+ * On Windows (`platform: "win32"`) the same adapters read whatever the Gateway hands in for an app
+ * (the Windows helper's Outlook, else Microsoft 365, Google or To Do through `call`), and the
+ * Mac-only sources, Notes and Messages, are not offered at all.
  */
 
 type Obj = Record<string, unknown>;
@@ -65,11 +69,27 @@ export interface AppleSourceDeps {
   owned?: (app: "notes" | "calendar" | "reminders", row: Obj) => boolean;
   /** Loads what `owned` needs (the sources the owner marked as theirs) before a pass reads rows. */
   refreshTrust?: (app: "notes" | "calendar" | "reminders", signal: AbortSignal) => Promise<void>;
+  /**
+   * The host's `process.platform` (default: not Windows). On `win32` Notes and Messages are not
+   * offered, and a source that cannot read says what would feed it there.
+   */
+  platform?: string;
   now: () => number;
 }
 
 const NOT_CONNECTED = "Apple apps are not connected";
 const NO_HELPER = "the Mac helper is not connected";
+/** Why an app's source cannot read now, in the host's own terms. */
+const WINDOWS_NOT_CONNECTED = {
+  mail: "neither Outlook nor a Microsoft 365 or Google account is connected",
+  calendar: "neither Outlook nor a Microsoft 365 or Google account is connected",
+  reminders: "neither Outlook nor Microsoft To Do (Microsoft 365) is connected",
+  notes: NOT_CONNECTED,
+} as const;
+const notConnected = (deps: AppleSourceDeps, app: keyof typeof WINDOWS_NOT_CONNECTED) =>
+  deps.platform === "win32" ? WINDOWS_NOT_CONNECTED[app] : NOT_CONNECTED;
+/** Contacts on Windows come from classic Outlook through the Windows helper. */
+const WINDOWS_NO_CONTACTS = "classic Outlook is not available through the Windows helper";
 const DAY = 86_400_000;
 const provOf = (deps: AppleSourceDeps, app: "notes" | "calendar" | "reminders", row: Obj) =>
   deps.owned?.(app, row) === true ? ("owner" as const) : ("untrusted" as const);
@@ -307,10 +327,10 @@ export function mailAdapter(deps: AppleSourceDeps): SourceAdapter {
 
   return {
     id: "mail",
-    unavailable: () => (deps.call("mail") === undefined ? NOT_CONNECTED : undefined),
+    unavailable: () => (deps.call("mail") === undefined ? notConnected(deps, "mail") : undefined),
     async pull(raw, { signal, limit }): Promise<SourcePull> {
       const call = deps.call("mail");
-      if (call === undefined) throw new Error(NOT_CONNECTED);
+      if (call === undefined) throw new Error(notConnected(deps, "mail"));
       const now = deps.now();
       const cur = mailCursor(raw, now);
       const size = Math.min(limit, 25);
@@ -690,10 +710,10 @@ export function notesAdapter(deps: AppleSourceDeps): SourceAdapter {
   let listed: { rows: Obj[]; at: number } | undefined;
   return {
     id: "notes",
-    unavailable: () => (deps.call("notes") === undefined ? NOT_CONNECTED : undefined),
+    unavailable: () => (deps.call("notes") === undefined ? notConnected(deps, "notes") : undefined),
     async pull(raw, { signal, limit }): Promise<SourcePull> {
       const call = deps.call("notes");
-      if (call === undefined) throw new Error(NOT_CONNECTED);
+      if (call === undefined) throw new Error(notConnected(deps, "notes"));
       await deps.refreshTrust?.("notes", signal);
       const since = isObj(raw) && typeof raw.mod === "number" ? raw.mod : 0;
       const now = deps.now();
@@ -864,10 +884,11 @@ export function calendarAdapter(deps: AppleSourceDeps): SourceAdapter {
   };
   return {
     id: "calendar",
-    unavailable: () => (deps.call("calendar") === undefined ? NOT_CONNECTED : undefined),
+    unavailable: () =>
+      deps.call("calendar") === undefined ? notConnected(deps, "calendar") : undefined,
     async pull(raw, { signal }): Promise<SourcePull> {
       const call = deps.call("calendar");
-      if (call === undefined) throw new Error(NOT_CONNECTED);
+      if (call === undefined) throw new Error(notConnected(deps, "calendar"));
       await deps.refreshTrust?.("calendar", signal);
       const w = isObj(raw) && typeof raw.w === "number" ? raw.w : 0;
       const range = w < CAL_WINDOWS.length ? (CAL_WINDOWS[w] as [number, number]) : CAL_LIVE;
@@ -918,10 +939,11 @@ export function remindersAdapter(deps: AppleSourceDeps): SourceAdapter {
   };
   return {
     id: "reminders",
-    unavailable: () => (deps.call("reminders") === undefined ? NOT_CONNECTED : undefined),
+    unavailable: () =>
+      deps.call("reminders") === undefined ? notConnected(deps, "reminders") : undefined,
     async pull(_raw, { signal }): Promise<SourcePull> {
       const call = deps.call("reminders");
-      if (call === undefined) throw new Error(NOT_CONNECTED);
+      if (call === undefined) throw new Error(notConnected(deps, "reminders"));
       await deps.refreshTrust?.("reminders", signal);
       const items: SourceItem[] = [];
       for (const r of (await all(call, signal)).rows) {
@@ -957,15 +979,17 @@ export function remindersAdapter(deps: AppleSourceDeps): SourceAdapter {
 }
 
 export function appleAdapters(deps: AppleSourceDeps): SourceAdapter[] {
+  const windows = deps.platform === "win32";
   return [
     mailAdapter(deps),
-    messagesAdapter(deps),
-    notesAdapter(deps),
+    // iMessage and Apple Notes exist only on a Mac: no row for them on Windows.
+    ...(windows ? [] : [messagesAdapter(deps), notesAdapter(deps)]),
     calendarAdapter(deps),
     remindersAdapter(deps),
     contactsAdapter({
       helper: deps.contacts ?? (() => undefined),
       ...(deps.contactParent === undefined ? {} : { parentOf: deps.contactParent }),
+      ...(windows ? { noHelper: WINDOWS_NO_CONTACTS } : {}),
       now: deps.now,
     }),
   ];

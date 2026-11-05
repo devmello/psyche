@@ -93,7 +93,10 @@ describe("validateConfig", () => {
 
 describe("nodeExec", () => {
   it("does not crash when the child exits before reading its stdin (EPIPE)", async () => {
-    const r = await nodeExec("/bin/sh", ["-c", "exit 3"], { input: "x".repeat(4 << 20) });
+    const r =
+      process.platform === "win32"
+        ? await nodeExec("cmd.exe", ["/d", "/c", "exit 3"], { input: "x".repeat(4 << 20) })
+        : await nodeExec("/bin/sh", ["-c", "exit 3"], { input: "x".repeat(4 << 20) });
     expect(r.code).toBe(3);
   });
 });

@@ -221,7 +221,7 @@ export const de: Partial<Catalogue> = {
   "chat.composer.placeholder": "Nachricht an {persona} …",
   "chat.composer.label": "Nachricht an {persona}",
   "chat.composer.attach": "Dateien anhängen",
-  "chat.composer.dictate": "Diktieren (fn halten)",
+  "chat.composer.dictate": "Diktieren ({key} halten)",
   "chat.composer.hintIdle": "Tippe / für Befehle",
   "chat.composer.hintFollowUp": "Wird gesendet, wenn {persona} diesen Zug beendet",
   "chat.composer.hintSteer": "Wird jetzt gesendet, um {persona} zu lenken",

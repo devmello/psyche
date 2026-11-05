@@ -1,0 +1,63 @@
+[package]
+name = "psyche-win-dictation"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+publish = false
+description = "Windows dictation (hold-to-talk key watch, focused-app target, text insertion) and speech-to-text for the Psyche Windows helper"
+license = "MIT"
+
+[lib]
+name = "psyche_win_dictation"
+
+[dependencies]
+# The one app identity (`app_id`) every capability of the helper reports as `bundleId`.
+psyche-win-computer = { path = "../win-computer" }
+base64 = "0.22.1"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+unicode-segmentation = "1.13.3"
+# The official Microsoft bindings, pinned exactly (windows 0.62.2 is the latest stable release).
+windows-core = "=0.62.2"
+windows-future = "=0.3.2"
+windows-collections = "=0.3.2"
+
+[dependencies.windows]
+version = "=0.62.2"
+features = [
+    "Foundation",
+    "Globalization",
+    "Media_SpeechRecognition",
+    "Win32_Foundation",
+    "Win32_Globalization",
+    "Win32_Graphics_Gdi",
+    "Win32_Media_Audio",
+    "Win32_Media_KernelStreaming",
+    "Win32_Media_MediaFoundation",
+    "Win32_Media_Multimedia",
+    "Win32_Media_Speech",
+    "Win32_Security",
+    "Win32_Storage_FileSystem",
+    "Win32_Storage_Packaging_Appx",
+    "Win32_System_Com",
+    "Win32_System_Com_StructuredStorage",
+    "Win32_System_DataExchange",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Memory",
+    "Win32_System_Ole",
+    "Win32_System_Registry",
+    "Win32_System_RemoteDesktop",
+    "Win32_System_SystemInformation",
+    "Win32_System_Threading",
+    "Win32_System_Variant",
+    "Win32_UI_Accessibility",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+]
+
+# Tests only: synthesize a speech fixture with Windows.Media.SpeechSynthesis (Psyche itself never
+# does text-to-speech) and drive a WinForms text box over UIA.
+[dev-dependencies.windows]
+version = "=0.62.2"
+features = ["Media_Core", "Media_SpeechSynthesis", "Storage_Streams"]

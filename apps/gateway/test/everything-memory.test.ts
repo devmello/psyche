@@ -11,6 +11,7 @@ import {
   type FeedWidget,
   validateWidgetSpec,
 } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import { FakeClock, FakeModelProvider } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
 import { composeEverything, everythingSettings } from "../src/compose/everything.ts";
@@ -60,6 +61,13 @@ function setup(
     ...(over.readState === undefined ? {} : { readState: over.readState }),
     ...(over.announce === undefined ? {} : { announce: over.announce }),
   });
+  // The pass keeps a read-only connection to the search index until the part stops: close it
+  // before the folder goes (Windows cannot delete a file that is still open).
+  const removeDir = tmp.cleanup;
+  tmp.cleanup = () => {
+    void e.part().stop?.();
+    removeDir();
+  };
   return { clock, db, graph, provider, e, tmp };
 }
 
@@ -904,7 +912,10 @@ describe("Run now and the scheduled job", () => {
     expect(e.job.matches({ prompt: "[psyche:daily-brief daily]", kind: "cron" })).toBe(false);
     // The test clock reads 03:00 UTC, so a scheduled run is inside quiet hours but the Mac is in use.
     const waiting = await e.job.run(req("schedule"));
-    expect(waiting).toEqual({ status: "no_reply", summary: "Waiting: you are using the Mac." });
+    expect(waiting).toEqual({
+      status: "no_reply",
+      summary: `Waiting: you are using ${hostWords().theDevice}.`,
+    });
     expect(provider.requests).toHaveLength(0);
     provider.enqueue(empty);
     const manual = await e.job.run(req("manual"));

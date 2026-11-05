@@ -1,5 +1,6 @@
-import { readFileSync, statSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { isOwnerOnly } from "@psyche/hostfs";
 import { PsycheError } from "@psyche/protocol";
 import { describe, expect, it } from "vitest";
 import { AuthorKeyStore } from "../src/authors.ts";
@@ -119,8 +120,8 @@ describe("rotating the owner's author key", () => {
     const after = readFileSync(store.path, "utf8");
     expect(after).not.toContain(oldD);
     expect(readFileSync(store.rotationPath, "utf8")).not.toContain(oldD);
-    expect(statSync(store.path).mode & 0o077).toBe(0);
-    expect(statSync(store.rotationPath).mode & 0o077).toBe(0);
+    expect(isOwnerOnly(store.path)).toBe(true);
+    expect(isOwnerOnly(store.rotationPath)).toBe(true);
     expect(store.chain()).toHaveLength(1);
     expect(store.retiredKeyIds()).toEqual([first.signer.keyId]);
     // The new key's bundles carry the statement; it verifies for anyone.

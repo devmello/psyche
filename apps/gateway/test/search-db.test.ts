@@ -16,13 +16,17 @@ const tmp = () => {
   dirs.push(d);
   return d;
 };
+// Databases close before their folder goes: Windows cannot delete a file that is still open.
+const dbs: Array<{ close(): void }> = [];
 afterEach(() => {
+  for (const db of dbs.splice(0)) db.close();
   for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
 });
 
 function fixture(encrypt: boolean | undefined) {
   const dir = tmp();
   const db = openDb(join(dir, "psyche.sqlite"));
+  dbs.push(db);
   if (encrypt !== undefined) setSetting(db, SEARCH_ENCRYPT_SETTING, encrypt);
   const keyPath = join(dir, "vault.key");
   writeFileSync(keyPath, "b".repeat(64), { mode: 0o600 });

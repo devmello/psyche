@@ -3,7 +3,7 @@ import { join } from "node:path";
 import type { Widget } from "@psyche/protocol";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import type { MockGateway } from "../src/data/mock-gateway.ts";
 import { StoryWorld } from "../src/stories/harness.tsx";
 import {
@@ -33,6 +33,18 @@ function mount(widgets: Widget[], id: string) {
   );
   return { ref, ...view };
 }
+
+// The widget frame, its charts and images are lazy chunks. Load them once up front: under the
+// full parallel suite their first transform took longer than findBy's 1 s, so the first test
+// of each file timed out on the cold import rather than on anything it renders.
+beforeAll(async () => {
+  await Promise.all([
+    import("../src/widgets/WidgetView.tsx"),
+    import("../src/widgets/WidgetDraft.tsx"),
+    import("../src/widgets/WidgetChart.tsx"),
+    import("../src/widgets/WidgetImage.tsx"),
+  ]);
+}, 60_000);
 
 describe("widget rendering", () => {
   it("loads by id through widgets.get and renders host chrome, progress and checklist roles", async () => {

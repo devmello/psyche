@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_DICTATION_SETTINGS,
   type HudState,
@@ -12,6 +12,10 @@ import {
   parseVoiceKey,
   type ShortcutRegistry,
 } from "../../src/main/dictation/service.ts";
+
+// These tests use the macOS keys, where fn, Right Option and Right Command are three keys; on
+// Windows fn and Right Option share Right Alt (dictation-windows.test.ts). Hoisted by Vitest.
+vi.hoisted(() => Object.defineProperty(process, "platform", { value: "darwin" }));
 
 const notes = { pid: 11, bundleId: "com.apple.Notes", appName: "Notes", insertable: true };
 
@@ -257,8 +261,11 @@ describe("system-wide dictation controller (J9, Q2)", () => {
       }),
     ).toEqual({ enabled: false, key: "rightOption", mode: "toggle", hotkey: "Control+Alt+D" });
     expect(
-      parseDictationSettings({ "voice.pushToTalk": "capsLock", "voice.mode": 3 }),
+      parseDictationSettings({ "voice.pushToTalk": "capsLock", "voice.mode": 3 }, "darwin"),
     ).toMatchObject({ key: "fn", mode: "hold" });
+    expect(parseDictationSettings({ "voice.pushToTalk": "Caps" }, "win32")).toMatchObject({
+      key: "rightCtrl",
+    });
   });
 });
 

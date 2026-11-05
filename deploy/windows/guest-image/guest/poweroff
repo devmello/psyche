@@ -1,0 +1,8 @@
+#!/bin/sh
+# /sbin/poweroff, /sbin/halt, /sbin/shutdown, /sbin/reboot: ask psyche-init (PID 1) to stop the
+# guest. The kernel runs /sbin/poweroff when the Hyper-V shutdown integration service asks for an
+# orderly power off (hv_utils), so this is what makes "stop VM" clean.
+case "$(basename "$0")" in
+  reboot) kill -USR1 1 ;;
+  *) kill -USR2 1 ;;
+esac

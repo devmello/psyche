@@ -548,6 +548,29 @@ describe("a recording made in a Mac app (teach by showing, phase 2)", () => {
     expect(draft.steps.at(-1)?.summary).toContain("subject");
   });
 
+  it("a recording in a Windows app says so, keeps the historical marker and names the executable", () => {
+    const { d } = appDrafts();
+    const win = { bundleId: "notepad.exe", name: "Notepad" };
+    const draft = d.proposeFromRecording({
+      title: "Save a note",
+      steps: [
+        {
+          id: "a1",
+          kind: "app_menu",
+          app: win,
+          role: "menuitem",
+          name: "Save",
+          path: ["File", "Save"],
+        },
+      ],
+    });
+    expect(draft.recordedIn).toBe("mac_app");
+    expect(draft.text).toContain("in the Windows app with the app id `notepad.exe`");
+    expect(draft.text).toContain("recordedIn: mac_app");
+    expect(draft.text).not.toContain("Mac app");
+    expect(draft.text).not.toContain("bundle id");
+  });
+
   it("a browser recording is marked as one", () => {
     const { d } = drafts();
     expect(d.proposeFromRecording({ title: "Export", steps: steps() }).recordedIn).toBe("browser");

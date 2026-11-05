@@ -1,0 +1,13 @@
+{
+  "version": "0.1.0",
+  "gatewayPort": 7980,
+  "controlPort": 7000,
+  "sessionDiskGiB": 8,
+  "kernelCmdline": "console=ttyS0,115200 loglevel=4 panic=10 net.ifnames=0 random.trust_cpu=on psyche.hostname=psyche-pc",
+  "resources": {
+    "minMemoryMiB": 1024,
+    "recommendedMemoryMiB": 2048,
+    "minCpus": 1,
+    "recommendedCpus": 2
+  }
+}

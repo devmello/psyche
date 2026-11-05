@@ -1,5 +1,5 @@
 import { type Static, Type } from "@sinclair/typebox";
-import { IsoDateTime, Nullable, StringEnum } from "../common.ts";
+import { ABSOLUTE_HOST_PATH_PATTERN, IsoDateTime, Nullable, StringEnum } from "../common.ts";
 import { defineMethod } from "./define.ts";
 
 /**
@@ -19,7 +19,7 @@ export const FILE_LIST_PAGE = 500;
 export const FileSourcePath = Type.String({
   minLength: 2,
   maxLength: 4096,
-  pattern: "^/",
+  pattern: ABSOLUTE_HOST_PATH_PATTERN,
   description: "an absolute path in a granted folder",
 });
 

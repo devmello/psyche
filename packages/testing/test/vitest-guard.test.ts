@@ -1,9 +1,12 @@
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { fixtureSecret } from "../src/index.ts";
 import { SECRET_LEAK_SETUP_FILE, secretLeakGuard } from "../src/vitest.ts";
+
+const require = createRequire(import.meta.url);
 
 describe("vitest secret-leak guard", () => {
   it("plugin adds an existing setup file", () => {
@@ -15,10 +18,15 @@ describe("vitest secret-leak guard", () => {
 
   it("fails exactly the test that leaked, without printing the value", () => {
     const dir = join(import.meta.dirname, "guard-fixture");
+    // Vitest's own CLI with this Node: no `pnpm` lookup (on Windows only an `.exe` on PATH can be
+    // spawned without a shell, and a stray pnpm that runs in the package root would pick up this
+    // package's config and run this test again, recursively), and an absolute config and root.
+    const vitest = join(dirname(require.resolve("vitest/package.json")), "vitest.mjs");
     let output = "";
     let status = 0;
     try {
-      output = execFileSync("pnpm", ["exec", "vitest", "run", "--config", "vitest.config.ts"], {
+      const args = [vitest, "run", "--config", join(dir, "vitest.config.ts"), "--root", dir];
+      output = execFileSync(process.execPath, args, {
         cwd: dir,
         encoding: "utf8",
         stdio: "pipe",

@@ -58,6 +58,7 @@ import {
   MemoryStoreStatus,
   PersonaIdentity,
 } from "../schemas/memory.ts";
+import { WorkReminderList } from "../schemas/memory-work.ts";
 import { defineMethod, nextCursor, pageParams } from "./define.ts";
 
 /** `memory.*` (architecture §4.8; data model §7). Paths are relative to the workspace. */
@@ -596,6 +597,13 @@ export const MemoryMethods = {
     scope: "operator.read",
     description:
       "An item's timeline, newest first: interactions, fact history (status, deadline, next step, where the owner stopped, progress) and loops. A project or course also lists its assignments' rows. Every row carries a citation chip; third-party text is data.",
+  }),
+  "memory.work.lists": defineMethod({
+    params: Type.Object({}),
+    result: Type.Object({ lists: Type.Array(WorkReminderList) }),
+    scope: "operator.read",
+    description:
+      "The Reminders lists work tracking can follow, from every connected Reminders backend through its connector (Apple Reminders or Outlook tasks, Microsoft To Do). Lists only: no reminder is read. A backend that cannot answer is left out.",
   }),
   "memory.work.history": defineMethod({
     params: Type.Object({

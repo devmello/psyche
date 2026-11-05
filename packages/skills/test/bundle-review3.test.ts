@@ -258,7 +258,8 @@ describe("L4 and L5: notices have their own caps, and can be previewed", () => {
       ring.setState(`sha256:${n.toString(16).padStart(64, "0")}`, "revoked");
     const real = authorKey("Real");
     expect(ring.observe(real.author).keyId).toBe(real.author.keyId);
-  });
+    // Hundreds of owner-only file writes: slow on Windows' file system, not a hang.
+  }, 60_000);
 
   it("a preview says what the notice would do and changes nothing; it refuses what applying would", async () => {
     const o = await owner();

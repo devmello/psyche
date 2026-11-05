@@ -4,7 +4,16 @@ import { Readable } from "node:stream";
 import { MockGateway } from "@psyche/web/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { run } from "../src/cli.ts";
-import { cleanupTempDirs, closedPort, err, makeDeps, out, runJson, tempDir } from "./helpers.ts";
+import {
+  cleanupTempDirs,
+  closedPort,
+  err,
+  makeDeps,
+  out,
+  POSIX_MODES,
+  runJson,
+  tempDir,
+} from "./helpers.ts";
 
 const PASS = "correct horse battery";
 const _FAST = { kind: "passphrase" as const, passphrase: PASS, scryptLogN: 10 };
@@ -42,7 +51,7 @@ function fixtureHome(home = join(tempDir(), "home")): string {
 function expectRestored(home: string): void {
   for (const [rel, content] of Object.entries(INCLUDED)) {
     expect(readFileSync(join(home, rel)), rel).toEqual(Buffer.from(content));
-    expect(statSync(join(home, rel)).mode & 0o777, rel).toBe(0o600);
+    if (POSIX_MODES) expect(statSync(join(home, rel)).mode & 0o777, rel).toBe(0o600);
   }
   for (const dir of [
     "state",
@@ -52,7 +61,7 @@ function expectRestored(home: string): void {
     "library",
     "audit",
   ]) {
-    expect(statSync(join(home, dir)).mode & 0o777, dir).toBe(0o700);
+    if (POSIX_MODES) expect(statSync(join(home, dir)).mode & 0o777, dir).toBe(0o700);
   }
   for (const rel of Object.keys(EXCLUDED)) expect(existsSync(join(home, rel)), rel).toBe(false);
 }
@@ -76,7 +85,7 @@ describe("backup commands", () => {
     );
     expect(c.code).toBe(0);
     expect(c.json).toMatchObject({ file, encrypted: true, files: Object.keys(INCLUDED).length });
-    expect(statSync(file).mode & 0o777).toBe(0o600);
+    if (POSIX_MODES) expect(statSync(file).mode & 0o777).toBe(0o600);
 
     // PSYCHE_BACKUP_PASSPHRASE as the alternative to stdin.
     const verify = makeDeps({ extraEnv: { PSYCHE_BACKUP_PASSPHRASE: PASS } });

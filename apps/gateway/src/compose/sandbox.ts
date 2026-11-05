@@ -4,6 +4,7 @@ import {
   type DecisionContext,
   PsycheError,
   type SandboxBackend,
+  type SandboxPcStatus,
   type SandboxScope,
   type SandboxSrtInstaller,
 } from "@psyche/protocol";
@@ -70,6 +71,8 @@ export interface SandboxSetup {
   containers?: boolean;
   /** How `sandbox.setup` looks at this Mac; tests mock the runtime here. */
   detectDeps?: DetectDeps;
+  /** Whose rules apply to the sandbox PC report (tests; default this process's platform). */
+  platform?: NodeJS.Platform;
   /** Where `srt` is (shared with the MCP part), for `sandbox.status` and `sandbox.setup`. */
   srt?: SrtResolver;
   /** `sandbox.installSrt`: the fetch and unpack (tests pass fakes) and the Node that runs srt. */
@@ -88,6 +91,8 @@ export function sandboxSetupHandler(
   srt: SrtResolver | undefined,
   deps?: DetectDeps,
   installer?: () => SandboxSrtInstaller,
+  /** Windows: the sandbox PC, where srt's features run there (`sandboxPcStatus`). */
+  sandboxPc?: () => SandboxPcStatus | undefined,
 ) {
   return {
     run: async () => {
@@ -106,9 +111,11 @@ export function sandboxSetupHandler(
         ? ("apple-container" as const)
         : ("docker" as const);
       const s = srt === undefined ? NO_SRT : await srt.inspect();
+      const pc = sandboxPc?.();
       return {
-        ready: s.available,
+        ready: s.available || pc?.ready === true,
         srt: s,
+        ...(pc === undefined ? {} : { sandboxPc: pc }),
         ...(installer === undefined ? {} : { installer: installer() }),
         containers: {
           recommended,
@@ -138,6 +145,22 @@ export function srtInstallerInfo(
     updateAvailable: installedVersion !== null && installedVersion !== SRT_VERSION,
   };
 }
+
+/**
+ * On Windows, where srt cannot run, the sandbox PC is what runs scripts, command servers and
+ * Psyche-made connectors: on (`vm.enabled`), and ready when its guest can run them now.
+ * Elsewhere undefined.
+ */
+export function sandboxPcStatus(
+  vm: Pick<ComposedVm, "settings" | "runner"> | undefined,
+  platform: NodeJS.Platform = process.platform,
+): SandboxPcStatus | undefined {
+  if (platform !== "win32") return undefined;
+  if (vm === undefined) return { enabled: false, ready: false };
+  return { enabled: vm.settings().enabled, ready: vm.runner.canIsolate() };
+}
+
+const withPc = (pc: SandboxPcStatus | undefined) => (pc === undefined ? {} : { sandboxPc: pc });
 
 const NO_SRT: SrtStatus = {
   available: false,
@@ -257,8 +280,13 @@ export function composeSandbox(
     const first = (await runner.backends().catch(() => []))[0];
     return first === "apple-container" || first === "docker" || first === "podman" ? first : "none";
   };
-  const setupHandler = sandboxSetupHandler(backend, setup.srt, setup.detectDeps, () =>
-    srtInstallerInfo(services),
+  const pc = () => sandboxPcStatus(setup.vm, setup.platform);
+  const setupHandler = sandboxSetupHandler(
+    backend,
+    setup.srt,
+    setup.detectDeps,
+    () => srtInstallerInfo(services),
+    pc,
   );
   return {
     runner,
@@ -276,6 +304,7 @@ export function composeSandbox(
             sandbox: null,
             egress: true,
             ...(setup.srt === undefined ? {} : { srt: await setup.srt.inspect() }),
+            ...withPc(pc()),
           };
         },
       },
@@ -287,6 +316,15 @@ export function composeSandbox(
           const log = (level: "info" | "warn", msg: string, f: Record<string, string>) =>
             services.logger?.log(level, msg, { device: call.identity.deviceId, ...f });
           const nodePath = setup.srtInstall?.nodePath ?? process.execPath;
+          if (process.platform === "win32" && setup.srtInstall?.deps === undefined) {
+            // srt sandboxes with Seatbelt (macOS) and bubblewrap (Linux); there is no Windows
+            // build. Its features run in the sandbox PC there instead.
+            throw new PsycheError(
+              "unavailable",
+              "The lightweight sandbox (srt) runs on macOS and Linux only; on Windows, scripts and command servers run in the sandbox PC (Settings → Sandbox PC)",
+              { details: { reason: "unsupported_platform" } },
+            );
+          }
           log("info", "sandbox.srt.install.start", { package: SRT_PACKAGE, version: SRT_VERSION });
           let result: Awaited<ReturnType<typeof installSrt>>;
           try {
@@ -371,9 +409,16 @@ export async function composeSandboxIfAvailable(
           sandbox: null,
           egress: false,
           ...(setup.srt === undefined ? {} : { srt: await setup.srt.inspect() }),
+          ...withPc(sandboxPcStatus(undefined, setup.platform)),
         }),
       },
-      "sandbox.setup": sandboxSetupHandler(async () => "none", setup.srt, setup.detectDeps),
+      "sandbox.setup": sandboxSetupHandler(
+        async () => "none",
+        setup.srt,
+        setup.detectDeps,
+        undefined,
+        () => sandboxPcStatus(undefined, setup.platform),
+      ),
     },
   };
 }

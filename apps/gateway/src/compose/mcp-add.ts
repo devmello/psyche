@@ -19,6 +19,7 @@ import {
   PsycheError,
 } from "@psyche/protocol";
 import type { HandlerDef } from "../context.ts";
+import { TURN_ON_SANDBOX_PC } from "./guest-sandbox.ts";
 import type { ComposeServices } from "./services.ts";
 
 /**
@@ -215,14 +216,24 @@ export function mcpAdder(deps: McpAddDeps): McpAdder {
         launcher.isolation === "none" ||
         (launcher.ready !== undefined && !(await launcher.ready())))
     ) {
-      throw new PsycheError(
-        "unavailable",
-        "This Gateway has no sandbox for command servers (srt or containers); only URL servers can be added",
-        { details: { reason: "no_launcher" } },
-      );
+      // On Windows the sandbox is the sandbox PC: the fix is turning it on (`need: sandbox`).
+      throw launcher?.isolation === "vm"
+        ? new PsycheError("unavailable", `Command servers: ${TURN_ON_SANDBOX_PC}`, {
+            details: { reason: "no_launcher", missing: { need: "sandbox" } },
+          })
+        : new PsycheError(
+            "unavailable",
+            "This Gateway has no sandbox for command servers (srt or containers); only URL servers can be added",
+            { details: { reason: "no_launcher" } },
+          );
     }
-    if (config.madeBy === "psyche" && launcher?.isolation !== "srt") {
-      // The code is read from the Gateway's disk under srt; a container has no such mount.
+    if (
+      config.madeBy === "psyche" &&
+      launcher?.isolation !== "srt" &&
+      launcher?.isolation !== "vm"
+    ) {
+      // The code is read from the Gateway's disk under srt, or copied into the sandbox PC's
+      // guest; a container has no such mount.
       throw new PsycheError("unavailable", "Psyche-made connectors run under srt only", {
         details: { reason: "no_launcher" },
       });

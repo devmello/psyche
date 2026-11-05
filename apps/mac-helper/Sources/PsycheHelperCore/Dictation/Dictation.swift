@@ -151,6 +151,9 @@ public enum DictationInserter {
             message = "The focused field in \(app) is a password field. Psyche never types into password fields."
         case .notEditable: message = "The focused element does not take text."
         case .focusChanged: message = "Focus moved to another app while you were dictating; nothing was inserted."
+        // Only the Windows helper reports this (an app running as administrator); the shared
+        // protocol enum carries it, so the switch must name it.
+        case .elevatedTarget: message = "The focused app runs with higher privileges; nothing was inserted."
         }
         var details: [String: JSONValue] = ["refusal": .string(r.rawValue)]
         if let target, let app = target.bundleID { details["bundleId"] = .string(app) }
@@ -198,12 +201,14 @@ public struct DictationKeyTracker: Sendable {
 
     public init(key: DictationKey) { self.key = key }
 
-    /// Virtual key code of the watched modifier (kVK_Function, kVK_RightOption, kVK_RightCommand).
+    /// Virtual key code of the watched modifier (kVK_Function, kVK_RightOption, kVK_RightCommand);
+    /// -1 for a Windows-only key name, which `DictationWatchPlan` refuses before a tracker exists.
     public var keyCode: Int64 {
         switch key {
         case .fn: 63
         case .rightOption: 61
         case .rightCommand: 54
+        default: -1
         }
     }
 
@@ -213,8 +218,12 @@ public struct DictationKeyTracker: Sendable {
         case .fn: 0x0080_0000  // NX_SECONDARYFNMASK
         case .rightOption: 0x0000_0040  // NX_DEVICERALTKEYMASK
         case .rightCommand: 0x0000_0010  // NX_DEVICERCMDKEYMASK
+        default: 0
         }
     }
+
+    /// The keys a Mac keyboard has; the protocol's other names are the Windows helper's.
+    public static let macKeys: Set<DictationKey> = [.fn, .rightOption, .rightCommand]
 
     /// Feeds one `flagsChanged`; returns the new state when it changed.
     public mutating func flagsChanged(keyCode: Int64, flags: UInt64) -> Bool? {
@@ -267,6 +276,10 @@ public enum DictationWatchPlan {
     /// The keys a `dictation.watch` call asks for; empty means stop. `keys` wins over `key`; its
     /// keys and roles must differ. A single `key` has no role, so its events stay as before.
     public static func keys(_ p: DictationWatchParams) throws -> [DictationWatchedKey] {
+        let asked = p.keys.map { $0.map(\.key) } ?? p.key.map { [$0] } ?? []
+        if let other = asked.first(where: { !DictationKeyTracker.macKeys.contains($0) }) {
+            throw CapabilityError.invalidParams("\(other.rawValue) is a Windows key; a Mac watches fn, rightOption or rightCommand", field: p.keys == nil ? "key" : "keys")
+        }
         guard let keys = p.keys else { return p.key.map { [DictationWatchedKey(key: $0)] } ?? [] }
         guard (1...2).contains(keys.count) else {
             throw CapabilityError.invalidParams("keys holds one or two keys", field: "keys")

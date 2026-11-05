@@ -4,12 +4,18 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { openDb } from "@psyche/db";
 import { afterEach, describe, expect, it } from "vitest";
-import { listSnapshots, openDbWithSnapshot, preUpdateDir } from "../src/pre-update.ts";
+import {
+  listSnapshots,
+  openDbWithSnapshot,
+  preUpdateDir,
+  releaseAllGatewayLocks,
+} from "../src/pre-update.ts";
 
 /** Round-3 review: crash loops, and a release that ran in between. */
 
 const roots: string[] = [];
 afterEach(() => {
+  releaseAllGatewayLocks();
   for (const r of roots.splice(0)) rmSync(r, { recursive: true, force: true });
 });
 

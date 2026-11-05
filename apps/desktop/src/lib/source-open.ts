@@ -1,5 +1,5 @@
 import { realpathSync, statSync } from "node:fs";
-import { sep } from "node:path";
+import { isAbsolute, parse, sep } from "node:path";
 import { IPC, IpcPayloadError, rec, str } from "./ipc.ts";
 
 /**
@@ -70,6 +70,16 @@ const inside = (child: string, root: string): boolean =>
   child === root || child.startsWith(root.endsWith(sep) ? root : root + sep);
 
 /**
+ * An absolute path on this OS (`/…` on macOS, `C:\…` or `\\server\share\…` on Windows), never
+ * a Windows device path (`\\?\`, `\\.\`) and never with a NUL.
+ */
+function absoluteLocal(p: unknown, platform = process.platform): p is string {
+  if (typeof p !== "string" || p.includes("\0")) return false;
+  if (platform !== "win32") return p.startsWith("/");
+  return isAbsolute(p) && !/^[\\/]{2}[?.][\\/]/.test(p) && /^(?:[A-Za-z]:[\\/]|\\\\)/.test(p);
+}
+
+/**
  * The real path of `path` when it is an existing regular file inside one of `roots` (granted
  * folders, resolved too, so a link from inside to outside does not pass). Undefined otherwise.
  */
@@ -78,12 +88,12 @@ export function grantedFilePath(
   roots: unknown,
   fs: SourceOpenFs = nodeFs,
 ): string | undefined {
-  if (typeof path !== "string" || !path.startsWith("/") || path.includes("\0")) return undefined;
+  if (!absoluteLocal(path)) return undefined;
   if (!Array.isArray(roots) || roots.length === 0 || roots.length > 64) return undefined;
   const realRoots = roots.flatMap((r) => {
-    const x =
-      typeof r === "string" && r.startsWith("/") && !r.includes("\0") ? real(fs, r) : undefined;
-    return x === undefined || x === sep ? [] : [x];
+    const x = absoluteLocal(r) ? real(fs, r) : undefined;
+    // A volume root (`/`, `C:\`) is never a granted folder.
+    return x === undefined || x === parse(x).root ? [] : [x];
   });
   const file = real(fs, path);
   if (file === undefined || !realRoots.some((r) => inside(file, r))) return undefined;

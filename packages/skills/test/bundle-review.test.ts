@@ -1,6 +1,5 @@
 import { generateKeyPairSync, sign } from "node:crypto";
 import {
-  chmodSync,
   existsSync,
   mkdirSync,
   readdirSync,
@@ -10,6 +9,8 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
+import { restrictToOwner } from "@psyche/hostfs";
+import { exposeToOthers } from "@psyche/hostfs/testing";
 import { PsycheError } from "@psyche/protocol";
 import { describe, expect, it } from "vitest";
 import { AuthorKeyStore, AuthorRing, authorNameSkeleton } from "../src/authors.ts";
@@ -969,9 +970,9 @@ describe("L7: the author key file is read without links and with the right mode"
     const { signer } = store.loadOrCreate("Ada");
     expect(store.peek()?.keyId).toBe(signer.author.keyId);
     const path = join(home, "identity", "author.key");
-    chmodSync(path, 0o644);
+    exposeToOthers(path);
     expect(() => store.peek()).toThrow(/readable by others/);
-    chmodSync(path, 0o600);
+    restrictToOwner(path);
     expect(store.peek()?.name).toBe("Ada");
     // A link in its place, even one to a good key.
     const real = join(home, "identity", "real.key");

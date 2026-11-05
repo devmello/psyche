@@ -161,23 +161,30 @@ export function takeExclusiveFileLock(
     };
   }
   const file = `${path}.sqlite`;
-  let db: Database.Database;
+  let db: Database.Database | undefined;
   try {
     db = new Database(file, { timeout: 0 });
     db.pragma("locking_mode = EXCLUSIVE");
     db.exec("BEGIN EXCLUSIVE; CREATE TABLE IF NOT EXISTS gateway_lock (x INTEGER); COMMIT;");
   } catch (err) {
+    // A refused attempt must not keep the file open: Windows cannot delete it while it is.
+    try {
+      db?.close();
+    } catch {
+      // Already closed.
+    }
     const code = (err as { code?: string }).code;
     if (code === "SQLITE_BUSY" || code === "SQLITE_LOCKED") return null;
     throw err;
   }
+  const held = db as Database.Database;
   return {
     impl,
     writeNote(text) {
       writeFileSync(path, text, { mode: 0o600 });
     },
     release() {
-      db.close();
+      held.close();
     },
   };
 }

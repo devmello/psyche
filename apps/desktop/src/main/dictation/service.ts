@@ -1,11 +1,14 @@
+import { isHostHelperKind } from "../helper-launcher.ts";
 import type { VoiceKeySource } from "../screen-ask/voice-key.ts";
 import {
   DEFAULT_DICTATION_SETTINGS,
   DICTATION_SETTING_KEYS,
   type DictationKey,
   type DictationSettings,
+  holdKeyOf,
   parseDictationSettings,
   type SystemDictation,
+  sameKey,
 } from "./controller.ts";
 import { KeyGesture } from "./key-gesture.ts";
 
@@ -13,12 +16,25 @@ import { KeyGesture } from "./key-gesture.ts";
 export const ACCESSIBILITY_SETTINGS_URL =
   "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility";
 
+/**
+ * The settings page Settings → Voice & dictation opens when dictation cannot listen. Windows has
+ * no grant for a keyboard hook; what can stop dictation there is the microphone privacy switch.
+ */
+export function dictationSettingsUrl(platform: NodeJS.Platform = process.platform): string {
+  return platform === "win32" ? "ms-settings:privacy-microphone" : ACCESSIBILITY_SETTINGS_URL;
+}
+
 /** What Settings → Voice & dictation shows (`SystemDictationStatus` in @psyche/web/platform). */
 export interface DictationStatus {
   helper: "online" | "offline";
   accessibility: "granted" | "missing" | "unknown";
   watching: boolean;
   hotkeyTaken?: string;
+  /**
+   * Windows: the keyboard layout in use has AltGr, so Right Alt types characters there and makes
+   * a poor hold-to-talk key (Settings warns). Absent when unknown or not Windows.
+   */
+  altGrLayout?: boolean;
 }
 
 /** Electron's `globalShortcut`, narrowed for tests. */
@@ -42,6 +58,10 @@ export interface DictationServiceOptions {
   onKeyDoubleTap?: () => void;
   /** Talk with Psyche was turned on or off (its key is armed or not): the pop-up's window. */
   onVoiceEnabled?: (on: boolean) => void;
+  /** Default `process.platform`: which key names share a physical key (Windows). */
+  platform?: NodeJS.Platform;
+  /** Windows: whether the keyboard layout in use has AltGr (`psyche-helper --keyboard-layout`). */
+  altGrLayout?: () => Promise<boolean | undefined>;
 }
 
 /** Settings that arm the voice conversation key (spec §6.4). */
@@ -50,17 +70,16 @@ export const VOICE_KEY_SETTING_KEYS = [
   "voice.conversation.key",
 ] as const;
 
-const VOICE_KEYS: readonly DictationKey[] = ["fn", "rightOption", "rightCommand"];
-
 /** The voice key, or null when voice conversation is off or the key collides with dictation's. */
 export function parseVoiceKey(
   values: Record<string, unknown>,
   dictation: DictationSettings,
+  platform: NodeJS.Platform = process.platform,
 ): DictationKey | null {
   if (values["voice.conversation.enabled"] !== true) return null;
-  const raw = values["voice.conversation.key"];
-  const key = VOICE_KEYS.includes(raw as DictationKey) ? (raw as DictationKey) : "rightCommand";
-  return dictation.enabled && key === dictation.key ? null : key;
+  const key = holdKeyOf(values["voice.conversation.key"], "voice", platform);
+  // On Windows `fn` and `rightOption` are both Right Alt: that is a collision too.
+  return dictation.enabled && sameKey(key, dictation.key, platform) ? null : key;
 }
 
 /**
@@ -126,8 +145,14 @@ export class DictationService implements VoiceKeySource {
     } catch (err) {
       this.#o.warn?.(`could not read voice settings: ${String(err)}`);
     }
-    const settings = parseDictationSettings(values);
-    this.#voiceKey = parseVoiceKey(values, settings);
+    const platform = this.#o.platform ?? process.platform;
+    const settings = parseDictationSettings(values, platform);
+    this.#voiceKey = parseVoiceKey(values, settings, platform);
+    if (platform === "win32" && this.#o.altGrLayout !== undefined) {
+      // Read again on each load: the owner may have switched layouts since.
+      const altGr = await this.#o.altGrLayout().catch(() => undefined);
+      if (altGr !== undefined) this.#update({ altGrLayout: altGr });
+    }
     this.#o.onVoiceEnabled?.(this.#voiceKey !== null);
     await this.apply(settings);
   }
@@ -160,9 +185,10 @@ export class DictationService implements VoiceKeySource {
       const watched = [...DICTATION_SETTING_KEYS, ...VOICE_KEY_SETTING_KEYS] as readonly string[];
       if (entries.some((e) => watched.includes(e.key))) void this.load();
     } else if (event === "node.updated") {
+      // This computer's helper, whichever OS: the Mac helper or the Windows helper.
       const node = p.node as { kind?: unknown; status?: unknown } | undefined;
-      if (node?.kind === "mac-helper" && node.status === "online") void this.#arm();
-      if (node?.kind === "mac-helper" && node.status !== "online") {
+      if (isHostHelperKind(node?.kind) && node?.status === "online") void this.#arm();
+      if (isHostHelperKind(node?.kind) && node?.status !== "online") {
         this.#watching = false;
         this.#update({ helper: "offline", watching: false });
       }

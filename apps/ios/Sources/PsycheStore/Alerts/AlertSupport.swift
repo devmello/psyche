@@ -129,7 +129,8 @@ extension TaskActivityContent {
             title: showTitle ? task.title : nil, islandTitle: task.title,
             detail: detail.isEmpty ? nil : detail.prefix(1).uppercased() + detail.dropFirst(),
             asking: status == .needsApproval ? asking : nil,
-            inlineApprovalID: status == .needsApproval ? inlineApprovalID : nil)
+            inlineApprovalID: status == .needsApproval ? inlineApprovalID : nil,
+            estimatedEnd: task.estimatedEnd)
     }
 
     /// The same activity, finished: the timer stops and the title rule still applies.
@@ -139,6 +140,7 @@ extension TaskActivityContent {
         copy.endedAt = now
         copy.asking = nil
         copy.inlineApprovalID = nil
+        copy.estimatedEnd = nil
         copy.detail = failed ? "Open Psyche to see what went wrong" : nil
         if !failed, stepCount > 0 { copy.step = stepCount }
         return copy

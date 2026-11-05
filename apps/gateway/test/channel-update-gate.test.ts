@@ -1,13 +1,15 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { MemoryCursorStore } from "@psyche/channels";
+import { isOwnerOnly } from "@psyche/hostfs";
 import type { ModelEvent } from "@psyche/protocol";
 import { FakeMessagesNode, FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { composeChannels } from "../src/compose/channels.ts";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
 import { silentLogger } from "../src/log.ts";
+import { releaseAllGatewayLocks } from "../src/pre-update.ts";
 import { adminClient, ik, type TestClient } from "./helpers.ts";
 
 /**
@@ -34,6 +36,7 @@ afterEach(async () => {
   for (const c of clients.splice(0)) c.close();
   await composed?.stop("test");
   composed = null;
+  releaseAllGatewayLocks();
   if (home) rmSync(home, { recursive: true, force: true });
 });
 
@@ -134,7 +137,7 @@ describe("channel messages during an update", () => {
     // On disk, not only in memory: the adapter has already moved its cursor past the message.
     const held = join(home, "state", "channels", "held.json");
     await vi.waitFor(() => expect(existsSync(held)).toBe(true));
-    expect(statSync(held).mode & 0o777).toBe(0o600);
+    expect(isOwnerOnly(held)).toBe(true);
     expect(JSON.parse(readFileSync(held, "utf8")).items[0].pending.content).toContain("call mum");
     expect(first.sends).toHaveLength(0);
 

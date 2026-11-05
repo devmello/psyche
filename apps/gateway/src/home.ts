@@ -1,12 +1,34 @@
 import { randomBytes } from "node:crypto";
-import { chmodSync, mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { ensureOwnerOnly } from "@psyche/hostfs";
+import { PsycheError } from "@psyche/protocol";
+import { renameOverSync } from "@psyche/protocol/platform";
 
-/** Create `$PSYCHE_HOME` and the subdirectories the bootstrap Gateway uses, all mode 0700 (architecture §14). */
+/** Homes already restricted by this process (Windows: one `icacls` per home, not per start). */
+const restricted = new Set<string>();
+
+/**
+ * Create `$PSYCHE_HOME` and the subdirectories the bootstrap Gateway uses, all mode 0700
+ * (architecture §14). Windows has no modes: unless the home already is owner-only (a folder in
+ * the user profile is), its DACL becomes the current user and SYSTEM only, inherited by everything
+ * inside (the handshake secret in `run/` included), whatever the parent allows (`D:\\psyche`
+ * inherits "Authenticated Users: Modify" from the drive). If that cannot be done the Gateway does
+ * not start: the secret would be readable by other accounts.
+ */
 export function ensureHome(home: string): void {
   for (const dir of [home, join(home, "state"), join(home, "run"), join(home, "logs")]) {
     mkdirSync(dir, { recursive: true, mode: 0o700 });
-    chmodSync(dir, 0o700);
+    if (process.platform !== "win32") chmodSync(dir, 0o700);
+  }
+  if (process.platform === "win32" && !restricted.has(home)) {
+    if (!ensureOwnerOnly(home) || !ensureOwnerOnly(join(home, "run"))) {
+      throw new PsycheError(
+        "forbidden",
+        `${home} could not be made private to this Windows account (icacls failed); refusing to write the handshake secret there`,
+      );
+    }
+    restricted.add(home);
   }
 }
 
@@ -35,7 +57,7 @@ export function writeHandshakeSecret(
   try {
     writeFileSync(tmp, `${secret}\n`, { mode: 0o600 });
     chmodSync(tmp, 0o600);
-    renameSync(tmp, path);
+    renameOverSync(tmp, path);
   } catch (err) {
     rmSync(tmp, { force: true });
     throw err;

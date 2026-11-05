@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { FakeModelProvider } from "@psyche/testing";
@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
 import { speechSetupFromEnv, speechSrtSettings } from "../src/compose/speech.ts";
 import { silentLogger } from "../src/log.ts";
+import { expectPrivate } from "./helpers.ts";
 
 /** Security §5.3: ffmpeg and whisper-cli run under srt with Psyche's profile. */
 
@@ -59,8 +60,8 @@ describe("speech helpers under srt", () => {
       speech: { srtPath: "/opt/srt" },
     });
     const file = join(home, "speech", "srt-settings.json");
-    expect(statSync(file).mode & 0o777).toBe(0o600);
-    expect(statSync(join(home, "speech")).mode & 0o777).toBe(0o700);
+    expectPrivate(file, 0o600);
+    expectPrivate(join(home, "speech"), 0o700);
     const settings = JSON.parse(readFileSync(file, "utf8")) as {
       filesystem: { denyRead: string[] };
     };

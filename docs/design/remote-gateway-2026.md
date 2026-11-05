@@ -51,10 +51,11 @@ This is the local-first rule applied across two machines. Data stays on hardware
 | Mode | Where | Supervisor | What starts |
 | --- | --- | --- | --- |
 | **This Mac** | macOS | `launchd` (packaged) / `dev` | The local Gateway LaunchAgent and the Mac helper, as today. |
+| **This PC** | Windows | Task Scheduler (`supervisor-windows.ts`) / `dev` | The local Gateway's per-user scheduled task and the Windows helper. |
 | **Remote** | macOS, Windows | new `remote` (replaces `external` for packaged builds) | Nothing. The app connects to a saved Gateway's origin. No LaunchAgent is installed, and no helper is launched unless the owner turns on client capabilities (R4). |
 | **Host** (a This Mac that also serves others) | macOS | `launchd` | Same as This Mac, plus Tailscale Serve in front of the loopback Gateway (§3.1). The Host keeps working as a normal Psyche Mac. |
 
-A Windows install is Remote only. Hosting a Gateway on Windows is out of scope: the cross-platform plan's supervisor and named-pipe work isn't needed for a client.
+A Windows install runs its own Gateway too ("This PC": a per-user Task Scheduler task as the supervisor, the node transport on a named pipe and the Rust Windows helper, [cross-platform-2026.md](cross-platform-2026.md)), or connects to a saved one as Remote.
 
 ### 1.3 Saved Gateways and switching
 

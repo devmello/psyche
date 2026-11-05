@@ -1,3 +1,4 @@
+import { DEVICE_ONLY_TEXT } from "@psyche/permissions/cards";
 import { FakePermissionBroker } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
 import {
@@ -250,7 +251,7 @@ describe("WhatsApp approvals", () => {
     });
     const last = h.graph.sends().at(-1) as { type: string; text: { body: string } };
     expect(last.type).toBe("text");
-    expect(last.text.body).toContain("Answer this on your Mac.");
+    expect(last.text.body).toContain(DEVICE_ONLY_TEXT);
     expect(last.text.body).not.toContain("laptop");
     expect(JSON.stringify(last)).not.toContain("interactive");
   });

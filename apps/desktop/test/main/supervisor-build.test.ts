@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   type GatewayRunState,
-  GatewaySupervisor,
+  LaunchdSupervisor,
   type Runner,
   readBundledBuild,
   renderLaunchAgentPlist,
@@ -52,9 +52,9 @@ function setup(build = "build-new", fakeOpts: { neverHealthy?: boolean } = {}) {
   const states: GatewayRunState[] = [];
   const make = (
     expectedBuild: string | undefined,
-    extra: Partial<ConstructorParameters<typeof GatewaySupervisor>[0]> = {},
+    extra: Partial<ConstructorParameters<typeof LaunchdSupervisor>[0]> = {},
   ) =>
-    new GatewaySupervisor({
+    new LaunchdSupervisor({
       mode: "launchd",
       psycheHome: join(base, "home"),
       healthUrl: "http://127.0.0.1:1/healthz",
@@ -173,7 +173,7 @@ describe("the Gateway's build", () => {
     expect(await sup.checkServerBuild({ build: "theirs" })).toBe("skipped");
     expect(fake.calls).toEqual([]);
 
-    const dev = new GatewaySupervisor({
+    const dev = new LaunchdSupervisor({
       mode: "dev",
       psycheHome: base,
       healthUrl: "http://127.0.0.1:1/healthz",
@@ -254,7 +254,7 @@ describe("restarting for a build mismatch (review M6)", () => {
         stderr: "",
       }),
     };
-    const sup = new GatewaySupervisor({
+    const sup = new LaunchdSupervisor({
       mode: "launchd",
       psycheHome: join(base, "home"),
       healthUrl: "http://127.0.0.1:1/healthz",

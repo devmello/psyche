@@ -50,6 +50,7 @@ import {
   type ModelRef,
   PsycheError,
 } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import { readSourcesConfig, SOURCE_IDS, sourceTag } from "@psyche/search";
 import { Value } from "@sinclair/typebox/value";
 import type { Call } from "../context.ts";
@@ -1008,9 +1009,12 @@ export function composeEverything(deps: EverythingDeps): Everything {
     no_sources: "Search is not reading any source memory can learn from.",
     model_none: "No model is chosen.",
     battery: "Waiting: not plugged in.",
-    low_power: "Waiting: Low Power Mode is on.",
-    thermal: "Waiting: the Mac is too warm.",
-    not_idle: "Waiting: you are using the Mac.",
+    low_power:
+      hostWords().os === "windows"
+        ? "Waiting: battery saver is on."
+        : "Waiting: Low Power Mode is on.",
+    thermal: `Waiting: ${hostWords().theDevice} is too warm.`,
+    not_idle: `Waiting: you are using ${hostWords().theDevice}.`,
     outside_quiet_hours: "Waiting for quiet hours.",
     local_not_confirmed: "The local model has not been confirmed.",
     low_memory: "Waiting: not enough free memory for the local model.",

@@ -63,6 +63,7 @@ async function setup(deps: SrtInstallDeps) {
     isExecutable: async (p) => (await import("node:fs")).existsSync(p),
     searchDirs: () => [],
     version: async () => "srt-fake",
+    platform: "linux",
   };
   const srt = createSrtResolver({ db }, {}, srtDeps);
   const part = composeSandbox(services, {
@@ -78,7 +79,8 @@ async function setup(deps: SrtInstallDeps) {
   return { part, db, srt, events, logs, install };
 }
 
-describe("sandbox.installSrt", () => {
+// srt has no Windows build: the Gateway refuses to install it there (compose/sandbox.ts).
+describe.skipIf(process.platform === "win32")("sandbox.installSrt", () => {
   it("fails closed on an integrity mismatch: no setting, no files, a warning logged", async () => {
     const t = await setup(registry(Buffer.from("tampered")));
     await expect(t.install()).rejects.toMatchObject({

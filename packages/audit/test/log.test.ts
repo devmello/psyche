@@ -1,6 +1,7 @@
-import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { OWNER_DIR, OWNER_FILE, privacyOf } from "@psyche/hostfs/testing";
 import { AUDIT_GENESIS_HASH } from "@psyche/protocol";
 import { FakeClock } from "@psyche/testing";
 import { describeAuditLogConformance } from "@psyche/testing/conformance";
@@ -41,8 +42,8 @@ describe("file store", () => {
     clock.advance(120_000); // into November
     const nov = await log.append({ kind: "thread.created", actor, data: { n: 2 } });
     expect(readdirSync(dir).sort()).toEqual(["2026-10.jsonl", "2026-11.jsonl"]);
-    expect(statSync(dir).mode & 0o777).toBe(0o700);
-    expect(statSync(join(dir, "2026-10.jsonl")).mode & 0o777).toBe(0o600);
+    expect(privacyOf(dir)).toBe(OWNER_DIR);
+    expect(privacyOf(join(dir, "2026-10.jsonl"))).toBe(OWNER_FILE);
     // The first entry of a month carries the previous month's last hash.
     const oct = JSON.parse(readFileSync(join(dir, "2026-10.jsonl"), "utf8").trim());
     expect(nov.prev).toBe(oct.hash);

@@ -1,5 +1,5 @@
 import type { SearchHit } from "@psyche/protocol";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { RecentRows } from "../src/people/EntityCard.tsx";
 import type { InteractionView } from "../src/people/types.ts";
@@ -86,8 +86,11 @@ describe("the source chip on a gist", () => {
   it("says so when the passage is no longer in the index", async () => {
     mount([row({ gist: "Talked about the Lisbon dates", gistDocId: "mail:gone" })]);
     fireEvent.click(screen.getByTestId("gist-source"));
-    expect((await screen.findByTestId("source-viewer")).textContent).toContain(
-      "That source is no longer in the index.",
+    // The viewer opens on "Loading the source…" and settles when the lookup answers.
+    await waitFor(() =>
+      expect(screen.getByTestId("source-viewer").textContent).toContain(
+        "That source is no longer in the index.",
+      ),
     );
   });
 });

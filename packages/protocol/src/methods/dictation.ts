@@ -16,20 +16,87 @@ import { defineMethod } from "./define.ts";
  * Only a desktop device may call these methods; agents and `nodes.invoke` cannot reach them.
  */
 
-/** Modifier keys the helper can watch for hold-to-talk (Electron cannot see fn or key-up). */
-export const DictationKey = StringEnum(["fn", "rightOption", "rightCommand"], {
+/** The Mac's hold-to-talk modifiers, the names the mac helper watches. */
+export const MAC_DICTATION_KEYS = ["fn", "rightOption", "rightCommand"] as const;
+
+/**
+ * Keys only the Windows helper watches (a low-level keyboard hook), by name: Right Ctrl, Right
+ * Alt (AltGr on many layouts), Right Shift, the right Windows key, Caps Lock (its lock state is
+ * put back after a hold), Scroll Lock, Pause, the Menu (Application) key, Insert, Num Lock and
+ * F13–F24. Stable wire names, like the Mac's; the mac helper refuses them.
+ */
+export const WINDOWS_DICTATION_KEYS = [
+  "rightCtrl",
+  "rightAlt",
+  "rightShift",
+  "rightWin",
+  "capsLock",
+  "scrollLock",
+  "pause",
+  "menu",
+  "insert",
+  "numLock",
+  "f13",
+  "f14",
+  "f15",
+  "f16",
+  "f17",
+  "f18",
+  "f19",
+  "f20",
+  "f21",
+  "f22",
+  "f23",
+  "f24",
+] as const;
+
+/**
+ * Keys the helper can watch for hold-to-talk (Electron cannot see fn or key-up). The Mac names
+ * work on Windows too, where a PC's Fn never arrives: `fn` and `rightOption` are Right Alt and
+ * `rightCommand` is Right Ctrl. On Windows the insert goes through UI Automation (`ax`) or
+ * SendInput unicode typing (`typed`).
+ */
+export const DictationKey = StringEnum([...MAC_DICTATION_KEYS, ...WINDOWS_DICTATION_KEYS], {
   $id: "DictationKey",
 });
 export type DictationKey = Static<typeof DictationKey>;
+
+/**
+ * The physical key a stored name means on Windows: a Mac name maps to the Windows key the
+ * helper holds for it (`fn`, `rightOption` → `rightAlt`; `rightCommand` → `rightCtrl`).
+ */
+export function windowsHoldKey(key: DictationKey): (typeof WINDOWS_DICTATION_KEYS)[number] {
+  if (key === "rightCommand") return "rightCtrl";
+  if (key === "fn" || key === "rightOption") return "rightAlt";
+  return key;
+}
+
+/**
+ * The hold-to-talk defaults: fn (dictation) and Right ⌘ (voice) on a Mac. On Windows Right Ctrl
+ * dictates: it is never AltGr, a bare press opens nothing, and it stays the same key when the
+ * owner switches keyboard layouts per window. Voice then defaults to Right Alt.
+ */
+export function defaultHoldKeys(windows: boolean): {
+  dictation: DictationKey;
+  voice: DictationKey;
+} {
+  return windows
+    ? { dictation: "rightCtrl", voice: "rightAlt" }
+    : { dictation: "fn", voice: "rightCommand" };
+}
 
 export const DictationInsertMethod = StringEnum(["ax", "typed"], {
   $id: "DictationInsertMethod",
 });
 export type DictationInsertMethod = Static<typeof DictationInsertMethod>;
 
-/** Why the focused element cannot take dictated text. */
+/**
+ * Why the focused element cannot take dictated text. `elevated_target` (Windows): the focused app
+ * runs as administrator and UIPI blocks a normal-integrity helper from typing into it;
+ * `dictation.insert` then fails `forbidden` with that reason.
+ */
 export const DictationRefusal = StringEnum(
-  ["no_focus", "secure_field", "own_window", "not_editable", "focus_changed"],
+  ["no_focus", "secure_field", "own_window", "not_editable", "focus_changed", "elevated_target"],
   { $id: "DictationRefusal" },
 );
 export type DictationRefusal = Static<typeof DictationRefusal>;
@@ -38,9 +105,19 @@ export type DictationRefusal = Static<typeof DictationRefusal>;
 export const DictationTarget = Type.Object(
   {
     pid: Type.Integer({ minimum: 0 }),
-    bundleId: Nullable(Type.String()),
+    bundleId: Nullable(
+      Type.String({
+        description:
+          "macOS bundle id; on Windows the package family name of a packaged app, else its lowercase executable",
+      }),
+    ),
     appName: Type.String(),
-    role: Nullable(Type.String({ description: "AX role of the focused element, e.g. AXTextArea" })),
+    role: Nullable(
+      Type.String({
+        description:
+          "AX role of the focused element (AXTextArea); on Windows its UI Automation control type (Edit, Document, …)",
+      }),
+    ),
     insertable: Type.Boolean(),
     refusal: Type.Optional(DictationRefusal),
   },

@@ -1,21 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
-import {
-  clearUpdateFailure,
-  defaultSleep,
-  probeHealth,
-  readUpdateFailure,
-  waitForHealthy,
-} from "./gateway-health.ts";
-import type {
-  BuildCheck,
-  DesktopSupervisor,
-  GatewayRunState,
-  RestartReason,
-  SupervisorStatus,
-} from "./gateway-supervisor.ts";
-import { execRunner, type Runner } from "./runner.ts";
+import { SupervisorBase, type SupervisorOptions } from "../main/supervisor-base.ts";
 import {
   DEFAULT_MEMORY_HIGH,
   GATEWAY_UNIT,
@@ -29,7 +15,7 @@ import {
 
 /**
  * The Gateway as a `systemd --user` unit (Linux desktop design §2.3). The Linux twin of
- * `LaunchdSupervisor`, with the same rules:
+ * `LaunchdSupervisor` and `TaskSchedulerSupervisor`: a `SupervisorBase` subclass with the same rules.
  *
  * - The unit is rewritten only when its CONTENT changes (the plist rule), so a new build, a moved
  *   AppImage or a changed key file restarts the Gateway and nothing else does.
@@ -39,7 +25,22 @@ import {
  * - Plain quit leaves the unit running; "Quit Psyche entirely" disables it.
  * - A Gateway that already answers while our unit is not active (a terminal, another copy) is
  *   attached to, never doubled.
+ * - Beyond `SupervisorBase`: `restart(reason)` and `stopForUpdate()`, the two calls the updater
+ *   makes (`restart` takes `"build_mismatch" | "update"`), and `quitEntirely()`.
  */
+
+/** Why the Gateway is restarted: its build differs from this app's, or an update was applied. */
+export type RestartReason = "build_mismatch" | "update";
+
+export interface SupervisorStatus {
+  /** The unit is known to systemd. */
+  loaded: boolean;
+  /** The unit is running right now. */
+  active: boolean;
+  pid?: number;
+  /** The last exit code or result, as systemd reports it, when it is worth showing. */
+  lastExit?: string;
+}
 
 /** `systemctl --user` argv, one place, so tests and the CLI agree on them. */
 export const systemctlUser = {
@@ -91,102 +92,68 @@ export function parseSystemctlShow(out: string): SupervisorStatus {
   };
 }
 
-export interface SystemdSupervisorOptions {
-  psycheHome: string;
-  healthUrl: string;
-  /** What `ExecStart` runs: the bundled `psyched`, or the AppImage (with `args: ["--psyched"]`). */
-  program: string;
-  args?: string[];
+export interface SystemdOptions extends SupervisorOptions {
+  /** What `ExecStart` runs: the bundled `psyched`, or the AppImage (with `gatewayArgs: ["--psyched"]`). */
+  gatewayProgram?: string;
+  gatewayArgs?: string[];
   /** `user`: this app writes the unit (AppImage). `packaged`: deb/rpm own it; a drop-in is written. */
-  install: "user" | "packaged";
+  install?: "user" | "packaged";
   /** Where user units live (tests pass a tmp dir). Default `$XDG_CONFIG_HOME/systemd/user`. */
   unitDir?: string;
-  /** Pass `PSYCHE_VAULT_KEY_FILE` to the Gateway (`desktopVaultKeyFile`). */
-  vaultKeyFile?: () => string | undefined | Promise<string | undefined>;
-  /** The Gateway build this app ships; goes into the unit as `PSYCHE_BUILD`. */
-  expectedBuild?: string;
   memoryHigh?: string;
-  /** Asked before a build-mismatch restart (`gateway.prepareUpdate`); errors are ignored. */
-  prepareRestart?: () => Promise<unknown>;
-  healthTimeoutMs?: number;
-  /** Another copy's unit runs a psyched that still exists: may this copy take over? */
-  confirmTakeover?: (otherProgram: string) => Promise<boolean>;
-  run?: Runner;
-  fetch?: typeof fetch;
-  sleep?: (ms: number) => Promise<void>;
-  onState?: (s: GatewayRunState) => void;
 }
 
 const MODE = "systemd" as const;
 
-export class SystemdUserSupervisor implements DesktopSupervisor {
-  private state: GatewayRunState = { kind: "unknown" };
-  private readonly buildRestarts = new Set<string>();
-  private buildRestart: Promise<BuildCheck> | undefined;
-  private attached = false;
-  private expectedBuild: string | undefined;
-  private readonly opts: SystemdSupervisorOptions;
-  private readonly run: Runner;
+export class SystemdUserSupervisor extends SupervisorBase {
+  protected readonly serviceMode = MODE;
+  private readonly sd: SystemdOptions;
 
-  constructor(opts: SystemdSupervisorOptions) {
-    this.opts = opts;
-    this.run = opts.run ?? execRunner;
-    this.expectedBuild = opts.expectedBuild;
-  }
-
-  getState(): GatewayRunState {
-    return this.state;
-  }
-
-  private set(s: GatewayRunState): void {
-    this.state = s;
-    this.opts.onState?.(s);
-  }
-
-  private healthy(): Promise<boolean> {
-    return probeHealth(this.opts.healthUrl, this.opts.fetch);
-  }
-
-  private waitHealthy(): Promise<boolean> {
-    return waitForHealthy({
-      healthy: () => this.healthy(),
-      psycheHome: this.opts.psycheHome,
-      ...(this.opts.healthTimeoutMs === undefined ? {} : { timeoutMs: this.opts.healthTimeoutMs }),
-      sleep: this.opts.sleep ?? defaultSleep,
-    });
+  constructor(opts: SystemdOptions) {
+    super(opts);
+    this.sd = opts;
   }
 
   private systemctl(args: string[]) {
     return this.run("systemctl", args);
   }
 
+  private program(): string {
+    return this.sd.gatewayProgram ?? "";
+  }
+
+  private install(): "user" | "packaged" {
+    return this.sd.install ?? "user";
+  }
+
   private dir(): string {
-    return this.opts.unitDir ?? userUnitDir(process.env, homedir());
+    return this.sd.unitDir ?? userUnitDir(process.env, homedir());
   }
 
   /** The file this app writes: the whole unit (`user`) or the drop-in next to the packaged one. */
   private managedFile(): string {
-    return this.opts.install === "user"
+    return this.install() === "user"
       ? join(this.dir(), GATEWAY_UNIT)
       : join(this.dir(), `${GATEWAY_UNIT}.d`, "10-psyche-desktop.conf");
   }
 
   /** The text this build wants in {@link managedFile}, or undefined when no Gateway is bundled. */
   private async desiredContent(): Promise<string | undefined> {
-    const { program, install, psycheHome } = this.opts;
-    if (!existsSync(program)) return undefined;
+    const program = this.program();
+    if (program === "" || !existsSync(program)) return undefined;
     const keyFile = await this.opts.vaultKeyFile?.();
+    const expected = this.opts.expectedBuild;
     const common = {
-      psycheHome,
-      ...(this.expectedBuild === undefined ? {} : { build: this.expectedBuild }),
+      psycheHome: this.opts.psycheHome,
+      ...(expected === undefined ? {} : { build: expected }),
       ...(keyFile === undefined ? {} : { vaultKeyFile: keyFile }),
     };
-    return install === "user"
+    return this.install() === "user"
       ? renderGatewayUnit({
           program,
-          ...(this.opts.args === undefined ? {} : { args: this.opts.args }),
+          ...(this.sd.gatewayArgs === undefined ? {} : { args: this.sd.gatewayArgs }),
           profile: "desktop",
-          memoryHigh: this.opts.memoryHigh ?? DEFAULT_MEMORY_HIGH,
+          memoryHigh: this.sd.memoryHigh ?? DEFAULT_MEMORY_HIGH,
           ...common,
         })
       : renderGatewayDropIn(common);
@@ -200,12 +167,13 @@ export class SystemdUserSupervisor implements DesktopSupervisor {
 
   /** The program a user unit runs (`user` installs only; a drop-in does not name one). */
   private installedProgram(): string | undefined {
-    if (this.opts.install !== "user") return undefined;
+    if (this.install() !== "user") return undefined;
     const file = this.managedFile();
     return existsSync(file) ? parseGatewayUnit(readFileSync(file, "utf8"))?.program : undefined;
   }
 
-  private failed(reason: string, restoreInterrupted = false): void {
+  /** The logs are in the journal, not a folder: the reason says how to read them. */
+  protected override failed(reason: string, restoreInterrupted = false): void {
     this.set({
       kind: "stopped",
       mode: MODE,
@@ -220,23 +188,14 @@ export class SystemdUserSupervisor implements DesktopSupervisor {
     return parseSystemctlShow(shown.stdout);
   }
 
-  async ensureRunning(build?: string): Promise<GatewayRunState> {
-    if (build !== undefined) this.expectedBuild = build;
-    await this.start();
-    return this.state;
-  }
-
-  private async start(): Promise<void> {
+  protected async startService(): Promise<void> {
     if ((await this.systemctl(systemctlUser.probe())).code !== 0) {
       // No user manager: a headless login without lingering, or a container.
       return this.failed("There is no systemd user session on this computer");
     }
     const content = await this.desiredContent();
     if (content === undefined) return this.failed("psyched is not bundled");
-    if (
-      this.opts.install === "packaged" &&
-      (await this.systemctl(systemctlUser.cat())).code !== 0
-    ) {
+    if (this.install() === "packaged" && (await this.systemctl(systemctlUser.cat())).code !== 0) {
       return this.failed(`${GATEWAY_UNIT} is not installed; reinstall Psyche`);
     }
     const file = this.managedFile();
@@ -245,7 +204,7 @@ export class SystemdUserSupervisor implements DesktopSupervisor {
     const before = await this.status();
 
     const other = this.installedProgram();
-    if (other !== undefined && other !== this.opts.program && existsSync(other)) {
+    if (other !== undefined && other !== this.program() && existsSync(other)) {
       const takeOver = (await this.opts.confirmTakeover?.(other).catch(() => false)) ?? false;
       if (!takeOver) {
         this.attached = true;
@@ -274,7 +233,7 @@ export class SystemdUserSupervisor implements DesktopSupervisor {
       await this.systemctl(systemctlUser.daemonReload());
     }
     mkdirSync(this.opts.psycheHome, { recursive: true, mode: 0o700 });
-    if (before.active && !changed && (await this.healthy())) return this.refresh();
+    if (before.active && !changed && (await this.healthy())) return this.refreshService();
     this.set({ kind: "starting", mode: MODE, step: "waiting" });
     // An active unit whose content changed runs the old one: restart it. Otherwise `enable --now`
     // is idempotent (and starts a unit that is stopped or failed).
@@ -287,18 +246,15 @@ export class SystemdUserSupervisor implements DesktopSupervisor {
       );
     }
     if (before.active && changed) await this.systemctl(systemctlUser.enableNow());
-    if (await this.waitHealthy()) return this.refresh();
+    if (await this.waitHealthy()) return this.refreshService();
     const after = await this.status();
     const secs = Math.round((this.opts.healthTimeoutMs ?? 60_000) / 1000);
-    const known = readUpdateFailure(this.opts.psycheHome, this.expectedBuild);
-    this.failed(
-      known?.message ??
-        `The Gateway did not answer within ${secs} s${after.lastExit ? ` (${after.lastExit})` : ""}. See: journalctl --user -u ${GATEWAY_UNIT}`,
-      known?.restoreInterrupted === true,
+    this.failedToStart(
+      `The Gateway did not answer within ${secs} s${after.lastExit ? ` (${after.lastExit})` : ""}. See: journalctl --user -u ${GATEWAY_UNIT}`,
     );
   }
 
-  async refresh(): Promise<void> {
+  protected async refreshService(): Promise<void> {
     const st = await this.status();
     if (!st.loaded) return this.set({ kind: "stopped", mode: MODE, reason: "not loaded" });
     this.set(
@@ -308,16 +264,19 @@ export class SystemdUserSupervisor implements DesktopSupervisor {
     );
   }
 
+  /** A user unit must run our program; a packaged one is ours when our drop-in is there. */
+  protected async ownsService(): Promise<boolean> {
+    return this.install() === "user"
+      ? this.installedProgram() === this.program()
+      : existsSync(this.managedFile());
+  }
+
   /**
-   * Restarts the Gateway on this app's files. The unit is rewritten first when its content is
-   * stale (a new build changes `PSYCHE_BUILD`), then `systemctl --user restart` starts it again
-   * whether it was running or already stopped by `stopForUpdate`.
+   * Rewrites the unit when its content is stale (a new build changes `PSYCHE_BUILD`), then
+   * `systemctl --user restart` starts it again whether it was running or already stopped by
+   * `stopForUpdate`. False, after `failed`, when systemd would not.
    */
-  async restart(reason: RestartReason): Promise<void> {
-    // Stop new work and give running turns a moment to settle before the process goes. After an
-    // update the caller has already done this (`gateway.prepareUpdate`, `stopForUpdate`).
-    if (reason === "build_mismatch") await this.opts.prepareRestart?.().catch(() => undefined);
-    this.set({ kind: "starting", mode: MODE, step: "waiting" });
+  protected async restartService(): Promise<boolean> {
     const content = await this.desiredContent();
     if (content !== undefined) {
       const file = this.managedFile();
@@ -328,48 +287,23 @@ export class SystemdUserSupervisor implements DesktopSupervisor {
     }
     const res = await this.systemctl(systemctlUser.restart());
     if (res.code !== 0) {
-      return this.failed(`systemctl could not restart ${GATEWAY_UNIT} after the update`);
+      this.failed(`systemctl could not restart ${GATEWAY_UNIT} after the update`);
+      return false;
     }
-    if (await this.waitHealthy()) return this.refresh();
-    this.failed("The Gateway did not come back after the update");
+    return true;
   }
 
   /**
-   * The Gateway's build, from the handshake challenge's `server`, against the build this app
-   * shipped (the launchd rule, updates design §2.10): restart once on a mismatch; a mismatch that
-   * outlives the restart means the unit runs somebody else's psyched: say so and stop trying.
+   * Restarts the Gateway on this app's files. For a build mismatch, stop new work and give
+   * running turns a moment to settle first; after an update the caller has already done that
+   * (`gateway.prepareUpdate`, `stopForUpdate`).
    */
-  checkServerBuild(server: { build: string } | undefined): Promise<BuildCheck> {
-    const expected = this.expectedBuild;
-    if (expected === undefined) return Promise.resolve("skipped");
-    if (this.attached || this.state.kind === "starting") return Promise.resolve("skipped");
-    if (server?.build === expected) {
-      this.buildRestarts.delete(expected);
-      return Promise.resolve("match");
-    }
-    if (this.buildRestart) return this.buildRestart;
-    // A user unit must run our program; a packaged one is ours when our drop-in is there.
-    const ours =
-      this.opts.install === "user"
-        ? this.installedProgram() === this.opts.program
-        : existsSync(this.managedFile());
-    if (!ours) return Promise.resolve("skipped");
-    if (this.buildRestarts.has(expected)) {
-      this.failed(`Another copy of Psyche runs the Gateway (build ${server?.build ?? "unknown"})`);
-      return Promise.resolve("mismatch");
-    }
-    this.buildRestarts.add(expected);
-    const restart = this.restart("build_mismatch")
-      .then((): BuildCheck => (this.state.kind === "running" ? "restarted" : "mismatch"))
-      .finally(() => {
-        this.buildRestart = undefined;
-      });
-    this.buildRestart = restart;
-    return restart;
-  }
-
-  retryAfterUpdateFailure(opts: { restoredByHand?: boolean } = {}): boolean {
-    return clearUpdateFailure(this.opts.psycheHome, opts, existsSync);
+  async restart(reason: RestartReason): Promise<void> {
+    if (reason === "build_mismatch") await this.opts.prepareRestart?.().catch(() => undefined);
+    this.set({ kind: "starting", mode: MODE, step: "waiting" });
+    if (!(await this.restartService())) return;
+    if (await this.waitHealthy()) return this.refreshService();
+    this.failed("The Gateway did not come back after the update");
   }
 
   /** After `gateway.prepareUpdate`: stops the unit and leaves it installed. */
@@ -378,28 +312,28 @@ export class SystemdUserSupervisor implements DesktopSupervisor {
     this.set({ kind: "stopped", mode: MODE, reason: "updating" });
   }
 
-  /** "Close window": the Gateway keeps running. */
-  async onAppQuit(): Promise<void> {}
+  protected uninstallService(): Promise<void> {
+    return this.disableUnit();
+  }
 
-  async stopEverything(): Promise<void> {
-    await this.quitEntirely();
+  /** "Quit Psyche entirely": the same as `stopEverything`, under the design's name for it. */
+  quitEntirely(): Promise<void> {
+    return this.stopEverything();
   }
 
   /**
    * Disables the unit and removes what this app wrote; the next launch installs it again. A user
    * unit that runs another copy's psyched is left alone, like the launchd agent.
    */
-  async quitEntirely(): Promise<void> {
+  private async disableUnit(): Promise<void> {
     const other = this.installedProgram();
-    if (other === undefined || other === this.opts.program) {
-      await this.systemctl(systemctlUser.disableNow());
-      const file = this.managedFile();
-      if (existsSync(file)) {
-        rmSync(file, { force: true });
-        await this.systemctl(systemctlUser.daemonReload());
-      }
+    if (other !== undefined && other !== this.program()) return;
+    await this.systemctl(systemctlUser.disableNow());
+    const file = this.managedFile();
+    if (existsSync(file)) {
+      rmSync(file, { force: true });
+      await this.systemctl(systemctlUser.daemonReload());
     }
-    this.set({ kind: "stopped", mode: MODE, reason: "quit" });
   }
 
   /**

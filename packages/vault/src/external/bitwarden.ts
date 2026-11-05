@@ -1,5 +1,5 @@
-import { execFile } from "node:child_process";
 import { fail } from "../errors.ts";
+import { cliBaseEnv, execCli } from "./cli.ts";
 import type { TokenProvider } from "./onepassword.ts";
 
 /**
@@ -87,11 +87,7 @@ export class BwCliSource implements BitwardenSource {
 
   async #exec(args: string[]): Promise<string> {
     const handle = await this.#o.session();
-    const env: Record<string, string> = {
-      PATH: process.env.PATH ?? "/usr/bin:/bin",
-      HOME: process.env.HOME ?? "",
-      BW_NOINTERACTION: "true",
-    };
+    const env: Record<string, string> = { ...cliBaseEnv(), BW_NOINTERACTION: "true" };
     if (this.#o.appDataDir !== undefined) env.BITWARDENCLI_APPDATA_DIR = this.#o.appDataDir;
     handle.use((s) => {
       env.BW_SESSION = s;
@@ -99,19 +95,12 @@ export class BwCliSource implements BitwardenSource {
     const run =
       this.#o.run ??
       ((f: string, a: string[], e: Record<string, string>) =>
-        new Promise<string>((resolve, reject) => {
-          execFile(
-            f,
-            a,
-            { env: e, shell: false, timeout: this.#o.timeoutMs ?? 30_000, maxBuffer: 1 << 20 },
-            (err, stdout, stderr) =>
-              err === null
-                ? resolve(stdout)
-                : reject(
-                    Object.assign(new Error("bw failed"), { failure: classify(String(stderr)) }),
-                  ),
-          );
-        }));
+        execCli(f, a, e, this.#o.timeoutMs ?? 30_000).then(
+          (r) => r.stdout,
+          (err: { stderr?: string }) => {
+            throw Object.assign(new Error("bw failed"), { failure: classify(err.stderr ?? "") });
+          },
+        ));
     try {
       return await run(this.#o.bw, [...args, "--nointeraction"], env);
     } catch (err) {

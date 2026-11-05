@@ -1,8 +1,10 @@
+import { type SpawnOptions, spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isOwnerOnly } from "@psyche/hostfs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   launchRealChrome,
@@ -11,6 +13,17 @@ import {
 } from "../src/realchrome/launcher.ts";
 
 const FAKE = fileURLToPath(new URL("./fixtures/fake-chrome.mjs", import.meta.url));
+
+/**
+ * Windows cannot run the fake's shebang (Chrome itself is a real `chrome.exe`), so there the
+ * fake is started by this Node with the same argv; elsewhere the launcher spawns it directly.
+ */
+const fakeSpawn: typeof spawn | undefined =
+  process.platform === "win32"
+    ? (((command: string, args: readonly string[], options: SpawnOptions) =>
+        spawn(process.execPath, [command, ...args], options)) as typeof spawn)
+    : undefined;
+const fake = { executablePath: FAKE, ...(fakeSpawn === undefined ? {} : { spawn: fakeSpawn }) };
 
 describe("real-Chrome launcher (I13)", () => {
   let home: string;
@@ -27,7 +40,7 @@ describe("real-Chrome launcher (I13)", () => {
     // A stale port file from a crashed run must not be trusted.
     await writeFile(join(dir, "DevToolsActivePort"), "1111\n/devtools/browser/stale\n");
     process.env.FAKE_CHROME_DELAY_MS = "150";
-    const rc = await launchRealChrome({ psycheHome: home, executablePath: FAKE });
+    const rc = await launchRealChrome({ psycheHome: home, ...fake });
     delete process.env.FAKE_CHROME_DELAY_MS;
     expect(rc).toMatchObject({
       endpoint: "ws://127.0.0.1:54321/devtools/browser/fake-id",
@@ -36,7 +49,8 @@ describe("real-Chrome launcher (I13)", () => {
       running: true,
     });
     expect(rc.pid).toBeGreaterThan(0);
-    expect((await stat(dir)).mode & 0o777).toBe(0o700);
+    if (process.platform === "win32") expect(isOwnerOnly(dir)).toBe(true);
+    else expect((await stat(dir)).mode & 0o777).toBe(0o700);
     const argv = JSON.parse(await readFile(join(dir, "argv.json"), "utf8")) as string[];
     expect(argv).toContain(`--user-data-dir=${dir}`);
     expect(argv).toContain("--remote-debugging-port=0");
@@ -85,7 +99,7 @@ describe("real-Chrome launcher (I13)", () => {
     process.env.FAKE_CHROME_EXIT = "1";
     try {
       await expect(
-        launchRealChrome({ psycheHome: home, profile: "crashy", executablePath: FAKE }),
+        launchRealChrome({ psycheHome: home, profile: "crashy", ...fake }),
       ).rejects.toMatchObject({ code: "unavailable" });
     } finally {
       delete process.env.FAKE_CHROME_EXIT;

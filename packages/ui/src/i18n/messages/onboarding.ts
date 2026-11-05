@@ -87,6 +87,8 @@ export const onboarding = {
     "{n, plural, =0 {Connect apps} one {Connect # app} other {Connect # apps}}",
   "onboarding.connectors.connecting": "Connecting {name}",
   "onboarding.connectors.accounts": "Accounts",
+  "onboarding.connectors.windowsHint":
+    "On Windows, {name} reads your mail, calendar and contacts through a Microsoft, Google or IMAP account.",
   "onboarding.model.how": "How should the agent think?",
   "onboarding.model.kind.cloud": "Cloud API key",
   "onboarding.model.kind.cloudHint": "Anthropic, OpenAI or Google; pay per use.",

@@ -1,6 +1,6 @@
 import { userInfo } from "node:os";
 import { isLinux, type Platform } from "./index.ts";
-import type { Runner } from "./runner.ts";
+import type { Runner } from "../main/supervisor-base.ts";
 
 /**
  * "Keep Psyche running after I log out" (design §2.3), Settings › General. systemd stops a user's

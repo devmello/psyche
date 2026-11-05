@@ -1,0 +1,38 @@
+# syntax=docker/dockerfile:1
+# Psyche Windows guest kernel: Microsoft's WSL2 Linux kernel at a pinned tag, config-wsl plus
+# psyche-kernel.fragment. Output (target "export"): vmlinuz, kernel.config, kernel-info.json.
+#   docker build -f Dockerfile.kernel --target export --output type=local,dest=out/kernel .
+# The source is GPL-2.0; see README.md "Licensing and source offer".
+FROM debian:trixie-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2 AS build
+ARG WSL_KERNEL_TAG=linux-msft-wsl-6.18.58.1
+ARG WSL_KERNEL_COMMIT=a989171929bed4ea681be8d77333845ce1c1732a
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      bc bison build-essential ca-certificates cpio flex git libelf-dev libssl-dev python3 xz-utils \
+ && rm -rf /var/lib/apt/lists/*
+WORKDIR /src
+# Fetch exactly the pinned commit and refuse anything else (tags can move).
+RUN git init -q . \
+ && git remote add origin https://github.com/microsoft/WSL2-Linux-Kernel.git \
+ && git fetch -q --depth 1 origin "${WSL_KERNEL_COMMIT}" \
+ && git checkout -q FETCH_HEAD \
+ && test "$(git rev-parse HEAD)" = "${WSL_KERNEL_COMMIT}"
+COPY psyche-kernel.fragment /psyche-kernel.fragment
+RUN cp arch/x86/configs/config-wsl .config \
+ && scripts/kconfig/merge_config.sh -m .config /psyche-kernel.fragment >/dev/null \
+ && make olddefconfig >/dev/null \
+ && grep -v '^#' /psyche-kernel.fragment | grep -v '^$' | while read -r line; do \
+      grep -qxF "$line" .config || { echo "kernel config: $line was not applied" >&2; exit 1; }; \
+    done \
+ && grep -qx '# CONFIG_MODULES is not set' .config
+RUN make -j"$(nproc)" bzImage 2>&1 | tail -n 5 \
+ && test -s arch/x86/boot/bzImage
+RUN mkdir /out \
+ && cp arch/x86/boot/bzImage /out/vmlinuz \
+ && cp .config /out/kernel.config \
+ && printf '{\n  "source": "https://github.com/microsoft/WSL2-Linux-Kernel",\n  "tag": "%s",\n  "commit": "%s",\n  "release": "%s",\n  "license": "GPL-2.0-only WITH Linux-syscall-note",\n  "baseConfig": "arch/x86/configs/config-wsl",\n  "configSha256": "%s",\n  "arch": "x86_64"\n}\n' \
+      "${WSL_KERNEL_TAG}" "${WSL_KERNEL_COMMIT}" "$(make -s kernelrelease)" "$(sha256sum .config | cut -d' ' -f1)" > /out/kernel-info.json
+
+FROM scratch AS export
+COPY --from=build /out/ /

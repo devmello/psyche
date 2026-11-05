@@ -9,6 +9,7 @@ import {
 import {
   type ConnectParams,
   type ErrorPayload,
+  isHostHelperFamily,
   type NodeCapability,
   type NodeClient,
   type NodeInfo,
@@ -25,28 +26,26 @@ import type { GatewayContext, LiveConnection } from "../context.ts";
 export const NODE_INVOKE_TIMEOUT_MS = 60_000;
 
 /**
- * The kind a node's self-declared `deviceFamily` maps to. `mac-helper` is deliberately absent:
- * it is a claim any paired node can make, so `nodeKindOf` grants it only to the Host's own helper
- * (`PairedIdentity.hostHelper`: the node socket plus the per-launch handshake secret).
+ * The kind a node's self-declared `deviceFamily` maps to. The helper families (`mac-helper`,
+ * `win-helper`) are deliberately absent: they are a claim any paired node can make, so
+ * `nodeKindOf` grants them only to the Host's own helper (`PairedIdentity.hostHelper`: the local
+ * node transport plus the per-launch handshake secret).
  */
 const KIND_BY_FAMILY: Record<string, NodeKind> = {
   "vm-guest": "vm-guest",
   phone: "phone",
 };
 
-/** The `deviceFamily` the Mac helper declares (apps/mac-helper `NodeClient.deviceFamily`). */
-const MAC_HELPER_FAMILY = "mac-helper";
-
 /**
- * `mac-helper` only for the Host's own helper (remote-gateway design §4.1 rule 1); a claimed
- * `mac-helper` anywhere else is `remote`. The family is self-declared and proves nothing by
- * itself: a second Mac that pairs as a node, or a sandbox guest whose identity file was copied,
- * also says `mac-helper`, and must never receive the agent's computer use, Apple-app calls,
- * keychain access or notifications.
+ * `mac-helper` / `win-helper` only for the Host's own helper (remote-gateway design §4.1 rule 1);
+ * a claimed helper family anywhere else is `remote`. The family is self-declared and proves
+ * nothing by itself: a second computer that pairs as a node, or a sandbox guest whose identity
+ * file was copied, can say it too, and must never receive the agent's computer use, Apple-app
+ * calls, keychain access or notifications.
  */
 export function nodeKindOf(identity: PairedIdentity, params: ConnectParams): NodeKind {
-  if (params.deviceFamily === MAC_HELPER_FAMILY) {
-    return identity.hostHelper === true ? "mac-helper" : "remote";
+  if (isHostHelperFamily(params.deviceFamily)) {
+    return identity.hostHelper === true ? params.deviceFamily : "remote";
   }
   return KIND_BY_FAMILY[params.deviceFamily] ?? "remote";
 }
@@ -189,12 +188,14 @@ export class NodeRegistry {
   }
 
   /**
-   * The Host's Mac helper, for everything that acts on the Host's own Mac: computer use, the
+   * The Host's helper, for everything that acts on the Host's own computer: computer use, the
    * Apple apps, Messages, the keychain, Host notifications, Host speech, OCR, the on-device
    * model and the sandbox Mac (remote-gateway design §4.1). Never "the newest node that offers
-   * `capability`": only a `mac-helper` on the Gateway's node socket that proved the per-launch
-   * handshake secret qualifies, so a Mac paired over the network, or a sandbox guest, is never a
-   * candidate, however recently it connected.
+   * `capability`": only a `mac-helper` or `win-helper` on the Gateway's local node transport
+   * (Unix socket, or the named pipe on Windows) that proved the per-launch handshake secret
+   * qualifies, so a computer paired over the network, or a sandbox guest, is never a candidate,
+   * however recently it connected. The Windows helper offers no Apple-app capabilities, so a
+   * `capability` filter for one of those finds nothing on Windows.
    *
    * Deny by default: with more than one live Host helper the answer is `undefined`, never a
    * guess, unless the owner pinned one (`devices.hostHelperDeviceId`) and it is connected. The

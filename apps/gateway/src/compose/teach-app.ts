@@ -2,6 +2,7 @@ import { getSetting } from "@psyche/db";
 import { appCap } from "@psyche/permissions";
 import {
   classifyTeachValue,
+  isTeachAppId,
   isTeachAppKind,
   type NodeClient,
   type NodeInvokeResult,
@@ -14,6 +15,7 @@ import {
   teachAppNever,
   teachText,
 } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import type { Call, HandlerDef } from "../context.ts";
 import type { Gateway } from "../server.ts";
 import { COMPUTER_USE_APPS, COMPUTER_USE_ENABLED } from "./computer-settings.ts";
@@ -21,7 +23,7 @@ import { dictationNode } from "./dictation.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
 /**
- * Teach by showing in a Mac app (J8 phase 2, docs/design/teach-by-showing-2026.md §13).
+ * Teach by showing in a desktop app (J8 phase 2, docs/design/teach-by-showing-2026.md §13).
  * `teach.app.*` forwards the owner's click to the Host's own Mac helper (`teach.record.*`), which
  * watches one granted app's accessibility events and returns semantic steps.
  *
@@ -37,17 +39,20 @@ import type { ComposedPart, ComposeServices } from "./services.ts";
  */
 
 const CALL_TIMEOUT_MS = 20_000;
-const BUNDLE_ID = /^[A-Za-z0-9-]+(\.[A-Za-z0-9_-]+)+$/;
 // Read alone is not enough: a recording is only worth keeping where the agent may act.
 const TIERS = new Set(["click", "interact"]);
 
 function unwrap(r: NodeInvokeResult): unknown {
   if (r.ok) return r.result;
   const e = r.error;
-  throw new PsycheError((e?.code as never) ?? "internal", e?.message ?? "the Mac helper failed", {
-    details: (e?.details ?? {}) as Record<string, unknown>,
-    ...(e?.retryable === true ? { retryable: true } : {}),
-  });
+  throw new PsycheError(
+    (e?.code as never) ?? "internal",
+    e?.message ?? `${hostWords().helper} failed`,
+    {
+      details: (e?.details ?? {}) as Record<string, unknown>,
+      ...(e?.retryable === true ? { retryable: true } : {}),
+    },
+  );
 }
 
 /** Display name for a bundle id until the helper reports the real one. */
@@ -66,7 +71,7 @@ export function recordableApps(enabled: unknown, rows: unknown): TeachAppChoice[
   const seen = new Set<string>();
   for (const row of rows) {
     const r = row as { id?: unknown; name?: unknown; tier?: unknown } | null;
-    if (typeof r?.id !== "string" || !BUNDLE_ID.test(r.id) || r.id.length > 200) continue;
+    if (typeof r?.id !== "string" || !isTeachAppId(r.id)) continue;
     if (typeof r.tier !== "string" || !TIERS.has(r.tier)) continue;
     if (teachAppNever(r.id) || appCap(r.id).cap !== "interact") continue;
     const key = r.id.toLowerCase();
@@ -167,16 +172,20 @@ export function composeTeachApp() {
       if (call.identity.desktopShell !== true) {
         throw new PsycheError(
           "forbidden",
-          "recording in a Mac app is only for the Psyche desktop app",
+          "recording in an app is only for the Psyche desktop app",
         );
       }
     };
     const requireNode = (capability: string): NodeClient => {
       const node = dictationNode(() => gateway, capability);
       if (!node) {
-        throw new PsycheError("unavailable", "the Psyche helper is not running on this Mac", {
-          retryable: true,
-        });
+        throw new PsycheError(
+          "unavailable",
+          `the Psyche helper is not running on ${hostWords().thisDevice}`,
+          {
+            retryable: true,
+          },
+        );
       }
       return node;
     };
@@ -208,7 +217,7 @@ export function composeTeachApp() {
         async run(call: Call, params: { bundleId: string }) {
           requireDesktop(call);
           const bundleId = params.bundleId;
-          if (!BUNDLE_ID.test(bundleId))
+          if (!isTeachAppId(bundleId))
             throw new PsycheError("invalid_params", "not an app bundle id");
           if (teachAppNever(bundleId))
             throw new PsycheError(
@@ -248,7 +257,7 @@ export function composeTeachApp() {
           const raw = unwrap(r) as { app?: { bundleId?: string } };
           const bundleId = recording?.bundleId ?? raw.app?.bundleId ?? "";
           recording = undefined;
-          if (!BUNDLE_ID.test(bundleId) || teachAppNever(bundleId))
+          if (!isTeachAppId(bundleId) || teachAppNever(bundleId))
             throw new PsycheError("internal", "the recording is not for a recordable app");
           const capture = cleanAppCapture(raw, { bundleId });
           await receipt(

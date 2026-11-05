@@ -1,6 +1,6 @@
 # Getting started
 
-This guide gets the Psyche desktop app running on your Mac from a source checkout. It covers picking a model, the first run and onboarding, giving the app the rights it needs to change settings, sharing folders with the agent, and where Settings live.
+This guide gets the Psyche desktop app running on your Mac (or on Windows, see [On Windows](#on-windows)) from a source checkout. It covers picking a model, the first run and onboarding, giving the app the rights it needs to change settings, sharing folders with the agent, and where Settings live.
 
 ## Before you start
 
@@ -243,6 +243,19 @@ On main, many sections save values that the Gateway does not act on yet. This is
 | Persona | Saved, not used. Edit `IDENTITY.md` instead. |
 | Connectors | Lists connectors; nothing can be connected yet. |
 | Credentials | The Gateway runs the vault, but nothing can set it up yet, so it stays locked and nothing can be stored. |
+
+## On Windows
+
+The steps above work on Windows 10 and 11 (x64) in PowerShell, with these differences:
+
+- **Tools:** Node.js 24, pnpm 12 and git as above. Building the installer (`pnpm app:build`) also needs the Rust toolchain with the MSVC target ([rustup](https://rustup.rs) and the Visual Studio C++ build tools) for Psyche Helper. Without `apps\win-helper` in your checkout, build with `pnpm app:build --skip-helper`, a development package without the helper.
+- **Environment variables** are set with `$env:NAME = "value"` instead of `NAME=value` in front of the command, for example `$env:PSYCHE_GATEWAY_MODE = "external"` before `pnpm --filter @psyche/desktop start`.
+- **The installed app:** `pnpm app:build` then `pnpm app:install` builds `dist\Psyche-<version>-Setup.exe` and installs it for your user, as in [install.md](install.md#on-windows). `pnpm app:install` keeps your Psyche data; pass `--reset` to wipe it first for a from-scratch run (it lists what it deletes and asks you to type `RESET`).
+- **Data:** `~/.psyche` below is `%USERPROFILE%\.psyche`. The desktop app's own settings and caches are in `%APPDATA%\Psyche`.
+- **File permissions:** Windows has no POSIX modes. Your profile folder's permissions keep `.psyche` private, so `psyche doctor` skips the mode check on Windows. `psyche doctor` checks the Windows helper instead of the Mac helper: paired and online, its version, and any permission Windows turned off (the microphone, notifications).
+- **Hold-to-talk dictation:** a PC's Fn key never reaches Windows, so dictation defaults to **Right Ctrl** (and Talk with Psyche to Right Alt). Settings › Voice & dictation also offers Right Alt, Caps Lock (holding it to talk leaves its on/off state alone), Scroll Lock, Pause, the Menu key, and **Press a key** for any other key you can hold, such as F13–F24. On layouts where Right Alt is AltGr (German, French, Polish and many more), Settings warns before you pick it.
+- **Sandbox PC:** Windows has no Apple virtualization, so Settings → Sandbox PC runs a small Linux VM (Hyper-V's Host Compute Service) for the `exec` tool. Turning it on shows one administrator (UAC) prompt to install the service, then downloads the guest image; Settings shows its size first. It is a command sandbox only: `run_script`, Psyche-made connectors and local MCP servers need `srt`, which Windows does not have, so they are unavailable (a local MCP server can use a Docker or Podman container with `PSYCHE_MCP_LAUNCHER=container`). See [VM mode](https://github.com/devmello/psyche/blob/main/apps/site/using/vm-mode.md#on-windows-the-sandbox-pc).
+- **Mail, calendar and contacts:** the local Outlook connectors need classic Outlook (the COM-based desktop app). The new Outlook app that Windows 11 ships has no local route, so use the Microsoft, Google or IMAP connector for that mail instead.
 
 ## Where your data lives
 

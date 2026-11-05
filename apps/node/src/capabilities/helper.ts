@@ -519,6 +519,14 @@ export function createHelperProvider(options: HelperProviderOptions): HelperProv
     async start(): Promise<void> {
       if (listening) return;
       if (disposed) throw new PsycheError("conflict", "helper provider was disposed");
+      if (process.platform === "win32") {
+        // The hub relays a co-located Mac helper. The Windows helper dials the Gateway's node
+        // pipe itself (`$PSYCHE_HOME/run/node-socket`) and needs no hub.
+        throw new PsycheError(
+          "unavailable",
+          "the helper hub is for the Mac helper; on Windows the Psyche helper connects to the Gateway directly",
+        );
+      }
       // sun_path is 104 bytes on macOS: say so, instead of a bare `listen EINVAL`.
       if (Buffer.byteLength(socketPath) > (process.platform === "darwin" ? 103 : 107)) {
         throw new PsycheError(

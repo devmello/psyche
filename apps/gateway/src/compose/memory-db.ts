@@ -27,6 +27,7 @@ import {
   verifySame,
 } from "@psyche/memory";
 import { type MemoryStoreStatus, PsycheError } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import {
   type DerivedKeyStore,
   type KeyWrapper,
@@ -272,7 +273,8 @@ export function resolveMemoryStore(o: {
   /** The key this host holds (the helper's item, or the wrapped key file); never makes one. */
   const heldKey = async (): Promise<Buffer | undefined> => {
     if (interactive) {
-      if (o.derived === undefined) throw new Error("the Mac helper is not available on this host");
+      if (o.derived === undefined)
+        throw new Error(`${hostWords().helper} is not available on this host`);
       if ((await o.derived.unavailableReason()) !== null) return undefined;
       return await o.derived.get(MEMORY_KEY_NAME);
     }
@@ -281,7 +283,8 @@ export function resolveMemoryStore(o: {
   };
   const holdKey = async (key: Buffer): Promise<void> => {
     if (interactive) {
-      if (o.derived === undefined) throw new Error("the Mac helper is not available on this host");
+      if (o.derived === undefined)
+        throw new Error(`${hostWords().helper} is not available on this host`);
       await o.derived.put(MEMORY_KEY_NAME, key);
       return;
     }
@@ -363,7 +366,7 @@ export function resolveMemoryStore(o: {
       throw new Error(failure);
     }
     if (o.escrow === undefined || o.escrow.locked) {
-      waiting = "unlock the vault to restore the memory key on this Mac";
+      waiting = `unlock the vault to restore the memory key on ${hostWords().thisDevice}`;
       return undefined;
     }
     const key = o.escrow.unescrow(MEMORY_KEY_NAME, box);
