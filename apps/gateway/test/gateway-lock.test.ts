@@ -161,3 +161,69 @@ describe("hashing a big file (H-c)", () => {
     expect(process.memoryUsage().rss - before).toBeLessThan(256 * 1024 ** 2);
   }, 120_000);
 });
+
+describe("the lock and the note about it (L2, L3)", () => {
+  const note = (key: string) =>
+    JSON.stringify({
+      build: "b",
+      key,
+      kind: "deterministic",
+      attempts: 1,
+      retryAfter: null,
+      from: "a",
+      to: "b",
+      migration: null,
+      at: "x",
+      snapshot: null,
+      restored: false,
+      message: `note ${key}`,
+    });
+
+  it("does not write over a note about something else when another Gateway holds the folder", async () => {
+    const h = home();
+    mkdirSync(join(h, "run"), { recursive: true });
+    writeFileSync(join(h, "run", "update-failed.json"), note("restore-interrupted"));
+    const holder = await child(h);
+    expect(holder.said).toBe("OK");
+    expect(() => acquireGatewayLock(h)).toThrow(/already using this data folder/);
+    expect(readUpdateFailure(h)).toMatchObject({
+      key: "restore-interrupted",
+      message: "note restore-interrupted",
+    });
+  }, 60_000);
+
+  it("clears its own note once the lock is held", () => {
+    const h = home();
+    mkdirSync(join(h, "run"), { recursive: true });
+    writeFileSync(join(h, "run", "update-failed.json"), note("gateway-running"));
+    acquireGatewayLock(h);
+    expect(readUpdateFailure(h)).toBeUndefined();
+    releaseGatewayLock(h);
+    // A note about something else is left alone by a successful lock.
+    writeFileSync(join(h, "run", "update-failed.json"), note("build-b"));
+    acquireGatewayLock(h);
+    expect(readUpdateFailure(h)?.key).toBe("build-b");
+    releaseGatewayLock(h);
+  });
+
+  it("falls back to the SQLite lock where the volume cannot take O_EXLOCK", () => {
+    const h = home();
+    mkdirSync(join(h, "run"), { recursive: true });
+    const file = join(h, "lock");
+    for (const code of ["ENOTSUP", "EOPNOTSUPP", "ENOSYS", "EINVAL"]) {
+      const refusing = (() => {
+        throw Object.assign(new Error(code), { code });
+      }) as unknown as typeof openSync;
+      const lock = takeExclusiveFileLock(file, "exlock", refusing);
+      expect(lock?.impl).toBe("sqlite");
+      // And it is a real lock: nobody else gets it meanwhile.
+      expect(takeExclusiveFileLock(file, "sqlite")).toBeNull();
+      lock?.release();
+    }
+    // Any other failure is still a failure.
+    const broken = (() => {
+      throw Object.assign(new Error("EACCES"), { code: "EACCES" });
+    }) as unknown as typeof openSync;
+    expect(() => takeExclusiveFileLock(file, "exlock", broken)).toThrow("EACCES");
+  });
+});

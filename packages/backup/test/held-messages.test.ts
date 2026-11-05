@@ -55,4 +55,20 @@ describe("held channel messages and backups", () => {
     });
     expect(existsSync(join(target, "state", "channels", "held.json"))).toBe(false);
   });
+
+  it("and the last-boot note is neither backed up nor kept across a restore", async () => {
+    const home = join(temp(), "home");
+    put(home, "state/psyche.sqlite", "db");
+    put(home, "state/last-boot.json", '{"version":"0.4.0","build":"x","goodSeq":2}');
+    const file = join(temp(), "b.age");
+    const manifest = await createBackup(home, file, FAST, "t");
+    expect(manifest.files.map((f) => f.path)).not.toContain("state/last-boot.json");
+    const target = join(temp(), "target");
+    put(target, "state/psyche.sqlite", "newer");
+    put(target, "state/last-boot.json", '{"version":"0.5.0","build":"y","goodSeq":9}');
+    await restoreBackup(file, { kind: "passphrase", passphrase: FAST.passphrase }, target, {
+      force: true,
+    });
+    expect(existsSync(join(target, "state", "last-boot.json"))).toBe(false);
+  });
 });

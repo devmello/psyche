@@ -112,6 +112,7 @@ import {
   type PermissionKind,
 } from "./main/permissions/permissions.ts";
 import { HAS_UNSENT_TEXT, releaseHiddenAfterMs } from "./main/release.ts";
+import { guardRestoredByHand } from "./main/restore-check.ts";
 import { ScreenAskWindow } from "./main/screen-ask/panel.ts";
 import { ScreenAskShortcut } from "./main/screen-ask/settings.ts";
 import { voicePopup } from "./main/screen-ask/voice-key.ts";
@@ -639,6 +640,33 @@ function registerIpc(): void {
   // "I put my data back myself" after a restore the Gateway could not finish: forget that
   // restore (and the note), then start again. Only the owner's click gets here.
   handle(IPC.gatewayRestoredByHand, async () => {
+    // Nothing is cleared until the unfinished restore is really there, every file it was putting
+    // back exists (else the Gateway would start on a new, empty database), and the owner has
+    // confirmed in a dialog the page cannot click.
+    const win = windows?.main();
+    const show = (opts: Electron.MessageBoxOptions) =>
+      win ? dialog.showMessageBox(win, opts) : dialog.showMessageBox(opts);
+    const go = await guardRestoredByHand(
+      home,
+      {
+        refuse: async (title, body) => {
+          await show({ type: "warning", message: title, detail: body, buttons: ["OK"] });
+        },
+        confirm: async (s) =>
+          (
+            await show({
+              type: "question",
+              message: s.confirmTitle,
+              detail: s.confirmBody,
+              buttons: [s.cancel, s.confirmButton],
+              defaultId: 0,
+              cancelId: 0,
+            })
+          ).response === 1,
+      },
+      app.getLocale(),
+    );
+    if (!go) return;
     supervisor?.retryAfterUpdateFailure({ restoredByHand: true });
     await supervisor?.ensureRunning();
     gateway?.start();

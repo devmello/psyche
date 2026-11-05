@@ -12,6 +12,7 @@ import {
   planMigrations,
 } from "../migrate.ts";
 import { statusLine } from "../output.ts";
+import { checkRestoredByHand, gatewayLockHeld } from "../restore-check.ts";
 import { CLI_VERSION } from "../version.ts";
 
 const DAY = 86_400_000;
@@ -40,6 +41,30 @@ export const migrateCommands: CommandSpec[] = [
     },
     async run(ctx, { opts }) {
       if (bool(opts, "retry")) {
+        if (bool(opts, "restored-by-hand")) {
+          // Forgetting an unfinished restore lets the Gateway start, on a new empty database if
+          // the old one is not there. Not while a Gateway holds the folder, and not unless
+          // everything the restore was putting back is in place.
+          if (gatewayLockHeld(ctx.home) || (await ctx.probe().catch(() => null))?.reachable) {
+            return {
+              data: { retry: true, refused: "gateway_running" },
+              human:
+                "A Psyche Gateway is running on this data folder. Quit Psyche first, then run this again.",
+              exitCode: 1,
+            };
+          }
+          const check = checkRestoredByHand(ctx.home);
+          if (!check.ok) {
+            return {
+              data: { retry: true, refused: check.reason, missing: check.missing },
+              human:
+                check.reason === "missing"
+                  ? `Not all of your data is back yet. Missing: ${check.missing.slice(0, 6).join(", ")}. Put it back from backups/pre-update, then run this again.`
+                  : "There is no unfinished restore to forget, so nothing was changed.",
+              exitCode: 1,
+            };
+          }
+        }
         // The Gateway refuses to start the same build on the same data after a failed update
         // (run/update-failed.json). This is the owner's "try again".
         const note = join(ctx.home, "run", "update-failed.json");

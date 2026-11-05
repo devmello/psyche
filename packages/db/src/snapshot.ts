@@ -129,11 +129,13 @@ const O_EXLOCK = 0x20;
 export function takeExclusiveFileLock(
   path: string,
   impl: "exlock" | "sqlite" = process.platform === "darwin" ? "exlock" : "sqlite",
+  /** Test hook: the `open` to use. */
+  open: typeof openSync = openSync,
 ): ExclusiveFileLock | null {
   if (impl === "exlock") {
     let fd: number;
     try {
-      fd = openSync(
+      fd = open(
         path,
         fsConstants.O_CREAT | fsConstants.O_RDWR | fsConstants.O_NONBLOCK | O_EXLOCK,
         0o600,
@@ -141,6 +143,10 @@ export function takeExclusiveFileLock(
     } catch (err) {
       const code = (err as NodeJS.ErrnoException).code;
       if (code === "EAGAIN" || code === "EWOULDBLOCK" || code === "EBUSY") return null;
+      // A folder on a volume that cannot lock this way (an external drive, an SMB share): the
+      // SQLite lock works through the file locks every such volume offers, or says it cannot.
+      if (code === "ENOTSUP" || code === "EOPNOTSUPP" || code === "ENOSYS" || code === "EINVAL")
+        return takeExclusiveFileLock(path, "sqlite", open);
       throw err;
     }
     return {

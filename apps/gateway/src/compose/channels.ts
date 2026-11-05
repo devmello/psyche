@@ -656,6 +656,12 @@ export function composeChannels(
   const heldFile = join(services.home, "state", "channels", "held.json");
   /** Held messages whose channel is not attached yet: kept on disk, not run, until it is. */
   const parked: { threadId: string; pending: Pending }[] = [];
+  /**
+   * Items read from the file at start that the replay has not got to yet. They stay in what is
+   * written, so a message held live while the replay waits for the adapters can never make the
+   * file forget them.
+   */
+  let replaying: { threadId: unknown; pending: unknown }[] = [];
   const persistHeld = () => {
     try {
       const items = [
@@ -663,6 +669,7 @@ export function composeChannels(
           list.map((pending) => ({ threadId, pending })),
         ),
         ...parked,
+        ...replaying,
       ];
       if (items.length === 0) {
         rmSync(heldFile, { force: true });
@@ -688,11 +695,10 @@ export function composeChannels(
    * Never throws: a message that fails must not stop the Gateway from starting.
    */
   const replayHeld = async () => {
-    let items: { threadId: unknown; pending: unknown }[];
     try {
       const raw = JSON.parse(readFileSync(heldFile, "utf8")) as { v?: unknown; items?: unknown };
       if (raw.v !== 1 || !Array.isArray(raw.items)) return;
-      items = raw.items as typeof items;
+      replaying = [...(raw.items as typeof replaying)];
     } catch {
       return; // none, or unreadable: nothing to replay
     }
@@ -701,14 +707,13 @@ export function composeChannels(
       Promise.allSettled(starts),
       new Promise((resolve) => setTimeout(resolve, 15_000).unref()),
     ]);
-    const gw = gateway;
-    if (gw === null) return;
+    if (gateway === null) return;
     const nowMs = Date.now();
-    for (const { threadId, pending } of items) {
+    while (replaying.length > 0) {
+      const item = replaying[0] as { threadId: unknown; pending: unknown };
       try {
-        const p = pending as Partial<Pending> | null;
+        const p = item.pending as Partial<Pending> | null;
         if (
-          typeof threadId !== "string" ||
           p === null ||
           typeof p !== "object" ||
           typeof p.content !== "string" ||
@@ -717,40 +722,72 @@ export function composeChannels(
           typeof p.inbound.chatId !== "string" ||
           typeof p.heldAt !== "number" ||
           nowMs - p.heldAt > HELD_MAX_AGE_MS ||
-          nowMs - p.heldAt < 0 ||
-          getThread(db, threadId) === undefined
+          nowMs - p.heldAt < 0
+        )
+          continue;
+        // The channel row it was authorized under must be the one it names: a file that says
+        // it came from one channel while claiming another's row is not replayed.
+        const row = service.listChannels().find((c) => c.id === p.target?.channelId);
+        if (
+          row === undefined ||
+          row.type !== p.inbound.channel ||
+          row.account !== p.inbound.account
         )
           continue;
         const verdict = service.reauthorizeHeld(p.target.channelId, p.inbound);
         if (!verdict.ok) {
-          if (verdict.park) parked.push({ threadId, pending: p as Pending });
+          if (verdict.park && typeof item.threadId === "string")
+            parked.push({ threadId: item.threadId, pending: p as Pending });
           continue;
         }
         const { route } = verdict;
         // The same gate as a live message: only the owner's private chat runs turns.
         if (route.role !== "owner" || !route.injectMemory) continue;
+        // Where it runs comes from today's route, not from the file: the thread is the one
+        // this sender's session key means now (created again if it was deleted meanwhile).
+        const threadId = threadFor(route.sessionKey).id;
+        // Taint is worked out again from the message, never read back from the file.
+        const taintSources = inputTaintSources({
+          kind: "message",
+          route,
+          message: p.inbound,
+          parts: [
+            ...(p.inbound.forwardedFrom === undefined
+              ? []
+              : [{ label: "forwarded", provenance: "untrusted" }]),
+            ...(p.inbound.quoted === undefined
+              ? []
+              : [{ label: "quoted", provenance: "untrusted" }]),
+          ],
+          attachments: [],
+        } as unknown as ChannelInboundEvent);
         // The adapter and the reply authority only answer chats they have seen this run: the
-        // inbound policy has just said this one may be answered, so tell them.
+        // inbound policy has just said this one may be answered (and the row matches), so tell
+        // them.
         (
-          adapters.get(`${p.inbound.channel}:${p.inbound.account}`) as
+          adapters.get(`${row.type}:${row.account}`) as
             | { adoptConversation?: (chatId: string) => void }
             | undefined
         )?.adoptConversation?.(p.inbound.chatId);
         services.channelConversations.record({
-          channel: service.listChannels().find((c) => c.id === p.target?.channelId),
+          channel: row,
           message: p.inbound,
           action: "deliver",
           route,
         } as Parameters<typeof services.channelConversations.record>[0]);
         const list = waiting.get(threadId) ?? [];
+        const { taintSources: _stored, ...rest } = p as Pending;
         list.push({
-          ...(p as Pending),
+          ...rest,
           requester: requesterFromRoute(route),
           target: { channelId: route.channelId, chatId: p.inbound.chatId },
+          ...(taintSources.length === 0 ? {} : { taintSources }),
         });
         waiting.set(threadId, list);
       } catch (err) {
         logger.warn("channel.held_dropped", { code: PsycheError.from(err).code });
+      } finally {
+        replaying.shift();
       }
     }
     persistHeld();

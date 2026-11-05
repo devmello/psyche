@@ -90,20 +90,67 @@ async function holdOneAndStop(afterHold?: (g: ComposedGateway) => void): Promise
 const quiet = () => new Promise((r) => setTimeout(r, 1500));
 
 describe("replaying held messages", () => {
-  it("starts anyway when the thread of a held message is gone, and drops it", async () => {
+  it("starts anyway when the thread of a held message is gone: it runs in the thread of today's session key", async () => {
     const held = await holdOneAndStop((g) => {
       g.gateway.context.db.sqlite.prepare("DELETE FROM threads").run();
     });
     const second = new FakeMessagesNode();
     // Starting must not throw, however the held message fares.
-    composed = await start(second, "should not be sent");
+    composed = await start(second, "I will remind you.");
+    await vi.waitFor(() => expect(second.sends).toHaveLength(1), { timeout: 10_000 });
     await vi.waitFor(() => expect(existsSync(held)).toBe(false));
-    await quiet();
-    expect(second.sends).toHaveLength(0);
+    // It ran in a thread made from the route's session key, not one named by the file.
+    const threads = composed.gateway.context.db.sqlite
+      .prepare("SELECT session_key FROM threads")
+      .all() as { session_key: string }[];
+    expect(threads.length).toBeGreaterThan(0);
     // And it stays gone: the next start has nothing to trip over either.
     await composed.stop("again");
     composed = await start(new FakeMessagesNode(), "x");
     expect(existsSync(held)).toBe(false);
+  }, 60_000);
+
+  it("ignores the thread id the file names", async () => {
+    const held = await holdOneAndStop();
+    const file = JSON.parse(readFileSync(held, "utf8"));
+    file.items[0].threadId = "a-thread-that-never-existed";
+    writeFileSync(held, JSON.stringify(file));
+    const second = new FakeMessagesNode();
+    composed = await start(second, "Done.");
+    await vi.waitFor(() => expect(second.sends).toHaveLength(1), { timeout: 10_000 });
+    expect(second.sends[0]).toMatchObject({ text: "Done." });
+  }, 60_000);
+
+  it("does not replay a message whose channel type or account is not the row it names", async () => {
+    const held = await holdOneAndStop();
+    const file = JSON.parse(readFileSync(held, "utf8"));
+    file.items[0].pending.inbound.account = "someone-else@icloud.com";
+    writeFileSync(held, JSON.stringify(file));
+    const second = new FakeMessagesNode();
+    composed = await start(second, "should not be sent");
+    await vi.waitFor(() => expect(existsSync(held)).toBe(false));
+    await quiet();
+    expect(second.sends).toHaveLength(0);
+  }, 60_000);
+
+  it("works the taint out again: the file's own claim is not believed", async () => {
+    const taintOf = () => {
+      const state = composed?.gateway.context.db.sqlite
+        .prepare("SELECT state FROM agent_thread_state")
+        .all() as { state: string }[] | undefined;
+      return (state ?? []).some((r) => /taint/.test(r.state) && /channel_forwarded/.test(r.state));
+    };
+    // A plain message whose file claims it was forwarded text from a stranger.
+    const held = await holdOneAndStop();
+    const file = JSON.parse(readFileSync(held, "utf8"));
+    file.items[0].pending.taintSources = [
+      { sourceKind: "channel_forwarded", sender: "x:stranger" },
+    ];
+    writeFileSync(held, JSON.stringify(file));
+    const second = new FakeMessagesNode();
+    composed = await start(second, "Done.");
+    await vi.waitFor(() => expect(second.sends).toHaveLength(1), { timeout: 10_000 });
+    expect(taintOf()).toBe(false);
   }, 60_000);
 
   it("does not run a message held for more than a day", async () => {
