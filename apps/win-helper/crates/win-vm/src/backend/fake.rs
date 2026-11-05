@@ -16,8 +16,11 @@ use crate::hcs::doc::Plan9Share;
 struct Guest {
     spec: BootSpec,
     paused: bool,
-    shares: Vec<Plan9Share>,
+    shares: std::sync::Arc<Mutex<Vec<Plan9Share>>>,
     events: EventSink,
+    /// Shares the fake guest has mounted (`/mnt/psyche/<name>`): the boot-time ones from the
+    /// kernel command line, then what the control channel mounts.
+    mounted: std::sync::Arc<Mutex<Vec<String>>>,
 }
 
 #[derive(Default)]
@@ -31,6 +34,8 @@ pub struct FakeBackend {
     /// The integration-service shutdown is ignored (only a forced stop works).
     pub ignore_shutdown: Mutex<bool>,
     pub agent_unreachable: Mutex<bool>,
+    /// The guest image predates `export` / `install_psyche` (answers `unknown op`).
+    pub legacy_guest: Mutex<bool>,
     pub unavailable: Mutex<Option<VmError>>,
     /// Agent methods called, in order.
     pub agent_calls: std::sync::Arc<Mutex<Vec<(String, Value)>>>,
@@ -58,8 +63,12 @@ impl FakeBackend {
         }
     }
 
+    pub fn guest_mounts(&self, name: &str) -> Vec<String> {
+        self.guests.lock().unwrap().get(name).map(|g| g.mounted.lock().unwrap().clone()).unwrap_or_default()
+    }
+
     pub fn live_shares(&self, name: &str) -> Vec<String> {
-        self.guests.lock().unwrap().get(name).map(|g| g.shares.iter().map(|s| s.name.clone()).collect()).unwrap_or_default()
+        self.guests.lock().unwrap().get(name).map(|g| g.shares.lock().unwrap().iter().map(|s| s.name.clone()).collect()).unwrap_or_default()
     }
 }
 
@@ -72,7 +81,7 @@ impl VmBackend for FakeBackend {
         json!({"available": self.unavailable_reason().is_none(), "backend": "fake"})
     }
 
-    fn start(&self, spec: &BootSpec, events: EventSink, prepared: &dyn Fn(&RunInfo)) -> VmResult<RunInfo> {
+    fn start(&self, spec: &BootSpec, events: EventSink) -> VmResult<RunInfo> {
         if let Some(e) = self.fail_start.lock().unwrap().take() {
             return Err(e);
         }
@@ -89,12 +98,17 @@ impl VmBackend for FakeBackend {
             ip_address: spec.nat_mac.as_ref().map(|_| "172.31.240.2".into()),
             network: spec.nat_mac.as_ref().map(|_| json!({"mode": "nat", "address": "172.31.240.2", "prefixLength": 24, "gateway": "172.31.240.1", "dns": ["172.31.240.1"]})),
         };
-        prepared(&info);
         self.boots.lock().unwrap().push(spec.clone());
-        self.guests
-            .lock()
-            .unwrap()
-            .insert(spec.name.clone(), Guest { spec: spec.clone(), paused: false, shares: spec.shares.clone(), events });
+        let boot_mounts: Vec<String> = spec
+            .cmdline
+            .split(' ')
+            .filter_map(|t| t.strip_prefix("psyche.share="))
+            .filter_map(|t| t.split(':').next().map(str::to_owned))
+            .collect();
+        let mounted = std::sync::Arc::new(Mutex::new(boot_mounts));
+        let guest =
+            Guest { spec: spec.clone(), paused: false, shares: std::sync::Arc::new(Mutex::new(spec.shares.clone())), events, mounted };
+        self.guests.lock().unwrap().insert(spec.name.clone(), guest);
         Ok(info)
     }
 
@@ -134,15 +148,16 @@ impl VmBackend for FakeBackend {
     fn add_share(&self, name: &str, share: &Plan9Share) -> VmResult<()> {
         let mut g = self.guests.lock().unwrap();
         let guest = g.get_mut(name).ok_or_else(|| VmError::conflict("vm_not_running", "not running"))?;
-        guest.shares.retain(|s| s.name != share.name);
-        guest.shares.push(share.clone());
+        let mut s = guest.shares.lock().unwrap();
+        s.retain(|x| x.name != share.name);
+        s.push(share.clone());
         Ok(())
     }
 
     fn remove_share(&self, name: &str, share: &str) -> VmResult<()> {
         let mut g = self.guests.lock().unwrap();
         let guest = g.get_mut(name).ok_or_else(|| VmError::conflict("vm_not_running", "not running"))?;
-        guest.shares.retain(|s| s.name != share);
+        guest.shares.lock().unwrap().retain(|s| s.name != share);
         Ok(())
     }
 
@@ -150,36 +165,65 @@ impl VmBackend for FakeBackend {
         if *self.agent_unreachable.lock().unwrap() {
             return Err(VmError::unavailable("guest_agent_unreachable", "The guest agent is not listening yet").retryable());
         }
-        let shares = {
+        let (shares, mounted) = {
             let g = self.guests.lock().unwrap();
             let guest = g.get(name).ok_or_else(|| VmError::conflict("vm_not_running", "not running"))?;
-            let _ = &guest.spec;
-            guest.shares.clone()
+            (guest.shares.clone(), guest.mounted.clone())
         };
+        let legacy = *self.legacy_guest.lock().unwrap();
         let (host, guest) = MemConn::pair();
         let calls = self.agent_calls.clone();
+        // Answers like deploy/windows/guest-image/guest/psyche-control.
         std::thread::spawn(move || {
-            crate::agent::serve(&guest, |method, params| {
-                calls.lock().unwrap().push((method.to_owned(), params.clone()));
-                match method {
-                    crate::agent::PING => Ok(json!({"version": "1", "kernel": "6.6.0-psyche"})),
-                    crate::agent::EXPORT => {
-                        let out = share_path(&shares, crate::shares::SHARE_TRANSFER_OUT)
-                            .ok_or(json!({"code": "unavailable", "message": "no out share"}))?;
-                        let path = params["path"].as_str().unwrap_or("");
-                        if path == "/missing" {
-                            return Err(
-                                json!({"code": "not_found", "message": "No such file", "details": {"reason": "guest_path_missing"}}),
-                            );
+            crate::agent::serve(&guest, |op, req| {
+                calls.lock().unwrap().push((op.to_owned(), req.clone()));
+                let unknown = || json!({"code": "invalid_params", "message": format!("unknown op {op}")});
+                match op {
+                    crate::agent::PING => Ok(json!({"pong": true})),
+                    crate::agent::STATUS => Ok(json!({
+                        "version": "0.1.0-test", "hostname": "psyche-pc", "kernel": "6.6.87.2-psyche", "uptimeSeconds": 3,
+                        "node": {"running": true, "pid": 42}, "session": {"mounted": true, "freeBytes": 1, "totalBytes": 2},
+                        "network": {"up": false, "addresses": []}, "shares": [],
+                    })),
+                    crate::agent::MOUNT => {
+                        let n = req["name"].as_str().unwrap_or("").to_owned();
+                        if !shares.lock().unwrap().iter().any(|s| s.name == n) {
+                            return Err(json!({"code": "internal", "message": "connect(vsock host:564): no such share"}));
                         }
-                        let id = params["transferId"].as_str().unwrap_or("x");
+                        let mut m = mounted.lock().unwrap();
+                        if m.contains(&n) {
+                            return Err(json!({"code": "conflict", "message": format!("share {n} is already mounted")}));
+                        }
+                        m.push(n.clone());
+                        Ok(json!({"name": n, "path": format!("/mnt/psyche/{n}"), "readOnly": req["readOnly"]}))
+                    }
+                    crate::agent::UMOUNT => {
+                        let n = req["name"].as_str().unwrap_or("");
+                        let mut m = mounted.lock().unwrap();
+                        if !m.iter().any(|x| x == n) {
+                            return Err(json!({"code": "not_found", "message": format!("share {n} is not mounted")}));
+                        }
+                        m.retain(|x| x != n);
+                        Ok(json!({"unmounted": true}))
+                    }
+                    crate::agent::RESTART_NODE => Ok(json!({"restarting": true})),
+                    crate::agent::SHUTDOWN => Ok(json!({"stopping": true})),
+                    crate::agent::EXPORT if !legacy => {
+                        let out = share_path(&shares.lock().unwrap(), crate::shares::SHARE_TRANSFER_OUT)
+                            .ok_or(json!({"code": "internal", "message": "no out share"}))?;
+                        let path = req["path"].as_str().unwrap_or("");
+                        if path == "/missing" {
+                            return Err(json!({"code": "not_found", "message": "No such file"}));
+                        }
+                        let id = req["transferId"].as_str().unwrap_or("x");
                         let file = path.rsplit('/').next().unwrap_or("file");
                         let dir = out.join(id);
-                        std::fs::create_dir_all(&dir).map_err(|_| json!({"code": "unavailable", "message": "mkdir"}))?;
-                        std::fs::write(dir.join(file), b"exported").map_err(|_| json!({"code": "unavailable", "message": "write"}))?;
+                        std::fs::create_dir_all(&dir).map_err(|_| json!({"code": "internal", "message": "mkdir"}))?;
+                        std::fs::write(dir.join(file), b"exported").map_err(|_| json!({"code": "internal", "message": "write"}))?;
                         Ok(json!({"bytes": 8}))
                     }
-                    _ => Ok(json!({"ok": true})),
+                    crate::agent::INSTALL_PSYCHE if !legacy => Ok(json!({"installed": true})),
+                    _ => Err(unknown()),
                 }
             });
         });

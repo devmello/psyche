@@ -1,18 +1,20 @@
-//! Guest images (`GuestImage.swift` for the Linux guest): a directory
-//! `<images root>\<imageVersion>\` with `vmlinuz`, `initrd`, `rootfs.vhdx` and `manifest.json`:
+//! Guest images (`GuestImage.swift` for the Linux guest), as `deploy/windows/guest-image`
+//! builds them: `<images root>\<imageVersion>\{vmlinuz, initrd, rootfs.vhdx, manifest.json}`.
 //!
-//! ```json
-//! { "format": "psyche-guest-image", "formatVersion": 1, "id": "<imageVersion>",
-//!   "guestOS": "linux", "createdAt": "…", "psycheVersion": "…", "kernelCmdline": "…",
-//!   "files": [ {"name": "vmlinuz", "bytes": 123, "sha256": "<hex>"}, … ] }
+//! ```jsonc
+//! { "schema": 1, "kind": "psyche-windows-guest-image", "contract": 1,
+//!   "imageVersion": "0.1.0-1a2b3c4d", "version": "0.1.0", "builtAt": "…",
+//!   "files": { "vmlinuz": {"name", "size", "sha256"}, "initrd": {…}, "rootfs": {"name": "rootfs.vhdx", …},
+//!              "sessiondata": {…template, not installed} },
+//!   "boot": {"kernelCmdline": "…"}, "resources": {"minMemoryMiB", "minCpus"},
+//!   "guest": {"gatewayVsockPort": 7980, "controlVsockPort": 7000, …}, "node": {"version"} }
 //! ```
 //!
-//! `files` may also be an object (`{"vmlinuz": {"bytes", "sha256"}}` or `{"vmlinuz": "<hex>"}`).
-//! Exactly `vmlinuz`, `initrd` and `rootfs.vhdx` must be listed; other files in the folder are
-//! ignored (nothing is copied out of it). Every listed file is hashed before a guest is created
-//! from the image and before every boot (cached per service run by size, write time and file
-//! id); the manifest's own SHA-256 is pinned in the guest's config at create (and checked against
-//! the publisher's `imageSha256` when given), so a swapped image is refused.
+//! `vmlinuz`, `initrd` and `rootfs.vhdx` are hashed before a guest is created from the image and
+//! before every boot (cached per service run by size and write / creation time); the manifest's
+//! own SHA-256 is pinned in the guest's config at create (and checked against the publisher's
+//! `imageSha256` when given), so a swapped image is refused. Other files in the folder are
+//! ignored: nothing is copied out of it.
 
 use std::collections::HashMap;
 use std::io::Read;
@@ -25,12 +27,15 @@ use sha2::{Digest, Sha256};
 
 use crate::error::{VmError, VmResult};
 
-pub const FORMAT: &str = "psyche-guest-image";
-pub const FORMAT_VERSION: u64 = 1;
+pub const KIND: &str = "psyche-windows-guest-image";
+pub const SCHEMA: u64 = 1;
+pub const CONTRACT: u64 = 1;
 pub const KERNEL: &str = "vmlinuz";
 pub const INITRD: &str = "initrd";
 pub const ROOTFS: &str = "rootfs.vhdx";
 pub const EXPECTED_FILES: [&str; 3] = [KERNEL, INITRD, ROOTFS];
+/// `files` keys for the three files the service uses.
+const ROLES: [(&str, &str); 3] = [("vmlinuz", KERNEL), ("initrd", INITRD), ("rootfs", ROOTFS)];
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -43,17 +48,21 @@ pub struct ImageFile {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Manifest {
-    pub format: String,
-    pub format_version: u64,
+    /// `imageVersion` (the install folder's name).
     pub id: String,
+    pub version: Option<String>,
     #[serde(rename = "guestOS")]
     pub guest_os: String,
+    /// `builtAt`.
     pub created_at: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    /// `node.version`.
     pub psyche_version: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    /// `boot.kernelCmdline`.
     pub kernel_cmdline: Option<String>,
+    /// The image ships psyche-node.
     pub psyche_installed: bool,
+    pub min_memory_mib: Option<u64>,
+    pub min_cpus: Option<u64>,
     pub files: Vec<ImageFile>,
 }
 
@@ -67,15 +76,10 @@ pub fn is_valid_id(s: &str) -> bool {
 }
 
 fn invalid(msg: impl Into<String>) -> VmError {
-    VmError::invalid_params(msg, "image").with_reason("image_invalid")
-}
-
-impl VmError {
-    fn with_reason(mut self, reason: &str) -> VmError {
-        self.reason = reason.into();
-        self.details.remove("field");
-        self
-    }
+    let mut e = VmError::invalid_params(msg, "image");
+    e.reason = "image_invalid".into();
+    e.details.remove("field");
+    e
 }
 
 fn is_hex64(s: &str) -> bool {
@@ -85,66 +89,59 @@ fn is_hex64(s: &str) -> bool {
 /// Parses `manifest.json` (no file access).
 pub fn parse_manifest(bytes: &[u8]) -> VmResult<Manifest> {
     let v: Value = serde_json::from_slice(bytes).map_err(|_| invalid("manifest.json is not JSON"))?;
-    if v["format"].as_str() != Some(FORMAT) {
-        return Err(invalid("manifest.json is not a Psyche guest image"));
+    if v["kind"].as_str() != Some(KIND) {
+        return Err(invalid("manifest.json is not a Psyche Windows guest image"));
     }
-    let version = v["formatVersion"].as_u64().unwrap_or(0);
-    if version != FORMAT_VERSION {
-        return Err(VmError::unavailable(
-            "image_version_unsupported",
-            format!("Guest image format {version} is not supported by this service"),
-        ));
+    for (key, want) in [("schema", SCHEMA), ("contract", CONTRACT)] {
+        let got = v[key].as_u64().unwrap_or(0);
+        if got != want {
+            return Err(VmError::unavailable(
+                "image_version_unsupported",
+                format!("Guest image {key} {got} is not supported by this service (needs {want})"),
+            ));
+        }
     }
-    let id = v["id"].as_str().unwrap_or_default().to_owned();
+    let id = v["imageVersion"].as_str().unwrap_or_default().to_owned();
     if !is_valid_id(&id) {
-        return Err(invalid("The image id must match ^[a-z0-9][a-z0-9.-]{0,63}$"));
+        return Err(invalid("imageVersion must match ^[a-z0-9][a-z0-9.-]{0,63}$"));
     }
     let mut files = Vec::new();
-    let entry = |name: &str, f: &Value| -> VmResult<ImageFile> {
-        let (sha, bytes) = match f {
-            Value::String(s) => (s.clone(), None),
-            o => (o["sha256"].as_str().unwrap_or_default().to_owned(), o["bytes"].as_u64().or(o["size"].as_u64())),
-        };
-        if !is_hex64(&sha) {
-            return Err(invalid(format!("{name} has no SHA-256 in the manifest")));
+    for (role, name) in ROLES {
+        let f = &v["files"][role];
+        let sha = f["sha256"].as_str().unwrap_or_default();
+        if f["name"].as_str() != Some(name) || !is_hex64(sha) {
+            return Err(invalid(format!("files.{role} must name {name} with its SHA-256")));
         }
-        Ok(ImageFile { name: name.to_owned(), bytes: bytes.unwrap_or(u64::MAX), sha256: sha.to_ascii_lowercase() })
-    };
-    match &v["files"] {
-        Value::Array(a) => {
-            for f in a {
-                files.push(entry(f["name"].as_str().unwrap_or_default(), f)?);
-            }
-        }
-        Value::Object(o) => {
-            for (k, f) in o {
-                files.push(entry(k, f)?);
-            }
-        }
-        _ => return Err(invalid("The image manifest lists no files")),
+        let bytes = f["size"].as_u64().ok_or_else(|| invalid(format!("files.{role} has no size")))?;
+        files.push(ImageFile { name: name.to_owned(), bytes, sha256: sha.to_ascii_lowercase() });
     }
-    let mut names: Vec<&str> = files.iter().map(|f| f.name.as_str()).collect();
-    names.sort_unstable();
-    let mut want = EXPECTED_FILES.to_vec();
-    want.sort_unstable();
-    if names != want {
-        return Err(invalid(format!("The image must list exactly {}", want.join(", "))));
+    // The ports are fixed (registered under GuestCommunicationServices at install).
+    for (key, want) in [("gatewayVsockPort", crate::manager::GATEWAY_NODE_PORT), ("controlVsockPort", crate::manager::GUEST_AGENT_PORT)] {
+        if let Some(p) = v["guest"][key].as_u64()
+            && p != u64::from(want)
+        {
+            return Err(VmError::unavailable(
+                "image_unsupported",
+                format!("The image uses vsock port {p} for {key}; this service needs {want}"),
+            ));
+        }
     }
-    let cmdline = v["kernelCmdline"].as_str().map(str::to_owned);
+    let cmdline = v["boot"]["kernelCmdline"].as_str().map(str::to_owned);
     if let Some(c) = &cmdline
         && (c.len() > 1024 || c.chars().any(|ch| ch.is_control()))
     {
-        return Err(invalid("kernelCmdline is too long or has control characters"));
+        return Err(invalid("boot.kernelCmdline is too long or has control characters"));
     }
     Ok(Manifest {
-        format: FORMAT.into(),
-        format_version: FORMAT_VERSION,
         id,
-        guest_os: v["guestOS"].as_str().unwrap_or("linux").to_owned(),
-        created_at: v["createdAt"].as_str().unwrap_or_default().to_owned(),
-        psyche_version: v["psycheVersion"].as_str().map(str::to_owned),
+        version: v["version"].as_str().map(str::to_owned),
+        guest_os: "linux".into(),
+        created_at: v["builtAt"].as_str().unwrap_or_default().to_owned(),
+        psyche_version: v["node"]["version"].as_str().map(str::to_owned),
         kernel_cmdline: cmdline,
-        psyche_installed: v["psycheInstalled"].as_bool().unwrap_or(true),
+        psyche_installed: true,
+        min_memory_mib: v["resources"]["minMemoryMiB"].as_u64(),
+        min_cpus: v["resources"]["minCpus"].as_u64(),
         files,
     })
 }
@@ -190,7 +187,7 @@ impl Image {
         self.dir.join(ROOTFS)
     }
     pub fn bytes(&self) -> u64 {
-        self.manifest.files.iter().filter(|f| f.bytes != u64::MAX).map(|f| f.bytes).sum()
+        self.manifest.files.iter().map(|f| f.bytes).sum()
     }
 }
 
@@ -242,14 +239,14 @@ pub fn verify(dir: &Path, expected_manifest_sha: Option<&str>, cache: &VerifyCac
             .detail("actual", manifest_sha.as_str()));
     }
     let manifest = parse_manifest(&bytes)?;
-    let total = manifest.files.iter().map(|f| f.bytes.min(1 << 40)).sum::<u64>().max(1);
+    let total = manifest.files.iter().map(|f| f.bytes).sum::<u64>().max(1);
     let mut hashed = 0u64;
     for f in &manifest.files {
         let path = dir.join(&f.name);
         let meta = std::fs::symlink_metadata(&path).map_err(|_| {
             VmError::policy_denied("image_checksum_mismatch", format!("{} is missing", f.name)).detail("file", f.name.as_str())
         })?;
-        if !meta.is_file() || (f.bytes != u64::MAX && meta.len() != f.bytes) {
+        if !meta.is_file() || meta.len() != f.bytes {
             return Err(VmError::policy_denied("image_checksum_mismatch", format!("{} is not the file the manifest describes", f.name))
                 .detail("file", f.name.as_str()));
         }
@@ -282,7 +279,7 @@ pub fn list(root: &Path) -> Vec<Value> {
             Some(match parse_manifest(&bytes) {
                 Ok(m) => serde_json::json!({
                     "version": version, "id": m.id, "guestOS": m.guest_os, "createdAt": m.created_at,
-                    "psycheVersion": m.psyche_version, "sizeBytes": m.files.iter().filter(|f| f.bytes != u64::MAX).map(|f| f.bytes).sum::<u64>(),
+                    "psycheVersion": m.psyche_version, "sizeBytes": m.files.iter().map(|f| f.bytes).sum::<u64>(),
                     "manifestSha256": sha, "valid": true,
                 }),
                 Err(err) => serde_json::json!({"version": version, "manifestSha256": sha, "valid": false, "reason": err.reason}),
@@ -335,9 +332,42 @@ pub fn locate(root: &Path, image: Option<&str>) -> VmResult<PathBuf> {
     }
 }
 
+/// A schema-1 manifest for `files` (`vmlinuz`, `initrd`, `rootfs.vhdx` with size and SHA-256),
+/// as `make-manifest.mjs` writes it (the fields the service reads, plus the fixed guest ports).
+pub fn build_manifest(
+    image_version: &str,
+    built_at: &str,
+    node_version: Option<&str>,
+    cmdline: Option<&str>,
+    files: &[ImageFile],
+) -> Value {
+    let mut by_role = serde_json::Map::new();
+    for (role, name) in ROLES {
+        if let Some(f) = files.iter().find(|f| f.name == name) {
+            by_role.insert(role.into(), serde_json::json!({"name": f.name, "size": f.bytes, "sha256": f.sha256}));
+        }
+    }
+    let mut m = serde_json::json!({
+        "schema": SCHEMA, "kind": KIND, "contract": CONTRACT, "imageVersion": image_version, "builtAt": built_at,
+        "files": by_role,
+        "guest": {"hostCid": 2, "gatewayVsockPort": crate::manager::GATEWAY_NODE_PORT, "controlVsockPort": crate::manager::GUEST_AGENT_PORT},
+    });
+    if let Some(c) = cmdline {
+        m["boot"] = serde_json::json!({"kernelCmdline": c});
+    }
+    if let Some(v) = node_version {
+        m["node"] = serde_json::json!({"version": v});
+    }
+    m
+}
+
 #[cfg(test)]
 pub mod tests {
     use super::*;
+
+    fn file(name: &str, body: &[u8]) -> ImageFile {
+        ImageFile { name: name.into(), bytes: body.len() as u64, sha256: sha256_hex(body) }
+    }
 
     /// Writes a small fake image (`vmlinuz`, `initrd`, `rootfs.vhdx` with fixed bytes).
     pub fn write_image(root: &Path, version: &str, created: &str) -> PathBuf {
@@ -346,9 +376,9 @@ pub mod tests {
         let mut files = Vec::new();
         for (name, body) in [(KERNEL, b"kernel".as_slice()), (INITRD, b"initrd"), (ROOTFS, b"rootfs")] {
             std::fs::write(dir.join(name), body).unwrap();
-            files.push(serde_json::json!({"name": name, "bytes": body.len(), "sha256": sha256_hex(body)}));
+            files.push(file(name, body));
         }
-        let m = serde_json::json!({"format": FORMAT, "formatVersion": 1, "id": version, "guestOS": "linux", "createdAt": created, "files": files});
+        let m = build_manifest(version, created, Some("0.1.0"), Some("console=ttyS0"), &files);
         std::fs::write(dir.join("manifest.json"), serde_json::to_vec_pretty(&m).unwrap()).unwrap();
         dir
     }
@@ -360,23 +390,56 @@ pub mod tests {
         d
     }
 
+    /// The manifest `deploy/windows/guest-image/make-manifest.mjs` writes (trimmed).
+    const VM_IMAGE_MANIFEST: &str = r#"{
+      "schema": 1, "kind": "psyche-windows-guest-image", "contract": 1,
+      "imageVersion": "0.1.0-200e621f", "version": "0.1.0", "arch": "x86_64", "builtAt": "2026-11-05T12:34:32.352Z",
+      "files": {
+        "vmlinuz": {"name": "vmlinuz", "size": 29774848, "sha256": "ebfe01aa7659abf78dd056cbbd8283787e02cf35d5f81b3adceae7b8c60028ec"},
+        "initrd": {"name": "initrd", "size": 1065063, "sha256": "35896c4acd34ff40f473470124a20b76cb848d634c9ab107b14a4e986370a943"},
+        "rootfs": {"name": "rootfs.vhdx", "size": 1337982976, "sha256": "22898659f89a1e8880197460b18802fcf97e7a9a7600e7df6b99f71e8f4f406d",
+                   "readOnly": true, "format": "vhdx", "subformat": "dynamic",
+                   "compressed": {"name": "rootfs.vhdx.zst", "size": 317159067, "sha256": "206c213edf38c470a49359f15a8d7dd1d396a3ed0835d57a206971154be49582", "format": "zstd"}},
+        "sessiondata": {"name": "sessiondata.vhdx", "size": 8388608, "sha256": "bfb469d3531d73731625b3ae8449f48ae2e28694ced6d01391ad515f1e28a9e0", "template": true, "virtualSizeBytes": 8589934592}
+      },
+      "boot": {"kernelCmdline": "console=ttyS0,115200 loglevel=4 panic=10 net.ifnames=0 random.trust_cpu=on psyche.hostname=psyche-pc"},
+      "resources": {"minMemoryMiB": 1024, "recommendedMemoryMiB": 2048, "minCpus": 1, "recommendedCpus": 2},
+      "guest": {"user": "psyche", "uid": 1000, "hostCid": 2, "gatewayVsockPort": 7980, "controlVsockPort": 7000},
+      "node": {"package": "@psyche/node", "version": "0.1.0"}
+    }"#;
+
     #[test]
-    fn manifest_parsing_accepts_both_file_forms() {
-        let sha = "a".repeat(64);
-        let arr = serde_json::json!({"format": FORMAT, "formatVersion": 1, "id": "linux-1", "files": [
-            {"name": "vmlinuz", "bytes": 1, "sha256": sha}, {"name": "initrd", "bytes": 1, "sha256": sha}, {"name": "rootfs.vhdx", "bytes": 1, "sha256": sha}]});
-        let m = parse_manifest(arr.to_string().as_bytes()).unwrap();
-        assert_eq!(m.guest_os, "linux");
-        let obj = serde_json::json!({"format": FORMAT, "formatVersion": 1, "id": "linux-1", "files": {"vmlinuz": sha, "initrd": {"sha256": sha, "size": 3}, "rootfs.vhdx": {"sha256": sha}}});
-        let m = parse_manifest(obj.to_string().as_bytes()).unwrap();
-        assert_eq!(m.files.iter().find(|f| f.name == "initrd").unwrap().bytes, 3);
-        let missing = serde_json::json!({"format": FORMAT, "formatVersion": 1, "id": "x", "files": {"vmlinuz": sha}});
-        assert_eq!(parse_manifest(missing.to_string().as_bytes()).unwrap_err().reason, "image_invalid");
-        let v2 = serde_json::json!({"format": FORMAT, "formatVersion": 2, "id": "x", "files": []});
-        assert_eq!(parse_manifest(v2.to_string().as_bytes()).unwrap_err().reason, "image_version_unsupported");
+    fn parses_the_guest_image_pipelines_manifest() {
+        let m = parse_manifest(VM_IMAGE_MANIFEST.as_bytes()).unwrap();
+        assert_eq!(m.id, "0.1.0-200e621f");
+        assert_eq!(m.created_at, "2026-11-05T12:34:32.352Z");
+        assert_eq!(
+            m.kernel_cmdline.as_deref(),
+            Some("console=ttyS0,115200 loglevel=4 panic=10 net.ifnames=0 random.trust_cpu=on psyche.hostname=psyche-pc")
+        );
+        assert_eq!((m.min_memory_mib, m.min_cpus), (Some(1024), Some(1)));
+        assert_eq!(m.psyche_version.as_deref(), Some("0.1.0"));
+        let names: Vec<&str> = m.files.iter().map(|f| f.name.as_str()).collect();
+        assert_eq!(names, vec!["vmlinuz", "initrd", "rootfs.vhdx"], "the session template and .zst are not used");
+        assert_eq!(m.files[2].bytes, 1_337_982_976);
+        let mut v: Value = serde_json::from_str(VM_IMAGE_MANIFEST).unwrap();
+        v["schema"] = 2.into();
+        assert_eq!(parse_manifest(v.to_string().as_bytes()).unwrap_err().reason, "image_version_unsupported");
+        let mut v: Value = serde_json::from_str(VM_IMAGE_MANIFEST).unwrap();
+        v["guest"]["gatewayVsockPort"] = 1234.into();
+        assert_eq!(parse_manifest(v.to_string().as_bytes()).unwrap_err().reason, "image_unsupported");
+        let mut v: Value = serde_json::from_str(VM_IMAGE_MANIFEST).unwrap();
+        v["files"]["rootfs"]["name"] = "other.vhdx".into();
+        assert_eq!(parse_manifest(v.to_string().as_bytes()).unwrap_err().reason, "image_invalid");
+        let mut v: Value = serde_json::from_str(VM_IMAGE_MANIFEST).unwrap();
+        v["imageVersion"] = "../x".into();
+        assert_eq!(parse_manifest(v.to_string().as_bytes()).unwrap_err().reason, "image_invalid");
         assert_eq!(parse_manifest(b"{}").unwrap_err().reason, "image_invalid");
-        let bad_id = serde_json::json!({"format": FORMAT, "formatVersion": 1, "id": "../x", "files": []});
-        assert_eq!(parse_manifest(bad_id.to_string().as_bytes()).unwrap_err().reason, "image_invalid");
+        assert_eq!(parse_manifest(b"nope").unwrap_err().reason, "image_invalid");
+        // What export_image writes parses back.
+        let files = vec![file(KERNEL, b"k"), file(INITRD, b"i"), file(ROOTFS, b"r")];
+        let built = build_manifest("linux-x", "t", None, Some("console=ttyS0"), &files);
+        assert_eq!(parse_manifest(built.to_string().as_bytes()).unwrap().files, files);
     }
 
     #[test]

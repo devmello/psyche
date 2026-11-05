@@ -16,7 +16,7 @@ use serde::Deserialize;
 use serde_json::{Map, Value, json};
 
 use crate::agent::{self, AgentClient};
-use crate::backend::{BackendEvent, BootSpec, EventSink, RunInfo, VmBackend};
+use crate::backend::{BackendEvent, BootSpec, EventSink, VmBackend};
 use crate::conn::Conn;
 use crate::error::{VmError, VmResult};
 use crate::events::EventHub;
@@ -146,6 +146,11 @@ pub struct ExportImageParams {
 
 fn not_running(name: &str) -> VmError {
     VmError::conflict("vm_not_running", format!("{name} is not running"))
+}
+
+/// `mount` params for the guest's control channel.
+fn mount_params(name: &str, read_only: bool, fs_root: bool, restart_node: bool) -> Value {
+    json!({"name": name, "port": shares::PLAN9_PORT, "aname": name, "readOnly": read_only, "fsRoot": fs_root, "restartNode": restart_node})
 }
 
 fn reason_of(e: &VmError) -> String {
@@ -353,6 +358,18 @@ impl Manager {
         let img = image::verify(&dir, p.image_sha256.as_deref(), &self.verified, |f| {
             emit(json!({"type": "vm.import", "phase": "progress", "fraction": f * 0.9}))
         })?;
+        if img.manifest.min_cpus.is_some_and(|m| u64::from(config.cpus) < m)
+            || img.manifest.min_memory_mib.is_some_and(|m| u64::from(config.memory_gb) * 1024 < m)
+        {
+            return Err(VmError::invalid_params(
+                format!(
+                    "This image needs at least {} CPUs and {} MiB of memory",
+                    img.manifest.min_cpus.unwrap_or(1),
+                    img.manifest.min_memory_mib.unwrap_or(1024)
+                ),
+                "memoryGB",
+            ));
+        }
         config.guest_os = Some(img.manifest.guest_os.clone());
         config.image = Some(dir.file_name().and_then(|n| n.to_str()).unwrap_or(&img.manifest.id).to_owned());
         config.image_sha256 = Some(img.manifest_sha256.clone());
@@ -409,19 +426,13 @@ impl Manager {
         self.set_state(&b, st.clone())?;
         emit(json!({"type": "vm.state", "phase": st.phase.as_str()}));
         let sink = self.sink();
-        let meta = b.guest_meta();
-        let network_mode = config.network.clone();
-        let prepared = move |info: &RunInfo| {
-            let net = info.network.clone().unwrap_or_else(|| json!({"mode": network_mode}));
-            let _ = fsx::write_json(&meta.join("network.json"), &net);
-        };
-        let booted = match self.backend.start(&spec, sink.clone(), &prepared) {
+        let booted = match self.backend.start(&spec, sink.clone()) {
             Err(e) if e.reason == "restore_failed" && spec.restore_from.is_some() => {
                 // Warm start failed: discard the state and boot cold.
                 let _ = std::fs::remove_file(b.saved_state());
                 emit(json!({"type": "vm.state", "phase": "starting"}));
                 let cold = BootSpec { restore_from: None, ..spec.clone() };
-                self.backend.start(&cold, sink, &prepared)
+                self.backend.start(&cold, sink)
             }
             other => other,
         };
@@ -441,10 +452,52 @@ impl Manager {
         running.psyche_installed = state.psyche_installed;
         running.permissions_granted = state.permissions_granted;
         self.set_state(&b, running)?;
+        self.sync_guest_shares(name);
         Ok(self.describe(&b, &config))
     }
 
-    /// The boot: verified image, existing disks without links, re-checked shares, meta files.
+    /// Mounts the user's shares in a booted guest once its control channel answers (system
+    /// shares are mounted at boot from the kernel command line): each becomes a node `fs` root,
+    /// then the node restarts once to pick them up.
+    fn sync_guest_shares(&self, name: &str) {
+        let me = self.me.clone();
+        let name = name.to_owned();
+        std::thread::spawn(move || {
+            for _ in 0..120 {
+                let Some(m) = me.upgrade() else { return };
+                if !m.backend.is_running(&name) {
+                    return;
+                }
+                let mut grants: Vec<ShareGrant> = Vec::new();
+                let b = Bundle::new(&m.cfg.home, &name);
+                m.owner.run(&mut || grants = fsx::read_json(&b.shares()).unwrap_or_default());
+                let agent = match m.agent(&name) {
+                    Ok(a) if a.call(agent::PING, json!({}), Duration::from_secs(5)).is_ok() => a,
+                    _ => {
+                        m.drop_agent(&name);
+                        drop(m);
+                        std::thread::sleep(Duration::from_secs(1));
+                        continue;
+                    }
+                };
+                let mut mounted = 0;
+                for g in &grants {
+                    match agent.call(agent::MOUNT, mount_params(&g.name, g.read_only, true, false), Duration::from_secs(30)) {
+                        Ok(_) => mounted += 1,
+                        Err(e) if e.reason == "guest_conflict" => {}
+                        Err(e) => crate::log::warn(&format!("vm share mount failed name={name} reason={}", e.reason)),
+                    }
+                }
+                if mounted > 0 {
+                    let _ = agent.call(agent::RESTART_NODE, json!({}), Duration::from_secs(10));
+                }
+                crate::log::info(&format!("vm guest ready name={name} shares={mounted}"));
+                return;
+            }
+        });
+    }
+
+    /// The boot: verified image, existing disks without links, re-checked shares.
     fn boot_spec(&self, b: &Bundle, c: &VmConfig, state: &VmState) -> VmResult<BootSpec> {
         let version = c.image.as_deref().ok_or_else(|| VmError::conflict("vm_not_installed", format!("{} has no guest image", c.name)))?;
         let dir = image::locate(&self.cfg.images_root, Some(version))?;
@@ -479,8 +532,9 @@ impl Manager {
             let path = shares::recheck(g, &self.cfg.roots)?;
             plan9.push(Plan9Share { name: g.name.clone(), path: path.to_string_lossy().into_owned(), read_only: g.read_only });
         }
-        plan9.extend(self.system_shares(b, &c.name)?);
-        self.write_meta(b, c, &grants, !state.provisioned)?;
+        let system = self.system_shares(b, &c.name)?;
+        let boot_mounts: Vec<(String, bool)> = system.iter().map(|s| (s.name.clone(), s.read_only)).collect();
+        plan9.extend(system);
         let saved = b.saved_state();
         let restore_from = (state.provisioned && saved.is_file()).then_some(saved);
         Ok(BootSpec {
@@ -488,14 +542,7 @@ impl Manager {
             system_id: paths::compute_system_id(&self.cfg.owner_sid, &c.name),
             kernel: img.kernel(),
             initrd: img.initrd(),
-            cmdline: doc::kernel_cmdline(
-                img.manifest.kernel_cmdline.as_deref(),
-                &c.name,
-                GATEWAY_NODE_PORT,
-                GUEST_AGENT_PORT,
-                shares::PLAN9_PORT,
-                !state.provisioned,
-            ),
+            cmdline: doc::kernel_cmdline(img.manifest.kernel_cmdline.as_deref(), GATEWAY_NODE_PORT, shares::PLAN9_PORT, &boot_mounts),
             disks: vec![b.system_disk(), b.session_disk()],
             readonly_files: readonly,
             shares: plan9,
@@ -507,51 +554,19 @@ impl Manager {
         })
     }
 
-    /// `psyche-meta` (read-only), `psyche-in` (read-only), `psyche-out` (read-write, only the
-    /// agent writes it) and, after `install_psyche`, `psyche-payload` (read-only).
+    /// `psyche-in` (read-only), `psyche-out` (read-write; only the guest's control channel
+    /// writes it) and, after `install_psyche`, `psyche-payload` (read-only).
     fn system_shares(&self, b: &Bundle, name: &str) -> VmResult<Vec<Plan9Share>> {
-        for d in [b.guest_meta(), b.transfer_in(), b.transfer_out()] {
+        for d in [b.transfer_in(), b.transfer_out()] {
             fsx::create_dir_all(&d)?;
             crate::security::check_plain_path(&self.cfg.home, &d)?;
         }
         let s = |n: &str, p: &Path, ro: bool| Plan9Share { name: n.into(), path: p.to_string_lossy().into_owned(), read_only: ro };
-        let mut out = vec![
-            s(shares::SHARE_META, &b.guest_meta(), true),
-            s(shares::SHARE_TRANSFER_IN, &b.transfer_in(), true),
-            s(shares::SHARE_TRANSFER_OUT, &b.transfer_out(), false),
-        ];
+        let mut out = vec![s(shares::SHARE_TRANSFER_IN, &b.transfer_in(), true), s(shares::SHARE_TRANSFER_OUT, &b.transfer_out(), false)];
         if let Some(p) = self.inner.lock().unwrap().payloads.get(name) {
             out.push(s(shares::SHARE_PAYLOAD, p, true));
         }
         Ok(out)
-    }
-
-    /// The guest's view of its setup (`/mnt/psyche/psyche-meta/{vm,shares}.json`).
-    fn write_meta(&self, b: &Bundle, c: &VmConfig, grants: &[ShareGrant], first_boot: bool) -> VmResult<()> {
-        fsx::create_dir_all(&b.guest_meta())?;
-        fsx::write_json(
-            &b.guest_meta().join("vm.json"),
-            &json!({
-                "name": c.name, "username": c.username, "gatewayPort": GATEWAY_NODE_PORT, "agentPort": GUEST_AGENT_PORT,
-                "plan9Port": shares::PLAN9_PORT, "provision": first_boot, "network": c.network,
-            }),
-        )?;
-        fsx::write_json(&b.guest_meta().join("shares.json"), &self.share_list(grants, &c.name))
-    }
-
-    fn share_list(&self, grants: &[ShareGrant], name: &str) -> Value {
-        let mut list: Vec<Value> = grants
-            .iter()
-            .map(|g| json!({"name": g.name, "readOnly": g.read_only, "port": shares::PLAN9_PORT, "aname": g.name, "guestPath": g.guest_path(), "system": false}))
-            .collect();
-        let mut sys = vec![(shares::SHARE_TRANSFER_IN, true), (shares::SHARE_TRANSFER_OUT, false)];
-        if self.inner.lock().unwrap().payloads.contains_key(name) {
-            sys.push((shares::SHARE_PAYLOAD, true));
-        }
-        for (n, ro) in sys {
-            list.push(json!({"name": n, "readOnly": ro, "port": shares::PLAN9_PORT, "aname": n, "guestPath": shares::guest_path(n), "system": true}));
-        }
-        Value::Array(list)
     }
 
     fn sink(&self) -> EventSink {
@@ -790,6 +805,14 @@ impl Manager {
         crate::security::check_dir_access(Path::new(&grant.host_path), !read_only)?;
         if self.backend.is_running(name) {
             self.backend.add_share(name, &Plan9Share { name: grant.name.clone(), path: grant.host_path.clone(), read_only })?;
+            // Mount it now (best effort: a guest that does not answer mounts it at its next sync).
+            let mounted = self
+                .agent(name)
+                .and_then(|a| a.call(agent::MOUNT, mount_params(&grant.name, read_only, true, true), Duration::from_secs(30)));
+            if let Err(e) = mounted {
+                crate::log::warn(&format!("vm share mount deferred name={name} reason={}", e.reason));
+                self.drop_agent(name);
+            }
         }
         grants.push(grant);
         fsx::write_json(&b.shares(), &grants)?;
@@ -806,8 +829,8 @@ impl Manager {
         grants.retain(|g| g.name != share);
         if self.backend.is_running(name) {
             // The guest unmounts first so open files do not pin the share.
-            let list = self.share_list(&grants, name);
-            let _ = self.agent(name).and_then(|a| a.call(agent::MOUNT_SHARES, json!({"shares": list}), Duration::from_secs(20)));
+            let _ =
+                self.agent(name).and_then(|a| a.call(agent::UMOUNT, json!({"name": share, "restartNode": true}), Duration::from_secs(20)));
             self.backend.remove_share(name, share)?;
         }
         fsx::write_json(&b.shares(), &grants)?;
@@ -815,17 +838,7 @@ impl Manager {
         Ok(self.describe(&b, &c))
     }
 
-    /// Rewrites the guest's share list and asks a running guest to mount it (best effort: the
-    /// guest also reads it at boot).
-    fn after_share_change(&self, b: &Bundle, c: &VmConfig, grants: &[ShareGrant]) {
-        let _ = fsx::create_dir_all(&b.guest_meta());
-        let _ = fsx::write_json(&b.guest_meta().join("shares.json"), &self.share_list(grants, &c.name));
-        if self.backend.is_running(&c.name) {
-            let list = self.share_list(grants, &c.name);
-            if self.agent(&c.name).and_then(|a| a.call(agent::MOUNT_SHARES, json!({"shares": list}), Duration::from_secs(20))).is_err() {
-                self.drop_agent(&c.name);
-            }
-        }
+    fn after_share_change(&self, b: &Bundle, _c: &VmConfig, _grants: &[ShareGrant]) {
         self.publish(b);
     }
 
@@ -855,13 +868,13 @@ impl Manager {
         if !self.backend.is_running(name) {
             return Err(not_running(name));
         }
-        let r = self.agent(name).and_then(|a| a.call(agent::PING, json!({}), Duration::from_secs(10)));
+        let r = self.agent(name).and_then(|a| a.call(agent::STATUS, json!({}), Duration::from_secs(10)));
         match r {
             Ok(r) => {
                 let mut s = Map::new();
                 s.insert("connected".into(), Value::Bool(true));
                 s.insert("lastSeenAt".into(), Value::String(model::now_iso()));
-                for k in ["version", "accessibility", "screenRecording", "kernel", "node"] {
+                for k in ["version", "hostname", "kernel", "uptimeSeconds", "node", "session", "network", "shares"] {
                     if let Some(v) = r.get(k) {
                         s.insert(k.into(), v.clone());
                     }
@@ -1002,12 +1015,10 @@ impl Manager {
         self.inner.lock().unwrap().payloads.insert(name.to_owned(), PathBuf::from(&root));
         let _ = self.backend.remove_share(name, shares::SHARE_PAYLOAD);
         self.backend.add_share(name, &Plan9Share { name: shares::SHARE_PAYLOAD.into(), path: root.clone(), read_only: true })?;
-        let grants: Vec<ShareGrant> = fsx::read_json(&b.shares()).unwrap_or_default();
-        let _ = fsx::write_json(&b.guest_meta().join("shares.json"), &self.share_list(&grants, name));
         emit(json!({"type": "vm.psyche_install", "phase": "started"}));
         let a = self.agent(name)?;
-        let list = self.share_list(&grants, name);
-        a.call(agent::MOUNT_SHARES, json!({"shares": list}), Duration::from_secs(30))?;
+        let _ = a.call(agent::UMOUNT, json!({"name": shares::SHARE_PAYLOAD, "restartNode": false}), Duration::from_secs(20));
+        a.call(agent::MOUNT, mount_params(shares::SHARE_PAYLOAD, true, false, false), Duration::from_secs(30))?;
         emit(json!({"type": "vm.psyche_install", "phase": "progress", "fraction": 0.3}));
         a.call(
             agent::INSTALL_PSYCHE,
@@ -1128,6 +1139,7 @@ impl Manager {
             return Err(VmError::not_found("out_dir_not_found", format!("No folder at {}", p.out_dir)));
         }
         let guest_os = c.guest_os.clone().unwrap_or_else(|| "linux".into());
+        let _ = &state;
         let id = p.id.clone().unwrap_or_else(|| format!("{guest_os}-{}", model::compact_stamp(model::now_secs(), false)).to_lowercase());
         if !image::is_valid_id(&id) {
             return Err(VmError::invalid_params("id must match ^[a-z0-9][a-z0-9.-]{0,63}$", "id"));
@@ -1150,16 +1162,15 @@ impl Manager {
             for f in image::EXPECTED_FILES {
                 let path = dest.join(f);
                 let sha = image::sha256_file(&path, |_| {}).map_err(|e| VmError::io(f, &e))?;
-                files.push(json!({"name": f, "bytes": fsx::size(&path), "sha256": sha}));
+                files.push(image::ImageFile { name: f.to_owned(), bytes: fsx::size(&path), sha256: sha });
             }
-            let mut m = json!({
-                "format": image::FORMAT, "formatVersion": image::FORMAT_VERSION, "id": id, "guestOS": guest_os,
-                "createdAt": model::now_iso(), "psycheVersion": self.cfg.version, "psycheInstalled": state.as_ref().map(|s| s.psyche_installed).unwrap_or(false),
-                "files": files,
-            });
-            if let Some(cmd) = &src.manifest.kernel_cmdline {
-                m["kernelCmdline"] = Value::String(cmd.clone());
-            }
+            let m = image::build_manifest(
+                &id,
+                &model::now_iso(),
+                src.manifest.psyche_version.as_deref(),
+                src.manifest.kernel_cmdline.as_deref(),
+                &files,
+            );
             let bytes = serde_json::to_vec_pretty(&m).map_err(|e| VmError::internal(e.to_string()))?;
             std::fs::write(dest.join("manifest.json"), &bytes).map_err(|e| VmError::io("manifest.json", &e))?;
             Ok((m, image::sha256_hex(&bytes)))

@@ -25,9 +25,8 @@ pub const GUEST_SHARE_ROOT: &str = "/mnt/psyche";
 /// System shares the service adds beside the user's (reserved names).
 pub const SHARE_TRANSFER_IN: &str = "psyche-in";
 pub const SHARE_TRANSFER_OUT: &str = "psyche-out";
-pub const SHARE_META: &str = "psyche-meta";
 pub const SHARE_PAYLOAD: &str = "psyche-payload";
-pub const RESERVED_NAMES: [&str; 4] = [SHARE_TRANSFER_IN, SHARE_TRANSFER_OUT, SHARE_META, SHARE_PAYLOAD];
+pub const RESERVED_NAMES: [&str; 3] = [SHARE_TRANSFER_IN, SHARE_TRANSFER_OUT, SHARE_PAYLOAD];
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

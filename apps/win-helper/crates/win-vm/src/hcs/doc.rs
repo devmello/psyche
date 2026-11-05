@@ -157,15 +157,16 @@ pub fn shutdown_options() -> Value {
     json!({"Mechanism": "IntegrationService", "Type": "Shutdown", "Force": false, "Reason": "Psyche sandbox PC stop"})
 }
 
-/// The kernel command line: the image's base line plus the Psyche parameters the guest reads.
-pub fn kernel_cmdline(base: Option<&str>, name: &str, gateway_port: u32, agent_port: u32, plan9_port: u32, first_boot: bool) -> String {
-    let base = base.unwrap_or("console=ttyS0 quiet panic=-1");
-    let mut s = format!(
-        "{base} psyche.vm={name} psyche.gateway_port={gateway_port} psyche.agent_port={agent_port} psyche.plan9_port={plan9_port} psyche.meta={}",
-        crate::shares::SHARE_META
-    );
-    if first_boot {
-        s.push_str(" psyche.provision=1");
+/// The kernel command line: the image's `boot.kernelCmdline` plus what the guest's
+/// `/usr/lib/psyche/boot` reads: `psyche.port=<Gateway vsock port>` and one
+/// `psyche.share=NAME:vsock:PORT:ro|rw` per share to mount at boot (names with characters the
+/// command line cannot carry are mounted later over the control channel).
+pub fn kernel_cmdline(base: Option<&str>, gateway_port: u32, plan9_port: u32, boot_shares: &[(String, bool)]) -> String {
+    let mut s = format!("{} psyche.port={gateway_port}", base.unwrap_or("console=ttyS0,115200 panic=10"));
+    for (name, ro) in boot_shares {
+        if name.bytes().all(|c| c.is_ascii_alphanumeric() || b"._-".contains(&c)) && s.len() + name.len() + 32 < 2000 {
+            s.push_str(&format!(" psyche.share={name}:vsock:{plan9_port}:{}", if *ro { "ro" } else { "rw" }));
+        }
     }
     s
 }
@@ -192,7 +193,7 @@ mod tests {
             schema: (2, 5),
             kernel: r"C:\img\vmlinuz".into(),
             initrd: r"C:\img\initrd".into(),
-            cmdline: kernel_cmdline(None, "sandbox", 7980, 7000, 564, true),
+            cmdline: kernel_cmdline(None, 7980, 564, &[("psyche-in".into(), true)]),
             cpus: 4,
             memory_mb: 4096,
             disks: vec![
@@ -200,7 +201,7 @@ mod tests {
                 Disk { path: r"C:\vm\sessiondata.vhdx".into(), read_only: false },
             ],
             shares: vec![
-                Plan9Share { name: "psyche-meta".into(), path: r"C:\vm\guest".into(), read_only: true },
+                Plan9Share { name: "psyche-in".into(), path: r"C:\vm\transfer\in".into(), read_only: true },
                 Plan9Share { name: "proj".into(), path: r"D:\proj".into(), read_only: false },
             ],
             plan9_port: 564,
@@ -229,7 +230,7 @@ mod tests {
         let k = &vm["Chipset"]["LinuxKernelDirect"];
         assert_eq!(k["KernelFilePath"], r"C:\img\vmlinuz");
         assert_eq!(k["InitRdPath"], r"C:\img\initrd");
-        assert!(k["KernelCmdLine"].as_str().unwrap().contains("psyche.gateway_port=7980"));
+        assert!(k["KernelCmdLine"].as_str().unwrap().contains("psyche.port=7980"));
         assert_eq!(vm["ComputeTopology"]["Memory"], json!({"SizeInMB": 4096, "AllowOvercommit": true}));
         assert_eq!(vm["ComputeTopology"]["Processor"]["Count"], 4);
         let scsi = &vm["Devices"]["Scsi"]["0"]["Attachments"];
@@ -240,7 +241,10 @@ mod tests {
         assert_eq!(hv["DefaultConnectSecurityDescriptor"], SYSTEM_ONLY_SD);
         assert_eq!(hv["ServiceTable"]["00001f2c-facb-11e6-bd58-64006a7986d3"]["BindSecurityDescriptor"], SYSTEM_ONLY_SD);
         let shares = vm["Devices"]["Plan9"]["Shares"].as_array().unwrap();
-        assert_eq!(shares[0], json!({"Name": "psyche-meta", "AccessName": "psyche-meta", "Path": r"C:\vm\guest", "Port": 564, "Flags": 1}));
+        assert_eq!(
+            shares[0],
+            json!({"Name": "psyche-in", "AccessName": "psyche-in", "Path": r"C:\vm\transfer\in", "Port": 564, "Flags": 1})
+        );
         assert_eq!(shares[1]["Flags"], 0);
         assert_eq!(vm["Devices"]["ComPorts"]["0"]["NamedPipe"], r"\\.\pipe\psyche-vm-console-x");
         assert!(vm["Devices"].get("NetworkAdapters").is_none(), "no network by default");
@@ -270,10 +274,11 @@ mod tests {
         assert_eq!(remove_share_request("proj", 564)["RequestType"], "Remove");
         assert_eq!(save_options(r"C:\s.vmrs"), json!({"SaveType": "ToFile", "SaveStateFilePath": r"C:\s.vmrs"}));
         assert_eq!(shutdown_options()["Mechanism"], "IntegrationService");
-        let c = kernel_cmdline(Some("console=hvc0 root=/dev/sda"), "sandbox", 7980, 7000, 564, false);
+        let shares = [("psyche-in".to_owned(), true), ("psyche-out".to_owned(), false), ("my docs".to_owned(), true)];
+        let c = kernel_cmdline(Some("console=ttyS0,115200 psyche.hostname=psyche-pc"), 7980, 564, &shares);
         assert_eq!(
             c,
-            "console=hvc0 root=/dev/sda psyche.vm=sandbox psyche.gateway_port=7980 psyche.agent_port=7000 psyche.plan9_port=564 psyche.meta=psyche-meta"
+            "console=ttyS0,115200 psyche.hostname=psyche-pc psyche.port=7980 psyche.share=psyche-in:vsock:564:ro psyche.share=psyche-out:vsock:564:rw"
         );
     }
 

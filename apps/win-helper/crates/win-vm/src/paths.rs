@@ -4,7 +4,7 @@
 //! - VMs: `$PSYCHE_HOME\vm\<name>\` (the mac bundle root): `config.json`, `state.json`,
 //!   `shares.json`, `transfers.json`, `system.vhdx` (differencing child of the image's
 //!   `rootfs.vhdx`), `sessiondata.vhdx`, `SavedState.vmrs`, `snapshots\<id>\`, `transfer\{in,out}\`,
-//!   `guest\` (the read-only `psyche-meta` share), `console.log`.
+//!   `console.log` (the guest's serial console).
 //! - Images: `<images root>\<imageVersion>\{vmlinuz, initrd, rootfs.vhdx, manifest.json}`, the
 //!   root being `%LOCALAPPDATA%\Psyche\vm-images` of the owner.
 //! - Gateway guest pipe: `$PSYCHE_HOME\run\guest-socket`, else
@@ -131,10 +131,6 @@ impl Bundle {
     }
     pub fn transfer_out(&self) -> PathBuf {
         self.root.join("transfer").join("out")
-    }
-    /// The read-only `psyche-meta` share: `shares.json`, `network.json`, `vm.json`.
-    pub fn guest_meta(&self) -> PathBuf {
-        self.root.join("guest")
     }
     pub fn console_log(&self) -> PathBuf {
         self.root.join("console.log")

@@ -1,7 +1,8 @@
-//! The opt-in NAT network (`computenetwork.dll`, HNS schema 2): one `NAT` network per owner
-//! (`PsycheVM-<sid hash>`, a /24 in 172.31.240.0/20 picked from the owner hash) and one endpoint
-//! per running guest, attached as the guest's only network adapter. Never bridged to the LAN.
-//! The guest reads its address from `/mnt/psyche/psyche-meta/network.json`.
+//! The opt-in network (`computenetwork.dll`, HNS schema 2): one `ICS` network per owner
+//! (`PsycheVM-<sid hash>`: NAT to the host's connection plus DHCP and DNS, like Hyper-V's Default
+//! Switch; a /24 in 172.31.240.0/20 picked from the owner hash) and one endpoint per running
+//! guest, attached as its only network adapter. Never bridged to the LAN. The guest configures
+//! the adapter with DHCP (`udhcpc`).
 
 use std::ffi::c_void;
 
@@ -76,7 +77,7 @@ pub fn network_settings(name: &str, prefix: &str, gateway: &str) -> Value {
     json!({
         "SchemaVersion": {"Major": 2, "Minor": 0},
         "Name": name,
-        "Type": "NAT",
+        "Type": "ICS",
         "Flags": 0,
         "Ipams": [{"Type": "Static", "Subnets": [{"IpAddressPrefix": prefix, "Routes": [{"NextHop": gateway, "DestinationPrefix": "0.0.0.0/0"}]}]}],
     })
@@ -197,7 +198,7 @@ mod tests {
         assert!(prefix.starts_with("172.31.") && prefix.ends_with(".0/24"));
         assert!(gw.ends_with(".1") && name.starts_with("PsycheVM-"));
         let n = network_settings(&name, &prefix, &gw);
-        assert_eq!(n["Type"], "NAT");
+        assert_eq!(n["Type"], "ICS");
         assert_eq!(n["Ipams"][0]["Subnets"][0]["Routes"][0]["NextHop"], gw);
         let e = endpoint_settings(&id, "00:15:5d:00:00:01");
         assert_eq!(e["MacAddress"], "00-15-5D-00-00-01");

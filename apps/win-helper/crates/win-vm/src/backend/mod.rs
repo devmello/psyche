@@ -59,10 +59,8 @@ pub trait VmBackend: Send + Sync {
     fn unavailable_reason(&self) -> Option<crate::error::VmError>;
     /// `service_info.hcs` details (schema versions, build).
     fn info(&self) -> serde_json::Value;
-    /// Creates and boots the compute system. `prepared` runs once the network (if any) is known
-    /// and before the guest boots (the manager writes `network.json` for the guest). Guest
-    /// connections and the exit arrive on `events`.
-    fn start(&self, spec: &BootSpec, events: EventSink, prepared: &dyn Fn(&RunInfo)) -> VmResult<RunInfo>;
+    /// Creates and boots the compute system. Guest connections and the exit arrive on `events`.
+    fn start(&self, spec: &BootSpec, events: EventSink) -> VmResult<RunInfo>;
     /// Graceful shutdown (integration service), waiting up to `timeout_secs`; then a hard stop
     /// when `force`. Returns whether it stopped gracefully; errors `guest_did_not_stop` when it
     /// did not and `force` is false.

@@ -49,6 +49,8 @@ struct Running {
     endpoint: Option<GUID>,
     info: RunInfo,
     console_stop: Arc<AtomicBool>,
+    /// The `CallbackCtx` given to HCS (freed once the handle is closed).
+    ctx: usize,
 }
 
 /// Leaked into HCS as the callback context; freed after the system handle is closed.
@@ -130,8 +132,12 @@ impl HcsInner {
         g.listener.lock().unwrap().take();
         if let Ok(api) = self.api() {
             as_service(|| {
-                // SAFETY: closes the handle opened at create; HCS stops calling back after this.
-                unsafe { (api.close)(g.sys.0) };
+                // SAFETY: closes the handle opened at create; HCS stops calling back after this,
+                // so the callback context can go.
+                unsafe {
+                    (api.close)(g.sys.0);
+                    drop(Box::from_raw(g.ctx as *mut CallbackCtx));
+                }
                 for f in &g.granted {
                     api.revoke_vm_access(&g.system_id, f);
                 }
@@ -175,7 +181,7 @@ impl HcsBackend {
         }))
     }
 
-    fn start_inner(&self, spec: &BootSpec, events: EventSink, prepared: &dyn Fn(&RunInfo)) -> VmResult<RunInfo> {
+    fn start_inner(&self, spec: &BootSpec, events: EventSink) -> VmResult<RunInfo> {
         let inner = &self.0;
         let api = inner.api()?;
         if inner.guests.lock().unwrap().contains_key(&spec.name) {
@@ -267,10 +273,15 @@ impl HcsBackend {
         }
         let ctx = Box::into_raw(Box::new(CallbackCtx { backend: Arc::downgrade(inner), name: spec.name.clone(), events: events.clone() }));
         let fail = |e: VmError, sys: Sys| -> VmError {
+            inner.guests.lock().unwrap().remove(&spec.name);
             as_service(|| {
                 let _ = api.run("Terminating", OP_TIMEOUT_MS, |op| unsafe { (api.terminate)(sys, op, PCWSTR::null()) });
-                // SAFETY: closes the handle created above; no callback runs after close.
-                unsafe { (api.close)(sys) };
+                // SAFETY: closes the handle created above; no callback runs after close, so the
+                // context can go.
+                unsafe {
+                    (api.close)(sys);
+                    drop(Box::from_raw(ctx));
+                }
             });
             drop_endpoint(endpoint);
             cleanup_grants(&granted);
@@ -306,20 +317,8 @@ impl HcsBackend {
             ip_address: network.as_ref().and_then(|n| n["address"].as_str().map(str::to_owned)),
             network: network.clone(),
         };
-        prepared(&info);
-        let started = as_service(|| api.run("Starting the guest", CREATE_TIMEOUT_MS, |op| unsafe { (api.start)(sys, op, PCWSTR::null()) }));
-        if let Err(e) = started {
-            drop(listener);
-            let e =
-                if spec.restore_from.is_some() { VmError::unavailable("restore_failed", e.message).detail("cause", e.reason) } else { e };
-            return Err(fail(e, sys));
-        }
+        // Registered before the start so an immediate exit finds it.
         let console_stop = Arc::new(AtomicBool::new(false));
-        if let Some(log) = &spec.console_log
-            && let Ok(file) = std::fs::File::create(log)
-        {
-            spawn_console(console_pipe, file, console_stop.clone());
-        }
         let running = Arc::new(Running {
             name: spec.name.clone(),
             system_id: spec.system_id.clone(),
@@ -328,12 +327,25 @@ impl HcsBackend {
             paused: AtomicBool::new(false),
             exited: (Mutex::new(false), Condvar::new()),
             listener: Mutex::new(Some(listener)),
-            granted,
+            granted: granted.clone(),
             endpoint,
             info: info.clone(),
-            console_stop,
+            console_stop: console_stop.clone(),
+            ctx: ctx as usize,
         });
-        inner.guests.lock().unwrap().insert(spec.name.clone(), running);
+        inner.guests.lock().unwrap().insert(spec.name.clone(), running.clone());
+        let started = as_service(|| api.run("Starting the guest", CREATE_TIMEOUT_MS, |op| unsafe { (api.start)(sys, op, PCWSTR::null()) }));
+        if let Err(e) = started {
+            running.listener.lock().unwrap().take();
+            let e =
+                if spec.restore_from.is_some() { VmError::unavailable("restore_failed", e.message).detail("cause", e.reason) } else { e };
+            return Err(fail(e, sys));
+        }
+        if let Some(log) = &spec.console_log
+            && let Ok(file) = std::fs::File::create(log)
+        {
+            spawn_console(console_pipe, file, console_stop);
+        }
         crate::log::info(&format!(
             "vm started name={} schema={}.{} warm={}",
             spec.name,
@@ -400,8 +412,8 @@ impl VmBackend for HcsBackend {
         })
     }
 
-    fn start(&self, spec: &BootSpec, events: EventSink, prepared: &dyn Fn(&RunInfo)) -> VmResult<RunInfo> {
-        self.start_inner(spec, events, prepared)
+    fn start(&self, spec: &BootSpec, events: EventSink) -> VmResult<RunInfo> {
+        self.start_inner(spec, events)
     }
 
     fn stop(&self, name: &str, force: bool, timeout_secs: u64) -> VmResult<bool> {
