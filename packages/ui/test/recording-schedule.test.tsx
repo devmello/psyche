@@ -50,6 +50,16 @@ describe("RecordingSchedule", () => {
     expect(call).toHaveBeenCalledWith("skills.recording.unattended", { name: "weekly-export" });
   });
 
+  it("says scheduled runs are for browser recordings when the skill is a Mac app recording", async () => {
+    call.mockResolvedValueOnce({ eligible: false, steps: 0, reasons: [{ code: "browser_only" }] });
+    render(<RecordingSchedule name="weekly-export" />);
+    fireEvent.click(screen.getByTestId("recording-schedule-open-weekly-export"));
+    expect(
+      await screen.findByText("Scheduled runs are for browser recordings for now."),
+    ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Schedule it" })).toBeNull();
+  });
+
   it("lets the owner pick the day and time, then schedules it", async () => {
     call.mockResolvedValueOnce({ eligible: true, steps: 3, reasons: [] });
     call.mockResolvedValueOnce({ automation: { id: "auto_1" } });

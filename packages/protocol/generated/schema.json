@@ -39638,7 +39638,8 @@
                   "input",
                   "unreadable",
                   "not_recording",
-                  "off"
+                  "off",
+                  "browser_only"
                 ],
                 "type": "string"
               },

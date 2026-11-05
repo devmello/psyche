@@ -27,6 +27,8 @@ function reasonText(r: Reason): string {
       return t("settings.recording.reason.sensitive", { step: r.step ?? 0 });
     case "input":
       return t("settings.recording.reason.input", { step: r.step ?? 0 });
+    case "browser_only":
+      return t("settings.recording.reason.browserOnly");
     case "off":
       return t("settings.recording.reason.off");
     case "not_recording":

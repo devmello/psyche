@@ -771,7 +771,14 @@ export const SkillsMethods = {
       steps: Type.Integer({ minimum: 0 }),
       reasons: Type.Array(
         Type.Object({
-          code: StringEnum(["sensitive", "input", "unreadable", "not_recording", "off"]),
+          code: StringEnum([
+            "sensitive",
+            "input",
+            "unreadable",
+            "not_recording",
+            "off",
+            "browser_only",
+          ]),
           step: Type.Optional(Type.Integer({ minimum: 1 })),
         }),
         { maxItems: 200 },

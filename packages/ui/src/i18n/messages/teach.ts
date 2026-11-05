@@ -28,6 +28,7 @@ export const teach = {
   "settings.recording.reason.input": "Step {step} asks you for a value each time.",
   "settings.recording.reason.unreadable":
     "Its steps can't be read. Record it again to schedule it.",
+  "settings.recording.reason.browserOnly": "Scheduled runs are for browser recordings for now.",
   "settings.recording.reason.off": "It is turned off or has changed since you approved it.",
   "settings.recording.reason.notRecording": "It isn't a skill made from a recording.",
   "settings.recording.cannotWhy":

@@ -10372,7 +10372,7 @@ export interface ReasonElement {
     step?: number;
 }
 
-export type ReasonCode = "sensitive" | "input" | "unreadable" | "not_recording" | "off";
+export type ReasonCode = "sensitive" | "input" | "unreadable" | "not_recording" | "off" | "browser_only";
 
 export interface SkillsRemoveParams {
     name: string;

@@ -5,7 +5,7 @@ import {
   teachKey,
   teachRole,
 } from "@psyche/protocol";
-import { stringify } from "yaml";
+import { parse as parseYaml, stringify } from "yaml";
 
 /**
  * A skill made from a demonstration (teach by showing, docs/design/teach-by-showing-2026.md §4).
@@ -266,7 +266,9 @@ export interface ParsedRecordedStep {
 export type UnattendedReason =
   | { code: "sensitive"; step: number }
   | { code: "input"; step: number }
-  | { code: "unreadable"; step?: number };
+  | { code: "unreadable"; step?: number }
+  /** Made from a Mac app (or needs computer use): scheduled runs are for browser recordings. */
+  | { code: "browser_only"; step?: number };
 
 export interface UnattendedCheck {
   /** Every step can run with nobody there to ask. */
@@ -324,6 +326,34 @@ function recordedBlock(text: string): string[] | undefined {
 }
 
 /**
+ * A recording of a Mac app (`metadata.psyche.recordedIn: mac_app`), or any skill that declares
+ * computer use (`computer.*` in `allowed-tools`), is not a browser recording: scheduled runs are
+ * for browser recordings for now.
+ */
+export function isBrowserRecording(text: string): boolean {
+  // No readable frontmatter is no evidence of a Mac app: the step list check refuses it as unreadable.
+  const m = /^---\n([\s\S]*?)\n---(?:\n|$)/.exec(text);
+  if (m === null) return true;
+  let fm: unknown;
+  try {
+    fm = parseYaml(m[1] ?? "");
+  } catch {
+    return true;
+  }
+  if (typeof fm !== "object" || fm === null) return true;
+  const rec = fm as Record<string, unknown>;
+  const psyche = (rec.metadata as { psyche?: Record<string, unknown> } | undefined)?.psyche;
+  if (psyche?.recordedIn !== undefined && psyche.recordedIn !== "browser") return false;
+  const tools = rec["allowed-tools"];
+  const list = Array.isArray(tools)
+    ? tools
+    : typeof tools === "string"
+      ? tools.split(/[\s,]+/)
+      : [];
+  return !list.some((t) => typeof t === "string" && /^computer[._*]/.test(t.trim()));
+}
+
+/**
  * Whether a skill made from a recording can run on a schedule, with nobody to ask. It reads the
  * steps back from the skill's text in the exact shape `recordingSkillText` writes them; a line
  * it does not recognise makes the skill ineligible (`unreadable`), never eligible. A step is
@@ -331,6 +361,8 @@ function recordedBlock(text: string): string[] | undefined {
  * for each run (an input, or a masked value). Only steps that hold everything they need run.
  */
 export function recordingUnattended(text: string): UnattendedCheck {
+  if (!isBrowserRecording(text))
+    return { eligible: false, steps: 0, reasons: [{ code: "browser_only" }], parsed: [] };
   const lines = recordedBlock(text);
   if (lines === undefined || lines.length === 0)
     return { eligible: false, steps: 0, reasons: [{ code: "unreadable" }], parsed: [] };

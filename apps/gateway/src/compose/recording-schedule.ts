@@ -106,6 +106,8 @@ export function recordedSkillsOf(loader: RecordedSkillLoader): RecordedSkills {
 
 /** The reasons as one plain sentence for an error (the Settings screen words them itself). */
 export function unattendedSentence(reasons: readonly UnattendedReason[]): string {
+  if (reasons.some((r) => r.code === "browser_only"))
+    return "Scheduled runs are for browser recordings for now.";
   const parts = reasons.map((r) =>
     r.code === "sensitive"
       ? `step ${r.step} is a field you fill in yourself`
@@ -220,7 +222,7 @@ export function createRecordingScheduleHandlers(
 export const RECORDED_RUN_RULES = [
   "This run repeats a task the owner recorded, with nobody watching. Follow the skill exactly:",
   "- Do the steps in order, one at a time, and only those steps.",
-  "- Open pages with browser.open_tab or browser.navigate, only at the addresses the steps name.",
+  "- Open pages with browser.open_tab or browser.navigate, at exactly the address of the next open step, and only when that step is next.",
   "- Before each step that acts on an element, call browser.check_target with that step's role and name and the origin of the page. Act only on the element it answers found for, with the value or key the step records.",
   "- If it answers anything else (missing, ambiguous, wrong_page), or the page is not what the steps expect, the run stops there. Say which step in one line and end. Do not look for a similar element or try another way.",
   "- If an action is queued for the owner's approval, the run stops there too, and the owner runs it again after approving.",
@@ -239,6 +241,13 @@ export function missSentence(skill: string, miss: RecordedMiss): string {
   if (miss.status === "approval")
     return `Waiting for your approval${at}: run it again after approving. ${tail}`;
   if (miss.status === "off_script") return `The run went off the recorded steps${at}. ${tail}`;
+  if (miss.status === "step_failed")
+    return `Step ${miss.step ?? ""} did not go through: the page or the browser refused it. ${tail}`.replace(
+      "Step  did",
+      "A step did",
+    );
+  if (miss.status === "changed")
+    return `The skill or its lessons changed while the run was starting. ${tail}`;
   const what =
     miss.status === "wrong_page"
       ? "it is on another page than the one you recorded"
@@ -253,13 +262,18 @@ export function missSentence(skill: string, miss: RecordedMiss): string {
 interface RunGuard {
   skill: string;
   steps: readonly ParsedRecordedStep[];
-  origins: ReadonlySet<string>;
-  /** Index of the next step to do. */
+  /** The skill's tree hash and lessons hash the owner scheduled. */
+  pin: { hash: string; lessons: string };
+  /** Index of the next step to do. It moves only when a step's call has succeeded. */
   cursor: number;
-  /** 1-based number of the step last started (for the sentence when an approval stops it). */
+  /** 1-based number of the step last started (for the sentence when something stops it). */
   attempt: number;
   /** The element the last matching check found; one action on it may follow. */
   armed: { tabId: string | undefined; ref: string; step: number } | undefined;
+  /** The step call in flight, by tool call id: one at a time. */
+  pending: Map<string, ParsedRecordedStep>;
+  /** Where the cursor was when each check_target call was allowed. */
+  checks: Map<string, number>;
   blocked: number;
   miss: RecordedMiss | undefined;
 }
@@ -288,36 +302,65 @@ export const RECORDED_RUN_TOOLS: readonly string[] = [
 ];
 
 const ACTING = new Set(["browser.click", "browser.type", "browser.press", "browser.select"]);
+const NAVIGATING = new Set(["browser.navigate", "browser.open_tab"]);
 const CLEARS_ARM = new Set([
   "browser.navigate",
   "browser.open_tab",
   "browser.close_tab",
   "browser.focus_tab",
 ]);
+/** The only fields an action may carry. The tools reject any other (strict schemas), and so do we. */
+const KEYS: Record<string, readonly string[]> = {
+  "browser.click": ["tabId", "target", "button", "double"],
+  "browser.type": ["tabId", "ref", "text", "clear", "submit"],
+  "browser.press": ["tabId", "keys", "ref"],
+  "browser.select": ["tabId", "ref", "values"],
+  "browser.check_target": ["tabId", "name", "role", "origin"],
+  "browser.navigate": ["tabId", "url"],
+  "browser.open_tab": ["url"],
+};
 /** A run that is blocked this many times is not following the steps: it ends. */
 const MAX_BLOCKS = 12;
 
 const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
 
+const isRecord = (v: unknown): v is Record<string, unknown> =>
+  typeof v === "object" && v !== null && !Array.isArray(v);
+
 function field<T = unknown>(params: unknown, key: string): T | undefined {
-  return typeof params === "object" && params !== null
-    ? ((params as Record<string, unknown>)[key] as T | undefined)
-    : undefined;
+  return isRecord(params) ? (params[key] as T | undefined) : undefined;
 }
 
-function refOf(params: unknown): string | undefined {
+/** The call carries only the tool's own fields. */
+function onlyKnownKeys(tool: string, params: unknown): boolean {
+  const allowed = KEYS[tool];
+  return (
+    allowed !== undefined &&
+    isRecord(params) &&
+    Object.keys(params).every((k) => allowed.includes(k))
+  );
+}
+
+/**
+ * The ref the tool will act on, read the way the tool reads it: a click acts on `target.ref` (and
+ * `target` must hold nothing else), type, press and select on `ref`. Anything else is `undefined`.
+ */
+function actionRef(tool: string, params: unknown): string | undefined {
+  if (!onlyKnownKeys(tool, params)) return undefined;
+  if (tool === "browser.click") {
+    const t = field<unknown>(params, "target");
+    if (!isRecord(t) || Object.keys(t).length !== 1) return undefined;
+    return typeof t.ref === "string" ? t.ref : undefined;
+  }
   const ref = field<unknown>(params, "ref");
-  if (typeof ref === "string") return ref;
-  const t = field<unknown>(params, "target");
-  const r = field<unknown>(t, "ref");
-  return typeof r === "string" ? r : undefined;
+  return typeof ref === "string" ? ref : undefined;
 }
 
-function originOf(url: unknown): string | undefined {
+function hrefOf(url: unknown): string | undefined {
   if (typeof url !== "string") return undefined;
   try {
     const u = new URL(url);
-    return u.protocol === "https:" || u.protocol === "http:" ? u.origin : undefined;
+    return u.protocol === "https:" || u.protocol === "http:" ? u.href : undefined;
   } catch {
     return undefined;
   }
@@ -336,18 +379,46 @@ function checkOf(output: unknown): { status?: string; ref?: string } | undefined
   return typeof c === "object" && c !== null ? (c as { status?: string; ref?: string }) : undefined;
 }
 
+/** A refused call that was waiting for the owner (the browser gate, a hook, the broker). */
+function wantsApproval(output: unknown): boolean {
+  try {
+    return /approval_required|approvalId|deferred|needs your approval/i.test(
+      JSON.stringify(output),
+    );
+  } catch {
+    return false;
+  }
+}
+
 /** How long a tool call waits for a just-launched task to be registered before it moves on. */
 const LAUNCH_WAIT_MS = 5_000;
+
+export type GuardHit =
+  | { taskId: string; guard: RunGuard; orphan?: undefined }
+  | { taskId: string; guard?: undefined; orphan: true };
+
+export interface RecordedRunsOptions {
+  /** How long to wait for a launch in progress. */
+  waitMs?: number;
+  /**
+   * Whether a task is a recorded run (its goal carries the run's rules). A recorded task with no
+   * guard (the guard is in memory: a restart, a launch that has not returned) gets no tools.
+   */
+  isRecorded?: (taskId: string) => boolean | Promise<boolean>;
+}
 
 /** The runs in flight and the rules each one is held to. */
 export class RecordedRuns {
   readonly #guards = new Map<string, RunGuard>();
   readonly #runTask = new Map<string, string>();
   readonly #launching = new Set<Promise<unknown>>();
+  readonly #known = new Map<string, boolean>();
   readonly #waitMs: number;
+  readonly #isRecorded: ((taskId: string) => boolean | Promise<boolean>) | undefined;
 
-  constructor(waitMs: number = LAUNCH_WAIT_MS) {
-    this.#waitMs = waitMs;
+  constructor(options: RecordedRunsOptions = {}) {
+    this.#waitMs = options.waitMs ?? LAUNCH_WAIT_MS;
+    this.#isRecorded = options.isRecorded;
   }
 
   /** Registers a launch in progress; awaited (briefly) by the hooks so no task is missed. */
@@ -360,6 +431,7 @@ export class RecordedRuns {
 
   start(taskId: string, guard: RunGuard): void {
     this.#guards.set(taskId, guard);
+    this.#known.set(taskId, true);
   }
 
   end(taskId: string): void {
@@ -367,7 +439,10 @@ export class RecordedRuns {
     for (const [run, task] of this.#runTask) if (task === taskId) this.#runTask.delete(run);
   }
 
-  async guardOf(ref: { taskId?: string | undefined; runId?: string | undefined }) {
+  async guardOf(ref: {
+    taskId?: string | undefined;
+    runId?: string | undefined;
+  }): Promise<GuardHit | undefined> {
     const taskId =
       ref.taskId ?? (ref.runId === undefined ? undefined : this.#runTask.get(ref.runId));
     if (taskId === undefined) return undefined;
@@ -382,25 +457,40 @@ export class RecordedRuns {
       clearTimeout(timer);
     }
     const guard = this.#guards.get(taskId);
-    if (guard === undefined) return undefined;
-    if (ref.runId !== undefined) this.#runTask.set(ref.runId, taskId);
-    return { taskId, guard };
+    if (guard !== undefined) {
+      if (ref.runId !== undefined) this.#runTask.set(ref.runId, taskId);
+      return { taskId, guard };
+    }
+    // No guard. A task that was a recorded run without one (after a restart, or when the wait
+    // above ran out) must not go on: it gets nothing, not the freedom of an ordinary task.
+    let recorded = this.#known.get(taskId);
+    if (recorded === undefined && this.#isRecorded !== undefined) {
+      recorded = await this.#isRecorded(taskId);
+      if (this.#known.size > 500) this.#known.clear();
+      this.#known.set(taskId, recorded);
+    }
+    return recorded === true ? { taskId, orphan: true } : undefined;
   }
 }
 
 /**
  * Holds a recorded run to the rules above. `cancel` ends the task (the scheduler then records the
  * run as failed with the sentence and notifies the owner). `names` lists the skills made from a
- * recording, so a task nobody scheduled as a recording cannot read one either.
+ * recording, so a task nobody scheduled as a recording cannot read one either. `skills` is looked
+ * at again when the run reads its skill, to compare it with what the owner scheduled.
  */
 export function attachRecordedRunGuard(
   hooks: HookRegistry,
   runs: RecordedRuns,
   cancel: (taskId: string, reason: string) => Promise<unknown>,
   names: () => Promise<string[]> = async () => [],
+  skills?: Pick<RecordedSkills, "get">,
 ): () => void {
+  /** Tasks this guard has already cancelled: a lingering call after it is blocked, not re-cancelled. */
+  const lostAlready = new Set<string>();
   const stop = async (taskId: string, g: RunGuard, miss: RecordedMiss) => {
     if (g.miss !== undefined) return;
+    lostAlready.add(taskId);
     g.miss = miss;
     g.armed = undefined;
     await cancel(taskId, missSentence(g.skill, miss));
@@ -410,10 +500,26 @@ export function attachRecordedRunGuard(
     if (g.blocked > MAX_BLOCKS) await stop(taskId, g, { step: g.cursor + 1, status: "off_script" });
     return { action: "block" as const, reason };
   };
+  const lost = async (taskId: string) => {
+    if (!lostAlready.has(taskId)) {
+      lostAlready.add(taskId);
+      await cancelLost(taskId);
+    }
+    return {
+      action: "block" as const,
+      reason: "This recorded run lost its place and was stopped.",
+    };
+  };
+  const cancelLost = async (taskId: string) => {
+    await cancel(
+      taskId,
+      "The app restarted while a recorded task was running, so Psyche stopped it. Paused: record it again, or resume it in Scheduled.",
+    ).catch(() => undefined);
+  };
 
   const offPrompt = hooks.on("before_prompt_build", async (ctx) => {
     const hit = await runs.guardOf(ctx);
-    return hit === undefined ? undefined : { toolsAllow: [...RECORDED_RUN_TOOLS] };
+    return hit === undefined ? undefined : { toolsAllow: hit.guard ? [...RECORDED_RUN_TOOLS] : [] };
   });
 
   const offBefore = hooks.on("before_tool_call", async (ctx) => {
@@ -432,7 +538,9 @@ export function attachRecordedRunGuard(
       }
       return undefined;
     }
+    if (hit.orphan) return lost(hit.taskId);
     const { taskId, guard: g } = hit;
+    if (g.miss !== undefined) return { action: "block" as const, reason: "This run has stopped." };
     if (!RECORDED_RUN_TOOLS.includes(ctx.tool))
       return block(taskId, g, "A scheduled run of a recording cannot use this tool.");
     if (ctx.tool === "skills_read") {
@@ -441,19 +549,26 @@ export function attachRecordedRunGuard(
         : block(taskId, g, "Read only the skill you are running.");
     }
     if (CLEARS_ARM.has(ctx.tool)) g.armed = undefined;
-    if (ctx.tool === "browser.navigate" || ctx.tool === "browser.open_tab") {
-      const origin = originOf(field(ctx.params, "url"));
-      if (origin === undefined || !g.origins.has(origin))
-        return block(taskId, g, "Open only the addresses the recorded steps name.");
-      const next = g.steps[g.cursor];
-      if (next?.kind === "open" && next.origin === origin) {
-        g.cursor += 1;
-        g.attempt = next.n;
-      }
+    const stepCall = NAVIGATING.has(ctx.tool) || ACTING.has(ctx.tool);
+    if ((stepCall || ctx.tool === "browser.check_target") && g.pending.size > 0)
+      return block(taskId, g, "One step at a time: wait for the last one to finish.");
+    if ((stepCall || ctx.tool === "browser.check_target") && !onlyKnownKeys(ctx.tool, ctx.params))
+      return block(taskId, g, "Use only the fields the tool declares.");
+    const step = g.steps[g.cursor];
+    if (NAVIGATING.has(ctx.tool)) {
+      // An address, not just an origin: the next step must be an `open`, and this is its address.
+      const want = hrefOf(step?.url);
+      const got = hrefOf(field(ctx.params, "url"));
+      if (step?.kind !== "open" || want === undefined || got !== want)
+        return block(
+          taskId,
+          g,
+          `Open only the address of the next recorded step (step ${g.cursor + 1}).`,
+        );
+      g.pending.set(ctx.toolCallId, step);
       return undefined;
     }
     if (ctx.tool === "browser.check_target") {
-      const step = g.steps[g.cursor];
       if (step === undefined || step.kind === "open")
         return block(taskId, g, `The next recorded step (${g.cursor + 1}) is not an element step.`);
       const name = field(ctx.params, "name");
@@ -471,14 +586,14 @@ export function attachRecordedRunGuard(
           g,
           `Check the element of the next recorded step (step ${step.n}): its role, name and origin as the skill gives them.`,
         );
+      g.checks.set(ctx.toolCallId, g.cursor);
       return undefined;
     }
     if (!ACTING.has(ctx.tool)) return undefined;
     // An action: the next step, on the element just found for it, with exactly what was recorded.
-    const step = g.steps[g.cursor];
     const armed = g.armed;
     g.armed = undefined;
-    const ref = refOf(ctx.params);
+    const ref = actionRef(ctx.tool, ctx.params);
     const tabId = field<string>(ctx.params, "tabId");
     const fail = (why: string) => block(taskId, g, `${why} This run does not guess.`);
     if (step === undefined) return fail("There is no recorded step left to do.");
@@ -487,7 +602,9 @@ export function attachRecordedRunGuard(
         `Call browser.check_target for step ${step.n} first and act only on what it finds.`,
       );
     if (ref === undefined || ref !== armed.ref)
-      return fail("Act on the element the check found, by its ref.");
+      return fail(
+        "Act on the element the check found, by its ref, with only the tool's own fields.",
+      );
     if (armed.tabId !== undefined && tabId !== undefined && armed.tabId !== tabId)
       return fail("Act in the tab that was checked.");
     const ok =
@@ -511,23 +628,53 @@ export function attachRecordedRunGuard(
         step.key !== undefined &&
         field(ctx.params, "keys") === step.key);
     if (!ok) return fail(`That is not what step ${step.n} recorded.`);
-    g.cursor += 1;
-    g.attempt = step.n;
+    // The step counts as done only when the call has succeeded (after_tool_call).
+    g.pending.set(ctx.toolCallId, step);
     return undefined;
   });
 
   const offAfter = hooks.on("after_tool_call", async (ctx) => {
-    if (ctx.tool !== "browser.check_target") return undefined;
     const hit = await runs.guardOf(ctx);
-    if (hit === undefined || hit.guard.miss !== undefined) return undefined;
+    if (hit === undefined || hit.guard === undefined || hit.guard.miss !== undefined)
+      return undefined;
     const { taskId, guard: g } = hit;
+    if (ctx.tool === "skills_read") {
+      // What the run read must be what the owner scheduled: the tree, and the lessons now.
+      if (field(ctx.params, "name") !== g.skill) return undefined;
+      const out = ctx.result.output as { hash?: unknown } | null;
+      const fresh = skills === undefined ? undefined : await skills.get(g.skill);
+      if (
+        ctx.result.isError === true ||
+        out?.hash !== g.pin.hash ||
+        (skills !== undefined &&
+          (fresh === undefined || fresh.hash !== g.pin.hash || fresh.lessons !== g.pin.lessons))
+      )
+        await stop(taskId, g, { step: undefined, status: "changed" });
+      return undefined;
+    }
+    const step = g.pending.get(ctx.toolCallId);
+    if (step !== undefined) {
+      g.pending.delete(ctx.toolCallId);
+      if (ctx.result.isError === true) {
+        await stop(taskId, g, {
+          step: step.n,
+          status: wantsApproval(ctx.result.output) ? "approval" : "step_failed",
+        });
+        return undefined;
+      }
+      g.cursor += 1;
+      g.attempt = step.n;
+      return undefined;
+    }
+    if (ctx.tool !== "browser.check_target") return undefined;
+    const at = g.checks.get(ctx.toolCallId);
+    g.checks.delete(ctx.toolCallId);
     const check = checkOf(ctx.result.output);
     if (ctx.result.isError !== true && check?.status === "found" && typeof check.ref === "string") {
-      g.armed = {
-        tabId: field<string>(ctx.params, "tabId"),
-        ref: check.ref,
-        step: g.cursor,
-      };
+      // Armed only if nothing moved while it ran: same step, and no action in flight. A check
+      // that was batched with an action does not arm anything.
+      if (at === g.cursor && g.pending.size === 0)
+        g.armed = { tabId: field<string>(ctx.params, "tabId"), ref: check.ref, step: g.cursor };
       return undefined;
     }
     await stop(taskId, g, {
@@ -537,18 +684,28 @@ export function attachRecordedRunGuard(
     return undefined;
   });
 
-  // The unattended loop does not wait for an approval: it answers the call with `deferred` and
-  // lets the model carry on without it. A recording cannot carry on without a step, so a deferred
-  // action ends the run, and the owner runs it again after approving.
+  // Every call ends here, executed or not. A step call that is still pending was refused or
+  // deferred by something other than this guard (the browser's approval gate, a hook's approval, a
+  // broker deny, the unattended loop's `deferred`): the step did not happen, so the run stops. The
+  // unattended loop does not wait for an approval: it answers with `deferred` and lets the model
+  // carry on without it, which a recording cannot do.
   const offPersist = hooks.on("tool_result_persist", async ({ record, result }) => {
-    const out = result.output as { deferred?: unknown } | null | undefined;
-    if (out?.deferred !== true) return;
     const hit = await runs.guardOf({ runId: record.runId });
-    if (hit === undefined) return;
-    await stop(hit.taskId, hit.guard, {
-      step: hit.guard.attempt > 0 ? hit.guard.attempt : hit.guard.cursor + 1,
-      status: "approval",
-    });
+    if (hit === undefined || hit.guard === undefined || hit.guard.miss !== undefined) return;
+    const { taskId, guard: g } = hit;
+    const out = result.output as { deferred?: unknown } | null | undefined;
+    const waiting = out?.deferred === true || record.approvalId != null || wantsApproval(out);
+    const step = g.pending.get(record.id);
+    if (step !== undefined) {
+      g.pending.delete(record.id);
+      await stop(taskId, g, { step: step.n, status: waiting ? "approval" : "step_failed" });
+      return;
+    }
+    if (out?.deferred === true)
+      await stop(taskId, g, {
+        step: g.attempt > 0 ? g.attempt : g.cursor + 1,
+        status: "approval",
+      });
   });
   return () => {
     offPrompt();
@@ -622,12 +779,12 @@ export function withRecordedSkillRuns(inner: RunLauncher, deps: RecordedRunDeps)
       const guard: RunGuard = {
         skill: rec.skill,
         steps: check.parsed,
-        origins: new Set(
-          check.parsed.flatMap((st) => (st.origin === undefined ? [] : [st.origin])),
-        ),
+        pin: { hash: s.hash, lessons: s.lessons },
         cursor: 0,
         attempt: 0,
         armed: undefined,
+        pending: new Map(),
+        checks: new Map(),
         blocked: 0,
         miss: undefined,
       };

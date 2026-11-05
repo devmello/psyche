@@ -142,3 +142,33 @@ describe("what the guard needs from each step", () => {
     expect(recordingUnattended(bySelector).eligible).toBe(false);
   });
 });
+
+describe("scheduled runs are for browser recordings", () => {
+  const browser = text([open, click]);
+
+  it("refuses a recording of a Mac app, and one that declares computer use", () => {
+    const mac = browser.replace(
+      "    proposedBy: owner-recording\n",
+      "    proposedBy: owner-recording\n    recordedIn: mac_app\n",
+    );
+    expect(mac).toContain("recordedIn: mac_app");
+    expect(recordingUnattended(mac)).toMatchObject({
+      eligible: false,
+      reasons: [{ code: "browser_only" }],
+    });
+    for (const tool of ["computer.click", "computer_action", "computer.*"]) {
+      const cu = browser.replace("allowed-tools:\n", `allowed-tools:\n  - ${tool}\n`);
+      expect(recordingUnattended(cu)).toMatchObject({
+        eligible: false,
+        reasons: [{ code: "browser_only" }],
+      });
+    }
+    // A marker for the browser is the browser; no frontmatter at all is not a recording we can read.
+    const explicit = browser.replace(
+      "    proposedBy: owner-recording\n",
+      "    proposedBy: owner-recording\n    recordedIn: browser\n",
+    );
+    expect(recordingUnattended(explicit).eligible).toBe(true);
+    expect(recordingUnattended("no frontmatter").eligible).toBe(false);
+  });
+});

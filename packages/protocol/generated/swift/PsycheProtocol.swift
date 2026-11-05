@@ -29699,6 +29699,7 @@ public struct ReasonElement: Codable, Sendable {
 }
 
 public enum ReasonCode: String, Codable, Sendable {
+    case browserOnly = "browser_only"
     case input = "input"
     case notRecording = "not_recording"
     case off = "off"

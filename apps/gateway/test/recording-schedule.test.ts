@@ -40,6 +40,8 @@ const textOf = (steps: BrowserTeachStep[]) =>
 const desktop = { identity: { desktopShell: true as const, deviceId: "dev_1" } };
 const phone = { identity: { deviceId: "dev_2" } };
 
+type Out = { out?: unknown; error?: boolean; defer?: boolean; blockedByBroker?: boolean };
+
 function setup(initial: BrowserTeachStep[] = good) {
   const state: { text: string | undefined; hash: string; lessons: string } = {
     text: textOf(initial),
@@ -57,7 +59,8 @@ function setup(initial: BrowserTeachStep[] = good) {
   const clock = new FakeClock(NOW);
   const db = openDb(":memory:");
   const notifier = new FakeNotifier({ clock });
-  const runs = new RecordedRuns(20);
+  const orphans = new Set<string>();
+  const runs = new RecordedRuns({ waitMs: 20, isRecorded: async (id) => orphans.has(id) });
   const cancelled: { taskId: string; reason: string }[] = [];
   const finish: { current: ((r: RunResult) => void) | undefined } = { current: undefined };
   const prompts: string[] = [];
@@ -112,6 +115,7 @@ function setup(initial: BrowserTeachStep[] = good) {
       finish.current?.({ status: "cancelled", summary: reason, taskId });
     },
     () => skills.names(),
+    skills,
   );
   const taskStatuses = new Map<string, string>();
   const scheduled = createScheduledHandlers({
@@ -134,8 +138,17 @@ function setup(initial: BrowserTeachStep[] = good) {
       automation: { id: string; recordedSkill?: { skill: string; hash?: string } };
     }>;
   const spec = (name: string) => ({ name, sideEffect: "read" }) as unknown as ToolSpec;
-  const ctx = (taskId: string | undefined, tool: string, params: unknown, mode = "unattended") =>
+  let seq = 0;
+  const nextId = () => `call_${++seq}`;
+  const ctx = (
+    id: string,
+    taskId: string | undefined,
+    tool: string,
+    params: unknown,
+    mode = "unattended",
+  ) =>
     ({
+      toolCallId: id,
       taskId,
       runId: taskId === undefined ? "run_x" : `run_${taskId}`,
       tool,
@@ -143,33 +156,79 @@ function setup(initial: BrowserTeachStep[] = good) {
       mode,
       spec: spec(tool),
     }) as never;
-  const before = async (
+  /** The loop's three steps for one call, separately, so a test can interleave them. */
+  const beforeRaw = async (
+    id: string,
     taskId: string | undefined,
     tool: string,
     params: unknown,
     mode?: string,
   ) => {
     for (const h of hooks.handlers("before_tool_call")) {
-      const r = await h(ctx(taskId, tool, params, mode));
+      const r = await h(ctx(id, taskId, tool, params, mode));
       if (r !== undefined && r.action !== "continue") return r;
     }
     return { action: "continue" as const };
   };
-  const after = async (taskId: string | undefined, tool: string, params: unknown, out: unknown) => {
+  const afterRaw = async (
+    id: string,
+    taskId: string | undefined,
+    tool: string,
+    params: unknown,
+    out: unknown,
+    isError = false,
+  ) => {
     for (const h of hooks.handlers("after_tool_call")) {
       await h({
-        ...(ctx(taskId, tool, params) as object),
-        result: { output: out, provenance: "untrusted" },
+        ...(ctx(id, taskId, tool, params) as object),
+        result: { output: out, isError, provenance: "untrusted" },
       } as never);
     }
   };
-  const persist = async (taskId: string, tool: string, output: unknown) => {
+  const persistRaw = async (
+    id: string,
+    taskId: string,
+    tool: string,
+    output: unknown,
+    status = "ok",
+    approvalId: string | null = null,
+  ) => {
     for (const h of hooks.handlers("tool_result_persist")) {
       await h({
-        record: { runId: `run_${taskId}`, tool, status: "blocked" },
-        result: { output, isError: true, provenance: "trusted" },
+        record: { id, runId: `run_${taskId}`, tool, status, approvalId },
+        result: { output, isError: status !== "ok", provenance: "trusted" },
       } as never);
     }
+  };
+  /** One whole call, as the loop makes it: the hooks, the tool, the record. */
+  const before = async (
+    taskId: string | undefined,
+    tool: string,
+    params: unknown,
+    mode?: string,
+    o: Out = {},
+  ) => {
+    const id = nextId();
+    const r = await beforeRaw(id, taskId, tool, params, mode);
+    if (r.action !== "continue" || taskId === undefined) return r;
+    if (o.defer) {
+      await persistRaw(
+        id,
+        taskId,
+        tool,
+        { deferred: true, approvalId: "appr_1", note: "deferred: queued" },
+        "blocked",
+        "appr_1",
+      );
+      return r;
+    }
+    if (o.blockedByBroker) {
+      await persistRaw(id, taskId, tool, { error: "denied by policy" }, "blocked");
+      return r;
+    }
+    await afterRaw(id, taskId, tool, params, o.out ?? { ok: true }, o.error === true);
+    await persistRaw(id, taskId, tool, o.out ?? { ok: true });
+    return r;
   };
   const tools = async (taskId: string) => {
     for (const h of hooks.handlers("before_prompt_build")) {
@@ -178,19 +237,21 @@ function setup(initial: BrowserTeachStep[] = good) {
     }
     return undefined;
   };
-  /** What the model does for one element step: check it, and (if found) act on it. */
-  const check = (taskId: string, name: string, status: string, ref = "e7", role = "button") => {
-    const params = { tabId: "t1", name, role, origin: ORIGIN };
-    return before(taskId, "browser.check_target", params).then(async (b) => {
-      if (b.action !== "continue") return b;
-      await after(taskId, "browser.check_target", params, {
-        tabId: "t1",
-        check:
-          status === "found" ? { status, stop: false, ref, role, name } : { status, stop: true },
-      });
-      return b;
+  const checkParams = (name: string, role = "button", origin = ORIGIN) => ({
+    tabId: "t1",
+    name,
+    role,
+    origin,
+  });
+  const checkOut = (name: string, status: string, ref: string, role = "button") => ({
+    tabId: "t1",
+    check: status === "found" ? { status, stop: false, ref, role, name } : { status, stop: true },
+  });
+  /** What the model does for one element step: check it. */
+  const check = (taskId: string, name: string, status: string, ref = "e7", role = "button") =>
+    before(taskId, "browser.check_target", checkParams(name, role), undefined, {
+      out: checkOut(name, status, ref, role),
     });
-  };
   const openPage = (taskId: string, url = `${ORIGIN}/r`) =>
     before(taskId, "browser.open_tab", { url });
   const click = (taskId: string, ref: string) =>
@@ -206,10 +267,13 @@ function setup(initial: BrowserTeachStep[] = good) {
     scheduled,
     schedule,
     before,
-    after,
-    persist,
+    beforeRaw,
+    afterRaw,
+    persistRaw,
     tools,
     check,
+    checkParams,
+    checkOut,
     openPage,
     click,
     run,
@@ -222,6 +286,8 @@ function setup(initial: BrowserTeachStep[] = good) {
     taskStatuses,
     hooks,
     runs,
+    orphans,
+    nextId,
   };
 }
 
@@ -268,6 +334,45 @@ describe("scheduling a recording is refused when nobody could answer", () => {
     const err = (await t.schedule().catch((e) => e)) as PsycheError;
     expect(err.message).toMatch(/step 2 asks for a value each time; step 3 asks for a value/);
     expect(await t.scheduler.list()).toEqual([]);
+  });
+
+  it("refuses a recording of a Mac app, or one that declares computer use", async () => {
+    const mac = setup();
+    mac.state.text = textOf(good).replace(
+      "    proposedBy: owner-recording\n",
+      "    proposedBy: owner-recording\n    recordedIn: mac_app\n",
+    );
+    expect(mac.state.text).toContain("recordedIn: mac_app");
+    const err = (await mac.schedule().catch((e) => e)) as PsycheError;
+    expect(err.code).toBe("invalid_params");
+    expect(err.message).toBe("Scheduled runs are for browser recordings for now.");
+    const asked = (await mac.handlers["skills.recording.unattended"]?.run(
+      desktop as never,
+      { name: "weekly-export" } as never,
+    )) as { eligible: boolean; reasons: { code: string }[] };
+    expect(asked).toMatchObject({ eligible: false, reasons: [{ code: "browser_only" }] });
+    const cu = setup();
+    cu.state.text = textOf(good).replace(
+      "allowed-tools:\n",
+      "allowed-tools:\n  - computer.click\n",
+    );
+    expect(cu.state.text).toContain("computer.click");
+    await expect(cu.schedule()).rejects.toThrow("browser recordings for now");
+    expect(await cu.scheduler.list()).toEqual([]);
+  });
+
+  it("does not start a scheduled recording that became a Mac app recording", async () => {
+    const t = setup();
+    const { automation } = await t.schedule();
+    t.state.text = textOf(good).replace(
+      "    proposedBy: owner-recording\n",
+      "    proposedBy: owner-recording\n    recordedIn: mac_app\n",
+    );
+    await t.run(automation.id);
+    await t.scheduler.idle();
+    expect(t.prompts).toEqual([]);
+    const { runs } = await t.scheduled["scheduled.runs"]({});
+    expect(runs[0]?.reason).toMatch(/browser recordings for now/);
   });
 
   it("refuses a schedule that runs more than daily, or twice for one skill, even at once", async () => {
@@ -472,9 +577,13 @@ describe("a scheduled run of a recording", () => {
     const t = setup();
     const { automation } = await t.schedule();
     await t.run(automation.id);
-    expect((await t.before("task_1", "skills_read", { name: "weekly-export" })).action).toBe(
-      "continue",
-    );
+    expect(
+      (
+        await t.before("task_1", "skills_read", { name: "weekly-export" }, undefined, {
+          out: { name: "weekly-export", hash: "h1", instructions: "…" },
+        })
+      ).action,
+    ).toBe("continue");
     expect((await t.before("task_1", "skills_read", { name: "other-skill" })).action).toBe("block");
     expect((await t.openPage("task_1")).action).toBe("continue");
     await t.check("task_1", "Filter", "found", "e1");
@@ -552,23 +661,67 @@ describe("a scheduled run of a recording", () => {
     await t.check("task_1", "Filter", "found", "e1");
     expect((await t.click("task_1", "e1")).action).toBe("continue");
     await t.check("task_1", "Export", "found", "e2");
-    expect((await t.click("task_1", "e2")).action).toBe("continue");
     // What the unattended loop answers when the broker wants the owner: a deferred result.
-    await t.persist("task_1", "browser.click", {
-      deferred: true,
-      approvalId: "appr_1",
-      note: "deferred: queued for the owner's approval; continue without this action",
-    });
+    expect(
+      (
+        await t.before(
+          "task_1",
+          "browser.click",
+          { tabId: "t1", target: { ref: "e2" } },
+          undefined,
+          {
+            defer: true,
+          },
+        )
+      ).action,
+    ).toBe("continue");
     expect(t.cancelled[0]?.reason).toMatch(
       /^Waiting for your approval at step 3: run it again after approving\./,
     );
     await t.scheduler.idle();
     const { runs } = await t.scheduled["scheduled.runs"]({});
     expect(runs[0]).toMatchObject({ state: "failed" });
+    expect(runs[0]?.reason).not.toMatch(/Did all/);
     expect((await t.scheduled["scheduled.list"]({})).items[0]).toMatchObject({ state: "paused" });
     // Another task's deferred action is none of its business.
-    await t.persist("task_other", "browser.click", { deferred: true, approvalId: "a2" });
+    await t.before("task_other", "browser.click", { target: { ref: "e1" } }, undefined, {
+      defer: true,
+    });
     expect(t.cancelled).toHaveLength(1);
+  });
+
+  it("does not count a step that failed, was denied or needed the browser's own approval", async () => {
+    const cases: [string, Out, RegExp][] = [
+      ["a stale ref", { error: true, out: { error: "stale ref" } }, /Step 2 did not go through/],
+      ["a broker deny", { blockedByBroker: true }, /Step 2 did not go through/],
+      [
+        "the browser gate",
+        { error: true, out: { error: "approval_required", approvalId: "a1" } },
+        /^Waiting for your approval at step 2/,
+      ],
+    ];
+    for (const [, o, reason] of cases) {
+      const t = setup();
+      const { automation } = await t.schedule();
+      await t.run(automation.id);
+      await t.openPage("task_1");
+      await t.check("task_1", "Filter", "found", "e1");
+      await t.before(
+        "task_1",
+        "browser.click",
+        { tabId: "t1", target: { ref: "e1" } },
+        undefined,
+        o,
+      );
+      expect(t.cancelled[0]?.reason).toMatch(reason);
+      // The step is not skipped over: the run ends here, failed, paused.
+      t.finish.current?.({ status: "done", summary: "All done" });
+      await t.scheduler.idle();
+      const { runs } = await t.scheduled["scheduled.runs"]({});
+      expect(runs[0]).toMatchObject({ state: "failed" });
+      expect(runs[0]?.reason).not.toMatch(/Did all/);
+      expect((await t.scheduled["scheduled.list"]({})).items[0]).toMatchObject({ state: "paused" });
+    }
   });
 
   it("acts only on the element the next step's check just found, once", async () => {
@@ -617,30 +770,140 @@ describe("a scheduled run of a recording", () => {
     expect((await t.click("task_1", "e1")).action).toBe("block");
   });
 
-  it("forgets a find when the page moves on", async () => {
+  it("reads the ref the way the tool does: a second ref in the call is no way around the check", async () => {
+    const t = setup();
+    const { automation } = await t.schedule();
+    await t.run(automation.id);
+    await t.openPage("task_1");
+    const attempts: [string, unknown][] = [
+      // The click acts on target.ref, so the checked ref in `ref` proves nothing.
+      ["browser.click", { tabId: "t1", ref: "e1", target: { ref: "e9" } }],
+      ["browser.click", { tabId: "t1", ref: "e1" }],
+      ["browser.click", { tabId: "t1", target: { ref: "e1", x: 1, y: 2 } }],
+      ["browser.click", { tabId: "t1", target: { ref: "e1" }, extra: 1 }],
+    ];
+    for (const [tool, params] of attempts) {
+      await t.check("task_1", "Filter", "found", "e1");
+      expect([tool, (await t.before("task_1", tool, params)).action]).toEqual([tool, "block"]);
+    }
+    await t.check("task_1", "Filter", "found", "e1");
+    expect((await t.click("task_1", "e1")).action).toBe("continue");
+  });
+
+  it("holds type, select and press to the tool's own ref field and to no other key", async () => {
+    const t = setup([
+      open,
+      {
+        id: "s2",
+        kind: "type",
+        role: "textbox",
+        name: "From",
+        value: "2026-11-01",
+        keepValue: true,
+      },
+      { id: "s3", kind: "press", key: "Enter", role: "textbox", name: "Search" },
+    ]);
+    const { automation } = await t.schedule();
+    await t.run(automation.id);
+    await t.openPage("task_1");
+    await t.check("task_1", "From", "found", "e1", "textbox");
+    expect(
+      (
+        await t.before("task_1", "browser.type", {
+          tabId: "t1",
+          ref: "e1",
+          target: { ref: "e9" },
+          text: "2026-11-01",
+        })
+      ).action,
+    ).toBe("block");
+    await t.check("task_1", "From", "found", "e1", "textbox");
+    expect(
+      (await t.before("task_1", "browser.type", { tabId: "t1", ref: "e1", text: "2026-11-01" }))
+        .action,
+    ).toBe("continue");
+    await t.check("task_1", "Search", "found", "e2", "textbox");
+    expect(
+      (
+        await t.before("task_1", "browser.press", {
+          tabId: "t1",
+          keys: "Enter",
+          ref: "e2",
+          target: { ref: "e9" },
+        })
+      ).action,
+    ).toBe("block");
+  });
+
+  it("arms nothing for a check that was batched with an action", async () => {
     const t = setup();
     const { automation } = await t.schedule();
     await t.run(automation.id);
     await t.openPage("task_1");
     await t.check("task_1", "Filter", "found", "e1");
+    // The loop gates a batch of read-only calls first and dispatches them together: the second
+    // check is allowed while the cursor is on step 2, then the click completes and moves it to 3.
+    const checkId = t.nextId();
     expect(
-      (await t.before("task_1", "browser.navigate", { tabId: "t1", url: `${ORIGIN}/other` }))
+      (await t.beforeRaw(checkId, "task_1", "browser.check_target", t.checkParams("Filter")))
         .action,
     ).toBe("continue");
+    expect((await t.click("task_1", "e1")).action).toBe("continue");
+    await t.afterRaw(
+      checkId,
+      "task_1",
+      "browser.check_target",
+      t.checkParams("Filter"),
+      t.checkOut("Filter", "found", "e1"),
+    );
+    // Step 3's click would have used it; it was found for step 2 and arms nothing.
+    expect((await t.click("task_1", "e1")).action).toBe("block");
+    // A check and an action in flight together: the second call waits.
+    await t.check("task_1", "Export", "found", "e2");
+    const actId = t.nextId();
+    expect(
+      (await t.beforeRaw(actId, "task_1", "browser.click", { tabId: "t1", target: { ref: "e2" } }))
+        .action,
+    ).toBe("continue");
+    expect(
+      (await t.beforeRaw(t.nextId(), "task_1", "browser.check_target", t.checkParams("Export")))
+        .action,
+    ).toBe("block");
+    expect(
+      (
+        await t.beforeRaw(t.nextId(), "task_1", "browser.click", {
+          tabId: "t1",
+          target: { ref: "e2" },
+        })
+      ).action,
+    ).toBe("block");
+  });
+
+  it("forgets a find when the page moves on, and opens only the next step's exact address", async () => {
+    const t = setup();
+    const { automation } = await t.schedule();
+    await t.run(automation.id);
+    for (const url of [
+      "https://evil.example/x",
+      "file:///etc/passwd",
+      "javascript:alert(1)",
+      `${ORIGIN}/anything`,
+      `${ORIGIN}/r?x=1`,
+    ])
+      expect([url, (await t.openPage("task_1", url)).action]).toEqual([url, "block"]);
+    expect((await t.before("task_1", "browser.open_tab", {})).action).toBe("block");
+    expect(
+      (await t.before("task_1", "browser.navigate", { tabId: "t1", url: `${ORIGIN}/r` })).action,
+    ).toBe("continue");
+    await t.check("task_1", "Filter", "found", "e1");
+    // The next step is a click, not an `open`: navigating anywhere is off the steps.
+    expect(
+      (await t.before("task_1", "browser.navigate", { tabId: "t1", url: `${ORIGIN}/r` })).action,
+    ).toBe("block");
     expect((await t.click("task_1", "e1")).action).toBe("block");
     await t.check("task_1", "Filter", "found", "e1");
     await t.before("task_1", "browser.focus_tab", { tabId: "t2" });
     expect((await t.click("task_1", "e1")).action).toBe("block");
-  });
-
-  it("opens only the origins the steps open", async () => {
-    const t = setup();
-    const { automation } = await t.schedule();
-    await t.run(automation.id);
-    for (const url of ["https://evil.example/x", "file:///etc/passwd", "javascript:alert(1)"])
-      expect((await t.openPage("task_1", url)).action).toBe("block");
-    expect((await t.before("task_1", "browser.open_tab", {})).action).toBe("block");
-    expect((await t.openPage("task_1", `${ORIGIN}/anything`)).action).toBe("continue");
   });
 
   it("types only the recorded value, selects only the recorded option, presses only the recorded key", async () => {
@@ -718,15 +981,55 @@ describe("a scheduled run of a recording", () => {
     expect(t.cancelled[0]?.reason).toMatch(/went off the recorded steps/);
   });
 
-  it("does not stall other tasks' tool calls behind a launch that never returns", async () => {
+  it("stops if what the run read is not the skill the owner scheduled", async () => {
+    for (const [hash, lessons] of [
+      ["h2", "l1"],
+      ["h1", "l2"],
+    ] as const) {
+      const t = setup();
+      const { automation } = await t.schedule();
+      await t.run(automation.id);
+      // The skill (or its lessons) changed after the run began, before it read it.
+      t.state.hash = hash;
+      t.state.lessons = lessons;
+      await t.before("task_1", "skills_read", { name: "weekly-export" }, undefined, {
+        out: { name: "weekly-export", hash, instructions: "…" },
+      });
+      expect(t.cancelled[0]?.reason).toMatch(/changed while the run was starting/);
+    }
     const t = setup();
-    const hung = new Promise<never>(() => {});
-    void t.runs.launching(hung);
+    const { automation } = await t.schedule();
+    await t.run(automation.id);
+    // The read returns a tree that is not the pinned one.
+    await t.before("task_1", "skills_read", { name: "weekly-export" }, undefined, {
+      out: { name: "weekly-export", hash: "other", instructions: "…" },
+    });
+    expect(t.cancelled).toHaveLength(1);
+  });
+
+  it("gives a recorded run with no guard no tools, and does not stall other tasks", async () => {
+    const t = setup();
+    // After a restart: the task is a recorded run (its goal has the rules) and the guard is gone.
+    t.orphans.add("task_lost");
+    expect(await t.tools("task_lost")).toEqual([]);
+    expect((await t.before("task_lost", "browser.click", { target: { ref: "e1" } })).action).toBe(
+      "block",
+    );
+    expect((await t.before("task_lost", "skills_read", { name: "x" })).action).toBe("block");
+    expect(t.cancelled.map((c) => c.taskId)).toContain("task_lost");
+    // A launch that never returns holds nobody else up, and an unrelated task is not blocked.
+    void t.runs.launching(new Promise<never>(() => {}));
     const t0 = Date.now();
     expect((await t.before("task_other", "browser.click", { target: { ref: "e1" } })).action).toBe(
       "continue",
     );
     expect(Date.now() - t0).toBeLessThan(1000);
+    // ...but a recorded task whose guard has not been registered by the time the wait ends is
+    // blocked, not treated as an ordinary task.
+    t.orphans.add("task_slow");
+    expect((await t.before("task_slow", "browser.click", { target: { ref: "e1" } })).action).toBe(
+      "block",
+    );
   });
 
   it("does not start when the skill went away or was changed into something it cannot do", async () => {

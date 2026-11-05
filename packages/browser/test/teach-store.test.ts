@@ -226,6 +226,19 @@ describe("the agent cannot start, stop or read a recording", () => {
     const names = registry.list().map((s) => s.name);
     expect(names.length).toBeGreaterThan(10);
     for (const n of names) expect(n).not.toMatch(/teach|record|demonstrat/i);
+    // Every tool takes exactly the keys it declares, so a guard and the tool cannot read a call
+    // differently (`{ ref, target: { ref } }`): the guard that checks a scheduled recording's
+    // step reads the same field the tool acts on.
+    for (const spec of registry.list()) {
+      const schema = spec.inputSchema as { type?: string; additionalProperties?: unknown };
+      if (schema.type === "object")
+        expect([spec.name, schema.additionalProperties]).toEqual([spec.name, false]);
+    }
+    const click = registry.get("browser.click")?.spec.inputSchema as {
+      properties: { target: { anyOf: { additionalProperties?: unknown }[] } };
+    };
+    for (const member of click.properties.target.anyOf)
+      expect(member.additionalProperties).toBe(false);
     driver.dispose();
     desktop.disconnect();
     await rm(dir, { recursive: true, force: true });
