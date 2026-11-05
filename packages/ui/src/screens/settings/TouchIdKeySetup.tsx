@@ -13,15 +13,45 @@ export type PresenceKeyRow = MethodResult<"devices.presenceKey.list">["presenceK
 export interface BundledHelperKey {
   deviceId: string;
   keyId?: string;
-  kind?: "keychain" | "enclave_file";
+  /** `windows_hello` from the Windows helper (with `algorithm`, e.g. "RSA-2048"). */
+  kind?: "keychain" | "enclave_file" | "windows_hello";
+  algorithm?: string;
   error?: string;
 }
 
 /** `devices.presence.allowDevFileKey` (Gateway `DEV_FILE_KEY_SETTING`). */
 export const DEV_FILE_KEY_SETTING = "devices.presence.allowDevFileKey";
 
-/** Which Touch ID key a helper signs approvals with: what the helper reports, in plain words. */
-export function presenceKeyText(k: { kind?: string | undefined }): string {
+/** Key kinds a Windows helper reports for its Windows Hello key (KeyCredentialManager / TPM). */
+const WINDOWS_HELLO_KINDS = new Set(["windows_hello", "hello", "ngc", "tpm"]);
+
+/** "RSA-2048" for the ids helpers and the Gateway use ("rsa-2048", "RS256", "RSA2048"). */
+function algorithmName(alg: string): string {
+  const a = alg.trim().toUpperCase().replace(/_/g, "-");
+  if (a === "RS256" || a === "RSA" || a === "RSA2048" || a === "RSA-2048") return "RSA-2048";
+  if (a === "ES256" || a === "P-256" || a === "P256" || a === "ECDSA-P256") return "ECDSA P-256";
+  return alg;
+}
+
+/**
+ * Which presence key a helper signs approvals with: what the helper reports, in plain words. The
+ * key's kind decides, not the platform this window runs on: Devices lists a Mac's Touch ID key
+ * and a PC's Windows Hello key side by side. A Windows Hello key says its algorithm (RSA-2048:
+ * Windows Hello keys are TPM-backed RSA keys) when the Gateway reports it. `nodeKind` names the
+ * helper when the key's kind is missing.
+ */
+export function presenceKeyText(
+  k: { kind?: string | undefined; algorithm?: string | undefined },
+  nodeKind?: string,
+): string {
+  const hello =
+    (k.kind !== undefined && WINDOWS_HELLO_KINDS.has(k.kind)) ||
+    (k.kind === undefined && nodeKind === "win-helper") ||
+    (k.kind === undefined && k.algorithm !== undefined && /^rs|^rsa/i.test(k.algorithm));
+  if (hello)
+    return k.algorithm
+      ? t("settings.devices.presenceKey.windowsHello", { algorithm: algorithmName(k.algorithm) })
+      : t("settings.devices.presenceKey.windowsHelloNoAlgorithm");
   return k.kind === "enclave_file"
     ? t("settings.devices.presenceKey.enclaveFile")
     : k.kind === "keychain"
@@ -37,6 +67,8 @@ export function keyIdShort(keyId: string): string {
 export interface TouchIdKeySetupProps {
   /** The helper node's device. */
   deviceId: string;
+  /** The helper node's kind (`mac-helper`, `win-helper`): names a key whose kind is not reported. */
+  nodeKind?: string | undefined;
   registered?: PresenceKeyRow | undefined;
   /**
    * The desktop: what the helper bundled with this app reports (null when the app bundles none,
@@ -59,6 +91,7 @@ export interface TouchIdKeySetupProps {
  */
 export function TouchIdKeySetup({
   deviceId,
+  nodeKind,
   registered,
   bundled,
   allowDevFileKey,
@@ -86,7 +119,7 @@ export function TouchIdKeySetup({
   if (registered !== undefined) {
     body = (
       <div className="flex flex-wrap items-center gap-2">
-        <span data-testid="presence-key">{presenceKeyText(registered)}</span>
+        <span data-testid="presence-key">{presenceKeyText(registered, nodeKind)}</span>
         <code className="font-mono text-label-secondary">{keyIdShort(registered.keyId)}</code>
         <Button variant="outline" size="sm" disabled={busy} onClick={() => act(onRemove)}>
           {t("settings.devices.touchId.remove")}
@@ -108,7 +141,7 @@ export function TouchIdKeySetup({
               {keyIdShort(bundled.keyId)}
             </code>
           </p>
-          <p data-testid="presence-key">{presenceKeyText(bundled)}</p>
+          <p data-testid="presence-key">{presenceKeyText(bundled, nodeKind)}</p>
           {fileKey ? (
             <SwitchField
               label={t("settings.devices.touchId.allowDevFileKey")}
