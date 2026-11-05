@@ -75,10 +75,10 @@ export interface WhisperRequest {
 /** Whisper's encoder runs 50 frames per second of audio over a fixed 30 s window. */
 const FULL_AUDIO_CTX = 1500;
 
-/** `audio_ctx` for `pcmBytes` of 16 kHz mono s16le: the audio's frames plus 2.5 s of head room. */
+/** `audio_ctx` for `pcmBytes` of 16 kHz mono s16le: the audio's frames plus 5 s of head room (at least 384). */
 export function audioCtxFor(pcmBytes: number): number {
-  const frames = Math.ceil((pcmBytes / 32_000) * 50) + 128;
-  return Math.min(FULL_AUDIO_CTX, Math.max(256, Math.ceil(frames / 64) * 64));
+  const frames = Math.ceil((pcmBytes / 32_000) * 50) + 256;
+  return Math.min(FULL_AUDIO_CTX, Math.max(384, Math.ceil(frames / 64) * 64));
 }
 
 export interface WhisperBackend {

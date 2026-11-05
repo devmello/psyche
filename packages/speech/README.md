@@ -43,7 +43,7 @@ Each engine has a cheap `available()` probe (binary and model present, node onli
 | `ManagedWhisperServerBackend` | `WhisperBackend` over the process; `available()` only checks that the runtime and model files are there |
 | `WhisperInstaller` | The owner's one click: status (what is missing and its size), the download of runtime + model with `speech.model_download` events (`started`, `progress` ≤ 4/s, `finished`, `failed`) |
 
-Live dictation sizes whisper's encoder to the utterance (`audioCtxFor`: 50 frames/s plus 2.5 s head room, multiples of 64) and skips the temperature fallback; a final that comes back as punctuation only runs again on the full window. Files and recordings always use the full 30 s window with fallback. `WhisperEngine.transcribePath` reads long PCM WAV recordings (meetings) from disk in chunks; the Gateway uses it for recordings when whisper comes first in the order, else the helper's `speech.transcribe_file`.
+Live dictation sizes whisper's encoder to the utterance (`audioCtxFor`: 50 frames/s plus 5 s head room, at least 384, multiples of 64) and skips the temperature fallback; a final that comes back as punctuation only runs again on the full window. Files and recordings always use the full 30 s window with fallback. `WhisperEngine.transcribePath` reads long PCM WAV recordings (meetings) from disk in chunks; the Gateway uses it for recordings when whisper comes first in the order, else the helper's `speech.transcribe_file`.
 
 GPU: the release's CUDA builds are 285–685 MB and there is no Vulkan build for Windows, so only the CPU build is provisioned. The DLLs link the Visual C++ 2015–2022 runtime (MSVCP140, VCRUNTIME140(_1), VCOMP140).
 

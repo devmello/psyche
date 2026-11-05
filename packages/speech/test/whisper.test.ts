@@ -133,9 +133,9 @@ describe("whisper.cpp streaming (VAD-gated chunked inference)", () => {
     await engine.transcribeFile(tonePcm([[2000, 0.3]]), PCM_16K_MONO);
     expect(backend.requests.every((r) => r.audioCtx === undefined && !r.noFallback)).toBe(true);
     // 50 encoder frames a second plus head room, in steps of 64, within whisper's 1500.
-    expect(audioCtxFor(0)).toBe(256);
-    expect(audioCtxFor(32_000 * 3)).toBe(320);
-    expect(audioCtxFor(32_000 * 10)).toBe(640);
+    expect(audioCtxFor(0)).toBe(384);
+    expect(audioCtxFor(32_000 * 3)).toBe(448);
+    expect(audioCtxFor(32_000 * 10)).toBe(768);
     expect(audioCtxFor(32_000 * 60)).toBe(1500);
   });
 
