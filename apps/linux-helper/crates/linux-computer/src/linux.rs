@@ -97,13 +97,6 @@ impl LinuxBackend {
         }
     }
 
-    fn remote(&self) -> Option<&dyn RemotePath> {
-        match &self.path {
-            Path::Remote(r) => Some(r.as_ref()),
-            _ => None,
-        }
-    }
-
     fn all_windows(&self) -> Vec<WinInfo> {
         match &self.path {
             Path::X11(x) => x.windows(),

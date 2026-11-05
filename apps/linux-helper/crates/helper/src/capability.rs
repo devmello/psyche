@@ -25,12 +25,22 @@ pub struct CapabilitySpec {
 }
 
 impl CapabilitySpec {
-    /// The wire form declared at `connect` (`NodeCapability`).
+    /// The wire form declared at `connect` (`NodeCapability`), with no parameters.
     pub fn manifest_entry(&self) -> NodeCapability {
+        self.manifest_entry_with(None)
+    }
+
+    /// The wire form with the capability's own input schema (a JSON Schema object), as the Mac
+    /// helper declares for `computer.*`.
+    pub fn manifest_entry_with(&self, schema: Option<Value>) -> NodeCapability {
         let mut input_schema = serde_json::Map::new();
-        input_schema.insert("type".into(), json!("object"));
-        input_schema.insert("properties".into(), json!({}));
-        input_schema.insert("additionalProperties".into(), json!(false));
+        if let Some(Value::Object(s)) = schema {
+            input_schema = s;
+        } else {
+            input_schema.insert("type".into(), json!("object"));
+            input_schema.insert("properties".into(), json!({}));
+            input_schema.insert("additionalProperties".into(), json!(false));
+        }
         NodeCapability {
             description: Some(self.description.to_string()),
             input_schema,
@@ -51,6 +61,9 @@ pub struct CapabilityError {
     pub reason: String,
     pub message: String,
     pub retryable: bool,
+    /// More `details` for the Gateway (the app a tier refusal names, the label an approval card
+    /// shows). `reason` always wins over a `reason` key here.
+    pub details: serde_json::Map<String, Value>,
 }
 
 impl CapabilityError {
@@ -60,13 +73,16 @@ impl CapabilityError {
             reason: reason.into(),
             message: message.into(),
             retryable: false,
+            details: serde_json::Map::new(),
         }
     }
 
     pub fn payload(&self) -> ErrorPayload {
+        let mut details = self.details.clone();
+        details.insert("reason".into(), json!(self.reason));
         ErrorPayload {
             code: self.code,
-            details: Some(json!({ "reason": self.reason })),
+            details: Some(Value::Object(details)),
             message: self.message.clone(),
             retryable: self.retryable.then_some(true),
         }
@@ -87,6 +103,10 @@ pub struct InvocationContext {
 
 pub trait Capability: Send + Sync {
     fn spec(&self) -> CapabilitySpec;
+    /// The JSON Schema of the parameters, declared at `connect`. `None`: no parameters.
+    fn input_schema(&self) -> Option<Value> {
+        None
+    }
     fn invoke(&self, ctx: &InvocationContext) -> Result<Value, CapabilityError>;
 }
 
@@ -174,7 +194,7 @@ impl Registry {
     pub fn manifest(&self) -> Vec<NodeCapability> {
         self.ordered
             .iter()
-            .map(|c| c.spec().manifest_entry())
+            .map(|c| c.spec().manifest_entry_with(c.input_schema()))
             .collect()
     }
 }

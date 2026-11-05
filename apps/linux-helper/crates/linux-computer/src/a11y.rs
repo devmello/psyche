@@ -86,10 +86,6 @@ pub struct A11y {
     focus_started: AtomicBool,
 }
 
-fn dbus_err(e: zbus::Error) -> CapError {
-    CapError::unavailable("a11y_bus_error", format!("The accessibility bus did not answer: {e}"))
-}
-
 impl A11y {
     /// Connects through the session bus's `org.a11y.Bus`. Refuses with
     /// `unavailable/no_a11y_bus` when there is no session bus or no accessibility bus.

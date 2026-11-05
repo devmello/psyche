@@ -11,6 +11,7 @@ pub mod capability;
 pub mod channel;
 pub mod cli;
 pub mod daemon;
+pub mod direct;
 pub mod handshake;
 pub mod hardening;
 pub mod identity;

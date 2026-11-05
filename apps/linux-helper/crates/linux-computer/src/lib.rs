@@ -31,6 +31,8 @@ pub mod hygiene;
 #[cfg(target_os = "linux")]
 pub mod linux;
 pub mod keychord;
+#[cfg(target_os = "linux")]
+pub mod portal;
 pub mod roles;
 pub mod snapshot;
 pub mod spec;
