@@ -34,20 +34,20 @@ export function parseHostHelperStatus(value: unknown): HostHelperStatus | undefi
 const STATES = {
   root_owned: {
     chip: "settings.devices.helperCheck.state.verified",
-    detail: "settings.devices.helperCheck.detail.verified",
+    msgId: "settings.devices.helperCheck.detail.verified",
     tone: "success",
   },
   user_owned: {
     chip: "settings.devices.helperCheck.state.userOwned",
-    detail: "settings.devices.helperCheck.detail.userOwned",
+    msgId: "settings.devices.helperCheck.detail.userOwned",
     tone: "neutral",
   },
   unverified: {
     chip: "settings.devices.helperCheck.state.unverified",
-    detail: "settings.devices.helperCheck.detail.unverified",
+    msgId: "settings.devices.helperCheck.detail.unverified",
     tone: "neutral",
   },
-} as const satisfies Record<string, { chip: string; detail: string; tone: Tone }>;
+} as const satisfies Record<string, { chip: string; msgId: string; tone: Tone }>;
 
 /** The Gateway's machine reasons, in the words an owner reads (anything else: unclear). */
 const REASONS: Readonly<Record<string, string>> = {
@@ -88,7 +88,7 @@ export function HostHelperCheckGroup({ status }: { status: HostHelperStatus }): 
         {s ? (
           <div className="flex flex-wrap items-center gap-2" data-testid="host-helper-check-state">
             <StatusChip tone={s.tone}>{t(s.chip)}</StatusChip>
-            <span className="text-callout text-muted-foreground">{t(s.detail)}</span>
+            <span className="text-callout text-muted-foreground">{t(s.msgId)}</span>
           </div>
         ) : null}
         {status.refused ? (
