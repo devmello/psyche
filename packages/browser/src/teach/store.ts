@@ -19,6 +19,7 @@ import {
 } from "node:fs";
 import { chmod, lstat, mkdir, open, readdir, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { restrictToOwner } from "@psyche/hostfs";
 import {
   type BrowserTeachStep,
   PsycheError,
@@ -81,6 +82,16 @@ export interface TeachKeySeal {
  * that is the wrong size or cannot be opened is an error, never a quiet new key: a new key would
  * orphan every kept recording and hide that something replaced the file.
  */
+/**
+ * Windows has no modes, so `0600` / `0700` there is a DACL for this user only (children of a
+ * folder inherit it). Throws when Windows will not apply it.
+ */
+function privateOnWindows(path: string): void {
+  if (process.platform === "win32" && !restrictToOwner(path)) {
+    throw new PsycheError("internal", "the recordings cannot be made private to this user");
+  }
+}
+
 export function loadTeachKey(
   path: string,
   wrap?: TeachKeySeal,
@@ -124,6 +135,7 @@ export function loadTeachKey(
         0o600,
       );
       try {
+        privateOnWindows(tmp);
         writeFileSync(out, wrap.seal(raw));
       } finally {
         closeSync(out);
@@ -149,6 +161,7 @@ export function loadTeachKey(
     0o600,
   );
   try {
+    privateOnWindows(path);
     writeFileSync(fd, wrap === undefined ? key : wrap.seal(key));
   } finally {
     closeSync(fd);
@@ -324,6 +337,7 @@ export class TeachKeptStore {
   async #write(file: string, body: unknown): Promise<void> {
     await mkdir(this.dir, { recursive: true, mode: 0o700 });
     await chmod(this.dir, 0o700);
+    privateOnWindows(this.dir);
     const tmp = `${file}.tmp`;
     await writeFile(tmp, `${JSON.stringify(body)}\n`, { mode: 0o600 });
     await chmod(tmp, 0o600);
