@@ -401,6 +401,7 @@ export function libraryHandlers(setup: LibrarySetup): Record<string, HandlerDef>
             source: null,
           });
           staged.delete(uploadId);
+          call.emit("library.item.changed", { itemId: item.id, change: "created" });
           return { uploadId, received: upload.size, item };
         } catch (err) {
           await abandon();
@@ -433,12 +434,13 @@ export function libraryHandlers(setup: LibrarySetup): Record<string, HandlerDef>
     },
     "library.delete": {
       run: async (
-        _call: Call,
+        call: Call,
         params: MethodParams<"library.delete">,
       ): Promise<MethodResult<"library.delete">> => {
         const item = requireItem(db, params.itemId);
         await removeStored(home, item);
         deleteLibraryItem(db, item.id);
+        call.emit("library.item.changed", { itemId: item.id, change: "deleted" });
         return { ok: true };
       },
     },

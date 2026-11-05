@@ -294,6 +294,8 @@ struct SearchView: View {
         case .chat(let id): router.openThread(id)
         case .file(let id): router.openFile(id)
         case .person(let id): router.openPerson(id)
+        case .project(let id): router.openProject(id)
+        case .task(let id): router.openTask(id)
         case nil: break
         }
     }

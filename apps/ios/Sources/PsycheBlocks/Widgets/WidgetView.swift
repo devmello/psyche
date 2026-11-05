@@ -77,8 +77,8 @@ final class WidgetModel {
         guard let live = backend as? any LiveUpdates else { return }
         for await event in live.events() {
             switch event {
-            case .changed, .resynced: await load()
-            case .chat: break
+            case .changed(.widgets), .changed(.home), .changed(.activity), .resynced: await load()
+            case .changed, .chat: break
             }
         }
     }

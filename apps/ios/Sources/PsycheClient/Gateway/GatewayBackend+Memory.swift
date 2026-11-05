@@ -49,8 +49,15 @@ extension GatewayBackend {
                 key: "todo-\(UUID().uuidString)")
             return
         }
-        // An assignment can be marked done or handed in; the contract has no way to reopen one.
-        guard done else { throw BackendError.refused("Reopen this on your Mac.") }
+        // Reopening is the desktop's own write: the owner's `status` fact on the assignment (to-do list, work-hooks.ts).
+        guard done else {
+            _ = try await call(
+                "memory.entities.facts.set",
+                .obj(["entityId": .string(id), "attribute": "status", "value": "not_started",
+                      "source": .obj(["kind": "owner_edit"])]),
+                key: "todo-\(UUID().uuidString)")
+            return
+        }
         _ = try await call(
             "memory.catchup.act", .obj(["entityId": .string(id), "action": "done"]), key: "todo-\(UUID().uuidString)")
     }

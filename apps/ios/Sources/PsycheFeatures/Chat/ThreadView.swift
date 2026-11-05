@@ -81,6 +81,7 @@ struct ThreadView: View {
                 focused: $composerFocused, send: send, stop: model.cancel)
         }
         .sensoryFeedback(.impact(weight: .light), trigger: model.sentCount)
+        .onChange(of: session.state.canAnswer) { _, reachable in if reachable { composer.retryWaiting() } }
         .task {
             await model.load()
             if let pending = router.pendingDraft {
