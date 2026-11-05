@@ -38,6 +38,22 @@ export const DEFAULT_DICTATION_SETTINGS: DictationSettings = {
 
 const KEYS: readonly DictationKey[] = ["fn", "rightOption", "rightCommand"];
 
+/**
+ * The hold-to-talk keys keep their macOS names on every OS and go to the helper's
+ * `dictation.watch` as stored. The Windows helper (a `WH_KEYBOARD_LL` hook) holds `fn` and
+ * `rightOption` on Right Alt (a PC's Fn never reaches Windows) and `rightCommand` on Right Ctrl,
+ * so there two names can be one physical key.
+ */
+export function physicalKey(key: DictationKey, platform: NodeJS.Platform): string {
+  if (platform !== "win32") return key;
+  return key === "rightCommand" ? "rightCtrl" : "rightAlt";
+}
+
+/** Whether two settings name the same key on this OS (one watch cannot serve both roles). */
+export function sameKey(a: DictationKey, b: DictationKey, platform: NodeJS.Platform): boolean {
+  return physicalKey(a, platform) === physicalKey(b, platform);
+}
+
 /** Reads the `voice.*` settings; anything unknown falls back to the default. */
 export function parseDictationSettings(values: Record<string, unknown>): DictationSettings {
   const key = values["voice.pushToTalk"];

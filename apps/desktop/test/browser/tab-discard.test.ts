@@ -115,6 +115,8 @@ const h = vi.hoisted(() => {
 vi.mock("electron", () => ({
   BaseWindow: h.FakeWindow,
   WebContentsView: h.FakeView,
+  // No OS keychain in tests: kept recordings use their plain file key.
+  safeStorage: { isEncryptionAvailable: () => false },
   session: { fromPartition: () => h.ses },
 }));
 

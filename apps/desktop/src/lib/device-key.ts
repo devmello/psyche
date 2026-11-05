@@ -86,7 +86,12 @@ export function signWithDeviceKey(key: DeviceKey, payload: Uint8Array): string {
   return sign(null, payload, key.privateKey).toString("base64url");
 }
 
-/** `DevicePlatform` for this desktop build (macOS first; Linux desktops are a later target). */
-export function platformFromNode(platform: NodeJS.Platform): "macos" | "linux" {
-  return platform === "darwin" ? "macos" : "linux";
+/**
+ * `DevicePlatform` for this desktop build: macOS and Windows desktops (a Windows desktop is never
+ * reported as Linux); anything else is the Linux value the protocol had first.
+ */
+export function platformFromNode(platform: NodeJS.Platform): "macos" | "windows" | "linux" {
+  if (platform === "darwin") return "macos";
+  if (platform === "win32") return "windows";
+  return "linux";
 }

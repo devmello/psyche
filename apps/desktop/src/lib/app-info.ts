@@ -13,11 +13,11 @@ export interface GatewayVersion {
 
 export interface AppInfo {
   appVersion: string;
-  /** `process.platform`: "darwin" in practice. */
+  /** `process.platform`: "darwin" or "win32" (the desktop targets). */
   platform: string;
-  /** `process.arch`: "arm64" (Apple silicon) or "x64" (Intel). */
+  /** `process.arch`: "arm64" (Apple silicon, Windows on Arm) or "x64". */
   arch: string;
-  /** `process.getSystemVersion()`, e.g. "27.0.1". */
+  /** `process.getSystemVersion()`, e.g. "27.0.1" (macOS) or "10.0.26200" (Windows 11). */
   osVersion: string;
   electronVersion: string;
   chromeVersion: string;
