@@ -429,14 +429,6 @@ export const windows: Partial<Record<MessageId, string>> = {
     "Psyche couldn't start recording that app. Open it first. Windows blocks recording an app that runs as administrator, so it has to run normally.",
   "web.teach.app.bar.body":
     "Psyche is noting your clicks, menu choices and typing in {app} only. Secure fields are never recorded, no screenshots are taken, and nothing leaves this PC until you save. The recording pill on your screen also has a Stop.",
-  "settings.uninstall.keychainStays":
-    "Credential Manager entries stay (the vault key and helper entries). Remove them in Credential Manager if you want.",
-  "settings.uninstall.keychainGoes":
-    "The Credential Manager entries for the vault and the helper are removed too.",
-  "settings.uninstall.removeKeychain":
-    "Also remove my Credential Manager entries (the vault's and the helper's). Without your data they are useless.",
-  "settings.uninstall.presence":
-    "You will then be asked to confirm with Windows Hello or on this device, because this removes your data.",
   "settings.connectorBundle.sandbox.none":
     "This PC has no sandbox for command connectors, and Psyche never runs one outside it. This connector cannot be installed here. Nothing was started or saved.",
   "settings.connectorBundle.share.unavailable":
