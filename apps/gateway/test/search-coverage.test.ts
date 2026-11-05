@@ -139,6 +139,9 @@ describe("power", () => {
   });
 });
 
+/** The host decides which local sources exist (no Notes or Messages on Windows). */
+const WINDOWS = process.platform === "win32";
+
 describe("search.sources methods", () => {
   async function start() {
     const home = tmp();
@@ -157,18 +160,21 @@ describe("search.sources methods", () => {
   it("lists every source off by default, with nothing read", async () => {
     const owner = await start();
     const st = await owner.call<SearchSourcesStatus>("search.sources", {});
-    expect(st.sources.map((s) => s.id)).toEqual([
-      "mail",
-      "messages",
-      "notes",
-      "calendar",
-      "reminders",
-      "contacts",
-      "files",
-      "browser",
-      "transcripts",
-      "memory",
-    ]);
+    // Notes and Messages are Mac apps: Windows lists no row for them.
+    expect(st.sources.map((s) => s.id)).toEqual(
+      [
+        "mail",
+        "messages",
+        "notes",
+        "calendar",
+        "reminders",
+        "contacts",
+        "files",
+        "browser",
+        "transcripts",
+        "memory",
+      ].filter((id) => !WINDOWS || (id !== "messages" && id !== "notes")),
+    );
     expect(st.sources.every((s) => !s.enabled && s.state === "off" && s.items === 0)).toBe(true);
     // Memory (its facts come from other sources' text) and Contacts ship with no summaries.
     expect(st.sources.filter((s) => s.processing !== "cloud").map((s) => s.id)).toEqual([
@@ -176,52 +182,54 @@ describe("search.sources methods", () => {
       "memory",
     ]);
     // Messages, Contacts and Memory stay owner-only until the owner allows the agent to search them.
-    expect(st.sources.filter((s) => !s.agent).map((s) => s.id)).toEqual([
-      "messages",
-      "contacts",
-      "memory",
-    ]);
+    expect(st.sources.filter((s) => !s.agent).map((s) => s.id)).toEqual(
+      WINDOWS ? ["contacts", "memory"] : ["messages", "contacts", "memory"],
+    );
   });
 
   it("toggles a source, keeps the processing model and exclusions, and rebuilds", async () => {
     const owner = await start();
+    // Windows has no Messages source: Reminders (unavailable too, nothing connected) stands in.
+    const SRC = WINDOWS ? "reminders" : "messages";
     let st = await owner.call<SearchSourcesStatus>(
       "search.sources.configure",
       {
-        source: "messages",
+        source: SRC,
         enabled: true,
         processing: "local",
         exclude: { contacts: ["mum@example.com"] },
       },
       ik(),
     );
-    const m = st.sources.find((s) => s.id === "messages");
+    const m = st.sources.find((s) => s.id === SRC);
     // No Mac helper in this test: enabled, but it says why nothing is read.
     expect(m).toMatchObject({
       enabled: true,
       processing: "local",
-      agent: false,
+      agent: WINDOWS,
       state: "unavailable",
     });
     expect(st.exclude.contacts).toEqual(["mum@example.com"]);
     st = await owner.call<SearchSourcesStatus>(
       "search.sources.configure",
-      { source: "messages", agent: true },
+      { source: SRC, agent: !WINDOWS },
       ik(),
     );
-    expect(st.sources.find((s) => s.id === "messages")?.agent).toBe(true);
+    expect(st.sources.find((s) => s.id === SRC)?.agent).toBe(!WINDOWS);
     // No Mac helper: a rebuild would empty Messages and could not fill it, so it is refused.
-    const refused = await owner.request("search.sources.rebuild", { source: "messages" }, ik());
+    const refused = await owner.request("search.sources.rebuild", { source: SRC }, ik());
     expect(refused).toMatchObject({ ok: false, error: { code: "unavailable", retryable: true } });
-    expect(JSON.stringify(refused.error)).toMatch(/Messages can't be read right now/);
+    expect(JSON.stringify(refused.error)).toMatch(
+      WINDOWS ? /Reminders can't be read right now/ : /Messages can't be read right now/,
+    );
     st = await owner.call<SearchSourcesStatus>("search.sources", {});
-    expect(st.sources.find((s) => s.id === "messages")?.enabled).toBe(true);
+    expect(st.sources.find((s) => s.id === SRC)?.enabled).toBe(true);
     st = await owner.call<SearchSourcesStatus>(
       "search.sources.configure",
-      { source: "messages", enabled: false },
+      { source: SRC, enabled: false },
       ik(),
     );
-    expect(st.sources.find((s) => s.id === "messages")).toMatchObject({
+    expect(st.sources.find((s) => s.id === SRC)).toMatchObject({
       enabled: false,
       processing: "local",
       state: "off",
