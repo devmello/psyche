@@ -1,15 +1,25 @@
 import type { Catalogue } from "../index.ts";
+import { agentA } from "./agent-a/pt.ts";
+import { blocksA } from "./blocks-a/pt.ts";
 import { canvas } from "./canvas/pt.ts";
 import { charts } from "./charts/pt.ts";
+import { chatA } from "./chat-a/pt.ts";
+import { dailyA } from "./daily-a/pt.ts";
 import { links } from "./links/pt.ts";
 import { mailMeetings } from "./mail-meetings/pt.ts";
 import { overview } from "./overview/pt.ts";
 import { overviewGrowth } from "./overview-growth/pt.ts";
 import { overviewShared } from "./overview-shared/pt.ts";
+import { settingsA } from "./settings-a/pt.ts";
 import { workflows } from "./workflows/pt.ts";
 
 /** Portuguese catalogue (pt, Brazil). Same ids as `en`; missing ids fall back to English. */
 export const pt: Partial<Catalogue> = {
+  ...settingsA,
+  ...dailyA,
+  ...agentA,
+  ...blocksA,
+  ...chatA,
   // mail and meetings: settings and onboarding (docs/workflows/mail-and-meetings-2026.md §7.3, §7.5)
   ...mailMeetings,
   // link menu and the "Open links in" setting
