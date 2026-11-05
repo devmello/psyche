@@ -30,7 +30,9 @@ export interface LoadedSkill extends SkillSummary {
 export type SkillInstallSource =
   | { kind: "path"; path: string }
   | { kind: "git"; url: string; ref: string }
-  | { kind: "zip"; path: string };
+  | { kind: "zip"; path: string }
+  | { kind: "bundleFile"; name: string }
+  | { kind: "bundleUrl"; url: string };
 
 export interface ScanFinding {
   rule: string;
@@ -63,6 +65,21 @@ export interface SkillManifestDecl {
   tools: string[];
   permissions: string[];
   prompts: string[];
+  /** The background role the skill defines (`metadata.psyche.specialist`), if any. */
+  specialist?: {
+    role: string;
+    label: string;
+    model: string;
+    maxMode: string;
+    tools: string[];
+    deny: string[];
+    memory: string;
+    budget: Record<string, number>;
+    caps: Record<string, number>;
+    result: string;
+    planFirst: boolean;
+    approvals: string[];
+  };
 }
 
 /** Update detection result (protocol `SkillUpdateStatus`). */
