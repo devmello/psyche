@@ -1,0 +1,604 @@
+# Linux desktop CI (docs/design/linux-desktop-2026.md §12.1; L9 owns this file).
+#
+#   linux-desktop   typecheck + unit tests for the desktop, the Gateway and the UI on ubuntu-24.04
+#   linux-helper    apps/linux-helper (Rust): fmt, clippy, tests, `cargo gen-check`; x86_64 and aarch64
+#   linux-upgrade   deploy/scripts/upgrade-roundtrip.mjs from source, then (once packages exist) the
+#                   packaged psyched and an old -> new upgrade of a real home
+#   linux-package   psyched, the helper and `electron-forge make` (deb, rpm, AppImage), x64 and arm64
+#   linux-smoke     install the deb, `psyched --bundle-check`, /healthz, the Electron smoke under Xvfb,
+#                   the AppImage, systemd-analyze, pkaction, helper pairing + conformance, dbusmock polkit
+#
+# Everything that exercises a part another Linux PR adds (L2 packaging, L3 helper, L4 polkit) is gated
+# on that part existing on the branch, so this file is harmless until each one lands. The `changes` job
+# answers for all of them. A skipped step prints a ::notice:: saying which file it is waiting for.
+#
+# Scripts the later PRs add (this workflow only calls them when they exist):
+#   scripts/ci/linux-helper-conformance.sh   L3: pair the packaged helper with a real psyched over
+#                                            node.sock and run the "host helper" conformance profile
+#   scripts/ci/linux-polkit-dbusmock.sh      L4: polkitd + logind from python-dbusmock; approve, deny,
+#                                            cancel, no-session, no-agent, already-authorized, no-policy
+#   Both run inside `dbus-run-session` under Xvfb with PSYCHE_INSTALL_DIR=/opt/Psyche and
+#   PSYCHE_HOME set to a fresh temp folder.
+#
+# Electron always runs with its sandbox. The deb ships the setuid chrome-sandbox and the AppArmor
+# profile (§2.1); the AppImage cannot, so the AppImage step sets the runner's userns sysctl the way
+# §2.6 documents for users (the one-time admin step), and only for that step.
+#
+# GitHub Actions was locked by a billing issue on 2026-11-05: until it is fixed none of this runs
+# remotely, and each Linux PR says what it ran by hand.
+name: linux
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: linux-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Tests never launch Electron, so skip the ~100 MB binary download (linux-package turns it back on).
+  ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+  # No telemetry, including from our tools (docs/05-security-and-permissions.md).
+  TURBO_TELEMETRY_DISABLED: "1"
+  DO_NOT_TRACK: "1"
+  # Live tests (real network, real providers) stay off in CI.
+  PSYCHE_LIVE_TESTS: "0"
+
+jobs:
+  # Which Linux jobs does this push or PR need, and is the part each one tests on the branch yet?
+  changes:
+    name: changes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      ts: ${{ steps.diff.outputs.ts }}
+      helper: ${{ steps.diff.outputs.helper }}
+      package: ${{ steps.diff.outputs.package }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Paths changed, and what exists on this branch
+        id: diff
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          # What exists: the Rust helper (L3) and the Linux makers in the forge config (L2).
+          has_helper=false
+          if [ -f apps/linux-helper/Cargo.toml ]; then has_helper=true; fi
+          has_package=false
+          if grep -q 'maker-deb' apps/desktop/forge.config.ts 2>/dev/null; then has_package=true; fi
+
+          emit() { { echo "ts=$1"; echo "helper=$2"; echo "package=$3"; } >> "$GITHUB_OUTPUT"; }
+
+          case "$EVENT" in
+            pull_request) base="$(git merge-base "$PR_BASE" HEAD)" ;;
+            push) base="$PUSH_BEFORE" ;;
+            *) base="" ;;
+          esac
+          # A manual run, a tag, a new branch or an unknown base: run everything that can run.
+          if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ] \
+            || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            emit true "$has_helper" "$has_package"
+            exit 0
+          fi
+          files="$(git diff --name-only "$base" HEAD)"
+          # A change to this workflow can break any job: run everything that can run.
+          if echo "$files" | grep -qE '^\.github/workflows/linux\.yml$'; then
+            emit true "$has_helper" "$has_package"
+            exit 0
+          fi
+          hit() { if echo "$files" | grep -qE "$1"; then echo true; else echo false; fi; }
+          ts="$(hit '^(apps/(desktop|gateway|cli)/|packages/|deploy/|scripts/|package\.json$|pnpm-lock\.yaml$)')"
+          helper="$(hit '^(apps/linux-helper/|packages/protocol/)')"
+          pkg="$(hit '^(apps/(desktop|gateway|cli|linux-helper)/|packages/(ui|protocol)/|deploy/)')"
+          [ "$has_helper" = true ] || helper=false
+          [ "$has_package" = true ] || pkg=false
+          emit "$ts" "$helper" "$pkg"
+          if [ "$has_helper" != true ]; then
+            echo "::notice title=linux helper skipped::apps/linux-helper/Cargo.toml is not on this branch yet (L3)."
+          fi
+          if [ "$has_package" != true ]; then
+            echo "::notice title=linux packages skipped::apps/desktop/forge.config.ts has no deb maker yet (L2)."
+          fi
+
+  # Typecheck and unit tests of the three packages the Linux work touches, on the platform it targets.
+  # The macOS-and-Linux `ci` job in ci.yml stays the full check; this one catches Linux-only breakage
+  # (paths, case-sensitive imports, platform branches).
+  linux-desktop:
+    name: linux desktop (typecheck + unit tests)
+    needs: changes
+    if: needs.changes.outputs.ts == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm (version from packageManager in package.json)
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Set up Node (version from .nvmrc)
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck (desktop, Gateway, UI)
+        run: pnpm --filter @psyche/desktop --filter @psyche/gateway --filter @psyche/ui --workspace-concurrency=1 typecheck
+
+      - name: Test (desktop)
+        # Six files are left out because they test another platform's tooling with that platform's
+        # paths and commands, and fail on Linux without saying anything about Linux (checked on a
+        # clean tree, 15 tests): windows-shell and supervisor-windows (the Windows login item, jump
+        # list and Task Scheduler supervisor use the host's node:path, which is win32 only on
+        # Windows), sandbox-pc and install-local-ps1 (Windows paths and PowerShell), and
+        # install-local-script and signing-scripts (macOS-only home folders and login keychain).
+        # The Windows files run in ci.yml's `windows` job; the macOS ones in its macOS leg.
+        run: >
+          pnpm --filter @psyche/desktop exec vitest run
+          --exclude 'test/main/windows-shell.test.ts'
+          --exclude 'test/main/supervisor-windows.test.ts'
+          --exclude 'test/main/sandbox-pc.test.ts'
+          --exclude 'test/install-local-ps1.test.ts'
+          --exclude 'test/install-local-script.test.ts'
+          --exclude 'test/signing-scripts.test.ts'
+          --exclude '**/node_modules/**'
+
+      - name: Test (UI)
+        run: pnpm --filter @psyche/ui test
+
+      - name: Test (Gateway, reported but not a gate yet)
+        # On a clean tree 20 Gateway tests in 10 files fail on Linux (Windows paths such as
+        # C:\Windows\System32, macOS-only helper cases, and 5 s timeouts under load). Like the
+        # Windows job in ci.yml, the full run is reported while those are fixed; make this a gate
+        # (delete continue-on-error) when the run is green.
+        continue-on-error: true
+        run: pnpm --filter @psyche/gateway test
+
+  # The Rust helper (apps/linux-helper): on both architectures, natively (ubuntu-24.04-arm is free
+  # for public repositories), so the aarch64 build is a real build and a real test run.
+  linux-helper:
+    name: linux helper (${{ matrix.arch }})
+    needs: changes
+    if: needs.changes.outputs.helper == 'true'
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-24.04
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+    defaults:
+      run:
+        shell: bash
+        working-directory: apps/linux-helper
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: System libraries the crates link against (apps/linux-helper/ci-deps.txt, one apt package per line)
+        run: |
+          if [ -f ci-deps.txt ]; then
+            sudo apt-get update
+            grep -vE '^\s*(#|$)' ci-deps.txt | xargs -r sudo apt-get install -y --no-install-recommends
+          fi
+
+      - name: Toolchain
+        run: |
+          rustup toolchain install stable --profile minimal --component clippy,rustfmt
+          rustup default stable
+          rustc --version
+          cargo --version
+
+      - name: Cargo cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            apps/linux-helper/target
+          key: linux-helper-${{ matrix.arch }}-${{ hashFiles('apps/linux-helper/Cargo.lock') }}-${{ hashFiles('apps/linux-helper/**/*.rs') }}
+          restore-keys: |
+            linux-helper-${{ matrix.arch }}-${{ hashFiles('apps/linux-helper/Cargo.lock') }}-
+
+      - name: cargo fmt
+        run: cargo fmt --all --check
+
+      - name: cargo clippy
+        run: cargo clippy --locked --workspace --all-targets -- -D warnings
+
+      - name: cargo test
+        run: cargo test --locked --workspace
+
+      - name: Generated protocol types are fresh (cargo gen-check)
+        run: cargo gen-check
+
+  # The upgrade round trip (deploy/scripts/upgrade-roundtrip.mjs) on Linux, with real processes.
+  # First from source (this runs today). Then, when the Linux packages exist, with the psyched that
+  # ships in the deb, and an upgrade of a home written by the previous release's psyched.
+  linux-upgrade:
+    name: linux upgrade (round trip)
+    needs: [changes, linux-package]
+    # linux-package is skipped until L2 lands; the from-source round trip must still run.
+    if: ${{ !cancelled() && needs.changes.outputs.ts == 'true' && needs.changes.result == 'success' && needs.linux-package.result != 'failure' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm (version from packageManager in package.json)
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Set up Node (version from .nvmrc)
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Round trip from source
+        run: node deploy/scripts/upgrade-roundtrip.mjs
+
+      - name: The packaged psyched (when the Linux package exists)
+        id: package
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: needs.linux-package.result == 'success'
+        with:
+          name: psyche-linux-x64
+          path: dist
+
+      - name: Unpack the deb (no install, the round trip runs from a folder)
+        if: steps.package.outcome == 'success'
+        run: |
+          mkdir -p "$RUNNER_TEMP/new"
+          dpkg-deb -x dist/Psyche-*-linux-x64.deb "$RUNNER_TEMP/new"
+          test -x "$RUNNER_TEMP/new/opt/Psyche/resources/psyched/psyched"
+          test -x "$RUNNER_TEMP/new/opt/Psyche/resources/psyched/psyche"
+
+      - name: Round trip with the packaged psyched and CLI
+        if: steps.package.outcome == 'success'
+        env:
+          NEW: ${{ runner.temp }}/new/opt/Psyche/resources/psyched
+        run: |
+          PSYCHE="$NEW/psyche" PSYCHED="$NEW/psyched" node deploy/scripts/upgrade-roundtrip.mjs
+
+      - name: The previous release's Linux psyched, if there is one
+        id: previous
+        if: steps.package.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=""
+          for t in $(gh release list --repo "$GITHUB_REPOSITORY" --limit 30 --exclude-drafts --json tagName --jq '.[].tagName'); do
+            if gh release view "$t" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | grep -qE '^Psyche-.*-linux-x64\.deb$'; then
+              tag="$t"; break
+            fi
+          done
+          if [ -z "$tag" ]; then
+            echo "::notice title=no previous Linux release::No earlier release has a Linux package, so there is no old -> new upgrade to run."
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          mkdir -p "$RUNNER_TEMP/old-deb" "$RUNNER_TEMP/old"
+          gh release download "$tag" --repo "$GITHUB_REPOSITORY" --dir "$RUNNER_TEMP/old-deb" --pattern 'Psyche-*-linux-x64.deb'
+          dpkg-deb -x "$RUNNER_TEMP"/old-deb/Psyche-*-linux-x64.deb "$RUNNER_TEMP/old"
+          echo "found=true" >> "$GITHUB_OUTPUT"
+          echo "Previous release: $tag"
+
+      - name: Upgrade a home written by the previous release (old psyched writes, new psyched reads)
+        if: steps.previous.outputs.found == 'true'
+        env:
+          OLD: ${{ runner.temp }}/old/opt/Psyche/resources/psyched
+          NEW: ${{ runner.temp }}/new/opt/Psyche/resources/psyched
+        run: |
+          home="$(mktemp -d)"
+          chmod 700 "$home"
+          run_until_healthy() {
+            PSYCHE_HOME="$home" PSYCHE_PORT=17981 PSYCHE_BROWSER=off "$1/psyched" >"$RUNNER_TEMP/$2.log" 2>&1 &
+            pid=$!
+            ok=false
+            for _ in $(seq 1 60); do
+              if curl -fsS http://127.0.0.1:17981/healthz >/dev/null 2>&1; then ok=true; break; fi
+              kill -0 "$pid" 2>/dev/null || break
+              sleep 1
+            done
+            kill "$pid" 2>/dev/null || true
+            wait "$pid" 2>/dev/null || true
+            if [ "$ok" != true ]; then cat "$RUNNER_TEMP/$2.log"; echo "::error::$2 psyched did not become healthy"; exit 1; fi
+          }
+          run_until_healthy "$OLD" old
+          run_until_healthy "$NEW" new
+          echo "The new psyched started on the old release's home."
+
+      - name: Logs on failure
+        if: failure()
+        run: |
+          for f in "$RUNNER_TEMP"/old.log "$RUNNER_TEMP"/new.log; do
+            if [ -f "$f" ]; then echo "== $f"; tail -n 80 "$f"; fi
+          done
+
+  # psyched, the helper and the three packages, natively on each architecture. Waits for L2: the job
+  # is skipped (not red) while apps/desktop/forge.config.ts has no deb maker.
+  linux-package:
+    name: linux package (${{ matrix.arch }})
+    needs: changes
+    if: needs.changes.outputs.package == 'true'
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm (version from packageManager in package.json)
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Set up Node (version from .nvmrc)
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies (with the Electron binary)
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: "0"
+        run: pnpm install --frozen-lockfile
+
+      - name: Packaging tools (deb, rpm, AppImage)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends dpkg fakeroot rpm squashfs-tools
+
+      - name: Helper crate present
+        id: helper
+        run: |
+          if [ -f apps/linux-helper/Cargo.toml ]; then echo "present=true" >> "$GITHUB_OUTPUT"; else
+            echo "::notice title=linux helper not packaged::apps/linux-helper/Cargo.toml is not on this branch yet (L3); packaging without it."
+            echo "present=false" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Rust toolchain (for apps/linux-helper)
+        if: steps.helper.outputs.present == 'true'
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: Build the bundled Gateway (psyched)
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          # apps/gateway/dist-bin/linux-<arch>/psyched, started once against /healthz (--smoke).
+          node deploy/scripts/build-psyched.mjs --arch "$ARCH" --smoke
+
+      - name: Build the helper
+        if: steps.helper.outputs.present == 'true'
+        run: cargo build --release --locked --manifest-path apps/linux-helper/Cargo.toml
+
+      - name: Make the deb, the rpm and the AppImage
+        env:
+          ARCH: ${{ matrix.arch }}
+          # Without the helper crate the packages are built without it (dev only).
+          PSYCHE_PACKAGE_ALLOW_PARTIAL: ${{ steps.helper.outputs.present == 'true' && '0' || '1' }}
+        run: |
+          # One retry: electron-packager downloads Electron and occasionally gets "fetch failed".
+          pnpm --filter @psyche/desktop run make --arch="$ARCH" || {
+            echo "::warning::make failed; retrying once in 20 s"
+            sleep 20
+            pnpm --filter @psyche/desktop run make --arch="$ARCH"
+          }
+
+      - name: Collect the packages as Psyche-<version>-linux-<arch>.<ext>
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          version="$(node -p 'require("./apps/desktop/package.json").version')"
+          mkdir -p dist
+          for ext in deb rpm AppImage; do
+            mapfile -t found < <(find apps/desktop/out/make -type f -name "*.$ext")
+            if [ "${#found[@]}" -ne 1 ]; then
+              echo "::error::expected one .$ext under apps/desktop/out/make, found ${#found[@]}"; printf '%s\n' "${found[@]}"; exit 1
+            fi
+            cp "${found[0]}" "dist/Psyche-${version}-linux-${ARCH}.${ext}"
+          done
+          (cd dist && sha256sum -- Psyche-*-linux-"${ARCH}".* > "SHA256SUMS-linux-${ARCH}")
+          ls -la dist
+
+      - name: Size budget (when deploy/size-budget.json has the Linux entries)
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          if grep -q '"psychedLinuxMB"' deploy/size-budget.json; then
+            node deploy/scripts/size-budget.mjs psychedLinuxMB "apps/gateway/dist-bin/linux-${ARCH}/psyched"
+          else
+            echo "::notice title=size budget skipped::deploy/size-budget.json has no psychedLinuxMB entry yet (L2)."
+          fi
+
+      - name: Upload the packages
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: psyche-linux-${{ matrix.arch }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
+
+  # Install the real deb on a clean runner and use it. x64 only; the arm64 build is covered by the
+  # package job and by the helper's native aarch64 tests.
+  linux-smoke:
+    name: linux smoke (install the deb, run it)
+    needs: [changes, linux-package]
+    if: needs.changes.outputs.package == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download the packages
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: psyche-linux-x64
+          path: dist
+
+      - name: Test tools (Xvfb, AT-SPI, D-Bus session, polkit, python-dbusmock)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            xvfb xauth dbus-daemon dbus-user-session at-spi2-core polkitd pkexec \
+            python3-dbusmock systemd curl ca-certificates
+
+      - name: Install the deb
+        run: |
+          sudo apt-get install -y ./dist/Psyche-*-linux-x64.deb
+          test -x /opt/Psyche/psyche
+          test -e /usr/bin/psyche-desktop
+          test -f /usr/share/applications/psyche.desktop
+          test -f /usr/lib/systemd/user/psyche-gateway.service
+          ls -la /opt/Psyche /opt/Psyche/resources
+
+      - name: Installed files that other PRs add (polkit policy, AppArmor profile)
+        run: |
+          for f in /usr/share/polkit-1/actions/com.psyche.presence.policy /etc/apparmor.d/psyche; do
+            if [ -e "$f" ]; then echo "present: $f"; else
+              echo "::notice title=not installed yet::$f is not in the package (the policy file is L4's; the profile is L2's)."; fi
+          done
+
+      - name: systemd units pass systemd-analyze verify
+        run: |
+          for u in /usr/lib/systemd/user/psyche-gateway.service /usr/lib/systemd/user/psyche-helper.service; do
+            if [ -f "$u" ]; then
+              # A user unit is checked outside a user manager: --user with the file path.
+              systemd-analyze --user verify "$u"
+            else
+              echo "::notice title=unit not installed::$u is not in the package yet."
+            fi
+          done
+
+      - name: pkaction shows the installed policy defaults
+        run: |
+          if [ -f /usr/share/polkit-1/actions/com.psyche.presence.policy ]; then
+            pkaction --action-id com.psyche.presence.confirm --verbose
+          else
+            echo "::notice title=pkaction skipped::the polkit policy is not installed yet (L4)."
+          fi
+
+      - name: psyched --bundle-check
+        run: |
+          home="$(mktemp -d)"
+          PSYCHE_HOME="$home" /opt/Psyche/resources/psyched/psyched --bundle-check
+
+      - name: psyched starts with only PSYCHE_HOME and answers /healthz
+        run: |
+          home="$(mktemp -d)"
+          PSYCHE_HOME="$home" PSYCHE_PORT=17979 PSYCHE_BROWSER=off /opt/Psyche/resources/psyched/psyched >"$RUNNER_TEMP/psyched.log" 2>&1 &
+          pid=$!
+          ok=false
+          for _ in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:17979/healthz | grep -q '"ok":true'; then ok=true; break; fi
+            kill -0 "$pid" 2>/dev/null || break
+            sleep 1
+          done
+          kill "$pid" 2>/dev/null || true
+          wait "$pid" 2>/dev/null || true
+          if [ "$ok" != true ]; then cat "$RUNNER_TEMP/psyched.log"; echo "::error::psyched did not become healthy"; exit 1; fi
+
+      - name: Electron smoke under Xvfb (the deb, sandbox on)
+        run: |
+          if grep -rqs -e '--smoke' apps/desktop/src; then
+            home="$(mktemp -d)"
+            PSYCHE_HOME="$home" xvfb-run -a -s "-screen 0 1280x800x24" /opt/Psyche/psyche --smoke
+          else
+            echo "::notice title=Electron smoke skipped::the desktop has no --smoke mode yet (L2)."
+          fi
+
+      - name: Electron smoke under Xvfb (the AppImage, no FUSE needed)
+        run: |
+          # An AppImage has no root, no AppArmor profile and no setuid sandbox, so on Ubuntu 24.04 it
+          # needs the one-time admin step of §2.6. On the runner that step is the documented sysctl,
+          # set for this step only; Electron keeps its sandbox either way.
+          sysctl kernel.apparmor_restrict_unprivileged_userns || true
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          if grep -rqs -e '--smoke' apps/desktop/src; then
+            chmod +x dist/Psyche-*-linux-x64.AppImage
+            home="$(mktemp -d)"
+            PSYCHE_HOME="$home" xvfb-run -a -s "-screen 0 1280x800x24" \
+              ./dist/Psyche-*-linux-x64.AppImage --appimage-extract-and-run --smoke
+          else
+            echo "::notice title=AppImage smoke skipped::the desktop has no --smoke mode yet (L2)."
+          fi
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=1 || true
+
+      - name: Helper pairing and the host-helper conformance profile
+        run: |
+          if [ ! -f apps/linux-helper/Cargo.toml ]; then
+            echo "::notice title=helper pairing skipped::apps/linux-helper is not on this branch yet (L3)."
+          elif [ ! -f scripts/ci/linux-helper-conformance.sh ]; then
+            echo "::notice title=helper pairing skipped::scripts/ci/linux-helper-conformance.sh is not on this branch yet (L3)."
+          else
+            home="$(mktemp -d)"
+            PSYCHE_INSTALL_DIR=/opt/Psyche PSYCHE_HOME="$home" \
+              dbus-run-session -- xvfb-run -a bash scripts/ci/linux-helper-conformance.sh
+          fi
+
+      - name: Password presence against dbusmock's polkitd and logind
+        run: |
+          if [ ! -f scripts/ci/linux-polkit-dbusmock.sh ]; then
+            echo "::notice title=polkit test skipped::scripts/ci/linux-polkit-dbusmock.sh is not on this branch yet (L4)."
+          else
+            home="$(mktemp -d)"
+            PSYCHE_INSTALL_DIR=/opt/Psyche PSYCHE_HOME="$home" \
+              dbus-run-session -- bash scripts/ci/linux-polkit-dbusmock.sh
+          fi
+
+      - name: psyched log on failure
+        if: failure()
+        run: |
+          if [ -f "$RUNNER_TEMP/psyched.log" ]; then tail -n 120 "$RUNNER_TEMP/psyched.log"; fi

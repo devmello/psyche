@@ -15,6 +15,7 @@ import { s04Schema } from "./schema-s04.ts";
 import { s07Schema } from "./schema-s07.ts";
 import { s15Schema } from "./schema-s15.ts";
 import { s16Schema } from "./schema-s16.ts";
+import { securitySchema } from "./schema-security.ts";
 
 export * from "./schema-connectors.ts";
 export * from "./schema-notifications.ts";
@@ -485,6 +486,7 @@ export const schema = {
   ...s16Schema,
   ...notificationsSchema,
   ...connectorsSchema,
+  ...securitySchema,
 };
 export type Schema = typeof schema;
 

@@ -19,7 +19,7 @@ Release binaries (`bun build --compile`) are attached to each GitHub release; th
 psyche onboard         # data dir → start the service → pair this CLI → a model key → persona basics
 ```
 
-The first connection prints a pairing code. Approve it on the Gateway host with `psyched devices approve <CODE>` (this makes the first admin), or from an admin device with `psyche pairing approve <CODE>`. Then run the command again; `onboard` waits for the approval.
+The first connection prints a pairing code. Approve it on the Gateway host with `psyched devices approve <CODE>` while `psyched` runs (this makes the first admin; once an admin exists it waits 24 hours instead), or from an admin device with `psyche pairing approve <CODE>`. Then run the command again; `onboard` waits for the approval.
 
 ## Global options and exit codes
 

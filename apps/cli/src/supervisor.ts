@@ -8,9 +8,9 @@ import {
   LEGACY_GATEWAY_TASK,
   taskBelongsTo,
 } from "@psyche/hostfs";
-import { parseGatewayUnit, renderGatewayUnit } from "../../desktop/src/platform/systemd-unit.ts";
 import { CliError } from "./errors.ts";
 import { type Exec, whereExe, which } from "./exec.ts";
+import { parseGatewayUnit, renderGatewayUnit } from "./systemd-unit.ts";
 
 /**
  * Gateway supervision (feature A7, architecture §3.2): a per-user LaunchAgent on macOS, a
@@ -115,7 +115,7 @@ ${argv}
 }
 
 /**
- * The unit text comes from the desktop's shared renderer (`apps/desktop/src/platform/systemd-unit.ts`,
+ * The unit text comes from the shared renderer (`apps/cli/src/systemd-unit.ts`,
  * Linux desktop design §2.3), so the CLI and the desktop write the same bytes for the same input and
  * never rewrite each other's file. The server profile is what `psyche start` has always written.
  * When the installed unit is the desktop's (its header says so), the CLI keeps that profile and its

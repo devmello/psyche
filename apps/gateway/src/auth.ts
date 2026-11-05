@@ -39,6 +39,7 @@ import {
 import type { GatewayLimits } from "./context.ts";
 import type { GatewayIdentity } from "./identity.ts";
 import type { RateLimiter } from "./rate-limit.ts";
+import { stateSealFor } from "./security/state-seal.ts";
 
 export const CHALLENGE_TTL_MS = 60_000;
 
@@ -430,19 +431,31 @@ export function verifyChallenge(
     // The family is pinned when the device pairs: a paired device cannot become a Mac helper (or
     // anything else) by declaring another family later. Devices paired before the column existed
     // record the family they declare now, once.
+    // While the security records are untrusted, only what the seal still trusts (H4).
+    const authz = stateSealFor(db)?.authorizeDevice(existing) ?? {
+      ok: true as const,
+      scopes: existing.scopes,
+    };
+    if (!authz.ok)
+      return denied("device not trusted while Psyche's security records are untrusted");
     const pinned = getDeviceFamily(db, existing.id);
-    if (pinned === null) updateDevice(db, existing.id, { deviceFamily: params.deviceFamily });
-    else if (pinned !== params.deviceFamily) return denied("device family mismatch");
+    // A device row the seal cannot vouch for is never written over (H1: the write would make it
+    // look like the Gateway's own); it stays read-only and unpinned until a re-seal.
+    if (pinned === null) {
+      if (stateSealFor(db)?.genuine("devices", existing.id) ?? true) {
+        updateDevice(db, existing.id, { deviceFamily: params.deviceFamily });
+      }
+    } else if (pinned !== params.deviceFamily) return denied("device family mismatch");
     touchLastSeen(db, existing.id, nowIso);
     // A token presented by a device that is already paired is spent anyway (the link was used,
     // by someone who did not need it), and grants nothing: the device keeps its own scopes.
     if (input.setupToken !== undefined)
       consumeSetupToken(db, input.setupToken, existing.id, nowIso);
     return {
-      result: pairedResult(existing.id, existing.scopes, nowIso),
+      result: pairedResult(existing.id, authz.scopes, nowIso),
       identity: {
         deviceId: existing.id,
-        scopes: existing.scopes,
+        scopes: authz.scopes,
         role: params.role,
         ...(isDesktopShell(params, peer, deps.handshakeSecret) ? { desktopShell: true } : {}),
         ...(isHostHelper(params, peer, deps.handshakeSecret) ? { hostHelper: true } : {}),
@@ -458,6 +471,11 @@ export function verifyChallenge(
   // presented in `connect.verify`, after the client verified this Gateway's identity, and spent
   // below in the same transaction that writes the device.
   const presentedToken = scopes === null ? input.setupToken : undefined;
+  // H-B: while the security records are untrusted no pairing link works (a planted one could
+  // name any scopes), whatever the token row says.
+  if (presentedToken !== undefined && stateSealFor(db)?.untrusted() != null) {
+    return denied(SETUP_TOKEN_REFUSED, "setup_token_invalid");
+  }
   // The token is a bearer secret, so only a client that verified this Gateway's key (and bound the
   // connect to it, the v2 payload) may present it: an impostor that does not hold the key never
   // gets a client to send one. The check is unconditional. The desktop app and the iPhone/iPad app

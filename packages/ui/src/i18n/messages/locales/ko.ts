@@ -38,6 +38,7 @@ import { personDataRest } from "./personData-rest/ko.ts";
 import { researchRest } from "./research-rest/ko.ts";
 import { scheduledRest } from "./scheduled-rest/ko.ts";
 import { screensRest } from "./screens-rest/ko.ts";
+import { securityState } from "./security-state/ko.ts";
 import { settingsRest } from "./settings-rest/ko.ts";
 import { shellRest } from "./shell-rest/ko.ts";
 import { specialistsRest } from "./specialists-rest/ko.ts";
@@ -3267,4 +3268,6 @@ export const ko: Partial<Catalogue> = {
   ...final202611,
   // password approvals on Linux (polkit)
   ...passwordPresence,
+  // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
+  ...securityState,
 };

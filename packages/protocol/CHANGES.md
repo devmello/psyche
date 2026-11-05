@@ -18,6 +18,9 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-05 (security state integrity)
+
+- New methods `security.state.get` (`operator.read`): whether the security records are `sealed` or `untrusted` (with `reason`), the alerts every device shows and the local recovery requests; `security.alerts.acknowledge` (`operator.admin`, side-effecting, fresh presence once enrolled; refused while untrusted); `security.recoveries.cancel` (`operator.admin`, side-effecting, narrowing, no presence); `security.recoveries.approve` (`operator.admin`, side-effecting, fresh presence; never for a re-seal or while untrusted). New event `security.state.changed` (`status`, `openAlerts`, `waitingRecoveries`): clients refresh. New types `SecurityAlert` (details carry `deviceFingerprint`, `occurrences`, `via` too), `SecurityAlertKind`, `SecurityRecovery` (with `deviceFingerprint`), `SecurityRecoveryOp`, `SecurityStateChange`, `SecurityStateStatus`. `devices.bootstrapAdmin` now refuses (`forbidden`, `details.reason: "presence_enrolled"`) once presence was ever enrolled. New enums are not switched over in the Swift helper. Design: docs/design/security-state-integrity-2026.md.
 ### v1 additive — 2026-11-05 (Teach by showing in a Windows app)
 
 - New `TEACH_APP_ID_PATTERN` and `isTeachAppId` (`common.ts`): an app is a macOS bundle id or, on Windows, its lowercase executable name (`notepad.exe`, `adobe premiere pro.exe`). `BrowserTeachStep.app.bundleId`'s `pattern` widens to it (additive: every earlier id still matches); `sanitizeTeachSteps` and the Gateway use `isTeachAppId`.

@@ -243,4 +243,25 @@ describe("revocation ledger stays out of backups (S23 design-26)", () => {
     });
     expectPrivate(join(target, RESTORE_MARKER), 0o600);
   });
+
+  it("the marker names the restored database's seal row (security-state M1)", async () => {
+    const home = fixtureHome();
+    const file = join(tempDir(), "b.tar.gz.age");
+    await createBackup(home, file, FAST, "0.0.0-test", { now: FIXED_NOW });
+    const target = join(tempDir(), "restored");
+    const asked: string[] = [];
+    await restoreBackup(file, { kind: "passphrase", passphrase: PASS }, target, {
+      force: false,
+      now: FIXED_NOW,
+      sealRow: async (path) => {
+        asked.push(path);
+        return { gen: 7, mac: "ab".repeat(32) };
+      },
+    });
+    expect(asked).toEqual([join(target, "state", "psyche.sqlite")]);
+    expect(JSON.parse(readFileSync(join(target, RESTORE_MARKER), "utf8"))).toMatchObject({
+      sealGen: "7",
+      sealRowMac: "ab".repeat(32),
+    });
+  });
 });

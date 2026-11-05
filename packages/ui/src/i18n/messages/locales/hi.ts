@@ -38,6 +38,7 @@ import { personDataRest } from "./person-data-rest/hi.ts";
 import { researchRest } from "./research-rest/hi.ts";
 import { scheduledRest } from "./scheduled-rest/hi.ts";
 import { screensRest } from "./screens-rest/hi.ts";
+import { securityState } from "./security-state/hi.ts";
 import { settingsRest } from "./settings-rest/hi.ts";
 import { shellRest } from "./shell-rest/hi.ts";
 import { specialistsRest } from "./specialists-rest/hi.ts";
@@ -3286,4 +3287,6 @@ export const hi: Partial<Catalogue> = {
   ...final202611,
   // password approvals on Linux (polkit)
   ...passwordPresence,
+  // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
+  ...securityState,
 };

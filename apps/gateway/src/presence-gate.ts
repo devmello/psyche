@@ -17,16 +17,24 @@ import { INTERNAL_SETTING_PREFIX } from "./state-version.ts";
  * - `unavailable`: one could before (sticky, in the database) but none can now, for example
  *   after the owner's passkey device was revoked. Gated calls fail closed with
  *   `presence_required` instead of falling back to `operator.admin`: otherwise revoking the
- *   owner's device would switch the gate off. `psyched presence reset` on the machine clears it.
+ *   owner's device would switch the gate off. `psyched presence reset` on the machine clears it,
+ *   24 hours later (a recovery every device shows) or at once with presence from an admin device.
  */
 export type PresenceState = "ready" | "unavailable" | "off";
 
 export const PRESENCE_ENROLLED_SETTING = `${INTERNAL_SETTING_PREFIX}presence.enrolled`;
 
-/** The state function the Gateway context exposes; `ready()` reports whether one can verify. */
-export function presenceStateFor(db: PsycheDb, ready: () => boolean): () => PresenceState {
+/**
+ * The state function the Gateway context exposes; `ready()` reports whether one can verify.
+ * `forget()` drops the cached enrollment after the Gateway itself reset it (a presence-reset
+ * recovery, `security/recoveries.ts`).
+ */
+export function presenceStateFor(
+  db: PsycheDb,
+  ready: () => boolean,
+): (() => PresenceState) & { forget(): void } {
   let enrolled: boolean | undefined;
-  return () => {
+  const state = () => {
     if (ready()) {
       if (enrolled !== true) {
         if (getSetting(db, PRESENCE_ENROLLED_SETTING)?.value !== true) {
@@ -34,15 +42,24 @@ export function presenceStateFor(db: PsycheDb, ready: () => boolean): () => Pres
         }
         enrolled = true;
       }
-      return "ready";
+      return "ready" as const;
     }
-    // Re-read when not known enrolled: `psyched presence reset` runs in another process.
+    // Once known enrolled it stays so in memory: a write from another process cannot switch the
+    // gate off (the seal undoes such a write too, security-state-integrity §7.1).
     if (enrolled !== true) enrolled = getSetting(db, PRESENCE_ENROLLED_SETTING)?.value === true;
-    return enrolled ? "unavailable" : "off";
+    return enrolled ? ("unavailable" as const) : ("off" as const);
   };
+  return Object.assign(state, {
+    forget() {
+      enrolled = undefined;
+    },
+  });
 }
 
-/** Clears the sticky flag (`psyched presence reset`, owner on the machine). */
+/**
+ * Clears the sticky flag. Only the Gateway calls it, when a `psyched presence reset` recovery
+ * applies (24 hours after it was asked, or at once with fresh presence on an admin device).
+ */
 export function resetPresenceEnrollment(db: PsycheDb): boolean {
   const had = getSetting(db, PRESENCE_ENROLLED_SETTING)?.value === true;
   setSetting(db, PRESENCE_ENROLLED_SETTING, false);
@@ -59,10 +76,19 @@ export interface FreshPresenceAction {
   details: JsonObject;
 }
 
+/** Presence fails closed while the security records are untrusted (security-state-integrity §7.1). */
+export function stateUntrustedError(): PsycheError {
+  return new PsycheError(
+    "presence_required",
+    "Psyche's security records failed their check, so changes that widen access are blocked. Review your devices in Settings → Devices, then run `psyched security reseal` on the machine (it applies after 24 hours).",
+    { details: { reason: "state_untrusted" } },
+  );
+}
+
 export function presenceRequiredError(): PsycheError {
   return new PsycheError(
     "presence_required",
-    `This change needs ${hostWords().presence} or a passkey, and none can verify on this Gateway now. Register the helper's ${hostWords().presence} key or a passkey (or run \`psyched presence reset\` on the machine), then try again.`,
+    `This change needs ${hostWords().presence} or a passkey, and none can verify on this Gateway now. Register the helper's ${hostWords().presence} key or a passkey (or run \`psyched presence reset\` on the machine, which applies after 24 hours), then try again.`,
     { details: { reason: "no_presence_verifier" } },
   );
 }
@@ -73,6 +99,7 @@ export async function requireFreshPresence(
   action: FreshPresenceAction,
   approvalId: string | undefined,
 ): Promise<void> {
+  if (call.ctx.securityState?.untrusted() != null) throw stateUntrustedError();
   const state = call.ctx.presenceState();
   if (state === "off") return;
   if (state === "unavailable") throw presenceRequiredError();

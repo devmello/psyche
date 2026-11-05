@@ -305,10 +305,14 @@ export class Connection implements LiveConnection {
         "Complete connect and connect.verify first",
       );
     }
+    // Security state changed outside the Gateway is undone before this call reads any of it.
+    this.#ctx.securityState?.ensure();
     this.#refreshIdentity(identity);
     const spec = methodSpec(method);
     const scope = spec.scope as DeviceScope | "none";
-    if (scope !== "none" && !identity.scopes.includes(scope)) {
+    // While untrusted, `identity.scopes` are what the seal vouches for (H-C: no stored scopes).
+    const have = identity.scopes;
+    if (scope !== "none" && !have.includes(scope)) {
       throw new PsycheError("forbidden", `${method} requires scope ${scope}`);
     }
     this.#rateLimit(identity.deviceId, method, spec.sideEffecting, params);
@@ -390,11 +394,22 @@ export class Connection implements LiveConnection {
       // `unauthorized` closes the connection once the error is sent (handleRaw).
       throw new PsycheError("unauthorized", "This device is no longer paired");
     }
+    // While the security records are untrusted, a device has only what the seal still trusts.
+    const authz = this.#ctx.securityState?.authorizeDevice(device) ?? {
+      ok: true as const,
+      scopes: device.scopes,
+    };
+    if (!authz.ok) {
+      throw new PsycheError(
+        "unauthorized",
+        "Psyche's security records are untrusted and this device is not one it knows; pair it again after a re-seal",
+      );
+    }
     const same =
-      device.scopes.length === identity.scopes.length &&
-      device.scopes.every((s) => identity.scopes.includes(s));
+      authz.scopes.length === identity.scopes.length &&
+      authz.scopes.every((s) => identity.scopes.includes(s));
     if (!same) {
-      identity.scopes = [...device.scopes];
+      identity.scopes = [...authz.scopes];
       if (this.#sink) this.#ctx.bus.setScopes(this.#sink, identity.scopes);
     }
   }
@@ -499,6 +514,8 @@ export class Connection implements LiveConnection {
     // costs nothing. A refused handshake closes the connection (see `handleRaw`).
     this.#challenge = null;
     this.#phase = "spent";
+    // The device row decides this connect: undo any change made to it outside the Gateway first.
+    ctx.securityState?.ensure();
     const outcome = verifyChallenge(pending, params, this.peer, {
       db: ctx.db,
       handshakeSecret: ctx.handshakeSecret,

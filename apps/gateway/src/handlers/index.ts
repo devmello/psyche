@@ -4,6 +4,7 @@ import { chatHandlers } from "./chat.ts";
 import { devicesHandlers } from "./devices.ts";
 import { nodesHandlers } from "./nodes.ts";
 import { runsHandlers } from "./runs.ts";
+import { securityHandlers } from "./security.ts";
 import { settingsHandlers } from "./settings.ts";
 import { threadsHandlers } from "./threads.ts";
 
@@ -27,5 +28,6 @@ export const HANDLERS: Readonly<Record<string, HandlerDef>> = {
   ...chatHandlers,
   ...nodesHandlers,
   ...runsHandlers,
+  ...securityHandlers,
   ...eventsHandlers,
 };
