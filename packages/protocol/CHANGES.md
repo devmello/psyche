@@ -18,6 +18,11 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-04 (work item History)
+
+- New method `memory.work.history` (`operator.read`): params `entityId` and optional `limit` (1 to 100, default 20); result `{ entries }` of `WorkHistoryEntry`, newest first. Each entry is one change to a work item's `status`, `progress`, `stopped_at`, `next_step` or `deadline` (`WorkHistoryAttribute`): `factId`, `value`, `from` (the value it replaced, or null), `at`, `origin` (`WorkHistoryOrigin`: `chat`, `mail`, `you`, `nightly`, `source`), `chip` (`{ source, label }` or null) and `undoable`. `undoable` is true only for a direct update the owner's chat wrote that is still inside the seven-day window and not yet undone; the Undo button calls the existing `memory.work.undoUpdate`, which keeps all its rules (`changed_again`, `already_undone`, `removed`).
+- A connection that may not open an owner-only source (Messages, Contacts, Memory: only the desktop app on the Host may) gets the chip's `source` with an empty `label`; a Mac helper gets no chip.
+
 ### v1 additive — 2026-11-04 (teach by showing in the built-in browser, J8 phase 1)
 
 - New method `skills.drafts.fromRecording` (`operator.admin`, side-effecting): turns the owner's reviewed recording into a skill draft. Params `title` and `steps` (1 to 200 `BrowserTeachStep`); result `{ draft }`. A sensitive step carries no value; a value is accepted only on a `type` or `select` step with `keepValue: true` that is not sensitive and not an input (otherwise `invalid_params`). Page text in the steps is quoted as untrusted in the draft. Accepting it is the existing `skills.drafts.accept` (replay check, device-only `skill_install` card). Nothing starts or reads a recording over the protocol: the recorder is local to the desktop app.

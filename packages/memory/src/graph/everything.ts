@@ -19,6 +19,7 @@ import {
   type QuarantineItem,
   type QuarantineReason,
   type ReviewItem,
+  type WorkHistoryEntry,
 } from "@psyche/protocol";
 import type Database from "better-sqlite3";
 import { strToU8, zipSync } from "fflate";
@@ -1162,6 +1163,80 @@ export class EverythingStore {
     })();
     this.#graph.touch(row.entity_id, ["facts"]);
     return toFact(this.#factRow(row.id) as FactRow);
+  }
+
+  /**
+   * The recent changes to a work item's status, progress, stopped-at, next step and deadline,
+   * newest first, for the History section. `origin` is worded from what the fact carries: a
+   * chat write (an undo record, the chat proposal extractor or a chats citation), mail, the
+   * owner's own edit, the nightly pass (a model extractor or a run), or another cited source.
+   * `undoable` is exactly what `undoChatWork` would accept before it looks at the field: a
+   * recorded chat update inside the window and not yet undone. The chip label is third-party
+   * text; the host scrubs it per connection.
+   */
+  workHistory(entityId: string, limit = 20): WorkHistoryEntry[] {
+    const id = this.#graph.resolveMerged(entityId);
+    const rows = this.#db
+      .prepare(
+        `SELECT * FROM graph_facts
+          WHERE entity_id = ? AND attribute IN ('status', 'progress', 'stopped_at', 'next_step', 'deadline')
+            AND retracted_at IS NULL AND review IN ${ACCEPTED_REVIEW_SQL}
+          ORDER BY recorded_at DESC, rowid DESC LIMIT ?`,
+      )
+      .all(id, Math.min(Math.max(1, limit), 100)) as FactRow[];
+    const prior = this.#db.prepare(
+      "SELECT value FROM graph_facts WHERE superseded_by = ? AND retracted_at IS NULL LIMIT 1",
+    );
+    const cite = this.#db.prepare(
+      "SELECT source, source_ref, author_entity_id FROM graph_citations WHERE target_kind = 'fact' AND target_id = ? ORDER BY created_at, id LIMIT 1",
+    );
+    const author = this.#db.prepare("SELECT name FROM graph_entities WHERE id = ?");
+    const undo = this.#db.prepare(
+      "SELECT created_at, undone_at FROM memory_work_undo WHERE fact_id = ?",
+    );
+    const now = this.#clock.now();
+    return rows.map((f) => {
+      const c = cite.get(f.id) as
+        | { source: GraphCitationSource; source_ref: string; author_entity_id: string | null }
+        | undefined;
+      const rec = undo.get(f.id) as { created_at: string; undone_at: string | null } | undefined;
+      const origin: WorkHistoryEntry["origin"] =
+        rec !== undefined || f.extractor === CHAT_WORK_PROPOSAL || c?.source === "chats"
+          ? "chat"
+          : c?.source === "mail"
+            ? "mail"
+            : f.provenance === "owner" && c === undefined
+              ? "you"
+              : f.run_id !== null || (f.extractor !== null && f.extractor !== "rule")
+                ? "nightly"
+                : c !== undefined
+                  ? "source"
+                  : f.provenance === "owner"
+                    ? "you"
+                    : "nightly";
+      const name =
+        c?.author_entity_id == null
+          ? undefined
+          : (author.get(c.author_entity_id) as { name: string } | undefined)?.name;
+      return {
+        factId: f.id,
+        attribute: f.attribute as WorkHistoryEntry["attribute"],
+        value: f.value,
+        from: (prior.get(f.id) as { value: string } | undefined)?.value ?? null,
+        at: f.recorded_at,
+        origin,
+        chip:
+          c === undefined || c.source === "chats"
+            ? null
+            : { source: c.source, label: oneLine(name ?? c.source_ref).slice(0, 200) },
+        undoable:
+          rec !== undefined &&
+          rec.undone_at === null &&
+          now - Date.parse(rec.created_at) <= UNDO_DAYS * DAY_MS &&
+          CHAT_DIRECT_ATTRIBUTES.has(f.attribute) &&
+          f.provenance === "owner",
+      };
+    });
   }
 
   /**

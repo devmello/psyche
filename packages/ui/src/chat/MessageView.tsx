@@ -30,7 +30,7 @@ import {
   UsedLessons,
   useMessageFeedback,
 } from "../teaching/FeedbackActions.tsx";
-import { TaughtLine } from "../teaching/TaughtLine.tsx";
+import { LearnedLine, TaughtLine } from "../teaching/TaughtLine.tsx";
 import { ChangeChip } from "./ChangeChip.tsx";
 import { CompactionMessage } from "./context/connected.tsx";
 import { WorkNote } from "./WorkNote.tsx";
@@ -115,6 +115,11 @@ export function MessageView({
             // The Gateway's note under a turn that touched the owner's work (MW7), quiet.
             <div key={b.items.map((i) => i.factId).join()} className="ps-7 text-start">
               <WorkNote items={b.items} />
+            </div>
+          ) : b.type === "learned" ? (
+            // "Learned: …" after a turn taught Psyche something about the owner (#509), quiet.
+            <div key={b.items.map((i) => i.factId).join()} className="ps-7 text-start">
+              <LearnedLine items={b.items} />
             </div>
           ) : b.type === "taught" ? (
             // The Gateway's note after teaching (teaching loop §5.1), quiet and start-aligned.
