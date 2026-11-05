@@ -13,6 +13,12 @@ import { usePersona, useSlots } from "../../slots.tsx";
 import { type ActionRule, liftedFloorsOf, withMatrixOverrides } from "./ActionMatrix.tsx";
 import { AvailableConnectors } from "./CapabilityAvailable.tsx";
 import { ConnectForm, galleryEntries } from "./ConnectForm.tsx";
+import {
+  ConnectorBundleImport,
+  ConnectorBundleStatus,
+  type ConnectorBundlesState,
+  useConnectorBundles,
+} from "./ConnectorBundles.tsx";
 import { ConnectorDetail, lastUsed, trustTier } from "./ConnectorDetail.tsx";
 import { AddMore } from "./ConnectorGallery.tsx";
 import { ConnectorIcon } from "./ConnectorIcon.tsx";
@@ -122,6 +128,8 @@ export interface ConnectorsPanelProps extends LoadProps {
   policy?: PolicyValues;
   /** MCP servers, listed with the connectors and added from the catalogue's Custom MCP server row. */
   mcp?: McpState;
+  /** Importing and sharing a connector as a signed file. */
+  bundles?: ConnectorBundlesState;
   /** Opens Advanced (your own tool servers), where the old MCP route lands. */
   defaultAdvancedOpen?: boolean;
   /** Opens one connector's (or tool server's) detail straight away (stories). */
@@ -167,6 +175,7 @@ export function ConnectorsPanel({
   onOpenSection,
   policy,
   mcp,
+  bundles,
   defaultAdvancedOpen = false,
   defaultOpenId,
   defaultAddType,
@@ -384,7 +393,9 @@ export function ConnectorsPanel({
       {mcp?.actionError && !(server && mcpNeedsYou(server)) ? (
         <McpFailureNotice message={mcp.actionError} failure={mcp.actionFailure} mcp={mcp} />
       ) : null}
+      {bundles ? <ConnectorBundleStatus state={bundles} /> : null}
       {review}
+      {bundles?.review ?? null}
       {showing === "add" && onConnect ? (
         // Hidden, not unmounted, while the trust card is open: cancelling it returns to the form.
         <div hidden={review !== null}>
@@ -440,6 +451,7 @@ export function ConnectorsPanel({
         <McpServerDetail
           server={server}
           {...(mcp ? { mcp } : {})}
+          {...(bundles ? { bundles } : {})}
           {...(mcp
             ? {
                 onRemove: (s: typeof server) => {
@@ -559,6 +571,7 @@ export function ConnectorsPanel({
                   mcp={mcp}
                   onPreset={(id) => setView({ kind: "add", type: `preset:${id}` })}
                 />
+                {bundles ? <ConnectorBundleImport state={bundles} /> : null}
               </Advanced>
             </div>
           ) : null}
@@ -605,6 +618,7 @@ export function ConnectorsSection({
 }: ConnectorsSectionProps): ReactElement {
   const fallback = usePersona();
   const mcp = useMcp(now);
+  const bundles = useConnectorBundles(mcp, now);
   const q = useGatewayQuery("connectors.list", {});
   const implemented = useImplementedTypes();
   const catalogue = useGatewayQuery("connectors.catalogue", {}).data?.entries;
@@ -667,6 +681,7 @@ export function ConnectorsSection({
         {...builtInActions}
         {...(now === undefined ? {} : { now })}
         mcp={mcp}
+        bundles={bundles}
         {...(view === undefined ? {} : { defaultAdvancedOpen: true })}
         {...(view === "add-mcp" ? { defaultAddType: "mcp" } : {})}
         {...(builtIn

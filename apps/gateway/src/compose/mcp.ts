@@ -29,7 +29,9 @@ import {
   type ToolRegistry,
 } from "@psyche/protocol";
 import { srtSearchDirs } from "@psyche/sandbox";
+import type { BundleFetchOptions } from "@psyche/skills";
 import type { Gateway } from "../server.ts";
+import { connectorBundles } from "./connector-bundles.ts";
 import { type McpAdder, mcpAdder } from "./mcp-add.ts";
 import { mcpAppHandler } from "./mcp-app.ts";
 import { mcpGrantRevocation } from "./mcp-grants.ts";
@@ -75,6 +77,8 @@ export interface McpSetup {
   runtime?: RuntimeDeps;
   /** Host overrides (tests: bundled ids and launcher). */
   hostOptions?: Partial<McpHostOptions>;
+  /** Tests: the pinned transport and DNS for a connector bundle link. */
+  bundleFetch?: BundleFetchOptions;
 }
 
 export interface ComposedMcp extends ComposedPart {
@@ -335,9 +339,9 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
     offered.set(config.id, choices(config));
     try {
       // Agent-made code starts only while it is the tree the owner approved.
-      const stale = await self.verifyMadeBy(config);
+      const stale = (await self.verifyMadeBy(config)) ?? (await bundles.stale(config));
       if (stale !== undefined) {
-        warn("agent-made mcp server not started", { serverId: config.id, reason: stale });
+        warn("mcp server not started", { serverId: config.id, reason: stale });
         return;
       }
       const info = await host.addServer(config);
@@ -396,7 +400,8 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
         c === undefined ||
         c.enabled === false ||
         runKey(c) !== configs.get(id) ||
-        (await self.verifyMadeBy(c)) !== undefined
+        (await self.verifyMadeBy(c)) !== undefined ||
+        (await bundles.stale(c)) !== undefined
       ) {
         await remove(id);
       }
@@ -462,7 +467,25 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
       return c === undefined ? undefined : statusOf(c);
     },
     toolsHash: (id) => (registrations.has(id) ? host.describe(id).toolsListHash : undefined),
-    removed: (entry) => self.removed(entry),
+    removed: async (entry) => {
+      await self.removed(entry);
+      await bundles.removed(entry);
+    },
+  });
+  // Shared connectors: the signed `.psyche-connector` file in and out (same probe → card → add).
+  const bundles = connectorBundles({
+    services,
+    settingKey: MCP_SERVERS_SETTING,
+    adder,
+    sandbox: async () => {
+      // The same launcher the probe will use (a test override wins, as it does for the host).
+      const l = setup.hostOptions?.launcher ?? launcher;
+      if (l === undefined || l.isolation === "none") return "none";
+      if (l.ready !== undefined && !(await l.ready())) return "none";
+      return l.isolation === "container" ? "container" : "srt";
+    },
+    tools: (id) => (registrations.has(id) ? host.describe(id).tools : undefined),
+    ...(setup.bundleFetch === undefined ? {} : { fetchOptions: setup.bundleFetch }),
   });
   // Connectors Psyche writes for itself (`connector_*` tools; same probe → card → add path).
   const self = selfConnectors({
@@ -479,6 +502,7 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
     idle: () => queue,
     handlers: {
       ...self.handlers,
+      ...bundles.handlers,
       // For `psyche security audit` (security §11 "MCP servers") and Settings → MCP.
       "mcp.status": {
         run: async () => ({
@@ -516,6 +540,11 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
           event?: string;
           payload?: { entries?: { key: string; value: unknown }[] };
         };
+        // A key or bundle was revoked: servers that came from it stop (`bundles.stale`).
+        if (f.event === "skills.changed") {
+          void enqueue(getSetting(services.db, MCP_SERVERS_SETTING)?.value);
+          return;
+        }
         if (f.event !== "settings.changed") return;
         for (const entry of f.payload?.entries ?? []) {
           if (entry.key === MCP_SERVERS_SETTING) void enqueue(entry.value);

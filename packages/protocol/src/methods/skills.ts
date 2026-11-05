@@ -232,9 +232,12 @@ export const SkillInstallSourceSchema = Type.Union(
  * - `changed`: the author's name was seen with a different key, or this skill was installed
  *   with a different key (or it was signed and now is not).
  * - `revoked`: a key the owner revoked.
+ * - `rotated`: a key the owner has not trusted, whose rotation statement (signed by an earlier key
+ *   the owner has met or installed this with) names it: same author, new key. It explains the
+ *   change; it never trusts the new key.
  */
 export const BundleSignerStatus = StringEnum(
-  ["unsigned", "own", "trusted", "seen", "new", "changed", "revoked"],
+  ["unsigned", "own", "trusted", "seen", "new", "changed", "revoked", "rotated"],
   { $id: "BundleSignerStatus" },
 );
 export type BundleSignerStatus = Static<typeof BundleSignerStatus>;
@@ -259,6 +262,12 @@ export const BundleSigner = Type.Object(
     impersonates: Type.Optional(
       Type.Boolean({
         description: "The name looks like the owner's own author name, with another key",
+      }),
+    ),
+    rotatedFrom: Type.Optional(
+      Type.Object({
+        keyId: Type.String(),
+        state: StringEnum(["seen", "trusted", "revoked"]),
       }),
     ),
   },
@@ -707,6 +716,71 @@ export const SkillsMethods = {
     sideEffecting: true,
     description:
       "Side-effecting: trusts, un-trusts or revokes a seen author key. Trust never skips an approval card; a revoked key's bundles are refused and its installed skills stop loading. Trusting a key, or moving one out of revoked, needs fresh presence once a verifier exists (approval_required with details.approvalId, then retry with approvalId); un-trusting and revoking do not.",
+  }),
+  "skills.authors.rotate": defineMethod({
+    params: Type.Object({
+      /** Fresh presence: the approved card from a first `approval_required` call. */
+      approvalId: Type.Optional(Id),
+    }),
+    result: Type.Object({
+      from: Type.Object({ keyId: Type.String(), name: Type.String() }),
+      to: Type.Object({ keyId: Type.String(), name: Type.String() }),
+    }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Side-effecting: replaces the owner's author key with a new one under the same name. The old key signs a statement naming the new key, and bundles the new key signs carry it, so people who trusted the old key see the same author with a new key (signed by the old key); they still have to trust the new key themselves. Only Psyche on the Host itself may call it (forbidden otherwise) and it needs a device-only approval (approval_required with details.approvalId, then retry with approvalId; fresh presence once a verifier exists). The old private key is deleted. Audited. conflict when there is no author key yet.",
+  }),
+  "skills.authors.createNotice": defineMethod({
+    params: Type.Object({
+      kind: StringEnum(["key", "bundle"]),
+      keyId: Type.Optional(
+        Type.String({
+          pattern: "^sha256:[0-9a-f]{64}$",
+          description:
+            "The key to revoke (the current key or one it replaced); the current key by default",
+        }),
+      ),
+      bundleHash: Type.Optional(
+        Type.String({
+          pattern: "^sha256:[0-9a-f]{64}$",
+          description: "For kind bundle: the bundle hash the card showed when it was exported",
+        }),
+      ),
+      reason: Type.String({ minLength: 1, maxLength: 200 }),
+      /** Fresh presence: the approved card from a first `approval_required` call. */
+      approvalId: Type.Optional(Id),
+    }),
+    result: Type.Object({
+      filename: Type.String(),
+      notice: Type.String({ description: "The .psyche-notice file's text" }),
+    }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Side-effecting: signs a revocation notice (this key is revoked, or this bundle is bad) with the owner's author key, for the owner to publish as a file or at a link. Same gates as skills.export: Host shell only, a device-only approval (fresh presence once a verifier exists), audited. conflict when there is no author key; invalid_params for a key that is not the owner's current or earlier key.",
+  }),
+  "skills.authors.importNotice": defineMethod({
+    params: Type.Object({
+      name: Type.Optional(
+        Type.String({ minLength: 1, maxLength: 200, description: "File name, for display" }),
+      ),
+      text: Type.Optional(Type.String({ minLength: 2, maxLength: 16 * 1024 })),
+      url: Type.Optional(
+        Type.String({ minLength: 1, maxLength: 2048, description: "An https link to the notice" }),
+      ),
+    }),
+    result: Type.Object({
+      kind: StringEnum(["key", "bundle"]),
+      keyId: Type.String(),
+      bundleHash: Type.Optional(Type.String()),
+      reason: Type.String({ description: "The author's words: data, not instructions" }),
+      signer: Type.Object({ keyId: Type.String(), name: Type.String() }),
+    }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Side-effecting: verifies a signed revocation notice (a file's text, or an https link under the same rules as a bundle link) and marks the key or bundle revoked. Needs exactly one of text and url. Applied only when it is signed by an author key the owner has seen (or a successor of one, by the rotation chain it carries) and names that key's own lineage or a bundle it signed; invalid_params for a malformed, unsigned or forged notice; policy_denied for an unknown signer or somebody else's key. It can only block: it never trusts anything.",
   }),
   "skills.setEnabled": defineMethod({
     params: Type.Object({

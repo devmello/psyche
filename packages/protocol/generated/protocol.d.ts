@@ -562,9 +562,9 @@ export interface AppleMailMoveParams {
     to:       ToUnion;
 }
 
-export type ToUnion = ToClass | ToEnum;
+export type ToUnion = ToToClass | ToEnum;
 
-export interface ToClass {
+export interface ToToClass {
     account: string;
     mailbox: string;
 }
@@ -3220,6 +3220,255 @@ export interface ConnectVerifyParams {
     signature: string;
 }
 
+export interface ConnectorExportResult {
+    /**
+     * The .psyche-connector file's text
+     */
+    bundle:     string;
+    bundleHash: string;
+    createdKey: boolean;
+    filename:   string;
+    signer:     ConnectorExportResultSigner;
+}
+
+export interface ConnectorExportResultSigner {
+    keyId: string;
+    name:  string;
+}
+
+export interface ConnectorImportResult {
+    approval?: ApprovalRequest;
+    card:      ConnectorBundleCard;
+    proposal?: MCPProposal;
+}
+
+export interface ConnectorBundleCard {
+    /**
+     * no_sandbox: this Gateway has no sandbox, so a command server is never run; scan: a
+     * high-severity finding
+     */
+    blocker?: Blocker;
+    /**
+     * `sha256:` of the signed manifest: what a notice names
+     */
+    bundleHash: string;
+    bytes:      number;
+    command:    string[];
+    /**
+     * The author's claimed time; not verified
+     */
+    createdAt: string;
+    /**
+     * What the author says it lists; the probe is the check
+     */
+    declaredTools: ConnectorBundleTool[];
+    /**
+     * Written by the author: data, not instructions
+     */
+    description: string;
+    /**
+     * Variable names the server reads; never values
+     */
+    env:      string[];
+    files:    ConnectorBundleCardFile[];
+    findings: ScanFinding[];
+    /**
+     * Domains it asks to reach through the sandbox
+     */
+    network: string[];
+    sandbox: Sandbox;
+    /**
+     * Secrets it needs by name; you give the values after installing
+     */
+    secrets: Secret[];
+    /**
+     * The id it installs as (mcp__<id>__<tool>)
+     */
+    serverId: string;
+    signer:   BundleSigner;
+    /**
+     * The author's name for it: data, not verified
+     */
+    title:      string;
+    toolCheck?: ToolCheck;
+    update?:    ConnectorBundleCardUpdate;
+    version?:   string;
+}
+
+/**
+ * no_sandbox: this Gateway has no sandbox, so a command server is never run; scan: a
+ * high-severity finding
+ */
+export type Blocker = "no_sandbox" | "scan";
+
+export interface ConnectorBundleTool {
+    name:       string;
+    sideEffect: ConnectorBundleToolSideEffect;
+}
+
+export type ConnectorBundleToolSideEffect = "read" | "write" | "destructive";
+
+export interface ConnectorBundleCardFile {
+    bytes:      number;
+    executable: boolean;
+    path:       string;
+    /**
+     * The file's text (data, not instructions); absent when binary or large
+     */
+    text?: string;
+}
+
+export interface ScanFinding {
+    /**
+     * Path inside the skill folder
+     */
+    file?: string;
+    line?: number;
+    /**
+     * Never quotes the matched text
+     */
+    message:  string;
+    rule:     string;
+    severity: Severity;
+}
+
+export type Severity = "info" | "warn" | "high";
+
+export type Sandbox = "srt" | "container" | "none";
+
+export interface Secret {
+    name:    string;
+    purpose: string;
+}
+
+export interface BundleSigner {
+    /**
+     * The name looks like the owner's own author name, with another key
+     */
+    impersonates?: boolean;
+    /**
+     * `sha256:<hex>` of the public key
+     */
+    keyId?: string;
+    /**
+     * The author's claimed name (data, not verified)
+     */
+    name?: string;
+    /**
+     * A trusted key now signs under a name not seen with it before
+     */
+    nameChanged?: boolean;
+    /**
+     * The key seen before when status is `changed`
+     */
+    previousKeyId?: string;
+    rotatedFrom?:   RotatedFrom;
+    /**
+     * Differs from the key this skill was installed with (or it was signed and is no longer)
+     */
+    signerChanged: boolean;
+    status:        BundleSignerStatus;
+}
+
+export interface RotatedFrom {
+    keyId: string;
+    state: RotatedFromState;
+}
+
+export type RotatedFromState = "seen" | "trusted" | "revoked";
+
+export type BundleSignerStatus = "unsigned" | "own" | "trusted" | "seen" | "new" | "changed" | "revoked" | "rotated";
+
+export interface ToolCheck {
+    missing:    string[];
+    undeclared: string[];
+}
+
+export interface ConnectorBundleCardUpdate {
+    diff:                string;
+    installedBundleHash: string;
+    installedCommand:    string[];
+    installedVersion?:   string;
+    signerChanged:       boolean;
+    widened?:            ConnectorBundleWidened;
+}
+
+export interface ConnectorBundleWidened {
+    /**
+     * The program or its arguments differ
+     */
+    command: boolean;
+    env:     string[];
+    network: string[];
+    /**
+     * The bundled scripts differ
+     */
+    payload: boolean;
+    secrets: string[];
+    /**
+     * New tools, or tools with a bigger effect
+     */
+    tools: string[];
+}
+
+export interface MCPProposal {
+    diagnostics?: string;
+    /**
+     * Epoch ms
+     */
+    expiresAt:     number;
+    id:            string;
+    isolation:     Isolation;
+    network:       Network;
+    server:        MCPServerInput;
+    tools:         MCPProbedTool[];
+    toolsListHash: string;
+}
+
+export type Isolation = "srt" | "container" | "remote";
+
+export interface Network {
+    hosts:   string[];
+    reaches: boolean;
+}
+
+export interface MCPServerInput {
+    allowedDomains?: string[];
+    id:              string;
+    name:            string;
+    transport:       TransportClass;
+}
+
+export interface TransportClass {
+    command?: string[];
+    env?:     { [key: string]: unknown };
+    kind:     TransportEnum;
+    auth?:    Auth;
+    url?:     string;
+}
+
+export interface Auth {
+    kind:        AuthKind;
+    credential?: string;
+}
+
+export type AuthKind = "none" | "oauth" | "bearer";
+
+export type TransportEnum = "stdio" | "http";
+
+export interface MCPProbedTool {
+    blocked:     boolean;
+    description: string;
+    name:        string;
+    sideEffect:  ConnectorBundleToolSideEffect;
+    warnings:    Warning[];
+}
+
+export interface Warning {
+    code:   string;
+    detail: string;
+}
+
 export interface ConnectorsCatalogueResult {
     entries: ConnectorCatalogueEntry[];
 }
@@ -3333,6 +3582,15 @@ export interface ConnectorsDisconnectResult {
     connector: Connector;
 }
 
+export interface ConnectorsExportParams {
+    approvalId?: string;
+    /**
+     * Required when the author key does not exist yet; ignored after
+     */
+    authorName?: string;
+    serverId:    string;
+}
+
 export interface ConnectorsGetCustomProposalParams {
     proposalId: string;
 }
@@ -3366,8 +3624,6 @@ export interface Finding {
     rule:     string;
     severity: Severity;
 }
-
-export type Severity = "info" | "warn" | "high";
 
 export type NeedEnum = "connector";
 
@@ -3416,7 +3672,7 @@ export interface CustomConnectorTool {
     name:         string;
     params:       CustomConnectorParam[];
     path:         string;
-    sideEffect:   CustomConnectorToolSideEffect;
+    sideEffect:   ConnectorBundleToolSideEffect;
 }
 
 export type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -3430,8 +3686,6 @@ export interface CustomConnectorParam {
 }
 
 export type In = "path" | "query" | "body";
-
-export type CustomConnectorToolSideEffect = "read" | "write" | "destructive";
 
 export interface CustomConnectorProposalUpdate {
     /**
@@ -3473,6 +3727,18 @@ export interface Openapi {
     document:    string;
     id:          string;
     operations?: string[];
+}
+
+export interface ConnectorsProposeImportParams {
+    /**
+     * An https link to the file
+     */
+    bundleUrl?: string;
+    /**
+     * File name, for display
+     */
+    name?: string;
+    text?: string;
 }
 
 export interface ConnectorsRemoveCustomParams {
@@ -5626,14 +5892,12 @@ export interface MCPServerStatus {
     madeBy?:   MadeBy;
     name:      string;
     network:   boolean;
-    transport: KindEnum;
+    transport: TransportEnum;
     trust:     Trust;
     version?:  string;
 }
 
 export type MadeBy = "psyche";
-
-export type KindEnum = "stdio" | "http";
 
 export interface MCPAppParams {
     /**
@@ -5675,65 +5939,9 @@ export interface MCPProbeParams {
     server: MCPServerInput;
 }
 
-export interface MCPServerInput {
-    allowedDomains?: string[];
-    id:              string;
-    name:            string;
-    transport:       TransportClass;
-}
-
-export interface TransportClass {
-    command?: string[];
-    env?:     { [key: string]: unknown };
-    kind:     KindEnum;
-    auth?:    Auth;
-    url?:     string;
-}
-
-export interface Auth {
-    kind:        AuthKind;
-    credential?: string;
-}
-
-export type AuthKind = "none" | "oauth" | "bearer";
-
 export interface MCPProbeResult {
     approval: ApprovalRequest;
     proposal: MCPProposal;
-}
-
-export interface MCPProposal {
-    diagnostics?: string;
-    /**
-     * Epoch ms
-     */
-    expiresAt:     number;
-    id:            string;
-    isolation:     Isolation;
-    network:       Network;
-    server:        MCPServerInput;
-    tools:         MCPProbedTool[];
-    toolsListHash: string;
-}
-
-export type Isolation = "srt" | "container" | "remote";
-
-export interface Network {
-    hosts:   string[];
-    reaches: boolean;
-}
-
-export interface MCPProbedTool {
-    blocked:     boolean;
-    description: string;
-    name:        string;
-    sideEffect:  CustomConnectorToolSideEffect;
-    warnings:    Warning[];
-}
-
-export interface Warning {
-    code:   string;
-    detail: string;
 }
 
 export interface MCPRemoveParams {
@@ -5776,11 +5984,9 @@ export interface MCPSetEnabledResult {
 }
 
 export interface MCPStatusResult {
-    launcher: Launcher;
+    launcher: Sandbox;
     servers:  MCPServerStatus[];
 }
-
-export type Launcher = "srt" | "container" | "none";
 
 export interface MCPToolsParams {
     serverId: string;
@@ -5796,7 +6002,7 @@ export interface MCPServerTool {
     description: string;
     enabled:     boolean;
     name:        string;
-    sideEffect?: CustomConnectorToolSideEffect;
+    sideEffect?: ConnectorBundleToolSideEffect;
 }
 
 export interface MCPToolsSetParams {
@@ -8236,20 +8442,6 @@ export interface PluginProposalFile {
     path:  string;
 }
 
-export interface ScanFinding {
-    /**
-     * Path inside the skill folder
-     */
-    file?: string;
-    line?: number;
-    /**
-     * Never quotes the matched text
-     */
-    message:  string;
-    rule:     string;
-    severity: Severity;
-}
-
 export interface PluginManifest {
     capabilities: PluginCapability[];
     description:  string;
@@ -9748,36 +9940,6 @@ export interface SkillBundleInfo {
  */
 export type BundleOriginEnum = "workspace" | "agent";
 
-export interface BundleSigner {
-    /**
-     * The name looks like the owner's own author name, with another key
-     */
-    impersonates?: boolean;
-    /**
-     * `sha256:<hex>` of the public key
-     */
-    keyId?: string;
-    /**
-     * The author's claimed name (data, not verified)
-     */
-    name?: string;
-    /**
-     * A trusted key now signs under a name not seen with it before
-     */
-    nameChanged?: boolean;
-    /**
-     * The key seen before when status is `changed`
-     */
-    previousKeyId?: string;
-    /**
-     * Differs from the key this skill was installed with (or it was signed and is no longer)
-     */
-    signerChanged: boolean;
-    status:        BundleSignerStatus;
-}
-
-export type BundleSignerStatus = "unsigned" | "own" | "trusted" | "seen" | "new" | "changed" | "revoked";
-
 export interface SkillProposalFile {
     bytes:      number;
     executable: boolean;
@@ -9875,6 +10037,58 @@ export interface Widened {
     tools:       string[];
 }
 
+export interface SkillsAuthorsCreateNoticeParams {
+    approvalId?: string;
+    /**
+     * For kind bundle: the bundle hash the card showed when it was exported
+     */
+    bundleHash?: string;
+    /**
+     * The key to revoke (the current key or one it replaced); the current key by default
+     */
+    keyId?: string;
+    kind:   SkillsAuthorsCreateNoticeParamsKind;
+    reason: string;
+}
+
+export type SkillsAuthorsCreateNoticeParamsKind = "key" | "bundle";
+
+export interface SkillsAuthorsCreateNoticeResult {
+    filename: string;
+    /**
+     * The .psyche-notice file's text
+     */
+    notice: string;
+}
+
+export interface SkillsAuthorsImportNoticeParams {
+    /**
+     * File name, for display
+     */
+    name?: string;
+    text?: string;
+    /**
+     * An https link to the notice
+     */
+    url?: string;
+}
+
+export interface SkillsAuthorsImportNoticeResult {
+    bundleHash?: string;
+    keyId:       string;
+    kind:        SkillsAuthorsCreateNoticeParamsKind;
+    /**
+     * The author's words: data, not instructions
+     */
+    reason: string;
+    signer: SkillsAuthorsImportNoticeResultSigner;
+}
+
+export interface SkillsAuthorsImportNoticeResultSigner {
+    keyId: string;
+    name:  string;
+}
+
 export interface SkillsAuthorsListResult {
     authors: SkillAuthor[];
     own?:    Own;
@@ -9884,13 +10098,30 @@ export interface SkillAuthor {
     firstSeen:  string;
     keyId:      string;
     names:      string[];
-    state:      SkillAuthorState;
+    state:      RotatedFromState;
     trustedAt?: string;
 }
 
-export type SkillAuthorState = "seen" | "trusted" | "revoked";
-
 export interface Own {
+    keyId: string;
+    name:  string;
+}
+
+export interface SkillsAuthorsRotateParams {
+    approvalId?: string;
+}
+
+export interface SkillsAuthorsRotateResult {
+    from: From;
+    to:   SkillsAuthorsRotateResultTo;
+}
+
+export interface From {
+    keyId: string;
+    name:  string;
+}
+
+export interface SkillsAuthorsRotateResultTo {
     keyId: string;
     name:  string;
 }
@@ -9898,7 +10129,7 @@ export interface Own {
 export interface SkillsAuthorsSetParams {
     approvalId?: string;
     keyId:       string;
-    state:       SkillAuthorState;
+    state:       RotatedFromState;
 }
 
 export interface SkillsAuthorsSetResult {

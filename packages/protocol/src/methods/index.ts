@@ -11,6 +11,7 @@ import { CapabilitiesMethods } from "./capabilities.ts";
 import { ChannelsMethods } from "./channels.ts";
 import { ChatMethods } from "./chat.ts";
 import { ConnectMethods } from "./connect.ts";
+import { ConnectorBundleMethods } from "./connector-bundles.ts";
 import { ConnectorsMethods } from "./connectors.ts";
 import { DailyMethods } from "./daily.ts";
 import { createValidator, type MethodSpec, type Validator } from "./define.ts";
@@ -66,6 +67,7 @@ export * from "./capabilities.ts";
 export * from "./channels.ts";
 export * from "./chat.ts";
 export * from "./connect.ts";
+export * from "./connector-bundles.ts";
 export * from "./connectors.ts";
 export * from "./daily.ts";
 export * from "./define.ts";
@@ -158,6 +160,7 @@ export const Methods = {
   ...DictationMethods,
   ...AttentionMethods,
   ...SkillsMethods,
+  ...ConnectorBundleMethods,
   ...PluginsMethods,
   ...BackupMethods,
   ...LogsMethods,

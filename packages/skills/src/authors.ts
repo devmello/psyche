@@ -29,8 +29,15 @@ import {
   PsycheError,
   type SkillAuthor,
 } from "@psyche/protocol";
-import { type BundleAuthor, type BundleSigningKey, keyIdOf } from "./bundle.ts";
+import { type BundleAuthor, type BundleSigningKey, keyIdOf } from "./bundle-core.ts";
 import { authorNameSkeleton } from "./confusables.ts";
+import type { VerifiedNotice } from "./notice.ts";
+import {
+  MAX_ROTATIONS,
+  parseRotationChain,
+  type RotationStatement,
+  signRotation,
+} from "./rotation.ts";
 
 export { authorNameSkeleton, normalizeAuthorName } from "./confusables.ts";
 
@@ -52,6 +59,8 @@ interface AuthorKeyFile {
 }
 
 export const AUTHOR_KEY_FILE = join("identity", "author.key");
+/** The statements the owner's old keys signed naming their successors (public, 0600). */
+export const AUTHOR_ROTATION_FILE = join("identity", "author.rotation.json");
 export const AUTHORS_FILE = "authors.json";
 const MAX_NAME = 64;
 // biome-ignore lint/suspicious/noControlCharactersInRegex: this is the check for them
@@ -142,9 +151,112 @@ function signerFrom(file: AuthorKeyFile): BundleSigningKey {
 
 export class AuthorKeyStore {
   readonly path: string;
+  readonly rotationPath: string;
 
   constructor(home: string) {
     this.path = join(home, AUTHOR_KEY_FILE);
+    this.rotationPath = join(home, AUTHOR_ROTATION_FILE);
+  }
+
+  /**
+   * The rotation statements that lead to the current key (oldest first), for the bundles it
+   * signs. Empty when the key was never rotated. A statement that does not lead here is ignored.
+   */
+  chain(): RotationStatement[] {
+    const current = this.peek();
+    if (current === undefined) return [];
+    const all = this.#statements();
+    const out: RotationStatement[] = [];
+    let want = current.keyId;
+    for (let i = 0; i < MAX_ROTATIONS; i++) {
+      const s = all.find((x) => x.to.keyId === want);
+      if (s === undefined) break;
+      out.unshift(s);
+      want = s.from.keyId;
+    }
+    return out;
+  }
+
+  /** Every key this owner retired by rotating: bundles signed by one are still the owner's own. */
+  retiredKeyIds(): string[] {
+    return [...new Set(this.#statements().map((s) => s.from.keyId))];
+  }
+
+  /**
+   * Replaces the author key with a new one (same name), with a statement signed by the old key
+   * naming the new one. The old private key is dropped: nothing else needs it, and a retired
+   * key kept on disk is only a liability. Everything here is synchronous, so two rotations
+   * cannot interleave. The owner's gate (Host shell, presence) is the caller's.
+   */
+  rotate(now: Date): { from: BundleAuthor; to: BundleAuthor; statement: RotationStatement } {
+    const existing = this.#read();
+    if (existing === undefined)
+      throw new PsycheError("conflict", "there is no author key to rotate yet");
+    const old = signerFrom(existing);
+    const { privateKey } = generateKeyPairSync("ed25519");
+    const jwk = privateKey.export({ format: "jwk" });
+    if (typeof jwk.x !== "string" || typeof jwk.d !== "string")
+      throw new PsycheError("internal", "ed25519 jwk export failed");
+    const file: AuthorKeyFile = {
+      v: 1,
+      name: existing.name,
+      jwk: { kty: "OKP", crv: "Ed25519", x: jwk.x, d: jwk.d },
+    };
+    const to: BundleAuthor = { name: file.name, keyId: keyIdOf(jwk.x), publicKey: jwk.x };
+    const statement = signRotation(old, to, now.toISOString());
+    const history = [...this.#statements(), statement].slice(-32);
+    // The statement first: if the key swap fails, an unused statement leads nowhere and is ignored.
+    this.#replaceFile(
+      this.rotationPath,
+      `${JSON.stringify({ v: 1, statements: history }, null, 2)}\n`,
+    );
+    this.#replaceFile(this.path, `${JSON.stringify(file)}\n`);
+    return { from: old.author, to, statement };
+  }
+
+  #statements(): RotationStatement[] {
+    let text: string | undefined;
+    try {
+      text = readKeyText(this.rotationPath);
+    } catch {
+      return [];
+    }
+    if (text === undefined) return [];
+    try {
+      const f = JSON.parse(text) as { v?: unknown; statements?: unknown };
+      return f.v === 1 && Array.isArray(f.statements)
+        ? f.statements.flatMap((s) => {
+            try {
+              return parseRotationChain([s]);
+            } catch {
+              return [];
+            }
+          })
+        : [];
+    } catch {
+      return [];
+    }
+  }
+
+  /** Atomically replaces a 0600 file in the 0700 identity directory (exclusive temp file). */
+  #replaceFile(path: string, text: string): void {
+    const dir = dirname(path);
+    mkdirSync(dir, { recursive: true, mode: 0o700 });
+    chmodSync(dir, 0o700);
+    const tmp = `${path}.${process.pid}.tmp`;
+    try {
+      rmSync(tmp, { force: true });
+      const fd = openSync(tmp, "wx", 0o600);
+      try {
+        writeSync(fd, text);
+        fsyncSync(fd);
+      } finally {
+        closeSync(fd);
+      }
+      renameSync(tmp, path);
+    } finally {
+      rmSync(tmp, { force: true });
+    }
   }
 
   /** The public half, without creating a key. */
@@ -244,10 +356,20 @@ interface AuthorRecord {
   trustedAt?: string;
 }
 
+interface RevokedBundle {
+  keyId: string;
+  reason: string;
+  at: string;
+}
+
 interface AuthorsFile {
   v: 1;
   authors: Record<string, AuthorRecord>;
+  /** Bundles a signed notice marked bad, by bundle hash. */
+  bundles?: Record<string, RevokedBundle>;
 }
+
+const MAX_REVOKED_BUNDLES = 1000;
 
 const MAX_AUTHORS = 500;
 
@@ -359,12 +481,21 @@ export class AuthorRing {
     signer: BundleAuthor,
     own: { keyId: string; name: string } | undefined,
     installed: { keyId: string } | null | undefined,
+    lineage: { ancestors?: readonly string[]; ownRetired?: readonly string[] } = {},
   ): BundleSignerStatusInfo {
     const base = { keyId: signer.keyId, name: signer.name };
+    const ancestors = lineage.ancestors ?? [];
     const rec = this.get(signer.keyId);
-    const signerChanged = installed != null && installed.keyId !== signer.keyId;
+    // A rotation chain that names the installed key explains the new one: not a change of signer.
+    const signerChanged =
+      installed != null && installed.keyId !== signer.keyId && !ancestors.includes(installed.keyId);
     if (rec?.state === "revoked") return { ...base, status: "revoked", signerChanged };
-    if (own?.keyId === signer.keyId) return { ...base, status: "own", signerChanged: false };
+    // The chain says the new key came from a key the owner revoked: no better than that key.
+    const revokedAncestor = ancestors.find((k) => this.get(k)?.state === "revoked");
+    if (revokedAncestor !== undefined)
+      return { ...base, status: "revoked", previousKeyId: revokedAncestor, signerChanged };
+    if (own?.keyId === signer.keyId || lineage.ownRetired?.includes(signer.keyId) === true)
+      return { ...base, status: "own", signerChanged: false };
     // A look-alike of the owner's own name with another key is the worst impersonation.
     const impersonates =
       own !== undefined && authorNameSkeleton(own.name) === authorNameSkeleton(signer.name);
@@ -380,6 +511,21 @@ export class AuthorRing {
         ...(seenName ? {} : { nameChanged: true }),
       };
     }
+    // Same author, new key: an earlier key the owner has met (or installed this with) signed a
+    // statement naming this one. That explains the change; it does not trust the new key.
+    if (!impersonates) {
+      for (const k of ancestors) {
+        const earlier = this.get(k);
+        if (earlier === undefined && installed?.keyId !== k) continue;
+        return {
+          ...base,
+          status: "rotated",
+          previousKeyId: k,
+          rotatedFrom: { keyId: k, state: earlier?.state ?? "seen" },
+          signerChanged,
+        };
+      }
+    }
     if (signerChanged || impersonates || (rec === undefined && others.length > 0)) {
       const previousKeyId = installed?.keyId ?? (impersonates ? own?.keyId : others[0]);
       return {
@@ -391,6 +537,55 @@ export class AuthorRing {
       };
     }
     return { ...base, status: rec === undefined ? "new" : "seen", signerChanged };
+  }
+
+  /**
+   * Applies a verified revocation notice. It must come from a key the owner has met (or from a
+   * successor of one, by the rotation chain it carries), and it can only revoke that key's own
+   * lineage or a bundle that lineage signed. Revoking is the safe direction, so it needs no
+   * presence; a notice from a stranger, or about somebody else's key, is refused.
+   */
+  applyNotice(v: VerifiedNotice): { kind: "key" | "bundle"; keyId: string; bundleHash?: string } {
+    const lineage = [v.notice.signer.keyId, ...v.ancestors];
+    if (!lineage.some((k) => this.get(k) !== undefined))
+      throw new PsycheError(
+        "policy_denied",
+        "that notice is signed by an author you have not met, so it is not applied",
+        { details: { keyId: v.notice.signer.keyId } },
+      );
+    if (!lineage.includes(v.notice.keyId))
+      throw new PsycheError(
+        "policy_denied",
+        "a notice can only revoke its signer's own keys or bundles",
+        { details: { keyId: v.notice.keyId } },
+      );
+    if (v.notice.kind === "key") {
+      this.setState(v.notice.keyId, "revoked");
+      return { kind: "key", keyId: v.notice.keyId };
+    }
+    const hash = v.notice.bundleHash as string;
+    const f = this.#read();
+    const bundles = f.bundles ?? {};
+    if (bundles[hash] === undefined && Object.keys(bundles).length >= MAX_REVOKED_BUNDLES)
+      throw new PsycheError("conflict", "too many revoked bundles");
+    bundles[hash] = {
+      keyId: v.notice.keyId,
+      reason: v.notice.reason,
+      at: new Date(this.#now()).toISOString(),
+    };
+    f.bundles = bundles;
+    this.#write(f);
+    return { kind: "bundle", keyId: v.notice.keyId, bundleHash: hash };
+  }
+
+  /**
+   * Whether a signed notice marked this bundle (by its hash) bad. The notice counts only when it
+   * came from the bundle's own signer or one of the signer's earlier keys, so an author cannot
+   * block somebody else's bundle by naming its hash.
+   */
+  isBundleRevoked(bundleHash: string, signedBy: readonly string[]): boolean {
+    const hit = this.#read().bundles?.[bundleHash];
+    return hit !== undefined && signedBy.includes(hit.keyId);
   }
 
   /** Keys the owner revoked, for installed skills signed by one. */

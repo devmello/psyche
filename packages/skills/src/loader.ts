@@ -33,14 +33,18 @@ import {
   type BundleAuthor,
   type BundleOrigin,
   buildBundle,
+  bundleHashOf,
+  signingBytes,
   type VerifiedBundle,
   verifyBundle,
 } from "./bundle.ts";
+import { fetchBundleText } from "./bundle-url.ts";
 import { unifiedDiff } from "./diff.ts";
 import { NAME_PATTERN, type ParsedSkill, parseSkill } from "./frontmatter.ts";
 import { defaultGateContext, evaluateGates, type GateContext } from "./gating.ts";
 import { LOCK_FILE, type LockEntry, type LockFile, lockKey, readLock, writeLock } from "./lock.ts";
 import { manifestOf, manifestsDiffer, type SkillManifest } from "./manifest.ts";
+import { buildNotice, NOTICE_EXTENSION, verifyNotice } from "./notice.ts";
 import { policyViolations, type SkillInstallPolicy } from "./policy.ts";
 import {
   buildPromptIndex,
@@ -211,6 +215,9 @@ export interface FsSkillLoaderOptions {
       | "author_trusted"
       | "author_untrusted"
       | "author_revoked"
+      | "author_key_rotated"
+      | "notice_created"
+      | "bundle_revoked"
       | "skill_exported";
     skill?: string;
     treeHash?: string;
@@ -252,7 +259,13 @@ export class FsSkillLoader implements SkillLoader {
   #winners = new Map<string, Entry>();
   #proposals = new Map<
     string,
-    { proposal: SkillProposal; tree: SkillTree; signer?: BundleAuthor }
+    {
+      proposal: SkillProposal;
+      tree: SkillTree;
+      signer?: BundleAuthor;
+      /** The signer's earlier keys and the bundle's hash, to recheck a notice at install. */
+      lineage?: { keys: string[]; bundleHash: string };
+    }
   >();
   #ring: AuthorRing;
   #keys: AuthorKeyStore | undefined;
@@ -516,7 +529,11 @@ export class FsSkillLoader implements SkillLoader {
     // The author key file only tells us whether a signature is the owner's own: if it is unsafe
     // that is simply unknown here (exporting reports it), and no skill is blocked for it.
     try {
-      if (this.#keys?.peek()?.keyId === keyId) return "own";
+      if (
+        this.#keys?.peek()?.keyId === keyId ||
+        this.#keys?.retiredKeyIds().includes(keyId) === true
+      )
+        return "own";
     } catch {
       // fall through to the author list
     }
@@ -854,6 +871,27 @@ export class FsSkillLoader implements SkillLoader {
         `this bundle is signed by a key you revoked (${bundle.signer.keyId.slice(0, 23)}…)`,
         { details: { keyId: bundle.signer.keyId } },
       );
+    // A new key that an earlier, revoked key vouched for is no better than that key.
+    const revokedBefore = bundle?.ancestors.find((k) => this.#ring.isRevoked(k));
+    if (revokedBefore !== undefined)
+      throw new PsycheError(
+        "policy_denied",
+        "this bundle's key was named by an earlier key you revoked",
+        { details: { keyId: revokedBefore } },
+      );
+    const lineage =
+      bundle?.signer === undefined
+        ? undefined
+        : {
+            keys: [bundle.signer.keyId, ...bundle.ancestors],
+            bundleHash: bundleHashOf(signingBytes(bundle.manifest)),
+          };
+    if (lineage !== undefined && this.#ring.isBundleRevoked(lineage.bundleHash, lineage.keys))
+      throw new PsycheError(
+        "policy_denied",
+        "an author's signed notice marked this exact bundle as bad; it is not installed",
+        { details: { bundleHash: lineage.bundleHash } },
+      );
     const skillMd = tree.get("SKILL.md");
     const text = skillMd === undefined ? undefined : textOf(skillMd);
     const parsed = text === undefined ? undefined : parseSkill(text);
@@ -941,7 +979,10 @@ export class FsSkillLoader implements SkillLoader {
       const signer: BundleSignerInfo =
         bundle.signer === undefined
           ? { status: "unsigned", signerChanged: installedSigner != null }
-          : this.#ring.statusOf(bundle.signer, this.#keys?.peek(), installedSigner);
+          : this.#ring.statusOf(bundle.signer, this.#keys?.peek(), installedSigner, {
+              ancestors: bundle.ancestors,
+              ownRetired: this.#retiredKeys(),
+            });
       bundleInfo = {
         signer,
         createdAt: bundle.manifest.createdAt,
@@ -949,6 +990,14 @@ export class FsSkillLoader implements SkillLoader {
         origin: bundle.manifest.origin,
       };
       if (signer.signerChanged && update !== undefined) update.signerChanged = true;
+      if (signer.status === "rotated") {
+        findings.push({
+          rule: "signer-rotated",
+          severity: "warn",
+          message:
+            "same author, new key (signed by the old key); the new key is not trusted until you trust it",
+        });
+      }
       if (signer.status === "changed" || signer.signerChanged) {
         findings.push({
           rule: "signer-changed",
@@ -1076,6 +1125,7 @@ export class FsSkillLoader implements SkillLoader {
       proposal,
       tree,
       ...(bundle?.signer === undefined ? {} : { signer: bundle.signer }),
+      ...(lineage === undefined ? {} : { lineage }),
     });
     return structuredClone(proposal);
   }
@@ -1104,6 +1154,18 @@ export class FsSkillLoader implements SkillLoader {
     if (signer !== undefined && this.#ring.isRevoked(signer.keyId)) {
       this.#proposals.delete(proposalId);
       throw new PsycheError("policy_denied", "this bundle is signed by a key you revoked");
+    }
+    if (staged.lineage?.keys.some((k) => this.#ring.isRevoked(k)) === true) {
+      this.#proposals.delete(proposalId);
+      throw new PsycheError("policy_denied", "this bundle is signed by a key you revoked");
+    }
+    // A notice imported after the card was staged still blocks it.
+    if (
+      staged.lineage !== undefined &&
+      this.#ring.isBundleRevoked(staged.lineage.bundleHash, staged.lineage.keys)
+    ) {
+      this.#proposals.delete(proposalId);
+      throw new PsycheError("policy_denied", "a signed notice marked this bundle as bad");
     }
     // "Trust this author" is part of what the approved card bound: it changes a label and the
     // warnings for later bundles, and never skips a card.
@@ -1247,6 +1309,14 @@ export class FsSkillLoader implements SkillLoader {
     }
   }
 
+  #retiredKeys(): string[] {
+    try {
+      return this.#keys?.retiredKeyIds() ?? [];
+    } catch {
+      return [];
+    }
+  }
+
   #ownKey(): { keyId: string; name: string } | undefined {
     try {
       return this.#keys?.peek();
@@ -1377,7 +1447,13 @@ export class FsSkillLoader implements SkillLoader {
     if (pre.treeHash !== expectedHash)
       throw new PsycheError("conflict", `${name} changed after you approved the export`);
     const { signer, created } = this.#keys.loadOrCreate(authorName);
-    const bundle = buildBundle(pre.tree, signer, new Date(this.#now()), pre.origin);
+    const bundle = buildBundle(
+      pre.tree,
+      signer,
+      new Date(this.#now()),
+      pre.origin,
+      this.#keys.chain(),
+    );
     // The audit comes first and is awaited: a signature that left no record is never returned.
     if (created)
       await this.#o.onAuthorChange?.({
@@ -1399,6 +1475,112 @@ export class FsSkillLoader implements SkillLoader {
       signer: { keyId: signer.author.keyId, name: signer.author.name },
       createdKey: created,
     };
+  }
+
+  /**
+   * Replaces the owner's author key (owner action behind presence; the Gateway gates it). The old
+   * key signs a statement naming the new one; the old private key is deleted. Awaited audit, like
+   * an export: a rotation that left no record is not returned.
+   */
+  async rotateAuthorKey(): Promise<{
+    from: { keyId: string; name: string };
+    to: { keyId: string; name: string };
+  }> {
+    if (this.#keys === undefined)
+      throw new PsycheError("unavailable", "this Gateway has no place for an author key");
+    const r = this.#keys.rotate(new Date(this.#now()));
+    await this.#o.onAuthorChange?.({
+      kind: "author_key_rotated",
+      keyId: r.to.keyId,
+      name: r.to.name,
+    });
+    this.refresh();
+    return {
+      from: { keyId: r.from.keyId, name: r.from.name },
+      to: { keyId: r.to.keyId, name: r.to.name },
+    };
+  }
+
+  /** What a notice would say and sign, for the approval card; refuses a key that is not the owner's. */
+  previewNotice(spec: { kind: "key" | "bundle"; keyId?: string; bundleHash?: string }): {
+    keyId: string;
+  } {
+    const own = this.#keys?.peek();
+    if (this.#keys === undefined || own === undefined)
+      throw new PsycheError("conflict", "there is no author key to sign a notice with yet");
+    const keyId = spec.keyId ?? own.keyId;
+    const mine = new Set([own.keyId, ...this.#keys.chain().map((c) => c.from.keyId)]);
+    if (!mine.has(keyId))
+      throw new PsycheError(
+        "invalid_params",
+        "a notice can only name your own current or earlier key",
+      );
+    if (spec.kind === "bundle" && spec.bundleHash === undefined)
+      throw new PsycheError("invalid_params", "a bundle notice needs the bundle hash");
+    return { keyId };
+  }
+
+  /** Signs a revocation notice with the owner's author key (after the Gateway's gate). */
+  async createNotice(spec: {
+    kind: "key" | "bundle";
+    keyId?: string;
+    bundleHash?: string;
+    reason: string;
+  }): Promise<{ filename: string; notice: string }> {
+    const { keyId } = this.previewNotice(spec);
+    const keys = this.#keys as AuthorKeyStore;
+    const { signer } = keys.loadOrCreate(undefined);
+    const notice = buildNotice(
+      signer,
+      {
+        kind: spec.kind,
+        keyId,
+        ...(spec.bundleHash === undefined ? {} : { bundleHash: spec.bundleHash }),
+        reason: spec.reason,
+      },
+      new Date(this.#now()),
+      keys.chain(),
+    );
+    await this.#o.onAuthorChange?.({
+      kind: "notice_created",
+      keyId,
+      name: signer.author.name,
+      ...(spec.bundleHash === undefined ? {} : { treeHash: spec.bundleHash }),
+    });
+    return { filename: `revoke-${keyId.slice(7, 15)}${NOTICE_EXTENSION}`, notice };
+  }
+
+  /**
+   * Applies a revocation notice the owner imported (a file's text; the Gateway fetches a link
+   * under the bundle-link rules). It blocks, immediately: installed skills from a revoked key
+   * show `blocked` at the next load, and no staged card can install it.
+   */
+  importNotice(text: string): {
+    kind: "key" | "bundle";
+    keyId: string;
+    bundleHash?: string;
+    reason: string;
+    signer: { keyId: string; name: string };
+  } {
+    const v = verifyNotice(text);
+    const applied = this.#ring.applyNotice(v);
+    this.#notify({
+      kind: applied.kind === "key" ? "author_revoked" : "bundle_revoked",
+      keyId: applied.keyId,
+      name: v.notice.signer.name,
+      ...(applied.bundleHash === undefined ? {} : { treeHash: applied.bundleHash }),
+    });
+    this.refresh();
+    return {
+      ...applied,
+      reason: v.notice.reason,
+      signer: { keyId: v.notice.signer.keyId, name: v.notice.signer.name },
+    };
+  }
+
+  /** Downloads a small file (a notice) under the bundle-link rules and this loader's fetch options. */
+  async fetchLink(url: string, maxBytes: number): Promise<string> {
+    return fetchBundleText(url, { ...this.#o.sourceOptions, maxBytes });
   }
 
   /** Whether the owner has an author key yet (the first export must name one). */

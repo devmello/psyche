@@ -18,6 +18,14 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-04 (shared connectors: bundles, key rotation, revocation notices)
+
+- New methods `connectors.export` (admin, side-effecting, Host shell only: signs a command MCP server the owner set up, as a `.psyche-connector` file with the command and arguments, the names of its env variables and secrets, its network domains and its tools, never a value; a device-only approval naming exactly that, fresh presence once a verifier exists; `approval_required` / `approvalId` like `skills.export`; audited) and `connectors.proposeImport` (admin, side-effecting: verifies a file's text or an https `bundleUrl`, builds the full card, probes in the sandbox and opens the device-only `skill_install` card; the owner then calls the existing `mcp.add` and `mcp.secrets.replace`). Without a sandbox the result has a card with `sandbox: "none"` and `blocker: "no_sandbox"` and no proposal.
+- New types `ConnectorBundleCard`, `ConnectorBundleTool` and `ConnectorBundleWidened`.
+- New methods `skills.authors.rotate` (admin, side-effecting, Host shell only: replaces the author key; the old key signs a statement naming the new one, carried in later bundles and notices; presence-gated, audited), `skills.authors.createNotice` (same gates: signs a revocation notice for the owner's current or an earlier key, or for one bundle hash) and `skills.authors.importNotice` (admin, side-effecting: a notice's text or an https link, applied only when signed by an author the owner has met; it can only block).
+- `BundleSignerStatus` gains `rotated` (at the end of the list) and `BundleSigner` gains optional `rotatedFrom` (`keyId`, `state`): same author, new key, signed by the old key; never trusted by itself. A bundle file may carry an optional top-level `rotation` list; a forged chain refuses the file.
+- Skill-forbidden tools gain `connectors.*`.
+
 ### v1 additive — 2026-11-04 (teach by showing in the built-in browser, J8 phase 1)
 
 - New method `skills.drafts.fromRecording` (`operator.admin`, side-effecting): turns the owner's reviewed recording into a skill draft. Params `title` and `steps` (1 to 200 `BrowserTeachStep`); result `{ draft }`. A sensitive step carries no value; a value is accepted only on a `type` or `select` step with `keepValue: true` that is not sensitive and not an input (otherwise `invalid_params`). Page text in the steps is quoted as untrusted in the draft. Accepting it is the existing `skills.drafts.accept` (replay check, device-only `skill_install` card). Nothing starts or reads a recording over the protocol: the recorder is local to the desktop app.

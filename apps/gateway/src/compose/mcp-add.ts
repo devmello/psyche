@@ -77,6 +77,11 @@ export interface ProposeExtra {
   config: PsycheMcpServerConfig;
   /** The probe runs with no network (the code is not approved yet); the card lists `config`'s. */
   probeWithoutNetwork?: boolean;
+  /**
+   * The probe runs this config instead of `config` (a shared connector's update probes with its
+   * secrets blank, so listing tools never waits on a vault approval); the card still binds `config`.
+   */
+  probeConfig?: PsycheMcpServerConfig;
   /** Merged into the card's details after the standard ones. */
   details?: Record<string, unknown>;
   summary?: string;
@@ -84,6 +89,11 @@ export interface ProposeExtra {
   taint?: { sources?: readonly unknown[] };
   /** An update: replaces the existing entry of this id. */
   replace?: boolean;
+  /**
+   * Extra facts the card's binding covers besides the config and the probed tools (a shared
+   * connector's bundle hash, signer and widening), so an approval cannot be spent on another.
+   */
+  bind?: Record<string, unknown>;
   /** Runs right before the entry is written; throws to refuse (the code changed since). */
   precommit?(): Promise<void>;
   /** Runs once the server is added. */
@@ -165,7 +175,7 @@ function readServers(services: ComposeServices, key: string): PsycheMcpServerCon
   return Array.isArray(v) ? (v as PsycheMcpServerConfig[]) : [];
 }
 
-function sideEffectOf(annotations: unknown): McpProbedTool["sideEffect"] {
+export function sideEffectOf(annotations: unknown): McpProbedTool["sideEffect"] {
   const a = (annotations ?? {}) as { readOnlyHint?: unknown; destructiveHint?: unknown };
   if (a.readOnlyHint === true) return "read";
   if (a.destructiveHint === true) return "destructive";
@@ -265,7 +275,11 @@ export function mcpAdder(deps: McpAddDeps): McpAdder {
     }
   };
 
-  const binding = (config: PsycheMcpServerConfig, p: Omit<McpProposal, "id" | "expiresAt">) => {
+  const binding = (
+    config: PsycheMcpServerConfig,
+    p: Omit<McpProposal, "id" | "expiresAt">,
+    bind?: Record<string, unknown>,
+  ) => {
     const permissions = new Set<string>();
     if (p.tools.some((t) => t.sideEffect !== "read")) permissions.add("mcp_tool_write");
     if (p.network.reaches) permissions.add("network");
@@ -274,7 +288,7 @@ export function mcpAdder(deps: McpAddDeps): McpAdder {
       name: `mcp:${config.id}`,
       scope: "home",
       source: { kind: "path", path: `mcp/${config.id}.json` },
-      treeHash: sha(canonical({ config, toolsListHash: p.toolsListHash })),
+      treeHash: sha(canonical({ config, toolsListHash: p.toolsListHash, bind })),
       tools: p.tools.map((t) => t.name),
       permissions: [...permissions].sort(),
       prompts: [],
@@ -289,11 +303,12 @@ export function mcpAdder(deps: McpAddDeps): McpAdder {
     }
     const config = extra?.config ?? serverConfig(input);
     const runAs =
-      extra?.probeWithoutNetwork === true
+      extra?.probeConfig ??
+      (extra?.probeWithoutNetwork === true
         ? { ...config, sandbox: { ...config.sandbox, allowedDomains: [] } }
-        : config;
+        : config);
     const found = await probe(input, config, runAs);
-    const b = binding(config, found);
+    const b = binding(config, found, extra?.bind);
     const id = `mcpp_${randomUUID().replace(/-/g, "").slice(0, 20)}`;
     const proposal: McpProposal = { id, ...found, expiresAt: now() + MCP_PROPOSAL_TTL_MS };
     const t = config.transport;
