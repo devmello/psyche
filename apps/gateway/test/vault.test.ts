@@ -11,7 +11,7 @@ import type {
 import { openDb } from "@psyche/db";
 import type { CredentialMeta, CredentialUse, EventPayload, VaultStatus } from "@psyche/protocol";
 import { FakeModelProvider, FakePermissionBroker } from "@psyche/testing";
-import { SecretRedactor, type Vault } from "@psyche/vault";
+import { DerivedKeyStore, KeychainItemStore, SecretRedactor, type Vault } from "@psyche/vault";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { type ComposedGateway, composeConnectors, composeGateway } from "../src/compose/index.ts";
 import { composeVault, maskingLogger, vaultHandlers } from "../src/compose/vault.ts";
@@ -212,6 +212,203 @@ describe("vault.* through the dispatcher (keychain slot via the Mac helper)", ()
       expect((res.error as { code?: string } | undefined)?.code, capability).toBe("forbidden");
     }
     expect(helper.invocations).toEqual([]);
+  });
+});
+
+/**
+ * The Windows helper's keychain (`apps/win-helper/src/keychain/mod.rs`), shape for shape:
+ * Credential Manager storage, values that need Touch ID on the Mac sealed to a Windows Hello key.
+ * `resetHello()` is a Windows Hello reset: everything sealed under the old key answers
+ * `unavailable` with `details.reason: "hello_key_invalidated"`; plain items are untouched.
+ */
+function winKeychainHelper() {
+  const state = { helloKid: "kid-1", sets: 0 };
+  const vaultKeys = new Map<string, { value: string; kid: string }>();
+  const items = new Map<string, { value: string; kid: string | null }>();
+  const helperError = (code: string, reason: string) =>
+    Object.assign(new Error(reason), { code, details: { reason } });
+  const invalidated = () => helperError("unavailable", "hello_key_invalidated");
+  const handlers: FakeNodeHandler[] = [
+    {
+      capability: { name: "keychain.set", sideEffect: "write" },
+      run: (p) => {
+        const q = p as Record<string, unknown>;
+        // The helper refuses anything weaker than the Mac's protection (security §4.2).
+        if (
+          q.service !== "com.psyche.vault" ||
+          JSON.stringify(q.accessControl) !== '["biometryCurrentSet","or","devicePasscode"]' ||
+          q.accessible !== "whenPasscodeSetThisDeviceOnly" ||
+          q.synchronizable !== false ||
+          q.dataProtection !== true
+        )
+          throw helperError("invalid_params", "invalid_params");
+        state.sets += 1;
+        vaultKeys.set(String(q.account), { value: String(q.value), kid: state.helloKid });
+        return {};
+      },
+    },
+    {
+      capability: { name: "vault.unlock", sideEffect: "read" },
+      run: (p) => {
+        const key = vaultKeys.get(String((p as { account: string }).account));
+        if (key === undefined) throw helperError("not_found", "item_not_found");
+        if (key.kid !== state.helloKid) throw invalidated();
+        return { value: key.value };
+      },
+    },
+    { capability: { name: "keychain.delete", sideEffect: "destructive" }, run: () => ({}) },
+    {
+      capability: { name: "keychain.store", sideEffect: "write" },
+      run: (p) => {
+        const q = p as { name: string; value: string; requireAuth?: boolean; replace?: boolean };
+        const requireAuth = q.requireAuth !== false;
+        const exists = items.has(q.name);
+        if (exists && q.replace !== true) throw helperError("conflict", "duplicate_item");
+        items.set(q.name, { value: q.value, kid: requireAuth ? state.helloKid : null });
+        return { name: q.name, stored: true, requireAuth, replaced: exists };
+      },
+    },
+    {
+      capability: { name: "keychain.retrieve", sideEffect: "read" },
+      run: (p) => {
+        const name = (p as { name: string }).name;
+        const item = items.get(name);
+        if (item === undefined) throw helperError("not_found", "item_not_found");
+        if (item.kid !== null && item.kid !== state.helloKid) throw invalidated();
+        return { name, value: item.value };
+      },
+    },
+    {
+      capability: { name: "keychain.delete_item", sideEffect: "destructive" },
+      run: (p) => {
+        const name = (p as { name: string }).name;
+        if (!items.delete(name)) throw helperError("not_found", "item_not_found");
+        return { deleted: true, name };
+      },
+    },
+    {
+      capability: { name: "keychain.status", sideEffect: "read" },
+      run: () => ({
+        dataProtectionKeychain: "available",
+        probeStatus: null,
+        accessGroup: null,
+        biometry: {
+          available: true,
+          type: "windows_hello",
+          unavailableReason: null,
+          devicePasscode: true,
+        },
+        store: "credential_manager",
+        sealingKey: state.sets > 0 ? "ready" : "not_created",
+      }),
+    },
+  ];
+  return {
+    handlers,
+    state,
+    resetHello: () => {
+      state.helloKid = `kid-${Number(state.helloKid.slice(4)) + 1}`;
+    },
+  };
+}
+
+describe("vault.* through the dispatcher (keychain slot via the Windows helper)", () => {
+  it("uses Credential Manager + Windows Hello like the Mac's Keychain + Touch ID, and recovers after a Hello reset", async () => {
+    const home = mkdtempSync(join(tmpdir(), "psyche-gw-vault-win-"));
+    const db = openDb(join(home, "psyche.db"));
+    let t: TestGateway | undefined;
+    const vault = composeVault(
+      {
+        home,
+        db,
+        permissions: new FakePermissionBroker(),
+        audit: { append: async () => undefined } as never,
+        clock: { now: () => Date.now() },
+        publish: (event, payload) => t?.gateway.bus.publish(event, payload),
+      },
+      { argon2: TEST_ARGON2 },
+    );
+    t = await startTestGateway({
+      home,
+      db,
+      broker: new FakePermissionBroker(),
+      handlers: vault.handlers,
+    });
+    vault.attach(t.gateway.context.nodes);
+    const gw = t;
+    cleanups.push(async () => {
+      await gw.gateway.stop("test");
+      vault.stop();
+      db.close();
+      rmSync(home, { recursive: true, force: true });
+    });
+    expect(vault.slot).toBe("keychain");
+
+    const win = winKeychainHelper();
+    const helper = await FakeNode.connect(gw.gateway.config.nodeSocketPath, {
+      origin: gw.gateway.origin,
+      secret: gw.gateway.handshakeSecret,
+      deviceFamily: "win-helper",
+      handlers: win.handlers,
+    });
+    cleanups.push(() => helper.close());
+    const admin: TestClient = await adminClient(gw.gateway);
+    cleanups.push(() => admin.close());
+
+    // The derived-key slot (search index, memory store) sees the Windows status as available.
+    const derived = new DerivedKeyStore(vault.helper);
+    expect(await derived.unavailableReason()).toBeNull();
+    const first = await derived.getOrCreate("search");
+    expect(first.created).toBe(true);
+
+    const created = await admin.call<{ recoveryKey: string; status: VaultStatus }>(
+      "vault.setup",
+      { slot: "keychain" },
+      ik(),
+    );
+    expect(created.status.state).toBe("unlocked");
+    await admin.call("vault.lock", {}, ik());
+    const unlocked = await admin.call<{ status: VaultStatus }>(
+      "vault.unlock",
+      { reason: "test" },
+      ik(),
+    );
+    expect(unlocked.status.state).toBe("unlocked");
+    expect(win.state.sets).toBe(1);
+
+    // A requireAuth item (system keychain mode) is sealed to Hello.
+    const sealed = new KeychainItemStore({ helper: vault.helper });
+    await sealed.put("login-1", Buffer.from("s3cret"));
+    expect((await sealed.get("login-1", "Fill a password")).toString()).toBe("s3cret");
+
+    // Windows Hello is reset: the vault key and sealed items are gone for good.
+    win.resetHello();
+    await admin.call("vault.lock", {}, ik());
+    const refused = await admin.request("vault.unlock", { reason: "test" }, ik());
+    expect(refused.ok).toBe(false);
+    expect((refused.error as { code?: string } | undefined)?.code).toBe("not_found");
+    await expect(sealed.get("login-1", "Fill a password")).rejects.toMatchObject({
+      code: "not_found",
+      details: { reason: "hello_key_invalidated" },
+    });
+    // Plain (non-Hello) derived keys survive the reset, as on the Mac.
+    expect((await derived.getOrCreate("search")).key.equals(first.key)).toBe(true);
+
+    // The recovery key opens the vault and re-wraps it under the new Hello key.
+    const recovered = await admin.call<{ status: VaultStatus }>(
+      "vault.unlock",
+      { reason: "recover", recoveryKey: created.recoveryKey },
+      ik(),
+    );
+    expect(recovered.status.state).toBe("unlocked");
+    expect(win.state.sets).toBe(2);
+    await admin.call("vault.lock", {}, ik());
+    const again = await admin.call<{ status: VaultStatus }>(
+      "vault.unlock",
+      { reason: "after recovery" },
+      ik(),
+    );
+    expect(again.status.state).toBe("unlocked");
   });
 });
 

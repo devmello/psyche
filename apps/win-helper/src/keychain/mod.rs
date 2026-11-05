@@ -341,19 +341,9 @@ impl KeychainVault {
 
     /// Never prompts and never creates anything.
     pub fn status(&self) -> Value {
-        let (state, probe) = match credman::exists("Psyche/keychain/probe") {
-            Ok(_) => ("available", Value::Null),
-            Err(CredError::Os(code)) => ("error", json!(code)),
-            Err(_) => ("error", Value::Null),
-        };
+        let probe = credman::exists("Psyche/keychain/probe");
         let supported = hello::is_supported();
         let availability = hello::availability();
-        let unavailable_reason = match (supported, availability) {
-            (true, _) => Value::Null,
-            (false, "not_configured") => "not_enrolled".into(),
-            (false, "device_not_present") => "not_available".into(),
-            (false, other) => other.into(),
-        };
         let sealing = match (self.read_wrap(), hello::open(hello::KEYCHAIN_KEY)) {
             (Ok(Some(w)), Ok(Some(k)))
                 if hello::public_key_spki(&k)
@@ -365,20 +355,48 @@ impl KeychainVault {
             (Ok(Some(_)), _) => "invalidated",
             _ => "not_created",
         };
-        json!({
-            "dataProtectionKeychain": state,
-            "probeStatus": probe,
-            "accessGroup": Value::Null,
-            "biometry": {
-                "available": supported,
-                "type": if supported { "windows_hello" } else { "none" },
-                "unavailableReason": unavailable_reason,
-                "devicePasscode": supported,
-            },
-            "store": "credential_manager",
-            "sealingKey": sealing,
-        })
+        status_value(probe, supported, availability, sealing)
     }
+}
+
+/// `keychain.status` in the Mac helper's shape (`KeychainVault.status`), which the Gateway's vault
+/// reads (`packages/vault/src/slots/helper.ts`): `dataProtectionKeychain` is `"available"` when
+/// Credential Manager answers (on the Mac: the data-protection keychain is usable), else `"error"`
+/// with the Win32 status in `probeStatus` (Windows has no entitlement to miss). As on the Mac it
+/// says nothing about the user-presence check: items stored with `requireAuth: false` (the
+/// Gateway's derived keys) work without Windows Hello, and `biometry` tells whether reads that
+/// need it can be answered. `store` and `sealingKey` (`ready` | `invalidated` | `not_created`)
+/// are Windows extras.
+pub fn status_value(
+    probe: Result<bool, CredError>,
+    hello_supported: bool,
+    hello_availability: &str,
+    sealing: &str,
+) -> Value {
+    let (state, probe) = match probe {
+        Ok(_) => ("available", Value::Null),
+        Err(CredError::Os(code)) => ("error", json!(code)),
+        Err(_) => ("error", Value::Null),
+    };
+    let unavailable_reason = match (hello_supported, hello_availability) {
+        (true, _) => Value::Null,
+        (false, "not_configured") => "not_enrolled".into(),
+        (false, "device_not_present") => "not_available".into(),
+        (false, other) => other.into(),
+    };
+    json!({
+        "dataProtectionKeychain": state,
+        "probeStatus": probe,
+        "accessGroup": Value::Null,
+        "biometry": {
+            "available": hello_supported,
+            "type": if hello_supported { "windows_hello" } else { "none" },
+            "unavailableReason": unavailable_reason,
+            "devicePasscode": hello_supported,
+        },
+        "store": "credential_manager",
+        "sealingKey": sealing,
+    })
 }
 
 #[derive(Deserialize)]
@@ -649,6 +667,53 @@ mod tests {
         assert!(validate_reason(Some("two\nlines"), true).is_err());
         assert!(validate_reason(None, true).is_err());
         assert!(validate_reason(None, false).unwrap().is_none());
+    }
+
+    #[test]
+    fn status_matches_what_the_gateway_vault_reads() {
+        // Credential Manager answers: the vault's helper slots may use the keychain
+        // (`helperUnavailable` requires exactly "available").
+        let ok = status_value(Ok(false), true, "available", "ready");
+        assert_eq!(ok["dataProtectionKeychain"], "available");
+        assert_eq!(ok["probeStatus"], Value::Null);
+        assert_eq!(ok["accessGroup"], Value::Null);
+        assert_eq!(ok["biometry"]["available"], true);
+        assert_eq!(ok["biometry"]["type"], "windows_hello");
+        assert_eq!(ok["biometry"]["unavailableReason"], Value::Null);
+        assert_eq!(ok["store"], "credential_manager");
+        assert_eq!(ok["sealingKey"], "ready");
+        let fresh = status_value(Ok(true), true, "available", "not_created");
+        assert_eq!(fresh["dataProtectionKeychain"], "available");
+
+        // No Windows Hello: plain items still work, so the keychain stays available (as the
+        // Mac's does without Touch ID); biometry says why sealed reads cannot be answered.
+        let no_hello = status_value(Ok(false), false, "not_configured", "not_created");
+        assert_eq!(no_hello["dataProtectionKeychain"], "available");
+        assert_eq!(no_hello["biometry"]["available"], false);
+        assert_eq!(no_hello["biometry"]["type"], "none");
+        assert_eq!(no_hello["biometry"]["unavailableReason"], "not_enrolled");
+        let absent = status_value(Ok(false), false, "device_not_present", "not_created");
+        assert_eq!(absent["biometry"]["unavailableReason"], "not_available");
+        let policy = status_value(Ok(false), false, "disabled_by_policy", "invalidated");
+        assert_eq!(policy["biometry"]["unavailableReason"], "disabled_by_policy");
+        assert_eq!(policy["sealingKey"], "invalidated");
+
+        // Credential Manager fails: never "available"; the Win32 status travels.
+        let broken = status_value(Err(CredError::Os(0x8007_0005)), true, "available", "ready");
+        assert_eq!(broken["dataProtectionKeychain"], "error");
+        assert_eq!(broken["probeStatus"], 0x8007_0005_u32);
+        let malformed = status_value(Err(CredError::Malformed), true, "available", "ready");
+        assert_eq!(malformed["dataProtectionKeychain"], "error");
+    }
+
+    #[test]
+    fn a_reset_hello_key_is_the_reason_the_vault_recovers_from() {
+        // `packages/vault` (`helperKeyInvalidated`) maps exactly this to "the key is gone".
+        for e in [invalidated(), seal_error(SealError::WrongKey, "vault key")] {
+            let w = e.wire();
+            assert_eq!(w.code, "unavailable");
+            assert_eq!(w.details.unwrap()["reason"], "hello_key_invalidated");
+        }
     }
 
     #[test]
