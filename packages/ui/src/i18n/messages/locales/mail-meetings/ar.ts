@@ -155,10 +155,10 @@ export const mailMeetings: Partial<Catalogue> = {
   "onboarding.mail.notesHint":
     "لا يفعل شيئًا حتى تضيف صوتًا. لا يُرفع الصوت ولا النصوص المفرّغة ولا تُستخدم للتدريب أبدًا.",
   "onboarding.mail.summary":
-    "{n, plural, =0 {لا شيء مفعّل} one {عنصر واحد مفعّل} two {عنصران مفعّلان} few {# عناصر مفعّلة} many {# عنصرًا مفعّلًا} other {# عنصر مفعّل}}",
+    "{n, plural, =0 {لا شيء مفعّل} one {عنصر واحد مفعّل} two {عنصران مفعّلان} few {# عناصر مفعّلة} many {# عنصرًا مفعّلًا} other {# عنصر مفعّل} zero {لا شيء مفعّل}}",
   "onboarding.mail.done": "البريد والاجتماعات",
   "onboarding.mail.doneOff": "متوقف. يمكنك تفعيله من الإعدادات.",
   "onboarding.mail.doneOn":
-    "{n, plural, one {مهمة واحدة مفعّلة} two {مهمتان مفعّلتان} few {# مهام مفعّلة} many {# مهمة مفعّلة} other {# مهمة مفعّلة}}",
+    "{n, plural, one {مهمة واحدة مفعّلة} two {مهمتان مفعّلتان} few {# مهام مفعّلة} many {# مهمة مفعّلة} other {# مهمة مفعّلة} zero {# مهمة مفعّلة}}",
   "settings.mail.schedule.link.placeholder": "https://",
 };
