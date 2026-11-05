@@ -32,6 +32,7 @@ import { onboardingRest } from "./onboarding-rest/it.ts";
 import { overview } from "./overview/it.ts";
 import { overviewGrowth } from "./overview-growth/it.ts";
 import { overviewShared } from "./overview-shared/it.ts";
+import { passwordPresence } from "./password-presence/it.ts";
 import { peopleRest } from "./people-rest/it.ts";
 import { personDataRest } from "./person-data-rest/it.ts";
 import { researchRest } from "./research-rest/it.ts";
@@ -3314,6 +3315,8 @@ export const it: Partial<Catalogue> = {
   "specialists.card.fromAutomation": "Dalla tua automazione {name}",
   // signed connector bundles and teach-by-showing in Mac apps
   ...final202611,
+  // password approvals on Linux (polkit)
+  ...passwordPresence,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
   // Settings > Computer use > Separate desktop (Linux)

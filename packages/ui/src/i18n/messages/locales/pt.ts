@@ -15,6 +15,7 @@ import { memoryB } from "./memory-b/pt.ts";
 import { overview } from "./overview/pt.ts";
 import { overviewGrowth } from "./overview-growth/pt.ts";
 import { overviewShared } from "./overview-shared/pt.ts";
+import { passwordPresence } from "./password-presence/pt.ts";
 import { scheduledA } from "./scheduled-a/pt.ts";
 import { securityState } from "./security-state/pt.ts";
 import { separateDesktop } from "./separate-desktop/pt.ts";
@@ -3257,6 +3258,8 @@ export const pt: Partial<Catalogue> = {
   "specialists.card.fromAutomation": "Da sua automação {name}",
   // signed connector bundles and teach-by-showing in Mac apps
   ...final202611,
+  // password approvals on Linux (polkit)
+  ...passwordPresence,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
   // Settings > Computer use > Separate desktop (Linux)

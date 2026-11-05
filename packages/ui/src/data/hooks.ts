@@ -794,7 +794,12 @@ export async function answerApproval(
     const { [approvalId]: _used, ...answerTokens } = s.answerTokens;
     return { ...put(s, "approvals", r.approval), answerTokens };
   };
-  const touchId = store.client.approveWithTouchId?.bind(store.client);
+  // The window's own presence: Touch ID through the helper (macOS, Windows) or the owner's
+  // password in the system dialog (Linux). A host offers one of them.
+  const byPassword = store.client.approveWithPassword !== undefined;
+  const touchId = byPassword
+    ? store.client.approveWithPassword?.bind(store.client)
+    : store.client.approveWithTouchId?.bind(store.client);
   if (
     decision === "approve" &&
     approval?.requiresAuthentication &&
@@ -803,7 +808,11 @@ export async function answerApproval(
   ) {
     // Once, and never UNSANDBOXED: neither is in the challenge the helper signs (security §3.7).
     if (extras?.unsandboxed !== undefined) {
-      throw new Error(t("blocks.approval.touchId.noUnsandboxed"));
+      throw new Error(
+        byPassword
+          ? t("blocks.approval.password.noUnsandboxed")
+          : t("blocks.approval.touchId.noUnsandboxed"),
+      );
     }
     return store.mutate({
       run: () => touchId({ approvalId, answerToken: token }),

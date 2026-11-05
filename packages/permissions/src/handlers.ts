@@ -113,6 +113,18 @@ export function createPermissionHandlers(
       const raw = (typeof p === "object" && p !== null ? p : {}) as Record<string, unknown>;
       const { presence, typedConfirmation, ...wire } = raw;
       const params = check(Methods["approvals.answer"].params, wire);
+      // `password` presence is created by the Gateway after its own polkit check, never by a
+      // client (linux design §9.6): a client that sends one is refused, audited and counted.
+      if ((presence as { kind?: unknown } | undefined)?.kind === "password") {
+        await broker.rejectPresence({
+          approvalId: params.approvalId,
+          decidedBy: { deviceId: c.deviceId, surface: c.surface },
+          reason: "password_from_client",
+          code: "forbidden",
+          message: "a password assertion cannot come from a client",
+          details: { reason: "presence_invalid" },
+        });
+      }
       const approval = await broker.answer({
         ...params,
         decidedBy: { deviceId: c.deviceId, surface: c.surface },

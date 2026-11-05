@@ -287,6 +287,11 @@ const bridge = {
     touchIdApprove: (p: { approvalId: string; answerToken: string }) =>
       ipcRenderer.invoke(IPC.touchIdApprove, p) as Promise<Envelope>,
   },
+  /** Linux: approve a card with the owner's password in the system's polkit dialog (main checks the window). */
+  password: {
+    approve: (p: { approvalId: string; answerToken: string }) =>
+      ipcRenderer.invoke(IPC.passwordApprove, p) as Promise<Envelope>,
+  },
   /** Windows: the sandbox PC's one-time setup (elevated service install + guest image download). */
   sandboxPc: {
     getState: () => invoke(IPC.sandboxPcGetState),

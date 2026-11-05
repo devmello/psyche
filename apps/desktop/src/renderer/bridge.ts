@@ -133,6 +133,9 @@ export function remoteClientPlatform(full: ShellPlatform, b?: PsycheBridge): She
     terminal: _terminal,
     sources: _sources,
     permissions: _permissions,
+    // The password dialog is on this computer, not on the Host's: a remote window must not
+    // promise "type your password in the system dialog".
+    password: _password,
     ...rest
   } = full;
   const { showLogs: _showLogs, ...gateway } = full.gateway;
@@ -244,13 +247,30 @@ function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
       getState: () => b.helper.getState() as Promise<MacHelperState>,
       onState: (cb) => b.helper.onState((s) => cb(s as MacHelperState)),
       launch: (restart) => b.helper.launch(restart) as Promise<MacHelperState>,
-      touchId: {
-        identity: () => b.helper.touchIdIdentity() as Promise<BundledHelperIdentity | null>,
-        register: (confirmReplacesKeyId) =>
-          unwrapCall(b.helper.touchIdRegister(confirmReplacesKeyId)),
-        approve: (p) => unwrapCall(b.helper.touchIdApprove(p)),
-      },
+      // Not on Linux: there the helper has no Touch ID, and offering it would send Allow to
+      // `approveWithTouchId` (helper_offline) instead of the password path.
+      ...(b.platform === "linux"
+        ? {}
+        : {
+            touchId: {
+              identity: () => b.helper.touchIdIdentity() as Promise<BundledHelperIdentity | null>,
+              register: (confirmReplacesKeyId?: string) =>
+                unwrapCall(b.helper.touchIdRegister(confirmReplacesKeyId)),
+              approve: (p: { approvalId: string; answerToken: string }) =>
+                unwrapCall(b.helper.touchIdApprove(p)),
+            },
+          }),
     },
+    // Linux only: Allow on a card that needs presence asks the Gateway to run the polkit check;
+    // the owner types the password into the system's own dialog (linux design §9).
+    ...(b.platform === "linux"
+      ? {
+          password: {
+            approve: (p: { approvalId: string; answerToken: string }) =>
+              unwrapCall(b.password.approve(p)),
+          },
+        }
+      : {}),
     // Windows only: the sandbox PC's one-time setup. Elsewhere main answers "unsupported".
     ...(b.platform === "win32"
       ? {
