@@ -1,0 +1,230 @@
+import type { Catalogue } from "../../index.ts";
+
+/** settings-a strings (es); merged into `../es.ts`. */
+export const settingsA: Partial<Catalogue> = {
+  "settings.page.daily.description":
+    "Tu resumen y cierre del día, automatizaciones, habilidades y los especialistas a los que {persona} puede llamar.",
+  "settings.page.permissions.description":
+    "Lo que {persona} puede hacer en este Mac sin preguntar, y dónde se detiene siempre a preguntarte.",
+  "settings.page.data.description":
+    "Lo que se queda en este Mac, cuánto tiempo se conserva, exportaciones, copias de seguridad y empezar de cero.",
+  "settings.page.devices.description":
+    "Tus otros dispositivos, el servidor Gateway y cómo contactar con {persona} cuando estás fuera.",
+  "settings.page.about.description": "Versiones, comprobaciones de estado y registros.",
+  "settings.essentials.title": "Esenciales",
+  "settings.essentials.description":
+    "Las pocas decisiones que toma la mayoría, cada una con un valor seguro por defecto. {persona} pregunta cuando necesita más.",
+  "settings.essentials.more": "Más",
+  "settings.essentials.moreIn": "Más en {place}",
+  "settings.essentials.model.title": "Modelo",
+  "settings.essentials.model.thinksWith": "{persona} piensa con",
+  "settings.essentials.model.ready": "Listo",
+  "settings.essentials.model.noKey": "Necesita una clave",
+  "settings.essentials.model.none": "Aún no hay modelo",
+  "settings.essentials.model.noneHint":
+    "{persona} necesita un modelo para poder responder. Añade una clave o usa un modelo de este Mac.",
+  "settings.essentials.model.setUp": "Configurar un modelo",
+  "settings.essentials.read.title": "Qué puede leer {persona}",
+  "settings.essentials.read.hint":
+    "Desactivado hasta que actives alguno. Lo que lee se indexa en este Mac para poder encontrar cosas por ti, y la memoria también aprende de ello salvo que lo excluyas en Memoria → Fuentes.",
+  "settings.essentials.asks.title": "Con qué frecuencia {persona} pregunta antes",
+  "settings.essentials.interrupt.title": "Cuándo puede {persona} interrumpirte",
+  "settings.essentials.interrupt.quietHint":
+    "De {from} a {until}, las notificaciones esperan en la bandeja.",
+  "settings.essentials.interrupt.briefHint": "Un resumen breve en el Feed a las {time}.",
+  "settings.essentials.memory.title": "Memoria",
+  "settings.essentials.memory.remember": "Dejar que {persona} recuerde nuestros chats",
+  "settings.essentials.memory.rememberHint":
+    "Desactivado pausa la memoria: no se recuerda ni indexa nada nuevo de los chats hasta que lo vuelvas a activar.",
+  "settings.essentials.rest":
+    "Todo lo demás, y un control más fino de cada uno de estos ajustes, está en las páginas de abajo. Buscar en los ajustes encuentra cualquiera.",
+  "settings.searchModel.title": "Modelo para la búsqueda",
+  "settings.searchModel.description":
+    "Qué modelo lee las preguntas, escribe las tarjetas de contexto y reordena los resultados.",
+  "settings.searchModel.utility": "Tu modelo auxiliar",
+  "settings.searchModel.utilityHint":
+    "El modelo pequeño definido en Modelos. Si es un modelo en la nube, el texto que lee va a ese proveedor.",
+  "settings.searchModel.apple":
+    "Usar el modelo en el dispositivo de Apple para las tareas de búsqueda privadas",
+  "settings.searchModel.appleName": "Modelo en el dispositivo de Apple",
+  "settings.searchModel.appleHint":
+    "El texto se queda en este Mac: nada que descargar, sin clave, nada se envía a la nube. Lee unos {k}k tokens a la vez, así que el texto largo se omite. Si no puede responder, esa tarea se omite. Nunca recurre a un modelo en la nube.",
+  "settings.searchModel.apple.why.off":
+    "Apple Intelligence está desactivado. Actívalo en Ajustes del Sistema, en Apple Intelligence y Siri.",
+  "settings.searchModel.apple.why.os": "Este Mac necesita macOS 26 o posterior.",
+  "settings.searchModel.apple.why.device": "Este Mac o esta región no admite Apple Intelligence.",
+  "settings.searchModel.apple.why.notReady":
+    "Apple aún está preparando el modelo. Inténtalo de nuevo dentro de un rato.",
+  "settings.searchModel.apple.why.unknown": "El modelo no está disponible ahora mismo.",
+  "settings.searchModel.apple.whySkipped": "Hasta entonces, esas tareas se omiten.",
+  "settings.searchModel.apple.host":
+    "Este es un ajuste de {host}. El modelo se ejecuta en {host}, no en este ordenador, y el cambio se aplica a todas las ventanas.",
+  "settings.searchModel.apple.ready": "Listo en este Mac",
+  "settings.searchModel.apple.needsAi": "Necesita Apple Intelligence",
+  "settings.searchModel.apple.notReady": "Preparándose",
+  "settings.searchModel.apple.notOnThisMac": "No disponible en este Mac",
+  "settings.searchModel.apple.unavailable": "No disponible ahora mismo",
+  "settings.search.advancedHint": "Qué modelo lee tus preguntas",
+  "settings.search.description":
+    "Lo que Psyche indexa para poder encontrar cosas por ti, y qué motor usa en la web.",
+  "settings.nav.specialists": "Especialistas",
+  "settings.nav.notifications": "Notificaciones",
+  "settings.nav.people": "Personas y privacidad",
+  "settings.key.appearance.showInDock": "Mostrar en el Dock cuando no hay ventanas abiertas",
+  "settings.key.appearance.openAtLogin": "Abrir Psyche al iniciar sesión",
+  "settings.key.browser.useSignedInSessions": "Usar mis sesiones iniciadas",
+  "settings.key.exec.srtPath": "Ubicación de srt",
+  "settings.key.search.model.engine": "Modelo para la búsqueda",
+  "settings.key.search.semantic.enabled": "Búsqueda semántica (en el dispositivo)",
+  "settings.key.search.cards.enabled": "Tarjetas de contexto para la búsqueda",
+  "settings.semanticSearch.cardsHint":
+    "Un modelo pequeño en la nube escribe un resumen breve de cada elemento guardado. Limitado a unos 200 000 tokens al día.",
+  "settings.key.search.encrypt": "Cifrar el índice de búsqueda",
+  "settings.semanticSearch.encryptHint":
+    "Mantiene el índice de búsqueda ilegible sin una clave guardada por separado. Se aplica en el siguiente inicio y reconstruye el índice una vez.",
+  "settings.semanticSearch.encrypt.on": "Índice cifrado",
+  "settings.semanticSearch.encrypt.pending":
+    "Esperando a que el ayudante del Mac abra el índice cifrado",
+  "settings.semanticSearch.encrypt.unavailable": "Sin cifrar: {why}",
+  "settings.key.search.rerank.enabled":
+    "Reordenar los mejores resultados con un modelo pequeño en la nube",
+  "settings.semanticSearch.rerankHint":
+    "Un modelo pequeño en la nube pone los mejores resultados primero. Los 20 fragmentos principales salen de este Mac. Desactivado por defecto.",
+  "settings.key.search.runOnBattery": "Indexar con batería",
+  "settings.key.search.queryModel.enabled": "Leer las preguntas con un modelo pequeño",
+  "settings.semanticSearch.queryModelHint":
+    "Un modelo pequeño en la nube deduce los filtros de tiempo, persona y fuente. Solo se envía la pregunta, nunca tus elementos.",
+  "settings.key.search.semantic.engine": "Motor de embeddings",
+  "settings.key.search.semantic.allowCloud": "Permitir un servicio de embeddings en la nube",
+  "settings.key.memory.recall.mode": "Cómo se recupera la memoria",
+  "settings.key.widgets.remoteImages": "Imágenes remotas en los widgets",
+  "settings.key.ui.map.tiles": "Teselas del mapa",
+  "settings.key.ui.map.styleUrl": "URL del estilo del mapa",
+  "settings.key.ui.map.styleUrlDark": "URL del estilo del mapa (oscuro)",
+  "settings.key.teaching.enabled": "Aprender de tus comentarios",
+  "settings.key.teaching.implicit": "Fijarse en ediciones, deshacer y descartes",
+  "settings.key.teaching.paused": "Pausar el aprendizaje",
+  "settings.key.teaching.weeklyCard": "Tarjeta semanal «Lo que aprendí»",
+  "settings.key.memory.graph": "Personas y proyectos",
+  "settings.key.memory.everything": "Memoria en segundo plano",
+  "settings.key.agent.showReasoning": "Mostrar el razonamiento mientras trabaja",
+  "settings.key.data.reasoningRetentionDays": "Conservar el razonamiento durante",
+  "settings.key.notifications.quietHours.enabled": "Horas de silencio",
+  "settings.key.notifications.quietHours.start": "Silencio desde",
+  "settings.key.notifications.quietHours.end": "Silencio hasta",
+  "settings.notifications.title": "Notificaciones",
+  "settings.notifications.description": "Cuándo puede interrumpirte Psyche.",
+  "settings.notifications.group.quietHours": "Horas de silencio",
+  "settings.notifications.quietHours.hint":
+    "Retiene las notificaciones hasta que termine el horario. Las aprobaciones urgentes siguen llegando.",
+  "settings.key.ui.onboarding.progress": "Progreso de la introducción",
+  "settings.key.permissions.liftedFloors": "Acciones permitidas sin preguntar para {id}",
+  "settings.key.specialists.maxConcurrent": "Especialistas a la vez",
+  "settings.key.specialists.monthlyCapUsd": "Gasto mensual en especialistas",
+  "settings.key.specialists.showInFeed": "Mostrar los resultados de los especialistas en el Feed",
+  "settings.key.specialists.enabled": "{role} activado",
+  "settings.key.specialists.model": "Modelo de {role}",
+  "settings.key.specialists.budget": "Presupuesto de {role}",
+  "settings.key.specialists.maxMode": "Modo de permisos de {role}",
+  "settings.credentials.payments.description":
+    "Una tarjeta de un solo uso, después de que apruebes cada compra. Los números de tarjeta nunca llegan a Psyche.",
+  "settings.approval.presenceUnavailable":
+    "Esta ventana no puede confirmar que eres tú. Aprueba el cambio en la app Psyche de tu Mac (Touch ID) o desde un dispositivo con llave de acceso. No cambia nada hasta entonces.",
+  "settings.doctor.gateway": "Gateway",
+  "settings.doctor.gatewayOk": "Responde.",
+  "settings.doctor.model": "Modelo",
+  "settings.doctor.noModel": "Aún no hay ningún modelo elegido. Añade uno en Ajustes → Modelos.",
+  "settings.doctor.sandbox": "Entorno aislado",
+  "settings.doctor.noSandbox":
+    "No hay ningún entorno aislado disponible, así que los comandos siguen bloqueados.",
+  "settings.doctor.memory": "Memoria",
+  "settings.doctor.memoryPaused": "La memoria está en pausa: no se recuerda nada nuevo.",
+  "settings.doctor.memoryOk": "{files, plural, one {# archivo} other {# archivos}} en la memoria.",
+  "settings.appearance.description": "Se aplica a todos los dispositivos que has vinculado.",
+  "settings.appearance.colors": "Colores",
+  "settings.appearance.colorsHint": "Claro u oscuro, y tu color de acento.",
+  "settings.appearance.comfort": "Comodidad",
+  "settings.appearance.comfortHint": "Más suave para la vista y con menos movimiento.",
+  "settings.appearance.backgroundHint": "Si Psyche sigue ejecutándose cuando cierras la ventana.",
+  "settings.appearance.advancedHint":
+    "Tono de gris, color personalizado, dirección del texto, comprobación de contraste",
+  "settings.appearance.fineTune": "Ajuste fino de los colores",
+  "settings.appearance.fineTuneHint": "Para quien quiere un aspecto exacto.",
+  "settings.appearance.contrastCheck": "Comprobación de contraste",
+  "settings.appearance.contrastCheckHint": "Lo legible que es cada tema, paso a paso.",
+  "settings.appearance.background": "Segundo plano",
+  "settings.appearance.showInDockHint":
+    "Desactivado, Psyche sigue ejecutándose desde la barra de menús cuando se cierra su última ventana.",
+  "settings.appearance.openAtLoginHint":
+    "Inicia Psyche en la barra de menús cuando inicias sesión, para que las automatizaciones programadas siempre puedan ejecutarse.",
+  "settings.appearance.glass.hint":
+    "Deja que el contenido se transparente a través de menús, ventanas emergentes y el área de escritura.",
+  "settings.browser.description":
+    "{persona} navega en su propia ventana. El modo Chrome real usa un perfil aparte en el que inicias sesión una vez.",
+  "settings.browser.signedIn.title": "Sitios con sesión iniciada",
+  "settings.browser.signedIn.description":
+    "Sitios en los que has iniciado sesión en el navegador de Psyche. Las tareas reutilizan estos inicios de sesión.",
+  "settings.browser.signedIn.auto": "encontrado automáticamente",
+  "settings.browser.useSignedIn.title": "Sesiones iniciadas",
+  "settings.browser.useSignedIn.description":
+    "{persona} sigue usando tu sesión en el mismo sitio. Escribir, comprar y enviar siguen preguntándote primero.",
+  "settings.browser.useSignedIn.label": "Dejar que Psyche use mis sesiones iniciadas",
+  "settings.browser.useSignedIn.hint":
+    "Activado por defecto. Desactivado abre cada sitio sin sesión, salvo los que elegiste mantener con sesión.",
+  "settings.browser.signedIn.none": "Aún no hay sitios con sesión iniciada.",
+  "settings.browser.signedIn.viaHosts": "También con sesión iniciada mediante {hosts}",
+  "settings.browser.signedIn.forget": "Cerrar sesión / olvidar",
+  "settings.browser.signedIn.loadFailed":
+    "Psyche no pudo listar los sitios con sesión iniciada ({reason}).",
+  "settings.browser.signedIn.forgetFailed": "Psyche no pudo cerrar la sesión de {site} ({reason}).",
+  "settings.computerUse.appsHint": "Hasta dónde puede llegar Psyche en cada app.",
+  "settings.connectors.catalog.appleShortcuts": "Atajos",
+  "settings.connectors.catalog.obsidian": "Obsidian",
+  "settings.connectors.trust.verified": "verificado",
+  "settings.connectors.filter.label": "Mostrar",
+  "settings.connectors.filter.all": "Todos",
+  "settings.connectors.filter.apps": "Apps",
+  "settings.connectors.filter.mcp": "Servidores MCP",
+  "settings.connectors.configureFailed": "Psyche no pudo guardar los ajustes de {name}: {reason}",
+  "settings.shortcuts.title": "Tus atajos",
+  "settings.shortcuts.loading": "Leyendo tus atajos de este Mac…",
+  "settings.shortcuts.none": "Aún no hay atajos en la app Atajos.",
+  "settings.shortcuts.noHelper": "Abre Psyche en tu Mac para ver tus atajos: el ayudante los lee.",
+  "settings.shortcuts.failed": "Psyche no pudo leer tus atajos.",
+  "settings.shortcuts.hint":
+    "Desactivado: nunca se ejecuta. Preguntar: una tarjeta cada vez. Permitir: se ejecuta sin preguntar, solo los atajos que únicamente leen.",
+  "settings.shortcuts.rule.off": "Desactivado",
+  "settings.shortcuts.rule.ask": "Preguntar",
+  "settings.shortcuts.rule.allow": "Permitir",
+  "settings.shortcuts.actions": "Acciones de Psyche",
+  "settings.shortcuts.install": "Instalar",
+  "settings.shortcuts.installNamed": "Instalar {name}",
+  "settings.shortcuts.installed": "Instalado",
+  "settings.trusted.title.reminders": "Tus listas de Recordatorios",
+  "settings.trusted.title.notes": "Tus carpetas de Notas",
+  "settings.trusted.title.calendar": "Tus calendarios",
+  "settings.trusted.none.reminders": "Aún no hay listas de Recordatorios.",
+  "settings.trusted.none.notes": "Aún no hay carpetas en Notas.",
+  "settings.trusted.none.calendar": "Aún no hay calendarios.",
+  "settings.trusted.loading": "Leyéndolos de este Mac…",
+  "settings.trusted.noHelper": "Abre Psyche en tu Mac para verlos: el ayudante los lee.",
+  "settings.trusted.failed": "Psyche no pudo leerlos de este Mac.",
+  "settings.trusted.toggle": "Mía: tratar como de confianza",
+  "settings.trusted.shared": "Compartida",
+  "settings.trusted.hint":
+    "Leer de ella no hará que el chat vuelva a preguntar. Actívalo solo en listas que nadie más pueda editar.",
+  "settings.obsidian.vault": "Carpeta de la bóveda",
+  "settings.obsidian.newVault": "Carpeta de la nueva bóveda",
+  "settings.obsidian.noVault": "No se ha elegido ninguna bóveda",
+  "settings.obsidian.vaultHint":
+    "Psyche lee la bóveda a través de una carpeta compartida (Ajustes → Permisos → Acceso): compártela y luego úsala.",
+  "settings.obsidian.share": "Compartir esta carpeta",
+  "settings.obsidian.shared": "Compartida",
+  "settings.obsidian.useVault": "Usar esta bóveda",
+  "settings.obsidian.change": "Cambiar de bóveda…",
+  "settings.obsidian.daily": "Carpeta de notas diarias",
+  "settings.obsidian.dailyPlaceholder": "De los ajustes de notas diarias de Obsidian",
+  "settings.connectors.can.title": "Qué puede hacer {persona}",
+  "settings.connectors.can.label": "Qué puede hacer {persona} con {name}",
+  "settings.connectors.can.alwaysAsks": "Pregunta siempre antes",
+};

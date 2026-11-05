@@ -33,7 +33,8 @@ export const canvas: Partial<Catalogue> = {
   "map.showMap": "عرض الخريطة",
   "map.showList": "عرض القائمة",
   "map.card": "خريطة: {title}",
-  "map.meta": "{count, plural, one {# مكان} other {# أماكن}} · {date}",
+  "map.meta":
+    "{count, plural, zero {لا أماكن} one {مكان واحد} two {مكانان} few {# أماكن} many {# مكانًا} other {# مكان}} · {date}",
   "map.openCanvas": "فتح في اللوحة",
   "map.invalid": "تعذّرت قراءة هذه الخريطة.",
   "map.gesture.windows": "استخدم Ctrl مع التمرير لتكبير الخريطة",

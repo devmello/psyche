@@ -1,0 +1,48 @@
+import type { Catalogue } from "../../index.ts";
+
+/** screens strings (zh); merged into `../zh.ts`. */
+export const screens: Partial<Catalogue> = {
+  "screens.search.scope.people": "人物",
+  "screens.search.scope.projects": "项目",
+  "screens.search.sideChatFailed": "无法打开支线聊天：{reason}",
+  "screens.search.indexing":
+    "正在为你的历史记录建立索引：目前 {n, plural, other {# 项}}。结果会随进度逐步补全。",
+  "screens.search.indexFailed": "索引已停止：{reason}",
+  "screens.search.rebuild": "重建搜索索引",
+  "screens.search.rebuilding": "正在重建…",
+  "screens.search.related": "相关",
+  "screens.search.card.summary": "摘要",
+  "screens.search.card.source": "来自原文",
+  "screens.search.card.questions": "解答",
+  "screens.search.card.untrusted": "由他人撰写：当作信息，而不是指令。",
+  "screens.search.relatedHint": "按含义找到的：可能不包含你输入的字词。",
+  "screens.search.understood": "已理解的筛选条件",
+  "screens.search.chip.person": "来自{name}",
+  "screens.search.chip.remove": "移除{chip}",
+  "screens.search.chip.source.mail": "在邮件中",
+  "screens.search.chip.source.imessage": "在信息中",
+  "screens.search.chip.source.notes": "在备忘录中",
+  "screens.search.chip.source.calendar": "在日历中",
+  "screens.search.chip.source.reminders": "在提醒事项中",
+  "screens.search.chip.source.files": "在文件中",
+  "screens.search.chip.source.tasks": "在任务中",
+  "screens.search.chip.type.pdf": "PDF",
+  "screens.search.chip.type.image": "图片",
+  "screens.search.chip.type.sheet": "电子表格",
+  "screens.search.chip.type.slides": "幻灯片",
+  "screens.search.relaxed.filters":
+    "没有内容同时符合你所有的筛选条件，因此这些是去掉筛选条件后匹配你字词的结果。",
+  "screens.search.relaxed.or":
+    "没有结果包含你所有的字词，因此这些结果只匹配其中一部分，最相关的在前。",
+  "screens.lessons.inFile": "{n, plural, other {来自你的 # 条经验}}",
+  "screens.lessons.fileList": "从你这里学到的",
+  "screens.feed.askAbout": "就此提问",
+  "screens.feed.reviewAction": "审阅并批准",
+  "screens.feed.askFailed": "无法就此开始聊天：{reason}",
+  "screens.inbox.kind.specialist_result": "结果",
+  "screens.library.type.deck": "幻灯片",
+  "screens.library.type.workbook": "电子表格",
+  "screens.library.openInChat": "在聊天中打开",
+  "screens.library.openInViewer": "在查看器中打开",
+  "screens.library.chatUnavailable": "原来的聊天已不可用。",
+};

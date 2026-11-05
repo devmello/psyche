@@ -1,11 +1,39 @@
 import type { Catalogue } from "../index.ts";
+import { agentRest } from "./agent-rest/de.ts";
+import { auditRest } from "./audit-rest/de.ts";
+import { blocksRest } from "./blocks-rest/de.ts";
 import { canvas } from "./canvas/de.ts";
+import { capabilitiesRest } from "./capabilities-rest/de.ts";
 import { charts } from "./charts/de.ts";
+import { chatRest } from "./chat-rest/de.ts";
+import { dailyRest } from "./daily-rest/de.ts";
+import { deckRest } from "./deck-rest/de.ts";
+import { designRest } from "./design-rest/de.ts";
+import { everythingRest } from "./everything-rest/de.ts";
+import { galleryRest } from "./gallery-rest/de.ts";
+import { homeRest } from "./home-rest/de.ts";
 import { links } from "./links/de.ts";
 import { mailMeetings } from "./mail-meetings/de.ts";
+import { memoryRest } from "./memory-rest/de.ts";
+import { memoryReviewRest } from "./memoryReview-rest/de.ts";
+import { memorySurfacesRest } from "./memorySurfaces-rest/de.ts";
+import { memoryWorkRest } from "./memoryWork-rest/de.ts";
+import { miscRest } from "./misc-rest/de.ts";
+import { nudgesRest } from "./nudges-rest/de.ts";
+import { onboardingRest } from "./onboarding-rest/de.ts";
 import { overview } from "./overview/de.ts";
 import { overviewGrowth } from "./overview-growth/de.ts";
 import { overviewShared } from "./overview-shared/de.ts";
+import { peopleRest } from "./people-rest/de.ts";
+import { researchRest } from "./research-rest/de.ts";
+import { scheduledRest } from "./scheduled-rest/de.ts";
+import { screensRest } from "./screens-rest/de.ts";
+import { settingsRest } from "./settings-rest/de.ts";
+import { shellRest } from "./shell-rest/de.ts";
+import { specialistsRest } from "./specialists-rest/de.ts";
+import { webRest } from "./web-rest/de.ts";
+import { widgetsRest } from "./widgets-rest/de.ts";
+import { workRest } from "./work-rest/de.ts";
 import { workflows } from "./workflows/de.ts";
 
 /** German catalogue (de). Same ids as `en`; missing ids fall back to English. */
@@ -26,6 +54,34 @@ export const de: Partial<Catalogue> = {
   ...canvas,
   // overview chart primitives (docs/design/agent-overview-2026.md §5.7)
   ...charts,
+  ...settingsRest,
+  ...chatRest,
+  ...blocksRest,
+  ...deckRest,
+  ...agentRest,
+  ...auditRest,
+  ...dailyRest,
+  ...nudgesRest,
+  ...shellRest,
+  ...galleryRest,
+  ...onboardingRest,
+  ...capabilitiesRest,
+  ...memoryReviewRest,
+  ...peopleRest,
+  ...screensRest,
+  ...everythingRest,
+  ...memoryRest,
+  ...memoryWorkRest,
+  ...memorySurfacesRest,
+  ...workRest,
+  ...specialistsRest,
+  ...webRest,
+  ...designRest,
+  ...homeRest,
+  ...researchRest,
+  ...scheduledRest,
+  ...widgetsRest,
+  ...miscRest,
   // common
   "common.cancel": "Abbrechen",
   "common.close": "Schließen",

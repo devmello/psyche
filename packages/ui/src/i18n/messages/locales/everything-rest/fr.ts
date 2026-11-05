@@ -1,0 +1,178 @@
+import type { Catalogue } from "../../index.ts";
+
+/** Completed everything strings (fr); merged into `../fr.ts`. */
+export const everythingRest: Partial<Catalogue> = {
+  "everything.title": "Sources",
+  "everything.description":
+    "Ce que {persona} lit pendant la nuit pour repérer ce qui mérite d’être retenu.",
+  "everything.loadLabel": "mémoire « Tout »",
+  "everything.enabledGroup": "Lecture nocturne",
+  "everything.turnOn": "Configurer…",
+  "everything.model.title": "Modèle",
+  "everything.model.none": "Aucun",
+  "everything.model.noneHint":
+    "Seuls les personnes, les événements du calendrier et les anniversaires sont lus, car ils n’exigent aucun modèle.",
+  "everything.model.cloud": "Cloud",
+  "everything.model.cloudHint":
+    "Le texte des sources que vous activez est envoyé la nuit à votre fournisseur de modèle, pour cela et rien d’autre. Meilleure qualité.",
+  "everything.model.local": "Local",
+  "everything.model.localHint":
+    "Un modèle sur ce Mac lit tout. Rien ne quitte le Mac. Moins de faits, plus bruités.",
+  "everything.model.apple": "Modèle Apple sur l’appareil (expérimental)",
+  "everything.model.appleHint":
+    "Le texte reste sur ce Mac : rien à télécharger, aucune clé, rien n’est envoyé dans le cloud. Il lit environ 4k jetons à la fois, les éléments longs sont donc ignorés. S’il ne peut pas répondre, le lot est ignoré et la raison est consignée. Il ne bascule jamais vers un modèle cloud.",
+  "everything.model.appleExperimental":
+    "Expérimental. Il n’a pas encore été vérifié que cette fenêtre suffit pour lire une source ; il n’est donc pas recommandé.",
+  "everything.model.appleSkipped": "D’ici là, cette source est ignorée.",
+  "everything.model.localRef": "Modèle local",
+  "everything.model.localRefHint": "fournisseur/modèle, par exemple ollama/qwen3:4b",
+  "everything.model.cloudRef": "Modèle cloud",
+  "everything.model.cloudRefHint": "Laissez vide pour utiliser votre modèle utilitaire.",
+  "everything.model.cloudNote":
+    "Avec Cloud, le fournisseur voit le texte de chaque élément lu, quels que soient les réglages des sujets sensibles. Seul Local l’évite.",
+  "everything.local.title": "Un modèle local a besoin de mémoire vive",
+  "everything.local.body":
+    "Environ 3 Go de RAM pendant son exécution, la nuit, jusqu’à 45 minutes. Il s’arrête si vous revenez. Rien n’est téléchargé ni lancé avant votre confirmation, et on vous redemande si vous changez de modèle.",
+  "everything.local.confirm": "Je comprends, utiliser {model}",
+  "everything.local.confirmed": "Confirmé pour {model}.",
+  "everything.local.needsRef": "Nommez d’abord le modèle local.",
+  "everything.cost.title": "Coût estimé",
+  "everything.cost.cloud":
+    "Environ {typical} par mois ({low} un mois calme, {high} un mois chargé) pour les sources choisies. Une estimation à partir d’une journée type.",
+  "everything.cost.free": "Gratuit : aucun texte n’est envoyé à un fournisseur.",
+  "everything.cost.backfill":
+    "Lecture des {days, number} premiers jours : environ {cost} au tarif plein.",
+  "everything.perSource.title": "Modèle pour une source",
+  "everything.perSource.description":
+    "Par exemple Messages en Local tandis que Mail reste en Cloud. Les sources réglées sur « Comme ci-dessus » utilisent le choix ci-dessus.",
+  "everything.perSource.default": "Comme ci-dessus",
+  "everything.perSource.ref": "Modèle pour {source}",
+  "everything.sources.title": "Ce qui est lu",
+  "everything.sources.description":
+    "La mémoire apprend de ce que la recherche lit, dans le même ordre que Réglages → Sources de recherche. Désactivez-en une ici pour arrêter d’en apprendre ; elle reste consultable.",
+  "everything.sources.learning": "Apprend à partir de cette source",
+  "everything.sources.notLearning": "N’apprend pas à partir de cette source",
+  "everything.sources.notRead": "Psyche ne lit pas {source}.",
+  "everything.sources.letRead": "Laisser Psyche lire {source}",
+  "everything.sources.letReadFailed": "Impossible de laisser Psyche lire {source} : {reason}",
+  "everything.source.mail": "Mail",
+  "everything.source.messages": "Messages",
+  "everything.source.notes": "Notes",
+  "everything.source.calendar": "Calendrier",
+  "everything.source.reminders": "Rappels",
+  "everything.source.chats": "Discussions avec Psyche",
+  "everything.source.files": "Fichiers",
+  "everything.source.browser": "Pages du navigateur",
+  "everything.source.transcripts": "Transcriptions",
+  "everything.people.title": "Sur qui il apprend",
+  "everything.people.default": "Apprendre sur",
+  "everything.people.two_way": "Les personnes à qui vous écrivez ou qui vous répondent",
+  "everything.people.contacts": "Uniquement les personnes dans Contacts",
+  "everything.people.everyone": "Toute personne non exclue",
+  "everything.people.chosen": "Uniquement les personnes que je choisis",
+  "everything.people.note":
+    "Vos propres mots sont toujours lus. Ce que les autres écrivent n’est lu que pour les personnes choisies ici, et uniquement ce qu’elles disent d’elles-mêmes. Cela attend votre vérification et n’est jamais traité comme une instruction.",
+  "everything.people.aboutOthers": "Aussi ce qu’elles disent d’autres personnes",
+  "everything.people.aboutOthersHint":
+    "Désactivé par défaut. Activé, « Priya travaille chez Initech » dans le message de Sam devient une suggestion concernant Priya, marquée comme affirmation de Sam.",
+  "everything.exclusions.title": "Exclus de la lecture",
+  "everything.exclusions.empty": "Personne n’est exclu.",
+  "everything.exclusions.kind": "Type",
+  "everything.exclusions.kind.email": "E-mail",
+  "everything.exclusions.kind.phone": "Téléphone",
+  "everything.exclusions.kind.domain": "Domaine",
+  "everything.exclusions.value": "Adresse, numéro ou domaine",
+  "everything.exclusions.exclude": "Exclure",
+  "everything.exclusions.excludeForget": "Exclure et oublier",
+  "everything.exclusions.confirmForget":
+    "Cela supprime aussi {facts, number} faits et {citations, number} citations appris à partir de ces sources.",
+  "everything.exclusions.remove": "Retirer",
+  "everything.exclusions.mode.exclude": "Exclu",
+  "everything.exclusions.mode.forget": "Exclu et oublié",
+  "everything.sensitive.title": "Sujets sensibles",
+  "everything.sensitive.description":
+    "Tout est désactivé. Activé, seul ce qui est affirmé explicitement est conservé, toujours soumis à votre vérification et masqué à l’agent sauf si vous l’autorisez. Les pièces d’identité et numéros de compte ne sont jamais stockés.",
+  "everything.sensitive.health": "Santé",
+  "everything.sensitive.finance": "Finances",
+  "everything.sensitive.sexuality": "Sexualité",
+  "everything.sensitive.religion": "Religion",
+  "everything.sensitive.politics": "Politique",
+  "everything.sensitive.ethnicity": "Origine ethnique et immigration",
+  "everything.sensitive.legal": "Juridique",
+  "everything.sensitive.precise_location": "Localisation précise",
+  "everything.agent.title": "Ce que l’agent peut voir",
+  "everything.agent.none": "Rien",
+  "everything.agent.noneHint": "L’agent ne peut rien voir de ce que Psyche a appris. Vous, si.",
+  "everything.agent.accepted": "Faits confirmés",
+  "everything.agent.acceptedHint":
+    "L’agent lit les faits que vous avez acceptés, sous forme de données citées.",
+  "everything.agent.all": "Tout",
+  "everything.agent.allHint":
+    "Aussi les faits encore en attente de vérification, marqués comme non confirmés.",
+  "everything.agent.sensitive": "L’agent peut voir les faits sensibles",
+  "everything.schedule.title": "Planning de nuit",
+  "everything.schedule.quietStart": "Début des heures calmes",
+  "everything.schedule.quietEnd": "Fin des heures calmes",
+  "everything.schedule.battery": "Exécuter sur batterie",
+  "everything.schedule.batteryHint":
+    "Désactivé : uniquement sur secteur, hors mode économie d’énergie et pendant votre absence.",
+  "everything.schedule.backfill": "Historique du premier lancement",
+  "everything.schedule.backfillDays": "{days, number} jours",
+  "everything.schedule.backfillNone": "Aucun",
+  "everything.run.button": "Exécuter maintenant",
+  "everything.run.running": "Lecture…",
+  "everything.run.hint": "Lit ce qui est nouveau depuis la dernière exécution.",
+  "everything.run.estimateCloud": "Environ {cost} pour une journée type avec les sources choisies.",
+  "everything.run.estimateFree": "Gratuit : aucun texte n’est envoyé à un fournisseur.",
+  "everything.run.done":
+    "{items, number} éléments lus : {facts, number} faits proposés, {held, number} retenus{more, select, yes {, le reste attend demain} other {}}.",
+  "everything.run.reason.disabled": "La mémoire « Tout » est désactivée.",
+  "everything.run.reason.no_sources":
+    "La recherche ne lit rien dont la mémoire puisse apprendre. Laissez d’abord Psyche lire une source.",
+  "everything.run.reason.model_none": "Choisissez d’abord un modèle : Aucun ne lit rien.",
+  "everything.run.reason.battery":
+    "Pas maintenant : le Mac est sur batterie. Branchez-le, ou autorisez les exécutions sur batterie.",
+  "everything.run.reason.low_power": "Pas maintenant : le mode économie d’énergie est activé.",
+  "everything.run.reason.thermal": "Pas maintenant : le Mac est trop chaud.",
+  "everything.run.reason.not_idle": "Pas maintenant : vous utilisez le Mac.",
+  "everything.run.reason.outside_quiet_hours": "Pas maintenant : en dehors des heures calmes.",
+  "everything.run.reason.local_not_confirmed":
+    "Confirmez d’abord l’avertissement de mémoire du modèle local.",
+  "everything.run.reason.low_memory":
+    "Pas maintenant : pas assez de mémoire libre pour le modèle local.",
+  "everything.run.reason.no_owner_entity":
+    "Votre propre fiche dans Personnes n’est pas encore configurée.",
+  "everything.run.reason.store_unavailable":
+    "Pas maintenant : le stockage de la mémoire est encore en cours d’ouverture.",
+  "everything.run.reason.busy": "Une passe est déjà en cours.",
+  "everything.storage.note": "Tout est stocké uniquement sur ce Mac.",
+  "everything.consent.title": "Configurer la mémoire « Tout »",
+  "everything.consent.step": "Étape {n, number} sur {total, number}",
+  "everything.consent.next": "Suivant",
+  "everything.consent.back": "Retour",
+  "everything.consent.cancel": "Annuler",
+  "everything.consent.finish": "Activer",
+  "everything.consent.what.title": "Ce qu’elle fait",
+  "everything.consent.what.body":
+    "La nuit, {persona} lit ce que vous avez écrit et les messages des personnes que vous choisissez, et note ce qui est affirmé explicitement. Chaque fait est sourcé, attend votre vérification et peut être corrigé ou oublié. Ce que les autres écrivent n’est que de la donnée, jamais une instruction.",
+  "everything.consent.what.e1": "« L’anniversaire de Sam approche. »",
+  "everything.consent.what.e2": "« Qui était au dîner de Lisbonne ? »",
+  "everything.consent.what.e3": "« Qu’a dit Priya à propos du nouveau poste ? »",
+  "everything.consent.sources.title": "Ce qui est lu",
+  "everything.consent.people.title": "Personnes et confidentialité",
+  "everything.consent.model.title": "Qui lit votre journée",
+  "everything.consent.summary.title": "Vérifiez vos choix",
+  "everything.consent.summary.model": "Modèle : {model}",
+  "everything.consent.summary.sources": "Sources : {sources}",
+  "everything.consent.summary.none": "aucune",
+  "everything.consent.summary.people": "Personnes : {people}",
+  "everything.consent.summary.sensitive": "Sujets sensibles : {on}",
+  "everything.consent.summary.agent": "Accès de l’agent : {access}",
+  "everything.consent.summary.backfill": "Historique : {days, number} jours",
+  "everything.consent.summary.noModel":
+    "Choisissez un modèle pour que quelque chose soit lu ; avec Aucun, seul le graphe déterministe s’exécute.",
+  "everything.off": "Désactivé. {persona} ne lit rien tant que vous ne l’avez pas configuré.",
+  "everything.offHint":
+    "Vous choisissez les sources et le modèle, et rien n’est conservé sans votre vérification.",
+  "everything.run.title": "Exécuter maintenant",
+};

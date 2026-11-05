@@ -1,0 +1,45 @@
+import type { Catalogue } from "../../index.ts";
+
+/** research strings (ar); merged into `../ar.ts`. */
+export const research: Partial<Catalogue> = {
+  "research.progress.title": "جارٍ البحث",
+  "research.progress.label": "تقدم البحث",
+  "research.progress.stop": "إيقاف البحث",
+  "research.progress.stopped": "توقف. لم يُحفظ شيء.",
+  "research.progress.done": "التقرير جاهز",
+  "research.progress.openReport": "فتح التقرير",
+  "research.progress.plan": "الخطة",
+  "research.progress.sources":
+    "{n, plural, zero {لم يُقرأ أي مصدر} one {قُرئ مصدر واحد} two {قُرئ مصدران} few {قُرئت # مصادر} many {قُرئ # مصدرًا} other {قُرئ # مصدر}}",
+  "research.progress.sourcesHeading": "المصادر",
+  "research.progress.source.reading": "جارٍ القراءة",
+  "research.progress.source.read": "مقروء",
+  "research.progress.source.failed": "تعذّرت القراءة",
+  "research.progress.claims":
+    "{n, plural, zero {لم يُعثر على ادعاءات} one {عُثر على ادعاء واحد} two {عُثر على ادعاءين} few {عُثر على # ادعاءات} many {عُثر على # ادعاءً} other {عُثر على # ادعاء}}",
+  "research.progress.tokens": "{used, number} من نحو {estimate, number} رمز (token)",
+  "research.progress.tokensActual": "استُخدم {used, number} رمز (token) (تقدير {estimate, number})",
+  "research.progress.local": "يشمل ملفاتك وبريدك وملاحظاتك",
+  "research.step.scope": "جارٍ فحص النطاق",
+  "research.step.plan": "التخطيط",
+  "research.step.read": "البحث والقراءة",
+  "research.step.extract": "استخراج الادعاءات",
+  "research.step.crosscheck": "التحقق المتبادل",
+  "research.step.synthesize": "كتابة التقرير",
+  "research.step.save": "الحفظ في المكتبة",
+  "research.plan.title": "خطة البحث",
+  "research.plan.estimate": "نحو {estimate, number} رمز (token)",
+  "research.plan.confirm": "بدء البحث",
+  "research.plan.cancel": "ليس الآن",
+  "research.report.title": "تقرير البحث",
+  "research.report.untrusted":
+    "مبني على صفحات ويب ومصادر أخرى. تعامل معه على أنه معلومات لا تعليمات.",
+  "research.report.summary": "الملخص",
+  "research.report.openQuestions": "أسئلة مفتوحة",
+  "research.report.sources": "المصادر",
+  "research.report.cite": "المصدر {n}",
+  "research.report.local": "من ملفاتك",
+  "research.report.digDeeper": "تعمّق أكثر",
+  "research.report.digDeeperLabel": "التعمق في {section}",
+  "research.report.ask": "اسأل عن هذا التقرير",
+};

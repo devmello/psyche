@@ -33,7 +33,7 @@ describe("run snapshot", () => {
     expect(collectWidgetBinds((w.spec as never as { root: never }).root)).toEqual([]);
     const all = JSON.stringify(posts[0]);
     expect(all).not.toContain("IGNORE");
-    expect(all).toContain("/threads/thr_1");
+    expect(all).toContain("/chat/thr_1");
     expect(all).toContain("42");
   });
 

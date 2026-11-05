@@ -32,11 +32,6 @@ struct ApprovalSheet: View {
                     EvidenceLine("Because", detail.evidence)
                     EvidenceLine("Also sent to", [detail.alsoSentTo])
                 }
-                if let note = detail.presenceNote {
-                    Label(note, systemImage: "faceid")
-                        .font(.footnote)
-                        .foregroundStyle(PsycheColor.muted)
-                }
             }
             .padding(.horizontal, PsycheMetrics.pagePadding)
             .padding(.top, 28)
@@ -74,6 +69,13 @@ struct ApprovalSheet: View {
             case .failed(let message):
                 AnswerError(message: message, retry: { Task { await flow.retry() } }, cancel: flow.dismissError)
             case .review, .checking, .sending:
+                // Right above Allow, as in the mockup: the note explains the Face ID that Allow asks for.
+                if let note = detail.presenceNote {
+                    Label(note, systemImage: "faceid")
+                        .font(.footnote)
+                        .foregroundStyle(PsycheColor.muted)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
                 if !session.state.canAnswer {
                     Text("Reconnect to answer").font(.footnote).foregroundStyle(PsycheColor.muted)
                 }
