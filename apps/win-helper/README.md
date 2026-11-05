@@ -135,8 +135,11 @@ cargo test -p psyche-win-vm --test live_hcs -- --ignored --nocapture   elevated,
   ("Psyche sandbox PC", LocalSystem, demand start, `serve --owner-sid … --home … --images …
   --profile …`), grants the owner start / stop / query on it, and registers vsock 7980 and 7000
   under `HKLM\…\Virtualization\GuestCommunicationServices`. Images default to the owner's
-  `%LOCALAPPDATA%\Psyche\vm-images`. Re-running install updates the binary (the helper compares
-  `service_info.version`). Exit: 0, 1 failed, 2 bad arguments, 5 elevation required; one JSON line
+  `%LOCALAPPDATA%\Psyche\vm-images`. Re-running install updates the binary: after an app update
+  the desktop compares `psyche-vm-svc.exe version` (`{version, protocol}`) of the bundled and the
+  installed exe (and their SHA-256 when the versions match) and, when the installed one is older,
+  offers "Update the sandbox PC service" in Settings → Sandbox PC, which is this install again with
+  one UAC prompt; it never elevates by itself. Exit: 0, 1 failed, 2 bad arguments, 5 elevation required; one JSON line
   on stdout. Logs: `%ProgramData%\Psyche\vm-service\<SID>.log`, content-free. The service stops
   itself after 10 minutes with no client, no running guest and nothing in progress.
 - **Control pipe** `\\.\pipe\psyche-vm-<SID>`: DACL owner + LocalSystem (network logons denied);
@@ -152,9 +155,14 @@ cargo test -p psyche-win-vm --test live_hcs -- --ignored --nocapture   elevated,
   event object>}`; `unwatch` → `{"closed": true}`. With `"progress": true` a request's progress
   (`vm.import`, `vm.state`, `vm.snapshot`, `vm.reset`, `vm.export`, `vm.psyche_install`) arrives as
   `{"event": "progress", "data": {"id": "<request id>", "event": {…}}}` before its response.
-  Requests on one connection run concurrently. Extra methods: `service_info` → `{version, hcs:
+  Requests on one connection run concurrently. Extra methods: `service_info` → `{version, protocol, hcs:
   {available, reason?, message?, backend, schema, supportedSchemaVersions}, images, imagesRoot,
   ownerSid, vsock, active}`, `ping`.
+- **Protocol version** (`protocol::PROTOCOL_VERSION`, now 1; a service that predates the field is 1):
+  bumped only for a change an older peer cannot follow. The helper asks `service_info` once before
+  its first call and, for a `protocol` outside `SUPPORTED_SERVICE_PROTOCOLS`, refuses every `vm.*`
+  call except `vm.status` and `vm.service_info` with `vm_service_outdated` (details `action:
+  update_sandbox_pc_service`); an older service of a known protocol keeps working.
 
 | Method | Windows behaviour (params and results are the mac helper's) |
 |---|---|

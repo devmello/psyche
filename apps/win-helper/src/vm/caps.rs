@@ -391,6 +391,47 @@ fn defs() -> Vec<Def> {
 struct StatusCache {
     last: Mutex<Option<Value>>,
     woke: AtomicBool,
+    /// The service's control protocol was found to be one this helper speaks (checked once, and
+    /// again after a refusal, because the owner can update the service without restarting us).
+    compatible: AtomicBool,
+}
+
+/// The service control protocols this helper speaks (`psyche_win_vm::protocol::PROTOCOL_VERSION`).
+pub const SUPPORTED_SERVICE_PROTOCOLS: std::ops::RangeInclusive<u32> = 1..=1;
+
+/// A service that predates the `protocol` field speaks protocol 1.
+fn protocol_of(info: &Value) -> u32 {
+    info.get("protocol")
+        .and_then(Value::as_u64)
+        .and_then(|n| u32::try_from(n).ok())
+        .unwrap_or(1)
+}
+
+fn outdated_service(found: u32) -> CapabilityError {
+    CapabilityError::unavailable(
+        "vm_service_outdated",
+        "The sandbox PC service is out of date and this version of Psyche cannot use it. Update it in Settings → Sandbox PC (one administrator prompt).",
+    )
+    .with_detail("action", "update_sandbox_pc_service")
+    .with_detail("serviceProtocol", found)
+}
+
+/// Refuses a service whose protocol this helper does not know, with the one thing the owner can
+/// do. An older service of a compatible protocol keeps working. If the service cannot say (no
+/// `service_info` answer), the call goes ahead and fails on its own terms.
+async fn ensure_compatible(ep: &Endpoint, cache: &StatusCache) -> Result<(), CapabilityError> {
+    if cache.compatible.load(Ordering::SeqCst) {
+        return Ok(());
+    }
+    let Ok(info) = ep.call("service_info", json!({}), Start::IfNeeded).await else {
+        return Ok(());
+    };
+    let found = protocol_of(&info);
+    if !SUPPORTED_SERVICE_PROTOCOLS.contains(&found) {
+        return Err(outdated_service(found));
+    }
+    cache.compatible.store(true, Ordering::SeqCst);
+    Ok(())
 }
 
 fn service_block(state: ServiceState) -> Value {
@@ -687,6 +728,9 @@ async fn invoke(
         return status(ep, cache).await;
     }
     let sent = prepare(def, &ctx, env)?;
+    if def.name != "vm.service_info" {
+        ensure_compatible(ep, cache).await?;
+    }
     let method = def.method();
     let result = match def.name {
         "vm.watch" => {

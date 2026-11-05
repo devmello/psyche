@@ -8,6 +8,7 @@ import {
   PsycheError,
   type Notification as PsycheNotification,
 } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import type { GatewayConnection } from "@psyche/web/client";
 import type { ShellCommand } from "@psyche/web/platform";
 import {
@@ -119,7 +120,7 @@ import {
   type PermissionKind,
 } from "./main/permissions/permissions.ts";
 import { HAS_UNSENT_TEXT, releaseHiddenAfterMs } from "./main/release.ts";
-import { createSandboxPc } from "./main/sandbox-pc/wire.ts";
+import { createSandboxPc, serviceUpdateNotice } from "./main/sandbox-pc/wire.ts";
 import { captureScreenFrame, wantsFallback } from "./main/screen-ask/capture-fallback.ts";
 import { ScreenAskWindow } from "./main/screen-ask/panel.ts";
 import { ScreenAskShortcut } from "./main/screen-ask/settings.ts";
@@ -725,11 +726,11 @@ async function confirmGatewayChange(c: GatewayConfirm): Promise<boolean | "plain
               : `Connect Psyche to ${c.origin}?`,
             detail: `${
               c.external
-                ? "This link was opened by another app or a website, not pasted by you. Only continue if you made it yourself on the Mac that runs Psyche.\n\n"
+                ? `This link was opened by another app or a website, not pasted by you. Only continue if you made it yourself on ${hostWords().theDevice} that runs Psyche.\n\n`
                 : ""
             }Psyche will connect only if that Gateway proves this identity:\n${c.fingerprint}\n\n${
               c.lan
-                ? `It uses its own certificate, not one the system trusts. Psyche holds it to the one this link names (${c.lan.certPin.slice(0, 12)}…) before sending anything, and refuses any other. Only continue if the link came from your own Mac on this network.\n\n`
+                ? `It uses its own certificate, not one the system trusts. Psyche holds it to the one this link names (${c.lan.certPin.slice(0, 12)}…) before sending anything, and refuses any other. Only continue if the link came from your own ${hostWords().device} on this network.\n\n`
                 : ""
             }The link's one-time code then lets that Gateway approve this computer without asking again, with the access its owner chose when making it.`,
             buttons: ["Add Gateway", "Cancel"],
@@ -753,10 +754,10 @@ async function confirmGatewayChange(c: GatewayConfirm): Promise<boolean | "plain
                   buttons: ["Pair again", "Cancel"],
                 }
               : {
-                  message: "Stop Psyche on this Mac?",
+                  message: `Stop Psyche on ${hostWords().thisDevice}?`,
                   detail:
                     "Its automations and scheduled tasks stop until you switch back. Leave it running to keep them going.",
-                  buttons: ["Stop Psyche on this Mac", "Keep it running"],
+                  buttons: [`Stop Psyche on ${hostWords().thisDevice}`, "Keep it running"],
                 };
   const win = windows?.main();
   const dialogOptions = {
@@ -1075,6 +1076,8 @@ function registerIpc(): void {
   handle(IPC.sandboxPcGetState, () => sandboxPc.getState());
   handle(IPC.sandboxPcRefresh, () => sandboxPc.refresh());
   handle(IPC.sandboxPcTurnOn, () => sandboxPc.turnOn());
+  // Only on the owner's click; never from the startup check.
+  handle(IPC.sandboxPcUpdateService, () => sandboxPc.updateService());
   handle(IPC.sandboxPcCancel, () => sandboxPc.cancel());
   handle(IPC.helperGetState, () => helper?.getState() ?? { kind: "unbundled" });
   // An approval card's "Start Psyche Helper": launch now (no relaunch throttle), wait to pair. On
@@ -1088,7 +1091,10 @@ function registerIpc(): void {
   // Gateway registers and asks only that helper.
   const approvalWindow = (e: IpcMainInvokeEvent) => {
     if (windows?.isApprovalContents(e.sender) !== true) {
-      throw new PsycheError("forbidden", "Touch ID approvals come from the main window");
+      throw new PsycheError(
+        "forbidden",
+        `${hostWords().presence} approvals come from the main window`,
+      );
     }
   };
   handle(IPC.touchIdIdentity, async (e) => {
@@ -1102,8 +1108,8 @@ function registerIpc(): void {
       throw new PsycheError(
         "unavailable",
         id === undefined
-          ? "This app has no bundled Psyche Helper to read the Touch ID key from"
-          : `The bundled Psyche Helper has no Touch ID key (${id.error ?? "unknown"})`,
+          ? `This app has no bundled Psyche Helper to read the ${hostWords().presence} key from`
+          : `The bundled Psyche Helper has no ${hostWords().presence} key (${id.error ?? "unknown"})`,
       );
     }
     return requireGateway().call("devices.presenceKey.register", {
@@ -1498,6 +1504,18 @@ void app.whenReady().then(async () => {
       bridge.start();
     },
   });
+
+  // A Squirrel update ships a new sandbox PC service, but the installed one is replaced only by an
+  // elevated install. Find out (no prompt, no network) and say so once; Settings has the update.
+  if (windows32) {
+    void sandboxPc
+      .check()
+      .then((s) => {
+        const notice = serviceUpdateNotice(s);
+        if (notice) showNotification(notice.title, notice.body, notice.route);
+      })
+      .catch(() => undefined);
+  }
 
   // The bundled host helper (docs/archive/status/s14.md "Packaging"), started once this window
   // pairs, i.e. the Gateway answers: through LaunchServices on macOS (dev builds use their own

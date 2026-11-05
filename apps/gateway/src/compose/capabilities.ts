@@ -689,7 +689,7 @@ export function capabilityTools(deps: CapabilityToolsDeps): {
             t?.kind === "stdio"
               ? usesSandboxPc()
                 ? "Downloads and runs this package in the sandbox PC (a separate Linux computer, not this PC)"
-                : "Downloads and runs this package on this Mac inside the srt sandbox"
+                : `Downloads and runs this package on ${hostWords().thisDevice} inside the srt sandbox`
               : "Connects to this endpoint; your data reaches it when its tools are used",
             network.length === 0 ? "No network" : `Network: ${network.join(", ")}`,
             "Its write tools ask each time unless you grant them; you can remove it in Settings → Connectors",

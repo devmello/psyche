@@ -353,6 +353,7 @@ fn unavailable_hcs_answers_every_lifecycle_call() {
     assert_eq!(info["hcs"]["reason"], "hcs_unavailable");
     assert_eq!(info["images"][0]["version"], "linux-1");
     assert_eq!(info["version"], "0.0.0-test");
+    assert_eq!(info["protocol"], psyche_win_vm::protocol::PROTOCOL_VERSION);
     // status still answers (the UI shows the reason from service_info).
     assert_eq!(e.manager.status()["guests"], json!([]));
     let ri = e.manager.restore_image().unwrap();

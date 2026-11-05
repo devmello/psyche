@@ -106,7 +106,10 @@ export function signingIdentity(env: BuildEnv): string | undefined {
  *
  * The same options go to the packager, which signs every .exe, .dll and .node under the app folder
  * (Psyche.exe, resources\psyched\runtime\node.exe, the native addons,
- * resources\win-helper\psyche-helper.exe), and to the Squirrel maker (Setup.exe, Update.exe).
+ * resources\win-helper\psyche-helper.exe and psyche-vm-svc.exe, the sandbox PC service), and to the
+ * Squirrel maker (Setup.exe, Update.exe). The bundle is copied in before the packager signs, so a
+ * binary added to resources\ is signed without being listed anywhere; the app also refuses to
+ * install an unsigned psyche-vm-svc.exe in a packaged build.
  */
 export interface WindowsSigning {
   certificateFile?: string;

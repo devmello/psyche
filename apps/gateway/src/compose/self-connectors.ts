@@ -12,6 +12,7 @@ import {
   type SelfConnectorFile,
   type ToolResult,
 } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import { Type } from "@sinclair/typebox";
 import type { HandlerDef } from "../context.ts";
 import { type McpAdder, type ProposeExtra, serverConfig } from "./mcp-add.ts";
@@ -746,8 +747,7 @@ export function selfConnectors(deps: SelfConnectorsDeps): SelfConnectors {
     }),
     defineTool({
       name: "connector_register",
-      description:
-        "Ask the owner to enable your connector. Probes it in the sandbox (no network), opens a card on the owner's Mac showing every file, the exact command, the network it asks for and its tools, and waits for the answer in this turn. It runs only if approved, only in the sandbox, and always as an unknown-tier connector whose write tools ask each time. On a denial, tell the owner briefly and do not ask again.",
+      description: `Ask the owner to enable your connector. Probes it in the sandbox (no network), opens a card on the owner's ${hostWords().device} showing every file, the exact command, the network it asks for and its tools, and waits for the answer in this turn. It runs only if approved, only in the sandbox, and always as an unknown-tier connector whose write tools ask each time. On a denial, tell the owner briefly and do not ask again.`,
       input: Type.Object({ id: Id }),
       sideEffect: "none",
       describeCall: (p) => ({ summary: `Asked to enable connector ${p.id}` }),

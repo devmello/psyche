@@ -18,6 +18,7 @@ import {
   WINDOWS_DICTATION_KEYS,
   windowsHoldKey,
 } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 
 export type { DictationKey };
 export type DictationMode = "hold" | "toggle";
@@ -412,7 +413,7 @@ export class SystemDictation {
     this.#o.warn?.(`dictation failed: ${code}`);
     this.#message(
       code === "unavailable"
-        ? "Dictation needs the Psyche helper and a speech engine on this Mac."
+        ? `Dictation needs the Psyche helper and a speech engine on ${hostWords().thisDevice}.`
         : code === "forbidden" || code === "policy_denied"
           ? "Psyche Helper needs Accessibility to dictate into other apps."
           : "Psyche couldn't dictate. Try again.",

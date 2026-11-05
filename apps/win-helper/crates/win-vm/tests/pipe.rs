@@ -227,6 +227,7 @@ async fn binary_console_mode_serves_the_protocol() {
     let (_, r) = c.call("1", "service_info", json!({}), false).await;
     assert_eq!(r["result"]["hcs"]["backend"], "fake");
     assert_eq!(r["result"]["version"], env!("CARGO_PKG_VERSION"));
+    assert_eq!(r["result"]["protocol"], psyche_win_vm::protocol::PROTOCOL_VERSION);
     let (_, r) = c.call("2", "create", json!({}), false).await;
     assert_eq!(r["result"]["phase"], "installed", "{r}");
     let (_, r) = c.call("3", "start", json!({}), false).await;
@@ -236,6 +237,7 @@ async fn binary_console_mode_serves_the_protocol() {
     let v = std::process::Command::new(env!("CARGO_BIN_EXE_psyche-vm-svc")).arg("version").output().unwrap();
     let out: Value = serde_json::from_slice(&v.stdout).unwrap();
     assert_eq!(out["version"], env!("CARGO_PKG_VERSION"));
+    assert_eq!(out["protocol"], psyche_win_vm::protocol::PROTOCOL_VERSION);
     let bad = std::process::Command::new(env!("CARGO_BIN_EXE_psyche-vm-svc")).arg("frob").output().unwrap();
     assert_eq!(bad.status.code(), Some(2));
 }

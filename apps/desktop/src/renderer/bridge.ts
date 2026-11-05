@@ -242,6 +242,7 @@ function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
             getState: () => b.sandboxPc.getState() as Promise<SandboxPcState>,
             refresh: () => b.sandboxPc.refresh() as Promise<SandboxPcState>,
             turnOn: () => b.sandboxPc.turnOn() as Promise<SandboxPcState>,
+            updateService: () => b.sandboxPc.updateService() as Promise<SandboxPcState>,
             cancel: async () => void (await b.sandboxPc.cancel()),
             onState: (cb: (s: SandboxPcState) => void) =>
               b.sandboxPc.onState((s) => cb(s as SandboxPcState)),

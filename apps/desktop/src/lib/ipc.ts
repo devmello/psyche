@@ -85,6 +85,7 @@ export const IPC = {
   sandboxPcGetState: "psyche:sandbox-pc:get-state",
   sandboxPcRefresh: "psyche:sandbox-pc:refresh",
   sandboxPcTurnOn: "psyche:sandbox-pc:turn-on",
+  sandboxPcUpdateService: "psyche:sandbox-pc:update-service",
   sandboxPcCancel: "psyche:sandbox-pc:cancel",
   sandboxPcState: "psyche:sandbox-pc:state",
   // Touch ID from the window (security §3.7, §10): main and Settings windows only.
@@ -399,6 +400,7 @@ export const REMOTE_REFUSED_CHANNELS: ReadonlySet<string> = new Set([
   IPC.sandboxPcGetState,
   IPC.sandboxPcRefresh,
   IPC.sandboxPcTurnOn,
+  IPC.sandboxPcUpdateService,
   IPC.sandboxPcCancel,
   IPC.touchIdIdentity,
   IPC.touchIdRegister,
