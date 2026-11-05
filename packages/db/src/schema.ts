@@ -81,6 +81,8 @@ export const setupTokens = sqliteTable("setup_tokens", {
   usedAt: text("used_at"),
   usedByDeviceId: text("used_by_device_id"),
   revokedAt: text("revoked_at"),
+  /** The LAN certificate pin a `psyche-pair:v2` link carries; null for a v1 link. */
+  certPin: text("cert_pin"),
 });
 
 // §8 Channels and identities (owner: packages/channels, S10) ----------------------------------

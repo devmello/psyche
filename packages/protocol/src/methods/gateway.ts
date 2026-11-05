@@ -21,12 +21,21 @@ export const GatewayInfo = Type.Object(
         interfaces: Type.Array(Type.String(), {
           description: "The interface names or addresses the owner chose; empty = the default one",
         }),
+        ipv6: Type.Optional(
+          Type.Boolean({
+            description:
+              "Also listen on the chosen interface's IPv6 unique-local (fc00::/7) addresses. Never global or link-local ones",
+          }),
+        ),
         listening: Type.Array(Type.Object({ address: Type.String(), port: Type.Integer() }), {
           description: "What is bound right now; empty when off or when nothing could bind",
         }),
         candidates: Type.Array(
           Type.Object({ name: Type.String(), address: Type.String(), isDefault: Type.Boolean() }),
-          { description: "Interfaces the owner can pick" },
+          {
+            description:
+              "Interfaces the owner can pick: private IPv4 and IPv6 unique-local addresses only",
+          },
         ),
         origin: Type.Union([Type.String(), Type.Null()], {
           description: "https://<host>.local:<port> while listening",

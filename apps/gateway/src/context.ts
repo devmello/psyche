@@ -43,8 +43,12 @@ export interface GatewayLimits {
   pairingsPerHour: number;
   /** Failed challenges per remote address per minute. */
   failedChallengesPerMinute: number;
+  /** Failed challenges per IPv6 /64 (LAN) per minute: the looser cap over the per-address one. */
+  failedChallengesPrefixPerMinute: number;
   /** New pairing requests per LAN address per hour. */
   lanPairingsPerIpPerHour: number;
+  /** New pairing requests per LAN IPv6 /64 per hour (looser than per address). */
+  lanPairingsPerPrefixPerHour: number;
   /** New pairing requests from the LAN listener in all, per hour. */
   lanPairingsTotalPerHour: number;
   /** Outstanding pairing requests across all addresses. */
@@ -60,7 +64,9 @@ export interface GatewayLimits {
 export const DEFAULT_LIMITS: GatewayLimits = {
   pairingsPerHour: 5,
   failedChallengesPerMinute: 10,
+  failedChallengesPrefixPerMinute: 80,
   lanPairingsPerIpPerHour: 3,
+  lanPairingsPerPrefixPerHour: 6,
   lanPairingsTotalPerHour: 10,
   maxPendingPairings: 20,
   pairingTtlMs: 5 * 60_000,
@@ -151,8 +157,10 @@ export interface GatewayContext {
     | null;
   readonly limits: GatewayLimits;
   readonly failedChallenges: RateLimiter;
+  /** The same, counted per IPv6 /64 on the LAN (looser than per address). */
+  readonly failedChallengesPrefix: RateLimiter;
   /** Pairing requests from the LAN listener: smaller budgets than the global ones. */
-  readonly lanPairings: { perIp: RateLimiter; total: RateLimiter };
+  readonly lanPairings: { perIp: RateLimiter; perPrefix: RateLimiter; total: RateLimiter };
   /** Per-device budgets (security §10), keyed by device id so extra connections do not help. */
   readonly deviceRequests: RateLimiter;
   readonly deviceSideEffects: RateLimiter;

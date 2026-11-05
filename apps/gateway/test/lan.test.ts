@@ -49,8 +49,14 @@ async function freePort(): Promise<number> {
 
 /** Tests bind loopback as the stand-in "LAN interface"; no real network interface is touched. */
 const FAKE: LanInterface[] = [
-  { name: "lan0", address: "127.0.0.1", network: "127.0.0.0/8", isDefault: true },
-  { name: "lan1", address: "192.0.2.77", network: "192.0.2.0/24", isDefault: false },
+  { name: "lan0", address: "127.0.0.1", family: "IPv4", network: "127.0.0.0/8", isDefault: true },
+  {
+    name: "lan1",
+    address: "192.0.2.77",
+    family: "IPv4",
+    network: "192.0.2.0/24",
+    isDefault: false,
+  },
 ];
 
 function fakeAdvertiser(): {
@@ -206,7 +212,7 @@ describe("it binds only the interface the owner chose", () => {
     expect(resolveLanBinds([], FAKE).binds.map((b) => b.name)).toEqual(["lan0"]);
     expect(resolveLanBinds(["lan1"], FAKE).binds.map((b) => b.address)).toEqual(["192.0.2.77"]);
     expect(resolveLanBinds(["127.0.0.1"], FAKE).binds.map((b) => b.name)).toEqual(["lan0"]);
-    expect(resolveLanBinds(["en9"], FAKE)).toEqual({ binds: [], unknown: ["en9"] });
+    expect(resolveLanBinds(["en9"], FAKE)).toEqual({ binds: [], unknown: ["en9"], ipv6Off: [] });
   });
 
   it("never offers loopback, link-local, tunnels as the default or IPv6", () => {
@@ -666,10 +672,15 @@ describe("closing LAN sockets (turn off, rotate, silence)", () => {
 
   it("evicts a silent socket before refusing a newcomer at the cap", async () => {
     const { g, port } = await lanGateway({
-      limits: { concurrentPerIp: 2, unauthenticatedMs: 60_000 },
+      limits: { concurrentPerIp: 2, unauthenticatedMs: 60_000, evictionGraceMs: 150 },
     });
     const silent1 = await openLan(g, port);
     const silent2 = await openLan(g, port);
+    // A connection younger than the grace period is not evicted: the newcomer is refused ...
+    const tooSoon = await openLan(g, port).catch((e: Error) => e);
+    expect(tooSoon).toBeInstanceOf(Error);
+    // ... and once the silent ones are old enough, the oldest makes room.
+    await new Promise((r) => setTimeout(r, 200));
     const third = await openLan(g, port);
     await closed(silent1);
     expect(third.ws.readyState).toBe(1);
@@ -694,7 +705,7 @@ describe("closing LAN sockets (turn off, rotate, silence)", () => {
 
 describe("LAN stays on the network the owner said yes on", () => {
   const home = (address: string, network: string): LanInterface[] => [
-    { name: "lan0", address, network, isDefault: true },
+    { name: "lan0", address, family: "IPv4", network, isDefault: true },
   ];
 
   it("pauses on another network and listens again when the owner says yes there", async () => {
