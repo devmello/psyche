@@ -742,6 +742,48 @@ export const settingsRest: Partial<Catalogue> = {
     "Psycheを再起動します。次に、ほかのコンピュータでこのMacをGatewayとして追加します。ペアリングコードとキーのフィンガープリントが表示されるので、ここの「ペアリング待ち」の要求と照合してから承認してください。",
   "settings.remote.funnel":
     "このためにTailscale Funnelをオンにしないでください。Gatewayが公開インターネットに出てしまいます。",
+  "settings.uninstall.group": "Psycheをアンインストール",
+  "settings.uninstall.groupHint":
+    "GatewayとHelperを停止し、アプリをゴミ箱に移動します。データは、別の選択をしない限り残ります。",
+  "settings.uninstall.open": "Psycheをアンインストール…",
+  "settings.uninstall.title": "Psycheをアンインストール",
+  "settings.uninstall.description":
+    "以下はすべてゴミ箱に移動されるため、あとで元に戻せます。完全に削除されるものはありません。",
+  "settings.uninstall.dataChoice": "データ",
+  "settings.uninstall.keep": "データを残す",
+  "settings.uninstall.keepHint":
+    "チャット、メモリ、保管庫、バックアップはデータフォルダに残ります。",
+  "settings.uninstall.delete": "データを削除する",
+  "settings.uninstall.deleteHint":
+    "データフォルダもゴミ箱に移動します。チャット、メモリ、保管庫、バックアップが含まれます。",
+  "settings.uninstall.willDo": "実行される内容",
+  "settings.uninstall.stopAgent": "Gateway LaunchAgentを停止して削除します。",
+  "settings.uninstall.stopHelper": "Psyche Helperを停止し、「ログイン時に開く」をオフにします。",
+  "settings.uninstall.trash": "ゴミ箱に移動",
+  "settings.uninstall.kind.agent": "Gateway LaunchAgent",
+  "settings.uninstall.kind.support": "Application Support",
+  "settings.uninstall.kind.cache": "キャッシュ、ログ、設定、保存された状態",
+  "settings.uninstall.kind.data": "データ",
+  "settings.uninstall.kind.app": "アプリ",
+  "settings.uninstall.agentOther":
+    "Gatewayエージェントは別のPsycheのコピーまたはコマンドラインツールのものなので、そのままにします。",
+  "settings.uninstall.blocked": "{path} はここからゴミ箱に移動できません: {reason}",
+  "settings.uninstall.keychainStays":
+    "キーチェーンの項目は残ります(保管庫のキーとHelperの項目)。必要ならキーチェーンアクセスで削除してください。",
+  "settings.uninstall.keychainGoes": "保管庫とHelperのキーチェーン項目も削除されます。",
+  "settings.uninstall.removeKeychain":
+    "キーチェーンの項目(com.psyche.vaultとHelperの項目)も削除する。データがなければ使い道はありません。",
+  "settings.uninstall.kind.state": "保存されたウインドウの状態",
+  "settings.uninstall.dataStays": "データフォルダには触れません。",
+  "settings.uninstall.typeWord": "確認のため {word} と入力してください",
+  "settings.uninstall.presence":
+    "データが削除されるため、このあとTouch IDまたはこのデバイスで確認が求められます。",
+  "settings.uninstall.approvalLabel": "Psycheをアンインストールしてデータを削除",
+  "settings.uninstall.failed":
+    "Psycheをアンインストールできませんでした({reason})。それ以上の変更は行われていません。",
+  "settings.uninstall.cancel": "キャンセル",
+  "settings.uninstall.go": "アンインストールして終了",
+  "settings.uninstall.goDelete": "データを削除してアンインストール",
   "settings.remote.admin":
     "ペアリングしたコンピュータには、読み取り、書き込み、承認の権限が付与されます。管理者権限は、承認時にチェックしない限りオフのままで、管理者としての変更には毎回ここでTouch IDが必要です。",
   "settings.remote.address": "公開アドレス",

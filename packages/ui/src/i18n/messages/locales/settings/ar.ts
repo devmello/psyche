@@ -690,6 +690,47 @@ export const settings: Partial<Catalogue> = {
     "أعد تشغيل Psyche. ثم على الكمبيوتر الآخر أضف هذا الـ Mac كـ Gateway. سيعرض رمز إقران وبصمة مفتاح: قارنهما بالطلب ضمن «بانتظار الإقران» هنا، ثم وافق عليه.",
   "settings.remote.funnel":
     "لا تفعّل Tailscale Funnel لهذا الغرض أبدًا. فسيضع Gateway على الإنترنت العام.",
+  "settings.uninstall.group": "إلغاء تثبيت Psyche",
+  "settings.uninstall.groupHint":
+    "يوقف Gateway والمساعد وينقل التطبيق إلى سلة المهملات. تبقى بياناتك ما لم تختر غير ذلك.",
+  "settings.uninstall.open": "إلغاء تثبيت Psyche…",
+  "settings.uninstall.title": "إلغاء تثبيت Psyche",
+  "settings.uninstall.description":
+    "كل ما يلي يُنقل إلى سلة المهملات، لذلك يمكنك إعادته. لا يُحذف شيء نهائيًا.",
+  "settings.uninstall.dataChoice": "بياناتك",
+  "settings.uninstall.keep": "الاحتفاظ ببياناتي",
+  "settings.uninstall.keepHint":
+    "تبقى المحادثات والذاكرة والخزنة والنسخ الاحتياطية في مجلد البيانات.",
+  "settings.uninstall.delete": "حذف بياناتي",
+  "settings.uninstall.deleteHint":
+    "ينقل أيضًا مجلد البيانات إلى سلة المهملات: المحادثات والذاكرة والخزنة والنسخ الاحتياطية.",
+  "settings.uninstall.willDo": "ما الذي سيحدث",
+  "settings.uninstall.stopAgent": "يُوقَف Gateway LaunchAgent ويُزال.",
+  "settings.uninstall.stopHelper": "يُوقَف Psyche Helper ويُعطَّل «الفتح عند تسجيل الدخول».",
+  "settings.uninstall.trash": "نُقل إلى سلة المهملات",
+  "settings.uninstall.kind.agent": "Gateway LaunchAgent",
+  "settings.uninstall.kind.support": "Application Support",
+  "settings.uninstall.kind.cache": "ذاكرات التخزين المؤقت والسجلات والتفضيلات والحالة المحفوظة",
+  "settings.uninstall.kind.data": "بياناتك",
+  "settings.uninstall.kind.app": "التطبيق",
+  "settings.uninstall.agentOther":
+    "وكيل Gateway يخص نسخة أخرى من Psyche أو أداة سطر الأوامر، لذلك يُترك كما هو.",
+  "settings.uninstall.blocked": "لا يمكن نقل {path} إلى سلة المهملات من هنا: {reason}",
+  "settings.uninstall.keychainStays":
+    "تبقى عناصر سلسلة المفاتيح (مفتاح الخزنة وعناصر المساعد). أزلها في «Keychain Access» إن أردت.",
+  "settings.uninstall.keychainGoes": "تُزال أيضًا عناصر سلسلة المفاتيح الخاصة بالخزنة والمساعد.",
+  "settings.uninstall.removeKeychain":
+    "أزل أيضًا عناصر سلسلة المفاتيح الخاصة بي (com.psyche.vault وعناصر المساعد). بدون بياناتك لا فائدة منها.",
+  "settings.uninstall.kind.state": "حالة النوافذ المحفوظة",
+  "settings.uninstall.dataStays": "لا يُمَسّ مجلد بياناتك.",
+  "settings.uninstall.typeWord": "اكتب {word} للتأكيد",
+  "settings.uninstall.presence":
+    "ثم سيُطلب منك التأكيد باستخدام Touch ID أو على هذا الجهاز، لأن ذلك يزيل بياناتك.",
+  "settings.uninstall.approvalLabel": "إلغاء تثبيت Psyche وحذف البيانات",
+  "settings.uninstall.failed": "تعذّر على Psyche إلغاء التثبيت ({reason}). لم يتغير أي شيء آخر.",
+  "settings.uninstall.cancel": "إلغاء",
+  "settings.uninstall.go": "إلغاء التثبيت والخروج",
+  "settings.uninstall.goDelete": "حذف البيانات وإلغاء التثبيت",
   "settings.remote.admin":
     "يحصل الكمبيوتر المقترن على القراءة والكتابة والموافقات. تبقى صلاحية المسؤول متوقفة ما لم تحدّدها عند الموافقة، وكل تغيير إداري يتطلب Touch ID منك هنا.",
   "settings.remote.address": "العنوان العام",

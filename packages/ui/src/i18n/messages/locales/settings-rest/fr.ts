@@ -753,6 +753,51 @@ export const settingsRest: Partial<Catalogue> = {
     "Redémarrez Psyche. Puis, sur l’autre ordinateur, ajoutez ce Mac comme Gateway. Il affiche un code de jumelage et une empreinte de clé : comparez-les avec la demande sous En attente de jumelage ici, puis approuvez-la.",
   "settings.remote.funnel":
     "N’activez jamais Tailscale Funnel pour cela. Cela exposerait la Gateway sur l’internet public.",
+  "settings.uninstall.group": "Désinstaller Psyche",
+  "settings.uninstall.groupHint":
+    "Arrête le Gateway et l’assistant, et place l’app dans la Corbeille. Vos données restent, sauf si vous choisissez autrement.",
+  "settings.uninstall.open": "Désinstaller Psyche…",
+  "settings.uninstall.title": "Désinstaller Psyche",
+  "settings.uninstall.description":
+    "Tout ce qui suit est placé dans la Corbeille, vous pouvez donc le récupérer. Rien n’est supprimé définitivement.",
+  "settings.uninstall.dataChoice": "Vos données",
+  "settings.uninstall.keep": "Conserver mes données",
+  "settings.uninstall.keepHint":
+    "Les discussions, la mémoire, le coffre et les sauvegardes restent dans le dossier de données.",
+  "settings.uninstall.delete": "Supprimer mes données",
+  "settings.uninstall.deleteHint":
+    "Place aussi le dossier de données dans la Corbeille : discussions, mémoire, coffre et sauvegardes.",
+  "settings.uninstall.willDo": "Ce qui va se passer",
+  "settings.uninstall.stopAgent": "Le LaunchAgent du Gateway est arrêté et supprimé.",
+  "settings.uninstall.stopHelper":
+    "Psyche Helper est arrêté et « Ouvrir à la connexion » est désactivé.",
+  "settings.uninstall.trash": "Placé dans la Corbeille",
+  "settings.uninstall.kind.agent": "LaunchAgent du Gateway",
+  "settings.uninstall.kind.support": "Application Support",
+  "settings.uninstall.kind.cache": "Caches, journaux, préférences et état enregistré",
+  "settings.uninstall.kind.data": "Vos données",
+  "settings.uninstall.kind.app": "L’app",
+  "settings.uninstall.agentOther":
+    "L’agent du Gateway appartient à une autre copie de Psyche ou à l’outil en ligne de commande ; il est donc laissé tel quel.",
+  "settings.uninstall.blocked":
+    "{path} ne peut pas être placé dans la Corbeille depuis ici : {reason}",
+  "settings.uninstall.keychainStays":
+    "Les éléments du trousseau restent (la clé du coffre et ceux de l’assistant). Supprimez-les dans Trousseau d’accès si vous le souhaitez.",
+  "settings.uninstall.keychainGoes":
+    "Les éléments du trousseau pour le coffre et l’assistant sont aussi supprimés.",
+  "settings.uninstall.removeKeychain":
+    "Supprimer aussi mes éléments du trousseau (com.psyche.vault et ceux de l’assistant). Sans vos données, ils sont inutiles.",
+  "settings.uninstall.kind.state": "État enregistré des fenêtres",
+  "settings.uninstall.dataStays": "Votre dossier de données n’est pas touché.",
+  "settings.uninstall.typeWord": "Saisissez {word} pour confirmer",
+  "settings.uninstall.presence":
+    "Il vous sera ensuite demandé de confirmer avec Touch ID ou sur cet appareil, car cela supprime vos données.",
+  "settings.uninstall.approvalLabel": "Désinstaller Psyche et supprimer les données",
+  "settings.uninstall.failed":
+    "Psyche n’a pas pu se désinstaller ({reason}). Rien d’autre n’a été modifié.",
+  "settings.uninstall.cancel": "Annuler",
+  "settings.uninstall.go": "Désinstaller et quitter",
+  "settings.uninstall.goDelete": "Supprimer les données et désinstaller",
   "settings.remote.admin":
     "Un ordinateur jumelé obtient la lecture, l’écriture et les approbations. Admin reste désactivé sauf si vous le cochez lors de l’approbation, et chaque modification d’admin exige toujours votre Touch ID ici.",
   "settings.remote.address": "Adresse publique",
