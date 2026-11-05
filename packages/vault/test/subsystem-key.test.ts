@@ -1,6 +1,7 @@
-import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { OWNER_FILE, privacyOf } from "@psyche/hostfs/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   isPlainSqlite,
@@ -33,7 +34,7 @@ describe("subsystem key", () => {
     const a = await loadOrCreateSubsystemKey(file, w, "test");
     expect(a.created).toBe(true);
     expect(a.key).toHaveLength(32);
-    expect(statSync(file).mode & 0o777).toBe(0o600);
+    expect(privacyOf(file)).toBe(OWNER_FILE);
     expect(readFileSync(file, "utf8")).not.toContain(a.key.toString("hex"));
     const b = await loadOrCreateSubsystemKey(file, w, "test");
     expect(b.created).toBe(false);
