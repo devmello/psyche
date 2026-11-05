@@ -26,6 +26,12 @@ import { personDataRest } from "./person-data-rest/it.ts";
 import { peopleRest } from "./people-rest/it.ts";
 import { screensRest } from "./screens-rest/it.ts";
 import { everythingRest } from "./everything-rest/it.ts";
+import { memoryBasicsRest } from "./memory-basics-rest/it.ts";
+import { memoryAdvancedRest } from "./memory-advanced-rest/it.ts";
+import { memoryPrivacyRest } from "./memory-privacy-rest/it.ts";
+import { memoryRest } from "./memory-rest/it.ts";
+import { memoryWorkRest } from "./memory-work-rest/it.ts";
+import { memorySurfacesRest } from "./memory-surfaces-rest/it.ts";
 
 /** Italian catalogue (it). Same ids as `en`; missing ids fall back to English. */
 export const it: Partial<Catalogue> = {
@@ -64,6 +70,12 @@ export const it: Partial<Catalogue> = {
   ...peopleRest,
   ...screensRest,
   ...everythingRest,
+  ...memoryBasicsRest,
+  ...memoryAdvancedRest,
+  ...memoryPrivacyRest,
+  ...memoryRest,
+  ...memoryWorkRest,
+  ...memorySurfacesRest,
   "common.cancel": "Annulla",
   "common.close": "Chiudi",
   "common.save": "Salva",

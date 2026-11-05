@@ -26,6 +26,12 @@ import { personDataRest } from "./person-data-rest/hi.ts";
 import { peopleRest } from "./people-rest/hi.ts";
 import { screensRest } from "./screens-rest/hi.ts";
 import { everythingRest } from "./everything-rest/hi.ts";
+import { memoryBasicsRest } from "./memory-basics-rest/hi.ts";
+import { memoryAdvancedRest } from "./memory-advanced-rest/hi.ts";
+import { memoryPrivacyRest } from "./memory-privacy-rest/hi.ts";
+import { memoryRest } from "./memory-rest/hi.ts";
+import { memoryWorkRest } from "./memory-work-rest/hi.ts";
+import { memorySurfacesRest } from "./memory-surfaces-rest/hi.ts";
 
 /** Hindi catalogue (hi). Same ids as `en`; missing ids fall back to English. */
 export const hi: Partial<Catalogue> = {
@@ -64,6 +70,12 @@ export const hi: Partial<Catalogue> = {
   ...peopleRest,
   ...screensRest,
   ...everythingRest,
+  ...memoryBasicsRest,
+  ...memoryAdvancedRest,
+  ...memoryPrivacyRest,
+  ...memoryRest,
+  ...memoryWorkRest,
+  ...memorySurfacesRest,
   "common.cancel": "रद्द करें",
   "common.close": "बंद करें",
   "common.save": "सेव करें",
