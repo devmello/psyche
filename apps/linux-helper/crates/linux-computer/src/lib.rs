@@ -19,6 +19,8 @@
 // Errors are rare and returned once per call, so they stay unboxed.
 #![allow(clippy::result_large_err)]
 
+#[cfg(target_os = "linux")]
+pub mod a11y;
 pub mod app_id;
 pub mod backend;
 pub mod engine;
@@ -26,12 +28,16 @@ pub mod error;
 #[cfg(any(test, feature = "fake"))]
 pub mod fake;
 pub mod hygiene;
+#[cfg(target_os = "linux")]
+pub mod linux;
 pub mod keychord;
 pub mod roles;
 pub mod snapshot;
 pub mod spec;
 pub mod target_check;
 pub mod tiers;
+#[cfg(target_os = "linux")]
+pub mod x11;
 
 pub use error::{CapError, CapResult};
 pub use spec::{specs, CapSpecLite};
