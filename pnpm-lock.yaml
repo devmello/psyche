@@ -1053,6 +1053,9 @@ importers:
 
   packages/speech:
     dependencies:
+      '@psyche/hostfs':
+        specifier: workspace:*
+        version: link:../hostfs
       '@psyche/protocol':
         specifier: workspace:*
         version: link:../protocol
