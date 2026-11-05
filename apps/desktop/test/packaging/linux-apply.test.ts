@@ -39,7 +39,10 @@ afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 function setup(kind: "appimage" | "deb" | "rpm", over: Partial<ApplyDeps> = {}) {
   const home = join(root, "home");
-  const paths = linuxUpdatePaths({ XDG_CACHE_HOME: join(home, ".cache"), XDG_DATA_HOME: join(home, ".local/share") }, home);
+  const paths = linuxUpdatePaths(
+    { XDG_CACHE_HOME: join(home, ".cache"), XDG_DATA_HOME: join(home, ".local/share") },
+    home,
+  );
   mkdirSync(paths.updatesDir, { recursive: true, mode: 0o700 });
   const events: string[] = [];
   const gateway: UpdateGateway = {
@@ -70,7 +73,14 @@ function setup(kind: "appimage" | "deb" | "rpm", over: Partial<ApplyDeps> = {}) 
     return {
       release,
       file,
-      artifact: { name, platform: "linux", arch: "x64", kind, sha256: sha(bytes), bytes: bytes.length },
+      artifact: {
+        name,
+        platform: "linux",
+        arch: "x64",
+        kind,
+        sha256: sha(bytes),
+        bytes: bytes.length,
+      },
     };
   };
   return {
@@ -119,7 +129,12 @@ describe("AppImage", () => {
     expect(s.events).toEqual(["prepare", "stop", "restart:update"]);
     expect(s.relaunched).toHaveLength(1);
     const kept = await previousArtifact(nodeApplyFs, s.paths, "appimage");
-    expect(kept).toMatchObject({ version: "1.0.0", build: "build-old", kind: "appimage", sha256: sha(OLD) });
+    expect(kept).toMatchObject({
+      version: "1.0.0",
+      build: "build-old",
+      kind: "appimage",
+      sha256: sha(OLD),
+    });
     expect(readFileSync(join(s.paths.previousImageDir, "Psyche.AppImage"))).toEqual(OLD);
     expect(s.commands).toEqual([]);
   });
@@ -141,7 +156,9 @@ describe("AppImage", () => {
     const image = installed(s);
     const staged = s.stage("1.1.0", "Psyche-1.1.0-linux-x64.AppImage", NEW);
     rmSync(staged.file);
-    expect(await applyLinuxUpdate(staged, { kind: "appimage", appImagePath: image }, s.deps)).toMatchObject({
+    expect(
+      await applyLinuxUpdate(staged, { kind: "appimage", appImagePath: image }, s.deps),
+    ).toMatchObject({
       state: "failed",
       code: "missing_file",
     });
@@ -188,7 +205,8 @@ describe("AppImage", () => {
     const fs: ApplyFs = {
       ...nodeApplyFs,
       rename: async (from, to) => {
-        if (to.endsWith("Psyche.AppImage") && from.includes("updates")) throw new Error("disk full");
+        if (to.endsWith("Psyche.AppImage") && from.includes("updates"))
+          throw new Error("disk full");
         return nodeApplyFs.rename(from, to);
       },
     };
@@ -205,7 +223,11 @@ describe("AppImage", () => {
   it("rolls back: restores the kept image, the data snapshot and the skip entry, then restarts", async () => {
     const s = setup("appimage");
     const image = installed(s);
-    await applyLinuxUpdate(s.stage("1.1.0", "Psyche-1.1.0-linux-x64.AppImage", NEW), { kind: "appimage", appImagePath: image }, s.deps);
+    await applyLinuxUpdate(
+      s.stage("1.1.0", "Psyche-1.1.0-linux-x64.AppImage", NEW),
+      { kind: "appimage", appImagePath: image },
+      s.deps,
+    );
     s.events.length = 0;
     const { h, calls } = hooks();
     const running = { ...s.deps, current: { version: "1.1.0", build: "build-new" } };
@@ -221,10 +243,20 @@ describe("AppImage", () => {
     const s = setup("appimage");
     const image = installed(s);
     const { h } = hooks();
-    expect(await rollbackLinux("appimage", image, s.deps, h)).toMatchObject({ state: "failed", code: "no_previous" });
-    await applyLinuxUpdate(s.stage("1.1.0", "Psyche-1.1.0-linux-x64.AppImage", NEW), { kind: "appimage", appImagePath: image }, s.deps);
+    expect(await rollbackLinux("appimage", image, s.deps, h)).toMatchObject({
+      state: "failed",
+      code: "no_previous",
+    });
+    await applyLinuxUpdate(
+      s.stage("1.1.0", "Psyche-1.1.0-linux-x64.AppImage", NEW),
+      { kind: "appimage", appImagePath: image },
+      s.deps,
+    );
     writeFileSync(join(s.paths.previousImageDir, "Psyche.AppImage"), "swapped");
-    expect(await rollbackLinux("appimage", image, s.deps, h)).toMatchObject({ state: "failed", code: "hash_mismatch" });
+    expect(await rollbackLinux("appimage", image, s.deps, h)).toMatchObject({
+      state: "failed",
+      code: "hash_mismatch",
+    });
     expect(readFileSync(image)).toEqual(NEW);
   });
 });
@@ -298,9 +330,15 @@ describe.each([
     s.commands.length = 0;
     s.events.length = 0;
     const { h, calls } = hooks();
-    const res = await rollbackLinux(kind, undefined, { ...s.deps, current: { version: "1.2.0", build: "b2" } }, h);
+    const res = await rollbackLinux(
+      kind,
+      undefined,
+      { ...s.deps, current: { version: "1.2.0", build: "b2" } },
+      h,
+    );
     expect(res).toEqual({ state: "applied", release: "1.1.0" });
-    const down = kind === "deb" ? ["install", "--yes", "--allow-downgrades"] : ["downgrade", "--assumeyes"];
+    const down =
+      kind === "deb" ? ["install", "--yes", "--allow-downgrades"] : ["downgrade", "--assumeyes"];
     expect(s.commands).toEqual([
       ["/usr/bin/pkexec", tool, ...down, join(s.paths.previousPackageDir, name("1.1.0"))],
     ]);

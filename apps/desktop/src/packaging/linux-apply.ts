@@ -1,15 +1,6 @@
 import { createHash } from "node:crypto";
 import { createReadStream, constants as fsConstants } from "node:fs";
-import {
-  access,
-  chmod,
-  copyFile,
-  mkdir,
-  readFile,
-  rename,
-  rm,
-  writeFile,
-} from "node:fs/promises";
+import { access, chmod, copyFile, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import type { InstallKind, ManifestArtifact } from "../main/update-manifest.ts";
 import type { UpdateGateway } from "./linux-gateway.ts";
@@ -294,7 +285,13 @@ export async function packageCommand(
     ];
   }
   if (await exists(fs, "/usr/bin/dnf")) {
-    return [PKEXEC, "/usr/bin/dnf", mode === "downgrade" ? "downgrade" : "install", "--assumeyes", file];
+    return [
+      PKEXEC,
+      "/usr/bin/dnf",
+      mode === "downgrade" ? "downgrade" : "install",
+      "--assumeyes",
+      file,
+    ];
   }
   if (await exists(fs, "/usr/bin/zypper")) {
     return [
@@ -333,7 +330,11 @@ async function runPackageManager(
 }
 
 /** After a successful install: the file we installed before becomes `previous`, this one `installed`. */
-async function rotatePackages(d: ApplyDeps, staged: StagedUpdate, kind: "deb" | "rpm"): Promise<void> {
+async function rotatePackages(
+  d: ApplyDeps,
+  staged: StagedUpdate,
+  kind: "deb" | "rpm",
+): Promise<void> {
   const { fs, paths } = d;
   await fs.mkdir(paths.packageDir, { recursive: true, mode: 0o700 });
   await fs.mkdir(paths.previousPackageDir, { recursive: true, mode: 0o700 });
@@ -457,7 +458,9 @@ export async function rollbackLinux(
     const current = await readRecord(d.fs, join(d.paths.packageDir, INSTALLED_FILE));
     if (current) await d.fs.rm(join(d.paths.packageDir, current.file), { force: true });
     await replaceFile(d.fs, file, join(d.paths.packageDir, rec.file), 0o600).catch(() => undefined);
-    await writeJsonAtomic(d.fs, join(d.paths.packageDir, INSTALLED_FILE), rec).catch(() => undefined);
+    await writeJsonAtomic(d.fs, join(d.paths.packageDir, INSTALLED_FILE), rec).catch(
+      () => undefined,
+    );
     await d.fs.rm(join(dir, RECORD_FILE), { force: true });
   }
   try {

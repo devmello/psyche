@@ -51,7 +51,11 @@ const code = (fn: () => unknown) => {
 };
 
 /** A release dir built and signed by the real release script. */
-function linuxRelease(version: string, pem: string, opts: { mac?: boolean; archs?: string[] } = {}) {
+function linuxRelease(
+  version: string,
+  pem: string,
+  opts: { mac?: boolean; archs?: string[] } = {},
+) {
   const dir = temp();
   const files: string[] = [];
   for (const arch of opts.archs ?? ["x64", "arm64"]) {
@@ -103,9 +107,13 @@ describe("the release script's Linux entries", () => {
     const r = linuxRelease("1.2.0", k.pem, { archs: ["x64"] });
     expect(JSON.parse(r.manifestBytes.toString("utf8")).artifacts).toEqual([]);
     expect(() =>
-      execFileSync(process.execPath, [SCRIPT, "build", "--release", "1.2.0", "--base", `${PINNED}v1/`], {
-        stdio: "pipe",
-      }),
+      execFileSync(
+        process.execPath,
+        [SCRIPT, "build", "--release", "1.2.0", "--base", `${PINNED}v1/`],
+        {
+          stdio: "pipe",
+        },
+      ),
     ).toThrow();
   });
 
@@ -173,7 +181,12 @@ describe("planUpdate on Linux", () => {
     const k = fixtureKey();
     const r = linuxRelease("1.2.0", k.pem);
     const m = verifyManifest(r.manifestBytes, r.sig, [k.key]);
-    const rest = { currentVersion: "1.0.0", pinnedBase: PINNED, arch: "x64", installKind: "deb" as const };
+    const rest = {
+      currentVersion: "1.0.0",
+      pinnedBase: PINNED,
+      arch: "x64",
+      installKind: "deb" as const,
+    };
     expect(code(() => planUpdate(m, { ...rest, platform: "darwin" }))).toBe("no_artifact");
     expect(code(() => planUpdate(m, { ...rest, platform: "win32" }))).toBe("no_artifact");
   });
@@ -218,7 +231,10 @@ describe("planUpdate on Linux", () => {
 describe("checkForVerifiedUpdate on Linux", () => {
   const base = { arch: "x64", currentVersion: "1.0.0", platform: "linux" as const, log: () => {} };
 
-  function host(r: { dir: string; manifestBytes: Buffer; sig: string }, swap?: Buffer): typeof fetch {
+  function host(
+    r: { dir: string; manifestBytes: Buffer; sig: string },
+    swap?: Buffer,
+  ): typeof fetch {
     return (async (input: string | URL) => {
       const url = String(input);
       const name = url.split("/").pop() ?? "";

@@ -259,7 +259,8 @@ export function checkAddons(appDir, arch, plat = "darwin") {
   walk(appDir, (p) => {
     if (!p.endsWith(".node")) return;
     const out = execFileSync("/usr/bin/file", ["-b", p], { encoding: "utf8" });
-    if (plat === "linux" && !out.startsWith("ELF")) bad.push(`${p.slice(appDir.length + 1)}: ${out.trim()}`);
+    if (plat === "linux" && !out.startsWith("ELF"))
+      bad.push(`${p.slice(appDir.length + 1)}: ${out.trim()}`);
     else if (!out.includes(want)) bad.push(`${p.slice(appDir.length + 1)}: ${out.trim()}`);
   });
   return bad;
@@ -405,7 +406,9 @@ function stripRuntime(node) {
  */
 function stripRuntimeLinux(node, arch) {
   if (arch !== (hostArch() === "arm64" ? "arm64" : "x64")) {
-    process.stdout.write(`kept the symbols of the ${arch} Node runtime (strip is for the host's architecture)\n`);
+    process.stdout.write(
+      `kept the symbols of the ${arch} Node runtime (strip is for the host's architecture)\n`,
+    );
     return;
   }
   run("strip", ["--strip-unneeded", node]);
@@ -645,7 +648,9 @@ async function main(argv) {
   if (plat !== "darwin" && plat !== "win32" && plat !== "linux")
     throw new Error("--platform must be darwin, linux or win32");
   if (plat !== platform())
-    throw new Error(`--platform ${plat} needs a ${plat} host: native addons are installed for the host`);
+    throw new Error(
+      `--platform ${plat} needs a ${plat} host: native addons are installed for the host`,
+    );
   if (arch !== "arm64" && arch !== "x64") throw new Error("--arch must be arm64 or x64");
   if (arch !== (hostArch() === "arm64" ? "arm64" : "x64") && !(plat === "linux" && CROSS)) {
     throw new Error(
@@ -684,6 +689,11 @@ async function main(argv) {
       "@psyche/gateway...",
       "--filter",
       "@psyche/cli...",
+      // Linux cross build (PSYCHE_CROSS_ARCH=1): the other architecture's optional packages, and
+      // prebuild-install (better-sqlite3 and friends) fetches that architecture's binaries.
+      ...(CROSS && arch !== (hostArch() === "arm64" ? "arm64" : "x64")
+        ? ["--cpu", arch, "--os", "linux", "--libc", "glibc"]
+        : []),
     ],
     {
       cwd: app,
@@ -692,6 +702,9 @@ async function main(argv) {
         CI: "1",
         ELECTRON_SKIP_BINARY_DOWNLOAD: "1",
         PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1",
+        ...(CROSS
+          ? { npm_config_arch: arch, npm_config_target_arch: arch, npm_config_platform: plat }
+          : {}),
       },
     },
   );

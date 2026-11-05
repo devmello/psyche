@@ -16,8 +16,8 @@ import { dirname, join } from "node:path";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import {
-  MANIFEST_FILE,
   type InstallKind,
+  MANIFEST_FILE,
   type ManifestArtifact,
   ManifestError,
   planUpdate,

@@ -64,11 +64,13 @@ describe("renderGatewayUnit", () => {
     expect(out).toContain("NoNewPrivileges=yes");
   });
   it("refuses a path with whitespace, a bad build id and an unfilled placeholder", () => {
-    expect(() => renderGatewayUnit(tpl, { psyched: "/a b/psyched", build: "0123456789abcdef" })).toThrow();
+    expect(() =>
+      renderGatewayUnit(tpl, { psyched: "/a b/psyched", build: "0123456789abcdef" }),
+    ).toThrow();
     expect(() => renderGatewayUnit(tpl, { psyched: "/x/psyched", build: "not a build" })).toThrow();
-    expect(() => renderGatewayUnit("ExecStart=@OTHER@", { psyched: "/x", build: "0123456789abcdef" })).toThrow(
-      /placeholder/,
-    );
+    expect(() =>
+      renderGatewayUnit("ExecStart=@OTHER@", { psyched: "/x", build: "0123456789abcdef" }),
+    ).toThrow(/placeholder/);
   });
 });
 
@@ -77,7 +79,10 @@ describe("copyBundleResourcesLinux", () => {
     const out = join(temp(), "Psyche-linux-x64");
     mkdirSync(join(out, "resources"), { recursive: true });
     const warnings: string[] = [];
-    const res = copyBundleResourcesLinux(sources(), out, { allowPartial: false, warn: (m) => warnings.push(m) });
+    const res = copyBundleResourcesLinux(sources(), out, {
+      allowPartial: false,
+      warn: (m) => warnings.push(m),
+    });
     const r = (p: string) => join(out, "resources", p);
     expect(existsSync(r("psyched/psyched"))).toBe(true);
     expect(existsSync(r("psyched/runtime/node"))).toBe(true);
@@ -112,7 +117,11 @@ describe("copyBundleResourcesLinux", () => {
       allowPartial: false,
     });
     expect(res.skipped).toEqual([]);
-    expect(existsSync(join(out, "resources/system/usr/share/polkit-1/actions/com.psyche.presence.policy"))).toBe(true);
+    expect(
+      existsSync(
+        join(out, "resources/system/usr/share/polkit-1/actions/com.psyche.presence.policy"),
+      ),
+    ).toBe(true);
     expect(statSync(join(out, "resources/psyche-helper")).mode & 0o111).not.toBe(0);
   });
 
@@ -125,15 +134,17 @@ describe("copyBundleResourcesLinux", () => {
     symlinkSync("/etc/passwd", join(dir, "evil"));
     expect(findLinks(join(root, "usr/share/polkit-1"))).toEqual([join("actions", "evil")]);
     expect(() =>
-      copyBundleResourcesLinux(sources({ rootDir: root }), join(temp(), "out"), { allowPartial: false }),
+      copyBundleResourcesLinux(sources({ rootDir: root }), join(temp(), "out"), {
+        allowPartial: false,
+      }),
     ).toThrow(/links in/);
   });
 
   it("fails when psyched is missing, unless partial packages are allowed", () => {
     const missing = sources({ psychedDir: join(temp(), "nope") });
-    expect(() => copyBundleResourcesLinux(missing, join(temp(), "out"), { allowPartial: false })).toThrow(
-      /build-psyched.mjs --platform linux/,
-    );
+    expect(() =>
+      copyBundleResourcesLinux(missing, join(temp(), "out"), { allowPartial: false }),
+    ).toThrow(/build-psyched.mjs --platform linux/);
     const out = join(temp(), "out");
     const res = copyBundleResourcesLinux(missing, out, { allowPartial: true, warn: () => {} });
     expect(res.missing.join("\n")).toContain("psyched");
@@ -151,19 +162,33 @@ function cpSyncRoot(dest: string) {
     join(dest, "usr/lib/systemd/user/psyche-gateway.service.in"),
     readFileSync(join(src, "usr/lib/systemd/user/psyche-gateway.service.in")),
   );
-  writeFileSync(join(dest, "etc/apparmor.d/psyche"), readFileSync(join(src, "etc/apparmor.d/psyche")));
+  writeFileSync(
+    join(dest, "etc/apparmor.d/psyche"),
+    readFileSync(join(src, "etc/apparmor.d/psyche")),
+  );
 }
 
 describe("icons and artifact names", () => {
   it("finds the hicolor sizes that ship", () => {
     const set = linuxIconSet(join(REPO, "deploy/linux/root/usr/share/icons/hicolor"));
-    expect(Object.keys(set)).toEqual(["16x16", "24x24", "32x32", "48x48", "64x64", "128x128", "256x256", "512x512"]);
+    expect(Object.keys(set)).toEqual([
+      "16x16",
+      "24x24",
+      "32x32",
+      "48x48",
+      "64x64",
+      "128x128",
+      "256x256",
+      "512x512",
+    ]);
     for (const f of Object.values(set)) expect(existsSync(f)).toBe(true);
   });
 
   it("names artifacts the way update-manifest.mjs classifies them", () => {
     expect(linuxArtifactName("1.2.3", "x64", "AppImage")).toBe("Psyche-1.2.3-linux-x64.AppImage");
-    expect(linuxArtifactName("1.2.3-beta.1", "arm64", "deb")).toBe("Psyche-1.2.3-beta.1-linux-arm64.deb");
+    expect(linuxArtifactName("1.2.3-beta.1", "arm64", "deb")).toBe(
+      "Psyche-1.2.3-beta.1-linux-arm64.deb",
+    );
   });
 
   it("renames the makers' files in place and leaves the zip alone", () => {
@@ -174,7 +199,12 @@ describe("icons and artifact names", () => {
       { arch: "x64", artifacts: ["/o/make/rpm/x64/psyche-1.0.0_alpha.0-1.x86_64.rpm"] },
       { arch: "arm64", artifacts: ["/o/make/AppImage/arm64/Psyche-1.0.0-alpha.0-arm64.AppImage"] },
     ];
-    renameLinuxArtifacts(results, "1.0.0-alpha.0", () => {}, (a, b) => void moves.push([a, b]));
+    renameLinuxArtifacts(
+      results,
+      "1.0.0-alpha.0",
+      () => {},
+      (a, b) => void moves.push([a, b]),
+    );
     expect(results.map((r) => r.artifacts[0])).toEqual([
       "/o/make/Psyche-linux-x64-1.0.0.zip",
       "/o/make/deb/x64/Psyche-1.0.0-alpha.0-linux-x64.deb",

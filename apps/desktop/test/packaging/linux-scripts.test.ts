@@ -44,18 +44,30 @@ const write = (file: string, text: string | Buffer, mode = 0o644) => {
 // Built here so no policy-looking literal sits in the repo's test data.
 const policy = (defaults: string, id = "com.psyche.presence", extra = "") =>
   `<?xml version="1.0"?>\n<policyconfig>\n<action id="${id}">\n<defaults>${defaults}</defaults>\n${extra}</action>\n</policyconfig>\n`;
-const GOOD = [`<allow_any>auth_self</allow_any>`, `<allow_inactive>auth_self</allow_inactive>`, `<allow_active>auth_self</allow_active>`].join("");
+const GOOD = [
+  `<allow_any>auth_self</allow_any>`,
+  `<allow_inactive>auth_self</allow_inactive>`,
+  `<allow_active>auth_self</allow_active>`,
+].join("");
 const ELF = Buffer.concat([Buffer.from([0x7f, 0x45, 0x4c, 0x46]), Buffer.from("rest of an elf")]);
 
 function setup(args: string[], env: Record<string, string>, input?: Buffer) {
-  const r = spawnSync("/bin/sh", [SETUP, ...args], { env: { PATH: process.env.PATH ?? "", ...env }, input, encoding: "utf8" });
+  const r = spawnSync("/bin/sh", [SETUP, ...args], {
+    env: { PATH: process.env.PATH ?? "", ...env },
+    input,
+    encoding: "utf8",
+  });
   return { code: r.status, out: `${r.stdout}${r.stderr}` };
 }
 
-function payload(over: { policy?: string; sandbox?: Buffer; unit?: boolean; profile?: boolean } = {}) {
+function payload(
+  over: { policy?: string; sandbox?: Buffer; unit?: boolean; profile?: boolean } = {},
+) {
   const p = temp();
-  if (over.policy !== undefined) write(join(p, "usr/share/polkit-1/actions/com.psyche.presence.policy"), over.policy);
-  if (over.unit !== false) write(join(p, "usr/lib/systemd/user/psyche-gateway.service"), "[Service]\nExecStart=/x\n");
+  if (over.policy !== undefined)
+    write(join(p, "usr/share/polkit-1/actions/com.psyche.presence.policy"), over.policy);
+  if (over.unit !== false)
+    write(join(p, "usr/lib/systemd/user/psyche-gateway.service"), "[Service]\nExecStart=/x\n");
   if (over.profile !== false) write(join(p, "etc/apparmor.d/psyche"), "profile psyche {}\n");
   if (over.sandbox) write(join(p, "chrome-sandbox"), over.sandbox, 0o755);
   return p;
@@ -67,8 +79,12 @@ describe.skipIf(!posix)("psyche-system-setup", () => {
     const p = payload({ policy: policy(GOOD), sandbox: ELF });
     const r = setup(["install", p], { DESTDIR: d });
     expect(r.code).toBe(0);
-    expect(readFileSync(join(d, "usr/share/polkit-1/actions/com.psyche.presence.policy"), "utf8")).toBe(policy(GOOD));
-    expect(statSync(join(d, "usr/share/polkit-1/actions/com.psyche.presence.policy")).mode & 0o7777).toBe(0o644);
+    expect(
+      readFileSync(join(d, "usr/share/polkit-1/actions/com.psyche.presence.policy"), "utf8"),
+    ).toBe(policy(GOOD));
+    expect(
+      statSync(join(d, "usr/share/polkit-1/actions/com.psyche.presence.policy")).mode & 0o7777,
+    ).toBe(0o644);
     expect(existsSync(join(d, "usr/lib/systemd/user/psyche-gateway.service"))).toBe(true);
     expect(statSync(join(d, "usr/local/lib/psyche/chrome-sandbox")).mode & 0o7777).toBe(0o4755);
     expect(existsSync(join(d, "usr/local/lib/psyche/chrome-sandbox.new"))).toBe(false);
@@ -90,22 +106,45 @@ describe.skipIf(!posix)("psyche-system-setup", () => {
     const d = temp();
     write(join(d, "usr/lib/psyche/psyche"), "bin", 0o755);
     expect(setup(["install", payload()], { DESTDIR: d }).code).toBe(0);
-    expect(execFileSync("readlink", [join(d, "usr/bin/psyche-desktop")], { encoding: "utf8" }).trim()).toBe(
-      "/usr/lib/psyche/psyche",
-    );
+    expect(
+      execFileSync("readlink", [join(d, "usr/bin/psyche-desktop")], { encoding: "utf8" }).trim(),
+    ).toBe("/usr/lib/psyche/psyche");
   });
 
   it.each([
-    ["a policy that approves with no password", policy("<allow_active>yes</allow_active>"), /without a fresh password/],
-    ["a policy that keeps the authorization", policy("<allow_active>auth_self_keep</allow_active>"), /without a fresh password/],
+    [
+      "a policy that approves with no password",
+      policy("<allow_active>yes</allow_active>"),
+      /without a fresh password/,
+    ],
+    [
+      "a policy that keeps the authorization",
+      policy("<allow_active>auth_self_keep</allow_active>"),
+      /without a fresh password/,
+    ],
     [
       "a policy that also defines someone else's action",
-      policy(GOOD).replace("</policyconfig>", `<action id="org.example.other"><defaults>${GOOD}</defaults></action>
-</policyconfig>`),
+      policy(GOOD).replace(
+        "</policyconfig>",
+        `<action id="org.example.other"><defaults>${GOOD}</defaults></action>
+</policyconfig>`,
+      ),
       /not Psyche's/,
     ],
-    ["a policy for someone else's action only", policy(GOOD, "org.example.other"), /no com.psyche action/],
-    ["a policy that runs a program as root", policy(GOOD, "com.psyche.x", '<annotate key="org.freedesktop.policykit.exec.path">/bin/sh</annotate>\n'), /as root/],
+    [
+      "a policy for someone else's action only",
+      policy(GOOD, "org.example.other"),
+      /no com.psyche action/,
+    ],
+    [
+      "a policy that runs a program as root",
+      policy(
+        GOOD,
+        "com.psyche.x",
+        '<annotate key="org.freedesktop.policykit.exec.path">/bin/sh</annotate>\n',
+      ),
+      /as root/,
+    ],
     ["a policy with entities", `<!DOCTYPE x [<!ENTITY a "b">]>\n${policy(GOOD)}`, /entities/],
     ["a policy with no action", "<policyconfig/>", /no com.psyche action/],
   ])("refuses %s", (_name, text, why) => {
@@ -118,7 +157,9 @@ describe.skipIf(!posix)("psyche-system-setup", () => {
 
   it("will not make a script or a link setuid", () => {
     const d = temp();
-    expect(setup(["install", payload({ sandbox: Buffer.from("#!/bin/sh\nid\n") })], { DESTDIR: d }).out).toMatch(/not an ELF/);
+    expect(
+      setup(["install", payload({ sandbox: Buffer.from("#!/bin/sh\nid\n") })], { DESTDIR: d }).out,
+    ).toMatch(/not an ELF/);
     expect(existsSync(join(d, "usr/local/lib/psyche/chrome-sandbox"))).toBe(false);
     const p = payload();
     symlinkSync("/bin/sh", join(p, "chrome-sandbox"));
@@ -147,7 +188,9 @@ describe.skipIf(!posix)("psyche-system-setup", () => {
     setup(["install", p], { DESTDIR: d });
     write(join(d, "usr/share/polkit-1/actions/other.policy"), "keep");
     expect(setup(["remove"], { DESTDIR: d }).code).toBe(0);
-    expect(existsSync(join(d, "usr/share/polkit-1/actions/com.psyche.presence.policy"))).toBe(false);
+    expect(existsSync(join(d, "usr/share/polkit-1/actions/com.psyche.presence.policy"))).toBe(
+      false,
+    );
     expect(existsSync(join(d, "usr/lib/systemd/user/psyche-gateway.service"))).toBe(false);
     expect(existsSync(join(d, "usr/local/lib/psyche"))).toBe(false);
     expect(readFileSync(join(d, "usr/share/polkit-1/actions/other.policy"), "utf8")).toBe("keep");
@@ -169,25 +212,44 @@ function appFolder(opts: { proc?: Record<string, string> } = {}) {
   mkdirSync(app, { recursive: true });
   copyFileSync(APPRUN, join(app, "AppRun"));
   chmodSync(join(app, "AppRun"), 0o755);
-  write(join(app, "psyche"), `#!/bin/sh\nprintf '%s\\n' "$@" > "${log}/psyche.args"\nprintf '%s' "\${CHROME_DEVEL_SANDBOX:-unset}" > "${log}/psyche.sandbox"\n`, 0o755);
+  write(
+    join(app, "psyche"),
+    `#!/bin/sh\nprintf '%s\\n' "$@" > "${log}/psyche.args"\nprintf '%s' "\${CHROME_DEVEL_SANDBOX:-unset}" > "${log}/psyche.sandbox"\n`,
+    0o755,
+  );
   write(join(app, "chrome-sandbox"), ELF, 0o755);
-  write(join(app, "resources/psyched/psyched"), `#!/bin/sh\nprintf '%s\\n' "$@" > "${log}/psyched.args"\n`, 0o755);
+  write(
+    join(app, "resources/psyched/psyched"),
+    `#!/bin/sh\nprintf '%s\\n' "$@" > "${log}/psyched.args"\n`,
+    0o755,
+  );
   write(join(app, "resources/psyche-system-setup"), "#!/bin/sh\necho setup\n", 0o755);
   write(join(app, "resources/system/usr/share/polkit-1/actions/a.policy"), "p");
   write(join(app, "resources/system/usr/lib/systemd/user/psyche-gateway.service"), "unit");
   write(join(app, "resources/system/etc/apparmor.d/psyche"), "profile");
   const bin = join(root, "bin");
   write(join(bin, "notify-send"), `#!/bin/sh\nprintf '%s\\n' "$@" > "${log}/notify.args"\n`, 0o755);
-  write(join(bin, "pkexec"), `#!/bin/sh\nprintf '%s\\n' "$@" > "${log}/pkexec.args"\ntar -tf - > "${log}/pkexec.tar"\n`, 0o755);
+  write(
+    join(bin, "pkexec"),
+    `#!/bin/sh\nprintf '%s\\n' "$@" > "${log}/pkexec.args"\ntar -tf - > "${log}/pkexec.tar"\n`,
+    0o755,
+  );
   const proc = join(root, "proc");
   mkdirSync(proc);
   for (const [k, v] of Object.entries(opts.proc ?? {})) write(join(proc, k), `${v}\n`);
   const run = (args: string[], env: Record<string, string> = {}, path = `${bin}:/usr/bin:/bin`) =>
     spawnSync(join(app, "AppRun"), args, {
-      env: { PATH: path, PSYCHE_APPRUN_PROC: proc, PSYCHE_APPRUN_SANDBOX_DIR: join(root, "sys"), LANG: "en_US.UTF-8", ...env },
+      env: {
+        PATH: path,
+        PSYCHE_APPRUN_PROC: proc,
+        PSYCHE_APPRUN_SANDBOX_DIR: join(root, "sys"),
+        LANG: "en_US.UTF-8",
+        ...env,
+      },
       encoding: "utf8",
     });
-  const read = (f: string) => (existsSync(join(log, f)) ? readFileSync(join(log, f), "utf8") : undefined);
+  const read = (f: string) =>
+    existsSync(join(log, f)) ? readFileSync(join(log, f), "utf8") : undefined;
   return { app, root, run, read };
 }
 
@@ -254,7 +316,9 @@ describe.skipIf(!posix)("AppRun", () => {
     const fallback = appFolder({ proc: BLOCKED }).run([], { LANG: "sv_SE.UTF-8" });
     expect(fallback.stderr).toBe(seen.get("en"));
     // LC_ALL wins over LANG.
-    expect(appFolder({ proc: BLOCKED }).run([], { LANG: "de_DE", LC_ALL: "fr_FR.UTF-8" }).stderr).toContain("bac à sable");
+    expect(
+      appFolder({ proc: BLOCKED }).run([], { LANG: "de_DE", LC_ALL: "fr_FR.UTF-8" }).stderr,
+    ).toContain("bac à sable");
   });
 
   it("a setuid-looking file that is not root's, setuid and identical does not count", () => {
@@ -265,13 +329,16 @@ describe.skipIf(!posix)("AppRun", () => {
     expect(a.run([]).status).toBe(1);
   });
 
-  it.skipIf(!posix || process.getuid?.() !== 0)("with root's identical setuid copy it starts, pointing Chromium at it", () => {
-    const a = appFolder({ proc: BLOCKED });
-    write(join(a.root, "sys/chrome-sandbox"), ELF, 0o4755);
-    chmodSync(join(a.root, "sys/chrome-sandbox"), 0o4755);
-    expect(a.run([]).status).toBe(0);
-    expect(a.read("psyche.sandbox")).toBe(join(a.root, "sys/chrome-sandbox"));
-  });
+  it.skipIf(!posix || process.getuid?.() !== 0)(
+    "with root's identical setuid copy it starts, pointing Chromium at it",
+    () => {
+      const a = appFolder({ proc: BLOCKED });
+      write(join(a.root, "sys/chrome-sandbox"), ELF, 0o4755);
+      chmodSync(join(a.root, "sys/chrome-sandbox"), 0o4755);
+      expect(a.run([]).status).toBe(0);
+      expect(a.read("psyche.sandbox")).toBe(join(a.root, "sys/chrome-sandbox"));
+    },
+  );
 
   it("--setup-system pipes polkit policy and the sandbox helper (not the unit or profile) through pkexec", () => {
     const a = appFolder({ proc: BLOCKED });
@@ -302,7 +369,10 @@ describe.skipIf(!posix)("AppRun", () => {
     const a = appFolder();
     const link = join(a.root, "bin", "psyche-apprun");
     symlinkSync(join(a.app, "AppRun"), link);
-    const r = spawnSync(link, ["x"], { env: { PATH: "/usr/bin:/bin", PSYCHE_APPRUN_PROC: join(a.root, "proc") }, encoding: "utf8" });
+    const r = spawnSync(link, ["x"], {
+      env: { PATH: "/usr/bin:/bin", PSYCHE_APPRUN_PROC: join(a.root, "proc") },
+      encoding: "utf8",
+    });
     expect(r.status).toBe(0);
     expect(a.read("psyche.args")).toBe("x\n");
   });

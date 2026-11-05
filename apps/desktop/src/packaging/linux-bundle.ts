@@ -80,10 +80,7 @@ export function bundleSourcesLinux(
 }
 
 /** The unit template with `@PSYCHED@` and `@BUILD@` filled in. */
-export function renderGatewayUnit(
-  template: string,
-  v: { psyched: string; build: string },
-): string {
+export function renderGatewayUnit(template: string, v: { psyched: string; build: string }): string {
   if (/[\r\n\s]/.test(v.psyched)) throw new Error("the psyched path must not hold whitespace");
   if (!/^[0-9a-f]{8,64}$/.test(v.build)) throw new Error(`not a build id: ${v.build}`);
   const out = template.replaceAll("@PSYCHED@", v.psyched).replaceAll("@BUILD@", v.build);
@@ -176,7 +173,8 @@ export function copyBundleResourcesLinux(
       ].join("\n"),
     );
   }
-  if (missing.length > 0) warn(`${missing.join("\n")}\n(continuing: PSYCHE_PACKAGE_ALLOW_PARTIAL=1)`);
+  if (missing.length > 0)
+    warn(`${missing.join("\n")}\n(continuing: PSYCHE_PACKAGE_ALLOW_PARTIAL=1)`);
 
   if (haveGateway) {
     rmSync(psyched, { recursive: true, force: true });
@@ -274,7 +272,10 @@ export function renameLinuxArtifacts(
       if (!ext) return file;
       if (seen.has(ext)) throw new Error(`two .${ext} files in one make result: ${file}`);
       seen.add(ext);
-      const to = join(dirname(file), linuxArtifactName(r.packageJSON?.version ?? version, r.arch, ext));
+      const to = join(
+        dirname(file),
+        linuxArtifactName(r.packageJSON?.version ?? version, r.arch, ext),
+      );
       if (to !== file) rename(file, to);
       log(`${basename(file)} -> ${basename(to)}`);
       return to;

@@ -225,7 +225,14 @@ const config: ForgeConfig = {
           mimeType: ["x-scheme-handler/psyche", "x-scheme-handler/psyche-pair"],
           icon: linuxIcons as never,
           recommends: ["pkexec | policykit-1", "libnotify-bin"],
-          desktopTemplate: join(linuxDeploy, "root", "usr", "share", "applications", "psyche.desktop"),
+          desktopTemplate: join(
+            linuxDeploy,
+            "root",
+            "usr",
+            "share",
+            "applications",
+            "psyche.desktop",
+          ),
           scripts: {
             postinst: join(linuxDeploy, "scripts", "postinst"),
             prerm: join(linuxDeploy, "scripts", "prerm"),
@@ -254,7 +261,14 @@ const config: ForgeConfig = {
           // Options electron-installer-redhat reads that the maker's types leave out.
           ...({
             specTemplate: join(linuxDeploy, "psyche.spec.ejs"),
-            desktopTemplate: join(linuxDeploy, "root", "usr", "share", "applications", "psyche.desktop"),
+            desktopTemplate: join(
+              linuxDeploy,
+              "root",
+              "usr",
+              "share",
+              "applications",
+              "psyche.desktop",
+            ),
             scripts: {
               post: join(linuxDeploy, "scripts", "post"),
               preun: join(linuxDeploy, "scripts", "preun"),
