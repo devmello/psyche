@@ -29,6 +29,9 @@ export interface SeparateDesktopView {
   error?: string;
   shares: string[];
   internet: boolean;
+  /** False when the system could not enforce the limit the owner set. */
+  memoryEnforced: boolean;
+  pidsEnforced: boolean;
 }
 
 export const MEMORY_CHOICES = ["1g", "2g", "4g", "8g"] as const;
@@ -78,6 +81,8 @@ export function separateDesktopOf(values: Readonly<Record<string, unknown>>): Se
     ...(typeof o.error === "string" ? { error: o.error } : {}),
     shares,
     internet: o.internet === true,
+    memoryEnforced: o.memoryEnforced !== false,
+    pidsEnforced: o.pidsEnforced !== false,
   };
 }
 
@@ -111,6 +116,12 @@ export function SeparateDesktopGroup({ values, onChange }: SettingsFormProps): R
       </div>
       {view.rootless === false ? (
         <ErrorNotice what={t("settings.separateDesktop.rootful")} did="" />
+      ) : null}
+      {!view.memoryEnforced ? (
+        <ErrorNotice what={t("settings.separateDesktop.limitMemory")} did="" />
+      ) : null}
+      {!view.pidsEnforced ? (
+        <ErrorNotice what={t("settings.separateDesktop.limitPids")} did="" />
       ) : null}
       {view.phase === "failed" && view.error !== undefined ? (
         <ErrorNotice what={view.error} did="" />

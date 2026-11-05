@@ -22,4 +22,15 @@ export const separateDesktop: Partial<Catalogue> = {
   "settings.separateDesktop.reset": "별도 데스크톱 초기화",
   "settings.separateDesktop.resetHint":
     "컨테이너와 그 안에 저장된 모든 것을 삭제합니다. 공유한 폴더는 건드리지 않습니다.",
+  "blocks.folder.sd.explain.ro":
+    "{persona}이(가) 별도 데스크톱이 폴더의 파일을 읽도록 하려고 합니다.",
+  "blocks.folder.sd.explain.rw":
+    "{persona}이(가) 별도 데스크톱이 폴더의 파일을 읽고 바꾸도록 하려고 합니다.",
+  "blocks.folder.sd.scope":
+    "별도 데스크톱은 이 작업 동안에만 이 폴더를 볼 수 있습니다. 이 컴퓨터의 다른 것은 공유되지 않으며, 이 컴퓨터의 다른 도구도 이 폴더를 얻지 않습니다.",
+  "blocks.folder.sd.scope.once": "이 작업에서만",
+  "settings.separateDesktop.limitMemory": "이 시스템에서는 메모리 한도가 적용되지 않습니다",
+  "settings.separateDesktop.limitPids": "이 시스템에서는 프로세스 한도가 적용되지 않습니다",
+  "blocks.details.sdUnverified":
+    "별도 데스크톱은 이 페이지가 정말 {origin}인지 확인할 수 없습니다. 작업이 이동한 곳을 신뢰할 때만 계속하세요.",
 };

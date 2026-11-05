@@ -22,4 +22,17 @@ export const separateDesktop: Partial<Catalogue> = {
   "settings.separateDesktop.reset": "Separaten Desktop zurücksetzen",
   "settings.separateDesktop.resetHint":
     "Löscht den Container und alles, was darin gespeichert ist. Ordner, die du freigegeben hast, bleiben unberührt.",
+  "blocks.folder.sd.explain.ro":
+    "{persona} möchte dem separaten Desktop erlauben, die Dateien in einem Ordner zu lesen.",
+  "blocks.folder.sd.explain.rw":
+    "{persona} möchte dem separaten Desktop erlauben, die Dateien in einem Ordner zu lesen und zu ändern.",
+  "blocks.folder.sd.scope":
+    "Der separate Desktop sieht diesen Ordner nur für diese Aufgabe. Sonst wird nichts auf diesem Computer geteilt, und kein anderes Werkzeug auf diesem Computer erhält den Ordner.",
+  "blocks.folder.sd.scope.once": "Nur diese Aufgabe",
+  "settings.separateDesktop.limitMemory":
+    "Das Speicherlimit wird auf diesem System nicht durchgesetzt",
+  "settings.separateDesktop.limitPids":
+    "Das Prozesslimit wird auf diesem System nicht durchgesetzt",
+  "blocks.details.sdUnverified":
+    "Der separate Desktop kann nicht bestätigen, dass diese Seite wirklich {origin} ist. Fahre nur fort, wenn du dem Ziel der Aufgabe vertraust.",
 };

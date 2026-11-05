@@ -24,6 +24,7 @@ export const DEVICE_ONLY_KINDS: readonly ApprovalKind[] = [
   "apple_script",
   // The owner picks the folder in the native picker; a chat reply could not.
   "folder_access",
+  "separate_desktop_share",
   // Turning a capability on, or opening System Settings, happens on the Mac (§3.13).
   "permission_request",
 ];
@@ -166,6 +167,8 @@ export function allowedScopes(
       "git_push",
       // A setting is turned on until revoked in Settings, never a grant (§3.13).
       "permission_request",
+      // One folder for one task of the separate desktop: never kept, never a host grant.
+      "separate_desktop_share",
     ].includes(kind)
   )
     return ["once"];

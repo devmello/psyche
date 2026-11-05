@@ -22,4 +22,15 @@ export const separateDesktop: Partial<Catalogue> = {
   "settings.separateDesktop.reset": "Restablecer el escritorio separado",
   "settings.separateDesktop.resetHint":
     "Elimina su contenedor y todo lo guardado dentro. Las carpetas que compartiste no se tocan.",
+  "blocks.folder.sd.explain.ro":
+    "{persona} quiere dejar que el escritorio separado lea los archivos de una carpeta.",
+  "blocks.folder.sd.explain.rw":
+    "{persona} quiere dejar que el escritorio separado lea y cambie los archivos de una carpeta.",
+  "blocks.folder.sd.scope":
+    "El escritorio separado ve esta carpeta solo durante esta tarea. No se comparte nada más de este ordenador, y ninguna otra herramienta de este ordenador recibe la carpeta.",
+  "blocks.folder.sd.scope.once": "Solo esta tarea",
+  "settings.separateDesktop.limitMemory": "El límite de memoria no se aplica en este sistema",
+  "settings.separateDesktop.limitPids": "El límite de procesos no se aplica en este sistema",
+  "blocks.details.sdUnverified":
+    "El escritorio separado no puede confirmar que esta página sea realmente {origin}. Continúa solo si confías en el lugar al que la tarea te llevó.",
 };

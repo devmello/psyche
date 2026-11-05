@@ -1746,6 +1746,7 @@ public enum ApprovalKind: String, Codable, Sendable {
     case policyChange = "policy_change"
     case purchase = "purchase"
     case sendEmail = "send_email"
+    case separateDesktopShare = "separate_desktop_share"
     case shortcutRun = "shortcut_run"
     case skillInstall = "skill_install"
     case taskStart = "task_start"

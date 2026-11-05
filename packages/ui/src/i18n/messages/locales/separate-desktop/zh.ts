@@ -21,4 +21,13 @@ export const separateDesktop: Partial<Catalogue> = {
   "settings.separateDesktop.reset": "重置独立桌面",
   "settings.separateDesktop.resetHint":
     "删除其容器及其中保存的所有内容。你共享的文件夹不会受影响。",
+  "blocks.folder.sd.explain.ro": "{persona} 想让独立桌面读取某个文件夹中的文件。",
+  "blocks.folder.sd.explain.rw": "{persona} 想让独立桌面读取并修改某个文件夹中的文件。",
+  "blocks.folder.sd.scope":
+    "独立桌面只在这项任务期间看到此文件夹。这台电脑上的其他内容不会被共享，这台电脑上的其他工具也不会获得此文件夹。",
+  "blocks.folder.sd.scope.once": "仅限这项任务",
+  "settings.separateDesktop.limitMemory": "此系统未强制执行内存上限",
+  "settings.separateDesktop.limitPids": "此系统未强制执行进程数上限",
+  "blocks.details.sdUnverified":
+    "独立桌面无法确认此页面确实是 {origin}。只有在你信任任务打开的地址时才继续。",
 };

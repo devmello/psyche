@@ -21,4 +21,15 @@ export const separateDesktop: Partial<Catalogue> = {
   "settings.separateDesktop.reset": "別のデスクトップをリセット",
   "settings.separateDesktop.resetHint":
     "コンテナーとその中に保存されたものをすべて削除します。共有したフォルダーには影響しません。",
+  "blocks.folder.sd.explain.ro":
+    "{persona} が、別のデスクトップにフォルダー内のファイルを読ませようとしています。",
+  "blocks.folder.sd.explain.rw":
+    "{persona} が、別のデスクトップにフォルダー内のファイルを読み書きさせようとしています。",
+  "blocks.folder.sd.scope":
+    "別のデスクトップは、このタスクの間だけこのフォルダーを見られます。このコンピューターの他のものは共有されず、他のツールにもこのフォルダーは渡りません。",
+  "blocks.folder.sd.scope.once": "このタスクのみ",
+  "settings.separateDesktop.limitMemory": "このシステムではメモリ上限が適用されません",
+  "settings.separateDesktop.limitPids": "このシステムではプロセス数の上限が適用されません",
+  "blocks.details.sdUnverified":
+    "別のデスクトップでは、このページが本当に {origin} かどうか確認できません。タスクが開いた場所を信頼できる場合のみ続けてください。",
 };

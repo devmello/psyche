@@ -98,6 +98,12 @@ export const ApprovalKind = StringEnum(
     "git_push",
     /** The agent asks for a folder it cannot reach; the owner's own pick is what gets granted. */
     "folder_access",
+    /**
+     * Linux separate desktop (docs/design/linux-desktop-2026.md section 8.4): the owner picks a
+     * folder to show to the container, for one task. Unlike `folder_access` it grants NOTHING on
+     * the host: no file tool and no Settings entry gets the folder.
+     */
+    "separate_desktop_share",
     /** One approval for a listed set of `write` calls (an `ActionProposal`), once only. */
     "batch",
     /**

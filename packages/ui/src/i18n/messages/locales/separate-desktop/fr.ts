@@ -22,4 +22,15 @@ export const separateDesktop: Partial<Catalogue> = {
   "settings.separateDesktop.reset": "Réinitialiser le bureau séparé",
   "settings.separateDesktop.resetHint":
     "Supprime son conteneur et tout ce qui y est enregistré. Les dossiers que vous avez partagés ne sont pas touchés.",
+  "blocks.folder.sd.explain.ro":
+    "{persona} veut laisser le bureau séparé lire les fichiers d'un dossier.",
+  "blocks.folder.sd.explain.rw":
+    "{persona} veut laisser le bureau séparé lire et modifier les fichiers d'un dossier.",
+  "blocks.folder.sd.scope":
+    "Le bureau séparé voit ce dossier pour cette tâche seulement. Rien d'autre sur cet ordinateur n'est partagé, et aucun autre outil de cet ordinateur n'obtient le dossier.",
+  "blocks.folder.sd.scope.once": "Cette tâche seulement",
+  "settings.separateDesktop.limitMemory": "La limite de mémoire n'est pas appliquée sur ce système",
+  "settings.separateDesktop.limitPids": "La limite de processus n'est pas appliquée sur ce système",
+  "blocks.details.sdUnverified":
+    "Le bureau séparé ne peut pas confirmer que cette page est bien {origin}. Continuez seulement si vous faites confiance à l'endroit où la tâche vous a menés.",
 };

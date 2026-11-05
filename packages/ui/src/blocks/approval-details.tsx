@@ -540,12 +540,28 @@ export function ApprovalDetails({
             ) : null}
           </Row>
           <Row label={t("blocks.details.fields")}>{str(d.fields)}</Row>
+          {d.separateDesktop === true ? (
+            <Row label={t("blocks.details.thisPage")}>
+              <span className="inline-flex items-center gap-1 text-danger-text">
+                <TriangleAlert className="size-3.5" aria-hidden="true" />{" "}
+                {t("blocks.details.sdUnverified", { origin: bound })}
+              </span>
+            </Row>
+          ) : null}
           <Row label={t("blocks.details.personaSees", { persona })}>
             {t("blocks.details.placeholderOnly")}
           </Row>
           <Rest
             details={d}
-            shown={["item", "credential", "boundOrigin", "origin", "currentOrigin", "fields"]}
+            shown={[
+              "item",
+              "credential",
+              "boundOrigin",
+              "origin",
+              "currentOrigin",
+              "fields",
+              "separateDesktop",
+            ]}
           />
         </dl>
       );
@@ -645,6 +661,7 @@ export function ApprovalDetails({
           <Rest details={d} shown={["need", "reason"]} />
         </dl>
       );
+    case "separate_desktop_share":
     case "folder_access": {
       // The folder itself is the card's "Folder to share" pick; this is what was asked and why.
       const asked = str(d.requestedPath);

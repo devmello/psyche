@@ -844,7 +844,9 @@ export class PsychePermissionBroker implements PermissionBroker {
     // Taint always overrides standing grants (§3.6): a tainted folder request is never kept.
     // So is a tainted send, destructive or financial card: `once` only, never Always (§3.12).
     if (
-      (input.kind === "folder_access" || floorClass(input.kind, se) !== undefined) &&
+      (input.kind === "folder_access" ||
+        input.kind === "separate_desktop_share" ||
+        floorClass(input.kind, se) !== undefined) &&
       (input.taint || input.context?.taint === true)
     )
       scopesOffered = scopesOffered.filter((s) => s === "once");
@@ -1339,7 +1341,10 @@ export class PsychePermissionBroker implements PermissionBroker {
 
     // The folder the owner picked is what is granted, never the agent's string (security §3.5).
     let folderPick: FolderGrantEntry | undefined;
-    if (input.decision === "approve" && a.kind === "folder_access") {
+    if (
+      input.decision === "approve" &&
+      (a.kind === "folder_access" || a.kind === "separate_desktop_share")
+    ) {
       if (this.#folderAccess === undefined || input.folderPath === undefined) {
         return this.#reject(
           rec,
@@ -1350,7 +1355,7 @@ export class PsychePermissionBroker implements PermissionBroker {
           "pick the folder to share",
         );
       }
-      if (scope === "once" && a.requestedBy.threadId == null) {
+      if (a.kind === "folder_access" && scope === "once" && a.requestedBy.threadId == null) {
         return this.#reject(
           rec,
           id,
@@ -1437,8 +1442,12 @@ export class PsychePermissionBroker implements PermissionBroker {
             composeFinal.text,
           );
         }
-        if (fa.kind === "folder_access" && folderPick !== undefined) {
+        if (
+          (fa.kind === "folder_access" || fa.kind === "separate_desktop_share") &&
+          folderPick !== undefined
+        ) {
           // Not a ledger grant: `always` lives in Settings → File access, `once` in the thread.
+          // A separate-desktop share only records the pick here; `#applyFolder` is skipped for it.
           fa.details = { ...fa.details, granted: { ...folderPick } };
         } else if (fa.kind === "batch" && scope === "always") {
           // The one batch grant: prep notes only. It binds the calls' own key, not the batch's.
@@ -1468,7 +1477,7 @@ export class PsychePermissionBroker implements PermissionBroker {
     this.#timers.get(id)?.();
     this.#timers.delete(id);
     const fa = decided.approval;
-    if (fa.status === "approved" && folderPick !== undefined) {
+    if (fa.status === "approved" && folderPick !== undefined && fa.kind === "folder_access") {
       await this.#applyFolder(fa, folderPick, scope, by);
     }
     const { call, context } = decided.input;

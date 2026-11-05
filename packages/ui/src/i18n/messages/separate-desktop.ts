@@ -23,4 +23,15 @@ export const separateDesktop = {
   "settings.separateDesktop.reset": "Reset separate desktop",
   "settings.separateDesktop.resetHint":
     "Deletes its container and everything saved inside it. Folders you shared are not touched.",
+  "blocks.folder.sd.explain.ro":
+    "{persona} wants to let the separate desktop read the files in a folder.",
+  "blocks.folder.sd.explain.rw":
+    "{persona} wants to let the separate desktop read and change the files in a folder.",
+  "blocks.folder.sd.scope":
+    "The separate desktop sees this folder for this task only. Nothing else on this computer is shared, and no other tool on this computer gets the folder.",
+  "blocks.folder.sd.scope.once": "This task only",
+  "settings.separateDesktop.limitMemory": "Memory limit not enforced on this system",
+  "settings.separateDesktop.limitPids": "Process limit not enforced on this system",
+  "blocks.details.sdUnverified":
+    "The separate desktop can't confirm that this page really is {origin}. Only continue if you trust where the task sent it.",
 } as const;

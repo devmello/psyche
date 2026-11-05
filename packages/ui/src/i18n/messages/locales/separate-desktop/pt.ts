@@ -22,4 +22,15 @@ export const separateDesktop: Partial<Catalogue> = {
   "settings.separateDesktop.reset": "Redefinir a área de trabalho separada",
   "settings.separateDesktop.resetHint":
     "Exclui o contêiner e tudo o que foi salvo nele. As pastas que você compartilhou não são alteradas.",
+  "blocks.folder.sd.explain.ro":
+    "{persona} quer deixar a área de trabalho separada ler os arquivos de uma pasta.",
+  "blocks.folder.sd.explain.rw":
+    "{persona} quer deixar a área de trabalho separada ler e alterar os arquivos de uma pasta.",
+  "blocks.folder.sd.scope":
+    "A área de trabalho separada vê esta pasta só durante esta tarefa. Nada mais neste computador é compartilhado, e nenhuma outra ferramenta deste computador recebe a pasta.",
+  "blocks.folder.sd.scope.once": "Só esta tarefa",
+  "settings.separateDesktop.limitMemory": "O limite de memória não é aplicado neste sistema",
+  "settings.separateDesktop.limitPids": "O limite de processos não é aplicado neste sistema",
+  "blocks.details.sdUnverified":
+    "A área de trabalho separada não consegue confirmar que esta página é mesmo {origin}. Continue só se confiar no lugar para onde a tarefa levou.",
 };

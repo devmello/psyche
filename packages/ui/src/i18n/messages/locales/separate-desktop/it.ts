@@ -22,4 +22,15 @@ export const separateDesktop: Partial<Catalogue> = {
   "settings.separateDesktop.reset": "Reimposta il desktop separato",
   "settings.separateDesktop.resetHint":
     "Elimina il suo contenitore e tutto ciò che è salvato al suo interno. Le cartelle che hai condiviso non vengono toccate.",
+  "blocks.folder.sd.explain.ro":
+    "{persona} vuole permettere al desktop separato di leggere i file di una cartella.",
+  "blocks.folder.sd.explain.rw":
+    "{persona} vuole permettere al desktop separato di leggere e modificare i file di una cartella.",
+  "blocks.folder.sd.scope":
+    "Il desktop separato vede questa cartella solo per questa attività. Nient'altro su questo computer viene condiviso e nessun altro strumento di questo computer riceve la cartella.",
+  "blocks.folder.sd.scope.once": "Solo questa attività",
+  "settings.separateDesktop.limitMemory": "Il limite di memoria non è applicato su questo sistema",
+  "settings.separateDesktop.limitPids": "Il limite dei processi non è applicato su questo sistema",
+  "blocks.details.sdUnverified":
+    "Il desktop separato non può confermare che questa pagina sia davvero {origin}. Continua solo se ti fidi del luogo a cui l'attività ti ha portato.",
 };
