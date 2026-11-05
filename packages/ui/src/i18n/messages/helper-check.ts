@@ -37,4 +37,6 @@ export const helperCheck = {
     "it runs in a separate sandbox of this computer",
   "settings.devices.helperCheck.reason.busy":
     "Psyche was busy checking other connections; the helper will try again",
+  "settings.devices.nodeKind.hostHelper": "This computer's helper",
+  "settings.devices.nodeKind.guest": "Separate desktop",
 } as const;

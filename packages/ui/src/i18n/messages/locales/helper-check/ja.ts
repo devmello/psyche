@@ -36,4 +36,6 @@ export const helperCheck: Partial<Catalogue> = {
     "このコンピュータの別のサンドボックス内で動いています",
   "settings.devices.helperCheck.reason.busy":
     "Psyche は他の接続を確認中でした。ヘルパーは再試行します",
+  "settings.devices.nodeKind.hostHelper": "このコンピュータのヘルパー",
+  "settings.devices.nodeKind.guest": "別のデスクトップ",
 };

@@ -1,5 +1,7 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { createI18n, setActiveI18n, t } from "../src/i18n/core.ts";
+import { setUiPlatform } from "../src/lib/platform.ts";
 import { DevicesPanel } from "../src/screens/settings/DevicesSection.tsx";
 import {
   HostHelperCheckGroup,
@@ -120,5 +122,49 @@ describe("Settings → Devices: the Linux helper check", () => {
       </StoryWorld>,
     );
     expect(screen.getByTestId("host-helper-check")).toBeTruthy();
+  });
+});
+
+describe("Settings → Devices: node kind labels for the Linux kinds", () => {
+  const node = (kind: string, id: string) =>
+    ({
+      id,
+      deviceId: `dev_${id}`,
+      kind,
+      status: "online",
+      lastHeartbeatAt: null,
+      capabilities: [],
+    }) as never;
+
+  afterEach(() => {
+    setUiPlatform(undefined);
+    setActiveI18n(createI18n({ locale: "en-US" }));
+  });
+
+  it("names a host-helper node and a guest node, not as a Mac helper or a VM guest", () => {
+    render(
+      <StoryWorld>
+        <DevicesPanel
+          devices={[]}
+          pairing={[]}
+          nodes={[node("host-helper", "n1"), node("guest", "n2")]}
+        />
+      </StoryWorld>,
+    );
+    const text = document.body.textContent ?? "";
+    expect(text).toContain("This computer's helper");
+    expect(text).toContain("Separate desktop");
+    expect(text).not.toContain("Mac helper");
+    expect(text).not.toContain("VM guest");
+  });
+
+  it("says Linux helper on Linux, in every language that has the Linux wording", () => {
+    setUiPlatform("linux");
+    expect(t("settings.devices.nodeKind.hostHelper")).toBe("Linux helper");
+    setActiveI18n(createI18n({ locale: "de" }));
+    expect(t("settings.devices.nodeKind.hostHelper")).toBe("Linux-Helfer");
+    expect(t("settings.devices.nodeKind.guest")).toBe("Separater Desktop");
+    setUiPlatform("macos");
+    expect(t("settings.devices.nodeKind.hostHelper")).toBe("Helfer dieses Computers");
   });
 });

@@ -35,4 +35,6 @@ export const helperCheck: Partial<Catalogue> = {
     "이 컴퓨터의 별도 샌드박스에서 실행 중입니다",
   "settings.devices.helperCheck.reason.busy":
     "Psyche가 다른 연결을 확인하느라 바빴습니다. 도우미가 다시 시도합니다",
+  "settings.devices.nodeKind.hostHelper": "이 컴퓨터의 도우미",
+  "settings.devices.nodeKind.guest": "별도 데스크톱",
 };

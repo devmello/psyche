@@ -32,4 +32,6 @@ export const helperCheck: Partial<Catalogue> = {
     "يعمل في بيئة معزولة منفصلة على هذا الكمبيوتر",
   "settings.devices.helperCheck.reason.busy":
     "كان Psyche مشغولًا بفحص اتصالات أخرى؛ سيحاول المساعد مرة أخرى",
+  "settings.devices.nodeKind.hostHelper": "مساعد هذا الكمبيوتر",
+  "settings.devices.nodeKind.guest": "سطح مكتب منفصل",
 };

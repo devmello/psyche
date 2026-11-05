@@ -32,4 +32,6 @@ export const helperCheck: Partial<Catalogue> = {
   "settings.devices.helperCheck.reason.otherNamespace": "यह इस कंप्यूटर के अलग सैंडबॉक्स में चलता है",
   "settings.devices.helperCheck.reason.busy":
     "Psyche दूसरे कनेक्शन जाँचने में व्यस्त था; हेल्पर फिर कोशिश करेगा",
+  "settings.devices.nodeKind.hostHelper": "इस कंप्यूटर का हेल्पर",
+  "settings.devices.nodeKind.guest": "अलग डेस्कटॉप",
 };

@@ -39,4 +39,6 @@ export const helperCheck: Partial<Catalogue> = {
     "il s'exécute dans un bac à sable distinct de cet ordinateur",
   "settings.devices.helperCheck.reason.busy":
     "Psyche était occupé à vérifier d'autres connexions ; l'assistant réessaiera",
+  "settings.devices.nodeKind.hostHelper": "Assistant de cet ordinateur",
+  "settings.devices.nodeKind.guest": "Bureau séparé",
 };

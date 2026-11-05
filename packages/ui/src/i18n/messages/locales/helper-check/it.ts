@@ -38,4 +38,6 @@ export const helperCheck: Partial<Catalogue> = {
     "viene eseguito in una sandbox separata di questo computer",
   "settings.devices.helperCheck.reason.busy":
     "Psyche era impegnato a controllare altre connessioni; l'assistente riproverà",
+  "settings.devices.nodeKind.hostHelper": "Assistente di questo computer",
+  "settings.devices.nodeKind.guest": "Desktop separato",
 };

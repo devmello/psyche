@@ -56,9 +56,9 @@ const NODE_KIND_ID: Readonly<Record<NodeInfo["kind"] | "win-helper", string>> = 
   "vm-guest": "vmGuest",
   remote: "remote",
   phone: "phone",
-  // Linux L0 kinds. No Gateway emits them yet; a later Linux PR gives them their own labels.
-  "host-helper": "macHelper",
-  guest: "vmGuest",
+  // The Linux helper (stored as host-helper) and the helper inside a separate desktop.
+  "host-helper": "hostHelper",
+  guest: "guest",
 };
 
 const nodeKindLabel = (k: string): string => {

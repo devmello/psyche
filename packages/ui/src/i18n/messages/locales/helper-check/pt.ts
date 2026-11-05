@@ -37,4 +37,6 @@ export const helperCheck: Partial<Catalogue> = {
     "ele roda em um ambiente isolado separado deste computador",
   "settings.devices.helperCheck.reason.busy":
     "o Psyche estava ocupado verificando outras conexões; o assistente tentará de novo",
+  "settings.devices.nodeKind.hostHelper": "Assistente deste computador",
+  "settings.devices.nodeKind.guest": "Área de trabalho separada",
 };

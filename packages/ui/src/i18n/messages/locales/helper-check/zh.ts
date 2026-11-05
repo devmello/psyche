@@ -28,4 +28,6 @@ export const helperCheck: Partial<Catalogue> = {
   "settings.devices.helperCheck.reason.filesNotLocked": "除系统以外的人也可能修改它的文件",
   "settings.devices.helperCheck.reason.otherNamespace": "它运行在这台电脑上一个单独的沙盒中",
   "settings.devices.helperCheck.reason.busy": "Psyche 正忙于检查其他连接；助手会再试一次",
+  "settings.devices.nodeKind.hostHelper": "这台电脑的助手",
+  "settings.devices.nodeKind.guest": "独立桌面",
 };
