@@ -12,11 +12,13 @@ import {
   HELPER_TOAST_CLSID,
   helperExe,
   installRoot,
+  ownGatewayTasks,
   runSquirrelActions,
   type SquirrelAction,
   squirrelEvent,
   squirrelPlan,
   UNINSTALL_KEY,
+  uninstallRegistryEntries,
 } from "../../src/main/squirrel-events.ts";
 import { APP_ICON as BUNDLED_APP_ICON } from "../../src/packaging/bundle-resources.ts";
 
@@ -274,6 +276,31 @@ describe("Squirrel events", () => {
     expect(gatewayTasks(SID, "DESK\\me", query(null))).toEqual([TASK]);
     // Without a SID there is no name to delete (and the old one cannot be told apart).
     expect(gatewayTasks(null, "DESK\\me", query(ours))).toEqual([]);
+  });
+
+  it("uninstall leaves a task that runs another copy's runtime alone", () => {
+    const task = (program: string) =>
+      `<Task><Actions><Exec><Arguments>--headless "${program}" service-host.mjs --home C:\\h</Arguments></Exec></Actions></Task>`;
+    const xml: Record<string, string | null> = {
+      [TASK]: task(`${ROOT}\\app-0.3.0\\resources\\psyched\\runtime\\node.exe`),
+      "\\Psyche\\Gateway": task("C:\\src\\psyche\\runtime\\node.exe"),
+    };
+    const query = (t: string) => xml[t] ?? null;
+    expect(ownGatewayTasks([TASK, "\\Psyche\\Gateway"], ROOT, query)).toEqual([TASK]);
+    // A task that is already gone stays in the list (deleting it is a no-op); one that names no
+    // runtime is not provably ours.
+    expect(ownGatewayTasks([TASK], ROOT, () => null)).toEqual([TASK]);
+    expect(ownGatewayTasks([TASK], ROOT, () => "<Task/>")).toEqual([]);
+  });
+
+  it("the registry entries the in-app uninstall removes are the ones the hook removes", () => {
+    const entries = uninstallRegistryEntries();
+    const fromPlan = squirrelPlan("uninstall", paths).flatMap((a) =>
+      a.kind === "run" && a.cmd === "reg.exe" ? [a.args.slice(1, -1)] : [],
+    );
+    expect(fromPlan).toEqual(entries.map((e) => [e.key, ...(e.value ? ["/v", e.value] : [])]));
+    expect(entries.map((e) => e.key)).toContain("HKCU\\Software\\Classes\\psyche");
+    expect(entries.every((e) => e.key.startsWith("HKCU\\"))).toBe(true);
   });
 
   it("carries out a copy action (the uninstall icon)", () => {

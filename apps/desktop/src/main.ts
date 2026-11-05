@@ -156,6 +156,13 @@ import {
   type UninstallDeps,
   UninstallError,
 } from "./main/uninstall.ts";
+import {
+  confirmDetailWindows,
+  planUninstallWindows,
+  runUninstallWindows,
+  UNINSTALL_MANUAL_STEPS_WINDOWS,
+} from "./main/uninstall-windows.ts";
+import { windowsUninstallDeps } from "./main/uninstall-windows-host.ts";
 import { startUpdater, stopUpdater } from "./main/updater.ts";
 import {
   canvasColor,
@@ -241,9 +248,16 @@ const thisMacGateway = !remoteGateway && isLocalGatewayOrigin(gatewayTarget.orig
 const lanGateway = remoteGateway && gatewayTarget.lan === true;
 /** The mode the supervisor runs in: a saved remote Gateway starts nothing here. */
 const supervisorMode = remoteGateway ? "remote" : chooseMode(process.env, app.isPackaged);
-/** Uninstall Psyche is for a packaged app that runs its own Gateway LaunchAgent. */
+/**
+ * Uninstall Psyche is for a packaged app that runs its own Gateway service: the LaunchAgent on a
+ * Mac, the per-user scheduled task of a Squirrel install on Windows.
+ */
 const canUninstall =
-  app.isPackaged && supervisorMode === "launchd" && process.platform === "darwin";
+  app.isPackaged &&
+  ((supervisorMode === "launchd" && process.platform === "darwin") ||
+    (supervisorMode === "taskscheduler" &&
+      process.platform === "win32" &&
+      squirrelLayout(process.execPath) !== undefined));
 
 // A first-paint measurement run (main/perf-probe.ts) changes nothing outside its scratch dirs.
 const perfProbe = perfProbeFile();
@@ -1288,6 +1302,62 @@ function registerIpc(): void {
     },
     log: (m) => console.warn(`[uninstall] ${m}`),
   });
+  // Windows: the same sheet over uninstall-windows.ts (Recycle Bin, Windows Hello through the same
+  // Gateway gate, the task, the sandbox PC service, then Squirrel's Update.exe --uninstall).
+  const windowsDeps = () =>
+    windowsUninstallDeps(
+      {
+        execPath: process.execPath,
+        userDataDir: app.getPath("userData"),
+        psycheHome: process.env.PSYCHE_HOME,
+        updateExe: squirrelLayout(process.execPath)?.updateExe,
+        appData: app.getPath("appData"),
+      },
+      {
+        trashItem: (p) => shell.trashItem(p),
+        setOpenAtLogin: (v) => loginItem.set(v),
+        restartAgent: async () => {
+          await supervisor?.ensureRunning();
+        },
+        clearStagedUpdate: async () => {
+          stopUpdater();
+          const staged = join(app.getPath("temp"), "psyche-update");
+          return existsSync(staged) ? [staged] : [];
+        },
+        authorizeDelete: async (path, approvalId) => {
+          await requireGateway().call("app.uninstall.authorize", {
+            path,
+            ...(approvalId === undefined ? {} : { approvalId }),
+          });
+        },
+        confirm: async (plan) => {
+          const box = await dialog.showMessageBox({
+            type: "warning",
+            buttons: ["Cancel", plan.deleteData ? "Delete data and uninstall" : "Uninstall"],
+            defaultId: 0,
+            cancelId: 0,
+            message: "Uninstall Psyche?",
+            detail: confirmDetailWindows(plan),
+          });
+          return box.response === 1;
+        },
+        showManualSteps: async (detail) => {
+          await dialog.showMessageBox({
+            type: "info",
+            message: "One more step to finish removing Psyche",
+            detail,
+          });
+        },
+        closeWindows: () => {
+          for (const w of BaseWindow.getAllWindows()) w.destroy();
+        },
+        quit: () => {
+          quittingEntirely = true;
+          app.quit();
+        },
+        log: (m) => console.warn(`[uninstall] ${m}`),
+      },
+    );
   const asPsycheError = (err: unknown): unknown =>
     err instanceof UninstallError ? new PsycheError(err.code, err.message) : err;
   const uninstallAllowed = (): void => {
@@ -1295,11 +1365,13 @@ function registerIpc(): void {
       throw new PsycheError("forbidden", "This copy of Psyche cannot uninstall itself from here");
     }
   };
-  handle(IPC.appUninstallPlan, (_event, arg) => {
+  handle(IPC.appUninstallPlan, async (_event, arg) => {
     uninstallAllowed();
     const req = checkUninstall(IPC.appUninstallPlan, arg);
     try {
-      const plan = planUninstall(uninstallDeps(), req);
+      const plan = windows32
+        ? await planUninstallWindows(await windowsDeps(), req)
+        : planUninstall(uninstallDeps(), req);
       return {
         stops: plan.stops.map(({ kind, label }) => ({ kind, label })),
         trash: plan.trash.map(({ kind, path, label }) => ({ kind, path, label })),
@@ -1317,15 +1389,17 @@ function registerIpc(): void {
     uninstallAllowed();
     const req = checkUninstall(IPC.appUninstall, arg);
     try {
-      const res = await runUninstall(uninstallDeps(), req);
+      const res = windows32
+        ? await runUninstallWindows(await windowsDeps(), req)
+        : await runUninstall(uninstallDeps(), req);
       if (res.failed.length > 0) {
         throw new PsycheError(
           "internal",
-          `Some items could not be moved to the Trash, so Psyche stays open: ${res.failed
+          `Some items could not be moved to the ${windows32 ? "Recycle Bin" : "Trash"}, so Psyche stays open: ${res.failed
             .map((f) => f.path)
             .join(
               ", ",
-            )}. ${res.restarted ? "The Gateway was started again. " : ""}${UNINSTALL_MANUAL_STEPS}`,
+            )}. ${res.restarted ? "The Gateway was started again. " : ""}${windows32 ? UNINSTALL_MANUAL_STEPS_WINDOWS : UNINSTALL_MANUAL_STEPS}`,
         );
       }
     } catch (err) {

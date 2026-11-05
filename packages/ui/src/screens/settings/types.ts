@@ -89,7 +89,7 @@ export interface UninstallPlanInfo {
   blockers: { path: string; reason: string }[];
 }
 
-/** The desktop shell's uninstall, passed to About only on the Mac running the Gateway. */
+/** The desktop shell's uninstall, passed to About only on the Mac or PC running the Gateway. */
 export interface UninstallPort {
   plan(req: { deleteData: boolean; removeKeychain?: boolean }): Promise<UninstallPlanInfo>;
   /**

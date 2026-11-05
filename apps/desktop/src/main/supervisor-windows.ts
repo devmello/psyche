@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve, sep } from "node:path";
+import { join, resolve, sep, win32 } from "node:path";
 import {
   currentUserSid,
   gatewayTaskName,
@@ -225,6 +225,27 @@ export function taskProgram(xml: string): string | undefined {
   const args = splitWindowsArgs(xmlUnescape(raw));
   const at = args.indexOf("--headless");
   return at < 0 ? undefined : args[at + 1];
+}
+
+/**
+ * Whether a task definition runs a Gateway from inside `root` (an install folder): the runtime it
+ * names must sit below it. A definition that names no runtime is not provably ours.
+ */
+export function taskRunsFrom(xml: string, root: string): boolean {
+  const program = taskProgram(xml);
+  if (program === undefined) return false;
+  const base = `${win32.normalize(root).replace(/\\+$/, "").toLowerCase()}\\`;
+  return win32.normalize(program).toLowerCase().startsWith(base);
+}
+
+/** The `--home` the task's service host is given: the data folder the Gateway really uses. */
+export function taskPsycheHome(xml: string): string | undefined {
+  const raw = /<Arguments>([^<]*)<\/Arguments>/.exec(xml)?.[1];
+  if (raw === undefined) return undefined;
+  const args = splitWindowsArgs(xmlUnescape(raw));
+  const at = args.indexOf("--home");
+  const v = at < 0 ? undefined : args[at + 1];
+  return v === undefined || v === "" ? undefined : v;
 }
 
 /** `schtasks /create /xml` reads UTF-16 LE with a BOM (what Task Scheduler exports). */

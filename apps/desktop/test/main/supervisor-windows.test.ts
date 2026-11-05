@@ -24,6 +24,8 @@ import {
   splitWindowsArgs,
   TaskSchedulerSupervisor,
   taskProgram,
+  taskPsycheHome,
+  taskRunsFrom,
   taskUri,
   windowsUserId,
 } from "../../src/main/supervisor-windows.ts";
@@ -145,6 +147,20 @@ describe("the bundled task template", () => {
     expect(xml).toContain("<LogonType>InteractiveToken</LogonType>");
     expect(xml).toContain("<ExecutionTimeLimit>PT0S</ExecutionTimeLimit>");
     expect(xml).toMatch(/<Command>%SystemRoot%\\System32\\conhost\.exe<\/Command>/);
+  });
+
+  it("says whether a task runs from an install folder, and which data folder it uses", () => {
+    const root = "C:\\Users\\Ada & Co\\AppData\\Local\\Psyche";
+    expect(taskRunsFrom(xml, root)).toBe(true);
+    expect(taskRunsFrom(xml, `${root}\\`)).toBe(true);
+    expect(taskRunsFrom(xml, root.toLowerCase())).toBe(true);
+    // Another install folder, or a sibling with the same prefix, is not it.
+    expect(taskRunsFrom(xml, "C:\\src\\psyche")).toBe(false);
+    expect(taskRunsFrom(xml, `${root}-dev`)).toBe(false);
+    // A definition that names no runtime is not provably ours.
+    expect(taskRunsFrom("<Task/>", root)).toBe(false);
+    expect(taskPsycheHome(xml)).toBe(values.psycheHome);
+    expect(taskPsycheHome("<Task/>")).toBeUndefined();
   });
 
   it("drops a trailing backslash, which would escape the closing quote", () => {
