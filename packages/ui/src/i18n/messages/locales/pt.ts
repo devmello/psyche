@@ -11,10 +11,14 @@ import { overview } from "./overview/pt.ts";
 import { overviewGrowth } from "./overview-growth/pt.ts";
 import { overviewShared } from "./overview-shared/pt.ts";
 import { settingsA } from "./settings-a/pt.ts";
+import { settingsB } from "./settings-b/pt.ts";
+import { settingsC } from "./settings-c/pt.ts";
 import { workflows } from "./workflows/pt.ts";
 
 /** Portuguese catalogue (pt, Brazil). Same ids as `en`; missing ids fall back to English. */
 export const pt: Partial<Catalogue> = {
+  ...settingsC,
+  ...settingsB,
   ...settingsA,
   ...dailyA,
   ...agentA,
