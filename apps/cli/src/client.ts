@@ -30,7 +30,7 @@ export type WebSocketFactory = (url: string) => WebSocketLike;
 export interface ConnectOptions {
   wsUrl: string;
   identity: Identity;
-  platform: "macos" | "linux";
+  platform: "macos" | "windows" | "linux";
   timeoutMs?: number;
   createWebSocket?: WebSocketFactory;
 }

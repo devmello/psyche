@@ -686,7 +686,7 @@ export function capabilityTools(deps: CapabilityToolsDeps): {
         ? ["Its instructions are offered to Psyche; it grants no tool or permission"]
         : [
             t?.kind === "stdio"
-              ? "Downloads and runs this package on this Mac inside the srt sandbox"
+              ? `Downloads and runs this package on ${hostWords().thisDevice} inside the srt sandbox`
               : "Connects to this endpoint; your data reaches it when its tools are used",
             network.length === 0 ? "No network" : `Network: ${network.join(", ")}`,
             "Its write tools ask each time unless you grant them; you can remove it in Settings → Connectors",

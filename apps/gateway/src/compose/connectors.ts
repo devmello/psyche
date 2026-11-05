@@ -51,6 +51,7 @@ import {
   PsycheError,
   type ToolRegistration,
 } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import { VaultTokenVault } from "@psyche/vault";
 import type { Call, HandlerDef } from "../context.ts";
 import type { Gateway } from "../server.ts";
@@ -576,8 +577,7 @@ function freeTimeTool(services: ComposeServices, registry: ConnectorRegistry): T
   return {
     spec: {
       name: "calendar_find_free_time",
-      description:
-        "Find free time across all connected calendars (Apple Calendar, Google) between from and to: slots of durationMinutes inside working hours (default 09:00–17:00, Monday–Friday, the Mac's time zone), earliest first. Use before proposing or blocking a time.",
+      description: `Find free time across all connected calendars (Apple Calendar, Google) between from and to: slots of durationMinutes inside working hours (default 09:00–17:00, Monday–Friday, ${hostWords().device}'s time zone), earliest first. Use before proposing or blocking a time.`,
       inputSchema: {
         type: "object",
         properties: {

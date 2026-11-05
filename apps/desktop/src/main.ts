@@ -8,6 +8,7 @@ import {
   PsycheError,
   type Notification as PsycheNotification,
 } from "@psyche/protocol";
+import { hostWords } from "@psyche/protocol/host-words";
 import type { GatewayConnection } from "@psyche/web/client";
 import type { ShellCommand } from "@psyche/web/platform";
 import {
@@ -725,11 +726,11 @@ async function confirmGatewayChange(c: GatewayConfirm): Promise<boolean | "plain
               : `Connect Psyche to ${c.origin}?`,
             detail: `${
               c.external
-                ? "This link was opened by another app or a website, not pasted by you. Only continue if you made it yourself on the Mac that runs Psyche.\n\n"
+                ? `This link was opened by another app or a website, not pasted by you. Only continue if you made it yourself on ${hostWords().theDevice} that runs Psyche.\n\n`
                 : ""
             }Psyche will connect only if that Gateway proves this identity:\n${c.fingerprint}\n\n${
               c.lan
-                ? `It uses its own certificate, not one the system trusts. Psyche holds it to the one this link names (${c.lan.certPin.slice(0, 12)}…) before sending anything, and refuses any other. Only continue if the link came from your own Mac on this network.\n\n`
+                ? `It uses its own certificate, not one the system trusts. Psyche holds it to the one this link names (${c.lan.certPin.slice(0, 12)}…) before sending anything, and refuses any other. Only continue if the link came from your own ${hostWords().device} on this network.\n\n`
                 : ""
             }The link's one-time code then lets that Gateway approve this computer without asking again, with the access its owner chose when making it.`,
             buttons: ["Add Gateway", "Cancel"],
@@ -753,10 +754,10 @@ async function confirmGatewayChange(c: GatewayConfirm): Promise<boolean | "plain
                   buttons: ["Pair again", "Cancel"],
                 }
               : {
-                  message: "Stop Psyche on this Mac?",
+                  message: `Stop Psyche on ${hostWords().thisDevice}?`,
                   detail:
                     "Its automations and scheduled tasks stop until you switch back. Leave it running to keep them going.",
-                  buttons: ["Stop Psyche on this Mac", "Keep it running"],
+                  buttons: [`Stop Psyche on ${hostWords().thisDevice}`, "Keep it running"],
                 };
   const win = windows?.main();
   const dialogOptions = {
@@ -1088,7 +1089,10 @@ function registerIpc(): void {
   // Gateway registers and asks only that helper.
   const approvalWindow = (e: IpcMainInvokeEvent) => {
     if (windows?.isApprovalContents(e.sender) !== true) {
-      throw new PsycheError("forbidden", "Touch ID approvals come from the main window");
+      throw new PsycheError(
+        "forbidden",
+        `${hostWords().presence} approvals come from the main window`,
+      );
     }
   };
   handle(IPC.touchIdIdentity, async (e) => {
@@ -1102,8 +1106,8 @@ function registerIpc(): void {
       throw new PsycheError(
         "unavailable",
         id === undefined
-          ? "This app has no bundled Psyche Helper to read the Touch ID key from"
-          : `The bundled Psyche Helper has no Touch ID key (${id.error ?? "unknown"})`,
+          ? `This app has no bundled Psyche Helper to read the ${hostWords().presence} key from`
+          : `The bundled Psyche Helper has no ${hostWords().presence} key (${id.error ?? "unknown"})`,
       );
     }
     return requireGateway().call("devices.presenceKey.register", {

@@ -71,9 +71,13 @@ export class Ctx {
     this.client = await GatewayClient.connect({
       wsUrl: wsUrl(this.gatewayUrl()),
       identity,
-      // DevicePlatform has no "windows" yet (packages/protocol); Windows devices pair as "linux",
-      // like the desktop app (apps/desktop/src/lib/device-key.ts), until the protocol adds it.
-      platform: this.deps.platform === "darwin" ? "macos" : "linux",
+      // Declare the real OS so the Gateway gives a Windows CLI the desktop surface, like a Mac one.
+      platform:
+        this.deps.platform === "darwin"
+          ? "macos"
+          : this.deps.platform === "win32"
+            ? "windows"
+            : "linux",
       timeoutMs: this.opts.timeoutMs,
       ...(this.deps.createWebSocket ? { createWebSocket: this.deps.createWebSocket } : {}),
     });
