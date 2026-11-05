@@ -1,5 +1,6 @@
+import { realpathSync } from "node:fs";
 import { realpath, stat } from "node:fs/promises";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import {
   canonicalHostPath,
@@ -41,6 +42,12 @@ export interface FolderAccessEnv {
    * else under `$PSYCHE_HOME` is, and a folder holding one of them stays refused.
    */
   ownDirs?: readonly string[];
+  /**
+   * Windows: the owner's temp folder (default `os.tmpdir()`, i.e. `%TEMP%`). It and its
+   * subfolders are shareable although the `~\AppData` around it is not, as `/tmp` and `$TMPDIR`
+   * are on macOS; only when its real path lies under the profile's AppData.
+   */
+  tempDir?: string;
 }
 
 /** System roots refused as themselves and as ancestors, but not for their subfolders. */
@@ -127,6 +134,21 @@ const HOME_SENSITIVE = [
   ".Trash",
 ];
 
+/**
+ * Windows: the real long path of the owner's temp folder when it lies under `~\AppData` (the one
+ * subtree root it opens), else undefined. Resolved by the OS, so a `PRANAV~1`-style short name in
+ * `%TEMP%` becomes the long one, and compared without case like every Windows path here.
+ */
+function windowsTempDir(env: FolderAccessEnv, home: string): string | undefined {
+  try {
+    const real = canonicalHostPath(realpathSync.native(env.tempDir ?? tmpdir()), "win32");
+    const appData = joinHostPath(home, "AppData");
+    return !sameHostPath(real, appData) && isUnderHostPath(real, appData) ? real : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function under(child: string, root: string): boolean {
   if (root === "/") return !isWin32HostPath(child);
   return isUnderHostPath(child, root);
@@ -152,6 +174,7 @@ export type FolderRefusal = "sensitive_root" | "contains_sensitive_root" | "not_
  * one of them (the home root contains `~/.ssh`). A folder inside home such as `~/Projects` passes.
  * On Windows the same holds for drive and share roots, `C:\Users`, the system folders and
  * `~\AppData`, compared without case; a name Win32 would rewrite (`.ssh.`, `DOCUME~1`) is refused.
+ * The owner's `%TEMP%` inside AppData is shareable, as `/tmp` and `$TMPDIR` are on macOS.
  */
 export function refuseFolder(given: string, env: FolderAccessEnv = {}): FolderRefusal | undefined {
   let real: string;
@@ -170,9 +193,17 @@ export function refuseFolder(given: string, env: FolderAccessEnv = {}): FolderRe
   const own = (env.ownDirs ?? []).map((d) => resolve(d)).find((d) => under(real, d));
   // Its dot-folders hold the CLI's settings and tool token: never shared, even inside the exempt one.
   if (own !== undefined && real.slice(own.length + 1).startsWith(".")) return "sensitive_root";
+  // Windows' temp folder lifts only `~\AppData`, and only for itself and what is inside it: the
+  // rest of AppData (`Local\Temp2`, `Local\Psyche`) and a protected root inside Temp (a
+  // `$PSYCHE_HOME` there) stay refused.
+  const home = resolve(env.home ?? homedir());
+  const temp = process.platform === "win32" ? windowsTempDir(env, home) : undefined;
+  const appData = joinHostPath(home, "AppData");
+  const inTemp = temp !== undefined && under(real, temp);
   for (const root of subtree) {
     if (!under(real, root)) continue;
     if (own !== undefined && under(own, root)) continue;
+    if (inTemp && sameHostPath(root, appData)) continue;
     return "sensitive_root";
   }
   for (const root of [...exact, ...subtree]) {

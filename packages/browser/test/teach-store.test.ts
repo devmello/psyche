@@ -199,7 +199,11 @@ describe("kept recordings (design doc §5)", () => {
     expect(await store.get("teach_aaaaaaaa1111")).toBeUndefined();
   });
 
-  it("refuses ids that could leave the folder, steps that break the rules and too many files", async () => {
+  // Keeps KEPT_RECORDING_LIMIT recordings: ~1 s alone on Windows, where creating files costs
+  // more, and past vitest's 5 s default under the full parallel suite.
+  it("refuses ids that could leave the folder, steps that break the rules and too many files", {
+    timeout: 30_000,
+  }, async () => {
     await expect(store.keep("../evil", "x", steps)).rejects.toThrow("recording id");
     await expect(store.get("../../etc/passwd")).rejects.toThrow("recording id");
     await expect(

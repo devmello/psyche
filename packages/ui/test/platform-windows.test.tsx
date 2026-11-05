@@ -15,6 +15,7 @@ import { windows } from "../src/i18n/messages/variants/windows.ts";
 import { chordLabel, isAltGraphText, keysLabel, parseChord } from "../src/lib/keys.ts";
 import { normalizePlatform, setUiPlatform, uiPlatform } from "../src/lib/platform.ts";
 import { platformTerm } from "../src/lib/platform-copy.ts";
+import { CAPABILITIES, isAvailable } from "../src/screens/onboarding/capabilities.ts";
 import { ConnectorsStep } from "../src/screens/onboarding/OnboardingSteps.tsx";
 import {
   ComputerUsePanel,
@@ -301,6 +302,33 @@ describe("Windows in Settings and onboarding", () => {
     expect(offeredCatalog(undefined).some((c) => c.type.startsWith("apple:"))).toBe(true);
   });
 
+  it("offers classic Outlook's Mail, Calendar and Tasks once the Gateway lists them", () => {
+    setUiPlatform("windows");
+    // What the Gateway's catalogue lists while the Windows helper serves classic Outlook.
+    const outlook = new Set(["microsoft", "apple:mail", "apple:calendar", "apple:reminders"]);
+    const rows = offeredCatalog(outlook, { navigation: false });
+    expect(rows.filter((c) => c.type.startsWith("apple:")).map((c) => [c.type, c.label])).toEqual([
+      ["apple:reminders", "Outlook Tasks"],
+      ["apple:calendar", "Outlook Calendar"],
+      ["apple:mail", "Outlook Mail"],
+    ]);
+    // Notes and Shortcuts stay Mac-only even if a catalogue named them.
+    const all = new Set([...outlook, "apple:notes", "apple:shortcuts"]);
+    expect(offeredCatalog(all).some((c) => c.type === "apple:notes")).toBe(false);
+    // Without classic Outlook the Gateway lists none, and none is offered.
+    expect(offeredCatalog(new Set(["microsoft"])).some((c) => c.type.startsWith("apple:"))).toBe(
+      false,
+    );
+    render(
+      <ConnectorsStep persona="Wren" connected={[]} onConnect={vi.fn()} implemented={outlook} />,
+    );
+    expect(screen.getByText("On this PC")).toBeTruthy();
+    expect(screen.getByText("Outlook Mail")).toBeTruthy();
+    expect(screen.queryByText(/Apple/)).toBeNull();
+    setUiPlatform("macos");
+    expect(offeredCatalog(outlook).find((c) => c.type === "apple:mail")?.label).toBe("Apple Mail");
+  });
+
   it("shows what Windows asks for instead of the macOS privacy panes", async () => {
     setUiPlatform("windows");
     const open = vi.fn();
@@ -366,5 +394,15 @@ describe("Windows in Settings and onboarding", () => {
       expect(screen.getByRole("alert").textContent).toBe("The helper didn't start (timed out)."),
     );
     expect(restart).toHaveBeenCalledOnce();
+  });
+});
+
+describe("the Reminders capability on Windows", () => {
+  it("unlocks with Outlook Tasks (apple:reminders through the helper) or Microsoft To Do", () => {
+    const reminders = CAPABILITIES.find((c) => c.id === "reminders");
+    if (reminders === undefined) throw new Error("no reminders capability");
+    expect(isAvailable(reminders, new Set(["apple:reminders"]))).toBe(true);
+    expect(isAvailable(reminders, new Set(["microsoft:todo"]))).toBe(true);
+    expect(isAvailable(reminders, new Set(["microsoft", "google"]))).toBe(false);
   });
 });

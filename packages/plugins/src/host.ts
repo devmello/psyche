@@ -14,6 +14,8 @@ import { SHIM } from "./shim.ts";
  */
 
 export const INIT_TIMEOUT_MS = 5_000;
+/** How long `stop()` waits for the killed process to exit. */
+const STOP_TIMEOUT_MS = 5_000;
 /** Bytes of one reply line; a larger one is dropped and its call fails. */
 export const MAX_REPLY_BYTES = 256 * 1024;
 /** Bytes of stderr kept for diagnostics. */
@@ -59,7 +61,8 @@ export interface PluginHost {
   readonly name: string;
   start(): Promise<void>;
   call(method: string, params: unknown): Promise<unknown>;
-  stop(): void;
+  /** Ends the plugin; resolves once its process has exited (bounded). */
+  stop(): Promise<void> | void;
   /** The last lines the plugin wrote to stderr. */
   stderr(): string;
 }
@@ -131,7 +134,7 @@ export class PluginProcess implements PluginHost {
       );
       if (extra.length > 0) throw new Error(`registered undeclared ${extra.join(", ")}`);
     } catch (err) {
-      this.stop();
+      await this.stop();
       throw new PsycheError("unavailable", `plugin ${this.name}: ${(err as Error).message}`);
     } finally {
       if (timer !== undefined) clearTimeout(timer);
@@ -150,10 +153,25 @@ export class PluginProcess implements PluginHost {
     });
   }
 
-  stop(): void {
+  /**
+   * Kills the plugin and resolves once its process is gone (bounded): on Windows a live process
+   * keeps its working directory, the plugin's folder, from being removed or replaced (EPERM).
+   */
+  stop(): Promise<void> {
     this.#stopped = true;
-    this.#child?.kill("SIGKILL");
+    const child = this.#child;
     this.#child = undefined;
+    if (child === undefined || child.exitCode !== null || child.signalCode !== null) {
+      return Promise.resolve();
+    }
+    return new Promise<void>((resolve) => {
+      const timer = setTimeout(resolve, STOP_TIMEOUT_MS);
+      child.once("exit", () => {
+        clearTimeout(timer);
+        resolve();
+      });
+      child.kill("SIGKILL");
+    });
   }
 
   stderr(): string {

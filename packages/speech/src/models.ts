@@ -45,6 +45,8 @@ export interface DownloadProgress {
 export interface ModelManagerOptions {
   /** `$PSYCHE_HOME`; defaults to the env var, then `~/.psyche`. */
   home?: string;
+  /** Where the files go instead of `<home>/models` (the whisper.cpp runtime: `speech/bin`). */
+  dir?: string;
   catalog: readonly ModelSpec[];
   fetch?: typeof fetch;
 }
@@ -61,7 +63,7 @@ export class ModelManager {
   readonly #inflight = new Map<string, Promise<string>>();
 
   constructor(options: ModelManagerOptions) {
-    this.dir = join(options.home ?? psycheHome(), "models");
+    this.dir = options.dir ?? join(options.home ?? psycheHome(), "models");
     this.#catalog = new Map(options.catalog.map((s) => [s.id, s]));
     this.#fetch = options.fetch ?? fetch;
     for (const s of options.catalog) {

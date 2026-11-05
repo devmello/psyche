@@ -84,6 +84,12 @@ Text is plain: no Markdown inside the lines except tool names in backticks.
 - Prefer: `things_list` for Today, Inbox or a project before adding; `things_add` with a `when` date the owner gave.
 - Never: create a to-do in Reminders when the owner said Things, or the other way round.
 
+## `microsoft`
+
+- For: the owner's Microsoft 365: Outlook mail and calendar, OneDrive files, and their to-dos in Microsoft To Do.
+- Prefer: `reminders_list_lists` to find the To Do list, then `reminders_list` with `overdue` / `dueToday` before asking what's due.
+- Never: complete or delete a to-do matched only loosely; confirm the exact title or id first.
+
 ## `obsidian`
 
 - For: the owner's Obsidian vault: Markdown notes in a folder they shared.

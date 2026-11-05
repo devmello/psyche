@@ -2333,6 +2333,24 @@ export const settings = {
   "settings.voice.engine.systemHint": "Apple's on-device recognizer.",
   "settings.voice.engine.cloud": "Your model provider",
   "settings.voice.engine.cloudHint": "Audio goes to the provider you configured.",
+  "settings.voice.model.title": "Speech model",
+  "settings.voice.model.usingHelper":
+    "Dictation uses the helper's speech recognition. The speech model transcribes better and runs on this Mac.",
+  "settings.voice.model.download": "Download the speech model ({mb} MB) for better dictation",
+  "settings.voice.model.downloadHint":
+    "A one-time download from the whisper.cpp project, checked before it is used. Audio never leaves this Mac.",
+  "settings.voice.model.downloading": "Downloading the speech model: {received} of {total} MB",
+  "settings.voice.model.ready": "Whisper ({model}) on this Mac",
+  "settings.voice.model.readyHint":
+    "Dictation and recordings are transcribed here; audio never leaves the Mac.",
+  "settings.voice.model.readyNotFirst":
+    "Installed. Your engine order puts another engine first, so dictation doesn't use it now.",
+  "settings.voice.model.failed": "The download failed: {reason}",
+  "settings.voice.model.retry": "Try again",
+  "settings.voice.model.vcredist":
+    "The speech model needs the Microsoft Visual C++ Redistributable. Install it, then dictate again.",
+  "settings.voice.model.crashed":
+    "The speech engine stopped unexpectedly; dictation uses the helper until it starts again.",
   "settings.connect.starting": "Starting the sign-in to {name}…",
   "settings.connect.finish":
     "Finish signing in to {name} in your browser. This updates when you're done.",

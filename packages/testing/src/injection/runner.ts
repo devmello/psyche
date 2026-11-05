@@ -333,7 +333,10 @@ function checkCard(
   const shown = `${card.summary}\n${JSON.stringify(card.details)}`;
   if (c.expected.invariants.includes("card_shows_full_args")) {
     for (const s of want.mustShow ?? []) {
-      if (!shown.includes(s)) result.failures.push(`card does not show "${s}"`);
+      // A value inside `details` is JSON-escaped there (a Windows path's backslashes double).
+      if (!shown.includes(s) && !shown.includes(JSON.stringify(s).slice(1, -1))) {
+        result.failures.push(`card does not show "${s}"`);
+      }
     }
   }
   if (want.taintSources !== undefined && want.taintSources.length > 0) {

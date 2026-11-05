@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from "../../components/ui/dialog.tsx";
 import { NativeSelect } from "../../components/ui/native-select.tsx";
+import { useGatewayQuery } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { useProjects } from "../../memory-page/work-hooks.ts";
 import { usePersona, useSlots } from "../../slots.tsx";
@@ -27,6 +28,41 @@ import {
   useSettingsForm,
 } from "./shared.tsx";
 import { type TrustSource, useHelperSources } from "./TrustedSourcesCard.tsx";
+
+/** A Reminders list to track, and where it lives when that is not the helper's app. */
+export type WorkList = TrustSource & { source?: string };
+
+/**
+ * The lists work tracking can follow: the helper's Reminders lists (Apple Reminders, or Outlook
+ * tasks through the Windows helper) and every other Reminders backend the Gateway reads through
+ * its connector (`memory.work.lists`: Microsoft To Do). The helper being away is only an error
+ * when nothing else has lists either.
+ */
+export function useWorkLists(enabled: boolean): {
+  sources: WorkList[] | null;
+  loading: boolean;
+  error: string | null;
+} {
+  const helper = useHelperSources("reminders", enabled);
+  const backends = useGatewayQuery("memory.work.lists", {}, { enabled });
+  if (!enabled) return { sources: null, loading: false, error: null };
+  const mine = helper.sources ?? [];
+  const more: WorkList[] = (backends.data?.lists ?? [])
+    .filter((l) => !mine.some((h) => h.id === l.id))
+    .map((l) => ({
+      id: l.id,
+      name: l.name,
+      shared: l.shared,
+      ...(l.source === undefined ? {} : { source: l.source }),
+    }));
+  const all = [...mine, ...more];
+  const answered = helper.sources !== null || backends.data !== undefined;
+  return {
+    sources: answered ? all : null,
+    loading: all.length === 0 && (helper.loading || backends.loading),
+    error: all.length === 0 && !backends.loading ? helper.error : null,
+  };
+}
 
 /**
  * Settings → Memory → Work (docs/design/memory-everything-2026.md §3.2, §5.4): the switch and its
@@ -98,7 +134,7 @@ function ListRow({
   settingKey,
 }: {
   settingKey?: string;
-  list: TrustSource;
+  list: WorkList;
   projects: readonly EntitySummary[];
   value: string | undefined;
   onPick: (entityId: string | null) => void;
@@ -108,7 +144,11 @@ function ListRow({
     <SettingRow
       label={list.name}
       {...(settingKey === undefined ? {} : { settingKey })}
-      {...(list.shared ? { description: t("memoryWork.lists.shared") } : {})}
+      {...(list.shared
+        ? { description: t("memoryWork.lists.shared") }
+        : list.source !== undefined
+          ? { description: list.source }
+          : {})}
     >
       <NativeSelect
         aria-label={t("memoryWork.lists.pick", { list: list.name })}
@@ -139,7 +179,7 @@ export function TrackedLists({
   onOpenMemory,
 }: {
   tracked: Readonly<Record<string, string>>;
-  lists: readonly TrustSource[] | null;
+  lists: readonly WorkList[] | null;
   loading: boolean;
   error: string | null;
   projects: readonly EntitySummary[];
@@ -153,7 +193,7 @@ export function TrackedLists({
     onChange(next);
   };
   // A tracked list the helper no longer reports (deleted, or the helper is offline) still shows.
-  const shown: TrustSource[] = [
+  const shown: WorkList[] = [
     ...(lists ?? []),
     ...Object.keys(tracked)
       .filter((id) => !(lists ?? []).some((l) => l.id === id))
@@ -208,7 +248,7 @@ export function MemoryWorkSection(): ReactElement {
   const work: WorkValues = readWork(form.values);
   const raw = rawOf(form.values, WORK_KEY);
   const projects = useProjects();
-  const lists = useHelperSources("reminders", work.enabled);
+  const lists = useWorkLists(work.enabled);
   const put = (path: string, next: unknown) =>
     form.onChange(WORK_KEY, withPath(rawOf(form.values, WORK_KEY), path, next));
 

@@ -3,6 +3,7 @@ import { open, rm, rmdir } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import {
   type AppleHelper,
+  appleAppOf,
   appleFactories,
   type BusyBlock,
   type CatalogueEntry,
@@ -20,6 +21,7 @@ import {
   type FetchFn,
   findFreeSlots,
   googleFactory,
+  helperOffersApp,
   type ImapBackendOptions,
   imapFactory,
   jmapFactory,
@@ -648,19 +650,21 @@ function freeTimeTool(services: ComposeServices, registry: ConnectorRegistry): T
  * (`NodeRegistry.hostHelper`).
  */
 /**
- * The Apple-app connectors (`apple:*`) are Mac-only (cross-platform design §4.3 rule 3): off
- * macOS they leave the catalogue unless the Host's helper advertises one of their capabilities.
- * The Windows helper never does, so a Windows Gateway (and a Linux server) lists none of them.
- * On macOS they stay listed while the helper is still starting.
+ * The helper-routed connectors (`apple-*`, `chrome-tabs`, `things`) are Mac-first
+ * (cross-platform design §4.3 rule 3): off macOS each leaves the catalogue unless the Host's
+ * helper serves its adapter (the capability its connect probes). The Windows helper serves Mail,
+ * Calendar, Contacts and Reminders only when classic Outlook is installed, plus Chrome tabs and
+ * shared-folder files; a Linux server lists none. On macOS they stay listed while the helper is
+ * still starting.
  */
 export function hideAppleEntry(
-  entry: { id: string; scopes?: { read_act?: readonly string[] } },
+  entry: { id: string },
   helper: () => AppleHelper | undefined,
   platform: NodeJS.Platform = process.platform,
 ): boolean {
-  if (!entry.id.startsWith("apple:") || platform === "darwin") return false;
-  const offered = new Set(helper()?.capabilities ?? []);
-  return !(entry.scopes?.read_act ?? []).some((c) => offered.has(c));
+  const app = appleAppOf(entry.id);
+  if (app === undefined || platform === "darwin") return false;
+  return !helperOffersApp(app, helper());
 }
 
 export function macHelper(gateway: () => Gateway | undefined): () => AppleHelper | undefined {
@@ -670,9 +674,15 @@ export function macHelper(gateway: () => Gateway | undefined): () => AppleHelper
     const { info: node, client } = helper;
     return {
       nodeId: node.id,
+      // The Windows helper serves the Mail / Calendar / Contacts / Reminders routes from Outlook.
+      ...(node.kind === "win-helper" ? { platform: "windows" as const } : {}),
       capabilities: node.capabilities.map((c) => c.name),
       invoke: async (capability, params, options) => {
-        const res = await client.invoke(capability, params, options);
+        const { onEvent, ...rest } = options;
+        const res = await client.invoke(capability, params, {
+          ...rest,
+          ...(onEvent === undefined ? {} : { onEvent: (e) => onEvent(e.data) }),
+        });
         return {
           ok: res.ok,
           ...(res.result === undefined ? {} : { result: res.result }),

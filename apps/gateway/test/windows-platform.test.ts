@@ -183,24 +183,44 @@ describe("the desktop app on Windows", () => {
 });
 
 describe("Apple connectors off macOS", () => {
-  const entry = { id: "apple:notes", scopes: { read_act: ["notes.list", "notes.read"] } };
+  const entry = { id: "apple-notes" };
+  const none = () => undefined;
+  const helper = (capabilities: string[], platform?: "windows") => () => ({
+    nodeId: "n",
+    ...(platform === undefined ? {} : { platform }),
+    capabilities,
+    invoke: async () => ({ ok: false }),
+  });
   it("leave the catalogue unless the Host helper offers their capabilities", () => {
-    const none = () => undefined;
-    const winHelper = () => ({
-      nodeId: "n",
-      capabilities: ["computer.click"],
-      invoke: async () => ({ ok: false }),
-    });
-    const macHelper = () => ({
-      nodeId: "n",
-      capabilities: ["notes.list"],
-      invoke: async () => ({ ok: false }),
-    });
+    const winHelper = helper(["computer.click", "chrome.tabs"], "windows");
+    const macHelper = helper(["notes.list"]);
     expect(hideAppleEntry(entry, none, "win32")).toBe(true);
-    expect(hideAppleEntry(entry, winHelper as never, "win32")).toBe(true);
-    expect(hideAppleEntry(entry, macHelper as never, "linux")).toBe(false);
+    expect(hideAppleEntry(entry, winHelper, "win32")).toBe(true);
+    expect(hideAppleEntry(entry, macHelper, "linux")).toBe(false);
     expect(hideAppleEntry(entry, none, "darwin")).toBe(false);
     expect(hideAppleEntry({ id: "google" }, none, "win32")).toBe(false);
+    // Chrome tabs are served by the Windows helper itself; Things never is.
+    expect(hideAppleEntry({ id: "chrome-tabs" }, winHelper, "win32")).toBe(false);
+    expect(hideAppleEntry({ id: "things" }, winHelper, "win32")).toBe(true);
+  });
+
+  it("list Outlook's Mail, Calendar, Contacts and Reminders only with classic Outlook", () => {
+    const outlook = helper(
+      ["mail.mailboxes", "mail.selected", "calendar.list_calendars", "contacts.search"].concat(
+        "reminders.list_lists",
+      ),
+      "windows",
+    );
+    const newOutlookOnly = helper(["computer.click", "files.recent"], "windows");
+    for (const id of ["apple-mail", "apple-calendar", "apple-contacts", "apple-reminders"]) {
+      expect(hideAppleEntry({ id }, outlook, "win32"), id).toBe(false);
+      expect(hideAppleEntry({ id }, newOutlookOnly, "win32"), id).toBe(true);
+    }
+    // Mail is probed through mailboxes on Windows (selected answers [] without Outlook).
+    expect(
+      hideAppleEntry({ id: "apple-mail" }, helper(["mail.selected"], "windows"), "win32"),
+    ).toBe(true);
+    expect(hideAppleEntry({ id: "apple-files" }, newOutlookOnly, "win32")).toBe(false);
   });
 });
 
@@ -238,7 +258,7 @@ describe("Windows app identities", () => {
 });
 
 describe("what nodes.invoke can reach", () => {
-  it("never teach.* or chrome.* on any node, and only the permission reads on a Host helper", () => {
+  it("never teach.* or chrome.* on any node, and on a Host helper only the notification permission, the permission reads and Settings' listings", () => {
     for (const cap of [
       "teach.start",
       "teach.stop",
@@ -256,6 +276,11 @@ describe("what nodes.invoke can reach", () => {
     // psyche doctor reads what the OS granted the helper (read-only, never prompts).
     expect(isHostHelperCapabilityReachable("permissions.status")).toBe(true);
     expect(isHostHelperCapabilityReachable("permissions.request")).toBe(false);
+    // Settings' trusted-sources and Shortcuts cards: the names of lists, never their items.
+    for (const cap of ["reminders.list_lists", "calendar.list_calendars", "shortcuts.list"])
+      expect(isHostHelperCapabilityReachable(cap), cap).toBe(true);
+    for (const cap of ["reminders.list", "calendar.list_events", "shortcuts.run", "notes.read"])
+      expect(isHostHelperCapabilityReachable(cap), cap).toBe(false);
     // Words that only start like a namespace are not that namespace.
     expect(isUnreachableCapability("teacher.list")).toBe(false);
   });

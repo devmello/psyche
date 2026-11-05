@@ -105,7 +105,7 @@ export const TOOL_CAPABILITIES: Readonly<
   "reminders.*": {
     tools: ["reminders_*"],
     label: "reminders",
-    hint: "connect Apple Reminders in Settings → Connectors",
+    hint: "connect Apple Reminders, or Microsoft 365 for To Do, in Settings → Connectors",
   },
   "contacts.*": {
     tools: ["contacts_*"],

@@ -1,4 +1,4 @@
-import type { AppleShortcut, Connector } from "@psyche/protocol";
+import { type AppleShortcut, type Connector, isHostHelperKind } from "@psyche/protocol";
 import { FolderCheck } from "lucide-react";
 import { type ReactElement, useCallback, useEffect, useId, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
@@ -167,7 +167,8 @@ export function useHelperShortcuts(enabled: boolean): {
 } {
   const call = useCall();
   const nodes = useGatewayQuery("nodes.list", {}, { enabled });
-  const helper = nodes.data?.nodes.find((n) => n.kind === "mac-helper" && n.status === "online");
+  // The Host's own helper (the Shortcuts connector itself is offered on a Mac only).
+  const helper = nodes.data?.nodes.find((n) => isHostHelperKind(n.kind) && n.status === "online");
   const [state, setState] = useState<{ shortcuts: AppleShortcut[] | null; error: string | null }>({
     shortcuts: null,
     error: null,

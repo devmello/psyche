@@ -8,8 +8,8 @@
 //! back to typing. The saved contents are never restored over something another app copied in
 //! the meantime.
 
-use crate::error::CapError;
 use crate::dictation::policy::PasteOutcome;
+use crate::error::CapError;
 use std::time::Duration;
 
 pub const CF_TEXT: u32 = 1;
@@ -29,7 +29,10 @@ pub const CF_DSPENHMETAFILE: u32 = 0x8E;
 /// Formats that keep dictated text (and the restored contents) out of Win+V history, cloud
 /// clipboard and clipboard monitors.
 pub const PRIVATE_MARKERS: &[(&str, &[u8])] = &[
-    ("ExcludeClipboardContentFromMonitorProcessing", &[0, 0, 0, 0]),
+    (
+        "ExcludeClipboardContentFromMonitorProcessing",
+        &[0, 0, 0, 0],
+    ),
     ("CanIncludeInClipboardHistory", &[0, 0, 0, 0]),
     ("CanUploadToCloudClipboard", &[0, 0, 0, 0]),
 ];
@@ -65,7 +68,8 @@ impl ClipData {
 /// ANSI/OEM text from `CF_UNICODETEXT`, so those are skipped when their source is present.
 pub fn should_save(format: u32, all: &[u32]) -> bool {
     match format {
-        CF_BITMAP | CF_PALETTE | CF_METAFILEPICT | CF_OWNERDISPLAY | CF_DSPBITMAP | CF_DSPMETAFILEPICT | CF_DSPENHMETAFILE => false,
+        CF_BITMAP | CF_PALETTE | CF_METAFILEPICT | CF_OWNERDISPLAY | CF_DSPBITMAP
+        | CF_DSPMETAFILEPICT | CF_DSPENHMETAFILE => false,
         0x0200..=0x03FF => false, // CF_PRIVATEFIRST..CF_GDIOBJLAST
         CF_TEXT | CF_OEMTEXT => !all.contains(&CF_UNICODETEXT),
         _ => true,
@@ -75,7 +79,10 @@ pub fn should_save(format: u32, all: &[u32]) -> bool {
 /// OLE clipboard bookkeeping formats point at the previous owner's data object; restored under
 /// another owner they would mislead OLE, which rebuilds them from the plain formats anyway.
 pub fn is_ole_bookkeeping(name: &str) -> bool {
-    matches!(name, "DataObject" | "Ole Private Data" | "OleClipboardPersistOnFlush")
+    matches!(
+        name,
+        "DataObject" | "Ole Private Data" | "OleClipboardPersistOnFlush"
+    )
 }
 
 /// The clipboard operations paste-and-restore needs (Win32 in production, a fake in tests).
@@ -117,7 +124,9 @@ pub fn save(cb: &mut dyn Clipboard) -> Result<Snapshot, SaveError> {
     let mut items = vec![];
     let mut total = 0usize;
     for &f in &all {
-        if !should_save(f, &all) || (f >= 0xC000 && cb.name(f).is_some_and(|n| is_ole_bookkeeping(&n))) {
+        if !should_save(f, &all)
+            || (f >= 0xC000 && cb.name(f).is_some_and(|n| is_ole_bookkeeping(&n)))
+        {
             continue;
         }
         let Some(d) = cb.get(f) else { continue };
@@ -193,7 +202,9 @@ pub fn paste_with_restore(
     if driver.modifiers_held() {
         return Ok(PasteOutcome::NotPasted);
     }
-    let Ok(snap) = save(cb) else { return Ok(PasteOutcome::NotPasted) };
+    let Ok(snap) = save(cb) else {
+        return Ok(PasteOutcome::NotPasted);
+    };
     driver.stage(text);
     if !cb.open() {
         return Ok(PasteOutcome::NotPasted);
@@ -211,7 +222,11 @@ pub fn paste_with_restore(
         driver.settle();
     }
     restore(cb, &snap);
-    Ok(if read { PasteOutcome::Pasted } else { PasteOutcome::NotPasted })
+    Ok(if read {
+        PasteOutcome::Pasted
+    } else {
+        PasteOutcome::NotPasted
+    })
 }
 
 #[cfg(test)]
@@ -244,7 +259,10 @@ mod tests {
             self.items.iter().map(|(f, _)| *f).collect()
         }
         fn get(&mut self, f: u32) -> Option<ClipData> {
-            self.items.iter().find(|(g, _)| *g == f).and_then(|(_, d)| d.clone())
+            self.items
+                .iter()
+                .find(|(g, _)| *g == f)
+                .and_then(|(_, d)| d.clone())
         }
         fn empty(&mut self) -> bool {
             assert!(self.open);
@@ -262,10 +280,14 @@ mod tests {
             true
         }
         fn register(&mut self, name: &str) -> u32 {
-            let i = self.registered.iter().position(|n| n == name).unwrap_or_else(|| {
-                self.registered.push(name.into());
-                self.registered.len() - 1
-            });
+            let i = self
+                .registered
+                .iter()
+                .position(|n| n == name)
+                .unwrap_or_else(|| {
+                    self.registered.push(name.into());
+                    self.registered.len() - 1
+                });
             0xC000 + i as u32
         }
         fn name(&mut self, f: u32) -> Option<String> {
@@ -322,9 +344,9 @@ mod tests {
                 (CF_UNICODETEXT, Some(mem("u\0s\0e\0r\0"))),
                 (0xC123, Some(mem("<b>user</b>"))), // "HTML Format"
                 (CF_LOCALE, Some(mem("\x09\x04\0\0"))),
-                (CF_TEXT, Some(mem("user"))),        // synthesized
-                (CF_OEMTEXT, Some(mem("user"))),     // synthesized
-                (CF_BITMAP, Some(mem("hbitmap"))),   // GDI handle
+                (CF_TEXT, Some(mem("user"))),      // synthesized
+                (CF_OEMTEXT, Some(mem("user"))),   // synthesized
+                (CF_BITMAP, Some(mem("hbitmap"))), // GDI handle
                 (CF_DIB, Some(mem("BITMAPINFO..."))),
                 (0x0250, Some(mem("private"))),
                 (CF_ENHMETAFILE, Some(ClipData::EnhMetafile(b"EMF".to_vec()))),
@@ -341,19 +363,32 @@ mod tests {
         assert!(should_save(CF_UNICODETEXT, &all));
         assert!(!should_save(CF_TEXT, &all));
         assert!(!should_save(CF_OEMTEXT, &all));
-        assert!(should_save(CF_TEXT, &[CF_TEXT]), "ANSI-only text is the original");
+        assert!(
+            should_save(CF_TEXT, &[CF_TEXT]),
+            "ANSI-only text is the original"
+        );
         assert!(!should_save(CF_BITMAP, &all));
         assert!(should_save(CF_DIB, &all) && should_save(CF_DIBV5, &all));
         assert!(!should_save(0x0200, &all) && !should_save(0x03FF, &all));
         assert!(should_save(0xC0DE, &all) && should_save(CF_ENHMETAFILE, &all));
-        assert!(is_ole_bookkeeping("Ole Private Data") && is_ole_bookkeeping("DataObject") && !is_ole_bookkeeping("HTML Format"));
+        assert!(
+            is_ole_bookkeeping("Ole Private Data")
+                && is_ole_bookkeeping("DataObject")
+                && !is_ole_bookkeeping("HTML Format")
+        );
     }
 
     #[test]
     fn pastes_then_restores_every_saved_format_in_order() {
         let mut cb = user_clipboard();
         let read = std::cell::RefCell::new(vec![]);
-        let mut d = Driver { cb: Some(&read), held: false, reads: true, staged: String::new(), log: vec![] };
+        let mut d = Driver {
+            cb: Some(&read),
+            held: false,
+            reads: true,
+            staged: String::new(),
+            log: vec![],
+        };
         let out = paste_with_restore(&mut cb, &mut d, "dictated text", &mut || Ok(())).unwrap();
         assert_eq!(out, PasteOutcome::Pasted);
         assert_eq!(*read.borrow(), ["dictated text"]);
@@ -374,14 +409,23 @@ mod tests {
             ]
         );
         assert_eq!(cb.get(0xC123), Some(mem("<b>user</b>")));
-        assert_eq!(cb.get(CF_ENHMETAFILE), Some(ClipData::EnhMetafile(b"EMF".to_vec())));
+        assert_eq!(
+            cb.get(CF_ENHMETAFILE),
+            Some(ClipData::EnhMetafile(b"EMF".to_vec()))
+        );
         assert!(!cb.open);
     }
 
     #[test]
     fn dictated_text_is_delayed_and_kept_out_of_history() {
         let mut cb = FakeClipboard::default();
-        let mut d = Driver { cb: None, held: false, reads: true, staged: String::new(), log: vec![] };
+        let mut d = Driver {
+            cb: None,
+            held: false,
+            reads: true,
+            staged: String::new(),
+            log: vec![],
+        };
         // Inspect the clipboard as the target sees it, right before Ctrl+V.
         let mut seen = vec![];
         let mut guard = || Ok(());
@@ -404,8 +448,17 @@ mod tests {
     #[test]
     fn a_paste_nobody_read_restores_and_reports_not_pasted() {
         let mut cb = user_clipboard();
-        let mut d = Driver { cb: None, held: false, reads: false, staged: String::new(), log: vec![] };
-        assert_eq!(paste_with_restore(&mut cb, &mut d, "t", &mut || Ok(())).unwrap(), PasteOutcome::NotPasted);
+        let mut d = Driver {
+            cb: None,
+            held: false,
+            reads: false,
+            staged: String::new(),
+            log: vec![],
+        };
+        assert_eq!(
+            paste_with_restore(&mut cb, &mut d, "t", &mut || Ok(())).unwrap(),
+            PasteOutcome::NotPasted
+        );
         assert_eq!(d.log, ["ctrl+v"]);
         assert_eq!(cb.get(CF_UNICODETEXT), Some(mem("u\0s\0e\0r\0")));
     }
@@ -414,7 +467,9 @@ mod tests {
     fn never_restores_over_a_newer_copy() {
         let mut cb = user_clipboard();
         save(&mut cb).unwrap();
-        let snap = Snapshot { items: vec![(CF_UNICODETEXT, mem("old"))] };
+        let snap = Snapshot {
+            items: vec![(CF_UNICODETEXT, mem("old"))],
+        };
         cb.ours = false; // another app copied after the helper
         assert_eq!(restore(&mut cb, &snap), RestoreOutcome::ChangedByOthers);
         assert_eq!(cb.get(CF_UNICODETEXT), Some(mem("u\0s\0e\0r\0")));
@@ -422,27 +477,63 @@ mod tests {
 
     #[test]
     fn busy_large_or_modifiers_held_mean_no_paste_and_no_change() {
-        let mut cb = FakeClipboard { busy: true, ..user_clipboard() };
-        let mut d = Driver { cb: None, held: false, reads: true, staged: String::new(), log: vec![] };
-        assert_eq!(paste_with_restore(&mut cb, &mut d, "t", &mut || Ok(())).unwrap(), PasteOutcome::NotPasted);
+        let mut cb = FakeClipboard {
+            busy: true,
+            ..user_clipboard()
+        };
+        let mut d = Driver {
+            cb: None,
+            held: false,
+            reads: true,
+            staged: String::new(),
+            log: vec![],
+        };
+        assert_eq!(
+            paste_with_restore(&mut cb, &mut d, "t", &mut || Ok(())).unwrap(),
+            PasteOutcome::NotPasted
+        );
         assert!(d.log.is_empty());
 
-        let mut cb = FakeClipboard { items: vec![(CF_DIB, Some(ClipData::Memory(vec![0; MAX_SAVE_BYTES + 1])))], ..Default::default() };
+        let mut cb = FakeClipboard {
+            items: vec![(CF_DIB, Some(ClipData::Memory(vec![0; MAX_SAVE_BYTES + 1])))],
+            ..Default::default()
+        };
         assert_eq!(save(&mut cb), Err(SaveError::TooLarge));
-        assert_eq!(paste_with_restore(&mut cb, &mut d, "t", &mut || Ok(())).unwrap(), PasteOutcome::NotPasted);
+        assert_eq!(
+            paste_with_restore(&mut cb, &mut d, "t", &mut || Ok(())).unwrap(),
+            PasteOutcome::NotPasted
+        );
         assert_eq!(cb.items.len(), 1, "untouched");
 
         let mut cb = user_clipboard();
-        let mut d = Driver { cb: None, held: true, reads: true, staged: String::new(), log: vec![] };
-        assert_eq!(paste_with_restore(&mut cb, &mut d, "t", &mut || Ok(())).unwrap(), PasteOutcome::NotPasted);
+        let mut d = Driver {
+            cb: None,
+            held: true,
+            reads: true,
+            staged: String::new(),
+            log: vec![],
+        };
+        assert_eq!(
+            paste_with_restore(&mut cb, &mut d, "t", &mut || Ok(())).unwrap(),
+            PasteOutcome::NotPasted
+        );
         assert_eq!(cb.opens, 0);
     }
 
     #[test]
     fn a_failed_guard_restores_before_erroring() {
         let mut cb = user_clipboard();
-        let mut d = Driver { cb: None, held: false, reads: true, staged: String::new(), log: vec![] };
-        let e = paste_with_restore(&mut cb, &mut d, "t", &mut || Err(CapError::new(ErrorCode::PolicyDenied, "secure_field", "pw"))).unwrap_err();
+        let mut d = Driver {
+            cb: None,
+            held: false,
+            reads: true,
+            staged: String::new(),
+            log: vec![],
+        };
+        let e = paste_with_restore(&mut cb, &mut d, "t", &mut || {
+            Err(CapError::new(ErrorCode::PolicyDenied, "secure_field", "pw"))
+        })
+        .unwrap_err();
         assert_eq!(e.reason, "secure_field");
         assert!(d.log.is_empty(), "no Ctrl+V");
         assert_eq!(cb.get(CF_UNICODETEXT), Some(mem("u\0s\0e\0r\0")));

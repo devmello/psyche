@@ -10,7 +10,9 @@
 //! lock state is what it was; a short tap still toggles it.
 
 use super::input;
-use crate::dictation::keys::{KeyChange, KeyEvent, KeySet, VK_CAPITAL, WatchedKey, caps_lock_needs_restore};
+use crate::dictation::keys::{
+    KeyChange, KeyEvent, KeySet, VK_CAPITAL, WatchedKey, caps_lock_needs_restore,
+};
 use crate::error::CapError;
 use crate::time::iso8601_now;
 use std::cell::RefCell;
@@ -21,14 +23,17 @@ use std::thread::JoinHandle;
 use std::time::Instant;
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
-use windows::Win32::System::RemoteDesktop::{NOTIFY_FOR_THIS_SESSION, WTSRegisterSessionNotification, WTSUnRegisterSessionNotification};
+use windows::Win32::System::RemoteDesktop::{
+    NOTIFY_FOR_THIS_SESSION, WTSRegisterSessionNotification, WTSUnRegisterSessionNotification,
+};
 use windows::Win32::System::Threading::GetCurrentThreadId;
 use windows::Win32::UI::Input::KeyboardAndMouse::GetAsyncKeyState;
 use windows::Win32::UI::WindowsAndMessaging::{
-    CallNextHookEx, CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetMessageW, HC_ACTION, HHOOK, KBDLLHOOKSTRUCT,
-    KillTimer, LLKHF_INJECTED, LLKHF_UP, MSG, PBT_APMRESUMEAUTOMATIC, PBT_APMRESUMESUSPEND, PostThreadMessageW, RegisterClassW, SetTimer,
-    SetWindowsHookExW, TranslateMessage, UnhookWindowsHookEx, WH_KEYBOARD_LL, WINDOW_EX_STYLE, WM_POWERBROADCAST, WM_QUIT, WM_TIMER,
-    WM_APP, WM_WTSSESSION_CHANGE, WNDCLASSW, WS_OVERLAPPED,
+    CallNextHookEx, CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetMessageW,
+    HC_ACTION, HHOOK, KBDLLHOOKSTRUCT, KillTimer, LLKHF_INJECTED, LLKHF_UP, MSG,
+    PBT_APMRESUMEAUTOMATIC, PBT_APMRESUMESUSPEND, PostThreadMessageW, RegisterClassW, SetTimer,
+    SetWindowsHookExW, TranslateMessage, UnhookWindowsHookEx, WH_KEYBOARD_LL, WINDOW_EX_STYLE,
+    WM_APP, WM_POWERBROADCAST, WM_QUIT, WM_TIMER, WM_WTSSESSION_CHANGE, WNDCLASSW, WS_OVERLAPPED,
 };
 use windows::core::w;
 
@@ -68,7 +73,9 @@ static WATCHER: OnceLock<Watcher> = OnceLock::new();
 static NEXT_ID: AtomicU64 = AtomicU64::new(1);
 
 pub(crate) fn watcher() -> &'static Watcher {
-    WATCHER.get_or_init(|| Watcher { current: Mutex::new(None) })
+    WATCHER.get_or_init(|| Watcher {
+        current: Mutex::new(None),
+    })
 }
 
 impl Watcher {
@@ -90,7 +97,15 @@ impl Watcher {
             Err(_) => return Err(CapError::internal("the key watch thread exited")),
         };
         let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
-        let old = self.current.lock().unwrap_or_else(|e| e.into_inner()).replace(Active { id, thread_id, join });
+        let old = self
+            .current
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .replace(Active {
+                id,
+                thread_id,
+                join,
+            });
         if let Some(old) = old {
             old.finish();
         }
@@ -98,7 +113,11 @@ impl Watcher {
     }
 
     pub fn stop(&self) {
-        let old = self.current.lock().unwrap_or_else(|e| e.into_inner()).take();
+        let old = self
+            .current
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .take();
         if let Some(old) = old {
             old.finish();
         }
@@ -108,7 +127,11 @@ impl Watcher {
     pub fn stop_if(&self, id: u64) {
         let old = {
             let mut cur = self.current.lock().unwrap_or_else(|e| e.into_inner());
-            if cur.as_ref().is_some_and(|a| a.id == id) { cur.take() } else { None }
+            if cur.as_ref().is_some_and(|a| a.id == id) {
+                cur.take()
+            } else {
+                None
+            }
         };
         if let Some(old) = old {
             old.finish();
@@ -116,14 +139,29 @@ impl Watcher {
     }
 
     pub fn is_active(&self) -> bool {
-        self.current.lock().unwrap_or_else(|e| e.into_inner()).is_some()
+        self.current
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .is_some()
     }
 
     /// Test support: delivers `ev` to the hook thread's handler as a hardware event would arrive
     /// (SendInput can only make injected events, which the watch ignores).
     pub fn simulate(&self, ev: KeyEvent) -> bool {
-        let Some(tid) = self.current.lock().unwrap_or_else(|e| e.into_inner()).as_ref().map(|a| a.thread_id) else { return false };
-        let w = WPARAM(ev.vk as usize | if ev.down { 1 << 16 } else { 0 } | if ev.injected { 1 << 17 } else { 0 });
+        let Some(tid) = self
+            .current
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .as_ref()
+            .map(|a| a.thread_id)
+        else {
+            return false;
+        };
+        let w = WPARAM(
+            ev.vk as usize
+                | if ev.down { 1 << 16 } else { 0 }
+                | if ev.injected { 1 << 17 } else { 0 },
+        );
         // SAFETY: a thread message the hook loop handles itself.
         unsafe { PostThreadMessageW(tid, WM_SIMULATED_KEY, w, LPARAM(ev.scan as isize)) }.is_ok()
     }
@@ -230,8 +268,13 @@ fn install() -> Result<HHOOK, CapError> {
     // SAFETY: a global low-level hook owned by this thread.
     unsafe {
         let module = GetModuleHandleW(None).unwrap_or_default();
-        SetWindowsHookExW(WH_KEYBOARD_LL, Some(ll_proc), Some(module.into()), 0)
-            .map_err(|e| crate::error::win_err("hook_failed", "Windows refused the keyboard hook for hold-to-talk", &e))
+        SetWindowsHookExW(WH_KEYBOARD_LL, Some(ll_proc), Some(module.into()), 0).map_err(|e| {
+            crate::error::win_err(
+                "hook_failed",
+                "Windows refused the keyboard hook for hold-to-talk",
+                &e,
+            )
+        })
     }
 }
 
@@ -274,7 +317,11 @@ fn on_timer(id: usize) {
                     rearm(st);
                 }
                 // A pressed key that is physically up on two ticks in a row lost its key-up.
-                let stale = st.keys.trackers().iter().any(|t| t.is_pressed() && !physically_down(t.vk));
+                let stale = st
+                    .keys
+                    .trackers()
+                    .iter()
+                    .any(|t| t.is_pressed() && !physically_down(t.vk));
                 st.stale_ticks = if stale { st.stale_ticks + 1 } else { 0 };
                 if st.stale_ticks >= 2 {
                     st.stale_ticks = 0;
@@ -298,20 +345,31 @@ fn on_wake() {
     });
 }
 
-unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+unsafe extern "system" fn wnd_proc(
+    hwnd: HWND,
+    msg: u32,
+    wparam: WPARAM,
+    lparam: LPARAM,
+) -> LRESULT {
     match msg {
         WM_TIMER => {
             on_timer(wparam.0);
             LRESULT(0)
         }
         WM_WTSSESSION_CHANGE => {
-            if matches!(wparam.0, WTS_SESSION_UNLOCK | WTS_CONSOLE_CONNECT | WTS_REMOTE_CONNECT) {
+            if matches!(
+                wparam.0,
+                WTS_SESSION_UNLOCK | WTS_CONSOLE_CONNECT | WTS_REMOTE_CONNECT
+            ) {
                 on_wake();
             }
             LRESULT(0)
         }
         WM_POWERBROADCAST => {
-            if matches!(wparam.0 as u32, PBT_APMRESUMEAUTOMATIC | PBT_APMRESUMESUSPEND) {
+            if matches!(
+                wparam.0 as u32,
+                PBT_APMRESUMEAUTOMATIC | PBT_APMRESUMESUSPEND
+            ) {
                 on_wake();
             }
             LRESULT(1)
@@ -326,7 +384,12 @@ fn hidden_window() -> HWND {
     // broadcasts) on this thread.
     unsafe {
         let instance = GetModuleHandleW(None).unwrap_or_default();
-        let class = WNDCLASSW { lpfnWndProc: Some(wnd_proc), hInstance: instance.into(), lpszClassName: w!("PsycheDictationKeyWatch"), ..Default::default() };
+        let class = WNDCLASSW {
+            lpfnWndProc: Some(wnd_proc),
+            hInstance: instance.into(),
+            lpszClassName: w!("PsycheDictationKeyWatch"),
+            ..Default::default()
+        };
         RegisterClassW(&class);
         CreateWindowExW(
             WINDOW_EX_STYLE(0),
@@ -361,7 +424,16 @@ fn hook_thread(keys: Vec<WatchedKey>, tx: Sender<Change>, ready: Sender<Result<u
         SetTimer(Some(hwnd), WATCHDOG_TIMER, WATCHDOG_MS, None);
     }
     STATE.with(|s| {
-        *s.borrow_mut() = Some(HookState { keys: KeySet::new(keys), tx, hook, hwnd, mask_vk: 0, stale_ticks: 0, ticks: 0, caps_down: None });
+        *s.borrow_mut() = Some(HookState {
+            keys: KeySet::new(keys),
+            tx,
+            hook,
+            hwnd,
+            mask_vk: 0,
+            stale_ticks: 0,
+            ticks: 0,
+            caps_down: None,
+        });
     });
     // SAFETY: thread id of this thread.
     let _ = ready.send(Ok(unsafe { GetCurrentThreadId() }));
@@ -371,7 +443,12 @@ fn hook_thread(keys: Vec<WatchedKey>, tx: Sender<Change>, ready: Sender<Result<u
         while GetMessageW(&mut msg, None, 0, 0).0 > 0 {
             if msg.message == WM_SIMULATED_KEY && msg.hwnd.is_invalid() {
                 let w = msg.wParam.0;
-                on_key(&KeyEvent { vk: (w & 0xFFFF) as u16, scan: msg.lParam.0 as u32, down: w & (1 << 16) != 0, injected: w & (1 << 17) != 0 });
+                on_key(&KeyEvent {
+                    vk: (w & 0xFFFF) as u16,
+                    scan: msg.lParam.0 as u32,
+                    down: w & (1 << 16) != 0,
+                    injected: w & (1 << 17) != 0,
+                });
                 continue;
             }
             let _ = TranslateMessage(&msg);

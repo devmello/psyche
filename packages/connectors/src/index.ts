@@ -1,4 +1,5 @@
 // @psyche/connectors: connector framework (M4 data, M11), web search and fetch (M8), Google (M5).
+export * from "./apple/calendar-watch.ts";
 export * from "./apple/connector.ts";
 export * from "./apple/guidance.ts";
 export * from "./apple/trusted-sources.ts";

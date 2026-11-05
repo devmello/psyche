@@ -31,4 +31,30 @@ describe("per-app guidance", () => {
     expect(text).toContain("Never: claim to invite people");
     expect(guidanceSection(["google"], (t) => t)).toBeUndefined();
   });
+
+  it("speaks of Outlook and this PC on a Windows Host, and has nothing for the Mac-only apps", () => {
+    const types = ["apple:mail", "apple:reminders", "apple:calendar", "apple:contacts"];
+    const text = guidanceSection(
+      [...types, "apple:notes", "things", "obsidian"],
+      (t) => t,
+      "windows",
+    );
+    const lines = text?.split("\n") ?? [];
+    expect(lines.map((l) => l.split(": For:")[0])).toEqual([
+      "apple:calendar",
+      "apple:contacts",
+      "apple:mail",
+      "apple:reminders",
+      "obsidian",
+    ]);
+    expect(text).not.toMatch(/Mac|message:\/\/|EventKit|Reminders app|Trash/);
+    expect(text).toContain("Outlook");
+    expect(text).toContain("three email addresses");
+    expect(guidanceSection(["chrome:tabs"], (t) => t, "windows")).toContain("Edge");
+    // Microsoft 365 (with To Do) reads the same on both.
+    for (const platform of ["macos", "windows"] as const)
+      expect(guidanceSection(["microsoft"], (t) => t, platform)).toContain(
+        "`reminders_list_lists`",
+      );
+  });
 });

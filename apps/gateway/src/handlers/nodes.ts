@@ -49,14 +49,28 @@ const CLIENT_REACHABLE: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * The Host's own helper (Mac or Windows) is reachable through `nodes.invoke` only for the capabilities in
- * `CLIENT_REACHABLE`. Everything else it offers (speech and the microphone, `vm.*`, the Apple
- * apps' data, Messages, reminders, calendar, contacts, ...) acts on the owner's Mac and has a
- * Gateway tool or method that describes it and asks; a deny list would miss whatever the helper
- * adds next, so this is an allowlist. Other nodes keep the deny list above.
+ * Read-only listings Settings shows from the Host helper: the names of the owner's Reminders lists
+ * (Outlook task lists on Windows), calendars and Notes folders for "These are mine — treat as
+ * trusted" (TrustedSourcesCard), and their Shortcuts (ConnectorSettingsCards). Names and ids
+ * only, no items, events, notes or runs; every other capability in those groups stays out.
+ */
+const SETTINGS_LISTINGS: ReadonlySet<string> = new Set([
+  "reminders.list_lists",
+  "calendar.list_calendars",
+  "notes.folders",
+  "shortcuts.list",
+]);
+
+/**
+ * The Host's own helper (Mac or Windows) is reachable through `nodes.invoke` only for the
+ * capabilities in `CLIENT_REACHABLE` and `SETTINGS_LISTINGS`. Everything else it offers (speech
+ * and the microphone, `vm.*`, the Apple apps' data, Messages, reminders, calendar, contacts, ...)
+ * acts on the owner's computer and has a Gateway tool or method that describes it and asks; a
+ * deny list would miss whatever the helper adds next, so this is an allowlist. Other nodes keep
+ * the deny list above.
  */
 export function isHostHelperCapabilityReachable(name: string): boolean {
-  return CLIENT_REACHABLE.has(name);
+  return CLIENT_REACHABLE.has(name) || SETTINGS_LISTINGS.has(name);
 }
 
 export function isUnreachableCapability(name: string): boolean {

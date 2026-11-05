@@ -23,6 +23,7 @@ import { GOOGLE_ID, type Int2Rig, prepareInt2 } from "./stack.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, "../../..");
+const BIOME = join(root, "node_modules/@biomejs/biome/bin/biome");
 const CORPUS_DIR = "tests/corpus/injection/cases";
 const EXAMPLE = "tests/integration/injection/example-cases.json";
 
@@ -89,7 +90,8 @@ const writeCommitted = (path: string, report: InjectionReport) => {
   if (same) return;
   write(path, report);
   try {
-    execFileSync(join(root, "node_modules/.bin/biome"), ["format", "--write", path], {
+    // The package's Node entry point: `.bin/biome` is a shell script (`biome.cmd` on Windows).
+    execFileSync(process.execPath, [BIOME, "format", "--write", path], {
       stdio: "ignore",
     });
   } catch {
@@ -104,8 +106,9 @@ beforeAll(async () => {
   write(join(root, "out/security/int2-injection-report.json"), int2);
   writeCommitted(join(here, "report.json"), int2);
   // ~30 s on its own, but CI runs this file beside the other suites and a loaded runner took
-  // over 60 s (main 4702fa9e), which failed the whole file at setup.
-}, 180_000);
+  // over 60 s (main 4702fa9e), which failed the whole file at setup. On Windows (git and process
+  // spawns are slower) it takes ~65 s alone and passed 180 s under the full parallel suite.
+}, 420_000);
 
 afterAll(async () => {
   await rig?.close();

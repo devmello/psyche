@@ -1,6 +1,7 @@
 import {
   type DictationKey,
   type DictationKeyPayload,
+  type DictationKeyRole,
   type NodeClient,
   type NodeInvokeResult,
   PsycheError,
@@ -136,13 +137,27 @@ export function composeDictation() {
         },
       },
       "dictation.watch": {
-        async run(call: Call, params: { key: DictationKey | null }) {
+        async run(
+          call: Call,
+          params: {
+            key: DictationKey | null;
+            keys?: { key: DictationKey; role: DictationKeyRole }[];
+          },
+        ) {
           requireDesktop(call);
           const deviceId = call.identity.deviceId;
-          stopWatch(deviceId, params.key === null);
-          if (params.key === null) return { watching: false };
+          // `keys` (dictation and voice on one watch) wins over `key`, as in the helpers.
+          const keys = params.keys !== undefined && params.keys.length > 0 ? params.keys : null;
+          const stops = params.key === null && keys === null;
+          stopWatch(deviceId, stops);
+          if (stops) return { watching: false };
           const node = requireNode("dictation.watch");
-          const key = params.key;
+          // The key names are the Mac's on every helper (`fn`, `rightOption`, `rightCommand`): the
+          // Windows helper holds fn and Right Option on Right Alt and Right Command on Right Ctrl.
+          const key = (keys?.[0]?.key ?? params.key) as DictationKey;
+          const watched = new Map<DictationKey, DictationKeyRole | undefined>(
+            keys === null ? [[key, undefined]] : keys.map((k) => [k.key, k.role]),
+          );
           const abort = new AbortController();
           watches.set(deviceId, { abort, key });
           let armed: (() => void) | undefined;
@@ -151,7 +166,7 @@ export function composeDictation() {
           });
           const done = node.invoke(
             "dictation.watch",
-            { key },
+            keys === null ? { key } : { key: params.key, keys },
             {
               signal: abort.signal,
               timeoutMs: DICTATION_WATCH_TIMEOUT_MS,
@@ -160,8 +175,13 @@ export function composeDictation() {
                 const d = e.data as Partial<DictationKeyPayload> | null;
                 if (watches.get(deviceId)?.abort !== abort) return;
                 if (typeof d?.down !== "boolean") return;
+                // Only a key this watch asked for, with the role it was asked for.
+                const which = keys === null ? key : (d.key as DictationKey);
+                if (!watched.has(which)) return;
+                const role = watched.get(which);
                 gateway?.bus.publishToDevice(deviceId, "dictation.key", {
-                  key,
+                  key: which,
+                  ...(role === undefined ? {} : { role }),
                   down: d.down,
                   at: typeof d.at === "string" ? d.at : new Date().toISOString(),
                 });

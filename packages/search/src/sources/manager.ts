@@ -713,10 +713,12 @@ export class SourceIndexer {
           .all(...SOURCE_IDS.map(sourceTag)) as { source: string; n: number; bytes: number }[]
       ).map((r) => [r.source, { n: r.n, bytes: r.bytes ?? 0 }]),
     );
-    const sources: SourceStatus[] = SOURCE_IDS.map((id) => {
+    // A source this host has no adapter for (Notes and Messages on Windows) is not listed at all:
+    // a row that can never be switched on is noise.
+    const sources: SourceStatus[] = SOURCE_IDS.filter((id) => this.#adapters.has(id)).map((id) => {
       const cfg = config.sources[id];
-      const adapter = this.#adapters.get(id);
-      const why = adapter === undefined ? "not supported on this host" : adapter.unavailable();
+      const adapter = this.#adapters.get(id) as SourceAdapter;
+      const why = adapter.unavailable();
       const err = this.#errors.get(id);
       const c = counts.get(sourceTag(id));
       const lastAt = this.#meta(`src.${id}.lastAt`);

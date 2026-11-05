@@ -6,6 +6,7 @@ import { describeError } from "../../i18n/errors.ts";
 import { isWindows } from "../../lib/platform.ts";
 import { cn } from "../../lib/utils.ts";
 import { type MacHelperStatus, MacHelperStatusRow } from "../settings/MacHelperStatus.tsx";
+import { SpeechModelRow } from "../settings/SpeechModel.tsx";
 import { CARD, CARD_ROWS, StatusChip, SwitchField } from "../settings/shared.tsx";
 import { keyIdShort, presenceKeyText } from "../settings/TouchIdKeySetup.tsx";
 import type { TccState } from "../settings/types.ts";
@@ -333,6 +334,7 @@ export function SafetyStep({
                 onOpenSettings={windowsAccess.onOpenMicrophone}
               />
             ) : null}
+            {windowsAccess ? <SpeechModelRow /> : null}
           </div>
         </div>
       ) : null}

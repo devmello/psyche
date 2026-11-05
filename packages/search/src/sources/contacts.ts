@@ -47,6 +47,8 @@ export interface ContactsSourceDeps {
    * planted), so results collapse onto it; undefined when nobody matches.
    */
   parentOf?: (contact: { id: string; emails: string[]; phones: string[] }) => string | undefined;
+  /** Why the source cannot read while no helper offers contacts (default: the Mac helper's). */
+  noHelper?: string;
   now: () => number;
 }
 
@@ -207,10 +209,10 @@ export function contactsAdapter(deps: ContactsSourceDeps): SourceAdapter {
   let listed: ListedContacts["contacts"] | undefined;
   return {
     id: "contacts",
-    unavailable: () => (deps.helper() === undefined ? NO_HELPER : undefined),
+    unavailable: () => (deps.helper() === undefined ? (deps.noHelper ?? NO_HELPER) : undefined),
     async pull(raw, { signal, limit }): Promise<SourcePull> {
       const helper = deps.helper();
-      if (helper === undefined) throw new Error(NO_HELPER);
+      if (helper === undefined) throw new Error(deps.noHelper ?? NO_HELPER);
       const cur = cursorOf(raw);
       const now = deps.now();
       // The last pass is recent: nothing to read until it is due again.

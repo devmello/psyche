@@ -13,6 +13,7 @@ import {
 } from "../../voice/hold-keys.ts";
 import { readVoiceSettings } from "../../voice/settings.ts";
 import { type ShortcutCheck, ShortcutRecorder, shortcutText } from "./ShortcutRecorder.tsx";
+import { SpeechModelGroup } from "./SpeechModel.tsx";
 import {
   Advanced,
   bool,
@@ -430,6 +431,7 @@ export function VoicePanel({
             ]}
           />
         </Group>
+        <SpeechModelGroup />
         {system ? (
           <Group title={t("settings.voice.anyApp")}>
             <SwitchField

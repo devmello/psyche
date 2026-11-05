@@ -7,11 +7,17 @@ import type { MessageId } from "../index.ts";
  * - the same placeholders as the English message and the same meaning: a variant only says it
  *   the way Windows does ("This PC", "Windows Hello", "File Explorer", "Ctrl+K");
  * - no variant for Mac-only features (Apple apps, VM guests, Apple's on-device model): they are
- *   hidden on Windows or say "Available on macOS" (cross-platform-2026 §4.3);
+ *   hidden on Windows or say "Available on macOS" (cross-platform-2026 §4.3). Mail, Calendar and
+ *   Reminders are the exception: on Windows they are classic Outlook, and say so;
  * - a translation of a variant goes in `WINDOWS_LOCALES` (./index.ts); until then a translated
  *   catalogue shows the English variant rather than its Mac wording.
  */
 export const windows: Partial<Record<MessageId, string>> = {
+  "settings.trusted.title.reminders": "Your Outlook task lists",
+  "settings.trusted.none.reminders": "No Outlook task lists yet.",
+  "settings.trusted.loading": "Reading them from this PC…",
+  "settings.trusted.noHelper": "Open Psyche on your PC to list them: the helper reads them.",
+  "settings.trusted.failed": "Psyche couldn't read them from this PC.",
   "settings.links.description":
     "Where a link in a chat message, card or artifact opens. Ctrl+click always uses your default browser.",
   "errors.presence_required": "Confirm it's you with Windows Hello or a passkey first.",
@@ -126,6 +132,15 @@ export const windows: Partial<Record<MessageId, string>> = {
     "A container runtime runs code in its own Linux machine with no access to your PC's files: for code the agent runs and some file conversions. Command servers keep using srt unless the Gateway is set to use containers.",
   "settings.searchSources.description":
     "What Psyche reads into your search index. All off until you switch them on; the index stays on this PC. Turning a source on also lets memory learn from it, unless you opt out on Memory → Sources (Memory and Contacts are the exceptions: neither is learned from).",
+  // Windows reads Mail, Calendar, Reminders and Contacts from classic Outlook (through the Windows
+  // helper) when it is there, else from Microsoft 365, Google and Microsoft To Do. No Notes or
+  // Messages row is shown on Windows.
+  "settings.searchSources.hint.mail":
+    "Subject, sender, recipients, date and the text of your mail in Outlook, Microsoft 365 or Gmail. Quoted replies are skipped.",
+  "settings.searchSources.hint.reminders":
+    "Tasks in Outlook or Microsoft To Do, with their lists, due dates and notes.",
+  "settings.searchSources.hint.contacts":
+    "Your contacts in classic Outlook: name, nickname, company, job title, emails, phone numbers, the city and country of each address, and birthday. Street addresses, notes and groups are never read. The agent can't search it until you allow it, and that switch covers only this index: what Memory has learned about people, and their pages with emails or numbers, follow Memory's own agent access.",
   "settings.searchSources.runOnBatteryHint":
     "Lets indexing, Rebuild and reading text in images carry on while your PC runs on battery, at a gentler pace. It uses more battery. Energy saver still pauses indexing.",
   "settings.searchSources.ocrHint":
@@ -217,9 +232,28 @@ export const windows: Partial<Record<MessageId, string>> = {
   "settings.voice.engine.local": "On this PC",
   "settings.voice.engine.localHint": "Whisper runs locally; audio never leaves the PC.",
   "settings.voice.engine.system": "Windows speech",
+  "settings.voice.model.usingHelper":
+    "Dictation uses Windows speech recognition (SAPI), which often mishears names and short phrases. The speech model transcribes much better and runs on this PC.",
+  "settings.voice.model.downloadHint":
+    "A one-time download from the whisper.cpp project, checked before it is used. Audio never leaves this PC.",
+  "settings.voice.model.ready": "Whisper ({model}) on this PC",
+  "settings.voice.model.readyHint":
+    "Dictation and recordings are transcribed here; audio never leaves the PC.",
+  "settings.voice.model.crashed":
+    "The speech engine stopped unexpectedly; dictation uses Windows speech recognition until it starts again.",
   "settings.connect.finishOpened":
     "The sign-in to {name} opened in your browser on the Gateway's computer. This updates when you're done.",
   "settings.connect.openSystemSettings": "Open Windows Settings",
+  // Mail, Calendar and Reminders on Windows are classic Outlook, served by the Windows helper
+  // under the same connector types (apps/win-helper `src/outlook/`).
+  "settings.connect.needsPermission":
+    "{name} is set up, but Outlook is blocking other programs right now. Turn on Windows Security or update your antivirus, or change it in",
+  "settings.connectors.catalog.appleMail": "Outlook Mail",
+  "settings.connectors.catalog.appleCalendar": "Outlook Calendar",
+  "settings.connectors.catalog.appleReminders": "Outlook Tasks",
+  "gallery.builtin.appleMail": "Read and draft mail in classic Outlook.",
+  "gallery.builtin.appleCalendar": "See your Outlook calendar and add events.",
+  "gallery.builtin.appleReminders": "See and create tasks in Outlook.",
   "settings.people.description":
     "The cards {persona} keeps for the people and projects in your life. They stay on this PC, and every fact shows where it came from.",
   "settings.about.versionsHint": "What is running on this PC.",

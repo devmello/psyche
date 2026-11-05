@@ -1,0 +1,47 @@
+[package]
+name = "psyche-win-vm"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "Apache-2.0"
+publish = false
+description = "Psyche sandbox PC for Windows: a LocalSystem service (psyche-vm-svc.exe) that runs the Linux guest on the Hyper-V Host Compute Service"
+
+[lib]
+name = "psyche_win_vm"
+path = "src/lib.rs"
+
+[[bin]]
+name = "psyche-vm-svc"
+path = "src/main.rs"
+
+[dependencies]
+serde = { version = "=1.0.228", features = ["derive"] }
+serde_json = { version = "=1.0.149", features = ["preserve_order"] }
+sha2 = "=0.10.9"
+tokio = { version = "=1.49.0", features = ["rt-multi-thread", "macros", "sync", "time", "io-util", "net"] }
+windows-core = "=0.62.2"
+
+# Pinned exactly: the helper core uses the same version, so the workspace shares one copy.
+# computecore.dll / computenetwork.dll are loaded at run time (they exist only with the
+# Virtual Machine Platform feature), so their `windows` modules are not used.
+[dependencies.windows]
+version = "=0.62.2"
+features = [
+  "Win32_Foundation",
+  "Win32_Networking_WinSock",
+  "Win32_Security",
+  "Win32_Security_Authorization",
+  "Win32_Security_Cryptography",
+  "Win32_Storage_FileSystem",
+  "Win32_System_Com",
+  "Win32_Storage_Vhd",
+  "Win32_System_Hypervisor",
+  "Win32_System_IO",
+  "Win32_System_LibraryLoader",
+  "Win32_System_Pipes",
+  "Win32_System_Registry",
+  "Win32_System_Services",
+  "Win32_System_SystemInformation",
+  "Win32_System_Threading",
+]

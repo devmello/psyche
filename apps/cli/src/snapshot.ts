@@ -1,5 +1,6 @@
 import { existsSync, lstatSync, readdirSync, readFileSync, statfsSync } from "node:fs";
 import { join, relative } from "node:path";
+import { currentUserSid, daclIsOwnerOnly, readDaclsSddl } from "@psyche/hostfs";
 import type { BackupInfo, McpServerStatus, RealChromeStatus } from "@psyche/protocol";
 import type { GatewayClient, HttpProbe } from "./client.ts";
 import { callIfAvailable } from "./commands/util.ts";
@@ -208,11 +209,29 @@ async function q<T>(
   return r.ok ? { ok: true, value: pick(r.value) } : r;
 }
 
-/** Walks `$PSYCHE_HOME` (up to `limit` entries) for directories not 0700 and files readable by others. */
+/**
+ * Windows' `chmod -R go-rwx`: everything below inherits again, then the home keeps only you and
+ * SYSTEM (what `@psyche/hostfs` `restrictToOwner` sets).
+ */
+export function ownerOnlyAclHint(home: string): string {
+  return `icacls "${home}" /reset /t /q && icacls "${home}" /inheritance:r /grant:r "%USERNAME%:(OI)(CI)F" "*S-1-5-18:(OI)(CI)F" /q`;
+}
+
+/** Folders owned by their subsystems, huge and not walked: sandbox workspaces, browser profiles. */
+const UNWALKED = ["sandbox", "browser", "vm", "node_modules"];
+
+/**
+ * Walks `$PSYCHE_HOME` (up to `limit` entries) for directories not 0700 and files readable by
+ * others. On Windows, where `stat` makes up 0666 for every file, "0700/0600" is the DACL test of
+ * `@psyche/hostfs` (`isOwnerOnly`): a folder or file another account can reach is mode `acl`.
+ * The platform is the disk's, not the one a test asks the CLI to behave as.
+ */
 export function scanModes(
   home: string,
   limit = 20_000,
+  platform: NodeJS.Platform = process.platform,
 ): { homeMode: string | null; issues: FileModeIssue[] } {
+  if (platform === "win32") return scanAcls(home, limit);
   const issues: FileModeIssue[] = [];
   let homeMode: string | null = null;
   let seen = 0;
@@ -237,8 +256,7 @@ export function scanModes(
       if (st.isDirectory()) {
         if (mode & 0o077)
           issues.push({ path: relative(home, p), mode: mode.toString(8), kind: "dir" });
-        // Sandbox workspaces and browser profiles are huge and owned by their subsystems.
-        if (!["sandbox", "browser", "vm", "node_modules"].includes(name)) walk(p);
+        if (!UNWALKED.includes(name)) walk(p);
       } else if (st.isFile() || st.isSocket()) {
         if (mode & 0o077)
           issues.push({ path: relative(home, p), mode: mode.toString(8), kind: "file" });
@@ -250,6 +268,51 @@ export function scanModes(
     walk(home);
   } catch {
     homeMode = null;
+  }
+  return { homeMode, issues };
+}
+
+/**
+ * Windows: the DACLs of `$PSYCHE_HOME`, its entries and the trees below them (not the unwalked
+ * folders), one `icacls` run per top-level folder. `homeMode` is `700` when the home is
+ * owner-only and `acl` when not; `null` (not checked) when the DACLs cannot be read.
+ */
+function scanAcls(
+  home: string,
+  limit: number,
+): { homeMode: string | null; issues: FileModeIssue[] } {
+  const sid = currentUserSid();
+  const self = readDaclsSddl(home)?.[0];
+  if (sid === null || self === undefined) return { homeMode: null, issues: [] };
+  const homeMode = daclIsOwnerOnly(self.sddl, sid, true) ? "700" : "acl";
+  const entries = new Map<string, string>();
+  for (const e of readDaclsSddl(join(home, "*")) ?? []) {
+    entries.set(e.name, e.sddl);
+    let st: ReturnType<typeof lstatSync>;
+    try {
+      st = lstatSync(join(home, e.name));
+    } catch {
+      continue;
+    }
+    if (!st.isDirectory() || st.isSymbolicLink() || UNWALKED.includes(e.name)) continue;
+    for (const below of readDaclsSddl(join(home, e.name), { recursive: true }) ?? []) {
+      if (entries.size >= limit) break;
+      entries.set(below.name, below.sddl);
+    }
+  }
+  const issues: FileModeIssue[] = [];
+  for (const [name, sddl] of entries) {
+    let st: ReturnType<typeof lstatSync>;
+    try {
+      st = lstatSync(join(home, name));
+    } catch {
+      continue;
+    }
+    if (st.isSymbolicLink()) continue;
+    const dir = st.isDirectory();
+    if (daclIsOwnerOnly(sddl, sid, dir)) continue;
+    // Written with `/`, as on POSIX, so the sensitive-path rules read the same.
+    issues.push({ path: name.replaceAll("\\", "/"), mode: "acl", kind: dir ? "dir" : "file" });
   }
   return { homeMode, issues };
 }
@@ -399,9 +462,8 @@ export async function gatherSnapshot(ctx: Ctx, opts: { connect: boolean }): Prom
   } catch {
     disk = null;
   }
-  // Windows keeps files private with the profile folder ACLs; POSIX modes there are made up.
-  const { homeMode, issues } =
-    ctx.deps.platform === "win32" ? { homeMode: null, issues: [] } : scanModes(ctx.home);
+  // POSIX modes, or the DACLs on Windows (where modes are made up): the disk decides.
+  const { homeMode, issues } = scanModes(ctx.home);
   const [chromeDebugPort, localModel] = await Promise.all([
     reachable(ctx.deps.fetch, "http://127.0.0.1:9222/json/version"),
     reachable(ctx.deps.fetch, "http://127.0.0.1:11434/api/tags"),

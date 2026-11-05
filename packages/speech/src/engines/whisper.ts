@@ -1,4 +1,4 @@
-import { access, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { access, mkdtemp, open, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -27,6 +27,7 @@ import {
 import { assertOk, findBinary, LocalProcessRunner, type ProcessRunner } from "../process.ts";
 import { joinSegments, SegmentSequencer, sequenceSegments } from "../stream.ts";
 import { whisperPrompt } from "../vocabulary.ts";
+import type { PathTranscribeOptions, PathTranscriber, PathTranscript } from "./node.ts";
 
 /**
  * whisper.cpp on the Gateway host (ADR-014; the server and Linux path). Two backends:
@@ -57,13 +58,35 @@ export interface WhisperRequest {
   prompt?: string;
   /** Let whisper.cpp's Silero VAD skip silence (file transcription). */
   vad?: boolean;
+  /**
+   * Encoder frames to run (whisper's `audio_ctx`; 1500 = the full 30 s window). Short dictation
+   * utterances need far fewer: `audioCtxFor` sizes it to the audio, which roughly halves the time
+   * per request on a CPU.
+   */
+  audioCtx?: number;
+  /**
+   * No temperature fallback (one greedy pass). With a fitted `audioCtx` the fallback is what
+   * turns a hard utterance into a slow hallucination, so live dictation turns it off.
+   */
+  noFallback?: boolean;
   signal?: AbortSignal;
+}
+
+/** Whisper's encoder runs 50 frames per second of audio over a fixed 30 s window. */
+const FULL_AUDIO_CTX = 1500;
+
+/** `audio_ctx` for `pcmBytes` of 16 kHz mono s16le: the audio's frames plus 5 s of head room (at least 384). */
+export function audioCtxFor(pcmBytes: number): number {
+  const frames = Math.ceil((pcmBytes / 32_000) * 50) + 256;
+  return Math.min(FULL_AUDIO_CTX, Math.max(384, Math.ceil(frames / 64) * 64));
 }
 
 export interface WhisperBackend {
   readonly name: string;
   available(): Promise<boolean>;
   transcribe(request: WhisperRequest): Promise<WhisperSegment[]>;
+  /** Gets ready for a request that is about to come (loads the model); optional. */
+  warm?(): Promise<void>;
 }
 
 /** Bracketed non-speech tags whisper emits on silence or noise: `[BLANK_AUDIO]`, `(music)`. */
@@ -120,6 +143,8 @@ export class WhisperCliBackend implements WhisperBackend {
     if (request.vad === true && o.vadModelPath !== undefined) {
       argv.push("--vad", "-vm", o.vadModelPath);
     }
+    if (request.audioCtx !== undefined) argv.push("-ac", String(request.audioCtx));
+    if (request.noFallback === true) argv.push("-nf");
     return argv;
   }
 
@@ -164,7 +189,10 @@ export function parseWhisperCliJson(text: string): WhisperSegment[] {
 // --- whisper-server -----------------------------------------------------------------------------
 
 export interface WhisperServerOptions {
-  /** e.g. `http://127.0.0.1:8178`; must be loopback (the server has no auth). */
+  /**
+   * e.g. `http://127.0.0.1:8178`, or with whisper-server's `--request-path` prefix
+   * (`http://127.0.0.1:8178/psyche-<token>`); must be loopback (the server has no auth).
+   */
   baseUrl: string;
   inferencePath?: string;
   fetch?: typeof fetch;
@@ -189,9 +217,13 @@ export class WhisperServerBackend implements WhisperBackend {
     this.#fetch = options.fetch ?? fetch;
   }
 
+  #url(path: string): string {
+    return `${this.#opts.baseUrl.replace(/\/+$/, "")}${path}`;
+  }
+
   async available(): Promise<boolean> {
     try {
-      const res = await this.#fetch(new URL("/health", this.#opts.baseUrl));
+      const res = await this.#fetch(this.#url("/health"));
       return res.ok;
     } catch {
       return false;
@@ -206,9 +238,11 @@ export class WhisperServerBackend implements WhisperBackend {
     form.set("language", request.language ?? "en");
     if (request.prompt !== undefined) form.set("prompt", request.prompt);
     if (request.vad === true) form.set("vad", "true");
+    if (request.audioCtx !== undefined) form.set("audio_ctx", String(request.audioCtx));
+    if (request.noFallback === true) form.set("temperature_inc", "0");
     const init: RequestInit = { method: "POST", body: form };
     if (request.signal !== undefined) init.signal = request.signal;
-    const url = new URL(this.#opts.inferencePath ?? "/inference", this.#opts.baseUrl);
+    const url = this.#url(this.#opts.inferencePath ?? "/inference");
     const res = await this.#fetch(url, init);
     if (!res.ok) throw new PsycheError("internal", `whisper-server answered HTTP ${res.status}`);
     const doc = (await res.json()) as VerboseJson;
@@ -238,6 +272,12 @@ export interface WhisperStreamOptions {
   partialIntervalMs: number;
   /** Audio kept before the first speech frame so word onsets are not clipped. */
   preRollMs: number;
+  /**
+   * Live dictation: size the encoder to the utterance (`audioCtxFor`) and skip the temperature
+   * fallback, for partials and finals. On a CPU this is 3–4× faster per request with the same
+   * words on the fixture (base.en: 160–210 ms instead of 0.5–0.9 s). Files run the full window.
+   */
+  fitAudioCtx: boolean;
 }
 
 export const DEFAULT_WHISPER_STREAM: WhisperStreamOptions = {
@@ -247,6 +287,7 @@ export const DEFAULT_WHISPER_STREAM: WhisperStreamOptions = {
   maxUtteranceMs: 15_000,
   partialIntervalMs: 1_000,
   preRollMs: 210,
+  fitAudioCtx: true,
 };
 
 export interface WhisperEngineOptions {
@@ -258,7 +299,7 @@ export interface WhisperEngineOptions {
   decode?: (data: Uint8Array, format: AudioFormat, signal?: AbortSignal) => Promise<Uint8Array>;
 }
 
-export class WhisperEngine implements SpeechEngine {
+export class WhisperEngine implements SpeechEngine, PathTranscriber {
   readonly #opts: WhisperEngineOptions;
   readonly #stream: WhisperStreamOptions;
 
@@ -308,10 +349,75 @@ export class WhisperEngine implements SpeechEngine {
     const seq = new SegmentSequencer();
     const utterances = this.#segments(once(pcm), PCM_16K_MONO, options, {
       partialIntervalMs: 0,
+      fitAudioCtx: false,
       maxUtteranceMs: FILE_MAX_UTTERANCE_MS,
     });
     for await (const s of utterances) seq.push(s);
     return seq.transcript(language === "auto" ? undefined : language);
+  }
+
+  /**
+   * A long PCM WAV recording on disk (a meeting), read in chunks so it is never all in memory,
+   * cut at pauses like `transcribeFile`. Other containers are refused (`unsupported`): the caller
+   * falls back to an engine that decodes them.
+   */
+  async transcribePath(path: string, options: PathTranscribeOptions = {}): Promise<PathTranscript> {
+    const info = await pcmWavInfo(path);
+    if (info === undefined) {
+      throw new PsycheError("invalid_params", "whisper reads PCM WAV recordings only", {
+        details: { reason: "not_wav" },
+      });
+    }
+    const wav = info;
+    const bytesPerMs =
+      (wav.format.sampleRate * bytesPerSample(wav.format) * wav.format.channels) / 1000;
+    const totalMs = Math.round(wav.dataBytes / bytesPerMs);
+    const maxMs = options.maxDurationMs ?? 4 * 60 * 60_000;
+    if (totalMs > maxMs) {
+      throw new PsycheError("invalid_params", `the recording is longer than ${maxMs} ms`);
+    }
+    const language = this.#language(options);
+    const seq = new SegmentSequencer();
+    const fh = await open(path, "r");
+    let read = 0;
+    const chunk = Math.max(4096, Math.round(bytesPerMs * 5_000));
+    async function* pcm(): AsyncIterable<Uint8Array> {
+      while (read < wav.dataBytes) {
+        const buf = new Uint8Array(Math.min(chunk, wav.dataBytes - read));
+        const { bytesRead } = await fh.read(buf, 0, buf.byteLength, wav.dataOffset + read);
+        if (bytesRead === 0) return;
+        read += bytesRead;
+        yield buf.subarray(0, bytesRead);
+      }
+    }
+    try {
+      const utterances = this.#segments(pcm(), wav.format, options, {
+        partialIntervalMs: 0,
+        fitAudioCtx: false,
+        maxUtteranceMs: FILE_MAX_UTTERANCE_MS,
+      });
+      for await (const s of utterances) {
+        seq.push(s);
+        const processedMs = Math.min(totalMs, Math.round(read / bytesPerMs));
+        options.onProgress?.({
+          type: "speech.progress",
+          processedMs,
+          totalMs,
+          fraction: totalMs === 0 ? 1 : processedMs / totalMs,
+          chunk: 0,
+          chunks: 1,
+        });
+      }
+    } finally {
+      await fh.close();
+    }
+    const t = seq.transcript(language === "auto" ? undefined : language);
+    return {
+      ...t,
+      audioMs: totalMs,
+      engine: `whisper.cpp (${this.#opts.backend.name})`,
+      chunks: 1,
+    };
   }
 
   transcribeStream(
@@ -322,6 +428,8 @@ export class WhisperEngine implements SpeechEngine {
     if (!isPcm(format)) {
       throw new PsycheError("invalid_params", "streaming dictation takes raw PCM");
     }
+    // Load the model while the owner starts speaking; the first partial needs it within ~1 s.
+    void this.#opts.backend.warm?.().catch(() => undefined);
     return sequenceSegments(this.#segments(audio, format, options), options.signal);
   }
 
@@ -349,9 +457,13 @@ export class WhisperEngine implements SpeechEngine {
     let noiseFloor = 0;
     let lastFinal = "";
 
-    const infer = async (frames: Uint8Array[]): Promise<string> => {
+    const infer = async (frames: Uint8Array[], fit = cfg.fitAudioCtx): Promise<string> => {
       const prompt = whisperPrompt(options.vocabulary, undefined, lastFinal.slice(-200));
       const req: WhisperRequest = { pcm: concatBytes(frames), language };
+      if (fit) {
+        req.audioCtx = audioCtxFor(req.pcm.byteLength);
+        req.noFallback = true;
+      }
       if (prompt !== undefined) req.prompt = prompt;
       if (options.signal !== undefined) req.signal = options.signal;
       const segs = await this.#opts.backend.transcribe(req);
@@ -366,7 +478,12 @@ export class WhisperEngine implements SpeechEngine {
       utter = [];
       silenceMs = 0;
       sincePartial = 0;
-      const text = await infer(frames);
+      let text = await infer(frames);
+      // The fitted encoder occasionally decodes speech as punctuation ("-", "..."): the final
+      // is what gets inserted, so that utterance runs again on the full window with fallback.
+      if (cfg.fitAudioCtx && text !== "" && !/[\p{L}\p{N}]/u.test(text)) {
+        text = await infer(frames, false);
+      }
       if (text === "") return undefined;
       lastFinal = text;
       return { text, startMs, endMs, final: true };
@@ -426,6 +543,30 @@ const FILE_MAX_UTTERANCE_MS = 25_000;
 
 async function* once(data: Uint8Array): AsyncIterable<Uint8Array> {
   yield data;
+}
+
+/** Where a PCM WAV file's samples are (`decodeWav` over the first 64 KiB, which holds the header). */
+export async function pcmWavInfo(
+  path: string,
+): Promise<{ format: AudioFormat; dataOffset: number; dataBytes: number } | undefined> {
+  const fh = await open(path, "r");
+  try {
+    const { size } = await fh.stat();
+    const head = new Uint8Array(Math.min(size, 65_536));
+    await fh.read(head, 0, head.byteLength, 0);
+    const wav = decodeWav(head);
+    if (wav === undefined) return undefined;
+    const dataOffset = wav.data.byteOffset - head.byteOffset;
+    const v = new DataView(head.buffer, head.byteOffset, head.byteLength);
+    const declared = v.getUint32(dataOffset - 4, true);
+    // A recorder that never finalized the header writes 0 or 0xFFFFFFFF: read to the end.
+    const toEnd = size - dataOffset;
+    const dataBytes =
+      declared === 0 || declared === 0xffff_ffff ? toEnd : Math.min(declared, toEnd);
+    return { format: wav.format, dataOffset, dataBytes };
+  } finally {
+    await fh.close();
+  }
 }
 
 /** `.en` model detection from a model file name (`ggml-base.en.bin`). */

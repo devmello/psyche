@@ -83,20 +83,40 @@ export function daclIsOwnerOnly(sddl: string, userSid: string, directory: boolea
 
 /** The DACL of `path` in SDDL form, or `null` when Windows would not give it. */
 export function readDaclSddl(path: string): string | null {
+  return readDaclsSddl(path)?.[0]?.sddl ?? null;
+}
+
+/**
+ * DACLs in SDDL form from one `icacls /save` run: `target` may end in a `*` wildcard (the entries
+ * of a folder) and `recursive` adds everything below each match. Names are relative to the folder
+ * holding `target` (`vault`, `vault\keys`), as icacls writes them. `null` when icacls fails. One
+ * process for a whole tree, where `isOwnerOnly` per entry would start one each.
+ */
+export function readDaclsSddl(
+  target: string,
+  options: { recursive?: boolean } = {},
+): { name: string; sddl: string }[] | null {
   const dir = mkdtempSync(join(tmpdir(), "psyche-acl-"));
   try {
     const out = join(dir, "acl");
-    const r = spawnSync(system32("icacls.exe"), [path, "/save", out, "/q"], {
+    const args = [target, "/save", out, ...(options.recursive === true ? ["/t"] : []), "/q"];
+    const r = spawnSync(system32("icacls.exe"), args, {
       windowsHide: true,
-      timeout: ICACLS_TIMEOUT_MS,
+      timeout: ICACLS_TIMEOUT_MS * (options.recursive === true ? 6 : 1),
     });
     if (r.status !== 0) return null;
-    const text = readFileSync(out)
+    const lines = readFileSync(out)
       .toString("utf16le")
-      .replace(/^\uFEFF/, "");
-    // Line 1 names the object, line 2 is its SDDL.
-    const sddl = text.split(/\r?\n/)[1]?.trim();
-    return sddl === undefined || sddl === "" ? null : sddl;
+      .replace(/^\uFEFF/, "")
+      .split(/\r?\n/);
+    // Pairs of lines: the object's name, then its SDDL.
+    const found: { name: string; sddl: string }[] = [];
+    for (let i = 0; i + 1 < lines.length; i += 2) {
+      const name = lines[i] ?? "";
+      const sddl = lines[i + 1]?.trim() ?? "";
+      if (name !== "" && sddl !== "") found.push({ name, sddl });
+    }
+    return found;
   } catch {
     return null;
   } finally {
