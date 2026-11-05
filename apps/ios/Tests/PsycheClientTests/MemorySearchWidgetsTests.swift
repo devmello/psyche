@@ -227,6 +227,89 @@ struct MemorySearchWidgetsTests {
         #expect(asked.all == ["answer"])
     }
 
+    static let passageAnswer: JSONValue = .object([
+        "answer": "Rent is due on the 6th [1][P1]. Sam turned autopay off [P2].", "reason": .null,
+        "facts": .array([.object(["factId": "f1", "source": "mail", "observedAt": "2030-01-05T12:00:00Z"])]),
+        "passages": .array([
+            .object(["id": "mail:m1", "source": "mail", "title": "Re: rent", "createdAt": .number(1_893_456_000_000)]),
+            .object(["id": "library:l1", "source": "files", "title": "lease.pdf", "createdAt": .number(1_893_400_000_000)]),
+        ]),
+    ])
+
+    @Test func passagesAreAskedForOnlyByTheButtonAndDecodeIntoChips() async throws {
+        let seen = Calls()
+        let (backend, _) = try await live { g in
+            g.on("search.query") { _ in .success(.object(["hits": .array([])])) }
+            g.on("memory.life.answer") { req in
+                seen.add(req.params?["passages"] == nil ? "facts" : "passages")
+                return .success(req.params?["passages"] == nil ? .object(["answer": "Rent is due on the 6th [1].", "reason": .null, "facts": .array([.object(["factId": "f1"])])]) : Self.passageAnswer)
+            }
+        }
+        // Typing: facts only. The Gateway is never asked for passages by a search.
+        let typed = try await backend.search(query: "when is rent due?")
+        #expect(typed.answer?.passages.isEmpty == true && typed.canAskLife)
+        #expect(seen.all == ["facts"])
+        // The button.
+        let deep = try #require(try await backend.lifeAnswer(question: "when is rent due?", passages: true, previous: nil))
+        #expect(seen.all == ["facts", "passages"])
+        #expect(deep.factIDs == ["f1"] && deep.passages.map(\.id) == ["mail:m1", "library:l1"])
+        #expect(deep.passages[0].source == "mail" && deep.passages[0].title == "Re: rent")
+        #expect(deep.passages[0].date == Date(timeIntervalSince1970: 1_893_456_000))
+        let claims = deep.claims
+        #expect(claims.map(\.text) == ["Rent is due on the 6th.", "Sam turned autopay off."])
+        #expect(claims[0].passages.map(\.id) == ["mail:m1"] && claims[1].passages.map(\.id) == ["library:l1"])
+    }
+
+    @Test func aFollowUpSendsPreviousAsIdsAndTheGatewayRereadsThem() async throws {
+        let params = Box()
+        let (backend, _) = try await live { g in
+            g.on("memory.life.answer") { req in
+                params.set(req.params)
+                return .success(.object(["answer": "Autopay is back on Dec 1 [P1].", "reason": .null, "facts": .array([]),
+                                         "passages": .array([.object(["id": "mail:m1", "source": "mail", "title": "Re: rent", "createdAt": .number(1_893_456_000_000)])])]))
+            }
+        }
+        let first = SearchResults.Answer(
+            text: "Rent is due on the 6th [1][P1].", emphasis: "", evidence: [], factIDs: ["f1"],
+            passages: [LifePassage(id: "mail:m1", source: "mail", title: "Re: rent")])
+        let follow = try #require(try await backend.lifeAnswer(question: "and autopay?", passages: true, previous: first.turn(question: "when is rent due?")))
+        let sent = try #require(params.value)
+        #expect(sent["q"]?.string == "and autopay?" && sent["passages"]?.bool == true)
+        #expect(sent["previous"]?["q"]?.string == "when is rent due?")
+        #expect(sent["previous"]?["answer"]?.string == "Rent is due on the 6th [1][P1].")
+        #expect(sent["previous"]?["factIds"]?.array?.compactMap(\.string) == ["f1"])
+        #expect(sent["previous"]?["passageIds"]?.array?.compactMap(\.string) == ["mail:m1"])
+        #expect(follow.passages.map(\.id) == ["mail:m1"])
+        // Only ids go back, within the schema's limits (12 facts, 8 passages, 500 / 900 characters).
+        let long = LifeTurn(question: String(repeating: "q", count: 600), answer: String(repeating: "a", count: 1000),
+                            factIDs: (0..<20).map { "f\($0)" }, passageIDs: (0..<20).map { "p\($0)" })
+        let wire = GatewayBackend.lifeAnswerParams(question: "x", passages: false, previous: long)
+        #expect(wire["passages"] == nil)
+        #expect(wire["previous"]?["q"]?.string?.count == 500 && wire["previous"]?["answer"]?.string?.count == 900)
+        #expect(wire["previous"]?["factIds"]?.array?.count == 12 && wire["previous"]?["passageIds"]?.array?.count == 8)
+    }
+
+    @Test func openingAPassageReadsItAndAnUnopenableOneIsNil() async throws {
+        let (backend, _) = try await live { g in
+            g.on("search.document") { req in
+                if req.params?["id"]?.string == "mail:m1" {
+                    return .success(.object(["id": "mail:m1", "source": "mail", "title": "Re: rent", "text": "Rent is $1,850.", "truncated": .bool(false), "createdAt": .number(1_893_456_000_000), "open": "mail"]))
+                }
+                return .failure(WireError(code: "not_found", message: "no"))
+            }
+        }
+        let doc = try #require(try await backend.sourceDocument(id: "mail:m1"))
+        #expect(doc.text == "Rent is $1,850." && doc.title == "Re: rent")
+        #expect(try await backend.sourceDocument(id: "messages:m9") == nil)
+    }
+
+    final class Box: @unchecked Sendable {
+        private let lock = NSLock()
+        private var stored: JSONValue?
+        func set(_ value: JSONValue?) { lock.withLock { stored = value } }
+        var value: JSONValue? { lock.withLock { stored } }
+    }
+
     static let widget: JSONValue = .object([
         "id": "wdg_1", "threadId": "thr_1", "messageId": "m1", "rev": .number(3),
         "spec": .object(["v": .number(1), "title": "Booking", "fallbackText": "Booking", "root": .object([
