@@ -88,12 +88,10 @@ public final class EnclaveKeychainAclPresenceKey: PresenceSigning, @unchecked Se
     private let backend: any EnclaveKeyBackend
     private let store: any AclKeychainStore
     private let biometry: any BiometryStateSource
-    private let onFirstSign: @Sendable () -> Void
     private let lockPath: String
     private let lock = NSLock()
     private var pinned: Data?
     private var probed = false
-    private var signedOnce = false
     private var creationFailure: CapabilityError?
 
     static let magic = Data("PSYPK2".utf8)
@@ -103,14 +101,37 @@ public final class EnclaveKeychainAclPresenceKey: PresenceSigning, @unchecked Se
     public init(
         store: any AclKeychainStore = LoginKeychainAclStore(), backend: any EnclaveKeyBackend = SecureEnclaveBackend(),
         biometry: any BiometryStateSource = LiveBiometryState(),
-        lockPath: String = EnclaveKeychainAclPresenceKey.defaultLockPath(),
-        onFirstSign: @escaping @Sendable () -> Void = EnclaveKeychainAclPresenceKey.retireLegacyFileKey
+        lockPath: String = EnclaveKeychainAclPresenceKey.defaultLockPath()
     ) {
         self.store = store
         self.backend = backend
         self.biometry = biometry
         self.lockPath = lockPath
-        self.onFirstSign = onFirstSign
+    }
+
+    /// Records that a key has existed (its key id), next to the creation lock. A slot that is empty
+    /// while the marker exists is not a first run: the helper reports `presence_key_untrusted` and the
+    /// owner resets, instead of making a key in whatever keychain it now finds. A same-user program
+    /// can delete the marker too, so this stops the accidental and automatic case, not malware.
+    private var markerPath: String { (lockPath as NSString).deletingLastPathComponent + "/key-marker" }
+
+    var markerExists: Bool {
+        var st = stat()
+        return lstat(markerPath, &st) == 0
+    }
+
+    private func writeMarker(_ x963: Data) {
+        let dir = (markerPath as NSString).deletingLastPathComponent
+        try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        FileManager.default.createFile(
+            atPath: markerPath, contents: Data(PresenceMessage.keyId(x963: x963).utf8), attributes: [.posixPermissions: 0o600]
+        )
+    }
+
+    private func removeMarker() { unlink(markerPath) }
+
+    private func gone() -> CapabilityError {
+        PresenceKeyErrors.untrusted("a Touch ID key was made here before and is gone, so this is not a first run")
     }
 
     public static func defaultLockPath() -> String {
@@ -198,11 +219,14 @@ public final class EnclaveKeychainAclPresenceKey: PresenceSigning, @unchecked Se
             case .untrusted(let why):
                 throw PresenceKeyErrors.untrusted(why)
             case .trusted(let payload, let verify):
-                return try adopt(payload: payload, verify: verify)
+                let adopted = try adopt(payload: payload, verify: verify)
+                if create, !markerExists { writeMarker(adopted.x963) }
+                return adopted
             case .absent:
                 if pinned != nil {
                     throw failure("presence_key_changed", "disappeared while the helper was running; restart Psyche Helper")
                 }
+                if markerExists { throw gone() }
                 guard create else { return nil }
                 return try createLocked()
             }
@@ -219,6 +243,7 @@ public final class EnclaveKeychainAclPresenceKey: PresenceSigning, @unchecked Se
             case .trusted(let payload, let verify): return try adopt(payload: payload, verify: verify)
             case .absent: break
             }
+            if markerExists { throw gone() }
             let made = Envelope(state: biometry.current() ?? Data(), blob: try backend.create())
             try store.create { seal in try encode(made, seal: seal) }
             // The read-back must pass our own audit. If it does not, the ACL API is not doing what we
@@ -227,7 +252,9 @@ public final class EnclaveKeychainAclPresenceKey: PresenceSigning, @unchecked Se
                 creationFailure = PresenceKeyErrors.aclUnavailable
                 throw PresenceKeyErrors.aclUnavailable
             }
-            return try adopt(payload: payload, verify: verify)
+            let adopted = try adopt(payload: payload, verify: verify)
+            writeMarker(adopted.x963)
+            return adopted
         }
     }
 
@@ -274,12 +301,6 @@ public final class EnclaveKeychainAclPresenceKey: PresenceSigning, @unchecked Se
             throw PresenceKeyErrors.invalidated(enrollmentChanged: changed)
         }
         if changed, let now { try? rerecord(Envelope(state: now, blob: env.blob)) }
-        // The new key signed: the owner has it in use, so the old development file key can go.
-        let first = lock.withLock {
-            defer { signedOnce = true }
-            return !signedOnce
-        }
-        if first { onFirstSign() }
         return PresenceSignature(signature: Base64URL.encode(der), keyId: PresenceMessage.keyId(x963: x963))
     }
 
@@ -293,6 +314,7 @@ public final class EnclaveKeychainAclPresenceKey: PresenceSigning, @unchecked Se
     func retire() {
         lock.withLock {
             try? store.reset()
+            removeMarker()  // our own verified key died: the next use is a fresh start
             pinned = nil
             probed = false
         }
@@ -304,18 +326,23 @@ public final class EnclaveKeychainAclPresenceKey: PresenceSigning, @unchecked Se
     public func resetByOwner() throws -> (x963: Data, keyId: String) {
         try lock.withLock {
             creationFailure = nil
-            try withCreationLock { try store.reset() }
+            try withCreationLock {
+                try store.reset()
+                removeMarker()
+            }
             pinned = nil
             probed = false
-            guard let made = try? createLocked() else { throw creationFailure ?? PresenceKeyErrors.aclUnavailable }
+            let made = try createLocked()  // the real error, not a generic one
             return (made.x963, PresenceMessage.keyId(x963: made.x963))
         }
     }
 
     /// Migration from the development file key. It was readable by any same-user process, so it is
-    /// not carried over, but it is kept until the new key has signed once (a failed registration must
-    /// not strand the owner).
-    @Sendable public static func retireLegacyFileKey() {
+    /// not carried over. The helper cannot learn that the Gateway registered the new key, so it never
+    /// removes the old file on its own: the owner runs `psyche-helper --retire-legacy-presence-key`
+    /// (or deletes the file) once the new key is registered and Settings → Devices no longer lists
+    /// the old one.
+    public static func retireLegacyFileKey() {
         let path = EnclaveFilePresenceKey.defaultPath()
         unlink(path)
         unlink(path + ".rejected")
@@ -345,15 +372,48 @@ public struct LoginKeychainAclStore: AclKeychainStore {
     /// The login keychain by its fixed path under the user's real home folder (the passwd entry, not
     /// $HOME), never "the default keychain" or the search list, which a program can reorder.
     static func loginKeychainPath() -> String {
-        let home = getpwuid(geteuid()).flatMap { $0.pointee.pw_dir.map { String(cString: $0) } } ?? NSHomeDirectory()
+        let home = passwdHome()
         let db = home + "/Library/Keychains/login.keychain-db"
         return FileManager.default.fileExists(atPath: db) ? db : home + "/Library/Keychains/login.keychain"
     }
 
-    /// The pinned keychain, after checking its file: a regular file owned by this user, not a link.
+    static func passwdHome() -> String {
+        getpwuid(geteuid()).flatMap { $0.pointee.pw_dir.map { String(cString: $0) } } ?? NSHomeDirectory()
+    }
+
+    /// Why `file` is not the real login keychain of `home`, or nil. Every folder from the home folder
+    /// down (home, Library, Keychains) must be a real directory owned by this user, never a link; the
+    /// file must be a regular file owned by this user; and its canonical path must be exactly
+    /// `<canonical home>/Library/Keychains/<its name>`, so a link anywhere above it, or another
+    /// user-owned keychain file at a different place, does not pass.
+    static func pinProblem(file: String, home: String) -> String? {
+        for dir in [home, home + "/Library", home + "/Library/Keychains"] {
+            var st = stat()
+            guard lstat(dir, &st) == 0, (st.st_mode & S_IFMT) == S_IFDIR, st.st_uid == geteuid() else {
+                return "\(dir) is a link or not yours"
+            }
+        }
+        guard isOwnRegularFile(file) else { return "the keychain file is a link or not yours" }
+        let name = (file as NSString).lastPathComponent
+        guard name == "login.keychain-db" || name == "login.keychain" else { return "not the login keychain file" }
+        guard let realHome = realpath(home, nil) else { return "the home folder cannot be resolved" }
+        defer { free(realHome) }
+        guard let realFile = realpath(file, nil) else { return "the keychain file cannot be resolved" }
+        defer { free(realFile) }
+        guard String(cString: realFile) == String(cString: realHome) + "/Library/Keychains/" + name else {
+            return "the keychain file is not at the login keychain's place"
+        }
+        return nil
+    }
+
+    /// The pinned keychain, after checking its file (see `pinProblem`; a test keychain only gets the
+    /// regular-file-owned-by-us check).
     private func keychain() throws -> SecKeychain {
         if !interactionAllowed { SecKeychainSetUserInteractionAllowed(false) }
         let requested = keychainPath ?? Self.loginKeychainPath()
+        if keychainPath == nil, let problem = Self.pinProblem(file: requested, home: Self.passwdHome()) {
+            throw PresenceKeyErrors.untrusted(problem)
+        }
         // The path we ask for, as a link or foreign file would show; then the one the keychain reports.
         guard Self.isOwnRegularFile(requested) else { throw PresenceKeyErrors.untrusted("the login keychain file is a link or not yours") }
         var kc: SecKeychain?
@@ -362,7 +422,11 @@ public struct LoginKeychainAclStore: AclKeychainStore {
         var len: UInt32 = 1024
         var buf = [CChar](repeating: 0, count: 1024)
         guard SecKeychainGetPath(kc, &len, &buf) == errSecSuccess else { throw PresenceKeyErrors.untrusted("the keychain has no path") }
-        guard Self.isOwnRegularFile(String(cString: buf)) else { throw PresenceKeyErrors.untrusted("the login keychain file is a link or not yours") }
+        let reported = String(cString: buf)
+        guard Self.isOwnRegularFile(reported) else { throw PresenceKeyErrors.untrusted("the login keychain file is a link or not yours") }
+        if keychainPath == nil, let problem = Self.pinProblem(file: reported, home: Self.passwdHome()) {
+            throw PresenceKeyErrors.untrusted(problem)
+        }
         return kc
     }
 
@@ -589,7 +653,7 @@ enum AclAudit {
         // securityd adds a partition-id entry (teamid:/cdhash:/apple:). It only narrows who may use
         // the item (it is checked in addition to the application list), and its list may be nil, so
         // it is neither required nor allowed to reject the helper's own items.
-        if auths.contains(kSecACLAuthorizationPartitionID as String) { return .skip }
+        if auths == [kSecACLAuthorizationPartitionID as String] { return .skip }
         guard let apps else { return .reject }  // nil: any program
         let isChange = auths.contains(kSecACLAuthorizationChangeACL as String)
         if !isChange && apps.isEmpty { return .reject }

@@ -11,7 +11,7 @@ import PsycheWire
 // grants belong to the helper (spike 04).
 
 let usage = """
-    usage: psyche-helper [--handshake-only [--challenge-only]] [--timeout <seconds>] [--manifest] [--build-info] [--print-identity] [--reset-presence-key]
+    usage: psyche-helper [--handshake-only [--challenge-only]] [--timeout <seconds>] [--manifest] [--build-info] [--print-identity] [--reset-presence-key] [--retire-legacy-presence-key]
 
       (no flags)        stay connected to the Gateway and serve capabilities (reconnects)
       --handshake-only  connect, pair, print the phase and exit (smoke test)
@@ -25,6 +25,9 @@ let usage = """
                         owner action: delete the Touch ID key kept in the login keychain (macOS may
                         ask) and make a new one, then print its key id. Register it again in
                         Settings → Devices. Quit Psyche Helper first.
+      --retire-legacy-presence-key
+                        delete the old development Touch ID key file (and its seal item). Run it
+                        after the new key is registered; the helper never does it by itself.
 
     Environment: PSYCHE_NODE_SOCKET (default $PSYCHE_HOME/run/node.sock), PSYCHE_HOME (default ~/.psyche).
     Exit codes (--handshake-only): 0 handshake done, 2 socket missing, 3 denied, 4 timeout, 1 other errors.
@@ -37,6 +40,7 @@ var printManifest = false
 var printIdentity = false
 var printBuildInfo = false
 var resetPresenceKey = false
+var retireLegacy = false
 // `psyche-helper vsock-bridge CID:PORT`: stdin/stdout ⇄ vsock, the bridge psyche-node uses in a
 // macOS guest (PSYCHE_NODE_VSOCK_BRIDGE, VM mode L3). Handled before anything else starts.
 if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "vsock-bridge" {
@@ -78,6 +82,7 @@ while let arg = args.popFirst() {
     case "--print-identity": printIdentity = true
     case "--build-info": printBuildInfo = true
     case "--reset-presence-key": resetPresenceKey = true
+    case "--retire-legacy-presence-key": retireLegacy = true
     case "-h", "--help":
         print(usage)
         exit(0)
@@ -106,6 +111,12 @@ if printBuildInfo {
 // to learn the device id and Touch ID key id it registers, independently of whatever node answers
 // on the Gateway socket (security §10). Creates only the device identity on first use, never a
 // Touch ID key (the running helper makes that).
+if retireLegacy {
+    EnclaveKeychainAclPresenceKey.retireLegacyFileKey()
+    print(JSONValue.object(["retired": .bool(true)]).jsonString(pretty: false))
+    exit(0)
+}
+
 if resetPresenceKey {
     do {
         let made = try EnclaveKeychainAclPresenceKey().resetByOwner()

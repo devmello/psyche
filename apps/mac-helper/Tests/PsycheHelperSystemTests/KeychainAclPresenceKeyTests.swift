@@ -127,7 +127,7 @@ struct KeychainAclPresenceKeyTests {
         _ store: any AclKeychainStore, backend: any EnclaveKeyBackend = SoftBackend(), state: MutableState = MutableState(Data([1])),
         signed: CreatedCounter = CreatedCounter(), lock: String = KeychainAclPresenceKeyTests.lockPath()
     ) -> EnclaveKeychainAclPresenceKey {
-        EnclaveKeychainAclPresenceKey(store: store, backend: backend, biometry: state, lockPath: lock, onFirstSign: { signed.n += 1 })
+        EnclaveKeychainAclPresenceKey(store: store, backend: backend, biometry: state, lockPath: lock)
     }
 
     static func reason(_ body: () throws -> Void) -> String? {
@@ -151,18 +151,48 @@ struct KeychainAclPresenceKeyTests {
         #expect(PresenceKeyKind.enclaveKeychainAcl.rawValue == "enclave_keychain_acl")
     }
 
-    @Test func signsAVerifiableChallengeAndRetiresTheFileKeyOnlyAfterTheFirstSignature() async throws {
+    @Test func signsAVerifiableChallengeAndNeverTouchesTheOldFileKey() async throws {
         let store = MemoryAclStore()
-        let signed = CreatedCounter()
-        let k = Self.key(store, signed: signed)
+        let k = Self.key(store)
         _ = try k.publicKey()
-        #expect(signed.n == 0)  // creating the key does not touch the development file key
         let s = try await k.sign(challenge: Self.challenge, reason: "r")
-        _ = try await k.sign(challenge: Self.challenge, reason: "r")
-        #expect(signed.n == 1)
         let pub = try P256.Signing.PublicKey(x963Representation: try k.publicKey().x963)
         let sig = try P256.Signing.ECDSASignature(derRepresentation: try #require(Base64URL.decode(s.signature)))
         #expect(pub.isValidSignature(sig, for: PresenceMessage.bytes(challenge: Self.challenge)))
+    }
+
+    // MARK: not a first run
+
+    @Test func anEmptySlotAfterAKeyExistedIsNotAFirstRun() throws {
+        let store = MemoryAclStore()
+        let lock = Self.lockPath()
+        let before = try Self.key(store, lock: lock).publicKey()
+        #expect(FileManager.default.fileExists(atPath: (lock as NSString).deletingLastPathComponent + "/key-marker"))
+        // The keychain now looks empty (another keychain, a swapped file): no key is made.
+        store.items = []
+        store.seals = []
+        #expect(Self.reason { _ = try Self.key(store, lock: lock).publicKey() } == "presence_key_untrusted")
+        #expect(Self.reason { _ = try Self.key(store, lock: lock).existingPublicKey() } == "presence_key_untrusted")
+        #expect(store.creates == 1)
+        // Only the owner's reset makes the next one.
+        let after = try Self.key(store, lock: lock).resetByOwner()
+        #expect(after.keyId != before.keyId)
+        #expect(try Self.key(store, lock: lock).publicKey().keyId == after.keyId)
+    }
+
+    @Test func aTrulyFirstRunStillCreatesAndAReadOnlyLookWritesNoMarker() throws {
+        let store = MemoryAclStore()
+        let lock = Self.lockPath()
+        #expect(try Self.key(store, lock: lock).existingPublicKey() == nil)
+        #expect(!FileManager.default.fileExists(atPath: (lock as NSString).deletingLastPathComponent + "/key-marker"))
+        _ = try Self.key(store, lock: lock).publicKey()
+        #expect(store.creates == 1)
+    }
+
+    @Test func resetByOwnerReportsTheRealCreationError() throws {
+        let store = MemoryAclStore()
+        store.createdIsUntrusted = true
+        #expect(Self.reason { _ = try Self.key(store).resetByOwner() } == "presence_key_acl_unavailable")
     }
 
     // MARK: H2 fail closed
@@ -365,6 +395,11 @@ struct AclAuditTests {
         #expect(AclAudit.judge(auths: ["ACLAuthorizationAny"], apps: nil, ownPath: own) == .reject)
     }
 
+    @Test func aPartitionIdMixedWithOtherAuthorizationsIsAuditedLikeAnyEntry() {
+        #expect(AclAudit.judge(auths: ["ACLAuthorizationPartitionID", "ACLAuthorizationDecrypt"], apps: nil, ownPath: own) == .reject)
+        #expect(AclAudit.judge(auths: ["ACLAuthorizationPartitionID", "ACLAuthorizationDecrypt"], apps: [own], ownPath: own) == .ok(isRead: true))
+    }
+
     @Test func encryptAndPartitionEntriesNeverRejectTheHelpersOwnItems() {
         #expect(AclAudit.judge(auths: ["ACLAuthorizationEncrypt"], apps: nil, ownPath: own) == .skip)
         #expect(AclAudit.judge(auths: ["ACLAuthorizationPartitionID"], apps: nil, ownPath: own) == .skip)
@@ -508,6 +543,52 @@ struct LoginKeychainAclStoreTests {
         ]
         #expect(SecKeyCreateRandomKey(dup as CFDictionary, nil) != nil)
         guard case .untrusted = try store.read() else { Issue.record("a duplicate seal key was trusted"); return }
+    }
+
+    @Test func theLoginKeychainPinRefusesLinksAboveItAndFilesInTheWrongPlace() throws {
+        func make(_ body: (URL) throws -> Void) throws -> String {
+            let home = FileManager.default.temporaryDirectory.appendingPathComponent("psy-home-\(UUID().uuidString)")
+            try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
+            try body(home)
+            return home.path
+        }
+        func file(_ home: String) -> String { home + "/Library/Keychains/login.keychain-db" }
+        let fm = FileManager.default
+        // A real layout passes.
+        let good = try make { h in
+            try fm.createDirectory(at: h.appendingPathComponent("Library/Keychains"), withIntermediateDirectories: true)
+            fm.createFile(atPath: h.path + "/Library/Keychains/login.keychain-db", contents: Data([1]))
+        }
+        #expect(LoginKeychainAclStore.pinProblem(file: file(good), home: good) == nil)
+        // A symlinked Library folder.
+        let linkedLibrary = try make { h in
+            let real = h.appendingPathComponent("elsewhere/Keychains")
+            try fm.createDirectory(at: real, withIntermediateDirectories: true)
+            fm.createFile(atPath: real.path + "/login.keychain-db", contents: Data([1]))
+            try fm.createSymbolicLink(atPath: h.path + "/Library", withDestinationPath: h.path + "/elsewhere")
+        }
+        #expect(LoginKeychainAclStore.pinProblem(file: file(linkedLibrary), home: linkedLibrary) != nil)
+        // A symlinked Keychains folder.
+        let linkedKeychains = try make { h in
+            try fm.createDirectory(at: h.appendingPathComponent("Library"), withIntermediateDirectories: true)
+            try fm.createDirectory(at: h.appendingPathComponent("other"), withIntermediateDirectories: true)
+            fm.createFile(atPath: h.path + "/other/login.keychain-db", contents: Data([1]))
+            try fm.createSymbolicLink(atPath: h.path + "/Library/Keychains", withDestinationPath: h.path + "/other")
+        }
+        #expect(LoginKeychainAclStore.pinProblem(file: file(linkedKeychains), home: linkedKeychains) != nil)
+        // A symlinked keychain file, and a differently named user-owned keychain file.
+        let linkedFile = try make { h in
+            try fm.createDirectory(at: h.appendingPathComponent("Library/Keychains"), withIntermediateDirectories: true)
+            fm.createFile(atPath: h.path + "/real.keychain-db", contents: Data([1]))
+            try fm.createSymbolicLink(atPath: h.path + "/Library/Keychains/login.keychain-db", withDestinationPath: h.path + "/real.keychain-db")
+        }
+        #expect(LoginKeychainAclStore.pinProblem(file: file(linkedFile), home: linkedFile) != nil)
+        let wrongName = try make { h in
+            try fm.createDirectory(at: h.appendingPathComponent("Library/Keychains"), withIntermediateDirectories: true)
+            fm.createFile(atPath: h.path + "/Library/Keychains/attacker.keychain-db", contents: Data([1]))
+        }
+        #expect(LoginKeychainAclStore.pinProblem(file: wrongName + "/Library/Keychains/attacker.keychain-db", home: wrongName) != nil)
+        for h in [good, linkedLibrary, linkedKeychains, linkedFile, wrongName] { try? fm.removeItem(atPath: h) }
     }
 
     @Test func aLinkedKeychainFileIsRefused() throws {
