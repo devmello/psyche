@@ -65,9 +65,13 @@ class PsycheUITestCase: XCTestCase {
     /// that exists but isn't hittable yet.
     func tapWhenHittable(_ element: XCUIElement, timeout: TimeInterval = 10, file: StaticString = #filePath, line: UInt = #line) {
         scrollTo(element)
-        let hittable = expectation(for: NSPredicate(format: "hittable == true"), evaluatedWith: element)
-        XCTAssertEqual(XCTWaiter().wait(for: [hittable], timeout: timeout), .completed, "\(element) never became hittable", file: file, line: line)
+        waitHittable(element, timeout: timeout, file: file, line: line)
         element.tap()
+    }
+
+    func waitHittable(_ element: XCUIElement, timeout: TimeInterval = 10, file: StaticString = #filePath, line: UInt = #line) {
+        let hittable = XCTNSPredicateExpectation(predicate: NSPredicate(format: "hittable == true"), object: element)
+        XCTAssertEqual(XCTWaiter().wait(for: [hittable], timeout: timeout), .completed, "\(element) never became hittable", file: file, line: line)
     }
 
     /// A static text whose label starts with or equals `label` (section headers carry counts: "Needs you · 2").

@@ -16,7 +16,7 @@ final class LibraryUITests: PsycheUITestCase {
         waitFor(delete, 10)
         tapWhenHittable(delete)
         waitFor(app.staticTexts["Delete this file?"].firstMatch, 5)
-        lastButton("Delete").tap()
+        tapWhenHittable(lastButton("Delete"))
         // Back on the list, the item is gone.
         waitFor(app.buttons["Documents"].firstMatch, 10)
         waitGone(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "lease-2026.pdf")).firstMatch, 5)
@@ -64,6 +64,7 @@ final class SettingsUITests: PsycheUITestCase {
         // A context menu on a long press: slow runners need a longer press, and sometimes a second one.
         let item = app.buttons["Settings"].firstMatch
         for _ in 0..<2 where !item.waitForExistence(timeout: 0.5) {
+            waitHittable(avatar)  // a sheet that is still dismissing covers it
             avatar.press(forDuration: 1.6)
             if item.waitForExistence(timeout: 5) { break }
         }
