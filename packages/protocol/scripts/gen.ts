@@ -281,6 +281,39 @@ const SWIFT_REWRITES: ReadonlyArray<readonly [string, string]> = [
   ["public class JSONAny: Codable {", "public final class JSONAny: Codable, @unchecked Sendable {"],
 ];
 
+/** Splits a Swift parameter list at the commas that are not inside `[]`, `()` or `<>`. */
+function splitParams(list: string): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let current = "";
+  for (const ch of list) {
+    if ("[(<".includes(ch)) depth += 1;
+    else if ("])>".includes(ch)) depth -= 1;
+    if (ch === "," && depth === 0) {
+      parts.push(current);
+      current = "";
+    } else current += ch;
+  }
+  if (current.trim() !== "") parts.push(current);
+  return parts;
+}
+
+/**
+ * quicktype writes each struct's memberwise `init` with every optional field as a required
+ * parameter, so adding an optional field to a message breaks every call site that builds one.
+ * An optional parameter gets `= nil`: call sites that pass everything still compile, and a field
+ * added later as optional does not break them.
+ */
+function defaultOptionalInitParams(source: string): string {
+  return source.replace(/^(\s*public init\()(.*)(\) \{)$/gm, (_all, open, list, close) => {
+    const params = splitParams(list as string).map((param) => {
+      const p = param.trim();
+      return /^\w+: .+\?$/.test(p) ? `${p} = nil` : p;
+    });
+    return `${open}${params.join(", ")}${close}`;
+  });
+}
+
 function postProcessSwift(source: string): string {
   let out = source;
   for (const [from, to] of SWIFT_REWRITES) {
@@ -288,6 +321,7 @@ function postProcessSwift(source: string): string {
       throw new Error(`quicktype Swift output changed: expected ${JSON.stringify(from)}`);
     out = out.replace(from, to);
   }
+  out = defaultOptionalInitParams(out);
   return out;
 }
 

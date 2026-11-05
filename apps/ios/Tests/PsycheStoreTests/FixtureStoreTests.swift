@@ -7,7 +7,7 @@ struct FixtureStoreTests {
 
     @Test func homeHasNeedsYouAndAnApprovalWithFields() async throws {
         let home = try await store.home()
-        #expect(home.needsYou.count == 2)
+        #expect(home.needsYou.count == 3)
         let approval = try #require(home.needsYou.first?.approval)
         #expect(approval.fields.contains { $0.key == "Amount" })
     }

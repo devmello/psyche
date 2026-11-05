@@ -52,7 +52,14 @@ const STREAM_METHODS: ReadonlySet<string> = new Set([
 /** Default wait for a peer's `res` to a Gateway → peer request. */
 const PEER_REQUEST_TIMEOUT_MS = 30_000;
 
-type Phase = "new" | "challenged" | "paired" | "pending" | "closed";
+/** Frames a connection may send before it is paired or pending (the handshake is two). */
+const MAX_HANDSHAKE_FRAMES = 8;
+
+/**
+ * `spent`: the challenge was answered once and the connection did not end up paired or pending
+ * (an error, or denied). It accepts neither `connect` nor `connect.verify` again and is closed.
+ */
+type Phase = "new" | "challenged" | "spent" | "paired" | "pending" | "closed";
 
 interface Outbound {
   resolve(payload: unknown): void;
@@ -65,6 +72,8 @@ export class Connection implements LiveConnection {
   readonly id: string;
   readonly peer: PeerInfo;
   #phase: Phase = "new";
+  #handshakeFrames = 0;
+  #loggedBeforePairing = false;
   #challenge: PendingChallenge | null = null;
   #identity: PairedIdentity | null = null;
   #pendingDeviceId: string | null = null;
@@ -106,6 +115,19 @@ export class Connection implements LiveConnection {
   async handleRaw(raw: string): Promise<void> {
     let id = "";
     let method: string | undefined;
+    // Before the handshake finishes a connection gets a handful of frames (connect, connect.verify
+    // and a few retries of a malformed one), not an unbounded stream of them to parse and log.
+    if (
+      this.#phase === "new" ||
+      this.#phase === "challenged" ||
+      this.#phase === "spent" ||
+      this.#phase === "pending"
+    ) {
+      if (++this.#handshakeFrames > MAX_HANDSHAKE_FRAMES) {
+        this.close("too many handshake frames");
+        return;
+      }
+    }
     try {
       const frame = parseFrame(raw);
       if (frame.type === "res") {
@@ -131,6 +153,14 @@ export class Connection implements LiveConnection {
       }
       // Which call failed and for whom; never its params (they can carry owner data).
       const deviceId = this.#identity?.deviceId ?? this.#pendingDeviceId ?? undefined;
+      // A connection that is not paired and keeps calling gets one log line for it, not one per
+      // frame (the frame cap ends it soon after).
+      const before = e.code === "not_paired" || e.code === "pairing_pending";
+      if (before && this.#loggedBeforePairing) {
+        this.#send(JSON.stringify(errRes(id, e.toPayload())));
+        return;
+      }
+      if (before) this.#loggedBeforePairing = true;
       this.#ctx.log.log(e.code === "internal" ? "error" : "info", "request failed", {
         conn: this.id,
         ...(method === undefined ? {} : { method: method.slice(0, 128) }),
@@ -142,6 +172,9 @@ export class Connection implements LiveConnection {
       if (
         e.code === "unauthorized" ||
         e.code === "protocol_version_mismatch" ||
+        // Any error out of the answer to the challenge (the rate limit included) ends the
+        // connection: no second try.
+        this.#phase === "spent" ||
         (e.code === "forbidden" && this.#phase === "new")
       ) {
         this.close("handshake failed");
@@ -408,6 +441,11 @@ export class Connection implements LiveConnection {
       throw new PsycheError("conflict", "connect.verify needs a pending challenge");
     }
     const ctx = this.#ctx;
+    // The challenge is single-use: it is spent before any work is done on the answer, so a
+    // second `connect.verify` on this connection (pipelined, or after a refusal) finds none and
+    // costs nothing. A refused handshake closes the connection (see `handleRaw`).
+    this.#challenge = null;
+    this.#phase = "spent";
     const outcome = verifyChallenge(pending, params, this.peer, {
       db: ctx.db,
       handshakeSecret: ctx.handshakeSecret,
@@ -416,9 +454,9 @@ export class Connection implements LiveConnection {
       now: ctx.now,
       limits: ctx.limits,
       failedChallenges: ctx.failedChallenges,
+      failedChallengesPrefix: ctx.failedChallengesPrefix,
       lanPairings: ctx.lanPairings,
     });
-    this.#challenge = null;
     const { result, identity } = outcome;
     ctx.log.log("info", "handshake finished", { conn: this.id, phase: result.phase });
     if (outcome.createdRequest) {
@@ -448,6 +486,18 @@ export class Connection implements LiveConnection {
     if (result.phase === "pending") {
       this.#phase = "pending";
       this.#pendingDeviceId = outcome.pendingDeviceId;
+      // One live connection per pending request: a newer one for the same device replaces the
+      // older, so repeating connect with one device id and key cannot pile up pending sockets.
+      for (const other of [...ctx.connections()]) {
+        if (
+          other !== this &&
+          other.identity === null &&
+          outcome.pendingDeviceId !== null &&
+          other.pendingDeviceId === outcome.pendingDeviceId
+        ) {
+          other.close("replaced by a newer connection for the same pairing request");
+        }
+      }
       // A pending connection is closed once its pairing request has expired.
       this.#pendingTimer = setTimeout(
         () => this.close("pairing request expired"),
