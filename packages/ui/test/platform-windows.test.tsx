@@ -138,6 +138,7 @@ describe("Windows in Settings and onboarding", () => {
     expect(presenceKeyText({ kind: "keychain" })).toMatch(/^Touch ID key/);
     expect(presenceKeyText({}, "win-helper")).toBe("Windows Hello key, as reported by the helper");
     expect(presenceKeyText({ algorithm: "rs256" })).toMatch(/RSA-2048/);
+    expect(presenceKeyText({ algorithm: "rsa-2048-pkcs1-sha256" })).toMatch(/RSA-2048/);
   });
 
   it("offers no Apple apps on Windows and points mail and calendar at accounts", () => {

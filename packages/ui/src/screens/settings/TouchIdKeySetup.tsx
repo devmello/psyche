@@ -28,7 +28,8 @@ const WINDOWS_HELLO_KINDS = new Set(["windows_hello", "hello", "ngc", "tpm"]);
 /** "RSA-2048" for the ids helpers and the Gateway use ("rsa-2048", "RS256", "RSA2048"). */
 function algorithmName(alg: string): string {
   const a = alg.trim().toUpperCase().replace(/_/g, "-");
-  if (a === "RS256" || a === "RSA" || a === "RSA2048" || a === "RSA-2048") return "RSA-2048";
+  // The Windows helper reports "rsa-2048-pkcs1-sha256" (apps/win-helper presence key).
+  if (a === "RS256" || a === "RSA" || /^RSA-?2048(-|$)/.test(a)) return "RSA-2048";
   if (a === "ES256" || a === "P-256" || a === "P256" || a === "ECDSA-P256") return "ECDSA P-256";
   return alg;
 }

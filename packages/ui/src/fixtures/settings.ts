@@ -487,7 +487,7 @@ export function windowsPresenceKeys(): {
       deviceId: WINDOWS_IDS.device,
       keyId: WINDOWS_IDS.keyId,
       registeredAt: "2026-10-30T09:05:00Z",
-      ...({ kind: "windows_hello", algorithm: "RSA-2048" } as object),
+      ...({ kind: "windows_hello", algorithm: "rsa-2048-pkcs1-sha256" } as object),
     },
   ];
 }
