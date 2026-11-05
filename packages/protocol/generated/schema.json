@@ -2341,6 +2341,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Recent changes to a work item's status, progress, stopped-at, next step and deadline, newest first: when, where from (chat, mail, you, nightly) and a source chip. `undoable` marks a chat update that `memory.work.undoUpdate` can still undo. A connection that may not open a source sees the chip without its label.",
+        "name": "memory.work.history",
+        "params": "#/$defs/MemoryWorkHistoryParams",
+        "result": "#/$defs/MemoryWorkHistoryResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "Undo for a progress, stopped-at or next-step line the owner's chat wrote: restores the previous value only while the field has not changed since (changed_again otherwise, nothing touched; removed when the owner had already marked it wrong in Memory and nothing was left to restore). Also puts back a to-do status and last signal time the write had moved, if they have not changed since. Only for updates a chat note offered, within seven days. Side-effecting.",
         "name": "memory.work.undoUpdate",
         "params": "#/$defs/MemoryWorkUndoUpdateParams",
@@ -29598,6 +29606,40 @@
       ],
       "type": "string"
     },
+    "MemoryWorkHistoryParams": {
+      "properties": {
+        "entityId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "limit": {
+          "description": "Default 20",
+          "maximum": 100,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "entityId"
+      ],
+      "type": "object"
+    },
+    "MemoryWorkHistoryResult": {
+      "properties": {
+        "entries": {
+          "items": {
+            "$ref": "#/$defs/WorkHistoryEntry"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "entries"
+      ],
+      "type": "object"
+    },
     "MemoryWorkRemind": {
       "properties": {
         "enabled": {
@@ -47124,6 +47166,99 @@
         "decision"
       ],
       "type": "object"
+    },
+    "WorkHistoryAttribute": {
+      "enum": [
+        "status",
+        "progress",
+        "stopped_at",
+        "next_step",
+        "deadline"
+      ],
+      "type": "string"
+    },
+    "WorkHistoryEntry": {
+      "properties": {
+        "factId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "attribute": {
+          "$ref": "#/$defs/WorkHistoryAttribute"
+        },
+        "value": {
+          "maxLength": 2000,
+          "type": "string"
+        },
+        "from": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "at": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "origin": {
+          "$ref": "#/$defs/WorkHistoryOrigin"
+        },
+        "chip": {
+          "anyOf": [
+            {
+              "properties": {
+                "source": {
+                  "$ref": "#/$defs/GraphCitationSource"
+                },
+                "label": {
+                  "description": "Sender or file name: data; empty when this connection may not see it",
+                  "maxLength": 200,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "source",
+                "label"
+              ],
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "undoable": {
+          "description": "A direct update from the owner's chat, still inside the undo window and not yet undone: `memory.work.undoUpdate` accepts it",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "factId",
+        "attribute",
+        "value",
+        "at",
+        "origin",
+        "undoable"
+      ],
+      "type": "object"
+    },
+    "WorkHistoryOrigin": {
+      "enum": [
+        "chat",
+        "mail",
+        "you",
+        "nightly",
+        "source"
+      ],
+      "type": "string"
     },
     "WorkNoteAttribute": {
       "enum": [

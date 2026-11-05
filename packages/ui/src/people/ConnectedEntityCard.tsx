@@ -6,6 +6,7 @@ import { ConnectedAnchors } from "../memory-page/Anchors.tsx";
 import { ConnectedTimeline } from "../memory-page/Timeline.tsx";
 import { WorkCard } from "../memory-page/WorkCard.tsx";
 import { QuickAdd } from "../memory-page/WorkDue.tsx";
+import { ConnectedWorkHistory } from "../memory-page/WorkHistory.tsx";
 import { PersonNudgeRow } from "../nudges/ConnectedNudges.tsx";
 import { usePersona, useSlots } from "../slots.tsx";
 import { EntityCard, type EntityCardActions } from "./EntityCard.tsx";
@@ -98,6 +99,7 @@ export function ConnectedEntityCard({
               names={new Map((work.assignments ?? []).map((a) => [a.id, a.name]))}
             />
           }
+          history={<ConnectedWorkHistory entityId={id} name={work.name} now={clock} />}
           linked={<ConnectedAnchors entityId={id} />}
           {...(work.kind === "project"
             ? {

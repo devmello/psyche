@@ -67,6 +67,7 @@ import {
   type PassageDeps,
   type PassageSource,
 } from "./life-passages.ts";
+import { scrubWorkHistory } from "./search-open.ts";
 import type { ComposedPart } from "./services.ts";
 import { workSettings } from "./work.ts";
 
@@ -205,6 +206,7 @@ type EverythingMethod =
   | "memory.review.decide"
   | "memory.review.undo"
   | "memory.work.undoUpdate"
+  | "memory.work.history"
   | "memory.quarantine.list"
   | "memory.quarantine.decide"
   | "memory.runs.list"
@@ -236,6 +238,9 @@ export interface EverythingHandlers {
   "memory.work.undoUpdate"(
     p: ReviewParams<"memory.work.undoUpdate">,
   ): Promise<ReviewResult<"memory.work.undoUpdate">>;
+  "memory.work.history"(
+    p: ReviewParams<"memory.work.history">,
+  ): Promise<ReviewResult<"memory.work.history">>;
   "memory.quarantine.list"(
     p: ReviewParams<"memory.quarantine.list">,
   ): Promise<ReviewResult<"memory.quarantine.list">>;
@@ -390,6 +395,9 @@ export function everythingHandlers(
     },
     async "memory.work.undoUpdate"(p) {
       return { status: em.undoChatWork(p.factId) };
+    },
+    async "memory.work.history"(p) {
+      return { entries: em.workHistory(p.entityId, p.limit) };
     },
     async "memory.quarantine.list"(p) {
       const offset = offsetOf(p.cursor);
@@ -1060,6 +1068,13 @@ export function composeEverything(deps: EverythingDeps): Everything {
                   return shown === undefined ? [] : [shown];
                 }),
               };
+            },
+          },
+          // History chips follow the same per-connection rule as Review's citations.
+          "memory.work.history": {
+            run: async (call: Call, params: never) => {
+              const res = await handlers["memory.work.history"](params);
+              return { ...res, entries: scrubWorkHistory(call, res.entries) };
             },
           },
           "memory.review.list": {

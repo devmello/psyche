@@ -68,6 +68,12 @@ public enum AlertPolicy {
         }
     }
 
+    /// Whether the Dynamic Island may answer this item with its own Deny and Approve buttons: the same rule as
+    /// the lock-screen notification's Approve button. Presence-gated approvals and questions never qualify.
+    public static func answersInline(_ item: NeedsYouItem) -> Bool {
+        item.kind == .approval && category(for: item) == .approvalWrite
+    }
+
     public static func payload(for item: NeedsYouItem) -> AlertPayload {
         let category = category(for: item)
         switch category {
