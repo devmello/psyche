@@ -83,6 +83,17 @@ struct AgentSheet: View {
                             : "\(activity.needsYou.count) need\(activity.needsYou.count == 1 ? "s" : "") you")
                 }
             }
+            Spacer(minLength: 8)
+            // Settings from the avatar (§4.7) without the long-press, which few people find.
+            Button { router.sheet = .settings } label: {
+                Image(systemName: "gearshape")
+                    .font(.system(size: 17))
+                    .foregroundStyle(PsycheColor.text)
+                    .frame(width: 40, height: 40)
+                    .glassEffect(.regular.interactive(), in: .circle)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Settings")
         }
     }
 

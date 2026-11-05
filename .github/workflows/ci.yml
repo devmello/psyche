@@ -289,9 +289,6 @@ jobs:
     if: needs.changes.outputs.ios == 'true'
     runs-on: macos-26
     timeout-minutes: 30
-    # Non-blocking for now: the 29 UI tests pass on Xcode 27.2 locally, but the hosted runner's older Xcode
-    # and slower simulator make a few tap timings flaky. Make it blocking once it has been green for a while.
-    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

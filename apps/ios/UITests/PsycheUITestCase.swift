@@ -52,6 +52,25 @@ class PsycheUITestCase: XCTestCase {
         XCTAssertEqual(XCTWaiter().wait(for: [ok], timeout: timeout), .completed, "expected \(element) to be enabled", file: file, line: line)
     }
 
+    /// Opens Settings: a tap on the moth avatar opens the agent sheet, whose header has a Settings button. The
+    /// avatar's long-press menu also has Settings, but a long press on the Liquid Glass toolbar button never
+    /// opens it on GitHub's macOS runner, so the tests use the taps.
+    func openSettings(file: StaticString = #filePath, line: UInt = #line) {
+        let avatar = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Open Psyche's activity")).firstMatch
+        waitFor(avatar, file: file, line: line)
+        // After a sheet closes the page can be left scrolled, with the avatar off screen: bring it back.
+        for _ in 0..<4 where !app.frame.contains(avatar.frame) { app.swipeDown(velocity: .fast) }
+        let settings = app.buttons["Settings"].firstMatch
+        // A sheet still dismissing can swallow the first tap.
+        for _ in 0..<3 where !settings.exists {
+            avatar.tap()
+            if settings.waitForExistence(timeout: 5) { break }
+        }
+        waitFor(settings, 5, file: file, line: line)
+        settings.tap()
+        waitFor(app.navigationBars["Settings"], 5, file: file, line: line)
+    }
+
     /// Swipes up until `element` exists and is hittable.
     func scrollTo(_ element: XCUIElement, maxSwipes: Int = 8) {
         var n = 0
@@ -97,8 +116,16 @@ class PsycheUITestCase: XCTestCase {
     }
 
     /// The last button with this label: a confirmation dialog's button sits above the page's own.
-    func lastButton(_ label: String) -> XCUIElement {
-        app.buttons.matching(NSPredicate(format: "label == %@", label)).allElementsBoundByIndex.last ?? app.buttons[label]
+    /// The confirmation dialog's button: the last match that can take a tap (a dialog draws over the page's own
+    /// button of the same name, and on some devices it is an action sheet, on others a popover).
+    func lastButton(_ label: String, timeout: TimeInterval = 5) -> XCUIElement {
+        let matches = app.buttons.matching(NSPredicate(format: "label == %@", label))
+        let deadline = Date().addingTimeInterval(timeout)
+        repeat {
+            if let hit = matches.allElementsBoundByIndex.reversed().first(where: { $0.exists && $0.isHittable }) { return hit }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        } while Date() < deadline
+        return matches.allElementsBoundByIndex.last ?? app.buttons[label]
     }
 
     /// The Needs-you row for an item by title text.
