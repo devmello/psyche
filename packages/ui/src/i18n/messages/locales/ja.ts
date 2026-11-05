@@ -1,4 +1,6 @@
 import type { Catalogue } from "../index.ts";
+import { commonRest } from "./common-rest/ja.ts";
+import { settingsRest } from "./settings-rest/ja.ts";
 import { canvas } from "./canvas/ja.ts";
 import { charts } from "./charts/ja.ts";
 import { links } from "./links/ja.ts";
@@ -26,6 +28,8 @@ export const ja: Partial<Catalogue> = {
   ...canvas,
   // overview chart primitives (docs/design/agent-overview-2026.md §5.7)
   ...charts,
+  ...commonRest,
+  ...settingsRest,
   "common.cancel": "キャンセル",
   "common.close": "閉じる",
   "common.save": "保存",

@@ -1,4 +1,6 @@
 import type { Catalogue } from "../index.ts";
+import { commonRest } from "./common-rest/ko.ts";
+import { settingsRest } from "./settings-rest/ko.ts";
 import { canvas } from "./canvas/ko.ts";
 import { charts } from "./charts/ko.ts";
 import { links } from "./links/ko.ts";
@@ -26,6 +28,8 @@ export const ko: Partial<Catalogue> = {
   ...canvas,
   // overview chart primitives (docs/design/agent-overview-2026.md §5.7)
   ...charts,
+  ...commonRest,
+  ...settingsRest,
   // common
   "common.cancel": "취소",
   "common.close": "닫기",
