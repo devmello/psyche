@@ -288,6 +288,8 @@ jobs:
         run: pnpm -w lint
 
       - name: Test (CLI)
+        # PowerShell, so `tar` is Windows' bsdtar (packages/backup); Git Bash puts GNU tar first.
+        shell: pwsh
         run: pnpm --filter @psyche/cli test
 
       - name: Test (desktop packaging, updater, install events)
