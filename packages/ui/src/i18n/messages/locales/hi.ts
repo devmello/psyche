@@ -16,6 +16,7 @@ import { designRest } from "./design-rest/hi.ts";
 import { everythingRest } from "./everything-rest/hi.ts";
 import { final202611 } from "./final-2026-11/hi.ts";
 import { galleryRest } from "./gallery-rest/hi.ts";
+import { helperCheck } from "./helper-check/hi.ts";
 import { homeRest } from "./home-rest/hi.ts";
 import { links } from "./links/hi.ts";
 import { mailMeetings } from "./mail-meetings/hi.ts";
@@ -3287,6 +3288,7 @@ export const hi: Partial<Catalogue> = {
   ...final202611,
   // password approvals on Linux (polkit)
   ...passwordPresence,
+  ...helperCheck,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
 };
