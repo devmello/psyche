@@ -172,7 +172,7 @@ export interface PolicyBatchInput {
 
 /** WebAuthn assertion or helper-signed Touch ID signature over the challenge (design-04). */
 export interface PresenceAssertion {
-  kind: "webauthn" | "helper";
+  kind: "webauthn" | "helper" | "password";
   deviceId: string;
   signature: string;
   /** Opaque payload the verifier needs (authenticator data, client data JSON, …). */

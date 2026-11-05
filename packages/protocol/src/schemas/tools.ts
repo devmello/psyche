@@ -7,10 +7,22 @@ import {
   Nullable,
   ProvenanceOut,
   SideEffect,
+  StringEnum,
   Target,
   TargetKind,
 } from "../common.ts";
 import { ToolCallStatus } from "./blocks.ts";
+
+/**
+ * Which display a computer-use session drives (linux design §5, §11): the owner's own desktop
+ * (`direct`), an invisible display on the owner's machine (`virtual_screen`), or a container or
+ * VM with its own apps and files (`separate_desktop`). Only the enum lives here; the tool params
+ * that carry it are local to the Gateway and default to `direct`, so the Mac is unchanged.
+ */
+export const ComputerSurface = StringEnum(["direct", "virtual_screen", "separate_desktop"], {
+  $id: "ComputerSurface",
+});
+export type ComputerSurface = Static<typeof ComputerSurface>;
 
 /**
  * Tool declaration (architecture §4.3). The registry is the single source for the

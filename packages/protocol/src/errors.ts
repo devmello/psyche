@@ -43,6 +43,15 @@ export const ErrorCode = StringEnum(
     // M3 hardening: a security change needs fresh presence, and no verifier on this Gateway can
     // provide one (presence was enrolled, then every passkey / helper key was lost or revoked).
     "presence_required",
+    // Linux password presence (linux design §9, §11): `details.reason` names the cause for the card.
+    // No active local graphical session (SSH only, lingering after logout, locked screen).
+    "presence_unavailable_here",
+    // No polkit authentication agent is running on this desktop.
+    "presence_agent_missing",
+    // The polkit policy file for the approval action is not installed.
+    "presence_policy_missing",
+    // polkit would authorize without asking (`is_authorized` true), so it proves no presence.
+    "presence_not_enforced",
   ],
   { $id: "ErrorCode", description: "Machine-readable error code" },
 );

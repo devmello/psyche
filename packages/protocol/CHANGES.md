@@ -35,6 +35,16 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 - `PresenceKeyInfo` gains optional `algorithm` (`PresenceKeyAlgorithm`: `p256-ecdsa-sha256`, `rsa-2048-pkcs1-sha256`) and `kind` gains `windows_hello`. A win-helper's `presence.public_key` answers `{ publicKey, keyId, algorithm: "rsa-2048-pkcs1-sha256", kind?: "windows_hello" }` with `publicKey` the base64url SPKI DER of a Windows Hello RSA key (at least 2048 bits) and `keyId` the hex SHA-256 of those DER bytes; signatures (`notify.response` presence, `presence.confirm`) are base64url PKCS#1 v1.5 / SHA-256 over the same `psyche.presence.helper.v1|<challenge>` bytes.
 - New Node-only subpath `@psyche/protocol/platform` (not in the index, not in the schema): `usesNamedPipes`, `isNamedPipePath`, `namedPipePath(kind, home)` (`\\.\pipe\psyche-node-<16 hex of sha256(absolute PSYCHE_HOME)>`, `\\.\pipe\psyche-<16 hex of sha256(lower-case absolute PSYCHE_HOME)>-browser-bridge`, the desktop's fallback), `psycheHomeHash`, `system32`, `fsyncDirSync` (owner-only files and folders are `@psyche/hostfs`). On Windows the Gateway listens on the node pipe and writes it to `$PSYCHE_HOME/run/node-socket` as before; there is no guest socket.
 - `DictationKey` on Windows: `rightOption` is Right Alt, `rightCommand` is Right Ctrl, `fn` is refused (doc only).
+### v1 additive — 2026-11-05 (Linux desktop L0, linux design §11)
+
+- `PresenceAssertion.kind` gains `password`: created by the Gateway after polkit authorized the owner, never accepted from a client.
+- New method `approvals.approveWithPassword { approvalId, answerToken }` (`operator.approvals`, desktop shell only, same guards as `approveWithTouchId`) and `devices.presence.status` (`operator.admin`, read-only) returning `{ verifiers: PresenceVerifier[] }` (`kind`: `touch_id_key` | `passkey` | `password`; `state`: `ready`, `not_enrolled`, `unavailable`, `policy_missing`, `not_enforced`, `no_session`, `agent_missing`; optional `detail`).
+- New `ErrorCode` values `presence_unavailable_here`, `presence_agent_missing`, `presence_policy_missing`, `presence_not_enforced`.
+- New `ComputerSurface` enum (`direct`, `virtual_screen`, `separate_desktop`); the tool params that carry it stay Gateway-local.
+- `NodeKind` gains `host-helper` (with `mac-helper` kept as its alias in stored rows) and `guest`.
+- New `OsPermission` enum (`a11yBus`, `screenCastPortal`, `remoteDesktopPortal`, `x11`).
+- `vscreen.*` capability shapes in `methods/screen.ts` (`VSCREEN_CAPABILITIES`, `VscreenStatus`, `VscreenStartParams`, `VscreenStopParams`, `VscreenFrameParams`, `VscreenFrame`, `VscreenInputParams`, `VscreenAck`): helper capabilities, not Gateway methods; `nodes.invoke` reaches only `vscreen.status`. `deviceFamily: "linux-helper"` needs no schema change (`DeviceFamily` is a free string).
+- `protocolVersion` unchanged.
 
 ### v1 additive — 2026-11-05 (review of the update foundation)
 

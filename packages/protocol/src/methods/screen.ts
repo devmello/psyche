@@ -140,3 +140,135 @@ export const ScreenMethods = {
     description: "Desktop only: deletes an unsent capture and its frame (✕, Esc).",
   }),
 } as const;
+
+/**
+ * `vscreen.*` (linux design §7, §11): the Linux helper's virtual-screen capabilities, an Xvfb
+ * display the helper manages on the owner's machine. These are node capabilities, not Gateway
+ * methods, so they are not in `Methods`: the shapes below are the helper's `NodeCapability`
+ * inputs and results. Host-only: `nodes.invoke` reaches only `vscreen.status`; the Gateway's own
+ * virtual-screen module and the watch view call the rest through the Permission Broker.
+ */
+export const VSCREEN_CAPABILITIES = [
+  "vscreen.start",
+  "vscreen.stop",
+  "vscreen.status",
+  "vscreen.frame",
+  "vscreen.input",
+] as const;
+export type VscreenCapability = (typeof VSCREEN_CAPABILITIES)[number];
+
+/** The only `vscreen.*` capability `nodes.invoke` may reach. */
+export const VSCREEN_NODES_INVOKE_ALLOWED = ["vscreen.status"] as const;
+
+export const VscreenState = StringEnum(["stopped", "starting", "running", "stopping"], {
+  $id: "VscreenState",
+});
+export type VscreenState = Static<typeof VscreenState>;
+
+export const VscreenApp = Type.Object(
+  {
+    /** The desktop file id (`org.gnome.TextEditor`, `firefox`). */
+    appId: Type.String({ minLength: 1, maxLength: 200 }),
+    pid: Type.Integer({ minimum: 1 }),
+    windowTitle: Nullable(Type.String({ maxLength: 500 })),
+    /** The app shows a "Save changes?" dialog, so it was not closed (spec §7.4). */
+    hasUnsavedChanges: Type.Optional(Type.Boolean()),
+  },
+  { $id: "VscreenApp" },
+);
+export type VscreenApp = Static<typeof VscreenApp>;
+
+export const VscreenStatus = Type.Object(
+  {
+    state: VscreenState,
+    /** The X display (`:90`), null when stopped. */
+    display: Nullable(Type.String()),
+    width: Type.Integer({ minimum: 0 }),
+    height: Type.Integer({ minimum: 0 }),
+    apps: Type.Array(VscreenApp),
+    /** The owner is driving through the watch view; the agent is paused. */
+    takenOver: Type.Boolean(),
+    /** Changes whenever the screen does; pass it as `vscreen.frame.since`. */
+    frameSeq: Type.Integer({ minimum: 0 }),
+    startedAt: Nullable(IsoDateTime),
+  },
+  { $id: "VscreenStatus" },
+);
+export type VscreenStatus = Static<typeof VscreenStatus>;
+
+export const VscreenStartParams = Type.Object(
+  {
+    width: Type.Optional(Type.Integer({ minimum: 640, maximum: 3840 })),
+    height: Type.Optional(Type.Integer({ minimum: 480, maximum: 2160 })),
+  },
+  { $id: "VscreenStartParams" },
+);
+export type VscreenStartParams = Static<typeof VscreenStartParams>;
+
+export const VscreenStopParams = Type.Object(
+  {
+    /** Close every app (a "Save changes?" dialog parks the Task) before stopping. Default true. */
+    closeApps: Type.Optional(Type.Boolean()),
+  },
+  { $id: "VscreenStopParams" },
+);
+export type VscreenStopParams = Static<typeof VscreenStopParams>;
+
+export const VscreenFrameParams = Type.Object(
+  {
+    /** The `frameSeq` the caller already has: the frame is returned only when it changed. */
+    since: Type.Optional(Type.Integer({ minimum: 0 })),
+    maxWidth: Type.Optional(Type.Integer({ minimum: 160, maximum: 3840 })),
+  },
+  { $id: "VscreenFrameParams" },
+);
+export type VscreenFrameParams = Static<typeof VscreenFrameParams>;
+
+export const VscreenFrame = Type.Object(
+  {
+    /** False when nothing changed since `since`; `image` is then null. */
+    changed: Type.Boolean(),
+    frameSeq: Type.Integer({ minimum: 0 }),
+    image: Nullable(Type.String({ contentEncoding: "base64", description: "JPEG" })),
+    width: Type.Integer({ minimum: 0 }),
+    height: Type.Integer({ minimum: 0 }),
+  },
+  { $id: "VscreenFrame" },
+);
+export type VscreenFrame = Static<typeof VscreenFrame>;
+
+/** The watch view's take-over: the owner's own clicks and keys, forwarded through XTest. */
+export const VscreenInputEvent = Type.Union(
+  [
+    Type.Object({
+      type: StringEnum(["move", "down", "up"]),
+      x: Type.Number(),
+      y: Type.Number(),
+      button: Type.Optional(StringEnum(["left", "middle", "right"])),
+    }),
+    Type.Object({
+      type: Type.Literal("scroll"),
+      x: Type.Number(),
+      y: Type.Number(),
+      dx: Type.Number(),
+      dy: Type.Number(),
+    }),
+    Type.Object({
+      type: StringEnum(["key_down", "key_up"]),
+      /** A DOM `KeyboardEvent.key` value. */
+      key: Type.String({ minLength: 1, maxLength: 32 }),
+    }),
+    Type.Object({ type: Type.Literal("text"), text: Type.String({ maxLength: 1000 }) }),
+  ],
+  { $id: "VscreenInputEvent" },
+);
+export type VscreenInputEvent = Static<typeof VscreenInputEvent>;
+
+export const VscreenInputParams = Type.Object(
+  { events: Type.Array(VscreenInputEvent, { maxItems: 100 }) },
+  { $id: "VscreenInputParams" },
+);
+export type VscreenInputParams = Static<typeof VscreenInputParams>;
+
+export const VscreenAck = Type.Object({ ok: Type.Boolean() }, { $id: "VscreenAck" });
+export type VscreenAck = Static<typeof VscreenAck>;

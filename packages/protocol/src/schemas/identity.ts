@@ -54,9 +54,14 @@ export type NodeCapability = Static<typeof NodeCapability>;
  * per-launch handshake secret), on macOS and Windows; a node that only claims either family is
  * `remote`. `isHostHelperKind` (node.ts) tests for both.
  */
-export const NodeKind = StringEnum(["mac-helper", "vm-guest", "remote", "phone", "win-helper"], {
-  $id: "NodeKind",
-});
+export const NodeKind = StringEnum(
+  ["mac-helper", "vm-guest", "remote", "phone", "win-helper", "host-helper", "guest"],
+  {
+    $id: "NodeKind",
+    description:
+      "win-helper: the Windows helper on the Host (the node socket plus the handshake secret). host-helper: the helper the desktop launched on the Host (macOS mac-helper or Linux linux-helper; stored rows keep mac-helper, which stays a valid alias). guest: the helper inside a separate desktop (container or VM).",
+  },
+);
 export type NodeKind = Static<typeof NodeKind>;
 
 export const NodeStatus = StringEnum(["online", "offline", "degraded"], { $id: "NodeStatus" });

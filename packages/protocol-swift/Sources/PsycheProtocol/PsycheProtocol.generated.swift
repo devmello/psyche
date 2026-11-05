@@ -98,6 +98,8 @@
 //   let approvalStatus = try? JSONDecoder().decode(ApprovalStatus.self, from: jsonData)
 //   let approvalUpdatedPayload = try? JSONDecoder().decode(ApprovalUpdatedPayload.self, from: jsonData)
 //   let approvalsAnswerResult = try? JSONDecoder().decode(ApprovalsAnswerResult.self, from: jsonData)
+//   let approvalsApproveWithPasswordParams = try? JSONDecoder().decode(ApprovalsApproveWithPasswordParams.self, from: jsonData)
+//   let approvalsApproveWithPasswordResult = try? JSONDecoder().decode(ApprovalsApproveWithPasswordResult.self, from: jsonData)
 //   let approvalsApproveWithTouchIDParams = try? JSONDecoder().decode(ApprovalsApproveWithTouchIDParams.self, from: jsonData)
 //   let approvalsApproveWithTouchIDResult = try? JSONDecoder().decode(ApprovalsApproveWithTouchIDResult.self, from: jsonData)
 //   let approvalsGetParams = try? JSONDecoder().decode(ApprovalsGetParams.self, from: jsonData)
@@ -344,6 +346,7 @@
 //   let compactionBlock = try? JSONDecoder().decode(CompactionBlock.self, from: jsonData)
 //   let compactionResult = try? JSONDecoder().decode(CompactionResult.self, from: jsonData)
 //   let compactionSummary = try? JSONDecoder().decode(CompactionSummary.self, from: jsonData)
+//   let computerSurface = try? JSONDecoder().decode(ComputerSurface.self, from: jsonData)
 //   let connectChallenge = try? JSONDecoder().decode(ConnectChallenge.self, from: jsonData)
 //   let connectDenied = try? JSONDecoder().decode(ConnectDenied.self, from: jsonData)
 //   let connectPaired = try? JSONDecoder().decode(ConnectPaired.self, from: jsonData)
@@ -460,6 +463,8 @@
 //   let devicesPresenceKeyRegisterResult = try? JSONDecoder().decode(DevicesPresenceKeyRegisterResult.self, from: jsonData)
 //   let devicesPresenceKeyRemoveParams = try? JSONDecoder().decode(DevicesPresenceKeyRemoveParams.self, from: jsonData)
 //   let devicesPresenceKeyRemoveResult = try? JSONDecoder().decode(DevicesPresenceKeyRemoveResult.self, from: jsonData)
+//   let devicesPresenceStatusParams = try? JSONDecoder().decode(DevicesPresenceStatusParams.self, from: jsonData)
+//   let devicesPresenceStatusResult = try? JSONDecoder().decode(DevicesPresenceStatusResult.self, from: jsonData)
 //   let devicesRevokeParams = try? JSONDecoder().decode(DevicesRevokeParams.self, from: jsonData)
 //   let devicesRevokeResult = try? JSONDecoder().decode(DevicesRevokeResult.self, from: jsonData)
 //   let devicesRevokeSelfParams = try? JSONDecoder().decode(DevicesRevokeSelfParams.self, from: jsonData)
@@ -1024,6 +1029,7 @@
 //   let ocrRefusal = try? JSONDecoder().decode(OcrRefusal.self, from: jsonData)
 //   let okResult = try? JSONDecoder().decode(OkResult.self, from: jsonData)
 //   let onePasswordRef = try? JSONDecoder().decode(OnePasswordRef.self, from: jsonData)
+//   let oSPermission = try? JSONDecoder().decode(OSPermission.self, from: jsonData)
 //   let pairingRequest = try? JSONDecoder().decode(PairingRequest.self, from: jsonData)
 //   let pairingRequestedPayload = try? JSONDecoder().decode(PairingRequestedPayload.self, from: jsonData)
 //   let pairingStatus = try? JSONDecoder().decode(PairingStatus.self, from: jsonData)
@@ -1066,6 +1072,9 @@
 //   let presenceAssertion = try? JSONDecoder().decode(PresenceAssertion.self, from: jsonData)
 //   let presenceKeyAlgorithm = try? JSONDecoder().decode(PresenceKeyAlgorithm.self, from: jsonData)
 //   let presenceKeyInfo = try? JSONDecoder().decode(PresenceKeyInfo.self, from: jsonData)
+//   let presenceVerifier = try? JSONDecoder().decode(PresenceVerifier.self, from: jsonData)
+//   let presenceVerifierKind = try? JSONDecoder().decode(PresenceVerifierKind.self, from: jsonData)
+//   let presenceVerifierState = try? JSONDecoder().decode(PresenceVerifierState.self, from: jsonData)
 //   let probedModel = try? JSONDecoder().decode(ProbedModel.self, from: jsonData)
 //   let proposalUpdatedPayload = try? JSONDecoder().decode(ProposalUpdatedPayload.self, from: jsonData)
 //   let proposalsApproveParams = try? JSONDecoder().decode(ProposalsApproveParams.self, from: jsonData)
@@ -1586,6 +1595,16 @@
 //   let voiceStartResult = try? JSONDecoder().decode(VoiceStartResult.self, from: jsonData)
 //   let voiceStopParams = try? JSONDecoder().decode(VoiceStopParams.self, from: jsonData)
 //   let voiceStopResult = try? JSONDecoder().decode(VoiceStopResult.self, from: jsonData)
+//   let vscreenACK = try? JSONDecoder().decode(VscreenACK.self, from: jsonData)
+//   let vscreenApp = try? JSONDecoder().decode(VscreenApp.self, from: jsonData)
+//   let vscreenFrame = try? JSONDecoder().decode(VscreenFrame.self, from: jsonData)
+//   let vscreenFrameParams = try? JSONDecoder().decode(VscreenFrameParams.self, from: jsonData)
+//   let vscreenInputEvent = try? JSONDecoder().decode(VscreenInputEvent.self, from: jsonData)
+//   let vscreenInputParams = try? JSONDecoder().decode(VscreenInputParams.self, from: jsonData)
+//   let vscreenStartParams = try? JSONDecoder().decode(VscreenStartParams.self, from: jsonData)
+//   let vscreenState = try? JSONDecoder().decode(VscreenState.self, from: jsonData)
+//   let vscreenStatus = try? JSONDecoder().decode(VscreenStatus.self, from: jsonData)
+//   let vscreenStopParams = try? JSONDecoder().decode(VscreenStopParams.self, from: jsonData)
 //   let watchCheck = try? JSONDecoder().decode(WatchCheck.self, from: jsonData)
 //   let watchConfig = try? JSONDecoder().decode(WatchConfig.self, from: jsonData)
 //   let widget = try? JSONDecoder().decode(Widget.self, from: jsonData)
@@ -4045,6 +4064,7 @@ public struct PresenceAssertion: Codable, Sendable {
 
 public enum PresenceAssertionKind: String, Codable, Sendable {
     case helper = "helper"
+    case password = "password"
     case webauthn = "webauthn"
 }
 
@@ -4421,6 +4441,38 @@ public struct Grant: Codable, Sendable {
         self.subject = subject
         self.taskID = taskID
         self.useCount = useCount
+    }
+}
+
+// MARK: - ApprovalsApproveWithPasswordParams
+public struct ApprovalsApproveWithPasswordParams: Codable, Sendable {
+    public let answerToken: String
+    public let approvalID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case answerToken = "answerToken"
+        case approvalID = "approvalId"
+    }
+
+    public init(answerToken: String, approvalID: String) {
+        self.answerToken = answerToken
+        self.approvalID = approvalID
+    }
+}
+
+// MARK: - ApprovalsApproveWithPasswordResult
+public struct ApprovalsApproveWithPasswordResult: Codable, Sendable {
+    public let approval: ApprovalRequest
+    public let grant: Grant?
+
+    public enum CodingKeys: String, CodingKey {
+        case approval = "approval"
+        case grant = "grant"
+    }
+
+    public init(approval: ApprovalRequest, grant: Grant? = nil) {
+        self.approval = approval
+        self.grant = grant
     }
 }
 
@@ -10355,6 +10407,12 @@ public enum CompactionBlockType: String, Codable, Sendable {
     case compaction = "compaction"
 }
 
+public enum ComputerSurface: String, Codable, Sendable {
+    case direct = "direct"
+    case separateDesktop = "separate_desktop"
+    case virtualScreen = "virtual_screen"
+}
+
 // MARK: - ConnectChallenge
 public struct ConnectChallenge: Codable, Sendable {
     public let expiresAt: String
@@ -13010,6 +13068,54 @@ public struct DevicesPresenceKeyRemoveResult: Codable, Sendable {
     }
 }
 
+// MARK: - DevicesPresenceStatusResult
+public struct DevicesPresenceStatusResult: Codable, Sendable {
+    public let verifiers: [PresenceVerifier]
+
+    public enum CodingKeys: String, CodingKey {
+        case verifiers = "verifiers"
+    }
+
+    public init(verifiers: [PresenceVerifier]) {
+        self.verifiers = verifiers
+    }
+}
+
+// MARK: - PresenceVerifier
+public struct PresenceVerifier: Codable, Sendable {
+    public let detail: String?
+    public let kind: PresenceVerifierKind
+    public let state: PresenceVerifierState
+
+    public enum CodingKeys: String, CodingKey {
+        case detail = "detail"
+        case kind = "kind"
+        case state = "state"
+    }
+
+    public init(detail: String? = nil, kind: PresenceVerifierKind, state: PresenceVerifierState) {
+        self.detail = detail
+        self.kind = kind
+        self.state = state
+    }
+}
+
+public enum PresenceVerifierKind: String, Codable, Sendable {
+    case passkey = "passkey"
+    case password = "password"
+    case touchIDKey = "touch_id_key"
+}
+
+public enum PresenceVerifierState: String, Codable, Sendable {
+    case agentMissing = "agent_missing"
+    case noSession = "no_session"
+    case notEnforced = "not_enforced"
+    case notEnrolled = "not_enrolled"
+    case policyMissing = "policy_missing"
+    case ready = "ready"
+    case unavailable = "unavailable"
+}
+
 // MARK: - DevicesRevokeParams
 public struct DevicesRevokeParams: Codable, Sendable {
     public let deviceID: String
@@ -15485,7 +15591,11 @@ public enum ErrorCode: String, Codable, Sendable {
     case originRejected = "origin_rejected"
     case pairingPending = "pairing_pending"
     case policyDenied = "policy_denied"
+    case presenceAgentMissing = "presence_agent_missing"
+    case presenceNotEnforced = "presence_not_enforced"
+    case presencePolicyMissing = "presence_policy_missing"
     case presenceRequired = "presence_required"
+    case presenceUnavailableHere = "presence_unavailable_here"
     case protocolVersionMismatch = "protocol_version_mismatch"
     case rateLimited = "rate_limited"
     case tabNotFound = "tab_not_found"
@@ -24085,7 +24195,13 @@ public struct NodeInfo: Codable, Sendable {
     }
 }
 
+/// win-helper: the Windows helper on the Host (the node socket plus the handshake secret).
+/// host-helper: the helper the desktop launched on the Host (macOS mac-helper or Linux
+/// linux-helper; stored rows keep mac-helper, which stays a valid alias). guest: the helper
+/// inside a separate desktop (container or VM).
 public enum NodeKind: String, Codable, Sendable {
+    case guest = "guest"
+    case hostHelper = "host-helper"
     case macHelper = "mac-helper"
     case phone = "phone"
     case remote = "remote"
@@ -24783,6 +24899,13 @@ public struct OnePasswordRef: Codable, Sendable {
         self.item = item
         self.vault = vault
     }
+}
+
+public enum OSPermission: String, Codable, Sendable {
+    case a11YBus = "a11yBus"
+    case remoteDesktopPortal = "remoteDesktopPortal"
+    case screenCastPortal = "screenCastPortal"
+    case x11 = "x11"
 }
 
 // MARK: - PairingRequestedPayload
@@ -31468,7 +31591,7 @@ public struct SpeechWhisperSetup: Codable, Sendable {
     public let model: SpeechWhisperModel
     public let receivedBytes: Int?
     public let runtime: SpeechWhisperRuntime
-    public let server: SpeechWhisperServerState
+    public let server: VscreenState
     /// vcredist_missing, crash_loop, crashed, start_timeout, …
     public let serverError: String?
     public let state: SpeechWhisperSetupState
@@ -31486,7 +31609,7 @@ public struct SpeechWhisperSetup: Codable, Sendable {
         case totalBytes = "totalBytes"
     }
 
-    public init(downloadBytes: Int, error: String? = nil, model: SpeechWhisperModel, receivedBytes: Int? = nil, runtime: SpeechWhisperRuntime, server: SpeechWhisperServerState, serverError: String? = nil, state: SpeechWhisperSetupState, totalBytes: Int? = nil) {
+    public init(downloadBytes: Int, error: String? = nil, model: SpeechWhisperModel, receivedBytes: Int? = nil, runtime: SpeechWhisperRuntime, server: VscreenState, serverError: String? = nil, state: SpeechWhisperSetupState, totalBytes: Int? = nil) {
         self.downloadBytes = downloadBytes
         self.error = error
         self.model = model
@@ -31544,7 +31667,7 @@ public struct SpeechWhisperRuntime: Codable, Sendable {
     }
 }
 
-public enum SpeechWhisperServerState: String, Codable, Sendable {
+public enum VscreenState: String, Codable, Sendable {
     case running = "running"
     case starting = "starting"
     case stopped = "stopped"
@@ -36381,6 +36504,208 @@ public struct VoiceStopResult: Codable, Sendable {
     }
 }
 
+// MARK: - VscreenACK
+public struct VscreenACK: Codable, Sendable {
+    public let ok: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case ok = "ok"
+    }
+
+    public init(ok: Bool) {
+        self.ok = ok
+    }
+}
+
+// MARK: - VscreenFrame
+public struct VscreenFrame: Codable, Sendable {
+    public let changed: Bool
+    public let frameSeq: Int
+    public let height: Int
+    public let image: String?
+    public let width: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case changed = "changed"
+        case frameSeq = "frameSeq"
+        case height = "height"
+        case image = "image"
+        case width = "width"
+    }
+
+    public init(changed: Bool, frameSeq: Int, height: Int, image: String? = nil, width: Int) {
+        self.changed = changed
+        self.frameSeq = frameSeq
+        self.height = height
+        self.image = image
+        self.width = width
+    }
+}
+
+// MARK: - VscreenFrameParams
+public struct VscreenFrameParams: Codable, Sendable {
+    public let maxWidth: Int?
+    public let since: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case maxWidth = "maxWidth"
+        case since = "since"
+    }
+
+    public init(maxWidth: Int? = nil, since: Int? = nil) {
+        self.maxWidth = maxWidth
+        self.since = since
+    }
+}
+
+// MARK: - VscreenInputParams
+public struct VscreenInputParams: Codable, Sendable {
+    public let events: [VscreenInputEvent]
+
+    public enum CodingKeys: String, CodingKey {
+        case events = "events"
+    }
+
+    public init(events: [VscreenInputEvent]) {
+        self.events = events
+    }
+}
+
+// MARK: - VscreenInputEvent
+public struct VscreenInputEvent: Codable, Sendable {
+    public let button: Button?
+    public let type: VscreenInputEventType
+    public let x: Double?
+    public let y: Double?
+    public let dx: Double?
+    public let dy: Double?
+    public let key: String?
+    public let text: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case button = "button"
+        case type = "type"
+        case x = "x"
+        case y = "y"
+        case dx = "dx"
+        case dy = "dy"
+        case key = "key"
+        case text = "text"
+    }
+
+    public init(button: Button? = nil, type: VscreenInputEventType, x: Double? = nil, y: Double? = nil, dx: Double? = nil, dy: Double? = nil, key: String? = nil, text: String? = nil) {
+        self.button = button
+        self.type = type
+        self.x = x
+        self.y = y
+        self.dx = dx
+        self.dy = dy
+        self.key = key
+        self.text = text
+    }
+}
+
+public enum Button: String, Codable, Sendable {
+    case buttonLeft = "left"
+    case buttonRight = "right"
+    case middle = "middle"
+}
+
+public enum VscreenInputEventType: String, Codable, Sendable {
+    case down = "down"
+    case keyDown = "key_down"
+    case keyUp = "key_up"
+    case move = "move"
+    case scroll = "scroll"
+    case text = "text"
+    case up = "up"
+}
+
+// MARK: - VscreenStartParams
+public struct VscreenStartParams: Codable, Sendable {
+    public let height: Int?
+    public let width: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case height = "height"
+        case width = "width"
+    }
+
+    public init(height: Int? = nil, width: Int? = nil) {
+        self.height = height
+        self.width = width
+    }
+}
+
+// MARK: - VscreenStatus
+public struct VscreenStatus: Codable, Sendable {
+    public let apps: [VscreenApp]
+    public let display: String?
+    public let frameSeq: Int
+    public let height: Int
+    public let startedAt: String?
+    public let state: VscreenState
+    public let takenOver: Bool
+    public let width: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case apps = "apps"
+        case display = "display"
+        case frameSeq = "frameSeq"
+        case height = "height"
+        case startedAt = "startedAt"
+        case state = "state"
+        case takenOver = "takenOver"
+        case width = "width"
+    }
+
+    public init(apps: [VscreenApp], display: String? = nil, frameSeq: Int, height: Int, startedAt: String? = nil, state: VscreenState, takenOver: Bool, width: Int) {
+        self.apps = apps
+        self.display = display
+        self.frameSeq = frameSeq
+        self.height = height
+        self.startedAt = startedAt
+        self.state = state
+        self.takenOver = takenOver
+        self.width = width
+    }
+}
+
+// MARK: - VscreenApp
+public struct VscreenApp: Codable, Sendable {
+    public let appID: String
+    public let hasUnsavedChanges: Bool?
+    public let pid: Int
+    public let windowTitle: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case appID = "appId"
+        case hasUnsavedChanges = "hasUnsavedChanges"
+        case pid = "pid"
+        case windowTitle = "windowTitle"
+    }
+
+    public init(appID: String, hasUnsavedChanges: Bool? = nil, pid: Int, windowTitle: String? = nil) {
+        self.appID = appID
+        self.hasUnsavedChanges = hasUnsavedChanges
+        self.pid = pid
+        self.windowTitle = windowTitle
+    }
+}
+
+// MARK: - VscreenStopParams
+public struct VscreenStopParams: Codable, Sendable {
+    public let closeApps: Bool?
+
+    public enum CodingKeys: String, CodingKey {
+        case closeApps = "closeApps"
+    }
+
+    public init(closeApps: Bool? = nil) {
+        self.closeApps = closeApps
+    }
+}
+
 // MARK: - WidgetAction
 public struct WidgetAction: Codable, Sendable {
     public let kind: WidgetActionKind
@@ -37021,6 +37346,7 @@ public typealias ConnectorsListParams = [String: JSONAny]
 public typealias DailyAutomationsTemplatesParams = [String: JSONAny]
 public typealias DevicesBootstrapAdminParams = [String: JSONAny]
 public typealias DevicesPresenceKeyListParams = [String: JSONAny]
+public typealias DevicesPresenceStatusParams = [String: JSONAny]
 public typealias DevicesRevokeSelfParams = [String: JSONAny]
 public typealias DevicesSetupTokenListParams = [String: JSONAny]
 public typealias DictationTargetParams = [String: JSONAny]
