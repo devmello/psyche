@@ -1,5 +1,5 @@
 //! Controller and capability tests (ports of the mac `TeachControllerTests`), plus a live
-//! recording against a Notepad tab the test opens.
+//! recording against a Win32 window the test owns.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -384,16 +384,153 @@ async fn start_streams_and_dropping_the_invocation_cancels_the_recording() {
 
 // MARK: - Live
 
-/// Live: the real hooks record a Notepad tab this test opens. Hardware input cannot be produced
-/// by a test, so the owner's clicks and keys are simulated at the hook boundary (the same channel
-/// the hooks feed), while real injected input (a click and a key through `SendInput`) is sent to
-/// the same tab to prove the hooks ignore it. Targets come from live UI Automation lookups.
-/// Nothing is typed into the document; the tab is closed and the file deleted afterwards.
+/// Env var that turns [`live_window_host`] (run in a child process of this test binary) into the
+/// owner of the window the live recording targets; its value is the window title.
+const LIVE_WINDOW_ENV: &str = "PSYCHE_TEACH_LIVE_WINDOW";
+
+/// A plain Win32 window with a multi-line EDIT control, run until it is closed. Used only by the
+/// live test, in its own process: computer use never acts on its own process, and opening a
+/// file in Notepad would land in a tab of the owner's existing Notepad window.
+mod live_window {
+    use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
+    use windows::Win32::System::LibraryLoader::GetModuleHandleW;
+    use windows::Win32::UI::WindowsAndMessaging::{
+        CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, ES_AUTOVSCROLL,
+        ES_MULTILINE, ES_WANTRETURN, GWLP_USERDATA, GetClientRect, GetMessageW, GetWindowLongPtrW,
+        MSG, MoveWindow, PostQuitMessage, RegisterClassW, SW_SHOWNORMAL, SetForegroundWindow,
+        SetWindowLongPtrW, ShowWindow, TranslateMessage, WINDOW_EX_STYLE, WINDOW_STYLE, WM_CLOSE,
+        WM_DESTROY, WM_SIZE, WNDCLASSW, WS_CHILD, WS_EX_CLIENTEDGE, WS_OVERLAPPEDWINDOW,
+        WS_VISIBLE, WS_VSCROLL,
+    };
+    use windows::core::{HSTRING, w};
+
+    unsafe extern "system" fn proc(h: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> LRESULT {
+        unsafe {
+            match msg {
+                WM_SIZE => {
+                    let edit = HWND(GetWindowLongPtrW(h, GWLP_USERDATA) as *mut _);
+                    let mut r = Default::default();
+                    if !edit.0.is_null() && GetClientRect(h, &mut r).is_ok() {
+                        let _ = MoveWindow(edit, 0, 0, r.right, r.bottom, true);
+                    }
+                    LRESULT(0)
+                }
+                WM_CLOSE => {
+                    let _ = DestroyWindow(h);
+                    LRESULT(0)
+                }
+                WM_DESTROY => {
+                    PostQuitMessage(0);
+                    LRESULT(0)
+                }
+                _ => DefWindowProcW(h, msg, wp, lp),
+            }
+        }
+    }
+
+    pub fn run(title: &str) {
+        unsafe {
+            let instance = GetModuleHandleW(None).expect("module").into();
+            let class = w!("PsycheTeachLiveWindow");
+            let wc = WNDCLASSW {
+                lpfnWndProc: Some(proc),
+                hInstance: instance,
+                lpszClassName: class,
+                ..Default::default()
+            };
+            assert_ne!(RegisterClassW(&wc), 0, "RegisterClassW");
+            let main = CreateWindowExW(
+                WINDOW_EX_STYLE(0),
+                class,
+                &HSTRING::from(title),
+                WS_OVERLAPPEDWINDOW,
+                160,
+                160,
+                640,
+                420,
+                None,
+                None,
+                Some(instance),
+                None,
+            )
+            .expect("window");
+            let edit = CreateWindowExW(
+                WS_EX_CLIENTEDGE,
+                w!("EDIT"),
+                w!("teach live test\r\n"),
+                WS_CHILD
+                    | WS_VISIBLE
+                    | WS_VSCROLL
+                    | WINDOW_STYLE((ES_MULTILINE | ES_AUTOVSCROLL | ES_WANTRETURN) as u32),
+                0,
+                0,
+                100,
+                100,
+                Some(main),
+                None,
+                Some(instance),
+                None,
+            )
+            .expect("edit");
+            SetWindowLongPtrW(main, GWLP_USERDATA, edit.0 as isize);
+            let _ = ShowWindow(main, SW_SHOWNORMAL);
+            let _ = SetForegroundWindow(main);
+            let mut msg = MSG::default();
+            while GetMessageW(&mut msg, None, 0, 0).as_bool() {
+                let _ = TranslateMessage(&msg);
+                DispatchMessageW(&msg);
+            }
+        }
+    }
+}
+
+/// Not a test of its own: the window [`live_records_an_owned_window_and_ignores_injected_input`]
+/// starts in a child process of this binary (`LIVE_WINDOW_ENV` set). Returns at once otherwise.
+#[test]
+#[ignore]
+fn live_window_host() {
+    if let Ok(title) = std::env::var(LIVE_WINDOW_ENV) {
+        live_window::run(&title);
+    }
+}
+
+/// Ends the window host: WM_CLOSE to its window, then the process if it lingers.
+struct WindowHostGuard(std::process::Child);
+impl Drop for WindowHostGuard {
+    fn drop(&mut self) {
+        use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
+        use windows::Win32::UI::WindowsAndMessaging::{PostMessageW, WM_CLOSE};
+        let pid = self.0.id();
+        for w in psyche_win_computer::win::apps::top_windows() {
+            if w.pid == pid {
+                unsafe {
+                    let _ =
+                        PostMessageW(Some(HWND(w.hwnd as *mut _)), WM_CLOSE, WPARAM(0), LPARAM(0));
+                }
+            }
+        }
+        for _ in 0..30 {
+            if matches!(self.0.try_wait(), Ok(Some(_))) {
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        let _ = self.0.kill();
+        let _ = self.0.wait();
+    }
+}
+
+/// Live: the real hooks record a window this test owns (a plain Win32 window with an EDIT
+/// control, in a child process of this binary). Hardware input cannot be produced by a test, so
+/// the owner's clicks and keys are simulated at the hook boundary (the same channel the hooks
+/// feed), while real injected input (a click and a key through `SendInput`) is sent to the same
+/// window, only after checking it is in front, to prove the hooks ignore it. Targets come from
+/// live UI Automation lookups. The window is closed afterwards; no other window is touched.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore]
-// Notepad keeps running (the launcher may be an existing instance); the crate's errors are big.
-#[allow(clippy::zombie_processes, clippy::result_large_err)]
-async fn live_records_a_notepad_tab_and_ignores_injected_input() {
+// The crate's errors are big.
+#[allow(clippy::result_large_err)]
+async fn live_records_an_owned_window_and_ignores_injected_input() {
     use psyche_win_computer as wc;
     use wc::win::apps;
 
@@ -408,29 +545,54 @@ async fn live_records_a_notepad_tab_and_ignores_injected_input() {
         eprintln!("skipped: the screen is dimmed by a system prompt");
         return;
     }
-    let name = format!("psyche-teach-live-{}.txt", std::process::id());
-    let path = std::env::temp_dir().join(&name);
-    std::fs::write(&path, "teach live test\n").unwrap();
-    std::process::Command::new("notepad.exe")
-        .arg(&path)
+    let name = format!("Psyche teach live {}", std::process::id());
+    let child = std::process::Command::new(std::env::current_exe().unwrap())
+        .args([
+            "teach::tests::live_window_host",
+            "--exact",
+            "--ignored",
+            "--test-threads=1",
+        ])
+        .env(LIVE_WINDOW_ENV, &name)
+        .stdout(std::process::Stdio::null())
         .spawn()
-        .expect("notepad");
-    let ours = || apps::foreground_window().filter(|w| w.title.contains(&name));
-    let mut fg = None;
+        .expect("window host");
+    let host_pid = child.id();
+    let guard = WindowHostGuard(child);
+    let mine = |w: &apps::WinInfo| w.pid == host_pid && w.title == name;
+    let mut window = None;
     for _ in 0..60 {
-        fg = ours();
-        if fg.is_some() {
+        window = apps::top_windows().into_iter().find(|w| mine(w));
+        if window.is_some() {
             break;
         }
         tokio::time::sleep(Duration::from_millis(250)).await;
     }
-    let fg = fg.expect("the test document is the foreground window");
+    let window = window.expect("the test window opened");
+    let app = apps::app_for_window(&window).expect("the test window's app");
+    let app_id = app.bundle_id.clone().expect("app id");
+    assert_eq!(app.pid, host_pid);
+
+    // Bring it forward (the foreground lock may refuse a background process) and check.
+    let hwnd = window.hwnd;
+    let a = app.clone();
+    let activated = tokio::task::spawn_blocking(move || {
+        apps::activate(&a, Some(hwnd), &wc::tiers::StopSignal::new())
+    })
+    .await
+    .unwrap();
+    let ours = move || apps::foreground_window().filter(|w| w.pid == host_pid && w.hwnd == hwnd);
+    assert!(
+        activated.is_ok() && ours().is_some(),
+        "the test window is the foreground window: {activated:?}"
+    );
+    let fg = ours().unwrap();
     let (cx, cy) = (
         (fg.rect.x + fg.rect.w / 2.0) as i32,
         (fg.rect.y + fg.rect.h * 0.6) as i32,
     );
     const SESSION: &str = "teach-live";
-    let approval = json!({ "app": "notepad.exe", "tier": "interact" });
+    let approval = json!({ "app": app_id, "tier": "interact" });
 
     let events = Events::default();
     let teach = TeachController::new(
@@ -442,10 +604,13 @@ async fn live_records_a_notepad_tab_and_ignores_injected_input() {
     assert!(recorder::is_recording());
     let started = std::time::Instant::now();
 
-    // Injected input into our tab: a click in the editor and End (moves the caret, edits nothing).
+    // Injected input into our window, which is in front (checked above, and again by
+    // computer.click): a click in the editor and End (moves the caret, edits nothing).
+    assert!(ours().is_some(), "our window in front before any input");
+    let target = app_id.clone();
     let clicked = tokio::task::spawn_blocking(move || {
-        wc::computer_click(json!({ "x": cx, "y": cy, "app": "notepad.exe", "session": SESSION, "approvalId": "teach-live", "approval": approval.clone() }))
-            .and_then(|_| wc::computer_key(json!({ "keys": "end", "app": "notepad.exe", "session": SESSION, "approvalId": "teach-live", "approval": approval })))
+        wc::computer_click(json!({ "x": cx, "y": cy, "app": target, "session": SESSION, "approvalId": "teach-live", "approval": approval.clone() }))
+            .and_then(|_| wc::computer_key(json!({ "keys": "end", "app": target, "session": SESSION, "approvalId": "teach-live", "approval": approval })))
     })
     .await
     .unwrap();
@@ -458,7 +623,7 @@ async fn live_records_a_notepad_tab_and_ignores_injected_input() {
     );
 
     // The owner's input, at the hook boundary.
-    assert!(ours().is_some(), "still our tab in front");
+    assert!(ours().is_some(), "still our window in front");
     recorder::simulate_click(0, cx, cy);
     for vk in [0x48u16, 0x49] {
         recorder::simulate_key(vk, KeyMods::default()); // h, i
@@ -480,6 +645,7 @@ async fn live_records_a_notepad_tab_and_ignores_injected_input() {
     let draft = teach.end(&id, End::Stop).unwrap();
     let elapsed = started.elapsed();
     assert!(!recorder::is_recording(), "hooks removed");
+    let _ = wc::computer_end_session(json!({ "session": SESSION }));
     let steps = draft["steps"].as_array().unwrap().clone();
     println!("{}", serde_json::to_string_pretty(&steps).unwrap());
     println!(
@@ -490,8 +656,8 @@ async fn live_records_a_notepad_tab_and_ignores_injected_input() {
     let kinds: Vec<&str> = steps.iter().map(|s| s["kind"].as_str().unwrap()).collect();
     assert_eq!(kinds, ["click", "type", "press", "press"]);
     for s in &steps {
-        assert_eq!(s["target"]["app"], "notepad.exe", "{s}");
-        assert!(s["target"]["window"].as_str().unwrap().contains(&name));
+        assert_eq!(s["target"]["app"], json!(app_id), "{s}");
+        assert_eq!(s["target"]["window"], json!(name), "{s}");
     }
     assert!(
         steps[0]["target"]["role"]
@@ -506,29 +672,15 @@ async fn live_records_a_notepad_tab_and_ignores_injected_input() {
     );
     assert_eq!(events.steps().len(), 4);
     let md = draft["files"][0]["text"].as_str().unwrap();
-    assert!(md.contains("Notepad (`notepad.exe`)") && md.contains("Type \"hi\" into the"));
+    assert!(
+        md.contains(&format!("(`{app_id}`)")) && md.contains("Type \"hi\" into the"),
+        "{md}"
+    );
 
-    // Cleanup: close our (unmodified) tab, only while its title is in front; delete the file.
-    let approval = json!({ "app": "notepad.exe", "tier": "interact" });
-    for _ in 0..10 {
-        if ours().is_none() {
-            break;
-        }
-        let a = approval.clone();
-        let _ = tokio::task::spawn_blocking(move || {
-            wc::computer_key(json!({ "keys": "cmd+w", "app": "notepad.exe", "session": SESSION, "approvalId": "teach-live", "approval": a }))
-        })
-        .await;
-        tokio::time::sleep(Duration::from_millis(700)).await;
-    }
-    let _ = wc::computer_end_session(json!({ "session": SESSION }));
-    let still_open = apps::find_app(Some("notepad.exe"), None)
-        .ok()
-        .is_some_and(|a| {
-            apps::app_windows(&a)
-                .iter()
-                .any(|w| w.title.contains(&name))
-        });
-    assert!(!still_open, "the test tab was closed");
-    let _ = std::fs::remove_file(&path);
+    // Cleanup: close our window and end its process.
+    drop(guard);
+    assert!(
+        !apps::top_windows().iter().any(|w| w.pid == host_pid),
+        "the test window was closed"
+    );
 }
