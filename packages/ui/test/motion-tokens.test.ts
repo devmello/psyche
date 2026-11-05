@@ -54,7 +54,7 @@ describe("motion CSS and literals (docs/design/motion.md §8)", () => {
 
   it("the kit reads motion tokens instead of literals", async () => {
     const { readdirSync, readFileSync, statSync } = await import("node:fs");
-    const { join, relative } = await import("node:path");
+    const { join, relative, sep } = await import("node:path");
     const src = join(process.cwd(), "src");
     const walk = (dir: string): string[] =>
       readdirSync(dir).flatMap((f) => {
@@ -63,7 +63,8 @@ describe("motion CSS and literals (docs/design/motion.md §8)", () => {
       });
     const offenders = new Map<string, string[]>();
     for (const file of walk(src)) {
-      const rel = relative(src, file);
+      // POSIX separators on every OS (Windows paths come back with backslashes).
+      const rel = relative(src, file).split(sep).join("/");
       // Tokens live in styles/ and motion/; stories are fixtures.
       if (/^(styles|motion)\//.test(rel) || !/\.tsx?$/.test(rel) || rel.endsWith(".stories.tsx"))
         continue;

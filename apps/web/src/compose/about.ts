@@ -47,20 +47,45 @@ export async function fetchVersion(fetchFn: typeof fetch = fetch): Promise<Versi
 const OS_NAMES: Record<string, string> = { darwin: "macOS", win32: "Windows", linux: "Linux" };
 // i18n-ignore-end
 
-/** "Apple silicon" or "Intel" for `process.arch`; anything else as reported. */
-export function archLabel(arch: string): string {
+/**
+ * "Apple silicon" or "Intel" for a Mac's `process.arch`; "Arm64" or "x64" for a PC's (Windows
+ * names its architectures so); anything else as reported.
+ */
+export function archLabel(arch: string, platform = "darwin"): string {
+  if (platform === "win32") {
+    if (arch === "arm64") return t("web.about.windowsArm");
+    if (arch === "x64") return t("web.about.windowsX64");
+    return arch;
+  }
   if (arch === "arm64") return t("web.about.appleSilicon");
   if (arch === "x64") return t("web.about.intel");
   return arch;
 }
 
-/** "macOS 27.0.1 · Apple silicon" (`navigator.platform` says "MacIntel" on every Mac). */
+/**
+ * Windows reports its version as the NT kernel's ("10.0.26200" on Windows 11 too); the owner
+ * knows it as Windows 10 or 11 and a build number. Windows 11 starts at build 22000.
+ */
+function windowsVersion(osVersion: string): { os: string; version: string } {
+  const build = /^10\.0\.(\d+)/.exec(osVersion)?.[1];
+  if (build === undefined) return { os: "Windows", version: osVersion };
+  return {
+    // i18n-ignore: Windows product names
+    os: Number(build) >= 22000 ? "Windows 11" : "Windows 10",
+    version: t("web.about.windowsBuild", { build }),
+  };
+}
+
+/**
+ * "macOS 27.0.1 · Apple silicon" (`navigator.platform` says "MacIntel" on every Mac), or
+ * "Windows 11 build 26200 · x64".
+ */
 export function platformLabel(host: Pick<HostAppInfo, "platform" | "osVersion" | "arch">): string {
-  return t("web.about.platform", {
-    os: OS_NAMES[host.platform] ?? host.platform,
-    version: host.osVersion,
-    arch: archLabel(host.arch),
-  }).trim();
+  const { os, version } =
+    host.platform === "win32"
+      ? windowsVersion(host.osVersion)
+      : { os: OS_NAMES[host.platform] ?? host.platform, version: host.osVersion };
+  return t("web.about.platform", { os, version, arch: archLabel(host.arch, host.platform) }).trim();
 }
 
 /**

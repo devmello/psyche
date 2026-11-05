@@ -7,6 +7,7 @@ import { Label } from "../../components/ui/label.tsx";
 import { NativeSelect } from "../../components/ui/native-select.tsx";
 import { t } from "../../i18n/core.ts";
 import { useCopy } from "../../lib/clipboard.ts";
+import { isWindows } from "../../lib/platform.ts";
 import {
   ConnectAccessChoice,
   needsSetup,
@@ -43,6 +44,13 @@ function macOrder(a: string, b: string): number {
   return rank(a) - rank(b);
 }
 
+/** On Windows: Microsoft, then Google, then IMAP, then the rest in catalogue order. */
+const WINDOWS_FIRST = ["microsoft", "google", "imap"];
+function windowsRank(type: string): number {
+  const i = WINDOWS_FIRST.indexOf(type);
+  return i === -1 ? WINDOWS_FIRST.length : i;
+}
+
 export function ConnectorsStep({
   persona,
   connected,
@@ -75,7 +83,12 @@ export function ConnectorsStep({
   const macApps = offered
     .filter((c) => isOnThisMac(c.type))
     .sort((a, b) => macOrder(a.type, b.type));
-  const available = offered.filter((c) => !isOnThisMac(c.type));
+  // Windows has no Apple apps (offeredCatalog leaves them out): mail, calendar and contacts come
+  // through an account, so the accounts that carry all three lead the list there.
+  const windows = isWindows();
+  const available = offered
+    .filter((c) => !isOnThisMac(c.type))
+    .sort((a, b) => (windows ? windowsRank(a.type) - windowsRank(b.type) : 0));
   const [type, setType] = useState<string>(available[0]?.type ?? "");
   const [mode, setMode] = useState<ScopeMode>("read");
   const current = available.some((c) => c.type === type) ? type : (available[0]?.type ?? "");
@@ -234,6 +247,14 @@ export function ConnectorsStep({
           <h2 id={`${id}-accounts`} className="px-1 text-caption text-label-secondary">
             {t("onboarding.connectors.accounts")}
           </h2>
+          {windows ? (
+            <p
+              className="px-1 text-callout text-label-secondary"
+              data-testid="windows-accounts-hint"
+            >
+              {t("onboarding.connectors.windowsHint", { name: persona })}
+            </p>
+          ) : null}
           <div className="elevation-1 flex flex-col gap-3 rounded-lg p-4">
             <div className="flex flex-col gap-1">
               <Label htmlFor={`${id}-type`}>

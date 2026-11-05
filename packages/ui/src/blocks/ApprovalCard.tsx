@@ -23,6 +23,8 @@ import { NativeSelect } from "../components/ui/native-select.tsx";
 import { t } from "../i18n/core.ts";
 import { describeError } from "../i18n/errors.ts";
 import { formatCountdown, formatRelative } from "../lib/format.ts";
+import { keysLabel } from "../lib/keys.ts";
+import { isMac } from "../lib/platform.ts";
 import { useNow } from "../lib/use-now.ts";
 import { cn } from "../lib/utils.ts";
 import { easeLinear, fade, motionSpring, spring } from "../motion/index.ts";
@@ -37,6 +39,9 @@ import {
 import { ApprovalDetails, ApprovalIds } from "./approval-details.tsx";
 import { floorClassOf, useLiftFloorConfirm } from "./LiftFloorDialog.tsx";
 import { taintSentence } from "./taint-text.ts";
+
+/** The approve chord on the button: the compact ⌘↩ on macOS, "Ctrl+Enter" elsewhere. */
+const approveKeys = (): string => (isMac() ? "⌘↩" : keysLabel("Mod+Enter"));
 
 /**
  * Approval card (UI design §3.3). Host-rendered, fixed structure and button order, never inside a
@@ -1076,7 +1081,7 @@ export function ApprovalCard({
             aria-describedby={hintId}
           >
             {isPermission ? permissionLabel : t("chat.approval.allow")}
-            <kbd className="font-sans text-callout opacity-85">⌘↩</kbd>
+            <kbd className="font-sans text-callout opacity-85">{approveKeys()}</kbd>
             {!armed ? (
               <m.span
                 className="absolute inset-x-0 bottom-0 h-0.5 origin-left bg-accent-9"

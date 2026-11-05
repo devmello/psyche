@@ -426,6 +426,72 @@ export function nodes(): NodeInfo[] {
   ];
 }
 
+/**
+ * A Windows PC running Psyche with its Windows helper (`win-helper`, platform `windows`), and the
+ * Windows Hello presence key it registered (RSA-2048). Cast because the protocol in this checkout
+ * may not list `windows` / `win-helper` yet (the Gateway side adds them).
+ */
+export const WINDOWS_IDS = {
+  device: "dev_pc",
+  node: "node_win_helper",
+  keyId: "9f3c2a71b8e4d0c6".repeat(4),
+} as const;
+
+export function windowsDevices(): Device[] {
+  return [
+    {
+      id: WINDOWS_IDS.device,
+      name: "Studio PC",
+      platform: "windows",
+      role: "both",
+      publicKey: "Wp4Cq7Rd0Se3Tf6Ug9Vh2Wi5Xj8Yk1Zl4Am7Bn0Co3D",
+      scopes: ["operator.read", "operator.write", "operator.approvals", "operator.admin", "node"],
+      pairedAt: "2026-10-30T09:00:00Z",
+      lastSeenAt: today("10:12"),
+      revokedAt: null,
+    } as unknown as Device,
+    ...devices().filter((d) => d.id !== IDS.devices.mac),
+  ];
+}
+
+export function windowsNodes(): NodeInfo[] {
+  return [
+    {
+      id: WINDOWS_IDS.node,
+      deviceId: WINDOWS_IDS.device,
+      kind: "win-helper",
+      capabilities: [
+        { name: "ui.tree", sideEffect: "read", targetKind: "app" },
+        { name: "ui.act", sideEffect: "write", targetKind: "app" },
+        { name: "screen.capture", sideEffect: "read", targetKind: "app" },
+        { name: "key.watch", sideEffect: "read" },
+        { name: "presence.attest", sideEffect: "none" },
+        { name: "notify.show", sideEffect: "none" },
+      ],
+      status: "online",
+      lastHeartbeatAt: today("10:11", "50"),
+    } as unknown as NodeInfo,
+    ...nodes().filter((n) => n.kind !== "mac-helper"),
+  ];
+}
+
+/** The Windows helper's registered Windows Hello key, as `devices.presenceKey.list` reports it. */
+export function windowsPresenceKeys(): {
+  deviceId: string;
+  keyId: string;
+  registeredAt: string;
+  kind?: "keychain" | "enclave_file";
+}[] {
+  return [
+    {
+      deviceId: WINDOWS_IDS.device,
+      keyId: WINDOWS_IDS.keyId,
+      registeredAt: "2026-10-30T09:05:00Z",
+      ...({ kind: "windows_hello", algorithm: "RSA-2048" } as object),
+    },
+  ];
+}
+
 // --- Vault metadata -------------------------------------------------------------------------------
 
 export function credentials(): CredentialMeta[] {

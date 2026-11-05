@@ -12,6 +12,7 @@ import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { chatFocusFromRoute } from "../src/chat/focus-request.ts";
 import { LEGACY_ROUTES, legacyRedirect } from "../src/home/redirects.ts";
+import { setUiPlatform } from "../src/lib/platform.ts";
 import { InboxRow } from "../src/screens/inbox/InboxScreen.tsx";
 import { surfaceGroups } from "../src/screens/search/SearchSurface.tsx";
 import { DEFAULT_ACTIONS, paletteMatches } from "../src/shell/CommandPalette.tsx";
@@ -117,8 +118,27 @@ describe("every screen is reachable (sidebar or palette)", () => {
   });
 
   it("gives the numbered shortcuts to distinct main screens", () => {
-    const keys = RAIL_ITEMS.flatMap((i) => (i.shortcut?.match(/^⌘\d$/) ? [i.shortcut] : []));
-    expect(keys).toEqual(["⌘1", "⌘2", "⌘3", "⌘4"]);
+    expect(RAIL_ITEMS.flatMap((i) => (i.digit === undefined ? [] : [i.digit]))).toEqual([
+      1, 2, 3, 4,
+    ]);
+    setUiPlatform("macos");
+    try {
+      expect(RAIL_ITEMS.flatMap((i) => (i.shortcut ? [i.shortcut] : []))).toEqual([
+        "⌘1",
+        "⌘2",
+        "⌘3",
+        "⌘4",
+      ]);
+      setUiPlatform("windows");
+      expect(RAIL_ITEMS.flatMap((i) => (i.shortcut ? [i.shortcut] : []))).toEqual([
+        "Ctrl+1",
+        "Ctrl+2",
+        "Ctrl+3",
+        "Ctrl+4",
+      ]);
+    } finally {
+      setUiPlatform(undefined);
+    }
   });
 });
 

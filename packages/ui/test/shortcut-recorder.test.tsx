@@ -1,7 +1,8 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { useState } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { setUiPlatform } from "../src/lib/platform.ts";
 import {
   acceleratorOf,
   type ShortcutCheck,
@@ -45,6 +46,10 @@ function Harness({
 }
 
 describe("ShortcutRecorder (audit decision 9)", () => {
+  // The macOS glyphs (⌘⌥⌃⇧) these cases check; Windows has its own cases below.
+  beforeEach(() => setUiPlatform("macos"));
+  afterEach(() => setUiPlatform(undefined));
+
   it("builds accelerators from physical keys and needs a modifier", () => {
     expect(press("KeyD", { ctrl: true, alt: true })).toBe("Control+Alt+D");
     expect(press("Digit5", { meta: true, shift: true })).toBe("Command+Shift+5");
@@ -97,5 +102,38 @@ describe("ShortcutRecorder (audit decision 9)", () => {
     await userEvent.keyboard("{Backspace}");
     expect(screen.getByTestId("saved").textContent).toBe("");
     expect(screen.queryByRole("status")).toBeNull();
+  });
+});
+
+describe("ShortcutRecorder on Windows", () => {
+  beforeEach(() => setUiPlatform("windows"));
+  afterEach(() => setUiPlatform(undefined));
+
+  it("records the Windows key as Super and writes keys as text", () => {
+    expect(press("KeyD", { meta: true })).toBe("Super+D");
+    render(<Harness initial="Control+Alt+D" takenNow="Control+Alt+D" />);
+    expect(screen.getByRole("status").textContent).toMatch(/^Ctrl\+Alt\+D is taken by another app/);
+    expect(screen.getByRole("button", { name: "System-wide hotkey Ctrl Alt D" })).toBeTruthy();
+  });
+
+  it("refuses Windows' own shortcuts without asking the shell", async () => {
+    const onCheck = vi.fn(async () => "ok" as const);
+    render(<Harness initial="Control+Alt+D" onCheck={onCheck} />);
+    const field = screen.getByRole("button", { name: /^System-wide hotkey/ });
+    await userEvent.click(field);
+    await userEvent.keyboard("{Alt>} {/Alt}");
+    expect(await screen.findByRole("status")).toHaveProperty(
+      "textContent",
+      "Alt+Space is used by the window menu. Pick another shortcut.",
+    );
+    await userEvent.click(field);
+    await userEvent.keyboard("{Meta>}e{/Meta}");
+    await waitFor(() =>
+      expect(screen.getByRole("status").textContent).toBe(
+        "Win+E is used by Windows (shortcuts with the Windows key). Pick another shortcut.",
+      ),
+    );
+    expect(onCheck).not.toHaveBeenCalled();
+    expect(screen.getByTestId("saved").textContent).toBe("Control+Alt+D");
   });
 });

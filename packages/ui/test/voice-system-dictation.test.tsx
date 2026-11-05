@@ -1,11 +1,16 @@
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { setUiPlatform } from "../src/lib/platform.ts";
 import { VoicePanel } from "../src/screens/settings/VoiceSection.tsx";
 
 const base = { values: {}, needsApproval: new Set<string>() };
 
 describe("Voice & dictation: system-wide dictation (J9, Q2)", () => {
+  // The macOS glyphs (⌘⌥⌃⇧) these cases check; Windows has its own cases below.
+  beforeEach(() => setUiPlatform("macos"));
+  afterEach(() => setUiPlatform(undefined));
+
   it("is hidden where there is no system-wide dictation (the web)", () => {
     render(<VoicePanel {...base} onChange={vi.fn()} />);
     expect(screen.queryByText("Dictate into any app")).toBeNull();
@@ -68,5 +73,32 @@ describe("Voice & dictation: system-wide dictation (J9, Q2)", () => {
     );
     expect(screen.getByText("Helper not running")).toBeTruthy();
     expect(screen.getByText(/⌥Space is taken by another app/)).toBeTruthy();
+  });
+});
+
+describe("Voice & dictation on Windows", () => {
+  beforeEach(() => setUiPlatform("windows"));
+  afterEach(() => setUiPlatform(undefined));
+
+  it("offers Right Alt and Right Ctrl, reads fn as Right Alt, and asks for no Accessibility", () => {
+    render(
+      <VoicePanel
+        {...base}
+        values={{ "voice.pushToTalk": "fn" }}
+        onChange={vi.fn()}
+        system={{ helper: "online", accessibility: "unknown", watching: true }}
+        onOpenAccessibility={vi.fn()}
+      />,
+    );
+    const radios = screen.getAllByRole("radio").map((r) => r.getAttribute("aria-label") ?? "");
+    expect(screen.queryByRole("radio", { name: "fn" })).toBeNull();
+    expect(screen.getByRole("radio", { name: "Right Alt" }).getAttribute("aria-checked")).toBe(
+      "true",
+    );
+    expect(screen.getByRole("radio", { name: "Right Ctrl" })).toBeTruthy();
+    expect(radios).not.toContain("Right Option");
+    expect(screen.getByText("No permission needed")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Open Settings" })).toBeNull();
+    expect(screen.queryByText("Accessibility")).toBeNull();
   });
 });
