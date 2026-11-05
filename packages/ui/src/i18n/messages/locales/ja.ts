@@ -37,6 +37,7 @@ import { personDataRest } from "./personData-rest/ja.ts";
 import { researchRest } from "./research-rest/ja.ts";
 import { scheduledRest } from "./scheduled-rest/ja.ts";
 import { screensRest } from "./screens-rest/ja.ts";
+import { securityState } from "./security-state/ja.ts";
 import { settingsRest } from "./settings-rest/ja.ts";
 import { shellRest } from "./shell-rest/ja.ts";
 import { specialistsRest } from "./specialists-rest/ja.ts";
@@ -3280,4 +3281,6 @@ export const ja: Partial<Catalogue> = {
   "specialists.card.fromAutomation": "オートメーション「{name}」から",
   // signed connector bundles and teach-by-showing in Mac apps
   ...final202611,
+  // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
+  ...securityState,
 };

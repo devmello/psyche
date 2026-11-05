@@ -1,8 +1,25 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createAuditLog, MemoryAuditStore } from "@psyche/audit";
-import { getDevice, getSetting, insertDevice, openDb, type PsycheDb, setSetting } from "@psyche/db";
+import {
+  DEFAULT_MIGRATIONS_DIR,
+  getDevice,
+  getSetting,
+  insertDevice,
+  openDb,
+  type PsycheDb,
+  setSetting,
+} from "@psyche/db";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { PRESENCE_ENROLLED_SETTING } from "../src/presence-gate.ts";
 import { SEALED_TABLES } from "../src/security/seal-spec.ts";
@@ -65,6 +82,33 @@ describe("state seal", () => {
     expect(seal.status()).toEqual({ status: "sealed", reason: null });
     expect(existsSync(join(home, SEAL_KEY_FILE))).toBe(true);
     expect(seal.alerts.open()).toEqual([]);
+  });
+
+  it("upgrades a database made before the seal existed (forward migration, then a first seal)", async () => {
+    // The migrations of the previous release: everything but the seal's.
+    const before = join(home, "migrations-before");
+    mkdirSync(before);
+    for (const f of readdirSync(DEFAULT_MIGRATIONS_DIR)) {
+      if (f.endsWith(".sql") && !f.includes("security-seal")) {
+        copyFileSync(join(DEFAULT_MIGRATIONS_DIR, f), join(before, f));
+      }
+    }
+    const old = openDb(dbPath, { migrationsDir: before });
+    expect(
+      old.sqlite.prepare("SELECT name FROM sqlite_master WHERE name = 'security_seal'").get(),
+    ).toBeUndefined();
+    pairDevice(old, "phone");
+    setSetting(old, PRESENCE_ENROLLED_SETTING, true);
+    old.close();
+    const d = db(); // this release: applies 202611051800_gateway_security-seal
+    const seal = await StateSeal.open(d, { home });
+    expect(seal.status().status).toBe("sealed");
+    expect(seal.alerts.open().map((a) => a.kind)).toEqual(["state_first_seal"]);
+    expect(getSetting(d, PRESENCE_ENROLLED_SETTING)?.value).toBe(true);
+    // From now on an edit from outside is caught.
+    foreign((f) => setSetting(f, PRESENCE_ENROLLED_SETTING, false));
+    seal.ensure();
+    expect(getSetting(d, PRESENCE_ENROLLED_SETTING)?.value).toBe(true);
   });
 
   it("an upgrade with paired devices gets one first-seal notice", async () => {

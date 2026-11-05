@@ -18,6 +18,9 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-05 (security state integrity)
+
+- New methods `security.state.get` (`operator.read`): whether the security records are `sealed` or `untrusted` (with `reason`), the alerts every device shows and the local recovery requests; `security.alerts.acknowledge` (`operator.admin`, side-effecting, fresh presence once enrolled; refused while untrusted); `security.recoveries.cancel` (`operator.admin`, side-effecting, narrowing, no presence); `security.recoveries.approve` (`operator.admin`, side-effecting, fresh presence; never for a re-seal or while untrusted). New event `security.state.changed` (`status`, `openAlerts`, `waitingRecoveries`): clients refresh. New types `SecurityAlert`, `SecurityAlertKind`, `SecurityRecovery`, `SecurityRecoveryOp`, `SecurityStateChange`, `SecurityStateStatus`. New enums are not switched over in the Swift helper. Design: docs/design/security-state-integrity-2026.md.
 ### v1 additive — 2026-11-05 (uninstall Psyche)
 
 - New method `app.uninstall.authorize` (params `path`, the data folder, which must be this Gateway's own home or the call is `invalid_params`, and optional `approvalId`; `operator.admin`, side-effecting, Psyche desktop shell on the Host only, `forbidden` for anything else): the presence gate in front of "Delete my data" in Settings › About › Uninstall Psyche. Behind a device-only approval whose subject and details name that exact folder (fresh presence once a verifier exists; `approval_required` with `details.approvalId`, then retry with `approvalId`). It deletes nothing and is audited (`app.uninstall_authorized`); the desktop app moves the data folder to the Trash itself afterwards. New type `UninstallAuthorized`. Design: docs/design/updates-and-install-2026.md §3.5.

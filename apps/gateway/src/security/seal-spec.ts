@@ -1,4 +1,6 @@
+import { isUserSettingKey } from "@psyche/protocol";
 import { needsPresence } from "../handlers/settings.ts";
+import { STATE_VERSION_KEY } from "../state-version.ts";
 
 /**
  * Which rows the security-state seal covers (docs/design/security-state-integrity-2026.md §2,
@@ -45,9 +47,15 @@ const INTERNAL_SEALED = new Set(["_presence.enrolled", "_presence.helperKeys", "
 /** `mcp.servers` carries each server's trust tier, sandbox and launch command. */
 const OTHER_SEALED = new Set(["mcp.servers"]);
 
-/** True for setting keys whose value is security state. */
+/**
+ * True for setting keys whose value is security state: every setting but the cosmetic ones a
+ * non-admin device may change (`isUserSettingKey`), and the event counter (it authorizes
+ * nothing and changes with every event). Only the Gateway writes settings, so sealing more than
+ * the presence-gated keys costs nothing and covers settings nobody listed here yet.
+ */
 export function isSealedSettingKey(key: string): boolean {
-  return INTERNAL_SEALED.has(key) || OTHER_SEALED.has(key) || needsPresence(key);
+  if (INTERNAL_SEALED.has(key) || OTHER_SEALED.has(key) || needsPresence(key)) return true;
+  return key !== STATE_VERSION_KEY && !isUserSettingKey(key);
 }
 
 /** The SQL function the settings predicate calls (registered on the Gateway's connection). */
@@ -219,11 +227,11 @@ export const SEALED_TABLES: readonly SealedTable[] = [
       "owner_ids",
       "dm_scope",
       "node_id",
+      "status",
       "config",
       "created_at",
       "updated_at",
     ],
-    ignored: ["status"],
     added: "delete",
     label: "type",
   },

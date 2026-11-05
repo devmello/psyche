@@ -153,7 +153,7 @@ describe("psyched commands once an admin exists", () => {
     expect(res).toMatchObject({ ok: false, error: { code: "presence_required" } });
   });
 
-  it("devices grant: widening waits, narrowing applies at once", async () => {
+  it("devices grant waits, narrowing too (it could empty the admin set for a first-admin grab)", async () => {
     const gw = await boot();
     const admin = await adminClient(gw.gateway);
     open.push(admin);
@@ -171,8 +171,28 @@ describe("psyched commands once an admin exists", () => {
     expect(wide.code).toBe(3);
     expect(getDevice(db, "ipad")?.scopes).toEqual(["operator.read", "operator.write"]);
     const narrow = await cli(["devices", "grant", "ipad", "operator.read"]);
-    expect(narrow.code).toBe(0);
-    expect(getDevice(db, "ipad")?.scopes).toEqual(["operator.read"]);
+    expect(narrow.code).toBe(3);
+    expect(getDevice(db, "ipad")?.scopes).toEqual(["operator.read", "operator.write"]);
+  });
+
+  it("no admin left but presence was enrolled: the first admin from the Mac waits too", async () => {
+    const gw = await boot();
+    setSetting(gw.gateway.context.db, PRESENCE_ENROLLED_SETTING, true);
+    const { code } = await pendingCode(gw, "laptop");
+    const r = await cli(["devices", "approve", code]);
+    expect(r.code).toBe(3);
+    expect(getDevice(gw.gateway.context.db, "laptop")?.pairedAt).toBeNull();
+  });
+
+  it("makes the first admin at once on a fresh install, with an alert", async () => {
+    const gw = await boot();
+    const { code } = await pendingCode(gw, "laptop");
+    const r = await cli(["devices", "approve", code]);
+    expect(r.code).toBe(0);
+    expect(getDevice(gw.gateway.context.db, "laptop")?.scopes).toContain("operator.admin");
+    expect(gw.gateway.context.securityState?.alerts.open().map((a) => a.kind)).toEqual([
+      "local_first_admin",
+    ]);
   });
 
   it("presence reset with nothing enrolled is a no-op; reseal of a sealed state too", async () => {

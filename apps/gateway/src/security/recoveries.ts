@@ -35,6 +35,8 @@ import type { StateSeal } from "./state-seal.ts";
 export const RECOVERY_DELAY_MS = 24 * 60 * 60 * 1000;
 /** A queued request the Gateway did not pick up within this is refused, not applied later. */
 export const REQUEST_TTL_MS = 10 * 60 * 1000;
+/** At most this many recoveries wait at once. */
+const MAX_WAITING = 10;
 /** Old inbox rows are dropped after this. */
 const INBOX_KEEP_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -262,9 +264,17 @@ export class SecurityRecoveries {
     };
   }
 
-  /** First admin: nobody holds admin and the records are trusted (`devices.bootstrapAdmin`'s rule). */
+  /**
+   * First admin from the Mac: nobody holds admin, the records are trusted, and presence was never
+   * enrolled (a fresh install). Once the owner had a Touch ID key or a passkey, an install with no
+   * admin left is a recovery, not a first run: it waits like any other.
+   */
   #firstAdmin(): boolean {
-    return this.#d.seal.untrusted() === null && activeAdminCount(this.#d.db) === 0;
+    return (
+      this.#d.seal.untrusted() === null &&
+      this.#d.presence.state() === "off" &&
+      activeAdminCount(this.#d.db) === 0
+    );
   }
 
   #intake(r: RequestRow): Intake {
@@ -346,13 +356,13 @@ export class SecurityRecoveries {
       throw new PsycheError("not_found", `no paired device ${deviceId}`);
     }
     const widens = scopes.some((s) => !device.scopes.includes(s as DeviceScope));
-    // Narrowing a device is what an admin may always do; from the Mac too, at once.
-    if (!widens || this.#firstAdmin()) {
+    // Only the first admin applies at once. Narrowing waits too: taking admin away from the
+    // owner's last admin device at once would make "no admin exists" true for a first-admin
+    // approval right after it.
+    if (widens && this.#firstAdmin()) {
       const updated = updateDevice(db, deviceId, { scopes: scopes as DeviceScope[] });
       if (updated === undefined) throw new PsycheError("not_found", `no paired device ${deviceId}`);
-      this.#d.onDeviceChanged?.(updated);
-      if (widens) this.#localFirstAdmin(updated, "devices.grant");
-      else this.#audit("security.local.narrowed", { deviceId, scopes });
+      this.#localFirstAdmin(updated, "devices.grant");
       return { status: "applied", outcome: `${deviceId} now has ${updated.scopes.join(",")}` };
     }
     return this.#queue("devices.grant", { deviceId, deviceName: device.name, scopes });
@@ -375,6 +385,13 @@ export class SecurityRecoveries {
 
   #queue(op: SecurityRecoveryOp, params: RecoveryParams): Intake {
     const { db } = this.#d;
+    // A program flooding the inbox gets a few visible requests, not a wall of notifications.
+    if (this.waitingCount() >= MAX_WAITING) {
+      throw new PsycheError(
+        "rate_limited",
+        `${MAX_WAITING} requests from this Mac are already waiting; cancel some first`,
+      );
+    }
     const id = db.newId();
     const now = this.#d.now();
     const at = now.toISOString();

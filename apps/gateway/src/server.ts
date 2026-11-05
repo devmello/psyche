@@ -17,7 +17,6 @@ import {
   revokeSetupTokensWithCertPin,
   setSetting,
 } from "@psyche/db";
-import { RESTORE_MARKER } from "@psyche/permissions";
 import {
   type AgentLoop,
   type DeviceScope,
@@ -237,14 +236,9 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
   const db = options.db ?? openDb(config.dbPath, { now: () => now().toISOString() });
   // Before anything reads or writes security state: verify the seal and undo what changed
   // outside the Gateway (docs/design/security-state-integrity-2026.md §7.1).
-  const seal =
-    options.securityState ??
-    (await StateSeal.open(db, {
-      home: config.home,
-      now,
-      log,
-      restored: existsSync(join(config.home, RESTORE_MARKER)),
-    }));
+  // A restore marker is the composition root's to honour (it re-seals, then replays and
+  // consumes it); without one here a marker would re-seal at every start, so it is ignored.
+  const seal = options.securityState ?? (await StateSeal.open(db, { home: config.home, now, log }));
   const recovery = recoverAfterRestart(db, log);
   const bus = new EventBus(readStateVersion(db), (v) => writeStateVersion(db, v));
   // The secret is written to disk only after both listeners are up (see below).

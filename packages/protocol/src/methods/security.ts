@@ -123,14 +123,15 @@ export const SecurityMethods = {
     scope: "operator.admin",
     sideEffecting: true,
     description:
-      "Marks an alert reviewed. Needs fresh presence once a verifier is enrolled (approval_required, then retry with approvalId). An untrusted state's alerts stay until it is re-sealed.",
+      "Marks an alert reviewed. Needs fresh presence once a verifier is enrolled (approval_required, then retry with approvalId). An untrusted state's alerts stay until it is re-sealed. Side-effecting.",
   }),
   "security.recoveries.cancel": defineMethod({
     params: Type.Object({ id: Id }),
     result: Type.Object({ recovery: SecurityRecovery }),
     scope: "operator.admin",
     sideEffecting: true,
-    description: "Cancels a waiting local recovery request. Narrowing: admin only, no presence.",
+    description:
+      "Cancels a waiting local recovery request. Narrowing: admin only, no presence. Side-effecting.",
   }),
   "security.recoveries.approve": defineMethod({
     params: Type.Object({
@@ -141,6 +142,6 @@ export const SecurityMethods = {
     scope: "operator.admin",
     sideEffecting: true,
     description:
-      "Applies a waiting local recovery request now. Needs fresh presence (approval_required, then retry with approvalId); refused while the state is untrusted and for a re-seal.",
+      "Applies a waiting local recovery request now. Needs fresh presence (approval_required, then retry with approvalId); refused while the state is untrusted and for a re-seal. Side-effecting.",
   }),
 } as const;

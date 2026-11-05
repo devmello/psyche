@@ -2938,7 +2938,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Marks an alert reviewed. Needs fresh presence once a verifier is enrolled (approval_required, then retry with approvalId). An untrusted state's alerts stay until it is re-sealed.",
+        "description": "Marks an alert reviewed. Needs fresh presence once a verifier is enrolled (approval_required, then retry with approvalId). An untrusted state's alerts stay until it is re-sealed. Side-effecting.",
         "name": "security.alerts.acknowledge",
         "params": "#/$defs/SecurityAlertsAcknowledgeParams",
         "result": "#/$defs/SecurityAlertsAcknowledgeResult",
@@ -2946,7 +2946,7 @@
         "sideEffecting": true
       },
       {
-        "description": "Applies a waiting local recovery request now. Needs fresh presence (approval_required, then retry with approvalId); refused while the state is untrusted and for a re-seal.",
+        "description": "Applies a waiting local recovery request now. Needs fresh presence (approval_required, then retry with approvalId); refused while the state is untrusted and for a re-seal. Side-effecting.",
         "name": "security.recoveries.approve",
         "params": "#/$defs/SecurityRecoveriesApproveParams",
         "result": "#/$defs/SecurityRecoveriesApproveResult",
@@ -2954,7 +2954,7 @@
         "sideEffecting": true
       },
       {
-        "description": "Cancels a waiting local recovery request. Narrowing: admin only, no presence.",
+        "description": "Cancels a waiting local recovery request. Narrowing: admin only, no presence. Side-effecting.",
         "name": "security.recoveries.cancel",
         "params": "#/$defs/SecurityRecoveriesCancelParams",
         "result": "#/$defs/SecurityRecoveriesCancelResult",
