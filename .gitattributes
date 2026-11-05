@@ -1,9 +1,6 @@
-# Text files are LF everywhere, including Windows checkouts with core.autocrlf=true: generated
-# files (`pnpm protocol:check`), golden fixtures and migration checksums compare bytes.
+# Keep LF in every checkout, Windows included (.editorconfig, biome and the protocol codegen all
+# write LF; core.autocrlf=true would otherwise show generated files as modified on Windows).
 * text=auto eol=lf
-# Windows scripts keep CRLF (cmd.exe and older PowerShell expect it).
-*.ps1 text eol=crlf
 *.cmd text eol=crlf
 *.bat text eol=crlf
-
 packages/protocol/CHANGES.md merge=union
