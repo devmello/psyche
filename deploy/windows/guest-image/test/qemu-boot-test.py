@@ -68,6 +68,8 @@ def qemu(session, console_path):
         f"psyche.control=TCP-LISTEN:{CONTROL_PORT}",
         "psyche.nodelog=console",
         "psyche.share=bootshare:virtio:bootshare:ro",
+        "psyche.share=psyche-out:virtio:outshare:rw",
+        "psyche.share=psyche-payload:virtio:payloadshare:ro",
     ])
     argv = [
         "qemu-system-x86_64", "-machine", "q35", "-m", "1536", "-smp", "2",
@@ -79,6 +81,8 @@ def qemu(session, console_path):
         "-device", "virtio-net-pci,netdev=n0",
         "-virtfs", f"local,path={WORK}/share-ro,mount_tag=bootshare,security_model=none,readonly=on",
         "-virtfs", f"local,path={WORK}/share-live,mount_tag=livemount,security_model=none",
+        "-virtfs", f"local,path={WORK}/share-out,mount_tag=outshare,security_model=none",
+        "-virtfs", f"local,path={WORK}/share-payload,mount_tag=payloadshare,security_model=none,readonly=on",
         "-display", "none", "-monitor", "none", "-serial", f"file:{console_path}",
         "-no-reboot",
     ]
@@ -138,6 +142,9 @@ def main():
     shutil.rmtree(WORK, ignore_errors=True)
     os.makedirs(f"{WORK}/share-ro")
     os.makedirs(f"{WORK}/share-live")
+    os.makedirs(f"{WORK}/share-out")
+    os.makedirs(f"{WORK}/share-payload")
+    shutil.copy(f"{OUT}/work/psyche-node.mjs", f"{WORK}/share-payload/psyche-node.mjs")
     open(f"{WORK}/share-ro/hello.txt", "w").write("hello from the host\n")
     session = f"{WORK}/sessiondata.vhdx"
     shutil.copy(f"{OUT}/sessiondata.vhdx", session)
@@ -195,6 +202,30 @@ def main():
     check("result" in r, "[boot1] live umount")
     r = ctl.call("umount", name="live one")
     check(r.get("error", {}).get("code") == "not_found", "[boot1] umount of an unmounted share -> not_found")
+
+    # export (vm.copy_out): a file the sandbox user can read lands in psyche-out/<id>/; a folder
+    # becomes a .tar; root-only, internal and traversal paths are refused.
+    r = ctl.call("export", path="/etc/hostname", transferId="t1")
+    check(r.get("result", {}).get("bytes") == len("qemu-test\n"), "[boot1] export: file copied, byte count returned")
+    check(open(f"{WORK}/share-out/t1/hostname").read() == "qemu-test\n", "[boot1] export: content arrived in the host's psyche-out folder")
+    r = ctl.call("export", path="/usr/lib/psyche", transferId="t2")
+    check(os.path.exists(f"{WORK}/share-out/t2/psyche.tar"), "[boot1] export: a folder becomes <name>.tar")
+    r = ctl.call("export", path="/etc/shadow", transferId="t3")
+    check("error" in r, "[boot1] export: files the sandbox user cannot read are refused")
+    r = ctl.call("export", path="/session/node/identity.json", transferId="t4")
+    check(r.get("error", {}).get("code") == "invalid_params", "[boot1] export: the node identity is refused")
+    r = ctl.call("export", path="/etc/hostname", transferId="../x")
+    check(r.get("error", {}).get("code") == "invalid_params", "[boot1] export: bad transferId is refused")
+    r = ctl.call("export", path="/nonexistent", transferId="t5")
+    check(r.get("error", {}).get("code") == "not_found", "[boot1] export: missing path -> not_found")
+
+    # install_psyche: a node bundle from the read-only payload share replaces the built-in one.
+    r = ctl.call("install_psyche", payload="/etc", vsock="2:7980")
+    check(r.get("error", {}).get("code") == "invalid_params", "[boot1] install_psyche: payload outside /mnt/psyche is refused")
+    r = ctl.call("install_psyche", payload="/mnt/psyche/psyche-payload", vsock="2:9999")
+    check(r.get("error", {}).get("code") == "invalid_params", "[boot1] install_psyche: wrong vsock port is refused")
+    r = ctl.call("install_psyche", payload="/mnt/psyche/psyche-payload", vsock="2:7980")
+    check(r.get("result", {}).get("installed") is True, f"[boot1] install_psyche: bundle installed ({str(r)[:160]})")
 
     ctl.call("shutdown")
     try:

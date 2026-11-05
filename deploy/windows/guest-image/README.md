@@ -124,6 +124,8 @@ NDJSON, one request per line, answered in order: `{"id": any, "op": "...", ...}`
 | `shares` | | `[{name, path, readOnly}]` |
 | `restart_node` | | `{restarting: true}` |
 | `shutdown` | `reboot` (false) | `{stopping: true}` (the VM powers off after the reply) |
+| `export` | `path` (absolute guest path), `transferId` | `{bytes}`: copies the file (a folder becomes `<name>.tar`) into `/mnt/psyche/psyche-out/<transferId>/`, read as the sandbox user (uid 1000, so root-only files fail); `/proc`, `/sys`, `/dev`, `/session/node` (identity) and `psyche-out` itself are refused; needs the `psyche-out` share mounted read-write |
+| `install_psyche` | `payload` (guest path under `/mnt/psyche`), `vsock` (`2:7980`) | `{installed, version, bytes, sha256}`: takes `psyche-node.mjs` (the `bundle-node.mjs` output) from the payload root or `deploy/windows/guest-image/out/work/`, test-runs `version` as uid 1000, stores it in `/session/payload` and restarts the node on it. The supervisor prefers it over the built-in bundle and falls back after 3 quick crashes. A raw checkout is not run in place (the guest has no `node_modules`/`tsx`); bundle first. The mac `guest-bootstrap.sh` is not used on Linux. |
 
 Share names follow the mac helper (`^[A-Za-z0-9][A-Za-z0-9 ._-]{0,63}$`, no `..`). A mounted share is added to the node's
 `fs.roots` (mode `ro` or `rw`) and the node restarted to pick it up; pass `fsRoot: false` to mount without exposing it.
@@ -143,7 +145,7 @@ refusals) works; a virtio-9p share mounts at `/mnt/psyche/<name>`, read-only whe
 
 It does **not** prove Hyper-V specifics: VMBus enumeration of the SCSI controller and NIC, `hv_sock` (vsock here is TCP via
 QEMU's user network), the HCS Plan9 server's handshake/options, the Hyper-V shutdown integration service calling
-`/sbin/poweroff`, or that Windows accepts the qemu-img-written VHDX (the format is standard; `qemu-img check` passes).
+`/sbin/poweroff`, or that Windows accepts the qemu-img-written VHDX (QEMU reads it back in the test; VM-CORE reports it works as a differencing parent).
 Those need the first boot under `psyche-vm-svc.exe`.
 
 ## Licensing and source offer

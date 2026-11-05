@@ -14,6 +14,8 @@
 #   shares                                          mounted shares
 #   restart_node                                    psyche-node is restarted by its supervisor
 #   shutdown  reboot? (false)                       orderly power off / reboot (flushes the session disk)
+#   export    path, transferId                      copy a guest file (folder -> .tar) into psyche-out/<transferId>/; {bytes}
+#   install_psyche  payload, vsock?                 install a psyche-node.mjs bundle from a shared folder; restarts the node
 #
 # Error codes (the mac helper's): invalid_params, not_found, conflict, internal.
 # The peer is the Hyper-V host (a guest cannot connect to this socket); inputs are still validated.
@@ -30,6 +32,70 @@ param() { printf '%s' "$REQ" | jq -r --arg k "$1" --arg d "${2:-}" '(if has($k) 
 
 node_pid() { cat /run/psyche/node.pid 2>/dev/null || true; }
 restart_node() { p="$(node_pid)"; [ -z "$p" ] || kill -TERM "$p" 2>/dev/null || true; }
+
+# Runs a command as the sandbox user (uid 1000): no capabilities, no new privileges. export reads
+# guest files with it so the host can copy out only what the sandbox user itself can read.
+unpriv() { setpriv --reuid=1000 --regid=1000 --clear-groups --no-new-privs --inh-caps=-all --bounding-set=-all "$@"; }
+
+# export: copies one guest file (a directory becomes <name>.tar) into /mnt/psyche/psyche-out/<id>/.
+do_export() {
+  path="$(param path)"; tid="$(param transferId)"
+  case "$tid" in ""|*[!A-Za-z0-9_-]*) err invalid_params "transferId must be letters, digits, _ or -"; return ;; esac
+  [ "${#tid}" -le 64 ] || { err invalid_params "transferId is too long"; return; }
+  case "$path" in /*) ;; *) err invalid_params "path must be an absolute guest path"; return ;; esac
+  real="$(realpath -e -- "$path" 2>/dev/null)" || { err not_found "no such file or folder in the guest: $path"; return; }
+  case "$real" in
+    /|/proc|/proc/*|/sys|/sys/*|/dev|/dev/*|/session/node|/session/node/*|/mnt/psyche/psyche-out|/mnt/psyche/psyche-out/*)
+      err invalid_params "that guest path cannot be exported"; return ;;
+  esac
+  mountpoint -q /mnt/psyche/psyche-out || { err conflict "the psyche-out share is not mounted"; return; }
+  outdir="/mnt/psyche/psyche-out/$tid"
+  mkdir -p "$outdir" || { err internal "cannot create $outdir"; return; }
+  base="$(basename -- "$real")"
+  if unpriv test -f "$real"; then
+    dest="$outdir/$base"
+    unpriv cat -- "$real" >"$dest" 2>/dev/null; rc=$?
+  elif unpriv test -d "$real"; then
+    dest="$outdir/$base.tar"
+    unpriv tar -C "$(dirname -- "$real")" -cf - -- "$base" >"$dest" 2>/dev/null; rc=$?
+  else
+    rm -rf "$outdir"; err not_found "only files and folders can be exported"; return
+  fi
+  if [ "$rc" != 0 ]; then rm -rf "$outdir"; err internal "cannot read $path as the sandbox user"; return; fi
+  ok "$(jq -cn --argjson bytes "$(stat -c %s -- "$dest")" '{bytes: $bytes}')"
+}
+
+# install_psyche: installs a psyche-node bundle from the read-only payload share. The payload
+# (a guest path under /mnt/psyche) must contain psyche-node.mjs (bundle-node.mjs output) at its
+# root or at deploy/windows/guest-image/out/work/. It is test-run (`version`) as the sandbox user,
+# stored on the session disk (/session/payload) and preferred over the built-in node by the
+# supervisor; the supervisor falls back to the built-in node if the new one keeps crashing.
+do_install_psyche() {
+  payload="$(param payload)"; vs="$(param vsock "2:$GATEWAY_PORT")"
+  [ "$SESSION" = yes ] || { err conflict "no session disk to install onto"; return; }
+  case "$payload" in /mnt/psyche/*) ;; *) err invalid_params "payload must be a shared folder under /mnt/psyche"; return ;; esac
+  real="$(realpath -e -- "$payload" 2>/dev/null)" || { err not_found "payload folder not found"; return; }
+  case "$real" in /mnt/psyche/*) ;; *) err invalid_params "payload must be a shared folder under /mnt/psyche"; return ;; esac
+  [ "$vs" = "2:$GATEWAY_PORT" ] || { err invalid_params "vsock must be 2:$GATEWAY_PORT (the image's Gateway port)"; return; }
+  bundle=""
+  for c in "$real/psyche-node.mjs" "$real/deploy/windows/guest-image/out/work/psyche-node.mjs"; do
+    [ -f "$c" ] && { bundle="$c"; break; }
+  done
+  [ -n "$bundle" ] || { err invalid_params "payload has no psyche-node.mjs (build it with deploy/windows/guest-image/bundle-node.mjs)"; return; }
+  stage=/session/payload.new
+  rm -rf "$stage"; mkdir -p "$stage"
+  cp -- "$bundle" "$stage/psyche-node.mjs" || { rm -rf "$stage"; err internal "cannot copy the bundle"; return; }
+  chmod 0644 "$stage/psyche-node.mjs"
+  ver="$(unpriv env -i PATH=/usr/local/bin:/usr/bin:/bin timeout 20 node "$stage/psyche-node.mjs" version 2>&1)" \
+    || { rm -rf "$stage"; err invalid_params "the bundle does not run: $(printf '%s' "$ver" | head -c 200)"; return; }
+  rm -rf /session/payload.old
+  [ ! -d /session/payload ] || mv /session/payload /session/payload.old
+  mv "$stage" /session/payload && rm -rf /session/payload.old
+  rm -f /run/psyche/payload-disabled
+  restart_node
+  ok "$(jq -cn --arg version "$ver" --argjson bytes "$(stat -c %s /session/payload/psyche-node.mjs)" \
+    --arg sha256 "$(sha256sum /session/payload/psyche-node.mjs | cut -d' ' -f1)" '{installed: true, version: $version, bytes: $bytes, sha256: $sha256}')"
+}
 
 # Adds or removes /mnt/psyche/<name> from node.json fs.roots (root-owned write, psyche-owned file).
 update_roots() { # update_roots add|remove PATH MODE
@@ -72,6 +138,8 @@ while IFS= read -r line; do
     status) ok "$(status)" ;;
     shares) ok "$("$LIB/share" list)" ;;
     restart_node) restart_node; ok '{"restarting":true}' ;;
+    export) do_export ;;
+    install_psyche) do_install_psyche ;;
     mount)
       name="$(param name)"; transport="$(param transport vsock)"; ro="$(param readOnly true)"
       mode=rw; [ "$ro" = false ] || mode=ro
