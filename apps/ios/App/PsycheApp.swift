@@ -64,19 +64,32 @@ private struct AppModel {
     }
 }
 
-@main
-struct PsycheApp: App {
-    @State private var model = AppModel.launch()
-    @Environment(\.scenePhase) private var scenePhase
-
-    init() {
+/// The model the app launches with, made exactly once. `@State`'s initial value and the hooks installed in
+/// `PsycheApp.init` must be the same `AlertCenter`: reading `model` inside `init` returned a different one,
+/// so notification taps, the island's Deny / Approve and background checks reached a center the screens
+/// never read.
+@MainActor
+private enum Launch {
+    static let model: AppModel = {
+        let model = AppModel.launch()
         PsycheAppearance.install()
-        // Before launch finishes: the delegate must be set for a tap that launched the app, and the background
-        // task registered. Neither asks for any permission.
+        // Before launch finishes: the delegate must be set for a tap that launched the app, the island's
+        // intent handler installed, and the background task registered. None of these asks for a permission.
         model.alerts.installSystemHooks()
         #if os(iOS)
         model.alerts.registerBackgroundRefresh()
         #endif
+        return model
+    }()
+}
+
+@main
+struct PsycheApp: App {
+    @State private var model = Launch.model
+    @Environment(\.scenePhase) private var scenePhase
+
+    init() {
+        _ = Launch.model
     }
 
     private var appRoot: some View {

@@ -13,6 +13,7 @@ import {
   type MethodParams,
   type Provenance,
   PsycheError,
+  type WorkHistoryEntry,
 } from "@psyche/protocol";
 import { type GraphWorld, graphDetail, graphSummary } from "../fixtures/people.ts";
 
@@ -543,6 +544,28 @@ export function graphHandlers(ctx: GraphMockContext): Handlers {
       return { entity: e };
     },
     "memory.catchup.seen": (p) => ({ seen: p.entityIds.length }),
+    "memory.work.history": (p) => ({
+      entries: ctx
+        .graph()
+        .facts.filter(
+          (f) =>
+            f.entityId === p.entityId &&
+            f.retractedAt == null &&
+            ["status", "progress", "stopped_at", "next_step", "deadline"].includes(f.attribute),
+        )
+        .sort((a, b) => b.recordedAt.localeCompare(a.recordedAt))
+        .slice(0, p.limit ?? 20)
+        .map((f) => ({
+          factId: f.id,
+          attribute: f.attribute as WorkHistoryEntry["attribute"],
+          value: f.value,
+          from: ctx.graph().facts.find((x) => x.supersededBy === f.id)?.value ?? null,
+          at: f.recordedAt,
+          origin: f.provenance === "owner" ? ("you" as const) : ("nightly" as const),
+          chip: null,
+          undoable: false,
+        })),
+    }),
     "memory.entities.timeline": (p) => timelineOf(ctx.graph(), p.entityId, p.before, p.limit ?? 50),
     "memory.anchors.list": (p) => ({
       anchors: ctx

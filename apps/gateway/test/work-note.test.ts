@@ -186,6 +186,18 @@ describe("work note under a chat turn (Gateway)", () => {
     );
     expect(graph.getEntity(lw7.id)?.dueAt).toBe("2026-11-06T23:59:00.000Z");
 
+    // History lists the chat update as undoable (a read-only window sees it too); the confirmed
+    // deadline is listed but has no Undo.
+    const listed = await viewer.call<{
+      entries: { factId: string; attribute: string; origin: string; undoable: boolean }[];
+    }>("memory.work.history", { entityId: lw7.id }, ik());
+    expect(listed.entries.find((e) => e.factId === update?.factId)).toMatchObject({
+      attribute: "progress",
+      origin: "chat",
+      undoable: true,
+    });
+    expect(listed.entries.filter((e) => e.undoable)).toHaveLength(1);
+
     // Undo takes the progress line back; a second undo says so.
     expect(await owner.call("memory.work.undoUpdate", { factId: update?.factId }, ik())).toEqual({
       status: "undone",
