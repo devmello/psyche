@@ -39,7 +39,9 @@ import { LINUX_HELPER_READY_COMM, LINUX_PACKAGED_HELPER_PATH } from "@psyche/pro
  *      now; the device number is not compared, as btrfs and overlayfs print other numbers than
  *      `stat`, and `map_files` would need privileges the Gateway lacks); and not set
  *      `LD_PRELOAD`, `LD_AUDIT` or `LD_LIBRARY_PATH` in its initial
- *      environment. The packaged, root-owned helper that passes is `root_owned`; another file
+ *      environment; and live in the Gateway's own user and mount namespaces
+ *      (`other_namespace` otherwise: a private mount could fake library inodes). The packaged,
+ *      root-owned helper that passes is `root_owned`; another file
  *      named `psyche-helper` is `user_owned`; anything else is a `mismatch`. A system library
  *      replaced since it was mapped (an upgrade) is `unverified` with reason `library_replaced`:
  *      the helper keeps being refused until it restarts (its next launch, or
@@ -432,6 +434,32 @@ async function procState(deps: PeerCheckDeps, pid: number): Promise<ProcState | 
   return { comm, state, tracer: Number(tracer) };
 }
 
+/**
+ * Whether `pid` is in the Gateway's own user and mount namespaces. Inside a private user and mount
+ * namespace a process can mount a filesystem with inode numbers of its choosing over a system
+ * library path, which would make the inode comparison of the mapped libraries meaningless. The
+ * packaged units have no namespace sandboxing, so the real helper shares both namespaces.
+ *
+ * Revisit this if psyched's own unit ever gains `PrivateTmp`, `Protect*` or `PrivateUsers`: the
+ * Gateway would then sit in other namespaces than a helper started outside the unit, and every
+ * real helper would be `unverified` (`other_namespace`).
+ */
+async function namespaceOf(
+  deps: PeerCheckDeps,
+  pid: number,
+): Promise<"same" | "other_namespace" | "namespace_unreadable"> {
+  try {
+    for (const kind of ["user", "mnt"]) {
+      const theirs = await deps.readlink(`/proc/${pid}/ns/${kind}`);
+      const ours = await deps.readlink(`/proc/self/ns/${kind}`);
+      if (theirs !== ours) return "other_namespace";
+    }
+    return "same";
+  } catch {
+    return "namespace_unreadable";
+  }
+}
+
 /** A running (not stopped or traced) helper that has finished its start-up hardening. */
 function startedUp(st: ProcState | undefined): PeerResult | undefined {
   if (st === undefined) return unverified("process_unreadable");
@@ -501,6 +529,9 @@ async function judgePid(
       if (!(await isRootControlledDir(deps, dir))) return unverified("dir_writable");
       if (dir === PACKAGED_ROOT) break;
     }
+    // In our own user and mount namespaces (a private mount could fake the libraries' inodes).
+    const ns = await namespaceOf(deps, pid);
+    if (ns !== "same") return unverified(ns);
     // The real helper, but is it past its start-up, untraced, and running only its own and the
     // system's code?
     const notUp = startedUp(stateBefore) ?? startedUp(stateAfter);

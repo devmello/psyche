@@ -1,4 +1,4 @@
-import { type ChildProcess, spawn } from "node:child_process";
+import { type ChildProcess, spawn, spawnSync } from "node:child_process";
 import { chmodSync, copyFileSync, existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -59,9 +59,13 @@ describe.skipIf(!enabled)("the root-owned packaged helper, checked as an ordinar
     });
     return t;
   };
-  const spawnHelper = (bin: string, extraEnv: Record<string, string> = {}) => {
+  const spawnHelper = (
+    bin: string,
+    extraEnv: Record<string, string> = {},
+    args: string[] = ["--idle-timeout", "0"],
+  ) => {
     const state = tmp("psyche-helper-state-");
-    const child = spawn(bin, ["--idle-timeout", "0"], {
+    const child = spawn(bin, args, {
       env: {
         PATH: process.env.PATH ?? "",
         HOME: state,
@@ -118,6 +122,27 @@ describe.skipIf(!enabled)("the root-owned packaged helper, checked as an ordinar
     expect(refused).toMatchObject({ peerCheck: "mismatch", reason: "loader_env", required: true });
     expect(g.gateway.context.nodes.hostHelpers()).toEqual([]);
   }, 30000);
+
+  // An unprivileged user namespace may be switched off on a host (AppArmor, sysctl): then skip.
+  const canUnshare = spawnSync("unshare", ["-Urm", "true"]).status === 0;
+  it.skipIf(!canUnshare)(
+    "the packaged helper inside a private user and mount namespace is unverified (other_namespace)",
+    async () => {
+      const g = await start();
+      spawnHelper("unshare", {}, ["-Urm", "--", PACKAGED_HELPER, "--idle-timeout", "0"]);
+      const refused = await until(
+        "the refusal",
+        () => status(g)?.refused as Record<string, unknown> | undefined,
+      );
+      expect(refused).toMatchObject({
+        peerCheck: "unverified",
+        reason: "other_namespace",
+        required: true,
+      });
+      expect(g.gateway.context.nodes.hostHelpers()).toEqual([]);
+    },
+    30000,
+  );
 
   it("refuses to start with LD_PRELOAD set (hygiene), so it never connects", async () => {
     const g = await start();
