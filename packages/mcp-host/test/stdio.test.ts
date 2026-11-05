@@ -162,7 +162,9 @@ describe("server output passes through the vault redactor (#284 TM-17)", () => {
   });
 });
 
-describe("vault secrets injected as env at spawn", () => {
+// Each test starts a Node MCP server and runs its handshake: ~1 s alone, past vitest's 5 s
+// default under the full parallel suite on Windows (process start is the slow part there).
+describe("vault secrets injected as env at spawn", { timeout: 30_000 }, () => {
   it("the child sees the secret; nothing the host reports contains it", async () => {
     const vault = new FakeCredentialBroker();
     const secret = "sk_live_psyche_stdio_env_secret_42";

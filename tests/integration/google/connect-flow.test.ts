@@ -92,7 +92,11 @@ describe("Google connect flow over the wire (#505)", () => {
     });
     // #529: a remote MCP preset has no connector implementation, so it is not offered.
     expect(entries.find((e) => e.id === "slack")).toMatchObject({ available: false });
-    expect(entries.find((e) => e.id === "apple-notes")).toMatchObject({ available: true });
+    // Apple Notes is listed on a Mac (while its helper starts too); elsewhere only a Host helper
+    // that serves it lists it, and this Gateway has none (the Windows helper never serves Notes).
+    if (process.platform === "darwin")
+      expect(entries.find((e) => e.id === "apple-notes")).toMatchObject({ available: true });
+    else expect(entries.find((e) => e.id === "apple-notes")).toBeUndefined();
   });
 
   it("connect answers at once with the consent page; the record lists as signing in", async () => {
