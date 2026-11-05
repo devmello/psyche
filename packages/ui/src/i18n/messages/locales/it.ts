@@ -7,6 +7,19 @@ import { overview } from "./overview/it.ts";
 import { overviewGrowth } from "./overview-growth/it.ts";
 import { overviewShared } from "./overview-shared/it.ts";
 import { workflows } from "./workflows/it.ts";
+import { commonRest } from "./common-rest/it.ts";
+import { canvasRest } from "./canvas-rest/it.ts";
+import { deckRest } from "./deck-rest/it.ts";
+import { bookRest } from "./book-rest/it.ts";
+import { shellRest } from "./shell-rest/it.ts";
+import { auditRest } from "./audit-rest/it.ts";
+import { chatRest } from "./chat-rest/it.ts";
+import { blocksRest } from "./blocks-rest/it.ts";
+import { agentRest } from "./agent-rest/it.ts";
+import { dailyRest } from "./daily-rest/it.ts";
+import { nudgesRest } from "./nudges-rest/it.ts";
+import { galleryRest } from "./gallery-rest/it.ts";
+import { onboardingRest } from "./onboarding-rest/it.ts";
 
 /** Italian catalogue (it). Same ids as `en`; missing ids fall back to English. */
 export const it: Partial<Catalogue> = {
@@ -26,6 +39,19 @@ export const it: Partial<Catalogue> = {
   ...canvas,
   // overview chart primitives (docs/design/agent-overview-2026.md §5.7)
   ...charts,
+  ...commonRest,
+  ...canvasRest,
+  ...deckRest,
+  ...bookRest,
+  ...shellRest,
+  ...auditRest,
+  ...chatRest,
+  ...blocksRest,
+  ...agentRest,
+  ...dailyRest,
+  ...nudgesRest,
+  ...galleryRest,
+  ...onboardingRest,
   "common.cancel": "Annulla",
   "common.close": "Chiudi",
   "common.save": "Salva",

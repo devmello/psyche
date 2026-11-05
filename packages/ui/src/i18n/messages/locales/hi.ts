@@ -7,6 +7,19 @@ import { overview } from "./overview/hi.ts";
 import { overviewGrowth } from "./overview-growth/hi.ts";
 import { overviewShared } from "./overview-shared/hi.ts";
 import { workflows } from "./workflows/hi.ts";
+import { commonRest } from "./common-rest/hi.ts";
+import { canvasRest } from "./canvas-rest/hi.ts";
+import { deckRest } from "./deck-rest/hi.ts";
+import { bookRest } from "./book-rest/hi.ts";
+import { shellRest } from "./shell-rest/hi.ts";
+import { auditRest } from "./audit-rest/hi.ts";
+import { chatRest } from "./chat-rest/hi.ts";
+import { blocksRest } from "./blocks-rest/hi.ts";
+import { agentRest } from "./agent-rest/hi.ts";
+import { dailyRest } from "./daily-rest/hi.ts";
+import { nudgesRest } from "./nudges-rest/hi.ts";
+import { galleryRest } from "./gallery-rest/hi.ts";
+import { onboardingRest } from "./onboarding-rest/hi.ts";
 
 /** Hindi catalogue (hi). Same ids as `en`; missing ids fall back to English. */
 export const hi: Partial<Catalogue> = {
@@ -26,6 +39,19 @@ export const hi: Partial<Catalogue> = {
   ...canvas,
   // overview chart primitives (docs/design/agent-overview-2026.md §5.7)
   ...charts,
+  ...commonRest,
+  ...canvasRest,
+  ...deckRest,
+  ...bookRest,
+  ...shellRest,
+  ...auditRest,
+  ...chatRest,
+  ...blocksRest,
+  ...agentRest,
+  ...dailyRest,
+  ...nudgesRest,
+  ...galleryRest,
+  ...onboardingRest,
   "common.cancel": "रद्द करें",
   "common.close": "बंद करें",
   "common.save": "सेव करें",
