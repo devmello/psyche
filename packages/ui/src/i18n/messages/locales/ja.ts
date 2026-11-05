@@ -1,4 +1,16 @@
 import type { Catalogue } from "../index.ts";
+import { onboardingRest } from "./onboarding-rest/ja.ts";
+import { galleryRest } from "./gallery-rest/ja.ts";
+import { shellRest } from "./shell-rest/ja.ts";
+import { nudgesRest } from "./nudges-rest/ja.ts";
+import { dailyRest } from "./daily-rest/ja.ts";
+import { auditRest } from "./audit-rest/ja.ts";
+import { agentRest } from "./agent-rest/ja.ts";
+import { bookRest } from "./book-rest/ja.ts";
+import { deckRest } from "./deck-rest/ja.ts";
+import { canvasRest } from "./canvas-rest/ja.ts";
+import { blocksRest } from "./blocks-rest/ja.ts";
+import { chatRest } from "./chat-rest/ja.ts";
 import { commonRest } from "./common-rest/ja.ts";
 import { settingsRest } from "./settings-rest/ja.ts";
 import { canvas } from "./canvas/ja.ts";
@@ -28,6 +40,18 @@ export const ja: Partial<Catalogue> = {
   ...canvas,
   // overview chart primitives (docs/design/agent-overview-2026.md §5.7)
   ...charts,
+  ...onboardingRest,
+  ...galleryRest,
+  ...shellRest,
+  ...nudgesRest,
+  ...dailyRest,
+  ...auditRest,
+  ...agentRest,
+  ...bookRest,
+  ...deckRest,
+  ...canvasRest,
+  ...blocksRest,
+  ...chatRest,
   ...commonRest,
   ...settingsRest,
   "common.cancel": "キャンセル",

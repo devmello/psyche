@@ -1,4 +1,16 @@
 import type { Catalogue } from "../index.ts";
+import { onboardingRest } from "./onboarding-rest/ko.ts";
+import { galleryRest } from "./gallery-rest/ko.ts";
+import { shellRest } from "./shell-rest/ko.ts";
+import { nudgesRest } from "./nudges-rest/ko.ts";
+import { dailyRest } from "./daily-rest/ko.ts";
+import { auditRest } from "./audit-rest/ko.ts";
+import { agentRest } from "./agent-rest/ko.ts";
+import { bookRest } from "./book-rest/ko.ts";
+import { deckRest } from "./deck-rest/ko.ts";
+import { canvasRest } from "./canvas-rest/ko.ts";
+import { blocksRest } from "./blocks-rest/ko.ts";
+import { chatRest } from "./chat-rest/ko.ts";
 import { commonRest } from "./common-rest/ko.ts";
 import { settingsRest } from "./settings-rest/ko.ts";
 import { canvas } from "./canvas/ko.ts";
@@ -28,6 +40,18 @@ export const ko: Partial<Catalogue> = {
   ...canvas,
   // overview chart primitives (docs/design/agent-overview-2026.md §5.7)
   ...charts,
+  ...onboardingRest,
+  ...galleryRest,
+  ...shellRest,
+  ...nudgesRest,
+  ...dailyRest,
+  ...auditRest,
+  ...agentRest,
+  ...bookRest,
+  ...deckRest,
+  ...canvasRest,
+  ...blocksRest,
+  ...chatRest,
   ...commonRest,
   ...settingsRest,
   // common
