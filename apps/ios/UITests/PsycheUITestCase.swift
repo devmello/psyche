@@ -52,6 +52,24 @@ class PsycheUITestCase: XCTestCase {
         XCTAssertEqual(XCTWaiter().wait(for: [ok], timeout: timeout), .completed, "expected \(element) to be enabled", file: file, line: line)
     }
 
+    /// Opens the moth avatar's menu and returns its `label` item (Settings, …). The avatar is pressed by
+    /// coordinate: on GitHub's macOS runner the Liquid Glass toolbar button reports no activation point, so a
+    /// hittability check never passes there, though the button works.
+    func avatarMenuItem(_ label: String, file: StaticString = #filePath, line: UInt = #line) -> XCUIElement {
+        let avatar = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Open Psyche's activity")).firstMatch
+        waitFor(avatar, file: file, line: line)
+        // After a sheet closes the page can be left scrolled, with the avatar off screen: bring it back.
+        for _ in 0..<4 where !app.frame.contains(avatar.frame) { app.swipeDown(velocity: .fast) }
+        let item = app.buttons[label].firstMatch
+        // A sheet still dismissing can swallow the first press; slow runners need a long one.
+        for _ in 0..<3 where !item.exists {
+            avatar.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(forDuration: 1.6)
+            if item.waitForExistence(timeout: 5) { break }
+        }
+        waitFor(item, 5, file: file, line: line)
+        return item
+    }
+
     /// Swipes up until `element` exists and is hittable.
     func scrollTo(_ element: XCUIElement, maxSwipes: Int = 8) {
         var n = 0

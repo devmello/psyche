@@ -17,15 +17,7 @@ final class LiveActivityUITests: PsycheUITestCase {
     func testWatchExplainsWhenLiveActivitiesAreOff() {
         launch()
         // Settings opens from the moth avatar's menu.
-        let avatar = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Open Psyche's activity")).firstMatch
-        waitFor(avatar)
-        let settings = app.buttons["Settings"].firstMatch
-        for _ in 0..<2 where !settings.waitForExistence(timeout: 0.5) {
-            waitHittable(avatar)
-            avatar.press(forDuration: 1.6)
-            if settings.waitForExistence(timeout: 5) { break }
-        }
-        settings.tap()
+        avatarMenuItem("Settings").tap()
         let toggle = app.switches["Live Activities"]
         scrollTo(toggle)
         waitFor(toggle)
