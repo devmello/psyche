@@ -5,7 +5,7 @@
 //! An app is a process with at least one visible top-level window. Packaged apps hosted by
 //! `ApplicationFrameHost.exe` (Calculator, Settings) are attributed to the hosted process (the
 //! `Windows.UI.Core.CoreWindow` child's pid); the frame host's pid is kept as `host_pid`, since the
-//! frame's title bar belongs to it.
+//! frame's title bar belongs to it. App ids follow [`crate::app_id`].
 
 use crate::error::{code, CapError, CapResult};
 use crate::hygiene::WindowRef;
@@ -41,7 +41,7 @@ pub struct TargetApp {
     pub pid: u32,
     /// `ApplicationFrameHost.exe` pid when the app's windows are hosted frames.
     pub host_pid: Option<u32>,
-    /// Lowercase executable name: the Windows bundle id.
+    /// The app id ([`crate::app_id`]): lowercase executable name, the Windows bundle id.
     pub bundle_id: Option<String>,
     pub name: String,
     pub electron: bool,
@@ -192,6 +192,41 @@ pub fn frame_app_pid(h: HWND, frame_pid: u32, title: &str, index: usize, cores: 
     })
 }
 
+/// The app pid of one top-level window: its owner, or the hosted app for a frame-host window
+/// (only those need the z-order pass). `None` when `h` is not a window.
+pub fn app_pid_of(h: isize) -> Option<u32> {
+    let w = hwnd(h);
+    if !unsafe { IsWindow(Some(w)).as_bool() } {
+        return None;
+    }
+    let owner = window_pid(w);
+    if class_name(w) != "ApplicationFrameWindow" {
+        return Some(owner);
+    }
+    let all = all_top_level();
+    let index = all.iter().position(|x| *x == h).unwrap_or(0);
+    Some(frame_app_pid(w, owner, &window_title(w), index, &core_windows(&all)).unwrap_or(owner))
+}
+
+/// The app pid of every top-level window (one z-order pass).
+pub fn app_pids_by_window() -> HashMap<isize, u32> {
+    let all = all_top_level();
+    let cores = core_windows(&all);
+    all.iter()
+        .enumerate()
+        .map(|(i, raw)| {
+            let h = hwnd(*raw);
+            let owner = window_pid(h);
+            let pid = if class_name(h) == "ApplicationFrameWindow" {
+                frame_app_pid(h, owner, &window_title(h), i, &cores).unwrap_or(owner)
+            } else {
+                owner
+            };
+            (*raw, pid)
+        })
+        .collect()
+}
+
 fn info_for(h: HWND) -> WinInfo {
     let all = all_top_level();
     let index = all.iter().position(|x| *x == h.0 as isize).unwrap_or(0);
@@ -324,7 +359,7 @@ fn app_cache() -> &'static Mutex<HashMap<String, (String, bool)>> {
 /// The app for a pid (`None` when the process is gone or inaccessible).
 pub fn app_for_pid(pid: u32, host_pid: Option<u32>) -> Option<TargetApp> {
     let path = exe_path(pid);
-    let bundle_id = path.as_deref().and_then(|p| Path::new(p).file_name()).map(|n| n.to_string_lossy().to_lowercase());
+    let bundle_id = path.as_deref().and_then(crate::app_id::app_id_from_exe);
     if path.is_none() && !process_exists(pid) {
         return None;
     }
@@ -415,6 +450,10 @@ pub fn find_app(query: Option<&str>, pid: Option<i64>) -> CapResult<TargetApp> {
         return Ok(a.clone());
     }
     if let Some(a) = apps.iter().find(|a| a.name.to_lowercase() == ql) {
+        return Ok(a.clone());
+    }
+    // The full executable path `apps.list` reports as `exe`.
+    if let Some(a) = apps.iter().find(|a| a.exe_path.as_deref().is_some_and(|p| p.eq_ignore_ascii_case(q))) {
         return Ok(a.clone());
     }
     Err(CapError::new(code::NOT_FOUND, "app_not_running", format!("{q} is not running. Open it with apps.open first.")).detail("app", q))

@@ -176,17 +176,24 @@ fn cached_bool(el: &IUIAutomationElement, prop: windows::Win32::UI::Accessibilit
     unsafe { el.GetCachedPropertyValue(prop) }.ok().and_then(|v: VARIANT| bool::try_from(&v).ok()).unwrap_or(false)
 }
 
-fn foreground_pid() -> Option<u32> {
+/// The foreground window's own process and its app's process: they differ for packaged apps
+/// whose frame `ApplicationFrameHost.exe` draws (the app is the hosted process, as everywhere in
+/// the helper: `psyche_win_computer::app_id`).
+fn foreground_pids() -> Option<(u32, u32)> {
     // SAFETY: plain window queries.
-    unsafe {
+    let (fg, owner) = unsafe {
         let fg = GetForegroundWindow();
         if fg.is_invalid() {
             return None;
         }
         let mut pid = 0u32;
         GetWindowThreadProcessId(fg, Some(&mut pid));
-        (pid != 0).then_some(pid)
+        (fg, pid)
+    };
+    if owner == 0 {
+        return None;
     }
+    Some((owner, psyche_win_computer::app_pid_for_window(fg.0 as isize).unwrap_or(owner)))
 }
 
 fn utf16(b: &BSTR) -> Vec<u16> {
@@ -196,7 +203,7 @@ fn utf16(b: &BSTR) -> Vec<u16> {
 impl InsertBackend for Backend {
     fn focus(&self) -> Option<Focus> {
         // No foreground window: the lock screen, a secure desktop, or nothing at all.
-        let fg_pid = foreground_pid()?;
+        let (fg_owner, fg_pid) = foreground_pids()?;
         let el = match (&self.uia, &self.cache) {
             // SAFETY: UIA client call on this MTA thread.
             (Some(u), Some(c)) => unsafe { u.GetFocusedElementBuildCache(c) }.ok(),
@@ -205,12 +212,17 @@ impl InsertBackend for Backend {
         let Some(el) = el else {
             // No UIA focus (an app without a UIA tree): the foreground app gets the keystrokes.
             let p = process::info(fg_pid);
-            return Some(Focus { elevated: p.elevated, ..Focus::app(fg_pid, p.bundle_id.as_deref(), &p.app_name) });
+            return Some(Focus {
+                elevated: p.elevated,
+                exe: p.exe,
+                package_family_name: p.package_family_name,
+                ..Focus::app(fg_pid, p.bundle_id.as_deref(), &p.app_name)
+            });
         };
         // SAFETY: cached property reads.
-        let (pid, control_type, secure, framework) = unsafe {
+        let (el_pid, control_type, secure, framework) = unsafe {
             (
-                el.CachedProcessId().unwrap_or(fg_pid as i32) as u32,
+                el.CachedProcessId().unwrap_or(fg_owner as i32) as u32,
                 el.CachedControlType().map(|c| c.0).unwrap_or(0),
                 el.CachedIsPassword().map(|b| b.as_bool()).unwrap_or(false),
                 el.CachedFrameworkId().map(|s| s.to_string()).unwrap_or_default(),
@@ -224,10 +236,14 @@ impl InsertBackend for Backend {
             value_settable: value && !read_only,
             has_text_pattern: cached_bool(&el, UIA_IsTextPatternAvailablePropertyId),
         };
+        // Focus on a frame host's own chrome (the title bar) belongs to the hosted app.
+        let pid = if el_pid == fg_owner { fg_pid } else { el_pid };
         let p = process::info(pid);
         Some(Focus {
             pid,
             bundle_id: p.bundle_id,
+            exe: p.exe,
+            package_family_name: p.package_family_name,
             app_name: p.app_name,
             role: info.role().map(str::to_string),
             secure,

@@ -15,8 +15,8 @@
 //!   helper sends no other wire event for it, and neither does this one. The Gateway cancels the
 //!   run when it sees `user_stopped` (`apps/gateway/src/compose/computer.ts`).
 //!
-//! App identity here is the crate's: the lowercase executable name (`notepad.exe`,
-//! `calculatorapp.exe`), not the AUMID / path identity `apps.*` reports.
+//! App identity is the helper-wide app id (`psyche_win_computer::app_id`): the lowercase
+//! executable name (`notepad.exe`, `calculatorapp.exe`), the same `bundleId` `apps.*` reports.
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};

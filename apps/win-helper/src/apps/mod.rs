@@ -1,10 +1,16 @@
 //! `apps.list`, `apps.open`, `apps.focus` (J2), Windows edition. `apps.applescript`, `apps.jxa`,
 //! `apps.shortcut_run` and `apps.shortcuts_list` are Apple-only and not offered.
 //!
-//! App identity (`bundleId` in results and params) is the AppUserModelID when the app has one,
-//! else the executable path; see `node::tiers`. Results add `exe` and `aumid`.
+//! App identity (`bundleId` in results, `app` in params) is the helper-wide app id
+//! (`psyche_win_computer::app_id`): the lowercase executable file name, with frame-host windows
+//! attributed to the hosted packaged app, the same id `computer.*`, `screen.context`, `teach.*`
+//! and `dictation.target` report. Results add `exe` (full path), `aumid` and `packageFamilyName`.
+//! `apps.open` / `apps.focus` take that id, and still a full executable path, an AppUserModelID,
+//! a package family name (focus) or a display name.
 
 use std::path::{Path, PathBuf};
+
+use psyche_win_computer::{app_id_from_exe, is_app_id};
 
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -21,8 +27,8 @@ use crate::node::tiers::{
 };
 use crate::node::{CapabilityRegistry, schema};
 use crate::win::process::{
-    AppInfo, all_processes, app_info, app_windows_by_pid, foreground_window, is_minimized,
-    window_pid,
+    AppInfo, all_processes, app_info, app_pid, app_windows_by_pid, foreground_window, is_minimized,
+    package_family_name, top_level_app_windows,
 };
 use crate::win::registry::{Hive, read_string};
 use crate::win::{foreground, shell};
@@ -36,7 +42,12 @@ pub struct RunningApp {
 fn matches_query(info: &AppInfo, q: &str) -> bool {
     let q = q.trim();
     let eq = |s: &Option<String>| s.as_deref().is_some_and(|v| v.eq_ignore_ascii_case(q));
-    if eq(&info.identity) || eq(&info.exe) || eq(&info.aumid) || info.name.eq_ignore_ascii_case(q) {
+    if eq(&info.identity)
+        || eq(&info.exe)
+        || eq(&info.aumid)
+        || eq(&info.package_family_name)
+        || info.name.eq_ignore_ascii_case(q)
+    {
         return true;
     }
     let file = info.exe.as_deref().and_then(exe_name);
@@ -44,8 +55,9 @@ fn matches_query(info: &AppInfo, q: &str) -> bool {
     file.is_some_and(|f| f == wanted || f.trim_end_matches(".exe") == wanted)
 }
 
-/// Finds a running app with windows by pid, or by identity / executable path / executable name /
-/// display name (case-insensitive); with neither, the foreground app. Shared with `computer.*`.
+/// Finds a running app with windows by pid, or by app id / executable path / AppUserModelID /
+/// package family name / executable name / display name (case-insensitive); with neither, the
+/// foreground app. Pids are app pids (frame-host windows count for the hosted app).
 pub fn find_running_app(
     query: Option<&str>,
     pid: Option<u32>,
@@ -68,7 +80,7 @@ pub fn find_running_app(
     let Some(q) = q else {
         let fg = foreground_window()
             .ok_or_else(|| CapabilityError::not_found("no_frontmost_app", "No app is frontmost"))?;
-        let pid = window_pid(fg);
+        let pid = app_pid(fg);
         let windows = by_pid.get(&pid).cloned().unwrap_or_else(|| vec![fg]);
         return Ok(RunningApp {
             info: app_info(pid, Some(fg)),
@@ -77,8 +89,7 @@ pub fn find_running_app(
     };
     // Front-most app first, so a name shared by several processes picks the one the user sees.
     let mut order: Vec<u32> = Vec::new();
-    for h in crate::win::process::top_level_windows() {
-        let pid = window_pid(h);
+    for (_, pid) in top_level_app_windows() {
         if by_pid.contains_key(&pid) && !order.contains(&pid) {
             order.push(pid);
         }
@@ -110,10 +121,11 @@ fn app_json(
         "pid": info.pid,
         "active": active,
         "hidden": !windows.is_empty() && windows.iter().all(|h| is_minimized(*h)),
-        "tier": policy.effective_tier(id).as_str(),
-        "fixedCap": fixed_caps::cap(id).as_str(),
+        "tier": policy.effective_tier_app(id, info.aumid.as_deref()).as_str(),
+        "fixedCap": fixed_caps::cap(id).min(fixed_caps::cap(info.aumid.as_deref())).as_str(),
         "exe": info.exe,
         "aumid": info.aumid,
+        "packageFamilyName": info.package_family_name,
         "windows": windows.len(),
     })
 }
@@ -162,8 +174,75 @@ fn plain_name(q: &str) -> bool {
     !q.is_empty() && !q.contains(['/', '\\']) && !q.contains("..")
 }
 
-/// Resolves an installed app: AppUserModelID (`…!App`), an allowed executable path, a Start-menu
-/// name or app id, or an App Paths entry (`chrome`, `notepad.exe`).
+/// `Executable` of `<Application Id="{app}">` in an `AppxManifest.xml`, as written (relative to
+/// the package folder).
+pub fn manifest_executable(xml: &str, app: &str) -> Option<String> {
+    fn attr<'a>(tag: &'a str, name: &str) -> Option<&'a str> {
+        let mut from = 0;
+        while let Some(i) = tag[from..].find(name) {
+            let at = from + i;
+            from = at + name.len();
+            let before = tag[..at].chars().next_back();
+            let rest = tag[from..].trim_start();
+            if !before.is_some_and(char::is_whitespace) || !rest.starts_with('=') {
+                continue;
+            }
+            let rest = rest[1..].trim_start();
+            let quote = rest.chars().next().filter(|c| matches!(c, '"' | '\''))?;
+            let body = &rest[1..];
+            return body.find(quote).map(|end| &body[..end]);
+        }
+        None
+    }
+    let mut from = 0;
+    while let Some(i) = xml[from..].find("<Application") {
+        let start = from + i + "<Application".len();
+        from = start;
+        // `<Applications>` is the container, not an entry.
+        if !xml[start..].starts_with(|c: char| c.is_whitespace()) {
+            continue;
+        }
+        let tag = &xml[start..start + xml[start..].find('>')?];
+        if attr(tag, "Id").is_some_and(|id| id.eq_ignore_ascii_case(app)) {
+            return attr(tag, "Executable").map(str::to_owned);
+        }
+    }
+    None
+}
+
+/// The app id (lowercase executable name) a packaged app's AppUserModelID runs as, from its
+/// package manifest (`Microsoft.WindowsCalculator_8wekyb3d8bbwe!App` → `calculatorapp.exe`).
+pub fn packaged_app_id(aumid: &str) -> Option<String> {
+    let (family, app) = aumid.split_once('!')?;
+    crate::win::process::package_paths(family)
+        .into_iter()
+        .find_map(|dir| {
+            let xml = std::fs::read_to_string(dir.join("AppxManifest.xml")).ok()?;
+            manifest_executable(&xml, app).and_then(|e| app_id_from_exe(&e))
+        })
+}
+
+/// `<name>.exe` in the `PATH` folders: the first allowed one, else the first one found.
+fn path_lookup(exe: &str, env: &Env, roots: &[PathBuf]) -> Option<PathBuf> {
+    let found: Vec<PathBuf> = env
+        .get("PATH")?
+        .split(';')
+        .map(|d| d.trim().trim_matches('"'))
+        .filter(|d| is_absolute(d))
+        .map(|d| Path::new(d).join(exe))
+        .filter(|p| p.is_file())
+        .collect();
+    found
+        .iter()
+        .find(|p| launch_allowed(p, roots))
+        .or(found.first())
+        .cloned()
+}
+
+/// Resolves an installed app: AppUserModelID (`…!App`), an allowed executable path, the app id
+/// `apps.list` reports (`notepad.exe`, `calculatorapp.exe`: a running app's own AUMID or
+/// executable, a Start-menu app whose shortcut or package runs that executable, an App Paths
+/// entry or `PATH`), or a Start-menu name.
 pub fn resolve(q: &str, env: &Env) -> Result<Launch, CapabilityError> {
     let q = q.trim();
     let roots = app_roots(env);
@@ -196,6 +275,19 @@ pub fn resolve(q: &str, env: &Env) -> Result<Launch, CapabilityError> {
     }
     let lower = q.to_lowercase();
     let bare = lower.trim_end_matches(".exe");
+    let exe = format!("{bare}.exe");
+    // A running app with this id: launch what it runs (packaged apps by their AUMID).
+    if is_app_id(q)
+        && let Ok(app) = find_running_app(Some(q), None)
+        && app.info.identity.as_deref() == Some(lower.as_str())
+    {
+        if let Some(a) = app.info.aumid.as_ref().filter(|a| a.contains('!')) {
+            return Ok(Launch::Packaged(a.clone()));
+        }
+        if let Some(e) = &app.info.exe {
+            return checked(PathBuf::from(e));
+        }
+    }
     let apps = shell::start_apps();
     let found = apps
         .iter()
@@ -223,11 +315,23 @@ pub fn resolve(q: &str, env: &Env) -> Result<Launch, CapabilityError> {
         }
         return Ok(Launch::Shell(a.app_id.clone()));
     }
-    let key = format!(r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\{bare}.exe");
+    // A packaged Start-menu app whose manifest runs this executable (Calculator: calculatorapp.exe).
+    if is_app_id(q)
+        && let Some(a) = apps
+            .iter()
+            .filter(|a| a.app_id.contains('!'))
+            .find(|a| packaged_app_id(&a.app_id).as_deref() == Some(lower.as_str()))
+    {
+        return Ok(Launch::Packaged(a.app_id.clone()));
+    }
+    let key = format!(r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\{exe}");
     if let Some(p) = read_string(Hive::CurrentUser, &key, "")
         .or_else(|| read_string(Hive::LocalMachine, &key, ""))
     {
         return checked(PathBuf::from(p.trim_matches('"')));
+    }
+    if let Some(p) = path_lookup(&exe, env, &roots) {
+        return checked(p);
     }
     Err(CapabilityError::not_found(
         "app_not_found",
@@ -340,7 +444,7 @@ pub fn register(reg: &mut CapabilityRegistry) {
     reg.add_blocking(
         CapabilitySpec::new(
             "apps.list",
-            "Running apps with a taskbar presence: bundleId (AppUserModelID or executable path), name, pid, frontmost, minimized, and the computer-use tier in effect.",
+            "Running apps with a taskbar presence: bundleId (lowercase executable name, the id computer.* uses), name, pid, frontmost, minimized, the computer-use tier in effect, and exe / aumid / packageFamilyName.",
             SideEffect::Read,
         )
         .input(schema::object(vec![("all", schema::boolean(Some("Include background processes")))], &[])),
@@ -348,11 +452,10 @@ pub fn register(reg: &mut CapabilityRegistry) {
             let p: ListParams = ctx.decode()?;
             p_list.reload(&env_list);
             let by_pid = app_windows_by_pid();
-            let fg = foreground_window().map(window_pid);
+            let fg = foreground_window().map(app_pid);
             let mut seen = Vec::new();
             let mut apps = Vec::new();
-            for h in crate::win::process::top_level_windows() {
-                let pid = window_pid(h);
+            for (_, pid) in top_level_app_windows() {
                 if let Some(windows) = by_pid.get(&pid)
                     && !seen.contains(&pid)
                 {
@@ -377,13 +480,13 @@ pub fn register(reg: &mut CapabilityRegistry) {
     reg.add_blocking(
         CapabilitySpec::new(
             "apps.open",
-            "Open (launch or bring forward) an installed app by AppUserModelID, executable path, Start-menu name or executable name, optionally with a document or URL.",
+            "Open (launch or bring forward) an installed app by app id (executable name, as apps.list reports), AppUserModelID, executable path or Start-menu name, optionally with a document or URL.",
             SideEffect::Write,
         )
         .target(TargetKind::App)
         .input(schema::object(
             vec![
-                ("app", schema::string(Some("AppUserModelID, executable path or name"))),
+                ("app", schema::string(Some("App id (notepad.exe), AppUserModelID, executable path or Start-menu name"))),
                 ("bundleId", schema::string(None)),
                 ("name", schema::string(None)),
                 ("url", schema::string(Some("file:// or https:// URL to open with the app"))),
@@ -400,11 +503,17 @@ pub fn register(reg: &mut CapabilityRegistry) {
                 .or(p.name.as_deref())
                 .ok_or_else(|| CapabilityError::invalid_params("app, bundleId or name is required", Some("app")))?;
             let launch = resolve(q, &env_open)?;
-            let identity = match &launch {
-                Launch::Packaged(a) | Launch::Shell(a) => a.clone(),
-                Launch::Exe(p) => p.display().to_string(),
+            // What gets launched (AUMID, path or AppsFolder id) and the app id it runs as.
+            let (target, id_hint) = match &launch {
+                Launch::Packaged(a) => (a.clone(), packaged_app_id(a)),
+                Launch::Shell(a) => (a.clone(), None),
+                Launch::Exe(p) => {
+                    let s = p.display().to_string();
+                    let id = app_id_from_exe(&s);
+                    (s, id)
+                }
             };
-            let category = fixed_caps::category(Some(&identity));
+            let category = fixed_caps::category(Some(&target)).or_else(|| fixed_caps::category(id_hint.as_deref()));
             if matches!(category, Some(Category::PasswordManager | Category::Finance)) {
                 return Err(CapabilityError::policy_denied("tier_off", "Psyche does not open password managers or finance apps"));
             }
@@ -437,16 +546,32 @@ pub fn register(reg: &mut CapabilityRegistry) {
                     shell::shell_open(&format!(r"shell:AppsFolder\{id}"), None).map_err(os)?
                 }
             };
-            let name = pid
-                .map(|pid| app_info(pid, None).name)
+            let info = pid.map(|pid| app_info(pid, None));
+            let id = info.as_ref().and_then(|i| i.identity.clone()).or(id_hint);
+            let name = info
+                .as_ref()
+                .map(|i| i.name.clone())
                 .or_else(|| match &launch {
                     Launch::Exe(p) => crate::win::process::file_description(&p.display().to_string()),
                     _ => None,
                 })
-                .unwrap_or_else(|| identity.rsplit(['\\', '!']).next().unwrap_or(&identity).to_owned());
+                .unwrap_or_else(|| target.rsplit(['\\', '!']).next().unwrap_or(&target).to_owned());
+            let exe = info.as_ref().and_then(|i| i.exe.clone()).or_else(|| match &launch {
+                Launch::Exe(p) => Some(p.display().to_string()),
+                _ => None,
+            });
+            let aumid = match &launch {
+                Launch::Packaged(a) => Some(a.clone()),
+                _ => info.as_ref().and_then(|i| i.aumid.clone()),
+            };
+            let family = pid.and_then(package_family_name).or_else(|| match &launch {
+                Launch::Packaged(a) => a.split_once('!').map(|(f, _)| f.to_owned()),
+                _ => None,
+            });
+            let receipt_app = id.clone().unwrap_or_else(|| target.clone());
             Ok(CapabilityOutput::with_receipt(
-                json!({ "bundleId": identity, "name": name, "pid": pid }),
-                ReceiptDraft::ok(format!("Opened {name}")).with_ref("app", identity.clone()),
+                json!({ "bundleId": id, "name": name, "pid": pid, "exe": exe, "aumid": aumid, "packageFamilyName": family }),
+                ReceiptDraft::ok(format!("Opened {name}")).with_ref("app", receipt_app),
             ))
         },
     );
@@ -456,7 +581,13 @@ pub fn register(reg: &mut CapabilityRegistry) {
         with_approval_param(
             CapabilitySpec::new("apps.focus", "Bring a running app to the front, optionally raising one of its windows by index (front-most first).", SideEffect::Write)
                 .target(TargetKind::App)
-                .input(schema::object(vec![("app", schema::string(None)), ("window", schema::integer(None, Some(0), None))], &["app"]))
+                .input(schema::object(
+                    vec![
+                        ("app", schema::string(Some("App id (notepad.exe), executable path, AppUserModelID, package family name or app name"))),
+                        ("window", schema::integer(None, Some(0), None)),
+                    ],
+                    &["app"],
+                ))
                 .receipt("computer_action"),
         ),
         move |ctx| {
@@ -467,7 +598,7 @@ pub fn register(reg: &mut CapabilityRegistry) {
             let app = find_running_app(Some(&p.app), None)?;
             p_focus.reload(&env_focus);
             let id = app.info.identity.as_deref();
-            p_focus.authorize(ComputerIntent::Read, id, &app.info.name, ApprovalBinding::from_context(&ctx).as_ref())?;
+            p_focus.authorize_app(ComputerIntent::Read, id, app.info.aumid.as_deref(), &app.info.name, ApprovalBinding::from_context(&ctx).as_ref())?;
             let index = p.window.unwrap_or(0) as usize;
             let hwnd = *app
                 .windows
@@ -550,9 +681,10 @@ mod tests {
     fn query_matching() {
         let info = AppInfo {
             pid: 1,
-            identity: Some(r"C:\Windows\System32\notepad.exe".into()),
+            identity: Some("notepad.exe".into()),
             exe: Some(r"C:\Windows\System32\notepad.exe".into()),
             aumid: None,
+            package_family_name: None,
             name: "Notepad".into(),
         };
         assert!(matches_query(&info, "notepad"));
@@ -560,5 +692,130 @@ mod tests {
         assert!(matches_query(&info, "Notepad"));
         assert!(matches_query(&info, r"c:\windows\system32\notepad.exe"));
         assert!(!matches_query(&info, "note"));
+        // A packaged app: the id, and still its AUMID, family name and path.
+        let calc = AppInfo {
+            pid: 2,
+            identity: Some("calculatorapp.exe".into()),
+            exe: Some(r"C:\Program Files\WindowsApps\Microsoft.WindowsCalculator_11.2_x64__8wekyb3d8bbwe\CalculatorApp.exe".into()),
+            aumid: Some("Microsoft.WindowsCalculator_8wekyb3d8bbwe!App".into()),
+            package_family_name: Some("Microsoft.WindowsCalculator_8wekyb3d8bbwe".into()),
+            name: "Calculator".into(),
+        };
+        for q in [
+            "calculatorapp.exe",
+            "CalculatorApp",
+            "microsoft.windowscalculator_8wekyb3d8bbwe!app",
+            "Microsoft.WindowsCalculator_8wekyb3d8bbwe",
+            calc.exe.as_deref().unwrap(),
+            "Calculator",
+        ] {
+            assert!(matches_query(&calc, q), "{q}");
+        }
+        assert!(!matches_query(&calc, "applicationframehost.exe"));
+    }
+
+    #[test]
+    fn manifest_executables() {
+        let xml = r#"<?xml version="1.0" encoding="utf-8"?>
+<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10">
+  <Applications>
+    <Application Id="Helper" Executable="VFS\ProgramFilesX64\Contoso\helper.exe" EntryPoint="Windows.FullTrustApplication"/>
+    <Application
+        Id='App'
+        Executable="CalculatorApp.exe"
+        EntryPoint="CalculatorApp.App">
+      <uap:VisualElements DisplayName="Calculator"/>
+    </Application>
+  </Applications>
+</Package>"#;
+        assert_eq!(
+            manifest_executable(xml, "App").as_deref(),
+            Some("CalculatorApp.exe")
+        );
+        assert_eq!(
+            manifest_executable(xml, "app").as_deref(),
+            Some("CalculatorApp.exe")
+        );
+        assert_eq!(
+            manifest_executable(xml, "Helper")
+                .and_then(|e| app_id_from_exe(&e))
+                .as_deref(),
+            Some("helper.exe")
+        );
+        assert_eq!(manifest_executable(xml, "Missing"), None);
+        // `AppId=` is not `Id=`.
+        assert_eq!(
+            manifest_executable(r#"<Application AppId="App" Executable="x.exe">"#, "App"),
+            None
+        );
+    }
+
+    #[test]
+    fn resolve_by_app_id_and_path() {
+        let e = Env::current();
+        // An id apps.list reports resolves for apps.open (cmd.exe: App Paths, the AppsFolder or
+        // PATH), and so does a full path inside the allowed roots.
+        let id_of = |l: Launch| match l {
+            Launch::Exe(p) => app_id_from_exe(&p.display().to_string()),
+            Launch::Packaged(_) | Launch::Shell(_) => None,
+        };
+        assert_eq!(
+            resolve("cmd.exe", &e).ok().and_then(id_of).as_deref(),
+            Some("cmd.exe")
+        );
+        let full = Path::new(e.get("SystemRoot").unwrap())
+            .join("System32")
+            .join("cmd.exe");
+        assert_eq!(
+            resolve(&full.display().to_string(), &e).unwrap(),
+            Launch::Exe(full)
+        );
+        assert_eq!(
+            resolve("no-such-app-psyche.exe", &e).unwrap_err().reason,
+            "app_not_found"
+        );
+    }
+
+    #[test]
+    fn packaged_ids_resolve_from_the_manifest() {
+        crate::win::com::ensure_mta();
+        const CALC: &str = "Microsoft.WindowsCalculator_8wekyb3d8bbwe!App";
+        if crate::win::process::package_paths("Microsoft.WindowsCalculator_8wekyb3d8bbwe")
+            .is_empty()
+        {
+            eprintln!("Calculator is not installed; skipping");
+            return;
+        }
+        assert_eq!(packaged_app_id(CALC).as_deref(), Some("calculatorapp.exe"));
+        // apps.open takes the id apps.list reports for Calculator (no launch here).
+        assert_eq!(
+            resolve("calculatorapp.exe", &Env::current()).unwrap(),
+            Launch::Packaged(CALC.into())
+        );
+    }
+
+    #[test]
+    fn path_lookup_prefers_allowed_folders() {
+        let root = std::env::temp_dir().join(format!("psyche-path-{}", std::process::id()));
+        let (outside, inside) = (root.join("outside"), root.join("apps"));
+        std::fs::create_dir_all(&outside).unwrap();
+        std::fs::create_dir_all(&inside).unwrap();
+        std::fs::write(outside.join("tool.exe"), b"MZ").unwrap();
+        std::fs::write(inside.join("tool.exe"), b"MZ").unwrap();
+        let env = Env::default().with(
+            "PATH",
+            format!("{};{}", outside.display(), inside.display()),
+        );
+        let roots = vec![inside.clone()];
+        assert_eq!(
+            path_lookup("tool.exe", &env, &roots),
+            Some(inside.join("tool.exe"))
+        );
+        assert_eq!(
+            path_lookup("tool.exe", &env, &[]),
+            Some(outside.join("tool.exe"))
+        );
+        assert_eq!(path_lookup("none.exe", &env, &roots), None);
+        let _ = std::fs::remove_dir_all(root);
     }
 }

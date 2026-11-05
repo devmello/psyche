@@ -1,5 +1,6 @@
-//! What the helper reports about the focused process: its identifier (package family name or
-//! executable file name), display name and whether it runs above our integrity level.
+//! What the helper reports about the focused process: its app id (the helper-wide identity,
+//! `psyche_win_computer::app_id`: the lowercase executable file name), executable path, package
+//! family name (packaged apps), display name and whether it runs above our integrity level.
 
 use super::wide;
 use std::ffi::c_void;
@@ -19,6 +20,8 @@ use windows::core::{PCWSTR, PWSTR};
 #[derive(Clone)]
 pub(crate) struct ProcessInfo {
     pub bundle_id: Option<String>,
+    pub exe: Option<String>,
+    pub package_family_name: Option<String>,
     pub app_name: String,
     pub elevated: bool,
 }
@@ -49,7 +52,7 @@ fn created(h: HANDLE) -> Option<u64> {
 }
 
 pub(crate) fn info(pid: u32) -> ProcessInfo {
-    let fallback = ProcessInfo { bundle_id: None, app_name: format!("pid {pid}"), elevated: false };
+    let fallback = ProcessInfo { bundle_id: None, exe: None, package_family_name: None, app_name: format!("pid {pid}"), elevated: false };
     // SAFETY: querying another process with the least access that answers these questions.
     let Ok(h) = (unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) }) else { return fallback };
     let h = Handle(h);
@@ -74,7 +77,7 @@ pub(crate) fn info(pid: u32) -> ProcessInfo {
 fn lookup(h: HANDLE, fallback: ProcessInfo) -> ProcessInfo {
     let path = image_path(h);
     let family = package_family(h);
-    let exe = path.as_deref().and_then(|p| Path::new(p).file_name()).map(|n| n.to_string_lossy().to_lowercase());
+    let bundle_id = path.as_deref().and_then(psyche_win_computer::app_id_from_exe);
     let app_name = path
         .as_deref()
         .and_then(file_description)
@@ -84,7 +87,7 @@ fn lookup(h: HANDLE, fallback: ProcessInfo) -> ProcessInfo {
         (Some(theirs), Some(ours)) => theirs > ours,
         _ => false,
     };
-    ProcessInfo { bundle_id: family.or(exe), app_name, elevated }
+    ProcessInfo { bundle_id, exe: path, package_family_name: family, app_name, elevated }
 }
 
 fn image_path(h: HANDLE) -> Option<String> {

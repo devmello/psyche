@@ -1,8 +1,10 @@
-//! Processes and top-level windows: image paths, AppUserModelIDs, display names, the Alt-Tab
-//! window list.
+//! Processes and top-level windows: image paths, AppUserModelIDs, package family names, display
+//! names, the Alt-Tab window list. App ids and the window → app attribution (frame-host windows
+//! belong to the hosted packaged app) come from `psyche_win_computer::app_id`, shared by every
+//! capability.
 
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use windows::Win32::Foundation::{CloseHandle, HANDLE, HWND, LPARAM, WIN32_ERROR};
 use windows::Win32::Graphics::Dwm::{DWMWA_CLOAKED, DwmGetWindowAttribute};
@@ -10,7 +12,10 @@ use windows::Win32::Storage::EnhancedStorage::PKEY_AppUserModel_ID;
 use windows::Win32::Storage::FileSystem::{
     GetFileVersionInfoSizeW, GetFileVersionInfoW, VerQueryValueW,
 };
-use windows::Win32::Storage::Packaging::Appx::GetApplicationUserModelId;
+use windows::Win32::Storage::Packaging::Appx::{
+    GetApplicationUserModelId, GetPackageFamilyName, GetPackagePathByFullName,
+    GetPackagesByPackageFamily,
+};
 use windows::Win32::System::Diagnostics::ToolHelp::{
     CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW, TH32CS_SNAPPROCESS,
 };
@@ -78,6 +83,71 @@ pub fn process_aumid(pid: u32) -> Option<String> {
     }
 }
 
+/// A packaged process's package family name (`Microsoft.WindowsCalculator_8wekyb3d8bbwe`).
+pub fn package_family_name(pid: u32) -> Option<String> {
+    let h = open(pid)?;
+    let mut len = 0u32;
+    // SAFETY: size query, then fill.
+    unsafe {
+        let _ = GetPackageFamilyName(h.0, &mut len, None);
+        if len == 0 {
+            return None;
+        }
+        let mut buf = vec![0u16; len as usize];
+        if GetPackageFamilyName(h.0, &mut len, Some(PWSTR(buf.as_mut_ptr()))) != WIN32_ERROR(0) {
+            return None;
+        }
+        let s = String::from_utf16_lossy(&buf[..(len as usize).saturating_sub(1)]);
+        (!s.is_empty()).then_some(s)
+    }
+}
+
+/// Install folders of the packages in a family (one per installed version / architecture).
+pub fn package_paths(family: &str) -> Vec<PathBuf> {
+    let family = HSTRING::from(family);
+    let (mut count, mut chars) = (0u32, 0u32);
+    // SAFETY: size query, then fill; every name points into `buf`, alive for the path queries.
+    unsafe {
+        let _ = GetPackagesByPackageFamily(&family, &mut count, None, &mut chars, None);
+        if count == 0 || chars == 0 {
+            return Vec::new();
+        }
+        let mut names = vec![PWSTR::null(); count as usize];
+        let mut buf = vec![0u16; chars as usize];
+        if GetPackagesByPackageFamily(
+            &family,
+            &mut count,
+            Some(names.as_mut_ptr()),
+            &mut chars,
+            Some(PWSTR(buf.as_mut_ptr())),
+        ) != WIN32_ERROR(0)
+        {
+            return Vec::new();
+        }
+        names
+            .into_iter()
+            .take(count as usize)
+            .filter_map(|name| {
+                let full = PCWSTR(name.0);
+                let mut len = 0u32;
+                let _ = GetPackagePathByFullName(full, &mut len, None);
+                if len == 0 {
+                    return None;
+                }
+                let mut path = vec![0u16; len as usize];
+                if GetPackagePathByFullName(full, &mut len, Some(PWSTR(path.as_mut_ptr())))
+                    != WIN32_ERROR(0)
+                {
+                    return None;
+                }
+                Some(PathBuf::from(String::from_utf16_lossy(
+                    &path[..(len as usize).saturating_sub(1)],
+                )))
+            })
+            .collect()
+    }
+}
+
 /// A window's explicit AppUserModelID (set by the app or, for packaged apps, by the system).
 pub fn window_aumid(hwnd: HWND) -> Option<String> {
     // SAFETY: COM call on a window handle; the store is released on drop.
@@ -135,6 +205,13 @@ pub fn file_description(path: &str) -> Option<String> {
     }
 }
 
+/// The process of the app a top-level window belongs to: its owner, or the hosted packaged app
+/// for an `ApplicationFrameHost.exe` frame.
+pub fn app_pid(hwnd: HWND) -> u32 {
+    psyche_win_computer::app_pid_for_window(hwnd.0 as isize).unwrap_or_else(|| window_pid(hwnd))
+}
+
+/// The window's own process (the frame host for hosted packaged apps; see [`app_pid`]).
 pub fn window_pid(hwnd: HWND) -> u32 {
     let mut pid = 0u32;
     // SAFETY: plain query.
@@ -207,12 +284,28 @@ pub fn top_level_windows() -> Vec<HWND> {
     v
 }
 
-/// `pid → [app windows]`, front-most first.
+/// Every top-level window with its app pid ([`app_pid`]), in z-order (front first).
+pub fn top_level_app_windows() -> Vec<(HWND, u32)> {
+    let pids = psyche_win_computer::app_pids_by_window();
+    top_level_windows()
+        .into_iter()
+        .map(|h| {
+            (
+                h,
+                pids.get(&(h.0 as isize))
+                    .copied()
+                    .unwrap_or_else(|| window_pid(h)),
+            )
+        })
+        .collect()
+}
+
+/// `app pid → [app windows]`, front-most first.
 pub fn app_windows_by_pid() -> HashMap<u32, Vec<HWND>> {
     let mut map: HashMap<u32, Vec<HWND>> = HashMap::new();
-    for h in top_level_windows() {
+    for (h, pid) in top_level_app_windows() {
         if is_app_window(h) {
-            map.entry(window_pid(h)).or_default().push(h);
+            map.entry(pid).or_default().push(h);
         }
     }
     map
@@ -255,18 +348,23 @@ pub fn all_processes() -> Vec<(u32, String)> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AppInfo {
     pub pid: u32,
-    /// AppUserModelID or executable path (see `node::tiers`).
+    /// The app id (`bundleId`): the lowercase executable file name (`psyche_win_computer::app_id`).
     pub identity: Option<String>,
+    /// Full executable path.
     pub exe: Option<String>,
     pub aumid: Option<String>,
+    pub package_family_name: Option<String>,
     pub name: String,
 }
 
-/// Identity and display name for a process, using `hwnd` (its front window) when known.
+/// Identity and display name for an app process (`pid` is the app's, see [`app_pid`]), using
+/// `hwnd` (its front window) when known.
 pub fn app_info(pid: u32, hwnd: Option<HWND>) -> AppInfo {
     let exe = image_path(pid);
     let aumid = hwnd.and_then(window_aumid).or_else(|| process_aumid(pid));
-    let identity = aumid.clone().or_else(|| exe.clone());
+    let identity = exe
+        .as_deref()
+        .and_then(psyche_win_computer::app_id_from_exe);
     let name = exe
         .as_deref()
         .and_then(file_description)
@@ -282,6 +380,7 @@ pub fn app_info(pid: u32, hwnd: Option<HWND>) -> AppInfo {
         identity,
         exe,
         aumid,
+        package_family_name: package_family_name(pid),
         name,
     }
 }
