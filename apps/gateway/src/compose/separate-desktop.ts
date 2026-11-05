@@ -1,7 +1,13 @@
-import { basename } from "node:path";
+import { createHash } from "node:crypto";
+import { basename, posix } from "node:path";
 import type { ToolRunContext } from "@psyche/agent-core";
+import { hashCanonical } from "@psyche/audit";
 import { getSetting, setSetting } from "@psyche/db";
-import type { FolderAccessEnv, FolderGrantEntry } from "@psyche/permissions";
+import {
+  type FolderAccessEnv,
+  type FolderGrantEntry,
+  resolveRequestedFolder,
+} from "@psyche/permissions";
 import {
   type ComputerSurface,
   type NodeClient,
@@ -9,16 +15,19 @@ import {
   PsycheError,
 } from "@psyche/protocol";
 import {
+  canonicalHost,
   DEFAULT_DESKTOP_MEMORY,
+  DESKTOP_NEVER_UNDER_HOME,
   DesktopContainers,
   type DesktopShare,
   type EgressTunnelHandler,
+  matchAllowlist,
+  parseAllowlist,
   validateDesktopMemory,
 } from "@psyche/sandbox";
 import { GuestSockets } from "../nodes/guest-sockets.ts";
 import type { Gateway } from "../server.ts";
 import { isRiskyLabel } from "./computer.ts";
-import { askForFolder } from "./folder-access.ts";
 import { folderAccessEnv } from "./protected-paths.ts";
 import type { ComposedPart } from "./services.ts";
 
@@ -31,19 +40,24 @@ import type { ComposedPart } from "./services.ts";
  * - **Routing.** `surface: "separate_desktop"` goes to the guest node of this desktop's container
  *   and to nothing else. It never falls back to the Host's helper, and no other surface ever
  *   reaches the guest (`clientFor`).
- * - **Files.** None by default. A share is a folder the owner picked on a folder-access card
- *   (`request_folder_access`'s own flow): read-only unless the owner allowed read-write on that
- *   card, and a read-write share always asks a fresh card (a folder granted earlier is never
- *   upgraded silently). Anything protected (`protected-paths.ts` plus the Linux extras below) is
- *   refused here and again where the container is made.
+ * - **One task at a time**, and a workspace never crosses grants. A second task gets `conflict`.
+ *   A task whose shares or internet differ from the last task's gets a clean `/workspace` (the
+ *   Firefox profile is in it): the desktop is reset first.
+ * - **Files.** None by default. A share is a folder the owner picked on its own card
+ *   (`separate_desktop_share`: "Let the separate desktop read <folder>"), for this task only, and
+ *   it creates no Host grant of any kind. Read-only unless the owner allows read-write on the card,
+ *   which is asked fresh every time. Protected places (`protected-paths.ts` plus the Linux list in
+ *   `@psyche/sandbox`) are refused here and again where the container is made.
  * - **Network.** Off. "Allow internet for this task" opens the egress proxy's tunnel for that Task
- *   with the Task's allowlist, nothing else: the container never has a network of its own.
+ *   with the Task's allowlist, nothing else; the container never has a network of its own. The
+ *   tunnel closes when the Task ends.
  * - **Clipboard.** None, except the owner's "Paste into separate desktop".
- * - **Credentials.** The vault stays on the host: one approval, one secret, typed by the helper
- *   into one field, never kept here or in the container.
- * - **Risky words.** File-local ones (delete, trash, remove, erase, clear, empty, discard) don't ask
- *   inside the separate desktop, because it can only touch its own files and the shares the owner
- *   chose; everything else, including every word that reaches the outside world, still asks.
+ * - **Credentials.** The vault stays on the host. A login is typed only while internet is allowed
+ *   for the task, only for an origin on its allowlist, on a fresh card each time that says the
+ *   page can't be verified here.
+ * - **Risky words.** File-local ones (delete, trash, remove, erase, clear, empty, discard) skip the
+ *   card only when the whole list is safe to relax: no web reached, no login typed, not a browser,
+ *   not a read-write share. Otherwise every word asks, as everywhere else.
  */
 
 export const SEPARATE_DESKTOP_ID = "main";
@@ -54,6 +68,8 @@ export const SEPARATE_DESKTOP_SETTINGS = {
   state: "computerUse.separateDesktop.state",
   /** Written by the owner's app: a new value resets the desktop (container and workspace). */
   reset: "computerUse.separateDesktop.reset",
+  /** Written by the Gateway: a hash of the grants the workspace last served (no paths). */
+  grants: "computerUse.separateDesktop.grants",
 } as const;
 
 export type SeparateDesktopPhase = "off" | "starting" | "running" | "stopping" | "failed";
@@ -69,6 +85,9 @@ export interface SeparateDesktopState {
   /** Names of the shared folders and whether each is read-write. */
   shares?: { name: string; readWrite: boolean }[];
   internet?: boolean;
+  /** Present and false when the system could not enforce the limit (shown in Settings). */
+  memoryEnforced?: boolean;
+  pidsEnforced?: boolean;
 }
 
 /** Linux places no share may be, on top of the Gateway's own protected roots. */
@@ -76,17 +95,9 @@ export function separateDesktopFolderEnv(home: string): FolderAccessEnv {
   const base = folderAccessEnv(home);
   const user = process.env.HOME ?? "";
   const extra = ["/proc", "/sys", "/dev", "/run", "/boot", "/etc", "/root", "/var/lib", "/var/run"];
-  const underHome = [
-    ".config",
-    ".local/share",
-    ".local/state",
-    ".cache",
-    ".mozilla",
-    ".thunderbird",
-    ".pki",
-    ".password-store",
-    ".var",
-  ].map((p) => `${user}/${p}`);
+  // One list with the container's own check (`validateDesktopShares`), so the card and the mount
+  // refuse the same places.
+  const underHome = DESKTOP_NEVER_UNDER_HOME.map((p) => `${user}/${p}`);
   return {
     ...base,
     protectedRoots: [...(base.protectedRoots ?? []), ...extra, ...(user === "" ? [] : underHome)],
@@ -105,15 +116,71 @@ const FILE_LOCAL = [
   "discard",
 ];
 
+/** Linux browsers (design §5): a page in one can reach the web, so its words are never relaxed. */
+const BROWSER_APPS = [
+  "firefox",
+  "chromium",
+  "chrome",
+  "brave",
+  "vivaldi",
+  "epiphany",
+  "opera",
+  "falkon",
+  "librewolf",
+  "browser",
+];
+
+const isBrowserApp = (app: string): boolean => {
+  const a = app.toLowerCase();
+  return BROWSER_APPS.some((b) => a.includes(b));
+};
+
+const underPath = (child: string, root: string): boolean =>
+  child === root || child.startsWith(`${root}/`);
+
+/** What decides whether a file-local word may skip the card (see `asksInSeparateDesktop`). */
+export interface RiskContext {
+  /** An egress tunnel is open now, or was open at any time during this task. */
+  internetUsed: boolean;
+  /** A saved login was typed in during this task. */
+  credentialFilled: boolean;
+  /** The app the action is aimed at (desktop file id); unknown means not relaxed. */
+  app: string | undefined;
+  /** The file or folder the action works on, as seen in the container; unknown means not relaxed when any share is read-write. */
+  targetPath: string | undefined;
+  /** Container paths of the read-write shares (`/shares/<name>`). */
+  readWriteShares: readonly string[];
+}
+
 /**
- * Whether a label or key chord should ask inside the separate desktop. The file-local words are
- * set aside first, so "Delete and send" still asks (it sends), and "Delete" alone does not.
+ * Whether a label or key chord should ask inside the separate desktop.
+ *
+ * The full list (every risky word) applies, unless ALL of these hold, in which case the file-local
+ * words (delete, trash, remove, erase, clear, empty, discard) are set aside because the action can
+ * only touch the container's own files:
+ * - no egress tunnel is open or was open in this task (what the page showed could be an attack),
+ * - no saved login was typed in during this task,
+ * - the target app is known and is not a browser,
+ * - the target is known not to be under a read-write share (a read-write share is the owner's own
+ *   file on the Host).
+ * Words that reach the outside world (send, submit, purchase, buy, pay, transfer) ask either way:
+ * "Delete and send" asks, "Delete" alone may not. Without a context nothing is relaxed.
  */
-export function asksInSeparateDesktop(text: string | undefined): boolean {
+export function asksInSeparateDesktop(text: string | undefined, ctx?: RiskContext): boolean {
   if (text === undefined) return false;
-  let rest = ` ${text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ")} `;
+  const label = ` ${text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ")} `;
+  if (ctx === undefined || !relaxed(ctx)) return isRiskyLabel(label);
+  let rest = label;
   for (const w of FILE_LOCAL) rest = rest.split(` ${w} `).join("  ");
   return isRiskyLabel(rest);
+}
+
+function relaxed(ctx: RiskContext): boolean {
+  if (ctx.internetUsed || ctx.credentialFilled) return false;
+  if (ctx.app === undefined || ctx.app === "" || isBrowserApp(ctx.app)) return false;
+  if (ctx.targetPath === undefined) return ctx.readWriteShares.length === 0;
+  const target = posix.normalize(ctx.targetPath);
+  return !ctx.readWriteShares.some((r) => underPath(target, r));
 }
 
 export const SEPARATE_DESKTOP_NOT_RUNNING =
@@ -131,6 +198,11 @@ export interface SeparateDesktopDeps {
     tunnel: EgressTunnelHandler;
     allowlist(scope: { kind: "task"; id: string }, domains: readonly string[]): void;
   };
+  /**
+   * The grants (shares and internet) of the task the workspace last served, so a task with other
+   * grants never inherits it. Kept across Gateway restarts; unknown counts as different.
+   */
+  grants?: { read(): string | undefined; write(key: string): void };
   /** Publishes the Settings row's state. */
   report?: (state: SeparateDesktopState) => void;
   /** Unsaved work in the desktop's apps, from its helper (none known when it cannot say). */
@@ -146,19 +218,54 @@ export interface SeparateDesktopDeps {
   };
 }
 
-interface Held {
+/** The one task using the desktop. */
+interface ActiveTask {
+  id: string;
   shares: DesktopShare[];
+  allow: string[];
   internet: { close(): void } | undefined;
+  /** Sticky: once the web was reachable in this task, the relaxed risky-word rule is off. */
+  internetUsed: boolean;
+  credentialFilled: boolean;
 }
+
+/** What a credential card shows (`credential_fill`; the UI names the unverifiable destination). */
+export interface CredentialCard {
+  kind: "credential_fill";
+  summary: string;
+  details: {
+    origin: string;
+    item: string;
+    /** Tells the card to say the page can't be verified inside the separate desktop. */
+    separateDesktop: true;
+  };
+}
+
+/** Identity of a set of grants: which folders at which access, and which origins. */
+export function grantsKey(
+  shares: readonly DesktopShare[],
+  allow: readonly string[] | undefined,
+): string {
+  const rows = shares.map((s) => [s.name, s.source, s.readOnly]);
+  rows.sort((a, b) => (String(a[0]) < String(b[0]) ? -1 : 1));
+  return createHash("sha256")
+    .update(JSON.stringify({ rows, net: allow === undefined ? null : [...allow].sort() }))
+    .digest("hex");
+}
+
+export type ShareOutcome =
+  | { granted: true; share: DesktopShare }
+  | { granted: false; status: string };
 
 export class SeparateDesktop {
   readonly #deps: SeparateDesktopDeps;
-  /** Tasks using the desktop right now. */
-  readonly #tasks = new Map<string, Held>();
+  #task: ActiveTask | undefined;
   #watchers = 0;
   #running = false;
   #chain: Promise<unknown> = Promise.resolve();
   #shares: DesktopShare[] = [];
+  #engine: { kind: string; rootless: boolean } | undefined;
+  #limits: { memory: boolean; pids: boolean } = { memory: true, pids: true };
 
   constructor(deps: SeparateDesktopDeps) {
     this.#deps = deps;
@@ -194,37 +301,85 @@ export class SeparateDesktop {
   }
 
   /**
-   * A folder to share, through the same card as `request_folder_access`. Read-only unless the
-   * owner allows read-write on that card; a read-write request always gets a fresh card. Returns
-   * the share to pass to `use`, or `undefined` when the owner said no or the card is queued.
+   * A folder to show to the desktop, on its own card (`separate_desktop_share`): "Let the separate
+   * desktop read <folder>". The owner's pick is what is shared, for this task only. It creates no
+   * Host grant of any kind: no file tool, no Settings entry, no conversation folder. Always asks;
+   * an earlier grant of the same folder, to anything, does not count. Read-only unless the owner
+   * allows read-write on the card.
    */
   async requestShare(
-    deps: {
-      broker: PermissionBroker;
-      surfaces: readonly string[];
-      grantedFolders?: (threadId: string) => readonly FolderGrantEntry[];
-    },
+    deps: { broker: PermissionBroker; surfaces: readonly string[] },
     ctx: ToolRunContext,
     request: { path: string; reason: string; access: "read" | "read_write" },
-  ): Promise<DesktopShare | undefined> {
-    const result = await askForFolder(
-      {
-        broker: deps.broker,
-        surfaces: deps.surfaces,
-        folderEnv: () => separateDesktopFolderEnv(this.#deps.home),
-        // A read-write share never rides on an earlier grant.
-        grantedFolders:
-          request.access === "read_write" ? () => [] : (id) => deps.grantedFolders?.(id) ?? [],
+  ): Promise<ShareOutcome> {
+    if (ctx.requester !== undefined && ctx.requester.role !== "owner") {
+      throw new PsycheError("forbidden", "only the owner can share a folder");
+    }
+    const mode = request.access === "read_write" ? "rw" : "ro";
+    const env = separateDesktopFolderEnv(this.#deps.home);
+    const requested = await resolveRequestedFolder(request.path, env);
+    const resolved =
+      requested.status === "missing"
+        ? { folderStatus: "missing" }
+        : {
+            folderStatus: requested.status,
+            resolvedPath: requested.path,
+            ...(requested.status === "blocked" ? { blockedReason: requested.reason } : {}),
+          };
+    const shown = requested.status === "missing" ? request.path : requested.path;
+    const unattended = ctx.mode === "unattended";
+    const issued = await deps.broker.requestApproval({
+      kind: "separate_desktop_share",
+      summary:
+        `Let the separate desktop ${mode === "rw" ? "read and change" : "read"} ${shown}`.slice(
+          0,
+          300,
+        ),
+      details: {
+        requestedPath: request.path,
+        reason: request.reason,
+        access: mode,
+        target: "separate_desktop",
+        ...resolved,
       },
-      ctx,
-      request,
-    );
-    const out = result.output as { granted?: boolean; path?: string; access?: string };
-    if (out.granted !== true || typeof out.path !== "string") return undefined;
+      bindingHash: hashCanonical({
+        tool: "separate_desktop_share",
+        path: request.path,
+        reason: request.reason,
+        access: mode,
+        resolved,
+        threadId: ctx.threadId,
+        callId: ctx.callId,
+      }),
+      grantKey: `separate_desktop_share|${mode}`,
+      requestedBy: {
+        runId: ctx.runId,
+        taskId: ctx.taskId ?? null,
+        threadId: ctx.threadId,
+        toolCallId: ctx.callId,
+      },
+      sideEffect: mode === "rw" ? "write" : "read",
+      surfaces: [...deps.surfaces],
+      scopesOffered: ["once"],
+      taint: ctx.taint,
+      ...(ctx.taint && ctx.taintSources !== undefined
+        ? { taintSources: [...ctx.taintSources] }
+        : {}),
+    });
+    // An unattended task can't wait on a card; it is queued in the inbox and the task goes on without.
+    if (unattended) return { granted: false, status: "queued" };
+    const done = await deps.broker.awaitDecision(issued.approval.id, ctx.signal);
+    const granted = done.details.granted as FolderGrantEntry | undefined;
+    if (done.status !== "approved" || granted === undefined) {
+      return { granted: false, status: done.status };
+    }
     return {
-      source: out.path,
-      name: this.#shareName(out.path),
-      readOnly: !(request.access === "read_write" && out.access === "read_write"),
+      granted: true,
+      share: {
+        source: granted.path,
+        name: this.#shareName(granted.path),
+        readOnly: !(mode === "rw" && granted.mode === "rw"),
+      },
     };
   }
 
@@ -233,46 +388,70 @@ export class SeparateDesktop {
       basename(path)
         .replace(/[^A-Za-z0-9._-]+/g, "-")
         .replace(/^[^A-Za-z0-9]+/, "") || "folder";
-    const taken = new Set([...this.#tasks.values()].flatMap((h) => h.shares.map((s) => s.name)));
-    let name = base.slice(0, 56);
-    for (let i = 2; taken.has(name); i++) name = `${base.slice(0, 56)}-${i}`;
-    return name;
+    return base.slice(0, 56);
   }
 
   /**
-   * Makes the desktop available to a Task, starting it if it is not running. `shares` are exactly
-   * the folders this Task may reach; if the desktop is running with other shares it is restarted
-   * with these, unless another Task holds it. `internet` opens the egress tunnel for this Task
-   * with its allowlist.
+   * Makes the desktop available to one Task, starting it if it is not running.
+   *
+   * - **One Task at a time.** A second Task gets `conflict` (`separate_desktop_busy`) and nothing is
+   *   disturbed.
+   * - **A workspace never crosses grants.** If this Task's grants (shares, internet and its
+   *   allowlist) are not exactly those of the Task the workspace last served, the desktop is reset
+   *   first: container, `/workspace` and the Firefox profile in it are deleted and recreated. A
+   *   workspace that saw other shares or the web is never reused for a Task that did not get them.
+   *   An unknown last grant counts as different.
+   * - The same Task calling again replaces its own tunnel (the old one is closed first).
    */
   use(
     taskId: string,
     options: { shares?: readonly DesktopShare[]; internet?: { allow: readonly string[] } } = {},
   ): Promise<void> {
     return this.#exclusive(async () => {
-      const wanted = [...(options.shares ?? [])];
-      const key = (s: readonly DesktopShare[]) =>
-        JSON.stringify([...s].map((x) => [x.name, x.source, x.readOnly]).sort());
-      const others = [...this.#tasks.keys()].filter((id) => id !== taskId);
-      const merged = [...this.#tasks.entries()]
-        .filter(([id]) => id !== taskId)
-        .flatMap(([, h]) => h.shares);
-      const shares = [...merged, ...wanted];
-      if (this.#running && key(shares) !== key(this.#shares)) {
-        if (others.length > 0) {
-          throw new PsycheError(
-            "conflict",
-            "the separate desktop is busy with another task; try again when it has finished",
-            { details: { reason: "separate_desktop_busy" } },
-          );
-        }
+      if (this.#task !== undefined && this.#task.id !== taskId) {
+        throw new PsycheError(
+          "conflict",
+          "the separate desktop is busy with another task; try again when it has finished",
+          { details: { reason: "separate_desktop_busy" } },
+        );
+      }
+      const shares = [...(options.shares ?? [])];
+      const allow = options.internet === undefined ? undefined : [...options.internet.allow];
+      // Re-entry: this Task's old tunnel closes before anything else, so it can never leak.
+      const prior = this.#task;
+      prior?.internet?.close();
+      if (prior !== undefined) prior.internet = undefined;
+      const key = grantsKey(shares, allow);
+      if (this.#deps.grants?.read() !== key) {
+        // Different grants from the last Task's: a clean workspace.
+        if (this.#running) await this.#stopNow(true);
+        await this.#deps.desktop.reset(SEPARATE_DESKTOP_ID);
+      } else if (this.#running && JSON.stringify(shares) !== JSON.stringify(this.#shares)) {
         await this.#stopNow(true);
       }
       if (!this.#running) await this.#startNow(shares);
-      const held: Held = { shares: wanted, internet: undefined };
-      this.#tasks.set(taskId, held);
-      if (options.internet !== undefined)
-        await this.#openInternet(taskId, held, options.internet.allow);
+      this.#deps.grants?.write(key);
+      const task: ActiveTask = prior ?? {
+        id: taskId,
+        shares,
+        allow: [],
+        internet: undefined,
+        internetUsed: false,
+        credentialFilled: false,
+      };
+      task.shares = shares;
+      this.#task = task;
+      if (allow !== undefined) {
+        try {
+          await this.#openInternet(task, allow);
+        } catch (err) {
+          // Fail closed: a task that asked for internet and can't have it does not run with less
+          // of a promise than it asked for, and nothing stays up.
+          this.#task = undefined;
+          await this.#stopNow(true).catch(() => undefined);
+          throw err;
+        }
+      }
       this.#report({ phase: "running" });
     });
   }
@@ -280,10 +459,9 @@ export class SeparateDesktop {
   async #startNow(shares: DesktopShare[]): Promise<void> {
     this.#report({ phase: "starting" });
     try {
-      const backend = await this.#deps.desktop.requireBackend();
       const opened = await this.#deps.guests.open(SEPARATE_DESKTOP_ID);
       const memory = validateDesktopMemory(this.#deps.memory?.() ?? DEFAULT_DESKTOP_MEMORY);
-      await this.#deps.desktop.start({
+      const started = await this.#deps.desktop.start({
         id: SEPARATE_DESKTOP_ID,
         socketPath: opened.socketPath,
         token: opened.token,
@@ -297,20 +475,31 @@ export class SeparateDesktop {
           throw new PsycheError(
             "unavailable",
             "the separate desktop started but its helper did not connect",
-            {
-              details: { reason: "guest_not_paired" },
-            },
+            { details: { reason: "guest_not_paired" } },
           );
         }
         await new Promise((r) => setTimeout(r, 100));
       }
       this.#running = true;
       this.#shares = shares;
+      this.#engine = started.backend;
+      this.#limits = started.limits;
       this.#deps.logger?.log("info", "separate desktop started", {
-        engine: backend.kind,
+        engine: started.backend.kind,
         shares: shares.length,
       });
-      this.#engine = backend;
+      if (!started.limits.memory) {
+        this.#deps.logger?.log(
+          "warn",
+          "separate desktop: memory limit not enforced on this system",
+        );
+      }
+      if (!started.limits.pids) {
+        this.#deps.logger?.log(
+          "warn",
+          "separate desktop: process limit not enforced on this system",
+        );
+      }
     } catch (err) {
       // Fail closed: nothing half-started stays up, and the socket and token are gone.
       await this.#teardown();
@@ -320,8 +509,6 @@ export class SeparateDesktop {
     }
   }
 
-  #engine: { kind: string; rootless: boolean } | undefined;
-
   async #teardown(): Promise<void> {
     this.#deps.guests.close(SEPARATE_DESKTOP_ID);
     await this.#deps.desktop.stop(SEPARATE_DESKTOP_ID).catch(() => undefined);
@@ -329,33 +516,35 @@ export class SeparateDesktop {
     this.#shares = [];
   }
 
-  async #openInternet(taskId: string, held: Held, allow: readonly string[]): Promise<void> {
+  async #openInternet(task: ActiveTask, allow: readonly string[]): Promise<void> {
     const egress = this.#deps.egress;
     if (egress === undefined) {
       throw new PsycheError(
         "unavailable",
         "internet for the separate desktop is not available here",
-        {
-          details: { reason: "no_egress_proxy" },
-        },
+        { details: { reason: "no_egress_proxy" } },
       );
     }
-    const scope = { kind: "task" as const, id: taskId };
+    const scope = { kind: "task" as const, id: task.id };
     egress.allowlist(scope, allow);
-    held.internet = await this.#deps.desktop.openEgress(SEPARATE_DESKTOP_ID, scope, egress.tunnel);
+    task.allow = [...allow];
+    task.internetUsed = true;
+    task.internet = await this.#deps.desktop.openEgress(SEPARATE_DESKTOP_ID, scope, egress.tunnel);
   }
 
   /**
-   * A Task is finished with the desktop. It stops when no Task holds it and no watch view is
-   * open, unless its apps have unsaved changes (then this throws `conflict` and the desktop stays
-   * up for the owner to decide, as the virtual screen does) or `force` is set.
+   * A Task is finished with the desktop: its tunnel closes at once. The desktop stops when no watch
+   * view is open, unless its apps have unsaved changes (then this throws `conflict` and the
+   * container stays up for the owner to decide, as the virtual screen does) or `force` is set.
    */
   release(taskId: string, options: { force?: boolean } = {}): Promise<void> {
     return this.#exclusive(async () => {
-      const held = this.#tasks.get(taskId);
-      held?.internet?.close();
-      this.#tasks.delete(taskId);
-      if (this.#tasks.size > 0 || this.#watchers > 0 || !this.#running) return;
+      const task = this.#task;
+      if (task === undefined || task.id !== taskId) return;
+      task.internet?.close();
+      task.internet = undefined;
+      this.#task = undefined;
+      if (this.#watchers > 0 || !this.#running) return;
       await this.#stopNow(options.force === true);
     });
   }
@@ -365,7 +554,7 @@ export class SeparateDesktop {
     this.#watchers = Math.max(0, this.#watchers + (open ? 1 : -1));
     if (open || this.#watchers > 0) return Promise.resolve();
     return this.#exclusive(async () => {
-      if (this.#tasks.size === 0 && this.#running) await this.#stopNow(false);
+      if (this.#task === undefined && this.#running) await this.#stopNow(false);
     });
   }
 
@@ -380,7 +569,8 @@ export class SeparateDesktop {
       }
     }
     this.#report({ phase: "stopping" });
-    for (const held of this.#tasks.values()) held.internet?.close();
+    this.#task?.internet?.close();
+    if (this.#task !== undefined) this.#task.internet = undefined;
     await this.#teardown();
     this.#report({ phase: "off" });
   }
@@ -388,8 +578,8 @@ export class SeparateDesktop {
   /** "Reset separate desktop": everything it holds is gone, the container and its workspace. */
   reset(): Promise<void> {
     return this.#exclusive(async () => {
-      for (const held of this.#tasks.values()) held.internet?.close();
-      this.#tasks.clear();
+      this.#task?.internet?.close();
+      this.#task = undefined;
       await this.#teardown();
       await this.#deps.desktop.reset(SEPARATE_DESKTOP_ID);
       this.#report({ phase: "off" });
@@ -399,10 +589,71 @@ export class SeparateDesktop {
   /** Stops everything without asking (Gateway shutdown). */
   shutdown(): Promise<void> {
     return this.#exclusive(async () => {
-      for (const held of this.#tasks.values()) held.internet?.close();
-      this.#tasks.clear();
+      this.#task?.internet?.close();
+      this.#task = undefined;
       await this.#teardown();
     });
+  }
+
+  /**
+   * Whether a label or key chord in this Task's desktop should ask (`asksInSeparateDesktop`, with
+   * the state of this Task: web reached, login typed, read-write shares). Not this Task's: asks.
+   */
+  asks(
+    taskId: string,
+    text: string | undefined,
+    target: { app?: string; path?: string } = {},
+  ): boolean {
+    const task = this.#task;
+    if (task === undefined || task.id !== taskId) return asksInSeparateDesktop(text);
+    return asksInSeparateDesktop(text, {
+      internetUsed: task.internetUsed,
+      credentialFilled: task.credentialFilled,
+      app: target.app,
+      targetPath: target.path,
+      readWriteShares: task.shares.filter((s) => !s.readOnly).map((s) => `/shares/${s.name}`),
+    });
+  }
+
+  /**
+   * Typing a saved login into the desktop. Only while internet is allowed for this Task, only for
+   * an origin on that Task's allowlist, and every time on a fresh card (`approve` is asked each
+   * call; nothing is remembered). The card says the destination can't be verified in here: the
+   * helper only reports what the page claims. The secret is read after the approval, typed once
+   * and dropped; nothing is kept here or in the container.
+   */
+  async fillCredential(
+    taskId: string,
+    request: {
+      origin: string;
+      item: string;
+      approve(card: CredentialCard): Promise<boolean>;
+      read(): Promise<string>;
+      type(secret: string): Promise<void>;
+    },
+  ): Promise<boolean> {
+    const task = this.#task;
+    if (task === undefined || task.id !== taskId || task.internet === undefined) {
+      throw new PsycheError(
+        "forbidden",
+        "a login can be typed into the separate desktop only while internet is allowed for the task",
+        { details: { reason: "credential_needs_internet" } },
+      );
+    }
+    if (!originAllowed(request.origin, task.allow)) {
+      throw new PsycheError("forbidden", "that site is not on this task's list of allowed sites", {
+        details: { reason: "credential_origin_not_allowed" },
+      });
+    }
+    const card: CredentialCard = {
+      kind: "credential_fill",
+      summary: `Type a saved login for ${request.origin} into the separate desktop`,
+      details: { origin: request.origin, item: request.item, separateDesktop: true },
+    };
+    if (!(await request.approve(card))) return false;
+    task.credentialFilled = true;
+    await request.type(await request.read());
+    return true;
   }
 
   #report(state: SeparateDesktopState): void {
@@ -417,10 +668,27 @@ export class SeparateDesktop {
     }
     if (state.phase === "running") {
       out.shares = this.#shares.map((s) => ({ name: s.name, readWrite: !s.readOnly }));
-      out.internet = [...this.#tasks.values()].some((h) => h.internet !== undefined);
+      out.internet = this.#task?.internet !== undefined;
+      if (!this.#limits.memory) out.memoryEnforced = false;
+      if (!this.#limits.pids) out.pidsEnforced = false;
     }
     this.#deps.report?.(out);
   }
+}
+
+/** Whether `origin` (a URL) is one the task's allowlist admits. */
+export function originAllowed(origin: string, allow: readonly string[]): boolean {
+  let url: URL;
+  try {
+    url = new URL(origin);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") return false;
+  const host = canonicalHost(url.hostname);
+  if (host === undefined) return false;
+  const port = url.port === "" ? (url.protocol === "https:" ? 443 : 80) : Number(url.port);
+  return matchAllowlist(parseAllowlist(allow), host, port) !== undefined;
 }
 
 /**
@@ -434,26 +702,9 @@ export function assertSeparateDesktopClipboard(
     throw new PsycheError(
       "forbidden",
       "the separate desktop shares no clipboard with this computer",
-      {
-        details: { reason: "separate_desktop_clipboard" },
-      },
+      { details: { reason: "separate_desktop_clipboard" } },
     );
   }
-}
-
-/**
- * Typing a saved login into the desktop: one approval, one secret, typed by the helper into one
- * field. The secret is read after the approval, handed to the helper and dropped; this function
- * keeps nothing, and the container is never given a copy to keep.
- */
-export async function fillSeparateDesktopCredential(steps: {
-  approve(): Promise<boolean>;
-  read(): Promise<string>;
-  type(secret: string): Promise<void>;
-}): Promise<boolean> {
-  if (!(await steps.approve())) return false;
-  await steps.type(await steps.read());
-  return true;
 }
 
 /** What `createSandboxEgress` gives (`ComposedSandbox.egress`). */
@@ -514,6 +765,13 @@ export function composeSeparateDesktop(
             return typeof v === "string" ? v : undefined;
           },
           report,
+          grants: {
+            read: () => {
+              const v = getSetting(ctx.db, SEPARATE_DESKTOP_SETTINGS.grants)?.value;
+              return typeof v === "string" ? v : undefined;
+            },
+            write: (key) => void setSetting(ctx.db, SEPARATE_DESKTOP_SETTINGS.grants, key),
+          },
           logger: ctx.log,
           get egress() {
             const e = options.egress?.();
