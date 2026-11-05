@@ -180,6 +180,13 @@ export const SEPARATE_DESKTOP_NOT_RUNNING =
   "the separate desktop is not running (or its helper is not connected)";
 
 export interface SeparateDesktopDeps {
+  /**
+   * The Permission Broker: cards for shares, internet and logins, and the check that the grants a
+   * task starts with are the ones the owner approved. Without it nothing can be granted.
+   */
+  broker?: PermissionBroker;
+  /** Surfaces the cards go to (default the desktop app). */
+  surfaces?: readonly string[];
   desktop: DesktopContainers;
   guests: GuestSockets;
   /** `$PSYCHE_HOME`. */
@@ -250,8 +257,11 @@ export function grantsKey(
     .digest("hex");
 }
 
+/** A share together with the approval that granted it: `use` checks the two agree. */
+export type GrantedShare = DesktopShare & { approvalId: string };
+
 export type ShareOutcome =
-  | { granted: true; share: DesktopShare }
+  | { granted: true; share: GrantedShare }
   | { granted: false; status: string };
 
 export class SeparateDesktop {
@@ -305,13 +315,13 @@ export class SeparateDesktop {
    * allows read-write on the card.
    */
   async requestShare(
-    deps: { broker: PermissionBroker; surfaces: readonly string[] },
     ctx: ToolRunContext,
     request: { path: string; reason: string; access: "read" | "read_write" },
   ): Promise<ShareOutcome> {
     if (ctx.requester !== undefined && ctx.requester.role !== "owner") {
       throw new PsycheError("forbidden", "only the owner can share a folder");
     }
+    const deps = this.#cards();
     const mode = request.access === "read_write" ? "rw" : "ro";
     const env = separateDesktopFolderEnv(this.#deps.home);
     const requested = await resolveRequestedFolder(request.path, env);
@@ -376,8 +386,20 @@ export class SeparateDesktop {
         source: granted.path,
         name: this.#shareName(granted.path),
         readOnly: !(mode === "rw" && granted.mode === "rw"),
+        approvalId: issued.approval.id,
       },
     };
+  }
+
+  /** The broker and surfaces for a card; no broker, no card. */
+  #cards(): { broker: PermissionBroker; surfaces: readonly string[] } {
+    const broker = this.#deps.broker;
+    if (broker === undefined) {
+      throw new PsycheError("unavailable", "the separate desktop cannot ask the owner here", {
+        details: { reason: "no_broker" },
+      });
+    }
+    return { broker, surfaces: this.#deps.surfaces ?? ["desktop"] };
   }
 
   #shareName(path: string): string {
@@ -402,7 +424,10 @@ export class SeparateDesktop {
    */
   use(
     taskId: string,
-    options: { shares?: readonly DesktopShare[]; internet?: { allow: readonly string[] } } = {},
+    options: {
+      shares?: readonly GrantedShare[];
+      internet?: { allow: readonly string[]; approvalId: string };
+    } = {},
   ): Promise<void> {
     return this.#exclusive(async () => {
       if (this.#task !== undefined && this.#task.id !== taskId) {
@@ -414,6 +439,8 @@ export class SeparateDesktop {
       }
       const shares = [...(options.shares ?? [])];
       const allow = options.internet === undefined ? undefined : [...options.internet.allow];
+      // What the task starts with is what the owner approved, nothing else.
+      await this.#checkApprovals(taskId, shares, options.internet);
       // Re-entry: this Task's old tunnel closes before anything else, so it can never leak.
       const prior = this.#task;
       prior?.internet?.close();
@@ -453,6 +480,63 @@ export class SeparateDesktop {
     });
   }
 
+  /** Approvals already used, and by which task: one card is one task's, never another's. */
+  readonly #used = new Map<string, string>();
+
+  /**
+   * Every share needs its own approved `separate_desktop_share` card for exactly that folder (and
+   * read-write only if the owner allowed it); internet needs an approved card whose binding is the
+   * hash of the whole set of grants (`grantsKey(shares, allow)`), so a card for one set can't be
+   * used for another. Anything missing, unapproved, mismatched or used by another task refuses.
+   */
+  async #checkApprovals(
+    taskId: string,
+    shares: readonly GrantedShare[],
+    internet: { allow: readonly string[]; approvalId: string } | undefined,
+  ): Promise<void> {
+    if (shares.length === 0 && internet === undefined) return;
+    const refuse = (what: string, reason: string) =>
+      new PsycheError("forbidden", `${what} was not approved for this task`, {
+        details: { reason },
+      });
+    const { broker } = this.#cards();
+    const ids: string[] = [];
+    for (const sh of shares) {
+      const a = typeof sh.approvalId === "string" ? await broker.get(sh.approvalId) : undefined;
+      const granted = a?.details.granted as { path?: string; mode?: string } | undefined;
+      if (
+        a === undefined ||
+        a.status !== "approved" ||
+        a.kind !== "separate_desktop_share" ||
+        granted?.path !== sh.source ||
+        (!sh.readOnly && granted.mode !== "rw")
+      ) {
+        throw refuse(`sharing ${sh.source}`, "share_not_approved");
+      }
+      ids.push(a.id);
+    }
+    if (internet !== undefined) {
+      const a = await broker.get(internet.approvalId);
+      if (
+        a === undefined ||
+        a.status !== "approved" ||
+        a.kind !== "new_origin" ||
+        a.details.separateDesktop !== true ||
+        a.bindingHash !== grantsKey(shares, internet.allow)
+      ) {
+        throw refuse("internet with these folders", "internet_not_approved");
+      }
+      ids.push(a.id);
+    }
+    for (const id of ids) {
+      const owner = this.#used.get(id);
+      if (owner !== undefined && owner !== taskId) {
+        throw refuse("a card already used by another task", "approval_used");
+      }
+    }
+    for (const id of ids) this.#used.set(id, taskId);
+  }
+
   async #startNow(shares: DesktopShare[]): Promise<void> {
     this.#report({ phase: "starting" });
     try {
@@ -461,7 +545,7 @@ export class SeparateDesktop {
       const started = await this.#deps.desktop.start({
         id: SEPARATE_DESKTOP_ID,
         socketPath: opened.socketPath,
-        token: opened.token,
+        tokenPath: opened.tokenPath,
         shares,
         memory,
         protectedRoots: separateDesktopFolderEnv(this.#deps.home).protectedRoots ?? [],
@@ -608,15 +692,11 @@ export class SeparateDesktop {
   }
 
   /**
-   * The card for one login fill: kind `credential_fill` with its own grant key and `once` only. It
-   * is asked every time and never matched by a Host "site" grant. Pass it as `approve` to
-   * `fillCredential`.
+   * The card for one login fill: kind `credential_fill` with its own grant key and `once` only,
+   * asked every time and never matched by a Host "site" grant.
    */
-  async askCredential(
-    deps: { broker: PermissionBroker; surfaces: readonly string[] },
-    ctx: ToolRunContext,
-    card: CredentialCard,
-  ): Promise<boolean> {
+  async #askCredential(ctx: ToolRunContext, card: CredentialCard): Promise<boolean> {
+    const deps = this.#cards();
     const issued = await deps.broker.requestApproval({
       kind: "credential_fill",
       summary: card.summary.slice(0, 300),
@@ -643,20 +723,24 @@ export class SeparateDesktop {
         ? { taintSources: [...ctx.taintSources] }
         : {}),
     });
+    if (ctx.mode === "unattended") return false;
     const done = await deps.broker.awaitDecision(issued.approval.id, ctx.signal);
     return done.status === "approved";
   }
 
   /**
-   * The card for "Allow internet for this task". When the task also has a read-write share, the
-   * same card says so ("This task can also change <folder>, and send files from it"): files can
-   * leave through the allowed sites, so the owner accepts or denies both together.
+   * The card for "Allow internet for this task". Its binding is the hash of the whole set of
+   * grants (`grantsKey`), which `use` checks, so this card can't start a task with other folders
+   * or other sites. When the task also has a read-write share, the same card says so ("This task
+   * can also change <folder>, and send files from it"): files can leave through the allowed
+   * sites, so the owner accepts or denies both together. Returns the approval's id to pass to
+   * `use`, or `undefined` when it was denied or is queued.
    */
   async requestInternet(
-    deps: { broker: PermissionBroker; surfaces: readonly string[] },
     ctx: ToolRunContext,
     request: { allow: readonly string[]; shares: readonly DesktopShare[]; reason: string },
-  ): Promise<boolean> {
+  ): Promise<{ approvalId: string } | undefined> {
+    const deps = this.#cards();
     const writable = request.shares.filter((x) => !x.readOnly).map((x) => x.source);
     const issued = await deps.broker.requestApproval({
       kind: "new_origin",
@@ -671,13 +755,7 @@ export class SeparateDesktop {
         separateDesktop: true,
         ...(writable.length === 0 ? {} : { alsoChanges: writable }),
       },
-      bindingHash: hashCanonical({
-        tool: "separate_desktop_internet",
-        allow: [...request.allow].sort(),
-        writable: [...writable].sort(),
-        threadId: ctx.threadId,
-        callId: ctx.callId,
-      }),
+      bindingHash: grantsKey(request.shares, request.allow),
       grantKey: `new_origin|separate_desktop|${ctx.taskId ?? ctx.threadId}`,
       requestedBy: {
         runId: ctx.runId,
@@ -693,24 +771,24 @@ export class SeparateDesktop {
         ? { taintSources: [...ctx.taintSources] }
         : {}),
     });
-    if (ctx.mode === "unattended") return false;
+    if (ctx.mode === "unattended") return undefined;
     const done = await deps.broker.awaitDecision(issued.approval.id, ctx.signal);
-    return done.status === "approved";
+    return done.status === "approved" ? { approvalId: issued.approval.id } : undefined;
   }
 
   /**
    * Typing a saved login into the desktop. Only while internet is allowed for this Task, only for
-   * an origin on that Task's allowlist, and every time on a fresh card (`approve` is asked each
-   * call; nothing is remembered). The card says the destination can't be verified in here: the
-   * helper only reports what the page claims. The secret is read after the approval, typed once
-   * and dropped; nothing is kept here or in the container.
+   * an origin on that Task's allowlist, and every time on a fresh card of its own, which this
+   * method asks itself (there is no way to pass in an approval). The card says the destination
+   * can't be verified in here: the helper only reports what the page claims. The secret is read
+   * after the approval, typed once and dropped; nothing is kept here or in the container.
    */
   async fillCredential(
     taskId: string,
+    ctx: ToolRunContext,
     request: {
       origin: string;
       item: string;
-      approve(card: CredentialCard): Promise<boolean>;
       read(): Promise<string>;
       type(secret: string): Promise<void>;
     },
@@ -735,7 +813,7 @@ export class SeparateDesktop {
       scopesOffered: ["once"],
       details: { origin: request.origin, item: request.item, separateDesktop: true },
     };
-    if (!(await request.approve(card))) return false;
+    if (!(await this.#askCredential(ctx, card))) return false;
     task.credentialFilled = true;
     await request.type(await request.read());
     return true;
@@ -812,7 +890,7 @@ export function composeSeparateDesktop(
     unsaved?: SeparateDesktopDeps["unsaved"];
     onSettingChanged?: (listener: (change: { key: string; after: unknown }) => void) => void;
   } = {},
-): (services: { home: string }) => ComposedSeparateDesktop {
+): (services: { home: string; broker?: PermissionBroker }) => ComposedSeparateDesktop {
   return (services) => {
     let gateway: Gateway | undefined;
     let guests: GuestSockets | undefined;
@@ -845,6 +923,7 @@ export function composeSeparateDesktop(
           desktop,
           guests,
           home: services.home,
+          ...(services.broker === undefined ? {} : { broker: services.broker }),
           memory: () => {
             const v = getSetting(ctx.db, SEPARATE_DESKTOP_SETTINGS.memory)?.value;
             return typeof v === "string" ? v : undefined;

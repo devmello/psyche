@@ -25,7 +25,7 @@ export const separateDesktop: Partial<Catalogue> = {
   "blocks.folder.sd.explain.ro":
     "{persona} quiere dejar que el escritorio separado lea los archivos de una carpeta.",
   "blocks.folder.sd.explain.rw":
-    "{persona} quiere dejar que el escritorio separado lea y cambie los archivos de una carpeta. Los programas del escritorio separado pueden cambiar archivos allí, y los cambios aparecen en este ordenador.",
+    "{persona} quiere dejar que el escritorio separado lea y cambie los archivos de una carpeta. Los programas del escritorio separado pueden cambiar archivos allí, incluidos archivos que ejecutan programas en este ordenador, como ajustes de git y scripts, y los cambios aparecen en este ordenador.",
   "blocks.folder.sd.scope":
     "El escritorio separado ve esta carpeta solo durante esta tarea. No se comparte nada más de este ordenador, y ninguna otra herramienta de este ordenador recibe la carpeta.",
   "blocks.folder.sd.scope.once": "Solo esta tarea",

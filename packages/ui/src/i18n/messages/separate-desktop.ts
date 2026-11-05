@@ -26,7 +26,7 @@ export const separateDesktop = {
   "blocks.folder.sd.explain.ro":
     "{persona} wants to let the separate desktop read the files in a folder.",
   "blocks.folder.sd.explain.rw":
-    "{persona} wants to let the separate desktop read and change the files in a folder. Programs in the separate desktop can change files there, and the changes show up on this computer.",
+    "{persona} wants to let the separate desktop read and change the files in a folder. Programs in the separate desktop can change files there, including files that run programs on this computer, such as git settings and scripts, and the changes show up on this computer.",
   "blocks.folder.sd.scope":
     "The separate desktop sees this folder for this task only. Nothing else on this computer is shared, and no other tool on this computer gets the folder.",
   "blocks.folder.sd.scope.once": "This task only",

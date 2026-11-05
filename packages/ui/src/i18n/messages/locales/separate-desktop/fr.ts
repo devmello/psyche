@@ -25,7 +25,7 @@ export const separateDesktop: Partial<Catalogue> = {
   "blocks.folder.sd.explain.ro":
     "{persona} veut laisser le bureau séparé lire les fichiers d'un dossier.",
   "blocks.folder.sd.explain.rw":
-    "{persona} veut laisser le bureau séparé lire et modifier les fichiers d'un dossier. Les programmes du bureau séparé peuvent y modifier des fichiers, et les changements apparaissent sur cet ordinateur.",
+    "{persona} veut laisser le bureau séparé lire et modifier les fichiers d'un dossier. Les programmes du bureau séparé peuvent y modifier des fichiers, y compris des fichiers qui lancent des programmes sur cet ordinateur, comme les réglages git et les scripts, et les changements apparaissent sur cet ordinateur.",
   "blocks.folder.sd.scope":
     "Le bureau séparé voit ce dossier pour cette tâche seulement. Rien d'autre sur cet ordinateur n'est partagé, et aucun autre outil de cet ordinateur n'obtient le dossier.",
   "blocks.folder.sd.scope.once": "Cette tâche seulement",

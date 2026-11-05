@@ -25,7 +25,7 @@ export const separateDesktop: Partial<Catalogue> = {
   "blocks.folder.sd.explain.ro":
     "{persona} möchte dem separaten Desktop erlauben, die Dateien in einem Ordner zu lesen.",
   "blocks.folder.sd.explain.rw":
-    "{persona} möchte dem separaten Desktop erlauben, die Dateien in einem Ordner zu lesen und zu ändern. Programme im separaten Desktop können dort Dateien ändern, und die Änderungen erscheinen auf diesem Computer.",
+    "{persona} möchte dem separaten Desktop erlauben, die Dateien in einem Ordner zu lesen und zu ändern. Programme im separaten Desktop können dort Dateien ändern, auch solche, die auf diesem Computer Programme ausführen, wie Git-Einstellungen und Skripte, und die Änderungen erscheinen auf diesem Computer.",
   "blocks.folder.sd.scope":
     "Der separate Desktop sieht diesen Ordner nur für diese Aufgabe. Sonst wird nichts auf diesem Computer geteilt, und kein anderes Werkzeug auf diesem Computer erhält den Ordner.",
   "blocks.folder.sd.scope.once": "Nur diese Aufgabe",

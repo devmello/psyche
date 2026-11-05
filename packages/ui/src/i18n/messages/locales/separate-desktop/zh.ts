@@ -23,7 +23,7 @@ export const separateDesktop: Partial<Catalogue> = {
     "删除其容器及其中保存的所有内容。你共享的文件夹不会受影响。",
   "blocks.folder.sd.explain.ro": "{persona} 想让独立桌面读取某个文件夹中的文件。",
   "blocks.folder.sd.explain.rw":
-    "{persona} 想让独立桌面读取并修改某个文件夹中的文件。独立桌面里的程序可以修改那里的文件，这些改动会出现在这台电脑上。",
+    "{persona} 想让独立桌面读取并修改某个文件夹中的文件。独立桌面里的程序可以修改那里的文件，包括会在这台电脑上运行程序的文件，例如 git 设置和脚本，这些改动会出现在这台电脑上。",
   "blocks.folder.sd.scope":
     "独立桌面只在这项任务期间看到此文件夹。这台电脑上的其他内容不会被共享，这台电脑上的其他工具也不会获得此文件夹。",
   "blocks.folder.sd.scope.once": "仅限这项任务",

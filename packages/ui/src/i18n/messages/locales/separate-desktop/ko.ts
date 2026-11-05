@@ -25,7 +25,7 @@ export const separateDesktop: Partial<Catalogue> = {
   "blocks.folder.sd.explain.ro":
     "{persona}이(가) 별도 데스크톱이 폴더의 파일을 읽도록 하려고 합니다.",
   "blocks.folder.sd.explain.rw":
-    "{persona}이(가) 별도 데스크톱이 폴더의 파일을 읽고 바꾸도록 하려고 합니다. 별도 데스크톱의 프로그램은 그곳의 파일을 바꿀 수 있고, 그 변경 내용은 이 컴퓨터에 나타납니다.",
+    "{persona}이(가) 별도 데스크톱이 폴더의 파일을 읽고 바꾸도록 하려고 합니다. 별도 데스크톱의 프로그램은 그곳의 파일을 바꿀 수 있으며, git 설정이나 스크립트처럼 이 컴퓨터에서 프로그램을 실행하는 파일도 포함됩니다. 그 변경 내용은 이 컴퓨터에 나타납니다.",
   "blocks.folder.sd.scope":
     "별도 데스크톱은 이 작업 동안에만 이 폴더를 볼 수 있습니다. 이 컴퓨터의 다른 것은 공유되지 않으며, 이 컴퓨터의 다른 도구도 이 폴더를 얻지 않습니다.",
   "blocks.folder.sd.scope.once": "이 작업에서만",
