@@ -122,8 +122,8 @@ export const Voice: Story = {
   ),
 };
 
-/** VM mode is a Mac feature: "Available on macOS", never a failure. */
-export const VmMacOnly: Story = { render: (): ReactElement => <VmSection /> };
+/** VM mode on Windows is the sandbox PC (a Linux guest in Hyper-V): the desktop turns it on. */
+export const VmSandboxPc: Story = { render: (): ReactElement => <VmSection /> };
 
 /** The keyboard map in Windows keys (Ctrl, Alt, Shift as text). */
 export const Shortcuts: Story = { render: (): ReactElement => <ShortcutTable /> };

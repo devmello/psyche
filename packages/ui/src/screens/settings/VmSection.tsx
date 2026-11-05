@@ -10,9 +10,10 @@ import { NativeSelect } from "../../components/ui/native-select.tsx";
 import { useGatewayQuery, useVmGuests } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { formatRelative } from "../../lib/format.ts";
-import { macOnlyAvailable, macOnlyLabel } from "../../lib/platform-copy.ts";
+import { isWindows } from "../../lib/platform.ts";
 import { useNow } from "../../lib/use-now.ts";
 import { usePersona } from "../../slots.tsx";
+import { SandboxPcConnected } from "./SandboxPcSection.tsx";
 import {
   bool,
   EmptyNotice,
@@ -110,8 +111,11 @@ function GuestCard({ report, now }: { report: VmUpdatedPayload; now: number }): 
       ) : null}
       <Facts
         items={[
-          // i18n-ignore: the operating system's name
-          { term: "macOS", value: g.guestOS ?? t("settings.vm.notInstalled") },
+          // i18n-ignore: the operating system's name (the sandbox PC's guest is Linux)
+          {
+            term: isWindows() ? "Linux" : "macOS",
+            value: g.guestOS ?? t("settings.vm.notInstalled"),
+          },
           {
             term: t("settings.vm.resources"),
             value: t("settings.vm.resourcesValue", {
@@ -258,21 +262,12 @@ export function VmPanel({
 }
 
 /**
- * VM mode runs a macOS guest (Virtualization.framework): on Windows the pane says it is a Mac
- * feature instead of showing switches that can't work (cross-platform-2026 §4.3).
+ * VM mode: a sandbox Mac on macOS (Virtualization.framework), the sandbox PC on Windows (a small
+ * Linux guest in Hyper-V, turned on once from the desktop app). Windows copy comes from the
+ * variants in `i18n/messages/variants/windows.ts`; on Windows the card that turns it on and the
+ * start / stop / snapshot controls sit above the settings.
  */
 export function VmSection({ now }: { now?: number }): ReactElement {
-  if (!macOnlyAvailable())
-    return (
-      <SectionFrame
-        title={t("settings.nav.vm")}
-        description={t("platform.macOnlyHint", { name: t("settings.nav.vm") })}
-      >
-        <p data-testid="vm-mac-only">
-          <StatusChip tone="neutral">{macOnlyLabel()}</StatusChip>
-        </p>
-      </SectionFrame>
-    );
   return <VmSectionBody {...(now === undefined ? {} : { now })} />;
 }
 
@@ -289,6 +284,7 @@ function VmSectionBody({ now }: { now?: number }): ReactElement {
     .map((n) => ({ id: n.id, name: deviceName(n.deviceId), status: n.status }));
   return (
     <div className="flex flex-col gap-3">
+      {isWindows() ? <SandboxPcConnected {...(now === undefined ? {} : { now })} /> : null}
       <VmPanel
         values={form.values}
         onChange={form.onChange}

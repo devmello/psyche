@@ -6,7 +6,7 @@ import type { MessageId } from "../index.ts";
  * branch on the platform for copy. Rules (docs/guides/translating.md applies):
  * - the same placeholders as the English message and the same meaning: a variant only says it
  *   the way Windows does ("This PC", "Windows Hello", "File Explorer", "Ctrl+K");
- * - no variant for Mac-only features (Apple apps, VM guests, Apple's on-device model): they are
+ * - no variant for Mac-only features (Apple apps, Apple's on-device model): they are
  *   hidden on Windows or say "Available on macOS" (cross-platform-2026 §4.3);
  * - a translation of a variant goes in `WINDOWS_LOCALES` (./index.ts); until then a translated
  *   catalogue shows the English variant rather than its Mac wording.
@@ -56,6 +56,19 @@ export const windows: Partial<Record<MessageId, string>> = {
   "settings.essentials.read.hint":
     "Off until you turn one on. What it reads is indexed on this PC so it can find things for you, and memory learns from it too unless you opt out under Memory → Sources.",
   "settings.searchModel.apple.notOnThisMac": "Available on macOS",
+  // VM mode is the sandbox PC here: a small Linux guest in Hyper-V.
+  "settings.nav.vm": "Sandbox PC",
+  "settings.key.vm.enabled": "Use the sandbox PC for tasks",
+  "settings.key.vm.resetPerTask": "Fresh PC for every task",
+  "settings.vm.phase.installing": "Setting up the guest",
+  "settings.vm.sandboxMac": "Sandbox PC",
+  "settings.vm.description":
+    "Run tasks in a separate sandbox PC, so {persona} works in its own small Linux computer instead of yours.",
+  "settings.vm.between": "Between your PC and the guest",
+  "settings.vm.credentialsHint":
+    "With the host vault, values stay on your PC. A guest vault keeps its own copy.",
+  "settings.vm.noReports":
+    "No guest has reported yet. Turn on the sandbox PC above, then create it; its state shows here.",
   "settings.macHelper.paired.text":
     "Runs computer use, screen context, dictation, Windows Hello and notifications on this PC.",
   "settings.macHelper.unbundled.text": "This build of Psyche has no Windows helper.",
@@ -190,7 +203,8 @@ export const windows: Partial<Record<MessageId, string>> = {
   "settings.lan.problem.unknownInterface": "{name} is not a network on this PC.",
   "settings.lan.problem.advertise":
     "Psyche couldn't announce itself on the network. Computers can still add this PC by its address.",
-  "settings.server.noVm": "No VM. VM mode needs macOS.",
+  "settings.server.noVm":
+    "No VM. The sandbox PC runs Psyche inside a separate Linux guest; turn it on in Settings → Sandbox PC.",
   "settings.shortcut.key.Alt": "Alt",
   "settings.skills.permission.exec_host": "Run commands on this PC",
   "settings.skills.permission.computer_action": "Use apps on this PC",

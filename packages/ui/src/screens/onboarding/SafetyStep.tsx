@@ -6,6 +6,7 @@ import { describeError } from "../../i18n/errors.ts";
 import { isWindows } from "../../lib/platform.ts";
 import { cn } from "../../lib/utils.ts";
 import { type MacHelperStatus, MacHelperStatusRow } from "../settings/MacHelperStatus.tsx";
+import { SandboxPcOnboarding } from "../settings/SandboxPcSection.tsx";
 import { CARD, CARD_ROWS, StatusChip, SwitchField } from "../settings/shared.tsx";
 import { keyIdShort, presenceKeyText } from "../settings/TouchIdKeySetup.tsx";
 import type { TccState } from "../settings/types.ts";
@@ -340,6 +341,8 @@ export function SafetyStep({
         {t("onboarding.safety.asks", { name: persona })}
       </p>
       <SandboxDisclosure />
+      {/* Windows desktop: the sandbox PC, turned on once here or later in Settings. */}
+      <SandboxPcOnboarding />
     </div>
   );
 }
