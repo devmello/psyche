@@ -11,6 +11,8 @@ import type { BuildEnv } from "./signing-config.ts";
  *   launchd/com.psyche.gateway.plist the LaunchAgent template ({{PSYCHED}}, {{PSYCHE_HOME}}),
  *                                    rendered by the supervisor at install time
  *   PsycheHelper.app                 S14's Swift helper (com.psyche.helper), launched with `open`
+ *   designated-requirements.txt      the pinned code requirement (deploy/macos/designated-requirements.txt);
+ *                                    the updater runs only when the app's own signature satisfies it
  *
  * The package step fails when a piece is missing unless PSYCHE_PACKAGE_ALLOW_PARTIAL=1, so a
  * release never ships an app that cannot start its Gateway.
@@ -90,6 +92,26 @@ export function bundlePieces(
   ];
 }
 
+/** deploy/macos/designated-requirements.txt, copied next to the pieces above. */
+export const PINNED_REQUIREMENTS = "designated-requirements.txt";
+
+/**
+ * Puts the pinned designated requirements into `Contents/Resources/` (sealed by the outer
+ * signature). Returns false, and copies nothing, when the repo has no such file.
+ */
+export function copyPinnedRequirements(repoRoot: string, resourcesDir: string): boolean {
+  const src = join(repoRoot, "deploy", "macos", PINNED_REQUIREMENTS);
+  if (!existsSync(src)) return false;
+  mkdirSync(resourcesDir, { recursive: true });
+  cpSync(src, join(resourcesDir, PINNED_REQUIREMENTS));
+  return true;
+}
+
+/** True for files inside `Resources/psyched/` (the Gateway and its Node runtime). */
+export function isGatewayFile(file: string): boolean {
+  return file.includes(`${sep}Resources${sep}${BUNDLED_PSYCHED_DIR}${sep}`);
+}
+
 /** The marker, or the first other required path, that does not exist. */
 function firstMissing(p: BundlePiece): string {
   return [p.marker, ...(p.alsoRequires ?? [])].find((f) => !existsSync(f)) ?? p.marker;
@@ -165,7 +187,7 @@ export function isMachO(file: string): boolean {
  */
 export function skipOuterSigning(file: string): boolean {
   if (file.includes(`${sep}${HELPER_APP_NAME}`)) return true;
-  if (file.includes(`${sep}Resources${sep}${BUNDLED_PSYCHED_DIR}${sep}`)) return !isMachO(file);
+  if (isGatewayFile(file)) return !isMachO(file);
   return false;
 }
 

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Hardened-runtime entitlements for the app and Electron's helpers when the release is signed with
+  Psyche's own self-signed certificate (docs/design/updates-and-install-2026.md §2.3, docs/signing.md).
+  The same as entitlements.plist plus ONE key:
+
+  - com.apple.security.cs.disable-library-validation: a self-signed certificate has no team ID.
+    With no team ID the hardened runtime refuses to load any library that Apple did not sign, even
+    one signed with the same certificate ("mapping process and mapped file (non-platform) have
+    different Team IDs"), so Electron cannot load Electron Framework.framework at all without it.
+    Measured on macOS 27 with a certificate made by deploy/macos/make-signing-cert.sh.
+
+  What it costs: this process (the app and its Electron helpers) can be made to load a dylib that was
+  signed by anyone, if something gets a file into a place it loads from. It does NOT turn the hardened
+  runtime off: DYLD_* environment injection stays blocked (no allow-dyld-environment-variables),
+  debuggers and task_for_pid stay blocked (no get-task-allow), and the fuses already turn off
+  RunAsNode, NODE_OPTIONS and the inspector. Writing into Psyche.app needs the same rights that
+  replacing the app outright needs. A Developer ID build does not use this file.
+
+  PsycheHelper.app does not have this key: it links only system libraries.
+-->
+<plist version="1.0">
+  <dict>
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+    <key>com.apple.security.device.audio-input</key>
+    <true/>
+    <key>com.apple.security.personal-information.calendars</key>
+    <true/>
+    <key>com.apple.security.personal-information.addressbook</key>
+    <true/>
+    <key>com.apple.security.automation.apple-events</key>
+    <true/>
+  </dict>
+</plist>

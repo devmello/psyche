@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Entitlements for the files under Contents/Resources/psyched/ (the Gateway's Node runtime and its
+  native addons) when the release is signed with Psyche's own self-signed certificate. Only two keys:
+
+  - com.apple.security.cs.allow-jit: V8 needs it under the hardened runtime.
+  - com.apple.security.cs.disable-library-validation: the Node runtime loads better-sqlite3,
+    node-pty, sqlite-vec and onnxruntime as native addons. Without a team ID the hardened runtime
+    refuses them ("different Team IDs") even though they carry the same certificate. Measured on
+    macOS 27: the bundle check (psyched, with the bundle-check flag) fails with ERR_DLOPEN_FAILED without it and passes with it.
+
+  What it costs: the Gateway's Node process could be made to load a library signed by anyone, if
+  something got a file into a path Node loads from. The Gateway only loads addons from inside the
+  sealed bundle (Psyche.app/Contents/Resources/psyched/app/node_modules), and writing into the
+  bundle needs the same rights as replacing the app.
+  Nothing here (no audio, contacts, calendar or Apple Events): TCC access belongs to the app and to
+  PsycheHelper.app, not to this process. A Developer ID build does not use this file.
+-->
+<plist version="1.0">
+  <dict>
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+  </dict>
+</plist>

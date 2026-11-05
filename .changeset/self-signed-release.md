@@ -1,0 +1,5 @@
+---
+"@psyche/desktop": minor
+---
+
+Releases now use Psyche's own self-signed certificate instead of a paid Apple Developer ID. `deploy/macos/make-signing-cert.sh` makes the certificate once (a password you type, a `.p12`, nothing imported into your keychain). The release signs the app, helper, Node runtime and every addon with it and the hardened runtime, skips notarization, and checks `codesign --verify --deep --strict`, the pinned designated requirement (`deploy/macos/designated-requirements.txt`), the fuses and the size budgets. Auto-update now runs only when the running app's own signature satisfies that pinned requirement and a release key is embedded; ad-hoc and development builds still never update themselves. Because a self-signed app has no team ID, the app and psyched's Node runtime carry `disable-library-validation` (the helper does not); the design doc spells out the cost. The first open of a downloaded copy needs System Settings › Privacy & Security › Open Anyway once, and the release notes say so.

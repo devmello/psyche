@@ -11,23 +11,31 @@ import {
   allowPartial,
   bundleSources,
   copyBundleResources,
+  copyPinnedRequirements,
   HELPER_APP_NAME,
+  isGatewayFile,
   skipOuterSigning,
   verifyNestedHelper,
 } from "./src/packaging/bundle-resources.ts";
 import { pruneLocales } from "./src/packaging/locales.ts";
-import { macSigningOptions, signingIdentity } from "./src/packaging/signing-config.ts";
+import {
+  describeSigning,
+  macSigningOptions,
+  signingIdentity,
+} from "./src/packaging/signing-config.ts";
 import { pruneSwiftShader } from "./src/packaging/swiftshader.ts";
 import { dropGatewayWebCopy } from "./src/packaging/web-copy.ts";
 
 /**
  * Electron Forge 8 config (architecture §5; security §11, §12).
  *
- * Ad-hoc signed on macOS hosts by default (CI included), unsigned elsewhere. Developer ID signing (hardened runtime +
- * entitlements.plist) and notarization switch on only when their environment variables are
- * set: PSYCHE_SIGN_IDENTITY, then APPLE_API_KEY / APPLE_API_KEY_ID / APPLE_API_ISSUER or
- * APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID (src/packaging/signing-config.ts,
- * docs/signing.md). Never commit real values.
+ * Ad-hoc signed on macOS hosts by default (CI included), unsigned elsewhere. Signing with the
+ * hardened runtime + entitlements.plist switches on when PSYCHE_SIGN_IDENTITY is set: Psyche's own
+ * self-signed release certificate (the release path; deploy/macos/make-signing-cert.sh) or a
+ * Developer ID. Notarization is Developer ID only and needs APPLE_API_KEY / APPLE_API_KEY_ID /
+ * APPLE_API_ISSUER or APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID; without them it is
+ * skipped and the build log says so (src/packaging/signing-config.ts, docs/signing.md). Never
+ * commit real values.
  *
  * On macOS the bundle carries the Gateway (`Resources/psyched/`), its LaunchAgent template and the
  * Swift helper (src/packaging/bundle-resources.ts); packaging fails when one is missing unless
@@ -38,6 +46,8 @@ const root = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(root, "..", "..");
 const isMacHost = process.platform === "darwin";
 const resolveFromHere = createRequire(import.meta.url);
+
+if (isMacHost) console.log(`[forge] ${describeSigning(process.env, { adHoc: true })}`);
 
 /**
  * The Vite plugin packages only `.vite/`, so native modules the main bundle keeps external
@@ -104,6 +114,11 @@ const config: ForgeConfig = {
     },
     ...macSigningOptions(process.env, {
       entitlements: join(root, "entitlements.plist"),
+      selfSigned: {
+        entitlements: join(root, "entitlements.self-signed.plist"),
+        gatewayEntitlements: join(root, "entitlements.self-signed.psyched.plist"),
+        isGatewayFile,
+      },
       adHoc: isMacHost,
       ignore: skipOuterSigning,
     }),
@@ -124,6 +139,8 @@ const config: ForgeConfig = {
         allowPartial: allowPartial(process.env),
         warn: (m) => console.warn(m),
       });
+      // The updater runs only when the app's own signature satisfies this (update-gate.ts).
+      copyPinnedRequirements(repoRoot, resourcesDir);
       // One UI copy: the Gateway serves the web client from app.asar (src/packaging/web-copy.ts).
       dropGatewayWebCopy(buildPath, resourcesDir);
       if (isMacHost)

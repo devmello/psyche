@@ -58,6 +58,10 @@ cask "psyche" do
   ]
 
   caveats <<~EOS
+    Psyche is signed with its own certificate, not an Apple Developer ID, so the first
+    time you open it macOS says "Apple could not verify Psyche". Open System Settings,
+    then Privacy & Security, scroll down, and click "Open Anyway" once. After that it
+    opens normally and updates itself without asking again.
     Psyche keeps your data in ~/.psyche, and the `psyche` CLI shares it. Neither
     `brew uninstall` nor `--zap` deletes it. To delete it too, run
     `psyche backup create` first if you want a copy, then move the folder to the Trash:
