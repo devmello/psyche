@@ -226,7 +226,7 @@ onBeforeUnmount(() => {
       from="left"
     >
       <p>It learns who people are from what they write to you, and asks before it keeps anything.</p>
-      <template #foot><a class="more" :href="withBase('/using/memory')"><span class="src">4</span>Memory <span class="where">using/memory</span></a></template>
+      <template #foot><a class="more" :href="withBase('/guides/memory-and-persona')"><span class="src">4</span>Memory and persona <span class="where">guides/memory-and-persona</span></a></template>
     </DemoStage>
 
     <DemoStage
@@ -856,7 +856,7 @@ onBeforeUnmount(() => {
 }
 
 /* Night: the lights go down as the band arrives, and the lamp comes on. */
-/* --x (exit) brings the lights back up as the band leaves, so the receipts sheet rises in daylight. */
+/* --x (exit) brings the lights back up as the band leaves, so the next stage rises in daylight. */
 .motion .night {
   --dark: calc(var(--q) * (1 - var(--x, 0)));
   background-color: color-mix(in oklch, oklch(0.165 0.002 80) calc(var(--q) * 100%), var(--desk));
@@ -870,7 +870,7 @@ onBeforeUnmount(() => {
 .motion .night :deep(.lamp) {
   opacity: var(--dark);
 }
-/* Status: "Works today" is checked off row by row; "Not yet" stays in pencil. */
+/* Status: "Also works today" is checked off row by row; "Not yet" stays in pencil. */
 .status-page .columns li {
   border-bottom-color: transparent;
 }
