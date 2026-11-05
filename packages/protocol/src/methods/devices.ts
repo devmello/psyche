@@ -35,7 +35,9 @@ export const PresenceKeyInfo = Type.Object(
      * ask it to sign behind its own Touch ID prompt, security §10); or `windows_hello` (a Windows Hello key credential of the
      * win-helper). Absent for keys registered before it was reported.
      */
-    kind: Type.Optional(StringEnum(["keychain", "enclave_keychain_acl", "enclave_file", "windows_hello"])),
+    kind: Type.Optional(
+      StringEnum(["keychain", "enclave_keychain_acl", "enclave_file", "windows_hello"]),
+    ),
     /** The key's signature scheme; absent for keys registered before it was reported (P-256). */
     algorithm: Type.Optional(PresenceKeyAlgorithm),
   },
