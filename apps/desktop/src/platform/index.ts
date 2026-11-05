@@ -38,6 +38,8 @@ export interface PlatformTraits {
   quarantine: boolean;
   /** `Tray.setTitle` draws text next to the icon (macOS only). */
   trayTitle: boolean;
+  /** The window frame is the desktop's own (Linux): no hidden title bar or traffic lights. */
+  nativeTitleBar: boolean;
   /** Whether the app and its tray outlive the last window. */
   lastWindowClosed: LastWindowClosed;
   /** Accelerators tried in order for the pop-up chat; the first one the OS accepts wins. */
@@ -46,13 +48,14 @@ export interface PlatformTraits {
   quickEntryLabel: string;
 }
 
-const TRAITS: Record<"darwin" | "linux" | "other", PlatformTraits> = {
+const TRAITS: Record<"darwin" | "linux" | "win32" | "other", PlatformTraits> = {
   darwin: {
     dock: true,
     nativeLoginItem: true,
     glass: true,
     quarantine: true,
     trayTitle: true,
+    nativeTitleBar: false,
     lastWindowClosed: "stay",
     // ⌥Space (docs/06 §3.21); ⌃⌥Space when another utility owns it.
     quickEntry: ["Alt+Space", "Control+Alt+Space"],
@@ -64,17 +67,32 @@ const TRAITS: Record<"darwin" | "linux" | "other", PlatformTraits> = {
     glass: false,
     quarantine: false,
     trayTitle: false,
+    nativeTitleBar: true,
     lastWindowClosed: "stay-with-tray",
     // Alt+Space is the window menu on GNOME and KDE (design §10.4).
     quickEntry: ["Control+Alt+Space"],
     quickEntryLabel: "Ctrl+Alt+Space",
   },
-  other: {
+  win32: {
     dock: false,
     nativeLoginItem: true,
     glass: false,
+    // Windows has its own mark (the Zone.Identifier stream), written by downloads.ts directly.
     quarantine: false,
     trayTitle: false,
+    nativeTitleBar: false,
+    lastWindowClosed: "stay",
+    // Alt+Space is every window's system menu (main/shortcuts.ts).
+    quickEntry: ["Control+Alt+Space", "Alt+Shift+Space"],
+    quickEntryLabel: "Ctrl+Alt+Space",
+  },
+  other: {
+    dock: false,
+    nativeLoginItem: false,
+    glass: false,
+    quarantine: false,
+    trayTitle: false,
+    nativeTitleBar: true,
     lastWindowClosed: "quit",
     quickEntry: ["Alt+Space", "Control+Alt+Space"],
     quickEntryLabel: "Alt+Space",
@@ -82,7 +100,9 @@ const TRAITS: Record<"darwin" | "linux" | "other", PlatformTraits> = {
 };
 
 export function traitsFor(platform: Platform = hostPlatform()): PlatformTraits {
-  return TRAITS[platform === "darwin" || platform === "linux" ? platform : "other"];
+  return TRAITS[
+    platform === "darwin" || platform === "linux" || platform === "win32" ? platform : "other"
+  ];
 }
 
 /**

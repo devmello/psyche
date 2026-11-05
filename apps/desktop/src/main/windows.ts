@@ -9,6 +9,7 @@ import {
   type WebContents,
   WebContentsView,
 } from "electron";
+import { hostPlatform, traitsFor } from "../platform/index.ts";
 import type { DockPolicy } from "./dock-policy.ts";
 import { hideMenuBar } from "./menu.ts";
 import { createPopOutRegistry } from "./pop-outs.ts";
@@ -147,10 +148,18 @@ export function chromeArgFor(
   return { titleBar: "native" };
 }
 
+/**
+ * Linux draws the window frame itself (the title bar and its buttons): the hidden title bar the
+ * macOS and Windows chrome options ask for would leave the window with no controls.
+ */
+function ownFrame(): { titleBarStyle?: "default" } {
+  return traitsFor(hostPlatform()).nativeTitleBar ? { titleBarStyle: "default" } : {};
+}
+
 /** A chrome window's app view background: transparent over Windows' Mica, else the canvas. */
 function viewBackground(): string {
   const look = systemLook();
-  return chromeViewBackground(process.platform, look.dark, look.highContrast);
+  return chromeViewBackground(hostPlatform(), look.dark, look.highContrast);
 }
 
 /** The appearance windows are created with. */
@@ -268,7 +277,7 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
     });
     win.contentView.addChildView(view, 0); // index 0: agent tab views stay above the app view
     // Windows: the app menu's accelerators work in every window; its bar is never drawn.
-    if (process.platform === "win32") hideMenuBar(win);
+    if (hostPlatform() === "win32") hideMenuBar(win);
     const layout = () => {
       if (view.webContents.isDestroyed()) {
         win.off("resize", layout); // a released main view
@@ -347,6 +356,7 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
     mainClosed = hidden;
     const win = new BaseWindow({
       ...mainWindowOptions({ anySize: opts.anySize === true, ...systemLook() }),
+      ...ownFrame(),
       ...opts.mainOptions,
     });
     const view = makeMainView(win, "/chat", {
@@ -386,7 +396,7 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
     return win;
   }
 
-  const insetChrome = (): ChromeArg => chromeArgFor(process.platform, systemLook());
+  const insetChrome = (): ChromeArg => chromeArgFor(hostPlatform(), systemLook());
 
   function createSettings(section?: string): { win: BaseWindow; view: WebContentsView } {
     const main = mainWin && !mainWin.isDestroyed() && mainWin.isVisible() ? mainWin : undefined;
@@ -399,6 +409,7 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
     });
     const win = new BaseWindow({
       ...settingsWindowOptions(systemLook()),
+      ...ownFrame(),
       ...bounds,
     });
     const view = makeView(win, settingsRoute(section), insetChrome());
@@ -418,7 +429,7 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
     const look = systemLook();
     const win = new BaseWindow(quickEntryWindowOptions(look));
     // Windows 11 22H2+: acrylic behind the bar, showing wherever the renderer paints nothing.
-    const acrylic = windowMaterial(process.platform, look.highContrast) !== "none";
+    const acrylic = windowMaterial(hostPlatform(), look.highContrast) !== "none";
     const view = makeView(
       win,
       "/quick",
@@ -505,7 +516,7 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
         quick.win.hide();
         return;
       }
-      if (process.platform === "win32") {
+      if (hostPlatform() === "win32") {
         // The monitor with the pointer, a third of the way down its work area (above the
         // taskbar), in DIPs: Electron scales to that monitor's DPI.
         const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
