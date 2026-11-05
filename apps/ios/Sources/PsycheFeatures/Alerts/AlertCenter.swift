@@ -93,6 +93,9 @@ public final class AlertCenter {
         center.delegate = delegate
         center.setNotificationCategories(SystemNotifier.categories())
         #endif
+        IslandAnswers.handler = { [weak self] id, approve in
+            await self?.answerFromIsland(id, approve: approve)
+        }
     }
 
     public func setAppActive(_ active: Bool) {
@@ -227,7 +230,8 @@ public final class AlertCenter {
                 let content = TaskActivityContent.make(
                     task: task, status: approval != nil ? .needsApproval : .running,
                     showTitle: settings.taskTitlesOnLockScreen, fallbackStart: lastContent[id]?.startedAt,
-                    asking: approval?.title)
+                    asking: approval?.title,
+                    inlineApprovalID: approval.flatMap { AlertPolicy.answersInline($0) ? $0.id : nil })
                 if lastContent[id] != content {
                     lastContent[id] = content
                     await activities.update(taskID: id, content: content)
@@ -324,11 +328,23 @@ public final class AlertCenter {
     /// can't be reached in a few seconds the notification becomes "Reconnect to answer". An approval is never
     /// queued: its token is single use and it can expire. This path adds no way around Face ID or the passcode:
     /// Approve carries `.authenticationRequired`, and presence-gated kinds get no Approve button at all.
-    private func answer(_ id: String, _ decision: ApprovalDecision) async {
+    ///
+    /// `onlyIf` re-checks the item against what the Gateway says is waiting before answering; the island's
+    /// buttons use it so an id that is no longer a plain write approval is never answered from there.
+    private func answer(
+        _ id: String, _ decision: ApprovalDecision, onlyIf allowed: ((NeedsYouItem) -> Bool)? = nil
+    ) async {
         guard await connection.ensureLive(timeout: .seconds(6)) else {
             await notifier.post(AlertPolicy.reconnect(for: id))
             await connection.release(appActive: appActive)
             return
+        }
+        if let allowed {
+            let item = (try? await store.home())?.needsYou.first { $0.id == id }
+            guard let item, allowed(item) else {
+                await connection.release(appActive: appActive)
+                return
+            }
         }
         do {
             try await store.answerApproval(id: id, decision: decision)
@@ -341,6 +357,15 @@ public final class AlertCenter {
             await notifier.post(AlertPolicy.couldNotAnswer(id, message: error.localizedDescription))
         }
         await connection.release(appActive: appActive)
+    }
+
+    /// Deny or Approve from the expanded Dynamic Island (`AnswerApprovalIntent`). The same path as the
+    /// notification buttons, and the same rule: only a write approval with no presence gate is answered here.
+    /// The button is drawn only for those, and the id is checked again against the Gateway, so a stale or
+    /// forged id never answers a payment. The island then redraws from the fresh state.
+    func answerFromIsland(_ id: String, approve: Bool) async {
+        await answer(id, approve ? .allow : .deny, onlyIf: AlertPolicy.answersInline)
+        await sync(.live)
     }
 
     /// Foreground presentation: a banner, except for the thread already on screen.

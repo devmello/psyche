@@ -42,6 +42,13 @@ struct AlertPolicyTests {
         #expect(AlertPolicy.actions(for: .finished).isEmpty)
     }
 
+    @Test func theIslandAnswersOnlyWriteApprovals() {
+        #expect(AlertPolicy.answersInline(approval(kind: "calendar", presenceNote: nil)))
+        #expect(!AlertPolicy.answersInline(approval(kind: "payment", presenceNote: "Payments need Face ID on this phone.")))
+        let question = NeedsYouItem(id: "q_1", kind: .question, title: "Which deck?", source: "Chat", time: "9:12")
+        #expect(!AlertPolicy.answersInline(question))
+    }
+
     @Test func notificationIdentifierIsTheApprovalID() {
         #expect(AlertPolicy.payload(for: approval(kind: "calendar", presenceNote: nil)).id == "appr_1")
         #expect(AlertPolicy.reconnect(for: "appr_1").id == "appr_1")
@@ -125,6 +132,19 @@ struct TaskActivityContentTests {
         #expect(TaskActivityContent.make(task: task, status: .running, showTitle: false, asking: "x").asking == nil)
         #expect(content.finished(failed: false).asking == nil)
         #expect(content.forPush.asking == nil && content.forPush.islandTitle == nil)
+    }
+
+    @Test func inlineAnswersOnlyWhileWaitingAndNeverInAPush() {
+        let waiting = TaskActivityContent.make(
+            task: task, status: .needsApproval, showTitle: true, asking: "Send it?", inlineApprovalID: "appr_1")
+        #expect(waiting.answersInline && waiting.inlineApprovalID == "appr_1")
+        #expect(waiting.forPush.inlineApprovalID == nil)
+        #expect(!waiting.finished(failed: false).answersInline)
+        let running = TaskActivityContent.make(task: task, status: .running, showTitle: true, inlineApprovalID: "appr_1")
+        #expect(running.inlineApprovalID == nil && !running.answersInline)
+        // A presence-gated approval: waiting, but no id, so the island shows Review… instead.
+        let gated = TaskActivityContent.make(task: task, status: .needsApproval, showTitle: true, asking: "Pay?")
+        #expect(!gated.answersInline)
     }
 
     @Test func titleWhenTheSettingIsOn() {

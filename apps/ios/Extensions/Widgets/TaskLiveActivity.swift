@@ -7,6 +7,10 @@ import WidgetKit
 // The Lock Screen and Dynamic Island views for a running task (docs/design/ios-app-2026.md §9, mockup
 // LockScreen.dc.html). The Lock Screen card and the Island are always dark, so the colors here are fixed
 // instead of following the app's asset colors. Amber appears only for "Needs approval". No gradients.
+//
+// The owner's pick from the design options (2026-11-04): the ring from B for the compact and minimal island,
+// A's expanded layout and Lock Screen card, and E's inline Deny and Approve for approvals that may be answered
+// from the island. Presence-gated approvals keep "Review…".
 
 private enum LA {
     static let card = Color(red: 0x14 / 255, green: 0x14 / 255, blue: 0x16 / 255)
@@ -18,6 +22,9 @@ private enum LA {
     static let red = Color(red: 0xFF / 255, green: 0x91 / 255, blue: 0x7B / 255)
     static let wings = Color(red: 0x9A / 255, green: 0xB9 / 255, blue: 0xE9 / 255)
     static let lowerWings = Color(red: 0x6F / 255, green: 0x93 / 255, blue: 0xCC / 255)
+    /// Ink lifted for a dark surface: the Approve button.
+    static let ink = Color(red: 0x37 / 255, green: 0x66 / 255, blue: 0xAD / 255)
+    static let graphite = Color(red: 0x2A / 255, green: 0x2A / 255, blue: 0x2D / 255)
 
     static func moth(_ size: CGFloat) -> some View {
         MothMark(size: size, wings: wings, lowerWings: lowerWings, body: text)
@@ -63,11 +70,11 @@ struct TaskLiveActivity: Widget {
                     .padding(.horizontal, 8)
                 }
             } compactLeading: {
-                LA.moth(18)
+                ProgressRing(content: content, diameter: 24, lineWidth: 2.5, moth: 12)
             } compactTrailing: {
                 CompactTrailing(content: content)
             } minimal: {
-                MinimalMark(content: content)
+                ProgressRing(content: content, diameter: 22, lineWidth: 2, moth: 12)
             }
             .keylineTint(content.status == .needsApproval ? LA.amber : LA.muted)
             .widgetURL(TaskActivityContent.url(forTask: context.attributes.taskID))
@@ -176,7 +183,7 @@ private struct IslandHeadline: View {
             Text(content.islandTitle ?? content.title ?? "Psyche is working")
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(LA.text)
-                .lineLimit(2)
+                .lineLimit(content.answersInline ? 1 : 2)
                 .fixedSize(horizontal: false, vertical: true)
             if let line = content.asking ?? content.detail {
                 Text(line)
@@ -197,34 +204,74 @@ private struct IslandFooter: View {
     var body: some View {
         VStack(spacing: 9) {
             if content.hasStepCount { SegmentBar(content: content) }
-            HStack(spacing: 8) {
-                if let step = content.stepLabel {
-                    Text(step)
-                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+            if content.answersInline, let id = content.inlineApprovalID {
+                // The island is only so tall: the buttons take the step row's place. The amber question above
+                // and the amber segment already say it needs you.
+                InlineAnswerButtons(approvalID: id)
+            } else {
+                stepRow
+            }
+        }
+    }
+
+    private var stepRow: some View {
+        HStack(spacing: 8) {
+            if let step = content.stepLabel {
+                Text(step)
+                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    .foregroundStyle(LA.muted)
+            }
+            Spacer(minLength: 8)
+            if content.status == .needsApproval, let url {
+                Link(destination: url) {
+                    Text("Review…")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(LA.card)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 6)
+                        .background(LA.amber, in: Capsule())
+                }
+                .accessibilityLabel("Review the approval in Psyche")
+            } else {
+                HStack(spacing: 5) {
+                    if let dot = LA.dot(for: content.status) {
+                        Circle().fill(dot).frame(width: 6, height: 6)
+                    }
+                    Text(content.statusWord)
+                        .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(LA.muted)
                 }
-                Spacer(minLength: 8)
-                if content.status == .needsApproval, let url {
-                    Link(destination: url) {
-                        Text("Review")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(LA.card)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 6)
-                            .background(LA.amber, in: Capsule())
-                    }
-                    .accessibilityLabel("Review the approval")
-                } else {
-                    HStack(spacing: 5) {
-                        if let dot = LA.dot(for: content.status) {
-                            Circle().fill(dot).frame(width: 6, height: 6)
-                        }
-                        Text(content.statusWord)
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(LA.muted)
-                    }
-                }
             }
+        }
+    }
+}
+
+/// E: Deny and Approve right in the expanded island, for a plain write approval only. The app answers in the
+/// background over the live connection (never queued) and re-checks the id first; Face ID-gated approvals never
+/// get here.
+private struct InlineAnswerButtons: View {
+    let approvalID: String
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Button(intent: AnswerApprovalIntent(approvalID: approvalID, approve: false)) {
+                Text("Deny")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(LA.text)
+                    .frame(maxWidth: .infinity, minHeight: 34)
+                    .background(LA.graphite, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Deny")
+            Button(intent: AnswerApprovalIntent(approvalID: approvalID, approve: true)) {
+                Text("Approve")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity, minHeight: 34)
+                    .background(LA.ink, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Approve")
         }
     }
 }
@@ -235,8 +282,12 @@ private struct CompactTrailing: View {
     var body: some View {
         switch content.status {
         case .needsApproval:
-            Circle().fill(LA.amber).frame(width: 9, height: 9)
-                .accessibilityLabel("Needs your OK")
+            HStack(spacing: 4) {
+                Circle().fill(LA.amber).frame(width: 7, height: 7)
+                Text("OK?").font(.system(size: 13, weight: .semibold)).foregroundStyle(LA.amber)
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Needs your OK")
         case .done:
             Image(systemName: "checkmark").font(.system(size: 12, weight: .bold)).foregroundStyle(LA.green)
                 .accessibilityLabel("Done")
@@ -244,35 +295,50 @@ private struct CompactTrailing: View {
             Image(systemName: "exclamationmark").font(.system(size: 12, weight: .bold)).foregroundStyle(LA.red)
                 .accessibilityLabel("Failed")
         case .running:
-            if content.hasStepCount {
-                Text("\(content.clampedStep)/\(content.stepCount)")
-                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(LA.text)
-            } else {
-                ElapsedText(content: content, size: 13).frame(width: 44)
-            }
+            // The ring on the left already says how far; the right says how long.
+            ElapsedText(content: content, size: 13).frame(width: 44)
         }
     }
 }
 
-/// The minimal view (when another app's activity shares the island): the moth inside a thin progress ring,
-/// amber when it needs you.
-private struct MinimalMark: View {
+/// B: the moth inside a thin progress ring, for the compact pill and the minimal view (when another app's
+/// activity shares the island). Ink-blue while running, amber when it needs you, green or red once it ends.
+/// With no step count the ring is a full track, closed in amber when it needs you.
+private struct ProgressRing: View {
     let content: TaskActivityContent
+    let diameter: CGFloat
+    let lineWidth: CGFloat
+    let moth: CGFloat
+
+    private var tint: Color {
+        switch content.status {
+        case .running: LA.wings
+        case .needsApproval: LA.amber
+        case .done: LA.green
+        case .failed: LA.red
+        }
+    }
+
+    private var trim: Double {
+        switch content.status {
+        case .done, .failed: 1
+        case .needsApproval: content.fraction.map { max($0, 0.04) } ?? 1
+        case .running: content.fraction.map { max($0, 0.04) } ?? 0
+        }
+    }
 
     var body: some View {
         ZStack {
-            if let fraction = content.fraction {
-                Circle().stroke(LA.track, lineWidth: 2)
-                Circle()
-                    .trim(from: 0, to: max(fraction, 0.04))
-                    .stroke(content.status == .needsApproval ? LA.amber : LA.text, style: StrokeStyle(lineWidth: 2, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
-            } else if content.status == .needsApproval {
-                Circle().stroke(LA.amber, lineWidth: 2)
-            }
-            LA.moth(12)
+            Circle().stroke(LA.track, lineWidth: lineWidth)
+            Circle()
+                .trim(from: 0, to: trim)
+                .stroke(tint, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+            LA.moth(moth)
         }
-        .frame(width: 22, height: 22)
+        .padding(lineWidth / 2)
+        .frame(width: diameter, height: diameter)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(content.stepLabel.map { "\($0), \(content.statusWord)" } ?? content.statusWord)
     }
 }

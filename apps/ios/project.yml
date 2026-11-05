@@ -50,6 +50,8 @@ targets:
     platform: iOS
     sources:
       - path: App
+      # The island's Approve/Deny intent: the widget draws it, the app runs it.
+      - path: Extensions/LiveActivityIntents
     dependencies:
       - package: PsycheKit
         product: PsycheFeatures
@@ -180,6 +182,7 @@ targets:
     platform: iOS
     sources:
       - path: Extensions/Widgets
+      - path: Extensions/LiveActivityIntents
     dependencies:
       - package: PsycheKit
         product: PsycheShared
