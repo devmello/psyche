@@ -21,6 +21,9 @@ use crate::capability::{needs_approval, CapabilityError, InvocationContext, Regi
 use crate::channel::{FrameReader, HelperError, Read1};
 use crate::idle::IdleTimer;
 
+/// Invocations running at once (each has its own thread). The Gateway never sends this many.
+pub const MAX_IN_FLIGHT: usize = 8;
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum ServeEnd {
     /// The Gateway closed the connection.
@@ -209,6 +212,17 @@ fn handle_invoke<W: Write + Send + 'static>(
     let cancelled = Arc::new(AtomicBool::new(false));
     {
         let mut state = shared.state();
+        // One thread per invocation: beyond the cap the Gateway is told to come back later.
+        if state.in_flight.len() >= MAX_IN_FLIGHT {
+            drop(state);
+            crate::log(&format!("invoke capability={capability_name} outcome=busy"));
+            shared.respond_err(
+                request_id,
+                ErrorCode::Unavailable,
+                "The helper is busy with other invocations; try again shortly",
+            );
+            return;
+        }
         if state.in_flight.contains_key(&invocation_id) {
             drop(state);
             shared.respond_err(

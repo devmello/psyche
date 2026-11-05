@@ -39,7 +39,9 @@ import {
 } from "@psyche/protocol";
 import type { GatewayLimits } from "./context.ts";
 import type { GatewayIdentity } from "./identity.ts";
+import { recordPeerRefusal } from "./nodes/registry.ts";
 import type { RateLimiter } from "./rate-limit.ts";
+import { stateSealFor } from "./security/state-seal.ts";
 
 export const CHALLENGE_TTL_MS = 60_000;
 
@@ -86,6 +88,15 @@ export interface PeerInfo {
    * `mismatch` is never a Host helper.
    */
   peerCheck?: PeerCheck;
+  /** The machine reason behind `peerCheck` (logs and `devices.hostHelper.status`). */
+  peerCheckReason?: string;
+  /**
+   * The packaged helper is installed, so the peer check is strict here: only `root_owned` can be
+   * the Host helper. Set with `peerCheck`, by the transport.
+   */
+  peerCheckRequired?: true;
+  /** The platform of this Gateway, set by the node transport (the family rule needs it). */
+  hostPlatform?: NodeJS.Platform;
   /** Identity a trusted proxy claims for the client; shown on the pairing card, never trusted. */
   claimedIdentity?: string | null;
   /**
@@ -149,20 +160,38 @@ export function isHostHelper(
     peer.origin === null &&
     params.role === "node" &&
     isHostHelperFamily(params.deviceFamily) &&
-    peerCheckAllows(params, peer) &&
+    hostHelperRefusal(params, peer) === undefined &&
     secretMatches(handshakeSecret, params.handshakeSecret)
   );
 }
 
 /**
- * Whether the accept-time peer check (Linux) lets this node be the Host helper. No check ran
- * (macOS, Windows, a Gateway started in process): nothing to add. Otherwise the connecting
- * process must not be another program, and only the Linux helper family is possible there: a
- * Mac or Windows helper cannot exist on this computer, so a node that says it is one is lying.
+ * Why this node is refused as the Host helper on the node transport, or `undefined` when nothing
+ * stands in the way (the secret is checked separately).
+ * - A Linux helper exists only on Linux: on another OS a node declaring it is not the helper.
+ * - Where the Linux peer check ran, only the `linux-helper` family is possible (a Mac or Windows
+ *   helper cannot exist on this computer), and the connecting process must not be another
+ *   program (`mismatch`). With the packaged helper installed (`peerCheckRequired`) it must also be
+ *   that helper, root-owned (`root_owned`): `user_owned` and `unverified` are refused, because
+ *   any file named `psyche-helper`, or any peer the Gateway could not identify, would otherwise
+ *   pass. Without a packaged helper (AppImage, a dev build) `user_owned` and `unverified` are
+ *   accepted, and recorded.
  */
-function peerCheckAllows(params: ConnectParams, peer: PeerInfo): boolean {
-  if (peer.peerCheck === undefined) return true;
-  return peer.peerCheck !== "mismatch" && params.deviceFamily === "linux-helper";
+export function hostHelperRefusal(params: ConnectParams, peer: PeerInfo): string | undefined {
+  if (
+    params.deviceFamily === "linux-helper" &&
+    (peer.hostPlatform ?? process.platform) !== "linux"
+  ) {
+    return "a Linux helper pairs only on a Linux computer";
+  }
+  if (peer.peerCheck === undefined) return undefined;
+  if (params.deviceFamily !== "linux-helper" || peer.peerCheck === "mismatch") {
+    return "this process is not the Linux helper of this computer";
+  }
+  if (peer.peerCheckRequired === true && peer.peerCheck !== "root_owned") {
+    return `the installed Linux helper could not be verified (${peer.peerCheck}: ${peer.peerCheckReason ?? "unknown"}); restart it from the Psyche app`;
+  }
+  return undefined;
 }
 
 /** The desktop shell's connection proof, the same one its auto-pairing needs. */
@@ -441,11 +470,22 @@ export function verifyChallenge(
     peer.transport === "unix" &&
     !isHostHelper(params, peer, deps.handshakeSecret)
   ) {
-    return denied(
-      peer.peerCheck !== undefined && !peerCheckAllows(params, peer)
-        ? "this process is not the Linux helper of this computer"
-        : "stale or missing handshake secret; reconnect with the current one",
-    );
+    const refusal = hostHelperRefusal(params, peer);
+    // The owner can see why the helper was turned away (`devices.hostHelper.status`), but only
+    // for a process that held this launch's secret: anyone else is just a failed connection.
+    if (
+      refusal !== undefined &&
+      peer.peerCheck !== undefined &&
+      secretMatches(deps.handshakeSecret, params.handshakeSecret)
+    ) {
+      recordPeerRefusal(db, {
+        peerCheck: peer.peerCheck,
+        reason: peer.peerCheckReason ?? "unknown",
+        required: peer.peerCheckRequired === true,
+        message: refusal,
+      });
+    }
+    return denied(refusal ?? "stale or missing handshake secret; reconnect with the current one");
   }
   if (existing?.pairedAt) {
     // A paired device must present its pairing key, and keeps the role it was paired with.
@@ -456,19 +496,31 @@ export function verifyChallenge(
     // The family is pinned when the device pairs: a paired device cannot become a Mac helper (or
     // anything else) by declaring another family later. Devices paired before the column existed
     // record the family they declare now, once.
+    // While the security records are untrusted, only what the seal still trusts (H4).
+    const authz = stateSealFor(db)?.authorizeDevice(existing) ?? {
+      ok: true as const,
+      scopes: existing.scopes,
+    };
+    if (!authz.ok)
+      return denied("device not trusted while Psyche's security records are untrusted");
     const pinned = getDeviceFamily(db, existing.id);
-    if (pinned === null) updateDevice(db, existing.id, { deviceFamily: params.deviceFamily });
-    else if (pinned !== params.deviceFamily) return denied("device family mismatch");
+    // A device row the seal cannot vouch for is never written over (H1: the write would make it
+    // look like the Gateway's own); it stays read-only and unpinned until a re-seal.
+    if (pinned === null) {
+      if (stateSealFor(db)?.genuine("devices", existing.id) ?? true) {
+        updateDevice(db, existing.id, { deviceFamily: params.deviceFamily });
+      }
+    } else if (pinned !== params.deviceFamily) return denied("device family mismatch");
     touchLastSeen(db, existing.id, nowIso);
     // A token presented by a device that is already paired is spent anyway (the link was used,
     // by someone who did not need it), and grants nothing: the device keeps its own scopes.
     if (input.setupToken !== undefined)
       consumeSetupToken(db, input.setupToken, existing.id, nowIso);
     return {
-      result: pairedResult(existing.id, existing.scopes, nowIso),
+      result: pairedResult(existing.id, authz.scopes, nowIso),
       identity: {
         deviceId: existing.id,
-        scopes: existing.scopes,
+        scopes: authz.scopes,
         role: params.role,
         ...(isDesktopShell(params, peer, deps.handshakeSecret) ? { desktopShell: true } : {}),
         ...(isHostHelper(params, peer, deps.handshakeSecret) ? { hostHelper: true } : {}),
@@ -484,6 +536,11 @@ export function verifyChallenge(
   // presented in `connect.verify`, after the client verified this Gateway's identity, and spent
   // below in the same transaction that writes the device.
   const presentedToken = scopes === null ? input.setupToken : undefined;
+  // H-B: while the security records are untrusted no pairing link works (a planted one could
+  // name any scopes), whatever the token row says.
+  if (presentedToken !== undefined && stateSealFor(db)?.untrusted() != null) {
+    return denied(SETUP_TOKEN_REFUSED, "setup_token_invalid");
+  }
   // The token is a bearer secret, so only a client that verified this Gateway's key (and bound the
   // connect to it, the v2 payload) may present it: an impostor that does not hold the key never
   // gets a client to send one. The check is unconditional. The desktop app and the iPhone/iPad app

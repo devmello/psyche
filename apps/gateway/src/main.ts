@@ -7,7 +7,7 @@ import {
   vaultModelSetup,
 } from "./compose/index.ts";
 import { createLogger } from "./log.ts";
-import { defaultPeerChecker } from "./transports/peer-check.ts";
+import { defaultPeerChecker, packagedHelperInstalled } from "./transports/peer-check.ts";
 
 const args = process.argv.slice(2);
 if (args[0] === "--bundle-check") {
@@ -15,7 +15,7 @@ if (args[0] === "--bundle-check") {
   process.stdout.write(`${JSON.stringify(await bundleCheck())}\n`);
   process.exit(0);
 }
-if (args.length > 0) process.exit(runCli(args));
+if (args.length > 0) process.exit(await runCli(args));
 
 const log = createLogger();
 const peerChecker = defaultPeerChecker();
@@ -29,7 +29,10 @@ try {
     model,
     parts: partsFromEnv(process.env),
     // Linux: look at the process on the other end of the node socket before it is read from.
-    ...(peerChecker === undefined ? {} : { peerChecker }),
+    // With the packaged helper installed only a verified (root-owned) peer can be the helper.
+    ...(peerChecker === undefined
+      ? {}
+      : { peerChecker, peerCheckRequired: () => packagedHelperInstalled() }),
   });
   const shutdown = (signal: string) => {
     log.log("info", "signal received", { signal });

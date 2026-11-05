@@ -14,6 +14,7 @@ use base64::Engine;
 use ed25519_dalek::{Signer, SigningKey};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use zeroize::Zeroize;
 
 #[derive(Debug)]
 pub enum IdentityError {
@@ -88,7 +89,9 @@ impl DeviceIdentity {
     pub fn generate() -> Result<Self, IdentityError> {
         let mut seed = [0u8; 32];
         getrandom::fill(&mut seed).map_err(|_| IdentityError::Random)?;
-        Ok(Self::from_seed(seed))
+        let identity = Self::from_seed(seed);
+        seed.zeroize();
+        Ok(identity)
     }
 
     /// base64url raw 32-byte public key, as `connect` expects.
@@ -138,12 +141,14 @@ pub fn load(state_dir: &Path) -> Result<Option<DeviceIdentity>, IdentityError> {
     }
     let stored: Stored = serde_json::from_slice(&fs::read(&path)?)
         .map_err(|_| IdentityError::Malformed(path.clone()))?;
-    let seed: [u8; 32] = URL_SAFE_NO_PAD
+    let mut decoded = URL_SAFE_NO_PAD
         .decode(&stored.seed)
-        .ok()
-        .and_then(|b| b.try_into().ok())
-        .ok_or_else(|| IdentityError::Malformed(path.clone()))?;
+        .map_err(|_| IdentityError::Malformed(path.clone()))?;
+    let seed: Result<[u8; 32], _> = decoded.as_slice().try_into();
+    decoded.zeroize();
+    let mut seed = seed.map_err(|_| IdentityError::Malformed(path.clone()))?;
     let identity = DeviceIdentity::from_seed(seed);
+    seed.zeroize();
     // The stored fields are derived; a file that disagrees with its own seed was edited.
     if stored.version != 1
         || stored.public_key != identity.public_key()

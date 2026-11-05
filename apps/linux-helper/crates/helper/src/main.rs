@@ -5,6 +5,7 @@ use psyche_helper::buildinfo::BuildInfo;
 use psyche_helper::capability::Registry;
 use psyche_helper::cli::{parse_args, run_info, Command};
 use psyche_helper::daemon::{Daemon, Exit};
+use psyche_helper::hardening::refuse_injected_libraries;
 use psyche_helper::idle::IdleTimer;
 use psyche_helper::paths::{state_dir, ProcessEnv};
 use psyche_helper::{identity, log};
@@ -30,6 +31,13 @@ fn main() -> ExitCode {
             }
         };
     };
+
+    // Before anything is read or connected: a library injected into this process would run with
+    // the handshake secret and the device key.
+    if let Err(message) = refuse_injected_libraries(&ProcessEnv) {
+        log(&message);
+        return ExitCode::from(78);
+    }
 
     let identity = match identity::load_or_create(&state_dir(&ProcessEnv)) {
         Ok(identity) => identity,

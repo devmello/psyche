@@ -12,6 +12,7 @@ pub mod channel;
 pub mod cli;
 pub mod daemon;
 pub mod handshake;
+pub mod hardening;
 pub mod identity;
 pub mod idle;
 pub mod paths;

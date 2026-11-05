@@ -59,8 +59,9 @@ export function nodeKindOf(identity: PairedIdentity, params: ConnectParams): Nod
  */
 export const HOST_HELPER_PIN_SETTING = "devices.hostHelperDeviceId";
 /**
- * Written by the Gateway: `{ ambiguous, helpers, peerCheck? }`, so the app can say why Host
- * features are off. `peerCheck` (Linux only, additive) is what the accept-time peer check found
+ * Written by the Gateway: `{ ambiguous, helpers, peerCheck?, peerCheckReason?, refused? }`, so the
+ * app can say why Host features are off. `peerCheck` (Linux only, additive) is what the
+ * accept-time peer check found
  * for the Host helper in use: absent when there is no single helper or no check ran.
  */
 export const HOST_HELPER_STATUS_SETTING = "devices.hostHelper.status";
@@ -95,12 +96,13 @@ export class NodeRegistry {
       transport: PeerInfo["transport"];
       /** The Linux accept-time peer check of this connection, when one ran (Host helper only). */
       peerCheck?: PeerCheck;
+      peerCheckReason?: string;
     }
   >();
   /** Whether Host-bound routing is currently refused for want of one helper. */
   #ambiguous = false;
   /** The `peerCheck` last published in `devices.hostHelper.status`. */
-  #publishedPeerCheck: PeerCheck | undefined;
+  #publishedPeerCheck: string | undefined;
   readonly #invocations = new Map<string, Invocation>();
 
   constructor(ctx: GatewayContext) {
@@ -139,7 +141,12 @@ export class NodeRegistry {
       transport: conn.peer.transport,
       // Only a Host helper carries one, and only the checker sets it on the peer, never the peer.
       ...(identity.hostHelper === true && conn.peer.peerCheck !== undefined
-        ? { peerCheck: conn.peer.peerCheck }
+        ? {
+            peerCheck: conn.peer.peerCheck,
+            ...(conn.peer.peerCheckReason === undefined
+              ? {}
+              : { peerCheckReason: conn.peer.peerCheckReason }),
+          }
         : {}),
     });
     if (previous && previous.conn !== conn) {
@@ -185,7 +192,12 @@ export class NodeRegistry {
     return this.#live.has(nodeId);
   }
 
-  #liveHostHelpers(): { conn: LiveConnection; info: NodeInfo; peerCheck?: PeerCheck }[] {
+  #liveHostHelpers(): {
+    conn: LiveConnection;
+    info: NodeInfo;
+    peerCheck?: PeerCheck;
+    peerCheckReason?: string;
+  }[] {
     return [...this.#live.values()].filter((e) => e.host);
   }
 
@@ -199,7 +211,9 @@ export class NodeRegistry {
    * The one live Host helper to use, or `undefined` for none or an ambiguous Host. With several,
    * the pinned device wins when it is among them; otherwise nothing is chosen.
    */
-  #soleHostHelper(): { conn: LiveConnection; info: NodeInfo; peerCheck?: PeerCheck } | undefined {
+  #soleHostHelper():
+    | { conn: LiveConnection; info: NodeInfo; peerCheck?: PeerCheck; peerCheckReason?: string }
+    | undefined {
     const live = this.#liveHostHelpers();
     if (live.length <= 1) return live[0];
     const pin = this.#pinnedDevice();
@@ -239,10 +253,12 @@ export class NodeRegistry {
     const sole = this.#soleHostHelper();
     const ambiguous = live.length > 1 && sole === undefined;
     const peerCheck = sole?.peerCheck;
-    if (ambiguous === this.#ambiguous && peerCheck === this.#publishedPeerCheck) return;
+    const peerCheckReason = sole?.peerCheckReason;
+    const publishedKey = `${peerCheck ?? ""}:${peerCheckReason ?? ""}`;
+    if (ambiguous === this.#ambiguous && publishedKey === this.#publishedPeerCheck) return;
     const ambiguityChanged = ambiguous !== this.#ambiguous;
     this.#ambiguous = ambiguous;
-    this.#publishedPeerCheck = peerCheck;
+    this.#publishedPeerCheck = publishedKey;
     if (ambiguous && ambiguityChanged) {
       this.#ctx.log.log("warn", "host helper ambiguous: more than one helper on the node socket", {
         helpers: live.length,
@@ -252,6 +268,7 @@ export class NodeRegistry {
       ambiguous,
       helpers: live.length,
       ...(peerCheck === undefined ? {} : { peerCheck }),
+      ...(peerCheckReason === undefined ? {} : { peerCheckReason }),
     });
     this.#ctx.bus.bumpStateVersion();
     this.#ctx.bus.publish("settings.changed", { entries: [entry] });
@@ -409,4 +426,25 @@ class ConnectionNodeClient implements NodeClient {
     }
     return this.#registry.invoke(this.#conn, capability, params, options);
   }
+}
+
+/**
+ * Writes why the Linux helper was turned away into `devices.hostHelper.status` (`refused`), so
+ * Settings can say "the installed helper could not be verified" instead of the helper just not
+ * connecting. A quiet write (no event): the next change the registry publishes replaces the whole
+ * value, which also clears a refusal that no longer applies.
+ */
+export function recordPeerRefusal(
+  db: GatewayContext["db"],
+  refusal: { peerCheck: PeerCheck; reason: string; required: boolean; message: string },
+): void {
+  const current = getSetting(db, HOST_HELPER_STATUS_SETTING)?.value;
+  const base =
+    typeof current === "object" && current !== null && !Array.isArray(current)
+      ? (current as Record<string, unknown>)
+      : { ambiguous: false, helpers: 0 };
+  setSetting(db, HOST_HELPER_STATUS_SETTING, {
+    ...base,
+    refused: { ...refusal, at: new Date().toISOString() },
+  });
 }

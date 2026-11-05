@@ -33,6 +33,9 @@ impl std::error::Error for FrameError {}
 pub struct LineBuffer {
     max: usize,
     pending: Vec<u8>,
+    /// How many leading bytes of `pending` were already searched and hold no newline, so a long
+    /// line arriving in small chunks is not rescanned from the start on every chunk.
+    scanned: usize,
 }
 
 impl Default for LineBuffer {
@@ -46,6 +49,7 @@ impl LineBuffer {
         Self {
             max,
             pending: Vec::new(),
+            scanned: 0,
         }
     }
 
@@ -60,24 +64,30 @@ impl LineBuffer {
         self.pending.extend_from_slice(chunk);
         let mut lines = Vec::new();
         let mut start = 0;
-        while let Some(offset) = self.pending[start..].iter().position(|b| *b == b'\n') {
-            let end = start + offset;
+        let mut search_from = self.scanned;
+        while let Some(offset) = self.pending[search_from..].iter().position(|b| *b == b'\n') {
+            let end = search_from + offset;
             let mut line = &self.pending[start..end];
             if line.last() == Some(&b'\r') {
                 line = &line[..line.len() - 1];
             }
             if line.len() > self.max {
                 self.pending.clear();
+                self.scanned = 0;
                 return Err(FrameError::TooLarge { limit: self.max });
             }
             if !line.is_empty() {
                 lines.push(line.to_vec());
             }
             start = end + 1;
+            search_from = start;
         }
         self.pending.drain(..start);
+        // Everything left has been searched and has no newline.
+        self.scanned = self.pending.len();
         if self.pending.len() > self.max {
             self.pending.clear();
+            self.scanned = 0;
             return Err(FrameError::TooLarge { limit: self.max });
         }
         Ok(lines)
@@ -232,5 +242,34 @@ mod tests {
             res_ok_line("a", &json!({ "big": big })),
             Err(FrameError::TooLarge { .. })
         ));
+    }
+}
+
+#[cfg(test)]
+mod line_buffer_scan_tests {
+    use super::*;
+
+    #[test]
+    fn a_line_in_small_chunks_is_found_once_complete() {
+        let mut b = LineBuffer::new(1024);
+        for _ in 0..100 {
+            assert!(b.push(b"abcdefghij").unwrap().is_empty());
+        }
+        assert_eq!(b.pending_len(), 1000);
+        let lines = b.push(b"xyz\nnext").unwrap();
+        assert_eq!(lines.len(), 1);
+        assert_eq!(lines[0].len(), 1003);
+        assert_eq!(b.pending_len(), 4);
+        assert_eq!(b.push(b"\n").unwrap(), vec![b"next".to_vec()]);
+    }
+
+    #[test]
+    fn a_newline_at_a_chunk_boundary_and_the_limit_still_work() {
+        let mut b = LineBuffer::new(8);
+        assert!(b.push(b"abcd").unwrap().is_empty());
+        assert_eq!(b.push(b"\r\nef").unwrap(), vec![b"abcd".to_vec()]);
+        assert!(b.push(b"ghijklm").is_err());
+        assert_eq!(b.pending_len(), 0);
+        assert_eq!(b.push(b"ok\n").unwrap(), vec![b"ok".to_vec()]);
     }
 }

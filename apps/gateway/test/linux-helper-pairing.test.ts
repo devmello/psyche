@@ -1,4 +1,4 @@
-import { type ChildProcess, spawn } from "node:child_process";
+import { type ChildProcess, spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -7,7 +7,7 @@ import type { NodeClient } from "@psyche/protocol";
 import { describeHostHelperConformance, LINUX_HELPER_L3_SPEC } from "@psyche/testing/conformance";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { HOST_HELPER_STATUS_SETTING } from "../src/nodes/registry.ts";
-import { linuxPeerChecker } from "../src/transports/peer-check.ts";
+import { linuxPeerChecker, type PeerResult } from "../src/transports/peer-check.ts";
 import { FakeNode } from "./fake-node.ts";
 import { startTestGateway, type TestGateway, wsUrlOf } from "./helpers.ts";
 
@@ -40,6 +40,8 @@ describe.skipIf(!enabled)("the Linux helper pairs with a real Gateway", () => {
   let t: TestGateway;
   let dirs: string[] = [];
   const children: ChildProcess[] = [];
+  /** What the real checker said for every connection, in order. */
+  const verdicts: PeerResult[] = [];
 
   const tmp = (prefix: string) => {
     const d = mkdtempSync(join(tmpdir(), prefix));
@@ -64,7 +66,14 @@ describe.skipIf(!enabled)("the Linux helper pairs with a real Gateway", () => {
   };
 
   beforeAll(async () => {
-    t = await startTestGateway({ peerChecker: linuxPeerChecker() });
+    const real = linuxPeerChecker();
+    t = await startTestGateway({
+      peerChecker: async (socket) => {
+        const result = (await real(socket)) as PeerResult;
+        verdicts.push(result);
+        return result;
+      },
+    });
     spawnHelper({ PSYCHE_HOME: t.home });
     await until("the helper to pair", () => nodeIdOf(t.gateway));
   }, 30000);
@@ -161,4 +170,62 @@ describe.skipIf(!enabled)("the Linux helper pairs with a real Gateway", () => {
       await n.close();
     }
   });
+
+  describe.skipIf(spawnSync("python3", ["--version"]).status !== 0)(
+    "attacks from another process of the same user, against the real ss and /proc",
+    () => {
+      /** Runs `script` in python3 with the node socket path as argv[1]; it connects and lingers. */
+      const attacker = async (script: string): Promise<PeerResult> => {
+        const before = verdicts.length;
+        const child = spawn("python3", ["-c", script, t.gateway.config.nodeSocketPath], {
+          stdio: "ignore",
+        });
+        children.push(child);
+        try {
+          return await until("the checker's verdict", () => verdicts[before]);
+        } finally {
+          child.kill("SIGKILL");
+        }
+      };
+
+      it("a forged ss row in an abstract socket name (the reviewer's attack) is never accepted", async () => {
+        const r = await attacker(
+          [
+            "import socket,sys,time,os",
+            "name = '\\nu_str ESTAB 0 0 * 111 * 222 users:((\"x\",pid=1,fd=1))\\n'",
+            "a = socket.socket(socket.AF_UNIX); a.bind('\\0' + name)",
+            "c = socket.socket(socket.AF_UNIX); c.connect(sys.argv[1]); time.sleep(5)",
+          ].join("\n"),
+        );
+        // Depending on the iproute2 version `ss` prints the newline raw (the whole output is then
+        // unparsable: unverified) or escapes it (the honest python3 peer is found: mismatch).
+        // Either way the forged row never redirects the check, and nothing passes.
+        expect(["unverified", "mismatch"]).toContain(r.check);
+      });
+
+      it("a client bound to a path with a space is unverified", async () => {
+        const dir = tmp("psyche spaced ");
+        const r = await attacker(
+          [
+            "import socket,sys,time,os",
+            `c = socket.socket(socket.AF_UNIX); c.bind(${JSON.stringify(join(dir, "c s.sock"))})`,
+            "c.connect(sys.argv[1]); time.sleep(5)",
+          ].join("\n"),
+        );
+        expect(r).toEqual({ check: "unverified", reason: "ss_unparsable" });
+      });
+
+      it("a fork (two holders of the socket) is unverified", async () => {
+        const r = await attacker(
+          [
+            "import socket,sys,time,os",
+            "c = socket.socket(socket.AF_UNIX); c.connect(sys.argv[1])",
+            "if os.fork() == 0: time.sleep(5)",
+            "else: time.sleep(5)",
+          ].join("\n"),
+        );
+        expect(r).toEqual({ check: "unverified", reason: "many_holders" });
+      });
+    },
+  );
 });

@@ -55,7 +55,7 @@ export function hostHelperKindOf(family: HostHelperFamily): NodeKind {
 
 /**
  * What the Gateway learned about the process on the other end of the node socket when the Linux
- * helper connected (linux-desktop design Â§4.3). Linux only; the Mac and Windows helpers are not
+ * helper connected (linux-desktop design §4.3). Linux only; the Mac and Windows helpers are not
  * checked this way.
  *
  * - `root_owned`: the peer runs the packaged helper under `/usr/lib/psyche`, a root-owned file
