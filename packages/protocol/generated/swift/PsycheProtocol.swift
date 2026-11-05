@@ -910,6 +910,8 @@
 //   let memoryWorkFolders = try? JSONDecoder().decode(MemoryWorkFolders.self, from: jsonData)
 //   let memoryWorkHistoryParams = try? JSONDecoder().decode(MemoryWorkHistoryParams.self, from: jsonData)
 //   let memoryWorkHistoryResult = try? JSONDecoder().decode(MemoryWorkHistoryResult.self, from: jsonData)
+//   let memoryWorkListsParams = try? JSONDecoder().decode(MemoryWorkListsParams.self, from: jsonData)
+//   let memoryWorkListsResult = try? JSONDecoder().decode(MemoryWorkListsResult.self, from: jsonData)
 //   let memoryWorkRemind = try? JSONDecoder().decode(MemoryWorkRemind.self, from: jsonData)
 //   let memoryWorkSettings = try? JSONDecoder().decode(MemoryWorkSettings.self, from: jsonData)
 //   let memoryWorkUndoUpdateParams = try? JSONDecoder().decode(MemoryWorkUndoUpdateParams.self, from: jsonData)
@@ -1582,6 +1584,7 @@
 //   let workNoteAttribute = try? JSONDecoder().decode(WorkNoteAttribute.self, from: jsonData)
 //   let workNoteBlock = try? JSONDecoder().decode(WorkNoteBlock.self, from: jsonData)
 //   let workNoteItem = try? JSONDecoder().decode(WorkNoteItem.self, from: jsonData)
+//   let workReminderList = try? JSONDecoder().decode(WorkReminderList.self, from: jsonData)
 //   let workUndoStatus = try? JSONDecoder().decode(WorkUndoStatus.self, from: jsonData)
 //   let workflowCard = try? JSONDecoder().decode(WorkflowCard.self, from: jsonData)
 //   let workflowEvent = try? JSONDecoder().decode(WorkflowEvent.self, from: jsonData)
@@ -22188,6 +22191,43 @@ public enum WorkHistoryOrigin: String, Codable, Sendable {
     case you = "you"
 }
 
+// MARK: - MemoryWorkListsResult
+public struct MemoryWorkListsResult: Codable, Sendable {
+    public let lists: [WorkReminderList]
+
+    public enum CodingKeys: String, CodingKey {
+        case lists = "lists"
+    }
+
+    public init(lists: [WorkReminderList]) {
+        self.lists = lists
+    }
+}
+
+// MARK: - WorkReminderList
+public struct WorkReminderList: Codable, Sendable {
+    public let id: String
+    public let name: String
+    /// Someone else can add to it (shared, read-only, flagged email): untrusted
+    public let shared: Bool
+    /// Where it lives, e.g. Microsoft To Do
+    public let source: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case name = "name"
+        case shared = "shared"
+        case source = "source"
+    }
+
+    public init(id: String, name: String, shared: Bool, source: String? = nil) {
+        self.id = id
+        self.name = name
+        self.shared = shared
+        self.source = source
+    }
+}
+
 // MARK: - MemoryWorkSettings
 public struct MemoryWorkSettings: Codable, Sendable {
     public let anchorsFromFolders: MemoryWorkFolders
@@ -35811,6 +35851,7 @@ public typealias MemoryNotesListParams = [String: JSONAny]
 public typealias MemoryPersonaGetParams = [String: JSONAny]
 public typealias MemorySendersListParams = [String: JSONAny]
 public typealias MemoryStatusParams = [String: JSONAny]
+public typealias MemoryWorkListsParams = [String: JSONAny]
 public typealias ModelsAppleStatusParams = [String: JSONAny]
 public typealias ModelsListParams = [String: JSONAny]
 public typealias NodesListParams = [String: JSONAny]

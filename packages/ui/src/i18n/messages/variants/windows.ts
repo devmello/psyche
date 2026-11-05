@@ -110,6 +110,15 @@ export const windows: Partial<Record<MessageId, string>> = {
     "A container runtime runs code in its own Linux machine with no access to your PC's files: for code the agent runs and some file conversions. Command servers keep using srt unless the Gateway is set to use containers.",
   "settings.searchSources.description":
     "What Psyche reads into your search index. All off until you switch them on; the index stays on this PC. Turning a source on also lets memory learn from it, unless you opt out on Memory → Sources (Memory and Contacts are the exceptions: neither is learned from).",
+  // Windows reads Mail, Calendar, Reminders and Contacts from classic Outlook (through the Windows
+  // helper) when it is there, else from Microsoft 365, Google and Microsoft To Do. No Notes or
+  // Messages row is shown on Windows.
+  "settings.searchSources.hint.mail":
+    "Subject, sender, recipients, date and the text of your mail in Outlook, Microsoft 365 or Gmail. Quoted replies are skipped.",
+  "settings.searchSources.hint.reminders":
+    "Tasks in Outlook or Microsoft To Do, with their lists, due dates and notes.",
+  "settings.searchSources.hint.contacts":
+    "Your contacts in classic Outlook: name, nickname, company, job title, emails, phone numbers, the city and country of each address, and birthday. Street addresses, notes and groups are never read. The agent can't search it until you allow it, and that switch covers only this index: what Memory has learned about people, and their pages with emails or numbers, follow Memory's own agent access.",
   "settings.searchSources.runOnBatteryHint":
     "Lets indexing, Rebuild and reading text in images carry on while your PC runs on battery, at a gentler pace. It uses more battery. Energy saver still pauses indexing.",
   "settings.searchSources.ocrHint":

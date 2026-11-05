@@ -17,6 +17,23 @@ import {
  * one-click example prompts and starter automations. Cards that need an account are listed
  * apart as "Connect to unlock", so what is shown first is what works now.
  */
+/**
+ * The connected connector types, plus `microsoft:todo` for a Microsoft 365 connection that holds
+ * the To Do scope (one made before To Do has none until it is reconnected).
+ */
+export function connectedTypesOf(
+  connectors: readonly { type: string; status: string; scopes: readonly string[] }[],
+): Set<string> {
+  const out = new Set<string>();
+  for (const c of connectors) {
+    if (c.status !== "connected") continue;
+    out.add(c.type);
+    if (c.type === "microsoft" && c.scopes.some((s) => /(^|\/)tasks\.read(write)?$/i.test(s)))
+      out.add("microsoft:todo");
+  }
+  return out;
+}
+
 export function CapabilitiesScreen({
   onUsePrompt,
   onCreateAutomation,
@@ -32,11 +49,7 @@ export function CapabilitiesScreen({
   connectedTypes?: ReadonlySet<string>;
 }): ReactElement {
   const live = useGatewayQuery("connectors.list", {}, { enabled: connectedTypes === undefined });
-  const connected =
-    connectedTypes ??
-    new Set(
-      (live.data?.connectors ?? []).filter((c) => c.status === "connected").map((c) => c.type),
-    );
+  const connected = connectedTypes ?? connectedTypesOf(live.data?.connectors ?? []);
   const ready = CAPABILITIES.filter((c) => isAvailable(c, connected));
   const locked = CAPABILITIES.filter((c) => !isAvailable(c, connected));
   return (

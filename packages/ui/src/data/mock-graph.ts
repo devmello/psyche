@@ -544,6 +544,8 @@ export function graphHandlers(ctx: GraphMockContext): Handlers {
       return { entity: e };
     },
     "memory.catchup.seen": (p) => ({ seen: p.entityIds.length }),
+    // The demo has no Microsoft 365 connection unless a story adds lists: the helper's are all.
+    "memory.work.lists": () => ({ lists: ctx.graph().workLists ?? [] }),
     "memory.work.history": (p) => ({
       entries: ctx
         .graph()
