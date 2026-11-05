@@ -165,7 +165,7 @@ export function startTimeOf(statText: string): string | undefined {
 
 /** One line of `/proc/<pid>/maps`. */
 export interface MapEntry {
-  /** `start-end`, as `/proc/<pid>/map_files` names the mapping. */
+  /** The mapping's address range, as `maps` prints it. */
   range: string;
   perms: string;
   inode: number;

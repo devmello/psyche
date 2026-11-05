@@ -31,7 +31,7 @@ pnpm exec vitest run --maxWorkers=1 \
 cd ../../packages/testing
 pnpm exec vitest run --maxWorkers=1 test/conformance.test.ts
 # The root-owned install test needs sudo and an ordinary user: CI sets LINUX_HELPER_ROOTOWNED=1.
-if [ "" = "1" ]; then
+if [ "${LINUX_HELPER_ROOTOWNED:-}" = "1" ]; then
   cd ../..
   bash scripts/ci/linux-helper-rootowned.sh
 fi
