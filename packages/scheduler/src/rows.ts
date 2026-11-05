@@ -29,6 +29,8 @@ export interface AutomationRow {
   trigger?: string | null;
   /** 202610262100_scheduler_automation-specialist: run each occurrence as a specialist job. */
   specialist?: string | null;
+  /** 202611041600_scheduler_recorded_skill: the {skill} of a recording skill's schedule. */
+  recorded_skill?: string | null;
 }
 
 export interface RunRow {
@@ -101,6 +103,8 @@ export function automationFromRow(r: AutomationRow, w?: WatchRow): Automation {
   if (w !== undefined) a.watch = watchConfigFromRow(w);
   if (r.trigger != null) a.trigger = JSON.parse(r.trigger) as AutomationTrigger;
   if (r.specialist != null) a.specialist = JSON.parse(r.specialist) as Automation["specialist"];
+  if (r.recorded_skill != null)
+    a.recordedSkill = JSON.parse(r.recorded_skill) as Automation["recordedSkill"];
   return a;
 }
 

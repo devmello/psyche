@@ -204,6 +204,13 @@ import {
   createOwnPorts,
 } from "./services.ts";
 import { setupTokenHandlers, setupTokenUsedHook } from "./setup-tokens.ts";
+import {
+  attachRecordedRunGuard,
+  createRecordingScheduleHandlers,
+  RecordedRuns,
+  withoutAgentRecordingSchedules,
+  withRecordedSkillRuns,
+} from "./recording-schedule.ts";
 import { composeSkills } from "./skills.ts";
 import { withSpecialistContext } from "./specialist-approvals.ts";
 import {
@@ -1222,7 +1229,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     memory,
     tasks,
     notifier,
-    scheduler,
+    // The agent cannot schedule a recorded skill: that is the owner's action (teach by showing §8).
+    scheduler: withoutAgentRecordingSchedules(scheduler, skills.recorded),
     registry,
     clock,
     ...(timeZone === undefined ? {} : { timeZone }),
@@ -1444,37 +1452,49 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // The dreaming automation runs memory dreaming and the people graph pass in-process.
   // Dreaming, then the lesson pass (teaching loop §6, #681), then the people graph pass.
   // Automations with a `specialist` run as unattended specialist jobs (specialists §4.10).
+  // A scheduled recording holds to its rules (stops on a changed page, no guessing); other
+  // automations pass through. The guard watches the loop's tool calls for those tasks only.
+  const recordedRuns = new RecordedRuns();
+  attachRecordedRunGuard(loop.hooks, recordedRuns, (taskId, reason) =>
+    tasks.cancel(taskId, reason),
+  );
   launcher = withPausedRoutines(
-    withAutomationSpecialists(
-      people.launcher(
-        // The weekly "What I learned" Feed post (teaching loop §5.4) runs in-process too.
-        withWeeklyCard(
-          // Everything memory (#1010) is its own scheduled job (03:15, after dreaming), so
-          // Scheduled shows it and can Run it now.
-          withProactiveJobs(proactive.launcher(createTaskLauncher({ engine: tasks, pool }), pool), {
-            jobs: [everything.job],
-          }),
-          {
-            store: teaching.service.store,
-            memory,
-            clock,
-            enabled: () =>
-              teachingSettings(db).enabled &&
-              getSetting(db, "teaching.weeklyCard")?.value !== false,
-            post: (card) => proactive.feed.postGrowth(card),
-          },
+    withRecordedSkillRuns(
+      withAutomationSpecialists(
+        people.launcher(
+          // The weekly "What I learned" Feed post (teaching loop §5.4) runs in-process too.
+          withWeeklyCard(
+            // Everything memory (#1010) is its own scheduled job (03:15, after dreaming), so
+            // Scheduled shows it and can Run it now.
+            withProactiveJobs(
+              proactive.launcher(createTaskLauncher({ engine: tasks, pool }), pool),
+              {
+                jobs: [everything.job],
+              },
+            ),
+            {
+              store: teaching.service.store,
+              memory,
+              clock,
+              enabled: () =>
+                teachingSettings(db).enabled &&
+                getSetting(db, "teaching.weeklyCard")?.value !== false,
+              post: (card) => proactive.feed.postGrowth(card),
+            },
+          ),
+          [
+            async () => {
+              if (!teachingSettings(db).enabled) return undefined;
+              const r = await consolidateLessons(teaching.service, memory, { clock });
+              // "Still true?" left unanswered: the lesson goes dormant (teaching loop §3.3).
+              const dormant = await retireUnanswered(teaching.service, memory, { clock });
+              return `lessons: ${r.merged} merged, ${r.promoted} promoted, ${r.proposed} proposed, ${r.flagged} flagged, ${dormant} dormant`;
+            },
+          ],
         ),
-        [
-          async () => {
-            if (!teachingSettings(db).enabled) return undefined;
-            const r = await consolidateLessons(teaching.service, memory, { clock });
-            // "Still true?" left unanswered: the lesson goes dormant (teaching loop §3.3).
-            const dormant = await retireUnanswered(teaching.service, memory, { clock });
-            return `lessons: ${r.merged} merged, ${r.promoted} promoted, ${r.proposed} proposed, ${r.flagged} flagged, ${dormant} dormant`;
-          },
-        ],
+        { db, tasks, host: specialists, now: () => clock.now() },
       ),
-      { db, tasks, host: specialists, now: () => clock.now() },
+      { skills: skills.recorded, runs: recordedRuns },
     ),
     // Scheduled → Pause: a paused routine skips its scheduled runs (Run now still goes through).
     () => pausedRoutines(scheduledKv),
@@ -1745,6 +1765,12 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       }) as never,
     ),
     ...mountParamsOnly(createAutomationHandlers(scheduler) as never),
+    // "Run it every week" for a skill made from a recording: the desktop shell only.
+    ...createRecordingScheduleHandlers({
+      skills: skills.recorded,
+      scheduler,
+      timezone: () => timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+    }),
     ...mountParamsOnly(
       createScheduledHandlers({
         scheduler,

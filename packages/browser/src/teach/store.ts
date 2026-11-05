@@ -1,4 +1,10 @@
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHmac,
+  randomBytes,
+  timingSafeEqual,
+} from "node:crypto";
 import {
   closeSync,
   constants,
@@ -6,6 +12,7 @@ import {
   mkdirSync,
   openSync,
   readFileSync,
+  renameSync,
   writeFileSync,
 } from "node:fs";
 import { chmod, lstat, mkdir, open, readdir, rename, rm, writeFile } from "node:fs/promises";
@@ -34,6 +41,14 @@ import {
  * outside `$PSYCHE_HOME` (the app's user-data folder). A file that is unsigned, edited or dropped
  * in from elsewhere is not listed and not opened. Files expire after 90 days and at most 20 are
  * kept. Reads refuse links (`O_NOFOLLOW`, `lstat`), cap the size, and pick fields explicitly.
+ *
+ * Encrypted at rest: with a per-install key (sealed by the OS keychain, kept beside the signing
+ * key) each file is AES-256-GCM, bound to its id, so the folder shows no step names, addresses or
+ * kept values and a file edited, swapped or renamed fails to open. GCM already authenticates the
+ * file, so the format has no separate MAC. Files written by the older, signed-but-plain format
+ * are verified and re-written encrypted the first time the store is used. Without a keychain
+ * (`enc: null`) nothing new is kept at all: a plain copy of the owner's steps on disk is the
+ * worse outcome, and a recording is cheap to make again.
  *
  * Only the desktop app's main process opens this store. It has no tool, no Gateway method and no
  * bridge command, so the agent cannot list, read or write a kept recording.
@@ -64,7 +79,11 @@ export interface TeachKeySeal {
  * that is the wrong size or cannot be opened is an error, never a quiet new key: a new key would
  * orphan every kept recording and hide that something replaced the file.
  */
-export function loadTeachKey(path: string, wrap?: TeachKeySeal): Buffer {
+export function loadTeachKey(
+  path: string,
+  wrap?: TeachKeySeal,
+  options: { adoptPlain?: boolean } = {},
+): Buffer {
   let st: ReturnType<typeof lstatSync> | undefined;
   try {
     st = lstatSync(path);
@@ -85,6 +104,16 @@ export function loadTeachKey(path: string, wrap?: TeachKeySeal): Buffer {
       }
     } catch {
       throw new PsycheError("internal", "the recording key cannot be read");
+    }
+    // `adoptPlain`, for the signing key only: the first version wrote it unwrapped, as 32 raw
+    // bytes (a wrapped one is longer). Keep that key, so files signed with it still verify, and
+    // wrap it now. The encryption key never does this: a raw file there is an error, so a planted
+    // file cannot choose the key.
+    if (options.adoptPlain === true && wrap !== undefined && raw.length === 32) {
+      const tmp = `${path}.tmp`;
+      writeFileSync(tmp, wrap.seal(raw), { mode: 0o600, flag: "w" });
+      renameSync(tmp, path);
+      return raw;
     }
     let key: Buffer;
     try {
@@ -117,16 +146,196 @@ interface Signed {
   rec: KeptRecording;
 }
 
+/** The encrypted file: nothing but the nonce, the tag and the ciphertext is readable. */
+interface Sealed {
+  v: 2;
+  alg: "aes-256-gcm";
+  iv: string;
+  tag: string;
+  ct: string;
+}
+
+type EncKey = Buffer | (() => Buffer);
+
+export interface TeachStoreOptions {
+  /**
+   * The encryption key (32 bytes, or a function that makes it on first use). `null`: no keychain,
+   * so nothing new is kept (see `canKeep`). Absent: the older signed-but-plain format (tests only;
+   * the desktop always passes one of the two).
+   */
+  enc?: EncKey | null;
+  /** A kept file that was ignored, and why in one line (no content). */
+  log?: (message: string) => void;
+}
+
 export class TeachKeptStore {
   readonly dir: string;
   #key: Buffer | (() => Buffer);
   #now: () => number;
+  #enc: EncKey | null | undefined;
+  #log: (message: string) => void;
+  #migrated: Promise<void> | undefined;
 
   /** `key` may be a function, so the key file is made only when a recording is first kept or read. */
-  constructor(dir: string, key: Buffer | (() => Buffer), now: () => number = Date.now) {
+  constructor(
+    dir: string,
+    key: Buffer | (() => Buffer),
+    now: () => number = Date.now,
+    options: TeachStoreOptions = {},
+  ) {
     this.dir = dir;
     this.#key = key;
     this.#now = now;
+    this.#enc = options.enc;
+    this.#log = options.log ?? (() => {});
+  }
+
+  /** Whether a new recording can be kept: false without a keychain (nothing plain is written). */
+  get canKeep(): boolean {
+    return this.#enc !== null;
+  }
+
+  /** `encrypted`, `unavailable` (no keychain: nothing is kept) or `plain` (tests only). */
+  get mode(): "encrypted" | "unavailable" | "plain" {
+    return this.#enc === null ? "unavailable" : this.#enc === undefined ? "plain" : "encrypted";
+  }
+
+  #encKey(): Buffer {
+    if (this.#enc === null || this.#enc === undefined)
+      throw new PsycheError("unavailable", "recordings cannot be encrypted on this Mac");
+    if (typeof this.#enc === "function") this.#enc = this.#enc();
+    if (this.#enc.length !== 32)
+      throw new PsycheError("internal", "the encryption key has the wrong size");
+    return this.#enc;
+  }
+
+  #aad(id: string): Buffer {
+    return Buffer.from(`psyche.teach.v2\n${id}`);
+  }
+
+  #seal(rec: KeptRecording): Sealed {
+    const iv = randomBytes(12);
+    const c = createCipheriv("aes-256-gcm", this.#encKey(), iv);
+    c.setAAD(this.#aad(rec.id));
+    const ct = Buffer.concat([c.update(JSON.stringify(rec), "utf8"), c.final()]);
+    return {
+      v: 2,
+      alg: "aes-256-gcm",
+      iv: iv.toString("base64"),
+      tag: c.getAuthTag().toString("base64"),
+      ct: ct.toString("base64"),
+    };
+  }
+
+  #unseal(id: string, f: Sealed): KeptRecording | undefined {
+    if (
+      f.alg !== "aes-256-gcm" ||
+      typeof f.iv !== "string" ||
+      typeof f.tag !== "string" ||
+      typeof f.ct !== "string"
+    )
+      return undefined;
+    const iv = Buffer.from(f.iv, "base64");
+    const tag = Buffer.from(f.tag, "base64");
+    if (iv.length !== 12 || tag.length !== 16) return undefined;
+    try {
+      const d = createDecipheriv("aes-256-gcm", this.#encKey(), iv);
+      d.setAAD(this.#aad(id));
+      d.setAuthTag(tag);
+      const text = Buffer.concat([d.update(Buffer.from(f.ct, "base64")), d.final()]).toString(
+        "utf8",
+      );
+      return JSON.parse(text) as KeptRecording;
+    } catch {
+      return undefined;
+    }
+  }
+
+  async #write(file: string, body: unknown): Promise<void> {
+    await mkdir(this.dir, { recursive: true, mode: 0o700 });
+    await chmod(this.dir, 0o700);
+    const tmp = `${file}.tmp`;
+    await writeFile(tmp, `${JSON.stringify(body)}\n`, { mode: 0o600 });
+    await chmod(tmp, 0o600);
+    await rename(tmp, file);
+  }
+
+  /**
+   * First use: a signed plain file from the older format is checked and re-written encrypted. A
+   * file that does not verify is left alone (and never listed). Once per store.
+   */
+  #ready(): Promise<void> {
+    this.#migrated ??= this.#migrate().catch((err) => {
+      this.#log(`kept recordings: could not migrate (${err instanceof Error ? err.message : err})`);
+    });
+    return this.#migrated;
+  }
+
+  async #migrate(): Promise<void> {
+    if (this.#enc === null || this.#enc === undefined) return;
+    let names: string[];
+    try {
+      names = await readdir(this.dir);
+    } catch {
+      return;
+    }
+    for (const n of names) {
+      const id = n.replace(/\.json$/, "");
+      if (!n.endsWith(".json") || !ID.test(id)) continue;
+      const parsed = await this.#read(id);
+      if (parsed === undefined || parsed.v !== 1) continue;
+      let rec: KeptRecording | undefined;
+      try {
+        rec = this.#verifySigned(id, parsed as Signed);
+      } catch {
+        rec = undefined;
+      }
+      if (rec === undefined) {
+        this.#log(`kept recording ${id}: ignored (the signature does not match)`);
+        continue;
+      }
+      await this.#write(this.#file(id), this.#seal(rec));
+    }
+  }
+
+  /** The file's parsed JSON, or `undefined` for a link, a huge file or one that is not JSON. */
+  async #read(id: string): Promise<{ v?: unknown } | undefined> {
+    const file = this.#file(id);
+    let raw: string;
+    try {
+      const st = await lstat(file);
+      if (!st.isFile() || st.size > MAX_FILE_BYTES) return undefined;
+      const fh = await open(file, constants.O_RDONLY | constants.O_NOFOLLOW);
+      try {
+        raw = await fh.readFile("utf8");
+      } finally {
+        await fh.close();
+      }
+    } catch {
+      return undefined;
+    }
+    try {
+      const j = JSON.parse(raw) as unknown;
+      return typeof j === "object" && j !== null ? (j as { v?: unknown }) : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  #verifySigned(id: string, signed: Signed): KeptRecording | undefined {
+    const r = signed?.rec;
+    if (
+      signed?.v !== 1 ||
+      typeof signed.mac !== "string" ||
+      typeof r !== "object" ||
+      r === null ||
+      r.id !== id
+    )
+      return undefined;
+    const mine = Buffer.from(this.#mac(r), "hex");
+    const theirs = Buffer.from(signed.mac, "hex");
+    if (mine.length !== theirs.length || !timingSafeEqual(mine, theirs)) return undefined;
+    return r;
   }
 
   #secret(): Buffer {
@@ -153,6 +362,12 @@ export class TeachKeptStore {
     steps: readonly BrowserTeachStep[],
   ): Promise<KeptRecording> {
     const file = this.#file(id);
+    if (!this.canKeep)
+      throw new PsycheError(
+        "unavailable",
+        "recordings are not kept on this Mac: the keychain is not available to encrypt them",
+      );
+    await this.#ready();
     const clean = sanitizeTeachSteps(steps);
     const issues = teachStepIssues(clean);
     if (issues.length > 0) throw new PsycheError("invalid_params", issues.join("; "));
@@ -165,53 +380,55 @@ export class TeachKeptStore {
       keptAt: this.#now(),
       steps: clean,
     };
-    await mkdir(this.dir, { recursive: true, mode: 0o700 });
-    await chmod(this.dir, 0o700);
-    const signed: Signed = { v: 1, mac: this.#mac(rec), rec };
-    const tmp = `${file}.tmp`;
-    await writeFile(tmp, `${JSON.stringify(signed)}\n`, { mode: 0o600 });
-    await chmod(tmp, 0o600);
-    await rename(tmp, file);
+    await this.#write(
+      file,
+      this.#enc === undefined
+        ? ({ v: 1, mac: this.#mac(rec), rec } satisfies Signed)
+        : this.#seal(rec),
+    );
     return rec;
   }
 
-  /** A signed, unexpired, plain file of the right shape; anything else is `undefined`. */
+  /** A decryptable (or signed), unexpired file of the right shape; anything else is `undefined`. */
   async get(id: string): Promise<KeptRecording | undefined> {
     const file = this.#file(id);
-    let raw: string;
+    await this.#ready();
+    const parsed = await this.#read(id);
+    if (parsed === undefined) return undefined;
+    let r: KeptRecording | undefined;
     try {
-      const st = await lstat(file);
-      if (!st.isFile() || st.size > MAX_FILE_BYTES) return undefined;
-      const fh = await open(file, constants.O_RDONLY | constants.O_NOFOLLOW);
-      try {
-        raw = await fh.readFile("utf8");
-      } finally {
-        await fh.close();
+      if (parsed.v === 2) {
+        r =
+          this.#enc === null || this.#enc === undefined
+            ? undefined
+            : this.#unseal(id, parsed as Sealed);
+        if (r === undefined) {
+          this.#log(`kept recording ${id}: ignored (wrong key, edited or not readable)`);
+          return undefined;
+        }
+      } else if (parsed.v === 1) {
+        // With a keychain the plain files were re-written when the store opened, so one left here
+        // did not verify. Without one it is still read if its signature holds.
+        r = this.#verifySigned(id, parsed as Signed);
+        if (r === undefined) {
+          this.#log(`kept recording ${id}: ignored (the signature does not match)`);
+          return undefined;
+        }
       }
-    } catch {
+    } catch (err) {
+      this.#log(`kept recording ${id}: ignored (${err instanceof Error ? err.message : "error"})`);
       return undefined;
     }
-    let signed: Signed;
-    try {
-      signed = JSON.parse(raw) as Signed;
-    } catch {
-      return undefined;
-    }
-    const r = signed?.rec;
     if (
-      signed?.v !== 1 ||
-      typeof signed.mac !== "string" ||
-      typeof r !== "object" ||
+      r === undefined ||
       r === null ||
+      typeof r !== "object" ||
       r.id !== id ||
       typeof r.title !== "string" ||
       typeof r.keptAt !== "number" ||
       !Array.isArray(r.steps)
     )
       return undefined;
-    const mine = Buffer.from(this.#mac(r), "hex");
-    const theirs = Buffer.from(signed.mac, "hex");
-    if (mine.length !== theirs.length || !timingSafeEqual(mine, theirs)) return undefined;
     if (this.#now() - r.keptAt > KEPT_RECORDING_TTL_MS) {
       await rm(file, { force: true });
       return undefined;

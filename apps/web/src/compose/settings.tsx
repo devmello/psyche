@@ -278,6 +278,9 @@ export function settingsRoute(
               },
             }
           : {})}
+        {...(platform.browser?.teachStorage
+          ? { teachStorage: () => platform.browser?.teachStorage?.() ?? Promise.reject() }
+          : {})}
         {...(platform.browser?.openRealChromeProfile
           ? {
               onOpenRealChromeProfile: (profile: string) =>

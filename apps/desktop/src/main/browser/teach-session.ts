@@ -198,6 +198,11 @@ export class TeachSession {
 
   // ── kept recordings (the owner's explicit choice) ────────────────────────────────────────
 
+  /** `encrypted`, or `unavailable` when the OS keychain cannot protect a kept recording. */
+  storage(): { encrypted: boolean } {
+    return { encrypted: this.#o.kept.canKeep };
+  }
+
   keep(id: string, title: string, steps: readonly BrowserTeachStep[]) {
     return this.#o.kept.keep(id, title, steps);
   }

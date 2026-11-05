@@ -1,5 +1,6 @@
 import { type Static, Type } from "@sinclair/typebox";
 import { Id, IsoDateTime, Sha256, SideEffect, StringEnum } from "../common.ts";
+import { Automation } from "../schemas/integrations.ts";
 import { ApprovalKind, ApprovalRequest } from "../schemas/permissions.ts";
 import { defineMethod, EmptyParams, OkResult } from "./define.ts";
 
@@ -762,6 +763,40 @@ export const SkillsMethods = {
     sideEffecting: true,
     description:
       "Side-effecting: turns the owner's reviewed recording (teach by showing) into a skill draft. Sensitive steps keep no value, typed values are kept only when the owner chose to, and page text is quoted as untrusted. Accept it with skills.drafts.accept for the usual approval card.",
+  }),
+  "skills.recording.unattended": defineMethod({
+    params: Type.Object({ name: SkillName }),
+    result: Type.Object({
+      eligible: Type.Boolean(),
+      steps: Type.Integer({ minimum: 0 }),
+      reasons: Type.Array(
+        Type.Object({
+          code: StringEnum(["sensitive", "input", "unreadable", "not_recording", "off"]),
+          step: Type.Optional(Type.Integer({ minimum: 1 })),
+        }),
+        { maxItems: 200 },
+      ),
+    }),
+    scope: "operator.read",
+    description:
+      "Whether a skill made from a recording can run on a schedule with nobody there to ask: not if a step is sensitive or its value is asked for each time (reasons name the steps).",
+  }),
+  "skills.recording.schedule": defineMethod({
+    params: Type.Object({
+      name: SkillName,
+      schedule: Type.String({
+        minLength: 1,
+        maxLength: 64,
+        description:
+          "cron: minute and hour are fixed numbers (at most a few runs a day), e.g. 0 9 * * 1",
+      }),
+      timezone: Type.Optional(Type.String({ minLength: 1 })),
+    }),
+    result: Type.Object({ automation: Automation }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Side-effecting, owner-only: runs an installed skill made from a recording on a schedule through Scheduled. Only the Psyche desktop shell on the Host may call it, and the agent has no tool for it. A skill with a sensitive or ask-each-time step is refused (invalid_params, with the steps). Every run uses the normal approvals; a changed page stops it and notifies the owner.",
   }),
   "skills.drafts.dismiss": defineMethod({
     params: Type.Object({ draftId: Id }),

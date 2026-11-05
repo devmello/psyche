@@ -239,3 +239,140 @@ export function recordingSkillText(input: RecordingSkillInput): string {
   lines.push("```", "");
   return lines.join("\n");
 }
+
+// ── unattended runs (teach by showing, design doc §8) ─────────────────────────────────────────
+
+/** One line of the "Recorded steps" block, read back. Names are page text: data only. */
+export interface ParsedRecordedStep {
+  /** 1-based, as the skill numbers it. */
+  n: number;
+  kind: "open" | "click" | "press" | "fill";
+  role?: string;
+  /** The element's name (page text). */
+  name?: string;
+  /** The step needs the owner, now or in each run. A kept value needs nothing. */
+  needs?: "sensitive" | "input";
+}
+
+export type UnattendedReason =
+  | { code: "sensitive"; step: number }
+  | { code: "input"; step: number }
+  | { code: "unreadable"; step?: number };
+
+export interface UnattendedCheck {
+  /** Every step can run with nobody there to ask. */
+  eligible: boolean;
+  /** How many steps the skill has (0 when it cannot be read). */
+  steps: number;
+  reasons: UnattendedReason[];
+  parsed: ParsedRecordedStep[];
+}
+
+const Q = String.raw`"(?:[^"\\]|\\.)*"`;
+const ROLE = String.raw`[A-Za-z0-9_-]+`;
+const FIELD = String.raw`(${ROLE})(?: at selector ${Q}| (${Q}))`;
+const RE_OPEN = new RegExp(String.raw`^(\d+)\. open ${Q}$`);
+const RE_CLICK = new RegExp(String.raw`^(\d+)\. click the ${FIELD}$`);
+const RE_PRESS = new RegExp(String.raw`^(\d+)\. press \S+(?: in the ${FIELD})?$`);
+const RE_FILL = new RegExp(
+  String.raw`^(\d+)\. (?:type into|choose an option in) the ${FIELD}: (sensitive, the owner does this themselves \(never type or fill it\)|${Q} \(a value the owner chose to keep\)|the value of input \S.*)$`,
+);
+
+function jsonString(q: string | undefined): string | undefined {
+  if (q === undefined) return undefined;
+  try {
+    const v = JSON.parse(q) as unknown;
+    return typeof v === "string" ? v : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** The lines of the fenced block under "Recorded steps", or `undefined` when it is not there. */
+function recordedBlock(text: string): string[] | undefined {
+  const head = text.indexOf("\n## Recorded steps");
+  if (head < 0) return undefined;
+  const open = text.indexOf("\n```text\n", head);
+  if (open < 0) return undefined;
+  const from = open + "\n```text\n".length;
+  const close = text.indexOf("\n```", from);
+  if (close < 0) return undefined;
+  return text
+    .slice(from, close)
+    .split("\n")
+    .filter((l) => l.trim() !== "");
+}
+
+/**
+ * Whether a skill made from a recording can run on a schedule, with nobody to ask. It reads the
+ * steps back from the skill's text in the exact shape `recordingSkillText` writes them; a line
+ * it does not recognise makes the skill ineligible (`unreadable`), never eligible. A step is
+ * refused when it is sensitive (the owner does it themselves) or types a value that is asked
+ * for each run (an input, or a masked value). Only steps that hold everything they need run.
+ */
+export function recordingUnattended(text: string): UnattendedCheck {
+  const lines = recordedBlock(text);
+  if (lines === undefined || lines.length === 0)
+    return { eligible: false, steps: 0, reasons: [{ code: "unreadable" }], parsed: [] };
+  const reasons: UnattendedReason[] = [];
+  const parsed: ParsedRecordedStep[] = [];
+  for (const [i, line] of lines.entries()) {
+    const want = i + 1;
+    let m: RegExpExecArray | null;
+    if ((m = RE_OPEN.exec(line)) !== null && Number(m[1]) === want) {
+      parsed.push({ n: want, kind: "open" });
+    } else if ((m = RE_CLICK.exec(line)) !== null && Number(m[1]) === want) {
+      const name = jsonString(m[3]);
+      parsed.push({
+        n: want,
+        kind: "click",
+        ...(m[2] === undefined ? {} : { role: m[2] }),
+        ...(name === undefined ? {} : { name }),
+      });
+    } else if ((m = RE_PRESS.exec(line)) !== null && Number(m[1]) === want) {
+      parsed.push({ n: want, kind: "press" });
+    } else if ((m = RE_FILL.exec(line)) !== null && Number(m[1]) === want) {
+      const what = m[4] ?? "";
+      const name = jsonString(m[3]);
+      const needs = what.startsWith("sensitive")
+        ? "sensitive"
+        : what.startsWith("the value of input")
+          ? "input"
+          : undefined;
+      if (needs !== undefined) reasons.push({ code: needs, step: want });
+      parsed.push({
+        n: want,
+        kind: "fill",
+        ...(m[2] === undefined ? {} : { role: m[2] }),
+        ...(name === undefined ? {} : { name }),
+        ...(needs === undefined ? {} : { needs }),
+      });
+    } else {
+      reasons.push({ code: "unreadable", step: want });
+      parsed.push({ n: want, kind: "click" });
+    }
+  }
+  return { eligible: reasons.length === 0, steps: lines.length, reasons, parsed };
+}
+
+const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
+
+/**
+ * Which recorded step a `browser.check_target` call was for, so a stop can say "the page changed
+ * at step 3". Picks the first step after `after` (the last one that passed) whose element has
+ * this name; otherwise the next step after `after`. 1-based; `undefined` when there are no steps.
+ */
+export function recordedStepFor(
+  steps: readonly ParsedRecordedStep[],
+  want: { name?: string },
+  after: number,
+): number | undefined {
+  const name = want.name === undefined ? undefined : norm(want.name);
+  const acting = steps.filter((s) => s.kind !== "open");
+  const hit =
+    name === undefined
+      ? undefined
+      : (acting.find((s) => s.n > after && s.name !== undefined && norm(s.name) === name) ??
+        acting.find((s) => s.name !== undefined && norm(s.name) === name));
+  return hit?.n ?? acting.find((s) => s.n > after)?.n ?? steps[steps.length - 1]?.n;
+}

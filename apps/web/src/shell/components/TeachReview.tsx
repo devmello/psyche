@@ -68,6 +68,18 @@ export function TeachReview(props: {
   const [rows, setRows] = useState<ReviewStep[]>(() => props.initial ?? reviewFrom(props.capture));
   const [title, setTitle] = useState(props.initialTitle ?? "");
   const [keep, setKeep] = useState(false);
+  // Kept recordings are encrypted; with no keychain none is kept (the box is off and says why).
+  const [canKeep, setCanKeep] = useState(true);
+  useEffect(() => {
+    let live = true;
+    props.port.teachStorage?.().then(
+      (s) => live && setCanKeep(s.encrypted),
+      () => {},
+    );
+    return () => {
+      live = false;
+    };
+  }, [props.port]);
   const [phase, setPhase] = useState<"review" | "saving" | "saved">("review");
   const [draft, setDraft] = useState<SkillDraft | null>(null);
   const [installed, setInstalled] = useState(false);
@@ -105,7 +117,7 @@ export function TeachReview(props: {
       if (made === undefined) throw new Error("no answer");
       // The usual approval card: replay check, trust card, device-only skill_install.
       await store.call("skills.drafts.accept", { draftId: made.draft.id });
-      if (keep && props.port.teachKeep) {
+      if (keep && canKeep && props.port.teachKeep) {
         await props.port.teachKeep(props.capture.id, title.trim(), steps).catch(() => {
           store.toast(t("web.teach.kept.failed"), "warn");
         });
@@ -285,13 +297,16 @@ export function TeachReview(props: {
       <label className="teach-check">
         <input
           type="checkbox"
-          checked={keep}
+          checked={keep && canKeep}
+          disabled={!canKeep}
           data-testid="teach-keep"
           onChange={(e) => setKeep(e.target.checked)}
         />
         <span>{t("web.teach.review.keepRecording")}</span>
       </label>
-      <p className="teach-hint">{t("web.teach.review.keepRecordingHint")}</p>
+      <p className="teach-hint">
+        {canKeep ? t("web.teach.review.keepRecordingHint") : t("web.teach.review.keepUnavailable")}
+      </p>
       <p className="teach-hint">{t("web.teach.review.privacy")}</p>
       {error !== null ? (
         <p role="alert" className="teach-error" data-testid="teach-error">

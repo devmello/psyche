@@ -240,8 +240,18 @@ export class BrowserHost implements BridgeTabHost {
     });
     this.teach = new TeachSession({
       onChange: () => this.scheduleState(),
-      kept: new TeachKeptStore(join(this.home, "state", "teach"), () =>
-        loadTeachKey(join(this.userData, "teach.key")),
+      kept: new TeachKeptStore(
+        join(this.home, "state", "teach"),
+        () => loadTeachKey(join(this.userData, "teach.key"), keychainSeal(), { adoptPlain: true }),
+        Date.now,
+        {
+          // No keychain: nothing new is kept (a plain copy of the steps is the worse outcome).
+          enc:
+            keychainSeal() === undefined
+              ? null
+              : () => loadTeachKey(join(this.userData, "teach.enc.key"), keychainSeal()),
+          log: (m) => console.warn(`[teach] ${m}`),
+        },
       ),
     });
     this.captureTimer = setInterval(() => this.pollCaptures(), opts.captureEveryMs ?? 500);
@@ -1120,6 +1130,10 @@ export class BrowserHost implements BridgeTabHost {
   }
   teachKept() {
     return this.teach.listKept();
+  }
+  /** Whether kept recordings can be written (they are encrypted; without a keychain, none is). */
+  teachStorage() {
+    return this.teach.storage();
   }
   teachOpenKept(id: string) {
     return this.teach.openKept(id);

@@ -182,6 +182,8 @@ export interface SettingsShellProps {
   onOpenRealChromeProfile?: (profile: string) => Promise<{ path: string }>;
   /** Desktop only: sites "Stay signed in" kept in the profile (Settings → Browser). */
   signedInSites?: SignedInSitesApi;
+  /** Desktop only: whether recordings the owner keeps can be stored (Settings → Browser). */
+  teachStorage?: () => Promise<{ encrypted: boolean }>;
   /**
    * Pane bodies the shell renders itself (for example a File access section backed by the
    * Gateway's `permissions.policy` with a native folder picker). Sections not listed here use
@@ -264,6 +266,7 @@ export function SettingsSectionView({
         <BrowserSection
           {...opt("onOpenProfile", s.onOpenRealChromeProfile)}
           {...opt("signedInSites", s.signedInSites)}
+          {...opt("teachStorage", s.teachStorage)}
         />
       );
     case "files":

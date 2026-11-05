@@ -408,6 +408,15 @@ export const Automation = Type.Object(
     trigger: Type.Optional(AutomationTrigger),
     /** Run each occurrence as a background specialist job (docs/agent/specialists-2026.md §4.10). */
     specialist: Type.Optional(AutomationSpecialist),
+    /**
+     * Runs a skill the owner made by recording a task (docs/design/teach-by-showing-2026.md §8).
+     * Set only by `skills.recording.schedule` (desktop shell on the Host); no create or update
+     * method takes it, and the agent's `schedule` tool cannot set it. Such a run uses the normal
+     * broker, stops on any changed page and cannot do a sensitive or ask-each-time step.
+     */
+    recordedSkill: Type.Optional(
+      Type.Object({ skill: Type.String({ minLength: 1, maxLength: 64 }) }),
+    ),
   },
   { $id: "Automation" },
 );

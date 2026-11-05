@@ -18,6 +18,17 @@ export const teach = {
   "web.teach.stopFailed": "Psyche couldn't finish the recording.",
   "web.teach.nothingRecorded": "Nothing was recorded.",
 
+  // Settings → Browser: where kept recordings go.
+  "settings.teach.storage.title": "Recordings you keep",
+  "settings.teach.storage.description":
+    "When you ask Psyche to keep a recording so you can make another version, the steps are saved on this Mac.",
+  "settings.teach.storage.encrypted":
+    "Encrypted. The file is locked with a key held in this Mac's keychain, so it cannot be read outside Psyche. It expires after 90 days.",
+  "settings.teach.storage.unavailable":
+    "Recordings are not kept. This Mac's keychain is not available, and Psyche will not save a recording as plain text. You can still save a recording as a skill.",
+  "web.teach.review.keepUnavailable":
+    "Not available: this Mac's keychain is not available to encrypt a kept recording.",
+
   "web.teach.kept.title": "Kept recordings",
   "web.teach.kept.open": "Open",
   "web.teach.kept.delete": "Delete",
