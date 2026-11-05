@@ -75,7 +75,11 @@ USER 1000:1000
 # proxy). The helper binary is not built here: stage it at desktop/psyche-helper before building
 # (see README.md); HELPER_SHA256, when given, must match it.
 FROM full AS desktop
+# The helper is the one program that holds the Gateway's trust inside the container, so its
+# checksum is required: a build without HELPER_SHA256 fails. A local dev build may skip the check
+# with --build-arg ALLOW_UNVERIFIED_HELPER=1; release and CI builds (publish.sh) never do.
 ARG HELPER_SHA256=
+ARG ALLOW_UNVERIFIED_HELPER=
 USER 0:0
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
@@ -89,6 +93,11 @@ COPY --chown=0:0 --chmod=0755 desktop/entrypoint.sh /usr/local/lib/psyche/deskto
 COPY --chown=0:0 --chmod=0644 desktop/firefox-policies.json /etc/firefox/policies/policies.json
 RUN if [ -n "$HELPER_SHA256" ]; then \
       echo "$HELPER_SHA256  /usr/local/bin/psyche-helper" | sha256sum -c - ; \
+    elif [ "$ALLOW_UNVERIFIED_HELPER" = "1" ]; then \
+      echo "WARNING: the helper binary was not verified (ALLOW_UNVERIFIED_HELPER=1)" >&2 ; \
+    else \
+      echo "HELPER_SHA256 is required (or ALLOW_UNVERIFIED_HELPER=1 for a local dev build)" >&2 ; \
+      exit 1 ; \
     fi \
  && sh /usr/local/lib/psyche/harden.sh
 ENV XDG_RUNTIME_DIR=/tmp/run \

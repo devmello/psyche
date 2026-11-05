@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { realpath, stat } from "node:fs/promises";
+import { readdir, realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { posix } from "node:path";
 import { PsycheError } from "@psyche/protocol";
@@ -66,7 +66,14 @@ const DESKTOP_SHM = "256m";
 
 const ID_RE = /^[a-z0-9]{1,16}$/;
 const SHARE_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+const OVERLAY_RE = /^[A-Za-z0-9._-]+(\/[A-Za-z0-9._-]+)*$/;
 const MEMORY_RE = /^([1-9][0-9]{0,4})([mg])$/;
+
+/** A file's identity as the kernel knows it: what a path pointed at when it was checked. */
+export interface FileIdentity {
+  dev: string;
+  ino: string;
+}
 
 export interface DesktopShare {
   /** The host folder, as its own real path. */
@@ -74,6 +81,15 @@ export interface DesktopShare {
   /** Appears at `/shares/<name>`. */
   name: string;
   readOnly: boolean;
+  /**
+   * Paths inside the share (`.git`, `sub/.git`) mounted read-only on top of it. Set by
+   * `validateDesktopShares` for a read-write share that holds git data: a program in the
+   * container must not be able to plant hooks or change the config a host `git` would later run.
+   */
+  readOnlyPaths?: readonly string[];
+  /** Recorded by `validateDesktopShares`; `start` compares it with what the engine mounted. */
+  identity?: FileIdentity;
+  readOnlyIdentities?: Readonly<Record<string, FileIdentity>>;
 }
 
 export interface DesktopSpec {
@@ -139,13 +155,16 @@ const NEVER_SUBTREE = [
   "/snap",
   "/tmp/.X11-unix",
 ];
-/** Under the home folder, refused with everything below: keys, sessions, stores, engines. */
-const NEVER_UNDER_HOME = [
+/**
+ * Under the home folder, refused with everything below: keys, sessions, stores, engines, shell and
+ * tool setups a program could change to run code the next time the owner opens a terminal, and
+ * wallets. Exported so the Gateway's folder card refuses the same places.
+ */
+export const DESKTOP_NEVER_UNDER_HOME: readonly string[] = [
   ".ssh",
   ".gnupg",
   ".config",
-  ".local/share",
-  ".local/state",
+  ".local",
   ".cache",
   ".aws",
   ".azure",
@@ -161,10 +180,69 @@ const NEVER_UNDER_HOME = [
   ".password-store",
   ".var",
   ".steam",
+  "snap",
+  "bin",
+  ".cargo",
+  ".rustup",
+  ".nvm",
+  ".bun",
+  ".deno",
+  ".pyenv",
+  "go",
+  ".vim",
+  ".emacs.d",
+  ".oh-my-zsh",
+  ".bashrc.d",
+  ".profile.d",
+  ".m2",
+  ".gradle",
+  ".terraform.d",
+  ".bitcoin",
+  ".ethereum",
+  ".electrum",
 ];
+const NEVER_UNDER_HOME = DESKTOP_NEVER_UNDER_HOME;
 
 const under = (child: string, root: string): boolean =>
   root === "/" ? true : child === root || child.startsWith(`${root}/`);
+
+/** How far and how wide the search for git data inside a read-write share goes. */
+const GIT_SCAN_DEPTH = 6;
+const GIT_SCAN_ENTRIES = 50_000;
+const GIT_MAX_OVERLAYS = 16;
+
+/**
+ * The `.git` entries (folder or file) inside `root`, as paths relative to it. Links are never
+ * followed. A `.git` that is itself a link, or a tree too large to search, refuses the share.
+ */
+async function findGit(root: string): Promise<string[]> {
+  const found: string[] = [];
+  let seen = 0;
+  const walk = async (dir: string, rel: string, depth: number): Promise<void> => {
+    const entries = await readdir(dir, { withFileTypes: true });
+    for (const e of entries) {
+      if (++seen > GIT_SCAN_ENTRIES) {
+        throw errors.forbidden(
+          `${root} is too large to check for git data, so it is not shared read-write`,
+        );
+      }
+      const path = rel === "" ? e.name : `${rel}/${e.name}`;
+      if (e.name === ".git") {
+        if (e.isSymbolicLink()) throw errors.forbidden(`${root}/${path} is a link`);
+        found.push(path);
+        continue;
+      }
+      if (e.isDirectory() && depth < GIT_SCAN_DEPTH) await walk(`${dir}/${e.name}`, path, depth + 1);
+    }
+  };
+  await walk(root, "", 0);
+  return found.sort();
+}
+
+const identityOf = async (path: string): Promise<FileIdentity> => {
+  const st = await stat(path, { bigint: true });
+  return { dev: st.dev.toString(), ino: st.ino.toString() };
+};
 
 export interface ShareCheckOptions {
   /** Extra places that are never shared (`$PSYCHE_HOME`, the Gateway's protected roots). */
@@ -246,7 +324,25 @@ export async function validateDesktopShares(
     }
     if (real !== source) throw errors.forbidden(`share ${source} goes through a symlink`);
     await refuse(real);
-    out.push({ source, name: s.name, readOnly: s.readOnly });
+    const identity = await identityOf(real);
+    if (s.readOnly) {
+      out.push({ source, name: s.name, readOnly: true, identity });
+      continue;
+    }
+    // Read-write: git data inside stays read-only (an overlay on top), or the share is refused.
+    const git = await findGit(real);
+    if (git.length > GIT_MAX_OVERLAYS) {
+      throw errors.forbidden(`${source} holds too many git folders to share read-write`);
+    }
+    const readOnlyIdentities: Record<string, FileIdentity> = {};
+    for (const rel of git) readOnlyIdentities[rel] = await identityOf(`${real}/${rel}`);
+    out.push({
+      source,
+      name: s.name,
+      readOnly: false,
+      identity,
+      ...(git.length === 0 ? {} : { readOnlyPaths: git, readOnlyIdentities }),
+    });
   }
   return out.sort((a, b) => (a.name < b.name ? -1 : 1));
 }
@@ -285,12 +381,24 @@ export function desktopRunArgs(kind: DesktopBackendKind, spec: DesktopSpec): str
     // Read-only mount of the one socket: connecting works, replacing it does not.
     "--mount",
     `type=bind,source=${spec.socketPath},target=${DESKTOP_SOCKET_TARGET},readonly`,
-    ...spec.shares.flatMap((s) => [
-      "--mount",
-      kind === "podman"
-        ? `type=bind,source=${s.source},target=${DESKTOP_SHARES_ROOT}/${s.name},nosuid,nodev,noexec${s.readOnly ? ",readonly" : ""}`
-        : `type=bind,source=${s.source},target=${DESKTOP_SHARES_ROOT}/${s.name}${s.readOnly ? ",readonly" : ""}`,
-    ]),
+    ...spec.shares.flatMap((s) => {
+      const opts = kind === "podman" ? ",nosuid,nodev,noexec" : "";
+      const out = [
+        "--mount",
+        `type=bind,source=${s.source},target=${DESKTOP_SHARES_ROOT}/${s.name}${opts}${s.readOnly ? ",readonly" : ""}`,
+      ];
+      // Parents first, then the read-only overlays on top of a read-write share.
+      for (const rel of s.readOnlyPaths ?? []) {
+        if (!OVERLAY_RE.test(rel) || rel.split("/").includes("..")) {
+          throw errors.forbidden(`overlay path ${JSON.stringify(rel)} is not allowed`);
+        }
+        out.push(
+          "--mount",
+          `type=bind,source=${s.source}/${rel},target=${DESKTOP_SHARES_ROOT}/${s.name}/${rel}${opts},readonly`,
+        );
+      }
+      return out;
+    }),
   ];
   return [
     "run",
@@ -363,6 +471,19 @@ export interface DesktopStarted {
   /** Wall time of `run`, the container is up when it returns. */
   startMs: number;
   backend: DesktopBackend;
+  /**
+   * Whether the memory and process limits are really in force, read from the container's own
+   * cgroup. A system that cannot enforce them (no cgroup delegation) still runs the desktop; the
+   * caller shows a warning.
+   */
+  limits: { memory: boolean; pids: boolean };
+}
+
+/** What `run` must have mounted, by container path: checked against the engine's own report. */
+interface ExpectedMount {
+  source: string;
+  identity: FileIdentity;
+  readOnly: boolean;
 }
 
 export interface DesktopStatus {
@@ -537,6 +658,35 @@ export class DesktopContainers {
     if (request.token.length < 32) throw errors.invalid("the pairing token is too short");
     await this.ensureImage();
     const { container, volume } = desktopNames(request.id);
+    // What each host path was when it was checked. After `run`, the engine reports what it really
+    // mounted and this has to match, or the container goes (a path swapped in between).
+    const expected = new Map<string, ExpectedMount>();
+    try {
+      expected.set(DESKTOP_SOCKET_TARGET, {
+        source: request.socketPath,
+        identity: await identityOf(request.socketPath),
+        readOnly: true,
+      });
+    } catch {
+      throw errors.unavailable("the guest socket is not there", { reason: "no_guest_socket" });
+    }
+    for (const sh of shares) {
+      if (sh.identity === undefined) throw errors.invalid("a share was not validated");
+      expected.set(`${DESKTOP_SHARES_ROOT}/${sh.name}`, {
+        source: sh.source,
+        identity: sh.identity,
+        readOnly: sh.readOnly,
+      });
+      for (const rel of sh.readOnlyPaths ?? []) {
+        const id = sh.readOnlyIdentities?.[rel];
+        if (id === undefined) throw errors.invalid("a share was not validated");
+        expected.set(`${DESKTOP_SHARES_ROOT}/${sh.name}/${rel}`, {
+          source: `${sh.source}/${rel}`,
+          identity: id,
+          readOnly: true,
+        });
+      }
+    }
     await this.#remove(backend, container);
     const now = this.#options.now ?? Date.now;
     const began = now();
@@ -584,7 +734,82 @@ export class DesktopContainers {
         reason: "start_failed",
       });
     }
-    return { container, startMs: now() - began, backend };
+    try {
+      await this.#verifyMounts(backend, container, expected);
+    } catch (err) {
+      await this.#remove(backend, container);
+      throw err;
+    }
+    const limits = await this.#checkLimits(backend, container, memory);
+    return { container, startMs: now() - began, backend, limits };
+  }
+
+  /**
+   * Compares the mounts the engine reports with what was validated: the same set of bind
+   * destinations (nothing extra, nothing missing), each from a host path that is still the same
+   * file (device and inode) with the access it was asked for.
+   */
+  async #verifyMounts(
+    backend: DesktopBackend,
+    container: string,
+    expected: ReadonlyMap<string, ExpectedMount>,
+  ): Promise<void> {
+    const bad = (why: string) =>
+      errors.unavailable(`the separate desktop's mounts are not what was approved (${why})`, {
+        reason: "mount_mismatch",
+      });
+    const r = await this.#cli(backend, ["inspect", "--format", "{{json .Mounts}}", container]);
+    let mounts: unknown;
+    try {
+      mounts = JSON.parse(r.stdout.toString("utf8"));
+    } catch {
+      throw bad("unreadable report");
+    }
+    if (r.exitCode !== 0 || !Array.isArray(mounts)) throw bad("no report");
+    const seen = new Set<string>();
+    for (const m of mounts as Record<string, unknown>[]) {
+      if (m.Type !== "bind") continue;
+      const dest = String(m.Destination);
+      const want = expected.get(dest);
+      if (want === undefined) throw bad(`unexpected mount at ${dest}`);
+      seen.add(dest);
+      const source = String(m.Source);
+      let actual: FileIdentity;
+      try {
+        actual = await identityOf(source);
+      } catch {
+        throw bad(`${dest} source is gone`);
+      }
+      if (actual.dev !== want.identity.dev || actual.ino !== want.identity.ino) {
+        throw bad(`${dest} is a different file than the one checked`);
+      }
+      if (m.RW !== !want.readOnly) throw bad(`${dest} has the wrong access`);
+    }
+    for (const dest of expected.keys()) if (!seen.has(dest)) throw bad(`${dest} is missing`);
+  }
+
+  /** Reads the cgroup limits from inside: `max` or a different number means they are not enforced. */
+  async #checkLimits(
+    backend: DesktopBackend,
+    container: string,
+    memory: string,
+  ): Promise<{ memory: boolean; pids: boolean }> {
+    const m = MEMORY_RE.exec(memory);
+    const bytes = BigInt(m?.[1] ?? "0") * (m?.[2] === "g" ? 1024n ** 3n : 1024n ** 2n);
+    const r = await this.#cli(backend, [
+      "exec",
+      "--user",
+      `${SANDBOX_UID}:${SANDBOX_GID}`,
+      container,
+      "cat",
+      "/sys/fs/cgroup/memory.max",
+      "/sys/fs/cgroup/pids.max",
+    ]);
+    const [mem, pids] = r.exitCode === 0 ? r.stdout.toString("utf8").trim().split(/\s+/) : [];
+    return {
+      memory: mem === bytes.toString(),
+      pids: pids === String(DESKTOP_PIDS_LIMIT),
+    };
   }
 
   /** Stops and removes the container (not its workspace). Absent is fine. */
