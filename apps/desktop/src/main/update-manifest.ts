@@ -11,7 +11,8 @@ import { createHash, createPublicKey, verify } from "node:crypto";
  *    (release-keys.ts). Unsigned, unknown-key and mismatched manifests are refused;
  * 2. the manifest's shape and format version;
  * 3. the plan: never a downgrade or the same version, artifacts only under the pinned release
- *    base URL, a zip for this platform and architecture;
+ *    base URL, the artifact for this platform, architecture and install kind (a zip on macOS; on
+ *    Linux an AppImage, deb or rpm, matching how this copy was installed);
  * 4. the downloaded artifact's SHA-256 and size against the manifest.
  */
 
@@ -26,11 +27,17 @@ export interface ReleaseKey {
   publicKey: string;
 }
 
+/** How this copy of the app got onto the machine (Linux), which decides the artifact it updates to. */
+export type InstallKind = "appimage" | "deb" | "rpm";
+
+export const ARTIFACT_PLATFORMS = ["darwin", "linux"] as const;
+export const ARTIFACT_KINDS = ["zip", "dmg", "appimage", "deb", "rpm"] as const;
+
 export interface ManifestArtifact {
   name: string;
-  platform: "darwin";
+  platform: (typeof ARTIFACT_PLATFORMS)[number];
   arch: "arm64" | "x64";
-  kind: "zip" | "dmg";
+  kind: (typeof ARTIFACT_KINDS)[number];
   sha256: string;
   bytes: number;
 }
@@ -124,6 +131,11 @@ function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
+/** A zip or dmg is macOS; an AppImage, deb or rpm is Linux. Anything else is a mislabelled entry. */
+function kindMatchesPlatform(platform: string, kind: string): boolean {
+  return platform === "darwin" ? kind === "zip" || kind === "dmg" : kind !== "zip" && kind !== "dmg";
+}
+
 function parseManifest(bytes: Uint8Array): UpdateManifest {
   let m: unknown;
   try {
@@ -144,9 +156,10 @@ function parseManifest(bytes: Uint8Array): UpdateManifest {
       !isObject(a) ||
       typeof a.name !== "string" ||
       !/^[A-Za-z0-9._-]+$/.test(a.name) ||
-      a.platform !== "darwin" ||
+      !(ARTIFACT_PLATFORMS as readonly unknown[]).includes(a.platform) ||
       (a.arch !== "arm64" && a.arch !== "x64") ||
-      (a.kind !== "zip" && a.kind !== "dmg") ||
+      !(ARTIFACT_KINDS as readonly unknown[]).includes(a.kind) ||
+      !kindMatchesPlatform(a.platform as string, a.kind as string) ||
       typeof a.sha256 !== "string" ||
       !/^[0-9a-f]{64}$/.test(a.sha256) ||
       !Number.isInteger(a.bytes) ||
@@ -194,7 +207,11 @@ export function verifyManifest(
 
 export interface UpdatePlanInput {
   currentVersion: string;
+  /** Defaults to macOS, the only platform the updater served before Linux. */
+  platform?: string;
   arch: string;
+  /** Linux only: the packaging this copy runs from. Without it a Linux copy has no update. */
+  installKind?: InstallKind;
   /** e.g. https://github.com/devmello/psyche/releases/download/ */
   pinnedBase: string;
 }
@@ -209,6 +226,26 @@ export type UpdatePlan =
       mandatory: boolean;
     };
 
+/**
+ * The artifact this copy updates to. macOS: the zip for the architecture (Squirrel.Mac takes
+ * zips). Linux: the artifact whose kind is the install kind, so an AppImage never receives a deb
+ * and the reverse; an unknown install kind (a tarball, a dev build) selects nothing.
+ */
+export function selectArtifact(
+  m: UpdateManifest,
+  want: { platform: string; arch: string; installKind?: InstallKind | undefined },
+): ManifestArtifact | undefined {
+  if (want.platform === "darwin") {
+    return m.artifacts.find((a) => a.platform === "darwin" && a.kind === "zip" && a.arch === want.arch);
+  }
+  if (want.platform === "linux" && want.installKind) {
+    return m.artifacts.find(
+      (a) => a.platform === "linux" && a.kind === want.installKind && a.arch === want.arch,
+    );
+  }
+  return undefined;
+}
+
 export function planUpdate(m: UpdateManifest, input: UpdatePlanInput): UpdatePlan {
   if (!m.baseUrl.startsWith(input.pinnedBase) || !m.baseUrl.endsWith("/")) {
     throw new ManifestError("untrusted_host", `artifacts are not under ${input.pinnedBase}`);
@@ -219,11 +256,12 @@ export function planUpdate(m: UpdateManifest, input: UpdatePlanInput): UpdatePla
   if (compareVersions(m.release, input.currentVersion) <= 0) {
     return { action: "none", reason: `${m.release} is not newer than ${input.currentVersion}` };
   }
-  const artifact = m.artifacts.find(
-    (a) => a.kind === "zip" && a.platform === "darwin" && a.arch === input.arch,
-  );
-  if (!artifact)
-    throw new ManifestError("no_artifact", `no update for darwin-${input.arch} in ${m.release}`);
+  const platform = input.platform ?? "darwin";
+  const artifact = selectArtifact(m, { ...input, platform });
+  if (!artifact) {
+    const what = platform === "linux" ? `linux-${input.arch}-${input.installKind ?? "unknown"}` : `${platform}-${input.arch}`;
+    throw new ManifestError("no_artifact", `no update for ${what} in ${m.release}`);
+  }
   return {
     action: "update",
     release: m.release,

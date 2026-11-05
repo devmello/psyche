@@ -1,0 +1,156 @@
+#!/bin/sh
+# Psyche's one-time system integration (docs/design/linux-desktop-2026.md §2.1, §2.6). Runs as root.
+#
+#   psyche-system-setup install <payload-dir>   install what the folder holds (deb/rpm postinst)
+#   psyche-system-setup install-stdin           the same, from a tar stream on stdin (the AppImage:
+#                                               `Psyche.AppImage --setup-system` pipes it in through pkexec)
+#   psyche-system-setup remove                  take it all out again (deb/rpm removal, uninstall)
+#
+# The payload is laid out like the root it lands in. Only these paths are ever read from it, and
+# nothing else is written outside them:
+#   usr/share/polkit-1/actions/com.psyche.presence.policy   the password-approval action
+#   usr/lib/systemd/user/psyche-gateway.service             the Gateway's user unit (deb/rpm)
+#   etc/apparmor.d/psyche                                    lets Ubuntu 23.10+ run the sandbox (deb/rpm)
+#   chrome-sandbox                                           -> /usr/local/lib/psyche/chrome-sandbox,
+#                                                              setuid root (AppImage on Ubuntu 23.10+)
+#
+# The policy is checked before it is installed: polkit reads actions only from root-owned folders,
+# which is the point of putting it there (same-user malware cannot soften the prompt), so a file
+# that asks for less than a password every time, or runs anything as root, is refused.
+#
+# DESTDIR (tests only) prefixes every path written and skips chown, root and AppArmor.
+set -eu
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+umask 022
+
+D=${DESTDIR:-}
+POLICY=/usr/share/polkit-1/actions/com.psyche.presence.policy
+UNIT=/usr/lib/systemd/user/psyche-gateway.service
+PROFILE=/etc/apparmor.d/psyche
+SANDBOX_DIR=/usr/local/lib/psyche
+SANDBOX=$SANDBOX_DIR/chrome-sandbox
+BIN_LINK=/usr/bin/psyche-desktop
+APP_BIN=/usr/lib/psyche/psyche
+
+say() { printf 'psyche-system-setup: %s\n' "$*" >&2; }
+die() { say "$*"; exit 1; }
+
+usage() {
+  say "usage: psyche-system-setup install <payload-dir> | install-stdin | remove"
+  exit 64
+}
+
+require_root() {
+  [ -n "$D" ] || [ "$(id -u)" = 0 ] || die "this needs root"
+}
+
+# put <mode> <source> <destination>: root-owned, written beside the target and renamed into place.
+put() {
+  dest=$D$3
+  mkdir -p "$(dirname "$dest")"
+  if [ -n "$D" ]; then
+    install -m "$1" "$2" "$dest.new"
+  else
+    install -o root -g root -m "$1" "$2" "$dest.new"
+  fi
+  mv -f "$dest.new" "$dest"
+}
+
+check_policy() {
+  flat=$(tr -d '\n\r' <"$1")
+  case $flat in *"<!ENTITY"* | *"<!DOCTYPE"*) die "the polkit policy declares entities" ;; esac
+  printf '%s' "$flat" | grep -q 'action id="com\.psyche\.' ||
+    die "the polkit policy defines no com.psyche action"
+  if printf '%s' "$flat" | grep -o 'action id="[^"]*"' | grep -vq '^action id="com\.psyche\.'; then
+    die "the polkit policy defines an action that is not Psyche's"
+  fi
+  if printf '%s' "$flat" |
+    grep -Eq '<allow_(any|inactive|active)>[[:space:]]*(yes|[a-z_]*_keep)[[:space:]]*<'; then
+    die "the polkit policy would approve without a fresh password"
+  fi
+  if printf '%s' "$flat" | grep -q 'org\.freedesktop\.policykit\.exec'; then
+    die "the polkit policy would run a program as root"
+  fi
+}
+
+install_profile() {
+  # abi 4.0 needs AppArmor 4 (Ubuntu 24.04, Debian 13); elsewhere the profile is not needed or valid.
+  [ -e "$D/etc/apparmor.d/abi/4.0" ] || {
+    say "AppArmor 4 is not here: skipping the profile"
+    return 0
+  }
+  put 644 "$1" "$PROFILE"
+  if [ -z "$D" ] && command -v apparmor_parser >/dev/null 2>&1; then
+    apparmor_parser -r "$D$PROFILE" || say "could not load the AppArmor profile (it loads at the next boot)"
+  fi
+}
+
+install_sandbox() {
+  # Only a real ELF file, so a bad payload cannot become a setuid root script.
+  [ -f "$1" ] && [ ! -L "$1" ] || die "chrome-sandbox is not a plain file"
+  [ "$(head -c 4 "$1" | od -An -c | tr -d ' ')" = '177ELF' ] || die "chrome-sandbox is not an ELF program"
+  mkdir -p "$D$SANDBOX_DIR"
+  put 4755 "$1" "$SANDBOX"
+}
+
+install_payload() {
+  src=$1
+  [ -d "$src" ] || die "no payload folder $src"
+  p=$src/usr/share/polkit-1/actions/com.psyche.presence.policy
+  if [ -f "$p" ]; then
+    check_policy "$p"
+    put 644 "$p" "$POLICY"
+    say "installed the password-approval policy"
+  fi
+  [ ! -f "$src/usr/lib/systemd/user/psyche-gateway.service" ] ||
+    put 644 "$src/usr/lib/systemd/user/psyche-gateway.service" "$UNIT"
+  [ ! -f "$src/etc/apparmor.d/psyche" ] || install_profile "$src/etc/apparmor.d/psyche"
+  if [ -f "$src/chrome-sandbox" ]; then
+    install_sandbox "$src/chrome-sandbox"
+    say "installed the sandbox helper at $SANDBOX"
+  fi
+  # deb and rpm: the design's name for the launcher (the makers link /usr/bin/psyche).
+  if [ -x "$D$APP_BIN" ] || [ -n "$D" -a -e "$D$APP_BIN" ]; then
+    mkdir -p "$D$(dirname "$BIN_LINK")"
+    ln -sf "$APP_BIN" "$D$BIN_LINK"
+  fi
+}
+
+install_stdin() {
+  tmp=$(mktemp -d)
+  trap 'rm -rf "$tmp"' EXIT
+  chmod 700 "$tmp"
+  tar -xf - -C "$tmp" --no-same-owner --no-same-permissions || die "could not read the payload"
+  # Plain files and folders only: no links or devices can ride in on the stream.
+  if [ -n "$(find "$tmp" ! -type f ! -type d | head -n 1)" ]; then
+    die "the payload holds links or special files"
+  fi
+  install_payload "$tmp"
+}
+
+remove() {
+  if [ -z "$D" ] && [ -e "$PROFILE" ] && command -v apparmor_parser >/dev/null 2>&1; then
+    apparmor_parser -R "$PROFILE" 2>/dev/null || true
+  fi
+  rm -f "$D$POLICY" "$D$UNIT" "$D$PROFILE" "$D$SANDBOX" "$D$BIN_LINK"
+  rmdir "$D$SANDBOX_DIR" 2>/dev/null || true
+  say "removed Psyche's system files (your data in ~/.psyche is untouched)"
+}
+
+case ${1:-} in
+  install)
+    [ $# -eq 2 ] || usage
+    require_root
+    install_payload "$2"
+    ;;
+  install-stdin)
+    require_root
+    install_stdin
+    ;;
+  remove)
+    require_root
+    remove
+    ;;
+  *) usage ;;
+esac

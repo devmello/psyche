@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import {
+  chmodSync,
   createReadStream,
   createWriteStream,
   mkdirSync,
@@ -15,6 +16,7 @@ import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import {
   MANIFEST_FILE,
+  type InstallKind,
   type ManifestArtifact,
   ManifestError,
   planUpdate,
@@ -37,12 +39,16 @@ export const DEFAULT_FEED = "https://github.com/devmello/psyche/releases/latest/
 export interface UpdateCheckDeps {
   fetch: typeof fetch;
   currentVersion: string;
+  /** `process.platform`; defaults to macOS, where the updater started. */
+  platform?: string;
   arch: string;
+  /** Linux: AppImage, deb or rpm, from how this copy runs (src/packaging/linux-install.ts). */
+  installKind?: InstallKind;
   keys: readonly ReleaseKey[];
   /** Where `update-manifest.json` and its `.sig` are fetched; must be on github.com/devmello/psyche/releases. */
   feed?: string;
   pinnedBase?: string;
-  /** Directory for the downloaded zip (0700). */
+  /** Directory for the downloaded artifact (0700). */
   dir: string;
   log(message: string): void;
   /** Looks at the downloaded zip before it is kept (update-gate.ts `inspectQuarantine`). */
@@ -56,6 +62,8 @@ export type UpdateCheck =
       state: "ready";
       release: string;
       file: string;
+      /** The manifest entry the file was verified against (its kind tells the apply step what to do). */
+      artifact: ManifestArtifact;
       mandatory: boolean;
       /** Whether the download carried the quarantine flag (it should not: it is stripped if so). */
       quarantine?: "absent" | "removed" | "unknown";
@@ -130,11 +138,14 @@ export async function checkForVerifiedUpdate(d: UpdateCheckDeps): Promise<Update
     );
     const plan = planUpdate(manifest, {
       currentVersion: d.currentVersion,
+      ...(d.platform ? { platform: d.platform } : {}),
       arch: d.arch,
+      ...(d.installKind ? { installKind: d.installKind } : {}),
       pinnedBase: pinned,
     });
     if (plan.action === "none") return { state: "none", reason: plan.reason };
     mkdirSync(d.dir, { recursive: true, mode: 0o700 });
+    chmodSync(d.dir, 0o700);
     const file = join(d.dir, plan.artifact.name);
     await downloadVerified(d.fetch, plan.url, plan.artifact, file);
     d.log(
@@ -150,6 +161,7 @@ export async function checkForVerifiedUpdate(d: UpdateCheckDeps): Promise<Update
       state: "ready",
       release: plan.release,
       file,
+      artifact: plan.artifact,
       mandatory: plan.mandatory,
       ...(quarantine ? { quarantine } : {}),
     };
