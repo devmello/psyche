@@ -18,7 +18,7 @@ import { activeAdminCount } from "../compose/bootstrap-admin.ts";
 import { approvePairing } from "../handlers/devices.ts";
 import type { Logger } from "../log.ts";
 import { type PresenceState, resetPresenceEnrollment } from "../presence-gate.ts";
-import { cleanLabel } from "./alerts.ts";
+import { cleanLabel, cleanText } from "./alerts.ts";
 import type { StateSeal } from "./state-seal.ts";
 
 /**
@@ -126,7 +126,6 @@ const isOp = (op: string): op is SecurityRecoveryOp =>
 
 export class SecurityRecoveries {
   readonly #d: RecoveryDeps;
-  readonly #macCancels: number[] = [];
 
   constructor(deps: RecoveryDeps) {
     this.#d = deps;
@@ -149,7 +148,7 @@ export class SecurityRecoveries {
       try {
         res = this.#intake(r);
       } catch (err) {
-        res = { status: "refused", outcome: PsycheError.from(err).message };
+        res = { status: "refused", outcome: cleanText(PsycheError.from(err).message) };
       }
       db.sqlite
         .prepare(
@@ -178,8 +177,10 @@ export class SecurityRecoveries {
       .all(this.#iso()) as RecoveryRow[];
     let n = 0;
     for (const r of due) {
-      // Untrusted: only a recovery this run knows is genuine (not one replayed into the file).
-      if (!this.#d.seal.rowTrusted("security_recoveries", r.id)) continue;
+      // Untrusted: only a recovery the Gateway can vouch for; never one decided before (a rolled
+      // back database brings it back as waiting; the key file remembers, M-A).
+      if (!this.#d.seal.genuine("security_recoveries", r.id)) continue;
+      if (this.#d.seal.recoveryDecided(r.id)) continue;
       this.#decide(r, "apply", null);
       n++;
     }
@@ -188,12 +189,17 @@ export class SecurityRecoveries {
 
   list(limit = 20): SecurityRecovery[] {
     return (
-      this.#d.db.sqlite
-        .prepare(
-          "SELECT * FROM security_recoveries ORDER BY status = 'waiting' DESC, seen_at DESC, id DESC LIMIT ?",
-        )
-        .all(limit) as RecoveryRow[]
-    ).map((r) => this.#view(r));
+      (
+        this.#d.db.sqlite
+          .prepare(
+            "SELECT * FROM security_recoveries ORDER BY status = 'waiting' DESC, seen_at DESC, id DESC LIMIT ?",
+          )
+          .all(limit) as RecoveryRow[]
+      )
+        // Untrusted: a planted "waiting" recovery is not shown as if the Mac had asked for it.
+        .filter((r) => this.#d.seal.genuine("security_recoveries", r.id))
+        .map((r) => this.#view(r))
+    );
   }
 
   waitingCount(): number {
@@ -284,8 +290,8 @@ export class SecurityRecoveries {
   #waiting(id: string): RecoveryRow {
     const r = this.#row(id);
     if (r === undefined) throw new PsycheError("not_found", `no recovery ${id}`);
-    if (r.status !== "waiting") {
-      throw new PsycheError("conflict", `recovery ${id} is ${r.status}, not waiting`);
+    if (r.status !== "waiting" || this.#d.seal.recoveryDecided(r.id)) {
+      throw new PsycheError("conflict", `recovery ${id} was already decided`);
     }
     return r;
   }
@@ -341,14 +347,18 @@ export class SecurityRecoveries {
         }
         return this.#queue("seal.reset", {});
       case "recovery.cancel": {
-        const now = this.#d.now().getTime();
-        while (this.#macCancels.length > 0 && (this.#macCancels[0] as number) < now - 3_600_000) {
-          this.#macCancels.shift();
-        }
-        if (this.#macCancels.length >= MAX_MAC_CANCELS_PER_HOUR) {
+        // Counted from the sealed alerts (each Mac cancel is one), so a restart does not reset it.
+        const since = new Date(this.#d.now().getTime() - 3_600_000).toISOString();
+        const recent = (
+          this.#d.db.sqlite
+            .prepare(
+              "SELECT count(*) AS n FROM security_alerts WHERE kind = 'recovery_cancelled' AND json_extract(details, '$.via') = 'mac' AND created_at >= ?",
+            )
+            .get(since) as { n: number }
+        ).n;
+        if (recent >= MAX_MAC_CANCELS_PER_HOUR) {
           throw new PsycheError("rate_limited", "too many cancels from this Mac; try again later");
         }
-        this.#macCancels.push(now);
         const done = this.cancel(String(params.id ?? ""), null);
         return { status: "applied", outcome: `recovery ${done.id} cancelled` };
       }
@@ -371,13 +381,16 @@ export class SecurityRecoveries {
     if (device === undefined || device.revokedAt !== null) {
       throw new PsycheError("not_found", "the device of that request is gone");
     }
-    if (typeof request.publicKeyFingerprint !== "string" || request.publicKeyFingerprint === "") {
+    // The key is the device's own (not what the request row says): they must agree.
+    const fingerprint = keyFingerprint(device.publicKey);
+    if (request.publicKeyFingerprint !== fingerprint) {
       throw new PsycheError(
         "conflict",
-        "that pairing request names no key; ask the device to connect again",
+        "that pairing request does not name this device's key; ask the device to connect again",
       );
     }
-    if (this.#firstAdmin()) {
+    // M-E: only the request that makes the first admin applies at once; anything else waits.
+    if (scopes.includes("operator.admin") && this.#firstAdmin()) {
       const { device: approved } = db.sqlite.transaction(() =>
         approvePairing(db, {
           pairingRequestId: request.id,
@@ -389,14 +402,14 @@ export class SecurityRecoveries {
       this.#localFirstAdmin(approved, "devices.approve");
       return {
         status: "applied",
-        outcome: `approved ${approved.name} (${approved.id}) with ${approved.scopes.join(",")}`,
+        outcome: `approved ${cleanLabel(approved.name)} (${approved.id}) with ${approved.scopes.join(",")}`,
       };
     }
     return this.#queue("devices.approve", {
       pairingRequestId: request.id,
       deviceId: device.id,
       deviceName: cleanLabel(device.name),
-      fingerprint: request.publicKeyFingerprint,
+      fingerprint,
       scopes,
       code,
     });
@@ -414,7 +427,7 @@ export class SecurityRecoveries {
     // Only the first admin applies at once. Narrowing waits too: taking admin away from the
     // owner's last admin device at once would make "no admin exists" true for a first-admin
     // approval right after it.
-    if (widens && this.#firstAdmin()) {
+    if (widens && scopes.includes("operator.admin") && this.#firstAdmin()) {
       const updated = updateDevice(db, deviceId, { scopes: scopes as DeviceScope[] });
       if (updated === undefined) throw new PsycheError("not_found", `no paired device ${deviceId}`);
       this.#localFirstAdmin(updated, "devices.grant");
@@ -453,7 +466,7 @@ export class SecurityRecoveries {
           "SELECT id, params, not_before FROM security_recoveries WHERE status = 'waiting' AND op = ?",
         )
         .all(op) as { id: string; params: string; not_before: string }[]
-    ).filter((w) => this.#d.seal.rowTrusted("security_recoveries", w.id));
+    ).filter((w) => this.#d.seal.genuine("security_recoveries", w.id));
     // The same request again joins the one that waits (its time does not move).
     const same = waiting.find(
       (w) =>
@@ -513,7 +526,7 @@ export class SecurityRecoveries {
         outcome = this.#apply(r);
       } catch (err) {
         status = "failed";
-        outcome = PsycheError.from(err).message;
+        outcome = cleanText(PsycheError.from(err).message);
       }
     }
     const at = this.#iso();
@@ -522,6 +535,7 @@ export class SecurityRecoveries {
         "UPDATE security_recoveries SET status = ?, decided_at = ?, decided_by_device_id = ?, outcome = ?, updated_at = ? WHERE id = ? AND status = 'waiting'",
       )
       .run(status, at, byDeviceId, outcome, at, r.id);
+    this.#d.seal.noteRecoveryDecided(r.id);
     // The "waiting" alert is answered; the outcome is a new one.
     db.sqlite
       .prepare(
@@ -607,6 +621,7 @@ export class SecurityRecoveries {
       }
       case "presence.reset": {
         const had = resetPresenceEnrollment(db);
+        this.#d.seal.clearPresenceEnrolled();
         this.#d.presence.forget();
         return had
           ? "presence enrollment cleared: register a passkey or the helper's key again"

@@ -294,6 +294,8 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
   const presenceState = () => {
     if (seal.untrusted() !== null) return "unavailable" as const;
     const state = basePresence();
+    // Enrolled once (the key file says so): the gate stays closed even if the database lost it.
+    if (state === "off" && seal.presenceEverEnrolled()) return "unavailable" as const;
     // Enrolled once is remembered outside the database too: no first-admin shortcut since (D8).
     if (state !== "off") seal.notePresenceEnrolled();
     return state;

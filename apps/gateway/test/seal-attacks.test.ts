@@ -240,7 +240,11 @@ describe("H4: once untrusted", () => {
         .run(JSON.stringify(ADMIN));
     });
     seal.ensure();
-    expect(seal.authorizeDevice(getDevice(d, "intruder") as never)).toEqual({ ok: false });
+    // Unknown to the Gateway: read-only at most (nothing a same-user program cannot read anyway).
+    expect(seal.authorizeDevice(getDevice(d, "intruder") as never)).toEqual({
+      ok: true,
+      scopes: ["operator.read"],
+    });
     // The widened scopes were put back from memory; even read raw, the shadow narrows them.
     expect(getDevice(d, "phone")?.scopes).toEqual(["operator.read"]);
     expect(
@@ -362,11 +366,16 @@ describe("H5: replays and rollbacks", () => {
     pair(d, "lost-phone");
     seal.ensure();
     const { RevocationLedger } = await import("@psyche/permissions");
-    new RevocationLedger(home).recordDevice("lost-phone");
-    // Revoked in the ledger file but, say, by an older run: the next full check applies it.
+    // M-G: a line another program appended (unsigned) does not replay while running...
+    pair(d, "other-phone");
+    seal.ensure();
+    new RevocationLedger(home).recordDevice("other-phone");
+    // ...a line this Mac's seal signed does, at the next full check.
+    new RevocationLedger(home, undefined, (l) => seal.signRevocation(l)).recordDevice("lost-phone");
     foreign((f) => setSetting(f, "appearance.theme", "dark"));
     seal.ensure();
     expect(getDevice(d, "lost-phone")?.revokedAt).not.toBeNull();
+    expect(getDevice(d, "other-phone")?.revokedAt).toBeNull();
   });
 });
 

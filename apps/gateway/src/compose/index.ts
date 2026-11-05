@@ -107,7 +107,7 @@ import { createLogger } from "../log.ts";
 import { personalizeMessageEvent } from "../message-scrub.ts";
 import { openGatewayDb, purgePreUpdateSnapshots, releaseGatewayLock } from "../pre-update.ts";
 import { taskRunTrace } from "../run-trace/tasks.ts";
-import { alertNotice } from "../security/alerts.ts";
+import { alertNotice, alertNotifyDecision } from "../security/alerts.ts";
 import { sealedPermissionStore } from "../security/sealed-stores.ts";
 import { StateSeal } from "../security/state-seal.ts";
 import { type Gateway, type GatewayOptions, startGateway } from "../server.ts";
@@ -571,7 +571,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // Revocations live outside the backup scope; a restored database cannot bring a revoked device
   // or grant back (S23 design-26). Replay before anything authenticates.
   const nowIso = () => new Date(clock.now()).toISOString();
-  const revocations = new RevocationLedger(config.home, nowIso);
+  // Lines are signed with the seal key, so the running seal replays only the Gateway's own.
+  const revocations = new RevocationLedger(config.home, nowIso, (line) =>
+    seal.signRevocation(line),
+  );
   const replay = replayRevocations(db.sqlite, config.home, nowIso);
   if (replay.unknownEpoch || replay.devicesRevoked + replay.grantsRevoked > 0) {
     void audit
@@ -598,12 +601,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // phone (the in-app banner reads `security.state.get`). An open alert raised again (one
   // "changed outside" alert counts repeats) updates its notification at most every 10 minutes,
   // and only its first delivery may break through quiet hours.
-  const lastNotified = new Map<string, number>();
+  // Based on the alert's sealed `notified_at`, so a restart neither resets the limit nor lets a
+  // repeat break through quiet hours again.
   const notifyAlert = (alert: SecurityAlert) => {
-    const now = clock.now();
-    const last = lastNotified.get(alert.id);
-    if (last !== undefined && now - last < 10 * 60 * 1000) return;
-    lastNotified.set(alert.id, now);
+    const decision = alertNotifyDecision(alert, seal.alerts.notifiedAt(alert.id), clock.now());
+    if (!decision.send) return;
     const { title, body } = alertNotice(alert);
     void notifier
       .notify({
@@ -612,7 +614,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
         body,
         route: "/settings/devices",
         dedupeKey: `security-alert:${alert.id}`,
-        breakQuietHours: last === undefined && alert.severity === "warning",
+        breakQuietHours: decision.breakQuietHours,
       })
       .then(
         () => seal.alerts.markNotified(alert.id),

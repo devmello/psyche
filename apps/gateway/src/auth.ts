@@ -466,6 +466,11 @@ export function verifyChallenge(
   // presented in `connect.verify`, after the client verified this Gateway's identity, and spent
   // below in the same transaction that writes the device.
   const presentedToken = scopes === null ? input.setupToken : undefined;
+  // H-B: while the security records are untrusted no pairing link works (a planted one could
+  // name any scopes), whatever the token row says.
+  if (presentedToken !== undefined && stateSealFor(db)?.untrusted() != null) {
+    return denied(SETUP_TOKEN_REFUSED, "setup_token_invalid");
+  }
   // The token is a bearer secret, so only a client that verified this Gateway's key (and bound the
   // connect to it, the v2 payload) may present it: an impostor that does not hold the key never
   // gets a client to send one. The check is unconditional. The desktop app and the iPhone/iPad app

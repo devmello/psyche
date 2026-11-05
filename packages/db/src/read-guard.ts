@@ -15,6 +15,8 @@ export interface ReadGuard {
    * when there is no row). Return `undefined` for "no such setting".
    */
   setting?(key: string, stored: string | undefined): string | undefined;
+  /** Whether a row of a sealed table may authorize something now (false: ignore it). */
+  genuine?(table: string, pk: string): boolean;
 }
 
 const GUARDS = new WeakMap<object, ReadGuard>();
@@ -26,4 +28,9 @@ export function setReadGuard(db: PsycheDb, guard: ReadGuard | undefined): void {
 
 export function readGuardOf(db: PsycheDb): ReadGuard | undefined {
   return GUARDS.get(db.sqlite);
+}
+
+/** The same guard, found by the raw better-sqlite3 connection (stores that hold only that). */
+export function readGuardOfConnection(sqlite: object): ReadGuard | undefined {
+  return GUARDS.get(sqlite);
 }

@@ -1,5 +1,5 @@
 import { spawn, spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import {
   chmodSync,
   copyFileSync,
@@ -448,13 +448,28 @@ function writeRestoreMarker(home: string, restoredAt: string, backupCreatedAt: s
   const dir = join(home, "security");
   mkdirSync(dir, { recursive: true, mode: 0o700 });
   makePrivate(dir, 0o700);
-  writeFileSync(
-    join(home, RESTORE_MARKER),
-    `${JSON.stringify({ restoredAt, backupCreatedAt })}\n`,
-    {
-      mode: 0o600,
-    },
-  );
+  const marker: Record<string, string> = { restoredAt, backupCreatedAt };
+  // A restore on the same Mac signs its marker with the security-state seal key, which never
+  // travels in a backup: the Gateway then knows this restore was made here (a marker another
+  // program planted, or one from another Mac, is not trusted; docs/design/
+  // security-state-integrity-2026.md §7.1).
+  const mac = sealMac(home, marker);
+  if (mac !== undefined) marker.mac = mac;
+  writeFileSync(join(home, RESTORE_MARKER), `${JSON.stringify(marker)}\n`, { mode: 0o600 });
+}
+
+function sealMac(home: string, marker: Record<string, string>): string | undefined {
+  try {
+    const file = JSON.parse(
+      readFileSync(join(home, "security", "state-seal-key.json"), "utf8"),
+    ) as { key?: unknown };
+    const key = Buffer.from(String(file.key ?? ""), "base64");
+    if (key.length !== 32) return undefined;
+    const text = JSON.stringify(marker, Object.keys(marker).sort());
+    return createHmac("sha256", key).update(`restore\0${text}`).digest("hex");
+  } catch {
+    return undefined;
+  }
 }
 
 /**

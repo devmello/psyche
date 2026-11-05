@@ -5,9 +5,8 @@ import type { StateSeal } from "./state-seal.ts";
  * Stores whose reads authorize something (the Permission Broker's grants and approvals, the
  * channel allowlists and identities), wrapped so every call first checks the security-state seal
  * (`StateSeal.ensure`: cheap unless another connection committed). A change made outside the
- * Gateway is undone before the store reads it, and while the seal is untrusted the rows it cannot
- * vouch for are not returned at all (a grant or approval nobody can prove is the owner's does not
- * authorize anything).
+ * Gateway is undone before the store reads it. While the seal is untrusted the one rule applies:
+ * a row authorizes something only if it is genuine (`StateSeal.genuine`).
  */
 export function sealedReads<T extends object>(target: T, seal: { ensure(): void }): T {
   return new Proxy(target, {
@@ -22,12 +21,12 @@ export function sealedReads<T extends object>(target: T, seal: { ensure(): void 
   });
 }
 
-type Seal = Pick<StateSeal, "ensure" | "untrusted" | "rowTrusted" | "rowAcceptable">;
+type Seal = Pick<StateSeal, "ensure" | "untrusted" | "genuine">;
 
 export function sealedPermissionStore(store: PermissionStore, seal: Seal): PermissionStore {
   const inner = sealedReads(store, seal);
-  const grantOk = (id: string) => seal.untrusted() === null || seal.rowTrusted("grants", id);
-  const approvalOk = (id: string) => seal.untrusted() === null || seal.rowTrusted("approvals", id);
+  const grantOk = (id: string) => seal.untrusted() === null || seal.genuine("grants", id);
+  const approvalOk = (id: string) => seal.untrusted() === null || seal.genuine("approvals", id);
   return {
     transaction: (fn) => inner.transaction(fn),
     insertApproval: (rec) => inner.insertApproval(rec),
@@ -51,28 +50,43 @@ export function sealedPermissionStore(store: PermissionStore, seal: Seal): Permi
   };
 }
 
-/** Channel rows the seal knows were changed outside are left out while it is untrusted. */
+interface ChannelLike {
+  id: string;
+  dmPolicy?: unknown;
+  allowFrom?: unknown;
+  groupAllowFrom?: unknown;
+  ownerIds?: unknown;
+}
+
+/**
+ * While untrusted, a channel row that is not genuine keeps existing (so nothing tries to create
+ * it again) but lets nobody in: DMs disabled, no allowlists, no owner identities. Identities that
+ * are not genuine are left out.
+ */
+function narrowed<C extends ChannelLike>(c: C): C {
+  return { ...c, dmPolicy: "disabled", allowFrom: [], groupAllowFrom: [], ownerIds: [] };
+}
+
 export function sealedChannelStore<
   S extends {
-    listChannels(): Promise<{ id: string }[]>;
-    getChannel(id: string): Promise<{ id: string } | undefined>;
+    listChannels(): Promise<ChannelLike[]>;
+    getChannel(id: string): Promise<ChannelLike | undefined>;
     listIdentities(): Promise<{ id: string }[]>;
   },
 >(store: S, seal: Seal | undefined, ensure: () => void): S {
   const inner = sealedReads(store, { ensure });
   if (seal === undefined) return inner;
-  // Untrusted since boot the rows are taken as stored (the channels must keep working; their
-  // owner identities cannot widen presence or admin, which are closed then).
-  const ok = (table: string, id: string) => seal.rowAcceptable(table, id);
+  const ok = (table: string, id: string) => seal.untrusted() === null || seal.genuine(table, id);
   return new Proxy(inner, {
     get(t, prop) {
       if (prop === "listChannels") {
-        return async () => (await t.listChannels()).filter((c) => ok("channels", c.id));
+        return async () =>
+          (await t.listChannels()).map((c) => (ok("channels", c.id) ? c : narrowed(c)));
       }
       if (prop === "getChannel") {
         return async (id: string) => {
           const c = await t.getChannel(id);
-          return c !== undefined && ok("channels", c.id) ? c : undefined;
+          return c === undefined || ok("channels", c.id) ? c : narrowed(c);
         };
       }
       if (prop === "listIdentities") {

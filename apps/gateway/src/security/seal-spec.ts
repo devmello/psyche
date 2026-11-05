@@ -36,6 +36,8 @@ export interface SealedTable {
   readonly added: AddedRowAction;
   /** The column the owner is shown when a row of this table changed. */
   readonly label: string;
+  /** Columns with a UNIQUE index: parked before a repair restores rows (another row may hold them). */
+  readonly unique?: readonly string[];
 }
 
 /**
@@ -56,6 +58,14 @@ const OTHER_SEALED = new Set(["mcp.servers"]);
 export function isSealedSettingKey(key: string): boolean {
   if (INTERNAL_SEALED.has(key) || OTHER_SEALED.has(key) || needsPresence(key)) return true;
   return key !== STATE_VERSION_KEY && !isUserSettingKey(key);
+}
+
+/**
+ * The settings that authorize something: the presence-gated keys, presence, LAN, `mcp.servers`.
+ * While the seal is untrusted these read only a value the Gateway can vouch for.
+ */
+export function isSecuritySettingKey(key: string): boolean {
+  return INTERNAL_SEALED.has(key) || OTHER_SEALED.has(key) || needsPresence(key);
 }
 
 /** The SQL function the settings predicate calls (registered on the Gateway's connection). */
@@ -85,6 +95,7 @@ export const SEALED_TABLES: readonly SealedTable[] = [
     ],
     blobs: ["public_key", "token_hash"],
     ignored: ["last_seen_at"],
+    unique: ["token_hash"],
     added: "revoke_device",
     label: "name",
   },
@@ -104,6 +115,7 @@ export const SEALED_TABLES: readonly SealedTable[] = [
     ],
     blobs: ["public_key"],
     ignored: ["last_used_at"],
+    unique: ["credential_id"],
     added: "delete",
     label: "name",
   },
@@ -122,6 +134,7 @@ export const SEALED_TABLES: readonly SealedTable[] = [
       "revoked_at",
       "cert_pin",
     ],
+    unique: ["token_hash"],
     added: "revoke_setup_token",
     label: "id",
   },
@@ -232,6 +245,28 @@ export const SEALED_TABLES: readonly SealedTable[] = [
       "created_at",
       "updated_at",
     ],
+    unique: ["account"],
+    added: "delete",
+    label: "type",
+  },
+  {
+    // The connector records' scope mode and action matrix feed the broker's per-action rules.
+    table: "connectors",
+    pk: "id",
+    columns: [
+      "id",
+      "type",
+      "label",
+      "account",
+      "scopes",
+      "scope_mode",
+      "action_matrix",
+      "credential_id",
+      "config",
+      "created_at",
+      "updated_at",
+    ],
+    ignored: ["status", "last_sync"],
     added: "delete",
     label: "type",
   },

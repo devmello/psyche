@@ -83,16 +83,12 @@ export function bootstrapAdminHandlers(deps: {
           actor: { type: "device", deviceId: device.id },
           data: { deviceId: device.id, name: device.name },
         });
-        seal?.alerts.add(
-          "local_first_admin",
-          {
-            deviceName: device.name,
-            deviceFingerprint: keyFingerprint(device.publicKey),
-            scopes: [...device.scopes],
-            via: "desktop",
-          },
-          { severity: "info" },
-        );
+        seal?.alerts.add("local_first_admin", {
+          deviceName: device.name,
+          deviceFingerprint: keyFingerprint(device.publicKey),
+          scopes: [...device.scopes],
+          via: "desktop",
+        });
         call.ctx.bus.bumpStateVersion();
         call.emit("device.updated", { device });
         return { device };

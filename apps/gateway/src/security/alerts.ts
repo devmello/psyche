@@ -17,19 +17,31 @@ const MAX_LISTED = 20;
  * or bidirectional-override characters (they can make "Evil" read as "Owner's iPhone"), single
  * spaces, at most 64 characters.
  */
-export function cleanLabel(raw: string): string {
-  const out = raw
-    // biome-ignore lint/suspicious/noControlCharactersInRegex: stripping them is the point
-    .replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-  return out.length > 64 ? `${out.slice(0, 63)}…` : out;
+/** Control, zero-width, bidirectional and tag characters (see `cleanText`). */
+const UNSAFE_CHARS =
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: stripping them is the point
+  /[\u0000-\u001f\u007f-\u009f\u061c\u180e\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff\u{e0000}-\u{e007f}]/gu;
+
+export function cleanLabel(raw: string, max = 64): string {
+  return cleanText(raw, max);
+}
+
+/**
+ * Text another program may have chosen, as the owner or a terminal may see it: no control,
+ * zero-width, bidirectional or tag characters (they can make "Evil" read as "Owner's iPhone",
+ * or move a terminal's cursor), single spaces, at most `max` code points.
+ */
+export function cleanText(raw: string, max = 300): string {
+  const out = raw.replace(UNSAFE_CHARS, "").replace(/\s+/g, " ").trim();
+  const points = [...out];
+  return points.length > max ? `${points.slice(0, max - 1).join("")}…` : out;
 }
 
 function cleanDetails(d: AlertDetails): AlertDetails {
   return {
     ...d,
     ...(d.deviceName === undefined ? {} : { deviceName: cleanLabel(d.deviceName) }),
+    ...(d.reason === undefined ? {} : { reason: cleanText(d.reason) }),
     ...(d.changes === undefined
       ? {}
       : {
@@ -197,11 +209,37 @@ export class AlertBook {
     ).map(fromRow);
   }
 
+  /** When the alert was last sent as a notification (sealed: survives restarts), or null. */
+  notifiedAt(id: string): string | null {
+    const r = this.#db.sqlite
+      .prepare("SELECT notified_at FROM security_alerts WHERE id = ?")
+      .get(id) as { notified_at: string | null } | undefined;
+    return r?.notified_at ?? null;
+  }
+
   markNotified(id: string): void {
     this.#db.sqlite
-      .prepare("UPDATE security_alerts SET notified_at = ? WHERE id = ? AND notified_at IS NULL")
+      .prepare("UPDATE security_alerts SET notified_at = ? WHERE id = ?")
       .run(this.#now().toISOString(), id);
   }
+}
+
+/** An open alert raised again is sent again at most this often. */
+export const ALERT_RENOTIFY_MS = 10 * 60 * 1000;
+
+/**
+ * Whether to send an alert as a notification now, from its sealed `notified_at` (so a restart
+ * changes nothing): at most every 10 minutes, and only the first delivery of a warning breaks
+ * through quiet hours.
+ */
+export function alertNotifyDecision(
+  alert: Pick<SecurityAlert, "severity">,
+  lastNotifiedAt: string | null,
+  nowMs: number,
+): { send: boolean; breakQuietHours: boolean } {
+  if (lastNotifiedAt === null) return { send: true, breakQuietHours: alert.severity === "warning" };
+  const last = Date.parse(lastNotifiedAt);
+  return { send: !(nowMs - last < ALERT_RENOTIFY_MS), breakQuietHours: false };
 }
 
 /** The English notification for an alert (the in-app banner uses the translated catalogue). */
@@ -212,7 +250,7 @@ export function alertNotice(alert: SecurityAlert): { title: string; body: string
     case "state_changed_outside":
       return {
         title: "Psyche undid a security change made outside the app",
-        body: `A program on this Mac changed ${d.changes?.length ?? 0} security ${(d.changes?.length ?? 0) === 1 ? "record" : "records"} (devices, keys, grants or settings) without going through Psyche. Psyche put them back. If you did not do this, check the Mac for unwanted software.`,
+        body: `A program on this Mac changed ${(d.changes?.length ?? 0) + (d.more ?? 0)} security ${(d.changes?.length ?? 0) + (d.more ?? 0) === 1 ? "record" : "records"} (devices, keys, grants or settings) without going through Psyche${(d.occurrences ?? 1) > 1 ? `, ${d.occurrences} times so far` : ""}. Psyche put them back. If you did not do this, check the Mac for unwanted software.`,
       };
     case "state_untrusted":
       return {

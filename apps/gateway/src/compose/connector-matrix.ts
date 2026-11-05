@@ -2,6 +2,7 @@ import type { ConnectorRecord, ConnectorRegistry } from "@psyche/connectors";
 import { getSetting, getSettings } from "@psyche/db";
 import { appleConnectorKey, type MatrixRule, type PolicyConfig } from "@psyche/permissions";
 import { PsycheError } from "@psyche/protocol";
+import { stateSealFor } from "../security/state-seal.ts";
 import type { ComposeServices } from "./services.ts";
 
 /**
@@ -189,7 +190,10 @@ export function connectorMatrixSync(
   }
 
   async function pass(): Promise<void> {
-    records = await registry.list();
+    // Untrusted security records: a connector row the Gateway cannot vouch for (its scope mode
+    // and action matrix) feeds no rule to the broker (security-state-integrity §7.1).
+    const seal = stateSealFor(db);
+    records = (await registry.list()).filter((r) => seal?.genuine("connectors", r.id) ?? true);
     applyBroker();
     const owner = ownerMatrices(getSettings(db));
     for (const r of records) {
