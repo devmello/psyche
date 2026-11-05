@@ -11,7 +11,9 @@ import { defineMethod } from "./define.ts";
  * connection may call it; any other device is refused.
  */
 
-export const AttentionPane = StringEnum(["browser", "computer"], { $id: "AttentionPane" });
+export const AttentionPane = StringEnum(["browser", "computer", "vscreen"], {
+  $id: "AttentionPane",
+});
 export type AttentionPane = Static<typeof AttentionPane>;
 
 export const AttentionMethods = {

@@ -93,6 +93,8 @@ describe("watch pane route", () => {
 
   it("recognises only the watch pane route", () => {
     expect(isWatchPopOutRoute(watchPopOutRoute("t_123"))).toBe(true);
+    // The web shell names a pop-out by pane id.
+    expect(isWatchPopOutRoute("/chat/t_123/pane/p_computer-watch_2")).toBe(true);
     expect(isWatchPopOutRoute("/chat/t_123/pane/browser")).toBe(false);
     expect(isWatchPopOutRoute("/chat/t_123/pane/computer-watch/extra")).toBe(false);
     expect(isWatchPopOutRoute("/chat/pane/computer-watch")).toBe(false);

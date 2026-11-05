@@ -3,6 +3,7 @@ import type { Catalogue } from "../../index.ts";
 /** The Virtual screen watch pane (ko); merged into `../ko.ts`. */
 export const computerWatch: Partial<Catalogue> = {
   "computerWatch.title": "가상 화면",
+  "web.panes.title.computer-watch": "가상 화면",
   "computerWatch.frame.alt": "가상 화면 실시간 보기",
   "computerWatch.stop": "중지",
   "computerWatch.takeOver": "직접 제어",

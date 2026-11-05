@@ -46,16 +46,79 @@ pub fn bus_names(entry: &DesktopEntry) -> Vec<String> {
     }
 }
 
-/// Resolves `exec[0]` against `PATH` to a canonical file.
+/// Programs that only run another program or hold a process open. Matching on their executable
+/// would refuse a launch because some unrelated `env` or `sleep` runs on the owner's screen.
+const WRAPPERS: &[&str] = &[
+    "env",
+    "nohup",
+    "setsid",
+    "nice",
+    "ionice",
+    "exec",
+    "sh",
+    "bash",
+    "dash",
+    "zsh",
+    "fish",
+    "flatpak",
+    "snap",
+    "sleep",
+    "timeout",
+    "xvfb-run",
+    "dbus-run-session",
+    "dbus-launch",
+    "gtk-launch",
+    "gio",
+    "xdg-open",
+    "python",
+    "python3",
+    "perl",
+    "ruby",
+    "node",
+    "systemd-run",
+];
+
+/// The real program an `Exec=` line starts: the word after `env`'s options and `VAR=value`
+/// settings (and the same for `nohup`, `setsid`, `nice`, `exec`). `None` when the line starts a
+/// generic wrapper that cannot be seen through (`sh -c`, `flatpak run`, `sleep`, ...): the
+/// executable check is then skipped and the D-Bus name check stands alone.
+pub fn real_program(exec: &[String]) -> Option<String> {
+    let mut words = exec.iter().map(String::as_str).peekable();
+    loop {
+        let first = words.next()?;
+        let name = first.rsplit('/').next().unwrap_or(first);
+        if !WRAPPERS.contains(&name) {
+            return Some(first.to_string());
+        }
+        if !matches!(name, "env" | "nohup" | "setsid" | "nice" | "exec") {
+            return None;
+        }
+        // Skip this wrapper's own options and VAR=value words.
+        while let Some(w) = words.peek() {
+            if w.starts_with('-') || (w.contains('=') && !w.starts_with('/')) {
+                words.next();
+            } else {
+                break;
+            }
+        }
+    }
+}
+
+/// Resolves the real program of the entry against `PATH` to a canonical file.
 pub fn resolve_exe(entry: &DesktopEntry, path_var: &str) -> Option<PathBuf> {
-    let first = entry.try_exec.as_deref().unwrap_or(&entry.exec[0]);
+    let first = match entry.try_exec.as_deref() {
+        Some(t) if real_program(&entry.exec).as_deref() == Some(entry.exec[0].as_str()) => {
+            t.to_string()
+        }
+        _ => real_program(&entry.exec)?,
+    };
     let candidate = if first.contains('/') {
-        PathBuf::from(first)
+        PathBuf::from(&first)
     } else {
         path_var
             .split(':')
             .filter(|d| !d.is_empty())
-            .map(|d| Path::new(d).join(first))
+            .map(|d| Path::new(d).join(&first))
             .find(|p| p.is_file())?
     };
     std::fs::canonicalize(candidate).ok()
@@ -337,5 +400,75 @@ mod tests {
         );
         assert_eq!(found, Some(std::fs::canonicalize(&bin).unwrap()));
         assert_eq!(resolve_exe(&entry("nope", "nope"), "/nonexistent"), None);
+    }
+
+    #[test]
+    fn wrappers_are_seen_through_or_skipped() {
+        let w = |s: &str| super::super::recipes::split_exec(s);
+        assert_eq!(
+            real_program(&w("/usr/bin/app --x")).as_deref(),
+            Some("/usr/bin/app")
+        );
+        assert_eq!(
+            real_program(&w("env FOO=1 BAR=2 /opt/app/app --new")).as_deref(),
+            Some("/opt/app/app")
+        );
+        assert_eq!(
+            real_program(&w("env -i HOME=/h myapp")).as_deref(),
+            Some("myapp")
+        );
+        assert_eq!(
+            real_program(&w("/usr/bin/env nohup setsid myapp")).as_deref(),
+            Some("myapp")
+        );
+        for opaque in [
+            "sh -c 'app --x'",
+            "bash -lc app",
+            "flatpak run org.x.App",
+            "sleep 30",
+            "snap run firefox",
+            "python3 /opt/x.py",
+            "env",
+        ] {
+            assert_eq!(real_program(&w(opaque)), None, "{opaque}");
+        }
+    }
+
+    #[test]
+    fn a_generic_wrapper_never_matches_unrelated_processes() {
+        // Some other `sleep` runs on the owner's screen; an app whose Exec is `sleep` must not be
+        // refused for it. Without a recipe or a bus name there is nothing left to match.
+        let e = entry("psyche.test.Sleeper", "sleep");
+        assert_eq!(resolve_exe(&e, "/usr/bin:/bin"), None);
+        let procs = FakeProcs {
+            running: vec![(5, Some(PathBuf::from("/usr/bin/sleep")), "sleep".into())],
+            ours: HashSet::new(),
+        };
+        assert!(check_before_launch(&e, None, &FakeBus(HashMap::new()), &procs).is_ok());
+        // The bus name still protects a GApplication behind a wrapper.
+        let e = entry("org.gnome.TextEditor", "flatpak");
+        let bus = FakeBus(HashMap::from([("org.gnome.TextEditor".into(), 100)]));
+        assert_eq!(
+            check_before_launch(&e, None, &bus, &procs),
+            Err(Refusal::AlreadyOpenOnYourScreen)
+        );
+    }
+
+    #[test]
+    fn env_in_front_of_an_app_resolves_to_the_app() {
+        let dir = tempfile::tempdir().unwrap();
+        let bin = dir.path().join("realapp");
+        std::fs::write(
+            &bin,
+            "#!/bin/sh
+",
+        )
+        .unwrap();
+        let mut e = entry("realapp", "env");
+        e.exec = vec!["env".into(), "FOO=1".into(), "realapp".into()];
+        assert_eq!(
+            resolve_exe(&e, &format!("{}", dir.path().display())),
+            Some(std::fs::canonicalize(&bin).unwrap())
+        );
     }
 }

@@ -1,4 +1,5 @@
 import {
+  type ErrorPayload,
   PsycheError,
   type SideEffect,
   type VscreenApp,
@@ -11,6 +12,9 @@ import {
 } from "@psyche/protocol";
 import { type Static, type TSchema, Type } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
+import type { Call, HandlerDef } from "../context.ts";
+import type { Gateway } from "../server.ts";
+import type { ComposedPart, ComposeServices } from "./services.ts";
 
 /**
  * The Gateway's virtual-screen service (linux design §5, §7): thin, validated calls to the Linux
@@ -25,10 +29,12 @@ import { Value } from "@sinclair/typebox/value";
  * - The watch pane's frame pulls are limited to 4 a second per caller and only while the pane has
  *   reported itself visible (fed by `attention.report`).
  *
- * The module is standalone: it takes the helper through an injected `invoke`. Wiring (not done
- * here): compose/index.ts builds `invoke` over `NodeRegistry.hostHelper` + the Permission Broker
- * the way compose/computer.ts does, hands `park` to the Task runner, calls `setPaneVisible` from
- * the `attention.report` handler and `setTakenOver` from the watch view's take-over methods.
+ * The service is standalone: it takes the helper through an injected `invoke`.
+ * `composeVirtualScreen` (bottom of the file) is the part compose/index.ts registers: it builds
+ * `invoke` over the Host's Linux helper (`NodeRegistry.hostHelper("vscreen.status")`), serves the
+ * watch pane's `computerWatch.*` methods to the desktop shell, and publishes `computerWatch.parked`
+ * when a Task parks. It starts nothing at idle: no timers, no subscriptions, and every method
+ * answers `unavailable` while no Linux helper is connected.
  *
  * Helper errors are rethrown untouched, so `details.reason` (`already_open_on_your_screen`,
  * `opened_elsewhere`, ...) reaches the model as the helper wrote it.
@@ -320,6 +326,106 @@ export function createVirtualScreen(deps: VirtualScreenDeps): VirtualScreen {
     setPaneVisible(visible) {
       paneVisible = visible;
       if (!visible) framePulls.clear();
+    },
+  };
+}
+
+// --- The composed part ---------------------------------------------------------------------------
+
+const REQUIRE_HELPER: ErrorPayload = {
+  code: "unavailable",
+  message: "The virtual screen needs the Psyche helper on Linux, and it is not connected.",
+  details: { reason: "no_linux_helper" },
+};
+
+function fromPayload(e: ErrorPayload): PsycheError {
+  return new PsycheError(e.code, e.message, {
+    ...(e.details === undefined ? {} : { details: e.details }),
+    ...(e.retryable === undefined ? {} : { retryable: e.retryable }),
+  });
+}
+
+/**
+ * The Gateway's virtual-screen part. The watch pane (desktop shell only) reaches the helper only
+ * through it; the owner's own pane actions need no approval, the agent's use of the screen
+ * (`apps.open` with `surface: "virtual_screen"`, later) goes through the Permission Broker like
+ * every other computer-use tool.
+ */
+export function composeVirtualScreen(services: ComposeServices): ComposedPart {
+  let gateway: Gateway | undefined;
+  const vs = createVirtualScreen({
+    async invoke(capability, params, options) {
+      const helper = gateway?.context.nodes.hostHelper(capability);
+      if (helper === undefined) throw fromPayload(REQUIRE_HELPER);
+      const res = await helper.client.invoke(capability, params, {
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+        timeoutMs: 20_000,
+      });
+      if (!res.ok) {
+        throw fromPayload(res.error ?? { code: "internal", message: "the helper failed" });
+      }
+      if (capability === "vscreen.start") {
+        // The owner can watch from the first moment: open the watch pane in the desktop.
+        services.publish("view.command", { command: "open", args: { pane: "computer-watch" } });
+      }
+      return res.result;
+    },
+    park(card) {
+      services.publish("computerWatch.parked", { apps: card.apps });
+    },
+    now: () => services.clock.now(),
+  });
+
+  const shellOnly = (call: Call): void => {
+    if (call.identity.desktopShell !== true) {
+      throw new PsycheError("forbidden", "only the Psyche desktop app shows the virtual screen");
+    }
+  };
+  const owner = { actor: "owner" } as const;
+  const handler = (run: (params: Record<string, unknown>) => unknown): HandlerDef => ({
+    run(call: Call, params: unknown) {
+      shellOnly(call);
+      return run((params ?? {}) as Record<string, unknown>);
+    },
+  });
+
+  return {
+    start(gw) {
+      gateway = gw;
+    },
+    stop() {
+      gateway = undefined;
+    },
+    handlers: {
+      "computerWatch.status": handler(async () => {
+        const status = await vs.status(owner);
+        return {
+          status,
+          parked: vs.parkedCard() !== null || status.apps.some((a) => a.hasUnsavedChanges === true),
+        };
+      }),
+      "computerWatch.frame": handler(async (params) => {
+        // The pane reports itself visible or hidden through attention.report; a pane that never
+        // reported is treated as visible.
+        vs.setPaneVisible(!services.attention.paneHidden("vscreen"));
+        return vs.frame(params, owner);
+      }),
+      "computerWatch.input": handler((params) =>
+        vs.input((params as { events: unknown }).events, owner),
+      ),
+      "computerWatch.takeOver": handler((params) => {
+        vs.setTakenOver((params as { on: boolean }).on);
+        return { takenOver: vs.isTakenOver() };
+      }),
+      "computerWatch.stop": handler(async (params) => {
+        const p = params as { closeApps?: boolean; force?: boolean };
+        if (p.force === true) return vs.stop({ closeApps: true, force: true }, owner);
+        const end = await vs.endTask({ closeApps: p.closeApps ?? true }, owner);
+        return { ok: end.ok };
+      }),
+      "computerWatch.resolveParked": handler((params) =>
+        vs.resolveParked((params as { action: VscreenParkAction }).action, owner),
+      ),
     },
   };
 }

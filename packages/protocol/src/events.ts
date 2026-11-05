@@ -6,6 +6,7 @@ import { BrowserRecording } from "./methods/browser.ts";
 import { QueuedMessage } from "./methods/chat.ts";
 import { createValidator, defineEvent, type EventSpec, type Validator } from "./methods/define.ts";
 import { DictationKeyPayload } from "./methods/dictation.ts";
+import { VscreenApp } from "./methods/screen.ts";
 import { SearchIndexStatus, SearchSourcesStatus } from "./methods/search.ts";
 import { SkillChangeEvent, SkillDraft, SkillUpdateStatus } from "./methods/skills.ts";
 import { TerminalExitPayload, TerminalOutputPayload } from "./methods/terminal.ts";
@@ -289,6 +290,11 @@ export const Events = {
     }),
     description:
       "A security alert was raised or acknowledged, a local recovery changed, or the seal's state changed: clients refresh security.state.get.",
+  }),
+  "computerWatch.parked": defineEvent({
+    payload: Type.Object({ apps: Type.Array(VscreenApp) }),
+    description:
+      "A Task is parked because an app on the virtual screen has unsaved changes: the watch pane shows Look / Discard / Keep it open.",
   }),
   "pairing.requested": defineEvent({
     payload: Type.Object({ pairingRequest: PairingRequest }),

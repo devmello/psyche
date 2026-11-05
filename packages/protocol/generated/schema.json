@@ -179,6 +179,11 @@
         "payload": "#/$defs/ChatReasoningPayload"
       },
       {
+        "description": "A Task is parked because an app on the virtual screen has unsaved changes: the watch pane shows Look / Discard / Keep it open.",
+        "name": "computerWatch.parked",
+        "payload": "#/$defs/ComputerWatchParkedPayload"
+      },
+      {
         "description": "A connector's state changed (Settings → Connectors and onboarding refresh from it): a sign-in finished or failed, it was disconnected, or its token was revoked.",
         "name": "connectors.updated",
         "payload": "#/$defs/ConnectorsUpdatedPayload"
@@ -1069,6 +1074,54 @@
         "result": "#/$defs/QueuedMessageResult",
         "scope": "operator.write",
         "sideEffecting": true
+      },
+      {
+        "description": "Desktop only: the newest virtual-screen frame (JPEG) when it changed since `since`. Only while the pane is visible, at most 4 a second.",
+        "name": "computerWatch.frame",
+        "params": "#/$defs/VscreenFrameParams",
+        "result": "#/$defs/VscreenFrame",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Desktop only: the owner's clicks and keys while taking over, sent through the helper's XTest.",
+        "name": "computerWatch.input",
+        "params": "#/$defs/VscreenInputParams",
+        "result": "#/$defs/VscreenAck",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
+        "description": "Desktop only: answers the parked card (Look opens the watch pane, Discard closes the app and loses its changes, Keep it open leaves it).",
+        "name": "computerWatch.resolveParked",
+        "params": "#/$defs/ComputerWatchResolveParkedParams",
+        "result": "#/$defs/ComputerWatchResolveParkedResult",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
+        "description": "Desktop only: the virtual screen's state, its open apps and whether a Task is parked on unsaved changes.",
+        "name": "computerWatch.status",
+        "params": "#/$defs/ComputerWatchStatusParams",
+        "result": "#/$defs/ComputerWatchState",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Desktop only: Stop in the watch pane. Apps are asked to close; one with unsaved changes stays and the Task parks, unless `force` is set.",
+        "name": "computerWatch.stop",
+        "params": "#/$defs/VscreenStopParams",
+        "result": "#/$defs/VscreenAck",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
+        "description": "Desktop only: the owner takes control of the virtual screen (the agent pauses) or gives it back.",
+        "name": "computerWatch.takeOver",
+        "params": "#/$defs/ComputerWatchTakeOverParams",
+        "result": "#/$defs/ComputerWatchTakeOverResult",
+        "scope": "operator.write",
+        "sideEffecting": false
       },
       {
         "description": "First frame on every connection. Negotiates the protocol version and returns a 60 s challenge nonce.",
@@ -9338,7 +9391,8 @@
     "AttentionPane": {
       "enum": [
         "browser",
-        "computer"
+        "computer",
+        "vscreen"
       ],
       "type": "string"
     },
@@ -14664,6 +14718,95 @@
         "separate_desktop"
       ],
       "type": "string"
+    },
+    "ComputerWatchParkAction": {
+      "enum": [
+        "look",
+        "discard",
+        "keep_open"
+      ],
+      "type": "string"
+    },
+    "ComputerWatchParkedPayload": {
+      "properties": {
+        "apps": {
+          "items": {
+            "$ref": "#/$defs/VscreenApp"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "apps"
+      ],
+      "type": "object"
+    },
+    "ComputerWatchResolveParkedParams": {
+      "properties": {
+        "action": {
+          "$ref": "#/$defs/ComputerWatchParkAction"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "type": "object"
+    },
+    "ComputerWatchResolveParkedResult": {
+      "properties": {
+        "action": {
+          "$ref": "#/$defs/ComputerWatchParkAction"
+        },
+        "view": {
+          "const": "computer-watch",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "type": "object"
+    },
+    "ComputerWatchState": {
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/VscreenStatus"
+        },
+        "parked": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "status",
+        "parked"
+      ],
+      "type": "object"
+    },
+    "ComputerWatchStatusParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "ComputerWatchTakeOverParams": {
+      "properties": {
+        "on": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "on"
+      ],
+      "type": "object"
+    },
+    "ComputerWatchTakeOverResult": {
+      "properties": {
+        "takenOver": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "takenOver"
+      ],
+      "type": "object"
     },
     "ConnectChallenge": {
       "properties": {
@@ -47320,7 +47463,8 @@
         "subagents",
         "artifact",
         "vm",
-        "sidechat"
+        "sidechat",
+        "computer-watch"
       ],
       "type": "string"
     },
@@ -48902,6 +49046,9 @@
     "VscreenStopParams": {
       "properties": {
         "closeApps": {
+          "type": "boolean"
+        },
+        "force": {
           "type": "boolean"
         }
       },

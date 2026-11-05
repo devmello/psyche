@@ -1,6 +1,7 @@
 import { PsycheError, type VscreenCapability } from "@psyche/protocol";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  composeVirtualScreen,
   createVirtualScreen,
   type UnsavedChangesCard,
   type VirtualScreenDeps,
@@ -254,5 +255,133 @@ describe("watch pane frame limiter", () => {
   it("does not limit the agent's own frames", async () => {
     const { vs } = setup();
     for (let i = 0; i < 10; i++) await vs.frame({});
+  });
+});
+
+describe("composeVirtualScreen (the watch pane's methods)", () => {
+  function part(helper: boolean, hidden = false, unsaved = false) {
+    const status = {
+      ...STATUS,
+      apps: [
+        {
+          appId: "org.gnome.TextEditor",
+          pid: 5,
+          windowTitle: "x",
+          ...(unsaved ? { hasUnsavedChanges: true } : {}),
+        },
+      ],
+    };
+    const invoked: { capability: string; params: unknown }[] = [];
+    const published: { event: string; payload: unknown }[] = [];
+    const services = {
+      attention: { paneHidden: (pane: string) => hidden && pane === "vscreen" },
+      publish: (event: string, payload: unknown) => published.push({ event, payload }),
+      clock: { now: () => 1_000 },
+    };
+    const composed = composeVirtualScreen(services as never);
+    composed.start?.({
+      context: {
+        nodes: {
+          hostHelper: (cap: string) =>
+            helper
+              ? {
+                  client: {
+                    async invoke(capability: string, params: unknown) {
+                      invoked.push({ capability, params });
+                      if (capability === "vscreen.stop") {
+                        const force = (params as { force?: boolean }).force === true;
+                        return { ok: true, result: { ok: force } };
+                      }
+                      return capability === "vscreen.frame"
+                        ? { ok: true, result: FRAME }
+                        : { ok: true, result: cap === "vscreen.status" ? status : { ok: true } };
+                    },
+                  },
+                }
+              : undefined,
+        },
+      },
+    } as never);
+    const run = async (method: string, params: unknown, shell = true): Promise<unknown> =>
+      (
+        composed.handlers as Record<string, { run: (c: unknown, p: unknown) => unknown }>
+      )[method]?.run({ identity: { desktopShell: shell } }, params);
+    return { run, invoked, published, composed };
+  }
+
+  it("registers the six methods and starts nothing", () => {
+    const { composed, invoked } = part(true);
+    expect(Object.keys(composed.handlers ?? {}).sort()).toEqual([
+      "computerWatch.frame",
+      "computerWatch.input",
+      "computerWatch.resolveParked",
+      "computerWatch.status",
+      "computerWatch.stop",
+      "computerWatch.takeOver",
+    ]);
+    expect(invoked).toEqual([]);
+  });
+
+  it("answers only the desktop shell", async () => {
+    const { run } = part(true);
+    await expect(run("computerWatch.status", {}, false)).rejects.toMatchObject({
+      code: "forbidden",
+    });
+  });
+
+  it("is unavailable without a Linux helper", async () => {
+    const { run } = part(false);
+    await expect(run("computerWatch.status", {})).rejects.toMatchObject({
+      code: "unavailable",
+      details: { reason: "no_linux_helper" },
+    });
+  });
+
+  it("serves status, frames and input through the helper", async () => {
+    const { run, invoked } = part(true);
+    expect(await run("computerWatch.status", {})).toMatchObject({
+      parked: false,
+      status: { display: ":90" },
+    });
+    expect(await run("computerWatch.frame", { since: 3 })).toMatchObject({ frameSeq: 4 });
+    await run("computerWatch.input", { events: [{ type: "text", text: "hi" }] });
+    expect(invoked.map((i) => i.capability)).toEqual([
+      "vscreen.status",
+      "vscreen.frame",
+      "vscreen.input",
+    ]);
+  });
+
+  it("refuses frames while the pane reports itself hidden", async () => {
+    const { run, invoked } = part(true, true);
+    await expect(run("computerWatch.frame", {})).rejects.toMatchObject({ code: "unavailable" });
+    expect(invoked).toEqual([]);
+  });
+
+  it("take over and release answer with the state", async () => {
+    const { run } = part(true);
+    expect(await run("computerWatch.takeOver", { on: true })).toEqual({ takenOver: true });
+    expect(await run("computerWatch.takeOver", { on: false })).toEqual({ takenOver: false });
+  });
+
+  it("a stop that the helper refuses parks the Task and publishes the card; discard forces it", async () => {
+    const { run, published, invoked } = part(true, false, true);
+    expect(await run("computerWatch.stop", {})).toEqual({ ok: false });
+    expect(published[0]?.event).toBe("computerWatch.parked");
+    expect(((await run("computerWatch.status", {})) as { parked: boolean }).parked).toBe(true);
+    expect(await run("computerWatch.resolveParked", { action: "discard" })).toMatchObject({
+      action: "discard",
+    });
+    expect(invoked.some((i) => (i.params as { force?: boolean }).force === true)).toBe(true);
+    expect(await run("computerWatch.stop", { force: true })).toEqual({ ok: true });
+  });
+
+  it("look names the pane to open", async () => {
+    const { run } = part(true, false, true);
+    await run("computerWatch.stop", {});
+    expect(await run("computerWatch.resolveParked", { action: "look" })).toEqual({
+      action: "look",
+      view: "computer-watch",
+    });
   });
 });

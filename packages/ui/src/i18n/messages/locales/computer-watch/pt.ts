@@ -3,6 +3,7 @@ import type { Catalogue } from "../../index.ts";
 /** The Virtual screen watch pane (pt); merged into `../pt.ts`. */
 export const computerWatch: Partial<Catalogue> = {
   "computerWatch.title": "Tela virtual",
+  "web.panes.title.computer-watch": "Tela virtual",
   "computerWatch.frame.alt": "Visualização ao vivo da tela virtual",
   "computerWatch.stop": "Parar",
   "computerWatch.takeOver": "Assumir o controle",

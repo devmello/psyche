@@ -62,5 +62,6 @@ export function watchPopOutRoute(threadId: string): string {
 
 /** True for a route `watchPopOutRoute` makes (any thread). */
 export function isWatchPopOutRoute(route: string): boolean {
-  return /^\/chat\/[^/]+\/pane\/computer-watch$/.test(route);
+  // The shell names pop-outs by pane id (`p_<kind>_<n>`); the bare kind is accepted too.
+  return /^\/chat\/[^/]+\/pane\/(?:p_)?computer-watch(?:_\d+)?$/.test(route);
 }

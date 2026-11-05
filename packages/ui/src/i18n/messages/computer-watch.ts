@@ -1,6 +1,7 @@
 /** The Virtual screen watch pane on Linux (docs/design/linux-desktop-2026.md §7.5). */
 export const computerWatch = {
   "computerWatch.title": "Virtual screen",
+  "web.panes.title.computer-watch": "Virtual screen",
   "computerWatch.frame.alt": "Live view of the virtual screen",
   "computerWatch.stop": "Stop",
   "computerWatch.takeOver": "Take over",
