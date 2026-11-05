@@ -322,7 +322,20 @@ describe("M-A: decisions and restores", () => {
       (JSON.parse(readFileSync(join(home, SEAL_KEY_FILE), "utf8")) as { key: string }).key,
       "base64",
     );
-    const marker: Record<string, string> = { restoredAt: "a", backupCreatedAt: "b" };
+    const row = foreign(
+      (f) =>
+        f.sqlite.prepare("SELECT gen, mac FROM security_seal WHERE id = 1").get() as {
+          gen: number;
+          mac: string;
+        },
+    );
+    // The marker names the restored database's seal row (M1 of the final review).
+    const marker: Record<string, string> = {
+      restoredAt: "a",
+      backupCreatedAt: "b",
+      sealGen: String(row.gen),
+      sealRowMac: row.mac,
+    };
     marker.mac = restoreMarkerMac(key, marker);
     writeFileSync(join(home, "security", "restored.json"), JSON.stringify(marker));
     const seal = await StateSeal.open(db(), { home, restored: true });

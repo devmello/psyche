@@ -222,6 +222,39 @@ describe("psyched commands once an admin exists", () => {
     expect(r.lines[0]).toMatch(/only from an admin device Psyche still trusts/);
   });
 
+  it("H-A: the handler lets a vouched-for admin cancel a re-seal, never a planted admin", async () => {
+    const gw = await boot();
+    const admin = await adminClient(gw.gateway);
+    open.push(admin);
+    const key = newDeviceKey();
+    const other = openDb(gw.gateway.context.db.path, { migrate: false });
+    other.sqlite.prepare("UPDATE security_seal SET agg = ?").run("00".repeat(32));
+    insertDevice(other, {
+      id: "planted",
+      name: "planted",
+      platform: "macos",
+      role: "client",
+      publicKey: key.publicKey,
+      scopes: ["operator.read", "operator.write", "operator.approvals", "operator.admin"],
+      pairedAt: other.now(),
+    });
+    other.close();
+    expect((await state(admin)).status).toBe("untrusted");
+    expect((await cli(["security", "reseal"])).code).toBe(3);
+    const [reseal] = (await state(admin)).recoveries;
+    const c = await Client.open(wsUrlOf(gw.gateway));
+    open.push(c);
+    await handshake(c, gw.gateway.origin, { key, deviceId: "planted" });
+    const refused = await c.request("security.recoveries.cancel", { id: reseal?.id }, ik());
+    expect(refused).toMatchObject({ ok: false, error: { code: "forbidden" } });
+    const cancelled = await admin.call<{ recovery: { status: string } }>(
+      "security.recoveries.cancel",
+      { id: reseal?.id },
+      ik(),
+    );
+    expect(cancelled.recovery.status).toBe("cancelled");
+  });
+
   it("presence reset with nothing enrolled is a no-op; reseal of a sealed state too", async () => {
     await boot();
     expect((await cli(["presence", "reset"])).lines[0]).toMatch(/nothing to reset/);

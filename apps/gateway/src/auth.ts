@@ -439,8 +439,13 @@ export function verifyChallenge(
     if (!authz.ok)
       return denied("device not trusted while Psyche's security records are untrusted");
     const pinned = getDeviceFamily(db, existing.id);
-    if (pinned === null) updateDevice(db, existing.id, { deviceFamily: params.deviceFamily });
-    else if (pinned !== params.deviceFamily) return denied("device family mismatch");
+    // A device row the seal cannot vouch for is never written over (H1: the write would make it
+    // look like the Gateway's own); it stays read-only and unpinned until a re-seal.
+    if (pinned === null) {
+      if (stateSealFor(db)?.genuine("devices", existing.id) ?? true) {
+        updateDevice(db, existing.id, { deviceFamily: params.deviceFamily });
+      }
+    } else if (pinned !== params.deviceFamily) return denied("device family mismatch");
     touchLastSeen(db, existing.id, nowIso);
     // A token presented by a device that is already paired is spent anyway (the link was used,
     // by someone who did not need it), and grants nothing: the device keeps its own scopes.

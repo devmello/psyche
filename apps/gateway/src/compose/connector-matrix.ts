@@ -193,6 +193,7 @@ export function connectorMatrixSync(
     // Untrusted security records: a connector row the Gateway cannot vouch for (its scope mode
     // and action matrix) feeds no rule to the broker (security-state-integrity §7.1).
     const seal = stateSealFor(db);
+    seal?.ensure();
     records = (await registry.list()).filter((r) => seal?.genuine("connectors", r.id) ?? true);
     applyBroker();
     const owner = ownerMatrices(getSettings(db));

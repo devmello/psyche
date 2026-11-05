@@ -347,19 +347,22 @@ export class SecurityRecoveries {
         }
         return this.#queue("seal.reset", {});
       case "recovery.cancel": {
-        // Counted from the sealed alerts (each Mac cancel is one), so a restart does not reset it.
+        // Counted from the sealed alerts (each Mac cancel is one), so a restart does not reset it,
+        // and from the key file, so deleting alerts while untrusted does not lower it (L4).
         const since = new Date(this.#d.now().getTime() - 3_600_000).toISOString();
-        const recent = (
+        const fromAlerts = (
           this.#d.db.sqlite
             .prepare(
               "SELECT count(*) AS n FROM security_alerts WHERE kind = 'recovery_cancelled' AND json_extract(details, '$.via') = 'mac' AND created_at >= ?",
             )
             .get(since) as { n: number }
         ).n;
+        const recent = Math.max(fromAlerts, this.#d.seal.macCancelsSince(since));
         if (recent >= MAX_MAC_CANCELS_PER_HOUR) {
           throw new PsycheError("rate_limited", "too many cancels from this Mac; try again later");
         }
         const done = this.cancel(String(params.id ?? ""), null);
+        this.#d.seal.noteMacCancel();
         return { status: "applied", outcome: `recovery ${done.id} cancelled` };
       }
       default:

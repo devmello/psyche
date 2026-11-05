@@ -438,7 +438,18 @@ function tighten(path: string): void {
  */
 export const RESTORE_MARKER = join("security", "restored.json");
 
-function writeRestoreMarker(home: string, restoredAt: string, backupCreatedAt: string): void {
+/** The restored database's seal row, as the restore marker names it (M1). */
+export interface RestoredSealRow {
+  gen: number;
+  mac: string;
+}
+
+function writeRestoreMarker(
+  home: string,
+  restoredAt: string,
+  backupCreatedAt: string,
+  seal: RestoredSealRow | undefined,
+): void {
   // Chat messages held across an update belong to the Gateway that held them; a restored
   // backup must not bring old ones back to be answered.
   rmSync(join(home, "state", "channels", "held.json"), { force: true });
@@ -449,6 +460,12 @@ function writeRestoreMarker(home: string, restoredAt: string, backupCreatedAt: s
   mkdirSync(dir, { recursive: true, mode: 0o700 });
   makePrivate(dir, 0o700);
   const marker: Record<string, string> = { restoredAt, backupCreatedAt };
+  // The marker names the restored database's seal row, under its MAC: it cannot vouch for
+  // another database (M1). The Gateway also uses a marker only once.
+  if (seal !== undefined) {
+    marker.sealGen = String(seal.gen);
+    marker.sealRowMac = seal.mac;
+  }
   // A restore on the same Mac signs its marker with the security-state seal key, which never
   // travels in a backup: the Gateway then knows this restore was made here (a marker another
   // program planted, or one from another Mac, is not trusted; docs/design/
@@ -480,7 +497,12 @@ export async function restoreBackup(
   file: string,
   dec: Decryption,
   home: string,
-  opts: { force: boolean; now?: Date },
+  opts: {
+    force: boolean;
+    now?: Date;
+    /** Reads the restored database's seal row (the CLI's SQLite reader), for the marker. */
+    sealRow?: (dbPath: string) => Promise<RestoredSealRow | undefined>;
+  },
 ): Promise<{ manifest: Manifest; movedAside: string | null }> {
   const clashes = BACKUP_ENTRIES.filter((e) => existsSync(join(home, e)));
   if (clashes.length && !opts.force) {
@@ -526,7 +548,14 @@ export async function restoreBackup(
       throw err;
     }
     makePrivate(home, 0o700);
-    writeRestoreMarker(home, (opts.now ?? new Date()).toISOString(), manifest.createdAt);
+    let seal: RestoredSealRow | undefined;
+    try {
+      seal = await opts.sealRow?.(join(home, "state", "psyche.sqlite"));
+    } catch {
+      // Without it the restore still works; the Gateway then starts untrusted (restore_unverified).
+      seal = undefined;
+    }
+    writeRestoreMarker(home, (opts.now ?? new Date()).toISOString(), manifest.createdAt, seal);
     return { manifest, movedAside: movedAside ? relative(home, movedAside) : null };
   } finally {
     rmSync(dir, { recursive: true, force: true });

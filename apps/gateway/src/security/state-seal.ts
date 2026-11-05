@@ -89,6 +89,10 @@ interface KeyFile {
   untrusted?: string;
   /** Recoveries decided (applied, cancelled, failed): never applied again (M-A). Newest last. */
   decidedRecoveries?: string[];
+  /** Restore markers already used (their MACs): a marker works once (M1). Newest last. */
+  usedRestoreMarkers?: string[];
+  /** When `psyched recovery cancel` cancelled something (L4: a deletion cannot lower it). */
+  macCancels?: string[];
 }
 
 /** The restore marker's MAC, as `@psyche/backup` writes it with this Mac's seal key. */
@@ -263,6 +267,51 @@ function columnsOf(sqlite: PsycheDb["sqlite"], table: string): string {
   return JSON.stringify(
     info.map((c) => [c.name, c.type.toUpperCase(), c.notnull, c.dflt_value, c.pk, c.hidden]),
   );
+}
+
+/**
+ * The seal's own tables, as migration 202611051800 makes them. If another program dropped one or
+ * changed its columns, the Gateway puts the table back (empty) instead of failing to start; the
+ * state is then untrusted (L3).
+ */
+const SEAL_TABLE_DDL: Record<string, { columns: string[]; sql: string }> = {
+  security_seal: {
+    columns: ["id", "format", "key_id", "agg", "state", "gen", "sealed_at", "updated_at", "mac"],
+    sql: `CREATE TABLE security_seal (
+  id INTEGER PRIMARY KEY NOT NULL CHECK (id = 1),
+  format INTEGER NOT NULL,
+  key_id TEXT NOT NULL,
+  agg TEXT NOT NULL,
+  state TEXT NOT NULL DEFAULT 'sealed',
+  gen INTEGER NOT NULL DEFAULT 0,
+  sealed_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  mac TEXT NOT NULL DEFAULT ''
+)`,
+  },
+  security_ledger: {
+    columns: ["tbl", "pk", "row", "mac"],
+    sql: `CREATE TABLE security_ledger (
+  tbl TEXT NOT NULL,
+  pk TEXT NOT NULL,
+  row TEXT NOT NULL,
+  mac TEXT NOT NULL,
+  PRIMARY KEY (tbl, pk)
+) WITHOUT ROWID`,
+  },
+};
+
+/** Puts back a seal table that is missing or lacks a column; returns the tables put back. */
+function restoreSealTables(sqlite: PsycheDb["sqlite"]): string[] {
+  const out: string[] = [];
+  for (const [table, want] of Object.entries(SEAL_TABLE_DDL)) {
+    const have = (sqlite.pragma(`table_xinfo(${table})`) as { name: string }[]).map((c) => c.name);
+    if (want.columns.every((c) => have.includes(c))) continue;
+    sqlite.exec(`DROP TABLE IF EXISTS main.${table}`);
+    sqlite.exec(want.sql);
+    out.push(table);
+  }
+  return out;
 }
 
 // -- the seal --------------------------------------------------------------------------------
@@ -472,6 +521,14 @@ export class StateSeal {
     const keyPath = join(o.home, SEAL_KEY_FILE);
     const { file, existed, corrupt, unwritable } = loadKeyFile(keyPath, now());
     const seal = new StateSeal(db, file, keyPath, o);
+    let putBack: string[] = [];
+    try {
+      putBack = restoreSealTables(db.sqlite);
+    } catch (err) {
+      o.log?.log("error", "could not put back the security seal tables", {
+        message: err instanceof Error ? err.message : String(err),
+      });
+    }
     seal.#install();
     SEALS.set(db.sqlite, seal);
     installWriteHooks(db.sqlite);
@@ -484,6 +541,11 @@ export class StateSeal {
     try {
       await seal.#boot(existed, corrupt);
       if (unwritable) seal.#markUntrusted("key_unwritable", []);
+      if (putBack.length > 0) {
+        seal.#markUntrusted("schema_tampered", [], {
+          changes: putBack.map((t) => ({ table: t, change: "removed" as const, name: "table" })),
+        });
+      }
     } finally {
       seal.#busy = false;
     }
@@ -880,8 +942,14 @@ export class StateSeal {
     if (sqlite.pragma("temp_store", { simple: true }) !== 2) sqlite.pragma("temp_store = MEMORY");
     sqlite.pragma("trusted_schema = OFF");
     const direct = { deterministic: true, directOnly: true } as const;
-    sqlite.function(MAC_FN, direct, (tbl, pk, row) =>
-      macOf(this.#key, String(tbl), String(pk), String(row)),
+    // H1: a Gateway write over a row nobody vouches for (while untrusted) is recorded in the
+    // ledger with a MAC that never verifies, so after a restart it is still not "verified".
+    sqlite.function(MAC_FN, { directOnly: true }, (tbl, pk, row) =>
+      !this.#repairing &&
+      this.#untrusted !== null &&
+      this.#tainted.has(keyOf(String(tbl), String(pk)))
+        ? hmac(this.#key, `unvouched\0${String(tbl)}\0${String(pk)}\0${String(row)}`)
+        : macOf(this.#key, String(tbl), String(pk), String(row)),
     );
     sqlite.function(FOLD_FN, direct, (agg, mac) =>
       agg === null || mac === null ? agg : foldOf(this.#key, String(agg), String(mac)),
@@ -1193,6 +1261,8 @@ export class StateSeal {
     this.#shadow = this.#rows();
     this.#shadowComplete = true;
     this.#dirty.clear();
+    // Sealed again: every row now is the authority (L2).
+    this.#tainted.clear();
     this.#highGen = this.#sealRow()?.gen ?? 0;
   }
 
@@ -1268,7 +1338,8 @@ export class StateSeal {
     // A restore is a deliberate rollback, but only one whose marker carries this Mac's MAC;
     // otherwise the database must not be behind what this Mac recorded.
     const recorded = this.#keyFile.generation ?? 0;
-    const verifiedRestore = this.#o.restored === true && this.#restoreMarkerVerifies();
+    const marker = this.#o.restored === true ? this.#verifiedRestoreMarker(row) : undefined;
+    const verifiedRestore = marker !== undefined;
     if (!verifiedRestore && row.gen < recorded) {
       this.#markUntrusted(this.#o.restored === true ? "restore_unverified" : "rollback", []);
       return;
@@ -1288,21 +1359,38 @@ export class StateSeal {
     if (this.#o.restored === true && this.#untrusted === null) {
       // A restore moves time back: every waiting recovery waits its full 24 hours again.
       this.#restartWaitingRecoveries();
+      if (marker !== undefined) {
+        // H2: the restored database is the new baseline (plain assignment: the generation this
+        // Mac recorded before is ahead of it, which is the point of a restore), and the marker is
+        // spent (M1).
+        const used = [...(this.#keyFile.usedRestoreMarkers ?? []), marker].slice(-50);
+        this.#keyFile = {
+          ...this.#keyFile,
+          generation: this.#sealRow()?.gen ?? row.gen,
+          usedRestoreMarkers: used,
+        };
+        this.#saveKeyFile();
+      }
       this.alerts.add("state_resealed", { restored: true });
     }
   }
 
-  #restoreMarkerVerifies(): boolean {
+  /**
+   * The restore marker's MAC when it is this Mac's (signed with the seal key), names exactly the
+   * seal row of the database it restored (M1: not another database's), and was not used before.
+   */
+  #verifiedRestoreMarker(row: SealRow): string | undefined {
     try {
       const marker = JSON.parse(
         readFileSync(join(this.#o.home, "security", "restored.json"), "utf8"),
       ) as Record<string, unknown>;
-      return (
-        typeof marker.mac === "string" &&
-        sameHex(String(marker.mac), restoreMarkerMac(this.#key, marker))
-      );
+      if (typeof marker.mac !== "string") return undefined;
+      if (!sameHex(marker.mac, restoreMarkerMac(this.#key, marker))) return undefined;
+      if (marker.sealGen !== String(row.gen) || marker.sealRowMac !== row.mac) return undefined;
+      if ((this.#keyFile.usedRestoreMarkers ?? []).includes(marker.mac)) return undefined;
+      return marker.mac;
     } catch {
-      return false;
+      return undefined;
     }
   }
 
@@ -1332,6 +1420,18 @@ export class StateSeal {
 
   recoveryDecided(id: string): boolean {
     return (this.#keyFile.decidedRecoveries ?? []).includes(id);
+  }
+
+  /** A `psyched recovery cancel` was applied: counted outside the database too (L4). */
+  noteMacCancel(): void {
+    const list = [...(this.#keyFile.macCancels ?? []), this.#now().toISOString()].slice(-20);
+    this.#keyFile = { ...this.#keyFile, macCancels: list };
+    this.#saveKeyFile();
+  }
+
+  /** Mac cancels recorded in the key file since `sinceIso` (deleting alerts cannot lower it). */
+  macCancelsSince(sinceIso: string): number {
+    return (this.#keyFile.macCancels ?? []).filter((t) => t >= sinceIso).length;
   }
 
   #saveKeyFile(): void {
@@ -1408,8 +1508,13 @@ export class StateSeal {
     }
     const changes = diff(this.#rows(), authority, unknown);
     const destructive = check.ok && this.#untrusted === null;
-    if (changes.length > 0) this.#repairOrFail(changes, when, destructive);
+    // The shadow is the truth again before anything is written (unknown keys are left out: not
+    // trusted until re-seal), so the repair and the alerts it writes are judged against it (M3:
+    // never against a copy that missed the Gateway's own last write).
+    for (const k of unknown) authority.delete(k);
+    this.#shadow = authority;
     if (!check.ok && this.#untrusted === null) {
+      // Untrusted first: what follows (a non-destructive repair, its alert) then never aborts.
       this.#markUntrusted(
         !check.rowMacOk
           ? "seal_forged"
@@ -1419,9 +1524,7 @@ export class StateSeal {
         changes,
       );
     }
-    // The shadow is the truth again (unknown keys are left out: not trusted until re-seal).
-    for (const k of unknown) authority.delete(k);
-    this.#shadow = authority;
+    if (changes.length > 0) this.#repairOrFail(changes, when, destructive);
     // What the repair, the alert and the state change just wrote. Never a fresh read of every row:
     // a listener (or another program) may have changed rows since the check, and those are not ours.
     this.#resolve();
