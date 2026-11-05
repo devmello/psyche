@@ -20,6 +20,7 @@ pub const GROUPS: &[(&str, RegisterFn)] = &[
     ("ocr", crate::ocr::register),
     ("dictation", crate::dictation::register),
     ("files", crate::files::register),
+    ("outlook", crate::outlook::register),
     ("teach", crate::teach::register),
     ("health", crate::health::register),
 ];
