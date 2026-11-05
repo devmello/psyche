@@ -1,5 +1,5 @@
 import { lstat, readdir } from "node:fs/promises";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import { getSetting, type PsycheDb } from "@psyche/db";
 import { assertNotProtected } from "@psyche/files";
 import {
@@ -162,8 +162,11 @@ export function eventRecords(rows: Obj[], owned: (row: Obj) => boolean): Calenda
   return out;
 }
 
+/** `path` is `root` or inside it ("/" or, on Windows, the native separator). */
 const within = (path: string, root: string): boolean =>
-  path === root || path.startsWith(root.endsWith("/") ? root : `${root}/`);
+  path === root ||
+  path.startsWith(root.endsWith("/") || root.endsWith(sep) ? root : `${root}${sep}`) ||
+  path.startsWith(`${root}/`);
 
 /** Files under `root` changed after `since`: names and times only, bounded, never contents. */
 async function sweep(

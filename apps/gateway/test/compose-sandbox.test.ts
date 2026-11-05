@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import { openDb, setSetting } from "@psyche/db";
 import type { SandboxBackend } from "@psyche/protocol";
 import {
@@ -249,9 +250,11 @@ describe("srt resolution (shared by MCP servers and host exec)", () => {
   });
 
   it("finds srt on PATH or in the usual folders", async () => {
-    expect(await resolveSrt(deps(["/opt/homebrew/bin/srt"]), {})).toEqual({
+    // The candidate is joined with the platform's separator (srt itself is macOS and Linux only).
+    const found = join("/opt/homebrew/bin", "srt");
+    expect(await resolveSrt(deps([found]), {})).toEqual({
       available: true,
-      path: "/opt/homebrew/bin/srt",
+      path: found,
       source: "detected",
       version: "srt 1.0.0",
       problem: null,

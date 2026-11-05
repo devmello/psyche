@@ -97,8 +97,16 @@ describe("meetings.notes.folder setting", () => {
     expect(workflowSettings(db).notes.folder).toBeUndefined();
     setSetting(db, "meetings.notes.folder", "~/Documents/Recordings");
     expect(workflowSettings(db).notes.folder).toBe(join(homedir(), "Documents/Recordings"));
-    setSetting(db, "meetings.notes.folder", "/Users/me/Voice Memos/");
-    expect(workflowSettings(db).notes.folder).toBe("/Users/me/Voice Memos");
+    if (process.platform === "win32") {
+      // A drive path; a rooted path without a drive depends on the current drive, so it is none.
+      setSetting(db, "meetings.notes.folder", "C:\\Users\\me\\Voice Memos\\");
+      expect(workflowSettings(db).notes.folder).toBe("C:\\Users\\me\\Voice Memos");
+      setSetting(db, "meetings.notes.folder", "/Users/me/Voice Memos/");
+      expect(workflowSettings(db).notes.folder).toBeUndefined();
+    } else {
+      setSetting(db, "meetings.notes.folder", "/Users/me/Voice Memos/");
+      expect(workflowSettings(db).notes.folder).toBe("/Users/me/Voice Memos");
+    }
     setSetting(db, "meetings.notes.folder", "relative/path");
     expect(workflowSettings(db).notes.folder).toBeUndefined();
     setSetting(db, "meetings.notes.folder", "  ");
