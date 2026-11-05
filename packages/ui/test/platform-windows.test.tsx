@@ -126,15 +126,6 @@ const ABOUT_MACOS = new Set<string>([
   "settings.searchModel.apple.needsAi",
   "everything.model.apple",
   "everything.model.appleHint",
-  // The sandbox Mac (VM guests).
-  "settings.key.vm.enabled",
-  "settings.key.vm.resetPerTask",
-  "settings.vm.phase.installing",
-  "settings.vm.description",
-  "settings.vm.sandboxMac",
-  "settings.vm.between",
-  "settings.vm.credentialsHint",
-  "settings.vm.noReports",
   // Apple apps (Notes, Reminders, Calendar, Mail, Safari, Shortcuts) and their macOS grants.
   "settings.connectors.catalog.appleNotes",
   "settings.connectors.app.safari",

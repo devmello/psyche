@@ -600,6 +600,16 @@ describe("commands against a paired MockGateway", () => {
       expect(b?.publicKey).toBe(stored.publicKey);
     });
 
+    it.each([
+      ["darwin", "macos"],
+      ["win32", "windows"],
+      ["linux", "linux"],
+    ] as const)("declares %s as the %s device platform", async (nodePlatform, declared) => {
+      const deps = makeDeps({ platform: nodePlatform });
+      expect(await run(["vault", "status", ...urlArgs(deps)], deps)).toBe(0);
+      expect((gw.connects[0] as Record<string, unknown>).platform).toBe(declared);
+    });
+
     it("connect params identify a linux CLI client and carry no handshake secret", async () => {
       const deps = makeDeps();
       expect(await run(["vault", "status", ...urlArgs(deps)], deps)).toBe(0);
