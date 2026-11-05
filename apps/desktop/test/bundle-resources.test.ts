@@ -24,6 +24,7 @@ import {
   verifyNestedHelper,
   WIN_HELPER_DIR,
   WIN_HELPER_EXE,
+  WIN_VM_SERVICE_EXE,
 } from "../src/packaging/bundle-resources.ts";
 
 function fakeBuilds(dir: string, opts: { helper?: boolean; psyched?: boolean } = {}) {
@@ -144,17 +145,21 @@ describe("bundle resources (Windows)", () => {
       mkdirSync(join(dir, "helper"), { recursive: true });
       writeFileSync(helperExe, "MZ");
     }
+    const vmServiceExe = join(dir, "helper", WIN_VM_SERVICE_EXE);
+    mkdirSync(join(dir, "helper"), { recursive: true });
+    writeFileSync(vmServiceExe, "MZ");
     const trayIcon = join(dir, TRAY_ICON);
     writeFileSync(trayIcon, "ico");
     const appIcon = join(dir, APP_ICON);
     writeFileSync(appIcon, "ico");
-    return { psychedDir, helperExe, trayIcon, appIcon };
+    return { psychedDir, helperExe, vmServiceExe, trayIcon, appIcon };
   }
 
   it("defaults to the win32 psyched build, the cargo release helper and the tray icon", () => {
     expect(bundleSourcesWin32({}, "/repo", "x64")).toEqual({
       psychedDir: join("/repo", "apps/gateway/dist-bin/win32-x64/psyched"),
       helperExe: join("/repo", "apps/win-helper/target/release", WIN_HELPER_EXE),
+      vmServiceExe: join("/repo", "apps/win-helper/target/release", WIN_VM_SERVICE_EXE),
       trayIcon: join("/repo", "apps/desktop/assets", TRAY_ICON),
       appIcon: join("/repo", "apps/desktop/assets", APP_ICON),
     });
@@ -176,6 +181,8 @@ describe("bundle resources (Windows)", () => {
     expect(existsSync(join(res, "psyched", "psyched.cmd"))).toBe(true);
     expect(existsSync(join(res, "psyched", "runtime", "node.exe"))).toBe(true);
     expect(existsSync(join(res, WIN_HELPER_DIR, WIN_HELPER_EXE))).toBe(true);
+    // The sandbox PC's service ships next to the helper (installed elevated on "Turn on").
+    expect(existsSync(join(res, WIN_HELPER_DIR, WIN_VM_SERVICE_EXE))).toBe(true);
     expect(existsSync(join(res, TRAY_ICON))).toBe(true);
     // Programs and Features icon, copied to <root>app.ico by the install hook.
     expect(existsSync(join(res, APP_ICON))).toBe(true);

@@ -454,7 +454,7 @@ export function resolveConfig(
     guestSocketPath:
       overrides.guestSocketPath !== undefined
         ? overrides.guestSocketPath
-        : resolveGuestSocketPath(nodeSocketPath, env.PSYCHE_GUEST_SOCKET),
+        : resolveGuestSocketPath(nodeSocketPath, env.PSYCHE_GUEST_SOCKET, process.platform, home),
     webRoot:
       overrides.webRoot === undefined ? (env.PSYCHE_WEB_ROOT ?? defaultWebRoot) : overrides.webRoot,
     webAsar:

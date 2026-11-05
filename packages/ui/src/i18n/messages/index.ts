@@ -30,6 +30,7 @@ import { overviewGrowth } from "./overview-growth.ts";
 import { people } from "./people.ts";
 import { platform } from "./platform.ts";
 import { research } from "./research.ts";
+import { sandboxPc } from "./sandbox-pc.ts";
 import { scheduled } from "./scheduled.ts";
 import { screenAsk } from "./screen-ask.ts";
 import { screens } from "./screens.ts";
@@ -76,6 +77,7 @@ export const en = {
   ...settingsSections,
   ...skillAuthor,
   ...selfConnectors,
+  ...sandboxPc,
   ...deviceAccess,
   ...mailMeetings,
   ...connectorGallery,

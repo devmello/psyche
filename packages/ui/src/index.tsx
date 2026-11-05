@@ -430,6 +430,8 @@ export {
   type EditorSlotProps,
   type GatewayEntry,
   type GatewaysSlot,
+  type SandboxPcSlot,
+  type SandboxPcState,
   type UiSlots,
   UiSlotsProvider,
   usePersona,

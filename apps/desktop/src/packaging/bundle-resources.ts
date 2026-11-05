@@ -98,6 +98,8 @@ export function bundlePieces(
  *                             runtime\node.exe, app\, service-host.mjs and
  *                             psyche-gateway.task.xml.template for the \Psyche\Gateway-<SID> task
  *   win-helper\psyche-helper.exe   the Rust helper (apps/win-helper, cargo build --release)
+ *   win-helper\psyche-vm-svc.exe   the sandbox PC's service (same workspace); installed elevated by
+ *                             "Turn on the sandbox PC", signed like the helper
  *   tray.ico                  the notification-area icon (deploy/windows/make-icon.mjs)
  *   icon.ico                  the app icon as a file: the install hook copies it to
  *                             <root>\app.ico for Programs and Features (squirrel-events.ts)
@@ -106,6 +108,7 @@ export function bundlePieces(
  */
 export const WIN_HELPER_DIR = "win-helper";
 export const WIN_HELPER_EXE = "psyche-helper.exe";
+export const WIN_VM_SERVICE_EXE = "psyche-vm-svc.exe";
 export const TRAY_ICON = "tray.ico";
 export const APP_ICON = "icon.ico";
 
@@ -114,6 +117,8 @@ export interface BundleSourcesWin32 {
   psychedDir: string;
   /** apps/win-helper/target/release/psyche-helper.exe (or PSYCHE_WIN_HELPER_EXE). */
   helperExe: string;
+  /** apps/win-helper/target/release/psyche-vm-svc.exe (or PSYCHE_WIN_VM_SVC_EXE). */
+  vmServiceExe: string;
   /** apps/desktop/assets/tray.ico. */
   trayIcon: string;
   /** apps/desktop/assets/icon.ico. */
@@ -132,6 +137,9 @@ export function bundleSourcesWin32(
     helperExe:
       value(env, "PSYCHE_WIN_HELPER_EXE") ??
       join(repoRoot, "apps", "win-helper", "target", "release", WIN_HELPER_EXE),
+    vmServiceExe:
+      value(env, "PSYCHE_WIN_VM_SVC_EXE") ??
+      join(repoRoot, "apps", "win-helper", "target", "release", WIN_VM_SERVICE_EXE),
     trayIcon: join(repoRoot, "apps", "desktop", "assets", TRAY_ICON),
     appIcon: join(repoRoot, "apps", "desktop", "assets", APP_ICON),
   };
@@ -162,6 +170,13 @@ export function bundlePiecesWin32(
       source: sources.helperExe,
       marker: sources.helperExe,
       dest: join(resourcesDir, WIN_HELPER_DIR, WIN_HELPER_EXE),
+      build: "cargo build --release --manifest-path apps/win-helper/Cargo.toml",
+    },
+    {
+      name: WIN_VM_SERVICE_EXE,
+      source: sources.vmServiceExe,
+      marker: sources.vmServiceExe,
+      dest: join(resourcesDir, WIN_HELPER_DIR, WIN_VM_SERVICE_EXE),
       build: "cargo build --release --manifest-path apps/win-helper/Cargo.toml",
     },
     {
@@ -210,7 +225,7 @@ export function missingPiecesMessage(
   return [
     `${platform === "win32" ? "The Windows package" : "Psyche.app"} would not be self-contained; missing:`,
     ...lines,
-    `Point PSYCHE_PSYCHED_DIR / ${platform === "win32" ? "PSYCHE_WIN_HELPER_EXE" : "PSYCHE_HELPER_APP"} at other builds, or set`,
+    `Point PSYCHE_PSYCHED_DIR / ${platform === "win32" ? "PSYCHE_WIN_HELPER_EXE / PSYCHE_WIN_VM_SVC_EXE" : "PSYCHE_HELPER_APP"} at other builds, or set`,
     "PSYCHE_PACKAGE_ALLOW_PARTIAL=1 for a dev package without them.",
   ].join("\n");
 }

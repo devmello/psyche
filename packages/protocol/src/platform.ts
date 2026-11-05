@@ -40,7 +40,7 @@ export function psycheHomeHash(home: string): string {
   return createHash("sha256").update(resolve(home), "utf8").digest("hex").slice(0, 16);
 }
 
-export type LocalEndpointKind = "node" | "bridge";
+export type LocalEndpointKind = "node" | "bridge" | "guest";
 
 /**
  * The named pipe a Gateway on Windows listens on for `kind`, for this `$PSYCHE_HOME`. The two
@@ -53,6 +53,9 @@ export function namedPipePath(kind: LocalEndpointKind, home: string): string {
     const id = createHash("sha256").update(resolve(home).toLowerCase(), "utf8").digest("hex");
     return `\\\\.\\pipe\\psyche-${id.slice(0, 16)}-browser-bridge`;
   }
+  // The sandbox PC's relay (`psyche-vm-svc.exe`) copies each guest connection into this pipe
+  // (`PeerInfo.transport: "vm-relay"`); the name is fixed by the service.
+  if (kind === "guest") return `\\\\.\\pipe\\psyche-guest-${psycheHomeHash(home)}`;
   return `\\\\.\\pipe\\psyche-node-${psycheHomeHash(home)}`;
 }
 

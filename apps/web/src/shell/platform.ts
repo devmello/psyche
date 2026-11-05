@@ -1,4 +1,5 @@
 import type { BridgeControlState, BridgeProfile } from "@psyche/protocol";
+import type { SandboxPcSlot } from "@psyche/ui";
 import type { CallOptions, GatewayEvent } from "../client/connection.ts";
 import type { GatewayStatus } from "../client/status.ts";
 import type { PasskeyHost } from "../lib/webauthn.ts";
@@ -425,6 +426,8 @@ export interface ShellPlatform {
   app?: AppInfoPort;
   /** Desktop only: the saved Gateways and the switcher (remote-gateway design §1.3). */
   gateways?: GatewaysPort;
+  /** Desktop on Windows: the sandbox PC's one-time setup (elevated service install, guest image). */
+  sandboxPc?: SandboxPcSlot;
 }
 
 /**

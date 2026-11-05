@@ -63,15 +63,29 @@ export function resolveNodeSocketPath(
  * helper whatever the guest declares. An explicit `PSYCHE_GUEST_SOCKET` that is too long is an
  * error. By default it sits next to the node socket (`node.sock` -> `guest.sock`, `<x>.sock` ->
  * `<x>-guest.sock`); when that does not fit the Gateway has no guest socket and VM guests cannot
- * connect (the Host helper still works). The Mac helper derives the same path. Sandbox guest VMs
- * are macOS only (Virtualization.framework): on Windows there is no guest socket at all.
+ * connect (the Host helper still works). The Mac helper derives the same path. On Windows the
+ * sandbox PC's service (`psyche-vm-svc.exe`) relays guests into the named pipe
+ * `\\.\pipe\psyche-guest-<hash of $PSYCHE_HOME>`; `home` names it (without `home` there is no
+ * guest endpoint). The service reads the actual name from `$PSYCHE_HOME/run/guest-socket`.
  */
 export function resolveGuestSocketPath(
   nodeSocketPath: string,
   explicit: string | undefined,
   platform: NodeJS.Platform = process.platform,
+  home?: string,
 ): string | null {
-  if (usesNamedPipes(platform)) return null;
+  if (usesNamedPipes(platform)) {
+    if (explicit !== undefined) {
+      if (!isNamedPipePath(explicit)) {
+        throw new PsycheError(
+          "invalid_params",
+          `PSYCHE_GUEST_SOCKET must be a named pipe (\\\\.\\pipe\\name) on Windows, not ${explicit}`,
+        );
+      }
+      return explicit;
+    }
+    return home === undefined ? null : namedPipePath("guest", home);
+  }
   if (explicit !== undefined) {
     if (!socketPathFits(explicit)) {
       throw new PsycheError(
@@ -105,6 +119,16 @@ export function ensureSocketDir(socketPath: string, home: string): void {
     );
   }
   chmodSync(dir, 0o700);
+}
+
+/**
+ * Records the guest endpoint for the sandbox PC's service in `$PSYCHE_HOME/run/guest-socket`
+ * (Windows only: the named pipe it relays guest connections into). One line, LF-terminated.
+ */
+export function writeGuestPointer(home: string, guestPath: string): void {
+  const file = join(home, "run", "guest-socket");
+  writeFileSync(file, `${guestPath}\n`, { mode: 0o600 });
+  chmodSync(file, 0o600);
 }
 
 /**

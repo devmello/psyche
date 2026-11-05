@@ -23,6 +23,7 @@ pub const GROUPS: &[(&str, RegisterFn)] = &[
     ("chrome", crate::chrome::register),
     ("outlook", crate::outlook::register),
     ("teach", crate::teach::register),
+    ("vm", crate::vm::register),
     ("health", crate::health::register),
 ];
 

@@ -157,7 +157,7 @@ async function stack(opts: { failReset?: boolean } = {}) {
 }
 
 // The sandbox Mac (Virtualization.framework guests, their relay socket) is macOS only.
-describe.skipIf(process.platform === "win32")("VM snapshots and resets, Gateway side (L6)", () => {
+describe("VM snapshots and resets, Gateway side (L6)", () => {
   it("serves the owner's vm.snapshots.* over the helper, audited, behind VM mode", async () => {
     const { c, owner, on, calls, state } = await stack();
     await expect(owner.call("vm.snapshots.list", {})).rejects.toThrow(/vm_disabled/);

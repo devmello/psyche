@@ -80,6 +80,7 @@ features = [
   "Win32_System_Diagnostics_ToolHelp",
   "Win32_System_WinRT",
   "Win32_System_Pipes",
+  "Win32_System_Services",
   "Win32_System_IO",
   "Win32_System_SystemInformation",
   "Win32_UI_Shell",

@@ -27,3 +27,4 @@ pub mod dictation;
 pub mod screen;
 pub mod speech;
 pub mod teach;
+pub mod vm;

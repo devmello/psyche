@@ -64,6 +64,11 @@ export interface ComposedVm extends ComposedPart {
   refresh(): Promise<void>;
 }
 
+/** What the guest is called to the owner: the sandbox Mac (macOS host) or sandbox PC (Windows). */
+const SANDBOX = process.platform === "win32" ? "sandbox PC" : "sandbox Mac";
+const SANDBOX_TITLE = process.platform === "win32" ? "Sandbox PC" : "Sandbox Mac";
+const FRESH = process.platform === "win32" ? "a fresh PC" : "a fresh Mac";
+
 /** Phases a restore or reset first stops (the helper refuses an active guest). */
 const UP: ReadonlySet<VmGuest["phase"]> = new Set(["running", "starting", "paused"]);
 const TERMINAL = new Set(["done", "failed", "cancelled"]);
@@ -163,13 +168,13 @@ export class VmRunner implements SandboxRunner {
     // The helper reports the guest; while it is not running nothing reaches it.
     const phase = this.#guestPhase();
     if (phase !== undefined && phase !== null && phase !== "running") {
-      throw new PsycheError("unavailable", `the sandbox Mac is ${phase}`, {
+      throw new PsycheError("unavailable", `the ${SANDBOX} is ${phase}`, {
         details: { reason: "vm_not_running", phase },
       });
     }
     const guest = this.#guest();
     if (guest === undefined) {
-      throw new PsycheError("unavailable", "the sandbox Mac's psyche-node is not connected", {
+      throw new PsycheError("unavailable", `the ${SANDBOX}'s psyche-node is not connected`, {
         details: { reason: "vm_guest_offline" },
       });
     }
@@ -239,7 +244,7 @@ export class VmRunner implements SandboxRunner {
     }
     if (!res.ok) {
       const e = res.error;
-      throw new PsycheError(e?.code ?? "internal", e?.message ?? "exec in the sandbox Mac failed", {
+      throw new PsycheError(e?.code ?? "internal", e?.message ?? `exec in the ${SANDBOX} failed`, {
         details: { reason: "vm_exec_failed" },
       });
     }
@@ -306,7 +311,7 @@ export function composeVm(services: ComposeServices, setup: VmSetup = {}): Compo
           .recordReceipt({
             kind: "vm.lifecycle",
             outcome: guest.phase === "failed" ? "failed" : "ok",
-            summary: `Sandbox Mac ${guest.name}: ${prev?.phase ?? "found"} → ${guest.phase}`,
+            summary: `${SANDBOX_TITLE} ${guest.name}: ${prev?.phase ?? "found"} → ${guest.phase}`,
             payload: {
               nodeId,
               name: guest.name,
@@ -324,7 +329,7 @@ export function composeVm(services: ComposeServices, setup: VmSetup = {}): Compo
         .recordReceipt({
           kind: "vm.lifecycle",
           outcome: "ok",
-          summary: `Sandbox Mac ${name}: ${prev.phase} → deleted`,
+          summary: `${SANDBOX_TITLE} ${name}: ${prev.phase} → deleted`,
           payload: { nodeId, name, from: prev.phase, to: "deleted" },
         })
         .catch(() => undefined);
@@ -359,7 +364,7 @@ export function composeVm(services: ComposeServices, setup: VmSetup = {}): Compo
       const helper = nodes.client(nodeId);
       if (helper !== undefined) return { helper, name: guest.name };
     }
-    throw new PsycheError("unavailable", "no mac helper with the sandbox Mac is connected", {
+    throw new PsycheError("unavailable", `no helper with the ${SANDBOX} is connected`, {
       details: { reason: "vm_helper_unavailable", capability },
     });
   };
@@ -420,7 +425,7 @@ export function composeVm(services: ComposeServices, setup: VmSetup = {}): Compo
       await refresh();
       if (guestPhase() === "running" && runner.ready()) return;
       if (services.clock.now() > until) {
-        throw new PsycheError("timeout", "the sandbox Mac did not come back", {
+        throw new PsycheError("timeout", `the ${SANDBOX} did not come back`, {
           details: { reason: "vm_guest_not_ready" },
         });
       }
@@ -439,7 +444,7 @@ export function composeVm(services: ComposeServices, setup: VmSetup = {}): Compo
   ): Promise<VmRestoreResult> => {
     const { helper, name } = target(capability);
     if (runner.busy) {
-      throw new PsycheError("conflict", "a command is running in the sandbox Mac", {
+      throw new PsycheError("conflict", `a command is running in the ${SANDBOX}`, {
         details: { reason: "vm_busy" },
       });
     }
@@ -478,14 +483,14 @@ export function composeVm(services: ComposeServices, setup: VmSetup = {}): Compo
             | { status: string }
             | undefined;
           if (row !== undefined && !TERMINAL.has(row.status)) {
-            throw new PsycheError("conflict", "another Task is using the sandbox Mac", {
+            throw new PsycheError("conflict", `another Task is using the ${SANDBOX}`, {
               details: { reason: "vm_in_use", taskId: id },
             });
           }
         }
         await audited(
           "task_reset",
-          "Reset the sandbox Mac for a new Task",
+          `Reset the ${SANDBOX} for a new Task`,
           {},
           () => rewind("vm.reset", undefined, true),
           taskId,
@@ -514,7 +519,7 @@ export function composeVm(services: ComposeServices, setup: VmSetup = {}): Compo
         const kind = params.base === true ? "base" : "manual";
         return audited(
           "create",
-          kind === "base" ? "Saved the sandbox Mac's reset point" : "Snapshotted the sandbox Mac",
+          kind === "base" ? `Saved the ${SANDBOX}'s reset point` : `Snapshotted the ${SANDBOX}`,
           { kind, ...(params.label === undefined ? {} : { label: params.label }) },
           () =>
             invoke<VmSnapshotResult>(helper, "vm.snapshot", {
@@ -530,7 +535,7 @@ export function composeVm(services: ComposeServices, setup: VmSetup = {}): Compo
         target("vm.restore");
         return audited(
           "restore",
-          "Restored the sandbox Mac to a snapshot",
+          `Restored the ${SANDBOX} to a snapshot`,
           { snapshot: params.snapshot },
           () => rewind("vm.restore", params.snapshot, false),
         );
@@ -539,7 +544,7 @@ export function composeVm(services: ComposeServices, setup: VmSetup = {}): Compo
     "vm.snapshots.reset": {
       run: () => {
         target("vm.reset");
-        return audited("reset", "Reset the sandbox Mac to a fresh Mac", {}, () =>
+        return audited("reset", `Reset the ${SANDBOX} to ${FRESH}`, {}, () =>
           rewind("vm.reset", undefined, false),
         );
       },
@@ -549,7 +554,7 @@ export function composeVm(services: ComposeServices, setup: VmSetup = {}): Compo
         const { helper, name } = target("vm.snapshot_delete");
         return audited(
           "delete",
-          "Deleted a sandbox Mac snapshot",
+          `Deleted a ${SANDBOX} snapshot`,
           { snapshot: params.snapshot },
           async () => {
             await invoke(helper, "vm.snapshot_delete", { name, snapshot: params.snapshot });
