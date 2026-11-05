@@ -61,6 +61,15 @@ class PsycheUITestCase: XCTestCase {
         }
     }
 
+    /// Taps once the element can take a tap: a page still animating in, or a slow CI runner, can report a control
+    /// that exists but isn't hittable yet.
+    func tapWhenHittable(_ element: XCUIElement, timeout: TimeInterval = 10, file: StaticString = #filePath, line: UInt = #line) {
+        scrollTo(element)
+        let hittable = expectation(for: NSPredicate(format: "hittable == true"), evaluatedWith: element)
+        XCTAssertEqual(XCTWaiter().wait(for: [hittable], timeout: timeout), .completed, "\(element) never became hittable", file: file, line: line)
+        element.tap()
+    }
+
     /// A static text whose label starts with or equals `label` (section headers carry counts: "Needs you · 2").
     func text(_ label: String) -> XCUIElement {
         app.staticTexts.matching(NSPredicate(format: "label == %@ OR label BEGINSWITH %@", label, label + " ·")).firstMatch

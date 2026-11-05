@@ -14,8 +14,7 @@ final class LibraryUITests: PsycheUITestCase {
         item.tap()
         let delete = app.buttons["Delete"].firstMatch
         waitFor(delete, 10)
-        scrollTo(delete)
-        delete.tap()
+        tapWhenHittable(delete)
         waitFor(app.staticTexts["Delete this file?"].firstMatch, 5)
         lastButton("Delete").tap()
         // Back on the list, the item is gone.
@@ -62,8 +61,12 @@ final class SettingsUITests: PsycheUITestCase {
     private func openSettings() {
         let avatar = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Open Psyche's activity")).firstMatch
         waitFor(avatar)
-        avatar.press(forDuration: 1.0)
+        // A context menu on a long press: slow runners need a longer press, and sometimes a second one.
         let item = app.buttons["Settings"].firstMatch
+        for _ in 0..<2 where !item.waitForExistence(timeout: 0.5) {
+            avatar.press(forDuration: 1.6)
+            if item.waitForExistence(timeout: 5) { break }
+        }
         waitFor(item, 5)
         item.tap()
         waitFor(app.navigationBars["Settings"], 5)
