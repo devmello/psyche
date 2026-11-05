@@ -1,4 +1,10 @@
 import type { Catalogue } from "../index.ts";
+import { everythingRest } from "./everything-rest/ja.ts";
+import { screensRest } from "./screens-rest/ja.ts";
+import { peopleRest } from "./people-rest/ja.ts";
+import { personDataRest } from "./personData-rest/ja.ts";
+import { memoryReviewRest } from "./memoryReview-rest/ja.ts";
+import { capabilitiesRest } from "./capabilities-rest/ja.ts";
 import { onboardingRest } from "./onboarding-rest/ja.ts";
 import { galleryRest } from "./gallery-rest/ja.ts";
 import { shellRest } from "./shell-rest/ja.ts";
@@ -40,6 +46,12 @@ export const ja: Partial<Catalogue> = {
   ...canvas,
   // overview chart primitives (docs/design/agent-overview-2026.md §5.7)
   ...charts,
+  ...everythingRest,
+  ...screensRest,
+  ...peopleRest,
+  ...personDataRest,
+  ...memoryReviewRest,
+  ...capabilitiesRest,
   ...onboardingRest,
   ...galleryRest,
   ...shellRest,
