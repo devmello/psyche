@@ -4,8 +4,9 @@ import type { ReactElement } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { Kbd } from "../../components/ui/kbd.tsx";
 import { t } from "../../i18n/core.ts";
-import { isWindows, type UiPlatform, uiPlatform } from "../../lib/platform.ts";
+import { isLinux, isWindows, type UiPlatform, uiPlatform } from "../../lib/platform.ts";
 import { usePersona, useSlots } from "../../slots.tsx";
+import { LinuxAccessRows, linuxAccessFromSettings } from "./LinuxAccess.tsx";
 import { SegmentedRadio } from "./SegmentedRadio.tsx";
 import {
   bool,
@@ -98,9 +99,23 @@ export const WINDOWS_LOCKED_APPS: readonly ComputerUseApp[] = [
   banking,
 ];
 
+/** The same caps as the Linux helper names apps: by desktop-file id. */
+export const LINUX_LOCKED_APPS: readonly ComputerUseApp[] = [
+  lockedApp("firefox", "Firefox", "browser"),
+  lockedApp("google-chrome", "Google Chrome", "browser"),
+  lockedApp("gnome-terminal", "GNOME Terminal", "terminal"),
+  lockedApp("code", "Visual Studio Code", "ide"),
+  lockedApp("keepassxc", "KeePassXC", "passwords"),
+  banking,
+];
+
 /** The locked rows for the Host's platform (computer use runs on the Host, never remotely). */
 export function lockedApps(platform: UiPlatform = uiPlatform()): readonly ComputerUseApp[] {
-  return platform === "windows" ? WINDOWS_LOCKED_APPS : LOCKED_APPS;
+  return platform === "windows"
+    ? WINDOWS_LOCKED_APPS
+    : platform === "linux"
+      ? LINUX_LOCKED_APPS
+      : LOCKED_APPS;
 }
 
 const tccLabel = (p: TccPermission) => ({
@@ -195,6 +210,13 @@ export function ComputerUsePanel({
               persona={persona}
               microphone={tcc.microphone}
               onOpenSettings={onOpenSystemSettings}
+            />
+          ) : isLinux() ? (
+            <LinuxAccessRows
+              persona={persona}
+              state={linuxAccessFromSettings(values)}
+              computerUseOn={enabled}
+              onRevoke={() => onChange("computerUse.linuxRevoke", new Date().toISOString())}
             />
           ) : (
             <>

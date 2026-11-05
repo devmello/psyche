@@ -20,6 +20,7 @@ import { errors } from "./errors.ts";
 import { glass } from "./glass.ts";
 import { home } from "./home.ts";
 import { links } from "./links.ts";
+import { linuxAccess } from "./linux-access.ts";
 import { mailMeetings } from "./mail-meetings.ts";
 import { meetingRecord } from "./meeting-record.ts";
 import { memoryPage } from "./memory-page.ts";
@@ -116,6 +117,7 @@ export const en = {
   ...platform,
   ...passwordPresence,
   ...securityState,
+  ...linuxAccess,
 } as const;
 
 export type MessageId = keyof typeof en;

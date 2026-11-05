@@ -18,6 +18,7 @@ import { deviceAccess } from "./device-access/zh.ts";
 import { final202611 } from "./final-2026-11/zh.ts";
 import { home } from "./home/zh.ts";
 import { links } from "./links/zh.ts";
+import { linuxAccess } from "./linux-access/zh.ts";
 import { mailMeetings } from "./mail-meetings/zh.ts";
 import { meetingRecord } from "./meeting-record/zh.ts";
 import { memoryPage } from "./memory-page/zh.ts";
@@ -3242,4 +3243,6 @@ export const zh: Partial<Catalogue> = {
   ...passwordPresence,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Settings → Computer use on Linux: screen and input access
+  ...linuxAccess,
 };

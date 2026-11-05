@@ -14,6 +14,7 @@ import { final202611 } from "./final-2026-11/de.ts";
 import { galleryRest } from "./gallery-rest/de.ts";
 import { homeRest } from "./home-rest/de.ts";
 import { links } from "./links/de.ts";
+import { linuxAccess } from "./linux-access/de.ts";
 import { mailMeetings } from "./mail-meetings/de.ts";
 import { memoryRest } from "./memory-rest/de.ts";
 import { memoryReviewRest } from "./memoryReview-rest/de.ts";
@@ -3395,4 +3396,6 @@ export const de: Partial<Catalogue> = {
   ...passwordPresence,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
+  // Settings → Computer use on Linux: screen and input access
+  ...linuxAccess,
 };
