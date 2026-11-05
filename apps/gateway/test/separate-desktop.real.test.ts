@@ -276,14 +276,18 @@ describe.skipIf(!REAL)("a real separate desktop", () => {
       exec(`${bus} --dest=org.a11y.Bus /org/a11y/bus org.freedesktop.DBus.Peer.Ping`).code,
     ).toBe(0);
 
-    // A long-lived app opens on the display and keeps its profile in the workspace.
+    // A long-lived app opens on the display and keeps its profile in the workspace (Firefox ESR uses ~/.config/mozilla).
     exec("DISPLAY=:1 nohup /usr/bin/firefox-esr --no-remote about:blank > /tmp/firefox.log 2>&1 &");
     await new Promise((r) => setTimeout(r, 10_000));
     const apps = exec("/usr/bin/ps -eo comm= | /usr/bin/sort | /usr/bin/uniq -c").out;
     expect(apps).toMatch(/Xvfb/);
     expect(apps).toMatch(/firefox/);
     expect(apps).toMatch(/psyche-helper/);
-    expect(exec("test -d /workspace/.mozilla && echo yes || echo no").out.trim()).toBe("yes");
+    expect(
+      exec(
+        "test -d /workspace/.config/mozilla -o -d /workspace/.mozilla && echo yes || echo no",
+      ).out.trim(),
+    ).toBe("yes");
 
     // Numbers.
     const stats = JSON.parse(podman("stats", "--no-stream", "--format", "json", NAME))[0];

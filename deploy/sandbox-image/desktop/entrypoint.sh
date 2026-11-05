@@ -77,6 +77,10 @@ if [ ! -S "/tmp/.X11-unix/X${DISPLAY#:}" ]; then
   echo "desktop-entrypoint: Xvfb did not start" >&2
   exit 70
 fi
+if [ ! -S "$XDG_RUNTIME_DIR/bus" ]; then
+  echo "desktop-entrypoint: the session bus did not start" >&2
+  exit 71
+fi
 
 # Never exits when idle: the Gateway stops the container when the Task ends.
 exec /usr/local/bin/psyche-helper --idle-timeout 0
