@@ -11,10 +11,9 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { MigrationError, openDb, probeMigrations } from "@psyche/db";
+import { MigrationError, openDb, probeMigrations, takeExclusiveFileLock } from "@psyche/db";
 import { afterEach, describe, expect, it } from "vitest";
 import {
-  acquireGatewayLock,
   clearInterruptedRestore,
   clearUpdateFailure,
   createSnapshot,
@@ -252,30 +251,18 @@ describe("an unreadable snapshot is never a rollback point (H2)", () => {
 });
 
 describe("one Gateway per data folder (M3)", () => {
-  it("refuses to start while another live process holds the lock, and takes over a dead one's", () => {
-    const s = setup();
-    mkdirSync(join(s.home, "run"), { recursive: true });
-    const lock = join(s.home, "run", "gateway.lock");
-    // The parent process is alive and is not us.
-    writeFileSync(lock, JSON.stringify({ pid: process.ppid, at: "x" }));
-    expect(() => acquireGatewayLock(s.home)).toThrow(/already using this data folder/);
-    // A pid nobody has.
-    writeFileSync(lock, JSON.stringify({ pid: 2_147_483_000, at: "x" }));
-    expect(() => acquireGatewayLock(s.home)).not.toThrow();
-    expect(JSON.parse(readFileSync(lock, "utf8")).pid).toBe(process.pid);
-    // And us again is fine.
-    expect(() => acquireGatewayLock(s.home)).not.toThrow();
-  });
-
   it("is taken before anything is restored or copied", async () => {
     const s = setup();
     mkdirSync(join(s.home, "run"), { recursive: true });
-    writeFileSync(join(s.home, "run", "gateway.lock"), JSON.stringify({ pid: process.ppid }));
+    // Another process (here: another open of the lock file) holds the folder.
+    const other = takeExclusiveFileLock(join(s.home, "run", "gateway.lock"));
+    expect(other).not.toBeNull();
     s.put({ [M2]: "ALTER TABLE notes ADD COLUMN tag TEXT;" });
     await expect(openDbWithSnapshot(base(s))).rejects.toMatchObject({
       details: { reason: "gateway_running" },
     });
     expect(existsSync(preUpdateDir(s.home))).toBe(false);
+    other?.release();
   });
 });
 
@@ -417,7 +404,7 @@ describe("housekeeping lows", () => {
     expect(pruneSnapshots(s.home, { keep: 1, now: later })).toEqual([]);
   });
 
-  it("clears displaced files after the same 14 days as snapshots, not before", async () => {
+  it("clears displaced files after 30 days, not before", async () => {
     const s = setup();
     const dir = await createSnapshot({
       home: s.home,
@@ -431,7 +418,11 @@ describe("housekeeping lows", () => {
     const [aside] = displaced(s);
     expect(pruneSnapshots(s.home, { keep: 5 })).toEqual([]);
     expect(displaced(s)).toHaveLength(1);
-    const old = new Date(Date.now() - 20 * 24 * 3_600_000);
+    const twenty = new Date(Date.now() - 20 * 24 * 3_600_000);
+    utimesSync(join(preUpdateDir(s.home), aside ?? ""), twenty, twenty);
+    pruneSnapshots(s.home, { keep: 5 });
+    expect(displaced(s)).toHaveLength(1); // kept 30 days, not 14
+    const old = new Date(Date.now() - 40 * 24 * 3_600_000);
     utimesSync(join(preUpdateDir(s.home), aside ?? ""), old, old);
     pruneSnapshots(s.home, { keep: 5 });
     expect(displaced(s)).toEqual([]);

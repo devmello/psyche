@@ -24,6 +24,7 @@ import {
   openDb,
   type PsycheDb,
   probeMigrations,
+  takeExclusiveFileLock,
 } from "@psyche/db";
 import { PsycheError } from "@psyche/protocol";
 import { serverBuild } from "./build-info.ts";
@@ -71,6 +72,8 @@ export const LAST_BOOT_FILE = join("state", "last-boot.json");
 export const DEFAULT_KEEP = 2;
 /** Design §2.7.4: an older snapshot is deleted only after this long. */
 export const PRUNE_AFTER_MS = 14 * 24 * 3_600_000;
+/** Files a restore moved aside (the owner's data, as it was) are kept this long. */
+export const DISPLACED_KEEP_MS = 30 * 24 * 3_600_000;
 const SQLITE_MAGIC = Buffer.from("SQLite format 3\0", "latin1");
 /** `-shm` is a rebuildable index and is never copied. */
 const SIDECARS = ["-wal", "-journal"] as const;
@@ -135,8 +138,27 @@ export interface SnapshotRequest {
   now?: () => Date;
 }
 
-const sha256 = (path: string): string =>
-  createHash("sha256").update(readFileSync(path)).digest("hex");
+/**
+ * SHA-256 of a file, streamed in 1 MiB pieces: a database can be larger than Node will read
+ * into one buffer (2 GiB), and even a smaller one should not sit in memory, here or anywhere
+ * the snapshot hashes or compares a file.
+ */
+export function sha256File(path: string): string {
+  const hash = createHash("sha256");
+  const buffer = Buffer.allocUnsafe(1 << 20);
+  const fd = openSync(path, "r");
+  try {
+    for (;;) {
+      const n = readSync(fd, buffer, 0, buffer.length, null);
+      if (n === 0) break;
+      hash.update(buffer.subarray(0, n));
+    }
+  } finally {
+    closeSync(fd);
+  }
+  return hash.digest("hex");
+}
+const sha256 = sha256File;
 
 // --- durable file helpers -------------------------------------------------------------------
 
@@ -389,7 +411,7 @@ export function pruneSnapshots(home: string, opts: PruneOptions = {}): string[] 
     // Files a restore moved aside are kept as long as a snapshot would be.
     if (name.startsWith(".displaced-")) {
       const age = (opts.now ?? new Date()).getTime() - statSync(join(root, name)).mtimeMs;
-      if (age >= (opts.minAgeMs ?? PRUNE_AFTER_MS))
+      if (age >= (opts.minAgeMs ?? DISPLACED_KEEP_MS))
         rmSync(join(root, name), { recursive: true, force: true });
     }
   }
@@ -443,6 +465,7 @@ export interface RestoreOptions {
   /** Where files that are replaced go (default: `backups/pre-update/.displaced-<time>/`). */
   displaceTo?: string;
   now?: () => Date;
+  logger?: Logger;
 }
 
 interface RestorePlan {
@@ -480,8 +503,13 @@ function planRestore(dir: string, home: string, opts: RestoreOptions): RestorePl
   return { home, manifest, steps: plan };
 }
 
-function displacedDirFor(home: string, now: Date): string {
-  return join(preUpdateDir(home), `.displaced-${now.toISOString().replace(/[:.]/g, "-")}`);
+/**
+ * One folder per snapshot, named by its sequence: a start that crashes and is restarted over and
+ * over (an out-of-memory kill, a native crash) restores from the same snapshot every time, and
+ * must not move a fresh half-migrated database aside on each lap. Only the first copy is kept.
+ */
+function displacedDirFor(home: string, seq: number): string {
+  return join(preUpdateDir(home), `.displaced-${seq}`);
 }
 
 /** Moves a live file out of the way instead of overwriting it. */
@@ -498,6 +526,12 @@ function displace(home: string, file: string, dir: string): void {
           `${createHash("sha256").update(file).digest("hex").slice(0, 12)}-${file.split(sep).at(-1)}`,
         ),
   );
+  // Already set aside by an earlier lap over the same snapshot: the first copy is the one that
+  // matters; this one is another look at the same half-migrated state.
+  if (existsSync(dest)) {
+    rmSync(file, { force: true });
+    return;
+  }
   mkdirSync(dirname(dest), { recursive: true, mode: 0o700 });
   try {
     renameSync(file, dest);
@@ -509,7 +543,7 @@ function displace(home: string, file: string, dir: string): void {
 }
 
 function applyRestore(plan: RestorePlan, displaceTo?: string): void {
-  const dir = displaceTo ?? displacedDirFor(plan.home, new Date());
+  const dir = displaceTo ?? displacedDirFor(plan.home, plan.manifest.seq);
   for (const { from, target, entry } of plan.steps) {
     // Already the snapshot's copy (a restore that was cut short and is being finished): nothing
     // to displace, only the stale logs to clear.
@@ -543,7 +577,7 @@ export function restoreWithMarker(
   // A damaged or foreign snapshot is refused before anything is written, marker included.
   const planned = planRestore(dir, home, opts);
   const at = (opts.now ?? (() => new Date()))();
-  const displaceTo = opts.displaceTo ?? displacedDirFor(home, at);
+  const displaceTo = opts.displaceTo ?? displacedDirFor(home, planned.manifest.seq);
   const marker: RestoreMarker = {
     snapshot: dir,
     at: at.toISOString(),
@@ -554,6 +588,10 @@ export function restoreWithMarker(
   applyRestore(planned, displaceTo);
   rmSync(join(home, RESTORE_MARKER_FILE), { force: true });
   fsyncPath(join(home, "run"));
+  if (existsSync(displaceTo))
+    opts.logger?.log("warn", "a restore moved files aside instead of overwriting them", {
+      folder: displaceTo,
+    });
   return planned.manifest;
 }
 
@@ -806,77 +844,74 @@ function writeProgress(home: string, phase: "snapshot" | "migrating", build: str
 
 // --- one Gateway per data folder ------------------------------------------------------------
 
-/** Names the process that owns this data folder; a second Gateway must not start on it. */
+/**
+ * Held (kernel-locked) by the one Gateway running on this data folder. The lock is an open file
+ * the kernel releases when the process exits however it dies (SIGKILL, power loss, a crash), so
+ * there is never a stale lock to recognise: a reboot, a recycled pid or a crash during start
+ * cannot leave it behind. The text inside (the owner's pid) is for diagnostics only.
+ */
 export const GATEWAY_LOCK_FILE = join("run", "gateway.lock");
-const lockedHomes = new Set<string>();
+const lockedHomes = new Map<string, { release(): void }>();
 
-function pidAlive(pid: number): boolean {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (err) {
-    return (err as NodeJS.ErrnoException).code === "EPERM";
-  }
+export interface GatewayLockOptions {
+  /** For the note the splash shows when another Gateway holds the folder. */
+  build?: string;
+  version?: string;
+  now?: () => Date;
+  /** Test hook: force the SQLite lock instead of the platform's. */
+  impl?: "exlock" | "sqlite";
 }
 
 /**
- * Takes `run/gateway.lock` for the life of this process, or throws when another live process
- * holds it. The snapshot and restore code replaces files by name and copies encrypted stores
- * as bytes: both assume nobody else has the data open. (A pid file rather than `flock`, which
- * Node cannot take; a lock left by a process that died is recognised by its pid and replaced.)
- * The same process may ask again, as tests that start several Gateways in turn do.
+ * Takes the Gateway lock for the life of this process, or throws when another process holds it
+ * (and says so in `run/update-failed.json`, which the start-up screen shows). The snapshot and
+ * restore code replaces files by name and copies encrypted stores as bytes: both assume nobody
+ * else has the data open. The same process may ask again, as tests that start several Gateways
+ * in turn do.
  */
-export function acquireGatewayLock(home: string): void {
+export function acquireGatewayLock(home: string, opts: GatewayLockOptions = {}): void {
   const file = join(home, GATEWAY_LOCK_FILE);
   const key = resolve(file);
   if (lockedHomes.has(key)) return;
   mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      writeFileSync(
-        file,
-        `${JSON.stringify({ pid: process.pid, at: new Date().toISOString() })}\n`,
-        {
-          mode: 0o600,
-          flag: "wx",
-        },
-      );
-      lockedHomes.add(key);
-      process.once("exit", () => {
-        try {
-          const held = JSON.parse(readFileSync(file, "utf8")) as { pid?: number };
-          if (held.pid === process.pid) rmSync(file, { force: true });
-        } catch {
-          // Already gone.
-        }
-      });
-      return;
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== "EEXIST") throw err;
-    }
+  const lock = takeExclusiveFileLock(file, opts.impl);
+  if (lock === null) {
     let holder: number | undefined;
     try {
       holder = (JSON.parse(readFileSync(file, "utf8")) as { pid?: number }).pid;
     } catch {
-      // Unreadable: another process may be writing it right now. Give it a moment.
-      if (Date.now() - statSync(file).mtimeMs < 5_000) holder = -1;
+      // The holder has not written its note yet, or it is unreadable.
     }
-    if (holder === process.pid) {
-      lockedHomes.add(key);
-      return;
+    const message = `Another Psyche Gateway${holder === undefined ? "" : ` (process ${holder})`} is already using this data folder, so this one did not start. Quit the other one first, or wait a moment and choose Try again.`;
+    try {
+      writeJsonDurable(join(home, UPDATE_FAILED_FILE), {
+        build: opts.build ?? "unknown",
+        key: "gateway-running",
+        kind: "environment",
+        attempts: 1,
+        retryAfter: null,
+        from: "unknown",
+        to: opts.version ?? "unknown",
+        migration: null,
+        at: (opts.now ?? (() => new Date()))().toISOString(),
+        snapshot: null,
+        restored: true,
+        message,
+      } satisfies UpdateFailure);
+    } catch {
+      // The error below still stops the start.
     }
-    if (holder !== undefined && (holder === -1 || pidAlive(holder))) {
-      throw new PsycheError(
-        "unavailable",
-        `Another Psyche Gateway${holder > 0 ? ` (process ${holder})` : ""} is already using this data folder, so this one did not start. Quit the other one first.`,
-        { details: { reason: "gateway_running" } },
-      );
-    }
-    rmSync(file, { force: true }); // left by a process that is gone
+    throw new PsycheError("unavailable", message, { details: { reason: "gateway_running" } });
   }
-  throw new PsycheError("unavailable", "Could not take the Gateway lock on this data folder", {
-    details: { reason: "gateway_running" },
-  });
+  lock.writeNote(`${JSON.stringify({ pid: process.pid, at: new Date().toISOString() })}\n`);
+  lockedHomes.set(key, lock);
+}
+
+/** Test hook: lets go of this process's lock on a data folder. */
+export function releaseGatewayLock(home: string): void {
+  const key = resolve(join(home, GATEWAY_LOCK_FILE));
+  lockedHomes.get(key)?.release();
+  lockedHomes.delete(key);
 }
 
 /**
@@ -897,7 +932,7 @@ export async function openDbWithSnapshot(opts: OpenWithSnapshotOptions): Promise
   const keep = opts.keep ?? DEFAULT_KEEP;
   if (opts.dbPath === ":memory:") return open(opts.dbPath, opts.open);
 
-  acquireGatewayLock(opts.home);
+  acquireGatewayLock(opts.home, { build: opts.build, version: opts.version, now });
   finishPendingRestore(opts.home, {
     allowAbsolute: [opts.dbPath],
     build: opts.build,
@@ -998,7 +1033,12 @@ export async function openDbWithSnapshot(opts: OpenWithSnapshotOptions): Promise
         if (m.probe !== undefined) reuse = candidate;
       } else if (m.probe === undefined && m.pending.length > 0) {
         const applied = m.pending.filter((id) => !probe.ids.includes(id));
+        // A different build booted successfully after this snapshot was made (an intermediate
+        // release that knows only some of the migrations, say): the data has moved on since.
+        const lb = lastBoot(opts.home);
+        const movedOn = lb?.build !== undefined && lb.build !== opts.build && lb.goodSeq >= m.seq;
         const cutShort =
+          !movedOn &&
           applied.length > 0 &&
           applied.length < m.pending.length &&
           probe.ids.every((id) => m.pending.includes(id));
@@ -1008,6 +1048,7 @@ export async function openDbWithSnapshot(opts: OpenWithSnapshotOptions): Promise
               allowAbsolute: [opts.dbPath],
               onlyDatabases: true,
               now,
+              ...(opts.logger === undefined ? {} : { logger: opts.logger }),
             });
             reuse = candidate;
             opts.logger?.log(
@@ -1081,7 +1122,11 @@ export async function openDbWithSnapshot(opts: OpenWithSnapshotOptions): Promise
     let restored = false;
     if (canRestore) {
       try {
-        restoreWithMarker(snapshot, opts.home, { allowAbsolute: [opts.dbPath], now });
+        restoreWithMarker(snapshot, opts.home, {
+          allowAbsolute: [opts.dbPath],
+          now,
+          ...(opts.logger === undefined ? {} : { logger: opts.logger }),
+        });
         restored = true;
       } catch (restoreErr) {
         opts.logger?.log("error", "pre-update restore failed", {

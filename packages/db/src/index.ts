@@ -32,9 +32,11 @@ export * from "./schema.ts";
 export {
   backupDatabaseFile,
   checkpointDatabaseFile,
+  type ExclusiveFileLock,
   type MigrationProbe,
   pendingMigrationIds,
   probeMigrations,
+  takeExclusiveFileLock,
 } from "./snapshot.ts";
 export type { DbLogger } from "./types.ts";
 export {

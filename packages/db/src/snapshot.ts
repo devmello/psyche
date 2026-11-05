@@ -1,4 +1,13 @@
-import { existsSync, statSync } from "node:fs";
+import {
+  closeSync,
+  existsSync,
+  constants as fsConstants,
+  ftruncateSync,
+  openSync,
+  statSync,
+  writeFileSync,
+  writeSync,
+} from "node:fs";
 import Database from "better-sqlite3";
 import { DEFAULT_MIGRATIONS_DIR, listMigrationFiles } from "./migrate.ts";
 
@@ -92,4 +101,77 @@ export function checkpointDatabaseFile(path: string): boolean {
   } finally {
     sqlite.close();
   }
+}
+
+// --- a lock the kernel releases when the process dies ---------------------------------------
+
+export interface ExclusiveFileLock {
+  /** `exlock`: an open() with O_EXLOCK (macOS, BSD). `sqlite`: an exclusive SQLite lock. */
+  readonly impl: "exlock" | "sqlite";
+  /** Writes the owner's pid for diagnostics only; the lock is the kernel's, not the text. */
+  writeNote(text: string): void;
+  release(): void;
+}
+
+/** `O_EXLOCK` on Darwin and the BSDs; Node does not export it. */
+const O_EXLOCK = 0x20;
+
+/**
+ * Takes an exclusive, non-blocking lock tied to the open file: the kernel drops it when the
+ * process exits for any reason (SIGKILL, power loss, a crash), so there is no stale lock to
+ * recognise and nothing to clean up. Returns null when another process holds it. Hold the
+ * result for as long as the lock should last.
+ *
+ * macOS: `open(O_EXLOCK | O_NONBLOCK)` on `path`. Elsewhere (or with `impl: "sqlite"`): an
+ * exclusive SQLite lock on `<path>.sqlite`, which SQLite takes with a file lock that the kernel
+ * drops the same way.
+ */
+export function takeExclusiveFileLock(
+  path: string,
+  impl: "exlock" | "sqlite" = process.platform === "darwin" ? "exlock" : "sqlite",
+): ExclusiveFileLock | null {
+  if (impl === "exlock") {
+    let fd: number;
+    try {
+      fd = openSync(
+        path,
+        fsConstants.O_CREAT | fsConstants.O_RDWR | fsConstants.O_NONBLOCK | O_EXLOCK,
+        0o600,
+      );
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code === "EAGAIN" || code === "EWOULDBLOCK" || code === "EBUSY") return null;
+      throw err;
+    }
+    return {
+      impl,
+      writeNote(text) {
+        ftruncateSync(fd, 0);
+        writeSync(fd, text, 0);
+      },
+      release() {
+        closeSync(fd);
+      },
+    };
+  }
+  const file = `${path}.sqlite`;
+  let db: Database.Database;
+  try {
+    db = new Database(file, { timeout: 0 });
+    db.pragma("locking_mode = EXCLUSIVE");
+    db.exec("BEGIN EXCLUSIVE; CREATE TABLE IF NOT EXISTS gateway_lock (x INTEGER); COMMIT;");
+  } catch (err) {
+    const code = (err as { code?: string }).code;
+    if (code === "SQLITE_BUSY" || code === "SQLITE_LOCKED") return null;
+    throw err;
+  }
+  return {
+    impl,
+    writeNote(text) {
+      writeFileSync(path, text, { mode: 0o600 });
+    },
+    release() {
+      db.close();
+    },
+  };
 }

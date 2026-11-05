@@ -41,6 +41,16 @@ export function doctorChecks(s: Snapshot): Check[] {
     });
   }
 
+  // A restore put data aside instead of overwriting it: say where, so it is not forgotten.
+  if (s.displaced?.length) {
+    add({
+      id: "displaced",
+      status: "warn",
+      message: `a restore after a failed update moved your newer data aside in $PSYCHE_HOME/backups/pre-update/${s.displaced.join(", ")}`,
+      hint: "Nothing was deleted. If you are missing anything from before the failure, it is in there for 30 days",
+    });
+  }
+
   // Gateway reachability and version.
   if (!s.probe.reachable) {
     add({

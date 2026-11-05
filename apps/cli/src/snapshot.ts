@@ -120,6 +120,8 @@ export interface Snapshot {
     /** Keys this version does not know: kept and ignored, shown by `psyche doctor`. */
     warnings?: string[];
   };
+  /** Folders under backups/pre-update where a restore moved the data it replaced. */
+  displaced?: string[];
   service: ServiceState | null;
   connection: {
     paired: boolean;
@@ -263,6 +265,17 @@ async function reachable(fetchImpl: typeof fetch, url: string): Promise<boolean>
     return res.status < 500;
   } catch {
     return false;
+  }
+}
+
+/** `backups/pre-update/.displaced-*`: where a restore put the data it replaced. */
+function displacedFolders(home: string): string[] {
+  try {
+    return readdirSync(join(home, "backups", "pre-update"))
+      .filter((n) => n.startsWith(".displaced-"))
+      .sort();
+  } catch {
+    return [];
   }
 }
 
@@ -433,6 +446,7 @@ export async function gatherSnapshot(ctx: Ctx, opts: { connect: boolean }): Prom
     mcp,
     backups,
     updater: readUpdaterState(ctx.home),
+    displaced: displacedFolders(ctx.home),
     localModel,
     ...(ctx.deps.platform === "darwin" ? { launchAgent, app } : {}),
     ...(helperPermissions === undefined ? {} : { helperPermissions }),

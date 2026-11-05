@@ -636,6 +636,13 @@ function registerIpc(): void {
     return shell.openPath(join(home, "logs"));
   });
   // The splash's Retry after a failed start: run the supervisor again, then connect.
+  // "I put my data back myself" after a restore the Gateway could not finish: forget that
+  // restore (and the note), then start again. Only the owner's click gets here.
+  handle(IPC.gatewayRestoredByHand, async () => {
+    supervisor?.retryAfterUpdateFailure({ restoredByHand: true });
+    await supervisor?.ensureRunning();
+    gateway?.start();
+  });
   handle(IPC.gatewayRetry, async () => {
     // After a failed update was undone the Gateway refuses to try again until told to.
     supervisor?.retryAfterUpdateFailure();

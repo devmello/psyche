@@ -163,6 +163,13 @@ describe("doctor rules", () => {
     expect(check(s, "config")?.message).toContain("gateway.quantumFlux");
   });
 
+  it("a restore that moved data aside → warn, naming the folder", () => {
+    const s = snap({ displaced: [".displaced-3"] });
+    expect(check(s, "displaced")).toMatchObject({ status: "warn" });
+    expect(check(s, "displaced")?.message).toContain(".displaced-3");
+    expect(check(snap(), "displaced")).toBeUndefined();
+  });
+
   it("no config.json → ok (defaults)", () => {
     const s = snap({ config: { exists: false, config: {}, problems: [] } });
     expect(check(s, "config")).toMatchObject({

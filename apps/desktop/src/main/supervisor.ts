@@ -35,7 +35,14 @@ export type GatewayRunState =
   | { kind: "starting"; mode: SupervisorMode; step?: "installing" | "waiting" }
   | { kind: "running"; mode: SupervisorMode; pid?: number }
   /** `logs`: the folder with gateway.{out,err}.log when the failure is worth reading them for. */
-  | { kind: "stopped"; mode: SupervisorMode; reason?: string; logs?: string };
+  | {
+      kind: "stopped";
+      mode: SupervisorMode;
+      reason?: string;
+      logs?: string;
+      /** A restore of the pre-update data was cut short and could not be finished. */
+      restoreInterrupted?: boolean;
+    };
 
 export function chooseMode(env: NodeJS.ProcessEnv, isPackaged: boolean): SupervisorMode {
   const forced = env.PSYCHE_GATEWAY_MODE;
@@ -523,8 +530,14 @@ export class GatewaySupervisor {
     return had;
   }
 
-  private failed(reason: string): void {
-    this.set({ kind: "stopped", mode: "launchd", reason, logs: this.logDir() });
+  private failed(reason: string, restoreInterrupted = false): void {
+    this.set({
+      kind: "stopped",
+      mode: "launchd",
+      reason,
+      logs: this.logDir(),
+      ...(restoreInterrupted ? { restoreInterrupted: true } : {}),
+    });
   }
 
   /**
@@ -532,15 +545,18 @@ export class GatewaySupervisor {
    * sentence in `run/update-failed.json`): shown in place of "did not answer". Only for the
    * build this app ships, so a note from an older build never explains a new failure.
    */
-  private updateFailure(): string | undefined {
+  private updateFailure(): { message: string; restoreInterrupted: boolean } | undefined {
     try {
       const note = JSON.parse(
         readFileSync(join(this.opts.psycheHome, "run", "update-failed.json"), "utf8"),
-      ) as { message?: unknown; build?: unknown };
+      ) as { message?: unknown; build?: unknown; key?: unknown };
       if (typeof note.message !== "string" || note.message === "") return undefined;
       if (this.opts.expectedBuild !== undefined && note.build !== this.opts.expectedBuild)
         return undefined;
-      return note.message.slice(0, 600);
+      return {
+        message: note.message.slice(0, 600),
+        restoreInterrupted: note.key === "restore-interrupted",
+      };
     } catch {
       return undefined;
     }
@@ -616,9 +632,11 @@ export class GatewaySupervisor {
     const printed = await this.run("/bin/launchctl", [...launchctl.print(uid)]);
     const exit = parseLaunchctlPrint(printed.stdout).lastExit;
     const secs = Math.round((this.opts.healthTimeoutMs ?? 60_000) / 1000);
+    const known = this.updateFailure();
     this.failed(
-      this.updateFailure() ??
+      known?.message ??
         `The Gateway did not answer within ${secs} s${exit && exit !== "0" ? ` (last exit code ${exit})` : ""}`,
+      known?.restoreInterrupted === true,
     );
   }
 

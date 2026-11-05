@@ -361,3 +361,37 @@ describe("the desktop and the CLI write one plist (L3)", () => {
     expect(carryDesktopEnv(other, undefined)).toBe(other);
   });
 });
+
+describe("a restore the Gateway could not finish (review round 3)", () => {
+  it("is shown with the flag the splash needs for 'I put my data back myself'", async () => {
+    const { base, make } = setup("build-new", { neverHealthy: true });
+    mkdirSync(join(base, "home", "run"), { recursive: true });
+    writeFileSync(
+      join(base, "home", "run", "update-failed.json"),
+      JSON.stringify({
+        build: "build-new",
+        key: "restore-interrupted",
+        message: "Psyche was putting your data back and could not finish",
+      }),
+    );
+    const sup = make("build-new");
+    await sup.ensureRunning();
+    expect(sup.getState()).toMatchObject({
+      kind: "stopped",
+      reason: "Psyche was putting your data back and could not finish",
+      restoreInterrupted: true,
+    });
+  });
+
+  it("an ordinary update failure does not carry the flag", async () => {
+    const { base, make } = setup("build-new", { neverHealthy: true });
+    mkdirSync(join(base, "home", "run"), { recursive: true });
+    writeFileSync(
+      join(base, "home", "run", "update-failed.json"),
+      JSON.stringify({ build: "build-new", key: "build-new", message: "It put everything back" }),
+    );
+    const sup = make("build-new");
+    await sup.ensureRunning();
+    expect(sup.getState()).not.toHaveProperty("restoreInterrupted");
+  });
+});
