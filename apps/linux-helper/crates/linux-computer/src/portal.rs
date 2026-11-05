@@ -78,7 +78,10 @@ pub struct Portal {
 }
 
 fn dbus<E: std::fmt::Display>(what: &str, e: E) -> CapError {
-    CapError::unavailable("portal_unavailable", format!("The desktop portal did not answer {what}: {e}"))
+    CapError::unavailable(
+        "portal_unavailable",
+        format!("The desktop portal did not answer {what}: {e}"),
+    )
 }
 
 impl Portal {
@@ -92,6 +95,20 @@ impl Portal {
             dialog_timeout: DIALOG_TIMEOUT,
             generation: Arc::new(AtomicU64::new(0)),
         }
+    }
+
+    /// A portal client on the session bus (method calls time out after 10 s; the dialog is
+    /// waited for through the `Response` signal, not a method reply).
+    pub fn connect(token_path: PathBuf) -> CapResult<Portal> {
+        let conn = zbus::blocking::connection::Builder::session()
+            .and_then(|b| b.method_timeout(Duration::from_secs(10)).build())
+            .map_err(|e| {
+                CapError::unavailable(
+                    "no_graphical_session",
+                    format!("Needs a graphical session on this computer (no session bus: {e})"),
+                )
+            })?;
+        Ok(Portal::new(conn, token_path))
     }
 
     pub fn with_dialog_timeout(mut self, t: Duration) -> Portal {
@@ -130,12 +147,23 @@ impl Portal {
     // --- Requests ---------------------------------------------------------------------------
 
     fn token(&self, kind: &str) -> String {
-        format!("psyche_{kind}_{}_{}", std::process::id(), self.counter.fetch_add(1, Ordering::SeqCst))
+        format!(
+            "psyche_{kind}_{}_{}",
+            std::process::id(),
+            self.counter.fetch_add(1, Ordering::SeqCst)
+        )
     }
 
     fn request_path(&self, token: &str) -> Option<String> {
-        let me = self.conn.unique_name()?.as_str().trim_start_matches(':').replace('.', "_");
-        Some(format!("/org/freedesktop/portal/desktop/request/{me}/{token}"))
+        let me = self
+            .conn
+            .unique_name()?
+            .as_str()
+            .trim_start_matches(':')
+            .replace('.', "_");
+        Some(format!(
+            "/org/freedesktop/portal/desktop/request/{me}/{token}"
+        ))
     }
 
     /// Calls a portal method that answers with a `Request` handle, and waits for its
@@ -148,7 +176,9 @@ impl Portal {
         body: &(impl serde::Serialize + zbus::zvariant::DynamicType),
         token: &str,
     ) -> CapResult<(u32, HashMap<String, OwnedValue>)> {
-        let path = self.request_path(token).ok_or_else(|| dbus(member, "no bus name"))?;
+        let path = self
+            .request_path(token)
+            .ok_or_else(|| dbus(member, "no bus name"))?;
         let rule = zbus::MatchRule::builder()
             .msg_type(zbus::message::Type::Signal)
             .interface("org.freedesktop.portal.Request")
@@ -156,27 +186,41 @@ impl Portal {
             .and_then(|b| b.path(path.as_str()))
             .map(|b| b.build())
             .map_err(|e| dbus(member, e))?;
-        let mut iter = zbus::blocking::MessageIterator::for_match_rule(rule, &self.conn, Some(8)).map_err(|e| dbus(member, e))?;
+        let mut iter = zbus::blocking::MessageIterator::for_match_rule(rule, &self.conn, Some(8))
+            .map_err(|e| dbus(member, e))?;
         self.conn
             .call_method(Some(DESKTOP), DESKTOP_PATH, Some(iface), member, body)
             .map_err(|e| dbus(member, e))?;
         let (tx, rx) = mpsc::channel();
         std::thread::spawn(move || {
             if let Some(Ok(msg)) = iter.next() {
-                let _ = tx.send(msg.body().deserialize::<(u32, HashMap<String, OwnedValue>)>());
+                let _ = tx.send(
+                    msg.body()
+                        .deserialize::<(u32, HashMap<String, OwnedValue>)>(),
+                );
             }
         });
         match rx.recv_timeout(timeout) {
             Ok(Ok(r)) => Ok(r),
             Ok(Err(e)) => Err(dbus(member, e)),
-            Err(_) => Err(CapError::unavailable("portal_timeout", "The owner did not answer the screen and input permission dialog in time").retryable()),
+            Err(_) => Err(CapError::unavailable(
+                "portal_timeout",
+                "The owner did not answer the screen and input permission dialog in time",
+            )
+            .retryable()),
         }
     }
 
     fn property_u32(&self, iface: &str, name: &str) -> Option<u32> {
         let msg = self
             .conn
-            .call_method(Some(DESKTOP), DESKTOP_PATH, Some("org.freedesktop.DBus.Properties"), "Get", &(iface, name))
+            .call_method(
+                Some(DESKTOP),
+                DESKTOP_PATH,
+                Some("org.freedesktop.DBus.Properties"),
+                "Get",
+                &(iface, name),
+            )
             .ok()?;
         let v: OwnedValue = msg.body().deserialize().ok()?;
         u32::try_from(v).ok()
@@ -184,33 +228,48 @@ impl Portal {
 
     /// Whether the desktop offers what a combined session needs.
     pub fn available(&self) -> bool {
-        self.property_u32(REMOTE, "version").is_some() && self.property_u32(CAST, "version").is_some()
+        self.property_u32(REMOTE, "version").is_some()
+            && self.property_u32(CAST, "version").is_some()
     }
 
     // --- The session ------------------------------------------------------------------------
 
     fn open(&self, use_token: bool) -> CapResult<Open> {
         let remote_version = self.property_u32(REMOTE, "version").ok_or_else(|| {
-            CapError::unavailable("portal_unavailable", "This desktop has no RemoteDesktop portal, so Psyche cannot send input here")
+            CapError::unavailable(
+                "portal_unavailable",
+                "This desktop has no RemoteDesktop portal, so Psyche cannot send input here",
+            )
         })?;
         if self.property_u32(CAST, "version").is_none() {
-            return Err(CapError::unavailable("portal_unavailable", "This desktop has no ScreenCast portal, so Psyche cannot see the screen here"));
+            return Err(CapError::unavailable(
+                "portal_unavailable",
+                "This desktop has no ScreenCast portal, so Psyche cannot see the screen here",
+            ));
         }
         let timeout = Duration::from_secs(30);
         let t = self.token("create");
         let session_token = self.token("session");
-        let create: HashMap<&str, Value<'_>> =
-            HashMap::from([("handle_token", Value::from(t.as_str())), ("session_handle_token", Value::from(session_token.as_str()))]);
+        let create: HashMap<&str, Value<'_>> = HashMap::from([
+            ("handle_token", Value::from(t.as_str())),
+            ("session_handle_token", Value::from(session_token.as_str())),
+        ]);
         let (resp, results) = self.request(REMOTE, "CreateSession", timeout, &(create,), &t)?;
         if resp != 0 {
-            return Err(CapError::unavailable("portal_failed", "The desktop refused to start a remote-desktop session"));
+            return Err(CapError::unavailable(
+                "portal_failed",
+                "The desktop refused to start a remote-desktop session",
+            ));
         }
         let session_str: String = results
             .get("session_handle")
             .and_then(|v| v.try_clone().ok())
             .and_then(|v| String::try_from(v).ok().or(None))
-            .ok_or_else(|| CapError::unavailable("portal_failed", "The portal returned no session"))?;
-        let session = OwnedObjectPath::try_from(session_str.as_str()).map_err(|e| dbus("CreateSession", e))?;
+            .ok_or_else(|| {
+                CapError::unavailable("portal_failed", "The portal returned no session")
+            })?;
+        let session = OwnedObjectPath::try_from(session_str.as_str())
+            .map_err(|e| dbus("CreateSession", e))?;
 
         // Keyboard (1) and pointer (2); persistence until revoked (2); the stored token.
         let t = self.token("devices");
@@ -226,23 +285,40 @@ impl Portal {
         let (resp, _) = self.request(REMOTE, "SelectDevices", timeout, &(&session, opts), &t)?;
         if resp != 0 {
             self.close_session(&session);
-            return Err(CapError::unavailable("portal_failed", "The desktop refused the keyboard and pointer request"));
+            return Err(CapError::unavailable(
+                "portal_failed",
+                "The desktop refused the keyboard and pointer request",
+            ));
         }
 
         // One monitor, the cursor drawn into the frames.
         let t = self.token("sources");
-        let opts: HashMap<&str, Value<'_>> =
-            HashMap::from([("handle_token", Value::from(t.as_str())), ("types", Value::from(1u32)), ("multiple", Value::from(false)), ("cursor_mode", Value::from(2u32))]);
+        let opts: HashMap<&str, Value<'_>> = HashMap::from([
+            ("handle_token", Value::from(t.as_str())),
+            ("types", Value::from(1u32)),
+            ("multiple", Value::from(false)),
+            ("cursor_mode", Value::from(2u32)),
+        ]);
         let (resp, _) = self.request(CAST, "SelectSources", timeout, &(&session, opts), &t)?;
         if resp != 0 {
             self.close_session(&session);
-            return Err(CapError::unavailable("portal_failed", "The desktop refused the screen request"));
+            return Err(CapError::unavailable(
+                "portal_failed",
+                "The desktop refused the screen request",
+            ));
         }
 
         // The dialog (or, with a good token, none).
         let t = self.token("start");
-        let opts: HashMap<&str, Value<'_>> = HashMap::from([("handle_token", Value::from(t.as_str()))]);
-        let (resp, results) = match self.request(REMOTE, "Start", self.dialog_timeout, &(&session, "", opts), &t) {
+        let opts: HashMap<&str, Value<'_>> =
+            HashMap::from([("handle_token", Value::from(t.as_str()))]);
+        let (resp, results) = match self.request(
+            REMOTE,
+            "Start",
+            self.dialog_timeout,
+            &(&session, "", opts),
+            &t,
+        ) {
             Ok(r) => r,
             Err(e) => {
                 self.close_session(&session);
@@ -261,19 +337,36 @@ impl Portal {
             }
             _ => {
                 self.close_session(&session);
-                return Err(CapError::unavailable("portal_failed", "The desktop could not start screen and input sharing"));
+                return Err(CapError::unavailable(
+                    "portal_failed",
+                    "The desktop could not start screen and input sharing",
+                ));
             }
         }
-        if let Some(tok) = results.get("restore_token").and_then(|v| v.try_clone().ok()).and_then(|v| String::try_from(v).ok()) {
+        if let Some(tok) = results
+            .get("restore_token")
+            .and_then(|v| v.try_clone().ok())
+            .and_then(|v| String::try_from(v).ok())
+        {
             self.store_token(&tok);
         }
-        let streams = results.get("streams").map(parse_streams).unwrap_or_default();
+        let streams = results
+            .get("streams")
+            .map(parse_streams)
+            .unwrap_or_default();
         if streams.is_empty() {
             self.close_session(&session);
-            return Err(CapError::unavailable("portal_failed", "The desktop shared no screen"));
+            return Err(CapError::unavailable(
+                "portal_failed",
+                "The desktop shared no screen",
+            ));
         }
         self.watch_closed(&session);
-        Ok(Open { session, streams, remote_version })
+        Ok(Open {
+            session,
+            streams,
+            remote_version,
+        })
     }
 
     /// Listens for `Session.Closed` on its own thread: the owner pressed Stop.
@@ -288,7 +381,10 @@ impl Portal {
         else {
             return;
         };
-        let Ok(iter) = zbus::blocking::MessageIterator::for_match_rule(rule, &self.conn, Some(4)) else { return };
+        let Ok(iter) = zbus::blocking::MessageIterator::for_match_rule(rule, &self.conn, Some(4))
+        else {
+            return;
+        };
         let on_closed = self.on_closed.clone();
         let generation = self.generation.clone();
         std::thread::spawn(move || {
@@ -302,38 +398,67 @@ impl Portal {
     }
 
     fn close_session(&self, session: &OwnedObjectPath) {
-        let _ = self.conn.call_method(Some(DESKTOP), session.as_str(), Some("org.freedesktop.portal.Session"), "Close", &());
+        let _ = self.conn.call_method(
+            Some(DESKTOP),
+            session.as_str(),
+            Some("org.freedesktop.portal.Session"),
+            "Close",
+            &(),
+        );
     }
 
     fn with_open<T>(&self, f: impl FnOnce(&Open) -> CapResult<T>) -> CapResult<T> {
         let g = self.state.lock().unwrap_or_else(|e| e.into_inner());
         match g.as_ref() {
             Some(o) => f(o),
-            None => Err(CapError::unavailable("portal_closed", "Screen and input sharing ended").retryable()),
+            None => Err(
+                CapError::unavailable("portal_closed", "Screen and input sharing ended")
+                    .retryable(),
+            ),
         }
     }
 
     // --- Notify* ----------------------------------------------------------------------------
 
-    fn notify(&self, member: &str, body: &(impl serde::Serialize + zbus::zvariant::DynamicType)) -> CapResult<()> {
-        self.conn.call_method(Some(DESKTOP), DESKTOP_PATH, Some(REMOTE), member, body).map(|_| ()).map_err(|e| {
-            CapError::unavailable("portal_input_failed", format!("The desktop refused input ({member}): {e}"))
-        })
+    fn notify(
+        &self,
+        member: &str,
+        body: &(impl serde::Serialize + zbus::zvariant::DynamicType),
+    ) -> CapResult<()> {
+        self.conn
+            .call_method(Some(DESKTOP), DESKTOP_PATH, Some(REMOTE), member, body)
+            .map(|_| ())
+            .map_err(|e| {
+                CapError::unavailable(
+                    "portal_input_failed",
+                    format!("The desktop refused input ({member}): {e}"),
+                )
+            })
     }
 
     fn key_sym(&self, sym: u32, press: bool) -> CapResult<()> {
         let s = self.with_open(|o| Ok(o.session.clone()))?;
         let opts: HashMap<&str, Value<'_>> = HashMap::new();
-        self.notify("NotifyKeyboardKeysym", &(&s, opts, sym as i32, u32::from(press)))
+        self.notify(
+            "NotifyKeyboardKeysym",
+            &(&s, opts, sym as i32, u32::from(press)),
+        )
     }
 
     fn pointer_to(&self, x: f64, y: f64) -> CapResult<()> {
         let (s, node, rel) = self.with_open(|o| {
             let st = o.streams.first().expect("streams are checked non-empty");
-            Ok((o.session.clone(), st.node_id, (x - f64::from(st.position.0), y - f64::from(st.position.1))))
+            Ok((
+                o.session.clone(),
+                st.node_id,
+                (x - f64::from(st.position.0), y - f64::from(st.position.1)),
+            ))
         })?;
         let opts: HashMap<&str, Value<'_>> = HashMap::new();
-        self.notify("NotifyPointerMotionAbsolute", &(&s, opts, node, rel.0, rel.1))
+        self.notify(
+            "NotifyPointerMotionAbsolute",
+            &(&s, opts, node, rel.0, rel.1),
+        )
     }
 
     fn button(&self, button: i32, press: bool) -> CapResult<()> {
@@ -348,7 +473,9 @@ impl Portal {
             self.key_sym(*m, true)?;
             held.push(*m);
         }
-        let r = self.key_sym(sym, true).and_then(|_| self.key_sym(sym, false));
+        let r = self
+            .key_sym(sym, true)
+            .and_then(|_| self.key_sym(sym, false));
         for m in held.iter().rev() {
             let _ = self.key_sym(*m, false);
         }
@@ -356,11 +483,20 @@ impl Portal {
     }
 
     pub fn streams(&self) -> Vec<StreamInfo> {
-        self.state.lock().unwrap_or_else(|e| e.into_inner()).as_ref().map(|o| o.streams.clone()).unwrap_or_default()
+        self.state
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .as_ref()
+            .map(|o| o.streams.clone())
+            .unwrap_or_default()
     }
 
     pub fn remote_version(&self) -> Option<u32> {
-        self.state.lock().unwrap_or_else(|e| e.into_inner()).as_ref().map(|o| o.remote_version)
+        self.state
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .as_ref()
+            .map(|o| o.remote_version)
     }
 
     /// An fd for the PipeWire remote of the open session.
@@ -369,15 +505,25 @@ impl Portal {
         let opts: HashMap<&str, Value<'_>> = HashMap::new();
         let msg = self
             .conn
-            .call_method(Some(DESKTOP), DESKTOP_PATH, Some(CAST), "OpenPipeWireRemote", &(&s, opts))
+            .call_method(
+                Some(DESKTOP),
+                DESKTOP_PATH,
+                Some(CAST),
+                "OpenPipeWireRemote",
+                &(&s, opts),
+            )
             .map_err(|e| dbus("OpenPipeWireRemote", e))?;
-        msg.body().deserialize::<OwnedFd>().map_err(|e| dbus("OpenPipeWireRemote", e))
+        msg.body()
+            .deserialize::<OwnedFd>()
+            .map_err(|e| dbus("OpenPipeWireRemote", e))
     }
 }
 
 fn parse_streams(v: &OwnedValue) -> Vec<StreamInfo> {
     let Ok(v) = v.try_clone() else { return vec![] };
-    let Ok(list) = Vec::<(u32, HashMap<String, OwnedValue>)>::try_from(v) else { return vec![] };
+    let Ok(list) = Vec::<(u32, HashMap<String, OwnedValue>)>::try_from(v) else {
+        return vec![];
+    };
     list.into_iter()
         .map(|(node_id, props)| {
             let pair = |k: &str| -> (i32, i32) {
@@ -387,7 +533,11 @@ fn parse_streams(v: &OwnedValue) -> Vec<StreamInfo> {
                     .and_then(|v| <(i32, i32)>::try_from(v).ok())
                     .unwrap_or((0, 0))
             };
-            StreamInfo { node_id, position: pair("position"), size: pair("size") }
+            StreamInfo {
+                node_id,
+                position: pair("position"),
+                size: pair("size"),
+            }
         })
         .collect()
 }
@@ -398,10 +548,15 @@ fn read_token(path: &std::path::Path) -> Option<String> {
     use std::io::Read;
     // A bounded read of a file only we write: anything big or odd is ignored.
     let mut buf = String::new();
-    std::fs::File::open(path).ok()?.take(4096).read_to_string(&mut buf).ok()?;
+    std::fs::File::open(path)
+        .ok()?
+        .take(4096)
+        .read_to_string(&mut buf)
+        .ok()?;
     let v: Json = serde_json::from_str(&buf).ok()?;
     let t = v.get("restoreToken")?.as_str()?;
-    (!t.is_empty() && t.len() <= MAX_TOKEN && !t.chars().any(char::is_control)).then(|| t.to_string())
+    (!t.is_empty() && t.len() <= MAX_TOKEN && !t.chars().any(char::is_control))
+        .then(|| t.to_string())
 }
 
 fn write_token(path: &std::path::Path, token: &str) -> std::io::Result<()> {
@@ -412,16 +567,24 @@ fn write_token(path: &std::path::Path, token: &str) -> std::io::Result<()> {
         std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o700))?;
     }
     let tmp = path.with_extension(format!("{}.tmp", std::process::id()));
-    let mut f = std::fs::OpenOptions::new().write(true).create(true).truncate(true).mode(0o600).open(&tmp)?;
+    let mut f = std::fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .mode(0o600)
+        .open(&tmp)?;
     f.write_all(json!({"restoreToken": token}).to_string().as_bytes())?;
     f.sync_all()?;
     std::fs::rename(&tmp, path)
 }
 
+/// Captures one frame of the open session (PipeWire in the helper).
+pub type FramesFn = Box<dyn Fn(&Portal) -> CapResult<Frame> + Send + Sync>;
+
 /// The `RemotePath` over the portal.
 pub struct PortalPath {
     pub portal: Arc<Portal>,
-    pub frames: Box<dyn Fn(&Portal) -> CapResult<Frame> + Send + Sync>,
+    pub frames: FramesFn,
 }
 
 impl RemotePath for PortalPath {
@@ -430,13 +593,22 @@ impl RemotePath for PortalPath {
     }
 
     fn ready(&self) -> CapResult<()> {
-        if self.portal.state.lock().unwrap_or_else(|e| e.into_inner()).is_some() {
+        if self
+            .portal
+            .state
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .is_some()
+        {
             return Ok(());
         }
         // A stored token that no longer restores is dropped and the owner is asked again.
         let first = self.portal.open(true);
         let open = match first {
-            Err(e) if self.portal.stored_token().is_some() && matches!(e.reason.as_str(), "portal_failed") => {
+            Err(e)
+                if self.portal.stored_token().is_some()
+                    && matches!(e.reason.as_str(), "portal_failed") =>
+            {
                 let _ = std::fs::remove_file(&self.portal.token_path);
                 self.portal.open(false)?
             }
@@ -446,7 +618,15 @@ impl RemotePath for PortalPath {
         Ok(())
     }
 
-    fn click(&self, x: f64, y: f64, count: u32, right: bool, mods: &[u32], stop: &StopSignal) -> CapResult<()> {
+    fn click(
+        &self,
+        x: f64,
+        y: f64,
+        count: u32,
+        right: bool,
+        mods: &[u32],
+        stop: &StopSignal,
+    ) -> CapResult<()> {
         stop.check()?;
         self.portal.pointer_to(x, y)?;
         std::thread::sleep(Duration::from_millis(30));
@@ -460,7 +640,10 @@ impl RemotePath for PortalPath {
                 result = Err(e);
                 break;
             }
-            result = self.portal.button(b, true).and_then(|_| self.portal.button(b, false));
+            result = self
+                .portal
+                .button(b, true)
+                .and_then(|_| self.portal.button(b, false));
             if result.is_err() {
                 break;
             }
@@ -472,7 +655,12 @@ impl RemotePath for PortalPath {
         result
     }
 
-    fn type_text(&self, text: &str, stop: &StopSignal, before_chunk: &mut dyn FnMut() -> CapResult<()>) -> CapResult<()> {
+    fn type_text(
+        &self,
+        text: &str,
+        stop: &StopSignal,
+        before_chunk: &mut dyn FnMut() -> CapResult<()>,
+    ) -> CapResult<()> {
         for chunk in crate::keychord::typing_chunks(text, 16) {
             stop.check()?;
             before_chunk()?;
@@ -499,7 +687,8 @@ impl RemotePath for PortalPath {
         for (axis, steps) in [(0u32, -dy), (1u32, -dx)] {
             if steps != 0 {
                 let opts: HashMap<&str, Value<'_>> = HashMap::new();
-                self.portal.notify("NotifyPointerAxisDiscrete", &(&s, opts, axis, steps))?;
+                self.portal
+                    .notify("NotifyPointerAxisDiscrete", &(&s, opts, axis, steps))?;
             }
         }
         Ok(())
@@ -517,7 +706,10 @@ impl RemotePath for PortalPath {
                 break;
             }
             let t = f64::from(i) / 12.0;
-            if let Err(e) = self.portal.pointer_to(from.0 + (to.0 - from.0) * t, from.1 + (to.1 - from.1) * t) {
+            if let Err(e) = self
+                .portal
+                .pointer_to(from.0 + (to.0 - from.0) * t, from.1 + (to.1 - from.1) * t)
+            {
                 result = Err(e);
                 break;
             }
@@ -533,12 +725,27 @@ impl RemotePath for PortalPath {
     }
 
     fn displays(&self) -> Vec<Rect> {
-        self.portal.streams().iter().map(|s| Rect::new(f64::from(s.position.0), f64::from(s.position.1), f64::from(s.size.0), f64::from(s.size.1))).collect()
+        self.portal
+            .streams()
+            .iter()
+            .map(|s| {
+                Rect::new(
+                    f64::from(s.position.0),
+                    f64::from(s.position.1),
+                    f64::from(s.size.0),
+                    f64::from(s.size.1),
+                )
+            })
+            .collect()
     }
 
     fn on_closed(&self, f: Box<dyn Fn() + Send + Sync>) {
         let state = self.portal.state.clone();
-        *self.portal.on_closed.lock().unwrap_or_else(|e| e.into_inner()) = Some(Box::new(move || {
+        *self
+            .portal
+            .on_closed
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = Some(Box::new(move || {
             // The session is gone: the next call opens a new one (and asks, if the token is spent).
             *state.lock().unwrap_or_else(|e| e.into_inner()) = None;
             f();
@@ -562,7 +769,10 @@ impl Portal {
 
     /// Whether a session is open now.
     pub fn is_open(&self) -> bool {
-        self.state.lock().unwrap_or_else(|e| e.into_inner()).is_some()
+        self.state
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .is_some()
     }
 }
 

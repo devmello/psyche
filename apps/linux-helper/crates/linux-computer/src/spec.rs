@@ -45,7 +45,11 @@ impl CapSpecLite {
 pub mod schema {
     use serde_json::{json, Map, Value};
 
-    pub fn object(props: Vec<(&str, Value)>, required: &[&str], description: Option<&str>) -> Value {
+    pub fn object(
+        props: Vec<(&str, Value)>,
+        required: &[&str],
+        description: Option<&str>,
+    ) -> Value {
         let mut p = Map::new();
         for (k, v) in props {
             p.insert(k.to_string(), v);
@@ -174,7 +178,13 @@ fn click_spec(name: &'static str, description: &'static str, verb: &str) -> CapS
         description,
         side_effect: "write",
         target_kind: Some("app"),
-        input_schema: with_approval(target_schema(vec![("modifiers", array(string_enum(&["cmd", "shift", "opt", "ctrl"])))], verb)),
+        input_schema: with_approval(target_schema(
+            vec![(
+                "modifiers",
+                array(string_enum(&["cmd", "shift", "opt", "ctrl"])),
+            )],
+            verb,
+        )),
         streaming: false,
         receipt_kind: RECEIPT,
     }
@@ -394,6 +404,9 @@ mod tests {
         assert_eq!(entry["targetKind"], "app");
         assert!(entry.get("receiptKind").is_none());
         let click = s.iter().find(|x| x.name == "computer.click").unwrap();
-        assert_eq!(click.input_schema["properties"]["expect"]["required"], json!(["role"]));
+        assert_eq!(
+            click.input_schema["properties"]["expect"]["required"],
+            json!(["role"])
+        );
     }
 }

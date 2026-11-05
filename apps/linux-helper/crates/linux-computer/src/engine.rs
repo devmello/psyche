@@ -14,9 +14,13 @@ use crate::error::{code, CapError, CapResult};
 use crate::hygiene::{self, AppRef};
 use crate::keychord::{send_keys, KeyChord, Mods};
 use crate::snapshot::{
-    text, Expectation, HeaderIdentity, Rect, RefTable, Resolution, Selector, Snapshot, SnapshotBuilder, SnapshotNode, SnapshotOptions,
+    text, Expectation, HeaderIdentity, Rect, RefTable, Resolution, Selector, Snapshot,
+    SnapshotBuilder, SnapshotNode, SnapshotOptions,
 };
-use crate::tiers::{fixed_caps, risk_labels, ApprovalBinding, Intent, SessionLock, StopSignal, TierPolicy, TierSettings};
+use crate::tiers::{
+    fixed_caps, risk_labels, ApprovalBinding, Intent, SessionLock, StopSignal, TierPolicy,
+    TierSettings,
+};
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
@@ -46,7 +50,10 @@ pub struct CapOutput {
 
 impl CapOutput {
     fn plain(result: Value) -> CapOutput {
-        CapOutput { result, receipt: None }
+        CapOutput {
+            result,
+            receipt: None,
+        }
     }
 }
 
@@ -66,8 +73,20 @@ struct Outcome {
 }
 
 impl Outcome {
-    fn new(status: &'static str, method: &'static str, detail: Option<String>, ref_: Option<String>, app: &AppInfo) -> Outcome {
-        Outcome { status, method, detail, ref_, app: app.clone() }
+    fn new(
+        status: &'static str,
+        method: &'static str,
+        detail: Option<String>,
+        ref_: Option<String>,
+        app: &AppInfo,
+    ) -> Outcome {
+        Outcome {
+            status,
+            method,
+            detail,
+            ref_,
+            app: app.clone(),
+        }
     }
 
     fn output(self, verb: &str) -> CapOutput {
@@ -94,7 +113,11 @@ impl Outcome {
         }
         CapOutput {
             result: Value::Object(o),
-            receipt: Some(ReceiptDraft { outcome, summary: format!("{verb} in {}: {}", self.app.name, self.status), external_refs: refs }),
+            receipt: Some(ReceiptDraft {
+                outcome,
+                summary: format!("{verb} in {}: {}", self.app.name, self.status),
+                external_refs: refs,
+            }),
         }
     }
 }
@@ -111,7 +134,11 @@ fn not_responding(app: &str) -> CapError {
 }
 
 fn decode<T: DeserializeOwned>(params: &Value) -> CapResult<T> {
-    let v = if params.is_null() { Value::Object(Map::new()) } else { params.clone() };
+    let v = if params.is_null() {
+        Value::Object(Map::new())
+    } else {
+        params.clone()
+    };
     serde_json::from_value(v).map_err(|e| {
         let msg = e.to_string();
         if let Some(rest) = msg.strip_prefix("missing field `") {
@@ -189,7 +216,12 @@ impl<B: Backend> Engine<B> {
     pub fn user_stopped(&self) {
         self.stop.trip();
         let stopped = self.sessions.stop_active();
-        if let Some(f) = self.on_user_stop.lock().unwrap_or_else(|e| e.into_inner()).as_ref() {
+        if let Some(f) = self
+            .on_user_stop
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .as_ref()
+        {
             f(stopped);
         }
     }
@@ -206,7 +238,10 @@ impl<B: Backend> Engine<B> {
                 self.backend.check_desktop()?;
                 self.sessions.acquire(s)
             }
-            _ => Err(CapError::invalid_params("session (the run id) is required for computer actions", Some("session"))),
+            _ => Err(CapError::invalid_params(
+                "session (the run id) is required for computer actions",
+                Some("session"),
+            )),
         }
     }
 
@@ -223,7 +258,13 @@ impl<B: Backend> Engine<B> {
             return apps
                 .into_iter()
                 .find(|a| i64::from(a.pid) == pid)
-                .ok_or_else(|| CapError::new(code::NOT_FOUND, "app_not_running", "No running app has that pid"));
+                .ok_or_else(|| {
+                    CapError::new(
+                        code::NOT_FOUND,
+                        "app_not_running",
+                        "No running app has that pid",
+                    )
+                });
         }
         match named.map(str::trim).filter(|s| !s.is_empty()) {
             Some(q) => {
@@ -233,8 +274,12 @@ impl<B: Backend> Engine<B> {
                     .or_else(|| apps.iter().find(|a| a.name.eq_ignore_ascii_case(q)))
                     .cloned()
                     .ok_or_else(|| {
-                        CapError::new(code::NOT_FOUND, "app_not_running", format!("{q} is not running. Use apps.open first, or apps.list."))
-                            .detail("app", q)
+                        CapError::new(
+                            code::NOT_FOUND,
+                            "app_not_running",
+                            format!("{q} is not running. Use apps.open first, or apps.list."),
+                        )
+                        .detail("app", q)
                     })
             }
             None => apps
@@ -269,30 +314,65 @@ impl<B: Backend> Engine<B> {
         let data = self.backend.data(&element).ok_or_else(|| stale(r))?;
         // The element's owner decides the tier: a ref never carries one app's approval to another.
         let app = self.app_for_pid(data.pid).ok_or_else(|| stale(r))?;
-        let options = self.last.lock().unwrap_or_else(|e| e.into_inner()).1.clone();
+        let options = self
+            .last
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .1
+            .clone();
         let mut scratch = RefTable::default();
-        let label = SnapshotBuilder::new(&*self.backend, &mut scratch, options, None).label_for(&element);
+        let label =
+            SnapshotBuilder::new(&*self.backend, &mut scratch, options, None).label_for(&element);
         let ax = crate::roles::map_role(&data.facts);
-        Ok(Resolved { role_name: text::role_name(ax.role, ax.subrole), label, data, element, ref_: r.to_string(), app })
+        Ok(Resolved {
+            role_name: text::role_name(ax.role, ax.subrole),
+            label,
+            data,
+            element,
+            ref_: r.to_string(),
+            app,
+        })
     }
 
     fn resolve_selector(&self, sel: &Selector) -> CapResult<String> {
         let last = self.last.lock().unwrap_or_else(|e| e.into_inner());
         match sel.resolve(&last.0) {
             Resolution::Ref(r) => Ok(r),
-            Resolution::None => Err(CapError::new(code::NOT_FOUND, "selector_no_match", "No element in the last snapshot matches the selector exactly")),
-            Resolution::Ambiguous(refs) => {
-                Err(CapError::new(code::CONFLICT, "selector_ambiguous", "The selector matches several elements; use a ref").detail("candidates", json!(refs)))
-            }
+            Resolution::None => Err(CapError::new(
+                code::NOT_FOUND,
+                "selector_no_match",
+                "No element in the last snapshot matches the selector exactly",
+            )),
+            Resolution::Ambiguous(refs) => Err(CapError::new(
+                code::CONFLICT,
+                "selector_ambiguous",
+                "The selector matches several elements; use a ref",
+            )
+            .detail("candidates", json!(refs))),
         }
     }
 
     // --- Snapshots --------------------------------------------------------------------------
 
-    fn snapshot_on(&self, app: &AppInfo, window: Option<usize>, root: Option<&str>, options: SnapshotOptions) -> CapResult<Snapshot> {
+    fn snapshot_on(
+        &self,
+        app: &AppInfo,
+        window: Option<usize>,
+        root: Option<&str>,
+        options: SnapshotOptions,
+    ) -> CapResult<Snapshot> {
         let b = &*self.backend;
         let windows = b.window_elements(app);
-        let no_window = || CapError::new(code::NOT_FOUND, "no_window", format!("{} has no open window. Use root: \"app\" for menus and popups.", app.name));
+        let no_window = || {
+            CapError::new(
+                code::NOT_FOUND,
+                "no_window",
+                format!(
+                    "{} has no open window. Use root: \"app\" for menus and popups.",
+                    app.name
+                ),
+            )
+        };
         let root_el = match root {
             None | Some("window") => match window {
                 Some(i) => windows.get(i).cloned().ok_or_else(no_window)?,
@@ -303,12 +383,22 @@ impl<B: Backend> Engine<B> {
                 let el = self.resolve(r)?;
                 // A ref from another app must not bypass that app's tier.
                 if el.app.pid != app.pid {
-                    return Err(CapError::new(code::INVALID_PARAMS, "ref_other_app", format!("{r} belongs to {}, not {}", el.app.name, app.name)));
+                    return Err(CapError::new(
+                        code::INVALID_PARAMS,
+                        "ref_other_app",
+                        format!("{r} belongs to {}, not {}", el.app.name, app.name),
+                    ));
                 }
                 el.element
             }
         };
-        if app.electron && self.primed.lock().unwrap_or_else(|e| e.into_inner()).insert(app.pid) {
+        if app.electron
+            && self
+                .primed
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .insert(app.pid)
+        {
             // Chromium builds its tree lazily once an assistive technology is announced; give it
             // a moment after the first snapshot request.
             b.pause(300, &self.stop).ok();
@@ -319,7 +409,12 @@ impl<B: Backend> Engine<B> {
             let mut refs = self.refs.lock().unwrap_or_else(|e| e.into_inner());
             SnapshotBuilder::new(b, &mut refs, options.clone(), focused).snapshot(
                 &root_el,
-                HeaderIdentity { app: &app.name, pid: app.pid, bundle_id: Some(&app.id), electron: app.electron },
+                HeaderIdentity {
+                    app: &app.name,
+                    pid: app.pid,
+                    bundle_id: Some(&app.id),
+                    electron: app.electron,
+                },
                 &[],
             )
         };
@@ -330,57 +425,127 @@ impl<B: Backend> Engine<B> {
     // --- Shared checks ----------------------------------------------------------------------
 
     /// Resolves the target element, checks the session, tier, expectation and risk.
-    fn element(&self, inv: &Invocation, params: &Value, t: &TargetParams, intent: Intent, custom: Option<&str>) -> CapResult<Resolved<B::Element>> {
+    fn element(
+        &self,
+        inv: &Invocation,
+        params: &Value,
+        t: &TargetParams,
+        intent: Intent,
+        custom: Option<&str>,
+    ) -> CapResult<Resolved<B::Element>> {
         self.begin_action(t.session.as_deref())?;
         let r = match (&t.ref_, &t.selector) {
             (Some(r), _) => r.clone(),
             (None, Some(sel)) => self.resolve_selector(sel)?,
-            _ => return Err(CapError::invalid_params("ref or selector is required", Some("ref"))),
+            _ => {
+                return Err(CapError::invalid_params(
+                    "ref or selector is required",
+                    Some("ref"),
+                ))
+            }
         };
         let el = self.resolve(&r)?;
         // A click or press on a menu-like element runs an app command (#266).
         let intent = intent.escalated(Some(ax_role_of(&el.data)));
-        self.policy.authorize(intent, Some(&el.app.id), &el.app.name, self.binding(inv, params).as_ref())?;
-        let expect = t
-            .expect
-            .as_ref()
-            .ok_or_else(|| CapError::invalid_params("expect {role, label} from the snapshot is required with a ref", Some("expect")))?;
+        self.policy.authorize(
+            intent,
+            Some(&el.app.id),
+            &el.app.name,
+            self.binding(inv, params).as_ref(),
+        )?;
+        let expect = t.expect.as_ref().ok_or_else(|| {
+            CapError::invalid_params(
+                "expect {role, label} from the snapshot is required with a ref",
+                Some("expect"),
+            )
+        })?;
         let value = self.backend.current_value(&el.element);
         let secure = is_secure(&el.data);
-        if let Some(why) = expect.mismatch(&el.role_name, el.label.as_deref(), if secure { None } else { value.as_deref() }) {
-            return Err(CapError::new(code::CONFLICT, "expectation_failed", format!("{r} changed: {why}. Take a new snapshot."))
-                .detail("ref", r.as_str())
-                .detail("role", el.role_name.as_str())
-                .detail("label", el.label.clone().map(Value::String).unwrap_or(Value::Null)));
+        if let Some(why) = expect.mismatch(
+            &el.role_name,
+            el.label.as_deref(),
+            if secure { None } else { value.as_deref() },
+        ) {
+            return Err(CapError::new(
+                code::CONFLICT,
+                "expectation_failed",
+                format!("{r} changed: {why}. Take a new snapshot."),
+            )
+            .detail("ref", r.as_str())
+            .detail("role", el.role_name.as_str())
+            .detail(
+                "label",
+                el.label.clone().map(Value::String).unwrap_or(Value::Null),
+            ));
         }
-        if intent != Intent::Read && self.binding(inv, params).is_none() && risk_labels::is_risky(el.label.as_deref(), custom) {
-            return Err(CapError::new(code::APPROVAL_REQUIRED, "risky_label", "This control may delete, send or create data; this action needs approval.")
-                .detail("label", el.label.clone().or(custom.map(str::to_string)).unwrap_or_default())
-                .detail("app", el.app.id.as_str()));
+        if intent != Intent::Read
+            && self.binding(inv, params).is_none()
+            && risk_labels::is_risky(el.label.as_deref(), custom)
+        {
+            return Err(CapError::new(
+                code::APPROVAL_REQUIRED,
+                "risky_label",
+                "This control may delete, send or create data; this action needs approval.",
+            )
+            .detail(
+                "label",
+                el.label
+                    .clone()
+                    .or(custom.map(str::to_string))
+                    .unwrap_or_default(),
+            )
+            .detail("app", el.app.id.as_str()));
         }
         Ok(el)
     }
 
     /// Point target: authorizes the app under the point. Returns (x, y, app).
-    fn point(&self, inv: &Invocation, params: &Value, t: &TargetParams, intent: Intent) -> CapResult<(f64, f64, AppInfo)> {
+    fn point(
+        &self,
+        inv: &Invocation,
+        params: &Value,
+        t: &TargetParams,
+        intent: Intent,
+    ) -> CapResult<(f64, f64, AppInfo)> {
         self.begin_action(t.session.as_deref())?;
-        let (Some(x), Some(y)) = (t.x.filter(|v| v.is_finite()), t.y.filter(|v| v.is_finite())) else {
-            return Err(CapError::invalid_params("ref, selector or x/y is required", Some("ref")));
+        let (Some(x), Some(y)) = (t.x.filter(|v| v.is_finite()), t.y.filter(|v| v.is_finite()))
+        else {
+            return Err(CapError::invalid_params(
+                "ref, selector or x/y is required",
+                Some("ref"),
+            ));
         };
-        let named = t
-            .app
-            .as_deref()
-            .filter(|s| !s.is_empty())
-            .ok_or_else(|| CapError::invalid_params("app (the desktop file id the point is in) is required with x/y", Some("app")))?;
+        let named = t.app.as_deref().filter(|s| !s.is_empty()).ok_or_else(|| {
+            CapError::invalid_params(
+                "app (the desktop file id the point is in) is required with x/y",
+                Some("app"),
+            )
+        })?;
         let named_id = crate::app_id::normalize(named);
         let app = if self.backend.window_geometry_known() {
-            let win = self.window_at(x, y).ok_or_else(|| CapError::new(code::NOT_FOUND, "nothing_at_point", format!("No app owns the point {},{}", x as i64, y as i64)))?;
-            let app = self.app_for_pid(win.pid).ok_or_else(|| CapError::new(code::NOT_FOUND, "nothing_at_point", format!("No app owns the point {},{}", x as i64, y as i64)))?;
+            let win = self.window_at(x, y).ok_or_else(|| {
+                CapError::new(
+                    code::NOT_FOUND,
+                    "nothing_at_point",
+                    format!("No app owns the point {},{}", x as i64, y as i64),
+                )
+            })?;
+            let app = self.app_for_pid(win.pid).ok_or_else(|| {
+                CapError::new(
+                    code::NOT_FOUND,
+                    "nothing_at_point",
+                    format!("No app owns the point {},{}", x as i64, y as i64),
+                )
+            })?;
             // The point must land in the app the call (and its approval) named (#267).
             if app.id != named_id {
-                return Err(CapError::new(code::POLICY_DENIED, "app_mismatch", format!("The point is in {}, not {named}", app.name))
-                    .detail("app", named)
-                    .detail("appAtPoint", app.id.as_str()));
+                return Err(CapError::new(
+                    code::POLICY_DENIED,
+                    "app_mismatch",
+                    format!("The point is in {}, not {named}", app.name),
+                )
+                .detail("app", named)
+                .detail("appAtPoint", app.id.as_str()));
             }
             app
         } else {
@@ -388,7 +553,12 @@ impl<B: Backend> Engine<B> {
             // under a point cannot be verified. Allow it only into the focused app, and only with
             // an approval that names that app (the Gateway treats a bare point as risky anyway).
             let app = self.find_app(Some(named), None)?;
-            if !self.backend.windows().iter().any(|w| w.focused && w.pid == app.pid) {
+            if !self
+                .backend
+                .windows()
+                .iter()
+                .any(|w| w.focused && w.pid == app.pid)
+            {
                 return Err(CapError::new(
                     code::CONFLICT,
                     "focus_moved",
@@ -409,19 +579,32 @@ impl<B: Backend> Engine<B> {
         };
         let role = self.backend.hit_test(x, y).and_then(|h| h.role);
         let intent = intent.escalated(role.as_deref());
-        self.policy.authorize(intent, Some(&app.id), &app.name, self.binding(inv, params).as_ref())?;
+        self.policy.authorize(
+            intent,
+            Some(&app.id),
+            &app.name,
+            self.binding(inv, params).as_ref(),
+        )?;
         Ok((x, y, app))
     }
 
     fn window_at(&self, x: f64, y: f64) -> Option<WinInfo> {
-        self.backend.windows().into_iter().find(|w| !w.minimized && w.bounds.is_some_and(|b| b.contains(x, y)))
+        self.backend
+            .windows()
+            .into_iter()
+            .find(|w| !w.minimized && w.bounds.is_some_and(|b| b.contains(x, y)))
     }
 
     /// Keyboard input goes only to `app`'s own focused element.
     fn ensure_keyboard_target(&self, app: &AppInfo) -> CapResult<()> {
         if let Some(p) = self.backend.keyboard_focus_pid() {
             if !app.owns(p) {
-                return Err(CapError::new(code::CONFLICT, "focus_moved", format!("Keyboard focus is no longer in {}; input stopped", app.name)).retryable());
+                return Err(CapError::new(
+                    code::CONFLICT,
+                    "focus_moved",
+                    format!("Keyboard focus is no longer in {}; input stopped", app.name),
+                )
+                .retryable());
             }
         }
         Ok(())
@@ -429,12 +612,23 @@ impl<B: Backend> Engine<B> {
 
     /// Hit-tests a point before synthetic mouse input: it must land in `app` (and, for a ref, on
     /// that element or inside it), and on nothing secure or risky without approval.
-    fn check_hit(&self, x: f64, y: f64, app: &AppInfo, el: Option<&Resolved<B::Element>>, approved: bool) -> CapResult<()> {
+    fn check_hit(
+        &self,
+        x: f64,
+        y: f64,
+        app: &AppInfo,
+        el: Option<&Resolved<B::Element>>,
+        approved: bool,
+    ) -> CapResult<()> {
         let Some(hit) = self.backend.hit_test(x, y) else {
             // Without a hit test (no geometry) the caller already required an approval or acts
             // by ref on an element the tree placed there.
             return if self.backend.window_geometry_known() {
-                Err(CapError::new(code::CONFLICT, "hit_test_failed", format!("Nothing to click at {},{}", x as i64, y as i64)))
+                Err(CapError::new(
+                    code::CONFLICT,
+                    "hit_test_failed",
+                    format!("Nothing to click at {},{}", x as i64, y as i64),
+                ))
             } else {
                 Ok(())
             };
@@ -443,13 +637,22 @@ impl<B: Backend> Engine<B> {
             return Err(CapError::new(
                 code::CONFLICT,
                 "occluded",
-                format!("Another window covers the target at {},{}; bring {} forward and re-snapshot", x as i64, y as i64, app.name),
+                format!(
+                    "Another window covers the target at {},{}; bring {} forward and re-snapshot",
+                    x as i64, y as i64, app.name
+                ),
             ));
         }
         if hit.secure {
             return Err(CapError::secure_refusal());
         }
-        if el.is_none() && !approved && hit.labels.iter().any(|l| risk_labels::is_risky(Some(l), None)) {
+        if el.is_none()
+            && !approved
+            && hit
+                .labels
+                .iter()
+                .any(|l| risk_labels::is_risky(Some(l), None))
+        {
             return Err(CapError::new(code::APPROVAL_REQUIRED, "risky_label", "The control at this point may delete, send or create data; this click needs approval."));
         }
         Ok(())
@@ -476,19 +679,42 @@ impl<B: Backend> Engine<B> {
         self.reload_settings();
         self.backend.check_desktop()?;
         let app = self.find_app(p.app.as_deref(), p.pid)?;
-        self.policy.authorize(Intent::Read, Some(&app.id), &app.name, self.binding(inv, params).as_ref())?;
-        let options = SnapshotOptions::clamped(p.max_visit, p.max_emit, p.text_max, p.value_max, p.clip);
+        self.policy.authorize(
+            Intent::Read,
+            Some(&app.id),
+            &app.name,
+            self.binding(inv, params).as_ref(),
+        )?;
+        let options =
+            SnapshotOptions::clamped(p.max_visit, p.max_emit, p.text_max, p.value_max, p.clip);
         if p.window.is_some_and(|w| w < 0) {
-            return Err(CapError::invalid_params("window must be >= 0", Some("window")));
+            return Err(CapError::invalid_params(
+                "window must be >= 0",
+                Some("window"),
+            ));
         }
-        let snap = self.snapshot_on(&app, p.window.map(|w| w as usize), p.root.as_deref(), options)?;
+        let snap = self.snapshot_on(
+            &app,
+            p.window.map(|w| w as usize),
+            p.root.as_deref(),
+            options,
+        )?;
         let mut result = Map::new();
         result.insert("text".into(), json!(snap.render()));
-        result.insert("header".into(), serde_json::to_value(&snap.header).unwrap_or(Value::Null));
+        result.insert(
+            "header".into(),
+            serde_json::to_value(&snap.header).unwrap_or(Value::Null),
+        );
         result.insert("provenance".into(), json!("untrusted"));
-        result.insert("tier".into(), json!(self.policy.effective_tier(Some(&app.id)).as_str()));
+        result.insert(
+            "tier".into(),
+            json!(self.policy.effective_tier(Some(&app.id)).as_str()),
+        );
         if p.format.as_deref() == Some("json") {
-            result.insert("nodes".into(), serde_json::to_value(&snap.nodes).unwrap_or(json!([])));
+            result.insert(
+                "nodes".into(),
+                serde_json::to_value(&snap.nodes).unwrap_or(json!([])),
+            );
         }
         if !self.backend.window_geometry_known() {
             result.insert(
@@ -496,7 +722,9 @@ impl<B: Backend> Engine<B> {
                 json!("unknown: this desktop does not tell apps where their windows are; refs without an action are marked no-position"),
             );
         }
-        if app.electron && (!snap.nodes.iter().any(|n| n.role == "webarea") || snap.nodes.len() < 10) {
+        if app.electron
+            && (!snap.nodes.iter().any(|n| n.role == "webarea") || snap.nodes.len() < 10)
+        {
             result.insert("hint".into(), json!("sparse_tree: bring the window to the front and retry, or use computer.screenshot"));
         }
         if snap.nodes.is_empty() {
@@ -515,8 +743,14 @@ impl<B: Backend> Engine<B> {
         self.reload_settings();
         self.backend.check_desktop()?;
         let app = self.find_app(p.app.as_deref(), None)?;
-        self.policy.authorize(Intent::Read, Some(&app.id), &app.name, self.binding(inv, params).as_ref())?;
-        let options = SnapshotOptions::clamped(Some(8000), Some(2000), Some(400), Some(20), Some(true));
+        self.policy.authorize(
+            Intent::Read,
+            Some(&app.id),
+            &app.name,
+            self.binding(inv, params).as_ref(),
+        )?;
+        let options =
+            SnapshotOptions::clamped(Some(8000), Some(2000), Some(400), Some(20), Some(true));
         let snap = self.snapshot_on(&app, None, is_menu.then_some("app"), options)?;
         let reply = |status: &str, extra: Vec<(&str, Value)>| {
             let mut o = Map::new();
@@ -530,12 +764,28 @@ impl<B: Backend> Engine<B> {
             Ok(CapOutput::plain(Value::Object(o)))
         };
         // The app that answered is not the one the recording was made in: a stop.
-        if let Some(wanted) = p.app.as_deref().map(crate::app_id::normalize).filter(|w| crate::app_id::is_app_id(w) && w.contains('.')) {
+        if let Some(wanted) = p
+            .app
+            .as_deref()
+            .map(crate::app_id::normalize)
+            .filter(|w| crate::app_id::is_app_id(w) && w.contains('.'))
+        {
             if wanted != app.id {
-                return reply("wrong_app", vec![("hint", json!("This is not the app the recording was made in. Ask the owner."))]);
+                return reply(
+                    "wrong_app",
+                    vec![(
+                        "hint",
+                        json!("This is not the app the recording was made in. Ask the owner."),
+                    )],
+                );
             }
         }
-        let query = crate::target_check::Query { role: p.role, name: p.name, identifier: p.identifier, menu_path };
+        let query = crate::target_check::Query {
+            role: p.role,
+            name: p.name,
+            identifier: p.identifier,
+            menu_path,
+        };
         let mut outcome = crate::target_check::check(&snap.nodes, &query);
         // A truncated snapshot cannot show that a match is the only one.
         if snap.header.truncated.is_some() {
@@ -551,27 +801,59 @@ impl<B: Backend> Engine<B> {
                 }
                 reply("found", extra)
             }
-            crate::target_check::Outcome::Ambiguous(refs) => {
-                reply("ambiguous", vec![("candidates", json!(refs)), ("hint", json!("Several elements match; do not pick one. Ask the owner."))])
-            }
-            crate::target_check::Outcome::Missing => reply("missing", vec![("hint", json!("The recorded element is not in the window. Ask the owner what to do."))]),
+            crate::target_check::Outcome::Ambiguous(refs) => reply(
+                "ambiguous",
+                vec![
+                    ("candidates", json!(refs)),
+                    (
+                        "hint",
+                        json!("Several elements match; do not pick one. Ask the owner."),
+                    ),
+                ],
+            ),
+            crate::target_check::Outcome::Missing => reply(
+                "missing",
+                vec![(
+                    "hint",
+                    json!("The recorded element is not in the window. Ask the owner what to do."),
+                )],
+            ),
         }
     }
 
     fn ax_value(&self, inv: &Invocation, params: &Value) -> CapResult<CapOutput> {
         let p: ValueParams = decode(params)?;
         let el = self.resolve(&p.ref_)?;
-        self.policy.authorize(Intent::Read, Some(&el.app.id), &el.app.name, self.binding(inv, params).as_ref())?;
+        self.policy.authorize(
+            Intent::Read,
+            Some(&el.app.id),
+            &el.app.name,
+            self.binding(inv, params).as_ref(),
+        )?;
         if is_secure(&el.data) {
             return Err(CapError::secure_refusal());
         }
         let max = p.max.unwrap_or(50_000).clamp(1, 200_000) as usize;
         let value = self.backend.full_value(&el.element, max);
-        Ok(CapOutput::plain(json!({"ref": p.ref_, "role": el.role_name, "value": value, "provenance": "untrusted"})))
+        Ok(CapOutput::plain(
+            json!({"ref": p.ref_, "role": el.role_name, "value": value, "provenance": "untrusted"}),
+        ))
     }
 
-    fn click(&self, inv: &Invocation, params: &Value, count: u32, right: bool) -> CapResult<CapOutput> {
-        let verb = if right { "right-click" } else if count == 2 { "double-click" } else { "click" };
+    fn click(
+        &self,
+        inv: &Invocation,
+        params: &Value,
+        count: u32,
+        right: bool,
+    ) -> CapResult<CapOutput> {
+        let verb = if right {
+            "right-click"
+        } else if count == 2 {
+            "double-click"
+        } else {
+            "click"
+        };
         let p: ClickParams = decode(params)?;
         let mods = modifier_flags(&p.modifiers)?;
         let intent = if right {
@@ -590,16 +872,33 @@ impl<B: Backend> Engine<B> {
             }
             // 1. Semantic accessibility action first (no coordinates needed).
             let actions = crate::roles::actions(&el.data.facts, ax_role_of(&el.data));
-            let semantic = if count == 1 && !right && mods.is_empty() && actions.iter().any(|a| a == "AXPress") {
+            let semantic = if count == 1
+                && !right
+                && mods.is_empty()
+                && actions.iter().any(|a| a == "AXPress")
+            {
                 Some(("AXPress", "press; re-snapshot to confirm the effect"))
-            } else if right && count == 1 && mods.is_empty() && actions.iter().any(|a| a == "AXShowMenu") {
+            } else if right
+                && count == 1
+                && mods.is_empty()
+                && actions.iter().any(|a| a == "AXShowMenu")
+            {
                 Some(("AXShowMenu", "show menu"))
             } else {
                 None
             };
             if let Some((action, detail)) = semantic {
                 match b.perform(&el.element, action) {
-                    Ok(()) => return Ok(Outcome::new("ok", "ax", Some(detail.into()), Some(el.ref_.clone()), &el.app).output(verb)),
+                    Ok(()) => {
+                        return Ok(Outcome::new(
+                            "ok",
+                            "ax",
+                            Some(detail.into()),
+                            Some(el.ref_.clone()),
+                            &el.app,
+                        )
+                        .output(verb))
+                    }
                     Err(e) if e.not_responding => return Err(not_responding(&el.app.name)),
                     Err(_) => {}
                 }
@@ -610,19 +909,41 @@ impl<B: Backend> Engine<B> {
                     b.activate(&el.app, None, &self.stop)?;
                     self.check_hit(x, y, &el.app, Some(&el), approved)?;
                     b.click(x, y, count, right, mods, &self.stop)?;
-                    Ok(Outcome::new("ok", "input", Some(format!("mouse {verb} at the element centre")), Some(el.ref_.clone()), &el.app).output(verb))
+                    Ok(Outcome::new(
+                        "ok",
+                        "input",
+                        Some(format!("mouse {verb} at the element centre")),
+                        Some(el.ref_.clone()),
+                        &el.app,
+                    )
+                    .output(verb))
                 }
                 Err(no_pos) => {
                     // 3. No position (GNOME on Wayland): keyboard focus and Space, for plain
                     // clicks on controls that Space activates, verified by the focus landing there.
                     let simple = count == 1 && !right && mods.is_empty();
-                    let space_ok = matches!(ax_role_of(&el.data), "AXButton" | "AXCheckBox" | "AXRadioButton");
+                    let space_ok = matches!(
+                        ax_role_of(&el.data),
+                        "AXButton" | "AXCheckBox" | "AXRadioButton"
+                    );
                     if simple && space_ok && b.set_focus(&el.element).is_ok() {
                         b.pause(60, &self.stop)?;
-                        if b.focused_element(Some(&el.app)).as_ref() == Some(&el.element) && !b.focused_is_secure(Some(&el.app)) {
+                        if b.focused_element(Some(&el.app)).as_ref() == Some(&el.element)
+                            && !b.focused_is_secure(Some(&el.app))
+                        {
                             self.ensure_keyboard_target(&el.app)?;
                             b.key(&KeyChord::parse("space")?, &self.stop)?;
-                            return Ok(Outcome::new("unverified", "keyboard", Some("focused the control and pressed Space; re-snapshot to confirm".into()), Some(el.ref_.clone()), &el.app).output(verb));
+                            return Ok(Outcome::new(
+                                "unverified",
+                                "keyboard",
+                                Some(
+                                    "focused the control and pressed Space; re-snapshot to confirm"
+                                        .into(),
+                                ),
+                                Some(el.ref_.clone()),
+                                &el.app,
+                            )
+                            .output(verb));
                         }
                     }
                     Err(no_pos)
@@ -633,15 +954,32 @@ impl<B: Backend> Engine<B> {
             b.activate(&app, None, &self.stop)?;
             self.check_hit(x, y, &app, None, approved)?;
             b.click(x, y, count, right, mods, &self.stop)?;
-            Ok(Outcome::new("ok", "input", Some(format!("mouse {verb} at {},{}", x as i64, y as i64)), None, &app).output(verb))
+            Ok(Outcome::new(
+                "ok",
+                "input",
+                Some(format!("mouse {verb} at {},{}", x as i64, y as i64)),
+                None,
+                &app,
+            )
+            .output(verb))
         }
     }
 
     fn press(&self, inv: &Invocation, params: &Value) -> CapResult<CapOutput> {
         let p: PressParams = decode(params)?;
         let custom = p.action.strip_prefix("custom:").map(str::to_string);
-        let mut intent = if p.action == "press" { Intent::Press } else { Intent::Menu };
-        if intent == Intent::Press && p.t.selector.as_ref().and_then(|s| s.role.as_deref()).is_some_and(|r| r.starts_with("menu") || r == "popupbutton") {
+        let mut intent = if p.action == "press" {
+            Intent::Press
+        } else {
+            Intent::Menu
+        };
+        if intent == Intent::Press
+            && p.t
+                .selector
+                .as_ref()
+                .and_then(|s| s.role.as_deref())
+                .is_some_and(|r| r.starts_with("menu") || r == "popupbutton")
+        {
             intent = Intent::Menu;
         }
         let el = self.element(inv, params, &p.t, intent, custom.as_deref())?;
@@ -650,20 +988,47 @@ impl<B: Backend> Engine<B> {
         }
         let raw = crate::roles::actions(&el.data.facts, ax_role_of(&el.data));
         if custom.is_some() {
-            return Err(CapError::new(code::NOT_FOUND, "action_not_supported", format!("{} has no such custom action", el.ref_)));
+            return Err(CapError::new(
+                code::NOT_FOUND,
+                "action_not_supported",
+                format!("{} has no such custom action", el.ref_),
+            ));
         }
         let Some(ax) = press_action(&p.action).filter(|a| raw.iter().any(|r| r == a)) else {
-            return Err(CapError::new(code::NOT_FOUND, "action_not_supported", format!("{} does not support {}", el.ref_, p.action)).detail("actions", json!(raw)));
+            return Err(CapError::new(
+                code::NOT_FOUND,
+                "action_not_supported",
+                format!("{} does not support {}", el.ref_, p.action),
+            )
+            .detail("actions", json!(raw)));
         };
         match self.backend.perform(&el.element, ax) {
-            Ok(()) => Ok(Outcome::new("ok", "ax", Some(format!("{}; re-snapshot to confirm the effect", p.action)), Some(el.ref_.clone()), &el.app).output(&p.action)),
+            Ok(()) => Ok(Outcome::new(
+                "ok",
+                "ax",
+                Some(format!("{}; re-snapshot to confirm the effect", p.action)),
+                Some(el.ref_.clone()),
+                &el.app,
+            )
+            .output(&p.action)),
             Err(e) if e.not_responding => Err(not_responding(&el.app.name)),
-            Err(e) => Ok(Outcome::new("ineffective", "ax", Some(e.detail), Some(el.ref_.clone()), &el.app).output(&p.action)),
+            Err(e) => Ok(Outcome::new(
+                "ineffective",
+                "ax",
+                Some(e.detail),
+                Some(el.ref_.clone()),
+                &el.app,
+            )
+            .output(&p.action)),
         }
     }
 
     /// Read back with backoff (providers like Chromium's can apply writes asynchronously).
-    fn verify(&self, el: &Resolved<B::Element>, check: impl Fn(Option<&str>) -> bool) -> CapResult<Option<String>> {
+    fn verify(
+        &self,
+        el: &Resolved<B::Element>,
+        check: impl Fn(Option<&str>) -> bool,
+    ) -> CapResult<Option<String>> {
         let waits = [50u64, 100, 200, 400];
         let totals = [50u64, 150, 350, 750];
         for (i, w) in waits.iter().enumerate() {
@@ -686,32 +1051,80 @@ impl<B: Backend> Engine<B> {
             return Err(CapError::new(
                 code::CONFLICT,
                 "not_settable",
-                format!("{} ({}) has no settable value; click it and use computer.type", el.ref_, el.role_name),
+                format!(
+                    "{} ({}) has no settable value; click it and use computer.type",
+                    el.ref_, el.role_name
+                ),
             ));
         }
         if let Err(e) = self.backend.set_value(&el.element, &p.value) {
-            return Ok(Outcome::new("ineffective", "ax", Some(e.detail), Some(el.ref_.clone()), &el.app).output("set value"));
+            return Ok(Outcome::new(
+                "ineffective",
+                "ax",
+                Some(e.detail),
+                Some(el.ref_.clone()),
+                &el.app,
+            )
+            .output("set value"));
         }
         let want = p.value.clone();
         let want_num: Option<f64> = want.trim().parse().ok();
-        if let Some(how) = self.verify(&el, |now| now == Some(want.as_str()) || (want_num.is_some() && now.and_then(|n| n.parse::<f64>().ok()) == want_num))? {
-            return Ok(Outcome::new("ok", "ax", Some(how), Some(el.ref_.clone()), &el.app).output("set value"));
+        if let Some(how) = self.verify(&el, |now| {
+            now == Some(want.as_str())
+                || (want_num.is_some() && now.and_then(|n| n.parse::<f64>().ok()) == want_num)
+        })? {
+            return Ok(
+                Outcome::new("ok", "ax", Some(how), Some(el.ref_.clone()), &el.app)
+                    .output("set value"),
+            );
         }
-        Ok(Outcome::new("unverified", "ax", Some("read-back did not match after 750 ms".into()), Some(el.ref_.clone()), &el.app).output("set value"))
+        Ok(Outcome::new(
+            "unverified",
+            "ax",
+            Some("read-back did not match after 750 ms".into()),
+            Some(el.ref_.clone()),
+            &el.app,
+        )
+        .output("set value"))
     }
 
     fn select(&self, inv: &Invocation, params: &Value) -> CapResult<CapOutput> {
         let t: TargetParams = decode(params)?;
         let el = self.element(inv, params, &t, Intent::Click, None)?;
         if !el.data.facts.selectable && !el.data.facts.has_selection_parent {
-            return Err(CapError::new(code::CONFLICT, "not_selectable", format!("{} cannot be selected through AT-SPI; use computer.click", el.ref_)));
+            return Err(CapError::new(
+                code::CONFLICT,
+                "not_selectable",
+                format!(
+                    "{} cannot be selected through AT-SPI; use computer.click",
+                    el.ref_
+                ),
+            ));
         }
         if let Err(e) = self.backend.select(&el.element) {
-            return Ok(Outcome::new("ineffective", "ax", Some(e.detail), Some(el.ref_.clone()), &el.app).output("select"));
+            return Ok(Outcome::new(
+                "ineffective",
+                "ax",
+                Some(e.detail),
+                Some(el.ref_.clone()),
+                &el.app,
+            )
+            .output("select"));
         }
         self.backend.pause(50, &self.stop)?;
         let selected = self.backend.is_selected(&el.element);
-        Ok(Outcome::new(if selected == Some(true) { "ok" } else { "unverified" }, "ax", None, Some(el.ref_.clone()), &el.app).output("select"))
+        Ok(Outcome::new(
+            if selected == Some(true) {
+                "ok"
+            } else {
+                "unverified"
+            },
+            "ax",
+            None,
+            Some(el.ref_.clone()),
+            &el.app,
+        )
+        .output("select"))
     }
 
     fn type_text(&self, inv: &Invocation, params: &Value) -> CapResult<CapOutput> {
@@ -720,7 +1133,11 @@ impl<B: Backend> Engine<B> {
             return Err(CapError::invalid_params("text is empty", Some("text")));
         }
         if p.text.contains("{{cred:") {
-            return Err(CapError::new(code::POLICY_DENIED, "credential_placeholder", "Credential placeholders are filled by the vault, never typed"));
+            return Err(CapError::new(
+                code::POLICY_DENIED,
+                "credential_placeholder",
+                "Credential placeholders are filled by the vault, never typed",
+            ));
         }
         let sends_line = send_keys::text_sends(&p.text);
         let (app, ref_) = if p.t.ref_.is_some() || p.t.selector.is_some() {
@@ -733,14 +1150,29 @@ impl<B: Backend> Engine<B> {
         } else {
             self.begin_action(p.t.session.as_deref())?;
             let app = self.find_app(p.t.app.as_deref(), None)?;
-            self.policy.authorize(Intent::Type, Some(&app.id), &app.name, self.binding(inv, params).as_ref())?;
+            self.policy.authorize(
+                Intent::Type,
+                Some(&app.id),
+                &app.name,
+                self.binding(inv, params).as_ref(),
+            )?;
             (app, None)
         };
         // #270: a line break in typed text presses Return, which sends in messaging and mail apps.
-        if sends_line && send_keys::is_messaging_app(Some(&app.id)) && self.binding(inv, params).is_none() {
-            return Err(CapError::new(code::APPROVAL_REQUIRED, "send_text", format!("Typing a line break sends in {}; sending needs your approval", app.name))
-                .detail("app", app.id.as_str())
-                .detail("sideEffect", "destructive"));
+        if sends_line
+            && send_keys::is_messaging_app(Some(&app.id))
+            && self.binding(inv, params).is_none()
+        {
+            return Err(CapError::new(
+                code::APPROVAL_REQUIRED,
+                "send_text",
+                format!(
+                    "Typing a line break sends in {}; sending needs your approval",
+                    app.name
+                ),
+            )
+            .detail("app", app.id.as_str())
+            .detail("sideEffect", "destructive"));
         }
         self.backend.activate(&app, None, &self.stop)?;
         // Checked before every chunk: Tab / Return can move focus (into a password field, or out
@@ -757,7 +1189,14 @@ impl<B: Backend> Engine<B> {
             Ok(())
         })?;
         let n = unicode_segmentation::UnicodeSegmentation::graphemes(p.text.as_str(), true).count();
-        Ok(Outcome::new("ok", "input", Some(format!("typed {n} characters")), ref_, &app).output("type"))
+        Ok(Outcome::new(
+            "ok",
+            "input",
+            Some(format!("typed {n} characters")),
+            ref_,
+            &app,
+        )
+        .output("type"))
     }
 
     fn key(&self, inv: &Invocation, params: &Value) -> CapResult<CapOutput> {
@@ -765,18 +1204,40 @@ impl<B: Backend> Engine<B> {
         let chord = KeyChord::parse(&p.keys)?;
         self.begin_action(p.session.as_deref())?;
         let app = self.find_app(p.app.as_deref(), None)?;
-        self.policy.authorize(Intent::Key, Some(&app.id), &app.name, self.binding(inv, params).as_ref())?;
-        if send_keys::is_messaging_app(Some(&app.id)) && send_keys::is_send_chord(&chord) && self.binding(inv, params).is_none() {
-            return Err(CapError::new(code::APPROVAL_REQUIRED, "send_key", format!("That key sends in {}; sending needs your approval", app.name))
-                .detail("app", app.id.as_str())
-                .detail("sideEffect", "destructive"));
+        self.policy.authorize(
+            Intent::Key,
+            Some(&app.id),
+            &app.name,
+            self.binding(inv, params).as_ref(),
+        )?;
+        if send_keys::is_messaging_app(Some(&app.id))
+            && send_keys::is_send_chord(&chord)
+            && self.binding(inv, params).is_none()
+        {
+            return Err(CapError::new(
+                code::APPROVAL_REQUIRED,
+                "send_key",
+                format!(
+                    "That key sends in {}; sending needs your approval",
+                    app.name
+                ),
+            )
+            .detail("app", app.id.as_str())
+            .detail("sideEffect", "destructive"));
         }
         if chord.is_high_risk_in(Some(&app.id)) && self.binding(inv, params).is_none() {
-            return Err(CapError::new(code::APPROVAL_REQUIRED, "risky_chord", "That chord can close windows, quit apps or delete; it needs approval"));
+            return Err(CapError::new(
+                code::APPROVAL_REQUIRED,
+                "risky_chord",
+                "That chord can close windows, quit apps or delete; it needs approval",
+            ));
         }
         self.backend.activate(&app, None, &self.stop)?;
         // Esc and Tab may leave a password field; nothing else may be pressed while one has focus.
-        if self.backend.focused_is_secure(Some(&app)) && !chord.is_bare_escape() && chord.keysym != crate::keychord::keysym::TAB {
+        if self.backend.focused_is_secure(Some(&app))
+            && !chord.is_bare_escape()
+            && chord.keysym != crate::keychord::keysym::TAB
+        {
             return Err(CapError::secure_refusal());
         }
         for _ in 0..p.repeat_count.unwrap_or(1).clamp(1, 50) {
@@ -786,7 +1247,10 @@ impl<B: Backend> Engine<B> {
             }
             self.backend.key(&chord, &self.stop)?;
         }
-        Ok(Outcome::new("ok", "input", Some(p.keys.clone()), None, &app).output(&format!("key {}", p.keys)))
+        Ok(
+            Outcome::new("ok", "input", Some(p.keys.clone()), None, &app)
+                .output(&format!("key {}", p.keys)),
+        )
     }
 
     fn scroll(&self, inv: &Invocation, params: &Value) -> CapResult<CapOutput> {
@@ -801,11 +1265,27 @@ impl<B: Backend> Engine<B> {
             let (x, y, app) = self.point(inv, params, &p.t, Intent::Scroll)?;
             (x, y, app, None)
         };
-        if self.backend.window_geometry_known() && self.window_at(x, y).map(|w| w.pid) != Some(app.pid) {
-            return Err(CapError::new(code::CONFLICT, "occluded", format!("Another window covers the scroll point; bring {} forward", app.name)));
+        if self.backend.window_geometry_known()
+            && self.window_at(x, y).map(|w| w.pid) != Some(app.pid)
+        {
+            return Err(CapError::new(
+                code::CONFLICT,
+                "occluded",
+                format!(
+                    "Another window covers the scroll point; bring {} forward",
+                    app.name
+                ),
+            ));
         }
         self.backend.scroll(x, y, dx, dy, &self.stop)?;
-        Ok(Outcome::new("ok", "input", Some(format!("scrolled dx={dx} dy={dy}")), ref_, &app).output("scroll"))
+        Ok(Outcome::new(
+            "ok",
+            "input",
+            Some(format!("scrolled dx={dx} dy={dy}")),
+            ref_,
+            &app,
+        )
+        .output("scroll"))
     }
 
     fn drag(&self, inv: &Invocation, params: &Value) -> CapResult<CapOutput> {
@@ -823,7 +1303,11 @@ impl<B: Backend> Engine<B> {
         let (ax, ay, app_a) = resolve(&p.from)?;
         let (bx, by, app_b) = resolve(&p.to)?;
         if app_a.pid != app_b.pid {
-            return Err(CapError::new(code::POLICY_DENIED, "cross_app_drag", "Drags between apps are not allowed"));
+            return Err(CapError::new(
+                code::POLICY_DENIED,
+                "cross_app_drag",
+                "Drags between apps are not allowed",
+            ));
         }
         self.backend.activate(&app_a, None, &self.stop)?;
         self.check_hit(ax, ay, &app_a, None, inv.approval_id.is_some())?;
@@ -834,27 +1318,47 @@ impl<B: Backend> Engine<B> {
     /// Walks the app's menu bar by label path, pressing each item (so submenus open).
     fn menu(&self, inv: &Invocation, params: &Value) -> CapResult<CapOutput> {
         let p: MenuParams = decode(params)?;
-        let path: Vec<String> = p.path.split('>').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
+        let path: Vec<String> = p
+            .path
+            .split('>')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
         if path.is_empty() {
             return Err(CapError::invalid_params("path is empty", Some("path")));
         }
         self.begin_action(p.session.as_deref())?;
         let app = self.find_app(p.app.as_deref(), None)?;
-        self.policy.authorize(Intent::Menu, Some(&app.id), &app.name, self.binding(inv, params).as_ref())?;
+        self.policy.authorize(
+            Intent::Menu,
+            Some(&app.id),
+            &app.name,
+            self.binding(inv, params).as_ref(),
+        )?;
         if inv.approval_id.is_none() && path.iter().any(|s| risk_labels::is_risky(Some(s), None)) {
-            return Err(CapError::new(code::APPROVAL_REQUIRED, "risky_label", "That menu item may delete, send or quit; it needs approval"));
+            return Err(CapError::new(
+                code::APPROVAL_REQUIRED,
+                "risky_label",
+                "That menu item may delete, send or quit; it needs approval",
+            ));
         }
         let b = &*self.backend;
         b.begin_walk(Duration::from_secs(10));
         let wins = b.window_elements(app_ref(&app));
         let mut level: Vec<B::Element> = Vec::new();
         for w in &wins {
-            if let Some(bar) = find_descendant(b, w, 8, |d| crate::roles::map_role(&d.facts).role == "AXMenuBar") {
+            if let Some(bar) = find_descendant(b, w, 8, |d| {
+                crate::roles::map_role(&d.facts).role == "AXMenuBar"
+            }) {
                 level.push(bar);
             }
         }
         if level.is_empty() {
-            return Err(CapError::new(code::NOT_FOUND, "no_menu_bar", format!("{} exposes no menu bar", app.name)));
+            return Err(CapError::new(
+                code::NOT_FOUND,
+                "no_menu_bar",
+                format!("{} exposes no menu bar", app.name),
+            ));
         }
         let want = |s: &str| crate::target_check::norm(Some(s));
         let mut last_title = String::new();
@@ -863,11 +1367,22 @@ impl<B: Backend> Engine<B> {
             for parent in &level {
                 collect_items(b, parent, 3, &mut hits);
             }
-            let found: Vec<_> = hits.into_iter().filter(|(e, d)| want(&item_title(b, e, d)) == want(seg)).collect();
+            let found: Vec<_> = hits
+                .into_iter()
+                .filter(|(e, d)| want(&item_title(b, e, d)) == want(seg))
+                .collect();
             let [(el, data)] = found.as_slice() else {
                 return Err(CapError::new(
-                    if found.is_empty() { code::NOT_FOUND } else { code::CONFLICT },
-                    if found.is_empty() { "menu_item_missing" } else { "menu_item_ambiguous" },
+                    if found.is_empty() {
+                        code::NOT_FOUND
+                    } else {
+                        code::CONFLICT
+                    },
+                    if found.is_empty() {
+                        "menu_item_missing"
+                    } else {
+                        "menu_item_ambiguous"
+                    },
                     format!("Menu item {} was not found exactly once", i + 1),
                 ));
             };
@@ -875,23 +1390,28 @@ impl<B: Backend> Engine<B> {
             if is_secure(data) {
                 return Err(CapError::secure_refusal());
             }
-            b.perform(el, "AXPress").map_err(|e| CapError::new(code::CONFLICT, "menu_press_failed", e.detail))?;
+            b.perform(el, "AXPress")
+                .map_err(|e| CapError::new(code::CONFLICT, "menu_press_failed", e.detail))?;
             if i + 1 < path.len() {
                 b.pause(150, &self.stop)?;
                 // The submenu is a child of the item (or a popup under the app root).
                 level = vec![el.clone()];
-                let popups = find_descendant(b, &b.app_element(&app), 4, |d| crate::roles::map_role(&d.facts).role == "AXMenu" && d.info.title.is_none());
+                let popups = find_descendant(b, &b.app_element(&app), 4, |d| {
+                    crate::roles::map_role(&d.facts).role == "AXMenu" && d.info.title.is_none()
+                });
                 if let Some(p) = popups {
                     level.push(p);
                 }
             }
         }
-        Ok(Outcome::new("ok", "menu", Some(last_title), None, &app).output(&format!("menu {}", p.path)))
+        Ok(Outcome::new("ok", "menu", Some(last_title), None, &app)
+            .output(&format!("menu {}", p.path)))
     }
 
     fn end_session(&self, params: &Value) -> CapResult<CapOutput> {
         let p: EndParams = decode(params)?;
-        self.sessions.release(p.session.as_deref().unwrap_or("default"));
+        self.sessions
+            .release(p.session.as_deref().unwrap_or("default"));
         if self.sessions.active_session().is_none() {
             self.backend.session_idle();
         }
@@ -915,21 +1435,44 @@ impl<B: Backend> Engine<B> {
         let p: ShotParams = decode(params)?;
         self.reload_settings();
         let app = self.find_app(p.app.as_deref(), None)?;
-        self.policy.authorize(Intent::Read, Some(&app.id), &app.name, self.binding(inv, params).as_ref())?;
+        self.policy.authorize(
+            Intent::Read,
+            Some(&app.id),
+            &app.name,
+            self.binding(inv, params).as_ref(),
+        )?;
         self.backend.check_desktop()?;
         // Below the model: no capture while any password field has focus.
         if self.backend.focused_is_secure(None) {
-            return Err(CapError::new(code::POLICY_DENIED, "secure_field_focused", "A password field has focus; screenshots are suppressed until it loses focus."));
+            return Err(CapError::new(
+                code::POLICY_DENIED,
+                "secure_field_focused",
+                "A password field has focus; screenshots are suppressed until it loses focus.",
+            ));
         }
-        let running: Vec<AppRef> = self.backend.apps().into_iter().map(|a| AppRef { app_id: Some(a.id), pid: a.pid }).collect();
+        let running: Vec<AppRef> = self
+            .backend
+            .apps()
+            .into_iter()
+            .map(|a| AppRef {
+                app_id: Some(a.id),
+                pid: a.pid,
+            })
+            .collect();
         let mut excluded = hygiene::excluded_pids(&running, self.own_pid, &self.policy);
         excluded.extend(self.psyche_pids());
         if excluded.contains(&app.pid) {
-            return Err(CapError::new(code::POLICY_DENIED, "app_excluded", format!("{} is never captured", app.name)));
+            return Err(CapError::new(
+                code::POLICY_DENIED,
+                "app_excluded",
+                format!("{} is never captured", app.name),
+            ));
         }
         let windows = self.backend.windows();
         // Without window positions protected windows cannot be hidden: a capture would show them.
-        let protected_open = windows.iter().any(|w| excluded.contains(&w.pid) && !w.minimized);
+        let protected_open = windows
+            .iter()
+            .any(|w| excluded.contains(&w.pid) && !w.minimized);
         if protected_open && !self.backend.window_geometry_known() {
             return Err(CapError::new(
                 code::UNAVAILABLE,
@@ -937,18 +1480,37 @@ impl<B: Backend> Engine<B> {
                 "This desktop does not tell Psyche where windows are, and a protected window (Psyche, a terminal, a password manager) is open, so a screenshot could show it. Close or minimize it, or use computer.ax_tree.",
             ));
         }
-        let max_w = p.max_width.map(|v| v.clamp(320, 2560) as u32).unwrap_or(hygiene::DEFAULT_MAX_WIDTH);
-        let max_h = p.max_height.map(|v| v.clamp(240, 1600) as u32).unwrap_or(hygiene::DEFAULT_MAX_HEIGHT);
+        let max_w = p
+            .max_width
+            .map(|v| v.clamp(320, 2560) as u32)
+            .unwrap_or(hygiene::DEFAULT_MAX_WIDTH);
+        let max_h = p
+            .max_height
+            .map(|v| v.clamp(240, 1600) as u32)
+            .unwrap_or(hygiene::DEFAULT_MAX_HEIGHT);
         let png = p.format.as_deref() == Some("png");
         let mut frame = self.backend.capture(p.display.map(|d| d.max(0) as usize))?;
         let refs: Vec<hygiene::WindowRef> = windows
             .iter()
             .filter(|w| !w.minimized)
-            .filter_map(|w| w.bounds.map(|b| hygiene::WindowRef { id: w.id, pid: w.pid, layer: w.layer, bounds: b, alpha: 1.0 }))
+            .filter_map(|w| {
+                w.bounds.map(|b| hygiene::WindowRef {
+                    id: w.id,
+                    pid: w.pid,
+                    layer: w.layer,
+                    bounds: b,
+                    alpha: 1.0,
+                })
+            })
             .collect();
         for r in hygiene::redactions(&refs, &excluded, frame.screen) {
             let s = frame.scale.max(0.01);
-            frame.fill_black(Rect::new((r.x - frame.screen.x) * s, (r.y - frame.screen.y) * s, r.w * s, r.h * s));
+            frame.fill_black(Rect::new(
+                (r.x - frame.screen.x) * s,
+                (r.y - frame.screen.y) * s,
+                r.w * s,
+                r.h * s,
+            ));
         }
         let mut screen = frame.screen;
         if p.window_only == Some(true) {
@@ -956,10 +1518,28 @@ impl<B: Backend> Engine<B> {
                 .iter()
                 .filter(|w| w.pid == app.pid && w.layer == 0 && !w.minimized)
                 .filter_map(|w| w.bounds)
-                .max_by(|a, b| (a.w * a.h).partial_cmp(&(b.w * b.h)).unwrap_or(std::cmp::Ordering::Equal))
-                .ok_or_else(|| CapError::new(code::NOT_FOUND, "no_window", format!("{} has no on-screen window with a known position", app.name)))?;
+                .max_by(|a, b| {
+                    (a.w * a.h)
+                        .partial_cmp(&(b.w * b.h))
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                })
+                .ok_or_else(|| {
+                    CapError::new(
+                        code::NOT_FOUND,
+                        "no_window",
+                        format!("{} has no on-screen window with a known position", app.name),
+                    )
+                })?;
             let s = frame.scale.max(0.01);
-            frame = crop(&frame, Rect::new((w.x - frame.screen.x) * s, (w.y - frame.screen.y) * s, w.w * s, w.h * s));
+            frame = crop(
+                &frame,
+                Rect::new(
+                    (w.x - frame.screen.x) * s,
+                    (w.y - frame.screen.y) * s,
+                    w.w * s,
+                    w.h * s,
+                ),
+            );
             screen = w;
         }
         let (w, h) = hygiene::scaled_size(frame.width, frame.height, max_w, max_h);
@@ -1000,11 +1580,18 @@ impl<B: Backend> Engine<B> {
                 "computer.menu" => self.menu(inv, params),
                 "computer.end_session" => self.end_session(params),
                 "computer.screenshot" => self.screenshot(inv, params),
-                _ => Err(CapError::new(code::NOT_IMPLEMENTED, "unknown_capability", "No such capability")),
+                _ => Err(CapError::new(
+                    code::NOT_IMPLEMENTED,
+                    "unknown_capability",
+                    "No such capability",
+                )),
             }
         };
         // Computer-use bodies run as one stoppable invocation (a Stop ends it, not later ones).
-        if name.starts_with("computer.") && name != "computer.screenshot" && name != "computer.end_session" {
+        if name.starts_with("computer.")
+            && name != "computer.screenshot"
+            && name != "computer.end_session"
+        {
             self.stop.run(inv.cancel.clone(), body)
         } else {
             body()
@@ -1046,7 +1633,12 @@ fn modifier_flags(names: &Option<Vec<String>>) -> CapResult<Mods> {
     }
 }
 
-fn find_descendant<B: Backend>(b: &B, root: &B::Element, depth: usize, pred: impl Fn(&ElementData) -> bool + Copy) -> Option<B::Element> {
+fn find_descendant<B: Backend>(
+    b: &B,
+    root: &B::Element,
+    depth: usize,
+    pred: impl Fn(&ElementData) -> bool + Copy,
+) -> Option<B::Element> {
     let data = b.data(root)?;
     if pred(&data) {
         return Some(root.clone());
@@ -1054,10 +1646,17 @@ fn find_descendant<B: Backend>(b: &B, root: &B::Element, depth: usize, pred: imp
     if depth == 0 {
         return None;
     }
-    b.children(root).iter().find_map(|c| find_descendant(b, c, depth - 1, pred))
+    b.children(root)
+        .iter()
+        .find_map(|c| find_descendant(b, c, depth - 1, pred))
 }
 
-fn collect_items<B: Backend>(b: &B, parent: &B::Element, depth: usize, out: &mut Vec<(B::Element, ElementData)>) {
+fn collect_items<B: Backend>(
+    b: &B,
+    parent: &B::Element,
+    depth: usize,
+    out: &mut Vec<(B::Element, ElementData)>,
+) {
     for c in b.children(parent) {
         let Some(d) = b.data(&c) else { continue };
         match crate::roles::map_role(&d.facts).role {
@@ -1070,7 +1669,11 @@ fn collect_items<B: Backend>(b: &B, parent: &B::Element, depth: usize, out: &mut
 
 fn item_title<B: Backend>(b: &B, e: &B::Element, d: &ElementData) -> String {
     let _ = (b, e);
-    d.info.title.clone().or_else(|| d.info.description.clone()).unwrap_or_default()
+    d.info
+        .title
+        .clone()
+        .or_else(|| d.info.description.clone())
+        .unwrap_or_default()
 }
 
 fn crop(f: &Frame, r: Rect) -> Frame {
@@ -1084,20 +1687,50 @@ fn crop(f: &Frame, r: Rect) -> Frame {
         let start = ((y * f.width + x0) * 4) as usize;
         rgba.extend_from_slice(&f.rgba[start..start + (w * 4) as usize]);
     }
-    Frame { width: w, height: h, rgba, screen: Rect::new(f.screen.x + x0 as f64 / f.scale.max(0.01), f.screen.y + y0 as f64 / f.scale.max(0.01), w as f64 / f.scale.max(0.01), h as f64 / f.scale.max(0.01)), scale: f.scale }
+    Frame {
+        width: w,
+        height: h,
+        rgba,
+        screen: Rect::new(
+            f.screen.x + x0 as f64 / f.scale.max(0.01),
+            f.screen.y + y0 as f64 / f.scale.max(0.01),
+            w as f64 / f.scale.max(0.01),
+            h as f64 / f.scale.max(0.01),
+        ),
+        scale: f.scale,
+    }
 }
 
 /// Box-filter downscale to `w` x `h` and JPEG-encode, lowering the quality until the result fits
 /// `MAX_ENCODED_BYTES` (a result must stay far below the 1 MiB frame limit after base64).
-pub fn encode(frame: &Frame, w: u32, h: u32, _png: bool) -> CapResult<(Vec<u8>, &'static str, u32, u32)> {
-    if w == 0 || h == 0 || frame.width == 0 || frame.height == 0 || w > u32::from(u16::MAX) || h > u32::from(u16::MAX) {
+pub fn encode(
+    frame: &Frame,
+    w: u32,
+    h: u32,
+    _png: bool,
+) -> CapResult<(Vec<u8>, &'static str, u32, u32)> {
+    if w == 0
+        || h == 0
+        || frame.width == 0
+        || frame.height == 0
+        || w > u32::from(u16::MAX)
+        || h > u32::from(u16::MAX)
+    {
         return Err(CapError::unavailable("empty_frame", "The capture is empty"));
     }
     let mut rgb = Vec::with_capacity((w * h * 3) as usize);
     for y in 0..h {
-        let (y0, y1) = (y as u64 * frame.height as u64 / h as u64, ((y as u64 + 1) * frame.height as u64 / h as u64).max(y as u64 * frame.height as u64 / h as u64 + 1));
+        let (y0, y1) = (
+            y as u64 * frame.height as u64 / h as u64,
+            ((y as u64 + 1) * frame.height as u64 / h as u64)
+                .max(y as u64 * frame.height as u64 / h as u64 + 1),
+        );
         for x in 0..w {
-            let (x0, x1) = (x as u64 * frame.width as u64 / w as u64, ((x as u64 + 1) * frame.width as u64 / w as u64).max(x as u64 * frame.width as u64 / w as u64 + 1));
+            let (x0, x1) = (
+                x as u64 * frame.width as u64 / w as u64,
+                ((x as u64 + 1) * frame.width as u64 / w as u64)
+                    .max(x as u64 * frame.width as u64 / w as u64 + 1),
+            );
             let (mut r, mut g, mut b, mut n) = (0u64, 0u64, 0u64, 0u64);
             for sy in y0..y1.min(frame.height as u64) {
                 for sx in x0..x1.min(frame.width as u64) {

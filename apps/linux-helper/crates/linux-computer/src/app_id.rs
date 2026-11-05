@@ -35,7 +35,8 @@ pub fn is_app_id(query: &str) -> bool {
     !q.is_empty()
         && q.len() <= 200
         && q.chars().next().is_some_and(|c| c.is_ascii_alphanumeric())
-        && q.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_' | '+'))
+        && q.chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_' | '+'))
 }
 
 /// Undoes systemd's unit-name escaping (`\x2d` for `-`, `\x2f` for `/`, ...).
@@ -44,7 +45,7 @@ fn unescape_unit(s: &str) -> String {
     let mut out = Vec::with_capacity(b.len());
     let mut i = 0;
     while i < b.len() {
-        if b[i] == b'\\' && i + 3 < b.len() + 0 && b[i + 1] == b'x' {
+        if b[i] == b'\\' && i + 3 < b.len() && b[i + 1] == b'x' {
             if let Ok(v) = u8::from_str_radix(&s[i + 2..i + 4], 16) {
                 out.push(v);
                 i += 4;
@@ -86,7 +87,10 @@ pub fn id_from_unit(unit: &str) -> Option<String> {
 
 /// The app id named by a `/proc/<pid>/cgroup` file: the innermost `app-*` unit on the path.
 pub fn id_from_cgroup(text: &str) -> Option<String> {
-    text.lines().filter_map(|l| l.rsplit(':').next()).flat_map(|path| path.rsplit('/')).find_map(id_from_unit)
+    text.lines()
+        .filter_map(|l| l.rsplit(':').next())
+        .flat_map(|path| path.rsplit('/'))
+        .find_map(id_from_unit)
 }
 
 /// `GIO_LAUNCHED_DESKTOP_FILE=/usr/share/applications/org.gnome.TextEditor.desktop`.
@@ -131,7 +135,9 @@ pub fn parse_desktop(id: &str, text: &str) -> Option<DesktopEntry> {
         if !in_main || line.starts_with('#') {
             continue;
         }
-        let Some((k, v)) = line.split_once('=') else { continue };
+        let Some((k, v)) = line.split_once('=') else {
+            continue;
+        };
         match k.trim() {
             "Exec" => exec = exec.or(Some(v.trim().to_string())),
             "Name" => name = name.or(Some(v.trim().to_string())),
@@ -145,7 +151,13 @@ pub fn parse_desktop(id: &str, text: &str) -> Option<DesktopEntry> {
         return None;
     }
     let exec = exec_program(&exec?)?;
-    Some(DesktopEntry { id: normalize(id), exec, name, no_display, wm_class: wm })
+    Some(DesktopEntry {
+        id: normalize(id),
+        exec,
+        name,
+        no_display,
+        wm_class: wm,
+    })
 }
 
 /// The program of an `Exec=` value: skips `env VAR=x`, field codes and quotes. For
@@ -210,17 +222,25 @@ impl DesktopIndex {
         let mut seen: HashMap<String, ()> = HashMap::new();
         for dir in dirs {
             let apps = dir.join("applications");
-            let Ok(rd) = std::fs::read_dir(&apps) else { continue };
+            let Ok(rd) = std::fs::read_dir(&apps) else {
+                continue;
+            };
             let mut files: Vec<_> = rd.flatten().map(|e| e.path()).collect();
             files.sort();
             for path in files {
-                let Some(file) = path.file_name().and_then(|f| f.to_str()) else { continue };
-                let Some(id) = file.strip_suffix(".desktop") else { continue };
+                let Some(file) = path.file_name().and_then(|f| f.to_str()) else {
+                    continue;
+                };
+                let Some(id) = file.strip_suffix(".desktop") else {
+                    continue;
+                };
                 if seen.contains_key(&normalize(id)) {
                     continue; // earlier dirs win, as in the spec
                 }
                 // Bounded read: a desktop file is a few KiB.
-                let Ok(bytes) = std::fs::read(&path) else { continue };
+                let Ok(bytes) = std::fs::read(&path) else {
+                    continue;
+                };
                 if bytes.len() > 256 * 1024 {
                     continue;
                 }
@@ -238,10 +258,18 @@ impl DesktopIndex {
     pub fn default_dirs(env: &dyn Fn(&str) -> Option<String>) -> Vec<PathBuf> {
         let home = env("HOME").unwrap_or_default();
         let data_home = env("XDG_DATA_HOME").unwrap_or_else(|| format!("{home}/.local/share"));
-        let data_dirs = env("XDG_DATA_DIRS").unwrap_or_else(|| "/usr/local/share:/usr/share".into());
+        let data_dirs =
+            env("XDG_DATA_DIRS").unwrap_or_else(|| "/usr/local/share:/usr/share".into());
         let mut dirs = vec![PathBuf::from(data_home)];
-        dirs.extend(data_dirs.split(':').filter(|d| !d.is_empty()).map(PathBuf::from));
-        dirs.push(PathBuf::from(format!("{home}/.local/share/flatpak/exports/share")));
+        dirs.extend(
+            data_dirs
+                .split(':')
+                .filter(|d| !d.is_empty())
+                .map(PathBuf::from),
+        );
+        dirs.push(PathBuf::from(format!(
+            "{home}/.local/share/flatpak/exports/share"
+        )));
         dirs.push(PathBuf::from("/var/lib/flatpak/exports/share"));
         dirs
     }
@@ -252,7 +280,10 @@ impl DesktopIndex {
         let base = exe.rsplit('/').next().unwrap_or(exe);
         self.entries
             .iter()
-            .filter(|e| !e.exec.starts_with("flatpak:") && (e.exec == exe || e.exec.rsplit('/').next() == Some(base)))
+            .filter(|e| {
+                !e.exec.starts_with("flatpak:")
+                    && (e.exec == exe || e.exec.rsplit('/').next() == Some(base))
+            })
             .map(|e| e.id.clone())
             .collect()
     }
@@ -288,7 +319,10 @@ pub fn candidates(ev: &Evidence, index: &DesktopIndex) -> Vec<String> {
             add(Some(id));
         }
     }
-    add(ev.launched_desktop_file.as_deref().and_then(id_from_launched_desktop_file));
+    add(ev
+        .launched_desktop_file
+        .as_deref()
+        .and_then(id_from_launched_desktop_file));
     add(ev.exe.as_deref().and_then(id_from_exe_name));
     out
 }
@@ -302,7 +336,11 @@ fn strictness(id: &str) -> u8 {
 /// [`candidates`]. A process that presents a friendly id next to a restricted one (a terminal
 /// whose cgroup says `org.gnome.TextEditor`) is treated as the restricted one.
 pub fn choose(cands: &[String]) -> Option<String> {
-    cands.iter().enumerate().min_by_key(|(i, id)| (strictness(id), *i)).map(|(_, id)| id.clone())
+    cands
+        .iter()
+        .enumerate()
+        .min_by_key(|(i, id)| (strictness(id), *i))
+        .map(|(_, id)| id.clone())
 }
 
 #[cfg(test)]
@@ -311,12 +349,30 @@ mod tests {
 
     #[test]
     fn units_name_the_app() {
-        assert_eq!(id_from_unit("app-gnome-org.gnome.TextEditor-4242.scope").as_deref(), Some("org.gnome.texteditor"));
-        assert_eq!(id_from_unit("app-org.gnome.Nautilus@autostart.service").as_deref(), Some("org.gnome.nautilus"));
-        assert_eq!(id_from_unit("app-firefox-123.scope").as_deref(), Some("firefox"));
-        assert_eq!(id_from_unit("app-KDE-org.kde.konsole-777.scope").as_deref(), Some("org.kde.konsole"));
-        assert_eq!(id_from_unit(r"app-gnome-gnome\x2dterminal-9.scope").as_deref(), Some("gnome-terminal"));
-        assert_eq!(id_from_unit(r"app-gnome-jetbrains\x2didea-9.scope").as_deref(), Some("jetbrains-idea"));
+        assert_eq!(
+            id_from_unit("app-gnome-org.gnome.TextEditor-4242.scope").as_deref(),
+            Some("org.gnome.texteditor")
+        );
+        assert_eq!(
+            id_from_unit("app-org.gnome.Nautilus@autostart.service").as_deref(),
+            Some("org.gnome.nautilus")
+        );
+        assert_eq!(
+            id_from_unit("app-firefox-123.scope").as_deref(),
+            Some("firefox")
+        );
+        assert_eq!(
+            id_from_unit("app-KDE-org.kde.konsole-777.scope").as_deref(),
+            Some("org.kde.konsole")
+        );
+        assert_eq!(
+            id_from_unit(r"app-gnome-gnome\x2dterminal-9.scope").as_deref(),
+            Some("gnome-terminal")
+        );
+        assert_eq!(
+            id_from_unit(r"app-gnome-jetbrains\x2didea-9.scope").as_deref(),
+            Some("jetbrains-idea")
+        );
         assert_eq!(id_from_unit("session-3.scope"), None);
         assert_eq!(id_from_unit("app-.scope"), None);
         assert_eq!(id_from_unit("app-a-b-c-d-9.scope"), None);
@@ -331,18 +387,40 @@ mod tests {
 
     #[test]
     fn launched_desktop_file_and_exe_names() {
-        assert_eq!(id_from_launched_desktop_file("/usr/share/applications/org.gnome.TextEditor.desktop").as_deref(), Some("org.gnome.texteditor"));
-        assert_eq!(id_from_launched_desktop_file("/usr/share/applications/x.txt"), None);
-        assert_eq!(id_from_exe_name("/usr/bin/Firefox").as_deref(), Some("firefox"));
-        assert_eq!(id_from_exe_name("/usr/lib/firefox/firefox (deleted)").as_deref(), Some("firefox"));
+        assert_eq!(
+            id_from_launched_desktop_file("/usr/share/applications/org.gnome.TextEditor.desktop")
+                .as_deref(),
+            Some("org.gnome.texteditor")
+        );
+        assert_eq!(
+            id_from_launched_desktop_file("/usr/share/applications/x.txt"),
+            None
+        );
+        assert_eq!(
+            id_from_exe_name("/usr/bin/Firefox").as_deref(),
+            Some("firefox")
+        );
+        assert_eq!(
+            id_from_exe_name("/usr/lib/firefox/firefox (deleted)").as_deref(),
+            Some("firefox")
+        );
         assert_eq!(id_from_exe_name("/tmp/a b"), None);
     }
 
     #[test]
     fn exec_lines() {
-        assert_eq!(exec_program("gnome-text-editor --new-window %U").as_deref(), Some("gnome-text-editor"));
-        assert_eq!(exec_program("env GTK_THEME=x /usr/bin/foo %f").as_deref(), Some("/usr/bin/foo"));
-        assert_eq!(exec_program(r#""/opt/my app/run" --x"#).as_deref(), Some("/opt/my app/run"));
+        assert_eq!(
+            exec_program("gnome-text-editor --new-window %U").as_deref(),
+            Some("gnome-text-editor")
+        );
+        assert_eq!(
+            exec_program("env GTK_THEME=x /usr/bin/foo %f").as_deref(),
+            Some("/usr/bin/foo")
+        );
+        assert_eq!(
+            exec_program(r#""/opt/my app/run" --x"#).as_deref(),
+            Some("/opt/my app/run")
+        );
         assert_eq!(
             exec_program("/usr/bin/flatpak run --branch=stable --command=firefox org.mozilla.firefox @@u %u @@").as_deref(),
             Some("flatpak:org.mozilla.firefox")
@@ -355,7 +433,10 @@ mod tests {
     #[test]
     fn desktop_files_parse_only_the_main_group() {
         let e = parse_desktop("org.gnome.TextEditor", EDITOR).unwrap();
-        assert_eq!((e.id.as_str(), e.exec.as_str()), ("org.gnome.texteditor", "gnome-text-editor"));
+        assert_eq!(
+            (e.id.as_str(), e.exec.as_str()),
+            ("org.gnome.texteditor", "gnome-text-editor")
+        );
         assert_eq!(e.name.as_deref(), Some("Text Editor"));
         assert_eq!(e.wm_class.as_deref(), Some("org.gnome.texteditor"));
         assert!(parse_desktop("x", "[Desktop Entry]\nType=Link\nExec=a\n").is_none());
@@ -368,11 +449,21 @@ mod tests {
         let apps = dir.path().join("applications");
         std::fs::create_dir_all(&apps).unwrap();
         std::fs::write(apps.join("org.gnome.TextEditor.desktop"), EDITOR).unwrap();
-        std::fs::write(apps.join("firefox.desktop"), "[Desktop Entry]\nType=Application\nExec=/usr/lib/firefox/firefox %u\n").unwrap();
+        std::fs::write(
+            apps.join("firefox.desktop"),
+            "[Desktop Entry]\nType=Application\nExec=/usr/lib/firefox/firefox %u\n",
+        )
+        .unwrap();
         let index = DesktopIndex::load(&[dir.path().to_path_buf()]);
         assert_eq!(index.entries.len(), 2);
-        assert_eq!(index.ids_for_exe("/usr/bin/gnome-text-editor"), vec!["org.gnome.texteditor"]);
-        assert_eq!(index.ids_for_exe("/usr/lib/firefox/firefox"), vec!["firefox"]);
+        assert_eq!(
+            index.ids_for_exe("/usr/bin/gnome-text-editor"),
+            vec!["org.gnome.texteditor"]
+        );
+        assert_eq!(
+            index.ids_for_exe("/usr/lib/firefox/firefox"),
+            vec!["firefox"]
+        );
         assert!(index.ids_for_exe("/usr/bin/unknown").is_empty());
         assert!(index.get("ORG.gnome.texteditor.desktop").is_some());
     }
@@ -382,7 +473,9 @@ mod tests {
         // A terminal launched with a friendly desktop file in its environment.
         let index = DesktopIndex::default();
         let ev = Evidence {
-            launched_desktop_file: Some("/usr/share/applications/org.gnome.TextEditor.desktop".into()),
+            launched_desktop_file: Some(
+                "/usr/share/applications/org.gnome.TextEditor.desktop".into(),
+            ),
             exe: Some("/usr/bin/gnome-terminal".into()),
             ..Default::default()
         };
@@ -390,8 +483,15 @@ mod tests {
         assert_eq!(c, vec!["org.gnome.texteditor", "gnome-terminal"]);
         assert_eq!(choose(&c).as_deref(), Some("gnome-terminal"));
         // Ordinary apps keep the first candidate.
-        let ev = Evidence { cgroup: Some("0::/app.slice/app-gnome-org.gnome.TextEditor-1.scope\n".into()), exe: Some("/usr/bin/gnome-text-editor".into()), ..Default::default() };
-        assert_eq!(choose(&candidates(&ev, &index)).as_deref(), Some("org.gnome.texteditor"));
+        let ev = Evidence {
+            cgroup: Some("0::/app.slice/app-gnome-org.gnome.TextEditor-1.scope\n".into()),
+            exe: Some("/usr/bin/gnome-text-editor".into()),
+            ..Default::default()
+        };
+        assert_eq!(
+            choose(&candidates(&ev, &index)).as_deref(),
+            Some("org.gnome.texteditor")
+        );
         assert_eq!(choose(&[]), None);
     }
 

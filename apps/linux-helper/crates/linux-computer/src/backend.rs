@@ -79,7 +79,10 @@ pub struct ActError {
 
 impl ActError {
     pub fn new(detail: impl Into<String>) -> Self {
-        ActError { detail: detail.into(), not_responding: false }
+        ActError {
+            detail: detail.into(),
+            not_responding: false,
+        }
     }
 }
 
@@ -118,12 +121,18 @@ impl Frame {
         let y0 = r.y.max(0.0) as u32;
         let x1 = (r.max_x().max(0.0) as u32).min(self.width);
         let y1 = (r.max_y().max(0.0) as u32).min(self.height);
-        (y0..y1).any(|y| (x0..x1).any(|x| self.rgba[((y * self.width + x) * 4) as usize..][..3] != [0, 0, 0]))
+        (y0..y1).any(|y| {
+            (x0..x1).any(|x| self.rgba[((y * self.width + x) * 4) as usize..][..3] != [0, 0, 0])
+        })
     }
 }
 
 fn unsupported(what: &str) -> CapError {
-    CapError::new(code::NOT_IMPLEMENTED, "not_supported", format!("{what} is not available on this desktop"))
+    CapError::new(
+        code::NOT_IMPLEMENTED,
+        "not_supported",
+        format!("{what} is not available on this desktop"),
+    )
 }
 
 /// A desktop the engine can drive.
@@ -183,10 +192,23 @@ pub trait Backend: TreeSource<Element: Send + 'static> + Send + Sync + 'static {
 
     // --- input --------------------------------------------------------------------------------
 
-    fn click(&self, x: f64, y: f64, count: u32, right: bool, mods: Mods, stop: &StopSignal) -> CapResult<()>;
+    fn click(
+        &self,
+        x: f64,
+        y: f64,
+        count: u32,
+        right: bool,
+        mods: Mods,
+        stop: &StopSignal,
+    ) -> CapResult<()>;
     /// Types `text`; `before_chunk` runs before every chunk and may refuse (focus moved, secure
     /// field).
-    fn type_text(&self, text: &str, stop: &StopSignal, before_chunk: &mut dyn FnMut() -> CapResult<()>) -> CapResult<()>;
+    fn type_text(
+        &self,
+        text: &str,
+        stop: &StopSignal,
+        before_chunk: &mut dyn FnMut() -> CapResult<()>,
+    ) -> CapResult<()>;
     fn key(&self, chord: &KeyChord, stop: &StopSignal) -> CapResult<()>;
     fn scroll(&self, x: f64, y: f64, dx: i32, dy: i32, stop: &StopSignal) -> CapResult<()>;
     fn drag(&self, from: (f64, f64), to: (f64, f64), stop: &StopSignal) -> CapResult<()>;

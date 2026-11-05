@@ -22,16 +22,21 @@ mod linux {
 
     use psyche_linux_computer::a11y::A11y;
     use psyche_linux_computer::backend::Backend;
+    use psyche_linux_computer::backend::Frame;
     use psyche_linux_computer::engine::{Engine, Invocation};
     use psyche_linux_computer::error::{code, CapError};
     use psyche_linux_computer::linux::{LinuxBackend, Path, SessionKind};
+    use psyche_linux_computer::portal::{Portal, PortalPath};
+    use psyche_linux_computer::snapshot::Rect;
     use psyche_linux_computer::spec::{specs, CapSpecLite};
     use psyche_linux_computer::tiers::{ApprovalBinding, Intent, TierSettings};
     use psyche_linux_computer::x11::X11;
     use psyche_protocol::{ErrorCode, SideEffect, TargetKind};
     use serde_json::{json, Map, Value};
 
-    use crate::capability::{Capability, CapabilityError, CapabilitySpec, InvocationContext, Registry};
+    use crate::capability::{
+        Capability, CapabilityError, CapabilitySpec, InvocationContext, Registry,
+    };
     use crate::paths::{state_dir, Env, ProcessEnv};
 
     fn env_get(key: &str) -> Option<String> {
@@ -43,10 +48,13 @@ mod linux {
     #[derive(Default)]
     struct Shared {
         engine: Mutex<Option<Arc<Engine<LinuxBackend>>>>,
+        /// The portal session holder on Wayland (revoking closes it).
+        portal: Mutex<Option<Arc<Portal>>>,
     }
 
     fn cap_error(e: &CapError) -> CapabilityError {
-        let code = serde_json::from_value::<ErrorCode>(json!(e.code)).unwrap_or(ErrorCode::Internal);
+        let code =
+            serde_json::from_value::<ErrorCode>(json!(e.code)).unwrap_or(ErrorCode::Internal);
         let mut out = CapabilityError::new(code, &e.reason, &e.message);
         out.retryable = e.retryable;
         out.details = e.details.clone();
@@ -63,13 +71,41 @@ mod linux {
             let path = match kind {
                 SessionKind::X11 => Path::X11(X11::connect().map_err(|e| cap_error(&e))?),
                 SessionKind::Wayland => {
-                    return Err(cap_error(&CapError::unavailable(
-                        "portal_unavailable",
-                        "Wayland sessions are driven through the desktop portal, which this build does not have",
-                    )))
+                    let portal =
+                        Arc::new(Portal::connect(portal_token_path()).map_err(|e| cap_error(&e))?);
+                    *self.portal.lock().unwrap_or_else(|e| e.into_inner()) = Some(portal.clone());
+                    let frames = Box::new(|p: &Portal| -> Result<Frame, CapError> {
+                        let st = p.streams().first().cloned().ok_or_else(|| {
+                            CapError::unavailable("portal_closed", "Screen sharing ended")
+                                .retryable()
+                        })?;
+                        let fd = p.pipewire_fd()?;
+                        let raw = psyche_linux_computer::pw::grab(
+                            std::os::fd::OwnedFd::from(fd),
+                            st.node_id,
+                            std::time::Duration::from_secs(5),
+                        )?;
+                        let scale = f64::from(raw.width) / f64::from(st.size.0.max(1));
+                        Ok(Frame {
+                            width: raw.width,
+                            height: raw.height,
+                            rgba: raw.rgba,
+                            screen: Rect::new(
+                                f64::from(st.position.0),
+                                f64::from(st.position.1),
+                                f64::from(st.size.0),
+                                f64::from(st.size.1),
+                            ),
+                            scale,
+                        })
+                    });
+                    Path::Remote(Box::new(PortalPath { portal, frames }))
                 }
                 SessionKind::Headless => {
-                    return Err(cap_error(&CapError::unavailable("no_graphical_session", "Needs a graphical session on this computer")))
+                    return Err(cap_error(&CapError::unavailable(
+                        "no_graphical_session",
+                        "Needs a graphical session on this computer",
+                    )))
                 }
             };
             let a11y = Arc::new(A11y::connect().map_err(|e| cap_error(&e))?);
@@ -118,8 +154,14 @@ mod linux {
 
         fn invoke(&self, ctx: &InvocationContext) -> Result<Value, CapabilityError> {
             let engine = self.shared.engine()?;
-            let inv = Invocation { approval_id: ctx.approval_id.clone(), cancel: Some(ctx.cancelled.clone()) };
-            engine.invoke(&ctx.capability, &ctx.params, &inv).map(|o| o.result).map_err(|e| cap_error(&e))
+            let inv = Invocation {
+                approval_id: ctx.approval_id.clone(),
+                cancel: Some(ctx.cancelled.clone()),
+            };
+            engine
+                .invoke(&ctx.capability, &ctx.params, &inv)
+                .map(|o| o.result)
+                .map_err(|e| cap_error(&e))
         }
     }
 
@@ -203,7 +245,12 @@ mod linux {
             let engine = self.shared.engine()?;
             engine.reload_settings();
             let binding = ApprovalBinding::from(ctx.approval_id.as_deref(), &ctx.params);
-            let get = |k: &str| ctx.params.get(k).and_then(Value::as_str).map(str::to_string);
+            let get = |k: &str| {
+                ctx.params
+                    .get(k)
+                    .and_then(Value::as_str)
+                    .map(str::to_string)
+            };
             match self.op {
                 AppsOp::List => {
                     let apps: Vec<Value> = engine
@@ -220,29 +267,65 @@ mod linux {
                     Ok(json!({ "apps": apps }))
                 }
                 AppsOp::Open => {
-                    let id = get("bundleId").or_else(|| get("app")).ok_or_else(|| cap_error(&CapError::invalid_params("bundleId is required", Some("bundleId"))))?;
+                    let id = get("bundleId").or_else(|| get("app")).ok_or_else(|| {
+                        cap_error(&CapError::invalid_params(
+                            "bundleId is required",
+                            Some("bundleId"),
+                        ))
+                    })?;
                     if !psyche_linux_computer::app_id::is_app_id(&id) {
-                        return Err(cap_error(&CapError::invalid_params("bundleId is not an app id", Some("bundleId"))));
+                        return Err(cap_error(&CapError::invalid_params(
+                            "bundleId is not an app id",
+                            Some("bundleId"),
+                        )));
                     }
                     let id = psyche_linux_computer::app_id::normalize(&id);
                     let url = get("url");
                     if let Some(u) = &url {
                         // Documents and mail drafts only: web pages go through the agent browser.
                         let l = u.to_ascii_lowercase();
-                        if !(l.starts_with("file:") || l.starts_with("mailto:")) || u.chars().any(char::is_control) {
-                            return Err(cap_error(&CapError::new(code::POLICY_DENIED, "url_scheme", "apps.open opens file: and mailto: URLs only")));
+                        if !(l.starts_with("file:") || l.starts_with("mailto:"))
+                            || u.chars().any(char::is_control)
+                        {
+                            return Err(cap_error(&CapError::new(
+                                code::POLICY_DENIED,
+                                "url_scheme",
+                                "apps.open opens file: and mailto: URLs only",
+                            )));
                         }
                     }
-                    engine.policy.authorize(Intent::Click, Some(&id), &id, binding.as_ref()).map_err(|e| cap_error(&e))?;
-                    engine.backend.launch(&id, url.as_deref()).map_err(|e| cap_error(&e))
+                    engine
+                        .policy
+                        .authorize(Intent::Click, Some(&id), &id, binding.as_ref())
+                        .map_err(|e| cap_error(&e))?;
+                    engine
+                        .backend
+                        .launch(&id, url.as_deref())
+                        .map_err(|e| cap_error(&e))
                 }
                 AppsOp::Focus => {
-                    let id = get("app").ok_or_else(|| cap_error(&CapError::invalid_params("app is required", Some("app"))))?;
-                    let app = engine.find_app(Some(&id), None).map_err(|e| cap_error(&e))?;
-                    engine.policy.authorize(Intent::Click, Some(&app.id), &app.name, binding.as_ref()).map_err(|e| cap_error(&e))?;
-                    let window = ctx.params.get("window").and_then(Value::as_u64).map(|w| w as usize);
-                    let moved = engine.backend.activate(&app, window, &engine.stop).map_err(|e| cap_error(&e))?;
-                    Ok(json!({"focused": moved, "focus": if moved { "moved" } else { "requested" }, "app": app.id}))
+                    let id = get("app").ok_or_else(|| {
+                        cap_error(&CapError::invalid_params("app is required", Some("app")))
+                    })?;
+                    let app = engine
+                        .find_app(Some(&id), None)
+                        .map_err(|e| cap_error(&e))?;
+                    engine
+                        .policy
+                        .authorize(Intent::Click, Some(&app.id), &app.name, binding.as_ref())
+                        .map_err(|e| cap_error(&e))?;
+                    let window = ctx
+                        .params
+                        .get("window")
+                        .and_then(Value::as_u64)
+                        .map(|w| w as usize);
+                    let moved = engine
+                        .backend
+                        .activate(&app, window, &engine.stop)
+                        .map_err(|e| cap_error(&e))?;
+                    Ok(
+                        json!({"focused": moved, "focus": if moved { "moved" } else { "requested" }, "app": app.id}),
+                    )
                 }
             }
         }
@@ -255,7 +338,11 @@ mod linux {
     }
 
     fn read_state(path: &std::path::Path) -> Map<String, Value> {
-        std::fs::read(path).ok().and_then(|b| serde_json::from_slice::<Value>(&b).ok()).and_then(|v| v.as_object().cloned()).unwrap_or_default()
+        std::fs::read(path)
+            .ok()
+            .and_then(|b| serde_json::from_slice::<Value>(&b).ok())
+            .and_then(|v| v.as_object().cloned())
+            .unwrap_or_default()
     }
 
     fn write_private(path: &std::path::Path, value: &Value) -> std::io::Result<()> {
@@ -266,7 +353,12 @@ mod linux {
             std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o700))?;
         }
         let tmp = path.with_extension(format!("{}.tmp", std::process::id()));
-        let mut f = std::fs::OpenOptions::new().write(true).create(true).truncate(true).mode(0o600).open(&tmp)?;
+        let mut f = std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .mode(0o600)
+            .open(&tmp)?;
         f.write_all(value.to_string().as_bytes())?;
         f.sync_all()?;
         std::fs::rename(&tmp, path)
@@ -274,16 +366,26 @@ mod linux {
 
     /// A screen reader is running (Orca): it relies on the accessibility flag, so it stays on.
     fn screen_reader_running() -> bool {
-        let Ok(rd) = std::fs::read_dir("/proc") else { return false };
+        let Ok(rd) = std::fs::read_dir("/proc") else {
+            return false;
+        };
         rd.flatten().any(|e| {
-            e.file_name().to_string_lossy().chars().all(|c| c.is_ascii_digit())
-                && std::fs::read_to_string(e.path().join("comm")).is_ok_and(|c| matches!(c.trim(), "orca" | "brltty" | "espeakup"))
+            e.file_name()
+                .to_string_lossy()
+                .chars()
+                .all(|c| c.is_ascii_digit())
+                && std::fs::read_to_string(e.path().join("comm"))
+                    .is_ok_and(|c| matches!(c.trim(), "orca" | "brltty" | "espeakup"))
         })
     }
 
     fn a11y_status() -> Value {
         let available = zbus_session_available();
-        let enabled = if available { A11y::status_enabled() } else { None };
+        let enabled = if available {
+            A11y::status_enabled()
+        } else {
+            None
+        };
         let st = read_state(&a11y_state_path());
         json!({
             "available": available && enabled.is_some(),
@@ -304,12 +406,20 @@ mod linux {
             if current == Some(false) {
                 A11y::set_status_enabled(true).map_err(|e| cap_error(&e))?;
                 write_private(&path, &json!({"enabledByPsyche": true})).ok();
-            } else if current == Some(true) && !read_state(&path).get("enabledByPsyche").and_then(Value::as_bool).unwrap_or(false) {
+            } else if current == Some(true)
+                && !read_state(&path)
+                    .get("enabledByPsyche")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false)
+            {
                 // Already on (a screen reader, or the owner): ours to leave alone.
                 write_private(&path, &json!({"enabledByPsyche": false})).ok();
             }
         } else {
-            let ours = read_state(&path).get("enabledByPsyche").and_then(Value::as_bool).unwrap_or(false);
+            let ours = read_state(&path)
+                .get("enabledByPsyche")
+                .and_then(Value::as_bool)
+                .unwrap_or(false);
             if ours && current == Some(true) && !screen_reader_running() {
                 A11y::set_status_enabled(false).map_err(|e| cap_error(&e))?;
             }
@@ -319,13 +429,24 @@ mod linux {
     }
 
     fn desktop_name(env: &dyn Fn(&str) -> Option<String>) -> Option<&'static str> {
-        let d = format!("{} {}", env("XDG_CURRENT_DESKTOP").unwrap_or_default(), env("XDG_SESSION_DESKTOP").unwrap_or_default()).to_lowercase();
-        let has = |names: &[&str]| names.iter().any(|n| d.split(|c: char| !c.is_alphanumeric()).any(|w| w == *n));
+        let d = format!(
+            "{} {}",
+            env("XDG_CURRENT_DESKTOP").unwrap_or_default(),
+            env("XDG_SESSION_DESKTOP").unwrap_or_default()
+        )
+        .to_lowercase();
+        let has = |names: &[&str]| {
+            names
+                .iter()
+                .any(|n| d.split(|c: char| !c.is_alphanumeric()).any(|w| w == *n))
+        };
         if has(&["gnome", "ubuntu", "unity"]) {
             Some("gnome")
         } else if has(&["kde", "plasma"]) {
             Some("kde")
-        } else if has(&["sway", "hyprland", "labwc", "river", "wayfire", "niri", "dwl", "cage", "wlroots"]) {
+        } else if has(&[
+            "sway", "hyprland", "labwc", "river", "wayfire", "niri", "dwl", "cage", "wlroots",
+        ]) {
             Some("wlroots")
         } else if d.trim().is_empty() {
             None
@@ -347,8 +468,16 @@ mod linux {
             (SessionKind::Wayland, _) => "portal",
             _ => "none",
         };
-        let allowed = read_state(&portal_token_path()).get("restoreToken").and_then(Value::as_str).is_some_and(|t| !t.is_empty());
-        let active = shared.engine.lock().unwrap_or_else(|e| e.into_inner()).is_some() && kind == SessionKind::Wayland;
+        let allowed = read_state(&portal_token_path())
+            .get("restoreToken")
+            .and_then(Value::as_str)
+            .is_some_and(|t| !t.is_empty());
+        let active = shared
+            .portal
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .as_ref()
+            .is_some_and(|p| p.is_open());
         let mut warnings: Vec<&str> = Vec::new();
         if backend == "x11" {
             warnings.push("x11");
@@ -379,12 +508,21 @@ mod linux {
                 Misc::PortalStatus => ("portal.status", "Which input and screen path this session uses, and whether screen and input access is allowed until revoked.", SideEffect::Read),
                 Misc::PortalRevoke => ("portal.revoke", "Forget the stored screen and input permission: the next Wayland session asks again.", SideEffect::Write),
             };
-            CapabilitySpec { name, description, side_effect, target_kind: None, streaming: false }
+            CapabilitySpec {
+                name,
+                description,
+                side_effect,
+                target_kind: None,
+                streaming: false,
+            }
         }
 
         fn input_schema(&self) -> Option<Value> {
             match self.op {
-                Misc::A11yEnable => Some(object(vec![("enabled", json!({"type": "boolean"}))], &["enabled"])),
+                Misc::A11yEnable => Some(object(
+                    vec![("enabled", json!({"type": "boolean"}))],
+                    &["enabled"],
+                )),
                 _ => None,
             }
         }
@@ -397,17 +535,28 @@ mod linux {
                         .params
                         .get("enabled")
                         .and_then(Value::as_bool)
-                        .ok_or_else(|| cap_error(&CapError::invalid_params("enabled (a boolean) is required", Some("enabled"))))?;
+                        .ok_or_else(|| {
+                            cap_error(&CapError::invalid_params(
+                                "enabled (a boolean) is required",
+                                Some("enabled"),
+                            ))
+                        })?;
                     a11y_enable(on)
                 }
                 Misc::PortalStatus => Ok(portal_status(&self.shared)),
                 Misc::PortalRevoke => {
                     let path = portal_token_path();
                     let had = path.exists();
-                    let _ = std::fs::remove_file(&path);
-                    if let Some(e) = self.shared.engine.lock().unwrap_or_else(|e| e.into_inner()).as_ref() {
-                        e.backend.session_idle();
+                    if let Some(p) = self
+                        .shared
+                        .portal
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner())
+                        .as_ref()
+                    {
+                        p.revoke();
                     }
+                    let _ = std::fs::remove_file(&path);
                     Ok(json!({"revoked": had}))
                 }
             }
@@ -418,13 +567,27 @@ mod linux {
     pub fn register(registry: &mut Registry) {
         let shared = Arc::new(Shared::default());
         for spec in specs() {
-            registry.register(Arc::new(Computer { spec, shared: shared.clone() }));
+            registry.register(Arc::new(Computer {
+                spec,
+                shared: shared.clone(),
+            }));
         }
         for op in [AppsOp::List, AppsOp::Open, AppsOp::Focus] {
-            registry.register(Arc::new(Apps { op, shared: shared.clone() }));
+            registry.register(Arc::new(Apps {
+                op,
+                shared: shared.clone(),
+            }));
         }
-        for op in [Misc::A11yStatus, Misc::A11yEnable, Misc::PortalStatus, Misc::PortalRevoke] {
-            registry.register(Arc::new(Other { op, shared: shared.clone() }));
+        for op in [
+            Misc::A11yStatus,
+            Misc::A11yEnable,
+            Misc::PortalStatus,
+            Misc::PortalRevoke,
+        ] {
+            registry.register(Arc::new(Other {
+                op,
+                shared: shared.clone(),
+            }));
         }
         // `Intent` and `TierSettings` are used by the engine; keep the imports honest.
         let _ = (Intent::Read, TierSettings::default());
@@ -446,36 +609,87 @@ mod linux {
             let r = registry();
             let names: Vec<String> = r.manifest().into_iter().map(|c| c.name).collect();
             for want in [
-                "health", "computer.ax_tree", "computer.check_target", "computer.ax_value", "computer.click", "computer.double_click",
-                "computer.right_click", "computer.press", "computer.set_value", "computer.select", "computer.type", "computer.key",
-                "computer.scroll", "computer.drag", "computer.menu", "computer.end_session", "computer.screenshot", "apps.list", "apps.open",
-                "apps.focus", "a11y.status", "a11y.enable", "portal.status", "portal.revoke",
+                "health",
+                "computer.ax_tree",
+                "computer.check_target",
+                "computer.ax_value",
+                "computer.click",
+                "computer.double_click",
+                "computer.right_click",
+                "computer.press",
+                "computer.set_value",
+                "computer.select",
+                "computer.type",
+                "computer.key",
+                "computer.scroll",
+                "computer.drag",
+                "computer.menu",
+                "computer.end_session",
+                "computer.screenshot",
+                "apps.list",
+                "apps.open",
+                "apps.focus",
+                "a11y.status",
+                "a11y.enable",
+                "portal.status",
+                "portal.revoke",
             ] {
-                assert!(names.iter().any(|n| n == want), "{want} missing from {names:?}");
+                assert!(
+                    names.iter().any(|n| n == want),
+                    "{want} missing from {names:?}"
+                );
             }
-            for never in ["apps.applescript", "apps.jxa", "apps.shortcut_run", "apps.shortcuts_list", "screen.context", "computer.screenshot_pick"] {
-                assert!(!names.iter().any(|n| n == never), "{never} must not be advertised");
+            for never in [
+                "apps.applescript",
+                "apps.jxa",
+                "apps.shortcut_run",
+                "apps.shortcuts_list",
+                "screen.context",
+                "computer.screenshot_pick",
+            ] {
+                assert!(
+                    !names.iter().any(|n| n == never),
+                    "{never} must not be advertised"
+                );
             }
         }
 
         #[test]
         fn computer_capabilities_carry_their_schemas_and_side_effects() {
             let v = serde_json::to_value(registry().manifest()).unwrap();
-            let find = |name: &str| v.as_array().unwrap().iter().find(|c| c["name"] == name).unwrap().clone();
+            let find = |name: &str| {
+                v.as_array()
+                    .unwrap()
+                    .iter()
+                    .find(|c| c["name"] == name)
+                    .unwrap()
+                    .clone()
+            };
             let click = find("computer.click");
             assert_eq!(click["sideEffect"], "write");
             assert_eq!(click["targetKind"], "app");
             assert!(click["inputSchema"]["properties"]["approval"].is_object());
             assert!(click["inputSchema"]["properties"]["expect"].is_object());
             assert_eq!(find("computer.ax_tree")["sideEffect"], "read");
-            assert_eq!(find("computer.key")["inputSchema"]["required"], json!(["keys"]));
-            assert_eq!(find("a11y.enable")["inputSchema"]["required"], json!(["enabled"]));
-            assert_eq!(find("apps.focus")["inputSchema"]["required"], json!(["app"]));
+            assert_eq!(
+                find("computer.key")["inputSchema"]["required"],
+                json!(["keys"])
+            );
+            assert_eq!(
+                find("a11y.enable")["inputSchema"]["required"],
+                json!(["enabled"])
+            );
+            assert_eq!(
+                find("apps.focus")["inputSchema"]["required"],
+                json!(["app"])
+            );
         }
 
         #[test]
         fn errors_keep_the_details_the_gateway_reads() {
-            let e = CapError::new(code::APPROVAL_REQUIRED, "tier_ask", "needs permission").detail("app", "firefox").detail("tierRequired", "click");
+            let e = CapError::new(code::APPROVAL_REQUIRED, "tier_ask", "needs permission")
+                .detail("app", "firefox")
+                .detail("tierRequired", "click");
             let c = cap_error(&e);
             let v = serde_json::to_value(c.payload()).unwrap();
             assert_eq!(v["code"], "approval_required");
@@ -486,12 +700,34 @@ mod linux {
 
         #[test]
         fn the_desktop_is_named_from_the_session_environment() {
-            let env = |pairs: &'static [(&'static str, &'static str)]| move |k: &str| pairs.iter().find(|(n, _)| *n == k).map(|(_, v)| v.to_string());
-            assert_eq!(desktop_name(&env(&[("XDG_CURRENT_DESKTOP", "ubuntu:GNOME")])), Some("gnome"));
-            assert_eq!(desktop_name(&env(&[("XDG_CURRENT_DESKTOP", "KDE")])), Some("kde"));
-            assert_eq!(desktop_name(&env(&[("XDG_CURRENT_DESKTOP", "sway")])), Some("wlroots"));
-            assert_eq!(desktop_name(&env(&[("XDG_CURRENT_DESKTOP", "Hyprland")])), Some("wlroots"));
-            assert_eq!(desktop_name(&env(&[("XDG_CURRENT_DESKTOP", "XFCE")])), Some("other"));
+            let env = |pairs: &'static [(&'static str, &'static str)]| {
+                move |k: &str| {
+                    pairs
+                        .iter()
+                        .find(|(n, _)| *n == k)
+                        .map(|(_, v)| v.to_string())
+                }
+            };
+            assert_eq!(
+                desktop_name(&env(&[("XDG_CURRENT_DESKTOP", "ubuntu:GNOME")])),
+                Some("gnome")
+            );
+            assert_eq!(
+                desktop_name(&env(&[("XDG_CURRENT_DESKTOP", "KDE")])),
+                Some("kde")
+            );
+            assert_eq!(
+                desktop_name(&env(&[("XDG_CURRENT_DESKTOP", "sway")])),
+                Some("wlroots")
+            );
+            assert_eq!(
+                desktop_name(&env(&[("XDG_CURRENT_DESKTOP", "Hyprland")])),
+                Some("wlroots")
+            );
+            assert_eq!(
+                desktop_name(&env(&[("XDG_CURRENT_DESKTOP", "XFCE")])),
+                Some("other")
+            );
             assert_eq!(desktop_name(&env(&[])), None);
         }
 
@@ -499,12 +735,17 @@ mod linux {
         fn without_a_display_the_tools_say_a_graphical_session_is_needed() {
             // The test runner may have a display; force the headless branch through the engine
             // builder by clearing the variables for this process.
-            if std::env::var_os("DISPLAY").is_some() || std::env::var_os("WAYLAND_DISPLAY").is_some() {
+            if std::env::var_os("DISPLAY").is_some()
+                || std::env::var_os("WAYLAND_DISPLAY").is_some()
+            {
                 return;
             }
             let shared = Shared::default();
             let err = shared.engine().err().expect("no engine without a display");
-            assert_eq!(serde_json::to_value(err.payload()).unwrap()["details"]["reason"], "no_graphical_session");
+            assert_eq!(
+                serde_json::to_value(err.payload()).unwrap()["details"]["reason"],
+                "no_graphical_session"
+            );
         }
 
         #[test]
@@ -513,8 +754,18 @@ mod linux {
             let dir = tempfile::tempdir().unwrap();
             let path = dir.path().join("sub").join("portal.json");
             write_private(&path, &json!({"restoreToken": "t"})).unwrap();
-            assert_eq!(std::fs::metadata(&path).unwrap().permissions().mode() & 0o777, 0o600);
-            assert_eq!(std::fs::metadata(path.parent().unwrap()).unwrap().permissions().mode() & 0o777, 0o700);
+            assert_eq!(
+                std::fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+                0o600
+            );
+            assert_eq!(
+                std::fs::metadata(path.parent().unwrap())
+                    .unwrap()
+                    .permissions()
+                    .mode()
+                    & 0o777,
+                0o700
+            );
             assert_eq!(read_state(&path)["restoreToken"], "t");
         }
     }

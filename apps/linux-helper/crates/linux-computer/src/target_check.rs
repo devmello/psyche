@@ -21,7 +21,11 @@ pub struct Query {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Outcome {
-    Found { ref_: String, role: String, label: Option<String> },
+    Found {
+        ref_: String,
+        role: String,
+        label: Option<String>,
+    },
     Missing,
     Ambiguous(Vec<String>),
 }
@@ -40,7 +44,10 @@ impl Outcome {
 pub fn norm(s: Option<&str>) -> String {
     let Some(s) = s else { return String::new() };
     let base = s.find("…(+").map_or(s, |i| &s[..i]);
-    base.split_whitespace().collect::<Vec<_>>().join(" ").to_lowercase()
+    base.split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_lowercase()
 }
 
 /// A snapshot node's role (`textfield`, `button:closeButton`, `popupbutton`) as the recording's role
@@ -80,16 +87,24 @@ pub fn check(nodes: &[SnapshotNode], q: &Query) -> Outcome {
         return check_menu(nodes, &q.menu_path);
     }
     let want_name = norm(q.name.as_deref());
-    let want_id = q.identifier.as_deref().map(|i| i.replace("identifier:", ""));
+    let want_id = q
+        .identifier
+        .as_deref()
+        .map(|i| i.replace("identifier:", ""));
     if want_name.is_empty() && want_id.is_none() {
         return Outcome::Missing;
     }
-    let any_role = q.role.as_deref().map_or(true, |r| r.is_empty() || r == "generic");
+    let any_role = q
+        .role
+        .as_deref()
+        .map_or(true, |r| r.is_empty() || r == "generic");
     let hits: Vec<&SnapshotNode> = nodes
         .iter()
         .filter(|n| {
             // A secure field is never a replay target: the owner types those themselves.
-            if n.role.to_lowercase().contains("securetextfield") || n.flags.iter().any(|f| f == "secure") {
+            if n.role.to_lowercase().contains("securetextfield")
+                || n.flags.iter().any(|f| f == "secure")
+            {
                 return false;
             }
             if !any_role && Some(recorded_role(&n.role)) != q.role.as_deref() {
@@ -98,7 +113,9 @@ pub fn check(nodes: &[SnapshotNode], q: &Query) -> Outcome {
             if !want_name.is_empty() && norm(n.label.as_deref()) != want_name {
                 return false;
             }
-            want_id.as_ref().map_or(true, |id| n.id.as_deref() == Some(id.as_str()))
+            want_id
+                .as_ref()
+                .map_or(true, |id| n.id.as_deref() == Some(id.as_str()))
         })
         .collect();
     outcome(&hits)
@@ -106,9 +123,12 @@ pub fn check(nodes: &[SnapshotNode], q: &Query) -> Outcome {
 
 /// The menu item whose chain of ancestors' titles is the path, exactly.
 pub fn check_menu(nodes: &[SnapshotNode], path: &[String]) -> Outcome {
-    let by_ref: std::collections::HashMap<&str, &SnapshotNode> = nodes.iter().map(|n| (n.ref_.as_str(), n)).collect();
+    let by_ref: std::collections::HashMap<&str, &SnapshotNode> =
+        nodes.iter().map(|n| (n.ref_.as_str(), n)).collect();
     let want: Vec<String> = path.iter().map(|p| norm(Some(p))).collect();
-    let Some(last) = want.last().filter(|l| !l.is_empty()) else { return Outcome::Missing };
+    let Some(last) = want.last().filter(|l| !l.is_empty()) else {
+        return Outcome::Missing;
+    };
     let hits: Vec<&SnapshotNode> = nodes
         .iter()
         .filter(|n| {
@@ -133,7 +153,11 @@ pub fn check_menu(nodes: &[SnapshotNode], path: &[String]) -> Outcome {
 fn outcome(hits: &[&SnapshotNode]) -> Outcome {
     match hits {
         [] => Outcome::Missing,
-        [one] => Outcome::Found { ref_: one.ref_.clone(), role: one.role.clone(), label: one.label.clone() },
+        [one] => Outcome::Found {
+            ref_: one.ref_.clone(),
+            role: one.role.clone(),
+            label: one.label.clone(),
+        },
         many => Outcome::Ambiguous(many.iter().take(5).map(|n| n.ref_.clone()).collect()),
     }
 }
@@ -142,7 +166,14 @@ fn outcome(hits: &[&SnapshotNode]) -> Outcome {
 mod tests {
     use super::*;
 
-    fn node(ref_: &str, role: &str, label: Option<&str>, id: Option<&str>, parent: Option<&str>, flags: &[&str]) -> SnapshotNode {
+    fn node(
+        ref_: &str,
+        role: &str,
+        label: Option<&str>,
+        id: Option<&str>,
+        parent: Option<&str>,
+        flags: &[&str],
+    ) -> SnapshotNode {
         SnapshotNode {
             ref_: ref_.into(),
             role: role.into(),
@@ -160,57 +191,127 @@ mod tests {
     }
 
     fn q(role: Option<&str>, name: Option<&str>) -> Query {
-        Query { role: role.map(str::to_owned), name: name.map(str::to_owned), ..Default::default() }
+        Query {
+            role: role.map(str::to_owned),
+            name: name.map(str::to_owned),
+            ..Default::default()
+        }
     }
 
     #[test]
     fn exact_role_and_name_found_missing_ambiguous() {
         let nodes = vec![
-            node("e1", "button", Some("New Message"), Some("newMessage"), None, &[]),
+            node(
+                "e1",
+                "button",
+                Some("New Message"),
+                Some("newMessage"),
+                None,
+                &[],
+            ),
             node("e2", "textfield", Some("Subject"), None, None, &[]),
             node("e3", "button", Some("Archive"), None, None, &[]),
             node("e4", "button", Some("Archive"), None, None, &[]),
             node("e5", "link", Some("  new   MESSAGE "), None, None, &[]),
         ];
         let found = check(&nodes, &q(Some("button"), Some("new message")));
-        assert_eq!(found, Outcome::Found { ref_: "e1".into(), role: "button".into(), label: Some("New Message".into()) });
+        assert_eq!(
+            found,
+            Outcome::Found {
+                ref_: "e1".into(),
+                role: "button".into(),
+                label: Some("New Message".into())
+            }
+        );
         // The same name with another role is another element.
-        assert_eq!(check(&nodes, &q(Some("link"), Some("New Message"))).status(), "found");
-        assert_eq!(check(&nodes, &q(Some("checkbox"), Some("New Message"))), Outcome::Missing);
+        assert_eq!(
+            check(&nodes, &q(Some("link"), Some("New Message"))).status(),
+            "found"
+        );
+        assert_eq!(
+            check(&nodes, &q(Some("checkbox"), Some("New Message"))),
+            Outcome::Missing
+        );
         // A similar-looking element is not the same element.
-        assert_eq!(check(&nodes, &q(Some("button"), Some("New Messages"))), Outcome::Missing);
-        assert_eq!(check(&nodes, &q(Some("button"), Some("Archive"))), Outcome::Ambiguous(vec!["e3".into(), "e4".into()]));
+        assert_eq!(
+            check(&nodes, &q(Some("button"), Some("New Messages"))),
+            Outcome::Missing
+        );
+        assert_eq!(
+            check(&nodes, &q(Some("button"), Some("Archive"))),
+            Outcome::Ambiguous(vec!["e3".into(), "e4".into()])
+        );
         // `generic` or no role matches any role.
-        assert_eq!(check(&nodes, &q(Some("generic"), Some("Subject"))).status(), "found");
+        assert_eq!(
+            check(&nodes, &q(Some("generic"), Some("Subject"))).status(),
+            "found"
+        );
         // Nothing to look by.
         assert_eq!(check(&nodes, &q(Some("button"), None)), Outcome::Missing);
     }
 
     #[test]
     fn identifier_matches_and_narrows() {
-        let nodes =
-            vec![node("e1", "button", Some("Go"), Some("goButton"), None, &[]), node("e2", "button", Some("Go"), Some("other"), None, &[])];
-        let by_id = Query { role: Some("button".into()), identifier: Some("identifier:goButton".into()), ..Default::default() };
+        let nodes = vec![
+            node("e1", "button", Some("Go"), Some("goButton"), None, &[]),
+            node("e2", "button", Some("Go"), Some("other"), None, &[]),
+        ];
+        let by_id = Query {
+            role: Some("button".into()),
+            identifier: Some("identifier:goButton".into()),
+            ..Default::default()
+        };
         assert_eq!(check(&nodes, &by_id).status(), "found");
-        let both =
-            Query { role: Some("button".into()), name: Some("Go".into()), identifier: Some("goButton".into()), ..Default::default() };
-        assert_eq!(check(&nodes, &both), Outcome::Found { ref_: "e1".into(), role: "button".into(), label: Some("Go".into()) });
+        let both = Query {
+            role: Some("button".into()),
+            name: Some("Go".into()),
+            identifier: Some("goButton".into()),
+            ..Default::default()
+        };
+        assert_eq!(
+            check(&nodes, &both),
+            Outcome::Found {
+                ref_: "e1".into(),
+                role: "button".into(),
+                label: Some("Go".into())
+            }
+        );
     }
 
     #[test]
     fn a_secure_field_is_never_a_target() {
         let nodes = vec![
             node("e1", "securetextfield", Some("Password"), None, None, &[]),
-            node("e2", "textfield:secureTextField", Some("PIN"), None, None, &["secure"]),
+            node(
+                "e2",
+                "textfield:secureTextField",
+                Some("PIN"),
+                None,
+                None,
+                &["secure"],
+            ),
         ];
-        assert_eq!(check(&nodes, &q(Some("textbox"), Some("Password"))), Outcome::Missing);
+        assert_eq!(
+            check(&nodes, &q(Some("textbox"), Some("Password"))),
+            Outcome::Missing
+        );
         assert_eq!(check(&nodes, &q(None, Some("PIN"))), Outcome::Missing);
     }
 
     #[test]
     fn truncated_labels_compare_by_their_visible_part() {
-        let nodes = vec![node("e1", "button", Some("Export to a very long…(+12)"), None, None, &[])];
-        assert_eq!(check(&nodes, &q(Some("button"), Some("export to a very long"))).status(), "found");
+        let nodes = vec![node(
+            "e1",
+            "button",
+            Some("Export to a very long…(+12)"),
+            None,
+            None,
+            &[],
+        )];
+        assert_eq!(
+            check(&nodes, &q(Some("button"), Some("export to a very long"))).status(),
+            "found"
+        );
     }
 
     #[test]
@@ -241,13 +342,23 @@ mod tests {
             node("e4", "menubaritem", Some("Edit"), None, None, &[]),
             node("e5", "menuitem", Some("Export"), None, Some("e4"), &[]),
         ];
-        let path = |p: &[&str]| Query { menu_path: p.iter().map(|s| (*s).to_owned()).collect(), ..Default::default() };
+        let path = |p: &[&str]| Query {
+            menu_path: p.iter().map(|s| (*s).to_owned()).collect(),
+            ..Default::default()
+        };
         assert_eq!(check(&nodes, &path(&["File", "Export"])).status(), "found");
-        assert_eq!(check(&nodes, &path(&["file", "export", "pdf"])).status(), "found");
+        assert_eq!(
+            check(&nodes, &path(&["file", "export", "pdf"])).status(),
+            "found"
+        );
         // "Export" under another menu is another item; the bare name is ambiguous across menus.
         assert_eq!(
             check(&nodes, &path(&["Edit", "Export"])),
-            Outcome::Found { ref_: "e5".into(), role: "menuitem".into(), label: Some("Export".into()) }
+            Outcome::Found {
+                ref_: "e5".into(),
+                role: "menuitem".into(),
+                label: Some("Export".into())
+            }
         );
         assert_eq!(check(&nodes, &path(&["View", "Export"])), Outcome::Missing);
         assert_eq!(check(&nodes, &path(&["Export"])), Outcome::Missing);

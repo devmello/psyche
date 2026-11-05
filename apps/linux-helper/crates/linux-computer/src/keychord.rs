@@ -99,7 +99,9 @@ fn code(key: &str) -> Option<u32> {
         "down" => DOWN,
         "up" => UP,
         "help" => INSERT,
-        "=" | "-" | "]" | "[" | "'" | ";" | "\\" | "," | "/" | "." | "`" => key.chars().next()? as u32,
+        "=" | "-" | "]" | "[" | "'" | ";" | "\\" | "," | "/" | "." | "`" => {
+            key.chars().next()? as u32
+        }
         _ => {
             let mut chars = key.chars();
             let (c, rest) = (chars.next()?, chars.as_str());
@@ -148,7 +150,12 @@ impl KeyChord {
         let key = key.ok_or_else(|| CapError::invalid_params("invalid key chord", Some("keys")))?;
         let keysym = code(key)
             .ok_or_else(|| CapError::invalid_params("unknown key in the chord", Some("keys")))?;
-        Ok(KeyChord { keysym, mods, key: key.to_string(), name: lower })
+        Ok(KeyChord {
+            keysym,
+            mods,
+            key: key.to_string(),
+            name: lower,
+        })
     }
 
     /// Plain Esc (the stop key is never injectable while a session runs).
@@ -255,12 +262,14 @@ pub mod send_keys {
         if c.keysym == super::keysym::RETURN || c.keysym == super::keysym::KP_ENTER {
             return true;
         }
-        (c.key == "d" && c.mods.ctrl && c.mods.shift) || (c.key == "s" && c.mods.alt && !c.mods.ctrl)
+        (c.key == "d" && c.mods.ctrl && c.mods.shift)
+            || (c.key == "s" && c.mods.alt && !c.mods.ctrl)
     }
 
     /// Typed text that contains a line break presses Return on the way.
     pub fn text_sends(text: &str) -> bool {
-        text.chars().any(|c| matches!(c, '\n' | '\r' | '\u{2028}' | '\u{2029}'))
+        text.chars()
+            .any(|c| matches!(c, '\n' | '\r' | '\u{2028}' | '\u{2029}'))
     }
 }
 
@@ -292,15 +301,38 @@ mod tests {
     #[test]
     fn parses_mac_chords_to_keysyms() {
         let c = KeyChord::parse("cmd+shift+t").unwrap();
-        assert_eq!((c.keysym, c.mods), (b't' as u32, Mods { ctrl: true, alt: false, shift: true }));
+        assert_eq!(
+            (c.keysym, c.mods),
+            (
+                b't' as u32,
+                Mods {
+                    ctrl: true,
+                    alt: false,
+                    shift: true
+                }
+            )
+        );
         assert_eq!(c.name, "cmd+shift+t");
         assert_eq!(KeyChord::parse("Return").unwrap().keysym, keysym::RETURN);
-        assert_eq!(KeyChord::parse("keypadenter").unwrap().keysym, keysym::KP_ENTER);
-        assert_eq!(KeyChord::parse("opt+left").unwrap().mods, Mods { ctrl: false, alt: true, shift: false });
+        assert_eq!(
+            KeyChord::parse("keypadenter").unwrap().keysym,
+            keysym::KP_ENTER
+        );
+        assert_eq!(
+            KeyChord::parse("opt+left").unwrap().mods,
+            Mods {
+                ctrl: false,
+                alt: true,
+                shift: false
+            }
+        );
         assert_eq!(KeyChord::parse("f5").unwrap().keysym, 0xffc2);
         assert_eq!(KeyChord::parse("f20").unwrap().keysym, keysym::F1 + 19);
         assert_eq!(KeyChord::parse("delete").unwrap().keysym, keysym::BACKSPACE);
-        assert_eq!(KeyChord::parse("forwarddelete").unwrap().keysym, keysym::DELETE);
+        assert_eq!(
+            KeyChord::parse("forwarddelete").unwrap().keysym,
+            keysym::DELETE
+        );
         assert_eq!(KeyChord::parse("ctrl+=").unwrap().keysym, b'=' as u32);
         assert_eq!(KeyChord::parse("⌘+c").unwrap().keysym, b'c' as u32);
         assert_eq!(KeyChord::parse("cmd + 1").unwrap().keysym, b'1' as u32);
@@ -309,7 +341,8 @@ mod tests {
     #[test]
     fn rejects_bad_chords_and_the_super_key() {
         for bad in [
-            "cmd++", "", "cmd+", "q+cmd", "a+b", "f21", "f0", "hyper+a", "fn+left", "f05", "super+l", "meta+a", "win+d",
+            "cmd++", "", "cmd+", "q+cmd", "a+b", "f21", "f0", "hyper+a", "fn+left", "f05",
+            "super+l", "meta+a", "win+d",
         ] {
             let e = KeyChord::parse(bad).unwrap_err();
             assert_eq!(e.code, "invalid_params", "{bad}");
@@ -322,12 +355,26 @@ mod tests {
         assert!(KeyChord::parse("escape").unwrap().is_bare_escape());
         assert!(!KeyChord::parse("shift+escape").unwrap().is_bare_escape());
         for risky in [
-            "cmd+q", "cmd+w", "ctrl+w", "cmd+delete", "alt+f4", "ctrl+f4", "shift+forwarddelete", "ctrl+alt+forwarddelete",
+            "cmd+q",
+            "cmd+w",
+            "ctrl+w",
+            "cmd+delete",
+            "alt+f4",
+            "ctrl+f4",
+            "shift+forwarddelete",
+            "ctrl+alt+forwarddelete",
             "ctrl+alt+backspace",
         ] {
             assert!(KeyChord::parse(risky).unwrap().is_high_risk(), "{risky}");
         }
-        for safe in ["cmd+s", "return", "forwarddelete", "cmd+shift+t", "f4", "alt+tab"] {
+        for safe in [
+            "cmd+s",
+            "return",
+            "forwarddelete",
+            "cmd+shift+t",
+            "f4",
+            "alt+tab",
+        ] {
             assert!(!KeyChord::parse(safe).unwrap().is_high_risk(), "{safe}");
         }
         let del = KeyChord::parse("forwarddelete").unwrap();
@@ -339,17 +386,32 @@ mod tests {
     fn send_keys() {
         assert!(send_keys::is_messaging_app(Some("Thunderbird")));
         assert!(!send_keys::is_messaging_app(Some("org.gnome.TextEditor")));
-        assert!(send_keys::is_send_chord(&KeyChord::parse("return").unwrap()));
-        assert!(send_keys::is_send_chord(&KeyChord::parse("cmd+return").unwrap()));
-        assert!(send_keys::is_send_chord(&KeyChord::parse("cmd+shift+d").unwrap()));
+        assert!(send_keys::is_send_chord(
+            &KeyChord::parse("return").unwrap()
+        ));
+        assert!(send_keys::is_send_chord(
+            &KeyChord::parse("cmd+return").unwrap()
+        ));
+        assert!(send_keys::is_send_chord(
+            &KeyChord::parse("cmd+shift+d").unwrap()
+        ));
         assert!(send_keys::is_send_chord(&KeyChord::parse("alt+s").unwrap()));
-        assert!(!send_keys::is_send_chord(&KeyChord::parse("cmd+s").unwrap()));
-        assert!(send_keys::text_sends("hi\nthere") && send_keys::text_sends("a\u{2029}") && !send_keys::text_sends("hi"));
+        assert!(!send_keys::is_send_chord(
+            &KeyChord::parse("cmd+s").unwrap()
+        ));
+        assert!(
+            send_keys::text_sends("hi\nthere")
+                && send_keys::text_sends("a\u{2029}")
+                && !send_keys::text_sends("hi")
+        );
     }
 
     #[test]
     fn chunks_keep_graphemes_whole() {
-        assert_eq!(typing_chunks("abc", 2), vec!["ab".to_string(), "c".to_string()]);
+        assert_eq!(
+            typing_chunks("abc", 2),
+            vec!["ab".to_string(), "c".to_string()]
+        );
         let fam = "👨‍👩‍👧‍👦";
         let chunks = typing_chunks(&format!("a{fam}b"), 4);
         assert_eq!(chunks.len(), 3);

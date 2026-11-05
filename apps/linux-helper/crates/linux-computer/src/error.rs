@@ -37,7 +37,13 @@ pub struct CapError {
 
 impl CapError {
     pub fn new(code: &'static str, reason: impl Into<String>, message: impl Into<String>) -> Self {
-        CapError { code, reason: reason.into(), message: message.into(), details: Map::new(), retryable: false }
+        CapError {
+            code,
+            reason: reason.into(),
+            message: message.into(),
+            details: Map::new(),
+            retryable: false,
+        }
     }
 
     pub fn detail(mut self, key: &str, value: impl Into<Value>) -> Self {
@@ -65,7 +71,11 @@ impl CapError {
 
     /// Esc pressed by the user during this invocation (`cancelled/user_stopped`).
     pub fn stopped() -> Self {
-        CapError::new(code::CANCELLED, "user_stopped", "The user pressed Esc to stop computer use")
+        CapError::new(
+            code::CANCELLED,
+            "user_stopped",
+            "The user pressed Esc to stop computer use",
+        )
     }
 
     pub fn cancelled() -> Self {
@@ -116,7 +126,9 @@ mod tests {
 
     #[test]
     fn wire_carries_reason_in_details() {
-        let e = CapError::new(code::NOT_FOUND, "stale_ref", "e3 no longer exists").detail("ref", "e3").retryable();
+        let e = CapError::new(code::NOT_FOUND, "stale_ref", "e3 no longer exists")
+            .detail("ref", "e3")
+            .retryable();
         let w = e.to_wire();
         assert_eq!(w["code"], "not_found");
         assert_eq!(w["details"]["reason"], "stale_ref");

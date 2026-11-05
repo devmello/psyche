@@ -32,6 +32,8 @@ const GRAB_MASKS: [u16; 4] = [0, 2, 16, 18];
 /// How long the Escape grab outlives the last computer-use call (sessions lapse at 120 s).
 const GRAB_LINGER: Duration = Duration::from_secs(130);
 
+type StopFn = Box<dyn Fn() + Send + Sync>;
+
 struct Atoms {
     client_list_stacking: u32,
     active_window: u32,
@@ -61,7 +63,7 @@ pub struct X11 {
     grabbed: AtomicBool,
     last_touch: AtomicU64,
     started: Instant,
-    on_stop: Arc<Mutex<Option<Box<dyn Fn() + Send + Sync>>>>,
+    on_stop: Arc<Mutex<Option<StopFn>>>,
     inject_esc: Arc<AtomicBool>,
     watcher: AtomicBool,
     last_owner: Arc<AtomicU64>,
@@ -76,20 +78,42 @@ impl X11 {
     /// Connects to `$DISPLAY`. Refuses under Wayland and without XTEST.
     pub fn connect() -> CapResult<Arc<X11>> {
         if std::env::var_os("WAYLAND_DISPLAY").is_some_and(|v| !v.is_empty()) {
-            return Err(CapError::unavailable("x11_under_wayland", "XTest is never used when a Wayland compositor is running"));
+            return Err(CapError::unavailable(
+                "x11_under_wayland",
+                "XTest is never used when a Wayland compositor is running",
+            ));
         }
         let display = std::env::var("DISPLAY").unwrap_or_default();
         if display.is_empty() {
-            return Err(CapError::unavailable("no_graphical_session", "Needs a graphical session on this computer (no DISPLAY)"));
+            return Err(CapError::unavailable(
+                "no_graphical_session",
+                "Needs a graphical session on this computer (no DISPLAY)",
+            ));
         }
-        let (conn, screen_num) = connect_display(&display)
-            .map_err(|e| CapError::unavailable("no_graphical_session", format!("Cannot open the display {display}: {e}")))?;
+        let (conn, screen_num) = connect_display(&display).map_err(|e| {
+            CapError::unavailable(
+                "no_graphical_session",
+                format!("Cannot open the display {display}: {e}"),
+            )
+        })?;
         let root = conn.setup().roots[screen_num].root;
         conn.xtest_get_version(2, 2)
             .map_err(xerr)?
             .reply()
-            .map_err(|_| CapError::unavailable("x11_no_xtest", "The X server has no XTEST extension, so Psyche cannot send input"))?;
-        let atom = |name: &str| -> CapResult<u32> { Ok(conn.intern_atom(false, name.as_bytes()).map_err(xerr)?.reply().map_err(xerr)?.atom) };
+            .map_err(|_| {
+                CapError::unavailable(
+                    "x11_no_xtest",
+                    "The X server has no XTEST extension, so Psyche cannot send input",
+                )
+            })?;
+        let atom = |name: &str| -> CapResult<u32> {
+            Ok(conn
+                .intern_atom(false, name.as_bytes())
+                .map_err(xerr)?
+                .reply()
+                .map_err(xerr)?
+                .atom)
+        };
         let atoms = Atoms {
             client_list_stacking: atom("_NET_CLIENT_LIST_STACKING")?,
             active_window: atom("_NET_ACTIVE_WINDOW")?,
@@ -102,7 +126,11 @@ impl X11 {
         };
         let setup = conn.setup();
         let (min, max) = (setup.min_keycode, setup.max_keycode);
-        let map = conn.get_keyboard_mapping(min, max - min + 1).map_err(xerr)?.reply().map_err(xerr)?;
+        let map = conn
+            .get_keyboard_mapping(min, max - min + 1)
+            .map_err(xerr)?
+            .reply()
+            .map_err(xerr)?;
         let per = map.keysyms_per_keycode as usize;
         let mut by_sym: HashMap<u32, (u8, bool)> = HashMap::new();
         let mut unused = None;
@@ -123,7 +151,13 @@ impl X11 {
             conn,
             root,
             atoms,
-            keymap: Mutex::new(Keymap { min, per, syms: map.keysyms, by_sym, unused }),
+            keymap: Mutex::new(Keymap {
+                min,
+                per,
+                syms: map.keysyms,
+                by_sym,
+                unused,
+            }),
             esc,
             grabbed: AtomicBool::new(false),
             last_touch: AtomicU64::new(0),
@@ -140,56 +174,112 @@ impl X11 {
         &self.display
     }
 
-    fn property(&self, win: u32, prop: impl Into<u32>, ty: impl Into<u32>, len: u32) -> Option<Vec<u8>> {
-        let r = self.conn.get_property(false, win, prop.into(), ty.into(), 0, len).ok()?.reply().ok()?;
+    fn property(
+        &self,
+        win: u32,
+        prop: impl Into<u32>,
+        ty: impl Into<u32>,
+        len: u32,
+    ) -> Option<Vec<u8>> {
+        let r = self
+            .conn
+            .get_property(false, win, prop.into(), ty.into(), 0, len)
+            .ok()?
+            .reply()
+            .ok()?;
         (r.value_len > 0).then_some(r.value)
     }
 
     fn u32s(bytes: &[u8]) -> Vec<u32> {
-        bytes.chunks_exact(4).map(|c| u32::from_ne_bytes([c[0], c[1], c[2], c[3]])).collect()
+        bytes
+            .chunks_exact(4)
+            .map(|c| u32::from_ne_bytes([c[0], c[1], c[2], c[3]]))
+            .collect()
     }
 
     fn title(&self, win: u32) -> String {
         if let Some(v) = self.property(win, self.atoms.wm_name, self.atoms.utf8, 256) {
             return String::from_utf8_lossy(&v).into_owned();
         }
-        self.property(win, AtomEnum::WM_NAME, AtomEnum::STRING, 256).map(|v| String::from_utf8_lossy(&v).into_owned()).unwrap_or_default()
+        self.property(win, AtomEnum::WM_NAME, AtomEnum::STRING, 256)
+            .map(|v| String::from_utf8_lossy(&v).into_owned())
+            .unwrap_or_default()
     }
 
     fn pid(&self, win: u32) -> Option<u32> {
-        self.property(win, self.atoms.wm_pid, AtomEnum::CARDINAL, 1).and_then(|v| Self::u32s(&v).first().copied())
+        self.property(win, self.atoms.wm_pid, AtomEnum::CARDINAL, 1)
+            .and_then(|v| Self::u32s(&v).first().copied())
     }
 
     fn rect(&self, win: u32) -> Option<Rect> {
         let g = self.conn.get_geometry(win).ok()?.reply().ok()?;
-        let t = self.conn.translate_coordinates(win, self.root, 0, 0).ok()?.reply().ok()?;
-        Some(Rect::new(f64::from(t.dst_x), f64::from(t.dst_y), f64::from(g.width), f64::from(g.height)))
+        let t = self
+            .conn
+            .translate_coordinates(win, self.root, 0, 0)
+            .ok()?
+            .reply()
+            .ok()?;
+        Some(Rect::new(
+            f64::from(t.dst_x),
+            f64::from(t.dst_y),
+            f64::from(g.width),
+            f64::from(g.height),
+        ))
     }
 
     fn active(&self) -> Option<u32> {
-        self.property(self.root, self.atoms.active_window, AtomEnum::WINDOW, 1).and_then(|v| Self::u32s(&v).first().copied()).filter(|w| *w != 0)
+        self.property(self.root, self.atoms.active_window, AtomEnum::WINDOW, 1)
+            .and_then(|v| Self::u32s(&v).first().copied())
+            .filter(|w| *w != 0)
     }
 
     /// Top-level windows with a pid, front to back.
     pub fn windows(&self) -> Vec<WinInfo> {
         let mut ids: Vec<u32> = self
-            .property(self.root, self.atoms.client_list_stacking, AtomEnum::WINDOW, 1024)
+            .property(
+                self.root,
+                self.atoms.client_list_stacking,
+                AtomEnum::WINDOW,
+                1024,
+            )
             .map(|v| Self::u32s(&v))
             .unwrap_or_default();
         ids.reverse(); // bottom-to-top -> front-to-back
         if ids.is_empty() {
             // No EWMH window manager (a bare Xvfb): the root's mapped children, top first.
-            if let Some(t) = self.conn.query_tree(self.root).ok().and_then(|c| c.reply().ok()) {
-                ids = t.children.into_iter().rev().filter(|w| self.is_viewable(*w)).collect();
+            if let Some(t) = self
+                .conn
+                .query_tree(self.root)
+                .ok()
+                .and_then(|c| c.reply().ok())
+            {
+                ids = t
+                    .children
+                    .into_iter()
+                    .rev()
+                    .filter(|w| self.is_viewable(*w))
+                    .collect();
                 // A child of the root may be a frame; look one level down for the client.
-                ids = ids.into_iter().filter_map(|w| if self.pid(w).is_some() { Some(w) } else { self.client_below(w) }).collect();
+                ids = ids
+                    .into_iter()
+                    .filter_map(|w| {
+                        if self.pid(w).is_some() {
+                            Some(w)
+                        } else {
+                            self.client_below(w)
+                        }
+                    })
+                    .collect();
             }
         }
         let active = self.active();
         ids.into_iter()
             .filter_map(|w| {
                 let pid = self.pid(w)?;
-                let state = self.property(w, self.atoms.wm_state, AtomEnum::ATOM, 32).map(|v| Self::u32s(&v)).unwrap_or_default();
+                let state = self
+                    .property(w, self.atoms.wm_state, AtomEnum::ATOM, 32)
+                    .map(|v| Self::u32s(&v))
+                    .unwrap_or_default();
                 Some(WinInfo {
                     id: u64::from(w),
                     pid,
@@ -204,7 +294,11 @@ impl X11 {
     }
 
     fn is_viewable(&self, w: u32) -> bool {
-        self.conn.get_window_attributes(w).ok().and_then(|c| c.reply().ok()).is_some_and(|a| a.map_state == xproto::MapState::VIEWABLE)
+        self.conn
+            .get_window_attributes(w)
+            .ok()
+            .and_then(|c| c.reply().ok())
+            .is_some_and(|a| a.map_state == xproto::MapState::VIEWABLE)
     }
 
     fn client_below(&self, w: u32) -> Option<u32> {
@@ -215,8 +309,15 @@ impl X11 {
     /// Top-left of the window of `pid` titled `title` (the only window of the pid when the
     /// titles do not tell), in screen points.
     pub fn window_origin(&self, pid: u32, title: &str) -> Option<(f64, f64)> {
-        let wins: Vec<WinInfo> = self.windows().into_iter().filter(|w| w.pid == pid).collect();
-        let w = wins.iter().find(|w| !title.is_empty() && w.title == title).or(if wins.len() == 1 { wins.first() } else { None })?;
+        let wins: Vec<WinInfo> = self
+            .windows()
+            .into_iter()
+            .filter(|w| w.pid == pid)
+            .collect();
+        let w = wins
+            .iter()
+            .find(|w| !title.is_empty() && w.title == title)
+            .or(if wins.len() == 1 { wins.first() } else { None })?;
         w.bounds.map(|b| (b.x, b.y))
     }
 
@@ -238,20 +339,38 @@ impl X11 {
     /// Raises and focuses a window of `pid` (EWMH `_NET_ACTIVE_WINDOW`). `Ok(true)` when it
     /// became the active window.
     pub fn activate(&self, pid: u32, index: Option<usize>) -> CapResult<bool> {
-        let wins: Vec<WinInfo> = self.windows().into_iter().filter(|w| w.pid == pid && !w.minimized).collect();
+        let wins: Vec<WinInfo> = self
+            .windows()
+            .into_iter()
+            .filter(|w| w.pid == pid && !w.minimized)
+            .collect();
         let w = wins
             .get(index.unwrap_or(0))
             .or_else(|| wins.first())
-            .ok_or_else(|| CapError::new(code::NOT_FOUND, "no_window", "The app has no window to bring forward"))?;
+            .ok_or_else(|| {
+                CapError::new(
+                    code::NOT_FOUND,
+                    "no_window",
+                    "The app has no window to bring forward",
+                )
+            })?;
         let win = w.id as u32;
         if self.active() == Some(win) {
             return Ok(true);
         }
-        let ev = xproto::ClientMessageEvent::new(32, win, self.atoms.active_window, [2, 0, 0, 0, 0]);
+        let ev =
+            xproto::ClientMessageEvent::new(32, win, self.atoms.active_window, [2, 0, 0, 0, 0]);
         self.conn
-            .send_event(false, self.root, EventMask::SUBSTRUCTURE_REDIRECT | EventMask::SUBSTRUCTURE_NOTIFY, ev)
+            .send_event(
+                false,
+                self.root,
+                EventMask::SUBSTRUCTURE_REDIRECT | EventMask::SUBSTRUCTURE_NOTIFY,
+                ev,
+            )
             .map_err(xerr)?;
-        self.conn.set_input_focus(xproto::InputFocus::POINTER_ROOT, win, x11rb::CURRENT_TIME).map_err(xerr)?;
+        self.conn
+            .set_input_focus(xproto::InputFocus::POINTER_ROOT, win, x11rb::CURRENT_TIME)
+            .map_err(xerr)?;
         self.conn.flush().map_err(xerr)?;
         std::thread::sleep(Duration::from_millis(80));
         Ok(self.active().is_none() || self.active() == Some(win))
@@ -260,7 +379,9 @@ impl X11 {
     // --- Input ------------------------------------------------------------------------------
 
     fn fake(&self, kind: u8, detail: u8, x: i16, y: i16) -> CapResult<()> {
-        self.conn.xtest_fake_input(kind, detail, 0, self.root, x, y, 0).map_err(xerr)?;
+        self.conn
+            .xtest_fake_input(kind, detail, 0, self.root, x, y, 0)
+            .map_err(xerr)?;
         Ok(())
     }
 
@@ -273,7 +394,15 @@ impl X11 {
         self.fake(if press { BUTTON_PRESS } else { BUTTON_RELEASE }, n, 0, 0)
     }
 
-    pub fn click(&self, x: f64, y: f64, count: u32, right: bool, mods: &[u32], stop: &StopSignal) -> CapResult<()> {
+    pub fn click(
+        &self,
+        x: f64,
+        y: f64,
+        count: u32,
+        right: bool,
+        mods: &[u32],
+        stop: &StopSignal,
+    ) -> CapResult<()> {
         stop.check()?;
         self.move_to(x, y)?;
         std::thread::sleep(Duration::from_millis(20));
@@ -294,7 +423,10 @@ impl X11 {
         stop.check()?;
         self.move_to(x, y)?;
         // Buttons 4/5 are up/down, 6/7 left/right. dy > 0 scrolls up, dx > 0 scrolls left.
-        for (n, button) in [(dy.unsigned_abs(), if dy > 0 { 4 } else { 5 }), (dx.unsigned_abs(), if dx > 0 { 6 } else { 7 })] {
+        for (n, button) in [
+            (dy.unsigned_abs(), if dy > 0 { 4 } else { 5 }),
+            (dx.unsigned_abs(), if dx > 0 { 6 } else { 7 }),
+        ] {
             for _ in 0..n.min(200) {
                 stop.check()?;
                 self.button(button, true)?;
@@ -339,9 +471,19 @@ impl X11 {
         // Not on the keyboard: borrow an unused keycode for one keystroke (the xdotool trick).
         let (kc, per) = {
             let km = self.keymap.lock().unwrap_or_else(|e| e.into_inner());
-            (km.unused.ok_or_else(|| CapError::unavailable("no_spare_keycode", "No spare keycode to type that character"))?, km.per)
+            (
+                km.unused.ok_or_else(|| {
+                    CapError::unavailable(
+                        "no_spare_keycode",
+                        "No spare keycode to type that character",
+                    )
+                })?,
+                km.per,
+            )
         };
-        self.conn.change_keyboard_mapping(1, kc, per as u8, &vec![sym; per]).map_err(xerr)?;
+        self.conn
+            .change_keyboard_mapping(1, kc, per as u8, &vec![sym; per])
+            .map_err(xerr)?;
         self.conn.sync().map_err(xerr)?;
         Ok((kc, false, true))
     }
@@ -381,7 +523,10 @@ impl X11 {
                 all.push(keysym::SHIFT_L);
             }
             let held = self.press_mods(&all)?;
-            let r = self.fake(KEY_PRESS, kc, 0, 0).and_then(|_| self.fake(KEY_RELEASE, kc, 0, 0)).and_then(|_| self.conn.flush().map_err(xerr));
+            let r = self
+                .fake(KEY_PRESS, kc, 0, 0)
+                .and_then(|_| self.fake(KEY_RELEASE, kc, 0, 0))
+                .and_then(|_| self.conn.flush().map_err(xerr));
             self.release_mods(&held);
             r
         })();
@@ -408,7 +553,12 @@ impl X11 {
         r
     }
 
-    pub fn type_text(&self, text: &str, stop: &StopSignal, before_chunk: &mut dyn FnMut() -> CapResult<()>) -> CapResult<()> {
+    pub fn type_text(
+        &self,
+        text: &str,
+        stop: &StopSignal,
+        before_chunk: &mut dyn FnMut() -> CapResult<()>,
+    ) -> CapResult<()> {
         for chunk in crate::keychord::typing_chunks(text, 16) {
             stop.check()?;
             before_chunk()?;
@@ -444,16 +594,28 @@ impl X11 {
                 // `me.conn`, so poll it.
                 let ev = me.conn.poll_for_event();
                 match ev {
-                    Ok(Some(Event::KeyPress(k))) if k.detail == me.esc && !me.inject_esc.load(Ordering::SeqCst) => {
+                    Ok(Some(Event::KeyPress(k)))
+                        if k.detail == me.esc && !me.inject_esc.load(Ordering::SeqCst) =>
+                    {
                         me.last_owner.store(me.now_ms(), Ordering::SeqCst);
-                        if let Some(f) = me.on_stop.lock().unwrap_or_else(|e| e.into_inner()).as_ref() {
+                        if let Some(f) = me
+                            .on_stop
+                            .lock()
+                            .unwrap_or_else(|e| e.into_inner())
+                            .as_ref()
+                        {
                             f();
                         }
                     }
                     Ok(Some(_)) => {}
                     Ok(None) => {
                         // Release the grab when no computer-use call has come for a while.
-                        if me.grabbed.load(Ordering::SeqCst) && me.now_ms().saturating_sub(me.last_touch.load(Ordering::SeqCst)) > GRAB_LINGER.as_millis() as u64 {
+                        if me.grabbed.load(Ordering::SeqCst)
+                            && me
+                                .now_ms()
+                                .saturating_sub(me.last_touch.load(Ordering::SeqCst))
+                                > GRAB_LINGER.as_millis() as u64
+                        {
                             me.ungrab();
                         }
                         drop(me);
@@ -479,7 +641,14 @@ impl X11 {
                 .iter()
                 .try_for_each(|m| {
                     self.conn
-                        .grab_key(false, self.root, ModMask::from(*m), self.esc, GrabMode::ASYNC, GrabMode::ASYNC)
+                        .grab_key(
+                            false,
+                            self.root,
+                            ModMask::from(*m),
+                            self.esc,
+                            GrabMode::ASYNC,
+                            GrabMode::ASYNC,
+                        )
                         .map_err(xerr)
                         .and_then(|c| c.check().map_err(xerr))
                 })
@@ -510,25 +679,59 @@ impl X11 {
     /// Screens (RANDR monitors, else the root).
     pub fn displays(&self) -> Vec<Rect> {
         use x11rb::protocol::randr::ConnectionExt as _;
-        if let Some(m) = self.conn.randr_get_monitors(self.root, true).ok().and_then(|c| c.reply().ok()) {
-            let v: Vec<Rect> = m.monitors.iter().map(|m| Rect::new(f64::from(m.x), f64::from(m.y), f64::from(m.width), f64::from(m.height))).collect();
+        if let Some(m) = self
+            .conn
+            .randr_get_monitors(self.root, true)
+            .ok()
+            .and_then(|c| c.reply().ok())
+        {
+            let v: Vec<Rect> = m
+                .monitors
+                .iter()
+                .map(|m| {
+                    Rect::new(
+                        f64::from(m.x),
+                        f64::from(m.y),
+                        f64::from(m.width),
+                        f64::from(m.height),
+                    )
+                })
+                .collect();
             if !v.is_empty() {
                 return v;
             }
         }
-        self.conn.get_geometry(self.root).ok().and_then(|c| c.reply().ok()).map(|g| vec![Rect::new(0.0, 0.0, f64::from(g.width), f64::from(g.height))]).unwrap_or_default()
+        self.conn
+            .get_geometry(self.root)
+            .ok()
+            .and_then(|c| c.reply().ok())
+            .map(|g| vec![Rect::new(0.0, 0.0, f64::from(g.width), f64::from(g.height))])
+            .unwrap_or_default()
     }
 
     /// The whole root window (all monitors), through MIT-SHM, falling back to `GetImage`.
     pub fn capture(&self) -> CapResult<Frame> {
-        let g = self.conn.get_geometry(self.root).map_err(xerr)?.reply().map_err(xerr)?;
+        let g = self
+            .conn
+            .get_geometry(self.root)
+            .map_err(xerr)?
+            .reply()
+            .map_err(xerr)?;
         let (w, h) = (u32::from(g.width), u32::from(g.height));
-        let bytes = self.get_image_shm(w, h).or_else(|_| self.get_image_core(w, h))?;
+        let bytes = self
+            .get_image_shm(w, h)
+            .or_else(|_| self.get_image_core(w, h))?;
         let mut rgba = Vec::with_capacity(bytes.len());
         for px in bytes.chunks_exact(4) {
             rgba.extend_from_slice(&[px[2], px[1], px[0], 255]);
         }
-        Ok(Frame { width: w, height: h, rgba, screen: Rect::new(0.0, 0.0, f64::from(w), f64::from(h)), scale: 1.0 })
+        Ok(Frame {
+            width: w,
+            height: h,
+            rgba,
+            screen: Rect::new(0.0, 0.0, f64::from(w), f64::from(h)),
+            scale: 1.0,
+        })
     }
 
     fn get_image_core(&self, w: u32, h: u32) -> CapResult<Vec<u8>> {
@@ -540,12 +743,23 @@ impl X11 {
             let bh = band.min(h - y);
             let r = self
                 .conn
-                .get_image(xproto::ImageFormat::Z_PIXMAP, self.root, 0, y as i16, w as u16, bh as u16, !0)
+                .get_image(
+                    xproto::ImageFormat::Z_PIXMAP,
+                    self.root,
+                    0,
+                    y as i16,
+                    w as u16,
+                    bh as u16,
+                    !0,
+                )
                 .map_err(xerr)?
                 .reply()
                 .map_err(xerr)?;
             if r.depth < 24 {
-                return Err(CapError::unavailable("x11_depth", "The screen is not 24-bit colour; capture is not supported"));
+                return Err(CapError::unavailable(
+                    "x11_depth",
+                    "The screen is not 24-bit colour; capture is not supported",
+                ));
             }
             out.extend_from_slice(&r.data);
             y += bh;
@@ -557,7 +771,11 @@ impl X11 {
         use x11rb::protocol::shm::ConnectionExt as _;
         let size = (w * h * 4) as usize;
         let unsupported = || CapError::unavailable("x11_no_shm", "MIT-SHM is not available");
-        self.conn.shm_query_version().map_err(|_| unsupported())?.reply().map_err(|_| unsupported())?;
+        self.conn
+            .shm_query_version()
+            .map_err(|_| unsupported())?
+            .reply()
+            .map_err(|_| unsupported())?;
         // SAFETY: a private SysV segment, attached for this call and removed before returning.
         unsafe {
             let id = libc::shmget(libc::IPC_PRIVATE, size, libc::IPC_CREAT | 0o600);
@@ -571,16 +789,33 @@ impl X11 {
             }
             let seg = self.conn.generate_id().map_err(xerr)?;
             let result = (|| -> CapResult<Vec<u8>> {
-                self.conn.shm_attach(seg, id as u32, false).map_err(xerr)?.check().map_err(xerr)?;
+                self.conn
+                    .shm_attach(seg, id as u32, false)
+                    .map_err(xerr)?
+                    .check()
+                    .map_err(xerr)?;
                 let r = self
                     .conn
-                    .shm_get_image(self.root, 0, 0, w as u16, h as u16, !0, xproto::ImageFormat::Z_PIXMAP.into(), seg, 0)
+                    .shm_get_image(
+                        self.root,
+                        0,
+                        0,
+                        w as u16,
+                        h as u16,
+                        !0,
+                        xproto::ImageFormat::Z_PIXMAP.into(),
+                        seg,
+                        0,
+                    )
                     .map_err(xerr)?
                     .reply()
                     .map_err(xerr)?;
                 let _ = self.conn.shm_detach(seg);
                 if r.depth < 24 {
-                    return Err(CapError::unavailable("x11_depth", "The screen is not 24-bit colour; capture is not supported"));
+                    return Err(CapError::unavailable(
+                        "x11_depth",
+                        "The screen is not 24-bit colour; capture is not supported",
+                    ));
                 }
                 Ok(std::slice::from_raw_parts(addr as *const u8, size).to_vec())
             })();
@@ -613,10 +848,20 @@ fn connect_display(display: &str) -> Result<(RustConnection, usize), Box<dyn std
                 return Err("unusable DISPLAY".into());
             }
             use std::os::linux::net::SocketAddrExt;
-            let addr = std::os::unix::net::SocketAddr::from_abstract_name(format!("/tmp/.X11-unix/X{num}"))?;
+            let addr = std::os::unix::net::SocketAddr::from_abstract_name(format!(
+                "/tmp/.X11-unix/X{num}"
+            ))?;
             let stream = std::os::unix::net::UnixStream::connect_addr(&addr)?;
             let (stream, _) = x11rb::rust_connection::DefaultStream::from_unix_stream(stream)?;
-            Ok((RustConnection::connect_to_stream_with_auth_info(stream, screen, Vec::new(), Vec::new())?, screen))
+            Ok((
+                RustConnection::connect_to_stream_with_auth_info(
+                    stream,
+                    screen,
+                    Vec::new(),
+                    Vec::new(),
+                )?,
+                screen,
+            ))
         }
     }
 }

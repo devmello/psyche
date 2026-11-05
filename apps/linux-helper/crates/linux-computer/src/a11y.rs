@@ -44,7 +44,9 @@ pub mod state {
     pub const SHOWING: u32 = 25;
 
     pub fn has(words: &[u32], s: u32) -> bool {
-        words.get((s / 32) as usize).is_some_and(|w| w & (1 << (s % 32)) != 0)
+        words
+            .get((s / 32) as usize)
+            .is_some_and(|w| w & (1 << (s % 32)) != 0)
     }
 }
 
@@ -57,7 +59,10 @@ pub struct Acc {
 
 impl Acc {
     pub fn new(bus: &str, path: &str) -> Acc {
-        Acc { bus: bus.into(), path: path.into() }
+        Acc {
+            bus: bus.into(),
+            path: path.into(),
+        }
     }
 
     fn is_null(&self) -> bool {
@@ -68,6 +73,11 @@ impl Acc {
 /// Where a window sits on screen: `(pid, accessible title) -> top-left`.
 pub type OriginFn = Box<dyn Fn(u32, &str) -> Option<(f64, f64)> + Send + Sync>;
 
+/// Reads one environment variable (injectable for tests).
+pub type EnvFn = Box<dyn Fn(&str) -> Option<String> + Send + Sync>;
+
+type ReadCache = HashMap<(Acc, bool), Option<ElementData>>;
+
 /// The connection to the accessibility bus.
 pub struct A11y {
     conn: Connection,
@@ -75,9 +85,9 @@ pub struct A11y {
     pids: Mutex<HashMap<String, u32>>,
     desktop: Mutex<DesktopIndex>,
     index_loaded: AtomicBool,
-    env: Box<dyn Fn(&str) -> Option<String> + Send + Sync>,
+    env: EnvFn,
     toolkits: Mutex<HashMap<String, String>>,
-    cache: Mutex<HashMap<(Acc, bool), Option<ElementData>>>,
+    cache: Mutex<ReadCache>,
     address: String,
     toplevels: Mutex<HashMap<Acc, Option<Acc>>>,
     origins: Mutex<HashMap<Acc, Option<(f64, f64)>>>,
@@ -90,12 +100,30 @@ impl A11y {
     /// Connects through the session bus's `org.a11y.Bus`. Refuses with
     /// `unavailable/no_a11y_bus` when there is no session bus or no accessibility bus.
     pub fn connect() -> CapResult<A11y> {
-        let session = zbus::blocking::Connection::session()
-            .map_err(|e| CapError::unavailable("no_a11y_bus", format!("Needs a graphical session on this computer (no session bus: {e})")))?;
+        let session = zbus::blocking::Connection::session().map_err(|e| {
+            CapError::unavailable(
+                "no_a11y_bus",
+                format!("Needs a graphical session on this computer (no session bus: {e})"),
+            )
+        })?;
         let reply = session
-            .call_method(Some("org.a11y.Bus"), "/org/a11y/bus", Some("org.a11y.Bus"), "GetAddress", &())
-            .map_err(|e| CapError::unavailable("no_a11y_bus", format!("The accessibility bus is not running: {e}")))?;
-        let address: String = reply.body().deserialize().map_err(|e| CapError::unavailable("no_a11y_bus", e.to_string()))?;
+            .call_method(
+                Some("org.a11y.Bus"),
+                "/org/a11y/bus",
+                Some("org.a11y.Bus"),
+                "GetAddress",
+                &(),
+            )
+            .map_err(|e| {
+                CapError::unavailable(
+                    "no_a11y_bus",
+                    format!("The accessibility bus is not running: {e}"),
+                )
+            })?;
+        let address: String = reply
+            .body()
+            .deserialize()
+            .map_err(|e| CapError::unavailable("no_a11y_bus", e.to_string()))?;
         Self::connect_address(&address)
     }
 
@@ -104,7 +132,12 @@ impl A11y {
             .map_err(|e| CapError::unavailable("no_a11y_bus", e.to_string()))?
             .method_timeout(CALL_TIMEOUT)
             .build()
-            .map_err(|e| CapError::unavailable("no_a11y_bus", format!("Cannot connect to the accessibility bus: {e}")))?;
+            .map_err(|e| {
+                CapError::unavailable(
+                    "no_a11y_bus",
+                    format!("Cannot connect to the accessibility bus: {e}"),
+                )
+            })?;
         Ok(A11y {
             conn,
             deadline: Mutex::new(None),
@@ -129,12 +162,20 @@ impl A11y {
 
     // --- Raw calls --------------------------------------------------------------------------
 
-    fn call<T>(&self, acc: &Acc, iface: &str, member: &str, body: &(impl serde::Serialize + zbus::zvariant::DynamicType)) -> zbus::Result<T>
+    fn call<T>(
+        &self,
+        acc: &Acc,
+        iface: &str,
+        member: &str,
+        body: &(impl serde::Serialize + zbus::zvariant::DynamicType),
+    ) -> zbus::Result<T>
     where
         T: serde::de::DeserializeOwned + zbus::zvariant::Type,
     {
-        let msg = self.conn.call_method(Some(&*acc.bus), &*acc.path, Some(iface), member, body)?;
-        Ok(msg.body().deserialize::<T>()?)
+        let msg = self
+            .conn
+            .call_method(Some(&*acc.bus), &*acc.path, Some(iface), member, body)?;
+        msg.body().deserialize::<T>()
     }
 
     fn prop<T>(&self, acc: &Acc, iface: &str, name: &str) -> Option<T>
@@ -143,15 +184,26 @@ impl A11y {
     {
         let msg = self
             .conn
-            .call_method(Some(&*acc.bus), &*acc.path, Some("org.freedesktop.DBus.Properties"), "Get", &(iface, name))
+            .call_method(
+                Some(&*acc.bus),
+                &*acc.path,
+                Some("org.freedesktop.DBus.Properties"),
+                "Get",
+                &(iface, name),
+            )
             .ok()?;
         let v: OwnedValue = msg.body().deserialize().ok()?;
         T::try_from(v).ok()
     }
 
     pub fn children_of(&self, acc: &Acc) -> Vec<Acc> {
-        let list: Vec<(String, OwnedObjectPath)> = self.call(acc, ACCESSIBLE, "GetChildren", &()).unwrap_or_default();
-        list.into_iter().map(|(b, p)| Acc::new(&b, p.as_str())).filter(|a| !a.is_null()).collect()
+        let list: Vec<(String, OwnedObjectPath)> = self
+            .call(acc, ACCESSIBLE, "GetChildren", &())
+            .unwrap_or_default();
+        list.into_iter()
+            .map(|(b, p)| Acc::new(&b, p.as_str()))
+            .filter(|a| !a.is_null())
+            .collect()
     }
 
     pub fn role_of(&self, acc: &Acc) -> Option<u32> {
@@ -159,25 +211,30 @@ impl A11y {
     }
 
     pub fn states_of(&self, acc: &Acc) -> Vec<u32> {
-        self.call::<Vec<u32>>(acc, ACCESSIBLE, "GetState", &()).unwrap_or_default()
+        self.call::<Vec<u32>>(acc, ACCESSIBLE, "GetState", &())
+            .unwrap_or_default()
     }
 
     fn interfaces_of(&self, acc: &Acc) -> Vec<String> {
-        self.call::<Vec<String>>(acc, ACCESSIBLE, "GetInterfaces", &()).unwrap_or_default()
+        self.call::<Vec<String>>(acc, ACCESSIBLE, "GetInterfaces", &())
+            .unwrap_or_default()
     }
 
     pub fn name_of(&self, acc: &Acc) -> Option<String> {
-        self.prop::<String>(acc, ACCESSIBLE, "Name").filter(|s| !s.is_empty())
+        self.prop::<String>(acc, ACCESSIBLE, "Name")
+            .filter(|s| !s.is_empty())
     }
 
     fn parent_of(&self, acc: &Acc) -> Option<Acc> {
-        let (b, p): (String, OwnedObjectPath) = self.prop::<zbus::zvariant::OwnedValue>(acc, ACCESSIBLE, "Parent").and_then(|v| {
-            let s: zbus::zvariant::Structure = v.try_into().ok()?;
-            let f = s.fields();
-            let b: String = f.first()?.try_clone().ok()?.try_into().ok()?;
-            let p: OwnedObjectPath = f.get(1)?.try_clone().ok()?.try_into().ok()?;
-            Some((b, p))
-        })?;
+        let (b, p): (String, OwnedObjectPath) = self
+            .prop::<zbus::zvariant::OwnedValue>(acc, ACCESSIBLE, "Parent")
+            .and_then(|v| {
+                let s: zbus::zvariant::Structure = v.try_into().ok()?;
+                let f = s.fields();
+                let b: String = f.first()?.try_clone().ok()?.try_into().ok()?;
+                let p: OwnedObjectPath = f.get(1)?.try_clone().ok()?.try_into().ok()?;
+                Some((b, p))
+            })?;
         let a = Acc::new(&b, p.as_str());
         (!a.is_null()).then_some(a)
     }
@@ -189,10 +246,19 @@ impl A11y {
         }
         let msg = self
             .conn
-            .call_method(Some("org.freedesktop.DBus"), "/org/freedesktop/DBus", Some("org.freedesktop.DBus"), "GetConnectionUnixProcessID", &(bus,))
+            .call_method(
+                Some("org.freedesktop.DBus"),
+                "/org/freedesktop/DBus",
+                Some("org.freedesktop.DBus"),
+                "GetConnectionUnixProcessID",
+                &(bus,),
+            )
             .ok()?;
         let pid: u32 = msg.body().deserialize().ok()?;
-        self.pids.lock().unwrap_or_else(|e| e.into_inner()).insert(bus.to_string(), pid);
+        self.pids
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(bus.to_string(), pid);
         Some(pid)
     }
 
@@ -212,19 +278,27 @@ impl A11y {
             let dirs = DesktopIndex::default_dirs(&|k| (self.env)(k));
             *self.desktop.lock().unwrap_or_else(|e| e.into_inner()) = DesktopIndex::load(&dirs);
         }
-        self.desktop.lock().unwrap_or_else(|e| e.into_inner()).clone()
+        self.desktop
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
     }
 
     /// Everything `/proc/<pid>` says about the app, for [`app_id::choose`].
     pub fn evidence(pid: u32) -> Evidence {
         let read = |f: &str| std::fs::read(format!("/proc/{pid}/{f}")).ok();
         let environ = read("environ").and_then(|b| {
-            b.split(|c| *c == 0).find_map(|kv| kv.strip_prefix(b"GIO_LAUNCHED_DESKTOP_FILE=").map(|v| String::from_utf8_lossy(v).into_owned()))
+            b.split(|c| *c == 0).find_map(|kv| {
+                kv.strip_prefix(b"GIO_LAUNCHED_DESKTOP_FILE=")
+                    .map(|v| String::from_utf8_lossy(v).into_owned())
+            })
         });
         Evidence {
             cgroup: read("cgroup").map(|b| String::from_utf8_lossy(&b).into_owned()),
             launched_desktop_file: environ,
-            exe: std::fs::read_link(format!("/proc/{pid}/exe")).ok().map(|p| p.to_string_lossy().into_owned()),
+            exe: std::fs::read_link(format!("/proc/{pid}/exe"))
+                .ok()
+                .map(|p| p.to_string_lossy().into_owned()),
             comm: read("comm").map(|b| String::from_utf8_lossy(&b).trim().to_string()),
         }
     }
@@ -233,7 +307,12 @@ impl A11y {
     pub fn app_id_for_pid(&self, pid: u32) -> Option<String> {
         let ev = Self::evidence(pid);
         let cands = app_id::candidates(&ev, &self.desktop_index());
-        app_id::choose(&cands).or_else(|| ev.comm.as_deref().map(app_id::normalize).filter(|c| app_id::is_app_id(c)))
+        app_id::choose(&cands).or_else(|| {
+            ev.comm
+                .as_deref()
+                .map(app_id::normalize)
+                .filter(|c| app_id::is_app_id(c))
+        })
     }
 
     fn display_name(&self, id: &str, accessible_name: Option<String>) -> String {
@@ -249,15 +328,25 @@ impl A11y {
     pub fn apps(&self, active_pid: Option<u32>) -> Vec<AppInfo> {
         let mut out: Vec<AppInfo> = Vec::new();
         for root in self.application_roots() {
-            let Some(pid) = self.pid_of_bus(&root.bus) else { continue };
+            let Some(pid) = self.pid_of_bus(&root.bus) else {
+                continue;
+            };
             if pid == std::process::id() {
                 continue;
             }
-            let wins: Vec<Acc> = self.children_of(&root).into_iter().filter(|w| self.role_of(w).is_some_and(is_window_role)).collect();
-            let Some(id) = self.app_id_for_pid(pid) else { continue };
+            let wins: Vec<Acc> = self
+                .children_of(&root)
+                .into_iter()
+                .filter(|w| self.role_of(w).is_some_and(is_window_role))
+                .collect();
+            let Some(id) = self.app_id_for_pid(pid) else {
+                continue;
+            };
             let active = match active_pid {
                 Some(p) => p == pid,
-                None => wins.iter().any(|w| state::has(&self.states_of(w), state::ACTIVE)),
+                None => wins
+                    .iter()
+                    .any(|w| state::has(&self.states_of(w), state::ACTIVE)),
             };
             let toolkit = self.toolkit(&root);
             let electron = {
@@ -269,29 +358,54 @@ impl A11y {
             if out.iter().any(|a| a.pid == pid) {
                 continue;
             }
-            out.push(AppInfo { id, name, pid, electron, frontmost: active, windows: wins.len() });
+            out.push(AppInfo {
+                id,
+                name,
+                pid,
+                electron,
+                frontmost: active,
+                windows: wins.len(),
+            });
         }
         out
     }
 
     fn toolkit(&self, root: &Acc) -> String {
-        if let Some(t) = self.toolkits.lock().unwrap_or_else(|e| e.into_inner()).get(&*root.bus) {
+        if let Some(t) = self
+            .toolkits
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(&*root.bus)
+        {
             return t.clone();
         }
-        let t = self.prop::<String>(root, "org.a11y.atspi.Application", "ToolkitName").unwrap_or_default();
-        self.toolkits.lock().unwrap_or_else(|e| e.into_inner()).insert(root.bus.to_string(), t.clone());
+        let t = self
+            .prop::<String>(root, "org.a11y.atspi.Application", "ToolkitName")
+            .unwrap_or_default();
+        self.toolkits
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(root.bus.to_string(), t.clone());
         t
     }
 
     /// The application root accessible of `pid`.
     pub fn app_root_for_pid(&self, pid: u32) -> Option<Acc> {
-        self.application_roots().into_iter().find(|r| self.pid_of_bus(&r.bus) == Some(pid))
+        self.application_roots()
+            .into_iter()
+            .find(|r| self.pid_of_bus(&r.bus) == Some(pid))
     }
 
     /// Top-level windows of an app (frames, dialogs, ...), in the order the app lists them.
     pub fn windows_of(&self, pid: u32) -> Vec<Acc> {
-        let Some(root) = self.app_root_for_pid(pid) else { return vec![] };
-        let mut wins: Vec<Acc> = self.children_of(&root).into_iter().filter(|w| self.role_of(w).is_some_and(is_window_role)).collect();
+        let Some(root) = self.app_root_for_pid(pid) else {
+            return vec![];
+        };
+        let mut wins: Vec<Acc> = self
+            .children_of(&root)
+            .into_iter()
+            .filter(|w| self.role_of(w).is_some_and(is_window_role))
+            .collect();
         // The active window first, so "window 0" is the one the owner is looking at.
         wins.sort_by_key(|w| !state::has(&self.states_of(w), state::ACTIVE));
         wins
@@ -301,13 +415,22 @@ impl A11y {
 
     pub fn begin_walk(&self, budget: Duration) {
         self.cache.lock().unwrap_or_else(|e| e.into_inner()).clear();
-        self.toplevels.lock().unwrap_or_else(|e| e.into_inner()).clear();
-        self.origins.lock().unwrap_or_else(|e| e.into_inner()).clear();
+        self.toplevels
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clear();
+        self.origins
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clear();
         *self.deadline.lock().unwrap_or_else(|e| e.into_inner()) = Some(Instant::now() + budget);
     }
 
     fn past_deadline(&self) -> bool {
-        self.deadline.lock().unwrap_or_else(|e| e.into_inner()).is_some_and(|d| Instant::now() > d)
+        self.deadline
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .is_some_and(|d| Instant::now() > d)
     }
 
     fn text_of(&self, acc: &Acc, ifaces: &[String], cap: usize) -> Option<String> {
@@ -319,7 +442,8 @@ impl A11y {
             return Some(String::new());
         }
         let end = count.min(cap as i32);
-        self.call::<String>(acc, "org.a11y.atspi.Text", "GetText", &(0i32, end)).ok()
+        self.call::<String>(acc, "org.a11y.atspi.Text", "GetText", &(0i32, end))
+            .ok()
     }
 
     fn actions_of(&self, acc: &Acc, ifaces: &[String]) -> Vec<String> {
@@ -327,7 +451,9 @@ impl A11y {
             return vec![];
         }
         // GetActions: a(sss) (name, localized name, key binding); the name is the stable one.
-        let list: Vec<(String, String, String)> = self.call(acc, "org.a11y.atspi.Action", "GetActions", &()).unwrap_or_default();
+        let list: Vec<(String, String, String)> = self
+            .call(acc, "org.a11y.atspi.Action", "GetActions", &())
+            .unwrap_or_default();
         list.into_iter().map(|(n, ..)| n).collect()
     }
 
@@ -343,28 +469,52 @@ impl A11y {
 
     /// The top-level window an element sits in, found through its parents (memoized per walk).
     fn toplevel_of(&self, acc: &Acc, depth: usize) -> Option<Acc> {
-        if let Some(t) = self.toplevels.lock().unwrap_or_else(|e| e.into_inner()).get(acc) {
+        if let Some(t) = self
+            .toplevels
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(acc)
+        {
             return t.clone();
         }
-        let found = if self.role_of(acc).is_some_and(is_window_role) && self.parent_of(acc).is_some_and(|p| &*p.path == ROOT_PATH) {
+        let found = if self.role_of(acc).is_some_and(is_window_role)
+            && self.parent_of(acc).is_some_and(|p| &*p.path == ROOT_PATH)
+        {
             Some(acc.clone())
         } else if depth > 40 {
             None
         } else {
-            self.parent_of(acc).and_then(|p| self.toplevel_of(&p, depth + 1))
+            self.parent_of(acc)
+                .and_then(|p| self.toplevel_of(&p, depth + 1))
         };
-        self.toplevels.lock().unwrap_or_else(|e| e.into_inner()).insert(acc.clone(), found.clone());
+        self.toplevels
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(acc.clone(), found.clone());
         found
     }
 
     fn origin_of_toplevel(&self, top: &Acc) -> Option<(f64, f64)> {
-        if let Some(o) = self.origins.lock().unwrap_or_else(|e| e.into_inner()).get(top) {
+        if let Some(o) = self
+            .origins
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(top)
+        {
             return *o;
         }
         let pid = self.pid_of_bus(&top.bus)?;
         let title = self.name_of(top).unwrap_or_default();
-        let o = self.origin_of.lock().unwrap_or_else(|e| e.into_inner()).as_ref().and_then(|f| f(pid, &title));
-        self.origins.lock().unwrap_or_else(|e| e.into_inner()).insert(top.clone(), o);
+        let o = self
+            .origin_of
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .as_ref()
+            .and_then(|f| f(pid, &title));
+        self.origins
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(top.clone(), o);
         o
     }
 
@@ -373,18 +523,32 @@ impl A11y {
     /// window-relative extents (coord type 1) are added to it; otherwise the toolkit's screen
     /// extents (coord type 0) are used as they are.
     fn extents(&self, acc: &Acc) -> Option<Rect> {
-        let origin = self.toplevel_of(acc, 0).and_then(|t| self.origin_of_toplevel(&t));
+        let origin = self
+            .toplevel_of(acc, 0)
+            .and_then(|t| self.origin_of_toplevel(&t));
         let coord = if origin.is_some() { 1u32 } else { 0u32 };
-        let (x, y, w, h): (i32, i32, i32, i32) = self.call(acc, "org.a11y.atspi.Component", "GetExtents", &(coord,)).ok()?;
+        let (x, y, w, h): (i32, i32, i32, i32) = self
+            .call(acc, "org.a11y.atspi.Component", "GetExtents", &(coord,))
+            .ok()?;
         let (ox, oy) = origin.unwrap_or((0.0, 0.0));
-        Some(Rect::new(f64::from(x) + ox, f64::from(y) + oy, f64::from(w), f64::from(h)))
+        Some(Rect::new(
+            f64::from(x) + ox,
+            f64::from(y) + oy,
+            f64::from(w),
+            f64::from(h),
+        ))
     }
 
     /// [`Self::read_uncached`], remembered until the next walk starts (the builder asks for
     /// the info, the actions and the settable flag of the same element).
     pub fn read(&self, acc: &Acc, with_frame: bool, value_cap: usize) -> Option<ElementData> {
         let key = (acc.clone(), with_frame);
-        if let Some(hit) = self.cache.lock().unwrap_or_else(|e| e.into_inner()).get(&key) {
+        if let Some(hit) = self
+            .cache
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(&key)
+        {
             return hit.clone();
         }
         let d = self.read_uncached(acc, with_frame, value_cap);
@@ -397,7 +561,12 @@ impl A11y {
     }
 
     /// Reads one element: AT-SPI facts, then the snapshot's view of them.
-    pub fn read_uncached(&self, acc: &Acc, with_frame: bool, value_cap: usize) -> Option<ElementData> {
+    pub fn read_uncached(
+        &self,
+        acc: &Acc,
+        with_frame: bool,
+        value_cap: usize,
+    ) -> Option<ElementData> {
         if acc.is_null() {
             return None;
         }
@@ -408,19 +577,34 @@ impl A11y {
         }
         let ifaces = self.interfaces_of(acc);
         let name = self.name_of(acc);
-        let description = self.prop::<String>(acc, ACCESSIBLE, "Description").filter(|s| !s.is_empty());
-        let attrs: HashMap<String, String> = self.call(acc, ACCESSIBLE, "GetAttributes", &()).unwrap_or_default();
-        let parent_role = if role_n == role::MENU_ITEM { self.parent_of(acc).and_then(|p| self.role_of(&p)) } else { None };
+        let description = self
+            .prop::<String>(acc, ACCESSIBLE, "Description")
+            .filter(|s| !s.is_empty());
+        let attrs: HashMap<String, String> = self
+            .call(acc, ACCESSIBLE, "GetAttributes", &())
+            .unwrap_or_default();
+        let parent_role = if role_n == role::MENU_ITEM {
+            self.parent_of(acc).and_then(|p| self.role_of(&p))
+        } else {
+            None
+        };
         let action_names = self.actions_of(acc, &ifaces);
         let has_value = has_iface(&ifaces, "Value");
-        let value_ro = has_value && self.prop::<bool>(acc, "org.a11y.atspi.Value", "ReadOnly").unwrap_or(false);
+        let value_ro = has_value
+            && self
+                .prop::<bool>(acc, "org.a11y.atspi.Value", "ReadOnly")
+                .unwrap_or(false);
         let facts = AtspiFacts {
             role: role_n,
             parent_role,
-            top_level: is_window_role(role_n) && self.parent_of(acc).is_some_and(|p| p.path.as_ref() == ROOT_PATH && p.bus.as_ref() == acc.bus.as_ref()),
+            top_level: is_window_role(role_n)
+                && self.parent_of(acc).is_some_and(|p| {
+                    p.path.as_ref() == ROOT_PATH && p.bus.as_ref() == acc.bus.as_ref()
+                }),
             identifier: attrs.get("id").cloned().unwrap_or_default(),
             toolkit: attrs.get("toolkit").cloned().unwrap_or_default(),
-            editable: state::has(&states, state::EDITABLE) && !state::has(&states, state::READ_ONLY),
+            editable: state::has(&states, state::EDITABLE)
+                && !state::has(&states, state::READ_ONLY),
             multi_line: state::has(&states, state::MULTI_LINE),
             checkable: state::has(&states, state::CHECKABLE),
             expandable: state::has(&states, state::EXPANDABLE),
@@ -441,15 +625,30 @@ impl A11y {
         info.subrole = ax.subrole.map(str::to_string);
         let text_value = if secure {
             Some(String::new())
-        } else if matches!(role_n, role::ENTRY | role::TEXT | role::TERMINAL | role::DOCUMENT_FRAME | role::DOCUMENT_TEXT | role::DOCUMENT_EMAIL | role::COMBO_BOX | role::SPIN_BUTTON | role::PARAGRAPH | role::HEADING | role::LINK)
-            || facts.has_editable_text
+        } else if matches!(
+            role_n,
+            role::ENTRY
+                | role::TEXT
+                | role::TERMINAL
+                | role::DOCUMENT_FRAME
+                | role::DOCUMENT_TEXT
+                | role::DOCUMENT_EMAIL
+                | role::COMBO_BOX
+                | role::SPIN_BUTTON
+                | role::PARAGRAPH
+                | role::HEADING
+                | role::LINK
+        ) || facts.has_editable_text
         {
             self.text_of(acc, &ifaces, value_cap.max(160))
         } else {
             None
         };
         if ax.name_is_value {
-            info.value = name.clone().or(text_value.clone()).filter(|v| !v.is_empty());
+            info.value = name
+                .clone()
+                .or(text_value.clone())
+                .filter(|v| !v.is_empty());
         } else if !ax.drop_name {
             info.title = name.clone();
             info.value = match (text_value, has_value, secure) {
@@ -457,16 +656,30 @@ impl A11y {
                 (_, true, _) => self.value_of(acc).map(roles::number_string),
                 _ => None,
             };
-            if matches!(role_n, role::CHECK_BOX | role::RADIO_BUTTON | role::TOGGLE_BUTTON | role::CHECK_MENU_ITEM | role::RADIO_MENU_ITEM)
-                || (role_n == role::PUSH_BUTTON && facts.checkable)
+            if matches!(
+                role_n,
+                role::CHECK_BOX
+                    | role::RADIO_BUTTON
+                    | role::TOGGLE_BUTTON
+                    | role::CHECK_MENU_ITEM
+                    | role::RADIO_MENU_ITEM
+            ) || (role_n == role::PUSH_BUTTON && facts.checkable)
             {
-                info.value = Some(if state::has(&states, state::CHECKED) { "1" } else { "0" }.to_string());
+                info.value = Some(
+                    if state::has(&states, state::CHECKED) {
+                        "1"
+                    } else {
+                        "0"
+                    }
+                    .to_string(),
+                );
             }
         }
         info.description = description;
         info.identifier = attrs.get("id").cloned();
         info.placeholder = attrs.get("placeholder-text").cloned();
-        info.enabled = Some(state::has(&states, state::ENABLED) || state::has(&states, state::SENSITIVE));
+        info.enabled =
+            Some(state::has(&states, state::ENABLED) || state::has(&states, state::SENSITIVE));
         info.selected = Some(state::has(&states, state::SELECTED));
         if with_frame {
             info.frame = self.extents(acc).filter(|r| r.w > 0.0 && r.h > 0.0);
@@ -478,12 +691,16 @@ impl A11y {
     // --- Actions ----------------------------------------------------------------------------
 
     fn do_action(&self, acc: &Acc, names: &[&str]) -> Result<(), ActError> {
-        let list: Vec<(String, String, String)> = self.call(acc, "org.a11y.atspi.Action", "GetActions", &()).map_err(act_err)?;
+        let list: Vec<(String, String, String)> = self
+            .call(acc, "org.a11y.atspi.Action", "GetActions", &())
+            .map_err(act_err)?;
         let idx = names
             .iter()
             .find_map(|want| list.iter().position(|(n, ..)| n.eq_ignore_ascii_case(want)))
             .ok_or_else(|| ActError::new("the element has no such action"))?;
-        let ok: bool = self.call(acc, "org.a11y.atspi.Action", "DoAction", &(idx as i32,)).map_err(act_err)?;
+        let ok: bool = self
+            .call(acc, "org.a11y.atspi.Action", "DoAction", &(idx as i32,))
+            .map_err(act_err)?;
         if ok {
             Ok(())
         } else {
@@ -493,12 +710,39 @@ impl A11y {
 
     pub fn perform(&self, acc: &Acc, ax_action: &str) -> Result<(), ActError> {
         match ax_action {
-            "AXPress" | "AXOpen" => self.do_action(acc, &["click", "press", "activate", "toggle", "check", "uncheck", "select", "jump", "push", "invoke", "expand or contract", "open"]),
-            "AXShowMenu" => self.do_action(acc, &["menu", "showmenu", "show menu", "popup", "open"]),
+            "AXPress" | "AXOpen" => self.do_action(
+                acc,
+                &[
+                    "click",
+                    "press",
+                    "activate",
+                    "toggle",
+                    "check",
+                    "uncheck",
+                    "select",
+                    "jump",
+                    "push",
+                    "invoke",
+                    "expand or contract",
+                    "open",
+                ],
+            ),
+            "AXShowMenu" => {
+                self.do_action(acc, &["menu", "showmenu", "show menu", "popup", "open"])
+            }
             "AXIncrement" | "AXDecrement" => {
-                let cur = self.value_of(acc).ok_or_else(|| ActError::new("the element has no value"))?;
-                let step = self.prop::<f64>(acc, "org.a11y.atspi.Value", "MinimumIncrement").filter(|s| *s > 0.0).unwrap_or(1.0);
-                let next = if ax_action == "AXIncrement" { cur + step } else { cur - step };
+                let cur = self
+                    .value_of(acc)
+                    .ok_or_else(|| ActError::new("the element has no value"))?;
+                let step = self
+                    .prop::<f64>(acc, "org.a11y.atspi.Value", "MinimumIncrement")
+                    .filter(|s| *s > 0.0)
+                    .unwrap_or(1.0);
+                let next = if ax_action == "AXIncrement" {
+                    cur + step
+                } else {
+                    cur - step
+                };
                 self.set_number(acc, next)
             }
             "AXRaise" => self.grab_focus(acc),
@@ -509,13 +753,25 @@ impl A11y {
     fn set_number(&self, acc: &Acc, v: f64) -> Result<(), ActError> {
         // `SetCurrentValue` is a property write.
         self.conn
-            .call_method(Some(&*acc.bus), &*acc.path, Some("org.freedesktop.DBus.Properties"), "Set", &("org.a11y.atspi.Value", "CurrentValue", zbus::zvariant::Value::from(v)))
+            .call_method(
+                Some(&*acc.bus),
+                &*acc.path,
+                Some("org.freedesktop.DBus.Properties"),
+                "Set",
+                &(
+                    "org.a11y.atspi.Value",
+                    "CurrentValue",
+                    zbus::zvariant::Value::from(v),
+                ),
+            )
             .map(|_| ())
             .map_err(act_err)
     }
 
     pub fn grab_focus(&self, acc: &Acc) -> Result<(), ActError> {
-        let ok: bool = self.call(acc, "org.a11y.atspi.Component", "GrabFocus", &()).map_err(act_err)?;
+        let ok: bool = self
+            .call(acc, "org.a11y.atspi.Component", "GrabFocus", &())
+            .map_err(act_err)?;
         if ok {
             Ok(())
         } else {
@@ -526,11 +782,25 @@ impl A11y {
     pub fn set_value(&self, acc: &Acc, value: &str) -> Result<(), ActError> {
         let ifaces = self.interfaces_of(acc);
         if has_iface(&ifaces, "EditableText") {
-            let ok: bool = self.call(acc, "org.a11y.atspi.EditableText", "SetTextContents", &(value,)).map_err(act_err)?;
-            return if ok { Ok(()) } else { Err(ActError::new("the field refused the text")) };
+            let ok: bool = self
+                .call(
+                    acc,
+                    "org.a11y.atspi.EditableText",
+                    "SetTextContents",
+                    &(value,),
+                )
+                .map_err(act_err)?;
+            return if ok {
+                Ok(())
+            } else {
+                Err(ActError::new("the field refused the text"))
+            };
         }
         if has_iface(&ifaces, "Value") {
-            let n: f64 = value.trim().parse().map_err(|_| ActError::new("a number is needed"))?;
+            let n: f64 = value
+                .trim()
+                .parse()
+                .map_err(|_| ActError::new("a number is needed"))?;
             return self.set_number(acc, n);
         }
         Err(ActError::new("the element is not editable"))
@@ -549,11 +819,17 @@ impl A11y {
 
     pub fn select(&self, acc: &Acc) -> Result<(), ActError> {
         // The parent's Selection interface chooses its child by index.
-        let parent = self.parent_of(acc).ok_or_else(|| ActError::new("the element has no parent"))?;
-        let idx: i32 = self.call(acc, ACCESSIBLE, "GetIndexInParent", &()).map_err(act_err)?;
+        let parent = self
+            .parent_of(acc)
+            .ok_or_else(|| ActError::new("the element has no parent"))?;
+        let idx: i32 = self
+            .call(acc, ACCESSIBLE, "GetIndexInParent", &())
+            .map_err(act_err)?;
         let pi = self.interfaces_of(&parent);
         if has_iface(&pi, "Selection") {
-            let ok: bool = self.call(&parent, "org.a11y.atspi.Selection", "SelectChild", &(idx,)).map_err(act_err)?;
+            let ok: bool = self
+                .call(&parent, "org.a11y.atspi.Selection", "SelectChild", &(idx,))
+                .map_err(act_err)?;
             if ok {
                 return Ok(());
             }
@@ -566,12 +842,17 @@ impl A11y {
     }
 
     pub fn selected_text(&self, acc: &Acc) -> Option<String> {
-        let n: i32 = self.call(acc, "org.a11y.atspi.Text", "GetNSelections", &()).ok()?;
+        let n: i32 = self
+            .call(acc, "org.a11y.atspi.Text", "GetNSelections", &())
+            .ok()?;
         if n <= 0 {
             return None;
         }
-        let (a, b): (i32, i32) = self.call(acc, "org.a11y.atspi.Text", "GetSelection", &(0i32,)).ok()?;
-        self.call::<String>(acc, "org.a11y.atspi.Text", "GetText", &(a, b.min(a + 8000))).ok()
+        let (a, b): (i32, i32) = self
+            .call(acc, "org.a11y.atspi.Text", "GetSelection", &(0i32,))
+            .ok()?;
+        self.call::<String>(acc, "org.a11y.atspi.Text", "GetText", &(a, b.min(a + 8000)))
+            .ok()
     }
 
     // --- Focus and hit tests ----------------------------------------------------------------
@@ -585,7 +866,11 @@ impl A11y {
         let address = self.address.clone();
         let focus = self.focus.clone();
         std::thread::spawn(move || {
-            let Ok(conn) = zbus::blocking::connection::Builder::address(address.as_str()).and_then(|b| b.build()) else { return };
+            let Ok(conn) = zbus::blocking::connection::Builder::address(address.as_str())
+                .and_then(|b| b.build())
+            else {
+                return;
+            };
             // Toolkits emit an event class only when someone registered for it.
             let reg = |body: &dyn Fn() -> zbus::Result<zbus::Message>| {
                 let _ = body();
@@ -607,16 +892,27 @@ impl A11y {
             else {
                 return;
             };
-            let Ok(iter) = zbus::blocking::MessageIterator::for_match_rule(rule, &conn, None) else { return };
+            let Ok(iter) = zbus::blocking::MessageIterator::for_match_rule(rule, &conn, None)
+            else {
+                return;
+            };
             for msg in iter.flatten() {
-                let Ok((what, gained, _, _, _)) = msg.body().deserialize::<(String, i32, i32, zbus::zvariant::Value, HashMap<String, zbus::zvariant::Value>)>() else {
+                let Ok((what, gained, _, _, _)) = msg.body().deserialize::<(
+                    String,
+                    i32,
+                    i32,
+                    zbus::zvariant::Value,
+                    HashMap<String, zbus::zvariant::Value>,
+                )>() else {
                     continue;
                 };
                 if what != "focused" {
                     continue;
                 }
                 let header = msg.header();
-                let (Some(sender), Some(path)) = (header.sender(), header.path()) else { continue };
+                let (Some(sender), Some(path)) = (header.sender(), header.path()) else {
+                    continue;
+                };
                 let acc = Acc::new(sender.as_str(), path.as_str());
                 let mut f = focus.lock().unwrap_or_else(|e| e.into_inner());
                 if gained == 1 {
@@ -633,14 +929,24 @@ impl A11y {
     pub fn focused(&self, pid: Option<u32>) -> Option<Acc> {
         self.start_focus_tracker();
         let known = self.focus.lock().unwrap_or_else(|e| e.into_inner()).clone();
-        if let Some(a) = known.filter(|a| !state::has(&self.states_of(a), state::DEFUNCT) && self.role_of(a).is_some()) {
-            if pid.is_none_or(|p| self.pid_of_bus(&a.bus) == Some(p)) {
+        if let Some(a) = known.filter(|a| {
+            !state::has(&self.states_of(a), state::DEFUNCT) && self.role_of(a).is_some()
+        }) {
+            if pid.map_or(true, |p| self.pid_of_bus(&a.bus) == Some(p)) {
                 return Some(a);
             }
         }
         let roots: Vec<Acc> = match pid {
             Some(p) => self.windows_of(p),
-            None => self.application_roots().into_iter().flat_map(|r| self.children_of(&r)).filter(|w| self.role_of(w).is_some_and(is_window_role) && state::has(&self.states_of(w), state::ACTIVE)).collect(),
+            None => self
+                .application_roots()
+                .into_iter()
+                .flat_map(|r| self.children_of(&r))
+                .filter(|w| {
+                    self.role_of(w).is_some_and(is_window_role)
+                        && state::has(&self.states_of(w), state::ACTIVE)
+                })
+                .collect(),
         };
         for w in roots {
             if let Some(f) = self.find_focused(&w, 4000, Duration::from_millis(1500)) {
@@ -677,7 +983,12 @@ impl A11y {
     pub fn element_at(&self, window: &Acc, x: f64, y: f64) -> Option<Acc> {
         let mut cur = window.clone();
         for _ in 0..16 {
-            let r: Result<(String, OwnedObjectPath), _> = self.call(&cur, "org.a11y.atspi.Component", "GetAccessibleAtPoint", &(x as i32, y as i32, 0u32));
+            let r: Result<(String, OwnedObjectPath), _> = self.call(
+                &cur,
+                "org.a11y.atspi.Component",
+                "GetAccessibleAtPoint",
+                &(x as i32, y as i32, 0u32),
+            );
             let Ok((b, p)) = r else { break };
             let next = Acc::new(&b, p.as_str());
             if next.is_null() || next == cur {
@@ -708,7 +1019,10 @@ impl A11y {
     pub fn hit(&self, window: &Acc, x: f64, y: f64) -> Option<Hit> {
         let a = self.element_at(window, x, y)?;
         let role_n = self.role_of(&a)?;
-        let ax = roles::map_role(&AtspiFacts { role: role_n, ..Default::default() });
+        let ax = roles::map_role(&AtspiFacts {
+            role: role_n,
+            ..Default::default()
+        });
         Some(Hit {
             pid: self.pid_of_bus(&a.bus)?,
             role: Some(ax.role.to_string()),
@@ -728,30 +1042,58 @@ impl A11y {
     pub fn status_enabled() -> Option<bool> {
         let session = zbus::blocking::Connection::session().ok()?;
         let msg = session
-            .call_method(Some("org.a11y.Bus"), "/org/a11y/bus", Some("org.freedesktop.DBus.Properties"), "Get", &("org.a11y.Status", "IsEnabled"))
+            .call_method(
+                Some("org.a11y.Bus"),
+                "/org/a11y/bus",
+                Some("org.freedesktop.DBus.Properties"),
+                "Get",
+                &("org.a11y.Status", "IsEnabled"),
+            )
             .ok()?;
         let v: OwnedValue = msg.body().deserialize().ok()?;
         bool::try_from(v).ok()
     }
 
     pub fn set_status_enabled(on: bool) -> CapResult<()> {
-        let session = zbus::blocking::Connection::session()
-            .map_err(|e| CapError::unavailable("no_a11y_bus", format!("Needs a graphical session on this computer ({e})")))?;
+        let session = zbus::blocking::Connection::session().map_err(|e| {
+            CapError::unavailable(
+                "no_a11y_bus",
+                format!("Needs a graphical session on this computer ({e})"),
+            )
+        })?;
         session
             .call_method(
                 Some("org.a11y.Bus"),
                 "/org/a11y/bus",
                 Some("org.freedesktop.DBus.Properties"),
                 "Set",
-                &("org.a11y.Status", "IsEnabled", zbus::zvariant::Value::from(on)),
+                &(
+                    "org.a11y.Status",
+                    "IsEnabled",
+                    zbus::zvariant::Value::from(on),
+                ),
             )
             .map(|_| ())
-            .map_err(|e| CapError::unavailable("a11y_status_failed", format!("Could not change the accessibility setting: {e}")))
+            .map_err(|e| {
+                CapError::unavailable(
+                    "a11y_status_failed",
+                    format!("Could not change the accessibility setting: {e}"),
+                )
+            })
     }
 }
 
 fn is_window_role(r: u32) -> bool {
-    matches!(r, role::FRAME | role::WINDOW | role::DIALOG | role::ALERT | role::FILE_CHOOSER | role::COLOR_CHOOSER | role::INTERNAL_FRAME)
+    matches!(
+        r,
+        role::FRAME
+            | role::WINDOW
+            | role::DIALOG
+            | role::ALERT
+            | role::FILE_CHOOSER
+            | role::COLOR_CHOOSER
+            | role::INTERNAL_FRAME
+    )
 }
 
 fn has_iface(ifaces: &[String], name: &str) -> bool {
@@ -760,7 +1102,12 @@ fn has_iface(ifaces: &[String], name: &str) -> bool {
 
 fn act_err(e: zbus::Error) -> ActError {
     let text = e.to_string();
-    ActError { not_responding: text.contains("Timeout") || text.contains("timed out") || text.contains("NoReply"), detail: text }
+    ActError {
+        not_responding: text.contains("Timeout")
+            || text.contains("timed out")
+            || text.contains("NoReply"),
+        detail: text,
+    }
 }
 
 /// The tree as the snapshot builder walks it.
@@ -779,10 +1126,15 @@ impl TreeSource for Tree<'_> {
         self.a11y.children_of(e)
     }
     fn actions(&self, e: &Acc) -> Vec<String> {
-        self.a11y.read(e, self.with_frame, 160).map(|d| roles::actions(&d.facts, roles::map_role(&d.facts).role)).unwrap_or_default()
+        self.a11y
+            .read(e, self.with_frame, 160)
+            .map(|d| roles::actions(&d.facts, roles::map_role(&d.facts).role))
+            .unwrap_or_default()
     }
     fn is_value_settable(&self, e: &Acc) -> bool {
-        self.a11y.read(e, self.with_frame, 160).is_some_and(|d| roles::value_settable(&d.facts))
+        self.a11y
+            .read(e, self.with_frame, 160)
+            .is_some_and(|d| roles::value_settable(&d.facts))
     }
     fn should_stop(&self) -> bool {
         self.a11y.past_deadline()

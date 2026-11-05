@@ -27,5 +27,6 @@ tempfile = "3.27.0"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 libc = "0.2.191"
+pipewire = "0.10.1"
 x11rb = { version = "0.14.0", features = ["xtest", "shm", "randr", "xfixes", "xkb", "allow-unsafe-code"] }
 zbus = "5.12.0"

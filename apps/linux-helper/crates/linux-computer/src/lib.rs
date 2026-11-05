@@ -28,11 +28,13 @@ pub mod error;
 #[cfg(any(test, feature = "fake"))]
 pub mod fake;
 pub mod hygiene;
-#[cfg(target_os = "linux")]
-pub mod linux;
 pub mod keychord;
 #[cfg(target_os = "linux")]
+pub mod linux;
+#[cfg(target_os = "linux")]
 pub mod portal;
+#[cfg(target_os = "linux")]
+pub mod pw;
 pub mod roles;
 pub mod snapshot;
 pub mod spec;

@@ -65,12 +65,21 @@ pub enum Intent {
 }
 
 /// Roles whose press runs an app command (#266).
-pub const MENU_LIKE_ROLES: &[&str] = &["AXMenuItem", "AXMenuBarItem", "AXMenuButton", "AXPopUpButton", "AXMenu", "AXMenuBar"];
+pub const MENU_LIKE_ROLES: &[&str] = &[
+    "AXMenuItem",
+    "AXMenuBarItem",
+    "AXMenuButton",
+    "AXPopUpButton",
+    "AXMenu",
+    "AXMenuBar",
+];
 
 impl Intent {
     pub fn escalated(self, role: Option<&str>) -> Intent {
         match (self, role) {
-            (Intent::Click | Intent::Press, Some(r)) if MENU_LIKE_ROLES.contains(&r) => Intent::Menu,
+            (Intent::Click | Intent::Press, Some(r)) if MENU_LIKE_ROLES.contains(&r) => {
+                Intent::Menu
+            }
             _ => self,
         }
     }
@@ -100,7 +109,14 @@ pub mod fixed_caps {
     }
 
     /// Psyche's own UI: the agent must never click its own approval cards or settings.
-    pub const PSYCHE: &[&str] = &["psyche", "psyche-desktop", "psyche-helper", "com.psyche.desktop", "com.psyche.helper", "electron-psyche"];
+    pub const PSYCHE: &[&str] = &[
+        "psyche",
+        "psyche-desktop",
+        "psyche-helper",
+        "com.psyche.desktop",
+        "com.psyche.helper",
+        "electron-psyche",
+    ];
 
     /// The shell, settings, polkit and keyring prompts, greeters and lock screens (#269): the
     /// password dialog of a presence check is drawn by one of these, and computer use must never
@@ -293,7 +309,12 @@ pub mod fixed_caps {
     /// The highest tier an app can ever get.
     pub fn cap(app_id: Option<&str>) -> Tier {
         match category(app_id) {
-            Some(Category::Psyche | Category::PasswordManager | Category::Finance | Category::SystemAuthority) => Tier::Off,
+            Some(
+                Category::Psyche
+                | Category::PasswordManager
+                | Category::Finance
+                | Category::SystemAuthority,
+            ) => Tier::Off,
             Some(Category::Browser) => Tier::Read,
             Some(Category::TerminalOrIde) => Tier::Click,
             None => Tier::Interact,
@@ -326,14 +347,22 @@ pub struct TierSettings {
 
 impl Default for TierSettings {
     fn default() -> Self {
-        TierSettings { default_value: SettingValue::Ask, apps: HashMap::new(), caps: HashMap::new(), sensitive: Vec::new() }
+        TierSettings {
+            default_value: SettingValue::Ask,
+            apps: HashMap::new(),
+            caps: HashMap::new(),
+            sensitive: Vec::new(),
+        }
     }
 }
 
 impl TierSettings {
     pub fn from_json(v: &Value) -> TierSettings {
         let mut s = TierSettings::default();
-        if let Some(d) = v.get("default").and_then(|d| serde_json::from_value::<SettingValue>(d.clone()).ok()) {
+        if let Some(d) = v
+            .get("default")
+            .and_then(|d| serde_json::from_value::<SettingValue>(d.clone()).ok())
+        {
             s.default_value = d;
         }
         if let Some(apps) = v.get("apps").and_then(Value::as_object) {
@@ -351,27 +380,43 @@ impl TierSettings {
             }
         }
         if let Some(list) = v.get("sensitive").and_then(Value::as_array) {
-            s.sensitive = list.iter().filter_map(|x| x.as_str().map(str::to_string)).collect();
+            s.sensitive = list
+                .iter()
+                .filter_map(|x| x.as_str().map(str::to_string))
+                .collect();
         }
         s
     }
 
     pub fn value(&self, bundle_id: Option<&str>) -> SettingValue {
-        let Some(id) = bundle_id else { return self.default_value };
+        let Some(id) = bundle_id else {
+            return self.default_value;
+        };
         if let Some(v) = self.apps.get(id) {
             return *v;
         }
-        self.apps.iter().find(|(k, _)| k.eq_ignore_ascii_case(id)).map(|(_, v)| *v).unwrap_or(self.default_value)
+        self.apps
+            .iter()
+            .find(|(k, _)| k.eq_ignore_ascii_case(id))
+            .map(|(_, v)| *v)
+            .unwrap_or(self.default_value)
     }
 
     /// The explicit value for `bundle_id` (no default).
     pub fn explicit(&self, bundle_id: &str) -> Option<SettingValue> {
-        self.apps.get(bundle_id).copied().or_else(|| self.apps.iter().find(|(k, _)| k.eq_ignore_ascii_case(bundle_id)).map(|(_, v)| *v))
+        self.apps.get(bundle_id).copied().or_else(|| {
+            self.apps
+                .iter()
+                .find(|(k, _)| k.eq_ignore_ascii_case(bundle_id))
+                .map(|(_, v)| *v)
+        })
     }
 
     /// Cap from the file's `caps` (exact ids, or `prefix.*`).
     pub fn file_cap(&self, bundle_id: Option<&str>) -> Tier {
-        let Some(id) = bundle_id.map(str::to_lowercase) else { return Tier::Interact };
+        let Some(id) = bundle_id.map(str::to_lowercase) else {
+            return Tier::Interact;
+        };
         let mut cap = Tier::Interact;
         for (pattern, t) in &self.caps {
             let hit = match pattern.strip_suffix('*') {
@@ -423,11 +468,18 @@ pub mod attention {
 
     /// Terminals and IDEs (click is shell-adjacent), messaging and mail apps, and the owner's list.
     pub fn is_sensitive(bundle_id: Option<&str>, settings: &TierSettings) -> bool {
-        let Some(id) = bundle_id.map(str::to_lowercase) else { return false };
-        if fixed_caps::category(Some(&id)) == Some(fixed_caps::Category::TerminalOrIde) || send_keys::is_messaging_app(Some(&id)) {
+        let Some(id) = bundle_id.map(str::to_lowercase) else {
+            return false;
+        };
+        if fixed_caps::category(Some(&id)) == Some(fixed_caps::Category::TerminalOrIde)
+            || send_keys::is_messaging_app(Some(&id))
+        {
             return true;
         }
-        settings.sensitive.iter().any(|s| s.eq_ignore_ascii_case(&id))
+        settings
+            .sensitive
+            .iter()
+            .any(|s| s.eq_ignore_ascii_case(&id))
     }
 
     /// Reading and scrolling never wait.
@@ -451,13 +503,20 @@ impl ApprovalBinding {
         let a = params.get("approval")?;
         let app = a.get("app")?.as_str().filter(|s| !s.is_empty())?;
         let tier = a.get("tier")?.as_str().and_then(Tier::parse)?;
-        Some(ApprovalBinding { id: id.to_string(), app: app.to_string(), tier })
+        Some(ApprovalBinding {
+            id: id.to_string(),
+            app: app.to_string(),
+            tier,
+        })
     }
 }
 
 /// Seconds since the Unix epoch.
 pub fn now_secs() -> f64 {
-    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs_f64()).unwrap_or(0.0)
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs_f64())
+        .unwrap_or(0.0)
 }
 
 type Clock = Box<dyn Fn() -> f64 + Send + Sync>;
@@ -480,8 +539,16 @@ pub struct TierPolicy {
 pub const SESSION_ALLOWANCE_SECS: f64 = 30.0 * 60.0;
 
 impl TierPolicy {
-    pub fn new(settings: TierSettings, now: Option<Clock>, owner_input: Option<OwnerInput>) -> TierPolicy {
-        TierPolicy { state: Mutex::new((settings, HashMap::new())), now: now.unwrap_or_else(|| Box::new(now_secs)), owner_input }
+    pub fn new(
+        settings: TierSettings,
+        now: Option<Clock>,
+        owner_input: Option<OwnerInput>,
+    ) -> TierPolicy {
+        TierPolicy {
+            state: Mutex::new((settings, HashMap::new())),
+            now: now.unwrap_or_else(|| Box::new(now_secs)),
+            owner_input,
+        }
     }
 
     pub fn update(&self, settings: TierSettings) {
@@ -497,14 +564,22 @@ impl TierPolicy {
         self.effective_locked(&st.0, &st.1, bundle_id)
     }
 
-    fn effective_locked(&self, settings: &TierSettings, allowances: &HashMap<String, (Tier, f64)>, bundle_id: Option<&str>) -> Tier {
+    fn effective_locked(
+        &self,
+        settings: &TierSettings,
+        allowances: &HashMap<String, (Tier, f64)>,
+        bundle_id: Option<&str>,
+    ) -> Tier {
         let cap = cap_for(bundle_id, settings);
         let user = match settings.value(bundle_id) {
             SettingValue::Off => Tier::Off,
             SettingValue::Read => Tier::Read,
             SettingValue::Click => Tier::Click,
             SettingValue::Interact => Tier::Interact,
-            SettingValue::Ask => match bundle_id.map(str::to_lowercase).and_then(|k| allowances.get(&k).copied()) {
+            SettingValue::Ask => match bundle_id
+                .map(str::to_lowercase)
+                .and_then(|k| allowances.get(&k).copied())
+            {
                 Some((t, until)) if until > (self.now)() => t,
                 _ => Tier::Off,
             },
@@ -515,7 +590,13 @@ impl TierPolicy {
     /// Checks `intent` on `bundle_id`. An approval counts only when it was granted for this exact
     /// app (#267) and for at least the tier needed; when the user setting is `ask`, it records an
     /// "Allow for this session" allowance for the approved tier only (never more).
-    pub fn authorize(&self, intent: Intent, bundle_id: Option<&str>, app_name: &str, approval: Option<&ApprovalBinding>) -> CapResult<()> {
+    pub fn authorize(
+        &self,
+        intent: Intent,
+        bundle_id: Option<&str>,
+        app_name: &str,
+        approval: Option<&ApprovalBinding>,
+    ) -> CapResult<()> {
         let mut guard = self.state.lock().unwrap();
         let (settings, allowances) = &mut *guard;
         let needed = intent.required_tier();
@@ -530,7 +611,10 @@ impl TierPolicy {
                     return Err(CapError::new(
                         code::POLICY_DENIED,
                         "approval_app_mismatch",
-                        format!("The approval was for {}, but the action would reach {app_name}", a.app),
+                        format!(
+                            "The approval was for {}, but the action would reach {app_name}",
+                            a.app
+                        ),
                     )
                     .detail("approvedApp", a.app.clone())
                     .detail("app", bundle_id.unwrap_or(app_name)));
@@ -565,8 +649,16 @@ impl TierPolicy {
         Ok(())
     }
 
-    fn check_attention(&self, intent: Intent, bundle_id: Option<&str>, app_name: &str, settings: &TierSettings) -> CapResult<()> {
-        let Some(owner) = &self.owner_input else { return Ok(()) };
+    fn check_attention(
+        &self,
+        intent: Intent,
+        bundle_id: Option<&str>,
+        app_name: &str,
+        settings: &TierSettings,
+    ) -> CapResult<()> {
+        let Some(owner) = &self.owner_input else {
+            return Ok(());
+        };
         if !attention::applies(intent) || !attention::is_sensitive(bundle_id, settings) {
             return Ok(());
         }
@@ -597,24 +689,42 @@ impl TierPolicy {
     }
 }
 
-pub fn refusal(needed: Tier, have: Tier, app_name: &str, bundle_id: Option<&str>, fixed: bool) -> CapError {
+pub fn refusal(
+    needed: Tier,
+    have: Tier,
+    app_name: &str,
+    bundle_id: Option<&str>,
+    fixed: bool,
+) -> CapError {
     use fixed_caps::Category::*;
     let why = match (have, fixed_caps::category(bundle_id)) {
         (Tier::Off, Some(Psyche)) => "Psyche never drives its own windows.",
         (Tier::Off, Some(PasswordManager)) => "Password managers are off limits for computer use.",
-        (Tier::Off, Some(Finance)) => "Banking, trading and crypto apps are off limits for computer use.",
-        (Tier::Off, Some(SystemAuthority)) => "Settings, notifications and security prompts are off limits for computer use.",
-        (Tier::Read, Some(Browser)) => "Browsers are read only; use the agent browser to act on the web.",
-        (Tier::Click, Some(TerminalOrIde)) => "Terminals and IDEs are click only (equivalent to shell access).",
+        (Tier::Off, Some(Finance)) => {
+            "Banking, trading and crypto apps are off limits for computer use."
+        }
+        (Tier::Off, Some(SystemAuthority)) => {
+            "Settings, notifications and security prompts are off limits for computer use."
+        }
+        (Tier::Read, Some(Browser)) => {
+            "Browsers are read only; use the agent browser to act on the web."
+        }
+        (Tier::Click, Some(TerminalOrIde)) => {
+            "Terminals and IDEs are click only (equivalent to shell access)."
+        }
         (Tier::Off, _) => "Computer use is off for this app.",
         (Tier::Read, _) => "This app is set to Read only.",
         _ => "This app is limited to plain clicks.",
     };
-    CapError::new(code::POLICY_DENIED, format!("tier_{}", have.as_str()), format!("{app_name}: {why}"))
-        .detail("app", bundle_id.unwrap_or(app_name))
-        .detail("tier", have.as_str())
-        .detail("tierRequired", needed.as_str())
-        .detail("fixedCap", fixed)
+    CapError::new(
+        code::POLICY_DENIED,
+        format!("tier_{}", have.as_str()),
+        format!("{app_name}: {why}"),
+    )
+    .detail("app", bundle_id.unwrap_or(app_name))
+    .detail("tier", have.as_str())
+    .detail("tierRequired", needed.as_str())
+    .detail("fixedCap", fixed)
 }
 
 /// One computer-use session at a time (J5). A session is identified by the Gateway-supplied
@@ -627,7 +737,11 @@ pub struct SessionLock {
 
 impl SessionLock {
     pub fn new(idle_timeout: f64, now: Option<Clock>) -> SessionLock {
-        SessionLock { state: Mutex::new((None, Vec::new())), idle_timeout, now: now.unwrap_or_else(|| Box::new(now_secs)) }
+        SessionLock {
+            state: Mutex::new((None, Vec::new())),
+            idle_timeout,
+            now: now.unwrap_or_else(|| Box::new(now_secs)),
+        }
     }
 
     /// Takes or refreshes the lock for `session`; `conflict/computer_busy` if another holds it.
@@ -732,7 +846,12 @@ impl StopSignal {
         if self.is_tripped() {
             return Err(CapError::stopped());
         }
-        if CANCEL.with(|c| c.borrow().as_ref().map(|f| f.load(Ordering::SeqCst)).unwrap_or(false)) {
+        if CANCEL.with(|c| {
+            c.borrow()
+                .as_ref()
+                .map(|f| f.load(Ordering::SeqCst))
+                .unwrap_or(false)
+        }) {
             return Err(CapError::cancelled());
         }
         Ok(())
@@ -771,7 +890,11 @@ pub mod risk_labels {
     /// True when `label` or `custom_action` contains a risky word as a whole word or phrase.
     pub fn is_risky(label: Option<&str>, custom_action: Option<&str>) -> bool {
         for text in [label, custom_action].into_iter().flatten() {
-            let tokens: String = text.to_lowercase().chars().map(|c| if c.is_alphanumeric() { c } else { ' ' }).collect();
+            let tokens: String = text
+                .to_lowercase()
+                .chars()
+                .map(|c| if c.is_alphanumeric() { c } else { ' ' })
+                .collect();
             let tokens = format!(" {tokens} ");
             if WORDS.iter().any(|w| tokens.contains(&format!(" {w} "))) {
                 return true;
@@ -824,7 +947,10 @@ mod tests {
         assert_eq!(fixed_caps::cap(Some("jetbrainsx")), Tier::Interact);
         assert_eq!(fixed_caps::cap(Some("KeePassXC")), Tier::Off);
         assert_eq!(fixed_caps::cap(Some("org.gnome.Shell")), Tier::Off);
-        assert_eq!(fixed_caps::cap(Some("polkit-gnome-authentication-agent-1")), Tier::Off);
+        assert_eq!(
+            fixed_caps::cap(Some("polkit-gnome-authentication-agent-1")),
+            Tier::Off
+        );
         assert_eq!(fixed_caps::cap(Some("coinbase-desktop")), Tier::Off);
         assert_eq!(fixed_caps::cap(Some("psyche")), Tier::Off);
         assert_eq!(fixed_caps::cap(Some(EDITOR)), Tier::Interact);
@@ -839,7 +965,10 @@ mod tests {
             "caps": {"org.gnome.texteditor": "click", "com.jetbrains.*": "click"},
             "sensitive": ["gimp"]
         }));
-        assert_eq!(s.value(Some("org.gnome.texteditor")), SettingValue::Interact);
+        assert_eq!(
+            s.value(Some("org.gnome.texteditor")),
+            SettingValue::Interact
+        );
         assert_eq!(s.value(Some("gnome-calculator")), SettingValue::Read);
         assert_eq!(s.value(Some("other")), SettingValue::Ask);
         assert_eq!(cap_for(Some(EDITOR), &s), Tier::Click);
@@ -853,20 +982,38 @@ mod tests {
     fn tiers_and_fixed_caps_refuse() {
         let s = TierSettings::from_json(&json!({"default": "interact"}));
         let p = TierPolicy::new(s, None, None);
-        p.authorize(Intent::Type, Some(EDITOR), "Text Editor", None).unwrap();
-        let e = p.authorize(Intent::Type, Some("firefox"), "Firefox", None).unwrap_err();
+        p.authorize(Intent::Type, Some(EDITOR), "Text Editor", None)
+            .unwrap();
+        let e = p
+            .authorize(Intent::Type, Some("firefox"), "Firefox", None)
+            .unwrap_err();
         assert_eq!((e.code, e.reason.as_str()), ("policy_denied", "tier_read"));
         assert_eq!(e.details["fixedCap"], true);
-        p.authorize(Intent::Read, Some("firefox"), "Firefox", None).unwrap();
-        let e = p.authorize(Intent::Key, Some("gnome-terminal"), "Terminal", None).unwrap_err();
+        p.authorize(Intent::Read, Some("firefox"), "Firefox", None)
+            .unwrap();
+        let e = p
+            .authorize(Intent::Key, Some("gnome-terminal"), "Terminal", None)
+            .unwrap_err();
         assert_eq!(e.reason, "tier_click");
-        p.authorize(Intent::Click, Some("gnome-terminal"), "Terminal", None).unwrap();
+        p.authorize(Intent::Click, Some("gnome-terminal"), "Terminal", None)
+            .unwrap();
         // A click on a menu escalates to interact.
         assert_eq!(Intent::Click.escalated(Some("AXMenuItem")), Intent::Menu);
-        assert!(p.authorize(Intent::Click.escalated(Some("AXMenuItem")), Some("gnome-terminal"), "Terminal", None).is_err());
-        let e = p.authorize(Intent::Read, Some("keepassxc"), "KeePassXC", None).unwrap_err();
+        assert!(p
+            .authorize(
+                Intent::Click.escalated(Some("AXMenuItem")),
+                Some("gnome-terminal"),
+                "Terminal",
+                None
+            )
+            .is_err());
+        let e = p
+            .authorize(Intent::Read, Some("keepassxc"), "KeePassXC", None)
+            .unwrap_err();
         assert_eq!(e.reason, "tier_off");
-        let e = p.authorize(Intent::Click, Some("gnome-shell"), "Shell", None).unwrap_err();
+        let e = p
+            .authorize(Intent::Click, Some("gnome-shell"), "Shell", None)
+            .unwrap_err();
         assert_eq!(e.reason, "tier_off");
     }
 
@@ -874,21 +1021,49 @@ mod tests {
     fn ask_needs_an_approval_for_the_same_app_and_records_an_allowance() {
         let t = Arc::new(AtomicU64::new(1000));
         let p = TierPolicy::new(TierSettings::default(), Some(clock(t.clone())), None);
-        let e = p.authorize(Intent::Click, Some(EDITOR), "Text Editor", None).unwrap_err();
-        assert_eq!((e.code, e.reason.as_str()), ("approval_required", "tier_ask"));
+        let e = p
+            .authorize(Intent::Click, Some(EDITOR), "Text Editor", None)
+            .unwrap_err();
+        assert_eq!(
+            (e.code, e.reason.as_str()),
+            ("approval_required", "tier_ask")
+        );
         assert_eq!(e.details["tierRequired"], "click");
-        let other = ApprovalBinding { id: "a1".into(), app: "gnome-calculator".into(), tier: Tier::Interact };
-        let e = p.authorize(Intent::Click, Some(EDITOR), "Text Editor", Some(&other)).unwrap_err();
+        let other = ApprovalBinding {
+            id: "a1".into(),
+            app: "gnome-calculator".into(),
+            tier: Tier::Interact,
+        };
+        let e = p
+            .authorize(Intent::Click, Some(EDITOR), "Text Editor", Some(&other))
+            .unwrap_err();
         assert_eq!(e.reason, "approval_app_mismatch");
-        let low = ApprovalBinding { id: "a2".into(), app: EDITOR.into(), tier: Tier::Click };
-        let e = p.authorize(Intent::Type, Some(EDITOR), "Text Editor", Some(&low)).unwrap_err();
+        let low = ApprovalBinding {
+            id: "a2".into(),
+            app: EDITOR.into(),
+            tier: Tier::Click,
+        };
+        let e = p
+            .authorize(Intent::Type, Some(EDITOR), "Text Editor", Some(&low))
+            .unwrap_err();
         assert_eq!(e.reason, "approval_tier_too_low");
-        p.authorize(Intent::Click, Some(EDITOR), "Text Editor", Some(&low)).unwrap();
+        p.authorize(Intent::Click, Some(EDITOR), "Text Editor", Some(&low))
+            .unwrap();
         // The allowance holds for 30 minutes, for the approved tier only.
-        p.authorize(Intent::Click, Some("org.gnome.texteditor"), "Text Editor", None).unwrap();
-        assert!(p.authorize(Intent::Type, Some(EDITOR), "Text Editor", None).is_err());
+        p.authorize(
+            Intent::Click,
+            Some("org.gnome.texteditor"),
+            "Text Editor",
+            None,
+        )
+        .unwrap();
+        assert!(p
+            .authorize(Intent::Type, Some(EDITOR), "Text Editor", None)
+            .is_err());
         t.store(1000 + 31 * 60, Ordering::SeqCst);
-        assert!(p.authorize(Intent::Click, Some(EDITOR), "Text Editor", None).is_err());
+        assert!(p
+            .authorize(Intent::Click, Some(EDITOR), "Text Editor", None)
+            .is_err());
     }
 
     #[test]
@@ -904,26 +1079,44 @@ mod tests {
                 (v > 0).then_some(v as f64)
             })),
         );
-        let e = p.authorize(Intent::Type, Some("slack"), "Slack", None).unwrap_err();
-        assert_eq!((e.code, e.reason.as_str(), e.retryable), ("presence_required", "awaiting_attention", true));
+        let e = p
+            .authorize(Intent::Type, Some("slack"), "Slack", None)
+            .unwrap_err();
+        assert_eq!(
+            (e.code, e.reason.as_str(), e.retryable),
+            ("presence_required", "awaiting_attention", true)
+        );
         assert!(e.details.get("idleSeconds").is_none());
-        p.authorize(Intent::Read, Some("slack"), "Slack", None).unwrap();
-        p.authorize(Intent::Scroll, Some("slack"), "Slack", None).unwrap();
+        p.authorize(Intent::Read, Some("slack"), "Slack", None)
+            .unwrap();
+        p.authorize(Intent::Scroll, Some("slack"), "Slack", None)
+            .unwrap();
         last.store(10_000 - 60, Ordering::SeqCst);
-        p.authorize(Intent::Type, Some("slack"), "Slack", None).unwrap();
+        p.authorize(Intent::Type, Some("slack"), "Slack", None)
+            .unwrap();
         last.store(10_000 - 600, Ordering::SeqCst);
-        let e = p.authorize(Intent::Type, Some("slack"), "Slack", None).unwrap_err();
+        let e = p
+            .authorize(Intent::Type, Some("slack"), "Slack", None)
+            .unwrap_err();
         assert_eq!(e.details["idleSeconds"], 600.0);
-        p.authorize(Intent::Type, Some(EDITOR), "Text Editor", None).unwrap();
+        p.authorize(Intent::Type, Some(EDITOR), "Text Editor", None)
+            .unwrap();
     }
 
     #[test]
     fn approval_binding_from_params() {
         let p = json!({"approval": {"app": EDITOR, "tier": "interact"}});
-        assert_eq!(ApprovalBinding::from(Some("ap1"), &p).unwrap().tier, Tier::Interact);
+        assert_eq!(
+            ApprovalBinding::from(Some("ap1"), &p).unwrap().tier,
+            Tier::Interact
+        );
         assert!(ApprovalBinding::from(None, &p).is_none());
         assert!(ApprovalBinding::from(Some("ap1"), &json!({})).is_none());
-        assert!(ApprovalBinding::from(Some("ap1"), &json!({"approval": {"app": "x", "tier": "god"}})).is_none());
+        assert!(ApprovalBinding::from(
+            Some("ap1"),
+            &json!({"approval": {"app": "x", "tier": "god"}})
+        )
+        .is_none());
     }
 
     #[test]
@@ -952,7 +1145,9 @@ mod tests {
         });
         stop.run(None, || stop.check().unwrap());
         let flag = Arc::new(AtomicBool::new(true));
-        stop.run(Some(flag), || assert_eq!(stop.check().unwrap_err().reason, "cancelled"));
+        stop.run(Some(flag), || {
+            assert_eq!(stop.check().unwrap_err().reason, "cancelled")
+        });
     }
 
     #[test]

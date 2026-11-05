@@ -23,8 +23,21 @@ pub trait RemotePath: Send + Sync {
     /// Makes the path usable: opens the portal session (the owner's one dialog) or connects to
     /// the compositor's protocols. Cheap when already open.
     fn ready(&self) -> CapResult<()>;
-    fn click(&self, x: f64, y: f64, count: u32, right: bool, mods: &[u32], stop: &StopSignal) -> CapResult<()>;
-    fn type_text(&self, text: &str, stop: &StopSignal, before_chunk: &mut dyn FnMut() -> CapResult<()>) -> CapResult<()>;
+    fn click(
+        &self,
+        x: f64,
+        y: f64,
+        count: u32,
+        right: bool,
+        mods: &[u32],
+        stop: &StopSignal,
+    ) -> CapResult<()>;
+    fn type_text(
+        &self,
+        text: &str,
+        stop: &StopSignal,
+        before_chunk: &mut dyn FnMut() -> CapResult<()>,
+    ) -> CapResult<()>;
     fn key(&self, chord: &KeyChord, stop: &StopSignal) -> CapResult<()>;
     fn scroll(&self, x: f64, y: f64, dx: i32, dy: i32, stop: &StopSignal) -> CapResult<()>;
     fn drag(&self, from: (f64, f64), to: (f64, f64), stop: &StopSignal) -> CapResult<()>;
@@ -78,7 +91,7 @@ pub struct LinuxBackend {
     pub a11y: Arc<A11y>,
     pub path: Path,
     index: Mutex<Option<DesktopIndex>>,
-    env: Box<dyn Fn(&str) -> Option<String> + Send + Sync>,
+    env: crate::a11y::EnvFn,
 }
 
 impl LinuxBackend {
@@ -87,7 +100,12 @@ impl LinuxBackend {
             let x = x.clone();
             a11y.set_origin_source(Box::new(move |pid, title| x.window_origin(pid, title)));
         }
-        LinuxBackend { a11y, path, index: Mutex::new(None), env: Box::new(|k| std::env::var(k).ok().filter(|v| !v.is_empty())) }
+        LinuxBackend {
+            a11y,
+            path,
+            index: Mutex::new(None),
+            env: Box::new(|k| std::env::var(k).ok().filter(|v| !v.is_empty())),
+        }
     }
 
     fn x11(&self) -> Option<&Arc<X11>> {
@@ -106,11 +124,13 @@ impl LinuxBackend {
 
     fn desktop_index(&self) -> DesktopIndex {
         let mut g = self.index.lock().unwrap_or_else(|e| e.into_inner());
-        g.get_or_insert_with(|| DesktopIndex::load(&DesktopIndex::default_dirs(&|k| (self.env)(k)))).clone()
+        g.get_or_insert_with(|| DesktopIndex::load(&DesktopIndex::default_dirs(&|k| (self.env)(k))))
+            .clone()
     }
 
     fn active_pid(&self) -> Option<u32> {
-        self.x11().and_then(|x| x.windows().into_iter().find(|w| w.focused).map(|w| w.pid))
+        self.x11()
+            .and_then(|x| x.windows().into_iter().find(|w| w.focused).map(|w| w.pid))
     }
 
     fn mods_syms(m: Mods) -> Vec<u32> {
@@ -123,7 +143,10 @@ impl TreeSource for LinuxBackend {
     fn info(&self, e: &Acc) -> Option<ElementInfo> {
         // Elements that are not on screen are not part of the picture (a closed menu's items
         // are read through `data`, by the menu walker).
-        let t = Tree { a11y: &self.a11y, with_frame: self.window_geometry_known() };
+        let t = Tree {
+            a11y: &self.a11y,
+            with_frame: self.window_geometry_known(),
+        };
         let info = t.info(e)?;
         Some(info)
     }
@@ -131,13 +154,25 @@ impl TreeSource for LinuxBackend {
         self.a11y.children_of(e)
     }
     fn actions(&self, e: &Acc) -> Vec<String> {
-        Tree { a11y: &self.a11y, with_frame: self.window_geometry_known() }.actions(e)
+        Tree {
+            a11y: &self.a11y,
+            with_frame: self.window_geometry_known(),
+        }
+        .actions(e)
     }
     fn is_value_settable(&self, e: &Acc) -> bool {
-        Tree { a11y: &self.a11y, with_frame: self.window_geometry_known() }.is_value_settable(e)
+        Tree {
+            a11y: &self.a11y,
+            with_frame: self.window_geometry_known(),
+        }
+        .is_value_settable(e)
     }
     fn should_stop(&self) -> bool {
-        Tree { a11y: &self.a11y, with_frame: false }.should_stop()
+        Tree {
+            a11y: &self.a11y,
+            with_frame: false,
+        }
+        .should_stop()
     }
 }
 
@@ -192,21 +227,39 @@ impl Backend for LinuxBackend {
     fn keyboard_focus_pid(&self) -> Option<u32> {
         match &self.path {
             Path::X11(x) => x.focus_pid(),
-            Path::Remote(_) => self.a11y.focused(None).and_then(|a| self.a11y.pid_of_bus(&a.bus)),
+            Path::Remote(_) => self
+                .a11y
+                .focused(None)
+                .and_then(|a| self.a11y.pid_of_bus(&a.bus)),
         }
     }
 
-    fn activate(&self, app: &AppInfo, window: Option<usize>, _stop: &StopSignal) -> CapResult<bool> {
+    fn activate(
+        &self,
+        app: &AppInfo,
+        window: Option<usize>,
+        _stop: &StopSignal,
+    ) -> CapResult<bool> {
         match &self.path {
             Path::X11(x) => x.activate(app.pid, window),
             Path::Remote(_) => {
                 // A Wayland client cannot raise another app's window. Ask the app for focus
                 // through its accessible window and report that it was only requested.
                 let wins = self.a11y.windows_of(app.pid);
-                let w = wins.get(window.unwrap_or(0)).ok_or_else(|| CapError::new(code::NOT_FOUND, "no_window", "The app has no window to bring forward"))?;
+                let w = wins.get(window.unwrap_or(0)).ok_or_else(|| {
+                    CapError::new(
+                        code::NOT_FOUND,
+                        "no_window",
+                        "The app has no window to bring forward",
+                    )
+                })?;
                 let _ = self.a11y.grab_focus(w);
                 std::thread::sleep(Duration::from_millis(120));
-                let moved = self.a11y.focused(None).and_then(|a| self.a11y.pid_of_bus(&a.bus)) == Some(app.pid);
+                let moved = self
+                    .a11y
+                    .focused(None)
+                    .and_then(|a| self.a11y.pid_of_bus(&a.bus))
+                    == Some(app.pid);
                 if moved {
                     Ok(true)
                 } else {
@@ -224,9 +277,15 @@ impl Backend for LinuxBackend {
 
     fn launch(&self, id: &str, url: Option<&str>) -> CapResult<Value> {
         let index = self.desktop_index();
-        let entry = index
-            .get(id)
-            .ok_or_else(|| CapError::new(code::NOT_FOUND, "app_not_installed", format!("{id} is not an installed app. Use apps.list or the app's desktop file id.")))?;
+        let entry = index.get(id).ok_or_else(|| {
+            CapError::new(
+                code::NOT_FOUND,
+                "app_not_installed",
+                format!(
+                    "{id} is not an installed app. Use apps.list or the app's desktop file id."
+                ),
+            )
+        })?;
         // Launch through GLib, which implements the Desktop Entry rules (field codes, DBus
         // activation, Terminal=true) and puts the app in its own scope. The accessibility
         // switches make Qt, GTK and Firefox export their trees (design §6.1).
@@ -241,22 +300,43 @@ impl Backend for LinuxBackend {
                     .flatten()
                     .map(|e| e.path()),
             )
-            .find(|p| p.file_name().and_then(|f| f.to_str()).is_some_and(|f| f.strip_suffix(".desktop").map(app_id::normalize).as_deref() == Some(entry.id.as_str())))
-            .ok_or_else(|| CapError::new(code::NOT_FOUND, "app_not_installed", format!("{id} has no desktop file")))?;
+            .find(|p| {
+                p.file_name().and_then(|f| f.to_str()).is_some_and(|f| {
+                    f.strip_suffix(".desktop").map(app_id::normalize).as_deref()
+                        == Some(entry.id.as_str())
+                })
+            })
+            .ok_or_else(|| {
+                CapError::new(
+                    code::NOT_FOUND,
+                    "app_not_installed",
+                    format!("{id} has no desktop file"),
+                )
+            })?;
         let mut cmd = std::process::Command::new("gio");
         cmd.arg("launch").arg(&file);
         if let Some(u) = url {
             cmd.arg(u);
         }
-        cmd.env("ACCESSIBILITY_ENABLED", "1").env("QT_LINUX_ACCESSIBILITY_ALWAYS_ON", "1").env("GNOME_ACCESSIBILITY", "1");
+        cmd.env("ACCESSIBILITY_ENABLED", "1")
+            .env("QT_LINUX_ACCESSIBILITY_ALWAYS_ON", "1")
+            .env("GNOME_ACCESSIBILITY", "1");
         let status = cmd
             .stdin(std::process::Stdio::null())
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
             .status()
-            .map_err(|e| CapError::unavailable("launch_failed", format!("Cannot start gio: {e}")))?;
+            .map_err(|e| {
+                CapError::unavailable("launch_failed", format!("Cannot start gio: {e}"))
+            })?;
         if !status.success() {
-            return Err(CapError::unavailable("launch_failed", format!("{} did not start", entry.name.clone().unwrap_or_else(|| id.to_string()))));
+            return Err(CapError::unavailable(
+                "launch_failed",
+                format!(
+                    "{} did not start",
+                    entry.name.clone().unwrap_or_else(|| id.to_string())
+                ),
+            ));
         }
         // Wait briefly for the app to show up on the accessibility bus.
         for _ in 0..40 {
@@ -277,7 +357,9 @@ impl Backend for LinuxBackend {
     }
 
     fn app_element(&self, app: &AppInfo) -> Acc {
-        self.a11y.app_root_for_pid(app.pid).unwrap_or_else(|| Acc::new("", "/org/a11y/atspi/null"))
+        self.a11y
+            .app_root_for_pid(app.pid)
+            .unwrap_or_else(|| Acc::new("", "/org/a11y/atspi/null"))
     }
 
     fn focused_element(&self, app: Option<&AppInfo>) -> Option<Acc> {
@@ -305,7 +387,9 @@ impl Backend for LinuxBackend {
     }
 
     fn full_value(&self, e: &Acc, max: usize) -> Option<String> {
-        self.a11y.current_value(e).map(|v| v.chars().take(max).collect())
+        self.a11y
+            .current_value(e)
+            .map(|v| v.chars().take(max).collect())
     }
 
     fn select(&self, e: &Acc) -> Result<(), ActError> {
@@ -324,11 +408,22 @@ impl Backend for LinuxBackend {
     }
 
     fn hit_test(&self, x: f64, y: f64) -> Option<Hit> {
-        let win = self.all_windows().into_iter().find(|w| !w.minimized && w.bounds.is_some_and(|b| b.contains(x, y)))?;
+        let win = self
+            .all_windows()
+            .into_iter()
+            .find(|w| !w.minimized && w.bounds.is_some_and(|b| b.contains(x, y)))?;
         let windows = self.a11y.windows_of(win.pid);
         // The accessible window that matches the X window: by title, else the active one.
-        let w = windows.iter().find(|w| self.a11y.name_of(w).as_deref().unwrap_or("") == win.title).or_else(|| windows.first())?;
-        self.a11y.hit(w, x, y).or(Some(Hit { pid: win.pid, role: None, secure: false, labels: vec![] }))
+        let w = windows
+            .iter()
+            .find(|w| self.a11y.name_of(w).as_deref().unwrap_or("") == win.title)
+            .or_else(|| windows.first())?;
+        self.a11y.hit(w, x, y).or(Some(Hit {
+            pid: win.pid,
+            role: None,
+            secure: false,
+            labels: vec![],
+        }))
     }
 
     fn focused_is_secure(&self, app: Option<&AppInfo>) -> bool {
@@ -348,7 +443,15 @@ impl Backend for LinuxBackend {
         self.a11y.selected_text(&f)
     }
 
-    fn click(&self, x: f64, y: f64, count: u32, right: bool, mods: Mods, stop: &StopSignal) -> CapResult<()> {
+    fn click(
+        &self,
+        x: f64,
+        y: f64,
+        count: u32,
+        right: bool,
+        mods: Mods,
+        stop: &StopSignal,
+    ) -> CapResult<()> {
         let m = Self::mods_syms(mods);
         match &self.path {
             Path::X11(p) => p.click(x, y, count, right, &m, stop),
@@ -356,7 +459,12 @@ impl Backend for LinuxBackend {
         }
     }
 
-    fn type_text(&self, text: &str, stop: &StopSignal, before_chunk: &mut dyn FnMut() -> CapResult<()>) -> CapResult<()> {
+    fn type_text(
+        &self,
+        text: &str,
+        stop: &StopSignal,
+        before_chunk: &mut dyn FnMut() -> CapResult<()>,
+    ) -> CapResult<()> {
         // A Tab or Return can move focus into a password field mid-chunk: re-check after each.
         let mut pending = String::new();
         let flush = |s: &mut String, before: &mut dyn FnMut() -> CapResult<()>| -> CapResult<()> {
@@ -430,5 +538,9 @@ impl Backend for LinuxBackend {
 
 /// `role` of an accessible by its Mac name (a convenience for the helper's `apps.list`).
 pub fn ax_name(role: u32) -> &'static str {
-    roles::map_role(&roles::AtspiFacts { role, ..Default::default() }).role
+    roles::map_role(&roles::AtspiFacts {
+        role,
+        ..Default::default()
+    })
+    .role
 }

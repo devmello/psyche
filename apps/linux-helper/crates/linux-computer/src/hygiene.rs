@@ -25,7 +25,11 @@ pub struct AppRef {
 /// Pids whose windows must be left out of a capture: Psyche, terminals/IDEs, password managers,
 /// finance, and every app whose tier is Off (unknown apps in `ask` count as Off until approved),
 /// except the shell processes that draw shared chrome.
-pub fn excluded_pids(running: &[AppRef], own_pid: u32, policy: &TierPolicy) -> std::collections::HashSet<u32> {
+pub fn excluded_pids(
+    running: &[AppRef],
+    own_pid: u32,
+    policy: &TierPolicy,
+) -> std::collections::HashSet<u32> {
     use fixed_caps::Category::*;
     let mut out = std::collections::HashSet::from([own_pid]);
     for app in running {
@@ -34,7 +38,9 @@ pub fn excluded_pids(running: &[AppRef], own_pid: u32, policy: &TierPolicy) -> s
                 out.insert(app.pid);
             }
             _ => {
-                if policy.effective_tier(app.app_id.as_deref()) == Tier::Off && !is_system_ui(app.app_id.as_deref()) {
+                if policy.effective_tier(app.app_id.as_deref()) == Tier::Off
+                    && !is_system_ui(app.app_id.as_deref())
+                {
                     out.insert(app.pid);
                 }
             }
@@ -46,9 +52,20 @@ pub fn excluded_pids(running: &[AppRef], own_pid: u32, policy: &TierPolicy) -> s
 /// Shell processes that draw shared chrome; excluding them blanks the desktop.
 pub fn is_system_ui(app_id: Option<&str>) -> bool {
     let Some(id) = app_id else { return true };
-    ["gnome-shell", "org.gnome.shell", "plasmashell", "org.kde.plasmashell", "xfdesktop", "pcmanfm", "nemo-desktop", "mutter", "kwin_x11", "kwin_wayland"]
-        .iter()
-        .any(|s| s.eq_ignore_ascii_case(id))
+    [
+        "gnome-shell",
+        "org.gnome.shell",
+        "plasmashell",
+        "org.kde.plasmashell",
+        "xfdesktop",
+        "pcmanfm",
+        "nemo-desktop",
+        "mutter",
+        "kwin_x11",
+        "kwin_wayland",
+    ]
+    .iter()
+    .any(|s| s.eq_ignore_ascii_case(id))
 }
 
 /// Output size that fits `max_w`×`max_h`, preserving aspect ratio, never upscaling.
@@ -57,13 +74,19 @@ pub fn scaled_size(width: u32, height: u32, max_w: u32, max_h: u32) -> (u32, u32
         return (0, 0);
     }
     let scale = 1f64.min((max_w as f64 / width as f64).min(max_h as f64 / height as f64));
-    (((width as f64 * scale).round() as u32).max(1), ((height as f64 * scale).round() as u32).max(1))
+    (
+        ((width as f64 * scale).round() as u32).max(1),
+        ((height as f64 * scale).round() as u32).max(1),
+    )
 }
 
 /// Absolute pointer coordinates for a portal stream: `x`/`y` in screen points relative to the
 /// stream's top-left corner at `origin`, clamped to the stream's size `(w, h)`.
 pub fn stream_relative(x: f64, y: f64, origin: (f64, f64), size: (f64, f64)) -> (f64, f64) {
-    ((x - origin.0).clamp(0.0, (size.0 - 1.0).max(0.0)), (y - origin.1).clamp(0.0, (size.1 - 1.0).max(0.0)))
+    (
+        (x - origin.0).clamp(0.0, (size.0 - 1.0).max(0.0)),
+        (y - origin.1).clamp(0.0, (size.1 - 1.0).max(0.0)),
+    )
 }
 
 /// `rect` minus every rectangle in `covers`: the parts of a window nothing in front of it hides.
@@ -83,7 +106,9 @@ pub fn visible_parts(rect: Rect, covers: &[Rect]) -> Vec<Rect> {
 }
 
 fn subtract(a: Rect, b: Rect) -> Vec<Rect> {
-    let Some(i) = a.intersection(&b).filter(|i| i.w > 0.0 && i.h > 0.0) else { return vec![a] };
+    let Some(i) = a.intersection(&b).filter(|i| i.w > 0.0 && i.h > 0.0) else {
+        return vec![a];
+    };
     let mut out = Vec::with_capacity(4);
     if i.y > a.y {
         out.push(Rect::new(a.x, a.y, a.w, i.y - a.y)); // above
@@ -114,11 +139,21 @@ pub struct WindowRef {
 
 /// Rectangles to black out of a monitor capture: the visible parts of windows owned by an
 /// excluded pid, front to back (what is in front of an excluded window stays visible).
-pub fn redactions(windows: &[WindowRef], excluded: &std::collections::HashSet<u32>, area: Rect) -> Vec<Rect> {
+pub fn redactions(
+    windows: &[WindowRef],
+    excluded: &std::collections::HashSet<u32>,
+    area: Rect,
+) -> Vec<Rect> {
     let mut covered: Vec<Rect> = Vec::new();
     let mut out = Vec::new();
     for w in windows {
-        let Some(b) = w.bounds.intersection(&area).filter(|b| b.w > 0.0 && b.h > 0.0) else { continue };
+        let Some(b) = w
+            .bounds
+            .intersection(&area)
+            .filter(|b| b.w > 0.0 && b.h > 0.0)
+        else {
+            continue;
+        };
         if excluded.contains(&w.pid) {
             out.extend(visible_parts(b, &covered));
         }
@@ -146,7 +181,10 @@ pub mod screen_ask {
     /// system-authority apps, and any app the owner set to Off by name.
     pub fn is_excluded(app_id: Option<&str>, settings: &TierSettings) -> bool {
         use fixed_caps::Category::*;
-        if matches!(fixed_caps::category(app_id), Some(Psyche | PasswordManager | Finance | SystemAuthority)) {
+        if matches!(
+            fixed_caps::category(app_id),
+            Some(Psyche | PasswordManager | Finance | SystemAuthority)
+        ) {
             return true;
         }
         let Some(id) = app_id else { return false };
@@ -154,15 +192,32 @@ pub mod screen_ask {
     }
 
     /// The window the owner is looking at: the frontmost normal window that isn't Psyche's own.
-    pub fn target_window<'a>(windows: &'a [WindowRef], psyche_pids: &std::collections::HashSet<u32>) -> Option<&'a WindowRef> {
+    pub fn target_window<'a>(
+        windows: &'a [WindowRef],
+        psyche_pids: &std::collections::HashSet<u32>,
+    ) -> Option<&'a WindowRef> {
         windows.iter().find(|w| {
-            w.layer == 0 && w.alpha > 0.0 && !psyche_pids.contains(&w.pid) && w.bounds.w >= MIN_WINDOW_SIDE && w.bounds.h >= MIN_WINDOW_SIDE
+            w.layer == 0
+                && w.alpha > 0.0
+                && !psyche_pids.contains(&w.pid)
+                && w.bounds.w >= MIN_WINDOW_SIDE
+                && w.bounds.h >= MIN_WINDOW_SIDE
         })
     }
 
     /// The frontmost window under a point (region mode's text context).
-    pub fn window_at<'a>(x: f64, y: f64, windows: &'a [WindowRef], psyche_pids: &std::collections::HashSet<u32>) -> Option<&'a WindowRef> {
-        windows.iter().find(|w| w.layer == 0 && w.alpha > 0.0 && !psyche_pids.contains(&w.pid) && w.bounds.contains(x, y))
+    pub fn window_at<'a>(
+        x: f64,
+        y: f64,
+        windows: &'a [WindowRef],
+        psyche_pids: &std::collections::HashSet<u32>,
+    ) -> Option<&'a WindowRef> {
+        windows.iter().find(|w| {
+            w.layer == 0
+                && w.alpha > 0.0
+                && !psyche_pids.contains(&w.pid)
+                && w.bounds.contains(x, y)
+        })
     }
 
     /// The display that holds most of `rect`, and `rect` clipped to it in display-local
@@ -171,7 +226,9 @@ pub mod screen_ask {
         let r = standardized(rect);
         let mut best: Option<(usize, Rect, f64)> = None;
         for (i, d) in displays.iter().enumerate() {
-            let Some(clip) = r.intersection(d) else { continue };
+            let Some(clip) = r.intersection(d) else {
+                continue;
+            };
             if clip.w < 8.0 || clip.h < 8.0 {
                 continue;
             }
@@ -186,8 +243,16 @@ pub mod screen_ask {
     }
 
     fn standardized(r: Rect) -> Rect {
-        let (x, w) = if r.w < 0.0 { (r.x + r.w, -r.w) } else { (r.x, r.w) };
-        let (y, h) = if r.h < 0.0 { (r.y + r.h, -r.h) } else { (r.y, r.h) };
+        let (x, w) = if r.w < 0.0 {
+            (r.x + r.w, -r.w)
+        } else {
+            (r.x, r.w)
+        };
+        let (y, h) = if r.h < 0.0 {
+            (r.y + r.h, -r.h)
+        } else {
+            (r.y, r.h)
+        };
         Rect::new(x, y, w, h)
     }
 
@@ -219,7 +284,10 @@ pub mod screen_ask {
             Some(i) => &authority[i + 1..],
             None => authority,
         };
-        if host_port.is_empty() || host_port.starts_with(':') || raw.chars().any(|c| c.is_whitespace() || c.is_control()) {
+        if host_port.is_empty()
+            || host_port.starts_with(':')
+            || raw.chars().any(|c| c.is_whitespace() || c.is_control())
+        {
             return None;
         }
         let s = format!("{scheme}://{host_port}{tail}");
@@ -253,40 +321,93 @@ mod tests {
 
     #[test]
     fn stream_points_clamp_to_the_stream() {
-        assert_eq!(stream_relative(100.0, 50.0, (0.0, 0.0), (1920.0, 1080.0)), (100.0, 50.0));
-        assert_eq!(stream_relative(2000.0, -5.0, (0.0, 0.0), (1920.0, 1080.0)), (1919.0, 0.0));
-        assert_eq!(stream_relative(1920.0, 10.0, (1920.0, 0.0), (1280.0, 720.0)), (0.0, 10.0));
+        assert_eq!(
+            stream_relative(100.0, 50.0, (0.0, 0.0), (1920.0, 1080.0)),
+            (100.0, 50.0)
+        );
+        assert_eq!(
+            stream_relative(2000.0, -5.0, (0.0, 0.0), (1920.0, 1080.0)),
+            (1919.0, 0.0)
+        );
+        assert_eq!(
+            stream_relative(1920.0, 10.0, (1920.0, 0.0), (1280.0, 720.0)),
+            (0.0, 10.0)
+        );
     }
 
     #[test]
     fn visible_parts_subtract_covering_windows() {
-        let parts = visible_parts(Rect::new(0., 0., 100., 100.), &[Rect::new(50., 0., 50., 100.)]);
+        let parts = visible_parts(
+            Rect::new(0., 0., 100., 100.),
+            &[Rect::new(50., 0., 50., 100.)],
+        );
         assert_eq!(parts, vec![Rect::new(0., 0., 50., 100.)]);
-        let parts = visible_parts(Rect::new(0., 0., 100., 100.), &[Rect::new(25., 25., 50., 50.)]);
+        let parts = visible_parts(
+            Rect::new(0., 0., 100., 100.),
+            &[Rect::new(25., 25., 50., 50.)],
+        );
         let area: f64 = parts.iter().map(|r| r.w * r.h).sum();
         assert_eq!(area, 10_000.0 - 2_500.0);
-        assert!(visible_parts(Rect::new(10., 10., 10., 10.), &[Rect::new(0., 0., 100., 100.)]).is_empty());
+        assert!(visible_parts(
+            Rect::new(10., 10., 10., 10.),
+            &[Rect::new(0., 0., 100., 100.)]
+        )
+        .is_empty());
     }
 
     #[test]
     fn redactions_spare_what_is_in_front() {
-        let w = |pid, x| WindowRef { id: pid as u64, pid, layer: 0, bounds: Rect::new(x, 0., 100., 100.), alpha: 1.0 };
+        let w = |pid, x| WindowRef {
+            id: pid as u64,
+            pid,
+            layer: 0,
+            bounds: Rect::new(x, 0., 100., 100.),
+            alpha: 1.0,
+        };
         // Front: app 1 at x=0; behind: terminal (pid 2) at x=50.
         let windows = vec![w(1, 0.), w(2, 50.)];
-        let red = redactions(&windows, &HashSet::from([2]), Rect::new(0., 0., 1000., 1000.));
+        let red = redactions(
+            &windows,
+            &HashSet::from([2]),
+            Rect::new(0., 0., 1000., 1000.),
+        );
         assert_eq!(red, vec![Rect::new(100., 0., 50., 100.)]);
     }
 
     #[test]
     fn excluded_pids_follow_caps_and_tiers() {
-        let policy = TierPolicy::new(TierSettings::from_json(&json!({"default": "ask", "apps": {"org.gnome.TextEditor": "read"}})), None, None);
+        let policy = TierPolicy::new(
+            TierSettings::from_json(
+                &json!({"default": "ask", "apps": {"org.gnome.TextEditor": "read"}}),
+            ),
+            None,
+            None,
+        );
         let running = vec![
-            AppRef { app_id: Some("org.gnome.TextEditor".into()), pid: 10 },
-            AppRef { app_id: Some("gnome-terminal".into()), pid: 11 },
-            AppRef { app_id: Some("unknown-app".into()), pid: 12 },
-            AppRef { app_id: Some("gnome-shell".into()), pid: 13 },
-            AppRef { app_id: Some("keepassxc".into()), pid: 14 },
-            AppRef { app_id: Some("org.gnome.seahorse.Application".into()), pid: 15 },
+            AppRef {
+                app_id: Some("org.gnome.TextEditor".into()),
+                pid: 10,
+            },
+            AppRef {
+                app_id: Some("gnome-terminal".into()),
+                pid: 11,
+            },
+            AppRef {
+                app_id: Some("unknown-app".into()),
+                pid: 12,
+            },
+            AppRef {
+                app_id: Some("gnome-shell".into()),
+                pid: 13,
+            },
+            AppRef {
+                app_id: Some("keepassxc".into()),
+                pid: 14,
+            },
+            AppRef {
+                app_id: Some("org.gnome.seahorse.Application".into()),
+                pid: 15,
+            },
         ];
         let ex = excluded_pids(&running, 1, &policy);
         assert_eq!(ex, HashSet::from([1, 11, 12, 14, 15]));
@@ -294,24 +415,52 @@ mod tests {
 
     #[test]
     fn screen_ask_rules() {
-        let s = TierSettings::from_json(&json!({"apps": {"gimp": "off", "org.gnome.TextEditor": "interact"}}));
+        let s = TierSettings::from_json(
+            &json!({"apps": {"gimp": "off", "org.gnome.TextEditor": "interact"}}),
+        );
         assert!(is_excluded(Some("keepassxc"), &s));
         assert!(is_excluded(Some("GIMP"), &s));
         assert!(!is_excluded(Some("org.gnome.TextEditor"), &s));
-        assert!(!is_excluded(Some("unknown"), &s), "ask is about acting, not capture");
+        assert!(
+            !is_excluded(Some("unknown"), &s),
+            "ask is about acting, not capture"
+        );
         assert!(!is_excluded(Some("firefox"), &s));
-        let w = |id, pid, layer, x, size| WindowRef { id, pid, layer, bounds: Rect::new(x, 0., size, size), alpha: 1.0 };
-        let windows = vec![w(1, 7, 0, 0., 500.), w(2, 8, 1, 0., 500.), w(3, 9, 0, 0., 20.), w(4, 10, 0, 0., 500.)];
+        let w = |id, pid, layer, x, size| WindowRef {
+            id,
+            pid,
+            layer,
+            bounds: Rect::new(x, 0., size, size),
+            alpha: 1.0,
+        };
+        let windows = vec![
+            w(1, 7, 0, 0., 500.),
+            w(2, 8, 1, 0., 500.),
+            w(3, 9, 0, 0., 20.),
+            w(4, 10, 0, 0., 500.),
+        ];
         let psyche = HashSet::from([7]);
         assert_eq!(target_window(&windows, &psyche).map(|w| w.id), Some(4));
-        assert_eq!(window_at(10., 10., &windows, &psyche).map(|w| w.id), Some(3));
-        let displays = [Rect::new(0., 0., 1920., 1080.), Rect::new(1920., 0., 2560., 1440.)];
-        assert_eq!(region(Rect::new(1900., 10., 100., 100.), &displays), Some((1, Rect::new(0., 10., 80., 100.))));
+        assert_eq!(
+            window_at(10., 10., &windows, &psyche).map(|w| w.id),
+            Some(3)
+        );
+        let displays = [
+            Rect::new(0., 0., 1920., 1080.),
+            Rect::new(1920., 0., 2560., 1440.),
+        ];
+        assert_eq!(
+            region(Rect::new(1900., 10., 100., 100.), &displays),
+            Some((1, Rect::new(0., 10., 80., 100.)))
+        );
         assert_eq!(region(Rect::new(5000., 5000., 10., 10.), &displays), None);
         assert_eq!(selection(Some("  hi \n")).as_deref(), Some("hi"));
         assert_eq!(selection(Some(&"x".repeat(5000))).unwrap().len(), 4000);
         let with_creds = format!("https://{}:{}@example.com/a?b#c", "user", "pw");
-        assert_eq!(url(Some(&with_creds)).as_deref(), Some("https://example.com/a?b#c"));
+        assert_eq!(
+            url(Some(&with_creds)).as_deref(),
+            Some("https://example.com/a?b#c")
+        );
         assert_eq!(url(Some("about:config")), None);
         assert_eq!(title(Some("   ")), None);
     }

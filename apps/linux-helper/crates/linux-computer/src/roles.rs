@@ -135,7 +135,12 @@ pub struct Mapped {
 }
 
 fn m(role: &'static str, subrole: Option<&'static str>) -> Mapped {
-    Mapped { role, subrole, name_is_value: false, drop_name: false }
+    Mapped {
+        role,
+        subrole,
+        name_is_value: false,
+        drop_name: false,
+    }
 }
 
 fn looks_like_search(f: &AtspiFacts) -> bool {
@@ -151,9 +156,21 @@ pub fn is_password(role: u32) -> bool {
 /// AT-SPI role (plus a few facts) -> Mac role and subrole.
 pub fn map_role(f: &AtspiFacts) -> Mapped {
     use role::*;
-    if f.top_level && matches!(f.role, FRAME | WINDOW | DIALOG | ALERT | FILE_CHOOSER | COLOR_CHOOSER | PANEL | EMBEDDED) {
+    if f.top_level
+        && matches!(
+            f.role,
+            FRAME | WINDOW | DIALOG | ALERT | FILE_CHOOSER | COLOR_CHOOSER | PANEL | EMBEDDED
+        )
+    {
         let dialog = matches!(f.role, DIALOG | ALERT | FILE_CHOOSER | COLOR_CHOOSER) || f.modal;
-        return m("AXWindow", Some(if dialog { "AXDialog" } else { "AXStandardWindow" }));
+        return m(
+            "AXWindow",
+            Some(if dialog {
+                "AXDialog"
+            } else {
+                "AXStandardWindow"
+            }),
+        );
     }
     match f.role {
         PUSH_BUTTON => {
@@ -182,7 +199,12 @@ pub fn map_role(f: &AtspiFacts) -> Mapped {
                 m("AXTextField", Some("AXSearchField"))
             } else if f.role == TEXT && !f.editable {
                 // Read-only text without a label role: a document body or a selectable label.
-                Mapped { role: "AXStaticText", subrole: None, name_is_value: false, drop_name: false }
+                Mapped {
+                    role: "AXStaticText",
+                    subrole: None,
+                    name_is_value: false,
+                    drop_name: false,
+                }
             } else {
                 m("AXTextField", None)
             }
@@ -190,10 +212,19 @@ pub fn map_role(f: &AtspiFacts) -> Mapped {
         PASSWORD_TEXT => m("AXTextField", Some("AXSecureTextField")),
         TERMINAL => m("AXTextArea", None),
         DOCUMENT_WEB | HTML_CONTAINER => m("AXWebArea", None),
-        DOCUMENT_FRAME | DOCUMENT_TEXT | DOCUMENT_EMAIL | DOCUMENT_SPREADSHEET | DOCUMENT_PRESENTATION => m("AXTextArea", None),
+        DOCUMENT_FRAME
+        | DOCUMENT_TEXT
+        | DOCUMENT_EMAIL
+        | DOCUMENT_SPREADSHEET
+        | DOCUMENT_PRESENTATION => m("AXTextArea", None),
         LINK => m("AXLink", None),
         IMAGE | ICON | CANVAS | DRAWING_AREA => m("AXImage", None),
-        LABEL | STATIC | CAPTION | PARAGRAPH => Mapped { role: "AXStaticText", subrole: None, name_is_value: true, drop_name: false },
+        LABEL | STATIC | CAPTION | PARAGRAPH => Mapped {
+            role: "AXStaticText",
+            subrole: None,
+            name_is_value: true,
+            drop_name: false,
+        },
         HEADING => m("AXHeading", None),
         LIST | LIST_BOX => m("AXList", None),
         LIST_ITEM | TABLE_ROW => m("AXRow", None),
@@ -201,7 +232,9 @@ pub fn map_role(f: &AtspiFacts) -> Mapped {
         TREE_ITEM => m("AXRow", Some("AXOutlineRow")),
         TABLE => m("AXTable", None),
         TABLE_CELL => m("AXCell", None),
-        COLUMN_HEADER | TABLE_COLUMN_HEADER | ROW_HEADER | TABLE_ROW_HEADER => m("AXButton", Some("AXSortButton")),
+        COLUMN_HEADER | TABLE_COLUMN_HEADER | ROW_HEADER | TABLE_ROW_HEADER => {
+            m("AXButton", Some("AXSortButton"))
+        }
         MENU | POPUP_MENU => m("AXMenu", None),
         MENU_BAR => m("AXMenuBar", None),
         MENU_ITEM => {
@@ -224,12 +257,19 @@ pub fn map_role(f: &AtspiFacts) -> Mapped {
         COLOR_CHOOSER => m("AXColorWell", None),
         FRAME | WINDOW | INTERNAL_FRAME | OPTION_PANE => m("AXWindow", Some("AXStandardWindow")),
         DIALOG | ALERT | FILE_CHOOSER | NOTIFICATION => m("AXWindow", Some("AXDialog")),
-        TITLE_BAR => Mapped { role: "AXGroup", subrole: None, name_is_value: false, drop_name: true },
+        TITLE_BAR => Mapped {
+            role: "AXGroup",
+            subrole: None,
+            name_is_value: false,
+            drop_name: true,
+        },
         SCROLL_BAR => m("AXScrollBar", None),
         SEPARATOR => m("AXSplitter", None),
         SPLIT_PANE => m("AXSplitGroup", None),
         SCROLL_PANE | VIEWPORT => m("AXScrollArea", None),
-        PANEL | FILLER | GROUPING | SECTION | FORM | PAGE | ROOT_PANE | EMBEDDED => m("AXGroup", None),
+        PANEL | FILLER | GROUPING | SECTION | FORM | PAGE | ROOT_PANE | EMBEDDED => {
+            m("AXGroup", None)
+        }
         APPLICATION => m("AXApplication", None),
         _ => m("AXUnknown", None),
     }
@@ -241,16 +281,40 @@ pub fn actions(f: &AtspiFacts, ax_role: &str) -> Vec<String> {
     use role::*;
     let mut out: Vec<&'static str> = Vec::new();
     let item = matches!(f.role, LIST_ITEM | TABLE_ROW | TREE_ITEM | TABLE_CELL);
-    let named = |names: &[&str]| f.action_names.iter().any(|a| names.iter().any(|n| a.eq_ignore_ascii_case(n)));
-    let activate = named(&["click", "press", "activate", "toggle", "check", "uncheck", "select", "jump", "push", "invoke"]);
-    let expand = named(&["expand or contract", "expand", "open", "popup", "menu", "showmenu", "show menu"]);
+    let named = |names: &[&str]| {
+        f.action_names
+            .iter()
+            .any(|a| names.iter().any(|n| a.eq_ignore_ascii_case(n)))
+    };
+    let activate = named(&[
+        "click", "press", "activate", "toggle", "check", "uncheck", "select", "jump", "push",
+        "invoke",
+    ]);
+    let expand = named(&[
+        "expand or contract",
+        "expand",
+        "open",
+        "popup",
+        "menu",
+        "showmenu",
+        "show menu",
+    ]);
     if activate && !item {
         out.push("AXPress");
     }
-    if (f.expandable || expand) && !activate && !item && (matches!(ax_role, "AXMenuItem" | "AXMenuBarItem" | "AXMenuButton" | "AXPopUpButton") || f.role == TREE_ITEM) {
+    if (f.expandable || expand)
+        && !activate
+        && !item
+        && (matches!(
+            ax_role,
+            "AXMenuItem" | "AXMenuBarItem" | "AXMenuButton" | "AXPopUpButton"
+        ) || f.role == TREE_ITEM)
+    {
         out.push("AXPress");
     }
-    if named(&["menu", "showmenu", "show menu", "popup"]) || (f.has_popup && matches!(ax_role, "AXMenuButton" | "AXPopUpButton")) {
+    if named(&["menu", "showmenu", "show menu", "popup"])
+        || (f.has_popup && matches!(ax_role, "AXMenuButton" | "AXPopUpButton"))
+    {
         out.push("AXShowMenu");
     }
     if activate && item {
@@ -275,7 +339,9 @@ pub fn actions(f: &AtspiFacts, ax_role: &str) -> Vec<String> {
 /// Whether the value is settable (text inputs and sliders).
 pub fn value_settable(f: &AtspiFacts) -> bool {
     (f.has_editable_text && f.editable && f.role != role::PASSWORD_TEXT)
-        || (f.has_value && !f.value_read_only && matches!(f.role, role::SLIDER | role::SPIN_BUTTON | role::DIAL))
+        || (f.has_value
+            && !f.value_read_only
+            && matches!(f.role, role::SLIDER | role::SPIN_BUTTON | role::DIAL))
 }
 
 /// Formats a number like `NSNumber.stringValue` (integers without a fraction).
@@ -292,29 +358,94 @@ mod tests {
     use super::*;
 
     fn f(role: u32) -> AtspiFacts {
-        AtspiFacts { role, ..Default::default() }
+        AtspiFacts {
+            role,
+            ..Default::default()
+        }
     }
 
     #[test]
     fn maps_common_controls() {
         assert_eq!(map_role(&f(role::PUSH_BUTTON)).role, "AXButton");
-        assert_eq!(map_role(&AtspiFacts { checkable: true, ..f(role::PUSH_BUTTON) }), m("AXCheckBox", Some("AXToggle")));
-        assert_eq!(map_role(&f(role::PASSWORD_TEXT)), m("AXTextField", Some("AXSecureTextField")));
+        assert_eq!(
+            map_role(&AtspiFacts {
+                checkable: true,
+                ..f(role::PUSH_BUTTON)
+            }),
+            m("AXCheckBox", Some("AXToggle"))
+        );
+        assert_eq!(
+            map_role(&f(role::PASSWORD_TEXT)),
+            m("AXTextField", Some("AXSecureTextField"))
+        );
         assert!(is_password(role::PASSWORD_TEXT) && !is_password(role::ENTRY));
-        assert_eq!(map_role(&AtspiFacts { multi_line: true, editable: true, ..f(role::TEXT) }).role, "AXTextArea");
-        assert_eq!(map_role(&AtspiFacts { editable: true, ..f(role::ENTRY) }).role, "AXTextField");
-        assert_eq!(map_role(&AtspiFacts { identifier: "search-entry".into(), ..f(role::ENTRY) }), m("AXTextField", Some("AXSearchField")));
-        assert_eq!(map_role(&AtspiFacts { editable: true, ..f(role::COMBO_BOX) }).role, "AXComboBox");
+        assert_eq!(
+            map_role(&AtspiFacts {
+                multi_line: true,
+                editable: true,
+                ..f(role::TEXT)
+            })
+            .role,
+            "AXTextArea"
+        );
+        assert_eq!(
+            map_role(&AtspiFacts {
+                editable: true,
+                ..f(role::ENTRY)
+            })
+            .role,
+            "AXTextField"
+        );
+        assert_eq!(
+            map_role(&AtspiFacts {
+                identifier: "search-entry".into(),
+                ..f(role::ENTRY)
+            }),
+            m("AXTextField", Some("AXSearchField"))
+        );
+        assert_eq!(
+            map_role(&AtspiFacts {
+                editable: true,
+                ..f(role::COMBO_BOX)
+            })
+            .role,
+            "AXComboBox"
+        );
         assert_eq!(map_role(&f(role::COMBO_BOX)).role, "AXPopUpButton");
         assert_eq!(map_role(&f(role::DOCUMENT_WEB)).role, "AXWebArea");
-        assert_eq!(map_role(&AtspiFacts { parent_role: Some(role::MENU_BAR), ..f(role::MENU_ITEM) }).role, "AXMenuBarItem");
+        assert_eq!(
+            map_role(&AtspiFacts {
+                parent_role: Some(role::MENU_BAR),
+                ..f(role::MENU_ITEM)
+            })
+            .role,
+            "AXMenuBarItem"
+        );
         assert_eq!(map_role(&f(role::MENU_ITEM)).role, "AXMenuItem");
-        assert_eq!(map_role(&f(role::TREE_ITEM)), m("AXRow", Some("AXOutlineRow")));
-        assert_eq!(map_role(&f(role::PAGE_TAB)), m("AXRadioButton", Some("AXTabButton")));
+        assert_eq!(
+            map_role(&f(role::TREE_ITEM)),
+            m("AXRow", Some("AXOutlineRow"))
+        );
+        assert_eq!(
+            map_role(&f(role::PAGE_TAB)),
+            m("AXRadioButton", Some("AXTabButton"))
+        );
         assert!(map_role(&f(role::LABEL)).name_is_value);
         assert!(map_role(&f(role::TITLE_BAR)).drop_name);
-        assert_eq!(map_role(&AtspiFacts { top_level: true, ..f(role::FRAME) }), m("AXWindow", Some("AXStandardWindow")));
-        assert_eq!(map_role(&AtspiFacts { top_level: true, ..f(role::DIALOG) }), m("AXWindow", Some("AXDialog")));
+        assert_eq!(
+            map_role(&AtspiFacts {
+                top_level: true,
+                ..f(role::FRAME)
+            }),
+            m("AXWindow", Some("AXStandardWindow"))
+        );
+        assert_eq!(
+            map_role(&AtspiFacts {
+                top_level: true,
+                ..f(role::DIALOG)
+            }),
+            m("AXWindow", Some("AXDialog"))
+        );
         assert_eq!(map_role(&f(9999)).role, "AXUnknown");
         assert_eq!(map_role(&f(role::SCROLL_BAR)).role, "AXScrollBar");
         assert_eq!(map_role(&f(role::SLIDER)).role, "AXSlider");
@@ -329,29 +460,68 @@ mod tests {
         };
         assert_eq!(name(&f(role::PASSWORD_TEXT)), "textfield:secureTextField");
         assert_eq!(name(&f(role::LABEL)), "text");
-        assert_eq!(name(&AtspiFacts { parent_role: Some(role::MENU_BAR), ..f(role::MENU_ITEM) }), "menubaritem");
+        assert_eq!(
+            name(&AtspiFacts {
+                parent_role: Some(role::MENU_BAR),
+                ..f(role::MENU_ITEM)
+            }),
+            "menubaritem"
+        );
         assert_eq!(name(&f(role::TREE_ITEM)), "row:outlineRow");
     }
 
     #[test]
     fn actions_from_the_action_interface() {
         let names = |n: &[&str]| n.iter().map(|s| s.to_string()).collect::<Vec<_>>();
-        let b = AtspiFacts { action_names: names(&["click"]), ..f(role::PUSH_BUTTON) };
+        let b = AtspiFacts {
+            action_names: names(&["click"]),
+            ..f(role::PUSH_BUTTON)
+        };
         assert_eq!(actions(&b, "AXButton"), vec!["AXPress"]);
-        let item = AtspiFacts { action_names: names(&["activate"]), ..f(role::LIST_ITEM) };
+        let item = AtspiFacts {
+            action_names: names(&["activate"]),
+            ..f(role::LIST_ITEM)
+        };
         assert_eq!(actions(&item, "AXRow"), vec!["AXOpen"]);
-        let slider = AtspiFacts { has_value: true, ..f(role::SLIDER) };
-        assert_eq!(actions(&slider, "AXSlider"), vec!["AXIncrement", "AXDecrement"]);
-        let ro = AtspiFacts { has_value: true, value_read_only: true, ..f(role::SLIDER) };
+        let slider = AtspiFacts {
+            has_value: true,
+            ..f(role::SLIDER)
+        };
+        assert_eq!(
+            actions(&slider, "AXSlider"),
+            vec!["AXIncrement", "AXDecrement"]
+        );
+        let ro = AtspiFacts {
+            has_value: true,
+            value_read_only: true,
+            ..f(role::SLIDER)
+        };
         assert!(actions(&ro, "AXSlider").is_empty());
-        let menu = AtspiFacts { action_names: names(&["click"]), ..f(role::MENU_ITEM) };
+        let menu = AtspiFacts {
+            action_names: names(&["click"]),
+            ..f(role::MENU_ITEM)
+        };
         assert_eq!(actions(&menu, "AXMenuItem"), vec!["AXPress"]);
-        let win = AtspiFacts { top_level: true, ..f(role::FRAME) };
+        let win = AtspiFacts {
+            top_level: true,
+            ..f(role::FRAME)
+        };
         assert_eq!(actions(&win, "AXWindow"), vec!["AXRaise"]);
         assert!(actions(&f(role::LABEL), "AXStaticText").is_empty());
-        assert!(value_settable(&AtspiFacts { has_editable_text: true, editable: true, ..f(role::ENTRY) }));
-        assert!(!value_settable(&AtspiFacts { has_editable_text: true, editable: true, ..f(role::PASSWORD_TEXT) }));
-        assert!(!value_settable(&AtspiFacts { has_editable_text: true, ..f(role::ENTRY) }));
+        assert!(value_settable(&AtspiFacts {
+            has_editable_text: true,
+            editable: true,
+            ..f(role::ENTRY)
+        }));
+        assert!(!value_settable(&AtspiFacts {
+            has_editable_text: true,
+            editable: true,
+            ..f(role::PASSWORD_TEXT)
+        }));
+        assert!(!value_settable(&AtspiFacts {
+            has_editable_text: true,
+            ..f(role::ENTRY)
+        }));
     }
 
     #[test]
@@ -364,7 +534,10 @@ mod tests {
     /// The numbers above are the installed header's, in order (Linux only; skipped without it).
     #[test]
     fn role_numbers_match_the_atspi_header() {
-        let Some(path) = ["/usr/include/at-spi-2.0/atspi/atspi-constants.h"].into_iter().find(|p| std::path::Path::new(p).exists()) else {
+        let Some(path) = ["/usr/include/at-spi-2.0/atspi/atspi-constants.h"]
+            .into_iter()
+            .find(|p| std::path::Path::new(p).exists())
+        else {
             return;
         };
         let text = std::fs::read_to_string(path).unwrap();
@@ -374,7 +547,11 @@ mod tests {
             .lines()
             .map(str::trim)
             .filter_map(|l| l.strip_prefix("ATSPI_ROLE_"))
-            .map(|l| l.split(|c: char| !(c.is_ascii_uppercase() || c == '_' || c.is_ascii_digit())).next().unwrap_or(""))
+            .map(|l| {
+                l.split(|c: char| !(c.is_ascii_uppercase() || c == '_' || c.is_ascii_digit()))
+                    .next()
+                    .unwrap_or("")
+            })
             .filter(|w| *w != "LAST_DEFINED")
             .collect();
         let at = |n: &str| names.iter().position(|x| *x == n).unwrap() as u32;
