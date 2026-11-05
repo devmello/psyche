@@ -162,32 +162,88 @@ export function doctorChecks(s: Snapshot): Check[] {
     });
   }
 
-  // Permissions from the mac helper.
-  if (s.platform === "darwin") {
+  // The Host's own helper: the mac helper on macOS, the Windows helper on Windows.
+  const windows = s.platform === "win32";
+  if (s.platform === "darwin" || windows) {
+    const name = windows ? "Windows helper" : "mac helper";
+    const kind = windows ? "win-helper" : "mac-helper";
     if (!s.nodes.ok) {
       add({
         id: "helper",
         status: "skip",
-        message: `mac helper status unknown (${s.nodes.message})`,
+        message: `${name} status unknown (${s.nodes.message})`,
       });
     } else {
-      const helper = s.nodes.value.find((n) => n.kind === "mac-helper");
+      const helper = s.nodes.value.find((n) => n.kind === kind);
+      const version =
+        s.helperPermissions?.ok && s.helperPermissions.value.bundle?.version
+          ? ` ${s.helperPermissions.value.bundle.version}`
+          : "";
       add(
         helper && helper.status === "online"
           ? {
               id: "helper",
               status: "ok",
-              message: `mac helper online with ${helper.capabilities.length} capabilities`,
+              message: `${name}${version} paired and online with ${helper.capabilities.length} capabilities`,
             }
           : {
               id: "helper",
               status: "warn",
               message: helper
-                ? `mac helper is ${helper.status}`
-                : "mac helper not connected (computer use, notifications and Keychain unavailable)",
-              hint: "Open the Psyche app and grant its permissions in Settings › Permissions",
+                ? `${name} is paired but ${helper.status}`
+                : windows
+                  ? "Windows helper not connected (computer use, dictation, notifications, Windows Hello and Credential Manager unavailable)"
+                  : "mac helper not connected (computer use, notifications and Keychain unavailable)",
+              hint: windows
+                ? "Open the Psyche app: it starts and pairs its Windows helper (Settings › Devices shows it)"
+                : "Open the Psyche app and grant its permissions in Settings › Permissions",
             },
       );
+    }
+  }
+
+  // What Windows reports for the helper, and how it is signed.
+  if (windows && s.helperPermissions) {
+    const hp = s.helperPermissions;
+    if (!hp.ok) {
+      add({ id: "permissions", status: "skip", message: `permissions unknown (${hp.message})` });
+    } else {
+      const rows = hp.value.permissions ?? [];
+      const granted = rows.filter((r) => r.status === "granted").map((r) => r.permission);
+      const denied = rows.filter((r) => r.status === "denied");
+      const next = hp.value.next ? rows.find((r) => r.permission === hp.value.next) : undefined;
+      const fix = next ?? denied[0];
+      add(
+        fix
+          ? {
+              id: "permissions",
+              status: "warn",
+              message: `turned off in Windows: ${fix.title ?? fix.permission} (granted: ${granted.join(", ") || "none"})`,
+              hint: `Psyche › Settings › Permissions${fix.settingsURL ? `, or open ${fix.settingsURL}` : ""}`,
+            }
+          : {
+              id: "permissions",
+              status: "ok",
+              message: `granted: ${granted.join(", ") || "none needed yet"}`,
+            },
+      );
+      const signing = hp.value.bundle?.signing;
+      if (signing === "unsigned" || signing === "untrusted") {
+        add({
+          id: "helper.signing",
+          status: "warn",
+          message: `the Windows helper is ${signing === "unsigned" ? "not signed" : "signed by an untrusted certificate"} (a development build?)`,
+          hint: "Install Psyche from its signed installer",
+        });
+      }
+      if (s.app && hp.value.bundle?.insideApp === false) {
+        add({
+          id: "helper.location",
+          status: "warn",
+          message: `the Windows helper runs from ${hp.value.bundle.path ?? "outside the Psyche install"}, not from ${s.app}`,
+          hint: "Quit that helper (Task Manager › psyche-helper.exe) and reopen Psyche, which starts its own",
+        });
+      }
     }
   }
 

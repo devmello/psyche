@@ -103,7 +103,8 @@ export interface HelperPermissions {
   bundle?: {
     path?: string;
     version?: string;
-    signing?: "developer_id" | "development" | "adhoc" | "unsigned";
+    /** macOS: `developer_id` … `unsigned`; Windows: `authenticode`, `unsigned`, `untrusted`. */
+    signing?: "developer_id" | "development" | "adhoc" | "unsigned" | "authenticode" | "untrusted";
     teamId?: string;
     insideApp?: boolean;
   };
@@ -339,11 +340,17 @@ export async function gatherSnapshot(ctx: Ctx, opts: { connect: boolean }): Prom
     ),
   ]);
 
-  // The helper reports what macOS has granted it (a read capability; never prompts).
+  // The helper reports what macOS or Windows has granted it (a read capability; never prompts).
   let helperPermissions: Query<HelperPermissions> | undefined;
-  if (ctx.deps.platform === "darwin" && client && nodes.ok) {
+  const helperKind =
+    ctx.deps.platform === "darwin"
+      ? "mac-helper"
+      : ctx.deps.platform === "win32"
+        ? "win-helper"
+        : undefined;
+  if (helperKind !== undefined && client && nodes.ok) {
     const list: { id: string; kind: string; status: string }[] = nodes.value;
-    const helper = list.find((n) => n.kind === "mac-helper" && n.status === "online");
+    const helper = list.find((n) => n.kind === helperKind && n.status === "online");
     if (helper) {
       const r = await callIfAvailable<{
         ok: boolean;

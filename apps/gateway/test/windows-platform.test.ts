@@ -185,7 +185,7 @@ describe("Windows app identities", () => {
 });
 
 describe("what nodes.invoke can reach", () => {
-  it("never teach.* or chrome.* on any node, and nothing but the notification permission on a Host helper", () => {
+  it("never teach.* or chrome.* on any node, and only the permission reads on a Host helper", () => {
     for (const cap of [
       "teach.start",
       "teach.stop",
@@ -200,6 +200,9 @@ describe("what nodes.invoke can reach", () => {
       expect(isHostHelperCapabilityReachable(cap), cap).toBe(false);
     }
     expect(isHostHelperCapabilityReachable("notify.authorization_status")).toBe(true);
+    // psyche doctor reads what the OS granted the helper (read-only, never prompts).
+    expect(isHostHelperCapabilityReachable("permissions.status")).toBe(true);
+    expect(isHostHelperCapabilityReachable("permissions.request")).toBe(false);
     // Words that only start like a namespace are not that namespace.
     expect(isUnreachableCapability("teacher.list")).toBe(false);
   });

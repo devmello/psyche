@@ -1127,3 +1127,101 @@ describe("audit completeness (M3: docs/05 §10 and the S05 review)", () => {
     ]);
   });
 });
+
+describe("doctor: the Windows helper", () => {
+  const winHelper = (status: string) => ({
+    ok: true as const,
+    value: [{ id: "n1", kind: "win-helper", status, capabilities: [{ name: "computer.click" }] }],
+  });
+  const perms = (value: Record<string, unknown>) => ({ ok: true as const, value: value as never });
+
+  it("reports it paired, online and its version; offline or missing warns", () => {
+    const online = check(
+      snap({
+        platform: "win32",
+        nodes: winHelper("online"),
+        helperPermissions: perms({ permissions: [], next: null, bundle: { version: "0.3.0" } }),
+      }),
+      "helper",
+    );
+    expect(online).toMatchObject({ status: "ok" });
+    expect(online?.message).toBe("Windows helper 0.3.0 paired and online with 1 capabilities");
+    const offline = check(snap({ platform: "win32", nodes: winHelper("offline") }), "helper");
+    expect(offline).toMatchObject({
+      status: "warn",
+      message: "Windows helper is paired but offline",
+    });
+    const missing = check(snap({ platform: "win32", nodes: { ok: true, value: [] } }), "helper");
+    expect(missing?.status).toBe("warn");
+    expect(missing?.message).toContain("Windows Hello");
+    expect(missing?.hint).toContain("Settings › Devices");
+    // A mac-helper node on a Windows host is not the Host's helper.
+    const mac = {
+      ok: true as const,
+      value: [{ id: "n2", kind: "mac-helper", status: "online", capabilities: [] }],
+    };
+    expect(check(snap({ platform: "win32", nodes: mac }), "helper")?.status).toBe("warn");
+    expect(check(snap({ platform: "win32", nodes: unavailable }), "helper")?.status).toBe("skip");
+  });
+
+  it("names a permission Windows turned off, with its ms-settings page", () => {
+    const c = check(
+      snap({
+        platform: "win32",
+        nodes: winHelper("online"),
+        helperPermissions: perms({
+          permissions: [
+            { permission: "accessibility", status: "granted" },
+            {
+              permission: "microphone",
+              status: "denied",
+              title: "Microphone",
+              settingsURL: "ms-settings:privacy-microphone",
+            },
+          ],
+          next: null,
+          bundle: { signing: "authenticode", insideApp: true },
+        }),
+      }),
+      "permissions",
+    );
+    expect(c).toMatchObject({ status: "warn" });
+    expect(c?.message).toContain("Microphone");
+    expect(c?.hint).toContain("ms-settings:privacy-microphone");
+    const ok = snap({
+      platform: "win32",
+      nodes: winHelper("online"),
+      helperPermissions: perms({
+        permissions: [{ permission: "notifications", status: "granted" }],
+        next: null,
+        bundle: { signing: "authenticode", insideApp: true },
+      }),
+    });
+    expect(check(ok, "permissions")).toMatchObject({
+      status: "ok",
+      message: "granted: notifications",
+    });
+    expect(check(ok, "helper.signing")).toBeUndefined();
+  });
+
+  it("warns on an unsigned helper and on one outside the install; unknown is a skip", () => {
+    const s = snap({
+      platform: "win32",
+      app: "C:\\Users\\me\\AppData\\Local\\Psyche\\Psyche.exe",
+      nodes: winHelper("online"),
+      helperPermissions: perms({
+        permissions: [],
+        next: null,
+        bundle: { signing: "unsigned", insideApp: false, path: "D:\\dev\\psyche-helper.exe" },
+      }),
+    });
+    expect(check(s, "helper.signing")).toMatchObject({ status: "warn" });
+    expect(check(s, "helper.location")?.message).toContain("D:\\dev\\psyche-helper.exe");
+    const unknown = snap({
+      platform: "win32",
+      nodes: winHelper("online"),
+      helperPermissions: unavailable,
+    });
+    expect(check(unknown, "permissions")?.status).toBe("skip");
+  });
+});
