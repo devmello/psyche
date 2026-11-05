@@ -111,9 +111,15 @@ fn manifest_lists_the_windows_capabilities() {
             .any(|n| *n == "speech.synthesize" || *n == "speech.voices")
     );
     // Apple-only capabilities are not offered.
-    assert!(!names.iter().any(|n| n.starts_with("apps.applescript")
-        || n.starts_with("notes.")
-        || n.starts_with("vm.")));
+    assert!(
+        !names
+            .iter()
+            .any(|n| n.starts_with("apps.applescript") || n.starts_with("notes."))
+    );
+    // `vm.*` (the sandbox PC) is advertised in full only once its service is installed; before
+    // that only `vm.status` exists, and says so.
+    let vm: Vec<&&str> = names.iter().filter(|n| n.starts_with("vm.")).collect();
+    assert!(vm.len() == 1 && *vm[0] == "vm.status" || vm.len() > 20, "vm: {vm:?}");
     let _ = std::fs::remove_dir_all(h);
 }
 
