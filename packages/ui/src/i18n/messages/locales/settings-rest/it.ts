@@ -12,7 +12,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.daily.group.brief": "Riepilogo del mattino",
   "settings.daily.group.wrapup": "Riepilogo della sera",
   "settings.daily.group.delivery": "Dove compare",
-  "settings.daily.group.followups": "Follow-up",
+  "settings.daily.group.followups": "Impostazioni dei follow-up",
   "settings.daily.group.automations": "Automazioni",
   "settings.key.daily.brief.enabled": "Riepilogo del mattino",
   "settings.key.daily.wrapup.enabled": "Riepilogo della sera",

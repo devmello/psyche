@@ -12,7 +12,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.daily.group.brief": "아침 브리핑",
   "settings.daily.group.wrapup": "저녁 마무리",
   "settings.daily.group.delivery": "표시 위치",
-  "settings.daily.group.followups": "후속 조치",
+  "settings.daily.group.followups": "후속 조치 설정",
   "settings.daily.group.automations": "자동화",
   "settings.key.daily.brief.enabled": "아침 브리핑",
   "settings.key.daily.wrapup.enabled": "저녁 마무리",
