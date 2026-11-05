@@ -6,14 +6,14 @@
  * Detection, first match wins:
  * 1. `setUiPlatform()` (tests, stories, the dev `?platform=` flag);
  * 2. `<html data-platform>`: the desktop renderer sets it from the preload's `process.platform`
- *    before the first render ("macos" | "windows"; "darwin" / "win32" are accepted too);
+ *    before the first render ("macos" | "windows" | "linux"; "darwin" / "win32" are accepted too);
  * 3. the browser: `navigator.userAgentData.platform`, `navigator.platform`, then the user agent.
  *
- * Anything else (Linux, phones, jsdom) is `other`: Ctrl shortcuts and the default (macOS) copy,
- * as before this module existed.
+ * Anything else (browsers on Linux, phones, jsdom) is `other`: Ctrl shortcuts and the default (macOS) copy, as before
+ * this module existed. Linux has its own copy ("this computer", "your password").
  */
 
-export type UiPlatform = "macos" | "windows" | "other";
+export type UiPlatform = "macos" | "windows" | "linux" | "other";
 
 let pinned: UiPlatform | undefined;
 
@@ -25,7 +25,8 @@ export function normalizePlatform(raw: string | null | undefined): UiPlatform | 
   if (v === "macos" || v === "mac" || v === "darwin" || v === "macintel" || v === "macintosh")
     return "macos";
   if (v === "windows" || v === "win32" || v === "win64" || v === "win") return "windows";
-  if (v === "other" || v === "linux" || v === "web") return "other";
+  if (v === "linux") return "linux";
+  if (v === "other" || v === "web") return "other";
   return undefined;
 }
 
@@ -40,8 +41,8 @@ function fromNavigator(): UiPlatform {
   // iPad and iPhone keyboards use ⌘ too; their copy is the default (macOS) copy anyway.
   if (/^(Mac|iPhone|iPad)/.test(p)) return "macos";
   if (/^Win/.test(p)) return "windows";
-  // Real browsers' user agents only: jsdom's "(win32)" / "(darwin)" tokens stay `other`.
   const ua = navigator.userAgent ?? "";
+  // Real browsers' user agents only: jsdom's "(win32)" / "(darwin)" tokens stay `other`.
   if (/Windows NT/.test(ua)) return "windows";
   if (/Macintosh|Mac OS X/.test(ua)) return "macos";
   return "other";
@@ -87,3 +88,4 @@ export function applyPlatformAttribute(): UiPlatform {
 /** ⌘ is the command key (macOS); elsewhere Ctrl is. */
 export const isMac = (): boolean => uiPlatform() === "macos";
 export const isWindows = (): boolean => uiPlatform() === "windows";
+export const isLinux = (): boolean => uiPlatform() === "linux";

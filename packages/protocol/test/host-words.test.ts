@@ -9,10 +9,11 @@ describe("hostWords", () => {
     expect(hostWords("mac-helper").presence).toBe("Touch ID");
   });
 
-  it("falls back to the platform; Linux keeps the macOS words", () => {
+  it("falls back to the platform: Windows and Linux have their own, anything else is macOS", () => {
     expect(hostOs(undefined, "win32")).toBe("windows");
     expect(hostOs(null, "darwin")).toBe("macos");
-    expect(hostOs(undefined, "linux")).toBe("macos");
+    expect(hostOs(undefined, "linux")).toBe("linux");
+    expect(hostOs(undefined, "freebsd")).toBe("macos");
     expect(hostOs("remote", "win32")).toBe("windows");
   });
 
@@ -37,5 +38,29 @@ describe("hostWords", () => {
       fileManager: "Finder",
       helper: "the Mac helper",
     });
+  });
+
+  it("names this computer, your password and Files on Linux", () => {
+    expect(hostWords(undefined, "linux")).toEqual({
+      os: "linux",
+      osName: "Linux",
+      device: "computer",
+      thisDevice: "this computer",
+      yourDevice: "your computer",
+      theDevice: "the computer",
+      presence: "your password",
+      secretStore: "the system keyring",
+      systemSettings: "Settings",
+      fileManager: "Files",
+      helper: "the Linux helper",
+    });
+  });
+
+  it("follows a Linux helper over the platform, and ignores the generic host-helper kind", () => {
+    expect(hostOs("linux-helper", "darwin")).toBe("linux");
+    expect(hostOs("linux-helper", "win32")).toBe("linux");
+    expect(hostOs("host-helper", "linux")).toBe("linux");
+    expect(hostOs("host-helper", "win32")).toBe("windows");
+    expect(hostWords("linux-helper").presence).toBe("your password");
   });
 });
