@@ -3,16 +3,20 @@
 
 use super::wide;
 use std::ffi::c_void;
+use std::collections::HashMap;
 use std::path::Path;
-use windows::Win32::Foundation::{CloseHandle, HANDLE};
+use std::sync::{Mutex, OnceLock};
+use windows::Win32::Foundation::{CloseHandle, FILETIME, HANDLE};
 use windows::Win32::Security::{GetSidSubAuthority, GetSidSubAuthorityCount, GetTokenInformation, TOKEN_MANDATORY_LABEL, TOKEN_QUERY, TokenIntegrityLevel};
 use windows::Win32::Storage::FileSystem::{GetFileVersionInfoSizeW, GetFileVersionInfoW, VerQueryValueW};
 use windows::Win32::Storage::Packaging::Appx::GetPackageFamilyName;
 use windows::Win32::System::Threading::{
-    GetCurrentProcess, OpenProcess, OpenProcessToken, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW,
+    GetCurrentProcess, GetProcessTimes, OpenProcess, OpenProcessToken, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION,
+    QueryFullProcessImageNameW,
 };
 use windows::core::{PCWSTR, PWSTR};
 
+#[derive(Clone)]
 pub(crate) struct ProcessInfo {
     pub bundle_id: Option<String>,
     pub app_name: String,
@@ -30,20 +34,53 @@ impl Drop for Handle {
     }
 }
 
+/// Process facts by (pid, creation time): the typing guard asks for focus before every chunk,
+/// and the version resource read is file I/O. The creation time keeps a reused pid apart.
+fn cache() -> &'static Mutex<HashMap<(u32, u64), ProcessInfo>> {
+    static C: OnceLock<Mutex<HashMap<(u32, u64), ProcessInfo>>> = OnceLock::new();
+    C.get_or_init(Mutex::default)
+}
+
+fn created(h: HANDLE) -> Option<u64> {
+    let (mut c, mut e, mut k, mut u) = (FILETIME::default(), FILETIME::default(), FILETIME::default(), FILETIME::default());
+    // SAFETY: four out-parameters.
+    unsafe { GetProcessTimes(h, &mut c, &mut e, &mut k, &mut u) }.ok()?;
+    Some(((c.dwHighDateTime as u64) << 32) | c.dwLowDateTime as u64)
+}
+
 pub(crate) fn info(pid: u32) -> ProcessInfo {
     let fallback = ProcessInfo { bundle_id: None, app_name: format!("pid {pid}"), elevated: false };
     // SAFETY: querying another process with the least access that answers these questions.
     let Ok(h) = (unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) }) else { return fallback };
     let h = Handle(h);
-    let path = image_path(h.0);
-    let family = package_family(h.0);
+    let key = created(h.0).map(|t| (pid, t));
+    if let Some(k) = key
+        && let Some(hit) = cache().lock().unwrap_or_else(|e| e.into_inner()).get(&k)
+    {
+        return hit.clone();
+    }
+    let info = lookup(h.0, fallback);
+    if let Some(k) = key {
+        let mut c = cache().lock().unwrap_or_else(|e| e.into_inner());
+        if c.len() > 256 {
+            c.clear();
+        }
+        c.insert(k, info.clone());
+    }
+    info
+}
+
+/// `h` stays owned by the caller.
+fn lookup(h: HANDLE, fallback: ProcessInfo) -> ProcessInfo {
+    let path = image_path(h);
+    let family = package_family(h);
     let exe = path.as_deref().and_then(|p| Path::new(p).file_name()).map(|n| n.to_string_lossy().to_lowercase());
     let app_name = path
         .as_deref()
         .and_then(file_description)
         .or_else(|| path.as_deref().and_then(|p| Path::new(p).file_stem()).map(|s| s.to_string_lossy().into_owned()))
         .unwrap_or(fallback.app_name);
-    let elevated = match (integrity(h.0), own_integrity()) {
+    let elevated = match (integrity(h), own_integrity()) {
         (Some(theirs), Some(ours)) => theirs > ours,
         _ => false,
     };

@@ -242,22 +242,25 @@ pub struct KeyChange {
 pub struct KeySet {
     pub watched: Vec<WatchedKey>,
     trackers: Vec<KeyTracker>,
-    altgr_layout: bool,
+    /// The synthesized Left Ctrl just went down (the next Right Alt is AltGr).
+    fake_lctrl: bool,
+    /// The current Right Alt press is AltGr (decided per press: the owner may switch layouts).
+    altgr: bool,
 }
 
 impl KeySet {
     pub fn new(watched: Vec<WatchedKey>) -> Self {
         let trackers = watched.iter().map(|w| KeyTracker::new(w.vk)).collect();
-        KeySet { watched, trackers, altgr_layout: false }
+        KeySet { watched, trackers, fake_lctrl: false, altgr: false }
     }
 
     pub fn trackers(&self) -> &[KeyTracker] {
         &self.trackers
     }
 
-    /// True once Right Alt arrived with the synthesized Left Ctrl of an AltGr layout.
+    /// The current (or last) Right Alt press came with an AltGr layout's synthesized Left Ctrl.
     pub fn altgr_layout(&self) -> bool {
-        self.altgr_layout
+        self.altgr
     }
 
     fn change(&self, i: usize, down: bool) -> KeyChange {
@@ -270,8 +273,14 @@ impl KeySet {
             return vec![];
         }
         if ev.vk == VK_LCONTROL && ev.scan == ALTGR_FAKE_LCTRL_SCAN {
-            self.altgr_layout = true;
+            if ev.down {
+                self.fake_lctrl = true;
+            }
             return vec![];
+        }
+        let fake_before = std::mem::take(&mut self.fake_lctrl);
+        if ev.vk == VK_RMENU && ev.down && !self.trackers.iter().any(|t| t.vk == VK_RMENU && t.is_pressed()) {
+            self.altgr = fake_before;
         }
         let mut out = vec![];
         if self.watched.iter().any(|w| w.vk == ev.vk) {
@@ -312,7 +321,7 @@ impl KeySet {
     pub fn wants_menu_mask(&self, vk: u16) -> bool {
         let held = self.trackers.iter().any(|t| t.vk == vk && t.is_down());
         held && match vk {
-            VK_RMENU => !self.altgr_layout,
+            VK_RMENU => !self.altgr,
             VK_LMENU | VK_LWIN | VK_RWIN => true,
             _ => false,
         }
@@ -439,6 +448,11 @@ mod tests {
         s.handle(&fake(true));
         s.handle(&KeyEvent::down(VK_RMENU));
         assert_eq!(s.handle(&KeyEvent::down(0x45)), [ch(DictationKey::RightOption, None, false)]);
+        s.handle(&KeyEvent::up(VK_RMENU));
+        // After switching to a layout without AltGr, a plain Right Alt hold is masked again.
+        s.handle(&KeyEvent::down(VK_RMENU));
+        assert!(!s.altgr_layout());
+        assert!(s.wants_menu_mask(VK_RMENU));
     }
 
     #[test]

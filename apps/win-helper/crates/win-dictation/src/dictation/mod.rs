@@ -82,13 +82,12 @@ pub fn dictation_watch(params: Value, inv: &Invocation) -> Result<Value, CapErro
     loop {
         match changes.recv_timeout(Duration::from_millis(100)) {
             Ok((change, at)) => inv.emit(key_payload(&change, at)),
-            Err(RecvTimeoutError::Timeout) => {
-                if inv.cancel.is_cancelled() {
-                    watcher.stop_if(id);
-                    break;
-                }
-            }
+            Err(RecvTimeoutError::Timeout) => {}
             Err(RecvTimeoutError::Disconnected) => break,
+        }
+        if inv.cancel.is_cancelled() {
+            watcher.stop_if(id);
+            break;
         }
     }
     Ok(json!({ "watching": false }))

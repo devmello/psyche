@@ -232,6 +232,18 @@ fn microphone_stream_starts_and_stops_at_the_cap() {
             assert_eq!(events.lock().unwrap()[0].0, "speech.started");
             assert_eq!(r["stopReason"], "max_duration");
             assert!((1400..=1600).contains(&r["audioMs"].as_u64().unwrap()));
+            // speech.stop ends a microphone stream early; a second microphone stream is busy.
+            let stopper = std::thread::spawn(|| {
+                std::thread::sleep(Duration::from_millis(1200));
+                let busy = speech_transcribe_stream(json!({"source": "microphone"}), &Invocation::new("mic-3", &|_: &str, _: Value| {})).unwrap_err();
+                assert_eq!(busy.reason, "microphone_busy");
+                psyche_win_dictation::speech_stop(json!({"streamId": "mic-2"})).unwrap()
+            });
+            let r = speech_transcribe_stream(json!({"source": "microphone", "maxDurationMs": 10000}), &Invocation::new("mic-2", &sink)).unwrap();
+            assert_eq!(stopper.join().unwrap(), json!({"stopped": true, "streamId": "mic-2"}));
+            println!("stopped microphone stream: stopReason={} audioMs={}", r["stopReason"], r["audioMs"]);
+            assert_eq!(r["stopReason"], "stopped");
+            assert!(r["audioMs"].as_u64().unwrap() < 3000);
         }
         Err(e) => {
             println!("microphone stream refused: {}", serde_json::to_string(&e.wire()).unwrap());
@@ -352,6 +364,44 @@ fn hook_ignores_injected_keys_and_reports_hardware_ones() {
     std::thread::sleep(Duration::from_millis(100));
     dictation_watch(json!({"key": null}), &Invocation::new("watch-5", &|_: &str, _: Value| {})).unwrap();
     w3.join().unwrap().unwrap();
+
+    // A Right Alt hold gets the menu mask (an injected unassigned key) after 200 ms, so its
+    // release opens no menu bar; on an AltGr layout (fake Left Ctrl first) it does not.
+    let ralt = std::thread::spawn(|| {
+        let sink = |_: &str, _: Value| {};
+        dictation_watch(json!({"key": "rightOption"}), &Invocation::new("watch-7", &sink))
+    });
+    std::thread::sleep(Duration::from_millis(300));
+    let before = testing::injected_seen();
+    testing::simulate_hook_event(KeyEvent { vk: 0xA5, scan: 0x38, down: true, injected: false });
+    std::thread::sleep(Duration::from_millis(500));
+    testing::simulate_hook_event(KeyEvent { vk: 0xA5, scan: 0x38, down: false, injected: false });
+    let masked = testing::injected_seen() - before;
+    testing::simulate_hook_event(KeyEvent { vk: 0xA2, scan: 0x21D, down: true, injected: false });
+    testing::simulate_hook_event(KeyEvent { vk: 0xA5, scan: 0x38, down: true, injected: false });
+    std::thread::sleep(Duration::from_millis(500));
+    testing::simulate_hook_event(KeyEvent { vk: 0xA5, scan: 0x38, down: false, injected: false });
+    testing::simulate_hook_event(KeyEvent { vk: 0xA2, scan: 0x21D, down: false, injected: false });
+    let altgr = testing::injected_seen() - before - masked;
+    println!("menu mask: {masked} injected events for a Right Alt hold, {altgr} on an AltGr layout");
+    assert_eq!((masked, altgr), (2, 0));
+    dictation_watch(json!({"key": null}), &Invocation::new("watch-8", &|_: &str, _: Value| {})).unwrap();
+    ralt.join().unwrap().unwrap();
+
+    // Cancelling the invocation ends its watch.
+    let (tx, rx) = std::sync::mpsc::channel();
+    let w4 = std::thread::spawn(move || {
+        let sink = |_: &str, _: Value| {};
+        let inv = Invocation::new("watch-6", &sink);
+        tx.send(inv.cancel.clone()).unwrap();
+        dictation_watch(json!({"key": "rightCommand"}), &inv)
+    });
+    let token = rx.recv().unwrap();
+    std::thread::sleep(Duration::from_millis(300));
+    assert!(testing::watch_active());
+    token.cancel();
+    assert_eq!(w4.join().unwrap().unwrap(), json!({"watching": false}));
+    assert!(!testing::watch_active());
 }
 
 /// Brings `hwnd` to the front: a synthesized Alt tap first, so Windows lets this background
