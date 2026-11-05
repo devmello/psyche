@@ -49,8 +49,9 @@ pub fn close_fds_from(first: u32, last: u32) {
 
 /// The name the helper takes once its start-up hardening is done (at most 15 bytes). The
 /// Gateway's peer check requires it (`LINUX_HELPER_READY_COMM` in `packages/protocol`), so a process
-/// that is still between `exec` and `close_inherited_fds` does not pass as the helper.
-pub const READY_COMM: &str = "psyche-helper:1";
+/// that is still between `exec` and `close_inherited_fds` does not pass as the helper. It holds a
+/// `/`, which an executable's basename (the default name) can never contain.
+pub const READY_COMM: &str = "psyche-helper/1";
 
 /// Marks this process as past its start-up hardening by setting its name (`PR_SET_NAME`).
 /// Call it from the main thread, after the descriptors are closed and the environment checked.
