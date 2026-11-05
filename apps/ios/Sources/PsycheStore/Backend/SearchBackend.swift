@@ -39,6 +39,10 @@ public struct SearchResults: Sendable, Equatable {
             case chat(id: String)
             case file(id: String)
             case person(id: String)
+            /// A project or course page in Memory (the entity id).
+            case project(id: String)
+            /// A task: opens the agent sheet's Activity tab.
+            case task(id: String)
         }
 
         public init(

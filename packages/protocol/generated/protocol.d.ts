@@ -3519,13 +3519,13 @@ export interface ContextBlock {
 export type ContextBlockType = "context";
 
 export interface CredentialUpdatedPayload {
-    change:            ChangeEnum;
+    change:            CredentialUpdatedPayloadChange;
     credential?:       CredentialMeta | null;
     credentialId:      string;
     ownerConnectorId?: null | string;
 }
 
-export type ChangeEnum = "created" | "updated" | "deleted" | "rotated" | "revoked" | "used";
+export type CredentialUpdatedPayloadChange = "created" | "updated" | "deleted" | "rotated" | "revoked" | "used";
 
 export interface CredentialMeta {
     backend?:          Backend;
@@ -5530,6 +5530,13 @@ export interface LibraryItem {
 export type LibraryItemKind = "document" | "image" | "audio" | "video" | "artifact" | "download" | "recording" | "system";
 
 export type LibraryItemOrigin = "upload" | "agent" | "download" | "connector" | "channel";
+
+export interface LibraryItemChangedPayload {
+    change: LibraryItemChangedPayloadChange;
+    itemId: string;
+}
+
+export type LibraryItemChangedPayloadChange = "created" | "deleted";
 
 export interface LibraryListParams {
     /**

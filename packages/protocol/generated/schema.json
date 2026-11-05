@@ -239,6 +239,11 @@
         "payload": "#/$defs/LessonChangedPayload"
       },
       {
+        "description": "A Library item was uploaded or deleted from a client, so other paired clients refetch the Library (a hint, not state).",
+        "name": "library.item.changed",
+        "payload": "#/$defs/LibraryItemChangedPayload"
+      },
+      {
         "description": "Record meeting started or ended (stopped, silence, the conference app quit), or the ended recording's notes finished or failed (mail and meeting workflows §4.6).",
         "name": "meetings.recording.updated",
         "payload": "#/$defs/MeetingRecordingStatus"
@@ -23995,6 +24000,28 @@
         "origin",
         "tags",
         "createdAt"
+      ],
+      "type": "object"
+    },
+    "LibraryItemChangedPayload": {
+      "properties": {
+        "itemId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "change": {
+          "enum": [
+            "created",
+            "deleted"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "itemId",
+        "change"
       ],
       "type": "object"
     },
