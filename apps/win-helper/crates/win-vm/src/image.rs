@@ -479,7 +479,9 @@ pub mod tests {
         let abs = root.join("linux-1").to_string_lossy().into_owned();
         assert_eq!(locate(&root, Some(&abs)).unwrap(), PathBuf::from(crate::shares::canonical_host_path(&abs).unwrap()));
         assert_eq!(locate(&root, Some(r"C:\Windows\Temp")).unwrap_err().reason, "image_outside_store");
-        assert_eq!(locate(&tmp("empty"), None).unwrap_err().reason, "image_not_found");
+        let empty = tmp("empty");
+        assert_eq!(locate(&empty, None).unwrap_err().reason, "image_not_found");
+        let _ = std::fs::remove_dir_all(empty);
         let _ = std::fs::remove_dir_all(root);
     }
 }
