@@ -32,6 +32,7 @@ import { onboardingRest } from "./onboarding-rest/hi.ts";
 import { overview } from "./overview/hi.ts";
 import { overviewGrowth } from "./overview-growth/hi.ts";
 import { overviewShared } from "./overview-shared/hi.ts";
+import { passwordPresence } from "./password-presence/hi.ts";
 import { peopleRest } from "./people-rest/hi.ts";
 import { personDataRest } from "./person-data-rest/hi.ts";
 import { researchRest } from "./research-rest/hi.ts";
@@ -3283,4 +3284,6 @@ export const hi: Partial<Catalogue> = {
   "specialists.card.fromAutomation": "आपके ऑटोमेशन {name} से",
   // signed connector bundles and teach-by-showing in Mac apps
   ...final202611,
+  // password approvals on Linux (polkit)
+  ...passwordPresence,
 };

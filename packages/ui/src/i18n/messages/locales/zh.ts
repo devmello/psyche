@@ -28,6 +28,7 @@ import { onboarding } from "./onboarding/zh.ts";
 import { overview } from "./overview/zh.ts";
 import { overviewGrowth } from "./overview-growth/zh.ts";
 import { overviewShared } from "./overview-shared/zh.ts";
+import { passwordPresence } from "./password-presence/zh.ts";
 import { people } from "./people/zh.ts";
 import { research } from "./research/zh.ts";
 import { scheduled } from "./scheduled/zh.ts";
@@ -3236,4 +3237,6 @@ export const zh: Partial<Catalogue> = {
   "specialists.card.fromAutomation": "来自你的自动化 {name}",
   // signed connector bundles and teach-by-showing in Mac apps
   ...final202611,
+  // password approvals on Linux (polkit)
+  ...passwordPresence,
 };

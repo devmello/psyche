@@ -29,6 +29,7 @@ import { nudges } from "./nudges.ts";
 import { onboarding } from "./onboarding.ts";
 import { overview } from "./overview.ts";
 import { overviewGrowth } from "./overview-growth.ts";
+import { passwordPresence } from "./password-presence.ts";
 import { people } from "./people.ts";
 import { platform } from "./platform.ts";
 import { research } from "./research.ts";
@@ -112,6 +113,7 @@ export const en = {
   ...automationChat,
   ...widgets,
   ...platform,
+  ...passwordPresence,
 } as const;
 
 export type MessageId = keyof typeof en;

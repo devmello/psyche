@@ -8,6 +8,7 @@ import { isMessageId, t } from "../../i18n/core.ts";
 import { groupFingerprint } from "../../lib/fingerprint.ts";
 import { formatRelative } from "../../lib/format.ts";
 import { useNow } from "../../lib/use-now.ts";
+import { PasswordPresenceGroup, type PasswordPresenceRow } from "./PasswordPresenceGroup.tsx";
 import { RowMoreMenu } from "./RowMoreMenu.tsx";
 import {
   EmptyNotice,
@@ -93,6 +94,8 @@ export interface DevicesPanelProps extends LoadProps {
     onRemove: (deviceId: string) => Promise<unknown>;
     onAllowDevFileKey: (on: boolean) => Promise<unknown>;
   };
+  /** Linux: the Gateway's password-approval status (`devices.presence.status`); absent elsewhere. */
+  passwordPresence?: PasswordPresenceRow | undefined;
   now?: number;
   thisDeviceId?: string;
   onApprove?: (request: PairingRequest, scopes: DeviceScope[]) => void;
@@ -109,6 +112,7 @@ export function DevicesPanel({
   nodes,
   presenceKeys = [],
   touchId,
+  passwordPresence,
   now,
   thisDeviceId,
   onApprove,
@@ -159,6 +163,8 @@ export function DevicesPanel({
             </ul>
           </Group>
         ) : null}
+
+        {passwordPresence ? <PasswordPresenceGroup row={passwordPresence} /> : null}
 
         <Group title={t("settings.devices.paired")}>
           {active.length === 0 ? (
@@ -507,6 +513,9 @@ export function DevicesSection({
     },
   );
   const keysQ = useGatewayQuery("devices.presenceKey.list", {});
+  // Only a Linux Gateway reports a password verifier; an older Gateway answers an error.
+  const presenceQ = useGatewayQuery("devices.presence.status", {});
+  const passwordRow = presenceQ.data?.verifiers.find((v) => v.kind === "password");
   const settled = (p: Promise<unknown>) =>
     p.then((v) => {
       keysQ.reload();
@@ -532,6 +541,7 @@ export function DevicesSection({
       pairing={pairingQ.data?.pairingRequests ?? []}
       nodes={nodesQ.data?.nodes ?? []}
       presenceKeys={keysQ.data?.presenceKeys ?? []}
+      passwordPresence={passwordRow}
       {...(infoQ.data ? { gatewayFingerprint: infoQ.data.identity.fingerprint } : {})}
       touchId={{
         bundled: touchId ? bundled : undefined,

@@ -251,6 +251,16 @@ function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
         approve: (p) => unwrapCall(b.helper.touchIdApprove(p)),
       },
     },
+    // Linux only: Allow on a card that needs presence asks the Gateway to run the polkit check;
+    // the owner types the password into the system's own dialog (linux design §9).
+    ...(b.platform === "linux"
+      ? {
+          password: {
+            approve: (p: { approvalId: string; answerToken: string }) =>
+              unwrapCall(b.password.approve(p)),
+          },
+        }
+      : {}),
     // Windows only: the sandbox PC's one-time setup. Elsewhere main answers "unsupported".
     ...(b.platform === "win32"
       ? {

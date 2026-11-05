@@ -28,6 +28,7 @@ import { onboarding } from "./onboarding/ar.ts";
 import { overview } from "./overview/ar.ts";
 import { overviewGrowth } from "./overview-growth/ar.ts";
 import { overviewShared } from "./overview-shared/ar.ts";
+import { passwordPresence } from "./password-presence/ar.ts";
 import { people } from "./people/ar.ts";
 import { research } from "./research/ar.ts";
 import { scheduled } from "./scheduled/ar.ts";
@@ -3330,4 +3331,6 @@ export const ar: Partial<Catalogue> = {
   "specialists.card.fromAutomation": "من أتمتتك {name}",
   // signed connector bundles and teach-by-showing in Mac apps
   ...final202611,
+  // password approvals on Linux (polkit)
+  ...passwordPresence,
 };
