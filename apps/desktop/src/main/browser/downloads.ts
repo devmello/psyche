@@ -2,12 +2,13 @@ import { execFile as nodeExecFile } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
 import { basename, dirname, extname, join, resolve } from "node:path";
+import { hostPlatform, traitsFor } from "../../platform/index.ts";
 
 /**
  * Download quarantine (architecture §12, security §6): every agent-tab download is diverted by
  * `will-download` into `$PSYCHE_HOME/library/quarantine/<timestamp>-<sanitized filename>` and,
  * tagged as downloaded: `com.apple.quarantine` for Gatekeeper on macOS, the Mark of the Web
- * (`Zone.Identifier`, zone 3) for SmartScreen on Windows. Files are
+ * (`Zone.Identifier`, zone 3) for SmartScreen on Windows; Linux has no such mark. Files are
  * never opened or executed from here without approval.
  */
 
@@ -177,7 +178,7 @@ export function setQuarantineAttribute(
     writeFile?: WriteFileFn;
   } = {},
 ): Promise<boolean> {
-  const platform = opts.platform ?? process.platform;
+  const platform = opts.platform ?? hostPlatform();
   if (platform === "win32") {
     const write = opts.writeFile ?? ((p: string, d: string) => writeFile(p, d, "utf8"));
     return write(`${path}:Zone.Identifier`, zoneIdentifier(opts.source)).then(
@@ -185,7 +186,8 @@ export function setQuarantineAttribute(
       () => false,
     );
   }
-  if (platform !== "darwin") return Promise.resolve(false);
+  // Linux and the rest have no download mark: nothing to write.
+  if (!traitsFor(platform).quarantine) return Promise.resolve(false);
   const run = opts.execFile ?? defaultExecFile;
   const value = quarantineAttributeValue((opts.now ?? Date.now)());
   return new Promise((done) => {

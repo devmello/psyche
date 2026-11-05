@@ -15,6 +15,7 @@ import { ensureOwnerOnly } from "@psyche/hostfs";
  *   packaged builds register the bundled Gateway with the OS so it runs at login and is kept
  *   alive, start it and wait for `/healthz`. Plain quit leaves it running; "Quit Psyche entirely"
  *   uninstalls it.
+ * - `systemd` (Linux, `platform/systemd-supervisor.ts`): a `systemd --user` unit, same job.
  * - `external`: never start anything (tests, a Gateway on another machine via SSH tunnel).
  * - `remote`: the active saved Gateway is on another computer (remote-gateway design §1.2). Like
  *   `external` it starts nothing and only reports whether the Gateway answers, and it also leaves
@@ -22,10 +23,16 @@ import { ensureOwnerOnly } from "@psyche/hostfs";
  *   stop the Gateway whose automations keep running here.
  */
 
-export type SupervisorMode = "dev" | "launchd" | "taskscheduler" | "external" | "remote";
+export type SupervisorMode =
+  | "dev"
+  | "launchd"
+  | "taskscheduler"
+  | "systemd"
+  | "external"
+  | "remote";
 
 /** The OS-registered modes: the Gateway outlives the app. */
-export type ServiceMode = "launchd" | "taskscheduler";
+export type ServiceMode = "launchd" | "taskscheduler" | "systemd";
 
 /** What `checkServerBuild` did: nothing to compare, same build, restarted the service, or gave up. */
 export type BuildCheck = "skipped" | "match" | "restarted" | "mismatch";
@@ -45,9 +52,10 @@ export type GatewayRunState =
       restoreInterrupted?: boolean;
     };
 
-/** The packaged mode for this OS: launchd on macOS, Task Scheduler on Windows. */
+/** The packaged mode for this OS: launchd on macOS, Task Scheduler on Windows, systemd on Linux. */
 export function serviceModeFor(platform: NodeJS.Platform): ServiceMode {
-  return platform === "win32" ? "taskscheduler" : "launchd";
+  if (platform === "win32") return "taskscheduler";
+  return platform === "linux" ? "systemd" : "launchd";
 }
 
 export function chooseMode(
@@ -58,7 +66,7 @@ export function chooseMode(
   const forced = env.PSYCHE_GATEWAY_MODE;
   if (forced === "dev" || forced === "external") return forced;
   // A forced service mode only counts on its own OS: launchd on Windows would never start.
-  if (forced === "launchd" || forced === "taskscheduler")
+  if (forced === "launchd" || forced === "taskscheduler" || forced === "systemd")
     return forced === serviceModeFor(platform) ? forced : serviceModeFor(platform);
   return isPackaged ? serviceModeFor(platform) : "dev";
 }
