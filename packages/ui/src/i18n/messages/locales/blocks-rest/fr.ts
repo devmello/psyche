@@ -137,9 +137,22 @@ export const blocksRest: Partial<Catalogue> = {
     "Les approbations par Touch ID depuis cette fenêtre ne valent qu’une fois.",
   "blocks.approval.status.allowedOnceTouchId":
     "Autorisé une fois (les approbations par Touch ID depuis cette fenêtre ne valent qu’une fois)",
+  "blocks.approval.touchId.keyUntrusted":
+    "La clé Touch ID de l’assistant Psyche dans le trousseau n’a pas pu être prouvée comme la sienne, elle n’a donc pas été utilisée. Ouvrez Réglages → Appareils pour voir quoi faire.",
+  "blocks.approval.touchId.keyAccessDenied":
+    "macOS n’a pas autorisé l’assistant Psyche à utiliser sa clé Touch ID. Réessayez et choisissez Toujours autoriser seulement si la fenêtre nomme psyche-helper.",
+  "blocks.approval.touchId.keyChanged":
+    "La clé Touch ID a changé pendant l’exécution de l’assistant Psyche. Quittez l’assistant Psyche et relancez-le.",
+  "blocks.approval.touchId.keyWrongLocation":
+    "Psyche s’exécute depuis un endroit où sa clé Touch ID ne peut pas être conservée (image disque, Téléchargements ou autre dossier). Déplacez Psyche dans Applications et ouvrez-le depuis là.",
+  "blocks.approval.touchId.keyLocked":
+    "Le trousseau ne peut pas demander l’autorisation pour le moment. Déverrouillez le Mac et réessayez.",
+  "blocks.approval.touchId.keyAclUnavailable":
+    "Le trousseau n’a pas conservé la liste d’accès de la clé Touch ID sur ce Mac. Relancez l’assistant Psyche pour réessayer.",
   "blocks.approval.touchId.keyUnavailable":
     "Cette version de Psyche Helper ne peut pas conserver de clé Touch ID (elle n’a pas de groupe d’accès au trousseau), les cartes qui exigent Touch ID ne peuvent donc pas être approuvées sur ce Mac.",
   "blocks.approval.touchId.cancelled": "Touch ID a été annulé, rien n’a donc été approuvé",
+  "blocks.approval.touchId.restartHelper": "Relancer l’assistant Psyche",
   "blocks.approval.touchId.startHelper": "Démarrer Psyche Helper",
   "blocks.question.answerLine": "↳ {answer}",
   "blocks.sources.label": "Sources",

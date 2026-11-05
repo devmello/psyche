@@ -135,9 +135,22 @@ export const blocksA: Partial<Catalogue> = {
   "blocks.approval.touchId.onceOnly": "As aprovações com Touch ID desta janela valem só uma vez.",
   "blocks.approval.status.allowedOnceTouchId":
     "Permitido uma vez (as aprovações com Touch ID desta janela valem só uma vez)",
+  "blocks.approval.touchId.keyUntrusted":
+    "A chave do Touch ID do auxiliar do Psyche no chaveiro não pôde ser comprovada como dele e não foi usada. Abra Ajustes → Dispositivos para ver o que fazer.",
+  "blocks.approval.touchId.keyAccessDenied":
+    "O macOS não permitiu que o auxiliar do Psyche usasse sua chave do Touch ID. Tente de novo e escolha Sempre permitir somente se a janela citar psyche-helper.",
+  "blocks.approval.touchId.keyChanged":
+    "A chave do Touch ID mudou enquanto o auxiliar do Psyche estava em execução. Feche o auxiliar do Psyche e inicie-o de novo.",
+  "blocks.approval.touchId.keyWrongLocation":
+    "O Psyche está rodando de um lugar onde sua chave do Touch ID não pode ser mantida (imagem de disco, Downloads ou outra pasta). Mova o Psyche para Aplicativos e abra-o de lá.",
+  "blocks.approval.touchId.keyLocked":
+    "O chaveiro não pode pedir permissão agora. Desbloqueie o Mac e tente de novo.",
+  "blocks.approval.touchId.keyAclUnavailable":
+    "O chaveiro não manteve a lista de acesso da chave do Touch ID neste Mac. Reinicie o auxiliar do Psyche para tentar de novo.",
   "blocks.approval.touchId.keyUnavailable":
     "Esta versão do Psyche Helper não consegue guardar uma chave do Touch ID (não tem grupo de acesso ao chaveiro), então os cartões que exigem Touch ID não podem ser aprovados neste Mac.",
   "blocks.approval.touchId.cancelled": "O Touch ID foi cancelado, então nada foi aprovado",
+  "blocks.approval.touchId.restartHelper": "Reiniciar o auxiliar do Psyche",
   "blocks.approval.touchId.startHelper": "Iniciar o Psyche Helper",
   "blocks.question.answerLine": "↳ {answer}",
   "blocks.sources.label": "Fontes",

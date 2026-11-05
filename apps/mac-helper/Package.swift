@@ -6,9 +6,9 @@ import PackageDescription
 // SwiftPM builds the executable only; .app bundling, Info.plist, entitlements and signing are S14's
 // (placeholders live in Support/).
 
-// The Secure Enclave file-key fallback for builds without a provisioning profile (security §10) is
-// for development only: the release workflow sets PSYCHE_PUBLIC_RELEASE=1, which leaves it out.
-// RELEASE BLOCKER (docs/08-roadmap.md v1.0): a provisioned keychain key replaces it before release.
+// The Secure Enclave plain-file key (security §10) is for development only: the release workflow
+// sets PSYCHE_PUBLIC_RELEASE=1, which leaves it out. Releases use the login-keychain ACL key
+// (`enclave_keychain_acl`), which needs no provisioning profile.
 let publicRelease = ProcessInfo.processInfo.environment["PSYCHE_PUBLIC_RELEASE"] == "1"
 let presenceSettings: [SwiftSetting] = publicRelease ? [] : [.define("PSYCHE_PRESENCE_FILE_FALLBACK")]
 

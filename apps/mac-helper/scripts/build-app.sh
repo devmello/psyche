@@ -19,8 +19,8 @@
 #                          default: next to the bundle, "<bundle>.dSYM", outside the app so it does not ship)
 #   PSYCHE_HELPER_STRIP    full (default: strip), x (strip -x, keeps global symbols) or none
 #   PSYCHE_PUBLIC_RELEASE  1 for a public release: builds without the development-only Secure Enclave
-#                          file-key fallback (Package.swift, security §10); a build without a
-#                          provisioning profile then has no Touch ID key at all
+#                          plain-file key (Package.swift, security §10); a build without a
+#                          provisioning profile still has the login-keychain ACL Touch ID key
 #   --install              copy the bundle to ~/Applications/Psyche Helper.app. TCC grants key on the
 #                          signature, bundle id and path: keep using one fixed path.
 set -eu
@@ -57,8 +57,8 @@ swift build --package-path "$HERE" -c "$CONFIG" $ARCH_ARGS --product psyche-help
 # shellcheck disable=SC2086
 BIN="$(swift build --package-path "$HERE" -c "$CONFIG" $ARCH_ARGS --show-bin-path)/psyche-helper"
 
-# A public release must not contain the development Secure Enclave file-key fallback (security
-# §10). SwiftPM may reuse a manifest evaluated without PSYCHE_PUBLIC_RELEASE, so check the binary.
+# A public release must not contain the development Secure Enclave plain-file key (security §10);
+# the login-keychain ACL key (enclave_keychain_acl) is in every build. SwiftPM may reuse a manifest evaluated without PSYCHE_PUBLIC_RELEASE, so check the binary.
 if [ "${PSYCHE_PUBLIC_RELEASE:-}" = "1" ]; then
   if ! "$BIN" --build-info | grep -q '"presenceFileFallback":false'; then
     echo "error: PSYCHE_PUBLIC_RELEASE=1 but the helper still has the file-key fallback; clean .build and rebuild" >&2

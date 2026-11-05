@@ -12944,6 +12944,7 @@ public enum PresenceKeyAlgorithm: String, Codable, Sendable {
 
 public enum PresenceKeyInfoKind: String, Codable, Sendable {
     case enclaveFile = "enclave_file"
+    case enclaveKeychainACL = "enclave_keychain_acl"
     case keychain = "keychain"
     case windowsHello = "windows_hello"
 }
@@ -12951,17 +12952,20 @@ public enum PresenceKeyInfoKind: String, Codable, Sendable {
 // MARK: - DevicesPresenceKeyRegisterParams
 public struct DevicesPresenceKeyRegisterParams: Codable, Sendable {
     public let approvalID: String?
+    public let confirmReplacesKeyID: String?
     public let deviceID: String
     public let expectKeyID: String
 
     public enum CodingKeys: String, CodingKey {
         case approvalID = "approvalId"
+        case confirmReplacesKeyID = "confirmReplacesKeyId"
         case deviceID = "deviceId"
         case expectKeyID = "expectKeyId"
     }
 
-    public init(approvalID: String? = nil, deviceID: String, expectKeyID: String) {
+    public init(approvalID: String? = nil, confirmReplacesKeyID: String? = nil, deviceID: String, expectKeyID: String) {
         self.approvalID = approvalID
+        self.confirmReplacesKeyID = confirmReplacesKeyID
         self.deviceID = deviceID
         self.expectKeyID = expectKeyID
     }

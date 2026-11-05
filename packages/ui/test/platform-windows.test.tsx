@@ -109,6 +109,23 @@ describe("Windows copy (i18n/messages/variants/windows.ts)", () => {
  * renders. Everything else that names a Mac needs a Windows variant.
  */
 const ABOUT_MACOS = new Set<string>([
+  // The Mac helper's Touch ID key in the login keychain (states only a mac-helper key reaches).
+  "blocks.approval.touchId.keyUntrusted",
+  "blocks.approval.touchId.keyAccessDenied",
+  "blocks.approval.touchId.keyChanged",
+  "blocks.approval.touchId.keyWrongLocation",
+  "blocks.approval.touchId.keyLocked",
+  "blocks.approval.touchId.keyAclUnavailable",
+  "settings.devices.presenceKey.enclaveKeychainAcl",
+  "settings.devices.touchId.untrusted",
+  "settings.devices.touchId.accessDenied",
+  "settings.devices.touchId.wrongLocation",
+  "settings.devices.touchId.confirmReplace",
+  "settings.devices.touchId.interactionNotAllowed",
+  "settings.devices.touchId.changed",
+  "settings.devices.touchId.aclUnavailable",
+  // The macOS bundle integrity check at start-up (main.ts runs it on macOS only).
+  "app.integrity.detail",
   // iMessage / SMS channel: Apple vouches for iMessage senders.
   "blocks.message.weak",
   // Rendered on macOS only (MapLibre's Mac help text; the ⌘L keycap behind isMac()).
@@ -159,7 +176,8 @@ const ABOUT_MACOS = new Set<string>([
  * Mac wording whose Windows copy belongs to work in progress elsewhere; add an id here only
  * until its variant lands.
  */
-const PENDING_ELSEWHERE = new Set<string>([]);
+// Windows variants arrive with the teach-in-an-app port (merged right after this).
+const PENDING_ELSEWHERE = new Set<string>(["web.teach.app.recordHint", "web.teach.app.bar.body"]);
 
 const MAC_ONLY_TERMS =
   /\bMac(?:s|'s)?\b|macOS|Touch ID|[Kk]eychain|Finder|Safari|⌘|⌥|\bOption\b|\bDock\b|menu bar|System Settings|\bApple\b/;

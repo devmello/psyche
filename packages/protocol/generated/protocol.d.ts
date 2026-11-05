@@ -4185,12 +4185,13 @@ export interface PresenceKeyInfo {
 
 export type PresenceKeyAlgorithm = "p256-ecdsa-sha256" | "rsa-2048-pkcs1-sha256";
 
-export type PresenceKeyInfoKind = "keychain" | "enclave_file" | "windows_hello";
+export type PresenceKeyInfoKind = "keychain" | "enclave_keychain_acl" | "enclave_file" | "windows_hello";
 
 export interface DevicesPresenceKeyRegisterParams {
-    approvalId?: string;
-    deviceId:    string;
-    expectKeyId: string;
+    approvalId?:           string;
+    confirmReplacesKeyId?: string;
+    deviceId:              string;
+    expectKeyId:           string;
 }
 
 export interface DevicesPresenceKeyRegisterResult {

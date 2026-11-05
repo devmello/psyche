@@ -450,4 +450,9 @@ export const windows: Partial<Record<MessageId, string>> = {
   "platform.term.terminal": "Windows Terminal",
   "platform.term.alt": "Alt",
   "platform.term.mod": "Ctrl",
+  // Shared connector bundles: command connectors run in the sandbox PC on Windows.
+  "settings.connectorBundle.sandbox.none":
+    "This PC has no sandbox for command connectors (turn on the sandbox PC in Settings › Sandbox PC), and Psyche never runs one outside it. This connector cannot be installed here. Nothing was started or saved.",
+  "settings.connectorBundle.share.unavailable":
+    "Only Psyche on the PC that runs it can sign a connector.",
 };

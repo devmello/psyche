@@ -104,7 +104,7 @@ import type { HandlerDef } from "../context.ts";
 import type { PublicRoute, WebhookRoute } from "../http.ts";
 import { createLogger } from "../log.ts";
 import { personalizeMessageEvent } from "../message-scrub.ts";
-import { openGatewayDb, purgePreUpdateSnapshots } from "../pre-update.ts";
+import { openGatewayDb, purgePreUpdateSnapshots, releaseGatewayLock } from "../pre-update.ts";
 import { taskRunTrace } from "../run-trace/tasks.ts";
 import { type Gateway, type GatewayOptions, startGateway } from "../server.ts";
 import { BusySources, UpdateGate } from "../update-gate.ts";
@@ -2112,6 +2112,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       for (const p of router?.providers() ?? []) if (p instanceof CliAdapter) await p.close();
       await gateway.stop(reason);
       if (ownsDb) db.close();
+      // A stopped Gateway no longer uses the data folder. Letting go of its lock here (a real
+      // Gateway exits next, which releases it anyway) is what lets the folder be removed on
+      // Windows, where an open file pins its directory.
+      releaseGatewayLock(config.home);
     },
   };
 }

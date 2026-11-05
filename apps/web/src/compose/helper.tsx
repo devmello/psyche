@@ -70,8 +70,8 @@ type TouchIdFix = Parameters<NonNullable<UiSlots["touchIdFix"]>>[0];
  * checks the key id and registers the key. Neither approves anything.
  */
 export async function fixTouchId(platform: ShellPlatform, fix: TouchIdFix): Promise<void> {
-  if (fix === "start_helper") {
-    const state = await platform.helper?.launch?.();
+  if (fix === "start_helper" || fix === "restart_helper") {
+    const state = await platform.helper?.launch?.(fix === "restart_helper");
     if (state?.kind !== "paired") throw new Error(t("web.touchId.helperDidNotStart"));
     return;
   }

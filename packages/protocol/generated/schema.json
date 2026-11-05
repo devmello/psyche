@@ -17725,6 +17725,10 @@
           "maxLength": 64,
           "minLength": 1,
           "type": "string"
+        },
+        "confirmReplacesKeyId": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
         }
       },
       "required": [
@@ -33673,6 +33677,7 @@
         "kind": {
           "enum": [
             "keychain",
+            "enclave_keychain_acl",
             "enclave_file",
             "windows_hello"
           ],
