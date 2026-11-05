@@ -82,7 +82,7 @@ describe("approval.created carries the approver's own answer token (issue #50)",
     expect(answered).toMatchObject({ ok: true });
   });
 
-  it("treats the desktop app on Windows (platform windows) as the desktop surface, as on the Mac", async () => {
+  it("treats the desktop app on Windows and Linux as the desktop surface, as on the Mac", async () => {
     home = mkdtempSync(join(tmpdir(), "psyche-tokens-"));
     composed = await composeGateway({
       env: {},
@@ -106,7 +106,7 @@ describe("approval.created carries the approver's own answer token (issue #50)",
     const linux = await desktopClient(gw, newDeviceKey(), "desk-linux", "linux");
     clients.push(windows, linux);
     expect(surfaceOf(gw.context.db, "desk-windows")).toBe("desktop");
-    expect(surfaceOf(gw.context.db, "desk-linux")).toBe("device:linux");
+    expect(surfaceOf(gw.context.db, "desk-linux")).toBe("desktop");
 
     const res = await windows.request(
       "nodes.invoke",
@@ -123,9 +123,7 @@ describe("approval.created carries the approver's own answer token (issue #50)",
       );
     const token = ((await created(windows)).payload as { answerToken?: string }).answerToken;
     expect(token).toBeTruthy();
-    expect(
-      ((await created(linux)).payload as { answerToken?: string }).answerToken,
-    ).toBeUndefined();
+    expect(((await created(linux)).payload as { answerToken?: string }).answerToken).toBeTruthy();
     await new Promise((r) => setTimeout(r, 450)); // cards arm after 400 ms
     expect(
       await windows.request(
