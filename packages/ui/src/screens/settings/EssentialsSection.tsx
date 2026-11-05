@@ -3,6 +3,7 @@ import { type ReactElement, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { useCall, useGatewayQuery, useSearchSources } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
+import { isWindows } from "../../lib/platform.ts";
 import { usePersona, useSlots } from "../../slots.tsx";
 import { DAILY_DEFAULTS } from "./DailySection.tsx";
 import { modelLabel, providerInfoFromSummary, providersFromSettings } from "./ModelSection.tsx";
@@ -274,6 +275,8 @@ export function EssentialsSection({
     ready: provider?.status === "ok",
   };
   const sources = READ_SOURCES.flatMap((id) => {
+    // iMessage and Apple Notes exist only on a Mac (as in Search's own list).
+    if (isWindows() && (id === "messages" || id === "notes")) return [];
     const s = search.status?.sources.find((x) => x.id === id);
     return s === undefined ? [] : [{ id, label: s.label, enabled: s.enabled }];
   });
