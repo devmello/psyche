@@ -1,6 +1,10 @@
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { PCM_16K_MONO, pcmBytesFor } from "../src/audio.ts";
+import { encodeWav, PCM_16K_MONO, pcmBytesFor } from "../src/audio.ts";
 import {
+  audioCtxFor,
   cleanWhisperText,
   isEnglishOnlyModel,
   parseWhisperCliJson,
@@ -116,6 +120,73 @@ describe("whisper.cpp streaming (VAD-gated chunked inference)", () => {
     expect(backend.requests).toHaveLength(2);
   });
 
+  it("sizes the encoder to live utterances, without fallback, and keeps files on the full window", async () => {
+    const backend = new CountingBackend();
+    const engine = new WhisperEngine({ backend });
+    await collect(engine.transcribeStream(chunks(tonePcm([[2000, 0.3]]), 3200), PCM_16K_MONO));
+    expect(backend.requests.length).toBeGreaterThan(1);
+    for (const r of backend.requests) {
+      expect(r.audioCtx).toBe(audioCtxFor(r.pcm.byteLength));
+      expect(r.noFallback).toBe(true);
+    }
+    backend.requests.length = 0;
+    await engine.transcribeFile(tonePcm([[2000, 0.3]]), PCM_16K_MONO);
+    expect(backend.requests.every((r) => r.audioCtx === undefined && !r.noFallback)).toBe(true);
+    // 50 encoder frames a second plus head room, in steps of 64, within whisper's 1500.
+    expect(audioCtxFor(0)).toBe(256);
+    expect(audioCtxFor(32_000 * 3)).toBe(320);
+    expect(audioCtxFor(32_000 * 10)).toBe(640);
+    expect(audioCtxFor(32_000 * 60)).toBe(1500);
+  });
+
+  it("runs a final again on the full window when the fitted encoder heard only punctuation", async () => {
+    const requests: WhisperRequest[] = [];
+    const backend: WhisperBackend = {
+      name: "flaky",
+      available: async () => true,
+      transcribe: async (req) => {
+        requests.push(req);
+        return [{ text: req.audioCtx === undefined ? "call Alice" : "-", startMs: 0, endMs: 1 }];
+      },
+    };
+    const engine = new WhisperEngine({ backend, stream: { partialIntervalMs: 0 } });
+    const segs = await collect(
+      engine.transcribeStream(chunks(tonePcm([[1200, 0.3]]), 3200), PCM_16K_MONO),
+    );
+    expect(segs.map((s) => [s.text, s.final])).toEqual([["call Alice", true]]);
+    expect(requests.map((r) => r.audioCtx === undefined)).toEqual([false, true]);
+  });
+
+  it("transcribes a PCM WAV recording from disk in chunks, with progress", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "psyche-wpath-"));
+    try {
+      const wav = join(dir, "meeting.wav");
+      const pcm = tonePcm([
+        [1000, 0.3],
+        [1200, 0],
+        [900, 0.3],
+      ]);
+      writeFileSync(wav, encodeWav(pcm, PCM_16K_MONO));
+      const backend = new CountingBackend();
+      const engine = new WhisperEngine({ backend, englishOnly: true });
+      const progress: number[] = [];
+      const t = await engine.transcribePath(wav, { onProgress: (p) => progress.push(p.fraction) });
+      expect(t.segments).toHaveLength(2);
+      expect(t.audioMs).toBe(3100);
+      expect(t.engine).toBe("whisper.cpp (counting)");
+      expect(progress.at(-1)).toBe(1);
+      expect(backend.requests.every((r) => r.audioCtx === undefined)).toBe(true);
+      // Not a WAV: refused, so the caller falls back to an engine that decodes it.
+      writeFileSync(join(dir, "x.m4a"), "not audio");
+      await expect(engine.transcribePath(join(dir, "x.m4a"))).rejects.toMatchObject({
+        details: { reason: "not_wav" },
+      });
+      await expect(engine.transcribePath(wav, { maxDurationMs: 1000 })).rejects.toThrow(/longer/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("rejects non-PCM streams and needs a decoder for compressed files", async () => {
     const engine = new WhisperEngine({ backend: new CountingBackend() });
     expect(() =>
@@ -204,6 +275,27 @@ describe("whisper-cli backend", () => {
 });
 
 describe("whisper-server backend", () => {
+  it("keeps the --request-path prefix (the Gateway's secret path) on every route", async () => {
+    const urls: string[] = [];
+    const backend = new WhisperServerBackend({
+      baseUrl: "http://127.0.0.1:8178/psyche-abc/",
+      fetch: async (url, init) => {
+        urls.push(String(url));
+        if (init?.body instanceof FormData) {
+          expect(init.body.get("audio_ctx")).toBe("320");
+          expect(init.body.get("temperature_inc")).toBe("0");
+        }
+        return Response.json({ segments: [] });
+      },
+    });
+    await backend.available();
+    await backend.transcribe({ pcm: new Uint8Array(320), audioCtx: 320, noFallback: true });
+    expect(urls).toEqual([
+      "http://127.0.0.1:8178/psyche-abc/health",
+      "http://127.0.0.1:8178/psyche-abc/inference",
+    ]);
+  });
+
   it("refuses a non-loopback server", () => {
     expect(() => new WhisperServerBackend({ baseUrl: "http://10.0.0.5:8080" })).toThrow(/loopback/);
   });

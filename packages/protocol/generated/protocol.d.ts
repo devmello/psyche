@@ -10623,6 +10623,93 @@ export type ModelClassEnum = "utility" | "primary" | "harness" | "vision";
 
 export type SpecialistResultKind = "findings" | "draft" | "changes" | "plan" | "items";
 
+export interface SpeechEngineDownloadResult {
+    /**
+     * False when a download runs or nothing is missing
+     */
+    started: boolean;
+}
+
+export interface SpeechEngineStatus {
+    active?: null | string;
+    /**
+     * Every engine in order for desktop dictation; the first eligible is used
+     */
+    dictation: SpeechEngineEntryStatus[];
+    /**
+     * speech.stt.order in effect
+     */
+    order:    string[];
+    whisper?: SpeechWhisperSetup | null;
+}
+
+export interface SpeechEngineEntryStatus {
+    eligible: boolean;
+    /**
+     * mac-node (the Host's helper), whisper, web-speech
+     */
+    id:       string;
+    location: SpeechEngineLocation;
+    reason?:  SpeechEngineEntryStatusReason;
+}
+
+export type SpeechEngineLocation = "node" | "gateway" | "client" | "cloud";
+
+export type SpeechEngineEntryStatusReason = "unknown" | "unsupported" | "client_only" | "unavailable";
+
+export interface SpeechWhisperSetup {
+    /**
+     * What a download fetches now
+     */
+    downloadBytes: number;
+    /**
+     * The last download's failure
+     */
+    error?:         string;
+    model:          SpeechWhisperModel;
+    receivedBytes?: number;
+    runtime:        SpeechWhisperRuntime;
+    server:         SpeechWhisperServerState;
+    /**
+     * vcredist_missing, crash_loop, crashed, start_timeout, …
+     */
+    serverError?: string;
+    state:        SpeechWhisperSetupState;
+    totalBytes?:  number;
+}
+
+export interface SpeechWhisperModel {
+    description?: string;
+    id:           string;
+    present:      boolean;
+    sizeBytes:    number;
+}
+
+export interface SpeechWhisperRuntime {
+    id:      string;
+    present: boolean;
+    /**
+     * whisper.cpp release tag
+     */
+    release:   string;
+    sizeBytes: number;
+}
+
+export type SpeechWhisperServerState = "stopped" | "starting" | "running" | "stopping";
+
+export type SpeechWhisperSetupState = "missing" | "downloading" | "ready" | "error";
+
+export interface SpeechModelDownloadPayload {
+    error?:        string;
+    fraction:      number;
+    model:         string;
+    phase:         SpeechModelDownloadPayloadPhase;
+    receivedBytes: number;
+    totalBytes:    number;
+}
+
+export type SpeechModelDownloadPayloadPhase = "started" | "progress" | "finished" | "failed";
+
 export interface SpeechProgressEvent {
     /**
      * Chunks finished
@@ -12258,8 +12345,6 @@ export interface VoiceStartResult {
     location:  SpeechEngineLocation;
     sessionId: null | string;
 }
-
-export type SpeechEngineLocation = "node" | "gateway" | "client" | "cloud";
 
 export interface VoiceStopParams {
     sessionId: string;

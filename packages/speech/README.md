@@ -32,6 +32,21 @@ Transcription order (setting `speech.stt.order`, default `["mac-node", "whisper"
 
 Each engine has a cheap `available()` probe (binary and model present, node online, key configured); a throwing probe counts as unavailable. `select()` rejects `unavailable` (retryable) with the reason per engine.
 
+**Windows** (`defaultSpeechSettings("win32")`): `["whisper", "mac-node", "web-speech"]`. `mac-node` is the Host's helper on every OS, which on Windows is SAPI 5.4; whisper.cpp transcribes much better, so it comes first once installed and selection falls through to SAPI until then. The owner's `speech.stt.order` (an `operator.admin` setting) overrides the default on any OS and applies on the next selection; the Gateway reads it with `parseSttOrder`.
+
+### whisper.cpp on Windows (`runtime.ts`, `engines/whisper-server-process.ts`, `whisper-setup.ts`)
+
+| Piece | What it does |
+| --- | --- |
+| `WHISPER_RUNTIME_CATALOG`, `WhisperRuntime` | The official whisper.cpp release `b5454` (v1.9.5) CPU builds for win32 x64 (8.9 MB zip) and arm64 (4.4 MB), pinned to the GitHub URL, size and SHA-256. Downloaded through `ModelManager` into `$PSYCHE_HOME\speech\bin`, then only `whisper-server.exe` and its DLLs are extracted (Windows' `tar.exe`), each checked against its own pinned size and SHA-256 before the directory is renamed into place; the zip is deleted. x64 ships every `ggml-cpu-*` variant (SSE4.2 … AVX-512), ~12 MB on disk |
+| `WhisperServerProcess` | The Gateway's `whisper-server`: started on demand (`warm()` at `voice.start`), `127.0.0.1` on a free port, every route under a 128-bit `--request-path` token, `--public` pointing at an empty folder, `windowsHide`, a minimal environment; stopped after 5 min idle; an unasked exit is logged and the next request starts it again (one in-flight request is retried); three crashes in a minute pause retries for a minute; a pid file lets the next Gateway stop a server an earlier one left behind. Exit `0xC0000135` reports `vcredist_missing` |
+| `ManagedWhisperServerBackend` | `WhisperBackend` over the process; `available()` only checks that the runtime and model files are there |
+| `WhisperInstaller` | The owner's one click: status (what is missing and its size), the download of runtime + model with `speech.model_download` events (`started`, `progress` ≤ 4/s, `finished`, `failed`) |
+
+Live dictation sizes whisper's encoder to the utterance (`audioCtxFor`: 50 frames/s plus 2.5 s head room, multiples of 64) and skips the temperature fallback; a final that comes back as punctuation only runs again on the full window. Files and recordings always use the full 30 s window with fallback. `WhisperEngine.transcribePath` reads long PCM WAV recordings (meetings) from disk in chunks; the Gateway uses it for recordings when whisper comes first in the order, else the helper's `speech.transcribe_file`.
+
+GPU: the release's CUDA builds are 285–685 MB and there is no Vulkan build for Windows, so only the CPU build is provisioned. The DLLs link the Visual C++ 2015–2022 runtime (MSVCP140, VCRUNTIME140(_1), VCOMP140).
+
 ## Custom vocabulary (Q1, spike 03)
 
 Spike 03 measured `DictationTranscriber` with contextual strings at 3.0–3.4 % WER against 6.5 % without them, and 4/4 on the agent's name; the helper picks that engine only when the stream carries a vocabulary. `DictationVocabularyProvider` therefore builds the session default that `VoiceSessionManager` and `VoiceMemoService` pass on every `voice.start` (and the Gateway hands to the helper as `speech.transcribe_stream.vocabulary`, to whisper.cpp as `--prompt`):
@@ -77,7 +92,7 @@ Measured on an Apple M5 (16 GB, macOS 27.0.1) on 2026-10-19 unless marked otherw
 | Need | How | Why not bundled |
 | --- | --- | --- |
 | `ffmpeg`, `ffprobe` with libopus + libmp3lame | `brew install ffmpeg`, `apt install ffmpeg` (Debian trixie ships 7.1) | Static and Homebrew builds are GPL; running a separate binary is fine, shipping one is the packager's decision |
-| `whisper-cli` (whisper.cpp ≥ 1.9) | `brew install whisper-cpp`, or `cmake -B build && cmake --build build` | Native; `whisper-server` is not in the Homebrew formula (build it from source for the server backend) |
+| `whisper-cli` (whisper.cpp ≥ 1.9) | `brew install whisper-cpp`, or `cmake -B build && cmake --build build` | Native; `whisper-server` is not in the Homebrew formula (build it from source for the server backend). On Windows the Gateway provisions `whisper-server` itself (above) |
 
 All binaries run through a `ProcessRunner` with an argv array and a minimal environment (`PATH`, `HOME`, `LANG`, `TMPDIR`); the Gateway can wrap it (`srt` on macOS via `prefix`, the sandbox on Linux) because inbound audio is untrusted input to a large C decoder.
 
@@ -122,6 +137,7 @@ Inbound channel voice notes (N11/Q4 round trip) reach the same path: the adapter
 | Suite | Gate | Covers |
 | --- | --- | --- |
 | whisper.cpp on the fixture clip | `whisper-cli` on PATH (or `PSYCHE_WHISPER_CLI`) and a model at `PSYCHE_WHISPER_MODEL` (default `$PSYCHE_HOME/models/whisper/ggml-tiny.en.bin`) | File and streaming transcription of `test/fixtures/remind-alice.wav` |
+| whisper.cpp on Windows (`test/whisper-live-windows.test.ts`) | win32, the release zip at `PSYCHE_WHISPER_RUNTIME_ZIP` and a model at `PSYCHE_WHISPER_MODEL` (default `$PSYCHE_HOME/models/whisper/ggml-base.en.bin`) | Installs the pinned runtime from the zip (real hashes, real `tar.exe`), then file, on-disk WAV and real-time streaming transcription with timings |
 | Transcoding matrix | `ffmpeg` and `ffprobe` with libopus and libmp3lame | 4 PCM input formats × 6 channels verified with ffprobe, decode round trip, CAF remux |
 | OGG/Opus voice memo | same ffmpeg gate | `test/memo.test.ts`: the fixture encoded for Telegram, ingested as an untrusted channel memo |
 

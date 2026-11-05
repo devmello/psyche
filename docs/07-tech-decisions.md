@@ -126,6 +126,8 @@ Status: draft v0.1 (2026-10-18). Each record states the decision, the alternativ
 
 **Evidence.** SpeechAnalyzer has no one-minute limit and system-managed models; FluidAudio Parakeet ~0.19 s latency on ANE; Personal Voice carries non-commercial SLA language.
 
+**Windows (2026-11).** whisper.cpp on the Gateway host, ahead of the Windows helper's SAPI 5.4 once the owner downloads it (default `speech.stt.order` on win32: `whisper`, `mac-node`, `web-speech`; the Mac default is unchanged). The Gateway provisions the official whisper.cpp release (`b5454`, CPU build, 8.9 MB zip pinned by SHA-256, members pinned by size and SHA-256) into `$PSYCHE_HOME\speech\bin` together with `base.en` (148 MB) in one owner action, and owns a loopback `whisper-server` (random port, secret `--request-path`, started on demand, stopped when idle). Not linked into the Rust helper (`whisper-rs`): that needs cmake and libclang in the helper build, duplicates the VAD/partials pipeline the TypeScript engine already has, and would keep ~390 MB of model resident in an always-on process. Windows online speech stays opt-in only.
+
 ## ADR-015 — Protocol and codegen
 
 **Decision.** TypeBox schemas → JSON Schema → generated TypeScript and Swift types; WS frames `req/res/event` with `seq`/`stateVersion`; device pairing with signed challenges; scoped tokens; no gateway-URL parameters accepted by the UI; WebSocket origin validation.
