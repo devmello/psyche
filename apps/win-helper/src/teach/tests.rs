@@ -545,6 +545,23 @@ async fn live_records_an_owned_window_and_ignores_injected_input() {
         eprintln!("skipped: the screen is dimmed by a system prompt");
         return;
     }
+    // Computer use reads its tiers from `%PSYCHE_HOME%\config\computer-use.json` once per process:
+    // point it at a home of this test's (the Gateway's default, "ask", so the approval below is
+    // what lets the click through), never the owner's own settings (which may say "off").
+    let home = std::env::temp_dir().join(format!("psyche-teach-live-{}", std::process::id()));
+    std::fs::create_dir_all(home.join("config")).unwrap();
+    std::fs::write(
+        home.join("config").join("computer-use.json"),
+        r#"{"version":1,"default":"ask","apps":{}}"#,
+    )
+    .unwrap();
+    // SAFETY: set before computer use first reads it; the live tests run one at a time.
+    unsafe { std::env::set_var("PSYCHE_HOME", &home) };
+    assert_eq!(
+        wc::tiers::TierSettings::path(),
+        home.join("config").join("computer-use.json"),
+        "computer use reads this test's settings"
+    );
     let name = format!("Psyche teach live {}", std::process::id());
     let child = std::process::Command::new(std::env::current_exe().unwrap())
         .args([
@@ -679,6 +696,7 @@ async fn live_records_an_owned_window_and_ignores_injected_input() {
 
     // Cleanup: close our window and end its process.
     drop(guard);
+    let _ = std::fs::remove_dir_all(&home);
     assert!(
         !apps::top_windows().iter().any(|w| w.pid == host_pid),
         "the test window was closed"
