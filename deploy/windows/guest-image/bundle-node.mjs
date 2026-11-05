@@ -1,8 +1,9 @@
 // Bundles apps/node into one ESM file for the Windows guest image (Node 24 runs it directly;
 // there is no node_modules in the guest). Usage: node bundle-node.mjs <outfile>
-import { build } from "esbuild";
+
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { build } from "esbuild";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const out = resolve(process.argv[2] ?? "deploy/windows/guest-image/out/work/psyche-node.mjs");

@@ -79,7 +79,13 @@ const manifest = {
     // Disks are found by ext4 label, not by LUN: attach order does not matter.
     disks: [
       { role: "rootfs", file: "rootfs.vhdx", label: "psyche-root", readOnly: true, bus: "scsi" },
-      { role: "sessiondata", file: "sessiondata.vhdx", label: "psyche-data", readOnly: false, bus: "scsi" },
+      {
+        role: "sessiondata",
+        file: "sessiondata.vhdx",
+        label: "psyche-data",
+        readOnly: false,
+        bus: "scsi",
+      },
     ],
     console: "ttyS0 (HCS COM port 1)",
   },
@@ -112,7 +118,8 @@ const manifest = {
   node: { package: nodePkg.name, version: nodePkg.version, bundleSha256: bundle },
   licenses: {
     kernel: "GPL-2.0-only",
-    userland: "Debian packages under their own licenses; see packages.tsv and README.md (source offer)",
+    userland:
+      "Debian packages under their own licenses; see packages.tsv and README.md (source offer)",
     psyche: "Apache-2.0",
   },
 };
