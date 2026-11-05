@@ -15,6 +15,7 @@ pub mod health;
 pub mod keychain;
 pub mod notify;
 pub mod ocr;
+pub mod outlook;
 pub mod permissions;
 pub mod presence;
 

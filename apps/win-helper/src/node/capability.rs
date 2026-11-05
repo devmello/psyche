@@ -29,6 +29,7 @@ pub enum ErrorCode {
     PolicyDenied,
     Internal,
     PresenceRequired,
+    BindingMismatch,
 }
 
 impl ErrorCode {
@@ -47,6 +48,7 @@ impl ErrorCode {
             ErrorCode::PolicyDenied => "policy_denied",
             ErrorCode::Internal => "internal",
             ErrorCode::PresenceRequired => "presence_required",
+            ErrorCode::BindingMismatch => "binding_mismatch",
         }
     }
 }
