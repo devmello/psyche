@@ -1,5 +1,5 @@
 import { appCap } from "@psyche/permissions/apps";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, renderHook, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { IntlMessageFormat } from "intl-messageformat";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -12,7 +12,7 @@ import {
 import { createI18n, setActiveI18n, t } from "../src/i18n/core.ts";
 import { en, type MessageId } from "../src/i18n/messages/index.ts";
 import { windows } from "../src/i18n/messages/variants/windows.ts";
-import { chordLabel, keysLabel, parseChord } from "../src/lib/keys.ts";
+import { chordLabel, isAltGraphText, keysLabel, parseChord } from "../src/lib/keys.ts";
 import { normalizePlatform, setUiPlatform, uiPlatform } from "../src/lib/platform.ts";
 import { platformTerm } from "../src/lib/platform-copy.ts";
 import { ConnectorsStep } from "../src/screens/onboarding/OnboardingSteps.tsx";
@@ -26,7 +26,7 @@ import { offeredCatalog } from "../src/screens/settings/connector-catalog.tsx";
 import { DevicesPanel } from "../src/screens/settings/DevicesSection.tsx";
 import { MacHelperStatusRow } from "../src/screens/settings/MacHelperStatus.tsx";
 import { presenceKeyText } from "../src/screens/settings/TouchIdKeySetup.tsx";
-import { SHORTCUTS } from "../src/shell/shortcuts.ts";
+import { SHORTCUTS, useShortcuts } from "../src/shell/shortcuts.ts";
 
 afterEach(() => {
   setUiPlatform(undefined);
@@ -216,6 +216,46 @@ describe("Windows shortcuts", () => {
     expect(keys.compactSidebar).toBe("Ctrl+Alt+B");
     expect(keys.cycleThreads).toBe("Ctrl+Tab");
     expect(Object.values(keys).join(" ")).not.toMatch(/[⌘⌥⌃⇧]/);
+  });
+
+  it("reads AltGr typing as text, never as a Ctrl+Alt shortcut", () => {
+    const e = (key: string, code: string, altGraph?: boolean) => ({
+      key,
+      code,
+      ctrlKey: true,
+      altKey: true,
+      ...(altGraph === undefined
+        ? {}
+        : { getModifierState: (k: string) => k === "AltGraph" && altGraph }),
+    });
+    expect(isAltGraphText(e("\\", "Minus"), "windows")).toBe(true); // German AltGr+ß
+    expect(isAltGraphText(e("{", "KeyB"), "windows")).toBe(true); // Czech AltGr+B
+    expect(isAltGraphText(e("ł", "KeyL", true), "windows")).toBe(true); // Polish AltGr+L
+    expect(isAltGraphText(e("Dead", "BracketRight"), "windows")).toBe(true);
+    expect(isAltGraphText(e("b", "KeyB", false), "windows")).toBe(false);
+    expect(isAltGraphText(e("Escape", "Escape", true), "windows")).toBe(false);
+    expect(isAltGraphText(e("∫", "KeyB"), "macos")).toBe(false);
+    expect(
+      isAltGraphText({ key: "\\", code: "Backslash", ctrlKey: true, altKey: false }, "windows"),
+    ).toBe(false);
+  });
+
+  it("does not close the pane or open the terminal when AltGr types \\ or `", () => {
+    setUiPlatform("windows");
+    const closePane = vi.fn();
+    const terminalPane = vi.fn();
+    const shortcutList = vi.fn();
+    renderHook(() => useShortcuts({ closePane, terminalPane, shortcutList }));
+    const press = (init: KeyboardEventInit) =>
+      window.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, ...init }));
+    press({ key: "\\", code: "Minus", ctrlKey: true, altKey: true });
+    press({ key: "`", code: "Equal", ctrlKey: true, altKey: true });
+    press({ key: "/", code: "Digit7", ctrlKey: true, altKey: true });
+    expect(closePane).not.toHaveBeenCalled();
+    expect(terminalPane).not.toHaveBeenCalled();
+    expect(shortcutList).not.toHaveBeenCalled();
+    press({ key: "\\", code: "Backslash", ctrlKey: true });
+    expect(closePane).toHaveBeenCalledTimes(1);
   });
 });
 

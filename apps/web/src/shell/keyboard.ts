@@ -1,4 +1,5 @@
 import {
+  isAltGraphText,
   isWindows,
   type KeyChord,
   chordLabel as kitChordLabel,
@@ -283,6 +284,7 @@ export interface KeyEventLike {
   ctrlKey: boolean;
   shiftKey: boolean;
   altKey: boolean;
+  getModifierState?: (key: string) => boolean;
 }
 
 function keyOf(e: KeyEventLike): string {
@@ -301,6 +303,9 @@ export function matchShortcut(
   e: KeyEventLike,
   opts: { mac: boolean; inText?: boolean },
 ): ShortcutAction | null {
+  // AltGr typing on Windows reads as Ctrl+Alt: "{" (AltGr+B on a Czech keyboard) never toggles
+  // the sidebar (Ctrl+Alt+B), whatever the shortcut.
+  if (isAltGraphText(e, opts.mac ? "macos" : "other")) return null;
   const key = keyOf(e);
   for (const s of SHORTCUTS) {
     if (s.scope !== "app") continue;
