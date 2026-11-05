@@ -423,6 +423,16 @@ export const windows: Partial<Record<MessageId, string>> = {
   "web.teach.review.keepUnavailable":
     "Not available: Windows data protection is not available to encrypt a kept recording.",
   "web.teach.review.keepRecording": "Keep this recording on this PC so I can make another version",
+  "web.teach.app.recordHint":
+    "Show Psyche how to do something in a Windows app you already allowed",
+  "web.teach.app.startFailed":
+    "Psyche couldn't start recording that app. Open it first. Windows blocks recording an app that runs as administrator, so it has to run normally.",
+  "web.teach.app.bar.body":
+    "Psyche is noting your clicks, menu choices and typing in {app} only. Secure fields are never recorded, no screenshots are taken, and nothing leaves this PC until you save. The recording pill on your screen also has a Stop.",
+  "settings.connectorBundle.sandbox.none":
+    "This PC has no sandbox for command connectors, and Psyche never runs one outside it. This connector cannot be installed here. Nothing was started or saved.",
+  "settings.connectorBundle.share.unavailable":
+    "Only Psyche on the PC that runs it can sign a connector.",
   "voice.key.rightOption": "Right Alt",
   "voice.key.rightCommand": "Right Ctrl",
   "meetingRecord.unavailable":

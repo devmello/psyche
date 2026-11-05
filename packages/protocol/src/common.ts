@@ -26,6 +26,16 @@ TypeRegistry.Set("StringEnum", (schema: unknown, value: unknown) => {
 });
 
 /**
+ * An app identity in teach by showing: a macOS bundle id, or a Windows app as its helper names it,
+ * the lowercase executable (`notepad.exe`, `adobe premiere pro.exe`). One pattern for the wire
+ * schema, the Gateway, the desktop's IPC check and `sanitizeTeachSteps`.
+ */
+export const TEACH_APP_ID_PATTERN =
+  "^(?:[A-Za-z0-9-]+(?:\\.[A-Za-z0-9_-]+)+|[a-z0-9_][a-z0-9 _().-]*\\.exe)$";
+const TEACH_APP_ID = new RegExp(TEACH_APP_ID_PATTERN);
+export const isTeachAppId = (id: string): boolean => id.length <= 200 && TEACH_APP_ID.test(id);
+
+/**
  * An absolute path on the Host: POSIX (`/…`) or a Windows drive path (`C:\\…`, `C:/…`). The
  * Gateway still canonicalizes it and checks the folder grants; this only refuses relative paths.
  */

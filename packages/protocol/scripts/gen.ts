@@ -60,6 +60,7 @@ export const OUTPUT_FILES = {
     REPO_DIR,
     "packages/protocol-swift/Sources/PsycheProtocol/TeachNeverApps.generated.swift",
   ),
+  rustTeachNever: resolve(REPO_DIR, "apps/win-helper/src/teach/never_apps.generated.rs"),
 } as const;
 
 const SCHEMA_DIALECT = "https://json-schema.org/draft/2020-12/schema";
@@ -443,6 +444,16 @@ function teachNeverSwift(): string {
   );
 }
 
+/** The Windows helper's never-recorded list (executable names), from `TEACH_NEVER_APPS_WINDOWS`. */
+function teachNeverRust(): string {
+  const items = protocol.TEACH_NEVER_APPS_WINDOWS.map((a) => `    ${JSON.stringify(a)},`).join(
+    "\n",
+  );
+  return finish(
+    `${header("//")}\n//! Apps "Record in an app" never records on Windows (docs/design/teach-by-showing-2026.md §13.3).\n//! A trailing \`*\` is a prefix; otherwise the whole executable name, ignoring case.\n\npub const PATTERNS: &[&str] = &[\n${items}\n];\n`,
+  );
+}
+
 export async function generateAll(): Promise<Map<string, string>> {
   const doc = buildSchemaDocument();
   const swift = finish(`${header("//")}\n${postProcessSwift(await runQuicktype(doc, "swift"))}`);
@@ -453,6 +464,7 @@ export async function generateAll(): Promise<Map<string, string>> {
     [OUTPUT_FILES.swift, swift],
     [OUTPUT_FILES.swiftHelper, swift],
     [OUTPUT_FILES.swiftTeachNever, teachNeverSwift()],
+    [OUTPUT_FILES.rustTeachNever, teachNeverRust()],
   ]);
 }
 

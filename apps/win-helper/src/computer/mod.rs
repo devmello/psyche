@@ -89,6 +89,11 @@ pub(crate) fn error(e: &wc::CapError) -> CapabilityError {
 /// Registers one crate capability.
 pub(crate) fn add(reg: &mut CapabilityRegistry, s: &wc::CapSpecLite) {
     reg.add(spec(s), |ctx| async move {
+        // The owner is recording a demonstration: the agent does not drive the computer then
+        // (releasing a session lock stays allowed).
+        if ctx.capability != "computer.end_session" {
+            crate::teach::refuse_while_recording()?;
+        }
         let flag = Arc::new(AtomicBool::new(false));
         let cancel = flag.clone();
         let name = ctx.capability.clone();

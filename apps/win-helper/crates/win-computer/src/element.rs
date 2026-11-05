@@ -152,3 +152,156 @@ pub fn app_window_image(bundle_id: &str, max_w: u32, max_h: u32) -> Option<(Vec<
     let (data, mime, _, _) = com::pool().run(CAPTURE_TIMEOUT, move || capture::encode(&frame, sw, sh, false)).ok()?;
     Some((data, mime))
 }
+
+// MARK: - Teach by showing (phase 2): richer descriptions, scoped to one app
+
+/// One element as the app recorder needs it (the mac `LiveAppTeachSource.element`): role, titles,
+/// identifier, the labels around a field (judged for secret words, never kept), the titles of its
+/// ancestors and, only when the caller's policy said the field is not a secret, its value.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct TeachElement {
+    pub pid: u32,
+    /// AX role (`AXButton`, `AXTextField`, …) and subrole.
+    pub role: String,
+    pub subrole: Option<String>,
+    /// UIA Name (not the element's text for static text), HelpText, AutomationId, and the help
+    /// text of a field (its placeholder).
+    pub title: Option<String>,
+    pub description: Option<String>,
+    pub identifier: Option<String>,
+    pub placeholder: Option<String>,
+    /// The name of the element `LabeledBy` points at.
+    pub label_text: Option<String>,
+    /// `(role, title)` of the ancestors, outermost first, up to 12.
+    pub path: Vec<(String, String)>,
+    /// The window's title and the names of up to three text siblings just before a text field.
+    /// Read only to judge whether the field is a secret; never put in a step.
+    pub context: Vec<String>,
+    /// A password field has keyboard focus (the mac's Secure Event Input).
+    pub secure_focus: bool,
+    /// A menu item that opens a submenu (it is not a choice).
+    pub expandable: bool,
+    /// The field's value, set only when `TeachScope::read_value` allowed it.
+    pub value: Option<String>,
+}
+
+/// What a lookup may touch: the processes of one app, and the caller's decision whether a
+/// described field's value may be read (made before any value is kept).
+#[derive(Clone)]
+pub struct TeachScope {
+    pub owns: std::sync::Arc<dyn Fn(u32) -> bool + Send + Sync>,
+    pub read_value: fn(&TeachElement) -> bool,
+}
+
+const MAX_VALUE_CHARS: usize = 2000;
+const TEXT_ROLES: [&str; 4] = ["AXTextField", "AXTextArea", "AXComboBox", "AXSearchField"];
+/// Rows, cells and pop-up buttons hold the user's data: only their role is kept.
+const DATA_ROLES: [&str; 5] = ["AXRow", "AXCell", "AXOutlineRow", "AXStaticText", "AXPopUpButton"];
+
+fn teach_describe(u: &uia::Uia, e: windows::Win32::UI::Accessibility::IUIAutomationElement, scope: &TeachScope) -> Option<TeachElement> {
+    let node = uia::node_for(e.clone(), None, false, 0, 0);
+    let c = uia::compute(&node, false)?;
+    // Anything outside the recorded app yields nothing.
+    if !(scope.owns)(c.pid) {
+        return None;
+    }
+    let secure_focus = uia::keyboard_focus(u).1;
+    if DATA_ROLES.contains(&c.info.role.as_str()) {
+        return Some(TeachElement {
+            pid: c.pid,
+            role: c.info.role.clone(),
+            subrole: c.info.subrole.clone(),
+            secure_focus,
+            ..Default::default()
+        });
+    }
+    let text_input = TEXT_ROLES.contains(&c.info.role.as_str());
+    let mut out = TeachElement {
+        pid: c.pid,
+        role: c.info.role.clone(),
+        subrole: c.info.subrole.clone(),
+        title: c.info.title.clone(),
+        description: c.info.description.clone(),
+        identifier: c.info.identifier.clone(),
+        placeholder: c.info.placeholder.clone(),
+        label_text: c.info.title_element_value.clone(),
+        secure_focus,
+        expandable: c.facts.expand_collapse,
+        ..Default::default()
+    };
+    // Ancestors: role and title, outermost first.
+    let mut cur = e.clone();
+    let mut chain = Vec::new();
+    for _ in 0..12 {
+        let Ok(parent) = (unsafe { u.walker.GetParentElementBuildCache(&cur, &u.req_element) }) else { break };
+        let pn = uia::node_for(parent.clone(), None, false, 0, 0);
+        if let Some(pc) = uia::compute(&pn, false) {
+            if pc.pid == c.pid {
+                chain.push((pc.info.role.clone(), pc.info.title.clone().unwrap_or_default()));
+            }
+        }
+        cur = parent;
+    }
+    chain.reverse();
+    // The top-level window's title is the document's name: context for the secret-word check only.
+    let window_title = chain.iter().find(|(r, _)| r == "AXWindow").map(|(_, t)| t.clone()).filter(|t| !t.is_empty());
+    out.path = chain;
+    if text_input {
+        if let Some(w) = window_title {
+            out.context.push(w.chars().take(120).collect());
+        }
+        let mut sib = e.clone();
+        for _ in 0..3 {
+            let Ok(prev) = (unsafe { u.walker.GetPreviousSiblingElementBuildCache(&sib, &u.req_element) }) else { break };
+            let sn = uia::node_for(prev.clone(), None, false, 0, 0);
+            if let Some(sc) = uia::compute(&sn, false) {
+                let t = sc.info.title.clone().or(sc.info.value.clone()).unwrap_or_default();
+                if sc.info.role == "AXStaticText" && !t.is_empty() {
+                    out.context.push(t.chars().take(120).collect());
+                }
+            }
+            sib = prev;
+        }
+    }
+    // The value only after the caller's policy cleared the field.
+    if text_input && !c.info.is_secure() && (scope.read_value)(&out) {
+        let mut v = c.info.value.clone();
+        if v.is_none() && out.role == "AXTextArea" {
+            v = uia::compute(&node, true).and_then(|l| l.info.value);
+        }
+        out.value = v.map(|s| s.chars().take(MAX_VALUE_CHARS).collect());
+    }
+    Some(out)
+}
+
+/// The element under a screen point, when it belongs to the scope's app.
+pub fn teach_element_at(x: i32, y: i32, scope: &TeachScope) -> Option<TeachElement> {
+    com::ensure_dpi_awareness();
+    let win = apps::window_at(x as f64, y as f64)?;
+    if !(scope.owns)(win.pid) {
+        return None;
+    }
+    let scope = scope.clone();
+    com::pool()
+        .run(LOOKUP_TIMEOUT, move || {
+            let u = uia::uia()?;
+            let e = unsafe { u.auto.ElementFromPointBuildCache(POINT { x, y }, &u.req_element) }
+                .map_err(|_| crate::error::CapError::internal("no element"))?;
+            teach_describe(&u, e, &scope).ok_or_else(|| crate::error::CapError::internal("no element"))
+        })
+        .ok()
+}
+
+/// The element with keyboard focus, when it belongs to the scope's app.
+pub fn teach_focused(scope: &TeachScope) -> Option<TeachElement> {
+    com::ensure_dpi_awareness();
+    let scope = scope.clone();
+    com::pool()
+        .run(LOOKUP_TIMEOUT, move || {
+            let u = uia::uia()?;
+            let e =
+                unsafe { u.auto.GetFocusedElementBuildCache(&u.req_element) }.map_err(|_| crate::error::CapError::internal("no focus"))?;
+            teach_describe(&u, e, &scope).ok_or_else(|| crate::error::CapError::internal("no focus"))
+        })
+        .ok()
+}

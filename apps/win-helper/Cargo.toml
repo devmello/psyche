@@ -34,6 +34,8 @@ aes-gcm = "=0.10.3"
 zeroize = "=1.8.2"
 windows-core = "=0.62.2"
 windows-future = "=0.3.2"
+# The teach recorder secret-word and value-shape rules (ports of the Mac NSRegularExpression patterns).
+regex = { version = "1", default-features = false, features = ["std", "unicode", "perf"] }
 psyche-win-computer = { path = "crates/win-computer" }
 psyche-win-dictation = { path = "crates/win-dictation" }
 

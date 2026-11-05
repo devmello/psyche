@@ -49,6 +49,7 @@ pub mod keychord;
 pub mod roles;
 pub mod snapshot;
 pub mod spec;
+pub mod target_check;
 pub mod tiers;
 
 #[cfg(windows)]
@@ -69,7 +70,9 @@ pub use app_id::{app_id_for_pid, app_id_for_window, app_pid_for_window, app_pids
 #[cfg(windows)]
 pub use caps::{invoke, CapOutput, Invocation, ReceiptDraft};
 #[cfg(windows)]
-pub use element::{app_window_image, element_at, focused_element, ElementTarget};
+pub use element::{
+    app_window_image, element_at, focused_element, teach_element_at, teach_focused, ElementTarget, TeachElement, TeachScope,
+};
 
 #[cfg(windows)]
 use serde_json::Value;
@@ -96,6 +99,8 @@ macro_rules! capability_fns {
 capability_fns! {
     /// `computer.ax_tree`: UI Automation snapshot (`{text, header, nodes?, tier, hint?, provenance}`).
     computer_ax_tree => "computer.ax_tree";
+    /// `computer.check_target`: is a recorded step's target in the app's window right now?
+    computer_check_target => "computer.check_target";
     /// `computer.ax_value`: full value of one ref (`{ref, role, value, provenance}`).
     computer_ax_value => "computer.ax_value";
     /// `computer.click`: UIA press first, mouse click fallback.

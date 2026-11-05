@@ -10564,7 +10564,7 @@ export interface SkillsDraftsFromRecordingParams {
 
 export interface BrowserTeachStep {
     /**
-     * app_*: the Mac app the step was recorded in (phase 2)
+     * app_*: the desktop app the step was recorded in (phase 2)
      */
     app?: BrowserTeachStepApp;
     /**
@@ -10616,7 +10616,7 @@ export interface BrowserTeachStep {
 }
 
 /**
- * app_*: the Mac app the step was recorded in (phase 2)
+ * app_*: the desktop app the step was recorded in (phase 2)
  */
 export interface BrowserTeachStepApp {
     bundleId: string;
@@ -11462,7 +11462,7 @@ export type TeachAppEndedBy = "stop" | "limit" | "timeout" | "cancel" | "interru
 
 export interface TeachAppCapturedStep {
     /**
-     * app_*: the Mac app the step was recorded in (phase 2)
+     * app_*: the desktop app the step was recorded in (phase 2)
      */
     app?: TeachAppCapturedStepApp;
     /**
@@ -11503,7 +11503,7 @@ export interface TeachAppCapturedStep {
 }
 
 /**
- * app_*: the Mac app the step was recorded in (phase 2)
+ * app_*: the desktop app the step was recorded in (phase 2)
  */
 export interface TeachAppCapturedStepApp {
     bundleId: string;

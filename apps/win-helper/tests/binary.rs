@@ -71,6 +71,7 @@ fn manifest_lists_the_windows_capabilities() {
         "ocr.recognize",
         "health",
         "computer.ax_tree",
+        "computer.check_target",
         "computer.ax_value",
         "computer.click",
         "computer.double_click",
@@ -95,10 +96,10 @@ fn manifest_lists_the_windows_capabilities() {
         "speech.audio_push",
         "speech.stop",
         "speech.status",
-        "teach.start",
-        "teach.stop",
-        "teach.cancel",
-        "teach.status",
+        "teach.record.start",
+        "teach.record.stop",
+        "teach.record.cancel",
+        "teach.record.status",
         "chrome.tabs",
         "chrome.current_tab",
     ] {
@@ -119,7 +120,10 @@ fn manifest_lists_the_windows_capabilities() {
     // `vm.*` (the sandbox PC) is advertised in full only once its service is installed; before
     // that only `vm.status` exists, and says so.
     let vm: Vec<&&str> = names.iter().filter(|n| n.starts_with("vm.")).collect();
-    assert!(vm.len() == 1 && *vm[0] == "vm.status" || vm.len() > 20, "vm: {vm:?}");
+    assert!(
+        vm.len() == 1 && *vm[0] == "vm.status" || vm.len() > 20,
+        "vm: {vm:?}"
+    );
     let _ = std::fs::remove_dir_all(h);
 }
 

@@ -115,6 +115,33 @@ fn win32_menu(hwnd: isize, bar: HMENU, path: &[String]) -> CapResult<String> {
     Ok(title)
 }
 
+/// Whether `path` names a command (not a submenu) in `hwnd`'s Win32 menu bar. Read-only: the app
+/// gets the same `WM_INITMENU` / `WM_INITMENUPOPUP` a user opening the menu would cause, and
+/// nothing is pressed. `false` for a window with no Win32 menu bar.
+pub fn win32_path_exists(hwnd: isize, path: &[String]) -> bool {
+    let bar = unsafe { GetMenu(super::apps::hwnd(hwnd)) };
+    if bar.0.is_null() || path.is_empty() {
+        return false;
+    }
+    send_timeout(hwnd, WM_INITMENU, bar.0 as usize, 0);
+    let mut current = bar;
+    for (i, name) in path.iter().enumerate() {
+        let count = unsafe { GetMenuItemCount(Some(current)) }.max(0) as u32;
+        let hits: Vec<u32> = (0..count).filter(|p| norm(&menu_text(current, *p)) == norm(name)).collect();
+        let [pos] = hits[..] else { return false };
+        let sub = unsafe { GetSubMenu(current, pos as i32) };
+        if i + 1 == path.len() {
+            return sub.0.is_null();
+        }
+        if sub.0.is_null() {
+            return false;
+        }
+        send_timeout(hwnd, WM_INITMENUPOPUP, sub.0 as usize, pos as isize);
+        current = sub;
+    }
+    false
+}
+
 struct Item {
     e: IUIAutomationElement,
     name: String,
