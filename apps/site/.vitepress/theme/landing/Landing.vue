@@ -288,7 +288,7 @@ onBeforeUnmount(() => {
     </section>
 
     <!-- Honest status. -->
-    <section class="leaf lit status-page" data-scene="flow" data-end="-0.1" aria-labelledby="status-title">
+    <section class="leaf lit status-page" data-scene="flow" data-end="-0.6" aria-labelledby="status-title">
       <p class="run-head">docs/release-notes/0.3.md</p>
       <h2 id="status-title">Alpha, and plain about it.</h2>
       <div class="columns">
@@ -702,10 +702,12 @@ onBeforeUnmount(() => {
   margin: 0 auto;
 }
 .lamplit {
+  /* Night-strength shadow, easing back toward a daylight sheet shadow as the band leaves. */
+  --lamp-k: calc(1 - var(--x, 0) * 0.78);
   --shadow-lamp:
-    0 2px 2px oklch(0 0 0 / 0.35),
-    0 24px 48px -18px oklch(0 0 0 / 0.7),
-    0 70px 120px -50px oklch(0 0 0 / 0.8);
+    0 2px 2px oklch(0 0 0 / calc(0.35 * var(--lamp-k))),
+    0 24px 48px -18px oklch(0 0 0 / calc(0.7 * var(--lamp-k))),
+    0 70px 120px -50px oklch(0 0 0 / calc(0.8 * var(--lamp-k)));
   box-shadow: var(--shadow-lamp);
 }
 .facts {
@@ -1067,7 +1069,13 @@ onBeforeUnmount(() => {
 /* --x (exit) brings the lights back up as the band leaves, so the receipts sheet rises in daylight. */
 .motion .night {
   --dark: calc(var(--q) * (1 - var(--x, 0)));
-  background: color-mix(in oklch, oklch(0.165 0.002 80) calc(var(--dark) * 100%), var(--desk));
+  background-color: color-mix(in oklch, oklch(0.165 0.002 80) calc(var(--q) * 100%), var(--desk));
+  /* Leaving: daylight rises from the bottom of the band with a soft edge, not a gray block. */
+  background-image: linear-gradient(
+    to top,
+    var(--desk) calc(var(--x, 0) * 125% - 25%),
+    transparent calc(var(--x, 0) * 125% + 12%)
+  );
 }
 .motion .night::before {
   opacity: var(--dark);
@@ -1196,7 +1204,7 @@ onBeforeUnmount(() => {
   transform-origin: left;
 }
 .motion .status-page .columns li {
-  --k: clamp(0, calc((var(--p) - 0.05 - var(--i) * 0.11) / 0.14), 1);
+  --k: clamp(0, calc((var(--p) - 0.15 - var(--i) * 0.1) / 0.12), 1);
 }
 .motion .status-page .columns ul:not(.not-yet) li {
   color: color-mix(in oklch, var(--paper-12) calc(var(--k) * 100%), var(--paper-9));

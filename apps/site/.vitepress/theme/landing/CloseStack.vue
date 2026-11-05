@@ -18,6 +18,9 @@ import { SHEETS } from "./sheet-data";
     >
       <span class="head">{{ s.file }}</span>
       <span class="title">{{ s.lines.find((l) => l.t === "h1")?.text }}</span>
+      <span v-for="(l, j) in s.lines.filter((x) => x.t === 'li').slice(0, 3)" :key="j" class="li">
+        – {{ l.t === "li" ? l.text : "" }}
+      </span>
     </div>
   </div>
 </template>
@@ -77,6 +80,17 @@ import { SHEETS } from "./sheet-data";
   font: 500 17px/1.15 var(--font-display);
   color: var(--paper-12);
   text-align: left;
+}
+.li {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 10.5px;
+  line-height: 1.4;
+  color: var(--paper-12);
+  text-align: left;
+  margin-top: -4px;
 }
 @media (max-width: 560px) {
   .leafy {
