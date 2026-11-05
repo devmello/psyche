@@ -1,10 +1,11 @@
 import type { EntitySummary, LifeAnswerPassage, LifeFactHit } from "@psyche/protocol";
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { AgentSheet } from "../agent/AgentSheet.tsx";
 import type { MockGateway } from "../data/mock-gateway.ts";
 import { withCatchUp } from "../fixtures/work.ts";
 import { HomeScreen } from "../home/HomeScreen.tsx";
 import { CommandPalette } from "../shell/CommandPalette.tsx";
-import { StoryWorld } from "../stories/harness.tsx";
+import { STORY_NOW, StoryWorld } from "../stories/harness.tsx";
 
 /**
  * Takes for the public site's landing page (apps/site), recorded from these stories on fictional
@@ -146,6 +147,31 @@ export const CatchUpSources: Story = {
       slots={{ prefillComposer: () => {} }}
     >
       <HomeScreen />
+    </StoryWorld>
+  ),
+};
+
+/** The agent sheet's files, with MEMORY.md saying what the other takes show about Sam Lee. */
+export const MemoryFiles: Story = {
+  render: () => (
+    <StoryWorld
+      edit={(w) => {
+        const md = w.memoryFiles["MEMORY.md"];
+        if (md !== undefined)
+          w.memoryFiles["MEMORY.md"] = md.replace(
+            /^- Sam: prefers Telegram;.*$/m,
+            "- Sam Lee (Acme): settles decisions on mail, not on calls. [2026-10-16]",
+          );
+      }}
+    >
+      <AgentSheet
+        open
+        side="right"
+        onOpenChange={() => {}}
+        tab="soul"
+        onTabChange={() => {}}
+        now={STORY_NOW}
+      />
     </StoryWorld>
   ),
 };

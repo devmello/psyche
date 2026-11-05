@@ -19,7 +19,7 @@ export interface Beat {
 const props = defineProps<{
   id: string;
   title: string;
-  /** Where in the app this is, for the running head. */
+  /** Where in the app this is, named in the caption under the clip. */
   where: string;
   clip: string;
   label: string;
@@ -34,12 +34,23 @@ const props = defineProps<{
   motion: boolean;
   /** Which side the sheet is dealt from. */
   from?: "left" | "right";
+  /** `center`: the recording centred, the copy under it (the stage under the lamp). */
+  layout?: "side" | "center";
+  /** A lamp hangs over this stage (the approvals band). */
+  lamp?: boolean;
 }>();
+
+/** A step's text, with `backticks` around real paths and file names (set in mono). */
+function parts(text: string): { code: boolean; text: string }[] {
+  return text.split(/`([^`]+)`/).map((t, i) => ({ code: i % 2 === 1, text: t }));
+}
 
 const track = ref<HTMLElement | null>(null);
 const player = ref<InstanceType<typeof ScrubClip> | null>(null);
 const progress = ref(1);
 const playTime = ref(-1);
+/** Length of the take that loaded (the phone take may differ by a frame). */
+const loaded = ref(0);
 
 // Same mapping as the clip: the first 4% and the last 8% of the scroll hold still.
 const FROM = 0.04;
@@ -60,9 +71,10 @@ const active = computed(() => {
   });
   return n;
 });
-const head = computed(() =>
-  time.value < 0 ? 0 : Math.min(1, Math.max(0, time.value / props.duration)),
-);
+const head = computed(() => {
+  const d = props.scrub ? props.duration : loaded.value || props.duration;
+  return time.value < 0 ? 0 : Math.min(1, Math.max(0, time.value / d));
+});
 
 function onScene(e: Event) {
   progress.value = (e as CustomEvent<{ p: number }>).detail.p;
@@ -90,7 +102,7 @@ onBeforeUnmount(() => track.value?.removeEventListener("scene", onScene));
   <section
     ref="track"
     class="stage-track"
-    :class="[`from-${from ?? 'right'}`]"
+    :class="[`from-${from ?? 'right'}`, `layout-${layout ?? 'side'}`]"
     data-scene="pin"
     data-enter
     data-exit
@@ -99,8 +111,8 @@ onBeforeUnmount(() => track.value?.removeEventListener("scene", onScene));
     :aria-labelledby="id"
   >
     <div class="stage-sticky">
+      <div v-if="lamp" class="lamp" aria-hidden="true" />
       <div class="stage leaf lit" :style="{ '--head': head.toFixed(4) }">
-        <p class="where">{{ where }}</p>
         <div class="body">
           <div class="copy">
             <h2 :id="id">{{ title }}</h2>
@@ -112,7 +124,13 @@ onBeforeUnmount(() => track.value?.removeEventListener("scene", onScene));
                 :class="{ reached: active >= 0 && i < active, now: i === active }"
               >
                 <button type="button" :aria-current="i === active ? 'step' : undefined" @click="show(i)">
-                  <span class="tick" aria-hidden="true" />{{ b.text }}
+                  <span class="tick" aria-hidden="true" /><span
+                    ><span class="sr-only">Show in the recording: </span
+                    ><template v-for="(t, j) in parts(b.text)" :key="j"
+                      ><code v-if="t.code">{{ t.text }}</code
+                      ><template v-else>{{ t.text }}</template></template
+                    ></span
+                  >
                 </button>
               </li>
             </ol>
@@ -128,6 +146,7 @@ onBeforeUnmount(() => track.value?.removeEventListener("scene", onScene));
               :scrub="scrub"
               :progress="progress"
               @time="(t) => (playTime = t)"
+              @duration="(d) => (loaded = d)"
             />
             <div class="timeline" aria-hidden="true">
               <span class="fill" />
@@ -139,7 +158,7 @@ onBeforeUnmount(() => track.value?.removeEventListener("scene", onScene));
                 :style="{ left: `${(b.at / duration) * 100}%` }"
               />
             </div>
-            <p class="fixture">Recorded from the app on fictional data.</p>
+            <p class="fixture">{{ where }}, recorded from Psyche's own UI on fictional data.</p>
           </div>
         </div>
       </div>
@@ -148,6 +167,9 @@ onBeforeUnmount(() => track.value?.removeEventListener("scene", onScene));
 </template>
 
 <style scoped>
+.stage-sticky {
+  position: relative;
+}
 .stage-track {
   --nav: var(--vp-nav-height, 64px);
   position: relative;
@@ -173,12 +195,21 @@ onBeforeUnmount(() => track.value?.removeEventListener("scene", onScene));
   width: 1px;
   background: var(--paper-4);
 }
-.where {
-  font-size: 13px;
-  color: var(--paper-9);
-  padding-bottom: 12px;
-  margin: 0 0 clamp(20px, 2.6vw, 36px);
-  border-bottom: 1px solid var(--paper-5);
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.beats code {
+  font-family: var(--font-code);
+  font-size: 0.88em;
+  padding: 0.05em 0.3em;
+  border-radius: 4px;
+  background: var(--paper-3);
+  border: 1px solid var(--paper-5);
 }
 .body {
   display: grid;
@@ -313,6 +344,10 @@ h2 {
 .mark.on {
   background: var(--paper-12);
 }
+/* With reduced motion nothing plays along the track, so it is not drawn. */
+.landing:not(.motion) .timeline {
+  display: none;
+}
 .fixture {
   margin-top: 10px;
   font-size: 12.5px;
@@ -322,7 +357,7 @@ h2 {
 /* ---------- Pinned: the stage fills the screen under the nav while the clip scrubs ---------- */
 .pin .stage-track {
   /* About 12 screen-hundredths of scroll per second of recording, plus the time to arrive. */
-  height: calc(100svh + var(--dur) * 12svh + 40svh);
+  height: calc(100svh + var(--dur) * 6svh + 20svh);
 }
 .pin .stage-sticky {
   position: sticky;
@@ -337,17 +372,81 @@ h2 {
 .pin .body {
   flex: 1;
   min-height: 0;
-  grid-template-columns: minmax(280px, 1fr) auto;
+  grid-template-columns: minmax(260px, 1fr) auto;
 }
 .pin .from-left .body {
-  grid-template-columns: auto minmax(280px, 1fr);
+  grid-template-columns: auto minmax(260px, 1fr);
 }
 /* The clip as large as the sheet allows, never taller than it; the copy takes what is left. */
 .pin .screen {
-  width: min(calc(min(100vw, 1480px) * 0.62), calc((100svh - var(--nav) - 236px) * var(--ratio, 1.56)));
+  /* At most 62% of the page, never more than the copy column leaves, never taller than the sheet. */
+  width: min(
+    calc(min(100vw, 1480px) * 0.62),
+    calc(min(100vw, 1480px) - 19vw - 310px),
+    calc((100svh - var(--nav) - 236px) * var(--ratio, 1.56))
+  );
 }
 .pin .screen :deep(.clip) {
   width: 100%;
+}
+
+/* ---------- Centred: the recording under the lamp, the copy beneath it ---------- */
+@media (min-width: 961px) {
+  .layout-center .body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: clamp(18px, 2.4svh, 28px);
+  }
+  .layout-center .screen {
+    order: -1;
+  }
+  .layout-center .copy {
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 4fr) minmax(0, 7fr);
+    column-gap: clamp(28px, 4vw, 64px);
+    align-items: start;
+  }
+  .layout-center h2 {
+    grid-column: 1;
+    max-width: 16ch;
+    font-size: clamp(28px, 2.5vw, 38px);
+  }
+  .layout-center .deck {
+    grid-column: 1;
+  }
+  .layout-center .beats {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+    margin-top: 4px;
+  }
+  .layout-center .foot {
+    grid-column: 1;
+  }
+  .pin .layout-center .body {
+    grid-template-columns: none;
+  }
+  .pin .layout-center .screen {
+    width: min(100%, calc((92svh - var(--nav) - 350px) * var(--ratio, 1.56)));
+  }
+  .pin .layout-center .deck {
+    font-size: 15px;
+  }
+}
+/* The lamp hangs with the pinned sheet: a warm pool over its upper left. */
+.lamp {
+  position: absolute;
+  inset: -14svh -8vw -6svh;
+  background: radial-gradient(
+    ellipse 46% 58% at 28% 6%,
+    oklch(0.97 0.03 85 / 0.16),
+    transparent 70%
+  );
+  pointer-events: none;
+}
+.lamp ~ .stage {
+  isolation: isolate;
 }
 
 /* Shorter screens: the same copy, set tighter, so the column fits beside the clip. */
@@ -369,9 +468,6 @@ h2 {
   }
   .pin .foot {
     margin-top: 12px;
-  }
-  .pin .where {
-    margin-bottom: 16px;
   }
 }
 

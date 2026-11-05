@@ -46,6 +46,16 @@ function onScroll() {
     const travel = el.offsetHeight - window.innerHeight;
     const span = travel > 120 ? travel : el.offsetHeight * 0.6;
     fan.value = Math.min(1, Math.max(0, window.scrollY / span));
+    // The nav goes dark with the approvals band while the band is under it.
+    const night = root.value?.querySelector<HTMLElement>(".night");
+    if (night) {
+      const r = night.getBoundingClientRect();
+      const nav = 64;
+      document.documentElement.classList.toggle(
+        "landing-night",
+        r.top < nav * 0.6 && r.bottom > nav,
+      );
+    }
   });
 }
 
@@ -72,6 +82,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener("scroll", onScroll);
   cancelAnimationFrame(raf);
+  document.documentElement.classList.remove("landing-night");
   pinQuery?.removeEventListener("change", onPinChange);
   engine?.destroy();
 });
@@ -133,20 +144,20 @@ onBeforeUnmount(() => {
         { at: 0, text: 'Approvals and questions that wait on you come first.' },
         { at: 3.62, text: 'Catching up: what is due, and what moved since you last looked.' },
         { at: 6.0, text: 'Each line opens the message it came from.' },
-        { at: 9.82, text: 'Then the brief, every line numbered to its source.' },
+        { at: 9.82, text: 'Then the brief, each line numbered to its source. The Feed behind it is still being finished.' },
       ]"
       :scrub="pinned"
       :motion="motion"
       from="right"
     >
-      <p>Home reads your mail, messages, calendar and work, and starts with you. The Feed behind the brief is still being finished.</p>
+      <p>What waits on you and what moved, each line with the message behind it.</p>
       <template #foot><a class="more" :href="withBase('/using/feed-ideas-goals')"><span class="src">1</span>Home and the brief <span class="where">using/feed-ideas-goals</span></a></template>
     </DemoStage>
 
     <DemoStage
       id="answer-title"
       title="Ask, then open the source."
-      where="Search · ⌘K"
+      where="Search, ⌘K"
       clip="answer"
       label="A question typed into Search, answered from memory with source chips; one chip opens the mail it came from"
       :ratio="1120 / 980"
@@ -162,16 +173,16 @@ onBeforeUnmount(() => {
       :motion="motion"
       from="left"
     >
-      <p>One box searches threads, mail, messages, files and memory, indexed on this Mac. A claim that cites nothing is dropped.</p>
+      <p>Search reads your threads, mail, messages, files and memory, indexed on this Mac.</p>
       <template #foot><a class="more" :href="withBase('/using/memory')"><span class="src">2</span>How memory and search work <span class="where">using/memory</span></a></template>
     </DemoStage>
 
-    <!-- Approvals: the lights go down, the lamp comes on. -->
+    <!-- Approvals: the lights go down, and one sheet sits under the lamp. -->
     <section class="night" data-scene="flow" data-end="0.15" data-exit aria-label="Approvals">
       <DemoStage
         id="approve-title"
         title="Nothing changes until you say so."
-        where="Chat · Dentist booking"
+        where="Chat, Dentist booking"
         clip="approval"
         label="A dentist booking waiting on two approvals: the card for filling a saved login, Allow once, and then the next card, an email to send"
         :ratio="1408 / 960"
@@ -179,87 +190,87 @@ onBeforeUnmount(() => {
         :duration="10.2"
         :beats="[
           { at: 0, text: 'Wren is booking the dentist. Two steps wait on you.' },
-          { at: 2.9, text: 'The card names the exact action: this login, this site, and what Wren sees (a placeholder, never the password).' },
-          { at: 5.78, text: 'Allow once. The next step, the email, still waits its turn.' },
+          { at: 2.9, text: 'The card names the exact login and site. Wren sees only a placeholder.' },
+          { at: 5.78, text: 'Allow once. The email still waits its turn.' },
+          { at: 7.4, text: 'Text from a page, an email or a file can never approve. Purchases also ask for Touch ID.' },
         ]"
         :scrub="pinned"
         :motion="motion"
         from="right"
+        layout="center"
+        lamp
         class="lamplit"
       >
-        <p>Sending, buying, filling a password or running a command stops at a card bound to that exact action. Text from a web page, an email or a file can never approve anything.</p>
-        <template #foot>
-          <p class="note">Purchases and password fills ask for Touch ID. Every write leaves a receipt in a hash-chained audit log.</p>
-          <a class="more" :href="withBase('/security/approvals-and-tiers')"><span class="src">3</span>Approvals and app tiers <span class="where">security/approvals-and-tiers</span></a>
-        </template>
+        <p>Anything that sends, buys, fills a password or runs a command waits for a card bound to that exact action.</p>
+        <template #foot><a class="more" :href="withBase('/security/approvals-and-tiers')"><span class="src">3</span>Approvals and app tiers <span class="where">security/approvals-and-tiers</span></a></template>
       </DemoStage>
     </section>
 
     <DemoStage
       id="memory-title"
       title="It learns the people in your life, and checks with you."
-      where="Memory → Review, then Sam Lee"
+      where="Memory, Review and then Sam Lee"
       clip="memory"
       label="Memory's review list: facts found in mail with the words they came from, one confirmed; then Sam Lee's page with facts, sources and open loops"
       :ratio="1408 / 960"
       :phone-ratio="720 / 1140"
-      :duration="20.17"
+      :duration="13.63"
       :beats="[
         { at: 0, text: 'Wren proposes what it found in your mail, messages and notes.' },
         { at: 2.7, text: 'Each fact shows the words it came from.' },
         { at: 5.2, text: 'Nothing is remembered until you confirm it.' },
-        { at: 9.58, text: 'A person\'s page builds up: role, preferences and open loops, each with its source.' },
+        { at: 7.4, text: 'A person\'s page builds up: role, preferences and open loops, each with its source.' },
       ]"
       :scrub="pinned"
       :motion="motion"
       from="left"
     >
-      <p>People, projects and promises, learned the way you would, if you wrote everything down. Anything sensitive or unsure always waits for review.</p>
+      <p>It learns who people are from what they write to you, and asks before it keeps anything.</p>
       <template #foot><a class="more" :href="withBase('/using/memory')"><span class="src">4</span>Memory <span class="where">using/memory</span></a></template>
     </DemoStage>
 
     <DemoStage
       id="devices-title"
       title="Use it from your phone or another computer."
-      where="Settings → Devices &amp; nodes, then the iPhone app"
+      where="Settings, Devices &amp; nodes, then the iPhone app"
       clip="devices"
       label="Settings on the Mac: an iPad waiting to pair with a code to compare, and the paired iPhone and browser with what each may do. Then the iPhone app: an approval to add a calendar event, allowed, and the Mac has the answer"
       :ratio="1600 / 806"
       :phone-ratio="720 / 1292"
-      :duration="19.29"
+      :duration="14.04"
       :beats="[
         { at: 0, text: 'A new device asks to pair, and waits for you on this Mac.' },
         { at: 2.69, text: 'Check the same code shows on both, and choose what it may do.' },
-        { at: 5.3, text: 'A paired iPhone can read, write and answer approvals.' },
-        { at: 7.62, text: 'A browser on a work laptop can read and write, and nothing more.' },
-        { at: 12.9, text: 'On the iPhone, the same approval. Allow, and your Mac has the answer.' },
+        { at: 5.3, text: 'Each device gets only what you chose: the iPhone answers approvals, a browser only reads and writes.' },
+        { at: 8.2, text: 'On the iPhone, the same approval. Allow, and your Mac has the answer.' },
       ]"
       :scrub="pinned"
       :motion="motion"
       from="right"
     >
-      <p>Your Mac is the Host: data, memory and models stay on it. A phone or another computer is a window onto it, over your own network or your tailnet. The iPhone app is in development, built from source like the Mac app.</p>
+      <p>Your Mac keeps the data; other devices are windows onto it. The iPhone app is in development.</p>
       <template #foot><a class="more" :href="withBase('/guides/remote-gateway')"><span class="src">5</span>Use Psyche from another computer <span class="where">guides/remote-gateway</span></a></template>
     </DemoStage>
 
     <DemoStage
       id="files-title"
       title="Its memory is files you can open."
-      where="Wren → Soul → MEMORY.md"
+      where="The agent sheet, Soul"
       clip="files"
       label="The agent sheet's files, SOUL.md, IDENTITY.md, USER.md, MEMORY.md and AGENTS.md; MEMORY.md opens as plain Markdown"
       :ratio="1408 / 960"
+      :phone-ratio="588 / 840"
       :duration="10.58"
       :beats="[
         { at: 0, text: 'Who Wren is, what it knows about you and what it remembers: Markdown files.' },
-        { at: 2.85, text: 'Open MEMORY.md. Plain text, rewritten each night, yours to edit.' },
-        { at: 6.86, text: 'All of it lives under ~/.psyche, on this Mac.' },
+        { at: 2.85, text: 'Open `MEMORY.md`. Plain text, rewritten each night, yours to edit.' },
+        { at: 6.86, text: 'All of it lives under `~/.psyche`, on this Mac.' },
       ]"
       :scrub="pinned"
       :motion="motion"
       from="left"
     >
-      <p>No hosted service holds your threads, memory or skills. Model calls are the only thing that leaves, to the provider you choose, or nowhere with a local model.</p>
+      <p>No hosted service holds your threads or memory. Only model calls leave, to the provider you choose.</p>
       <template #foot><a class="more" :href="withBase('/security/on-device')"><span class="src">6</span>What stays on your machine <span class="where">security/on-device</span></a></template>
     </DemoStage>
 
@@ -269,15 +280,14 @@ onBeforeUnmount(() => {
       <h2 id="status-title">Alpha, and plain about it.</h2>
       <div class="columns">
         <div>
-          <h3>Works today</h3>
+          <h3>Also works today</h3>
           <ul>
             <li style="--i: 0">One ongoing chat with side chats, and replies that carry files, mail and live artifacts</li>
             <li style="--i: 1">Screen Ask: a hotkey panel over whatever you are looking at</li>
-            <li style="--i: 2">On-device Search across threads, files and memory</li>
-            <li style="--i: 3">Apple Notes, Reminders, Calendar and Mail; Gmail and Google Calendar with your own OAuth client; MCP servers</li>
-            <li style="--i: 4">Approval cards with receipts, a browser you can watch and take over, a no-network sandbox</li>
-            <li style="--i: 5">Dictation: hold a key, speak, and review the words before they go</li>
-            <li style="--i: 6">Any model: Anthropic, OpenAI, Ollama and other compatible providers</li>
+            <li style="--i: 2">Apple Notes, Reminders, Calendar and Mail; Gmail and Google Calendar with your own OAuth client; MCP servers</li>
+            <li style="--i: 3">A browser you can watch and take over, and a no-network command sandbox</li>
+            <li style="--i: 4">Dictation: hold a key, speak, and review the words before they go</li>
+            <li style="--i: 5">Any model: Anthropic, OpenAI, Ollama and other compatible providers</li>
           </ul>
         </div>
         <div>
@@ -298,7 +308,7 @@ onBeforeUnmount(() => {
     <!-- Close. -->
     <section class="close" data-scene="flow" data-end="0.3" aria-labelledby="close-title">
       <CloseStack class="lit" />
-      <h2 id="close-title">Clone it. Build it. Read every file.</h2>
+      <h2 id="close-title">Build it from source, then read every file.</h2>
       <div class="terminal lit">
         <div class="terminal-head">
           <span>Terminal · Node 24+, pnpm 12+</span>
@@ -624,27 +634,34 @@ onBeforeUnmount(() => {
   /* clip, not hidden: hidden would make a scroll container and break the pinned stage. */
   overflow: clip;
 }
+/* The band's edges are soft: the desk fades into the dark at the top, and (with motion) back out
+   at the bottom as it leaves. */
 .night::before {
-  /* The lamp, above the sheet's upper left. */
   content: "";
   position: absolute;
-  inset: 0;
-  background: radial-gradient(
-    ellipse 55% 75% at 30% 18%,
-    oklch(0.96 0.025 85 / 0.13),
-    transparent 72%
-  );
+  inset: 0 0 auto;
+  height: min(40svh, 360px);
+  background: linear-gradient(to bottom, var(--desk), transparent);
+  pointer-events: none;
+}
+.landing:not(.motion) .night::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: min(40svh, 360px);
+  background: linear-gradient(to top, var(--desk), transparent);
   pointer-events: none;
 }
 .night :deep(.stage-track) {
   margin-top: 0;
+  max-width: 1180px;
 }
-.note {
-  font-size: 14px;
-  line-height: 1.5;
-  color: var(--paper-11);
-  max-width: 36em;
-  margin-bottom: 4px;
+/* Pinned, the sheet under the lamp is inset, so the dark and the lamp's pool show around it. */
+.pin .night :deep(.stage-sticky) {
+  top: calc(var(--vp-nav-height, 64px) + 4svh);
+}
+.pin .night :deep(.stage) {
+  height: calc(100svh - var(--vp-nav-height, 64px) - 8svh);
 }
 .lamplit :deep(.stage) {
   /* Night-strength shadow, easing back toward a daylight sheet shadow as the band leaves. */
@@ -850,10 +867,8 @@ onBeforeUnmount(() => {
     transparent calc(var(--x, 0) * 125% + 12%)
   );
 }
-.motion .night::before {
+.motion .night :deep(.lamp) {
   opacity: var(--dark);
-  transform: scale(calc(0.7 + var(--q) * 0.3));
-  transform-origin: 30% 0;
 }
 /* Status: "Works today" is checked off row by row; "Not yet" stays in pencil. */
 .status-page .columns li {
@@ -984,6 +999,31 @@ onBeforeUnmount(() => {
 }
 .dark .night {
   background: oklch(0.118 0.0015 80);
+}
+:root:has(.landing) .VPNavBar,
+:root:has(.landing) .VPNavBar .content-body,
+:root:has(.landing) .VPNavBar .title {
+  transition: background-color 0.35s var(--ease-out);
+}
+:root.landing-night:has(.landing) .VPNav,
+:root.landing-night:has(.landing) .VPNavBar,
+:root.landing-night:has(.landing) .VPNavBar .content-body,
+:root.landing-night:has(.landing) .VPNavBar .title {
+  background: oklch(0.165 0.002 80) !important;
+}
+:root.dark.landing-night:has(.landing) .VPNav,
+:root.dark.landing-night:has(.landing) .VPNavBar,
+:root.dark.landing-night:has(.landing) .VPNavBar .content-body,
+:root.dark.landing-night:has(.landing) .VPNavBar .title {
+  background: oklch(0.118 0.0015 80) !important;
+}
+:root.landing-night:has(.landing) .VPNavBar {
+  --vp-c-text-1: oklch(0.93 0.003 80);
+  --vp-c-text-2: oklch(0.8 0.004 80);
+  --vp-c-text-3: oklch(0.7 0.004 80);
+  --vp-c-bg-alt: oklch(0.23 0.003 80);
+  --vp-c-bg-soft: oklch(0.23 0.003 80);
+  --vp-c-divider: oklch(0.3 0.003 80);
 }
 :root:has(.landing) .VPContent {
   background: var(--desk);

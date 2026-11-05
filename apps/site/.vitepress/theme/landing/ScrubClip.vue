@@ -24,7 +24,7 @@ const props = defineProps<{
   scrub: boolean;
   progress: number;
 }>();
-const emit = defineEmits<{ time: [seconds: number] }>();
+const emit = defineEmits<{ time: [seconds: number]; duration: [seconds: number] }>();
 
 const PHONE = "(max-width: 560px)";
 const video = ref<HTMLVideoElement | null>(null);
@@ -35,7 +35,10 @@ const reduced = ref(false);
 const phone = ref(false);
 const userPaused = ref(false);
 const take = computed(() => (phone.value && props.phoneRatio ? "-phone" : ""));
-const poster = computed(() => withBase(`/demos/${props.name}${take.value}.webp`));
+// Scrubbed, the clip starts from its first frame; playing or still, the poster is its key moment.
+const poster = computed(() =>
+  withBase(`/demos/${props.name}${take.value}${props.scrub ? "-start" : ""}.webp`),
+);
 const src = computed(() => withBase(`/demos/${props.name}${take.value}.mp4`));
 
 // --- Scrubbing ---------------------------------------------------------------------------------
@@ -76,10 +79,11 @@ watch(
 function onMeta() {
   const v = video.value;
   if (!v) return;
+  emit("duration", v.duration);
   if (props.scrub) {
-    pendingTime = target(props.progress, v.duration);
-    emit("time", pendingTime);
-    seek();
+    // Always seek once: a browser keeps showing the poster until the video seeks or plays.
+    v.currentTime = Math.max(target(props.progress, v.duration), 0.001);
+    emit("time", v.currentTime);
   }
 }
 
