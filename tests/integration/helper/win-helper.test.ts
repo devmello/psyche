@@ -61,7 +61,9 @@ describe("the Windows helper on the node transport", () => {
       expect(isNamedPipePath(endpoint())).toBe(true);
       expect(endpoint()).toBe(namedPipePath("node", config.home));
       expect(endpoint()).toBe(config.nodeSocketPath);
-      expect(config.guestSocketPath).toBeNull();
+      // The sandbox PC's relay delivers guests on their own pipe, never the node pipe.
+      expect(config.guestSocketPath).toBe(namedPipePath("guest", config.home));
+      expect(config.guestSocketPath).not.toBe(config.nodeSocketPath);
     },
   );
 
