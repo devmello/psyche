@@ -18,6 +18,11 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-05 (Teach by showing in a Windows app)
+
+- New `TEACH_APP_ID_PATTERN` and `isTeachAppId` (`common.ts`): an app is a macOS bundle id or, on Windows, its lowercase executable name (`notepad.exe`, `adobe premiere pro.exe`). `BrowserTeachStep.app.bundleId`'s `pattern` widens to it (additive: every earlier id still matches); `sanitizeTeachSteps` and the Gateway use `isTeachAppId`.
+- New `TEACH_NEVER_APPS_WINDOWS` (`browser-teach.ts`), and `teachAppNever` checks it too. `pnpm protocol:gen` also writes it as Rust, `apps/win-helper/src/teach/never_apps.generated.rs`. The Windows helper serves the same `teach.record.*` capabilities as the Mac helper; `recordedIn` stays `mac_app` for a Windows recording.
+
 ### v1 additive — 2026-11-05 (Windows polish: hold-to-talk keys, host words)
 
 - `DictationKey` gains the Windows helper's keys at the end of the list: `rightCtrl`, `rightAlt`, `rightShift`, `rightWin`, `capsLock`, `scrollLock`, `pause`, `menu`, `insert`, `numLock`, `f13`…`f24` (`WINDOWS_DICTATION_KEYS`; the Mac's are `MAC_DICTATION_KEYS`). The mac helper refuses them (`invalid_params`); the Swift `DictationKey` gains the cases (its switches have a `default`). `fn` and `rightOption` stay Right Alt on Windows and `rightCommand` Right Ctrl (`windowsHoldKey`). `defaultHoldKeys(windows)`: fn / Right ⌘ on a Mac, Right Ctrl (dictation) / Right Alt (voice) on Windows.

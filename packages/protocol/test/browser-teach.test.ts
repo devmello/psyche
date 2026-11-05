@@ -3,6 +3,7 @@ import {
   type BrowserTeachStep,
   classifyTeachField,
   classifyTeachValue,
+  isTeachAppId,
   isTeachAppKind,
   redactTeachText,
   sanitizeTeachSteps,
@@ -467,5 +468,56 @@ describe("more secret shapes and the shared never-list (review fixes)", () => {
     ])
       expect(teachAppNever(id), id).toBe(true);
     expect(teachAppNever("com.githubx.Notes")).toBe(false);
+  });
+});
+
+describe("teach by showing in a Windows app", () => {
+  it("an app id is a bundle id or a lowercase executable name", () => {
+    for (const id of ["com.apple.mail", "notepad.exe", "adobe premiere pro.exe", "wps_office.exe"])
+      expect(isTeachAppId(id), id).toBe(true);
+    for (const id of ["", "My App.EXE", "a/b.exe", "..\\x.exe", ".exe", "notepad", "x;y.exe"])
+      expect(isTeachAppId(id), id).toBe(false);
+  });
+
+  it("never records Psyche, security prompts, password managers, wallets or banking", () => {
+    for (const id of [
+      "psyche.exe",
+      "Consent.exe",
+      "credentialuibroker.exe",
+      "logonui.exe",
+      "lockapp.exe",
+      "windowsdefender.exe",
+      "securityhealthsystray.exe",
+      "1password.exe",
+      "keepassxc.exe",
+      "bitwarden.exe",
+      "exodus.exe",
+      "tradingview.exe",
+      "electron.exe",
+    ])
+      expect(teachAppNever(id), id).toBe(true);
+    for (const id of ["notepad.exe", "winword.exe", "calculatorapp.exe", "keep.exe"])
+      expect(teachAppNever(id), id).toBe(false);
+  });
+
+  it("sanitizeTeachSteps keeps an exe app id and drops a malformed one", () => {
+    const [ok, bad] = sanitizeTeachSteps([
+      {
+        id: "a1",
+        kind: "app_click",
+        app: { bundleId: "notepad.exe", name: "Notepad" },
+        role: "button",
+        name: "OK",
+      },
+      {
+        id: "a2",
+        kind: "app_click",
+        app: { bundleId: "a/b.exe", name: "x" },
+        role: "button",
+        name: "OK",
+      },
+    ]);
+    expect(ok?.app?.bundleId).toBe("notepad.exe");
+    expect(bad?.app).toBeUndefined();
   });
 });

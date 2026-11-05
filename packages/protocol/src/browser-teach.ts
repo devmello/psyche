@@ -1,3 +1,4 @@
+import { isTeachAppId } from "./common.ts";
 import type { BrowserTeachStep } from "./methods/skills.ts";
 
 /**
@@ -318,12 +319,109 @@ export const TEACH_NEVER_APPS: readonly string[] = [
   "com.github.Electron",
 ];
 
+/**
+ * The same list for Windows, where an app is its lowercase executable name (`apps/win-helper`;
+ * `pnpm protocol:gen` also writes it as Rust, `teach/never_apps.generated.rs`): Psyche itself and
+ * the dev Electron shell, the system's sign-in, consent (UAC), credential, lock-screen, security
+ * and notification UIs, Settings, password managers and authenticators, crypto wallets, and
+ * banking and trading apps (the Gateway's fixed caps do not know every Windows finance app, so
+ * they are listed here). A trailing `*` matches a prefix; otherwise the whole name.
+ */
+export const TEACH_NEVER_APPS_WINDOWS: readonly string[] = [
+  // Psyche's own app and helper; the unpackaged Electron shell Psyche's dev build runs as.
+  "psyche.exe",
+  "psyche helper.exe",
+  "psyche-helper.exe",
+  "psyche-win-helper.exe",
+  "psychehelper.exe",
+  "electron.exe",
+  // Sign-in, UAC consent, credential prompts, the lock screen, Windows Security, notifications
+  // and settings.
+  "consent.exe",
+  "credentialuibroker.exe",
+  "credwiz.exe",
+  "logonui.exe",
+  "lockapp.exe",
+  "winlogon.exe",
+  "shellexperiencehost.exe",
+  "sechealthui.exe",
+  "securityhealthsystray.exe",
+  "windowsdefender*",
+  "smartscreen.exe",
+  "useraccountcontrolsettings.exe",
+  "systemsettings.exe",
+  "taskmgr.exe",
+  "mmc.exe",
+  "regedit.exe",
+  "control.exe",
+  "rundll32.exe",
+  "msiexec.exe",
+  // Password managers and authenticators.
+  "1password*",
+  "bitwarden*",
+  "keepass*",
+  "lastpass*",
+  "dashlane*",
+  "nordpass*",
+  "enpass*",
+  "proton pass*",
+  "protonpass*",
+  "keeper*",
+  "roboform*",
+  "passwordsafe*",
+  "pwsafe*",
+  "stickypassword*",
+  "truekey*",
+  "logmeonce*",
+  "psono*",
+  "authy*",
+  "winauth*",
+  "yubico*",
+  "2fast*",
+  // Crypto wallets.
+  "exodus*",
+  "electrum*",
+  "sparrow*",
+  "ledger live*",
+  "trezor suite*",
+  "atomic wallet*",
+  "bitcoin-qt*",
+  "wasabi*",
+  // Banking and trading.
+  "tradingview*",
+  "terminal64*",
+  "metaeditor64*",
+  "tws*",
+  "thinkorswim*",
+  "ninjatrader*",
+  "webull*",
+  "coinbase*",
+  "robinhood*",
+  "revolut*",
+  "schwab*",
+  "fidelity*",
+  "etrade*",
+  "paypal*",
+];
+
+/**
+ * An app teach by showing never records. `TEACH_NEVER_APPS` entries compare as bundle ids (a
+ * trailing `.` is a prefix, else the id or the id plus `.something`); `TEACH_NEVER_APPS_WINDOWS`
+ * entries as executable names (a trailing `*` is a prefix, else the whole name). Without case.
+ */
 export function teachAppNever(bundleId: string): boolean {
   const id = bundleId.toLowerCase();
-  return TEACH_NEVER_APPS.some((raw) => {
+  const mac = TEACH_NEVER_APPS.some((raw) => {
     const p = raw.toLowerCase();
     return p.endsWith(".") ? id.startsWith(p) : id === p || id.startsWith(`${p}.`);
   });
+  return (
+    mac ||
+    TEACH_NEVER_APPS_WINDOWS.some((raw) => {
+      const p = raw.toLowerCase();
+      return p.endsWith("*") ? id.startsWith(p.slice(0, -1)) : id === p;
+    })
+  );
 }
 
 /** The step kinds recorded in a Mac app (phase 2). */
@@ -348,7 +446,7 @@ export function sanitizeTeachSteps(steps: readonly BrowserTeachStep[]): BrowserT
     if (s.role !== undefined) out.role = teachRole(s.role);
     if (s.name !== undefined) out.name = redactTeachText(teachText(s.name, 200));
     if (s.selector !== undefined) out.selector = redactTeachText(teachText(s.selector, 300));
-    if (s.app !== undefined && /^[A-Za-z0-9-]+(\.[A-Za-z0-9_-]+)+$/.test(s.app.bundleId))
+    if (s.app !== undefined && isTeachAppId(s.app.bundleId))
       out.app = {
         bundleId: s.app.bundleId.slice(0, 200),
         name: redactTeachText(teachText(s.app.name, 120)),

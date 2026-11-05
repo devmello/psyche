@@ -29896,7 +29896,7 @@ public struct SkillsDraftsFromRecordingParams: Codable, Sendable {
 
 // MARK: - BrowserTeachStep
 public struct BrowserTeachStep: Codable, Sendable {
-    /// app_*: the Mac app the step was recorded in (phase 2)
+    /// app_*: the desktop app the step was recorded in (phase 2)
     public let app: BrowserTeachStepApp?
     /// app_*: the element's accessibility identifier, when it has one
     public let fallback: String?
@@ -29958,7 +29958,7 @@ public struct BrowserTeachStep: Codable, Sendable {
     }
 }
 
-/// app_*: the Mac app the step was recorded in (phase 2)
+/// app_*: the desktop app the step was recorded in (phase 2)
 // MARK: - BrowserTeachStepApp
 public struct BrowserTeachStepApp: Codable, Sendable {
     public let bundleID: String
@@ -32231,7 +32231,7 @@ public enum TeachAppEndedBy: String, Codable, Sendable {
 
 // MARK: - TeachAppCapturedStep
 public struct TeachAppCapturedStep: Codable, Sendable {
-    /// app_*: the Mac app the step was recorded in (phase 2)
+    /// app_*: the desktop app the step was recorded in (phase 2)
     public let app: TeachAppCapturedStepApp?
     /// app_*: the element's accessibility identifier, when it has one
     public let fallback: String?
@@ -32284,7 +32284,7 @@ public struct TeachAppCapturedStep: Codable, Sendable {
     }
 }
 
-/// app_*: the Mac app the step was recorded in (phase 2)
+/// app_*: the desktop app the step was recorded in (phase 2)
 // MARK: - TeachAppCapturedStepApp
 public struct TeachAppCapturedStepApp: Codable, Sendable {
     public let bundleID: String
