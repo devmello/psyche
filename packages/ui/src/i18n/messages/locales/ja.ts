@@ -14,6 +14,7 @@ import { dailyRest } from "./daily-rest/ja.ts";
 import { deckRest } from "./deck-rest/ja.ts";
 import { designRest } from "./design-rest/ja.ts";
 import { everythingRest } from "./everything-rest/ja.ts";
+import { final202611 } from "./final-2026-11/ja.ts";
 import { galleryRest } from "./gallery-rest/ja.ts";
 import { homeRest } from "./home-rest/ja.ts";
 import { links } from "./links/ja.ts";
@@ -3277,4 +3278,6 @@ export const ja: Partial<Catalogue> = {
   "voice.phrases.screen":
     "これ|この|それ|その|あれ|ここ|画面|画面の|今見てる|このページ|このエラー|このグラフ|このウインドウ|上の|下の",
   "specialists.card.fromAutomation": "オートメーション「{name}」から",
+  // signed connector bundles and teach-by-showing in Mac apps
+  ...final202611,
 };

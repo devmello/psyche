@@ -14,6 +14,7 @@ import { dailyRest } from "./daily-rest/hi.ts";
 import { deckRest } from "./deck-rest/hi.ts";
 import { designRest } from "./design-rest/hi.ts";
 import { everythingRest } from "./everything-rest/hi.ts";
+import { final202611 } from "./final-2026-11/hi.ts";
 import { galleryRest } from "./gallery-rest/hi.ts";
 import { homeRest } from "./home-rest/hi.ts";
 import { links } from "./links/hi.ts";
@@ -3278,4 +3279,6 @@ export const hi: Partial<Catalogue> = {
   "voice.phrases.screen":
     "यह|ये|वह|इस|यहाँ|स्क्रीन पर|मेरी स्क्रीन पर|मैं क्या देख रहा हूँ|यह क्या है|यह पेज|यह एरर|यह चार्ट|यह विंडो|ऊपर|नीचे",
   "specialists.card.fromAutomation": "आपके ऑटोमेशन {name} से",
+  // signed connector bundles and teach-by-showing in Mac apps
+  ...final202611,
 };

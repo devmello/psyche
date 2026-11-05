@@ -15,6 +15,7 @@ import { connectorsPage } from "./connectors-page/zh.ts";
 import { daily } from "./daily/zh.ts";
 import { design } from "./design/zh.ts";
 import { deviceAccess } from "./device-access/zh.ts";
+import { final202611 } from "./final-2026-11/zh.ts";
 import { home } from "./home/zh.ts";
 import { links } from "./links/zh.ts";
 import { mailMeetings } from "./mail-meetings/zh.ts";
@@ -3232,4 +3233,6 @@ export const zh: Partial<Catalogue> = {
   "voice.phrases.screen":
     "这个|这|那个|这里|屏幕|屏幕上|我在看什么|这是什么|这个页面|这个错误|这个报错|这个图表|这个窗口|上面|下面",
   "specialists.card.fromAutomation": "来自你的自动化 {name}",
+  // signed connector bundles and teach-by-showing in Mac apps
+  ...final202611,
 };
