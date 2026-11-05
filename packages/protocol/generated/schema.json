@@ -525,6 +525,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Approves a requiresAuthentication card from the Psyche desktop window on Linux by typing the owner's password into the system's own polkit dialog (linux design §9), once. The Gateway checks the window's answer token, asks polkit to authorize the approval's action for this session, then answers through the same broker check with a Gateway-created password presence assertion; no password ever reaches Psyche. Same guards as approveWithTouchId: desktop shell only, one dialog at a time, failed or cancelled dialogs count against the rejected-answer cap. Fails unavailable with details.reason presence_unavailable_here, presence_agent_missing, presence_policy_missing or presence_not_enforced (the matching error codes); cancelled when the owner cancels the dialog.",
+        "name": "approvals.approveWithPassword",
+        "params": "#/$defs/ApprovalsApproveWithPasswordParams",
+        "result": "#/$defs/ApprovalsApproveWithPasswordResult",
+        "scope": "operator.approvals",
+        "sideEffecting": false
+      },
+      {
         "description": "Approves a requiresAuthentication card from the Psyche desktop window with Touch ID on this Mac (security §3.7), once: the Gateway checks the window's answer token, asks the paired helper (helperDeviceId when given) to run Touch ID with a sheet naming the approval and its code, and to sign the presence challenge for that token with its registered key, then answers through the same broker check. One sheet at a time; failed or cancelled sheets count against the rejected-answer cap. UNSANDBOXED is not available on this path. Desktop shell only. Fails unavailable with details.reason helper_offline, helper_outdated, no_presence_key, presence_key_unavailable or presence_key_invalidated; cancelled when the owner cancels Touch ID.",
         "name": "approvals.approveWithTouchId",
         "params": "#/$defs/ApprovalsApproveWithTouchIdParams",
@@ -1297,6 +1305,14 @@
         "name": "devices.pairing.list",
         "params": "#/$defs/DevicesPairingListParams",
         "result": "#/$defs/DevicesPairingListResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
+        "description": "Read-only: lists the ways this Gateway can verify the owner's presence now (the Touch ID key on macOS, passkeys, the password through polkit on Linux) and the state of each, so Settings can say why one is not ready.",
+        "name": "devices.presence.status",
+        "params": "#/$defs/DevicesPresenceStatusParams",
+        "result": "#/$defs/DevicesPresenceStatusResult",
         "scope": "operator.admin",
         "sideEffecting": false
       },
@@ -7321,6 +7337,46 @@
       "type": "object"
     },
     "ApprovalsAnswerResult": {
+      "properties": {
+        "approval": {
+          "$ref": "#/$defs/ApprovalRequest"
+        },
+        "grant": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Grant"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "approval"
+      ],
+      "type": "object"
+    },
+    "ApprovalsApproveWithPasswordParams": {
+      "properties": {
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "answerToken": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "approvalId",
+        "answerToken"
+      ],
+      "type": "object"
+    },
+    "ApprovalsApproveWithPasswordResult": {
       "properties": {
         "approval": {
           "$ref": "#/$defs/ApprovalRequest"
@@ -14535,6 +14591,14 @@
       ],
       "type": "object"
     },
+    "ComputerSurface": {
+      "enum": [
+        "direct",
+        "virtual_screen",
+        "separate_desktop"
+      ],
+      "type": "string"
+    },
     "ConnectChallenge": {
       "properties": {
         "phase": {
@@ -17743,6 +17807,24 @@
       ],
       "type": "object"
     },
+    "DevicesPresenceStatusParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "DevicesPresenceStatusResult": {
+      "properties": {
+        "verifiers": {
+          "items": {
+            "$ref": "#/$defs/PresenceVerifier"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "verifiers"
+      ],
+      "type": "object"
+    },
     "DevicesRevokeParams": {
       "properties": {
         "deviceId": {
@@ -18524,7 +18606,11 @@
         "debugger_detached",
         "tab_not_found",
         "method_not_allowed",
-        "presence_required"
+        "presence_required",
+        "presence_unavailable_here",
+        "presence_agent_missing",
+        "presence_policy_missing",
+        "presence_not_enforced"
       ],
       "type": "string"
     },
@@ -31689,11 +31775,14 @@
       "type": "object"
     },
     "NodeKind": {
+      "description": "host-helper: the helper the desktop launched on the Host (macOS mac-helper or Linux linux-helper; stored rows keep mac-helper, which stays a valid alias). guest: the helper inside a separate desktop (container or VM).",
       "enum": [
         "mac-helper",
         "vm-guest",
         "remote",
-        "phone"
+        "phone",
+        "host-helper",
+        "guest"
       ],
       "type": "string"
     },
@@ -32611,6 +32700,15 @@
         "item"
       ],
       "type": "object"
+    },
+    "OsPermission": {
+      "enum": [
+        "a11yBus",
+        "screenCastPortal",
+        "remoteDesktopPortal",
+        "x11"
+      ],
+      "type": "string"
     },
     "PairingRequest": {
       "properties": {
@@ -33542,7 +33640,8 @@
         "kind": {
           "enum": [
             "webauthn",
-            "helper"
+            "helper",
+            "password"
           ],
           "type": "string"
         },
@@ -33608,6 +33707,45 @@
         "registeredAt"
       ],
       "type": "object"
+    },
+    "PresenceVerifier": {
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/PresenceVerifierKind"
+        },
+        "state": {
+          "$ref": "#/$defs/PresenceVerifierState"
+        },
+        "detail": {
+          "maxLength": 500,
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "state"
+      ],
+      "type": "object"
+    },
+    "PresenceVerifierKind": {
+      "enum": [
+        "touch_id_key",
+        "passkey",
+        "password"
+      ],
+      "type": "string"
+    },
+    "PresenceVerifierState": {
+      "enum": [
+        "ready",
+        "not_enrolled",
+        "unavailable",
+        "policy_missing",
+        "not_enforced",
+        "no_session",
+        "agent_missing"
+      ],
+      "type": "string"
     },
     "ProbedModel": {
       "properties": {
@@ -47647,6 +47785,309 @@
       "required": [
         "transcript"
       ],
+      "type": "object"
+    },
+    "VscreenAck": {
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ok"
+      ],
+      "type": "object"
+    },
+    "VscreenApp": {
+      "properties": {
+        "appId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "pid": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "windowTitle": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hasUnsavedChanges": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "appId",
+        "pid"
+      ],
+      "type": "object"
+    },
+    "VscreenFrame": {
+      "properties": {
+        "changed": {
+          "type": "boolean"
+        },
+        "frameSeq": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "image": {
+          "anyOf": [
+            {
+              "contentEncoding": "base64",
+              "description": "JPEG",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "width": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "height": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "changed",
+        "frameSeq",
+        "width",
+        "height"
+      ],
+      "type": "object"
+    },
+    "VscreenFrameParams": {
+      "properties": {
+        "since": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "maxWidth": {
+          "maximum": 3840,
+          "minimum": 160,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "VscreenInputEvent": {
+      "anyOf": [
+        {
+          "properties": {
+            "type": {
+              "enum": [
+                "move",
+                "down",
+                "up"
+              ],
+              "type": "string"
+            },
+            "x": {
+              "type": "number"
+            },
+            "y": {
+              "type": "number"
+            },
+            "button": {
+              "enum": [
+                "left",
+                "middle",
+                "right"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "x",
+            "y"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "scroll",
+              "type": "string"
+            },
+            "x": {
+              "type": "number"
+            },
+            "y": {
+              "type": "number"
+            },
+            "dx": {
+              "type": "number"
+            },
+            "dy": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "type",
+            "x",
+            "y",
+            "dx",
+            "dy"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "enum": [
+                "key_down",
+                "key_up"
+              ],
+              "type": "string"
+            },
+            "key": {
+              "maxLength": 32,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "key"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "text",
+              "type": "string"
+            },
+            "text": {
+              "maxLength": 1000,
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "text"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "VscreenInputParams": {
+      "properties": {
+        "events": {
+          "items": {
+            "$ref": "#/$defs/VscreenInputEvent"
+          },
+          "maxItems": 100,
+          "type": "array"
+        }
+      },
+      "required": [
+        "events"
+      ],
+      "type": "object"
+    },
+    "VscreenStartParams": {
+      "properties": {
+        "width": {
+          "maximum": 3840,
+          "minimum": 640,
+          "type": "integer"
+        },
+        "height": {
+          "maximum": 2160,
+          "minimum": 480,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "VscreenState": {
+      "enum": [
+        "stopped",
+        "starting",
+        "running",
+        "stopping"
+      ],
+      "type": "string"
+    },
+    "VscreenStatus": {
+      "properties": {
+        "state": {
+          "$ref": "#/$defs/VscreenState"
+        },
+        "display": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "width": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "height": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "apps": {
+          "items": {
+            "$ref": "#/$defs/VscreenApp"
+          },
+          "type": "array"
+        },
+        "takenOver": {
+          "type": "boolean"
+        },
+        "frameSeq": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "startedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "state",
+        "width",
+        "height",
+        "apps",
+        "takenOver",
+        "frameSeq"
+      ],
+      "type": "object"
+    },
+    "VscreenStopParams": {
+      "properties": {
+        "closeApps": {
+          "type": "boolean"
+        }
+      },
       "type": "object"
     },
     "WatchCheck": {

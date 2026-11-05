@@ -1039,7 +1039,7 @@ export interface PresenceAssertion {
     signature: string;
 }
 
-export type PresenceAssertionKind = "webauthn" | "helper";
+export type PresenceAssertionKind = "webauthn" | "helper" | "password";
 
 export type GrantScope = "once" | "task" | "site" | "session" | "always";
 
@@ -1175,6 +1175,16 @@ export interface Grant {
     subject:                { [key: string]: unknown };
     taskId?:                null | string;
     useCount:               number;
+}
+
+export interface ApprovalsApproveWithPasswordParams {
+    answerToken: string;
+    approvalId:  string;
+}
+
+export interface ApprovalsApproveWithPasswordResult {
+    approval: ApprovalRequest;
+    grant?:   Grant | null;
 }
 
 export interface ApprovalsApproveWithTouchIDParams {
@@ -3184,6 +3194,8 @@ export interface CompactionBlock {
 
 export type CompactionBlockType = "compaction";
 
+export type ComputerSurface = "direct" | "virtual_screen" | "separate_desktop";
+
 export interface ConnectChallenge {
     expiresAt: string;
     /**
@@ -4203,6 +4215,20 @@ export interface DevicesPresenceKeyRemoveResult {
     removed: boolean;
 }
 
+export interface DevicesPresenceStatusResult {
+    verifiers: PresenceVerifier[];
+}
+
+export interface PresenceVerifier {
+    detail?: string;
+    kind:    PresenceVerifierKind;
+    state:   PresenceVerifierState;
+}
+
+export type PresenceVerifierKind = "touch_id_key" | "passkey" | "password";
+
+export type PresenceVerifierState = "ready" | "not_enrolled" | "unavailable" | "policy_missing" | "not_enforced" | "no_session" | "agent_missing";
+
 export interface DevicesRevokeParams {
     deviceId: string;
 }
@@ -5106,7 +5132,7 @@ export interface ErrorPayload {
 /**
  * Machine-readable error code
  */
-export type ErrorCode = "not_implemented" | "invalid_frame" | "invalid_params" | "unknown_method" | "protocol_version_mismatch" | "unauthorized" | "forbidden" | "not_paired" | "pairing_pending" | "origin_rejected" | "not_found" | "conflict" | "idempotency_conflict" | "rate_limited" | "timeout" | "cancelled" | "unavailable" | "approval_required" | "approval_expired" | "approval_invalidated" | "approval_not_armed" | "answer_late" | "answer_replayed" | "binding_mismatch" | "taint_blocked" | "policy_denied" | "internal" | "user_in_control" | "debugger_detached" | "tab_not_found" | "method_not_allowed" | "presence_required";
+export type ErrorCode = "not_implemented" | "invalid_frame" | "invalid_params" | "unknown_method" | "protocol_version_mismatch" | "unauthorized" | "forbidden" | "not_paired" | "pairing_pending" | "origin_rejected" | "not_found" | "conflict" | "idempotency_conflict" | "rate_limited" | "timeout" | "cancelled" | "unavailable" | "approval_required" | "approval_expired" | "approval_invalidated" | "approval_not_armed" | "answer_late" | "answer_replayed" | "binding_mismatch" | "taint_blocked" | "policy_denied" | "internal" | "user_in_control" | "debugger_detached" | "tab_not_found" | "method_not_allowed" | "presence_required" | "presence_unavailable_here" | "presence_agent_missing" | "presence_policy_missing" | "presence_not_enforced";
 
 export type FrameType = "req" | "res" | "event";
 
@@ -8240,7 +8266,12 @@ export interface NodeInfo {
     status:           NodeStatus;
 }
 
-export type NodeKind = "mac-helper" | "vm-guest" | "remote" | "phone";
+/**
+ * host-helper: the helper the desktop launched on the Host (macOS mac-helper or Linux
+ * linux-helper; stored rows keep mac-helper, which stays a valid alias). guest: the helper
+ * inside a separate desktop (container or VM).
+ */
+export type NodeKind = "mac-helper" | "vm-guest" | "remote" | "phone" | "host-helper" | "guest";
 
 export type NodeStatus = "online" | "offline" | "degraded";
 
@@ -8509,6 +8540,8 @@ export interface OnePasswordRef {
     item:  string;
     vault: string;
 }
+
+export type OSPermission = "a11yBus" | "screenCastPortal" | "remoteDesktopPortal" | "x11";
 
 export interface PairingRequestedPayload {
     pairingRequest: PairingRequest;
@@ -12773,6 +12806,71 @@ export interface VoiceStopParams {
 
 export interface VoiceStopResult {
     transcript: Transcript;
+}
+
+export interface VscreenACK {
+    ok: boolean;
+}
+
+export interface VscreenFrame {
+    changed:  boolean;
+    frameSeq: number;
+    height:   number;
+    image?:   null | string;
+    width:    number;
+}
+
+export interface VscreenFrameParams {
+    maxWidth?: number;
+    since?:    number;
+}
+
+export interface VscreenInputParams {
+    events: VscreenInputEvent[];
+}
+
+export interface VscreenInputEvent {
+    button?: Button;
+    type:    VscreenInputEventType;
+    x?:      number;
+    y?:      number;
+    dx?:     number;
+    dy?:     number;
+    key?:    string;
+    text?:   string;
+}
+
+export type Button = "left" | "middle" | "right";
+
+export type VscreenInputEventType = "move" | "down" | "up" | "scroll" | "key_down" | "key_up" | "text";
+
+export interface VscreenStartParams {
+    height?: number;
+    width?:  number;
+}
+
+export interface VscreenStatus {
+    apps:       VscreenApp[];
+    display?:   null | string;
+    frameSeq:   number;
+    height:     number;
+    startedAt?: null | string;
+    state:      VscreenState;
+    takenOver:  boolean;
+    width:      number;
+}
+
+export interface VscreenApp {
+    appId:              string;
+    hasUnsavedChanges?: boolean;
+    pid:                number;
+    windowTitle?:       null | string;
+}
+
+export type VscreenState = "stopped" | "starting" | "running" | "stopping";
+
+export interface VscreenStopParams {
+    closeApps?: boolean;
 }
 
 export interface WidgetAction {

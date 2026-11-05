@@ -49,9 +49,14 @@ export const NodeCapability = Type.Object(
 );
 export type NodeCapability = Static<typeof NodeCapability>;
 
-export const NodeKind = StringEnum(["mac-helper", "vm-guest", "remote", "phone"], {
-  $id: "NodeKind",
-});
+export const NodeKind = StringEnum(
+  ["mac-helper", "vm-guest", "remote", "phone", "host-helper", "guest"],
+  {
+    $id: "NodeKind",
+    description:
+      "host-helper: the helper the desktop launched on the Host (macOS mac-helper or Linux linux-helper; stored rows keep mac-helper, which stays a valid alias). guest: the helper inside a separate desktop (container or VM).",
+  },
+);
 export type NodeKind = Static<typeof NodeKind>;
 
 export const NodeStatus = StringEnum(["online", "offline", "degraded"], { $id: "NodeStatus" });
