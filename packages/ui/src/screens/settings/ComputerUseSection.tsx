@@ -8,6 +8,7 @@ import { isLinux, isWindows, type UiPlatform, uiPlatform } from "../../lib/platf
 import { usePersona, useSlots } from "../../slots.tsx";
 import { LinuxAccessRows, linuxAccessFromSettings } from "./LinuxAccess.tsx";
 import { SegmentedRadio } from "./SegmentedRadio.tsx";
+import { isLinuxUi, SeparateDesktopGroup } from "./SeparateDesktopGroup.tsx";
 import {
   bool,
   EmptyNotice,
@@ -299,6 +300,8 @@ export function ComputerUsePanel({
             </>
           )}
         </Group>
+
+        {isLinuxUi() ? <SeparateDesktopGroup values={values} onChange={onChange} /> : null}
       </LoadGate>
     </SectionFrame>
   );

@@ -41,6 +41,7 @@ import { screenAsk } from "./screen-ask.ts";
 import { screens } from "./screens.ts";
 import { securityState } from "./security-state.ts";
 import { selfConnectors } from "./self-connectors.ts";
+import { separateDesktop } from "./separate-desktop.ts";
 import { settings } from "./settings.ts";
 import { settingsLanguage } from "./settings-language.ts";
 import { settingsSections } from "./settings-sections.ts";
@@ -120,6 +121,7 @@ export const en = {
   ...helperCheck,
   ...securityState,
   ...linuxAccess,
+  ...separateDesktop,
 } as const;
 
 export type MessageId = keyof typeof en;

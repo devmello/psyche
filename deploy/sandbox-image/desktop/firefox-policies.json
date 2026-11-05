@@ -1,0 +1,23 @@
+{
+  "policies": {
+    "DisableAppUpdate": true,
+    "DisableTelemetry": true,
+    "DisableFirefoxStudies": true,
+    "DisablePocket": true,
+    "DisableFeedbackCommands": true,
+    "DontCheckDefaultBrowser": true,
+    "OverrideFirstRunPage": "",
+    "OverridePostUpdatePage": "",
+    "NoDefaultBookmarks": true,
+    "PasswordManagerEnabled": false,
+    "OfferToSaveLogins": false,
+    "Proxy": {
+      "Mode": "manual",
+      "HTTPProxy": "127.0.0.1:3128",
+      "SSLProxy": "127.0.0.1:3128",
+      "UseHTTPProxyForAllProtocols": true,
+      "Passthrough": "",
+      "Locked": true
+    }
+  }
+}

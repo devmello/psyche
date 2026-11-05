@@ -66,9 +66,11 @@ export interface PeerInfo {
    * helper and psyche-node dial: the node socket (`run/node.sock`, 0600) on macOS and Linux, the
    * named pipe `\\.\pipe\psyche-node-<hash>` on Windows (`socket-path.ts`). `vm-relay`: the guest socket (`run/guest.sock`), where
    * the Host helper copies each sandbox guest's vsock stream; whatever the guest says, it is never
-   * the Host's helper and never auto-pairs.
+   * the Host's helper and never auto-pairs. `container-guest`: the per-container socket of a
+   * separate desktop (`nodes/guest-sockets.ts`, `PeerInfo.guest`): a node that proves the
+   * single-use token minted for that container, and nothing else, ever.
    */
-  transport: "ws" | "unix" | "vm-relay";
+  transport: "ws" | "unix" | "vm-relay" | "container-guest";
   remoteLoopback: boolean;
   /** Peer IP for WebSockets, `"unix"` / `"vm-relay"` for the sockets. Rate limits key on it. */
   remoteAddress: string;
@@ -81,6 +83,12 @@ export interface PeerInfo {
   limitKey?: string;
   /** WebSocket `Origin` header; `null` for native clients and Unix-socket nodes. */
   origin: string | null;
+  /**
+   * Set only by the listener of a separate desktop's own socket (`nodes/guest-sockets.ts`), never
+   * from anything the peer sends: which container this socket belongs to, and the one check that
+   * can pair a node on it (the container's single-use pairing token).
+   */
+  guest?: GuestPeer;
   /**
    * What the accept-time peer check found for a process on the Linux node socket (design §4.3):
    * set only by the transport that owns that socket, after it looked at the connecting process,
@@ -108,6 +116,17 @@ export interface PeerInfo {
   lan?: true;
   /** The `Host` header of a LAN connection (names the origin it dialed); `null` otherwise. */
   host?: string | null;
+}
+
+/** A separate desktop's socket, as `verifyChallenge` sees it. */
+export interface GuestPeer {
+  /** The container this socket was made for. */
+  container: string;
+  /**
+   * Spends the container's pairing token. True once, for the token minted for this container at
+   * its start and presented before it expires; false for anything else, always.
+   */
+  redeem(presented: string | undefined, deviceId: string): boolean;
 }
 
 /** The /64 a LAN IPv6 peer is also counted under, or `undefined` (IPv4, loopback, sockets). */
@@ -141,6 +160,12 @@ export interface PairedIdentity {
    * a node declares proves nothing by itself (#278, remote-gateway design §4.1).
    */
   hostHelper?: true;
+  /**
+   * This connection is the helper inside a separate desktop, paired on that container's own
+   * socket with its single-use token. Whatever family it declares, it is a `guest` node bound to
+   * this container, never the Host's helper.
+   */
+  guestContainer?: string;
 }
 
 /**
@@ -324,6 +349,7 @@ export function autoPairScopes(
   peer: PeerInfo,
   handshakeSecret: string,
 ): DeviceScope[] | null {
+  if (peer.transport === "container-guest" || peer.guest !== undefined) return null;
   if (!peer.remoteLoopback || peer.origin !== null || peer.transport === "vm-relay") return null;
   if (!secretMatches(handshakeSecret, params.handshakeSecret)) return null;
   if (params.role === "client" && params.deviceFamily === "desktop" && peer.transport === "ws") {
@@ -460,6 +486,10 @@ export function verifyChallenge(
     throw limited();
   }
   if (existing?.revokedAt) return denied("device revoked", "device_revoked");
+  // A separate desktop's socket pairs one way only: its container's single-use token.
+  if (peer.transport === "container-guest" || peer.guest !== undefined) {
+    return verifyGuest(params, peer, existing !== undefined, deps, record);
+  }
   // A Host helper (Mac or Windows) on the node transport either proves this launch's handshake
   // secret or is refused: accepted as an ordinary node it would stay connected (the helper only
   // retries after a denial) and Host features would stay off until it restarted. A stale or
@@ -699,6 +729,62 @@ export function verifyChallenge(
       pendingDeviceId: params.deviceId,
     };
   })();
+}
+
+/** What a separate desktop is told when its token is missing, spent, expired or not its own. */
+export const GUEST_TOKEN_REFUSED =
+  "this separate desktop's pairing token is missing, was already used, has expired or is not for this desktop";
+
+/**
+ * Pairing on a separate desktop's own socket. Fail closed on everything: no owner approval, no
+ * handshake secret, no loopback trust and no Host-helper family can pair here. The helper inside
+ * presents the container's single-use token as its `handshakeSecret`; the token is spent here,
+ * once, and the device is created fresh, named by the Gateway (not by what the guest claims),
+ * with scope `node` only, bound to the container by `PairedIdentity.guestContainer`. A device id
+ * that already exists is refused: each start brings a new identity, and a spent token cannot
+ * be replayed by an old one.
+ */
+function verifyGuest(
+  params: ConnectParams,
+  peer: PeerInfo,
+  deviceExists: boolean,
+  deps: VerifyDeps,
+  record: () => void,
+): VerifyOutcome {
+  const guest = peer.transport === "container-guest" ? peer.guest : undefined;
+  if (guest === undefined) return denied("not a separate desktop socket");
+  if (params.role !== "node") return denied("a separate desktop pairs as a node only");
+  if (deviceExists) {
+    record();
+    return denied("a separate desktop pairs with a new identity every time it starts");
+  }
+  if (!guest.redeem(params.handshakeSecret, params.deviceId)) {
+    record();
+    return denied(GUEST_TOKEN_REFUSED);
+  }
+  const nowIso = deps.now().toISOString();
+  insertDevice(deps.db, {
+    id: params.deviceId,
+    name: `Separate desktop (${guest.container})`,
+    platform: params.platform,
+    role: "node",
+    publicKey: params.publicKey,
+    scopes: ["node"],
+    pairedAt: nowIso,
+    deviceFamily: "separate-desktop",
+  });
+  touchLastSeen(deps.db, params.deviceId, nowIso);
+  return {
+    result: pairedResult(params.deviceId, ["node"], nowIso),
+    identity: {
+      deviceId: params.deviceId,
+      scopes: ["node"],
+      role: "node",
+      guestContainer: guest.container,
+    },
+    createdRequest: null,
+    pendingDeviceId: null,
+  };
 }
 
 function pairedResult(deviceId: string, scopes: DeviceScope[], serverTime: string): ConnectResult {

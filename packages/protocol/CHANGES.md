@@ -18,6 +18,9 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-05 (Linux separate desktop shares)
+
+- `ApprovalKind` gains `separate_desktop_share` (added at the end of the folder kinds): the owner picks a folder to show to the Linux separate desktop's container for one task. It answers like `folder_access` (`folderPath`, `folderMode`) but grants nothing on the Host: no file tool and no Settings entry gets the folder, and only `once` is offered. Device-only. Design: docs/design/linux-desktop-2026.md section 8.4.
 ### v1 additive — 2026-11-05 (Linux helper pairing)
 
 - `HOST_HELPER_FAMILIES` gains `linux-helper`; `isHostHelperKind` also accepts `host-helper`. New `hostHelperKindOf(family)` (the Linux helper is stored as `host-helper`, Mac and Windows keep their kinds) and the `PeerCheck` type (`root_owned` | `user_owned` | `unverified` | `mismatch`). No wire schema changes. The `devices.hostHelper.status` setting gains an optional `peerCheck`.

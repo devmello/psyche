@@ -19,7 +19,7 @@ export interface AccessEntry {
     type:        AccessEntryType;
 }
 
-export type ApprovalKind = "exec" | "exec_host" | "send_email" | "calendar_write" | "message_send" | "browser_submit" | "credential_fill" | "purchase" | "file_write" | "connector_action" | "computer_action" | "new_origin" | "plan_exit" | "skill_install" | "mcp_tool" | "archive_thread" | "memory_protected_write" | "pairing" | "policy_change" | "task_start" | "apple_script" | "shortcut_run" | "git_write" | "git_push" | "folder_access" | "batch" | "permission_request";
+export type ApprovalKind = "exec" | "exec_host" | "send_email" | "calendar_write" | "message_send" | "browser_submit" | "credential_fill" | "purchase" | "file_write" | "connector_action" | "computer_action" | "new_origin" | "plan_exit" | "skill_install" | "mcp_tool" | "archive_thread" | "memory_protected_write" | "pairing" | "policy_change" | "task_start" | "apple_script" | "shortcut_run" | "git_write" | "git_push" | "folder_access" | "separate_desktop_share" | "batch" | "permission_request";
 
 export type FolderModeEnum = "ro" | "rw";
 

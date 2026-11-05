@@ -20,6 +20,7 @@ import { overviewShared } from "./overview-shared/es.ts";
 import { passwordPresence } from "./password-presence/es.ts";
 import { scheduledA } from "./scheduled-a/es.ts";
 import { securityState } from "./security-state/es.ts";
+import { separateDesktop } from "./separate-desktop/es.ts";
 import { settingsA } from "./settings-a/es.ts";
 import { settingsB } from "./settings-b/es.ts";
 import { settingsC } from "./settings-c/es.ts";
@@ -3365,4 +3366,6 @@ export const es: Partial<Catalogue> = {
   ...securityState,
   // Settings → Computer use on Linux: screen and input access
   ...linuxAccess,
+  // Settings > Computer use > Separate desktop (Linux)
+  ...separateDesktop,
 };

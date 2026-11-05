@@ -37,6 +37,7 @@ import { scheduled } from "./scheduled/zh.ts";
 import { screens } from "./screens/zh.ts";
 import { securityState } from "./security-state/zh.ts";
 import { selfConnectors } from "./self-connectors/zh.ts";
+import { separateDesktop } from "./separate-desktop/zh.ts";
 import { settings } from "./settings/zh.ts";
 import { settingsLanguage } from "./settings-language/zh.ts";
 import { settingsSections } from "./settings-sections/zh.ts";
@@ -3247,4 +3248,6 @@ export const zh: Partial<Catalogue> = {
   ...securityState,
   // Settings → Computer use on Linux: screen and input access
   ...linuxAccess,
+  // Settings > Computer use > Separate desktop (Linux)
+  ...separateDesktop,
 };

@@ -41,6 +41,7 @@ import { researchRest } from "./research-rest/hi.ts";
 import { scheduledRest } from "./scheduled-rest/hi.ts";
 import { screensRest } from "./screens-rest/hi.ts";
 import { securityState } from "./security-state/hi.ts";
+import { separateDesktop } from "./separate-desktop/hi.ts";
 import { settingsRest } from "./settings-rest/hi.ts";
 import { shellRest } from "./shell-rest/hi.ts";
 import { specialistsRest } from "./specialists-rest/hi.ts";
@@ -3294,4 +3295,6 @@ export const hi: Partial<Catalogue> = {
   ...securityState,
   // Settings → Computer use on Linux: screen and input access
   ...linuxAccess,
+  // Settings > Computer use > Separate desktop (Linux)
+  ...separateDesktop,
 };
