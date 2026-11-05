@@ -1,6 +1,6 @@
 # Linux desktop app (2026)
 
-Status: proposal (docs only), 2026-11-05. Nothing here changes code. It reverses the "No Linux desktop support" scope line in [cross-platform-2026.md](cross-platform-2026.md), which is updated in the same PR, and replaces the Linux bullet in §5 of [updates-and-install-2026.md](updates-and-install-2026.md).
+Status: accepted 2026-11-05 (#1271). **Development is paused on the Mac and continues on a Windows machine; see §0 for where each PR stands and how to resume.** The design itself changes no code. It reverses the "No Linux desktop support" scope line in [cross-platform-2026.md](cross-platform-2026.md), which is updated in the same PR, and replaces the Linux bullet in §5 of [updates-and-install-2026.md](updates-and-install-2026.md).
 
 The owner decided on 2026-11-05 to ship a **full Linux desktop app**. This doc decides how: packaging, updates, a Linux helper, three computer-use modes, presence by password, and the other platform services. It ends with a numbered PR plan that builders can run in parallel, a test plan for a real Linux machine, and the decisions left to the owner.
 
@@ -19,6 +19,61 @@ The owner decided on 2026-11-05 to ship a **full Linux desktop app**. This doc d
 6. **Direct** uses AT-SPI2 for the structure tree, plus the ScreenCast and RemoteDesktop portals on Wayland (approved once, with a restore token), or XTest and XShm on X11 (§6). **Virtual screen** is an Xvfb display that the helper manages, holding the owner's apps under the owner's own user (§7). **Separate desktop** is a rootless Podman container built from the sandbox image, with a VM backend later (§8).
 7. **Presence by password**: psyched asks polkitd directly for `com.psyche.presence.confirm` (`auth_self`, never cached). The helper isn't involved, because there's no signature to forward and only polkitd's own answer can be trusted (§9).
 8. **Protocol changes are additive only**: a `password` presence kind, a desktop-only `approvals.approveWithPassword`, the `linux-helper` device family, Linux artifacts in the update manifest, and a `surface` on computer-use calls (`direct | virtual_screen | separate_desktop`) (§11).
+
+---
+
+## 0. Development status and handoff (2026-11-05)
+
+**Linux development is paused on the owner's Mac and moves to a Windows machine** (WSL2 plus full Linux VMs). Only L0 is merged. L1–L4 are draft PRs with partial work and a resume list in each PR body. L5–L10 haven't started. GitHub Actions is locked by a billing issue, so none of the Linux CI jobs in §12 exist or run yet; until billing is fixed, verify locally.
+
+### 0.1 Where each PR stands
+
+| PR | Branch | State | Done | Left |
+| --- | --- | --- | --- | --- |
+| **L0** protocol | — | **Merged** ([#1272](https://github.com/devmello/psyche/pull/1272)) | `password` presence kind (Gateway-created only, not yet enforced), `approvals.approveWithPassword`, `devices.presence.status` with `PresenceVerifier`, the four `presence_*` error codes, `ComputerSurface`, `host-helper`/`guest` node kinds, `OsPermission` Linux values, `vscreen.*` capability shapes | Real Settings › Devices labels for `host-helper` and `guest`: they map to the Mac-helper and VM-guest labels for now (`DevicesSection.tsx`) |
+| **L1** platform + systemd | `claude/linux-l1-platform` | Draft [#1276](https://github.com/devmello/psyche/pull/1276) | `apps/desktop/src/platform/` (the single `process.platform` read, traits, the shared `systemd-unit.ts` renderer, `SystemdUserSupervisor`, health, autostart, linger, tray probe, the safeStorage guard, the LUKS check, the uninstall strings in 10 languages). `LaunchdSupervisor` is renamed, with an alias kept, and `createSupervisor()` is used in main.ts. Desktop typecheck is clean | **The existing supervisor tests haven't been re-run since the refactor: run them first.** New tests (fake `Runner`, unit text, the lint rule). The CLI importing the shared renderer. `deploy/systemd/` units. main.ts wiring (setDesktopName, shortcuts, tray fallback, guard, linger, autostart). Linux branches in login-item, tray, dock-policy, windows and downloads. Real-Chrome paths. The Linux uninstall plan. Changeset and checks |
+| **L2** packaging + updates | `claude/linux-l2-packaging` | Draft [#1274](https://github.com/devmello/psyche/pull/1274) | Linux artifacts and selection in the manifest; the update flow and the Linux updater branch (staged in `~/.cache/psyche/updates`); `linux-install.ts`, `linux-apply.ts` (AppImage rename with an EXDEV fallback and the previous copy kept; deb/rpm via `pkexec`; rollback); `linux-gateway.ts`; `deploy/linux/` setup script, `.desktop` file (10 languages), AppArmor profile, unit template, icons | Forge makers and `package.json` deps (plus the lockfile), `linux-bundle.ts`, the `psyche-apprun` script, AppRun, maintainer scripts, the `update-manifest.mjs`, `build-psyched.mjs` and size-budget Linux entries, every test, all checks. **The existing vitest suites haven't been re-run since the manifest edits** |
+| **L3** Rust helper | `claude/linux-l3-helper` | Draft [#1275](https://github.com/devmello/psyche/pull/1275) | `apps/linux-helper` workspace: typify protocol types plus `cargo gen-check`, NDJSON framing, connect signing (v1, v2), identity (0600), the handshake secret, the node session, the approval guard, the `health`-only registry, backoff, idle exit, and the CLI flags. 59 tests pass, clippy is clean, and `cargo check --target x86_64-unknown-linux-gnu` passes | **The Gateway half:** registry host-helper families and the `host-helper` alias, the `auth.ts`/`server.ts` edits (a shared family list), and the peer check (Node has no `SO_PEERCRED`: parse `ss -xnp` plus `/proc`; pid reuse stays open). The conformance "host helper" profile. A first pairing run against a real psyched |
+| **L4** password presence | `claude/linux-l4-password-presence` | Draft [#1273](https://github.com/devmello/psyche/pull/1273), **no code yet** | The full design is in the PR body: the fake-able D-Bus interface, the two-step check, a per-approval 256-bit nonce bound to `presenceChallenge(approvalId, bindingHash, answerToken)`, consumed once, rejecting client-sent `password` assertions | Everything. Needs `dbus-next` added and bundled. **Needs an independent security review before merge** |
+| L5–L10 | — | Not started | — | Per §14 |
+
+### 0.2 Corrections found while building
+
+- **Install path.** electron-installer-debian/redhat install to **`/usr/lib/psyche`** and `/usr/bin/psyche`, not `/opt/Psyche` and `psyche-desktop`. L1's install-kind check (`dpkg -S`/`rpm -qf`) and §2.1 must use `/usr/lib/psyche`.
+- **AppImage launcher.** The AppImage maker's AppRun is only a symlink to the bin, so Psyche's AppRun logic (`--psyched`, `--setup-system`, the userns sandbox check) is a shell script used as the AppImage `bin`.
+- **Supervisor signature.** L1's final interface is `restart(reason: "build_mismatch" | "update")`. L2's adapter (`linux-gateway.ts`) assumed `restart(reason: string)`; align it when resuming. L2 uses only `restart` and `stopForUpdate`, and takes `restoreSnapshot`/`recordSkipBuild` as caller-supplied hooks.
+- **Peer check.** Node can't call `getsockopt(SO_PEERCRED)`. The plan reads `ss -xnp` plus `/proc`. Pid reuse can't be closed without a pidfd, so §4.3 should say so.
+- **The `password` kind** must be rejected from clients in `packages/permissions/src/handlers.ts`, a file outside L4's Owns list. Make that one edit there.
+
+### 0.3 How to continue, in order
+
+1. **Re-run the existing desktop tests on L1 (#1276) and L2 (#1274)** before adding anything: both refactored code whose tests haven't run since.
+2. **Finish L1**, then merge. L2 depends on its supervisor.
+3. **Finish L2**, aligning its supervisor adapter and the `/usr/lib/psyche` path, then merge.
+4. **Finish L3** (the Gateway half and conformance), then merge. Merge `origin/main` into each branch with a merge commit, never a rebase or `reset --soft`.
+5. **Build L4** from its PR body. Get an independent adversarial security review, then merge.
+6. **L9 CI**, as soon as GitHub billing is fixed: the `linux-desktop`, `linux-smoke`, `linux-helper` and `linux-upgrade` jobs.
+7. **Wave 2:** L5 (direct), L6 (virtual screen), L7 (container desktop). Then L8 (VM) and L10 (dictation).
+8. The real-machine test plan in §13, recorded in `docs/guides/linux-test-results.md`.
+
+### 0.4 What WSL can and can't test
+
+| Area | WSL2 (with WSLg and `systemd=true` in `/etc/wsl.conf`) | Needs a full Linux VM (Hyper-V, VirtualBox or VMware, Ubuntu 24.04 GNOME Wayland plus one KDE or X11 desktop) |
+| --- | --- | --- |
+| Unit tests, typechecks, `cargo test` on Linux, `cargo gen-check` | Yes | — |
+| The Gateway under `systemd --user`, the unit and drop-in, `systemd-analyze verify` | Yes, with systemd turned on | — |
+| `electron-forge make` for deb, rpm and AppImage | Yes (needs `dpkg`, `fakeroot` and `rpm`; run AppImages with `APPIMAGE_EXTRACT_AND_RUN=1` if FUSE is missing) | Installing and launching from the desktop menu |
+| The Rust helper pairing with psyched over `node.sock`, the peer check | Yes | — |
+| X11 path and virtual screen (L6) under Xvfb, AT-SPI with GTK apps | Mostly (WSLg runs X11 apps through XWayland; start `at-spi2-core` yourself) | — |
+| Container desktop (L7) with rootless Podman | Yes | — |
+| **Direct mode on Wayland** (ScreenCast/RemoteDesktop portals, libei, restore tokens) | **No**: WSLg's compositor offers no screen-cast or remote-desktop portal | Yes, on GNOME and KDE |
+| **Password presence** (the polkit dialog through a real session agent) | Only the **refusal** paths (`no_session`, `agent_missing`), plus python-dbusmock tests | The real dialog, approve, deny and cancel (§13 step 3) |
+| Tray, autostart, global shortcuts, notifications, the uninstall sheet | Partly | Yes |
+| VM backend (L8, QEMU/KVM) | Nested virtualization only, if enabled | A KVM-capable host |
+
+### 0.5 Rules that still apply
+
+Light, per-session tests: vitest with `--maxWorkers=1` on touched files, per-package typechecks, and never `pnpm -w typecheck` or `pnpm -r test`. Local checks before merge while Actions is locked: biome at error level, `bash scripts/ci/secret-grep.sh`, `pnpm protocol:check` and `pnpm i18n:check`. Every user-facing string gets all 10 languages. Security PRs (L3's peer check, L4 and L7's isolation) get an independent adversarial review. Each PR's file ownership in §14 stays disjoint while they run in parallel; locale files and guides take additions only.
 
 ---
 
