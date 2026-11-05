@@ -415,6 +415,10 @@ export const windows: Partial<Record<MessageId, string>> = {
   "platform.term.secretStore": "Credential Manager",
   "platform.term.systemSettings": "Settings",
   "platform.term.fileManager": "File Explorer",
+  "settings.connectorBundle.sandbox.none":
+    "This PC has no sandbox for command connectors, and Psyche never runs one outside it. This connector cannot be installed here. Nothing was started or saved.",
+  "settings.connectorBundle.share.unavailable":
+    "Only Psyche on the PC that runs it can sign a connector.",
   "platform.term.trayArea": "notification area",
   "platform.term.taskbar": "taskbar",
   "platform.term.systemSearch": "Windows Search",
