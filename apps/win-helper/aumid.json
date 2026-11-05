@@ -1,5 +1,5 @@
 {
-  "$comment": "Windows identity contract between the desktop installer (apps/desktop/src/main/squirrel-events.ts) and the helper (apps/win-helper, read at build time). Changing a value orphans existing shortcuts, toasts and notification settings; see apps/desktop/docs/windows-identity.md.",
+  "$comment": "Windows identity contract between the desktop installer (apps/desktop/src/main/squirrel-events.ts) and the helper (apps/win-helper, read at build time). Changing a value orphans existing shortcuts, toasts and notification settings; see apps/desktop/docs/signing.md \"Install layout and identity\".",
   "app": {
     "aumid": "com.psyche.desktop",
     "shortcut": "Psyche.lnk",

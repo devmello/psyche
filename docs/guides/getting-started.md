@@ -1,6 +1,6 @@
 # Getting started
 
-This guide gets the Psyche desktop app running on your Mac from a source checkout. It covers picking a model, the first run and onboarding, giving the app the rights it needs to change settings, sharing folders with the agent, and where Settings live.
+This guide gets the Psyche desktop app running on your Mac (or on Windows, see [On Windows](#on-windows)) from a source checkout. It covers picking a model, the first run and onboarding, giving the app the rights it needs to change settings, sharing folders with the agent, and where Settings live.
 
 ## Before you start
 
@@ -243,6 +243,16 @@ On main, many sections save values that the Gateway does not act on yet. This is
 | Persona | Saved, not used. Edit `IDENTITY.md` instead. |
 | Connectors | Lists connectors; nothing can be connected yet. |
 | Credentials | The Gateway runs the vault, but nothing can set it up yet, so it stays locked and nothing can be stored. |
+
+## On Windows
+
+The steps above work on Windows 10 and 11 (x64) in PowerShell, with these differences:
+
+- **Tools:** Node.js 24, pnpm 12 and git as above. Building the installer (`pnpm app:build`) also needs the Rust toolchain with the MSVC target ([rustup](https://rustup.rs) and the Visual Studio C++ build tools) for Psyche Helper. Without `apps\win-helper` in your checkout, build with `pnpm app:build --skip-helper`, a development package without the helper.
+- **Environment variables** are set with `$env:NAME = "value"` instead of `NAME=value` in front of the command, for example `$env:PSYCHE_GATEWAY_MODE = "external"` before `pnpm --filter @psyche/desktop start`.
+- **The installed app:** `pnpm app:build` then `pnpm app:install` builds `dist\Psyche-<version>-Setup.exe` and installs it for your user, as in [install.md](install.md#on-windows). `pnpm app:install` resets your Psyche data first unless you pass `--keep-data`.
+- **Data:** `~/.psyche` below is `%USERPROFILE%\.psyche`. The desktop app's own settings and caches are in `%APPDATA%\Psyche`.
+- **File permissions:** Windows has no POSIX modes. Your profile folder's permissions keep `.psyche` private, so `psyche doctor` skips the mode check on Windows.
 
 ## Where your data lives
 

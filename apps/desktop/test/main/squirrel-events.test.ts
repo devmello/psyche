@@ -21,6 +21,7 @@ const paths = {
   startMenu: "C:\\Users\\me\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs",
   desktop: "C:\\Users\\me\\Desktop",
   psycheHome: "C:\\Users\\me\\.psyche",
+  pid: 4321,
 };
 const ROOT = "C:\\Users\\me\\AppData\\Local\\Psyche";
 const STUB = `${ROOT}\\Psyche.exe`;
@@ -110,6 +111,13 @@ describe("Squirrel events", () => {
       `${paths.startMenu}\\Psyche Helper.lnk`,
     ]);
     expect(GATEWAY_TASK).toBe("\\Psyche\\Gateway");
+    // Every other Psyche.exe and the helper end, so Squirrel can delete app-<version>.
+    expect(plan).toContainEqual({
+      kind: "run",
+      cmd: "taskkill.exe",
+      args: ["/F", "/FI", "IMAGENAME eq Psyche.exe", "/FI", "PID ne 4321"],
+      ignoreFailure: true,
+    });
     expect(squirrelPlan("obsolete", paths)).toEqual([]);
   });
 

@@ -49,6 +49,8 @@ export interface SquirrelPaths {
   startMenu: string;
   desktop: string;
   psycheHome: string;
+  /** This hook process, which must outlive the other Psyche.exe it ends on uninstall. */
+  pid: number;
 }
 
 export interface ShortcutSpec {
@@ -159,6 +161,20 @@ export function squirrelPlan(event: SquirrelEvent, p: SquirrelPaths): SquirrelAc
     case "uninstall":
       return [
         { kind: "stopGateway", psycheHome: p.psycheHome },
+        // A running Psyche or helper keeps app-<version> open, and Squirrel then leaves the folder
+        // behind (marked .dead). End them; this hook process stays.
+        {
+          kind: "run",
+          cmd: "taskkill.exe",
+          args: ["/F", "/T", "/FI", `IMAGENAME eq ${identity.helper.exe}`],
+          ignoreFailure: true,
+        },
+        {
+          kind: "run",
+          cmd: "taskkill.exe",
+          args: ["/F", "/FI", `IMAGENAME eq ${identity.app.exe}`, "/FI", `PID ne ${p.pid}`],
+          ignoreFailure: true,
+        },
         {
           kind: "run",
           cmd: "schtasks.exe",
@@ -274,6 +290,7 @@ export function handleSquirrelEvent(
     ),
     desktop: electron.app.getPath("desktop"),
     psycheHome: env.PSYCHE_HOME ?? win32.join(homedir(), ".psyche"),
+    pid: process.pid,
   };
   runSquirrelActions(squirrelPlan(event, paths), {
     writeShortcutLink: (f, op, o) => electron.shell.writeShortcutLink(f, op, o),
