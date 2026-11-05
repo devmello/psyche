@@ -81,6 +81,8 @@ export interface WindowOptions {
    * where things run and hide what only works on this Mac (remote-gateway design §4.2).
    */
   remote?: { hostName: string };
+  /** This packaged app runs its own Gateway LaunchAgent, so Settings may offer Uninstall. */
+  uninstall?: boolean;
   /** The layout e2e sizes the window past CI's small screen (#561). */
   anySize?: boolean;
   /** A chrome window (main, Settings) was made: the native theme and the like. */
@@ -127,6 +129,8 @@ export interface ChromeArg {
   splash?: boolean;
   /** Connected to a Gateway on another computer (remote-gateway design §1.3). */
   remote?: { hostName: string };
+  /** Settings may offer Uninstall Psyche (packaged app with its own LaunchAgent). */
+  uninstall?: boolean;
 }
 
 export const CHROME_ARG_PREFIX = "--psyche-chrome=";
@@ -203,7 +207,11 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
         ...APP_PREFS,
         preload: opts.preloadPath,
         additionalArguments: [
-          `${CHROME_ARG_PREFIX}${JSON.stringify(opts.remote ? { ...chrome, remote: opts.remote } : chrome)}`,
+          `${CHROME_ARG_PREFIX}${JSON.stringify({
+            ...chrome,
+            ...(opts.remote ? { remote: opts.remote } : {}),
+            ...(opts.uninstall === true && !opts.remote ? { uninstall: true } : {}),
+          })}`,
         ],
       },
     });

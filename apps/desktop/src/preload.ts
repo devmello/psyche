@@ -41,6 +41,7 @@ function chromeFromArgv(argv: readonly string[]): {
   trafficLights?: { x: number; y: number };
   splash?: boolean;
   remote?: { hostName: string };
+  uninstall?: boolean;
 } {
   const raw = argv.find((a) => a.startsWith("--psyche-chrome="))?.slice("--psyche-chrome=".length);
   try {
@@ -52,6 +53,8 @@ function chromeFromArgv(argv: readonly string[]): {
       typeof host === "string" && host.length > 0 && host.length <= 64
         ? { remote: { hostName: host } }
         : {};
+    const uninstall =
+      v?.uninstall === true && remote.remote === undefined ? { uninstall: true } : {};
     return v?.titleBar === "inset"
       ? {
           titleBar: "inset",
@@ -60,8 +63,9 @@ function chromeFromArgv(argv: readonly string[]): {
             : {}),
           ...splash,
           ...remote,
+          ...uninstall,
         }
-      : { titleBar: "native", ...splash, ...remote };
+      : { titleBar: "native", ...splash, ...remote, ...uninstall };
   } catch {
     return { titleBar: "native" };
   }
@@ -259,6 +263,15 @@ const bridge = {
   app: {
     info: () => invoke(IPC.appInfo),
     revealHome: () => invoke(IPC.appRevealHome),
+    /** Uninstall Psyche (main refuses it in a remote window). Run resolves the raw envelope. */
+    uninstallPlan: (p: { deleteData: boolean; removeKeychain?: boolean }) =>
+      invoke(IPC.appUninstallPlan, p),
+    uninstall: (p: {
+      deleteData: boolean;
+      removeKeychain?: boolean;
+      confirm?: string;
+      approvalId?: string;
+    }) => ipcRenderer.invoke(IPC.appUninstall, p) as Promise<Envelope>,
   },
   /** macOS Reduce Transparency and Increase Contrast (redesign §3.4, §8). */
   systemAppearance: {

@@ -246,6 +246,7 @@ import { SqliteThreadStateStore } from "./thread-state.ts";
 import { CROSS_THREAD_SETTING, crossThreadToggle, threadTools } from "./thread-tools.ts";
 import { modelPinsFor, restoreModelPins, threadSettingsHandlers } from "./threads.ts";
 import { updateHandlers } from "./update.ts";
+import { uninstallHandlers } from "./uninstall.ts";
 import { usageSummaryHandlers } from "./usage-summary.ts";
 import { createUserProfile } from "./user-profile.ts";
 import { composeVault, maskingLogger, type VaultSetup, vaultSetupFromEnv } from "./vault.ts";
@@ -1755,6 +1756,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   parts.push(
     composeConversion({ folders: () => rawBroker.policy.folders ?? [], home: config.home }),
   );
+  // app.uninstall.authorize: the presence gate in front of the uninstall sheet's "Delete my data".
+  parts.push({ handlers: uninstallHandlers(services) });
   const handlers: Record<string, HandlerDef> = {
     ...mountPermissions(db, createPermissionHandlers(rawBroker, audit), tokens),
     ...mountParamsOnly(createMemoryHandlers(memory, { teaching: teaching.service.store }) as never),

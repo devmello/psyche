@@ -17,6 +17,7 @@
 //   let agentNote = try? JSONDecoder().decode(AgentNote.self, from: jsonData)
 //   let answerSource = try? JSONDecoder().decode(AnswerSource.self, from: jsonData)
 //   let appLinkBlock = try? JSONDecoder().decode(AppLinkBlock.self, from: jsonData)
+//   let appUninstallAuthorizeParams = try? JSONDecoder().decode(AppUninstallAuthorizeParams.self, from: jsonData)
 //   let appleAlarm = try? JSONDecoder().decode(AppleAlarm.self, from: jsonData)
 //   let appleBusyBlock = try? JSONDecoder().decode(AppleBusyBlock.self, from: jsonData)
 //   let appleCalendar = try? JSONDecoder().decode(AppleCalendar.self, from: jsonData)
@@ -1457,6 +1458,7 @@
 //   let transcript = try? JSONDecoder().decode(Transcript.self, from: jsonData)
 //   let transcriptSegment = try? JSONDecoder().decode(TranscriptSegment.self, from: jsonData)
 //   let uIBlock = try? JSONDecoder().decode(UIBlock.self, from: jsonData)
+//   let uninstallAuthorized = try? JSONDecoder().decode(UninstallAuthorized.self, from: jsonData)
 //   let upcomingItem = try? JSONDecoder().decode(UpcomingItem.self, from: jsonData)
 //   let updateBusy = try? JSONDecoder().decode(UpdateBusy.self, from: jsonData)
 //   let updateGateState = try? JSONDecoder().decode(UpdateGateState.self, from: jsonData)
@@ -1759,6 +1761,22 @@ public struct AppLinkBlock: Codable, Sendable {
 
 public enum AppLinkBlockType: String, Codable, Sendable {
     case appLink = "app_link"
+}
+
+// MARK: - AppUninstallAuthorizeParams
+public struct AppUninstallAuthorizeParams: Codable, Sendable {
+    public let approvalID: String?
+    public let path: String
+
+    public enum CodingKeys: String, CodingKey {
+        case approvalID = "approvalId"
+        case path = "path"
+    }
+
+    public init(approvalID: String? = nil, path: String) {
+        self.approvalID = approvalID
+        self.path = path
+    }
 }
 
 /// Free events are left out; blocks come in start order.
@@ -33701,6 +33719,19 @@ public struct UIBlock: Codable, Sendable {
 
 public enum UIBlockType: String, Codable, Sendable {
     case ui = "ui"
+}
+
+// MARK: - UninstallAuthorized
+public struct UninstallAuthorized: Codable, Sendable {
+    public let authorized: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case authorized = "authorized"
+    }
+
+    public init(authorized: Bool) {
+        self.authorized = authorized
+    }
 }
 
 // MARK: - UsageRecord

@@ -91,6 +91,28 @@ describe("renderer bridge", () => {
     expect(revealed).toBe(1);
   });
 
+  it("offers Uninstall only when main says this copy can uninstall itself (packaged, own agent)", () => {
+    const app = {
+      info: async () => ({}),
+      uninstallPlan: async () => ({}),
+      uninstall: async () => ({ ok: true }),
+    };
+    const dev = desktopPlatform({ chrome: { titleBar: "native" }, app } as unknown as PsycheBridge);
+    expect(dev.app?.uninstall).toBeUndefined();
+    expect(dev.app?.uninstallPlan).toBeUndefined();
+    const packaged = desktopPlatform({
+      chrome: { titleBar: "native", uninstall: true },
+      app,
+    } as unknown as PsycheBridge);
+    expect(packaged.app?.uninstall).toBeDefined();
+    // A remote window never gets it, whatever the flag says.
+    const remote = desktopPlatform({
+      chrome: { titleBar: "native", uninstall: true, remote: { hostName: "studio" } },
+      app,
+    } as unknown as PsycheBridge);
+    expect(remote.app?.uninstall).toBeUndefined();
+  });
+
   it("relays Try it from the Settings window to main (#677)", () => {
     const sent: string[] = [];
     const fake = {

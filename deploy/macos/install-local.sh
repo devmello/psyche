@@ -4,17 +4,24 @@
 #   sh deploy/macos/install-local.sh                 # newest dist/Psyche-*.dmg, else the packaged .app
 #   sh deploy/macos/install-local.sh dist/Psyche-0.3.0-alpha.0-arm64.dmg
 #   sh deploy/macos/install-local.sh apps/desktop/out/Psyche-darwin-arm64/Psyche.app
-#   pnpm app:install [source] [--keep-data] [--no-launch] [--dry-run]
+#   pnpm app:install [source] [--reset [--yes]] [--no-launch] [--dry-run]
 #
 # What it does: quits a running Psyche, boots the Gateway LaunchAgent out so nothing runs from the
-# old bundle, RESETS the app (every bit of data and cache, so the new build starts from scratch:
-# $PSYCHE_HOME (~/.psyche: state, vault, workspace, logs, backups), the desktop's Application
-# Support, caches, logs, preferences, saved state and web storage, the helper's preferences, the
-# LaunchAgent plist and the Keychain items the vault and helper keep), swaps the app atomically
-# (copy next to it, then rename), verifies the signature, and launches the new app, which installs
-# the LaunchAgent again and runs first-run onboarding. `--keep-data` installs over the existing data
-# instead. Privacy grants (TCC) are kept either way: a build signed with the same identity keeps
-# them; when the signing identity changes it says which `tccutil reset` to run.
+# old bundle, swaps the app atomically (copy next to it, then rename), verifies the signature, and
+# launches the new app, which installs the LaunchAgent again. YOUR DATA IS KEPT by default
+# ($PSYCHE_HOME, usually ~/.psyche, and the app's Application Support, preferences and Keychain
+# items are not touched). `--reset` instead wipes every bit of data and cache so the new build
+# starts from scratch and runs first-run onboarding: $PSYCHE_HOME (~/.psyche: state, vault,
+# workspace, logs, backups), the desktop's Application Support, caches, logs, preferences, saved
+# state and web storage, the helper's preferences, the LaunchAgent plist and the Keychain items the
+# vault and helper keep. It prints exactly what it will delete and asks you to type RESET first;
+# `--yes` skips the question (for scripts). `--keep-data` is accepted and does nothing (it is the
+# default). `--dry-run` changes nothing and prints what would happen. Privacy grants (TCC) are kept
+# either way: a build signed with the same identity keeps them; when the signing identity changes
+# it says which `tccutil reset` to run.
+#
+# Test overrides (never needed on a real Mac): PSYCHE_INSTALL_DIR replaces /Applications, HOME and
+# PSYCHE_HOME move the data, and tools are found through PATH, so a test can put fakes first.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -22,14 +29,17 @@ DEST="${PSYCHE_INSTALL_DIR:-/Applications}/Psyche.app"
 LABEL="com.psyche.gateway"
 LAUNCH=1
 DRY=0
-RESET=1
+RESET=0
+YES=0
 SRC=""
 for arg in "$@"; do
   case "$arg" in
     --no-launch) LAUNCH=0 ;;
     --dry-run) DRY=1 ;;
     --keep-data) RESET=0 ;;
-    -h|--help) sed -n '2,17p' "$0"; exit 0 ;;
+    --reset) RESET=1 ;;
+    --yes|-y) YES=1 ;;
+    -h|--help) sed -n '2,24p' "$0"; exit 0 ;;
     -*) echo "unknown option: $arg" >&2; exit 64 ;;
     *) SRC="$arg" ;;
   esac
@@ -72,6 +82,91 @@ else
 fi
 codesign --verify --deep --strict "$APP" 2>/dev/null || { echo "the new app's signature does not verify; not installing" >&2; exit 1; }
 
+# Path safety for --reset (the same rules as the app's Uninstall sheet).
+strip_slashes() { local p="$1"; while [ "${#p}" -gt 1 ] && [ "${p%/}" != "$p" ]; do p="${p%/}"; done; printf '%s' "$p"; }
+resolve_dir() { ( cd -P "$1" 2>/dev/null && pwd -P ) || true; }
+# Prints why $1 (a resolved folder) may not be wiped as the data folder, or nothing when it may.
+data_folder_problem() {
+  local p="$1" h="$2" d
+  case "$p" in /*) ;; *) echo "not an absolute path"; return ;; esac
+  [ "$p" != "/" ] || { echo "it is the root folder"; return; }
+  [ "$p" != "$h" ] || { echo "it is your home folder"; return; }
+  case "$p" in "$h"/?*) ;; *) echo "it is not inside your home folder"; return ;; esac
+  for d in Library Documents Desktop Downloads Movies Music Pictures Public Applications; do
+    [ "$p" != "$h/$d" ] || { echo "it is your ~/$d folder"; return; }
+  done
+  if [ ! -e "$p/state/psyche.sqlite" ] && [ ! -e "$p/config.json" ]; then
+    echo "it has no Psyche marker (state/psyche.sqlite or config.json)"; return
+  fi
+}
+
+# 1b. --reset: work out exactly what would be deleted, show it, and ask before anything is stopped.
+RESET_PATHS=()
+RESET_KEYCHAIN=()
+if [ "$RESET" = 1 ]; then
+  # Which data folder? The one the installed LaunchAgent runs with wins (it is what the Gateway
+  # really uses); PSYCHE_HOME from the environment is only a fallback, and a difference is a warning.
+  REAL_HOME="$(resolve_dir "$HOME")"
+  [ -n "$REAL_HOME" ] || { echo "cannot resolve HOME ($HOME); refusing --reset" >&2; exit 1; }
+  PLIST_FILE="$HOME/Library/LaunchAgents/$LABEL.plist"
+  PLIST_HOME=""
+  if [ -f "$PLIST_FILE" ]; then
+    PLIST_HOME="$(sed -n '/<key>PSYCHE_HOME<\/key>/{n;s/.*<string>\(.*\)<\/string>.*/\1/p;}' "$PLIST_FILE" | head -1)"
+  fi
+  ENV_HOME="${PSYCHE_HOME:-}"
+  if [ -n "$PLIST_HOME" ]; then
+    WANT_HOME="$PLIST_HOME"
+    if [ -n "$ENV_HOME" ] && [ "$(strip_slashes "$ENV_HOME")" != "$(strip_slashes "$PLIST_HOME")" ]; then
+      echo "warning: PSYCHE_HOME=$ENV_HOME differs from the LaunchAgent's $PLIST_HOME; using the LaunchAgent's" >&2
+    fi
+  else
+    WANT_HOME="${ENV_HOME:-$HOME/.psyche}"
+  fi
+  PSYCHE_HOME_DIR=""
+  case "$WANT_HOME" in /*) ;; *) echo "refusing to delete $WANT_HOME as the data folder: not an absolute path" >&2; exit 1 ;; esac
+  if [ -e "$WANT_HOME" ]; then
+    PSYCHE_HOME_DIR="$(resolve_dir "$WANT_HOME")"
+    problem="$(data_folder_problem "$PSYCHE_HOME_DIR" "$REAL_HOME")"
+    if [ -n "$problem" ]; then echo "refusing to delete $WANT_HOME as the data folder: $problem" >&2; exit 1; fi
+    if [ "$YES" = 1 ] && [ "$PSYCHE_HOME_DIR" != "$REAL_HOME/.psyche" ]; then
+      echo "refusing --yes: the data folder is $PSYCHE_HOME_DIR, not the default $REAL_HOME/.psyche; run --reset without --yes and confirm" >&2
+      exit 1
+    fi
+  fi
+  for path in \
+    ${PSYCHE_HOME_DIR:+"$PSYCHE_HOME_DIR"} \
+    "$HOME/Library/Application Support/Psyche" \
+    "$HOME/Library/Application Support/com.psyche.helper" \
+    "$HOME/Library/Caches/com.psyche.desktop" \
+    "$HOME/Library/Caches/com.psyche.helper" \
+    "$HOME/Library/Caches/Psyche" \
+    "$HOME/Library/Logs/Psyche" \
+    "$HOME/Library/HTTPStorages/com.psyche.desktop" \
+    "$HOME/Library/WebKit/com.psyche.desktop" \
+    "$HOME/Library/Saved Application State/com.psyche.desktop.savedState" \
+    "$HOME/Library/Saved Application State/com.psyche.helper.savedState" \
+    "$HOME/Library/Preferences/com.psyche.desktop.plist" \
+    "$HOME/Library/Preferences/com.psyche.helper.plist" \
+    "$HOME/Library/LaunchAgents/$LABEL.plist"; do
+    if [ -e "$path" ]; then RESET_PATHS+=("$path"); fi
+  done
+  for svc in com.psyche.vault com.psyche.helper.items com.psyche.helper.identity com.psyche.helper.probe; do
+    if security find-generic-password -s "$svc" >/dev/null 2>&1; then RESET_KEYCHAIN+=("$svc"); fi
+  done
+  say "--reset will PERMANENTLY DELETE (not to the Trash):"
+  if [ "${#RESET_PATHS[@]}" -eq 0 ] && [ "${#RESET_KEYCHAIN[@]}" -eq 0 ]; then echo "    (nothing: no Psyche data was found)"; fi
+  for path in ${RESET_PATHS[@]+"${RESET_PATHS[@]}"}; do printf '    %s\n' "$path"; done
+  for svc in ${RESET_KEYCHAIN[@]+"${RESET_KEYCHAIN[@]}"}; do printf '    Keychain item(s) for service %s\n' "$svc"; done
+  if [ "$DRY" = 0 ] && [ "$YES" = 0 ]; then
+    if [ ! -t 0 ]; then echo "--reset needs a terminal to confirm; pass --yes to skip the question" >&2; exit 1; fi
+    printf 'Type RESET to delete the above, anything else to cancel: '
+    read -r answer || answer=""
+    [ "$answer" = "RESET" ] || { echo "cancelled; nothing was changed" >&2; exit 1; }
+  fi
+else
+  say "Keeping your data (pass --reset to wipe it first)"
+fi
+
 # 2. Stop what runs from the old bundle: the app, then the Gateway LaunchAgent (a plain Quit keeps
 #    it loaded; "Quit entirely" removes it). The new app bootstraps the agent again on launch.
 if pgrep -xq Psyche; then
@@ -91,42 +186,32 @@ if pgrep -f "$DEST/Contents/Resources/PsycheHelper.app" >/dev/null 2>&1; then
   run pkill -f "$DEST/Contents/Resources/PsycheHelper.app" || true
 fi
 
-# 3. Reset: everything the app, the Gateway and the helper keep on this Mac, so the new build runs
-#    first-run onboarding on a clean slate. Nothing here touches the TCC grants.
+# 3. Reset (only with --reset): everything the app, the Gateway and the helper keep on this Mac, so
+#    the new build runs first-run onboarding on a clean slate. Nothing here touches the TCC grants.
+#    The list was built before the stop; each entry is checked again now ("if present"), a failure
+#    does not stop the others, and the failures are reported at the end.
+FAILED=()
 if [ "$RESET" = 1 ]; then
-  PSYCHE_HOME_DIR="${PSYCHE_HOME:-$HOME/.psyche}"
-  case "$PSYCHE_HOME_DIR" in ""|/|"$HOME"|"$HOME/") echo "refusing to delete $PSYCHE_HOME_DIR as PSYCHE_HOME" >&2; exit 1 ;; esac
-  say "Resetting app data and caches (pass --keep-data to install over them)"
-  for path in \
-    "$PSYCHE_HOME_DIR" \
-    "$HOME/Library/Application Support/Psyche" \
-    "$HOME/Library/Application Support/com.psyche.helper" \
-    "$HOME/Library/Caches/com.psyche.desktop" \
-    "$HOME/Library/Caches/com.psyche.helper" \
-    "$HOME/Library/Caches/Psyche" \
-    "$HOME/Library/Logs/Psyche" \
-    "$HOME/Library/HTTPStorages/com.psyche.desktop" \
-    "$HOME/Library/WebKit/com.psyche.desktop" \
-    "$HOME/Library/Saved Application State/com.psyche.desktop.savedState" \
-    "$HOME/Library/Saved Application State/com.psyche.helper.savedState" \
-    "$HOME/Library/Preferences/com.psyche.desktop.plist" \
-    "$HOME/Library/Preferences/com.psyche.helper.plist" \
-    "$HOME/Library/LaunchAgents/$LABEL.plist"; do
+  say "Resetting app data and caches"
+  for path in ${RESET_PATHS[@]+"${RESET_PATHS[@]}"}; do
     [ -e "$path" ] || continue
+    if [ "$path" = "${PSYCHE_HOME_DIR:-}" ]; then
+      problem="$(data_folder_problem "$(resolve_dir "$path")" "$REAL_HOME")"
+      if [ -n "$problem" ]; then FAILED+=("$path ($problem)"); continue; fi
+    fi
     printf '    removing %s\n' "$path"
-    run rm -rf "$path"
+    if ! run rm -rf "$path"; then FAILED+=("$path"); fi
   done
   # cfprefsd caches preference domains; forget them so a deleted plist does not come back.
   run defaults delete com.psyche.desktop >/dev/null 2>&1 || true
   run defaults delete com.psyche.helper >/dev/null 2>&1 || true
-  # Keychain items: the vault's key (Keychain slot) and the helper's stores. Several may exist per
-  # service (one per account), so delete until none is left.
-  for svc in com.psyche.vault com.psyche.helper.items com.psyche.helper.identity com.psyche.helper.probe; do
+  # Keychain items: several may exist per service (one per account), so delete until none is left.
+  for svc in ${RESET_KEYCHAIN[@]+"${RESET_KEYCHAIN[@]}"}; do
     n=0
     while security find-generic-password -s "$svc" >/dev/null 2>&1 && [ "$n" -lt 50 ]; do
       printf '    removing Keychain item %s\n' "$svc"
       if [ "$DRY" = 1 ]; then break; fi
-      security delete-generic-password -s "$svc" >/dev/null 2>&1 || break
+      security delete-generic-password -s "$svc" >/dev/null 2>&1 || { FAILED+=("Keychain item $svc"); break; }
       n=$((n + 1))
     done
   done
@@ -158,4 +243,10 @@ fi
 if [ "$LAUNCH" = 1 ]; then
   say "Launching"
   run open -a "$DEST"
+fi
+
+if [ "${#FAILED[@]}" -gt 0 ]; then
+  echo "The install finished, but these could not be removed:" >&2
+  for f in "${FAILED[@]}"; do printf '    %s\n' "$f" >&2; done
+  exit 1
 fi
