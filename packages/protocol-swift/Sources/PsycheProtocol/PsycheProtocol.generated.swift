@@ -1186,6 +1186,7 @@
 //   let searchDocument = try? JSONDecoder().decode(SearchDocument.self, from: jsonData)
 //   let searchDocumentOpener = try? JSONDecoder().decode(SearchDocumentOpener.self, from: jsonData)
 //   let searchDocumentParams = try? JSONDecoder().decode(SearchDocumentParams.self, from: jsonData)
+//   let searchEntityType = try? JSONDecoder().decode(SearchEntityType.self, from: jsonData)
 //   let searchExclusions = try? JSONDecoder().decode(SearchExclusions.self, from: jsonData)
 //   let searchGroup = try? JSONDecoder().decode(SearchGroup.self, from: jsonData)
 //   let searchHit = try? JSONDecoder().decode(SearchHit.self, from: jsonData)
@@ -1538,6 +1539,8 @@
 //   let widgetUpdatedPayload = try? JSONDecoder().decode(WidgetUpdatedPayload.self, from: jsonData)
 //   let widgetsActParams = try? JSONDecoder().decode(WidgetsActParams.self, from: jsonData)
 //   let widgetsActResult = try? JSONDecoder().decode(WidgetsActResult.self, from: jsonData)
+//   let widgetsBindingResolveParams = try? JSONDecoder().decode(WidgetsBindingResolveParams.self, from: jsonData)
+//   let widgetsBindingResolveResult = try? JSONDecoder().decode(WidgetsBindingResolveResult.self, from: jsonData)
 //   let widgetsGetParams = try? JSONDecoder().decode(WidgetsGetParams.self, from: jsonData)
 //   let widgetsGetResult = try? JSONDecoder().decode(WidgetsGetResult.self, from: jsonData)
 //   let widgetsImageParams = try? JSONDecoder().decode(WidgetsImageParams.self, from: jsonData)
@@ -15276,7 +15279,7 @@ public struct GraphEntity: Codable, Sendable {
     public let id: String
     /// The owner's own person entity (exactly one)
     public let isOwner: Bool
-    public let kind: GraphEntityKind
+    public let kind: SearchEntityType
     public let lastInteractionAt: String?
     public let lastSignalAt: String?
     public let mergedInto: String?
@@ -15321,7 +15324,7 @@ public struct GraphEntity: Codable, Sendable {
         case workStatus = "workStatus"
     }
 
-    public init(aliases: [String], cardPath: String? = nil, createdAt: String, dueAt: String? = nil, hidden: Bool, id: String, isOwner: Bool, kind: GraphEntityKind, lastInteractionAt: String? = nil, lastSignalAt: String? = nil, mergedInto: String? = nil, name: String, pinned: Bool, graphEntityPrivate: Bool? = nil, projectStatus: GraphProjectStatus? = nil, projectType: GraphProjectType? = nil, status: GraphEntityStatus, summary: String? = nil, summaryAt: String? = nil, titleUntrusted: Bool? = nil, updatedAt: String, workStatus: GraphWorkStatus? = nil) {
+    public init(aliases: [String], cardPath: String? = nil, createdAt: String, dueAt: String? = nil, hidden: Bool, id: String, isOwner: Bool, kind: SearchEntityType, lastInteractionAt: String? = nil, lastSignalAt: String? = nil, mergedInto: String? = nil, name: String, pinned: Bool, graphEntityPrivate: Bool? = nil, projectStatus: GraphProjectStatus? = nil, projectType: GraphProjectType? = nil, status: GraphEntityStatus, summary: String? = nil, summaryAt: String? = nil, titleUntrusted: Bool? = nil, updatedAt: String, workStatus: GraphWorkStatus? = nil) {
         self.aliases = aliases
         self.cardPath = cardPath
         self.createdAt = createdAt
@@ -15349,7 +15352,7 @@ public struct GraphEntity: Codable, Sendable {
 
 /// person, organisation, project (or course), place, event (dated, may recur), topic (a
 /// lightweight label) or assignment (one deliverable with a due date)
-public enum GraphEntityKind: String, Codable, Sendable {
+public enum SearchEntityType: String, Codable, Sendable {
     case assignment = "assignment"
     case event = "event"
     case org = "org"
@@ -15658,7 +15661,7 @@ public struct EntitySummary: Codable, Sendable {
     public let dueAt: String?
     public let id: String
     public let isOwner: Bool
-    public let kind: GraphEntityKind
+    public let kind: SearchEntityType
     public let lastInteractionAt: String?
     public let name: String
     public let openLoops: Int
@@ -15689,7 +15692,7 @@ public struct EntitySummary: Codable, Sendable {
         case workStatus = "workStatus"
     }
 
-    public init(dueAt: String? = nil, id: String, isOwner: Bool, kind: GraphEntityKind, lastInteractionAt: String? = nil, name: String, openLoops: Int, pinned: Bool, entitySummaryPrivate: Bool? = nil, projectStatus: GraphProjectStatus? = nil, projectType: GraphProjectType? = nil, status: GraphEntityStatus, subtitle: String? = nil, summary: String? = nil, workStatus: GraphWorkStatus? = nil) {
+    public init(dueAt: String? = nil, id: String, isOwner: Bool, kind: SearchEntityType, lastInteractionAt: String? = nil, name: String, openLoops: Int, pinned: Bool, entitySummaryPrivate: Bool? = nil, projectStatus: GraphProjectStatus? = nil, projectType: GraphProjectType? = nil, status: GraphEntityStatus, subtitle: String? = nil, summary: String? = nil, workStatus: GraphWorkStatus? = nil) {
         self.dueAt = dueAt
         self.id = id
         self.isOwner = isOwner
@@ -16737,7 +16740,7 @@ public struct Range: Codable, Sendable {
 public struct InsightEntity: Codable, Sendable {
     public let entityID: String
     public let interactions: Int
-    public let kind: GraphEntityKind
+    public let kind: SearchEntityType
     public let lastInteractionAt: String
     public let name: String
     public let openLoops: Int
@@ -16751,7 +16754,7 @@ public struct InsightEntity: Codable, Sendable {
         case openLoops = "openLoops"
     }
 
-    public init(entityID: String, interactions: Int, kind: GraphEntityKind, lastInteractionAt: String, name: String, openLoops: Int) {
+    public init(entityID: String, interactions: Int, kind: SearchEntityType, lastInteractionAt: String, name: String, openLoops: Int) {
         self.entityID = entityID
         self.interactions = interactions
         self.kind = kind
@@ -18539,7 +18542,7 @@ public struct MemoryEntitiesCreateParams: Codable, Sendable {
     public let dueAt: String?
     /// Emails, phones, handles; refused if another entity has one
     public let identifiers: [MemoryEntitiesCreateParamsIdentifier]?
-    public let kind: GraphEntityKind
+    public let kind: SearchEntityType
     /// Display name
     public let name: String
     /// Keep private: shown on its Memory page only
@@ -18558,7 +18561,7 @@ public struct MemoryEntitiesCreateParams: Codable, Sendable {
         case projectType = "projectType"
     }
 
-    public init(aliases: [String]? = nil, dueAt: String? = nil, identifiers: [MemoryEntitiesCreateParamsIdentifier]? = nil, kind: GraphEntityKind, name: String, memoryEntitiesCreateParamsPrivate: Bool? = nil, projectStatus: GraphProjectStatus? = nil, projectType: GraphProjectType? = nil) {
+    public init(aliases: [String]? = nil, dueAt: String? = nil, identifiers: [MemoryEntitiesCreateParamsIdentifier]? = nil, kind: SearchEntityType, name: String, memoryEntitiesCreateParamsPrivate: Bool? = nil, projectStatus: GraphProjectStatus? = nil, projectType: GraphProjectType? = nil) {
         self.aliases = aliases
         self.dueAt = dueAt
         self.identifiers = identifiers
@@ -19089,7 +19092,7 @@ public struct MemoryEntitiesMergeResult: Codable, Sendable {
 // MARK: - MemoryEntitiesSearchParams
 public struct MemoryEntitiesSearchParams: Codable, Sendable {
     /// Only these entity kinds
-    public let kinds: [GraphEntityKind]?
+    public let kinds: [SearchEntityType]?
     /// At most this many (default 20)
     public let limit: Int?
     /// Name, alias, email, phone or keyword
@@ -19101,7 +19104,7 @@ public struct MemoryEntitiesSearchParams: Codable, Sendable {
         case q = "q"
     }
 
-    public init(kinds: [GraphEntityKind]? = nil, limit: Int? = nil, q: String) {
+    public init(kinds: [SearchEntityType]? = nil, limit: Int? = nil, q: String) {
         self.kinds = kinds
         self.limit = limit
         self.q = q
@@ -19489,7 +19492,7 @@ public struct MemoryEntitiesUpdateResult: Codable, Sendable {
 public struct MemoryEntityUpdatedPayload: Codable, Sendable {
     public let changed: [String]
     public let id: String
-    public let kind: GraphEntityKind
+    public let kind: SearchEntityType
 
     public enum CodingKeys: String, CodingKey {
         case changed = "changed"
@@ -19497,7 +19500,7 @@ public struct MemoryEntityUpdatedPayload: Codable, Sendable {
         case kind = "kind"
     }
 
-    public init(changed: [String], id: String, kind: GraphEntityKind) {
+    public init(changed: [String], id: String, kind: SearchEntityType) {
         self.changed = changed
         self.id = id
         self.kind = kind
@@ -27525,6 +27528,7 @@ public struct SearchHit: Codable, Sendable {
     public let card: SearchHitCard?
     /// Epoch ms
     public let createdAt: Int?
+    public let entityType: SearchEntityType?
     public let group: SearchGroup?
     public let id: String
     public let kind: SearchIndexDocKind?
@@ -27542,6 +27546,7 @@ public struct SearchHit: Codable, Sendable {
     public enum CodingKeys: String, CodingKey {
         case card = "card"
         case createdAt = "createdAt"
+        case entityType = "entityType"
         case group = "group"
         case id = "id"
         case kind = "kind"
@@ -27557,9 +27562,10 @@ public struct SearchHit: Codable, Sendable {
         case titleHighlights = "titleHighlights"
     }
 
-    public init(card: SearchHitCard? = nil, createdAt: Int? = nil, group: SearchGroup? = nil, id: String, kind: SearchIndexDocKind? = nil, match: SearchMatch? = nil, provenance: Provenance? = nil, route: String? = nil, scope: SearchScope, score: Double, snippet: String, snippetHighlights: [[Int]]? = nil, threadID: String? = nil, title: String, titleHighlights: [[Int]]? = nil) {
+    public init(card: SearchHitCard? = nil, createdAt: Int? = nil, entityType: SearchEntityType? = nil, group: SearchGroup? = nil, id: String, kind: SearchIndexDocKind? = nil, match: SearchMatch? = nil, provenance: Provenance? = nil, route: String? = nil, scope: SearchScope, score: Double, snippet: String, snippetHighlights: [[Int]]? = nil, threadID: String? = nil, title: String, titleHighlights: [[Int]]? = nil) {
         self.card = card
         self.createdAt = createdAt
+        self.entityType = entityType
         self.group = group
         self.id = id
         self.kind = kind
@@ -34725,6 +34731,53 @@ public struct WidgetsActResult: Codable, Sendable {
     public init(messageID: String, runID: String? = nil) {
         self.messageID = messageID
         self.runID = runID
+    }
+}
+
+// MARK: - WidgetsBindingResolveParams
+public struct WidgetsBindingResolveParams: Codable, Sendable {
+    public let nodeID: String
+    public let widgetID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case nodeID = "nodeId"
+        case widgetID = "widgetId"
+    }
+
+    public init(nodeID: String, widgetID: String) {
+        self.nodeID = nodeID
+        self.widgetID = widgetID
+    }
+}
+
+// MARK: - WidgetsBindingResolveResult
+public struct WidgetsBindingResolveResult: Codable, Sendable {
+    /// False when the bound call is gone or not in the widget's chat (renders Unavailable)
+    public let available: Bool
+    public let claims: Int?
+    public let sources: Int?
+    /// Tool call status; for research also `cancelled` when it stopped
+    public let status: String?
+    /// Research steps reached, 0 to `steps`
+    public let step: Int?
+    public let steps: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case available = "available"
+        case claims = "claims"
+        case sources = "sources"
+        case status = "status"
+        case step = "step"
+        case steps = "steps"
+    }
+
+    public init(available: Bool, claims: Int? = nil, sources: Int? = nil, status: String? = nil, step: Int? = nil, steps: Int? = nil) {
+        self.available = available
+        self.claims = claims
+        self.sources = sources
+        self.status = status
+        self.step = step
+        self.steps = steps
     }
 }
 

@@ -5003,7 +5003,7 @@ export interface GraphEntity {
      * The owner's own person entity (exactly one)
      */
     isOwner:            boolean;
-    kind:               GraphEntityKind;
+    kind:               SearchEntityType;
     lastInteractionAt?: null | string;
     lastSignalAt?:      null | string;
     mergedInto?:        null | string;
@@ -5032,7 +5032,7 @@ export interface GraphEntity {
  * person, organisation, project (or course), place, event (dated, may recur), topic (a
  * lightweight label) or assignment (one deliverable with a due date)
  */
-export type GraphEntityKind = "person" | "org" | "project" | "place" | "event" | "topic" | "assignment";
+export type SearchEntityType = "person" | "org" | "project" | "place" | "event" | "topic" | "assignment";
 
 export type GraphProjectType = "project" | "course";
 
@@ -5141,7 +5141,7 @@ export interface EntitySummary {
     dueAt?:             null | string;
     id:                 string;
     isOwner:            boolean;
-    kind:               GraphEntityKind;
+    kind:               SearchEntityType;
     lastInteractionAt?: null | string;
     name:               string;
     openLoops:          number;
@@ -5479,7 +5479,7 @@ export interface Range {
 export interface InsightEntity {
     entityId:          string;
     interactions:      number;
-    kind:              GraphEntityKind;
+    kind:              SearchEntityType;
     lastInteractionAt: string;
     name:              string;
     openLoops:         number;
@@ -6110,7 +6110,7 @@ export interface MemoryEntitiesCreateParams {
      * Emails, phones, handles; refused if another entity has one
      */
     identifiers?: MemoryEntitiesCreateParamsIdentifier[];
-    kind:         GraphEntityKind;
+    kind:         SearchEntityType;
     /**
      * Display name
      */
@@ -6318,7 +6318,7 @@ export interface MemoryEntitiesSearchParams {
     /**
      * Only these entity kinds
      */
-    kinds?: GraphEntityKind[];
+    kinds?: SearchEntityType[];
     /**
      * At most this many (default 20)
      */
@@ -6493,7 +6493,7 @@ export interface MemoryEntitiesUpdateResult {
 export interface MemoryEntityUpdatedPayload {
     changed: string[];
     id:      string;
-    kind:    GraphEntityKind;
+    kind:    SearchEntityType;
 }
 
 export interface MemoryExclusionsAddParams {
@@ -9447,6 +9447,7 @@ export interface SearchHit {
      * Epoch ms
      */
     createdAt?:         number;
+    entityType?:        SearchEntityType;
     group?:             SearchGroup;
     id:                 string;
     kind?:              SearchIndexDocKind;
@@ -12161,6 +12162,29 @@ export interface WidgetsActParams {
 export interface WidgetsActResult {
     messageId: string;
     runId:     null | string;
+}
+
+export interface WidgetsBindingResolveParams {
+    nodeId:   string;
+    widgetId: string;
+}
+
+export interface WidgetsBindingResolveResult {
+    /**
+     * False when the bound call is gone or not in the widget's chat (renders Unavailable)
+     */
+    available: boolean;
+    claims?:   number;
+    sources?:  number;
+    /**
+     * Tool call status; for research also `cancelled` when it stopped
+     */
+    status?: string;
+    /**
+     * Research steps reached, 0 to `steps`
+     */
+    step?:  number;
+    steps?: number;
 }
 
 export interface WidgetsGetParams {

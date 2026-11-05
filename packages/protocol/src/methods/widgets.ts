@@ -68,6 +68,32 @@ export const WidgetsMethods = {
     description:
       "What the Permission Broker would answer a widget control's tool call right now (a dry run: nothing runs, nothing is asked), so the control can say \"asks first\". Uses the widget's taint.",
   }),
+  "widgets.binding.resolve": defineMethod({
+    params: Type.Object(
+      { widgetId: Id, nodeId: Type.String({ pattern: "^[a-z0-9_-]{1,40}$" }) },
+      { additionalProperties: false },
+    ),
+    result: Type.Object({
+      available: Type.Boolean({
+        description:
+          "False when the bound call is gone or not in the widget's chat (renders Unavailable)",
+      }),
+      status: Type.Optional(
+        Type.String({
+          description: "Tool call status; for research also `cancelled` when it stopped",
+        }),
+      ),
+      claims: Type.Optional(Type.Integer({ minimum: 0 })),
+      sources: Type.Optional(Type.Integer({ minimum: 0 })),
+      step: Type.Optional(
+        Type.Integer({ minimum: 0, description: "Research steps reached, 0 to `steps`" }),
+      ),
+      steps: Type.Optional(Type.Integer({ minimum: 1 })),
+    }),
+    scope: "operator.read",
+    description:
+      "Reads the live value behind a widget node's `tool_call` or `research` binding (generative-ui-2026 §5.4), the same facts the desktop shows: the tool call's status, and for deep research the claim and source counts and the step reached. Task, job and automation bindings are read with their own methods. Research counts come from `research.progress` events the Gateway saw since it started; after a restart a finished call reads as done with no counts.",
+  }),
   "widgets.image": defineMethod({
     params: Type.Object({
       widgetId: Id,
