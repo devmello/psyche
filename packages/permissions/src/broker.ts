@@ -61,6 +61,7 @@ import {
   DEVICE_ONLY_KINDS,
   inferApprovalKind,
   isDeviceOnly,
+  isSeparateDesktopCredentialKey,
   SEVERITY,
 } from "./kinds.ts";
 import {
@@ -151,6 +152,11 @@ export interface PermissionBrokerOptions {
    */
   folderAccess?: {
     env: () => FolderAccessEnv;
+    /**
+     * The places a `separate_desktop_share` pick is refused under (the container's own list,
+     * wider than `env`): the card and the mount judge by one list. Without it `env` is used.
+     */
+    separateDesktopEnv?: () => FolderAccessEnv;
     persist: (entry: FolderGrantEntry) => Promise<void>;
     /** Removes an `always` folder from Settings (the owner's revoke); true when it was there. */
     remove?: (path: string) => Promise<boolean>;
@@ -502,6 +508,8 @@ export class PsychePermissionBroker implements PermissionBroker {
     ctx: PolicyContext,
     origin: string | undefined,
   ) {
+    // A login typed into the separate desktop is never covered by a standing grant.
+    if (kind === "credential_fill" && isSeparateDesktopCredentialKey(grantKey)) return undefined;
     const now = this.clock.now();
     const allowed = allowedScopes(se, kind);
     for (const rec of this.#store.listGrants()) {
@@ -851,6 +859,9 @@ export class PsychePermissionBroker implements PermissionBroker {
     )
       scopesOffered = scopesOffered.filter((s) => s === "once");
     if (scopesOffered.length === 0) scopesOffered = ["once"];
+    if (input.kind === "credential_fill" && isSeparateDesktopCredentialKey(input.grantKey)) {
+      scopesOffered = ["once"];
+    }
 
     const details = sanitizeDetails(input.details) as JsonObject;
     if (input.typedConfirmation !== undefined) details.confirmationWord = input.typedConfirmation;
@@ -1367,7 +1378,13 @@ export class PsychePermissionBroker implements PermissionBroker {
       }
       try {
         folderPick = {
-          path: await resolveFolderPick(input.folderPath, this.#folderAccess.env()),
+          path: await resolveFolderPick(
+            input.folderPath,
+            a.kind === "separate_desktop_share" &&
+              this.#folderAccess.separateDesktopEnv !== undefined
+              ? this.#folderAccess.separateDesktopEnv()
+              : this.#folderAccess.env(),
+          ),
           // The owner may narrow the request to read-only; nothing widens it.
           mode: a.details.access === "rw" && input.folderMode !== "ro" ? "rw" : "ro",
         };
@@ -1479,6 +1496,22 @@ export class PsychePermissionBroker implements PermissionBroker {
     const fa = decided.approval;
     if (fa.status === "approved" && folderPick !== undefined && fa.kind === "folder_access") {
       await this.#applyFolder(fa, folderPick, scope, by);
+    }
+    if (
+      fa.status === "approved" &&
+      folderPick !== undefined &&
+      fa.kind === "separate_desktop_share"
+    ) {
+      // Not a host grant (nothing is applied or persisted); the audit trail records the decision.
+      await this.#log(
+        "separate_desktop.share_granted",
+        actorOf(by),
+        {
+          approvalId: fa.id,
+          ...(fa.requestedBy.taskId == null ? {} : { taskId: fa.requestedBy.taskId }),
+        },
+        { path: folderPick.path, mode: folderPick.mode, taint: fa.taint },
+      );
     }
     const { call, context } = decided.input;
     if (fa.status === "approved" && call !== undefined && context !== undefined) {

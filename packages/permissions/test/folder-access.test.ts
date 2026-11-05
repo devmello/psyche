@@ -426,3 +426,75 @@ describe("a separate-desktop share (separate_desktop_share)", () => {
     expect(narrowed.details.granted).toEqual({ path: docs, mode: "ro" });
   });
 });
+
+describe("a separate-desktop share: one folder list, and an audit entry", () => {
+  it("refuses a pick under the container's own list, not only the Host's", async () => {
+    const wider = join(home, "Projects/app/secret-tools");
+    await mkdir(wider, { recursive: true });
+    const persisted: FolderGrantEntry[] = [];
+    const h = makeBroker({
+      folderAccess: {
+        env: () => env,
+        // The container's list also refuses `secret-tools`; the Host's does not.
+        separateDesktopEnv: () => ({ ...env, protectedRoots: [...env.protectedRoots, wider] }),
+        persist: async (e) => void persisted.push(e),
+      },
+    });
+    const c = ctx();
+    const ask = async (kind: "folder_access" | "separate_desktop_share") => {
+      const issued = await h.broker.requestApproval({
+        kind,
+        summary: "share",
+        details: { requestedPath: "~/x", reason: "r", access: "ro" },
+        bindingHash: `k${Math.random()}`.replace(".", "") as never,
+        grantKey: `${kind}|ro`,
+        requestedBy: { runId: c.runId, taskId: null, threadId: c.threadId },
+        sideEffect: "read",
+        surfaces: ["desktop"],
+        scopesOffered: ["once"],
+        taint: false,
+      });
+      h.clock.advance(500);
+      return issued;
+    };
+    const reply = (issued: Awaited<ReturnType<typeof ask>>) =>
+      h.broker.answer({
+        approvalId: issued.approval.id,
+        answerToken: issued.answerTokens.desktop ?? "",
+        decision: "approve",
+        scope: "once",
+        folderPath: wider,
+        decidedBy: DEVICE,
+      });
+    await expect(reply(await ask("separate_desktop_share"))).rejects.toMatchObject({
+      code: "forbidden",
+    });
+    // The Host's own folder card still accepts it: the lists differ on purpose.
+    expect((await reply(await ask("folder_access"))).status).toBe("approved");
+  });
+
+  it("writes an audit entry for an approved share, and none of the Host's folder entries", async () => {
+    const h = harness();
+    const c = ctx();
+    const issued = await h.broker.requestApproval({
+      kind: "separate_desktop_share",
+      summary: "Let the separate desktop read ~/stuff",
+      details: { requestedPath: "~/stuff", reason: "r", access: "ro" },
+      bindingHash: "sd1" as never,
+      grantKey: "separate_desktop_share|ro",
+      requestedBy: { runId: c.runId, taskId: "task_9", threadId: c.threadId },
+      sideEffect: "read",
+      surfaces: ["desktop"],
+      scopesOffered: ["once"],
+      taint: false,
+    });
+    h.clock.advance(500);
+    await answer(h, issued, "once", docs);
+    const entries = [...h.audit.store.entries()].flatMap((l) => (l.ok ? [l.entry] : []));
+    const kinds = entries.map((e) => e.kind);
+    expect(kinds).toContain("separate_desktop.share_granted");
+    expect(kinds).not.toContain("folder.granted");
+    const entry = entries.find((e) => e.kind === "separate_desktop.share_granted");
+    expect(entry?.data).toMatchObject({ path: docs, mode: "ro" });
+  });
+});
