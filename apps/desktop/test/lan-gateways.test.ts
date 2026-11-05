@@ -129,6 +129,11 @@ describe("what the network announces is untrusted text", () => {
       ".local",
       "ho st.local",
       "192.168.1.5",
+      // An IPv6 literal, global, unique-local or link-local, is never a listing's address.
+      "fd12:3456:789a:1::20",
+      "[fd12:3456:789a:1::20]",
+      "fe80::1%en0",
+      "2600:1700::5",
     ]) {
       expect(toDiscovered({ ...good, host })).toBeNull();
     }
@@ -136,6 +141,18 @@ describe("what the network announces is untrusted text", () => {
       expect(toDiscovered({ ...good, port })).toBeNull();
     }
     expect(toDiscovered({ ...good, txt: { v: "2" } })).toBeNull();
+  });
+
+  it("never uses an address the network announced, in either family", () => {
+    // The origin is the `.local` name only; the operating system resolves it (with the right
+    // interface for a link-local answer), so an announced fe80 or global address goes nowhere.
+    const d = toDiscovered({
+      ...good,
+      addresses: ["fe80::1%en0", "2600:1700::5", "fd12:3456:789a:1::20", "8.8.8.8"],
+      referer: { address: "2600:1700::5" },
+    } as never);
+    expect(d?.origin).toBe("https://studio-mac.local:7979");
+    expect(JSON.stringify(d)).not.toMatch(/2600|fe80|fd12|8\.8\.8\.8/);
   });
 
   it("shows no fingerprint for a malformed one and cleans the announced name", () => {

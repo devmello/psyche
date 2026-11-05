@@ -1,11 +1,11 @@
-import { parsePairingLink } from "@psyche/protocol";
+import { parsePairingLinkAny } from "@psyche/protocol";
 
 /**
  * `psyche-pair:` links handed to the app by the OS (remote-gateway design §3.2, §3.4). Pairing
  * links are pasted into the app's own field; opening one from outside is only a shortcut to that
  * field. The inbox:
  *
- * - accepts a link only if it parses as a strict `psyche-pair:v1` link (a malformed or oversized
+ * - accepts a link only if it parses as a strict `psyche-pair:v1` or `psyche-pair:v2` link (a malformed or oversized
  *   URL opens nothing);
  * - keeps it in memory, once, and asks for exactly two things: to show Settings → Server & remote
  *   access, and to tell an open Settings window that a link is waiting. It never adds a Gateway,
@@ -25,7 +25,7 @@ export function isPairLinkUrl(raw: string): boolean {
 export function pairLinkFromUrl(raw: string): string | null {
   if (!isPairLinkUrl(raw)) return null;
   try {
-    parsePairingLink(raw);
+    parsePairingLinkAny(raw);
   } catch {
     return null;
   }

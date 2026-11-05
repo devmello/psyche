@@ -16956,6 +16956,9 @@
           "minItems": 1,
           "type": "array"
         },
+        "via": {
+          "$ref": "#/$defs/SetupTokenVia"
+        },
         "approvalId": {
           "description": "ULID in production",
           "maxLength": 64,
@@ -16974,8 +16977,14 @@
           "$ref": "#/$defs/SetupTokenInfo"
         },
         "link": {
-          "description": "psyche-pair:v1 link: gatewayUrl, gatewayFingerprint, setupToken and hostName, nothing else. The token appears only here, once",
+          "description": "psyche-pair:v1 link (gatewayUrl, gatewayFingerprint, setupToken, hostName) for an address, or psyche-pair:v2 link (gatewayUrl, gatewayKey, certPin, setupToken, hostName) for the LAN; nothing else. The token appears only here, once",
           "type": "string"
+        },
+        "version": {
+          "description": "1 or 2: which link format `link` is",
+          "maximum": 2,
+          "minimum": 1,
+          "type": "integer"
         },
         "gatewayUrl": {
           "type": "string"
@@ -19295,6 +19304,10 @@
               },
               "type": "array"
             },
+            "ipv6": {
+              "description": "Also listen on the chosen interface's IPv6 unique-local (fc00::/7) addresses. Never global or link-local ones",
+              "type": "boolean"
+            },
             "listening": {
               "description": "What is bound right now; empty when off or when nothing could bind",
               "items": {
@@ -19315,7 +19328,7 @@
               "type": "array"
             },
             "candidates": {
-              "description": "Interfaces the owner can pick",
+              "description": "Interfaces the owner can pick: private IPv4 and IPv6 unique-local addresses only",
               "items": {
                 "properties": {
                   "name": {
@@ -37540,6 +37553,13 @@
         "operator.write",
         "operator.approvals",
         "operator.admin"
+      ],
+      "type": "string"
+    },
+    "SetupTokenVia": {
+      "enum": [
+        "address",
+        "lan"
       ],
       "type": "string"
     },

@@ -13,10 +13,15 @@ export interface LanSettings {
   /** Interface names (`en0`) or addresses (`192.168.1.20`). Empty = the primary interface. */
   interfaces: string[];
   port: number;
+  /**
+   * Also listen on the chosen interfaces' IPv6 unique-local (`fc00::/7`) addresses. Off by
+   * default, so an upgrade opens nothing new. It never reaches a global or a link-local address.
+   */
+  ipv6: boolean;
 }
 
 export function lanOff(): LanSettings {
-  return { enabled: false, interfaces: [], port: DEFAULT_GATEWAY_PORT };
+  return { enabled: false, interfaces: [], port: DEFAULT_GATEWAY_PORT, ipv6: false };
 }
 
 const INTERFACE_NAME = /^[A-Za-z0-9._:-]{1,32}$/;
@@ -39,12 +44,15 @@ export function parseLanSettings(value: unknown): LanSettings {
   }
   const v = value as Record<string, unknown>;
   for (const key of Object.keys(v)) {
-    if (key !== "enabled" && key !== "interfaces" && key !== "port") {
+    if (key !== "enabled" && key !== "interfaces" && key !== "port" && key !== "ipv6") {
       throw new PsycheError("invalid_params", `gateway.lan.${key} is not a known key`);
     }
   }
   if (v.enabled !== undefined && typeof v.enabled !== "boolean") {
     throw new PsycheError("invalid_params", "gateway.lan.enabled must be a boolean");
+  }
+  if (v.ipv6 !== undefined && typeof v.ipv6 !== "boolean") {
+    throw new PsycheError("invalid_params", "gateway.lan.ipv6 must be a boolean");
   }
   const port = v.port ?? DEFAULT_GATEWAY_PORT;
   if (typeof port !== "number" || !Number.isInteger(port) || port < 1 || port > 65535) {
@@ -71,7 +79,7 @@ export function parseLanSettings(value: unknown): LanSettings {
     }
     if (!interfaces.includes(name)) interfaces.push(name);
   }
-  return { enabled: v.enabled === true, interfaces, port };
+  return { enabled: v.enabled === true, interfaces, port, ipv6: v.ipv6 === true };
 }
 
 /** The stored setting as the listener sees it: anything unreadable is off. */

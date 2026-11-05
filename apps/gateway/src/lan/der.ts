@@ -69,6 +69,8 @@ export interface DerCertificateInput {
   spki: Buffer;
   dnsNames: string[];
   ipv4: string[];
+  /** IPv6 addresses as eight 16-bit groups each (`parseIpv6`). */
+  ipv6: (readonly number[])[];
   /** Signs the TBSCertificate with ecdsa-with-SHA256 and returns a DER ECDSA-Sig-Value. */
   signTbs(tbs: Buffer): Buffer;
 }
@@ -80,6 +82,9 @@ export function derCertificate(input: DerCertificateInput): Buffer {
   const san = seq(
     ...input.dnsNames.map((d) => tlv(0x82, Buffer.from(d, "ascii"))),
     ...input.ipv4.map((ip) => tlv(0x87, Buffer.from(ip.split(".").map(Number)))),
+    ...input.ipv6.map((g) =>
+      tlv(0x87, Buffer.concat(g.map((x) => Buffer.from([(x >> 8) & 0xff, x & 0xff])))),
+    ),
   );
   const tbs = seq(
     tlv(0xa0, integer(Buffer.from([2]))),
