@@ -303,9 +303,9 @@ describe("composeVirtualScreen (the watch pane's methods)", () => {
       },
     } as never);
     const run = async (method: string, params: unknown, shell = true): Promise<unknown> =>
-      (
-        composed.handlers as Record<string, { run: (c: unknown, p: unknown) => unknown }>
-      )[method]?.run({ identity: { desktopShell: shell } }, params);
+      (composed.handlers as Record<string, { run: (c: unknown, p: unknown) => unknown }>)[
+        method
+      ]?.run({ identity: { desktopShell: shell } }, params);
     return { run, invoked, published, composed };
   }
 
