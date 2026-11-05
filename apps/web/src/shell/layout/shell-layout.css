@@ -139,10 +139,10 @@
   on the sidebar (Finder, Notes, System Settings); the sidebar runs the full height;
   each screen's own 52 px toolbar is the drag region over the opaque canvas, its controls clickable.
 */
-.app-frame[data-chrome="inset"] {
+.app-frame[data-chrome] {
   position: relative;
 }
-.app-frame[data-chrome="inset"] > .titlebar {
+.app-frame[data-chrome] > .titlebar {
   position: absolute;
   top: 0;
   inset-inline-start: 0;
@@ -152,7 +152,7 @@
   border-bottom: 0;
 }
 /* The inset toggle: after the screens in the tree so its no-drag region wins over their toolbars. */
-.app-frame[data-chrome="inset"] > .titlebar-toggle {
+.app-frame[data-chrome] > .titlebar-toggle {
   position: absolute;
   top: 0;
   z-index: 31;
@@ -162,8 +162,8 @@
   app-region: no-drag;
 }
 /* The window title stays native (Mission Control, the Window menu); the strip shows no text. */
-.app-frame[data-chrome="inset"] > .titlebar .title,
-.app-frame[data-chrome="inset"] > .titlebar .title-fork {
+.app-frame[data-chrome] > .titlebar .title,
+.app-frame[data-chrome] > .titlebar .title-fork {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -171,7 +171,7 @@
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
-.app-frame[data-chrome="inset"] .sidebar-slot .material-sidebar {
+.app-frame[data-chrome] .sidebar-slot .material-sidebar {
   padding-top: 52px;
 }
 /*
@@ -180,13 +180,13 @@
   the desktop shell runs today. Every toolbar kind is listed here, once, for both the drag region
   and the traffic-light inset below; a screen never needs its own.
 */
-.app-frame[data-chrome="inset"]
+.app-frame[data-chrome]
   .shell-content
   :is([data-slot="toolbar"], [data-slot="screen-toolbar"], [data-testid="chat-toolbar"]) {
   -webkit-app-region: drag;
   app-region: drag;
 }
-.app-frame[data-chrome="inset"]
+.app-frame[data-chrome]
   .shell-content
   :is([data-slot="toolbar"], [data-slot="screen-toolbar"], [data-testid="chat-toolbar"])
   :is(button, a, input, select, textarea, [role="button"], [role="menuitem"], [data-no-drag]) {
@@ -199,8 +199,33 @@
   lights sit at a physical x whatever the reading direction. This beats the web's 64 px room for
   the toggle over the content column.
 */
-.app-frame[data-chrome="inset"][data-toolbar-lead]
+.app-frame[data-chrome][data-toolbar-lead]
   .shell-content
   :is([data-slot="toolbar"], [data-slot="screen-toolbar"], [data-testid="chat-toolbar"]) {
   padding-left: var(--toolbar-lead, 132px);
+}
+
+/*
+  Windows (`data-chrome="overlay"`): `titleBarStyle: "hidden"` with `titleBarOverlay`. Windows
+  draws minimise, maximise and close at the top right, about 40 px tall, over the page. The
+  Window Controls Overlay environment says where the free title area is; everything right of it
+  belongs to the caption buttons, so whatever sits along the top edge keeps that much room
+  (physical: the buttons sit at the physical right whatever the reading direction). Without the
+  environment (an older runtime) the fallback assumes Windows' three 46 px buttons.
+*/
+:root {
+  --caption-buttons-width: calc(
+    100vw -
+    env(titlebar-area-x, 0px) -
+    env(titlebar-area-width, calc(100vw - 138px))
+  );
+}
+.app-frame[data-chrome="overlay"]
+  .shell-content
+  :is([data-slot="toolbar"], [data-slot="screen-toolbar"], [data-testid="chat-toolbar"]) {
+  padding-right: calc(var(--caption-buttons-width) + 8px);
+}
+/* Compact keeps the plain bar on top: its right end is under the caption buttons. */
+.app-frame[data-frame="overlay"] > .titlebar {
+  padding-right: calc(var(--caption-buttons-width) + 8px);
 }
