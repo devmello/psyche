@@ -18,6 +18,9 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-05 (the Gateway's build in the handshake, updates design §2.10)
+
+- `ConnectChallenge` gains optional `server` (the new `ServerBuild`: `version`, an opaque `build`, optional `commit`). A Gateway from before this sends none; clients treat a missing `server` as "unknown build". `build` comes from `PSYCHE_BUILD` (the LaunchAgent plist) or the bundled `build-info.json`, and is `dev` from a checkout. The desktop compares it for equality with the build it shipped and restarts its own LaunchAgent when they differ (gap G1: an old Gateway left running after an app update). The challenge is not signed over `server`; it is a hint for restarting your own Gateway, never a trust decision.
 ### v1 additive — 2026-11-04 (teach by showing in a Mac app, J8 phase 2)
 
 - `BrowserTeachStepKind` gains `app_click`, `app_type` and `app_menu` (at the end of the list); `BrowserTeachStep` gains optional `app` (`bundleId`, `name`), `path` (titles from the window down to the element, or a menu path; at most 8) and `fallback` (the element's accessibility identifier). `skills.drafts.fromRecording` accepts them: a recording is either in the browser or in one Mac app (`invalid_params` for a mix, for two apps, and for Psyche, system security prompts and password managers); the rules for sensitive fields, kept values and inputs are the browser's. `SkillDraft` gains optional `recordedIn` (`SkillDraftRecordedIn`: `browser` or `mac_app`, set by the Gateway from the steps; absent means the browser).

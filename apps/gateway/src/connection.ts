@@ -22,6 +22,7 @@ import {
   type PendingChallenge,
   verifyChallenge,
 } from "./auth.ts";
+import { serverBuild } from "./build-info.ts";
 import type { Call, GatewayContext, HandlerDef, LiveConnection } from "./context.ts";
 import type { EventFilter, FrameSink } from "./event-bus.ts";
 import { HANDLERS } from "./handlers/index.ts";
@@ -469,6 +470,7 @@ export class Connection implements LiveConnection {
       this.#ctx.now().getTime(),
       this.#ctx.identity,
       this.peer.lan === true ? this.#ctx.lan.certSpki() : null,
+      serverBuild(),
     );
     this.#challenge = pending;
     this.#connectParams = params;

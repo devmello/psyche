@@ -1242,6 +1242,7 @@
 //   let senderTrust = try? JSONDecoder().decode(SenderTrust.self, from: jsonData)
 //   let senderTrustDecision = try? JSONDecoder().decode(SenderTrustDecision.self, from: jsonData)
 //   let senderTrustState = try? JSONDecoder().decode(SenderTrustState.self, from: jsonData)
+//   let serverBuild = try? JSONDecoder().decode(ServerBuild.self, from: jsonData)
 //   let settingEntry = try? JSONDecoder().decode(SettingEntry.self, from: jsonData)
 //   let settings = try? JSONDecoder().decode(Settings.self, from: jsonData)
 //   let settingsChangedPayload = try? JSONDecoder().decode(SettingsChangedPayload.self, from: jsonData)
@@ -10335,6 +10336,7 @@ public struct ConnectChallenge: Codable, Sendable {
     public let phase: ConnectChallengePhase
     /// Negotiated version
     public let protocolVersion: Int
+    public let server: ServerBuild?
     public let serverOrigin: String
 
     public enum CodingKeys: String, CodingKey {
@@ -10346,10 +10348,11 @@ public struct ConnectChallenge: Codable, Sendable {
         case nonce = "nonce"
         case phase = "phase"
         case protocolVersion = "protocolVersion"
+        case server = "server"
         case serverOrigin = "serverOrigin"
     }
 
-    public init(expiresAt: String, gatewayKey: String? = nil, gatewaySignature: String? = nil, lanCERTSignature: String? = nil, lanCERTSpki: String? = nil, nonce: String, phase: ConnectChallengePhase, protocolVersion: Int, serverOrigin: String) {
+    public init(expiresAt: String, gatewayKey: String? = nil, gatewaySignature: String? = nil, lanCERTSignature: String? = nil, lanCERTSpki: String? = nil, nonce: String, phase: ConnectChallengePhase, protocolVersion: Int, server: ServerBuild? = nil, serverOrigin: String) {
         self.expiresAt = expiresAt
         self.gatewayKey = gatewayKey
         self.gatewaySignature = gatewaySignature
@@ -10358,12 +10361,35 @@ public struct ConnectChallenge: Codable, Sendable {
         self.nonce = nonce
         self.phase = phase
         self.protocolVersion = protocolVersion
+        self.server = server
         self.serverOrigin = serverOrigin
     }
 }
 
 public enum ConnectChallengePhase: String, Codable, Sendable {
     case challenge = "challenge"
+}
+
+// MARK: - ServerBuild
+public struct ServerBuild: Codable, Sendable {
+    /// Opaque build id from build-info.json (or PSYCHE_BUILD); "dev" when running from a checkout
+    public let build: String
+    /// The git commit it was built from
+    public let commit: String?
+    /// The Gateway's version
+    public let version: String
+
+    public enum CodingKeys: String, CodingKey {
+        case build = "build"
+        case commit = "commit"
+        case version = "version"
+    }
+
+    public init(build: String, commit: String? = nil, version: String) {
+        self.build = build
+        self.commit = commit
+        self.version = version
+    }
 }
 
 // MARK: - ConnectDenied

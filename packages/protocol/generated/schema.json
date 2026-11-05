@@ -14525,6 +14525,9 @@
           "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
           "type": "string"
         },
+        "server": {
+          "$ref": "#/$defs/ServerBuild"
+        },
         "gatewayKey": {
           "description": "The Gateway's long-lived identity public key (base64url raw Ed25519). Clients pin it at first pair and refuse a different one (remote-gateway design §3.3)",
           "pattern": "^[A-Za-z0-9_-]{43}$",
@@ -38383,6 +38386,33 @@
         "trusted"
       ],
       "type": "string"
+    },
+    "ServerBuild": {
+      "properties": {
+        "version": {
+          "description": "The Gateway's version",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "build": {
+          "description": "Opaque build id from build-info.json (or PSYCHE_BUILD); \"dev\" when running from a checkout",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "commit": {
+          "description": "The git commit it was built from",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "version",
+        "build"
+      ],
+      "type": "object"
     },
     "SettingEntry": {
       "properties": {

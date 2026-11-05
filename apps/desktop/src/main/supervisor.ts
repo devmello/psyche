@@ -26,6 +26,9 @@ export type SupervisorMode = "dev" | "launchd" | "external" | "remote";
 
 export const LAUNCH_AGENT_LABEL = "com.psyche.gateway";
 
+/** What `checkServerBuild` did: nothing to compare, same build, restarted the agent, or gave up. */
+export type BuildCheck = "skipped" | "match" | "restarted" | "mismatch";
+
 export type GatewayRunState =
   | { kind: "unknown" }
   /** `step` (launchd): installing the launch agent, then waiting for `/healthz` (the splash). */
@@ -102,6 +105,19 @@ export function desktopVaultKeyFile(psycheHome: string): string | undefined {
   return keyFile;
 }
 
+/**
+ * The `build` of the bundled Gateway (`Resources/psyched/build-info.json`, written by
+ * deploy/scripts/build-psyched.mjs), or undefined when there is no such file or it names none.
+ */
+export function readBundledBuild(buildInfoPath: string): string | undefined {
+  try {
+    const build = (JSON.parse(readFileSync(buildInfoPath, "utf8")) as { build?: unknown }).build;
+    return typeof build === "string" && build.trim() !== "" ? build.trim().slice(0, 64) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** The program a LaunchAgent plist runs: the first `ProgramArguments` string, XML-unescaped. */
 export function plistProgram(plist: string): string | undefined {
   const raw = /<key>ProgramArguments<\/key>\s*<array>\s*<string>([^<]*)<\/string>/.exec(plist)?.[1];
@@ -172,6 +188,8 @@ export const launchctl = {
   print: (uid: number) => ["print", `gui/${uid}/${LAUNCH_AGENT_LABEL}`],
   bootstrap: (uid: number, plist: string) => ["bootstrap", `gui/${uid}`, plist],
   kickstart: (uid: number) => ["kickstart", `gui/${uid}/${LAUNCH_AGENT_LABEL}`],
+  /** `-k` kills the running job first, so the same plist starts a fresh process. */
+  restart: (uid: number) => ["kickstart", "-k", `gui/${uid}/${LAUNCH_AGENT_LABEL}`],
   bootout: (uid: number) => ["bootout", `gui/${uid}/${LAUNCH_AGENT_LABEL}`],
 } as const;
 
@@ -218,6 +236,13 @@ export interface SupervisorOptions {
   launchAgentsDir?: string;
   /** launchd: pass `PSYCHE_VAULT_KEY_FILE` to the Gateway (`desktopVaultKeyFile`). */
   vaultKeyFile?: () => string | undefined | Promise<string | undefined>;
+  /**
+   * launchd: the build of the Gateway this app ships (`build` in the bundled
+   * `psyched/build-info.json`). It goes into the plist as `PSYCHE_BUILD`, so a new build changes
+   * the plist and the agent is restarted, and `checkServerBuild` compares it with what a running
+   * Gateway reports in the handshake. Unset (a bundle without build info): neither happens.
+   */
+  expectedBuild?: string;
   /** launchd: how long to wait for `/healthz` after starting the agent (default 60 s). */
   healthTimeoutMs?: number;
   /**
@@ -237,6 +262,9 @@ const defaultSleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
 export class GatewaySupervisor {
   private child: ChildProcess | undefined;
   private state: GatewayRunState = { kind: "unknown" };
+  /** Builds the agent was restarted for already (once each), and the restart in flight. */
+  private readonly buildRestarts = new Set<string>();
+  private buildRestart: Promise<BuildCheck> | undefined;
   private readonly opts: SupervisorOptions;
   private readonly run: Runner;
 
@@ -354,7 +382,61 @@ export class GatewaySupervisor {
         ? renderPlistTemplate(readFileSync(this.opts.bundledPlist, "utf8"), values)
         : renderLaunchAgentPlist({ ...values, logDir: this.logDir() });
     const keyFile = await this.opts.vaultKeyFile?.();
-    return keyFile === undefined ? plist : withPlistEnv(plist, { PSYCHE_VAULT_KEY_FILE: keyFile });
+    const env: Record<string, string> = {
+      ...(keyFile === undefined ? {} : { PSYCHE_VAULT_KEY_FILE: keyFile }),
+      ...(this.opts.expectedBuild === undefined ? {} : { PSYCHE_BUILD: this.opts.expectedBuild }),
+    };
+    return withPlistEnv(plist, env);
+  }
+
+  /**
+   * The Gateway's build, from the handshake challenge's `server` (updates design §2.10), against
+   * the build this app shipped. An update swaps the files under a Gateway that is still running
+   * (G1); when the running one is not this app's build, restart the agent once. A mismatch that
+   * outlives the restart means the agent runs somebody else's psyched: say so and stop trying.
+   *
+   * Only for the bundled agent this app installed: with another copy's Gateway attached (the
+   * owner declined the takeover) or a Gateway nobody supervises, the builds differ by design.
+   */
+  checkServerBuild(server: { build: string } | undefined): Promise<BuildCheck> {
+    const expected = this.opts.expectedBuild;
+    if (this.opts.mode !== "launchd" || expected === undefined) return Promise.resolve("skipped");
+    if (server?.build === expected) {
+      this.buildRestarts.delete(expected);
+      return Promise.resolve("match");
+    }
+    if (this.buildRestart) return this.buildRestart;
+    const plistPath = this.plistPath();
+    const installed = existsSync(plistPath)
+      ? plistProgram(readFileSync(plistPath, "utf8"))
+      : undefined;
+    if (installed === undefined || installed !== this.opts.bundledProgram)
+      return Promise.resolve("skipped");
+    if (this.buildRestarts.has(expected)) {
+      // Restarted once already and it still reports another build.
+      this.set({
+        kind: "stopped",
+        mode: "launchd",
+        reason: `Another copy of Psyche runs the Gateway (build ${server?.build ?? "unknown"})`,
+        logs: this.logDir(),
+      });
+      return Promise.resolve("mismatch");
+    }
+    this.buildRestarts.add(expected);
+    const restart = (async (): Promise<BuildCheck> => {
+      this.set({ kind: "starting", mode: "launchd", step: "waiting" });
+      await this.run("/bin/launchctl", [...launchctl.restart(this.uid())]);
+      if (await this.waitHealthy()) {
+        await this.refresh();
+        return "restarted";
+      }
+      this.failed("The Gateway did not come back after the update");
+      return "mismatch";
+    })().finally(() => {
+      this.buildRestart = undefined;
+    });
+    this.buildRestart = restart;
+    return restart;
   }
 
   private async bootstrap(uid: number, plistPath: string): Promise<boolean> {

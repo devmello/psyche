@@ -119,6 +119,7 @@ import {
   desktopVaultKeyFile,
   execRunner,
   GatewaySupervisor,
+  readBundledBuild,
 } from "./main/supervisor.ts";
 import { threadRoute } from "./main/thread-route.ts";
 import { PsycheTray } from "./main/tray.ts";
@@ -1373,6 +1374,11 @@ void app.whenReady().then(async () => {
       : {}),
     // This Mac's own Gateway must answer with the key in this Mac's own identity file.
     ...(thisMacGateway ? { localKey: () => readLocalGatewayKey(home) } : {}),
+    // An update swaps the files under a Gateway that keeps running: restart it when its build is
+    // not the one this app shipped (updates design §2.10, gap G1).
+    onServer: (server) => {
+      void supervisor?.checkServerBuild(server).catch(() => undefined);
+    },
   });
   gateway = createDesktopGateway({
     deviceKey,
@@ -1496,6 +1502,7 @@ void app.whenReady().then(async () => {
   registerIpc();
   gateways.sweepForgottenData();
 
+  const expectedBuild = readBundledBuild(join(process.resourcesPath, "psyched", "build-info.json"));
   supervisor = new GatewaySupervisor({
     mode: supervisorMode,
     psycheHome: home,
@@ -1503,6 +1510,7 @@ void app.whenReady().then(async () => {
     gatewayDir: resolve(app.getAppPath(), "..", "gateway"),
     bundledProgram: join(process.resourcesPath, "psyched", "psyched"),
     bundledPlist: join(process.resourcesPath, "launchd", "com.psyche.gateway.plist"),
+    ...(expectedBuild === undefined ? {} : { expectedBuild }),
     confirmTakeover: async (other) => {
       const opts = {
         type: "question" as const,

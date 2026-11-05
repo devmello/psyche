@@ -57,6 +57,28 @@ export const ConnectParams = Type.Object(
 );
 export type ConnectParams = Static<typeof ConnectParams>;
 
+/**
+ * Which build of the Gateway answered (updates design §2.10). Additive: a Gateway from before it
+ * sends none. `build` is opaque and unique per built bundle, so a client compares it for equality
+ * only; the desktop restarts its own LaunchAgent when the running Gateway's build is not its own.
+ */
+export const ServerBuild = Type.Object(
+  {
+    version: Type.String({ minLength: 1, maxLength: 64, description: "The Gateway's version" }),
+    build: Type.String({
+      minLength: 1,
+      maxLength: 64,
+      description:
+        'Opaque build id from build-info.json (or PSYCHE_BUILD); "dev" when running from a checkout',
+    }),
+    commit: Type.Optional(
+      Type.String({ minLength: 1, maxLength: 64, description: "The git commit it was built from" }),
+    ),
+  },
+  { $id: "ServerBuild" },
+);
+export type ServerBuild = Static<typeof ServerBuild>;
+
 export const ConnectChallenge = Type.Object(
   {
     phase: Type.Literal("challenge"),
@@ -64,6 +86,7 @@ export const ConnectChallenge = Type.Object(
     serverOrigin: Type.String({ minLength: 1 }),
     protocolVersion: Type.Integer({ minimum: 1, description: "Negotiated version" }),
     expiresAt: IsoDateTime,
+    server: Type.Optional(ServerBuild),
     gatewayKey: Type.Optional(
       Type.String({
         pattern: "^[A-Za-z0-9_-]{43}$",

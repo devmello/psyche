@@ -3211,10 +3211,26 @@ export interface ConnectChallenge {
      * Negotiated version
      */
     protocolVersion: number;
+    server?:         ServerBuild;
     serverOrigin:    string;
 }
 
 export type ConnectChallengePhase = "challenge";
+
+export interface ServerBuild {
+    /**
+     * Opaque build id from build-info.json (or PSYCHE_BUILD); "dev" when running from a checkout
+     */
+    build: string;
+    /**
+     * The git commit it was built from
+     */
+    commit?: string;
+    /**
+     * The Gateway's version
+     */
+    version: string;
+}
 
 export interface ConnectDenied {
     /**
