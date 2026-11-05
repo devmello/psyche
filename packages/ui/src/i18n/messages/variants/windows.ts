@@ -217,7 +217,7 @@ export const windows: Partial<Record<MessageId, string>> = {
   "settings.devices.touchId.noBundledKey":
     "The Windows helper in this app has no Windows Hello key ({reason}).",
   "settings.devices.touchId.manualHint":
-    "Run psyche-win-helper --print-identity on the PC and paste the presenceKeyId it prints.",
+    "Run psyche-helper.exe --print-identity on the PC and paste the presenceKeyId it prints.",
   "settings.devices.noNodes":
     "No nodes. The Windows helper appears here once Psyche runs on this PC.",
   "settings.files.execHost": "Run commands on this PC",
