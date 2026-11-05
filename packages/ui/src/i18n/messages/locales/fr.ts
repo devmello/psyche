@@ -1,11 +1,21 @@
 import type { Catalogue } from "../index.ts";
+import { agentRest } from "./agent-rest/fr.ts";
+import { auditRest } from "./audit-rest/fr.ts";
+import { blocksRest } from "./blocks-rest/fr.ts";
 import { canvas } from "./canvas/fr.ts";
 import { charts } from "./charts/fr.ts";
+import { chatRest } from "./chat-rest/fr.ts";
+import { dailyRest } from "./daily-rest/fr.ts";
+import { deckRest } from "./deck-rest/fr.ts";
 import { links } from "./links/fr.ts";
 import { mailMeetings } from "./mail-meetings/fr.ts";
+import { miscRest } from "./misc-rest/fr.ts";
+import { nudgesRest } from "./nudges-rest/fr.ts";
 import { overview } from "./overview/fr.ts";
 import { overviewGrowth } from "./overview-growth/fr.ts";
 import { overviewShared } from "./overview-shared/fr.ts";
+import { settingsRest } from "./settings-rest/fr.ts";
+import { shellRest } from "./shell-rest/fr.ts";
 import { workflows } from "./workflows/fr.ts";
 
 /** French catalogue (fr). Same ids as `en`; missing ids fall back to English. */
@@ -26,6 +36,16 @@ export const fr: Partial<Catalogue> = {
   ...canvas,
   // overview chart primitives (docs/design/agent-overview-2026.md §5.7)
   ...charts,
+  ...settingsRest,
+  ...chatRest,
+  ...blocksRest,
+  ...deckRest,
+  ...agentRest,
+  ...auditRest,
+  ...dailyRest,
+  ...nudgesRest,
+  ...shellRest,
+  ...miscRest,
   "common.cancel": "Annuler",
   "common.close": "Fermer",
   "common.save": "Enregistrer",

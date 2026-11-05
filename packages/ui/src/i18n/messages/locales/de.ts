@@ -1,11 +1,21 @@
 import type { Catalogue } from "../index.ts";
+import { agentRest } from "./agent-rest/de.ts";
+import { auditRest } from "./audit-rest/de.ts";
+import { blocksRest } from "./blocks-rest/de.ts";
 import { canvas } from "./canvas/de.ts";
 import { charts } from "./charts/de.ts";
+import { chatRest } from "./chat-rest/de.ts";
+import { dailyRest } from "./daily-rest/de.ts";
+import { deckRest } from "./deck-rest/de.ts";
 import { links } from "./links/de.ts";
 import { mailMeetings } from "./mail-meetings/de.ts";
+import { miscRest } from "./misc-rest/de.ts";
+import { nudgesRest } from "./nudges-rest/de.ts";
 import { overview } from "./overview/de.ts";
 import { overviewGrowth } from "./overview-growth/de.ts";
 import { overviewShared } from "./overview-shared/de.ts";
+import { settingsRest } from "./settings-rest/de.ts";
+import { shellRest } from "./shell-rest/de.ts";
 import { workflows } from "./workflows/de.ts";
 
 /** German catalogue (de). Same ids as `en`; missing ids fall back to English. */
@@ -26,6 +36,16 @@ export const de: Partial<Catalogue> = {
   ...canvas,
   // overview chart primitives (docs/design/agent-overview-2026.md §5.7)
   ...charts,
+  ...settingsRest,
+  ...chatRest,
+  ...blocksRest,
+  ...deckRest,
+  ...agentRest,
+  ...auditRest,
+  ...dailyRest,
+  ...nudgesRest,
+  ...shellRest,
+  ...miscRest,
   // common
   "common.cancel": "Abbrechen",
   "common.close": "Schließen",
