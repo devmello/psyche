@@ -458,6 +458,10 @@ export function desktopRunArgs(kind: DesktopBackendKind, spec: DesktopSpec): str
       [DESKTOP_SHARES_LABEL]: sharesKey(spec.shares),
     }),
     ...Object.keys(desktopEnv()).flatMap((k) => ["-e", k]),
+    // With a user namespace the engine sets HOME to the host user's, which does not exist in the
+    // image: apps' profiles live in the workspace.
+    "--env",
+    `HOME=${WORKSPACE_PATH}`,
     spec.image,
   ];
 }

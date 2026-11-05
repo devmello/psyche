@@ -16,6 +16,14 @@
 # If the helper exits, so does the container: nothing keeps running without it.
 PATH=/usr/bin:/bin
 export PATH
+# The engine sets HOME to the host user's (which does not exist here); apps keep their profile in
+# /workspace. Nothing the trusted daemons read comes from there: system folders only.
+HOME=/workspace
+XDG_DATA_DIRS=/usr/share
+XDG_CONFIG_DIRS=/etc/xdg
+GSETTINGS_BACKEND=memory
+PYTHONNOUSERSITE=1
+export HOME XDG_DATA_DIRS XDG_CONFIG_DIRS GSETTINGS_BACKEND PYTHONNOUSERSITE
 set -eu
 umask 077
 
@@ -48,7 +56,8 @@ token=
 /usr/bin/mkdir -p /tmp/.X11-unix
 /usr/bin/chmod 1777 /tmp/.X11-unix 2> /dev/null || true
 
-/usr/bin/dbus-daemon --session --nofork --nopidfile --address="unix:path=$XDG_RUNTIME_DIR/bus" &
+# Its own config: service files from the image only, never from $XDG_DATA_HOME under /workspace.
+/usr/bin/dbus-daemon --config-file=/etc/psyche/dbus-session.conf --nofork --nopidfile --address="unix:path=$XDG_RUNTIME_DIR/bus" &
 export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
 
 # -ac: every process in this container is the same user and the same trust domain; the X socket

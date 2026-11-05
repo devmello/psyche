@@ -91,6 +91,7 @@ RUN mkdir -p /shares && chmod 0755 /shares
 COPY --chown=0:0 --chmod=0755 desktop/psyche-helper /usr/local/bin/psyche-helper
 COPY --chown=0:0 --chmod=0755 desktop/entrypoint.sh /usr/local/lib/psyche/desktop-entrypoint.sh
 COPY --chown=0:0 --chmod=0644 desktop/firefox-policies.json /etc/firefox/policies/policies.json
+COPY --chown=0:0 --chmod=0644 desktop/dbus-session.conf /etc/psyche/dbus-session.conf
 RUN if [ -n "$HELPER_SHA256" ]; then \
       echo "$HELPER_SHA256  /usr/local/bin/psyche-helper" | sha256sum -c - ; \
     elif [ "$ALLOW_UNVERIFIED_HELPER" = "1" ]; then \
@@ -103,6 +104,10 @@ RUN if [ -n "$HELPER_SHA256" ]; then \
 # The image's PATH starts with /workspace/.local/bin, which persists between tasks and is writable:
 # the desktop's PATH names only the image's own folders.
 ENV PATH=/usr/local/bin:/usr/bin:/bin
+# Apps keep their profile in /workspace (HOME), which is wiped when the grants change. What the
+# trusted daemons read is pinned to the image: no service, config or Python user-site file from
+# /workspace is looked at (see desktop/dbus-session.conf and entrypoint.sh).
+ENV HOME=/workspace     XDG_DATA_DIRS=/usr/share     XDG_CONFIG_DIRS=/etc/xdg     GSETTINGS_BACKEND=memory     PYTHONNOUSERSITE=1
 ENV XDG_RUNTIME_DIR=/tmp/run \
     DISPLAY=:1 \
     GNOME_ACCESSIBILITY=1 \

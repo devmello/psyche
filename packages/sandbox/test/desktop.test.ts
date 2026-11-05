@@ -97,6 +97,12 @@ describe("the desktop container's flags", () => {
     ]);
   });
 
+  it("sets HOME to the workspace: with a user namespace the engine would use the host user's", () => {
+    const i = args.indexOf("HOME=/workspace");
+    expect(i).toBeGreaterThan(0);
+    expect(args[i - 1]).toBe("--env");
+  });
+
   it("the token is never in the environment: the container gets only proxy settings", () => {
     expect(Object.keys(desktopEnv()).sort()).toEqual([
       "HTTPS_PROXY",

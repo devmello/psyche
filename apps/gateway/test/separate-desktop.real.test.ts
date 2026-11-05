@@ -163,6 +163,9 @@ describe.skipIf(!REAL)("a real separate desktop", () => {
     expect(exec("id -u").out.trim()).toBe("1000");
     // PATH names only the image's own folders.
     expect(exec("echo $PATH").out.trim()).toBe("/usr/local/bin:/usr/bin:/bin");
+    // Apps keep their profile in the workspace: HOME is /workspace, not the host user's home.
+    expect(exec("echo $HOME").out.trim()).toBe("/workspace");
+    expect(exec("echo $XDG_DATA_DIRS:$XDG_CONFIG_DIRS").out.trim()).toBe("/usr/share:/etc/xdg");
     expect(exec("grep CapEff /proc/self/status").out).toMatch(/CapEff:\s*0+$/m);
     expect(exec("ls /sys/class/net").out.trim()).toBe("lo");
     expect(exec("test -e /home/dev && echo yes || echo no").out.trim()).toBe("no");
@@ -206,6 +209,15 @@ describe.skipIf(!REAL)("a real separate desktop", () => {
     ]) {
       expect(exec(plant(name)).code, name).toBe(0);
     }
+    // And a session-bus service file, whose Exec= runs a trusted interpreter on a planted script
+    // (noexec does not stop that): the session bus must never read it.
+    expect(exec("mkdir -p /workspace/.local/share/dbus-1/services").code).toBe(0);
+    expect(
+      exec(
+        "printf \"open('/workspace/dbus-ran', 'w').write('x')\n\" > /workspace/x.py && " +
+          "printf '[D-BUS Service]\nName=psyche.test.Planted\nExec=/usr/bin/python3 /workspace/x.py\n' > /workspace/.local/share/dbus-1/services/x.service",
+      ).code,
+    ).toBe(0);
     // Even by its full path, a planted file does not run: the workspace is mounted noexec.
     const direct = exec("/workspace/.local/bin/stat");
     expect(direct.code).not.toBe(0);
@@ -248,13 +260,30 @@ describe.skipIf(!REAL)("a real separate desktop", () => {
     expect(environsB.out).not.toContain(token);
     expect(podman("inspect", NAME)).not.toContain(token);
 
-    // An app opens on the display (the file manager), and stays up.
-    exec("DISPLAY=:1 nohup /usr/bin/pcmanfm --no-desktop /workspace > /tmp/pcmanfm.log 2>&1 &");
-    await new Promise((r) => setTimeout(r, 4000));
+    // The planted session-bus service is never started: the daemon reads the image's folder only.
+    const bus =
+      "DBUS_SESSION_BUS_ADDRESS=unix:path=/tmp/run/bus /usr/bin/dbus-send --session --print-reply";
+    const planted = exec(`${bus} --dest=psyche.test.Planted / org.freedesktop.DBus.Peer.Ping`);
+    expect(planted.code).not.toBe(0);
+    expect(planted.out).toMatch(/ServiceUnknown|not activatable|was not provided/i);
+    await new Promise((r) => setTimeout(r, 1500));
+    expect(exec("test -e /workspace/dbus-ran && echo ran || echo clean").out.trim()).toBe("clean");
+    expect(exec("test -e /workspace/x.py && echo planted || echo missing").out.trim()).toBe(
+      "planted",
+    );
+    // The image's own services still activate (the folder it lists works).
+    expect(
+      exec(`${bus} --dest=org.a11y.Bus /org/a11y/bus org.freedesktop.DBus.Peer.Ping`).code,
+    ).toBe(0);
+
+    // A long-lived app opens on the display and keeps its profile in the workspace.
+    exec("DISPLAY=:1 nohup /usr/bin/firefox-esr --no-remote about:blank > /tmp/firefox.log 2>&1 &");
+    await new Promise((r) => setTimeout(r, 10_000));
     const apps = exec("/usr/bin/ps -eo comm= | /usr/bin/sort | /usr/bin/uniq -c").out;
     expect(apps).toMatch(/Xvfb/);
-    expect(apps).toMatch(/pcmanfm/);
+    expect(apps).toMatch(/firefox/);
     expect(apps).toMatch(/psyche-helper/);
+    expect(exec("test -d /workspace/.mozilla && echo yes || echo no").out.trim()).toBe("yes");
 
     // Numbers.
     const stats = JSON.parse(podman("stats", "--no-stream", "--format", "json", NAME))[0];
