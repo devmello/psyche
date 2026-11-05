@@ -7,6 +7,7 @@ import { chatA } from "./chat-a/pt.ts";
 import { dailyA } from "./daily-a/pt.ts";
 import { final202611 } from "./final-2026-11/pt.ts";
 import { galleryA } from "./gallery-a/pt.ts";
+import { helperCheck } from "./helper-check/pt.ts";
 import { homeA } from "./home-a/pt.ts";
 import { links } from "./links/pt.ts";
 import { linuxAccess } from "./linux-access/pt.ts";
@@ -3260,6 +3261,7 @@ export const pt: Partial<Catalogue> = {
   ...final202611,
   // password approvals on Linux (polkit)
   ...passwordPresence,
+  ...helperCheck,
   // the security-records banner (docs/design/security-state-integrity-2026.md §7.3)
   ...securityState,
   // Settings → Computer use on Linux: screen and input access

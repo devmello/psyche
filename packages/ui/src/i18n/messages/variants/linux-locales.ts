@@ -9,6 +9,7 @@ import type { MessageId } from "../index.ts";
 export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<MessageId, string>>>>> =
   {
     ar: {
+      "settings.devices.nodeKind.hostHelper": "مساعد Linux",
       "settings.links.description":
         "المكان الذي يُفتح فيه رابط في رسالة أو بطاقة أو عنصر. النقر مع Ctrl يستخدم دائمًا المتصفح الافتراضي.",
       "errors.presence_required": "أكّد أنك أنت عبر كلمة المرور أو مفتاح مرور أولًا.",
@@ -399,6 +400,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "وافق على البطاقة بكلمة المرور أو مفتاح مرور، ثم اضغط الزر مرة أخرى.",
     },
     de: {
+      "settings.devices.nodeKind.hostHelper": "Linux-Helfer",
       "settings.links.description":
         "Wo ein Link in einer Chatnachricht, Karte oder einem Artefakt geöffnet wird. Ctrl+Klick nutzt immer deinen Standardbrowser.",
       "errors.presence_required":
@@ -814,6 +816,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Bestätige die Karte mit deinem Passwort oder einem Passkey und tippe dann erneut auf die Taste.",
     },
     es: {
+      "settings.devices.nodeKind.hostHelper": "Asistente de Linux",
       "settings.links.description":
         "Dónde se abre un enlace de un mensaje, tarjeta o artefacto. Ctrl+clic siempre usa tu navegador predeterminado.",
       "errors.presence_required":
@@ -1231,6 +1234,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Aprueba la tarjeta con tu contraseña o una llave de acceso y vuelve a pulsar el botón.",
     },
     fr: {
+      "settings.devices.nodeKind.hostHelper": "Assistant Linux",
       "settings.links.description":
         "Où s’ouvre un lien d’un message, d’une carte ou d’un artefact. Ctrl+clic utilise toujours votre navigateur par défaut.",
       "errors.presence_required":
@@ -1652,6 +1656,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Approuvez la carte avec votre mot de passe ou une clé d’accès, puis appuyez de nouveau sur le bouton.",
     },
     hi: {
+      "settings.devices.nodeKind.hostHelper": "Linux हेल्पर",
       "settings.links.description":
         "चैट संदेश, कार्ड या आर्टिफ़ैक्ट का लिंक कहाँ खुले। Ctrl+क्लिक हमेशा डिफ़ॉल्ट ब्राउज़र में खुलता है।",
       "errors.presence_required": "पहले अपने पासवर्ड या पासकी से पुष्टि करें कि यह आप ही हैं।",
@@ -2040,6 +2045,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.security.needsApproval": "अपने पासवर्ड या पासकी से कार्ड को मंज़ूरी दें, फिर बटन दोबारा दबाएँ।",
     },
     it: {
+      "settings.devices.nodeKind.hostHelper": "Assistente Linux",
       "settings.links.description":
         "Dove si apre un link in un messaggio, una scheda o un artefatto. Ctrl+clic usa sempre il browser predefinito.",
       "errors.presence_required":
@@ -2454,6 +2460,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Approva la scheda con la tua password o una passkey, poi premi di nuovo il pulsante.",
     },
     ja: {
+      "settings.devices.nodeKind.hostHelper": "Linux ヘルパー",
       "settings.links.description":
         "チャットのメッセージ、カード、アーティファクト内のリンクを開く場所です。Ctrl+クリックは常に既定のブラウザで開きます。",
       "errors.presence_required": "先にパスワードまたはパスキーで本人確認を行ってください。",
@@ -2867,6 +2874,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "パスワードまたはパスキーでカードを承認してから、もう一度ボタンを押してください。",
     },
     ko: {
+      "settings.devices.nodeKind.hostHelper": "Linux 도우미",
       "settings.links.description":
         "채팅 메시지, 카드, 아티팩트의 링크가 열리는 곳입니다. Ctrl+클릭은 항상 기본 브라우저로 엽니다.",
       "errors.presence_required": "먼저 사용자 암호 또는 패스키로 본인임을 확인하십시오.",
@@ -3262,6 +3270,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "사용자 암호나 패스키로 카드를 승인한 다음 버튼을 다시 누르세요.",
     },
     pt: {
+      "settings.devices.nodeKind.hostHelper": "Assistente do Linux",
       "settings.links.description":
         "Onde abre um link de uma mensagem, cartão ou artefato. Ctrl+clique sempre usa o navegador padrão.",
       "errors.presence_required":
@@ -3668,6 +3677,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Aprove o cartão com a sua senha ou uma chave-senha e toque no botão de novo.",
     },
     zh: {
+      "settings.devices.nodeKind.hostHelper": "Linux 助手",
       "settings.links.description":
         "聊天消息、卡片或制品中的链接在哪里打开。按住 Ctrl 点击始终使用默认浏览器。",
       "errors.presence_required": "请先用密码或通行密钥确认是你本人。",

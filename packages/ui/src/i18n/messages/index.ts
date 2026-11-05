@@ -18,6 +18,7 @@ import { design } from "./design.ts";
 import { deviceAccess } from "./device-access.ts";
 import { errors } from "./errors.ts";
 import { glass } from "./glass.ts";
+import { helperCheck } from "./helper-check.ts";
 import { home } from "./home.ts";
 import { links } from "./links.ts";
 import { linuxAccess } from "./linux-access.ts";
@@ -116,6 +117,7 @@ export const en = {
   ...widgets,
   ...platform,
   ...passwordPresence,
+  ...helperCheck,
   ...securityState,
   ...linuxAccess,
 } as const;
