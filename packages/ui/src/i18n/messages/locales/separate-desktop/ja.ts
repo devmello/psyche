@@ -24,7 +24,7 @@ export const separateDesktop: Partial<Catalogue> = {
   "blocks.folder.sd.explain.ro":
     "{persona} が、別のデスクトップにフォルダー内のファイルを読ませようとしています。",
   "blocks.folder.sd.explain.rw":
-    "{persona} が、別のデスクトップにフォルダー内のファイルを読み書きさせようとしています。",
+    "{persona} が、別のデスクトップにフォルダー内のファイルを読み書きさせようとしています。別のデスクトップ内のプログラムはそこでファイルを変更でき、その変更はこのコンピューターに表示されます。",
   "blocks.folder.sd.scope":
     "別のデスクトップは、このタスクの間だけこのフォルダーを見られます。このコンピューターの他のものは共有されず、他のツールにもこのフォルダーは渡りません。",
   "blocks.folder.sd.scope.once": "このタスクのみ",
@@ -32,4 +32,7 @@ export const separateDesktop: Partial<Catalogue> = {
   "settings.separateDesktop.limitPids": "このシステムではプロセス数の上限が適用されません",
   "blocks.details.sdUnverified":
     "別のデスクトップでは、このページが本当に {origin} かどうか確認できません。タスクが開いた場所を信頼できる場合のみ続けてください。",
+  "blocks.details.sdFiles": "ファイル",
+  "blocks.details.sdAlsoChanges":
+    "このタスクは {folder} も変更でき、そこからファイルを送信できます。",
 };

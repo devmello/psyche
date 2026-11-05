@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { basename, posix } from "node:path";
+import { basename } from "node:path";
 import type { ToolRunContext } from "@psyche/agent-core";
 import { hashCanonical } from "@psyche/audit";
 import { getSetting, setSetting } from "@psyche/db";
@@ -7,6 +7,7 @@ import {
   type FolderAccessEnv,
   type FolderGrantEntry,
   resolveRequestedFolder,
+  separateDesktopCredentialGrantKey,
 } from "@psyche/permissions";
 import {
   type ComputerSurface,
@@ -135,9 +136,6 @@ const isBrowserApp = (app: string): boolean => {
   return BROWSER_APPS.some((b) => a.includes(b));
 };
 
-const underPath = (child: string, root: string): boolean =>
-  child === root || child.startsWith(`${root}/`);
-
 /** What decides whether a file-local word may skip the card (see `asksInSeparateDesktop`). */
 export interface RiskContext {
   /** An egress tunnel is open now, or was open at any time during this task. */
@@ -146,10 +144,8 @@ export interface RiskContext {
   credentialFilled: boolean;
   /** The app the action is aimed at (desktop file id); unknown means not relaxed. */
   app: string | undefined;
-  /** The file or folder the action works on, as seen in the container; unknown means not relaxed when any share is read-write. */
-  targetPath: string | undefined;
-  /** Container paths of the read-write shares (`/shares/<name>`). */
-  readWriteShares: readonly string[];
+  /** A read-write share is mounted (it is the owner's own file on the Host). */
+  readWriteShareMounted: boolean;
 }
 
 /**
@@ -161,8 +157,8 @@ export interface RiskContext {
  * - no egress tunnel is open or was open in this task (what the page showed could be an attack),
  * - no saved login was typed in during this task,
  * - the target app is known and is not a browser,
- * - the target is known not to be under a read-write share (a read-write share is the owner's own
- *   file on the Host).
+ * - no read-write share is mounted at all. The container reports which file an action touches, so
+ *   the Gateway can't tell "inside the share" from "outside it" and never tries.
  * Words that reach the outside world (send, submit, purchase, buy, pay, transfer) ask either way:
  * "Delete and send" asks, "Delete" alone may not. Without a context nothing is relaxed.
  */
@@ -176,11 +172,8 @@ export function asksInSeparateDesktop(text: string | undefined, ctx?: RiskContex
 }
 
 function relaxed(ctx: RiskContext): boolean {
-  if (ctx.internetUsed || ctx.credentialFilled) return false;
-  if (ctx.app === undefined || ctx.app === "" || isBrowserApp(ctx.app)) return false;
-  if (ctx.targetPath === undefined) return ctx.readWriteShares.length === 0;
-  const target = posix.normalize(ctx.targetPath);
-  return !ctx.readWriteShares.some((r) => underPath(target, r));
+  if (ctx.internetUsed || ctx.credentialFilled || ctx.readWriteShareMounted) return false;
+  return ctx.app !== undefined && ctx.app !== "" && !isBrowserApp(ctx.app);
 }
 
 export const SEPARATE_DESKTOP_NOT_RUNNING =
@@ -233,6 +226,10 @@ interface ActiveTask {
 export interface CredentialCard {
   kind: "credential_fill";
   summary: string;
+  /** Its own namespace (`credential_fill|separate_desktop|<origin>`): no Host site grant matches it. */
+  grantKey: string;
+  /** Always once: nothing is ever remembered for a login typed in here. */
+  scopesOffered: ["once"];
   details: {
     origin: string;
     item: string;
@@ -597,22 +594,108 @@ export class SeparateDesktop {
 
   /**
    * Whether a label or key chord in this Task's desktop should ask (`asksInSeparateDesktop`, with
-   * the state of this Task: web reached, login typed, read-write shares). Not this Task's: asks.
+   * the state of this Task: web reached, login typed, a read-write share mounted). Not this Task's: asks.
    */
-  asks(
-    taskId: string,
-    text: string | undefined,
-    target: { app?: string; path?: string } = {},
-  ): boolean {
+  asks(taskId: string, text: string | undefined, target: { app?: string } = {}): boolean {
     const task = this.#task;
     if (task === undefined || task.id !== taskId) return asksInSeparateDesktop(text);
     return asksInSeparateDesktop(text, {
       internetUsed: task.internetUsed,
       credentialFilled: task.credentialFilled,
       app: target.app,
-      targetPath: target.path,
-      readWriteShares: task.shares.filter((s) => !s.readOnly).map((s) => `/shares/${s.name}`),
+      readWriteShareMounted: task.shares.some((x) => !x.readOnly),
     });
+  }
+
+  /**
+   * The card for one login fill: kind `credential_fill` with its own grant key and `once` only. It
+   * is asked every time and never matched by a Host "site" grant. Pass it as `approve` to
+   * `fillCredential`.
+   */
+  async askCredential(
+    deps: { broker: PermissionBroker; surfaces: readonly string[] },
+    ctx: ToolRunContext,
+    card: CredentialCard,
+  ): Promise<boolean> {
+    const issued = await deps.broker.requestApproval({
+      kind: "credential_fill",
+      summary: card.summary.slice(0, 300),
+      details: { ...card.details },
+      bindingHash: hashCanonical({
+        tool: "separate_desktop_credential",
+        origin: card.details.origin,
+        item: card.details.item,
+        threadId: ctx.threadId,
+        callId: ctx.callId,
+      }),
+      grantKey: card.grantKey,
+      requestedBy: {
+        runId: ctx.runId,
+        taskId: ctx.taskId ?? null,
+        threadId: ctx.threadId,
+        toolCallId: ctx.callId,
+      },
+      sideEffect: "write",
+      surfaces: [...deps.surfaces],
+      scopesOffered: [...card.scopesOffered],
+      taint: ctx.taint,
+      ...(ctx.taint && ctx.taintSources !== undefined
+        ? { taintSources: [...ctx.taintSources] }
+        : {}),
+    });
+    const done = await deps.broker.awaitDecision(issued.approval.id, ctx.signal);
+    return done.status === "approved";
+  }
+
+  /**
+   * The card for "Allow internet for this task". When the task also has a read-write share, the
+   * same card says so ("This task can also change <folder>, and send files from it"): files can
+   * leave through the allowed sites, so the owner accepts or denies both together.
+   */
+  async requestInternet(
+    deps: { broker: PermissionBroker; surfaces: readonly string[] },
+    ctx: ToolRunContext,
+    request: { allow: readonly string[]; shares: readonly DesktopShare[]; reason: string },
+  ): Promise<boolean> {
+    const writable = request.shares.filter((x) => !x.readOnly).map((x) => x.source);
+    const issued = await deps.broker.requestApproval({
+      kind: "new_origin",
+      summary: `Allow internet for the separate desktop: ${request.allow.join(", ")}${
+        writable.length === 0
+          ? ""
+          : `. This task can also change ${writable.join(", ")}, and send files from it.`
+      }`.slice(0, 300),
+      details: {
+        origins: [...request.allow],
+        reason: request.reason,
+        separateDesktop: true,
+        ...(writable.length === 0 ? {} : { alsoChanges: writable }),
+      },
+      bindingHash: hashCanonical({
+        tool: "separate_desktop_internet",
+        allow: [...request.allow].sort(),
+        writable: [...writable].sort(),
+        threadId: ctx.threadId,
+        callId: ctx.callId,
+      }),
+      grantKey: `new_origin|separate_desktop|${ctx.taskId ?? ctx.threadId}`,
+      requestedBy: {
+        runId: ctx.runId,
+        taskId: ctx.taskId ?? null,
+        threadId: ctx.threadId,
+        toolCallId: ctx.callId,
+      },
+      sideEffect: "write",
+      surfaces: [...deps.surfaces],
+      scopesOffered: ["once"],
+      taint: ctx.taint,
+      ...(ctx.taint && ctx.taintSources !== undefined
+        ? { taintSources: [...ctx.taintSources] }
+        : {}),
+    });
+    if (ctx.mode === "unattended") return false;
+    const done = await deps.broker.awaitDecision(issued.approval.id, ctx.signal);
+    return done.status === "approved";
   }
 
   /**
@@ -648,6 +731,8 @@ export class SeparateDesktop {
     const card: CredentialCard = {
       kind: "credential_fill",
       summary: `Type a saved login for ${request.origin} into the separate desktop`,
+      grantKey: separateDesktopCredentialGrantKey(request.origin),
+      scopesOffered: ["once"],
       details: { origin: request.origin, item: request.item, separateDesktop: true },
     };
     if (!(await request.approve(card))) return false;

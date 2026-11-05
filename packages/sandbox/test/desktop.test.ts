@@ -1,4 +1,12 @@
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PsycheError } from "@psyche/protocol";
@@ -278,67 +286,76 @@ describe("what may be shared", () => {
     }
   });
 
-  it("keeps git data read-only in a read-write share: an overlay for every .git, found or refused", async () => {
+  const rwShare = (source: string) => [{ source, name: "x", readOnly: false }];
+  const gitRefused = async (source: string) => {
+    const err = await fail(validateDesktopShares(rwShare(source), { home }));
+    expect(err.code).toBe("forbidden");
+    expect(err.details).toMatchObject({ reason: "git_in_read_write_share" });
+  };
+
+  it("refuses a read-write share with a git repository anywhere in it, however deep", async () => {
     const root = tmp();
-    mkdirSync(join(root, "repo", ".git"), { recursive: true });
-    mkdirSync(join(root, "repo", "vendor", "lib", ".git"), { recursive: true });
-    mkdirSync(join(root, "repo", "wt"));
-    writeFileSync(join(root, "repo", "wt", ".git"), "gitdir: x");
-    const out = await validateDesktopShares(
-      [{ source: join(root, "repo"), name: "repo", readOnly: false }],
-      { home },
-    );
-    expect(out[0]?.readOnlyPaths).toEqual([".git", "vendor/lib/.git", "wt/.git"]);
-    expect(Object.keys(out[0]?.readOnlyIdentities ?? {})).toEqual([
-      ".git",
-      "vendor/lib/.git",
-      "wt/.git",
-    ]);
-    // The overlays are in the run arguments, read-only, after their share.
-    const args = desktopRunArgs("podman", spec({ shares: out }));
-    const mounts = args.filter((_, i) => args[i - 1] === "--mount");
-    const at = (t: string) => mounts.findIndex((m) => m.includes(`target=${t}`));
-    expect(at("/shares/repo")).toBeGreaterThan(-1);
-    for (const rel of out[0]?.readOnlyPaths ?? []) {
-      expect(at(`/shares/repo/${rel}`)).toBeGreaterThan(at("/shares/repo"));
-      expect(mounts[at(`/shares/repo/${rel}`)]).toMatch(/,readonly$/);
-    }
-    // The share itself stays writable.
-    expect(mounts[at("/shares/repo")]).not.toMatch(/readonly/);
+    mkdirSync(join(root, "top", ".git"), { recursive: true });
+    await gitRefused(join(root, "top"));
+    // Far below any depth a shallow search would reach.
+    const deep = join(root, "deep", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k");
+    mkdirSync(join(deep, ".git"), { recursive: true });
+    await gitRefused(join(root, "deep"));
+    // A `.git` file: a worktree or a submodule.
+    mkdirSync(join(root, "wt", "sub"), { recursive: true });
+    writeFileSync(join(root, "wt", "sub", ".git"), "gitdir: ../elsewhere");
+    await gitRefused(join(root, "wt"));
   });
 
-  it("a read-only share needs no overlay, and a .git that is a link or too many .git are refused", async () => {
+  it("refuses a bare repository (HEAD, objects/ and refs/) and a .git that is a link", async () => {
     const root = tmp();
-    mkdirSync(join(root, "ro", ".git"), { recursive: true });
-    const ro = await validateDesktopShares(
-      [{ source: join(root, "ro"), name: "ro", readOnly: true }],
-      { home },
-    );
-    expect(ro[0]?.readOnlyPaths).toBeUndefined();
+    mkdirSync(join(root, "bare", "r.git", "objects"), { recursive: true });
+    mkdirSync(join(root, "bare", "r.git", "refs"));
+    writeFileSync(join(root, "bare", "r.git", "HEAD"), "ref: refs/heads/main");
+    await gitRefused(join(root, "bare"));
     mkdirSync(join(root, "link"));
     mkdirSync(join(root, "elsewhere"));
     symlinkSync(join(root, "elsewhere"), join(root, "link", ".git"));
+    await gitRefused(join(root, "link"));
+    // Not a repository: a folder that merely has a file called HEAD.
+    mkdirSync(join(root, "fine"));
+    writeFileSync(join(root, "fine", "HEAD"), "x");
+    expect(await validateDesktopShares(rwShare(join(root, "fine")), { home })).toHaveLength(1);
+  });
+
+  it("refuses a read-write share it cannot search, or that is too large to search", async () => {
+    const root = tmp();
+    mkdirSync(join(root, "locked", "inner"), { recursive: true });
+    chmodSync(join(root, "locked", "inner"), 0o000);
+    try {
+      // Running as root can read anything: only assert where the folder really is unreadable.
+      if (process.getuid?.() !== 0) await gitRefused(join(root, "locked"));
+    } finally {
+      chmodSync(join(root, "locked", "inner"), 0o755);
+    }
+    mkdirSync(join(root, "big"));
+    for (let i = 0; i < 50_001; i++) writeFileSync(join(root, "big", `f${i}`), "");
+    const err = await fail(validateDesktopShares(rwShare(join(root, "big")), { home }));
+    expect(err.message).toMatch(/too large to check for git data/);
+  }, 60_000);
+
+  it("a repository can still be shared read-only; a folder with no git can be read-write", async () => {
+    const root = tmp();
+    mkdirSync(join(root, "repo", ".git"), { recursive: true });
+    const ro = await validateDesktopShares(
+      [{ source: join(root, "repo"), name: "repo", readOnly: true }],
+      { home },
+    );
+    expect(ro[0]).toMatchObject({ readOnly: true });
+    mkdirSync(join(root, "plain", "docs"), { recursive: true });
+    writeFileSync(join(root, "plain", "docs", "a.txt"), "x");
+    const rw = await validateDesktopShares(rwShare(join(root, "plain")), { home });
+    expect(rw[0]).toMatchObject({ readOnly: false });
+    // Never an overlay: nothing is mounted on top of a share.
+    const args = desktopRunArgs("podman", spec({ shares: rw }));
     expect(
-      (
-        await fail(
-          validateDesktopShares([{ source: join(root, "link"), name: "link", readOnly: false }], {
-            home,
-          }),
-        )
-      ).code,
-    ).toBe("forbidden");
-    mkdirSync(join(root, "many"));
-    for (let i = 0; i < 17; i++)
-      mkdirSync(join(root, "many", `m${i}`, ".git"), { recursive: true });
-    expect(
-      (
-        await fail(
-          validateDesktopShares([{ source: join(root, "many"), name: "many", readOnly: false }], {
-            home,
-          }),
-        )
-      ).message,
-    ).toMatch(/too many git/);
+      args.filter((_, i) => args[i - 1] === "--mount").filter((m) => m.includes("target=/shares/")),
+    ).toHaveLength(1);
   });
 
   it("accepts an ordinary folder and returns it by name", async () => {
@@ -350,7 +367,6 @@ describe("what may be shared", () => {
     );
     expect(out).toMatchObject([{ source: join(real, "proj"), name: "proj", readOnly: false }]);
     expect(out[0]?.identity?.ino).toMatch(/^[0-9]+$/);
-    expect(out[0]?.readOnlyPaths).toBeUndefined();
   });
 });
 
@@ -457,7 +473,13 @@ describe("the lifecycle, against a fake Podman", () => {
     respond?: (
       args: string[],
     ) => { exitCode?: number; stdout?: Buffer; stderr?: Buffer } | undefined,
-    opts: { mounts?: (m: Mount[]) => Mount[]; limits?: string } = {},
+    opts: {
+      mounts?: (m: Mount[]) => Mount[];
+      limits?: string;
+      insideIds?: (dests: string[], ids: string[]) => string[];
+      statFails?: boolean;
+      insideRo?: (m: Mount & { ro: boolean }) => (Mount & { ro: boolean }) | undefined;
+    } = {},
   ) {
     const driver = new FakeDriver();
     let running = false;
@@ -481,6 +503,33 @@ describe("the lifecycle, against a fake Podman", () => {
               ),
             }
           : { exitCode: 1, stderr: Buffer.from("no such container") };
+      }
+      if (args[0] === "exec" && args.includes("stat")) {
+        // The identities the container sees for each destination, from the real files.
+        const dests = args.slice(args.indexOf("--") + 1);
+        const mounts = mountsOf(lastRun);
+        const ids = dests.map((d) => {
+          const m = mounts.find((x) => x.Destination === d);
+          if (m === undefined) return "0:0";
+          const st = statSync(m.Source, { bigint: true });
+          return `${st.dev}:${st.ino}`;
+        });
+        const out = opts.insideIds ? opts.insideIds(dests, ids) : ids;
+        return opts.statFails
+          ? { exitCode: 1, stderr: Buffer.from("stat: cannot stat") }
+          : { stdout: Buffer.from(`${out.join("\n")}\n`) };
+      }
+      if (args[0] === "exec" && args.includes("/proc/self/mountinfo")) {
+        const lines = mountsOf(lastRun)
+          .filter((m) => m.Type === "bind")
+          .map((m) => ({ ...m, ro: !m.RW }))
+          .map((m) => (opts.insideRo ? opts.insideRo(m) : m))
+          .filter((m) => m !== undefined)
+          .map(
+            (m) =>
+              `${m.Destination.length} 1 0:5 / ${m.Destination} ${m.ro ? "ro" : "rw"},nosuid,nodev,noexec - bind src rw`,
+          );
+        return { stdout: Buffer.from(`${lines.join("\n")}\n`) };
       }
       if (args[0] === "exec" && args.includes("cat")) {
         return { stdout: Buffer.from(opts.limits ?? "2147483648\n1024\n") };
@@ -628,21 +677,71 @@ describe("the lifecycle, against a fake Podman", () => {
     }
   });
 
-  it("accepts the mounts that were approved, overlays included", async () => {
+  it("accepts the mounts that were approved, checked from the inside as well", async () => {
     const root = tmp();
-    mkdirSync(join(root, "repo", ".git"), { recursive: true });
+    mkdirSync(join(root, "ro"));
+    mkdirSync(join(root, "rw"));
     const { d, driver } = setup();
     const out = await d.start({
       id: "main",
       socketPath: sockFile(),
       token: TOKEN,
-      shares: [{ source: join(root, "repo"), name: "repo", readOnly: false }],
+      shares: [
+        { source: join(root, "ro"), name: "ro", readOnly: true },
+        { source: join(root, "rw"), name: "rw", readOnly: false },
+      ],
     });
     expect(out.container).toBe("psyche-desktop-main");
-    const run = driver.find("run")[0]?.args ?? [];
-    expect(run).toContain(
-      `type=bind,source=${join(root, "repo", ".git")},target=/shares/repo/.git,nosuid,nodev,noexec,readonly`,
+    const stat = driver.calls.find((c) => c.args.includes("stat"));
+    expect(stat?.args).toEqual(
+      expect.arrayContaining(["/run/psyche/node.sock", "/shares/ro", "/shares/rw"]),
     );
+    expect(driver.calls.some((c) => c.args.includes("/proc/self/mountinfo"))).toBe(true);
+  });
+
+  it("tears the container down when the inside view differs from what was validated", async () => {
+    const root = tmp();
+    mkdirSync(join(root, "ro"));
+    mkdirSync(join(root, "rw"));
+    const shares = [
+      { source: join(root, "ro"), name: "ro", readOnly: true },
+      { source: join(root, "rw"), name: "rw", readOnly: false },
+    ];
+    const cases: [string, Parameters<typeof setup>[1]][] = [
+      [
+        "a share that is another file inside",
+        { insideIds: (dests, ids) => ids.map((id, i) => (dests[i] === "/shares/ro" ? "1:2" : id)) },
+      ],
+      [
+        "the socket that is another file inside",
+        {
+          insideIds: (dests, ids) => ids.map((id, i) => (dests[i]?.endsWith(".sock") ? "9:9" : id)),
+        },
+      ],
+      ["stat that fails", { statFails: true }],
+      [
+        "a read-only share mounted read-write",
+        { insideRo: (m) => (m.Destination === "/shares/ro" ? { ...m, ro: false } : m) },
+      ],
+      [
+        "a read-write share mounted read-only",
+        { insideRo: (m) => (m.Destination === "/shares/rw" ? { ...m, ro: true } : m) },
+      ],
+      [
+        "a share missing from the mount table",
+        { insideRo: (m) => (m.Destination === "/shares/rw" ? undefined : m) },
+      ],
+    ];
+    for (const [name, opts] of cases) {
+      const { d, driver } = setup(undefined, opts);
+      const err = await fail(d.start({ id: "main", socketPath: sockFile(), token: TOKEN, shares }));
+      expect(err.details, name).toMatchObject({ reason: "mount_mismatch" });
+      expect(driver.calls.at(-1)?.args.slice(0, 3), name).toEqual([
+        "rm",
+        "--force",
+        "psyche-desktop-main",
+      ]);
+    }
   });
 
   it("reports limits the system does not enforce, and still runs", async () => {

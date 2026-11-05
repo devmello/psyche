@@ -215,7 +215,7 @@ import { helperRecognizer } from "./search-ocr.ts";
 import { agentBlockedHit, canOpenGistSource, scrubCitations } from "./search-open.ts";
 import { routerEmbedder, type SemanticEngines } from "./search-semantic.ts";
 import { agentLocalSearch, searchEverythingTool } from "./search-tool.ts";
-import { composeSeparateDesktop } from "./separate-desktop.ts";
+import { composeSeparateDesktop, separateDesktopFolderEnv } from "./separate-desktop.ts";
 import {
   type ApprovalRelay,
   type BrowserAvailability,
@@ -670,6 +670,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const rawBroker = new PsychePermissionBroker({
     folderAccess: {
       env: () => folderAccessEnv(config.home),
+      // A folder shown to the separate desktop is judged by the container's own, wider list.
+      separateDesktopEnv: () => separateDesktopFolderEnv(config.home),
       persist: persistFolder,
       remove: forgetFolder,
     },

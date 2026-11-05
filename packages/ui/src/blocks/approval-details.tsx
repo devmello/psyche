@@ -689,6 +689,23 @@ export function ApprovalDetails({
         </dl>
       );
     }
+    case "new_origin": {
+      // The separate desktop's internet card: when a read-write folder is also in play, say so.
+      const changes = Array.isArray(d.alsoChanges)
+        ? d.alsoChanges.filter((x): x is string => typeof x === "string")
+        : [];
+      if (d.separateDesktop !== true || changes.length === 0) {
+        return <GenericDetails approval={approval} d={d} />;
+      }
+      return (
+        <dl>
+          <Row label={t("blocks.details.sdFiles")}>
+            {changes.map((folder) => t("blocks.details.sdAlsoChanges", { folder })).join(" ")}
+          </Row>
+          <Rest details={d} shown={["alsoChanges", "separateDesktop"]} />
+        </dl>
+      );
+    }
     case "message_send":
       // A `messages_send` compose card: the recipient and the text are the card's own editor.
       if (typeof d.compose !== "object" || d.compose === null) {

@@ -25,7 +25,7 @@ export const separateDesktop: Partial<Catalogue> = {
   "blocks.folder.sd.explain.ro":
     "{persona} veut laisser le bureau séparé lire les fichiers d'un dossier.",
   "blocks.folder.sd.explain.rw":
-    "{persona} veut laisser le bureau séparé lire et modifier les fichiers d'un dossier.",
+    "{persona} veut laisser le bureau séparé lire et modifier les fichiers d'un dossier. Les programmes du bureau séparé peuvent y modifier des fichiers, et les changements apparaissent sur cet ordinateur.",
   "blocks.folder.sd.scope":
     "Le bureau séparé voit ce dossier pour cette tâche seulement. Rien d'autre sur cet ordinateur n'est partagé, et aucun autre outil de cet ordinateur n'obtient le dossier.",
   "blocks.folder.sd.scope.once": "Cette tâche seulement",
@@ -33,4 +33,7 @@ export const separateDesktop: Partial<Catalogue> = {
   "settings.separateDesktop.limitPids": "La limite de processus n'est pas appliquée sur ce système",
   "blocks.details.sdUnverified":
     "Le bureau séparé ne peut pas confirmer que cette page est bien {origin}. Continuez seulement si vous faites confiance à l'endroit où la tâche vous a menés.",
+  "blocks.details.sdFiles": "Fichiers",
+  "blocks.details.sdAlsoChanges":
+    "Cette tâche peut aussi modifier {folder} et en envoyer des fichiers.",
 };

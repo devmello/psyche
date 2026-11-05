@@ -26,7 +26,7 @@ export const separateDesktop = {
   "blocks.folder.sd.explain.ro":
     "{persona} wants to let the separate desktop read the files in a folder.",
   "blocks.folder.sd.explain.rw":
-    "{persona} wants to let the separate desktop read and change the files in a folder.",
+    "{persona} wants to let the separate desktop read and change the files in a folder. Programs in the separate desktop can change files there, and the changes show up on this computer.",
   "blocks.folder.sd.scope":
     "The separate desktop sees this folder for this task only. Nothing else on this computer is shared, and no other tool on this computer gets the folder.",
   "blocks.folder.sd.scope.once": "This task only",
@@ -34,4 +34,6 @@ export const separateDesktop = {
   "settings.separateDesktop.limitPids": "Process limit not enforced on this system",
   "blocks.details.sdUnverified":
     "The separate desktop can't confirm that this page really is {origin}. Only continue if you trust where the task sent it.",
+  "blocks.details.sdFiles": "Files",
+  "blocks.details.sdAlsoChanges": "This task can also change {folder}, and send files from it.",
 } as const;

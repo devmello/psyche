@@ -25,7 +25,7 @@ export const separateDesktop: Partial<Catalogue> = {
   "blocks.folder.sd.explain.ro":
     "{persona} quer deixar a área de trabalho separada ler os arquivos de uma pasta.",
   "blocks.folder.sd.explain.rw":
-    "{persona} quer deixar a área de trabalho separada ler e alterar os arquivos de uma pasta.",
+    "{persona} quer deixar a área de trabalho separada ler e alterar os arquivos de uma pasta. Os programas da área de trabalho separada podem alterar arquivos ali, e as alterações aparecem neste computador.",
   "blocks.folder.sd.scope":
     "A área de trabalho separada vê esta pasta só durante esta tarefa. Nada mais neste computador é compartilhado, e nenhuma outra ferramenta deste computador recebe a pasta.",
   "blocks.folder.sd.scope.once": "Só esta tarefa",
@@ -33,4 +33,7 @@ export const separateDesktop: Partial<Catalogue> = {
   "settings.separateDesktop.limitPids": "O limite de processos não é aplicado neste sistema",
   "blocks.details.sdUnverified":
     "A área de trabalho separada não consegue confirmar que esta página é mesmo {origin}. Continue só se confiar no lugar para onde a tarefa levou.",
+  "blocks.details.sdFiles": "Arquivos",
+  "blocks.details.sdAlsoChanges":
+    "Esta tarefa também pode alterar {folder} e enviar arquivos de lá.",
 };

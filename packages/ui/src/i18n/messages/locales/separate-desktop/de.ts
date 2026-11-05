@@ -25,7 +25,7 @@ export const separateDesktop: Partial<Catalogue> = {
   "blocks.folder.sd.explain.ro":
     "{persona} möchte dem separaten Desktop erlauben, die Dateien in einem Ordner zu lesen.",
   "blocks.folder.sd.explain.rw":
-    "{persona} möchte dem separaten Desktop erlauben, die Dateien in einem Ordner zu lesen und zu ändern.",
+    "{persona} möchte dem separaten Desktop erlauben, die Dateien in einem Ordner zu lesen und zu ändern. Programme im separaten Desktop können dort Dateien ändern, und die Änderungen erscheinen auf diesem Computer.",
   "blocks.folder.sd.scope":
     "Der separate Desktop sieht diesen Ordner nur für diese Aufgabe. Sonst wird nichts auf diesem Computer geteilt, und kein anderes Werkzeug auf diesem Computer erhält den Ordner.",
   "blocks.folder.sd.scope.once": "Nur diese Aufgabe",
@@ -35,4 +35,7 @@ export const separateDesktop: Partial<Catalogue> = {
     "Das Prozesslimit wird auf diesem System nicht durchgesetzt",
   "blocks.details.sdUnverified":
     "Der separate Desktop kann nicht bestätigen, dass diese Seite wirklich {origin} ist. Fahre nur fort, wenn du dem Ziel der Aufgabe vertraust.",
+  "blocks.details.sdFiles": "Dateien",
+  "blocks.details.sdAlsoChanges":
+    "Diese Aufgabe kann auch {folder} ändern und Dateien daraus senden.",
 };

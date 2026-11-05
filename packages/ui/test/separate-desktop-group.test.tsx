@@ -67,3 +67,57 @@ describe("SeparateDesktopGroup", () => {
     expect(onChange).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("the separate desktop's cards", () => {
+  const card = (kind: string, details: Record<string, unknown>) =>
+    ({
+      id: "ap_1",
+      kind,
+      summary: "x",
+      details,
+      surfaces: ["desktop"],
+      status: "pending",
+    }) as unknown as import("@psyche/protocol").ApprovalRequest;
+
+  it("the internet card says the task can also change the read-write folder and send files from it", async () => {
+    const { ApprovalDetails } = await import("../src/blocks/approval-details.tsx");
+    render(
+      <ApprovalDetails
+        approval={card("new_origin", {
+          origins: ["example.com"],
+          separateDesktop: true,
+          alsoChanges: ["/data/docs"],
+        })}
+      />,
+    );
+    expect(
+      screen.getByText("This task can also change /data/docs, and send files from it."),
+    ).toBeTruthy();
+  });
+
+  it("an internet card without a read-write folder says nothing about files", async () => {
+    const { ApprovalDetails } = await import("../src/blocks/approval-details.tsx");
+    render(
+      <ApprovalDetails
+        approval={card("new_origin", { origins: ["example.com"], separateDesktop: true })}
+      />,
+    );
+    expect(screen.queryByText(/send files from it/)).toBeNull();
+  });
+
+  it("the login card says the destination page can't be verified in the separate desktop", async () => {
+    const { ApprovalDetails } = await import("../src/blocks/approval-details.tsx");
+    render(
+      <ApprovalDetails
+        approval={card("credential_fill", {
+          origin: "https://bank.example",
+          item: "Bank",
+          separateDesktop: true,
+        })}
+      />,
+    );
+    expect(
+      screen.getByText(/can't confirm that this page really is https:\/\/bank.example/),
+    ).toBeTruthy();
+  });
+});

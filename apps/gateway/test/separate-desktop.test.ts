@@ -558,8 +558,7 @@ describe("the risky-word rule", () => {
     internetUsed: false,
     credentialFilled: false,
     app: "org.gnome.TextEditor",
-    targetPath: "/workspace/notes.txt",
-    readWriteShares: [],
+    readWriteShareMounted: false,
   };
 
   it("file-local words skip the card only when every condition holds", () => {
@@ -623,34 +622,29 @@ describe("the risky-word rule", () => {
     expect(asksInSeparateDesktop("Delete", { ...base, app: "" })).toBe(true);
   });
 
-  it("a target under a read-write share turns it off; a read-only share or elsewhere does not", () => {
-    const rw = ["/shares/docs"];
-    const with_ = (targetPath: string | undefined) => ({
-      ...base,
-      readWriteShares: rw,
-      targetPath,
-    });
-    expect(asksInSeparateDesktop("Delete", with_("/shares/docs/a.txt"))).toBe(true);
-    expect(asksInSeparateDesktop("Delete", with_("/shares/docs"))).toBe(true);
-    expect(asksInSeparateDesktop("Delete", with_("/shares/docs/../docs/a"))).toBe(true);
-    expect(asksInSeparateDesktop("Delete", with_("/shares/docs-other/a"))).toBe(false);
-    expect(asksInSeparateDesktop("Delete", with_("/workspace/a"))).toBe(false);
-    // The target is unknown and a read-write share exists: can't prove it is not in it.
-    expect(asksInSeparateDesktop("Delete", with_(undefined))).toBe(true);
-    // Unknown target and no read-write share at all: nothing of the Host to protect.
-    expect(asksInSeparateDesktop("Delete", { ...base, targetPath: undefined })).toBe(false);
+  it("any read-write share mounted turns it off, whatever the file is called or where it is", () => {
+    expect(asksInSeparateDesktop("Delete", { ...base, readWriteShareMounted: true })).toBe(true);
+    expect(asksInSeparateDesktop("Remove file", { ...base, readWriteShareMounted: true })).toBe(
+      true,
+    );
+    // A read-only share is not a read-write one.
+    expect(asksInSeparateDesktop("Delete", { ...base, readWriteShareMounted: false })).toBe(false);
   });
 
   it("follows the state of the task: web reached, login typed, read-write shares", async () => {
     const { sd } = await setup();
-    const app = { app: "org.gnome.TextEditor", path: "/workspace/a" };
-    await sd.use("t1", { shares: [share("docs", false)] });
+    const app = { app: "org.gnome.TextEditor" };
+    await sd.use("t1", { shares: [share("docs")] });
+    // A read-only share does not matter; a browser does.
     expect(sd.asks("t1", "Delete", app)).toBe(false);
-    expect(sd.asks("t1", "Delete", { app: app.app, path: "/shares/docs/a" })).toBe(true);
-    expect(sd.asks("t1", "Delete", { app: "firefox", path: "/workspace/a" })).toBe(true);
+    expect(sd.asks("t1", "Delete", { app: "firefox" })).toBe(true);
     // Not this task's: asks.
     expect(sd.asks("other", "Delete", app)).toBe(true);
     await sd.release("t1");
+    // A read-write share anywhere: asks, even for the container's own files.
+    await sd.use("t1b", { shares: [share("rw", false)] });
+    expect(sd.asks("t1b", "Delete", app)).toBe(true);
+    await sd.release("t1b");
     await sd.use("t2", { internet: { allow: ["example.com"] } });
     expect(sd.asks("t2", "Delete", app)).toBe(true);
     // The tunnel is gone after release, and a new task starts clean.
@@ -664,9 +658,7 @@ describe("the risky-word rule", () => {
     await sd.use("t1", { internet: { allow: ["example.com"] } });
     await sd.use("t1");
     expect(engine.egress[0]?.closed).toBe(true);
-    expect(sd.asks("t1", "Delete", { app: "org.gnome.TextEditor", path: "/workspace/a" })).toBe(
-      true,
-    );
+    expect(sd.asks("t1", "Delete", { app: "org.gnome.TextEditor" })).toBe(true);
   });
 });
 
@@ -738,15 +730,14 @@ describe("typing a saved login into the desktop", () => {
   it("a login typed in turns the relaxed risky-word rule off for the rest of the task", async () => {
     const { sd } = await setup();
     await sd.use("t1", { internet: { allow: ["bank.example"] } });
-    const target = { app: "org.gnome.TextEditor", path: "/workspace/a" };
+    const target = { app: "org.gnome.TextEditor" };
     // Internet already turned it off; the flag is checked on its own in the risk context.
     expect(
       asksInSeparateDesktop("Delete", {
         internetUsed: false,
         credentialFilled: true,
         app: target.app,
-        targetPath: target.path,
-        readWriteShares: [],
+        readWriteShareMounted: false,
       }),
     ).toBe(true);
     const s = steps(false);
@@ -763,6 +754,122 @@ describe("typing a saved login into the desktop", () => {
     expect(originAllowed("http://a.example", ["a.example"])).toBe(true);
     expect(originAllowed("https://a.example.evil", ["a.example"])).toBe(false);
     expect(originAllowed("https://a.example", [])).toBe(false);
+  });
+});
+
+describe("the cards for a login and for the internet", () => {
+  function broker(status = "approved") {
+    const requested: Record<string, unknown>[] = [];
+    const b = {
+      requestApproval: async (input: Record<string, unknown>) => {
+        requested.push(input);
+        return { approval: { id: "apr_1" } };
+      },
+      awaitDecision: async () => ({ status, details: {} }),
+    } as unknown as PermissionBroker;
+    return { b, requested };
+  }
+  const tctx = (mode = "attended"): ToolRunContext =>
+    ({
+      threadId: "thr_1",
+      runId: "run_1",
+      callId: "call_1",
+      taskId: "task_1",
+      taint: false,
+      mode,
+      signal: new AbortController().signal,
+    }) as unknown as ToolRunContext;
+
+  it("a login card has its own grant key, offers once only, and says the page can't be verified", async () => {
+    const { sd } = await setup();
+    await sd.use("t1", { internet: { allow: ["bank.example"] } });
+    const { b, requested } = broker();
+    const approve = (card: CredentialCard) =>
+      sd.askCredential({ broker: b, surfaces: ["desktop"] }, tctx(), card);
+    let seen: CredentialCard | undefined;
+    const ok = await sd.fillCredential("t1", {
+      origin: "https://bank.example",
+      item: "Bank",
+      approve: (c) => {
+        seen = c;
+        return approve(c);
+      },
+      read: async () => "x",
+      type: async () => undefined,
+    });
+    expect(ok).toBe(true);
+    expect(seen?.grantKey).toBe("credential_fill|separate_desktop|https://bank.example");
+    expect(requested[0]).toMatchObject({
+      kind: "credential_fill",
+      grantKey: "credential_fill|separate_desktop|https://bank.example",
+      scopesOffered: ["once"],
+      details: { separateDesktop: true, origin: "https://bank.example" },
+    });
+  });
+
+  it("a denied login card types nothing", async () => {
+    const { sd } = await setup();
+    await sd.use("t1", { internet: { allow: ["bank.example"] } });
+    const { b } = broker("denied");
+    const type = vi.fn(async () => undefined);
+    const ok = await sd.fillCredential("t1", {
+      origin: "https://bank.example",
+      item: "Bank",
+      approve: (c) => sd.askCredential({ broker: b, surfaces: ["desktop"] }, tctx(), c),
+      read: async () => "x",
+      type,
+    });
+    expect(ok).toBe(false);
+    expect(type).not.toHaveBeenCalled();
+  });
+
+  it("the internet card names a read-write folder and says files can leave through it", async () => {
+    const { sd } = await setup();
+    const { b, requested } = broker();
+    const granted = await sd.requestInternet({ broker: b, surfaces: ["desktop"] }, tctx(), {
+      allow: ["example.com"],
+      shares: [
+        { source: "/data/docs", name: "docs", readOnly: false },
+        { source: "/data/ro", name: "ro", readOnly: true },
+      ],
+      reason: "to look something up",
+    });
+    expect(granted).toBe(true);
+    const req = requested[0] as {
+      summary: string;
+      details: Record<string, unknown>;
+      scopesOffered: string[];
+    };
+    expect(req.summary).toContain("This task can also change /data/docs, and send files from it.");
+    expect(req.summary).not.toContain("/data/ro");
+    expect(req.details).toMatchObject({ separateDesktop: true, alsoChanges: ["/data/docs"] });
+    expect(req.scopesOffered).toEqual(["once"]);
+  });
+
+  it("without a read-write folder the internet card says nothing about files", async () => {
+    const { sd } = await setup();
+    const { b, requested } = broker();
+    await sd.requestInternet({ broker: b, surfaces: ["desktop"] }, tctx(), {
+      allow: ["example.com"],
+      shares: [{ source: "/data/ro", name: "ro", readOnly: true }],
+      reason: "r",
+    });
+    const req = requested[0] as { summary: string; details: Record<string, unknown> };
+    expect(req.summary).not.toMatch(/send files/);
+    expect(req.details.alsoChanges).toBeUndefined();
+  });
+
+  it("a denied or unattended internet card gives no internet", async () => {
+    const { sd } = await setup();
+    const denied = broker("denied");
+    const ask = (b: PermissionBroker, mode = "attended") =>
+      sd.requestInternet({ broker: b, surfaces: ["desktop"] }, tctx(mode), {
+        allow: ["example.com"],
+        shares: [],
+        reason: "r",
+      });
+    expect(await ask(denied.b)).toBe(false);
+    expect(await ask(broker().b, "unattended")).toBe(false);
   });
 });
 

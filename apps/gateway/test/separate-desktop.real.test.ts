@@ -61,8 +61,12 @@ describe.skipIf(!REAL)("a real separate desktop", () => {
     mkdirSync(join(shareDir, "docs"));
     writeFileSync(join(shareDir, "docs", "note.txt"), "hello from the host\n");
     const share = join(shareDir, "docs");
-    mkdirSync(join(shareDir, "repo", ".git", "hooks"), { recursive: true });
-    const repo = join(shareDir, "repo");
+    mkdirSync(join(shareDir, "work"));
+    mkdirSync(join(shareDir, "gitro", ".git", "hooks"), { recursive: true });
+    const work = join(shareDir, "work");
+    const gitro = join(shareDir, "gitro");
+    // A read-write share with a git repository in it is refused before anything starts.
+    mkdirSync(join(shareDir, "rwgit", ".git"), { recursive: true });
     t = await startTestGateway();
     guests = new GuestSockets({ ctx: t.gateway.context, home: t.home });
     const desktop = new DesktopContainers();
@@ -89,7 +93,8 @@ describe.skipIf(!REAL)("a real separate desktop", () => {
     await sd.use("real-1", {
       shares: [
         { source: share, name: "docs", readOnly: true },
-        { source: repo, name: "repo", readOnly: false },
+        { source: work, name: "work", readOnly: false },
+        { source: gitro, name: "gitro", readOnly: true },
       ],
     });
     const readyMs = Date.now() - began;
@@ -129,14 +134,14 @@ describe.skipIf(!REAL)("a real separate desktop", () => {
     expect(exec("rm /shares/docs/note.txt").code).not.toBe(0);
     expect(existsSync(join(share, "new.txt"))).toBe(false);
     expect(readFileSync(join(share, "note.txt"), "utf8")).toBe("hello from the host\n");
-    // A read-write share keeps its git data read-only: files can be made, hooks cannot.
-    expect(exec("touch /shares/repo/new.txt").code).toBe(0);
-    expect(existsSync(join(repo, "new.txt"))).toBe(true);
-    expect(exec("touch /shares/repo/.git/hooks/pre-commit").code).not.toBe(0);
-    expect(exec("touch /shares/repo/.git/config").code).not.toBe(0);
-    expect(existsSync(join(repo, ".git", "config"))).toBe(false);
+    // A read-write share without git takes writes; a read-only one that holds a repository does not.
+    expect(exec("touch /shares/work/new.txt").code).toBe(0);
+    expect(existsSync(join(work, "new.txt"))).toBe(true);
+    expect(exec("touch /shares/gitro/.git/config").code).not.toBe(0);
+    expect(exec("touch /shares/gitro/.git/hooks/pre-commit").code).not.toBe(0);
+    expect(existsSync(join(gitro, ".git", "config"))).toBe(false);
     // Nothing else of the host is there.
-    expect(exec("ls /shares").out.trim().split(/\s+/)).toEqual(["docs", "repo"]);
+    expect(exec("ls /shares").out.trim().split(/\s+/)).toEqual(["docs", "gitro", "work"]);
     expect(exec("ls /run/psyche").out.trim()).toBe("node.sock");
     expect(
       exec(
@@ -176,6 +181,14 @@ describe.skipIf(!REAL)("a real separate desktop", () => {
         `container_up_ms=${engineMs} start_to_paired_ms=${readyMs} sum_rss_kb=${rss} mem_usage=${stats.mem_usage ?? stats.MemUsage}`,
     );
 
+    // A read-write share holding a repository never starts.
+    await sd.release("real-1", { force: true });
+    await expect(
+      sd.use("real-2", {
+        shares: [{ source: join(shareDir, "rwgit"), name: "rwgit", readOnly: false }],
+      }),
+    ).rejects.toMatchObject({ details: { reason: "git_in_read_write_share" } });
+    await sd.release("real-2", { force: true });
     // End of the task: everything is gone.
     await sd.release("real-1", { force: true });
     expect(podman("ps", "--all", "--format", "{{.Names}}").trim()).toBe("");
