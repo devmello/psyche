@@ -1,12 +1,4 @@
-import {
-  chmodSync,
-  mkdirSync,
-  mkdtempSync,
-  rmSync,
-  statSync,
-  symlinkSync,
-  writeFileSync,
-} from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PsycheError } from "@psyche/protocol";
@@ -14,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   DESKTOP_OWNER_LABEL,
   DESKTOP_SOCKET_TARGET,
+  DESKTOP_TOKEN_TARGET,
   DesktopContainers,
   type DesktopSpec,
   desktopEnv,
@@ -42,7 +35,7 @@ const spec = (over: Partial<DesktopSpec> = {}): DesktopSpec => ({
   id: "main",
   image: "psyche-sandbox:desktop-dev",
   socketPath: "/home/o/.psyche/run/guest-main.sock",
-  token: TOKEN,
+  tokenPath: "/home/o/.psyche/run/guest-main.token",
   shares: [],
   memory: "2g",
   ...over,
@@ -94,19 +87,31 @@ describe("the desktop container's flags", () => {
     ]);
   });
 
-  it("is labelled as ours, and mounts only the workspace volume and the one socket", () => {
+  it("is labelled as ours, and mounts only the workspace (nothing in it runs), the socket and the token file", () => {
     expect(args).toContain(`${DESKTOP_OWNER_LABEL}=1`);
     const mounts = args.filter((_, i) => args[i - 1] === "--mount");
     expect(mounts).toEqual([
-      "type=volume,source=psyche-desktop-main-workspace,target=/workspace",
+      "type=volume,source=psyche-desktop-main-workspace,target=/workspace,noexec,nosuid,nodev",
       `type=bind,source=/home/o/.psyche/run/guest-main.sock,target=${DESKTOP_SOCKET_TARGET},readonly`,
+      `type=bind,source=/home/o/.psyche/run/guest-main.token,target=${DESKTOP_TOKEN_TARGET}`,
     ]);
   });
 
-  it("puts only the names of environment variables on the command line, never the token", () => {
+  it("the token is never in the environment: the container gets only proxy settings", () => {
+    expect(Object.keys(desktopEnv()).sort()).toEqual([
+      "HTTPS_PROXY",
+      "HTTP_PROXY",
+      "NO_PROXY",
+      "http_proxy",
+      "https_proxy",
+      "no_proxy",
+    ]);
+    expect(args.join(" ")).not.toMatch(/TOKEN/);
     expect(args.join(" ")).not.toContain(TOKEN);
-    expect(args).toContain("PSYCHE_GUEST_TOKEN");
-    expect(desktopEnv(TOKEN).PSYCHE_GUEST_TOKEN).toBe(TOKEN);
+    // Nor in a form that asks the engine to copy one from the Gateway's own environment.
+    expect(args.filter((_, i) => args[i - 1] === "-e").every((n) => !/token|secret/i.test(n))).toBe(
+      true,
+    );
   });
 
   it("shares are read-only unless the share says otherwise, and are not executable or setuid on Podman", () => {
@@ -126,6 +131,11 @@ describe("the desktop container's flags", () => {
     expect(mounts).toContain("type=bind,source=/data/b,target=/shares/b,nosuid,nodev,noexec");
   });
 
+  it("Docker's workspace volume takes no such options", () => {
+    const d = desktopRunArgs("docker", spec());
+    expect(d).toContain("type=volume,source=psyche-desktop-main-workspace,target=/workspace");
+  });
+
   it("Docker gets the same rules without the Podman-only flags", () => {
     const d = desktopRunArgs(
       "docker",
@@ -142,6 +152,9 @@ describe("the desktop container's flags", () => {
       /not allowed/,
     );
     expect(() => desktopRunArgs("podman", spec({ socketPath: "rel.sock" }))).toThrow(/not allowed/);
+    expect(() => desktopRunArgs("podman", spec({ tokenPath: "/t,source=/etc" }))).toThrow(
+      /not allowed/,
+    );
     expect(() => desktopNames("../x")).toThrow(/lowercase/);
     expect(() => desktopNames("A")).toThrow(/lowercase/);
   });
@@ -339,6 +352,47 @@ describe("what may be shared", () => {
     expect(err.message).toMatch(/too large to check for git data/);
   }, 60_000);
 
+  it("refuses a read-write share inside a git repository, any parent up to the home folder", async () => {
+    const root = tmp();
+    mkdirSync(join(root, ".git"));
+    mkdirSync(join(root, "a", "b", "c"), { recursive: true });
+    const err = await fail(
+      validateDesktopShares([{ source: join(root, "a", "b", "c"), name: "c", readOnly: false }], {
+        home: root,
+      }),
+    );
+    expect(err.details).toMatchObject({ reason: "git_in_read_write_share" });
+    expect(err.message).toMatch(/inside a git repository/);
+    // Read-only is fine, and so is a folder whose parents hold no repository.
+    const ro = await validateDesktopShares(
+      [{ source: join(root, "a", "b", "c"), name: "c", readOnly: true }],
+      { home: root },
+    );
+    expect(ro).toHaveLength(1);
+    const clean = tmp();
+    mkdirSync(join(clean, "x", "y"), { recursive: true });
+    const ok = await validateDesktopShares(
+      [{ source: join(clean, "x", "y"), name: "y", readOnly: false }],
+      { home: clean },
+    );
+    expect(ok).toHaveLength(1);
+    // A bare repository as a parent counts too.
+    const bare = tmp();
+    mkdirSync(join(bare, "objects"));
+    mkdirSync(join(bare, "refs"));
+    writeFileSync(join(bare, "HEAD"), "ref: refs/heads/main");
+    mkdirSync(join(bare, "work"));
+    expect(
+      (
+        await fail(
+          validateDesktopShares([{ source: join(bare, "work"), name: "w", readOnly: false }], {
+            home: bare,
+          }),
+        )
+      ).details,
+    ).toMatchObject({ reason: "git_in_read_write_share" });
+  });
+
   it("a repository can still be shared read-only; a folder with no git can be read-write", async () => {
     const root = tmp();
     mkdirSync(join(root, "repo", ".git"), { recursive: true });
@@ -433,7 +487,7 @@ describe("choosing the engine", () => {
     const driver = new FakeDriver();
     const d = new DesktopContainers({ driver, detectDeps: engine({ apple: true }) });
     expect(await d.backend()).toBeUndefined();
-    const err = await fail(d.start({ id: "main", socketPath: "/s.sock", token: TOKEN }));
+    const err = await fail(d.start({ id: "main", socketPath: "/s.sock", tokenPath: "/t" }));
     expect(err.code).toBe("unavailable");
     expect(err.message).toMatch(/Podman/);
     expect(driver.calls).toEqual([]);
@@ -441,12 +495,16 @@ describe("choosing the engine", () => {
 });
 
 describe("the lifecycle, against a fake Podman", () => {
-  /** A real file standing in for the socket, so its identity can be recorded and compared. */
-  const sockFile = () => {
-    const f = join(tmp(), "g.sock");
-    writeFileSync(f, "");
-    return f;
+  /** Real files standing in for the socket and the token, so their identities can be recorded. */
+  const files = () => {
+    const dir = tmp();
+    const socketPath = join(dir, "g.sock");
+    const tokenPath = join(dir, "g.token");
+    writeFileSync(socketPath, "");
+    writeFileSync(tokenPath, `${TOKEN}\n`);
+    return { socketPath, tokenPath };
   };
+  const req = (over: Record<string, unknown> = {}) => ({ id: "main", ...files(), ...over });
 
   interface Mount {
     Type: string;
@@ -469,29 +527,64 @@ describe("the lifecycle, against a fake Podman", () => {
       })
       .map((m) => (m.Type === "volume" ? { ...m, Source: "/vol/_data" } : m));
 
+  interface Tamper {
+    mounts?: (m: Mount[]) => Mount[];
+    /** What the host sees under /proc/<pid>/root for a destination (default: the validated file). */
+    seen?: (dest: string, source: string) => string | undefined;
+    /** Per-mount options in the made-up mountinfo. */
+    options?: (m: Mount) => string | undefined;
+    memoryMax?: string;
+    pidsMax?: string;
+    noMountinfo?: boolean;
+    pid?: string;
+  }
+
   function setup(
     respond?: (
       args: string[],
     ) => { exitCode?: number; stdout?: Buffer; stderr?: Buffer } | undefined,
-    opts: {
-      mounts?: (m: Mount[]) => Mount[];
-      limits?: string;
-      insideIds?: (dests: string[], ids: string[]) => string[];
-      statFails?: boolean;
-      insideRo?: (m: Mount & { ro: boolean }) => (Mount & { ro: boolean }) | undefined;
-    } = {},
+    t: Tamper = {},
   ) {
     const driver = new FakeDriver();
+    const procRoot = tmp();
+    const cgroupRoot = tmp();
     let running = false;
     let lastRun: string[] = [];
+    /** The host's view of the container's main process: /proc/<pid>/{root,mountinfo,cgroup}. */
+    const buildProc = () => {
+      const pid = t.pid ?? "4242";
+      const root = join(procRoot, pid);
+      mkdirSync(join(root, "root"), { recursive: true });
+      const lines: string[] = [];
+      for (const m of mountsOf(lastRun).filter((x) => x.Type === "bind")) {
+        const shown = t.seen ? t.seen(m.Destination, m.Source) : m.Source;
+        if (shown !== undefined) {
+          mkdirSync(join(root, "root", m.Destination, ".."), { recursive: true });
+          symlinkSync(shown, join(root, "root", m.Destination));
+        }
+        const opts = t.options ? t.options(m) : `${m.RW ? "rw" : "ro"},nosuid,nodev,noexec`;
+        if (opts !== undefined) {
+          lines.push(`${lines.length + 1} 1 0:5 / ${m.Destination} ${opts} - bind src rw`);
+        }
+      }
+      if (!t.noMountinfo) writeFileSync(join(root, "mountinfo"), `${lines.join("\n")}\n`);
+      writeFileSync(join(root, "cgroup"), "0::/user.slice/libpod-test.scope\n");
+      const cg = join(cgroupRoot, "user.slice", "libpod-test.scope");
+      mkdirSync(cg, { recursive: true });
+      writeFileSync(join(cg, "memory.max"), `${t.memoryMax ?? "2147483648"}\n`);
+      writeFileSync(join(cg, "pids.max"), `${t.pidsMax ?? "1024"}\n`);
+    };
     driver.respond = (args) => {
       const custom = respond?.(args);
       if (custom !== undefined) return custom;
       if (args[0] === "image" && args[1] === "inspect")
         return { stdout: Buffer.from("1234567890\n") };
-      if (args[0] === "inspect" && args[1] === "--format") {
-        const mounts = opts.mounts ?? ((m: Mount[]) => m);
+      if (args[0] === "inspect" && args[2] === "{{json .Mounts}}") {
+        const mounts = t.mounts ?? ((m: Mount[]) => m);
         return { stdout: Buffer.from(JSON.stringify(mounts(mountsOf(lastRun)))) };
+      }
+      if (args[0] === "inspect" && args[2] === "{{.State.Pid}}") {
+        return { stdout: Buffer.from(`${t.pid ?? "4242"}\n`) };
       }
       if (args[0] === "inspect") {
         return running
@@ -504,39 +597,10 @@ describe("the lifecycle, against a fake Podman", () => {
             }
           : { exitCode: 1, stderr: Buffer.from("no such container") };
       }
-      if (args[0] === "exec" && args.includes("stat")) {
-        // The identities the container sees for each destination, from the real files.
-        const dests = args.slice(args.indexOf("--") + 1);
-        const mounts = mountsOf(lastRun);
-        const ids = dests.map((d) => {
-          const m = mounts.find((x) => x.Destination === d);
-          if (m === undefined) return "0:0";
-          const st = statSync(m.Source, { bigint: true });
-          return `${st.dev}:${st.ino}`;
-        });
-        const out = opts.insideIds ? opts.insideIds(dests, ids) : ids;
-        return opts.statFails
-          ? { exitCode: 1, stderr: Buffer.from("stat: cannot stat") }
-          : { stdout: Buffer.from(`${out.join("\n")}\n`) };
-      }
-      if (args[0] === "exec" && args.includes("/proc/self/mountinfo")) {
-        const lines = mountsOf(lastRun)
-          .filter((m) => m.Type === "bind")
-          .map((m) => ({ ...m, ro: !m.RW }))
-          .map((m) => (opts.insideRo ? opts.insideRo(m) : m))
-          .filter((m) => m !== undefined)
-          .map(
-            (m) =>
-              `${m.Destination.length} 1 0:5 / ${m.Destination} ${m.ro ? "ro" : "rw"},nosuid,nodev,noexec - bind src rw`,
-          );
-        return { stdout: Buffer.from(`${lines.join("\n")}\n`) };
-      }
-      if (args[0] === "exec" && args.includes("cat")) {
-        return { stdout: Buffer.from(opts.limits ?? "2147483648\n1024\n") };
-      }
       if (args[0] === "run") {
         running = true;
         lastRun = args;
+        buildProc();
       }
       if (args[0] === "rm" || args[0] === "stop") running = false;
       return undefined;
@@ -546,13 +610,15 @@ describe("the lifecycle, against a fake Podman", () => {
       detectDeps: engine({ podman: true }),
       image: "psyche-sandbox:desktop-dev",
       home: "/home/owner",
+      procRoot,
+      cgroupRoot,
     });
     return { d, driver };
   }
 
   it("starts: clears an old container, creates the workspace volume, runs, then checks it is up", async () => {
     const { d, driver } = setup();
-    const out = await d.start({ id: "main", socketPath: sockFile(), token: TOKEN });
+    const out = await d.start(req());
     expect(out.container).toBe("psyche-desktop-main");
     expect(out.limits).toEqual({ memory: true, pids: true });
     const verbs = driver.calls.map((c) => c.args[0]);
@@ -563,45 +629,51 @@ describe("the lifecycle, against a fake Podman", () => {
     expect(driver.find("volume", "create")[0]?.args).toContain("--ignore");
     const run = driver.calls.find((c) => c.args[0] === "run");
     expect(run?.args).toContain("--network=none");
-    // The token reaches the engine's process environment only.
-    expect(run?.options.env?.PSYCHE_GUEST_TOKEN).toBe(TOKEN);
-    expect(driver.calls.some((c) => c.args.join(" ").includes(TOKEN))).toBe(false);
     expect(driver.calls.every((c) => c.file === "/usr/bin/podman")).toBe(true);
+  });
+
+  it("the token appears nowhere the engine, its arguments or its environment could show it", async () => {
+    const { d, driver } = setup();
+    await d.start(req());
+    const run = driver.calls.find((c) => c.args[0] === "run");
+    expect(run?.options.env?.PSYCHE_GUEST_TOKEN).toBeUndefined();
+    expect(Object.values(run?.options.env ?? {}).includes(TOKEN)).toBe(false);
+    expect(driver.calls.some((c) => c.args.join(" ").includes(TOKEN))).toBe(false);
+    // `podman inspect` (Config.Env included) is asked for the mounts and the pid only.
+    expect(
+      driver.find("inspect").every((c) => c.args.includes("--format") || c.args.length === 2),
+    ).toBe(true);
+  });
+
+  it("asks the container nothing to verify itself: no exec, so no program in its workspace is involved", async () => {
+    const { d, driver } = setup();
+    await d.start(req());
+    expect(driver.find("exec")).toEqual([]);
+    expect(driver.streams).toEqual([]);
   });
 
   it("removes the container and fails when it did not come up", async () => {
     const { d, driver } = setup((args) =>
       args[0] === "run" ? { exitCode: 125, stderr: Buffer.from("boom") } : undefined,
     );
-    const err = await fail(d.start({ id: "main", socketPath: sockFile(), token: TOKEN }));
+    const err = await fail(d.start(req()));
     expect(err.code).toBe("unavailable");
     expect(err.details).toMatchObject({ reason: "start_failed" });
     expect(driver.calls.at(-1)?.args.slice(0, 3)).toEqual(["rm", "--force", "psyche-desktop-main"]);
   });
 
-  it("refuses a short token and a share that is not allowed, before running anything", async () => {
+  it("refuses a share that is not allowed, before running anything", async () => {
     const { d, driver } = setup();
-    expect((await fail(d.start({ id: "main", socketPath: "/s.sock", token: "short" }))).code).toBe(
-      "invalid_params",
-    );
     expect(
-      (
-        await fail(
-          d.start({
-            id: "main",
-            socketPath: "/s.sock",
-            token: TOKEN,
-            shares: [{ source: "/home/owner", name: "h", readOnly: true }],
-          }),
-        )
-      ).code,
+      (await fail(d.start(req({ shares: [{ source: "/home/owner", name: "h", readOnly: true }] }))))
+        .code,
     ).toBe("forbidden");
     expect(driver.find("run")).toEqual([]);
   });
 
   it("refuses to run a missing local image, and says how to build it", async () => {
     const { d, driver } = setup((args) => (args[0] === "image" ? { exitCode: 1 } : undefined));
-    const err = await fail(d.start({ id: "main", socketPath: sockFile(), token: TOKEN }));
+    const err = await fail(d.start(req()));
     expect(err.details).toMatchObject({ reason: "image_missing" });
     expect(err.message).toMatch(/deploy\/sandbox-image/);
     expect(driver.find("run")).toEqual([]);
@@ -634,40 +706,57 @@ describe("the lifecycle, against a fake Podman", () => {
     expect(driver.find("rm").map((c) => c.args[2])).toEqual(["psyche-desktop-main"]);
   });
 
-  it("tears the container down when the engine mounted something other than what was checked", async () => {
-    const shareRoot = tmp();
-    mkdirSync(join(shareRoot, "a"));
-    mkdirSync(join(shareRoot, "b"));
-    const share = { source: join(shareRoot, "a"), name: "a", readOnly: true };
-    const base = { id: "main", socketPath: sockFile(), token: TOKEN, shares: [share] };
+  const two = () => {
+    const root = tmp();
+    mkdirSync(join(root, "ro"));
+    mkdirSync(join(root, "rw"));
+    mkdirSync(join(root, "other"));
+    return {
+      root,
+      shares: [
+        { source: join(root, "ro"), name: "ro", readOnly: true },
+        { source: join(root, "rw"), name: "rw", readOnly: false },
+      ],
+    };
+  };
+
+  it("accepts the mounts that were approved, checked from the host through /proc/<pid>", async () => {
+    const { shares } = two();
+    const { d } = setup();
+    const out = await d.start(req({ shares }));
+    expect(out.container).toBe("psyche-desktop-main");
+  });
+
+  it("tears the container down when the engine reports other mounts than were checked", async () => {
+    const { root, shares } = two();
     const cases: [string, (m: Mount[]) => Mount[]][] = [
       [
         "a path swapped for another folder",
         (m) =>
           m.map((x) =>
-            x.Destination === "/shares/a" ? { ...x, Source: join(shareRoot, "b") } : x,
+            x.Destination === "/shares/ro" ? { ...x, Source: join(root, "other") } : x,
           ),
       ],
       [
         "an extra bind mount",
         (m) => [...m, { Type: "bind", Source: "/", Destination: "/host", RW: false }],
       ],
-      ["a missing share", (m) => m.filter((x) => x.Destination !== "/shares/a")],
+      ["a missing share", (m) => m.filter((x) => x.Destination !== "/shares/ro")],
       [
         "a read-only share that came up writable",
-        (m) => m.map((x) => (x.Destination === "/shares/a" ? { ...x, RW: true } : x)),
+        (m) => m.map((x) => (x.Destination === "/shares/ro" ? { ...x, RW: true } : x)),
       ],
       [
-        "the socket from somewhere else",
+        "the token file from somewhere else",
         (m) =>
           m.map((x) =>
-            x.Destination === "/run/psyche/node.sock" ? { ...x, Source: join(shareRoot, "b") } : x,
+            x.Destination === "/run/psyche/token" ? { ...x, Source: join(root, "other") } : x,
           ),
       ],
     ];
     for (const [name, mounts] of cases) {
       const { d, driver } = setup(undefined, { mounts });
-      const err = await fail(d.start(base));
+      const err = await fail(d.start(req({ shares })));
       expect(err.details, name).toMatchObject({ reason: "mount_mismatch" });
       expect(driver.calls.at(-1)?.args.slice(0, 3), name).toEqual([
         "rm",
@@ -677,64 +766,39 @@ describe("the lifecycle, against a fake Podman", () => {
     }
   });
 
-  it("accepts the mounts that were approved, checked from the inside as well", async () => {
-    const root = tmp();
-    mkdirSync(join(root, "ro"));
-    mkdirSync(join(root, "rw"));
-    const { d, driver } = setup();
-    const out = await d.start({
-      id: "main",
-      socketPath: sockFile(),
-      token: TOKEN,
-      shares: [
-        { source: join(root, "ro"), name: "ro", readOnly: true },
-        { source: join(root, "rw"), name: "rw", readOnly: false },
-      ],
-    });
-    expect(out.container).toBe("psyche-desktop-main");
-    const stat = driver.calls.find((c) => c.args.includes("stat"));
-    expect(stat?.args).toEqual(
-      expect.arrayContaining(["/run/psyche/node.sock", "/shares/ro", "/shares/rw"]),
-    );
-    expect(driver.calls.some((c) => c.args.includes("/proc/self/mountinfo"))).toBe(true);
-  });
-
-  it("tears the container down when the inside view differs from what was validated", async () => {
-    const root = tmp();
-    mkdirSync(join(root, "ro"));
-    mkdirSync(join(root, "rw"));
-    const shares = [
-      { source: join(root, "ro"), name: "ro", readOnly: true },
-      { source: join(root, "rw"), name: "rw", readOnly: false },
-    ];
-    const cases: [string, Parameters<typeof setup>[1]][] = [
+  it("tears the container down when the host's own view of the container differs", async () => {
+    const { root, shares } = two();
+    const cases: [string, Tamper][] = [
       [
-        "a share that is another file inside",
-        { insideIds: (dests, ids) => ids.map((id, i) => (dests[i] === "/shares/ro" ? "1:2" : id)) },
+        "a share that is another folder under /proc/<pid>/root",
+        { seen: (d, s) => (d === "/shares/ro" ? join(root, "other") : s) },
       ],
       [
-        "the socket that is another file inside",
-        {
-          insideIds: (dests, ids) => ids.map((id, i) => (dests[i]?.endsWith(".sock") ? "9:9" : id)),
-        },
+        "the socket that is another file",
+        { seen: (d, s) => (d.endsWith(".sock") ? join(root, "other") : s) },
       ],
-      ["stat that fails", { statFails: true }],
+      [
+        "a share missing under /proc/<pid>/root",
+        { seen: (d, s) => (d === "/shares/rw" ? undefined : s) },
+      ],
       [
         "a read-only share mounted read-write",
-        { insideRo: (m) => (m.Destination === "/shares/ro" ? { ...m, ro: false } : m) },
+        { options: (m) => (m.Destination === "/shares/ro" ? "rw" : m.RW ? "rw" : "ro") },
       ],
       [
         "a read-write share mounted read-only",
-        { insideRo: (m) => (m.Destination === "/shares/rw" ? { ...m, ro: true } : m) },
+        { options: (m) => (m.Destination === "/shares/rw" ? "ro" : m.RW ? "rw" : "ro") },
       ],
       [
-        "a share missing from the mount table",
-        { insideRo: (m) => (m.Destination === "/shares/rw" ? undefined : m) },
+        "a mount missing from the mount table",
+        { options: (m) => (m.Destination === "/shares/rw" ? undefined : m.RW ? "rw" : "ro") },
       ],
+      ["a mount table that can't be read", { noMountinfo: true }],
+      ["a container with no process", { pid: "0" }],
     ];
-    for (const [name, opts] of cases) {
-      const { d, driver } = setup(undefined, opts);
-      const err = await fail(d.start({ id: "main", socketPath: sockFile(), token: TOKEN, shares }));
+    for (const [name, t] of cases) {
+      const { d, driver } = setup(undefined, t);
+      const err = await fail(d.start(req({ shares })));
       expect(err.details, name).toMatchObject({ reason: "mount_mismatch" });
       expect(driver.calls.at(-1)?.args.slice(0, 3), name).toEqual([
         "rm",
@@ -745,15 +809,17 @@ describe("the lifecycle, against a fake Podman", () => {
   });
 
   it("reports limits the system does not enforce, and still runs", async () => {
-    for (const [limits, want] of [
-      ["max\nmax\n", { memory: false, pids: false }],
-      ["2147483648\nmax\n", { memory: true, pids: false }],
-      ["1073741824\n1024\n", { memory: false, pids: true }],
-      ["", { memory: false, pids: false }],
+    for (const [t, want] of [
+      [
+        { memoryMax: "max", pidsMax: "max" },
+        { memory: false, pids: false },
+      ],
+      [{ pidsMax: "max" }, { memory: true, pids: false }],
+      [{ memoryMax: "1073741824" }, { memory: false, pids: true }],
     ] as const) {
-      const { d } = setup(undefined, { limits });
-      const out = await d.start({ id: "main", socketPath: sockFile(), token: TOKEN });
-      expect(out.limits, limits).toEqual(want);
+      const { d } = setup(undefined, t);
+      const out = await d.start(req());
+      expect(out.limits, JSON.stringify(t)).toEqual(want);
     }
   });
 
@@ -774,6 +840,9 @@ describe("the lifecycle, against a fake Podman", () => {
       "1000:1000",
       "--workdir",
     ]);
+    // A clean PATH and an absolute interpreter: nothing the container can write is looked at.
+    expect(stream?.args).toContain("PATH=/usr/bin:/bin");
+    expect(stream?.args).toContain("/usr/bin/python3");
     expect(stream?.args).toContain("psyche-desktop-main");
     expect(stream?.args.join(" ")).not.toMatch(/--network|--publish|-p /);
     stream?.exit(1);
