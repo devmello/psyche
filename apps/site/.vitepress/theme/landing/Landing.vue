@@ -3,6 +3,7 @@ import { withBase } from "vitepress";
 import { onBeforeUnmount, onMounted, ref } from "vue";
 import ApprovalGate from "./ApprovalGate.vue";
 import CiteLine from "./CiteLine.vue";
+import CloseStack from "./CloseStack.vue";
 import DemoClip from "./DemoClip.vue";
 import MemoryGather from "./MemoryGather.vue";
 import SheetStack from "./SheetStack.vue";
@@ -190,11 +191,11 @@ onBeforeUnmount(() => {
     </section>
 
     <!-- Approvals: the lamp comes on; an action is stopped, allowed, and leaves a receipt. -->
-    <section class="night" data-scene="flow" data-end="0.15" aria-labelledby="approve-title">
+    <section class="night" data-scene="flow" data-end="0.15" data-exit aria-labelledby="approve-title">
       <div class="scene-track gate-track" data-scene="pin">
         <div class="scene-sticky">
           <div class="leaf lit lamplit">
-            <p class="run-head">Permission Broker</p>
+            <p class="run-head">state/psyche.sqlite</p>
             <div class="split">
               <div class="copy">
                 <h2 id="approve-title">Nothing changes until you say so.</h2>
@@ -287,7 +288,7 @@ onBeforeUnmount(() => {
     </section>
 
     <!-- Honest status. -->
-    <section class="leaf lit status-page" data-scene="flow" data-end="0.2" aria-labelledby="status-title">
+    <section class="leaf lit status-page" data-scene="flow" data-end="-0.1" aria-labelledby="status-title">
       <p class="run-head">docs/release-notes/0.3.md</p>
       <h2 id="status-title">Alpha, and plain about it.</h2>
       <div class="columns">
@@ -320,6 +321,7 @@ onBeforeUnmount(() => {
 
     <!-- Close. -->
     <section class="close" data-scene="flow" data-end="0.3" aria-labelledby="close-title">
+      <CloseStack class="lit" />
       <h2 id="close-title">Clone it. Build it. Read every file.</h2>
       <div class="terminal lit">
         <div class="terminal-head">
@@ -740,6 +742,11 @@ onBeforeUnmount(() => {
   --ink-text: oklch(0.44 0.124 258.67);
   --ink-soft: oklch(0.89 0.03 250);
   --ink-line: oklch(0.68 0.08 258.67);
+  /* Amber as it reads on paper, not the night value. */
+  --amber: #ffc53d;
+  --amber-line: #f3d673;
+  --amber-text: #ab6400;
+  --amber-soft: #fefbe9;
   color: var(--paper-12);
 }
 .dark .landing .book::before {
@@ -1057,11 +1064,13 @@ onBeforeUnmount(() => {
 }
 
 /* Night: the lights go down as the band arrives, and the lamp comes on. */
+/* --x (exit) brings the lights back up as the band leaves, so the receipts sheet rises in daylight. */
 .motion .night {
-  background: color-mix(in oklch, oklch(0.165 0.002 80) calc(var(--q) * 100%), var(--desk));
+  --dark: calc(var(--q) * (1 - var(--x, 0)));
+  background: color-mix(in oklch, oklch(0.165 0.002 80) calc(var(--dark) * 100%), var(--desk));
 }
 .motion .night::before {
-  opacity: var(--q);
+  opacity: var(--dark);
   transform: scale(calc(0.7 + var(--q) * 0.3));
   transform-origin: 30% 0;
 }
@@ -1163,27 +1172,41 @@ onBeforeUnmount(() => {
   color: var(--paper-11);
   padding-bottom: 6px;
 }
-.never td:last-child {
-  text-decoration: line-through;
-  text-decoration-thickness: 1px;
-  text-decoration-color: var(--paper-9);
+.never th,
+.never td:nth-child(2) {
+  font-weight: 600;
 }
 .motion .crosses tr {
   --k: clamp(0, calc((var(--p) - 0.7) / 0.25), 1);
   opacity: calc(0.25 + var(--k) * 0.75);
 }
 
-/* Status: each item is checked off in turn. */
-.motion .status-page .columns li {
-  --k: clamp(0, calc((var(--p) - 0.3 - var(--i) * 0.07) / 0.12), 1);
+/* Status: "Works today" is checked off row by row; "Not yet" stays in pencil. */
+.status-page .columns li {
+  border-bottom-color: transparent;
 }
-.motion .status-page .columns li::before {
-  opacity: var(--k);
-  transform: rotate(-45deg) scale(calc(0.4 + var(--k) * 0.6));
-}
-.motion .status-page .not-yet li::before {
-  transform: scaleX(var(--k));
+.status-page .columns li::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: var(--paper-5);
   transform-origin: left;
+}
+.motion .status-page .columns li {
+  --k: clamp(0, calc((var(--p) - 0.05 - var(--i) * 0.11) / 0.14), 1);
+}
+.motion .status-page .columns ul:not(.not-yet) li {
+  color: color-mix(in oklch, var(--paper-12) calc(var(--k) * 100%), var(--paper-9));
+}
+.motion .status-page .columns li::after {
+  transform: scaleX(var(--k));
+}
+.motion .status-page .columns ul:not(.not-yet) li::before {
+  opacity: var(--k);
+  transform: rotate(-45deg) scale(calc(0.3 + var(--k) * 0.7));
 }
 
 /* Close: the commands type out with the scroll. */

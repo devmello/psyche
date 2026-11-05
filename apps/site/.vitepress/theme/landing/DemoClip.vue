@@ -31,11 +31,10 @@ let io: IntersectionObserver | null = null;
 
 /** One clip plays at a time across the page: starting one pauses the one before, which keeps
  * video decoding to a single stream while the scroll scenes run. */
-const live: { current: HTMLVideoElement | null } =
-  (globalThis as { __psycheClip?: { current: HTMLVideoElement | null } }).__psycheClip ??
-  ((globalThis as { __psycheClip?: { current: HTMLVideoElement | null } }).__psycheClip = {
-    current: null,
-  });
+type Live = { current: HTMLVideoElement | null };
+const shared = globalThis as { __psycheClip?: Live };
+shared.__psycheClip ??= { current: null };
+const live: Live = shared.__psycheClip;
 let wantPlay = false;
 /** True while the clip is held still for an active scroll; the control keeps showing Pause. */
 let holding = false;

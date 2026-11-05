@@ -40,7 +40,7 @@ const total = index;
 <style scoped>
 /* --r is the read-in position, in words: it runs a little past the end so the last chip lands. */
 .cite {
-  --r: calc(var(--p, 1) * (var(--n) + 6) - 2);
+  --r: calc(var(--p, 1) * var(--n) * 1.45 - 1);
   margin: 0;
   max-width: 1120px;
 }
@@ -94,7 +94,7 @@ const total = index;
   transform: translateY(calc((1 - var(--c)) * -0.6em)) scale(calc(0.6 + var(--c) * 0.4));
 }
 figcaption {
-  --s: clamp(0, calc((var(--r) - var(--n) - 2) / 2), 1);
+  --s: clamp(0, calc((var(--r) - var(--n) - 1) / 2), 1);
   margin-top: clamp(24px, 3vw, 40px);
   display: flex;
   flex-wrap: wrap;

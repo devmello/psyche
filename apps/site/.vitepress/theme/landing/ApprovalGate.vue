@@ -25,6 +25,7 @@
       <span class="step-status">
         <span class="s-run">Running</span>
         <span class="s-wait">Waiting for your approval</span>
+        <span class="s-ok">Allowed · sending</span>
         <span class="s-done">Sent</span>
       </span>
       <span class="step-title">Send “Confirming Tuesday 2:30” to jane.ortiz@example.com</span>
@@ -60,6 +61,7 @@
   /* Phase flags (0 or 1) for the step's status line. */
   --waiting: clamp(0, calc((var(--stop) - 0.5) * 100), 1);
   --sent: clamp(0, calc((var(--go) - 0.6) * 100), 1);
+  --allowed: clamp(0, calc((var(--press) - 0.5) * 100), 1);
   margin: 0;
   position: relative;
   font-size: clamp(11.5px, 0.95vw, 14.5px);
@@ -121,7 +123,11 @@
 .s-wait {
   color: var(--amber-text);
   font-weight: 600;
-  opacity: calc(var(--waiting) - var(--sent));
+  opacity: calc(var(--waiting) - var(--allowed));
+}
+.s-ok {
+  color: var(--ink-text);
+  opacity: calc(var(--allowed) - var(--sent));
 }
 .s-done {
   color: var(--ink-text);
@@ -218,8 +224,8 @@
   width: 24em;
   padding: 0.9em 1.1em;
   border-radius: 0.3em;
-  background: oklch(0.993 0.001 80);
-  color: #2b2c2e;
+  background: var(--sheet);
+  color: var(--paper-12);
   box-shadow: var(--shadow-sheet);
   font-size: 0.9em;
   clip-path: inset(0 0 calc((1 - var(--print)) * 100%) 0);
@@ -230,14 +236,14 @@
 }
 .r-head {
   font: 500 0.85em/1.4 var(--font-code);
-  color: #55575b;
-  border-bottom: 1px solid #e4e3df;
+  color: var(--paper-11);
+  border-bottom: 1px solid var(--paper-5);
   padding-bottom: 0.4em;
   margin-bottom: 0.5em !important;
 }
 .r-meta {
   font: 400 0.85em/1.4 var(--font-code);
-  color: #6f7074;
+  color: var(--paper-11);
 }
 
 @media (max-width: 700px) {

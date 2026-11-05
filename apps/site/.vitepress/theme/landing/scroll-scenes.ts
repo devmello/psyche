@@ -8,6 +8,8 @@
  *   (`.landing.pin`); elsewhere a pin scene behaves like a flow scene over its own height.
  * - `data-scene="flow"`: `--p` runs while the element rises from the bottom of the viewport to
  *   `data-end` (a fraction of the viewport height, default 0.4).
+ * - `data-exit` adds `--x`, 0 to 1 while the element's bottom edge leaves: from the bottom of the
+ *   viewport to 30% from the top.
  *
  * The CSS default is `--p: 1`, the finished state, so without JavaScript or with reduced motion
  * the page shows every scene complete and nothing waits on a script.
@@ -22,6 +24,7 @@ const clamp01 = (n: number) => (n < 0 ? 0 : n > 1 ? 1 : n);
 export function startScenes(root: HTMLElement, pinned: () => boolean): SceneEngine {
   const scenes = [...root.querySelectorAll<HTMLElement>("[data-scene]")];
   const last = new Map<HTMLElement, number>();
+  const lastX = new Map<HTMLElement, number>();
   let raf = 0;
 
   function measure() {
@@ -43,6 +46,14 @@ export function startScenes(root: HTMLElement, pinned: () => boolean): SceneEngi
         const end = Number(el.dataset.end ?? 0.4);
         const start = vh * 0.98;
         p = clamp01((start - r.top) / Math.max(1, start - vh * end));
+      }
+      if (el.dataset.exit !== undefined) {
+        const x = clamp01((vh - r.bottom) / (vh * 0.7));
+        const px = lastX.get(el);
+        if (px === undefined || Math.abs(px - x) > 0.0008) {
+          el.style.setProperty("--x", x.toFixed(4));
+          lastX.set(el, x);
+        }
       }
       const prev = last.get(el);
       if (prev === undefined || Math.abs(prev - p) > 0.0008) {
@@ -66,7 +77,10 @@ export function startScenes(root: HTMLElement, pinned: () => boolean): SceneEngi
       cancelAnimationFrame(raf);
       window.removeEventListener("scroll", update);
       window.removeEventListener("resize", update);
-      for (const el of scenes) el.style.removeProperty("--p");
+      for (const el of scenes) {
+        el.style.removeProperty("--p");
+        el.style.removeProperty("--x");
+      }
     },
   };
 }

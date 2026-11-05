@@ -143,8 +143,8 @@ const ITEMS = [
   width: 26em;
   height: 33em;
   padding: 2em 2.2em 2em 2.6em;
-  background: oklch(0.993 0.001 80);
-  color: #2b2c2e;
+  background: var(--sheet);
+  color: var(--paper-12);
   border-radius: 0.25em;
   box-shadow: var(--shadow-sheet);
 }
@@ -155,14 +155,14 @@ const ITEMS = [
   top: 0;
   bottom: 0;
   width: 1px;
-  background: #e4e3df;
+  background: var(--paper-5);
 }
 .file {
   margin: 0 0 1.4em;
   padding-bottom: 0.7em;
-  border-bottom: 1px solid #e4e3df;
+  border-bottom: 1px solid var(--paper-5);
   font: 500 0.92em/1 var(--font-code);
-  color: #55575b;
+  color: var(--paper-11);
 }
 .title {
   margin: 0;
@@ -193,7 +193,7 @@ const ITEMS = [
 }
 .old {
   margin: 0;
-  color: #55575b;
+  color: var(--paper-11);
   line-height: 1.45;
 }
 .line {
@@ -214,8 +214,8 @@ const ITEMS = [
   margin: 0.35em 0 0 0.9em;
   padding: 0.1em 0.5em;
   border-radius: 0.3em;
-  background: #e3eaf5;
-  color: #2c5aa0;
+  background: var(--ink-soft);
+  color: var(--ink-text);
   font: 400 0.82em/1.5 var(--font-code);
   opacity: var(--c);
   transform: scale(calc(0.7 + var(--c) * 0.3));
