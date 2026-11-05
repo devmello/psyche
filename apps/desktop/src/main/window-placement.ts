@@ -59,6 +59,20 @@ function areaFor(r: Rect, workAreas: readonly Rect[]): Rect | undefined {
   );
 }
 
+/**
+ * Where a centred bar (quick entry) opens in a work area: centred horizontally, its top a third
+ * of the way down (clamped inside), so it sits where the eye is and never under a taskbar.
+ */
+export function quickEntryBounds(workArea: Rect, size: Size): Rect {
+  const width = Math.min(size.width, workArea.width);
+  const height = Math.min(size.height, workArea.height);
+  const x = Math.round(workArea.x + (workArea.width - width) / 2);
+  const y = Math.round(
+    Math.min(workArea.y + workArea.height / 3 - height / 2, workArea.y + workArea.height - height),
+  );
+  return { x, y: Math.max(workArea.y, y), width, height };
+}
+
 export function settingsWindowBounds(o: {
   saved: unknown;
   /** The main window's bounds, when it exists. */

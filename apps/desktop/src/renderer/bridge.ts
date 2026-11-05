@@ -23,6 +23,7 @@ import {
   type SystemDictationStatus,
   type SystemLocale,
   type TeachCapture,
+  type WindowChrome,
 } from "@psyche/web/platform";
 import type { PsycheBridge } from "../preload.ts";
 
@@ -149,7 +150,9 @@ function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
   };
   return {
     kind: "desktop",
-    chrome: b.chrome,
+    // Windows adds `titleBar: "overlay"` (caption buttons on the right, `titleBarOverlay.height`)
+    // and `material`; the shell's `WindowChrome` gains them in @psyche/web (UI side).
+    chrome: b.chrome as WindowChrome,
     storage: browserStorage(),
     gateway,
     gateways: {

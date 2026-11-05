@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_DICTATION_SETTINGS,
   type HudState,
@@ -12,6 +12,10 @@ import {
   parseVoiceKey,
   type ShortcutRegistry,
 } from "../../src/main/dictation/service.ts";
+
+// These tests use the macOS key names and defaults (fn); the Windows mapping is in
+// dictation-windows.test.ts. Vitest hoists this above the imports, which read the defaults.
+vi.hoisted(() => Object.defineProperty(process, "platform", { value: "darwin" }));
 
 const notes = { pid: 11, bundleId: "com.apple.Notes", appName: "Notes", insertable: true };
 

@@ -12,6 +12,7 @@ import type { GatewayConnection } from "@psyche/web/client";
 import type { ShellCommand } from "@psyche/web/platform";
 import {
   app,
+  BaseWindow,
   clipboard,
   desktopCapturer,
   dialog,
@@ -24,6 +25,7 @@ import {
   nativeTheme,
   powerMonitor,
   protocol,
+  screen,
   session,
   shell,
   systemPreferences,
@@ -69,7 +71,13 @@ import { createPinnedFetch, createPinnedWebSocket, PinnedChannel } from "./lib/l
 import { NotificationRelay } from "./lib/notify-relay.ts";
 import { createPairLinkInbox, isPairLinkUrl, PAIR_LINK_SCHEME } from "./lib/pair-link.ts";
 import { pairingEdge } from "./lib/pairing-edge.ts";
-import { realChromeOpenCommand, realChromeProfileDir } from "./lib/real-chrome.ts";
+import {
+  appPathKeys,
+  findWindowsChromium,
+  parseRegDefault,
+  realChromeOpenCommand,
+  realChromeProfileDir,
+} from "./lib/real-chrome.ts";
 import { checkSourceOpen, openSource } from "./lib/source-open.ts";
 import { WindowTheme } from "./lib/window-theme.ts";
 import { ZoomController } from "./lib/zoom.ts";
@@ -79,7 +87,7 @@ import { createAttentionReporter } from "./main/browser/attention.ts";
 import { BrowserHost } from "./main/browser/browser-host.ts";
 import { SystemDictation } from "./main/dictation/controller.ts";
 import { HudWindow } from "./main/dictation/hud.ts";
-import { ACCESSIBILITY_SETTINGS_URL, DictationService } from "./main/dictation/service.ts";
+import { DictationService, dictationSettingsUrl } from "./main/dictation/service.ts";
 import { DockPolicy } from "./main/dock-policy.ts";
 import { type GatewayConfirm, GatewayManager } from "./main/gateway-manager.ts";
 import {
@@ -94,9 +102,11 @@ import {
   type HelperIdentity,
   HelperLauncher,
   helperCanHoldKeychain,
+  helperPathFor,
+  isHostHelperKind,
   readHelperIdentity,
 } from "./main/helper-launcher.ts";
-import { LoginItem } from "./main/login-item.ts";
+import { LoginItem, squirrelLayout } from "./main/login-item.ts";
 import { buildAppMenu } from "./main/menu.ts";
 import { PasskeyHost } from "./main/passkey-host.ts";
 import { createPasskeyWindow } from "./main/passkey-window.ts";
@@ -108,21 +118,33 @@ import {
   type PermissionKind,
 } from "./main/permissions/permissions.ts";
 import { HAS_UNSENT_TEXT, releaseHiddenAfterMs } from "./main/release.ts";
+import { captureScreenFrame, wantsFallback } from "./main/screen-ask/capture-fallback.ts";
 import { ScreenAskWindow } from "./main/screen-ask/panel.ts";
 import { ScreenAskShortcut } from "./main/screen-ask/settings.ts";
 import { voicePopup } from "./main/screen-ask/voice-key.ts";
+import { QuickEntryShortcut } from "./main/shortcuts.ts";
 import { shouldShowSplash } from "./main/splash.ts";
+import { handleSquirrelEvent, squirrelEvent } from "./main/squirrel-events.ts";
 import { startShell } from "./main/startup.ts";
 import {
   chooseMode,
+  createSupervisor,
   desktopVaultKeyFile,
   execRunner,
-  GatewaySupervisor,
+  type Supervisor,
 } from "./main/supervisor.ts";
+import { bundledGatewayPaths } from "./main/supervisor-windows.ts";
+import { firstCloseToTray, jumpListTasks, type TaskbarTask, taskFromArgv } from "./main/taskbar.ts";
 import { threadRoute } from "./main/thread-route.ts";
 import { PsycheTray } from "./main/tray.ts";
+import { PERSONALIZE_KEY, taskbarIsDark } from "./main/tray-icon.ts";
 import { startUpdater } from "./main/updater.ts";
-import { canvasColor, wantsAnyWindowSize } from "./main/window-options.ts";
+import {
+  canvasColor,
+  chromeViewBackground,
+  titleBarOverlayColors,
+  wantsAnyWindowSize,
+} from "./main/window-options.ts";
 import { type AppWindows, createAppWindows, preloadPath } from "./main/windows.ts";
 
 /**
@@ -130,6 +152,18 @@ import { type AppWindows, createAppWindows, preloadPath } from "./main/windows.t
  * device key and every native surface; renderers get typed IPC only, and every payload is
  * checked here before anything happens. No crash reporter, no telemetry (ADR-017).
  */
+
+/**
+ * Squirrel.Windows starts the app to install, update or remove it (main/squirrel-events.ts): it
+ * does that, never opens a window or takes the single-instance lock, and quits.
+ */
+const squirrelRun = process.platform === "win32" ? squirrelEvent(process.argv) : undefined;
+const windows32 = process.platform === "win32";
+
+// Windows groups the taskbar button, the jump list and every toast under the AppUserModelID; it
+// must be set before any window or notification. Unpackaged runs use Electron's own path, the
+// id Windows already knows for that binary, so dev toasts show too.
+if (windows32) app.setAppUserModelId(app.isPackaged ? "com.psyche.desktop" : process.execPath);
 
 // The renderer is served from app://psyche (a standard, secure scheme) instead of file://.
 protocol.registerSchemesAsPrivileged([
@@ -144,7 +178,7 @@ app.enableSandbox();
 if (!app.isPackaged && process.env.PSYCHE_USER_DATA)
   app.setPath("userData", process.env.PSYCHE_USER_DATA);
 
-if (!app.requestSingleInstanceLock()) app.quit();
+if (squirrelRun === undefined && !app.requestSingleInstanceLock()) app.quit();
 
 /**
  * Which Gateway this launch connects to (remote-gateway design §1.3): `PSYCHE_GATEWAY_ORIGIN`
@@ -194,17 +228,40 @@ const supervisorMode = remoteGateway ? "remote" : chooseMode(process.env, app.is
 const perfProbe = perfProbeFile();
 if (perfProbe !== undefined) startProbe(perfProbe);
 
-if (perfProbe !== undefined) {
-  // No psyche:// registration: it would point the owner's links at the measured copy.
-} else if (process.defaultApp) {
-  // Dev: register the deep link with the Electron binary and the app path as arguments.
-  app.setAsDefaultProtocolClient("psyche", process.execPath, [resolve(process.argv[1] ?? ".")]);
-} else {
-  app.setAsDefaultProtocolClient("psyche");
+/**
+ * Arguments that start this copy of Psyche from outside (a protocol handler, the login item, the
+ * jump list): an unpackaged run passes the app folder to Electron's binary.
+ */
+const leadingArgs = process.defaultApp ? [resolve(process.argv[1] ?? ".")] : [];
+/**
+ * Registers a URL scheme. Windows writes the handler into the registry: a Squirrel install names
+ * its stable `Update.exe --processStart Psyche.exe`, as each `app-<version>` folder goes away
+ * with the next update; the URL arrives as the second instance's last argument.
+ */
+function registerScheme(scheme: string): void {
+  const squirrel = windows32 && app.isPackaged ? squirrelLayout(process.execPath) : undefined;
+  if (squirrel) {
+    app.setAsDefaultProtocolClient(scheme, squirrel.updateExe, [
+      "--processStart",
+      squirrel.exeName,
+      "--process-start-args",
+    ]);
+  } else if (process.defaultApp) {
+    // Dev: register the deep link with the Electron binary and the app path as arguments.
+    app.setAsDefaultProtocolClient(scheme, process.execPath, leadingArgs);
+  } else {
+    app.setAsDefaultProtocolClient(scheme);
+  }
 }
-// psyche-pair: links (a pairing link opened from the OS) only in a packaged build: a dev copy must
-// not take the owner's links away from the installed app.
-if (perfProbe === undefined && app.isPackaged) app.setAsDefaultProtocolClient(PAIR_LINK_SCHEME);
+
+if (perfProbe !== undefined || squirrelRun !== undefined) {
+  // No psyche:// registration: it would point the owner's links at the measured copy.
+} else {
+  registerScheme("psyche");
+  // psyche-pair: links (a pairing link opened from the OS) only in a packaged build: a dev copy
+  // must not take the owner's links away from the installed app.
+  if (app.isPackaged) registerScheme(PAIR_LINK_SCHEME);
+}
 
 const home = defaultPsycheHome();
 const rendererUrl = MAIN_WINDOW_VITE_DEV_SERVER_URL ?? `${APP_ORIGIN}/`;
@@ -219,7 +276,8 @@ const attention = createAttentionReporter({
 let browser: BrowserHost | undefined;
 let bridge: BridgeClient | undefined;
 let tray: PsycheTray | undefined;
-let supervisor: GatewaySupervisor | undefined;
+let supervisor: Supervisor | undefined;
+let quickEntryShortcut: QuickEntryShortcut | undefined;
 /**
  * Whether the main window opens on the startup splash (#539: its first content, not a second
  * window). Decided once at launch: not in dev with PSYCHE_NO_SPLASH=1, under the perf probe, for
@@ -264,7 +322,7 @@ function systemAppearance(): { reduceTransparency: boolean; highContrast: boolea
 
 /** Psyche leaves the Dock and ⌘-Tab while no window is open. */
 const dockPolicy = new DockPolicy({ app, warn: (m) => console.warn(`[dock] ${m}`) });
-const loginItem = new LoginItem(app, { warn: (m) => console.warn(`[login] ${m}`) });
+const loginItem = new LoginItem(app, { leadingArgs, warn: (m) => console.warn(`[login] ${m}`) });
 
 const windowTheme = new WindowTheme({
   targets: () => windows?.chromeWindows() ?? [],
@@ -273,6 +331,22 @@ const windowTheme = new WindowTheme({
     nativeTheme.themeSource = source;
   },
   canvas: () => canvasColor(nativeTheme.shouldUseDarkColors),
+  // Windows: the caption buttons' glyphs follow the theme with the canvas.
+  ...(windows32
+    ? {
+        overlay: () =>
+          titleBarOverlayColors(
+            nativeTheme.shouldUseDarkColors,
+            nativeTheme.shouldUseHighContrastColors,
+          ),
+        materialBackground: () =>
+          chromeViewBackground(
+            process.platform,
+            nativeTheme.shouldUseDarkColors,
+            nativeTheme.shouldUseHighContrastColors,
+          ),
+      }
+    : {}),
   warn: (message) => console.warn(`[theme] ${message}`),
 });
 const pendingCommands: ShellCommand[] = [];
@@ -436,12 +510,12 @@ async function refreshApprovals(): Promise<void> {
   });
 }
 
-/** The paired Mac helper's node id, when it is online (for its notify.* capabilities). */
+/** This computer's paired helper (Mac or Windows), when online (for its notify.* capabilities). */
 async function onlineHelper(): Promise<string | null> {
   const res = (await requireGateway().call("nodes.list", {})) as {
     nodes?: { id: string; kind: string; status: string }[];
   };
-  return res.nodes?.find((n) => n.kind === "mac-helper" && n.status === "online")?.id ?? null;
+  return res.nodes?.find((n) => isHostHelperKind(n.kind) && n.status === "online")?.id ?? null;
 }
 
 async function invokeHelper(capability: string, params: unknown): Promise<unknown> {
@@ -493,18 +567,102 @@ function bundledHelperIdentity(): Promise<HelperIdentity | undefined> {
     home,
     (file, args, env) =>
       new Promise((resolve) => {
-        execFile(file, args, { env, timeout: 15_000 }, (err, stdout) => {
+        execFile(file, args, { env, timeout: 15_000, windowsHide: true }, (err, stdout) => {
           resolve({ code: err ? 1 : 0, stdout: String(stdout) });
         });
       }),
   );
 }
 
-/** `<Resources>/PsycheHelper.app` in packaged macOS builds; dev builds bundle no helper. */
+/**
+ * The host helper: `<Resources>/PsycheHelper.app` in packaged macOS builds (dev macOS builds use
+ * their own helper install); on Windows `<resources>\win-helper\psyche-helper.exe` packaged, and
+ * the repo's `apps/win-helper/target/{release,debug}/psyche-helper.exe` unpackaged.
+ */
 function bundledHelperPath(): string | undefined {
-  return app.isPackaged && process.platform === "darwin"
-    ? join(process.resourcesPath, "PsycheHelper.app")
-    : undefined;
+  return helperPathFor({
+    platform: process.platform,
+    packaged: app.isPackaged,
+    resourcesPath: process.resourcesPath,
+    appPath: app.getAppPath(),
+  });
+}
+
+/** Windows: a browser's `App Paths` registration (per user, then per machine), through reg.exe. */
+async function readAppPath(exe: string): Promise<string | undefined> {
+  const reg = `${process.env.SystemRoot ?? "C:\\Windows"}\\System32\\reg.exe`;
+  for (const key of appPathKeys(exe)) {
+    const res = await execRunner(reg, ["query", key, "/ve"]);
+    const value = res.code === 0 ? parseRegDefault(res.stdout) : undefined;
+    if (value) return value;
+  }
+  return undefined;
+}
+
+/** Windows: whether the taskbar is dark (the tray glyph is white then); re-read on theme changes. */
+let taskbarDark = true;
+async function readTaskbarTheme(): Promise<void> {
+  const reg = `${process.env.SystemRoot ?? "C:\\Windows"}\\System32\\reg.exe`;
+  const res = await execRunner(reg, ["query", PERSONALIZE_KEY, "/v", "SystemUsesLightTheme"]);
+  const dark = taskbarIsDark(res.code === 0 ? res.stdout : undefined);
+  if (dark !== taskbarDark) {
+    taskbarDark = dark;
+    tray?.refreshIcon();
+  }
+}
+
+/**
+ * `screen.capture` with the screenshot-only fallback (main/screen-ask/capture-fallback.ts): the
+ * helper's capture when one offers `screen.context`; when the Gateway answers `unavailable`, a
+ * `desktopCapturer` frame of this display handed over as `frame`. A Gateway that does not take
+ * `frame` yet (invalid_params) gets the original answer back.
+ */
+async function captureScreen(params: unknown, forward: () => Promise<unknown>): Promise<unknown> {
+  try {
+    return await forward();
+  } catch (err) {
+    if (!wantsFallback(err)) throw err;
+    const p = (params ?? {}) as Record<string, unknown>;
+    const rect = p.rect as { x: number; y: number; width: number; height: number } | undefined;
+    const frame = await captureScreenFrame(
+      {
+        mode: p.mode === "region" ? "region" : "window",
+        ...(rect ? { rect } : {}),
+        ...(typeof p.maxWidth === "number" ? { maxWidth: p.maxWidth } : {}),
+        ...(typeof p.maxHeight === "number" ? { maxHeight: p.maxHeight } : {}),
+      },
+      {
+        displays: () => screen.getAllDisplays(),
+        pointer: () => screen.getCursorScreenPoint(),
+        sources: (thumbnailSize) =>
+          desktopCapturer.getSources({ types: ["screen"], thumbnailSize }),
+        excludeOwnWindows: withoutOwnWindows,
+      },
+    ).catch(() => undefined);
+    if (!frame?.image) throw err;
+    try {
+      return await requireGateway().call("screen.capture", { ...p, frame });
+    } catch (second) {
+      if ((second as { code?: unknown } | null)?.code === "invalid_params") throw err;
+      throw second;
+    }
+  }
+}
+
+/**
+ * Psyche's own windows are left out of a capture (content protection: WDA_EXCLUDEFROMCAPTURE on
+ * Windows, NSWindowSharingNone on macOS) while it is taken, as the helpers leave them out.
+ */
+async function withoutOwnWindows<T>(run: () => Promise<T>): Promise<T> {
+  const own = BaseWindow.getAllWindows().filter((w) => !w.isDestroyed() && w.isVisible());
+  for (const w of own) w.setContentProtection(true);
+  try {
+    // DWM applies the change on its next frame.
+    await new Promise((r) => setTimeout(r, 60));
+    return await run();
+  } finally {
+    for (const w of own) if (!w.isDestroyed()) w.setContentProtection(false);
+  }
 }
 
 function requireGateway(): GatewayConnection {
@@ -684,11 +842,17 @@ function registerIpc(): void {
     const r = rec(IPC.call, arg);
     const method = checkCallable(r.method, isMethodName);
     const idempotencyKey = checkIdempotencyKey(r.idempotencyKey);
-    const result = await requireGateway().call(
-      method,
-      r.params ?? {},
-      idempotencyKey === undefined ? undefined : { idempotencyKey },
-    );
+    const forward = () =>
+      requireGateway().call(
+        method,
+        r.params ?? {},
+        idempotencyKey === undefined ? undefined : { idempotencyKey },
+      );
+    // Ask about my screen from the ask panel: without a helper here, the desktop takes the frame.
+    const result =
+      method === "screen.capture" && !remoteGateway && screenAsk?.owns(e.sender) === true
+        ? await captureScreen(r.params, forward)
+        : await forward();
     if (method === "terminal.session.open") {
       const id = (result as { sessionId?: unknown } | null)?.sessionId;
       if (typeof id === "string") ownTerminal(e.sender, id);
@@ -799,16 +963,23 @@ function registerIpc(): void {
       home,
       str(IPC.browserOpenRealChromeProfile, arg, "profile", 64),
     );
-    const cmd = realChromeOpenCommand(process.platform, dir);
+    const found = windows32 ? await findWindowsChromium({ appPath: readAppPath }) : undefined;
+    const cmd = realChromeOpenCommand(process.platform, dir, found?.path);
     if (cmd === null) {
       throw new PsycheError(
         "unavailable",
-        "Opening the Psyche Chrome profile needs macOS or Linux",
+        windows32
+          ? "Install Google Chrome (or Microsoft Edge) to open the Psyche Chrome profile"
+          : "Opening the Psyche Chrome profile needs macOS, Windows or Linux",
       );
     }
     await mkdir(dir, { recursive: true, mode: 0o700 });
     await new Promise<void>((resolveSpawn, reject) => {
-      const child = spawn(cmd.command, cmd.args, { detached: true, stdio: "ignore" });
+      const child = spawn(cmd.command, cmd.args, {
+        detached: true,
+        stdio: "ignore",
+        windowsHide: false,
+      });
       child.once("error", (err) =>
         reject(
           new PsycheError("unavailable", `Google Chrome could not be opened (${err.message})`),
@@ -973,7 +1144,9 @@ function registerIpc(): void {
   handle(IPC.dictationCheckHotkey, (_event, arg) => {
     const r = rec(IPC.dictationCheckHotkey, arg);
     const accelerator = str(IPC.dictationCheckHotkey, r.accelerator, "accelerator", 64);
-    // Settings checks each shortcut against the other's: neither may take the one in use.
+    // Settings checks each shortcut against the other's: neither may take the one in use, nor
+    // the quick-entry shortcut.
+    if (accelerator !== "" && accelerator === quickEntryShortcut?.current) return "taken";
     if (r.purpose === "screenAsk") {
       if (accelerator !== "" && accelerator === dictation?.hotkey) return "taken";
       return screenAskShortcut?.check(accelerator) ?? "ok";
@@ -982,7 +1155,7 @@ function registerIpc(): void {
     return dictation?.checkHotkey(accelerator) ?? "ok";
   });
   on(IPC.dictationOpenAccessibility, () => {
-    void shell.openExternal(ACCESSIBILITY_SETTINGS_URL);
+    void shell.openExternal(dictationSettingsUrl());
   });
   handle(IPC.dialogPickFolder, async (event, arg) => {
     const r = rec(IPC.dialogPickFolder, arg);
@@ -1040,6 +1213,7 @@ function onGatewayEvent(e: {
   if (!remoteGateway) {
     dictation?.onEvent(e.event, e.payload);
     screenAskShortcut?.onEvent(e.event, e.payload);
+    quickEntryShortcut?.onEvent(e.event, e.payload);
   }
   const p = e.payload as Record<string, unknown>;
   if (e.event === "settings.changed") {
@@ -1081,18 +1255,19 @@ function onGatewayEvent(e: {
 
 type NodeRow = { kind?: string; status?: string; capabilities?: { name?: string }[] };
 
-async function onlineMacHelpers(): Promise<NodeRow[]> {
+/** This computer's helpers online now (`mac-helper` or `win-helper`). */
+async function onlineHostHelpers(): Promise<NodeRow[]> {
   const res = (await gateway?.call("nodes.list", {}).catch(() => undefined)) as
     | { nodes?: NodeRow[] }
     | undefined;
-  return (res?.nodes ?? []).filter((n) => n.kind === "mac-helper" && n.status === "online");
+  return (res?.nodes ?? []).filter((n) => isHostHelperKind(n.kind) && n.status === "online");
 }
 
 /** Once per launch: the helper's notification permission, if it was never asked for. */
 let helperNotificationsChecked = false;
 
 async function refreshHelperPresence(): Promise<void> {
-  const helpers = await onlineMacHelpers();
+  const helpers = await onlineHostHelpers();
   relay.helperOnline = helpers.some((n) =>
     (n.capabilities ?? []).some((c) => c.name?.startsWith("notify.")),
   );
@@ -1143,7 +1318,38 @@ function lockDownDefaultSession(): void {
   );
 }
 
+/**
+ * Squirrel's uninstall: the Gateway's scheduled task (ended and deleted, if it runs this copy's
+ * runtime) and the login item go with the app. Bounded: Squirrel waits only seconds.
+ */
+async function uninstallWindowsService(): Promise<void> {
+  const gw = bundledGatewayPaths(process.resourcesPath);
+  const sup = createSupervisor({
+    mode: "taskscheduler",
+    psycheHome: home,
+    healthUrl: new URL("/healthz", gatewayTarget.origin).toString(),
+    bundledNode: gw.node,
+    bundledEntry: gw.entry,
+    healthTimeoutMs: 1_000,
+  });
+  loginItem.set(false);
+  await Promise.race([
+    sup.stopEverything(),
+    new Promise<void>((r) => setTimeout(r, 8_000).unref()),
+  ]);
+}
+
+if (squirrelRun !== undefined) {
+  void handleSquirrelEvent({
+    platform: process.platform,
+    argv: process.argv,
+    execPath: process.execPath,
+    onUninstall: uninstallWindowsService,
+  }).finally(() => app.quit());
+}
+
 void app.whenReady().then(async () => {
+  if (squirrelRun !== undefined) return;
   if (gatewaysFileProblem !== undefined) {
     await dialog.showMessageBox({
       type: "warning",
@@ -1155,7 +1361,10 @@ void app.whenReady().then(async () => {
   nativeTheme.on("updated", () => {
     windowTheme.refresh();
     broadcast(IPC.systemAppearance, systemAppearance());
+    // Windows' taskbar has its own light/dark setting; "updated" fires when either changes.
+    if (windows32) void readTaskbarTheme();
   });
+  if (windows32) void readTaskbarTheme();
   // 120 Hz check (docs/design/motion.md §5): compare with the renderer's rAF probe.
   if (!app.isPackaged) {
   }
@@ -1190,6 +1399,8 @@ void app.whenReady().then(async () => {
     settingsBoundsFile: join(app.getPath("userData"), "settings-window.json"),
     // The pane's window is gone: the main window docks it again instead of keeping it "popped".
     onPopOutClosed: (route) => command({ type: "popOutClosed", route }),
+    // Windows: closing the window leaves Psyche in the notification area; say so the first time.
+    ...(windows32 ? { onMainHidden: sayStillRunningOnce } : {}),
     splash: () => splashWanted,
     ...(remoteGateway ? { remote: { hostName: gatewayTarget.name } } : {}),
     anySize: wantsAnyWindowSize(app.isPackaged, process.env),
@@ -1279,13 +1490,16 @@ void app.whenReady().then(async () => {
     },
   });
 
-  // The bundled Mac helper (docs/archive/status/s14.md "Packaging"): started through LaunchServices once
-  // this window pairs, i.e. the Gateway answers; dev builds use their own helper install.
+  // The bundled host helper (docs/archive/status/s14.md "Packaging"), started once this window
+  // pairs, i.e. the Gateway answers: through LaunchServices on macOS (dev builds use their own
+  // helper install), as a detached process on Windows (dev: the repo's Rust build, if any).
   helper = new HelperLauncher({
     appPath: helperForThisGateway(),
     psycheHome: home,
     run: execRunner,
-    isPaired: async () => (await onlineMacHelpers()).length > 0,
+    // A packaged Windows helper's Authenticode signature is checked once, in the background.
+    verifySignature: windows32 && app.isPackaged,
+    isPaired: async () => (await onlineHostHelpers()).length > 0,
     onState: (s) => {
       broadcast(IPC.helperState, s);
     },
@@ -1311,7 +1525,9 @@ void app.whenReady().then(async () => {
       // microphone and screen from here: off until they can run on this computer (design §4.2).
       if (!remoteGateway) {
         void dictation?.load();
-        void screenAskShortcut?.load();
+        // The tray shows the shortcuts that ended up registered.
+        void screenAskShortcut?.load().then(() => tray?.update({ shortcuts: shownShortcuts() }));
+        void quickEntryShortcut?.load();
       }
       void bootstrapAdminIfNeeded({
         packaged: app.isPackaged,
@@ -1476,13 +1692,17 @@ void app.whenReady().then(async () => {
   registerIpc();
   gateways.sweepForgottenData();
 
-  supervisor = new GatewaySupervisor({
+  // macOS: the LaunchAgent; Windows: the per-user scheduled task (main/supervisor-windows.ts).
+  const bundledGateway = bundledGatewayPaths(process.resourcesPath);
+  supervisor = createSupervisor({
     mode: supervisorMode,
     psycheHome: home,
     healthUrl: new URL("/healthz", origin).toString(),
     gatewayDir: resolve(app.getAppPath(), "..", "gateway"),
     bundledProgram: join(process.resourcesPath, "psyched", "psyched"),
     bundledPlist: join(process.resourcesPath, "launchd", "com.psyche.gateway.plist"),
+    bundledNode: bundledGateway.node,
+    bundledEntry: bundledGateway.entry,
     confirmTakeover: async (other) => {
       const opts = {
         type: "question" as const,
@@ -1524,15 +1744,25 @@ void app.whenReady().then(async () => {
       quitApp: () => app.quit(),
       quitEntirely,
     },
+    { taskbarDark: () => taskbarDark },
   );
 
-  // ⌥Space by default (docs/06 §3.21); ⌃⌥Space when another utility owns it.
+  // Quick entry: ⌥Space on macOS (⌃⌥Space when another utility owns it; docs/06 §3.21), on
+  // Windows Ctrl+Alt+Space (Alt+Space is the system menu), until `quickEntry.shortcut` says
+  // otherwise (main/shortcuts.ts).
   const skipShortcuts =
     perfProbe !== undefined ||
     (!app.isPackaged && process.env.PSYCHE_DISABLE_GLOBAL_SHORTCUTS === "1");
-  if (!skipShortcuts && !globalShortcut.register("Alt+Space", () => windows?.toggleQuickEntry()))
-    globalShortcut.register("Control+Alt+Space", () => windows?.toggleQuickEntry());
-  // Ask about my screen: ⌥⇧Space (or ⌃⌥⇧Space), until the settings say otherwise (spec §2, §6).
+  quickEntryShortcut = new QuickEntryShortcut({
+    call: (m, p) => requireGateway().call(m, p),
+    ...(skipShortcuts ? {} : { shortcuts: globalShortcut }),
+    toggle: () => windows?.toggleQuickEntry(),
+    warn: (m) => console.warn(`[quick-entry] ${m}`),
+    onChange: () => tray?.update({ shortcuts: shownShortcuts() }),
+  });
+  quickEntryShortcut.apply(undefined);
+  // Ask about my screen: ⌥⇧Space (or ⌃⌥⇧Space) on macOS, Ctrl+Alt+Shift+Space on Windows,
+  // until the settings say otherwise (spec §2, §6).
   screenAskShortcut = new ScreenAskShortcut({
     call: (m, p) => requireGateway().call(m, p),
     ...(skipShortcuts ? {} : { shortcuts: globalShortcut }),
@@ -1542,10 +1772,15 @@ void app.whenReady().then(async () => {
     disabled: remoteGateway,
   });
   screenAskShortcut.apply(screenAskShortcut.settings);
+  tray.update({ shortcuts: shownShortcuts() });
   if (!remoteGateway) {
     app.dock?.setMenu(
       Menu.buildFromTemplate([{ label: "Ask about screen", click: () => screenAsk?.trigger() }]),
     );
+  }
+  // Windows: the taskbar's jump list stands in for the Dock menu.
+  if (windows32 && perfProbe === undefined) {
+    app.setUserTasks(jumpListTasks(process.execPath, { leadingArgs, askScreen: !remoteGateway }));
   }
 
   // The window shows first and comes forward; the Gateway starts behind it (issue #441).
@@ -1571,12 +1806,45 @@ void app.whenReady().then(async () => {
     });
   }
   openDeepLink(deepLinkFromArgv(process.argv));
+  runTaskbarTask(taskFromArgv(process.argv));
   pairLinks.offerArgv(process.argv);
   pairLinks.showPending();
   if (perfProbe === undefined) void startUpdater({ stateFile: join(home, "run", "updater.json") });
 
   app.on("activate", () => windows?.showMain());
 });
+
+/**
+ * Windows: the first time the main window closes, one notification says Psyche keeps running in
+ * the notification area (where macOS keeps it in the menu bar) and how to quit it.
+ */
+function sayStillRunningOnce(): void {
+  if (quittingEntirely || !firstCloseToTray(join(baseUserData, "closed-to-tray"))) return;
+  const title = "Psyche is still running";
+  const body =
+    "Tasks and automations keep going. Open Psyche from its icon in the notification area; right-click it to quit.";
+  if (Notification.isSupported()) {
+    const n = new Notification({ title, body, silent: true });
+    n.on("click", () => windows?.showMain());
+    n.show();
+  } else {
+    tray?.notify(title, body);
+  }
+}
+
+/** The global shortcuts registered now, for the tray's menu. */
+function shownShortcuts(): { quickEntry: string; askScreen: string } {
+  return {
+    quickEntry: quickEntryShortcut?.current ?? "",
+    askScreen: screenAskShortcut?.current ?? "",
+  };
+}
+
+/** A jump-list task, run in this copy (first launch or a second instance). */
+function runTaskbarTask(task: TaskbarTask | undefined): void {
+  if (task === "new-side-chat") command({ type: "newSideChat" });
+  else if (task === "ask-screen" && !remoteGateway) screenAsk?.trigger();
+}
 
 async function quitEntirely(): Promise<void> {
   quittingEntirely = true;
@@ -1590,20 +1858,26 @@ app.on("open-url", (event, url) => {
   else openDeepLink(parseDeepLink(url));
 });
 
+// Another launch (the Start menu, a psyche:// link, the jump list on Windows) comes here.
 app.on("second-instance", (_e, argv) => {
-  windows?.showMain();
+  const task = taskFromArgv(argv);
+  // Ask about my screen opens the panel over whatever is on screen, not the main window.
+  if (task !== "ask-screen") windows?.showMain();
+  runTaskbarTask(task);
   openDeepLink(deepLinkFromArgv(argv));
   pairLinks.offerArgv(argv);
 });
 
-// Closing the window keeps the app (menu bar) and the Gateway running (feature A7).
+// Closing the window keeps the app (the menu bar on macOS, the notification area on Windows) and
+// the Gateway running (feature A7).
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") app.quit();
+  if (process.platform !== "darwin" && process.platform !== "win32") app.quit();
 });
 
 app.on("will-quit", () => {
   dictation?.dispose();
   screenAskShortcut?.dispose();
+  quickEntryShortcut?.dispose();
   hud?.destroy();
   screenAsk?.destroy();
   globalShortcut.unregisterAll();

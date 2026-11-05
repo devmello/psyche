@@ -50,10 +50,45 @@ function screenStatus(deps: PermissionDeps): PermissionResult {
   return "denied";
 }
 
+/**
+ * Windows asks no grant for UI Automation, input or screen capture by a desktop app (the helper
+ * still cannot reach elevated windows, UIPI), so those answer granted; Electron reads the screen
+ * state from Windows' privacy settings. Notifications are the helper's toasts when it is online,
+ * else Electron's (Windows asks nothing first; the owner turns them off in Settings → System →
+ * Notifications).
+ */
+function windowsPermissions(deps: PermissionDeps) {
+  async function status(kind: PermissionKind): Promise<PermissionResult> {
+    switch (kind) {
+      case "accessibility":
+        return "granted";
+      case "screenRecording": {
+        const s = screenStatus(deps);
+        return s === "not_determined" ? "granted" : s;
+      }
+      case "notifications":
+        if (deps.helper)
+          return deps.helper.notificationStatus().catch(() => "unavailable" as const);
+        return deps.showFirstNotification ? "granted" : "unavailable";
+    }
+  }
+  async function request(kind: PermissionKind): Promise<PermissionResult> {
+    if (kind !== "notifications") return status(kind);
+    if (deps.helper) {
+      const r = await deps.helper.requestNotifications().catch(() => null);
+      if (r !== null) return r;
+    }
+    return deps.showFirstNotification?.() ? "granted" : "unavailable";
+  }
+  return { status, request };
+}
+
 export function createPermissions(deps: PermissionDeps) {
   const mac = deps.platform === "darwin";
+  const windows = deps.platform === "win32" ? windowsPermissions(deps) : undefined;
 
   async function status(kind: PermissionKind): Promise<PermissionResult> {
+    if (windows) return windows.status(kind);
     if (!mac) return "unavailable";
     switch (kind) {
       case "accessibility":
@@ -68,6 +103,7 @@ export function createPermissions(deps: PermissionDeps) {
   }
 
   async function request(kind: PermissionKind): Promise<PermissionResult> {
+    if (windows) return windows.request(kind);
     if (!mac) return "unavailable";
     switch (kind) {
       case "accessibility": {

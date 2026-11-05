@@ -1,5 +1,4 @@
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 /**
@@ -10,7 +9,8 @@ import { describe, expect, it } from "vitest";
 const FLOOR = [44, 9, 0] as const;
 
 function version(): number[] {
-  const pkg = JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf8")) as {
+  // Next to this test, not the working directory (the workspace root under turbo).
+  const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as {
     devDependencies?: Record<string, string>;
     dependencies?: Record<string, string>;
   };
