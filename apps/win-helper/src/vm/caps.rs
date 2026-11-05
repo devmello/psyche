@@ -54,8 +54,8 @@ impl Def {
     }
 
     fn spec(&self) -> CapabilitySpec {
-        let mut s =
-            CapabilitySpec::new(self.name, self.description, self.side_effect).input(self.input.clone());
+        let mut s = CapabilitySpec::new(self.name, self.description, self.side_effect)
+            .input(self.input.clone());
         if let Some(t) = self.target {
             s = s.target(t);
         }
@@ -82,8 +82,16 @@ fn defs() -> Vec<Def> {
         target: None,
         input,
         streaming: false,
-        receipt: if side_effect == Read { None } else { Some("vm") },
-        timeout: if side_effect == Read { None } else { Some(LONG) },
+        receipt: if side_effect == Read {
+            None
+        } else {
+            Some("vm")
+        },
+        timeout: if side_effect == Read {
+            None
+        } else {
+            Some(LONG)
+        },
     };
     vec![
         d(
@@ -110,7 +118,10 @@ fn defs() -> Vec<Def> {
                         ("memoryGB", schema::integer(None, Some(4), Some(256))),
                         ("diskGB", schema::integer(None, Some(40), Some(2048))),
                         ("ipsw", schema::string(Some("Not used on Windows"))),
-                        ("download", schema::boolean(Some("Confirm using the published guest image"))),
+                        (
+                            "download",
+                            schema::boolean(Some("Confirm using the published guest image")),
+                        ),
                         ("username", schema::string_max(None, 32)),
                         (
                             "image",
@@ -121,7 +132,9 @@ fn defs() -> Vec<Def> {
                         (
                             "imageSha256",
                             schema::string_max(
-                                Some("Expected SHA-256 of the image's manifest.json, from the publisher"),
+                                Some(
+                                    "Expected SHA-256 of the image's manifest.json, from the publisher",
+                                ),
                                 64,
                             ),
                         ),
@@ -176,7 +189,10 @@ fn defs() -> Vec<Def> {
                 params(
                     vec![
                         ("label", schema::string_max(None, 120)),
-                        ("kind", schema::string_enum(None, &["base", "manual", "task"])),
+                        (
+                            "kind",
+                            schema::string_enum(None, &["base", "manual", "task"]),
+                        ),
                         ("taskId", schema::string_max(None, 128)),
                     ],
                     &[],
@@ -189,7 +205,10 @@ fn defs() -> Vec<Def> {
                 "vm.restore",
                 "Restore the stopped sandbox PC to a snapshot. Discards the current disk (the snapshot is kept).",
                 Destructive,
-                params(vec![("snapshot", schema::string_max(None, 64))], &["snapshot"]),
+                params(
+                    vec![("snapshot", schema::string_max(None, 64))],
+                    &["snapshot"],
+                ),
             )
         },
         Def {
@@ -205,7 +224,10 @@ fn defs() -> Vec<Def> {
             "vm.snapshot_delete",
             "Delete one snapshot of the sandbox PC. Deleting the base leaves no reset point.",
             Destructive,
-            params(vec![("snapshot", schema::string_max(None, 64))], &["snapshot"]),
+            params(
+                vec![("snapshot", schema::string_max(None, 64))],
+                &["snapshot"],
+            ),
         ),
         Def {
             target: Some(TargetKind::Path),
@@ -234,8 +256,18 @@ fn defs() -> Vec<Def> {
                 params(vec![("share", schema::string_max(None, 64))], &["share"]),
             )
         },
-        d("vm.pause", "Pause a running sandbox PC in memory.", Write, params(vec![], &[])),
-        d("vm.resume", "Resume a paused sandbox PC.", Write, params(vec![], &[])),
+        d(
+            "vm.pause",
+            "Pause a running sandbox PC in memory.",
+            Write,
+            params(vec![], &[]),
+        ),
+        d(
+            "vm.resume",
+            "Resume a paused sandbox PC.",
+            Write,
+            params(vec![], &[]),
+        ),
         d(
             "vm.suspend",
             "Save the machine state and stop (warm start on the next vm.start).",
@@ -251,7 +283,10 @@ fn defs() -> Vec<Def> {
                     ("cpus", schema::integer(None, Some(2), Some(32))),
                     ("memoryGB", schema::integer(None, Some(4), Some(256))),
                     ("displayWidth", schema::integer(None, Some(640), Some(3840))),
-                    ("displayHeight", schema::integer(None, Some(480), Some(2400))),
+                    (
+                        "displayHeight",
+                        schema::integer(None, Some(480), Some(2400)),
+                    ),
                     (
                         "clipboard",
                         schema::string_enum(None, &["off", "paste-only", "bidirectional"]),
@@ -292,7 +327,10 @@ fn defs() -> Vec<Def> {
                 "Copy one guest file to a host folder inside the granted folders (never overwrites). The guest stages it in the _psyche-out share.",
                 Write,
                 params(
-                    vec![("guestPath", schema::string(None)), ("hostDir", schema::string(None))],
+                    vec![
+                        ("guestPath", schema::string(None)),
+                        ("hostDir", schema::string(None)),
+                    ],
                     &["guestPath", "hostDir"],
                 ),
             )
@@ -304,7 +342,10 @@ fn defs() -> Vec<Def> {
                 "Install Psyche in the running guest from a release or checkout (shared read-only): psyche-node (hvsocket 2:7980).",
                 Write,
                 params(
-                    vec![("payload", schema::string(Some("Absolute host path of a Psyche release or checkout")))],
+                    vec![(
+                        "payload",
+                        schema::string(Some("Absolute host path of a Psyche release or checkout")),
+                    )],
                     &["payload"],
                 ),
             )
@@ -316,7 +357,10 @@ fn defs() -> Vec<Def> {
                 "Windows guests need no pre-granted permissions: the service answers unsupported with a reason (kept for the shared vm.* surface).",
                 Write,
                 params(
-                    vec![("payload", schema::string(Some("The payload whose helper was installed")))],
+                    vec![(
+                        "payload",
+                        schema::string(Some("The payload whose helper was installed")),
+                    )],
                     &["payload"],
                 ),
             )
@@ -370,9 +414,9 @@ pub fn not_installed_status() -> Value {
 
 /// The last known status with every guest stopped (the service itself is not running).
 fn asleep_status(last: Option<Value>, state: ServiceState) -> Value {
-    let mut v = last.unwrap_or_else(|| {
-        json!({"guests": [], "active": 0, "maxActive": 1, "supportsGuestProvisioning": true})
-    });
+    let mut v = last.unwrap_or_else(
+        || json!({"guests": [], "active": 0, "maxActive": 1, "supportsGuestProvisioning": true}),
+    );
     if let Some(guests) = v.get_mut("guests").and_then(Value::as_array_mut) {
         for g in guests {
             if let Some(p) = g.get("phase").and_then(Value::as_str) {
@@ -529,7 +573,10 @@ fn receipt_for(def: &Def, sent: &Value, result: &Value) -> Option<ReceiptDraft> 
         "vm.create" => ReceiptDraft::ok(format!("Created the sandbox PC {n}")),
         "vm.start" => ReceiptDraft::ok("Started the sandbox PC"),
         "vm.stop" => {
-            let graceful = result.get("graceful").and_then(Value::as_bool).unwrap_or(true);
+            let graceful = result
+                .get("graceful")
+                .and_then(Value::as_bool)
+                .unwrap_or(true);
             ReceiptDraft::ok(if graceful {
                 "Stopped the sandbox PC"
             } else {
@@ -544,23 +591,34 @@ fn receipt_for(def: &Def, sent: &Value, result: &Value) -> Option<ReceiptDraft> 
         "vm.snapshot_delete" => ReceiptDraft::ok("Deleted a sandbox PC snapshot"),
         "vm.share_add" => {
             let share = str_field(sent, "share").unwrap_or_default();
-            let ro = sent.get("readOnly").and_then(Value::as_bool).unwrap_or(true);
+            let ro = sent
+                .get("readOnly")
+                .and_then(Value::as_bool)
+                .unwrap_or(true);
             ReceiptDraft::ok(format!(
                 "Shared {share} {}",
                 if ro { "read-only" } else { "read-write" }
             ))
             .with_ref("share", share)
         }
-        "vm.share_remove" => {
-            ReceiptDraft::ok(format!("Stopped sharing {}", str_field(sent, "share").unwrap_or_default()))
-        }
+        "vm.share_remove" => ReceiptDraft::ok(format!(
+            "Stopped sharing {}",
+            str_field(sent, "share").unwrap_or_default()
+        )),
         "vm.pause" => ReceiptDraft::ok("Paused the sandbox PC"),
         "vm.resume" => ReceiptDraft::ok("Resumed the sandbox PC"),
         "vm.suspend" => ReceiptDraft::ok("Saved and stopped the sandbox PC"),
         "vm.configure" => ReceiptDraft::ok("Changed the sandbox PC's settings"),
         "vm.display" => {
-            let shown = sent.get("visible").and_then(Value::as_bool).unwrap_or(false);
-            ReceiptDraft::ok(if shown { "Showed the guest display" } else { "Hid the guest display" })
+            let shown = sent
+                .get("visible")
+                .and_then(Value::as_bool)
+                .unwrap_or(false);
+            ReceiptDraft::ok(if shown {
+                "Showed the guest display"
+            } else {
+                "Hid the guest display"
+            })
         }
         "vm.copy_in" | "vm.copy_out" => {
             let t = &result["transfer"];
@@ -596,8 +654,13 @@ pub fn register(reg: &mut CapabilityRegistry) {
     let cache = rt.service(StatusCache::default);
     if !endpoint.installed() {
         // Before "Turn on the sandbox PC": only `vm.status`, which says so and names the action.
-        let def = defs().into_iter().find(|d| d.name == "vm.status").expect("vm.status");
-        reg.add(def.spec(), |_| async { Ok(CapabilityOutput::new(not_installed_status())) });
+        let def = defs()
+            .into_iter()
+            .find(|d| d.name == "vm.status")
+            .expect("vm.status");
+        reg.add(def.spec(), |_| async {
+            Ok(CapabilityOutput::new(not_installed_status()))
+        });
         return;
     }
     for def in defs() {
@@ -632,7 +695,8 @@ async fn invoke(
         }
         _ if def.streaming => {
             let ctx2 = ctx.clone();
-            ep.call_streaming(method, sent.clone(), move |v| ctx2.emit(v)).await?
+            ep.call_streaming(method, sent.clone(), move |v| ctx2.emit(v))
+                .await?
         }
         _ => ep.call(method, sent.clone(), Start::IfNeeded).await?,
     };

@@ -28,6 +28,10 @@ use crate::win::security;
 pub const PIPE_OVERRIDE: &str = "PSYCHE_VM_PIPE";
 
 /// The most a single control-pipe line may carry.
+/// `SECURITY_IMPERSONATION << 16`: the service refuses identification-level clients and runs the
+/// request with the owner's own rights.
+const SECURITY_IMPERSONATION: u32 = 2 << 16;
+
 const MAX_LINE: usize = 16 * 1024 * 1024;
 
 /// How long a call waits for the service to start and its pipe to appear.
@@ -149,7 +153,10 @@ impl Endpoint {
         // Running: wait for its pipe.
         let mut busy = 0;
         let pipe = loop {
-            match ClientOptions::new().open(&self.pipe) {
+            match ClientOptions::new()
+                .security_qos_flags(SECURITY_IMPERSONATION)
+                .open(&self.pipe)
+            {
                 Ok(c) => break c,
                 Err(e) if e.raw_os_error() == Some(ERROR_PIPE_BUSY.0 as i32) && busy < 40 => {
                     busy += 1;
@@ -169,7 +176,10 @@ impl Endpoint {
                 Err(e) => {
                     return Err(CapabilityError::unavailable(
                         "vm_service_unreachable",
-                        format!("Could not open the sandbox PC control pipe ({:?})", e.kind()),
+                        format!(
+                            "Could not open the sandbox PC control pipe ({:?})",
+                            e.kind()
+                        ),
                     ));
                 }
             }
@@ -223,7 +233,10 @@ impl Endpoint {
 
     /// `vm.watch`: every `vm.status` / `vm.updated` / `vm.deleted` event until the service closes
     /// the pipe (it sends the current status itself right after `watch`).
-    pub async fn watch(&self, emit: impl Fn(Value) + Send + Sync) -> Result<Value, CapabilityError> {
+    pub async fn watch(
+        &self,
+        emit: impl Fn(Value) + Send + Sync,
+    ) -> Result<Value, CapabilityError> {
         let mut conn = self.connect(Start::IfNeeded).await?;
         conn.send("watch", "watch", &json!({}), false)
             .await
@@ -246,7 +259,11 @@ fn event_value(v: &Value) -> Option<Value> {
     let name = v.get("event")?.as_str()?;
     // `{event: "progress", data: {id, event: {...}}}`: the inner object is the progress event.
     if name == "progress" {
-        return v.get("data")?.get("event").cloned().filter(Value::is_object);
+        return v
+            .get("data")?
+            .get("event")
+            .cloned()
+            .filter(Value::is_object);
     }
     let mut out = serde_json::Map::new();
     out.insert("type".into(), name.into());
@@ -278,7 +295,10 @@ fn start_error(e: StartError) -> CapabilityError {
 fn io_error(e: io::Error) -> CapabilityError {
     CapabilityError::unavailable(
         "vm_service_closed",
-        format!("The sandbox PC service closed the connection ({:?})", e.kind()),
+        format!(
+            "The sandbox PC service closed the connection ({:?})",
+            e.kind()
+        ),
     )
     .retryable()
 }
@@ -312,8 +332,8 @@ impl Conn {
         if progress {
             body["progress"] = true.into();
         }
-        let mut line = serde_json::to_vec(&body)
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        let mut line =
+            serde_json::to_vec(&body).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
         line.push(b'\n');
         self.pipe.write_all(&line).await?;
         self.pipe.flush().await
@@ -355,7 +375,9 @@ impl Conn {
     ) -> Result<Value, CapabilityError> {
         self.seq += 1;
         let id = format!("h{}", self.seq);
-        self.send(&id, method, &params, progress).await.map_err(io_error)?;
+        self.send(&id, method, &params, progress)
+            .await
+            .map_err(io_error)?;
         loop {
             let Some(v) = self.next_value().await.map_err(io_error)? else {
                 return Err(io_error(io::ErrorKind::UnexpectedEof.into()));

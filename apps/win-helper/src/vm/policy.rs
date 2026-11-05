@@ -41,7 +41,10 @@ fn env_path(env: &Env, key: &str, default: &str) -> PathBuf {
 pub fn sensitive_reason(resolved: &Path, env: &Env) -> Option<&'static str> {
     let profile = canonical(&user_profile(env).to_string_lossy(), env);
     let home = canonical(&psyche_home(env).to_string_lossy(), env);
-    let system_root = canonical(&env_path(env, "SystemRoot", r"C:\Windows").to_string_lossy(), env);
+    let system_root = canonical(
+        &env_path(env, "SystemRoot", r"C:\Windows").to_string_lossy(),
+        env,
+    );
     let app_data = [
         env.get("LOCALAPPDATA")
             .map(PathBuf::from)

@@ -9,12 +9,12 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::windows::named_pipe::ServerOptions;
 
 use super::PIPE_OVERRIDE;
+use crate::node::CapabilityRegistry;
 use crate::node::capability::{
     CapResult, ErrorCode, InvocationContext, ReceiptOutcome, SideEffect,
 };
 use crate::node::paths::Env;
 use crate::node::registry::Runtime;
-use crate::node::CapabilityRegistry;
 
 static SEQ: AtomicU32 = AtomicU32::new(0);
 
@@ -63,7 +63,9 @@ fn fake_service(
                     };
                     let method = req["method"].as_str().unwrap_or_default().to_owned();
                     let params = req["params"].clone();
-                    log.lock().unwrap().push((id, method.clone(), params.clone()));
+                    log.lock()
+                        .unwrap()
+                        .push((id, method.clone(), params.clone()));
                     if method != "watch" {
                         // Progress is opt-in per request, as the real service does it.
                         if req["progress"] == true {
@@ -113,7 +115,9 @@ async fn call(
         approval.map(str::to_owned),
         Arc::new(move |v| sink.lock().unwrap().push(v)),
     );
-    let cap = reg.get(name).unwrap_or_else(|| panic!("{name} is advertised"));
+    let cap = reg
+        .get(name)
+        .unwrap_or_else(|| panic!("{name} is advertised"));
     let r = (cap.handler)(ctx).await;
     let ev = events.lock().unwrap().clone();
     (r, ev)
@@ -155,7 +159,10 @@ async fn an_installed_service_advertises_every_mac_vm_capability() {
     for want in ALL {
         assert!(names.iter().any(|n| n == want), "missing {want}");
     }
-    assert_eq!(names.iter().filter(|n| n.starts_with("vm.")).count(), ALL.len());
+    assert_eq!(
+        names.iter().filter(|n| n.starts_with("vm.")).count(),
+        ALL.len()
+    );
     // Side effects and receipt kinds follow the mac helper.
     let spec = |n: &str| reg.get(n).unwrap().spec.clone();
     assert_eq!(spec("vm.status").side_effect, SideEffect::Read);
@@ -164,8 +171,14 @@ async fn an_installed_service_advertises_every_mac_vm_capability() {
     assert_eq!(spec("vm.start").side_effect, SideEffect::Write);
     assert!(spec("vm.start").streaming);
     assert!(spec("vm.watch").streaming);
-    assert_eq!(spec("vm.share_add").receipt_kind.as_deref(), Some("vm_share"));
-    assert_eq!(spec("vm.copy_in").receipt_kind.as_deref(), Some("vm_transfer"));
+    assert_eq!(
+        spec("vm.share_add").receipt_kind.as_deref(),
+        Some("vm_share")
+    );
+    assert_eq!(
+        spec("vm.copy_in").receipt_kind.as_deref(),
+        Some("vm_transfer")
+    );
     assert_eq!(spec("vm.start").receipt_kind.as_deref(), Some("vm"));
     assert_eq!(spec("vm.status").receipt_kind, None);
 }
@@ -177,9 +190,18 @@ async fn params_and_results_cross_unchanged_with_a_receipt() {
         _ => Ok(json!({})),
     });
     let reg = registry(&pipe);
-    let (r, _) = call(&reg, "vm.stop", json!({"name": "sandbox", "force": true}), None).await;
+    let (r, _) = call(
+        &reg,
+        "vm.stop",
+        json!({"name": "sandbox", "force": true}),
+        None,
+    )
+    .await;
     let out = r.unwrap();
-    assert_eq!(out.result, json!({"graceful": false, "guest": {"name": "sandbox"}}));
+    assert_eq!(
+        out.result,
+        json!({"graceful": false, "guest": {"name": "sandbox"}})
+    );
     let receipt = out.receipt.expect("a receipt for a write");
     assert_eq!(receipt.outcome, ReceiptOutcome::Ok);
     assert_eq!(receipt.summary, "Force-stopped the sandbox PC");
@@ -229,12 +251,18 @@ async fn progress_is_requested_only_by_streaming_calls() {
     assert!(ev.is_empty());
     let (_, ev) = call(&reg, "vm.start", json!({}), None).await;
     assert_eq!(ev.len(), 1, "{ev:?}");
-    assert_eq!(seen.lock().unwrap().len(), 2, "one connection per call, no watcher");
+    assert_eq!(
+        seen.lock().unwrap().len(),
+        2,
+        "one connection per call, no watcher"
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn streaming_calls_forward_service_events() {
-    let (pipe, _) = fake_service(Duration::from_millis(400), |_, _| Ok(json!({"started": true})));
+    let (pipe, _) = fake_service(Duration::from_millis(400), |_, _| {
+        Ok(json!({"started": true}))
+    });
     let reg = registry(&pipe);
     let (r, events) = call(&reg, "vm.start", json!({}), None).await;
     assert_eq!(r.unwrap().result, json!({"started": true}));
@@ -277,17 +305,30 @@ async fn read_write_shares_need_an_approval_before_anything_is_sent() {
     let e = r.unwrap_err();
     assert_eq!(e.code, ErrorCode::ApprovalRequired);
     assert_eq!(e.reason, "share_rw_needs_approval");
-    assert!(seen.lock().unwrap().is_empty(), "refused before the service");
+    assert!(
+        seen.lock().unwrap().is_empty(),
+        "refused before the service"
+    );
 
     // Read-only needs none; the service receives the canonical path.
-    let (r, _) = call(&reg, "vm.share_add", json!({"share": "work", "path": path}), None).await;
+    let (r, _) = call(
+        &reg,
+        "vm.share_add",
+        json!({"share": "work", "path": path}),
+        None,
+    )
+    .await;
     let out = r.unwrap();
     assert_eq!(out.receipt.unwrap().summary, "Shared work read-only");
     let sent = seen.lock().unwrap()[0].2.clone();
     assert_eq!(sent["readOnly"], true);
-    assert!(sent["path"].as_str().unwrap().to_lowercase().ends_with(
-        &format!("psyche-vm-share-{}", std::process::id())
-    ));
+    assert!(
+        sent["path"]
+            .as_str()
+            .unwrap()
+            .to_lowercase()
+            .ends_with(&format!("psyche-vm-share-{}", std::process::id()))
+    );
 
     // With an approval a read-write share goes through and carries it.
     let (r, _) = call(
@@ -311,11 +352,17 @@ async fn sensitive_and_relative_paths_never_reach_the_service() {
         ("vm.share_add", json!({"share": "a", "path": sys})),
         ("vm.share_add", json!({"share": "a", "path": r"C:\"})),
         ("vm.share_add", json!({"share": "a", "path": "relative"})),
-        ("vm.share_add", json!({"share": "../x", "path": r"C:\Users"})),
+        (
+            "vm.share_add",
+            json!({"share": "../x", "path": r"C:\Users"}),
+        ),
         ("vm.copy_in", json!({"hostPath": r"C:\Windows\System32"})),
         ("vm.copy_in", json!({"hostPath": "relative.txt"})),
         // Not inside a granted folder (none are granted here).
-        ("vm.copy_out", json!({"guestPath": "/tmp/x", "hostDir": r"C:\Users"})),
+        (
+            "vm.copy_out",
+            json!({"guestPath": "/tmp/x", "hostDir": r"C:\Users"}),
+        ),
         ("vm.export_image", json!({"outDir": r"C:\Users"})),
         // A macOS restore image has no meaning for the Linux guest.
         ("vm.create", json!({"ipsw": r"C:\x.ipsw"})),
@@ -360,7 +407,11 @@ async fn without_the_service_only_status_exists_and_says_so() {
     }
     let mut reg = CapabilityRegistry::new(Runtime::offline(env));
     super::register(&mut reg);
-    let vm: Vec<_> = reg.names().into_iter().filter(|n| n.starts_with("vm.")).collect();
+    let vm: Vec<_> = reg
+        .names()
+        .into_iter()
+        .filter(|n| n.starts_with("vm."))
+        .collect();
     assert_eq!(vm, vec!["vm.status"]);
     let (r, _) = call(&reg, "vm.status", json!({}), None).await;
     assert_eq!(r.unwrap().result["service"]["state"], "notInstalled");
@@ -394,15 +445,19 @@ async fn against_the_real_service_with_the_fake_backend() {
     let reg = registry(&pipe);
     // Wait for the pipe.
     let mut status = None;
+    let mut last = String::new();
     for _ in 0..40 {
         let (r, _) = call(&reg, "vm.status", json!({}), None).await;
+        if let Err(e) = &r {
+            last = e.to_string();
+        }
         if let Ok(o) = r {
             status = Some(o.result);
             break;
         }
         tokio::time::sleep(Duration::from_millis(250)).await;
     }
-    let status = status.expect("the real service answered vm.status");
+    let status = status.unwrap_or_else(|| panic!("the real service answered vm.status: {last}"));
     assert_eq!(status["guests"], json!([]));
     assert_eq!(status["service"]["installed"], true);
     // An unknown guest is the mac helper's not_found, with a reason.
