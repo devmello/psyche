@@ -107,6 +107,7 @@ import { personalizeMessageEvent } from "../message-scrub.ts";
 import { openGatewayDb } from "../pre-update.ts";
 import { taskRunTrace } from "../run-trace/tasks.ts";
 import { type Gateway, type GatewayOptions, startGateway } from "../server.ts";
+import { BusySources, UpdateGate } from "../update-gate.ts";
 import { ApprovalTokens } from "./approval-tokens.ts";
 import { artifactContextProvider, composeArtifacts } from "./artifacts.ts";
 import { attentionHandlers, OwnerAttention, parkWhenUnwatched } from "./attention.ts";
@@ -244,6 +245,7 @@ import { createThreadClear } from "./thread-clear.ts";
 import { SqliteThreadStateStore } from "./thread-state.ts";
 import { CROSS_THREAD_SETTING, crossThreadToggle, threadTools } from "./thread-tools.ts";
 import { modelPinsFor, restoreModelPins, threadSettingsHandlers } from "./threads.ts";
+import { updateHandlers } from "./update.ts";
 import { usageSummaryHandlers } from "./usage-summary.ts";
 import { createUserProfile } from "./user-profile.ts";
 import { composeVault, maskingLogger, type VaultSetup, vaultSetupFromEnv } from "./vault.ts";
@@ -974,6 +976,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   });
   const calls = new CallContexts();
   const ownPorts = createOwnPorts();
+  // `gateway.prepareUpdate` closes this door to new chat turns and tasks; the task pools and the
+  // session controller check it. Recordings are counted by the parts that own them.
+  const updateGate = gwOptions.updateGate ?? new UpdateGate();
+  const busySources = new BusySources();
   const browserAvailability: BrowserAvailability = {};
   ownPorts.add(config.port, "gateway (configured)");
   const pageReads = new PageReadHub();
@@ -981,6 +987,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     memoryStore: memoryDb,
     documents,
     pageReads,
+    busy: busySources,
     db,
     srt,
     clock,
@@ -1314,6 +1321,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     notifier,
     tools: registry,
     ...(taskPollMs === undefined ? {} : { pollMs: taskPollMs }),
+    canClaim: () => updateGate.accepting(),
     // Run trace §4.2: each task turn is its own run (ULID), recorded like a chat turn.
     newRunId: () => db.newId(),
     trace: taskRunTrace({
@@ -1358,8 +1366,14 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ),
     ...(taskPollMs === undefined ? {} : { pollMs: taskPollMs }),
     claim: { origins: ["subagent"], perParentLimit: 2 },
+    canClaim: () => updateGate.accepting(),
   });
   pokeSpecialists = () => specialistPool.poke();
+  // An update that never came: queued tasks are claimed again.
+  updateGate.onReopen(() => {
+    pool.poke();
+    specialistPool.poke();
+  });
   const speechPart = parts.find(
     (p): p is ComposedPart & { meetings: MeetingIngest } => "meetings" in p,
   );
@@ -1823,6 +1837,15 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...vault.handlers,
     ...bootstrapAdminHandlers({ db, audit }),
     ...setupTokenHandlers({ db, audit }),
+    // "Restart to update": stop taking new work and report what is busy (desktop shell only).
+    ...updateHandlers({
+      db,
+      gate: updateGate,
+      runningTasks: () => tasks.list({ status: ["running"] }),
+      broker,
+      busy: busySources,
+      ...(gwOptions.logger === undefined ? {} : { log: gwOptions.logger }),
+    }),
     ...changeHandlers({ audit }),
     ...filesHandlers({ folders: () => rawBroker.policy.folders ?? [], home: config.home }),
     ...attentionHandlers(attention),
@@ -1859,6 +1882,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
 
   const gateway = await startGateway({
     ...gwOptions,
+    updateGate,
     db,
     agent: loop,
     broker,

@@ -11,7 +11,7 @@ export interface AccessEntry {
     kind?:       ApprovalKind;
     label:       string;
     lastUsedAt?: string;
-    mode?:       Mode;
+    mode?:       FolderModeEnum;
     path?:       string;
     scope:       AccessEntryScope;
     since?:      string;
@@ -21,7 +21,7 @@ export interface AccessEntry {
 
 export type ApprovalKind = "exec" | "exec_host" | "send_email" | "calendar_write" | "message_send" | "browser_submit" | "credential_fill" | "purchase" | "file_write" | "connector_action" | "computer_action" | "new_origin" | "plan_exit" | "skill_install" | "mcp_tool" | "archive_thread" | "memory_protected_write" | "pairing" | "policy_change" | "task_start" | "apple_script" | "shortcut_run" | "git_write" | "git_push" | "folder_access" | "batch" | "permission_request";
 
-export type Mode = "ro" | "rw";
+export type FolderModeEnum = "ro" | "rw";
 
 export type AccessEntryScope = "always" | "conversation" | "limited";
 
@@ -1009,7 +1009,7 @@ export interface ApprovalAnswer {
     approvalId:       string;
     decision:         ApprovalAnswerDecision;
     editedText?:      string;
-    folderMode?:      Mode;
+    folderMode?:      FolderModeEnum;
     folderPath?:      string;
     presence?:        PresenceAssertion;
     recipientChoice?: string;
@@ -5187,6 +5187,30 @@ export interface GatewayLANRotateCERTResult {
     certSpki: string;
 }
 
+export interface GatewayPrepareUpdateParams {
+    /**
+     * `prepare` (default) stops new work and waits; `check` only reports what is busy; `cancel`
+     * resumes normal service now
+     */
+    mode?: GatewayPrepareUpdateParamsMode;
+    /**
+     * How long the Gateway stays closed to new work if no update follows (default 120000). It
+     * then resumes by itself
+     */
+    timeoutMs?: number;
+    /**
+     * How long `prepare` waits for running turns and tasks to finish (default 30000). Then it
+     * answers ready anyway, naming what it left running
+     */
+    waitMs?: number;
+}
+
+/**
+ * `prepare` (default) stops new work and waits; `check` only reports what is busy; `cancel`
+ * resumes normal service now
+ */
+export type GatewayPrepareUpdateParamsMode = "prepare" | "check" | "cancel";
+
 export interface GatewayShutdownPayload {
     reason: string;
 }
@@ -5805,9 +5829,9 @@ export interface InsightTotalsRuns {
 
 export interface RunsByKind {
     automation: AutomationClass;
-    chat:       Chat;
+    chat:       RunsByKindChat;
     subagent:   Subagent;
-    task:       TaskClass;
+    task:       RunsByKindTask;
 }
 
 export interface AutomationClass {
@@ -5815,7 +5839,7 @@ export interface AutomationClass {
     failed: number;
 }
 
-export interface Chat {
+export interface RunsByKindChat {
     done:   number;
     failed: number;
 }
@@ -5825,7 +5849,7 @@ export interface Subagent {
     failed: number;
 }
 
-export interface TaskClass {
+export interface RunsByKindTask {
     done:   number;
     failed: number;
 }
@@ -8646,6 +8670,66 @@ export interface PolicyRule {
     note?:     null | string;
     priority:  number;
 }
+
+export interface PrepareUpdateResult {
+    busy: UpdateBusy;
+    /**
+     * Turns still running when the wait ended. Not stopped here: a task's steps are
+     * checkpointed as they run and the task resumes after the restart; a chat turn is cancelled
+     * by the shutdown and recovered at the next start
+     */
+    checkpointed: Checkpointed;
+    deadline?:    null | string;
+    /**
+     * True when the Gateway has stopped taking new work and the wait is over: it can be stopped
+     * now
+     */
+    ready: boolean;
+    state: UpdateGateState;
+}
+
+export interface UpdateBusy {
+    /**
+     * Chat (and automation) turns running right now
+     */
+    activeChats: number;
+    chats:       ChatElement[];
+    /**
+     * Approvals waiting for the owner; the runs parked on them resume after a restart
+     */
+    pendingApprovals: number;
+    /**
+     * Recordings in progress that the Gateway knows of (a Mac app being recorded)
+     */
+    recordings: number;
+    /**
+     * Tasks with a turn running right now
+     */
+    runningTasks: number;
+    tasks:        TaskElement[];
+}
+
+export interface ChatElement {
+    runId:    string;
+    threadId: string;
+}
+
+export interface TaskElement {
+    id:    string;
+    title: string;
+}
+
+/**
+ * Turns still running when the wait ended. Not stopped here: a task's steps are
+ * checkpointed as they run and the task resumes after the restart; a chat turn is cancelled
+ * by the shutdown and recovered at the next start
+ */
+export interface Checkpointed {
+    chats: number;
+    tasks: number;
+}
+
+export type UpdateGateState = "open" | "draining" | "ready";
 
 export interface ProposalUpdatedPayload {
     proposal: ActionProposal;

@@ -18,6 +18,12 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-05 (`gateway.prepareUpdate`, updates design §2.2 and §2.6)
+
+- New method `gateway.prepareUpdate` (`operator.admin`, not side-effecting). Desktop shell on the Host only: the same gate as `devices.setupToken.create` (loopback, no Origin, the per-launch handshake secret), so a paired remote device is refused even with admin. `mode` is `prepare` (default), `check` or `cancel`; `waitMs` (0 to 120000, default 30000) is how long `prepare` waits for running turns and tasks; `timeoutMs` (5000 to 600000, default 120000) is how long the Gateway stays closed to new work if no update follows, after which service resumes by itself.
+- While closed, a message that would start a chat turn and a task claim are refused: `chat.send` answers `unavailable`, `retryable`, with `details.reason: "updating"` (the UI words it as `errors.reason.updating`). A message to a busy chat still queues, steering still works, and queued tasks stay queued until service resumes or the Gateway restarts.
+- New types `UpdateBusy` (`runningTasks`, `activeChats`, `pendingApprovals`, `recordings`, plus up to 20 task and chat ids), `UpdateGateState` (`open`, `draining`, `ready`) and `PrepareUpdateResult` (`state`, `ready`, `deadline`, `busy`, `checkpointed`: the turns still running when the wait ended, which resume after the restart).
+
 ### v1 additive — 2026-11-05 (the Gateway's build in the handshake, updates design §2.10)
 
 - `ConnectChallenge` gains optional `server` (the new `ServerBuild`: `version`, an opaque `build`, optional `commit`). A Gateway from before this sends none; clients treat a missing `server` as "unknown build". `build` comes from `PSYCHE_BUILD` (the LaunchAgent plist) or the bundled `build-info.json`, and is `dev` from a checkout. The desktop compares it for equality with the build it shipped and restarts its own LaunchAgent when they differ (gap G1: an old Gateway left running after an app update). The challenge is not signed over `server`; it is a hint for restarting your own Gateway, never a trust decision.

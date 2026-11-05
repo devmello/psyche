@@ -81,6 +81,7 @@ import { ensureSocketDir, writeSocketPointer } from "./socket-path.ts";
 import { INTERNAL_SETTING_PREFIX, readStateVersion, writeStateVersion } from "./state-version.ts";
 import { TransportGate } from "./transport-gate.ts";
 import { NdjsonDecoder } from "./transports/ndjson.ts";
+import { UpdateGate } from "./update-gate.ts";
 
 /**
  * From package.json, like the CLI's: changesets versions every workspace package together, so
@@ -105,6 +106,8 @@ export interface GatewayOptions {
   }) => void;
   /** Inject an open database (tests); defaults to SQLite at config.dbPath. */
   db?: PsycheDb;
+  /** The door `gateway.prepareUpdate` closes; the composition root shares it with the task pools. */
+  updateGate?: UpdateGate;
   /** Agent runtime (S02); defaults to a loop that fails every turn cleanly. */
   agent?: AgentLoop;
   /** Permission Broker (S05); defaults to a fail-closed broker. */
@@ -313,6 +316,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
       now().getTime(),
     ),
     handshakeSecret,
+    updateGate: options.updateGate ?? new UpdateGate(),
     idempotency: new Idempotency(db),
     serverOrigin: () => origin,
     identity,
@@ -626,6 +630,8 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
 
   // Follow-ups queued before the restart run now; then the hourly retention sweep.
   ctx.sessions.drainAll();
+  // An update that never came (cancelled, or timed out): queued follow-ups start again.
+  const stopWatchingGate = ctx.updateGate.onReopen(() => ctx.sessions.drainAll());
   runRetention(ctx);
   const intervalMs = options.retentionIntervalMs ?? RETENTION_INTERVAL_MS;
   const retentionTimer = intervalMs > 0 ? setInterval(() => runRetention(ctx), intervalMs) : null;
@@ -650,6 +656,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
       if (stopped) return;
       stopped = true;
       if (retentionTimer) clearInterval(retentionTimer);
+      stopWatchingGate();
       bus.publish("gateway.shutdown", { reason });
       await ctx.sessions.stop();
       for (const conn of connections) conn.close(reason);
