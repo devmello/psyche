@@ -348,9 +348,11 @@ const IMPORT_RE =
  * dependencies into its own node_modules, so that is where each one has to be after pruning.
  * Lazy `import()`s count too; they are what a boot smoke would miss.
  */
-export function checkImports(appDir, subsets = SERVER_SUBSETS) {
+export function checkImports(appDir, subsets = SERVER_SUBSETS, drop = DROP_PACKAGES) {
   const { closure } = workspaceClosure(appDir, subsets);
   const builtins = new Set(builtinModules);
+  // Dropped on purpose; whoever imports one must cope with its absence (image-resize.ts falls back).
+  const dropped = new Set(drop);
   const missing = [];
   for (const [name, pkg] of closure) {
     const root = join(appDir, pkg.dir);
@@ -365,7 +367,8 @@ export function checkImports(appDir, subsets = SERVER_SUBSETS) {
           if (/^[./#]/.test(spec) || spec.startsWith("node:") || builtins.has(spec)) continue;
           const parts = spec.split("/");
           const dep = spec.startsWith("@") ? parts.slice(0, 2).join("/") : parts[0];
-          if (dep === name || existsSync(join(root, "node_modules", dep))) continue;
+          if (dep === name || dropped.has(dep) || existsSync(join(root, "node_modules", dep)))
+            continue;
           missing.push(`${relative(appDir, p).split(sep).join("/")}: ${spec}`);
         }
       },
