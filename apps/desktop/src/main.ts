@@ -127,9 +127,10 @@ import { shouldShowSplash } from "./main/splash.ts";
 import { startShell } from "./main/startup.ts";
 import {
   chooseMode,
+  createSupervisor,
+  type DesktopSupervisor,
   desktopVaultKeyFile,
   execRunner,
-  GatewaySupervisor,
   launchAgentPath,
   launchctl,
   plistProgram,
@@ -252,7 +253,7 @@ const attention = createAttentionReporter({
 let browser: BrowserHost | undefined;
 let bridge: BridgeClient | undefined;
 let tray: PsycheTray | undefined;
-let supervisor: GatewaySupervisor | undefined;
+let supervisor: DesktopSupervisor | undefined;
 /**
  * Whether the main window opens on the startup splash (#539: its first content, not a second
  * window). Decided once at launch: not in dev with PSYCHE_NO_SPLASH=1, under the perf probe, for
@@ -738,13 +739,13 @@ function registerIpc(): void {
     );
     if (!go) return;
     supervisor?.retryAfterUpdateFailure({ restoredByHand: true });
-    await supervisor?.ensureRunning();
+    await supervisor?.ensureRunning(undefined);
     gateway?.start();
   });
   handle(IPC.gatewayRetry, async () => {
     // After a failed update was undone the Gateway refuses to try again until told to.
     supervisor?.retryAfterUpdateFailure();
-    await supervisor?.ensureRunning();
+    await supervisor?.ensureRunning(undefined);
     // A remote Gateway that failed a check has stopped its reconnect loop: start over.
     if (remoteGateway) gateway?.stop();
     gateway?.start();
@@ -1160,7 +1161,7 @@ function registerIpc(): void {
       (await execRunner("/bin/launchctl", [...launchctl.print(process.getuid?.() ?? 0)])).code ===
       0,
     restartAgent: async () => {
-      await supervisor?.ensureRunning();
+      await supervisor?.ensureRunning(undefined);
     },
     clearStagedUpdate: async () => {
       stopUpdater();
@@ -1782,7 +1783,7 @@ void app.whenReady().then(async () => {
   gateways.sweepForgottenData();
 
   const expectedBuild = readBundledBuild(join(process.resourcesPath, "psyched", "build-info.json"));
-  supervisor = new GatewaySupervisor({
+  supervisor = createSupervisor({
     mode: supervisorMode,
     psycheHome: home,
     healthUrl: new URL("/healthz", origin).toString(),
@@ -1875,7 +1876,7 @@ void app.whenReady().then(async () => {
     startHidden: () => appWindows.startHidden(),
     background: process.argv.includes("--background"),
     focusApp: () => app.focus({ steal: true }),
-    startGateway: () => sup.ensureRunning().then(() => gateway?.start()),
+    startGateway: () => sup.ensureRunning(undefined).then(() => gateway?.start()),
     openedAtLogin: app.getLoginItemSettings().wasOpenedAtLogin === true,
     onShown: (at) => {
       shownAt = at;

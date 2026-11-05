@@ -1,8 +1,29 @@
-import { type ChildProcess, execFile, spawn } from "node:child_process";
+import { type ChildProcess, spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import {
+  clearUpdateFailure,
+  defaultSleep,
+  probeHealth,
+  readUpdateFailure,
+  waitForHealthy,
+} from "../platform/gateway-health.ts";
+import type {
+  BuildCheck,
+  DesktopSupervisor,
+  GatewayRunState,
+  GatewaySupervisor as GatewaySupervisorContract,
+  RestartReason,
+  SupervisorMode,
+  SupervisorStatus,
+} from "../platform/gateway-supervisor.ts";
+import { execRunner, type Runner } from "../platform/runner.ts";
+import {
+  type SystemdSupervisorOptions,
+  SystemdUserSupervisor,
+} from "../platform/systemd-supervisor.ts";
 
 /**
  * Gateway lifecycle (feature A7, architecture §3.1). The window is only a client: work continues
@@ -15,6 +36,8 @@ import { dirname, join } from "node:path";
  *   template (`Resources/launchd/com.psyche.gateway.plist`, `{{PSYCHED}}` and `{{PSYCHE_HOME}}`
  *   rendered here); without it `renderLaunchAgentPlist` writes the same keys. Plain quit leaves
  *   the agent running; "Quit Psyche entirely" uninstalls it.
+ * - `systemd` (Linux): `SystemdUserSupervisor`, the same job for a `systemd --user` unit
+ *   (`platform/systemd-supervisor.ts`); `createSupervisor` picks it.
  * - `external`: never start anything (tests, a Gateway on another machine via SSH tunnel).
  * - `remote`: the active saved Gateway is on another computer (remote-gateway design §1.2). Like
  *   `external` it starts nothing and only reports whether the Gateway answers, and it also leaves
@@ -22,32 +45,36 @@ import { dirname, join } from "node:path";
  *   Gateway whose automations keep running here.
  */
 
-export type SupervisorMode = "dev" | "launchd" | "external" | "remote";
+// The types now live with the interface (platform/gateway-supervisor.ts); callers keep importing
+// them from here.
+export type {
+  BuildCheck,
+  DesktopSupervisor,
+  GatewayRunState,
+  RestartReason,
+  SupervisorMode,
+  SupervisorStatus,
+};
+export { execRunner, type Runner };
 
 export const LAUNCH_AGENT_LABEL = "com.psyche.gateway";
 
-/** What `checkServerBuild` did: nothing to compare, same build, restarted the agent, or gave up. */
-export type BuildCheck = "skipped" | "match" | "restarted" | "mismatch";
-
-export type GatewayRunState =
-  | { kind: "unknown" }
-  /** `step` (launchd): installing the launch agent, then waiting for `/healthz` (the splash). */
-  | { kind: "starting"; mode: SupervisorMode; step?: "installing" | "waiting" }
-  | { kind: "running"; mode: SupervisorMode; pid?: number }
-  /** `logs`: the folder with gateway.{out,err}.log when the failure is worth reading them for. */
-  | {
-      kind: "stopped";
-      mode: SupervisorMode;
-      reason?: string;
-      logs?: string;
-      /** A restore of the pre-update data was cut short and could not be finished. */
-      restoreInterrupted?: boolean;
-    };
-
-export function chooseMode(env: NodeJS.ProcessEnv, isPackaged: boolean): SupervisorMode {
+/**
+ * Which supervisor runs the Gateway: `PSYCHE_GATEWAY_MODE` when it names one, else a packaged
+ * build uses its platform's service manager (launchd on macOS, systemd on Linux) and an unpackaged
+ * one runs `dev`. `platform` defaults to macOS so a caller that does not pass one keeps the
+ * answer it always had; main.ts passes the host's.
+ */
+export function chooseMode(
+  env: NodeJS.ProcessEnv,
+  isPackaged: boolean,
+  platform: NodeJS.Platform = "darwin",
+): SupervisorMode {
   const forced = env.PSYCHE_GATEWAY_MODE;
-  if (forced === "dev" || forced === "launchd" || forced === "external") return forced;
-  return isPackaged ? "launchd" : "dev";
+  if (forced === "dev" || forced === "launchd" || forced === "systemd" || forced === "external")
+    return forced;
+  if (!isPackaged) return "dev";
+  return platform === "linux" ? "systemd" : "launchd";
 }
 
 function xml(s: string): string {
@@ -216,19 +243,6 @@ export function parseLaunchctlPrint(out: string): {
   };
 }
 
-export type Runner = (
-  file: string,
-  args: string[],
-) => Promise<{ code: number; stdout: string; stderr: string }>;
-
-export const execRunner: Runner = (file, args) =>
-  new Promise((resolve) => {
-    execFile(file, args, { timeout: 10_000 }, (err, stdout, stderr) => {
-      const code = err ? (typeof err.code === "number" ? err.code : 1) : 0;
-      resolve({ code, stdout: String(stdout), stderr: String(stderr) });
-    });
-  });
-
 export interface SupervisorOptions {
   mode: SupervisorMode;
   psycheHome: string;
@@ -270,14 +284,13 @@ export interface SupervisorOptions {
   onState?: (s: GatewayRunState) => void;
 }
 
-/** A progress note older than this is a Gateway that died while updating, not one that is busy. */
-const UPDATE_PROGRESS_FRESH_MS = 5 * 60_000;
-/** Never wait longer than this for an update to finish, whatever the note says. */
-const UPDATE_WAIT_CEILING_MS = 15 * 60_000;
-
-const defaultSleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
-
-export class GatewaySupervisor {
+/**
+ * The launchd (and dev, external, remote) supervisor: the code that was `GatewaySupervisor`
+ * before the interface of the same name was extracted (Linux desktop design §2.3), moved without
+ * a behaviour change. `GatewaySupervisor` below keeps the old name working for callers and tests
+ * that construct it.
+ */
+export class LaunchdSupervisor implements DesktopSupervisor {
   private child: ChildProcess | undefined;
   private state: GatewayRunState = { kind: "unknown" };
   /** Builds the agent was restarted for already (once each), and the restart in flight. */
@@ -302,19 +315,22 @@ export class GatewaySupervisor {
     this.opts.onState?.(s);
   }
 
-  private async healthy(): Promise<boolean> {
-    try {
-      const res = await (this.opts.fetch ?? fetch)(this.opts.healthUrl, {
-        signal: AbortSignal.timeout(1_500),
-      });
-      return res.ok;
-    } catch {
-      return false;
-    }
+  private healthy(): Promise<boolean> {
+    return probeHealth(this.opts.healthUrl, this.opts.fetch);
   }
 
-  /** Makes sure a Gateway runs; returns without waiting for it to become healthy. */
-  async ensureRunning(): Promise<void> {
+  /**
+   * Makes sure a Gateway runs and answers with the resulting state. Launchd waits for `/healthz`;
+   * dev, external and remote do not. `build` (the app's bundled Gateway build) replaces
+   * `expectedBuild` from the options when given.
+   */
+  async ensureRunning(build?: string): Promise<GatewayRunState> {
+    if (build !== undefined) this.opts.expectedBuild = build;
+    await this.start();
+    return this.state;
+  }
+
+  private async start(): Promise<void> {
     const { mode } = this.opts;
     if (mode === "external" || mode === "remote") {
       this.set((await this.healthy()) ? { kind: "running", mode } : { kind: "stopped", mode });
@@ -446,34 +462,65 @@ export class GatewaySupervisor {
     }
     this.buildRestarts.add(expected);
     const restart = (async (): Promise<BuildCheck> => {
-      // Stop new work and give running turns a moment to settle before the process goes.
-      await this.opts.prepareRestart?.().catch(() => undefined);
-      this.set({ kind: "starting", mode: "launchd", step: "waiting" });
-      // `kickstart -k` restarts the loaded job with the plist launchd already read. Unload it,
-      // write the plist this build wants, and load that.
-      const uid = this.uid();
-      const content = await this.launchAgentContent();
-      await this.run("/bin/launchctl", [...launchctl.bootout(uid)]);
-      if (content !== undefined) {
-        mkdirSync(dirname(plistPath), { recursive: true });
-        writeFileSync(plistPath, content, { mode: 0o644 });
-      }
-      if (!(await this.bootstrap(uid, plistPath))) {
-        this.failed("launchctl could not load com.psyche.gateway after the update");
-        return "mismatch";
-      }
-      await this.run("/bin/launchctl", [...launchctl.kickstart(uid)]);
-      if (await this.waitHealthy()) {
-        await this.refresh();
-        return "restarted";
-      }
-      this.failed("The Gateway did not come back after the update");
-      return "mismatch";
+      await this.restart("build_mismatch");
+      return this.state.kind === "running" ? "restarted" : "mismatch";
     })().finally(() => {
       this.buildRestart = undefined;
     });
     this.buildRestart = restart;
     return restart;
+  }
+
+  /**
+   * Restarts the agent on this app's plist. For a build mismatch, stop new work and give running
+   * turns a moment to settle first; after an update the caller has done that already.
+   * `kickstart -k` restarts the loaded job with the plist launchd already read, so: unload it,
+   * write the plist this build wants, and load that.
+   */
+  async restart(reason: RestartReason): Promise<void> {
+    if (reason === "build_mismatch") await this.opts.prepareRestart?.().catch(() => undefined);
+    this.set({ kind: "starting", mode: "launchd", step: "waiting" });
+    const plistPath = this.plistPath();
+    const uid = this.uid();
+    const content = await this.launchAgentContent();
+    await this.run("/bin/launchctl", [...launchctl.bootout(uid)]);
+    if (content !== undefined) {
+      mkdirSync(dirname(plistPath), { recursive: true });
+      writeFileSync(plistPath, content, { mode: 0o644 });
+    }
+    if (!(await this.bootstrap(uid, plistPath))) {
+      this.failed("launchctl could not load com.psyche.gateway after the update");
+      return;
+    }
+    await this.run("/bin/launchctl", [...launchctl.kickstart(uid)]);
+    if (await this.waitHealthy()) return this.refresh();
+    this.failed("The Gateway did not come back after the update");
+  }
+
+  /** After `gateway.prepareUpdate`: boots the agent out and leaves its plist installed. */
+  async stopForUpdate(): Promise<void> {
+    if (this.opts.mode === "launchd")
+      await this.run("/bin/launchctl", [...launchctl.bootout(this.uid())]);
+    this.set({ kind: "stopped", mode: this.opts.mode, reason: "updating" });
+  }
+
+  async quitEntirely(): Promise<void> {
+    await this.stopEverything();
+  }
+
+  async status(): Promise<SupervisorStatus> {
+    if (this.opts.mode !== "launchd") {
+      return { loaded: this.child !== undefined, active: this.state.kind === "running" };
+    }
+    const printed = await this.run("/bin/launchctl", [...launchctl.print(this.uid())]);
+    if (printed.code !== 0) return { loaded: false, active: false };
+    const p = parseLaunchctlPrint(printed.stdout);
+    return {
+      loaded: true,
+      active: p.running,
+      ...(p.pid ? { pid: p.pid } : {}),
+      ...(p.lastExit ? { lastExit: p.lastExit } : {}),
+    };
   }
 
   private async bootstrap(uid: number, plistPath: string): Promise<boolean> {
@@ -487,32 +534,13 @@ export class GatewaySupervisor {
     return false;
   }
 
-  /** The Gateway is copying the data or migrating it (`run/update-progress.json`, still fresh). */
-  private updateInProgress(): boolean {
-    try {
-      const note = JSON.parse(
-        readFileSync(join(this.opts.psycheHome, "run", "update-progress.json"), "utf8"),
-      ) as { at?: unknown };
-      const at = typeof note.at === "string" ? Date.parse(note.at) : Number.NaN;
-      return Number.isFinite(at) && Date.now() - at < UPDATE_PROGRESS_FRESH_MS;
-    } catch {
-      return false;
-    }
-  }
-
-  private async waitHealthy(): Promise<boolean> {
-    const started = Date.now();
-    const deadline = started + (this.opts.healthTimeoutMs ?? 60_000);
-    for (;;) {
-      if (await this.healthy()) return true;
-      if (Date.now() >= deadline) {
-        // A big database can take minutes to copy and migrate: keep waiting while the Gateway
-        // says it is doing that, up to a ceiling, instead of reporting a failure under it.
-        if (!this.updateInProgress() || Date.now() - started >= UPDATE_WAIT_CEILING_MS)
-          return false;
-      }
-      await (this.opts.sleep ?? defaultSleep)(500);
-    }
+  private waitHealthy(): Promise<boolean> {
+    return waitForHealthy({
+      healthy: () => this.healthy(),
+      psycheHome: this.opts.psycheHome,
+      ...(this.opts.healthTimeoutMs === undefined ? {} : { timeoutMs: this.opts.healthTimeoutMs }),
+      sleep: this.opts.sleep ?? defaultSleep,
+    });
   }
 
   /**
@@ -520,14 +548,7 @@ export class GatewaySupervisor {
    * refuse the same build on the same data, so the next start tries the update again.
    */
   retryAfterUpdateFailure(opts: { restoredByHand?: boolean } = {}): boolean {
-    const note = join(this.opts.psycheHome, "run", "update-failed.json");
-    const had = existsSync(note);
-    rmSync(note, { force: true });
-    // Only for an owner who has put their data back themselves after a restore that could not
-    // be finished; without it the Gateway tries to finish that restore again.
-    if (opts.restoredByHand === true)
-      rmSync(join(this.opts.psycheHome, "run", "restore-in-progress.json"), { force: true });
-    return had;
+    return clearUpdateFailure(this.opts.psycheHome, opts, existsSync);
   }
 
   private failed(reason: string, restoreInterrupted = false): void {
@@ -538,28 +559,6 @@ export class GatewaySupervisor {
       logs: this.logDir(),
       ...(restoreInterrupted ? { restoreInterrupted: true } : {}),
     });
-  }
-
-  /**
-   * Why the Gateway refused to start when it undid a failed data migration (it leaves a plain
-   * sentence in `run/update-failed.json`): shown in place of "did not answer". Only for the
-   * build this app ships, so a note from an older build never explains a new failure.
-   */
-  private updateFailure(): { message: string; restoreInterrupted: boolean } | undefined {
-    try {
-      const note = JSON.parse(
-        readFileSync(join(this.opts.psycheHome, "run", "update-failed.json"), "utf8"),
-      ) as { message?: unknown; build?: unknown; key?: unknown };
-      if (typeof note.message !== "string" || note.message === "") return undefined;
-      if (this.opts.expectedBuild !== undefined && note.build !== this.opts.expectedBuild)
-        return undefined;
-      return {
-        message: note.message.slice(0, 600),
-        restoreInterrupted: note.key === "restore-interrupted",
-      };
-    } catch {
-      return undefined;
-    }
   }
 
   /**
@@ -632,7 +631,7 @@ export class GatewaySupervisor {
     const printed = await this.run("/bin/launchctl", [...launchctl.print(uid)]);
     const exit = parseLaunchctlPrint(printed.stdout).lastExit;
     const secs = Math.round((this.opts.healthTimeoutMs ?? 60_000) / 1000);
-    const known = this.updateFailure();
+    const known = readUpdateFailure(this.opts.psycheHome, this.opts.expectedBuild);
     this.failed(
       known?.message ??
         `The Gateway did not answer within ${secs} s${exit && exit !== "0" ? ` (last exit code ${exit})` : ""}`,
@@ -682,4 +681,41 @@ export class GatewaySupervisor {
     await this.run("/bin/launchctl", [...launchctl.bootout(this.uid())]);
     rmSync(plistPath, { force: true });
   }
+}
+
+/**
+ * The old name of {@link LaunchdSupervisor}: `new GatewaySupervisor({ mode, ... })` still builds the
+ * launchd/dev/external/remote supervisor, so existing callers and tests do not change. New code
+ * types against the `GatewaySupervisor` interface and builds one with {@link createSupervisor}.
+ */
+export const GatewaySupervisor = LaunchdSupervisor;
+export type GatewaySupervisor = GatewaySupervisorContract;
+
+export type DesktopSupervisorOptions = SupervisorOptions & {
+  /** systemd mode: what the unit runs and who owns the unit file. */
+  systemd?: Pick<
+    SystemdSupervisorOptions,
+    "program" | "args" | "install" | "unitDir" | "memoryHigh"
+  >;
+};
+
+/** The supervisor for `opts.mode`: systemd on Linux, the launchd class for everything else. */
+export function createSupervisor(opts: DesktopSupervisorOptions): DesktopSupervisor {
+  const { systemd, ...rest } = opts;
+  if (rest.mode !== "systemd") return new LaunchdSupervisor(rest);
+  if (!systemd) throw new Error("systemd mode needs the unit settings (opts.systemd)");
+  return new SystemdUserSupervisor({
+    psycheHome: rest.psycheHome,
+    healthUrl: rest.healthUrl,
+    ...systemd,
+    ...(rest.vaultKeyFile ? { vaultKeyFile: rest.vaultKeyFile } : {}),
+    ...(rest.expectedBuild === undefined ? {} : { expectedBuild: rest.expectedBuild }),
+    ...(rest.prepareRestart ? { prepareRestart: rest.prepareRestart } : {}),
+    ...(rest.healthTimeoutMs === undefined ? {} : { healthTimeoutMs: rest.healthTimeoutMs }),
+    ...(rest.confirmTakeover ? { confirmTakeover: rest.confirmTakeover } : {}),
+    ...(rest.run ? { run: rest.run } : {}),
+    ...(rest.fetch ? { fetch: rest.fetch } : {}),
+    ...(rest.sleep ? { sleep: rest.sleep } : {}),
+    ...(rest.onState ? { onState: rest.onState } : {}),
+  });
 }
