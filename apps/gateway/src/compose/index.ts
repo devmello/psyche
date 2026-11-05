@@ -1494,7 +1494,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
         ),
         { db, tasks, host: specialists, now: () => clock.now() },
       ),
-      { skills: skills.recorded, runs: recordedRuns },
+      {
+        skills: skills.recorded,
+        runs: recordedRuns,
+        pause: (id) => scheduler.update(id, { enabled: false }),
+      },
     ),
     // Scheduled → Pause: a paused routine skips its scheduled runs (Run now still goes through).
     () => pausedRoutines(scheduledKv),

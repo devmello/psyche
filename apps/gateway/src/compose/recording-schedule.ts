@@ -220,7 +220,7 @@ export function missSentence(skill: string, miss: RecordedMiss): string {
         : miss.status === "missing"
           ? "what it looks for is not on the page"
           : "it could not check the page";
-  return `The page changed${where}: ${what}. Psyche stopped "${skill}" and did nothing more. Open the page and record it again if it moved.`;
+  return `The page changed${where}: ${what}. Psyche stopped "${skill}" and did nothing more. Paused: record it again, or resume it in Scheduled.`;
 }
 
 interface RunGuard {
@@ -351,6 +351,8 @@ export function attachRecordedRunGuard(
 export interface RecordedRunDeps {
   skills: RecordedSkills;
   runs: RecordedRuns;
+  /** Pauses the schedule (a changed page stops it until the owner resumes it in Scheduled). */
+  pause?: (automationId: string) => Promise<unknown>;
 }
 
 const stopped = (summary: string): LaunchedRun => ({
@@ -397,6 +399,9 @@ export function withRecordedSkillRuns(inner: RunLauncher, deps: RecordedRunDeps)
         result: launched.result.then(
           (r): RunResult => {
             if (taskId !== undefined) deps.runs.end(taskId);
+            if (guard.miss !== undefined) {
+              deps.pause?.(request.automation.id).catch(() => {});
+            }
             return guard.miss === undefined
               ? r
               : {

@@ -79,7 +79,12 @@ function setup(initial: BrowserTeachStep[] = good) {
       };
     },
   };
-  const launcher = withRecordedSkillRuns(inner, { skills, runs });
+  const pauseRef: { scheduler?: SqliteScheduler } = {};
+  const launcher = withRecordedSkillRuns(inner, {
+    skills,
+    runs,
+    pause: (id) => pauseRef.scheduler?.update(id, { enabled: false }) ?? Promise.resolve(),
+  });
   const scheduler = new SqliteScheduler({
     db,
     clock,
@@ -90,6 +95,7 @@ function setup(initial: BrowserTeachStep[] = good) {
     deliverer: createDeliverer({ notifier }),
     defaultTimezone: TZ,
   });
+  pauseRef.scheduler = scheduler;
   const hooks = new HookRegistry();
   attachRecordedRunGuard(hooks, runs, async (taskId, reason) => {
     cancelled.push({ taskId, reason });
@@ -343,6 +349,29 @@ describe("a scheduled run of a recording", () => {
     expect(inbox).toHaveLength(1);
     expect(inbox[0]).toMatchObject({ kind: "task_failed", title: "Weekly export failed" });
     expect(inbox[0]?.body).toMatch(/step 3/);
+  });
+
+  it("pauses the schedule when the page changed, and resuming is one update", async () => {
+    const t = setup();
+    const { automation } = await t.schedule();
+    await createAutomationHandlers(t.scheduler)["automations.run"]({ automationId: automation.id });
+    await t.check("task_1", "Filter", "missing");
+    await t.scheduler.idle();
+    let item = (await t.scheduled["scheduled.list"]({})).items[0];
+    expect(item).toMatchObject({
+      state: "paused",
+      nextRunAt: null,
+      recordedSkill: "weekly-export",
+    });
+    const { runs } = await t.scheduled["scheduled.runs"]({});
+    expect(runs[0]?.reason).toMatch(/Paused: record it again, or resume it in Scheduled/);
+    await createAutomationHandlers(t.scheduler)["automations.update"]({
+      automationId: automation.id,
+      enabled: true,
+    });
+    item = (await t.scheduled["scheduled.list"]({})).items[0];
+    expect(item).toMatchObject({ state: "active" });
+    expect(item?.nextRunAt).not.toBeNull();
   });
 
   it.each(["ambiguous", "wrong_page"])("stops on %s too, and never carries on", async (status) => {

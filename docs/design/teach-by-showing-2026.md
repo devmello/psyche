@@ -148,7 +148,7 @@ A skill made from a recording can be put in Scheduled. Phase 1 left this out bec
 
 **A changed page stops the run.** The Gateway watches the run's tool calls (not just the model's instructions):
 - The model may act (`click`, `type`, `select`, `press`) only on the element that `browser.check_target` last answered `found` for, once. An action with no such check, or on another element, is blocked with the reason.
-- Any other answer (`missing`, `ambiguous`, `wrong_page`, or an error) ends the task at once. The run is recorded as **failed** with "The page changed at step 3: ..." (the step is found by matching the checked name against the recorded steps), and the scheduler sends the owner a "... failed" notification that opens Scheduled. Nothing more is done in that run. The schedule stays on, and the next run tries from the start; the owner can pause it from the same row.
+- Any other answer (`missing`, `ambiguous`, `wrong_page`, or an error) ends the task at once. The run is recorded as **failed** with "The page changed at step 3: ..." (the step is found by matching the checked name against the recorded steps), and the scheduler sends the owner a "... failed" notification that opens Scheduled. Nothing more is done in that run. The schedule is paused as well, so it does not try the page again next week: the run's reason reads "Paused: record it again, or resume it in Scheduled", and resuming is one click on the same row.
 - A scheduled recording cannot hand the tab over (`browser.request_control`), fill a saved login, upload a file or drag. Those need the owner, and nobody is there.
 
 **What stays the same.** The skill is still instructions the agent follows, not a script. The agent still reads page text as untrusted. The owner approved the skill's full text first.
@@ -189,7 +189,7 @@ A skill made from a recording can be put in Scheduled. Phase 1 left this out bec
 
 - **Kept recordings** are now encrypted (§5), and not kept at all without a keychain. Is 90 days the right length? Is "not kept" the right answer when the keychain is missing, or would you rather have a plain copy with a notice?
 - **"Run it once now" sends nothing itself.** It fills the message box so the owner presses Send. A one-click run is possible; it would put a message in the thread on the owner's behalf, so it is left as an owner choice.
-- **Weekly runs** (§8), decided as: sensitive and ask-each-time steps are refused, not asked for; a changed page stops the run and notifies; approvals wait. Still open: should a changed page also pause the schedule so it does not try again next week? (Today it stays on.) Should a run be able to ask for a value by notification and wait (a longer wait, a harder case)? Should the schedule offer more than one run a day?
+- **Weekly runs** (§8), decided as: sensitive and ask-each-time steps are refused, not asked for; a changed page stops the run and notifies; approvals wait. A changed page also pauses the schedule (decided). Still open: should a run be able to ask for a value by notification and wait (a longer wait, a harder case)? Should the schedule offer more than one run a day?
 
 ## 12. Where it lives
 
