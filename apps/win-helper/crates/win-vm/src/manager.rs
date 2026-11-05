@@ -1200,6 +1200,7 @@ impl Manager {
         }
         json!({
             "version": self.cfg.version,
+            "protocol": crate::protocol::PROTOCOL_VERSION,
             "hcs": hcs,
             "images": image::list(&self.cfg.images_root),
             "imagesRoot": self.cfg.images_root.to_string_lossy(),

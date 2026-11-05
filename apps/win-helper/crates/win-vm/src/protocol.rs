@@ -19,6 +19,12 @@ use serde_json::{Value, json};
 use crate::error::{Code, VmError, VmResult};
 use crate::manager::{self, Emit, Manager};
 
+/// The control protocol's version, in `service_info.protocol` and `psyche-vm-svc version`. Bumped
+/// only for a change an older peer cannot follow (a method's params or results changing meaning,
+/// not a method added). The Windows helper and the desktop app refuse a service whose number they
+/// do not know and ask the owner to update it; a service older than this field is protocol 1.
+pub const PROTOCOL_VERSION: u32 = 1;
+
 /// Every method the service answers (`watch` / `unwatch` are handled by the connection).
 pub const METHODS: [&str; 27] = [
     "status",
