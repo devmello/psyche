@@ -70,7 +70,7 @@ export function system32(...path: string[]): string {
 /**
  * `rename` over an existing file. On Windows it fails with EPERM/EBUSY/EACCES for the moment
  * another process has the old file open (a helper re-reading the secret, an antivirus scan of a
- * file just written); that clears in milliseconds, so it is retried for up to half a second.
+ * file just written); that clears in milliseconds (a loaded machine takes longer), so it is retried for up to two seconds.
  */
 export function renameOverSync(from: string, to: string): void {
   for (let attempt = 0; ; attempt++) {
@@ -80,7 +80,7 @@ export function renameOverSync(from: string, to: string): void {
     } catch (err) {
       const code = (err as NodeJS.ErrnoException).code;
       const busy = code === "EPERM" || code === "EBUSY" || code === "EACCES";
-      if (process.platform !== "win32" || !busy || attempt >= 20) throw err;
+      if (process.platform !== "win32" || !busy || attempt >= 80) throw err;
       Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 25);
     }
   }
