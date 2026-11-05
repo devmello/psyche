@@ -735,6 +735,47 @@ export const settingsRest: Partial<Catalogue> = {
     "Psyche를 다시 시작합니다. 그런 다음 다른 컴퓨터에서 이 Mac을 Gateway로 추가합니다. 페어링 코드와 키 지문이 표시되면, 여기 페어링 대기 중의 요청과 비교한 다음 승인하십시오.",
   "settings.remote.funnel":
     "이 용도로 Tailscale Funnel을 켜지 마십시오. Gateway가 공개 인터넷에 노출됩니다.",
+  "settings.uninstall.group": "Psyche 제거",
+  "settings.uninstall.groupHint":
+    "Gateway와 도우미를 중지하고 앱을 휴지통으로 이동합니다. 데이터는 다르게 선택하지 않는 한 그대로 남습니다.",
+  "settings.uninstall.open": "Psyche 제거…",
+  "settings.uninstall.title": "Psyche 제거",
+  "settings.uninstall.description":
+    "아래 항목은 모두 휴지통으로 이동하므로 다시 되돌릴 수 있습니다. 영구적으로 삭제되는 것은 없습니다.",
+  "settings.uninstall.dataChoice": "내 데이터",
+  "settings.uninstall.keep": "내 데이터 유지",
+  "settings.uninstall.keepHint": "채팅, 메모리, 보관함, 백업은 데이터 폴더에 그대로 남습니다.",
+  "settings.uninstall.delete": "내 데이터 삭제",
+  "settings.uninstall.deleteHint":
+    "데이터 폴더도 휴지통으로 이동합니다. 채팅, 메모리, 보관함, 백업이 포함됩니다.",
+  "settings.uninstall.willDo": "진행되는 작업",
+  "settings.uninstall.stopAgent": "Gateway LaunchAgent를 중지하고 제거합니다.",
+  "settings.uninstall.stopHelper": "Psyche Helper를 중지하고 “로그인 시 열기”를 끕니다.",
+  "settings.uninstall.trash": "휴지통으로 이동됨",
+  "settings.uninstall.kind.agent": "Gateway LaunchAgent",
+  "settings.uninstall.kind.support": "Application Support",
+  "settings.uninstall.kind.cache": "캐시, 로그, 환경설정, 저장된 상태",
+  "settings.uninstall.kind.data": "내 데이터",
+  "settings.uninstall.kind.app": "앱",
+  "settings.uninstall.agentOther":
+    "Gateway 에이전트가 다른 Psyche 사본 또는 명령줄 도구에 속해 있으므로 그대로 둡니다.",
+  "settings.uninstall.blocked": "{path}은(는) 여기서 휴지통으로 이동할 수 없습니다: {reason}",
+  "settings.uninstall.keychainStays":
+    "키체인 항목은 그대로 남습니다(보관함 키와 도우미 항목). 원하시면 키체인 접근에서 삭제하십시오.",
+  "settings.uninstall.keychainGoes": "보관함과 도우미의 키체인 항목도 함께 삭제됩니다.",
+  "settings.uninstall.removeKeychain":
+    "내 키체인 항목(com.psyche.vault 및 도우미의 항목)도 삭제합니다. 데이터가 없으면 쓸모가 없습니다.",
+  "settings.uninstall.kind.state": "저장된 윈도우 상태",
+  "settings.uninstall.dataStays": "데이터 폴더는 건드리지 않습니다.",
+  "settings.uninstall.typeWord": "확인하려면 {word}을(를) 입력하십시오",
+  "settings.uninstall.presence":
+    "데이터가 삭제되므로, 이어서 Touch ID 또는 이 기기에서 확인하라는 요청이 표시됩니다.",
+  "settings.uninstall.approvalLabel": "Psyche 제거 및 데이터 삭제",
+  "settings.uninstall.failed":
+    "Psyche를 제거하지 못했습니다({reason}). 그 외에는 변경된 것이 없습니다.",
+  "settings.uninstall.cancel": "취소",
+  "settings.uninstall.go": "제거하고 종료",
+  "settings.uninstall.goDelete": "데이터 삭제 후 제거",
   "settings.remote.admin":
     "페어링된 컴퓨터에는 읽기, 쓰기, 승인 권한이 부여됩니다. 관리자 권한은 승인할 때 선택하지 않으면 꺼진 상태로 유지되며, 관리자 변경마다 여기서 Touch ID가 필요합니다.",
   "settings.remote.address": "공개 주소",
