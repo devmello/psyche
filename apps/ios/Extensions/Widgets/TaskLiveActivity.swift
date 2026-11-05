@@ -96,9 +96,7 @@ struct TaskLockScreenView: View {
     /// on an unlocked phone (Notification Center, a banner): locked, the card says "Psyche is working" and its
     /// progress, nothing more. The text is also marked privacy-sensitive, so iOS hides it if it is drawn locked.
     private var shown: (title: String?, detail: String?) {
-        if let title = content.title { return (title, content.detail) }
-        guard !redaction.contains(.privacy) else { return (nil, nil) }
-        return (content.islandTitle, content.detail)
+        content.lockScreenText(locked: redaction.contains(.privacy))
     }
 
     var body: some View {

@@ -57,6 +57,16 @@ public struct TaskActivityContent: Codable, Hashable, Sendable {
         self.inlineApprovalID = inlineApprovalID
     }
 
+    /// What the Lock Screen card may say. With "Task titles on the Lock Screen" on (`title` set), the title and
+    /// the step detail always. With it off, only on an unlocked phone (Notification Center, a banner): `locked`
+    /// (iOS's `.privacy` redaction, set while a passcode phone is locked) leaves both nil, and the card says
+    /// "Psyche is working" and its progress, nothing more.
+    public func lockScreenText(locked: Bool) -> (title: String?, detail: String?) {
+        if let title { return (title, detail) }
+        guard !locked else { return (nil, nil) }
+        return (islandTitle, detail)
+    }
+
     /// What a future Gateway push update may carry (companion §3.6): progress, status, times and the opted-in
     /// title. The Dynamic Island's extra text stays on the phone.
     public var forPush: TaskActivityContent {
