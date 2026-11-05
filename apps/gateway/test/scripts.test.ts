@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -5,10 +6,12 @@ import type { AgentToolRegistration, DeferredToolsApi, ToolRunContext } from "@p
 import type { ChangeInput } from "@psyche/audit";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
+import type { GuestSandbox } from "../src/compose/guest-sandbox.ts";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
 import { type ComposedMcp, composeMcp } from "../src/compose/mcp.ts";
 import { scriptTools, wrapperSource } from "../src/compose/scripts.ts";
 import type { ComposeServices } from "../src/compose/services.ts";
+import type { VmRunRequest } from "../src/compose/vm.ts";
 import { adminClient, type TestClient } from "./helpers.ts";
 
 /** Build and run: a script runs after one card with its code; a kept one becomes a connector. */
@@ -43,7 +46,39 @@ afterEach(async () => {
   home = "";
 });
 
-async function setup() {
+/** Stands in for the sandbox PC's guest: records each run and runs the staged script locally. */
+function fakeGuest(up = true) {
+  const runs: VmRunRequest[] = [];
+  const guest: GuestSandbox & { up: boolean; runs: VmRunRequest[] } = {
+    up,
+    runs,
+    canIsolate: () => guest.up,
+    run: async (req) => {
+      runs.push(structuredClone({ ...req, signal: undefined }));
+      const code = req.files?.find((f) => f.path === req.argv[1])?.content ?? "";
+      const r = spawnSync(process.execPath, ["--input-type=module", "-e", code], {
+        input: req.stdin ?? "",
+        encoding: "utf8",
+      });
+      return {
+        exitCode: r.status,
+        stdout: r.stdout,
+        stderr: r.stderr,
+        durationMs: 1,
+        truncated: false,
+        filesChanged: [],
+        timedOut: false,
+        outcome: r.status === 0 ? "ok" : "failed",
+        provenance: "untrusted",
+      };
+    },
+  };
+  return guest;
+}
+
+async function setup(
+  options: { platform?: NodeJS.Platform; vm?: GuestSandbox; srtUsed?: string[] } = {},
+) {
   home = mkdtempSync(join(tmpdir(), "psyche-scripts-"));
   const srtPath = join(home, "fake-srt");
   writeFileSync(srtPath, '#!/bin/sh\nshift 3\nexec "$@"\n');
@@ -70,8 +105,29 @@ async function setup() {
   const tools = scriptTools({
     record: (c) => records.push(c),
     services: s,
-    srt: { resolve: async () => ({ path: srtPath }) },
+    srt: {
+      resolve: async () => {
+        options.srtUsed?.push(srtPath);
+        return { path: srtPath };
+      },
+    },
     vault: { redact: (t) => t },
+    // srt's rules unless a test is about Windows (the sandbox PC).
+    platform: options.platform ?? "darwin",
+    ...(options.vm === undefined ? {} : { vm: () => options.vm }),
+    ...(options.platform === "win32"
+      ? {
+          // Nothing may run on this computer on Windows: any host spawn fails the test.
+          driver: {
+            start: () => {
+              throw new Error("ran on the host");
+            },
+            stream: () => {
+              throw new Error("ran on the host");
+            },
+          },
+        }
+      : {}),
   });
   const tool = (name: string) => tools.find((t) => t.spec.name === name) as AgentToolRegistration;
   const run = async (name: string, p: unknown, c: ToolRunContext) =>
@@ -291,4 +347,109 @@ describe("run_script (build and run in the same turn)", () => {
     expect(src).toContain(JSON.stringify('quote " and `backtick` ${x}'));
     expect(src).toContain('const runner = "/usr/bin/python3"');
   });
+});
+
+describe("run_script on Windows (in the sandbox PC, never on this PC)", () => {
+  it("shows the same card, then runs the script in the guest with stdin, its file and no network", async () => {
+    const vm = fakeGuest();
+    const srtUsed: string[] = [];
+    const env = await setup({ platform: "win32", vm, srtUsed });
+    const { card, result } = await sum(env, "approve", ctx().c);
+    expect(card).toMatchObject({
+      kind: "skill_install",
+      surfaces: ["desktop"],
+      scopesOffered: ["once"],
+      details: { kind: "script_run", language: "node", interpreter: "node", sandbox: "sandbox-pc" },
+    });
+    expect(String((card.details.permissions as string[])[0])).toContain("sandbox PC");
+    expect(vm.runs).toEqual([
+      {
+        argv: ["node", "main.mjs"],
+        files: [{ path: "main.mjs", content: SUM }],
+        stdin: '{"a":2,"b":3}',
+        network: "none",
+        env: { LANG: "C.UTF-8" },
+        timeoutMs: 60_000,
+        signal: undefined,
+      },
+    ]);
+    expect(result.provenance).toBe("untrusted");
+    expect(result.output).toMatchObject({ exitCode: 0, stdout: "5", runs: 1 });
+    expect(env.records).toMatchObject([{ tool: "run_script", outcome: "ok" }]);
+    // srt is never looked for on Windows.
+    expect(srtUsed).toEqual([]);
+  }, 60_000);
+
+  it("gives the guest's network only when the card listed hosts, and says it is not host-limited", async () => {
+    const vm = fakeGuest();
+    const env = await setup({ platform: "win32", vm });
+    const seen = cardsSeen(env.owner);
+    const pending = env.run(
+      "run_script",
+      {
+        language: "python",
+        code: "print(1)",
+        purpose: "fetch a page",
+        allowedDomains: ["example.com"],
+      },
+      ctx().c,
+    );
+    const card = await nextCard(env.owner, seen);
+    expect(card.details.interpreter).toBe("python3");
+    expect(String((card.details.permissions as string[])[2])).toContain(
+      "not limited to example.com",
+    );
+    await answer(env.owner, card.id, "approve");
+    await pending;
+    expect(vm.runs[0]).toMatchObject({ argv: ["python3", "main.py"], network: "allow" });
+  }, 60_000);
+
+  it("while the sandbox PC is off: no card, nothing runs anywhere, and the fix is the sandbox permission", async () => {
+    const vm = fakeGuest(false);
+    const srtUsed: string[] = [];
+    const env = await setup({ platform: "win32", vm, srtUsed });
+    const seen = cardsSeen(env.owner);
+    const err = await env
+      .run("run_script", { language: "node", code: SUM, purpose: "add two numbers" }, ctx().c)
+      .catch((e: unknown) => e);
+    expect(err).toMatchObject({
+      code: "unavailable",
+      details: { reason: "sandbox_pc_off", missing: { need: "sandbox" } },
+    });
+    expect(String((err as Error).message)).toContain(
+      "Turn on the sandbox PC (Settings → Sandbox PC) to run this on Windows",
+    );
+    const keep = await env
+      .run(
+        "save_script_as_tool",
+        { scriptId: "s0123456789abcdef", id: "k", name: "K", toolName: "k", description: "kkk" },
+        ctx().c,
+      )
+      .catch((e: unknown) => e);
+    expect(keep).toMatchObject({ details: { reason: "sandbox_pc_off" } });
+    expect(cardsSeen(env.owner)).toBe(seen);
+    expect(vm.runs).toEqual([]);
+    expect(srtUsed).toEqual([]);
+  }, 60_000);
+
+  it("with VM mode composed off (no runner at all) gives the same answer", async () => {
+    const none = await setup({ platform: "win32" });
+    await expect(
+      none.run("run_script", { language: "node", code: SUM, purpose: "add" }, ctx().c),
+    ).rejects.toMatchObject({ details: { reason: "sandbox_pc_off" } });
+  }, 60_000);
+
+  it("turned off between the card and the run: still nothing runs on this PC", async () => {
+    const vm = fakeGuest();
+    const env = await setup({ platform: "win32", vm });
+    const seen = cardsSeen(env.owner);
+    const pending = env
+      .run("run_script", { language: "node", code: SUM, purpose: "add two numbers" }, ctx().c)
+      .catch((e: unknown) => e);
+    const card = await nextCard(env.owner, seen);
+    vm.up = false;
+    await answer(env.owner, card.id, "approve");
+    expect(await pending).toMatchObject({ details: { reason: "sandbox_pc_off" } });
+    expect(vm.runs).toEqual([]);
+  }, 60_000);
 });

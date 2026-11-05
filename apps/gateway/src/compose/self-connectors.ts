@@ -719,7 +719,7 @@ export function selfConnectors(deps: SelfConnectorsDeps): SelfConnectors {
     defineTool({
       name: "connector_test",
       description:
-        "Run your connector once in the sandbox (srt only, no network, no secrets) and list the tools it exposes. Use it before connector_register. Runs your code, so the owner is asked.",
+        "Run your connector once in the sandbox (no network, no secrets) and list the tools it exposes. Use it before connector_register. Runs your code, so the owner is asked.",
       input: Type.Object({ id: Id }),
       sideEffect: "write",
       describeCall: (p) => ({ summary: `Tested connector ${p.id}` }),

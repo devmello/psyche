@@ -45,11 +45,16 @@ export interface RequestPermissionDeps {
   allowConnectorAsk(connector: string, group: string): Promise<boolean>;
   /** Whether the connector is connected now (re-check after the owner's "Check again"). */
   connectorConnected(connector: string): Promise<boolean>;
-  /** Whether srt is installed now. */
+  /** Whether srt is installed now (on Windows: whether the sandbox PC can run srt's features). */
   sandboxReady(): boolean | Promise<boolean>;
+  /** Whose words the cards use (tests; default this process's platform). */
+  platform?: NodeJS.Platform;
 }
 
-function cardText(need: MissingPermission): { summary: string; sideEffect: "write" | "none" } {
+function cardText(
+  need: MissingPermission,
+  platform: NodeJS.Platform,
+): { summary: string; sideEffect: "write" | "none" } {
   switch (need.need) {
     case "capability":
       return { summary: `Turn on: run commands on ${hostWords().thisDevice}`, sideEffect: "write" };
@@ -66,7 +71,11 @@ function cardText(need: MissingPermission): { summary: string; sideEffect: "writ
         sideEffect: "none",
       };
     case "sandbox":
-      return { summary: "Set up the sandbox", sideEffect: "none" };
+      // srt has no Windows build: there the sandbox is the sandbox PC, which the owner turns on.
+      return {
+        summary: platform === "win32" ? "Turn on the sandbox PC" : "Set up the sandbox",
+        sideEffect: "none",
+      };
     case "folder":
       return { summary: `Share a folder: ${need.path}`, sideEffect: "none" };
   }
@@ -105,7 +114,7 @@ async function ask(
   need: Exclude<MissingPermission, { need: "folder" }>,
   reason: string,
 ): Promise<ToolResult> {
-  const { summary, sideEffect } = cardText(need);
+  const { summary, sideEffect } = cardText(need, deps.platform ?? process.platform);
   if (sideEffect === "write" && ctx.taint) {
     // §3.6: a tainted turn never changes settings, whatever the owner would answer.
     return {

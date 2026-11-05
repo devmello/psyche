@@ -21,6 +21,8 @@ import {
   srtLauncher,
   systemRuntimeDeps,
   type ToolWarning,
+  type VmStdioHost,
+  vmLauncher,
 } from "@psyche/mcp-host";
 import {
   type McpTrustTier,
@@ -31,6 +33,7 @@ import {
 } from "@psyche/protocol";
 import { srtSearchDirs } from "@psyche/sandbox";
 import type { Gateway } from "../server.ts";
+import { TURN_ON_SANDBOX_PC } from "./guest-sandbox.ts";
 import { type McpAdder, mcpAdder } from "./mcp-add.ts";
 import { mcpAppHandler } from "./mcp-app.ts";
 import { mcpGrantRevocation } from "./mcp-grants.ts";
@@ -62,6 +65,11 @@ export interface McpSetup {
   srt?: SrtResolver;
   /** Run stdio servers in their own sandbox container instead of under srt (M3, flagged). */
   container?: SandboxStdioHost & { dispose?(): Promise<void> };
+  /**
+   * Run stdio servers in the sandbox guest (the sandbox PC on Windows, where srt cannot run).
+   * Ready only while VM mode is on and the guest's psyche-node is connected with sessions.
+   */
+  vm?: VmStdioHost;
   /**
    * The sandbox egress proxy's allowlist setter (K4): a container server that declares network
    * hosts runs with `network: "proxy"` and reaches only those. Without it such servers are refused.
@@ -129,6 +137,9 @@ function launcherFor(services: ComposeServices, setup: McpSetup): StdioLauncher 
       ...(setup.egressAllowlist === undefined ? {} : { egressAllowlist: setup.egressAllowlist }),
       ...(setup.egressRevoke === undefined ? {} : { egressRevoke: setup.egressRevoke }),
     });
+  }
+  if (setup.vm !== undefined) {
+    return vmLauncher({ vm: setup.vm, notReady: `Command servers: ${TURN_ON_SANDBOX_PC}` });
   }
   if (setup.srt !== undefined) {
     return resolvingSrtLauncher({
@@ -451,8 +462,9 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
 
   let unsubscribe: (() => void) | undefined;
   // What `mcp.status` reports: with a resolving srt launcher, whether srt is there right now.
-  const launcherKind = async (): Promise<"container" | "srt" | "none"> => {
+  const launcherKind = async (): Promise<"container" | "srt" | "vm" | "none"> => {
     if (setup.container !== undefined) return "container";
+    if (setup.vm !== undefined) return (await launcher?.ready?.()) === true ? "vm" : "none";
     if (setup.srt !== undefined) return (await launcher?.ready?.()) === true ? "srt" : "none";
     return setup.srtPath !== undefined ? "srt" : "none";
   };

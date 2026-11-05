@@ -281,8 +281,9 @@ const recordingAudit = {
 
 const echo = { argv: ["/bin/echo", "hi"], cwd: project };
 
-// exec_host runs Host commands under srt (Seatbelt / bubblewrap) with POSIX binaries such as
-// /bin/echo; srt has no Windows build, so a Windows Gateway never offers exec_host.
+// These run POSIX binaries such as /bin/echo under (mocked) srt. A Windows Gateway offers
+// exec_host too, with Windows rules (no srt, every command carded, UNSANDBOXED to run): those
+// are tested with Windows programs in "exec_host on Windows" below.
 const posixHost = process.platform !== "win32";
 
 describe.skipIf(!posixHost)("exec_host: missing permission → request → retry", () => {
@@ -1123,3 +1124,152 @@ describe.skipIf(!posixHost)(
     });
   },
 );
+
+/**
+ * exec_host on a Windows Gateway: Windows programs found with PATHEXT in Windows' own folders,
+ * never a batch file through cmd.exe, drive-letter cwds compared without case, a Windows env,
+ * Windows git hardening, and, with no host sandbox there, every command on a card that runs
+ * only with UNSANDBOXED typed on it.
+ */
+describe.skipIf(process.platform !== "win32")("exec_host on Windows", () => {
+  const sys = join(process.env.SystemRoot ?? "C:\\Windows", "System32");
+  const whoami = realpathSync.native(join(sys, "whoami.exe"));
+  const winHost = (audit = false) =>
+    execHostTool({
+      broker: recording(),
+      vault: { redact: (t) => t },
+      folders: (threadId) => [...(broker.policy.folders ?? []), ...broker.sessionFolders(threadId)],
+      srt: { resolve: async () => srt },
+      home: psycheHome,
+      userHome: home,
+      driver,
+      platform: "win32",
+      ...(audit ? { audit: recordingAudit } : {}),
+    });
+  beforeEach(() => {
+    srt = { missing: true, reason: "unsupported_platform" };
+    setPolicy({ ...policy, exec: { execHostEnabled: true, readOnlyWithoutAsking: true } });
+  });
+
+  it("finds a bare name with PATHEXT in Windows' folders, takes an absolute .exe, refuses batch files", async () => {
+    const t = winHost();
+    const a = await card(t, { argv: ["whoami"], cwd: project });
+    expect(a.details).toMatchObject({ executable: whoami });
+    const b = await card(t, { argv: [whoami.toLowerCase()], cwd: project });
+    expect(b.details).toMatchObject({ executable: whoami });
+    const bat = join(project, "build.cmd");
+    writeFileSync(bat, "@echo off\r\necho hi\r\n");
+    expect(() => t.describeCall?.({ argv: [bat], cwd: project })).toThrow(/batch file/);
+    // `.\build` finds the .cmd by PATHEXT and is refused the same way, never run through cmd.exe.
+    expect(() => t.describeCall?.({ argv: [".\\build"], cwd: project })).toThrow(/batch file/);
+    expect(() => t.describeCall?.({ argv: ["psyche-no-such-tool"], cwd: project })).toThrow(
+      /not in .*System32/,
+    );
+  });
+
+  it("asks for every command, read-only ones too, and says there is no sandbox to set up", async () => {
+    const t = winHost(true);
+    const d = await decide(t, { argv: ["whoami"], cwd: project });
+    expect(d.decision).toBe("ask");
+    expect(described(t, { argv: ["whoami"], cwd: project }).meta).toBeUndefined();
+    const a = await card(t, { argv: ["whoami"], cwd: project });
+    expect(a.details).toMatchObject({
+      sandbox: "missing",
+      sandboxMissingReason: "unsupported_platform",
+      hostSandbox: "none",
+      unsandboxedWord: UNSANDBOXED_WORD,
+    });
+  });
+
+  it("an approval without UNSANDBOXED runs nothing and points nowhere it cannot be fixed", async () => {
+    const t = winHost();
+    const params = { argv: ["whoami"], cwd: project };
+    const a = await card(t, params);
+    await answer(a.id);
+    const err = await run(t, params, ctx({ approvalId: a.id })).catch((e: unknown) => e);
+    expect(err).toMatchObject({ code: "unavailable", details: { reason: "no_host_sandbox" } });
+    expect((err as { details?: { missing?: unknown } }).details?.missing).toBeUndefined();
+    expect(String((err as Error).message)).toContain(UNSANDBOXED_WORD);
+    expect(started).toEqual([]);
+  });
+
+  it("with UNSANDBOXED typed: runs the .exe directly in a drive-letter subfolder with a Windows env", async () => {
+    const t = winHost();
+    const sub = join(project, "Src");
+    mkdirSync(sub, { recursive: true });
+    // Another case and forward slashes are the same folder on Windows.
+    const cwd = sub.toUpperCase().replaceAll("\\", "/");
+    const params = { argv: ["whoami", "/user"], cwd, env: { CI: "1" } };
+    const a = await card(t, params);
+    await answer(a.id, { unsandboxed: UNSANDBOXED_WORD });
+    const out = run(t, params, ctx({ approvalId: a.id }));
+    await nextStart();
+    finish({ stdout: Buffer.from("me\r\n") });
+    expect((await out).output).toMatchObject({ exitCode: 0, sandboxed: false, outcome: "ok" });
+    const s = started[0];
+    expect(s?.file).toBe(whoami);
+    expect(s?.args).toEqual(["/user"]);
+    expect(s?.options?.cwd?.toLowerCase()).toBe(realpathSync(sub).toLowerCase());
+    const env = s?.options?.env ?? {};
+    expect(String(env.PATH).split(";")[0]?.toLowerCase()).toBe(sys.toLowerCase());
+    expect(env.PATHEXT).toBe(".COM;.EXE");
+    expect(env.USERPROFILE).toBe(home);
+    expect(env.CI).toBe("1");
+    expect(env.TEMP).toBe(env.TMP);
+    expect(String(env.TEMP).startsWith(join(psycheHome, "exec-host"))).toBe(true);
+    // Nothing POSIX, and nothing else of the Gateway's own environment.
+    for (const k of ["HOME", "TMPDIR", "LANG", "USER"]) expect(env[k], k).toBeUndefined();
+    expect(Object.keys(env).some((k) => k.startsWith("PSYCHE"))).toBe(false);
+  });
+
+  it("refuses a cwd outside the grants, a rooted cwd without a drive, and Windows' reserved env", async () => {
+    const t = winHost();
+    expect(() => t.describeCall?.({ argv: ["whoami"], cwd: "\\Users\\x" })).toThrow(/drive/);
+    for (const k of ["USERPROFILE", "PATHEXT", "SYSTEMROOT", "COMSPEC", "APPDATA", "TEMP"]) {
+      expect(() => t.describeCall?.({ argv: ["whoami"], cwd: project, env: { [k]: "x" } })).toThrow(
+        /fixed/,
+      );
+    }
+    // Outside the grants: denied before any card, naming the folder (the run checks again).
+    const params = { argv: ["whoami"], cwd: outside };
+    const d = await decide(t, params);
+    expect(d).toMatchObject({ decision: "deny", missing: { need: "folder", path: outside } });
+    await expect(run(t, params, ctx({ approvalId: "ap_none" }))).rejects.toMatchObject({
+      code: "forbidden",
+      details: { missing: { need: "folder" } },
+    });
+    expect(started).toEqual([]);
+  });
+
+  it("every git gets Windows' hardening (no hooks, no gpg) before the owner's argv", async () => {
+    const t = winHost();
+    let git: string;
+    try {
+      const d = t.describeCall?.({ argv: ["git", "--version"], cwd: project }) as
+        | ToolCallDescription
+        | undefined;
+      git = d?.details?.executable as string;
+    } catch {
+      return; // no Git for Windows on this machine
+    }
+    const params = { argv: ["git", "status"], cwd: project };
+    const a = await card(t, params);
+    await answer(a.id, { unsandboxed: UNSANDBOXED_WORD });
+    const out = run(t, params, ctx({ approvalId: a.id }));
+    await nextStart();
+    finish({});
+    await out;
+    const s = started[0];
+    expect(s?.file).toBe(git);
+    for (const v of [
+      "core.fsmonitor=false",
+      `core.hooksPath=${join(sys, "psyche-disabled")}`,
+      `gpg.program=${join(sys, "psyche-disabled.exe")}`,
+      "log.showSignature=false",
+      "diff.external=",
+    ]) {
+      expect(s?.args, v).toContain(v);
+    }
+    expect(s?.args.slice(-1)).toEqual(["status"]);
+  });
+});

@@ -26,6 +26,7 @@ import {
 import { hostWords } from "@psyche/protocol/host-words";
 import { Type } from "@sinclair/typebox";
 import type { HandlerDef } from "../context.ts";
+import { usesSandboxPc } from "./guest-sandbox.ts";
 import { MCP_SERVERS_SETTING } from "./mcp.ts";
 import type { McpAdder } from "./mcp-add.ts";
 import { serverConfig } from "./mcp-add.ts";
@@ -615,7 +616,7 @@ function nextStep(item: CatalogItem): string {
 
 const BUILD_OPTION = {
   kind: "build",
-  how: "Nothing installed fits but you could do it in code? Build it and run it now: run_script with a small Node script (stdin JSON in, stdout out; one owner card shows the code; srt, no network unless listed). If it will be needed again, save_script_as_tool keeps it as a connector. For a server with several tools use the connector_* tools (load_tools them); for a procedure, skill_create. Tell the owner in one line what you are building and why.",
+  how: "Nothing installed fits but you could do it in code? Build it and run it now: run_script with a small Node script (stdin JSON in, stdout out; one owner card shows the code; it runs in the sandbox, no network unless listed). If it will be needed again, save_script_as_tool keeps it as a connector. For a server with several tools use the connector_* tools (load_tools them); for a procedure, skill_create. Tell the owner in one line what you are building and why.",
 };
 
 export interface CapabilityToolsDeps {
@@ -686,7 +687,9 @@ export function capabilityTools(deps: CapabilityToolsDeps): {
         ? ["Its instructions are offered to Psyche; it grants no tool or permission"]
         : [
             t?.kind === "stdio"
-              ? "Downloads and runs this package on this Mac inside the srt sandbox"
+              ? usesSandboxPc()
+                ? "Downloads and runs this package in the sandbox PC (a separate Linux computer, not this PC)"
+                : "Downloads and runs this package on this Mac inside the srt sandbox"
               : "Connects to this endpoint; your data reaches it when its tools are used",
             network.length === 0 ? "No network" : `Network: ${network.join(", ")}`,
             "Its write tools ask each time unless you grant them; you can remove it in Settings → Connectors",
