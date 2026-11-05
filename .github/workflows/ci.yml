@@ -215,7 +215,8 @@ jobs:
   helper:
     name: mac helper (swift build + test)
     needs: changes
-    if: needs.changes.outputs.helper == 'true'
+    # macOS minutes are expensive: run on pull requests that touch the helper, by hand, or on a tag.
+    if: needs.changes.outputs.helper == 'true' && github.event_name != 'push' || startsWith(github.ref, 'refs/tags/')
     runs-on: macos-26
     timeout-minutes: 30
     continue-on-error: false
@@ -257,7 +258,8 @@ jobs:
   ios:
     name: ios app (xcodegen + xcodebuild + swift test)
     needs: changes
-    if: needs.changes.outputs.ios == 'true'
+    # macOS minutes are expensive: run on pull requests that touch iOS, by hand, or on a tag.
+    if: needs.changes.outputs.ios == 'true' && github.event_name != 'push' || startsWith(github.ref, 'refs/tags/')
     runs-on: macos-26
     timeout-minutes: 40
     steps:
@@ -286,7 +288,8 @@ jobs:
   ios-ui:
     name: ios ui tests (xcodebuild test, iPhone simulator)
     needs: changes
-    if: needs.changes.outputs.ios == 'true'
+    # About 20 macOS minutes a run: only when started by hand (workflow_dispatch) or on a release tag.
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
     runs-on: macos-26
     timeout-minutes: 30
     steps:
