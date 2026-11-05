@@ -18,6 +18,9 @@ import {
   underlyingRoute,
 } from "../../src/shell/ShellApp.tsx";
 
+/** This package's root: `vitest run` at the repository root does not change the cwd. */
+const PKG = `${import.meta.dirname}/../..`;
+
 afterEach(() => {
   cleanup();
   window.innerWidth = 1280;
@@ -293,7 +296,7 @@ describe("the toolbar clear of the traffic lights (#624)", () => {
         sidebarWidth: 248,
       }),
     ).toEqual({ lead: 248, toolbar: null });
-    const css = readFileSync(join(process.cwd(), "src/shell/layout/shell-layout.css"), "utf8");
+    const css = readFileSync(join(PKG, "src/shell/layout/shell-layout.css"), "utf8");
     expect(css).toMatch(/env\(titlebar-area-width/);
     expect(css).toMatch(
       /\.app-frame\[data-chrome="overlay"\]\s+\.shell-content\s+:is\([^)]*\)\s*\{\s*padding-right: calc\(var\(--caption-buttons-width\)/,
@@ -308,7 +311,7 @@ describe("the toolbar clear of the traffic lights (#624)", () => {
     const frame = screen.getByTestId("app-frame");
     expect(frame.hasAttribute("data-chrome")).toBe(false);
     // The attribute alone does nothing without the inset chrome (the CSS needs both).
-    const css = readFileSync(join(process.cwd(), "src/shell/layout/shell-layout.css"), "utf8");
+    const css = readFileSync(join(PKG, "src/shell/layout/shell-layout.css"), "utf8");
     expect(css).toMatch(
       /\.app-frame\[data-chrome\]\[data-toolbar-lead\]\s+\.shell-content\s+:is\(\[data-slot="toolbar"\], \[data-slot="screen-toolbar"\], \[data-testid="chat-toolbar"\]\)\s*\{\s*padding-left: var\(--toolbar-lead/,
     );
