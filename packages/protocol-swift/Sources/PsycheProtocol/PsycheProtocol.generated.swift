@@ -11144,13 +11144,16 @@ public struct Warning: Codable, Sendable {
 
 // MARK: - ConnectorResetResult
 public struct ConnectorResetResult: Codable, Sendable {
+    public let dropped: Int
     public let restored: Bool
 
     public enum CodingKeys: String, CodingKey {
+        case dropped = "dropped"
         case restored = "restored"
     }
 
-    public init(restored: Bool) {
+    public init(dropped: Int, restored: Bool) {
+        self.dropped = dropped
         self.restored = restored
     }
 }
@@ -11921,6 +11924,19 @@ public struct ConnectorsRemoveCustomParams: Codable, Sendable {
 
     public init(connectorID: String) {
         self.connectorID = connectorID
+    }
+}
+
+// MARK: - ConnectorsResetRecordsParams
+public struct ConnectorsResetRecordsParams: Codable, Sendable {
+    public let approvalID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case approvalID = "approvalId"
+    }
+
+    public init(approvalID: String? = nil) {
+        self.approvalID = approvalID
     }
 }
 
@@ -35988,7 +36004,6 @@ public typealias ChannelsIdentitiesListParams = [String: JSONAny]
 public typealias ChannelsListParams = [String: JSONAny]
 public typealias ConnectorsCatalogueParams = [String: JSONAny]
 public typealias ConnectorsListParams = [String: JSONAny]
-public typealias ConnectorsResetRecordsParams = [String: JSONAny]
 public typealias DailyAutomationsTemplatesParams = [String: JSONAny]
 public typealias DevicesBootstrapAdminParams = [String: JSONAny]
 public typealias DevicesPresenceKeyListParams = [String: JSONAny]

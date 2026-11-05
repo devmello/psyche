@@ -557,7 +557,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     adapters: [createDeviceSurface({ send: (id, toast) => deviceNotes.send(id, toast) })],
   });
   // The old "Files on this Mac" connector is File access now: move its folder into the grants.
-  migrateFilesConnector(db, config.home);
+  await migrateFilesConnector(db, config.home, folderAccessEnv(config.home));
   // One chat per automation: runs that each opened a chat of their own are filed under it.
   groupAutomationRunThreads(db);
   const storedPolicy = validPolicy(getSetting(db, "permissions.policy")?.value, gwOptions.logger);

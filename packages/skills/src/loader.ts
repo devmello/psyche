@@ -542,7 +542,9 @@ export class FsSkillLoader implements SkillLoader {
       // fall through to the author list
     }
     try {
-      return this.#ring.get(keyId)?.state ?? "seen";
+      const state = this.#ring.get(keyId)?.state ?? "seen";
+      // A key that was replaced by a rotation the owner saw is not `verified`, trusted or not.
+      return state === "trusted" && this.#ring.isRetired(keyId) ? "seen" : state;
     } catch {
       return "unreadable";
     }
@@ -1091,7 +1093,7 @@ export class FsSkillLoader implements SkillLoader {
         : bundle === undefined || bundle.manifest.origin === "agent"
           ? "unknown"
           : (status === "own" && bundleInfo?.signer.retired !== true) ||
-              status === "trusted" ||
+              (status === "trusted" && bundleInfo?.signer.retired !== true) ||
               trustAuthor
             ? "verified"
             : "unknown";
@@ -1168,6 +1170,15 @@ export class FsSkillLoader implements SkillLoader {
     if (signer !== undefined && this.#ring.isRevoked(signer.keyId)) {
       this.#proposals.delete(proposalId);
       throw new PsycheError("policy_denied", "this bundle is signed by a key you revoked");
+    }
+    // Approval order cannot get past the fork check: rechecked now, before anything is written.
+    if (signer !== undefined && staged.lineage !== undefined) {
+      try {
+        this.#ring.assertNoFork(signer.keyId, staged.lineage.keys.slice(1));
+      } catch (err) {
+        this.#proposals.delete(proposalId);
+        throw err;
+      }
     }
     // A notice imported after the card was staged still blocks it.
     if (

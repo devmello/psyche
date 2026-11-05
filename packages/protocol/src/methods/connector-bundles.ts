@@ -115,12 +115,18 @@ export type ConnectorBundleCard = Static<typeof ConnectorBundleCard>;
 
 export const ConnectorBundleMethods = {
   "connectors.resetRecords": defineMethod({
-    params: Type.Object({}),
-    result: Type.Object({ restored: Type.Boolean() }, { $id: "ConnectorResetResult" }),
+    params: Type.Object({
+      /** Fresh presence: the approved card from a first `approval_required` call. */
+      approvalId: Type.Optional(Id),
+    }),
+    result: Type.Object(
+      { restored: Type.Boolean(), dropped: Type.Integer({ minimum: 0 }) },
+      { $id: "ConnectorResetResult" },
+    ),
     scope: "operator.admin",
     sideEffecting: true,
     description:
-      "Side-effecting: sets aside an unreadable record of shared connectors (restoring the last good copy when there is one, else starting empty). Connectors that came from a file and have no record stay off until they are removed or imported again; it never starts anything.",
+      "Side-effecting, Host shell only, behind a device-only approval (fresh presence once a verifier exists; approval_required with details.approvalId, then retry with approvalId): sets an unreadable record of shared connectors aside (one .corrupt file, replaced each time), restoring the last good copy when there is one, else starting empty; a readable record is left alone except that records of servers that did not come from a file are dropped. Connectors that came from a file and have no record stay off until they are removed or imported again; it never starts anything.",
   }),
   "connectors.export": defineMethod({
     params: Type.Object({

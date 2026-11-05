@@ -422,10 +422,59 @@ export function connectorWidenedBy(
 
 // --- credentials and risks in the command line ---------------------------------------------------
 
-const URL_USERINFO = /[a-z][a-z0-9+.-]*:\/\/[^/\s:@]+(?::[^/\s@]*)?@/i;
 const JWT = /eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]*/;
+/** Prefixes of tokens that services hand out: on their own they are a credential. */
+const TOKEN_PREFIX =
+  /^(ghp_|gho_|ghu_|ghs_|ghr_|github_pat_|glpat-|xox[abprs]-|sk-|sk_live_|rk_live_|pk_live_|AKIA[0-9A-Z]{8}|AIza[0-9A-Za-z_-]{10}|npm_[A-Za-z0-9]{10}|eyJ[A-Za-z0-9_-]{8})/;
+
+/**
+ * Words (flag or key name segments) that name a credential. Whole segments are matched, so
+ * `--api-key` and `--access_token` count, and `--max-tokens`, `--author` or `--sort-key` do not.
+ */
+const SECRET_WORDS = new Set([
+  "token",
+  "apikey",
+  "secret",
+  "password",
+  "passwd",
+  "pwd",
+  "credential",
+  "credentials",
+  "bearer",
+  "cookie",
+]);
+const SECRET_PAIRS = [
+  ["api", "key"],
+  ["access", "key"],
+  ["private", "key"],
+  ["secret", "key"],
+  ["auth", "token"],
+  ["access", "token"],
+  ["api", "token"],
+  ["client", "secret"],
+];
+/** Names that contain a secret word but are not one. */
+const NOT_SECRET =
+  /(max-?tokens?|token-?(limit|count|budget|usage)|auth-?type|authority|author|keyspace|primary-?key|sort-?key|bypass-?cache|oauth-?scopes?)/i;
 /** A flag that names a secret but only points at where it is (`--token-file`) is not a leak. */
-const POINTER_FLAG = /(file|path|env|name|url|dir|var|id)$/i;
+const POINTER = /(file|path|env|name|url|dir|var|id|type|scope|scopes)$/i;
+
+function secretName(raw: string): boolean {
+  const name = raw.replace(/^-+/, "").toLowerCase();
+  if (name === "" || NOT_SECRET.test(name) || POINTER.test(name)) return false;
+  const segs = name.split(/[-_.\s]+/).filter((x) => x !== "");
+  if (segs.some((x) => SECRET_WORDS.has(x))) return true;
+  return SECRET_PAIRS.some(([x, y]) =>
+    segs.some(
+      (seg, i) => seg === x && (segs[i + 1] === y || (seg === "api" && segs[i + 1] === "key")),
+    ),
+  );
+}
+
+/** `Password=`, `Pwd=`, `AccountKey=` in a connection string, and the like. */
+const CONNECTION_KEYS = /^(password|pwd|accountkey|sharedaccesskey|secret|token|apikey|api key)$/i;
+const QUERY_KEYS =
+  /^(api[_-]?key|apikey|token|key|access[_-]?token|auth[_-]?token|secret|password|passwd|pwd|sig|signature|client[_-]?secret)$/i;
 
 function entropy(text: string): number {
   const counts = new Map<string, number>();
@@ -440,35 +489,68 @@ function entropy(text: string): number {
 
 /** Why an argument could be carrying a credential; `undefined` when it looks like plain config. */
 function argLeak(arg: string, previous: string | undefined): string | undefined {
-  if (URL_USERINFO.test(arg)) return "a web address with a user name or password in it";
   if (JWT.test(arg)) return "a signed token";
+  if (TOKEN_PREFIX.test(arg)) return "a token a service hands out";
+  // A web address: a login in it, a secret in its query, or a token as one of its path parts.
+  const url = /^[a-z][a-z0-9+.-]*:\/\/([^/\s?#]*)([^\s]*)$/i.exec(arg);
+  if (url !== null) {
+    const authority = url[1] as string;
+    const rest = url[2] as string;
+    const at = authority.lastIndexOf("@");
+    if (at >= 0) {
+      const info = authority.slice(0, at);
+      const colon = info.indexOf(":");
+      // `redis://:pw@host` has an empty user name; `https://ghp_x@host` is a token as the user.
+      if (colon >= 0 ? info.slice(colon + 1) !== "" : TOKEN_PREFIX.test(info))
+        return "a web address with a user name or password in it";
+    }
+    const q = rest.indexOf("?");
+    if (q >= 0) {
+      for (const pair of rest.slice(q + 1).split(/[&;]/)) {
+        const eq = pair.indexOf("=");
+        if (eq > 0 && pair.slice(eq + 1) !== "" && QUERY_KEYS.test(pair.slice(0, eq)))
+          return `a secret in a web address (${pair.slice(0, eq).slice(0, 30)}=)`;
+      }
+    }
+    for (const part of (q >= 0 ? rest.slice(0, q) : rest).split("/"))
+      if (TOKEN_PREFIX.test(part)) return "a token in the path of a web address";
+  }
+  // Header values: `Authorization: ...`, `X-Api-Key: ...`, `Bearer <x>`.
+  const header = /^([A-Za-z][\w-]*)\s*:\s*(\S.*)$/s.exec(arg);
+  if (
+    header !== null &&
+    (/^(proxy-)?authorization$|^(set-)?cookie$/i.test(header[1] as string) ||
+      (/^x-/i.test(header[1] as string) && secretName((header[1] as string).slice(2))))
+  )
+    return `a header value (${(header[1] as string).slice(0, 30)})`;
+  if (/\bbearer\s+\S{6,}/i.test(arg) || /\bbasic\s+[A-Za-z0-9+/=]{8,}/i.test(arg))
+    return "an authorization value";
+  // Connection strings: `Server=x;Password=y`.
+  if (arg.includes(";") && arg.includes("=")) {
+    for (const pair of arg.split(";")) {
+      const eq = pair.indexOf("=");
+      if (
+        eq > 0 &&
+        pair.slice(eq + 1).trim() !== "" &&
+        CONNECTION_KEYS.test(pair.slice(0, eq).trim())
+      )
+        return `a value in a connection string (${pair.slice(0, eq).trim().slice(0, 30)})`;
+    }
+  }
+  // `--name=value` / `name=value` where the name is a credential.
   const kv = /^-{0,2}([A-Za-z][\w.-]*)=(.+)$/s.exec(arg);
-  if (
-    kv !== null &&
-    SECRET_SHAPED_NAME.test(kv[1] as string) &&
-    !POINTER_FLAG.test(kv[1] as string)
-  )
+  if (kv !== null && secretName(kv[1] as string))
     return `a value given to ${(kv[1] as string).slice(0, 40)}`;
-  if (
-    previous !== undefined &&
-    /^-{1,2}[A-Za-z][\w.-]*$/.test(previous) &&
-    SECRET_SHAPED_NAME.test(previous) &&
-    !POINTER_FLAG.test(previous) &&
-    !arg.startsWith("-")
-  )
-    return `the value after ${previous.slice(0, 40)}`;
-  // A long, random-looking word that is not a path or a package spec.
-  if (
-    arg.length >= 24 &&
-    /^[A-Za-z0-9_\-+/=]+$/.test(arg) &&
-    !arg.startsWith("/") &&
-    !arg.startsWith(".") &&
-    !(arg.includes("/") && arg.includes(".")) &&
-    entropy(arg) >= 4.3 &&
-    /\d/.test(arg) &&
-    /[A-Za-z]/.test(arg)
-  )
-    return "a long random-looking value";
+  // The value after a flag that names a credential, long or short (`-p secret`, `-psecret`).
+  if (previous !== undefined && !arg.startsWith("-")) {
+    if (/^-{1,2}[A-Za-z][\w.-]*$/.test(previous) && secretName(previous))
+      return `the value after ${previous.slice(0, 40)}`;
+    if (/^-[pP]$/.test(previous) && !/^\d+$/.test(arg) && !/^[/.~]/.test(arg))
+      return "the value after -p";
+  }
+  const short = /^-[pP](.{3,})$/.exec(arg);
+  if (short !== null && !/^\d+$/.test(short[1] as string) && !/^[/.~]/.test(short[1] as string))
+    return "a value attached to -p";
   return undefined;
 }
 
@@ -480,6 +562,22 @@ export function argvCredentialLeaks(args: readonly string[]): string[] {
     if (why !== undefined) out.push(`argument ${i + 1} looks like ${why}`);
   });
   return out;
+}
+
+/** Long random-looking words: worth a look, but only a warning (hashes, ids and paths look so too). */
+export function argvSuspectWords(args: readonly string[]): string[] {
+  return args.flatMap((arg, i) =>
+    arg.length >= 24 &&
+    /^[A-Za-z0-9_\-+/=]+$/.test(arg) &&
+    !arg.startsWith("/") &&
+    !arg.startsWith(".") &&
+    !(arg.includes("/") && arg.includes(".")) &&
+    entropy(arg) >= 4.3 &&
+    /\d/.test(arg) &&
+    /[A-Za-z]/.test(arg)
+      ? [`argument ${i + 1} is a long random-looking word`]
+      : [],
+  );
 }
 
 const RUNNERS = new Set(["npx", "bunx", "uvx", "pipx", "pnpx"]);
@@ -526,6 +624,12 @@ export function scanConnector(r: ConnectorRequests, tree: SkillTree): ScanFindin
       rule: "credential-in-argv",
       severity: "high",
       message: `${why}; a command line is visible to every process, so a credential does not belong in it`,
+    });
+  for (const why of argvSuspectWords(r.args))
+    out.push({
+      rule: "random-looking-argument",
+      severity: "warn",
+      message: `${why}; if it is a key or token it does not belong on a command line`,
     });
   const unpinned = unpinnedPackage(r);
   if (unpinned !== undefined)

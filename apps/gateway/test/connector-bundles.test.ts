@@ -31,6 +31,7 @@ import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
 import { type ComposedMcp, composeMcp } from "../src/compose/mcp.ts";
+import { serverConfig } from "../src/compose/mcp-add.ts";
 import type { ComposeServices } from "../src/compose/services.ts";
 import type { Call } from "../src/context.ts";
 import { adminClient, desktopClient, ik, type TestClient } from "./helpers.ts";
@@ -930,14 +931,12 @@ describe("review fixes", () => {
       transport: { kind: "stdio", command: official },
       ...extra,
     });
-    await s.owner.call(
-      "settings.set",
-      {
-        key: "mcp.servers",
-        value: [mk("plain", {}), mk("shared", { bundle: { hash: `sha256:${"a".repeat(64)}` } })],
-      },
-      ik(),
-    );
+    // Written straight to the setting, as an install would: `settings.set` refuses to mark an entry.
+    const entry = setSetting(s.services.db, "mcp.servers", [
+      mk("plain", {}),
+      mk("shared", { bundle: { hash: `sha256:${"a".repeat(64)}` } }),
+    ]);
+    s.services.publish("settings.changed", { entries: [entry] });
     await s.mcp.idle();
     const { servers } = await s.owner.call<{ servers: { id: string; trust: string }[] }>(
       "mcp.status",
@@ -1113,7 +1112,13 @@ describe("review fixes", () => {
     expect(s.services.tools.get("mcp__notes-sync__echo")).toBeUndefined();
     expect(s.services.tools.get("mcp__echo__echo")).toBeDefined();
     // Resetting sets the broken file aside; the marked server stays off until removed or imported again.
-    const r = await s.owner.call<{ restored: boolean }>("connectors.resetRecords", {}, ik());
+    const first = await rejects(s.handler("connectors.resetRecords").run(s.call(), {}));
+    expect(first.code).toBe("approval_required");
+    const approvalId = (first.details as { approvalId: string }).approvalId;
+    await approve(s.owner, approvalId);
+    const r = (await s.handler("connectors.resetRecords").run(s.call(), { approvalId })) as {
+      restored: boolean;
+    };
     expect(r.restored).toBe(false);
     await poke(s);
     expect(s.services.tools.get("mcp__notes-sync__echo")).toBeUndefined();
@@ -1137,5 +1142,242 @@ describe("review fixes", () => {
         (f) => f.rule === "probe-failed" && /no network and no secrets/.test(f.message),
       ),
     ).toBe(true);
+  });
+});
+
+describe("second review fixes", () => {
+  const entries = (s: Setup) =>
+    (getSetting(s.services.db, "mcp.servers")?.value ?? []) as {
+      id: string;
+      trust: string;
+      bundle?: { hash: string };
+      sandbox?: { denyRead?: string[] };
+      cwd?: string;
+      transport: { command: string[] };
+    }[];
+
+  const poke = async (s: Setup) => {
+    s.services.publish("skills.changed", { type: "reloaded", added: [], removed: [], changed: [] });
+    await new Promise((r) => setTimeout(r, 50));
+    await s.mcp.idle();
+  };
+
+  /** Runs a gated handler the way the desktop does: ask, answer the card, ask again. */
+  async function gated(s: Setup, name: string, params: Record<string, unknown> = {}) {
+    const first = await rejects(s.handler(name).run(s.call(), params));
+    expect(first.code).toBe("approval_required");
+    const approvalId = (first.details as { approvalId: string }).approvalId;
+    await approve(s.owner, approvalId);
+    return s.handler(name).run(s.call(), { ...params, approvalId });
+  }
+
+  it("1: a name Psyche uses itself (filesystem, a ready-made server) is refused", async () => {
+    const s = await setup();
+    for (const name of ["filesystem", "github", "fetch"]) {
+      const e = await rejects(
+        propose(s, buildConnectorBundle(model({ name }), new Map(), authorKey("Ada"), NOW)),
+      );
+      expect(e.code, name).toBe("conflict");
+      expect(e.message).toMatch(/name Psyche uses itself/);
+    }
+  });
+
+  it("3: a hand-added server is never an update, and adding by hand forgets an orphaned record", async () => {
+    const s = await setup();
+    const key = authorKey("Ada");
+    await install(s, await propose(s, buildConnectorBundle(model(), new Map(), key, NOW)));
+    // The shared server leaves the list without the hook (an edit of the setting), its record stays.
+    const e0 = setSetting(s.services.db, "mcp.servers", []);
+    s.services.publish("settings.changed", { entries: [e0] });
+    await s.mcp.idle();
+    expect(
+      JSON.parse(readFileSync(join(home, "connectors", "bundles.json"), "utf8")).servers,
+    ).toHaveProperty("notes-sync");
+    // The owner adds a server of that id by hand: the orphaned record goes.
+    await addEcho(s, "notes-sync");
+    expect(
+      JSON.parse(readFileSync(join(home, "connectors", "bundles.json"), "utf8")).servers,
+    ).not.toHaveProperty("notes-sync");
+    const e = await rejects(
+      propose(s, buildConnectorBundle(model(), new Map(), key, new Date(NOW.getTime() + 1000))),
+    );
+    expect(e.code).toBe("conflict");
+    // A marked server whose record is for another file is not updated either.
+    await s.owner.call("mcp.remove", { serverId: "notes-sync" }, ik());
+    await install(s, await propose(s, buildConnectorBundle(model(), new Map(), key, NOW)));
+    const marked = entries(s).map((x) => ({ ...x, bundle: { hash: `sha256:${"9".repeat(64)}` } }));
+    const e1 = setSetting(s.services.db, "mcp.servers", marked);
+    s.services.publish("settings.changed", { entries: [e1] });
+    await s.mcp.idle();
+    const e2 = await rejects(
+      propose(s, buildConnectorBundle(model(), new Map(), key, new Date(NOW.getTime() + 2000))),
+    );
+    expect(e2.code).toBe("conflict");
+    expect(e2.message).toMatch(/different file/);
+  });
+
+  it("3/9: anything that fails after the record was written undoes the record, the key and the files", async () => {
+    const s = await setup();
+    const key = authorKey("Ada");
+    const calls: string[] = [];
+    const input = {
+      id: "rb",
+      name: "Rb",
+      transport: { kind: "stdio" as const, command: [process.execPath, SERVER] },
+    };
+    const config = serverConfig(input);
+    const { proposal, approval } = await s.mcp.adder.propose(input, {
+      config,
+      // The probe lists one more tool than the real run will: the add is taken out again.
+      probeConfig: {
+        ...config,
+        transport: { kind: "stdio", command: [process.execPath, SERVER, "--write-tool"] },
+      },
+      precommit: async () => {
+        calls.push("precommit");
+        new AuthorRing(join(home, "skills")).observe(key.author);
+      },
+      rolledBack: async () => {
+        calls.push("rolledBack");
+        throw new Error("a failing undo changes nothing for the owner");
+      },
+    });
+    await approve(s.owner, approval.id);
+    const err = await rejects(
+      s.owner.call("mcp.add", { proposalId: proposal.id, approvalId: approval.id }, ik()),
+    );
+    expect(err.code).toBe("conflict");
+    expect(calls).toEqual(["precommit", "rolledBack"]);
+    expect(entries(s)).toEqual([]);
+  });
+
+  it("3/9: a rolled-back import leaves no record, no new key and no payload directory", async () => {
+    const s = await setup();
+    const key = authorKey("Ada");
+    const text = buildConnectorBundle(
+      model({
+        command: "node",
+        args: ["server.mjs"],
+        tools: [{ name: "echo", sideEffect: "read" }],
+      }),
+      treeOf({ "server.mjs": ECHO_SOURCE }),
+      key,
+      NOW,
+    );
+    const r = await propose(s, text);
+    // Starting the server fails to match what was approved: make the host see other tools.
+    writeFileSync(
+      join(
+        readdirSync(join(home, "connector-bundles", "notes-sync")).map((d) =>
+          join(home, "connector-bundles", "notes-sync", d),
+        )[0] as string,
+        "server.mjs",
+      ),
+      `process.argv.push("--write-tool");\n${ECHO_SOURCE}`,
+    );
+    await approve(s.owner, (r.approval as { id: string }).id);
+    const e = await rejects(
+      s.owner.call(
+        "mcp.add",
+        {
+          proposalId: (r.proposal as McpProposal).id,
+          approvalId: (r.approval as { id: string }).id,
+        },
+        ik(),
+      ),
+    );
+    expect(["conflict"]).toContain(e.code);
+    expect(existsSync(join(home, "connectors", "bundles.json"))).toBe(false);
+    expect(new AuthorRing(join(home, "skills")).get(key.author.keyId)).toBeUndefined();
+    expect(readdirSync(join(home, "connector-bundles", "notes-sync"))).toEqual([]);
+    expect(entries(s)).toEqual([]);
+  });
+
+  it("4: settings.set cannot strip the marker, the tier or the sandbox, nor claim a marker", async () => {
+    const s = await setup();
+    await addEcho(s);
+    await install(
+      s,
+      await propose(s, buildConnectorBundle(model(), new Map(), authorKey("Ada"), NOW)),
+    );
+    const stored = entries(s);
+    const shared = stored.find((x) => x.id === "notes-sync");
+    expect(shared?.bundle).toBeDefined();
+    const rewritten = stored.map((x) => {
+      if (x.id === "notes-sync") {
+        const { bundle: _b, sandbox: _s, ...rest } = x;
+        return { ...rest, trust: "verified" };
+      }
+      return { ...x, bundle: { hash: `sha256:${"7".repeat(64)}` } };
+    });
+    await s.owner.call("settings.set", { key: "mcp.servers", value: rewritten }, ik());
+    await s.mcp.idle();
+    const after = entries(s);
+    const was = after.find((x) => x.id === "notes-sync");
+    expect(was?.bundle).toEqual(shared?.bundle);
+    expect(was?.trust).toBe("unknown");
+    expect(was?.sandbox?.denyRead?.length).toBeGreaterThan(0);
+    expect(after.find((x) => x.id === "echo")?.bundle).toBeUndefined();
+  });
+
+  it("4: a claimed bundled tier does not change what a marked entry is", async () => {
+    const s = await setup();
+    const e = setSetting(s.services.db, "mcp.servers", [
+      {
+        id: "claimed",
+        name: "C",
+        trust: "bundled",
+        enabled: false,
+        bundle: { hash: `sha256:${"a".repeat(64)}` },
+        transport: { kind: "stdio", command: ["node", "x.mjs"] },
+      },
+    ]);
+    s.services.publish("settings.changed", { entries: [e] });
+    await s.mcp.idle();
+    const { servers } = await s.owner.call<{ servers: { id: string; trust: string }[] }>(
+      "mcp.status",
+      {},
+    );
+    expect(servers.find((x) => x.id === "claimed")?.trust).toBe("unknown");
+  });
+
+  it("10: resetting the record is for the Host, behind a card, and leaves one .corrupt file", async () => {
+    const s = await setup();
+    await addEcho(s);
+    await install(
+      s,
+      await propose(s, buildConnectorBundle(model(), new Map(), authorKey("Ada"), NOW)),
+    );
+    const f = join(home, "connectors", "bundles.json");
+    writeFileSync(f, "{broken");
+    const denied = await rejects(
+      s.handler("connectors.resetRecords").run(s.call({ shell: false }), {}),
+    );
+    expect(denied.code).toBe("forbidden");
+    const r = (await gated(s, "connectors.resetRecords")) as { restored: boolean };
+    expect(r.restored).toBe(false);
+    expect(existsSync(`${f}.corrupt`)).toBe(true);
+    // Again, and again: nothing piles up, and a readable record is not set aside.
+    writeFileSync(f, "{broken again");
+    await gated(s, "connectors.resetRecords");
+    await gated(s, "connectors.resetRecords");
+    expect(readdirSync(join(home, "connectors")).filter((n) => n.includes(".corrupt"))).toEqual([
+      "bundles.json.corrupt",
+    ]);
+    await poke(s);
+  });
+
+  it("3: resetting drops records of servers that did not come from a file", async () => {
+    const s = await setup();
+    const key = authorKey("Ada");
+    await install(s, await propose(s, buildConnectorBundle(model(), new Map(), key, NOW)));
+    const f = join(home, "connectors", "bundles.json");
+    const ledger = JSON.parse(readFileSync(f, "utf8"));
+    ledger.servers.ghost = { ...ledger.servers["notes-sync"], serverId: "ghost" };
+    writeFileSync(f, JSON.stringify(ledger));
+    const r = (await gated(s, "connectors.resetRecords")) as { dropped: number };
+    expect(r.dropped).toBe(1);
+    const after = JSON.parse(readFileSync(f, "utf8")).servers;
+    expect(Object.keys(after)).toEqual(["notes-sync"]);
   });
 });

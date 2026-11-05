@@ -7,6 +7,7 @@ import { type PsycheMcpServerConfig, validateEnv } from "@psyche/mcp-host";
 import {
   type BundleSigner,
   type ConnectorBundleCard,
+  MCP_PRESETS,
   type McpProposal,
   type McpServerInput,
   PsycheError,
@@ -28,6 +29,7 @@ import {
   fetchBundleText,
   normalizeRequests,
   quoteForSummary,
+  type RingCheckpoint,
   readSkillDir,
   SECRET_SHAPED_NAME,
   type SkillTree,
@@ -65,6 +67,8 @@ const FILE_TEXT_CAP = 100_000;
 const TOTAL_TEXT_CAP = 400_000;
 /** A version directory nobody installed is removed after this long. */
 const STALE_DIR_MS = 60 * 60_000;
+/** Names Psyche uses itself: the ready-made servers, and the old "Files on this Mac" connector. */
+const RESERVED_IDS = new Set<string>(["filesystem", ...MCP_PRESETS.map((x) => x.id)]);
 const SHELLS = new Set(["sh", "bash", "zsh", "dash", "ksh", "fish", "csh", "tcsh"]);
 
 export interface ConnectorBundlesDeps {
@@ -84,6 +88,8 @@ export interface ConnectorBundles {
   handlers: Record<string, HandlerDef>;
   /** Why an installed server from a bundle must not run (revoked, files changed), if so. */
   stale(entry: PsycheMcpServerConfig): Promise<string | undefined>;
+  /** A server was added by hand or by Psyche: forget any record left under its id. */
+  added(entry: PsycheMcpServerConfig): Promise<void>;
   /** A server was removed: forget its bundle record and its files. */
   removed(entry: PsycheMcpServerConfig): Promise<void>;
   /** The export, for direct calls (tests). */
@@ -367,15 +373,33 @@ export function connectorBundles(deps: ConnectorBundlesDeps): ConnectorBundles {
       );
     // Two keys claiming to replace one earlier key: refused until one of them is revoked.
     if (v.signer !== undefined) ring.assertNoFork(v.signer.keyId, v.ancestors);
+    // A name Psyche already uses (a ready-made server, or the old "Files on this Mac" one) is not
+    // something a file may take.
+    if (RESERVED_IDS.has(m.name))
+      throw new PsycheError(
+        "conflict",
+        `${m.name} is a name Psyche uses itself; ask the author to name the connector something else`,
+      );
     const entries = readEntries(services, deps.settingKey);
     const installedEntry = entries.find((c) => c.id === m.name);
     const rec = ledger.get(m.name);
+    // It is an update only when the server in the list is the very one the record describes. A
+    // hand-added server, or one whose record is for another file, is never treated as one (its
+    // values must not be carried to a file's command).
+    if (installedEntry !== undefined && installedEntry.bundle === undefined)
+      throw new PsycheError(
+        "conflict",
+        `an MCP server named ${m.name} is already set up here and did not come from a shared file; remove it first`,
+      );
     if (installedEntry !== undefined && rec === undefined)
       throw new PsycheError(
         "conflict",
-        installedEntry.bundle !== undefined
-          ? `${m.name} came from a shared file but its record is missing; remove it, or reset the records in Settings`
-          : `an MCP server named ${m.name} is already set up here and did not come from a shared file; remove it first`,
+        `${m.name} came from a shared file but its record is missing; remove it, or reset the records in Settings`,
+      );
+    if (installedEntry !== undefined && installedEntry.bundle?.hash !== rec?.bundleHash)
+      throw new PsycheError(
+        "conflict",
+        `${m.name}'s record is for a different file than the one installed; remove it, or reset the records in Settings`,
       );
     const update = installedEntry !== undefined && rec !== undefined ? rec : undefined;
     // A file that drops its signature over a signed install is refused, not just flagged.
@@ -504,6 +528,7 @@ export function connectorBundles(deps: ConnectorBundlesDeps): ConnectorBundles {
         : undefined;
     };
     let probed: McpProposal["tools"] = [];
+    let checkpoint: RingCheckpoint | undefined;
 
     // The update view: the command, then each bundled file, against what was approved before.
     let diff = "";
@@ -674,31 +699,61 @@ export function connectorBundles(deps: ConnectorBundlesDeps): ConnectorBundles {
             );
           // The record goes down before the server does: a server that came from a file is never
           // running without it (every start checks it). If the add is undone, so is this.
-          if (v.signer !== undefined) ring.observe(v.signer, v.ancestors);
-          ledger.put({
-            serverId: m.name,
-            bundleHash: v.bundleHash,
-            ...(v.signer === undefined
-              ? {}
-              : { signerKeyId: v.signer.keyId, signerName: v.signer.name }),
-            // The union, so an update does not forget keys an earlier file named.
-            signerAncestors: [
-              ...new Set([...(sameKey ? (update?.signerAncestors ?? []) : []), ...v.ancestors]),
-            ],
-            probedTools: probed.map((t) => ({ name: t.name, sideEffect: t.sideEffect })),
-            title: m.title,
-            ...(m.version === undefined ? {} : { version: m.version }),
-            createdAt: m.createdAt,
-            requests: r,
-            treeHash: m.payload.treeHash,
-            ...(dir === undefined ? {} : { dir }),
-          });
+          const cp = ring.checkpoint(
+            v.signer === undefined ? [] : [v.signer.keyId, ...v.ancestors],
+          );
+          checkpoint = cp;
+          try {
+            if (v.signer !== undefined) ring.observe(v.signer, v.ancestors);
+            ledger.put({
+              serverId: m.name,
+              bundleHash: v.bundleHash,
+              ...(v.signer === undefined
+                ? {}
+                : { signerKeyId: v.signer.keyId, signerName: v.signer.name }),
+              // The union, so an update does not forget keys an earlier file named.
+              signerAncestors: [
+                ...new Set([...(sameKey ? (update?.signerAncestors ?? []) : []), ...v.ancestors]),
+              ],
+              probedTools: probed.map((t) => ({ name: t.name, sideEffect: t.sideEffect })),
+              title: m.title,
+              ...(m.version === undefined ? {} : { version: m.version }),
+              createdAt: m.createdAt,
+              requests: r,
+              treeHash: m.payload.treeHash,
+              ...(dir === undefined ? {} : { dir }),
+            });
+          } catch (err) {
+            ring.rollback(cp);
+            throw err;
+          }
         },
         rolledBack: async () => {
-          if (update === undefined) ledger.remove(m.name);
-          else {
-            const { installedAt: _at, ...old } = update;
-            ledger.put(old);
+          // Each step is tried on its own: a failing one must not leave the others undone.
+          const steps: (() => void)[] = [
+            () => {
+              if (update === undefined) ledger.remove(m.name);
+              else {
+                const { installedAt: _at, ...old } = update;
+                ledger.put(old);
+              }
+            },
+            // The key and rotations this install recorded, where that is still what they are.
+            () => {
+              if (checkpoint !== undefined) ring.rollback(checkpoint);
+            },
+            // The payload directory this import wrote (never the one an installed version uses).
+            () => {
+              if (dir !== undefined && update?.dir !== dir)
+                rmSync(dir, { recursive: true, force: true });
+            },
+          ];
+          for (const step of steps) {
+            try {
+              step();
+            } catch {
+              // Best effort; the start-time check still holds the line.
+            }
           }
         },
         committed: async () => {
@@ -772,8 +827,9 @@ export function connectorBundles(deps: ConnectorBundlesDeps): ConnectorBundles {
   };
 
   const stale = async (entry: PsycheMcpServerConfig): Promise<string | undefined> => {
-    // Psyche's own bundled servers never came from a file.
-    if (entry.trust === "bundled") return undefined;
+    // Psyche's own bundled servers never came from a file (and a claimed `bundled` tier on an
+    // entry that carries a bundle marker changes nothing).
+    if (entry.trust === "bundled" && entry.bundle === undefined) return undefined;
     // The entry itself says whether it came from a file: a record that cannot be read stops
     // those servers and no others.
     const marked = entry.bundle !== undefined;
@@ -800,6 +856,17 @@ export function connectorBundles(deps: ConnectorBundlesDeps): ConnectorBundles {
     return undefined;
   };
 
+  /** A server added by hand (or by Psyche) never inherits a record an earlier shared one left. */
+  const added = async (entry: PsycheMcpServerConfig) => {
+    if (entry.bundle !== undefined) return;
+    try {
+      ledger.remove(entry.id);
+    } catch {
+      // An unreadable record is the owner's to reset; this server is not marked, so it runs.
+    }
+    rmSync(join(root, entry.id), { recursive: true, force: true });
+  };
+
   const removed = async (entry: PsycheMcpServerConfig) => {
     try {
       ledger.remove(entry.id);
@@ -814,18 +881,42 @@ export function connectorBundles(deps: ConnectorBundlesDeps): ConnectorBundles {
       "connectors.export": { run: (call, params) => exportConnector(call, params) },
       "connectors.proposeImport": { run: (_call, params) => proposeImport(params) },
       "connectors.resetRecords": {
-        run: async () => {
-          const r = ledger.reset();
+        // Host shell, then the owner's card or presence, like anything else that touches the
+        // checks on shared connectors.
+        run: async (call: Call, params: { approvalId?: string }) => {
+          await signGate(
+            services,
+            call,
+            {
+              method: "connectors.resetRecords",
+              tag: "reset-connector-records",
+              summary: "Reset the record of shared connectors",
+              subject: { reset: "connector-bundles" },
+              treeHash: sha("reset-connector-records"),
+              details: {
+                kind: "connector_records_reset",
+                note: "Sets an unreadable record aside, restores the last good copy, and forgets records of servers that did not come from a shared file. Connectors from a file without a record stay off.",
+              },
+            },
+            params.approvalId,
+          );
+          const keep = new Set(
+            readEntries(services, deps.settingKey)
+              .filter((e) => e.bundle !== undefined)
+              .map((e) => e.id),
+          );
+          const r = ledger.reset(keep);
           await audit(
             "connector.records_reset",
             { scope: "connectors" },
-            { restored: String(r.restored) },
+            { restored: String(r.restored), dropped: String(r.dropped) },
           );
           return r;
         },
       },
     },
     stale,
+    added,
     removed,
     exportConnector,
   };

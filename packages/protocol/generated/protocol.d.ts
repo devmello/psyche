@@ -3579,6 +3579,7 @@ export interface Warning {
 }
 
 export interface ConnectorResetResult {
+    dropped:  number;
     restored: boolean;
 }
 
@@ -3856,6 +3857,10 @@ export interface ConnectorsProposeImportParams {
 
 export interface ConnectorsRemoveCustomParams {
     connectorId: string;
+}
+
+export interface ConnectorsResetRecordsParams {
+    approvalId?: string;
 }
 
 export interface ConnectorsSetMatrixParams {

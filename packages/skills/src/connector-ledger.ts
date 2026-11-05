@@ -107,16 +107,31 @@ export class ConnectorLedger {
   }
 
   /**
-   * Sets an unreadable record aside and restores the last good copy, else starts empty. Servers
-   * that came from a bundle and have no record stay off until removed or imported again.
+   * Repairs the record. An unreadable file is set aside (one `.corrupt` file, replaced each time,
+   * so repeated calls do not pile up) and the last good copy is restored, else it starts empty. A
+   * readable file is left alone. Either way, records for servers that are not in `keep` (the ids
+   * of the entries that came from a file) are dropped. Servers that came from a bundle and have
+   * no record stay off until removed or imported again.
    */
-  reset(): { restored: boolean } {
-    const dir = dirname(this.path);
-    mkdirSync(dir, { recursive: true, mode: 0o700 });
-    if (existsSync(this.path)) renameSync(this.path, `${this.path}.corrupt-${this.#now()}`);
-    const bak = this.#valid(`${this.path}.bak`);
-    this.#write(bak ?? { v: 1, servers: {} });
-    return { restored: bak !== undefined };
+  reset(keep?: ReadonlySet<string>): { restored: boolean; dropped: number } {
+    mkdirSync(dirname(this.path), { recursive: true, mode: 0o700 });
+    let file = existsSync(this.path) ? this.#valid(this.path) : undefined;
+    let restored = false;
+    if (file === undefined) {
+      if (existsSync(this.path)) renameSync(this.path, `${this.path}.corrupt`);
+      const bak = this.#valid(`${this.path}.bak`);
+      restored = bak !== undefined;
+      file = bak ?? { v: 1, servers: {} };
+    }
+    let dropped = 0;
+    if (keep !== undefined)
+      for (const id of Object.keys(file.servers))
+        if (!keep.has(id)) {
+          delete file.servers[id];
+          dropped += 1;
+        }
+    if (restored || dropped > 0 || !existsSync(this.path)) this.#write(file);
+    return { restored, dropped };
   }
 
   get(serverId: string): ConnectorLedgerRecord | undefined {

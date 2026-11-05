@@ -20,7 +20,6 @@ import {
   readSync,
   renameSync,
   rmSync,
-  writeFileSync,
   writeSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
@@ -376,6 +375,12 @@ interface RevokedBundleEntry extends RevokedBundle {
   lineage: string[];
 }
 
+/** `AuthorRing.checkpoint`: records and rotations of some keys at a moment. */
+export interface RingCheckpoint {
+  authors: Record<string, AuthorRecord | undefined>;
+  rotations: Record<string, string[] | undefined>;
+}
+
 interface AuthorsFile {
   v: 1;
   authors: Record<string, AuthorRecord>;
@@ -387,7 +392,9 @@ interface AuthorsFile {
 
 // Notice records have caps of their own, so they can never stop a key from being recorded.
 const MAX_REVOKED_BUNDLES = 1000;
-const MAX_NOTICES_PER_BUNDLE = 8;
+/** Notices about one bundle: a few per lineage (so one author cannot crowd out another), and a ceiling. */
+const MAX_NOTICES_PER_ROOT = 3;
+const MAX_NOTICES_PER_BUNDLE = 64;
 const MAX_REVOKED_UNSEEN = 1000;
 const MAX_ROTATIONS_KEPT = 2000;
 
@@ -422,8 +429,54 @@ export class AuthorRing {
     const tmp = `${this.path}.${process.pid}.tmp`;
     // A leftover of ours is removed; the new file is created exclusively, never through a link.
     rmSync(tmp, { force: true });
-    writeFileSync(tmp, `${JSON.stringify(f, null, 2)}\n`, { mode: 0o600, flag: "wx" });
+    const fd = openSync(tmp, "wx", 0o600);
+    try {
+      writeSync(fd, `${JSON.stringify(f, null, 2)}\n`);
+      fsyncSync(fd);
+    } finally {
+      closeSync(fd);
+    }
     renameSync(tmp, this.path);
+    // The rename reaches the disk too.
+    const dfd = openSync(dirname(this.path), "r");
+    try {
+      fsyncSync(dfd);
+    } finally {
+      closeSync(dfd);
+    }
+  }
+
+  /**
+   * What the records of these keys (and the rotations that name them) look like now, so an install
+   * that is undone can put them back (`rollback`).
+   */
+  checkpoint(keyIds: readonly string[]): RingCheckpoint {
+    const f = this.#read();
+    return {
+      authors: Object.fromEntries(keyIds.map((k) => [k, structuredClone(f.authors[k])])),
+      rotations: Object.fromEntries(keyIds.map((k) => [k, structuredClone(f.rotations?.[k])])),
+    };
+  }
+
+  /**
+   * Undoes what `observe` did since the checkpoint, where that is safe: a key that was not known
+   * before is forgotten only while it is still exactly what `observe` made (seen, never trusted
+   * or revoked in between); rotations are put back. Anything the owner decided meanwhile stays.
+   */
+  rollback(cp: RingCheckpoint): void {
+    const f = this.#read();
+    for (const [k, before] of Object.entries(cp.authors)) {
+      const now = f.authors[k];
+      if (before === undefined && now?.state === "seen" && now.trustedAt === undefined)
+        delete f.authors[k];
+    }
+    if (f.rotations !== undefined) {
+      for (const [k, before] of Object.entries(cp.rotations)) {
+        if (before === undefined) delete f.rotations[k];
+        else f.rotations[k] = before;
+      }
+    }
+    this.#write(f);
   }
 
   get(keyId: string): AuthorRecord | undefined {
@@ -699,14 +752,20 @@ export class AuthorRing {
     const entries = this.#entries(f, hash);
     const mine = entries.find((e) => e.keyId === v.notice.keyId);
     if (mine === undefined) {
+      const lineage = [v.notice.signer.keyId, ...v.ancestors];
+      const root = lineage[lineage.length - 1];
+      // Each lineage root has a quota of its own, and the owner's own notices are never refused.
       if (
-        entries.length >= MAX_NOTICES_PER_BUNDLE ||
-        (bundles[hash] === undefined && Object.keys(bundles).length >= MAX_REVOKED_BUNDLES)
+        opts.trustedLocal !== true &&
+        (entries.length >= MAX_NOTICES_PER_BUNDLE ||
+          entries.filter((e) => e.lineage[e.lineage.length - 1] === root).length >=
+            MAX_NOTICES_PER_ROOT ||
+          (bundles[hash] === undefined && Object.keys(bundles).length >= MAX_REVOKED_BUNDLES))
       )
         throw new PsycheError("conflict", "too many notices about this bundle");
       entries.push({
         keyId: v.notice.keyId,
-        lineage: [v.notice.signer.keyId, ...v.ancestors],
+        lineage,
         reason: v.notice.reason,
         at: new Date(this.#now()).toISOString(),
       });

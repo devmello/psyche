@@ -4,6 +4,7 @@ import { AuthorKeyStore, AuthorRing } from "../src/authors.ts";
 import { buildBundle, bundleHashOf, signingBytes, verifyBundle } from "../src/bundle.ts";
 import {
   argvCredentialLeaks,
+  argvSuspectWords,
   normalizeRequests,
   riskyDomains,
   scanConnector,
@@ -303,33 +304,89 @@ describe("M4: a credential in the command line is found", () => {
   // Built at run time: the repo secret scan flags literal key shapes.
   const rand = ["Zk3", "9xQ", "7vLm", "2PaR", "8sTu", "4WnY", "6BcD", "1eFg"].join("");
   const jwt = ["eyJhbGciOiJIUzI1NiJ9", "eyJzdWIiOiIxMjM0NTY3ODkwIn0", "abcDEFghiJKLmno"].join(".");
+  const ghp = ["gh", "p_", "a".repeat(36)].join("");
   const find = (...args: string[]) => argvCredentialLeaks(args);
 
-  it("URL userinfo, key=value, the value after a secret flag, JWTs and random words", () => {
+  it("finds web-address logins (even with no user name), secrets in a query, tokens in a path", () => {
     expect(find("https://user:pw@example.com/x")).toHaveLength(1);
+    expect(find("redis://:pw@localhost:6379")).toHaveLength(1);
+    expect(find(`https://${ghp}@github.com/x`)).toHaveLength(1);
+    expect(find("https://api.example.com/v1?api_key=abc123")).toHaveLength(1);
+    expect(find("https://api.example.com/v1?page=2&token=abc")).toHaveLength(1);
+    expect(find("https://api.example.com/v1?key=abc")).toHaveLength(1);
+    expect(find("https://api.example.com/v1?access_token=abc")).toHaveLength(1);
+    expect(find(`https://hooks.example.com/${ghp}/send`)).toHaveLength(1);
+  });
+
+  it("finds header values and authorization words", () => {
+    expect(find("Authorization: Bearer abc123def")).toHaveLength(1);
+    expect(find("Authorization: abc123")).toHaveLength(1);
+    expect(find("X-Api-Key: abc123")).toHaveLength(1);
+    expect(find("X-Auth-Token: abc123")).toHaveLength(1);
+    expect(find("bearer abcdefgh")).toHaveLength(1);
+    expect(find("Cookie: session=abc")).toHaveLength(1);
+  });
+
+  it("finds key=value, flags and their values, short flags and connection strings", () => {
     expect(find("--api-key=abc123")).toHaveLength(1);
+    expect(find("--access_token=abc")).toHaveLength(1);
     expect(find("password=hunter2")).toHaveLength(1);
     expect(find("--token", "abc")).toHaveLength(1);
-    expect(find("--auth", "Bearer-xyz")).toHaveLength(1);
+    expect(find("--auth-token", "abc")).toHaveLength(1);
+    expect(find("--client-secret", "abc")).toHaveLength(1);
+    expect(find("-p", "hunter2")).toHaveLength(1);
+    expect(find("-phunter2")).toHaveLength(1);
+    expect(find("Server=db;Password=hunter2")).toHaveLength(1);
+    expect(find("Server=db;Pwd=x;Database=d")).toHaveLength(1);
+    expect(find("DefaultEndpointsProtocol=https;AccountKey=abc")).toHaveLength(1);
     expect(find(jwt)).toHaveLength(1);
-    expect(find(rand)).toHaveLength(1);
+    expect(find(ghp)).toHaveLength(1);
   });
 
-  it("leaves ordinary configuration alone", () => {
-    expect(find("--fast", "--port=8080", "server.mjs", "/Users/me/notes")).toEqual([]);
-    expect(find("--token-file", "/path/to/file")).toEqual([]);
-    expect(find("--api-key-env=NOTES_TOKEN", "--name=notes")).toEqual([]);
-    expect(find("@modelcontextprotocol/server-everything@1.2.3")).toEqual([]);
-    expect(find("sha256:" + "a".repeat(64))).toEqual([]);
+  it("leaves ordinary configuration alone (no false positives)", () => {
+    for (const args of [
+      ["--max-tokens", "100"],
+      ["--max-tokens=100"],
+      ["--token-limit", "4000"],
+      ["--auth-type", "basic"],
+      ["--authority", "login.example.com"],
+      ["--author", "bob"],
+      ["--keyspace", "ks"],
+      ["--primary-key", "id"],
+      ["--sort-key", "name"],
+      ["--bypass-cache"],
+      ["--oauth-scopes", "read"],
+      ["--oauth-scopes=read,write"],
+      ["-p", "8080"],
+      ["-p8080"],
+      ["-p", "/tmp/x"],
+      ["--port=8080", "--fast"],
+      ["https://api.example.com/v1?page=2&limit=10"],
+      ["https://user@example.com/x"],
+      ["--token-file", "/path/to/file"],
+      ["--api-key-env=NOTES_TOKEN", "--name=notes"],
+      ["@modelcontextprotocol/server-everything@1.2.3"],
+      ["server.mjs", "/Users/me/notes"],
+      [`sha256:${"a".repeat(64)}`],
+    ])
+      expect(find(...args), args.join(" ")).toEqual([]);
   });
 
-  it("scanning a connector reports it as a high finding that never quotes the value", () => {
-    const r = normalizeRequests({ command: "node", args: ["s.mjs", "--token", rand] });
-    const findings = scanConnector(r, new Map());
-    expect(findings.some((f) => f.rule === "credential-in-argv" && f.severity === "high")).toBe(
+  it("a long random-looking word is only a warning, and a credential is a high finding that is never quoted", () => {
+    expect(find(rand)).toEqual([]);
+    expect(argvSuspectWords([rand])).toHaveLength(1);
+    const r = normalizeRequests({ command: "node", args: ["s.mjs", rand] });
+    const warn = scanConnector(r, new Map());
+    expect(warn.some((f) => f.rule === "random-looking-argument" && f.severity === "warn")).toBe(
       true,
     );
-    expect(JSON.stringify(findings)).not.toContain(rand);
+    expect(warn.some((f) => f.severity === "high")).toBe(false);
+    const hi = scanConnector(
+      normalizeRequests({ command: "node", args: ["--token", rand] }),
+      new Map(),
+    );
+    expect(hi.some((f) => f.rule === "credential-in-argv" && f.severity === "high")).toBe(true);
+    expect(JSON.stringify([...warn, ...hi])).not.toContain(rand);
   });
 });
 
@@ -377,7 +434,7 @@ describe("L6: the bundle record is written to disk, keeps a copy, and can be res
   });
 
   it("keeps the last good copy as .bak and restores it on reset", async () => {
-    const { existsSync, readFileSync, writeFileSync } = await import("node:fs");
+    const { existsSync, readdirSync, readFileSync, writeFileSync } = await import("node:fs");
     const home = tempDir();
     const l = new ConnectorLedger(home);
     l.put(rec("one"));
@@ -386,13 +443,26 @@ describe("L6: the bundle record is written to disk, keeps a copy, and can be res
     expect(Object.keys(JSON.parse(readFileSync(`${l.path}.bak`, "utf8")).servers)).toEqual(["one"]);
     writeFileSync(l.path, "{not json");
     expect(() => l.get("one")).toThrow();
-    expect(l.reset()).toEqual({ restored: true });
+    expect(l.reset()).toEqual({ restored: true, dropped: 0 });
     expect(l.get("one")?.serverId).toBe("one");
     // With no good copy it starts empty.
     const empty = new ConnectorLedger(tempDir());
     empty.put(rec("solo"));
     writeFileSync(empty.path, "{not json");
-    expect(empty.reset()).toEqual({ restored: false });
+    expect(empty.reset()).toEqual({ restored: false, dropped: 0 });
     expect(empty.list()).toEqual([]);
+    // A readable file is left alone (nothing set aside), and records outside `keep` are dropped.
+    empty.put(rec("a"));
+    empty.put(rec("b"));
+    expect(empty.reset(new Set(["a"]))).toEqual({ restored: false, dropped: 1 });
+    expect(empty.list().map((r) => r.serverId)).toEqual(["a"]);
+    expect(existsSync(`${empty.path}.corrupt`)).toBe(true); // from the unreadable one above
+    writeFileSync(empty.path, "{x");
+    empty.reset();
+    writeFileSync(empty.path, "{y");
+    empty.reset();
+    expect(readdirSync(join(empty.path, "..")).filter((n) => n.includes(".corrupt"))).toEqual([
+      "bundles.json.corrupt",
+    ]);
   });
 });

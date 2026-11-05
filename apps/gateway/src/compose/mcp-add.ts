@@ -58,6 +58,8 @@ export interface McpAddDeps {
   toolsHash(serverId: string): string | undefined;
   /** An entry was removed with `mcp.remove` (an agent-made server's directory goes with it). */
   removed?(entry: PsycheMcpServerConfig): Promise<void>;
+  /** An entry was added or replaced through `mcp.add` / an install. */
+  added?(entry: PsycheMcpServerConfig): Promise<void>;
 }
 
 interface Staged {
@@ -397,7 +399,13 @@ export function mcpAdder(deps: McpAddDeps): McpAdder {
     if (previous !== undefined && !replace) {
       throw new PsycheError("conflict", `an MCP server with id ${id} exists`);
     }
-    await s.extra?.precommit?.();
+    try {
+      await s.extra?.precommit?.();
+    } catch (err) {
+      // A refusal part way through leaves nothing behind either.
+      await s.extra?.rolledBack?.().catch(() => undefined);
+      throw err;
+    }
     const write = async (value: PsycheMcpServerConfig[]) => {
       const entry = setSetting(services.db, deps.settingKey, value);
       services.publish("settings.changed", { entries: [entry] });
@@ -414,24 +422,32 @@ export function mcpAdder(deps: McpAddDeps): McpAdder {
               : { disabledTools: previous.disabledTools }),
             ...(previous.enabled === false ? { enabled: false } : {}),
           };
-    await write(
-      previous === undefined ? [...before, kept] : before.map((c) => (c.id === id ? kept : c)),
-    );
-    const hash = deps.toolsHash(id);
-    if (hash !== undefined && hash !== s.proposal.toolsListHash) {
-      // The server now lists other tools than the card showed: take it out again.
-      const now0 = readServers(services, deps.settingKey);
+    try {
       await write(
-        previous === undefined
-          ? now0.filter((c) => c.id !== id)
-          : now0.map((c) => (c.id === id ? previous : c)),
+        previous === undefined ? [...before, kept] : before.map((c) => (c.id === id ? kept : c)),
       );
-      await s.extra?.rolledBack?.();
-      throw new PsycheError(
-        "conflict",
-        "the server's tools changed since you approved them; check it again",
-      );
+      const hash = deps.toolsHash(id);
+      if (hash !== undefined && hash !== s.proposal.toolsListHash) {
+        // The server now lists other tools than the card showed: take it out again.
+        const now0 = readServers(services, deps.settingKey);
+        await write(
+          previous === undefined
+            ? now0.filter((c) => c.id !== id)
+            : now0.map((c) => (c.id === id ? previous : c)),
+        );
+        throw new PsycheError(
+          "conflict",
+          "the server's tools changed since you approved them; check it again",
+        );
+      }
+    } catch (err) {
+      // Whatever went wrong after `precommit` (the write, the check, the undo itself) undoes it,
+      // and an undo that fails cannot change what the owner is told.
+      await s.extra?.rolledBack?.().catch(() => undefined);
+      throw err;
     }
+    // A hand-added server never inherits what an earlier shared one of this id left behind.
+    await deps.added?.(s.config);
     await s.extra?.committed?.();
     await services.broker
       .recordReceipt({
@@ -484,6 +500,7 @@ export function mcpAdder(deps: McpAddDeps): McpAdder {
       await deps.apply(value);
     };
     await write([...before, config]);
+    await deps.added?.(config);
     const hash = deps.toolsHash(config.id);
     if (hash !== undefined && hash !== found.toolsListHash) {
       await write(readServers(services, deps.settingKey).filter((c) => c.id !== config.id));

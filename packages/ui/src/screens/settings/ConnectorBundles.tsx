@@ -161,14 +161,38 @@ export function useConnectorBundles(
     importLink: (url) => review(call("connectors.proposeImport", { bundleUrl: url.trim() })),
     resetRecords: () => {
       reset();
-      call("connectors.resetRecords", {}).then(
-        (r) => {
-          mcp.reload();
-          setNotice(t("settings.connectorBundle.reset.done", { restored: r.restored }));
-        },
-        (err: unknown) =>
-          setError(t("settings.connectorBundle.reset.failed", { reason: messageOf(err) })),
-      );
+      const finish = (r: { restored: boolean }) => {
+        mcp.reload();
+        setNotice(t("settings.connectorBundle.reset.done", { restored: r.restored }));
+      };
+      const fail = (err: unknown) =>
+        setError(
+          hasCode(err, "forbidden")
+            ? t("settings.connectorBundle.share.unavailable")
+            : t("settings.connectorBundle.reset.failed", { reason: messageOf(err) }),
+        );
+      call("connectors.resetRecords", {}).then(finish, (err: unknown) => {
+        // The Gateway asks for the owner's confirmation first, like any signing action.
+        const approvalId = approvalIdOf(err);
+        if (approvalId === null) return fail(err);
+        if (requestApproval === null) return setError(presenceUnavailable());
+        requestApproval({
+          key: "connectors.resetRecords",
+          label: t("settings.connectorBundle.reset.title"),
+          approvalId,
+          retry: (approved) =>
+            call("connectors.resetRecords", { approvalId: approved }).then(
+              (r) => {
+                finish(r);
+                return r;
+              },
+              (retryErr: unknown) => {
+                fail(retryErr);
+                throw retryErr;
+              },
+            ),
+        });
+      });
     },
     share: (server, authorName) => {
       reset();

@@ -1157,7 +1157,7 @@
         "sideEffecting": true
       },
       {
-        "description": "Side-effecting: sets aside an unreadable record of shared connectors (restoring the last good copy when there is one, else starting empty). Connectors that came from a file and have no record stay off until they are removed or imported again; it never starts anything.",
+        "description": "Side-effecting, Host shell only, behind a device-only approval (fresh presence once a verifier exists; approval_required with details.approvalId, then retry with approvalId): sets an unreadable record of shared connectors aside (one .corrupt file, replaced each time), restoring the last good copy when there is one, else starting empty; a readable record is left alone except that records of servers that did not come from a file are dropped. Connectors that came from a file and have no record stay off until they are removed or imported again; it never starts anything.",
         "name": "connectors.resetRecords",
         "params": "#/$defs/ConnectorsResetRecordsParams",
         "result": "#/$defs/ConnectorResetResult",
@@ -15238,10 +15238,15 @@
       "properties": {
         "restored": {
           "type": "boolean"
+        },
+        "dropped": {
+          "minimum": 0,
+          "type": "integer"
         }
       },
       "required": [
-        "restored"
+        "restored",
+        "dropped"
       ],
       "type": "object"
     },
@@ -15584,7 +15589,14 @@
       "type": "object"
     },
     "ConnectorsResetRecordsParams": {
-      "properties": {},
+      "properties": {
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
       "type": "object"
     },
     "ConnectorsSetMatrixParams": {

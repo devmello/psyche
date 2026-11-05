@@ -131,10 +131,12 @@ function launcherFor(services: ComposeServices, setup: McpSetup): StdioLauncher 
  * `unknown`), and `bundled` stays the host's to accept (it refuses ids it does not ship).
  */
 function trustOf(c: PsycheMcpServerConfig): McpTrustTier {
-  if (c.trust === "bundled") return "bundled";
   // Code Psyche wrote for itself, or that arrived in a shared file, is never vouched for,
-  // whatever its command looks like (an official-looking `npx` line proves nothing about a file).
+  // whatever its command looks like (an official-looking `npx` line proves nothing about a file),
+  // and not even a claimed `bundled` tier changes that (the host accepts `bundled` only for the
+  // ids Psyche ships).
   if (c.madeBy === "psyche" || c.bundle !== undefined) return "unknown";
+  if (c.trust === "bundled") return "bundled";
   const t = c.transport as Partial<PsycheMcpServerConfig["transport"]>;
   if (t.kind === "stdio" && Array.isArray(t.command)) {
     return mcpTrustFor({ kind: "stdio", command: t.command });
@@ -472,6 +474,7 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
       await self.removed(entry);
       await bundles.removed(entry);
     },
+    added: (entry) => bundles.added(entry),
   });
   // Shared connectors: the signed `.psyche-connector` file in and out (same probe → card → add).
   const bundles = connectorBundles({
