@@ -411,7 +411,10 @@ fn focus(hwnd: HWND) -> bool {
     unsafe {
         let _ = ShowWindow(hwnd, SW_RESTORE);
         for _ in 0..20 {
+            // Alt with the unassigned 0xE8 key inside, so no window enters menu mode.
             keybd_event(0x12, 0, KEYBD_EVENT_FLAGS(0), 0);
+            keybd_event(0xE8, 0, KEYBD_EVENT_FLAGS(0), 0);
+            keybd_event(0xE8, 0, KEYEVENTF_KEYUP, 0);
             keybd_event(0x12, 0, KEYEVENTF_KEYUP, 0);
             // Share the foreground thread's input state so SetForegroundWindow is allowed.
             let fg = GetForegroundWindow();
@@ -459,26 +462,50 @@ impl Drop for Kill {
     }
 }
 
-/// A WinForms window (a separate PowerShell process) with one multi-line TextBox: a Win32 EDIT
-/// control, UIA Edit with ValuePattern and TextPattern.
-fn winforms_textbox(title: &str) -> (Kill, HWND) {
-    let script = format!(
-        "Add-Type -AssemblyName System.Windows.Forms; $f = New-Object System.Windows.Forms.Form; $f.Text = '{title}'; $f.TopMost = $true; \
-         $f.Width = 600; $f.Height = 300; $t = New-Object System.Windows.Forms.TextBox; $t.Multiline = $true; $t.Dock = 'Fill'; \
-         $f.Controls.Add($t); $f.Add_Shown({{ $f.Activate(); $t.Focus() }}); [System.Windows.Forms.Application]::Run($f)"
-    );
+/// A test window in a separate PowerShell process: `wpf` = a WPF TextBox (UIA Edit with
+/// ValuePattern and TextPattern), else a WinForms TextBox (a Win32 EDIT, whose UIA proxy has
+/// ValuePattern but no TextPattern).
+fn text_window(title: &str, wpf: bool) -> (Kill, HWND) {
+    let script = if wpf {
+        format!(
+            "Add-Type -AssemblyName PresentationFramework; $w = New-Object System.Windows.Window; $w.Title = '{title}'; $w.Topmost = $true; \
+             $w.Width = 600; $w.Height = 300; $t = New-Object System.Windows.Controls.TextBox; $t.AcceptsReturn = $true; $w.Content = $t; \
+             $w.Add_ContentRendered({{ $w.Activate(); [void]$t.Focus() }}); [void]$w.ShowDialog()"
+        )
+    } else {
+        format!(
+            "Add-Type -AssemblyName System.Windows.Forms; $f = New-Object System.Windows.Forms.Form; $f.Text = '{title}'; $f.TopMost = $true; \
+             $f.Width = 600; $f.Height = 300; $t = New-Object System.Windows.Forms.TextBox; $t.Multiline = $true; $t.Dock = 'Fill'; \
+             $f.Controls.Add($t); $f.Add_Shown({{ $f.Activate(); $t.Focus() }}); [System.Windows.Forms.Application]::Run($f)"
+        )
+    };
     let child = Command::new("powershell.exe").args(["-NoProfile", "-STA", "-Command", &script]).spawn().unwrap();
     let kill = Kill(child);
-    let hwnd = find_window(title, Duration::from_secs(20)).expect("the WinForms window appears");
+    let hwnd = find_window(title, Duration::from_secs(30)).expect("the test window appears");
     assert!(focus(hwnd), "the test window takes focus");
-    std::thread::sleep(Duration::from_millis(300));
+    std::thread::sleep(Duration::from_millis(500));
     (kill, hwnd)
 }
 
 #[test]
 #[ignore]
+fn insert_into_a_win32_edit_falls_back_to_typing() {
+    let (proc_, _hwnd) = text_window("PsycheDictationTest-WinForms", false);
+    let pid = proc_.0.id();
+    let target = dictation_target(json!({})).unwrap();
+    println!("dictation.target (WinForms) = {target}");
+    assert_eq!((target["target"]["pid"].as_u64(), target["target"]["role"].as_str()), (Some(pid as u64), Some("Edit")));
+    assert!(!testing::insert_with("uia", "nope", pid).unwrap(), "no TextPattern: the caret could not be kept");
+    let r = dictation_insert(json!({"text": "typed into WinForms", "expectPid": pid})).unwrap();
+    assert_eq!(r["method"], "typed");
+    std::thread::sleep(Duration::from_millis(300));
+    assert_eq!(testing::focused_value().as_deref(), Some("typed into WinForms"));
+}
+
+#[test]
+#[ignore]
 fn insert_strategies_into_a_native_edit_control_and_restore_the_clipboard() {
-    let (proc_, _hwnd) = winforms_textbox("PsycheDictationTest-Edit");
+    let (proc_, _hwnd) = text_window("PsycheDictationTest-WPF", true);
     let pid = proc_.0.id();
     let target = dictation_target(json!({})).unwrap();
     println!("dictation.target = {target}");

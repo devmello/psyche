@@ -237,6 +237,7 @@ impl InsertBackend for Backend {
     }
 
     fn uia_replace_selection(&self, text: &str) -> bool {
+        // Any UIA failure (a pattern the control lacks, a timeout) means "type it instead".
         self.uia_write(text).unwrap_or(false)
     }
 
