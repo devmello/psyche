@@ -10937,6 +10937,9 @@
           "$ref": "#/$defs/SourcesBlock"
         },
         {
+          "$ref": "#/$defs/LifeAnswerBlock"
+        },
+        {
           "$ref": "#/$defs/CompactionBlock"
         },
         {
@@ -13553,7 +13556,8 @@
           "enum": [
             "feed_item",
             "search_hit",
-            "memory_entity"
+            "memory_entity",
+            "life_answer"
           ],
           "type": "string"
         },
@@ -15259,7 +15263,8 @@
           "enum": [
             "feed_item",
             "search_hit",
-            "memory_entity"
+            "memory_entity",
+            "life_answer"
           ],
           "type": "string"
         },
@@ -24323,6 +24328,74 @@
       ],
       "type": "object"
     },
+    "LifeAnswerBlock": {
+      "properties": {
+        "type": {
+          "const": "life_answer",
+          "type": "string"
+        },
+        "question": {
+          "description": "The owner's own question",
+          "maxLength": 500,
+          "type": "string"
+        },
+        "answer": {
+          "maxLength": 900,
+          "type": "string"
+        },
+        "model": {
+          "description": "The kind of model that made the answer",
+          "enum": [
+            "cloud",
+            "local"
+          ],
+          "type": "string"
+        },
+        "factIds": {
+          "items": {
+            "description": "ULID in production",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 12,
+          "type": "array"
+        },
+        "passageIds": {
+          "items": {
+            "maxLength": 200,
+            "type": "string"
+          },
+          "maxItems": 8,
+          "type": "array"
+        },
+        "facts": {
+          "items": {
+            "$ref": "#/$defs/LifeFactHit"
+          },
+          "maxItems": 12,
+          "type": "array"
+        },
+        "passages": {
+          "items": {
+            "$ref": "#/$defs/LifeAnswerPassage"
+          },
+          "maxItems": 8,
+          "type": "array"
+        }
+      },
+      "required": [
+        "type",
+        "question",
+        "answer",
+        "model",
+        "factIds",
+        "passageIds",
+        "facts",
+        "passages"
+      ],
+      "type": "object"
+    },
     "LifeAnswerPassage": {
       "properties": {
         "id": {
@@ -28273,6 +28346,18 @@
             "$ref": "#/$defs/LifeAnswerPassage"
           },
           "type": "array"
+        },
+        "answerId": {
+          "anyOf": [
+            {
+              "description": "Opaque id of this answer, kept by the Gateway for a while for this device: \"Open as a chat\" names it in `chat.send.context` (kind `life_answer`). Null when there is no answer",
+              "maxLength": 64,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "reason": {
           "anyOf": [

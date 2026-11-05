@@ -1,6 +1,7 @@
 import type { EntitySummary, LifeAnswerPassage, LifeFactHit } from "@psyche/protocol";
 import { MessageCircle } from "lucide-react";
 import { type ReactElement, useId, useState } from "react";
+import { useOpenAnswerAsChat } from "../../chat/open-answer.ts";
 import { usePrefillComposer } from "../../chat/prefill.ts";
 import { Badge } from "../../components/ui/badge.tsx";
 import { Button } from "../../components/ui/button.tsx";
@@ -34,6 +35,8 @@ export interface LifeAnswerData {
   answer?: string | null;
   facts: readonly LifeFactHit[];
   passages?: readonly LifeAnswerPassage[] | undefined;
+  /** Opaque id the Gateway keeps the answer under, for "Open as a chat". */
+  answerId?: string | null | undefined;
   reason?: Reason | null;
 }
 
@@ -100,13 +103,26 @@ export function LifeAnswerCard({
   onOpenEntity?: (entity: EntitySummary) => void;
 }): ReactElement {
   const prefill = usePrefillComposer();
+  const openAsChat = useOpenAnswerAsChat();
   const r = state.result;
   const claims =
     state.phase === "done" ? groundedClaims(r?.answer, r?.facts ?? [], r?.passages ?? []) : [];
   const answered = claims.length > 0;
   const question = state.question?.trim() ?? "";
-  const canChat = prefill !== undefined && question !== "" && state.phase === "done";
   const turns = state.turns ?? [];
+  // The answer that goes into the chat is the newest one the Gateway kept: the last follow-up
+  // that was answered, else the first answer. The chat names its id; the Gateway holds the rest.
+  const lastTurn = [...turns]
+    .reverse()
+    .find((x) => x.phase === "done" && typeof x.result?.answerId === "string");
+  const target =
+    lastTurn !== undefined
+      ? { question: lastTurn.question.trim(), answerId: lastTurn.result?.answerId ?? null }
+      : { question, answerId: r?.answerId ?? null };
+  const canChat =
+    question !== "" &&
+    state.phase === "done" &&
+    (prefill !== undefined || (openAsChat !== undefined && target.answerId !== null));
   const busy = turns.some((x) => x.phase === "loading");
 
   return (
@@ -155,7 +171,9 @@ export function LifeAnswerCard({
           variant="ghost"
           className="self-start"
           onClick={() => {
-            prefill(question);
+            if (openAsChat !== undefined && target.answerId !== null) {
+              openAsChat({ answerId: target.answerId, question: target.question });
+            } else prefill?.(question);
             state.onDone?.();
           }}
         >
@@ -218,8 +236,6 @@ function AnswerBody({
   onDone: (() => void) | undefined;
   onOpenSettings: (() => void) | undefined;
 }): ReactElement {
-  const [open, setOpen] = useState<number | null>(null);
-  const baseId = useId();
   const claims =
     phase === "done"
       ? groundedClaims(result?.answer, result?.facts ?? [], result?.passages ?? [])
@@ -252,46 +268,66 @@ function AnswerBody({
         </p>
       )}
       {answered ? (
-        <>
-          <p className="text-body text-label-primary" aria-live="polite">
-            {claims.map((claim, i) => (
-              // biome-ignore lint/suspicious/noArrayIndexKey: claims are positional and never reorder
-              <span key={i}>
-                {i > 0 ? " " : null}
-                {claim.text}{" "}
-                <Badge
-                  variant="outline"
-                  data-testid="life-answer-source"
-                  render={
-                    <button
-                      type="button"
-                      aria-expanded={open === i}
-                      aria-controls={`${baseId}-${i}`}
-                      onClick={() => setOpen(open === i ? null : i)}
-                    />
-                  }
-                >
-                  {chipLabel(claim)}
-                </Badge>
-              </span>
-            ))}
-          </p>
-          {open === null || claims[open] === undefined ? null : (
-            <ClaimSources
-              id={`${baseId}-${open}`}
-              claim={claims[open]}
-              onOpenEntity={
-                onOpenEntity
-                  ? (e) => {
-                      onOpenEntity(e);
-                      onDone?.();
-                    }
-                  : undefined
-              }
-            />
-          )}
-        </>
+        <AnsweredClaims claims={claims} onOpenEntity={onOpenEntity} onDone={onDone} />
       ) : null}
+    </>
+  );
+}
+
+/**
+ * An answer's claims, each followed by its citation chip, and the sources under the open chip.
+ * The card in Search uses it, and so does the answer at the start of a chat opened from it.
+ */
+export function AnsweredClaims({
+  claims,
+  onOpenEntity,
+  onDone,
+}: {
+  claims: readonly AnswerClaim[];
+  onOpenEntity: ((entity: EntitySummary) => void) | undefined;
+  onDone?: (() => void) | undefined;
+}): ReactElement {
+  const [open, setOpen] = useState<number | null>(null);
+  const baseId = useId();
+  return (
+    <>
+      <p className="text-body text-label-primary" aria-live="polite">
+        {claims.map((claim, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: claims are positional and never reorder
+          <span key={i}>
+            {i > 0 ? " " : null}
+            {claim.text}{" "}
+            <Badge
+              variant="outline"
+              data-testid="life-answer-source"
+              render={
+                <button
+                  type="button"
+                  aria-expanded={open === i}
+                  aria-controls={`${baseId}-${i}`}
+                  onClick={() => setOpen(open === i ? null : i)}
+                />
+              }
+            >
+              {chipLabel(claim)}
+            </Badge>
+          </span>
+        ))}
+      </p>
+      {open === null || claims[open] === undefined ? null : (
+        <ClaimSources
+          id={`${baseId}-${open}`}
+          claim={claims[open]}
+          onOpenEntity={
+            onOpenEntity
+              ? (e) => {
+                  onOpenEntity(e);
+                  onDone?.();
+                }
+              : undefined
+          }
+        />
+      )}
     </>
   );
 }

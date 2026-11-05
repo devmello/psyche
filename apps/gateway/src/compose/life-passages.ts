@@ -36,6 +36,11 @@ export interface AnswerViewer {
   passages: boolean;
   /** The Psyche app on this Mac itself: may read the owner-only sources. */
   desktop: boolean;
+  /**
+   * Judge the cloud rule for this model instead of the answering one (an answer opened in a chat
+   * that runs on another model). Absent: the model that answers.
+   */
+  cloud?: boolean;
 }
 
 export interface PassageSource {
@@ -70,7 +75,8 @@ export function lifePassages(deps: PassageDeps): PassageSource {
     if (deps.optedOut?.(doc.source) === true) return undefined;
     if (!viewer.desktop && (OWNER_ONLY_SOURCES as readonly string[]).includes(doc.source))
       return undefined;
-    if (deps.cloud() && deps.cloudBlocked().includes(sourceTag(doc.source))) return undefined;
+    if ((viewer.cloud ?? deps.cloud()) && deps.cloudBlocked().includes(sourceTag(doc.source)))
+      return undefined;
     const text = excerptAround(doc.text, q);
     const title = doc.title.slice(0, 200);
     if (text === "" || !passageSendable(title, text, deps.sensitive())) return undefined;

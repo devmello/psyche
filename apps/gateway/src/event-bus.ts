@@ -1,4 +1,5 @@
 import { type DeviceScope, type EventName, type EventPayload, eventFrame } from "@psyche/protocol";
+import type { Reader } from "./message-scrub.ts";
 
 export type FrameSink = (frame: string) => void;
 
@@ -35,7 +36,7 @@ export function eventScope(event: EventName): DeviceScope | null {
 export type EventPersonalizer = (
   event: EventName,
   payload: unknown,
-  subscriber: { deviceId: string | null; scopes: readonly DeviceScope[] },
+  subscriber: { deviceId: string | null; scopes: readonly DeviceScope[]; reader: Reader },
 ) => unknown | undefined;
 
 interface Subscriber {
@@ -43,7 +44,11 @@ interface Subscriber {
   filter: EventFilter | null;
   /** The paired device behind the sink, for events meant for one device (`publishToDevice`). */
   deviceId: string | null;
+  /** Who is behind the sink; a part of the Gateway itself reads as the least trusted. */
+  reader: Reader;
 }
+
+const NO_READER: Reader = { role: null, desktop: false };
 
 function matches(filter: EventFilter | null, event: string, threadId: string | undefined): boolean {
   if (filter === null) return true;
@@ -95,8 +100,9 @@ export class EventBus {
     scopes: readonly DeviceScope[],
     sink: FrameSink,
     deviceId: string | null = null,
+    reader: Reader = NO_READER,
   ): () => void {
-    this.#subscribers.set(sink, { scopes, filter: null, deviceId });
+    this.#subscribers.set(sink, { scopes, filter: null, deviceId, reader });
     return () => this.#subscribers.delete(sink);
   }
 
@@ -126,6 +132,7 @@ export class EventBus {
       const own = this.#personalizer?.(event, payload, {
         deviceId: sub.deviceId,
         scopes: sub.scopes,
+        reader: sub.reader,
       });
       sink(
         own === undefined
