@@ -7,6 +7,8 @@ Templates for the tap `devmello/psyche` (repository `github.com/devmello/homebre
 | `psyche.rb.tmpl` | `Casks/psyche.rb` | `Psyche.app` from `Psyche-<version>-{arm64,x64}.dmg`; macOS 15+; `auto_updates true` (the in-app updater owns updates); uninstall boots out the `com.psyche.gateway` LaunchAgent and quits the app and helper; `zap` removes the app's files outside the bundle but never `~/.psyche` (the CLI shares it; the caveats say how to delete it) |
 | `psyche-cli.rb.tmpl` | `Formula/psyche-cli.rb` | the `psyche` binary for macOS and Linux (arm64, x64) plus bash/zsh/fish completions |
 
+Psyche is signed with its own self-signed certificate (docs/design/updates-and-install-2026.md), not an Apple Developer ID, and is not notarized. That is why the cask lives in **our own tap only**: the main `homebrew/cask` repository requires notarization. The caveats tell the user about "Open Anyway" under System Settings › Privacy & Security.
+
 ```bash
 brew install --cask devmello/psyche/psyche
 brew install devmello/psyche/psyche-cli

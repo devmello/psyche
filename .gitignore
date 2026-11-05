@@ -28,6 +28,8 @@ xcuserdata/
 vault.db
 *.key
 *.pem
+*.p12
+*.pfx
 .env
 .env.*
 

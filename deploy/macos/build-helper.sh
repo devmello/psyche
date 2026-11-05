@@ -5,8 +5,14 @@
 #
 #   deploy/macos/build-helper.sh [--arch arm64|x64] [--out <dir>]
 #
-#   PSYCHE_SIGN_IDENTITY   "Developer ID Application: Name (TEAMID)": hardened runtime + secure
-#                          timestamp, which notarization of the outer app needs. Unset: ad-hoc.
+#   PSYCHE_SIGN_IDENTITY   the SHA-1 (or name) of Psyche's self-signed release certificate
+#                          (deploy/macos/make-signing-cert.sh), or "Developer ID Application: Name
+#                          (TEAMID)": hardened runtime always; a secure timestamp for a Developer ID
+#                          (notarization needs it) and for a self-signed identity only when
+#                          PSYCHE_SIGN_TIMESTAMP=1 (Apple's timestamp server accepts it; needs the
+#                          network). Unset: ad-hoc. No library-validation exemption is needed: the
+#                          helper links only system libraries.
+#   PSYCHE_SIGN_KEYCHAIN   keychain file that holds the identity (default: the search list)
 #   PSYCHE_HELPER_PROFILE  optional provisioning profile (data-protection keychain, time-sensitive
 #                          notifications); see apps/mac-helper/scripts/build-app.sh
 #   PSYCHE_VERSION         release version (default: apps/desktop/package.json "version")
@@ -14,8 +20,9 @@
 # Ad-hoc limits: the bundle id and the code identifier are always com.psyche.helper, but an ad-hoc
 # designated requirement is the cdhash. TCC therefore treats every ad-hoc build as a new app: grants
 # made to the previous build stay listed in System Settings and no longer apply. After installing a
-# new ad-hoc build, run `tccutil reset All com.psyche.helper` and grant again. Developer ID builds
-# keep their grants across upgrades (requirement = identifier + team).
+# new ad-hoc build, run `tccutil reset All com.psyche.helper` and grant again. Builds signed with the
+# same certificate keep their grants across upgrades: a Developer ID's requirement is identifier + team,
+# the self-signed release certificate's is identifier + certificate hash (designated-requirements.txt).
 set -eu
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -25,7 +32,7 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --arch) ARCH="${2:?--arch needs arm64 or x64}"; shift 2 ;;
     --out) OUT="${2:?--out needs a directory}"; shift 2 ;;
-    -h|--help) sed -n '2,19p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,25p' "$0"; exit 0 ;;
     *) echo "unknown argument: $1" >&2; exit 64 ;;
   esac
 done

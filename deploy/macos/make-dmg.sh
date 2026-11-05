@@ -5,13 +5,16 @@
 #   pnpm --filter @psyche/desktop run package --arch=arm64
 #   deploy/macos/make-dmg.sh apps/desktop/out/Psyche-darwin-arm64/Psyche.app 1.0.0 arm64 dist
 #
-# With a Developer ID: the app is signed and notarized by electron-forge package when
-# PSYCHE_SIGN_IDENTITY (and the notarization variables) are set (apps/desktop/docs/signing.md),
-# and the same variables sign, notarize and staple the DMG here. Without one, the staged copy of the
+# With PSYCHE_SIGN_IDENTITY set the app is signed by electron-forge package (apps/desktop/docs/signing.md)
+# and the same identity signs the DMG here. The identity is Psyche's own self-signed release
+# certificate (deploy/macos/make-signing-cert.sh; no notarization) or, optionally, a Developer ID, which
+# with the notarization variables is also notarized and stapled. Without one, the staged copy of the
 # app is signed ad-hoc (`codesign --force --deep --sign -`, no hardened runtime, so the bundled
 # psyched's native addons still load) and Gatekeeper asks the owner to open it once from
 # System Settings › Privacy & Security. Variables:
-#   PSYCHE_SIGN_IDENTITY   "Developer ID Application: Name (TEAMID)"
+#   PSYCHE_SIGN_IDENTITY   the SHA-1 of the self-signed "Psyche Release" certificate, or "Developer ID Application: Name (TEAMID)"
+#   PSYCHE_SIGN_KEYCHAIN   keychain file that holds the identity (default: the search list)
+#   PSYCHE_SIGN_TIMESTAMP  1: Apple's timestamp on a self-signed signature (a Developer ID always gets one)
 #   APPLE_API_KEY (path to the .p8), APPLE_API_KEY_ID, APPLE_API_ISSUER     (preferred), or
 #   APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID
 # Never commit real values; CI passes them from repository secrets.
@@ -123,9 +126,19 @@ fi
 node "$budget" dmgMB "$dmg" >&2
 
 if [ -n "${PSYCHE_SIGN_IDENTITY:-}" ]; then
-  codesign --force --timestamp --sign "$PSYCHE_SIGN_IDENTITY" "$dmg"
+  # Psyche's own self-signed certificate (a hash or "Psyche Release") signs the DMG too, for integrity,
+  # with Apple's timestamp only when PSYCHE_SIGN_TIMESTAMP=1. Notarization and stapling are for a
+  # Developer ID with credentials; with a self-signed identity they are skipped and the log says so.
+  case "$PSYCHE_SIGN_IDENTITY" in
+    "Developer ID Application:"*) dev_id=1; ts="--timestamp" ;;
+    *) dev_id=0; ts="--timestamp=none"; if [ "${PSYCHE_SIGN_TIMESTAMP:-}" = 1 ]; then ts="--timestamp"; fi ;;
+  esac
+  # shellcheck disable=SC2086
+  codesign --force $ts ${PSYCHE_SIGN_KEYCHAIN:+--keychain "$PSYCHE_SIGN_KEYCHAIN"} --sign "$PSYCHE_SIGN_IDENTITY" "$dmg"
   codesign --verify --strict --verbose=2 "$dmg"
-  if [ -n "${APPLE_API_KEY:-}" ] && [ -n "${APPLE_API_KEY_ID:-}" ] && [ -n "${APPLE_API_ISSUER:-}" ]; then
+  if [ "$dev_id" = 0 ]; then
+    echo "note: DMG signed with a self-signed identity; notarization skipped (users approve it once under Privacy & Security, Open Anyway)" >&2
+  elif [ -n "${APPLE_API_KEY:-}" ] && [ -n "${APPLE_API_KEY_ID:-}" ] && [ -n "${APPLE_API_ISSUER:-}" ]; then
     xcrun notarytool submit "$dmg" --wait \
       --key "$APPLE_API_KEY" --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER"
   elif [ -n "${APPLE_ID:-}" ] && [ -n "${APPLE_APP_SPECIFIC_PASSWORD:-}" ] && [ -n "${APPLE_TEAM_ID:-}" ]; then
@@ -134,7 +147,7 @@ if [ -n "${PSYCHE_SIGN_IDENTITY:-}" ]; then
   else
     echo "warning: signed but not notarized (no notarization credentials); Gatekeeper will warn" >&2
   fi
-  if [ -n "${APPLE_API_KEY:-}${APPLE_ID:-}" ]; then
+  if [ "$dev_id" = 1 ] && [ -n "${APPLE_API_KEY:-}${APPLE_ID:-}" ]; then
     xcrun stapler staple "$dmg"
     spctl --assess --type open --context context:primary-signature --verbose "$dmg"
   fi

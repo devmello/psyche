@@ -49,7 +49,7 @@ It must print `Psyche-<version>-arm64.dmg: OK` (or `x64`).
 
 Open the DMG and drag Psyche onto the Applications folder next to it.
 
-**Unsigned builds.** Releases are signed and notarized by Apple only when they were built with the project's signing keys. Until the first signed release, the app is signed ad-hoc, and macOS blocks it the first time you open it ("Psyche can't be opened" or "cannot verify that it is free of malware"). Verify the checksum as above first. Then:
+**First open (not notarized).** Psyche is signed with its own certificate, not an Apple Developer ID, and it is not notarized, so macOS blocks it the first time you open it. (Builds from before the first signed release are signed ad-hoc and behave the same way.) macOS shows ("Psyche can't be opened" or "Apple could not verify Psyche is free of malware"). Verify the checksum as above first. Then:
 
 1. Open Psyche from Applications and click **Done** on the warning.
 2. Open System Settings › Privacy & Security, scroll to Security and click **Open Anyway** next to the Psyche message. Confirm with your password.
