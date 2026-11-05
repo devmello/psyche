@@ -34,8 +34,8 @@ export function mountParamsOnly(handlers: ParamsOnly): Record<string, HandlerDef
  */
 export function surfaceOf(db: PsycheDb, deviceId: string): Surface {
   const platform = getDevice(db, deviceId)?.platform;
-  // The Psyche desktop app runs on macOS and Windows.
-  if (platform === "macos" || platform === "windows") return "desktop";
+  // The Psyche desktop app runs on macOS, Windows and Linux.
+  if (platform === "macos" || platform === "windows" || platform === "linux") return "desktop";
   if (platform === "web") return "web";
   return `device:${platform ?? "unknown"}`;
 }
