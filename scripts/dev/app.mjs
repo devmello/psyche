@@ -6,6 +6,7 @@
 //   node scripts/dev/app.mjs ship [args]      build, then install (args go to install)
 //
 // The macOS flags work on Windows too: --arch x64 → -Arch x64, --keep-data → -KeepData,
+// --reset → -Reset, --yes / -y → -Yes,
 // --no-launch → -NoLaunch, --dry-run → -DryRun, --skip-helper → -SkipHelper, --smoke → -Smoke.
 import { spawnSync } from "node:child_process";
 import { join, resolve } from "node:path";
@@ -16,6 +17,9 @@ const ROOT = resolve(fileURLToPath(new URL(".", import.meta.url)), "../..");
 const PS_FLAGS = {
   "--arch": "-Arch",
   "--keep-data": "-KeepData",
+  "--reset": "-Reset",
+  "--yes": "-Yes",
+  "-y": "-Yes",
   "--no-launch": "-NoLaunch",
   "--dry-run": "-DryRun",
   "--skip-helper": "-SkipHelper",

@@ -216,11 +216,18 @@ pnpm app:build
 pnpm app:install
 ```
 
-`pnpm app:build` writes `dist\Psyche-<version>-Setup.exe` (and a portable `dist\Psyche-<version>-win32-x64.zip`). `pnpm app:install` runs the installer silently. Like the Mac script, it first **resets** Psyche's data for your user so the new build starts from first-run onboarding; pass `--keep-data` to install over it:
+`pnpm app:build` writes `dist\Psyche-<version>-Setup.exe` (and a portable `dist\Psyche-<version>-win32-x64.zip`). `pnpm app:install` runs the installer silently. Like the Mac script, it **keeps your data** by default: it quits Psyche, ends the Gateway task so nothing runs from the old install, installs, and opens the new build, which registers the task again. `--keep-data` is accepted and does nothing.
+
+`pnpm app:install --reset` is the explicit wipe, for a from-scratch first run. It prints everything it will delete (permanently, not to the Recycle Bin) and asks you to type `RESET`:
 
 ```powershell
-pnpm app:install --keep-data
+pnpm app:install --reset
 ```
+
+- It deletes the data folder (`%USERPROFILE%\.psyche`), `%APPDATA%\Psyche`, the helper's and Gateway's folders (`%APPDATA%\com.psyche.helper`, `%LOCALAPPDATA%\com.psyche.helper`, `%LOCALAPPDATA%\Psyche Helper`, `%LOCALAPPDATA%\com.psyche.gateway`), the sandbox PC's guest image (`%LOCALAPPDATA%\Psyche\vm-images`), the Gateway scheduled task and the Credential Manager items whose name starts with `Psyche/`. It lists only what exists.
+- It uses the data folder from the installed Gateway task (warning if `PSYCHE_HOME` differs), refuses anything that is not a Psyche folder strictly inside your user folder (never the user folder, a drive, a network share, `Documents`, `Desktop`, `Downloads`, `AppData`, `OneDrive` and the like, or a path that goes through a link), and refuses `--yes` unless the folder is the default `%USERPROFILE%\.psyche`.
+- Without a terminal it refuses unless you pass `--yes`, which skips the question. A path it cannot remove is reported at the end; the rest still goes.
+- It does not remove the sandbox PC service, which needs an administrator; see [Uninstall on Windows](#uninstall-on-windows).
 
 You can also double-click `Psyche-<version>-Setup.exe`. It installs Psyche for your Windows user into `%LOCALAPPDATA%\Psyche` without asking for administrator rights, adds Psyche to the Start menu and the desktop, and opens it. The app carries the Gateway (`psyched`, with its own Node runtime), the `psyche` CLI and Psyche Helper; nothing else needs to be installed.
 
@@ -242,7 +249,46 @@ psyche start --psyched "$env:LOCALAPPDATA\Psyche\app-<version>\resources\psyched
 
 Psyche checks for updates when it starts, verifies them against the signed update manifest and installs them in the background; the new version opens the next time you start Psyche. Updates are off in builds without a signature or a release key.
 
-To uninstall, open **Settings › Apps › Installed apps**, find Psyche and choose **Uninstall**. That removes the app, its shortcuts, your Gateway task, the **Open at login** entry and the `psyche://` link handler. Your data in `%USERPROFILE%\.psyche` stays; delete that folder to remove it too.
+To uninstall, see [Uninstall on Windows](#uninstall-on-windows).
+
+## Uninstall on Windows
+
+**From the app (recommended).** Open Settings › About › **Uninstall Psyche…**. The sheet lists exactly what will go before you confirm:
+
+- It stops and deletes your Gateway scheduled task (`\Psyche\Gateway-<your SID>`, and this account's `\Psyche\Gateway` of an earlier version), stops Psyche Helper, turns off "Open at login" and removes the `psyche://` and `psyche-pair:` link handlers and the helper's notification keys.
+- It moves the app's files outside the install folder to the Recycle Bin: `%APPDATA%\Psyche` (settings, web storage, caches, logs), the helper's and Gateway's folders and the sandbox PC's guest image. Chromium keeps `%APPDATA%\Psyche` open while Psyche runs, so that folder is moved right after Psyche quits.
+- It removes the app with Squirrel's own uninstaller (`Update.exe --uninstall`, the same as Settings › Apps), then quits. That removes `%LOCALAPPDATA%\Psyche`, the shortcuts and the Programs and Features entry; it does not use the Recycle Bin, and installing Psyche again brings the app back.
+- **Keep my data** is the default: `%USERPROFILE%\.psyche` (chats, memory, vault, backups) stays where it is, so installing Psyche again picks up where you left off.
+- **Delete my data** also moves the data folder to the Recycle Bin. Because it cannot be undone once the bin is emptied, it asks you to type `DELETE` and to confirm with Windows Hello (or the approval card on this PC), and the card names the exact folder. Back up first with `psyche backup create` if you want a copy. Psyche refuses a folder that is not clearly its own: it must be inside your user folder (never the user folder itself, `Documents`, `Desktop`, `Downloads`, `AppData`, `OneDrive`, a drive or a network share) and hold Psyche's database or `config.json`. If your data lives somewhere else, move it to the Recycle Bin from File Explorer.
+- **Credential Manager items stay** unless you tick "Also remove my Credential Manager items", which removes exactly the generic credentials whose name starts with `Psyche/` (the vault key and the helper's items, including their `#2`, `#3` parts), listed one by one. Without your data they are useless; you can also remove them in Credential Manager (Control Panel › Credential Manager › Windows Credentials).
+- **The sandbox PC service** (`PsycheVM-<your SID>`), when you set the sandbox PC up, is registered with Windows and removing it needs an administrator: Windows shows one prompt. If you dismiss it or your account cannot elevate, Psyche carries on and shows these steps (also saved to `%TEMP%\Psyche-remove-sandbox-pc.txt`); open Windows Terminal as an administrator and run `sc.exe stop PsycheVM-<your SID>` then `sc.exe delete PsycheVM-<your SID>`.
+- If the Gateway task runs another copy of Psyche or the `psyche` CLI (its runtime is not inside this install folder), it is left alone and the sheet says so.
+- Before it stops anything, Psyche checks that every item can be moved to the Recycle Bin (a read-only folder or a network location is refused with the manual step), shows a confirmation dialog, and stops the updater so nothing can reinstall the app. If the Gateway will not stop or a step fails, Psyche stays open, starts the Gateway again and lists what to finish by hand.
+
+Nothing is deleted outright except the app itself: your files go to the Recycle Bin, so you can put them back until you empty it. The sheet is only offered by a packaged, Squirrel-installed Psyche that runs its own Gateway task on this PC, never from a window connected to another computer or from a development build, and the Gateway cannot start it.
+
+**From Settings › Apps.** Open **Settings › Apps › Installed apps**, find Psyche and choose **Uninstall**. That removes the app, its shortcuts, your Gateway task (unless it runs another copy), the sandbox PC service (one administrator prompt, or the manual steps in `%TEMP%\Psyche-remove-sandbox-pc.txt`), the **Open at login** entry and the `psyche://` link handler. It leaves your data (`%USERPROFILE%\.psyche`), `%APPDATA%\Psyche` and the Credential Manager items alone; use the app's sheet above, or remove them by hand.
+
+**If the app won't launch.** Do the same steps by hand in PowerShell, then move the folders to the Recycle Bin in File Explorer (skip `%USERPROFILE%\.psyche` to keep your data):
+
+```powershell
+schtasks /End /TN "\Psyche\Gateway-<your SID>"
+schtasks /Delete /TN "\Psyche\Gateway-<your SID>" /F
+Stop-Process -Name Psyche, psyche-helper -Force -ErrorAction SilentlyContinue
+& "$env:LOCALAPPDATA\Psyche\Update.exe" --uninstall
+```
+
+```
+%APPDATA%\Psyche
+%APPDATA%\com.psyche.helper
+%LOCALAPPDATA%\com.psyche.helper
+%LOCALAPPDATA%\Psyche Helper
+%LOCALAPPDATA%\com.psyche.gateway
+%LOCALAPPDATA%\Psyche\vm-images   (the sandbox PC's guest image)
+%USERPROFILE%\.psyche   (your data: skip it to keep it)
+```
+
+Your SID is the last column of `whoami /user`. To remove the credentials, run `cmdkey /list` and `cmdkey /delete:Psyche/<name>` for each target that starts with `Psyche/`.
 
 ## On a Linux server with Docker Compose
 

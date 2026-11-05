@@ -588,6 +588,8 @@ export const settings = {
   "settings.uninstall.willDo": "What happens",
   "settings.uninstall.stopAgent": "The Gateway LaunchAgent is stopped and removed.",
   "settings.uninstall.stopHelper": "Psyche Helper is stopped and “Open at login” is turned off.",
+  "settings.uninstall.stopSandboxPc":
+    "The sandbox PC service is removed. Windows asks for administrator approval once.",
   "settings.uninstall.trash": "Moved to the Trash",
   "settings.uninstall.kind.agent": "Gateway LaunchAgent",
   "settings.uninstall.kind.support": "Application Support",

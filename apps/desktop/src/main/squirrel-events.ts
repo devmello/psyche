@@ -19,7 +19,7 @@ import identity from "../../../win-helper/aumid.json" with { type: "json" };
 import { PAIR_LINK_SCHEME } from "../lib/pair-link.ts";
 import { LOGIN_ITEM_NAME } from "./login-item.ts";
 import { startElevatedDetached } from "./sandbox-pc/elevate.ts";
-import { windowsUserId } from "./supervisor-windows.ts";
+import { taskRunsFrom, windowsUserId } from "./supervisor-windows.ts";
 
 /**
  * Squirrel.Windows install events (deploy/windows, docs/guides/install.md "Windows"). Squirrel
@@ -31,7 +31,9 @@ import { windowsUserId } from "./supervisor-windows.ts";
  *   --squirrel-updated    after an update: the same, refreshed to the new version (the desktop
  *                         shortcut only when the owner kept it)
  *   --squirrel-uninstall  removes all of that, the Gateway task (\Psyche\Gateway-<SID>, and this
- *                         account's \Psyche\Gateway of an earlier version), whose node.exe would
+ *                         account's \Psyche\Gateway of an earlier version) when it runs from this
+ *                         install folder (another copy's task is left alone; `ownGatewayTasks`),
+ *                         whose node.exe would
  *                         otherwise keep files of the install folder open, the login item
  *                         (Settings › Appearance › Open at login) and the psyche:// and
  *                         psyche-pair: handlers the app registered
@@ -148,9 +150,33 @@ export function helperExe(exe: string): string {
   );
 }
 
+/** Set by the in-app uninstall (uninstall-windows.ts) when it already dealt with the sandbox PC. */
+export const SANDBOX_PC_HANDLED_ENV = "PSYCHE_SANDBOX_PC_HANDLED";
+
 const ACTIVATOR_KEY = `HKCU\\Software\\Classes\\CLSID\\${HELPER_TOAST_CLSID}`;
 const AUMID_KEY = `HKCU\\Software\\Classes\\AppUserModelId\\${HELPER_AUMID}`;
 const NOTIFICATION_SETTINGS_KEY = `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Notifications\\Settings\\${HELPER_AUMID}`;
+
+/**
+ * What an uninstall removes from the registry, in order: the helper's toast identity and the
+ * owner's notification choices for it, the login item and its Task Manager switch, and the URL
+ * handlers. The in-app uninstall (uninstall-windows.ts) removes the same set before it hands over
+ * to Squirrel, so both agree on what "Psyche's registry keys" are.
+ */
+export function uninstallRegistryEntries(): { key: string; value?: string }[] {
+  return [
+    { key: ACTIVATOR_KEY },
+    { key: AUMID_KEY },
+    // What the owner chose in Settings › Notifications for the helper.
+    { key: NOTIFICATION_SETTINGS_KEY },
+    // Open at login (login-item.ts): Electron's Run value, and the switch Windows keeps for it
+    // once the owner turns it off in Task Manager or Settings › Apps › Startup.
+    { key: RUN_KEY, value: LOGIN_ITEM_NAME },
+    { key: STARTUP_APPROVED_KEY, value: LOGIN_ITEM_NAME },
+    // The URL handlers main.ts registered; nothing would open them any more.
+    ...URL_SCHEMES.map((scheme) => ({ key: `HKCU\\Software\\Classes\\${scheme}` })),
+  ];
+}
 
 /** What an event does, as data (tests check it; runSquirrelActions carries it out). */
 export function squirrelPlan(event: SquirrelEvent, p: SquirrelPaths): SquirrelAction[] {
@@ -272,16 +298,7 @@ export function squirrelPlan(event: SquirrelEvent, p: SquirrelPaths): SquirrelAc
         { kind: "remove", file: win32.join(p.startMenu, identity.app.shortcut) },
         { kind: "remove", file: win32.join(p.desktop, identity.app.shortcut) },
         { kind: "remove", file: win32.join(p.startMenu, identity.helper.shortcut) },
-        regDelete(ACTIVATOR_KEY),
-        regDelete(AUMID_KEY),
-        // What the owner chose in Settings › Notifications for the helper.
-        regDelete(NOTIFICATION_SETTINGS_KEY),
-        // Open at login (login-item.ts): Electron's Run value, and the switch Windows keeps for it
-        // once the owner turns it off in Task Manager or Settings › Apps › Startup.
-        regDelete(RUN_KEY, LOGIN_ITEM_NAME),
-        regDelete(STARTUP_APPROVED_KEY, LOGIN_ITEM_NAME),
-        // The URL handlers main.ts registered; nothing would open them any more.
-        ...URL_SCHEMES.map((scheme) => regDelete(`HKCU\\Software\\Classes\\${scheme}`)),
+        ...uninstallRegistryEntries().map((e) => regDelete(e.key, e.value)),
       ];
     case "obsolete":
       return [];
@@ -333,6 +350,22 @@ export function gatewayTasks(
   const legacy = queryXml(LEGACY_GATEWAY_TASK);
   const ours = legacy !== null && taskBelongsTo(legacy, { sid, ...(userId ? { userId } : {}) });
   return [gatewayTaskName(sid), ...(ours ? [LEGACY_GATEWAY_TASK] : [])];
+}
+
+/**
+ * Of this account's Gateway tasks, the ones that run from this install folder. A task that runs
+ * another copy's runtime (a checkout, another install) is not ours to end or delete, so it stays;
+ * a task that no longer exists is kept in the list (deleting it is a no-op).
+ */
+export function ownGatewayTasks(
+  tasks: readonly string[],
+  root: string,
+  queryXml: (task: string) => string | null,
+): string[] {
+  return tasks.filter((task) => {
+    const xml = queryXml(task);
+    return xml === null || taskRunsFrom(xml, root);
+  });
 }
 
 function queryTaskXml(task: string): string | null {
@@ -463,8 +496,16 @@ export function handleSquirrelEvent(
     psycheHome: env.PSYCHE_HOME ?? win32.join(homedir(), ".psyche"),
     pid: process.pid,
     gatewayTasks:
-      event === "uninstall" ? gatewayTasks(currentUserSid(), windowsUserId(env), queryTaskXml) : [],
-    ownerSid: event === "uninstall" ? currentUserSid() : null,
+      event === "uninstall"
+        ? ownGatewayTasks(
+            gatewayTasks(currentUserSid(), windowsUserId(env), queryTaskXml),
+            installRoot(process.execPath),
+            queryTaskXml,
+          )
+        : [],
+    // The in-app uninstall already dealt with the service (one prompt, or the manual steps).
+    ownerSid:
+      event === "uninstall" && env[SANDBOX_PC_HANDLED_ENV] !== "1" ? currentUserSid() : null,
   };
   runSquirrelActions(squirrelPlan(event, paths), {
     writeShortcutLink: (f, op, o) => electron.shell.writeShortcutLink(f, op, o),

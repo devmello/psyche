@@ -1,6 +1,7 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { setUiPlatform } from "../src/lib/platform.ts";
 import { AboutPanel } from "../src/screens/settings/AboutSection.tsx";
 import { SettingsApprovalContext } from "../src/screens/settings/shared.tsx";
 import type { AboutInfo, UninstallPort } from "../src/screens/settings/types.ts";
@@ -153,5 +154,45 @@ describe("Uninstall Psyche (About)", () => {
     expect(screen.getByText("PSYCHE_HOME differs from the agent's")).toBeTruthy();
     expect(screen.getByText(/\/Volumes\/x\/Psyche.app can't be moved/)).toBeTruthy();
     expect((screen.getByTestId("uninstall-go") as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+
+describe("Uninstall Psyche on Windows", () => {
+  afterEach(() => setUiPlatform(undefined));
+
+  it("says Recycle Bin, scheduled task, Windows Hello and Credential Manager, and lists the sandbox PC service", async () => {
+    setUiPlatform("windows");
+    const base = port();
+    const p = port({
+      plan: vi.fn(async (req) => ({
+        ...(await base.plan(req)),
+        stops: [{ kind: "service", label: "Remove the sandbox PC service" }],
+        trash: [
+          { kind: "support", path: "C:\\Users\\me\\AppData\\Roaming\\Psyche", label: "x" },
+          { kind: "app", path: "C:\\Users\\me\\AppData\\Local\\Psyche", label: "Psyche" },
+        ],
+      })),
+    });
+    render(<AboutPanel info={info} uninstall={p} />);
+    await userEvent.click(screen.getByRole("button", { name: "Uninstall Psyche…" }));
+    expect(await screen.findByText("C:\\Users\\me\\AppData\\Local\\Psyche")).toBeTruthy();
+    const sheet = screen.getByTestId("uninstall-sheet");
+    expect(within(sheet).getByText("Moved to the Recycle Bin")).toBeTruthy();
+    expect(within(sheet).getByText("The app (removed by Windows)")).toBeTruthy();
+    expect(
+      within(sheet).getByText("The Gateway scheduled task is stopped and deleted."),
+    ).toBeTruthy();
+    expect(within(sheet).getByText(/sandbox PC service is removed/)).toBeTruthy();
+    expect(within(sheet).queryByText(/Trash|LaunchAgent|Touch ID|Keychain/)).toBeNull();
+    await userEvent.click(await screen.findByLabelText(/Delete my data/));
+    expect(within(sheet).getByText(/Windows Hello/)).toBeTruthy();
+    expect(within(sheet).getByText(/Also remove my Credential Manager items/)).toBeTruthy();
+  });
+
+  it("does not list the sandbox PC service on a Mac plan", async () => {
+    render(<AboutPanel info={info} uninstall={port()} />);
+    await userEvent.click(screen.getByRole("button", { name: "Uninstall Psyche…" }));
+    await screen.findByText("/Applications/Psyche.app");
+    expect(screen.queryByText(/sandbox PC service/)).toBeNull();
   });
 });
