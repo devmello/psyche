@@ -5,10 +5,12 @@ import ActivityKit
 
 // The Live Activity for a running task (companion §3.6). The app and the Widgets extension both compile
 // this, so the content state is the one place that says what may appear where:
-// - Lock Screen: step n of m, a status, a start time and, only when the owner opts in, the task title.
+// - Lock Screen card: step n of m, a status and a start time. The task's title and what the step is doing
+//   appear when the owner opts in ("Task titles on the Lock Screen"), or otherwise only while the phone is
+//   unlocked (Notification Center, a banner); locked, iOS's privacy redaction keeps them off the card.
 // - Dynamic Island (shown only on an unlocked phone): also the task's title, what the current step is doing,
-//   what it is asking for and, for an approval the owner may answer there, its id. These fields exist because the app starts and updates the activity itself
-//   (M2-lite); nothing leaves the phone. If Gateway push updates arrive later (companion §3.6), the push
+//   what it is asking for and, for an approval the owner may answer there, its id.
+// These fields exist because the app starts and updates the activity itself (M2-lite); nothing leaves the phone. If Gateway push updates arrive later (companion §3.6), the push
 //   payload must leave `islandTitle`, `detail`, `asking` and `inlineApprovalID` out unless the owner opted in.
 // Never tool arguments or results.
 

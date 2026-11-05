@@ -89,17 +89,42 @@ struct TaskLiveActivity: Widget {
 
 struct TaskLockScreenView: View {
     let content: TaskActivityContent
+    /// iOS sets `.privacy` while the phone is locked (with a passcode); it is how a Live Activity learns that.
+    @Environment(\.redactionReasons) private var redaction
+
+    /// What the task is and what it's doing. With "Task titles on the Lock Screen" on, always. With it off, only
+    /// on an unlocked phone (Notification Center, a banner): locked, the card says "Psyche is working" and its
+    /// progress, nothing more. The text is also marked privacy-sensitive, so iOS hides it if it is drawn locked.
+    private var shown: (title: String?, detail: String?) {
+        if let title = content.title { return (title, content.detail) }
+        guard !redaction.contains(.privacy) else { return (nil, nil) }
+        return (content.islandTitle, content.detail)
+    }
 
     var body: some View {
+        let (title, detail) = shown
+        let isPrivate = content.title == nil
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
-                LA.moth(24)
-                Text(content.title ?? "Psyche is working")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(LA.text)
-                    .lineLimit(1)
-                Spacer(minLength: 8)
-                ElapsedText(content: content, size: 14)
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 10) {
+                    LA.moth(24)
+                    Text(title ?? "Psyche is working")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(LA.text)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .privacySensitive(isPrivate && title != nil)
+                    Spacer(minLength: 8)
+                    ElapsedText(content: content, size: 14)
+                }
+                if let detail {
+                    Text(detail)
+                        .font(.system(size: 13))
+                        .foregroundStyle(LA.muted)
+                        .lineLimit(1)
+                        .padding(.leading, 34)  // under the title, past the moth
+                        .privacySensitive(isPrivate)
+                }
             }
             if content.hasStepCount {
                 SegmentBar(content: content)
