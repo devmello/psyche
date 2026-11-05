@@ -4,7 +4,8 @@
 # - no .build-id links: every Electron app's chrome-sandbox has its own, and two packages that
 #   own the same link refuse to install together;
 # - no stripping or debuginfo: the files in the package are the files that were built and tested;
-# - chrome-sandbox is setuid root (the deb maker does this; the rpm maker does not).
+# - chrome-sandbox is setuid (the deb maker does this; the rpm maker does not): %install sets the
+#   mode and rpm records it, with the files owned by root.
 %global _build_id_links none
 %global __strip /bin/true
 %define debug_package %{nil}
@@ -34,12 +35,11 @@ print('\n\n\n') }
 %>%install
 mkdir -p %{buildroot}/usr/
 cp <%= process.platform === 'darwin' ? '-R' : '-r' %> usr/* %{buildroot}/usr/
+chmod 4755 %{buildroot}/usr/lib/<%= name %>/chrome-sandbox
 
 
 %files
 /usr/bin/<%= name %>
-%exclude /usr/lib/<%= name %>/chrome-sandbox
-%attr(4755,root,root) /usr/lib/<%= name %>/chrome-sandbox
 /usr/lib/<%= name %>/
 /usr/share/applications/<%= name %>.desktop
 /usr/share/doc/<%= name %>/

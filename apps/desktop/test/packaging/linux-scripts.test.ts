@@ -98,7 +98,13 @@ describe.skipIf(!posix)("psyche-system-setup", () => {
   it.each([
     ["a policy that approves with no password", policy("<allow_active>yes</allow_active>"), /without a fresh password/],
     ["a policy that keeps the authorization", policy("<allow_active>auth_self_keep</allow_active>"), /without a fresh password/],
-    ["a policy for someone else's action", policy(GOOD, "org.example.other"), /not Psyche's/],
+    [
+      "a policy that also defines someone else's action",
+      policy(GOOD).replace("</policyconfig>", `<action id="org.example.other"><defaults>${GOOD}</defaults></action>
+</policyconfig>`),
+      /not Psyche's/,
+    ],
+    ["a policy for someone else's action only", policy(GOOD, "org.example.other"), /no com.psyche action/],
     ["a policy that runs a program as root", policy(GOOD, "com.psyche.x", '<annotate key="org.freedesktop.policykit.exec.path">/bin/sh</annotate>\n'), /as root/],
     ["a policy with entities", `<!DOCTYPE x [<!ENTITY a "b">]>\n${policy(GOOD)}`, /entities/],
     ["a policy with no action", "<policyconfig/>", /no com.psyche action/],

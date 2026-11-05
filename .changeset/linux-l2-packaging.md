@@ -2,4 +2,4 @@
 "@psyche/desktop": minor
 ---
 
-Linux packaging and updates (work in progress): the signed update manifest can carry AppImage, deb and rpm artifacts, selected by platform, architecture and install kind; the Linux apply step (AppImage verified rename, deb/rpm through `pkexec`) with rollback of the previous artifact; the one-time system setup script, desktop file and icons.
+Psyche now builds for Linux as a deb, an rpm and an AppImage (x86_64 and aarch64), with the Gateway bundled. Updates work on Linux: the signed manifest lists the three formats, a copy takes the one it was installed from, and "Restart to update" replaces the AppImage or runs the package manager after one admin prompt. The previous version is kept so you can go back.
