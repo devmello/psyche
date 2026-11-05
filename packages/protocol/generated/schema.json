@@ -394,6 +394,11 @@
         "payload": "#/$defs/SpecialistSpawnedPayload"
       },
       {
+        "description": "The owner's on-device speech model download (speech.engine.download) started, progressed (at most four a second), finished or failed.",
+        "name": "speech.model_download",
+        "payload": "#/$defs/SpeechModelDownloadPayload"
+      },
+      {
         "description": "A new Activity line for a task.",
         "name": "task.action",
         "payload": "#/$defs/TaskActionPayload"
@@ -3113,6 +3118,22 @@
         "name": "specialists.list",
         "params": "#/$defs/SpecialistsListParams",
         "result": "#/$defs/SpecialistsListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Side-effecting: downloads the on-device speech model and the pinned whisper.cpp runtime into $PSYCHE_HOME, each verified by SHA-256 (an explicit owner action; nothing downloads on its own). Progress arrives as speech.model_download. `unavailable` where Psyche does not provision whisper.cpp.",
+        "name": "speech.engine.download",
+        "params": "#/$defs/SpeechEngineDownloadParams",
+        "result": "#/$defs/SpeechEngineDownloadResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Which speech-to-text engine dictation uses and why (Settings → Voice & dictation); on Windows also the on-device whisper.cpp setup and what downloading it costs.",
+        "name": "speech.engine.status",
+        "params": "#/$defs/SpeechEngineStatusParams",
+        "result": "#/$defs/SpeechEngineStatus",
         "scope": "operator.read",
         "sideEffecting": false
       },
@@ -40841,6 +40862,51 @@
       ],
       "type": "object"
     },
+    "SpeechEngineDownloadParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "SpeechEngineDownloadResult": {
+      "properties": {
+        "started": {
+          "description": "False when a download runs or nothing is missing",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "started"
+      ],
+      "type": "object"
+    },
+    "SpeechEngineEntryStatus": {
+      "properties": {
+        "id": {
+          "description": "mac-node (the Host's helper), whisper, web-speech",
+          "type": "string"
+        },
+        "location": {
+          "$ref": "#/$defs/SpeechEngineLocation"
+        },
+        "eligible": {
+          "type": "boolean"
+        },
+        "reason": {
+          "enum": [
+            "unknown",
+            "unsupported",
+            "client_only",
+            "unavailable"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "location",
+        "eligible"
+      ],
+      "type": "object"
+    },
     "SpeechEngineLocation": {
       "enum": [
         "node",
@@ -40849,6 +40915,94 @@
         "cloud"
       ],
       "type": "string"
+    },
+    "SpeechEngineStatus": {
+      "properties": {
+        "order": {
+          "description": "speech.stt.order in effect",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "dictation": {
+          "description": "Every engine in order for desktop dictation; the first eligible is used",
+          "items": {
+            "$ref": "#/$defs/SpeechEngineEntryStatus"
+          },
+          "type": "array"
+        },
+        "active": {
+          "anyOf": [
+            {
+              "description": "The engine desktop dictation uses now",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "whisper": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpeechWhisperSetup"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "order",
+        "dictation"
+      ],
+      "type": "object"
+    },
+    "SpeechEngineStatusParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "SpeechModelDownloadPayload": {
+      "properties": {
+        "phase": {
+          "enum": [
+            "started",
+            "progress",
+            "finished",
+            "failed"
+          ],
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "receivedBytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "totalBytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "fraction": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "error": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "phase",
+        "model",
+        "receivedBytes",
+        "totalBytes",
+        "fraction"
+      ],
+      "type": "object"
     },
     "SpeechNodeEngine": {
       "enum": [
@@ -40979,6 +41133,117 @@
       "enum": [
         "long",
         "short"
+      ],
+      "type": "string"
+    },
+    "SpeechWhisperModel": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "sizeBytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "present": {
+          "type": "boolean"
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "sizeBytes",
+        "present"
+      ],
+      "type": "object"
+    },
+    "SpeechWhisperRuntime": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "release": {
+          "description": "whisper.cpp release tag",
+          "type": "string"
+        },
+        "sizeBytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "present": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "release",
+        "sizeBytes",
+        "present"
+      ],
+      "type": "object"
+    },
+    "SpeechWhisperServerState": {
+      "enum": [
+        "stopped",
+        "starting",
+        "running",
+        "stopping"
+      ],
+      "type": "string"
+    },
+    "SpeechWhisperSetup": {
+      "properties": {
+        "state": {
+          "$ref": "#/$defs/SpeechWhisperSetupState"
+        },
+        "model": {
+          "$ref": "#/$defs/SpeechWhisperModel"
+        },
+        "runtime": {
+          "$ref": "#/$defs/SpeechWhisperRuntime"
+        },
+        "downloadBytes": {
+          "description": "What a download fetches now",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "receivedBytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "totalBytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "error": {
+          "description": "The last download's failure",
+          "type": "string"
+        },
+        "server": {
+          "$ref": "#/$defs/SpeechWhisperServerState"
+        },
+        "serverError": {
+          "description": "vcredist_missing, crash_loop, crashed, start_timeout, …",
+          "type": "string"
+        }
+      },
+      "required": [
+        "state",
+        "model",
+        "runtime",
+        "downloadBytes",
+        "server"
+      ],
+      "type": "object"
+    },
+    "SpeechWhisperSetupState": {
+      "enum": [
+        "missing",
+        "downloading",
+        "ready",
+        "error"
       ],
       "type": "string"
     },

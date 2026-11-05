@@ -2,13 +2,14 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getSettings, openDb, setSetting } from "@psyche/db";
+import { defaultSpeechSettings, whisperRuntimeFor } from "@psyche/speech";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
-import { removeStaleSpeechSettings } from "../src/compose/speech.ts";
+import { removeStaleSpeechSettings, sttSettings } from "../src/compose/speech.ts";
 import { silentLogger } from "../src/log.ts";
 import { FakeNode, type FakeNodeHandler } from "./fake-node.ts";
-import { desktopClient, newDeviceKey, type TestClient } from "./helpers.ts";
+import { adminClient, desktopClient, ik, newDeviceKey, type TestClient } from "./helpers.ts";
 
 let composed: ComposedGateway | null = null;
 let home = "";
@@ -144,6 +145,59 @@ describe("speech over the wire (S17 handlers mounted by the Gateway)", () => {
       audio: Buffer.alloc(320).toString("base64"),
     });
     expect(push.ok).toBe(false);
+  });
+});
+
+describe("the transcription engine order and the on-device model (Settings → Voice)", () => {
+  it("defaults by host and follows the owner's speech.stt.order", () => {
+    home = mkdtempSync(join(tmpdir(), "psyche-speech-order-"));
+    const db = openDb(join(home, "psyche.db"));
+    try {
+      expect(sttSettings(db, "win32").stt.order).toEqual(["whisper", "mac-node", "web-speech"]);
+      expect(sttSettings(db, "darwin").stt.order).toEqual(["mac-node", "whisper", "web-speech"]);
+      setSetting(db, "speech.stt.order", ["mac-node", "whisper"]);
+      expect(sttSettings(db, "win32").stt.order).toEqual(["mac-node", "whisper"]);
+      setSetting(db, "speech.stt.order", "garbage");
+      expect(sttSettings(db, "win32").stt.order[0]).toBe("whisper");
+    } finally {
+      db.close();
+    }
+  });
+
+  it("reports the engine in use and the whisper setup, and applies a changed order", async () => {
+    const c = await setup();
+    helper = await FakeNode.connect(c.gateway.config.nodeSocketPath, {
+      origin: c.gateway.origin,
+      secret: c.gateway.handshakeSecret,
+      handlers: speechHelper(),
+    });
+    const desk = await adminClient(c.gateway);
+    clients.push(desk);
+    type Status = {
+      order: string[];
+      active: string | null;
+      dictation: { id: string; eligible: boolean }[];
+      whisper: null | { state: string; downloadBytes: number; server: string };
+    };
+    const managed = whisperRuntimeFor() !== undefined;
+    const st = await desk.call<Status>("speech.engine.status", {});
+    expect(st.order).toEqual(defaultSpeechSettings().stt.order);
+    // No model is installed in a fresh home, so the helper serves dictation on every host.
+    expect(st.active).toBe("mac-node");
+    expect(st.dictation.find((e) => e.id === "whisper")?.eligible).toBe(false);
+    if (managed) {
+      expect(st.whisper).toMatchObject({ state: "missing", server: "stopped" });
+      expect(st.whisper?.downloadBytes).toBeGreaterThan(100_000_000);
+    } else {
+      expect(st.whisper).toBeNull();
+      const res = await desk.request("speech.engine.download", {}, ik());
+      expect(res.ok).toBe(false);
+    }
+    await desk.call("settings.set", { key: "speech.stt.order", value: ["web-speech"] }, ik());
+    await desk.waitForEvent((e) => e.event === "settings.changed");
+    const after = await desk.call<Status>("speech.engine.status", {});
+    expect(after.order).toEqual(["web-speech"]);
+    expect(after.active).toBeNull();
   });
 });
 

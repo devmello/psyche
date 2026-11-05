@@ -59,7 +59,8 @@ export class LocalProcessRunner implements ProcessRunner {
     }
     const env = { ...(this.#opts.env ?? minimalEnv()), ...request.env };
     return new Promise((resolve, reject) => {
-      const child = spawn(cmd, args, { env, stdio: ["pipe", "pipe", "pipe"] });
+      // windowsHide: the Task Scheduler Gateway has no console, so a console child would open one.
+      const child = spawn(cmd, args, { env, stdio: ["pipe", "pipe", "pipe"], windowsHide: true });
       const out: Buffer[] = [];
       let outBytes = 0;
       let err = "";
