@@ -4,6 +4,7 @@ export { MemoryScreen, type MemoryScreenProps } from "./MemoryScreen.tsx";
 export { ConnectedTimeline, chipText, Timeline, type TimelineProps } from "./Timeline.tsx";
 export { WorkCard, type WorkCardProps } from "./WorkCard.tsx";
 export { QuickAdd, WorkDueTab } from "./WorkDue.tsx";
+export { ConnectedWorkHistory, WorkHistory, type WorkHistoryProps } from "./WorkHistory.tsx";
 export { DueChip, ProjectRow, StaleMark, WorkRow, type WorkRowProps } from "./WorkRow.tsx";
 export {
   dueGroup,

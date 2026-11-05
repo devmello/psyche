@@ -163,6 +163,26 @@ export function canOpenGistSource(
 }
 
 /**
+ * A work item's History entries for one connection (`memory.work.history`): the chip's source
+ * stays, its label (a sender or file name, someone else's words) only where this connection may
+ * see that source (`search.document`'s rule: Messages, Contacts and Memory from the desktop app
+ * on this Mac only). A Mac helper gets no chip at all.
+ */
+export function scrubWorkHistory<T extends { chip?: { source: string; label: string } | null }>(
+  call: Call,
+  entries: readonly T[],
+): T[] {
+  const client = call.identity.role === "client";
+  const desktop = client && call.identity.desktopShell === true;
+  return entries.map((e) => {
+    if (e.chip == null) return e;
+    if (!client) return { ...e, chip: null };
+    const hidden = !desktop && (OWNER_ONLY_SOURCES as readonly string[]).includes(e.chip.source);
+    return hidden ? { ...e, chip: { ...e.chip, label: "" } } : e;
+  });
+}
+
+/**
  * A review item's citations for one connection (`memory.review.list`): a `docId` only where the
  * connection may open it (`canOpenGistSource` with any indexed source), and, for an owner-only
  * source (Messages, Contacts, Memory), the verbatim `quote` and the native `sourceRef` only for
