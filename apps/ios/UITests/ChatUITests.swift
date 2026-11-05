@@ -30,12 +30,13 @@ final class ChatUITests: PsycheUITestCase {
     }
 
     func testStopCancelsAStreamingReply() {
-        launch()
+        // Slow fixture replies: on a slow runner the default stream can finish before Stop is tapped.
+        launch(extra: ["-psycheSlowReplies", "YES"])
         openThread("Psyche, Main thread")
         send("Tell me about my week")
         let stop = app.buttons["Stop"]
         waitFor(stop, 5)
-        stop.tap()
+        tapWhenHittable(stop)
         waitGone(stop, 5)
         // A stopped reply never reaches its last words.
         Thread.sleep(forTimeInterval: 4)

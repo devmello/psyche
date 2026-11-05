@@ -58,21 +58,6 @@ final class AgentSheetUITests: PsycheUITestCase {
 }
 
 final class SettingsUITests: PsycheUITestCase {
-    private func openSettings() {
-        let avatar = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Open Psyche's activity")).firstMatch
-        waitFor(avatar)
-        // A context menu on a long press: slow runners need a longer press, and sometimes a second one.
-        let item = app.buttons["Settings"].firstMatch
-        for _ in 0..<2 where !item.waitForExistence(timeout: 0.5) {
-            waitHittable(avatar)  // a sheet that is still dismissing covers it
-            avatar.press(forDuration: 1.6)
-            if item.waitForExistence(timeout: 5) { break }
-        }
-        waitFor(item, 5)
-        item.tap()
-        waitFor(app.navigationBars["Settings"], 5)
-    }
-
     func testToggleKeepsStateAndRemoveConfirmationCancels() {
         launch()
         openSettings()
