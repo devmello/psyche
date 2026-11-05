@@ -97,8 +97,16 @@ class PsycheUITestCase: XCTestCase {
     }
 
     /// The last button with this label: a confirmation dialog's button sits above the page's own.
-    func lastButton(_ label: String) -> XCUIElement {
-        app.buttons.matching(NSPredicate(format: "label == %@", label)).allElementsBoundByIndex.last ?? app.buttons[label]
+    /// The confirmation dialog's button: the last match that can take a tap (a dialog draws over the page's own
+    /// button of the same name, and on some devices it is an action sheet, on others a popover).
+    func lastButton(_ label: String, timeout: TimeInterval = 5) -> XCUIElement {
+        let matches = app.buttons.matching(NSPredicate(format: "label == %@", label))
+        let deadline = Date().addingTimeInterval(timeout)
+        repeat {
+            if let hit = matches.allElementsBoundByIndex.reversed().first(where: { $0.exists && $0.isHittable }) { return hit }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        } while Date() < deadline
+        return matches.allElementsBoundByIndex.last ?? app.buttons[label]
     }
 
     /// The Needs-you row for an item by title text.
