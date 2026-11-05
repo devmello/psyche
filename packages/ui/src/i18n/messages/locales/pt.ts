@@ -9,6 +9,7 @@ import { galleryA } from "./gallery-a/pt.ts";
 import { links } from "./links/pt.ts";
 import { mailMeetings } from "./mail-meetings/pt.ts";
 import { memoryA } from "./memory-a/pt.ts";
+import { memoryB } from "./memory-b/pt.ts";
 import { overview } from "./overview/pt.ts";
 import { overviewGrowth } from "./overview-growth/pt.ts";
 import { overviewShared } from "./overview-shared/pt.ts";
@@ -17,10 +18,17 @@ import { settingsB } from "./settings-b/pt.ts";
 import { settingsC } from "./settings-c/pt.ts";
 import { settingsD } from "./settings-d/pt.ts";
 import { settingsE } from "./settings-e/pt.ts";
+import { specialistsA } from "./specialists-a/pt.ts";
+import { workA } from "./work-a/pt.ts";
+import { workB } from "./work-b/pt.ts";
 import { workflows } from "./workflows/pt.ts";
 
 /** Portuguese catalogue (pt, Brazil). Same ids as `en`; missing ids fall back to English. */
 export const pt: Partial<Catalogue> = {
+  ...specialistsA,
+  ...workB,
+  ...workA,
+  ...memoryB,
   ...memoryA,
   ...galleryA,
   ...settingsE,

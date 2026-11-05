@@ -191,16 +191,16 @@ export const settingsD: Partial<Catalogue> = {
   "settings.people.retention": "Cuánto duran las interacciones",
   "settings.people.retentionLabel": "Conservar las interacciones durante",
   "settings.people.retentionHint":
-    "Las cabeceras y enlaces más antiguos se eliminan cada noche. Las fichas, los datos y los asuntos pendientes se quedan hasta que los olvides.",
+    "Las cabeceras y enlaces más antiguos se eliminan cada noche. Las fichas, los datos y los asuntos abiertos se quedan hasta que los olvides.",
   "settings.people.months": "{n, plural, one {# mes} other {# meses}}",
   "settings.people.learning": "Cómo se mantienen las fichas",
   "settings.people.learningHint":
-    "Los resúmenes, los roles y los asuntos pendientes vienen del modelo auxiliar, local por defecto.",
+    "Los resúmenes, los roles y los asuntos abiertos vienen del modelo auxiliar, local por defecto.",
   "settings.people.budget":
-    "Esta noche: {tokens, number} de {maxTokens, number} tokens, {entities, number} de {maxEntities, number} personas y proyectos. Los resúmenes, roles y asuntos pendientes vienen del modelo auxiliar, local por defecto.",
+    "Esta noche: {tokens, number} de {maxTokens, number} tokens, {entities, number} de {maxEntities, number} personas y proyectos. Los resúmenes, roles y asuntos abiertos vienen del modelo auxiliar, local por defecto.",
   "settings.people.nightly": "Cada noche",
   "settings.people.nightlyHint":
-    "Actualiza los resúmenes y encuentra asuntos pendientes mientras duermes.",
+    "Actualiza los resúmenes y encuentra asuntos abiertos mientras duermes.",
   "settings.people.afterRun": "Tras cada tarea",
   "settings.people.afterRunHint": "Actualiza las pocas personas y proyectos que tocó una tarea.",
   "settings.people.precision": "Asuntos sugeridos que conservaste: {list}.",
@@ -243,7 +243,7 @@ export const settingsD: Partial<Catalogue> = {
   "settings.people.deletedSource": "Se eliminó lo que aportó {source}.",
   "settings.people.forgetAll": "Todo sobre personas y proyectos",
   "settings.people.forgetAllHint":
-    "Elimina cada persona, proyecto, ficha y asunto pendiente, y desactiva Personas y proyectos. Tus propios archivos de memoria se quedan.",
+    "Elimina cada persona, proyecto, ficha y asunto abierto, y desactiva Personas y proyectos. Tus propios archivos de memoria se quedan.",
   "settings.people.forgetAllButton": "Olvidar…",
   "settings.people.forgetAllTitle": "¿Olvidar todo sobre personas y proyectos?",
   "settings.people.forgetAllAfter":

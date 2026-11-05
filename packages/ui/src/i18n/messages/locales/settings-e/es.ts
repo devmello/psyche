@@ -3,7 +3,7 @@ import type { Catalogue } from "../../index.ts";
 /** settings-e strings (es); merged into `../es.ts`. */
 export const settingsE: Partial<Catalogue> = {
   "settings.people.removeCounts":
-    "Psyche elimina {entities, plural, one {# persona o proyecto} other {# personas y proyectos}}, {facts, plural, one {# dato} other {# datos}}, {interactions, plural, one {# interacción} other {# interacciones}}, {loops, plural, one {# asunto pendiente} other {# asuntos pendientes}} y {identifiers, plural, one {# dirección} other {# direcciones}}.",
+    "Psyche elimina {entities, plural, one {# persona o proyecto} other {# personas y proyectos}}, {facts, plural, one {# dato} other {# datos}}, {interactions, plural, one {# interacción} other {# interacciones}}, {loops, plural, one {# asunto abierto} other {# asuntos abiertos}} y {identifiers, plural, one {# dirección} other {# direcciones}}.",
   "settings.specialists.title": "Especialistas",
   "settings.specialists.description":
     "Tareas en segundo plano con un rol con nombre, cada una dentro de su presupuesto, que entregan un resultado en tu bandeja de entrada.",
