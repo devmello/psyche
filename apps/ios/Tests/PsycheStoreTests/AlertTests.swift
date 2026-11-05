@@ -216,3 +216,36 @@ struct UpdateCoalescerTests {
         if case .runAfter = coalescer.request(at: t0.addingTimeInterval(1.2)) {} else { Issue.record("expected throttling again") }
     }
 }
+
+/// The Lock Screen card's text rule (the owner's, 2026-11-04): task text shows when the setting is on or the
+/// phone is unlocked; locked with the setting off, only "Psyche is working" and progress.
+struct LockScreenTextTests {
+    private let task = RunningTask(id: "task_q3", title: "Drafting the Q3 review summary", step: 3, stepCount: 7, detail: "reading 12 files", elapsed: "2 min")
+
+    @Test func settingOffAndLockedShowsNoTaskText() {
+        let content = TaskActivityContent.make(task: task, status: .running, showTitle: false)
+        let shown = content.lockScreenText(locked: true)
+        #expect(shown.title == nil && shown.detail == nil)
+    }
+
+    @Test func settingOffAndUnlockedShowsTheTask() {
+        let content = TaskActivityContent.make(task: task, status: .running, showTitle: false)
+        let shown = content.lockScreenText(locked: false)
+        #expect(shown.title == "Drafting the Q3 review summary")
+        #expect(shown.detail?.isEmpty == false)
+    }
+
+    @Test func settingOnShowsTheTaskEvenLocked() {
+        let content = TaskActivityContent.make(task: task, status: .running, showTitle: true)
+        let shown = content.lockScreenText(locked: true)
+        #expect(shown.title == "Drafting the Q3 review summary")
+        #expect(shown.detail?.isEmpty == false)
+    }
+
+    @Test func turningTheSettingOffLaterHidesItLockedToo() {
+        let on = TaskActivityContent.make(task: task, status: .needsApproval, showTitle: true, asking: "Send it?")
+        let off = on.titled("Drafting the Q3 review summary", show: false)
+        #expect(off.lockScreenText(locked: true).title == nil)
+        #expect(off.lockScreenText(locked: true).detail == nil)
+    }
+}
