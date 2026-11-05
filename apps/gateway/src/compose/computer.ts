@@ -478,6 +478,11 @@ export interface SurfaceRouter {
   invoke(call: SurfaceCall): Promise<NodeInvokeResult>;
   /** The run or Task that owned `session` ended (or its helper went away). Best effort. */
   endSession?(session: string): Promise<void>;
+  /**
+   * Whether a risky-looking label asks on this surface. Absent: it asks (`isRiskyLabel`). The
+   * separate desktop sets file-local words aside under its own rules; no other surface does.
+   */
+  asks?(text: string | undefined, target: { app?: string }): boolean;
 }
 
 const surfaceRouters = new Map<RoutedSurface, SurfaceRouter>();
@@ -1304,19 +1309,28 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
 
   /** What the owner sees and the broker classifies: risky labels and chords are destructive. */
   function describeAct(p: ActParams): ToolCallDescription {
+    // A label's words ask everywhere, except that the separate desktop sets file-local words
+    // aside under its own rules (its router decides; every other surface keeps `isRiskyLabel`).
+    const riskyLabel = (text: string | undefined): boolean => {
+      if (p.surface === "separate_desktop") {
+        const router = routerFor(p.surface);
+        if (router?.asks !== undefined) return router.asks(text, { app: p.app });
+      }
+      return isRiskyLabel(text);
+    };
     // Risk comes from what the snapshot showed, not only from what the agent copied: an element
     // the Gateway has not seen in this app, or a bare screen point, could be anything.
     const unknown = (t: { ref?: string; x?: number; y?: number } | undefined): boolean => {
       if (t === undefined) return false;
       if (t.ref === undefined) return t.x !== undefined || t.y !== undefined;
       const seen = seenElement(p.surface, t.ref);
-      return seen === undefined || seen.app !== p.app.toLowerCase() || isRiskyLabel(seen.label);
+      return seen === undefined || seen.app !== p.app.toLowerCase() || riskyLabel(seen.label);
     };
     const label =
       p.expect?.label ?? (p.ref === undefined ? undefined : seenElement(p.surface, p.ref)?.label);
     const risky =
-      isRiskyLabel(p.expect?.label) ||
-      isRiskyLabel(p.to?.expect?.label) ||
+      riskyLabel(p.expect?.label) ||
+      riskyLabel(p.to?.expect?.label) ||
       unknown(p) ||
       unknown(p.to) ||
       (p.action === "key" && p.keys !== undefined && isRiskyChord(p.keys)) ||
@@ -1324,8 +1338,8 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       (p.action === "key" && p.keys !== undefined && isSendChord(p.app, p.keys)) ||
       (p.action === "type" && isSendApp(p.app) && /[\r\n]/.test(p.text ?? "")) ||
       unwatched(p.app) ||
-      (p.action === "menu" && (p.path ?? "").split(">").some((seg) => isRiskyLabel(seg))) ||
-      (p.action === "press" && isRiskyLabel(p.press?.replace(/^custom:/, "")));
+      (p.action === "menu" && (p.path ?? "").split(">").some((seg) => riskyLabel(seg))) ||
+      (p.action === "press" && riskyLabel(p.press?.replace(/^custom:/, "")));
     const what =
       p.action === "type"
         ? "Type text"
