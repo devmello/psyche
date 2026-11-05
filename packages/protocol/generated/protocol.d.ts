@@ -9680,7 +9680,8 @@ export interface SkillProposalResult {
 export interface SkillProposal {
     approvalKind: ApprovalKindEnum;
     /**
-     * Psyche wrote this skill
+     * Psyche wrote this skill (agent), or it was made from a recording of web pages
+     * (recording): its text carries page content, so it stays untrusted
      */
     author?:     AuthorEnum;
     bindingHash: string;
@@ -9718,11 +9719,13 @@ export interface SkillProposal {
 }
 
 /**
- * Psyche wrote this skill on this Mac (self-extension); trust stays unknown
+ * Psyche wrote this skill on this Mac (self-extension), or it was made from a recording;
+ * trust stays unknown
  *
- * Psyche wrote this skill
+ * Psyche wrote this skill (agent), or it was made from a recording of web pages
+ * (recording): its text carries page content, so it stays untrusted
  */
-export type AuthorEnum = "agent";
+export type AuthorEnum = "agent" | "recording";
 
 export interface SkillBundleInfo {
     bytes: number;
@@ -9968,6 +9971,8 @@ export interface SkillDraft {
      * Runs in the thread with this routine
      */
     occurrences: number;
+    origin?:     SkillDraftOrigin;
+    recordedOn?: string;
     /**
      * Values stripped from the owner's words
      */
@@ -9988,6 +9993,8 @@ export interface SkillDraft {
     update?:   SkillDraftUpdate;
     updatedAt: string;
 }
+
+export type SkillDraftOrigin = "routine" | "recording";
 
 export interface SkillDraftReplay {
     checkedAt: string;
@@ -10028,6 +10035,69 @@ export interface SkillsDraftsDismissParams {
 }
 
 export interface SkillsDraftsDismissResult {
+    draft: SkillDraft;
+}
+
+export interface SkillsDraftsFromRecordingParams {
+    steps: BrowserTeachStep[];
+    /**
+     * The owner's name for it
+     */
+    title: string;
+}
+
+export interface BrowserTeachStep {
+    id: string;
+    /**
+     * The value is an input the agent asks for each run
+     */
+    input?: Input;
+    /**
+     * The owner chose to keep the typed value as it is
+     */
+    keepValue?: boolean;
+    /**
+     * press: the key
+     */
+    key?: string;
+    kind: BrowserTeachStepKind;
+    /**
+     * Accessible name (untrusted page text)
+     */
+    name?: string;
+    /**
+     * Accessibility role
+     */
+    role?: string;
+    /**
+     * Fallback CSS selector
+     */
+    selector?: string;
+    /**
+     * The field is sensitive: no value is ever stored
+     */
+    sensitive?: boolean;
+    /**
+     * navigate: origin and path, no query
+     */
+    url?: string;
+    /**
+     * Only with keepValue, and never on a sensitive step
+     */
+    value?: string;
+}
+
+/**
+ * The value is an input the agent asks for each run
+ */
+export interface Input {
+    description?: string;
+    name:         string;
+}
+
+export type BrowserTeachStepKind = "navigate" | "click" | "type" | "select" | "press";
+
+export interface SkillsDraftsFromRecordingResult {
     draft: SkillDraft;
 }
 
@@ -10116,7 +10186,8 @@ export interface SkillDetails {
      */
     history?: SkillAuthorVersion[];
     /**
-     * Psyche wrote this skill on this Mac (self-extension); trust stays unknown
+     * Psyche wrote this skill on this Mac (self-extension), or it was made from a recording;
+     * trust stays unknown
      */
     madeBy?:   AuthorEnum;
     manifest?: SkillManifest;

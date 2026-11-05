@@ -255,6 +255,8 @@
 //   let browserTab = try? JSONDecoder().decode(BrowserTab.self, from: jsonData)
 //   let browserTabsParams = try? JSONDecoder().decode(BrowserTabsParams.self, from: jsonData)
 //   let browserTabsResult = try? JSONDecoder().decode(BrowserTabsResult.self, from: jsonData)
+//   let browserTeachStep = try? JSONDecoder().decode(BrowserTeachStep.self, from: jsonData)
+//   let browserTeachStepKind = try? JSONDecoder().decode(BrowserTeachStepKind.self, from: jsonData)
 //   let bundleSigner = try? JSONDecoder().decode(BundleSigner.self, from: jsonData)
 //   let bundleSignerStatus = try? JSONDecoder().decode(BundleSignerStatus.self, from: jsonData)
 //   let capabilitiesSearchParams = try? JSONDecoder().decode(CapabilitiesSearchParams.self, from: jsonData)
@@ -1246,6 +1248,7 @@
 //   let skillCommand = try? JSONDecoder().decode(SkillCommand.self, from: jsonData)
 //   let skillDetails = try? JSONDecoder().decode(SkillDetails.self, from: jsonData)
 //   let skillDraft = try? JSONDecoder().decode(SkillDraft.self, from: jsonData)
+//   let skillDraftOrigin = try? JSONDecoder().decode(SkillDraftOrigin.self, from: jsonData)
 //   let skillDraftReplay = try? JSONDecoder().decode(SkillDraftReplay.self, from: jsonData)
 //   let skillDraftStatus = try? JSONDecoder().decode(SkillDraftStatus.self, from: jsonData)
 //   let skillDraftStep = try? JSONDecoder().decode(SkillDraftStep.self, from: jsonData)
@@ -1270,6 +1273,8 @@
 //   let skillsDraftsAcceptResult = try? JSONDecoder().decode(SkillsDraftsAcceptResult.self, from: jsonData)
 //   let skillsDraftsDismissParams = try? JSONDecoder().decode(SkillsDraftsDismissParams.self, from: jsonData)
 //   let skillsDraftsDismissResult = try? JSONDecoder().decode(SkillsDraftsDismissResult.self, from: jsonData)
+//   let skillsDraftsFromRecordingParams = try? JSONDecoder().decode(SkillsDraftsFromRecordingParams.self, from: jsonData)
+//   let skillsDraftsFromRecordingResult = try? JSONDecoder().decode(SkillsDraftsFromRecordingResult.self, from: jsonData)
 //   let skillsDraftsListParams = try? JSONDecoder().decode(SkillsDraftsListParams.self, from: jsonData)
 //   let skillsDraftsListResult = try? JSONDecoder().decode(SkillsDraftsListResult.self, from: jsonData)
 //   let skillsDraftsUpdateParams = try? JSONDecoder().decode(SkillsDraftsUpdateParams.self, from: jsonData)
@@ -28117,7 +28122,8 @@ public struct SkillProposalResult: Codable, Sendable {
 // MARK: - SkillProposal
 public struct SkillProposal: Codable, Sendable {
     public let approvalKind: ApprovalKindEnum
-    /// Psyche wrote this skill
+    /// Psyche wrote this skill (agent), or it was made from a recording of web pages
+    /// (recording): its text carries page content, so it stays untrusted
     public let author: AuthorEnum?
     public let bindingHash: String
     public let bundle: SkillBundleInfo?
@@ -28187,11 +28193,14 @@ public struct SkillProposal: Codable, Sendable {
     }
 }
 
-/// Psyche wrote this skill on this Mac (self-extension); trust stays unknown
+/// Psyche wrote this skill on this Mac (self-extension), or it was made from a recording;
+/// trust stays unknown
 ///
-/// Psyche wrote this skill
+/// Psyche wrote this skill (agent), or it was made from a recording of web pages
+/// (recording): its text carries page content, so it stays untrusted
 public enum AuthorEnum: String, Codable, Sendable {
     case agent = "agent"
+    case recording = "recording"
 }
 
 // MARK: - SkillBundleInfo
@@ -28695,6 +28704,8 @@ public struct SkillDraft: Codable, Sendable {
     public let name: String
     /// Runs in the thread with this routine
     public let occurrences: Int
+    public let origin: SkillDraftOrigin?
+    public let recordedOn: String?
     /// Values stripped from the owner's words
     public let redactions: Int
     public let replay: SkillDraftReplay?
@@ -28719,6 +28730,8 @@ public struct SkillDraft: Codable, Sendable {
         case manifest = "manifest"
         case name = "name"
         case occurrences = "occurrences"
+        case origin = "origin"
+        case recordedOn = "recordedOn"
         case redactions = "redactions"
         case replay = "replay"
         case signature = "signature"
@@ -28731,7 +28744,7 @@ public struct SkillDraft: Codable, Sendable {
         case updatedAt = "updatedAt"
     }
 
-    public init(approvalID: String? = nil, createdAt: String, description: String, edited: Bool, id: String, installProposalID: String? = nil, manifest: SkillManifest, name: String, occurrences: Int, redactions: Int, replay: SkillDraftReplay? = nil, signature: String, status: SkillDraftStatus, steps: [SkillDraftStep], tainted: Bool, text: String, threadID: String, update: SkillDraftUpdate? = nil, updatedAt: String) {
+    public init(approvalID: String? = nil, createdAt: String, description: String, edited: Bool, id: String, installProposalID: String? = nil, manifest: SkillManifest, name: String, occurrences: Int, origin: SkillDraftOrigin? = nil, recordedOn: String? = nil, redactions: Int, replay: SkillDraftReplay? = nil, signature: String, status: SkillDraftStatus, steps: [SkillDraftStep], tainted: Bool, text: String, threadID: String, update: SkillDraftUpdate? = nil, updatedAt: String) {
         self.approvalID = approvalID
         self.createdAt = createdAt
         self.description = description
@@ -28741,6 +28754,8 @@ public struct SkillDraft: Codable, Sendable {
         self.manifest = manifest
         self.name = name
         self.occurrences = occurrences
+        self.origin = origin
+        self.recordedOn = recordedOn
         self.redactions = redactions
         self.replay = replay
         self.signature = signature
@@ -28752,6 +28767,11 @@ public struct SkillDraft: Codable, Sendable {
         self.update = update
         self.updatedAt = updatedAt
     }
+}
+
+public enum SkillDraftOrigin: String, Codable, Sendable {
+    case recording = "recording"
+    case routine = "routine"
 }
 
 // MARK: - SkillDraftReplay
@@ -28870,6 +28890,113 @@ public struct SkillsDraftsDismissParams: Codable, Sendable {
 
 // MARK: - SkillsDraftsDismissResult
 public struct SkillsDraftsDismissResult: Codable, Sendable {
+    public let draft: SkillDraft
+
+    public enum CodingKeys: String, CodingKey {
+        case draft = "draft"
+    }
+
+    public init(draft: SkillDraft) {
+        self.draft = draft
+    }
+}
+
+// MARK: - SkillsDraftsFromRecordingParams
+public struct SkillsDraftsFromRecordingParams: Codable, Sendable {
+    public let steps: [BrowserTeachStep]
+    /// The owner's name for it
+    public let title: String
+
+    public enum CodingKeys: String, CodingKey {
+        case steps = "steps"
+        case title = "title"
+    }
+
+    public init(steps: [BrowserTeachStep], title: String) {
+        self.steps = steps
+        self.title = title
+    }
+}
+
+// MARK: - BrowserTeachStep
+public struct BrowserTeachStep: Codable, Sendable {
+    public let id: String
+    /// The value is an input the agent asks for each run
+    public let input: Input?
+    /// The owner chose to keep the typed value as it is
+    public let keepValue: Bool?
+    /// press: the key
+    public let key: String?
+    public let kind: BrowserTeachStepKind
+    /// Accessible name (untrusted page text)
+    public let name: String?
+    /// Accessibility role
+    public let role: String?
+    /// Fallback CSS selector
+    public let selector: String?
+    /// The field is sensitive: no value is ever stored
+    public let sensitive: Bool?
+    /// navigate: origin and path, no query
+    public let url: String?
+    /// Only with keepValue, and never on a sensitive step
+    public let value: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case input = "input"
+        case keepValue = "keepValue"
+        case key = "key"
+        case kind = "kind"
+        case name = "name"
+        case role = "role"
+        case selector = "selector"
+        case sensitive = "sensitive"
+        case url = "url"
+        case value = "value"
+    }
+
+    public init(id: String, input: Input? = nil, keepValue: Bool? = nil, key: String? = nil, kind: BrowserTeachStepKind, name: String? = nil, role: String? = nil, selector: String? = nil, sensitive: Bool? = nil, url: String? = nil, value: String? = nil) {
+        self.id = id
+        self.input = input
+        self.keepValue = keepValue
+        self.key = key
+        self.kind = kind
+        self.name = name
+        self.role = role
+        self.selector = selector
+        self.sensitive = sensitive
+        self.url = url
+        self.value = value
+    }
+}
+
+/// The value is an input the agent asks for each run
+// MARK: - Input
+public struct Input: Codable, Sendable {
+    public let description: String?
+    public let name: String
+
+    public enum CodingKeys: String, CodingKey {
+        case description = "description"
+        case name = "name"
+    }
+
+    public init(description: String? = nil, name: String) {
+        self.description = description
+        self.name = name
+    }
+}
+
+public enum BrowserTeachStepKind: String, Codable, Sendable {
+    case click = "click"
+    case navigate = "navigate"
+    case press = "press"
+    case select = "select"
+    case type = "type"
+}
+
+// MARK: - SkillsDraftsFromRecordingResult
+public struct SkillsDraftsFromRecordingResult: Codable, Sendable {
     public let draft: SkillDraft
 
     public enum CodingKeys: String, CodingKey {
@@ -29069,7 +29196,8 @@ public struct SkillDetails: Codable, Sendable {
     public let hash: String
     /// Earlier approved versions of an agent-made skill, newest first
     public let history: [SkillAuthorVersion]?
-    /// Psyche wrote this skill on this Mac (self-extension); trust stays unknown
+    /// Psyche wrote this skill on this Mac (self-extension), or it was made from a recording;
+    /// trust stays unknown
     public let madeBy: AuthorEnum?
     public let manifest: SkillManifest?
     public let name: String

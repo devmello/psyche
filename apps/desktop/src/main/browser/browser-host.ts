@@ -1,3 +1,5 @@
+import { join } from "node:path";
+import { loadTeachKey, TeachKeptStore, type TeachKeySeal } from "@psyche/browser/teach";
 import {
   type BridgeProfile,
   type BridgeTab,
@@ -9,6 +11,7 @@ import {
   BaseWindow,
   type DownloadItem,
   type Session,
+  safeStorage,
   session,
   type WebContents,
   WebContentsView,
@@ -41,6 +44,12 @@ import { type SignedInSite, SignedInStore } from "./signed-in-sites.ts";
 import { forgetSite, staySignedIn } from "./signin-flow.ts";
 import { type SignInPromptAnswer, SignInPrompts, type VaultLoginItem } from "./signin-prompts.ts";
 import { TakeControl } from "./take-control.ts";
+import {
+  type TeachReview,
+  TeachSession,
+  type TeachState,
+  type TeachTabPort,
+} from "./teach-session.ts";
 import { computeViewBounds } from "./view-bounds.ts";
 
 /**
@@ -120,11 +129,22 @@ interface Tab {
   /** Hosts of the https pages this tab loaded: the sign-in flow's SSO hosts (security §6). */
   flowHosts: Set<string>;
   capture: LoginCapture;
+  /** Listeners of the tab's CDP events before they are filtered for the Gateway (Record). */
+  tap: Set<(method: string, params: unknown) => void>;
 }
 
 const STATE_THROTTLE_MS = 50;
 /** Isolated world the sign-in check reads forms from; the page's own scripts cannot reach it. */
 const ISOLATED_WORLD = 1999;
+/** The keychain wrapping for the recording key (Electron `safeStorage`), when the OS offers it. */
+function keychainSeal(): TeachKeySeal | undefined {
+  if (!safeStorage.isEncryptionAvailable()) return undefined;
+  return {
+    seal: (key) => safeStorage.encryptString(key.toString("base64")),
+    open: (sealed) => Buffer.from(safeStorage.decryptString(sealed), "base64"),
+  };
+}
+
 export const DISCARD_AFTER_MS = 15 * 60_000;
 const DISCARD_CHECK_MS = 60_000;
 const HIGHLIGHT_MS = 600;
@@ -175,6 +195,7 @@ export class BrowserHost implements BridgeTabHost {
   private captureTimer: ReturnType<typeof setInterval> | undefined;
   private readonly signedIn: SignedInStore;
   private readonly prompts: SignInPrompts;
+  private readonly teach: TeachSession;
   private readonly emitter = new TypedEmitter<BrowserHostEvents>();
   private readonly tabs = new Map<string, Tab>();
   private readonly byWebContents = new Map<number, Tab>();
@@ -217,6 +238,12 @@ export class BrowserHost implements BridgeTabHost {
       stay: (tabId, origin, hosts) => this.stayOnProfile(tabId, origin, hosts),
       changed: () => this.scheduleState(),
     });
+    this.teach = new TeachSession({
+      onChange: () => this.scheduleState(),
+      kept: new TeachKeptStore(join(this.home, "state", "teach"), () =>
+        loadTeachKey(join(this.userData, "teach.key")),
+      ),
+    });
     this.captureTimer = setInterval(() => this.pollCaptures(), opts.captureEveryMs ?? 500);
     this.captureTimer.unref();
   }
@@ -243,6 +270,7 @@ export class BrowserHost implements BridgeTabHost {
       activeTabId: this.active,
       bridgeConnected: this.bridgeConnected,
       prompts: this.prompts.views(),
+      recording: this.teach.state,
     };
   }
 
@@ -487,6 +515,7 @@ export class BrowserHost implements BridgeTabHost {
       subs: [],
       flowHosts: new Set(),
       capture: undefined as unknown as LoginCapture,
+      tap: new Set(),
     };
     t.capture = this.newCapture(t);
     this.tabs.set(id, t);
@@ -507,6 +536,7 @@ export class BrowserHost implements BridgeTabHost {
   private removeTab(t: Tab): void {
     if (!this.tabs.has(t.id)) return;
     t.closing = true;
+    this.teach.interrupted(t.id);
     this.tabs.delete(t.id);
     this.byWebContents.delete(t.wc.id);
     clearTimeout(t.highlightTimer);
@@ -640,6 +670,9 @@ export class BrowserHost implements BridgeTabHost {
     const dbg = wc.debugger;
     dbg.on("message", (_e, method: string, params: unknown, sessionId: string) => {
       const sid = sessionId === "" ? undefined : sessionId;
+      for (const listener of t.tap) listener(method, params);
+      // What the owner typed while recording never reaches the Gateway.
+      if (this.teach.hides(t.id, method, params)) return;
       if (t.enabled.has(domainKey(sid, method.slice(0, method.indexOf("."))))) {
         t.lastActive = this.now();
       }
@@ -658,6 +691,7 @@ export class BrowserHost implements BridgeTabHost {
       });
     });
     dbg.on("detach", (_e, reason: string) => {
+      this.teach.interrupted(t.id);
       t.attached = false;
       t.policy.reset();
       t.enabled.clear();
@@ -708,6 +742,11 @@ export class BrowserHost implements BridgeTabHost {
     sessionId?: string,
   ): Promise<unknown> {
     const t = this.need(tabId);
+    // The owner is recording this tab: the agent gets nothing from it, not even a read.
+    if (this.teach.recording(tabId))
+      throw new PsycheError("user_in_control", "the owner is recording a task in this tab", {
+        retryable: true,
+      });
     if (!t.attached || !t.wc.debugger.isAttached())
       throw new PsycheError("debugger_detached", `debugger is not attached to ${tabId}`, {
         retryable: true,
@@ -957,6 +996,15 @@ export class BrowserHost implements BridgeTabHost {
     }
   }
 
+  /** Tells a recording of this tab where a history step is about to go. */
+  private teachExpect(t: Tab, by: -1 | 1): void {
+    if (!this.teach.recording(t.id)) return;
+    const h = t.wc.navigationHistory;
+    const entry = h.getEntryAtIndex(h.getActiveIndex() + by);
+    if (entry !== undefined && typeof entry.url === "string")
+      this.teach.ownerNavigated(t.id, entry.url);
+  }
+
   async navigate(tabId: string, action: BrowserNav): Promise<void> {
     const wasDiscarded = this.tabs.get(tabId)?.discarded === true;
     const t = this.need(tabId);
@@ -967,13 +1015,23 @@ export class BrowserHost implements BridgeTabHost {
     }
     const wc = t.wc;
     switch (action) {
+      // Back, Forward and Reload are the owner's own navigation: a recording keeps them as steps.
+      // The recorder is told only when the tab really navigates, and where to: it accepts the
+      // first top-frame navigation after this, and only if it lands on that address.
       case "back":
-        if (wc.navigationHistory.canGoBack()) wc.navigationHistory.goBack();
+        if (wc.navigationHistory.canGoBack()) {
+          this.teachExpect(t, -1);
+          wc.navigationHistory.goBack();
+        }
         break;
       case "forward":
-        if (wc.navigationHistory.canGoForward()) wc.navigationHistory.goForward();
+        if (wc.navigationHistory.canGoForward()) {
+          this.teachExpect(t, 1);
+          wc.navigationHistory.goForward();
+        }
         break;
       case "reload":
+        this.teach.ownerNavigated(t.id, wc.getURL());
         wc.reload();
         break;
       case "stop":
@@ -1012,6 +1070,62 @@ export class BrowserHost implements BridgeTabHost {
   /** Sticky Take control (the button) or Release. */
   async setControl(tabId: string, take: boolean): Promise<void> {
     this.need(tabId, false).control.setSticky(take);
+  }
+
+  // ── teach by showing (owner only; design doc §2) ─────────────────────────────────────────
+
+  private teachPort(t: Tab): TeachTabPort {
+    return {
+      id: t.id,
+      url: () => (t.wc.isDestroyed() ? "" : t.wc.getURL()),
+      send: async (method, params) => t.wc.debugger.sendCommand(method, params ?? {}),
+      subscribe: (listener) => {
+        t.tap.add(listener);
+        return () => t.tap.delete(listener);
+      },
+      hold: (on) => t.control.setSticky(on),
+    };
+  }
+
+  /** Record: the owner pressed it. A tab the agent works in is refused. */
+  async teachStart(tabId: string): Promise<void> {
+    const t = this.need(tabId);
+    if (t.taskId !== null)
+      throw new PsycheError("conflict", "the agent is using this tab; open your own tab to record");
+    // The bridge has domains enabled here: the agent's driver is attached to this tab.
+    if (t.enabled.size > 0)
+      throw new PsycheError(
+        "conflict",
+        "the agent's browser is attached to this tab; open your own tab",
+      );
+    if (!t.wc.debugger.isAttached()) this.attachDebugger(t);
+    await this.teach.start(this.teachPort(t));
+  }
+
+  /** Stop: hands the steps to the review screen; nothing stays here. */
+  teachStop(): Promise<TeachReview> {
+    return this.teach.stop();
+  }
+
+  teachCancel(): Promise<void> {
+    return this.teach.cancel();
+  }
+
+  teachState(): TeachState | null {
+    return this.teach.state;
+  }
+
+  teachKeep(...args: Parameters<TeachSession["keep"]>) {
+    return this.teach.keep(...args);
+  }
+  teachKept() {
+    return this.teach.listKept();
+  }
+  teachOpenKept(id: string) {
+    return this.teach.openKept(id);
+  }
+  teachDeleteKept(id: string) {
+    return this.teach.deleteKept(id);
   }
 
   /** Moves a tab into its own window, or back into the pane when it is already out. */

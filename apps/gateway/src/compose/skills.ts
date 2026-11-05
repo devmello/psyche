@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { attachRoutineDetector, PsycheAgentLoop } from "@psyche/agent-core";
 import { assetDir } from "@psyche/assets";
 import { redactSensitive } from "@psyche/audit";
-import { getThread, setSetting } from "@psyche/db";
+import { getDevice, getThread, setSetting } from "@psyche/db";
 import {
   PsycheError,
   type SkillLoader,
@@ -417,6 +417,7 @@ export function composeSkills(opts: SkillsOptions = {}): ComposedSkills {
     const table = createSkillsHandlers(fs, {
       broker: services.broker,
       surfaces: ["desktop", "web"],
+      deviceName: (id) => getDevice(services.db, id)?.name,
       onUpdate: (update) => publish("skills.updated", update),
       drafts,
       gates,
@@ -426,6 +427,16 @@ export function composeSkills(opts: SkillsOptions = {}): ComposedSkills {
         run: (call, params) => (fn as (p: unknown, c: unknown) => unknown)(params ?? {}, call),
       };
     }
+    // Teach by showing: reviewed steps come only from the Psyche desktop shell on this Mac, where
+    // the recorder runs (never from a paired phone, a web client or a script that holds an admin
+    // scope). The draft remembers the device so the approval card can name it.
+    handlers["skills.drafts.fromRecording"] = {
+      run: (call, params) => {
+        assertDesktopRecording(call.identity);
+        const p = (params ?? {}) as Parameters<(typeof table)["skills.drafts.fromRecording"]>[0];
+        return table["skills.drafts.fromRecording"]({ ...p, device: call.identity.deviceId });
+      },
+    };
     let unwatch: (() => void) | undefined;
     let undetect: (() => void) | undefined;
     return {
@@ -451,4 +462,17 @@ export function composeSkills(opts: SkillsOptions = {}): ComposedSkills {
     };
   };
   return { part, loader, roles, updates };
+}
+
+/**
+ * Teach by showing: reviewed recording steps are saved only by the Psyche desktop shell on the
+ * Host (loopback, the per-launch handshake secret), where the recorder runs. A paired phone, a
+ * web client or a script holding an admin scope is refused whatever it sends.
+ */
+export function assertDesktopRecording(identity: { desktopShell?: true }): void {
+  if (identity.desktopShell !== true)
+    throw new PsycheError(
+      "forbidden",
+      "recordings are made in the Psyche app on this Mac; this device cannot save one",
+    );
 }

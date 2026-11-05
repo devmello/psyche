@@ -30,8 +30,12 @@ export interface LockEntry {
   findings: { high: number; warn: number; info: number };
   /** The declared tools, approval kinds and prompt files the owner approved (T2). */
   manifest?: SkillManifestDecl;
-  /** Psyche wrote the skill (self-extension); trust stays `unknown`. Absent for everything else. */
-  author?: "agent";
+  /**
+   * Psyche wrote the skill (`agent`, self-extension), or it was made from a recording of web pages
+   * (`recording`: its text carries page content). Trust stays `unknown` either way. Absent for
+   * everything else, and never set by an imported bundle (see `bundleOrigin`).
+   */
+  author?: "agent" | "recording";
   /** The bundle author whose signature verified when the owner approved it (absent: unsigned). */
   signer?: { keyId: string; name: string };
   /**

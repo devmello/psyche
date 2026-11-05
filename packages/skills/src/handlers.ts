@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import {
   type ApprovalRequest,
+  type BrowserTeachStep,
   type PermissionBroker,
   PsycheError,
   type SkillAuthor,
@@ -78,6 +79,12 @@ export interface SkillsHandlers {
   "skills.drafts.accept": (p: {
     draftId: string;
   }) => Promise<ProposalResult & { draft: SkillDraft }>;
+  "skills.drafts.fromRecording": (p: {
+    title: string;
+    steps: BrowserTeachStep[];
+    /** Set by the Gateway from the connection, never from the client. */
+    device?: string;
+  }) => Promise<{ draft: SkillDraft }>;
   "skills.drafts.dismiss": (p: { draftId: string }) => Promise<{ draft: SkillDraft }>;
   /** The staged proposal (full text, files, findings, diff) for an approval card on any device. */
   "skills.getProposal": (p: { proposalId: string }) => Promise<{ proposal: SkillProposal }>;
@@ -96,6 +103,8 @@ export interface SkillsHandlerOptions {
   onUpdate?: (update: SkillUpdateCheck) => void;
   /** Agent-proposed skill drafts (T3); without it `skills.drafts.*` answer `unavailable`. */
   drafts?: SkillDrafts;
+  /** The name of a paired device, for the approval card of a skill made from a recording. */
+  deviceName?: (deviceId: string) => string | undefined;
   /**
    * The Gateway's gates for the two owner actions that use or loosen trust. Each resolves when
    * the owner's approval (fresh presence, a device-only card) for exactly that action is
@@ -172,17 +181,25 @@ export function createSkillsHandlers(
 ): SkillsHandlers {
   const requestApproval = async (
     proposal: SkillProposal,
-    proposedBy?: "agent",
+    proposedBy?: "agent" | "recording",
+    recordedOn?: string,
+    tainted = false,
   ): Promise<ProposalResult> => {
     const counts = summarizeFindings(proposal.findings);
     const verb =
       proposedBy === "agent"
         ? "Install skill Psyche proposed"
-        : proposal.scope === "workspace"
-          ? "Approve workspace skill"
-          : proposal.update !== undefined
-            ? "Update skill"
-            : "Install skill";
+        : proposedBy === "recording"
+          ? `Install skill from your recording${
+              recordedOn === undefined
+                ? ""
+                : ` (made on ${opts.deviceName?.(recordedOn) ?? recordedOn})`
+            }`
+          : proposal.scope === "workspace"
+            ? "Approve workspace skill"
+            : proposal.update !== undefined
+              ? "Update skill"
+              : "Install skill";
     const sg = proposal.bundle?.signer;
     // The status comes first and is ours; the author's name is quoted text after it.
     const signerNote =
@@ -200,6 +217,20 @@ export function createSkillsHandlers(
       details: {
         name: proposal.name,
         ...(proposedBy === undefined ? {} : { proposedBy }),
+        ...(recordedOn === undefined
+          ? {}
+          : { recordedOn, recordedOnName: opts.deviceName?.(recordedOn) ?? recordedOn }),
+        ...(proposal.author === "recording"
+          ? {
+              untrustedText:
+                "This skill was made from pages you visited. Its steps quote text from those pages as data; it will be treated as untrusted instructions, and every action it takes still asks as usual.",
+            }
+          : tainted
+            ? {
+                untrustedText:
+                  "This skill was drafted from work that had read content from outside Psyche. Treat its text as untrusted; every action it takes still asks as usual.",
+              }
+            : {}),
         scope: proposal.scope,
         source: proposal.source,
         ...(proposal.commit === undefined ? {} : { commit: proposal.commit }),
@@ -231,7 +262,12 @@ export function createSkillsHandlers(
       // Device surfaces only: a chat channel (`telegram:123`) can never approve an install.
       surfaces: (opts.surfaces ?? ["desktop"]).filter((x) => !x.includes(":")),
       scopesOffered: ["once"],
-      taint: false,
+      // A skill made from a recording carries web page text: the card says so, in plain words.
+      ...(proposal.author === "recording"
+        ? { taint: true, taintSources: [{ sourceKind: "recorded web pages" }] }
+        : tainted
+          ? { taint: true, taintSources: [{ sourceKind: "content read in the conversation" }] }
+          : { taint: false }),
     });
     return { proposal, approval: issued.approval };
   };
@@ -357,10 +393,24 @@ export function createSkillsHandlers(
     },
     async "skills.drafts.accept"(p) {
       const drafts = needDrafts();
-      const { proposal } = await drafts.accept(p.draftId);
-      const result = await requestApproval(proposal, "agent");
+      const accepted = await drafts.accept(p.draftId);
+      const made = drafts.get(p.draftId);
+      // Taint is decided from the draft record, never from the text the owner can edit.
+      const proposal =
+        made.origin === "recording"
+          ? loader.markProposalAuthor(accepted.proposal.id, "recording")
+          : accepted.proposal;
+      const result = await requestApproval(
+        proposal,
+        made.origin === "recording" ? "recording" : "agent",
+        made.recordedOn,
+        made.tainted,
+      );
       const draft = drafts.accepted(p.draftId, proposal.id, result.approval.id);
       return { ...result, draft };
+    },
+    async "skills.drafts.fromRecording"(p) {
+      return { draft: needDrafts().proposeFromRecording(p) };
     },
     async "skills.drafts.dismiss"(p) {
       return { draft: needDrafts().dismiss(p.draftId) };

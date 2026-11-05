@@ -2,9 +2,17 @@ import type { ApprovalRequest, BridgeProfile } from "@psyche/protocol";
 import { activeI18n, t } from "@psyche/ui";
 import { type ReactElement, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useShell, useShellState } from "../context.tsx";
-import type { BrowserHostState, BrowserPort, BrowserTabView } from "../platform.ts";
+import type {
+  BrowserHostState,
+  BrowserPort,
+  BrowserTabView,
+  KeptRecordingView,
+  TeachCapture,
+} from "../platform.ts";
 import { openNewTab } from "./browser-new-tab.ts";
 import { SignInPrompt } from "./SignInPrompts.tsx";
+import { TeachReview } from "./TeachReview.tsx";
+import { type ReviewStep, reviewFromKept } from "./teach-review.ts";
 
 /**
  * Browser pane chrome (docs/06 §3.5; features I1, I5, I6, I11). The live page is a native
@@ -178,10 +186,56 @@ function DesktopBrowserPane(props: {
   const [newTabText, setNewTabText] = useState<string | null>(null);
   const approvals = useShellState((s) => s.approvals);
   const tab: BrowserTabView | undefined = state.tabs.find((x) => x.tabId === state.activeTabId);
+  // Teach by showing: the review after Stop, and the recordings the owner kept.
+  const [review, setReview] = useState<{
+    capture: TeachCapture;
+    initial?: ReviewStep[];
+    title?: string;
+  } | null>(null);
+  const [kept, setKept] = useState<KeptRecordingView[]>([]);
+  const [keptOpen, setKeptOpen] = useState(false);
+  const reviewing = review !== null;
+  const recording = state.recording ?? null;
+
+  useEffect(() => {
+    if (!keptOpen || !port.teachKept) return;
+    let live = true;
+    void port
+      .teachKept()
+      .then((list) => live && setKept(list))
+      .catch(() => live && setKept([]));
+    return () => {
+      live = false;
+    };
+  }, [keptOpen, port]);
+
+  const startRecording = () => {
+    if (!tab || !port.teachStart) return;
+    void port.teachStart(tab.tabId).catch(() => store.toast(t("web.teach.startFailed"), "error"));
+  };
+  const stopRecording = () => {
+    if (!port.teachStop) return;
+    void port
+      .teachStop()
+      .then((capture) => {
+        if (capture.steps.every((x) => x.kind === "navigate"))
+          store.toast(t("web.teach.nothingRecorded"), "info");
+        else setReview({ capture });
+      })
+      .catch(() => store.toast(t("web.teach.stopFailed"), "error"));
+  };
+  const openKept = (rec: KeptRecordingView) => {
+    setKeptOpen(false);
+    setReview({
+      capture: { id: rec.id, endedBy: "stop", steps: [] },
+      initial: reviewFromKept(rec.steps),
+      title: rec.title,
+    });
+  };
 
   useLayoutEffect(() => {
     const el = viewport.current;
-    if (!el || props.covered || !tab) {
+    if (!el || props.covered || reviewing || !tab) {
       port.setViewport(null);
       return;
     }
@@ -217,7 +271,7 @@ function DesktopBrowserPane(props: {
       window.removeEventListener("focus", report);
       port.setViewport(null);
     };
-  }, [port, props.covered, tab]);
+  }, [port, props.covered, reviewing, tab]);
 
   useEffect(
     () =>
@@ -245,9 +299,54 @@ function DesktopBrowserPane(props: {
 
   return (
     <div
-      style={{ display: "flex", flexDirection: "column", height: "100%" }}
+      style={{ display: "flex", flexDirection: "column", height: "100%", position: "relative" }}
       data-testid="browser-pane"
     >
+      {review !== null ? (
+        <div className="teach-overlay">
+          <TeachReview
+            capture={review.capture}
+            port={port}
+            {...(review.initial === undefined ? {} : { initial: review.initial })}
+            {...(review.title === undefined ? {} : { initialTitle: review.title })}
+            onClose={() => setReview(null)}
+          />
+        </div>
+      ) : null}
+      {recording !== null ? (
+        <div className="teach-bar" role="status" data-testid="teach-bar">
+          <span className="teach-dot" aria-hidden="true" />
+          <div className="teach-bar-text">
+            <strong>{t("web.teach.bar.title")}</strong>{" "}
+            <span data-testid="teach-count">
+              {t("web.teach.bar.steps", { count: recording.steps })}
+            </span>
+            <div className="teach-hint">
+              {recording.ended === "limit"
+                ? t("web.teach.bar.endedLimit")
+                : recording.ended === "interrupted"
+                  ? t("web.teach.bar.endedInterrupted")
+                  : t("web.teach.bar.body")}
+            </div>
+          </div>
+          <button
+            type="button"
+            className="pill"
+            onClick={() => void port.teachCancel?.()}
+            data-testid="teach-cancel"
+          >
+            {t("web.teach.bar.cancel")}
+          </button>
+          <button
+            type="button"
+            className="teach-primary"
+            onClick={stopRecording}
+            data-testid="teach-stop"
+          >
+            {recording.ended === undefined ? t("web.teach.bar.stop") : t("web.teach.bar.review")}
+          </button>
+        </div>
+      ) : null}
       <div
         role="tablist"
         aria-label={t("web.browser.tabs")}
@@ -459,6 +558,33 @@ function DesktopBrowserPane(props: {
           )}
         </div>
       </div>
+      {keptOpen && kept.length > 0 ? (
+        <ul className="teach-kept" data-testid="teach-kept">
+          {kept.map((rec) => (
+            <li key={rec.id}>
+              <span className="teach-words">{rec.title}</span>
+              <button type="button" className="pill" onClick={() => openKept(rec)}>
+                {t("web.teach.kept.open")}
+              </button>
+              <button
+                type="button"
+                className="pill"
+                onClick={() =>
+                  void port
+                    .teachDeleteKept?.(rec.id)
+                    .then(() => {
+                      setKept((k) => k.filter((x) => x.id !== rec.id));
+                      store.toast(t("web.teach.kept.deleted"), "info");
+                    })
+                    .catch(() => store.toast(t("web.teach.kept.failed"), "error"))
+                }
+              >
+                {t("web.teach.kept.delete")}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
       {tab ? (
         <div style={{ display: "flex", gap: 8, padding: 4, alignItems: "center" }}>
           <button
@@ -482,6 +608,29 @@ function DesktopBrowserPane(props: {
               data-testid="stop-task"
             >
               {t("web.browser.stopTask")}
+            </button>
+          ) : null}
+          {port.teachStart && recording === null ? (
+            <button
+              type="button"
+              className="pill"
+              title={tab.taskId ? t("web.teach.agentTab") : t("web.teach.recordHint")}
+              disabled={tab.taskId !== null}
+              onClick={startRecording}
+              data-testid="teach-record"
+            >
+              {t("web.teach.record")}
+            </button>
+          ) : null}
+          {port.teachKept ? (
+            <button
+              type="button"
+              className="pill"
+              aria-expanded={keptOpen}
+              onClick={() => setKeptOpen((o) => !o)}
+              data-testid="teach-kept-toggle"
+            >
+              {t("web.teach.kept.title")}
             </button>
           ) : null}
           <span style={{ flex: 1 }} />
