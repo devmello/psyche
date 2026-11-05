@@ -76,3 +76,29 @@ describe("backend detection order", () => {
     expect(found[0]?.cli).toBe("/opt/x/docker");
   });
 });
+
+describe("on Windows", () => {
+  const win = (engineOs: string) =>
+    deps({
+      platform: "win32",
+      arch: "x64",
+      macosVersion: async () => null,
+      which: async (cmd) => `C:\\Program Files\\Docker\\Docker\\resources\\bin\\${cmd}.exe`,
+      probe: async (cli, args) =>
+        cli.endsWith("docker.exe")
+          ? args.join(" ").includes("{{.Server.Os}}")
+            ? `${engineOs}/28.1.1`
+            : "28.1.1"
+          : "5.4.0",
+    });
+
+  it("uses Docker Desktop only with its Linux engine, then Podman, never Apple container", async () => {
+    const found = await detectBackends(win("linux"));
+    expect(found.map((b) => [b.kind, b.version])).toEqual([
+      ["docker", "28.1.1"],
+      ["podman", "5.4.0"],
+    ]);
+    // Windows containers cannot run the sandbox's Linux images.
+    expect(await kinds(win("windows"))).toEqual(["podman"]);
+  });
+});

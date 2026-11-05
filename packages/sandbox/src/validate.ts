@@ -1,5 +1,5 @@
 import { realpath, stat } from "node:fs/promises";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { posix, win32 } from "node:path";
 import type { SandboxMount, SandboxScope } from "@psyche/protocol";
 import { fail } from "./errors.ts";
@@ -95,6 +95,8 @@ const under = (child: string, root: string) =>
  * case, since NTFS is case-insensitive; the `~/Library` analogue is `%USERPROFILE%\AppData`.
  */
 interface HostPaths {
+  /** Under a protected folder but still mountable: Windows' temp folder lives in `AppData`. */
+  scratch(): string | undefined;
   absolute(p: string): boolean;
   normalize(p: string): string;
   under(child: string, root: string): boolean;
@@ -104,6 +106,7 @@ interface HostPaths {
 }
 
 const POSIX_PATHS: HostPaths = {
+  scratch: () => undefined,
   absolute: (p) => p.startsWith("/"),
   normalize: (p) => posix.normalize(p),
   under,
@@ -113,6 +116,7 @@ const POSIX_PATHS: HostPaths = {
 };
 
 const WINDOWS_PATHS: HostPaths = {
+  scratch: () => tmpdir(),
   absolute: (p) => /^[A-Za-z]:\\/.test(p),
   normalize: (p) => win32.normalize(p),
   under: (child, root) => {
@@ -147,8 +151,13 @@ export async function validateMounts(
     fail("invalid_params", "mounts must be an array of at most 8 entries");
   }
   const host = hostPathsFor(platform);
+  const scratch = host.scratch();
+  // `%TEMP%` is `AppData\Local\Temp`: a folder in it is not app data, as `/tmp` is not on a Mac.
+  const inScratch = (p: string) =>
+    scratch !== undefined && host.under(p, scratch) && !host.same(p, scratch);
   const home = homedir();
-  const never = [host.appData(home), ...protectedRoots].map((p) => host.normalize(p));
+  const appData = host.normalize(host.appData(home));
+  const never = [appData, ...protectedRoots.map((p) => host.normalize(p))];
   const out: SandboxMount[] = [];
   for (const m of mounts as SandboxMount[]) {
     const { source, target, readOnly } = m ?? ({} as SandboxMount);
@@ -176,7 +185,10 @@ export async function validateMounts(
     if (
       host.isRoot(source) ||
       host.under(home, source) ||
-      never.some((r) => host.under(source, r) || host.under(r, source))
+      never.some(
+        (r) =>
+          (host.under(source, r) && !(r === appData && inScratch(source))) || host.under(r, source),
+      )
     ) {
       fail("forbidden", `${source} is never mounted into a sandbox`);
     }

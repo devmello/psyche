@@ -1,3 +1,5 @@
+import { execFileSync } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { createServer, type Server } from "node:net";
 import { tmpdir } from "node:os";
@@ -20,6 +22,16 @@ const cleanups: (() => void | Promise<void>)[] = [];
 afterEach(async () => {
   for (const c of cleanups.splice(0).reverse()) await c();
 });
+
+/**
+ * Where a fake Gateway listens: a Unix socket in `dir`, or on Windows a named pipe (Node's `net`
+ * cannot bind a file path there; the real Gateway uses `\\.\pipe\psyche-node-<hash>`).
+ */
+function localEndpoint(dir: string): string {
+  return process.platform === "win32"
+    ? `\\\\.\\pipe\\pn-${randomBytes(6).toString("hex")}`
+    : join(dir, "gw.sock");
+}
 
 function tempDir(): string {
   // Short paths: macOS limits Unix socket paths to 104 bytes.
@@ -74,9 +86,9 @@ async function pairOver(connect: () => Promise<FrameChannel>, gw: FakeGateway) {
 }
 
 describe("transports", () => {
-  it("pairs and invokes over NDJSON on a Unix socket", async () => {
+  it("pairs and invokes over NDJSON on a Unix socket (a named pipe on Windows)", async () => {
     const gw = new FakeGateway();
-    const path = join(tempDir(), "gw.sock");
+    const path = localEndpoint(tempDir());
     await serveFakeOverUnix(gw, path);
     await pairOver(() => openUnixSocket(path), gw);
     const r = await (await gw.invoke("test.ping", {})).result;
@@ -113,7 +125,7 @@ describe("transports", () => {
   it("speaks NDJSON through a vsock bridge process (simulated with a stdio relay)", async () => {
     const gw = new FakeGateway();
     const dir = tempDir();
-    const path = join(dir, "gw.sock");
+    const path = localEndpoint(dir);
     await serveFakeOverUnix(gw, path);
     // Stands in for `socat - VSOCK-CONNECT:2:<port>`: relays stdio to the Unix socket.
     const relay = join(dir, "relay.mjs");
@@ -137,6 +149,12 @@ s.on("close", () => process.exit(0));`,
       "VSOCK-CONNECT:2:7980",
     ]);
     expect(() => bridgeArgv({ cid: 2, port: 7980 }, "darwin")).toThrow(/PSYCHE_NODE_VSOCK_BRIDGE/);
+    // Windows has no vsock: only an explicit bridge (the owner's own relay) is used there.
+    expect(() => bridgeArgv({ cid: 2, port: 7980 }, "win32")).toThrow(/not available on Windows/);
+    expect(bridgeArgv({ cid: 2, port: 1, bridge: ["relay", "{port}"] }, "win32")).toEqual([
+      "relay",
+      "1",
+    ]);
   });
 
   it("detects a VM guest", () => {
@@ -215,20 +233,31 @@ describe("identity and config", () => {
   it("creates the identity file 0600 and reloads the same key", () => {
     const home = tempDir();
     const a = loadOrCreateIdentity(home);
-    expect(statSync(identityPath(home)).mode & 0o777).toBe(0o600);
+    if (process.platform === "win32") {
+      // No mode bits: the node home's DACL is this user and SYSTEM only, nothing inherited.
+      const acl = execFileSync("icacls", [home], { encoding: "utf8" });
+      expect(acl).not.toMatch(/\b(Everyone|BUILTIN\\Users|Authenticated Users):/i);
+      expect(acl).not.toMatch(/\(I\)/);
+    } else {
+      expect(statSync(identityPath(home)).mode & 0o777).toBe(0o600);
+    }
     const b = loadOrCreateIdentity(home);
     expect(b.deviceId).toBe(a.deviceId);
     expect(b.publicKey).toBe(a.publicKey);
     expect(b.publicKey).toMatch(/^[A-Za-z0-9_-]{43}$/);
   });
 
-  it("refuses an identity file readable by others", async () => {
-    const home = tempDir();
-    loadOrCreateIdentity(home);
-    const { chmodSync } = await import("node:fs");
-    chmodSync(identityPath(home), 0o644);
-    expect(() => loadOrCreateIdentity(home)).toThrow(/must be 0600/);
-  });
+  // Mode bits only: on Windows the folder's DACL keeps others out (above).
+  it.skipIf(process.platform === "win32")(
+    "refuses an identity file readable by others",
+    async () => {
+      const home = tempDir();
+      loadOrCreateIdentity(home);
+      const { chmodSync } = await import("node:fs");
+      chmodSync(identityPath(home), 0o644);
+      expect(() => loadOrCreateIdentity(home)).toThrow(/must be 0600/);
+    },
+  );
 
   it("reads node.json, env and flags; host exec only from the file", () => {
     const home = tempDir();

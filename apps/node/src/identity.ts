@@ -10,6 +10,7 @@ import {
 } from "node:fs";
 import { dirname, join } from "node:path";
 import { PsycheError } from "@psyche/protocol";
+import { restrictDirToCurrentUser } from "@psyche/protocol/platform";
 import { ulid } from "ulid";
 
 /**
@@ -86,6 +87,10 @@ export function loadOrCreateIdentity(home: string): NodeIdentity {
     return fromStored(stored);
   }
   mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+  // Windows has no 0700/0600: the folder's DACL becomes this user and SYSTEM only instead.
+  if (process.platform === "win32" && !restrictDirToCurrentUser(dirname(path))) {
+    throw new PsycheError("forbidden", `could not make ${dirname(path)} private to this user`);
+  }
   const stored = generateStored(ulid());
   const tmp = `${path}.${process.pid}.tmp`;
   writeFileSync(tmp, `${JSON.stringify(stored, null, 2)}\n`, { mode: 0o600 });
