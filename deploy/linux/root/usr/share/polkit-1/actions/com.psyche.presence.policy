@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<!--
+  Psyche: confirm that the owner is at this computer (docs/design/linux-desktop-2026.md section 9).
+
+  Installed root-owned, so a program running as the user cannot edit it.
+  - allow_any and allow_inactive are "no": only the active local session can approve, never an
+    SSH login or a session that is locked or switched away.
+  - allow_active is auth_self: the session owner's own password, asked every time. Never an
+    "_keep" variant (that would remember the answer for minutes), and no exec annotations
+    (nothing runs as root).
+  - polkit does not let an unprivileged caller supply text, so the dialog shows this fixed
+    message. Psyche shows the approval's code and summary in its own window.
+-->
+<policyconfig>
+  <vendor>Psyche</vendor>
+  <vendor_url>https://psyche.app</vendor_url>
+
+  <action id="com.psyche.presence.confirm">
+    <description>Approve an action in Psyche</description>
+    <description xml:lang="ar">الموافقة على إجراء في Psyche</description>
+    <description xml:lang="de">Eine Aktion in Psyche freigeben</description>
+    <description xml:lang="es">Aprobar una acción en Psyche</description>
+    <description xml:lang="fr">Approuver une action dans Psyche</description>
+    <description xml:lang="hi">Psyche में किसी कार्रवाई को मंज़ूरी दें</description>
+    <description xml:lang="it">Approva un'azione in Psyche</description>
+    <description xml:lang="ja">Psyche での操作を承認する</description>
+    <description xml:lang="ko">Psyche에서 작업 승인</description>
+    <description xml:lang="pt">Aprovar uma ação no Psyche</description>
+    <description xml:lang="zh">在 Psyche 中批准操作</description>
+    <message>Psyche needs your password to approve the action you just allowed in the Psyche window. Psyche only asks right after you click Allow. If you didn't, cancel.</message>
+    <message xml:lang="ar">يحتاج Psyche إلى كلمة المرور للموافقة على الإجراء الذي سمحت به للتو في نافذة Psyche. لا يطلبها Psyche إلا بعد أن تنقر على "سماح". إذا لم تفعل، فألغِ.</message>
+    <message xml:lang="de">Psyche braucht Ihr Passwort, um die Aktion freizugeben, die Sie gerade im Psyche-Fenster erlaubt haben. Psyche fragt nur direkt nach einem Klick auf „Erlauben“. Falls Sie nicht geklickt haben, brechen Sie ab.</message>
+    <message xml:lang="es">Psyche necesita tu contraseña para aprobar la acción que acabas de permitir en la ventana de Psyche. Psyche solo la pide justo después de pulsar Permitir. Si no lo hiciste, cancela.</message>
+    <message xml:lang="fr">Psyche a besoin de votre mot de passe pour approuver l'action que vous venez d'autoriser dans la fenêtre Psyche. Psyche le demande uniquement juste après un clic sur Autoriser. Si ce n'est pas vous, annulez.</message>
+    <message xml:lang="hi">Psyche विंडो में अभी आपने जिस कार्रवाई की अनुमति दी, उसे मंज़ूर करने के लिए Psyche को आपका पासवर्ड चाहिए। Psyche केवल "अनुमति दें" पर क्लिक करने के तुरंत बाद पूछता है। अगर आपने क्लिक नहीं किया, तो रद्द करें।</message>
+    <message xml:lang="it">Psyche ha bisogno della tua password per approvare l'azione che hai appena consentito nella finestra di Psyche. Psyche la chiede solo subito dopo aver fatto clic su Consenti. Se non l'hai fatto, annulla.</message>
+    <message xml:lang="ja">Psyche のウィンドウで今許可した操作を承認するには、パスワードが必要です。Psyche がパスワードを求めるのは「許可」をクリックした直後だけです。クリックしていない場合は、キャンセルしてください。</message>
+    <message xml:lang="ko">Psyche 창에서 방금 허용한 작업을 승인하려면 비밀번호가 필요합니다. Psyche는 '허용'을 클릭한 직후에만 비밀번호를 요청합니다. 클릭하지 않았다면 취소하세요.</message>
+    <message xml:lang="pt">O Psyche precisa da sua senha para aprovar a ação que você acabou de permitir na janela do Psyche. O Psyche só pede logo depois de você clicar em Permitir. Se você não clicou, cancele.</message>
+    <message xml:lang="zh">Psyche 需要您的密码，以批准您刚刚在 Psyche 窗口中允许的操作。Psyche 只会在您点击“允许”之后立即询问。如果您没有点击，请取消。</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_self</allow_active>
+    </defaults>
+  </action>
+</policyconfig>
