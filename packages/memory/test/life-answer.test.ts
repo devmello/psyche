@@ -14,6 +14,7 @@ import {
   type LifeEmbedder,
   MAX_ANSWER_PASSAGES,
   MAX_PASSAGES_TOTAL_CHARS,
+  narrowAnswer,
   passageSendable,
 } from "../src/graph/life-answer.ts";
 import { GraphStore } from "../src/graph/store.ts";
@@ -493,5 +494,107 @@ describe("what else reaches the prompt", () => {
     );
     // A title's full stop is not an end.
     expect((await run("Dr. Smith signs Friday [P1].")).answer).toBe("Dr. Smith signs Friday [P1].");
+  });
+});
+
+describe("lifeCandidates by id", () => {
+  it("resolves a fact older than the newest ones, which the limit would cut", () => {
+    learn("Sam Lee", "employer", "Initech", "I work at Initech");
+    learn("Priya Rao", "city", "Lisbon", "I live in Lisbon");
+    const old = all().find((c) => c.hit.value === "Initech");
+    expect(old).toBeDefined();
+    // The newest-first limit of 1 cuts one of the two; looked up by id, both still resolve.
+    expect(lifeCandidates(graph, em, env.db.sqlite, NOW, 1)).toHaveLength(1);
+    const ids = all().map((c) => c.hit.factId);
+    const byId = lifeCandidates(graph, em, env.db.sqlite, NOW, 1, ids);
+    expect(byId.map((c) => c.hit.factId).sort()).toEqual([...ids].sort());
+    expect(lifeCandidates(graph, em, env.db.sqlite, NOW, 2000, [])).toEqual([]);
+    expect(lifeCandidates(graph, em, env.db.sqlite, NOW, 2000, ["nope"])).toEqual([]);
+  });
+});
+
+describe("narrowAnswer", () => {
+  const A = "Sam works at Initech [1]. The contract is ready Friday [P1][P2]. It was signed [P3].";
+  const all = () => true;
+
+  it("keeps everything when everything stands", () => {
+    expect(narrowAnswer(A, 1, 3, all, all)).toEqual({ answer: A, facts: [1], passages: [1, 2, 3] });
+  });
+
+  it("drops a claim left with no citation and renumbers what stays", () => {
+    const r = narrowAnswer(
+      A,
+      1,
+      3,
+      () => false,
+      (n) => n !== 1 && n !== 2,
+    );
+    expect(r).toEqual({ answer: "It was signed [P1].", facts: [], passages: [3] });
+  });
+
+  it("drops a claim whole when any one of its citations fails (its words may come from it)", () => {
+    const mixed = "Sam moves to Denver in June [1][P1]. It was signed [P2].";
+    // The fact fails: the claim goes, not just the marker.
+    expect(narrowAnswer(mixed, 1, 2, () => false, all)).toEqual({
+      answer: "It was signed [P1].",
+      facts: [],
+      passages: [2],
+    });
+    // The passage fails: same.
+    expect(narrowAnswer(mixed, 1, 2, all, (n) => n !== 1).answer).toBe("It was signed [P1].");
+    // A marker that names nothing offered is not a citation that failed.
+    expect(narrowAnswer("Ready [1][P9].", 1, 1, all, all).answer).toBe("Ready [1].");
+  });
+
+  it("decides per sentence, however the markers are spread", () => {
+    const noP1 = (n: number) => n !== 1;
+    for (const text of [
+      "Sam moves to Denver [1] [P1].",
+      "Sam moves to Denver [1], [P1].",
+      "Sam moves to Denver [1] and [P1].",
+      "Sam moves to Denver [P1] and then [1].",
+      "Sam moves to Denver [1]; she confirmed it [P1].",
+    ]) {
+      expect(narrowAnswer(`${text} It was signed [P2].`, 1, 2, all, noP1), text).toEqual({
+        answer: "It was signed [P1].",
+        facts: [],
+        passages: [2],
+      });
+    }
+    // The fact failing takes the sentence the same way, and a title's stop is not an end.
+    expect(narrowAnswer("Dr. Lee moves [1], [P1].", 1, 1, () => false, all).answer).toBe("");
+    expect(narrowAnswer("Dr. Lee moves [1], [P1].", 1, 1, all, all).answer).toBe(
+      "Dr. Lee moves [1][P1].",
+    );
+    // Words after the last marker stay with their sentence.
+    expect(narrowAnswer("Sam moves [1] to Denver.", 1, 0, all, all).answer).toBe(
+      "Sam moves to Denver [1].",
+    );
+  });
+
+  it("repeated narrowing does not pile up full-width stops", () => {
+    const once = narrowAnswer("合同周五好。[P1] 已签。[P2]", 0, 2, all, all);
+    const twice = narrowAnswer(once.answer, 0, 2, all, all);
+    expect(twice.answer).toBe(once.answer);
+    expect(once.answer).not.toMatch(/[。！？]{2}/);
+  });
+
+  it("refuses a claim by its own text, and gives nothing when nothing stands", () => {
+    expect(narrowAnswer(A, 1, 3, all, all, (t) => !t.includes("Sam")).facts).toEqual([]);
+    expect(
+      narrowAnswer(
+        A,
+        1,
+        3,
+        () => false,
+        () => false,
+      ),
+    ).toEqual({
+      answer: "",
+      facts: [],
+      passages: [],
+    });
+    // A marker that names nothing offered never counts.
+    expect(narrowAnswer("Ready [P9].", 0, 1, all, all).answer).toBe("");
   });
 });

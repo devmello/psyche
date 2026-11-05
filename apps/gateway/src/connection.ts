@@ -26,6 +26,7 @@ import type { Call, GatewayContext, HandlerDef, LiveConnection } from "./context
 import type { EventFilter, FrameSink } from "./event-bus.ts";
 import { HANDLERS } from "./handlers/index.ts";
 import { paramsHash } from "./idempotency.ts";
+import { readerOf } from "./message-scrub.ts";
 import { methodPresence, requireFreshPresence } from "./presence-gate.ts";
 
 export interface Transport {
@@ -393,7 +394,11 @@ export class Connection implements LiveConnection {
         else fn();
       },
     };
-    if (!def.transactional) return await def.run(call, params as never);
+    if (!def.transactional) {
+      const out = await def.run(call, params as never);
+      this.#healAnswers(method);
+      return out;
+    }
 
     const result = ctx.db.sqlite.transaction(() => {
       inTx = true;
@@ -408,7 +413,18 @@ export class Connection implements LiveConnection {
     })();
     for (const publish of events) publish();
     for (const fn of after) fn();
+    this.#healAnswers(method);
     return result;
+  }
+
+  /** A memory call that removes something: the answers kept in chats lose the words it supported. */
+  #healAnswers(method: string): void {
+    if (!/^memory\..*(forget|retract|delete|decide|reject)/i.test(method)) return;
+    try {
+      this.#ctx.messageScrub.heal?.();
+    } catch {
+      // A failed sweep never fails the call; the next read still narrows the answer per reader.
+    }
   }
 
   #connect(params: ConnectParams): unknown {
@@ -476,7 +492,12 @@ export class Connection implements LiveConnection {
       this.#identity = identity;
       const sink: FrameSink = (frame) => this.#send(frame);
       this.#sink = sink;
-      this.#unsubscribe = ctx.bus.subscribe(identity.scopes, sink, identity.deviceId);
+      this.#unsubscribe = ctx.bus.subscribe(
+        identity.scopes,
+        sink,
+        identity.deviceId,
+        readerOf(identity),
+      );
       let nodeId: string | undefined;
       if (identity.role === "node" && this.#connectParams) {
         nodeId = ctx.nodes.attach(this, identity, this.#connectParams).id;

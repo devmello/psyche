@@ -494,3 +494,96 @@ const encode = (v: readonly number[]): Buffer => Buffer.from(new Float32Array(v)
 // Copied first: a blob's bytes need not sit on a 4-byte boundary.
 const decode = (b: Buffer, dims: number): number[] =>
   Array.from(new Float32Array(Uint8Array.from(b).buffer, 0, dims));
+
+/** What `narrowAnswer` keeps: the answer renumbered, and which of the original ids survived (1-based). */
+export interface NarrowedAnswer {
+  answer: string;
+  /** Original `[n]` numbers still cited, in the order of their new numbers. */
+  facts: number[];
+  /** Original `[Pn]` numbers still cited, in the order of their new numbers. */
+  passages: number[];
+}
+
+/**
+ * Where a sentence ends for `narrowAnswer`: after `.`, `!` or `?` and a space, after a full-width
+ * stop, or at a line break. A title's stop (Dr. Mr. e.g.) is not an end. A semicolon or a comma is
+ * not an end, so every marker in a sentence counts against it.
+ */
+const SENTENCE_END =
+  /(?<!\b(?:Dr|Mr|Mrs|Ms|Prof|St|vs|etc|e\.g|i\.e)\.)(?<=[.!?])\s+|(?<=[。！？])\s*|\n+/u;
+
+/**
+ * Cuts a finished answer down to the sentences that still stand. The decision is made on the
+ * whole sentence, however its markers are spread (`[1] [P1]`, `[1], [P1]`, `[1] and [P1]`, either
+ * order, across a semicolon): `keepFact(n)` / `keepPassage(n)` say whether the nth fact or passage
+ * may still be cited, and a sentence is kept only if every valid marker in it passes and it has at
+ * least one (no citation, no claim). A marker that names nothing offered is not a citation.
+ * `keepClaim` can refuse the sentence's own words. Words after the last marker stay with their
+ * sentence. Kept sentences are rendered as `words [1][P1].` and renumbered from 1 in order of
+ * first use, so narrowing again changes nothing. Nothing left gives an empty answer.
+ */
+export function narrowAnswer(
+  answer: string,
+  nFacts: number,
+  nPassages: number,
+  keepFact: (n: number) => boolean,
+  keepPassage: (n: number) => boolean,
+  keepClaim: (text: string) => boolean = () => true,
+): NarrowedAnswer {
+  interface Claim {
+    text: string;
+    end: string;
+    facts: number[];
+    passages: number[];
+  }
+  const claims: Claim[] = [];
+  for (const raw of answer.split(SENTENCE_END)) {
+    const facts = new Set<number>();
+    const passages = new Set<number>();
+    let failed = false;
+    for (const n of raw.matchAll(MARKER)) {
+      const k = Number(n[2]);
+      if (n[1] === "P") {
+        if (k < 1 || k > nPassages) continue;
+        if (keepPassage(k)) passages.add(k);
+        else failed = true;
+      } else {
+        if (k < 1 || k > nFacts) continue;
+        if (keepFact(k)) facts.add(k);
+        else failed = true;
+      }
+    }
+    if (failed || facts.size + passages.size === 0) continue;
+    const bare = raw.replace(MARKER, " ").replace(/\s+/g, " ").trim();
+    const end = /[.!?。！？]+$/.exec(bare)?.[0] ?? "";
+    const text = bare
+      .slice(0, bare.length - end.length)
+      .replace(/^[\s.!?;,。！？；]+/, "")
+      .replace(/[\s,;、，；]+$/, "")
+      .trim();
+    if (text === "" || !keepClaim(text)) continue;
+    claims.push({
+      text,
+      end: end === "" ? "" : end.slice(-1),
+      facts: [...facts],
+      passages: [...passages],
+    });
+  }
+  const f = [...new Set(claims.flatMap((c) => c.facts))];
+  const p = [...new Set(claims.flatMap((c) => c.passages))];
+  const fPlace = new Map(f.map((n, i) => [n, i + 1]));
+  const pPlace = new Map(p.map((n, i) => [n, i + 1]));
+  return {
+    answer: claims
+      .map(
+        (c) =>
+          `${c.text} ${[
+            ...c.facts.map((n) => `[${fPlace.get(n)}]`),
+            ...c.passages.map((n) => `[P${pPlace.get(n)}]`),
+          ].join("")}${c.end}`,
+      )
+      .join(" "),
+    facts: f,
+    passages: p,
+  };
+}

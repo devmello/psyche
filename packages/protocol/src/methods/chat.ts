@@ -27,13 +27,16 @@ export const ChatSendResult = Type.Object(
  */
 export const ChatContextRef = Type.Object(
   {
-    kind: StringEnum(["feed_item", "search_hit", "memory_entity"]),
+    kind: StringEnum(["feed_item", "search_hit", "memory_entity", "life_answer"]),
     id: Id,
     /**
      * `search_hit` only: what the window labelled the result, for the card it shows. The Gateway
      * reads the result itself by `id` (text, kind, trust) and never takes text or trust from here.
      * `memory_entity` ("Continue in chat" on a Memory page) carries the item's id only: the
      * Gateway reads the item, decides its trust and ignores `title` and `scope` entirely.
+     * `life_answer` ("Open as a chat" on a Search answer) carries the opaque `answerId` that
+     * `memory.life.answer` returned: the Gateway holds the answer and re-reads every id it cites
+     * under this connection's rules; the answer text and ids are never taken from the client.
      */
     title: Type.Optional(Type.String({ maxLength: 300 })),
     scope: Type.Optional(Type.String({ maxLength: 40 })),

@@ -36,6 +36,7 @@ import { AutomationWorkflowBlockView } from "./AutomationWorkflowCard.tsx";
 import { Checklist, PlanCard } from "./Checklist.tsx";
 import { ContextCard } from "./ContextCard.tsx";
 import { useEntersLater } from "./card-enter.tsx";
+import { LifeAnswerView } from "./LifeAnswerView.tsx";
 import { Markdown } from "./Markdown.tsx";
 import { QuestionCard } from "./QuestionCard.tsx";
 import { ReceiptLine } from "./Receipt.tsx";
@@ -471,6 +472,7 @@ registerBlock("wrap_up", {
 });
 registerBlock("related_threads", { View: ({ block }) => <RelatedThreads block={block} /> });
 registerBlock("sources", { View: ({ block }) => <SourceChips block={block} /> });
+registerBlock("life_answer", { View: ({ block }) => <LifeAnswerView block={block} /> });
 registerBlock("learned", { View: ({ block }) => <LearnedLine items={block.items} /> });
 registerBlock("work_note", { View: ({ block }) => <WorkNote items={block.items} /> });
 registerBlock("taught", {

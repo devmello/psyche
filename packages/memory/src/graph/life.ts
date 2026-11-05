@@ -231,7 +231,10 @@ export function lifeCandidates(
   db: { prepare(sql: string): { all(...a: unknown[]): unknown[] } },
   now: number,
   max = 2000,
+  /** Only these facts, looked up by id: the newest-first limit does not apply. */
+  ids?: readonly string[],
 ): LifeCandidate[] {
+  if (ids !== undefined && ids.length === 0) return [];
   const rows = db
     .prepare(
       `SELECT f.id, f.entity_id, f.attribute, f.value, f.provenance, f.review, f.sensitivity,
@@ -239,9 +242,10 @@ export function lifeCandidates(
          FROM graph_facts f JOIN graph_entities e ON e.id = f.entity_id
         WHERE e.hidden = 0 AND e.status = 'active' AND f.retracted_at IS NULL AND f.superseded_by IS NULL
           AND (f.valid_to IS NULL OR f.valid_to > ?) AND f.review IN ('accepted', 'auto_accepted', 'edited', 'pending')
+          ${ids === undefined ? "" : `AND f.id IN (${ids.map(() => "?").join(",")})`}
         ORDER BY f.last_seen_at DESC, f.id LIMIT ?`,
     )
-    .all(new Date(now).toISOString(), max) as {
+    .all(new Date(now).toISOString(), ...(ids ?? []), ids === undefined ? max : ids.length) as {
     id: string;
     entity_id: string;
     attribute: GraphFactAttribute;
