@@ -11,7 +11,11 @@ protocol ActivityHost: AnyObject {
     /// `ActivityAuthorizationInfo().areActivitiesEnabled`: the system toggle for Psyche.
     var isEnabled: Bool { get }
     /// Task ids that already have an activity (kept across an app relaunch by the system).
+    /// Task ids with a live activity, including one iOS has marked stale (it is still on screen and still ours to
+    /// update or end).
     var activeTaskIDs: [String] { get }
+    /// Task ids whose activity is current (`.active`, not stale): the only ones the island's Approve/Deny may answer.
+    var answerableTaskIDs: [String] { get }
     /// `staleDate`: when iOS should mark the activity "out of date" if nothing updated it first.
     func start(taskID: String, content: TaskActivityContent, staleDate: Date?) -> Bool
     func update(taskID: String, content: TaskActivityContent, staleDate: Date?) async
@@ -22,6 +26,7 @@ protocol ActivityHost: AnyObject {
 }
 
 extension ActivityHost {
+    var answerableTaskIDs: [String] { activeTaskIDs }
     func observeChanges(_ handler: @escaping @MainActor () -> Void) {}
 }
 
@@ -31,7 +36,7 @@ final class SystemActivityHost: ActivityHost {
     private var activities: [String: Activity<PsycheTaskAttributes>] = [:]
 
     init() {
-        for activity in Activity<PsycheTaskAttributes>.activities where activity.activityState == .active {
+        for activity in Activity<PsycheTaskAttributes>.activities where Self.isLive(activity.activityState) {
             activities[activity.attributes.taskID] = activity
         }
     }
@@ -40,8 +45,15 @@ final class SystemActivityHost: ActivityHost {
     /// Read from ActivityKit, not this host's own list: the system's record is the same for every part of the
     /// app and survives a relaunch.
     var activeTaskIDs: [String] {
+        Activity<PsycheTaskAttributes>.activities.filter { Self.isLive($0.activityState) }.map(\.attributes.taskID)
+    }
+
+    var answerableTaskIDs: [String] {
         Activity<PsycheTaskAttributes>.activities.filter { $0.activityState == .active }.map(\.attributes.taskID)
     }
+
+    /// A stale activity is still showing: it must stay tracked or it would never be updated, ended or deduplicated.
+    private static func isLive(_ state: ActivityState) -> Bool { state == .active || state == .stale }
 
     func start(taskID: String, content: TaskActivityContent, staleDate: Date?) -> Bool {
         guard isEnabled, activities[taskID] == nil else { return activities[taskID] != nil }

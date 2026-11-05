@@ -13,14 +13,21 @@ private final class FakeAudio: SilentAudio {
     var stopCalls = 0
     var resumeCalls = 0
     var refuse = false
+    var refuseResume = false
     func start() -> Bool {
         startCalls += 1
         guard !refuse else { return false }
         isPlaying = true
         return true
     }
+    var pauseCalls = 0
+    func pause() {
+        pauseCalls += 1
+        isPlaying = false
+    }
     func resume() -> Bool {
         resumeCalls += 1
+        guard !refuseResume else { return false }
         isPlaying = true
         return true
     }
@@ -34,6 +41,8 @@ private final class FakeAudio: SilentAudio {
 private final class FakeConditions: DeviceConditions {
     var current = DeviceSnapshot(lowPowerMode: false, batteryLevel: 0.9, pluggedIn: false)
     var onChange: (@MainActor () -> Void)?
+    var monitoring = false
+    func setMonitoring(_ on: Bool) { monitoring = on }
     func snapshot() -> DeviceSnapshot { current }
     func change(_ edit: (inout DeviceSnapshot) -> Void) {
         edit(&current)
@@ -44,24 +53,29 @@ private final class FakeConditions: DeviceConditions {
 @MainActor
 private final class Rig {
     let audio = FakeAudio()
+    let arbiter = AudioSessionArbiter()
     let conditions = FakeConditions()
     let ledger = AwakeTimeLedger(directory: nil)
     var now = Date(timeIntervalSince1970: 1_800_000_000)
     var keep: [Bool] = []
     var stops: [StayAwake.StopReason] = []
+    var cap = AwakeCapStore(directory: nil)
     var controller: StayAwakeController!
 
-    init() {
+    init(cap: AwakeCapStore? = nil, start: Date? = nil) {
+        if let start { now = start }
+        if let cap { self.cap = cap }
         controller = StayAwakeController(
-            audio: audio, conditions: conditions, ledger: ledger,
+            audio: audio, conditions: conditions, ledger: ledger, capStore: self.cap,
             setKeepConnected: { [unowned self] in keep.append($0) },
             onStopped: { [unowned self] in stops.append($0) },
-            clock: { [unowned self] in now })
+            clock: { [unowned self] in now }, arbiter: arbiter)
+        controller.setForeground(true)
     }
 
     func watch(_ n: Int = 1) {
         controller.setSwitch(true)
-        controller.setTasks(watched: n, active: n)
+        controller.setTasks(watched: n, active: Set((1...n).map { "t\($0)" }))
     }
 }
 
@@ -69,7 +83,7 @@ private final class Rig {
 struct StayAwakeControllerTests {
     @Test func doesNothingByDefault() {
         let rig = Rig()
-        rig.controller.setTasks(watched: 1, active: 1)
+        rig.controller.setTasks(watched: 1, active: ["t1"])
         #expect(!rig.controller.isRunning)
         #expect(rig.audio.startCalls == 0)
     }
@@ -92,7 +106,7 @@ struct StayAwakeControllerTests {
     @Test func stopsAsSoonAsNothingIsRunning() {
         let rig = Rig()
         rig.watch()
-        rig.controller.setTasks(watched: 1, active: 0)
+        rig.controller.setTasks(watched: 1, active: [])
         #expect(!rig.controller.isRunning)
         #expect(rig.audio.stopCalls == 1)
         #expect(rig.keep == [true, false])
@@ -102,7 +116,7 @@ struct StayAwakeControllerTests {
     @Test func stopsWhenTheOwnerStopsWatching() {
         let rig = Rig()
         rig.watch()
-        rig.controller.setTasks(watched: 0, active: 0)
+        rig.controller.setTasks(watched: 0, active: [])
         #expect(rig.stops == [.notWatching])
     }
 
@@ -151,8 +165,8 @@ struct StayAwakeControllerTests {
         rig.conditions.change { $0.batteryLevel = 0.85 }
         #expect(!rig.controller.isRunning)
         // New work after everything finished starts fresh.
-        rig.controller.setTasks(watched: 0, active: 0)
-        rig.controller.setTasks(watched: 1, active: 1)
+        rig.controller.setTasks(watched: 0, active: [])
+        rig.controller.setTasks(watched: 1, active: ["t1"])
         #expect(rig.controller.isRunning)
     }
 
@@ -196,7 +210,7 @@ struct StayAwakeControllerTests {
         rig.watch()
         rig.audio.isPlaying = false
         rig.audio.onEvent?(.interrupted)
-        rig.controller.setTasks(watched: 1, active: 0)  // finished during the call
+        rig.controller.setTasks(watched: 1, active: [])  // finished during the call
         #expect(!rig.controller.isRunning)
         rig.audio.onEvent?(.interruptionEnded)
         #expect(rig.audio.resumeCalls == 0)
@@ -232,8 +246,97 @@ struct StayAwakeControllerTests {
         rig.watch()
         rig.now.addTimeInterval(42 * 60)
         #expect(Int(await rig.controller.secondsToday()) == 42 * 60)  // the stretch in progress counts
-        rig.controller.setTasks(watched: 1, active: 0)
-        try? await Task.sleep(for: .milliseconds(50))
+        rig.controller.setTasks(watched: 1, active: [])
+        await rig.controller.settled()
         #expect(Int(await rig.controller.secondsToday()) == 42 * 60)  // and is kept once it ended
+    }
+
+    @Test func doesNotStartInTheBackground() {
+        let rig = Rig()
+        rig.controller.setForeground(false)
+        rig.watch()
+        #expect(rig.audio.startCalls == 0)  // iOS refuses audio from the background
+        rig.controller.setForeground(true)
+        #expect(rig.controller.isRunning)
+        rig.controller.setForeground(false)  // once running, leaving the screen is the point
+        #expect(rig.controller.isRunning)
+    }
+
+    @Test func dictationBorrowsTheSessionAndStayAwakeTakesItBack() async {
+        let rig = Rig()
+        rig.watch()
+        rig.arbiter.setDictating(true)
+        #expect(rig.audio.pauseCalls == 1)
+        #expect(rig.controller.isPaused)
+        #expect(rig.audio.stopCalls == 0)  // it does not pull the session out from under dictation
+        rig.now.addTimeInterval(600)  // ten minutes of dictation: not awake time
+        rig.arbiter.setDictating(false)
+        #expect(rig.audio.resumeCalls == 1)
+        #expect(!rig.controller.isPaused)
+        rig.now.addTimeInterval(120)
+        rig.controller.setTasks(watched: 1, active: [])
+        await rig.controller.settled()
+        #expect(Int(await rig.controller.secondsToday()) == 120)
+    }
+
+    @Test func doesNotStartWhileDictating() {
+        let rig = Rig()
+        rig.arbiter.setDictating(true)
+        rig.watch()
+        #expect(rig.audio.startCalls == 0)
+        rig.arbiter.setDictating(false)
+        #expect(rig.controller.isRunning)
+    }
+
+    @Test func stopsWhenTheSessionCannotBeTakenBackAfterDictation() {
+        let rig = Rig()
+        rig.watch()
+        rig.arbiter.setDictating(true)
+        rig.audio.refuseResume = true
+        rig.arbiter.setDictating(false)
+        #expect(rig.stops == [.audioUnavailable])
+        #expect(!rig.controller.isRunning)
+    }
+
+    @Test func theCapSurvivesARelaunch() {
+        let rig = Rig()
+        rig.watch()
+        rig.now.addTimeInterval(3 * 3600)
+        rig.controller.reevaluate()
+        #expect(rig.stops == [.hardCap])
+        // The app restarts: a new controller over the same store, the same task still running.
+        let again = Rig(cap: rig.cap)
+        again.watch()
+        #expect(!again.controller.isRunning)
+        #expect(again.audio.startCalls == 0)
+        // A different task is new work and gets its own three hours.
+        again.controller.setTasks(watched: 1, active: ["other"])
+        #expect(again.controller.isRunning)
+    }
+
+    @Test func aRelaunchContinuesTheBudgetInsteadOfRestartingIt() {
+        let rig = Rig()
+        rig.watch()
+        rig.now.addTimeInterval(2 * 3600)
+        rig.conditions.change { $0.lowPowerMode = true }  // the stretch ends and its time is saved
+        let again = Rig(cap: rig.cap, start: rig.now)  // killed after two hours of use, restarted
+        again.watch()
+        #expect(again.controller.isRunning)
+        again.now.addTimeInterval(3600 - 1)
+        again.controller.reevaluate()
+        #expect(again.controller.isRunning)
+        again.now.addTimeInterval(1)
+        again.controller.reevaluate()
+        #expect(again.stops == [.hardCap])
+    }
+
+    @Test func batteryMonitoringIsOnlyWhileThereIsSomethingToWatch() {
+        let rig = Rig()
+        #expect(!rig.conditions.monitoring)
+        rig.controller.setSwitch(true)
+        rig.controller.setTasks(watched: 1, active: ["t1"])
+        #expect(rig.conditions.monitoring)
+        rig.controller.setTasks(watched: 0, active: [])
+        #expect(!rig.conditions.monitoring)
     }
 }

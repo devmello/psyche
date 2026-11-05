@@ -22,6 +22,8 @@ public struct GatewayClientDependencies: Sendable {
     public var pendingRecheck: Duration
     /// How often a connection held open in the background is checked for life (no heartbeat otherwise: the Gateway pushes events).
     public var keptPingInterval: Duration
+    /// How long a liveness ping may go unanswered before the connection is dropped and re-made.
+    public var keptPingTimeout: Duration
     /// The share extension's inbox, wiped with the rest when the pairing ends or the pinned Gateway changes.
     public var shareInbox: ShareInbox?
     /// Run on revoke, after keys and outbox are wiped: the cache owner clears its files here.
@@ -46,6 +48,7 @@ public struct GatewayClientDependencies: Sendable {
         backgroundGrace: Duration = .seconds(5),
         pendingRecheck: Duration = .seconds(5),
         keptPingInterval: Duration = .seconds(180),
+        keptPingTimeout: Duration = .seconds(10),
         shareInbox: ShareInbox? = ShareInbox.shared,
         onWipe: @escaping @Sendable () async -> Void = {},
         libraryCache: URL = GatewayClientDependencies.defaultLibraryCache
@@ -61,6 +64,7 @@ public struct GatewayClientDependencies: Sendable {
         self.backgroundGrace = backgroundGrace
         self.pendingRecheck = pendingRecheck
         self.keptPingInterval = keptPingInterval
+        self.keptPingTimeout = keptPingTimeout
         self.shareInbox = shareInbox
         self.onWipe = onWipe
         self.libraryCache = libraryCache
@@ -216,7 +220,7 @@ public actor GatewayClient {
 
     private func pingIfLive() async {
         guard case .live = state, let connection else { return }
-        do { try await connection.ping() } catch { await connection.close() }
+        do { try await connection.ping(timeout: deps.keptPingTimeout) } catch { await connection.close() }
     }
 
     private func closeForBackground() {

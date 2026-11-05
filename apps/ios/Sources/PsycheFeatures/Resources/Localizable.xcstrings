@@ -72,73 +72,73 @@
         }
       }
     },
-    "Keeps Psyche running in the background, with a silent audio session, only while a task you're watching runs or waits for you. It uses some battery, and stops on Low Power Mode or when the battery is under 20% and unplugged.": {
+    "Keeps Psyche running in the background, with a silent audio session, only while a task you're watching runs or waits for you. It uses some battery, and stops on Low Power Mode or when the battery is below 20 percent and unplugged.": {
       "extractionState": "manual",
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "يُبقي Psyche قيد التشغيل في الخلفية بجلسة صوت صامتة، فقط أثناء تشغيل مهمة تتابعها أو انتظارها لردّك. يستهلك بعض البطارية، ويتوقف في وضع الطاقة المنخفضة أو عندما تقل البطارية عن 20٪ والجهاز غير موصول بالشاحن."
+            "value": "يُبقي Psyche قيد التشغيل في الخلفية بجلسة صوت صامتة، فقط أثناء تشغيل مهمة تتابعها أو انتظارها لردّك. يستهلك بعض البطارية، ويتوقف في وضع الطاقة المنخفضة أو عندما تقل البطارية عن 20 في المئة والجهاز غير موصول بالشاحن."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Hält Psyche im Hintergrund mit einer stummen Audiositzung am Laufen, aber nur solange eine Aufgabe, die du beobachtest, läuft oder auf dich wartet. Das kostet etwas Akku und endet im Stromsparmodus oder wenn der Akku unter 20 % liegt und das Gerät nicht lädt."
+            "value": "Hält Psyche im Hintergrund mit einer stummen Audiositzung am Laufen, aber nur solange eine Aufgabe, die du beobachtest, läuft oder auf dich wartet. Das kostet etwas Akku und endet im Stromsparmodus oder wenn der Akku unter 20 Prozent liegt und das Gerät nicht lädt."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Keeps Psyche running in the background, with a silent audio session, only while a task you're watching runs or waits for you. It uses some battery, and stops on Low Power Mode or when the battery is under 20% and unplugged."
+            "value": "Keeps Psyche running in the background, with a silent audio session, only while a task you're watching runs or waits for you. It uses some battery, and stops on Low Power Mode or when the battery is below 20 percent and unplugged."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mantiene Psyche activo en segundo plano, con una sesión de audio silenciosa, solo mientras una tarea que sigues se ejecuta o espera tu respuesta. Gasta algo de batería y se detiene con el modo de bajo consumo o con menos del 20 % de batería sin cargador."
+            "value": "Mantiene Psyche activo en segundo plano, con una sesión de audio silenciosa, solo mientras una tarea que sigues se ejecuta o espera tu respuesta. Gasta algo de batería y se detiene con el modo de bajo consumo o con menos del 20 por ciento de batería sin cargador."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Garde Psyche actif en arrière-plan, avec une session audio silencieuse, uniquement tant qu'une tâche que tu suis s'exécute ou attend ta réponse. Cela consomme un peu de batterie et s'arrête en mode économie d'énergie ou sous 20 % de batterie sans chargeur."
+            "value": "Garde Psyche actif en arrière-plan, avec une session audio silencieuse, uniquement tant qu'une tâche que tu suis s'exécute ou attend ta réponse. Cela consomme un peu de batterie et s'arrête en mode économie d'énergie ou sous 20 pour cent de batterie sans chargeur."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Psyche को बैकग्राउंड में एक मौन ऑडियो सेशन के साथ तभी चालू रखता है जब आपके देखे जा रहे किसी कार्य को चलना हो या आपके जवाब का इंतज़ार हो। इससे कुछ बैटरी खर्च होती है, और लो पावर मोड में या चार्जर के बिना बैटरी 20% से कम होने पर यह बंद हो जाता है।"
+            "value": "Psyche को बैकग्राउंड में एक मौन ऑडियो सेशन के साथ तभी चालू रखता है जब आपके देखे जा रहे किसी कार्य को चलना हो या आपके जवाब का इंतज़ार हो। इससे कुछ बैटरी खर्च होती है, और लो पावर मोड में या चार्जर के बिना बैटरी 20 प्रतिशत से कम होने पर यह बंद हो जाता है।"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mantiene Psyche attivo in background, con una sessione audio silenziosa, solo mentre un'attività che stai seguendo è in corso o aspetta una tua risposta. Consuma un po' di batteria e si ferma con il risparmio energia o con meno del 20% di batteria senza caricatore."
+            "value": "Mantiene Psyche attivo in background, con una sessione audio silenziosa, solo mentre un'attività che stai seguendo è in corso o aspetta una tua risposta. Consuma un po' di batteria e si ferma con il risparmio energia o con meno del 20 per cento di batteria senza caricatore."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "見ているタスクが実行中、またはあなたの返答を待っている間だけ、無音のオーディオセッションでPsycheをバックグラウンドで動かし続けます。バッテリーを少し消費し、低電力モード中や、充電していない状態でバッテリー残量が20%未満のときは停止します。"
+            "value": "見ているタスクが実行中、またはあなたの返答を待っている間だけ、無音のオーディオセッションでPsycheをバックグラウンドで動かし続けます。バッテリーを少し消費し、低電力モード中や、充電していない状態でバッテリー残量が20パーセント未満のときは停止します。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "지켜보고 있는 작업이 실행 중이거나 내 응답을 기다리는 동안에만, 무음 오디오 세션으로 Psyche를 백그라운드에서 계속 실행합니다. 배터리를 조금 사용하며, 저전력 모드이거나 충전 중이 아닐 때 배터리가 20% 미만이면 멈춥니다."
+            "value": "지켜보고 있는 작업이 실행 중이거나 내 응답을 기다리는 동안에만, 무음 오디오 세션으로 Psyche를 백그라운드에서 계속 실행합니다. 배터리를 조금 사용하며, 저전력 모드이거나 충전 중이 아닐 때 배터리가 20퍼센트 미만이면 멈춥니다."
           }
         },
         "pt": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mantém o Psyche ativo em segundo plano, com uma sessão de áudio silenciosa, somente enquanto uma tarefa que você acompanha está em execução ou aguardando você. Gasta um pouco de bateria e para no modo de baixo consumo ou com menos de 20% de bateria fora do carregador."
+            "value": "Mantém o Psyche ativo em segundo plano, com uma sessão de áudio silenciosa, somente enquanto uma tarefa que você acompanha está em execução ou aguardando você. Gasta um pouco de bateria e para no modo de baixo consumo ou com menos de 20 por cento de bateria fora do carregador."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "仅在你关注的任务正在运行或等待你回应时，通过静音音频会话让 Psyche 在后台保持运行。这会消耗一些电量，并在低电量模式下，或电量低于 20% 且未充电时自动停止。"
+            "value": "仅在你关注的任务正在运行或等待你回应时，通过静音音频会话让 Psyche 在后台保持运行。这会消耗一些电量，并在低电量模式下，或电量低于百分之二十且未充电时自动停止。"
           }
         }
       }

@@ -90,13 +90,20 @@ final class DictationEngine: @unchecked Sendable {
     private var legacyTask: SFSpeechRecognitionTask?
 
     func start(onText: @escaping @Sendable (String) -> Void) async throws {
-        try await authorize()
-        try configureSession()
+        // Stay-awake lends the audio session while this holds it (one owner at a time), and takes it back in `stop`.
+        await MainActor.run { AudioSessionArbiter.shared.setDictating(true) }
         do {
-            try await startAnalyzer(onText: onText)
+            try await authorize()
+            try configureSession()
+            do {
+                try await startAnalyzer(onText: onText)
+            } catch {
+                await stopAnalyzer()
+                try startLegacy(onText: onText)
+            }
         } catch {
-            await stopAnalyzer()
-            try startLegacy(onText: onText)
+            await MainActor.run { AudioSessionArbiter.shared.setDictating(false) }
+            throw error
         }
     }
 
@@ -110,6 +117,7 @@ final class DictationEngine: @unchecked Sendable {
         #if os(iOS)
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         #endif
+        await MainActor.run { AudioSessionArbiter.shared.setDictating(false) }
     }
 
     // MARK: Permissions and session

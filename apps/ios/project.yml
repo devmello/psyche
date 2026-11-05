@@ -8,7 +8,6 @@ options:
     iOS: "26.0"
   createIntermediateGroups: true
   developmentLanguage: en
-  knownRegions: [en, ar, de, es, fr, hi, it, ja, ko, pt, zh-Hans]
   generateEmptyDirectories: false
 
 configFiles:
@@ -74,6 +73,8 @@ targets:
       path: Generated/Psyche-Info.plist
       properties:
         CFBundleDisplayName: Psyche
+        # The languages of the String Catalogs (iOS reads these to pick one; knownRegions alone does not).
+        CFBundleLocalizations: [en, ar, de, es, fr, hi, it, ja, ko, pt, zh-Hans]
         PsycheAppGroup: $(PSYCHE_APP_GROUP)
         NSCameraUsageDescription: Psyche uses the camera to read the pairing code shown on your Mac, to scan documents, and to attach photos you take to a message.
         NSLocalNetworkUsageDescription: Psyche connects to your Mac on your home network. It does not look for other devices.
@@ -86,6 +87,7 @@ targets:
         # Background checks without push: BGTaskScheduler app refresh (AlertCenter.refreshIdentifier).
         # `audio`: "Stay connected while a task runs" holds a silent, mixable audio session while a watched task runs (StayAwake.swift).
         # Needs no entitlement, so it works on a free Personal Team. `fetch` is the background check.
+        # Drop `audio` (and the silent-audio keep-alive) before any TestFlight/App Store build: guideline 2.5.4.
         UIBackgroundModes: [fetch, audio]
         BGTaskSchedulerPermittedIdentifiers: [$(PSYCHE_BUNDLE_ID).refresh]
         UILaunchScreen: {}
@@ -199,6 +201,7 @@ targets:
       path: Generated/Widgets-Info.plist
       properties:
         CFBundleDisplayName: Psyche Widgets
+        CFBundleLocalizations: [en, ar, de, es, fr, hi, it, ja, ko, pt, zh-Hans]
         PsycheAppGroup: $(PSYCHE_APP_GROUP)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension

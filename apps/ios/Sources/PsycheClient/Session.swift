@@ -19,11 +19,19 @@ public final class Session {
     private var pairing: Task<Void, Never>?
     private var updates: Task<Void, Never>?
     private var scannedCode: String?
+    /// Scene changes reach the driver one at a time, in order, off the main actor: a quick background-then-active
+    /// can never be applied the other way round.
+    private let activeChanges: AsyncStream<Bool>.Continuation
 
     public init(driver: any SessionDriver = FixtureSessionDriver()) {
         self.driver = driver
         self.state = driver.initialState
         self.lastSyncedAt = driver.initialSyncedAt
+        let (changes, continuation) = AsyncStream<Bool>.makeStream(bufferingPolicy: .unbounded)
+        activeChanges = continuation
+        Task.detached(priority: .userInitiated) { [driver] in
+            for await active in changes { await driver.setActive(active) }
+        }
         let stream = driver.updates
         updates = Task { [weak self] in
             for await update in stream {
@@ -42,8 +50,7 @@ public final class Session {
 
     /// The scene became active or went to the background.
     public func setActive(_ active: Bool) {
-        let driver = driver
-        Task { await driver.setActive(active) }
+        activeChanges.yield(active)
     }
 
     /// "Try it without a Mac" on the pairing screen.

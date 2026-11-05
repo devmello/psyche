@@ -63,6 +63,8 @@ public enum StayAwake {
         case lowBattery
         case hardCap
         case gatewayUnreachable
+        /// Dictation (or another owner) took the audio session and it could not be taken back.
+        case audioUnavailable
 
         /// The activity should be marked stale at once: what it shows can no longer be vouched for.
         public var makesActivityStaleNow: Bool { self == .hardCap || self == .gatewayUnreachable }
@@ -183,6 +185,48 @@ public actor AwakeTimeLedger {
 
     private func save() {
         guard let fileURL, let data = try? JSONEncoder().encode(seconds) else { return }
+        try? AppGroup.prepareDirectory(fileURL.deletingLastPathComponent())
+        try? data.write(to: fileURL, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+    }
+}
+
+/// How much of the 3-hour budget the current work has used, kept beside `awake-time.json` so a relaunch (or the
+/// system killing the app) does not hand out another three hours to the same tasks. Keyed on task ids: new work
+/// starts a fresh budget; the same work, still running, continues the old one and stays stopped once capped.
+public struct AwakeCapRecord: Codable, Equatable, Sendable {
+    public var ids: Set<String>
+    /// Seconds actually awake (paused and stopped time is not counted).
+    public var used: TimeInterval
+    public var capped: Bool
+
+    public init(ids: Set<String>, used: TimeInterval = 0, capped: Bool = false) {
+        self.ids = ids
+        self.used = used
+        self.capped = capped
+    }
+}
+
+public final class AwakeCapStore: @unchecked Sendable {
+    private let fileURL: URL?
+    private let lock = NSLock()
+    private var memory: AwakeCapRecord?
+
+    public init(directory: URL?) {
+        fileURL = directory?.appendingPathComponent("awake-cap.json")
+        if let fileURL, let data = try? Data(contentsOf: fileURL) {
+            memory = try? JSONDecoder().decode(AwakeCapRecord.self, from: data)
+        }
+    }
+
+    public func load() -> AwakeCapRecord? { lock.withLock { memory } }
+
+    public func save(_ record: AwakeCapRecord?) {
+        lock.withLock { memory = record }
+        guard let fileURL else { return }
+        guard let record, let data = try? JSONEncoder().encode(record) else {
+            try? FileManager.default.removeItem(at: fileURL)
+            return
+        }
         try? AppGroup.prepareDirectory(fileURL.deletingLastPathComponent())
         try? data.write(to: fileURL, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
     }

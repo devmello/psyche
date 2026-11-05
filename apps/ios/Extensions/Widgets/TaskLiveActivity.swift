@@ -289,7 +289,8 @@ private struct IslandFooter: View {
                 }
                 .accessibilityLabel(isStale ? "Open Psyche" : "Review the approval in Psyche")
             } else if ActivityPresentation(content: content, isStale: isStale).showsStaleNotice {
-                StaleNotice(size: 12)
+                // The headline above already says it (once); nothing more here.
+                EmptyView()
             } else {
                 HStack(spacing: 5) {
                     if let dot = LA.dot(for: content.status) {

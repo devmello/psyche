@@ -15,6 +15,38 @@ import enum PsycheProtocol.WireProtocol
 import PsycheWire
 
 /// What went wrong on one connection.
+/// Resumes a continuation exactly once, from whichever of two tasks gets there first.
+private final class PingRace: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<Result<Void, any Error>, Never>?
+    private var pending: Result<Void, any Error>?
+    private var done = false
+
+    func install(_ c: CheckedContinuation<Result<Void, any Error>, Never>) {
+        lock.lock()
+        if let pending { lock.unlock(); c.resume(returning: pending); return }
+        continuation = c
+        lock.unlock()
+    }
+
+    /// True when this call was the one that decided the outcome.
+    @discardableResult
+    func finish(_ result: Result<Void, any Error>) -> Bool {
+        lock.lock()
+        if done { lock.unlock(); return false }
+        done = true
+        if let c = continuation {
+            continuation = nil
+            lock.unlock()
+            c.resume(returning: result)
+        } else {
+            pending = result
+            lock.unlock()
+        }
+        return true
+    }
+}
+
 public enum ConnectionFailure: Error, Equatable, Sendable {
     /// The Gateway that answered is not the one pinned. Never retried (companion M1 acceptance 2).
     case identityMismatch(IdentityCheck.Failure)
@@ -280,16 +312,24 @@ public actor GatewayConnection {
     public func close() { close(reason: .closed) }
 
     /// Checks the socket still carries traffic (a WebSocket ping); throws when it does not answer in `timeout`.
+    /// A ping that never answers (a transport that ignores cancellation, a half-open socket) cannot hold this
+    /// call: the first of the answer and the timer wins, and a timeout closes the transport.
     public func ping(timeout: Duration = .seconds(10)) async throws {
         if closed { throw ConnectionFailure.closed }
-        try await withThrowingTaskGroup(of: Void.self) { group in
-            group.addTask { [transport] in try await transport.ping() }
-            group.addTask {
-                try await Task.sleep(for: timeout)
-                throw ConnectionFailure.timeout
+        let race = PingRace()
+        let outcome: Result<Void, any Error> = await withCheckedContinuation { continuation in
+            race.install(continuation)
+            let pinger = Task { [transport] in
+                do { try await transport.ping(); race.finish(.success(())) } catch { race.finish(.failure(error)) }
             }
-            defer { group.cancelAll() }
-            _ = try await group.next()
+            Task {
+                try? await Task.sleep(for: timeout)
+                if race.finish(.failure(ConnectionFailure.timeout)) { pinger.cancel() }
+            }
+        }
+        if case .failure(let error) = outcome {
+            close(reason: .timeout)  // unanswered: the socket is dead to us; the client reconnects
+            throw error
         }
     }
 

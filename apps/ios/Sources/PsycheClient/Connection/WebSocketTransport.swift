@@ -85,10 +85,15 @@ public final class URLSessionTransport: WebSocketTransport, @unchecked Sendable 
     }
 
     public func ping() async throws {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
-            task.sendPing { error in
-                if let error { continuation.resume(throwing: error) } else { continuation.resume() }
+        // Cancelling the ping closes the socket, which makes the pending `sendPing` fail instead of waiting forever.
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
+                task.sendPing { error in
+                    if let error { continuation.resume(throwing: error) } else { continuation.resume() }
+                }
             }
+        } onCancel: {
+            task.cancel(with: .goingAway, reason: nil)
         }
     }
 
