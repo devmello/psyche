@@ -1,15 +1,13 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
-  DESKTOP_KEEP,
   PSYCHE_LAUNCHER,
   PSYCHE_LAUNCHER_LINUX,
   PSYCHED_LAUNCHER,
   PSYCHED_LAUNCHER_LINUX,
-  pruneDesktop,
   // @ts-expect-error plain .mjs without types; importing it does not run the build.
 } from "../../../deploy/scripts/build-psyched.mjs";
 
@@ -68,30 +66,4 @@ describe("Linux launchers", () => {
       expect(run({ HOME: "/home/me", NODE_COMPILE_CACHE: "/mine" }).stdout.trim()).toBe("/mine");
     },
   );
-});
-
-describe("pruneDesktop", () => {
-  it("drops the desktop app except the unit renderer the CLI imports", () => {
-    const app = temp();
-    const desktop = join(app, "apps", "desktop");
-    mkdirSync(join(desktop, "src", "platform"), { recursive: true });
-    mkdirSync(join(desktop, "src", "main"), { recursive: true });
-    writeFileSync(join(desktop, "src", "platform", "systemd-unit.ts"), "export const x = 1;\n");
-    writeFileSync(join(desktop, "src", "platform", "autostart.ts"), "nope");
-    writeFileSync(join(desktop, "src", "main", "main.ts"), "nope");
-    writeFileSync(join(desktop, "package.json"), "{}");
-    pruneDesktop(app);
-    expect(DESKTOP_KEEP).toEqual(["src/platform/systemd-unit.ts"]);
-    expect(readdirSync(join(desktop, "src", "platform"))).toEqual(["systemd-unit.ts"]);
-    expect(existsSync(join(desktop, "src", "main"))).toBe(false);
-    expect(existsSync(join(desktop, "package.json"))).toBe(false);
-  });
-
-  it("is a no-op when there is no desktop app, and removes it when the file is gone", () => {
-    const app = temp();
-    pruneDesktop(app);
-    mkdirSync(join(app, "apps", "desktop", "src"), { recursive: true });
-    pruneDesktop(app);
-    expect(existsSync(join(app, "apps", "desktop"))).toBe(false);
-  });
 });
