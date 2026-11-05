@@ -10,6 +10,10 @@
  *   `data-end` (a fraction of the viewport height, default 0.4).
  * - `data-exit` adds `--x`, 0 to 1 while the element's bottom edge leaves: from the bottom of the
  *   viewport to 30% from the top.
+ * - `data-enter` adds `--e`, 0 to 1 while the element's top edge rises from the bottom of the
+ *   viewport to the top, so a pinned stage can be laid down before it pins.
+ * - `data-emit` also dispatches a `scene` event with `{ p }` when `--p` changes, for a scene whose
+ *   script needs the number (a recording scrubbed by the scroll).
  *
  * The CSS default is `--p: 1`, the finished state, so without JavaScript or with reduced motion
  * the page shows every scene complete and nothing waits on a script.
@@ -25,6 +29,7 @@ export function startScenes(root: HTMLElement, pinned: () => boolean): SceneEngi
   const scenes = [...root.querySelectorAll<HTMLElement>("[data-scene]")];
   const last = new Map<HTMLElement, number>();
   const lastX = new Map<HTMLElement, number>();
+  const lastE = new Map<HTMLElement, number>();
   let raf = 0;
 
   function measure() {
@@ -55,10 +60,20 @@ export function startScenes(root: HTMLElement, pinned: () => boolean): SceneEngi
           lastX.set(el, x);
         }
       }
+      if (el.dataset.enter !== undefined) {
+        const e = clamp01((vh - r.top) / vh);
+        const pe = lastE.get(el);
+        if (pe === undefined || Math.abs(pe - e) > 0.0008) {
+          el.style.setProperty("--e", e.toFixed(4));
+          lastE.set(el, e);
+        }
+      }
       const prev = last.get(el);
       if (prev === undefined || Math.abs(prev - p) > 0.0008) {
         el.style.setProperty("--p", p.toFixed(4));
         last.set(el, p);
+        if (el.dataset.emit !== undefined)
+          el.dispatchEvent(new CustomEvent("scene", { detail: { p } }));
       }
     });
   }
@@ -80,6 +95,7 @@ export function startScenes(root: HTMLElement, pinned: () => boolean): SceneEngi
       for (const el of scenes) {
         el.style.removeProperty("--p");
         el.style.removeProperty("--x");
+        el.style.removeProperty("--e");
       }
     },
   };

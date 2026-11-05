@@ -1,3 +1,5 @@
+import type { BrowserTeachStep } from "@psyche/protocol";
+
 /**
  * IPC channel names shared by main and preload (`psyche:<area>:<verb>`) and the validators main
  * runs on every renderer payload. The renderer is treated as untrusted input: main checks the
@@ -50,6 +52,14 @@ export const IPC = {
   browserSignedInList: "psyche:browser:signed-in-list",
   browserSignedInForget: "psyche:browser:signed-in-forget",
   browserOpenRealChromeProfile: "psyche:browser:open-real-chrome-profile",
+  // Teach by showing (owner only): Record, Stop, Cancel and the kept recordings.
+  teachStart: "psyche:teach:start",
+  teachStop: "psyche:teach:stop",
+  teachCancel: "psyche:teach:cancel",
+  teachKeep: "psyche:teach:keep",
+  teachKept: "psyche:teach:kept",
+  teachOpenKept: "psyche:teach:open-kept",
+  teachDeleteKept: "psyche:teach:delete-kept",
   // Windows, notifications, native commands.
   windowPopOut: "psyche:window:pop-out",
   /** Raises a pane's pop-out window; resolves false when it is gone. */
@@ -145,6 +155,40 @@ export function num(channel: string, v: unknown, name: string, min = 0, max = 10
 export function rec(channel: string, v: unknown): Record<string, unknown> {
   if (!isRecord(v)) throw new IpcPayloadError(channel, "expected an object");
   return v;
+}
+
+const KEPT_ID = /^teach_[a-z0-9]{8,32}$/;
+
+/** A kept recording's id: the shape the store writes, so a path can never come through. */
+export function checkTeachId(channel: string, v: unknown): string {
+  const id = str(channel, v, "id", 64);
+  if (!KEPT_ID.test(id)) throw new IpcPayloadError(channel, "id is not a recording id");
+  return id;
+}
+
+/**
+ * Keep this recording: an id, a title and the reviewed steps. The store cleans the steps again
+ * (`sanitizeTeachSteps`); here only the shape and size are bounded.
+ */
+export function checkTeachKeep(v: unknown): {
+  id: string;
+  title: string;
+  steps: BrowserTeachStep[];
+} {
+  const r = rec(IPC.teachKeep, v);
+  const steps = r.steps;
+  if (!Array.isArray(steps) || steps.length === 0 || steps.length > 200)
+    throw new IpcPayloadError(IPC.teachKeep, "steps must be 1 to 200 steps");
+  const kinds = ["navigate", "click", "type", "select", "press"];
+  for (const x of steps) {
+    if (!isRecord(x) || typeof x.id !== "string" || !kinds.includes(String(x.kind)))
+      throw new IpcPayloadError(IPC.teachKeep, "not a list of recorded steps");
+  }
+  return {
+    id: checkTeachId(IPC.teachKeep, r.id),
+    title: str(IPC.teachKeep, r.title, "title", 120),
+    steps: steps as BrowserTeachStep[],
+  };
 }
 
 /** Text the renderer may put on the clipboard: a non-empty string up to 64 KiB. */
@@ -332,6 +376,13 @@ export function checkAudioChunk(v: unknown): string {
  */
 export const REMOTE_REFUSED_CHANNELS: ReadonlySet<string> = new Set([
   IPC.browserOpenRealChromeProfile,
+  IPC.teachStart,
+  IPC.teachStop,
+  IPC.teachCancel,
+  IPC.teachKeep,
+  IPC.teachKept,
+  IPC.teachOpenKept,
+  IPC.teachDeleteKept,
   IPC.dialogPickFolder,
   IPC.permissionsRequest,
   IPC.helperLaunch,

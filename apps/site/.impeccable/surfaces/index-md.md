@@ -31,3 +31,15 @@ MOTION THESIS: The scroll is the agent's working day. Each section scrubs one se
 
 GRAMMAR: one engine (`scroll-scenes.ts`) writes `--p` 0 to 1 per `[data-scene]`; CSS derives every transform, clip and opacity from it, so motion is scrubbed, not triggered. Pins only at ≥961 px wide and ≥760 px tall; elsewhere pin scenes run over their own height. Default `--p: 1` is the finished state (no script, reduced motion). Clips play one at a time and hold still while the page scrolls. Illustrations are labelled as illustrations with fictional data; the real UI clips follow each one.
 
+
+## Demo stages (round 3, 2026-11-04)
+
+Owner ask: show the app's functions, traits and use cases with demos, not long text scrolls that prove nothing (the cited-sentence section was the example). Owner answers: demos scrubbed by the scroll on desktop; include the iPhone app.
+
+THESIS: Below the hero, the page is six use cases, each shown by the real app doing it. A pinned stage per use case: the recording on one side, a heading, one line and three to five steps on the other. The scroll is the playhead: the clip moves only as you scroll, runs backwards when you scroll up, and each step lights as the clip reaches it; a hairline under the clip shows the position, with a tick per step. A step is a button that shows its moment.
+
+SEQUENCE: Hero (unchanged) · Home: what needs you, catch-up with its source, the brief · Search: a question answered with source chips, a chip opened to the passage and the mail · Approvals under the lamp: a vault fill stopped at its card, Allow once, the email still waits · Memory: Review with the words each fact came from, Confirm, then the person's page · Devices: pairing code, what each device may do, then the iPhone app answering an approval · Files: SOUL.md to AGENTS.md, MEMORY.md opened as Markdown · Status · Close.
+
+PROOF RULES: every recording is the real UI on fictional fixture data (Storybook stories in `packages/ui`, `Site demos` stories for the scripted ones; the iPhone take from the Debug build's `-psycheScenario live` fixtures), labelled "Recorded from the app on fictional data." Only features on main; Teach by showing and shared skills are not featured until they merge. The iPhone app is called in development.
+
+GRAMMAR: stages are dealt onto the desk from alternating sides (`--e`), set aside as they leave (`--x`), and alternate which side holds the recording. Pinned only at ≥961 px wide and ≥760 px tall; elsewhere the clip plays when in view, one at a time, and the steps follow it. Reduced motion: posters at each clip's key moment, nothing pinned, Play on request.

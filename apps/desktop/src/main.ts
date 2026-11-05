@@ -55,6 +55,8 @@ import {
   checkNotifyRoute,
   checkPasskeyOptions,
   checkRoute,
+  checkTeachId,
+  checkTeachKeep,
   checkViewport,
   IPC,
   REMOTE_ONLY_CHANNELS,
@@ -764,6 +766,26 @@ function registerIpc(): void {
       r.take === true,
     );
   });
+  // Teach by showing. Only the owner's renderer reaches these (`trusted` in `handle`); there is
+  // no Gateway method, tool or bridge command for them, so the agent cannot start or read one.
+  handle(IPC.teachStart, (_e, arg) =>
+    requireBrowser().teachStart(str(IPC.teachStart, rec(IPC.teachStart, arg).tabId, "tabId", 128)),
+  );
+  handle(IPC.teachStop, () => requireBrowser().teachStop());
+  handle(IPC.teachCancel, () => requireBrowser().teachCancel());
+  handle(IPC.teachKeep, (_e, arg) => {
+    const k = checkTeachKeep(arg);
+    return requireBrowser().teachKeep(k.id, k.title, k.steps);
+  });
+  handle(IPC.teachKept, () => requireBrowser().teachKept());
+  handle(IPC.teachOpenKept, (_e, arg) =>
+    requireBrowser().teachOpenKept(checkTeachId(IPC.teachOpenKept, rec(IPC.teachOpenKept, arg).id)),
+  );
+  handle(IPC.teachDeleteKept, (_e, arg) =>
+    requireBrowser().teachDeleteKept(
+      checkTeachId(IPC.teachDeleteKept, rec(IPC.teachDeleteKept, arg).id),
+    ),
+  );
   handle(IPC.browserPopOut, (_e, arg) => {
     const r = rec(IPC.browserPopOut, arg);
     return requireBrowser().popOut(

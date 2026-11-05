@@ -15,6 +15,7 @@ export * from "./lock.ts";
 export * from "./manifest.ts";
 export * from "./policy.ts";
 export * from "./prompt.ts";
+export * from "./recording.ts";
 export * from "./scanner.ts";
 export * from "./sources.ts";
 export * from "./specialists.ts";

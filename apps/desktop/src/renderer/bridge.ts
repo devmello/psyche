@@ -11,6 +11,7 @@ import {
   type GatewayPort,
   type GatewayRunView,
   type HostAppInfo,
+  type KeptRecordingView,
   type MacHelperState,
   type PermissionKind,
   type PermissionState,
@@ -21,6 +22,7 @@ import {
   type SystemAppearance,
   type SystemDictationStatus,
   type SystemLocale,
+  type TeachCapture,
 } from "@psyche/web/platform";
 import type { PsycheBridge } from "../preload.ts";
 
@@ -182,6 +184,14 @@ function fullDesktopPlatform(b: PsycheBridge): ShellPlatform {
       forgetSignedInSite: async (origin) => void (await b.browser.forgetSignedInSite(origin)),
       openRealChromeProfile: (profile) =>
         b.browser.openRealChromeProfile(profile) as Promise<{ path: string }>,
+      teachStart: async (tabId) => void (await b.browser.teachStart(tabId)),
+      teachStop: () => b.browser.teachStop() as Promise<TeachCapture>,
+      teachCancel: async () => void (await b.browser.teachCancel()),
+      teachKeep: (id, title, steps) =>
+        b.browser.teachKeep(id, title, steps) as Promise<KeptRecordingView>,
+      teachKept: () => b.browser.teachKept() as Promise<KeptRecordingView[]>,
+      teachOpenKept: (id) => b.browser.teachOpenKept(id) as Promise<KeptRecordingView>,
+      teachDeleteKept: async (id) => void (await b.browser.teachDeleteKept(id)),
     },
     // The terminal pane is a session on the Host over this Gateway connection (R4): on This Mac
     // the Host is this Mac. Main starts nothing from what a Gateway answers.

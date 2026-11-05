@@ -279,6 +279,30 @@ describe("hard prohibitions", () => {
     expect(vault.rule).toBe("prohibition:psyche_state");
   });
 
+  it("kept demonstration recordings (teach by showing) are not a file target, read or write", async () => {
+    for (const mode of ["read", "write"] as const) {
+      const tool = mode === "read" ? "read_file" : "write_file";
+      for (const p of [
+        "/Users/o/.psyche/state/teach/teach_abcdef123456.json",
+        "/Users/o/.psyche/state/teach",
+      ]) {
+        const d = await decide([tool, mode, path(p)]);
+        expect(d, p).toMatchObject({ decision: "deny", rule: "prohibition:teach_recordings" });
+      }
+    }
+    // The app's own user-data folder holds the device key and the recordings' signing key.
+    for (const p of [
+      "/Users/o/Library/Application Support/Psyche/teach.key",
+      "/Users/o/Library/Application Support/Psyche/device-key.json",
+    ]) {
+      const d = await decide(["read_file", "read", path(p)]);
+      expect(d, p).toMatchObject({ decision: "deny", rule: "prohibition:system_credentials" });
+    }
+    // The Library stays reachable: the recordings are not there.
+    const lib = await decide(["read_file", "read", path("/Users/o/.psyche/library/teach/x.json")]);
+    expect(lib.rule).not.toBe("prohibition:teach_recordings");
+  });
+
   it("never reads Safari, Passwords or keychain credentials", async () => {
     for (const p of [
       "/Users/o/Library/Keychains/login.keychain-db",

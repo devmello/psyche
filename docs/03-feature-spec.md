@@ -184,7 +184,7 @@ Build notes: follow the Claude desktop split (thin Electron shell, downloaded/up
 | J5 | **Tiers and caps** per app (see F6), first-use prompts, "Allow for this session" (30 min), global Esc stop, one computer-use session at a time (Claude) | P0 | Esc stops an in-flight action within 200 ms |
 | J6 | **Apple app adapters** as typed tools: Mail (read/search/draft/send via scripting), Calendar and Reminders (EventKit), Notes (scripting; HTML bodies), Contacts, Finder/files, Safari read-only (tabs/URLs/text) | P1 | Each adapter has an action matrix in Permissions |
 | J7 | **Messages**: read `chat.db` (typedstream decoding, attachments), send text/media via Messages.app scripting, voice bubbles as CAF, handle macOS 26+ chat GUID changes; Full Disk Access + Automation prompts | P1 | Read the last 20 messages with a contact and send a reply with approval |
-| J8 | **Teach mode**: record a user demonstration (screens + AX events) into a reusable skill draft (Claude "teach") | P2 | A recorded flow replays on the same app |
+| J8 | **Teach mode**: record a user demonstration (screens + AX events) into a reusable skill draft (Claude "teach") | P2 | A recorded flow replays on the same app. Browser phase built: [teach-by-showing-2026](design/teach-by-showing-2026.md) |
 | J9 | **Dictation into any app**: system-wide hotkey, transcribe, insert via AX/CGEvent (Muse "hold fn to dictate") | P1 | Works in TextEdit and Slack |
 
 ---

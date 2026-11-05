@@ -252,6 +252,8 @@ const SYSTEM_CREDENTIAL_PATHS = [
       "library/application support/firefox",
       "library/application support/arc",
       "library/application support/bravesoftware",
+      // The desktop app's own user-data folder: its device key and the kept-recording signing key.
+      "library/application support/psyche",
     ].join("|")})(/|$)`,
     "i",
   ),
@@ -329,6 +331,8 @@ export async function checkProhibitions(
     const home = posix.normalize(env.psycheHome).toLowerCase();
     if (isUnder(path, posix.join(home, "vault")))
       return deny("psyche_state", "the vault is not a file target");
+    if (isUnder(path, posix.join(home, "state", "teach")))
+      return deny("teach_recordings", "kept demonstration recordings are not a file target");
     if (isUnder(path, home) && !HOME_TOOL_ROOTS.some((r) => isUnder(path, posix.join(home, r)))) {
       return deny(
         "psyche_state",

@@ -115,7 +115,7 @@ export interface SkillDetails extends SkillSummary {
   /** The bundle author whose signature verified when the owner approved it. */
   signer?: { keyId: string; name: string; state: "seen" | "trusted" | "revoked" | "own" };
   /** Psyche wrote this skill (lock entry `author`). */
-  madeBy?: "agent";
+  madeBy?: "agent" | "recording";
   /** Earlier approved versions of an agent-made skill, newest first. */
   history?: SkillAuthorVersion[];
   /**
@@ -151,7 +151,7 @@ export interface SkillProposal extends SkillInstallProposal {
   expiresAt: number;
   manifest: SkillManifest;
   /** Psyche wrote this skill (self-extension); recorded in the lock entry. */
-  author?: "agent";
+  author?: "agent" | "recording";
 }
 
 export type SkillChangeEvent =
@@ -441,7 +441,7 @@ export class FsSkillLoader implements SkillLoader {
       if (lk !== undefined) {
         entry.lock = lk;
         details.trust = lk.trust;
-        if (lk.author === "agent") details.madeBy = "agent";
+        if (lk.author !== undefined) details.madeBy = lk.author;
         if (lk.bundleOrigin !== undefined) details.bundleOrigin = lk.bundleOrigin;
         if (lk.commit !== undefined) details.commit = lk.commit;
         if (lk.signer !== undefined) {
@@ -599,6 +599,24 @@ export class FsSkillLoader implements SkillLoader {
     this.#fresh();
     const e = this.#winners.get(name);
     return e === undefined ? undefined : toSummary(e.details);
+  }
+
+  /** Who made the winning skill of this name (the lock entry), for the drafting code. */
+  madeBy(name: string): "agent" | "recording" | undefined {
+    this.#fresh();
+    return this.#winners.get(name)?.details.madeBy;
+  }
+
+  /**
+   * Marks a staged proposal as made from a recording of web pages. The Gateway calls it from the
+   * draft record (`origin`), never from the skill's own text, which the owner can edit and a
+   * third-party skill can imitate. The install writes it into the lock entry.
+   */
+  markProposalAuthor(proposalId: string, author: "recording"): SkillProposal {
+    const staged = this.#proposals.get(proposalId);
+    if (staged === undefined) throw new PsycheError("not_found", "no such install proposal");
+    if (staged.proposal.scope === "home") staged.proposal.author = author;
+    return structuredClone(staged.proposal);
   }
 
   /** The lesson lines of a skill's `LESSONS.md` that fit the budget, oldest first. */
@@ -1290,6 +1308,14 @@ export class FsSkillLoader implements SkillLoader {
       dir = join(this.#o.workspaceDir, name);
       approved = wk;
     } else if (hk !== undefined) {
+      // A skill made from a recording carries text from web pages. Signing it would label that
+      // text with the owner's key, and a recipient cannot tell it from the owner's own words:
+      // it is refused, whoever signed it, rather than exported with an `agent` label.
+      if (hk.author === "recording")
+        throw new PsycheError(
+          "conflict",
+          `${name} was made from a recording of web pages and cannot be exported`,
+        );
       const imported = hk.origin.kind === "bundleFile" || hk.origin.kind === "bundleUrl";
       const madeHere = hk.author === "agent" && !imported && hk.signer === undefined;
       const ownSigned = own !== undefined && hk.signer?.keyId === own.keyId;

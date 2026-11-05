@@ -96,7 +96,7 @@ extension FixtureBackend: ChatBackend {
         var reply = ""
         for word in FixtureData.reply(to: text, attachments: attachments).split(separator: " ", omittingEmptySubsequences: false) {
             if chatState.cancelled.contains(threadID) { break }
-            try? await Task.sleep(for: .milliseconds(55))
+            try? await Task.sleep(for: FixtureData.replyWordDelay)
             let piece = (reply.isEmpty ? "" : " ") + word
             reply += piece
             appendItem(.assistant(id: replyID, text: reply, streaming: true), to: threadID)
@@ -126,6 +126,15 @@ extension FixtureBackend: ChatBackend {
 }
 
 extension FixtureData {
+    /// How fast a fixture reply streams. DEBUG launch argument `-psycheSlowReplies YES` slows it so a UI test
+    /// on a slow CI runner can still catch the reply mid-stream (the Stop test).
+    static var replyWordDelay: Duration {
+        #if DEBUG
+        if UserDefaults.standard.bool(forKey: "psycheSlowReplies") { return .milliseconds(300) }
+        #endif
+        return .milliseconds(55)
+    }
+
     // MARK: Chat
 
     public static let threads: [ChatThreadSummary] = [

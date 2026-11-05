@@ -39,6 +39,7 @@ import { settingsSections } from "./settings-sections.ts";
 import { shell } from "./shell.ts";
 import { skillAuthor } from "./skill-author.ts";
 import { specialists } from "./specialists.ts";
+import { teach } from "./teach.ts";
 import { time } from "./time.ts";
 import { voice } from "./voice.ts";
 import { web } from "./web.ts";
@@ -88,6 +89,7 @@ export const en = {
   ...specialists,
   ...screens,
   ...web,
+  ...teach,
   ...glass,
   ...design,
   ...voice,

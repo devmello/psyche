@@ -18,6 +18,12 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-11-04 (teach by showing in the built-in browser, J8 phase 1)
+
+- New method `skills.drafts.fromRecording` (`operator.admin`, side-effecting): turns the owner's reviewed recording into a skill draft. Params `title` and `steps` (1 to 200 `BrowserTeachStep`); result `{ draft }`. A sensitive step carries no value; a value is accepted only on a `type` or `select` step with `keepValue: true` that is not sensitive and not an input (otherwise `invalid_params`). Page text in the steps is quoted as untrusted in the draft. Accepting it is the existing `skills.drafts.accept` (replay check, device-only `skill_install` card). Nothing starts or reads a recording over the protocol: the recorder is local to the desktop app.
+- New types `BrowserTeachStep`, `BrowserTeachStepKind` and `BrowserTeachInputName` (the Mac-app recorder's shapes stay `TeachStep` in `schemas/teach.ts`). `SkillDraft` gains optional `origin` (`SkillDraftOrigin`: `routine` or `recording`).
+- `SkillProposal.author` and `SkillDetails.madeBy` gain `recording` (a skill made from a recording of web pages: trust stays `unknown`, its text is read as untrusted, its `skill_install` card is raised tainted); `SkillDraft` gains optional `recordedOn` (the device the owner recorded on, set by the Gateway). `skills.drafts.fromRecording` is accepted only from the Psyche desktop shell on the Host (`forbidden` otherwise).
+- New `browser-teach.ts` helpers, shared by the recorder, the Gateway and the review screen: `classifyTeachField`, `classifyTeachValue`, `teachUrl`, `teachText`, `teachRole`, `redactTeachText`, `sanitizeTeachSteps` and `teachStepIssues`. Design: docs/design/teach-by-showing-2026.md.
 ### v1 additive — 2026-11-04 (shared skills: signed bundles)
 
 - `SkillInstallSource` gains `bundleFile` (`name`: a `.psyche-skill` file the owner chose; staged only by `skills.proposeImport`) and `bundleUrl` (`url`: https only, size-capped; the host is resolved and pinned on every hop and must be public; redirects re-checked; one generic error for every network failure). `skills.proposeInstall`, `skills.proposeUpdate` and `skills.proposeImport` take optional `trustAuthor`: approving that card also trusts the bundle's author key, and the flag is part of what the `skill_install` binding covers and the card shows. The binding also covers the new sources and, for a signed bundle, the author key.
