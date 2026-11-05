@@ -71,8 +71,11 @@ struct TaskLiveActivity: Widget {
                 }
             } compactLeading: {
                 ProgressRing(content: content, diameter: 24, lineWidth: 2.5, moth: 12)
+                    .padding(.leading, 4)
             } compactTrailing: {
+                // Inset from the pill's rounded end so the timer doesn't crowd the edge.
                 CompactTrailing(content: content)
+                    .padding(.trailing, 6)
             } minimal: {
                 ProgressRing(content: content, diameter: 22, lineWidth: 2, moth: 12)
             }
